@@ -23,9 +23,7 @@ defaults:
 jobs:
   analyze-and-test:
     runs-on: ubuntu-24.04
-    # The suite now runs past 20 minutes on a hosted runner (the PIN KDF
-    # tests alone take several), so 25 cancelled green runs.
-    timeout-minutes: 45
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -47,8 +45,6 @@ jobs:
           test -z "$(git ls-files --others --exclude-standard -- lib/l10n/generated)"
       - name: Analyze (warnings and errors block merges)
         run: flutter analyze --no-pub --no-fatal-infos
-      - name: Run unit, widget, and financial safety regressions
-        run: flutter test --no-pub --coverage --reporter expanded
       - name: Exercise hardware acceptance test configuration
         run: |
           flutter test --no-pub \
@@ -56,12 +52,38 @@ jobs:
             --dart-define=KUTE_LEDGER_POLYMARKET_WITHDRAW_ACCEPTED=true \
             test/services/hardware/signing_clarity_test.dart \
             test/screens/ledger/ledger_spot_funding_test.dart
+
+  # The suite (about 6,000 tests with coverage) ran past 45 minutes on one
+  # hosted runner, so it runs as four shards in parallel.
+  test:
+    name: test (shard ${{ matrix.shard }} of 4)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/flutter-setup
+      - name: Prepare public test configuration
+        run: python3 .github/scripts/configure.py fixture
+      - name: Resolve the committed dependency graph
+        run: flutter pub get --enforce-lockfile
+      - name: Generate localizations
+        run: flutter gen-l10n
+      - name: Run unit, widget, and financial safety regressions
+        run: >-
+          flutter test --no-pub --coverage --reporter expanded
+          --total-shards 4 --shard-index ${{ matrix.shard }}
       - name: Require coverage data
         run: test -s coverage/lcov.info
       - name: Upload coverage
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: coverage-${{ github.sha }}
+          name: coverage-${{ github.sha }}-shard-${{ matrix.shard }}
           path: coverage/lcov.info
           if-no-files-found: error
           retention-days: 14
@@ -113,7 +135,7 @@ jobs:
   required:
     name: CI required
     if: ${{ always() }}
-    needs: [analyze-and-test, build-check, security]
+    needs: [analyze-and-test, test, build-check, security]
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:

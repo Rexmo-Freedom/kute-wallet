@@ -27,11 +27,16 @@ abstract final class PolymarketApprovalInventoryConstants {
     PolymarketConstants.uniswapV3SwapRouter,
   ];
 
-  /// pUSD spenders (3).
+  /// pUSD spenders (4).
   static const List<String> pusdSpenders = [
     PolymarketConstants.exchangeAddress,
     PolymarketConstants.negRiskExchangeAddress,
     PolymarketConstants.collateralOfframpAddress,
+    // The CLOB still checks a pUSD allowance to the v1 Neg Risk Adapter
+    // before it accepts a neg-risk BUY ("the allowance is not enough ->
+    // spender: 0xd91E…, allowance: 0"), although Polymarket lists the
+    // adapter as deprecated. Without it every 3-way market buy is refused.
+    PolymarketConstants.legacyNegRiskAdapterAddress,
   ];
 
   /// Native USDC spenders (1).
@@ -39,12 +44,14 @@ abstract final class PolymarketApprovalInventoryConstants {
     PolymarketConstants.uniswapV3SwapRouter,
   ];
 
-  /// CTF outcome share operators (4).
+  /// CTF outcome share operators (5).
   static const List<String> ctfOperators = [
     PolymarketConstants.exchangeAddress,
     PolymarketConstants.negRiskExchangeAddress,
     PolymarketConstants.ctfCollateralAdapterAddress,
     PolymarketConstants.negRiskCtfCollateralAdapterAddress,
+    // Same CLOB check on the share side of neg-risk orders (sells).
+    PolymarketConstants.legacyNegRiskAdapterAddress,
   ];
 
   // ── Combos: set on the first combo, revoked on compromise ─────────────
@@ -71,22 +78,19 @@ abstract final class PolymarketApprovalInventoryConstants {
 
   // ── Retired: never set again, still revoked on compromise ─────────────
   //
-  // The CLOB v1 Neg Risk Adapter is deprecated (relayer redeems to it ended
-  // 2026-07-17). Accounts onboarded before that hold USDC.e, pUSD and CTF
-  // approvals to it; they are harmless to leave in place but a revocation
-  // must still be able to clear them.
+  // The CLOB v1 Neg Risk Adapter is labelled deprecated (relayer redeems to
+  // it ended 2026-07-17), but the CLOB still requires pUSD and CTF approvals
+  // to it for neg-risk orders, so those two are active again (above). Only
+  // its USDC.e approval is retired: accounts onboarded before then hold it,
+  // and a revocation must still be able to clear it.
 
   static const List<String> retiredUsdcESpenders = [
     PolymarketConstants.legacyNegRiskAdapterAddress,
   ];
 
-  static const List<String> retiredPusdSpenders = [
-    PolymarketConstants.legacyNegRiskAdapterAddress,
-  ];
+  static const List<String> retiredPusdSpenders = [];
 
-  static const List<String> retiredCtfOperators = [
-    PolymarketConstants.legacyNegRiskAdapterAddress,
-  ];
+  static const List<String> retiredCtfOperators = [];
 
   /// What onboarding sets today, by token. Read by
   /// `_setDepositWalletApprovalsIfMissing`.

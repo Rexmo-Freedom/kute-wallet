@@ -257,29 +257,21 @@ void main() {
       ]);
     });
 
-    test('rejects the deprecated CLOB v1 Neg Risk Adapter everywhere', () {
-      // Retired 2026-07-17: never approve, operate or redeem through it.
+    test('allows approvals to the CLOB v1 Neg Risk Adapter but never a redeem',
+        () {
+      // Labelled deprecated (redeems ended 2026-07-17), but the CLOB still
+      // checks pUSD and CTF approvals to it for neg-risk orders.
       const legacy = PolymarketConstants.legacyNegRiskAdapterAddress;
       final operatorWord = legacy.toLowerCase().substring(2).padLeft(64, '0');
       final setApprovalForAll = '0x$kSelectorSetApprovalForAll$operatorWord'
           '${BigInt.one.toRadixString(16).padLeft(64, '0')}';
       expect(
-          () => allowlist().validate([
-                _call(PolymarketConstants.usdcEAddress,
-                    encodeApproveCall(legacy, BigInt.one)),
-              ]),
-          rejected('approve spender not pinned'));
-      expect(
-          () => allowlist().validate([
-                _call(PolymarketConstants.pusdAddress,
-                    encodeApproveCall(legacy, BigInt.one)),
-              ]),
-          rejected('approve spender not pinned'));
-      expect(
-          () => allowlist().validate([
-                _call(PolymarketConstants.ctfAddress, setApprovalForAll),
-              ]),
-          rejected('operator not pinned'));
+          allowlist().validate([
+            _call(PolymarketConstants.pusdAddress,
+                encodeApproveCall(legacy, BigInt.one)),
+            _call(PolymarketConstants.ctfAddress, setApprovalForAll),
+          ]),
+          hasLength(2));
       expect(
           () => allowlist().validate([
                 _call(legacy, encodeAdapterRedeemCall(_condition)),

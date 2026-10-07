@@ -75,15 +75,17 @@ final Set<String> _approveSpenders = {
   _l(PolymarketConstants.ctfCollateralAdapterAddress),
   _l(PolymarketConstants.negRiskCtfCollateralAdapterAddress),
   _l(PolymarketConstants.ctfAddress),
+  // The CLOB still checks the v1 Neg Risk Adapter for neg-risk orders, so a
+  // batch may approve it (and operate CTF for it), but never redeem through it.
+  _l(PolymarketConstants.legacyNegRiskAdapterAddress),
 };
 
-// The deprecated CLOB v1 Neg Risk Adapter (0xd91E…) is deliberately not
-// pinned anywhere below: no batch may approve, operate or redeem through it.
 final Set<String> _ctfOperators = {
   _l(PolymarketConstants.exchangeAddress),
   _l(PolymarketConstants.negRiskExchangeAddress),
   _l(PolymarketConstants.ctfCollateralAdapterAddress),
   _l(PolymarketConstants.negRiskCtfCollateralAdapterAddress),
+  _l(PolymarketConstants.legacyNegRiskAdapterAddress),
 };
 
 final Set<String> _redeemTargets = {

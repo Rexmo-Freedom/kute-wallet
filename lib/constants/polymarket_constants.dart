@@ -34,14 +34,12 @@ class PolymarketConstants {
   static const String negRiskExchangeAddress =
       '0xe2222d279d744050d28e00520010520000310F59';
 
-  // Neg Risk Adapter (CLOB v1) — DEPRECATED. Listed by Polymarket as
-  // "Neg Risk Adapter (CLOB v1, deprecated)"; relayer redeems aimed at it
-  // stopped on 2026-07-17 and the SDK no longer requests approvals to it.
-  // Nothing in the app calls or approves this contract any more. It is kept
-  // ONLY so the compromise-revocation inventory can still clear the
-  // approvals older accounts granted to it (see
-  // polymarket_approval_inventory.dart). Neg-risk redeem/split/merge go
-  // through `negRiskCtfCollateralAdapterAddress` below.
+  // Neg Risk Adapter (CLOB v1). Listed by Polymarket as "Neg Risk Adapter
+  // (CLOB v1, deprecated)" and relayer redeems aimed at it stopped on
+  // 2026-07-17, BUT the CLOB still checks pUSD (and CTF) approvals to it
+  // before accepting a neg-risk order, so onboarding approves it again
+  // (polymarket_approval_inventory.dart). The app never calls it: neg-risk
+  // redeem/split/merge go through `negRiskCtfCollateralAdapterAddress`.
   static const String legacyNegRiskAdapterAddress =
       '0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296';
 

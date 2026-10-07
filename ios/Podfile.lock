@@ -2,14 +2,12 @@ PODS:
   - appsflyer_sdk (7.0.2):
     - appsflyer_sdk/Core (= 7.0.2)
   - appsflyer_sdk/Core (7.0.2):
-    - AppsFlyerFramework (= 7.0.2)
-    - AppsFlyerRPC (= 7.0.13)
+    - AppsFlyerFramework/Main (= 7.0.2)
+    - AppsFlyerRPC/Main (= 7.0.13)
     - Flutter
   - AppsFlyerFramework (7.0.2):
     - AppsFlyerFramework/Main (= 7.0.2)
   - AppsFlyerFramework/Main (7.0.2)
-  - AppsFlyerRPC (7.0.13):
-    - AppsFlyerRPC/Main (= 7.0.13)
   - AppsFlyerRPC/Main (7.0.13):
     - AppsFlyerFramework (= 7.0.2)
   - audioplayers_darwin (0.0.1):
@@ -268,7 +266,7 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/webview_flutter_wkwebview/darwin"
 
 SPEC CHECKSUMS:
-  appsflyer_sdk: e59bee270421d0d9423ca57aa8ee0154155007cf
+  appsflyer_sdk: 694ee3ec968ca52f0b9a2ea2f8eb3afec94f966b
   AppsFlyerFramework: bf96b40ed77d0ad089e5d3e2ae2c0a0d8d62f5b1
   AppsFlyerRPC: d4125067fdc9cb55f5d97aaf36caae2967001c72
   audioplayers_darwin: 835ced6edd4c9fc8ebb0a7cc9e294a91d99917d5

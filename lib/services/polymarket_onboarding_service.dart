@@ -113,6 +113,9 @@ const _kNegRiskCtfCollateralAdapterAddress =
     PolymarketConstants.negRiskCtfCollateralAdapterAddress;
 const _kCtfCollateralAdapterAddress =
     PolymarketConstants.ctfCollateralAdapterAddress;
+// Still required by the CLOB for neg-risk orders (pUSD + CTF approvals).
+const _kLegacyNegRiskAdapterAddress =
+    PolymarketConstants.legacyNegRiskAdapterAddress;
 const _kSwapRouter02Address = PolymarketConstants.uniswapV3SwapRouter;
 const _kMaxUint256Hex = PolymarketConstants.maxUint256Hex;
 
@@ -425,6 +428,13 @@ class PolymarketOnboardingService {
             _encodeAllowanceCall(safeAddress, _kSwapRouter02Address)),
         _ethCall(_kUsdcEAddress,
             _encodeAllowanceCall(safeAddress, _kSwapRouter02Address)),
+        // The CLOB still checks the v1 Neg Risk Adapter for neg-risk orders.
+        _ethCall(_kPusdAddress,
+            _encodeAllowanceCall(safeAddress, _kLegacyNegRiskAdapterAddress)),
+        _ethCall(
+            _kCtfAddress,
+            _encodeIsApprovedForAllCall(
+                safeAddress, _kLegacyNegRiskAdapterAddress)),
       ]);
 
       final wrapAllowance = _decodeUint256(results[0]);
@@ -437,6 +447,8 @@ class PolymarketOnboardingService {
       final ctfCollateralAdapter = _decodeBool(results[7]);
       final usdcRouter = _decodeUint256(results[8]);
       final usdceRouter = _decodeUint256(results[9]);
+      final pusdLegacyNegRiskAdapter = _decodeUint256(results[10]);
+      final ctfLegacyNegRiskAdapter = _decodeBool(results[11]);
 
       return wrapAllowance > BigInt.zero &&
           unwrapAllowance > BigInt.zero &&
@@ -447,7 +459,9 @@ class PolymarketOnboardingService {
           ctfNegRiskCollateralAdapter &&
           ctfCollateralAdapter &&
           usdcRouter > BigInt.zero &&
-          usdceRouter > BigInt.zero;
+          usdceRouter > BigInt.zero &&
+          pusdLegacyNegRiskAdapter > BigInt.zero &&
+          ctfLegacyNegRiskAdapter;
     } catch (e) {
       return false;
     }
@@ -504,6 +518,7 @@ class PolymarketOnboardingService {
     final pusdSpenders = [
       _kExchangeAddress,
       _kNegRiskExchangeAddress,
+      _kLegacyNegRiskAdapterAddress,
     ];
     for (final spender in pusdSpenders) {
       try {
@@ -529,13 +544,14 @@ class PolymarketOnboardingService {
     //    NegRiskCtfCollateralAdapter (wrapper for NegRisk redeems on
     //    post-2026-04-30 markets) / CtfCollateralAdapter (wrapper for
     //    standard-CTF redeems on V2 markets — symmetric to the NegRisk
-    //    one). The CLOB v1 Neg Risk Adapter is deprecated and no longer
-    //    approved.
+    //    one) / the CLOB v1 Neg Risk Adapter, which the CLOB still checks
+    //    for neg-risk orders.
     final ctfOperators = [
       _kExchangeAddress,
       _kNegRiskExchangeAddress,
       _kNegRiskCtfCollateralAdapterAddress,
       _kCtfCollateralAdapterAddress,
+      _kLegacyNegRiskAdapterAddress,
     ];
     for (final operator in ctfOperators) {
       try {
