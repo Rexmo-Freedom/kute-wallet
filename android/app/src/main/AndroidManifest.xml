@@ -1,0 +1,143 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <!-- AppsFlyer merges the advertising ID permission; Kute only counts
+         installs (Play install referrer) and never reads the ad ID. -->
+    <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove" />
+    <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
+    <application
+            android:label="Kute"
+            android:name="${applicationName}"
+            android:icon="@mipmap/ic_launcher"
+            android:enableOnBackInvokedCallback="true"
+            android:allowBackup="false"
+            android:dataExtractionRules="@xml/data_extraction_rules"
+            tools:replace="android:allowBackup,android:dataExtractionRules">
+        <receiver
+                android:exported="false"
+                android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
+        <receiver
+                android:exported="false"
+                android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>
+            </intent-filter>
+        </receiver>
+        <service
+                android:name="im.crisp.client.external.notification.CrispNotificationService"
+                android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+        <activity
+                android:name=".MainActivity"
+                android:exported="true"
+                android:launchMode="singleTop"
+                android:theme="@style/LaunchTheme"
+                android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+                android:hardwareAccelerated="true"
+                android:windowSoftInputMode="adjustResize">
+            <meta-data
+                    android:name="io.flutter.embedding.android.NormalTheme"
+                    android:resource="@style/NormalTheme" />
+            <meta-data
+                    android:name="google_analytics_adid_collection_enabled"
+                    android:value="false" />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <intent-filter>
+                <data android:scheme="kute" android:host="open" />
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+            </intent-filter>
+            <!--
+                AppsFlyer OneLink App Links — the Android counterpart to the
+                iOS `applinks:kute.onelink.me` associated domain. Without this,
+                an https OneLink (the referral QR/link) scanned on a real
+                device opens the browser instead of the app, so AppsFlyer's
+                Unified Deep Linking never fires and the referrer is lost.
+                autoVerify makes Android fetch kute.onelink.me/.well-known/
+                assetlinks.json — that file MUST list the app's SHA-256 cert
+                fingerprint(s). For Play beta/prod installs that means the
+                GOOGLE PLAY APP SIGNING key's SHA-256 (not just the upload
+                key) — register it in the AppsFlyer OneLink dashboard.
+            -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="kute.onelink.me" />
+            </intent-filter>
+        </activity>
+        <meta-data
+                android:name="flutterEmbedding"
+                android:value="2" />
+        <!--
+            Crashlytics collection is OFF until Dart turns it on:
+            main.dart calls setCrashlyticsCollectionEnabled(!kDebugMode),
+            so debug builds never report and release builds do (the
+            override persists across launches).
+        -->
+        <meta-data
+                android:name="firebase_crashlytics_collection_enabled"
+                android:value="false" />
+        <!-- Asset statements for passkey (keys.breez.technology RP) -->
+        <meta-data
+                android:name="asset_statements"
+                android:value='[{"include":"https://keys.breez.technology/.well-known/assetlinks.json"}]' />
+        <!--
+            PostHog (product analytics). distinct_id is set in code to
+            the user's affiliate_code (NOT the wallet pubkey, per the
+            2026-05 telemetry audit). Session replay is OFF here AND
+            in the Dart PostHogConfig — that's the layered guarantee
+            that the screen (and the rolling pre-crash replay buffer)
+            never captures seed/signer/private-key material. If replay
+            is ever flipped on, both layers must be flipped and the
+            sensitive-screen PostHogMaskWidget audit re-confirmed.
+        -->
+        <meta-data
+                android:name="com.posthog.posthog.PROJECT_TOKEN"
+                android:value="phc_qabi4KjdZRQVunt8wsEbTyJFPpBMsGe5g8pfZXmzbUvP" />
+        <meta-data
+                android:name="com.posthog.posthog.POSTHOG_HOST"
+                android:value="https://m.rexmo.io" />
+        <meta-data
+                android:name="com.posthog.posthog.TRACK_APPLICATION_LIFECYCLE_EVENTS"
+                android:value="true" />
+        <meta-data
+                android:name="com.posthog.posthog.SESSION_REPLAY"
+                android:value="false" />
+        <meta-data
+                android:name="com.posthog.posthog.DEBUG"
+                android:value="false" />
+    </application>
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.PROCESS_TEXT"/>
+            <data android:mimeType="text/plain"/>
+        </intent>
+    </queries>
+    <queries>
+        <intent>
+            <action android:name="android.support.customtabs.action.CustomTabsService" />
+        </intent>
+    </queries>
+</manifest>

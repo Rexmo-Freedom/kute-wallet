@@ -1,0 +1,970 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 54;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		087B5934C1C72FFB21BC2AC4 /* String+SHA256.swift in Resources */ = {isa = PBXBuildFile; fileRef = 1B33C1EFDEF2972178637934 /* String+SHA256.swift */; settings = {ASSET_TAGS = (BreezSDKLiquid, ); }; };
+		0B2B0F4D66CCCCEC0DDB0930 /* InvoiceRequest.swift in Resources */ = {isa = PBXBuildFile; fileRef = FE2DE3198E68CADEFCE9BA75 /* InvoiceRequest.swift */; settings = {ASSET_TAGS = (BreezSDKLiquid, ); }; };
+		130E02AE4015CB62421CEBEA /* SwapUpdated.swift in Resources */ = {isa = PBXBuildFile; fileRef = 899C567C1B3CB50FCA5A90B9 /* SwapUpdated.swift */; settings = {ASSET_TAGS = (BreezSDKLiquid, ); }; };
+		1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */ = {isa = PBXBuildFile; fileRef = 1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */; };
+		1B6D5AA6FFA24FDA86FD625A /* BreezSDKLiquidConnector.swift in Resources */ = {isa = PBXBuildFile; fileRef = 5EB2B18D4D0FD12404D4C27C /* BreezSDKLiquidConnector.swift */; settings = {ASSET_TAGS = (BreezSDKLiquid, ); }; };
+		331C808B294A63AB00263BE5 /* RunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 331C807B294A618700263BE5 /* RunnerTests.swift */; };
+		3440801734936DAD4E9E64CF /* SDKNotificationService.swift in Resources */ = {isa = PBXBuildFile; fileRef = B410E3C9E4BF1E28380D373C /* SDKNotificationService.swift */; settings = {ASSET_TAGS = (BreezSDKLiquid, ); }; };
+		3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */ = {isa = PBXBuildFile; fileRef = 3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */; };
+		4EB9C435D07DCB9ED2A06D22 /* Pods_RunnerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 10E7FCE90E6C1D2BBB97900A /* Pods_RunnerTests.framework */; };
+		535159CD2FB61A9C002D6773 /* PasskeyPrfPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 535159CC2FB61A9C002D6773 /* PasskeyPrfPlugin.swift */; };
+		58528301EBCF4C79617BB2BF /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 1F6542FF92789F6ACD0FCC74 /* GoogleService-Info.plist */; };
+		5963BE302E684CCE182A14FB /* Constants.swift in Resources */ = {isa = PBXBuildFile; fileRef = 692D48327909E126EACE9B66 /* Constants.swift */; settings = {ASSET_TAGS = (BreezSDKLiquid, ); }; };
+		599D772FB1B220242EABF3E0 /* ResourceHelper.swift in Resources */ = {isa = PBXBuildFile; fileRef = 5AF839BD95AA122805AD1ACB /* ResourceHelper.swift */; settings = {ASSET_TAGS = (BreezSDKLiquid, ); }; };
+		5DF87EC3AF1AA1DCA1B82A5D /* LnurlPayInfo.swift in Resources */ = {isa = PBXBuildFile; fileRef = 80DEF366BC263CCAD365AF41 /* LnurlPayInfo.swift */; settings = {ASSET_TAGS = (BreezSDKLiquid, ); }; };
+		5E0C0A022FC0000100A1B2C3 /* SecurityNativePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E0C0A012FC0000100A1B2C3 /* SecurityNativePlugin.swift */; };
+		74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74858FAE1ED2DC5600515810 /* AppDelegate.swift */; };
+		78F872877567C9E0E1156914 /* Pods_Runner.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1C582443C1BF8E359136AD27 /* Pods_Runner.framework */; };
+		8076C3E1F8B05586516F1FAE /* LnurlPayVerify.swift in Resources */ = {isa = PBXBuildFile; fileRef = CF68AAFB9D7935216A015BAD /* LnurlPayVerify.swift */; settings = {ASSET_TAGS = (BreezSDKLiquid, ); }; };
+		824D7AA0B6DA165405B829A9 /* BreezSDKLiquid.swift in Resources */ = {isa = PBXBuildFile; fileRef = 8B6FD411E604901087B5830F /* BreezSDKLiquid.swift */; settings = {ASSET_TAGS = (BreezSDKLiquid, ); }; };
+		82B061214C63F59317F44FAD /* LnurlPay.swift in Resources */ = {isa = PBXBuildFile; fileRef = 4B071E91A4206C4FEFE7C313 /* LnurlPay.swift */; settings = {ASSET_TAGS = (BreezSDKLiquid, ); }; };
+		9112CD29D3CC33F2EA35A1CE /* ServiceLogger.swift in Resources */ = {isa = PBXBuildFile; fileRef = 88FABF6E465D9E208ABF4ED2 /* ServiceLogger.swift */; settings = {ASSET_TAGS = (BreezSDKLiquid, ); }; };
+		97C146FC1CF9000F007C117D /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FA1CF9000F007C117D /* Main.storyboard */; };
+		97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FD1CF9000F007C117D /* Assets.xcassets */; };
+		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
+		A1C262336D37D469ACDEEB23 /* LnurlPayInvoice.swift in Resources */ = {isa = PBXBuildFile; fileRef = EEFDD1AF569379E4F1D83736 /* LnurlPayInvoice.swift */; settings = {ASSET_TAGS = (BreezSDKLiquid, ); }; };
+		AF7002000000000000000001 /* AppsFlyerLibConfig.plist in Resources */ = {isa = PBXBuildFile; fileRef = AF7002000000000000000002 /* AppsFlyerLibConfig.plist */; };
+		AF7003000000000000000001 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = AF7003000000000000000002 /* PrivacyInfo.xcprivacy */; };
+		BD1000000000000000000001 /* NativeBdkPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD1000000000000000000002 /* NativeBdkPlugin.swift */; };
+		BD1000000000000000000003 /* BitcoinDevKit in Frameworks */ = {isa = PBXBuildFile; productRef = BD1000000000000000000004 /* BitcoinDevKit */; };
+		CE5FB5C9372455EEA5EF696C /* TaskProtocol.swift in Resources */ = {isa = PBXBuildFile; fileRef = FBF8D9F665EDD1183BDB2A48 /* TaskProtocol.swift */; settings = {ASSET_TAGS = (BreezSDKLiquid, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		331C8085294A63A400263BE5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 97C146E61CF9000F007C117D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 97C146ED1CF9000F007C117D;
+			remoteInfo = Runner;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		9705A1C41CF9048500538489 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		0434795DA068865A55F12E54 /* Pods-RunnerTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.debug.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.debug.xcconfig"; sourceTree = "<group>"; };
+		10E7FCE90E6C1D2BBB97900A /* Pods_RunnerTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_RunnerTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		14935F4AE26DCC0700C89D4F /* Pods-RunnerTests.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.profile.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.profile.xcconfig"; sourceTree = "<group>"; };
+		1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GeneratedPluginRegistrant.h; sourceTree = "<group>"; };
+		1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GeneratedPluginRegistrant.m; sourceTree = "<group>"; };
+		1B33C1EFDEF2972178637934 /* String+SHA256.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = "String+SHA256.swift"; path = "../.symlinks/plugins/flutter_breez_liquid/ios/Sources/BreezSDKLiquid/String+SHA256.swift"; sourceTree = "<group>"; };
+		1C582443C1BF8E359136AD27 /* Pods_Runner.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_Runner.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		1F6542FF92789F6ACD0FCC74 /* GoogleService-Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; name = "GoogleService-Info.plist"; path = "Runner/GoogleService-Info.plist"; sourceTree = "<group>"; };
+		2D9A108B26297780090C3AFA /* Pods-Runner.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.release.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"; sourceTree = "<group>"; };
+		331C807B294A618700263BE5 /* RunnerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerTests.swift; sourceTree = "<group>"; };
+		331C8081294A63A400263BE5 /* RunnerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RunnerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		37D07AD068F0BBB1D185480B /* Pods-Runner.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.debug.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.debug.xcconfig"; sourceTree = "<group>"; };
+		3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = AppFrameworkInfo.plist; path = Flutter/AppFrameworkInfo.plist; sourceTree = "<group>"; };
+		4B071E91A4206C4FEFE7C313 /* LnurlPay.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LnurlPay.swift; path = ../.symlinks/plugins/flutter_breez_liquid/ios/Sources/BreezSDKLiquid/Task/LnurlPay.swift; sourceTree = "<group>"; };
+		535159CC2FB61A9C002D6773 /* PasskeyPrfPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PasskeyPrfPlugin.swift; path = Runner/PasskeyPrfPlugin.swift; sourceTree = "<group>"; };
+		53B73D2A2CAE8F0A00B34FDF /* Runner.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Runner.entitlements; sourceTree = "<group>"; };
+		5AF839BD95AA122805AD1ACB /* ResourceHelper.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ResourceHelper.swift; path = ../.symlinks/plugins/flutter_breez_liquid/ios/Sources/BreezSDKLiquid/ResourceHelper.swift; sourceTree = "<group>"; };
+		5E0C0A012FC0000100A1B2C3 /* SecurityNativePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SecurityNativePlugin.swift; path = Runner/SecurityNativePlugin.swift; sourceTree = "<group>"; };
+		5EB2B18D4D0FD12404D4C27C /* BreezSDKLiquidConnector.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = BreezSDKLiquidConnector.swift; path = ../.symlinks/plugins/flutter_breez_liquid/ios/Sources/BreezSDKLiquid/BreezSDKLiquidConnector.swift; sourceTree = "<group>"; };
+		692D48327909E126EACE9B66 /* Constants.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = Constants.swift; path = ../.symlinks/plugins/flutter_breez_liquid/ios/Sources/BreezSDKLiquid/Constants.swift; sourceTree = "<group>"; };
+		74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Runner-Bridging-Header.h"; sourceTree = "<group>"; };
+		74858FAE1ED2DC5600515810 /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		7AFA3C8E1D35360C0083082E /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Release.xcconfig; path = Flutter/Release.xcconfig; sourceTree = "<group>"; };
+		80DEF366BC263CCAD365AF41 /* LnurlPayInfo.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LnurlPayInfo.swift; path = ../.symlinks/plugins/flutter_breez_liquid/ios/Sources/BreezSDKLiquid/Task/LnurlPayInfo.swift; sourceTree = "<group>"; };
+		88FABF6E465D9E208ABF4ED2 /* ServiceLogger.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ServiceLogger.swift; path = ../.symlinks/plugins/flutter_breez_liquid/ios/Sources/BreezSDKLiquid/ServiceLogger.swift; sourceTree = "<group>"; };
+		899C567C1B3CB50FCA5A90B9 /* SwapUpdated.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SwapUpdated.swift; path = ../.symlinks/plugins/flutter_breez_liquid/ios/Sources/BreezSDKLiquid/Task/SwapUpdated.swift; sourceTree = "<group>"; };
+		8B6FD411E604901087B5830F /* BreezSDKLiquid.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = BreezSDKLiquid.swift; path = ../.symlinks/plugins/flutter_breez_liquid/ios/Sources/BreezSDKLiquid/BreezSDKLiquid.swift; sourceTree = "<group>"; };
+		9740EEB21CF90195004384FC /* Debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Debug.xcconfig; path = Flutter/Debug.xcconfig; sourceTree = "<group>"; };
+		9740EEB31CF90195004384FC /* Generated.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Generated.xcconfig; path = Flutter/Generated.xcconfig; sourceTree = "<group>"; };
+		97C146EE1CF9000F007C117D /* Runner.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Runner.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		97C146FB1CF9000F007C117D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
+		97C146FD1CF9000F007C117D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		97C147001CF9000F007C117D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
+		97C147021CF9000F007C117D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		AF7002000000000000000002 /* AppsFlyerLibConfig.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = AppsFlyerLibConfig.plist; sourceTree = "<group>"; };
+		AF7003000000000000000002 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		B410E3C9E4BF1E28380D373C /* SDKNotificationService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SDKNotificationService.swift; path = ../.symlinks/plugins/flutter_breez_liquid/ios/Sources/BreezSDKLiquid/SDKNotificationService.swift; sourceTree = "<group>"; };
+		BD1000000000000000000002 /* NativeBdkPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeBdkPlugin.swift; sourceTree = "<group>"; };
+		CF68AAFB9D7935216A015BAD /* LnurlPayVerify.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LnurlPayVerify.swift; path = ../.symlinks/plugins/flutter_breez_liquid/ios/Sources/BreezSDKLiquid/Task/LnurlPayVerify.swift; sourceTree = "<group>"; };
+		EDE8FBDDC84587232CDA70B0 /* Pods-RunnerTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.release.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.release.xcconfig"; sourceTree = "<group>"; };
+		EEFDD1AF569379E4F1D83736 /* LnurlPayInvoice.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LnurlPayInvoice.swift; path = ../.symlinks/plugins/flutter_breez_liquid/ios/Sources/BreezSDKLiquid/Task/LnurlPayInvoice.swift; sourceTree = "<group>"; };
+		FB093AFF1AD14C240F221DD9 /* Pods-Runner.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.profile.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.profile.xcconfig"; sourceTree = "<group>"; };
+		FBF8D9F665EDD1183BDB2A48 /* TaskProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TaskProtocol.swift; path = ../.symlinks/plugins/flutter_breez_liquid/ios/Sources/BreezSDKLiquid/TaskProtocol.swift; sourceTree = "<group>"; };
+		FE2DE3198E68CADEFCE9BA75 /* InvoiceRequest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = InvoiceRequest.swift; path = ../.symlinks/plugins/flutter_breez_liquid/ios/Sources/BreezSDKLiquid/Task/InvoiceRequest.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		64910258A07223AC83BA4A65 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4EB9C435D07DCB9ED2A06D22 /* Pods_RunnerTests.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		97C146EB1CF9000F007C117D /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BD1000000000000000000003 /* BitcoinDevKit in Frameworks */,
+				78F872877567C9E0E1156914 /* Pods_Runner.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		073FB6917F8837BC9CCBB2B7 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				1C582443C1BF8E359136AD27 /* Pods_Runner.framework */,
+				10E7FCE90E6C1D2BBB97900A /* Pods_RunnerTests.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		22AE7B42F885B38F52297BB6 /* flutter_breez_liquid-OnDemandResources */ = {
+			isa = PBXGroup;
+			children = (
+				7EF45F7E44376FBCA6339081 /* BreezSDKLiquid */,
+			);
+			name = "flutter_breez_liquid-OnDemandResources";
+			sourceTree = "<group>";
+		};
+		331C8082294A63A400263BE5 /* RunnerTests */ = {
+			isa = PBXGroup;
+			children = (
+				331C807B294A618700263BE5 /* RunnerTests.swift */,
+			);
+			path = RunnerTests;
+			sourceTree = "<group>";
+		};
+		405D8FED357D01FA3C984815 /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				425AFD5186EEBEE29E68F15E /* breez_sdk-OnDemandResources */,
+				22AE7B42F885B38F52297BB6 /* flutter_breez_liquid-OnDemandResources */,
+				37D07AD068F0BBB1D185480B /* Pods-Runner.debug.xcconfig */,
+				2D9A108B26297780090C3AFA /* Pods-Runner.release.xcconfig */,
+				FB093AFF1AD14C240F221DD9 /* Pods-Runner.profile.xcconfig */,
+				0434795DA068865A55F12E54 /* Pods-RunnerTests.debug.xcconfig */,
+				EDE8FBDDC84587232CDA70B0 /* Pods-RunnerTests.release.xcconfig */,
+				14935F4AE26DCC0700C89D4F /* Pods-RunnerTests.profile.xcconfig */,
+			);
+			path = Pods;
+			sourceTree = "<group>";
+		};
+		425AFD5186EEBEE29E68F15E /* breez_sdk-OnDemandResources */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = "breez_sdk-OnDemandResources";
+			sourceTree = "<group>";
+		};
+		7EF45F7E44376FBCA6339081 /* BreezSDKLiquid */ = {
+			isa = PBXGroup;
+			children = (
+				8B6FD411E604901087B5830F /* BreezSDKLiquid.swift */,
+				5EB2B18D4D0FD12404D4C27C /* BreezSDKLiquidConnector.swift */,
+				692D48327909E126EACE9B66 /* Constants.swift */,
+				5AF839BD95AA122805AD1ACB /* ResourceHelper.swift */,
+				B410E3C9E4BF1E28380D373C /* SDKNotificationService.swift */,
+				88FABF6E465D9E208ABF4ED2 /* ServiceLogger.swift */,
+				1B33C1EFDEF2972178637934 /* String+SHA256.swift */,
+				FBF8D9F665EDD1183BDB2A48 /* TaskProtocol.swift */,
+				FE2DE3198E68CADEFCE9BA75 /* InvoiceRequest.swift */,
+				4B071E91A4206C4FEFE7C313 /* LnurlPay.swift */,
+				80DEF366BC263CCAD365AF41 /* LnurlPayInfo.swift */,
+				EEFDD1AF569379E4F1D83736 /* LnurlPayInvoice.swift */,
+				CF68AAFB9D7935216A015BAD /* LnurlPayVerify.swift */,
+				899C567C1B3CB50FCA5A90B9 /* SwapUpdated.swift */,
+			);
+			name = BreezSDKLiquid;
+			sourceTree = "<group>";
+		};
+		9740EEB11CF90186004384FC /* Flutter */ = {
+			isa = PBXGroup;
+			children = (
+				3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */,
+				9740EEB21CF90195004384FC /* Debug.xcconfig */,
+				7AFA3C8E1D35360C0083082E /* Release.xcconfig */,
+				9740EEB31CF90195004384FC /* Generated.xcconfig */,
+			);
+			name = Flutter;
+			sourceTree = "<group>";
+		};
+		97C146E51CF9000F007C117D = {
+			isa = PBXGroup;
+			children = (
+				535159CC2FB61A9C002D6773 /* PasskeyPrfPlugin.swift */,
+				5E0C0A012FC0000100A1B2C3 /* SecurityNativePlugin.swift */,
+				9740EEB11CF90186004384FC /* Flutter */,
+				97C146F01CF9000F007C117D /* Runner */,
+				97C146EF1CF9000F007C117D /* Products */,
+				331C8082294A63A400263BE5 /* RunnerTests */,
+				405D8FED357D01FA3C984815 /* Pods */,
+				1F6542FF92789F6ACD0FCC74 /* GoogleService-Info.plist */,
+				073FB6917F8837BC9CCBB2B7 /* Frameworks */,
+			);
+			sourceTree = "<group>";
+		};
+		97C146EF1CF9000F007C117D /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				97C146EE1CF9000F007C117D /* Runner.app */,
+				331C8081294A63A400263BE5 /* RunnerTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		97C146F01CF9000F007C117D /* Runner */ = {
+			isa = PBXGroup;
+			children = (
+				BD1000000000000000000002 /* NativeBdkPlugin.swift */,
+				53B73D2A2CAE8F0A00B34FDF /* Runner.entitlements */,
+				97C146FA1CF9000F007C117D /* Main.storyboard */,
+				97C146FD1CF9000F007C117D /* Assets.xcassets */,
+				97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */,
+				97C147021CF9000F007C117D /* Info.plist */,
+				AF7002000000000000000002 /* AppsFlyerLibConfig.plist */,
+				AF7003000000000000000002 /* PrivacyInfo.xcprivacy */,
+				1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */,
+				1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */,
+				74858FAE1ED2DC5600515810 /* AppDelegate.swift */,
+				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
+			);
+			path = Runner;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		331C8080294A63A400263BE5 /* RunnerTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 331C8087294A63A400263BE5 /* Build configuration list for PBXNativeTarget "RunnerTests" */;
+			buildPhases = (
+				770142BA2E6B3EF5B370A8F8 /* [CP] Check Pods Manifest.lock */,
+				331C807D294A63A400263BE5 /* Sources */,
+				331C807F294A63A400263BE5 /* Resources */,
+				64910258A07223AC83BA4A65 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				331C8086294A63A400263BE5 /* PBXTargetDependency */,
+			);
+			name = RunnerTests;
+			productName = RunnerTests;
+			productReference = 331C8081294A63A400263BE5 /* RunnerTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		97C146ED1CF9000F007C117D /* Runner */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 97C147051CF9000F007C117D /* Build configuration list for PBXNativeTarget "Runner" */;
+			buildPhases = (
+				FCDF251CA52F3B501B9B5314 /* [CP] Check Pods Manifest.lock */,
+				9740EEB61CF901F6004384FC /* Run Script */,
+				97C146EA1CF9000F007C117D /* Sources */,
+				97C146EB1CF9000F007C117D /* Frameworks */,
+				97C146EC1CF9000F007C117D /* Resources */,
+				9705A1C41CF9048500538489 /* Embed Frameworks */,
+				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
+				16CB9E62EABFD52B1CADC95E /* [CP] Embed Pods Frameworks */,
+				B12FCFFBA1B30AAB3B8ACCEE /* [CP] Copy Pods Resources */,
+				7CC168CA31C02CC9699E0CBD /* FlutterFire: "flutterfire upload-crashlytics-symbols" */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Runner;
+			packageProductDependencies = (
+				BD1000000000000000000004 /* BitcoinDevKit */,
+			);
+			productName = Runner;
+			productReference = 97C146EE1CF9000F007C117D /* Runner.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		97C146E61CF9000F007C117D /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				KnownAssetTags = (
+					BreezSDK,
+					BreezSDKLiquid,
+				);
+				LastUpgradeCheck = 1510;
+				ORGANIZATIONNAME = "";
+				TargetAttributes = {
+					331C8080294A63A400263BE5 = {
+						CreatedOnToolsVersion = 14.0;
+						TestTargetID = 97C146ED1CF9000F007C117D;
+					};
+					97C146ED1CF9000F007C117D = {
+						CreatedOnToolsVersion = 7.3.1;
+						LastSwiftMigration = 1100;
+					};
+				};
+			};
+			buildConfigurationList = 97C146E91CF9000F007C117D /* Build configuration list for PBXProject "Runner" */;
+			compatibilityVersion = "Xcode 9.3";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+				bg,
+				cs,
+				da,
+				de,
+				el,
+				es,
+				et,
+				fi,
+				fr,
+				hr,
+				hu,
+				it,
+				ja,
+				lt,
+				lv,
+				nl,
+				pl,
+				pt,
+				ro,
+				sk,
+				sl,
+				sv,
+			);
+			mainGroup = 97C146E51CF9000F007C117D;
+			packageReferences = (
+				BD1000000000000000000005 /* XCRemoteSwiftPackageReference "bdk-swift" */,
+			);
+			productRefGroup = 97C146EF1CF9000F007C117D /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				97C146ED1CF9000F007C117D /* Runner */,
+				331C8080294A63A400263BE5 /* RunnerTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		331C807F294A63A400263BE5 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		97C146EC1CF9000F007C117D /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */,
+				AF7002000000000000000001 /* AppsFlyerLibConfig.plist in Resources */,
+				AF7003000000000000000001 /* PrivacyInfo.xcprivacy in Resources */,
+				3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */,
+				97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */,
+				97C146FC1CF9000F007C117D /* Main.storyboard in Resources */,
+				58528301EBCF4C79617BB2BF /* GoogleService-Info.plist in Resources */,
+				824D7AA0B6DA165405B829A9 /* BreezSDKLiquid.swift in Resources */,
+				1B6D5AA6FFA24FDA86FD625A /* BreezSDKLiquidConnector.swift in Resources */,
+				5963BE302E684CCE182A14FB /* Constants.swift in Resources */,
+				599D772FB1B220242EABF3E0 /* ResourceHelper.swift in Resources */,
+				3440801734936DAD4E9E64CF /* SDKNotificationService.swift in Resources */,
+				9112CD29D3CC33F2EA35A1CE /* ServiceLogger.swift in Resources */,
+				087B5934C1C72FFB21BC2AC4 /* String+SHA256.swift in Resources */,
+				CE5FB5C9372455EEA5EF696C /* TaskProtocol.swift in Resources */,
+				0B2B0F4D66CCCCEC0DDB0930 /* InvoiceRequest.swift in Resources */,
+				82B061214C63F59317F44FAD /* LnurlPay.swift in Resources */,
+				5DF87EC3AF1AA1DCA1B82A5D /* LnurlPayInfo.swift in Resources */,
+				A1C262336D37D469ACDEEB23 /* LnurlPayInvoice.swift in Resources */,
+				8076C3E1F8B05586516F1FAE /* LnurlPayVerify.swift in Resources */,
+				130E02AE4015CB62421CEBEA /* SwapUpdated.swift in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		16CB9E62EABFD52B1CADC95E /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-frameworks-${CONFIGURATION}-input-files.xcfilelist",
+			);
+			inputPaths = (
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		3B06AD1E1E4923F5004D2608 /* Thin Binary */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"${TARGET_BUILD_DIR}/${INFOPLIST_PATH}",
+			);
+			name = "Thin Binary";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "/bin/sh \"$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh\" embed_and_thin";
+		};
+		770142BA2E6B3EF5B370A8F8 /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-RunnerTests-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+		7CC168CA31C02CC9699E0CBD /* FlutterFire: "flutterfire upload-crashlytics-symbols" */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "FlutterFire: \"flutterfire upload-crashlytics-symbols\"";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\n#!/bin/bash\nPATH=\"${PATH}:$FLUTTER_ROOT/bin:${PUB_CACHE}/bin:$HOME/.pub-cache/bin\"\n\nif [ -z \"$PODS_ROOT\" ] || [ ! -d \"$PODS_ROOT/FirebaseCrashlytics\" ]; then\n  # Cannot use \"BUILD_DIR%/Build/*\" as per Firebase documentation, it points to \"flutter-project/build/ios/*\" path which doesn't have run script\n  DERIVED_DATA_PATH=$(echo \"$BUILD_ROOT\" | sed -E 's|(.*DerivedData/[^/]+).*|\\1|')\n  PATH_TO_CRASHLYTICS_UPLOAD_SCRIPT=\"${DERIVED_DATA_PATH}/SourcePackages/checkouts/firebase-ios-sdk/Crashlytics/run\"\nelse\n  PATH_TO_CRASHLYTICS_UPLOAD_SCRIPT=\"$PODS_ROOT/FirebaseCrashlytics/run\"\nfi\n\n# Command to upload symbols script used to upload symbols to Firebase server\nflutterfire upload-crashlytics-symbols --upload-symbols-script-path=\"$PATH_TO_CRASHLYTICS_UPLOAD_SCRIPT\" --platform=ios --apple-project-path=\"${SRCROOT}\" --env-platform-name=\"${PLATFORM_NAME}\" --env-configuration=\"${CONFIGURATION}\" --env-project-dir=\"${PROJECT_DIR}\" --env-built-products-dir=\"${BUILT_PRODUCTS_DIR}\" --env-dwarf-dsym-folder-path=\"${DWARF_DSYM_FOLDER_PATH}\" --env-dwarf-dsym-file-name=\"${DWARF_DSYM_FILE_NAME}\" --env-infoplist-path=\"${INFOPLIST_PATH}\" --default-config=default\n";
+		};
+		9740EEB61CF901F6004384FC /* Run Script */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Run Script";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "export PATH=\"$HOME/.cargo/bin:$PATH\"\n/bin/sh \"$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh\" build";
+		};
+		B12FCFFBA1B30AAB3B8ACCEE /* [CP] Copy Pods Resources */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-resources-${CONFIGURATION}-input-files.xcfilelist",
+			);
+			inputPaths = (
+			);
+			name = "[CP] Copy Pods Resources";
+			outputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-resources-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-resources.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		FCDF251CA52F3B501B9B5314 /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-Runner-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		331C807D294A63A400263BE5 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				331C808B294A63AB00263BE5 /* RunnerTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		97C146EA1CF9000F007C117D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BD1000000000000000000001 /* NativeBdkPlugin.swift in Sources */,
+				74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */,
+				535159CD2FB61A9C002D6773 /* PasskeyPrfPlugin.swift in Sources */,
+				5E0C0A022FC0000100A1B2C3 /* SecurityNativePlugin.swift in Sources */,
+				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		331C8086294A63A400263BE5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 97C146ED1CF9000F007C117D /* Runner */;
+			targetProxy = 331C8085294A63A400263BE5 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin PBXVariantGroup section */
+		97C146FA1CF9000F007C117D /* Main.storyboard */ = {
+			isa = PBXVariantGroup;
+			children = (
+				97C146FB1CF9000F007C117D /* Base */,
+			);
+			name = Main.storyboard;
+			sourceTree = "<group>";
+		};
+		97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */ = {
+			isa = PBXVariantGroup;
+			children = (
+				97C147001CF9000F007C117D /* Base */,
+			);
+			name = LaunchScreen.storyboard;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		249021D3217E4FDB00AE95B9 /* Profile */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Profile;
+		};
+		249021D4217E4FDB00AE95B9 /* Profile */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 7AFA3C8E1D35360C0083082E /* Release.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				DEVELOPMENT_TEAM = 4BF47D2439;
+				ENABLE_BITCODE = NO;
+				INFOPLIST_FILE = Runner/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Kute.;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.finance";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.kutewallet.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRIP_STYLE = "non-global";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Profile;
+		};
+		331C8088294A63A400263BE5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 0434795DA068865A55F12E54 /* Pods-RunnerTests.debug.xcconfig */;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.kutewallet.app.RunnerTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Runner.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Runner";
+			};
+			name = Debug;
+		};
+		331C8089294A63A400263BE5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EDE8FBDDC84587232CDA70B0 /* Pods-RunnerTests.release.xcconfig */;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.kutewallet.app.RunnerTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Runner.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Runner";
+			};
+			name = Release;
+		};
+		331C808A294A63A400263BE5 /* Profile */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 14935F4AE26DCC0700C89D4F /* Pods-RunnerTests.profile.xcconfig */;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.kutewallet.app.RunnerTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Runner.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Runner";
+			};
+			name = Profile;
+		};
+		97C147031CF9000F007C117D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = AppIcon;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		97C147041CF9000F007C117D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = AppIcon;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		97C147061CF9000F007C117D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 9740EEB21CF90195004384FC /* Debug.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				DEVELOPMENT_TEAM = 4BF47D2439;
+				ENABLE_BITCODE = NO;
+				INFOPLIST_FILE = Runner/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Kute.;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.finance";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.kutewallet.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRIP_STYLE = "non-global";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Debug;
+		};
+		97C147071CF9000F007C117D /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 7AFA3C8E1D35360C0083082E /* Release.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				DEVELOPMENT_TEAM = 4BF47D2439;
+				ENABLE_BITCODE = NO;
+				INFOPLIST_FILE = Runner/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Kute.;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.finance";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.kutewallet.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				STRIP_STYLE = "non-global";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		331C8087294A63A400263BE5 /* Build configuration list for PBXNativeTarget "RunnerTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				331C8088294A63A400263BE5 /* Debug */,
+				331C8089294A63A400263BE5 /* Release */,
+				331C808A294A63A400263BE5 /* Profile */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		97C146E91CF9000F007C117D /* Build configuration list for PBXProject "Runner" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				97C147031CF9000F007C117D /* Debug */,
+				97C147041CF9000F007C117D /* Release */,
+				249021D3217E4FDB00AE95B9 /* Profile */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		97C147051CF9000F007C117D /* Build configuration list for PBXNativeTarget "Runner" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				97C147061CF9000F007C117D /* Debug */,
+				97C147071CF9000F007C117D /* Release */,
+				249021D4217E4FDB00AE95B9 /* Profile */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		BD1000000000000000000005 /* XCRemoteSwiftPackageReference "bdk-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/bitcoindevkit/bdk-swift";
+			requirement = {
+				kind = exactVersion;
+				version = 3.1.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		BD1000000000000000000004 /* BitcoinDevKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BD1000000000000000000005 /* XCRemoteSwiftPackageReference "bdk-swift" */;
+			productName = BitcoinDevKit;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 97C146E61CF9000F007C117D /* Project object */;
+}

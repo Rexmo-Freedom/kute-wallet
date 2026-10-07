@@ -1,0 +1,56 @@
+{
+  "source": "Seeded from flutter_secure_storage 10.3.4 Android sources (FlutterSecureStoragePlugin.java, FlutterSecureStorage.java, KeyCipherImplementationAES23.java). Add the exact strings captured on devices in cases A3, A4, A5 and A15, marked with \"device\".",
+  "cases": [
+    {
+      "class": "keyInvalidated",
+      "code": "Exception encountered",
+      "message": "Key mismatch after algorithm change (Invalid key, key type incompatible with cipher). Enable migrateOnAlgorithmChange=true to preserve data, or resetOnError=true to delete."
+    },
+    {
+      "class": "keyInvalidated",
+      "code": "Exception encountered",
+      "message": "Migration failed after algorithm change (Invalid key, key type incompatible with cipher). Enable resetOnError=true or call deleteAll()."
+    },
+    {
+      "class": "keyInvalidated",
+      "code": "Exception encountered",
+      "message": "Unknown error",
+      "details": "java.lang.Exception\nCaused by: android.security.keystore.KeyPermanentlyInvalidatedException: Key permanently invalidated"
+    },
+    {
+      "class": "noSecureLock",
+      "code": "Exception encountered",
+      "message": "BIOMETRIC_UNAVAILABLE: Device has no PIN, pattern, password, or biometric enrolled. Please secure your device in Settings."
+    },
+    {
+      "class": "noSecureLock",
+      "code": "Exception encountered",
+      "message": "BIOMETRIC_UNAVAILABLE: No fingerprint or face enrolled. Please enroll in Settings."
+    },
+    {
+      "class": "unavailable",
+      "code": "INIT_FAILED",
+      "message": "Plugin is not attached to an Android context"
+    },
+    {
+      "class": "cancelled",
+      "code": "Exception encountered",
+      "message": "Biometric authentication error [10]: Authentication canceled by user."
+    },
+    {
+      "class": "cancelled",
+      "code": "Exception encountered",
+      "message": "Biometric authentication error [13]: Cancel"
+    },
+    {
+      "class": "cancelled",
+      "code": "Exception encountered",
+      "message": "Migration cancelled: Biometric authentication failed"
+    },
+    {
+      "class": "unknown",
+      "code": "Exception encountered",
+      "message": "Method call arguments are null"
+    }
+  ]
+}

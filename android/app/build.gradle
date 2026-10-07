@@ -1,0 +1,227 @@
+plugins {
+    id "com.android.application"
+    id "kotlin-android"
+    id "dev.flutter.flutter-gradle-plugin"
+}
+
+// Firebase plugins must be applied BEFORE the `android { }` block so the
+// `firebaseCrashlytics { }` DSL inside buildTypes.release resolves.
+// google-services stays for FCM push; the Crashlytics plugin uploads the
+// R8 mapping + native debug symbols at release-build time.
+apply plugin: 'com.google.gms.google-services'
+apply plugin: 'com.google.firebase.crashlytics'
+
+def localProperties = new Properties()
+def localPropertiesFile = rootProject.file('local.properties')
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.withReader('UTF-8') { reader ->
+        localProperties.load(reader)
+    }
+}
+
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file('key.properties')
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
+// CI uses environment variables so signing passwords never enter a properties file.
+def signingValue = { String envName, String propertyName ->
+    System.getenv(envName) ?: keystoreProperties[propertyName]
+}
+def releaseStoreFile = signingValue('ANDROID_KEYSTORE_PATH', 'storeFile')
+def releaseKeyAlias = signingValue('ANDROID_KEY_ALIAS', 'keyAlias')
+def releaseKeyPassword = signingValue('ANDROID_KEY_PASSWORD', 'keyPassword')
+def releaseStorePassword = signingValue('ANDROID_STORE_PASSWORD', 'storePassword')
+def releaseSigningReady = [releaseStoreFile, releaseKeyAlias, releaseKeyPassword, releaseStorePassword].every { it }
+
+gradle.taskGraph.whenReady { graph ->
+    if (graph.allTasks.any { it.project == project && it.name.toLowerCase().contains('release') }
+            && !releaseSigningReady) {
+        throw new GradleException('Release builds require the existing production signing key; debug signing is prohibited.')
+    }
+}
+
+// Crashlytics mapping + native symbol upload (release builds only).
+def crashlyticsUploadEnabled = System.getenv('CRASHLYTICS_UPLOAD') != 'false'
+
+def flutterVersionCode = localProperties.getProperty('flutter.versionCode')
+if (flutterVersionCode == null) {
+    flutterVersionCode = '1'
+}
+
+def flutterVersionName = localProperties.getProperty('flutter.versionName')
+if (flutterVersionName == null) {
+    flutterVersionName = '1.0'
+}
+
+android {
+    namespace "com.kutewallet.app"
+    compileSdk = 37
+    ndkVersion = "28.2.13676358"
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+        coreLibraryDesugaringEnabled true
+    }
+
+    kotlinOptions {
+        jvmTarget = JavaVersion.VERSION_1_8
+    }
+
+    sourceSets {
+        main.java.srcDirs += 'src/main/kotlin'
+    }
+
+    defaultConfig {
+        applicationId "com.kutewallet.app"
+        minSdkVersion 26
+        targetSdkVersion flutter.targetSdkVersion
+        versionCode flutterVersionCode.toInteger()
+        versionName flutterVersionName
+        multiDexEnabled true
+
+        ndk {
+            abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86_64'
+        }
+    }
+
+    // Extract native libraries (libflutter.so, libapp.so, BDK/Breez,
+    // secp256k1, etc.) to the filesystem at install time instead of
+    // mmap-ing them compressed from inside the APK.
+    //
+    // Fixes the fatal crash:
+    //   com.getkeepsafe.relinker.MissingLibraryException:
+    //   Could not find 'libflutter.so'. Looked for: [arm64-v8a],
+    //   but only found: []
+    // thrown from FlutterLoader.ensureInitializationComplete when a new
+    // FlutterActivity attaches (e.g. right after the PIN / seed screen).
+    //
+    // With the AGP-8 default (extractNativeLibs=false) the loader relies
+    // on the APK being laid out perfectly. On split-APK installs that
+    // dropped the arm64 split, OEM ROMs with broken extraction, and
+    // repackaged/sideloaded builds, the arm64-v8a libs become invisible
+    // at runtime (ReLinker reports "only found: []"). Forcing extraction
+    // makes System.loadLibrary resolve from /data and stops the crash.
+    // Costs a little install footprint; well worth it for boot stability.
+    packagingOptions {
+        jniLibs {
+            useLegacyPackaging true
+        }
+    }
+
+    signingConfigs {
+        if (releaseSigningReady) {
+            release {
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
+                storeFile file(releaseStoreFile)
+                storePassword releaseStorePassword
+            }
+        }
+    }
+
+    buildTypes {
+        // Debug signs with the RELEASE key when one is configured.
+        //
+        // Passkeys are the reason. They use the shared Breez relying
+        // party `keys.breez.technology`, and Android's Credential
+        // Manager verifies the calling app against that domain's
+        // assetlinks.json, which lists this package with the release
+        // certificate fingerprints only. A debug build is signed with
+        // `~/.android/debug.keystore`, whose fingerprint is not on that
+        // list, so creating a passkey put the system sheet on screen
+        // and then failed verification. Nothing was wrong in the app;
+        // the APK simply was not the app the relying party knows.
+        //
+        // With the ANDROID_KEYSTORE_* values set, a debug build now
+        // carries the same signature as a release one and passes. When
+        // they are absent, this is skipped and debug falls back to the
+        // debug keystore exactly as before, so a fresh checkout still
+        // builds with no setup.
+        debug {
+            if (releaseSigningReady) {
+                signingConfig signingConfigs.release
+            }
+        }
+        release {
+            if (releaseSigningReady) {
+                signingConfig signingConfigs.release
+            }
+            minifyEnabled = true
+            shrinkResources = true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            // Upload native debug symbols (libbdk_dart_ffi.so, libflutter.so,
+            // secp256k1, …) at release-build time so the native SIGSEGV /
+            // SIGABRT frames in Crashlytics symbolicate to function names
+            // instead of raw addresses. Pairs with the R8 mapping upload the
+            // Crashlytics plugin already does for Dart/Kotlin stacks.
+            //
+            // ON for every release build, CI included: an un-symbolicated
+            // release is what made native crashes unreadable. The upload
+            // needs only google-services.json (written by configure.py
+            // release). Set CRASHLYTICS_UPLOAD=false to skip it for a local
+            // or offline release build; upload failures are made non-fatal
+            // below so they can never fail a release.
+            firebaseCrashlytics {
+                nativeSymbolUploadEnabled crashlyticsUploadEnabled
+                mappingFileUploadEnabled crashlyticsUploadEnabled
+            }
+        }
+    }
+}
+
+flutter {
+    source '../..'
+}
+
+// A failed Crashlytics upload (no network, a rejected key) must never fail
+// a release build: the symbols can be re-uploaded later, the build cannot
+// be recovered. Each upload task's actions run inside a guard that logs a
+// warning instead of throwing.
+// (uploadCrashlyticsMappingFile* / uploadCrashlyticsSymbolFile* are plain
+// synchronous @TaskAction tasks, so wrapping their actions is safe.)
+// configureEach is lazy: nothing is realised for debug builds.
+tasks.configureEach { task ->
+    if (!task.name.startsWith('uploadCrashlytics')) return
+    def original = task.actions.toList()
+    task.actions = [
+        { Task t ->
+            original.each { action ->
+                try {
+                    action.execute(t)
+                } catch (Throwable e) {
+                    t.logger.warn("Crashlytics upload failed (non-fatal): ${e.message}")
+                }
+            }
+        } as Action<Task>
+    ]
+}
+
+dependencies {
+    // Official BDK mobile bindings. Keep Wallet 3.0 SQLite compatibility.
+    implementation('org.bitcoindevkit:bdk-android:3.1.0') {
+        exclude group: 'net.java.dev.jna', module: 'jna'
+    }
+    // The older transitive JNA has 4 KB x86_64 segments. This upstream
+    // release supplies 16 KB aligned native libraries for every shipped ABI.
+    implementation 'net.java.dev.jna:jna:5.19.1@aar'
+    // Native (NDK) crash capture: SIGSEGV/SIGABRT in libflutter.so and the
+    // Rust FFI libs (BDK, Breez) now reach Crashlytics directly. The BoM is
+    // pinned to the one firebase_core 4.15.0 uses (FirebaseSDKVersion) so
+    // the NDK artifact matches the crashlytics the Flutter plugin pulls.
+    implementation platform('com.google.firebase:firebase-bom:34.19.0')
+    implementation 'com.google.firebase:firebase-crashlytics-ndk'
+    // Version comes from the BoM above, so it always matches the Flutter plugin.
+    implementation 'com.google.firebase:firebase-messaging'
+    implementation 'androidx.window:window:1.5.1'
+    implementation 'androidx.window:window-java:1.5.1'
+    // CredentialManager for WebAuthn passkey + PRF extension. Backs
+    // the `passkey_prf` MethodChannel in MainActivity. Requires
+    // API 34+ for the PRF extension; below that we report
+    // unsupported and the Dart side falls back to BIP39.
+    implementation 'androidx.credentials:credentials:1.6.0'
+    implementation 'androidx.credentials:credentials-play-services-auth:1.6.0'
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'
+}

@@ -1,0 +1,9 @@
+# Default gitleaks rules, plus the one path that only ever holds checksums.
+# Line-level exceptions use inline `gitleaks:allow` markers so they keep
+# working in any clone, unlike commit-bound .gitleaksignore fingerprints.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "CocoaPods lockfile checksums are hashes of public pod specs"
+paths = ['''(^|/)Podfile\.lock$''']

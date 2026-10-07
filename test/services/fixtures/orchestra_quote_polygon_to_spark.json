@@ -1,0 +1,15 @@
+{
+  "quoteId": "q_fixture_polygon_spark",
+  "depositAddress": "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed",
+  "amountIn": "50000000",
+  "estimatedOut": "81666",
+  "feeAmount": "1666",
+  "feeBps": 200,
+  "totalFeeAmount": "1666",
+  "feeAsset": "BTC",
+  "route": ["polygon:USDC.e", "spark:BTC"],
+  "expiresAt": "2026-09-15T12:02:00Z",
+  "priceLockMode": "locked",
+  "lockedMinAmountOut": "80000",
+  "readToken": "rt_fixture"
+}

@@ -1,0 +1,59 @@
+# Reviewed false positives only. Exemptions are tied to the original commit,
+# file, detector and line; changed or newly introduced content is still scanned.
+
+# Public HyperCore USDC token identifier, not a credential.
+0b2f66cd3e6cd6f400c5bce308924d38a430b160:lib/services/hyperliquid/hypercore_transfer_proof.dart:generic-api-key:10
+# Public HyperCore USDC token identifier, not a credential.
+0b2f66cd3e6cd6f400c5bce308924d38a430b160:test/services/hyperliquid/hypercore_native_funding_test.dart:generic-api-key:168
+# Android cipher algorithm name in storage configuration test.
+7a0ace7256937ea7787b43e12f0bc0051dae013a:test/services/secure/secure_storage_options_test.dart:generic-api-key:30
+# Expected public EVM address in deterministic signing test.
+04908f661ff0d5c5b792ae2207f66019d1b849cd:test/services/hardware/eip712_typed_data_test.dart:generic-api-key:103
+# CocoaPods published dependency checksum.
+292d6cd800afd2e5721eb507a38df591445f7b9d:macos/Podfile.lock:generic-api-key:265
+# Public feature flag lookup key.
+7c6499e00ce4b5a0f5f79bf748bda0bf9d258b46:lib/services/polymarket_suppression_service.dart:generic-api-key:53
+# CocoaPods published dependency checksum.
+0abca5114564063e4e912c89dfdc64f4dc4cd6e1:ios/Podfile.lock:generic-api-key:429
+# CocoaPods published dependency checksum.
+0abca5114564063e4e912c89dfdc64f4dc4cd6e1:ios/Podfile.lock:generic-api-key:430
+# Illustrative kute_live_abc123 token in an old design example.
+320caa4848cd2ce8d53cd157672554c85e997674:claude-plans/PLAN_AI_WALLET_RAILS.md:generic-api-key:48
+# Illustrative kute_live_abc123 token in an old design example.
+320caa4848cd2ce8d53cd157672554c85e997674:claude-plans/PLAN_AI_WALLET_RAILS.md:generic-api-key:475
+# Illustrative kute_live_abc123 token in an old design example.
+320caa4848cd2ce8d53cd157672554c85e997674:claude-plans/PLAN_AI_WALLET_RAILS.md:generic-api-key:481
+# Natural-language localization string.
+b7adc0163d14ed2a9c8b2d75a6f96ed403e9dbac:lib/l10n/app_fi.arb:asana-client-secret:1165
+# Natural-language localization string.
+b7adc0163d14ed2a9c8b2d75a6f96ed403e9dbac:lib/l10n/app_fil.arb:generic-api-key:704
+# CocoaPods published dependency checksum.
+dcd75e047c092990e53f9297019c515ca7b0a8af:ios/Podfile.lock:generic-api-key:273
+# CocoaPods published dependency checksum.
+2530aa7e89d416a90ca881049f1aa0708713255d:ios/Podfile.lock:generic-api-key:273
+# CocoaPods published dependency checksum.
+72465fc845a0558af522ba14fec0426caa43b292:ios/Podfile.lock:generic-api-key:318
+# CocoaPods published dependency checksum.
+3b53e94a0f809000ad44d75d425093678ac46769:ios/Podfile.lock:generic-api-key:137
+# CocoaPods published dependency checksum.
+1fdd232f00afe80bbfe457067d8b6acd39c824e0:ios/Podfile.lock:generic-api-key:129
+# CocoaPods published dependency checksum.
+90a4c6720c1813a561be31c946da906c486d43bb:ios/Podfile.lock:generic-api-key:52
+# CocoaPods published dependency checksum.
+b5032579e5915d8dbede274f58bd176547f72ab3:ios/Podfile.lock:generic-api-key:30
+
+# Owner review 2026-09-23: retired SideSwap client key is trade attribution
+# (affiliate/builder commission), not wallet control. Approved these two exact
+# historical findings; no claim that provider-side revocation was verified.
+921f29af83311296a5b3c08a2b00ad0023f98082:lib/services/sideswap/sideswap.dart:generic-api-key:85
+a0ef181cccbd3174a88b08f9f381bc41d0c5550b:lib/services/sideswap/sideswap.dart:generic-api-key:58
+# Public USDC contract address on Base in test fixtures (not a secret).
+575ec81336c8fda3ba8d9fe27d42c6aa50d63eb4:test/services/orchestra_usd_send_recipient_test.dart:generic-api-key:16
+4157698195e20b2a78731a50bb82ab7275f39793:test/helpers/scanned_address_test.dart:generic-api-key:18
+# Squash merge of final_test_v2 into main (#78, 50706367) re-introduced these
+# already-reviewed findings under the new commit id; same lines as above.
+507063678420a3bf8621ac0c741b7f3b72efbec0:lib/services/hyperliquid/hypercore_transfer_proof.dart:generic-api-key:11
+507063678420a3bf8621ac0c741b7f3b72efbec0:macos/Podfile.lock:generic-api-key:265
+507063678420a3bf8621ac0c741b7f3b72efbec0:test/services/hardware/eip712_typed_data_test.dart:generic-api-key:103
+507063678420a3bf8621ac0c741b7f3b72efbec0:test/services/hyperliquid/hypercore_native_funding_test.dart:generic-api-key:240
+507063678420a3bf8621ac0c741b7f3b72efbec0:test/services/secure/secure_storage_options_test.dart:generic-api-key:30

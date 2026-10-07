@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(FLUTTER_BUILD_NAME)</string>
+	<key>CFBundleVersion</key>
+	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>$(PRODUCT_COPYRIGHT)</string>
+	<key>NSMainNibFile</key>
+	<string>MainMenu</string>
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
+	<!--
+		PostHog native auto-init. Mirrors ios/Runner/Info.plist — same
+		HARD CONSTRAINT: SESSION_REPLAY stays false (see the iOS plist
+		comment and PostHogConfig in Dart; both layers gate replay).
+	-->
+	<key>com.posthog.posthog.PROJECT_TOKEN</key>
+	<string>phc_qabi4KjdZRQVunt8wsEbTyJFPpBMsGe5g8pfZXmzbUvP</string>
+	<key>com.posthog.posthog.POSTHOG_HOST</key>
+	<string>https://m.rexmo.io</string>
+	<key>com.posthog.posthog.CAPTURE_APPLICATION_LIFECYCLE_EVENTS</key>
+	<true/>
+	<key>com.posthog.posthog.SESSION_REPLAY</key>
+	<false/>
+	<key>com.posthog.posthog.DEBUG</key>
+	<false/>
+</dict>
+</plist>

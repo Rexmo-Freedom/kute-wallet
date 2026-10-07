@@ -1,0 +1,308 @@
+name: kute
+description: "own your future. get kute."
+publish_to: "none"
+# Licensed under GPL-3.0-or-later. Derived from Satsails
+# (https://github.com/Satsails/Satsails), which is distributed under
+# the GNU GPL version 2 without a version notice. Section 9 of GPLv2
+# then allows choosing any version of the GPL ever published by the
+# FSF; Kute is distributed under GPL-3.0-or-later.
+# SPDX-License-Identifier: GPL-3.0-or-later
+version: 2.1.0+78
+
+environment:
+  sdk: ">=3.2.3 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # Core Functionality & State Management
+  flutter_riverpod: ^2.6.1
+  go_router: ^18.0.2
+  rxdart: ^0.28.0
+  intl: any
+
+  # Backend & Services
+  # Firebase: `firebase_core` (boot), `firebase_messaging` (FCM push)
+  # and `firebase_crashlytics` (the only crash sink) remain. Analytics
+  # moved to PostHog; Remote Config was dropped. google-services
+  # plugin + google-services.json + GoogleService-Info.plist stay
+  # because FCM and Crashlytics need them.
+  firebase_core: ^4.15.0
+  firebase_messaging: ^16.7.0
+  # Crash reporting ONLY (no Firebase Analytics). Captures Dart + native
+  # crashes; advertising-id collection is disabled in AndroidManifest.
+  firebase_crashlytics: ^5.4.0
+  # PostHog: product analytics + investor dashboards (DAU/WAU/MAU,
+  # retention, registration, ARPMAU, GP). distinct_id = affiliate_code
+  # (NOT the wallet pubkey — the 2026-05 telemetry audit deliberately
+  # keeps the Lightning identity out of third-party analytics).
+  # HARD CONSTRAINT: session replay is OFF in PostHogConfig and the
+  # AndroidManifest / Info.plist meta-data. Private keys / recovery
+  # phrases / signer screens are wrapped in PostHogMaskWidget so they
+  # are never captured even if replay is ever flipped on.
+  posthog_flutter: ^5.50.7
+  # AppsFlyer: install attribution + ad-campaign ROAS ONLY. Not a
+  # second product-analytics sink — PostHog keeps funnels/retention,
+  # the Go backend keeps exact revenue (provider_events). The client
+  # fires a handful of conversion events (registration, first funding,
+  # purchase completions incl. Outlogic); PRECISE revenue/volume is
+  # attached server-side via the AppsFlyer S2S events API from the
+  # backend's provider_events, so exact amounts never leave the device.
+  # customerUserId = the SAME device UUID PostHog uses as distinct_id,
+  # so AppsFlyer raw data joins 1:1 to PostHog persons.
+  appsflyer_sdk: ^7.0.2
+  flutter_dotenv: ^6.0.1
+  web_socket_channel: ^3.0.3
+  coingecko_api: ^2.0.1
+  # polybrainz_polymarket: kept ONLY for the EIP-712 L1 auth signer
+  # (`EIP712Signer.signAuth` — produces the POLY_SIGNATURE header used
+  # to derive CLOB API credentials at first login). Everything else
+  # the package once did is now handled by our own code: Gamma REST,
+  # CLOB REST/WS, Safe address derivation (`polymarket_onboarding_
+  # service.dart` — calls Polymarket's on-chain proxy factory
+  # `0xaacFeEa03eb1561C4e67d661e40682Bd20E3541b`, so we derive the
+  # same Safe polymarket.com does), order signing (V2 EIP-712 in
+  # `polymarket_order_v2.dart`), and account/position fetches.
+  # Do not bump or remove without re-implementing the L1 auth EIP-712
+  # signature (Polymarket Exchange domain, chainId 137).
+  polybrainz_polymarket: ^3.8.0
+  # Bumped 2.4.x -> 2.6.0: 2.4.6 shipped a native NPE in the Crisp
+  # Android SDK's session-settings response handler
+  # (im.crisp.client.internal…onResponse) that crashed on a background
+  # thread — uncatchable from Dart. 2.6.0 carries the upstream SDK fix.
+  crisp_chat: ^2.6.0
+
+  # Breez SDK
+  breez_sdk_spark_flutter:
+    git:
+      url: https://github.com/breez/breez-sdk-spark-flutter
+      ref: v0.26.0
+
+  # Bitcoin & Liquid Libraries
+  # Bitcoin wallet/keys use official BDK Android + Swift 3.1.0 via the native
+  # channel. No duplicate Dart FFI library or cross-isolate native handles.
+
+  # Local Storage & Permissions
+  # v10.3.1, DELIBERATELY NOT v11 (this package holds the wallet seeds).
+  # v10 is the release that auto-migrates Android data off
+  # EncryptedSharedPreferences onto the plugin's own cipher storage, and
+  # 10.3.x carries the fixes for the early-v10 migration bugs
+  # (AEADBadTagException on cancelled biometrics, retry NPE). v11
+  # REMOVED the ESP backend and its migration path entirely, so a
+  # 9 -> 11 jump orphans every Android install's stored secrets. Move to
+  # ^11 only after a v10-carrying release has shipped and been adopted.
+  flutter_secure_storage: 10.3.4
+  hive_ce: ^2.15.0
+  local_auth: ^3.0.2
+  permission_handler: ^13.0.1
+
+  # Fonts
+  google_fonts: ^8.2.1
+
+  # UI & UX Components
+  flutter_screenutil: ^5.9.3
+  overlay_support: ^2.1.0
+  # Liquid Glass for floating chrome (nav band, bottom search/FAB). Real
+  # GPU refraction on Impeller (iOS Metal / Android Vulkan) with a
+  # lightweight Skia/Web fallback. Consumed ONLY through KuteGlass so the
+  # whole app's glass swaps in one place and reverts trivially to the prior
+  # BackdropFilter implementation if needed.
+  liquid_glass_widgets: ^1.1.0
+  cached_network_image: ^4.0.0
+  # Used directly by PolyCrestImage to disk-cache SVG crest/flag bytes
+  # (shared cache with cached_network_image). Already present transitively.
+  flutter_cache_manager: ^3.4.1
+  shimmer: ^4.0.0
+  # Skeleton loading engine: Bone primitives + shimmer effect. Our shared
+  # wrappers in screens/shared/kute_skeleton.dart ride on it.
+  skeletonizer: ^2.1.3
+  bootstrap_icons: ^1.13.1+1
+  flutter_boxicons: ^3.2.0
+  icons_plus: ^5.0.0
+  loading_animation_widget: ^1.3.0
+
+  # Device & System Interaction
+  webview_flutter: ^4.13.0
+  # Livestream players: inline playback on iPhone, viewport on Android.
+  webview_flutter_android: ^4.14.1
+  webview_flutter_wkwebview: ^3.26.1
+  qr_flutter: ^4.1.0
+  mobile_scanner: ^7.4.2
+  vibration: ^3.1.3
+  share_plus: ^13.3.0
+  flutter_svg: ^2.2.0
+  in_app_review: ^2.0.10
+  flutter_keyboard_visibility: ^7.0.1
+  bc_ur_dart: ^0.1.29
+  file_picker: ^12.1.2
+
+  # PDF & Export
+  pdf: ^3.11.1
+  crypto: ^3.0.6
+
+  # Data & Formatting
+  decimal: ^3.2.4
+  bs58check: ^1.0.2
+  hex: ^0.2.0
+  # Hardware Wallet - Ledger (unmodified published release, including Gen 5)
+  ledger_flutter_plus: 1.6.0+1
+  universal_ble: 2.2.0
+  ledger_bitcoin:
+    git:
+      url: https://github.com/SatoshiPortal/ledger-flutter-plus-plugins
+      path: packages/ledger-bitcoin
+      ref: c4240d1f518c5903b67191253212754a31ed5333
+  money2: ^6.1.0
+  pointycastle: any
+
+  # EVM / Polygon (USDC balance, approvals, on-chain calls)
+  web3dart: ^3.0.2
+  blockchain_utils: 6.0.0
+
+  # Hardware Wallet - Jade (BLE)
+  cbor: ^6.3.2
+  http: ^1.2.0
+
+  # App Info
+  package_info_plus: ^10.2.1
+
+  # Local Notifications
+  flutter_local_notifications: ^22.3.0
+
+  # Native Splash (preserve/remove for seamless transition)
+  flutter_native_splash: ^2.4.6
+
+  # Pinned 'any' so pub resolves against the Flutter SDK's versions
+  path_provider: any
+  url_launcher: any
+  convert: any
+  barcode: any
+  audioplayers: ^6.6.0
+dependency_overrides:
+  vector_math: 2.2.0
+  pointycastle: ^4.0.0
+
+dev_dependencies:
+  integration_test:
+    sdk: flutter
+  flutter_test:
+    sdk: flutter
+  mocktail: ^1.0.4
+  fake_async: ^1.3.2
+
+  # Code Generation & Build Tools
+  flutter_launcher_icons: ^0.14.4
+  android_notification_icons: ^0.0.1
+  hive_ce_generator: ^1.10.0
+  build_runner: ^2.9.0
+
+  # Linters & Validators
+  flutter_lints: ^6.0.0
+
+flutter:
+  generate: true
+  uses-material-design: true
+  assets:
+    - .env
+    - lib/assets/arbitrum-logo.png
+    - lib/assets/bip39_english.txt
+    - lib/assets/bitcoin-logo.png
+    - lib/assets/Bitcoin_lightning_logo.png
+    - lib/assets/bnb.svg
+    - lib/assets/cardano-ada-logo.svg
+    - lib/assets/eth.svg
+    - lib/assets/liquid-btc.svg
+    - lib/assets/litecoin-ltc-logo.svg
+    - lib/assets/near-protocol-near-logo.svg
+    - lib/assets/pol.svg
+    - lib/assets/polkadot-new-dot-logo.svg
+    - lib/assets/kute_logo.png
+    - lib/assets/kute_dog.svg
+    - lib/assets/kute_dog_dark.svg
+    - lib/assets/kute_dog.gif
+    - lib/assets/kute_dog_dark.gif
+    - lib/assets/sol.svg
+    - lib/assets/sui-sui-logo.svg
+    - lib/assets/trx.svg
+    - lib/assets/usdc.svg
+    - lib/assets/usdt.svg
+    - lib/assets/xrp-xrp-logo.svg
+    - lib/assets/ledger-logo.svg
+    - lib/assets/passport-logo.svg
+    - lib/assets/jade-logo.svg
+    - lib/assets/seedsigner-logo.svg
+    - lib/assets/keystone-logo.svg
+    - lib/assets/krux-logo.svg
+    - lib/assets/generic-wallet-logo.svg
+    - lib/assets/orchestra-logo.svg
+    - lib/assets/sideshift-logo.svg
+    - lib/assets/bitcoinvn-logo.svg
+    - lib/assets/uniswap-logo.svg
+    - lib/assets/usdb-logo.svg
+    - lib/assets/spark-logo.svg
+    - lib/assets/polymarket-logo.svg
+    - lib/assets/hyperliquid-logo.svg
+    - lib/assets/bitcoin-icon.svg
+    - lib/assets/sats-icon.svg
+    - lib/assets/eur-icon.svg
+    - lib/assets/gbp-icon.svg
+    - lib/assets/chf-icon.svg
+    - lib/assets/brl-icon.svg
+    - lib/assets/jpy-icon.svg
+    - lib/assets/cad-icon.svg
+    - lib/assets/aud-icon.svg
+    - lib/assets/cashapp-logo.svg
+    - lib/assets/bank-transfer-logo.svg
+    - lib/assets/sounds/send.wav
+    - lib/assets/sounds/success.wav
+  fonts:
+    # Inter static instances (the same files google_fonts serves the app
+    # UI at runtime). Embedded into the exported Activity Report PDF via
+    # rootBundle so its glyph coverage matches the app.
+    - family: Inter
+      fonts:
+        - asset: lib/assets/fonts/Inter-Regular.ttf
+          weight: 400
+        - asset: lib/assets/fonts/Inter-SemiBold.ttf
+          weight: 600
+        - asset: lib/assets/fonts/Inter-Bold.ttf
+          weight: 700
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path_android: "lib/assets/kute_logo_white.png"
+  image_path_ios: "lib/assets/kute_logo_white.png"
+  remove_alpha_ios: true
+  background_color_ios: "#FFFFFF"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "lib/assets/kute_logo_white.png"
+
+android_notification_icons:
+  image_path: "lib/assets/kute_logo.png"
+  icon_name: "ic_notification"
+
+flutter_native_splash:
+  color: "#FFFFFF"
+  color_dark: "#000000"
+  color_ios: "#FFFFFF"
+  # Match the app's dark background (#000000) on iOS too — the old #FFFFFF
+  # made iOS dark mode flash a white splash before booting into the black
+  # app. Now light=white / dark=black on BOTH platforms + Android 12.
+  color_dark_ios: "#000000"
+  image: lib/assets/kute_logo.png
+  image_dark: lib/assets/kute_logo.png
+  web: false
+  android_12:
+    color: "#FFFFFF"
+    color_dark: "#000000"
+    image: lib/assets/kute_logo.png
+    image_dark: lib/assets/kute_logo.png
+    # Icon plate color = splash background, so Android 12+ doesn't draw a
+    # white circle behind the transparent logo on dark mode (the "white
+    # halo" some OEMs showed). Keeps the styles fix above on regeneration.
+    icon_background_color: "#FFFFFF"
+    icon_background_color_dark: "#000000"

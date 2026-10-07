@@ -1,0 +1,186 @@
+name: Android draft release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-release
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  trusted-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Require the protected default branch
+        env:
+          SOURCE_REF: ${{ github.ref }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          SOURCE_PROTECTED: ${{ github.ref_protected }}
+        run: |
+          test "$SOURCE_REF" = "refs/heads/$DEFAULT_BRANCH" || {
+            echo '::error::Release only from the protected default branch.'
+            exit 1
+          }
+          test "$SOURCE_PROTECTED" = true || {
+            echo '::error::Configure protection for the default branch before signing releases.'
+            exit 1
+          }
+
+  quality:
+    needs: trusted-source
+    uses: ./.github/workflows/ci.yml
+    # Deliberately no secrets: the exact release commit must pass ordinary fork-safe CI.
+
+  build:
+    needs: quality
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    environment: android-release
+    outputs:
+      tag: ${{ steps.metadata.outputs.tag }}
+      sha: ${{ steps.metadata.outputs.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: ./.github/actions/flutter-setup
+        with:
+          android: 'true'
+      - name: Derive source version
+        id: metadata
+        run: python3 .github/scripts/release_metadata.py
+      - name: Refuse to reuse a version tag
+        env:
+          RELEASE_TAG: ${{ steps.metadata.outputs.tag }}
+        run: |
+          if git show-ref --verify --quiet "refs/tags/$RELEASE_TAG"; then
+            echo '::error::Version tag already exists. Increment version/build in pubspec.yaml.'
+            exit 1
+          fi
+      - name: Prepare reviewed production client configuration
+        env:
+          ENV_FILE: ${{ secrets.ENV_FILE }}
+          FIREBASE_OPTIONS: ${{ secrets.FIREBASE_OPTIONS }}
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: python3 .github/scripts/configure.py release
+      - run: flutter pub get --enforce-lockfile
+      - name: Restore the existing Android signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          ANDROID_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          ANDROID_STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          ANDROID_SIGNING_CERT_SHA256: ${{ vars.ANDROID_SIGNING_CERT_SHA256 }}
+        run: |
+          python3 - <<'PY'
+          import base64, os, pathlib, sys
+          sys.path.insert(0, '.github/scripts')
+          from verify_android import normalized_fingerprint
+          required = ('KEYSTORE_BASE64', 'ANDROID_KEY_ALIAS', 'ANDROID_STORE_PASSWORD', 'ANDROID_KEY_PASSWORD')
+          if any(not os.environ.get(name) for name in required):
+              raise SystemExit('Missing Android release signing credentials')
+          normalized_fingerprint(os.environ['ANDROID_SIGNING_CERT_SHA256'])
+          path = pathlib.Path(os.environ['RUNNER_TEMP']) / 'android-release.jks'
+          with path.open('xb') as target:
+              target.write(base64.b64decode(''.join(os.environ['KEYSTORE_BASE64'].split()), validate=True))
+          path.chmod(0o600)
+          PY
+      - name: Build the APK with the existing release key
+        env:
+          GRADLE_OPTS: -Dorg.gradle.daemon=false
+          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/android-release.jks
+          ANDROID_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          ANDROID_STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          flutter build apk --release --no-pub \
+            --dart-define=KUTE_LEDGER_HYPERLIQUID_OPAQUE_ACCEPTED=true \
+            --dart-define=KUTE_LEDGER_POLYMARKET_WITHDRAW_ACCEPTED=true
+          git diff --exit-code -- pubspec.lock
+      - name: Verify signature, application identity, and checksums
+        env:
+          ANDROID_SIGNING_CERT_SHA256: ${{ vars.ANDROID_SIGNING_CERT_SHA256 }}
+        run: python3 .github/scripts/verify_android.py
+      - name: Upload verified release assets
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: android-release-${{ github.sha }}
+          path: release/*
+          if-no-files-found: error
+          retention-days: 14
+      - name: Remove signing material and local configuration
+        if: ${{ always() }}
+        run: |
+          rm -f "$RUNNER_TEMP/android-release.jks" .env lib/firebase_options.dart android/app/google-services.json
+          rm -rf android/.gradle
+
+  draft:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: android-release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: android-release-${{ github.sha }}
+          path: release
+      - name: Create a draft for the exact tested commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+          RELEASE_SHA: ${{ needs.build.outputs.sha }}
+        run: |
+          cd release
+          sha256sum --check --strict SHA256SUMS
+          python3 - <<'PY'
+          import json, os, pathlib
+          data = json.loads(pathlib.Path('release-metadata.json').read_text())
+          if data['sha'] != os.environ['RELEASE_SHA'] or data['tag'] != os.environ['RELEASE_TAG']:
+              raise SystemExit('Release metadata does not match the tested source')
+          if len(data['artifacts']) != 1 or any(not pathlib.Path(name).is_file() or not name.endswith('.apk') for name in data['artifacts']):
+              raise SystemExit('Selected release artifacts are incomplete')
+          pathlib.Path('RELEASE_NOTES.md').write_text(
+              f"Source commit: {data['sha']}\n\n"
+              f"Android version: {data['version']} ({data['build']})\n\n"
+              f"Signing certificate SHA-256: {data['signing_certificate_sha256']}\n\n"
+              'Review release notes, install/upgrade tests, wallet recovery, Bitcoin send/receive, '
+              'Polymarket predictions and withdrawal before publishing.\n\n'
+              'Verify downloads with `sha256sum --check SHA256SUMS`.\n')
+          PY
+          # Reject duplicate releases AND existing tags; do not retarget an old release.
+          python3 - <<'PY'
+          import json, os, subprocess
+          repo, tag = os.environ['GH_REPO'], os.environ['RELEASE_TAG']
+          for route in (f'repos/{repo}/git/ref/tags/{tag}', f'repos/{repo}/releases/tags/{tag}'):
+              result = subprocess.run(['gh', 'api', route], capture_output=True, text=True)
+              if result.returncode == 0:
+                  raise SystemExit('Version already exists; increment the build number')
+              try:
+                  status = json.loads(result.stdout).get('status')
+              except (ValueError, AttributeError):
+                  status = None
+              if str(status) != '404':
+                  raise SystemExit('Could not verify release availability; refusing to publish')
+          PY
+          shopt -s nullglob
+          assets=(*.apk release-metadata.json SHA256SUMS)
+          # Atomic creation fails if another run/actor already reserved this version.
+          gh api --method POST "repos/$GH_REPO/git/refs" \
+            --raw-field "ref=refs/tags/$RELEASE_TAG" \
+            --raw-field "sha=$RELEASE_SHA" > /dev/null
+          gh release create "$RELEASE_TAG" "${assets[@]}" \
+            --repo "$GH_REPO" --verify-tag --target "$RELEASE_SHA" --draft \
+            --title "Kute $RELEASE_TAG" --notes-file RELEASE_NOTES.md

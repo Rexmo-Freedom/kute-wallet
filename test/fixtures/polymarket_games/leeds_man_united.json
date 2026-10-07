@@ -1,0 +1,134 @@
+{
+ "id": "1134916",
+ "slug": "epl-lee-mun-2026-10-18",
+ "title": "Leeds United FC vs. Manchester United FC",
+ "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/Repetitive-markets/premier+league.jpg",
+ "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/Repetitive-markets/premier+league.jpg",
+ "active": true,
+ "closed": false,
+ "negRisk": true,
+ "enableNegRisk": true,
+ "gameId": 90114135,
+ "startTime": "2026-10-18T13:00:00Z",
+ "endDate": "2026-10-18T13:00:00Z",
+ "volume": 228.29717099999996,
+ "liquidity": 17734.9089,
+ "seriesSlug": "premier-league-2025",
+ "tags": [
+  {
+   "slug": "sports",
+   "label": "Sports"
+  },
+  {
+   "slug": "games",
+   "label": "Games"
+  },
+  {
+   "slug": "soccer",
+   "label": "Soccer"
+  },
+  {
+   "slug": "premier-league",
+   "label": "Premier League"
+  },
+  {
+   "slug": "EPL",
+   "label": "EPL"
+  }
+ ],
+ "teams": [
+  {
+   "id": 114264,
+   "name": "Leeds United FC",
+   "league": "epl",
+   "logo": "https://polymarket-upload.s3.us-east-2.amazonaws.com/Leeds United FC-bb08f6ee48.png",
+   "abbreviation": "lee",
+   "alias": "Leeds",
+   "color": "#c4ab1c",
+   "ordering": "home"
+  },
+  {
+   "id": 100016,
+   "name": "Manchester United FC",
+   "league": "epl",
+   "logo": "https://polymarket-upload.s3.us-east-2.amazonaws.com/Manchester United FC-05ec8891f0.png",
+   "abbreviation": "mun",
+   "alias": "Man Utd",
+   "color": "#c01b21",
+   "ordering": "away"
+  }
+ ],
+ "markets": [
+  {
+   "id": "5311907",
+   "question": "Will Leeds United FC win on 2026-10-18?",
+   "conditionId": "0xab1fd80d8bd4071eed7e300af7478a50f20524588ce4577e3bd8a54410d9d9db",
+   "slug": "epl-lee-mun-2026-10-18-lee",
+   "groupItemTitle": "Leeds United FC",
+   "groupItemThreshold": "0",
+   "outcomes": "[\"Yes\", \"No\"]",
+   "outcomePrices": "[\"0.335\", \"0.665\"]",
+   "clobTokenIds": "[\"34020569485949390434092453776234146958179225699579411132499958841047996143534\", \"100248425569280339350776431321663987052294454457893227327209333842063732897981\"]",
+   "sportsMarketType": "moneyline",
+   "active": true,
+   "closed": false,
+   "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/Repetitive-markets/premier+league.jpg",
+   "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/Repetitive-markets/premier+league.jpg",
+   "negRisk": true,
+   "endDate": "2026-10-18T13:00:00Z",
+   "acceptingOrders": true,
+   "enableOrderBook": true,
+   "orderPriceMinTickSize": 0.01,
+   "orderMinSize": 5,
+   "liquidityNum": 5692.6473,
+   "volumeNum": 1.492536
+  },
+  {
+   "id": "5311910",
+   "question": "Will Leeds United FC vs. Manchester United FC end in a draw?",
+   "conditionId": "0x7d915c7499d76223c18fd52c2125a2c092952fc0746ef9ad4a196026ed778cfe",
+   "slug": "epl-lee-mun-2026-10-18-draw",
+   "groupItemTitle": "Draw (Leeds United FC vs. Manchester United FC)",
+   "groupItemThreshold": "1",
+   "outcomes": "[\"Yes\", \"No\"]",
+   "outcomePrices": "[\"0.26\", \"0.74\"]",
+   "clobTokenIds": "[\"71495165797562104935263392853932155620329529736381445410341397541005033333109\", \"108163783600220363125492361515108839002564638300821453355197580085740693358675\"]",
+   "sportsMarketType": "moneyline",
+   "active": true,
+   "closed": false,
+   "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/Repetitive-markets/premier+league.jpg",
+   "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/Repetitive-markets/premier+league.jpg",
+   "negRisk": true,
+   "endDate": "2026-10-18T13:00:00Z",
+   "acceptingOrders": true,
+   "enableOrderBook": true,
+   "orderPriceMinTickSize": 0.01,
+   "orderMinSize": 5,
+   "liquidityNum": 6299.1331
+  },
+  {
+   "id": "5311916",
+   "question": "Will Manchester United FC win on 2026-10-18?",
+   "conditionId": "0xbf16ed03271e93e0fd31cbb231a01947b084915e54e25bd931cca3d5cc160ce2",
+   "slug": "epl-lee-mun-2026-10-18-mun",
+   "groupItemTitle": "Manchester United FC",
+   "groupItemThreshold": "2",
+   "outcomes": "[\"Yes\", \"No\"]",
+   "outcomePrices": "[\"0.405\", \"0.595\"]",
+   "clobTokenIds": "[\"88220401319820287797023587461928387864560165463769494309016571588052962174159\", \"28164394189273261969459725428389371809252944728702472891792543201231274154597\"]",
+   "sportsMarketType": "moneyline",
+   "active": true,
+   "closed": false,
+   "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/Repetitive-markets/premier+league.jpg",
+   "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/Repetitive-markets/premier+league.jpg",
+   "negRisk": true,
+   "endDate": "2026-10-18T13:00:00Z",
+   "acceptingOrders": true,
+   "enableOrderBook": true,
+   "orderPriceMinTickSize": 0.01,
+   "orderMinSize": 5,
+   "liquidityNum": 5738.5585,
+   "volumeNum": 226.80463499999996
+  }
+ ]
+}

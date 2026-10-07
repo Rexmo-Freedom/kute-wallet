@@ -1,0 +1,276 @@
+PODS:
+  - audioplayers_darwin (0.0.1):
+    - Flutter
+    - FlutterMacOS
+  - breez_sdk_spark_flutter (0.17.1):
+    - FlutterMacOS
+  - desktop_webview_window (0.0.1):
+    - FlutterMacOS
+  - device_info_plus (0.0.1):
+    - FlutterMacOS
+  - file_picker (0.0.1):
+    - FlutterMacOS
+  - Firebase/CoreOnly (12.14.0):
+    - FirebaseCore (~> 12.14.0)
+  - Firebase/Crashlytics (12.14.0):
+    - Firebase/CoreOnly
+    - FirebaseCrashlytics (~> 12.14.0)
+  - Firebase/Messaging (12.14.0):
+    - Firebase/CoreOnly
+    - FirebaseMessaging (~> 12.14.0)
+  - firebase_core (4.10.0):
+    - Firebase/CoreOnly (~> 12.14.0)
+    - FlutterMacOS
+  - firebase_crashlytics (5.2.3):
+    - Firebase/CoreOnly (~> 12.14.0)
+    - Firebase/Crashlytics (~> 12.14.0)
+    - firebase_core
+    - FlutterMacOS
+  - firebase_messaging (16.3.0):
+    - Firebase/CoreOnly (~> 12.14.0)
+    - Firebase/Messaging (~> 12.14.0)
+    - firebase_core
+    - FlutterMacOS
+  - FirebaseCore (12.14.0):
+    - FirebaseCoreInternal (~> 12.14.0)
+    - GoogleUtilities/Environment (~> 8.1)
+    - GoogleUtilities/Logger (~> 8.1)
+  - FirebaseCoreExtension (12.14.0):
+    - FirebaseCore (~> 12.14.0)
+  - FirebaseCoreInternal (12.14.0):
+    - "GoogleUtilities/NSData+zlib (~> 8.1)"
+  - FirebaseCrashlytics (12.14.0):
+    - FirebaseCore (~> 12.14.0)
+    - FirebaseInstallations (~> 12.14.0)
+    - FirebaseRemoteConfigInterop (~> 12.14.0)
+    - FirebaseSessions (~> 12.14.0)
+    - GoogleDataTransport (~> 10.1)
+    - GoogleUtilities/Environment (~> 8.1)
+    - nanopb (~> 3.30910.0)
+    - PromisesObjC (~> 2.4)
+  - FirebaseInstallations (12.14.0):
+    - FirebaseCore (~> 12.14.0)
+    - GoogleUtilities/Environment (~> 8.1)
+    - GoogleUtilities/UserDefaults (~> 8.1)
+    - PromisesObjC (~> 2.4)
+  - FirebaseMessaging (12.14.0):
+    - FirebaseCore (~> 12.14.0)
+    - FirebaseInstallations (~> 12.14.0)
+    - GoogleDataTransport (~> 10.1)
+    - GoogleUtilities/AppDelegateSwizzler (~> 8.1)
+    - GoogleUtilities/Environment (~> 8.1)
+    - GoogleUtilities/Reachability (~> 8.1)
+    - GoogleUtilities/UserDefaults (~> 8.1)
+    - nanopb (~> 3.30910.0)
+  - FirebaseRemoteConfigInterop (12.14.0)
+  - FirebaseSessions (12.14.0):
+    - FirebaseCore (~> 12.14.0)
+    - FirebaseCoreExtension (~> 12.14.0)
+    - FirebaseInstallations (~> 12.14.0)
+    - GoogleDataTransport (~> 10.1)
+    - GoogleUtilities/Environment (~> 8.1)
+    - GoogleUtilities/UserDefaults (~> 8.1)
+    - nanopb (~> 3.30910.0)
+    - PromisesSwift (~> 2.1)
+  - flutter_local_notifications (0.0.1):
+    - FlutterMacOS
+  - flutter_secure_storage_macos (6.1.3):
+    - FlutterMacOS
+  - FlutterMacOS (1.0.0)
+  - GoogleDataTransport (10.1.0):
+    - nanopb (~> 3.30910.0)
+    - PromisesObjC (~> 2.4)
+  - GoogleUtilities/AppDelegateSwizzler (8.1.1):
+    - GoogleUtilities/Environment
+    - GoogleUtilities/Logger
+    - GoogleUtilities/Network
+    - GoogleUtilities/Privacy
+  - GoogleUtilities/Environment (8.1.1):
+    - GoogleUtilities/Privacy
+  - GoogleUtilities/Logger (8.1.1):
+    - GoogleUtilities/Environment
+    - GoogleUtilities/Privacy
+  - GoogleUtilities/Network (8.1.1):
+    - GoogleUtilities/Logger
+    - "GoogleUtilities/NSData+zlib"
+    - GoogleUtilities/Privacy
+    - GoogleUtilities/Reachability
+  - "GoogleUtilities/NSData+zlib (8.1.1)":
+    - GoogleUtilities/Privacy
+  - GoogleUtilities/Privacy (8.1.1)
+  - GoogleUtilities/Reachability (8.1.1):
+    - GoogleUtilities/Logger
+    - GoogleUtilities/Privacy
+  - GoogleUtilities/UserDefaults (8.1.1):
+    - GoogleUtilities/Logger
+    - GoogleUtilities/Privacy
+  - in_app_review (2.0.0):
+    - FlutterMacOS
+  - local_auth_darwin (0.0.1):
+    - Flutter
+    - FlutterMacOS
+  - mobile_scanner (7.0.0):
+    - Flutter
+    - FlutterMacOS
+  - nanopb (3.30910.0):
+    - nanopb/decode (= 3.30910.0)
+    - nanopb/encode (= 3.30910.0)
+  - nanopb/decode (3.30910.0)
+  - nanopb/encode (3.30910.0)
+  - package_info_plus (0.0.1):
+    - FlutterMacOS
+  - path_provider_foundation (0.0.1):
+    - Flutter
+    - FlutterMacOS
+  - PostHog (3.61.0)
+  - posthog_flutter (0.0.1):
+    - Flutter
+    - FlutterMacOS
+    - PostHog (< 4.0.0, >= 3.56.0)
+  - PromisesObjC (2.4.1)
+  - PromisesSwift (2.4.1):
+    - PromisesObjC (= 2.4.1)
+  - share_plus (0.0.1):
+    - FlutterMacOS
+  - sqflite_darwin (0.0.4):
+    - Flutter
+    - FlutterMacOS
+  - universal_ble (0.0.1):
+    - Flutter
+    - FlutterMacOS
+  - url_launcher_macos (0.0.1):
+    - FlutterMacOS
+  - webview_flutter_wkwebview (0.0.1):
+    - Flutter
+    - FlutterMacOS
+
+DEPENDENCIES:
+  - audioplayers_darwin (from `Flutter/ephemeral/.symlinks/plugins/audioplayers_darwin/darwin`)
+  - breez_sdk_spark_flutter (from `Flutter/ephemeral/.symlinks/plugins/breez_sdk_spark_flutter/macos`)
+  - desktop_webview_window (from `Flutter/ephemeral/.symlinks/plugins/desktop_webview_window/macos`)
+  - device_info_plus (from `Flutter/ephemeral/.symlinks/plugins/device_info_plus/macos`)
+  - file_picker (from `Flutter/ephemeral/.symlinks/plugins/file_picker/macos`)
+  - firebase_core (from `Flutter/ephemeral/.symlinks/plugins/firebase_core/macos`)
+  - firebase_crashlytics (from `Flutter/ephemeral/.symlinks/plugins/firebase_crashlytics/macos`)
+  - firebase_messaging (from `Flutter/ephemeral/.symlinks/plugins/firebase_messaging/macos`)
+  - flutter_local_notifications (from `Flutter/ephemeral/.symlinks/plugins/flutter_local_notifications/macos`)
+  - flutter_secure_storage_macos (from `Flutter/ephemeral/.symlinks/plugins/flutter_secure_storage_macos/macos`)
+  - FlutterMacOS (from `Flutter/ephemeral`)
+  - in_app_review (from `Flutter/ephemeral/.symlinks/plugins/in_app_review/macos`)
+  - local_auth_darwin (from `Flutter/ephemeral/.symlinks/plugins/local_auth_darwin/darwin`)
+  - mobile_scanner (from `Flutter/ephemeral/.symlinks/plugins/mobile_scanner/darwin`)
+  - package_info_plus (from `Flutter/ephemeral/.symlinks/plugins/package_info_plus/macos`)
+  - path_provider_foundation (from `Flutter/ephemeral/.symlinks/plugins/path_provider_foundation/darwin`)
+  - posthog_flutter (from `Flutter/ephemeral/.symlinks/plugins/posthog_flutter/darwin`)
+  - share_plus (from `Flutter/ephemeral/.symlinks/plugins/share_plus/macos`)
+  - sqflite_darwin (from `Flutter/ephemeral/.symlinks/plugins/sqflite_darwin/darwin`)
+  - universal_ble (from `Flutter/ephemeral/.symlinks/plugins/universal_ble/darwin`)
+  - url_launcher_macos (from `Flutter/ephemeral/.symlinks/plugins/url_launcher_macos/macos`)
+  - webview_flutter_wkwebview (from `Flutter/ephemeral/.symlinks/plugins/webview_flutter_wkwebview/darwin`)
+
+SPEC REPOS:
+  trunk:
+    - Firebase
+    - FirebaseCore
+    - FirebaseCoreExtension
+    - FirebaseCoreInternal
+    - FirebaseCrashlytics
+    - FirebaseInstallations
+    - FirebaseMessaging
+    - FirebaseRemoteConfigInterop
+    - FirebaseSessions
+    - GoogleDataTransport
+    - GoogleUtilities
+    - nanopb
+    - PostHog
+    - PromisesObjC
+    - PromisesSwift
+
+EXTERNAL SOURCES:
+  audioplayers_darwin:
+    :path: Flutter/ephemeral/.symlinks/plugins/audioplayers_darwin/darwin
+  breez_sdk_spark_flutter:
+    :path: Flutter/ephemeral/.symlinks/plugins/breez_sdk_spark_flutter/macos
+  desktop_webview_window:
+    :path: Flutter/ephemeral/.symlinks/plugins/desktop_webview_window/macos
+  device_info_plus:
+    :path: Flutter/ephemeral/.symlinks/plugins/device_info_plus/macos
+  file_picker:
+    :path: Flutter/ephemeral/.symlinks/plugins/file_picker/macos
+  firebase_core:
+    :path: Flutter/ephemeral/.symlinks/plugins/firebase_core/macos
+  firebase_crashlytics:
+    :path: Flutter/ephemeral/.symlinks/plugins/firebase_crashlytics/macos
+  firebase_messaging:
+    :path: Flutter/ephemeral/.symlinks/plugins/firebase_messaging/macos
+  flutter_local_notifications:
+    :path: Flutter/ephemeral/.symlinks/plugins/flutter_local_notifications/macos
+  flutter_secure_storage_macos:
+    :path: Flutter/ephemeral/.symlinks/plugins/flutter_secure_storage_macos/macos
+  FlutterMacOS:
+    :path: Flutter/ephemeral
+  in_app_review:
+    :path: Flutter/ephemeral/.symlinks/plugins/in_app_review/macos
+  local_auth_darwin:
+    :path: Flutter/ephemeral/.symlinks/plugins/local_auth_darwin/darwin
+  mobile_scanner:
+    :path: Flutter/ephemeral/.symlinks/plugins/mobile_scanner/darwin
+  package_info_plus:
+    :path: Flutter/ephemeral/.symlinks/plugins/package_info_plus/macos
+  path_provider_foundation:
+    :path: Flutter/ephemeral/.symlinks/plugins/path_provider_foundation/darwin
+  posthog_flutter:
+    :path: Flutter/ephemeral/.symlinks/plugins/posthog_flutter/darwin
+  share_plus:
+    :path: Flutter/ephemeral/.symlinks/plugins/share_plus/macos
+  sqflite_darwin:
+    :path: Flutter/ephemeral/.symlinks/plugins/sqflite_darwin/darwin
+  universal_ble:
+    :path: Flutter/ephemeral/.symlinks/plugins/universal_ble/darwin
+  url_launcher_macos:
+    :path: Flutter/ephemeral/.symlinks/plugins/url_launcher_macos/macos
+  webview_flutter_wkwebview:
+    :path: Flutter/ephemeral/.symlinks/plugins/webview_flutter_wkwebview/darwin
+
+SPEC CHECKSUMS:
+  audioplayers_darwin: 835ced6edd4c9fc8ebb0a7cc9e294a91d99917d5
+  breez_sdk_spark_flutter: 2cd9d2e388968a232943a08f4f7e0bfbef1a3d56
+  desktop_webview_window: 07ec5b575166556b3b9c96c5b7c962b2c044b452
+  device_info_plus: 4fb280989f669696856f8b129e4a5e3cd6c48f76
+  file_picker: 7584aae6fa07a041af2b36a2655122d42f578c1a
+  Firebase: 7cc10425300768ec86292688af5cb228f0604bde
+  firebase_core: 6c25555337efe4f9288389c14373ddd107790d90
+  firebase_crashlytics: 4a4184b2a2a077be636a3e97b970f942b69ff387
+  firebase_messaging: 42a62d26647e5068cb1fbb083a01e59c702b983f
+  FirebaseCore: 4939b340b9c598dc1f965d68f8fe57e630b65407
+  FirebaseCoreExtension: ee3e3697acea1062288b1900bcdcab4d59ab93b4
+  FirebaseCoreInternal: 090369a5fffd7423cf88006ab4d2ccc2173a8db9
+  FirebaseCrashlytics: 1fabfdca902d0706cb51bf839edb58b45db421ff
+  FirebaseInstallations: 7cdc919e29dc54306edeffdbdc1eed1a40d7d1e7
+  FirebaseMessaging: 4803888ce3002188f24e19faa8d2326261538426
+  FirebaseRemoteConfigInterop: 40ecdce5a4feee7643b81342f32f1cded905bb07
+  FirebaseSessions: c9e7b7829265454f08cb68f7f8a6650c9b221bd4
+  flutter_local_notifications: 4bf37a31afde695b56091b4ae3e4d9c7a7e6cda0
+  flutter_secure_storage_macos: 7f45e30f838cf2659862a4e4e3ee1c347c2b3b54
+  FlutterMacOS: d0db08ddef1a9af05a5ec4b724367152bb0500b1
+  GoogleDataTransport: aae35b7ea0c09004c3797d53c8c41f66f219d6a7
+  GoogleUtilities: 4f2618a4a1e762a1ee134a1e2323bba9843e06da
+  in_app_review: 66e7680752b632d83f4f0e88b34d52ed303fbff4
+  local_auth_darwin: c3ee6cce0a8d56be34c8ccb66ba31f7f180aaebb
+  mobile_scanner: 9157936403f5a0644ca3779a38ff8404c5434a93
+  nanopb: fad817b59e0457d11a5dfbde799381cd727c1275
+  package_info_plus: f0052d280d17aa382b932f399edf32507174e870
+  path_provider_foundation: bb55f6dbba17d0dccd6737fe6f7f34fbd0376880
+  PostHog: 82eee1ba92efc8144b06b6e4412abba5438c8fda
+  posthog_flutter: 03b15ff7a78e2a4162baaf11f8db37b079412106
+  PromisesObjC: 752c3227f599e3467650e47ea36f433eeb10c273
+  PromisesSwift: 217dea0fd5d2ad65222a109c48698add13cc1c5b
+  share_plus: 510bf0af1a42cd602274b4629920c9649c52f4cc
+  sqflite_darwin: 20b2a3a3b70e43edae938624ce550a3cbf66a3d0
+  universal_ble: 45519b2aeafe62761e2c6309f8927edb5288b914
+  url_launcher_macos: f87a979182d112f911de6820aefddaf56ee9fbfd
+  webview_flutter_wkwebview: 8ebf4fded22593026f7dbff1fbff31ea98573c8d
+
+PODFILE CHECKSUM: 9ebaf0ce3d369aaa26a9ea0e159195ed94724cf3
+
+COCOAPODS: 1.16.2

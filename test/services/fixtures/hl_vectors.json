@@ -1,0 +1,642 @@
+{
+ "signer": "0x42187A0F42088287EbFE8c20BB7adF111e93c381",
+ "nonce": 1677777606040,
+ "msgpack": {
+  "scalars": [
+   {
+    "value": null,
+    "hex": "c0"
+   },
+   {
+    "value": true,
+    "hex": "c3"
+   },
+   {
+    "value": false,
+    "hex": "c2"
+   },
+   {
+    "value": 0,
+    "hex": "00"
+   },
+   {
+    "value": 127,
+    "hex": "7f"
+   },
+   {
+    "value": 128,
+    "hex": "cc80"
+   },
+   {
+    "value": 255,
+    "hex": "ccff"
+   },
+   {
+    "value": 256,
+    "hex": "cd0100"
+   },
+   {
+    "value": 65535,
+    "hex": "cdffff"
+   },
+   {
+    "value": 65536,
+    "hex": "ce00010000"
+   },
+   {
+    "value": 4294967295,
+    "hex": "ceffffffff"
+   },
+   {
+    "value": 4294967296,
+    "hex": "cf0000000100000000"
+   },
+   {
+    "value": 1677777606040,
+    "hex": "cf00000186a3569598"
+   },
+   {
+    "value": -1,
+    "hex": "ff"
+   },
+   {
+    "value": -32,
+    "hex": "e0"
+   },
+   {
+    "value": -33,
+    "hex": "d0df"
+   },
+   {
+    "value": -129,
+    "hex": "d1ff7f"
+   },
+   {
+    "value": -32769,
+    "hex": "d2ffff7fff"
+   },
+   {
+    "value": "",
+    "hex": "a0"
+   },
+   {
+    "value": "Gtc",
+    "hex": "a3477463"
+   },
+   {
+    "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "hex": "bf61616161616161616161616161616161616161616161616161616161616161"
+   },
+   {
+    "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "hex": "d9206161616161616161616161616161616161616161616161616161616161616161"
+   },
+   {
+    "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "hex": "da012c616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161"
+   }
+  ]
+ },
+ "l1Actions": [
+  {
+   "name": "order_gtc",
+   "action": {
+    "type": "order",
+    "orders": [
+     {
+      "a": 4,
+      "b": true,
+      "p": "1670.1",
+      "s": "0.0147",
+      "r": false,
+      "t": {
+       "limit": {
+        "tif": "Ioc"
+       }
+      }
+     }
+    ],
+    "grouping": "na"
+   },
+   "vaultAddress": null,
+   "nonce": 1677777606040,
+   "expiresAfter": null,
+   "msgpackHex": "83a474797065a56f72646572a66f72646572739186a16104a162c3a170a6313637302e31a173a6302e30313437a172c2a17481a56c696d697481a3746966a3496f63a867726f7570696e67a26e61",
+   "connectionIdHex": "0fcbeda5ae3c4950a548021552a4fea2226858c4453571bf3f24ba017eac2908",
+   "digest_mainnet": "be5eb0697b77c2acfeaa07a3d4913ae5d06489c63bfd143c5d3d66540a196c43",
+   "pythonSig_mainnet": {
+    "r": "0xa7f8fb2364eee36f963020a425d47444d33af36d1c8bbef47e3ab6538f80ca2d",
+    "s": "0x2aaf1a26ea26b595892e8759ec8ffd6ad753424e26ca88badaf7532b55a50fe0",
+    "v": 28
+   },
+   "digest_testnet": "eb995f6f09994a13de522ce0cc454871e81500e01de770e09d9fa6f5d2742601",
+   "pythonSig_testnet": {
+    "r": "0xa5bcf6fb53537eab72c1f5b9709955423fe9b69a362af1d8a2239ff4198102bd",
+    "s": "0x2d0e8c50c09e6af01f082b3456c406519b8cecffa4c9987610e4c8b1d9b02de6",
+    "v": 27
+   }
+  },
+  {
+   "name": "order_gtc_vault",
+   "action": {
+    "type": "order",
+    "orders": [
+     {
+      "a": 4,
+      "b": true,
+      "p": "1670.1",
+      "s": "0.0147",
+      "r": false,
+      "t": {
+       "limit": {
+        "tif": "Ioc"
+       }
+      }
+     }
+    ],
+    "grouping": "na"
+   },
+   "vaultAddress": "0x1719884eb866cb12b2287399b15f7db5e7d775ea",
+   "nonce": 1677777606040,
+   "expiresAfter": null,
+   "msgpackHex": "83a474797065a56f72646572a66f72646572739186a16104a162c3a170a6313637302e31a173a6302e30313437a172c2a17481a56c696d697481a3746966a3496f63a867726f7570696e67a26e61",
+   "connectionIdHex": "536c41c128a75dc08fb31e02008bcf08b79852616b34e855d514fa673d81955d",
+   "digest_mainnet": "029c814219f5acb4ac3cf8931198ee634df798a2f7219d9ed170ef0fb0c750c1",
+   "pythonSig_mainnet": {
+    "r": "0x57aaac8e7a3279e51563375f8fa37b1b085bbf8f904bceb0ed3a25ceda346401",
+    "s": "0x57ec61376c5e9bfb5bc4ccc364f025f19499bc44366696ac9e4da5ad638cf95f",
+    "v": 27
+   },
+   "digest_testnet": "8159d5da21cc213530e2f31029c3f9663b818b9380de56d305b72da9628cff04",
+   "pythonSig_testnet": {
+    "r": "0x9dc9b50158311b09187eb0a86854e82839b066319b20e0088f168df79d61e0d",
+    "s": "0x5676f5eff9b6515ac4f86d56f713f02523c46e6931cbb748ad50814dcd005077",
+    "v": 28
+   }
+  },
+  {
+   "name": "order_gtc_expires",
+   "action": {
+    "type": "order",
+    "orders": [
+     {
+      "a": 4,
+      "b": true,
+      "p": "1670.1",
+      "s": "0.0147",
+      "r": false,
+      "t": {
+       "limit": {
+        "tif": "Ioc"
+       }
+      }
+     }
+    ],
+    "grouping": "na"
+   },
+   "vaultAddress": null,
+   "nonce": 1677777606040,
+   "expiresAfter": 1677777666040,
+   "msgpackHex": "83a474797065a56f72646572a66f72646572739186a16104a162c3a170a6313637302e31a173a6302e30313437a172c2a17481a56c696d697481a3746966a3496f63a867726f7570696e67a26e61",
+   "connectionIdHex": "d613281305a1aa22b0fb0337266b52800abc4c9ed3242e53b6f3f4cdfc1653da",
+   "digest_mainnet": "8ccf51ee2fa40ce3809d20799b6bb9da8510c0bdab501d75edf0a4d2de4399a0",
+   "pythonSig_mainnet": {
+    "r": "0x31160420c2638a790be74d31a8e1118d76a251fa8fb2df1b79801f368bd49680",
+    "s": "0x3355fe7d075662e1c02a2b67a610f0873b3fd480f446318612a867188390de58",
+    "v": 27
+   },
+   "digest_testnet": "44aa16c9efaa888be73ca4b09427de22e31bf72b4a3049d0336d398def8aa277",
+   "pythonSig_testnet": {
+    "r": "0x8c6d4cfc3a277833798a44eb51b4b3650114c426195b234ace7da2533c634d9f",
+    "s": "0x377ac6c5c4ebe07448a5e300f2769fb3c80f2acddaf653bce4b400b52c9100d0",
+    "v": 28
+   }
+  },
+  {
+   "name": "order_cloid",
+   "action": {
+    "type": "order",
+    "orders": [
+     {
+      "a": 4,
+      "b": true,
+      "p": "1670.1",
+      "s": "0.0147",
+      "r": false,
+      "t": {
+       "limit": {
+        "tif": "Ioc"
+       }
+      },
+      "c": "0x00000000000000000000000000000001"
+     }
+    ],
+    "grouping": "na"
+   },
+   "vaultAddress": null,
+   "nonce": 1677777606040,
+   "expiresAfter": null,
+   "msgpackHex": "83a474797065a56f72646572a66f72646572739187a16104a162c3a170a6313637302e31a173a6302e30313437a172c2a17481a56c696d697481a3746966a3496f63a163d92230783030303030303030303030303030303030303030303030303030303030303031a867726f7570696e67a26e61",
+   "connectionIdHex": "d32959af1aaa559c722a0d0a430ecb043ebf6523c44ff7fc23f63923ad29739b",
+   "digest_mainnet": "632488fa7481ac5052459972e9d32f19de34df88cfa2bc28986d9818078014b5",
+   "pythonSig_mainnet": {
+    "r": "0x4616fca67b1a0095453948795b827b287f4cef363041e04e5d59f3808dd9824d",
+    "s": "0x2979d99e0de548b4b37476dab3d9138bb9362f8446f960b6292daad9d85604b9",
+    "v": 27
+   },
+   "digest_testnet": "99672e17327c39a08079656a417123922075af315876700ddbf87dc02f321195",
+   "pythonSig_testnet": {
+    "r": "0xac065729606e720bbdd6b1d15f2b0b66efbddb8117fe5dd0bb5ccf0961cff40a",
+    "s": "0x338c6dc957a909dc92e8725e99946666c6efcf1091b5c23297a45891b0306909",
+    "v": 27
+   }
+  },
+  {
+   "name": "order_builder",
+   "action": {
+    "type": "order",
+    "orders": [
+     {
+      "a": 4,
+      "b": true,
+      "p": "1670.1",
+      "s": "0.0147",
+      "r": false,
+      "t": {
+       "limit": {
+        "tif": "Ioc"
+       }
+      }
+     }
+    ],
+    "grouping": "na",
+    "builder": {
+     "b": "0x8c967e73e6b15087c42a10d344cff4c96d877f1d",
+     "f": 10
+    }
+   },
+   "vaultAddress": null,
+   "nonce": 1677777606040,
+   "expiresAfter": null,
+   "msgpackHex": "84a474797065a56f72646572a66f72646572739186a16104a162c3a170a6313637302e31a173a6302e30313437a172c2a17481a56c696d697481a3746966a3496f63a867726f7570696e67a26e61a76275696c64657282a162d92a307838633936376537336536623135303837633432613130643334346366663463393664383737663164a1660a",
+   "connectionIdHex": "0dfc9b4ee966cb548bc9fc1423a51b9912415b2df6106e07df2a2dc7ed3b5c8f",
+   "digest_mainnet": "264de66d07af44d539b1e257f0461376132c73f7906e19ab65ebc8b5dccca33b",
+   "pythonSig_mainnet": {
+    "r": "0x7fb79eda684c0830e4631440179541395426a80960ec62512a065ff2058711ad",
+    "s": "0x13b8e39df94c064bddee0a72a4d061de4e5c42874c26320c967a14f5494c5e3d",
+    "v": 27
+   },
+   "digest_testnet": "953b0f2f19c6afec8060174f1fbe2e43e9023100f037e5218ee6e7c5cf21b91c",
+   "pythonSig_testnet": {
+    "r": "0xc8c0e464bf443d83c6495c0908cbe8d7908230ef25a9a758c2f8c01448c5a1f8",
+    "s": "0x1babf2c387de4b401463bf66ca851799e24afc3fc72cb9db65d41b6eaefcbe01",
+    "v": 28
+   }
+  },
+  {
+   "name": "order_trigger",
+   "action": {
+    "type": "order",
+    "orders": [
+     {
+      "a": 4,
+      "b": false,
+      "p": "1670.1",
+      "s": "0.0147",
+      "r": true,
+      "t": {
+       "trigger": {
+        "isMarket": true,
+        "triggerPx": "1600",
+        "tpsl": "sl"
+       }
+      }
+     }
+    ],
+    "grouping": "na"
+   },
+   "vaultAddress": null,
+   "nonce": 1677777606040,
+   "expiresAfter": null,
+   "msgpackHex": "83a474797065a56f72646572a66f72646572739186a16104a162c2a170a6313637302e31a173a6302e30313437a172c3a17481a77472696767657283a869734d61726b6574c3a9747269676765725078a431363030a47470736ca2736ca867726f7570696e67a26e61",
+   "connectionIdHex": "f63fdbbc022dba48003e39a9b182b7185211d94e20297ee5e744e03cff6079e0",
+   "digest_mainnet": "072ac61ac1be4691f34de5973f86c7e922592dfd4ea437b34e3f484001793edf",
+   "pythonSig_mainnet": {
+    "r": "0xb74e5a4dc55e19ee2e3b4d78b949c6074523d4929734cc4278e94cdcff9c0e32",
+    "s": "0x68662cc978255353b44ec334622f698254b5e787993cfeb1194ca4171c416e2c",
+    "v": 27
+   },
+   "digest_testnet": "03bd434b0f31031bc73f1e904d0035f462884e4885a382ec0e848f3470a2d7bd",
+   "pythonSig_testnet": {
+    "r": "0x542cf23c878c6ca13333d9a516966688c7ebc1e8969c5e1c0a418edcdd73c1a9",
+    "s": "0x3888bebe9d7447a88f5225c40b3c006c5640b6850c83706c9d28cee0b5573b84",
+    "v": 27
+   }
+  },
+  {
+   "name": "spot_order",
+   "action": {
+    "type": "order",
+    "orders": [
+     {
+      "a": 10008,
+      "b": true,
+      "p": "172.21",
+      "s": "12",
+      "r": false,
+      "t": {
+       "limit": {
+        "tif": "Gtc"
+       }
+      }
+     }
+    ],
+    "grouping": "na"
+   },
+   "vaultAddress": null,
+   "nonce": 1677777606040,
+   "expiresAfter": null,
+   "msgpackHex": "83a474797065a56f72646572a66f72646572739186a161cd2718a162c3a170a63137322e3231a173a23132a172c2a17481a56c696d697481a3746966a3477463a867726f7570696e67a26e61",
+   "connectionIdHex": "9c66496bc691231a0a445b174c123bee7b68a545eff8ef8261fe44a0994d95a1",
+   "digest_mainnet": "eb737da0ea2115fdf995dc05a3609095a31501cc2651ffca5969e0ac04a0f509",
+   "pythonSig_mainnet": {
+    "r": "0x3841453ef4b6acaea48210be0d4d64912a561f6b88f6670216544640a575931e",
+    "s": "0x4c4f3a992ec07fd2a43c1d86ace5a61e212748b08cc20c6f635ae33e75f9f536",
+    "v": 28
+   },
+   "digest_testnet": "53788b179eb4a29e06ae67ea819360b75426365b5585d8cb5e25b7c8cccdc3fa",
+   "pythonSig_testnet": {
+    "r": "0xf777cae955f9e80acb1169daaeb77ba1dae73733ccde8ec3dc44ba9211b3dee3",
+    "s": "0x3f714fdfcbbe5a4cff895db0e185eaab5cedc18bacc7fa8a73df4cc6adcde901",
+    "v": 28
+   }
+  },
+  {
+   "name": "cancel",
+   "action": {
+    "type": "cancel",
+    "cancels": [
+     {
+      "a": 4,
+      "o": 77738308
+     }
+    ]
+   },
+   "vaultAddress": null,
+   "nonce": 1677777606040,
+   "expiresAfter": null,
+   "msgpackHex": "82a474797065a663616e63656ca763616e63656c739182a16104a16fce04a23144",
+   "connectionIdHex": "d72b303d6c2122c5ed1963e4ba4301bfc833531a9025e7272c8fa5f0f3a08079",
+   "digest_mainnet": "6a841db778effff9587c216718e6d249b78fa0b5306616aa94670467172b5d9b",
+   "pythonSig_mainnet": {
+    "r": "0xc9eb2bd7049107842a667e543565b7bda702187f25ededc95fc113e339d9ae0",
+    "s": "0x30d5907228443e11c77f2e48218e57a8c6fa0b910a9d705e8027fe0bce19c37a",
+    "v": 27
+   },
+   "digest_testnet": "701336809d7068bebc3eee0b82fdab2161113cca4415f7495d2f172b51e43343",
+   "pythonSig_testnet": {
+    "r": "0x1b566b2bdf747648787afe365f2eab2b39bc95bf4fa528e328a4c1493112c1e3",
+    "s": "0x2ba993245e876ad59c24d528df84f40365061cedd845968406ce627189af6f18",
+    "v": 28
+   }
+  },
+  {
+   "name": "cancel_cloid",
+   "action": {
+    "type": "cancelByCloid",
+    "cancels": [
+     {
+      "asset": 4,
+      "cloid": "0x00000000000000000000000000000001"
+     }
+    ]
+   },
+   "vaultAddress": null,
+   "nonce": 1677777606040,
+   "expiresAfter": null,
+   "msgpackHex": "82a474797065ad63616e63656c4279436c6f6964a763616e63656c739182a5617373657404a5636c6f6964d92230783030303030303030303030303030303030303030303030303030303030303031",
+   "connectionIdHex": "d9eed2c288711d42e84813f0d541ee9ade217afb5ee081ebeb2d5d9c381d9a85",
+   "digest_mainnet": "a0e0a27b5afc2cc0933f39a41f2ab2288bd754f8d3e8a80d6a1752c7b9d69a5f",
+   "pythonSig_mainnet": {
+    "r": "0x4edb9dee6397ff33938c3fcb087ab778d228b90ff57008b5d82b6a828cb10369",
+    "s": "0x12ec541a672cd35f5bac9ad5cf1c75e76f30420ea0f4407ae516f5cba908962f",
+    "v": 27
+   },
+   "digest_testnet": "93902a307e89f56b483e57d4489704b4105c1e2dd73bd28a810c67578fc9fa82",
+   "pythonSig_testnet": {
+    "r": "0x395bf559008096f8291f68b2d41e81b0081a07d1daf98fdc67034196e0b309fe",
+    "s": "0x1ea475248c6da806b66e56e4ce8a4c07ba52879f6b0d52a890331f2a7b016c6e",
+    "v": 27
+   }
+  },
+  {
+   "name": "update_leverage",
+   "action": {
+    "type": "updateLeverage",
+    "asset": 4,
+    "isCross": true,
+    "leverage": 5
+   },
+   "vaultAddress": null,
+   "nonce": 1677777606040,
+   "expiresAfter": null,
+   "msgpackHex": "84a474797065ae7570646174654c65766572616765a5617373657404a7697343726f7373c3a86c6576657261676505",
+   "connectionIdHex": "b860fae07e525894a6c513b7e4d291cd3ab8706492d9bc026211c1e3d93dd5c2",
+   "digest_mainnet": "02f8d7d9eb48ca1df72b23a6f8f57a5a890d55664393f86f16538e9cfbb42a40",
+   "pythonSig_mainnet": {
+    "r": "0x375ab04f320029657a53d7abcdb327ae8cb194eb7a2ed5d334bb9c3ce6cece26",
+    "s": "0x7b923e756219f2825747c4b3b17a938c8a0be1fba0a3232f13b5efbd3b4bd11a",
+    "v": 28
+   },
+   "digest_testnet": "43f7750cbae587b709b42d2156ad15f7827165a6aea068c67a011d55490aeb64",
+   "pythonSig_testnet": {
+    "r": "0x345b9ea63be4744e14db06972ac4435374bb0dbf3da2a96021f2e0e50f1a0183",
+    "s": "0x7705cfa257868e42c3ed23e7941ad2712cf37627c8dd0277a603dbc31e841827",
+    "v": 28
+   }
+  },
+  {
+   "name": "set_referrer",
+   "action": {
+    "type": "setReferrer",
+    "code": "KUTE"
+   },
+   "vaultAddress": null,
+   "nonce": 1677777606040,
+   "expiresAfter": null,
+   "msgpackHex": "82a474797065ab7365745265666572726572a4636f6465a44b555445",
+   "connectionIdHex": "51c36618d35bc233a91f5248fc8b93d6582c65196c30057c2c377bb866a14f9e",
+   "digest_mainnet": "48bc4328931c1126dd8b85847c7f08058c5fbe15c191c8594786855137a80ff3",
+   "pythonSig_mainnet": {
+    "r": "0x9ef074687cd69655dd7c023ae1d562b0572d2f393f895dc7258f96e7567f9986",
+    "s": "0x577a85596410533010de36f943e8aa6e8cd06efc17c6e534ada51075f60571cf",
+    "v": 27
+   },
+   "digest_testnet": "200409a8a3646b41c1cd6f03da265daf3ddefe61bc33058c97e5298949accab3",
+   "pythonSig_testnet": {
+    "r": "0x2173842a0f55f49c1a6b6d487c94193e90b925287f45400995294d2a29e63246",
+    "s": "0x5c1d3f6d0fbdc164b15c78b337c61d34a2a9336af63ee0874acb100807675cc3",
+    "v": 27
+   }
+  }
+ ],
+ "userSignedActions": [
+  {
+   "name": "withdraw3_mainnet",
+   "action": {
+    "destination": "0x5e9ee1089755c3435139848e47e6635505d5a13a",
+    "amount": "100.5",
+    "time": 1677777606040,
+    "type": "withdraw3",
+    "signatureChainId": "0x66eee",
+    "hyperliquidChain": "Mainnet"
+   },
+   "primaryType": "HyperliquidTransaction:Withdraw",
+   "digest": "01f83c81d38376e346bc526dabb926b2f46a917b4ba5e11114c15801eee8c83c",
+   "pythonSig": {
+    "r": "0xf25b0ffb89889180b6e55e971f811003a1af0e0d8c02fde893af719c9615aa66",
+    "s": "0x27814ad7f11f092b715ad4af6770abdd94c508895147c5e9d2e9eb0d02aeb7e",
+    "v": 27
+   }
+  },
+  {
+   "name": "withdraw3_testnet",
+   "action": {
+    "destination": "0x5e9ee1089755c3435139848e47e6635505d5a13a",
+    "amount": "100.5",
+    "time": 1677777606040,
+    "type": "withdraw3",
+    "signatureChainId": "0x66eee",
+    "hyperliquidChain": "Testnet"
+   },
+   "primaryType": "HyperliquidTransaction:Withdraw",
+   "digest": "1a33e67cb201a3c11d219fb853b47f3183f8f20c6da99de453f2001d49ae36f7",
+   "pythonSig": {
+    "r": "0x87dc6d14e61c44634a7aa9fa78471d0f5cff4c7c8c68da7e392c0827b7a049da",
+    "s": "0x5a8cfc2a94bfec295e4d9307aad8634946e85634188f174f552c5c7250d1d4ac",
+    "v": 27
+   }
+  },
+  {
+   "name": "usd_class_transfer",
+   "action": {
+    "type": "usdClassTransfer",
+    "amount": "55.75",
+    "toPerp": false,
+    "nonce": 1677777606040,
+    "signatureChainId": "0x66eee",
+    "hyperliquidChain": "Mainnet"
+   },
+   "primaryType": "HyperliquidTransaction:UsdClassTransfer",
+   "digest": "424e288848234624852fdd7c14886ab7eac38ea48d5dd09323724e0159f98c3d",
+   "pythonSig": {
+    "r": "0xa65e8523939e0c8cdfca3e047e26859fe19e85b08e00fa925e2491b9dd233f18",
+    "s": "0x57b9932288ef58d59e24fb9242402e681072b2e01ba9f99c368debc1b8ebbd7e",
+    "v": 28
+   }
+  },
+  {
+   "name": "approve_builder_fee",
+   "action": {
+    "maxFeeRate": "0.01%",
+    "builder": "0x8c967E73E6B15087c42A10D344cFf4c96D877f1D",
+    "nonce": 1677777606040,
+    "type": "approveBuilderFee",
+    "signatureChainId": "0x66eee",
+    "hyperliquidChain": "Mainnet"
+   },
+   "primaryType": "HyperliquidTransaction:ApproveBuilderFee",
+   "digest": "ad8a2294a98f8344e3caaf1abcd6ba5b5134754690379444b9448e2366b5d604",
+   "pythonSig": {
+    "r": "0x94968a5ff7027db8bacb0d7b25a7a0dc51d816510ad6a668b8a29d98da91de99",
+    "s": "0x7ff93805efd402786d0e4cc207cb34c75659515b35366755b202bb6fd86e2286",
+    "v": 28
+   }
+  }
+ ],
+ "permit": {
+  "message": {
+   "owner": "0x42187A0F42088287EbFE8c20BB7adF111e93c381",
+   "spender": "0x2Df1c51E09aECF9cacB7bc98cB1742757f163dF7",
+   "value": 25000000,
+   "nonce": 0,
+   "deadline": 1719999999
+  },
+  "digest": "93007c43542be577bdf68f2e1ff822f9f04365e82b64c57630081e5179e53e0b",
+  "pythonSig": {
+   "r": "0xe29f5cefe0dc0c4263bb234e425178fd35677830966d0d8c94060527096701f5",
+   "s": "0x7ae1f605fcbdf15fb070b39c729256ea92c0fd4c0fb2cc4c60e43af3ca575caf",
+   "v": 28
+  }
+ },
+ "floatToWire": [
+  {
+   "value": 0.0,
+   "wire": "0"
+  },
+  {
+   "value": 1.0,
+   "wire": "1"
+  },
+  {
+   "value": 1670.1,
+   "wire": "1670.1"
+  },
+  {
+   "value": 0.0147,
+   "wire": "0.0147"
+  },
+  {
+   "value": 100.5,
+   "wire": "100.5"
+  },
+  {
+   "value": 55.75,
+   "wire": "55.75"
+  },
+  {
+   "value": 0.1,
+   "wire": "0.1"
+  },
+  {
+   "value": 123456.0,
+   "wire": "123456"
+  },
+  {
+   "value": 99999.0,
+   "wire": "99999"
+  },
+  {
+   "value": 1e-08,
+   "wire": "0.00000001"
+  },
+  {
+   "value": 12345678.0,
+   "wire": "12345678"
+  },
+  {
+   "value": 3.0,
+   "wire": "3"
+  },
+  {
+   "value": 2.5,
+   "wire": "2.5"
+  },
+  {
+   "value": 1e-08,
+   "wire": "0.00000001"
+  },
+  {
+   "value": 50000.0,
+   "wire": "50000"
+  },
+  {
+   "value": 0.5,
+   "wire": "0.5"
+  },
+  {
+   "value": -0.0,
+   "wire": "-0"
+  }
+ ]
+}

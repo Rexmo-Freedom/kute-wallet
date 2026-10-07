@@ -1,0 +1,135 @@
+{
+ "id": "1089276",
+ "slug": "epl-sun-bri-2026-10-10",
+ "title": "Sunderland AFC vs. Brighton & Hove Albion FC",
+ "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/Repetitive-markets/premier+league.jpg",
+ "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/Repetitive-markets/premier+league.jpg",
+ "active": true,
+ "closed": false,
+ "negRisk": true,
+ "enableNegRisk": true,
+ "gameId": 90114121,
+ "startTime": "2026-10-10T14:00:00Z",
+ "endDate": "2026-10-10T14:00:00Z",
+ "volume": 211635.0539710002,
+ "liquidity": 358619.2624,
+ "seriesSlug": "premier-league-2025",
+ "tags": [
+  {
+   "slug": "sports",
+   "label": "Sports"
+  },
+  {
+   "slug": "games",
+   "label": "Games"
+  },
+  {
+   "slug": "soccer",
+   "label": "Soccer"
+  },
+  {
+   "slug": "premier-league",
+   "label": "Premier League"
+  },
+  {
+   "slug": "EPL",
+   "label": "EPL"
+  }
+ ],
+ "teams": [
+  {
+   "id": 114263,
+   "name": "Sunderland AFC",
+   "league": "epl",
+   "logo": "https://polymarket-upload.s3.us-east-2.amazonaws.com/sunderland.png",
+   "abbreviation": "sun",
+   "alias": "Sunderland",
+   "color": "#c41c35",
+   "ordering": "home"
+  },
+  {
+   "id": 100015,
+   "name": "Brighton & Hove Albion FC",
+   "league": "epl",
+   "logo": "https://polymarket-upload.s3.us-east-2.amazonaws.com/Brighton & Hove Albion FC-8dec1461ee.png",
+   "abbreviation": "bri",
+   "alias": "Brighton",
+   "color": "#155a93",
+   "ordering": "away"
+  }
+ ],
+ "markets": [
+  {
+   "id": "5009033",
+   "question": "Will Sunderland AFC win on 2026-10-10?",
+   "conditionId": "0x2dbfcec0b51f7eb8058de6f15a0358607c18011c035dee554517b3d89fb32c9d",
+   "slug": "epl-sun-bri-2026-10-10-sun",
+   "groupItemTitle": "Sunderland AFC",
+   "groupItemThreshold": "0",
+   "outcomes": "[\"Yes\", \"No\"]",
+   "outcomePrices": "[\"0.315\", \"0.685\"]",
+   "clobTokenIds": "[\"111418785860185620859472476255903742542322696888115396530314435817341623914031\", \"40129453452709642285760486019769481341185588100648625452032607226488150875233\"]",
+   "sportsMarketType": "moneyline",
+   "active": true,
+   "closed": false,
+   "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/Repetitive-markets/premier+league.jpg",
+   "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/Repetitive-markets/premier+league.jpg",
+   "negRisk": true,
+   "endDate": "2026-10-10T14:00:00Z",
+   "acceptingOrders": true,
+   "enableOrderBook": true,
+   "orderPriceMinTickSize": 0.01,
+   "orderMinSize": 5,
+   "liquidityNum": 90558.8125,
+   "volumeNum": 764.451241
+  },
+  {
+   "id": "5009039",
+   "question": "Will Sunderland AFC vs. Brighton & Hove Albion FC end in a draw?",
+   "conditionId": "0x4e1d5fdef233bb2cff9d5b8985ba307081fbaf8dcbb440b1384bd30a0c4efd72",
+   "slug": "epl-sun-bri-2026-10-10-draw",
+   "groupItemTitle": "Draw (Sunderland AFC vs. Brighton & Hove Albion FC)",
+   "groupItemThreshold": "1",
+   "outcomes": "[\"Yes\", \"No\"]",
+   "outcomePrices": "[\"0.275\", \"0.725\"]",
+   "clobTokenIds": "[\"14501737798490379000295819378617219296606075354548627001059803744335562554806\", \"52808049854650750942711094489905066393956267734072238419763324137696247799391\"]",
+   "sportsMarketType": "moneyline",
+   "active": true,
+   "closed": false,
+   "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/Repetitive-markets/premier+league.jpg",
+   "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/Repetitive-markets/premier+league.jpg",
+   "negRisk": true,
+   "endDate": "2026-10-10T14:00:00Z",
+   "acceptingOrders": true,
+   "enableOrderBook": true,
+   "orderPriceMinTickSize": 0.01,
+   "orderMinSize": 5,
+   "liquidityNum": 114701.4422,
+   "volumeNum": 704.1326660000001
+  },
+  {
+   "id": "5009042",
+   "question": "Will Brighton & Hove Albion FC win on 2026-10-10?",
+   "conditionId": "0xe8b24aac1400d5d57d3657de489f705b0737c108aea5fe9b5a6e102c1c2fe5d8",
+   "slug": "epl-sun-bri-2026-10-10-bri",
+   "groupItemTitle": "Brighton & Hove Albion FC",
+   "groupItemThreshold": "2",
+   "outcomes": "[\"Yes\", \"No\"]",
+   "outcomePrices": "[\"0.415\", \"0.585\"]",
+   "clobTokenIds": "[\"106602773483130838615457230717651297299542875416075275642048562096049924413080\", \"81811361388898370236355657480695105245712839093426166643770361574473044351822\"]",
+   "sportsMarketType": "moneyline",
+   "active": true,
+   "closed": false,
+   "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/Repetitive-markets/premier+league.jpg",
+   "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/Repetitive-markets/premier+league.jpg",
+   "negRisk": true,
+   "endDate": "2026-10-10T14:00:00Z",
+   "acceptingOrders": true,
+   "enableOrderBook": true,
+   "orderPriceMinTickSize": 0.01,
+   "orderMinSize": 5,
+   "liquidityNum": 153656.7153,
+   "volumeNum": 210166.4700640002
+  }
+ ]
+}

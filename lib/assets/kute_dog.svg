@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 16 16" width="1024" height="1024" xmlns="http://www.w3.org/2000/svg" style="image-rendering:pixelated">
+  <!-- Ears -->
+  <rect x="2" y="3" width="2" height="2" fill="#CC7A15"/>
+  <rect x="12" y="1" width="2" height="4" fill="#CC7A15"/>
+  <!-- Head & body -->
+  <rect x="4" y="3" width="8" height="6" fill="#F7931A"/>
+  <rect x="3" y="4" width="1" height="4" fill="#F7931A"/>
+  <rect x="12" y="4" width="1" height="4" fill="#F7931A"/>
+  <!-- Muzzle -->
+  <rect x="5" y="7" width="6" height="3" fill="#FDB64E"/>
+  <!-- Eyes -->
+  <rect x="5" y="4" width="3" height="3" fill="white"/>
+  <rect x="7" y="5" width="1" height="2" fill="#000000"/>
+  <rect x="9" y="4" width="3" height="3" fill="white"/>
+  <rect x="11" y="5" width="1" height="2" fill="#000000"/>
+  <!-- Nose -->
+  <rect x="7" y="7" width="2" height="1" fill="#3D2B1F"/>
+  <!-- Bandana — tilted, rebel style -->
+  <rect x="3" y="8" width="10" height="2" fill="#E8342E"/>
+  <rect x="4" y="9" width="8" height="1" fill="#CC2A24"/>
+  <!-- Bandana knot — hangs off the right side -->
+  <rect x="13" y="9" width="2" height="1" fill="#E8342E"/>
+  <rect x="14" y="10" width="1" height="1" fill="#E8342E"/>
+  <rect x="13" y="10" width="1" height="1" fill="#CC2A24"/>
+  <!-- Belly -->
+  <rect x="6" y="10" width="4" height="2" fill="#F7D84E"/>
+  <!-- Body below bandana -->
+  <rect x="4" y="10" width="8" height="4" fill="#F7931A"/>
+  <rect x="6" y="10" width="4" height="3" fill="#FDB64E"/>
+  <!-- Paws -->
+  <rect x="4" y="14" width="2" height="1" fill="#FDB64E"/>
+  <rect x="10" y="14" width="2" height="1" fill="#FDB64E"/>
+</svg>

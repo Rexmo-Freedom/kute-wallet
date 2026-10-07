@@ -1,0 +1,243 @@
+{
+  "source": "bdk_dart v1.0.0-rc.3, public test mnemonic, no real funds",
+  "entropy": [
+    {
+      "hex": "00000000000000000000000000000000",
+      "mnemonic": "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+    },
+    {
+      "hex": "ffffffffffffffffffffffffffffffff",
+      "mnemonic": "zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo wrong"
+    },
+    {
+      "hex": "9f86d081884c7d659a2feaa0c55ad015",
+      "mnemonic": "panel custom call awesome sick ready hamster wool patch client reduce clay"
+    }
+  ],
+  "wallets": [
+    {
+      "network": "bitcoin",
+      "scriptType": "bip44",
+      "mnemonic": "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+      "external": "pkh(xprv9s21ZrQH143K3GJpoapnV8SFfukcVBSfeCficPSGfubmSFDxo1kuHnLisriDvSnRRuL2Qrg5ggqHKNVpxR86QEC8w35uxmGoggxtQTPvfUu/44'/0'/0'/0/*)#7um67zvr",
+      "internal": "pkh(xprv9s21ZrQH143K3GJpoapnV8SFfukcVBSfeCficPSGfubmSFDxo1kuHnLisriDvSnRRuL2Qrg5ggqHKNVpxR86QEC8w35uxmGoggxtQTPvfUu/44'/0'/0'/1/*)#0g7mrhum",
+      "accountXpub": "xpub6BosfCnifzxcFwrSzQiqu2DBVTshkCXacvNsWGYJVVhhawA7d4R5WSWGFNbi8Aw6ZRc1brxMyWMzG3DSSSSoekkudhUd9yLb6qx39T9nMdj",
+      "database": "bitcoin_bip44.sqlite",
+      "addresses": {
+        "0": "1LqBGSKuX5yYUonjxT5qGfpUsXKYYWeabA",
+        "5": "19a7HGg32ecPQo49rDeM2NSFJHPqrwSJto",
+        "20": "1FSCcgcjLvp8fE8qfTRLNFzPWaLZKSVnbM"
+      }
+    },
+    {
+      "network": "bitcoin",
+      "scriptType": "bip44",
+      "xpub": "xpub6BosfCnifzxcFwrSzQiqu2DBVTshkCXacvNsWGYJVVhhawA7d4R5WSWGFNbi8Aw6ZRc1brxMyWMzG3DSSSSoekkudhUd9yLb6qx39T9nMdj",
+      "external": "pkh([00000000/44'/0'/0']xpub6BosfCnifzxcFwrSzQiqu2DBVTshkCXacvNsWGYJVVhhawA7d4R5WSWGFNbi8Aw6ZRc1brxMyWMzG3DSSSSoekkudhUd9yLb6qx39T9nMdj/0/*)#6ns025wz",
+      "internal": "pkh([00000000/44'/0'/0']xpub6BosfCnifzxcFwrSzQiqu2DBVTshkCXacvNsWGYJVVhhawA7d4R5WSWGFNbi8Aw6ZRc1brxMyWMzG3DSSSSoekkudhUd9yLb6qx39T9nMdj/1/*)#t84whp76",
+      "accountXpub": "xpub6BosfCnifzxcFwrSzQiqu2DBVTshkCXacvNsWGYJVVhhawA7d4R5WSWGFNbi8Aw6ZRc1brxMyWMzG3DSSSSoekkudhUd9yLb6qx39T9nMdj",
+      "database": "bitcoin_bip44_watch.sqlite",
+      "addresses": {
+        "0": "1LqBGSKuX5yYUonjxT5qGfpUsXKYYWeabA",
+        "5": "19a7HGg32ecPQo49rDeM2NSFJHPqrwSJto",
+        "20": "1FSCcgcjLvp8fE8qfTRLNFzPWaLZKSVnbM"
+      }
+    },
+    {
+      "network": "bitcoin",
+      "scriptType": "bip49",
+      "mnemonic": "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+      "external": "sh(wpkh(xprv9s21ZrQH143K3GJpoapnV8SFfukcVBSfeCficPSGfubmSFDxo1kuHnLisriDvSnRRuL2Qrg5ggqHKNVpxR86QEC8w35uxmGoggxtQTPvfUu/49'/0'/0'/0/*))#47nwva0a",
+      "internal": "sh(wpkh(xprv9s21ZrQH143K3GJpoapnV8SFfukcVBSfeCficPSGfubmSFDxo1kuHnLisriDvSnRRuL2Qrg5ggqHKNVpxR86QEC8w35uxmGoggxtQTPvfUu/49'/0'/0'/1/*))#namthsyf",
+      "accountXpub": "xpub6C6nQwHaWbSrzs5tZ1q7m5R9cPK9eYpNMFesiXsYrgc1P8bvLLAet9JfHjYXKjToD8cBRswJXXbbFpXgwsswVPAZzKMa1jUp2kVkGVUaJa7",
+      "database": "bitcoin_bip49.sqlite",
+      "addresses": {
+        "0": "37VucYSaXLCAsxYyAPfbSi9eh4iEcbShgf",
+        "5": "3QrMAP4ZG3a7Y1qFF5A4sY8MeSUxZ8Yxjy",
+        "20": "3Qyobv1ZUg79doGWePdBWygEt5n5B97SXt"
+      }
+    },
+    {
+      "network": "bitcoin",
+      "scriptType": "bip49",
+      "xpub": "xpub6C6nQwHaWbSrzs5tZ1q7m5R9cPK9eYpNMFesiXsYrgc1P8bvLLAet9JfHjYXKjToD8cBRswJXXbbFpXgwsswVPAZzKMa1jUp2kVkGVUaJa7",
+      "external": "sh(wpkh([00000000/49'/0'/0']xpub6C6nQwHaWbSrzs5tZ1q7m5R9cPK9eYpNMFesiXsYrgc1P8bvLLAet9JfHjYXKjToD8cBRswJXXbbFpXgwsswVPAZzKMa1jUp2kVkGVUaJa7/0/*))#5n4hyzxa",
+      "internal": "sh(wpkh([00000000/49'/0'/0']xpub6C6nQwHaWbSrzs5tZ1q7m5R9cPK9eYpNMFesiXsYrgc1P8bvLLAet9JfHjYXKjToD8cBRswJXXbbFpXgwsswVPAZzKMa1jUp2kVkGVUaJa7/1/*))#pjmpuanz",
+      "accountXpub": "xpub6C6nQwHaWbSrzs5tZ1q7m5R9cPK9eYpNMFesiXsYrgc1P8bvLLAet9JfHjYXKjToD8cBRswJXXbbFpXgwsswVPAZzKMa1jUp2kVkGVUaJa7",
+      "database": "bitcoin_bip49_watch.sqlite",
+      "addresses": {
+        "0": "37VucYSaXLCAsxYyAPfbSi9eh4iEcbShgf",
+        "5": "3QrMAP4ZG3a7Y1qFF5A4sY8MeSUxZ8Yxjy",
+        "20": "3Qyobv1ZUg79doGWePdBWygEt5n5B97SXt"
+      }
+    },
+    {
+      "network": "bitcoin",
+      "scriptType": "bip84",
+      "mnemonic": "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+      "external": "wpkh(xprv9s21ZrQH143K3GJpoapnV8SFfukcVBSfeCficPSGfubmSFDxo1kuHnLisriDvSnRRuL2Qrg5ggqHKNVpxR86QEC8w35uxmGoggxtQTPvfUu/84'/0'/0'/0/*)#3gqy5rdn",
+      "internal": "wpkh(xprv9s21ZrQH143K3GJpoapnV8SFfukcVBSfeCficPSGfubmSFDxo1kuHnLisriDvSnRRuL2Qrg5ggqHKNVpxR86QEC8w35uxmGoggxtQTPvfUu/84'/0'/0'/1/*)#qu99fkat",
+      "accountXpub": "xpub6CatWdiZiodmUeTDp8LT5or8nmbKNcuyvz7WyksVFkKB4RHwCD3XyuvPEbvqAQY3rAPshWcMLoP2fMFMKHPJ4ZeZXYVUhLv1VMrjPC7PW6V",
+      "database": "bitcoin_bip84.sqlite",
+      "addresses": {
+        "0": "bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu",
+        "5": "bc1qnpzzqjzet8gd5gl8l6gzhuc4s9xv0djt0rlu7a",
+        "20": "bc1qy62dyq937vfjr5e8tj3ltx7zc6fw958tmvqa5l"
+      }
+    },
+    {
+      "network": "bitcoin",
+      "scriptType": "bip84",
+      "xpub": "xpub6CatWdiZiodmUeTDp8LT5or8nmbKNcuyvz7WyksVFkKB4RHwCD3XyuvPEbvqAQY3rAPshWcMLoP2fMFMKHPJ4ZeZXYVUhLv1VMrjPC7PW6V",
+      "external": "wpkh([00000000/84'/0'/0']xpub6CatWdiZiodmUeTDp8LT5or8nmbKNcuyvz7WyksVFkKB4RHwCD3XyuvPEbvqAQY3rAPshWcMLoP2fMFMKHPJ4ZeZXYVUhLv1VMrjPC7PW6V/0/*)#psezw22r",
+      "internal": "wpkh([00000000/84'/0'/0']xpub6CatWdiZiodmUeTDp8LT5or8nmbKNcuyvz7WyksVFkKB4RHwCD3XyuvPEbvqAQY3rAPshWcMLoP2fMFMKHPJ4ZeZXYVUhLv1VMrjPC7PW6V/1/*)#syurnl6m",
+      "accountXpub": "xpub6CatWdiZiodmUeTDp8LT5or8nmbKNcuyvz7WyksVFkKB4RHwCD3XyuvPEbvqAQY3rAPshWcMLoP2fMFMKHPJ4ZeZXYVUhLv1VMrjPC7PW6V",
+      "database": "bitcoin_bip84_watch.sqlite",
+      "addresses": {
+        "0": "bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu",
+        "5": "bc1qnpzzqjzet8gd5gl8l6gzhuc4s9xv0djt0rlu7a",
+        "20": "bc1qy62dyq937vfjr5e8tj3ltx7zc6fw958tmvqa5l"
+      }
+    },
+    {
+      "network": "bitcoin",
+      "scriptType": "bip86",
+      "mnemonic": "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+      "external": "tr(xprv9s21ZrQH143K3GJpoapnV8SFfukcVBSfeCficPSGfubmSFDxo1kuHnLisriDvSnRRuL2Qrg5ggqHKNVpxR86QEC8w35uxmGoggxtQTPvfUu/86'/0'/0'/0/*)#zeg4ksen",
+      "internal": "tr(xprv9s21ZrQH143K3GJpoapnV8SFfukcVBSfeCficPSGfubmSFDxo1kuHnLisriDvSnRRuL2Qrg5ggqHKNVpxR86QEC8w35uxmGoggxtQTPvfUu/86'/0'/0'/1/*)#ndd5t9ft",
+      "accountXpub": "xpub6BgBgsespWvERF3LHQu6CnqdvfEvtMcQjYrcRzx53QJjSxarj2afYWcLteoGVky7D3UKDP9QyrLprQ3VCECoY49yfdDEHGCtMMj92pReUsQ",
+      "database": "bitcoin_bip86.sqlite",
+      "addresses": {
+        "0": "bc1p5cyxnuxmeuwuvkwfem96lqzszd02n6xdcjrs20cac6yqjjwudpxqkedrcr",
+        "5": "bc1pl4frjws098l3nslfjlnry6jxt46w694kuexvs5ar0cmkvxyahfkq0m445f",
+        "20": "bc1p2hjxr5mp0u5av0807d2hah7vlzq3npllfsff0cgve79gwc0k5z9sew2hul"
+      }
+    },
+    {
+      "network": "bitcoin",
+      "scriptType": "bip86",
+      "xpub": "xpub6BgBgsespWvERF3LHQu6CnqdvfEvtMcQjYrcRzx53QJjSxarj2afYWcLteoGVky7D3UKDP9QyrLprQ3VCECoY49yfdDEHGCtMMj92pReUsQ",
+      "external": "tr([00000000/86'/0'/0']xpub6BgBgsespWvERF3LHQu6CnqdvfEvtMcQjYrcRzx53QJjSxarj2afYWcLteoGVky7D3UKDP9QyrLprQ3VCECoY49yfdDEHGCtMMj92pReUsQ/0/*)#rzavtsv9",
+      "internal": "tr([00000000/86'/0'/0']xpub6BgBgsespWvERF3LHQu6CnqdvfEvtMcQjYrcRzx53QJjSxarj2afYWcLteoGVky7D3UKDP9QyrLprQ3VCECoY49yfdDEHGCtMMj92pReUsQ/1/*)#jkcdk9ua",
+      "accountXpub": "xpub6BgBgsespWvERF3LHQu6CnqdvfEvtMcQjYrcRzx53QJjSxarj2afYWcLteoGVky7D3UKDP9QyrLprQ3VCECoY49yfdDEHGCtMMj92pReUsQ",
+      "database": "bitcoin_bip86_watch.sqlite",
+      "addresses": {
+        "0": "bc1p5cyxnuxmeuwuvkwfem96lqzszd02n6xdcjrs20cac6yqjjwudpxqkedrcr",
+        "5": "bc1pl4frjws098l3nslfjlnry6jxt46w694kuexvs5ar0cmkvxyahfkq0m445f",
+        "20": "bc1p2hjxr5mp0u5av0807d2hah7vlzq3npllfsff0cgve79gwc0k5z9sew2hul"
+      }
+    },
+    {
+      "network": "testnet",
+      "scriptType": "bip44",
+      "mnemonic": "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+      "external": "pkh(tprv8ZgxMBicQKsPe5YMU9gHen4Ez3ApihUfykaqUorj9t6FDqy3nP6eoXiAo2ssvpAjoLroQxHqr3R5nE3a5dU3DHTjTgJDd7zrbniJr6nrCzd/44'/1'/0'/0/*)#g8ser03l",
+      "internal": "pkh(tprv8ZgxMBicQKsPe5YMU9gHen4Ez3ApihUfykaqUorj9t6FDqy3nP6eoXiAo2ssvpAjoLroQxHqr3R5nE3a5dU3DHTjTgJDd7zrbniJr6nrCzd/44'/1'/0'/1/*)#en4c76p8",
+      "accountXpub": "tpubDC5FSnBiZDMmhiuCmWAYsLwgLYrrT9rAqvTySfuCCrgsWz8wxMXUS9Tb9iVMvcRbvFcAHGkMD5Kx8koh4GquNGNTfohfk7pgjhaPCdXpoba",
+      "database": "testnet_bip44.sqlite",
+      "addresses": {
+        "0": "mkpZhYtJu2r87Js3pDiWJDmPte2NRZ8bJV",
+        "5": "mvWgTTtQqZohUPnykucneWNXzM5PLj83an",
+        "20": "n4FMbkd9mUiAHDj8mdfmd1rf6fmEq9f38a"
+      }
+    },
+    {
+      "network": "testnet",
+      "scriptType": "bip44",
+      "xpub": "tpubDC5FSnBiZDMmhiuCmWAYsLwgLYrrT9rAqvTySfuCCrgsWz8wxMXUS9Tb9iVMvcRbvFcAHGkMD5Kx8koh4GquNGNTfohfk7pgjhaPCdXpoba",
+      "external": "pkh([00000000/44'/1'/0']tpubDC5FSnBiZDMmhiuCmWAYsLwgLYrrT9rAqvTySfuCCrgsWz8wxMXUS9Tb9iVMvcRbvFcAHGkMD5Kx8koh4GquNGNTfohfk7pgjhaPCdXpoba/0/*)#daskr9nz",
+      "internal": "pkh([00000000/44'/1'/0']tpubDC5FSnBiZDMmhiuCmWAYsLwgLYrrT9rAqvTySfuCCrgsWz8wxMXUS9Tb9iVMvcRbvFcAHGkMD5Kx8koh4GquNGNTfohfk7pgjhaPCdXpoba/1/*)#uf4h7sr6",
+      "accountXpub": "tpubDC5FSnBiZDMmhiuCmWAYsLwgLYrrT9rAqvTySfuCCrgsWz8wxMXUS9Tb9iVMvcRbvFcAHGkMD5Kx8koh4GquNGNTfohfk7pgjhaPCdXpoba",
+      "database": "testnet_bip44_watch.sqlite",
+      "addresses": {
+        "0": "mkpZhYtJu2r87Js3pDiWJDmPte2NRZ8bJV",
+        "5": "mvWgTTtQqZohUPnykucneWNXzM5PLj83an",
+        "20": "n4FMbkd9mUiAHDj8mdfmd1rf6fmEq9f38a"
+      }
+    },
+    {
+      "network": "testnet",
+      "scriptType": "bip49",
+      "mnemonic": "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+      "external": "sh(wpkh(tprv8ZgxMBicQKsPe5YMU9gHen4Ez3ApihUfykaqUorj9t6FDqy3nP6eoXiAo2ssvpAjoLroQxHqr3R5nE3a5dU3DHTjTgJDd7zrbniJr6nrCzd/49'/1'/0'/0/*))#pzuur0ll",
+      "internal": "sh(wpkh(tprv8ZgxMBicQKsPe5YMU9gHen4Ez3ApihUfykaqUorj9t6FDqy3nP6eoXiAo2ssvpAjoLroQxHqr3R5nE3a5dU3DHTjTgJDd7zrbniJr6nrCzd/49'/1'/0'/1/*))#8p5ecz5t",
+      "accountXpub": "tpubDD7tXK8KeQ3YY83yWq755fHY2JW8Ha8Q765tknUM5rSvjPcGWfUppDFMpQ1ScziKfW3ZNtZvAD7M3u7bSs7HofjTD3KP3YxPK7X6hwV8Rk2",
+      "database": "testnet_bip49.sqlite",
+      "addresses": {
+        "0": "2Mww8dCYPUpKHofjgcXcBCEGmniw9CoaiD2",
+        "5": "2N5pTWRLrRdAPGvTd9agPFLFZvPfGNy7xuM",
+        "20": "2N64na3M65yZnwAQR5PaKHWgRasFgjUCrj2"
+      }
+    },
+    {
+      "network": "testnet",
+      "scriptType": "bip49",
+      "xpub": "tpubDD7tXK8KeQ3YY83yWq755fHY2JW8Ha8Q765tknUM5rSvjPcGWfUppDFMpQ1ScziKfW3ZNtZvAD7M3u7bSs7HofjTD3KP3YxPK7X6hwV8Rk2",
+      "external": "sh(wpkh([00000000/49'/1'/0']tpubDD7tXK8KeQ3YY83yWq755fHY2JW8Ha8Q765tknUM5rSvjPcGWfUppDFMpQ1ScziKfW3ZNtZvAD7M3u7bSs7HofjTD3KP3YxPK7X6hwV8Rk2/0/*))#w74tvavp",
+      "internal": "sh(wpkh([00000000/49'/1'/0']tpubDD7tXK8KeQ3YY83yWq755fHY2JW8Ha8Q765tknUM5rSvjPcGWfUppDFMpQ1ScziKfW3ZNtZvAD7M3u7bSs7HofjTD3KP3YxPK7X6hwV8Rk2/1/*))#mlma5ze7",
+      "accountXpub": "tpubDD7tXK8KeQ3YY83yWq755fHY2JW8Ha8Q765tknUM5rSvjPcGWfUppDFMpQ1ScziKfW3ZNtZvAD7M3u7bSs7HofjTD3KP3YxPK7X6hwV8Rk2",
+      "database": "testnet_bip49_watch.sqlite",
+      "addresses": {
+        "0": "2Mww8dCYPUpKHofjgcXcBCEGmniw9CoaiD2",
+        "5": "2N5pTWRLrRdAPGvTd9agPFLFZvPfGNy7xuM",
+        "20": "2N64na3M65yZnwAQR5PaKHWgRasFgjUCrj2"
+      }
+    },
+    {
+      "network": "testnet",
+      "scriptType": "bip84",
+      "mnemonic": "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+      "external": "wpkh(tprv8ZgxMBicQKsPe5YMU9gHen4Ez3ApihUfykaqUorj9t6FDqy3nP6eoXiAo2ssvpAjoLroQxHqr3R5nE3a5dU3DHTjTgJDd7zrbniJr6nrCzd/84'/1'/0'/0/*)#8xyxaasa",
+      "internal": "wpkh(tprv8ZgxMBicQKsPe5YMU9gHen4Ez3ApihUfykaqUorj9t6FDqy3nP6eoXiAo2ssvpAjoLroQxHqr3R5nE3a5dU3DHTjTgJDd7zrbniJr6nrCzd/84'/1'/0'/1/*)#kjp8qgq9",
+      "accountXpub": "tpubDC8msFGeGuwnKG9Upg7DM2b4DaRqg3CUZa5g8v2SRQ6K4NSkxUgd7HsL2XVWbVm39yBA4LAxysQAm397zwQSQoQgewGiYZqrA9DsP4zbQ1M",
+      "database": "testnet_bip84.sqlite",
+      "addresses": {
+        "0": "tb1q6rz28mcfaxtmd6v789l9rrlrusdprr9pqcpvkl",
+        "5": "tb1qr7scvm07ta0ldzlrmk7rnmc9lk356yar6zfu45",
+        "20": "tb1qgatph3xrdjvcq63xhwct77m2ufn93stn0pwwey"
+      }
+    },
+    {
+      "network": "testnet",
+      "scriptType": "bip84",
+      "xpub": "tpubDC8msFGeGuwnKG9Upg7DM2b4DaRqg3CUZa5g8v2SRQ6K4NSkxUgd7HsL2XVWbVm39yBA4LAxysQAm397zwQSQoQgewGiYZqrA9DsP4zbQ1M",
+      "external": "wpkh([00000000/84'/1'/0']tpubDC8msFGeGuwnKG9Upg7DM2b4DaRqg3CUZa5g8v2SRQ6K4NSkxUgd7HsL2XVWbVm39yBA4LAxysQAm397zwQSQoQgewGiYZqrA9DsP4zbQ1M/0/*)#94qtvq0a",
+      "internal": "wpkh([00000000/84'/1'/0']tpubDC8msFGeGuwnKG9Upg7DM2b4DaRqg3CUZa5g8v2SRQ6K4NSkxUgd7HsL2XVWbVm39yBA4LAxysQAm397zwQSQoQgewGiYZqrA9DsP4zbQ1M/1/*)#5p9234l9",
+      "accountXpub": "tpubDC8msFGeGuwnKG9Upg7DM2b4DaRqg3CUZa5g8v2SRQ6K4NSkxUgd7HsL2XVWbVm39yBA4LAxysQAm397zwQSQoQgewGiYZqrA9DsP4zbQ1M",
+      "database": "testnet_bip84_watch.sqlite",
+      "addresses": {
+        "0": "tb1q6rz28mcfaxtmd6v789l9rrlrusdprr9pqcpvkl",
+        "5": "tb1qr7scvm07ta0ldzlrmk7rnmc9lk356yar6zfu45",
+        "20": "tb1qgatph3xrdjvcq63xhwct77m2ufn93stn0pwwey"
+      }
+    },
+    {
+      "network": "testnet",
+      "scriptType": "bip86",
+      "mnemonic": "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+      "external": "tr(tprv8ZgxMBicQKsPe5YMU9gHen4Ez3ApihUfykaqUorj9t6FDqy3nP6eoXiAo2ssvpAjoLroQxHqr3R5nE3a5dU3DHTjTgJDd7zrbniJr6nrCzd/86'/1'/0'/0/*)#wyu7eln9",
+      "internal": "tr(tprv8ZgxMBicQKsPe5YMU9gHen4Ez3ApihUfykaqUorj9t6FDqy3nP6eoXiAo2ssvpAjoLroQxHqr3R5nE3a5dU3DHTjTgJDd7zrbniJr6nrCzd/86'/1'/0'/1/*)#lsely2ra",
+      "accountXpub": "tpubDDfvzhdVV4unsoKt5aE6dcsNsfeWbTgmLZPi8LQDYU2xixrYemMfWJ3BaVneH3u7DBQePdTwhpybaKRU95pi6PMUtLPBJLVQRpzEnjfjZzX",
+      "database": "testnet_bip86.sqlite",
+      "addresses": {
+        "0": "tb1p8wpt9v4frpf3tkn0srd97pksgsxc5hs52lafxwru9kgeephvs7rqlqt9zj",
+        "5": "tb1ptwu02r7yxyffs6440gdntnjhgv75syk20nwawp2khgas38ztks9qdn6ztw",
+        "20": "tb1pw0mxf20gyzq7cuc3rzc5n5juuad8l6299cwgehdcrp7ljkujep9sy38dw6"
+      }
+    },
+    {
+      "network": "testnet",
+      "scriptType": "bip86",
+      "xpub": "tpubDDfvzhdVV4unsoKt5aE6dcsNsfeWbTgmLZPi8LQDYU2xixrYemMfWJ3BaVneH3u7DBQePdTwhpybaKRU95pi6PMUtLPBJLVQRpzEnjfjZzX",
+      "external": "tr([00000000/86'/1'/0']tpubDDfvzhdVV4unsoKt5aE6dcsNsfeWbTgmLZPi8LQDYU2xixrYemMfWJ3BaVneH3u7DBQePdTwhpybaKRU95pi6PMUtLPBJLVQRpzEnjfjZzX/0/*)#46vtzem5",
+      "internal": "tr([00000000/86'/1'/0']tpubDDfvzhdVV4unsoKt5aE6dcsNsfeWbTgmLZPi8LQDYU2xixrYemMfWJ3BaVneH3u7DBQePdTwhpybaKRU95pi6PMUtLPBJLVQRpzEnjfjZzX/1/*)#ywf2lvtv",
+      "accountXpub": "tpubDDfvzhdVV4unsoKt5aE6dcsNsfeWbTgmLZPi8LQDYU2xixrYemMfWJ3BaVneH3u7DBQePdTwhpybaKRU95pi6PMUtLPBJLVQRpzEnjfjZzX",
+      "database": "testnet_bip86_watch.sqlite",
+      "addresses": {
+        "0": "tb1p8wpt9v4frpf3tkn0srd97pksgsxc5hs52lafxwru9kgeephvs7rqlqt9zj",
+        "5": "tb1ptwu02r7yxyffs6440gdntnjhgv75syk20nwawp2khgas38ztks9qdn6ztw",
+        "20": "tb1pw0mxf20gyzq7cuc3rzc5n5juuad8l6299cwgehdcrp7ljkujep9sy38dw6"
+      }
+    }
+  ]
+}

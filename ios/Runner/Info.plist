@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+	<dict>
+		<key>NSBluetoothAlwaysUsageDescription</key>
+		<string>Allow Kute to connect to your hardware wallet over Bluetooth when signing transactions.</string>
+		<key>NSBluetoothPeripheralUsageDescription</key>
+		<string>Allow Kute to connect to your hardware wallet over Bluetooth when signing transactions.</string>
+		<key>NSPhotoLibraryUsageDescription</key>
+		<string>Allow Kute to read QR codes from your photo library when scanning Bitcoin addresses, Lightning invoices, or wallet pairing codes.</string>
+		<key>CADisableMinimumFrameDurationOnPhone</key>
+		<true/>
+		<key>CFBundleDevelopmentRegion</key>
+		<string>$(DEVELOPMENT_LANGUAGE)</string>
+		<key>CFBundleDisplayName</key>
+		<string>Kute</string>
+		<key>CFBundleExecutable</key>
+		<string>$(EXECUTABLE_NAME)</string>
+		<key>CFBundleIdentifier</key>
+		<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+		<key>CFBundleInfoDictionaryVersion</key>
+		<string>6.0</string>
+		<key>CFBundleLocalizations</key>
+		<array>
+			<string>en</string>
+			<string>bg</string>
+			<string>cs</string>
+			<string>da</string>
+			<string>de</string>
+			<string>el</string>
+			<string>es</string>
+			<string>et</string>
+			<string>fi</string>
+			<string>fr</string>
+			<string>hr</string>
+			<string>hu</string>
+			<string>it</string>
+			<string>ja</string>
+			<string>lt</string>
+			<string>lv</string>
+			<string>nl</string>
+			<string>pl</string>
+			<string>pt</string>
+			<string>ro</string>
+			<string>sk</string>
+			<string>sl</string>
+			<string>sv</string>
+		</array>
+		<key>CFBundleName</key>
+		<string>Kute</string>
+		<key>CFBundlePackageType</key>
+		<string>APPL</string>
+		<key>CFBundleShortVersionString</key>
+		<string>$(FLUTTER_BUILD_NAME)</string>
+		<key>CFBundleSignature</key>
+		<string>????</string>
+		<key>CFBundleURLTypes</key>
+		<array>
+			<dict>
+				<key>CFBundleURLName</key>
+				<string>com.kutewallet.app</string>
+				<key>CFBundleURLSchemes</key>
+				<array>
+					<string>kute</string>
+				</array>
+			</dict>
+		</array>
+		<key>CFBundleVersion</key>
+		<string>$(FLUTTER_BUILD_NUMBER)</string>
+		<key>LSApplicationQueriesSchemes</key>
+		<array>
+			<string>sms</string>
+			<string>tel</string>
+		</array>
+		<key>LSRequiresIPhoneOS</key>
+		<true/>
+		<key>NSCameraUsageDescription</key>
+		<string>Allow Kute to use the camera to scan QR codes for Bitcoin addresses, Lightning invoices, and hardware wallet pairing.</string>
+		<key>NSFaceIDUsageDescription</key>
+		<string>Use Face ID to unlock Kute and confirm payments and investments.</string>
+		<key>NSPhotoLibraryAddUsageDescription</key>
+		<string>Allow Kute to save receive QR codes to your photo library to share with people paying you.</string>
+		<key>UIApplicationSupportsIndirectInputEvents</key>
+		<true/>
+		<key>UIApplicationSceneManifest</key>
+		<dict>
+			<key>UIApplicationSupportsMultipleScenes</key>
+			<false/>
+			<key>UISceneConfigurations</key>
+			<dict>
+				<key>UIWindowSceneSessionRoleApplication</key>
+				<array>
+					<dict>
+						<key>UISceneClassName</key>
+						<string>UIWindowScene</string>
+						<key>UISceneConfigurationName</key>
+						<string>flutter</string>
+						<key>UISceneDelegateClassName</key>
+						<string>FlutterSceneDelegate</string>
+						<key>UISceneStoryboardFile</key>
+						<string>Main</string>
+					</dict>
+				</array>
+			</dict>
+		</dict>
+		<key>UIBackgroundModes</key>
+		<array>
+			<string>fetch</string>
+			<string>remote-notification</string>
+			<string>processing</string>
+		</array>
+		<key>UILaunchStoryboardName</key>
+		<string>LaunchScreen</string>
+		<key>UIMainStoryboardFile</key>
+		<string>Main</string>
+		<key>ITSAppUsesNonExemptEncryption</key>
+		<false/>
+		<key>UIRequiresFullScreen</key>
+		<true/>
+		<key>UIStatusBarHidden</key>
+		<false/>
+		<key>UISupportedInterfaceOrientations</key>
+		<array>
+			<string>UIInterfaceOrientationPortrait</string>
+		</array>
+		<key>UISupportedInterfaceOrientations~ipad</key>
+		<array>
+			<string>UIInterfaceOrientationLandscapeRight</string>
+			<string>UIInterfaceOrientationPortrait</string>
+		</array>
+		<key>io.flutter.embedded_views_preview</key>
+		<true/>
+		<!--
+			Crashlytics collection is OFF until Dart turns it on: main.dart
+			calls setCrashlyticsCollectionEnabled(!kDebugMode), so debug
+			builds never report and release builds do (the override persists).
+		-->
+		<key>FirebaseCrashlyticsCollectionEnabled</key>
+		<false/>
+		<key>BGTaskSchedulerPermittedIdentifiers</key>
+		<array>
+			<string>com.kutewallet.backgroundSync</string>
+		</array>
+		<!--
+			PostHog (product analytics). distinct_id is set in code to
+			the user's affiliate_code (NOT the wallet pubkey, per the
+			2026-05 telemetry audit). Session replay is OFF here AND
+			in the Dart PostHogConfig — layered guarantee that the
+			screen never captures seed/signer/private-key material.
+			If replay is ever flipped on, both layers must be flipped
+			and the sensitive-screen PostHogMaskWidget audit re-confirmed.
+		-->
+		<key>com.posthog.posthog.PROJECT_TOKEN</key>
+		<string>phc_qabi4KjdZRQVunt8wsEbTyJFPpBMsGe5g8pfZXmzbUvP</string>
+		<key>com.posthog.posthog.POSTHOG_HOST</key>
+		<string>https://m.rexmo.io</string>
+		<key>com.posthog.posthog.CAPTURE_APPLICATION_LIFECYCLE_EVENTS</key>
+		<true/>
+		<key>com.posthog.posthog.SESSION_REPLAY</key>
+		<false/>
+		<key>com.posthog.posthog.DEBUG</key>
+		<false/>
+	</dict>
+</plist>

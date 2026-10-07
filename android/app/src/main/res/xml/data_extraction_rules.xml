@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Android 12+ cloud backup and device-to-device transfer rules.
+    Secure storage lives in shared preferences and is encrypted with
+    Keystore keys that never leave this phone, so it is excluded: a copy on
+    a new phone could not be decrypted. Hive settings (app_flutter, the
+    root domain) still transfer, and the new phone opens Restore wallets.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="." />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="." />
+    </device-transfer>
+</data-extraction-rules>

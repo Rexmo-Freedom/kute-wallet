@@ -1,0 +1,132 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  workflow_call:
+  schedule:
+    - cron: '23 6 * * 1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  analyze-and-test:
+    runs-on: ubuntu-24.04
+    # The suite now runs past 20 minutes on a hosted runner (the PIN KDF
+    # tests alone take several), so 25 cancelled green runs.
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/flutter-setup
+      - name: Prepare public test configuration
+        run: python3 .github/scripts/configure.py fixture
+      - name: Resolve the committed dependency graph
+        run: flutter pub get --enforce-lockfile
+      - name: Verify pinned iOS passkey hardening
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends ruby-minitest
+          ruby ios/test/breez_passkey_patch_test.rb
+      - name: Generate and check localizations
+        run: |
+          flutter gen-l10n
+          git diff --exit-code -- pubspec.lock lib/l10n/generated
+          test -z "$(git ls-files --others --exclude-standard -- lib/l10n/generated)"
+      - name: Analyze (warnings and errors block merges)
+        run: flutter analyze --no-pub --no-fatal-infos
+      - name: Run unit, widget, and financial safety regressions
+        run: flutter test --no-pub --coverage --reporter expanded
+      - name: Exercise hardware acceptance test configuration
+        run: |
+          flutter test --no-pub \
+            --dart-define=KUTE_LEDGER_HYPERLIQUID_OPAQUE_ACCEPTED=true \
+            --dart-define=KUTE_LEDGER_POLYMARKET_WITHDRAW_ACCEPTED=true \
+            test/services/hardware/signing_clarity_test.dart \
+            test/screens/ledger/ledger_spot_funding_test.dart
+      - name: Require coverage data
+        run: test -s coverage/lcov.info
+      - name: Upload coverage
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: coverage-${{ github.sha }}
+          path: coverage/lcov.info
+          if-no-files-found: error
+          retention-days: 14
+
+  build-check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/flutter-setup
+        with:
+          android: 'true'
+      - name: Prepare public test configuration
+        run: python3 .github/scripts/configure.py fixture
+      - run: flutter pub get --enforce-lockfile
+      - run: flutter build apk --debug --no-pub
+      - name: Check lockfile remains unchanged
+        run: git diff --exit-code -- pubspec.lock
+
+  security:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.27.0'
+          cache: false
+      - name: Install pinned scanners
+        run: |
+          go install github.com/zricethezav/gitleaks/v8@v8.30.1
+          go install github.com/google/osv-scanner/v2/cmd/osv-scanner@v2.6.0
+          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+      - name: Validate workflows and release helpers
+        run: |
+          actionlint -color
+          python3 -m unittest discover -s .github/scripts -p 'test_*.py'
+      - name: Check tracked artifacts
+        run: python3 .github/scripts/check_tracked_files.py
+      - name: Scan all fetched Git history for secrets
+        run: gitleaks git --redact --log-opts=--all
+      - name: Scan locked dependencies for known vulnerabilities
+        if: ${{ !cancelled() }}
+        run: osv-scanner scan source --recursive .
+
+  required:
+    name: CI required
+    if: ${{ always() }}
+    needs: [analyze-and-test, build-check, security]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Require every gate
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          results = json.loads(os.environ['RESULTS'])
+          failed = [name for name, value in results.items() if value['result'] != 'success']
+          if failed:
+              raise SystemExit('Required jobs did not pass: ' + ', '.join(failed))
+          PY
