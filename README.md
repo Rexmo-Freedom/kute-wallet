@@ -47,12 +47,9 @@ signing files outside Git.
 
 ## Releases
 
-GitHub CI checks pull requests and builds a debug APK. The manual
-**Android draft release** workflow builds the production-signed APK only and
-creates a draft GitHub Release with `SHA256SUMS`, source metadata and the
-signing certificate's SHA-256. It does not publish the draft or upload to an
-app store. iOS builds and Google Play bundles are built by maintainers outside
-CI. Maintainers run device acceptance checks on every release candidate.
+GitHub CI checks pull requests and builds a debug APK with the fixture. Release
+builds (Android APK and Play bundle, iOS) are built and signed by maintainers
+outside CI, and every release candidate gets device acceptance checks.
 
 ## Security
 

@@ -100,10 +100,8 @@ jobs:
           go install github.com/zricethezav/gitleaks/v8@v8.30.1
           go install github.com/google/osv-scanner/v2/cmd/osv-scanner@v2.6.0
           go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
-      - name: Validate workflows and release helpers
-        run: |
-          actionlint -color
-          python3 -m unittest discover -s .github/scripts -p 'test_*.py'
+      - name: Validate workflows
+        run: actionlint -color
       - name: Check tracked artifacts
         run: python3 .github/scripts/check_tracked_files.py
       - name: Scan all fetched Git history for secrets
