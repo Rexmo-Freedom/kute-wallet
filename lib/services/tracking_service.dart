@@ -3958,30 +3958,28 @@ class TrackingService {
 
   /// Parameterless: the phrase length is seed-derived (see the HARD RULE).
   /// [evmFormat] is categorical only (legacy | standard | unchecked): which
-  /// EVM format the recovered wallet got. Never an address.
-  static void recoverySeedEntered({String? evmFormat}) =>
+  /// EVM format the recovered wallet got. [legacySignal], for legacy only,
+  /// is what proved the legacy account in use (venue | polygon_balance |
+  /// arbitrum_balance | nonce). Never an address or a balance.
+  static void recoverySeedEntered({String? evmFormat, String? legacySignal}) =>
       track('recovery_seed_entered',
-          params: evmFormat == null ? null : {'evm_format': evmFormat});
+          params: evmFormat == null
+              ? null
+              : {
+                  'evm_format': evmFormat,
+                  if (legacySignal != null) 'legacy_signal': legacySignal,
+                });
 
   /// The unlock-time retry of a recovery EVM format check that did not
   /// finish. [result]: switched_legacy | kept_standard | standard_active |
-  /// incomplete.
-  static void recoveryEvmFormatRechecked({required String result}) =>
-      track('recovery_evm_format_rechecked', params: {'result': result});
-
-  static void recoveryBalanceCheckInitiated() =>
-      track('recovery_balance_check_initiated');
-
-  static void recoveryBalanceCheckCompleted(
-          {required bool complete, required bool hasBalances}) =>
-      track('recovery_balance_check_completed', params: {
-        'result': complete ? 'complete' : 'incomplete',
-        'funds_found': hasBalances ? 'yes' : 'no'
+  /// incomplete; [legacySignal] as on `recovery_seed_entered`, with
+  /// switched_legacy only.
+  static void recoveryEvmFormatRechecked(
+          {required String result, String? legacySignal}) =>
+      track('recovery_evm_format_rechecked', params: {
+        'result': result,
+        if (legacySignal != null) 'legacy_signal': legacySignal,
       });
-
-  static void recoveryBalanceFound({required bool hasBalances}) =>
-      track('recovery_balance_found',
-          params: {'has_balances': hasBalances ? 1 : 0});
 
   static void firstAppLaunch() {
     if (OnceFlagsService.claimOnce('first_app_launch')) {

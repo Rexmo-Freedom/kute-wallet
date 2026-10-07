@@ -67,6 +67,7 @@ import 'package:kute/providers/currency_conversions_provider.dart';
 import 'package:kute/providers/transaction_search_provider.dart';
 import 'package:kute/models/settings_model.dart' show WalletConfig;
 import 'package:kute/providers/transactions_provider.dart';
+import 'package:kute/services/polymarket_optimistic_activity_service.dart';
 import 'package:kute/services/polymarket_spark_txs_service.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/ask_sal_chip.dart';
@@ -3800,27 +3801,30 @@ void _showPolymarketTxDetails(
               ]),
               SizedBox(height: 16.h),
               // Explorer button stays visible — block explorers are a
-              // primary debugging affordance, not nerd data.
-              SizedBox(
-                width: double.infinity,
-                height: 48.h,
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    launchUrl(Uri.parse(
-                        'https://polygonscan.com/tx/${activity.transactionHash}'));
-                  },
-                  icon: Icon(Icons.open_in_new_rounded, size: 18.sp),
-                  label: Text(context.l10n.activityViewOnBlockchain,
-                      style: TextStyle(
-                          fontSize: 16.sp, fontWeight: FontWeight.w600)),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: c.textPrimary,
-                    side: BorderSide(color: c.border),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: AppRadius.buttonBorder),
+              // primary debugging affordance, not nerd data. A just-placed
+              // row keyed by its CLOB trade id has no chain hash yet.
+              if (PolymarketOptimisticActivityService.isChainTxHash(
+                  activity.transactionHash))
+                SizedBox(
+                  width: double.infinity,
+                  height: 48.h,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      launchUrl(Uri.parse(
+                          'https://polygonscan.com/tx/${activity.transactionHash}'));
+                    },
+                    icon: Icon(Icons.open_in_new_rounded, size: 18.sp),
+                    label: Text(context.l10n.activityViewOnBlockchain,
+                        style: TextStyle(
+                            fontSize: 16.sp, fontWeight: FontWeight.w600)),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: c.textPrimary,
+                      side: BorderSide(color: c.border),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: AppRadius.buttonBorder),
+                    ),
                   ),
                 ),
-              ),
               SizedBox(height: 10.h),
             ],
           ),

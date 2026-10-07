@@ -227,6 +227,11 @@ String _uintWord(BigInt value) {
 String encodeApproveCall(String spender, BigInt amount) =>
     '0x$kSelectorApprove${_addressWord(spender)}${_uintWord(amount)}';
 
+/// `setApprovalForAll(operator, true)`. Approvals only: the allowlist
+/// refuses a revocation, and nothing here builds one.
+String encodeSetApprovalForAllCall(String operator) =>
+    '0x$kSelectorSetApprovalForAll${_addressWord(operator)}${_uintWord(BigInt.one)}';
+
 String encodeWrapCall(String asset, String to, BigInt amount) =>
     '0x$kSelectorWrap${_addressWord(asset)}${_addressWord(to)}${_uintWord(amount)}';
 

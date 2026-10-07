@@ -61,6 +61,7 @@ import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
+import 'package:kute/services/hyperliquid/hl_failure_analytics.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart';
 import 'package:kute/services/hyperliquid/hot_twap_guard.dart';
 import 'package:kute/services/hyperliquid/hypercore_cash.dart';
@@ -2555,9 +2556,28 @@ class HyperliquidTradingNotifier
     double? notionalUsd,
     int? leverage,
   }) {
-    // A grant failure (Phase 1b.3) threw before anything was signed. It is
-    // not an order failure; the UI shows C8 or stops quietly.
-    if (e is AuthGrantException) return;
+    // A grant failure (Phase 1b.3) threw before anything was signed. The
+    // UI shows C8 or stops quietly; it is still reported, with its stage,
+    // so every order that did not go out is visible.
+    if (e is AuthGrantException) {
+      TrackingService.hyperliquidOrderFailed(
+        coin: coin,
+        reason: switch (e) {
+          ReauthRequired() => 'approval_details_changed',
+          GrantRevoked() => 'approval_revoked',
+          GrantExpired() => 'approval_expired',
+          GrantConsumed() => 'approval_consumed',
+        },
+        action: action,
+        orderType: orderType,
+        isBuy: isBuy,
+        notionalUsd: notionalUsd,
+        leverage: leverage,
+        walletKind: 'hot',
+        extra: hlFailureParams(e),
+      );
+      return;
+    }
     if (e is HyperliquidSignatureRejectedException) {
       // The exchange recovered a DIFFERENT address from our signature —
       // a signing bug on OUR side. Engineering alert via crash
@@ -2574,6 +2594,7 @@ class HyperliquidTradingNotifier
       notionalUsd: notionalUsd,
       leverage: leverage,
       walletKind: 'hot',
+      extra: hlFailureParams(e),
     );
   }
 

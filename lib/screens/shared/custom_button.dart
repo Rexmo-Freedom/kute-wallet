@@ -41,6 +41,9 @@ class AppButton extends StatefulWidget {
   final Color? textColor;
   final bool isOutlined;
   final bool isLoading;
+  /// Said beside the dots while [isLoading] ("Loading account…"); the
+  /// dots alone when null.
+  final String? loadingLabel;
   final bool compact;
   /// Optional leading icon (e.g. the Add Funds "+"). Tinted to match the
   /// label so heroes can route through this one widget too.
@@ -67,6 +70,7 @@ class AppButton extends StatefulWidget {
     this.textColor,
     this.isOutlined = false,
     this.isLoading = false,
+    this.loadingLabel,
     this.compact = false,
     this.icon,
     this.svgAsset,
@@ -163,13 +167,41 @@ class _AppButtonState extends State<AppButton>
             decoration: _buildDecoration(effectiveColor),
             child: Center(
               child: widget.isLoading
-                  ? LoadingAnimationWidget.staggeredDotsWave(
-                      color: effectiveTextColor, size: 24.sp)
+                  ? _buildLoading(effectiveTextColor)
                   : _buildLabel(effectiveTextColor),
             ),
           ),
         ),
       ),
+    );
+  }
+
+  /// The dots, with [AppButton.loadingLabel] beside them when given.
+  Widget _buildLoading(Color color) {
+    final dots =
+        LoadingAnimationWidget.staggeredDotsWave(color: color, size: 24.sp);
+    final label = widget.loadingLabel;
+    if (label == null) return dots;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        dots,
+        SizedBox(width: 10.w),
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: color,
+              fontSize: widget.fontSize ?? 17.sp,
+              fontWeight: widget.fontWeight ?? FontWeight.w700,
+              letterSpacing: -0.2,
+            ),
+          ),
+        ),
+      ],
     );
   }
 

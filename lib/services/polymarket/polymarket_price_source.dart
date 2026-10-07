@@ -1,25 +1,29 @@
 // lib/services/polymarket/polymarket_price_source.dart
 //
-// Which reference-price feed the 5-minute Up/Down surface reads from.
-// Pure policy so the selection rules are unit-testable without Riverpod
-// or sockets; `CryptoReferencePricesNotifier` drives it.
+// The reference-price feed behind the crypto Up/Down cards, as pure
+// types and policy so the rules are unit-testable without Riverpod or
+// sockets; `CryptoReferencePricesNotifier` drives it.
 //
-// Both sources carry the SAME series: Chainlink's 60-second TWAP, which
-// is what Polymarket's crypto Up/Down markets resolve on and what
-// polymarket.com plots for them (RTDS topic `crypto_prices_twap_sixty`,
-// PolyBolt channel `price.crypto.twap`). Verified live October 2026.
+// The feed is Chainlink's 60-second TWAP, which is what Polymarket's
+// crypto Up/Down markets resolve on and what polymarket.com plots for
+// them, read from PolyBolt (wss://ws-live-v2.polymarket.com/ws, channel
+// `price.crypto.twap`). PolyBolt is the only source: Polymarket removes
+// the old price topics of its previous live-data socket in late October
+// 2026, so there is nothing to fall back to on Polymarket's side.
 //
 // Rules:
-//   * PolyBolt (wss://ws-live-v2.polymarket.com/ws) needs CLOB L2
-//     credentials, so it is preferred only when the app has them.
-//   * When PolyBolt fails (auth refused, reconnect budget exhausted,
-//     policy close) we fall back to the deprecated RTDS socket for the
-//     rest of this session and do not flap back.
-//   * Without credentials — every user with no Polymarket account —
-//     RTDS is used, so nothing is lost until Polymarket removes the old
-//     topics.
-
-enum PmPriceSource { polyBolt, rtds }
+//   * PolyBolt's price channels need CLOB L2 credentials. Without them
+//     (no Polymarket account yet, before derivation, a Ledger account)
+//     no socket is opened and the cards show their Binance/CoinGecko
+//     fallback straight away; the feed connects as soon as credentials
+//     appear.
+//   * A transient failure (socket closed or errored past the socket's
+//     own reconnect budget, a silent feed, an unreachable verifier)
+//     reconnects after 2 s, 4 s, ... up to 30 s; any price point resets
+//     the count.
+//   * A hard failure (credentials refused, policy close 4008) waits
+//     [kPmReferenceHardRetryDelay] before trying again, and retries at
+//     once when the credentials change.
 
 /// The TWAP lookback every crypto Up/Down market carries today
 /// (Gamma `cryptoMarketConfig.twapLookbackSeconds`, BTC/ETH/SOL/XRP 5m
@@ -27,15 +31,19 @@ enum PmPriceSource { polyBolt, rtds }
 /// serves.
 const kCryptoTwapLookbackSeconds = 60;
 
+/// Wait after a hard failure (credentials refused, policy close) before
+/// the feed tries again with the same credentials.
+const kPmReferenceHardRetryDelay = Duration(seconds: 60);
+
 /// Where the numbers on a crypto Up/Down card come from. [chainlink] is
-/// Polymarket's own feed (either [PmPriceSource]); the others are the
-/// fallbacks used only while that feed is silent, never mixed into one
+/// Polymarket's own feed (PolyBolt); the others are the fallbacks used
+/// only while that feed is silent or unavailable, never mixed into one
 /// series with it.
 enum CryptoPriceFeed { chainlink, binance, coingecko }
 
 /// Points for one asset from Polymarket's Chainlink TWAP feed, in
 /// Chainlink's own event time. A subscribe answers with a snapshot (the
-/// last minute or two, one point a second); live frames carry one point.
+/// last two minutes, one point a second); live frames carry one point.
 class PmReferencePriceFrame {
   /// The app's asset key, e.g. `BTC`.
   final String asset;
@@ -51,36 +59,22 @@ class PmReferencePriceFrame {
   });
 }
 
-class PmPriceSourcePolicy {
-  bool _polyBoltFailed = false;
-  PmPriceSource? _active;
+/// Reconnect timing for the PolyBolt reference-price feed.
+class PmReferenceFeedRetry {
+  int _failures = 0;
 
-  /// Set once PolyBolt errored; sticky for the life of the policy.
-  bool get polyBoltFailed => _polyBoltFailed;
+  /// Consecutive failures since the last price point.
+  int get failures => _failures;
 
-  /// The source currently connected, or null before the first connect.
-  PmPriceSource? get active => _active;
-
-  /// Which source to connect given the current credential state.
-  PmPriceSource select({required bool hasClobCredentials}) =>
-      hasClobCredentials && !_polyBoltFailed
-          ? PmPriceSource.polyBolt
-          : PmPriceSource.rtds;
-
-  /// Records the source that was actually connected.
-  void markActive(PmPriceSource source) => _active = source;
-
-  /// PolyBolt errored or closed: remember it and answer the source to
-  /// fall back to.
-  PmPriceSource markPolyBoltFailed() {
-    _polyBoltFailed = true;
-    return PmPriceSource.rtds;
+  /// Records a failure and answers how long to wait before reconnecting:
+  /// 2 s, 4 s, ... capped at 30 s for a transient one,
+  /// [kPmReferenceHardRetryDelay] for a hard one.
+  Duration next({bool hard = false}) {
+    _failures += 1;
+    if (hard) return kPmReferenceHardRetryDelay;
+    return Duration(seconds: (2 * _failures).clamp(2, 30));
   }
 
-  /// True when credentials became available while RTDS is serving and
-  /// PolyBolt has not failed this session — i.e. we should upgrade.
-  bool shouldUpgrade({required bool hasClobCredentials}) =>
-      hasClobCredentials &&
-      !_polyBoltFailed &&
-      _active == PmPriceSource.rtds;
+  /// A price point arrived: the next failure starts from 2 s again.
+  void reset() => _failures = 0;
 }

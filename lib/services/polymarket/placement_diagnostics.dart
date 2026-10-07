@@ -7,8 +7,12 @@
 // all and which country the venue sees. Nothing here carries keys,
 // signatures, addresses or order bodies.
 
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:kute/services/polymarket/order_refusal.dart';
+import 'package:kute/services/polymarket_backend_service.dart';
 import 'package:kute/services/tracking_service.dart';
 
 class PolymarketPlacementDiagnostics {
@@ -21,6 +25,14 @@ class PolymarketPlacementDiagnostics {
     final type = error.runtimeType.toString();
     TrackingService.track('polymarket_placement_step_failed', params: {
       'step': step,
+      'stage': switch (step) {
+        'setup' => 'setup',
+        'order_book' => 'book',
+        'fee_terms' || 'builder_code' => 'quote',
+        _ => step,
+      },
+      'error_category': TrackingService.errorCategory(error),
+      if (error is TimeoutException) 'timed_out': true,
       'error_type': type,
       'ms': elapsed.inMilliseconds,
       // Coarse bucket beside the raw ms (kept for existing dashboards).
@@ -44,11 +56,40 @@ class PolymarketPlacementDiagnostics {
     debugPrint('[pm] $stage $text');
   }
 
-  /// The placement ended before an order was sent, and why.
-  static void declined(String reason, {Object? error}) {
+  /// The step a decline [reason] ended the placement at: one closed word.
+  @visibleForTesting
+  static String declineStage(String reason) => switch (reason) {
+        'region_or_policy' => 'geo_blocked',
+        'insufficient_balance' => 'balance_check',
+        'approval_not_granted' => 'user_declined',
+        'setup_timeout' || 'setup_failed' || 'wallet_not_ready' => 'setup',
+        'prepare_failed' || 'no_intent' => 'quote',
+        'liquidity_unavailable' => 'book',
+        'side_mismatch' => 'sign',
+        'advanced_unavailable' => 'policy',
+        'previous_order_unconfirmed' ||
+        'venue_unreachable' ||
+        'order_in_progress' =>
+          'guard_pending',
+        'outcome_unknown' => 'submit',
+        _ => 'unknown',
+      };
+
+  /// The placement ended without an accepted order, and why: before an
+  /// order was sent, or with one whose answer proves nothing yet
+  /// ([reason] outcome_unknown). [context] carries the order's shape
+  /// (see PolymarketBetController.placementContext) when it is known.
+  static void declined(String reason,
+      {Object? error, String? stage, Map<String, Object>? context}) {
     TrackingService.track('polymarket_placement_declined', params: {
+      ...?context,
       'reason': reason,
+      'stage': stage ?? declineStage(reason),
       if (error != null) 'error_type': error.runtimeType.toString(),
+      if (error != null)
+        'error_category': TrackingService.errorCategory(error),
+      if (error is PolymarketOrderNotAcceptedException)
+        ...polymarketRefusalParams(error.reason),
     });
     if (!kDebugMode) return;
     debugPrint('[pm] declined reason=$reason'
@@ -61,9 +102,11 @@ class PolymarketPlacementDiagnostics {
     required double price,
     required double shares,
     required String orderType,
+    bool? negRisk,
     Map<String, dynamic>? response,
     Object? error,
     String? failureCode,
+    String? stage,
   }) {
     final facts = <String, Object?>{
       'rung': rung,
@@ -83,14 +126,52 @@ class PolymarketPlacementDiagnostics {
         'error': '${error.runtimeType}: ${_brief(error)}',
       },
     };
+    final refusal = error is PolymarketOrderNotAcceptedException
+        ? error.reason
+        : response?['success'] == false && response?['errorMsg'] is String
+            ? response!['errorMsg'] as String
+            : null;
     TrackingService.track('polymarket_order_outcome', params: {
       'rung': rung,
       'type': orderType,
       'success': response?['success'] == true,
       if (response?['status'] != null) 'status': '${response!['status']}',
       if (failureCode != null) 'failure': failureCode,
+      if (stage != null) 'stage': stage,
+      'price': price,
+      'shares': shares,
+      if (negRisk != null) 'venue_market_type': negRisk ? 'neg_risk' : 'standard',
+      'sig_type': 3,
+      if (refusal != null && refusal.isNotEmpty)
+        ...polymarketRefusalParams(refusal),
     });
     note(error == null ? 'order_response' : 'order_failed', facts);
+  }
+
+  /// The venue refused an order inside a placement and the placement
+  /// ran [heal] (refreshBalance, approveSpender, repairSetup, rebindKey)
+  /// before signing again. Same event as a rung's outcome, told apart by
+  /// stage self_heal and `heal`; [result] says how an approval went
+  /// (sent, already_set, failed, timed_out). An allowance refusal carries
+  /// the spender it named as a contract name, never the address.
+  static void selfHeal({
+    required String heal,
+    required String refusal,
+    required int attempt,
+    bool? negRisk,
+    String? result,
+  }) {
+    TrackingService.track('polymarket_order_outcome', params: {
+      'stage': 'self_heal',
+      'heal': heal,
+      'attempt': attempt,
+      'success': false,
+      if (result != null) 'heal_result': result,
+      if (negRisk != null) 'venue_market_type': negRisk ? 'neg_risk' : 'standard',
+      'sig_type': 3,
+      ...polymarketRefusalParams(refusal),
+    });
+    note('self_heal', {'heal': heal, 'attempt': attempt, 'result': result});
   }
 
   static String? _shortId(Object? id) {

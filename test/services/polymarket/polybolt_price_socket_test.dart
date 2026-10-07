@@ -224,6 +224,77 @@ void main() {
     });
   });
 
+  group('parsePricePoints', () {
+    test('snapshot batch keeps the whole history, oldest first, in event time', () {
+      final points = PolyBoltPriceSocket.parsePricePoints({
+        'v': 1,
+        'channel': 'price.crypto.twap',
+        'seq': 1,
+        'ts': 1788973003000,
+        'snapshot': true,
+        'payload': {
+          'symbol': 'btcusd',
+          'window_seconds': 60,
+          'source': 'chainlink',
+          'data': [
+            {'timestamp': 1788973002000, 'value': 64121.0, 'full_accuracy_value': '64121.00000000'},
+            {'timestamp': 1788973001000, 'value': 64120.0, 'full_accuracy_value': '64120.00000000'},
+            {'timestamp': 1788973003000, 'value': 'bad'},
+          ],
+        },
+      });
+      expect(points.map((p) => p.t.millisecondsSinceEpoch).toList(),
+          [1788973001000, 1788973002000]);
+      expect(points.map((p) => p.p).toList(), [64120.0, 64121.0]);
+    });
+
+    test('live frame yields one point at the source timestamp', () {
+      final points = PolyBoltPriceSocket.parsePricePoints(
+          twapLive('ethusd', 3210.5, exact: '3210.50000000', ts: 1788973005000));
+      expect(points, hasLength(1));
+      expect(points.single.p, 3210.5);
+      expect(points.single.t.millisecondsSinceEpoch, 1788973005000);
+    });
+
+    test('an E18-scaled exact value never reaches the screen', () {
+      final points = PolyBoltPriceSocket.parsePricePoints(twapLive(
+          'btcusd', 64120.7, exact: '64120700000000000000000'));
+      expect(points.single.p, 64120.7);
+    });
+
+    test('acks and errors carry no points', () {
+      expect(PolyBoltPriceSocket.parsePricePoints({'op': 'authed', 'rid': 'a1'}), isEmpty);
+      expect(PolyBoltPriceSocket.parsePricePoints(
+          {'v': 1, 'channel': 'price.crypto.twap', 'snapshot': true, 'payload': []}), isEmpty);
+    });
+  });
+
+  group('PolyBoltPriceSocket.isHardFailure', () {
+    test('refused credentials and policy closes are hard', () {
+      for (final code in ['auth_invalid', 'auth_expired', 'auth_required',
+          'auth_attempts', 'close_4001']) {
+        expect(PolyBoltPriceSocket.isHardFailure(PolyBoltAuthException(code)),
+            isTrue, reason: code);
+      }
+      expect(
+          PolyBoltPriceSocket.isHardFailure(
+              const PolyBoltDisconnectedException('policy', closeCode: 4008)),
+          isTrue);
+    });
+
+    test('an unreachable verifier, missing credentials and dropped sockets are transient', () {
+      expect(PolyBoltPriceSocket.isHardFailure(
+          const PolyBoltAuthException('auth_unavailable')), isFalse);
+      expect(PolyBoltPriceSocket.isHardFailure(
+          const PolyBoltAuthException('no_credentials')), isFalse);
+      expect(PolyBoltPriceSocket.isHardFailure(
+          const PolyBoltDisconnectedException('budget', closeCode: 1006)), isFalse);
+      expect(PolyBoltPriceSocket.isHardFailure(
+          const PolyBoltDisconnectedException('budget')), isFalse);
+      expect(PolyBoltPriceSocket.isHardFailure(StateError('x')), isFalse);
+    });
+  });
+
   group('PolyBoltPriceSocket stream', () {
     late List<FakeTransport> transports;
     PolyBoltPriceSocket build({

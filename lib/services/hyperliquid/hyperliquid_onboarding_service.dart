@@ -50,7 +50,7 @@ class HyperliquidOnboardingService {
   }) async {
     LedgerOperationScope.assertHotAllowed(
         HotSigningAction.hyperliquidHotCredentials);
-    final wallet = EvmWalletDerivation.deriveWallet(
+    final wallet = await EvmWalletDerivation.deriveWalletAsync(
         mnemonic: mnemonic, version: evmDerivationVersion, index: 0);
     final credentials = EthPrivateKey.fromHex(wallet.privateKey);
     await markEnabled(walletId);

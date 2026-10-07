@@ -195,7 +195,10 @@ Future<LedgerPmBetOutcome> showLedgerPredictionApproval(
     if (power.spendable < amounts.maker + feeReserve) {
       throw const LedgerPmTradeRefused(LedgerPmTradeRefusal.insufficientCash);
     }
-    // The exchange pulls fees from the same allowance as the stake.
+    // The exchange pulls fees from the same allowance as the stake. A
+    // neg-risk order needs it at the Neg Risk Exchange and the v1 adapter
+    // the CLOB still checks; allowance() is the smaller of the two, and the
+    // approval sets both in one batch, each named on the review.
     if (power.allowance(rules.negRisk) < amounts.maker + feeReserve) {
       final approval = LedgerPolymarketIntents.approveTrading(
           walletId: walletId,
@@ -205,6 +208,8 @@ Future<LedgerPmBetOutcome> showLedgerPredictionApproval(
           summary: {
             l10n.ledgerSummaryAction: l10n.ledgerBetEnableSpending,
             l10n.ledgerBetMaxSpend: '\$${_units(amounts.maker + feeReserve)}',
+            l10n.ledgerSummaryContracts:
+                ledgerPmContractsLabel(ledgerPmTradeSpenders(rules.negRisk)),
           });
       String? reconciled;
       if (!context.mounted) return LedgerPmBetOutcome.cancelled;

@@ -189,6 +189,8 @@ void main() {
       'polymarket.browse',
       'settings.advanced',
       'export.transactions',
+      // The Protocol V2 order path, so a V2 position stays sellable.
+      'polymarket.protocol_v2',
       ...exits,
     });
     for (final id in kOfflineAllowedCapabilities) {

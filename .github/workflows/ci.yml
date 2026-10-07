@@ -53,16 +53,16 @@ jobs:
             test/services/hardware/signing_clarity_test.dart \
             test/screens/ledger/ledger_spot_funding_test.dart
 
-  # The suite (about 6,000 tests with coverage) ran past 45 minutes on one
-  # hosted runner, so it runs as four shards in parallel.
+  # The suite (about 6,200 tests) took over 35 minutes per shard with
+  # coverage on four shards, so it runs as eight shards without coverage.
   test:
-    name: test (shard ${{ matrix.shard }} of 4)
+    name: test (shard ${{ matrix.shard }} of 8)
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3]
+        shard: [0, 1, 2, 3, 4, 5, 6, 7]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -76,17 +76,8 @@ jobs:
         run: flutter gen-l10n
       - name: Run unit, widget, and financial safety regressions
         run: >-
-          flutter test --no-pub --coverage --reporter expanded
-          --total-shards 4 --shard-index ${{ matrix.shard }}
-      - name: Require coverage data
-        run: test -s coverage/lcov.info
-      - name: Upload coverage
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: coverage-${{ github.sha }}-shard-${{ matrix.shard }}
-          path: coverage/lcov.info
-          if-no-files-found: error
-          retention-days: 14
+          flutter test --no-pub
+          --total-shards 8 --shard-index ${{ matrix.shard }}
 
   build-check:
     runs-on: ubuntu-24.04

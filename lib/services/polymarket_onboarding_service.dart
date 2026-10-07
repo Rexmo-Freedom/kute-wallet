@@ -41,11 +41,13 @@ import 'package:kute/models/affiliate_model.dart' show AffiliateService;
 import 'package:kute/services/hardware/ledger/ledger_failure.dart';
 import 'package:kute/services/hardware/signing_clarity.dart';
 import 'package:kute/services/polymarket/deposit_wallet_batch_signer.dart';
+import 'package:kute/services/polymarket/order_refusal.dart';
 import 'package:pointycastle/digests/keccak.dart';
 import 'package:polybrainz_polymarket/polybrainz_polymarket.dart'
     hide EthereumAddress, PolymarketConstants;
 import 'package:kute/services/hardware/ledger/ledger_operation_scope.dart';
 import 'package:kute/constants/polymarket_approval_inventory.dart';
+import 'package:kute/services/polymarket/market_protocol.dart';
 
 /// Sentinel for `_pollTransaction` to escape the inner catch-and-
 /// retry loop when the relayer reports a terminal state. Plain
@@ -266,6 +268,9 @@ class PolymarketOnboardingService {
   Future<String> resolveDepositWalletAddress(String eoaAddress) async {
     final uups = deriveDepositWalletAddress(eoaAddress);
     // 1. Relayer registry — the authoritative "this wallet can trade" signal.
+    //    `type=WALLET` on `/deployed` is undocumented (the relayer spec
+    //    lists PROXY and SAFE) and has no documented replacement; any
+    //    failure here falls through to the on-chain check below.
     try {
       final uri = Uri.parse('$_kPmRelayerBaseUrl/deployed').replace(
         queryParameters: {'address': uups, 'type': 'WALLET'},
@@ -289,40 +294,118 @@ class PolymarketOnboardingService {
     return predictDepositWalletOnChain(eoaAddress);
   }
 
-  /// Polygon endpoints tried in order for the wallet resolve. One public RPC
-  /// answering "upstream overloaded" must not decide which wallet a user sees.
-  static const _kResolveRpcs = [
+  /// Public Polygon endpoints for every on-chain READ (wallet resolve,
+  /// deploy check, approval scan, balances, receipts), tried in order. One
+  /// public RPC hanging or answering "upstream overloaded" must not decide
+  /// which wallet a user sees or abort Enable trading. Signed transactions
+  /// never go here: they are submitted through the backend relay.
+  @visibleForTesting
+  static const polygonReadRpcs = [
     PolymarketConstants.polygonRpc,
     'https://polygon.drpc.org',
     'https://1rpc.io/matic',
+    'https://polygon.gateway.tenderly.co',
   ];
 
-  /// The first usable `result` among [_kResolveRpcs]; throws
-  /// [PolymarketReadException] when none answers.
+  /// Per-request timeout for one endpoint.
+  @visibleForTesting
+  static Duration polygonRpcTimeout = const Duration(seconds: 5);
+
+  /// How long an endpoint that just failed is tried after the others, so a
+  /// hanging RPC costs one timeout rather than one per read.
+  static const _kRpcCooldown = Duration(minutes: 1);
+  static final Map<String, DateTime> _rpcCooldownUntil = {};
+
+  /// Per endpoint: whether `eth_chainId` answered Polygon (137). A pending or
+  /// settled check; an unanswered one is dropped so the next read retries.
+  static final Map<String, Future<bool?>> _rpcChainChecks = {};
+
+  @visibleForTesting
+  static void debugResetPolygonRpcs() {
+    _rpcCooldownUntil.clear();
+    _rpcChainChecks.clear();
+    polygonRpcTimeout = const Duration(seconds: 5);
+  }
+
+  /// Endpoints in try order: the ones that have not failed recently in list
+  /// order, then the cooling ones (still tried before failing closed).
+  static List<String> _polygonReadOrder() {
+    final now = DateTime.now();
+    final ready = <String>[];
+    final cooling = <String>[];
+    for (final rpc in polygonReadRpcs) {
+      final until = _rpcCooldownUntil[rpc];
+      (until != null && now.isBefore(until) ? cooling : ready).add(rpc);
+    }
+    return [...ready, ...cooling];
+  }
+
+  static void _rpcFailed(String rpc) =>
+      _rpcCooldownUntil[rpc] = DateTime.now().add(_kRpcCooldown);
+
+  /// One JSON-RPC request to [rpc]. Null on timeout, a non-200 status, a
+  /// JSON-RPC error or a malformed body; otherwise the `result` (which may
+  /// itself be null, e.g. a receipt not mined yet).
+  static Future<({Object? result})?> _rpcRequest(
+    String rpc,
+    String method,
+    List<Object> params, {
+    Duration? timeout,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse(rpc),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'jsonrpc': '2.0',
+              'method': method,
+              'params': params,
+              'id': 1,
+            }),
+          )
+          .timeout(timeout ?? polygonRpcTimeout);
+      if (response.statusCode != 200) return null;
+      final json = jsonDecode(response.body);
+      if (json is! Map || json['error'] != null) return null;
+      return (result: json['result']);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// True once [rpc] has answered `eth_chainId` with Polygon. A wrong chain
+  /// is remembered and the endpoint skipped for the rest of the session; an
+  /// unanswered check marks it failed and is retried on a later read.
+  static Future<bool> _isPolygonRpc(String rpc) async {
+    final check = _rpcChainChecks.putIfAbsent(rpc, () async {
+      final answer = await _rpcRequest(rpc, 'eth_chainId', const []);
+      final result = answer?.result;
+      if (result is! String) return null;
+      return int.tryParse(result.replaceFirst('0x', ''), radix: 16) ==
+          PolymarketConstants.polygonChainId;
+    });
+    final ok = await check;
+    if (ok == null) {
+      if (identical(_rpcChainChecks[rpc], check)) _rpcChainChecks.remove(rpc);
+      _rpcFailed(rpc);
+    }
+    return ok ?? false;
+  }
+
+  /// The first usable `result` among [polygonReadRpcs]: an endpoint that
+  /// times out, errors or is not on Polygon is skipped for the next one.
+  /// Throws [PolymarketReadException] only when none answers, so strict
+  /// callers still fail closed.
   Future<String> _rpcFirstAnswer(String method, List<Object> params) async {
-    for (final rpc in _kResolveRpcs) {
-      try {
-        final response = await http
-            .post(
-              Uri.parse(rpc),
-              headers: {'Content-Type': 'application/json'},
-              body: jsonEncode({
-                'jsonrpc': '2.0',
-                'method': method,
-                'params': params,
-                'id': 1,
-              }),
-            )
-            .timeout(const Duration(seconds: 5));
-        if (response.statusCode != 200) continue;
-        final json = jsonDecode(response.body);
-        final result = json is Map ? json['result'] : null;
-        if (json is Map && json['error'] == null && result is String) {
-          return result;
-        }
-      } catch (_) {
-        // next endpoint
+    for (final rpc in _polygonReadOrder()) {
+      if (!await _isPolygonRpc(rpc)) continue;
+      final result = (await _rpcRequest(rpc, method, params))?.result;
+      if (result is String) {
+        _rpcCooldownUntil.remove(rpc);
+        return result;
       }
+      _rpcFailed(rpc);
     }
     throw PolymarketReadException('$method: no Polygon RPC answered');
   }
@@ -937,10 +1020,13 @@ class PolymarketOnboardingService {
     // Native USDC also needs Uniswap allowance for the reverse swap
     // (used by `bridged=true` withdraws).
     final usdcSpenders = PolymarketApprovalInventoryConstants.usdcSpenders;
-    // ERC-1155 (CTF outcome shares) operators that need setApprovalForAll.
-    // Covers both Exchange contracts AND every redeem adapter we route
-    // claim/redeem calls through.
+    // ERC-1155 operators that need setApprovalForAll, per share ledger:
+    // CTF (both Exchange contracts and every redeem adapter we route
+    // claims through) and the Protocol V2 PositionManager (ExchangeV3 for
+    // sells, the Router for claims).
     final ctfOperators = PolymarketApprovalInventoryConstants.ctfOperators;
+    final positionOperators =
+        PolymarketApprovalInventoryConstants.positionManagerOperators;
 
     final calls = <({String target, BigInt value, String data})>[];
 
@@ -962,20 +1048,23 @@ class PolymarketOnboardingService {
         });
       }
     }
-    for (final operator in ctfOperators) {
-      checks.add(() async {
-        final approved = await readApprovalOrThrow(
-            token: _kCtfAddress,
-            owner: walletAddress,
-            spender: operator,
-            operatorApproval: true);
-        if (approved == BigInt.one) return;
-        calls.add((
-          target: _kCtfAddress,
-          value: BigInt.zero,
-          data: '0x${_encodeSetApprovalForAll(operator)}',
-        ));
-      });
+    for (final entry in PolymarketApprovalInventoryConstants
+        .activeOperatorsByToken.entries) {
+      for (final operator in entry.value) {
+        checks.add(() async {
+          final approved = await readApprovalOrThrow(
+              token: entry.key,
+              owner: walletAddress,
+              spender: operator,
+              operatorApproval: true);
+          if (approved == BigInt.one) return;
+          calls.add((
+            target: entry.key,
+            value: BigInt.zero,
+            data: '0x${_encodeSetApprovalForAll(operator)}',
+          ));
+        });
+      }
     }
     for (var offset = 0; offset < checks.length; offset += 4) {
       ensureCurrent?.call();
@@ -995,7 +1084,8 @@ class PolymarketOnboardingService {
       // ignore: avoid_print
       print('[poly-relayer] queueing ${calls.length} approval calls '
           '(${usdcESpenders.length} USDC.e + ${pusdSpenders.length} pUSD '
-          '+ ${usdcSpenders.length} USDC + ${ctfOperators.length} CTF)');
+          '+ ${usdcSpenders.length} USDC + ${ctfOperators.length} CTF '
+          '+ ${positionOperators.length} PositionManager)');
     }
 
     // 10-minute deadline gives the relayer plenty of headroom even
@@ -1062,6 +1152,81 @@ class PolymarketOnboardingService {
         value: BigInt.zero,
         data: '0x${_encodeSetApprovalForAll(operator)}',
       ));
+    }
+    ensureCurrent?.call();
+    if (calls.isEmpty) return false;
+    final deadline = DateTime.now()
+            .add(const Duration(minutes: 10))
+            .millisecondsSinceEpoch ~/
+        1000;
+    await executeDepositWalletBatch(
+      eoaAddress: eoaAddress,
+      signer: CredentialsDepositWalletBatchSigner(privateKey),
+      walletAddress: walletAddress,
+      calls: calls,
+      deadline: deadline,
+      ensureCurrent: ensureCurrent,
+    );
+    return true;
+  }
+
+  /// Sets the one approval an order refusal named ("the allowance is not
+  /// enough -> spender: 0x…"): what [polymarketPinnedSpenderApprovals]
+  /// lists for [spender] (pUSD, and the CTF or PositionManager operator
+  /// approval where that contract moves shares), each only when it reads
+  /// as missing, in one gasless deposit-wallet batch. [spender] must
+  /// be one of Polymarket's pinned contracts (polymarketPinnedSpenders);
+  /// any other address throws and nothing is signed. True when a batch was
+  /// sent. Callers bound the wait; the batch itself is idempotent.
+  Future<bool> approveRefusalSpender({
+    required String eoaAddress,
+    required String privateKey,
+    required String walletAddress,
+    required String spender,
+    void Function()? ensureCurrent,
+  }) async {
+    final address = spender.toLowerCase();
+    final approvals = polymarketPinnedSpenderApprovals[address];
+    if (approvals == null || !polymarketPinnedSpenders.containsKey(address)) {
+      throw ArgumentError('Not a pinned Polymarket contract');
+    }
+    ensureCurrent?.call();
+    await waitForIdleBatch(walletAddress);
+    ensureCurrent?.call();
+    final calls = <({String target, BigInt value, String data})>[];
+    if (approvals.contains(PolymarketSpenderApproval.pusd)) {
+      final allowance = await readApprovalOrThrow(
+          token: PolymarketConstants.pusdAddress,
+          owner: walletAddress,
+          spender: address);
+      if (allowance == BigInt.zero) {
+        calls.add((
+          target: PolymarketConstants.pusdAddress,
+          value: BigInt.zero,
+          data: '0x${_encodeApprove(address)}',
+        ));
+      }
+    }
+    for (final (kind, ledger) in const [
+      (PolymarketSpenderApproval.ctfOperator, _kCtfAddress),
+      (
+        PolymarketSpenderApproval.positionOperator,
+        PolymarketConstants.comboPositionManagerAddress
+      ),
+    ]) {
+      if (!approvals.contains(kind)) continue;
+      final approved = await readApprovalOrThrow(
+          token: ledger,
+          owner: walletAddress,
+          spender: address,
+          operatorApproval: true);
+      if (approved != BigInt.one) {
+        calls.add((
+          target: ledger,
+          value: BigInt.zero,
+          data: '0x${_encodeSetApprovalForAll(address)}',
+        ));
+      }
     }
     ensureCurrent?.call();
     if (calls.isEmpty) return false;
@@ -1147,6 +1312,73 @@ class PolymarketOnboardingService {
       );
 
   // ──────────────────────────────────────────────────────────────────
+  // Protocol V2 positions: payouts and the Router claim
+  // ──────────────────────────────────────────────────────────────────
+
+  static String? _getPayoutSelector;
+
+  /// Payout per share of YES (`[0]`) and NO (`[1]`) of the V2 condition
+  /// [conditionId31] (31 bytes), from `PositionManager.getPayout(uint256
+  /// positionId, uint256 amount)` for one share each. Null while the
+  /// condition is unresolved (the call reverts, or pays nothing on either
+  /// side) or unreadable. A resolved condition pays its full share across
+  /// the two sides, so a zero side is a verified loss.
+  Future<List<double>?> readV2Payouts(String conditionId31) async {
+    try {
+      final selector = _getPayoutSelector ??= KeccakDigest(256)
+          .process(
+              Uint8List.fromList(utf8.encode('getPayout(uint256,uint256)')))
+          .take(4)
+          .map((b) => b.toRadixString(16).padLeft(2, '0'))
+          .join();
+      final share = BigInt.from(1000000);
+      final out = <BigInt>[];
+      for (final outcome in const [0, 1]) {
+        final id = BigInt.parse(
+            PolyMarketProtocol.v2PositionId(conditionId31, outcome));
+        final hex = await _ethCallStrict(
+            PolymarketConstants.comboPositionManagerAddress,
+            '$selector${id.toRadixString(16).padLeft(64, '0')}'
+            '${share.toRadixString(16).padLeft(64, '0')}');
+        if (!RegExp(r'^[0-9a-fA-F]{64}$').hasMatch(hex)) return null;
+        out.add(BigInt.parse(hex, radix: 16));
+      }
+      final total = out[0] + out[1];
+      if (total == BigInt.zero || out.any((v) => v > share)) return null;
+      return [for (final v in out) v.toDouble() / share.toDouble()];
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Router `redeem` calls for every side of the V2 position [positionId]'s
+  /// condition that [owner] holds, each for its full PositionManager
+  /// balance (V2 redeems one outcome per call). Empty when nothing is
+  /// held. Throws on an unreadable balance.
+  Future<List<({String target, BigInt value, String data})>> v2RedeemCalls(
+      {required String positionId, required String owner}) async {
+    final split = PolyMarketProtocol.splitV2(positionId);
+    final ids = [
+      PolyMarketProtocol.v2PositionId(split.conditionId, 0),
+      PolyMarketProtocol.v2PositionId(split.conditionId, 1),
+    ];
+    final held =
+        await readCtfBalancesBatchOrThrow(positionIds: ids, owner: owner);
+    return [
+      for (var outcome = 0; outcome < 2; outcome++)
+        if ((held[ids[outcome]] ?? BigInt.zero) > BigInt.zero)
+          (
+            target: PolymarketConstants.comboRouterAddress,
+            value: BigInt.zero,
+            data: comboRedeemCalldata(
+                conditionId: split.conditionId,
+                outcomeIndex: outcome,
+                amount: held[ids[outcome]]!),
+          ),
+    ];
+  }
+
+  // ──────────────────────────────────────────────────────────────────
   // LEGACY: pre-V2 Safe path. Kept compiled so existing wallets can
   // still be read (`isDeployed`, `deriveSafeAddress`) but no longer
   // routes any of the actual trading flow.
@@ -1198,24 +1430,64 @@ class PolymarketOnboardingService {
 
   /// Read the V2 Deposit Wallet's relayer nonce for [eoaAddress].
   ///
-  /// Different namespace from the Safe nonce — uses `type=WALLET` on the
-  /// relayer's `/nonce` endpoint, which is unauthenticated. We hit
-  /// Polymarket's relayer directly (it's a public GET) rather than going
-  /// through our backend proxy, matching what we do for SAFE-type nonces.
+  /// Different namespace from the Safe nonce. Reads the documented
+  /// Deposit Wallet route first,
+  /// `GET /v1/account/transactions/params?address=<signer>&type=WALLET`
+  /// (docs: trading/wallets-auth), which
+  /// answers `{address, nonce}` without auth. The relayer's `/nonce` only
+  /// documents `type ∈ {PROXY, SAFE}`; its undocumented `type=WALLET`
+  /// answer is the fallback when the documented route fails. Both are
+  /// keyed by the signer and gave the same nonce for every live signer
+  /// checked on 2026-10-07. The `address` the documented route returns is
+  /// not used: it can name the factory's current wallet rather than the
+  /// (legacy UUPS) wallet the batch is for. Public GETs, so straight to
+  /// Polymarket's relayer, as for SAFE nonces.
   Future<String> _getDepositWalletNonce(String eoaAddress) async {
-    final uri = Uri.parse('$_kPmRelayerBaseUrl/nonce').replace(
+    try {
+      return await _readWalletNonce(
+          _kRelayerWalletParamsPath, eoaAddress, const Duration(seconds: 10));
+    } catch (e) {
+      if (kDebugMode) {
+        // ignore: avoid_print
+        print('[poly-relayer] WALLET params nonce failed ($e), '
+            'falling back to /nonce');
+      }
+      return _readWalletNonce(
+          '/nonce', eoaAddress, const Duration(seconds: 15));
+    }
+  }
+
+  /// The documented Deposit Wallet nonce route on the relayer.
+  static const _kRelayerWalletParamsPath = '/v1/account/transactions/params';
+
+  Future<String> _readWalletNonce(
+      String path, String eoaAddress, Duration timeout) async {
+    final uri = Uri.parse('$_kPmRelayerBaseUrl$path').replace(
       queryParameters: {'address': eoaAddress, 'type': 'WALLET'},
     );
-    final resp = await http.get(uri).timeout(const Duration(seconds: 15));
+    final resp = await http.get(uri).timeout(timeout);
     if (resp.statusCode != 200) {
-      throw Exception('relayer /nonce(WALLET) failed: ${resp.statusCode}');
+      throw Exception('relayer $path(WALLET) failed: ${resp.statusCode}');
     }
-    final data = jsonDecode(resp.body) as Map<String, dynamic>;
-    final nonce = data['nonce']?.toString();
-    if (nonce == null || nonce.isEmpty) {
-      throw Exception('relayer /nonce(WALLET) returned empty nonce');
+    final nonce = parseRelayerWalletNonce(jsonDecode(resp.body));
+    if (nonce == null) {
+      throw Exception('relayer $path(WALLET) returned no nonce');
     }
     return nonce;
+  }
+
+  /// The nonce of a relayer nonce answer (`{nonce}` from `/nonce`,
+  /// `{address, nonce}` from `/v1/account/transactions/params`) as a
+  /// decimal string, or null when it is missing or not a non-negative
+  /// integer (a signature must never commit to a garbled nonce).
+  @visibleForTesting
+  static String? parseRelayerWalletNonce(Object? decoded) {
+    if (decoded is! Map) return null;
+    final raw = decoded['nonce'];
+    if (raw is! String && raw is! int) return null;
+    final value = BigInt.tryParse('$raw'.trim());
+    if (value == null || value.isNegative) return null;
+    return value.toString();
   }
 
   // A transfer must never receive an approval or another transfer's hash.
@@ -2055,11 +2327,38 @@ class PolymarketOnboardingService {
   /// underlying outcome tokens are still on the Safe.
   ///
   /// Returns `{}` on RPC failure (callers fall back to API trust).
+  ///
+  /// Protocol V2 position ids are read from the PositionManager instead
+  /// (their shares never sit on CTF); a mixed list is split by protocol.
   Future<Map<String, BigInt>> readCtfBalancesBatch({
     required List<String> positionIds,
     required String owner,
   }) async {
     if (positionIds.isEmpty) return const {};
+    final v2 = positionIds.where(PolyMarketProtocol.isV2PositionId).toList();
+    if (v2.isNotEmpty) {
+      final ctf = positionIds
+          .where((id) => !PolyMarketProtocol.isV2PositionId(id))
+          .toList();
+      final reads = await Future.wait([
+        _balanceOfBatchSoft(
+            PolymarketConstants.comboPositionManagerAddress, v2, owner),
+        ctf.isEmpty
+            ? Future.value(const <String, BigInt>{})
+            : readCtfBalancesBatch(positionIds: ctf, owner: owner),
+      ]);
+      // One failed half reads as a failed read, as a single batch does.
+      if (reads[0].isEmpty || (ctf.isNotEmpty && reads[1].isEmpty)) {
+        return const {};
+      }
+      return {...reads[1], ...reads[0]};
+    }
+    return _balanceOfBatchSoft(_kCtfAddress, positionIds, owner);
+  }
+
+  /// ERC-1155 `balanceOfBatch` on [token]; `{}` on any failure.
+  Future<Map<String, BigInt>> _balanceOfBatchSoft(
+      String token, List<String> positionIds, String owner) async {
     try {
       // ERC-1155.balanceOfBatch(address[] _owners, uint256[] _ids)
       // selector: 0x4e1273f4
@@ -2090,7 +2389,7 @@ class PolymarketOnboardingService {
           '$ownersData'
           '$idsLen'
           '$idsData';
-      final hex = await _ethCall(_kCtfAddress, data);
+      final hex = await _ethCall(token, data);
       // Response: uint256[] — abi-encoded:
       //   [0x00..0x20) tail offset (= 0x20)
       //   [0x20..0x40) length
@@ -2153,6 +2452,25 @@ class PolymarketOnboardingService {
     return BigInt.parse(hex, radix: 16);
   }
 
+  /// Native POL balance of [owner] in wei, throwing on RPC failure or a
+  /// malformed answer.
+  Future<BigInt> readNativeBalanceOrThrow(String owner) =>
+      _readQuantityOrThrow('eth_getBalance', owner);
+
+  /// Transactions [owner] has sent on Polygon (its nonce), throwing on RPC
+  /// failure or a malformed answer.
+  Future<BigInt> readNonceOrThrow(String owner) =>
+      _readQuantityOrThrow('eth_getTransactionCount', owner);
+
+  Future<BigInt> _readQuantityOrThrow(String method, String owner) async {
+    final result = await _rpcStrict(method, [owner, 'latest']);
+    final value = BigInt.tryParse(result.substring(2), radix: 16);
+    if (value == null) {
+      throw PolymarketReadException('$method returned no quantity');
+    }
+    return value;
+  }
+
   /// ERC-1155 `balanceOfBatch` on CTF, throwing on RPC failure or a
   /// malformed response.
   Future<Map<String, BigInt>> readCtfBalancesBatchOrThrow({
@@ -2160,6 +2478,23 @@ class PolymarketOnboardingService {
     required String owner,
   }) async {
     if (positionIds.isEmpty) return const {};
+    final v2 = positionIds.where(PolyMarketProtocol.isV2PositionId).toList();
+    if (v2.isNotEmpty) {
+      final ctf = positionIds
+          .where((id) => !PolyMarketProtocol.isV2PositionId(id))
+          .toList();
+      return {
+        if (ctf.isNotEmpty)
+          ...await readCtfBalancesBatchOrThrow(positionIds: ctf, owner: owner),
+        ...await _balanceOfBatchStrict(
+            PolymarketConstants.comboPositionManagerAddress, v2, owner),
+      };
+    }
+    return _balanceOfBatchStrict(_kCtfAddress, positionIds, owner);
+  }
+
+  Future<Map<String, BigInt>> _balanceOfBatchStrict(
+      String token, List<String> positionIds, String owner) async {
     final n = positionIds.length;
     String word(BigInt v) => v.toRadixString(16).padLeft(64, '0');
     final ids = positionIds.map((id) {
@@ -2176,7 +2511,7 @@ class PolymarketOnboardingService {
         '${List.filled(n, _addressToHex32(owner)).join()}'
         '${word(BigInt.from(n))}'
         '$ids';
-    final hex = await _ethCallStrict(_kCtfAddress, data);
+    final hex = await _ethCallStrict(token, data);
     if (hex.length != 128 + 64 * n ||
         BigInt.parse(hex.substring(64, 128), radix: 16) != BigInt.from(n)) {
       throw const PolymarketReadException('balanceOfBatch shape mismatch');
@@ -2217,7 +2552,9 @@ class PolymarketOnboardingService {
   }
 
   /// Relayer registry check for a WALLET address. Null when the relayer
-  /// could not be read (unknown, not "undeployed").
+  /// could not be read (unknown, not "undeployed"). `type=WALLET` on
+  /// `/deployed` is undocumented and has no documented replacement, so a
+  /// refusal reads as unknown.
   Future<bool?> relayerWalletDeployed(String address) async {
     try {
       final uri = Uri.parse('$_kPmRelayerBaseUrl/deployed').replace(
@@ -2271,7 +2608,6 @@ class PolymarketOnboardingService {
     }
     return result;
   }
-
 
   /// Returns `(BigInt.zero, BigInt.zero)` on RPC failure.
   Future<(BigInt, BigInt)> readNegRiskOutcomeBalances({
@@ -2446,23 +2782,14 @@ class PolymarketOnboardingService {
     var attempt = 0;
     while (DateTime.now().isBefore(deadline)) {
       // Rotate endpoints so one stalled public RPC can't use up the wait.
-      final rpc = _kResolveRpcs[attempt++ % _kResolveRpcs.length];
-      try {
-        final response = await http
-            .post(
-              Uri.parse(rpc),
-              headers: {'Content-Type': 'application/json'},
-              body: jsonEncode({
-                'jsonrpc': '2.0',
-                'method': 'eth_getTransactionReceipt',
-                'params': [txHash],
-                'id': 1,
-              }),
-            )
-            .timeout(const Duration(seconds: 10));
-
-        final json = jsonDecode(response.body);
-        final result = json['result'];
+      // Only endpoints that answered Polygon's chain id are trusted with a
+      // receipt (it decides claim credit).
+      final rpc = polygonReadRpcs[attempt++ % polygonReadRpcs.length];
+      if (await _isPolygonRpc(rpc)) {
+        final result = (await _rpcRequest(
+                rpc, 'eth_getTransactionReceipt', [txHash],
+                timeout: const Duration(seconds: 10)))
+            ?.result;
         if (result is Map<String, dynamic>) {
           final status = (result['status'] as String?)?.toLowerCase() ?? '';
           // status is hex: 0x1 = success, 0x0 = reverted
@@ -2470,9 +2797,7 @@ class PolymarketOnboardingService {
           if (success) _verifiedReceipts[txHash.toLowerCase()] = result;
           return success;
         }
-        // Receipt not yet available — wait and try again.
-      } catch (_) {
-        // RPC blip — retry until deadline.
+        // Receipt not yet available or RPC blip — retry until deadline.
       }
       await Future.delayed(const Duration(seconds: 2));
     }
@@ -2516,6 +2841,14 @@ class PolymarketOnboardingService {
 
   Future<double?> _fetchSettledPayout(
       String conditionId, int outcomeIndex) async {
+    final v2Condition = PolyMarketProtocol.v2ConditionId(conditionId);
+    if (v2Condition != null) {
+      if (outcomeIndex < 0 || outcomeIndex > 1) return null;
+      final payouts = await readV2Payouts(v2Condition);
+      if (payouts == null) return null;
+      return _settlementCache['${conditionId.toLowerCase()}:$outcomeIndex'] =
+          payouts[outcomeIndex];
+    }
     if (!RegExp(r'^0x[0-9a-fA-F]{64}$').hasMatch(conditionId) ||
         outcomeIndex < 0 ||
         outcomeIndex > 1) {
@@ -2579,7 +2912,14 @@ class PolymarketOnboardingService {
   ///   * `false` — not finalised yet; a redeem WILL fail. Don't submit.
   ///   * `null`  — RPC failure; caller should proceed on API trust
   ///     rather than blocking a legitimate claim on a network blip.
+  ///
+  /// A Protocol V2 condition is final once the PositionManager pays out on
+  /// it; an unreadable payout is `null` (never blocks a claim).
   Future<bool?> isConditionFinalized(String conditionId) async {
+    final v2Condition = PolyMarketProtocol.v2ConditionId(conditionId);
+    if (v2Condition != null) {
+      return await readV2Payouts(v2Condition) != null ? true : null;
+    }
     try {
       final cleanCondition =
           conditionId.replaceFirst('0x', '').padLeft(64, '0');
@@ -2601,7 +2941,6 @@ class PolymarketOnboardingService {
     return result.replaceFirst('0x', '');
   }
 
-
   /// Returns the contract bytecode at `address` (or `'0x'` when no
   /// contract exists yet). Used by [isDeployed] to confirm the Safe
   /// proxy has been created without leaning on any backend or
@@ -2609,7 +2948,6 @@ class PolymarketOnboardingService {
   Future<String> _ethGetCode(String address) async {
     return _rpcFirstAnswer('eth_getCode', [address, 'latest']);
   }
-
 
   Future<int> _getSafeNonce(String safeAddress) async {
     final result = await _ethCall(safeAddress, 'affed0e0');

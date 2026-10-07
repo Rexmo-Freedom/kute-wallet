@@ -1,0 +1,43 @@
+{
+ "$schema": "https://gamma-api.polymarket.com/schemas/MarketsKeysetListResponse.json",
+ "markets": [
+  {
+   "id": "5393037",
+   "question": "Counter-Strike: Spirit vs M80 - Map 2 Winner",
+   "conditionId": "0x0d6c75dfdba2dfa11911cc13b28f829431cebaa523950c2bfd70d88d08619efb",
+   "slug": "cs2-ts7-m80-2026-10-07-game2",
+   "outcomes": "[\"Spirit\", \"M80\"]",
+   "outcomePrices": "[\"0.655\", \"0.345\"]",
+   "active": true,
+   "closed": false,
+   "clobTokenIds": "[\"3105266120559700445386056221025219306268921455344741719377878967261480184646\", \"32655867461546602143597314665871408952691265316476059392428851803532852987215\"]",
+   "positionIds": [
+    "540315146446091967043062616235708092640693258950151852418698391963379433472",
+    "540315146446091967043062616235708092640693258950151852418698391963379433473"
+   ],
+   "comboStatus": "enabled",
+   "negRisk": false,
+   "version": "v1",
+   "acceptingOrders": true
+  },
+  {
+   "id": "5393038",
+   "question": "Counter-Strike: Spirit vs M80 (BO3) - ESL Pro League Group Stage",
+   "conditionId": "0x15057051e306c463c2f6ad84f834547e7b5a6ef4dad4b1f303a49f595fd5b9c8",
+   "slug": "cs2-ts7-m80-2026-10-07",
+   "outcomes": "[\"Spirit\", \"M80\"]",
+   "outcomePrices": "[\"0.895\", \"0.105\"]",
+   "active": true,
+   "closed": false,
+   "clobTokenIds": "[\"94274175462636746016062219241987899021530534650818677780888475436064273147708\", \"57221317817268846338970160238088949770107460070891344320447774247155143589931\"]",
+   "positionIds": [
+    "670259186102573151596357245525412931344022780206122434696098439572704198656",
+    "670259186102573151596357245525412931344022780206122434696098439572704198657"
+   ],
+   "comboStatus": "enabled",
+   "negRisk": false,
+   "version": "v1",
+   "acceptingOrders": true
+  }
+ ]
+}

@@ -127,7 +127,13 @@ class AssetIcon extends ConsumerWidget {
           height: size,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(size / 2),
-            child: Image.asset(localUrl, width: size, height: size),
+            // Decode at display size: the bundled logos are up to
+            // 2000 px, 16 MB each as bitmaps on a low-memory phone.
+            child: Image.asset(localUrl,
+                width: size,
+                height: size,
+                cacheWidth:
+                    (size * MediaQuery.devicePixelRatioOf(context)).round()),
           ),
         );
       }

@@ -2,13 +2,20 @@
 //
 // Helpers shared by the Polymarket Ledger sheets (Wallet hardening
 // Phase 4a, P4.6): the sell order amounts (same precision rules as the
-// hot FOK sell, in exact integer arithmetic) and a batch reconciler that
-// reads relayer state without ever signing.
+// hot FOK sell, in exact integer arithmetic), a batch reconciler that
+// reads relayer state without ever signing, and the one-time share
+// approvals asked for before the first sell or claim.
 
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:kute/l10n/l10n.dart';
 import 'package:kute/providers/ledger/ledger_action_controller.dart';
 import 'package:kute/providers/ledger/ledger_executors_provider.dart';
 import 'package:kute/providers/ledger/ledger_identity_provider.dart';
+import 'package:kute/providers/ledger/ledger_polymarket_account_provider.dart';
+import 'package:kute/screens/ledger/ledger_approval_sheet.dart';
+import 'package:kute/screens/shared/message_display.dart';
+import 'package:kute/services/hardware/ledger/ledger_polymarket_executor.dart';
 import 'package:kute/services/hardware/ledger/ledger_submitted_action_store.dart';
 import 'package:kute/services/polymarket/market_buy_quote.dart';
 import 'package:kute/services/polymarket/polymarket_account_resolver.dart';
@@ -111,4 +118,67 @@ LedgerReconcile ledgerPmBatchReconcile(
       _ => null,
     };
   };
+}
+
+/// Before a sell or claim: the CTF operator approvals a hot deposit wallet
+/// gets at onboarding (the exchanges, the v1 Neg Risk Adapter and the
+/// collateral adapters), as one Ledger approval the first time. They are
+/// read on-chain first and only the missing ones are asked for, each named
+/// on the review; with none missing nothing is shown.
+///
+/// True when every one is in place, already or by the batch just
+/// confirmed. False when the person cancelled, the batch is still pending
+/// or failed, or the approvals could not be read (a message says so). Never
+/// sells or claims itself.
+Future<bool> ensureLedgerPmShareApprovals(
+  BuildContext context,
+  WidgetRef ref, {
+  required String walletId,
+  required PolymarketLedgerAccount account,
+}) async {
+  final wallet = account.address;
+  if (!account.canAct || wallet == null) return false;
+  final l10n = context.l10n;
+  final List<String> missing;
+  try {
+    missing = await ledgerPmMissingShareOperators(
+        wallet, ref.read(ledgerPmShareOperatorReadProvider));
+  } catch (_) {
+    if (context.mounted) {
+      showMessageSnackBar(
+          context: context,
+          message: l10n.ledgerPmFundErrorBalanceUnknown,
+          error: true);
+    }
+    return false;
+  }
+  if (missing.isEmpty) return true;
+  if (!context.mounted) return false;
+  final intent = LedgerPolymarketIntents.enableShareTrading(
+    walletId: walletId,
+    depositWallet: wallet,
+    operators: missing,
+    summary: {
+      l10n.ledgerSummaryAction: l10n.ledgerPmEnableShareTrading,
+      l10n.ledgerSummaryContracts: ledgerPmContractsLabel(missing),
+    },
+  );
+  final factory = ref.read(ledgerPmExecutorFactoryProvider);
+  final outcome = await showLedgerApprovalSheet<String>(
+    context,
+    walletId: walletId,
+    request: LedgerActionRequest<String>(
+      intent: intent,
+      execute: (signing) => factory(
+        walletId: walletId,
+        pairedAddress: signing.pairedAddress,
+        signer: signing.signer,
+        account: account,
+      ).enableShareTrading(intent),
+      reconcile:
+          ledgerPmBatchReconcile(ref, walletId: walletId, account: account),
+    ),
+  );
+  if (outcome.isPending) ref.invalidate(ledgerPendingActionsProvider(walletId));
+  return outcome.isSuccess;
 }

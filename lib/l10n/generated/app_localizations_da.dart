@@ -6113,6 +6113,12 @@ class AppLocalizationsDa extends AppLocalizations {
   String get ledgerBetEnableSpending => 'Tillad forbrug til forudsigelser';
 
   @override
+  String get ledgerSummaryContracts => 'Tilladte kontrakter';
+
+  @override
+  String get ledgerPmEnableShareTrading => 'Tillad salg og indløsning';
+
+  @override
   String get feeBitcoinNetwork => 'Bitcoin-netværk';
 
   @override
@@ -6735,6 +6741,14 @@ class AppLocalizationsDa extends AppLocalizations {
   @override
   String get betSetupFailed =>
       'Din Forudsigelser-konto kunne ikke blive færdig med opsætningen. Dine penge er i sikkerhed. Prøv igen.';
+
+  @override
+  String get betVenueBalanceRefused =>
+      'Ikke nok saldo eller godkendelse til dette marked. Dine penge er i sikkerhed. Prøv et mindre beløb.';
+
+  @override
+  String get betVenueSettling =>
+      'Polymarket er stadig ved at afregne en tidligere handel på din saldo. Dine penge er i sikkerhed. Prøv igen om lidt.';
 
   @override
   String get betDepositStillConverting =>

@@ -19,6 +19,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:kute/constants/feature_flags.dart';
+import 'package:kute/constants/polymarket_constants.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/providers/ledger/ledger_action_controller.dart';
 import 'package:kute/providers/ledger/ledger_executors_provider.dart';
@@ -104,6 +105,8 @@ class _LedgerWithdrawSheetState extends ConsumerState<LedgerWithdrawSheet> {
       summary: {
         l10n.ledgerSummaryAction: l10n.ledgerUnwrapSummary,
         l10n.ledgerSummaryAmount: ledgerFormatMicros(amount),
+        l10n.ledgerSummaryContracts: ledgerPmContractsLabel(
+            const [PolymarketConstants.collateralOfframpAddress]),
       },
     );
     final factory = ref.read(ledgerPmExecutorFactoryProvider);

@@ -1,0 +1,24 @@
+{
+ "$schema": "https://gamma-api.polymarket.com/schemas/MarketsKeysetListResponse.json",
+ "markets": [
+  {
+   "id": "5393036",
+   "question": "Counter-Strike: Spirit vs M80 - Map 1 Winner",
+   "conditionId": "0x1e02c6b041a1aa53c58dd34497265cdaf1b160ca4a2316d2d91ba7e078a4a741",
+   "slug": "cs2-ts7-m80-2026-10-07-game1",
+   "outcomes": "[\"Spirit\", \"M80\"]",
+   "outcomePrices": "[\"1\", \"0\"]",
+   "active": true,
+   "closed": true,
+   "clobTokenIds": "[\"20987215048195670077453129352245062488336421154437277252991633462787673237331\", \"51184982328483625103599766588729562629036347444561981882641409592610244383383\"]",
+   "positionIds": [
+    "879347209756700125511456200950206397399326265293957875373983616765142237184",
+    "879347209756700125511456200950206397399326265293957875373983616765142237185"
+   ],
+   "comboStatus": "enabled",
+   "negRisk": false,
+   "version": "v1",
+   "acceptingOrders": false
+  }
+ ]
+}

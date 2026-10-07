@@ -2,62 +2,31 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/services/polymarket/polymarket_price_source.dart';
 
 void main() {
-  group('PmPriceSourcePolicy.select', () {
-    test('no CLOB credentials → RTDS (users without a Polymarket account)', () {
-      final policy = PmPriceSourcePolicy();
-      expect(policy.select(hasClobCredentials: false), PmPriceSource.rtds);
+  group('PmReferenceFeedRetry', () {
+    test('transient failures back off 2 s, 4 s, ... capped at 30 s', () {
+      final retry = PmReferenceFeedRetry();
+      final delays = [for (var i = 0; i < 17; i++) retry.next().inSeconds];
+      expect(delays.take(5), [2, 4, 6, 8, 10]);
+      expect(delays.last, 30);
+      expect(delays.every((d) => d <= 30), isTrue);
+      expect(retry.failures, 17);
     });
 
-    test('credentials present → PolyBolt', () {
-      final policy = PmPriceSourcePolicy();
-      expect(policy.select(hasClobCredentials: true), PmPriceSource.polyBolt);
+    test('a price point resets the count', () {
+      final retry = PmReferenceFeedRetry()
+        ..next()
+        ..next()
+        ..next();
+      retry.reset();
+      expect(retry.failures, 0);
+      expect(retry.next(), const Duration(seconds: 2));
     });
 
-    test('credentials present but PolyBolt failed → RTDS, sticky', () {
-      final policy = PmPriceSourcePolicy();
-      policy.markActive(PmPriceSource.polyBolt);
-      expect(policy.markPolyBoltFailed(), PmPriceSource.rtds);
-      expect(policy.polyBoltFailed, isTrue);
-      expect(policy.select(hasClobCredentials: true), PmPriceSource.rtds);
-      expect(policy.select(hasClobCredentials: true), PmPriceSource.rtds,
-          reason: 'no flapping back within the session');
-    });
-
-    test('a fresh policy forgets the failure (new build / tab session)', () {
-      final failed = PmPriceSourcePolicy()..markPolyBoltFailed();
-      expect(failed.select(hasClobCredentials: true), PmPriceSource.rtds);
-      expect(PmPriceSourcePolicy().select(hasClobCredentials: true),
-          PmPriceSource.polyBolt);
-    });
-  });
-
-  group('PmPriceSourcePolicy.shouldUpgrade', () {
-    test('RTDS active and credentials arrive → upgrade', () {
-      final policy = PmPriceSourcePolicy()..markActive(PmPriceSource.rtds);
-      expect(policy.shouldUpgrade(hasClobCredentials: true), isTrue);
-    });
-
-    test('RTDS active, still no credentials → stay', () {
-      final policy = PmPriceSourcePolicy()..markActive(PmPriceSource.rtds);
-      expect(policy.shouldUpgrade(hasClobCredentials: false), isFalse);
-    });
-
-    test('PolyBolt already active → no reconnect churn', () {
-      final policy = PmPriceSourcePolicy()..markActive(PmPriceSource.polyBolt);
-      expect(policy.shouldUpgrade(hasClobCredentials: true), isFalse);
-    });
-
-    test('RTDS active because PolyBolt failed → never upgrade this session', () {
-      final policy = PmPriceSourcePolicy()
-        ..markActive(PmPriceSource.polyBolt)
-        ..markPolyBoltFailed()
-        ..markActive(PmPriceSource.rtds);
-      expect(policy.shouldUpgrade(hasClobCredentials: true), isFalse);
-    });
-
-    test('nothing connected yet → not an upgrade', () {
-      expect(PmPriceSourcePolicy().shouldUpgrade(hasClobCredentials: true),
-          isFalse);
+    test('a hard failure waits the long delay and still counts', () {
+      final retry = PmReferenceFeedRetry();
+      expect(retry.next(hard: true), kPmReferenceHardRetryDelay);
+      expect(retry.failures, 1);
+      expect(retry.next(), const Duration(seconds: 4));
     });
   });
 }

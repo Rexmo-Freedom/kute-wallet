@@ -134,11 +134,17 @@ void main() {
     );
     expect(_hex(bare.digest), _orderHash);
 
-    // The V2 default (domain "2") must produce a different digest.
+    // The CLOB domain ("2") must produce a different digest, and Exchange
+    // v3's own domain is what the typed data defaults to.
     final v2 = orderV2Poly1271TypedData(
         order: order,
-        verifyingContract: PolymarketConstants.comboExchangeV3Address);
+        verifyingContract: PolymarketConstants.comboExchangeV3Address,
+        domainVersion: '2');
     expect(_hex(v2.digest), isNot(_wrappedDigest));
+    final byDefault = orderV2Poly1271TypedData(
+        order: order,
+        verifyingContract: PolymarketConstants.comboExchangeV3Address);
+    expect(_hex(byDefault.digest), _wrappedDigest);
   });
 
   test('ERC-7739 wire signature: layout, trailer and recovery', () async {

@@ -70,7 +70,7 @@ void main() {
         expect(submits, 0);
       },
           () => MockClient((request) async {
-                if (request.url.path.endsWith('/nonce')) {
+                if (request.url.path == '/v1/account/transactions/params') {
                   nonceReads++;
                   if (!started.isCompleted) started.complete();
                   return releaseNonce.future;

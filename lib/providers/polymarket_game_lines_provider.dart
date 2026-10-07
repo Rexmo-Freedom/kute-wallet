@@ -10,6 +10,7 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:kute/models/polymarket_model.dart';
+import 'package:kute/services/polymarket/market_protocol.dart';
 
 /// One two-sided market of a match, as a compact row shows it.
 class PolyGameLine {
@@ -223,7 +224,7 @@ class PolyGameLines {
   static PolyGameLine? _lineOf(String kind, Map<String, dynamic> m) {
     final names = _strings(m['outcomes']);
     final prices = _strings(m['outcomePrices']).map(double.tryParse).toList();
-    final tokens = _strings(m['clobTokenIds']);
+    final tokens = PolyMarketProtocol.outcomeIds(m);
     if (names.length != 2 || prices.length != 2) return null;
     if (prices[0] == null || prices[1] == null) return null;
     return PolyGameLine(
@@ -316,7 +317,7 @@ String? pickOverToken(Map<String, dynamic> rawEvent) {
     final names = PolyGameLines._strings(m['outcomes']);
     final prices =
         PolyGameLines._strings(m['outcomePrices']).map(double.tryParse).toList();
-    final tokens = PolyGameLines._strings(m['clobTokenIds']);
+    final tokens = PolyMarketProtocol.outcomeIds(m);
     if (names.length != 2 || prices.length != 2 || tokens.length != 2) {
       continue;
     }

@@ -179,12 +179,15 @@ void main() {
     String rpc(Object result) =>
         jsonEncode({'jsonrpc': '2.0', 'id': 1, 'result': result});
 
+    setUp(PolymarketOnboardingService.debugResetPolygonRpcs);
+    tearDown(PolymarketOnboardingService.debugResetPolygonRpcs);
+
     test('readErc20BalanceOrThrow returns the value or throws', () async {
       final ok = await http.runWithClient(
         () => PolymarketOnboardingService()
             .readErc20BalanceOrThrow(token: _uups, owner: _eoa),
         () =>
-            MockClient((_) async => http.Response(rpc('0x${'0' * 62}2a'), 200)),
+            _polygon((_) async => http.Response(rpc('0x${'0' * 62}2a'), 200)),
       );
       expect(ok, BigInt.from(42));
 
@@ -202,7 +205,7 @@ void main() {
           http.runWithClient(
             () => PolymarketOnboardingService()
                 .readErc20BalanceOrThrow(token: _uups, owner: _eoa),
-            () => MockClient((_) async => response),
+            () => _polygon((_) async => response),
           ),
           throwsA(isA<PolymarketReadException>()),
         );
@@ -210,7 +213,7 @@ void main() {
         final soft = await http.runWithClient(
           () => PolymarketOnboardingService()
               .readErc20Balance(token: _uups, owner: _eoa),
-          () => MockClient((_) async => response),
+          () => _polygon((_) async => response),
         );
         expect(soft, BigInt.zero);
       }
@@ -225,7 +228,7 @@ void main() {
                   owner: _eoa,
                   spender: _beacon,
                   operatorApproval: operator),
-              () => MockClient((_) async => response));
+              () => _polygon((_) async => response));
       expect(await read(http.Response(rpc('0x${'0' * 64}'), 200)), BigInt.zero);
       expect(
           await read(http.Response(rpc('0x${'0' * 63}1'), 200), operator: true),
@@ -254,7 +257,7 @@ void main() {
       final ok = await http.runWithClient(
         () => PolymarketOnboardingService()
             .readCtfBalancesBatchOrThrow(positionIds: ['1', '2'], owner: _eoa),
-        () => MockClient((_) async => http.Response(
+        () => _polygon((_) async => http.Response(
             rpc('0x${word(32)}${word(2)}${word(5)}${word(9)}'), 200)),
       );
       expect(ok, {'1': BigInt.from(5), '2': BigInt.from(9)});
@@ -263,7 +266,7 @@ void main() {
         http.runWithClient(
           () => PolymarketOnboardingService().readCtfBalancesBatchOrThrow(
               positionIds: ['1', '2'], owner: _eoa),
-          () => MockClient((_) async =>
+          () => _polygon((_) async =>
               http.Response(rpc('0x${word(32)}${word(2)}${word(5)}'), 200)),
         ),
         throwsA(isA<PolymarketReadException>()),
@@ -274,7 +277,7 @@ void main() {
         () async {
       Future<bool> run(http.Response r) => http.runWithClient(
             () => PolymarketOnboardingService().hasContractCodeOrThrow(_uups),
-            () => MockClient((_) async => r),
+            () => _polygon((_) async => r),
           );
       expect(await run(http.Response(rpc('0x'), 200)), isFalse);
       expect(await run(http.Response(rpc('0x6080'), 200)), isTrue);
@@ -302,3 +305,13 @@ void main() {
     });
   });
 }
+
+/// Polygon RPCs that answer their chain id and [read] for everything else.
+MockClient _polygon(Future<http.Response> Function(http.Request) read) =>
+    MockClient((request) async {
+      if (request.body.contains('"eth_chainId"')) {
+        return http.Response(
+            jsonEncode({'jsonrpc': '2.0', 'id': 1, 'result': '0x89'}), 200);
+      }
+      return read(request);
+    });

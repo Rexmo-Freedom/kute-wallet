@@ -4,9 +4,10 @@
 // Phase 3, plan B8). Keyed by wallet ID and bound to the device-verified
 // EVM address.
 //
-// Read only: account resolution, Data API positions and on-chain cash
-// (pUSD and USDC.e). It never creates CLOB credentials, never deploys and
-// never approves; there is no code path for any of that here. Each read
+// Read only: account resolution, Data API positions, on-chain cash
+// (pUSD and USDC.e) and CTF operator approvals. It never creates CLOB
+// credentials, never deploys and never approves; there is no code path
+// for any of that here. Each read
 // category fails on its own and is reported in `partialFailures`; a
 // failed read is null, never zero.
 
@@ -15,6 +16,7 @@ import 'package:kute/constants/polymarket_constants.dart';
 import 'package:kute/providers/ledger/ledger_identity_provider.dart';
 import 'package:kute/services/hardware/ledger/ledger_venue_descriptor_store.dart';
 import 'package:kute/services/polymarket/polymarket_account_resolver.dart';
+import 'package:kute/services/polymarket_onboarding_service.dart';
 import 'package:polybrainz_polymarket/polybrainz_polymarket.dart'
     show Position;
 
@@ -59,6 +61,24 @@ class LedgerPmAccount {
 /// Injectable for tests.
 final ledgerPolymarketReadsProvider = Provider<PolymarketAccountReads>(
     (ref) => OnboardingPolymarketAccountReads());
+
+/// `CTF.isApprovedForAll(owner, operator)` on-chain. Throws when the read
+/// fails or returns no boolean, so an unknown approval is never missing.
+typedef LedgerPmShareOperatorRead = Future<bool> Function(
+    {required String owner, required String operator});
+
+/// Injectable for tests. Read only, like every read here.
+final ledgerPmShareOperatorReadProvider =
+    Provider<LedgerPmShareOperatorRead>((ref) {
+  final onboarding = PolymarketOnboardingService();
+  return ({required owner, required operator}) async =>
+      await onboarding.readApprovalOrThrow(
+          token: PolymarketConstants.ctfAddress,
+          owner: owner,
+          spender: operator,
+          operatorApproval: true) ==
+      BigInt.one;
+});
 
 final ledgerPmAccountProvider = FutureProvider.autoDispose
     .family<LedgerPmAccount, String>((ref, walletId) async {

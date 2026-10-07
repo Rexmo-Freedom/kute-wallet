@@ -69,8 +69,10 @@ class PolymarketConstants {
   static const String collateralOnrampAddress =
       '0x93070a847efEf7F70739046A929D47a521F5B8ee';
   // CollateralOfframp: unwrap(address asset, address to, uint256 amount).
-  // Converts pUSD → USDC.e 1:1. Burns pUSD from msg.sender, sends asset to `to`.
-  // pUSD doesn't need an explicit approval here (the offramp burns msg.sender's pUSD directly).
+  // Converts pUSD → USDC.e 1:1. Pulls pUSD from msg.sender with
+  // `COLLATERAL_TOKEN.safeTransferFrom(msg.sender, …)`, sends asset to `to`.
+  // Caller must approve(pUSD, this) first: hot deposit wallets hold the
+  // onboarding approval, Ledger unwrap batches approve the exact amount.
   static const String collateralOfframpAddress =
       '0x2957922Eb93258b93368531d39fAcCA3B4dC5854';
 
@@ -189,6 +191,14 @@ class PolymarketConstants {
       '0x30000034706C7d8e12009DAB006Be20000c031A8';
   static const String comboAutoRedeemerAddress =
       '0xa1200000d0002264C9a1698e001292D00E1b00af';
+  // Protocol V2 market modules (PositionManager modules 1 and 2). The app
+  // never calls them; @polymarket/client approves them as CTF operators
+  // (CTF -> V2 migration), so a refusal naming one may be healed with that
+  // operator approval (order_refusal.dart).
+  static const String v2BinaryModuleAddress =
+      '0x1000008dD9001B968442c1000017eaE6E0dA00Ba';
+  static const String v2NegRiskModuleAddress =
+      '0x200000900045e3B6259600682756002200028933';
 
   // Exchange v3 EIP-712 domain version. Same "Polymarket CTF Exchange"
   // name and Order struct as V2; only the version and the contract change,

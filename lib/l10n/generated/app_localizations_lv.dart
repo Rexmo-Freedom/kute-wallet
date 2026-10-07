@@ -6090,6 +6090,13 @@ class AppLocalizationsLv extends AppLocalizations {
   String get ledgerBetEnableSpending => 'Atļaut prognožu tēriņus';
 
   @override
+  String get ledgerSummaryContracts => 'Atļautie līgumi';
+
+  @override
+  String get ledgerPmEnableShareTrading =>
+      'Atļaut pārdošanu un laimesta saņemšanu';
+
+  @override
   String get feeBitcoinNetwork => 'Bitcoin tīkls';
 
   @override
@@ -6715,6 +6722,14 @@ class AppLocalizationsLv extends AppLocalizations {
   @override
   String get betSetupFailed =>
       'Tava Prognožu konta iestatīšanu neizdevās pabeigt. Tava nauda ir drošībā. Mēģini vēlreiz.';
+
+  @override
+  String get betVenueBalanceRefused =>
+      'Šim tirgum nepietiek atlikuma vai atļaujas. Tava nauda ir drošībā. Mēģini ar mazāku summu.';
+
+  @override
+  String get betVenueSettling =>
+      'Polymarket vēl norēķina iepriekšēju darījumu tavā atlikumā. Tava nauda ir drošībā. Mēģini vēlreiz pēc brīža.';
 
   @override
   String get betDepositStillConverting =>

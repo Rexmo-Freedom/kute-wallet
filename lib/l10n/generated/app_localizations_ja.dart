@@ -5877,6 +5877,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get ledgerBetEnableSpending => '予測での支出を許可';
 
   @override
+  String get ledgerSummaryContracts => '許可するコントラクト';
+
+  @override
+  String get ledgerPmEnableShareTrading => '売却と受け取りを許可';
+
+  @override
   String get feeBitcoinNetwork => 'ビットコインネットワーク';
 
   @override
@@ -6468,6 +6474,14 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get betSetupFailed => '予測アカウントの準備を完了できませんでした。資金は安全です。もう一度お試しください。';
+
+  @override
+  String get betVenueBalanceRefused =>
+      'このマーケットに必要な残高または承認が足りません。資金は安全です。少ない金額でお試しください。';
+
+  @override
+  String get betVenueSettling =>
+      'Polymarketが残高上の以前の取引をまだ精算しています。資金は安全です。少し待ってからもう一度お試しください。';
 
   @override
   String get betDepositStillConverting =>

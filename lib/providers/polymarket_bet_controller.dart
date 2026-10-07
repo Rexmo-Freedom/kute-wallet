@@ -40,6 +40,7 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/services/polymarket/fast_bet_window.dart';
 import 'package:kute/services/polymarket/hot_order_guard.dart';
 import 'package:kute/services/polymarket/market_buy_quote.dart';
+import 'package:kute/services/polymarket/order_refusal.dart';
 import 'package:kute/services/polymarket/polymarket_fee_terms.dart';
 import 'package:kute/services/polymarket/placement_timeline.dart';
 import 'package:kute/services/polymarket/placement_diagnostics.dart';
@@ -65,8 +66,33 @@ class PolymarketBetController {
   double get _usdcBalance =>
       ref.read(polymarketTradingProvider).valueOrNull?.usdcBalance ?? 0;
 
+  /// What the venue lets a new buy spend: the balance less what resting
+  /// BUY orders already reserve against it, the same figure the slip
+  /// shows as available. Sizing and the pre-sign check used the whole
+  /// balance, so a stake the slip itself said did not fit could be signed
+  /// and refused.
+  double get _spendableUsdc {
+    final state = ref.read(polymarketTradingProvider).valueOrNull;
+    if (state == null) return 0;
+    return spendableUsdc(state.usdcBalance, state.openOrders);
+  }
+
+  /// [cash] less the unfilled part of every resting BUY in [orders].
+  @visibleForTesting
+  static double spendableUsdc(double cash, List<Order> orders) {
+    var committed = 0.0;
+    for (final order in orders) {
+      if (order.side.toUpperCase() != 'BUY') continue;
+      final remaining = ((double.tryParse(order.originalSize) ?? 0) -
+              (double.tryParse(order.sizeMatched) ?? 0))
+          .clamp(0.0, double.infinity);
+      committed += remaining * (double.tryParse(order.price) ?? 0);
+    }
+    return (cash - committed).clamp(0.0, double.infinity);
+  }
+
   double _usdcShortfall(double amount) =>
-      (amount - _usdcBalance).clamp(0.0, double.infinity);
+      (amount - _spendableUsdc).clamp(0.0, double.infinity);
 
   /// The account must cover the stake AND the venue's fees: platform fee
   /// per share plus Kute's builder fee on notional, both charged in pUSD
@@ -156,7 +182,7 @@ class PolymarketBetController {
       // largest stake whose fee ceiling at that ask plus the rounding
       // cent fits the spendable cash, i.e. exactly what `allInMax` and
       // the placement check will ask the balance to cover.
-      final budget = maxStakeBudget(intent.spendAllBudgetUsd, _usdcBalance);
+      final budget = maxStakeBudget(intent.spendAllBudgetUsd, _spendableUsdc);
       if (budget != null) {
         final fitted = terms.maxNotionalFor(budget, quote.bestAsk,
             reserve: PolymarketMarketBuyQuote.roundingHeadroom);
@@ -362,7 +388,20 @@ class PolymarketBetController {
   }
 
   /// A grant failure stopped the placement before that order was signed.
-  AuthGrantException _failOnGrant(AuthGrantException e) {
+  AuthGrantException _failOnGrant(AuthGrantException e,
+      {PendingBetIntent? intent, String? entrySource}) {
+    if (intent != null) {
+      _trackBetFailed(
+          intent,
+          switch (e) {
+            ReauthRequired() => 'approval_details_changed',
+            GrantRevoked() => 'approval_revoked',
+            GrantExpired() => 'approval_expired',
+            GrantConsumed() => 'approval_consumed',
+          },
+          entrySource: entrySource,
+          error: e);
+    }
     final l10n = l10nForLanguage(ref.read(settingsProvider).language);
     ref.read(pendingPolymarketBetProvider.notifier).updateStatus(
         PendingBetStatus.failed,
@@ -399,6 +438,8 @@ class PolymarketBetController {
       grant.revoke();
       return null;
     }
+    _approval = FastBetWindow.approvalParam(grant.method);
+    _orderPrice = null;
 
     final tradingState = ref.read(polymarketTradingProvider).valueOrNull;
     final proxyWallet = tradingState?.proxyWalletAddress;
@@ -443,7 +484,9 @@ class PolymarketBetController {
   /// provider no longer reports per-rung rejections (a killed FAK rung is
   /// retried and often fills), so this is the only failure event for a bet.
   void _trackBetFailed(PendingBetIntent intent, String reason,
-      {String? entrySource, StackTrace? stackTrace}) {
+      {String? entrySource, StackTrace? stackTrace, Object? error}) {
+    final refusal =
+        error is PolymarketOrderNotAcceptedException ? error.reason : null;
     TrackingService.polymarketBetFailed(
       marketId: intent.tokenId,
       reason: reason,
@@ -458,7 +501,116 @@ class PolymarketBetController {
         if (intent.isLimit) 'limit_price': intent.limitPrice,
         if (!intent.isLimit)
           'slippage_bps': VenueAnalytics.bps(intent.slippagePct),
+        'stage': polymarketFailureStage(reason, error),
+        ...placementContext(intent,
+            approval: _approval, orderPrice: _orderPrice),
+        // What the order book said when it refused the order: a closed
+        // class, and the venue's own words (never typed by anyone) before
+        // the figures it appends, hex and numbers taken out. No ids,
+        // addresses or order data.
+        if (refusal != null) ...polymarketRefusalParams(refusal),
       },
+    );
+  }
+
+  /// The approval method and the price signed for the placement running
+  /// now, for its failure event. Placements on an account never overlap
+  /// (the order guard holds it), so one of each is enough.
+  String? _approval;
+  double? _orderPrice;
+
+  /// What every placement failure event carries about the order: the
+  /// exchange it goes to, its time in force, the market's shape, the
+  /// exact prices, the signature type and how it was approved. Exact
+  /// amounts and prices are allowed; nothing here identifies the person,
+  /// the wallet or the order.
+  @visibleForTesting
+  static Map<String, Object> placementContext(PendingBetIntent intent,
+      {String? approval, double? orderPrice}) {
+    final betType = polymarketMarketType(intent.marketQuestion,
+        outcome: intent.outcomeName);
+    final negRisk = intent.marketQuote?.negRisk ?? intent.negRisk;
+    return {
+      'venue_market_type': negRisk ? 'neg_risk' : 'standard',
+      'venue_order_type': intent.isLimit ? 'GTC' : 'FAK',
+      'bet_type': betType,
+      'outcome_category': switch (betType) {
+        'moneyline' || 'spread' || 'over_under' => 'game',
+        _ when negRisk => 'multi',
+        _ => 'binary',
+      },
+      'is_short_round': isShortRound(intent.marketQuestion),
+      'expected_price': intent.expectedPrice,
+      if (intent.isLimit) 'order_price': intent.limitPrice,
+      if (!intent.isLimit && orderPrice != null) 'order_price': orderPrice,
+      if (!intent.isLimit && intent.marketQuote != null)
+        'max_price': intent.marketQuote!.maxPrice,
+      // Hot Predictions orders are POLY_1271 deposit-wallet orders.
+      'sig_type': 3,
+      if (approval != null) 'approval': approval,
+    };
+  }
+
+  /// A five- or fifteen-minute round ("Bitcoin Up or Down - October 7,
+  /// 5:00PM-5:05PM ET"), from its title: the slip's intent carries no
+  /// slug.
+  @visibleForTesting
+  static bool isShortRound(String question) =>
+      RegExp(r'up\s+or\s+down', caseSensitive: false).hasMatch(question) &&
+      RegExp(r'\d{1,2}:\d{2}\s*[AP]M\s*[-–]\s*\d{1,2}:\d{2}\s*[AP]M',
+              caseSensitive: false)
+          .hasMatch(question);
+
+  /// Where a placement ended, as one closed word: the step that failed.
+  @visibleForTesting
+  static String polymarketFailureStage(String code, Object? error) {
+    if (error is PolymarketRefusalOutlivedApproval) return 'grant_expired';
+    if (error is PolymarketStaleReservation) return 'balance_check';
+    if (error is PolymarketBalanceRefused) return 'self_heal';
+    if (error is PolymarketOrderNotAcceptedException) return 'submit';
+    if (error is PolymarketThinBook) {
+      return error.limit != null || error.fillableUsd > 0 ? 'quote' : 'book';
+    }
+    return switch (code) {
+      'setup_timeout' ||
+      'setup_failed' ||
+      'wallet_not_ready' ||
+      'account_unavailable' ||
+      'account_read_failed' =>
+        'setup',
+      'funds_converting' => 'approvals',
+      'insufficient_usdc' || 'balance_or_allowance' => 'balance_check',
+      'fee_settings_unavailable' || 'market_terms_unavailable' => 'quote',
+      'liquidity_unavailable' => 'book',
+      'region_unavailable' => 'geo_blocked',
+      'request_timeout' => 'timeout',
+      'venue_unreachable' => 'submit',
+      'credentials_invalid' || 'approval_unverified' => 'sign',
+      'approval_expired' || 'approval_consumed' => 'grant_expired',
+      'approval_details_changed' => 'reauth',
+      'approval_revoked' => 'user_declined',
+      'previous_order_resolved' || 'previous_order_unconfirmed' =>
+        'guard_pending',
+      'order_format_rejected' || 'market_not_ready' => 'submit',
+      _ => 'unknown',
+    };
+  }
+
+  /// The placement ended without an accepted order and without a failure:
+  /// an earlier order still holds the outcome, or this one went out and
+  /// its answer proves nothing yet. Reported as declined with its stage.
+  void _trackPending(PendingBetIntent intent, PendingPolymarketOrder e) {
+    PolymarketPlacementDiagnostics.declined(
+      switch (e) {
+        PolymarketOrderOutcomeUnknown() => 'outcome_unknown',
+        PolymarketOrderCheckUnavailable() => 'venue_unreachable',
+        PolymarketOrderInProgress() => 'order_in_progress',
+        _ => 'previous_order_unconfirmed',
+      },
+      error: e,
+      stage: e is PolymarketOrderOutcomeUnknown ? 'submit' : 'guard_pending',
+      context: placementContext(intent,
+          approval: _approval, orderPrice: _orderPrice),
     );
   }
 
@@ -524,15 +676,18 @@ class PolymarketBetController {
           .read(pendingPolymarketBetProvider.notifier)
           .updateStatus(PendingBetStatus.done);
     } catch (e, st) {
-      if (e is AuthGrantException) return _failOnGrant(e);
+      if (e is AuthGrantException) {
+        return _failOnGrant(e, intent: intent, entrySource: entrySource);
+      }
       if (e is PendingPolymarketOrder) {
+        _trackPending(intent, e);
         ref
             .read(pendingPolymarketBetProvider.notifier)
             .updateStatus(PendingBetStatus.awaitingConfirmation);
         return null;
       }
       _trackBetFailed(intent, _placementFailureCode(e),
-          entrySource: entrySource, stackTrace: st);
+          entrySource: entrySource, stackTrace: st, error: e);
       ref.read(pendingPolymarketBetProvider.notifier).updateStatus(
           PendingBetStatus.failed,
           errorMessage: _friendlyPlacementError(e));
@@ -563,7 +718,7 @@ class PolymarketBetController {
       // fee-free markets and still fell short on low-priced crypto
       // outcomes); the venue's ceiling for THIS quote must fit the
       // balance alongside the stake, or the order is not sent.
-      if (quote.allInMax > _usdcBalance + 1e-6) {
+      if (quote.allInMax > _spendableUsdc + 1e-6) {
         throw StateError('Insufficient balance for the stake and fees');
       }
       // The book as it is now, after the approval (read while it was on
@@ -585,6 +740,7 @@ class PolymarketBetController {
         'sendBestAsk': sendQuote.bestAsk,
         'allInMax': quote.allInMax,
         'balance': _usdcBalance,
+        'spendable': _spendableUsdc,
         'negRisk': quote.negRisk,
       });
 
@@ -603,9 +759,15 @@ class PolymarketBetController {
           // The venue's one-dollar floor; the quote's headroom covers the
           // fraction of a cent, and the approval is never exceeded.
           final bumped = (1.0 / orderPrice * 100).ceilToDouble() / 100;
-          if (bumped * orderPrice <= quote.allInMax + 1e-9) shares = bumped;
+          // Bounded by the stake plus the rounding cent the quote keeps
+          // for exactly this, never by the fee room in allInMax.
+          if (bumped * orderPrice <=
+              effectiveAmount + PolymarketMarketBuyQuote.roundingHeadroom + 1e-9) {
+            shares = bumped;
+          }
         }
 
+        _orderPrice = orderPrice;
         try {
           final fillResponse = await notifier.placeOrder(
             tokenId: intent.tokenId,
@@ -638,6 +800,7 @@ class PolymarketBetController {
               price: orderPrice,
               shares: shares,
               orderType: OrderType.fak.name,
+              negRisk: sendQuote.negRisk,
               response: fillResponse);
           ref
               .read(pendingPolymarketBetProvider.notifier)
@@ -652,10 +815,15 @@ class PolymarketBetController {
               price: orderPrice,
               shares: shares,
               orderType: OrderType.fak.name,
+              negRisk: sendQuote.negRisk,
               error: e,
-              failureCode: _placementFailureCode(e));
-          if (e is! PolymarketOrderNotAcceptedException ||
-              (i == 1 && !_isNoMatch(e))) {
+              failureCode: _placementFailureCode(e),
+              stage: polymarketFailureStage(_placementFailureCode(e), e));
+          // Only a fill-and-kill that matched nothing is worth a second
+          // rung at a re-read price. Any other refusal (balance, approval,
+          // market state, an unrecognised 400) would only be refused again
+          // and run the placement's self-heal a second time.
+          if (e is! PolymarketOrderNotAcceptedException || !_isNoMatch(e)) {
             rethrow;
           }
           // A killed fill-and-kill means the book moved above the cap
@@ -762,17 +930,19 @@ class PolymarketBetController {
     } catch (e, st) {
       if (e is AuthGrantException) {
         _clearPlacing();
-        return _failOnGrant(e);
+        return _failOnGrant(e, intent: intent, entrySource: entrySource);
       }
       if (e is PendingPolymarketOrder) {
         _clearPlacing();
+        _trackPending(intent, e);
         ref
             .read(pendingPolymarketBetProvider.notifier)
             .updateStatus(PendingBetStatus.awaitingConfirmation);
         return null;
       }
       final code = _placementFailureCode(e);
-      _trackBetFailed(intent, code, entrySource: entrySource, stackTrace: st);
+      _trackBetFailed(intent, code,
+          entrySource: entrySource, stackTrace: st, error: e);
       PolymarketPlacementDiagnostics.note('placement_failed', {
         'failure': code,
         'error': '${e.runtimeType}',
@@ -1019,6 +1189,20 @@ class PolymarketBetController {
       return error.timedOut ? 'setup_timeout' : 'setup_failed';
     }
     if (error is PolymarketFundsConverting) return 'funds_converting';
+    if (error is PolymarketStaleReservation) return 'stale_matched_orders';
+    if (error is PolymarketBalanceRefused) {
+      // An allowance to an address the app does not know is never set
+      // from a refusal; nothing about the balance is wrong.
+      final spender = polymarketRefusalSpender(error.reason);
+      return spender != null && !polymarketPinnedSpenders.containsKey(spender)
+          ? 'venue_unknown_spender'
+          : 'venue_balance_refused';
+    }
+    if (error is PolymarketRefusalOutlivedApproval) {
+      return isPolymarketBalanceRefusal(error.reason)
+          ? 'venue_balance_refused'
+          : 'venue_rejected';
+    }
     if (error is PolymarketThinBook) return 'liquidity_unavailable';
     if (error is ResolvedPolymarketOrder) return 'previous_order_resolved';
     if (error is PolymarketOrderCheckUnavailable) return 'venue_unreachable';
@@ -1059,6 +1243,9 @@ class PolymarketBetController {
         message.contains('account is still being prepared')) {
       return 'account_unavailable';
     }
+    // The venue answered and did not take the order, for a reason none of
+    // the above names. Nothing was placed; the journal is already settled.
+    if (error is PolymarketOrderNotAcceptedException) return 'venue_rejected';
     return 'unclassified';
   }
 
@@ -1082,6 +1269,11 @@ class PolymarketBetController {
         l10n.betMarketUnavailable,
       'order_format_rejected' => l10n.betOrderFormatRejected,
       'balance_or_allowance' => l10n.betAddFundsToPredict,
+      'venue_balance_refused' => l10n.betVenueBalanceRefused,
+      'venue_rejected' ||
+      'venue_unknown_spender' =>
+        l10n.ledgerErrorVenueRejected,
+      'stale_matched_orders' => l10n.betVenueSettling,
       'liquidity_unavailable' => l10n.betBuyLiquidityUnavailable,
       'credentials_invalid' || 'approval_unverified' => l10n.betApprovalRefresh,
       _ => l10n.betActionNotCompleted,

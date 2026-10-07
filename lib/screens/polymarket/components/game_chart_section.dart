@@ -10,7 +10,9 @@
 //
 // The events are what the Kute backend and this phone saw on Polymarket's
 // live sports feed (polyGameTimelineProvider). Nothing is inferred from
-// prices: with no timeline there are simply no markers.
+// prices: with no timeline there are simply no markers. Until the feed has
+// sent its first word about the game, its teams, score and period come
+// from the backend's timeline answer.
 //
 // Analytics: live_event_marker_tapped (sport, league, kind of marker; no
 // ids).
@@ -265,11 +267,15 @@ class _PolyGameChartSectionState extends ConsumerState<PolyGameChartSection> {
     final id = gameTimelineId(
         gameId: event.gameId, metadataGameId: event.metadataGameId);
     if (id == null) return widget.chart;
-    final ws = ref.watch(sportsLiveProvider.select((map) => sportsUpdateFor(map,
-        slug: event.slug,
-        gameId: event.gameId,
-        metadataGameId: event.metadataGameId)));
     final timeline = ref.watch(polyGameTimelineProvider(id));
+    // The game as the live feed has it; until the feed has spoken about it
+    // (its first message can take twenty seconds), as the backend's
+    // timeline answer last saw it.
+    final ws = timeline.liveOr(ref.watch(sportsLiveProvider.select((map) =>
+        sportsUpdateFor(map,
+            slug: event.slug,
+            gameId: event.gameId,
+            metadataGameId: event.metadataGameId))));
     final live = ws != null ? ws.isInPlay : event.isInPlay;
     final ended =
         timeline.ended || (ws?.ended ?? false) || event.ended || event.closed;
@@ -285,7 +291,11 @@ class _PolyGameChartSectionState extends ConsumerState<PolyGameChartSection> {
             ws?.finishedAt?.millisecondsSinceEpoch ??
             event.finishedAt?.millisecondsSinceEpoch;
     final startMs = gameKickoffMs(
-      feedStartMs: ws?.gameStartTime?.millisecondsSinceEpoch,
+      // The feed's start time, else the backend's from its timeline
+      // answer (the same start: the momentum read keeps its key when the
+      // feed's arrives).
+      feedStartMs: (ws?.gameStartTime ?? timeline.feed?.gameStartTime)
+          ?.millisecondsSinceEpoch,
       gammaStartMs: event.gameStart?.millisecondsSinceEpoch,
       firstSeenMs: timeline.events.isNotEmpty
           ? timeline.events.first.tMs
@@ -366,28 +376,19 @@ class _PolyGameChartSectionState extends ConsumerState<PolyGameChartSection> {
         nowMs - endMs > const Duration(days: 14).inMilliseconds) {
       return chart;
     }
-    final over = live ? ref.watch(polyGameOverTokenProvider(event.slug)) : null;
-    // The momentum is read once, with the totals line its pressure signal
-    // needs: until the Over token is known (it comes with the game's lines
-    // read) the strip waits, instead of reading both sides now and again
-    // once the token lands. The chart keeps its place in the tree.
-    if (over != null && !over.hasValue && !over.hasError) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [chart],
-      );
-    }
-    final overToken = over?.valueOrNull;
+    // The totals line only feeds the pressure signal: the strip is drawn
+    // from the sides' history at once, and the Over token is handed to it
+    // when it lands.
+    final overToken = live
+        ? ref.watch(polyGameOverTokenProvider(event.slug)).valueOrNull
+        : null;
     final PolyMomentumKey key = (
       gameId: id,
       tokenA: sides.tokenA,
       tokenB: sides.tokenB,
-      overToken: overToken,
       startMs: startMs,
       endMs: endMs,
       axisMs: momentumAxisMs(sport),
-      aIsHome: aIsHome,
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -396,6 +397,10 @@ class _PolyGameChartSectionState extends ConsumerState<PolyGameChartSection> {
         chart,
         PolyMomentumStrip(
           momentumKey: key,
+          // Kept out of the key: either changing never re-reads the
+          // sides' history or shows the strip loading again.
+          aIsHome: aIsHome,
+          overToken: overToken,
           nameA: sides.nameA.isNotEmpty ? sides.nameA : (widget.teamA ?? ''),
           nameB: sides.nameB.isNotEmpty ? sides.nameB : (widget.teamB ?? ''),
           colorA: sideColors.$1,

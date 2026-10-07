@@ -1371,8 +1371,9 @@ void main() {
     // Polymarket's monthly leaderboard, and Hyperliquid's HLP vault.
     final leader = await _real(tester, () async {
       final resp = await http.get(Uri.parse(
-          'https://data-api.polymarket.com/v1/leaderboard?timePeriod=MONTH&orderBy=PNL&limit=1'));
-      return '${(jsonDecode(resp.body) as List).first['proxyWallet']}';
+          'https://data-api.polymarket.com/v2/leaderboard?time_period=month&sort_by=PNL&limit=1'));
+      final rows = (jsonDecode(resp.body) as Map)['data'] as List;
+      return '${rows.first['user_id']}';
     });
     const hlp = '0xdfc24b077bc1425ad1dea75bcb6f8158e10df303';
     final settings = settingsProvider.overrideWith((_) => SettingsModel(Settings(

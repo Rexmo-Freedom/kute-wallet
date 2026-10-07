@@ -1,4 +1,5 @@
 import 'package:kute/services/polymarket/market_buy_quote.dart';
+import 'package:kute/services/polymarket/placement_diagnostics.dart';
 import 'package:kute/services/polymarket/placement_timeline.dart';
 import 'package:kute/services/polymarket/send_time_read.dart';
 import 'package:kute/services/polymarket/combos/combo_service.dart';
@@ -45,7 +46,9 @@ import 'package:kute/services/polymarket_onboarding_service.dart';
 import 'package:kute/services/polymarket/deposit_wallet_batch_signer.dart';
 import 'package:kute/services/polymarket/hot_withdrawal_guard.dart';
 import 'package:kute/services/polymarket/hot_order_guard.dart';
+import 'package:kute/services/polymarket/market_protocol.dart';
 import 'package:kute/services/polymarket/order_amounts.dart';
+import 'package:kute/services/polymarket/order_refusal.dart';
 import 'package:kute/services/polymarket/usdce_wrap_gate.dart';
 import 'package:kute/services/polymarket/placement_waits.dart';
 import 'package:kute/services/polymarket_optimistic_activity_service.dart';
@@ -108,6 +111,12 @@ class PolymarketTradingState {
   /// button so a claim the chain silently dropped stays retryable.
   final Set<String> clearingConditionIds;
 
+  /// Whether [usdcBalance] is a balance that was read. False on the
+  /// placeholder states (no spending wallet, a locked session, setup that
+  /// failed) and when the balance read itself failed, where the 0 stands
+  /// for "unknown": the slip waits instead of offering a deposit on it.
+  final bool balanceKnown;
+
   const PolymarketTradingState({
     this.isAuthenticated = false,
     this.usdcBalance = 0,
@@ -122,6 +131,7 @@ class PolymarketTradingState {
     this.isPlacingOrder = false,
     this.pendingSaleTokens = const {},
     this.clearingConditionIds = const {},
+    this.balanceKnown = true,
   });
 
   PolymarketTradingState copyWith({
@@ -138,6 +148,7 @@ class PolymarketTradingState {
     bool? isPlacingOrder,
     Set<String>? pendingSaleTokens,
     Set<String>? clearingConditionIds,
+    bool? balanceKnown,
   }) {
     return PolymarketTradingState(
       isAuthenticated: isAuthenticated ?? this.isAuthenticated,
@@ -153,6 +164,7 @@ class PolymarketTradingState {
       isPlacingOrder: isPlacingOrder ?? this.isPlacingOrder,
       pendingSaleTokens: pendingSaleTokens ?? this.pendingSaleTokens,
       clearingConditionIds: clearingConditionIds ?? this.clearingConditionIds,
+      balanceKnown: balanceKnown ?? this.balanceKnown,
     );
   }
 
@@ -269,7 +281,7 @@ Future<void> provisionPolymarketCredentials({
 }) async {
   const storage = secureStorage;
   try {
-    final wallet = EvmWalletDerivation.deriveWallet(
+    final wallet = await EvmWalletDerivation.deriveWalletAsync(
         mnemonic: mnemonic, version: evmDerivationVersion, index: 0);
     final existing = await storage.read(key: _credsKey(walletId));
     if (existing != null) {
@@ -332,7 +344,7 @@ Future<void> provisionPolymarketAccount({
 }) async {
   const storage = secureStorage;
   try {
-    final wallet = EvmWalletDerivation.deriveWallet(
+    final wallet = await EvmWalletDerivation.deriveWalletAsync(
         mnemonic: mnemonic, version: evmDerivationVersion, index: 0);
     final onboarding = PolymarketOnboardingService();
 
@@ -770,14 +782,14 @@ class PolymarketTradingNotifier
     final spending = pickSpendingWallet(settings);
 
     if (spending == null) {
-      return const PolymarketTradingState();
+      return const PolymarketTradingState(balanceKnown: false);
     }
     // Nothing derives while the session is locked, passkey wallets
     // included. A build behind the lock returns the empty state and
     // builds again once the session unlocks, so the USDC balance and
     // proxy address fill in right after unlock.
     if (!watchSessionUnlock(ref)) {
-      return const PolymarketTradingState();
+      return const PolymarketTradingState(balanceKnown: false);
     }
 
     try {
@@ -789,6 +801,7 @@ class PolymarketTradingNotifier
           access: SeedAccess.automatic, session: ref.read(seedSessionProvider));
       if (mnemonic == null) {
         return const PolymarketTradingState(
+          balanceKnown: false,
           error: 'Could not decrypt spending wallet mnemonic',
         );
       }
@@ -796,7 +809,7 @@ class PolymarketTradingNotifier
       _spendingWalletId = walletId;
 
       // Preserve the wallet’s seed format at m/44'/60'/0'/0/0.
-      final wallet = EvmWalletDerivation.deriveWallet(
+      final wallet = await EvmWalletDerivation.deriveWalletAsync(
           mnemonic: mnemonic, version: spending.evmDerivationVersion, index: 0);
       _privateKey = wallet.privateKey;
 
@@ -939,6 +952,7 @@ class PolymarketTradingNotifier
         data = PolymarketTradingState(
           walletAddress: wallet.address,
           proxyWalletAddress: proxyWallet,
+          balanceKnown: false,
         );
       }
 
@@ -980,7 +994,8 @@ class PolymarketTradingNotifier
 
       return data.copyWith(isAuthenticated: isAuth);
     } catch (e) {
-      return PolymarketTradingState(error: 'Authentication failed: $e');
+      return PolymarketTradingState(
+          balanceKnown: false, error: 'Authentication failed: $e');
     }
   }
 
@@ -1126,6 +1141,8 @@ class PolymarketTradingNotifier
     final addr = proxyWallet;
 
     // Fetch each independently — don't let one failure kill the others.
+    // A balance that could not be read stays 0 but is marked unknown.
+    var balanceRead = addr != null;
     final results = await Future.wait([
       addr != null
           ? model.getPositions(addr).catchError((_) => <Position>[])
@@ -1133,7 +1150,10 @@ class PolymarketTradingNotifier
       (_backendService?.getOpenOrders() ?? Future.value(<Order>[]))
           .catchError((_) => <Order>[]),
       addr != null
-          ? model.getOnChainUsdcBalance(addr).catchError((_) => 0.0)
+          ? model.getOnChainUsdcBalance(addr).catchError((_) {
+              balanceRead = false;
+              return 0.0;
+            })
           : Future.value(0.0),
       addr != null
           ? model.getPortfolioTotalValue(addr).catchError((_) => 0.0)
@@ -1380,6 +1400,7 @@ class PolymarketTradingNotifier
       proxyWalletAddress: proxyWallet,
       pendingSaleTokens: _pendingSaleTokens.keys.toSet(),
       clearingConditionIds: _clearingIdsSnapshot(),
+      balanceKnown: balanceRead,
     );
   }
 
@@ -1462,9 +1483,14 @@ class PolymarketTradingNotifier
       // Adaptive polling: speed up when positions are expiring soon
       _adjustRefreshRate(data.openPositions);
 
+      // A refresh whose balance read failed keeps the last balance that
+      // was read, rather than reading as 0 until the next tick.
+      final keepBalance = !data.balanceKnown && current.balanceKnown;
       _setData(data.copyWith(
         isAuthenticated: current.isAuthenticated,
         isPlacingOrder: current.isPlacingOrder,
+        usdcBalance: keepBalance ? current.usdcBalance : null,
+        balanceKnown: keepBalance ? true : null,
       ));
 
       // Record USDC balance snapshot for analytics charts
@@ -2048,7 +2074,14 @@ class PolymarketTradingNotifier
           polyShouldWrapBeforeBuy(
             pusd: split.pusd,
             usdce: split.usdce,
-            costMicros: polyBuyCostMicros(size: size, price: price),
+            // The venue counts the fees against pUSD too: a buy whose
+            // notional fits pUSD but not its fees is refused all the same.
+            costMicros: polyBuyCostMicros(size: size, price: price) +
+                BigInt.from(((marketQuote?.tokenId == tokenId
+                                ? marketQuote!.feeCeiling
+                                : 0.0) *
+                            1e6)
+                        .ceil()),
           )) {
         onStep?.call('approving');
         try {
@@ -2143,165 +2176,248 @@ class PolymarketTradingNotifier
           // banner; permission setup is folded into the bet-placement flow.
           // (V2 orders carry no fee rate — fees are set at match time — so
           // there is no "fix the fee rate and resubmit" retry any more.)
-          Map<String, dynamic>? response;
+          Map<String, dynamic>? submitted;
           bool credsRefreshed = false;
           bool approvalsFixed = false;
           bool balanceRefreshed = false;
           bool keyRebound = false;
+          bool spenderApproved = false;
 
-          for (var attempt = 0; attempt < 5; attempt++) {
-            // Phase 1b.4: every self-heal retry (credential refresh, the forced
-            // enableTrading) stays inside this order's grant:
-            // the same bounds, not revoked and not expired.
-            if (attempt > 0) PmGrants.checkRetry(grant, executedOrder());
-            try {
-              ensureCurrent();
-              PolymarketPlacementTimeline.mark('auth');
-              PolymarketPlacementTimeline.trace('guard');
-              final signed = await buildOrder();
-              PolymarketPlacementTimeline.mark('sign');
-              PolymarketPlacementTimeline.trace('sign');
-              ensureCurrent();
-              final backend = _backendService!;
-              response = await submit(
-                order: signed,
-                exchange: detectedNegRisk
-                    ? PolymarketConstants.negRiskExchangeAddress
-                    : PolymarketConstants.exchangeAddress,
-                ensureCurrent: ensureCurrent,
-                send: (beforePost) => backend.submitOrder(
-                  signedOrder: signed,
-                  orderType: orderType,
-                  beforePost: beforePost,
-                ),
-              );
-              PolymarketPlacementTimeline.mark('post');
-              PolymarketPlacementTimeline.trace('post');
-              break;
-            } on InvalidApiKeyException {
-              if (credsRefreshed) {
-                throw Exception(
-                  'Authentication failed. Please re-enable trading in settings.',
-                );
-              }
-              credsRefreshed = true;
+          // Each venue refusal is noted. When the approval runs out
+          // during the repair that follows one, nothing
+          // was placed and the refusal is why: that is what the slip says
+          // and what the failure event records, not "approval expired".
+          await polymarketSurfaceRefusalOnExpiry((refused) async {
+            for (var attempt = 0; attempt < 5; attempt++) {
+              // Phase 1b.4: every self-heal retry (credential refresh, the forced
+              // enableTrading) stays inside this order's grant:
+              // the same bounds, not revoked and not expired.
+              if (attempt > 0) PmGrants.checkRetry(grant, executedOrder());
               try {
-                await _refreshCredentials(
-                  orderEoa,
+                ensureCurrent();
+                PolymarketPlacementTimeline.mark('auth');
+                PolymarketPlacementTimeline.trace('guard');
+                final signed = await buildOrder();
+                PolymarketPlacementTimeline.mark('sign');
+                PolymarketPlacementTimeline.trace('sign');
+                ensureCurrent();
+                final backend = _backendService!;
+                submitted = await submit(
+                  order: signed,
+                  exchange: PolyOrderVenue.forToken(signed.order.tokenId,
+                          negRisk: detectedNegRisk)
+                      .exchange,
                   ensureCurrent: ensureCurrent,
-                  isCurrent: isCurrentAccount,
+                  send: (beforePost) => backend.submitOrder(
+                    signedOrder: signed,
+                    orderType: orderType,
+                    beforePost: beforePost,
+                  ),
                 );
-              } catch (_) {
-                throw Exception(
-                  'Authentication failed. Please re-enable trading in settings.',
-                );
-              }
-              continue;
-            } catch (e) {
-              // Only a documented refusal permits signing a replacement.
-              if (e is! PolymarketOrderNotAcceptedException) rethrow;
-              final errStr = e.toString().toLowerCase();
-
-              // A documented refusal proves the first order was not accepted.
-              // Do not run relayer funding or balance refresh on every funded bet,
-              // and never reach this retry after a timeout or ambiguous response.
-              if (!balanceRefreshed && isPolymarketBalanceRefusal(e.reason)) {
-                balanceRefreshed = true;
-                onStep?.call('approving');
-                ensureCurrent();
-                if (side == OrderSide.buy) {
-                  await _wrapHeldUsdcE(
-                    eoa: orderEoa,
-                    privateKey: orderPrivateKey,
-                    wallet: orderAccount,
-                    trigger: 'refusal',
-                    ensureCurrent: ensureCurrent,
+                PolymarketPlacementTimeline.mark('post');
+                PolymarketPlacementTimeline.trace('post');
+                break;
+              } on InvalidApiKeyException {
+                if (credsRefreshed) {
+                  throw Exception(
+                    'Authentication failed. Please re-enable trading in settings.',
                   );
-                  ensureCurrent();
                 }
-                await _backendService!.updateBalanceAllowance(
-                  assetType:
-                      side == OrderSide.buy ? 'COLLATERAL' : 'CONDITIONAL',
-                  signatureType: 3,
-                  tokenId: side == OrderSide.sell ? tokenId : null,
-                );
-                ensureCurrent();
-                continue;
-              }
-
-              // Refresh stale credentials once using the documented EOA L1
-              // contract; order signatures remain deposit-wallet POLY_1271.
-              if (!keyRebound &&
-                  errStr.contains('signer address has to be the address')) {
-                keyRebound = true;
+                credsRefreshed = true;
                 try {
                   await _refreshCredentials(
                     orderEoa,
                     ensureCurrent: ensureCurrent,
                     isCurrent: isCurrentAccount,
                   );
-                  // Refresh CLOB allowance cache. signature_type=3 (POLY_1271)
-                  // — matches the V2 deposit-wallet order sigType.
-                  try {
-                    await _backendService?.updateBalanceAllowance(
-                      assetType: 'COLLATERAL',
-                      signatureType: 3,
-                    );
-                    _devLog('[pm-heal] balance-allowance/update OK');
-                  } catch (e) {
-                    _devLog('[pm-heal] balance-allowance/update threw: $e');
-                  }
-                } catch (e) {
-                  _devLog('[pm-heal] refreshCredentials threw: $e');
-                  rethrow;
-                }
-                continue;
-              }
-
-              // Silent permission setup: deploy Safe + fix token approvals, then retry.
-              //
-              // The "maker address" rejection is folded into the same heal path. The
-              // CLOB returns variants like `maker address X has no allowance` /
-              // `maker address X has not been registered` when the Safe is either
-              // missing on-chain or doesn't have USDC/CTF allowances set to the V2
-              // exchange. `enableTrading()` deploys the Safe (idempotent) and
-              // re-runs the approve sequence, which clears every flavor we've seen.
-              if (!approvalsFixed &&
-                  (errStr.contains('allowance') ||
-                      errStr.contains('not approved') ||
-                      errStr.contains('transfer amount exceeds allowance') ||
-                      errStr.contains('maker address'))) {
-                approvalsFixed = true;
-                onStep?.call('setup');
-                try {
-                  // force:true bypasses the "already deployed" short-circuit so
-                  // we actually re-derive the Safe, re-run fixMissingApprovals,
-                  // and refresh credentials. Without it, a stale state with a
-                  // wrong-but-non-empty proxyWalletAddress (the polybrainz
-                  // migration left some users in this shape) makes enableTrading
-                  // a no-op and the retry hits the same rejection.
-                  ensureCurrent();
-                  try {
-                    await enableTrading(force: true)
-                        .timeout(PolymarketPlacementWaits.setup);
-                  } on TimeoutException {
-                    // The repair keeps running; this order (already
-                    // refused) ends with a retry instead of holding the
-                    // account until it is done.
-                    throw const PolymarketSetupIncomplete(timedOut: true);
-                  }
-                  ensureCurrent();
-                  await Future.delayed(const Duration(seconds: 3));
                 } catch (_) {
-                  rethrow;
+                  throw Exception(
+                    'Authentication failed. Please re-enable trading in settings.',
+                  );
                 }
                 continue;
+              } catch (e) {
+                // Only a documented refusal permits signing a replacement.
+                if (e is! PolymarketOrderNotAcceptedException) rethrow;
+                refused(e);
+                final heal = polymarketRefusalHeal(
+                  e.reason,
+                  balanceRefreshed: balanceRefreshed,
+                  keyRebound: keyRebound,
+                  approvalsFixed: approvalsFixed,
+                  spenderApproved: spenderApproved,
+                );
+                if (heal != PolymarketRefusalHeal.stop &&
+                    heal != PolymarketRefusalHeal.approveSpender) {
+                  PolymarketPlacementDiagnostics.selfHeal(
+                    heal: heal.name,
+                    refusal: e.reason,
+                    attempt: attempt,
+                    negRisk: detectedNegRisk,
+                  );
+                }
+
+                // A documented refusal proves the first order was not accepted.
+                // Do not run relayer funding or balance refresh on every funded bet,
+                // and never reach this retry after a timeout or ambiguous response.
+                if (heal == PolymarketRefusalHeal.refreshBalance) {
+                  balanceRefreshed = true;
+                  onStep?.call('approving');
+                  ensureCurrent();
+                  if (side == OrderSide.buy) {
+                    await _wrapHeldUsdcE(
+                      eoa: orderEoa,
+                      privateKey: orderPrivateKey,
+                      wallet: orderAccount,
+                      trigger: 'refusal',
+                      ensureCurrent: ensureCurrent,
+                    );
+                    ensureCurrent();
+                  }
+                  await _backendService!.updateBalanceAllowance(
+                    assetType:
+                        side == OrderSide.buy ? 'COLLATERAL' : 'CONDITIONAL',
+                    signatureType: 3,
+                    tokenId: side == OrderSide.sell ? tokenId : null,
+                  );
+                  ensureCurrent();
+                  continue;
+                }
+
+                // Refresh stale credentials once using the documented EOA L1
+                // contract; order signatures remain deposit-wallet POLY_1271.
+                if (heal == PolymarketRefusalHeal.rebindKey) {
+                  keyRebound = true;
+                  try {
+                    await _refreshCredentials(
+                      orderEoa,
+                      ensureCurrent: ensureCurrent,
+                      isCurrent: isCurrentAccount,
+                    );
+                    // Refresh CLOB allowance cache. signature_type=3 (POLY_1271)
+                    // — matches the V2 deposit-wallet order sigType.
+                    try {
+                      await _backendService?.updateBalanceAllowance(
+                        assetType: 'COLLATERAL',
+                        signatureType: 3,
+                      );
+                      _devLog('[pm-heal] balance-allowance/update OK');
+                    } catch (e) {
+                      _devLog('[pm-heal] balance-allowance/update threw: $e');
+                    }
+                  } catch (e) {
+                    _devLog('[pm-heal] refreshCredentials threw: $e');
+                    rethrow;
+                  }
+                  continue;
+                }
+
+                // Silent permission setup: deploy the wallet + fix token
+                // approvals, then retry. Only for refusals that name approvals
+                // or the maker (`not approved`, `transfer amount exceeds
+                // allowance`, `maker address X has no allowance` / `has not
+                // been registered`): the wallet is missing on chain or an
+                // exchange approval is. `enableTrading()` deploys the wallet
+                // (idempotent) and re-runs the approve sequence. The balance
+                // refusal never comes here, although it says "allowance": a
+                // second one ends the placement below with what the venue
+                // said instead of re-running setup behind "Setting up…".
+                if (heal == PolymarketRefusalHeal.repairSetup) {
+                  approvalsFixed = true;
+                  onStep?.call('setup');
+                  try {
+                    // force:true bypasses the "already deployed" short-circuit so
+                    // we actually re-derive the Safe, re-run fixMissingApprovals,
+                    // and refresh credentials. Without it, a stale state with a
+                    // wrong-but-non-empty proxyWalletAddress (the polybrainz
+                    // migration left some users in this shape) makes enableTrading
+                    // a no-op and the retry hits the same rejection.
+                    ensureCurrent();
+                    try {
+                      await enableTrading(force: true)
+                          .timeout(PolymarketPlacementWaits.setup);
+                    } on TimeoutException {
+                      // The repair keeps running; this order (already
+                      // refused) ends with a retry instead of holding the
+                      // account until it is done.
+                      throw const PolymarketSetupIncomplete(timedOut: true);
+                    }
+                    ensureCurrent();
+                    await Future.delayed(const Duration(seconds: 3));
+                  } catch (_) {
+                    rethrow;
+                  }
+                  continue;
+                }
+
+                // The refusal names the one approval the venue checks and
+                // finds missing, on one of Polymarket's pinned contracts:
+                // set exactly that (bounded by the setup wait, once), have
+                // the venue re-read it, and sign again.
+                if (heal == PolymarketRefusalHeal.approveSpender) {
+                  spenderApproved = true;
+                  onStep?.call('approving');
+                  ensureCurrent();
+                  void report(String result) =>
+                      PolymarketPlacementDiagnostics.selfHeal(
+                        heal: heal.name,
+                        refusal: e.reason,
+                        attempt: attempt,
+                        negRisk: detectedNegRisk,
+                        result: result,
+                      );
+                  try {
+                    final sent = await PolymarketOnboardingService()
+                        .approveRefusalSpender(
+                          eoaAddress: orderEoa,
+                          privateKey: orderPrivateKey,
+                          walletAddress: orderAccount,
+                          spender: polymarketRefusalSpender(e.reason)!,
+                          ensureCurrent: ensureCurrent,
+                        )
+                        .timeout(PolymarketPlacementWaits.setup);
+                    report(sent ? 'sent' : 'already_set');
+                  } on TimeoutException {
+                    report('timed_out');
+                    throw const PolymarketSetupIncomplete(timedOut: true);
+                  } catch (error) {
+                    // A changed account or approval still stops here as
+                    // itself; a failed approval batch is a setup failure.
+                    if (error is AuthGrantException || error is StateError) {
+                      rethrow;
+                    }
+                    report('failed');
+                    throw PolymarketSetupIncomplete(cause: error);
+                  }
+                  ensureCurrent();
+                  await _backendService!.updateBalanceAllowance(
+                    assetType: 'COLLATERAL',
+                    signatureType: 3,
+                  );
+                  ensureCurrent();
+                  continue;
+                }
+
+                // Earlier matched trades are still reserved against a
+                // balance that covers this order (py-clob-client-v2#112):
+                // not a shortage, so never "add funds".
+                if (isPolymarketStaleReservation(e.reason)) {
+                  throw PolymarketStaleReservation(e.reason);
+                }
+
+                // The balance came back refused after the one refresh: the
+                // venue does not count enough collateral for this order on
+                // this market. Said as such, with the venue's own words kept
+                // for the failure event.
+                if (isPolymarketBalanceRefusal(e.reason)) {
+                  throw PolymarketBalanceRefused(e.reason);
+                }
+                rethrow;
               }
-
-              rethrow;
             }
-          }
+          });
 
+          final response = submitted;
           if (response == null) {
             throw Exception('Order placement failed. Please try again.');
           }
@@ -2336,9 +2452,12 @@ class PolymarketTradingNotifier
                   taking > 0;
           // Submitted orders are not filled activity. Indexing supplies the final
           // amounts when the acknowledgement does not contain a verified fill.
-          if (side == OrderSide.buy && hasFill) {
+          // Keyed by the trade id (never a CLOB id posing as a chain hash);
+          // the Data API fill evicts it by trade shape.
+          final optimisticKey =
+              PolymarketOptimisticActivityService.optimisticTradeKey(response);
+          if (side == OrderSide.buy && hasFill && optimisticKey != null) {
             try {
-              final responseOrderHash = responseOrderId!;
               final filledUsdc = making;
               final filledShares = taking;
               final fillPrice = filledUsdc / filledShares;
@@ -2351,7 +2470,7 @@ class PolymarketTradingNotifier
                   type: 'TRADE',
                   size: filledShares,
                   usdcSize: filledUsdc,
-                  transactionHash: responseOrderHash,
+                  transactionHash: optimisticKey,
                   price: fillPrice,
                   asset: tokenId,
                   side: side == OrderSide.buy ? 'BUY' : 'SELL',
@@ -2429,6 +2548,8 @@ class PolymarketTradingNotifier
                   side == OrderSide.buy || orderType == OrderType.gtc,
               extra: {
                 ...?analytics,
+                // v1 (CTF) | v2 (Protocol V2 / ExchangeV3), from the token.
+                'market_protocol': PolyMarketProtocol.wireForToken(tokenId),
                 // biometric | fast_window | allowance: how this order
                 // was approved (FastBetWindow.approvalParam).
                 'approval': FastBetWindow.approvalParam(grant.method),
@@ -2660,21 +2781,24 @@ class PolymarketTradingNotifier
       builder: builderCode,
     );
 
-    final verifyingContract = negRisk
-        ? PolymarketConstants.negRiskExchangeAddress
-        : PolymarketConstants.exchangeAddress;
+    // CTF tokens sign for the CTF exchange of [negRisk] under domain "2";
+    // Protocol V2 positions for ExchangeV3 under "3" (market_protocol.dart).
+    PolyMarketProtocol.ensureSignable(tokenId);
+    final venue = PolyOrderVenue.forToken(tokenId, negRisk: negRisk);
 
     ensureCurrent();
     final signature = sigType == polyV2_1271
         ? await signOrderV2Poly1271(
             order: order,
             credentials: _hotPolymarketCredentials(privateKey),
-            verifyingContract: verifyingContract,
+            verifyingContract: venue.exchange,
+            domainVersion: venue.domainVersion,
           )
         : await signOrderV2(
             order: order,
             credentials: _hotPolymarketCredentials(privateKey),
-            verifyingContract: verifyingContract,
+            verifyingContract: venue.exchange,
+            domainVersion: venue.domainVersion,
           );
 
     return SignedOrderV2(order: order, signature: signature);
@@ -2885,7 +3009,7 @@ class PolymarketTradingNotifier
     if (mnemonic == null) {
       throw Exception('Could not decrypt spending wallet');
     }
-    final wallet = EvmWalletDerivation.deriveWallet(
+    final wallet = await EvmWalletDerivation.deriveWalletAsync(
         mnemonic: mnemonic, version: spending.evmDerivationVersion, index: 0);
 
     final onboarding = PolymarketOnboardingService();
@@ -2985,7 +3109,26 @@ class PolymarketTradingNotifier
     String toAddress;
     String calldata;
 
-    if (isNegRisk) {
+    // Protocol V2 (binary and neg-risk alike): the shares sit on the
+    // PositionManager and redeem through the Router, one
+    // `redeem(bytes31, outcome, amount)` per held side, for its exact
+    // balance (onboarding approved the Router as PositionManager operator).
+    final v2Calls = pos != null && PolyMarketProtocol.isV2PositionId(pos.asset)
+        ? await onboarding.v2RedeemCalls(
+            positionId: pos.asset, owner: proxyWallet)
+        : null;
+    if (v2Calls != null && v2Calls.isEmpty) {
+      if (pos!.curPrice <= 0.02) {
+        _treatLostAsCleared(conditionId);
+        return 0;
+      }
+      throw const PolymarketNothingToClaimException();
+    }
+
+    if (v2Calls != null) {
+      toAddress = PolymarketConstants.comboRouterAddress;
+      calldata = v2Calls.first.data;
+    } else if (isNegRisk) {
       // NegRiskCtfCollateralAdapter (NEW — deployed by Polymarket
       // 2026-04-30, supersedes the legacy NegRiskAdapter for redeems).
       //
@@ -3117,7 +3260,7 @@ class PolymarketTradingNotifier
     //   - EOA non-zero  → settlement-routing bug: tokens never
     //     reached the Safe. Redeem must be re-routed from EOA.
     //   - Both zero     → API stale (genuinely no claim tokens).
-    if (isNegRisk && pos != null) {
+    if (isNegRisk && pos != null && v2Calls == null) {
       try {
         final yesAsset = pos.outcomeIndex == 0 ? pos.asset : pos.oppositeAsset;
         final noAsset = pos.outcomeIndex == 0 ? pos.oppositeAsset : pos.asset;
@@ -3170,13 +3313,24 @@ class PolymarketTradingNotifier
     // resolved on USDC.e where pUSD was tried first).
     String txHash;
     try {
-      txHash = await onboarding.submitDepositWalletCall(
-        eoaAddress: eoa,
-        privateKey: wallet.privateKey,
-        walletAddress: proxyWallet,
-        to: toAddress,
-        data: calldata,
-      );
+      txHash = v2Calls != null && v2Calls.length > 1
+          ? await onboarding.executeDepositWalletBatch(
+              eoaAddress: eoa,
+              signer: CredentialsDepositWalletBatchSigner(wallet.privateKey),
+              walletAddress: proxyWallet,
+              calls: v2Calls,
+              deadline: DateTime.now()
+                      .add(const Duration(minutes: 10))
+                      .millisecondsSinceEpoch ~/
+                  1000,
+            )
+          : await onboarding.submitDepositWalletCall(
+              eoaAddress: eoa,
+              privateKey: wallet.privateKey,
+              walletAddress: proxyWallet,
+              to: toAddress,
+              data: calldata,
+            );
     } catch (e) {
       final msg = e.toString().toLowerCase();
       final isPositionEmptyPrecheck = msg.contains('zero position balance') ||
@@ -3766,7 +3920,7 @@ class PolymarketTradingNotifier
     if (mnemonic == null) {
       throw Exception('Could not decrypt spending wallet');
     }
-    final wallet = EvmWalletDerivation.deriveWallet(
+    final wallet = await EvmWalletDerivation.deriveWalletAsync(
         mnemonic: mnemonic, version: spending.evmDerivationVersion, index: 0);
 
     final onboarding = PolymarketOnboardingService();
@@ -3928,7 +4082,7 @@ class PolymarketTradingNotifier
         if (mnemonic == null) {
           throw Exception('Could not decrypt spending wallet');
         }
-        final wallet = EvmWalletDerivation.deriveWallet(
+        final wallet = await EvmWalletDerivation.deriveWalletAsync(
             mnemonic: mnemonic,
             version: spending.evmDerivationVersion,
             index: 0);
@@ -4290,7 +4444,7 @@ class PolymarketTradingNotifier
     if (mnemonic == null) {
       throw Exception('Could not decrypt wallet');
     }
-    final wallet = EvmWalletDerivation.deriveWallet(
+    final wallet = await EvmWalletDerivation.deriveWalletAsync(
         mnemonic: mnemonic, version: spending.evmDerivationVersion, index: 0);
     if (spending.id != walletId ||
         wallet.address.toLowerCase() != eoa.toLowerCase()) {

@@ -27,7 +27,7 @@ abstract final class PolymarketApprovalInventoryConstants {
     PolymarketConstants.uniswapV3SwapRouter,
   ];
 
-  /// pUSD spenders (4).
+  /// pUSD spenders (5).
   static const List<String> pusdSpenders = [
     PolymarketConstants.exchangeAddress,
     PolymarketConstants.negRiskExchangeAddress,
@@ -37,6 +37,11 @@ abstract final class PolymarketApprovalInventoryConstants {
     // spender: 0xd91E…, allowance: 0"), although Polymarket lists the
     // adapter as deprecated. Without it every 3-way market buy is refused.
     PolymarketConstants.legacyNegRiskAdapterAddress,
+    // Protocol V2 markets (binary and neg-risk) and combos: ExchangeV3
+    // pulls the BUY stake and fees. docs.polymarket.com/migrate/
+    // polymarket-v2/api-integrations ("Approve V2 Trading"); also in
+    // @polymarket/client setupTradingApprovals.
+    PolymarketConstants.comboExchangeV3Address,
   ];
 
   /// Native USDC spenders (1).
@@ -54,27 +59,31 @@ abstract final class PolymarketApprovalInventoryConstants {
     PolymarketConstants.legacyNegRiskAdapterAddress,
   ];
 
-  // ── Combos: set on the first combo, revoked on compromise ─────────────
+  /// PositionManager (Protocol V2 positions and combos) operators (2):
+  /// ExchangeV3 moves shares on a SELL, the Router burns them on a claim
+  /// (`redeem`). docs.polymarket.com/migrate/polymarket-v2 (api- and
+  /// contract-integrations); both are in @polymarket/client
+  /// setupTradingApprovals.
+  static const List<String> positionManagerOperators = [
+    PolymarketConstants.comboExchangeV3Address,
+    PolymarketConstants.comboRouterAddress,
+  ];
+
+  // ── Combos ────────────────────────────────────────────────────────────
   //
   // Combos (Positions Framework) trade on Exchange v3 and settle through
-  // the Router; their positions are ERC-1155 ids on the PositionManager,
-  // not CTF tokens. These are NOT in the onboarding lists: the combo flow
-  // sets them once, in one gasless batch, the first time an account places,
-  // closes or claims a combo (`PolymarketOnboardingService
-  // .ensureComboApprovals`), so an account that never uses combos never
-  // grants them.
+  // the Router, like every Protocol V2 market, so their approvals are the
+  // V2 entries of the active lists above: onboarding sets them for every
+  // account, and `PolymarketOnboardingService.ensureComboApprovals` only
+  // re-checks them before a combo (a no-op once set).
 
-  /// pUSD spenders for combos: Exchange v3 pulls the BUY stake.
+  /// pUSD spenders a combo needs: Exchange v3 pulls the BUY stake.
   static const List<String> comboPusdSpenders = [
     PolymarketConstants.comboExchangeV3Address,
   ];
 
-  /// PositionManager operators for combos: Exchange v3 moves combo shares
-  /// on a SELL (early close), the Router burns them on a claim.
-  static const List<String> comboPositionOperators = [
-    PolymarketConstants.comboExchangeV3Address,
-    PolymarketConstants.comboRouterAddress,
-  ];
+  /// PositionManager operators a combo needs.
+  static const List<String> comboPositionOperators = positionManagerOperators;
 
   // ── Retired: never set again, still revoked on compromise ─────────────
   //
@@ -102,6 +111,7 @@ abstract final class PolymarketApprovalInventoryConstants {
 
   static const Map<String, List<String>> activeOperatorsByToken = {
     PolymarketConstants.ctfAddress: ctfOperators,
+    PolymarketConstants.comboPositionManagerAddress: positionManagerOperators,
   };
 
   /// Everything an account can hold, active and retired, by token. Read by
@@ -113,7 +123,6 @@ abstract final class PolymarketApprovalInventoryConstants {
     ],
     PolymarketConstants.pusdAddress: [
       ...pusdSpenders,
-      ...comboPusdSpenders,
       ...retiredPusdSpenders,
     ],
     PolymarketConstants.usdcAddress: usdcSpenders,
@@ -124,6 +133,6 @@ abstract final class PolymarketApprovalInventoryConstants {
       ...ctfOperators,
       ...retiredCtfOperators,
     ],
-    PolymarketConstants.comboPositionManagerAddress: comboPositionOperators,
+    PolymarketConstants.comboPositionManagerAddress: positionManagerOperators,
   };
 }

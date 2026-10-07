@@ -1027,7 +1027,7 @@ Future<String?> _revealEvmPrivateKey(
   if (read == null) return null;
   final mnemonic = read.mnemonic;
   if (mnemonic == null) throw StateError('No recovery phrase');
-  final account = EvmWalletDerivation.accountZeroKey(
+  final account = await EvmWalletDerivation.accountZeroKey(
       mnemonic: mnemonic, version: w.evmDerivationVersion);
   if (expectedAddress != null &&
       account.address.toLowerCase() != expectedAddress.toLowerCase()) {

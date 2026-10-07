@@ -998,16 +998,16 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     // Optimistically inject this sell into the home Activity feed so
     // the user sees a "Sold No · 9.96 shares · $1.39" row immediately,
     // instead of waiting for the Polymarket Data API to index the
-    // settlement (which lags by seconds-to-minutes). The optimistic
-    // entry self-cleans once the Data API returns the same txHash.
+    // settlement (which lags by seconds-to-minutes). The CLOB answers
+    // with trade ids, not chain hashes, so the row is keyed by its trade
+    // id (`clob-trade:<id>`, never shown as a transaction) and
+    // self-cleans when the Data API lists the matching fill.
     // Only with the venue's own figures.
     if (proceeds != null && avgPrice != null) {
       try {
-        final txHashes = response['transactionsHashes'] ?? response['tradeIDs'];
-        final txHash = (txHashes is List && txHashes.isNotEmpty)
-            ? txHashes.first.toString()
-            : (response['orderID'] as String? ?? '');
-        if (txHash.isNotEmpty) {
+        final txHash =
+            PolymarketOptimisticActivityService.optimisticTradeKey(response);
+        if (txHash != null) {
           final tradingState = ref.read(polymarketTradingProvider).valueOrNull;
           final proxyWallet = tradingState?.proxyWalletAddress ?? '';
           // Look up the on-chain Position to get the conditionId.

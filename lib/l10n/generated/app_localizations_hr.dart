@@ -6120,6 +6120,13 @@ class AppLocalizationsHr extends AppLocalizations {
   String get ledgerBetEnableSpending => 'Dopusti trošenje za predviđanja';
 
   @override
+  String get ledgerSummaryContracts => 'Dopušteni ugovori';
+
+  @override
+  String get ledgerPmEnableShareTrading =>
+      'Dopusti prodaju i preuzimanje dobitaka';
+
+  @override
   String get feeBitcoinNetwork => 'Bitcoin mreža';
 
   @override
@@ -6747,6 +6754,14 @@ class AppLocalizationsHr extends AppLocalizations {
   @override
   String get betSetupFailed =>
       'Postavljanje tvog računa za Predviđanja nije dovršeno. Tvoj novac je siguran. Pokušaj ponovno.';
+
+  @override
+  String get betVenueBalanceRefused =>
+      'Nema dovoljno stanja ili odobrenja za ovo tržište. Tvoj je novac siguran. Pokušaj s manjim iznosom.';
+
+  @override
+  String get betVenueSettling =>
+      'Polymarket još podmiruje raniju trgovinu na tvom stanju. Tvoj je novac siguran. Pokušaj ponovno za trenutak.';
 
   @override
   String get betDepositStillConverting =>

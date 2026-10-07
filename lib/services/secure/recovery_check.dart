@@ -1,5 +1,3 @@
-import 'dart:isolate';
-
 import 'package:kute/models/evm_derivation_version.dart';
 import 'package:kute/services/evm_wallet_derivation.dart';
 
@@ -16,15 +14,19 @@ abstract final class RecoveryCheck {
   static String normalize(String phrase) =>
       phrase.trim().toLowerCase().split(RegExp(r'\s+')).join(' ');
 
+  /// Derives on the calling isolate: background isolates and tests only.
   static String deriveSync(String mnemonic, {
     EvmDerivationVersion version = EvmDerivationVersion.legacySha256,
   }) => EvmWalletDerivation.deriveWallet(
       mnemonic: normalize(mnemonic), version: version, index: 0).address;
 
-  /// Derives off the UI isolate.
+  /// Derives off the UI isolate, through the session memo, so a recovery
+  /// that already derived the account does not stretch the seed again.
   static Future<String> derive(String mnemonic, {
     EvmDerivationVersion version = EvmDerivationVersion.legacySha256,
-  }) => Isolate.run(() => deriveSync(mnemonic, version: version));
+  }) async => (await EvmWalletDerivation.deriveWalletAsync(
+          mnemonic: normalize(mnemonic), version: version, index: 0))
+      .address;
 
   static bool matches(String stored, String derived) =>
       stored.toLowerCase() == derived.toLowerCase();

@@ -3225,6 +3225,8 @@
     }
   },
   "ledgerBetEnableSpending": "Allow predictions spending",
+  "ledgerSummaryContracts": "Contracts allowed",
+  "ledgerPmEnableShareTrading": "Allow selling and claiming",
   "feeBitcoinNetwork": "Bitcoin network",
   "feeLightningNetwork": "Lightning payment",
   "feePredictions": "Prediction trading",
@@ -3636,6 +3638,14 @@
   "betSetupFailed": "Your Predictions account could not finish setting up. Your money is safe. Try again.",
   "@betSetupFailed": {
     "description": "Prediction slip notice when the Predictions account's one-time setup failed before the order. Nothing was sent; Retry runs it again."
+  },
+  "betVenueBalanceRefused": "Not enough balance or allowance for this market. Your money is safe. Try a smaller amount.",
+  "@betVenueBalanceRefused": {
+    "description": "Prediction slip notice when Polymarket refused the order for balance or allowance again after the app refreshed the balance once. Nothing was placed."
+  },
+  "betVenueSettling": "Polymarket is still settling an earlier trade on your balance. Your money is safe. Try again in a moment.",
+  "@betVenueSettling": {
+    "description": "Prediction slip notice when Polymarket refused the order because it still reserves earlier matched trades against a balance that covers the order (a venue-side delay, not a shortage). Nothing was placed."
   },
   "betDepositStillConverting": "Your deposit is still being made ready to use. Try again in a moment.",
   "@betDepositStillConverting": {

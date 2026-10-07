@@ -25,7 +25,7 @@ const _key = '0123456789012345678901234567890123456789012345678901234567890123';
 class _Chain {
   _Chain({this.holdFirstNonce});
 
-  /// When set, the first `/nonce` read waits for it (a conversion batch
+  /// When set, the first nonce read waits for it (a conversion batch
   /// caught mid-flight).
   final Completer<void>? holdFirstNonce;
   var nonceReads = 0;
@@ -40,7 +40,7 @@ class _Chain {
       if (url.path == '/deployed') {
         return http.Response(jsonEncode({'deployed': true}), 200);
       }
-      if (url.path == '/nonce') {
+      if (url.path == '/v1/account/transactions/params') {
         nonceReads++;
         if (nonceReads == 1 && holdFirstNonce != null) {
           await holdFirstNonce!.future;
@@ -69,6 +69,10 @@ class _Chain {
     }
     if (request.method == 'POST' && request.body.contains('jsonrpc')) {
       final rpc = jsonDecode(request.body) as Map<String, dynamic>;
+      if (rpc['method'] == 'eth_chainId') {
+        return http.Response(
+            jsonEncode({'jsonrpc': '2.0', 'id': 1, 'result': '0x89'}), 200);
+      }
       if (rpc['method'] == 'eth_getCode') {
         return http.Response(
             jsonEncode({'jsonrpc': '2.0', 'id': 1, 'result': '0x6080'}), 200);

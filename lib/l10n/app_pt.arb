@@ -1942,6 +1942,8 @@
     }
   },
   "ledgerBetEnableSpending": "Permitir gastos em Previsões",
+  "ledgerSummaryContracts": "Contratos autorizados",
+  "ledgerPmEnableShareTrading": "Permitir vender e resgatar",
   "feeBitcoinNetwork": "Rede Bitcoin",
   "feeLightningNetwork": "Pagamento Lightning",
   "feePredictions": "Negociação de previsões",
@@ -2191,6 +2193,8 @@
   "betSettingUpWallet": "A configurar a sua carteira de Previsões…",
   "betSetupSlow": "A tua conta de Previsões ainda está a ser configurada. Pode demorar um minuto. Tenta novamente em breve.",
   "betSetupFailed": "Não foi possível concluir a configuração da tua conta de Previsões. O teu dinheiro está seguro. Tenta novamente.",
+  "betVenueBalanceRefused": "Saldo ou autorização insuficiente para este mercado. O teu dinheiro está seguro. Tenta um valor mais pequeno.",
+  "betVenueSettling": "A Polymarket ainda está a liquidar uma negociação anterior no teu saldo. O teu dinheiro está seguro. Tenta novamente daqui a pouco.",
   "betDepositStillConverting": "O teu depósito ainda está a ser preparado para uso. Tenta novamente dentro de momentos.",
   "betPreviousStillPlacing": "A tua última previsão ainda está a ser colocada. Verifica o estado dentro de momentos.",
   "betApprovingSpend": "A aprovar…",

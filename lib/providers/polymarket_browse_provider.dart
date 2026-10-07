@@ -182,24 +182,7 @@ final polymarketEventsProvider = FutureProvider.autoDispose
     // (`PolymarketEvent.isInPlay` — a live score/period is seeded AND the game
     // hasn't ended). If nothing is in play the list is legitimately short /
     // empty — we do NOT pad it with upcoming games mislabeled as live.
-    final results = await Future.wait([
-      model.listEvents(tag: TagSlug.sports, limit: 200),
-      model.listEvents(hot: true, limit: 50),
-    ]);
-    final now = DateTime.now();
-    final seenIds = <String>{};
-    final inPlay = <PolymarketEvent>[];
-    for (final e in [...results[0], ...results[1]]) {
-      if (!e.isInPlay) continue;
-      if (seenIds.add(e.id)) inPlay.add(e);
-    }
-    // Hottest in-play game leads.
-    inPlay.sort((a, b) {
-      final scoreA = _excitementScore(a, now);
-      final scoreB = _excitementScore(b, now);
-      return scoreB.compareTo(scoreA);
-    });
-    events = inPlay;
+    events = await readPolyLiveGames();
   } else {
     final tag = _tagMap[category];
     final bool isDynamicTag = tag == null;
@@ -253,27 +236,67 @@ final polymarketEventsProvider = FutureProvider.autoDispose
   return _offeredUnderPolicy(ref, events);
 });
 
-/// Events streaming right now (Twitch / YouTube / Kick), most traded first:
-/// one read of `events/keyset?live=true&closed=false&limit=100` (through
-/// the Kute feed, whose cache is fine for this), kept when the event
-/// carries a stream.
-Future<List<PolymarketEvent>> readPolyLiveStreams() async {
-  final model = PolymarketModel();
-  try {
-    final page = await PolymarketModel.readGammaKeysetPage(
-      'events',
-      const {'live': 'true', 'closed': 'false'},
-      limit: 100,
-    );
-    final live = [
-      for (final e in model.parseEventsRaw(page.rows))
-        if (e.hasLivestream && !_isEventResolved(e)) e
-    ];
-    live.sort((a, b) => _hotnessScore(b).compareTo(_hotnessScore(a)));
-    return live;
-  } finally {
-    model.dispose();
+/// How many rows the one live read asks for (Gamma's keyset page cap).
+const int _kLiveReadLimit = 100;
+
+/// How long one live read serves every list that asks for it.
+const Duration _kLiveReadFresh = Duration(seconds: 15);
+
+/// The live read running or last read, and when it started.
+({DateTime at, Future<List<PolymarketEvent>> read})? _liveRead;
+
+/// The events Gamma flags live: one read of
+/// `events/keyset?live=true&closed=false&limit=100` (through the Kute
+/// feed), parsed off the UI isolate. Every live list reads from it (the
+/// Live pill, Sports › Live, Livestream, the Esports chips), so callers
+/// at the same moment share one request and a read serves for
+/// [_kLiveReadFresh]. Gamma's `live` flag also marks games before their
+/// kickoff and streams that are not games; each list keeps its own rows.
+Future<List<PolymarketEvent>> readPolyLiveEvents() {
+  final last = _liveRead;
+  if (last != null && DateTime.now().difference(last.at) < _kLiveReadFresh) {
+    return last.read;
   }
+  final read = PolymarketModel.readGammaEventsPage(
+    const {'live': 'true', 'closed': 'false'},
+    limit: _kLiveReadLimit,
+  ).then((page) => List<PolymarketEvent>.unmodifiable(page.events));
+  _liveRead = (at: DateTime.now(), read: read);
+  // A failed read is not kept: the next list asks again.
+  unawaited(read.then((_) {}, onError: (Object _) {
+    if (identical(_liveRead?.read, read)) _liveRead = null;
+  }));
+  return read;
+}
+
+/// Drops the live read kept, so the next live list reads again (a
+/// pull-to-refresh).
+void polyForgetLiveRead() => _liveRead = null;
+
+/// Games in play, the hottest first: [readPolyLiveEvents] kept to the
+/// games with a live score or period (`PolymarketEvent.isInPlay`), so a
+/// game Gamma flags live before kickoff stays out. Esports and every
+/// tennis tour come with the rest.
+Future<List<PolymarketEvent>> readPolyLiveGames() async {
+  final now = DateTime.now();
+  final games = [
+    for (final e in await readPolyLiveEvents())
+      if (e.isInPlay) e
+  ];
+  games.sort(
+      (a, b) => _excitementScore(b, now).compareTo(_excitementScore(a, now)));
+  return games;
+}
+
+/// Events streaming right now (Twitch / YouTube / Kick), most traded first:
+/// [readPolyLiveEvents] kept to the events that carry a stream.
+Future<List<PolymarketEvent>> readPolyLiveStreams() async {
+  final live = [
+    for (final e in await readPolyLiveEvents())
+      if (e.hasLivestream && !_isEventResolved(e)) e
+  ];
+  live.sort((a, b) => _hotnessScore(b).compareTo(_hotnessScore(a)));
+  return live;
 }
 
 /// [events] minus the categories the runtime policy withdraws here
@@ -2009,6 +2032,157 @@ const Duration _kWindowHorizon = Duration(hours: 6);
 List<Map<String, String>> polyFeedSourceParams(PolyFeedQuery query) =>
     [for (final s in _specFor(query).sources) Map.of(s.params)];
 
+/// First reads of the lists being opened, running now, and a signal each
+/// time one ends: what the league ranking waits on, so it never competes
+/// with the list the person just opened.
+int _foregroundFirstReads = 0;
+final StreamController<void> _feedLanded = StreamController<void>.broadcast();
+
+/// Waits until no list being opened is still on its first read, or
+/// [max] at most.
+Future<void> _afterListsLand(
+    {Duration max = const Duration(seconds: 4)}) async {
+  // Lets a list opened in the same frame register its read first.
+  await Future<void>.delayed(Duration.zero);
+  final deadline = DateTime.now().add(max);
+  while (_foregroundFirstReads > 0) {
+    final left = deadline.difference(DateTime.now());
+    if (left <= Duration.zero) return;
+    try {
+      await _feedLanded.stream.first.timeout(left);
+    } on TimeoutException {
+      return;
+    }
+  }
+}
+
+/// The first page of the lists a person is likely to open next, read
+/// once the list on screen has landed: the pills on either side of the
+/// current one and the next chips of its row. Each lands in the disk
+/// cache and stays in memory for the feed's ten minutes, so opening it
+/// paints at once. One read at a time, at most [maxPerLanding] per
+/// landing; a list read in the last [recent] is skipped, and a newer
+/// landing drops what an older one had not started yet.
+abstract final class PolyFeedPrefetch {
+  static const int maxPerLanding = 4;
+  static const Duration gap = Duration(milliseconds: 300);
+  static const Duration recent = Duration(minutes: 5);
+  static const int subsAhead = 3;
+
+  /// When each list last read its first page (opened or prefetched).
+  static final Map<PolyFeedQuery, DateTime> _readAt = {};
+
+  /// The lists being prefetched now (not counted as lists being opened).
+  static final Set<PolyFeedQuery> _reading = {};
+
+  static int _run = 0;
+
+  @visibleForTesting
+  static void debugReset() {
+    _readAt.clear();
+    _reading.clear();
+    _run++;
+  }
+
+  /// The lists to read after [selection]'s list landed: the pills next to
+  /// it in [pills], then the [subsAhead] chips after the selected one in
+  /// [subs]. Lists that read nothing (5 Min, Watchlist) and the Live
+  /// pill's chips (a filter of the one list on screen) are left out.
+  static List<PolyFeedQuery> queriesAround({
+    required PolyBrowseSelection selection,
+    required List<PolyPill> pills,
+    required List<PolySub> subs,
+  }) {
+    PolyFeedQuery queryOf(PolyPill p, String sub) => p == PolyPill.live
+        ? const PolyFeedQuery(pill: PolyPill.live)
+        : PolyFeedQuery(pill: p, sub: sub);
+    final current = queryOf(selection.pill, selection.sub);
+    final out = <PolyFeedQuery>[];
+    void add(PolyFeedQuery q) {
+      if (q == current || out.contains(q) || q.sub.startsWith('route:')) {
+        return;
+      }
+      final kind = _specFor(q).kind;
+      if (kind == _FeedKind.none || kind == _FeedKind.watchlist) return;
+      out.add(q);
+    }
+
+    final i = pills.indexOf(selection.pill);
+    if (i >= 0) {
+      for (final j in [i + 1, i - 1]) {
+        if (j >= 0 && j < pills.length) {
+          add(queryOf(pills[j], selection.subOf(pills[j])));
+        }
+      }
+    }
+    if (selection.pill != PolyPill.live) {
+      final at = subs.indexWhere((s) => s.key == selection.sub);
+      for (final sub in subs.skip(at + 1).take(subsAhead)) {
+        add(queryOf(selection.pill, sub.key));
+      }
+    }
+    return out;
+  }
+
+  /// Reads the first page of [queries] in turn through [feedOf] (the
+  /// feed notifier of a list, which creates it if needed).
+  static Future<void> run(
+    List<PolyFeedQuery> queries,
+    PolyFeedNotifier Function(PolyFeedQuery query) feedOf,
+  ) async {
+    final run = ++_run;
+    var started = 0;
+    for (final q in queries) {
+      if (started >= maxPerLanding) break;
+      final last = _readAt[q];
+      if (last != null && DateTime.now().difference(last) < recent) continue;
+      await Future<void>.delayed(gap);
+      if (run != _run) return;
+      started++;
+      _readAt[q] = DateTime.now();
+      _reading.add(q);
+      try {
+        final feed = feedOf(q);
+        _reading.remove(q);
+        await feed.firstRead.timeout(const Duration(seconds: 10));
+      } catch (_) {
+        // A prefetch that fails costs nothing: the list reads on open.
+      } finally {
+        _reading.remove(q);
+      }
+    }
+  }
+}
+
+/// A pull-to-refresh: the list on screen ([query]) and the chips of
+/// [pill] read again. The other lists keep what they hold until they are
+/// opened again or their ten minutes run out.
+void polyRefreshBrowse({
+  required PolyFeedQuery? query,
+  required PolyPill pill,
+  required void Function(ProviderOrFamily provider) invalidate,
+}) {
+  if (query != null) {
+    if (_specFor(query).kind == _FeedKind.live) polyForgetLiveRead();
+    PolyFeedPrefetch._readAt.remove(query);
+    invalidate(polyBrowseFeedProvider(query));
+  }
+  if (pill.relatedTagId != null) invalidate(polyTopicSubsProvider(pill));
+  switch (pill) {
+    case PolyPill.crypto:
+      invalidate(polyCryptoSubsProvider);
+    case PolyPill.sports:
+      invalidate(polyLeagueRowsProvider);
+      invalidate(polySportGroupLogosProvider);
+    case PolyPill.live:
+      invalidate(polyLeagueRowsProvider);
+    case PolyPill.esports:
+      invalidate(polyEsportsSubsProvider);
+    default:
+      break;
+  }
+}
+
 /// One Predictions list, paged: the last first page this device saw is
 /// drawn at once from disk, the live first page replaces it, and
 /// [PolyFeedNotifier.loadMore] reads the next page on the same cursor
@@ -2039,9 +2213,28 @@ class PolyFeedNotifier
       return const PolyFeedState(done: true);
     }
     final cached = _cached();
-    Future.microtask(() => _loadFirst(gen, hasCache: cached != null));
+    final firstRead = _firstRead = Completer<void>();
+    // A list being opened counts; a prefetch does not.
+    final foreground = !PolyFeedPrefetch._reading.contains(arg);
+    if (foreground) _foregroundFirstReads++;
+    Future.microtask(() async {
+      try {
+        await _loadFirst(gen, hasCache: cached != null);
+      } finally {
+        if (foreground) {
+          _foregroundFirstReads--;
+          _feedLanded.add(null);
+        }
+        if (!firstRead.isCompleted) firstRead.complete();
+      }
+    });
     return PolyFeedState(events: cached ?? const [], loading: true);
   }
+
+  Completer<void> _firstRead = Completer<void>()..complete();
+
+  /// Completes when the first page has been read (or failed).
+  Future<void> get firstRead => _firstRead.future;
 
   List<PolymarketEvent>? _cached() {
     final rows = PolymarketFeedCache.instance.readEvents(arg.cacheKey);
@@ -2093,6 +2286,7 @@ class PolyFeedNotifier
       }
       if (gen != _generation) return;
       state = PolyFeedState(events: rows, done: done);
+      PolyFeedPrefetch._readAt[arg] = DateTime.now();
       unawaited(PolymarketFeedCache.instance
           .writeEvents(arg.cacheKey, rows, max: _kFeedFirstPage));
     } catch (_) {
@@ -2126,43 +2320,37 @@ class PolyFeedNotifier
   /// reading while filters leave fewer than [_kFeedMinNewRows] new rows.
   Future<({List<PolymarketEvent> rows, bool done})> _readPages(
       int size) async {
-    final model = PolymarketModel();
-    try {
-      final out = <PolymarketEvent>[];
-      for (var i = 0; i < _kFeedMaxAutoPages; i++) {
-        final open = _spec.sources.where((s) => !s.done).toList();
-        if (open.isEmpty) break;
-        final pages = await Future.wait(open.map((s) async {
-          final page = await PolymarketModel.readGammaKeysetPage(
-            'events',
-            s.params,
-            limit: size,
-            cursor: s.cursor,
-            multi: s.multi,
-          );
-          s.cursor = page.next;
-          s.done = page.next == null;
-          final parsed = model.parseEventsRaw(page.rows);
-          // Soonest to end first: nothing after the horizon is kept, so
-          // there is nothing more to read.
-          if (_spec.currentWindowsOnly &&
-              parsed.any((e) =>
-                  e.endDate != null &&
-                  e.endDate!.difference(DateTime.now()) > _kWindowHorizon)) {
-            s.done = true;
-          }
-          return parsed;
-        }));
-        final merged = _keep(pages.expand((p) => p));
-        final pageSort = _spec.pageSort;
-        if (pageSort != null) merged.sort(pageSort);
-        out.addAll(merged);
-        if (out.length >= _kFeedMinNewRows) break;
-      }
-      return (rows: out, done: _spec.sources.every((s) => s.done));
-    } finally {
-      model.dispose();
+    final out = <PolymarketEvent>[];
+    for (var i = 0; i < _kFeedMaxAutoPages; i++) {
+      final open = _spec.sources.where((s) => !s.done).toList();
+      if (open.isEmpty) break;
+      final pages = await Future.wait(open.map((s) async {
+        final page = await PolymarketModel.readGammaEventsPage(
+          s.params,
+          limit: size,
+          cursor: s.cursor,
+          multi: s.multi,
+        );
+        s.cursor = page.next;
+        s.done = page.next == null;
+        final parsed = page.events;
+        // Soonest to end first: nothing after the horizon is kept, so
+        // there is nothing more to read.
+        if (_spec.currentWindowsOnly &&
+            parsed.any((e) =>
+                e.endDate != null &&
+                e.endDate!.difference(DateTime.now()) > _kWindowHorizon)) {
+          s.done = true;
+        }
+        return parsed;
+      }));
+      final merged = _keep(pages.expand((p) => p));
+      final pageSort = _spec.pageSort;
+      if (pageSort != null) merged.sort(pageSort);
+      out.addAll(merged);
+      if (out.length >= _kFeedMinNewRows) break;
     }
+    return (rows: out, done: _spec.sources.every((s) => s.done));
   }
 
   Future<List<PolymarketEvent>> _readMovers() async {
@@ -2199,14 +2387,13 @@ class PolyFeedNotifier
     }.toList();
     if (slugs.isEmpty) return movers;
     try {
-      final page = await PolymarketModel.readGammaKeysetPage(
-        'events',
+      final page = await PolymarketModel.readGammaEventsPage(
         const {},
         multi: {'slug': slugs},
         limit: slugs.length,
       );
       final bySlug = {
-        for (final e in model.parseEventsRaw(page.rows)) e.slug: e,
+        for (final e in page.events) e.slug: e,
       };
       return [
         for (final m in movers)
@@ -2244,46 +2431,22 @@ class PolyFeedNotifier
   Future<List<PolymarketEvent>> _readWatchlist() async {
     final slugs = ref.read(polyWatchlistProvider);
     if (slugs.isEmpty) return const [];
-    final model = PolymarketModel();
-    try {
-      final page = await PolymarketModel.readGammaKeysetPage(
-        'events',
-        const {},
-        multi: {'slug': slugs},
-        limit: slugs.length,
-      );
-      final bySlug = {
-        for (final e in model.parseEventsRaw(page.rows)) e.slug: e,
-      };
-      return [
-        for (final s in slugs)
-          if (bySlug[s] != null) bySlug[s]!
-      ];
-    } finally {
-      model.dispose();
-    }
+    final page = await PolymarketModel.readGammaEventsPage(
+      const {},
+      multi: {'slug': slugs},
+      limit: slugs.length,
+    );
+    final bySlug = {
+      for (final e in page.events) e.slug: e,
+    };
+    return [
+      for (final s in slugs)
+        if (bySlug[s] != null) bySlug[s]!
+    ];
   }
 
-  /// Games in play, as the Live pill has always read them.
-  Future<List<PolymarketEvent>> _readLive() async {
-    final model = PolymarketModel();
-    try {
-      final results = await Future.wait([
-        model.listEvents(tag: TagSlug.sports, limit: 200),
-        model.listEvents(hot: true, limit: 50),
-      ]);
-      final now = DateTime.now();
-      final inPlay = [
-        for (final e in [...results[0], ...results[1]])
-          if (e.isInPlay) e
-      ];
-      inPlay.sort(
-          (a, b) => _excitementScore(b, now).compareTo(_excitementScore(a, now)));
-      return inPlay;
-    } finally {
-      model.dispose();
-    }
-  }
+  /// Games in play: one live read ([readPolyLiveGames]).
+  Future<List<PolymarketEvent>> _readLive() => readPolyLiveGames();
 }
 
 // ─────────────────────────── subcategory chips ───────────────────────────
@@ -2379,14 +2542,34 @@ final _polySportsDirectoryProvider =
   return model.fetchSportsLeagues();
 });
 
-/// The leagues with the most 24 h volume on the first page of Sports,
-/// most traded first, with their names and logos from Gamma `/sports`.
-/// Drawn from disk first.
+/// How many of Sports' most traded events rank the leagues: enough for
+/// the six leagues the row features (a 100-row read was about 1 MB on
+/// every Sports open, for the same six).
+const int _kLeagueRankRows = 30;
+
+/// How long a league ranking is kept before it is read again.
+const Duration _kLeagueRankFresh = Duration(minutes: 10);
+
+const String _kLeagueRowsKey = 'sports_leagues';
+
+/// The leagues with the most 24 h volume among Sports' most traded
+/// events, most traded first, with their names and logos from Gamma
+/// `/sports`. Drawn from disk first; a ranking younger than
+/// [_kLeagueRankFresh] is not read again, and a read waits until the list
+/// being opened has landed, so it never competes with it.
 final polyLeagueRowsProvider =
     StreamProvider.autoDispose<List<Map<String, dynamic>>>((ref) async* {
   _cacheFor(ref, _kSubsCacheWindow);
-  final cached = PolymarketFeedCache.instance.readTagRows('sports_leagues');
+  final cache = PolymarketFeedCache.instance;
+  final cached = cache.readTagRows(_kLeagueRowsKey);
   yield cached ?? const [];
+  final savedAt = cache.tagRowsSavedAt(_kLeagueRowsKey);
+  if (cached != null &&
+      savedAt != null &&
+      DateTime.now().difference(savedAt) < _kLeagueRankFresh) {
+    return;
+  }
+  await _afterListsLand();
   try {
     final results = await Future.wait([
       ref.read(_polySportsDirectoryProvider.future),
@@ -2399,29 +2582,35 @@ final polyLeagueRowsProvider =
           'order': 'volume24hr',
           'ascending': 'false',
         },
-        limit: 100,
+        limit: _kLeagueRankRows,
       ).then((p) => p.rows),
     ]);
-    final bySeries = {
-      for (final l in results[0]) '${l['series']}': l,
-    };
-    final volume = <String, double>{};
-    for (final e in results[1]) {
-      final series = e['series'];
-      if (series is! List || series.isEmpty || series.first is! Map) continue;
-      final id = '${(series.first as Map)['id']}';
-      if (!bySeries.containsKey(id)) continue;
-      volume[id] =
-          (volume[id] ?? 0) + ((e['volume24hr'] as num?)?.toDouble() ?? 0);
-    }
-    final ranked = volume.keys.toList()
-      ..sort((a, b) => volume[b]!.compareTo(volume[a]!));
-    final rows = [for (final id in ranked.take(14)) bySeries[id]!];
-    unawaited(
-        PolymarketFeedCache.instance.writeTagRows('sports_leagues', rows));
+    final rows = polyRankLeagues(results[0], results[1]);
+    unawaited(cache.writeTagRows(_kLeagueRowsKey, rows));
     yield rows;
   } catch (_) {}
 });
+
+/// The [directory] leagues (Gamma `/sports`) of [events], most 24 h
+/// volume first, fourteen at most.
+List<Map<String, dynamic>> polyRankLeagues(
+    List<Map<String, dynamic>> directory, List<Map<String, dynamic>> events) {
+  final bySeries = {
+    for (final l in directory) '${l['series']}': l,
+  };
+  final volume = <String, double>{};
+  for (final e in events) {
+    final series = e['series'];
+    if (series is! List || series.isEmpty || series.first is! Map) continue;
+    final id = '${(series.first as Map)['id']}';
+    if (!bySeries.containsKey(id)) continue;
+    volume[id] =
+        (volume[id] ?? 0) + ((e['volume24hr'] as num?)?.toDouble() ?? 0);
+  }
+  final ranked = volume.keys.toList()
+    ..sort((a, b) => volume[b]!.compareTo(volume[a]!));
+  return [for (final id in ranked.take(14)) bySeries[id]!];
+}
 
 PolySub _leagueSub(Map<String, dynamic> r) => PolySub('series:${r['series']}',
     route: '${r['sport'] ?? r['series']}',
@@ -2434,12 +2623,25 @@ const String _kEsportsTagId = '64';
 bool _isEsportsLeague(Map<String, dynamic> r) =>
     '${r['tags'] ?? ''}'.split(',').contains(_kEsportsTagId);
 
-/// The most traded leagues as chips, esports included: what the Live
-/// list names its groups from.
-final polySportsLeaguesProvider = Provider.autoDispose<List<PolySub>>((ref) {
-  final rows = ref.watch(polyLeagueRowsProvider).valueOrNull ?? const [];
-  return [for (final r in rows) _leagueSub(r)];
-});
+/// Every league as a chip, esports included: what the Live list names
+/// its groups from. The most traded leagues first ([ranked]), then each
+/// other league Gamma `/sports` lists ([directory]), one per series, so
+/// a game in play is named by its league even when the ranking has not
+/// been read yet or does not reach that league.
+List<PolySub> polyLiveLeagueSubs(List<Map<String, dynamic>> ranked,
+    List<Map<String, dynamic>> directory) {
+  final seen = <String>{};
+  return [
+    for (final r in [...ranked, ...directory])
+      if (seen.add('${r['series']}')) _leagueSub(r),
+  ];
+}
+
+final polySportsLeaguesProvider = Provider.autoDispose<List<PolySub>>((ref) =>
+    polyLiveLeagueSubs(
+      ref.watch(polyLeagueRowsProvider).valueOrNull ?? const [],
+      ref.watch(_polySportsDirectoryProvider).valueOrNull ?? const [],
+    ));
 
 /// The logo of each sport of [kPolySportGroups] that Gamma `/sports`
 /// lists under its own name (Darts, Chess, Cycling), by the sport's key.
@@ -2515,8 +2717,8 @@ List<PolySub> polyEsportsSubsFrom({
 }
 
 /// Esports chips with the games' logos (Gamma `/sports`) and the games in
-/// play first (one read of the esports events Gamma flags live). The
-/// logos are drawn from disk first.
+/// play first (from the one live read, [readPolyLiveEvents]). The logos
+/// are drawn from disk first.
 final polyEsportsSubsProvider =
     StreamProvider.autoDispose<List<PolySub>>((ref) async* {
   _cacheFor(ref, _kSubsCacheWindow);
@@ -2528,8 +2730,6 @@ final polyEsportsSubsProvider =
   final cached = PolymarketFeedCache.instance.readTagRows('esports_games');
   var logos = logosOf(cached ?? const []);
   yield polyEsportsSubsFrom(logos: logos);
-  final model = PolymarketModel();
-  ref.onDispose(model.dispose);
   try {
     final rows = [
       for (final l in await ref.read(_polySportsDirectoryProvider.future))
@@ -2543,14 +2743,9 @@ final polyEsportsSubsProvider =
     }
   } catch (_) {}
   try {
-    final page = await PolymarketModel.readGammaKeysetPage(
-      'events',
-      const {'tag_slug': 'esports', 'live': 'true', 'closed': 'false'},
-      limit: 100,
-    );
     final games = {for (final g in kPolyEsportsGames) g.slug};
     final live = <String>{
-      for (final e in model.parseEventsRaw(page.rows))
+      for (final e in await readPolyLiveEvents())
         if (e.isInPlay) ...e.tags.where(games.contains),
     };
     if (live.isNotEmpty) yield polyEsportsSubsFrom(logos: logos, live: live);

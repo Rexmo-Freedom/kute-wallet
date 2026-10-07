@@ -6130,6 +6130,12 @@ class AppLocalizationsNl extends AppLocalizations {
   String get ledgerBetEnableSpending => 'Uitgeven voor voorspellingen toestaan';
 
   @override
+  String get ledgerSummaryContracts => 'Toegestane contracten';
+
+  @override
+  String get ledgerPmEnableShareTrading => 'Verkopen en uitbetalen toestaan';
+
+  @override
   String get feeBitcoinNetwork => 'Bitcoin-netwerk';
 
   @override
@@ -6756,6 +6762,14 @@ class AppLocalizationsNl extends AppLocalizations {
   @override
   String get betSetupFailed =>
       'Je Voorspellingen-rekening kon niet volledig worden ingesteld. Je geld is veilig. Probeer het opnieuw.';
+
+  @override
+  String get betVenueBalanceRefused =>
+      'Niet genoeg saldo of toestemming voor deze markt. Je geld is veilig. Probeer een kleiner bedrag.';
+
+  @override
+  String get betVenueSettling =>
+      'Polymarket verrekent nog een eerdere transactie op je saldo. Je geld is veilig. Probeer het zo meteen opnieuw.';
 
   @override
   String get betDepositStillConverting =>

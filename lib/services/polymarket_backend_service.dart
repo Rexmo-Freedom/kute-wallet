@@ -28,6 +28,7 @@ import 'package:kute/services/polymarket/builder_code_resolver.dart';
 import 'package:kute/services/polymarket/placement_diagnostics.dart';
 import 'package:kute/services/tracking/order_ack_latency.dart';
 import 'package:kute/models/affiliate_model.dart';
+import 'package:kute/services/polymarket/market_protocol.dart';
 import 'package:kute/services/polymarket_order_v2.dart';
 import 'package:kute/services/venue_owner_link_service.dart';
 import 'package:polybrainz_polymarket/polybrainz_polymarket.dart'
@@ -47,8 +48,10 @@ class InvalidApiKeyException implements Exception {
   String toString() => 'Invalid API credentials — refreshing...';
 }
 
-/// A narrow, documented response proves this request was not accepted.
-/// Transport errors, duplicate orders and matching delays never use this type.
+/// The venue answered and did not accept this request: a documented
+/// refusal, or an HTTP 400 that names an error and no order (see
+/// [polymarketHttpRejection]). Transport errors, timeouts, 5xx, duplicate
+/// orders and matching delays never use this type.
 class PolymarketOrderNotAcceptedException implements Exception {
   const PolymarketOrderNotAcceptedException(this.reason);
   final String reason;
@@ -95,23 +98,56 @@ bool isDefinitivePolymarketOrderRejection(Object? message) =>
       'the market is not yet ready to process new orders',
     }.contains(message);
 
-@visibleForTesting
-bool isDefinitivePolymarketHttpRejection(http.Response response) {
-  if (response.statusCode != 400) return false;
+/// The refusal text of a `POST /order` answer that proves the order was
+/// not accepted, or null when the answer proves nothing.
+///
+/// Definitive:
+///  - an HTTP 400 carrying a documented refusal (in `error`), with or
+///    without the order hash a rejected FAK request can echo;
+///  - any other HTTP 400 that carries an error message (`error` or
+///    `errorMsg`) and no order id, no accepted status and no success: the
+///    CLOB answered and did not take the order. Treating these as
+///    ambiguous kept the order journal blocking for 2 to 30 minutes ("A
+///    previous prediction is still being confirmed") with nothing for the
+///    status check to find. A matching delay is never one of these.
+/// Network errors, timeouts, 5xx and every other status stay ambiguous.
+String? polymarketHttpRejection(http.Response response) {
+  if (response.statusCode != 400) return null;
   try {
     final body = jsonDecode(response.body);
-    return body is Map &&
+    if (body is! Map) return null;
+    final documented = body['error'];
+    if (body.keys.every((key) => key == 'error' || key == 'orderID') &&
         // A rejected FAK request can still include its computed order hash.
         // It is not an acknowledgement or evidence of a fill.
-        body.keys.every((key) => key == 'error' || key == 'orderID') &&
         (body['orderID'] == null ||
             (body['orderID'] is String &&
                 RegExp(r'^0x[0-9a-fA-F]{64}$').hasMatch(body['orderID']))) &&
-        isDefinitivePolymarketOrderRejection(body['error']);
+        isDefinitivePolymarketOrderRejection(documented)) {
+      return documented as String;
+    }
+    final message = body['error'] ?? body['errorMsg'];
+    if (message is! String || message.trim().isEmpty) return null;
+    if (message.toLowerCase().contains('delay')) return null;
+    bool blank(Object? value) => value == null || value.toString().isEmpty;
+    if (!blank(body['orderID']) ||
+        !blank(body['orderId']) ||
+        !blank(body['order_id']) ||
+        !blank(body['status']) ||
+        body['success'] == true) {
+      return null;
+    }
+    final hashes = body['transactionsHashes'];
+    if (hashes is List && hashes.isNotEmpty) return null;
+    return message;
   } catch (_) {
-    return false;
+    return null;
   }
 }
+
+@visibleForTesting
+bool isDefinitivePolymarketHttpRejection(http.Response response) =>
+    polymarketHttpRejection(response) != null;
 
 class PolymarketBackendService {
   final String _apiKey;
@@ -383,10 +419,8 @@ class PolymarketBackendService {
         return result;
       }
 
-      if (isDefinitivePolymarketHttpRejection(response)) {
-        throw PolymarketOrderNotAcceptedException(
-            (jsonDecode(response.body) as Map)['error'] as String);
-      }
+      final refusal = polymarketHttpRejection(response);
+      if (refusal != null) throw PolymarketOrderNotAcceptedException(refusal);
       throw Exception(
           'Order rejected (${response.statusCode}): ${response.body}');
     } on GeoBlockException {
@@ -451,16 +485,25 @@ class PolymarketBackendService {
   /// per docs.polymarket.com/trading/deposit-wallets and the V2 reference
   /// client (clob-client-v2 `client.ts updateBalanceAllowance`).
   ///
+  /// The CLOB `asset_type` for [assetType] and [tokenId]: CONDITIONAL
+  /// becomes CONDITIONAL-V2 for a Protocol V2 position id.
+  static String balanceAllowanceAssetType(String assetType, String? tokenId) =>
+      assetType == 'CONDITIONAL' && tokenId != null && tokenId.isNotEmpty
+          ? PolyMarketProtocol.conditionalAssetType(tokenId)
+          : assetType;
+
   /// [signatureType] should be 3 for POLY_1271 / deposit-wallet trading.
   /// [tokenId] is only set for CONDITIONAL (outcome share) allowances —
-  /// COLLATERAL (pUSD) calls omit it.
+  /// COLLATERAL (pUSD) calls omit it. A CONDITIONAL refresh for a Protocol
+  /// V2 position is sent as `CONDITIONAL-V2` (PositionManager shares), as
+  /// docs.polymarket.com/migrate/polymarket-v2/api-integrations requires.
   Future<void> updateBalanceAllowance({
     required String assetType, // 'COLLATERAL' | 'CONDITIONAL'
     required int signatureType,
     String? tokenId,
   }) async {
     final params = <String, String>{
-      'asset_type': assetType,
+      'asset_type': balanceAllowanceAssetType(assetType, tokenId),
       'signature_type': signatureType.toString(),
       if (tokenId != null && tokenId.isNotEmpty) 'token_id': tokenId,
     };

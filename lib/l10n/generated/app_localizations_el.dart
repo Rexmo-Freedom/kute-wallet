@@ -6155,6 +6155,12 @@ class AppLocalizationsEl extends AppLocalizations {
   String get ledgerBetEnableSpending => 'Να επιτρέπεται δαπάνη για προβλέψεις';
 
   @override
+  String get ledgerSummaryContracts => 'Επιτρεπόμενα συμβόλαια';
+
+  @override
+  String get ledgerPmEnableShareTrading => 'Να επιτρέπεται πώληση και είσπραξη';
+
+  @override
   String get feeBitcoinNetwork => 'Δίκτυο Bitcoin';
 
   @override
@@ -6784,6 +6790,14 @@ class AppLocalizationsEl extends AppLocalizations {
   @override
   String get betSetupFailed =>
       'Η ρύθμιση του λογαριασμού Προβλέψεων δεν ολοκληρώθηκε. Τα χρήματά σου είναι ασφαλή. Δοκίμασε ξανά.';
+
+  @override
+  String get betVenueBalanceRefused =>
+      'Δεν υπάρχει αρκετό υπόλοιπο ή έγκριση για αυτή την αγορά. Τα χρήματά σου είναι ασφαλή. Δοκίμασε μικρότερο ποσό.';
+
+  @override
+  String get betVenueSettling =>
+      'Το Polymarket διακανονίζει ακόμη μια προηγούμενη συναλλαγή στο υπόλοιπό σου. Τα χρήματά σου είναι ασφαλή. Δοκίμασε ξανά σε λίγο.';
 
   @override
   String get betDepositStillConverting =>

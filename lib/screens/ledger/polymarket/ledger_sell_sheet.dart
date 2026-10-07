@@ -13,6 +13,8 @@
 // The signing path is unchanged:
 // * Reads the position and account through the wallet-scoped Ledger
 //   provider only; no hot provider.
+// * The first sale (or claim) asks for the one-time CTF share approvals
+//   first, as their own Ledger approval (ensureLedgerPmShareApprovals).
 // * The intent (shares, minimum proceeds, salt, timestamp) is built when
 //   the user taps the CTA and is executed exactly as reviewed.
 // * Success says "Sold" only when the CLOB answered `matched`; otherwise
@@ -253,6 +255,16 @@ class _LedgerSellSheetState extends ConsumerState<LedgerSellSheet> {
       _preparing = true;
       _retryPrice = null;
     });
+    // The exchanges must be allowed to move the shares: the first sale
+    // asks for the one-time share approvals as their own Ledger approval,
+    // before the bid is read and the order is built.
+    final ready = await ensureLedgerPmShareApprovals(context, ref,
+        walletId: widget.walletId, account: account);
+    if (!mounted) return;
+    if (!ready) {
+      setState(() => _preparing = false);
+      return;
+    }
     // The bid as it is now, not when the sheet opened: the floor the
     // device signs is computed from it (polymarketSellFloor).
     final latest = await _readBid();

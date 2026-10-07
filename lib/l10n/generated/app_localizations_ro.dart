@@ -6141,6 +6141,13 @@ class AppLocalizationsRo extends AppLocalizations {
   String get ledgerBetEnableSpending => 'Permite cheltuieli pentru predicții';
 
   @override
+  String get ledgerSummaryContracts => 'Contracte permise';
+
+  @override
+  String get ledgerPmEnableShareTrading =>
+      'Permite vânzarea și încasarea câștigurilor';
+
+  @override
   String get feeBitcoinNetwork => 'Rețeaua Bitcoin';
 
   @override
@@ -6770,6 +6777,14 @@ class AppLocalizationsRo extends AppLocalizations {
   @override
   String get betSetupFailed =>
       'Configurarea contului tău de Predicții nu s-a putut finaliza. Banii tăi sunt în siguranță. Încearcă din nou.';
+
+  @override
+  String get betVenueBalanceRefused =>
+      'Sold sau aprobare insuficiente pentru această piață. Banii tăi sunt în siguranță. Încearcă o sumă mai mică.';
+
+  @override
+  String get betVenueSettling =>
+      'Polymarket încă decontează o tranzacție anterioară din soldul tău. Banii tăi sunt în siguranță. Încearcă din nou peste câteva momente.';
 
   @override
   String get betDepositStillConverting =>

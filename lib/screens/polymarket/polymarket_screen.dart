@@ -425,6 +425,20 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
         ? ref.watch(polyBrowseFeedProvider(query))
         : const PolyFeedState(done: true);
     _feedQuery = canBrowse && !fiveMinOnly ? query : null;
+    // Once the list on screen lands, the lists next to it are read too
+    // (one at a time), so opening one of them paints at once.
+    if (canBrowse && !fiveMinOnly) {
+      ref.listen<PolyFeedState>(polyBrowseFeedProvider(query), (prev, next) {
+        if (prev == null || !prev.loading || next.loading || next.failed) {
+          return;
+        }
+        unawaited(PolyFeedPrefetch.run(
+          PolyFeedPrefetch.queriesAround(
+              selection: selection, pills: pills, subs: subs),
+          (q) => ref.read(polyBrowseFeedProvider(q).notifier),
+        ));
+      });
+    }
 
     // Join the sports live-score WS only while sports cards are listed —
     // once, not every build.
@@ -823,15 +837,14 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
   Future<void> _onRefresh() async {
     ref.invalidate(polymarketBalanceProvider);
     ref.invalidate(polymarketTradingProvider);
-    // The list on screen and its chips. The 5-min hero/grid refresh
-    // themselves on a 10s cadence and roll every 5 minutes, so they're
-    // deliberately left out.
-    ref.invalidate(polyBrowseFeedProvider);
-    ref.invalidate(polyTopicSubsProvider);
-    ref.invalidate(polyCryptoSubsProvider);
-    ref.invalidate(polyLeagueRowsProvider);
-    ref.invalidate(polySportGroupLogosProvider);
-    ref.invalidate(polyEsportsSubsProvider);
+    // The list on screen and its chips; the other lists keep what they
+    // hold. The 5-min hero/grid refresh themselves on a 10s cadence and
+    // roll every 5 minutes, so they're deliberately left out.
+    polyRefreshBrowse(
+      query: _feedQuery,
+      pill: ref.read(polyBrowseSelectionProvider).pill,
+      invalidate: ref.invalidate,
+    );
     // Wait a moment for providers to start refetching
     await Future.delayed(const Duration(milliseconds: 500));
   }

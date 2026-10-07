@@ -204,6 +204,8 @@ class RuntimeCapabilities {
 ///   `polymarket.cancel`, `polymarket.close`, `polymarket.withdraw`: the
 ///   exits, so an outage never traps money in an open order or position
 ///   (Polymarket sells and claims use `polymarket.close`).
+/// * `polymarket.protocol_v2`: the Protocol V2 order path, so a V2
+///   position can still be sold (a buy also needs `polymarket.trade`).
 ///
 /// Denied while the backend is unreachable (not exhaustive; anything new
 /// is denied too):
@@ -239,6 +241,10 @@ const kOfflineAllowedCapabilities = <String>{
   'polymarket.cancel',
   'polymarket.close',
   'polymarket.withdraw',
+  // The Protocol V2 order path switch is not exposure on its own (buys
+  // still need polymarket.trade); allowed offline so a V2 position stays
+  // sellable during an outage unless a loaded policy switched it off.
+  'polymarket.protocol_v2',
 };
 
 /// Backend policy is independent of analytics consent. With no usable

@@ -43,6 +43,7 @@ import 'package:kute/screens/shared/side_tint_palette.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/screens/shared/open_once.dart';
+import 'package:kute/services/hyperliquid/hl_failure_analytics.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -670,6 +671,7 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
           leverage: pos.leverageValue,
           walletKind: 'ledger',
           stackTrace: st,
+          extra: hlFailureParams(e),
         );
         if (mounted) {
           setState(() {

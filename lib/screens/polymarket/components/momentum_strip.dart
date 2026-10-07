@@ -47,6 +47,13 @@ typedef MomentumNotch = ({int tMs, Color color, bool divider, String? label});
 
 class PolyMomentumStrip extends ConsumerStatefulWidget {
   final PolyMomentumKey momentumKey;
+
+  /// Which side of the feed's score [nameA] is (null: unknown), and the
+  /// main total's Over token (null: none known yet). Both may change while
+  /// the strip is up; they are handed to the momentum read as they do,
+  /// never by a new read.
+  final bool? aIsHome;
+  final String? overToken;
   final String nameA;
   final String nameB;
   final Color colorA;
@@ -72,6 +79,8 @@ class PolyMomentumStrip extends ConsumerStatefulWidget {
   const PolyMomentumStrip({
     super.key,
     required this.momentumKey,
+    this.aIsHome,
+    this.overToken,
     required this.nameA,
     required this.nameB,
     required this.colorA,
@@ -92,7 +101,7 @@ class PolyMomentumStrip extends ConsumerStatefulWidget {
 class _PolyMomentumStripState extends ConsumerState<PolyMomentumStrip>
     with SingleTickerProviderStateMixin {
   /// The last strip with bars, kept while a new read is under way (the
-  /// totals line changing re-reads the series).
+  /// game's window moving on starts a new one).
   MomentumStrip? _held;
   bool _viewed = false;
   PressureSide? _pressureShown;
@@ -135,7 +144,7 @@ class _PolyMomentumStripState extends ConsumerState<PolyMomentumStrip>
         ...widget.analytics,
         'is_live': _live,
         'bucket_minutes': strip.bucketMs ~/ 60000,
-        'has_totals': widget.momentumKey.overToken != null,
+        'has_totals': widget.overToken != null,
       });
     });
   }
@@ -163,6 +172,9 @@ class _PolyMomentumStripState extends ConsumerState<PolyMomentumStrip>
     final c = context.colors;
     final l10n = context.l10n;
     final momentum = ref.watch(polyGameMomentumProvider(widget.momentumKey));
+    ref
+        .read(polyGameMomentumProvider(widget.momentumKey).notifier)
+        .updateInputs(aIsHome: widget.aIsHome, overToken: widget.overToken);
     var strip = momentum.strip;
     if (!strip.isEmpty) {
       _held = strip;

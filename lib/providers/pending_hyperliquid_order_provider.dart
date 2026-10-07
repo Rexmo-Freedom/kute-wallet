@@ -31,6 +31,7 @@ import 'package:kute/helpers/hyperliquid_error_message.dart';
 // one cancels the order and asks the user to confirm it again.
 
 import 'dart:async';
+import 'package:kute/services/hyperliquid/hl_failure_analytics.dart';
 import 'package:kute/services/hyperliquid/hypercore_cash.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -444,7 +445,11 @@ class PendingHlOrderAutoFire {
         leverage: intent.leverage,
         walletKind: 'hot',
         stackTrace: st,
-        extra: {'origin': intent.source ?? 'unknown', 'entry_source': 'autofire'},
+        extra: {
+          'origin': intent.source ?? 'unknown',
+          'entry_source': 'autofire',
+          ...hlFailureParams(e),
+        },
       );
       final message = hlTradeErrorMessage(
           l10nForLanguage(ref.read(settingsProvider).language), e);

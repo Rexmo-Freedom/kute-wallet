@@ -14,6 +14,15 @@ class PendingPolymarketOrder implements Exception {
       'Check your orders and activity before trying again.';
 }
 
+/// This order was posted and the venue's answer proves neither acceptance
+/// nor refusal (a timeout, a 5xx, an acknowledgement for another order).
+/// Its row keeps protecting the outcome like any [PendingPolymarketOrder];
+/// the type only tells analytics that the order itself went out, rather
+/// than an earlier one blocking it.
+class PolymarketOrderOutcomeUnknown extends PendingPolymarketOrder {
+  const PolymarketOrderOutcomeUnknown();
+}
+
 /// The earlier submission is still unaccounted for because the venue could
 /// not be reached to check it, not because it answered. It is still a
 /// [PendingPolymarketOrder] (nothing new may be sent), but the person is
@@ -353,7 +362,9 @@ class HotPolymarketOrderGuard {
               response['success'] != true ||
               !const {'matched', 'live', 'delayed', 'unmatched'}
                   .contains(response['status']?.toString().toLowerCase())) {
-            throw const PendingPolymarketOrder();
+            throw postStarted
+                ? const PolymarketOrderOutcomeUnknown()
+                : const PendingPolymarketOrder();
           }
           row['stage'] = 'accepted';
           row['acknowledged'] = true;
@@ -372,7 +383,8 @@ class HotPolymarketOrderGuard {
             rethrow;
           }
           // Leave the persisted order blocking; arbitrary errors prove nothing.
-          throw const PendingPolymarketOrder();
+          if (error is PendingPolymarketOrder) rethrow;
+          throw const PolymarketOrderOutcomeUnknown();
         }
       }
 

@@ -6091,6 +6091,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get ledgerBetEnableSpending => 'Allow predictions spending';
 
   @override
+  String get ledgerSummaryContracts => 'Contracts allowed';
+
+  @override
+  String get ledgerPmEnableShareTrading => 'Allow selling and claiming';
+
+  @override
   String get feeBitcoinNetwork => 'Bitcoin network';
 
   @override
@@ -6715,6 +6721,14 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get betSetupFailed =>
       'Your Predictions account could not finish setting up. Your money is safe. Try again.';
+
+  @override
+  String get betVenueBalanceRefused =>
+      'Not enough balance or allowance for this market. Your money is safe. Try a smaller amount.';
+
+  @override
+  String get betVenueSettling =>
+      'Polymarket is still settling an earlier trade on your balance. Your money is safe. Try again in a moment.';
 
   @override
   String get betDepositStillConverting =>

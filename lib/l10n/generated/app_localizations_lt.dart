@@ -6137,6 +6137,13 @@ class AppLocalizationsLt extends AppLocalizations {
   String get ledgerBetEnableSpending => 'Leisti išlaidas prognozėms';
 
   @override
+  String get ledgerSummaryContracts => 'Leidžiamos sutartys';
+
+  @override
+  String get ledgerPmEnableShareTrading =>
+      'Leisti parduoti ir atsiimti laimėjimus';
+
+  @override
   String get feeBitcoinNetwork => 'Bitcoin tinklas';
 
   @override
@@ -6764,6 +6771,14 @@ class AppLocalizationsLt extends AppLocalizations {
   @override
   String get betSetupFailed =>
       'Nepavyko baigti ruošti jūsų Prognozių paskyros. Jūsų pinigai saugūs. Bandykite vėl.';
+
+  @override
+  String get betVenueBalanceRefused =>
+      'Šiai rinkai nepakanka likučio arba leidimo. Jūsų pinigai saugūs. Pabandykite mažesnę sumą.';
+
+  @override
+  String get betVenueSettling =>
+      'Polymarket dar atsiskaito už ankstesnį sandorį jūsų likutyje. Jūsų pinigai saugūs. Pabandykite vėl po akimirkos.';
 
   @override
   String get betDepositStillConverting =>

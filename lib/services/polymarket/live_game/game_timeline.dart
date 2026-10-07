@@ -106,8 +106,24 @@ class GameTimelineSnapshot {
   final bool ended;
   final bool truncated;
   final String? league;
+
+  /// The game as the backend last saw it on the feed: the teams, the
+  /// score (home first), period, clock and status, and whether it is live.
+  /// What the app shows until its own feed has spoken about the game.
+  final String home;
+  final String away;
   final String score;
   final String period;
+  final String elapsed;
+  final String status;
+  final bool live;
+
+  /// When the backend last saw the game (epoch ms); null when unknown.
+  final int? updatedAtMs;
+
+  /// The game's scheduled start (epoch ms), from the feed's
+  /// `gameStartTime` or Gamma's event `startTime`; null while unknown.
+  final int? startTimeMs;
 
   const GameTimelineSnapshot({
     this.events = const [],
@@ -116,8 +132,15 @@ class GameTimelineSnapshot {
     this.ended = false,
     this.truncated = false,
     this.league,
+    this.home = '',
+    this.away = '',
     this.score = '',
     this.period = '',
+    this.elapsed = '',
+    this.status = '',
+    this.live = false,
+    this.updatedAtMs,
+    this.startTimeMs,
   });
 
   /// Parses the endpoint's body; null when it is not the expected shape.
@@ -128,7 +151,10 @@ class GameTimelineSnapshot {
         if (GameEvent.fromJson(row) case final e?) e,
     ]..sort((a, b) => a.tMs.compareTo(b.tMs));
     final since = json['observed_since'];
+    final updated = json['updated_at'];
+    final startTime = json['start_time'];
     final league = json['league']?.toString().trim();
+    String s(String key) => (json[key] ?? '').toString().trim();
     // The backend keeps the feed's own strings; the app reads scores home
     // first (feed_score_order.dart), as the changes this phone sees
     // already are, so the two lists merge change for change.
@@ -148,9 +174,16 @@ class GameTimelineSnapshot {
       ended: json['ended'] == true,
       truncated: json['truncated'] == true,
       league: league == null || league.isEmpty ? null : league,
-      score: feedScoreHomeFirst((json['score'] ?? '').toString().trim(),
-          league: league)!,
-      period: (json['period'] ?? '').toString().trim(),
+      home: s('home'),
+      away: s('away'),
+      score: feedScoreHomeFirst(s('score'), league: league)!,
+      period: s('period'),
+      elapsed: s('elapsed'),
+      status: s('status'),
+      live: json['live'] == true,
+      updatedAtMs: updated is num && updated > 0 ? updated.toInt() : null,
+      startTimeMs:
+          startTime is num && startTime > 0 ? startTime.toInt() : null,
     );
   }
 }

@@ -58,11 +58,9 @@ const PolyMomentumKey _growKey = (
   gameId: '3',
   tokenA: 'a',
   tokenB: 'b',
-  overToken: null,
   startMs: 0,
   endMs: 60 * _min,
   axisMs: null,
-  aIsHome: true,
 );
 
 Future<void> _pumpStrip(WidgetTester tester, {bool reduceMotion = false}) async {
@@ -146,11 +144,9 @@ void main() {
       gameId: '1',
       tokenA: 'a',
       tokenB: 'b',
-      overToken: null,
       startMs: 0,
       endMs: 60 * _min,
       axisMs: null,
-      aIsHome: true,
     );
     // An inning every three minutes: far more names than the axis holds.
     final notches = <MomentumNotch>[
@@ -217,11 +213,9 @@ void main() {
       gameId: '2',
       tokenA: 'a',
       tokenB: 'b',
-      overToken: null,
       startMs: 0,
       endMs: 60 * _min,
       axisMs: null,
-      aIsHome: true,
     );
     // Where that game's periods fell on its axis, as fractions of it.
     MomentumNotch at(double fraction, String label) => (

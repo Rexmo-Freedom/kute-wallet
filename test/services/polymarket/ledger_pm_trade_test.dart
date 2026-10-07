@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kute/constants/polymarket_constants.dart';
 import 'package:kute/screens/ledger/polymarket/ledger_pm_support.dart';
 import 'package:kute/services/polymarket/ledger_pm_trade.dart';
 
@@ -71,6 +72,25 @@ void main() {
     }
     expect(capFor(0.60, 5), closeTo(0.63, 0.001));
     expect(capFor(0.12, 0), closeTo(0.12, 0.001));
+  });
+
+  test('a neg-risk allowance is the smaller of the exchange and v1 adapter',
+      () {
+    LedgerPmBuyingPower power(Map<String, String> allowances) =>
+        LedgerPmBuyingPower.fromClob(
+            depositWallet: '0x${'55' * 20}',
+            collateral: {'balance': '10000000', 'allowances': allowances},
+            orders: const []);
+    final exchange = PolymarketConstants.exchangeAddress;
+    final negRisk = PolymarketConstants.negRiskExchangeAddress;
+    final adapter = PolymarketConstants.legacyNegRiskAdapterAddress;
+
+    final both = power({exchange: '7', negRisk: '9', adapter: '4'});
+    expect(both.allowance(false), BigInt.from(7));
+    expect(both.allowance(true), BigInt.from(4));
+    expect(power({negRisk: '3', adapter: '8'}).allowance(true), BigInt.from(3));
+    // The CLOB refuses a neg-risk order with no adapter allowance.
+    expect(power({negRisk: '9'}).allowance(true), BigInt.zero);
   });
 
   test('a Ledger sell keeps one tick under the bid at least', () {

@@ -6112,6 +6112,12 @@ class AppLocalizationsSk extends AppLocalizations {
   String get ledgerBetEnableSpending => 'Povoliť míňanie na predpovede';
 
   @override
+  String get ledgerSummaryContracts => 'Povolené kontrakty';
+
+  @override
+  String get ledgerPmEnableShareTrading => 'Povoliť predaj a vyberanie výhier';
+
+  @override
   String get feeBitcoinNetwork => 'Sieť Bitcoin';
 
   @override
@@ -6738,6 +6744,14 @@ class AppLocalizationsSk extends AppLocalizations {
   @override
   String get betSetupFailed =>
       'Nastavenie tvojho účtu Predpovedí sa nepodarilo dokončiť. Tvoje peniaze sú v bezpečí. Skús to znova.';
+
+  @override
+  String get betVenueBalanceRefused =>
+      'Pre tento trh nie je dostatočný zostatok alebo povolenie. Tvoje peniaze sú v bezpečí. Skús menšiu sumu.';
+
+  @override
+  String get betVenueSettling =>
+      'Polymarket ešte vyrovnáva skorší obchod na tvojom zostatku. Tvoje peniaze sú v bezpečí. Skús to o chvíľu znova.';
 
   @override
   String get betDepositStillConverting =>

@@ -139,6 +139,7 @@ class _Harness {
     LedgerPolymarketRelayer? relayer,
     Completer<void>? holdSign,
     LedgerSubmittedActionStore? actionStore,
+    Future<void> Function(String capability)? checkCapability,
   }) : store = actionStore ?? LedgerSubmittedActionStore() {
     executor = LedgerPolymarketExecutor(
       walletId: 'ledger-1',
@@ -159,6 +160,7 @@ class _Harness {
       credentials: credentials,
       withdrawEnabled: withdrawEnabled,
       belongsToLedger: belongsToLedger,
+      checkCapability: checkCapability,
       clock: () => DateTime.fromMillisecondsSinceEpoch(1700000000000),
     );
   }
@@ -255,6 +257,32 @@ void main() {
         DepositWalletCallOp.unwrap,
         DepositWalletCallOp.redeem,
       ]);
+    });
+
+    test('allows the unwrap batch the funding service validates', () {
+      expect(allowlist().validate(ledgerPmUnwrapCalls(_wallet, BigInt.two)), [
+        DepositWalletCallOp.approve,
+        DepositWalletCallOp.unwrap,
+      ]);
+    });
+
+    test('allows the one-time share approvals for all five operators', () {
+      expect(
+          ledgerPmShareOperators.map((o) => o.toLowerCase()),
+          unorderedEquals([
+            for (final o in [
+              PolymarketConstants.exchangeAddress,
+              PolymarketConstants.negRiskExchangeAddress,
+              PolymarketConstants.legacyNegRiskAdapterAddress,
+              PolymarketConstants.ctfCollateralAdapterAddress,
+              PolymarketConstants.negRiskCtfCollateralAdapterAddress,
+            ])
+              o.toLowerCase()
+          ]));
+      expect(
+          allowlist()
+              .validate(ledgerPmShareApprovalCalls(ledgerPmShareOperators)),
+          List.filled(5, DepositWalletCallOp.setApprovalForAll));
     });
 
     test('allows approvals to the CLOB v1 Neg Risk Adapter but never a redeem',
@@ -779,7 +807,7 @@ void main() {
         expect(await first.store.forWallet('ledger-1'), isEmpty,
             reason: 'nothing was sent, so nothing was recorded');
       }, () => MockClient((request) async {
-            if (request.url.path.endsWith('/nonce')) {
+            if (request.url.path == '/v1/account/transactions/params') {
               return http.Response(jsonEncode({'nonce': '7'}), 200);
             }
             submits++;
@@ -802,6 +830,222 @@ void main() {
       await h.executor.cancelOrder('0xorder');
       expect(h.clob.cancels, ['0xorder']);
       expect(h.prompts, isEmpty);
+    });
+
+    test('a neg-risk trade approval also approves the v1 Neg Risk Adapter',
+        () async {
+      final amount = BigInt.from(2500000);
+      for (final negRisk in [false, true]) {
+        final h = _Harness();
+        h.relayer.handler = (calls, beforeSubmit, onSubmitted) async {
+          await beforeSubmit('${negRisk ? 1 : 0}');
+          await onSubmitted('tx');
+          return '0xhash';
+        };
+        final intent = LedgerPolymarketIntents.approveTrading(
+          walletId: 'ledger-1',
+          depositWallet: _wallet,
+          amount: amount,
+          negRisk: negRisk,
+          summary: const {'action': 'Allow'},
+        );
+        expect(await h.executor.approveTrading(intent), '0xhash');
+        final spenders = negRisk
+            ? [
+                PolymarketConstants.negRiskExchangeAddress,
+                PolymarketConstants.legacyNegRiskAdapterAddress,
+              ]
+            : [PolymarketConstants.exchangeAddress];
+        expect(h.relayer.batches.single, [
+          for (final s in spenders)
+            _call(PolymarketConstants.pusdAddress, encodeApproveCall(s, amount)),
+        ]);
+        // The digest names every spender that is signed for.
+        expect(intent.toSensitiveIntent().limits['spenders'],
+            [for (final s in spenders) s.toLowerCase()]);
+      }
+    });
+
+    test('a trade approval whose reviewed spenders differ is refused', () {
+      final h = _Harness();
+      final params = {
+        'op': 'approveTrade',
+        'depositWallet': _wallet,
+        'amount': BigInt.one,
+        'negRisk': true,
+        // Reviewed without the adapter: never signed as a neg-risk batch.
+        'spenders': [PolymarketConstants.negRiskExchangeAddress.toLowerCase()],
+      };
+      final stale = LedgerActionIntent.restore(
+        walletId: 'ledger-1',
+        kind: LedgerActionKind.pmDepositWalletBatch,
+        params: params,
+        summary: const {},
+        paramsHash: LedgerActionIntent.computeHash(
+            walletId: 'ledger-1',
+            kind: LedgerActionKind.pmDepositWalletBatch,
+            params: params,
+            summary: const {}),
+        createdAtMs: 0,
+        sensitive: LedgerSensitiveIntentDraft(
+          action: 'pmBet',
+          walletId: 'ledger-1',
+          venue: 'polymarket',
+          asset: 'PUSD',
+          amountMax: BigInt.one,
+          requiresStepUp: false,
+        ),
+      );
+      expect(() => h.executor.approveTrading(stale),
+          throwsA(isA<LedgerIntentMismatchException>()));
+      expect(h.relayer.batches, isEmpty);
+      expect(h.prompts, isEmpty);
+    });
+
+    test('an unwrap approves the offramp for the exact pUSD amount first',
+        () async {
+      final h = _Harness();
+      h.relayer.handler = (calls, beforeSubmit, onSubmitted) async {
+        await beforeSubmit('7');
+        await onSubmitted('tx-7');
+        return '0xhash';
+      };
+      final amount = BigInt.from(1250000);
+      final intent = LedgerPolymarketIntents.unwrap(
+        walletId: 'ledger-1',
+        depositWallet: _wallet,
+        amount: amount,
+        summary: const {'action': 'Make funds withdrawable'},
+      );
+      expect(intent.toSensitiveIntent().limits['spender'],
+          PolymarketConstants.collateralOfframpAddress.toLowerCase());
+      expect(await h.executor.unwrap(intent), '0xhash');
+      // CollateralOfframp.unwrap pulls pUSD with safeTransferFrom: without
+      // the approval in the same batch it reverts.
+      expect(h.relayer.batches.single, [
+        _call(PolymarketConstants.pusdAddress,
+            encodeApproveCall(PolymarketConstants.collateralOfframpAddress, amount)),
+        _call(PolymarketConstants.collateralOfframpAddress,
+            encodeUnwrapCall(PolymarketConstants.usdcEAddress, _wallet, amount)),
+      ]);
+      expect(h.relayer.batches.single, ledgerPmUnwrapCalls(_wallet, amount));
+    });
+
+    test('an unwrap reviewed without its offramp approval is refused', () {
+      final h = _Harness();
+      final params = {
+        'op': 'unwrap',
+        'depositWallet': _wallet,
+        'amount': BigInt.one,
+      };
+      final stale = LedgerActionIntent.restore(
+        walletId: 'ledger-1',
+        kind: LedgerActionKind.pmDepositWalletBatch,
+        params: params,
+        summary: const {},
+        paramsHash: LedgerActionIntent.computeHash(
+            walletId: 'ledger-1',
+            kind: LedgerActionKind.pmDepositWalletBatch,
+            params: params,
+            summary: const {}),
+        createdAtMs: 0,
+        sensitive: LedgerSensitiveIntentDraft(
+          action: 'venueWithdraw',
+          walletId: 'ledger-1',
+          venue: 'polymarket',
+          asset: 'USDC.e',
+          amountMax: BigInt.one,
+          requiresStepUp: false,
+        ),
+      );
+      expect(() => h.executor.unwrap(stale),
+          throwsA(isA<LedgerIntentMismatchException>()));
+      expect(h.relayer.batches, isEmpty);
+    });
+
+    test('missing share operators are read on-chain; unknown is never missing',
+        () async {
+      final approved = {
+        PolymarketConstants.exchangeAddress.toLowerCase(),
+        PolymarketConstants.ctfCollateralAdapterAddress.toLowerCase(),
+      };
+      final owners = <String>{};
+      final missing = await ledgerPmMissingShareOperators(_wallet,
+          ({required owner, required operator}) async {
+        owners.add(owner);
+        return approved.contains(operator.toLowerCase());
+      });
+      expect(owners, {_wallet});
+      expect(missing, [
+        PolymarketConstants.negRiskExchangeAddress,
+        PolymarketConstants.negRiskCtfCollateralAdapterAddress,
+        PolymarketConstants.legacyNegRiskAdapterAddress,
+      ]);
+      expect(
+          await ledgerPmMissingShareOperators(
+              _wallet, ({required owner, required operator}) async => true),
+          isEmpty);
+      await expectLater(
+          ledgerPmMissingShareOperators(_wallet,
+              ({required owner, required operator}) async =>
+                  throw StateError('rpc down')),
+          throwsStateError);
+    });
+
+    test('share approvals send setApprovalForAll for the reviewed operators',
+        () async {
+      final capabilities = <String>[];
+      final h = _Harness(checkCapability: (c) async => capabilities.add(c));
+      h.relayer.handler = (calls, beforeSubmit, onSubmitted) async {
+        await beforeSubmit('9');
+        await onSubmitted('tx-9');
+        return '0xhash';
+      };
+      final operators = [
+        PolymarketConstants.negRiskExchangeAddress,
+        PolymarketConstants.legacyNegRiskAdapterAddress,
+      ];
+      final intent = LedgerPolymarketIntents.enableShareTrading(
+        walletId: 'ledger-1',
+        depositWallet: _wallet,
+        operators: operators,
+        summary: const {'action': 'Allow selling and claiming'},
+      );
+      // The digest names every operator that is approved.
+      expect(intent.toSensitiveIntent().limits['operators'],
+          [for (final o in operators) o.toLowerCase()]);
+      expect(await h.executor.enableShareTrading(intent), '0xhash');
+      expect(h.relayer.batches.single, [
+        for (final o in operators)
+          _call(PolymarketConstants.ctfAddress,
+              '0x$kSelectorSetApprovalForAll${o.toLowerCase().substring(2).padLeft(64, '0')}'
+              '${'0' * 63}1'),
+      ]);
+      expect(capabilities, ['polymarket.close']);
+    });
+
+    test('share approvals refuse an empty, repeated or unpinned operator list',
+        () {
+      for (final operators in [
+        <String>[],
+        [
+          PolymarketConstants.exchangeAddress,
+          PolymarketConstants.exchangeAddress.toLowerCase(),
+        ],
+        ['0x${'66' * 20}'],
+      ]) {
+        final h = _Harness();
+        final intent = LedgerPolymarketIntents.enableShareTrading(
+          walletId: 'ledger-1',
+          depositWallet: _wallet,
+          operators: operators,
+          summary: const {},
+        );
+        expect(() => h.executor.enableShareTrading(intent),
+            throwsA(isA<LedgerIntentMismatchException>()),
+            reason: '$operators');
+        expect(h.relayer.batches, isEmpty);
+      }
     });
 
     test('an intent for another deposit wallet is refused before any prompt',

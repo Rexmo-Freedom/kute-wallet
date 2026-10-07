@@ -6093,6 +6093,13 @@ class AppLocalizationsEt extends AppLocalizations {
   String get ledgerBetEnableSpending => 'Luba ennustuste kulutamine';
 
   @override
+  String get ledgerSummaryContracts => 'Lubatud lepingud';
+
+  @override
+  String get ledgerPmEnableShareTrading =>
+      'Luba müümine ja võitude kättesaamine';
+
+  @override
   String get feeBitcoinNetwork => 'Bitcoini võrk';
 
   @override
@@ -6717,6 +6724,14 @@ class AppLocalizationsEt extends AppLocalizations {
   @override
   String get betSetupFailed =>
       'Sinu Ennustuste konto seadistamine ei lõppenud. Sinu raha on turvaliselt alles. Proovi uuesti.';
+
+  @override
+  String get betVenueBalanceRefused =>
+      'Selle turu jaoks pole piisavalt saldot või luba. Sinu raha on turvaliselt alles. Proovi väiksema summaga.';
+
+  @override
+  String get betVenueSettling =>
+      'Polymarket arveldab veel varasemat tehingut sinu saldol. Sinu raha on turvaliselt alles. Proovi hetke pärast uuesti.';
 
   @override
   String get betDepositStillConverting =>

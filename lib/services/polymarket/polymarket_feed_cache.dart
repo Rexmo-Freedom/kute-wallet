@@ -28,9 +28,11 @@ class PolymarketFeedCache {
   static const maxAge = Duration(days: 3);
 
   /// Event snapshots kept on disk, least recently saved dropped first. The
-  /// box is read whole at launch, so it is kept small.
-  static const maxEventEntries = 16;
-  static const maxEventBytes = 1536 * 1024;
+  /// box is read whole at launch, so it is kept bounded; a first page of
+  /// twenty parsed cards is a few tens of KB, so this holds every pill
+  /// plus the chips opened (and prefetched) lately.
+  static const maxEventEntries = 48;
+  static const maxEventBytes = 4 * 1024 * 1024;
 
   static const _version = 1;
   static const _indexKey = '_events_index';
@@ -209,6 +211,19 @@ class PolymarketFeedCache {
     final hit = _tagRows[key];
     if (hit == null || !_fresh(hit.savedAt)) return null;
     return hit.rows;
+  }
+
+  /// When the rows under [key] were saved, or null when there are none.
+  DateTime? tagRowsSavedAt(String key) {
+    if (readTagRows(key) == null) return null;
+    return _tagRows[key]?.savedAt;
+  }
+
+  /// Forgets what this session read or wrote, for tests.
+  @visibleForTesting
+  void debugClearMemory() {
+    _events.clear();
+    _tagRows.clear();
   }
 
   Future<void> writeTagRows(

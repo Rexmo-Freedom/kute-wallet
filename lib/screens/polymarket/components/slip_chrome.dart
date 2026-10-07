@@ -337,13 +337,17 @@ class PolySlipCta extends StatelessWidget {
                           size: 22.sp,
                         ),
                         SizedBox(width: 10.w),
-                        Text(
-                          busyLabel ?? context.l10n.betPlacingOrderEllipsis,
-                          style: TextStyle(
-                            color: fg,
-                            fontSize: 17.sp,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.2,
+                        Flexible(
+                          child: Text(
+                            busyLabel ?? context.l10n.betPlacingOrderEllipsis,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: fg,
+                              fontSize: 17.sp,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.2,
+                            ),
                           ),
                         ),
                       ],

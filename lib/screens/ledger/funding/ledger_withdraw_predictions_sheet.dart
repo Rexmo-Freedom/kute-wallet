@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/constants/feature_flags.dart';
+import 'package:kute/constants/polymarket_constants.dart';
 import 'package:kute/helpers/formatters/currency_formatter.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/settings_model.dart';
@@ -30,6 +31,8 @@ import 'package:kute/services/hardware/ledger/ledger_action_intent.dart';
 import 'package:kute/services/hardware/ledger/ledger_failure.dart';
 import 'package:kute/services/hardware/ledger/ledger_hyperliquid_executor.dart'
     show LedgerSubmissionUnknownException;
+import 'package:kute/services/hardware/ledger/ledger_polymarket_executor.dart'
+    show ledgerPmContractsLabel;
 import 'package:kute/services/hardware/ledger/ledger_submitted_action_store.dart';
 import 'package:kute/services/hardware/signing_clarity.dart';
 import 'package:kute/services/ledger_service.dart';
@@ -236,6 +239,8 @@ class _LedgerWithdrawPredictionsSheetState
         summary: {
           context.l10n.ledgerSummaryAction: context.l10n.ledgerUnwrapSummary,
           context.l10n.ledgerSummaryAmount: '${_units(_unwrapAmount, 6)} pUSD',
+          context.l10n.ledgerSummaryContracts: ledgerPmContractsLabel(
+              const [PolymarketConstants.collateralOfframpAddress]),
         },
       );
       if (!mounted) return;

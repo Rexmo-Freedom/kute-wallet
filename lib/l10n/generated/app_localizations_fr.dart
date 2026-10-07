@@ -6152,6 +6152,13 @@ class AppLocalizationsFr extends AppLocalizations {
   String get ledgerBetEnableSpending => 'Autoriser les dépenses de prédictions';
 
   @override
+  String get ledgerSummaryContracts => 'Contrats autorisés';
+
+  @override
+  String get ledgerPmEnableShareTrading =>
+      'Autoriser la vente et la réclamation des gains';
+
+  @override
   String get feeBitcoinNetwork => 'Réseau Bitcoin';
 
   @override
@@ -6780,6 +6787,14 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get betSetupFailed =>
       'La configuration de votre compte Prédictions n\'a pas pu aboutir. Votre argent est en sécurité. Réessayez.';
+
+  @override
+  String get betVenueBalanceRefused =>
+      'Solde ou autorisation insuffisants pour ce marché. Votre argent est en sécurité. Essayez un montant plus petit.';
+
+  @override
+  String get betVenueSettling =>
+      'Polymarket règle encore une transaction précédente sur votre solde. Votre argent est en sécurité. Réessayez dans un instant.';
 
   @override
   String get betDepositStillConverting =>

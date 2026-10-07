@@ -1,6 +1,6 @@
 // A real Gamma Exact Score event, trimmed to the keys the app reads:
 // Tottenham Hotspur FC vs. Coventry City FC, read from
-// gamma-api.polymarket.com/events?slug=epl-tot-cov-2026-10-19-exact-score
+// gamma-api.polymarket.com/events/slug/epl-tot-cov-2026-10-19-exact-score
 // on 2026-10-07. Titles, prices, quotes and last trades are Gamma's own;
 // token ids are shortened. Most books there have no bid and one ask far
 // above, which is why `outcomePrices` read ~37% for nearly every score.

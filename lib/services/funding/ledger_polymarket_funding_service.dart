@@ -8,7 +8,7 @@
 // approve plus wrap into pUSD) that passes the Phase 3 allowlist.
 //
 // Reverse: available collateral only. pUSD is unwrapped first (its own
-// batch), then the O3-gated USDC.e transfer to the quote-bound Orchestra
+// batch: exact pUSD approval to the offramp, then the unwrap), then the O3-gated USDC.e transfer to the quote-bound Orchestra
 // deposit address, then `submitDeposit(txHash, sourceAddress)`. Open
 // positions are never withdrawable; they must be sold or claimed first as
 // separate actions. With `kLedgerPolymarketWithdrawEnabled` off (default)
@@ -1423,7 +1423,8 @@ class LedgerPolymarketFundingService {
     );
   }
 
-  /// Unwraps pUSD back to USDC.e ahead of a withdrawal. One Ledger
+  /// Unwraps pUSD back to USDC.e ahead of a withdrawal: one batch with an
+  /// exact pUSD approval to the offramp and the unwrap, one Ledger
   /// approval. Never touches positions.
   Future<String> unwrapForWithdrawal({
     required BigInt amount,
@@ -1452,18 +1453,15 @@ class LedgerPolymarketFundingService {
             'asset': _usdceAsset,
             'amount': amount.toString(),
             'account': wallet.toLowerCase(),
+            'spender':
+                PolymarketConstants.collateralOfframpAddress.toLowerCase(),
           },
           now: _clock(),
         );
+        // Same calls the executor builds (exact pUSD approval to the
+        // offramp, then the unwrap); refused here before any prompt.
         DepositWalletCallAllowlist(depositWallet: wallet, withdrawEnabled: false)
-            .validate([
-          (
-            target: PolymarketConstants.collateralOfframpAddress,
-            value: BigInt.zero,
-            data: encodeUnwrapCall(
-                PolymarketConstants.usdcEAddress, wallet, amount),
-          ),
-        ]);
+            .validate(ledgerPmUnwrapCalls(wallet, amount));
         final hash = approve == null
             ? await _collateralFor(
                 account,

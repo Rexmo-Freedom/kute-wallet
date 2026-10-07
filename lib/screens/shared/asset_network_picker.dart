@@ -298,7 +298,11 @@ class ChainAvatarIcon extends StatelessWidget {
         borderRadius: BorderRadius.circular(size * 0.28),
         child: localAsset.endsWith('.svg')
             ? SvgPicture.asset(localAsset, width: s, height: s)
-            : Image.asset(localAsset, width: s, height: s),
+            : Image.asset(localAsset,
+                width: s,
+                height: s,
+                cacheWidth:
+                    (s * MediaQuery.devicePixelRatioOf(context)).round()),
       );
     }
     final url = iconUrl;

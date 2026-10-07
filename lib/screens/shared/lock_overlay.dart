@@ -419,6 +419,10 @@ class PrivacyCover extends ConsumerWidget {
             'lib/assets/kute_logo.png',
             width: 88.w,
             height: 88.w,
+            // The file is 1024 px; decode at display size so going to the
+            // background does not add a 4 MB bitmap.
+            cacheWidth:
+                (88.w * MediaQuery.devicePixelRatioOf(context)).round(),
             errorBuilder: (_, __, ___) => const SizedBox.shrink(),
           ),
         ),

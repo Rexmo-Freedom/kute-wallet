@@ -22,8 +22,8 @@ class BtcPriceSnapshot {
 /// derived one (same credentials the CLOB user channel authenticates
 /// with). Null for users without a Polymarket account, before
 /// derivation, and for Ledger accounts (whose credentials never enter
-/// the trading provider's client). Shared by every reference-price
-/// consumer in this file so they all pick PolyBolt vs RTDS the same way.
+/// the trading provider's client). PolyBolt's price channels accept
+/// nothing else.
 PolyBoltCredentials? _polyBoltCredentialsFor(Ref ref) {
   try {
     final creds = ref
@@ -63,7 +63,9 @@ final cryptoPredictWindowsProvider =
 
 class CryptoAssetConfig {
   final String asset;
-  final String rtdsKey;
+  /// Ticker the reference-price feed is keyed on
+  /// (PolyBolt symbol via [polyBoltSymbolForAsset], `BTC` → `btcusd`).
+  final String priceSymbol;
   final String displayName;
   final String logoPath;
   final bool isSvg;
@@ -74,7 +76,7 @@ class CryptoAssetConfig {
 
   const CryptoAssetConfig({
     required this.asset,
-    required this.rtdsKey,
+    required this.priceSymbol,
     required this.displayName,
     required this.logoPath,
     required this.brandColor,
@@ -85,7 +87,7 @@ class CryptoAssetConfig {
 const kCryptoPredictAssets = [
   CryptoAssetConfig(
     asset: 'BTC',
-    rtdsKey: 'BTC',
+    priceSymbol: 'BTC',
     displayName: 'Bitcoin',
     logoPath: 'lib/assets/bitcoin-logo.png',
     isSvg: false,
@@ -93,21 +95,21 @@ const kCryptoPredictAssets = [
   ),
   CryptoAssetConfig(
     asset: 'ETH',
-    rtdsKey: 'ETH',
+    priceSymbol: 'ETH',
     displayName: 'Ethereum',
     logoPath: 'lib/assets/eth.svg',
     brandColor: Color(0xFF627EEA),
   ),
   CryptoAssetConfig(
     asset: 'SOL',
-    rtdsKey: 'SOL',
+    priceSymbol: 'SOL',
     displayName: 'Solana',
     logoPath: 'lib/assets/sol.svg',
     brandColor: Color(0xFF14F195),
   ),
   CryptoAssetConfig(
     asset: 'XRP',
-    rtdsKey: 'XRP',
+    priceSymbol: 'XRP',
     displayName: 'XRP',
     logoPath: 'lib/assets/xrp-xrp-logo.svg',
     brandColor: Color(0xFF25A768),
@@ -175,7 +177,7 @@ class CryptoPredictState {
   }
 }
 
-/// Maps the rtdsKey/asset symbol to a CoinGecko coin id for the
+/// Maps the asset symbol to a CoinGecko coin id for the
 /// last-resort fallback. Only the four assets we currently surface on
 /// the 5-min Up/Down card are listed; unknown symbols return null
 /// (the fallback simply no-ops in that case).
@@ -196,8 +198,9 @@ String? _coingeckoIdForAsset(String asset) {
 
 
 /// How long Polymarket's Chainlink feed may stay silent before a card
-/// falls back. RTDS posts one TWAP point per symbol per second, about
-/// 1.4 s behind, and the worst gap measured was 3 s (October 2026): five
+/// falls back. The Chainlink TWAP series posts one point per symbol per
+/// second, about 1.4 s behind, and the worst gap measured was 3 s
+/// (October 2026, same series PolyBolt carries): five
 /// seconds without a point is a stalled or dead feed rather than a slow
 /// one, and the hand-over still lands before the chart visibly freezes.
 const kChainlinkStaleAfter = Duration(seconds: 5);
@@ -216,10 +219,17 @@ class CryptoReferencePrices {
   /// elsewhere), in which case cards neither stream nor fall back.
   final DateTime? connectedAt;
 
+  /// True while the feed is wanted but cannot open: PolyBolt's price
+  /// channels need CLOB credentials and the active account has none
+  /// (no Polymarket account yet, before derivation, a Ledger account).
+  /// Cards fall back at once instead of waiting [kChainlinkStaleAfter].
+  final bool awaitingCredentials;
+
   const CryptoReferencePrices({
     this.series = const {},
     this.receivedAt = const {},
     this.connectedAt,
+    this.awaitingCredentials = false,
   });
 
   bool get streaming => connectedAt != null;
@@ -249,6 +259,7 @@ class CryptoReferencePrices {
     Map<String, List<BtcPriceSnapshot>>? series,
     Map<String, DateTime>? receivedAt,
     Object? connectedAt = _sentinel,
+    bool? awaitingCredentials,
   }) {
     return CryptoReferencePrices(
       series: series ?? this.series,
@@ -256,6 +267,7 @@ class CryptoReferencePrices {
       connectedAt: connectedAt == _sentinel
           ? this.connectedAt
           : connectedAt as DateTime?,
+      awaitingCredentials: awaitingCredentials ?? this.awaitingCredentials,
     );
   }
 }
@@ -275,25 +287,38 @@ final _cryptoFeedWantedProvider = Provider.autoDispose<bool>((ref) =>
     ref.watch(activeShellTabProvider) == ActiveNavTab.predictions ||
     ref.watch(cryptoCardsOnScreenProvider) > 0);
 
+/// Reads the CLOB credentials PolyBolt authenticates with, at the moment
+/// of the call (see [_polyBoltCredentialsFor]). A provider so tests can
+/// hand the shared layer credentials without a trading account.
+final pmReferenceCredentialsProvider =
+    Provider<PolyBoltCredentials? Function()>(
+        (ref) => () => _polyBoltCredentialsFor(ref));
+
+/// The socket the shared layer's [PolyBoltPriceSocket] opens; null for
+/// the real WebSocket. Tests override it with an in-memory transport.
+final pmReferenceTransportProvider =
+    Provider<PolyBoltTransportFactory?>((_) => null);
+
 /// Shared Chainlink price layer for every crypto Up/Down card.
 ///
 /// Polymarket's crypto Up/Down markets resolve on Chainlink's 60-second
 /// TWAP (Gamma `resolutionSource` …/btc-usd-twap-60s-streams), and
 /// polymarket.com's event page plots exactly that series and shows its
 /// last point as the current price. This layer reads the same series
-/// for every asset in [kCryptoPredictAssets] over ONE socket:
-///   * PolyBolt `price.crypto.twap` (window 60) when the app holds CLOB
-///     credentials, else
-///   * RTDS `crypto_prices_twap_sixty` (see
-///     [PolymarketModel.streamChainlinkTwapPrices]).
-/// Both answer a subscribe with the last minute or two, which seeds the
-/// charts, then one point per symbol per second.
+/// for every asset in [kCryptoPredictAssets] over ONE PolyBolt socket,
+/// channel `price.crypto.twap` (window 60). A subscribe answers with
+/// the last two minutes, which seeds the charts, then one point per
+/// symbol per second.
 ///
-/// A PolyBolt error, close or silence falls back to RTDS for the rest of
-/// this build; RTDS reconnects with a growing delay when it errors,
-/// closes or goes silent for [kChainlinkStaleAfter]. Cards switch to
-/// Binance/CoinGecko on their own while their asset is silent (see
-/// [_CryptoPriceFeed]); nothing here ever mixes those in.
+/// PolyBolt is the only source (see `polymarket_price_source.dart`). Its
+/// price channels need CLOB credentials: without them no socket opens,
+/// [CryptoReferencePrices.awaitingCredentials] is set, and the socket
+/// opens within a second of credentials appearing (checked every
+/// second, as is a change of credentials). An error, close or silence
+/// past [kChainlinkStaleAfter] reconnects per [PmReferenceFeedRetry].
+/// Cards switch to Binance/CoinGecko on their own while their asset is
+/// silent or the feed is awaiting credentials (see [_CryptoPriceFeed]);
+/// nothing here ever mixes those in.
 ///
 /// Streams only while Predictions is the active tab or a banner is on
 /// screen elsewhere ([cryptoCardsOnScreenProvider]); otherwise the
@@ -301,27 +326,27 @@ final _cryptoFeedWantedProvider = Provider.autoDispose<bool>((ref) =>
 /// instant repaint on return.
 class CryptoReferencePricesNotifier
     extends AutoDisposeNotifier<CryptoReferencePrices> {
-  PolymarketModel? _model;
   StreamSubscription<PmReferencePriceFrame>? _wsSub;
   Timer? _watchdog;
   Timer? _reconnectTimer;
   CryptoReferencePrices _last = const CryptoReferencePrices();
   DateTime? _lastFrameAt;
-  int _retries = 0;
+  PmReferenceFeedRetry _retry = PmReferenceFeedRetry();
+
+  /// API key of the credentials the open (or last failed) socket used;
+  /// null while awaiting credentials. A different key from
+  /// [_credentials] means the account changed: reconnect at once.
+  String? _apiKeyInUse;
+
+  /// Bumped on every connect and teardown so callbacks from an older
+  /// socket are ignored.
+  int _gen = 0;
 
   /// History kept per asset: a fifteen-minute window plus slack.
   static const _keep = Duration(minutes: 20);
 
-  /// PolyBolt-vs-RTDS selection; fresh per build so a PolyBolt failure
-  /// only sticks for as long as this tab session lives.
-  PmPriceSourcePolicy _sources = PmPriceSourcePolicy();
-
-  /// The CLOB L2 credential trio when the signed-in hot account has
-  /// derived one (same credentials the CLOB user channel authenticates
-  /// with). Null for users without a Polymarket account, before
-  /// derivation, and for Ledger accounts (whose credentials never enter
-  /// the trading provider's client).
-  PolyBoltCredentials? _polyBoltCredentials() => _polyBoltCredentialsFor(ref);
+  PolyBoltCredentials? _credentials() =>
+      ref.read(pmReferenceCredentialsProvider)();
 
   @override
   CryptoReferencePrices build() {
@@ -329,152 +354,120 @@ class CryptoReferencePricesNotifier
     // the active tab (mirrors the CLOB socket's applyShellTabLivePolicy),
     // or while a banner is on screen elsewhere.
     final wanted = ref.watch(_cryptoFeedWantedProvider);
-    _model = PolymarketModel();
-    _sources = PmPriceSourcePolicy();
-    _retries = 0;
+    _retry = PmReferenceFeedRetry();
     _lastFrameAt = null;
+    _apiKeyInUse = null;
     ref.onDispose(() {
+      _gen += 1;
       _wsSub?.cancel();
       _wsSub = null;
       _watchdog?.cancel();
       _watchdog = null;
       _reconnectTimer?.cancel();
       _reconnectTimer = null;
-      _model?.dispose();
-      _model = null;
     });
     if (!wanted) {
-      _last = _last.copyWith(connectedAt: null);
+      _last = _last.copyWith(connectedAt: null, awaitingCredentials: false);
       return _last;
     }
     _connect(emit: false);
-    // Credentials can appear after we connected (user enables
-    // Predictions trading while on the tab, or derivation finishes):
-    // upgrade from RTDS to PolyBolt once, unless PolyBolt already
-    // failed this session.
-    ref.listen(polymarketTradingProvider, (prev, next) {
-      if (_sources.shouldUpgrade(
-          hasClobCredentials: _polyBoltCredentials() != null)) {
-        _connect();
-      }
-    });
-    _watchdog =
-        Timer.periodic(const Duration(seconds: 1), (_) => _checkSilence());
+    _watchdog = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
     return _last;
   }
 
-  /// Opens whichever source [_sources] selects. [emit] is false only
-  /// inside build, where the returned state carries the new
-  /// `connectedAt` instead.
+  /// Opens PolyBolt with the current credentials, or records that the
+  /// feed is awaiting them. [emit] is false only inside build, where the
+  /// returned state carries the new values instead.
   void _connect({bool emit = true}) {
+    _gen += 1;
+    final gen = _gen;
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
     _wsSub?.cancel();
     _wsSub = null;
-    _last = _last.copyWith(connectedAt: DateTime.now());
-    if (emit) state = _last;
-    final source = _sources.select(
-        hasClobCredentials: _polyBoltCredentials() != null);
-    switch (source) {
-      case PmPriceSource.polyBolt:
-        _connectPolyBolt();
-        break;
-      case PmPriceSource.rtds:
-        _connectRtds();
-        break;
-    }
-  }
-
-  void _connectPolyBolt() {
-    final model = _model;
-    if (model == null) return;
-    try {
-      final symbolByAsset = <String, String>{
-        for (final cfg in kCryptoPredictAssets)
-          cfg.asset: polyBoltSymbolForAsset(cfg.rtdsKey),
-      };
-      // The TWAP channel, not the spot one: spot is Pyth or Chainlink at
-      // Polymarket's choice per symbol, while the markets resolve on (and
-      // polymarket.com plots) Chainlink's 60-second TWAP.
-      final socket = PolyBoltPriceSocket(
-          credentials: _polyBoltCredentials,
-          channel: kPolyBoltCryptoTwapChannel);
-      _sources.markActive(PmPriceSource.polyBolt);
-      debugPrint('[pm-prices] source=polybolt channel=${socket.channel} '
-          'symbols=${symbolByAsset.values.join(',')}');
-      var fellBack = false;
-      void fallBack(String why) {
-        if (fellBack || _model != model) return;
-        fellBack = true;
-        _sources.markPolyBoltFailed();
-        debugPrint('[pm-prices] polybolt failed ($why) → falling back to rtds');
-        _connect();
+    final creds = _credentials();
+    if (creds == null) {
+      _apiKeyInUse = null;
+      if (!_last.awaitingCredentials) {
+        debugPrint('[pm-prices] polybolt waiting for CLOB credentials');
       }
-
-      _wsSub = socket.framesByAsset(symbolByAsset).listen(
-        _apply,
-        onError: (Object e) => fallBack(e.toString()),
-        onDone: () => fallBack('stream closed'),
-      );
-    } catch (e) {
-      _sources.markPolyBoltFailed();
-      debugPrint('[pm-prices] polybolt connect threw ($e) → rtds');
-      _connectRtds();
+      _last = _last.copyWith(
+          connectedAt: DateTime.now(), awaitingCredentials: true);
+      if (emit) state = _last;
+      return;
     }
-  }
-
-  void _connectRtds() {
-    final model = _model;
-    if (model == null) return;
-    _sources.markActive(PmPriceSource.rtds);
-    debugPrint('[pm-prices] source=rtds topic=crypto_prices_twap_sixty');
-    _wsSub = model.streamChainlinkTwapPrices({
+    _apiKeyInUse = creds.apiKey;
+    _last = _last.copyWith(
+        connectedAt: DateTime.now(), awaitingCredentials: false);
+    if (emit) state = _last;
+    final symbolByAsset = <String, String>{
       for (final cfg in kCryptoPredictAssets)
-        cfg.asset: '${cfg.rtdsKey.toLowerCase()}/usd',
-    }).listen(
-      _apply,
-      onError: (Object e) => _reconnectRtds(model, 'error: $e'),
-      onDone: () => _reconnectRtds(model, 'closed'),
+        cfg.asset: polyBoltSymbolForAsset(cfg.priceSymbol),
+    };
+    // The TWAP channel, not the spot one: spot is not the series the
+    // markets resolve on, while Chainlink's 60-second TWAP is (and is
+    // what polymarket.com plots).
+    final socket = PolyBoltPriceSocket(
+      credentials: _credentials,
+      channel: kPolyBoltCryptoTwapChannel,
+      transportFactory: ref.read(pmReferenceTransportProvider),
+    );
+    debugPrint('[pm-prices] source=polybolt channel=${socket.channel} '
+        'symbols=${symbolByAsset.values.join(',')}');
+    _wsSub = socket.framesByAsset(symbolByAsset).listen(
+      (frame) {
+        if (gen == _gen) _apply(frame);
+      },
+      onError: (Object e) {
+        if (gen == _gen) {
+          _scheduleReconnect('$e', hard: PolyBoltPriceSocket.isHardFailure(e));
+        }
+      },
+      onDone: () {
+        if (gen == _gen) _scheduleReconnect('stream closed');
+      },
     );
   }
 
-  /// Reopens RTDS after 2 s, 4 s, … up to 30 s; any point resets it.
-  void _reconnectRtds(PolymarketModel model, String why) {
-    if (_model != model || (_reconnectTimer?.isActive ?? false)) return;
+  /// Reopens PolyBolt after [PmReferenceFeedRetry.next]; a credential
+  /// change cuts the wait short (see [_tick]).
+  void _scheduleReconnect(String why, {bool hard = false}) {
+    if (_reconnectTimer?.isActive ?? false) return;
+    _gen += 1;
     _wsSub?.cancel();
     _wsSub = null;
-    _retries += 1;
-    final delay = Duration(seconds: (2 * _retries).clamp(2, 30));
-    debugPrint('[pm-prices] rtds $why → reconnect in ${delay.inSeconds}s');
-    _reconnectTimer = Timer(delay, () {
-      if (_model == model) _connect();
-    });
+    final delay = _retry.next(hard: hard);
+    debugPrint('[pm-prices] polybolt $why → reconnect in ${delay.inSeconds}s');
+    _reconnectTimer = Timer(delay, _connect);
   }
 
-  /// A source that stays silent past [kChainlinkStaleAfter] is replaced:
-  /// PolyBolt by RTDS (sticky for this build), RTDS by a fresh RTDS.
-  void _checkSilence() {
-    final model = _model;
+  /// Once a second: follow the credentials, and replace a socket that
+  /// stayed silent past [kChainlinkStaleAfter].
+  void _tick() {
+    final key = _credentials()?.apiKey;
+    if (key != _apiKeyInUse) {
+      // Credentials appeared, changed (account switch) or went away.
+      debugPrint('[pm-prices] polybolt credentials '
+          '${key == null ? 'gone' : 'changed'} → reconnect');
+      _retry.reset();
+      _connect();
+      return;
+    }
+    if (key == null) return; // awaiting credentials, nothing to watch
     final opened = _last.connectedAt;
-    if (model == null || opened == null) return;
+    if (opened == null) return;
     if (_reconnectTimer?.isActive ?? false) return;
     final last = _lastFrameAt;
     final since = last != null && last.isAfter(opened) ? last : opened;
     if (DateTime.now().difference(since) <= kChainlinkStaleAfter) return;
-    if (_sources.active == PmPriceSource.polyBolt) {
-      _sources.markPolyBoltFailed();
-      debugPrint('[pm-prices] polybolt silent → falling back to rtds');
-      _connect();
-    } else {
-      _reconnectRtds(model, 'silent');
-    }
+    _scheduleReconnect('silent');
   }
 
   void _apply(PmReferencePriceFrame frame) {
     if (frame.points.isEmpty) return;
     final now = DateTime.now();
     _lastFrameAt = now;
-    _retries = 0;
+    _retry.reset();
     final old = _last.series[frame.asset] ?? const <BtcPriceSnapshot>[];
     final incoming = [
       for (final p in frame.points) BtcPriceSnapshot(timestamp: p.t, price: p.p),
@@ -516,8 +509,9 @@ final cryptoReferencePricesProvider = NotifierProvider.autoDispose<
 /// * Current price and chart: Polymarket's Chainlink TWAP from
 ///   [cryptoReferencePricesProvider], copied as is.
 /// * When that asset has been silent for [kChainlinkStaleAfter] while
-///   the feed is supposed to stream (a card that is off screen neither
-///   streams nor falls back), the WHOLE series switches to Binance
+///   the feed is supposed to stream, or at once while the feed awaits
+///   CLOB credentials (a card that is off screen neither streams nor
+///   falls back), the WHOLE series switches to Binance
 ///   (1 s klines to seed, then the BTC trade socket or a 2 s klines
 ///   poll), or to CoinGecko when Binance does not answer either. The
 ///   first Chainlink point after that switches the whole series back.
@@ -601,8 +595,10 @@ mixin _CryptoPriceFeed<A>
         _shownSeries = null;
       }
     } else if (_feed == CryptoPriceFeed.chainlink) {
+      // No credentials for PolyBolt: nothing will arrive, fall back now.
       final since = shared.lastSignOfLife(asset);
-      if (since != null && now.difference(since) > kChainlinkStaleAfter) {
+      if (shared.awaitingCredentials ||
+          (since != null && now.difference(since) > kChainlinkStaleAfter)) {
         _startFallback();
       }
     }
@@ -874,7 +870,7 @@ class CryptoPredictNotifier
       kCryptoPredictAssets.firstWhere((c) => c.asset == arg,
           orElse: () => CryptoAssetConfig(
                 asset: arg,
-                rtdsKey: arg,
+                priceSymbol: arg,
                 displayName: arg,
                 logoPath: '',
                 brandColor: const Color(0xFFF7931A),
@@ -989,7 +985,7 @@ class CryptoPredictAtWindowNotifier extends AutoDisposeFamilyAsyncNotifier<
       kCryptoPredictAssets.firstWhere((c) => c.asset == arg.asset,
           orElse: () => CryptoAssetConfig(
                 asset: arg.asset,
-                rtdsKey: arg.asset,
+                priceSymbol: arg.asset,
                 displayName: arg.asset,
                 logoPath: '',
                 brandColor: const Color(0xFFF7931A),

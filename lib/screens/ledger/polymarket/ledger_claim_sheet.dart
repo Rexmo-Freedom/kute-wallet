@@ -5,6 +5,8 @@
 //
 // * One condition per approval; nothing claims automatically. The top
 //   CTA and each row's button route through the same executor path.
+// * The first claim (or sell) asks for the one-time CTF share approvals
+//   first, as their own Ledger approval (ensureLedgerPmShareApprovals).
 // * A condition whose oracle result is not final yet is refused before
 //   any prompt (the redeem would revert).
 // * "Claim submitted. Funds arrive after the network confirms." on
@@ -110,6 +112,16 @@ class _LedgerClaimSheetState extends ConsumerState<LedgerClaimSheet> {
     }
 
     final walletId = widget.walletId;
+    // The redeem adapters pull the shares, so the first claim asks for the
+    // one-time share approvals (a separate Ledger approval) beforehand.
+    final ready = await ensureLedgerPmShareApprovals(context, ref,
+        walletId: walletId, account: account);
+    if (!mounted) return;
+    if (!ready) {
+      setState(() => _working = null);
+      return;
+    }
+
     final value = _valueFor(position.conditionId);
     final intent = LedgerPolymarketIntents.redeem(
       walletId: walletId,

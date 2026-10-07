@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/models/evm_derivation_version.dart';
 import 'package:kute/models/settings_model.dart';
@@ -83,8 +85,9 @@ void main() {
   });
 
   group('account zero key for the Settings reveal', () {
-    test('standard BIP39 vector reveals the key of the known address', () {
-      final account = EvmWalletDerivation.accountZeroKey(
+    test('standard BIP39 vector reveals the key of the known address',
+        () async {
+      final account = await EvmWalletDerivation.accountZeroKey(
         mnemonic: phrase,
         version: EvmDerivationVersion.standardBip39,
       );
@@ -94,8 +97,9 @@ void main() {
       expect(account.privateKey, matches(RegExp(r'^0x[0-9a-f]{64}$')));
     });
 
-    test('legacy wallets reveal the key of the account the app uses', () {
-      final account = EvmWalletDerivation.accountZeroKey(
+    test('legacy wallets reveal the key of the account the app uses',
+        () async {
+      final account = await EvmWalletDerivation.accountZeroKey(
         mnemonic: phrase,
         version: EvmDerivationVersion.legacySha256,
       );
@@ -109,14 +113,122 @@ void main() {
           '0x501291248b5a9ab2c9fba2b1c8f6dfef52cbf8b9bb5b7635a2cd02ddd35fa939');
     });
 
-    test('an invalid phrase reveals nothing', () {
-      expect(
-        () => EvmWalletDerivation.accountZeroKey(
+    test('an invalid phrase reveals nothing', () async {
+      await expectLater(
+        EvmWalletDerivation.accountZeroKey(
           mnemonic: List.filled(12, 'abandon').join(' '),
           version: EvmDerivationVersion.standardBip39,
         ),
         throwsArgumentError,
       );
+    });
+  });
+
+  group('derivation off the UI isolate', () {
+    setUp(EvmWalletDerivation.clearMemoForTest);
+    tearDown(EvmWalletDerivation.clearMemoForTest);
+
+    const vectors = {
+      EvmDerivationVersion.legacySha256: (
+        address: '0xAac5482758cD28C38090Dcc2f0A08f09C0F814B2',
+        privateKey:
+            '0x501291248b5a9ab2c9fba2b1c8f6dfef52cbf8b9bb5b7635a2cd02ddd35fa939',
+      ),
+      EvmDerivationVersion.standardBip39: (
+        address: '0x9858EfFD232B4033E47d90003D41EC34EcaEda94',
+        privateKey:
+            '0x1ab42cc412b618bdea3a599e3c9bae199ebf030895b039e9db1e30dafb12b727',
+      ),
+    };
+
+    for (final MapEntry(key: version, value: expected) in vectors.entries) {
+      test('$version: the async result matches the vector and is computed '
+          'in a background isolate', () async {
+        final wallet = await EvmWalletDerivation.deriveWalletAsync(
+            mnemonic: phrase, version: version);
+        expect(wallet.address, expected.address);
+        expect(wallet.privateKey, expected.privateKey);
+        expect(EvmWalletDerivation.computedOnThisIsolate, 0);
+
+        // Later synchronous callers reuse the memo instead of stretching
+        // the seed again on this isolate.
+        final again = EvmWalletDerivation.deriveWallet(
+            mnemonic: phrase, version: version);
+        expect(again, same(wallet));
+        expect(EvmWalletDerivation.computedOnThisIsolate, 0);
+      });
+    }
+
+    test('async and sync derivations agree on other indices', () async {
+      final async = await EvmWalletDerivation.deriveWalletAsync(
+          mnemonic: hardhatPhrase,
+          version: EvmDerivationVersion.standardBip39,
+          index: 1);
+      EvmWalletDerivation.clearMemoForTest();
+      final sync = EvmWalletDerivation.deriveWallet(
+          mnemonic: hardhatPhrase,
+          version: EvmDerivationVersion.standardBip39,
+          index: 1);
+      expect(async.privateKey, sync.privateKey);
+      expect(async.address, '0x70997970C51812dc3A010C7d01b50e0d17dc79C8');
+    });
+
+    test('concurrent callers share one background run', () async {
+      final first = EvmWalletDerivation.deriveWalletAsync(
+          mnemonic: phrase, version: EvmDerivationVersion.standardBip39);
+      final second = EvmWalletDerivation.deriveWalletAsync(
+          mnemonic: phrase, version: EvmDerivationVersion.standardBip39);
+      expect(identical(first, second), isTrue);
+      expect(await first, same(await second));
+    });
+
+    test('both formats derive together and fill the memo', () async {
+      final both = await EvmWalletDerivation.deriveBothAsync(phrase);
+      expect(both.legacy.address, vectors.values.first.address);
+      expect(both.standard.address, vectors.values.last.address);
+      for (final version in EvmDerivationVersion.values) {
+        EvmWalletDerivation.deriveWallet(mnemonic: phrase, version: version);
+      }
+      expect(EvmWalletDerivation.computedOnThisIsolate, 0);
+    });
+
+    test('app code never stretches a seed synchronously', () {
+      // The synchronous derivations take seconds on a low-end phone; on the
+      // UI isolate that is an ANR. App code goes through deriveWalletAsync,
+      // deriveBothAsync, accountZeroKey or RecoveryCheck.derive.
+      final syncCall = RegExp(r'(EvmWalletDerivation\.deriveWallet|'
+          r'HdWallet\.deriveWallets?|RecoveryCheck\.deriveSync|'
+          r'Bip39\.mnemonicToSeed|PBKDF2KeyDerivator)\s*\(');
+      const allowed = {
+        'lib/services/evm_wallet_derivation.dart',
+        'lib/services/secure/recovery_check.dart',
+        // PIN hashing and encryption run through compute().
+        'lib/services/auth/pin_hash.dart',
+        'lib/services/auth/pin_encryption.dart',
+      };
+      final offenders = [
+        for (final file in Directory('lib').listSync(recursive: true))
+          if (file is File &&
+              file.path.endsWith('.dart') &&
+              !allowed.contains(file.path) &&
+              syncCall.hasMatch(file.readAsStringSync()))
+            file.path,
+      ];
+      expect(offenders, isEmpty);
+    });
+
+    test('invalid input fails the future, not the caller', () async {
+      await expectLater(
+          EvmWalletDerivation.deriveWalletAsync(
+              mnemonic: List.filled(12, 'abandon').join(' '),
+              version: EvmDerivationVersion.legacySha256),
+          throwsArgumentError);
+      await expectLater(
+          EvmWalletDerivation.deriveWalletAsync(
+              mnemonic: phrase,
+              version: EvmDerivationVersion.standardBip39,
+              index: -1),
+          throwsArgumentError);
     });
   });
 

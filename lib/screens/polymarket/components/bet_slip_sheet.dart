@@ -567,6 +567,12 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   /// two BTC swaps). Set before the first await, cleared in finally.
   bool _buyInFlight = false;
 
+  /// From a Deposit door tap until the Move sheet opens (or the tap ends
+  /// without one): the top-up is being worked out, and the door says so.
+  /// The form is already frozen by [_buyInFlight] for the same span, so
+  /// the bet queued behind the deposit is the one on the slip at the tap.
+  bool _doorCalculating = false;
+
   /// True while a swap leg is part of the active placement — drives the
   /// 3-step vs single-step progress bar in the placing panel.
   bool _swapNeeded = false;
@@ -1146,7 +1152,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   Widget _depositDoor(
       {required bool busy,
       required bool enabled,
-      required VoidCallback onTap}) {
+      required VoidCallback onTap,
+      String? busyLabel}) {
     final block = _depositBlock;
     // Funding a bet that cannot be placed here would only strand the
     // money, so the door shuts with the open gate too.
@@ -1157,6 +1164,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       // color stays reserved for the actual Predict confirm).
       color: context.ctaFill,
       isBusy: !shut && busy,
+      busyLabel: busyLabel,
       enabled: !shut && enabled,
       onTap: onTap,
       label: context.l10n.depositToPredict,
@@ -1586,6 +1594,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       return PolySlipCta(
         color: context.ctaFill,
         isBusy: pending.isLoading,
+        busyLabel: context.l10n.loadingAccount,
         enabled: !_draft.ledgerBusy && !pending.isLoading,
         onTap: () => ref.invalidate(ledgerPmPendingBetProvider(walletId)),
         label: pending.isLoading
@@ -1663,6 +1672,9 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     return PolySlipCta(
       color: selectedColor,
       isBusy: _draft.ledgerBusy || buyingPower.isLoading,
+      busyLabel: !_draft.ledgerBusy && buyingPower.isLoading
+          ? context.l10n.loadingAccount
+          : null,
       enabled: !_draft.ledgerBusy &&
           !buyingPower.isLoading &&
           _amount.isFinite &&
@@ -2106,6 +2118,46 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   /// length sane; the full question is public on Polymarket anyway).
   String _truncMarket(String q) => q.length > 80 ? q.substring(0, 80) : q;
 
+  /// The hot Deposit door. One tap at a time: a tap while one is being
+  /// worked out (or its Move sheet is open) is ignored, event included.
+  /// The tap runs the normal placement path, which stores the bet as it
+  /// stands and opens the top-up; the door shows "Calculating…" until the
+  /// Move sheet opens. A failure on the way leaves the slip as it was
+  /// with nothing queued.
+  Future<void> _onDepositDoorTap() async {
+    if (_buyInFlight || _isPlacing || _doorCalculating) return;
+    HapticFeedback.mediumImpact();
+    TrackingService.track('bet_slip_deposit_to_trade_tapped');
+    final queuedBefore = ref.read(pendingPolymarketBetProvider);
+    _updateState(() => _doorCalculating = true);
+    try {
+      // An empty slip funds and places the market's minimum.
+      if (_emptyStake) _placeMinimum(place: false);
+      await _handleBuy();
+    } catch (_) {
+      if (!mounted) return;
+      // Only the bet this tap stored is dropped.
+      final queued = ref.read(pendingPolymarketBetProvider);
+      if (queued != null && !identical(queued, queuedBefore)) {
+        ref.read(pendingPolymarketBetProvider.notifier).clear();
+      }
+      showMessageSnackBar(
+          context: context,
+          message: context.l10n.errorCopyGeneric,
+          error: true);
+    } finally {
+      _depositSheetOpening();
+    }
+  }
+
+  /// The top-up is worked out (or the tap ended): the door stops
+  /// calculating.
+  void _depositSheetOpening() {
+    if (mounted && _doorCalculating) {
+      _updateState(() => _doorCalculating = false);
+    }
+  }
+
   /// Keep the ticket and its pending intent while the shared funding sheet
   /// is open. Depositing does not approve or automatically submit this bet.
   Future<void> _offerCryptoDeposit(double availableUsd,
@@ -2131,6 +2183,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       readyUsd: availableUsd,
       fallbackTargetUsd: _amount,
       onReturned: slipTopUpReturned,
+      onSheetOpening: _depositSheetOpening,
     );
   }
 
@@ -3436,6 +3489,22 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         },
       );
     }
+    // Until the Predictions account is set up and its balance was read,
+    // the button waits: a 0 that only means "not read yet" must never
+    // turn it into the Deposit door, nor let a tap through.
+    final balanceKnown =
+        trading.hasValue && (trading.valueOrNull?.balanceKnown ?? false);
+    if (!balanceKnown && !_isPlacing && !busy && !_buyInFlight) {
+      return PolySlipCta(
+        key: const ValueKey('bet-slip-loading-account'),
+        color: context.ctaFill,
+        isBusy: true,
+        busyLabel: context.l10n.loadingAccount,
+        enabled: false,
+        onTap: () {},
+        label: context.l10n.loadingAccount,
+      );
+    }
     if (noFunds && !_isPlacing) {
       // A deposit into Predictions already on its way: say so, never offer
       // a second one while it lands.
@@ -3469,14 +3538,12 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         );
       }
       final door = _depositDoor(
-        busy: _buyInFlight,
-        enabled: !_buyInFlight,
-        onTap: () {
-          HapticFeedback.mediumImpact();
-          TrackingService.track('bet_slip_deposit_to_trade_tapped');
-          // An empty slip funds and places the market's minimum.
-          _emptyStake ? _placeMinimum() : _handleBuy();
-        },
+        // Busy only while the top-up is worked out; shut until the tap
+        // (and the Move sheet it opens) is done.
+        busy: _doorCalculating,
+        busyLabel: context.l10n.feeUiCalculating,
+        enabled: !_buyInFlight && !_doorCalculating,
+        onTap: _onDepositDoorTap,
       );
       if (!funding.failed) return door;
       return Column(

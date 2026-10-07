@@ -65,6 +65,7 @@ import 'package:kute/services/hardware/signing_clarity.dart';
 import 'dart:typed_data';
 
 import 'package:kute/constants/polymarket_constants.dart';
+import 'package:kute/services/polymarket/market_protocol.dart';
 import 'package:pointycastle/digests/keccak.dart';
 import 'package:polybrainz_polymarket/polybrainz_polymarket.dart'
     show EthPrivateKey, EthSignature;
@@ -132,16 +133,26 @@ class SignedOrderV2 {
 /// Use this for sigType ∈ {EOA(0), POLY_PROXY(1), POLY_GNOSIS_SAFE(2)}.
 /// For POLY_1271(3) — deposit wallets / Safe — use [signOrderV2Poly1271]
 /// instead; the wire format is a concatenation, not a raw 65-byte sig.
+///
+/// [domainVersion] is "2" for a CTF token and "3" (with ExchangeV3) for a
+/// Protocol V2 position; any other pairing throws
+/// [PolymarketOrderVenueMismatch] before anything is signed.
 Future<String> signOrderV2({
   required OrderStructV2 order,
   EthPrivateKey? credentials,
   EvmExternalSigner? externalSigner,
   required String verifyingContract,
   int chainId = PolymarketConstants.polygonChainId,
+  String? domainVersion,
 }) async {
+  domainVersion ??= exchangeDomainVersionFor(verifyingContract);
+  PolyOrderVenue.assertMatches(
+      tokenId: order.tokenId,
+      verifyingContract: verifyingContract,
+      domainVersion: domainVersion);
   final domainSeparator = _hashDomain(
     name: 'Polymarket CTF Exchange',
-    version: PolymarketConstants.exchangeEip712DomainVersion, // "2"
+    version: domainVersion, // "2" (CTF) or "3" (ExchangeV3)
     chainId: chainId,
     verifyingContract: verifyingContract,
   );
@@ -154,7 +165,10 @@ Future<String> signOrderV2({
       message: structHash,
       kind: LedgerActionKind.pmOrderEoa,
       typedData: () => orderV2TypedData(
-          order: order, verifyingContract: verifyingContract, chainId: chainId),
+          order: order,
+          verifyingContract: verifyingContract,
+          chainId: chainId,
+          domainVersion: domainVersion),
       credentials: credentials,
       externalSigner: externalSigner);
   return _encodeSignature(sig);
@@ -201,11 +215,19 @@ const List<Eip712Field> _clobAuthFields = [
   Eip712Field('message', 'string'),
 ];
 
+/// The domain version of the exchange at [verifyingContract]: "3" for
+/// ExchangeV3, "2" for the CTF exchanges.
+String exchangeDomainVersionFor(String verifyingContract) =>
+    verifyingContract.toLowerCase() ==
+            PolymarketConstants.comboExchangeV3Address.toLowerCase()
+        ? PolymarketConstants.comboExchangeEip712DomainVersion
+        : PolymarketConstants.exchangeEip712DomainVersion;
+
 Map<String, Object?> _exchangeDomain(String verifyingContract, int chainId,
-        [String version = PolymarketConstants.exchangeEip712DomainVersion]) =>
+        [String? version]) =>
     {
       'name': 'Polymarket CTF Exchange',
-      'version': version,
+      'version': version ?? exchangeDomainVersionFor(verifyingContract),
       'chainId': chainId,
       'verifyingContract': verifyingContract,
     };
@@ -236,13 +258,14 @@ Map<String, Object?> _clobAuthMessage(
 /// Bare V2 Order under the Exchange domain (sigType 0, 1 or 2). Its digest
 /// is also the Exchange-domain order hash the CLOB reports as `orderID`.
 ///
-/// [domainVersion] is "2" for the CLOB; combos sign the same struct under
-/// Exchange v3 ("3", see `polymarket/combos/combo_order.dart`).
+/// [domainVersion] defaults to the exchange's own: "2" for the CTF
+/// exchanges, "3" for Exchange v3 (Protocol V2 markets and combos, see
+/// `polymarket/combos/combo_order.dart`).
 Eip712TypedData orderV2TypedData({
   required OrderStructV2 order,
   required String verifyingContract,
   int chainId = PolymarketConstants.polygonChainId,
-  String domainVersion = PolymarketConstants.exchangeEip712DomainVersion,
+  String? domainVersion,
 }) =>
     Eip712TypedData(
       types: const {
@@ -259,7 +282,7 @@ Eip712TypedData orderV2Poly1271TypedData({
   required OrderStructV2 order,
   required String verifyingContract,
   int chainId = PolymarketConstants.polygonChainId,
-  String domainVersion = PolymarketConstants.exchangeEip712DomainVersion,
+  String? domainVersion,
 }) =>
     Eip712TypedData(
       types: {
@@ -331,17 +354,26 @@ Eip712TypedData clobAuthPoly1271TypedData({
 ///
 /// Returns the 0x-prefixed wire signature ready to drop into `order.signature`.
 ///
-/// [domainVersion] defaults to the CLOB's "2". Combos pass "3" with the
-/// Exchange v3 contract: the wrapping is identical (docs.polymarket.com
-/// /trading/combos/requesters, `wrapDepositWalletSignature`).
+/// [domainVersion] defaults to the CLOB's "2". Protocol V2 markets and
+/// combos pass "3" with the Exchange v3 contract: the wrapping is identical
+/// (docs.polymarket.com/trading/combos/requesters,
+/// `wrapDepositWalletSignature`). A pairing that does not match the token's
+/// protocol throws [PolymarketOrderVenueMismatch] before signing.
 Future<String> signOrderV2Poly1271({
   required OrderStructV2 order,
   EthPrivateKey? credentials,
   EvmExternalSigner? externalSigner,
   required String verifyingContract, // Polymarket Exchange (V2 or NegRisk V2)
   int chainId = PolymarketConstants.polygonChainId,
-  String domainVersion = PolymarketConstants.exchangeEip712DomainVersion,
+  String? domainVersion,
 }) async {
+  domainVersion ??= exchangeDomainVersionFor(verifyingContract);
+  // 0. A CTF token signs only for the CTF exchanges under "2", a Protocol V2
+  //    position (combos included) only for ExchangeV3 under "3".
+  PolyOrderVenue.assertMatches(
+      tokenId: order.tokenId,
+      verifyingContract: verifyingContract,
+      domainVersion: domainVersion);
   // 1. Exchange domain separator — same one buildOrderHash uses.
   final appDomainSep = _hashDomain(
     name: 'Polymarket CTF Exchange',

@@ -67,15 +67,25 @@ class LedgerPmBuyingPower {
 
   final BigInt balance;
   final BigInt reserved;
+
+  /// pUSD allowances the CLOB reported, by lowercase spender address.
   final Map<String, BigInt> allowances;
 
   BigInt get spendable => balance > reserved ? balance - reserved : BigInt.zero;
-  BigInt allowance(bool negRisk) =>
-      allowances[(negRisk
-              ? PolymarketConstants.negRiskExchangeAddress
-              : PolymarketConstants.exchangeAddress)
-          .toLowerCase()] ??
-      BigInt.zero;
+
+  /// The pUSD the CLOB lets an order of this kind spend. A neg-risk order
+  /// is checked against the Neg Risk Exchange AND the CLOB v1 Neg Risk
+  /// Adapter (it refuses with "spender: 0xd91E…, allowance: 0" otherwise),
+  /// so it is the smaller of the two. A spender the CLOB did not report
+  /// counts as zero.
+  BigInt allowance(bool negRisk) {
+    BigInt of(String spender) =>
+        allowances[spender.toLowerCase()] ?? BigInt.zero;
+    if (!negRisk) return of(PolymarketConstants.exchangeAddress);
+    final exchange = of(PolymarketConstants.negRiskExchangeAddress);
+    final adapter = of(PolymarketConstants.legacyNegRiskAdapterAddress);
+    return exchange < adapter ? exchange : adapter;
+  }
 
   factory LedgerPmBuyingPower.fromClob({
     required String depositWallet,

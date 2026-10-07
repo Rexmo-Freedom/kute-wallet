@@ -106,6 +106,7 @@ import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/sticky_action_bar.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/market_side_toggle.dart';
+import 'package:kute/services/hyperliquid/hl_failure_analytics.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart';
 import 'package:kute/services/hyperliquid/hl_position_effect.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_rounding.dart';
@@ -113,6 +114,8 @@ import 'package:kute/services/hyperliquid/trailing_stop.dart';
 import 'package:kute/services/hyperliquid/liquidation_estimate.dart';
 import 'package:kute/services/venue_analytics.dart';
 import 'package:kute/services/tracking_service.dart';
+import 'package:kute/screens/shared/message_display.dart'
+    show showMessageSnackBar;
 import 'package:kute/screens/shared/slip_shortfall.dart';
 import 'package:kute/services/funding/venue_shortfall.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
@@ -440,6 +443,15 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   /// only flips AFTER the awaited geoblock re-check, so a double-tap
   /// during that round-trip would otherwise run two placements.
   bool _orderInFlight = false;
+
+  /// From a Deposit door tap until its Move sheet closes (or the tap ends
+  /// without one): further taps open nothing.
+  bool _depositDoorBusy = false;
+
+  /// From a Deposit door tap until the Move sheet opens: the top-up is
+  /// being worked out. The button shows it and the form is frozen, so the
+  /// sheet is sized for the order on the ticket at the tap.
+  bool _depositCalculating = false;
 
   /// One order per slip lifetime — set once a fill/ack has routed so a
   /// racing WS fill + REST result can't push two.
@@ -1902,6 +1914,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         leverage: isSpot ? 1 : _leverage,
         walletKind: 'ledger',
         stackTrace: st,
+        extra: hlFailureParams(e),
       );
       if (mounted) {
         _updateDraft(() {
@@ -1959,7 +1972,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
 
   /// The one funding door, locked to Trading with this ticket's margin
   /// already filled in. A Ledger ticket pins both legs to its account.
-  void _openDepositDoor() {
+  /// One tap at a time: a tap while one runs is ignored, events included.
+  Future<void> _openDepositDoor() async {
+    if (_depositDoorBusy) return;
     // A withheld `hyperliquid.deposit` shuts the door: the button is
     // already disabled, and a tap racing the policy change opens nothing.
     if (ref
@@ -1970,34 +1985,62 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     }
     _stopped('insufficient_balance');
     _trackStep('deposit');
-    if (_isLedger) {
-      TrackingService.track('ledger_investing_deposit_opened');
-      unawaited(showDepositSheet(
+    setState(() => _depositDoorBusy = true);
+    try {
+      if (_isLedger) {
+        TrackingService.track('ledger_investing_deposit_opened');
+        await showDepositSheet(
+          context,
+          ledgerWalletId: widget.ledgerWalletId,
+          lockedSide: MoveLockedSide.depositToHyperliquid,
+          initialTargetUsd: _marginUsd > 0 ? _marginUsd : null,
+        );
+        return;
+      }
+      // Hot ticket: prefilled with the order's own amount (the fees added
+      // only when the deposit alone would not cover it), on the spending
+      // source that covers it alone. The ticket stays open underneath with
+      // the same coin, side, size, leverage and order type. Everything the
+      // top-up is sized on is read here, at the tap.
+      final ready = _hlReadyUsd();
+      final required = _hlRequiredUsd();
+      setState(() => _depositCalculating = true);
+      await openSlipTopUp(
         context,
-        ledgerWalletId: widget.ledgerWalletId,
-        lockedSide: MoveLockedSide.depositToHyperliquid,
-        initialTargetUsd: _marginUsd > 0 ? _marginUsd : null,
-      ));
-      return;
+        ref,
+        venue: SlipVenue.investing,
+        shortfallUsd: ShortfallRules.shortfallUsd(
+            requiredUsd: required, readyUsd: ready),
+        orderUsd: _marginUsd,
+        requiredUsd: required,
+        readyUsd: ready,
+        fallbackTargetUsd: _marginUsd > 0 ? _marginUsd : null,
+        onReturned: slipTopUpReturned,
+        onSheetOpening: _depositSheetOpening,
+      );
+    } catch (_) {
+      if (mounted) {
+        showMessageSnackBar(
+            context: context,
+            message: context.l10n.errorCopyGeneric,
+            error: true);
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _depositDoorBusy = false;
+          _depositCalculating = false;
+        });
+      }
     }
-    // Hot ticket: prefilled with the order's own amount (the fees added
-    // only when the deposit alone would not cover it), on the spending
-    // source that covers it alone. The ticket stays open underneath with
-    // the same coin, side, size, leverage and order type.
-    final ready = _hlReadyUsd();
-    final required = _hlRequiredUsd();
-    unawaited(openSlipTopUp(
-      context,
-      ref,
-      venue: SlipVenue.investing,
-      shortfallUsd:
-          ShortfallRules.shortfallUsd(requiredUsd: required, readyUsd: ready),
-      orderUsd: _marginUsd,
-      requiredUsd: required,
-      readyUsd: ready,
-      fallbackTargetUsd: _marginUsd > 0 ? _marginUsd : null,
-      onReturned: slipTopUpReturned,
-    ));
+  }
+
+  /// The top-up is worked out: the door stops calculating while its Move
+  /// sheet is open.
+  void _depositSheetOpening() {
+    if (mounted && _depositCalculating) {
+      setState(() => _depositCalculating = false);
+    }
   }
 
   /// "Add more" under "Deposit incoming": the rest of the shortfall.
@@ -2381,6 +2424,11 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     final ledgerAccount = ledgerWalletId == null
         ? null
         : ref.watch(ledgerHlAccountProvider(ledgerWalletId)).valueOrNull;
+    // Until the account was read the balances below are 0 for "unknown":
+    // the button waits instead of offering a deposit on them.
+    final balanceKnown = ledgerWalletId == null
+        ? ref.watch(hyperliquidAccountProvider).hasValue
+        : ledgerAccount != null;
     _ledgerAddress = ledgerAccount?.address;
     final ledgerSnapshot = ledgerAccount?.account;
     final withdrawable = _isLedger
@@ -2848,6 +2896,17 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       primaryLabel = context.l10n.ledgerApprovalClose;
       primaryAction = _ledgerBusy ? null : () => Navigator.of(context).pop();
       primaryNeutral = true;
+    } else if (!balanceKnown &&
+        !_isPlacing &&
+        !_preparing &&
+        !_ledgerBusy &&
+        !_depositDoorBusy) {
+      // The account is still being read: a disabled wait, never the
+      // deposit door on a balance that only reads 0 for now.
+      primaryKind = 'loading';
+      primaryLabel = context.l10n.loadingAccount;
+      primaryAction = null;
+      primaryNeutral = true;
     } else if (ledgerPrepareSpot) {
       primaryKind = 'prepare';
       primaryLabel = context.l10n.ledgerPmMakeAvailableCta;
@@ -2869,7 +2928,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       // Funding a position that cannot be opened here would only strand
       // the money, so the door shuts with the open gate too.
       primaryAction =
-          depositBlock == null && openBlock == null ? _openDepositDoor : null;
+          depositBlock == null && openBlock == null && !_depositDoorBusy
+              ? _openDepositDoor
+              : null;
       primaryNeutral = true;
     } else if (belowMin && !_isScale && _marginUsd > 0 && minAmountUsd > 0) {
       // An amount under the venue minimum: the button names the minimum
@@ -2995,7 +3056,16 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
               child: AppButton(
                 text: primaryLabel,
                 onPressed: primaryAction,
-                isLoading: _ledgerBusy || _isPlacing || _preparing,
+                isLoading: _ledgerBusy ||
+                    _isPlacing ||
+                    _preparing ||
+                    _depositCalculating ||
+                    primaryKind == 'loading',
+                loadingLabel: primaryKind == 'loading'
+                    ? context.l10n.loadingAccount
+                    : _depositCalculating && primaryKind == 'deposit'
+                        ? context.l10n.feeUiCalculating
+                        : null,
                 color: c.textPrimary,
                 textColor: primaryNeutral
                     ? contrastingOnColor(c.textPrimary)
@@ -3022,6 +3092,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     // Placing locks the form for the same reason a Ledger prompt does:
     // the numbers behind a submitted order must not move under it.
     final ledgerLocked = _ledgerBusy ||
+        _depositCalculating ||
         _ledgerPending ||
         ledgerBlocked ||
         _isPlacing ||

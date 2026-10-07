@@ -134,6 +134,19 @@ SlipRouteFee? slipRouteFeeFrom(OrchestraEstimate est,
   return (fee: fee, kuteBps: bps);
 }
 
+/// Test seam: stands in for the route-fee read (Orchestra's estimate).
+/// An error it throws reaches the slip, as an unexpected failure would.
+@visibleForTesting
+Future<SlipRouteFee> Function(
+        SlipVenue venue, ShortfallSource source, double amountUsd)?
+    debugSlipRouteFee;
+
+/// Test seam: stands in for the Move sheet [openSlipTopUp] opens, with
+/// the prefill it was given.
+@visibleForTesting
+Future<void> Function(SlipVenue venue, double? initialTargetUsd)?
+    debugShowSlipTopUpSheet;
+
 /// The share of a deposit of [amountUsd] the route from [source] into
 /// [venue] keeps, Kute's fee included, from Orchestra's current estimate
 /// for that amount. Falls back to the last estimate, then to
@@ -141,6 +154,8 @@ SlipRouteFee? slipRouteFeeFrom(OrchestraEstimate est,
 /// estimate is a read: nothing is quoted or moved.
 Future<SlipRouteFee> _slipRouteFee(SlipVenue venue, ShortfallSource source,
     double amountUsd, double usdPerBtc) async {
+  final seam = debugSlipRouteFee;
+  if (seam != null) return seam(venue, source, amountUsd);
   final key = '${venue.code}:${source.code}';
   final held = _routeFees[key];
   try {
@@ -200,7 +215,9 @@ bool _topUpOpening = false;
 /// first when they cover the prefill, else Bitcoin. Without an order
 /// (nothing typed yet) it keeps [fallbackTargetUsd], as the door always
 /// did. [onReturned] runs once the deposit went through and the person is
-/// back on the still-open slip.
+/// back on the still-open slip. [onSheetOpening] runs once the top-up is
+/// worked out, right before the Move sheet opens: the slip's door stops
+/// showing its calculation there.
 ///
 /// Events: `slip_top_up_opened` on the tap (with `prefill_rule`),
 /// `slip_top_up_returned` when the slip is shown again after a deposit.
@@ -216,6 +233,7 @@ Future<void> openSlipTopUp(
   double? incomingUsd,
   double? fallbackTargetUsd,
   required VoidCallback onReturned,
+  VoidCallback? onSheetOpening,
 }) async {
   if (_topUpOpening) return;
   _topUpOpening = true;
@@ -278,6 +296,12 @@ Future<void> openSlipTopUp(
     'prefill_rule': rule,
     'suggested_source': source?.code ?? 'none',
   });
+  onSheetOpening?.call();
+  final sheetSeam = debugShowSlipTopUpSheet;
+  if (sheetSeam != null) {
+    await sheetSeam(venue, amount > 0 ? amount : null);
+    return;
+  }
   await showDepositSheet(
     context,
     lockedSide: venue.lockedSide,

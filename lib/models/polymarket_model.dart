@@ -2,9 +2,10 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:kute/services/polymarket/live_game/feed_score_order.dart';
 import 'package:kute/services/polymarket/livestream_source.dart';
 import 'package:kute/services/polymarket/market_buy_quote.dart';
+import 'package:kute/services/polymarket/market_protocol.dart';
 import 'package:kute/services/polymarket/shown_price.dart';
 import 'package:kute/services/polymarket/polymarket_price_source.dart'
-    show CryptoPriceFeed, PmReferencePriceFrame, kCryptoTwapLookbackSeconds;
+    show CryptoPriceFeed, kCryptoTwapLookbackSeconds;
 // lib/models/polymarket_model.dart
 //
 // Polymarket API client for fetching prediction market data.
@@ -20,7 +21,6 @@ import 'package:kute/helpers/prediction_results.dart'
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
-import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:polybrainz_polymarket/polybrainz_polymarket.dart'
     hide EthereumAddress, PolymarketConstants;
 import 'package:wallet/wallet.dart' show EthereumAddress;
@@ -891,12 +891,6 @@ class PolymarketModel {
   bool _disposed = false;
   http.Client? _searchClient;
 
-  // Kept as a public constant — the live-prices + orderbook providers
-  // both already connect directly to this same URL via our own
-  // `PolymarketClobWebSocket`. Left here only for callers that still
-  // refer to it as the canonical CLOB WS endpoint.
-  static const _kRtdsWssUrl = 'wss://ws-live-data.polymarket.com';
-
   PolymarketModel({http.Client? searchClient}) : _searchClient = searchClient;
 
   /// Always returns false now that order placement has moved entirely
@@ -998,7 +992,6 @@ class PolymarketModel {
       ..remove('limit');
     final out = <Map<String, dynamic>>[];
     String? cursor;
-    final backend = _feedBackend();
     for (var page = 0; page < _kGammaKeysetMaxPages && out.length < wanted;
         page++) {
       final cap = page == 0 && firstPage != null && firstPage > 0
@@ -1010,43 +1003,14 @@ class PolymarketModel {
         'limit': '$pageSize',
         if (cursor != null) 'after_cursor': cursor,
       };
-      // The Kute backend serves the same keyset page trimmed to the keys
-      // the cards read, about a quarter of Gamma's bytes, cached and
-      // coalesced. Gamma itself is the fallback whenever it is not
-      // configured or does not answer.
-      _KeysetPage? decoded;
-      if (backend != null) {
-        final feedUri = Uri.parse('$backend/api/v1/pm/feed/$resource')
-            .replace(queryParameters: query);
-        try {
-          final resp = await http.get(feedUri).timeout(timeout);
-          if (resp.statusCode == 200) {
-            decoded = await _decodeKeysetPage(resp.body, resource);
-          }
-        } catch (_) {
-          decoded = null;
-        }
-      }
-      if (decoded == null) {
-        final uri = Uri.parse('$_gammaBase/$resource/keyset')
-            .replace(queryParameters: query);
-        final http.Response resp;
-        try {
-          resp = await http.get(uri).timeout(timeout);
-        } catch (_) {
-          if (out.isEmpty) rethrow;
-          break;
-        }
-        if (resp.statusCode != 200) {
-          if (out.isEmpty) {
-            throw http.ClientException(
-                'gamma $resource keyset read failed (${resp.statusCode})',
-                uri);
-          }
-          break;
-        }
-        decoded = await _decodeKeysetPage(resp.body, resource);
-        if (decoded == null) break;
+      final _KeysetPage decoded;
+      try {
+        decoded = await _raceKeysetRead(resource, query,
+            timeout: timeout,
+            decode: (body) => _decodeKeysetPage(body, resource));
+      } catch (_) {
+        if (out.isEmpty) rethrow;
+        break;
       }
       for (final row in decoded.rows) {
         if (activeOnly && row['active'] == false) continue;
@@ -1060,6 +1024,182 @@ class PolymarketModel {
       cursor = next;
     }
   }
+
+  /// [streamGammaKeyset] for `events`, parsed: the rows are decoded and
+  /// read into [PolymarketEvent]s in one step, off the UI isolate when the
+  /// page is large (a 100-row sports page is tens of megabytes of JSON).
+  static Future<List<PolymarketEvent>> _fetchGammaEvents(
+    Map<String, String> params, {
+    required int limit,
+    int offset = 0,
+    Duration timeout = const Duration(seconds: 15),
+  }) async {
+    final wanted = offset + limit;
+    final activeOnly = params['active'] == 'true';
+    final base = Map<String, String>.of(params)
+      ..remove('active')
+      ..remove('offset')
+      ..remove('limit');
+    final out = <PolymarketEvent>[];
+    String? cursor;
+    for (var page = 0; page < _kGammaKeysetMaxPages && out.length < wanted;
+        page++) {
+      final pageSize = (wanted - out.length).clamp(1, _kGammaKeysetPageMax);
+      final query = {
+        ...base,
+        'limit': '$pageSize',
+        if (cursor != null) 'after_cursor': cursor,
+      };
+      final _KeysetEvents decoded;
+      try {
+        decoded = await _raceKeysetRead('events', query,
+            timeout: timeout,
+            decode: (body) => _decodeKeysetEvents(body, activeOnly));
+      } catch (_) {
+        if (out.isEmpty) rethrow;
+        break;
+      }
+      out.addAll(decoded.events);
+      final next = decoded.next;
+      if (next == null || next.isEmpty || decoded.rowCount < pageSize) break;
+      cursor = next;
+    }
+    return out.skip(offset).take(limit).toList();
+  }
+
+  /// How long a keyset read waits on the Kute feed alone before Gamma is
+  /// asked too; the first good answer is used.
+  static const Duration kFeedHeadStart = Duration(milliseconds: 500);
+
+  /// The longest the Kute feed is waited on at all.
+  static const Duration kFeedTimeout = Duration(seconds: 3);
+
+  /// One keyset page from the Kute backend feed (the same page trimmed to
+  /// the keys the cards read, about a quarter of Gamma's bytes, cached and
+  /// coalesced) or from Gamma, whichever gives a good answer first. The
+  /// feed is asked first; Gamma starts when the feed has not answered in
+  /// [kFeedHeadStart], or at once when the feed fails. The read that loses
+  /// is closed, so its bytes stop. Without a backend (or with [direct])
+  /// Gamma alone is read. Throws when neither answers.
+  static Future<T> _raceKeysetRead<T extends Object>(
+    String resource,
+    Map<String, dynamic> query, {
+    required Duration timeout,
+    required Future<T?> Function(String body) decode,
+    bool direct = false,
+  }) {
+    final backend = direct ? null : _feedBackend();
+    final gammaUri = Uri.parse('$_gammaBase/$resource/keyset')
+        .replace(queryParameters: query);
+    final done = Completer<T>();
+    http.Client? feedClient;
+    http.Client? gammaClient;
+    Timer? headStart;
+    Object? gammaError;
+    var feedOver = backend == null;
+    var gammaOver = false;
+    var gammaStarted = false;
+
+    void win(T page) {
+      if (done.isCompleted) return;
+      done.complete(page);
+      headStart?.cancel();
+      feedClient?.close();
+      gammaClient?.close();
+    }
+
+    void failIfBothOver() {
+      if (done.isCompleted || !feedOver || !gammaOver) return;
+      done.completeError(gammaError ??
+          http.ClientException('$resource keyset read failed', gammaUri));
+    }
+
+    void startGamma() {
+      if (gammaStarted || done.isCompleted) return;
+      gammaStarted = true;
+      final client = gammaClient = http.Client();
+      () async {
+        try {
+          final resp = await client.get(gammaUri).timeout(timeout);
+          if (done.isCompleted) return;
+          if (resp.statusCode != 200) {
+            throw http.ClientException(
+                'gamma $resource keyset read failed (${resp.statusCode})',
+                gammaUri);
+          }
+          final page = await decode(resp.body);
+          if (page == null) {
+            throw http.ClientException(
+                'gamma $resource keyset unreadable', gammaUri);
+          }
+          win(page);
+        } catch (e) {
+          gammaError = e;
+        } finally {
+          client.close();
+          gammaOver = true;
+          failIfBothOver();
+        }
+      }();
+    }
+
+    if (backend == null) {
+      startGamma();
+      return done.future;
+    }
+    headStart = Timer(kFeedHeadStart, startGamma);
+    final client = feedClient = http.Client();
+    () async {
+      try {
+        final resp = await client
+            .get(Uri.parse('$backend/api/v1/pm/feed/$resource')
+                .replace(queryParameters: query))
+            .timeout(timeout < kFeedTimeout ? timeout : kFeedTimeout);
+        if (resp.statusCode == 200 && !done.isCompleted) {
+          final page = await decode(resp.body);
+          if (page != null) {
+            win(page);
+            return;
+          }
+        }
+      } catch (_) {
+        // Gamma answers instead.
+      } finally {
+        client.close();
+        feedOver = true;
+      }
+      // The feed could not answer: Gamma now, without waiting out the
+      // head start.
+      headStart?.cancel();
+      startGamma();
+      failIfBothOver();
+    }();
+    return done.future;
+  }
+
+  /// The query of one keyset page: [params] without the offset-route
+  /// keys, [multi] repeated, the page size and the cursor.
+  static Map<String, dynamic> _keysetQuery(
+    Map<String, String> params, {
+    required int limit,
+    String? cursor,
+    Map<String, List<String>> multi = const {},
+  }) =>
+      <String, dynamic>{
+        ...(Map<String, String>.of(params)
+          ..remove('active')
+          ..remove('offset')
+          ..remove('limit')),
+        for (final e in multi.entries)
+          if (e.value.isNotEmpty) e.key: e.value,
+        'limit': '${limit.clamp(1, _kGammaKeysetPageMax)}',
+        if (cursor != null && cursor.isNotEmpty) 'after_cursor': cursor,
+      };
+
+  /// The cursor of the page after one of [rowCount] rows read for
+  /// [limit]; null at the end of the list.
+  static String? _pageAfter(String? next, int rowCount, int limit) =>
+      next == null || next.isEmpty || rowCount < limit ? null : next;
 
   /// One page of a Gamma keyset list, for lists that load as the person
   /// scrolls: the rows and the cursor of the next page (null at the end).
@@ -1081,54 +1221,46 @@ class PolymarketModel {
     Duration timeout = const Duration(seconds: 12),
   }) async {
     final activeOnly = params['active'] == 'true';
-    final query = <String, dynamic>{
-      ...(Map<String, String>.of(params)
-        ..remove('active')
-        ..remove('offset')
-        ..remove('limit')),
-      for (final e in multi.entries)
-        if (e.value.isNotEmpty) e.key: e.value,
-      'limit': '${limit.clamp(1, _kGammaKeysetPageMax)}',
-      if (cursor != null && cursor.isNotEmpty) 'after_cursor': cursor,
-    };
-    _KeysetPage? decoded;
-    final backend = direct ? null : _feedBackend();
-    if (backend != null) {
-      try {
-        final resp = await http
-            .get(Uri.parse('$backend/api/v1/pm/feed/$resource')
-                .replace(queryParameters: query))
-            .timeout(timeout);
-        if (resp.statusCode == 200) {
-          decoded = await _decodeKeysetPage(resp.body, resource);
-        }
-      } catch (_) {
-        decoded = null;
-      }
-    }
-    if (decoded == null) {
-      final uri = Uri.parse('$_gammaBase/$resource/keyset')
-          .replace(queryParameters: query);
-      final resp = await http.get(uri).timeout(timeout);
-      if (resp.statusCode != 200) {
-        throw http.ClientException(
-            'gamma $resource keyset read failed (${resp.statusCode})', uri);
-      }
-      decoded = await _decodeKeysetPage(resp.body, resource);
-      if (decoded == null) {
-        throw http.ClientException('gamma $resource keyset unreadable', uri);
-      }
-    }
+    final decoded = await _raceKeysetRead(
+      resource,
+      _keysetQuery(params, limit: limit, cursor: cursor, multi: multi),
+      direct: direct,
+      timeout: timeout,
+      decode: (body) => _decodeKeysetPage(body, resource),
+    );
     final rows = [
       for (final row in decoded.rows)
         if (!activeOnly || row['active'] != false) row
     ];
-    final next = decoded.next;
     return (
       rows: rows,
-      next: next == null || next.isEmpty || decoded.rows.length < limit
-          ? null
-          : next,
+      next: _pageAfter(decoded.next, decoded.rows.length, limit),
+    );
+  }
+
+  /// [readGammaKeysetPage] for `events`, read into [PolymarketEvent]s: the
+  /// page is decoded and parsed in one step, off the UI isolate when it is
+  /// large. For the lists that only draw cards.
+  static Future<({List<PolymarketEvent> events, String? next})>
+      readGammaEventsPage(
+    Map<String, String> params, {
+    required int limit,
+    String? cursor,
+    Map<String, List<String>> multi = const {},
+    bool direct = false,
+    Duration timeout = const Duration(seconds: 12),
+  }) async {
+    final activeOnly = params['active'] == 'true';
+    final decoded = await _raceKeysetRead(
+      'events',
+      _keysetQuery(params, limit: limit, cursor: cursor, multi: multi),
+      direct: direct,
+      timeout: timeout,
+      decode: (body) => _decodeKeysetEvents(body, activeOnly),
+    );
+    return (
+      events: decoded.events,
+      next: _pageAfter(decoded.next, decoded.rowCount, limit),
     );
   }
 
@@ -1150,6 +1282,21 @@ class PolymarketModel {
       String body, String resource) async {
     if (body.length < 64 * 1024) return _parseKeysetPage(body, resource);
     return Isolate.run(() => _parseKeysetPage(body, resource));
+  }
+
+  /// [_decodeKeysetPage] for an events page, also read into
+  /// [PolymarketEvent]s (rows Gamma marks inactive dropped with
+  /// [activeOnly]): one hop to a worker isolate for a large page, so
+  /// neither the decode nor the parse runs on the UI isolate.
+  static Future<_KeysetEvents?> _decodeKeysetEvents(
+      String body, bool activeOnly) async {
+    if (body.length < 64 * 1024) {
+      return _parseKeysetEvents(
+          (body: body, activeOnly: activeOnly, protocol: null));
+    }
+    final protocol = PolyMarketProtocol.workerState();
+    return Isolate.run(() => _parseKeysetEvents(
+        (body: body, activeOnly: activeOnly, protocol: protocol)));
   }
 
   Uri _positionsUri(String addr) => Uri.parse('$_dataApiV2/positions').replace(
@@ -1497,7 +1644,9 @@ class PolymarketModel {
         limit: 20,
         timeout: const Duration(seconds: 10),
       );
-      final markets = rows.map(Market.fromJson).toList();
+      final markets = rows
+          .map((r) => Market.fromJson(PolyMarketProtocol.withTradingIds(r)))
+          .toList();
 
       if (markets.isEmpty) return null;
 
@@ -1681,7 +1830,7 @@ class PolymarketModel {
       final m = markets.first as Map<String, dynamic>;
       final names = _jsonListStrings(m['outcomes']);
       final prices = _jsonListDoubles(m['outcomePrices']);
-      final tokens = _jsonListStrings(m['clobTokenIds']);
+      final tokens = PolyMarketProtocol.outcomeIds(m);
       return List.generate(names.length, (i) {
         return PolymarketOutcome(
           name: names[i],
@@ -1707,7 +1856,7 @@ class PolymarketModel {
     // Team Falcons win Map 1?").
     return markets.map((raw) {
       final m = raw as Map<String, dynamic>;
-      final tokens = _jsonListStrings(m['clobTokenIds']);
+      final tokens = PolyMarketProtocol.outcomeIds(m);
       final prices = _jsonListDoubles(m['outcomePrices']);
       final candidate = (m['groupItemTitle'] as String?)?.trim();
       final question = (m['question'] as String?)?.trim() ?? 'Unknown';
@@ -1816,10 +1965,9 @@ class PolymarketModel {
       if (hot) params['hot'] = 'true';
       if (featured) params['featured'] = 'true';
 
-      final data =
-          await fetchGammaKeyset('events', params, limit: limit, offset: offset);
-
-      final parsed = data.map(_eventFromRawJson).toList();
+      // Read and parsed off the UI isolate when large.
+      final parsed =
+          await _fetchGammaEvents(params, limit: limit, offset: offset);
 
       if (preserveApiOrder) return parsed;
 
@@ -1839,7 +1987,7 @@ class PolymarketModel {
   /// Polymarket's web homepage ("markets that moved the most in the last
   /// 24h"). We hit Polymarket's own `/api/biggest-movers` because that's
   /// the endpoint the `/breaking` page uses (found by scanning their
-  /// Next.js chunks). Gamma's public `/markets?order=oneDayPriceChange`
+  /// Next.js chunks). Gamma's `/markets/keyset?order=oneDayPriceChange`
   /// returns the same raw dataset but without the noise filters the
   /// frontend applies, so our rail ended up polluted with daily-temperature
   /// and micro-sports markets that the website hides.
@@ -1871,7 +2019,7 @@ class PolymarketModel {
         final m = raw as Map<String, dynamic>;
         final names = _jsonListStrings(m['outcomes']);
         final prices = _jsonListDoubles(m['outcomePrices']);
-        final tokens = _jsonListStrings(m['clobTokenIds']);
+        final tokens = PolyMarketProtocol.outcomeIds(m);
         final outcomes = List.generate(
           names.isEmpty ? prices.length : names.length,
           (i) {
@@ -1982,7 +2130,9 @@ class PolymarketModel {
   }
 
   static PolymarketEvent _eventFromRawJson(Map<String, dynamic> e) {
-    final markets = (e['markets'] as List?) ?? const [];
+    // One entry per market when a V1 and a V2 twin are both listed.
+    final markets =
+        PolyMarketProtocol.withoutTwins((e['markets'] as List?) ?? const []);
     final primaryMarket =
         markets.isNotEmpty ? markets.first as Map<String, dynamic> : null;
     final outcomes = _buildOutcomesFromRaw(markets);
@@ -2358,7 +2508,8 @@ class PolymarketModel {
     final ranked = <(int, int, Event)>[];
     for (final raw in rows.take(30)) {
       try {
-        final event = Event.fromJson(raw as Map<String, dynamic>);
+        final event = Event.fromJson(PolyMarketProtocol.eventWithTradingIds(
+            raw as Map<String, dynamic>));
         if (!event.active || event.closed || !seen.add(event.id)) continue;
         final title = (event.title ?? '').toLowerCase();
         final slug = (event.slug ?? '').toLowerCase();
@@ -2651,15 +2802,20 @@ class PolymarketModel {
     }
   }
 
-  /// Fetches a single Gamma event by slug. Replaces the polybrainz
-  /// `_client.gamma.events.getBySlug` wrapper with a direct call —
-  /// returns the polybrainz `Event` model so existing callers stay
-  /// untouched. Throws on 404 / parse failure so callers' try/catch
-  /// retry blocks (previous/current 5-min window etc.) keep working.
+  /// Fetches a single Gamma event by slug from `GET /events/slug/{slug}`,
+  /// which returns the event object itself (the same item shape the offset
+  /// `GET /events?slug=` list carried; that list route answers
+  /// `deprecation: true` with a `sunset` of 2026-05-01 and is gone at any
+  /// moment). A 404 means no such event. Throws on 404 / parse failure so
+  /// callers' try/catch retry blocks (previous/current 5-min window etc.)
+  /// keep working.
   Future<Map<String, dynamic>> _fetchEventBySlugRaw(String slug) async {
-    final uri = Uri.parse('https://gamma-api.polymarket.com/events')
-        .replace(queryParameters: {'slug': slug});
+    final uri = Uri.parse(
+        '$_gammaBase/events/slug/${Uri.encodeComponent(slug)}');
     final resp = await http.get(uri).timeout(const Duration(seconds: 10));
+    if (resp.statusCode == 404) {
+      throw Exception('event not found for slug=$slug');
+    }
     if (resp.statusCode != 200) {
       throw Exception('event slug fetch failed: ${resp.statusCode}');
     }
@@ -2669,14 +2825,10 @@ class PolymarketModel {
     final body = text.length < 64 * 1024
         ? jsonDecode(text)
         : await Isolate.run(() => jsonDecode(text));
-    if (body is! List || body.isEmpty) {
-      throw Exception('event not found for slug=$slug');
-    }
-    final first = body.first;
-    if (first is! Map<String, dynamic>) {
+    if (body is! Map<String, dynamic> || body['slug'] == null) {
       throw Exception('malformed event payload for slug=$slug');
     }
-    return first;
+    return body;
   }
 
   /// Fetch just the `teams` (crest logos) for an event by slug. Used to
@@ -2785,7 +2937,7 @@ class PolymarketModel {
     final ptb = meta is Map ? meta['priceToBeat'] : null;
     final priceToBeat = ptb is num ? ptb.toDouble() : double.tryParse('$ptb');
     return Btc5MinEvent.fromEvent(
-      Event.fromJson(raw),
+      Event.fromJson(PolyMarketProtocol.eventWithTradingIds(raw)),
       priceToBeat:
           priceToBeat != null && priceToBeat.isFinite && priceToBeat > 0
               ? priceToBeat
@@ -2838,135 +2990,6 @@ class PolymarketModel {
     }
   }
 
-  /// Polymarket's live Chainlink 60-second TWAP for every asset in
-  /// [symbolByAsset] (app asset → RTDS symbol, e.g. `BTC` → `btc/usd`),
-  /// over ONE RTDS socket: the series Polymarket's crypto Up/Down markets
-  /// resolve on and the one polymarket.com plots for them (topic
-  /// `crypto_prices_twap_sixty`). Points carry Chainlink's own event time.
-  ///
-  /// RTDS behaviour, measured live October 2026: one point per symbol
-  /// per second, about 1.4 s behind (worst gap seen 3 s). A FILTERED
-  /// subscription is answered with a snapshot of the last ~57 seconds,
-  /// one point a second, but a connection only keeps live updates for
-  /// one filtered entry per topic; the UNFILTERED entry carries every
-  /// symbol's live updates (without a snapshot). So one subscribe holds
-  /// both: unfiltered for the live points, one filter per symbol for the
-  /// snapshots. No update arrives twice.
-  ///
-  /// Errors and a server close end the stream; the caller reconnects.
-  Stream<PmReferencePriceFrame> streamChainlinkTwapPrices(
-    Map<String, String> symbolByAsset,
-  ) {
-    if (_disposed) return const Stream.empty();
-    const topic = 'crypto_prices_twap_sixty';
-    final assetBySymbol = <String, String>{
-      for (final e in symbolByAsset.entries) e.value.toLowerCase(): e.key,
-    };
-    late StreamController<PmReferencePriceFrame> controller;
-    WebSocketChannel? channel;
-    StreamSubscription<dynamic>? channelSub;
-    Timer? heartbeat;
-    // Flipped by onCancel so the in-flight `connect()` below can bail
-    // out instead of writing to a sink/controller that's already been
-    // torn down (adding after teardown throws into the root zone).
-    var cancelled = false;
-
-    ({DateTime t, double p})? point(Object? raw) {
-      if (raw is! Map) return null;
-      // `full_accuracy_value` is a 1e18-scaled integer on RTDS; the
-      // float `value` is the price polymarket.com plots.
-      final p = double.tryParse(raw['value']?.toString() ?? '');
-      final ms = int.tryParse(raw['timestamp']?.toString() ?? '');
-      if (p == null || !p.isFinite || p <= 0 || ms == null) return null;
-      return (t: DateTime.fromMillisecondsSinceEpoch(ms), p: p);
-    }
-
-    Future<void> connect() async {
-      channel = WebSocketChannel.connect(Uri.parse(_kRtdsWssUrl));
-      try {
-        await channel!.ready;
-      } catch (e) {
-        if (!cancelled && !controller.isClosed) controller.addError(e);
-        return;
-      }
-      if (cancelled || controller.isClosed) return;
-      try {
-        channel!.sink.add(jsonEncode({
-          'action': 'subscribe',
-          'subscriptions': [
-            {'topic': topic, 'type': 'update'},
-            for (final symbol in assetBySymbol.keys)
-              {
-                'topic': topic,
-                'type': 'update',
-                'filters': jsonEncode({'symbol': symbol}),
-              },
-          ],
-        }));
-      } catch (_) {
-        return;
-      }
-      // Same heartbeat as polymarket.com's own client: "PING" every 30 s.
-      heartbeat = Timer.periodic(const Duration(seconds: 30), (_) {
-        try {
-          channel?.sink.add('PING');
-        } catch (_) {}
-      });
-      channelSub = channel!.stream.listen(
-        (data) {
-          if (controller.isClosed || data is! String) return;
-          if (!data.startsWith('{')) return; // PONG and other bare text
-          try {
-            final json = jsonDecode(data);
-            if (json is! Map<String, dynamic>) return;
-            if (json['topic'] != topic) return;
-            final payload = json['payload'];
-            if (payload is! Map) return;
-            final asset = assetBySymbol[
-                payload['symbol']?.toString().toLowerCase() ?? ''];
-            if (asset == null) return;
-            final batch = payload['data'];
-            if (batch is List) {
-              final points = batch
-                  .map(point)
-                  .whereType<({DateTime t, double p})>()
-                  .toList()
-                ..sort((a, b) => a.t.compareTo(b.t));
-              if (points.isEmpty) return;
-              controller.add(PmReferencePriceFrame(
-                  asset: asset, points: points, isSnapshot: true));
-              return;
-            }
-            final p = point(payload);
-            if (p == null) return;
-            controller.add(PmReferencePriceFrame(asset: asset, points: [p]));
-          } catch (_) {}
-        },
-        onError: (Object e, StackTrace st) {
-          if (!controller.isClosed) controller.addError(e, st);
-        },
-        onDone: () {
-          if (!controller.isClosed) controller.close();
-        },
-      );
-    }
-
-    controller = StreamController<PmReferencePriceFrame>(
-      onListen: connect,
-      onCancel: () async {
-        cancelled = true;
-        heartbeat?.cancel();
-        // Cancel the upstream subscription FIRST so no in-flight frame
-        // lands on the controller after teardown.
-        await channelSub?.cancel();
-        try {
-          await channel?.sink.close();
-        } catch (_) {}
-      },
-    );
-    return controller.stream;
-  }
-
   /// Polymarket's own "Price to beat" for a crypto Up/Down window: the
   /// `openPrice` polymarket.com shows, from the endpoint its event page
   /// calls (`/api/crypto/crypto-price`, with the TWAP parameters every
@@ -3017,8 +3040,8 @@ class PolymarketModel {
   /// Returns recent USD prices for `coingeckoId` from CoinGecko's free
   /// `market_chart` endpoint over the last ~hour. Used by [BtcPredictChart]
   /// to bootstrap `priceHistory` so the curve shows up immediately
-  /// instead of sitting on "Loading prices..." for ~10s while the RTDS
-  /// WebSocket spins up (#164). Returns an empty list on any failure —
+  /// instead of sitting on "Loading prices..." for ~10s while the
+  /// reference-price socket spins up (#164). Returns an empty list on any failure —
   /// the chart already has a CoinGecko spot-poll fallback after that.
   ///
   /// CoinGecko's free tier serves 5-minute granularity at `days=1`,
@@ -3317,4 +3340,32 @@ _KeysetPage? _parseKeysetPage(String body, String resource) {
     rows.whereType<Map<String, dynamic>>().toList(),
     next is String ? next : null,
   );
+}
+
+/// One parsed events page: the events, the rows the page held before any
+/// were dropped (for paging) and the cursor of the next page.
+class _KeysetEvents {
+  const _KeysetEvents(this.events, this.rowCount, this.next);
+  final List<PolymarketEvent> events;
+  final int rowCount;
+  final String? next;
+}
+
+/// Decodes and parses one events page; in a worker isolate [protocol]
+/// carries the app isolate's V2 switches in first.
+_KeysetEvents? _parseKeysetEvents(
+    ({
+      String body,
+      bool activeOnly,
+      ({bool tradingEnabled, Set<String> debugV2Ids})? protocol,
+    }) args) {
+  if (args.protocol case final p?) PolyMarketProtocol.adoptWorkerState(p);
+  final page = _parseKeysetPage(args.body, 'events');
+  if (page == null) return null;
+  final events = <PolymarketEvent>[
+    for (final row in page.rows)
+      if (!args.activeOnly || row['active'] != false)
+        PolymarketModel._eventFromRawJson(row),
+  ];
+  return _KeysetEvents(events, page.rows.length, page.next);
 }

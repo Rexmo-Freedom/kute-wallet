@@ -18,6 +18,7 @@ import 'package:kute/models/settings_model.dart';
 import 'package:kute/models/polymarket_model.dart' show ActivityType;
 import 'package:kute/models/transactions_model.dart';
 import 'package:kute/services/export/export_aggregation.dart';
+import 'package:kute/services/polymarket_optimistic_activity_service.dart';
 import 'package:kute/services/tx_fiat_snapshot_service.dart';
 
 // ──────────────────────────────────────────────────────────────────
@@ -760,7 +761,11 @@ class TransactionPdfExport {
         sats: 0,
         isSent: isSent,
         status: 'Completed',
-        txid: tx.txHash,
+        // A just-placed row keyed by its CLOB trade or order id has no
+        // chain hash yet: printed empty, like any other missing hash.
+        txid: PolymarketOptimisticActivityService.isChainTxHash(tx.txHash)
+            ? tx.txHash
+            : '',
         walletName: walletName,
         walletId: wallet.id,
         walletType: walletType,

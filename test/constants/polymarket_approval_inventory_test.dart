@@ -41,6 +41,33 @@ void main() {
         containsAll(wanted));
   });
 
+  // Protocol V2 markets (and combos) trade on ExchangeV3 and settle through
+  // the Router, with shares on the PositionManager. Every account gets those
+  // approvals at onboarding, before its first V2 trade (docs.polymarket.com
+  // /migrate/polymarket-v2; @polymarket/client setupTradingApprovals).
+  test('onboarding sets the Protocol V2 approvals for every account', () {
+    const v3 = PolymarketConstants.comboExchangeV3Address;
+    const router = PolymarketConstants.comboRouterAddress;
+    const pm = PolymarketConstants.comboPositionManagerAddress;
+    expect(
+        PolymarketApprovalInventoryConstants
+            .activeErc20SpendersByToken[PolymarketConstants.pusdAddress],
+        contains(v3));
+    expect(PolymarketApprovalInventoryConstants.activeOperatorsByToken[pm],
+        [v3, router]);
+    // V2 shares never sit on CTF, and CTF operators never include V2 venues.
+    expect(
+        PolymarketApprovalInventoryConstants
+            .activeOperatorsByToken[PolymarketConstants.ctfAddress],
+        isNot(anyOf(contains(v3), contains(router))));
+    // The combo pre-check asks only for what onboarding already sets.
+    expect(
+        PolymarketApprovalInventoryConstants.pusdSpenders,
+        containsAll(PolymarketApprovalInventoryConstants.comboPusdSpenders));
+    expect(PolymarketApprovalInventoryConstants.positionManagerOperators,
+        containsAll(PolymarketApprovalInventoryConstants.comboPositionOperators));
+  });
+
   test('a revocation clears every adapter approval, active or retired', () {
     final erc20 = PolymarketApprovalInventoryConstants.erc20SpendersByToken;
     final operators = PolymarketApprovalInventoryConstants.operatorsByToken;
@@ -68,5 +95,23 @@ void main() {
         ...PolymarketApprovalInventoryConstants.retiredCtfOperators,
       ],
     );
+    expect(
+      erc20[PolymarketConstants.pusdAddress],
+      [
+        ...PolymarketApprovalInventoryConstants.pusdSpenders,
+        ...PolymarketApprovalInventoryConstants.retiredPusdSpenders,
+      ],
+    );
+    expect(operators[PolymarketConstants.comboPositionManagerAddress],
+        PolymarketApprovalInventoryConstants.positionManagerOperators);
+    // Every active entry can be revoked.
+    for (final e in PolymarketApprovalInventoryConstants
+        .activeOperatorsByToken.entries) {
+      expect(operators[e.key], containsAll(e.value));
+    }
+    for (final e in PolymarketApprovalInventoryConstants
+        .activeErc20SpendersByToken.entries) {
+      expect(erc20[e.key], containsAll(e.value));
+    }
   });
 }

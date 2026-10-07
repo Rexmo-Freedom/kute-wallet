@@ -24,7 +24,6 @@ import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/helpers/user_error_copy.dart';
-import 'package:kute/services/balance_checker_service.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:kute/l10n/l10n.dart';
 
@@ -303,13 +302,6 @@ class _RecoverWalletState extends ConsumerState<RecoverWallet>
 
     setState(() => _isProcessing = true);
     final authModel = ref.read(authModelProvider);
-    // Grab the ROOT ProviderContainer NOW, while `context` is valid and
-    // before any await. context.go('/home') below disposes THIS widget
-    // (and its WidgetRef), so the post-navigation background scan must
-    // read through this long-lived container instead of the dead ref —
-    // touching a disposed ConsumerState ref throws StateError even in
-    // release.
-    final container = ProviderScope.containerOf(context, listen: false);
 
     if (!ref.read(sessionUnlockedProvider)) {
       TrackingService.walletAddFailed(reason: 'session_locked');
@@ -390,9 +382,10 @@ class _RecoverWalletState extends ConsumerState<RecoverWallet>
 
     // The same phrase leads to two EVM accounts: wallets created before the
     // standard format use the legacy SHA256 seed stretch. Ask the venues
-    // which one holds this user's Predictions and Investing (about 5 s at
-    // most, derivation off the UI isolate); legacy wins when its account
-    // has funds or history, else standard. A check that cannot finish
+    // and chains which one this user's money is on (about 5 s at most,
+    // derivation off the UI isolate); legacy wins when its account has
+    // venue funds or history, Polygon or Arbitrum funds or a sent
+    // transaction, else standard. A check that cannot finish
     // falls back to standard and the next unlock retries it
     // (RecoveryEvmFormat.retryPending). Existing wallet records keep their
     // own version through RestoreSecrets.
@@ -430,7 +423,9 @@ class _RecoverWalletState extends ConsumerState<RecoverWallet>
       provisionPolymarketAccount(mnemonic: mnemonic, walletId: walletId,
           evmDerivationVersion: newWallet.evmDerivationVersion);
 
-      TrackingService.recoverySeedEntered(evmFormat: evmChoice.analyticsValue);
+      TrackingService.recoverySeedEntered(
+          evmFormat: evmChoice.analyticsValue,
+          legacySignal: evmChoice.legacySignal);
       TrackingService.walletCreated(type: 'imported');
       final isFirstWallet = ref.read(settingsProvider).wallets.length == 1;
       TrackingService.walletAdded(
@@ -456,14 +451,6 @@ class _RecoverWalletState extends ConsumerState<RecoverWallet>
           navigate: (router) => router.go('/home'),
         );
       }
-
-      // Fire-and-forget: check old derivation paths for balances in the
-      // background. We NEVER auto-migrate/sweep on recovery. When funds
-      // are found on a legacy path we add a watch-only "other" wallet so
-      // the user simply SEES those legacy funds as a separate wallet and
-      // can move them manually later. No fund movement, ever.
-      TrackingService.recoveryBalanceCheckInitiated();
-      _runBackgroundBalanceCheck(container, mnemonic, walletName);
     } catch (e) {
       if (!persisted) {
         final category = TrackingService.errorCategory(e);
@@ -511,95 +498,6 @@ class _RecoverWalletState extends ConsumerState<RecoverWallet>
         },
       ),
     );
-  }
-
-  /// Runs the multi-path Electrum scan AFTER the user has already left
-  /// this screen for /home. Reads through the root [container] captured
-  /// before navigation — NOT the widget's WidgetRef, which is disposed
-  /// by the time this completes and would throw on read.
-  void _runBackgroundBalanceCheck(
-      ProviderContainer container, String mnemonic, String recoveredName) {
-    // Use a non-autoDispose read so the checker survives navigation
-    final electrumUrl = container.read(settingsProvider).bitcoinElectrumNode;
-    final checker = BalanceCheckerService(electrumUrl: electrumUrl);
-    checker.checkAllPaths(mnemonic).then((result) async {
-      TrackingService.recoveryBalanceCheckCompleted(
-          complete: result.isComplete, hasBalances: result.hasAnyBalance);
-      if (result.isComplete) {
-        TrackingService.recoveryBalanceFound(hasBalances: result.hasAnyBalance);
-      }
-      if (!result.hasAnyBalance) return;
-
-      // NEVER auto-migrate. For each funded legacy path, add a
-      // watch-only "other" wallet mirroring the xpub-import flow
-      // (import_wallet_controller.importXpub): write the bare account
-      // xpub to secure storage, then add a WalletConfig pointing at it.
-      // The user simply SEES the legacy funds as a separate wallet and
-      // can move them manually later. No sweeping, no fund movement.
-      for (final path in result.pathsWithBalance) {
-        await _addWatchOnlyForPath(container, path, recoveredName);
-      }
-    }).catchError((_) {
-      TrackingService.recoveryBalanceCheckCompleted(complete: false, hasBalances: false);
-    }).whenComplete(checker.dispose);
-  }
-
-  /// Add a single watch-only "other" wallet for a funded legacy
-  /// derivation path. Mirrors import_wallet_controller's xpub-import:
-  /// dedupe on the bare xpub, write it to secure storage, then add a
-  /// `WalletConfig` (watch-only, walletType 'other'). Best-effort and
-  /// fire-and-forget — a failure on one path never blocks the others
-  /// or the user, who is already on Home.
-  Future<void> _addWatchOnlyForPath(ProviderContainer container,
-      DerivationBalance path, String recoveredName) async {
-    try {
-      final xpub = path.xpub;
-      // Without a derived xpub we can't build a watch-only wallet —
-      // skip rather than create a broken entry.
-      if (xpub.isEmpty) return;
-
-      final authModel = container.read(authModelProvider);
-
-      // Dedupe: skip if any existing wallet already tracks this xpub.
-      // Mirrors importXpub's duplicate check. Read the wallet list
-      // through the long-lived container (not a disposed WidgetRef).
-      for (final wallet in container.read(settingsProvider).wallets) {
-        if (wallet.isExternalAddress) continue;
-        final existingXpub = await authModel.getExtendedPublicKey(wallet.id);
-        if (existingXpub != null && existingXpub == xpub) return;
-      }
-
-      // Human-readable suffix per address type, e.g.
-      // "Spending Wallet (legacy)".
-      final typeLabel = switch (path.addressType) {
-        'legacy' => 'legacy',
-        'nested_segwit' => 'nested SegWit',
-        'native_segwit' => 'native SegWit',
-        _ => path.addressType,
-      };
-
-      final newId =
-          '${DateTime.now().millisecondsSinceEpoch}-${Random().nextInt(1000)}';
-      await authModel.setExtendedPublicKey(newId, xpub);
-      await container.read(settingsProvider.notifier).addWallet(
-            WalletConfig(
-              id: newId,
-              name: '$recoveredName ($typeLabel)',
-              sparkEnabled: false,
-              isWatchOnly: true,
-              isHardware: true,
-              walletType: 'other',
-              // App scriptType slug (bip44/bip49/bip84) the
-              // xpub-import / BitcoinConfig flow expects, so the
-              // watch-only wallet derives the SAME addresses the funds
-              // live at.
-              scriptType: path.scriptType,
-              backedUp: true,
-            ),
-          );
-    } catch (_) {
-      // Best-effort: one bad path must not block the others.
-    }
   }
 
   static const _bitcoinAddressTypes = {

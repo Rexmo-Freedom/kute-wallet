@@ -1,7 +1,17 @@
 // lib/services/polymarket/polybolt_price_socket.dart
 //
-// PolyBolt reference-price client — the replacement for the deprecated
-// RTDS `crypto_prices_chainlink` socket (`wss://ws-live-data.polymarket.com`).
+// PolyBolt reference-price client: Polymarket's only live source of the
+// Chainlink prices its crypto Up/Down markets resolve on. It replaced the
+// price topics of Polymarket's previous live-data socket, which are
+// removed in late October 2026; the app no longer talks to that socket.
+//
+// Topic mapping from the migration guide, for the record:
+//   crypto_prices (Binance, btcusdt)        → price.crypto      {symbol: btcusd}
+//   crypto_prices_chainlink (btc/usd)       → price.crypto      {symbol: btcusd}
+//   crypto_prices_twap_sixty (btc/usd)      → price.crypto.twap {symbol: btcusd, window_seconds: 60}
+//   crypto_prices_twap_thirty               → none
+//   equity_prices (AAPL)                    → price.equity      {symbol: aapl}
+// The app only ever used crypto_prices_twap_sixty, now price.crypto.twap.
 //
 // Endpoint: wss://ws-live-v2.polymarket.com/ws (AsyncAPI 2.0.0 at
 // https://ws-live-v2.polymarket.com/asyncapi.json, migration guide at
@@ -52,18 +62,17 @@ const kPolyBoltWsUrl = 'wss://ws-live-v2.polymarket.com/ws';
 /// series on its Up/Down charts, so the app's Up/Down cards read it too.
 const kPolyBoltCryptoTwapChannel = 'price.crypto.twap';
 
-/// Spot, about one update per second per symbol, from Pyth or Chainlink
-/// as Polymarket's operators choose per symbol. The migration guide maps
-/// the old `crypto_prices_chainlink` topic here. Not the series the
-/// Up/Down markets resolve on.
+/// Spot, about one update per second per symbol, Chainlink by default.
+/// The migration guide maps the old Chainlink and Binance spot topics
+/// here. Not the series the Up/Down markets resolve on.
 const kPolyBoltCryptoSpotChannel = 'price.crypto';
 
 /// The only TWAP window PolyBolt carries data for today.
 const kPolyBoltTwapWindowSeconds = 60;
 
 /// PolyBolt symbol for an asset ticker: lowercase, `usd` suffix
-/// (`BTC` → `btcusd`). Accepts the older RTDS spellings too so a key
-/// like `btc/usd` or `BTCUSDT` normalises to the same thing.
+/// (`BTC` → `btcusd`). Older spellings such as `btc/usd` or `BTCUSDT`
+/// normalise to the same thing, since PolyBolt refuses them.
 String polyBoltSymbolForAsset(String asset) {
   var s = asset.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
   if (s.endsWith('usdt')) s = s.substring(0, s.length - 4);
@@ -121,8 +130,8 @@ class PolyBoltPricePoint {
 }
 
 /// The server refused or could not verify our credentials, or a gated
-/// subscription was rejected. Not retried — the consumer should fall
-/// back to another source.
+/// subscription was rejected. Not retried by the socket; the consumer
+/// decides when to try again (see [PolyBoltPriceSocket.isHardFailure]).
 class PolyBoltAuthException implements Exception {
   final String code;
   const PolyBoltAuthException(this.code);
@@ -172,13 +181,12 @@ class _WebSocketChannelTransport implements PolyBoltTransport {
 
 /// Authenticated PolyBolt reference-price stream over ONE socket.
 ///
-/// [framesByAsset] emits the same frames as the RTDS
-/// `PolymarketModel.streamChainlinkTwapPrices`, so the consumer
-/// (`CryptoReferencePricesNotifier`) can swap sources without changes
-/// to its keying. Reconnects with linear backoff like
-/// `PolymarketClobWebSocket`; auth failures and an exhausted budget
+/// [framesByAsset] emits [PmReferencePriceFrame]s keyed by the app's
+/// asset, for `CryptoReferencePricesNotifier`. Reconnects with linear
+/// backoff like `PolymarketClobWebSocket`, re-authenticating and
+/// resubscribing every time; auth failures and an exhausted budget
 /// surface as an error followed by stream close so the consumer can
-/// fall back to RTDS.
+/// schedule its own retry.
 class PolyBoltPriceSocket {
   /// Re-read on every (re)connect so a rotated credential is picked up.
   final PolyBoltCredentials? Function() credentials;
@@ -305,9 +313,9 @@ class PolyBoltPriceSocket {
   }
 
   /// `full_accuracy_value` when it agrees with the float `value`, else
-  /// `value`. The spec documents the exact field as a decimal string,
-  /// but RTDS sends the same Chainlink TWAP as an integer scaled by
-  /// 1e18; a scaled integer must never reach the screen as a price.
+  /// `value`. The spec documents the exact field as a decimal string;
+  /// the legacy TWAP frames carried an integer scaled by 1e18, so a
+  /// scaled integer is guarded against and never reaches the screen.
   static double? _pointPrice(Map<dynamic, dynamic> point) {
     final value = _toPrice(point['value']);
     final exact = _toPrice(point['full_accuracy_value']);
@@ -350,6 +358,23 @@ class PolyBoltPriceSocket {
       }
     }
     return out;
+  }
+
+  /// True for a failure that retrying soon with the same credentials
+  /// cannot fix: credentials refused (`auth_invalid`, `auth_expired`,
+  /// `auth_required`, `auth_attempts`, close 4001) or a policy close
+  /// (4008, a client bug). `auth_unavailable` (verifier unreachable),
+  /// a missing credential and an exhausted reconnect budget are
+  /// transient.
+  static bool isHardFailure(Object error) {
+    if (error is PolyBoltAuthException) {
+      return error.code != 'auth_unavailable' &&
+          error.code != 'no_credentials';
+    }
+    if (error is PolyBoltDisconnectedException) {
+      return error.closeCode == 4008;
+    }
+    return false;
   }
 
   static bool _isAuthErrorCode(String code) =>

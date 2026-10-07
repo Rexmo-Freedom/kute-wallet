@@ -10,9 +10,12 @@
 // * Sell is a sigType 3 order. The order ID recorded before the POST is
 //   the Exchange-domain Order hash, not the TypedDataSign digest the
 //   device signs, and it is checked against the response `orderID`.
-// * Redeem, wrap, unwrap and withdraw go through a batch that is never
-//   merged with another; every call passes `DepositWalletCallAllowlist`
-//   before any prompt. Withdrawal stays behind O3.
+// * Redeem, wrap, unwrap, withdraw and the approvals (exact pUSD amounts
+//   for a buy, the one-time CTF operators before the first sell or claim)
+//   go through a batch that is never merged with another; every call passes
+//   `DepositWalletCallAllowlist` before any prompt, and every approved
+//   spender or operator is part of the reviewed intent and its digest.
+//   Withdrawal stays behind O3.
 // * Cancel follows O8: CLOB credentials only, no Ledger prompt. Copy must
 //   never say the Ledger protects cancellation.
 // * A legacy Safe account is read-only (O4).
@@ -22,6 +25,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:kute/models/affiliate_model.dart' show AffiliateService;
 import 'package:kute/constants/feature_flags.dart';
+import 'package:kute/constants/polymarket_approval_inventory.dart';
 import 'package:kute/constants/polymarket_constants.dart';
 import 'package:kute/services/hardware/evm_signing_request.dart';
 import 'package:kute/services/hardware/ledger/deposit_wallet_call_allowlist.dart';
@@ -328,33 +332,79 @@ abstract final class LedgerPolymarketIntents {
         ),
       );
 
+  /// pUSD approvals of exactly [amount] for every spender the CLOB checks
+  /// before it accepts a BUY of this kind ([ledgerPmTradeSpenders]). The
+  /// spenders are part of the reviewed parameters and the digest, and the
+  /// executor refuses an intent whose list is not the expected one.
   static LedgerActionIntent approveTrading({
     required String walletId,
     required String depositWallet,
     required BigInt amount,
     required bool negRisk,
     required Map<String, String> summary,
-  }) =>
-      LedgerActionIntent.create(
+  }) {
+    final spenders = [
+      for (final s in ledgerPmTradeSpenders(negRisk)) s.toLowerCase()
+    ];
+    return LedgerActionIntent.create(
+      walletId: walletId,
+      kind: LedgerActionKind.pmDepositWalletBatch,
+      params: {
+        'op': 'approveTrade',
+        'depositWallet': depositWallet,
+        'amount': amount,
+        'negRisk': negRisk,
+        'spenders': spenders,
+      },
+      summary: summary,
+      sensitive: LedgerSensitiveIntentDraft(
+        action: 'pmBet',
         walletId: walletId,
-        kind: LedgerActionKind.pmDepositWalletBatch,
-        params: {
-          'op': 'approveTrade',
-          'depositWallet': depositWallet,
-          'amount': amount,
-          'negRisk': negRisk
-        },
-        summary: summary,
-        sensitive: LedgerSensitiveIntentDraft(
-          action: 'pmBet',
-          walletId: walletId,
-          venue: 'polymarket',
-          account: depositWallet,
-          asset: 'PUSD',
-          amountMax: amount,
-          requiresStepUp: false,
-        ),
-      );
+        venue: 'polymarket',
+        account: depositWallet,
+        asset: 'PUSD',
+        amountMax: amount,
+        limits: {'spenders': spenders},
+        requiresStepUp: false,
+      ),
+    );
+  }
+
+  /// One-time CTF `setApprovalForAll(operator, true)` for each of
+  /// [operators] (the missing ones of [ledgerPmShareOperators], read
+  /// on-chain first). Selling needs the exchanges (and, for neg-risk, the
+  /// v1 adapter the CLOB still checks); claiming needs the collateral
+  /// adapters.
+  static LedgerActionIntent enableShareTrading({
+    required String walletId,
+    required String depositWallet,
+    required List<String> operators,
+    required Map<String, String> summary,
+    DateTime? now,
+  }) {
+    final list = [for (final o in operators) o.toLowerCase()];
+    return LedgerActionIntent.create(
+      walletId: walletId,
+      kind: LedgerActionKind.pmDepositWalletBatch,
+      params: {
+        'op': 'approveOperators',
+        'depositWallet': depositWallet,
+        'operators': list,
+      },
+      summary: summary,
+      sensitive: LedgerSensitiveIntentDraft(
+        action: 'pmSell',
+        walletId: walletId,
+        venue: 'polymarket',
+        account: depositWallet,
+        asset: 'CTF',
+        amountMax: BigInt.zero,
+        limits: {'operators': list},
+        requiresStepUp: false,
+      ),
+      now: now,
+    );
+  }
 
   /// A sigType 3 SELL of [shares] outcome tokens for at least [minProceeds]
   /// pUSD (both 6-decimal base units).
@@ -446,6 +496,10 @@ abstract final class LedgerPolymarketIntents {
       _collateral('wrap', walletId, depositWallet, amount, summary, now,
           action: 'venueDeposit');
 
+  /// Approve the offramp for exactly [amount] pUSD, then unwrap it into
+  /// USDC.e in the same batch: `CollateralOfframp.unwrap` pulls the pUSD
+  /// from the wallet with `safeTransferFrom`. The spender is part of the
+  /// reviewed parameters and the digest.
   static LedgerActionIntent unwrap({
     required String walletId,
     required String depositWallet,
@@ -454,16 +508,22 @@ abstract final class LedgerPolymarketIntents {
     DateTime? now,
   }) =>
       _collateral('unwrap', walletId, depositWallet, amount, summary, now,
-          action: 'venueWithdraw');
+          action: 'venueWithdraw',
+          spender: PolymarketConstants.collateralOfframpAddress);
 
   static LedgerActionIntent _collateral(String op, String walletId,
           String depositWallet, BigInt amount, Map<String, String> summary,
           DateTime? now,
-          {required String action}) =>
+          {required String action, String? spender}) =>
       LedgerActionIntent.create(
         walletId: walletId,
         kind: LedgerActionKind.pmDepositWalletBatch,
-        params: {'op': op, 'depositWallet': depositWallet, 'amount': amount},
+        params: {
+          'op': op,
+          'depositWallet': depositWallet,
+          'amount': amount,
+          if (spender != null) 'spender': spender.toLowerCase(),
+        },
         summary: summary,
         sensitive: LedgerSensitiveIntentDraft(
           action: action,
@@ -472,6 +532,7 @@ abstract final class LedgerPolymarketIntents {
           account: depositWallet,
           asset: 'USDC.e',
           amountMax: amount,
+          limits: {if (spender != null) 'spender': spender.toLowerCase()},
           requiresStepUp: false,
         ),
         now: now,
@@ -952,23 +1013,41 @@ class LedgerPolymarketExecutor {
   Future<String> approveTrading(LedgerActionIntent intent,
       {void Function()? beforeSubmit}) {
     _checkIntent(intent, LedgerActionKind.pmDepositWalletBatch);
-    if (intent.param<String>('op') != 'approveTrade' ||
-        intent.param<BigInt>('amount') <= BigInt.zero) {
+    final amount = intent.param<BigInt>('amount');
+    final negRisk = intent.param<bool>('negRisk');
+    if (intent.param<String>('op') != 'approveTrade' || amount <= BigInt.zero) {
       throw const LedgerIntentMismatchException('trade approval');
     }
-    return _batch(
-        intent,
-        [
-          (
-            target: PolymarketConstants.pusdAddress,
-            value: BigInt.zero,
-            data: encodeApproveCall(
-                intent.param<bool>('negRisk')
-                    ? PolymarketConstants.negRiskExchangeAddress
-                    : PolymarketConstants.exchangeAddress,
-                intent.param<BigInt>('amount')),
-          )
-        ],
+    // The reviewed spenders must be exactly the ones this kind of order
+    // needs, so the summary and digest name every call that is signed.
+    if (!_sameAddresses(intent.param<List<Object?>>('spenders'),
+        ledgerPmTradeSpenders(negRisk))) {
+      throw const LedgerIntentMismatchException('trade approval spenders');
+    }
+    return _batch(intent, ledgerPmTradeApprovalCalls(amount, negRisk: negRisk),
+        beforeSubmit: beforeSubmit);
+  }
+
+  /// The one-time CTF operator approvals a Ledger deposit wallet needs
+  /// before its first sell or claim. Only the reviewed operators are
+  /// approved; each must be one of [ledgerPmShareOperators], at most once.
+  Future<String> enableShareTrading(LedgerActionIntent intent,
+      {void Function()? beforeSubmit}) {
+    _checkIntent(intent, LedgerActionKind.pmDepositWalletBatch);
+    final reviewed = intent.param<List<Object?>>('operators');
+    final operators = <String>[];
+    for (final o in reviewed) {
+      if (o is! String ||
+          !ledgerPmShareOperators.any((p) => sameEvmAddress(p, o)) ||
+          operators.any((seen) => sameEvmAddress(seen, o))) {
+        throw const LedgerIntentMismatchException('share operators');
+      }
+      operators.add(o);
+    }
+    if (intent.param<String>('op') != 'approveOperators' || operators.isEmpty) {
+      throw const LedgerIntentMismatchException('share operators');
+    }
+    return _batch(intent, ledgerPmShareApprovalCalls(operators),
         beforeSubmit: beforeSubmit);
   }
 
@@ -1125,16 +1204,13 @@ class LedgerPolymarketExecutor {
     if (intent.param<String>('op') != 'unwrap') {
       throw const LedgerIntentMismatchException('op');
     }
+    if (!sameEvmAddress(intent.param<String>('spender'),
+        PolymarketConstants.collateralOfframpAddress)) {
+      throw const LedgerIntentMismatchException('unwrap spender');
+    }
     return _batch(
       intent,
-      [
-        (
-          target: PolymarketConstants.collateralOfframpAddress,
-          value: BigInt.zero,
-          data: encodeUnwrapCall(PolymarketConstants.usdcEAddress, _wallet,
-              intent.param<BigInt>('amount')),
-        ),
-      ],
+      ledgerPmUnwrapCalls(_wallet, intent.param<BigInt>('amount')),
       beforeSubmit: beforeSubmit,
     );
   }
@@ -1228,13 +1304,13 @@ class LedgerPolymarketExecutor {
         throw LedgerSubmissionUnknownException(pending.id,
             StateError('The previous transaction still needs confirmation.'));
       }
-      await checkCapability?.call(intent.params['op'] == 'wrap'
-          ? 'polymarket.deposit'
-          : intent.params['op'] == 'redeem'
-              ? 'polymarket.close'
-              : intent.params['op'] == 'approveTrade'
-                  ? 'polymarket.trade'
-                  : 'polymarket.withdraw');
+      await checkCapability?.call(switch (intent.params['op']) {
+        'wrap' => 'polymarket.deposit',
+        // Share approvals exist only to sell or claim.
+        'redeem' || 'approveOperators' => 'polymarket.close',
+        'approveTrade' => 'polymarket.trade',
+        _ => 'polymarket.withdraw',
+      });
       String? recordId;
       var readyToSubmit = false;
       try {
@@ -1385,6 +1461,122 @@ class LedgerPolymarketExecutor {
     );
   }
 }
+
+// ───────────────────────────── batch calls ─────────────────────────────
+
+/// [reviewed] names exactly [expected], in order.
+bool _sameAddresses(List<Object?> reviewed, List<String> expected) {
+  if (reviewed.length != expected.length) return false;
+  for (var i = 0; i < expected.length; i++) {
+    final r = reviewed[i];
+    if (r is! String || !sameEvmAddress(r, expected[i])) return false;
+  }
+  return true;
+}
+
+/// The pUSD spenders the CLOB checks before it accepts a BUY: the
+/// Exchange, or for a neg-risk market the Neg Risk Exchange and the CLOB v1
+/// Neg Risk Adapter (labelled deprecated, still checked).
+List<String> ledgerPmTradeSpenders(bool negRisk) => negRisk
+    ? const [
+        PolymarketConstants.negRiskExchangeAddress,
+        PolymarketConstants.legacyNegRiskAdapterAddress,
+      ]
+    : const [PolymarketConstants.exchangeAddress];
+
+/// `pUSD.approve(spender, amount)` for each of [ledgerPmTradeSpenders].
+List<DepositWalletCall> ledgerPmTradeApprovalCalls(BigInt amount,
+        {required bool negRisk}) =>
+    [
+      for (final spender in ledgerPmTradeSpenders(negRisk))
+        (
+          target: PolymarketConstants.pusdAddress,
+          value: BigInt.zero,
+          data: encodeApproveCall(spender, amount),
+        ),
+    ];
+
+/// `pUSD.approve(Offramp, amount)` then `Offramp.unwrap(USDC.e, wallet,
+/// amount)`: the offramp pulls the pUSD with `safeTransferFrom`, so the
+/// unwrap reverts without the approval, as the wrap would without its
+/// onramp approval.
+List<DepositWalletCall> ledgerPmUnwrapCalls(String wallet, BigInt amount) => [
+      (
+        target: PolymarketConstants.pusdAddress,
+        value: BigInt.zero,
+        data: encodeApproveCall(
+            PolymarketConstants.collateralOfframpAddress, amount),
+      ),
+      (
+        target: PolymarketConstants.collateralOfframpAddress,
+        value: BigInt.zero,
+        data: encodeUnwrapCall(PolymarketConstants.usdcEAddress, wallet, amount),
+      ),
+    ];
+
+/// Every CTF operator a deposit wallet needs to sell and claim, the same
+/// list hot onboarding sets: the two exchanges, the CLOB v1 Neg Risk
+/// Adapter (the CLOB still checks it for neg-risk sells) and the two
+/// collateral adapters claims redeem through.
+const List<String> ledgerPmShareOperators =
+    PolymarketApprovalInventoryConstants.ctfOperators;
+
+/// `CTF.setApprovalForAll(operator, true)` for each of [operators].
+List<DepositWalletCall> ledgerPmShareApprovalCalls(List<String> operators) => [
+      for (final operator in operators)
+        (
+          target: PolymarketConstants.ctfAddress,
+          value: BigInt.zero,
+          data: encodeSetApprovalForAllCall(operator),
+        ),
+    ];
+
+/// The [ledgerPmShareOperators] [wallet] has not approved yet, in list
+/// order. [isApproved] reads `CTF.isApprovedForAll(wallet, operator)`
+/// on-chain and must throw when it cannot tell: an unreadable approval is
+/// never treated as missing or as present, so this throws too.
+Future<List<String>> ledgerPmMissingShareOperators(
+  String wallet,
+  Future<bool> Function({required String owner, required String operator})
+      isApproved,
+) async {
+  final approved = await Future.wait([
+    for (final operator in ledgerPmShareOperators)
+      isApproved(owner: wallet, operator: operator),
+  ]);
+  return [
+    for (var i = 0; i < ledgerPmShareOperators.length; i++)
+      if (!approved[i]) ledgerPmShareOperators[i],
+  ];
+}
+
+const Map<String, String> _contractNames = {
+  PolymarketConstants.exchangeAddress: 'Exchange',
+  PolymarketConstants.negRiskExchangeAddress: 'Neg Risk Exchange',
+  PolymarketConstants.legacyNegRiskAdapterAddress: 'Neg Risk Adapter',
+  PolymarketConstants.ctfCollateralAdapterAddress: 'Collateral Adapter',
+  PolymarketConstants.negRiskCtfCollateralAdapterAddress:
+      'Neg Risk Collateral Adapter',
+  PolymarketConstants.collateralOnrampAddress: 'Collateral Onramp',
+  PolymarketConstants.collateralOfframpAddress: 'Collateral Offramp',
+};
+
+/// A pinned Polymarket contract's name and shortened address for the
+/// Ledger review summary, e.g. `Neg Risk Adapter 0xd91E…5296`. Contract
+/// names are proper names and are not translated.
+String ledgerPmContractLabel(String address) {
+  final name = _contractNames.entries
+          .where((e) => sameEvmAddress(e.key, address))
+          .map((e) => e.value)
+          .firstOrNull ??
+      'Contract';
+  return '$name ${address.substring(0, 6)}…'
+      '${address.substring(address.length - 4)}';
+}
+
+/// The review-summary value naming every contract a batch approves.
+String ledgerPmContractsLabel(Iterable<String> addresses) =>
+    addresses.map(ledgerPmContractLabel).join('\n');
 
 /// The Exchange-domain Order hash the CLOB reports as `orderID`
 /// (keccak(0x1901 ‖ exchangeDomainSeparator ‖ orderStructHash)), lowercase

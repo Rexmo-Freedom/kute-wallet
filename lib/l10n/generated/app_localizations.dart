@@ -10714,6 +10714,18 @@ abstract class AppLocalizations {
   /// **'Allow predictions spending'**
   String get ledgerBetEnableSpending;
 
+  /// No description provided for @ledgerSummaryContracts.
+  ///
+  /// In en, this message translates to:
+  /// **'Contracts allowed'**
+  String get ledgerSummaryContracts;
+
+  /// No description provided for @ledgerPmEnableShareTrading.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow selling and claiming'**
+  String get ledgerPmEnableShareTrading;
+
   /// No description provided for @feeBitcoinNetwork.
   ///
   /// In en, this message translates to:
@@ -11770,6 +11782,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Your Predictions account could not finish setting up. Your money is safe. Try again.'**
   String get betSetupFailed;
+
+  /// Prediction slip notice when Polymarket refused the order for balance or allowance again after the app refreshed the balance once. Nothing was placed.
+  ///
+  /// In en, this message translates to:
+  /// **'Not enough balance or allowance for this market. Your money is safe. Try a smaller amount.'**
+  String get betVenueBalanceRefused;
+
+  /// Prediction slip notice when Polymarket refused the order because it still reserves earlier matched trades against a balance that covers the order (a venue-side delay, not a shortage). Nothing was placed.
+  ///
+  /// In en, this message translates to:
+  /// **'Polymarket is still settling an earlier trade on your balance. Your money is safe. Try again in a moment.'**
+  String get betVenueSettling;
 
   /// Prediction slip notice when a fresh deposit was still being converted for trading when the order was ready. Nothing was sent.
   ///

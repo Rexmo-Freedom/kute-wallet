@@ -162,7 +162,7 @@ final hyperliquidAddressProvider = FutureProvider<String?>((ref) async {
     final mnemonic = await resolveBip39MnemonicFor(spending,
         access: SeedAccess.automatic, session: ref.read(seedSessionProvider));
     if (mnemonic == null) return null;
-    final wallet = EvmWalletDerivation.deriveWallet(
+    final wallet = await EvmWalletDerivation.deriveWalletAsync(
         mnemonic: mnemonic, version: spending.evmDerivationVersion, index: 0);
     return wallet.address;
   } catch (_) {

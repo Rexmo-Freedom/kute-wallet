@@ -6108,6 +6108,12 @@ class AppLocalizationsFi extends AppLocalizations {
   String get ledgerBetEnableSpending => 'Salli käyttö ennusteisiin';
 
   @override
+  String get ledgerSummaryContracts => 'Sallitut sopimukset';
+
+  @override
+  String get ledgerPmEnableShareTrading => 'Salli myynti ja voittojen lunastus';
+
+  @override
   String get feeBitcoinNetwork => 'Bitcoin-verkko';
 
   @override
@@ -6734,6 +6740,14 @@ class AppLocalizationsFi extends AppLocalizations {
   @override
   String get betSetupFailed =>
       'Ennusteet-tilisi käyttöönotto ei valmistunut. Rahasi ovat turvassa. Yritä uudelleen.';
+
+  @override
+  String get betVenueBalanceRefused =>
+      'Saldo tai hyväksyntä ei riitä tälle markkinalle. Rahasi ovat turvassa. Kokeile pienempää summaa.';
+
+  @override
+  String get betVenueSettling =>
+      'Polymarket selvittää vielä aiempaa kauppaa saldollasi. Rahasi ovat turvassa. Yritä hetken päästä uudelleen.';
 
   @override
   String get betDepositStillConverting =>

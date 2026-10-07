@@ -6122,6 +6122,13 @@ class AppLocalizationsHu extends AppLocalizations {
   String get ledgerBetEnableSpending => 'Előrejelzési költés engedélyezése';
 
   @override
+  String get ledgerSummaryContracts => 'Engedélyezett szerződések';
+
+  @override
+  String get ledgerPmEnableShareTrading =>
+      'Eladás és nyeremény-felvétel engedélyezése';
+
+  @override
   String get feeBitcoinNetwork => 'Bitcoin-hálózat';
 
   @override
@@ -6749,6 +6756,14 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String get betSetupFailed =>
       'Az Előrejelzések fiókod beállítása nem fejeződött be. A pénzed biztonságban van. Próbáld újra.';
+
+  @override
+  String get betVenueBalanceRefused =>
+      'Nincs elég egyenleg vagy jóváhagyás ehhez a piachoz. A pénzed biztonságban van. Próbálj kisebb összeget.';
+
+  @override
+  String get betVenueSettling =>
+      'A Polymarket még elszámol egy korábbi kötést az egyenlegeden. A pénzed biztonságban van. Próbáld újra egy pillanat múlva.';
 
   @override
   String get betDepositStillConverting =>

@@ -1,7 +1,9 @@
 import 'dart:async';
 
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/helpers/polymarket_account_readiness.dart';
+import 'package:kute/services/polymarket/placement_waits.dart';
 
 void main() {
   test('knowing the account address still requires setup before readiness',
@@ -84,10 +86,114 @@ void main() {
       force: true,
       initialize: () async => attempts++,
     );
-    expect(identical(first, second), isTrue);
+    // One repair runs; the second caller waits on it.
     expect(attempts, 2);
     repair.complete();
-    await first;
+    await Future.wait([first, second]);
+  });
+
+  group('a forced repair of a ready account', () {
+    Future<PolymarketAccountReadiness> ready() async {
+      final readiness = PolymarketAccountReadiness();
+      await readiness.ensure(
+          scope: 'wallet:a', isCurrent: () => true, initialize: () async {});
+      return readiness;
+    }
+
+    test('leaves the account ready for every other bet while it runs',
+        () async {
+      final readiness = await ready();
+      final repair = Completer<void>();
+      final forced = readiness.ensure(
+          scope: 'wallet:a',
+          isCurrent: () => true,
+          force: true,
+          initialize: () => repair.future);
+      expect(readiness.isReady, isTrue);
+      var setups = 0;
+      // Another market's placement does not join or wait on it.
+      await readiness.ensure(
+          scope: 'wallet:a',
+          isCurrent: () => true,
+          initialize: () async => setups++);
+      expect(setups, 0);
+      repair.complete();
+      await forced;
+      expect(readiness.isReady, isTrue);
+    });
+
+    test('releases its callers after the repair window, still ready', () {
+      fakeAsync((async) {
+        PolymarketAccountReadiness.now = async.getClock(DateTime(2026)).now;
+        addTearDown(() => PolymarketAccountReadiness.now = DateTime.now);
+        late PolymarketAccountReadiness readiness;
+        ready().then((r) => readiness = r);
+        async.flushMicrotasks();
+        final hung = Completer<void>();
+        Object? first, joined;
+        readiness
+            .ensure(
+                scope: 'wallet:a',
+                isCurrent: () => true,
+                force: true,
+                initialize: () => hung.future)
+            .catchError((Object e) {
+          first = e;
+        });
+        async.elapse(const Duration(seconds: 60));
+        var repairs = 0;
+        readiness
+            .ensure(
+                scope: 'wallet:a',
+                isCurrent: () => true,
+                force: true,
+                initialize: () async => repairs++)
+            .catchError((Object e) {
+          joined = e;
+        });
+        expect(repairs, 0, reason: 'joins the running repair');
+        // The joiner is held only for what is left of the window.
+        async.elapse(const Duration(seconds: 31));
+        expect(first, isA<TimeoutException>());
+        expect(joined, isA<TimeoutException>());
+        expect(readiness.isReady, isTrue);
+        // Past the window a new forced repair starts its own.
+        readiness.ensure(
+            scope: 'wallet:a',
+            isCurrent: () => true,
+            force: true,
+            initialize: () async => repairs++);
+        async.flushMicrotasks();
+        expect(repairs, 1);
+        hung.complete();
+        async.flushMicrotasks();
+      });
+    });
+
+    test('that fails withdraws readiness, so the next placement runs setup',
+        () async {
+      final readiness = await ready();
+      await expectLater(
+          readiness.ensure(
+              scope: 'wallet:a',
+              isCurrent: () => true,
+              force: true,
+              initialize: () async => throw StateError('relayer refused')),
+          throwsStateError);
+      expect(readiness.isReady, isFalse);
+      var setups = 0;
+      await readiness.ensure(
+          scope: 'wallet:a',
+          isCurrent: () => true,
+          initialize: () async => setups++);
+      expect(setups, 1);
+      expect(readiness.isReady, isTrue);
+    });
+
+    test('is bounded by the placement setup wait', () {
+      expect(PolymarketAccountReadiness.repairWindow,
+          PolymarketPlacementWaits.setup);
+    });
   });
 
   test('a replaced account cannot inherit or publish another account setup',

@@ -31,6 +31,25 @@ import 'package:kute/services/tracking_service.dart';
 class VenueAnalytics {
   VenueAnalytics._();
 
+  /// A venue's refusal text, fit for an analytics property: the venue's
+  /// own words (never typed by anyone, never a secret), cut before the
+  /// figures it appends ("-> spender: 0x…, allowance: 0"), with hex and
+  /// numbers taken out, nothing but plain text left and at most [max]
+  /// characters. TrackingService scrubs it again on the way out.
+  static String refusalText(String raw, {int max = 120}) {
+    var text = raw.split(RegExp(r'->|\n')).first;
+    text = text
+        .replaceAll(RegExp(r'0x[0-9a-fA-F]*'), ' ')
+        .replaceAll(RegExp(r'[0-9]+'), ' ')
+        .replaceAll(RegExp(r'''[^A-Za-z/ .,:'_-]'''), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim()
+        .toLowerCase();
+    text = text.replaceAll(RegExp(r'[\s:,.-]+$'), '');
+    if (text.length > max) text = text.substring(0, max).trimRight();
+    return text.isEmpty ? 'unknown' : text;
+  }
+
   static const String boxName = 'venue_analytics';
   static const String _pmKindsKey = 'pm_kinds';
   static const String _ledgerBetsKey = 'ledger_pending_bets';

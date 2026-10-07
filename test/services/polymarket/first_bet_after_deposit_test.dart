@@ -134,5 +134,39 @@ void main() {
       expect(jsonDecode(box.get('$account:7')!)['stage'], 'rejected');
       expect(await HotPolymarketOrderGuard.hasUnsettled(account), isFalse);
     });
+
+    test('an unrecognised 400 refusal settles it at once, nothing pending',
+        () async {
+      // What the backend service throws for any 400 that names an error
+      // and no order: before, this left the row "submitting" for 2 to 30
+      // minutes and the slip said a previous prediction was still being
+      // confirmed, with nothing for the status check to find.
+      final refusal = polymarketHttpRejection(http.Response(
+          jsonEncode({'errorMsg': 'invalid tick size', 'orderID': ''}), 400));
+      expect(refusal, isNotNull);
+      await expectLater(
+          placeOnce(
+              () async => throw PolymarketOrderNotAcceptedException(refusal!)),
+          throwsA(isA<PolymarketOrderNotAcceptedException>()));
+      expect(jsonDecode(box.get('$account:7')!)['stage'], 'rejected');
+      expect(await HotPolymarketOrderGuard.hasUnsettled(account), isFalse);
+      // The status check (and the next tap) finds nothing outstanding.
+      var checked = false;
+      await HotPolymarketOrderGuard().run<void>(
+          walletId: 'spending',
+          depositWallet: account,
+          tokenId: '7',
+          lookup: (_) async => fail('Nothing to look up'),
+          action: (_) async => checked = true);
+      expect(checked, isTrue);
+    });
+
+    test('a 5xx still keeps the order protected', () async {
+      await expectLater(
+          placeOnce(() async =>
+              throw Exception('Order rejected (502): bad gateway')),
+          throwsA(isA<PolymarketOrderOutcomeUnknown>()));
+      expect(jsonDecode(box.get('$account:7')!)['stage'], 'submitting');
+    });
   });
 }

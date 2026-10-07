@@ -6118,6 +6118,13 @@ class AppLocalizationsBg extends AppLocalizations {
   String get ledgerBetEnableSpending => 'Разреши харчене за прогнози';
 
   @override
+  String get ledgerSummaryContracts => 'Разрешени договори';
+
+  @override
+  String get ledgerPmEnableShareTrading =>
+      'Разреши продажба и прибиране на печалби';
+
+  @override
   String get feeBitcoinNetwork => 'Bitcoin мрежа';
 
   @override
@@ -6744,6 +6751,14 @@ class AppLocalizationsBg extends AppLocalizations {
   @override
   String get betSetupFailed =>
       'Акаунтът ти за Прогнози не успя да завърши настройката. Парите ти са в безопасност. Опитай отново.';
+
+  @override
+  String get betVenueBalanceRefused =>
+      'Няма достатъчно наличност или разрешение за този пазар. Парите ти са в безопасност. Опитай с по-малка сума.';
+
+  @override
+  String get betVenueSettling =>
+      'Polymarket все още уравнява предишна сделка по наличността ти. Парите ти са в безопасност. Опитай отново след малко.';
 
   @override
   String get betDepositStillConverting =>

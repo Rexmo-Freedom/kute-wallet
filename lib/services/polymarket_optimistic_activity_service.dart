@@ -9,9 +9,10 @@ import 'package:polybrainz_polymarket/polybrainz_polymarket.dart'
 /// of waiting the seconds-to-minutes the Polymarket Data API takes to
 /// reflect the on-chain settlement.
 ///
-/// Each entry is keyed by transactionHash; when the Data API returns the
-/// same hash we drop the optimistic copy via [confirmedHashes] (handled in
-/// the read path).
+/// Each entry is keyed by [optimisticTradeKey]: a chain hash when the CLOB
+/// answer carries one, else `clob-trade:<id>` / `clob-order:<id>`. When the
+/// Data API returns the same hash, or a fill of the same shape, the
+/// optimistic copy is dropped (handled in the read path).
 class PolymarketOptimisticActivityService {
   static const _boxName = 'polymarket_optimistic_activity';
   static const Duration retentionWindow = Duration(minutes: 30);
@@ -34,8 +35,8 @@ class PolymarketOptimisticActivityService {
   /// Side-effect: garbage-collects stale + confirmed entries.
   ///
   /// [confirmed] enables the FUZZY eviction the hash match can't do:
-  /// BUY rows are recorded under the CLOB orderID (there is no chain
-  /// hash in the order response), while the Data API reports the
+  /// rows are recorded under a CLOB trade or order id (the order
+  /// response carries no chain hash), while the Data API reports the
   /// on-chain transaction hash — the two never match, so without this
   /// the user sees the bet twice for the full retention window. An
   /// optimistic row is considered confirmed when a server row matches
@@ -124,6 +125,44 @@ class PolymarketOptimisticActivityService {
       }
     }
     return false;
+  }
+
+  /// Whether [hash] is an on-chain transaction hash (`0x` + 64 hex). An
+  /// optimistic row recorded under a CLOB trade or order id
+  /// ([optimisticTradeKey]) is not one, so nothing links it to an explorer.
+  static bool isChainTxHash(String hash) =>
+      RegExp(r'^0x[0-9a-fA-F]{64}$').hasMatch(hash);
+
+  /// The key an optimistic BUY or SELL row is recorded under, from the
+  /// CLOB `POST /order` [response]: the first on-chain hash when the response
+  /// still carries `transactionsHashes`; otherwise the first of
+  /// `tradeIDs` (what the CLOB returns since 2026-07-24) as
+  /// `clob-trade:<id>`, else the order id as `clob-order:<id>`. Trade and
+  /// order ids are not transaction hashes, so they are kept recognisably
+  /// apart ([isChainTxHash] is false for them). The row is evicted by the
+  /// fuzzy trade match in [snapshot] once the Data API lists the fill.
+  /// Null when the response names none of them.
+  static String? optimisticTradeKey(Map<String, dynamic> response) {
+    String? first(Object? list) {
+      if (list is! List) return null;
+      for (final v in list) {
+        final s = v?.toString().trim() ?? '';
+        if (s.isNotEmpty) return s;
+      }
+      return null;
+    }
+
+    final hash = first(response['transactionsHashes']);
+    if (hash != null && isChainTxHash(hash)) return hash;
+    final trade = first(response['tradeIDs']);
+    if (trade != null) return 'clob-trade:$trade';
+    final order =
+        (response['orderID'] ?? response['order_id'] ?? response['orderId'])
+                ?.toString()
+                .trim() ??
+            '';
+    if (order.isNotEmpty) return 'clob-order:$order';
+    return null;
   }
 
   static void clear(String transactionHash) {

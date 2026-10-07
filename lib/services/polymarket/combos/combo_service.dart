@@ -26,6 +26,7 @@ import 'package:kute/services/polymarket/combos/combo_ids.dart';
 import 'package:kute/services/polymarket/combos/combo_models.dart';
 import 'package:kute/services/polymarket/combos/combo_order.dart';
 import 'package:kute/services/polymarket/combos/combo_transport.dart';
+import 'package:kute/services/polymarket/market_protocol.dart';
 import 'package:polybrainz_polymarket/polybrainz_polymarket.dart'
     show EthPrivateKey;
 
@@ -130,9 +131,51 @@ class PolymarketComboService {
   static const _gamma = 'gamma-api.polymarket.com';
   static const _dataApi = 'data-api.polymarket.com';
 
+  /// Largest page Gamma's keyset market list serves (2026-05-14).
+  static const _kKeysetPageMax = 100;
+
+  /// Safety stop for one batch's pages.
+  static const _kKeysetMaxPages = 10;
+
+  /// Every row of `GET /markets/keyset` for [params], following
+  /// `next_cursor` until it runs out. The offset `GET /markets` list
+  /// answers `deprecation: true` with a 2026-05-01 sunset, so the keyset
+  /// list is the one used. [batchSize] is the number of ids asked for
+  /// (one row each, at most); the page size is capped at
+  /// [_kKeysetPageMax]. Throws on a non-200 answer or a body that is not
+  /// a `{markets: [...]}` envelope.
+  Future<List<Map<String, dynamic>>> _marketsKeyset(
+      Map<String, Object> params, int batchSize) async {
+    final pageSize = batchSize.clamp(1, _kKeysetPageMax);
+    final rows = <Map<String, dynamic>>[];
+    String? cursor;
+    for (var page = 0; page < _kKeysetMaxPages; page++) {
+      final uri = Uri.https(_gamma, '/markets/keyset', {
+        ...params,
+        'limit': '$pageSize',
+        if (cursor != null) 'after_cursor': cursor,
+      });
+      final res = await _client.get(uri).timeout(const Duration(seconds: 10));
+      if (res.statusCode != 200) {
+        throw http.ClientException('gamma ${res.statusCode}', uri);
+      }
+      final decoded = jsonDecode(res.body);
+      final list = decoded is Map ? decoded['markets'] : null;
+      if (list is! List) {
+        throw http.ClientException('gamma markets keyset unreadable', uri);
+      }
+      rows.addAll(list.whereType<Map<String, dynamic>>());
+      final next = decoded['next_cursor'];
+      if (next is! String || next.isEmpty || list.length < pageSize) break;
+      cursor = next;
+    }
+    return rows;
+  }
+
   /// Gamma `comboStatus` + `positionIds` for [conditionIds] (CTF condition
   /// ids, as the bet legs carry them). Missing entries mean Gamma had no
-  /// market. Throws on a network failure.
+  /// open market (closed markets are left out, as before: a combo can
+  /// only be built from live legs). Throws on a network failure.
   Future<Map<String, ComboEligibility>> fetchEligibility(
       Iterable<String> conditionIds) async {
     final ids = {
@@ -142,23 +185,15 @@ class PolymarketComboService {
     final out = <String, ComboEligibility>{};
     for (var i = 0; i < ids.length; i += 20) {
       final batch = ids.skip(i).take(20).toList();
-      final uri = Uri.https(_gamma, '/markets', {
-        'condition_ids': batch,
-        'limit': '${batch.length}',
-      });
-      final res = await _client.get(uri).timeout(const Duration(seconds: 10));
-      if (res.statusCode != 200) {
-        throw http.ClientException('gamma ${res.statusCode}', uri);
-      }
-      final decoded = jsonDecode(res.body);
-      if (decoded is! List) continue;
-      for (final m in decoded.whereType<Map<String, dynamic>>()) {
+      final rows = await _marketsKeyset({'condition_ids': batch}, batch.length);
+      for (final m in rows) {
         final cond = '${m['conditionId'] ?? ''}'.toLowerCase();
         if (cond.isEmpty) continue;
         out[cond] = ComboEligibility(
           status: '${m['comboStatus'] ?? 'disabled'}'.toLowerCase(),
           positionIds: _stringList(m['positionIds']),
-          clobTokenIds: _stringList(m['clobTokenIds']),
+          // The ids the slip trades (positionIds on a V2 market).
+          clobTokenIds: PolyMarketProtocol.outcomeIds(m),
           outcomes: _stringList(m['outcomes']),
         );
       }
@@ -167,21 +202,32 @@ class PolymarketComboService {
   }
 
   /// CLOB token ids (by outcome index) of Gamma markets [marketIds], for
-  /// the legs' price histories (the estimate chart).
+  /// the legs' price histories (the estimate chart). Asks the keyset list
+  /// once for live markets and once with `closed=true`, since the list
+  /// leaves closed markets out unless asked and a resolved leg still needs
+  /// its chart. A failed batch is skipped.
   Future<Map<String, List<String>>> fetchClobTokens(
       Iterable<String> marketIds) async {
     final ids = marketIds.where((e) => e.isNotEmpty).toSet().toList();
     final out = <String, List<String>>{};
     for (var i = 0; i < ids.length; i += 20) {
       final batch = ids.skip(i).take(20).toList();
-      final uri = Uri.https(
-          _gamma, '/markets', {'id': batch, 'limit': '${batch.length}'});
-      final res = await _client.get(uri).timeout(const Duration(seconds: 10));
-      if (res.statusCode != 200) continue;
-      final decoded = jsonDecode(res.body);
-      if (decoded is! List) continue;
-      for (final m in decoded.whereType<Map<String, dynamic>>()) {
-        out['${m['id']}'] = _stringList(m['clobTokenIds']);
+      for (final closed in const [false, true]) {
+        final missing = [
+          for (final id in batch)
+            if (!out.containsKey(id)) id
+        ];
+        if (missing.isEmpty) break;
+        final List<Map<String, dynamic>> rows;
+        try {
+          rows = await _marketsKeyset(
+              {'id': missing, if (closed) 'closed': 'true'}, missing.length);
+        } catch (_) {
+          continue;
+        }
+        for (final m in rows) {
+          out['${m['id']}'] = PolyMarketProtocol.outcomeIds(m);
+        }
       }
     }
     return out;
@@ -278,9 +324,8 @@ class PolymarketComboService {
           ComboAcceptOutcome(
               state: ComboFillState.pending,
               rfqId: quote.rfqId,
-              errorCode: lastError is ComboRfqException
-                  ? lastError.code
-                  : null);
+              errorCode:
+                  lastError is ComboRfqException ? lastError.code : null);
     }
     if (res.statusCode != 200) throw comboRfqError(res);
     final first = ComboRfqStatus.fromJson(res.json);
