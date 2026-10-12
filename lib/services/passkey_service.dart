@@ -784,13 +784,15 @@ class PasskeyService {
   }
 
   static Future<void> _writePending(Map<String, String> pending) async {
+    // The in-memory set is what the screens show: publish it first, so a
+    // reader that sees the stored flag never finds the set behind it.
+    _pendingLabels.value = Set.unmodifiable(pending.keys);
     final box = await Hive.openBox('settings');
     if (pending.isEmpty) {
       await box.delete(_pendingLabelsKey);
     } else {
       await box.put(_pendingLabelsKey, Map<String, String>.from(pending));
     }
-    _pendingLabels.value = Set.unmodifiable(pending.keys);
   }
 
   /// Load the pending set from storage into [pendingLabels].
