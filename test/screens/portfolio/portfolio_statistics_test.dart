@@ -507,7 +507,9 @@ void main() {
     expect(donutBox.decoration, isNull);
     expect(donutBox.margin, isNull);
     expect(tester.getBottomLeft(find.byType(KuteDonutChart)).dy,
-        lessThan(tester.getTopLeft(find.text('Realized P&L')).dy));
+        lessThan(tester.getTopLeft(find.text('Amount predicted')).dy));
+    // The P&L is the chart's headline, not a tile again.
+    expect(find.text('Realized P&L'), findsNothing);
     expect(tester.takeException(), isNull);
   });
   testWidgets('without categories the card starts with the tiles',
@@ -519,10 +521,11 @@ void main() {
     // The chart stays: it is the series', not the categories'.
     expect(find.byType(KuteLineChart), findsOneWidget);
     expect(
-        tester.getTopLeft(find.text('Realized P&L')).dy -
+        tester.getTopLeft(find.text('Amount predicted')).dy -
             tester.getTopLeft(_card).dy,
         closeTo(16 * 390 / 430, 1));
     expect(_tile(tester, 'Amount predicted'), r'$33.00');
+    expect(find.text('Realized P&L'), findsNothing);
     expect(tester.takeException(), isNull);
   });
   testWidgets('while the categories load, the skeleton sits in the card',
@@ -534,7 +537,8 @@ void main() {
     expect(find.descendant(of: skeleton, matching: find.byType(SkeletonCard)),
         findsNothing);
     expect(tester.getTopLeft(skeleton).dy, tester.getTopLeft(_card).dy);
-    expect(find.text('Realized P&L'), findsOneWidget);
+    expect(find.text('Amount predicted'), findsOneWidget);
+    expect(find.text('Realized P&L'), findsNothing);
   });
   testWidgets(
       'empty history does not fabricate a zero result: the quiet line in '
@@ -571,15 +575,12 @@ void main() {
         (tester) async {
       await _pump(tester, predictions: true);
       await tester.scrollUntilVisible(find.text('Predictions'), 100);
-      // 6 realised (+12 won, −5 lost, −1 of fees on the live one), every
-      // stake and every prediction; the open P&L is Active's.
-      expect(_tile(tester, 'Realized P&L'), r'+$6.00');
+      // Every stake and every prediction; the P&L is the chart's
+      // headline, not a tile.
+      expect(find.text('Realized P&L'), findsNothing);
       expect(find.text('Open P&L'), findsNothing);
       expect(_tile(tester, 'Amount predicted'), r'$33.00');
       expect(_tile(tester, 'Predictions'), '3');
-      // A gain reads in the up colour.
-      final realized = tester.widget<Text>(find.text(r'+$6.00'));
-      expect(realized.style!.color, AppColors.marketUp);
       // No score of any kind.
       expect(find.text('Biggest win'), findsNothing);
       expect(find.textContaining('ccuracy'), findsNothing);
@@ -593,7 +594,7 @@ void main() {
       expect(find.textContaining(r'$'), findsNothing);
       expect(_tile(tester, 'Predictions'), '3');
       expect(_tile(tester, 'Amount predicted'), '••••••');
-      expect(_tile(tester, 'Realized P&L'), '••••••');
+      expect(find.text('Realized P&L'), findsNothing);
     });
 
     testWidgets('without positions there are no prediction tiles',
@@ -609,9 +610,9 @@ void main() {
         'open positions', (tester) async {
       await _pump(tester, trading: true);
       await tester.scrollUntilVisible(find.text('Trades'), 100);
-      // Every fill: the ETH round trip (+10 on 1 of fees) and the BTC open
-      // (1 of fees); the open P&L is Active's.
-      expect(_tile(tester, 'Realized P&L'), r'+$8.00');
+      // Every fill: the ETH round trip and the BTC open; the P&L is the
+      // chart's headline, not a tile.
+      expect(find.text('Realized P&L'), findsNothing);
       expect(find.text('Open P&L'), findsNothing);
       expect(_tile(tester, 'Volume traded'), r'$6,210.00');
       expect(_tile(tester, 'Trades'), '3');
@@ -833,15 +834,17 @@ void main() {
               .getBottomLeft(find.byKey(const ValueKey('statistics-active')))
               .dy,
           lessThan(tester.getTopLeft(_card).dy));
-      expect(find.text('Open P&L'), findsOneWidget);
-      expect(find.text('Realized P&L'), findsNothing);
+      expect(find.text('Amount at stake'), findsOneWidget);
+      expect(find.text('Amount predicted'), findsNothing);
+      expect(find.text('Open P&L'), findsNothing);
       expect(events.where((e) => e.$1 == 'portfolio_tab_changed'), isEmpty);
 
       await tester.tap(find.byKey(const ValueKey('statistics-historic')));
       await tester.pumpAndSettle();
       expect(selected(tester, 'historic'), isTrue);
-      expect(find.text('Open P&L'), findsNothing);
-      expect(find.text('Realized P&L'), findsOneWidget);
+      expect(find.text('Amount at stake'), findsNothing);
+      expect(find.text('Amount predicted'), findsOneWidget);
+      expect(find.text('Realized P&L'), findsNothing);
       expect(_donutTexts(tester).first, 'All time');
       expect(events.where((e) => e.$1 == 'portfolio_tab_changed').single.$2,
           {'tab': 'statistics', 'subtab': 'historic'});
@@ -854,12 +857,12 @@ void main() {
       await tester.pumpAndSettle();
       expect(events.where((e) => e.$1 == 'portfolio_tab_changed').last.$2,
           {'tab': 'statistics', 'subtab': 'active'});
-      expect(find.text('Open P&L'), findsOneWidget);
+      expect(find.text('Amount at stake'), findsOneWidget);
     });
 
     testWidgets(
-        'Predictions Active: the live positions\' value by category, open '
-        'P&L, what they cost and how many', (tester) async {
+        'Predictions Active: the live positions\' value by category, what '
+        'they cost and how many', (tester) async {
       await _pump(tester, predictions: true, scope: StatisticsScope.active);
       // Only the live prediction is open: 40 shares now at 0.75, on crypto.
       expect(_donutTexts(tester),
@@ -867,7 +870,7 @@ void main() {
       expect(_hole(tester), r'$30.00');
       expect(find.text('Sports'), findsNothing);
       await tester.scrollUntilVisible(find.text('Open positions'), 100);
-      expect(_tile(tester, 'Open P&L'), r'+$10.00');
+      expect(find.text('Open P&L'), findsNothing);
       expect(_tile(tester, 'Amount at stake'), r'$20.00');
       expect(_tile(tester, 'Open positions'), '1');
       expect(find.text('Amount predicted'), findsNothing);
@@ -881,7 +884,7 @@ void main() {
       expect(_donutTexts(tester),
           containsAllInOrder(['Active', 'Crypto', '100%', r'$65.00']));
       await tester.scrollUntilVisible(find.text('Open positions'), 100);
-      expect(_tile(tester, 'Open P&L'), r'+$5.00');
+      expect(find.text('Open P&L'), findsNothing);
       expect(_tile(tester, 'Amount at stake'), r'$60.00');
       expect(_tile(tester, 'Open positions'), '2');
       expect(find.text('Volume traded'), findsNothing);

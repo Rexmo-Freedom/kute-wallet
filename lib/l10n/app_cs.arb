@@ -1724,7 +1724,6 @@
   "chartRemoveAllCta": "Odstranit vše",
   "portfolioPerformanceUnavailable": "Výkonnost nedostupná",
   "portfolioStatRealized": "Realizovaný zisk / ztráta",
-  "portfolioStatOpen": "Otevřený zisk / ztráta",
   "portfolioStatAmountPredicted": "Částka v predikcích",
   "portfolioStatCount": "Predikce",
   "portfolioPredictionEntry": "{shares} podílů za {price}",

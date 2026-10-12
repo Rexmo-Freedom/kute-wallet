@@ -1724,7 +1724,6 @@
   "chartRemoveAllCta": "すべて削除",
   "portfolioPerformanceUnavailable": "パフォーマンスを取得できません",
   "portfolioStatRealized": "実現損益",
-  "portfolioStatOpen": "未実現損益",
   "portfolioStatAmountPredicted": "予測に使った金額",
   "portfolioStatCount": "予測数",
   "portfolioPredictionEntry": "{price}で{shares}シェア",

@@ -5949,9 +5949,6 @@ class AppLocalizationsCs extends AppLocalizations {
   String get portfolioStatRealized => 'Realizovaný zisk / ztráta';
 
   @override
-  String get portfolioStatOpen => 'Otevřený zisk / ztráta';
-
-  @override
   String get portfolioStatAmountPredicted => 'Částka v predikcích';
 
   @override

@@ -1724,7 +1724,6 @@
   "chartRemoveAllCta": "Alles verwijderen",
   "portfolioPerformanceUnavailable": "Rendement niet beschikbaar",
   "portfolioStatRealized": "Gerealiseerde winst / verlies",
-  "portfolioStatOpen": "Open winst / verlies",
   "portfolioStatAmountPredicted": "Bedrag in voorspellingen",
   "portfolioStatCount": "Voorspellingen",
   "portfolioPredictionEntry": "{shares} aandelen voor {price}",

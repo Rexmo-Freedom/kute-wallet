@@ -1724,7 +1724,6 @@
   "chartRemoveAllCta": "Noņemt visus",
   "portfolioPerformanceUnavailable": "Rezultāti nav pieejami",
   "portfolioStatRealized": "Realizētā peļņa / zaudējumi",
-  "portfolioStatOpen": "Atvērtā peļņa / zaudējumi",
   "portfolioStatAmountPredicted": "Prognožu summa",
   "portfolioStatCount": "Prognozes",
   "portfolioPredictionEntry": "{shares} daļas par {price}",

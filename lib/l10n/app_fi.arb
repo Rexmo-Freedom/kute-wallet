@@ -1724,7 +1724,6 @@
   "chartRemoveAllCta": "Poista kaikki",
   "portfolioPerformanceUnavailable": "Tuotto ei saatavilla",
   "portfolioStatRealized": "Toteutunut voitto / tappio",
-  "portfolioStatOpen": "Avoin voitto / tappio",
   "portfolioStatAmountPredicted": "Summa ennusteissa",
   "portfolioStatCount": "Ennusteet",
   "portfolioPredictionEntry": "{shares} osuutta hintaan {price}",

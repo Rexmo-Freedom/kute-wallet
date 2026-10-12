@@ -5728,9 +5728,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get portfolioStatRealized => '実現損益';
 
   @override
-  String get portfolioStatOpen => '未実現損益';
-
-  @override
   String get portfolioStatAmountPredicted => '予測に使った金額';
 
   @override

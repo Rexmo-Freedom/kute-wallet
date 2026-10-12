@@ -1724,7 +1724,6 @@
   "chartRemoveAllCta": "Összes eltávolítása",
   "portfolioPerformanceUnavailable": "A teljesítmény nem érhető el",
   "portfolioStatRealized": "Realizált nyereség / veszteség",
-  "portfolioStatOpen": "Nyitott nyereség / veszteség",
   "portfolioStatAmountPredicted": "Előrejelzések összege",
   "portfolioStatCount": "Előrejelzések",
   "portfolioPredictionEntry": "{shares} egység {price} áron",

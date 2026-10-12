@@ -5936,9 +5936,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get portfolioStatRealized => 'Realized P&L';
 
   @override
-  String get portfolioStatOpen => 'Open P&L';
-
-  @override
   String get portfolioStatAmountPredicted => 'Amount predicted';
 
   @override

@@ -1724,7 +1724,6 @@
   "chartRemoveAllCta": "Fjern alle",
   "portfolioPerformanceUnavailable": "Afkast ikke tilgængeligt",
   "portfolioStatRealized": "Realiseret gevinst / tab",
-  "portfolioStatOpen": "Åben gevinst / tab",
   "portfolioStatAmountPredicted": "Beløb i forudsigelser",
   "portfolioStatCount": "Forudsigelser",
   "portfolioPredictionEntry": "{shares} andele til {price}",

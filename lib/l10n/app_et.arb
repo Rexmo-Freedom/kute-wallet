@@ -1724,7 +1724,6 @@
   "chartRemoveAllCta": "Eemalda kõik",
   "portfolioPerformanceUnavailable": "Tulemused pole saadaval",
   "portfolioStatRealized": "Realiseeritud kasum / kahjum",
-  "portfolioStatOpen": "Avatud kasum / kahjum",
   "portfolioStatAmountPredicted": "Summa ennustustes",
   "portfolioStatCount": "Ennustused",
   "portfolioPredictionEntry": "{shares} osakut hinnaga {price}",

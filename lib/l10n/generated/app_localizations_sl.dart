@@ -5963,9 +5963,6 @@ class AppLocalizationsSl extends AppLocalizations {
   String get portfolioStatRealized => 'Realiziran dobiček / izguba';
 
   @override
-  String get portfolioStatOpen => 'Odprt dobiček / izguba';
-
-  @override
   String get portfolioStatAmountPredicted => 'Znesek v napovedih';
 
   @override

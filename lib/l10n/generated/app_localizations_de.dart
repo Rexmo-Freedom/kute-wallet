@@ -6000,9 +6000,6 @@ class AppLocalizationsDe extends AppLocalizations {
   String get portfolioStatRealized => 'Realisierter Gewinn / Verlust';
 
   @override
-  String get portfolioStatOpen => 'Offener Gewinn / Verlust';
-
-  @override
   String get portfolioStatAmountPredicted => 'Betrag in Prognosen';
 
   @override

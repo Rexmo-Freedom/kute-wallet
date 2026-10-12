@@ -1866,7 +1866,6 @@
     "description": "Earn and portfolio presentation copy."
   },
   "portfolioStatRealized": "Lucro / prejuízo realizado",
-  "portfolioStatOpen": "Lucro / prejuízo em aberto",
   "portfolioStatAmountPredicted": "Valor em previsões",
   "portfolioStatCount": "Previsões",
   "portfolioPredictionEntry": "{shares} unidades a {price}",

@@ -3138,10 +3138,6 @@
   "@portfolioStatRealized": {
     "description": "Predictions statistics tile: realized profit or loss over the selected range (sold, claimed or resolved predictions)."
   },
-  "portfolioStatOpen": "Open P&L",
-  "@portfolioStatOpen": {
-    "description": "Predictions statistics tile: unrealized profit or loss of the open predictions now, at live prices."
-  },
   "portfolioStatAmountPredicted": "Amount predicted",
   "@portfolioStatAmountPredicted": {
     "description": "Predictions statistics tile: total amount put on the predictions made in the selected range."

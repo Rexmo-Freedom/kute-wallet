@@ -5953,9 +5953,6 @@ class AppLocalizationsFi extends AppLocalizations {
   String get portfolioStatRealized => 'Toteutunut voitto / tappio';
 
   @override
-  String get portfolioStatOpen => 'Avoin voitto / tappio';
-
-  @override
   String get portfolioStatAmountPredicted => 'Summa ennusteissa';
 
   @override

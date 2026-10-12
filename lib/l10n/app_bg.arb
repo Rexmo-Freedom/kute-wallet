@@ -1724,7 +1724,6 @@
   "chartRemoveAllCta": "Премахни всички",
   "portfolioPerformanceUnavailable": "Представянето не е достъпно",
   "portfolioStatRealized": "Реализирана печалба / загуба",
-  "portfolioStatOpen": "Отворена печалба / загуба",
   "portfolioStatAmountPredicted": "Сума в прогнози",
   "portfolioStatCount": "Прогнози",
   "portfolioPredictionEntry": "{shares} дяла на {price}",

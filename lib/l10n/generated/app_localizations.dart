@@ -10444,12 +10444,6 @@ abstract class AppLocalizations {
   /// **'Realized P&L'**
   String get portfolioStatRealized;
 
-  /// Predictions statistics tile: unrealized profit or loss of the open predictions now, at live prices.
-  ///
-  /// In en, this message translates to:
-  /// **'Open P&L'**
-  String get portfolioStatOpen;
-
   /// Predictions statistics tile: total amount put on the predictions made in the selected range.
   ///
   /// In en, this message translates to:

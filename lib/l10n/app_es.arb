@@ -1724,7 +1724,6 @@
   "chartRemoveAllCta": "Eliminar todo",
   "portfolioPerformanceUnavailable": "Rendimiento no disponible",
   "portfolioStatRealized": "Beneficio / pérdida realizado",
-  "portfolioStatOpen": "Beneficio / pérdida abierto",
   "portfolioStatAmountPredicted": "Importe en predicciones",
   "portfolioStatCount": "Predicciones",
   "portfolioPredictionEntry": "{shares} participaciones a {price}",

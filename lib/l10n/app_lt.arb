@@ -1724,7 +1724,6 @@
   "chartRemoveAllCta": "Pašalinti visus",
   "portfolioPerformanceUnavailable": "Rezultatai negalimi",
   "portfolioStatRealized": "Realizuotas pelnas / nuostolis",
-  "portfolioStatOpen": "Atviras pelnas / nuostolis",
   "portfolioStatAmountPredicted": "Prognozių suma",
   "portfolioStatCount": "Prognozės",
   "portfolioPredictionEntry": "{shares} vnt. po {price}",

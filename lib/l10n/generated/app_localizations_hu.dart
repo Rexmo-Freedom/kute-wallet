@@ -5967,9 +5967,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String get portfolioStatRealized => 'Realizált nyereség / veszteség';
 
   @override
-  String get portfolioStatOpen => 'Nyitott nyereség / veszteség';
-
-  @override
   String get portfolioStatAmountPredicted => 'Előrejelzések összege';
 
   @override

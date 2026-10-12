@@ -203,12 +203,6 @@ class _PerformanceBody extends ConsumerWidget {
     // account's fills and its open positions (the venue's P&L series
     // carries no realised / open split).
     final trading = predictions ? null : _tradingFigures(ref, walletId);
-    String amount(double? value) {
-      if (!visible) return '••••••';
-      if (value == null) return '—';
-      return '${value > 0 ? '+' : value < 0 ? '−' : ''}${formatPolyAmount(ref, value.abs())}';
-    }
-
     String money(double? value) => !visible
         ? '••••••'
         : value == null
@@ -216,11 +210,6 @@ class _PerformanceBody extends ConsumerWidget {
             : formatPolyAmount(ref, value);
     String count(int? value) =>
         value == null ? '—' : NumberFormat.decimalPattern().format(value);
-    Color pnlColor(double? value) => !visible || value == null || value == 0
-        ? c.textPrimary
-        : (value > 0 ? AppColors.marketUp : AppColors.marketDown);
-    (String, String, Color) pnlTile(String label, double? value) =>
-        (label, amount(value), pnlColor(value));
     (String, String, Color) moneyTile(String label, double? value) =>
         (label, money(value), c.textPrimary);
     (String, String, Color) countTile(String label, int? value) =>
@@ -250,7 +239,6 @@ class _PerformanceBody extends ConsumerWidget {
                   _PredictionOpenCategories(
                       request: request, records: live, walletKind: walletKind),
                   _StatTiles(tiles: [
-                    pnlTile(l10n.portfolioStatOpen, data.openPnlUsd),
                     moneyTile(l10n.portfolioStatAtStake,
                         live.fold<double>(0, (sum, r) => sum + r.entryCostUsd)),
                     countTile(l10n.accountOpenPositions, live.length),
@@ -272,7 +260,6 @@ class _PerformanceBody extends ConsumerWidget {
                         walletKind: walletKind,
                         walletId: walletId),
                   _StatTiles(tiles: [
-                    pnlTile(l10n.portfolioStatOpen, trading.openPnlUsd),
                     moneyTile(
                         l10n.portfolioStatAtStake,
                         positions?.fold<double>(
@@ -296,7 +283,6 @@ class _PerformanceBody extends ConsumerWidget {
                 card([
                   _PredictionCategories(request: request, book: book),
                   _StatTiles(tiles: [
-                    pnlTile(l10n.portfolioStatRealized, data.realizedPnlUsd),
                     moneyTile(
                         l10n.portfolioStatAmountPredicted, stats?.stakedUsd),
                     countTile(l10n.portfolioStatCount, stats?.count),
@@ -314,13 +300,11 @@ class _PerformanceBody extends ConsumerWidget {
                         book: trading.book!,
                         walletKind: walletKind,
                         walletId: walletId),
-                  // What closing realised (net of exchange fees), the
-                  // notional traded and the fills. A figure the fills do
-                  // not reach back to, or one not read yet, is a dash,
-                  // never a zero. Funding has no tile: the venue gives it
-                  // per trade.
+                  // The notional traded and the fills; the P&L is the
+                  // chart's headline above, so it has no tile here. A
+                  // figure the fills do not reach back to, or one not read
+                  // yet, is a dash, never a zero.
                   _StatTiles(tiles: [
-                    pnlTile(l10n.portfolioStatRealized, stats?.realizedUsd),
                     moneyTile(l10n.portfolioStatVolume, stats?.volumeUsd),
                     countTile(l10n.portfolioStatTrades, stats?.count),
                   ]),

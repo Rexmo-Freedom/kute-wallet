@@ -1724,7 +1724,6 @@
   "chartRemoveAllCta": "Elimină tot",
   "portfolioPerformanceUnavailable": "Performanță indisponibilă",
   "portfolioStatRealized": "Profit / pierdere realizat",
-  "portfolioStatOpen": "Profit / pierdere deschis",
   "portfolioStatAmountPredicted": "Suma predicțiilor",
   "portfolioStatCount": "Predicții",
   "portfolioPredictionEntry": "{shares} unități la {price}",

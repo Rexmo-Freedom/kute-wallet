@@ -5958,9 +5958,6 @@ class AppLocalizationsDa extends AppLocalizations {
   String get portfolioStatRealized => 'Realiseret gevinst / tab';
 
   @override
-  String get portfolioStatOpen => 'Åben gevinst / tab';
-
-  @override
   String get portfolioStatAmountPredicted => 'Beløb i forudsigelser';
 
   @override

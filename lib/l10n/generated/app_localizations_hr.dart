@@ -5964,9 +5964,6 @@ class AppLocalizationsHr extends AppLocalizations {
   String get portfolioStatRealized => 'Ostvarena dobit / gubitak';
 
   @override
-  String get portfolioStatOpen => 'Otvorena dobit / gubitak';
-
-  @override
   String get portfolioStatAmountPredicted => 'Iznos u predviđanjima';
 
   @override

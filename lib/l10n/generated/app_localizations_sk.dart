@@ -5956,9 +5956,6 @@ class AppLocalizationsSk extends AppLocalizations {
   String get portfolioStatRealized => 'Realizovaný zisk / strata';
 
   @override
-  String get portfolioStatOpen => 'Otvorený zisk / strata';
-
-  @override
   String get portfolioStatAmountPredicted => 'Suma v predpovediach';
 
   @override

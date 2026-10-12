@@ -5978,9 +5978,6 @@ class AppLocalizationsPt extends AppLocalizations {
   String get portfolioStatRealized => 'Lucro / prejuízo realizado';
 
   @override
-  String get portfolioStatOpen => 'Lucro / prejuízo em aberto';
-
-  @override
   String get portfolioStatAmountPredicted => 'Valor em previsões';
 
   @override

@@ -1724,7 +1724,6 @@
   "chartRemoveAllCta": "Αφαίρεση όλων",
   "portfolioPerformanceUnavailable": "Η απόδοση δεν είναι διαθέσιμη",
   "portfolioStatRealized": "Πραγματοποιημένο κέρδος / ζημιά",
-  "portfolioStatOpen": "Ανοιχτό κέρδος / ζημιά",
   "portfolioStatAmountPredicted": "Ποσό σε προβλέψεις",
   "portfolioStatCount": "Προβλέψεις",
   "portfolioPredictionEntry": "{shares} μερίδια στα {price}",

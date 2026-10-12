@@ -6000,9 +6000,6 @@ class AppLocalizationsEl extends AppLocalizations {
   String get portfolioStatRealized => 'Πραγματοποιημένο κέρδος / ζημιά';
 
   @override
-  String get portfolioStatOpen => 'Ανοιχτό κέρδος / ζημιά';
-
-  @override
   String get portfolioStatAmountPredicted => 'Ποσό σε προβλέψεις';
 
   @override

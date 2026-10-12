@@ -271,16 +271,20 @@ class _FloatingActionPillState extends ConsumerState<FloatingActionPill> {
       // otherwise, never a disabled chip.
       if (shellShowsTradingTab(owner, policy: policy))
         ServiceTabData(
-          svgAsset: 'lib/assets/hyperliquid-logo.svg',
-          icon: Icons.candlestick_chart_rounded,
+          // A rising line: the investing symbol people already know from
+          // stock apps, rather than the venue's own logo (user decision
+          // 2026-10-12).
+          icon: Icons.show_chart_rounded,
           label: context.l10n.trading,
           active: widget.activeTab == ActiveNavTab.trading,
           onTap: () => _handleTrading(context),
         ),
       if (shellShowsPredictionsTab(owner, policy: policy))
         ServiceTabData(
-          svgAsset: 'lib/assets/polymarket-logo.svg',
-          icon: Icons.psychology_rounded,
+          // A pie chart reads as the chance of an outcome, which fits
+          // every market (sports, crypto, politics) better than the
+          // venue's logo (user decision 2026-10-12).
+          icon: Icons.pie_chart_rounded,
           label: context.l10n.predictions,
           active: widget.activeTab == ActiveNavTab.predictions,
           onTap: () => _handlePredictions(context),

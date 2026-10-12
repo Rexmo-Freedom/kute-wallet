@@ -5938,9 +5938,6 @@ class AppLocalizationsEt extends AppLocalizations {
   String get portfolioStatRealized => 'Realiseeritud kasum / kahjum';
 
   @override
-  String get portfolioStatOpen => 'Avatud kasum / kahjum';
-
-  @override
   String get portfolioStatAmountPredicted => 'Summa ennustustes';
 
   @override

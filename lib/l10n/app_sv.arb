@@ -1724,7 +1724,6 @@
   "chartRemoveAllCta": "Ta bort alla",
   "portfolioPerformanceUnavailable": "Utveckling saknas",
   "portfolioStatRealized": "Realiserad vinst/förlust",
-  "portfolioStatOpen": "Öppen vinst/förlust",
   "portfolioStatAmountPredicted": "Belopp i prognoser",
   "portfolioStatCount": "Prognoser",
   "portfolioPredictionEntry": "{shares} andelar à {price}",

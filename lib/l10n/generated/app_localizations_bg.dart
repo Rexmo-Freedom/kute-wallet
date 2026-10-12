@@ -5963,9 +5963,6 @@ class AppLocalizationsBg extends AppLocalizations {
   String get portfolioStatRealized => 'Реализирана печалба / загуба';
 
   @override
-  String get portfolioStatOpen => 'Отворена печалба / загуба';
-
-  @override
   String get portfolioStatAmountPredicted => 'Сума в прогнози';
 
   @override

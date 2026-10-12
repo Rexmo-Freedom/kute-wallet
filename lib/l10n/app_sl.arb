@@ -1724,7 +1724,6 @@
   "chartRemoveAllCta": "Odstrani vse",
   "portfolioPerformanceUnavailable": "Uspešnost ni na voljo",
   "portfolioStatRealized": "Realiziran dobiček / izguba",
-  "portfolioStatOpen": "Odprt dobiček / izguba",
   "portfolioStatAmountPredicted": "Znesek v napovedih",
   "portfolioStatCount": "Napovedi",
   "portfolioPredictionEntry": "Deleži: {shares} po {price}",

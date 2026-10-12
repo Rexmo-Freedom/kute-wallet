@@ -5948,9 +5948,6 @@ class AppLocalizationsSv extends AppLocalizations {
   String get portfolioStatRealized => 'Realiserad vinst/förlust';
 
   @override
-  String get portfolioStatOpen => 'Öppen vinst/förlust';
-
-  @override
   String get portfolioStatAmountPredicted => 'Belopp i prognoser';
 
   @override

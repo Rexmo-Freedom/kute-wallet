@@ -5935,9 +5935,6 @@ class AppLocalizationsLv extends AppLocalizations {
   String get portfolioStatRealized => 'Realizētā peļņa / zaudējumi';
 
   @override
-  String get portfolioStatOpen => 'Atvērtā peļņa / zaudējumi';
-
-  @override
   String get portfolioStatAmountPredicted => 'Prognožu summa';
 
   @override

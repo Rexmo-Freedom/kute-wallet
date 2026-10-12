@@ -332,8 +332,12 @@ void main() {
         activeWalletId: 'spending',
         shellWalletId: 'ledger-1',
         bodies: false);
-    expect(_venueLogo('hyperliquid'), findsOneWidget);
-    expect(_venueLogo('polymarket'), findsOneWidget);
+    // The tabs carry the generic Investing and Predictions icons, not the
+    // venues' logos.
+    expect(find.byIcon(Icons.show_chart_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.pie_chart_rounded), findsOneWidget);
+    expect(find.bySemanticsLabel(l10n.trading), findsWidgets);
+    expect(find.bySemanticsLabel(l10n.predictions), findsWidgets);
     expect(find.bySemanticsLabel(l10n.usdAccountTab), findsNothing);
   });
 

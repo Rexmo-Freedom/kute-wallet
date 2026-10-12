@@ -1724,7 +1724,6 @@
   "chartRemoveAllCta": "Tout supprimer",
   "portfolioPerformanceUnavailable": "Performance indisponible",
   "portfolioStatRealized": "Gain / perte réalisé",
-  "portfolioStatOpen": "Gain / perte latent",
   "portfolioStatAmountPredicted": "Montant des prédictions",
   "portfolioStatCount": "Prédictions",
   "portfolioPredictionEntry": "{shares} parts à {price}",
