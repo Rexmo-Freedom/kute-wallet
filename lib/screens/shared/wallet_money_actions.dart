@@ -17,8 +17,6 @@ import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/kute_back_button.dart'
     show KuteCirclePillButton;
 import 'package:kute/screens/shared/open_once.dart';
-import 'package:kute/providers/asset_icon_provider.dart'
-    show kInvestmentsIcon;
 import 'package:kute/screens/home/shell_venue_tabs.dart'
     show shellShowsPredictionsTab, shellShowsTradingTab;
 import 'package:kute/screens/shared/wallet_icon.dart';
