@@ -30,7 +30,9 @@ WalletCardType _readPersistedWalletCard() {
   try {
     final box = Hive.box('settings');
     final raw = box.get(_kSelectedWalletCardHiveKey);
-    if (raw == 'usdc') return WalletCardType.usdc;
+    // The USDC (Predictions) card is retired for the spending wallet since
+    // one balance (October 2026): its venues live on the Investments tab,
+    // so a pick saved by an earlier build opens the bitcoin card instead.
     if (raw == 'bank') return WalletCardType.bank;
   } catch (_) {/* box not yet open — fall through to BTC default */}
   return WalletCardType.bitcoin;
