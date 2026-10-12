@@ -28,6 +28,7 @@ import 'package:kute/providers/transactions_provider.dart';
 import 'package:kute/services/mempool_address_service.dart';
 import 'package:kute/models/onchain_types.dart';
 import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart' as breez;
+import 'package:kute/models/breez/sdk_instance.dart' show BreezSdkSpark;
 import 'package:flutter/material.dart';
 import 'package:kute/providers/bitcoin_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -1771,6 +1772,10 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
                       (exchange.status == 'success' ||
                           exchange.status == 'refunded' ||
                           exchange.status == 'expired');
+                  if (orchestraCompletionLandsOnSpark(updated, mappedStatus,
+                      wasTerminal: wasTerminal)) {
+                    unawaited(BreezSdkSpark().syncAndRefresh());
+                  }
                   if (updated.isCashAppPurchase) {
                     if (!wasTerminal &&
                         orchestraExchangeStatusIsTerminal(mappedStatus)) {
@@ -2103,6 +2108,10 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
                         (ex.status == 'success' ||
                             ex.status == 'refunded' ||
                             ex.status == 'expired');
+                    if (orchestraCompletionLandsOnSpark(updated, mappedStatus,
+                        wasTerminal: wasTerminal2)) {
+                      unawaited(BreezSdkSpark().syncAndRefresh());
+                    }
                     if (updated.isCashAppPurchase) {
                       if (!wasTerminal2 &&
                           orchestraExchangeStatusIsTerminal(mappedStatus)) {
@@ -2429,6 +2438,22 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
     }
   }
 }
+
+
+/// Whether a status read that just moved [row] to [mappedStatus] completed
+/// a delivery to this wallet's own Spark balance (dollars or bitcoin from a
+/// conversion, a venue withdrawal or a purchase). The wallet then syncs at
+/// once, so the balance and the Activity row settle together instead of
+/// waiting for the SDK's next periodic sync.
+@visibleForTesting
+bool orchestraCompletionLandsOnSpark(
+  SwapOrder row,
+  String mappedStatus, {
+  required bool wasTerminal,
+}) =>
+    !wasTerminal &&
+    mappedStatus == 'success' &&
+    row.networkTo.toUpperCase() == 'SPARK';
 
 final backgroundSyncNotifierProvider =
     AsyncNotifierProvider<BackgroundSyncNotifier, WalletBalance>(

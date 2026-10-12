@@ -135,6 +135,7 @@ class HotSettlement {
     double? amountUsd,
     String? walletId,
     SettlementStepUpHook? stepUp,
+    bool registerInBackground = false,
   }) {
     final pinned = walletId ?? spendingWalletId(read);
     final resolver = OwnedAddressResolver(ProviderOwnedAddressSources(read));
@@ -167,6 +168,7 @@ class HotSettlement {
       // Phase 1b: the flow binds its step-up grant here. Flows that pass
       // no hook keep their own approval upstream.
       stepUp: stepUp,
+      registerInBackground: registerInBackground,
     );
   }
 

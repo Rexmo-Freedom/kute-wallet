@@ -31,6 +31,7 @@ import 'package:kute/l10n/generated/app_localizations.dart';
 import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/screens/polymarket/components/live_game.dart';
 import 'package:kute/services/polymarket/crypto_round.dart';
+import 'package:kute/services/polymarket/event_trading_over.dart';
 import 'package:kute/services/polymarket/resolution_estimate.dart';
 
 /// When the market [conditionId] is expected to settle, read while an
@@ -95,12 +96,13 @@ bool polyIsShortRound(String? eventSlug) =>
     RegExp(r'-(5|15)m-\d{10}$').hasMatch(eventSlug ?? '');
 
 /// Whether the position's market has stopped (its result is what is left):
-/// a short round past its end, a game the feed or Gamma says is over, a
-/// market Gamma has closed, or a market that is not a game past its end
-/// date. A game's scheduled end alone does not count: games run past it
-/// (overtime, a late kickoff), so a game waits for the feed's final or
-/// Gamma's flags. Without the event (not read yet) only a short round can
-/// tell.
+/// a short round past its end, a game the feed or Gamma says is over, or
+/// an event Gamma's flags say can no longer be traded ([polyTradingOver]).
+/// Past a short round, the end date alone never counts: Polymarket keeps a
+/// market open until it resolves (the Brazil "who wins" market kept its
+/// first-round date while the runoff was weeks away), and games run past
+/// their scheduled end. Without the event (not read yet) only a short
+/// round can tell.
 bool polyMarketHasEnded({
   String? eventSlug,
   DateTime? end,
@@ -115,7 +117,7 @@ bool polyMarketHasEnded({
   if (live?.finished == true) return true;
   if (event == null) return false;
   if (event.ended || event.closed) return true;
-  return !isGame && endPassed;
+  return !isGame && polyTradingOver(event, inPlay: false);
 }
 
 /// The awaiting state of a held side worth [price] (0..1) per share.

@@ -126,6 +126,7 @@ class _Hypercore extends SparkHypercoreFundingService {
     required double usd,
     SparkFundingAsset destination = SparkFundingAsset.bitcoin,
     required SettlementStepUpHook stepUp,
+    bool registerInBackground = false,
   }) async {
     sent.add((usd: usd, destination: destination));
     final quoted = await quoteHypercoreBudget<BigInt>(

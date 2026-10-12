@@ -216,6 +216,31 @@ class BreezSdkSpark {
     if (identical(_instance, sdk)) await _fetchWalletData(sdk);
   }
 
+  Future<void>? _syncAndRefresh;
+
+  /// Syncs the connected wallet now and re-reads its balance and payments,
+  /// for money known to have just landed (an Orchestra order delivering to
+  /// this wallet completed) that the SDK's own periodic sync (every 60 s)
+  /// would show only later: an incoming dollar token transfer is often
+  /// picked up only by a sync. When the balance has not risen yet, syncs
+  /// again after each of [kArrivalSyncRetryDelays]. Every read publishes to
+  /// the wallet-info and payments streams the balance providers follow.
+  /// Concurrent calls share the run in flight. Never throws.
+  Future<void> syncAndRefresh() {
+    final sdk = _instance;
+    if (sdk == null) return Future<void>.value();
+    return _syncAndRefresh ??= syncUntilBalanceRises(
+      readBalances: () async =>
+          balancesOf(await sdk.getInfo(request: const spark.GetInfoRequest())),
+      sync: () async {
+        // Another wallet connected meanwhile: stop.
+        if (!identical(_instance, sdk)) throw StateError('SDK replaced');
+        await _syncThenFetchWalletData(sdk);
+      },
+    ).then<void>((_) {}).catchError((Object _) {}).whenComplete(
+        () => _syncAndRefresh = null);
+  }
+
   Future<spark.GetInfoResponse> _getInfo(spark.BreezSdk sdk) async {
     // Spark requires a request object for getInfo
     const req = spark.GetInfoRequest();
@@ -426,3 +451,50 @@ class PaymentException implements Exception {
   @override
   String toString() => "PaymentException: Payment ${payment.id} failed.";
 }
+
+/// Waits before each extra sync while an expected arrival has not shown in
+/// the balance yet.
+const List<Duration> kArrivalSyncRetryDelays = [
+  Duration(seconds: 2),
+  Duration(seconds: 5),
+  Duration(seconds: 10),
+];
+
+/// Every balance the wallet holds, by asset: `sats` and each token id.
+Map<String, BigInt> balancesOf(spark.GetInfoResponse info) => {
+      'sats': info.balanceSats,
+      for (final entry in info.tokenBalances.entries)
+        entry.key: entry.value.balance,
+    };
+
+/// Runs [sync], then again after each of [retryDelays], until some balance
+/// [readBalances] reports is above what it was before the first sync.
+/// Returns whether one rose. A failed read counts as not risen yet.
+Future<bool> syncUntilBalanceRises({
+  required Future<Map<String, BigInt>> Function() readBalances,
+  required Future<void> Function() sync,
+  List<Duration> retryDelays = kArrivalSyncRetryDelays,
+  Future<void> Function(Duration delay) sleep = _sleepFor,
+}) async {
+  Map<String, BigInt>? before;
+  try {
+    before = await readBalances();
+  } catch (_) {
+    before = null;
+  }
+  for (var attempt = 0;; attempt++) {
+    await sync();
+    final baseline = before;
+    if (baseline == null) return false;
+    try {
+      final after = await readBalances();
+      final rose = after.entries
+          .any((e) => e.value > (baseline[e.key] ?? BigInt.zero));
+      if (rose) return true;
+    } catch (_) {}
+    if (attempt >= retryDelays.length) return false;
+    await sleep(retryDelays[attempt]);
+  }
+}
+
+Future<void> _sleepFor(Duration d) => Future<void>.delayed(d);

@@ -4,6 +4,7 @@ import 'package:kute/services/orchestra/orchestra_capability_requirements.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'dart:convert';
 import 'dart:math' show Random;
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:kute/services/http/shared_http_client.dart';
@@ -449,15 +450,47 @@ class OrchestraService {
         if (errorCode != null) 'error_code': errorCode,
       });
 
-  /// One reliability event per deposit submit. No ids.
+  /// One reliability event per deposit submit. No ids. [errorCode] is the
+  /// provider's machine code for a refusal (`invalid_tx_hash`), never a
+  /// message.
   static void _trackSubmitResult({
     required bool ok,
     required String statusClass,
+    String? errorCode,
   }) =>
       TrackingService.track('orchestra_submit_result', params: {
         'outcome': ok ? 'ok' : 'error',
         'status_class': statusClass,
+        if (errorCode != null) 'error_code': errorCode,
       });
+
+  /// The provider's machine-readable error code in an error body
+  /// (`{"error": {"code": ...}}`, `{"error": "<code>"}`, then a top-level
+  /// `code` or `errorCode`),
+  /// or null. Only a short snake-case token is accepted, so a message,
+  /// an id or anything the user typed can never pass through as a code.
+  @visibleForTesting
+  static String? parseErrorCode(String body) {
+    try {
+      final parsed = jsonDecode(body);
+      if (parsed is! Map) return null;
+      final error = parsed['error'];
+      final candidates = <Object?>[
+        if (error is Map) error['code'],
+        if (error is String) error,
+        parsed['code'],
+        parsed['errorCode'],
+      ];
+      for (final c in candidates) {
+        if (c is! String) continue;
+        final code = c.trim().toLowerCase();
+        if (_kErrorCodeShape.hasMatch(code)) return code;
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  static final RegExp _kErrorCodeShape = RegExp(r'^[a-z][a-z0-9_.-]{1,47}$');
 
   // ─── Buy Flow ───────────────────────────────────────────────────
 
@@ -735,6 +768,7 @@ class OrchestraService {
     String? bitcoinTxid,
     int? bitcoinVout,
     String? idempotencyKey,
+    Duration timeout = const Duration(seconds: 15),
   }) async {
     try {
       final body = <String, dynamic>{
@@ -756,7 +790,7 @@ class OrchestraService {
               headers: h,
               body: jsonEncode(body),
             )
-            .timeout(const Duration(seconds: 15)),
+            .timeout(timeout),
         extra: _idempotency(idempotencyKey),
       );
 
@@ -770,12 +804,16 @@ class OrchestraService {
           headers: res.headers,
         );
       }
+      final errorCode = parseErrorCode(res.body);
       _trackSubmitResult(
-          ok: false, statusClass: _statusClass(res.statusCode));
+          ok: false,
+          statusClass: _statusClass(res.statusCode),
+          errorCode: errorCode);
       return Result(
         error: _parseError(res.body),
         statusCode: res.statusCode,
         headers: res.headers,
+        errorCode: errorCode,
       );
     } catch (e) {
       _trackSubmitResult(ok: false, statusClass: _thrownStatusClass(e));
@@ -824,10 +862,38 @@ class OrchestraService {
     }
   }
 
+  /// [getHistory]'s error code for a recipient the wallet session cannot
+  /// own. Not a failure: the address belongs to another wallet on the
+  /// device (a second wallet, an old one), whose history this session
+  /// may never read. Callers skip it quietly.
+  static const String historyNotSessionRecipient = 'not_session_recipient';
+
+  /// `identity|address` pairs the backend answered 403 for, so a sweep
+  /// never asks again for the same session.
+  static final Set<String> _foreignHistoryRecipients = {};
+
+  /// Tests only.
+  static void debugResetHistoryRecipients() =>
+      _foreignHistoryRecipients.clear();
+
+  static Result<List<OrchestraOrder>> _notSessionRecipient() => Result(
+      error: 'Recipient does not belong to this wallet',
+      statusCode: 403,
+      errorCode: historyNotSessionRecipient);
+
   /// Recipient history is private and uses the owned Spark address, never the
-  /// source-chain deposit address. The backend verifies its wallet identity.
+  /// source-chain deposit address. The backend verifies its wallet identity
+  /// and answers 403 for an address of another wallet; such an address is
+  /// refused here without a request when its key is visibly not the
+  /// session's, and after one 403 otherwise ([historyNotSessionRecipient]).
   static Future<Result<List<OrchestraOrder>>> getHistory(
       String recipientSparkAddress) async {
+    final address = recipientSparkAddress.trim();
+    if (AffiliateService.sessionOwnsSparkAddress(address) == false ||
+        _foreignHistoryRecipients
+            .contains('${AffiliateService.sessionIdentity}|$address')) {
+      return _notSessionRecipient();
+    }
     try {
       final uri = Uri.parse('$_baseUrl/history')
           .replace(queryParameters: {'address': recipientSparkAddress});
@@ -853,6 +919,13 @@ class OrchestraService {
             .toList();
         return Result(
             data: list, statusCode: res.statusCode, headers: res.headers);
+      }
+      if (res.statusCode == 403) {
+        final identity = AffiliateService.sessionIdentity;
+        if (identity != null) {
+          _foreignHistoryRecipients.add('$identity|$address');
+        }
+        return _notSessionRecipient();
       }
       return Result(
           error: _parseError(res.body),

@@ -130,6 +130,9 @@ import 'package:kute/screens/ledger/ledger_investment_gate.dart'
         ledgerVenueEntryCapability,
         showLedgerInvestmentUnavailable;
 import 'package:kute/services/funding/spark_hypercore_funding_service.dart';
+import 'package:kute/services/funding/settlement_registration.dart'
+    show followSettlementRegistration, withSettlementOrderId;
+import 'package:kute/services/orchestra/arrival_target.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_onboarding_service.dart';
 import 'package:kute/services/funding/settlement_runner.dart'
     show
@@ -2348,6 +2351,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     if (usd < _kMinUsdc || _processing) {
       return;
     }
+    final appRead = _appReader;
     // 100% was asked for: resolve "everything" now, from the live
     // balance the withdrawal batch can actually spend, instead of the
     // cached cent-floored figure on screen.
@@ -2493,6 +2497,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
                   );
           return SettlementFundingProof.relayer(txHash);
         },
+        // The relayer withdrawal is on disk once this returns; the
+        // deposit is registered behind the overlay.
+        registerInBackground: true,
         // Phase 1b.4. Runs once the quote exists, before the margin check
         // and the relayer call. Binds this wallet's Spark address as the
         // final recipient plus the route, the Safe and USDC.e, never the
@@ -2559,7 +2566,8 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         walletId: ref.read(settingsProvider).activeWalletId,
         operationId: settled.operation.operationId,
       );
-      ref.read(swapOrdersProvider.notifier).addExchange(exchange);
+      await ref.read(swapOrdersProvider.notifier).addExchange(exchange);
+      followSettlementRegistration(appRead, settled);
       // Backend provider_events row for revenue attribution
       // (Predictions USDC → spending BTC via Orchestra). Only the REAL
       // order (ord_…); registering the quote id (q_…) creates a second row the
@@ -2590,46 +2598,51 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
 
       BackgroundSyncService().syncNow();
 
-      // Phase 9 — Orchestra spread on this conversion. Compute it in
-      // USD: the user paid `usd` USDC, the Orchestra quote promised
-      // `estOut` of the destination asset. For bitcoin the "fair"
-      // amount at market is `usd / usdPerBtc`, so the shortfall is
-      // priced back into dollars; for dollars the leg is at par and the
-      // shortfall IS the fee, with no price in it at all.
-      try {
-        final usdPerBtc = ref.read(selectedCurrencyProvider('usd')).toDouble();
-        if (dollars || usdPerBtc > 0) {
-          final spreadUsd =
-              dollars ? usd - estOut : (usd / usdPerBtc - estOut) * usdPerBtc;
-          if (spreadUsd > 0) {
-            FeeHistoryService.log(
-              id: 'orch-$orderId',
-              kind: FeeKind.orchestraSpread,
-              microUsd: (spreadUsd * 1000000).round(),
-              nativeAmount: spreadUsd.toStringAsFixed(6),
-              nativeUnit: 'usd',
-              source: 'Orchestra',
-              txId: orderId,
-              walletId: ref.read(settingsProvider).activeWalletId,
-            );
+      final feeWalletId = ref.read(settingsProvider).activeWalletId;
+      final usdPerBtc = ref.read(selectedCurrencyProvider('usd')).toDouble();
+      final sentUsd = usd;
+      withSettlementOrderId(settled, (orderId) {
+        // Phase 9 — Orchestra spread on this conversion. Compute it in
+        // USD: the user paid `usd` USDC, the Orchestra quote promised
+        // `estOut` of the destination asset. For bitcoin the "fair"
+        // amount at market is `usd / usdPerBtc`, so the shortfall is
+        // priced back into dollars; for dollars the leg is at par and the
+        // shortfall IS the fee, with no price in it at all.
+        try {
+          if (dollars || usdPerBtc > 0) {
+            final spreadUsd = dollars
+                ? sentUsd - estOut
+                : (sentUsd / usdPerBtc - estOut) * usdPerBtc;
+            if (spreadUsd > 0) {
+              FeeHistoryService.log(
+                id: 'orch-$orderId',
+                kind: FeeKind.orchestraSpread,
+                microUsd: (spreadUsd * 1000000).round(),
+                nativeAmount: spreadUsd.toStringAsFixed(6),
+                nativeUnit: 'usd',
+                source: 'Orchestra',
+                txId: orderId,
+                walletId: feeWalletId,
+              );
+            }
           }
-        }
-      } catch (_) {}
+        } catch (_) {}
 
-      // Submitted, not settled: background sync reports
-      // polymarket_withdraw_completed when the order really completes.
-      TrackingService.polymarketWithdrawSubmitted(
-        orderId: orderId,
-        amountUsd: usd,
-        destination: dollars ? 'usd' : 'btc',
-      );
-      // Submit-time (dashboards key off it); settlement is swap_completed.
-      TrackingService.track('convert_success', params: {
-        'direction': dollars ? 'usd_to_dollars' : 'usd_to_btc',
-        // Coarse bucket only — no raw user_id-tied amount (2026-05 audit).
-        'amount_bucket': TrackingService.usdBucket(usd),
-        'order_id': orderId,
-        'provider': 'orchestra',
+        // Submitted, not settled: background sync reports
+        // polymarket_withdraw_completed when the order really completes.
+        TrackingService.polymarketWithdrawSubmitted(
+          orderId: orderId,
+          amountUsd: sentUsd,
+          destination: dollars ? 'usd' : 'btc',
+        );
+        // Submit-time (dashboards key off it); settlement is swap_completed.
+        TrackingService.track('convert_success', params: {
+          'direction': dollars ? 'usd_to_dollars' : 'usd_to_btc',
+          // Coarse bucket only — no raw user_id-tied amount (2026-05 audit).
+          'amount_bucket': TrackingService.usdBucket(sentUsd),
+          'order_id': orderId,
+          'provider': 'orchestra',
+        });
       });
       // NOTE: don't fire swapCompleted here — the deposit has only just
       // been submitted to Orchestra. Real settlement comes through the
@@ -2749,6 +2762,11 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     return sats;
   }
 
+  /// A reader that outlives this sheet, for work that ends after it closes
+  /// (a deposit registered in the background). Read while mounted.
+  T Function<T>(ProviderListenable<T> provider) get _appReader =>
+      ProviderScope.containerOf(context, listen: false).read;
+
   Future<(int, SettlementQuoteResult)> _quoteWithArrivalTarget({
     required int sats,
     required double? targetUsd,
@@ -2777,25 +2795,50 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
           flow: flow, idempotencyKey: key);
     }
 
-    var sendSats = sats;
-    var fetched = await quoteFor(sendSats, idempotencyKey);
     final target = targetUsd ?? 0;
+    // The live balance, not the one held for the screen.
+    final maxSats = _maxConvertibleSatsOf(_liveAvailableSats);
+    var sendSats = sats;
+    if (target > 0) {
+      // Gross up the FIRST quote from the estimate the fee block already
+      // holds for this exact amount, so the typed figure usually arrives
+      // on one quote instead of two.
+      final estimate = ref
+          .read(orchestraFeeEstimateProvider((
+            fromChain: 'spark',
+            fromAsset: 'BTC',
+            toChain: destinationChain,
+            toAsset: destinationAsset,
+            amount: sats.toString(),
+          )))
+          .valueOrNull;
+      if (estimate != null) {
+        sendSats = grossUpSatsForTarget(
+          sats: sats,
+          estimatedOut: orchestraAmountToDouble(
+              estimate.estimatedOut, destinationAsset,
+              chain: destinationChain),
+          targetUsd: target,
+          maxSats: maxSats,
+        );
+      }
+    }
+    var fetched = await quoteFor(sendSats, idempotencyKey);
     if (target > 0) {
       final estOut = orchestraAmountToDouble(
           fetched.quote.quote.estimatedOut, destinationAsset,
           chain: destinationChain);
-      if (estOut > 0 && estOut < target) {
-        // Bounded multiplier: real Orchestra spread is 1-3%, so a cap at
-        // 10% contains the blast radius of a server-side decimals bug in
-        // estimatedOut (an unbounded target/estOut would otherwise scale
-        // a typed $2 all the way to the user's max spendable).
-        final mult = ((target / estOut) * 1.003).clamp(1.0, 1.1);
-        final scaled = (sendSats * mult).ceil();
-        // The live balance, not the one held for the screen.
-        final capped =
-            math.min(scaled, _maxConvertibleSatsOf(_liveAvailableSats));
-        if (capped > sendSats) {
-          sendSats = capped;
+      // Asked again only when still short by more than a cent; scaled from
+      // the quote's own figure (bounded, see grossUpSatsForTarget).
+      if (arrivalTargetShort(estOut, target)) {
+        final scaled = grossUpSatsForTarget(
+          sats: sendSats,
+          estimatedOut: estOut,
+          targetUsd: target,
+          maxSats: maxSats,
+        );
+        if (scaled > sendSats) {
+          sendSats = scaled;
           // A different request body takes its own idempotency key.
           fetched = await quoteFor(
               sendSats, OrchestraService.generateIdempotencyKey());
@@ -2806,6 +2849,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   }
 
   Future<void> _dispatchBtcToPredictions(int requestedSats) async {
+    final appRead = _appReader;
     var sats = requestedSats;
     final drain = _drainArmed;
     final evm = await _evmAddressForDispatch();
@@ -2938,6 +2982,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
           pendingQuoteRowId = orchQuote.quoteId;
           return HotSettlement.prepareSpark(ref.read, verifiedQuote);
         },
+        registerInBackground: true,
         fund: (verifiedQuote, prepared) async {
           // 2. Send BTC via Spark to the quote's deposit address. From here
           // the BTC may have left, so the row is kept whatever happens.
@@ -2993,6 +3038,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
             .deleteExchange(orchQuote.quoteId);
       }
       pendingQuoteRowId = null;
+      followSettlementRegistration(appRead, settled);
       // Backend provider_events row for revenue attribution
       // (spending BTC → Predictions USDC.e via Orchestra). Only the REAL order
       // (ord_…) — never the quote (q_…), which would duplicate the row.
@@ -3023,12 +3069,14 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       // analytics amount since it's already USD-equivalent (1 USDC.e
       // = $1 by definition). Background sync reports
       // polymarket_deposit_completed when the order really settles.
-      TrackingService.polymarketDepositSubmitted(
-        orderId: orderId,
-        amountUsd: estOut,
-        route: 'btc_spending',
-        walletKind: 'hot',
-      );
+      withSettlementOrderId(
+          settled,
+          (orderId) => TrackingService.polymarketDepositSubmitted(
+                orderId: orderId,
+                amountUsd: estOut,
+                route: 'btc_spending',
+                walletKind: 'hot',
+              ));
 
       if (!mounted) {
         return;
@@ -3111,6 +3159,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// the analytics, where every other internal identifier lives.
   Future<void> _dispatchBtcToUsd(int requestedSats) async {
     if (_processing) return;
+    final appRead = _appReader;
     var sats = requestedSats;
     final drain = _drainArmed;
     final usdPerBtcTap = ref.read(selectedCurrencyProvider('usd')).toDouble();
@@ -3182,6 +3231,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         },
         prepareFunding: (verifiedQuote, _) =>
             HotSettlement.prepareSpark(ref.read, verifiedQuote),
+        // The spinner ends once the sats left and the proof is on disk;
+        // the deposit is registered behind the overlay.
+        registerInBackground: true,
         fund: (verifiedQuote, prepared) async {
           // 2. Send the sats to the quote's deposit address. Tag the
           // outbound leg so the Activity feed tells the story once, on
@@ -3222,6 +3274,8 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         operationId: settled.operation.operationId,
       );
       await ref.read(swapOrdersProvider.notifier).addExchange(exchange);
+      // The background submit moves the row to the order id it returns.
+      followSettlementRegistration(appRead, settled);
       // Backend attribution for the REAL order only — a quote id (q_…)
       // would create a row the completion can never reconcile with.
       if (orderId.startsWith('ord_')) {
@@ -3241,29 +3295,34 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
           .mergeSwapOrder(exchange);
       BackgroundSyncService().syncNow();
 
-      // Orchestra's spread on the leg, against the live BTC price.
-      try {
-        final fairUsd = (sats / 1e8) * usdPerBtcTap;
-        final spreadUsd = fairUsd - estOut;
-        if (usdPerBtcTap > 0 && spreadUsd > 0) {
-          FeeHistoryService.log(
-            id: 'orch-$orderId',
-            kind: FeeKind.orchestraSpread,
-            microUsd: (spreadUsd * 1000000).round(),
-            nativeAmount: spreadUsd.toStringAsFixed(6),
-            nativeUnit: 'usd',
-            source: 'Orchestra',
-            txId: orderId,
-            walletId: ref.read(settingsProvider).activeWalletId,
-          );
-        }
-      } catch (_) {}
+      // Reported under the order id once the registration returns it.
+      final feeWalletId = ref.read(settingsProvider).activeWalletId;
+      final sentSats = sats;
+      withSettlementOrderId(settled, (orderId) {
+        // Orchestra's spread on the leg, against the live BTC price.
+        try {
+          final fairUsd = (sentSats / 1e8) * usdPerBtcTap;
+          final spreadUsd = fairUsd - estOut;
+          if (usdPerBtcTap > 0 && spreadUsd > 0) {
+            FeeHistoryService.log(
+              id: 'orch-$orderId',
+              kind: FeeKind.orchestraSpread,
+              microUsd: (spreadUsd * 1000000).round(),
+              nativeAmount: spreadUsd.toStringAsFixed(6),
+              nativeUnit: 'usd',
+              source: 'Orchestra',
+              txId: orderId,
+              walletId: feeWalletId,
+            );
+          }
+        } catch (_) {}
 
-      TrackingService.track('convert_success', params: {
-        'direction': 'btc_to_dollars',
-        'amount_bucket': TrackingService.usdBucket(estOut),
-        'order_id': orderId,
-        'provider': 'orchestra',
+        TrackingService.track('convert_success', params: {
+          'direction': 'btc_to_dollars',
+          'amount_bucket': TrackingService.usdBucket(estOut),
+          'order_id': orderId,
+          'provider': 'orchestra',
+        });
       });
 
       if (!mounted) {
@@ -3348,6 +3407,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// same way the bitcoin → dollars leg does.
   Future<void> _dispatchUsdToBtc(double usd) async {
     if (_processing) return;
+    final appRead = _appReader;
     var amountBaseUnits = _usdBaseUnits(usd);
     final drain = _drainArmed;
     if (amountBaseUnits <= BigInt.zero) return;
@@ -3426,6 +3486,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         // failure here never retries on satoshis.
         prepareFunding: (verifiedQuote, _) =>
             HotSettlement.prepareSpark(ref.read, verifiedQuote),
+        registerInBackground: true,
         fund: (verifiedQuote, prepared) async {
           usdSent = true;
           final paymentId = await HotSettlement.sendSpark(ref.read, prepared);
@@ -3463,6 +3524,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         operationId: settled.operation.operationId,
       );
       await ref.read(swapOrdersProvider.notifier).addExchange(exchange);
+      followSettlementRegistration(appRead, settled);
       // Backend attribution for the REAL order only — a quote id (q_…)
       // would create a row the completion can never reconcile with.
       if (orderId.startsWith('ord_')) {
@@ -3482,33 +3544,36 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
           .mergeSwapOrder(exchange);
       BackgroundSyncService().syncNow();
 
-      // Orchestra's spread on the leg, against the live BTC price. The
-      // dollars that left are the reference, so the fair bitcoin is
-      // `sentUsd / price` and anything short of it is the spread.
-      try {
-        final usdPerBtc = ref.read(selectedCurrencyProvider('usd')).toDouble();
-        if (usdPerBtc > 0 && usdPerBtc.isFinite) {
-          final spreadUsd = sentUsd - (estOut * usdPerBtc);
-          if (spreadUsd > 0) {
-            FeeHistoryService.log(
-              id: 'orch-$orderId',
-              kind: FeeKind.orchestraSpread,
-              microUsd: (spreadUsd * 1000000).round(),
-              nativeAmount: spreadUsd.toStringAsFixed(6),
-              nativeUnit: 'usd',
-              source: 'Orchestra',
-              txId: orderId,
-              walletId: ref.read(settingsProvider).activeWalletId,
-            );
+      final feeWalletId = ref.read(settingsProvider).activeWalletId;
+      final usdPerBtc = ref.read(selectedCurrencyProvider('usd')).toDouble();
+      withSettlementOrderId(settled, (orderId) {
+        // Orchestra's spread on the leg, against the live BTC price. The
+        // dollars that left are the reference, so the fair bitcoin is
+        // `sentUsd / price` and anything short of it is the spread.
+        try {
+          if (usdPerBtc > 0 && usdPerBtc.isFinite) {
+            final spreadUsd = sentUsd - (estOut * usdPerBtc);
+            if (spreadUsd > 0) {
+              FeeHistoryService.log(
+                id: 'orch-$orderId',
+                kind: FeeKind.orchestraSpread,
+                microUsd: (spreadUsd * 1000000).round(),
+                nativeAmount: spreadUsd.toStringAsFixed(6),
+                nativeUnit: 'usd',
+                source: 'Orchestra',
+                txId: orderId,
+                walletId: feeWalletId,
+              );
+            }
           }
-        }
-      } catch (_) {}
+        } catch (_) {}
 
-      TrackingService.track('convert_success', params: {
-        'direction': 'dollars_to_btc',
-        'amount_bucket': TrackingService.usdBucket(sentUsd),
-        'order_id': orderId,
-        'provider': 'orchestra',
+        TrackingService.track('convert_success', params: {
+          'direction': 'dollars_to_btc',
+          'amount_bucket': TrackingService.usdBucket(sentUsd),
+          'order_id': orderId,
+          'provider': 'orchestra',
+        });
       });
 
       if (!mounted) return;
@@ -3565,6 +3630,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// leaves, the same as every other same-denomination spend.
   Future<void> _dispatchUsdToPredictions(double usd) async {
     if (_processing) return;
+    final appRead = _appReader;
     final evm = await _evmAddressForDispatch();
     if (!mounted) return;
     if (evm == null || evm.isEmpty) {
@@ -3667,6 +3733,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
           pendingQuoteRowId = orchQuote.quoteId;
           return HotSettlement.prepareSpark(ref.read, verifiedQuote);
         },
+        registerInBackground: true,
         fund: (verifiedQuote, prepared) async {
           dollarsSent = true;
           final paymentId = await HotSettlement.sendSpark(ref.read, prepared);
@@ -3691,6 +3758,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
             .deleteExchange(orchQuote.quoteId);
       }
       pendingQuoteRowId = null;
+      followSettlementRegistration(appRead, settled);
       final estOut = orchestraAmountToDouble(orchQuote.estimatedOut, 'USDC.e',
           chain: 'polygon');
       if (orderId.startsWith('ord_')) {
@@ -3712,12 +3780,14 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       ref.read(polymarketTradingProvider.notifier).wrapIncomingUsdcEToPusd();
       // Submitted, not settled: background sync reports
       // polymarket_deposit_completed when the order really completes.
-      TrackingService.polymarketDepositSubmitted(
-        orderId: orderId,
-        amountUsd: estOut,
-        route: 'usd',
-        walletKind: 'hot',
-      );
+      withSettlementOrderId(
+          settled,
+          (orderId) => TrackingService.polymarketDepositSubmitted(
+                orderId: orderId,
+                amountUsd: estOut,
+                route: 'usd',
+                walletKind: 'hot',
+              ));
 
       if (!mounted) return;
       final navigator = Navigator.of(context);
@@ -3838,6 +3908,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         route: 'direct',
       );
       final result = await direct.depositFromSpark(
+        registerInBackground: true,
         asset: SparkFundingAsset.dollars,
         amountBaseUnits: amountBaseUnits,
         amountUsd: usd,
@@ -3928,6 +3999,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         route: 'direct',
       );
       final result = await direct.depositFromSpark(
+        registerInBackground: true,
         asset: SparkFundingAsset.bitcoin,
         amountBaseUnits: BigInt.from(sats),
         amountUsd: approxUsd,
@@ -4020,6 +4092,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       );
       _trackMoveSubmitted();
       await direct.withdrawToSpark(
+        registerInBackground: true,
         usd: usd,
         destination:
             dollars ? SparkFundingAsset.dollars : SparkFundingAsset.bitcoin,

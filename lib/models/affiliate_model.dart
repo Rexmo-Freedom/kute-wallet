@@ -17,6 +17,8 @@ import 'package:kute/services/appsflyer_service.dart';
 import 'package:kute/services/secure_storage.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/services/wallet_identity_service.dart';
+import 'package:kute/services/security/address_guard.dart'
+    show sparkIdentityPubkeyHex;
 
 /// AffiliateService — wallet-native affiliate program client.
 ///
@@ -1080,6 +1082,25 @@ class AffiliateService {
     } catch (_) {
       return {'ok': false, 'reason': 'network'};
     }
+  }
+
+  /// The identity key the wallet session speaks for: the cached token's
+  /// pubkey, else the hot wallet identity a mint would sign with. Null
+  /// when neither is known.
+  static String? get sessionIdentity =>
+      _tokenIdentity(_sessionToken) ?? WalletIdentityService.pubkey;
+
+  /// Whether the wallet session can own [sparkAddress], the check the
+  /// backend makes for private Spark reads: the address encodes the
+  /// session's identity key. Null when either side is unknown, so the
+  /// caller lets the backend decide. False for another wallet's address
+  /// (a second wallet, an old one), which the backend answers 403.
+  static bool? sessionOwnsSparkAddress(String sparkAddress) {
+    var identity = sessionIdentity?.trim().toLowerCase();
+    final owner = sparkIdentityPubkeyHex(sparkAddress);
+    if (identity == null || identity.isEmpty || owner == null) return null;
+    if (identity.startsWith('0x')) identity = identity.substring(2);
+    return identity == owner;
   }
 
   /// Stable Kute identity for accounting, never the selected Ledger address.

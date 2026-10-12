@@ -434,6 +434,50 @@ void main() {
       expect(find.text('Final'), findsNothing);
     });
 
+    PolymarketEvent election({bool marketsClosed = false}) => PolymarketEvent(
+          id: 'e2',
+          slug: 'brazil-presidential-election',
+          title: 'Brazil Presidential Election',
+          volume: 1000,
+          liquidity: 1000,
+          category: 'politics',
+          conditionId: 'c2',
+          outcomes: const [
+            PolymarketOutcome(name: 'Yes', price: 0.87, tokenId: 'y'),
+            PolymarketOutcome(name: 'No', price: 0.13, tokenId: 'n'),
+          ],
+          marketsClosed: marketsClosed,
+        );
+    PolyPositionCard electionCard() => PolyPositionCard(
+          question: 'Will Flávio Bolsonaro win the 2026 Brazilian '
+              'presidential election?',
+          outcome: 'Yes',
+          shares: 5.75,
+          avgPrice: 0.87,
+          value: 4.99,
+          pnl: 0,
+          pnlPercent: 0,
+          eventSlug: 'brazil-presidential-election',
+          // The first-round date Polymarket left on the market.
+          end: DateTime(2026, 10, 5),
+        );
+
+    testWidgets('a market past its end date that still trades is not ended',
+        (tester) async {
+      await _pump(tester, electionCard(),
+          event: election(), slug: 'brazil-presidential-election');
+      expect(find.textContaining('Ended'), findsNothing);
+      expect(find.textContaining('Waiting for the result'), findsNothing);
+    });
+
+    testWidgets('a market whose trading stopped waits for the result',
+        (tester) async {
+      await _pump(tester, electionCard(),
+          event: election(marketsClosed: true),
+          slug: 'brazil-presidential-election');
+      expect(find.text('Ended · Waiting for the result'), findsOneWidget);
+    });
+
     testWidgets('a game past its scheduled end but in play is not ended',
         (tester) async {
       final live = SportsMatchUpdate(
