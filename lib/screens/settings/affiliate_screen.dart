@@ -298,7 +298,7 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
         elevation: 0,
         // Merge: nav's shared KuteBackButton + main's l10n title.
         leading: const KuteBackButton(),
-        title: Text(context.l10n.accountEarn,
+        title: Text(context.l10n.settingsReferralProgram,
             style: TextStyle(
               color: c.textPrimary,
               fontSize: 20.sp,
