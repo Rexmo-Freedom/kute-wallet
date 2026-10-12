@@ -27,6 +27,7 @@ import 'package:kute/providers/polymarket_sports_provider.dart'
 import 'package:kute/screens/polymarket/components/game_time.dart';
 import 'package:kute/screens/polymarket/components/live_game.dart';
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
+import 'package:kute/services/polymarket/event_trading_over.dart';
 import 'package:kute/screens/shared/kute_motion.dart';
 import 'package:kute/services/polymarket/live_game/game_sides.dart';
 import 'package:kute/services/polymarket/live_game/local_game_events.dart'
@@ -218,16 +219,13 @@ bool polyGameIsLive(PolymarketEvent event, SportsMatchUpdate? ws) {
 
 /// Whether [event] is over, for its chart (no LIVE pip, no live price on
 /// the newest point) and its Stats ("Ended"): closed, switched off, ended,
-/// or past its end date. Gamma's end date of a match is its scheduled
-/// start, so a game still being played ([inPlay]) is past it from the
-/// first minute and is not over.
-bool polyEventIsOver(PolymarketEvent event,
-    {required bool inPlay, DateTime? now}) {
-  if (event.closed || !event.active || event.ended) return true;
-  final end = event.endDate;
-  if (end == null || !end.isBefore(now ?? DateTime.now())) return false;
-  return !inPlay;
-}
+/// or every market in it closed or not accepting orders
+/// ([polyTradingOver]). Never its end date: Gamma's end date of a match is
+/// its scheduled start, and any market stays open past its date until it
+/// resolves. A game still being played ([inPlay]) is not over whatever its
+/// books say.
+bool polyEventIsOver(PolymarketEvent event, {required bool inPlay}) =>
+    polyTradingOver(event, inPlay: inPlay);
 
 /// [raw] as the header shows it: an esports score's series segment, and
 /// the two numbers in the order of the header's teams. The app holds

@@ -1210,9 +1210,6 @@ class AppLocalizationsEt extends AppLocalizations {
   String get usdEarnRateUnavailable => 'Praegu pole saadaval';
 
   @override
-  String get usdEarnPaidToDate => 'Sulle seni makstud';
-
-  @override
   String get usdEarnActivityEmpty => 'Makseid veel pole';
 
   @override
@@ -2059,6 +2056,20 @@ class AppLocalizationsEt extends AppLocalizations {
   @override
   String get passkeyChoiceCancelled =>
       'Seadistamine tühistati. Midagi ei loodud.';
+
+  @override
+  String get passkeyBackupSyncing => 'Varukoopia sünkroonimine…';
+
+  @override
+  String get passkeyCreateNewTitle => 'Pääsuvõtit ei leitud';
+
+  @override
+  String passkeyCreateNewBody(String method) {
+    return 'Midagi ei loodud. Kas luua sellele rahakotile uus pääsuvõti $method abil?';
+  }
+
+  @override
+  String get passkeyCreateNewAction => 'Loo uus pääsuvõti';
 
   @override
   String passkeyChoiceFallbackWords(String method) {
@@ -7077,6 +7088,10 @@ class AppLocalizationsEt extends AppLocalizations {
       'Kute ei saanud saadavust kontrollida. Proovi uuesti.';
 
   @override
+  String get capabilityOfflineGrace =>
+      'Kute ei ole praegu kättesaadav. See on sinu viimase kontrolli põhjal endiselt saadaval.';
+
+  @override
   String get capabilityUnavailable =>
       'See funktsioon pole Kute\'is praegu saadaval.';
 
@@ -7456,6 +7471,35 @@ class AppLocalizationsEt extends AppLocalizations {
   @override
   String get recoverFoundOnDevice =>
       'Leitud selles seadmes. Enne taastamist kontrolli, et saldo tundub õige.';
+
+  @override
+  String get recoverOlderVersionSection =>
+      'Selle telefoni vanemast versioonist';
+
+  @override
+  String get recoverOlderVersionWallet => 'Rahakott vanemast versioonist';
+
+  @override
+  String get recoverOlderVersionNeedsPin =>
+      'Avaneb selle versiooni PIN-koodiga';
+
+  @override
+  String get recoverOlderVersionIcloud => 'Salvestatud iCloudi võtmehoidjasse';
+
+  @override
+  String get recoverOlderVersionEnterPin =>
+      'Sisesta PIN-kood, mida see versioon kasutas';
+
+  @override
+  String get recoverOlderVersionFailed =>
+      'Seda koopiat ei õnnestunud taastada.';
+
+  @override
+  String get restoreRescueOfferBody =>
+      'Sinu rahakottide koopiad Kute vanemast versioonist on endiselt selles telefonis. Kas kasutada neid otsast alustamise asemel?';
+
+  @override
+  String get restoreRescueOfferConfirm => 'Kasuta salvestatud koopiaid';
 
   @override
   String recoverConfirmWallet(String wallet) {
@@ -10458,6 +10502,9 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get portfolioStatAtStake => 'Panustatud summa';
+
+  @override
+  String get portfolioProfitLoss => 'Kasum ja kahjum';
 
   @override
   String slipCtaAddTo(String side, String amount) {

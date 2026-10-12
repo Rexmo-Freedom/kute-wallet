@@ -1211,9 +1211,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String get usdEarnRateUnavailable => 'Most nem érhető el';
 
   @override
-  String get usdEarnPaidToDate => 'Eddig kifizetve neked';
-
-  @override
   String get usdEarnActivityEmpty => 'Még nincs kifizetés';
 
   @override
@@ -2068,6 +2065,20 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String get passkeyChoiceCancelled =>
       'Beállítás megszakítva. Semmi sem jött létre.';
+
+  @override
+  String get passkeyBackupSyncing => 'Biztonsági mentés szinkronizálása…';
+
+  @override
+  String get passkeyCreateNewTitle => 'Nem található passkey';
+
+  @override
+  String passkeyCreateNewBody(String method) {
+    return 'Semmi sem jött létre. Hozzunk létre inkább új passkey-t ehhez a tárcához $method használatával?';
+  }
+
+  @override
+  String get passkeyCreateNewAction => 'Új passkey létrehozása';
 
   @override
   String passkeyChoiceFallbackWords(String method) {
@@ -7109,6 +7120,10 @@ class AppLocalizationsHu extends AppLocalizations {
       'A Kute nem tudta ellenőrizni az elérhetőséget. Próbáld újra.';
 
   @override
+  String get capabilityOfflineGrace =>
+      'A Kute jelenleg nem érhető el. Ez a legutóbbi ellenőrzésed alapján továbbra is elérhető.';
+
+  @override
   String get capabilityUnavailable =>
       'Ez a funkció jelenleg nem érhető el a Kute-ban.';
 
@@ -7491,6 +7506,35 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String get recoverFoundOnDevice =>
       'Ezen az eszközön található. Visszaállítás előtt ellenőrizd, hogy az egyenleg stimmel.';
+
+  @override
+  String get recoverOlderVersionSection =>
+      'Egy régebbi verzióból ezen a telefonon';
+
+  @override
+  String get recoverOlderVersionWallet => 'Tárca egy régebbi verzióból';
+
+  @override
+  String get recoverOlderVersionNeedsPin =>
+      'Az adott verzió PIN-kódjával nyílik meg';
+
+  @override
+  String get recoverOlderVersionIcloud => 'Az iCloud kulcskarikán mentve';
+
+  @override
+  String get recoverOlderVersionEnterPin =>
+      'Add meg az adott verzió PIN-kódját';
+
+  @override
+  String get recoverOlderVersionFailed =>
+      'Ezt a másolatot nem sikerült visszaállítani.';
+
+  @override
+  String get restoreRescueOfferBody =>
+      'A Kute egy régebbi verziójából származó tárcamásolatok még ezen a telefonon vannak. Ezeket használod inkább az újrakezdés helyett?';
+
+  @override
+  String get restoreRescueOfferConfirm => 'Mentett másolatok használata';
 
   @override
   String recoverConfirmWallet(String wallet) {
@@ -10494,6 +10538,9 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get portfolioStatAtStake => 'Lekötött összeg';
+
+  @override
+  String get portfolioProfitLoss => 'Nyereség és veszteség';
 
   @override
   String slipCtaAddTo(String side, String amount) {

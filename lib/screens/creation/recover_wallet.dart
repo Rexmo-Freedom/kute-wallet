@@ -15,6 +15,8 @@ import 'package:kute/providers/bitcoin_config_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/words_provider.dart';
+import 'package:kute/screens/creation/passkey_choice.dart'
+    show primeSparkConnect;
 import 'package:kute/screens/creation/recover_choice.dart'
     show RestoreFlowAnalytics;
 import 'package:kute/screens/creation/set_pin.dart';
@@ -411,6 +413,10 @@ class _RecoverWalletState extends ConsumerState<RecoverWallet>
       final settingsNotifier = ref.read(settingsProvider.notifier);
       await settingsNotifier.addWallet(newWallet);
       persisted = true;
+      // Start the Spark connect now (same priming as the PIN unlock), so
+      // the 3–10 s connect + first sync overlaps the confirmation instead
+      // of starting when home first watches the provider.
+      primeSparkConnect(ref);
       RecoveryCheck.record(settingsNotifier, walletId, mnemonic);
       ref.invalidate(bitcoinConfigProvider);
       // Investing balances poll only for wallets marked enabled; one whose

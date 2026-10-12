@@ -194,6 +194,10 @@ class AdvisorSessionNotifier extends Notifier<AdvisorSessionState> {
     if (context != null && state.turns.isNotEmpty && context != state.context) {
       clear();
     }
+    // Asked while an answer is still streaming: that answer is stopped
+    // (kept as far as it got, marked stopped, `cancelled` reported) and
+    // this question reports `interrupted`.
+    final interrupted = state.turns.any((turn) => turn.loading);
     cancel();
     final generation = _generation;
     final activeContext = context ?? state.context;
@@ -236,6 +240,7 @@ class AdvisorSessionNotifier extends Notifier<AdvisorSessionState> {
       venue: const {'polymarket', 'hyperliquid'}.contains(venue) ? venue : null,
       template: template,
       chipIndex: chipIndex,
+      interrupted: interrupted,
     );
     final prompt = AdvisorPrompt.fromInput(input, template: template);
     final requestLocale = locale ??
@@ -386,7 +391,11 @@ class AdvisorSessionNotifier extends Notifier<AdvisorSessionState> {
     _cancellation = null;
     final subscription = _subscription;
     _subscription = null;
-    if (subscription != null) unawaited(subscription.cancel());
+    // The cancel future carries whatever the stream throws while it is
+    // being torn down (the closed connection's ClientException); nothing
+    // is listening for it any more, so it is ignored rather than left
+    // for the zone to report as uncaught.
+    if (subscription != null) subscription.cancel().ignore();
     final completion = _completion;
     _completion = null;
     if (completion != null && !completion.isCompleted) completion.complete();

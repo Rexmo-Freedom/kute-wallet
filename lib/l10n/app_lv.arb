@@ -387,7 +387,6 @@
   "usdEarnNextPaymentIn": "Izmaksa pēc",
   "usdEarnRatePending": "Ielādē",
   "usdEarnRateUnavailable": "Šobrīd nav pieejams",
-  "usdEarnPaidToDate": "Līdz šim izmaksāts",
   "usdEarnActivityEmpty": "Vēl nav maksājumu",
   "usdEarnActivityUnavailable": "Maksājumu vēsture šobrīd nav pieejama",
   "hlYieldAvailableLine": "Pieejams: {amount}",
@@ -633,6 +632,17 @@
   "passkeyChoiceAppleAccount": "Apple kontā",
   "passkeyChoiceGoogleAccount": "Google kontā",
   "passkeyChoiceCancelled": "Iestatīšana atcelta. Nekas netika izveidots.",
+  "passkeyBackupSyncing": "Sinhronizē dublējumu…",
+  "passkeyCreateNewTitle": "Piekļuves atslēga nav atrasta",
+  "passkeyCreateNewBody": "Nekas netika izveidots. Vai izveidot jaunu piekļuves atslēgu šim makam ar {method}?",
+  "@passkeyCreateNewBody": {
+    "placeholders": {
+      "method": {
+        "type": "String"
+      }
+    }
+  },
+  "passkeyCreateNewAction": "Izveidot jaunu piekļuves atslēgu",
   "passkeyChoiceFallbackWords": "Neizdevās iestatīt {method}. Tavs maciņš tika izveidots ar atkopšanas vārdiem.",
   "biometricFaceId": "Face ID",
   "biometricTouchId": "Touch ID",
@@ -2033,6 +2043,7 @@
   "capabilityAccountRestricted": "Šī funkcija tavam kontam vēl nav pieejama.",
   "capabilityCountryUnknown": "Neizdevās pārbaudīt tavu reģionu ar Kute. Mēģini vēlreiz.",
   "capabilityPolicyUnavailable": "Neizdevās pārbaudīt pieejamību ar Kute. Mēģini vēlreiz.",
+  "capabilityOfflineGrace": "Kute šobrīd nav sasniedzams. Saskaņā ar pēdējo pārbaudi tas joprojām ir pieejams.",
   "capabilityUnavailable": "Šī funkcija Kute pašlaik nav pieejama.",
   "leverageCapExceeded": "Svira virs {maxLeverage}x tavā reģionā nav pieejama.",
   "providerRegionRestricted": "{provider} ir ierobežots reģionā, kurā, šķiet, atrodas tavs interneta savienojums. Ja tu neesi tur, pārbaudi tīkla vai VPN iestatījumus un mēģini vēlreiz.",
@@ -2137,6 +2148,14 @@
   "recoverAddressesStartWith": "Adreses sākas ar {prefix}",
   "recoverPasskeyCreated": "Izveidots {date}",
   "recoverFoundOnDevice": "Atrasts šajā ierīcē. Pirms atjaunošanas pārbaudi, vai atlikums izskatās pareizs.",
+  "recoverOlderVersionSection": "No vecākas versijas šajā tālrunī",
+  "recoverOlderVersionWallet": "Maciņš no vecākas versijas",
+  "recoverOlderVersionNeedsPin": "Atveras ar tās versijas PIN kodu",
+  "recoverOlderVersionIcloud": "Saglabāts iCloud atslēgu saišķī",
+  "recoverOlderVersionEnterPin": "Ievadiet tās versijas PIN kodu",
+  "recoverOlderVersionFailed": "Šo kopiju neizdevās atjaunot.",
+  "restoreRescueOfferBody": "Jūsu maciņu kopijas no vecākas Kute versijas vēl ir šajā tālrunī. Izmantot tās, nevis sākt no jauna?",
+  "restoreRescueOfferConfirm": "Izmantot saglabātās kopijas",
   "recoverConfirmWallet": "Apstiprini, lai atjaunotu {wallet}.",
   "btcSetupCreateTitleShort": "Izveidot jaunu maciņu",
   "btcSetupWalletNameHint": "Maciņa nosaukums",
@@ -2962,6 +2981,7 @@
   "portfolioStatsActive": "Aktīvās",
   "portfolioStatsHistoric": "Vēsture",
   "portfolioStatAtStake": "Ieguldītā summa",
+  "portfolioProfitLoss": "Peļņa un zaudējumi",
   "slipCtaAddTo": "{side, select, long{Palielināt long pozīciju · {amount}} other{Palielināt short pozīciju · {amount}}}",
   "slipCtaReduce": "{side, select, long{Samazināt long pozīciju · {amount}} other{Samazināt short pozīciju · {amount}}}",
   "slipCtaClose": "{side, select, long{Slēgt long pozīciju} other{Slēgt short pozīciju}}",

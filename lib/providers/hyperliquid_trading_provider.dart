@@ -56,6 +56,7 @@ import 'package:kute/helpers/venue_intents.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/providers/auth_provider.dart';
 import 'package:kute/providers/hyperliquid_account_provider.dart';
+import 'package:kute/services/hyperliquid/hl_optimistic_margin.dart';
 import 'package:kute/providers/hyperliquid_live_prices_provider.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
@@ -629,16 +630,62 @@ class HyperliquidTradingNotifier
 
     _orderDexes = _dexesFor(snap, current.openOrders);
 
+    // Optimistic margin after a fill: keep the figures shown at the fill
+    // until the venue's own margin moves off the pre-fill baseline (it
+    // indexed the fill) or the hold's TTL passes; then the snapshot wins.
+    final hold = _optimisticMargin;
+    final keepHold = hold != null &&
+        !hold.reconciledBy(snap.totalMarginUsed, now: now);
+    if (!keepHold) _optimisticMargin = null;
+
     final next = current.copyWith(
       perpEquity: snap.accountValue,
-      totalMarginUsed: snap.totalMarginUsed,
-      withdrawable: snap.withdrawable,
+      totalMarginUsed: keepHold ? hold.totalMarginUsed : snap.totalMarginUsed,
+      withdrawable: keepHold ? hold.withdrawable : snap.withdrawable,
       positions: snap.positions,
       spotBalances: snap.spotBalances,
       pendingCloseCoins: pending,
     );
     if (next == current) return;
     _setData(next);
+  }
+
+  // ───────────────────── optimistic margin after a fill ─────────────────────
+
+  HlOptimisticMargin? _optimisticMargin;
+
+  void _holdOptimisticOpen(double marginUsd) {
+    final s = _current;
+    if (s == null || marginUsd <= 0) return;
+    final hold = HlOptimisticMargin.afterOpen(
+      withdrawable: s.withdrawable,
+      totalMarginUsed: s.totalMarginUsed,
+      marginUsd: marginUsd,
+      at: DateTime.now(),
+    );
+    _optimisticMargin = hold;
+    _setData(s.copyWith(
+      withdrawable: hold.withdrawable,
+      totalMarginUsed: hold.totalMarginUsed,
+    ));
+  }
+
+  void _holdOptimisticClose(
+      {required double marginReleasedUsd, required double realizedPnlUsd}) {
+    final s = _current;
+    if (s == null || marginReleasedUsd <= 0) return;
+    final hold = HlOptimisticMargin.afterClose(
+      withdrawable: s.withdrawable,
+      totalMarginUsed: s.totalMarginUsed,
+      marginReleasedUsd: marginReleasedUsd,
+      realizedPnlUsd: realizedPnlUsd,
+      at: DateTime.now(),
+    );
+    _optimisticMargin = hold;
+    _setData(s.copyWith(
+      withdrawable: hold.withdrawable,
+      totalMarginUsed: hold.totalMarginUsed,
+    ));
   }
 
   Future<void> _silentOrdersRefresh() async {
@@ -1092,6 +1139,14 @@ class HyperliquidTradingNotifier
       );
       _trackTpslLegFailure(market, result,
           wantedTpsl: hasTp || hasSl, parentType: 'market');
+      if (result.isFilled) {
+        // Margin locked by the fill, shown now; the next account poll
+        // reconciles (see _applySnapshot).
+        final filledMargin = result.avgPx > 0
+            ? result.filledSz * result.avgPx / lev
+            : marginUsd;
+        _holdOptimisticOpen(filledMargin);
+      }
       _afterAction();
       return result;
     } catch (e, st) {
@@ -1357,6 +1412,16 @@ class HyperliquidTradingNotifier
         orderType: 'market',
         notionalUsd: size * refPx,
       );
+      if (result.isFilled && pos.szi.abs() > 0) {
+        // Margin released (and PnL realised) by the fill, shown now; the
+        // next account poll reconciles (see _applySnapshot).
+        final closedFraction =
+            (result.filledSz / pos.szi.abs()).clamp(0.0, 1.0).toDouble();
+        _holdOptimisticClose(
+          marginReleasedUsd: pos.marginUsed * closedFraction,
+          realizedPnlUsd: pos.unrealizedPnl * closedFraction,
+        );
+      }
       _afterAction();
       return result;
     } catch (e, st) {

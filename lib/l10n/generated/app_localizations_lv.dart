@@ -1209,9 +1209,6 @@ class AppLocalizationsLv extends AppLocalizations {
   String get usdEarnRateUnavailable => 'Šobrīd nav pieejams';
 
   @override
-  String get usdEarnPaidToDate => 'Līdz šim izmaksāts';
-
-  @override
   String get usdEarnActivityEmpty => 'Vēl nav maksājumu';
 
   @override
@@ -2057,6 +2054,20 @@ class AppLocalizationsLv extends AppLocalizations {
   @override
   String get passkeyChoiceCancelled =>
       'Iestatīšana atcelta. Nekas netika izveidots.';
+
+  @override
+  String get passkeyBackupSyncing => 'Sinhronizē dublējumu…';
+
+  @override
+  String get passkeyCreateNewTitle => 'Piekļuves atslēga nav atrasta';
+
+  @override
+  String passkeyCreateNewBody(String method) {
+    return 'Nekas netika izveidots. Vai izveidot jaunu piekļuves atslēgu šim makam ar $method?';
+  }
+
+  @override
+  String get passkeyCreateNewAction => 'Izveidot jaunu piekļuves atslēgu';
 
   @override
   String passkeyChoiceFallbackWords(String method) {
@@ -7075,6 +7086,10 @@ class AppLocalizationsLv extends AppLocalizations {
       'Neizdevās pārbaudīt pieejamību ar Kute. Mēģini vēlreiz.';
 
   @override
+  String get capabilityOfflineGrace =>
+      'Kute šobrīd nav sasniedzams. Saskaņā ar pēdējo pārbaudi tas joprojām ir pieejams.';
+
+  @override
   String get capabilityUnavailable => 'Šī funkcija Kute pašlaik nav pieejama.';
 
   @override
@@ -7450,6 +7465,31 @@ class AppLocalizationsLv extends AppLocalizations {
   @override
   String get recoverFoundOnDevice =>
       'Atrasts šajā ierīcē. Pirms atjaunošanas pārbaudi, vai atlikums izskatās pareizs.';
+
+  @override
+  String get recoverOlderVersionSection => 'No vecākas versijas šajā tālrunī';
+
+  @override
+  String get recoverOlderVersionWallet => 'Maciņš no vecākas versijas';
+
+  @override
+  String get recoverOlderVersionNeedsPin => 'Atveras ar tās versijas PIN kodu';
+
+  @override
+  String get recoverOlderVersionIcloud => 'Saglabāts iCloud atslēgu saišķī';
+
+  @override
+  String get recoverOlderVersionEnterPin => 'Ievadiet tās versijas PIN kodu';
+
+  @override
+  String get recoverOlderVersionFailed => 'Šo kopiju neizdevās atjaunot.';
+
+  @override
+  String get restoreRescueOfferBody =>
+      'Jūsu maciņu kopijas no vecākas Kute versijas vēl ir šajā tālrunī. Izmantot tās, nevis sākt no jauna?';
+
+  @override
+  String get restoreRescueOfferConfirm => 'Izmantot saglabātās kopijas';
 
   @override
   String recoverConfirmWallet(String wallet) {
@@ -10442,6 +10482,9 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get portfolioStatAtStake => 'Ieguldītā summa';
+
+  @override
+  String get portfolioProfitLoss => 'Peļņa un zaudējumi';
 
   @override
   String slipCtaAddTo(String side, String amount) {

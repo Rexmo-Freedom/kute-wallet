@@ -1212,9 +1212,6 @@ class AppLocalizationsFi extends AppLocalizations {
   String get usdEarnRateUnavailable => 'Ei saatavilla juuri nyt';
 
   @override
-  String get usdEarnPaidToDate => 'Sinulle maksettu tähän mennessä';
-
-  @override
   String get usdEarnActivityEmpty => 'Ei vielä maksuja';
 
   @override
@@ -2063,6 +2060,20 @@ class AppLocalizationsFi extends AppLocalizations {
   @override
   String get passkeyChoiceCancelled =>
       'Käyttöönotto peruttiin. Mitään ei luotu.';
+
+  @override
+  String get passkeyBackupSyncing => 'Varmuuskopiota synkronoidaan…';
+
+  @override
+  String get passkeyCreateNewTitle => 'Avainkoodia ei löytynyt';
+
+  @override
+  String passkeyCreateNewBody(String method) {
+    return 'Mitään ei luotu. Luodaanko tälle lompakolle uusi avainkoodi $method-tunnistuksella?';
+  }
+
+  @override
+  String get passkeyCreateNewAction => 'Luo uusi avainkoodi';
 
   @override
   String passkeyChoiceFallbackWords(String method) {
@@ -7093,6 +7104,10 @@ class AppLocalizationsFi extends AppLocalizations {
       'Saatavuutta ei voitu tarkistaa Kuten kanssa. Yritä uudelleen.';
 
   @override
+  String get capabilityOfflineGrace =>
+      'Kuteen ei saada yhteyttä juuri nyt. Tämä on edelleen käytettävissä viimeisen tarkistuksesi perusteella.';
+
+  @override
   String get capabilityUnavailable =>
       'Tämä ominaisuus ei ole tällä hetkellä käytettävissä Kutessa.';
 
@@ -7477,6 +7492,33 @@ class AppLocalizationsFi extends AppLocalizations {
   @override
   String get recoverFoundOnDevice =>
       'Löytyi tältä laitteelta. Tarkista, että saldo näyttää oikealta, ennen kuin palautat.';
+
+  @override
+  String get recoverOlderVersionSection =>
+      'Tämän puhelimen vanhemmasta versiosta';
+
+  @override
+  String get recoverOlderVersionWallet => 'Lompakko vanhemmasta versiosta';
+
+  @override
+  String get recoverOlderVersionNeedsPin => 'Avautuu sen version PIN-koodilla';
+
+  @override
+  String get recoverOlderVersionIcloud => 'Tallennettu iCloud-avainnippuun';
+
+  @override
+  String get recoverOlderVersionEnterPin =>
+      'Syötä sen version käyttämä PIN-koodi';
+
+  @override
+  String get recoverOlderVersionFailed => 'Tätä kopiota ei voitu palauttaa.';
+
+  @override
+  String get restoreRescueOfferBody =>
+      'Lompakkojesi kopiot Kuten vanhemmasta versiosta ovat yhä tässä puhelimessa. Käytetäänkö niitä sen sijaan, että aloitetaan alusta?';
+
+  @override
+  String get restoreRescueOfferConfirm => 'Käytä tallennettuja kopioita';
 
   @override
   String recoverConfirmWallet(String wallet) {
@@ -10484,6 +10526,9 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get portfolioStatAtStake => 'Panoksena oleva summa';
+
+  @override
+  String get portfolioProfitLoss => 'Voitto ja tappio';
 
   @override
   String slipCtaAddTo(String side, String amount) {

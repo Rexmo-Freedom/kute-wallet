@@ -387,7 +387,6 @@
   "usdEarnNextPaymentIn": "Plătește în",
   "usdEarnRatePending": "Se încarcă",
   "usdEarnRateUnavailable": "Indisponibil momentan",
-  "usdEarnPaidToDate": "Plătit ție până acum",
   "usdEarnActivityEmpty": "Nicio plată încă",
   "usdEarnActivityUnavailable": "Istoricul plăților nu e disponibil momentan",
   "hlYieldAvailableLine": "{amount} disponibil",
@@ -633,6 +632,17 @@
   "passkeyChoiceAppleAccount": "contul Apple",
   "passkeyChoiceGoogleAccount": "contul Google",
   "passkeyChoiceCancelled": "Configurare anulată. Nu s-a creat nimic.",
+  "passkeyBackupSyncing": "Se sincronizează copia de rezervă…",
+  "passkeyCreateNewTitle": "Nicio cheie de acces găsită",
+  "passkeyCreateNewBody": "Nu s-a creat nimic. Creezi o cheie de acces nouă pentru acest portofel cu {method}?",
+  "@passkeyCreateNewBody": {
+    "placeholders": {
+      "method": {
+        "type": "String"
+      }
+    }
+  },
+  "passkeyCreateNewAction": "Creează o cheie de acces nouă",
   "passkeyChoiceFallbackWords": "{method} nu a putut fi configurat. Portofelul a fost creat în schimb cu cuvinte de recuperare.",
   "biometricFaceId": "Face ID",
   "biometricTouchId": "Touch ID",
@@ -2033,6 +2043,7 @@
   "capabilityAccountRestricted": "Această funcție nu este încă disponibilă pentru contul tău.",
   "capabilityCountryUnknown": "Kute nu a putut verifica regiunea ta. Încearcă din nou.",
   "capabilityPolicyUnavailable": "Kute nu a putut verifica disponibilitatea. Încearcă din nou.",
+  "capabilityOfflineGrace": "Kute nu poate fi contactat momentan. Acesta este încă disponibil conform ultimei tale verificări.",
   "capabilityUnavailable": "Această funcție nu este disponibilă momentan în Kute.",
   "leverageCapExceeded": "Levierul peste {maxLeverage}x nu este disponibil în regiunea ta.",
   "providerRegionRestricted": "{provider} este restricționat în regiunea în care pare să fie conexiunea ta la internet. Dacă nu ești acolo, verifică rețeaua sau setările VPN și încearcă din nou.",
@@ -2137,6 +2148,14 @@
   "recoverAddressesStartWith": "Adresele încep cu {prefix}",
   "recoverPasskeyCreated": "Creat {date}",
   "recoverFoundOnDevice": "Găsit pe acest dispozitiv. Verifică dacă soldul pare corect înainte să restaurezi.",
+  "recoverOlderVersionSection": "Dintr-o versiune mai veche de pe acest telefon",
+  "recoverOlderVersionWallet": "Portofel dintr-o versiune mai veche",
+  "recoverOlderVersionNeedsPin": "Se deschide cu PIN-ul folosit de acea versiune",
+  "recoverOlderVersionIcloud": "Salvat în iCloud Keychain",
+  "recoverOlderVersionEnterPin": "Introdu PIN-ul folosit de acea versiune",
+  "recoverOlderVersionFailed": "Această copie nu a putut fi restaurată.",
+  "restoreRescueOfferBody": "Pe acest telefon există încă copii ale portofelelor tale dintr-o versiune mai veche a Kute. Le folosești în loc să începi de la zero?",
+  "restoreRescueOfferConfirm": "Folosește copiile salvate",
   "recoverConfirmWallet": "Confirmă pentru a restaura {wallet}.",
   "btcSetupCreateTitleShort": "Creează portofel nou",
   "btcSetupWalletNameHint": "Numele portofelului",
@@ -2962,6 +2981,7 @@
   "portfolioStatsActive": "Active",
   "portfolioStatsHistoric": "Istoric",
   "portfolioStatAtStake": "Sumă în joc",
+  "portfolioProfitLoss": "Profit și pierdere",
   "slipCtaAddTo": "{side, select, long{Mărește poziția long · {amount}} other{Mărește poziția short · {amount}}}",
   "slipCtaReduce": "{side, select, long{Redu poziția long · {amount}} other{Redu poziția short · {amount}}}",
   "slipCtaClose": "{side, select, long{Închide poziția long} other{Închide poziția short}}",

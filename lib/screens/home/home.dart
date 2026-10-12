@@ -896,6 +896,20 @@ class _ActivitySection extends ConsumerWidget {
   }
 }
 
+/// Whether the hero balance shows the loading shimmer instead of a figure:
+/// only while the Breez SDK is still connecting, nothing is cached for
+/// the wallet and the wallet was not created fresh on this device. A
+/// cached balance (a cached 0 included) and a brand-new wallet (known
+/// to be 0) render the figure at once; a wallet that may hold a balance
+/// but has no cache yet waits for the SDK.
+bool heroBalanceShowsSkeleton({
+  required bool breezWaking,
+  required int btcSats,
+  required bool hasCachedBalance,
+  required bool createdEmpty,
+}) =>
+    breezWaking && btcSats == 0 && !hasCachedBalance && !createdEmpty;
+
 /// Shimmer placeholder for the hero balance while the Breez SDK is
 /// still connecting and no cached balance exists. Mirrors the Receive
 /// screen's QR shimmer palette so "loading" reads the same everywhere.
@@ -1088,22 +1102,38 @@ class _BitcoinAccountFrontState extends ConsumerState<_BitcoinAccountFront>
     final btcSats =
         balanceState.sparkBitcoinbalance + balanceState.onChainBtcBalance;
     // Wallet still waking up: while the Breez SDK is connecting AND we
-    // have nothing cached to show (a genuinely-zero fresh wallet or a
-    // cold boot before the balance cache hydrates), render a shimmer
-    // skeleton instead of a blank/0 hero. Same treatment as the QR
-    // placeholder on Receive, adapted to the balance (user decision).
-    // Once the SDK resolves, a real 0 renders as a real 0. Watching is
-    // subscribe-only here: `completeUnlock` primes the connect on every
-    // unlock path, so this never initiates it.
+    // have nothing to show, render a shimmer skeleton instead of a
+    // blank/0 hero. Same treatment as the QR placeholder on Receive,
+    // adapted to the balance (user decision). A cached 0 and a wallet
+    // created fresh on this device (its balance is known to be 0) are
+    // something to show: they render as a real 0 at once; only a wallet
+    // that may hold a balance but has no cache yet (a restore, a cold
+    // boot before the cache hydrates) waits. Watching is subscribe-only
+    // here: `completeUnlock` (and creation) primes the connect, so this
+    // never initiates it.
     final breezWaking = ref.watch(breezSDKProvider).isLoading;
-    if (breezWaking && btcSats == 0) {
+    final activeId =
+        ref.watch(settingsProvider.select((s) => s.activeWalletId));
+    final createdEmpty = ref.watch(
+        settingsProvider.select((s) => s.activeWallet?.createdEmpty ?? false));
+    final hasCachedBalance = ref.watch(walletBalanceCacheProvider
+        .select((cache) => activeId != null && cache.containsKey(activeId)));
+    if (heroBalanceShowsSkeleton(
+      breezWaking: breezWaking,
+      btcSats: btcSats,
+      hasCachedBalance: hasCachedBalance,
+      createdEmpty: createdEmpty,
+    )) {
       return const _HeroBalanceSkeleton();
     }
     // First real balance of this process (once; the key is consumed).
-    // `source` says whether the cached balance or the live SDK got the
-    // number on screen. Deferred to after paint; no amount is sent.
+    // `source` says whether the cached balance, the live SDK or the
+    // known-empty new wallet got the number on screen. Deferred to after
+    // paint; no amount is sent.
     if (LatencyTracker.isRunning(LatencyKeys.balanceLoaded)) {
-      final source = breezWaking ? 'cache' : 'sdk';
+      final source = !breezWaking
+          ? 'sdk'
+          : (hasCachedBalance ? 'cache' : 'new_wallet');
       WidgetsBinding.instance.addPostFrameCallback((_) {
         LatencyTracker.stop(LatencyKeys.balanceLoaded,
             params: {'source': source});

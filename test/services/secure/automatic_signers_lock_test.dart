@@ -12,6 +12,7 @@ import 'package:kute/providers/hyperliquid_account_provider.dart';
 import 'package:kute/providers/hyperliquid_trading_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/providers/swap_orders_provider.dart';
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart';
 import 'package:kute/services/passkey_prf_service.dart';
 import 'package:kute/services/passkey_service.dart';
@@ -19,6 +20,7 @@ import 'package:kute/services/secure/flutter_secret_store.dart';
 import 'package:kute/services/secure/recovery_check.dart';
 import 'package:polybrainz_polymarket/polybrainz_polymarket.dart' show Position;
 
+import '../../helpers/fake_swap_orders.dart';
 import '../support/fake_secret_store.dart';
 import '../support/recording_secret_store.dart';
 
@@ -153,6 +155,10 @@ void main() {
     final container = ProviderContainer(overrides: [
       settingsProvider
           .overrideWith((ref) => SettingsModel(_settings([spending]))),
+      // The account notifier watches pending HyperCore deposits, whose
+      // real swap-orders notifier opens a Hive box on creation; that open
+      // would still be in flight when tearDown deletes the Hive dir.
+      swapOrdersProvider.overrideWith((_) => FakeSwapOrders()),
     ]);
     addTearDown(container.dispose);
     if (session) container.read(sessionAuthProvider.notifier).state = _session;
@@ -288,8 +294,11 @@ void main() {
   test('no session PIN remains and every resolver call is automatic', () {
     final sessionPin = 'session' 'PinProvider';
     final emptyPin = 'pin ?? ' "''";
+    // Every call site up to the end of its statement, whether awaited
+    // directly or wrapped in a closure (`boot.time('x', () => ...)`); the
+    // lookbehind skips the declaration itself.
     final calls =
-        RegExp(r'await resolveBip39MnemonicFor\((.*?)\);', dotAll: true);
+        RegExp(r'(?<!Future<String\?> )resolveBip39MnemonicFor\(([^;]*);');
     var resolverCalls = 0;
     for (final root in ['lib', 'test']) {
       for (final file in Directory(root)

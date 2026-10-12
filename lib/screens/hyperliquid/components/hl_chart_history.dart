@@ -18,6 +18,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:kute/services/http/shared_http_client.dart';
 
 import 'package:kute/constants/hyperliquid_constants.dart';
 import 'package:kute/models/hyperliquid_model.dart';
@@ -134,10 +135,12 @@ class HlChartHistory {
         'endTime': endMs,
       },
     });
-    final request = client != null
-        ? client.post(HyperliquidConstants.infoUri, headers: headers, body: body)
-        : http.post(HyperliquidConstants.infoUri, headers: headers, body: body);
-    final resp = await request.timeout(const Duration(seconds: 15));
+    final resp = await SharedHttpClient.post(HyperliquidConstants.infoUri,
+        headers: headers,
+        body: body,
+        kind: HttpCallKind.userAction,
+        timeout: const Duration(seconds: 15),
+        client: client);
     if (resp.statusCode != 200) {
       throw StateError('candleSnapshot ${resp.statusCode}');
     }

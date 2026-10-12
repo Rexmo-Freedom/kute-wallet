@@ -26,14 +26,24 @@ import 'package:kute/services/tracking_service.dart';
 /// is emitted at most once per measurement; the boot ones at most once
 /// per process.
 abstract final class LatencyKeys {
-  /// First line of `main()` to the first rendered Flutter frame.
+  /// First line of `main()` to the first rendered Flutter frame. Carries
+  /// one duration per pre-frame boot step (`env_ms`, `firebase_ms`,
+  /// `hive_ms`, and `posthog_ms` with `posthog_before_first_frame` saying
+  /// whether the PostHog setup had finished by then), attached by
+  /// `main.dart` through [LatencyTracker.addParams].
   static const appTimeToFirstFrame = 'app_time_to_first_frame';
 
   /// First line of `main()` to the first real (non-skeleton) balance on
   /// the home card.
   static const balanceLoaded = 'balance_loaded_latency';
 
-  /// Spark SDK `connect()` to the first `synced` event of the boot session.
+  /// Spark SDK: the `connect` call to the connected handle, once per boot
+  /// session (`result`: `ok` | `error`).
+  static const sparkConnect = 'spark_connect_latency';
+
+  /// Spark SDK: the connected handle to the first `synced` event of the
+  /// boot session. Together with [sparkConnect] this covers `connect()` →
+  /// first `synced` without overlap.
   static const sparkSync = 'spark_sync_latency';
 
   /// Orchestra quote request to its response (or failure).
@@ -41,31 +51,58 @@ abstract final class LatencyKeys {
 
   /// Venue order submit to the venue's acknowledgement (or failure).
   static const orderSubmitAck = 'order_submit_ack_latency';
+
+  /// One HTTP request through the shared client (SharedHttpClient):
+  /// sampled on success, every failure. Carries the host, method, call
+  /// kind, outcome and status class only; the network type is PostHog's
+  /// own `$network_wifi` / `$network_cellular`.
+  static const httpRequest = 'http_request_latency';
 }
 
 abstract final class LatencyTracker {
   static final Map<String, Stopwatch> _running = <String, Stopwatch>{};
 
+  /// Params attached to a running measurement by [addParams], emitted with
+  /// the event its [stop] produces.
+  static final Map<String, Map<String, Object>> _attached = {};
+
   /// Starts (or restarts) the measurement for [key].
   static void start(String key) {
     _running[key] = Stopwatch()..start();
+    _attached.remove(key);
   }
 
   /// True while [key] has a started, not yet stopped, measurement.
   static bool isRunning(String key) => _running.containsKey(key);
 
   /// Drops the measurement for [key] without emitting anything.
-  static void cancel(String key) => _running.remove(key);
+  static void cancel(String key) {
+    _running.remove(key);
+    _attached.remove(key);
+  }
+
+  /// Attaches [params] to the running measurement for [key], so a step
+  /// measured in one place (a boot leg in `main.dart`) rides on the event
+  /// that another place stops (the splash's first frame). A later value for
+  /// the same name replaces the earlier one. No-op when nothing is running
+  /// for [key], so a late step can never emit a bogus event of its own.
+  /// Durations and categorical values only.
+  static void addParams(String key, Map<String, Object> params) {
+    if (!_running.containsKey(key)) return;
+    (_attached[key] ??= <String, Object>{}).addAll(params);
+  }
 
   /// Stops the measurement for [key] and emits one event named [key].
   /// Returns the elapsed milliseconds, or null (and emits nothing) when
-  /// no measurement was started. [params] must be categorical only.
+  /// no measurement was started. [params] must be categorical only; they
+  /// are merged over anything [addParams] attached.
   static int? stop(String key, {Map<String, Object>? params}) {
     final sw = _running.remove(key);
+    final attached = _attached.remove(key);
     if (sw == null) return null;
     sw.stop();
     final ms = sw.elapsedMilliseconds;
-    record(key, ms, params: params);
+    record(key, ms, params: {...?attached, ...?params});
     return ms;
   }
 
@@ -92,7 +129,10 @@ abstract final class LatencyTracker {
     return '>10s';
   }
 
-  /// Test-only: forget every running measurement.
+  /// Test-only: forget every running measurement and attached param.
   @visibleForTesting
-  static void debugReset() => _running.clear();
+  static void debugReset() {
+    _running.clear();
+    _attached.clear();
+  }
 }

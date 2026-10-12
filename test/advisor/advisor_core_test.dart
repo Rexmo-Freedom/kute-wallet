@@ -571,6 +571,95 @@ void main() {
       notifier.cancel();
       await pending;
     });
+    test('a question asked mid-answer stops that answer, keeps what streamed '
+        'and reports interrupted', () async {
+      final events = <(String, Map<String, Object>?)>[];
+      TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+      addTearDown(() => TrackingService.debugTrackObserver = null);
+      final notifier = container.read(advisorSessionProvider.notifier);
+      final first = notifier.ask('Explain funding', context: _context);
+      await _until(() => streams.isNotEmpty);
+      streams[0].add(const AdvisorStreamEvent.delta('Funding is paid'));
+      await _until(() => container
+          .read(advisorSessionProvider)
+          .turns
+          .single
+          .partialText
+          .isNotEmpty);
+
+      final second = notifier.ask('And the fees?', context: _context);
+      await _until(() => streams.length == 2);
+      await first;
+      expect(cancellations[0].isCancelled, isTrue);
+      expect(cancellations[1].isCancelled, isFalse);
+      final turns = container.read(advisorSessionProvider).turns;
+      expect(turns, hasLength(2));
+      // The stopped answer: what was streamed, marked stopped, kept out of
+      // the next request's history.
+      expect(turns[0].loading, isFalse);
+      expect(turns[0].includeInHistory, isFalse);
+      expect(turns[0].blocks.single.id, 'interrupted');
+      expect(turns[0].blocks.single.markdown, startsWith('Funding is paid'));
+      expect(turns[1].loading, isTrue);
+      expect(histories[1], isEmpty);
+      final asked = [
+        for (final (name, params) in events)
+          if (name == 'sal_question_asked') params!
+      ];
+      expect(asked, hasLength(2));
+      expect(asked[0].keys, isNot(contains('interrupted')));
+      expect(asked[1]['interrupted'], isTrue);
+      final failed = [
+        for (final (name, params) in events)
+          if (name == 'sal_answer_failed') params!['error_category']
+      ];
+      expect(failed, ['cancelled']);
+
+      streams[1].add(const AdvisorStreamEvent.done(_response));
+      await streams[1].close();
+      await second;
+      expect(container.read(advisorSessionProvider).turns[1].loading, isFalse);
+      expect(container.read(advisorSessionProvider).turns[1].blocks,
+          _response.blocks);
+      // Only the stop was a failure; the second answer was received.
+      expect(events.where((e) => e.$1 == 'sal_answer_failed'), hasLength(1));
+      expect(events.where((e) => e.$1 == 'sal_answer_received'), hasLength(1));
+    });
+
+    test('the daily quota answers an interrupting question as any other',
+        () async {
+      final events = <(String, Map<String, Object>?)>[];
+      TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+      addTearDown(() => TrackingService.debugTrackObserver = null);
+      final notifier = container.read(advisorSessionProvider.notifier);
+      final first = notifier.ask('Explain funding', context: _context);
+      await _until(() => streams.isNotEmpty);
+      streams[0].add(const AdvisorStreamEvent.delta('Funding is paid'));
+      await _until(() => container
+          .read(advisorSessionProvider)
+          .turns
+          .single
+          .partialText
+          .isNotEmpty);
+      final second = notifier.ask('And the fees?', context: _context);
+      await _until(() => streams.length == 2);
+      await first;
+      streams[1].addError(AdvisorRateLimitedException(const Duration(hours: 1),
+          daily: true, resetAt: DateTime.utc(2026, 10, 13)));
+      await second;
+      final turns = container.read(advisorSessionProvider).turns;
+      expect(turns, hasLength(2));
+      expect(turns[0].blocks.single.id, 'interrupted');
+      expect(turns[1].loading, isFalse);
+      expect(turns[1].includeInHistory, isFalse);
+      expect(turns[1].blocks.single.id, 'daily_limit');
+      final failed = [
+        for (final (name, params) in events)
+          if (name == 'sal_answer_failed') params!['error_category']
+      ];
+      expect(failed, ['cancelled', 'quota_daily']);
+    });
+
     tearDown(() async {
       container.dispose();
       for (final stream in streams) {

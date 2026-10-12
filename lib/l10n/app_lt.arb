@@ -387,7 +387,6 @@
   "usdEarnNextPaymentIn": "Mokėjimas po",
   "usdEarnRatePending": "Įkeliama",
   "usdEarnRateUnavailable": "Šiuo metu negalima",
-  "usdEarnPaidToDate": "Jums iki šiol išmokėta",
   "usdEarnActivityEmpty": "Mokėjimų dar nėra",
   "usdEarnActivityUnavailable": "Mokėjimų istorija šiuo metu negalima",
   "hlYieldAvailableLine": "Prieinama {amount}",
@@ -633,6 +632,17 @@
   "passkeyChoiceAppleAccount": "Apple paskyra",
   "passkeyChoiceGoogleAccount": "Google paskyra",
   "passkeyChoiceCancelled": "Sąranka atšaukta. Niekas nesukurta.",
+  "passkeyBackupSyncing": "Sinchronizuojama atsarginė kopija…",
+  "passkeyCreateNewTitle": "Slaptažodžio raktas nerastas",
+  "passkeyCreateNewBody": "Nieko nesukurta. Sukurti naują slaptažodžio raktą šiai piniginei naudojant {method}?",
+  "@passkeyCreateNewBody": {
+    "placeholders": {
+      "method": {
+        "type": "String"
+      }
+    }
+  },
+  "passkeyCreateNewAction": "Sukurti naują slaptažodžio raktą",
   "passkeyChoiceFallbackWords": "Nepavyko nustatyti {method}. Jūsų piniginė sukurta su atkūrimo žodžiais.",
   "biometricFaceId": "Face ID",
   "biometricTouchId": "Touch ID",
@@ -2033,6 +2043,7 @@
   "capabilityAccountRestricted": "Ši funkcija jūsų paskyrai dar negalima.",
   "capabilityCountryUnknown": "Nepavyko patvirtinti jūsų regiono su Kute. Bandykite dar kartą.",
   "capabilityPolicyUnavailable": "Nepavyko patikrinti prieinamumo su Kute. Bandykite dar kartą.",
+  "capabilityOfflineGrace": "Šiuo metu Kute nepasiekiamas. Pagal paskutinį patikrinimą tai vis dar prieinama.",
   "capabilityUnavailable": "Ši funkcija Kute šiuo metu negalima.",
   "leverageCapExceeded": "Didesnis nei {maxLeverage}x svertas jūsų regione negalimas.",
   "providerRegionRestricted": "{provider} ribojamas regione, kuriame, atrodo, yra jūsų interneto ryšys. Jei esate ne ten, patikrinkite tinklo ar VPN nustatymus ir bandykite dar kartą.",
@@ -2137,6 +2148,14 @@
   "recoverAddressesStartWith": "Adresai prasideda {prefix}",
   "recoverPasskeyCreated": "Sukurta {date}",
   "recoverFoundOnDevice": "Rasta šiame įrenginyje. Prieš atkurdami patikrinkite, ar likutis atrodo teisingas.",
+  "recoverOlderVersionSection": "Iš senesnės versijos šiame telefone",
+  "recoverOlderVersionWallet": "Piniginė iš senesnės versijos",
+  "recoverOlderVersionNeedsPin": "Atidaroma tos versijos naudotu PIN kodu",
+  "recoverOlderVersionIcloud": "Išsaugota „iCloud Keychain“",
+  "recoverOlderVersionEnterPin": "Įveskite tos versijos naudotą PIN kodą",
+  "recoverOlderVersionFailed": "Šios kopijos atkurti nepavyko.",
+  "restoreRescueOfferBody": "Jūsų piniginių kopijos iš senesnės „Kute“ versijos vis dar yra šiame telefone. Naudoti jas, o ne pradėti iš naujo?",
+  "restoreRescueOfferConfirm": "Naudoti išsaugotas kopijas",
   "recoverConfirmWallet": "Patvirtinkite, kad atkurtumėte {wallet}.",
   "btcSetupCreateTitleShort": "Sukurti naują piniginę",
   "btcSetupWalletNameHint": "Piniginės pavadinimas",
@@ -2962,6 +2981,7 @@
   "portfolioStatsActive": "Aktyvios",
   "portfolioStatsHistoric": "Istorija",
   "portfolioStatAtStake": "Statoma suma",
+  "portfolioProfitLoss": "Pelnas ir nuostoliai",
   "slipCtaAddTo": "{side, select, long{Didinti long poziciją · {amount}} other{Didinti short poziciją · {amount}}}",
   "slipCtaReduce": "{side, select, long{Mažinti long poziciją · {amount}} other{Mažinti short poziciją · {amount}}}",
   "slipCtaClose": "{side, select, long{Uždaryti long poziciją} other{Uždaryti short poziciją}}",

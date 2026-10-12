@@ -1213,9 +1213,6 @@ class AppLocalizationsNl extends AppLocalizations {
   String get usdEarnRateUnavailable => 'Nu niet beschikbaar';
 
   @override
-  String get usdEarnPaidToDate => 'Tot nu toe aan jou betaald';
-
-  @override
   String get usdEarnActivityEmpty => 'Nog geen uitbetalingen';
 
   @override
@@ -2072,6 +2069,20 @@ class AppLocalizationsNl extends AppLocalizations {
   @override
   String get passkeyChoiceCancelled =>
       'Instellen geannuleerd. Er is niets aangemaakt.';
+
+  @override
+  String get passkeyBackupSyncing => 'Je back-up wordt gesynchroniseerd…';
+
+  @override
+  String get passkeyCreateNewTitle => 'Geen passkey gevonden';
+
+  @override
+  String passkeyCreateNewBody(String method) {
+    return 'Er is niets aangemaakt. In plaats daarvan een nieuwe passkey voor deze wallet maken met $method?';
+  }
+
+  @override
+  String get passkeyCreateNewAction => 'Nieuwe passkey maken';
 
   @override
   String passkeyChoiceFallbackWords(String method) {
@@ -7115,6 +7126,10 @@ class AppLocalizationsNl extends AppLocalizations {
       'Kute kan de beschikbaarheid niet controleren. Probeer het opnieuw.';
 
   @override
+  String get capabilityOfflineGrace =>
+      'Kute is op dit moment niet bereikbaar. Dit is nog steeds beschikbaar op basis van je laatste controle.';
+
+  @override
   String get capabilityUnavailable =>
       'Deze functie is momenteel niet beschikbaar in Kute.';
 
@@ -7498,6 +7513,35 @@ class AppLocalizationsNl extends AppLocalizations {
   @override
   String get recoverFoundOnDevice =>
       'Gevonden op dit apparaat. Controleer of het saldo klopt voordat je herstelt.';
+
+  @override
+  String get recoverOlderVersionSection =>
+      'Van een oudere versie op deze telefoon';
+
+  @override
+  String get recoverOlderVersionWallet => 'Wallet van een oudere versie';
+
+  @override
+  String get recoverOlderVersionNeedsPin =>
+      'Opent met de pincode die die versie gebruikte';
+
+  @override
+  String get recoverOlderVersionIcloud => 'Opgeslagen in iCloud-sleutelhanger';
+
+  @override
+  String get recoverOlderVersionEnterPin =>
+      'Voer de pincode in die die versie gebruikte';
+
+  @override
+  String get recoverOlderVersionFailed =>
+      'Deze kopie kon niet worden hersteld.';
+
+  @override
+  String get restoreRescueOfferBody =>
+      'Er staan nog kopieën van je wallets uit een oudere versie van Kute op deze telefoon. Deze gebruiken in plaats van opnieuw te beginnen?';
+
+  @override
+  String get restoreRescueOfferConfirm => 'Opgeslagen kopieën gebruiken';
 
   @override
   String recoverConfirmWallet(String wallet) {
@@ -10503,6 +10547,9 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get portfolioStatAtStake => 'Ingezet bedrag';
+
+  @override
+  String get portfolioProfitLoss => 'Winst en verlies';
 
   @override
   String slipCtaAddTo(String side, String amount) {

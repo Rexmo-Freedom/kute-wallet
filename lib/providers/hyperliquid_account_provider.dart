@@ -10,6 +10,10 @@ import 'package:kute/models/settings_model.dart' show Settings;
 // pill.
 //
 // Polling cadence (mirrors PolymarketTradingNotifier._adjustRefreshRate):
+//   - 4 s while a HyperCore deposit is in flight (an Orchestra row still
+//     pending into HYPERCORE for this wallet), so the credit shows within
+//     one short poll of landing; back to the cadence below once the row
+//     settles;
 //   - 5 s while positions are open OR an order placement is in flight —
 //     the position cards animate PnL each tick via RollingNumberText;
 //   - 15 s idle — a flat account only needs a heartbeat.
@@ -26,12 +30,13 @@ import 'package:kute/models/settings_model.dart' show Settings;
 
 import 'dart:async';
 
-import 'package:flutter/foundation.dart' show setEquals;
+import 'package:flutter/foundation.dart' show setEquals, visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/providers/auth_provider.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
+import 'package:kute/providers/pending_pool_deposits_provider.dart';
 import 'package:kute/providers/placing_hyperliquid_order_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
@@ -172,9 +177,22 @@ final hyperliquidAddressProvider = FutureProvider<String?>((ref) async {
 
 // ───────────────────────── account snapshot ─────────────────────────
 
+/// Poll interval while a HyperCore deposit is pending (spec: 3–5 s).
+const int kHlDepositPendingIntervalSecs = 4;
+
+/// Poll interval with open positions or a placement in flight.
+const int kHlActiveIntervalSecs = 5;
+
+/// Idle poll interval.
+const int kHlIdleIntervalSecs = 15;
+
 class HlAccountNotifier extends AutoDisposeAsyncNotifier<HlAccountSnapshot> {
   Timer? _timer;
-  int _currentIntervalSecs = 15;
+  int _currentIntervalSecs = kHlIdleIntervalSecs;
+
+  /// Test-only: the cadence currently in force, seconds.
+  @visibleForTesting
+  int get debugIntervalSecs => _currentIntervalSecs;
   bool _disposed = false;
   String? _address;
 
@@ -198,6 +216,16 @@ class HlAccountNotifier extends AutoDisposeAsyncNotifier<HlAccountSnapshot> {
         unawaited(_silentRefresh());
       }
     });
+    // A deposit on its way into HyperCore drops the poll to 4 s until the
+    // Orchestra row settles (the background sync flips it), so the credit
+    // lands on screen within one short poll. A new pending deposit also
+    // forces a tick straight away.
+    ref.listen(pendingTradingDepositUsdProvider, (prev, next) {
+      _applyCadence();
+      if ((prev ?? 0) <= 0 && next > 0) {
+        unawaited(_silentRefresh());
+      }
+    });
 
     final address = await ref.watch(hyperliquidAddressProvider.future);
     _address = address;
@@ -215,9 +243,21 @@ class HlAccountNotifier extends AutoDisposeAsyncNotifier<HlAccountSnapshot> {
   }
 
   int _targetIntervalSecs(HlAccountSnapshot? snap) {
+    final depositPending = _depositPending();
+    if (depositPending) return kHlDepositPendingIntervalSecs;
     final placing = ref.read(placingHyperliquidOrderProvider).isNotEmpty;
     final hasPositions = (snap?.positions.isNotEmpty ?? false);
-    return (placing || hasPositions) ? 5 : 15;
+    return (placing || hasPositions)
+        ? kHlActiveIntervalSecs
+        : kHlIdleIntervalSecs;
+  }
+
+  bool _depositPending() {
+    try {
+      return ref.read(pendingTradingDepositUsdProvider) > 0;
+    } catch (_) {
+      return false;
+    }
   }
 
   void _applyCadence() {

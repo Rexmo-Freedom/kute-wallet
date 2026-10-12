@@ -146,6 +146,19 @@ const Set<String> kOrchestraAccumulationDeniedPairs = {
   // "Unsupported deposit source: tron:TRX". This does not establish
   // support for the separate BTC destination, so leave that unchanged.
   'tron:TRX:USDB',
+  // Receive bitcoin, PostHog swap_failed / receive_address_failed up to
+  // 2026-10-12: the mint refused the BTC destination too with
+  // "Unsupported deposit source: tron:TRX", so the chain's own coin is
+  // not a configured deposit asset for either destination.
+  'tron:TRX:BTC',
+  // Same period: "Unsupported source: hyperevm:USDE". The refusal names
+  // the source alone, with no destination, so both are withdrawn.
+  // There is no provider endpoint listing the configured deposit pairs
+  // of the legacy accumulation rail (the standing rail's per-chain
+  // address map covers chains, not assets, and only destination
+  // spark:USDB), so observed refusals are kept here by hand.
+  'hyperevm:USDE:BTC',
+  'hyperevm:USDE:USDB',
 };
 
 /// Whether a pair passes known reusable-address restrictions. Callers

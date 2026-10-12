@@ -5,6 +5,7 @@ import 'package:kute/models/swap_order_model.dart';
 import 'package:kute/restart_widget.dart';
 import 'package:kute/services/appsflyer_service.dart';
 import 'package:kute/services/exit_reason_service.dart';
+import 'package:kute/services/runtime_policy_snapshot_store.dart';
 import 'package:kute/services/tracking/latency_tracker.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/services/tx_fiat_snapshot_service.dart';
@@ -183,6 +184,21 @@ Future<void> _initFirebase() async {
   }
 }
 
+/// Awaits [step] and attaches how long it took, as `<name>_ms`, to the
+/// `app_time_to_first_frame` event the splash emits. The step's own
+/// error handling stays with the step: this never throws and never adds
+/// a wait of its own.
+Future<void> _timedBootStep(String name, Future<void> step) async {
+  final sw = Stopwatch()..start();
+  try {
+    await step;
+  } finally {
+    sw.stop();
+    LatencyTracker.addParams(
+        LatencyKeys.appTimeToFirstFrame, {'${name}_ms': sw.elapsedMilliseconds});
+  }
+}
+
 Future<void> _initializeApp() async {
   // Boot fan-out. Each leg is wrapped in its own try-catch so a single
   // failure (no internet, missing `.env`, Hive corruption, Firebase
@@ -192,16 +208,41 @@ Future<void> _initializeApp() async {
   // .env FIRST, not inside the fan-out: the PostHog + AppsFlyer client
   // keys live there now (no longer hardcoded in source), so _initPostHog
   // below must not race the load. It's a local asset read — milliseconds.
-  await dotenv.load(fileName: ".env").catchError((_) {
-    // .env missing in release/CI — fall back to platform-channel
-    // ints / build flavor; downstream services read with defaults.
-  });
+  // Every pre-frame step is timed onto `app_time_to_first_frame` so a slow
+  // first frame names the step that caused it.
+  await _timedBootStep(
+      'env',
+      dotenv.load(fileName: ".env").catchError((_) {
+        // .env missing in release/CI — fall back to platform-channel
+        // ints / build flavor; downstream services read with defaults.
+      }));
+  // PostHog's Dart setup is OFF the awaited path: it is started here, in
+  // parallel with the fan-out, and the first frame does not wait for it.
+  // Until it completes, TrackingService holds every capture in order and
+  // releases them all in `markAnalyticsReady`, so no boot event is lost
+  // and none reaches the SDK before its config. The hold is released
+  // whatever the outcome (success, failure, the 5 s bound inside), so a
+  // PostHog outage can never mute the app. `posthog_before_first_frame`
+  // on the first-frame event says whether setup had finished by then.
+  TrackingService.holdAnalyticsUntilReady();
+  LatencyTracker.addParams(
+      LatencyKeys.appTimeToFirstFrame, {'posthog_before_first_frame': 0});
+  final posthogSw = Stopwatch()..start();
+  unawaited(_initPostHog()
+      .catchError((_) {/* network/SDK init failed; events buffer */})
+      .whenComplete(() {
+    posthogSw.stop();
+    LatencyTracker.addParams(LatencyKeys.appTimeToFirstFrame, {
+      'posthog_ms': posthogSw.elapsedMilliseconds,
+      'posthog_before_first_frame': 1,
+    });
+    TrackingService.markAnalyticsReady();
+  }));
   await Future.wait([
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp])
         .catchError((_) {}),
-    _initFirebase(),
-    _initPostHog().catchError((_) {/* network/SDK init failed; buffer */}),
-    _initHive(),
+    _timedBootStep('firebase', _initFirebase()),
+    _timedBootStep('hive', _initHive()),
   ]);
   // The analytics opt-out lives in Hive, so apply it the moment Hive is
   // open, before anything below can fire an event. Synchronous; the SDK
@@ -230,7 +271,26 @@ Future<void> _initializeApp() async {
     TrackingService.setSessionKey('breez_connected', false);
   } catch (_) {}
 
-  RuntimeCapabilitiesService.instance.start();
+  // The runtime policy goes out FIRST, in parallel with the first frame:
+  // the policy service adopts the policies saved on disk and asks for the
+  // public policy (no session needed) at once; the stored session token is
+  // read from secure storage (a local read, no network, no AppsFlyer, no
+  // sign-in) and the session policy is layered on top as soon as it is.
+  // Nothing below waits for either. Never minted here: a session mint
+  // signs with the hot wallet and must stay behind AppsFlyer init (see the
+  // chain below), and the policy service has no container to mint with
+  // yet; a wallet without a stored session keeps the public policy until
+  // the background registration mints one.
+  final publicPolicyFetched = RuntimeCapabilitiesService.instance.start();
+  final sessionRestored = AffiliateService.restore().catchError((_) {});
+  final sessionPolicyFetched = sessionRestored
+      .then((_) => RuntimeCapabilitiesService.instance.refreshAfterCurrent());
+  unawaited(Future.wait([publicPolicyFetched, sessionPolicyFetched]).then(
+      (landed) {
+    TrackingService.setSessionKey('backend_reachable', landed.any((ok) => ok));
+  }, onError: (Object _) {
+    TrackingService.setSessionKey('backend_reachable', false);
+  }));
   // Analytics must never delay first frame (offline, PostHog down).
   await TrackingService.initialize()
       .timeout(const Duration(seconds: 4), onTimeout: () {})
@@ -243,18 +303,19 @@ Future<void> _initializeApp() async {
   // report the abnormal ones now that Crashlytics + Hive are up.
   // Fire-and-forget — must never delay first frame.
   unawaited(ExitReasonService.reportLastExit());
-  // AppsFlyer (install attribution / ad ROAS) + AffiliateService +
-  // PostHog identify: DEFERRED as one fire-and-forget CHAIN. The chain
-  // preserves the required internal ordering — AppsFlyer after
-  // TrackingService.initialize (awaited above, so the device UUID
-  // exists for customerUserId) and BEFORE AffiliateService auth (so
-  // authWallet can hand the appsflyer_id to the backend for S2S
-  // revenue events); identify runs after restore so the next event
-  // lands under the stable identity. None of it is needed for first
-  // frame: attribution fires once per install and queues, the
-  // affiliate code is read lazily by the Earn screen, and pre-identify
-  // events sit under PostHog's anonymous id and are aliased on
-  // identify (the 'unknown' sentinel fallback still counts the user in
+  // AppsFlyer (install attribution / ad ROAS) + PostHog identify:
+  // DEFERRED as one fire-and-forget CHAIN. The chain preserves the
+  // required internal ordering — the PostHog setup first (so identify
+  // reaches a configured SDK), AppsFlyer after TrackingService.initialize
+  // (awaited above, so the device UUID exists for customerUserId) and
+  // BEFORE any AffiliateService auth (so authWallet can hand the
+  // appsflyer_id to the backend for S2S revenue events; the session
+  // restore above only reads storage); identify runs after that restore
+  // so the next event lands under the stable identity. None of it is
+  // needed for first frame: attribution fires once per install and
+  // queues, the affiliate code is read lazily by the Earn screen, and
+  // pre-identify events sit under PostHog's anonymous id and are aliased
+  // on identify (the 'unknown' sentinel fallback still counts the user in
   // MAU until a real code lands).
   //
   // Persist any deferred-deeplink referrer the moment AppsFlyer
@@ -266,15 +327,11 @@ Future<void> _initializeApp() async {
   AppsFlyerService.onInstallAttributionCaptured =
       AffiliateService.queueInstallAttribution;
   unawaited(() async {
+    await TrackingService.analyticsReady;
     await AppsFlyerService.init().catchError((_) {});
     // WalletIdentityService binds to Breez SDK lazily (in the Earn
     // screen's bootstrap) — no SDK wait here.
-    await AffiliateService.restore().catchError((_) {});
-    unawaited(RuntimeCapabilitiesService.instance.refresh().then((ok) {
-      TrackingService.setSessionKey('backend_reachable', ok);
-    }, onError: (Object _) {
-      TrackingService.setSessionKey('backend_reachable', false);
-    }));
+    await sessionRestored;
     try {
       final code = AffiliateService.affiliateCode ?? '';
       await TrackingService.identifyWithAffiliate(code);
@@ -349,6 +406,11 @@ Future<void> _initPostHog() async {
     ..captureApplicationLifecycleEvents = true
     ..debug = kDebugMode
     ..sessionReplay = false
+    // PostHog is collection only: nothing in the app reads a feature flag
+    // (see TrackingService.isDisabled), so the flag fetch the SDK would
+    // otherwise make at setup is a network round-trip for nothing, on the
+    // boot path of a weak link. Off, like the explicit reload was before.
+    ..preloadFeatureFlags = false
     // Surveys are never shown in Kute (founder decision, 2026-09-30).
     // Set explicitly so an SDK default flip can't render one.
     ..surveys = false
@@ -366,9 +428,9 @@ Future<void> _initPostHog() async {
     // PostHog is PRODUCT ANALYTICS ONLY now. All crash / exception reporting
     // (Dart + native + ANR) goes to Firebase Crashlytics — so every PostHog
     // error-capture flag stays OFF and we no longer send `$exception` events.
-  // Timeout-guard the setup so a no-internet cold start can't hang boot on
-  // the SDK's init. PostHog is offline-safe (it queues events to disk and
-  // flushes when connectivity returns); the timeout just protects first frame.
+  // Bounded so a wedged SDK init can never keep the capture hold in
+  // `_initializeApp` closed for long. PostHog is offline-safe (it queues
+  // events to disk and flushes when connectivity returns).
   await Posthog().setup(config).timeout(
         const Duration(seconds: 5),
         onTimeout: () {},
@@ -421,6 +483,9 @@ Future<void> _initHive() async {
   //    read synchronously at construction time.
   //  * spark_address_ring — recent Spark deposit addresses (ring, max
   //    5) so pending inbound txs survive address rotation + restarts.
+  //  * runtime_policy_cache — the last runtime policy fetched for this
+  //    wallet (public metadata, no token), so a boot with a bad link
+  //    keeps what the backend last allowed (RuntimeCapabilitiesService).
   //  * settings — pre-opened here (was opened lazily by
   //    initialSettingsProvider on the splash critical path; opening it
   //    in this parallel batch removes that sequential cost — openBox
@@ -453,6 +518,7 @@ Future<void> _initHive() async {
     _openHiveBoxSafe<String>('polymarket_feed_cache_v1'),
     _openHiveBoxSafe<String>('wallet_transaction_cache'),
     _openHiveBoxSafe<String>('spark_address_ring'),
+    _openHiveBoxSafe<String>(HiveRuntimePolicySnapshotStore.boxName),
     // Settings box: plain open, NOT _openHiveBoxSafe — the safe variant
     // deletes a corrupt box from disk, which is right for cache-tier
     // boxes but would silently wipe the WALLET LIST here. A failed open

@@ -2462,12 +2462,6 @@ abstract class AppLocalizations {
   /// **'Unavailable right now'**
   String get usdEarnRateUnavailable;
 
-  /// No description provided for @usdEarnPaidToDate.
-  ///
-  /// In en, this message translates to:
-  /// **'Paid to you so far'**
-  String get usdEarnPaidToDate;
-
   /// No description provided for @usdEarnActivityEmpty.
   ///
   /// In en, this message translates to:
@@ -3937,6 +3931,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Setup cancelled. Nothing was created.'**
   String get passkeyChoiceCancelled;
+
+  /// Quiet note on the onboarding screens after a passkey wallet was created, while its backup label is still being published in the background.
+  ///
+  /// In en, this message translates to:
+  /// **'Syncing your backup…'**
+  String get passkeyBackupSyncing;
+
+  /// No description provided for @passkeyCreateNewTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No passkey found'**
+  String get passkeyCreateNewTitle;
+
+  /// Offered when the user dismissed the sign-in sheet on a device that holds no passkey.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing was created. Create a new passkey for this wallet with {method} instead?'**
+  String passkeyCreateNewBody(String method);
+
+  /// No description provided for @passkeyCreateNewAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a new passkey'**
+  String get passkeyCreateNewAction;
 
   /// No description provided for @passkeyChoiceFallbackWords.
   ///
@@ -12342,6 +12360,12 @@ abstract class AppLocalizations {
   /// **'Unable to check availability with Kute. Please try again.'**
   String get capabilityPolicyUnavailable;
 
+  /// No description provided for @capabilityOfflineGrace.
+  ///
+  /// In en, this message translates to:
+  /// **'Kute can\'t be reached right now. This is still available from your last check.'**
+  String get capabilityOfflineGrace;
+
   /// No description provided for @capabilityUnavailable.
   ///
   /// In en, this message translates to:
@@ -12965,6 +12989,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Found on this device. Check the balance looks right before you restore.'**
   String get recoverFoundOnDevice;
+
+  /// Heading in the restore picker above wallets whose copies an older version of the app left on this phone.
+  ///
+  /// In en, this message translates to:
+  /// **'From an older version on this phone'**
+  String get recoverOlderVersionSection;
+
+  /// Row title for an old wallet copy whose wallet record no longer exists on the phone.
+  ///
+  /// In en, this message translates to:
+  /// **'Wallet from an older version'**
+  String get recoverOlderVersionWallet;
+
+  /// Row subtitle for an old copy that is encrypted with the PIN that version used.
+  ///
+  /// In en, this message translates to:
+  /// **'Opens with the PIN that version used'**
+  String get recoverOlderVersionNeedsPin;
+
+  /// Row subtitle for an old copy that lives in iCloud Keychain.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved in iCloud Keychain'**
+  String get recoverOlderVersionIcloud;
+
+  /// Title of the PIN sheet that opens an old PIN-encrypted copy.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the PIN that version used'**
+  String get recoverOlderVersionEnterPin;
+
+  /// Error shown when an old copy could not be read or saved.
+  ///
+  /// In en, this message translates to:
+  /// **'This copy couldn\'t be restored.'**
+  String get recoverOlderVersionFailed;
+
+  /// Body of the sheet shown instead of Start over when old copies were found on the phone.
+  ///
+  /// In en, this message translates to:
+  /// **'Copies of your wallets from an older version of Kute are still on this phone. Use them instead of starting over?'**
+  String get restoreRescueOfferBody;
+
+  /// Confirm button of that sheet: re-saves the old copies.
+  ///
+  /// In en, this message translates to:
+  /// **'Use the saved copies'**
+  String get restoreRescueOfferConfirm;
 
   /// Shown on the recover screen while the passkey prompt confirms the chosen wallet.
   ///
@@ -17920,6 +17992,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Amount at stake'**
   String get portfolioStatAtStake;
+
+  /// Statistics tab: caption over the P&L chart's headline figure (the account's profit and loss, realised plus open).
+  ///
+  /// In en, this message translates to:
+  /// **'Profit and loss'**
+  String get portfolioProfitLoss;
 
   /// The Investing order button when the person already holds a perp position on this side: the order adds to it. {side} is 'long' or 'short' (select), {amount} is formatted money.
   ///

@@ -32,6 +32,7 @@ import 'package:kute/services/revenue/hyperliquid_revenue.dart';
 
 import 'package:http/http.dart' as http;
 import 'package:kute/constants/hyperliquid_constants.dart';
+import 'package:kute/services/http/shared_http_client.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_rounding.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_signing.dart';
@@ -1092,12 +1093,14 @@ class HyperliquidExchangeService {
     ack.start();
     final http.Response resp;
     try {
-      resp = await (client != null
-              ? client.post(HyperliquidConstants.exchangeUri,
-                  headers: headers, body: body)
-              : http.post(HyperliquidConstants.exchangeUri,
-                  headers: headers, body: body))
-          .timeout(const Duration(seconds: 15));
+      // HttpCallKind.submit: one attempt, never retried (a second POST
+      // could place a second order), 15 s read budget as before.
+      resp = await SharedHttpClient.post(HyperliquidConstants.exchangeUri,
+          headers: headers,
+          body: body,
+          kind: HttpCallKind.submit,
+          timeout: const Duration(seconds: 15),
+          client: client);
     } on TimeoutException {
       reportAck('timeout');
       rethrow;

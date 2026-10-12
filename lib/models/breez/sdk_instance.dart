@@ -46,11 +46,12 @@ class BreezSdkSpark {
   /// reconnects (wallet switches) never emit a second measurement.
   bool _bootSyncMeasured = false;
 
+  /// Set once the boot session's first native connect has been timed
+  /// (`spark_connect_latency`, whatever its outcome), for the same reason.
+  bool _bootConnectMeasured = false;
+
   Future<void> connect({required spark.ConnectRequest req}) {
     final generation = ++_generation;
-    // connect() → first `synced`: one `spark_sync_latency` per process.
-    // A connect that is superseded before syncing simply restarts it.
-    if (!_bootSyncMeasured) LatencyTracker.start(LatencyKeys.sparkSync);
     final previous = _instance;
     _instance = null;
     final cancelled = _unsubscribeFromSdkStreams();
@@ -64,7 +65,22 @@ class BreezSdkSpark {
         throw StateError(
             'The previous Spark session could not close. Restart the app before reconnecting.');
       }
-      final sdk = await _connectSdk(req);
+      // Two boot timers, one each per process, without overlap:
+      //   * `spark_connect_latency`: this native connect call → the
+      //     connected handle (or its failure);
+      //   * `spark_sync_latency`: the connected handle → the first `synced`
+      //     event. A connect that is superseded before syncing restarts it.
+      // Teardown of a previous handle (a wallet switch) is in neither.
+      final connectSw = _bootConnectMeasured ? null : (Stopwatch()..start());
+      final spark.BreezSdk sdk;
+      try {
+        sdk = await _connectSdk(req);
+      } catch (_) {
+        _recordBootConnect(connectSw, result: 'error');
+        rethrow;
+      }
+      _recordBootConnect(connectSw, result: 'ok');
+      if (!_bootSyncMeasured) LatencyTracker.start(LatencyKeys.sparkSync);
       if (_generation != generation) {
         await _retireSdk(sdk);
         throw StateError('Spark connection was superseded.');
@@ -80,6 +96,16 @@ class BreezSdkSpark {
     _lifecycle =
         result.then<void>((_) {}, onError: (Object _, StackTrace __) {});
     return result;
+  }
+
+  /// Emits the boot session's one `spark_connect_latency`. [sw] is null
+  /// once it has been emitted.
+  void _recordBootConnect(Stopwatch? sw, {required String result}) {
+    if (sw == null) return;
+    sw.stop();
+    _bootConnectMeasured = true;
+    LatencyTracker.record(LatencyKeys.sparkConnect, sw.elapsedMilliseconds,
+        params: {'result': result});
   }
 
   void disconnect() {

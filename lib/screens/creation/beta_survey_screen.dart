@@ -6,6 +6,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kute/helpers/kute_dog_asset.dart';
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/screens/creation/passkey_choice.dart'
+    show PasskeyBackupSyncingNote;
 import 'package:kute/screens/creation/referrer_code_screen.dart'
     show referrerCodeStepAllowed, skipReferrerCodeStep;
 import 'package:kute/screens/creation/set_pin.dart' show trackOnboardingStep;
@@ -174,6 +176,10 @@ class _BetaSurveyScreenState extends ConsumerState<BetaSurveyScreen> {
                 ),
 
                 const Spacer(),
+
+                // A passkey wallet whose backup label is still publishing
+                // (slow link) says so quietly; otherwise nothing renders.
+                const PasskeyBackupSyncingNote(),
 
                 // Continue button — routed through the shared AppButton
                 // so the typography/text-color/animation match every other

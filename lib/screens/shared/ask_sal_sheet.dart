@@ -243,13 +243,10 @@ class _AskSalSheetState extends ConsumerState<SalChatPanel> {
       String? template,
       int? chipIndex,
       bool haptic = true}) {
-    final session = ref.read(advisorSessionProvider);
-    if (question.trim().isEmpty ||
-        ((session.context == null ||
-                session.context == widget.advisorContext) &&
-            session.turns.any((t) => t.loading))) {
-      return;
-    }
+    // A question sent while Sal is still answering interrupts that answer:
+    // the notifier's ask() cancels the running turn (it keeps what was
+    // streamed, marked stopped) and starts this one.
+    if (question.trim().isEmpty) return;
     if (haptic) HapticFeedback.lightImpact();
     _composer.clear();
     FocusScope.of(context).unfocus();
@@ -382,12 +379,14 @@ class _AskSalSheetState extends ConsumerState<SalChatPanel> {
         Expanded(child: body),
         // The composer, pinned under the conversation from the start: a
         // chat, whether Sal is idle with its opening questions or
-        // answering.
+        // answering. It stays open while an answer streams, so the next
+        // question can be typed and sent without waiting (that send stops
+        // the running answer).
         SizedBox(height: 8.h),
         KuteComposer(
           controller: _composer,
           focusNode: _composerFocus,
-          enabled: enabled && !loading,
+          enabled: enabled,
           loading: loading,
           maxLength: 2000,
           hint: context.l10n.salAskQuestionHint,

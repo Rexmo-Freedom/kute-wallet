@@ -18,6 +18,7 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:kute/services/http/shared_http_client.dart';
 
 const String _kResolutionsUrl = 'https://data-api.polymarket.com/v2/resolutions';
 
@@ -50,8 +51,8 @@ Future<DateTime?> fetchPolyExpectedSettlement(
   try {
     final uri = Uri.parse(_kResolutionsUrl)
         .replace(queryParameters: {'condition': conditionId});
-    final resp = await (client == null ? http.get(uri) : client.get(uri))
-        .timeout(timeout);
+    final resp = await SharedHttpClient.get(uri,
+        kind: HttpCallKind.userAction, timeout: timeout, client: client);
     if (resp.statusCode != 200) return null;
     return polyExpectedSettlementOf(jsonDecode(resp.body));
   } catch (_) {

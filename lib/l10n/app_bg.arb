@@ -387,7 +387,6 @@
   "usdEarnNextPaymentIn": "Плаща се след",
   "usdEarnRatePending": "Зареждане",
   "usdEarnRateUnavailable": "Не е налично в момента",
-  "usdEarnPaidToDate": "Изплатено ти досега",
   "usdEarnActivityEmpty": "Още няма плащания",
   "usdEarnActivityUnavailable": "Историята на плащанията не е налична в момента",
   "hlYieldAvailableLine": "{amount} налични",
@@ -633,6 +632,17 @@
   "passkeyChoiceAppleAccount": "Apple акаунт",
   "passkeyChoiceGoogleAccount": "Google акаунт",
   "passkeyChoiceCancelled": "Настройката е отменена. Нищо не е създадено.",
+  "passkeyBackupSyncing": "Синхронизиране на резервното копие…",
+  "passkeyCreateNewTitle": "Не е намерен ключ за достъп",
+  "passkeyCreateNewBody": "Нищо не беше създадено. Да създадем ли нов ключ за достъп за този портфейл с {method}?",
+  "@passkeyCreateNewBody": {
+    "placeholders": {
+      "method": {
+        "type": "String"
+      }
+    }
+  },
+  "passkeyCreateNewAction": "Създай нов ключ за достъп",
   "passkeyChoiceFallbackWords": "{method} не можа да се настрои. Вместо това портфейлът ти е създаден с думи за възстановяване.",
   "biometricFaceId": "Face ID",
   "biometricTouchId": "Touch ID",
@@ -2033,6 +2043,7 @@
   "capabilityAccountRestricted": "Тази функция още не е достъпна за твоя акаунт.",
   "capabilityCountryUnknown": "Kute не можа да провери региона ти. Опитай отново.",
   "capabilityPolicyUnavailable": "Kute не можа да провери наличността. Опитай отново.",
+  "capabilityOfflineGrace": "В момента Kute не може да бъде достигнат. Това все още е налично според последната ви проверка.",
   "capabilityUnavailable": "Тази функция в момента не е достъпна в Kute.",
   "leverageCapExceeded": "Ливъридж над {maxLeverage}x не е достъпен в твоя регион.",
   "providerRegionRestricted": "{provider} е ограничен в региона, в който изглежда, че е интернет връзката ти. Ако не си там, провери мрежата или настройките на VPN и опитай отново.",
@@ -2137,6 +2148,14 @@
   "recoverAddressesStartWith": "Адресите започват с {prefix}",
   "recoverPasskeyCreated": "Създаден на {date}",
   "recoverFoundOnDevice": "Открит на това устройство. Провери дали балансът изглежда правилно, преди да възстановиш.",
+  "recoverOlderVersionSection": "От по-стара версия на този телефон",
+  "recoverOlderVersionWallet": "Портфейл от по-стара версия",
+  "recoverOlderVersionNeedsPin": "Отваря се с ПИН кода, използван от тази версия",
+  "recoverOlderVersionIcloud": "Запазено в iCloud Keychain",
+  "recoverOlderVersionEnterPin": "Въведете ПИН кода, използван от тази версия",
+  "recoverOlderVersionFailed": "Това копие не можа да бъде възстановено.",
+  "restoreRescueOfferBody": "Копия на портфейлите ви от по-стара версия на Kute все още са на този телефон. Да ги използваме вместо да започнем отначало?",
+  "restoreRescueOfferConfirm": "Използвай запазените копия",
   "recoverConfirmWallet": "Потвърди, за да възстановиш {wallet}.",
   "btcSetupCreateTitleShort": "Създай нов портфейл",
   "btcSetupWalletNameHint": "Име на портфейла",
@@ -2962,6 +2981,7 @@
   "portfolioStatsActive": "Активни",
   "portfolioStatsHistoric": "Исторически",
   "portfolioStatAtStake": "Заложена сума",
+  "portfolioProfitLoss": "Печалба и загуба",
   "slipCtaAddTo": "{side, select, long{Увеличи long позицията · {amount}} other{Увеличи short позицията · {amount}}}",
   "slipCtaReduce": "{side, select, long{Намали long позицията · {amount}} other{Намали short позицията · {amount}}}",
   "slipCtaClose": "{side, select, long{Затвори long позицията} other{Затвори short позицията}}",

@@ -62,14 +62,23 @@ void main() {
     expect(onrampVisible(service, 'onramp.unlisted'), isFalse);
   });
 
-  test('a policy outage hides an onramp that was offered', () async {
+  test('a policy outage keeps an offered onramp for the grace period',
+      () async {
     expect(await service.refresh(), isTrue);
     expect(onrampVisible(service, kOnrampCashApp), isTrue);
-    // The policy goes stale and the next fetch fails.
+    // The policy goes stale and the next fetch fails: what the last policy
+    // offered stays offered (marked offline), what it hid stays hidden.
     online = false;
     now = now.add(const Duration(minutes: 6));
     expect(await service.refresh(), isFalse);
     expect(service.snapshot, isNull);
+    expect(onrampVisible(service, kOnrampCashApp), isTrue);
+    expect(service.decision(kOnrampCashApp).offline, isTrue);
+    expect(onrampVisible(service, kOnrampBank), isFalse);
+    expect(onrampVisible(service, 'onramp.depix'), isFalse);
+    expect(onrampVisible(service, 'onramp.unlisted'), isFalse);
+    // Past the grace period nothing is offered until a policy loads.
+    now = origin.add(const Duration(hours: 24, minutes: 1));
     expect(onrampVisible(service, kOnrampCashApp), isFalse);
   });
 }

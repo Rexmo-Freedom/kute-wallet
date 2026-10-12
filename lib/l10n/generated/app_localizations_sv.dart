@@ -1209,9 +1209,6 @@ class AppLocalizationsSv extends AppLocalizations {
   String get usdEarnRateUnavailable => 'Inte tillgänglig just nu';
 
   @override
-  String get usdEarnPaidToDate => 'Utbetalt till dig hittills';
-
-  @override
   String get usdEarnActivityEmpty => 'Inga utbetalningar än';
 
   @override
@@ -2062,6 +2059,20 @@ class AppLocalizationsSv extends AppLocalizations {
   @override
   String get passkeyChoiceCancelled =>
       'Konfigurationen avbröts. Inget skapades.';
+
+  @override
+  String get passkeyBackupSyncing => 'Synkroniserar din säkerhetskopia…';
+
+  @override
+  String get passkeyCreateNewTitle => 'Ingen nyckel hittades';
+
+  @override
+  String passkeyCreateNewBody(String method) {
+    return 'Inget skapades. Vill du i stället skapa en ny nyckel för den här plånboken med $method?';
+  }
+
+  @override
+  String get passkeyCreateNewAction => 'Skapa en ny nyckel';
 
   @override
   String passkeyChoiceFallbackWords(String method) {
@@ -7084,6 +7095,10 @@ class AppLocalizationsSv extends AppLocalizations {
       'Det gick inte att kontrollera tillgängligheten med Kute. Försök igen.';
 
   @override
+  String get capabilityOfflineGrace =>
+      'Kute kan inte nås just nu. Detta är fortfarande tillgängligt enligt din senaste kontroll.';
+
+  @override
   String get capabilityUnavailable =>
       'Den här funktionen är inte tillgänglig i Kute just nu.';
 
@@ -7466,6 +7481,35 @@ class AppLocalizationsSv extends AppLocalizations {
   @override
   String get recoverFoundOnDevice =>
       'Hittades på den här enheten. Kontrollera att saldot ser rätt ut innan du återställer.';
+
+  @override
+  String get recoverOlderVersionSection =>
+      'Från en äldre version på den här telefonen';
+
+  @override
+  String get recoverOlderVersionWallet => 'Plånbok från en äldre version';
+
+  @override
+  String get recoverOlderVersionNeedsPin =>
+      'Öppnas med PIN-koden den versionen använde';
+
+  @override
+  String get recoverOlderVersionIcloud => 'Sparad i iCloud-nyckelring';
+
+  @override
+  String get recoverOlderVersionEnterPin =>
+      'Ange PIN-koden den versionen använde';
+
+  @override
+  String get recoverOlderVersionFailed =>
+      'Den här kopian kunde inte återställas.';
+
+  @override
+  String get restoreRescueOfferBody =>
+      'Kopior av dina plånböcker från en äldre version av Kute finns kvar på den här telefonen. Använda dem i stället för att börja om?';
+
+  @override
+  String get restoreRescueOfferConfirm => 'Använd de sparade kopiorna';
 
   @override
   String recoverConfirmWallet(String wallet) {
@@ -10465,6 +10509,9 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String get portfolioStatAtStake => 'Insatt belopp';
+
+  @override
+  String get portfolioProfitLoss => 'Vinst och förlust';
 
   @override
   String slipCtaAddTo(String side, String amount) {

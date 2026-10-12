@@ -1,3 +1,4 @@
+import '../helpers/fake_network.dart';
 import '../helpers/runtime_policy_fixture.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'dart:convert';
@@ -88,7 +89,7 @@ void main() {
       });
 
   Future<T> withBackend<T>(Future<T> Function() body) =>
-      http.runWithClient(body, backend);
+      withFakeNetwork(body, backend);
 
   List<http.Request> routeCalls(String suffix) =>
       requests.where((r) => r.url.path.endsWith(suffix)).toList();

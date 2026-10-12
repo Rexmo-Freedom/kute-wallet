@@ -251,10 +251,10 @@ void main() {
       expect(older['last_flow'], 'none');
       expect(older['snapshot_available'], isFalse);
 
-      // Crashlytics: the native crash is already captured natively; only
-      // the low-memory death is recorded, under its own type.
-      expect(crashes.length, 1);
-      expect(crashes.single, startsWith('LowMemoryExit'));
+      // Crashlytics: the native crash is already captured natively, and
+      // the low-memory kill of a cached (importance 400) process is
+      // housekeeping, so nothing reaches Crashlytics.
+      expect(crashes, isEmpty);
 
       // Same records next launch: nothing is reported twice.
       eventList.clear();
@@ -262,6 +262,32 @@ void main() {
         {'timestamp': 111, 'reasonName': 'crash_native', 'importance': 100},
       ], snapshot);
       expect(eventList, isEmpty);
+    });
+
+    test('only foreground or perceptible deaths reach Crashlytics', () {
+      ExitReasonService.handleExitRecords([
+        // Visible when killed: a real low-memory issue.
+        {'timestamp': 201, 'reasonName': 'low_memory', 'importance': 100},
+        // Perceptible (importance 230 is the boundary): still reported.
+        {'timestamp': 202, 'reasonName': 'signaled', 'importance': 230},
+        // Cached process reclaimed in the background: routine.
+        {'timestamp': 203, 'reasonName': 'low_memory', 'importance': 400},
+        {'timestamp': 204, 'reasonName': 'signaled', 'importance': 300},
+        {'timestamp': 205, 'reasonName': 'dependency_died', 'importance': 325},
+        // No importance at all: cannot be shown to have been visible.
+        {'timestamp': 206, 'reasonName': 'low_memory'},
+      ], null);
+
+      // Every abnormal exit is still an analytics event.
+      expect(eventList.where((e) => e == 'app_previous_exit_abnormal').length,
+          6);
+      // The PostHog crash marker keeps its own rule: every non-oom death
+      // plus foreground oom deaths.
+      expect(eventList.where((e) => e == 'app_crash_detected').length, 4);
+      // Crashlytics: only the two deaths the user could perceive.
+      expect(crashes.length, 2);
+      expect(crashes[0], startsWith('LowMemoryExit'));
+      expect(crashes[1], startsWith('SignaledExit'));
     });
 
     test('crash types and rss buckets', () {

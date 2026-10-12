@@ -7,6 +7,8 @@ import 'package:http/testing.dart';
 import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/services/api/orchestra_api.dart';
 
+import '../../helpers/fake_network.dart';
+
 Map<String, Object?> route(String chain, String asset, Object min, Object max,
         {bool supported = true, String source = 'lightning'}) =>
     {
@@ -69,7 +71,7 @@ void main() {
   test('backend and public fallback receive the complete selected pair',
       () async {
     final requests = <http.Request>[];
-    final result = await http.runWithClient(
+    final result = await withFakeNetwork(
       () => OrchestraService.getOnrampLimits(
           destinationChain: 'polygon', destinationAsset: 'USDC.e'),
       () => MockClient((request) async {
@@ -101,7 +103,7 @@ void main() {
 
   test('the existing no-argument caller requests Spark Bitcoin limits',
       () async {
-    await http.runWithClient(
+    await withFakeNetwork(
       () => OrchestraService.getOnrampLimits(),
       () => MockClient((request) async {
         expect(request.url.queryParameters['destinationChain'], 'spark');

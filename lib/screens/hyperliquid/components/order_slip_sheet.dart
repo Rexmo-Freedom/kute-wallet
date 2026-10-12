@@ -1932,8 +1932,10 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     }
     final filled =
         result.kind == HlOrderResultKind.filled || result.filledSz > 0;
+    // offeredMaxLeverage is at least 1: a market reporting no leverage
+    // (0) would otherwise put clamp's upper bound below its lower one.
     final ledgerLev =
-        isSpot ? 1 : _leverage.clamp(1, market.maxLeverage).toInt();
+        isSpot ? 1 : _leverage.clamp(1, market.offeredMaxLeverage).toInt();
     TrackingService.hyperliquidOrderPlaced(
       coin: market.coin,
       kind: isSpot ? 'spot' : 'perp',
@@ -3660,7 +3662,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         if (placed != null) {
           // The hot path reports from the trading notifier; the Ledger
           // order never touches it.
-          final lev = _leverage.clamp(1, market.maxLeverage).toInt();
+          final lev = _leverage.clamp(1, market.offeredMaxLeverage).toInt();
           TrackingService.hyperliquidOrderPlaced(
             coin: market.coin,
             kind: 'perp',

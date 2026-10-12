@@ -184,6 +184,7 @@ home_retry_tapped
 home_wallet_card_selected
 home_wallet_chip_tapped
 hot_signing_blocked
+http_request_latency
 hw_sign_method_selected
 hw_sign_other_methods_toggled
 hw_sign_qr_help_toggled
@@ -328,15 +329,18 @@ order_submit_ack_latency
 passkey_choice_back_tapped
 passkey_choice_bip_selected
 passkey_choice_cancelled
+passkey_choice_create_new_offered
 passkey_choice_fallback_bip
 passkey_choice_passkey_selected
 passkey_choice_rename_tapped
 passkey_choice_toggled
 passkey_create_mint_blocked
 passkey_label_customized
+passkey_label_published
 passkey_restore_cancelled
 passkey_restore_failed
 passkey_restore_prompt_shown
+passkey_seed_cache_write_failed
 passkey_unsupported_device
 pay_address_entry_method
 pay_amount_unit_flipped
@@ -367,6 +371,8 @@ pin_gate_result
 pin_set
 pin_set_failed
 pin_sheet_lockout
+polymarket_account_ready
+polymarket_balance_loaded
 polymarket_bet_amount_entered
 polymarket_bet_confirmation_shown
 polymarket_bet_failed
@@ -376,6 +382,7 @@ polymarket_bet_slip_opened
 polymarket_bet_step
 polymarket_bet_submitted
 polymarket_bet_timeline
+polymarket_deposit_bettable
 polymarket_deposit_completed
 polymarket_deposit_converted
 polymarket_deposit_failed
@@ -393,12 +400,14 @@ polymarket_native_usdc_converted
 polymarket_order_cancel_failed
 polymarket_order_cancelled
 polymarket_order_outcome
+polymarket_order_signed_without_builder_code
 polymarket_outcome_chip_tapped
 polymarket_placement_declined
 polymarket_placement_step_failed
 polymarket_position_redeemed
 polymarket_position_sold
 polymarket_position_win_loss
+polymarket_provisioning_outcome
 polymarket_redeem_failed
 polymarket_redeem_initiated
 polymarket_search_opened
@@ -415,7 +424,9 @@ polymarket_withdraw_failed
 polymarket_withdraw_initiated
 polymarket_withdraw_submitted
 portfolio_category_slice_selected
+portfolio_performance_chart_scrubbed
 portfolio_performance_error_shown
+portfolio_performance_range_changed
 portfolio_performance_retry_tapped
 portfolio_tab_changed
 predict_hero_viewed
@@ -510,6 +521,9 @@ secure_key_material_viewed
 seed_bio_domain_changed
 seed_capture_hidden
 seed_phrase_copied
+seed_rescue_failed
+seed_rescue_lookup_completed
+seed_rescue_restored
 seed_restore_add_as_new_wallet
 seed_restore_cancelled
 seed_restore_completed
@@ -580,6 +594,7 @@ shell_wallet_tab_selected
 slip_deposit_incoming_shown
 slip_top_up_opened
 slip_top_up_returned
+spark_connect_latency
 spark_deposit_auto_claimed
 spark_deposit_claim_failed
 spark_deposit_claim_fee_confirmed

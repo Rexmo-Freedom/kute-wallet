@@ -1213,9 +1213,6 @@ class AppLocalizationsSl extends AppLocalizations {
   String get usdEarnRateUnavailable => 'Trenutno ni na voljo';
 
   @override
-  String get usdEarnPaidToDate => 'Doslej izplačano vam';
-
-  @override
   String get usdEarnActivityEmpty => 'Še ni izplačil';
 
   @override
@@ -2067,6 +2064,20 @@ class AppLocalizationsSl extends AppLocalizations {
   @override
   String get passkeyChoiceCancelled =>
       'Nastavitev preklicana. Nič ni bilo ustvarjeno.';
+
+  @override
+  String get passkeyBackupSyncing => 'Sinhronizacija varnostne kopije…';
+
+  @override
+  String get passkeyCreateNewTitle => 'Ključ za dostop ni bil najden';
+
+  @override
+  String passkeyCreateNewBody(String method) {
+    return 'Nič ni bilo ustvarjeno. Želite namesto tega ustvariti nov ključ za dostop za to denarnico z $method?';
+  }
+
+  @override
+  String get passkeyCreateNewAction => 'Ustvari nov ključ za dostop';
 
   @override
   String passkeyChoiceFallbackWords(String method) {
@@ -7107,6 +7118,10 @@ class AppLocalizationsSl extends AppLocalizations {
       'Razpoložljivosti pri Kute ni bilo mogoče preveriti. Poskusite znova.';
 
   @override
+  String get capabilityOfflineGrace =>
+      'Kute trenutno ni dosegljiv. To je še vedno na voljo glede na vaše zadnje preverjanje.';
+
+  @override
   String get capabilityUnavailable =>
       'Ta funkcija v Kute trenutno ni na voljo.';
 
@@ -7489,6 +7504,34 @@ class AppLocalizationsSl extends AppLocalizations {
   @override
   String get recoverFoundOnDevice =>
       'Najdeno v tej napravi. Pred obnovo preverite, ali je stanje pravilno.';
+
+  @override
+  String get recoverOlderVersionSection =>
+      'Iz starejše različice v tem telefonu';
+
+  @override
+  String get recoverOlderVersionWallet => 'Denarnica iz starejše različice';
+
+  @override
+  String get recoverOlderVersionNeedsPin =>
+      'Odpre se s PIN-om, ki ga je uporabljala ta različica';
+
+  @override
+  String get recoverOlderVersionIcloud => 'Shranjeno v iCloud Keychain';
+
+  @override
+  String get recoverOlderVersionEnterPin =>
+      'Vnesite PIN, ki ga je uporabljala ta različica';
+
+  @override
+  String get recoverOlderVersionFailed => 'Te kopije ni bilo mogoče obnoviti.';
+
+  @override
+  String get restoreRescueOfferBody =>
+      'Kopije vaših denarnic iz starejše različice Kute so še vedno v tem telefonu. Jih uporabite, namesto da začnete znova?';
+
+  @override
+  String get restoreRescueOfferConfirm => 'Uporabi shranjene kopije';
 
   @override
   String recoverConfirmWallet(String wallet) {
@@ -10499,6 +10542,9 @@ class AppLocalizationsSl extends AppLocalizations {
 
   @override
   String get portfolioStatAtStake => 'Vloženi znesek';
+
+  @override
+  String get portfolioProfitLoss => 'Dobiček in izguba';
 
   @override
   String slipCtaAddTo(String side, String amount) {

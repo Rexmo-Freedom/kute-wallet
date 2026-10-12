@@ -387,7 +387,6 @@
   "usdEarnNextPaymentIn": "Betalas om",
   "usdEarnRatePending": "Laddar",
   "usdEarnRateUnavailable": "Inte tillgänglig just nu",
-  "usdEarnPaidToDate": "Utbetalt till dig hittills",
   "usdEarnActivityEmpty": "Inga utbetalningar än",
   "usdEarnActivityUnavailable": "Betalningshistoriken är inte tillgänglig just nu",
   "hlYieldAvailableLine": "{amount} tillgängligt",
@@ -633,6 +632,17 @@
   "passkeyChoiceAppleAccount": "Apple-konto",
   "passkeyChoiceGoogleAccount": "Google-konto",
   "passkeyChoiceCancelled": "Konfigurationen avbröts. Inget skapades.",
+  "passkeyBackupSyncing": "Synkroniserar din säkerhetskopia…",
+  "passkeyCreateNewTitle": "Ingen nyckel hittades",
+  "passkeyCreateNewBody": "Inget skapades. Vill du i stället skapa en ny nyckel för den här plånboken med {method}?",
+  "@passkeyCreateNewBody": {
+    "placeholders": {
+      "method": {
+        "type": "String"
+      }
+    }
+  },
+  "passkeyCreateNewAction": "Skapa en ny nyckel",
   "passkeyChoiceFallbackWords": "Kunde inte konfigurera {method}. Din plånbok skapades med återställningsord i stället.",
   "biometricFaceId": "Face ID",
   "biometricTouchId": "Touch ID",
@@ -2033,6 +2043,7 @@
   "capabilityAccountRestricted": "Den här funktionen är inte tillgänglig för ditt konto än.",
   "capabilityCountryUnknown": "Det gick inte att verifiera din region med Kute. Försök igen.",
   "capabilityPolicyUnavailable": "Det gick inte att kontrollera tillgängligheten med Kute. Försök igen.",
+  "capabilityOfflineGrace": "Kute kan inte nås just nu. Detta är fortfarande tillgängligt enligt din senaste kontroll.",
   "capabilityUnavailable": "Den här funktionen är inte tillgänglig i Kute just nu.",
   "leverageCapExceeded": "Hävstång över {maxLeverage}x är inte tillgänglig i din region.",
   "providerRegionRestricted": "{provider} är begränsat i den region som din internetanslutning verkar befinna sig i. Om du inte är där, kontrollera dina nätverks- eller VPN-inställningar och försök igen.",
@@ -2137,6 +2148,14 @@
   "recoverAddressesStartWith": "Adresser börjar med {prefix}",
   "recoverPasskeyCreated": "Skapad {date}",
   "recoverFoundOnDevice": "Hittades på den här enheten. Kontrollera att saldot ser rätt ut innan du återställer.",
+  "recoverOlderVersionSection": "Från en äldre version på den här telefonen",
+  "recoverOlderVersionWallet": "Plånbok från en äldre version",
+  "recoverOlderVersionNeedsPin": "Öppnas med PIN-koden den versionen använde",
+  "recoverOlderVersionIcloud": "Sparad i iCloud-nyckelring",
+  "recoverOlderVersionEnterPin": "Ange PIN-koden den versionen använde",
+  "recoverOlderVersionFailed": "Den här kopian kunde inte återställas.",
+  "restoreRescueOfferBody": "Kopior av dina plånböcker från en äldre version av Kute finns kvar på den här telefonen. Använda dem i stället för att börja om?",
+  "restoreRescueOfferConfirm": "Använd de sparade kopiorna",
   "recoverConfirmWallet": "Bekräfta för att återställa {wallet}.",
   "btcSetupCreateTitleShort": "Skapa ny plånbok",
   "btcSetupWalletNameHint": "Plånboksnamn",
@@ -2962,6 +2981,7 @@
   "portfolioStatsActive": "Aktiva",
   "portfolioStatsHistoric": "Historik",
   "portfolioStatAtStake": "Insatt belopp",
+  "portfolioProfitLoss": "Vinst och förlust",
   "slipCtaAddTo": "{side, select, long{Öka long · {amount}} other{Öka short · {amount}}}",
   "slipCtaReduce": "{side, select, long{Minska long · {amount}} other{Minska short · {amount}}}",
   "slipCtaClose": "{side, select, long{Stäng long} other{Stäng short}}",

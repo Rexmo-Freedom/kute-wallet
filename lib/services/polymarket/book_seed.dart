@@ -15,6 +15,7 @@ import 'dart:convert';
 import 'dart:isolate';
 
 import 'package:http/http.dart' as http;
+import 'package:kute/services/http/shared_http_client.dart';
 
 import 'package:kute/services/polymarket/shown_price.dart';
 
@@ -104,10 +105,12 @@ Future<Map<String, double>> _readLastTrades(
       for (final t in tokens) {'token_id': t}
     ]);
     const headers = {'Content-Type': 'application/json'};
-    final response = await (client != null
-            ? client.post(uri, headers: headers, body: body)
-            : http.post(uri, headers: headers, body: body))
-        .timeout(_kTimeout);
+    final response = await SharedHttpClient.post(uri,
+        headers: headers,
+        body: body,
+        kind: HttpCallKind.userAction,
+        timeout: _kTimeout,
+        client: client);
     if (response.statusCode != 200) return const {};
     return parseClobLastTrades(response.body);
   } catch (_) {
@@ -142,10 +145,12 @@ Future<_Batch> _readBatch(List<String> tokens, http.Client? client) async {
       for (final t in tokens) {'token_id': t}
     ]);
     const headers = {'Content-Type': 'application/json'};
-    final response = await (client != null
-            ? client.post(uri, headers: headers, body: body)
-            : http.post(uri, headers: headers, body: body))
-        .timeout(_kTimeout);
+    final response = await SharedHttpClient.post(uri,
+        headers: headers,
+        body: body,
+        kind: HttpCallKind.userAction,
+        timeout: _kTimeout,
+        client: client);
     if (response.statusCode != 200) return _kNoBatch;
     final text = response.body;
     return text.length < _kOffThreadBytes

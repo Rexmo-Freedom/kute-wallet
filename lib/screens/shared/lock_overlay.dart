@@ -190,15 +190,17 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
           method: UnlockMethod.biometric, dependency: dependency);
       _finishUnlock(method: 'biometric');
     } catch (e) {
-      _trackBiometricFailed(
-          e is PlatformException ? e.code : e.runtimeType.toString());
+      // local_auth 3 throws a LocalAuthException for a dismissed prompt
+      // too; the helper files that as a cancel, not a failure. The PIN
+      // pad stays on screen either way.
+      TrackingService.biometricPromptThrew(e, surface: 'lock_overlay');
     } finally {
       _biometricInFlight = false;
     }
   }
 
   /// `biometric_failed` with this overlay as the surface. [reason] is a
-  /// platform error code or a policy refusal name, scrubbed.
+  /// policy refusal name, scrubbed.
   void _trackBiometricFailed(String reason) {
     TrackingService.track('biometric_failed', params: {
       'reason': TrackingService.safeReason(reason) ?? 'unknown',

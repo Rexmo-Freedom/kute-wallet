@@ -387,7 +387,6 @@
   "usdEarnNextPaymentIn": "Maksetaan",
   "usdEarnRatePending": "Ladataan",
   "usdEarnRateUnavailable": "Ei saatavilla juuri nyt",
-  "usdEarnPaidToDate": "Sinulle maksettu tähän mennessä",
   "usdEarnActivityEmpty": "Ei vielä maksuja",
   "usdEarnActivityUnavailable": "Maksuhistoria ei ole nyt saatavilla",
   "hlYieldAvailableLine": "{amount} käytettävissä",
@@ -633,6 +632,17 @@
   "passkeyChoiceAppleAccount": "Apple-tili",
   "passkeyChoiceGoogleAccount": "Google-tili",
   "passkeyChoiceCancelled": "Käyttöönotto peruttiin. Mitään ei luotu.",
+  "passkeyBackupSyncing": "Varmuuskopiota synkronoidaan…",
+  "passkeyCreateNewTitle": "Avainkoodia ei löytynyt",
+  "passkeyCreateNewBody": "Mitään ei luotu. Luodaanko tälle lompakolle uusi avainkoodi {method}-tunnistuksella?",
+  "@passkeyCreateNewBody": {
+    "placeholders": {
+      "method": {
+        "type": "String"
+      }
+    }
+  },
+  "passkeyCreateNewAction": "Luo uusi avainkoodi",
   "passkeyChoiceFallbackWords": "Menetelmää {method} ei voitu ottaa käyttöön. Lompakkosi luotiin sen sijaan palautussanoilla.",
   "biometricFaceId": "Face ID",
   "biometricTouchId": "Touch ID",
@@ -2033,6 +2043,7 @@
   "capabilityAccountRestricted": "Tämä ominaisuus ei ole vielä käytettävissä tilillesi.",
   "capabilityCountryUnknown": "Aluettasi ei voitu vahvistaa Kuten kanssa. Yritä uudelleen.",
   "capabilityPolicyUnavailable": "Saatavuutta ei voitu tarkistaa Kuten kanssa. Yritä uudelleen.",
+  "capabilityOfflineGrace": "Kuteen ei saada yhteyttä juuri nyt. Tämä on edelleen käytettävissä viimeisen tarkistuksesi perusteella.",
   "capabilityUnavailable": "Tämä ominaisuus ei ole tällä hetkellä käytettävissä Kutessa.",
   "leverageCapExceeded": "Yli {maxLeverage}x vipu ei ole saatavilla alueellasi.",
   "providerRegionRestricted": "{provider} on rajoitettu alueella, jossa internetyhteytesi näyttää olevan. Jos et ole siellä, tarkista verkko- tai VPN-asetuksesi ja yritä uudelleen.",
@@ -2137,6 +2148,14 @@
   "recoverAddressesStartWith": "Osoitteet alkavat {prefix}",
   "recoverPasskeyCreated": "Luotu {date}",
   "recoverFoundOnDevice": "Löytyi tältä laitteelta. Tarkista, että saldo näyttää oikealta, ennen kuin palautat.",
+  "recoverOlderVersionSection": "Tämän puhelimen vanhemmasta versiosta",
+  "recoverOlderVersionWallet": "Lompakko vanhemmasta versiosta",
+  "recoverOlderVersionNeedsPin": "Avautuu sen version PIN-koodilla",
+  "recoverOlderVersionIcloud": "Tallennettu iCloud-avainnippuun",
+  "recoverOlderVersionEnterPin": "Syötä sen version käyttämä PIN-koodi",
+  "recoverOlderVersionFailed": "Tätä kopiota ei voitu palauttaa.",
+  "restoreRescueOfferBody": "Lompakkojesi kopiot Kuten vanhemmasta versiosta ovat yhä tässä puhelimessa. Käytetäänkö niitä sen sijaan, että aloitetaan alusta?",
+  "restoreRescueOfferConfirm": "Käytä tallennettuja kopioita",
   "recoverConfirmWallet": "Vahvista, niin {wallet} palautetaan.",
   "btcSetupCreateTitleShort": "Luo uusi lompakko",
   "btcSetupWalletNameHint": "Lompakon nimi",
@@ -2962,6 +2981,7 @@
   "portfolioStatsActive": "Aktiiviset",
   "portfolioStatsHistoric": "Historia",
   "portfolioStatAtStake": "Panoksena oleva summa",
+  "portfolioProfitLoss": "Voitto ja tappio",
   "slipCtaAddTo": "{side, select, long{Kasvata long-positiota · {amount}} other{Kasvata short-positiota · {amount}}}",
   "slipCtaReduce": "{side, select, long{Pienennä long-positiota · {amount}} other{Pienennä short-positiota · {amount}}}",
   "slipCtaClose": "{side, select, long{Sulje long-positio} other{Sulje short-positio}}",

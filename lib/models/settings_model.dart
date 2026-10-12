@@ -105,6 +105,14 @@ class WalletConfig {
   /// retries the check (`RecoveryEvmFormat.retryPending`) and clears it.
   final bool evmFormatCheckPending;
 
+  /// True for a wallet created fresh on this device, whose balance is
+  /// known to be 0 before any sync: Home renders $0.00 at once instead
+  /// of the loading skeleton. Restored and imported wallets (a balance
+  /// may exist) and every wallet persisted before this field (absent
+  /// key) are false. Never cleared: once a sync has run the balance
+  /// cache decides, so the flag only matters before the first one.
+  final bool createdEmpty;
+
   WalletConfig({
     required this.id,
     required this.name,
@@ -130,6 +138,7 @@ class WalletConfig {
     this.recoveryCheckAddress,
     this.evmDerivationVersion = EvmDerivationVersion.legacySha256,
     this.evmFormatCheckPending = false,
+    this.createdEmpty = false,
   });
 
   /// The one spending account backed by the Spark SDK.
@@ -183,6 +192,7 @@ class WalletConfig {
       'recoveryCheckAddress': recoveryCheckAddress,
       'evmDerivationVersion': evmDerivationVersion.storageValue,
       'evmFormatCheckPending': evmFormatCheckPending,
+      'createdEmpty': createdEmpty,
     };
   }
 
@@ -228,6 +238,7 @@ class WalletConfig {
       evmDerivationVersion:
           EvmDerivationVersion.fromStorage(map['evmDerivationVersion']),
       evmFormatCheckPending: map['evmFormatCheckPending'] == true,
+      createdEmpty: map['createdEmpty'] == true,
     );
   }
 
@@ -255,6 +266,7 @@ class WalletConfig {
     bool clearEvmIdentity = false,
     String? recoveryCheckAddress,
     bool? evmFormatCheckPending,
+    bool? createdEmpty,
   }) {
     return WalletConfig(
       id: id,
@@ -285,6 +297,7 @@ class WalletConfig {
       evmDerivationVersion: evmDerivationVersion,
       evmFormatCheckPending:
           evmFormatCheckPending ?? this.evmFormatCheckPending,
+      createdEmpty: createdEmpty ?? this.createdEmpty,
     );
   }
 }

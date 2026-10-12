@@ -1,19 +1,34 @@
 // lib/screens/usd/components/usd_earn_chart.dart
 //
-// The Dollars tab's Earn tab: what holding dollars has paid, over time.
+// The Dollars tab's Earn view: what holding dollars has paid, over time,
+// and what it pays next.
 //
 // EARN IS NOT A DOOR, IT IS A VIEW OF THE SAME BALANCE. The programme is
 // passive — holding dollars pays a daily bitcoin reward on the whole
 // balance, with nothing to stake and nothing to deposit into — so there
 // is no separate destination to send money to and no screen to push. It
-// is a sibling of the Balance tab: the same [AnalyticsCard], the same
-// [Chart] engine, the same date-range strip, the same scrub card. The
-// ONLY difference is the series: the daily payout ledger, added up, in
-// place of the dollar balance.
+// sits under the Balance tab as the Earn pill (usd_balance_tabs.dart):
+// the same [AnalyticsCard], the same [Chart] engine, the same date-range
+// strip, the same scrub card. The ONLY difference is the series: the
+// daily payout ledger, added up, in place of the dollar balance.
 //
-// PAID ONLY. The curve and the total both count payouts the wallet has
-// actually received. A pending day lifts neither until it settles, so
-// the number under "Paid to you so far" is money in hand.
+// THE HEADLINE IS THE NEXT PAYMENT (owner decision: "instead of the
+// 'paid to you so far', just the next payment amount there"). The
+// figure is the venue's own [UserRewardsSummary.estimatedSatsToday] —
+// the same single number the dashed tail is built from — with the
+// countdown to the payout as its quiet second line and the rate on the
+// right. Said once, in the header: there is no second "next payment"
+// block.
+//
+// PAID ONLY. The curve counts payouts the wallet has actually received.
+// A pending day does not lift it until it settles, and a point out in
+// the dashed tail says so on its scrub card.
+//
+// THE PAYOUT CLOCK IS FLASHNET'S. "Payouts are scheduled daily at 01:00
+// UTC" (docs.flashnet.xyz/usdb/rewards, read 2026-10-12), so the
+// countdown runs to the next 01:00 UTC, not to midnight: a UTC day is
+// cut at 00:00 and paid an hour later, and between the two the next
+// payment is minutes away, not a day.
 //
 // THE RATE IS NEVER INVENTED. It comes from the service or it is missing:
 // a failed read says unavailable, a slow one says loading, and neither
@@ -30,7 +45,7 @@
 // is no tail at all and the chart is exactly what it was. The tail is
 // also kept out of the trend colour and the percent badge (see
 // [Chart.projectedDays]), and a point out in the future says so on its
-// scrub card, so "Paid to you so far" only ever sits over money in hand.
+// scrub card.
 //
 // LIVE is dropped from the range strip, same as the Balance tab: payouts
 // land once a day, so a per-second mode would redraw an identical line.
@@ -102,29 +117,13 @@ class _UsdEarnChartState extends ConsumerState<UsdEarnChart> {
   ProviderSubscription<AsyncValue<UserRewardsSummary?>>? _summarySub;
   bool _stateTracked = false;
 
-  /// The next 00:00 UTC after [nowUtc], which is when the day's payout
-  /// is cut.
-  static DateTime _nextPayoutUtc(DateTime nowUtc) =>
-      DateTime.utc(nowUtc.year, nowUtc.month, nowUtc.day + 1);
-
-  /// `6h 12m 03s`, counting down. Hours are never padded, so the line
-  /// does not jitter between widths at the start of a day.
-  static String _countdownLabel(Duration left) {
-    final clamped = left.isNegative ? Duration.zero : left;
-    final minutes = clamped.inMinutes % 60;
-    final seconds = clamped.inSeconds % 60;
-    return '${clamped.inHours}h '
-        '${minutes.toString().padLeft(2, '0')}m '
-        '${seconds.toString().padLeft(2, '0')}s';
-  }
-
   @override
   void initState() {
     super.initState();
     _countdownTick = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() => _nowUtc = DateTime.now().toUtc());
     });
-    // Opening the tab IS opening Earn — it replaced the pushed screen
+    // Opening the pill IS opening Earn — it replaced the pushed screen
     // that used to fire `usd_earn_opened`.
     TrackingService.track('usd_earn_opened', params: {'surface': 'usd_tab'});
     // What the tab could say, once per open, when the summary first
@@ -195,15 +194,14 @@ class _UsdEarnChartState extends ConsumerState<UsdEarnChart> {
         summary != null && summary.usdbBalanceDisplay < kUsdEarnMinimumDollars;
 
     final history = payoutsAsync.valueOrNull;
-    final paidSats = history?.totalPayoutSats ?? 0;
     // The chart reads whatever unit the wallet is set to, because
     // [Chart] formats its own bubbles from that setting.
     final byDay = _cumulativeByDay(history?.payouts, inSats: inSats);
 
-    // The forecast, or nothing at all. [_Projection.none] is returned
-    // whenever the venue's daily estimate is missing, still loading or
+    // The forecast, or nothing at all. A projection with no projected
+    // days is returned whenever the venue's daily estimate is missing, still loading or
     // zero, and then every value below is the untouched history.
-    final projection = _Projection.from(
+    final projection = UsdEarnProjection.from(
       days: selectedDays,
       byDay: byDay,
       estimateSats: summary?.estimatedSatsToday ?? 0,
@@ -245,15 +243,23 @@ class _UsdEarnChartState extends ConsumerState<UsdEarnChart> {
       );
     }
 
-    // Money in hand; a scrubbed day, paid or projected, is written on the
-    // chart's scrub card.
-    final headlineSats = paidSats;
-
-    // The day's payout, in whatever unit the wallet reads in. Straight
-    // from the venue's own estimate: never the rate times the balance.
-    final nextPaymentSats = summary?.estimatedSatsToday ?? 0;
-    final nextPaymentText =
-        '${nextPaymentSats.toFormattedString(btcFormat)} ${inSats ? 'sats' : 'BTC'}';
+    // The headline: what the programme pays next, in whatever unit the
+    // wallet reads in. Straight from the venue's own estimate — the one
+    // number the dashed tail is also built from — never the rate times
+    // the balance. While the summary is on its way the slot says so,
+    // and a dead service says unavailable, in the rate's own words;
+    // neither is ever a zero dressed up as a payment. Under the floor
+    // the venue's estimate is nothing, and the note below says why.
+    final String nextPaymentText;
+    if (summary != null) {
+      nextPaymentText =
+          '${summary.estimatedSatsToday.toFormattedString(btcFormat)} '
+          '${inSats ? 'sats' : 'BTC'}';
+    } else if (summaryAsync.hasError) {
+      nextPaymentText = l10n.usdEarnRateUnavailable;
+    } else {
+      nextPaymentText = l10n.usdEarnRatePending;
+    }
 
     return AnalyticsCard(
       // The 400 dp every non-Fees analytics card shares.
@@ -266,29 +272,15 @@ class _UsdEarnChartState extends ConsumerState<UsdEarnChart> {
               child: Column(
                 children: [
                   _EarnHeader(
-                    paidLabel: l10n.usdEarnPaidToDate,
-                    paidText: '${headlineSats.toFormattedString(btcFormat)} '
-                        '${inSats ? 'sats' : 'BTC'}',
+                    headlineLabel: l10n.usdEarnNextPayment,
+                    headlineText: nextPaymentText,
+                    countdownLabel: l10n.usdEarnNextPaymentIn,
+                    countdownText: usdEarnCountdownLabel(
+                        usdEarnNextPayoutUtc(_nowUtc).difference(_nowUtc)),
                     rateLabel: l10n.usdEarnRate,
                     rateText: rateText,
                     c: c,
                   ),
-                  // What is coming and when, which is the question a
-                  // person actually has after putting money in. Held
-                  // back only while the summary is still loading and
-                  // while the balance is under the floor, where the
-                  // answer is nothing and the note below says why.
-                  if (summary != null && !belowMinimum) ...[
-                    SizedBox(height: 10.h),
-                    _NextPayment(
-                      label: l10n.usdEarnNextPayment,
-                      amountText: nextPaymentText,
-                      countdownLabel: l10n.usdEarnNextPaymentIn,
-                      countdownText: _countdownLabel(
-                          _nextPayoutUtc(_nowUtc).difference(_nowUtc)),
-                      c: c,
-                    ),
-                  ],
                   Expanded(child: body),
                   if (chartDrawn && projection.isOn) ...[
                     SizedBox(height: 6.h),
@@ -361,10 +353,33 @@ class _UsdEarnChartState extends ConsumerState<UsdEarnChart> {
   }
 }
 
+/// The next 01:00 UTC after [nowUtc]: when Flashnet pays the day that
+/// was cut at the preceding midnight ("Payouts are scheduled daily at
+/// 01:00 UTC", docs.flashnet.xyz/usdb/rewards). At exactly 01:00 the
+/// payment is being made, so the clock already points a day ahead.
+DateTime usdEarnNextPayoutUtc(DateTime nowUtc) {
+  final utc = nowUtc.toUtc();
+  final todayPayout = DateTime.utc(utc.year, utc.month, utc.day, 1);
+  return utc.isBefore(todayPayout)
+      ? todayPayout
+      : DateTime.utc(utc.year, utc.month, utc.day + 1, 1);
+}
+
+/// `6h 12m 03s`, counting down. Hours are never padded, so the line
+/// does not jitter between widths at the start of a day.
+String usdEarnCountdownLabel(Duration left) {
+  final clamped = left.isNegative ? Duration.zero : left;
+  final minutes = clamped.inMinutes % 60;
+  final seconds = clamped.inSeconds % 60;
+  return '${clamped.inHours}h '
+      '${minutes.toString().padLeft(2, '0')}m '
+      '${seconds.toString().padLeft(2, '0')}s';
+}
+
 /// The days handed to [Chart] and the series behind them, with however
 /// many trailing days of that series are a forecast rather than a fact.
-class _Projection {
-  const _Projection({
+class UsdEarnProjection {
+  const UsdEarnProjection({
     required this.days,
     required this.byDay,
     required this.projectedDays,
@@ -389,13 +404,13 @@ class _Projection {
   /// (a week-long window would otherwise get a tail too short to read)
   /// and capped at 90 (a straight-line extrapolation of one day's rate
   /// stops being worth drawing past a quarter, and ALL can span years).
-  static _Projection from({
+  static UsdEarnProjection from({
     required List<DateTime> days,
     required Map<DateTime, num> byDay,
     required int estimateSats,
     required bool inSats,
   }) {
-    final none = _Projection(days: days, byDay: byDay, projectedDays: 0);
+    final none = UsdEarnProjection(days: days, byDay: byDay, projectedDays: 0);
     if (estimateSats <= 0 || days.isEmpty || byDay.isEmpty) return none;
 
     final horizon = (days.length / 3).round().clamp(3, 90);
@@ -426,83 +441,10 @@ class _Projection {
       outDays.add(day);
       outByDay[day] = running + step * i;
     }
-    return _Projection(
+    return UsdEarnProjection(
       days: outDays,
       byDay: outByDay,
       projectedDays: horizon,
-    );
-  }
-}
-
-/// What the programme pays next and how long until it does.
-///
-/// The amount is the venue's own estimate for the day. The time is the
-/// next 00:00 UTC, which is when the day is cut, and it counts down so
-/// the wait is a fact on screen rather than something to work out.
-/// Passive text, so nothing to track.
-class _NextPayment extends StatelessWidget {
-  const _NextPayment({
-    required this.label,
-    required this.amountText,
-    required this.countdownLabel,
-    required this.countdownText,
-    required this.c,
-  });
-
-  final String label;
-  final String amountText;
-  final String countdownLabel;
-  final String countdownText;
-  final AppColorsExtension c;
-
-  @override
-  Widget build(BuildContext context) {
-    Widget column(String heading, String value, {bool alignEnd = false}) =>
-        Column(
-          crossAxisAlignment:
-              alignEnd ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-          children: [
-            Text(
-              heading,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: c.textTertiary,
-                fontSize: 11.sp,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            SizedBox(height: 2.h),
-            Text(
-              value,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: c.textPrimary,
-                fontSize: 14.sp,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -0.2,
-                height: 1.0,
-              ),
-            ),
-          ],
-        );
-
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
-      decoration: BoxDecoration(
-        color: c.surfaceLight,
-        borderRadius: BorderRadius.circular(12.r),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Expanded(child: column(label, amountText)),
-          SizedBox(width: 12.w),
-          column(countdownLabel, countdownText, alignEnd: true),
-        ],
-      ),
     );
   }
 }
@@ -534,26 +476,46 @@ class _ProjectionNote extends StatelessWidget {
   }
 }
 
-/// The headline above the earnings chart. Same typography and same
-/// rolling cadence as the dollar balance header, with the rate parked on
-/// the right: it is the one place in the app allowed to print it.
+/// The headline above the earnings chart: the next payment with the
+/// countdown under it, and the rate — the one place in the app allowed
+/// to print it — parked on the right. Same typography and same rolling
+/// cadence as the dollar balance header; the countdown is the hero's
+/// own "quiet second line", in the projection note's type, so the row
+/// still fits a narrow phone with the rate's long label beside it.
 class _EarnHeader extends StatelessWidget {
   const _EarnHeader({
-    required this.paidLabel,
-    required this.paidText,
+    required this.headlineLabel,
+    required this.headlineText,
+    required this.countdownLabel,
+    required this.countdownText,
     required this.rateLabel,
     required this.rateText,
     required this.c,
   });
 
-  final String paidLabel;
-  final String paidText;
+  final String headlineLabel;
+  final String headlineText;
+  final String countdownLabel;
+  final String countdownText;
   final String rateLabel;
   final String rateText;
   final AppColorsExtension c;
 
   @override
   Widget build(BuildContext context) {
+    final labelStyle = TextStyle(
+      color: c.textTertiary,
+      fontSize: 12.sp,
+      fontWeight: FontWeight.w600,
+    );
+    final valueStyle = TextStyle(
+      color: c.textPrimary,
+      fontSize: 18.sp,
+      fontWeight: FontWeight.w700,
+      letterSpacing: -0.5,
+      height: 1.0,
+    );
+
     return Padding(
       padding: EdgeInsets.only(bottom: 4.h),
       child: Row(
@@ -564,29 +526,40 @@ class _EarnHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  paidLabel,
+                  headlineLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: labelStyle,
+                ),
+                SizedBox(height: 2.h),
+                // Scaled down rather than clipped when the rate's label
+                // leaves it short of room, as the hero amount is.
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: RollingNumberText(
+                      text: headlineText,
+                      duration: const Duration(milliseconds: 350),
+                      dimColor: c.textTertiary,
+                      style: valueStyle,
+                    ),
+                  ),
+                ),
+                SizedBox(height: 4.h),
+                // "Pays in 6h 12m 03s": the wait as a fact on screen
+                // rather than something to work out. Tabular figures so
+                // the line does not shimmy as the seconds tick.
+                Text(
+                  '$countdownLabel $countdownText',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: c.textTertiary,
-                    fontSize: 12.sp,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                SizedBox(height: 2.h),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: RollingNumberText(
-                    text: paidText,
-                    duration: const Duration(milliseconds: 350),
-                    dimColor: c.textTertiary,
-                    style: TextStyle(
-                      color: c.textPrimary,
-                      fontSize: 18.sp,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.5,
-                      height: 1.0,
-                    ),
+                    fontSize: 11.sp,
+                    fontWeight: FontWeight.w500,
+                    fontFeatures: const [FontFeature.tabularFigures()],
                   ),
                 ),
               ],
@@ -600,24 +573,14 @@ class _EarnHeader extends StatelessWidget {
                 rateLabel,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: c.textTertiary,
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: labelStyle,
               ),
               SizedBox(height: 2.h),
               Text(
                 rateText,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: c.textPrimary,
-                  fontSize: 18.sp,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.5,
-                  height: 1.0,
-                ),
+                style: valueStyle,
               ),
             ],
           ),

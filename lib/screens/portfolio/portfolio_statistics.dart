@@ -18,6 +18,7 @@ import 'package:kute/providers/ledger/ledger_hyperliquid_activity_provider.dart'
 import 'package:kute/providers/polymarket_live_prices_provider.dart';
 import 'package:kute/providers/portfolio_performance_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart';
 import 'package:kute/screens/portfolio/portfolio_category_donut.dart';
 import 'package:kute/screens/portfolio/portfolio_category_drill.dart';
 import 'package:kute/screens/polymarket/components/market_card.dart'
@@ -39,7 +40,14 @@ enum StatisticsScope { active, historic }
 /// The Portfolio's Statistics tab, for Predictions and Investing, on the
 /// spending account and on a Ledger.
 ///
-///   * Two small pills at the top (the app's [KutePill] pair, as the
+///   * The profit and loss chart leads ([PortfolioPnlChart]): the
+///     account's P&L (realised plus open) as the headline, the change over
+///     the range drawn under it, the venue's P&L series as a line coloured
+///     by that change with a dashed baseline at the range's start, a long
+///     press scrubbing the header, and the 1D … ALL range pills. The same
+///     chart on both sub-tabs. No observations yet: the quiet line in its
+///     place.
+///   * Two small pills under it (the app's [KutePill] pair, as the
 ///     Breakdown tab's Sent | Received), Active first and picked.
 ///   * Active: what is open now. The donut splits the open positions'
 ///     value by category (Predictions: a live prediction's shares at the
@@ -55,7 +63,8 @@ enum StatisticsScope { active, historic }
 ///     (events, coins), and under each its P&L lines
 ///     (portfolio_category_drill.dart).
 ///   * Switching sends `portfolio_tab_changed` with the sub-tab; a slice
-///     pick carries the sub-tab as `scope`.
+///     pick carries the sub-tab as `scope`. The chart's range and scrub
+///     events are portfolio_pnl_chart.dart's.
 class PortfolioStatistics extends ConsumerStatefulWidget {
   const PortfolioStatistics({super.key, required this.venue, this.walletId});
 
@@ -230,7 +239,7 @@ class _PerformanceBody extends ConsumerWidget {
           ),
         );
 
-    final List<Widget> content;
+    List<Widget> content;
     if (scope == StatisticsScope.active) {
       if (book != null) {
         final live = livePredictionRecords(book);
@@ -322,10 +331,27 @@ class _PerformanceBody extends ConsumerWidget {
       }
     }
 
+    // The chart leads, whatever sub-tab is picked: the account's P&L
+    // over time, realised and open together. Nothing published yet: one
+    // quiet line in its place, and the sub-tab's own quiet line (the
+    // same news) stands down.
+    final List<Widget> lead;
+    if (data.points.isNotEmpty) {
+      lead = [PortfolioPnlChart(venue: venue, data: data)];
+    } else {
+      final text = predictions ? l10n.betHistoryEmpty : l10n.hlNoHistoryYet;
+      if (content.length == 1 && content.single is _EmptyLine) {
+        content = const [];
+      }
+      lead = [_EmptyLine(text: text, tag: 'statistics-chart-empty')];
+    }
+
     return ListView(
       padding: EdgeInsets.fromLTRB(
           16.w, 4.h, 16.w, 32.h + kuteDockScrollClearance(context)),
       children: [
+        ...lead,
+        SizedBox(height: 12.h),
         // Natural width, as the Sent | Received pair; under very large
         // text they share the row rather than overflow it.
         Row(
@@ -356,15 +382,18 @@ class _PerformanceBody extends ConsumerWidget {
   }
 }
 
-/// Nothing to show on a sub-tab: one quiet line on the card surface (the
-/// Breakdown tab's empty card).
+/// Nothing to show on a sub-tab (or nothing to chart yet): one quiet line
+/// on the card surface (the Breakdown tab's empty card).
 class _EmptyLine extends StatelessWidget {
-  const _EmptyLine({required this.text});
+  const _EmptyLine({required this.text, this.tag = 'statistics-empty'});
   final String text;
+
+  /// The line's key, for the tests: the sub-tab's or the chart's.
+  final String tag;
 
   @override
   Widget build(BuildContext context) => Container(
-        key: const ValueKey('statistics-empty'),
+        key: ValueKey(tag),
         width: double.infinity,
         padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 32.h),
         decoration: AppDecorations.card(context),

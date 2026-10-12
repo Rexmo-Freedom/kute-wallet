@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'dart:math' show Random;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
+import 'package:kute/services/http/shared_http_client.dart';
 import 'package:kute/models/affiliate_model.dart'
     show AffiliateService, WalletSessionUnavailable;
 import 'package:kute/models/orchestra_model.dart';
@@ -189,13 +190,27 @@ class OrchestraService {
     final response = await _send((auth) {
       if (!current()) throw StateError('Receive wallet changed');
       beforeDispatch?.call();
+      const kind = HttpCallKind.userAction;
+      const timeout = Duration(seconds: 20);
       return switch (method) {
-        'GET' => http.get(uri, headers: auth),
-        'PUT' => http.put(uri, headers: auth, body: jsonEncode(body)),
-        'PATCH' => http.patch(uri, headers: auth, body: jsonEncode(body)),
-        _ => http.post(uri, headers: auth, body: jsonEncode(body)),
-      }
-          .timeout(const Duration(seconds: 20));
+        'GET' => SharedHttpClient.get(uri,
+            headers: auth, kind: kind, timeout: timeout),
+        'PUT' => SharedHttpClient.put(uri,
+            headers: auth,
+            body: jsonEncode(body),
+            kind: kind,
+            timeout: timeout),
+        'PATCH' => SharedHttpClient.patch(uri,
+            headers: auth,
+            body: jsonEncode(body),
+            kind: kind,
+            timeout: timeout),
+        _ => SharedHttpClient.post(uri,
+            headers: auth,
+            body: jsonEncode(body),
+            kind: kind,
+            timeout: timeout),
+      };
     }, extra: headers);
     if (!current()) throw StateError('Receive wallet changed');
     if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -300,8 +315,12 @@ class OrchestraService {
       return null;
     }
 
+    // Route catalog: a background read, retried with backoff.
     Future<http.Response> get(Uri uri, Map<String, String>? headers) =>
-        http.get(uri, headers: headers).timeout(const Duration(seconds: 12));
+        SharedHttpClient.get(uri,
+            headers: headers,
+            kind: HttpCallKind.backgroundRead,
+            timeout: const Duration(seconds: 12));
 
     // Backend proxy gets the wallet-session bearer; the public Flashnet
     // host must NOT see our backend token. Without a session the public
@@ -364,10 +383,11 @@ class OrchestraService {
     Future<OrchestraRouteLimits?> tryGet(Uri uri,
         {Map<String, String>? headers}) async {
       try {
-        final res = await (client == null
-                ? http.get(uri, headers: headers)
-                : client.get(uri, headers: headers))
-            .timeout(const Duration(seconds: 10));
+        final res = await SharedHttpClient.get(uri,
+            headers: headers,
+            kind: HttpCallKind.userAction,
+            timeout: const Duration(seconds: 10),
+            client: client);
         if (res.statusCode >= 200 && res.statusCode < 300) {
           return OrchestraRouteLimits.fromResponse(jsonDecode(res.body), key);
         }
@@ -470,8 +490,13 @@ class OrchestraService {
       return null;
     }
 
+    // One attempt per host, as before: the public catalog below is the
+    // fallback, and the buyer is waiting on this read.
     Future<http.Response> get(Uri uri, Map<String, String>? headers) =>
-        http.get(uri, headers: headers).timeout(const Duration(seconds: 10));
+        SharedHttpClient.get(uri,
+            headers: headers,
+            kind: HttpCallKind.userAction,
+            timeout: const Duration(seconds: 10));
 
     final query = {
       'sourceChain': 'lightning',
@@ -568,8 +593,10 @@ class OrchestraService {
         // rule so the fee shown is the fee charged.
         if (onramp) 'onramp': 'true',
       });
-      final res = await _send((h) =>
-          http.get(uri, headers: h).timeout(const Duration(seconds: 15)));
+      final res = await _send((h) => SharedHttpClient.get(uri,
+          headers: h,
+          kind: HttpCallKind.userAction,
+          timeout: const Duration(seconds: 15)));
 
       if (res.statusCode >= 200 && res.statusCode < 300) {
         return Result(
@@ -771,8 +798,10 @@ class OrchestraService {
               : 'id'; // fallback
       final uri = Uri.parse('$_baseUrl/status')
           .replace(queryParameters: {paramKey: orderId});
-      final res = await _send((h) =>
-          http.get(uri, headers: h).timeout(const Duration(seconds: 15)));
+      final res = await _send((h) => SharedHttpClient.get(uri,
+          headers: h,
+          kind: HttpCallKind.userAction,
+          timeout: const Duration(seconds: 15)));
 
       if (res.statusCode >= 200 && res.statusCode < 300) {
         // A quote lookup with no order yet still carries the backend's
@@ -802,8 +831,12 @@ class OrchestraService {
     try {
       final uri = Uri.parse('$_baseUrl/history')
           .replace(queryParameters: {'address': recipientSparkAddress});
-      final res = await _send((h) =>
-          http.get(uri, headers: h).timeout(const Duration(seconds: 15)));
+      // One attempt, as before: a failed read is retried by the caller's
+      // next poll, never by a backoff loop inside one tick.
+      final res = await _send((h) => SharedHttpClient.get(uri,
+          headers: h,
+          kind: HttpCallKind.userAction,
+          timeout: const Duration(seconds: 15)));
 
       if (res.statusCode >= 200 && res.statusCode < 300) {
         final decoded = jsonDecode(res.body);

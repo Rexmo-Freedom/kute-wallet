@@ -1201,9 +1201,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get usdEarnRateUnavailable => '現在利用できません';
 
   @override
-  String get usdEarnPaidToDate => 'これまでの受取額';
-
-  @override
   String get usdEarnActivityEmpty => '支払いはまだありません';
 
   @override
@@ -2019,6 +2016,20 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get passkeyChoiceCancelled => '設定をキャンセルしました。何も作成されていません。';
+
+  @override
+  String get passkeyBackupSyncing => 'バックアップを同期しています…';
+
+  @override
+  String get passkeyCreateNewTitle => 'パスキーが見つかりません';
+
+  @override
+  String passkeyCreateNewBody(String method) {
+    return '何も作成されませんでした。代わりに$methodでこのウォレット用の新しいパスキーを作成しますか？';
+  }
+
+  @override
+  String get passkeyCreateNewAction => '新しいパスキーを作成';
 
   @override
   String passkeyChoiceFallbackWords(String method) {
@@ -6807,6 +6818,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get capabilityPolicyUnavailable => 'Kuteで利用可否を確認できませんでした。もう一度お試しください。';
 
   @override
+  String get capabilityOfflineGrace =>
+      '現在Kuteに接続できません。前回の確認に基づき、この機能は引き続き利用できます。';
+
+  @override
   String get capabilityUnavailable => 'この機能は現在Kuteで利用できません。';
 
   @override
@@ -7150,6 +7165,31 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get recoverFoundOnDevice => 'この端末で見つかりました。復元する前に残高が正しいことを確認してください。';
+
+  @override
+  String get recoverOlderVersionSection => 'この端末の以前のバージョンから';
+
+  @override
+  String get recoverOlderVersionWallet => '以前のバージョンのウォレット';
+
+  @override
+  String get recoverOlderVersionNeedsPin => 'そのバージョンで使っていたPINで開きます';
+
+  @override
+  String get recoverOlderVersionIcloud => 'iCloudキーチェーンに保存';
+
+  @override
+  String get recoverOlderVersionEnterPin => 'そのバージョンで使っていたPINを入力';
+
+  @override
+  String get recoverOlderVersionFailed => 'このコピーを復元できませんでした。';
+
+  @override
+  String get restoreRescueOfferBody =>
+      '以前のバージョンのKuteのウォレットのコピーがまだこの端末に残っています。やり直す代わりにそれを使いますか？';
+
+  @override
+  String get restoreRescueOfferConfirm => '保存されたコピーを使う';
 
   @override
   String recoverConfirmWallet(String wallet) {
@@ -10060,6 +10100,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get portfolioStatAtStake => '投入額';
+
+  @override
+  String get portfolioProfitLoss => '損益';
 
   @override
   String slipCtaAddTo(String side, String amount) {

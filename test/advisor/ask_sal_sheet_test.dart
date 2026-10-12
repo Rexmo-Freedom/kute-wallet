@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -526,6 +528,118 @@ void main() {
     expect(tester.getRect(find.byType(AppBottomSheetContainer)).top,
         moreOrLessEquals(0));
     expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('the next question can be typed and sent while Sal is still '
+      'answering; the send stops that answer and starts the new one',
+      (tester) async {
+    const slip = AdvisorContext(
+        surface: 'hl_order_slip',
+        marketVenue: 'hyperliquid',
+        marketId: 'BTC',
+        marketDisplayName: 'BTC');
+    final en = lookupAppLocalizations(const Locale('en'));
+    final chips = SalChipCatalogue.select(slip, en);
+    final streams = <StreamController<AdvisorStreamEvent>>[];
+    final cancellations = <AdvisorCancellation>[];
+    final queries = <String>[];
+    final events = observeEvents();
+    await tester.runAsync(() => AdvisorInputGuard.isSafe('Public question'));
+    await tester.pumpWidget(host(
+        tester, const SalChatPanel(advisorContext: slip, fullChat: false),
+        overrides: [
+          aiEnabledProvider.overrideWith((ref) async => true),
+          hlWatchlistProvider.overrideWith(_NoStars.new),
+          advisorStreamRequestProvider.overrideWithValue((
+              {required query,
+              context,
+              history = const [],
+              required cancellation,
+              locale,
+              prompt}) {
+            final controller = StreamController<AdvisorStreamEvent>();
+            streams.add(controller);
+            cancellations.add(cancellation);
+            queries.add(query);
+            return controller.stream;
+          }),
+        ]));
+    await tester.pumpAndSettle();
+
+    // The first question streams and stays mid-answer.
+    await tester.tap(find.text(chips[0].text));
+    await tester.runAsync(() async {});
+    await tester.pump();
+    expect(streams, hasLength(1));
+    streams[0].add(const AdvisorStreamEvent.delta('Funding is paid'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.textContaining('Funding is paid'), findsOneWidget);
+
+    // Still answering: the field is open and the circle is the stop square.
+    final field = tester.widget<TextField>(find.byType(TextField));
+    expect(field.enabled, isTrue);
+    expect(find.byIcon(Icons.stop_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.arrow_upward_rounded), findsNothing);
+    await tester.enterText(find.byType(TextField), 'And what about fees?');
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('And what about fees?'), findsOneWidget);
+    // Typed: the same circle is the send arrow again.
+    expect(find.byIcon(Icons.arrow_upward_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.stop_rounded), findsNothing);
+
+    await tester.tap(find.byIcon(Icons.arrow_upward_rounded));
+    await tester.runAsync(() async {});
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    // The first request is cancelled, the second has started.
+    expect(cancellations[0].isCancelled, isTrue);
+    expect(queries, [chips[0].text, 'And what about fees?']);
+    // What was streamed stays on the sheet, marked stopped, over the new
+    // question's loading turn.
+    expect(find.textContaining('Funding is paid'), findsOneWidget);
+    expect(find.textContaining('Response stopped before completion.'),
+        findsOneWidget);
+    expect(find.text('And what about fees?'), findsOneWidget);
+    final turns = ProviderScope.containerOf(
+            tester.element(find.byType(SalChatPanel)),
+            listen: false)
+        .read(advisorSessionProvider)
+        .turns;
+    expect(turns, hasLength(2));
+    expect(turns[0].loading, isFalse);
+    expect(turns[0].includeInHistory, isFalse);
+    expect(turns[1].loading, isTrue);
+    // Analytics: the stopped answer reports cancelled; only the second
+    // question reports interrupted.
+    final asked = [
+      for (final (name, params) in events)
+        if (name == 'sal_question_asked') params!
+    ];
+    expect(asked, hasLength(2));
+    expect(asked[0].keys, isNot(contains('interrupted')));
+    expect(asked[1]['interrupted'], isTrue);
+    expect(asked[1]['input'], 'typed');
+    final failed = events.firstWhere((e) => e.$1 == 'sal_answer_failed').$2!;
+    expect(failed['error_category'], 'cancelled');
+
+    // The second answer lands as usual.
+    streams[1].add(const AdvisorStreamEvent.done(AdvisorResponse(blocks: [
+      AdvisorBlock(
+          id: 'fees',
+          kind: AdvisorBlockKind.answer,
+          markdown: 'Fees are shown before you confirm.')
+    ])));
+    // The done event is delivered by the pump (the test's fake async zone
+    // never advances on an awaited close).
+    unawaited(streams[1].close());
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Fees are shown before you confirm.'),
+        findsOneWidget);
+    expect(find.byIcon(Icons.stop_rounded), findsNothing);
+    expect(tester.takeException(), isNull);
+    unawaited(streams[0].close());
     await tester.pumpWidget(const SizedBox.shrink());
   });
 }

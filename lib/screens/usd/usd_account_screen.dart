@@ -12,23 +12,25 @@
 //   * the same dock — Receive on the left, Send on the right, search in
 //     the square,
 //   * the same pull-to-refresh, with the accent spinner,
-//   * the same pill strip under the actions, holding the two tabs the
-//     Bitcoin screen leads with — Activity, then Balance — behind an
-//     Earn tab of its own.
+//   * the same pill strip under the actions, holding the tabs the
+//     Bitcoin screen leads with — Activity, then Balance, then
+//     Breakdown.
 //
-// EARN IS A TAB, NOT A DOOR. Holding dollars pays a daily bitcoin
-// reward on the whole balance: nothing is staked, nothing is locked and
-// there is nowhere to deposit into. So Earn is a VIEW of this same
-// money, drawn by the same chart engine as Balance with the payout
-// ledger as its series (usd_earn_chart.dart), and not a screen to push
-// with Deposit and Withdraw buttons of its own — Purchase, Send and
-// Receive already move dollars in and out, right here.
+// EARN IS INSIDE BALANCE, NOT A TAB OF ITS OWN. Holding dollars pays a
+// daily bitcoin reward on the whole balance: nothing is staked, nothing
+// is locked and there is nowhere to deposit into. So Earn is a VIEW of
+// this same money — the Balance tab carries Balance | Earn pills over
+// its card (usd_balance_tabs.dart), the way Breakdown carries Sent |
+// Received — drawn by the same chart engine with the payout ledger as
+// its series (usd_earn_chart.dart). It is not a screen to push with
+// Deposit and Withdraw buttons of its own — Purchase, Send and Receive
+// already move dollars in and out, right here.
 //
 // EARN IS GATED BY THE BACKEND. The `usd.earn` capability
-// (usdEarnEnabledProvider) decides whether the tab exists at all. Off,
-// or with no policy to read, the strip is Activity and Balance only,
-// the rewards API is never called and no rate appears anywhere; the
-// rewards still accrue, they are just not shown.
+// (usdEarnEnabledProvider) decides whether the Earn pill exists at all.
+// Off, or with no policy to read, the Balance tab is the bare balance
+// chart with no pills, the rewards API is never called and no rate
+// appears anywhere; the rewards still accrue, they are just not shown.
 //
 // The other intentional difference: the activity is the dollar ledger
 // only, and the strip stops after Balance. A cash account has no price
@@ -75,7 +77,7 @@ import 'package:kute/screens/home/shell_wallet_screen.dart'
     show kShellTopBarSpacing;
 import 'package:kute/screens/search/unified_search_screen.dart';
 import 'package:kute/screens/usd/components/usd_balance_chart.dart';
-import 'package:kute/screens/usd/components/usd_earn_chart.dart';
+import 'package:kute/screens/usd/components/usd_balance_tabs.dart';
 import 'package:kute/screens/usd/usd_send_screen.dart';
 import 'package:kute/screens/shared/animated_balance.dart';
 import 'package:kute/screens/shared/no_activity_state.dart';
@@ -126,9 +128,9 @@ class UsdAccountScreen extends StatelessWidget {
   }
 }
 
-/// Balance, the primary action row, and the Earn / Activity / Balance
-/// strip — the Bitcoin body with the charts a cash account cannot draw
-/// taken out.
+/// Balance, the primary action row, and the Activity / Balance /
+/// Breakdown strip — the Bitcoin body with the charts a cash account
+/// cannot draw taken out.
 class UsdAccountBody extends ConsumerWidget {
   const UsdAccountBody({super.key});
 
@@ -170,13 +172,13 @@ class UsdAccountBody extends ConsumerWidget {
               child: const _UsdPrimaryActions(),
             ),
             // The Bitcoin screen's pill strip, rendered edge-to-edge so
-            // its own insets apply: Earn, when the backend allows it,
-            // leads with what the balance has paid, Activity holds the
-            // dollar ledger (the shared list, its rows and its empty
-            // state), Balance holds the DOLLAR balance over time,
-            // Breakdown the dollars in and out by kind. The
-            // tabs are passed in: left to itself the strip falls through
-            // to the shared bitcoin balance chart, which is the wrong
+            // its own insets apply: Activity holds the dollar ledger
+            // (the shared list, its rows and its empty state), Balance
+            // holds the DOLLAR balance over time — with Earn nested
+            // beside it as a second pill when the backend allows it —
+            // and Breakdown the dollars in and out by kind. The tabs
+            // are passed in: left to itself the strip falls through to
+            // the shared bitcoin balance chart, which is the wrong
             // money on this screen. No Price and no Coins — a cash
             // account has neither.
             RepaintBoundary(
@@ -186,9 +188,6 @@ class UsdAccountBody extends ConsumerWidget {
                 // way the strip's preview is.
                 onSeeAllActivity: () =>
                     showActivityHistory(context, onlyUsdb: true),
-                // Null hides the tab: the chart is never mounted, so it
-                // never reads the rewards API or fires usd_earn_*.
-                earnChild: earnAllowed ? const UsdEarnChart() : null,
                 // The same preview Home shows: the most recent rows, with
                 // "See all" above opening the full dollar ledger (user
                 // decision). The whole history used to sit inline here.
@@ -196,7 +195,14 @@ class UsdAccountBody extends ConsumerWidget {
                   onlyUsdb: true,
                   emptyState: NoActivityState(),
                 ),
-                valuationChild: const UsdBalanceChart(),
+                // With the programme shown, Balance carries Balance |
+                // Earn pills over its card; the Earn chart mounts only
+                // once that pill is tapped, so until then nothing reads
+                // the rewards API or fires usd_earn_*. Gated off, the
+                // bare chart: no pills at all.
+                valuationChild: earnAllowed
+                    ? const UsdBalanceTabs()
+                    : const UsdBalanceChart(),
                 // Where the dollars went and where they came from.
                 breakdownChild:
                     const MoneyFlowBreakdown(ledger: MoneyFlowLedger.dollars),
@@ -277,9 +283,9 @@ class _UsdBalanceCard extends StatelessWidget {
 }
 
 /// The Dollar deposit door, full width, with nothing beside it: the
-/// Earn shortcut that used to share the row is a tab in the strip below
-/// now, because the programme pays on the balance this screen already
-/// shows.
+/// Earn shortcut that used to share the row is a pill inside the Balance
+/// tab below now, because the programme pays on the balance this screen
+/// already shows.
 ///
 /// It carries the shared dollar mark and the shared label, the same two
 /// the Move sheet shows once it opens, so the door reads as one thing

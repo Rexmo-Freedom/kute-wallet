@@ -127,7 +127,11 @@ final selectedSearchCategoryProvider =
 /// rows into one section.
 const int _kMaxTransactionResults = 25;
 const int _kMaxOwnedPositionResults = 5;
+/// Predictions under the All filter (the section shows four and "See all").
 const int kMaxGlobalMarketResults = 5;
+/// Predictions under the Predictions filter: the whole venue page (the
+/// model asks Gamma for 50, its cap), most traded first.
+const int kMaxPredictionsFilterResults = 50;
 const int kMaxHyperliquidResults = 6;
 
 /// Short, user-facing label for a wallet, attached to each transaction
@@ -331,7 +335,8 @@ final unifiedSearchResultsProvider = FutureProvider.autoDispose<UnifiedSearchRes
 /// (which already sleeps 300ms before hitting Gamma) and projects the
 /// events into search results, de-duped against the conditionIds the
 /// owned-positions subsection already surfaced (passed by the UI) and
-/// capped at [kMaxGlobalMarketResults].
+/// capped at [kMaxGlobalMarketResults] under All, at
+/// [kMaxPredictionsFilterResults] under the Predictions filter.
 ///
 /// ONGOING / LIVE markets are surfaced FIRST: `polymarketSearchProvider`'s
 /// resolved filter already keeps genuinely in-play games (it returns false
@@ -402,9 +407,11 @@ final globalMarketResultsProvider =
       ...deduped.where((e) => !isLive(e)),
     ];
 
+    final cap = category == SearchCategory.predictions
+        ? kMaxPredictionsFilterResults
+        : kMaxGlobalMarketResults;
     return [
-      for (final e in sorted.take(kMaxGlobalMarketResults))
-        GlobalMarketSearchResult(e),
+      for (final e in sorted.take(cap)) GlobalMarketSearchResult(e),
     ];
   }
 
@@ -432,7 +439,7 @@ List<PolymarketEvent> _browsedMarketsMatching(Ref ref, String query) {
     if (!ref.exists(provider)) continue;
     for (final e in ref.read(provider).events) {
       if (!e.title.toLowerCase().contains(q)) continue;
-      if (e.liquidity < 1000 || e.closed) continue;
+      if (e.closed || e.marketsClosed) continue;
       if (e.slug.toLowerCase().contains('-updown-5m-')) continue;
       if (seen.add(e.slug.isEmpty ? e.id : e.slug)) out.add(e);
     }

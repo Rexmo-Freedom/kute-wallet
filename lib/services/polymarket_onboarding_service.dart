@@ -29,12 +29,14 @@
 //  - SAFE (approvals) uses SafeTx typed data (GnosisSafe domain with chainId + verifyingContract)
 //  - Safe transactions use eth_sign style: sign(prefix + eip712Hash), v += 4
 
+import 'dart:async';
 import 'dart:convert';
 import 'package:kute/services/polymarket/relayer_transaction.dart';
 import 'package:kute/services/polymarket_claim_receipt.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:hive_ce/hive.dart';
 import 'package:http/http.dart' as http;
 import 'package:kute/constants/polymarket_constants.dart';
 import 'package:kute/models/affiliate_model.dart' show AffiliateService;
@@ -260,45 +262,83 @@ class PolymarketOnboardingService {
   /// anyone with a funded/deployed UUPS wallet is left where their money and
   /// positions already are.
   ///
+  /// The three reads (relayer registry, legacy code, factory prediction)
+  /// run at the same time, so the resolve costs one round trip, not three.
+  /// [skipLegacyChecks] is for a wallet this app resolved before and found
+  /// on the current variant: it can never have become a legacy trader
+  /// since, so only the factory is asked.
+  ///
   /// Throws [PolymarketReadException] when Polygon gives no answer. It never
   /// guesses: falling back to the UUPS address on an RPC failure pointed
   /// beacon-wallet users at an empty, undeployed wallet (shown as $0, and a
   /// deposit there would be stranded). Callers keep the last confirmed
   /// address instead (see the trading provider).
-  Future<String> resolveDepositWalletAddress(String eoaAddress) async {
-    final uups = deriveDepositWalletAddress(eoaAddress);
-    // 1. Relayer registry — the authoritative "this wallet can trade" signal.
-    //    `type=WALLET` on `/deployed` is undocumented (the relayer spec
-    //    lists PROXY and SAFE) and has no documented replacement; any
-    //    failure here falls through to the on-chain check below.
-    try {
-      final uri = Uri.parse('$_kPmRelayerBaseUrl/deployed').replace(
-        queryParameters: {'address': uups, 'type': 'WALLET'},
-      );
-      final resp = await http.get(uri).timeout(const Duration(seconds: 10));
-      if (resp.statusCode == 200 &&
-          (jsonDecode(resp.body) as Map<String, dynamic>)['deployed'] == true) {
-        return uups; // legacy trader — keep their funded wallet
-      }
-    } catch (_) {
-      // fall through
+  Future<String> resolveDepositWalletAddress(String eoaAddress,
+          {bool skipLegacyChecks = false}) async =>
+      (await resolveDepositWallet(eoaAddress,
+              skipLegacyChecks: skipLegacyChecks))
+          .address;
+
+  /// [resolveDepositWalletAddress] with whether the wallet is a legacy
+  /// (UUPS) one. A non-legacy answer is final for that owner: later
+  /// resolves can pass `skipLegacyChecks`.
+  Future<({String address, bool legacy})> resolveDepositWallet(
+      String eoaAddress,
+      {bool skipLegacyChecks = false}) async {
+    final predicted = predictDepositWalletOnChain(eoaAddress);
+    if (skipLegacyChecks) {
+      return (address: await predicted, legacy: false);
     }
-    // 2. On-chain code — keep ANY already-deployed UUPS wallet; it is one the
-    //    user has traded on and it works forever where it is. Only a clean
-    //    empty answer means undeployed; if every RPC fails this throws.
-    final code = await _rpcFirstAnswer('eth_getCode', [uups, 'latest']);
-    if (code.length > 2) return uups; // deployed — keep, never repoint
+    final uups = deriveDepositWalletAddress(eoaAddress);
+    // 1. Relayer registry — the authoritative "this wallet can trade"
+    //    signal. `type=WALLET` on `/deployed` is undocumented (the relayer
+    //    spec lists PROXY and SAFE) and has no documented replacement; any
+    //    failure here reads as unknown and the on-chain check decides.
+    final registered = _relayerDeployed(uups, timeout: relayerResolveTimeout);
+    // 2. On-chain code — keep ANY already-deployed UUPS wallet; it is one
+    //    the user has traded on and it works forever where it is.
+    final code = _rpcFirstAnswer('eth_getCode', [uups, 'latest']);
+    // Nothing below awaits [predicted] on a legacy answer, so its failure
+    // must not surface as an unhandled error.
+    predicted.ignore();
+    if (await registered == true) return (address: uups, legacy: true);
+    // Only a clean empty answer means undeployed; if every RPC fails this
+    // throws.
+    if ((await code).length > 2) return (address: uups, legacy: true);
     // 3. Undeployed UUPS → the factory's current (beacon) address, which is
     //    where every newer wallet (deployed or not) lives. Throws when no
     //    RPC answers.
-    return predictDepositWalletOnChain(eoaAddress);
+    return (address: await predicted, legacy: false);
+  }
+
+  /// How long the relayer registry is given during a resolve. The on-chain
+  /// check runs beside it, so a slow relayer costs nothing past this.
+  @visibleForTesting
+  static Duration relayerResolveTimeout = const Duration(seconds: 4);
+
+  Future<bool?> _relayerDeployed(String address,
+      {required Duration timeout}) async {
+    try {
+      final uri = Uri.parse('$_kPmRelayerBaseUrl/deployed').replace(
+        queryParameters: {'address': address, 'type': 'WALLET'},
+      );
+      final resp = await http.get(uri).timeout(timeout);
+      if (resp.statusCode != 200) return null;
+      final decoded = jsonDecode(resp.body);
+      if (decoded is! Map || decoded['deployed'] is! bool) return null;
+      return decoded['deployed'] as bool;
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Public Polygon endpoints for every on-chain READ (wallet resolve,
-  /// deploy check, approval scan, balances, receipts), tried in order. One
-  /// public RPC hanging or answering "upstream overloaded" must not decide
-  /// which wallet a user sees or abort Enable trading. Signed transactions
-  /// never go here: they are submitted through the backend relay.
+  /// deploy check, approval scan, balances, receipts). One public RPC
+  /// hanging or answering "upstream overloaded" must not decide which
+  /// wallet a user sees or abort Enable trading, so a read races them: the
+  /// first starts at once, the next joins after [polygonRpcStagger] without
+  /// an answer, and the first answer wins. Signed transactions never go
+  /// here: they are submitted through the backend relay.
   @visibleForTesting
   static const polygonReadRpcs = [
     PolymarketConstants.polygonRpc,
@@ -307,9 +347,30 @@ class PolymarketOnboardingService {
     'https://polygon.gateway.tenderly.co',
   ];
 
+  /// Endpoints known to serve Polygon: the `eth_chainId` check is skipped
+  /// for these (it cost a round trip per endpoint on first use). Any other
+  /// endpoint (a test's, a future config) is still checked.
+  static const Set<String> knownPolygonRpcs = {
+    PolymarketConstants.polygonRpc,
+    'https://polygon.drpc.org',
+    'https://1rpc.io/matic',
+    'https://polygon.gateway.tenderly.co',
+  };
+
+  /// Test seam: the read list to use instead of [polygonReadRpcs].
+  @visibleForTesting
+  static List<String>? debugReadRpcs;
+
+  static List<String> get _readRpcs => debugReadRpcs ?? polygonReadRpcs;
+
   /// Per-request timeout for one endpoint.
   @visibleForTesting
   static Duration polygonRpcTimeout = const Duration(seconds: 5);
+
+  /// How long the first endpoint has the read to itself before the next
+  /// one is started beside it.
+  @visibleForTesting
+  static Duration polygonRpcStagger = const Duration(seconds: 1);
 
   /// How long an endpoint that just failed is tried after the others, so a
   /// hanging RPC costs one timeout rather than one per read.
@@ -320,20 +381,82 @@ class PolymarketOnboardingService {
   /// settled check; an unanswered one is dropped so the next read retries.
   static final Map<String, Future<bool?>> _rpcChainChecks = {};
 
+  /// Endpoints that answered, most recent first. Kept across app starts
+  /// (see [loadHealthyRpcs] / [persistHealthyRpcs]) so a phone whose
+  /// first-listed endpoint is slow where it lives starts with the one
+  /// that worked last time.
+  static List<String> _healthyRpcs = [];
+  static Future<void>? _healthyRpcsLoading;
+  static bool _healthyRpcsLoaded = false;
+
+  /// Persistence seams for the healthy-endpoint memory. Defaults read and
+  /// write one Hive box; tests replace them.
+  @visibleForTesting
+  static Future<List<String>?> Function() loadHealthyRpcs =
+      _PolygonRpcMemory.read;
+  @visibleForTesting
+  static Future<void> Function(List<String>) persistHealthyRpcs =
+      _PolygonRpcMemory.write;
+
   @visibleForTesting
   static void debugResetPolygonRpcs() {
     _rpcCooldownUntil.clear();
     _rpcChainChecks.clear();
+    _healthyRpcs = [];
+    _healthyRpcsLoaded = false;
+    _healthyRpcsLoading = null;
+    debugReadRpcs = null;
     polygonRpcTimeout = const Duration(seconds: 5);
+    polygonRpcStagger = const Duration(seconds: 1);
+    loadHealthyRpcs = _PolygonRpcMemory.read;
+    persistHealthyRpcs = _PolygonRpcMemory.write;
   }
 
-  /// Endpoints in try order: the ones that have not failed recently in list
-  /// order, then the cooling ones (still tried before failing closed).
+  static Future<void> _ensureHealthyRpcsLoaded() {
+    if (_healthyRpcsLoaded) return Future.value();
+    return _healthyRpcsLoading ??= () async {
+      try {
+        final stored = await loadHealthyRpcs();
+        if (stored != null) {
+          final rpcs = _readRpcs;
+          _healthyRpcs = [
+            for (final rpc in stored)
+              if (rpcs.contains(rpc) && !_healthyRpcs.contains(rpc)) rpc,
+            ..._healthyRpcs,
+          ];
+        }
+      } catch (_) {
+        // No memory: list order it is.
+      } finally {
+        _healthyRpcsLoaded = true;
+        _healthyRpcsLoading = null;
+      }
+    }();
+  }
+
+  static void _rpcAnswered(String rpc) {
+    _rpcCooldownUntil.remove(rpc);
+    if (_healthyRpcs.isNotEmpty && _healthyRpcs.first == rpc) return;
+    _healthyRpcs = [rpc, ..._healthyRpcs.where((r) => r != rpc)];
+    // ignore: discarded_futures
+    persistHealthyRpcs(List.unmodifiable(_healthyRpcs)).catchError((_) {});
+  }
+
+  /// Endpoints in try order: the ones that answered before (most recent
+  /// first), then the rest in list order, with the ones that failed
+  /// recently last (still tried before failing closed).
   static List<String> _polygonReadOrder() {
     final now = DateTime.now();
     final ready = <String>[];
     final cooling = <String>[];
-    for (final rpc in polygonReadRpcs) {
+    final rpcs = _readRpcs;
+    final ordered = [
+      for (final rpc in _healthyRpcs)
+        if (rpcs.contains(rpc)) rpc,
+      for (final rpc in rpcs)
+        if (!_healthyRpcs.contains(rpc)) rpc,
+    ];
+    for (final rpc in ordered) {
       final until = _rpcCooldownUntil[rpc];
       (until != null && now.isBefore(until) ? cooling : ready).add(rpc);
     }
@@ -374,10 +497,12 @@ class PolymarketOnboardingService {
     }
   }
 
-  /// True once [rpc] has answered `eth_chainId` with Polygon. A wrong chain
+  /// True once [rpc] is known to serve Polygon: listed in
+  /// [knownPolygonRpcs], or answered `eth_chainId` with 137. A wrong chain
   /// is remembered and the endpoint skipped for the rest of the session; an
   /// unanswered check marks it failed and is retried on a later read.
   static Future<bool> _isPolygonRpc(String rpc) async {
+    if (knownPolygonRpcs.contains(rpc)) return true;
     final check = _rpcChainChecks.putIfAbsent(rpc, () async {
       final answer = await _rpcRequest(rpc, 'eth_chainId', const []);
       final result = answer?.result;
@@ -393,21 +518,58 @@ class PolymarketOnboardingService {
     return ok ?? false;
   }
 
-  /// The first usable `result` among [polygonReadRpcs]: an endpoint that
-  /// times out, errors or is not on Polygon is skipped for the next one.
+  /// The first usable `result` among the read endpoints. The first
+  /// endpoint in order is asked at once; while it has not answered, the
+  /// next one is started every [polygonRpcStagger], and the first String
+  /// result wins. An endpoint that times out, errors or is not on Polygon
+  /// is skipped; one that answers is remembered first for later reads.
   /// Throws [PolymarketReadException] only when none answers, so strict
   /// callers still fail closed.
   Future<String> _rpcFirstAnswer(String method, List<Object> params) async {
-    for (final rpc in _polygonReadOrder()) {
-      if (!await _isPolygonRpc(rpc)) continue;
-      final result = (await _rpcRequest(rpc, method, params))?.result;
-      if (result is String) {
-        _rpcCooldownUntil.remove(rpc);
-        return result;
+    await _ensureHealthyRpcsLoaded();
+    final order = _polygonReadOrder();
+    final winner = Completer<String>();
+    var pending = 0;
+    var started = 0;
+
+    Future<void> attempt(String rpc) async {
+      pending++;
+      try {
+        if (!await _isPolygonRpc(rpc)) return;
+        final result = (await _rpcRequest(rpc, method, params))?.result;
+        if (result is String) {
+          _rpcAnswered(rpc);
+          if (!winner.isCompleted) winner.complete(result);
+          return;
+        }
+        _rpcFailed(rpc);
+      } finally {
+        pending--;
+        if (!winner.isCompleted && pending == 0 && started == order.length) {
+          winner.completeError(
+              PolymarketReadException('$method: no Polygon RPC answered'));
+        }
       }
-      _rpcFailed(rpc);
     }
-    throw PolymarketReadException('$method: no Polygon RPC answered');
+
+    for (final rpc in order) {
+      if (winner.isCompleted) break;
+      started++;
+      // ignore: discarded_futures
+      attempt(rpc);
+      if (winner.isCompleted || started == order.length) break;
+      // Give this endpoint the stagger to itself; an answer (or every
+      // attempt so far failing) ends the wait early.
+      await Future.any<void>([
+        winner.future.then((_) {}, onError: (_) {}),
+        Future<void>.delayed(polygonRpcStagger),
+      ]);
+      if (!winner.isCompleted && pending == 0) continue;
+    }
+    if (order.isEmpty) {
+      throw PolymarketReadException('$method: no Polygon RPC answered');
+    }
+    return winner.future;
   }
 
   /// Solady LibClone.initCodeHashERC1967(implementation, args).
@@ -3006,6 +3168,15 @@ class PolymarketOnboardingService {
     return txId.toString();
   }
 
+  /// How long a receipt poll waits before asking the relayer again: every
+  /// second for the first 20 s (a Polygon block is about 2 s, so a deposit's
+  /// conversion is seen within a second of landing), then every 2 s. Also
+  /// the cadence a deposit's own path re-reads the wallet at.
+  static Duration receiptPollInterval(Duration elapsed) =>
+      elapsed < const Duration(seconds: 20)
+          ? const Duration(seconds: 1)
+          : const Duration(seconds: 2);
+
   /// Polls until the relayer transaction is confirmed. Returns the on-chain tx hash.
   ///
   /// 90 s timeout. Polygon settlement under load can take 30–60 s; a
@@ -3016,7 +3187,8 @@ class PolymarketOnboardingService {
   Future<String> _pollTransaction(String txId,
       {Duration timeout = const Duration(seconds: 90),
       bool requireConfirmed = false}) async {
-    final deadline = DateTime.now().add(timeout);
+    final startedAt = DateTime.now();
+    final deadline = startedAt.add(timeout);
 
     while (DateTime.now().isBefore(deadline)) {
       _PollTerminalException? terminal;
@@ -3035,7 +3207,8 @@ class PolymarketOnboardingService {
           final data = relayerTransactionForId(jsonDecode(response.body), txId);
           if (data == null) {
             // Malformed or unrelated history never resolves this operation.
-            await Future<void>.delayed(const Duration(seconds: 2));
+            await Future<void>.delayed(
+                receiptPollInterval(DateTime.now().difference(startedAt)));
             continue;
           }
 
@@ -3107,7 +3280,8 @@ class PolymarketOnboardingService {
         }
       }
 
-      await Future.delayed(const Duration(seconds: 3));
+      await Future.delayed(
+          receiptPollInterval(DateTime.now().difference(startedAt)));
     }
 
     throw Exception('The relayer has not confirmed this transaction yet. '
@@ -3164,5 +3338,42 @@ class PolymarketOnboardingService {
       }
     }
     return result.toString();
+  }
+}
+
+
+/// The device memory of which Polygon endpoints answered, most recent
+/// first. One Hive box opened on first use; best-effort both ways.
+class _PolygonRpcMemory {
+  static const _boxName = 'polymarket_rpc_health';
+  static const _key = 'healthy';
+  static Future<Box<String>>? _opening;
+
+  static Future<Box<String>> _box() {
+    if (Hive.isBoxOpen(_boxName)) {
+      return Future.value(Hive.box<String>(_boxName));
+    }
+    return _opening ??= Hive.openBox<String>(_boxName).whenComplete(() {
+      _opening = null;
+    });
+  }
+
+  static Future<List<String>?> read() async {
+    try {
+      final raw = (await _box()).get(_key);
+      if (raw == null) return null;
+      final decoded = jsonDecode(raw);
+      return decoded is List ? decoded.whereType<String>().toList() : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Future<void> write(List<String> rpcs) async {
+    try {
+      await (await _box()).put(_key, jsonEncode(rpcs));
+    } catch (_) {
+      // Hive not initialised or disk full: list order next start.
+    }
   }
 }

@@ -197,6 +197,11 @@ class _BetSlipDraft extends ChangeNotifier {
   /// The open gate's refusal, shared with the Advanced page: see
   /// `_BetSlipSheetState._capabilityBlockMessage`.
   String? openBlockMessage;
+
+  /// The policy could not be reached and the last check still allows a
+  /// prediction: the decision's own words, shown above the button without
+  /// disabling it. Null when the policy answered.
+  String? openOfflineNote;
   final TextEditingController amountController;
 
   // Analytics: where the ticket is, how the amount was entered and why it
@@ -520,6 +525,9 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   /// (Home hot-events feed, AI recommendations) where the shell has the
   /// CLOB stream paused; acquire()/release() keeps it live while up.
   LivePriceNotifier? _livePrices;
+  /// The controller this slip warmed the placement on (paired release in
+  /// dispose, where `ref` is no longer read).
+  PolymarketBetController? _warmedSlip;
   bool _isPlacing = false;
 
   /// In-play order delay (s) by market while its game is on, read from the
@@ -754,6 +762,15 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       if (tokenIds.isNotEmpty) {
         _livePrices?.addTokens(tokenIds);
       }
+      // Warm what the tap would otherwise fetch: the venue connection,
+      // the saved market terms and fee curve, the builder code. The
+      // live book comes through the feed subscribed above.
+      if (_warmedSlip == null) {
+        final controller = ref.read(polymarketBetControllerProvider);
+        _warmedSlip = controller;
+        controller.warmSlip(
+            tokenId: widget.outcomes[_selectedIndex].tokenId ?? '');
+      }
     });
 
     // Resolve the regional / capability gate behind the first frame.
@@ -774,6 +791,10 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   Future<void> _resolveCapabilityGate() async {
     String? message;
     var regionBlocked = false;
+    // The policy's own reason (country_blocked, policy_unavailable,
+    // offline_grace, …), so bet_slip_abandoned says why the slip stopped.
+    var reason = 'capability_unavailable';
+    var offline = false;
     try {
       await RuntimeCapabilitiesService.instance
           .ensureAllAllowed(_betCapabilities());
@@ -782,15 +803,36 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       regionBlocked =
           error.availability.status == ProviderAvailabilityStatus.restricted;
     } on CapabilityUnavailableException catch (error) {
-      message = error.decision.message;
-      regionBlocked = error.decision.regionRestricted;
+      final decision = error.decision;
+      message = decision.message;
+      regionBlocked = decision.regionRestricted;
+      if (decision.reason.isNotEmpty) reason = decision.reason;
+      offline = decision.offline;
     }
-    // Allowed, gone, or the user already committed — leave the slip be.
-    // A refusal that lands mid-placement is caught by the place-time
-    // gate, so the UI must not be swapped out from under it.
-    if (message == null || !mounted || _isPlacing || _buyInFlight) return;
+    if (!mounted || _isPlacing || _buyInFlight) return;
+    if (message == null) {
+      // Allowed. When that is the last check standing in for a policy
+      // that cannot be reached (offline grace), say so above the button,
+      // which stays enabled.
+      for (final id in _betCapabilities()) {
+        final decision = RuntimeCapabilitiesService.instance.decision(id);
+        if (decision.offline) {
+          _updateState(() => _draft.openOfflineNote = decision.message);
+          break;
+        }
+      }
+      return;
+    }
+    // Gone, or the user already committed — leave the slip be. A refusal
+    // that lands mid-placement is caught by the place-time gate, so the
+    // UI must not be swapped out from under it.
+    if (offline) {
+      _updateState(() => _draft.openOfflineNote = message);
+      return;
+    }
     if (regionBlocked) TrackingService.polymarketGeoblockedShown();
-    _stopped(regionBlocked ? 'geoblocked' : 'capability_unavailable');
+    _stopped(regionBlocked ? 'geoblocked' : reason);
+    _draft.lastErrorCategory = reason;
     _updateState(() => _draft.openBlockMessage = message);
   }
 
@@ -1094,6 +1136,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     // dispose from decrementing another surface's hold).
     _livePrices?.release();
     _livePrices = null;
+    _warmedSlip?.releaseSlip();
+    _warmedSlip = null;
     _draft.removeListener(_onDraftChanged);
     if (_ownsDraft) {
       _amountController.removeListener(_onAmountChanged);
@@ -3004,7 +3048,10 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                 ? 16.h
                 : max(16.h, MediaQuery.of(context).padding.bottom)),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          if (_tradeBlock case final reason?) CapabilityBlockNote(reason),
+          if (_tradeBlock case final reason?)
+            CapabilityBlockNote(reason)
+          else if (_draft.openOfflineNote case final note? when !_isPlacing)
+            CapabilityBlockNote(note),
           if (_advancedBlock case final reason? when reason != _tradeBlock)
             CapabilityBlockNote(reason),
           // While an order waits on a live game's in-play delay, the line

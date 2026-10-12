@@ -374,13 +374,15 @@ class _OpenPinState extends ConsumerState<OpenPin>
         }
       }
     } catch (e) {
-      _trackBiometricFailed(
-          e is PlatformException ? e.code : e.runtimeType.toString());
+      // local_auth 3 throws a LocalAuthException for a dismissed prompt
+      // too; the helper files that as a cancel, not a failure. The PIN
+      // screen is already showing either way.
+      TrackingService.biometricPromptThrew(e, surface: 'cold_start');
     }
   }
 
   /// `biometric_failed` with this screen as the surface. [reason] is a
-  /// platform error code or a policy refusal name, scrubbed.
+  /// policy refusal name, scrubbed.
   void _trackBiometricFailed(String reason) {
     TrackingService.track('biometric_failed', params: {
       'reason': TrackingService.safeReason(reason) ?? 'unknown',

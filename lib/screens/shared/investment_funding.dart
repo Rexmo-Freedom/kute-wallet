@@ -40,18 +40,42 @@ void openInvestmentFunding(
         params: {
           'direction': deposit ? 'deposit' : 'withdraw',
           'reason': decision.regionRestricted ? 'geoblocked' : 'capability',
+          // The policy's own code (`country_blocked`, `policy_unavailable`,
+          // `app_update_required`, ...) so a refusal can be told apart from
+          // a missing policy on the dashboard.
+          'decision_reason':
+              decision.reason.isEmpty ? 'none' : decision.reason,
         });
     showCapabilityDecisionSheet(context, decision);
     return;
   }
-  showDepositSheet(
-    context,
-    lockedSide: predictions
-        ? deposit
-            ? MoveLockedSide.depositToPredictions
-            : MoveLockedSide.withdrawFromPredictions
-        : deposit
-            ? MoveLockedSide.depositToHyperliquid
-            : MoveLockedSide.withdrawFromHyperliquid,
-  );
+  if (decision.offline) {
+    // Allowed from the last policy this device could read: nothing is
+    // blocked, the person is just told the check is stale.
+    showMessageSnackBar(
+      context: context,
+      message: decision.messageIn(context.l10n),
+      error: false,
+      info: true,
+    );
+  }
+  final lockedSide = predictions
+      ? deposit
+          ? MoveLockedSide.depositToPredictions
+          : MoveLockedSide.withdrawFromPredictions
+      : deposit
+          ? MoveLockedSide.depositToHyperliquid
+          : MoveLockedSide.withdrawFromHyperliquid;
+  final open = debugOpenFundingSheet;
+  if (open != null) {
+    open(context, lockedSide);
+    return;
+  }
+  showDepositSheet(context, lockedSide: lockedSide);
 }
+
+/// Test seam: stands in for [showDepositSheet], whose page needs the live
+/// wallet and venue providers. Null in the app.
+@visibleForTesting
+void Function(BuildContext context, MoveLockedSide lockedSide)?
+    debugOpenFundingSheet;

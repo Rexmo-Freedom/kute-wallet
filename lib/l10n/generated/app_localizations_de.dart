@@ -1216,9 +1216,6 @@ class AppLocalizationsDe extends AppLocalizations {
   String get usdEarnRateUnavailable => 'Gerade nicht verfügbar';
 
   @override
-  String get usdEarnPaidToDate => 'Bisher an dich ausgezahlt';
-
-  @override
   String get usdEarnActivityEmpty => 'Noch keine Zahlungen';
 
   @override
@@ -2079,6 +2076,20 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get passkeyChoiceCancelled =>
       'Einrichtung abgebrochen. Es wurde nichts erstellt.';
+
+  @override
+  String get passkeyBackupSyncing => 'Backup wird synchronisiert…';
+
+  @override
+  String get passkeyCreateNewTitle => 'Kein Passkey gefunden';
+
+  @override
+  String passkeyCreateNewBody(String method) {
+    return 'Es wurde nichts erstellt. Stattdessen einen neuen Passkey für dieses Wallet mit $method erstellen?';
+  }
+
+  @override
+  String get passkeyCreateNewAction => 'Neuen Passkey erstellen';
 
   @override
   String passkeyChoiceFallbackWords(String method) {
@@ -7142,6 +7153,10 @@ class AppLocalizationsDe extends AppLocalizations {
       'Die Verfügbarkeit konnte bei Kute nicht geprüft werden. Bitte versuche es erneut.';
 
   @override
+  String get capabilityOfflineGrace =>
+      'Kute ist gerade nicht erreichbar. Das ist laut deiner letzten Prüfung weiterhin verfügbar.';
+
+  @override
   String get capabilityUnavailable =>
       'Diese Funktion ist in Kute derzeit nicht verfügbar.';
 
@@ -7529,6 +7544,36 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get recoverFoundOnDevice =>
       'Auf diesem Gerät gefunden. Prüfe vor dem Wiederherstellen, ob das Guthaben stimmt.';
+
+  @override
+  String get recoverOlderVersionSection =>
+      'Aus einer älteren Version auf diesem Telefon';
+
+  @override
+  String get recoverOlderVersionWallet => 'Wallet aus einer älteren Version';
+
+  @override
+  String get recoverOlderVersionNeedsPin =>
+      'Öffnet sich mit der PIN dieser Version';
+
+  @override
+  String get recoverOlderVersionIcloud =>
+      'In der iCloud-Schlüsselbund gesichert';
+
+  @override
+  String get recoverOlderVersionEnterPin =>
+      'Gib die PIN ein, die diese Version benutzt hat';
+
+  @override
+  String get recoverOlderVersionFailed =>
+      'Diese Kopie konnte nicht wiederhergestellt werden.';
+
+  @override
+  String get restoreRescueOfferBody =>
+      'Kopien deiner Wallets aus einer älteren Kute-Version sind noch auf diesem Telefon. Sie verwenden, statt neu anzufangen?';
+
+  @override
+  String get restoreRescueOfferConfirm => 'Gesicherte Kopien verwenden';
 
   @override
   String recoverConfirmWallet(String wallet) {
@@ -10550,6 +10595,9 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get portfolioStatAtStake => 'Eingesetzter Betrag';
+
+  @override
+  String get portfolioProfitLoss => 'Gewinn und Verlust';
 
   @override
   String slipCtaAddTo(String side, String amount) {

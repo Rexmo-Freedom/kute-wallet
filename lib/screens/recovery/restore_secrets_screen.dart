@@ -28,6 +28,7 @@ import 'package:kute/services/balance_checker_service.dart';
 import 'package:kute/helpers/passkey_account_name.dart';
 import 'package:kute/services/passkey_service.dart';
 import 'package:kute/services/secure/flutter_secret_store.dart';
+import 'package:kute/services/secure/legacy_keychain_rescue.dart';
 import 'package:kute/services/secure/recovery_check.dart';
 import 'package:kute/services/secure/secret_error_class.dart';
 import 'package:kute/services/secure/secret_store.dart';
@@ -64,6 +65,7 @@ class RestoreSecretsScreen extends ConsumerStatefulWidget {
     @visibleForTesting this.loadPasskeyMnemonic,
     @visibleForTesting this.offerLegacyCopies,
     @visibleForTesting this.wipe,
+    @visibleForTesting this.rescue,
   });
 
   final RestoreSecretsReason reason;
@@ -77,6 +79,10 @@ class RestoreSecretsScreen extends ConsumerStatefulWidget {
   /// default: on Android both stores share one prefs file.
   final bool? offerLegacyCopies;
   final Future<void> Function()? wipe;
+
+  /// Looks for copies an older build stored under the legacy Keychain
+  /// accessibility before Start over wipes anything.
+  final LegacyKeychainRescue? rescue;
 
   @override
   ConsumerState<RestoreSecretsScreen> createState() =>
@@ -95,6 +101,11 @@ class _RowState {
 class _RestoreSecretsScreenState extends ConsumerState<RestoreSecretsScreen> {
   final Map<String, _RowState> _rows = {};
   bool _hasPinMaterial = true;
+
+  /// Wallets whose old PIN-encrypted copy was found and whose PIN material
+  /// was re-saved: the next PIN entry finishes them, so they read as
+  /// restored here.
+  final Set<String> _rescuedPendingPin = {};
 
   Future<String> _derive(String phrase, WalletConfig wallet) =>
       widget.deriveAddress?.call(phrase) ??
@@ -139,6 +150,7 @@ class _RestoreSecretsScreenState extends ConsumerState<RestoreSecretsScreen> {
             ? _RowStatus.restored
             : _RowStatus.needsRecovery;
       } else if (await _present(local, _v2Key(wallet.id)) ||
+          _rescuedPendingPin.contains(wallet.id) ||
           (widget.reason != RestoreSecretsReason.secretsMissing &&
               await _present(local, 'mnemonic_${wallet.id}'))) {
         row.status = _RowStatus.restored;
@@ -430,6 +442,11 @@ class _RestoreSecretsScreenState extends ConsumerState<RestoreSecretsScreen> {
       builder: (_) => _StartFreshSheet(word: word),
     );
     if (confirmed != true || !mounted) return;
+    // Never wipe over copies an older build left under the legacy Keychain
+    // accessibility: the lookup runs first and, when it finds any, the
+    // rescue is offered in place of the wipe.
+    if (await _offerLegacyRescue()) return;
+    if (!mounted) return;
     TrackingService.seedRestoreStartFresh();
     TrackingService.clearFlowContext('seed_restore');
     final wipe = widget.wipe;
@@ -441,6 +458,48 @@ class _RestoreSecretsScreenState extends ConsumerState<RestoreSecretsScreen> {
     await ref.read(authModelProvider).deleteAuthentication();
     ref.invalidate(bitcoinConfigProvider);
     if (mounted) RestartWidget.restartApp(context);
+  }
+
+  /// True when old copies were found (the wipe does not run). Accepting
+  /// re-saves them and refreshes the rows; declining leaves everything as
+  /// it was.
+  Future<bool> _offerLegacyRescue() async {
+    final rescue = widget.rescue ??
+        (defaultTargetPlatform == TargetPlatform.iOS
+            ? LegacyKeychainRescue()
+            : null);
+    if (rescue == null) return false;
+    const source = 'start_over';
+    final LegacyRescueScan scan;
+    try {
+      scan = await rescue.scan(ref.read(settingsProvider).wallets,
+          source: source);
+    } catch (_) {
+      return false;
+    }
+    if (!scan.found || !mounted) return false;
+    final accepted = await _choose(
+      body: context.l10n.restoreRescueOfferBody,
+      confirm: context.l10n.restoreRescueOfferConfirm,
+    );
+    if (!accepted || !mounted) return true;
+    for (final row in _rows.values) {
+      row.busy = true;
+    }
+    setState(() {});
+    try {
+      final pending = await rescue.apply(scan, source: source);
+      final pinHash = await SecretStores.local.read(key: 'pin_hash');
+      if (pinHash is SecretPresent) _rescuedPendingPin.addAll(pending);
+    } catch (_) {
+      // Reported by the rescue; the rows below show what is readable now.
+    }
+    if (!mounted) return true;
+    for (final row in _rows.values) {
+      row.busy = false;
+    }
+    await _probe();
+    return true;
   }
 
   Future<bool> _choose({required String body, required String confirm}) async {

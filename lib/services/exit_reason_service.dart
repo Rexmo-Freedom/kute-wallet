@@ -21,8 +21,9 @@ import 'package:kute/services/tracking_service.dart';
 /// process importance and RSS/PSS at death. This service reads those
 /// records via a platform channel and forwards the abnormal ones to
 /// the analytics event stream (with the previous session's persisted
-/// screen/flow snapshot) and, for deaths Crashlytics cannot see itself,
-/// to Crashlytics as non-fatals grouped per reason.
+/// screen/flow snapshot) and, for deaths Crashlytics cannot see itself
+/// while the app was in the foreground or perceptible, to Crashlytics as
+/// non-fatals grouped per reason.
 ///
 /// On iOS the only post-mortem signal is Crashlytics'
 /// `didCrashOnPreviousExecution`, reported as `app_crash_detected`.
@@ -167,6 +168,13 @@ class ExitReasonService {
 
       if (_capturedNatively.contains(reasonName)) continue;
 
+      // A process the OS reclaimed while it was neither visible nor
+      // perceptible (a low-memory or signaled kill of a cached process,
+      // or one with no importance at all) is routine housekeeping, not an
+      // issue: it stays in the analytics event above and never reaches
+      // Crashlytics. Same rule as the crash marker.
+      if (!inForeground) continue;
+
       // Crashlytics non-fatal for deaths Crashlytics can't see itself,
       // one issue per reason (distinct type and throw site).
       // `recordCrash` scrubs and release-gates internally.
@@ -177,7 +185,8 @@ class ExitReasonService {
         reason: 'application_exit_info $reasonName',
         information: [
           'exit_reason: $reasonName',
-          'importance: ${importance ?? 'unknown'}',
+          // Non-null here: the foreground gate above needs a value.
+          'importance: $importance',
           'rss_mb: $rssMb',
           if (snap != null)
             for (final k in const ['last_screen', 'last_flow', 'last_step'])

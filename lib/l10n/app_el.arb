@@ -387,7 +387,6 @@
   "usdEarnNextPaymentIn": "Πληρώνει σε",
   "usdEarnRatePending": "Φόρτωση",
   "usdEarnRateUnavailable": "Μη διαθέσιμο αυτή τη στιγμή",
-  "usdEarnPaidToDate": "Σου έχουν πληρωθεί μέχρι τώρα",
   "usdEarnActivityEmpty": "Καμία πληρωμή ακόμα",
   "usdEarnActivityUnavailable": "Το ιστορικό πληρωμών δεν είναι διαθέσιμο αυτή τη στιγμή",
   "hlYieldAvailableLine": "{amount} διαθέσιμα",
@@ -633,6 +632,17 @@
   "passkeyChoiceAppleAccount": "λογαριασμό Apple",
   "passkeyChoiceGoogleAccount": "λογαριασμό Google",
   "passkeyChoiceCancelled": "Η ρύθμιση ακυρώθηκε. Δεν δημιουργήθηκε τίποτα.",
+  "passkeyBackupSyncing": "Συγχρονισμός του αντιγράφου ασφαλείας…",
+  "passkeyCreateNewTitle": "Δεν βρέθηκε passkey",
+  "passkeyCreateNewBody": "Δεν δημιουργήθηκε τίποτα. Να δημιουργηθεί νέο passkey για αυτό το πορτοφόλι με {method};",
+  "@passkeyCreateNewBody": {
+    "placeholders": {
+      "method": {
+        "type": "String"
+      }
+    }
+  },
+  "passkeyCreateNewAction": "Δημιουργία νέου passkey",
   "passkeyChoiceFallbackWords": "Δεν ήταν δυνατή η ρύθμιση του {method}. Το πορτοφόλι σου δημιουργήθηκε με λέξεις ανάκτησης.",
   "biometricFaceId": "Face ID",
   "biometricTouchId": "Touch ID",
@@ -2033,6 +2043,7 @@
   "capabilityAccountRestricted": "Αυτή η λειτουργία δεν είναι ακόμα διαθέσιμη για τον λογαριασμό σου.",
   "capabilityCountryUnknown": "Δεν ήταν δυνατή η επαλήθευση της περιοχής σου με το Kute. Δοκίμασε ξανά.",
   "capabilityPolicyUnavailable": "Δεν ήταν δυνατός ο έλεγχος διαθεσιμότητας με το Kute. Δοκίμασε ξανά.",
+  "capabilityOfflineGrace": "Το Kute δεν είναι διαθέσιμο αυτή τη στιγμή. Αυτό εξακολουθεί να είναι διαθέσιμο βάσει του τελευταίου ελέγχου σας.",
   "capabilityUnavailable": "Αυτή η λειτουργία δεν είναι διαθέσιμη αυτή τη στιγμή στο Kute.",
   "leverageCapExceeded": "Μόχλευση πάνω από {maxLeverage}x δεν είναι διαθέσιμη στην περιοχή σου.",
   "providerRegionRestricted": "Το {provider} περιορίζεται στην περιοχή όπου φαίνεται να βρίσκεται η σύνδεσή σου στο internet. Αν δεν είσαι εκεί, έλεγξε τις ρυθμίσεις δικτύου ή VPN και δοκίμασε ξανά.",
@@ -2137,6 +2148,14 @@
   "recoverAddressesStartWith": "Οι διευθύνσεις ξεκινούν με {prefix}",
   "recoverPasskeyCreated": "Δημιουργήθηκε {date}",
   "recoverFoundOnDevice": "Βρέθηκε σε αυτή τη συσκευή. Έλεγξε ότι το υπόλοιπο φαίνεται σωστό πριν την επαναφορά.",
+  "recoverOlderVersionSection": "Από παλαιότερη έκδοση σε αυτό το τηλέφωνο",
+  "recoverOlderVersionWallet": "Πορτοφόλι από παλαιότερη έκδοση",
+  "recoverOlderVersionNeedsPin": "Ανοίγει με το PIN που χρησιμοποιούσε εκείνη η έκδοση",
+  "recoverOlderVersionIcloud": "Αποθηκευμένο στο iCloud Keychain",
+  "recoverOlderVersionEnterPin": "Εισαγάγετε το PIN που χρησιμοποιούσε εκείνη η έκδοση",
+  "recoverOlderVersionFailed": "Αυτό το αντίγραφο δεν ήταν δυνατό να επαναφερθεί.",
+  "restoreRescueOfferBody": "Αντίγραφα των πορτοφολιών σας από παλαιότερη έκδοση του Kute υπάρχουν ακόμη σε αυτό το τηλέφωνο. Να χρησιμοποιηθούν αντί να ξεκινήσετε από την αρχή;",
+  "restoreRescueOfferConfirm": "Χρήση των αποθηκευμένων αντιγράφων",
   "recoverConfirmWallet": "Επιβεβαίωσε για να επαναφέρεις το {wallet}.",
   "btcSetupCreateTitleShort": "Δημιουργία νέου πορτοφολιού",
   "btcSetupWalletNameHint": "Όνομα πορτοφολιού",
@@ -2962,6 +2981,7 @@
   "portfolioStatsActive": "Ενεργά",
   "portfolioStatsHistoric": "Ιστορικό",
   "portfolioStatAtStake": "Δεσμευμένο ποσό",
+  "portfolioProfitLoss": "Κέρδη και ζημίες",
   "slipCtaAddTo": "{side, select, long{Αύξηση θέσης long · {amount}} other{Αύξηση θέσης short · {amount}}}",
   "slipCtaReduce": "{side, select, long{Μείωση θέσης long · {amount}} other{Μείωση θέσης short · {amount}}}",
   "slipCtaClose": "{side, select, long{Κλείσιμο θέσης long} other{Κλείσιμο θέσης short}}",

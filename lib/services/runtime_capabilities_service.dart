@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show Platform;
 
+import 'package:crypto/crypto.dart' show sha256;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +10,7 @@ import 'package:http/http.dart' as http;
 import 'package:kute/l10n/l10n.dart' show AppLocalizations, appL10n, l10nForLanguage;
 import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/services/investment_provider_availability.dart';
+import 'package:kute/services/runtime_policy_snapshot_store.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 class CapabilityDecision {
@@ -42,6 +44,11 @@ class CapabilityDecision {
   bool get accountRestricted =>
       reason.startsWith('affiliate_') || reason.startsWith('wallet_');
 
+  /// Allowed only because the backend allowed it the last time it could be
+  /// reached, within [RuntimeCapabilitiesService.offlineGrace]. Screens
+  /// may say "offline" next to the control; nothing is blocked.
+  bool get offline => reason == 'offline_grace';
+
   /// Kute's sentence for this decision in the app language. See
   /// [messageIn].
   String get message => messageIn(appL10n());
@@ -61,6 +68,7 @@ class CapabilityDecision {
     if (deviceRestricted) return l10n.capabilityDeviceRestricted;
     if (accountRestricted) return l10n.capabilityAccountRestricted;
     if (reason == 'country_unknown') return l10n.capabilityCountryUnknown;
+    if (offline) return l10n.capabilityOfflineGrace;
     if (reason == 'policy_unavailable') {
       return l10n.capabilityPolicyUnavailable;
     }
@@ -122,7 +130,9 @@ class RuntimeCapabilities {
         security = Map<String, dynamic>.unmodifiable(
             json['security'] as Map<String, dynamic>? ?? {}),
         investing = Map<String, dynamic>.unmodifiable(
-            json['investing'] as Map<String, dynamic>? ?? {}) {
+            json['investing'] as Map<String, dynamic>? ?? {}),
+        polymarket = Map<String, dynamic>.unmodifiable(
+            json['polymarket'] as Map<String, dynamic>? ?? {}) {
     if (json['schemaVersion'] != 1 ||
         revision < 0 ||
         !expiresAt.isAfter(evaluatedAt)) {
@@ -188,11 +198,31 @@ class RuntimeCapabilities {
     if (v is num && v.isFinite && v >= 1) return v.toInt().clamp(1, 100);
     return 1;
   }
+
+  /// Polymarket settings published by the backend.
+  final Map<String, dynamic> polymarket;
+
+  /// Kute's Polymarket builder (attribution) code, or null when the policy
+  /// does not carry one (a backend older than this field). Orders are
+  /// signed with it; `RuntimeCapabilitiesService.polymarketBuilderCode`
+  /// reads it across the policies on hand.
+  String? get polymarketBuilderCode {
+    final v = polymarket['builderCode'];
+    if (v is String && v.trim().isNotEmpty) return v.trim();
+    return null;
+  }
 }
 
 /// The offline defaults: what the app may do while the backend policy
-/// cannot be fetched and no denial was seen for this session. Everything
-/// not listed here is denied with reason `policy_unavailable`.
+/// cannot be fetched and this device holds no earlier policy for the
+/// session (never fetched, or last fetched more than
+/// [RuntimeCapabilitiesService.offlineGrace] ago). Everything not listed
+/// here is denied with reason `policy_unavailable`.
+///
+/// With an earlier policy on hand (held in memory or restored from disk),
+/// that policy decides instead: a capability it allowed stays allowed with
+/// reason `offline_grace`, and one it denied stays denied with its own
+/// reason. Only an explicit server deny blocks.
 ///
 /// Allowed while the backend is unreachable:
 /// * `hyperliquid.browse`, `polymarket.browse`: Investing and Predictions
@@ -226,10 +256,10 @@ class RuntimeCapabilities {
 ///   Wallets already added keep working.
 /// * `onramp.*`, `usd.earn`, `affiliate.program`, `ai.ask`.
 ///
-/// A denial (or coming-soon) seen in a loaded policy earlier this session
-/// still stands during an outage, including for the ids allowed here.
-/// Execution that itself needs Kute's backend (Orchestra routes, the
-/// relayer) still fails on its own when the backend is down.
+/// A denial (or coming-soon) seen in a loaded policy still stands during
+/// an outage, including for the ids allowed here. Execution that itself
+/// needs Kute's backend (Orchestra routes, the relayer) still fails on its
+/// own when the backend is down.
 const kOfflineAllowedCapabilities = <String>{
   'hyperliquid.browse',
   'polymarket.browse',
@@ -247,10 +277,23 @@ const kOfflineAllowedCapabilities = <String>{
   'polymarket.protocol_v2',
 };
 
-/// Backend policy is independent of analytics consent. With no usable
-/// policy, [kOfflineAllowedCapabilities] decides; explicit restrictions,
-/// feature switches, account checks and server execution gates remain
-/// authoritative.
+/// Backend policy is independent of analytics consent.
+///
+/// Two policies, layered:
+/// * the **session policy** (`/config/capabilities`, wallet session):
+///   everything the backend knows, account and wallet rules included.
+///   Decides whenever it is fresh;
+/// * the **public policy** (`/config/policy`, no session, country, platform
+///   and app version rules only): fetched first at boot and whenever no
+///   fresh session policy is on hand, so a fresh wallet, a wallet whose
+///   sign-in is still pending and a wallet in an outage read the backend's
+///   current rules. Account rules it cannot evaluate come back as
+///   `affiliate_unknown` / `wallet_unknown`: unknown, never a deny.
+///
+/// With neither fresh, the last policies fetched decide for [offlineGrace]
+/// (saved on disk, so this covers a cold start too), and with none
+/// [kOfflineAllowedCapabilities] decides. Explicit restrictions, feature
+/// switches, account checks and server execution gates remain authoritative.
 class RuntimeCapabilitiesService extends ChangeNotifier
     with WidgetsBindingObserver {
   RuntimeCapabilitiesService._()
@@ -258,12 +301,14 @@ class RuntimeCapabilitiesService extends ChangeNotifier
         _baseUrl =
             (() => dotenv.isInitialized ? dotenv.env['BACKEND'] ?? '' : ''),
         _sessionToken = (() => AffiliateService.sessionToken),
+        _sessionOwner = _ownerOfToken,
         _ensureSession = (() => AffiliateService.ensureSession()),
         _renewSession =
             ((token) => AffiliateService.ensureSession(rejected: token)),
         _platform = Platform.isIOS ? 'ios' : 'android',
         _appVersion = (() async => (await PackageInfo.fromPlatform()).version),
         _clock = DateTime.now,
+        _store = const HiveRuntimePolicySnapshotStore(),
         _ensureProviderAvailability =
             InvestmentProviderAvailability.instance.ensureNewExposure;
 
@@ -276,14 +321,18 @@ class RuntimeCapabilitiesService extends ChangeNotifier
     Future<String> Function()? appVersion,
     DateTime Function()? clock,
     Future<void> Function(Iterable<String>)? ensureProviderAvailability,
+    RuntimePolicySnapshotStore? store,
+    String? Function(String? token)? sessionOwner,
   })  : _client = client,
         _baseUrl = baseUrl,
         _sessionToken = sessionToken,
+        _sessionOwner = sessionOwner ?? ((token) => token),
         _ensureSession = (() async => sessionToken()),
         _renewSession = ((_) async => null),
         _platform = platform,
         _appVersion = appVersion ?? (() async => '1.0.0'),
         _clock = clock ?? DateTime.now,
+        _store = store ?? MemoryRuntimePolicySnapshotStore(),
         _ensureProviderAvailability =
             ensureProviderAvailability ?? ((_) async {});
 
@@ -295,19 +344,35 @@ class RuntimeCapabilitiesService extends ChangeNotifier
   final Future<void> Function(Iterable<String>) _ensureProviderAvailability;
   final String Function() _baseUrl;
   final String? Function() _sessionToken;
+
+  /// The stable owner of a session token: the same wallet keeps the same
+  /// owner across token renewals, so a renewed token does not drop the
+  /// policy that was fetched moments before. Null means no session.
+  final String? Function(String? token) _sessionOwner;
   final Future<String?> Function() _ensureSession;
   final Future<String?> Function(String) _renewSession;
   final String _platform;
   final Future<String> Function() _appVersion;
   final DateTime Function() _clock;
+  final RuntimePolicySnapshotStore _store;
+
+  /// The session policy, fresh or not.
   RuntimeCapabilities? _snapshot;
 
   /// When [_snapshot] was fetched, by this device's clock, so a caller may
-  /// reuse a policy it just fetched instead of asking again.
+  /// reuse a policy it just fetched instead of asking again, and so the
+  /// offline grace can be measured from it.
   DateTime? _snapshotFetchedAt;
-  String? _snapshotSession;
+
+  /// The session owner [_snapshot] was evaluated for.
+  String? _snapshotOwner;
+
+  /// The public policy, fresh or not, and when it was fetched.
+  RuntimeCapabilities? _public;
+  DateTime? _publicFetchedAt;
   Future<bool>? _refresh;
   Timer? _expiryTimer;
+  Timer? _publicExpiryTimer;
   Timer? _refreshTimer;
   bool _started = false;
   bool _disposed = false;
@@ -325,18 +390,71 @@ class RuntimeCapabilitiesService extends ChangeNotifier
     };
   }
 
-  // A long server expiry must not keep stale country/device policy in the UI.
-  static const maxDisplayAge = Duration(minutes: 5);
-  RuntimeCapabilities? get snapshot {
+  /// How long a capability the backend last allowed stays allowed while the
+  /// backend cannot be reached (reason `offline_grace`), measured from the
+  /// moment that policy was fetched. Past it, [kOfflineAllowedCapabilities]
+  /// decides again. A denial never expires into permission.
+  static const offlineGrace = Duration(hours: 24);
+
+  /// The session policy while the server's `expiresAt` has not passed.
+  /// The server sets the expiry (15 minutes); the once-a-minute refresh
+  /// keeps it current while the app is in the foreground.
+  RuntimeCapabilities? get snapshot => _fresh(_held);
+
+  /// The public policy while its `expiresAt` has not passed.
+  RuntimeCapabilities? get publicSnapshot => _fresh(_public);
+
+  RuntimeCapabilities? _fresh(RuntimeCapabilities? value) {
+    if (value == null) return null;
+    return _clock().toUtc().isBefore(value.expiresAt) ? value : null;
+  }
+
+  /// The session policy fetched for the current session, fresh or not.
+  /// Null when none was fetched (or restored) for this session's owner.
+  RuntimeCapabilities? get _held {
     final value = _snapshot;
-    if (value == null || _snapshotSession != _sessionToken()) return null;
-    final now = _clock().toUtc();
-    if (!now.isBefore(value.expiresAt) ||
-        now.difference(value.evaluatedAt) > maxDisplayAge) {
-      return null;
-    }
+    if (value == null) return null;
+    final owner = _sessionOwner(_sessionToken());
+    if (owner == null || owner != _snapshotOwner) return null;
     return value;
   }
+
+  /// Whether a policy fetched at [fetchedAt] is still within [offlineGrace].
+  bool _withinGrace(DateTime? fetchedAt) {
+    if (fetchedAt == null) return false;
+    return _clock().toUtc().difference(fetchedAt) <= offlineGrace;
+  }
+
+  /// The stable owner of Kute's wallet-session token
+  /// (`pubkey|affiliate_id|exp[|iat]`, base64url before the first dot): the
+  /// `affiliates.id` (what `AffiliateService.affiliateId` shows in Settings
+  /// → Advanced), or, for a token without one, a one-way reference to the
+  /// token's identity field. Neither the token nor the key goes to disk.
+  static String? _ownerOfToken(String? token) {
+    if (token == null || token.isEmpty) return null;
+    String reference(String value) =>
+        'ref_${sha256.convert(utf8.encode('kute:policy-owner:v1\u0000$value')).toString().substring(0, 16)}';
+    try {
+      final fields = utf8
+          .decode(base64Url.decode(base64Url.normalize(token.split('.').first)))
+          .split('|');
+      if (fields.length == 3 || fields.length == 4) {
+        final id = int.tryParse(fields[1]);
+        if (id != null && id > 0) return '$id';
+        if (fields.first.isNotEmpty) return reference(fields.first);
+      }
+    } catch (_) {}
+    return reference(token);
+  }
+
+  /// On the public route the account and wallet allow lists cannot be
+  /// evaluated; the backend answers these reasons. They mean "unknown",
+  /// never a deny: the session policy's decision stands, else the offline
+  /// table.
+  static const _accountUnknownReasons = {'affiliate_unknown', 'wallet_unknown'};
+
+  static bool _isAccountUnknown(CapabilityDecision value) =>
+      !value.allowed && _accountUnknownReasons.contains(value.reason);
 
   /// With a loaded policy that could not place the caller
   /// (`country_unknown`), these investment capabilities pass. This applies
@@ -353,11 +471,20 @@ class RuntimeCapabilitiesService extends ChangeNotifier
 
   CapabilityDecision decision(String id) {
     final current = snapshot;
-    final value = current?.capabilities[id];
-    if (value != null) return _locationDecision(id, value);
     if (current != null) {
+      final value = current.capabilities[id];
+      if (value != null) return _locationDecision(id, value);
       return const CapabilityDecision(
           allowed: false, reason: 'unknown_capability');
+    }
+    final public = publicSnapshot;
+    if (public != null) {
+      final value = public.capabilities[id];
+      if (value != null && !_isAccountUnknown(value)) {
+        return _locationDecision(id, value);
+      }
+      // An account rule the public route cannot evaluate, or an id it does
+      // not name: the last session policy decides, else the offline table.
     }
     return _unavailableDecision(id);
   }
@@ -371,15 +498,28 @@ class RuntimeCapabilitiesService extends ChangeNotifier
     return value;
   }
 
+  /// The decision with no fresh policy: what the policies last fetched said.
   CapabilityDecision _unavailableDecision(String id) {
+    // The last decisions on hand for [id], session policy first. Account
+    // rules the public route could not evaluate say nothing.
+    final previous = <(CapabilityDecision, DateTime?)>[
+      if (_held?.capabilities[id] case final value?)
+        (_locationDecision(id, value), _snapshotFetchedAt),
+      if (_public?.capabilities[id] case final value?
+          when !_isAccountUnknown(value))
+        (_locationDecision(id, value), _publicFetchedAt),
+    ];
     // A failed refresh must not turn a previously observed admin disablement,
-    // version requirement or explicit country block into permission.
-    final previous = _snapshotSession == _sessionToken()
-        ? _snapshot?.capabilities[id]
-        : null;
-    if (previous != null) {
-      final decision = _locationDecision(id, previous);
+    // version requirement or explicit country block into permission...
+    for (final (decision, _) in previous) {
       if (!decision.allowed || decision.comingSoon) return decision;
+    }
+    // ...and must not turn a previous permission into a refusal either, for
+    // as long as that policy is recent enough to trust offline.
+    for (final (_, fetchedAt) in previous) {
+      if (_withinGrace(fetchedAt)) {
+        return const CapabilityDecision(allowed: true, reason: 'offline_grace');
+      }
     }
     return CapabilityDecision(
         allowed: kOfflineAllowedCapabilities.contains(id),
@@ -389,15 +529,27 @@ class RuntimeCapabilitiesService extends ChangeNotifier
   bool allows(String id) => decision(id).allowed && !decision(id).comingSoon;
 
   /// The Investing leverage cap for this region: null when the policy sets
-  /// none. Without a usable policy the last cap seen for this session
-  /// stands, and with none ever seen the cap is 1x, so an outage can only
-  /// ever tighten leverage, never loosen it.
+  /// none. Without a fresh policy the last cap seen stands (the session
+  /// policy's first, then the public one's), and with none ever seen the
+  /// cap is 1x, so an outage can only ever tighten leverage, never loosen
+  /// it.
   int? get maxLeverage {
-    final current = snapshot;
-    if (current != null) return current.maxLeverage;
-    final previous = _snapshotSession == _sessionToken() ? _snapshot : null;
-    if (previous != null) return previous.maxLeverage;
+    for (final policy in [snapshot, publicSnapshot, _held, _public]) {
+      if (policy != null) return policy.maxLeverage;
+    }
     return 1;
+  }
+
+  /// Kute's Polymarket builder (attribution) code from the newest policy on
+  /// hand, fresh or held: the session policy's first, else the public one's.
+  /// Null until a policy that carries one has been fetched. Attribution is
+  /// not a permission, so a held copy serves.
+  String? get polymarketBuilderCode {
+    for (final policy in [snapshot, publicSnapshot, _held, _public]) {
+      final code = policy?.polymarketBuilderCode;
+      if (code != null) return code;
+    }
+    return null;
   }
 
   /// The leverage a ticket may offer for [venueMax]: the venue's own
@@ -426,16 +578,67 @@ class RuntimeCapabilitiesService extends ChangeNotifier
     return value.allowed && !value.comingSoon ? null : value.message;
   }
 
-  void start() {
-    if (_started) return;
+  /// Loads the policies saved on disk, then starts the first fetch and the
+  /// periodic refresh. Returns the first fetch's outcome (true when a fresh
+  /// policy landed) so boot can record whether the backend was reachable.
+  /// Needs no session: the public policy goes out at once, and the session
+  /// policy joins when a session exists (see [refreshAfterCurrent]).
+  /// Idempotent: a second call returns the fetch already in flight.
+  Future<bool> start() {
+    if (_started) return refresh();
     _started = true;
+    restore();
     WidgetsBinding.instance.addObserver(this);
     _refreshTimer = Timer.periodic(const Duration(minutes: 1), (_) {
       if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
         unawaited(refresh());
       }
     });
-    unawaited(refresh());
+    return refresh();
+  }
+
+  /// Adopts the policies saved by the last successful fetches, each if it
+  /// is still within [offlineGrace], as the held policies. The session one
+  /// is bound to the owner it was fetched for, so another wallet's session
+  /// never reads it. A slot already held in memory is left alone.
+  void restore() {
+    var adopted = false;
+    if (_snapshot == null) {
+      final stored = _restoreSlot(RuntimePolicySlot.session);
+      if (stored != null && stored.$2.owner != kPublicPolicyOwner) {
+        _snapshot = stored.$1;
+        _snapshotOwner = stored.$2.owner;
+        _snapshotFetchedAt = stored.$2.fetchedAt;
+        adopted = true;
+      }
+    }
+    if (_public == null) {
+      final stored = _restoreSlot(RuntimePolicySlot.public);
+      if (stored != null && stored.$2.owner == kPublicPolicyOwner) {
+        _public = stored.$1;
+        _publicFetchedAt = stored.$2.fetchedAt;
+        adopted = true;
+      }
+    }
+    if (adopted && !_disposed) notifyListeners();
+  }
+
+  (RuntimeCapabilities, StoredRuntimePolicy)? _restoreSlot(
+      RuntimePolicySlot slot) {
+    final stored = _store.read(slot);
+    if (stored == null) return null;
+    try {
+      final value = RuntimeCapabilities.fromJson(stored.policy);
+      if (_clock().toUtc().difference(stored.fetchedAt) > offlineGrace) {
+        _store.clear(slot);
+        return null;
+      }
+      return (value, stored);
+    } catch (_) {
+      // Unreadable (schema change, corrupt file): forget it.
+      _store.clear(slot);
+      return null;
+    }
   }
 
   @override
@@ -453,35 +656,68 @@ class RuntimeCapabilitiesService extends ChangeNotifier
     });
   }
 
+  /// A refresh that starts after the one in flight, for a caller that has
+  /// just made a session available (boot reads the stored token after the
+  /// first fetch, which only had the public policy to ask for, went out).
+  Future<bool> refreshAfterCurrent() {
+    final running = _refresh;
+    if (running == null) return refresh();
+    return running.then((_) => refresh());
+  }
+
+  /// One refresh: the public policy whenever no fresh session policy is on
+  /// hand (boot, a fresh wallet, an outage), in parallel with the session
+  /// policy; with a fresh session policy, the session policy only. True
+  /// when either landed fresh.
   Future<bool> _fetch() async {
     final backend = _baseUrl().replaceFirst(RegExp(r'/$'), '');
     if (backend.isEmpty) return false;
+    final context = await requestContextHeaders();
+    final version = _version;
+    if (version == null) return false;
+    final query = {'platform': _platform, 'appVersion': version};
+    final publicFetch = snapshot == null
+        ? _fetchPublic(backend, context, query)
+        : Future<bool>.value(false);
+    final sessionLanded = await _fetchSession(backend, context, query);
+    final publicLanded = await publicFetch;
+    return sessionLanded || publicLanded;
+  }
+
+  /// Two attempts: a healthy connection answers well inside the first, and
+  /// a slow tunnel gets the time it needs instead of a refusal.
+  Future<http.Response> _send(Uri uri, Map<String, String> headers) async {
+    try {
+      return await _client
+          .get(uri, headers: headers)
+          .timeout(const Duration(seconds: 5));
+    } on TimeoutException {
+      return await _client
+          .get(uri, headers: headers)
+          .timeout(const Duration(seconds: 10));
+    }
+  }
+
+  /// A policy body the device may adopt: parsed, not already expired by the
+  /// device clock, not evaluated in the device's future. Null otherwise.
+  RuntimeCapabilities? _acceptable(Map<String, dynamic> body, DateTime now) {
+    final value = RuntimeCapabilities.fromJson(body);
+    if (!value.expiresAt.isAfter(now) ||
+        value.evaluatedAt.isAfter(now.add(const Duration(minutes: 1)))) {
+      return null;
+    }
+    return value;
+  }
+
+  Future<bool> _fetchSession(String backend, Map<String, String> context,
+      Map<String, String> query) async {
     try {
       var token = await _ensureSession();
       if (token == null || token.isEmpty) return false;
-      final context = await requestContextHeaders();
-      final version = _version;
-      if (version == null) return false;
       final uri = Uri.parse('$backend/api/v1/config/capabilities')
-          .replace(queryParameters: {
-        'platform': _platform,
-        'appVersion': version,
-      });
-      // Two attempts: a healthy connection answers well inside the first,
-      // and a slow tunnel gets the time it needs instead of a refusal.
-      Future<http.Response> send(String bearer) async {
-        final headers = {...context, 'Authorization': 'Bearer $bearer'};
-        try {
-          return await _client
-              .get(uri, headers: headers)
-              .timeout(const Duration(seconds: 5));
-        } on TimeoutException {
-          return await _client
-              .get(uri, headers: headers)
-              .timeout(const Duration(seconds: 10));
-        }
-      }
-
+          .replace(queryParameters: query);
+      Future<http.Response> send(String bearer) =>
+          _send(uri, {...context, 'Authorization': 'Bearer $bearer'});
       var response = await send(token);
       if (response.statusCode == 401 && token == _sessionToken()) {
         token = await _renewSession(token);
@@ -489,35 +725,66 @@ class RuntimeCapabilitiesService extends ChangeNotifier
         response = await send(token);
       }
       if (response.statusCode != 200 || token != _sessionToken()) return false;
-      final value = RuntimeCapabilities.fromJson(
-          jsonDecode(response.body) as Map<String, dynamic>);
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
       final now = _clock().toUtc();
-      if (!value.expiresAt.isAfter(now) ||
-          value.evaluatedAt.isAfter(now.add(const Duration(minutes: 1)))) {
-        return false;
-      }
-      if (_snapshotSession == token &&
+      final value = _acceptable(body, now);
+      if (value == null) return false;
+      final owner = _sessionOwner(token);
+      if (owner == null) return false;
+      if (_snapshotOwner == owner &&
           _snapshot != null &&
           value.revision < _snapshot!.revision) {
         return false;
       }
       _snapshot = value;
-      _snapshotSession = token;
+      _snapshotOwner = owner;
       _snapshotFetchedAt = now;
+      _store.write(RuntimePolicySlot.session,
+          StoredRuntimePolicy(owner: owner, fetchedAt: now, policy: body));
       _expiryTimer?.cancel();
-      final expiry =
-          value.expiresAt.isBefore(value.evaluatedAt.add(maxDisplayAge))
-              ? value.expiresAt
-              : value.evaluatedAt.add(maxDisplayAge);
-      _expiryTimer = Timer(expiry.difference(now), () {
-        if (!_disposed) notifyListeners();
-      });
+      _expiryTimer = _notifyAt(value.expiresAt, now);
       if (!_disposed) notifyListeners();
       return snapshot != null;
     } catch (_) {
       return false;
     }
   }
+
+  /// The public policy. A backend without the route answers 404: then the
+  /// session policy alone decides, exactly as before the route existed.
+  Future<bool> _fetchPublic(String backend, Map<String, String> context,
+      Map<String, String> query) async {
+    try {
+      final uri = Uri.parse('$backend/api/v1/config/policy')
+          .replace(queryParameters: query);
+      final response = await _send(uri, context);
+      if (response.statusCode != 200) return false;
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      final now = _clock().toUtc();
+      final value = _acceptable(body, now);
+      if (value == null) return false;
+      if (_public != null && value.revision < _public!.revision) return false;
+      _public = value;
+      _publicFetchedAt = now;
+      _store.write(
+          RuntimePolicySlot.public,
+          StoredRuntimePolicy(
+              owner: kPublicPolicyOwner, fetchedAt: now, policy: body));
+      _publicExpiryTimer?.cancel();
+      _publicExpiryTimer = _notifyAt(value.expiresAt, now);
+      if (!_disposed) notifyListeners();
+      return publicSnapshot != null;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Wakes listeners when a policy stops being fresh, so a screen showing
+  /// its decisions re-reads them.
+  Timer _notifyAt(DateTime expiresAt, DateTime now) =>
+      Timer(expiresAt.difference(now), () {
+        if (!_disposed) notifyListeners();
+      });
 
   Future<void> ensureAllowed(String id, {Duration maxAge = Duration.zero}) =>
       ensureAllAllowed([id], maxAge: maxAge);
@@ -527,10 +794,9 @@ class RuntimeCapabilitiesService extends ChangeNotifier
   /// read it instead of asking the backend again.
   bool _reusable(Duration maxAge) {
     if (maxAge <= Duration.zero) return false;
-    final held = _snapshot;
+    final held = _held;
     final fetchedAt = _snapshotFetchedAt;
     if (held == null || fetchedAt == null) return false;
-    if (_snapshotSession != _sessionToken()) return false;
     final now = _clock().toUtc();
     return now.difference(fetchedAt) <= maxAge && held.expiresAt.isAfter(now);
   }
@@ -568,6 +834,7 @@ class RuntimeCapabilitiesService extends ChangeNotifier
     _disposed = true;
     if (_started) WidgetsBinding.instance.removeObserver(this);
     _expiryTimer?.cancel();
+    _publicExpiryTimer?.cancel();
     _refreshTimer?.cancel();
     _client.close();
     super.dispose();

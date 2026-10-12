@@ -632,15 +632,15 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
     // a single-type filter only one group shows, whole and unlabelled (the
     // pill already names it).
     //
-    // Within a group the market the person named leads (exact ticker or
-    // name, then prefixes, then the rest; search_result_order.dart). When
+    // Within Investing the market the person named leads (exact ticker or
+    // name, then prefixes, then the rest); within Predictions a game in
+    // play leads, then the most traded (search_result_order.dart). When
     // the query names a market, Investing and Predictions sit above
     // Transactions; that is decided once per query from what is on the
     // device, so a group never jumps when the remote results land.
     final sportsLive = ref.read(sportsLiveProvider);
     final rankedHl = rankInvestingResults(query, hlResults);
     final rankedGlobal = rankPredictionResults(
-      query,
       globalResults,
       (r) => r.event,
       isLive: (r) =>

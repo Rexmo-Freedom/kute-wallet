@@ -9,6 +9,8 @@ import 'package:kute/models/orchestra_model.dart';
 import 'package:kute/services/api/orchestra_api.dart';
 import 'package:kute/services/orchestra/orchestra_history.dart';
 
+import '../../helpers/fake_network.dart';
+
 const _spark =
     'spark1pgss93sy072yrmtad5cy2srwjhq8ekzuw78yhr808jn6htqfh9w8p8h9mfwlv9';
 const _legacySpark =
@@ -51,7 +53,7 @@ void main() {
 
   test('queries private recipient history and parses the provider envelope',
       () async {
-    final result = await http.runWithClient(
+    final result = await withFakeNetwork(
       () => OrchestraService.getHistory(_spark),
       () => MockClient((request) async {
         expect(request.url.host, 'backend.test');
@@ -76,7 +78,7 @@ void main() {
       {'orders': <Object>[]},
       <Object>[],
     ]) {
-      final result = await http.runWithClient(
+      final result = await withFakeNetwork(
         () => OrchestraService.getHistory(_spark),
         () => MockClient((_) async => http.Response(jsonEncode(payload), 200)),
       );
@@ -96,7 +98,7 @@ void main() {
       http.Response('{"error":"unavailable"}', 503),
     ]) {
       var calls = 0;
-      final result = await http.runWithClient(
+      final result = await withFakeNetwork(
         () => OrchestraService.getHistory(_spark),
         () => MockClient((request) async {
           calls++;

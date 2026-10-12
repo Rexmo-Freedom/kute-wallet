@@ -387,7 +387,6 @@
   "usdEarnNextPaymentIn": "Izplačilo čez",
   "usdEarnRatePending": "Nalaganje",
   "usdEarnRateUnavailable": "Trenutno ni na voljo",
-  "usdEarnPaidToDate": "Doslej izplačano vam",
   "usdEarnActivityEmpty": "Še ni izplačil",
   "usdEarnActivityUnavailable": "Zgodovina izplačil trenutno ni na voljo",
   "hlYieldAvailableLine": "Na voljo: {amount}",
@@ -633,6 +632,17 @@
   "passkeyChoiceAppleAccount": "račun Apple",
   "passkeyChoiceGoogleAccount": "račun Google",
   "passkeyChoiceCancelled": "Nastavitev preklicana. Nič ni bilo ustvarjeno.",
+  "passkeyBackupSyncing": "Sinhronizacija varnostne kopije…",
+  "passkeyCreateNewTitle": "Ključ za dostop ni bil najden",
+  "passkeyCreateNewBody": "Nič ni bilo ustvarjeno. Želite namesto tega ustvariti nov ključ za dostop za to denarnico z {method}?",
+  "@passkeyCreateNewBody": {
+    "placeholders": {
+      "method": {
+        "type": "String"
+      }
+    }
+  },
+  "passkeyCreateNewAction": "Ustvari nov ključ za dostop",
   "passkeyChoiceFallbackWords": "{method} ni bilo mogoče nastaviti. Vaša denarnica je bila namesto tega ustvarjena z obnovitvenimi besedami.",
   "biometricFaceId": "Face ID",
   "biometricTouchId": "Touch ID",
@@ -2033,6 +2043,7 @@
   "capabilityAccountRestricted": "Ta funkcija za vaš račun še ni na voljo.",
   "capabilityCountryUnknown": "Vaše regije pri Kute ni bilo mogoče preveriti. Poskusite znova.",
   "capabilityPolicyUnavailable": "Razpoložljivosti pri Kute ni bilo mogoče preveriti. Poskusite znova.",
+  "capabilityOfflineGrace": "Kute trenutno ni dosegljiv. To je še vedno na voljo glede na vaše zadnje preverjanje.",
   "capabilityUnavailable": "Ta funkcija v Kute trenutno ni na voljo.",
   "leverageCapExceeded": "Vzvod nad {maxLeverage}x v vaši regiji ni na voljo.",
   "providerRegionRestricted": "{provider} je omejen v regiji, v kateri je videti vaša internetna povezava. Če niste tam, preverite nastavitve omrežja ali VPN in poskusite znova.",
@@ -2137,6 +2148,14 @@
   "recoverAddressesStartWith": "Naslovi se začnejo s {prefix}",
   "recoverPasskeyCreated": "Ustvarjeno {date}",
   "recoverFoundOnDevice": "Najdeno v tej napravi. Pred obnovo preverite, ali je stanje pravilno.",
+  "recoverOlderVersionSection": "Iz starejše različice v tem telefonu",
+  "recoverOlderVersionWallet": "Denarnica iz starejše različice",
+  "recoverOlderVersionNeedsPin": "Odpre se s PIN-om, ki ga je uporabljala ta različica",
+  "recoverOlderVersionIcloud": "Shranjeno v iCloud Keychain",
+  "recoverOlderVersionEnterPin": "Vnesite PIN, ki ga je uporabljala ta različica",
+  "recoverOlderVersionFailed": "Te kopije ni bilo mogoče obnoviti.",
+  "restoreRescueOfferBody": "Kopije vaših denarnic iz starejše različice Kute so še vedno v tem telefonu. Jih uporabite, namesto da začnete znova?",
+  "restoreRescueOfferConfirm": "Uporabi shranjene kopije",
   "recoverConfirmWallet": "Potrdite za obnovitev denarnice {wallet}.",
   "btcSetupCreateTitleShort": "Ustvari novo denarnico",
   "btcSetupWalletNameHint": "Ime denarnice",
@@ -2962,6 +2981,7 @@
   "portfolioStatsActive": "Aktivno",
   "portfolioStatsHistoric": "Zgodovina",
   "portfolioStatAtStake": "Vloženi znesek",
+  "portfolioProfitLoss": "Dobiček in izguba",
   "slipCtaAddTo": "{side, select, long{Povečaj pozicijo long · {amount}} other{Povečaj pozicijo short · {amount}}}",
   "slipCtaReduce": "{side, select, long{Zmanjšaj pozicijo long · {amount}} other{Zmanjšaj pozicijo short · {amount}}}",
   "slipCtaClose": "{side, select, long{Zapri pozicijo long} other{Zapri pozicijo short}}",

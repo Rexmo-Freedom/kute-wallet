@@ -108,6 +108,7 @@ import 'package:kute/providers/hyperliquid_account_provider.dart';
 import 'package:kute/providers/hyperliquid_trading_provider.dart';
 import 'package:kute/providers/hyperliquid_config_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/services/polymarket_usdc_cache_service.dart';
 import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceProvider, usdSdkBalanceProvider, usdDrainBaseUnits;
 import 'package:kute/providers/asset_icon_provider.dart' show kUsdMarkAsset;
@@ -1994,18 +1995,25 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     });
   }
 
-  /// The Predictions deposit wallet a Predictions move pays into, from the
-  /// live account, awaited while the account is still waking up. Null
-  /// when it cannot be read. Only ever the quote request's input: the
-  /// settlement runner resolves the same address from the wallet and
-  /// refuses a quote whose recipient differs.
+  /// The Predictions deposit wallet a Predictions move pays into: the live
+  /// account's, else the one the device remembers for the spending wallet
+  /// (no network), else the one the account start is resolving, awaited on
+  /// its own rather than behind credentials and data reads. Null when it
+  /// cannot be read. Only ever the quote request's input: the settlement
+  /// runner resolves the same address from the wallet and refuses a quote
+  /// whose recipient differs.
   Future<String?> _resolveEvmAddress() async {
     var evm =
         ref.read(polymarketTradingProvider).valueOrNull?.proxyWalletAddress;
     if (evm == null || evm.isEmpty) {
+      final spending = pickSpendingWallet(ref.read(settingsProvider));
+      if (spending != null) {
+        evm = PolymarketAccountCache.read(spending.id)?.depositAddress;
+      }
+    }
+    if (evm == null || evm.isEmpty) {
       try {
-        evm = (await ref.read(polymarketTradingProvider.future))
-            .proxyWalletAddress;
+        evm = await ref.read(polymarketTradingProvider.notifier).depositAddress();
       } catch (_) {}
     }
     return evm == null || evm.isEmpty ? null : evm;
@@ -2407,8 +2415,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
               '';
       if (refundEvm.isEmpty) {
         try {
-          refundEvm = (await ref.read(polymarketTradingProvider.future))
-                  .proxyWalletAddress ??
+          refundEvm = await ref
+                  .read(polymarketTradingProvider.notifier)
+                  .depositAddress() ??
               '';
         } catch (_) {
           // Fall through to the message below: the account could not be

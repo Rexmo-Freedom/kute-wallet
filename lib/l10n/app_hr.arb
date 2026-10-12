@@ -387,7 +387,6 @@
   "usdEarnNextPaymentIn": "Isplata za",
   "usdEarnRatePending": "Učitavanje",
   "usdEarnRateUnavailable": "Trenutačno nije dostupno",
-  "usdEarnPaidToDate": "Dosad isplaćeno tebi",
   "usdEarnActivityEmpty": "Još nema isplata",
   "usdEarnActivityUnavailable": "Povijest isplata trenutačno nije dostupna",
   "hlYieldAvailableLine": "Dostupno: {amount}",
@@ -633,6 +632,17 @@
   "passkeyChoiceAppleAccount": "Apple račun",
   "passkeyChoiceGoogleAccount": "Google račun",
   "passkeyChoiceCancelled": "Postavljanje otkazano. Ništa nije izrađeno.",
+  "passkeyBackupSyncing": "Sinkronizacija sigurnosne kopije…",
+  "passkeyCreateNewTitle": "Pristupni ključ nije pronađen",
+  "passkeyCreateNewBody": "Ništa nije stvoreno. Želite li umjesto toga stvoriti novi pristupni ključ za ovaj novčanik pomoću {method}?",
+  "@passkeyCreateNewBody": {
+    "placeholders": {
+      "method": {
+        "type": "String"
+      }
+    }
+  },
+  "passkeyCreateNewAction": "Stvori novi pristupni ključ",
   "passkeyChoiceFallbackWords": "Nije moguće postaviti {method}. Novčanik je umjesto toga izrađen s riječima za oporavak.",
   "biometricFaceId": "Face ID",
   "biometricTouchId": "Touch ID",
@@ -2033,6 +2043,7 @@
   "capabilityAccountRestricted": "Ova značajka još nije dostupna za tvoj račun.",
   "capabilityCountryUnknown": "Kute ne može provjeriti tvoju regiju. Pokušaj ponovno.",
   "capabilityPolicyUnavailable": "Kute ne može provjeriti dostupnost. Pokušaj ponovno.",
+  "capabilityOfflineGrace": "Kute trenutačno nije dostupan. Ovo je i dalje dostupno prema vašoj posljednjoj provjeri.",
   "capabilityUnavailable": "Ova značajka trenutačno nije dostupna u Kuteu.",
   "leverageCapExceeded": "Poluga iznad {maxLeverage}x nije dostupna u tvojoj regiji.",
   "providerRegionRestricted": "{provider} je ograničen u regiji u kojoj se čini da je tvoja internetska veza. Ako nisi ondje, provjeri mrežu ili VPN postavke i pokušaj ponovno.",
@@ -2137,6 +2148,14 @@
   "recoverAddressesStartWith": "Adrese počinju s {prefix}",
   "recoverPasskeyCreated": "Izrađeno {date}",
   "recoverFoundOnDevice": "Pronađeno na ovom uređaju. Prije vraćanja provjeri je li saldo točan.",
+  "recoverOlderVersionSection": "Iz starije verzije na ovom telefonu",
+  "recoverOlderVersionWallet": "Novčanik iz starije verzije",
+  "recoverOlderVersionNeedsPin": "Otvara se PIN-om koji je ta verzija koristila",
+  "recoverOlderVersionIcloud": "Spremljeno u iCloud Keychain",
+  "recoverOlderVersionEnterPin": "Unesite PIN koji je ta verzija koristila",
+  "recoverOlderVersionFailed": "Ovu kopiju nije bilo moguće vratiti.",
+  "restoreRescueOfferBody": "Kopije vaših novčanika iz starije verzije Kutea još su na ovom telefonu. Želite li ih upotrijebiti umjesto da počnete iznova?",
+  "restoreRescueOfferConfirm": "Upotrijebi spremljene kopije",
   "recoverConfirmWallet": "Potvrdi za vraćanje novčanika {wallet}.",
   "btcSetupCreateTitleShort": "Izradi novi novčanik",
   "btcSetupWalletNameHint": "Naziv novčanika",
@@ -2962,6 +2981,7 @@
   "portfolioStatsActive": "Aktivno",
   "portfolioStatsHistoric": "Povijest",
   "portfolioStatAtStake": "Uloženi iznos",
+  "portfolioProfitLoss": "Dobit i gubitak",
   "slipCtaAddTo": "{side, select, long{Povećaj long poziciju · {amount}} other{Povećaj short poziciju · {amount}}}",
   "slipCtaReduce": "{side, select, long{Smanji long poziciju · {amount}} other{Smanji short poziciju · {amount}}}",
   "slipCtaClose": "{side, select, long{Zatvori long poziciju} other{Zatvori short poziciju}}",

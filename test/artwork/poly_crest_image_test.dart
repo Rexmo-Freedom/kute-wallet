@@ -201,4 +201,61 @@ void main() {
     expect(find.text('PL'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  group('an SVG flutter_svg cannot parse', () {
+    // Both took 2.1.0/2.1.1 down: the parser throws from inside the
+    // picture's isolate, past `errorBuilder`.
+    const hslGradient = '<svg xmlns="http://www.w3.org/2000/svg" width="48" '
+        'height="48"><defs><linearGradient id="g"><stop offset="0" '
+        'stop-color="hsl(285deg 60% 50%)"/><stop offset="1" '
+        'stop-color="hsl(285deg 60% 20%)"/></linearGradient></defs>'
+        '<rect width="48" height="48" fill="url(#g)"/></svg>';
+    const transformNone = '<svg xmlns="http://www.w3.org/2000/svg" '
+        'width="48" height="48"><g transform="none"><rect width="48" '
+        'height="48" fill="#00a86b"/></g></svg>';
+
+    Future<void> pumpSvg(WidgetTester tester, _Cache cache, String url,
+        String svg) async {
+      final file = MemoryFileSystem().file('/crest-${url.hashCode}.svg')
+        ..writeAsBytesSync(utf8.encode(svg));
+      when(() => cache.getSingleFile(url)).thenAnswer((_) async => file);
+      await tester.pumpWidget(MaterialApp(
+          home: Center(
+              child: PolyCrestImage(
+        url: url,
+        size: 48,
+        radius: 8,
+        fallback: fallback,
+        cacheManager: cache,
+      ))));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('an hsl() fill the parser rejects shows the fallback',
+        (tester) async {
+      await pumpSvg(tester, _Cache(), '$url/hsl', hslGradient);
+      expect(find.byKey(const ValueKey('fallback')), findsOneWidget);
+      expect(find.byType(SvgPicture), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a transform="none" the parser rejects shows the fallback',
+        (tester) async {
+      await pumpSvg(tester, _Cache(), '$url/none', transformNone);
+      expect(find.byKey(const ValueKey('fallback')), findsOneWidget);
+      expect(find.byType(SvgPicture), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a failed document is remembered: the next row never '
+        'reads it again', (tester) async {
+      final cache = _Cache();
+      await pumpSvg(tester, cache, '$url/again', transformNone);
+      await tester.pumpWidget(const SizedBox());
+      await pumpSvg(tester, cache, '$url/again', transformNone);
+      expect(find.byKey(const ValueKey('fallback')), findsOneWidget);
+      verify(() => cache.getSingleFile('$url/again')).called(1);
+      expect(tester.takeException(), isNull);
+    });
+  });
 }

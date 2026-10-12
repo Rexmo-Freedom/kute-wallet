@@ -139,6 +139,13 @@ class _CachedArtwork extends StatefulWidget {
 }
 
 class _CachedArtworkState extends State<_CachedArtwork> {
+  /// URLs whose SVG flutter_svg cannot parse this session. The parser
+  /// throws (an `hsl(285de…)` fill, a `transform="none"`) from inside the
+  /// picture's isolate, past `errorBuilder`, so a document is proven to
+  /// parse once before it is ever handed to [SvgPicture]; a failure is
+  /// remembered so the next row shows the fallback without parsing again.
+  static final Set<String> _unparseableSvg = {};
+
   late Future<({File file, Uint8List? svg})> _artwork;
 
   @override
@@ -156,6 +163,9 @@ class _CachedArtworkState extends State<_CachedArtwork> {
   }
 
   Future<({File file, Uint8List? svg})> _load() async {
+    if (_unparseableSvg.contains(widget.url)) {
+      throw const FormatException('Artwork SVG does not parse');
+    }
     final file = await widget.cacheManager.getSingleFile(widget.url);
     final length = await file.length();
     final prefix = BytesBuilder(copy: false);
@@ -175,9 +185,26 @@ class _CachedArtworkState extends State<_CachedArtwork> {
       if (length > 2 * 1024 * 1024) {
         throw const FormatException('Artwork exceeds SVG size limit');
       }
-      return (file: file, svg: await file.readAsBytes());
+      final bytes = await file.readAsBytes();
+      if (!await _svgParses(bytes)) {
+        _unparseableSvg.add(widget.url);
+        throw const FormatException('Artwork SVG does not parse');
+      }
+      return (file: file, svg: bytes);
     }
     return (file: file, svg: null);
+  }
+
+  /// True when flutter_svg can parse [bytes]. Parsed here, where a throw
+  /// is caught, rather than inside the picture, where it is not.
+  static Future<bool> _svgParses(Uint8List bytes) async {
+    try {
+      final info = await vg.loadPicture(SvgBytesLoader(bytes), null);
+      info.picture.dispose();
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   /// PNG, JPEG, GIF or WebP magic bytes.

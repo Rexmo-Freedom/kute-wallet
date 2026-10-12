@@ -7,6 +7,8 @@ import 'package:kute/services/passkey_prf_service.dart';
 import 'package:kute/services/passkey_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:kute/services/secure/flutter_secret_store.dart';
+import 'package:kute/services/secure/legacy_keychain_rescue.dart';
+import 'package:kute/services/secure/secret_error_class.dart';
 import 'package:kute/services/secure/seed_access.dart';
 import 'package:kute/services/secure/secret_store.dart';
 import 'package:hive_ce/hive.dart';
@@ -83,14 +85,27 @@ class AuthModel {
 
   Future<void> setPin(String pin) async {
     final hashedPin = PinHashHelper.hashPin(pin);
-    await _store.write(key: 'pin_hash', value: hashedPin);
+    await _writePinHash(hashedPin);
     await _store.deleteLocalOnly(key: 'pin');
   }
 
   Future<void> setPinAsync(String pin) async {
     final hashedPin = await PinHashHelper.hashPinAsync(pin);
-    await _store.write(key: 'pin_hash', value: hashedPin);
+    await _writePinHash(hashedPin);
     await _store.deleteLocalOnly(key: 'pin');
+  }
+
+  /// The plugin write, retried once as a local-only in-place update when
+  /// it fails with `errSecDuplicateItem` (-25299): an old `pin_hash` stored
+  /// under another accessibility is invisible to the plugin's exists-check,
+  /// so it goes to `SecItemAdd` and collides with it.
+  Future<void> _writePinHash(String hashedPin) async {
+    try {
+      await _store.write(key: 'pin_hash', value: hashedPin);
+    } catch (error) {
+      if (!isDuplicateItemError(error)) rethrow;
+      await _store.writeLocalOnly(key: 'pin_hash', value: hashedPin);
+    }
   }
 
   Future<bool> hasPinSet() async {
@@ -137,8 +152,18 @@ class AuthModel {
 
   /// Compares [incomingPin] with the stored PIN material without throwing
   /// on a storage error. A legacy plaintext `pin` that matches is upgraded
-  /// to `pin_hash`, as [pinMatches] does.
+  /// to `pin_hash`, as [pinMatches] does. A match also finishes a startup
+  /// rescue that waited for the PIN (`LegacyKeychainRescue`), before the
+  /// caller unlocks.
   Future<PinCheck> checkPin(String incomingPin) async {
+    final check = await _checkPinOnly(incomingPin);
+    if (check == PinCheck.match) {
+      await LegacyKeychainRescue.runPendingWithPin(incomingPin);
+    }
+    return check;
+  }
+
+  Future<PinCheck> _checkPinOnly(String incomingPin) async {
     switch (await _store.read(key: 'pin_hash')) {
       case SecretFailed():
         return PinCheck.unavailable;

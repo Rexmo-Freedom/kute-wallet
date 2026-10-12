@@ -33,6 +33,7 @@ import 'package:kute/services/orchestra/orchestra_fee_amount.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:money2/money2.dart';
 
+import '../../helpers/fake_network.dart';
 import '../../helpers/source_scan.dart';
 
 class _CurrencyNotifier extends StateNotifier<CurrencyState>
@@ -153,7 +154,7 @@ void main() {
 
     Future<Map<String, String>> query({bool? onramp}) async {
       late Map<String, String> sent;
-      await http.runWithClient(
+      await withFakeNetwork(
         () => onramp == null
             ? OrchestraService.getEstimate(
                 sourceChain: 'lightning',
@@ -196,7 +197,7 @@ void main() {
         String? flag;
         final container = ProviderContainer();
         addTearDown(container.dispose);
-        await http.runWithClient(
+        await withFakeNetwork(
           () async {
             final sub = container.listen(family(_route), (_, __) {});
             await container.read(family(_route).future);

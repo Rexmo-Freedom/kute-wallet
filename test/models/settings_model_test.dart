@@ -278,6 +278,7 @@ void main() {
         'recoveryCheckAddress',
         'evmDerivationVersion',
         'evmFormatCheckPending',
+        'createdEmpty',
       };
       expect(map.keys.toSet(), expectedKeys);
     });

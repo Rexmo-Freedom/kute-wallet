@@ -8,6 +8,11 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/models/orchestra_routes_model.dart';
+import 'package:kute/services/orchestra_routes.dart'
+    show
+        kOrchestraAccumulationDeniedPairs,
+        kOrchestraAccumulationSourceChains,
+        orchestraCanAccumulatePair;
 
 const String kRoutesFixture = '''
 {
@@ -299,6 +304,94 @@ void main() {
       for (final o in options) {
         expect(o.chainIconUrl,
             'https://orchestra.flashnet.xyz/chain-${o.chain}.svg');
+      }
+    });
+  });
+
+  group('sources the mint refuses', () {
+    // A catalog that routes both refused sources (and a sibling that is
+    // accepted on the same chain) to both receive destinations.
+    OrchestraRoutesCatalog refusedFixture() {
+      Map<String, Object?> row(String chain, String asset, int decimals,
+              {bool contract = true}) =>
+          {
+            'id': '$chain:$asset',
+            'chain': chain,
+            'asset': asset,
+            'decimals': decimals,
+            'chainDisplayName': chain,
+            if (contract) 'contractAddress': '0x${'1' * 40}',
+            'route': {
+              'to': ['spark:BTC', 'spark:USDB'],
+              'exactOutTo': [],
+              'fixedTo': [],
+            },
+          };
+      return OrchestraRoutesCatalog.fromJson({
+        'assets': [
+          row('spark', 'BTC', 8, contract: false),
+          row('spark', 'USDB', 6),
+          row('tron', 'TRX', 6, contract: false),
+          row('tron', 'USDT', 6),
+          row('hyperevm', 'USDE', 18),
+          row('hyperevm', 'USDC', 6),
+        ],
+      }, source: OrchestraCatalogSource.live, fetchedAt: DateTime(2026, 10, 12));
+    }
+
+    test('tron:TRX and hyperevm:USDE never reach the deposit-address mint',
+        () {
+      final catalog = refusedFixture();
+      expect(catalog.hasLiveData, isTrue);
+      for (final destination in ['BTC', 'USDB']) {
+        final options = catalog.receiveOptions(destinationAsset: destination);
+        final reusable = {
+          for (final o in options) '${o.chain}:${o.assetCode}': o.reusableAddress
+        };
+        // The refused pairs are downgraded to a one-time quoted receive
+        // (both screens open QuotedReceiveScreen for a non-reusable row),
+        // while the siblings on the same chains keep their standing
+        // address, which proves the chain itself stands.
+        expect(reusable, {
+          'tron:TRX': false,
+          'tron:USDT': true,
+          'hyperevm:USDE': false,
+          'hyperevm:USDC': true,
+        }, reason: destination);
+        expect(orchestraCanAccumulatePair('tron', 'TRX', destination), isFalse);
+        expect(
+            orchestraCanAccumulatePair('hyperevm', 'USDE', destination), isFalse);
+        expect(orchestraCanAccumulatePair('tron', 'USDT', destination), isTrue);
+      }
+      // The installed tables the reusable-address mint gate reads (the
+      // bitcoin receive table, and the exact standing-source tables for
+      // both destinations) carry neither pair; the dollar picker table
+      // keeps them, as the one-time rows they now are.
+      expect(catalog.receiveRouteTable.containsKey('TRX'), isFalse);
+      expect(catalog.receiveRouteTable.containsKey('USDE'), isFalse);
+      expect(catalog.receiveRouteTable['USDT'], {'tron'});
+      for (final destination in ['BTC', 'USDB']) {
+        final exact =
+            catalog.exactAccumulationRouteTable(destinationAsset: destination);
+        expect(exact.containsKey('TRX'), isFalse, reason: destination);
+        expect(exact.containsKey('USDE'), isFalse, reason: destination);
+        expect(exact['USDT'], {'tron'}, reason: destination);
+        expect(exact['USDC'], {'hyperevm'}, reason: destination);
+      }
+      expect(catalog.usdReceiveRouteTable['TRX'], {'tron'});
+      expect(catalog.usdReceiveRouteTable['USDC'], {'hyperevm'});
+    });
+
+    test('every denied pair names a chain the rail otherwise accepts', () {
+      // A pair on a chain the rail refuses wholesale would be dead weight
+      // here; the chain set is the first gate.
+      for (final pair in kOrchestraAccumulationDeniedPairs) {
+        final parts = pair.split(':');
+        expect(parts, hasLength(3), reason: pair);
+        expect(kOrchestraAccumulationSourceChains, contains(parts[0]),
+            reason: pair);
+        expect(parts[1], parts[1].toUpperCase(), reason: pair);
+        expect({'BTC', 'USDB'}, contains(parts[2]), reason: pair);
       }
     });
   });

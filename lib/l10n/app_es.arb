@@ -387,7 +387,6 @@
   "usdEarnNextPaymentIn": "Se paga en",
   "usdEarnRatePending": "Cargando",
   "usdEarnRateUnavailable": "No disponible ahora",
-  "usdEarnPaidToDate": "Pagado hasta ahora",
   "usdEarnActivityEmpty": "Aún no hay pagos",
   "usdEarnActivityUnavailable": "El historial de pagos no está disponible ahora",
   "hlYieldAvailableLine": "{amount} disponibles",
@@ -633,6 +632,17 @@
   "passkeyChoiceAppleAccount": "cuenta de Apple",
   "passkeyChoiceGoogleAccount": "cuenta de Google",
   "passkeyChoiceCancelled": "Configuración cancelada. No se ha creado nada.",
+  "passkeyBackupSyncing": "Sincronizando tu copia de seguridad…",
+  "passkeyCreateNewTitle": "No se encontró ninguna passkey",
+  "passkeyCreateNewBody": "No se creó nada. ¿Crear una nueva passkey para esta billetera con {method}?",
+  "@passkeyCreateNewBody": {
+    "placeholders": {
+      "method": {
+        "type": "String"
+      }
+    }
+  },
+  "passkeyCreateNewAction": "Crear una nueva passkey",
   "passkeyChoiceFallbackWords": "No se ha podido configurar {method}. Tu cartera se ha creado con palabras de recuperación.",
   "biometricFaceId": "Face ID",
   "biometricTouchId": "Touch ID",
@@ -2033,6 +2043,7 @@
   "capabilityAccountRestricted": "Esta función aún no está disponible para tu cuenta.",
   "capabilityCountryUnknown": "No se ha podido verificar tu región con Kute. Inténtalo de nuevo.",
   "capabilityPolicyUnavailable": "No se ha podido comprobar la disponibilidad con Kute. Inténtalo de nuevo.",
+  "capabilityOfflineGrace": "No se puede conectar con Kute ahora mismo. Esto sigue disponible según tu última comprobación.",
   "capabilityUnavailable": "Esta función no está disponible en Kute en este momento.",
   "leverageCapExceeded": "El apalancamiento superior a {maxLeverage}x no está disponible en tu región.",
   "providerRegionRestricted": "{provider} está restringido en la región en la que parece estar tu conexión a internet. Si no es donde estás, revisa la configuración de tu red o VPN e inténtalo de nuevo.",
@@ -2137,6 +2148,14 @@
   "recoverAddressesStartWith": "Las direcciones empiezan por {prefix}",
   "recoverPasskeyCreated": "Creada el {date}",
   "recoverFoundOnDevice": "Encontrada en este dispositivo. Comprueba que el saldo es correcto antes de restaurar.",
+  "recoverOlderVersionSection": "De una versión anterior en este teléfono",
+  "recoverOlderVersionWallet": "Billetera de una versión anterior",
+  "recoverOlderVersionNeedsPin": "Se abre con el PIN que usaba esa versión",
+  "recoverOlderVersionIcloud": "Guardada en el llavero de iCloud",
+  "recoverOlderVersionEnterPin": "Introduce el PIN que usaba esa versión",
+  "recoverOlderVersionFailed": "No se pudo restaurar esta copia.",
+  "restoreRescueOfferBody": "Aún hay copias de tus billeteras de una versión anterior de Kute en este teléfono. ¿Usarlas en lugar de empezar de cero?",
+  "restoreRescueOfferConfirm": "Usar las copias guardadas",
   "recoverConfirmWallet": "Confirma para restaurar {wallet}.",
   "btcSetupCreateTitleShort": "Crear cartera nueva",
   "btcSetupWalletNameHint": "Nombre de la cartera",
@@ -2962,6 +2981,7 @@
   "portfolioStatsActive": "Activas",
   "portfolioStatsHistoric": "Histórico",
   "portfolioStatAtStake": "Importe en juego",
+  "portfolioProfitLoss": "Ganancias y pérdidas",
   "slipCtaAddTo": "{side, select, long{Aumentar el long · {amount}} other{Aumentar el short · {amount}}}",
   "slipCtaReduce": "{side, select, long{Reducir el long · {amount}} other{Reducir el short · {amount}}}",
   "slipCtaClose": "{side, select, long{Cerrar el long} other{Cerrar el short}}",

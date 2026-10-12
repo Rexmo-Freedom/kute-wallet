@@ -387,7 +387,6 @@
   "usdEarnNextPaymentIn": "Makse",
   "usdEarnRatePending": "Laadimine",
   "usdEarnRateUnavailable": "Praegu pole saadaval",
-  "usdEarnPaidToDate": "Sulle seni makstud",
   "usdEarnActivityEmpty": "Makseid veel pole",
   "usdEarnActivityUnavailable": "Maksete ajalugu pole praegu saadaval",
   "hlYieldAvailableLine": "{amount} saadaval",
@@ -633,6 +632,17 @@
   "passkeyChoiceAppleAccount": "Apple'i konto",
   "passkeyChoiceGoogleAccount": "Google'i konto",
   "passkeyChoiceCancelled": "Seadistamine tühistati. Midagi ei loodud.",
+  "passkeyBackupSyncing": "Varukoopia sünkroonimine…",
+  "passkeyCreateNewTitle": "Pääsuvõtit ei leitud",
+  "passkeyCreateNewBody": "Midagi ei loodud. Kas luua sellele rahakotile uus pääsuvõti {method} abil?",
+  "@passkeyCreateNewBody": {
+    "placeholders": {
+      "method": {
+        "type": "String"
+      }
+    }
+  },
+  "passkeyCreateNewAction": "Loo uus pääsuvõti",
   "passkeyChoiceFallbackWords": "Meetodit {method} ei õnnestunud seadistada. Sinu rahakott loodi hoopis taastesõnadega.",
   "biometricFaceId": "Face ID",
   "biometricTouchId": "Touch ID",
@@ -2033,6 +2043,7 @@
   "capabilityAccountRestricted": "See funktsioon pole sinu konto jaoks veel saadaval.",
   "capabilityCountryUnknown": "Kute ei saanud sinu piirkonda kontrollida. Proovi uuesti.",
   "capabilityPolicyUnavailable": "Kute ei saanud saadavust kontrollida. Proovi uuesti.",
+  "capabilityOfflineGrace": "Kute ei ole praegu kättesaadav. See on sinu viimase kontrolli põhjal endiselt saadaval.",
   "capabilityUnavailable": "See funktsioon pole Kute'is praegu saadaval.",
   "leverageCapExceeded": "Finantsvõimendus üle {maxLeverage}x pole sinu piirkonnas saadaval.",
   "providerRegionRestricted": "{provider} on piiratud piirkonnas, kus sinu internetiühendus näib asuvat. Kui sa seal ei asu, kontrolli võrgu või VPN-i seadeid ja proovi uuesti.",
@@ -2137,6 +2148,14 @@
   "recoverAddressesStartWith": "Aadressid algavad tähistusega {prefix}",
   "recoverPasskeyCreated": "Loodud {date}",
   "recoverFoundOnDevice": "Leitud selles seadmes. Enne taastamist kontrolli, et saldo tundub õige.",
+  "recoverOlderVersionSection": "Selle telefoni vanemast versioonist",
+  "recoverOlderVersionWallet": "Rahakott vanemast versioonist",
+  "recoverOlderVersionNeedsPin": "Avaneb selle versiooni PIN-koodiga",
+  "recoverOlderVersionIcloud": "Salvestatud iCloudi võtmehoidjasse",
+  "recoverOlderVersionEnterPin": "Sisesta PIN-kood, mida see versioon kasutas",
+  "recoverOlderVersionFailed": "Seda koopiat ei õnnestunud taastada.",
+  "restoreRescueOfferBody": "Sinu rahakottide koopiad Kute vanemast versioonist on endiselt selles telefonis. Kas kasutada neid otsast alustamise asemel?",
+  "restoreRescueOfferConfirm": "Kasuta salvestatud koopiaid",
   "recoverConfirmWallet": "Kinnita, et taastada {wallet}.",
   "btcSetupCreateTitleShort": "Loo uus rahakott",
   "btcSetupWalletNameHint": "Rahakoti nimi",
@@ -2962,6 +2981,7 @@
   "portfolioStatsActive": "Aktiivsed",
   "portfolioStatsHistoric": "Ajalugu",
   "portfolioStatAtStake": "Panustatud summa",
+  "portfolioProfitLoss": "Kasum ja kahjum",
   "slipCtaAddTo": "{side, select, long{Suurenda long-positsiooni · {amount}} other{Suurenda short-positsiooni · {amount}}}",
   "slipCtaReduce": "{side, select, long{Vähenda long-positsiooni · {amount}} other{Vähenda short-positsiooni · {amount}}}",
   "slipCtaClose": "{side, select, long{Sulge long-positsioon} other{Sulge short-positsioon}}",

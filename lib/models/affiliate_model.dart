@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart'
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+import 'package:kute/services/http/shared_http_client.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/services/revenue/provider_event_outbox.dart';
 import 'package:kute/providers/breez_config_provider.dart';
@@ -1130,11 +1131,14 @@ class AffiliateService {
             if (revenueIdentity != identity || _tokenIdentity(token) != identity) {
               throw StateError('Accounting identity changed');
             }
-            return http.post(
+            // The outbox owns retries; one attempt here as before.
+            return SharedHttpClient.post(
               Uri.parse('${dotenv.env['BACKEND']!}/api/v1/provider-events/log'),
               headers: {'Content-Type': 'application/json', ...auth},
               body: jsonEncode(body),
-            ).timeout(const Duration(seconds: 6));
+              kind: HttpCallKind.userAction,
+              timeout: const Duration(seconds: 6),
+            );
           });
           if (response.statusCode == 200 || response.statusCode == 202) {
             return ProviderEventDelivery.delivered;

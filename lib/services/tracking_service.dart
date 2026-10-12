@@ -16,6 +16,8 @@ import 'package:kute/services/advisor/sal_chip_templates.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/venue_analytics.dart';
 import 'package:kute/services/secure_storage.dart';
+import 'package:local_auth/local_auth.dart'
+    show LocalAuthException, LocalAuthExceptionCode;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:posthog_flutter/posthog_flutter.dart';
 import 'package:kute/services/hardware/ledger/ledger_operation_scope.dart';
@@ -602,7 +604,7 @@ class TrackingService {
     'user_cancelled', 'insufficient_funds', 'below_minimum', 'above_limit',
     'invalid_destination', 'expired', 'quote_rejected', 'fee_unavailable',
     'timeout', 'network', 'hardware_wallet', 'rate_limited', 'no_route',
-    'settlement', 'unknown',
+    'settlement', 'unsupported_source', 'unknown',
   };
 
   static String errorCategory(Object? error) {
@@ -624,6 +626,14 @@ class TrackingService {
     if (has(['above maximum', 'maximum', 'too large', 'limit'])) {
       return 'above_limit';
     }
+    // Orchestra's deposit-address mint refusing the (chain, asset) we
+    // offered: "Unsupported deposit source: tron:TRX", "Unsupported
+    // source: hyperevm:USDE", "Unsupported source chain: bitcoin". Our
+    // offering bug, not the person's; before 'invalid_destination' so
+    // the word "unsupported" is not read as an address problem.
+    if (has(['unsupported deposit source', 'unsupported source'])) {
+      return 'unsupported_source';
+    }
     if (has(['invalid address', 'invalid invoice', 'invalid destination',
         'invalid recipient', 'bad address', 'unsupported address'])) {
       return 'invalid_destination';
@@ -641,6 +651,24 @@ class TrackingService {
     if (has(['route', 'no path', 'liquidity'])) return 'no_route';
     if (has(['settle', 'refund'])) return 'settlement';
     return 'unknown';
+  }
+
+  /// A fixed, text-free `reason` for a thrown [error]: its [errorCategory]
+  /// when one matches, otherwise the exception's class name
+  /// (`StateError`, `TimeoutException`, `PolymarketNothingToClaimException`),
+  /// so a failure no category covers still says what kind it was instead
+  /// of `unknown`. A bare `Exception(...)` reports as `exception`; a
+  /// String error reports as `string`, never its text. Never carries the
+  /// message, so no address or id can ride along.
+  static String errorReason(Object? error) {
+    final category = errorCategory(error);
+    if (category != 'unknown' || error == null) return category;
+    if (error is String) return 'string';
+    var type = error.runtimeType.toString();
+    final generic = type.indexOf('<');
+    if (generic > 0) type = type.substring(0, generic);
+    if (type == '_Exception') return 'exception';
+    return type.replaceAll(RegExp(r'[^A-Za-z0-9_]'), '');
   }
 
   /// Public latency bucket ('<500ms' .. '5s+') for call sites.
@@ -984,6 +1012,9 @@ class TrackingService {
     'hardware_wallet',
     'no_route',
     'quote_rejected',
+    // A source the app offered and the provider refused: an offering bug
+    // to fix in kOrchestraAccumulationDeniedPairs, so it keeps its issue.
+    'unsupported_source',
   };
   static const int _handledMax = 20;
   static final Set<String> _handledSeen = <String>{};
@@ -1416,10 +1447,72 @@ class TrackingService {
     _crashlyticsBreadcrumb(event, params);
     if (_muted) return;
     if (isCompletedMoneyAction(event, params)) _recordMoneyAction();
-    try {
-      Posthog().capture(eventName: event, properties: params);
-    } catch (_) {/* never crash on tracking */}
+    final properties = params;
+    _whenAnalyticsReady(() {
+      try {
+        Posthog().capture(eventName: event, properties: properties);
+      } catch (_) {/* never crash on tracking */}
+    });
   }
+
+  // ─── Analytics SDK readiness ─────────────────────────────────────
+
+  /// False while `main.dart` has PostHog's Dart `setup` in flight off the
+  /// first-frame path ([holdAnalyticsUntilReady]). Captures made meanwhile
+  /// wait in [_heldUntilReady], in order, and go out together the moment
+  /// [markAnalyticsReady] runs, so nothing fired during boot is lost and
+  /// nothing reaches the SDK before its config (host, `beforeSend`
+  /// scrubbers, replay off) is in place. True by default: a process that
+  /// never holds (tests, tools) behaves exactly as before.
+  static bool _analyticsReady = true;
+  static final List<void Function()> _heldUntilReady = [];
+  static Completer<void> _analyticsReadyCompleter = Completer<void>()
+    ..complete();
+
+  /// A boot that keeps far more than this many captures waiting is broken
+  /// in some other way; the oldest go rather than memory.
+  static const int _heldUntilReadyCap = 500;
+
+  /// Completes once [markAnalyticsReady] has run (at once when nothing is
+  /// held). Boot steps that must follow the SDK setup (identify) await it.
+  static Future<void> get analyticsReady => _analyticsReadyCompleter.future;
+
+  /// Hold every capture until [markAnalyticsReady]. Called by `main.dart`
+  /// right before it starts PostHog's setup.
+  static void holdAnalyticsUntilReady() {
+    if (!_analyticsReady) return;
+    _analyticsReady = false;
+    _analyticsReadyCompleter = Completer<void>();
+  }
+
+  /// The SDK is set up (or its setup gave up): release the held captures in
+  /// the order they were made. Idempotent.
+  static void markAnalyticsReady() {
+    if (_analyticsReady) return;
+    _analyticsReady = true;
+    final held = List<void Function()>.of(_heldUntilReady);
+    _heldUntilReady.clear();
+    for (final op in held) {
+      try {
+        op();
+      } catch (_) {/* never crash on tracking */}
+    }
+    if (!_analyticsReadyCompleter.isCompleted) _analyticsReadyCompleter.complete();
+  }
+
+  /// Runs [op] now, or once the SDK is ready.
+  static void _whenAnalyticsReady(void Function() op) {
+    if (_analyticsReady) {
+      op();
+      return;
+    }
+    if (_heldUntilReady.length >= _heldUntilReadyCap) _heldUntilReady.removeAt(0);
+    _heldUntilReady.add(op);
+  }
+
+  /// Test-only: the number of captures waiting for the SDK.
+  @visibleForTesting
+  static int get debugHeldUntilReadyCount => _heldUntilReady.length;
 
   /// Property keys whose raw value identifies an order, payment or claim.
   /// A provider order id, quote id or claim id is joinable to a person's
@@ -1493,14 +1586,16 @@ class TrackingService {
   /// these, but call this manually for non-routed surfaces).
   static void screenView(String screenName, {String? screenClass}) {
     if (_muted) return;
-    try {
-      Posthog().screen(
-        screenName: scrubString(screenName),
-        properties: {
-          if (screenClass != null) 'screen_class': screenClass,
-        },
-      );
-    } catch (_) {/* never crash on tracking */}
+    _whenAnalyticsReady(() {
+      try {
+        Posthog().screen(
+          screenName: scrubString(screenName),
+          properties: {
+            if (screenClass != null) 'screen_class': screenClass,
+          },
+        );
+      } catch (_) {/* never crash on tracking */}
+    });
   }
 
   // Person-property writes are coalesced: at startup ~20 of these fire
@@ -1535,12 +1630,14 @@ class TrackingService {
     if (_pendingUserProps.isEmpty || _muted) return;
     final batch = scrubProperties(Map<String, Object>.from(_pendingUserProps));
     _pendingUserProps.clear();
-    try {
-      Posthog().capture(
-        eventName: r'$set',
-        properties: {r'$set': batch},
-      );
-    } catch (_) {/* never crash on tracking */}
+    _whenAnalyticsReady(() {
+      try {
+        Posthog().capture(
+          eventName: r'$set',
+          properties: {r'$set': batch},
+        );
+      } catch (_) {/* never crash on tracking */}
+    });
   }
 
   /// Identify a user. Prefer [identifyWithAffiliate] — this overload
@@ -1743,6 +1840,46 @@ class TrackingService {
     });
   }
 
+  /// Exception codes with which `local_auth` 3 reports a prompt that was
+  /// dismissed rather than failed: the person tapped Cancel (or chose the
+  /// device PIN), or the system took the prompt down (app backgrounded,
+  /// another prompt shown). Neither is a biometric failure.
+  static const Set<LocalAuthExceptionCode> biometricCancelCodes = {
+    LocalAuthExceptionCode.userCanceled,
+    LocalAuthExceptionCode.systemCanceled,
+  };
+
+  /// The fixed code of a biometric prompt failure, for the `reason`
+  /// property: a [LocalAuthException]'s code name (`userCanceled`,
+  /// `temporaryLockout`, …), a [PlatformException]'s code, or the class
+  /// name of anything else. Never the message.
+  static String biometricErrorCode(Object error) => switch (error) {
+        LocalAuthException(:final code) => code.name,
+        PlatformException(:final code) => code,
+        _ => error.runtimeType.toString(),
+      };
+
+  /// The end of a biometric prompt that THREW. `local_auth` 3 throws a
+  /// [LocalAuthException] instead of returning false, so a dismissed
+  /// prompt (one of [biometricCancelCodes]) is `biometric_prompt_cancelled`
+  /// with the code as `reason`, and every other error is
+  /// `biometric_failed` with the code as `reason`. [surface] is the screen
+  /// that showed the prompt (`cold_start`, `lock_overlay`).
+  static void biometricPromptThrew(Object error, {required String surface}) {
+    final code = biometricErrorCode(error);
+    if (error is LocalAuthException && biometricCancelCodes.contains(error.code)) {
+      track('biometric_prompt_cancelled', params: {
+        'surface': surface,
+        'reason': code,
+      });
+      return;
+    }
+    track('biometric_failed', params: {
+      'reason': _safeReason(code) ?? 'unknown',
+      'surface': surface,
+    });
+  }
+
   /// A wrong PIN in a confirmation sheet. [surface] names the sheet
   /// ('step_up', 'seed_words', 'wallets', 'change_pin').
   static void pinGateFailed({required String surface, required int attempt}) {
@@ -1795,6 +1932,45 @@ class TrackingService {
   }
 
   static void seedRestoreStartFresh() => track('seed_restore_start_fresh');
+
+  /// The lookup for wallet copies an older build stored under the legacy
+  /// Keychain accessibility ran. [source]: startup | sheet | start_over;
+  /// [outcome]: found | none | failed. Counts of copies by era only.
+  static void seedRescueLookupCompleted({
+    required String source,
+    required String outcome,
+    int plain = 0,
+    int encrypted = 0,
+    int icloud = 0,
+  }) =>
+      track('seed_rescue_lookup_completed', params: {
+        'source': source,
+        'outcome': outcome,
+        'plain_count': plain,
+        'encrypted_count': encrypted,
+        'icloud_count': icloud,
+      });
+
+  /// One old copy was validated and re-saved (or added as a wallet).
+  /// [era]: a (PIN-encrypted) | b (plain) | icloud; [check]: address |
+  /// proxy | none (what public data the phrase was compared against).
+  static void seedRescueRestored({
+    required String source,
+    required String era,
+    required String check,
+  }) =>
+      track('seed_rescue_restored',
+          params: {'source': source, 'era': era, 'check': check});
+
+  /// One old copy could not be restored. [reason]: invalidPhrase |
+  /// mismatch | wrongPin | readFailed | writeFailed | cancelled.
+  static void seedRescueFailed({
+    required String source,
+    required String era,
+    required String reason,
+  }) =>
+      track('seed_rescue_failed',
+          params: {'source': source, 'era': era, 'reason': reason});
 
   /// The home banner for a spending wallet whose seed this phone can't
   /// read.
@@ -5545,6 +5721,9 @@ class TrackingService {
   /// for dashboards that still group on it.
   /// [template] (an allowlisted chip template id) and [chipIndex] (the
   /// chip's 0-based position) are sent only for a chip ('suggested').
+  /// [interrupted] is sent (true) only when this question stopped an
+  /// answer that was still streaming; that answer reports
+  /// `sal_answer_failed` `cancelled` as any stop does.
   static void salQuestionAsked({
     required String input,
     String? surface,
@@ -5553,6 +5732,7 @@ class TrackingService {
     String? venue,
     String? template,
     int? chipIndex,
+    bool interrupted = false,
   }) =>
       track('sal_question_asked', params: {
         'input': input,
@@ -5564,6 +5744,7 @@ class TrackingService {
           'template': template!,
         if (input == 'suggested' && chipIndex != null && chipIndex >= 0)
           'chip_index': chipIndex,
+        if (interrupted) 'interrupted': true,
       });
 
   /// Exactly one per answered turn (never per stream chunk).

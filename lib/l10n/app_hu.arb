@@ -387,7 +387,6 @@
   "usdEarnNextPaymentIn": "Kifizetésig",
   "usdEarnRatePending": "Betöltés",
   "usdEarnRateUnavailable": "Most nem érhető el",
-  "usdEarnPaidToDate": "Eddig kifizetve neked",
   "usdEarnActivityEmpty": "Még nincs kifizetés",
   "usdEarnActivityUnavailable": "A kifizetési előzmények most nem érhetők el",
   "hlYieldAvailableLine": "{amount} elérhető",
@@ -633,6 +632,17 @@
   "passkeyChoiceAppleAccount": "Apple-fiók",
   "passkeyChoiceGoogleAccount": "Google-fiók",
   "passkeyChoiceCancelled": "Beállítás megszakítva. Semmi sem jött létre.",
+  "passkeyBackupSyncing": "Biztonsági mentés szinkronizálása…",
+  "passkeyCreateNewTitle": "Nem található passkey",
+  "passkeyCreateNewBody": "Semmi sem jött létre. Hozzunk létre inkább új passkey-t ehhez a tárcához {method} használatával?",
+  "@passkeyCreateNewBody": {
+    "placeholders": {
+      "method": {
+        "type": "String"
+      }
+    }
+  },
+  "passkeyCreateNewAction": "Új passkey létrehozása",
   "passkeyChoiceFallbackWords": "Nem sikerült beállítani ezt: {method}. A tárcád helyreállítási szavakkal jött létre.",
   "biometricFaceId": "Face ID",
   "biometricTouchId": "Touch ID",
@@ -2033,6 +2043,7 @@
   "capabilityAccountRestricted": "Ez a funkció a fiókodhoz még nem érhető el.",
   "capabilityCountryUnknown": "A Kute nem tudta ellenőrizni a régiódat. Próbáld újra.",
   "capabilityPolicyUnavailable": "A Kute nem tudta ellenőrizni az elérhetőséget. Próbáld újra.",
+  "capabilityOfflineGrace": "A Kute jelenleg nem érhető el. Ez a legutóbbi ellenőrzésed alapján továbbra is elérhető.",
   "capabilityUnavailable": "Ez a funkció jelenleg nem érhető el a Kute-ban.",
   "leverageCapExceeded": "{maxLeverage}x feletti tőkeáttétel a régiódban nem érhető el.",
   "providerRegionRestricted": "A(z) {provider} korlátozott abban a régióban, ahol az internetkapcsolatod látszólag van. Ha nem ott vagy, ellenőrizd a hálózati vagy VPN-beállításaidat, és próbáld újra.",
@@ -2137,6 +2148,14 @@
   "recoverAddressesStartWith": "A címek így kezdődnek: {prefix}",
   "recoverPasskeyCreated": "Létrehozva: {date}",
   "recoverFoundOnDevice": "Ezen az eszközön található. Visszaállítás előtt ellenőrizd, hogy az egyenleg stimmel.",
+  "recoverOlderVersionSection": "Egy régebbi verzióból ezen a telefonon",
+  "recoverOlderVersionWallet": "Tárca egy régebbi verzióból",
+  "recoverOlderVersionNeedsPin": "Az adott verzió PIN-kódjával nyílik meg",
+  "recoverOlderVersionIcloud": "Az iCloud kulcskarikán mentve",
+  "recoverOlderVersionEnterPin": "Add meg az adott verzió PIN-kódját",
+  "recoverOlderVersionFailed": "Ezt a másolatot nem sikerült visszaállítani.",
+  "restoreRescueOfferBody": "A Kute egy régebbi verziójából származó tárcamásolatok még ezen a telefonon vannak. Ezeket használod inkább az újrakezdés helyett?",
+  "restoreRescueOfferConfirm": "Mentett másolatok használata",
   "recoverConfirmWallet": "Erősítsd meg a(z) {wallet} visszaállítását.",
   "btcSetupCreateTitleShort": "Új tárca létrehozása",
   "btcSetupWalletNameHint": "Tárca neve",
@@ -2962,6 +2981,7 @@
   "portfolioStatsActive": "Aktív",
   "portfolioStatsHistoric": "Előzmények",
   "portfolioStatAtStake": "Lekötött összeg",
+  "portfolioProfitLoss": "Nyereség és veszteség",
   "slipCtaAddTo": "{side, select, long{long pozíció növelése · {amount}} other{short pozíció növelése · {amount}}}",
   "slipCtaReduce": "{side, select, long{long pozíció csökkentése · {amount}} other{short pozíció csökkentése · {amount}}}",
   "slipCtaClose": "{side, select, long{long pozíció zárása} other{short pozíció zárása}}",

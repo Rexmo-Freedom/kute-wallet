@@ -19,6 +19,7 @@ import 'package:kute/screens/hyperliquid/components/hl_position_detail_sheet.dar
 import 'package:kute/providers/hyperliquid_sats_pnl_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/portfolio_performance_provider.dart';
+import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart';
 import 'package:kute/screens/portfolio/portfolio_category_donut.dart';
 import 'package:kute/screens/portfolio/poly_position_events.dart'
     show polyEventsBatchFetchProvider, polyFeedCacheLookupProvider;
@@ -399,9 +400,16 @@ Future<void> _pump(WidgetTester tester,
   }
 }
 
-/// The Statistics card: the app's card surface the tab's figures sit on.
+/// The Statistics card: the app's card surface the sub-tab's donut and
+/// figures sit on (the P&L chart's card above it aside).
 final _card = find.byWidgetPredicate((w) =>
-    w is Container && w.clipBehavior == Clip.antiAlias && w.decoration != null);
+    w is Container &&
+    w.clipBehavior == Clip.antiAlias &&
+    w.decoration != null &&
+    w.key != const ValueKey('statistics-pnl-card'));
+
+/// The P&L chart's card.
+final _chartCard = find.byKey(const ValueKey('statistics-pnl-card'));
 
 /// The figure in the donut's hole.
 String _hole(WidgetTester tester) => tester
@@ -451,20 +459,41 @@ void main() {
   setUp(debugClearPolyCategoryCache);
 
   testWidgets(
-      'the card leads with the category donut; no P&L chart, headline or '
-      'range pills', (tester) async {
+      'the P&L chart leads, the sub-tab pills under it, then the card with '
+      'the category donut and the tiles', (tester) async {
     await _pump(tester, predictions: true);
-    expect(find.byType(KuteLineChart), findsNothing);
-    expect(find.text('Profit and loss'), findsNothing);
-    expect(find.text('Total gains and losses'), findsNothing);
-    for (final pill in ['7D', '1M', '3M', 'ALL']) {
-      expect(find.text(pill), findsNothing);
+    // The chart card: caption, the account's P&L (6 realised + 10 open),
+    // the change over the month drawn, the line, the range pills.
+    expect(_chartCard, findsOneWidget);
+    expect(find.byType(PortfolioPnlChart), findsOneWidget);
+    expect(find.text('Profit and loss'), findsOneWidget);
+    expect(
+        tester
+            .widget<RollingNumberText>(
+                find.byKey(const ValueKey('statistics-pnl-headline')))
+            .text,
+        r'+$16.00');
+    expect(find.text(r'+$21.00 past 1m'), findsOneWidget);
+    final chart = tester.widget<KuteLineChart>(find.byType(KuteLineChart));
+    expect(chart.lineColor, AppColors.marketUp);
+    // From the P&L the account had a month ago (−5, forty days in) through
+    // the venue's points to now.
+    expect(chart.values, [-5, 9, 15, 16]);
+    for (final pill in ['1D', '1W', '1M', '3M', 'YTD', '1Y', 'ALL']) {
+      expect(find.text(pill), findsOneWidget);
     }
-    // The only rolling figure is the donut's hole.
-    expect(find.byType(RollingNumberText), findsOneWidget);
+    expect(find.text('Total gains and losses'), findsNothing);
+    // Chart, then the sub-tab pills, then the donut card.
+    expect(tester.getBottomLeft(_chartCard).dy,
+        lessThan(tester.getTopLeft(find.byKey(const ValueKey('statistics-active'))).dy));
+    expect(
+        tester.getBottomLeft(find.byKey(const ValueKey('statistics-active'))).dy,
+        lessThan(tester.getTopLeft(_card).dy));
+    // Two rolling figures: the chart's headline and the donut's hole.
+    expect(find.byType(RollingNumberText), findsNWidgets(2));
     expect(_hole(tester), r'$33.00');
-    // One card: the donut flush at its top, on the card's own surface (no
-    // card of its own), the tiles under it.
+    // One card under the pills: the donut flush at its top, on the card's
+    // own surface (no card of its own), the tiles under it.
     expect(_card, findsOneWidget);
     expect(find.descendant(of: _card, matching: find.byType(KuteDonutChart)),
         findsOneWidget);
@@ -487,7 +516,8 @@ void main() {
     await _pump(tester, predictions: true, tagsFail: true);
     expect(find.byType(KuteDonutChart), findsNothing);
     expect(find.byType(PortfolioCategorySkeleton), findsNothing);
-    expect(find.byType(KuteLineChart), findsNothing);
+    // The chart stays: it is the series', not the categories'.
+    expect(find.byType(KuteLineChart), findsOneWidget);
     expect(
         tester.getTopLeft(find.text('Realized P&L')).dy -
             tester.getTopLeft(_card).dy,
@@ -506,11 +536,23 @@ void main() {
     expect(tester.getTopLeft(skeleton).dy, tester.getTopLeft(_card).dy);
     expect(find.text('Realized P&L'), findsOneWidget);
   });
-  testWidgets('empty history does not fabricate a zero result', (tester) async {
+  testWidgets(
+      'empty history does not fabricate a zero result: the quiet line in '
+      'the chart\'s place', (tester) async {
     await _pump(tester, empty: true);
     expect(find.byType(KuteLineChart), findsNothing);
+    expect(_chartCard, findsNothing);
+    expect(find.byKey(const ValueKey('statistics-chart-empty')), findsOneWidget);
+    expect(find.text('No predictions yet'), findsOneWidget);
     expect(find.textContaining(r'$'), findsNothing);
     expect(find.byIcon(Icons.insights_outlined), findsNothing);
+  });
+  testWidgets('nothing published and nothing done: one quiet line, not two',
+      (tester) async {
+    await _pump(tester, empty: true, scope: StatisticsScope.active);
+    expect(find.byKey(const ValueKey('statistics-chart-empty')), findsOneWidget);
+    expect(find.byKey(const ValueKey('statistics-empty')), findsNothing);
+    expect(find.text('No predictions yet'), findsOneWidget);
   });
   testWidgets('failure remains retryable instead of empty', (tester) async {
     await _pump(tester, fail: true);

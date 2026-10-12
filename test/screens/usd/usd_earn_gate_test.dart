@@ -1,7 +1,10 @@
-// The Dollars Earn tab is a rate display gated by the backend `usd.earn`
-// capability. Off, or with no policy to read, the tab does not exist:
-// the strip is Activity and Balance, the rewards API is never asked and
-// no `usd_earn_*` event fires. On, the tab leads the strip as before.
+// The Dollars Earn view is a rate display gated by the backend `usd.earn`
+// capability. It lives INSIDE the Balance tab as the second of two pills
+// (Balance | Earn, the Breakdown tab's nested-pill pattern). Off, or with
+// no policy to read, the pills do not exist: Balance is the bare dollar
+// balance chart, the rewards API is never asked and no `usd_earn_*`
+// event fires. On, Balance still opens on the balance chart; the Earn
+// pill mounts the chart, reads the API and fires the open event.
 
 import 'dart:convert';
 
@@ -13,11 +16,15 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/models/balance_history.dart';
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/models/usd_rewards_model.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/usd_account_provider.dart';
 import 'package:kute/providers/usd_rewards_provider.dart';
+import 'package:kute/screens/shared/rolling_number_text.dart';
+import 'package:kute/screens/usd/components/usd_balance_chart.dart';
+import 'package:kute/screens/usd/components/usd_balance_tabs.dart';
 import 'package:kute/screens/usd/components/usd_earn_chart.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart';
 import 'package:kute/services/api/usd_rewards_api.dart';
@@ -26,20 +33,25 @@ import 'package:kute/theme/app_theme.dart';
 
 /// Records every rewards read so a test can prove none happened.
 class _RecordingRewardsApi implements UsdRewardsApi {
+  _RecordingRewardsApi({this.estimatedSatsToday = 0});
+
   final calls = <String>[];
+
+  /// What the venue says today pays: the Earn headline.
+  final int estimatedSatsToday;
 
   @override
   Future<UserRewardsSummary> getUserSummary(String pubkey) async {
     calls.add('summary');
-    return const UserRewardsSummary(
+    return UserRewardsSummary(
       pubkey: 'pub',
-      usdbBalanceRaw: 0,
-      usdbBalanceDisplay: 0,
+      usdbBalanceRaw: 25000000,
+      usdbBalanceDisplay: 25,
       swapSats: 0,
       swapCount: 0,
       rewardsBracket: 0,
       rewardsPercent: 4.5,
-      estimatedSatsToday: 0,
+      estimatedSatsToday: estimatedSatsToday,
     );
   }
 
@@ -61,9 +73,8 @@ class _FakePolicy extends Fake implements RuntimeCapabilitiesService {
   final CapabilityDecision _decision;
 
   @override
-  CapabilityDecision decision(String id) => id == 'usd.earn'
-      ? _decision
-      : const CapabilityDecision(allowed: true);
+  CapabilityDecision decision(String id) =>
+      id == 'usd.earn' ? _decision : const CapabilityDecision(allowed: true);
 
   @override
   bool allows(String id) => decision(id).allowed && !decision(id).comingSoon;
@@ -115,12 +126,13 @@ RuntimeCapabilitiesService _policy(Map<String, bool>? capabilities) =>
 Future<_RecordingRewardsApi> _pump(
   WidgetTester tester, {
   required CapabilityDecision earn,
+  int estimatedSatsToday = 0,
 }) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
-  final api = _RecordingRewardsApi();
+  final api = _RecordingRewardsApi(estimatedSatsToday: estimatedSatsToday);
   final settings = Settings(
     currency: 'USD',
     language: 'en',
@@ -139,6 +151,8 @@ Future<_RecordingRewardsApi> _pump(
       runtimeCapabilitiesProvider.overrideWithValue(_FakePolicy(earn)),
       usdBalanceProvider.overrideWithValue(25),
       usdBalanceHistoryProvider.overrideWithValue(const {}),
+      usdBalanceStepsProvider.overrideWithValue(
+          const BalanceHistory(opening: 25, changes: [], current: 25)),
       sparkIdentityPubkeyProvider.overrideWith((_) async => 'pub'),
       usdRewardsApiProvider.overrideWithValue(api),
     ],
@@ -171,10 +185,24 @@ Future<void> _unmount(WidgetTester tester) async {
   await tester.pump(const Duration(seconds: 7));
 }
 
+/// Taps a pill by its label and lets the switch settle (the Earn chart's
+/// own one-second timer means no quiet frame, so pump by hand).
+Future<void> _tapPill(WidgetTester tester, Finder pill) async {
+  await tester.tap(pill);
+  for (var i = 0; i < 5; i++) {
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+}
+
+/// The strip's Balance pill: the first "Balance" on screen. Once the tab
+/// is open and the programme is shown, the second one is the nested pill.
+Finder _stripBalancePill(WidgetTester tester, AppLocalizations l10n) =>
+    find.text(l10n.balance).first;
+
 void main() {
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
 
-  testWidgets('capability off: no Earn tab and no rewards read',
+  testWidgets('capability off: Balance is the bare chart, no rewards read',
       (tester) async {
     final api = await _pump(tester, earn: _earnOff);
     final l10n = tester.element(find.byType(UsdAccountBody)).l10n;
@@ -182,33 +210,85 @@ void main() {
     expect(find.text(l10n.usdEarnTitle), findsNothing);
     expect(find.text(l10n.usdEarnRate), findsNothing);
     // The strip is still there for Activity (showing, so its pill reads
-    // "See all") and Balance.
+    // "See all"), Balance and Breakdown.
     expect(find.text(l10n.seeAll), findsOneWidget);
     expect(find.text(l10n.balance), findsOneWidget);
+
+    // Opening Balance: the chart alone, with no nested pills at all.
+    await _tapPill(tester, _stripBalancePill(tester, l10n));
+    expect(find.byType(UsdBalanceChart), findsOneWidget);
+    expect(find.byType(UsdBalanceTabs), findsNothing);
+    expect(find.byKey(const ValueKey('usd-balance-view-earn')), findsNothing);
+    expect(find.text(l10n.balance), findsOneWidget);
+    expect(find.text(l10n.usdEarnTitle), findsNothing);
+    expect(find.byType(UsdEarnChart), findsNothing);
     expect(api.calls, isEmpty);
     expect(tester.takeException(), isNull);
     await _unmount(tester);
   });
 
-  testWidgets('capability on: the Earn tab leads the strip', (tester) async {
-    final api = await _pump(tester, earn: _earnOn);
+  testWidgets('capability on: Earn is a pill inside Balance, not a tab',
+      (tester) async {
+    final api = await _pump(tester, earn: _earnOn, estimatedSatsToday: 1234);
     final l10n = tester.element(find.byType(UsdAccountBody)).l10n;
-    expect(find.byType(UsdEarnChart), findsOneWidget);
-    expect(find.text(l10n.usdEarnTitle), findsWidgets);
-    expect(find.text(l10n.activity), findsOneWidget);
+    // The strip opens on Activity and carries no Earn pill of its own;
+    // nothing has read the rewards API yet.
+    expect(find.text(l10n.seeAll), findsOneWidget);
     expect(find.text(l10n.balance), findsOneWidget);
+    expect(find.text(l10n.usdEarnTitle), findsNothing);
+    expect(find.byType(UsdEarnChart), findsNothing);
+    expect(api.calls, isEmpty);
+
+    // Balance opens on the balance chart, with Balance | Earn above it.
+    await _tapPill(tester, _stripBalancePill(tester, l10n));
+    expect(find.byType(UsdBalanceTabs), findsOneWidget);
+    expect(
+        find.byKey(const ValueKey('usd-balance-view-balance')), findsOneWidget);
+    expect(find.byKey(const ValueKey('usd-balance-view-earn')), findsOneWidget);
+    expect(find.text(l10n.balance), findsNWidgets(2));
+    expect(find.text(l10n.usdEarnTitle), findsOneWidget);
+    expect(find.byType(UsdBalanceChart), findsOneWidget);
+    expect(find.byType(UsdEarnChart), findsNothing);
+    expect(api.calls, isEmpty);
+
+    // Earn swaps the chart and is the first thing to read the API.
+    await _tapPill(tester, find.byKey(const ValueKey('usd-balance-view-earn')));
+    expect(find.byType(UsdEarnChart), findsOneWidget);
+    expect(find.byType(UsdBalanceChart), findsNothing);
     expect(api.calls, contains('summary'));
+    // The headline is the next payment — the venue's own estimate — with
+    // the countdown under it and the rate beside it, each said once.
+    expect(find.text(l10n.usdEarnNextPayment), findsOneWidget);
+    final headline = tester.widget<RollingNumberText>(find.descendant(
+        of: find.byType(UsdEarnChart),
+        matching: find.byType(RollingNumberText)));
+    expect(headline.text, '1,234 sats');
+    expect(
+        find.textContaining(RegExp(
+            '^${RegExp.escape(l10n.usdEarnNextPaymentIn)} \\d+h \\d\\dm \\d\\ds\$')),
+        findsOneWidget);
+    expect(find.text(l10n.usdEarnRate), findsOneWidget);
+    expect(find.text('4.5%'), findsOneWidget);
+
+    // And back again: the balance chart, the Earn chart gone.
+    await _tapPill(
+        tester, find.byKey(const ValueKey('usd-balance-view-balance')));
+    expect(find.byType(UsdBalanceChart), findsOneWidget);
+    expect(find.byType(UsdEarnChart), findsNothing);
     expect(tester.takeException(), isNull);
     await _unmount(tester);
   });
 
-  testWidgets('policy unavailable: the tab is hidden (fail closed)',
+  testWidgets('policy unavailable: the Earn pill is hidden (fail closed)',
       (tester) async {
     final api = await _pump(tester, earn: _policyUnavailable);
     final l10n = tester.element(find.byType(UsdAccountBody)).l10n;
     expect(find.byType(UsdEarnChart), findsNothing);
     expect(find.text(l10n.usdEarnTitle), findsNothing);
     expect(find.text(l10n.seeAll), findsOneWidget);
+    await _tapPill(tester, _stripBalancePill(tester, l10n));
+    expect(find.byType(UsdBalanceTabs), findsNothing);
+    expect(find.text(l10n.usdEarnTitle), findsNothing);
     expect(api.calls, isEmpty);
     expect(tester.takeException(), isNull);
     await _unmount(tester);
@@ -218,8 +298,10 @@ void main() {
   // is the user's own money and shows in every country, whatever
   // usd.earn (or the policy) says.
   for (final (label, earn) in [
-    ('usd.earn denied (country block)',
-        const CapabilityDecision(allowed: false, reason: 'country_blocked')),
+    (
+      'usd.earn denied (country block)',
+      const CapabilityDecision(allowed: false, reason: 'country_blocked')
+    ),
     ('usd.earn switched off', _earnOff),
     ('policy unavailable', _policyUnavailable),
     ('usd.earn allowed', _earnOn),
@@ -232,9 +314,12 @@ void main() {
     });
   }
 
-  testWidgets('an older policy that never heard of the id hides the tab',
+  testWidgets('an older policy that never heard of the id hides the pill',
       (tester) async {
     final api = await _pump(tester, earn: _unknownCapability);
+    final l10n = tester.element(find.byType(UsdAccountBody)).l10n;
+    await _tapPill(tester, _stripBalancePill(tester, l10n));
+    expect(find.byType(UsdBalanceTabs), findsNothing);
     expect(find.byType(UsdEarnChart), findsNothing);
     expect(api.calls, isEmpty);
     expect(tester.takeException(), isNull);
@@ -289,8 +374,7 @@ void main() {
       addTearDown(container.dispose);
       expect(container.read(usdEarnEnabledProvider), isFalse);
       expect(await container.read(userRewardsSummaryProvider.future), isNull);
-      expect(
-          await container.read(payoutHistoryProvider(earnPayoutPage).future),
+      expect(await container.read(payoutHistoryProvider(earnPayoutPage).future),
           isNull);
       expect(api.calls, isEmpty);
     });

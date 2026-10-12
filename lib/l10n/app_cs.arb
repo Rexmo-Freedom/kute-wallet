@@ -387,7 +387,6 @@
   "usdEarnNextPaymentIn": "Vyplatí se za",
   "usdEarnRatePending": "Načítání",
   "usdEarnRateUnavailable": "Teď nedostupné",
-  "usdEarnPaidToDate": "Zatím ti vyplaceno",
   "usdEarnActivityEmpty": "Zatím žádné platby",
   "usdEarnActivityUnavailable": "Historie plateb teď není k dispozici",
   "hlYieldAvailableLine": "{amount} k dispozici",
@@ -633,6 +632,17 @@
   "passkeyChoiceAppleAccount": "Apple",
   "passkeyChoiceGoogleAccount": "Google",
   "passkeyChoiceCancelled": "Nastavení zrušeno. Nic nebylo vytvořeno.",
+  "passkeyBackupSyncing": "Synchronizace zálohy…",
+  "passkeyCreateNewTitle": "Nebyl nalezen žádný passkey",
+  "passkeyCreateNewBody": "Nic nebylo vytvořeno. Chcete místo toho vytvořit nový passkey pro tuto peněženku pomocí {method}?",
+  "@passkeyCreateNewBody": {
+    "placeholders": {
+      "method": {
+        "type": "String"
+      }
+    }
+  },
+  "passkeyCreateNewAction": "Vytvořit nový passkey",
   "passkeyChoiceFallbackWords": "{method} se nepodařilo nastavit. Tvá peněženka byla místo toho vytvořena s obnovovacími slovy.",
   "biometricFaceId": "Face ID",
   "biometricTouchId": "Touch ID",
@@ -2033,6 +2043,7 @@
   "capabilityAccountRestricted": "Tato funkce zatím není pro tvůj účet dostupná.",
   "capabilityCountryUnknown": "Tvůj region se nepodařilo u Kute ověřit. Zkus to znovu.",
   "capabilityPolicyUnavailable": "Dostupnost se nepodařilo u Kute ověřit. Zkus to znovu.",
+  "capabilityOfflineGrace": "Kute je momentálně nedostupný. Toto je stále k dispozici podle vaší poslední kontroly.",
   "capabilityUnavailable": "Tato funkce je v Kute momentálně nedostupná.",
   "leverageCapExceeded": "Páka nad {maxLeverage}x není ve tvém regionu dostupná.",
   "providerRegionRestricted": "{provider} je omezen v regionu, ve kterém se zdá být tvé internetové připojení. Pokud tam nejsi, zkontroluj síť nebo nastavení VPN a zkus to znovu.",
@@ -2137,6 +2148,14 @@
   "recoverAddressesStartWith": "Adresy začínají na {prefix}",
   "recoverPasskeyCreated": "Vytvořeno {date}",
   "recoverFoundOnDevice": "Nalezeno v tomto zařízení. Před obnovením zkontroluj, že zůstatek odpovídá.",
+  "recoverOlderVersionSection": "Ze starší verze v tomto telefonu",
+  "recoverOlderVersionWallet": "Peněženka ze starší verze",
+  "recoverOlderVersionNeedsPin": "Otevře se PINem, který ta verze používala",
+  "recoverOlderVersionIcloud": "Uloženo v iCloud Keychain",
+  "recoverOlderVersionEnterPin": "Zadejte PIN, který ta verze používala",
+  "recoverOlderVersionFailed": "Tuto kopii se nepodařilo obnovit.",
+  "restoreRescueOfferBody": "Kopie vašich peněženek ze starší verze Kute jsou stále v tomto telefonu. Použít je místo začínání znovu?",
+  "restoreRescueOfferConfirm": "Použít uložené kopie",
   "recoverConfirmWallet": "Potvrď obnovení peněženky {wallet}.",
   "btcSetupCreateTitleShort": "Vytvořit novou peněženku",
   "btcSetupWalletNameHint": "Název peněženky",
@@ -2962,6 +2981,7 @@
   "portfolioStatsActive": "Aktivní",
   "portfolioStatsHistoric": "Historie",
   "portfolioStatAtStake": "Vložená částka",
+  "portfolioProfitLoss": "Zisk a ztráta",
   "slipCtaAddTo": "{side, select, long{Navýšit pozici long · {amount}} other{Navýšit pozici short · {amount}}}",
   "slipCtaReduce": "{side, select, long{Snížit pozici long · {amount}} other{Snížit pozici short · {amount}}}",
   "slipCtaClose": "{side, select, long{Zavřít pozici long} other{Zavřít pozici short}}",

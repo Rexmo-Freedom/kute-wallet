@@ -72,6 +72,7 @@ class PendingBetAutoFire {
   final Ref ref;
   bool _firing = false;
   late final ProviderSubscription<dynamic> _sub;
+  StreamSubscription<void>? _depositSettled;
 
   PendingBetAutoFire(this.ref) {
     // Watch the trading provider for balance changes. Each time it
@@ -80,6 +81,13 @@ class PendingBetAutoFire {
     _sub = ref.listen(polymarketTradingProvider, (_, __) {
       _maybeFire();
     });
+    // The deposit's own path (PolymarketTradingNotifier.onDepositDelivered)
+    // converts the money and re-reads the balance the moment Orchestra
+    // delivers, then says so here: the bet fires on that, not on a poll.
+    _depositSettled = ref
+        .read(polymarketTradingProvider.notifier)
+        .depositSettled
+        .listen((_) => _maybeFire());
     // Also re-check whenever the intent itself changes (a fresh setIntent
     // from the bet slip should trigger an immediate look at the
     // current balance — funds might already be there).
@@ -95,6 +103,7 @@ class PendingBetAutoFire {
 
   void dispose() {
     _sub.close();
+    _depositSettled?.cancel();
     _stopAwaitPolling();
     AuthGrantRegistry.instance
         .removeAutofireExpiredListener(_onAutofireExpired);
@@ -170,13 +179,17 @@ class PendingBetAutoFire {
     }
   }
 
-  // Active while we're waiting for swapped USDC to land at the Safe. Forces a
-  // fresh on-chain balance read on an interval so the bet fires the moment
-  // funds arrive — even if the cross-chain swap settles minutes later while
-  // the user is off-screen and the 5s position-poll has gone quiet.
+  // Active while we're waiting for swapped USDC to land at the Safe. The
+  // deposit's own path reads the balance and fires the bet the moment the
+  // money lands (onDepositDelivered → depositSettled); this poll is the
+  // safety net behind it (a deposit seen by no order-status poll, an app
+  // that restarted mid-way), so it reads every 15 s, not every 4 s, and
+  // the trading provider's own tick backs off to 30 s meanwhile. Before,
+  // three loops overlapped while a bet waited: this one at 4 s, the
+  // trading poll at 5 s and the order-status poll at 5 s.
   Timer? _awaitPoll;
   DateTime? _awaitStart;
-  static const Duration _kAwaitPollInterval = Duration(seconds: 4);
+  static const Duration _kAwaitPollInterval = Duration(seconds: 15);
   static const Duration _kAwaitMaxWait = Duration(minutes: 12);
 
   Future<void> _maybeFire() async {
@@ -239,6 +252,9 @@ class PendingBetAutoFire {
   void _startAwaitPolling() {
     if (_awaitPoll != null) return;
     _awaitStart = DateTime.now();
+    try {
+      ref.read(polymarketTradingProvider.notifier).setPendingBetWaiting(true);
+    } catch (_) {}
     _awaitPoll = Timer.periodic(_kAwaitPollInterval, (_) async {
       final intent = ref.read(pendingPolymarketBetProvider);
       if (intent == null ||
@@ -281,6 +297,13 @@ class PendingBetAutoFire {
   }
 
   void _stopAwaitPolling() {
+    if (_awaitPoll != null) {
+      try {
+        ref
+            .read(polymarketTradingProvider.notifier)
+            .setPendingBetWaiting(false);
+      } catch (_) {}
+    }
     _awaitPoll?.cancel();
     _awaitPoll = null;
     _awaitStart = null;

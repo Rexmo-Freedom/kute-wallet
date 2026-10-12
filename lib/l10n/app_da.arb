@@ -387,7 +387,6 @@
   "usdEarnNextPaymentIn": "Udbetales om",
   "usdEarnRatePending": "Indlæser",
   "usdEarnRateUnavailable": "Ikke tilgængelig lige nu",
-  "usdEarnPaidToDate": "Udbetalt til dig indtil nu",
   "usdEarnActivityEmpty": "Ingen udbetalinger endnu",
   "usdEarnActivityUnavailable": "Udbetalingshistorikken er ikke tilgængelig lige nu",
   "hlYieldAvailableLine": "{amount} tilgængelig",
@@ -633,6 +632,17 @@
   "passkeyChoiceAppleAccount": "Apple-konto",
   "passkeyChoiceGoogleAccount": "Google-konto",
   "passkeyChoiceCancelled": "Opsætning annulleret. Intet blev oprettet.",
+  "passkeyBackupSyncing": "Synkroniserer din backup…",
+  "passkeyCreateNewTitle": "Ingen adgangsnøgle fundet",
+  "passkeyCreateNewBody": "Intet blev oprettet. Vil du i stedet oprette en ny adgangsnøgle til denne wallet med {method}?",
+  "@passkeyCreateNewBody": {
+    "placeholders": {
+      "method": {
+        "type": "String"
+      }
+    }
+  },
+  "passkeyCreateNewAction": "Opret en ny adgangsnøgle",
   "passkeyChoiceFallbackWords": "Kunne ikke opsætte {method}. Din tegnebog blev i stedet oprettet med gendannelsesord.",
   "biometricFaceId": "Face ID",
   "biometricTouchId": "Touch ID",
@@ -2033,6 +2043,7 @@
   "capabilityAccountRestricted": "Denne funktion er ikke tilgængelig for din konto endnu.",
   "capabilityCountryUnknown": "Kunne ikke bekræfte din region hos Kute. Prøv igen.",
   "capabilityPolicyUnavailable": "Kunne ikke tjekke tilgængelighed hos Kute. Prøv igen.",
+  "capabilityOfflineGrace": "Kute kan ikke nås lige nu. Dette er stadig tilgængeligt ud fra dit seneste tjek.",
   "capabilityUnavailable": "Denne funktion er i øjeblikket ikke tilgængelig i Kute.",
   "leverageCapExceeded": "Gearing over {maxLeverage}x er ikke tilgængelig i din region.",
   "providerRegionRestricted": "{provider} er begrænset i den region, din internetforbindelse ser ud til at være i. Hvis det ikke er der, du er, så tjek dine netværks- eller VPN-indstillinger, og prøv igen.",
@@ -2137,6 +2148,14 @@
   "recoverAddressesStartWith": "Adresser starter med {prefix}",
   "recoverPasskeyCreated": "Oprettet {date}",
   "recoverFoundOnDevice": "Fundet på denne enhed. Tjek, at saldoen ser rigtig ud, før du gendanner.",
+  "recoverOlderVersionSection": "Fra en ældre version på denne telefon",
+  "recoverOlderVersionWallet": "Wallet fra en ældre version",
+  "recoverOlderVersionNeedsPin": "Åbnes med den PIN-kode, den version brugte",
+  "recoverOlderVersionIcloud": "Gemt i iCloud-nøglering",
+  "recoverOlderVersionEnterPin": "Indtast den PIN-kode, den version brugte",
+  "recoverOlderVersionFailed": "Denne kopi kunne ikke gendannes.",
+  "restoreRescueOfferBody": "Kopier af dine wallets fra en ældre version af Kute findes stadig på denne telefon. Vil du bruge dem i stedet for at starte forfra?",
+  "restoreRescueOfferConfirm": "Brug de gemte kopier",
   "recoverConfirmWallet": "Bekræft for at gendanne {wallet}.",
   "btcSetupCreateTitleShort": "Opret ny tegnebog",
   "btcSetupWalletNameHint": "Tegnebogens navn",
@@ -2962,6 +2981,7 @@
   "portfolioStatsActive": "Aktive",
   "portfolioStatsHistoric": "Historik",
   "portfolioStatAtStake": "Beløb på spil",
+  "portfolioProfitLoss": "Gevinst og tab",
   "slipCtaAddTo": "{side, select, long{Øg long · {amount}} other{Øg short · {amount}}}",
   "slipCtaReduce": "{side, select, long{Reducer long · {amount}} other{Reducer short · {amount}}}",
   "slipCtaClose": "{side, select, long{Luk long} other{Luk short}}",

@@ -1,12 +1,14 @@
 import 'dart:async' show unawaited;
 
 import 'package:kute/services/passkey_service.dart';
+import 'package:kute/services/secure/legacy_keychain_rescue.dart';
 import 'package:kute/services/secure/storage_bootstrap.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/recovery/restore_secrets_screen.dart';
 import 'package:kute/helpers/kute_dog_asset.dart';
 import 'package:kute/services/tracking/latency_tracker.dart';
 import 'package:kute/services/tracking_service.dart';
+import 'package:kute/models/settings_model.dart' show WalletConfig;
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
@@ -300,7 +302,26 @@ class _SplashState extends ConsumerState<Splash>
       boot = const StorageBootResult(StorageBootState.storageUnavailable);
     }
     if (!mounted) return;
+
+    if (boot.state == StorageBootState.secretsMissing) {
+      // iOS wallets from some 1.x builds sit in the Keychain under an
+      // accessibility the current store cannot read, which looks exactly
+      // like missing secrets. Look for them before opening the restore
+      // screen: when their PIN material is re-saved, the normal PIN screen
+      // opens instead and the user never sees a restore step.
+      final rescued = await _rescueLegacyKeychain(settings.wallets);
+      if (!mounted) return;
+      if (rescued) {
+        try {
+          boot = await bootstrap.classify(hasWallets: hasAccount);
+        } catch (_) {
+          boot = const StorageBootResult(StorageBootState.storageUnavailable);
+        }
+        if (!mounted) return;
+      }
+    }
     ref.read(storageBootStateProvider.notifier).state = boot.state;
+    // Once per cold start, with the state that decides the route.
     TrackingService.seedStorageState(state: boot.state.name);
 
     switch (boot.state) {
@@ -316,6 +337,19 @@ class _SplashState extends ConsumerState<Splash>
       case StorageBootState.hiveRestoredOld:
       case StorageBootState.bindingMismatch:
         context.go('/open_pin');
+    }
+  }
+
+  /// True when old PIN material was found and re-saved, so a second
+  /// classification can route to the PIN screen. Never throws.
+  Future<bool> _rescueLegacyKeychain(List<WalletConfig> wallets) async {
+    try {
+      return await LegacyKeychainRescue().rescueAtStartup(wallets) ==
+          StartupRescueOutcome.pinScreen;
+    } catch (e, st) {
+      TrackingService.recordHandled(TrackingService.errorCategory(e), e, st,
+          flow: 'app_start', stage: 'legacy_keychain_rescue');
+      return false;
     }
   }
 

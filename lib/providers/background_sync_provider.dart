@@ -8,6 +8,8 @@ import 'package:kute/models/auth_model.dart';
 import 'package:kute/models/balance_model.dart';
 import 'package:kute/models/transactions_model.dart';
 import 'package:kute/providers/balance_provider.dart';
+import 'package:kute/providers/breez_config_provider.dart' show breezSDKProvider;
+import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/providers/breez_provider.dart';
 import 'package:kute/providers/currency_conversions_provider.dart';
 import 'package:kute/helpers/orchestra_router.dart';
@@ -1313,9 +1315,13 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
       )) {
         return;
       }
-      final notifier = ref.read(polymarketTradingProvider.notifier);
-      notifier.invalidateBalanceCache();
-      notifier.wrapIncomingUsdcEToPusd();
+      // One "money arrived" path: convert now, read the balance once, tell
+      // the autofire. Timing from the order's creation is recorded there.
+      unawaited(ref.read(polymarketTradingProvider.notifier).onDepositDelivered(
+        orderId: row.id,
+        createdAt: row.createdAt,
+        route: 'cashapp',
+      ));
     } catch (_) {
       // Delivery remains recorded. The trading flow can wrap USDC.e on
       // demand if this best-effort refresh cannot initialize the account.
@@ -1344,9 +1350,21 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
       )) {
         return;
       }
-      final notifier = ref.read(polymarketTradingProvider.notifier);
-      notifier.invalidateBalanceCache();
-      notifier.wrapIncomingUsdcEToPusd();
+      // One "money arrived" path (see PolymarketTradingNotifier
+      // .onDepositDelivered): convert now rather than on the next watch
+      // tick, read the balance once, refresh the venue's count, fire the
+      // queued bet. Timing created → delivered → wrapped → bettable is
+      // recorded there as durations.
+      final from = row.coinFrom.toUpperCase();
+      unawaited(ref.read(polymarketTradingProvider.notifier).onDepositDelivered(
+        orderId: row.id,
+        createdAt: row.createdAt,
+        route: from == 'BTC'
+            ? 'btc_spending'
+            : isOrchestraUsdLikeCoin(from)
+                ? 'usd'
+                : null,
+      ));
     } catch (_) {
       // Delivery remains recorded. The order path converts USDC.e itself
       // when pUSD alone is short.
@@ -2284,6 +2302,7 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
   /// only from the wallet-detail screen now (see `scanBdkScope`).
   Future<void> performFullUpdate({bool force = true}) async {
     if (ref.read(backgroundSyncInProgressProvider)) return;
+    await holdForBoot();
     try {
       setBackgroundSyncInProgress(true);
       await performSync();
@@ -2301,6 +2320,70 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
       final pmNotifier = ref.read(polymarketTradingProvider.notifier);
       await pmNotifier.refresh();
     } catch (_) {}
+  }
+
+  /// Whether the boot hold has been released in this process.
+  bool _bootHoldReleased = false;
+  Future<void>? _bootHold;
+
+  /// How long at most the first background sync waits for the boot loads.
+  /// A deposit's status poll depends on the sync, so the hold is bounded.
+  @visibleForTesting
+  static Duration bootHoldLimit = const Duration(seconds: 15);
+
+  /// Test seam: the policy service the hold watches.
+  @visibleForTesting
+  static RuntimeCapabilitiesService Function() policyService =
+      () => RuntimeCapabilitiesService.instance;
+
+  /// The first background sync of the process waits until the first
+  /// balance and the policy are in (the cached balance on screen or the
+  /// Spark connect settled, and a policy snapshot loaded), bounded by
+  /// [bootHoldLimit], so its fan-out of fetches does not compete with the
+  /// boot loads on a weak link. Later syncs never wait.
+  Future<void> holdForBoot() {
+    if (_bootHoldReleased) return Future.value();
+    return _bootHold ??= _awaitBootInputs().whenComplete(() {
+      _bootHoldReleased = true;
+      _bootHold = null;
+    });
+  }
+
+  @visibleForTesting
+  static bool bootInputsReady({
+    required bool balanceShown,
+    required bool policyLoaded,
+  }) =>
+      balanceShown && policyLoaded;
+
+  Future<void> _awaitBootInputs() async {
+    final deadline = DateTime.now().add(bootHoldLimit);
+    bool balanceShown() {
+      try {
+        // A cached balance is on screen, or the Spark connect has settled
+        // (with a balance or not), so the hero card is no longer waiting.
+        if (!ref.read(balanceNotifierProvider).isEmpty) return true;
+        return !ref.read(breezSDKProvider).isLoading;
+      } catch (_) {
+        return true;
+      }
+    }
+
+    bool policyLoaded() {
+      try {
+        return policyService().snapshot != null;
+      } catch (_) {
+        return true;
+      }
+    }
+
+    while (DateTime.now().isBefore(deadline)) {
+      if (bootInputsReady(
+          balanceShown: balanceShown(), policyLoaded: policyLoaded())) {
+        return;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+    }
   }
 
   void setBackgroundSyncInProgress(bool inProgress) {

@@ -74,6 +74,40 @@ void main() {
       expect(events, isEmpty);
     });
 
+    test('params attached while running ride on the stop event', () {
+      // Nothing running: attaching is a no-op and emits nothing.
+      LatencyTracker.addParams('app_time_to_first_frame', {'env_ms': 3});
+      expect(events, isEmpty);
+      LatencyTracker.start('app_time_to_first_frame');
+      LatencyTracker.addParams('app_time_to_first_frame',
+          {'env_ms': 3, 'posthog_before_first_frame': 0});
+      LatencyTracker.addParams('app_time_to_first_frame', {'firebase_ms': 40});
+      // A later value for the same name replaces the earlier one.
+      LatencyTracker.addParams('app_time_to_first_frame',
+          {'posthog_ms': 120, 'posthog_before_first_frame': 1});
+      // Explicit stop params win over attached ones.
+      LatencyTracker.stop('app_time_to_first_frame', params: {'env_ms': 5});
+      final (name, params) = events.single;
+      expect(name, 'app_time_to_first_frame');
+      expect(params!['env_ms'], 5);
+      expect(params['firebase_ms'], 40);
+      expect(params['posthog_ms'], 120);
+      expect(params['posthog_before_first_frame'], 1);
+      expect(params.keys, containsAll(['duration_ms', 'duration_bucket']));
+      // Consumed with the measurement: a restart begins clean.
+      LatencyTracker.start('app_time_to_first_frame');
+      LatencyTracker.stop('app_time_to_first_frame');
+      expect(events.last.$2!.keys,
+          unorderedEquals(['duration_ms', 'duration_bucket']));
+      // Cancel drops attached params too.
+      LatencyTracker.start('spark_sync_latency');
+      LatencyTracker.addParams('spark_sync_latency', {'x': 1});
+      LatencyTracker.cancel('spark_sync_latency');
+      LatencyTracker.start('spark_sync_latency');
+      LatencyTracker.stop('spark_sync_latency');
+      expect(events.last.$2!.containsKey('x'), isFalse);
+    });
+
     test('a second stop is a no-op (one event per measurement)', () {
       LatencyTracker.start('app_time_to_first_frame');
       LatencyTracker.stop('app_time_to_first_frame');

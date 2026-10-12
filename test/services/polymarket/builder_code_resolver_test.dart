@@ -147,20 +147,179 @@ void main() {
       expect((await resolver.resolve()).code, code);
     });
 
-    test('a new policy revision or session asks the backend again', () async {
+    test(
+        'a new policy revision keeps the last code for signing and asks the '
+        'backend again for a read that may wait', () async {
       final resolver = build();
       await resolver.resolve();
       expect(calls, 1);
 
       revision = 8;
+      expect(resolver.cachedCode, code, reason: 'signing never waits');
       handler = (_) async =>
           http.Response(jsonEncode({'builderCode': code, 'revision': 8}), 200);
-      expect((await resolver.resolve()).code, code);
+      final read = await resolver.resolve();
+      expect(read.code, code);
+      expect(read.source, BuilderCodeSource.backend);
       expect(calls, 2);
 
+      // A new session with the same revision: the copy answers at once and
+      // the backend is asked in the background.
       session = 'other';
-      await resolver.resolve();
+      final atOnce = await resolver.resolve();
+      expect(atOnce.code, code);
+      expect(atOnce.source, BuilderCodeSource.persisted);
+      await pumpEventQueue();
       expect(calls, 3);
+    });
+
+    test('the device copy answers with no network and no wait', () async {
+      handler = (_) => Completer<http.Response>().future;
+      var persisted = 0;
+      final resolver = PolymarketBuilderCodeResolver(
+        client: () => MockClient((request) {
+          calls++;
+          return handler(request);
+        }),
+        baseUrl: () => 'https://kute.test',
+        revision: () => revision,
+        session: () => session,
+        clock: () => now,
+        timeouts: const [Duration(milliseconds: 20)],
+        loadPersisted: () async => PersistedBuilderCode(code, 7),
+        persist: (_) async => persisted++,
+      );
+      expect(resolver.cachedCode, isNull, reason: 'not hydrated yet');
+      await resolver.hydrate();
+      expect(resolver.cachedCode, code);
+      final resolved = await resolver.resolve();
+      expect(resolved.code, code);
+      expect(resolved.source, BuilderCodeSource.persisted);
+      expect(resolved.attributed, isTrue);
+      // The backend is asked again in the background; its hang changes
+      // nothing about what the order signs with.
+      await pumpEventQueue();
+      expect(calls, 1);
+      expect(resolver.cachedCode, code);
+      expect(persisted, 0);
+    });
+
+    test('a backend answer is kept on the device and read back', () async {
+      PersistedBuilderCode? onDisk;
+      PolymarketBuilderCodeResolver withDisk() => PolymarketBuilderCodeResolver(
+            client: () => MockClient((request) {
+              calls++;
+              return handler(request);
+            }),
+            baseUrl: () => 'https://kute.test',
+            revision: () => revision,
+            session: () => session,
+            clock: () => now,
+            timeouts: const [Duration(milliseconds: 20)],
+            loadPersisted: () async => onDisk,
+            persist: (value) async => onDisk = value,
+          );
+      final first = withDisk();
+      expect(first.cachedCode, isNull);
+      await first.refresh();
+      expect(first.cachedCode, code);
+      expect(onDisk?.code, code);
+      expect(onDisk?.revision, 7);
+
+      // A later run: the copy is there before any request, and an offline
+      // backend leaves it in place.
+      handler = (_) async => throw http.ClientException('offline');
+      final later = withDisk();
+      await later.hydrate();
+      expect(later.cachedCode, code);
+      await later.refresh();
+      expect(later.cachedCode, code);
+      expect((await later.resolve()).code, code);
+    });
+
+    test(
+        'a device copy from an older revision signs at once, while a read '
+        'that may wait gets the new code', () async {
+      final newCode = '0x${'cd' * 32}';
+      handler = (_) async => http.Response(
+          jsonEncode({'builderCode': newCode, 'revision': 7}), 200);
+      final resolver = PolymarketBuilderCodeResolver(
+        client: () => MockClient((request) {
+          calls++;
+          return handler(request);
+        }),
+        baseUrl: () => 'https://kute.test',
+        revision: () => revision,
+        session: () => session,
+        clock: () => now,
+        timeouts: const [Duration(milliseconds: 20)],
+        loadPersisted: () async => PersistedBuilderCode(code, 6),
+        persist: (_) async {},
+      );
+      await resolver.hydrate();
+      expect(resolver.cachedCode, code, reason: 'signing never waits');
+      final resolved = await resolver.resolve();
+      expect(resolved.code, newCode);
+      expect(resolved.source, BuilderCodeSource.backend);
+      expect(resolver.cachedCode, newCode);
+
+      // Offline with only an old-revision copy: the read falls back to it.
+      handler = (_) async => throw http.ClientException('offline');
+      revision = 8;
+      expect((await resolver.resolve()).code, newCode);
+      expect(resolver.cachedCode, newCode);
+    });
+
+    test('the policy snapshot\'s code wins, with no request, and is kept',
+        () async {
+      final policy = '0x${'ef' * 32}';
+      PersistedBuilderCode? onDisk;
+      String? fromPolicy = policy;
+      handler = (_) => Completer<http.Response>().future;
+      final resolver = PolymarketBuilderCodeResolver(
+        client: () => MockClient((request) {
+          calls++;
+          return handler(request);
+        }),
+        baseUrl: () => 'https://kute.test',
+        revision: () => revision,
+        session: () => session,
+        clock: () => now,
+        timeouts: const [Duration(milliseconds: 20)],
+        loadPersisted: () async => PersistedBuilderCode(code, 7),
+        persist: (copy) async => onDisk = copy,
+        policyCode: () => fromPolicy,
+      );
+      expect(resolver.cachedCode, policy);
+      final resolved = await resolver.resolve();
+      expect(resolved.code, policy);
+      expect(resolved.source, BuilderCodeSource.policy);
+      expect(calls, 0);
+      await pumpEventQueue();
+      expect(onDisk?.code, policy);
+      expect(onDisk?.revision, 7);
+
+      // A policy without the code falls back to the device copy (now the
+      // policy's) with no wait.
+      fromPolicy = null;
+      expect(resolver.cachedCode, policy);
+      // The zero code or junk on the policy counts as none.
+      fromPolicy = zero;
+      expect(resolver.cachedCode, policy);
+      fromPolicy = 'nope';
+      expect(resolver.cachedCode, policy);
+    });
+
+    test('refresh inside the failure backoff asks nothing', () async {
+      handler = (_) async => throw http.ClientException('offline');
+      final resolver = build();
+      await resolver.refresh();
+      expect(calls, 1);
+      await resolver.refresh();
+      expect(calls, 1);
+      await resolver.refresh(force: true);
+      expect(calls, 2);
+      expect(resolver.cachedCode, isNull);
     });
 
     test('a new revision also clears a failure backoff', () async {

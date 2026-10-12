@@ -10,6 +10,7 @@ import 'package:hive_ce/hive.dart';
 import 'package:kute/services/passkey_prf_service.dart';
 import 'package:kute/services/passkey_service.dart';
 import 'package:kute/services/secure/flutter_secret_store.dart';
+import 'package:kute/services/tracking_service.dart';
 
 import 'services/support/fake_secret_store.dart';
 
@@ -19,7 +20,8 @@ const manifestKey = 'passkey017_recovery_manifest_v1';
 
 /// Fake Breez client: discovery (`label == null`) answers with [published];
 /// a labelled sign-in derives that label. Every response names
-/// [credential] unless [answerWith] overrides it.
+/// [credential] unless [answerWith] overrides it, or [withoutCredential]
+/// models a platform provider that surfaces no credential at all.
 class _Client implements PasskeyClient {
   _Client(this.published);
 
@@ -27,6 +29,7 @@ class _Client implements PasskeyClient {
   final requests = <SignInRequest>[];
   Uint8List credential = Uint8List.fromList([1, 2, 3]);
   Uint8List? answerWith;
+  bool withoutCredential = false;
   Completer<void>? gate;
 
   @override
@@ -39,7 +42,9 @@ class _Client implements PasskeyClient {
         label: request.label ?? 'Default',
       ),
       labels: request.label == null ? published : const [],
-      credential: PasskeyCredential(credentialId: answerWith ?? credential),
+      credential: withoutCredential
+          ? null
+          : PasskeyCredential(credentialId: answerWith ?? credential),
     );
   }
 
@@ -190,6 +195,94 @@ void main() {
       expect(client.requests, hasLength(1));
       expect(keychain.peek('passkey017_credential_id'), '010203');
       expect(keychain.peek(seedCacheKey('Default', '010203')), isNotNull);
+    });
+  });
+
+  group('restoring without a credential id', () {
+    // The SDK's SignInResponse.credential is nullable: a platform provider
+    // may answer the ceremony without naming the credential. Discovery then
+    // hands recover_choice `credentialId: null`, and the restore must still
+    // leave a device-local seed behind, or every cold start prompts again.
+    test('the seed is cached under the label alone and no pin is stored',
+        () async {
+      final client = _Client(['B · 2'])..withoutCredential = true;
+      PasskeyService.debugSetClient(client);
+      final found = await PasskeyService.discoverWallets();
+      expect(found.credentialId, isNull);
+
+      final wallet = await PasskeyService.getWallet(
+          label: 'B · 2', legacy: false, credentialId: found.credentialId);
+
+      expect(wallet.label, 'B · 2');
+      expect(client.requests, hasLength(2));
+      expect(client.requests.last.allowCredentials, isNull);
+      expect(keychain.peek('passkey017_credential_id'), isNull);
+      expect(keychain.peek(seedCacheKey('B · 2', '')), isNotNull);
+      expect(keychain.keys(options: FakeStoreOptions.synced), isEmpty);
+    });
+
+    test('the next cold start serves that cache without a ceremony',
+        () async {
+      final client = _Client(['B · 2'])..withoutCredential = true;
+      PasskeyService.debugSetClient(client);
+      final found = await PasskeyService.discoverWallets();
+      final restored = await PasskeyService.getWallet(
+          label: 'B · 2', legacy: false, credentialId: found.credentialId);
+      expect(client.requests, hasLength(2));
+
+      // Cold start: memory gone, storage kept.
+      PasskeyService.clearSession();
+      final again =
+          await PasskeyService.getWallet(label: 'B · 2', legacy: false);
+
+      expect(client.requests, hasLength(2));
+      expect(again.label, restored.label);
+      expect(again.seed, restored.seed);
+    });
+
+    test('a pinned ceremony answered without a credential keeps the pin',
+        () async {
+      // Discovery named the credential; the confirmation did not. The pin
+      // is the credential, so it is persisted and keys the cache.
+      final client = _Client(['B · 2']);
+      PasskeyService.debugSetClient(client);
+      final found = await PasskeyService.discoverWallets();
+      client.withoutCredential = true;
+
+      await PasskeyService.getWallet(
+          label: 'B · 2', legacy: false, credentialId: found.credentialId);
+
+      expect(keychain.peek('passkey017_credential_id'), '010203');
+      expect(keychain.peek(seedCacheKey('B · 2', '010203')), isNotNull);
+      expect(keychain.peek(seedCacheKey('B · 2', '')), isNull);
+
+      PasskeyService.clearSession();
+      await PasskeyService.getWallet(label: 'B · 2', legacy: false);
+      expect(client.requests, hasLength(2));
+    });
+
+    test('a failed cache write is reported by kind, and the restore holds',
+        () async {
+      final events = <(String, Map<String, Object>?)>[];
+      TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+      addTearDown(() => TrackingService.debugTrackObserver = null);
+      final client = _Client(['B · 2'])..withoutCredential = true;
+      PasskeyService.debugSetClient(client);
+      keychain.failWrite('local', StateError('locked'),
+          key: seedCacheKey('B · 2', ''));
+
+      final wallet =
+          await PasskeyService.getWallet(label: 'B · 2', legacy: false);
+
+      expect(wallet.label, 'B · 2');
+      expect(keychain.peek(seedCacheKey('B · 2', '')), isNull);
+      final failed =
+          events.where((e) => e.$1 == 'passkey_seed_cache_write_failed');
+      expect(failed, hasLength(1));
+      expect(failed.single.$2, {
+        'error_category': 'StateError',
+        'keyed_by': 'label',
+      });
     });
   });
 

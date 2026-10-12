@@ -1215,9 +1215,6 @@ class AppLocalizationsLt extends AppLocalizations {
   String get usdEarnRateUnavailable => 'Šiuo metu negalima';
 
   @override
-  String get usdEarnPaidToDate => 'Jums iki šiol išmokėta';
-
-  @override
   String get usdEarnActivityEmpty => 'Mokėjimų dar nėra';
 
   @override
@@ -2069,6 +2066,20 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get passkeyChoiceCancelled => 'Sąranka atšaukta. Niekas nesukurta.';
+
+  @override
+  String get passkeyBackupSyncing => 'Sinchronizuojama atsarginė kopija…';
+
+  @override
+  String get passkeyCreateNewTitle => 'Slaptažodžio raktas nerastas';
+
+  @override
+  String passkeyCreateNewBody(String method) {
+    return 'Nieko nesukurta. Sukurti naują slaptažodžio raktą šiai piniginei naudojant $method?';
+  }
+
+  @override
+  String get passkeyCreateNewAction => 'Sukurti naują slaptažodžio raktą';
 
   @override
   String passkeyChoiceFallbackWords(String method) {
@@ -7123,6 +7134,10 @@ class AppLocalizationsLt extends AppLocalizations {
       'Nepavyko patikrinti prieinamumo su Kute. Bandykite dar kartą.';
 
   @override
+  String get capabilityOfflineGrace =>
+      'Šiuo metu Kute nepasiekiamas. Pagal paskutinį patikrinimą tai vis dar prieinama.';
+
+  @override
   String get capabilityUnavailable => 'Ši funkcija Kute šiuo metu negalima.';
 
   @override
@@ -7504,6 +7519,34 @@ class AppLocalizationsLt extends AppLocalizations {
   @override
   String get recoverFoundOnDevice =>
       'Rasta šiame įrenginyje. Prieš atkurdami patikrinkite, ar likutis atrodo teisingas.';
+
+  @override
+  String get recoverOlderVersionSection =>
+      'Iš senesnės versijos šiame telefone';
+
+  @override
+  String get recoverOlderVersionWallet => 'Piniginė iš senesnės versijos';
+
+  @override
+  String get recoverOlderVersionNeedsPin =>
+      'Atidaroma tos versijos naudotu PIN kodu';
+
+  @override
+  String get recoverOlderVersionIcloud => 'Išsaugota „iCloud Keychain“';
+
+  @override
+  String get recoverOlderVersionEnterPin =>
+      'Įveskite tos versijos naudotą PIN kodą';
+
+  @override
+  String get recoverOlderVersionFailed => 'Šios kopijos atkurti nepavyko.';
+
+  @override
+  String get restoreRescueOfferBody =>
+      'Jūsų piniginių kopijos iš senesnės „Kute“ versijos vis dar yra šiame telefone. Naudoti jas, o ne pradėti iš naujo?';
+
+  @override
+  String get restoreRescueOfferConfirm => 'Naudoti išsaugotas kopijas';
 
   @override
   String recoverConfirmWallet(String wallet) {
@@ -10513,6 +10556,9 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get portfolioStatAtStake => 'Statoma suma';
+
+  @override
+  String get portfolioProfitLoss => 'Pelnas ir nuostoliai';
 
   @override
   String slipCtaAddTo(String side, String amount) {

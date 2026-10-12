@@ -3,6 +3,8 @@ import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart' as spark;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/models/breez/deposit_update.dart';
 import 'package:kute/models/breez/sdk_instance.dart';
+import 'package:kute/services/tracking/latency_tracker.dart';
+import 'package:kute/services/tracking_service.dart';
 import 'package:mocktail/mocktail.dart';
 
 class _Sdk extends Mock implements spark.BreezSdk {}
@@ -32,6 +34,78 @@ void main() {
         .thenAnswer(
             (_) async => const spark.ListPaymentsResponse(payments: []));
   }
+
+  test('boot timers: connect and sync are measured once, without overlap',
+      () async {
+    final events = <(String, Map<String, Object>?)>[];
+    TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+    addTearDown(() => TrackingService.debugTrackObserver = null);
+    LatencyTracker.debugReset();
+    final first = _Sdk(), second = _Sdk();
+    final firstEvents = StreamController<spark.SdkEvent>.broadcast();
+    final secondEvents = StreamController<spark.SdkEvent>.broadcast();
+    stub(first, firstEvents.stream, 'first');
+    stub(second, secondEvents.stream, 'second');
+    final queue = [first, second];
+    var connected = false;
+    final wrapper = BreezSdkSpark.forTesting(connectSdk: (_) async {
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      connected = true;
+      return queue.removeAt(0);
+    });
+    final connecting = wrapper.connect(req: request);
+    expect(LatencyTracker.isRunning(LatencyKeys.sparkSync), isFalse,
+        reason: 'sync is timed from the connected handle, not the call');
+    await connecting;
+    expect(connected, isTrue);
+    expect(events.map((e) => e.$1), ['spark_connect_latency']);
+    final (_, connectParams) = events.single;
+    expect(connectParams!['result'], 'ok');
+    expect(connectParams['duration_ms'], greaterThanOrEqualTo(15));
+    expect(LatencyTracker.isRunning(LatencyKeys.sparkSync), isTrue);
+    firstEvents.add(const spark.SdkEvent.synced());
+    await flush();
+    expect(events.map((e) => e.$1),
+        ['spark_connect_latency', 'spark_sync_latency']);
+    // A second synced event and a wallet switch measure nothing more.
+    firstEvents.add(const spark.SdkEvent.synced());
+    await flush();
+    wrapper.disconnect();
+    await wrapper.connect(req: request);
+    secondEvents.add(const spark.SdkEvent.synced());
+    await flush();
+    expect(events, hasLength(2));
+    wrapper.disconnect();
+    await flush();
+    await firstEvents.close();
+    await secondEvents.close();
+  });
+
+  test('a failed boot connect is measured as an error, sync not started',
+      () async {
+    final events = <(String, Map<String, Object>?)>[];
+    TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+    addTearDown(() => TrackingService.debugTrackObserver = null);
+    LatencyTracker.debugReset();
+    final sdk = _Sdk();
+    stub(sdk, const Stream.empty(), 'only');
+    var attempts = 0;
+    final wrapper = BreezSdkSpark.forTesting(connectSdk: (_) async {
+      if (attempts++ == 0) throw StateError('no network');
+      return sdk;
+    });
+    await expectLater(wrapper.connect(req: request), throwsStateError);
+    expect(events.single.$1, 'spark_connect_latency');
+    expect(events.single.$2!['result'], 'error');
+    expect(LatencyTracker.isRunning(LatencyKeys.sparkSync), isFalse);
+    // The retry connects without a second connect measurement and starts
+    // the sync timer.
+    await wrapper.connect(req: request);
+    expect(events, hasLength(1));
+    expect(LatencyTracker.isRunning(LatencyKeys.sparkSync), isTrue);
+    wrapper.disconnect();
+    await flush();
+  });
 
   test('reconnect attaches new native events and never replays old deposits',
       () async {

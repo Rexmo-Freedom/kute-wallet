@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart' show visibleForTesting;
 
+import 'package:kute/services/polymarket/event_trading_over.dart';
 import 'package:kute/services/polymarket/polymarket_category_gate.dart';
 import 'package:kute/services/polymarket/polymarket_feed_cache.dart';
 import 'package:kute/services/polymarket/price_history_disk_cache.dart';
@@ -140,7 +141,8 @@ final polymarketEventsProvider = FutureProvider.autoDispose
       limit: 100,
       preserveApiOrder: true,
     );
-    events = events.where((e) => e.liquidity >= 1000).toList();
+    events =
+        events.where((e) => e.liquidity >= _kHotListLiquidityFloor).toList();
   } else if (category == 'livestream') {
     // Livestream = events broadcasting right now: one read of the events
     // Gamma flags live, kept when they carry a stream (see
@@ -164,7 +166,7 @@ final polymarketEventsProvider = FutureProvider.autoDispose
     final seenIds = <String>{};
     final allEvents = <PolymarketEvent>[];
     for (final e in [...sportsEvents, ...hotEvents, ...generalEvents]) {
-      if (e.liquidity < 5000) continue;
+      if (e.liquidity < _kHotListLiquidityFloor) continue;
       if (seenIds.add(e.id)) allEvents.add(e);
     }
 
@@ -185,7 +187,6 @@ final polymarketEventsProvider = FutureProvider.autoDispose
     events = await readPolyLiveGames();
   } else {
     final tag = _tagMap[category];
-    final bool isDynamicTag = tag == null;
     if (tag != null) {
       events = await model.listEvents(tag: tag, limit: 200);
     } else {
@@ -201,14 +202,10 @@ final polymarketEventsProvider = FutureProvider.autoDispose
         limit: 200,
       );
     }
-    // Liquidity gate. Hardcoded tags (Sports/Crypto/Politics) get the
-    // strict 5k filter because high-volume markets dominate them.
-    // Dynamic tags (Geopolitics, Iran, Weather, Mentions, Middle
-    // East) are niche — many real, valid events sit at $500-$2k
-    // liquidity. Filtering them out would leave the category empty,
-    // which is worse than showing low-liquidity-but-relevant events.
-    final floor = isDynamicTag ? 0 : 5000;
-    events = events.where((e) => e.liquidity >= floor).toList();
+    // No liquidity floor on a category: polymarket.com shows every event
+    // under a tag, and the hotness sort below already sinks thin markets
+    // (see _kHotListLiquidityFloor). The old 5,000 USD floor on the known
+    // tags hid real, open events.
     // Rank each category feed by HOTNESS so the most-active markets lead
     // instead of arriving in raw API order ("random" to the user). Prefer 24h
     // volume (recent activity); fall back to lifetime volume, then liquidity,
@@ -307,40 +304,26 @@ List<PolymarketEvent> _offeredUnderPolicy(
         Ref ref, List<PolymarketEvent> events) =>
     polymarketEventsOffered(events, ref.watch(runtimeCapabilitiesProvider));
 
-/// True when [e] can no longer be bet on: explicitly closed / inactive, or a
-/// binary market whose price has effectively settled at ~0 / ~1 (trading is
-/// over even if Gamma hasn't flipped `closed` yet).
-bool _isEventResolved(PolymarketEvent e) {
-  // `closed` is Gamma's reliable settlement flag and is safe to check FIRST:
-  // Gamma only sets it on true settlement. A market like "US x Iran ceasefire
-  // by …" comes back active:true, ended:false/null, endDate null-or-future, so
-  // none of the other checks fire — only `closed` catches it. Keeping it ahead
-  // of the live-in-play guard is fine because a live game never reads closed.
-  if (e.closed) return true;
-  if (!e.active) return true;
-  // Explicit settlement always wins.
-  if (e.ended) return true;
+/// The liquidity floor of the hot lists (Trending, the home mix; Breaking
+/// keeps its lighter 100 USD with a never-empty fallback). polymarket.com
+/// hides nothing by liquidity, and neither do search or the category lists
+/// (their hotness sort sinks thin markets); the hot lists rank by activity
+/// alone, so a low floor keeps a market nobody can fill from leading them.
+const double _kHotListLiquidityFloor = 1000;
 
-  // A live in-play game (score/period seeded, ended:false) must stay in the
-  // feed even past its scheduled endDate and even at a lopsided price. Sports
-  // games routinely run past endDate (injury time, OT, delayed kickoff), and a
-  // ~0/1 mid-game price is a blowout, not a settled market. This mirrors the
-  // screen's `!e.ended`-only rule and the detail sheet's `_allOutcomesResolved`
-  // guard (`_isSportsMatchEvent && !_sportsGameEnded`).
-  // `isInPlay` leaves out the periods of games that are not running
-  // ("NS", "FT", "VFT", "CAN"), so a finished game past its endDate goes.
-  if (e.isInPlay) return false;
+/// True when [e] can no longer be bet on, by Gamma's flags alone
+/// ([polyTradingOver]): `closed`, `active: false`, `ended`, or every
+/// market in it closed or not accepting orders. A game in play stays
+/// whatever its markets say. A past `endDate` never hides an event: a
+/// market stays open past it until it resolves (the Brazil "who wins"
+/// market kept its first-round date through the runoff), and a lopsided
+/// price is a heavy favourite, not a settled market.
+bool _isEventResolved(PolymarketEvent e) =>
+    polyTradingOver(e, inPlay: e.isInPlay);
 
-  // Ended (resolution date passed) — "Ends in: Closed". No longer bettable.
-  if (e.endDate != null && e.endDate!.isBefore(DateTime.now())) return true;
-  // Do NOT infer "resolved" from a lopsided price. A longshot in an outright
-  // (e.g. a 0.01% team in "Who will win the World Cup", whose No side sits at
-  // ~99.99%) is a live, tradable market — not a settled one. The old
-  // `maxP > 0.97` heuristic wrongly hid ~half the World Cup field (showed only
-  // ~21 of ~48 teams). Real settlement is already caught above by !active /
-  // ended / past-endDate, so a near-1 price alone must keep the market.
-  return false;
-}
+/// [_isEventResolved], for tests of the lists' filter.
+@visibleForTesting
+bool debugPolyEventResolved(PolymarketEvent e) => _isEventResolved(e);
 
 /// Hotness rank for a category feed: most recent activity first. Uses 24h
 /// volume when present (the truest "what's hot right now" signal), falling
@@ -430,15 +413,16 @@ final polymarketSearchProvider = FutureProvider.autoDispose
   final events = await model.searchEvents(query.trim());
   return _offeredUnderPolicy(
       ref,
+      // No liquidity floor: search shows what polymarket.com shows, most
+      // traded first (the model orders the page by event volume).
       events
-          .where((e) => e.liquidity >= 1000)
           .where((e) => !RegExp(r'-updown-5m-').hasMatch(e.slug.toLowerCase()))
-          // Search bypassed the resolved filter entirely. `_serverSearch` hits
-          // /public-search with events_status:'active', and a settled market stays
-          // active:true for a while, so the server filter lets it through — this
-          // client-side `_isEventResolved` (now keyed off the parsed `closed`
-          // flag) is what removes it so a resolved market never opens a slip the
-          // CLOB rejects.
+          // `_serverSearch` hits /public-search with events_status:'active',
+          // and a settled market stays active:true for a while, so the server
+          // filter lets it through — this client-side `_isEventResolved`
+          // (the parsed `closed` / `ended` / `marketsClosed` flags) is what
+          // removes it so a resolved market never opens a slip the CLOB
+          // rejects.
           .where((e) => !_isEventResolved(e))
           .toList());
 });

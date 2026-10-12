@@ -172,9 +172,13 @@ class _TrailingStopState extends ConsumerState<HlTrailingStopSheet> {
       if (widget.ledger && result != null) {
         // The hot path reports from the trading notifier; a Ledger order
         // never touches it, so its placement is reported here.
+        // offeredMaxLeverage is at least 1, so the bounds never cross on
+        // a market that reports no leverage.
         final lev = widget.market.isSpot
             ? 1
-            : widget.leverage.clamp(1, widget.market.maxLeverage).toInt();
+            : widget.leverage
+                .clamp(1, widget.market.offeredMaxLeverage)
+                .toInt();
         final notional = widget.size * price;
         TrackingService.hyperliquidOrderPlaced(
           coin: widget.market.coin,

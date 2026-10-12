@@ -39,8 +39,13 @@ void main() {
   test('one object, a heartbeat, a malformed frame, an unknown event', () {
     expect(polymarketWsMessagesOf(jsonEncode(_book('a'))).single.assetId, 'a');
     expect(polymarketWsMessagesOf('PONG'), isEmpty);
-    expect(polymarketWsMessagesOf('{"event_type":"tick_size_change"}'),
-        isEmpty);
+    expect(polymarketWsMessagesOf('{"event_type":"unknown_event"}'), isEmpty);
+    final tick = polymarketWsMessagesOf(
+            '{"event_type":"tick_size_change","asset_id":"a",'
+            '"old_tick_size":"0.01","new_tick_size":"0.001"}')
+        .single as PolymarketTickSizeChangeMessage;
+    expect((tick.assetId, tick.oldTickSize, tick.newTickSize),
+        ('a', '0.01', '0.001'));
     expect(polymarketWsMessagesOf('[{"event_type":"book","bids":"x"}]'),
         isEmpty);
   });

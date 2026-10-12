@@ -387,7 +387,6 @@
   "usdEarnNextPaymentIn": "Zahlung in",
   "usdEarnRatePending": "Wird geladen",
   "usdEarnRateUnavailable": "Gerade nicht verfügbar",
-  "usdEarnPaidToDate": "Bisher an dich ausgezahlt",
   "usdEarnActivityEmpty": "Noch keine Zahlungen",
   "usdEarnActivityUnavailable": "Zahlungsverlauf ist gerade nicht verfügbar",
   "hlYieldAvailableLine": "{amount} verfügbar",
@@ -633,6 +632,17 @@
   "passkeyChoiceAppleAccount": "Apple-Konto",
   "passkeyChoiceGoogleAccount": "Google-Konto",
   "passkeyChoiceCancelled": "Einrichtung abgebrochen. Es wurde nichts erstellt.",
+  "passkeyBackupSyncing": "Backup wird synchronisiert…",
+  "passkeyCreateNewTitle": "Kein Passkey gefunden",
+  "passkeyCreateNewBody": "Es wurde nichts erstellt. Stattdessen einen neuen Passkey für dieses Wallet mit {method} erstellen?",
+  "@passkeyCreateNewBody": {
+    "placeholders": {
+      "method": {
+        "type": "String"
+      }
+    }
+  },
+  "passkeyCreateNewAction": "Neuen Passkey erstellen",
   "passkeyChoiceFallbackWords": "{method} konnte nicht eingerichtet werden. Dein Wallet wurde stattdessen mit Wiederherstellungswörtern erstellt.",
   "biometricFaceId": "Face ID",
   "biometricTouchId": "Touch ID",
@@ -2033,6 +2043,7 @@
   "capabilityAccountRestricted": "Diese Funktion ist für dein Konto noch nicht verfügbar.",
   "capabilityCountryUnknown": "Deine Region konnte bei Kute nicht geprüft werden. Bitte versuche es erneut.",
   "capabilityPolicyUnavailable": "Die Verfügbarkeit konnte bei Kute nicht geprüft werden. Bitte versuche es erneut.",
+  "capabilityOfflineGrace": "Kute ist gerade nicht erreichbar. Das ist laut deiner letzten Prüfung weiterhin verfügbar.",
   "capabilityUnavailable": "Diese Funktion ist in Kute derzeit nicht verfügbar.",
   "leverageCapExceeded": "Ein Hebel über {maxLeverage}x ist in deiner Region nicht verfügbar.",
   "providerRegionRestricted": "{provider} ist in der Region eingeschränkt, in der sich deine Internetverbindung zu befinden scheint. Wenn du nicht dort bist, prüfe dein Netzwerk oder deine VPN-Einstellungen und versuche es erneut.",
@@ -2137,6 +2148,14 @@
   "recoverAddressesStartWith": "Adressen beginnen mit {prefix}",
   "recoverPasskeyCreated": "Erstellt am {date}",
   "recoverFoundOnDevice": "Auf diesem Gerät gefunden. Prüfe vor dem Wiederherstellen, ob das Guthaben stimmt.",
+  "recoverOlderVersionSection": "Aus einer älteren Version auf diesem Telefon",
+  "recoverOlderVersionWallet": "Wallet aus einer älteren Version",
+  "recoverOlderVersionNeedsPin": "Öffnet sich mit der PIN dieser Version",
+  "recoverOlderVersionIcloud": "In der iCloud-Schlüsselbund gesichert",
+  "recoverOlderVersionEnterPin": "Gib die PIN ein, die diese Version benutzt hat",
+  "recoverOlderVersionFailed": "Diese Kopie konnte nicht wiederhergestellt werden.",
+  "restoreRescueOfferBody": "Kopien deiner Wallets aus einer älteren Kute-Version sind noch auf diesem Telefon. Sie verwenden, statt neu anzufangen?",
+  "restoreRescueOfferConfirm": "Gesicherte Kopien verwenden",
   "recoverConfirmWallet": "Bestätige, um {wallet} wiederherzustellen.",
   "btcSetupCreateTitleShort": "Neues Wallet erstellen",
   "btcSetupWalletNameHint": "Wallet-Name",
@@ -2962,6 +2981,7 @@
   "portfolioStatsActive": "Aktiv",
   "portfolioStatsHistoric": "Verlauf",
   "portfolioStatAtStake": "Eingesetzter Betrag",
+  "portfolioProfitLoss": "Gewinn und Verlust",
   "slipCtaAddTo": "{side, select, long{Long aufstocken · {amount}} other{Short aufstocken · {amount}}}",
   "slipCtaReduce": "{side, select, long{Long reduzieren · {amount}} other{Short reduzieren · {amount}}}",
   "slipCtaClose": "{side, select, long{Long schließen} other{Short schließen}}",

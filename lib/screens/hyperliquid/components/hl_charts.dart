@@ -176,6 +176,12 @@ double _hlPriceAreaHeight(double height, bool showVolume) =>
 }) {
   final priceH = _hlPriceAreaHeight(height, showVolume);
   final morphing = morphSeries != null && morphSeries.isNotEmpty;
+  if (candles.isEmpty && !morphing) {
+    // Nothing to fit (a tape that emptied between layout and paint):
+    // a unit domain keeps every mapping finite instead of asking an
+    // empty list for its first bar.
+    return (priceH: priceH, loP: 0.0, rangeP: 1.0, log: false);
+  }
   if (domain != null && !morphing) {
     final span = domain.hi - domain.lo;
     return (
@@ -927,9 +933,13 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
     final startBars = _pinchStartBars ?? widget.candles.length;
     if (startDistance <= 0 || startBars <= 0) return;
     final total = widget.candles.length;
+    if (total == 0) return;
     // Fingers apart → fewer bars (zoom in); together → more (zoom out).
     final scale = (distance / startDistance).clamp(0.05, 20.0);
-    var bars = (startBars / scale).round().clamp(_minViewBars, total);
+    // A tape shorter than the minimum view (a market listed minutes
+    // ago) shows all of it; the bounds must never cross.
+    final minBars = math.min(_minViewBars, total);
+    var bars = (startBars / scale).round().clamp(minBars, total).toInt();
     // Sliding both fingers pans the window by whole bars.
     final slot = chartWidth > 0 ? chartWidth / bars : 0.0;
     final panBars = slot > 0
@@ -1357,7 +1367,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
   /// Crosshair scrub at [dx] (outside editing mode it starts with a long
   /// press, TradingView style, so a plain drag can pan the chart).
   void _scrubAt(double dx, double chartWidth, int dataLen) {
-    if (dataLen == 0) return;
+    if (dataLen == 0 || chartWidth <= 0) return;
     // A scrub takes over the plot: the marker tooltip gets out of its way.
     _dismissFillTip();
     final x = dx.clamp(0.0, chartWidth);
@@ -1812,6 +1822,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
       final offsets = [
         for (final point in _draggedOriginal!.points) geom.offsetFor(point),
       ];
+      if (offsets.isEmpty) return;
       final left = offsets.map((p) => p.dx).reduce(math.min);
       final right = offsets.map((p) => p.dx).reduce(math.max);
       final top = offsets.map((p) => p.dy).reduce(math.min);
@@ -2868,6 +2879,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
   /// under two days shows the clock time, with the day on the first
   /// label, and a longer window shows dates.
   Widget _dateAxis(AppColorsExtension c, List<HyperliquidCandle> candles) {
+    if (candles.isEmpty) return SizedBox(height: 16.h);
     final span = candles.last.openTime.difference(candles.first.openTime);
     final intraday = span < const Duration(days: 2);
     final multiYear = span > const Duration(days: 365);
@@ -2881,6 +2893,11 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
       final w = constraints.maxWidth;
       final n = candles.length;
       final labels = <Widget>[];
+      // A label is 80.w wide; on a chart narrower than that the label
+      // simply sits at the left edge (the upper bound can never go below
+      // the lower one, which num.clamp throws on).
+      final labelW = 80.w;
+      final maxLeft = math.max(0.0, w - labelW);
       for (final fraction in const [0.08, 0.36, 0.64, 0.92]) {
         final index = (fraction * n).floor().clamp(0, n - 1);
         final time = candles[index].openTime.toLocal();
@@ -2892,10 +2909,10 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                 ? DateFormat.yMMM(locale).format(time)
                 : DateFormat.MMMd(locale).format(time);
         // Bar centre; the label is centred on it and kept on screen.
-        final x = ((index + 0.5) * w / n).clamp(0.0, w);
+        final x = ((index + 0.5) * w / n).clamp(0.0, math.max(0.0, w));
         labels.add(Positioned(
-          left: (x - 40.w).clamp(0.0, w - 80.w),
-          width: 80.w,
+          left: (x - labelW / 2).clamp(0.0, maxLeft),
+          width: labelW,
           top: 0,
           child: Text(text, textAlign: TextAlign.center, style: style),
         ));

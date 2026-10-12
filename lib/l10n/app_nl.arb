@@ -387,7 +387,6 @@
   "usdEarnNextPaymentIn": "Betaalt over",
   "usdEarnRatePending": "Laden",
   "usdEarnRateUnavailable": "Nu niet beschikbaar",
-  "usdEarnPaidToDate": "Tot nu toe aan jou betaald",
   "usdEarnActivityEmpty": "Nog geen uitbetalingen",
   "usdEarnActivityUnavailable": "Betaalgeschiedenis is nu niet beschikbaar",
   "hlYieldAvailableLine": "{amount} beschikbaar",
@@ -633,6 +632,17 @@
   "passkeyChoiceAppleAccount": "Apple-account",
   "passkeyChoiceGoogleAccount": "Google-account",
   "passkeyChoiceCancelled": "Instellen geannuleerd. Er is niets aangemaakt.",
+  "passkeyBackupSyncing": "Je back-up wordt gesynchroniseerd…",
+  "passkeyCreateNewTitle": "Geen passkey gevonden",
+  "passkeyCreateNewBody": "Er is niets aangemaakt. In plaats daarvan een nieuwe passkey voor deze wallet maken met {method}?",
+  "@passkeyCreateNewBody": {
+    "placeholders": {
+      "method": {
+        "type": "String"
+      }
+    }
+  },
+  "passkeyCreateNewAction": "Nieuwe passkey maken",
   "passkeyChoiceFallbackWords": "Kan {method} niet instellen. Je wallet is in plaats daarvan met herstelwoorden aangemaakt.",
   "biometricFaceId": "Face ID",
   "biometricTouchId": "Touch ID",
@@ -2033,6 +2043,7 @@
   "capabilityAccountRestricted": "Deze functie is nog niet beschikbaar voor je account.",
   "capabilityCountryUnknown": "Kute kan je regio niet verifiëren. Probeer het opnieuw.",
   "capabilityPolicyUnavailable": "Kute kan de beschikbaarheid niet controleren. Probeer het opnieuw.",
+  "capabilityOfflineGrace": "Kute is op dit moment niet bereikbaar. Dit is nog steeds beschikbaar op basis van je laatste controle.",
   "capabilityUnavailable": "Deze functie is momenteel niet beschikbaar in Kute.",
   "leverageCapExceeded": "Een hefboom boven {maxLeverage}x is niet beschikbaar in je regio.",
   "providerRegionRestricted": "{provider} is beperkt in de regio waar je internetverbinding lijkt te zijn. Ben je daar niet? Controleer je netwerk- of VPN-instellingen en probeer het opnieuw.",
@@ -2137,6 +2148,14 @@
   "recoverAddressesStartWith": "Adressen beginnen met {prefix}",
   "recoverPasskeyCreated": "Aangemaakt op {date}",
   "recoverFoundOnDevice": "Gevonden op dit apparaat. Controleer of het saldo klopt voordat je herstelt.",
+  "recoverOlderVersionSection": "Van een oudere versie op deze telefoon",
+  "recoverOlderVersionWallet": "Wallet van een oudere versie",
+  "recoverOlderVersionNeedsPin": "Opent met de pincode die die versie gebruikte",
+  "recoverOlderVersionIcloud": "Opgeslagen in iCloud-sleutelhanger",
+  "recoverOlderVersionEnterPin": "Voer de pincode in die die versie gebruikte",
+  "recoverOlderVersionFailed": "Deze kopie kon niet worden hersteld.",
+  "restoreRescueOfferBody": "Er staan nog kopieën van je wallets uit een oudere versie van Kute op deze telefoon. Deze gebruiken in plaats van opnieuw te beginnen?",
+  "restoreRescueOfferConfirm": "Opgeslagen kopieën gebruiken",
   "recoverConfirmWallet": "Bevestig om {wallet} te herstellen.",
   "btcSetupCreateTitleShort": "Nieuwe wallet aanmaken",
   "btcSetupWalletNameHint": "Naam wallet",
@@ -2962,6 +2981,7 @@
   "portfolioStatsActive": "Actief",
   "portfolioStatsHistoric": "Historie",
   "portfolioStatAtStake": "Ingezet bedrag",
+  "portfolioProfitLoss": "Winst en verlies",
   "slipCtaAddTo": "{side, select, long{long vergroten · {amount}} other{short vergroten · {amount}}}",
   "slipCtaReduce": "{side, select, long{long verkleinen · {amount}} other{short verkleinen · {amount}}}",
   "slipCtaClose": "{side, select, long{long sluiten} other{short sluiten}}",
