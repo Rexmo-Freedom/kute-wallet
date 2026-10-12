@@ -26,7 +26,9 @@ HlMarket _m(String coin,
       dayNtlVlm: volume,
     );
 
-Future<void> _settle() => Future<void>.delayed(const Duration(milliseconds: 60));
+/// Waits for the watchlist's load and saves, however slow the disk is.
+Future<void> _settle(ProviderContainer c) =>
+    c.read(hlWatchlistProvider.notifier).idle;
 
 void main() {
   late Directory dir;
@@ -44,19 +46,19 @@ void main() {
   test('stars newest first, unstars, and survives a restart', () async {
     final container = ProviderContainer();
     final notifier = container.read(hlWatchlistProvider.notifier);
-    await _settle();
+    await _settle(container);
     expect(notifier.toggle(_m('BTC')), isTrue);
     expect(notifier.toggle(_m('TSLA', wire: 'xyz:TSLA')), isTrue);
     expect(container.read(hlWatchlistProvider), ['perp:xyz:TSLA', 'perp:BTC']);
     expect(notifier.contains(_m('BTC')), isTrue);
     expect(notifier.toggle(_m('BTC')), isFalse);
     expect(container.read(hlWatchlistProvider), ['perp:xyz:TSLA']);
-    await _settle();
+    await _settle(container);
     container.dispose();
 
     final again = ProviderContainer();
     again.read(hlWatchlistProvider);
-    await _settle();
+    await _settle(again);
     expect(again.read(hlWatchlistProvider), ['perp:xyz:TSLA']);
     again.dispose();
   });
@@ -75,16 +77,16 @@ void main() {
 
     final container = ProviderContainer();
     container.read(hlWatchlistProvider);
-    await _settle();
+    await _settle(container);
     expect(container.read(hlWatchlistProvider), ['perp:BTC', 'spot:@142']);
     // Unstarring one must stick: the old box is not read back in.
     container.read(hlWatchlistProvider.notifier).toggle(_m('BTC'));
-    await _settle();
+    await _settle(container);
     container.dispose();
 
     final again = ProviderContainer();
     again.read(hlWatchlistProvider);
-    await _settle();
+    await _settle(again);
     expect(again.read(hlWatchlistProvider), ['spot:@142']);
     again.dispose();
   });
