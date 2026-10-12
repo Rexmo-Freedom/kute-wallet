@@ -18,6 +18,12 @@ import 'package:kute/screens/shared/orchestra_fee_summary.dart';
 // the typed amount maps onto the historical 0..1 `_ratio` of the
 // max-convertible balance, so the dispatch matrix below is untouched.
 //
+// The Dollar deposit door (the Investments dock's Deposit) is also the
+// home of Receive: its From picker leads with a Receive row that closes
+// the sheet and opens the Dollars receive screen (an address for
+// whatever coin is being sent, dollars land), over the ways to pay
+// (Bitcoin, Cash App while the policy offers it).
+//
 // Routing under the hood:
 //   - BTC → USDC: Spark sends sats; Orchestra (Flashnet) delivers
 //     **native** USDC on Polygon directly into the user's Safe.
@@ -1691,6 +1697,19 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       widget.venueWalletId != null ||
       (_lockedSide == MoveLockedSide.depositFromFiat &&
           !_dollarsSourceAllowed);
+
+  /// Receive picked on the Investments deposit's From picker: the
+  /// Dollars receive screen (its own route, `receiveDollars`) in this
+  /// sheet's place — the sheet closes, the way a deposit paid another
+  /// way would not have kept it either. The picker has already popped
+  /// itself. `usd_receive_opened` fires from the screen's initState with
+  /// the entry source marked here.
+  void _openReceive() {
+    final router = GoRouter.of(context);
+    TrackingService.markEntrySource('usd_receive', 'deposit_sheet');
+    Navigator.of(context).pop();
+    router.pushNamed('receiveDollars');
+  }
 
   /// A buy door whose payment rails are all withheld and that has no
   /// natural source ([_noNaturalSource]) has no purpose left: the door
@@ -6037,6 +6056,14 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       fiatSource: _sourceFiat,
       cashAppSource: _sourceCashApp,
       lockedSide: _lockedSide,
+      // Receive leads the Investments deposit's From picker: the dock's
+      // Receive moved here (owner decision, October 2026). A venue door
+      // or a Ledger move has no receive address to show.
+      onPickReceive: _lockedSide == MoveLockedSide.depositToUsd &&
+              !_isLedgerMove &&
+              !_processing
+          ? _openReceive
+          : null,
       onSwap: () {
         HapticFeedback.selectionClick();
         if (_isLedgerMove) {
@@ -6729,6 +6756,11 @@ class _DirectionToggle extends ConsumerWidget {
   /// true, its bitcoin (the default) when it is false.
   final void Function({required bool dollars}) onPickWithdrawDestination;
 
+  /// Receive picked as the way in: the Dollars receive screen (an
+  /// address for whatever coin is being sent, dollars land). Set on the
+  /// Investments deposit door only; null draws no row.
+  final VoidCallback? onPickReceive;
+
   const _DirectionToggle({
     this.venueWalletName,
     this.ledgerContext = false,
@@ -6754,6 +6786,7 @@ class _DirectionToggle extends ConsumerWidget {
     required this.onPickCashApp,
     required this.onPickDollarsSource,
     required this.onPickWithdrawDestination,
+    this.onPickReceive,
   });
 
   /// The two venue cash-outs. Their lock pins the SOURCE, so the To row
@@ -6858,6 +6891,21 @@ class _DirectionToggle extends ConsumerWidget {
           : context.l10n.moveMoveFrom,
       hint: (policy) => pickerHint(cashAppOffered(policy)),
       rows: (sheetCtx, policy) => [
+        // Receive FIRST on the Investments deposit door: the Dollars
+        // receive screen the dock's Receive used to open (owner
+        // decision, October 2026). It wears the dock's inflow arrow and
+        // the receive screen's own opening line; it is a way in, not a
+        // source to pay from, so it never reads "selected".
+        if (onPickReceive != null)
+          _PickerRow(
+            icon: Icons.south_west_rounded,
+            title: context.l10n.receive,
+            subtitle: context.l10n.usdReceivePickCoin,
+            onTap: () {
+              Navigator.of(sheetCtx).pop();
+              onPickReceive!();
+            },
+          ),
         // Spending bitcoin: the venue deposits and the Dollar deposit.
         // Their other side is a venue or the dollars, never spending
         // bitcoin itself, so the row is never "in use".

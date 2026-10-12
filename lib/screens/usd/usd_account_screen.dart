@@ -14,8 +14,7 @@
 //     Predictions", "$12.40 coming back from Investing", "Incoming
 //     $20.00", "$0.60 unavailable until balancing completes"), so money in flight is never
 //     hidden;
-//   * the Investments deposit door under it, wearing the dollar coin;
-//   * one pill row under that, Investing · Predictions · Portfolio, the
+//   * one pill row under it, Investing · Predictions · Portfolio, the
 //     same pills the Home strip uses a step bigger ([KutePillSize.large]),
 //     each wearing a glyph of the one icon family the top tabs used
 //     (rising trend, ring, pie), over an IndexedStack of the existing
@@ -24,19 +23,23 @@
 //     Portfolio screen exactly as it is pushed (same tabs and
 //     drill-down). Earn is a section of the Portfolio's Statistics tab
 //     (open_investments_screen.dart), no longer a pill here;
-//   * the same dock as before — Receive on the left, Send on the right,
-//     search in the square — with the search scoped to the pill on
-//     screen: the venue's own markets on Investing and Predictions, this
-//     account's activity on Portfolio.
+//   * the dock — Deposit on the left, Send on the right, search in the
+//     square — with the search scoped to the pill on screen: the venue's
+//     own markets on Investing and Predictions, this account's activity
+//     on Portfolio. Deposit is the ONE way to fund this balance (owner
+//     decision, October 2026: the full-width door under the hero is
+//     gone, the dock carries it): it opens the Investments deposit sheet,
+//     whose From picker leads with Receive — the Dollars receive screen
+//     the dock's own Receive used to open — over Bitcoin and Cash App.
 //
 // THE WHOLE PAGE SCROLLS AS ONE, on every pill, AND THE CHROME COLLAPSES
 // (owner decision October 2026: "Investing and Predictions become the
-// main thing"). The hero, the door and the pills are ONE pinned
+// main thing"). The hero and the pills are ONE pinned
 // [SliverPersistentHeader] of a [NestedScrollView]; the pill on screen is
 // its body, and each embedded screen's own list scrolls inside it
 // through the primary scroll controller. Scrolling down shrinks the
-// header from its expanded height (measured from the hero, the door and
-// the large pills, so the in-flight lines never clip) to a compact
+// header from its expanded height (measured from the hero and the large
+// pills, so the in-flight lines never clip) to a compact
 // pinned bar ([_InvestmentsCompactBar]): a small copy of the total over
 // the same pills a step smaller, the one on screen highlighted, and a
 // chevron at its right end. The total scales down and fades as it
@@ -66,9 +69,10 @@
 // ([investmentsTabLocation]), and the dock's Portfolio action on a venue
 // screen switches the pill instead of pushing.
 //
-// Receive opens the coin picker off the Orchestra route list, pointed at
-// this balance: whatever coin the money arrives in, dollars land. Send is
-// its own screen (usd_send_screen.dart), pointed the other way. A Ledger
+// Receive (the deposit sheet's first option) opens the coin picker off
+// the Orchestra route list, pointed at this balance: whatever coin the
+// money arrives in, dollars land. Send is its own screen
+// (usd_send_screen.dart), pointed the other way. A Ledger
 // account is not part of this: it keeps its own Investing and Predictions
 // tabs of the strip, with its own screens, buttons and layout.
 //
@@ -84,10 +88,8 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:go_router/go_router.dart';
 
 import 'package:kute/l10n/l10n.dart';
-import 'package:kute/providers/asset_icon_provider.dart' show kUsdMarkAsset;
 import 'package:kute/providers/hyperliquid_account_provider.dart'
     show hyperliquidAccountProvider;
 import 'package:kute/providers/hyperliquid_sats_pnl_provider.dart'
@@ -107,7 +109,6 @@ import 'package:kute/screens/hyperliquid/hyperliquid_screen.dart';
 import 'package:kute/screens/polymarket/polymarket_screen.dart';
 import 'package:kute/screens/portfolio/open_investments_screen.dart';
 import 'package:kute/screens/search/unified_search_screen.dart';
-import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/investment_balance_header.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show kuteReduceMotion;
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
@@ -121,14 +122,17 @@ import 'package:kute/theme/app_theme.dart';
 /// Source key for every event this surface emits.
 const String kUsdSurfaceSource = 'usd';
 
+/// Where the deposit sheet is opened from when the dock's Deposit opens
+/// it: the move flow's `entry_source`.
+const String kUsdDockSource = 'usd_dock';
+
 /// The compact pinned bar's height, in design units: the small total line
 /// over the compact pills, with the bar's own air.
 const double kInvestmentsCompactBarHeight = 6 + 20 + 6 + 28 + 8;
 
 /// The expanded header's height until its first layout reports the real
-/// one (design units): the hero with its split line, the door and the
-/// large pills.
-const double _kExpandedHeaderEstimate = 236;
+/// one (design units): the hero with its split line and the large pills.
+const double _kExpandedHeaderEstimate = 158;
 
 /// The Investments pills, in strip order. [key] is the analytics value
 /// and the `?tab=` query value, fixed English so a pill reads the same in
@@ -231,8 +235,8 @@ class _UsdAccountScreenState extends ConsumerState<UsdAccountScreen> {
   }
 }
 
-/// The hero, the deposit door and the pill row as the page's header
-/// slivers; the pill's screen as its body (see the file header).
+/// The hero and the pill row as the page's header slivers; the pill's
+/// screen as its body (see the file header).
 class InvestmentsBody extends ConsumerStatefulWidget {
   const InvestmentsBody({super.key});
 
@@ -256,8 +260,8 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
   double _navAccum = 0;
 
   /// The expanded header's height as its last layout measured it (the
-  /// hero with whatever lines it carries, the door and the large pills);
-  /// zero until the first layout. The collapse runs over this minus the
+  /// hero with whatever lines it carries and the large pills); zero
+  /// until the first layout. The collapse runs over this minus the
   /// compact bar.
   double _expandedExtent = 0;
 
@@ -440,8 +444,8 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
           physics: const AlwaysScrollableScrollPhysics(
               parent: BouncingScrollPhysics()),
           headerSliverBuilder: (context, _) => [
-            // The hero, the door and the pills as one collapsing header
-            // (see the file header), pinned as the compact bar.
+            // The hero and the pills as one collapsing header (see the
+            // file header), pinned as the compact bar.
             SliverPersistentHeader(
               pinned: true,
               delegate: _InvestmentsHeaderDelegate(
@@ -483,8 +487,8 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
   }
 }
 
-/// The collapsing header (see the file header): the hero, the door and
-/// the large pills at [expandedExtent], the compact bar at
+/// The collapsing header (see the file header): the hero and the large
+/// pills at [expandedExtent], the compact bar at
 /// [compactExtent], and the blend between them driven by the shrink
 /// offset. The strip's own background, so the list frosts under nothing.
 ///
@@ -563,14 +567,11 @@ class _InvestmentsHeaderDelegate extends SliverPersistentHeaderDelegate {
                           oneBalance: true,
                         ),
                       ),
-                      Padding(
-                        padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 10.h),
-                        child: const _InvestmentsPrimaryActions(),
-                      ),
                       // The Home strip's pills, a step bigger, on the
-                      // strip's inset with 12.h of air under them.
+                      // strip's inset with 12.h of air above (where the
+                      // deposit door used to sit) and under them.
                       Padding(
-                        padding: EdgeInsets.fromLTRB(12.w, 0, 12.w, 12.h),
+                        padding: EdgeInsets.fromLTRB(12.w, 12.h, 12.w, 12.h),
                         child: KutePillTabs(
                           items: items,
                           selectedIndex: selectedIndex,
@@ -756,42 +757,28 @@ class _RenderMeasureHeight extends RenderProxyBox {
   }
 }
 
-/// The Investments deposit door, full width, with nothing beside it: the
-/// ONE way to fund this balance. Every way of funding it is the same door
-/// wearing the same name and the same mark — the dollar coin
-/// ([kUsdMarkAsset]), as the Dollars deposit button wore it — opening
+/// The Investments dock, in the Bitcoin dock's shape: money in on the
+/// left, Send on the right, search in the square.
+///
+/// DEPOSIT is the ONE way to fund this balance (owner decision, October
+/// 2026, replacing the full-width door under the hero). It wears the
+/// dock's inflow arrow — a dock action takes a glyph, so the dollar coin
+/// the door wore stays on the sheet's own rows — and opens
 /// [MoveLockedSide.depositToUsd] with the destination pinned here and
 /// the source left pickable, so bitcoin and Cash App (while the policy
 /// offers it) are ways to pay for a deposit rather than doors of their
 /// own. It is a deposit into Dollars, not into a venue: the venues have
-/// no deposit door at all.
-class _InvestmentsPrimaryActions extends StatelessWidget {
-  const _InvestmentsPrimaryActions();
-
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: EdgeInsets.only(top: 12.h),
-        child: AppButton(
-          text: context.l10n.dollarDeposit,
-          svgAsset: kUsdMarkAsset,
-          onPressed: () {
-            TrackingService.quickAction('dollar_deposit',
-                source: kUsdSurfaceSource);
-            TrackingService.markEntrySource('move', kUsdSurfaceSource);
-            showDepositSheet(context, lockedSide: MoveLockedSide.depositToUsd);
-          },
-        ),
-      );
-}
-
-/// The Investments dock — the Bitcoin dock's verbs in the Bitcoin dock's
-/// order: Receive on the left, Send on the right, search in the square.
+/// no deposit door at all. The dock emits the door's own
+/// `quick_action_tapped` (`dollar_deposit`) under this surface's
+/// source; the move flow's entry source is [kUsdDockSource].
 ///
-/// RECEIVE is live. The dollar token is a first-class Orchestra asset,
-/// so the same reusable deposit address the Bitcoin screen mints for a
-/// cross-asset receive can be minted pointed at the dollar balance
-/// instead: the user picks which coin the money is coming in as —
-/// bitcoin included, it is an ordinary source here — and Orchestra
+/// RECEIVE moved into that sheet, as the first option of its From
+/// picker: the Dollars receive screen (usd_receive_screen.dart) the
+/// dock used to open itself. The dollar token is a first-class Orchestra
+/// asset, so the same reusable deposit address the Bitcoin screen mints
+/// for a cross-asset receive can be minted pointed at the dollar
+/// balance instead: the user picks which coin the money is coming in as
+/// — bitcoin included, it is an ordinary source here — and Orchestra
 /// converts it on the way in. The picked coin's own deposit address is
 /// what the QR shows; the dollars land on the wallet's Spark address.
 ///
@@ -831,6 +818,22 @@ class UsdAccountActionBar extends ConsumerWidget {
   const UsdAccountActionBar({super.key, this.onHeightChanged});
 
   final ValueChanged<double>? onHeightChanged;
+
+  /// Test seam: what Deposit opens. Null opens the real sheet
+  /// ([showDepositSheet]); a test swaps in a recorder so the dock can be
+  /// driven without the sheet's providers behind it.
+  @visibleForTesting
+  static Future<void> Function(BuildContext context,
+      {required MoveLockedSide lockedSide})? debugDepositSheetOpener;
+
+  /// The dock's Deposit: the Investments deposit sheet pointed at this
+  /// balance, entered from the dock.
+  void _deposit(BuildContext context) {
+    TrackingService.markEntrySource('move', kUsdDockSource);
+    final open = debugDepositSheetOpener ?? showDepositSheet;
+    // ignore: discarded_futures
+    open(context, lockedSide: MoveLockedSide.depositToUsd);
+  }
 
   /// What the square searches for [tab]: a venue's own markets, results
   /// first and under the venue's own source, or (null category) this
@@ -884,10 +887,11 @@ class UsdAccountActionBar extends ConsumerWidget {
         actions: [
           KuteDockAction(
             icon: Icons.south_west_rounded,
-            label: context.l10n.receive,
-            trackingId: 'receive',
-            // `usd_receive_opened` fires once from the screen's initState.
-            onTap: () => context.pushNamed('receiveDollars'),
+            label: context.l10n.deposit,
+            // The door's own action key, so the existing tiles keep
+            // counting; the dock sends it under this surface's source.
+            trackingId: 'dollar_deposit',
+            onTap: () => _deposit(context),
           ),
           KuteDockAction(
             icon: Icons.north_east_rounded,

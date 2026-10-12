@@ -18,6 +18,8 @@ import 'package:kute/providers/polymarket_sports_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/trade_notifications_provider.dart';
 import 'package:kute/providers/unified_search_provider.dart';
+import 'package:kute/screens/home/components/deposit_sheet.dart'
+    show MoveLockedSide;
 import 'package:kute/screens/home/components/kute_bottom_action_bar.dart';
 import 'package:kute/screens/home/home.dart' show HomeDock;
 import 'package:kute/screens/portfolio/open_investments_screen.dart'
@@ -31,6 +33,7 @@ import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart';
 import 'package:kute/services/trade_notification_store.dart'
     show TradeNotification;
+import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
 class _Sports extends SportsLiveNotifier {
@@ -288,6 +291,39 @@ void main() {
     expect(find.byIcon(Icons.search_rounded), findsNothing);
     expect(find.byType(KuteDogMagnifier), findsNothing);
     expect(find.byIcon(Icons.add_rounded), findsNothing);
+  });
+
+  testWidgets(
+      'the Investments dock is Deposit, Send and search; Deposit opens the '
+      'Dollars deposit door from the dock', (tester) async {
+    final events = <(String, Map<String, Object>?)>[];
+    TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+    addTearDown(() => TrackingService.debugTrackObserver = null);
+    final opened = <MoveLockedSide>[];
+    UsdAccountActionBar.debugDepositSheetOpener =
+        (_, {required lockedSide}) async => opened.add(lockedSide);
+    addTearDown(() => UsdAccountActionBar.debugDepositSheetOpener = null);
+    await _pump(tester, const UsdAccountActionBar());
+    final bar =
+        tester.widget<KuteBottomActionBar>(find.byType(KuteBottomActionBar));
+    // Money in on the left, Send on the right, in the Bitcoin dock's
+    // shape; no Receive, which is the deposit sheet's first option.
+    expect(bar.actions.map((a) => a.label), ['Deposit', 'Send']);
+    expect(bar.actions.map((a) => a.trackingId), ['dollar_deposit', 'send']);
+    expect(bar.actions.map((a) => a.icon),
+        [Icons.south_west_rounded, Icons.north_east_rounded]);
+    expect(bar.actions.map((a) => a.onTap), everyElement(isNotNull));
+    expect(bar.source, 'usd');
+    expect(find.text('Receive'), findsNothing);
+    expect(find.byType(KuteDogMagnifier), findsOneWidget);
+
+    await tester.tap(find.text('Deposit'));
+    await tester.pump();
+    expect(opened, [MoveLockedSide.depositToUsd]);
+    expect(events.where((e) => e.$1 == 'quick_action_tapped').single.$2,
+        {'action': 'dollar_deposit', 'source': 'usd'});
+    expect(TrackingService.takeEntrySource('move'), 'usd_dock');
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('the Dollars dock searches the spending account\'s activity',

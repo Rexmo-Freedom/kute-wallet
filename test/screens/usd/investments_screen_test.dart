@@ -2,23 +2,25 @@
 // Bitcoin | Investments, and Investments carries Investing · Predictions
 // · Portfolio as pills over the embedded screens (each pill wearing a
 // glyph of the one icon family, a step bigger than the Home strip), the
-// one-balance hero above them, the Investments deposit door (the dollar
-// coin) under the hero, and the Receive / Send / search dock with the
-// search scoped to the pill. No venue Deposit or Withdraw exists anywhere
-// inside it. The whole page scrolls as one on every pill, and the chrome
-// collapses: the hero and the door leave, the pills condense into the
-// compact pinned bar with a small copy of the total and a chevron that
-// brings everything back, as does scrolling to the very top.
+// one-balance hero above them, and the Deposit / Send / search dock with
+// the search scoped to the pill. Deposit (the dock's, no door under the
+// hero any more) opens the Investments deposit sheet; Receive lives in
+// that sheet. No venue Deposit or Withdraw exists anywhere inside it.
+// The whole page scrolls as one on every pill, and the chrome collapses:
+// the hero leaves, the pills condense into the compact pinned bar with a
+// small copy of the total and a chevron that brings everything back, as
+// does scrolling to the very top.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/l10n/l10n.dart';
-import 'package:kute/providers/asset_icon_provider.dart' show kUsdMarkAsset;
 import 'package:kute/providers/nav_bar_visibility_provider.dart';
 import 'package:kute/providers/unified_search_provider.dart'
     show SearchCategory;
+import 'package:kute/screens/home/components/deposit_sheet.dart'
+    show MoveLockedSide;
 import 'package:kute/screens/home/components/kute_bottom_action_bar.dart';
 import 'package:kute/screens/hyperliquid/hyperliquid_screen.dart';
 import 'package:kute/screens/polymarket/polymarket_screen.dart';
@@ -35,6 +37,7 @@ import 'package:kute/screens/shared/venue_deposit_button.dart';
 import 'package:kute/screens/usd/components/usd_earn_chart.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
+import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
 import 'investments_harness.dart';
@@ -125,33 +128,53 @@ void main() {
   });
 
   testWidgets(
-      'no venue Deposit or Withdraw anywhere; the one door is the '
-      'Investments deposit with the dollar coin', (tester) async {
+      'no venue Deposit or Withdraw anywhere and no door under the hero; '
+      'the one way in is the dock\'s Deposit, which opens the Investments '
+      'deposit sheet', (tester) async {
+    final events = recordEvents();
+    final opened = <MoveLockedSide>[];
+    UsdAccountActionBar.debugDepositSheetOpener =
+        (_, {required lockedSide}) async => opened.add(lockedSide);
+    addTearDown(() => UsdAccountActionBar.debugDepositSheetOpener = null);
     await pumpInvestments(tester, earn: kEarnOn);
     final l10n = _l10n(tester);
     expect(find.byType(VenueDepositButton, skipOffstage: false), findsNothing);
     expect(find.byType(InvestmentActionBar, skipOffstage: false), findsNothing);
     expect(find.text(l10n.withdraw, skipOffstage: false), findsNothing);
-    expect(find.text(l10n.deposit, skipOffstage: false), findsNothing);
     expect(find.textContaining('Investing deposit', skipOffstage: false),
         findsNothing);
     expect(find.textContaining('Predictions deposit', skipOffstage: false),
         findsNothing);
-    // The deposit door into Dollars, with the dollar coin it always wore
-    // (the Investments arrow stays on the Move sheet's rows).
-    expect(find.text(l10n.dollarDeposit), findsOneWidget);
-    final door = tester.widget<AppButton>(
-        find.widgetWithText(AppButton, l10n.dollarDeposit));
-    expect(door.svgAsset, kUsdMarkAsset);
-    expect(door.icon, isNull);
+    // The full-width door is gone: no button in the header, and the
+    // door's label is nowhere on the page.
+    expect(find.byType(AppButton, skipOffstage: false), findsNothing);
+    expect(find.text(l10n.dollarDeposit, skipOffstage: false), findsNothing);
+    // The pills sit right under the hero.
+    expect(tester.getTopLeft(find.byType(KutePillTabs).first).dy,
+        lessThan(tester.getBottomLeft(find.byType(PoolBalanceHeader)).dy + 40));
 
-    // The dock: Receive, Send, and the search square.
+    // The dock: Deposit, Send, and the search square. No Receive: it is
+    // the deposit sheet's first option.
     final bar =
         tester.widget<KuteBottomActionBar>(find.byType(KuteBottomActionBar));
-    expect(bar.actions.map((a) => a.label), [l10n.receive, l10n.send]);
-    expect(bar.actions.map((a) => a.trackingId), ['receive', 'send']);
+    expect(bar.actions.map((a) => a.label), [l10n.deposit, l10n.send]);
+    expect(bar.actions.map((a) => a.trackingId), ['dollar_deposit', 'send']);
+    expect(bar.actions.map((a) => a.icon),
+        [Icons.south_west_rounded, Icons.north_east_rounded]);
     expect(bar.onSearch, isNotNull);
     expect(bar.source, 'usd');
+    expect(find.text(l10n.deposit), findsOneWidget);
+    expect(find.text(l10n.receive, skipOffstage: false), findsNothing);
+
+    // Deposit opens the Dollars deposit door (destination pinned), with
+    // the door's own quick-action event and the dock as the move's
+    // entry source.
+    await tester.tap(find.text(l10n.deposit));
+    await tester.pump();
+    expect(opened, [MoveLockedSide.depositToUsd]);
+    expect(events.where((e) => e.$1 == 'quick_action_tapped').single.$2,
+        {'action': 'dollar_deposit', 'source': 'usd'});
+    expect(TrackingService.takeEntrySource('move'), 'usd_dock');
     expect(tester.takeException(), isNull);
     await unmountInvestments(tester);
   });
@@ -282,10 +305,10 @@ void main() {
 
   for (final tab in InvestmentsTab.values) {
     testWidgets(
-        'on ${tab.key}: scrolling collapses the chrome — the hero and the '
-        'door leave, the compact bar pins with the small total, the pills '
-        'and the chevron, the nav bar hides; the chevron and the very top '
-        'expand it again; the pull refreshes', (tester) async {
+        'on ${tab.key}: scrolling collapses the chrome — the hero leaves, '
+        'the compact bar pins with the small total, the pills and the '
+        'chevron, the nav bar hides; the chevron and the very top expand '
+        'it again; the pull refreshes', (tester) async {
       await pumpInvestments(tester, earn: kEarnOn);
       final l10n = _l10n(tester);
       final label = switch (tab) {
@@ -297,17 +320,15 @@ void main() {
       expect(_container(tester).read(investmentsTabProvider), tab);
       final container = _container(tester);
       expect(find.byType(PoolBalanceHeader), findsOneWidget);
-      expect(find.text(l10n.dollarDeposit), findsOneWidget);
       expect(_compactTotal, findsNothing);
       final pillsTop = tester.getTopLeft(find.byType(KutePillTabs).first).dy;
       expect(container.read(navBarHiddenProvider), isFalse);
 
-      // Scroll the content: the hero and the door leave, the compact bar
-      // is what stays at the top of the page, the nav bar hides.
+      // Scroll the content: the hero leaves, the compact bar is what
+      // stays at the top of the page, the nav bar hides.
       await tester.drag(find.byType(NestedScrollView), const Offset(0, -400));
       await _pumpFrames(tester);
       expect(find.byType(PoolBalanceHeader), findsNothing);
-      expect(find.text(l10n.dollarDeposit), findsNothing);
       expect(_strip(tester).size, KutePillSize.compact);
       expect(_pill(label), findsOneWidget);
       expect(tester.widget<KutePill>(_pill(label)).selected, isTrue);
@@ -328,7 +349,6 @@ void main() {
       await tester.tap(_chevron);
       await _pumpFrames(tester);
       expect(find.byType(PoolBalanceHeader), findsOneWidget);
-      expect(find.text(l10n.dollarDeposit), findsOneWidget);
       expect(_compactTotal, findsNothing);
       expect(_chevron, findsNothing);
       expect(_strip(tester).size, KutePillSize.large);
@@ -343,7 +363,6 @@ void main() {
       await tester.drag(find.byType(NestedScrollView), const Offset(0, 400));
       await _pumpFrames(tester);
       expect(find.byType(PoolBalanceHeader), findsOneWidget);
-      expect(find.text(l10n.dollarDeposit), findsOneWidget);
       expect(_compactTotal, findsNothing);
       expect(tester.getTopLeft(find.byType(KutePillTabs).first).dy, pillsTop);
       expect(container.read(navBarHiddenProvider), isFalse);
