@@ -35,7 +35,9 @@ const List<HlCandleInterval> kHlCandleIntervals = [
   (label: '1W', interval: '1w', minutes: 10080),
 ];
 
-const String kHlDefaultChartStyle = 'candles';
+// Line by default (user decision 2026-10-12): candles stay one tap away in
+// the style picker, and a saved layout keeps whatever style it chose.
+const String kHlDefaultChartStyle = 'line';
 const String kHlDefaultCandleInterval = '1h';
 
 /// Every style the chart draws (HlChartStyle names).
