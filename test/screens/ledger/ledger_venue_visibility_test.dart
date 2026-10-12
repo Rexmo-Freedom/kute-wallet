@@ -334,8 +334,8 @@ void main() {
         bodies: false);
     // The tabs carry the generic Investing and Predictions icons, not the
     // venues' logos.
-    expect(find.byIcon(Icons.show_chart_rounded), findsOneWidget);
-    expect(find.byIcon(Icons.pie_chart_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.trending_up_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.donut_large_rounded), findsOneWidget);
     expect(find.bySemanticsLabel(l10n.trading), findsWidgets);
     expect(find.bySemanticsLabel(l10n.predictions), findsWidgets);
     expect(find.bySemanticsLabel(l10n.usdAccountTab), findsNothing);
