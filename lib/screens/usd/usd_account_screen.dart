@@ -392,7 +392,12 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
   /// Pull-to-refresh: the pill on screen reads again, exactly what its
   /// own indicator used to do.
   Future<void> _refresh() async {
-    switch (ref.read(investmentsTabProvider)) {
+    final tab = ref.read(investmentsTabProvider);
+    // Same event the Dollars screen sent before one balance (screen kept
+    // as 'usd' for continuity), now with the pill that was refreshed.
+    TrackingService.track('pull_to_refresh_executed',
+        params: {'screen': 'usd', 'tab': tab.key});
+    switch (tab) {
       case InvestmentsTab.investing:
         await HyperliquidScreen.refresh(ref.invalidate);
       case InvestmentsTab.predictions:

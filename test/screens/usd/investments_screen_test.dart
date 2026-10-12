@@ -367,11 +367,19 @@ void main() {
       expect(tester.getTopLeft(find.byType(KutePillTabs).first).dy, pillsTop);
       expect(container.read(navBarHiddenProvider), isFalse);
 
-      // Pull past the top: the page's one refresh indicator.
+      // Pull past the top: the page's one refresh indicator, reported
+      // with the pill that was refreshed.
+      final events = recordEvents();
       await tester.drag(find.byType(NestedScrollView), const Offset(0, 300));
       await tester.pump();
       expect(find.byType(RefreshProgressIndicator), findsOneWidget);
       await _pumpFrames(tester, 15);
+      expect(
+          events.where((e) =>
+              e.$1 == 'pull_to_refresh_executed' &&
+              e.$2?['screen'] == 'usd' &&
+              e.$2?['tab'] == tab.key),
+          hasLength(1));
       expect(tester.takeException(), isNull);
       await unmountInvestments(tester);
     });
