@@ -371,13 +371,15 @@ class _VenueMarks extends StatelessWidget {
       label: [
         if (investing) l10n.ledgerTabInvestingSemantics,
         if (predictions) l10n.ledgerTabPredictionsSemantics,
-        if (withDollars) l10n.usdAccountTab,
+        if (withDollars) l10n.bitcoin,
       ].join(', '),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // The spending account's own mark is the bitcoin glyph the top
+          // strip uses; the venues follow (user decision 2026-10-12).
           if (withDollars) ...[
-            Icon(kInvestmentsIcon,
+            Icon(Icons.currency_bitcoin_rounded,
                 size: size, color: context.colors.textPrimary),
             if (investing || predictions) SizedBox(width: 6.w),
           ],
