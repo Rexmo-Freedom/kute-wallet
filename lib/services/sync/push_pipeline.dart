@@ -39,6 +39,7 @@ import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/models/transactions_model.dart';
 import 'package:kute/models/breez/deposit_update.dart';
+import 'package:kute/models/breez/shared_sync.dart';
 import 'package:kute/providers/address_provider.dart';
 import 'package:kute/providers/balance_provider.dart';
 import 'package:kute/providers/breez_config_provider.dart';
@@ -459,8 +460,7 @@ class PushPipeline implements SyncPipeline {
                 request: const breez.GetInfoRequest(ensureSynced: false)))
             .balanceSats
             .toInt(),
-        syncWallet: () =>
-            sdk.syncWallet(request: const breez.SyncWalletRequest()),
+        syncWallet: () => sharedSyncWallet(sdk),
         currentSats: () => cacheNotifier.sparkSdkSats(walletId),
         raisedAt: () => cacheNotifier.sparkSdkRaisedAt(walletId),
         publish: (sats) {

@@ -8,7 +8,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:kute/models/affiliate_model.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
@@ -23,7 +22,7 @@ import 'package:kute/providers/address_provider.dart';
 import 'package:kute/providers/address_receive_provider.dart';
 import 'package:kute/providers/pending_asset_provider.dart';
 import 'package:kute/providers/asset_icon_provider.dart'
-    show SafeSvgNetwork, kUsdMarkAsset;
+    show SafeSvgNetwork, kInvestmentsIcon;
 import 'package:kute/models/account.dart';
 import 'package:kute/providers/accounts_provider.dart';
 import 'package:kute/providers/balance_provider.dart';
@@ -61,6 +60,9 @@ import 'package:kute/providers/orchestra_supported_routes_provider.dart';
 import 'package:kute/services/accumulation_address_cache.dart';
 import 'package:kute/services/background_sync_service.dart';
 import 'package:kute/services/orchestra/orchestra_capability_requirements.dart';
+import 'package:kute/services/orchestra/reusable_deposit_address.dart';
+import 'package:kute/services/orchestra/standing_deposit_store.dart'
+    show StandingDepositStore;
 import 'package:kute/services/orchestra_routes.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/jade_service.dart';
@@ -91,7 +93,12 @@ class _DestAsset {
   final String code;
   final String name;
   final String? iconUrl;
-  final String? svgAsset;
+
+  /// Glyph mark: the Investments arrow on the dollar balance's row,
+  /// drawn the way the Move route card draws its glyph endpoints. The
+  /// catalogue ships no artwork for the dollar balance, and no row of
+  /// this picker wears a local SVG any more.
+  final IconData? icon;
   final Color color;
 
   _DestAsset({
@@ -99,15 +106,23 @@ class _DestAsset {
     required this.name,
     required this.color,
     this.iconUrl,
-    this.svgAsset,
+    this.icon,
   });
 
   Widget iconWidget({required double size}) {
-    if (svgAsset != null) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(size * 0.3),
-        child: SvgPicture.asset(svgAsset!, width: size, height: size),
-      );
+    if (icon != null) {
+      return Builder(builder: (context) {
+        final c = context.colors;
+        return Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            color: c.textPrimary.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(size * 0.3),
+          ),
+          child: Icon(icon, color: c.textPrimary, size: size * 0.56),
+        );
+      });
     }
     if (iconUrl != null) {
       final isSvg = Uri.tryParse(iconUrl!)?.path.endsWith('.svg') ?? false;
@@ -2095,6 +2110,8 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
     TrackingService.moneyFlowStep('receive', 'source_selected',
         props: _receiveFlowInputs());
 
+    // Which model was being asked when a failure happened, for the event.
+    DepositAddressModel? model;
     try {
       final wrapper = await ref.read(breezSDKProvider.future);
       if (!current()) return _mintRefusedWhileGone;
@@ -2111,24 +2128,36 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
       if (!current() || !sameSdk()) return _mintRefusedWhileGone;
       final sparkAddress = received.paymentRequest;
       const destinationAsset = 'BTC';
+      final walletId = _pickedReceiveWalletId;
+      if (walletId == null) throw StateError('Wallet unavailable');
       // Snapshot of already-issued deposit addresses, compared in memory
       // only, so `receive_address_generated` can say whether this is a
       // reuse. The address itself never leaves the device.
-      final priorAddresses = AccumulationAddressCache.getAll()
-          .map((a) => a.depositAddress)
-          .toSet();
-      final result = await AccumulationAddressCache.getOrCreate(
-        sourceChain: sourceChain,
-        sourceAsset: orchestraAssetCodeFor(asset.code),
-        destinationAsset: destinationAsset,
-        recipientSparkAddress: sparkAddress,
-      );
-      final depositAddress = result.data?.depositAddress ?? '';
-      final kuteFeeBps = result.data?.kuteFeeBps;
+      final priorAddresses = <String?>{};
+      try {
+        for (final r in await StandingDepositStore.records(walletId)) {
+          priorAddresses.add(r.addressFor(sourceChain));
+        }
+        for (final a in AccumulationAddressCache.getAll()) {
+          priorAddresses.add(a.depositAddress);
+        }
+      } catch (_) {}
       if (!current() || !sameSdk()) return _mintRefusedWhileGone;
-      if (depositAddress.isEmpty) {
-        throw result.error ?? 'Failed to create deposit address';
-      }
+      // Standing address first; the legacy accumulation address only
+      // while spark:BTC is not a standing destination (see
+      // ReusableDepositAddressService).
+      final resolved = await ReusableDepositAddressService.resolve(
+        walletId: walletId,
+        recipient: sparkAddress,
+        destinationAsset: destinationAsset,
+        sourceChain: sourceChain,
+        sourceAsset: asset.code,
+        wanted: () => current() && sameSdk(),
+        onAttempt: (m) => model = m,
+      );
+      final depositAddress = resolved.address;
+      final kuteFeeBps = resolved.kuteFeeBps;
+      if (!current() || !sameSdk()) return _mintRefusedWhileGone;
 
       // Local display object only — drives the QR, the address row and
       // the reusable-address caption (`providerName == 'Orchestra'` in
@@ -2136,7 +2165,7 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
       // see the doc comment above.
       final display = SwapOrder(
         activityDirection: 'receive',
-        id: result.data!.id,
+        id: resolved.id,
         coinFrom: asset.code,
         networkFrom: network.network,
         coinTo: destinationAsset,
@@ -2165,6 +2194,7 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
         'reused': priorAddresses.contains(depositAddress),
         'destination': 'spark_btc',
         'address_kind': 'reusable_deposit',
+        'model': resolved.model.name,
         if (kuteFeeBps != null) 'kute_fee_bps': kuteFeeBps,
       });
       TrackingService.moneyFlowStep('receive', 'deposit_address_shown',
@@ -2193,6 +2223,7 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
         'network': network.network,
         'provider': 'orchestra',
         'error_category': TrackingService.errorCategory(e),
+        if (model case final m?) 'model': m.name,
       });
       TrackingService.moneyFlowError('receive', e);
       setState(() => _creatingOrder = false);
@@ -2323,9 +2354,10 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
         // rewrote it before handing the option over).
         name: option.displayName,
         color: _getCoinColor(option.displaySymbol.toUpperCase()),
-        // The dollar balance has a local mark; the catalogue ships no
-        // artwork for it.
-        svgAsset: isDollars ? kUsdMarkAsset : null,
+        // The dollar balance as a source wears the Investments arrow,
+        // never the USDB coin; the catalogue ships no artwork for it
+        // either way.
+        icon: isDollars ? kInvestmentsIcon : null,
         iconUrl: isDollars
             ? null
             : (option.assetIconUrl ?? orchestraAssetIconUrl(option.assetCode)),

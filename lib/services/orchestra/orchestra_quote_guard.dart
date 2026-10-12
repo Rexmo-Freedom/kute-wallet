@@ -13,6 +13,17 @@ import 'package:kute/services/security/wallet_guard_exception.dart';
 /// Whose address the quote delivers to.
 enum RecipientKind { ownSpark, ownEvm, ownPmWallet, external }
 
+/// The quote [OrchestraQuoteRequest.tag] of a move the person made
+/// themselves from the Move sheet.
+const String kManualMoveQuoteTag = 'kute:manual_move';
+
+/// The quote tag of a one-balance move by [purpose] (`order_funding`,
+/// `sweep`, `rollout_sweep`) into or out of [venue] (`predictions`,
+/// `investing`): `kute:<purpose>_<venue>`. A `manual_move` purpose is the
+/// Move sheet's own, [kManualMoveQuoteTag].
+String oneBalanceQuoteTag(String purpose, {required String venue}) =>
+    purpose == 'manual_move' ? kManualMoveQuoteTag : 'kute:${purpose}_$venue';
+
 class OrchestraQuoteRequest {
   const OrchestraQuoteRequest({
     required this.sourceChain,
@@ -26,6 +37,7 @@ class OrchestraQuoteRequest {
     this.ownAddress,
     this.deliveryMode,
     this.externalDepositMemo = false,
+    this.tag,
   });
 
   final String sourceChain;
@@ -49,6 +61,14 @@ class OrchestraQuoteRequest {
   /// The app-resolved own address for every `own*` [recipientKind]; the
   /// recipient must equal it. Null for [RecipientKind.external].
   final String? ownAddress;
+
+  /// The provider-side `tag` the quote is filed under: a categorical
+  /// purpose the backend reads, so it can tell a one-balance move (an
+  /// order's funding leg, a sweep) from a Move-sheet move, and the gas
+  /// float from either: `kute:order_funding_predictions`,
+  /// `kute:sweep_investing`, [kManualMoveQuoteTag], `kute:gas_float`, …
+  /// Never an id, amount or address. Null sends none.
+  final String? tag;
 
   /// Analytics label, e.g. `spark_btc>polygon_usdc.e`. No amounts or
   /// addresses.

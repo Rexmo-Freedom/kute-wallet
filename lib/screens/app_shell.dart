@@ -3,7 +3,9 @@ import 'package:kute/services/runtime_capabilities_service.dart';
 //
 // The persistent navigation shell for the nav tab destinations
 // (Home / Bank / USD / Trading / Predictions — Bank is hidden this
-// release and USD holds its strip slot). Built on go_router's
+// release, USD is the spending account's Investments tab and holds its
+// strip slot, and Trading / Predictions are drawn only for a Ledger: the
+// spending account's venues are pills inside Investments). Built on go_router's
 // `StatefulShellRoute` with a custom [navigatorContainerBuilder] that lays
 // the branch navigators out in a horizontally-swipeable [PageView]
 // (instead of the default IndexedStack), so:
@@ -35,7 +37,9 @@ import 'package:kute/providers/shell_wallet_provider.dart'
     show shellVenueOwnerProvider;
 import 'package:kute/screens/home/components/kute_top_nav_bar.dart';
 import 'package:kute/screens/home/shell_venue_tabs.dart'
-    show shellShowsPredictionsTab, shellShowsTradingTab, shellShowsUsdTab;
+    show shellDrawsPredictionsTab, shellDrawsTradingTab, shellShowsUsdTab;
+import 'package:kute/screens/usd/usd_account_screen.dart'
+    show InvestmentsTab, investmentsTabProvider;
 import 'package:kute/services/once_flags_service.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -103,8 +107,10 @@ List<ActiveNavTab> _visibleTabsFor(WalletConfig? wallet) => [
       for (final tab in _kVisibleTabs)
         if (switch (tab) {
           ActiveNavTab.usd => shellShowsUsdTab(wallet),
-          ActiveNavTab.trading => shellShowsTradingTab(wallet),
-          ActiveNavTab.predictions => shellShowsPredictionsTab(wallet),
+          // Only a Ledger's venues are tabs; the spending account's are
+          // pills of Investments.
+          ActiveNavTab.trading => shellDrawsTradingTab(wallet),
+          ActiveNavTab.predictions => shellDrawsPredictionsTab(wallet),
           _ => true,
         })
           tab,
@@ -125,15 +131,27 @@ List<ActiveNavTab> _visibleTabsFor(WalletConfig? wallet) => [
 ///   * Trading provider visibility flag — Home AND Predictions, because the
 ///     Home tab surfaces Polymarket-derived tiles fed by its silent refresh.
 ///
+/// On the Investments tab (the spending account's one balance) the venue
+/// on screen is the pill, not the tab: the Investing pill is the Trading
+/// surface and the Predictions pill the Predictions surface, so the same
+/// sockets follow the pill there (re-applied on every pill change by the
+/// shell).
+///
 /// The `ref.exists` guards keep this from instantiating autoDispose
 /// providers nothing is watching yet (a cold read of the trading provider
 /// would kick its whole async build). Idempotent — every target API no-ops
 /// when already in the requested state. Shared by the shell's tab switch and
 /// the app-level foreground resume so both stay in lockstep.
 void applyShellTabLivePolicy(WidgetRef ref, ActiveNavTab tab) {
+  final pill =
+      tab == ActiveNavTab.usd ? ref.read(investmentsTabProvider) : null;
+  final trading =
+      tab == ActiveNavTab.trading || pill == InvestmentsTab.investing;
+  final predictions =
+      tab == ActiveNavTab.predictions || pill == InvestmentsTab.predictions;
   if (ref.exists(hyperliquidLivePricesProvider)) {
     final hl = ref.read(hyperliquidLivePricesProvider.notifier);
-    if (tab == ActiveNavTab.trading) {
+    if (trading) {
       hl.resume();
     } else {
       hl.pause();
@@ -141,15 +159,16 @@ void applyShellTabLivePolicy(WidgetRef ref, ActiveNavTab tab) {
   }
   if (ref.exists(livePriceProvider)) {
     final clob = ref.read(livePriceProvider.notifier);
-    if (tab == ActiveNavTab.predictions) {
+    if (predictions) {
       clob.resume();
     } else {
       clob.pause();
     }
   }
   if (ref.exists(polymarketTradingProvider)) {
-    ref.read(polymarketTradingProvider.notifier).setPolymarketVisible(
-        tab == ActiveNavTab.home || tab == ActiveNavTab.predictions);
+    ref
+        .read(polymarketTradingProvider.notifier)
+        .setPolymarketVisible(tab == ActiveNavTab.home || predictions);
   }
 }
 
@@ -477,6 +496,18 @@ class _AppShellState extends ConsumerState<AppShell>
   @override
   Widget build(BuildContext context) {
     final int currentIndex = widget.navigationShell.currentIndex;
+    // An Investments pill change while that tab is on screen swaps the
+    // venue sockets over, the way a tab change does.
+    ref.listen(investmentsTabProvider, (_, __) {
+      if (_kShellTabs[widget.navigationShell.currentIndex] !=
+          ActiveNavTab.usd) {
+        return;
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        applyShellTabLivePolicy(ref, ActiveNavTab.usd);
+      });
+    });
     // Watched, so switching to a wallet that owns fewer tabs rebuilds the
     // pager with its shorter set.
     final visible = _visibleTabsFor(ref.watch(shellVenueOwnerProvider));

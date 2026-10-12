@@ -1,6 +1,7 @@
 // The order slip's one button while it cannot know yet what it should be:
-// the Investing account not read yet ("Loading your account..."), and the
-// Deposit door working out its top-up ("Calculating…").
+// the Investing account not read yet ("Loading your account..."); and, once
+// read empty with no Dollars to fund the order, the Dollar deposit door
+// ("Add $X to Investments"), one sheet at a time.
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -19,10 +20,12 @@ import 'package:kute/providers/hyperliquid_live_prices_provider.dart';
 import 'package:kute/providers/hyperliquid_orderbook_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/swap_orders_provider.dart';
+import 'package:kute/providers/usd_account_provider.dart';
+import 'package:kute/screens/home/components/deposit_sheet.dart'
+    show MoveLockedSide;
 import 'package:kute/screens/hyperliquid/components/order_slip_sheet.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart';
 import 'package:kute/screens/shared/custom_button.dart';
-import 'package:kute/screens/shared/slip_shortfall.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -120,6 +123,7 @@ Future<void> _pumpSlip(
       aiEnabledProvider.overrideWith((_) async => false),
       currencyProvider.overrideWith((_) => _Currency()),
       runtimeCapabilitiesProvider.overrideWithValue(_Allowed()),
+      usdBalanceProvider.overrideWith((_) => 0),
     ],
     child: ScreenUtilInit(
       designSize: const Size(430, 932),
@@ -193,123 +197,75 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     });
 
-    testWidgets('an empty account, once read, is the Deposit door',
+    testWidgets('an empty account, once read, is the Dollar deposit door',
         (tester) async {
       final account = Completer<HlAccountSnapshot>();
       await _pumpSlip(tester, account.future);
-      expect(find.text('Deposit to invest'), findsNothing);
+      expect(find.textContaining('to Investments'), findsNothing);
       account.complete(_snapshot(0));
       await _frames(tester);
-      expect(_button(tester).text, 'Deposit to invest');
+      expect(_button(tester).text, startsWith('Add \$'));
+      expect(_button(tester).text, endsWith('to Investments'));
       expect(_button(tester).isLoading, isFalse);
       expect(_button(tester).onPressed, isNotNull);
       await tester.pumpWidget(const SizedBox.shrink());
     });
   });
 
-  group('the Deposit door while it works out the top-up', () {
+  group('the Dollar deposit door', () {
     late List<String> events;
-    late int estimates;
-    late List<double?> sheets;
-    late Completer<SlipRouteFee> estimate;
+    late List<(MoveLockedSide, double?)> sheets;
     late Completer<void> sheet;
 
     setUp(() {
       events = [];
       TrackingService.debugTrackObserver = (e, _) => events.add(e);
-      estimates = 0;
       sheets = [];
-      debugSlipRouteFee = (venue, source, amountUsd) {
-        estimates++;
-        return estimate.future;
-      };
-      debugShowSlipTopUpSheet = (venue, target) {
-        sheets.add(target);
+      debugShowHlDollarsDeposit = (side, target) {
+        sheets.add((side, target));
         return sheet.future;
       };
     });
 
     tearDown(() {
-      debugSlipRouteFee = null;
-      debugShowSlipTopUpSheet = null;
+      debugShowHlDollarsDeposit = null;
       TrackingService.debugTrackObserver = null;
     });
 
     testWidgets(
-        'calculates once, ignores repeat taps and sizes the order of the tap',
+        'opens once, locked to Dollars with what the order lacks, and ignores repeat taps',
         (tester) async {
-      // Made in the test, so they complete in its fake time.
-      estimate = Completer<SlipRouteFee>();
       sheet = Completer<void>();
       await _pumpSlip(tester, Future.value(_snapshot(0)));
       await _typeOnKeypad(tester, '20');
-      expect(_button(tester).text, 'Deposit to invest');
+      expect(_button(tester).text, startsWith('Add \$'));
 
       await tester.tap(find.byType(AppButton));
       await _frames(tester, 3);
-      expect(_button(tester).isLoading, isTrue);
-      expect(_button(tester).loadingLabel, 'Calculating…');
-      expect(find.text('Calculating…'), findsOneWidget);
-      expect(estimates, 1);
-
-      // Repeat taps while it calculates: nothing more starts.
-      await tester.tap(find.byType(AppButton));
-      await tester.tap(find.byType(AppButton));
-      await _frames(tester, 3);
-      expect(estimates, 1);
+      expect(sheets, hasLength(1));
+      expect(sheets.single.$1, MoveLockedSide.depositToUsd);
+      // The $20 order needs $20.24 at the venue, grossed up for the route.
+      expect(sheets.single.$2, greaterThanOrEqualTo(20.24));
       expect(events.where((e) => e == 'hl_order_step').length, 1);
-
-      // The ticket is frozen while it calculates: typing changes nothing.
-      final pad = find.byType(AmountKeypad);
-      await tester.tap(find.descendant(of: pad, matching: find.text('9')),
-          warnIfMissed: false);
-      await _frames(tester, 3);
-
-      estimate.complete((fee: 0.0, kuteBps: 0));
-      await _frames(tester, 3);
-      expect(sheets.length, 1);
-      final sized = sheets.single;
-      expect(sized, greaterThanOrEqualTo(20));
       expect(events.where((e) => e == 'slip_top_up_opened').length, 1);
-      // The sheet is open: no longer calculating, still shut.
+      // The sheet is open: shut, not calculating.
       expect(_button(tester).isLoading, isFalse);
       expect(_button(tester).onPressed, isNull);
-      expect(find.text('Calculating…'), findsNothing);
 
-      // The sheet closes without a deposit: the door again, and a second
-      // tap sizes the very same order (the typing above never landed).
+      // Repeat taps while it is open: nothing more opens.
+      await tester.tap(find.byType(AppButton), warnIfMissed: false);
+      await _frames(tester, 3);
+      expect(sheets, hasLength(1));
+
+      // The sheet closes without a deposit: the door again, same prefill.
       sheet.complete();
       await _frames(tester, 3);
-      expect(_button(tester).text, 'Deposit to invest');
+      expect(_button(tester).text, startsWith('Add \$'));
       expect(_button(tester).onPressed, isNotNull);
-      estimate = Completer<SlipRouteFee>()..complete((fee: 0.0, kuteBps: 0));
       sheet = Completer<void>()..complete();
       await tester.tap(find.byType(AppButton));
       await _frames(tester, 3);
-      expect(sheets, [sized, sized]);
-      await tester.pumpWidget(const SizedBox.shrink());
-    });
-
-    testWidgets('a failure while calculating restores the door',
-        (tester) async {
-      estimate = Completer<SlipRouteFee>();
-      sheet = Completer<void>();
-      await _pumpSlip(tester, Future.value(_snapshot(0)));
-      await _typeOnKeypad(tester, '20');
-      await tester.tap(find.byType(AppButton));
-      await _frames(tester, 3);
-      expect(_button(tester).isLoading, isTrue);
-
-      estimate.completeError(StateError('estimate failed'));
-      await _frames(tester, 3);
-      expect(sheets, isEmpty);
-      expect(find.text('Something went wrong. Please try again.'),
-          findsOneWidget);
-      expect(_button(tester).text, 'Deposit to invest');
-      expect(_button(tester).isLoading, isFalse);
-      expect(_button(tester).onPressed, isNotNull);
-      // The message's own timer runs out.
-      await tester.pump(const Duration(seconds: 5));
+      expect(sheets.map((s) => s.$2), [sheets.first.$2, sheets.first.$2]);
       await tester.pumpWidget(const SizedBox.shrink());
     });
   });

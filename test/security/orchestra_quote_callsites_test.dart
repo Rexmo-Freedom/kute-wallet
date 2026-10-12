@@ -93,11 +93,24 @@ void main() {
       ('lib/services/funding/ledger_polymarket_funding_service.dart', 'wallet'): 1,
       ('lib/services/funding/ledger_polymarket_funding_service.dart',
           'recipient.address'): 1,
-      ('lib/services/funding/spark_hypercore_funding_service.dart', 'eoa'): 1,
+      // The Investing deposit and the HyperEVM gas float: `eoa` is the
+      // account's own address from hyperliquidAddressProvider (resolved
+      // once per move by `_addresses`, wallet re-checked); both run under
+      // HotSettlement.plan with the hlHot destination, whose
+      // resolveOwnership re-derives it before anything is paid.
+      ('lib/services/funding/spark_hypercore_funding_service.dart', 'eoa'): 2,
       ('lib/services/funding/spark_hypercore_funding_service.dart',
           'sparkAddress'): 1,
       ('lib/services/funding/ledger_hypercore_funding_service.dart',
           'ownership.recipient.address'): 1,
+      // The Predictions funder (one balance): `evm` is the wallet's own
+      // Predictions proxy wallet from the trading provider (or its
+      // depositAddress()), `sparkAddress` the Spark SDK's own address;
+      // both legs run under HotSettlement.plan, whose resolveOwnership
+      // re-derives the destination for the pmHot / sparkHot accounts.
+      ('lib/services/one_balance/predictions_venue_funder.dart', 'evm'): 1,
+      ('lib/services/one_balance/predictions_venue_funder.dart',
+          'sparkAddress'): 1,
     };
     final recipientArg = RegExp(r'recipientAddress:\s*([^,\n]+),');
     final ownArg = RegExp(r'ownAddress:\s*([^,]+),');

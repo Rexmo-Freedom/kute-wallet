@@ -77,12 +77,10 @@ void main() {
     lookup = FakeLegacyKeychainLookup(keychain);
     events = [];
     TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
-    LegacyKeychainRescue.debugReset();
   });
 
   tearDown(() {
     TrackingService.debugTrackObserver = null;
-    LegacyKeychainRescue.debugReset();
   });
 
   LegacyKeychainRescue rescue({
@@ -322,7 +320,6 @@ void main() {
       ]);
       expect(paramsOf('seed_rescue_restored'),
           {'source': 'startup', 'era': 'b', 'check': 'none'});
-      expect(LegacyKeychainRescue.hasPendingAfterPin, isFalse);
     });
 
     test('a plain copy that mismatches the wallet is left alone', () async {
@@ -346,11 +343,17 @@ void main() {
       final outcome = await rescue().rescueAtStartup([wallet('w1')]);
       expect(outcome, StartupRescueOutcome.pinScreen);
       expect(await keychain.local.read(key: v2), isA<SecretAbsent>());
-      expect(LegacyKeychainRescue.hasPendingAfterPin, isTrue);
 
-      final auth = AuthModel(store: keychain.local, syncedStore: keychain.synced);
+      // Nothing is left in process state: the verified PIN finds the copy
+      // again through the Keychain, whatever happened since startup.
+      final auth = AuthModel(
+          store: keychain.local,
+          syncedStore: keychain.synced,
+          rescue: rescue(),
+          wallets: () async => [wallet('w1')]);
       expect(await auth.checkPin('000000'), PinCheck.mismatch);
-      expect(LegacyKeychainRescue.hasPendingAfterPin, isTrue);
+      expect(await keychain.local.read(key: v2), isA<SecretAbsent>());
+      expect(eventNames(), isNot(contains('seed_rescue_failed')));
       expect(await auth.checkPin(pin), PinCheck.match);
 
       expect((await keychain.local.read(key: v2)).valueOrThrow(), phraseA);
@@ -361,8 +364,7 @@ void main() {
         'writeLocalOnly:$v1',
       ]);
       expect(paramsOf('seed_rescue_restored'),
-          {'source': 'startup', 'era': 'a', 'check': 'none'});
-      expect(LegacyKeychainRescue.hasPendingAfterPin, isFalse);
+          {'source': 'pin', 'era': 'a', 'check': 'none'});
     });
 
     test('a wallet without old pin material: nothing, restore screen',
@@ -371,7 +373,6 @@ void main() {
       expect(await rescue().rescueAtStartup([wallet('w1')]),
           StartupRescueOutcome.nothing);
       expect(keychain.mutations, isEmpty);
-      expect(LegacyKeychainRescue.hasPendingAfterPin, isFalse);
     });
 
     test('nothing found: nothing written, lookup reported as none',
@@ -387,6 +388,101 @@ void main() {
       lookup.failure = PlatformException(code: 'x', details: -25308);
       expect(await rescue().rescueAtStartup([wallet('w1')]),
           StartupRescueOutcome.nothing);
+      expect(keychain.mutations, isEmpty);
+    });
+  });
+
+  group('verified PIN restore', () {
+    Future<List<WalletConfig>> w1() async => [wallet('w1')];
+
+    test('every wallet readable: no lookup, no event, nothing written',
+        () async {
+      keychain.seed(v2, phraseA);
+      var walletReads = 0;
+      final restored = await rescue().restoreWithVerifiedPin(() async {
+        walletReads++;
+        return [wallet('w1')];
+      }, pin, source: 'pin');
+      expect(restored, 0);
+      expect(walletReads, 1);
+      expect(keychain.mutations, isEmpty);
+      expect(lookup.reads, isEmpty);
+      expect(eventNames(), isNot(contains('seed_rescue_lookup_completed')));
+    });
+
+    test('a V1 copy the store reads needs no rescue either', () async {
+      keychain.seed(v1, encryptedA);
+      expect(await rescue().restoreWithVerifiedPin(w1, pin, source: 'pin'),
+          0);
+      expect(keychain.mutations, isEmpty);
+      expect(events, isEmpty);
+    });
+
+    test('re-saves plain and encrypted copies and a legacy biometric_pin',
+        () async {
+      seedLegacy(v2, phraseA);
+      seedLegacy('mnemonic_w2', encryptedA);
+      seedLegacy('biometric_pin', pin);
+      keychain.seed('pin_hash', PinHashHelper.hashPin(pin));
+
+      final restored = await rescue().restoreWithVerifiedPin(
+          () async => [wallet('w1'), wallet('w2')], pin,
+          source: 'biometric');
+
+      expect(restored, 2);
+      expect(keychain.peek(v2), phraseA);
+      expect(keychain.peek('v2:wallet:w2.mnemonic'), phraseA);
+      expect(keychain.peek('mnemonic_w2'), encryptedA);
+      expect((await keychain.local.read(key: 'biometric_pin')).valueOrThrow(),
+          pin);
+      expect(keychain.mutations.map((m) => m.op).toSet(), {'writeLocalOnly'});
+      expect(paramsOf('seed_rescue_lookup_completed'), {
+        'source': 'biometric',
+        'outcome': 'found',
+        'plain_count': 1,
+        'encrypted_count': 1,
+        'icloud_count': 0,
+      });
+      expect(
+          events
+              .where((e) => e.$1 == 'seed_rescue_restored')
+              .map((e) => e.$2!['era']),
+          ['b', 'a']);
+      expect(events.where((e) => e.$1 == 'seed_rescue_restored').every(
+          (e) => e.$2!['source'] == 'biometric'), isTrue);
+    });
+
+    test('a blob under another PIN is reported as wrongPin and kept',
+        () async {
+      seedLegacy(v1, PinEncryptionHelper.encryptData(phraseA, '999999'));
+      expect(await rescue().restoreWithVerifiedPin(w1, pin, source: 'pin'),
+          0);
+      expect(keychain.mutations, isEmpty);
+      expect(paramsOf('seed_rescue_failed'),
+          {'source': 'pin', 'era': 'a', 'reason': 'wrongPin'});
+    });
+
+    test('is a no-op off iOS and never reads the wallets', () async {
+      seedLegacy(v1, encryptedA);
+      final android = LegacyKeychainRescue(
+          lookup: lookup, store: keychain.local, isCupertino: false);
+      var walletReads = 0;
+      expect(
+          await android.restoreWithVerifiedPin(() async {
+            walletReads++;
+            return [wallet('w1')];
+          }, pin, source: 'pin'),
+          0);
+      expect(walletReads, 0);
+      expect(keychain.mutations, isEmpty);
+      expect(events, isEmpty);
+    });
+
+    test('a failing lookup changes nothing', () async {
+      seedLegacy(v1, encryptedA);
+      lookup.failure = PlatformException(code: 'x', details: -25308);
+      expect(await rescue().restoreWithVerifiedPin(w1, pin, source: 'pin'),
+          0);
       expect(keychain.mutations, isEmpty);
     });
   });

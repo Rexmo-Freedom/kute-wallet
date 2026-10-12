@@ -1,20 +1,21 @@
 // lib/screens/shared/slip_shortfall.dart
 //
-// Top up from the slip: what the bet slip and the order slip share. A hot
-// slip short of venue cash keeps its "Deposit to …" button; the tap opens
-// the Move sheet to that venue, prefilled with the order's own amount (the
-// fee added only when the deposit would otherwise not cover it) on the one
-// spending source that covers it alone. The slip stays open underneath
-// with everything the person typed; once the deposit goes through they are
-// back on it and place the order themselves. Nothing is placed
-// automatically, and the Move sheet authorises and runs the deposit
-// exactly as it always does.
+// Top up from the slip: what the bet slip and the order slip share. One
+// balance (2026-10): a hot slip short of venue cash funds the order from
+// Dollars itself (`OrderFundingController`), so the only door here is the
+// Dollars one. When Dollars cannot cover the move either, the slip's
+// button reads "Add $X to Investments" and [openSlipTopUp] opens the
+// Dollars deposit door prefilled with exactly what is missing: the
+// order's top-up ([ShortfallRules.topUp], the route's fee counted) less
+// the Dollars already held. The slip stays open underneath with
+// everything the person typed; once the deposit goes through they are
+// back on it and place the order (which then funds itself).
 //
-// While a deposit into that venue is on its way (started here or anywhere
-// else, read from the persisted Orchestra rows the pool hero's arriving
-// line reads), the button says "Deposit incoming" instead of offering a
-// second deposit, and the slip re-reads the venue's cash until the money
-// lands and the button turns into the order by itself.
+// While a deposit into that venue is on its way (an order's funding leg
+// that has left Dollars, read from the persisted Orchestra rows the pool
+// hero's arriving line reads), the button says "Deposit incoming" instead
+// of offering a second one, and the slip re-reads the venue's cash until
+// the money lands; the autofire places the queued order by itself.
 
 import 'dart:async';
 import 'dart:math' as math;
@@ -48,7 +49,6 @@ import 'package:kute/services/api/orchestra_api.dart' show OrchestraService;
 import 'package:kute/services/funding/venue_shortfall.dart';
 import 'package:kute/services/orchestra_routes.dart'
     show kOrchestraUsdAssetCode, kOrchestraUsdChain;
-import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
 /// The venue a slip funds.
@@ -141,8 +141,8 @@ Future<SlipRouteFee> Function(
         SlipVenue venue, ShortfallSource source, double amountUsd)?
     debugSlipRouteFee;
 
-/// Test seam: stands in for the Move sheet [openSlipTopUp] opens, with
-/// the prefill it was given.
+/// Test seam: stands in for the Dollars deposit door [openSlipTopUp]
+/// opens, with the prefill it was given (what is missing from Dollars).
 @visibleForTesting
 Future<void> Function(SlipVenue venue, double? initialTargetUsd)?
     debugShowSlipTopUpSheet;
@@ -205,23 +205,39 @@ Future<SlipRouteFee> _slipRouteFee(SlipVenue venue, ShortfallSource source,
 /// opens nothing.
 bool _topUpOpening = false;
 
-/// Opens the Move sheet locked to [venue]'s deposit. The prefill is the
-/// order's own amount [orderUsd], or that plus exactly the fees still
-/// missing so the money that arrives covers [requiredUsd] with
-/// [readyUsd] ([ShortfallRules.topUp]); with [incomingUsd] ("Add more"
-/// under "Deposit incoming") it is the rest of [shortfallUsd] instead.
-/// Both count the deposit route's own fee and the Kute fee the deposit's
-/// quote takes, for the source chosen: Dollars
-/// first when they cover the prefill, else Bitcoin. Without an order
-/// (nothing typed yet) it keeps [fallbackTargetUsd], as the door always
-/// did. [onReturned] runs once the deposit went through and the person is
-/// back on the still-open slip. [onSheetOpening] runs once the top-up is
-/// worked out, right before the Move sheet opens: the slip's door stops
-/// showing its calculation there.
+/// What the Dollars door is prefilled with for a slip short of venue
+/// cash: the order's top-up ([topUpUsd], the move the order would make,
+/// the route's fee counted) less the Dollars held, up to the cent, or
+/// zero when Dollars already cover the move. Pure.
+double slipDollarsShortfallUsd({
+  required double topUpUsd,
+  required double dollarsUsd,
+}) {
+  if (!topUpUsd.isFinite || topUpUsd <= 0) return 0;
+  final held = dollarsUsd.isFinite && dollarsUsd > 0 ? dollarsUsd : 0.0;
+  final missing = topUpUsd - held;
+  if (missing <= 1e-6) return 0;
+  return ((missing * 100) - 1e-9).ceilToDouble() / 100;
+}
+
+/// Opens the Dollars deposit door for a slip whose Dollars cannot cover
+/// the move its order needs. The prefill is what is missing from Dollars:
+/// the order's top-up (its own amount [orderUsd], or that plus exactly
+/// the fees still missing so the money that arrives at [venue] covers
+/// [requiredUsd] with [readyUsd], [ShortfallRules.topUp]) less the
+/// Dollars held; with [incomingUsd] ("Add more" under "Deposit incoming")
+/// the top-up is the rest of [shortfallUsd] instead. Both count the
+/// Dollars route's own fee and the Kute fee the move's quote takes.
+/// [topUpUsd] passes a top-up already worked out (the slip's funding
+/// plan) so nothing is read again. Without an order (nothing typed yet)
+/// it keeps [fallbackTargetUsd], as the door always did. [onReturned]
+/// runs once the deposit went through and the person is back on the
+/// still-open slip. [onSheetOpening] runs once the prefill is worked
+/// out, right before the door opens: the slip's button stops showing its
+/// calculation there.
 ///
-/// Events: `slip_top_up_opened` on the tap (with `prefill_rule`),
-/// `slip_top_up_returned` when the slip is shown again after a deposit.
-/// Bucketed dollars, never balances.
+/// No events of its own: the Dollars door and the order's funding report
+/// themselves.
 Future<void> openSlipTopUp(
   BuildContext context,
   WidgetRef ref, {
@@ -231,6 +247,7 @@ Future<void> openSlipTopUp(
   double requiredUsd = 0,
   double readyUsd = 0,
   double? incomingUsd,
+  double? topUpUsd,
   double? fallbackTargetUsd,
   required VoidCallback onReturned,
   VoidCallback? onSheetOpening,
@@ -238,64 +255,38 @@ Future<void> openSlipTopUp(
   if (_topUpOpening) return;
   _topUpOpening = true;
   double amount;
-  String rule;
-  ShortfallSource? source;
   try {
     final balances = _spendingBalances(ref);
-    SlipTopUp prefill(SlipRouteFee route) => incomingUsd != null
-        ? (
-            usd: ShortfallRules.remainingTopUpUsd(
+    var top = topUpUsd ?? 0.0;
+    if (top <= 0) {
+      // What the route is asked about: the order (or the rest) itself.
+      final base = incomingUsd != null
+          ? math.max(shortfallUsd - incomingUsd, ShortfallRules.minTopUpUsd)
+          : orderUsd;
+      if (base > 0) {
+        final route = await _slipRouteFee(
+            venue, ShortfallSource.dollars, base, balances.usdPerBtc);
+        top = incomingUsd != null
+            ? ShortfallRules.remainingTopUpUsd(
                 shortfallUsd: shortfallUsd,
                 incomingUsd: incomingUsd,
                 routeFee: route.fee,
-                kuteFeeBps: route.kuteBps),
-            rule: ShortfallRules.ruleRemaining
-          )
-        : ShortfallRules.topUp(
-            orderUsd: orderUsd,
-            requiredUsd: requiredUsd,
-            readyUsd: readyUsd,
-            routeFee: route.fee,
-            kuteFeeBps: route.kuteBps);
-    // What the route is asked about: the order (or the rest) itself.
-    final base = incomingUsd != null
-        ? math.max(shortfallUsd - incomingUsd, ShortfallRules.minTopUpUsd)
-        : orderUsd;
-    var top = (usd: 0.0, rule: 'none');
-    if (base > 0 && balances.dollars + 1e-9 >= base) {
-      final t = prefill(await _slipRouteFee(
-          venue, ShortfallSource.dollars, base, balances.usdPerBtc));
-      if (balances.dollars + 1e-9 >= t.usd) {
-        top = t;
-        source = ShortfallSource.dollars;
+                kuteFeeBps: route.kuteBps)
+            : ShortfallRules.topUpUsd(
+                orderUsd: orderUsd,
+                requiredUsd: requiredUsd,
+                readyUsd: readyUsd,
+                routeFee: route.fee,
+                kuteFeeBps: route.kuteBps);
       }
     }
-    if (source == null && base > 0) {
-      top = prefill(await _slipRouteFee(
-          venue, ShortfallSource.bitcoin, base, balances.usdPerBtc));
-      source = ShortfallRules.chooseSource(
-                  topUpUsd: top.usd,
-                  dollarsUsd: 0,
-                  bitcoinUsd: balances.bitcoinUsd) ==
-              ShortfallSource.bitcoin
-          ? ShortfallSource.bitcoin
-          : null;
-    }
-    amount = top.usd > 0 ? top.usd : (fallbackTargetUsd ?? 0);
-    rule = top.usd > 0 ? top.rule : 'none';
-    if (top.usd <= 0 && amount > 0) source = slipTopUpSource(ref, amount);
+    if (top <= 0) top = fallbackTargetUsd ?? 0;
+    amount =
+        slipDollarsShortfallUsd(topUpUsd: top, dollarsUsd: balances.dollars);
   } finally {
     _topUpOpening = false;
   }
   if (!context.mounted) return;
-  // Buckets, not figures: shortfall + order amount gives the venue's cash.
-  TrackingService.track('slip_top_up_opened', params: {
-    'venue': venue.code,
-    'shortfall_bucket': TrackingService.usdBucket(shortfallUsd),
-    'top_up_bucket': TrackingService.usdBucket(amount),
-    'prefill_rule': rule,
-    'suggested_source': source?.code ?? 'none',
-  });
   onSheetOpening?.call();
   final sheetSeam = debugShowSlipTopUpSheet;
   if (sheetSeam != null) {
@@ -304,15 +295,10 @@ Future<void> openSlipTopUp(
   }
   await showDepositSheet(
     context,
-    lockedSide: venue.lockedSide,
+    lockedSide: MoveLockedSide.depositToUsd,
     initialTargetUsd: amount > 0 ? amount : null,
-    initialSourceAsset: source == ShortfallSource.dollars ? 'usd' : null,
     onCompleted: () {
       if (!context.mounted) return;
-      TrackingService.track('slip_top_up_returned', params: {
-        'venue': venue.code,
-        'top_up_bucket': TrackingService.usdBucket(amount),
-      });
       onReturned();
     },
   );
@@ -366,7 +352,6 @@ mixin SlipIncomingDeposit<T extends ConsumerStatefulWidget>
   double _landedUsd = 0;
   DateTime? _landedAt;
   bool _incomingFailed = false;
-  bool _incomingShownTracked = false;
   Timer? _incomingPoll;
 
   /// The short slip's funding. Watches the swap rows; starts or stops the
@@ -412,15 +397,6 @@ mixin SlipIncomingDeposit<T extends ConsumerStatefulWidget>
       failed: state == SlipFundingState.deposit && _incomingFailed,
     );
     _pollWhile(funding.isIncoming);
-    if (funding.isIncoming && !_incomingShownTracked) {
-      _incomingShownTracked = true;
-      // What the person saw, once per slip: no amounts.
-      TrackingService.track('slip_deposit_incoming_shown', params: {
-        'venue': slipVenue.code,
-        'covers': state == SlipFundingState.incoming,
-        'wallet_kind': 'hot',
-      });
-    }
     return funding;
   }
 

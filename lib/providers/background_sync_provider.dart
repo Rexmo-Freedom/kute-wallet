@@ -1107,7 +1107,9 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
       // No cached addresses → no requests. This is the common case for
       // most users, so the sweep stays free until the first Orchestra
       // receive address is ever created on this device.
-      final addresses = AccumulationAddressCache.getAll();
+      // Retired entries included (late deposits), HyperCore-source
+      // entries excluded: see AccumulationAddressCache.sweepTargets.
+      final addresses = AccumulationAddressCache.sweepTargets();
       if (addresses.isEmpty) return;
       _lastAccumulationSweep = now;
       // Accumulation deliveries always land on the Spark spending

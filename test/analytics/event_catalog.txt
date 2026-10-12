@@ -57,12 +57,11 @@ backup_started
 backup_verified
 backup_verify_viewed
 balance_loaded_latency
+balance_snapshot
 bdk_scan
 bet_slip_abandoned
 bet_slip_advanced_details_toggled
 bet_slip_available_tapped
-bet_slip_deposit_offered
-bet_slip_deposit_to_trade_tapped
 bet_slip_limit_price_edited
 bet_slip_open_picker
 bet_slip_order_type
@@ -189,6 +188,8 @@ hw_sign_method_selected
 hw_sign_other_methods_toggled
 hw_sign_qr_help_toggled
 hw_sign_retry
+hyperevm_gas_float_bought
+hyperevm_gas_float_failed
 hyperliquid_attached_trailing_failed
 hyperliquid_autofire_failed
 hyperliquid_banner_shown
@@ -200,6 +201,7 @@ hyperliquid_close_submitted
 hyperliquid_deposit_completed
 hyperliquid_deposit_failed
 hyperliquid_deposit_initiated
+hyperliquid_deposit_step
 hyperliquid_funding_blocked
 hyperliquid_geoblocked_shown
 hyperliquid_leverage_adjusted
@@ -225,6 +227,7 @@ hyperliquid_trading_enabled
 hyperliquid_withdraw_completed
 hyperliquid_withdraw_failed
 hyperliquid_withdraw_initiated
+hyperliquid_withdraw_step
 hyperliquid_withdraw_submitted
 indicator_toggled
 investing_close_available_tapped
@@ -325,6 +328,12 @@ orchestra_quote_rejected
 orchestra_quote_result
 orchestra_refund_requested
 orchestra_submit_result
+order_funding_abandoned
+order_funding_completed
+order_funding_failed
+order_funding_started
+order_funding_step
+order_funding_submitted
 order_submit_ack_latency
 passkey_choice_back_tapped
 passkey_choice_bip_selected
@@ -391,7 +400,6 @@ polymarket_deposit_submitted
 polymarket_first_bet_placed
 polymarket_first_profitable_redeem
 polymarket_funding_action
-polymarket_funding_blocked
 polymarket_geoblocked_shown
 polymarket_limit_order_placed
 polymarket_limit_sell_placed
@@ -592,7 +600,6 @@ shell_swipe_hint_shown
 shell_tab_changed
 shell_tab_reselected
 shell_wallet_tab_selected
-slip_deposit_incoming_shown
 slip_top_up_opened
 slip_top_up_returned
 spark_connect_latency
@@ -654,6 +661,12 @@ usd_send_opened
 usd_send_step
 usd_tab_opened
 venue_account_link_result
+venue_cash_waiting_shown
+venue_sweep_completed
+venue_sweep_failed
+venue_sweep_skipped
+venue_sweep_started
+venue_sweep_submitted
 wallet_actions_opened
 wallet_add_abandoned
 wallet_add_blocked_shown

@@ -31,14 +31,14 @@ import 'package:kute/screens/shared/stepper/stepper_widgets.dart';
 import 'package:kute/screens/usd/flow/usd_flow_widgets.dart';
 import 'package:kute/services/accumulation_address_cache.dart';
 import 'package:kute/services/orchestra/orchestra_capability_requirements.dart';
+import 'package:kute/services/orchestra/reusable_deposit_address.dart';
 import 'package:kute/services/orchestra_routes.dart'
     show
         orchestraExchangeStatusIsTerminal,
         kOrchestraUsdAssetCode,
         kOrchestraUsdChain,
         orchestraCanQuoteReceiveOn,
-        orchestraReceiveChainForDestination,
-        orchestraAssetCodeFor;
+        orchestraReceiveChainForDestination;
 import 'package:kute/services/security/wallet_guard_exception.dart'
     show WalletGuardException;
 import 'package:kute/services/runtime_capabilities_service.dart';
@@ -531,6 +531,8 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
     });
     TrackingService.receiveSourceSelected(
         asset: option.assetCode, network: option.chain, provider: 'orchestra');
+    // Which model was being asked when a failure happened, for the event.
+    DepositAddressModel? model;
     try {
       final wrapper = await ref.read(breezSDKProvider.future);
       if (!current()) return;
@@ -571,36 +573,19 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
         }
       } catch (_) {}
       if (!current() || !sameSdk()) return;
-      final standing = await StandingDepositStore.register(
+      final resolved = await ReusableDepositAddressService.resolve(
           walletId: walletId,
           recipient: spark,
           destinationAsset: kOrchestraUsdAssetCode,
           sourceChain: option.chain,
           sourceAsset: option.assetCode,
-          wanted: () => current() && sameSdk());
+          wanted: () => current() && sameSdk(),
+          onAttempt: (m) => model = m);
       if (!current() || !sameSdk()) return;
-      String address;
-      String addressId;
-      int? kuteFeeBps;
-      if (standing != null) {
-        _standing = standing;
-        address = standing.addressFor(option.chain)!;
-        addressId = standing.response['standingAddressId'] as String;
-        kuteFeeBps = standing.kuteFeeBps;
-      } else {
-        final result = await AccumulationAddressCache.getOrCreate(
-            sourceChain: option.chain,
-            sourceAsset: orchestraAssetCodeFor(option.assetCode),
-            destinationAsset: kOrchestraUsdAssetCode,
-            recipientSparkAddress: spark);
-        address = result.data?.depositAddress ?? '';
-        if (address.isEmpty) {
-          throw result.error ?? 'Failed to create deposit address';
-        }
-        addressId = result.data!.id;
-        kuteFeeBps = result.data!.kuteFeeBps;
-      }
-      if (!current() || !sameSdk()) return;
+      _standing = resolved.standing;
+      final address = resolved.address;
+      final addressId = resolved.id;
+      final kuteFeeBps = resolved.kuteFeeBps;
       final display = SwapOrder(
         activityDirection: 'receive',
         id: addressId,
@@ -631,6 +616,7 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
         'reused': priorAddresses.contains(address),
         'destination': 'spark_usd',
         'address_kind': 'reusable_deposit',
+        'model': resolved.model.name,
         if (kuteFeeBps != null) 'kute_fee_bps': kuteFeeBps,
       });
       TrackingService.moneyFlowStep('usd_receive', 'deposit_address_shown',
@@ -652,6 +638,7 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
         'network': option.chain,
         'provider': 'orchestra',
         'error_category': TrackingService.errorCategory(e),
+        if (model case final m?) 'model': m.name,
       });
       TrackingService.moneyFlowError('usd_receive', e);
       // Never change the destination balance when address creation fails.
@@ -684,6 +671,11 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
   String _errorCopy(Object error) {
     final l10n = context.l10n;
     if (error is WalletGuardException) return error.messageFor(l10n);
+    // The rails refused this coin and network, not this attempt: say so,
+    // and the coin step no longer offers it (ReceiveRouteAvailability).
+    if (error is ReceiveRouteUnavailableException) {
+      return l10n.receiveCoinNetworkUnavailable;
+    }
     return railSafeErrorCopy(context, error,
         fallback: l10n.receiveDepositAddressFailed);
   }

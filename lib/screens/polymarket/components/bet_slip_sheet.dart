@@ -96,6 +96,18 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/screens/shared/slip_shortfall.dart';
 import 'package:kute/services/funding/venue_shortfall.dart';
+import 'package:kute/providers/pending_bet_autofire.dart'
+    show autofireOrderPrice, autofireSlippagePct, kPendingBetAutofireId;
+import 'package:kute/providers/usd_account_provider.dart'
+    show usdBalanceProvider;
+import 'package:kute/services/funding/hot_settlement.dart' show HotSettlement;
+import 'package:kute/services/one_balance/one_balance_state.dart'
+    show OneBalanceVenue;
+import 'package:kute/services/one_balance/order_funding.dart';
+import 'package:kute/services/one_balance/predictions_venue_funder.dart'
+    show predictionsVenueFunderProvider;
+import 'package:kute/services/one_balance/venue_funder.dart'
+    show UserGrantAuthorization;
 import 'package:kute/services/polymarket/polymarket_category_gate.dart';
 import 'package:kute/services/venue_analytics.dart';
 import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
@@ -584,6 +596,17 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   /// True while a swap leg is part of the active placement — drives the
   /// 3-step vs single-step progress bar in the placing panel.
   bool _swapNeeded = false;
+
+  /// One balance: the move a short bet would make from Dollars, from the
+  /// venue's live estimate (the "Move fee" row, the "Add $X to
+  /// Investments" button). Worked out for [_fundingPlanAmount]; null
+  /// until read, or while the bet is covered by venue cash.
+  OrderFundingPlan? _fundingPlan;
+  double? _fundingPlanAmount;
+  bool _fundingPlanReading = false;
+
+  /// What the running funding leg moves, for the busy label.
+  double? _fundingUsd;
 
   /// Latches the success state so the ticket stays locked while the slip
   /// closes, even after the intent provider clears (the BTC auto-fire
@@ -1197,7 +1220,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       {required bool busy,
       required bool enabled,
       required VoidCallback onTap,
-      String? busyLabel}) {
+      String? busyLabel,
+      String? label}) {
     final block = _depositBlock;
     // Funding a bet that cannot be placed here would only strand the
     // money, so the door shuts with the open gate too.
@@ -1211,7 +1235,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       busyLabel: busyLabel,
       enabled: !shut && enabled,
       onTap: onTap,
-      label: context.l10n.depositToPredict,
+      label: label ?? context.l10n.depositToPredict,
     );
     // When new bets are shut, that note already sits above the action and
     // explains why nothing here can start. A deposit refusal is not said a
@@ -1920,14 +1944,14 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
             PolymarketFeeTerms.worstCase;
     final shortfall = _predictionsShortfall(balance, terms);
     if (shortfall > 0) {
-      _stopped('insufficient_balance');
-      _trackStep('deposit');
-      PolymarketPlacementDiagnostics.declined('insufficient_balance');
-      PolymarketPlacementTimeline.finish('declined',
-          reason: 'insufficient_balance');
-      await _offerCryptoDeposit(balance,
+      // One balance: the bet funds its shortfall from Dollars and queues
+      // behind the credit, under one approval.
+      await _fundAndPlace(
+          balance: balance,
+          terms: terms,
           shortfallUsd: shortfall,
-          requiredUsd: _predictionsRequired(terms));
+          mode: mode,
+          outcomeLabel: outcomeLabel);
       return;
     }
     // Phase 1b.4: a fresh approval bound to the whole placement (the stake
@@ -1992,7 +2016,11 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     return null;
   }
 
-  Future<AuthGrant?> _approveBet() async {
+  /// [funding] (one balance) asks for the ONE approval a funded bet
+  /// needs: the bet review extended with the funding leg's cap and venue
+  /// ([PmGrants.fundedBetReview]), issued as the autofire grant the queued
+  /// bet fires on. No second prompt for the move.
+  Future<AuthGrant?> _approveBet({OrderFundingPlan? funding}) async {
     _lastDeclineReason = null;
     if (_usesAdvanced) {
       try {
@@ -2090,6 +2118,19 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     // The book (kept at most a second old) and the account's pUSD are
     // read while the approval is on screen, not after it.
     controller.prefetchForSend(pending);
+    if (funding != null) {
+      final grant = await requireFreshAuthGrant(
+        context,
+        ref,
+        intent: _fundedReviewIntent(review, pending, funding),
+        reason: context.l10n
+            .stepUpReasonBet('\$${pending.amount.toStringAsFixed(2)}'),
+        amountUsd: pending.amount,
+        autofireIntentId: kPendingBetAutofireId,
+      );
+      if (grant == null) return _decline('approval_not_granted');
+      return grant;
+    }
     final grant = await requireFreshAuthGrant(
       context,
       ref,
@@ -2106,6 +2147,33 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     );
     if (grant == null) return _decline('approval_not_granted');
     return grant;
+  }
+
+  /// The review a funded bet approves once: the bet review's cap, raised
+  /// to what the autofire may submit once the money lands (its own
+  /// slippage rule on the price the ticket shows, the rounding cent), plus
+  /// the funding leg's cap and venue. The autofire rebuilds exactly these
+  /// bounds on the order it places, so the one grant covers both legs.
+  SensitiveIntent _fundedReviewIntent(
+      SensitiveIntent review, PendingBetIntent pending, OrderFundingPlan plan) {
+    var intent = review;
+    if (!pending.isLimit) {
+      final slip = autofireSlippagePct(pending.expectedPrice, pending.slippagePct);
+      final bound = review.limits[IntentLimit.limitPrice];
+      final worst = max(bound is double ? bound : 0.0,
+          autofireOrderPrice(pending.expectedPrice, slip));
+      final cap = IntentUnits.usd(pending.amount + 0.02);
+      intent = review.copyWith(
+        amountMax: review.amountMax > cap ? review.amountMax : cap,
+        limits: {
+          ...review.limits,
+          IntentLimit.limitPrice: worst,
+          IntentLimit.maxSlippageBps: IntentUnits.bps(slip),
+        },
+      );
+    }
+    return PmGrants.fundedBetReview(intent,
+        fundUsd: plan.fundUsd, venue: IntentVenue.polymarket);
   }
 
   /// Runs the placement engine with [grant]. Drift closes the placing panel
@@ -2162,39 +2230,53 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   /// length sane; the full question is public on Polymarket anyway).
   String _truncMarket(String q) => q.length > 80 ? q.substring(0, 80) : q;
 
-  /// The hot Deposit door. One tap at a time: a tap while one is being
-  /// worked out (or its Move sheet is open) is ignored, event included.
-  /// The tap runs the normal placement path, which stores the bet as it
-  /// stands and opens the top-up; the door shows "Calculating…" until the
-  /// Move sheet opens. A failure on the way leaves the slip as it was
-  /// with nothing queued.
-  Future<void> _onDepositDoorTap() async {
+  /// The "Add $X to Investments" door: Dollars cannot cover the move this
+  /// bet needs. One tap at a time: a tap while the prefill is worked out
+  /// (or the Dollars door is open) is ignored. The door shows
+  /// "Calculating…" until the Dollars door opens; the slip stays open
+  /// underneath with the same market, side and amount, and nothing is
+  /// queued.
+  Future<void> _onAddDollarsTap() async {
     if (_buyInFlight || _isPlacing || _doorCalculating) return;
     HapticFeedback.mediumImpact();
-    TrackingService.track('bet_slip_deposit_to_trade_tapped');
-    final queuedBefore = ref.read(pendingPolymarketBetProvider);
-    _updateState(() => _doorCalculating = true);
+    // The slip is frozen for the whole tap, the open door included (the
+    // same guard a placement holds), so the bet behind the door is the
+    // one on the slip at the tap.
+    _updateState(() {
+      _buyInFlight = true;
+      _doorCalculating = true;
+    });
     try {
-      // An empty slip funds and places the market's minimum.
+      // An empty slip asks for the market's minimum.
       if (_emptyStake) _placeMinimum(place: false);
-      await _handleBuy();
+      final terms = ref
+              .read(polymarketFeeTermsProvider(_selectedTokenId ?? ''))
+              .valueOrNull ??
+          PolymarketFeeTerms.worstCase;
+      final cash =
+          ref.read(polymarketTradingProvider).valueOrNull?.usdcBalance ?? 0;
+      final required = _predictionsRequired(terms);
+      _stopped('insufficient_balance');
+      _trackStep('deposit');
+      await _openDollarsTopUp(
+        shortfallUsd: _predictionsShortfall(cash, terms),
+        requiredUsd: required,
+        readyUsd: cash,
+        topUpUsd: _fundingPlan?.fundUsd,
+      );
     } catch (_) {
       if (!mounted) return;
-      // Only the bet this tap stored is dropped.
-      final queued = ref.read(pendingPolymarketBetProvider);
-      if (queued != null && !identical(queued, queuedBefore)) {
-        ref.read(pendingPolymarketBetProvider.notifier).clear();
-      }
       showMessageSnackBar(
           context: context,
           message: context.l10n.errorCopyGeneric,
           error: true);
     } finally {
       _depositSheetOpening();
+      if (mounted) _updateState(() => _buyInFlight = false);
     }
   }
 
-  /// The top-up is worked out (or the tap ended): the door stops
+  /// The prefill is worked out (or the tap ended): the door stops
   /// calculating.
   void _depositSheetOpening() {
     if (mounted && _doorCalculating) {
@@ -2202,21 +2284,16 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     }
   }
 
-  /// Keep the ticket and its pending intent while the shared funding sheet
-  /// is open. Depositing does not approve or automatically submit this bet.
-  Future<void> _offerCryptoDeposit(double availableUsd,
-      {double shortfallUsd = 0, double requiredUsd = 0}) async {
-    // A withheld `polymarket.deposit` shuts every door into Predictions,
-    // this one included: the bet stays unplaced and the slip says why.
-    if (_refuseBlockedDeposit() != null) return;
-    TrackingService.track('bet_slip_deposit_offered', params: {
-      'amount_bucket': TrackingService.usdBucket(_amount),
-      'combined_bucket': TrackingService.usdBucket(availableUsd),
-    });
-    // Prefilled with the bet's own amount (the fee added only when the
-    // deposit alone would not cover it), on the spending source that
-    // covers it alone; the slip stays open underneath with the same
-    // market, side and amount.
+  /// Opens the Dollars deposit door prefilled with what is missing from
+  /// Dollars for the move this bet needs. The ticket keeps its draft;
+  /// depositing does not approve or submit this bet.
+  Future<void> _openDollarsTopUp({
+    required double shortfallUsd,
+    required double requiredUsd,
+    required double readyUsd,
+    double? topUpUsd,
+  }) async {
+    if (!mounted) return;
     await openSlipTopUp(
       context,
       ref,
@@ -2224,11 +2301,253 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       shortfallUsd: shortfallUsd,
       orderUsd: _amount,
       requiredUsd: requiredUsd,
-      readyUsd: availableUsd,
+      readyUsd: readyUsd,
+      topUpUsd: topUpUsd,
       fallbackTargetUsd: _amount,
       onReturned: slipTopUpReturned,
       onSheetOpening: _depositSheetOpening,
     );
+  }
+
+  /// The spending account's Dollars, read, never sent anywhere.
+  double _dollarsUsd() {
+    try {
+      final d = ref.read(usdBalanceProvider);
+      return d.isFinite && d > 0 ? d : 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /// The move this bet would make from Dollars, for [required] venue cash
+  /// with [ready] there: the plan already read for this amount, else the
+  /// venue's live estimate now (held as the slip's plan).
+  Future<OrderFundingPlan> _fundingPlanFor(
+      {required double required, required double ready}) async {
+    final held = _fundingPlan;
+    if (held != null && _fundingPlanAmount == _amount) {
+      return OrderFundingPlan.from(
+        orderUsd: _amount,
+        requiredUsd: required,
+        readyUsd: ready,
+        routeFee: held.fundUsd > 0 ? 1 - held.arrivingUsd / held.fundUsd : 0,
+        minUsd: held.minUsd,
+      );
+    }
+    final plan = await OrderFundingPlan.read(
+      ref.read(predictionsVenueFunderProvider),
+      orderUsd: _amount,
+      requiredUsd: required,
+      readyUsd: ready,
+    );
+    if (mounted) {
+      _fundingPlan = plan;
+      _fundingPlanAmount = _amount;
+    }
+    return plan;
+  }
+
+  /// Reads the venue's estimate for the stake on the slip while it is
+  /// short of venue cash, so the ticket can show the move's fee and the
+  /// button can say what Dollars are missing before any tap. One read per
+  /// amount; a failed read keeps the fallback plan.
+  void _refreshFundingPlan({required double required, required double ready}) {
+    if (_fundingPlanReading || _fundingPlanAmount == _amount || _amount <= 0) {
+      return;
+    }
+    _fundingPlanReading = true;
+    final amount = _amount;
+    unawaited(() async {
+      try {
+        final plan = await OrderFundingPlan.read(
+          ref.read(predictionsVenueFunderProvider),
+          orderUsd: amount,
+          requiredUsd: required,
+          readyUsd: ready,
+        );
+        if (!mounted) return;
+        _fundingPlan = plan;
+        _fundingPlanAmount = amount;
+      } catch (_) {
+        // The fallback share stands until the next read.
+      } finally {
+        _fundingPlanReading = false;
+        if (mounted) _updateState(() {});
+      }
+    }());
+  }
+
+  /// One balance: a bet short of venue cash funds itself from Dollars and
+  /// queues behind the credit, under ONE approval that covers the move and
+  /// the bet. Dollars short of the move send the person to the Dollars
+  /// door with nothing queued; a refused move clears the queued bet with
+  /// Dollars untouched. Once Dollars have left, the autofire places the
+  /// bet when the venue credits them (the slip may be closed by then).
+  Future<void> _fundAndPlace({
+    required double balance,
+    required PolymarketFeeTerms terms,
+    required double shortfallUsd,
+    required String mode,
+    required String outcomeLabel,
+  }) async {
+    final pendingNotifier = ref.read(pendingPolymarketBetProvider.notifier);
+    void dropQueued() {
+      if (!mounted) return;
+      if (ref.read(pendingPolymarketBetProvider)?.status !=
+          PendingBetStatus.failed) {
+        pendingNotifier.clear();
+      }
+    }
+
+    // A withheld `polymarket.deposit` shuts every door into Predictions,
+    // this one included: the bet stays unplaced and the slip says why.
+    if (_refuseBlockedDeposit() != null) {
+      _stopped('insufficient_balance');
+      PolymarketPlacementDiagnostics.declined('deposit_blocked');
+      PolymarketPlacementTimeline.finish('declined',
+          reason: 'deposit_blocked');
+      dropQueued();
+      return;
+    }
+    final required = _predictionsRequired(terms);
+    OrderFundingPlan plan;
+    try {
+      plan = await _fundingPlanFor(required: required, ready: balance);
+    } catch (e) {
+      _decline('quote_failed', error: e);
+      PolymarketPlacementTimeline.finish('declined', reason: 'quote_failed');
+      dropQueued();
+      if (mounted) {
+        showMessageSnackBar(
+            context: context,
+            message: context.l10n.errorCopyGeneric,
+            error: true);
+      }
+      return;
+    }
+    if (!mounted) return;
+    PolymarketPlacementTimeline.mark('funding_plan');
+    // Dollars short of the move: the Dollars door, nothing queued.
+    if (_dollarsUsd() + 1e-9 < plan.fundUsd) {
+      _stopped('insufficient_balance');
+      _trackStep('deposit');
+      PolymarketPlacementDiagnostics.declined('insufficient_dollars');
+      PolymarketPlacementTimeline.finish('declined',
+          reason: 'insufficient_dollars');
+      dropQueued();
+      await _openDollarsTopUp(
+          shortfallUsd: shortfallUsd,
+          requiredUsd: required,
+          readyUsd: balance,
+          topUpUsd: plan.fundUsd);
+      return;
+    }
+    // One approval, bound to the whole placement and the funding leg.
+    final grant = await _approveBet(funding: plan);
+    PolymarketPlacementTimeline.mark('approval');
+    if (grant == null) {
+      PolymarketPlacementTimeline.finish('declined',
+          reason: _lastDeclineReason ?? 'approval');
+      dropQueued();
+      return;
+    }
+    if (!mounted) {
+      grant.revoke();
+      return;
+    }
+    final pending = ref.read(pendingPolymarketBetProvider);
+    if (pending == null || !_orderMatchesSelection(pending.tokenId)) {
+      grant.revoke();
+      dropQueued();
+      return;
+    }
+    _swapNeeded = true;
+    _fundingUsd = plan.fundUsd;
+    TrackingService.track('bet_slip_place', params: {
+      'amount_bucket': TrackingService.usdBucket(_amount),
+      'mode': mode,
+      'swap_needed': 1,
+      'balance_bucket': TrackingService.usdBucket(balance),
+      'market': _truncMarket(widget.marketQuestion),
+      'outcome': outcomeLabel,
+    });
+    _orderPlaced = true;
+    _trackSubmitted();
+    _updateState(() {
+      _isPlacing = true;
+      _placedSuccess = false;
+    });
+    // Queue, then fund: the autofire watches from here and places the
+    // bet on the deposit's credit (or fails it after `kFundsTimeout`).
+    pendingNotifier.setIntent(pending.copyWith(
+      status: PendingBetStatus.awaitingBalance,
+      fundUsd: plan.fundUsd,
+      queuedAt: DateTime.now(),
+    ));
+    final outcome =
+        await ref.read(orderFundingControllerProvider).fundAndQueue(
+      venue: OneBalanceVenue.predictions,
+      orderUsd: pending.amount,
+      requiredUsd: required,
+      readyUsd: balance,
+      auth: UserGrantAuthorization(grant),
+      fundUsd: plan.fundUsd,
+      entrySource: widget.source,
+      onStage: (_) {
+        if (mounted) _updateState(() {});
+      },
+    );
+    switch (outcome) {
+      case OrderFundingFunded(:final move):
+        // Dollars have left. The row is in Activity; the autofire takes
+        // over. The slip may close now: nothing here is needed any more.
+        PolymarketPlacementTimeline.mark('funded');
+        pendingNotifier.recordFunding(
+            quoteRef: TrackingService.orderRef(move.quoteId));
+      case OrderFundingNotNeeded():
+        // The venue covers it after all: the queued bet fires on the next
+        // balance tick.
+        break;
+      case OrderFundingRefused(:final reason, :final error):
+        // Nothing left Dollars: the queued bet goes, the slip is back.
+        grant.revoke();
+        pendingNotifier.clear();
+        _fundingUsd = null;
+        _swapNeeded = false;
+        _stopped('funding_refused', error: error);
+        PolymarketPlacementTimeline.finish('failed', reason: 'funding_$reason');
+        if (!mounted) return;
+        _updateState(() => _isPlacing = false);
+        if (error is AuthGrantException) {
+          await handleGrantFailure(context, error,
+              action: SensitiveAction.pmBet);
+          return;
+        }
+        if (reason == 'user_cancelled') return;
+        showMessageSnackBar(
+            context: context,
+            message: (error == null
+                    ? null
+                    : HotSettlement.messageFor(error, context.l10n)) ??
+                context.l10n.betActionNotCompleted,
+            error: true);
+      case OrderFundingNeedsDollars():
+        // Dollars fell short since the slip looked: the Dollars door.
+        grant.revoke();
+        pendingNotifier.clear();
+        _fundingUsd = null;
+        _swapNeeded = false;
+        _stopped('insufficient_balance');
+        PolymarketPlacementTimeline.finish('declined',
+            reason: 'insufficient_dollars');
+        if (!mounted) return;
+        _updateState(() => _isPlacing = false);
+        await _openDollarsTopUp(
+            shortfallUsd: shortfallUsd,
+            requiredUsd: required,
+            readyUsd: balance,
+            topUpUsd: plan.fundUsd);
+    }
   }
 
   /// "Add more" under "Deposit incoming": the rest of the shortfall.
@@ -2906,14 +3225,23 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       // as the fill price falls, so pricing it at the cap understated it,
       // most on favourites (a 95c side capped at 99.99c showed about no
       // venue fee at all). A limit is priced at its own limit.
+      // One balance: a bet short of venue cash moves Dollars first; the
+      // move's own cost is folded into the one fee row (the total, plus a
+      // "Move fee" detail), never a row of its own.
+      final moveFee = _moveFee(cash);
       final feeSummary = PolymarketFeeSummary(
         tokenId: effectiveTokenId,
         shares: _sharesFor(maxFeePrice),
         price: maxFeePrice,
         bitcoinFirst: false,
         limit: _isLimitMode,
-        hasFunds: cash == null || cash > 0,
+        // A bet short of venue cash is funded from Dollars: the row prices
+        // it (venue fees plus the move) instead of asking for funds.
+        hasFunds: cash == null || cash > 0 || moveFee != null,
         showNote: _showAdvanced,
+        moveFeeUsd: moveFee?.usd,
+        moveFeeLabel: context.l10n.slipMoveFee,
+        moveFeePending: moveFee != null && moveFee.usd == null,
       );
       final minBetWarning = _amount > 0 && _amount < _effectiveMinBetUsd
           ? Text(
@@ -3584,24 +3912,45 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           ],
         );
       }
-      final door = _depositDoor(
-        // Busy only while the top-up is worked out; shut until the tap
-        // (and the Move sheet it opens) is done.
-        busy: _doorCalculating,
-        busyLabel: context.l10n.feeUiCalculating,
-        enabled: !_buyInFlight && !_doorCalculating,
-        onTap: _onDepositDoorTap,
-      );
-      if (!funding.failed) return door;
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [const SlipDepositFailedNote(), door],
-      );
-    }
-    // Only a balance that was read and covers the bet ends the wait; a
-    // refresh in flight keeps what the slip is following.
-    if (cash != null && trading.hasValue && !trading.hasError) {
+      // One balance: the bet funds its shortfall from Dollars at the tap.
+      // Only when Dollars cannot cover that move either is the button the
+      // Dollars door, naming exactly what is missing.
+      final required = _predictionsRequired(terms);
+      _refreshFundingPlan(required: required, ready: cash);
+      final plan = _fundingPlanAmount == _amount && _fundingPlan != null
+          ? _fundingPlan!
+          : OrderFundingPlan.fallback(
+              orderUsd: _amount > 0 ? _amount : _effectiveMinBetUsd,
+              requiredUsd: required,
+              readyUsd: cash);
+      final dollars = ref.watch(usdBalanceProvider);
+      final missing = slipDollarsShortfallUsd(
+          topUpUsd: plan.fundUsd, dollarsUsd: dollars);
+      if (missing > 0) {
+        final door = _depositDoor(
+          // Busy only while the prefill is worked out; shut until the tap
+          // (and the Dollars door it opens) is done.
+          busy: _doorCalculating,
+          busyLabel: context.l10n.feeUiCalculating,
+          enabled: !_buyInFlight && !_doorCalculating,
+          onTap: _onAddDollarsTap,
+          label: context.l10n.slipAddToInvestments(_fiatCompanion(missing)),
+        );
+        if (!funding.failed) return door;
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [const SlipDepositFailedNote(), door],
+        );
+      }
+      // Dollars cover the move: the bet itself, funded at the tap.
+    } else if (cash != null && trading.hasValue && !trading.hasError) {
+      // Only a balance that was read and covers the bet ends the wait; a
+      // refresh in flight keeps what the slip is following.
       slipFundingCovered();
+      if (_fundingPlan != null) {
+        _fundingPlan = null;
+        _fundingPlanAmount = null;
+      }
     }
     // A stake under the market's floor: the one button names the minimum
     // and a tap fills it, so the disabled bet never sits there unexplained.
@@ -3671,6 +4020,22 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   }
 
   // ── Funding source ─────────────────────────────────────────────────────
+
+  /// The "Move fee": what moving the shortfall from Dollars costs, from
+  /// the slip's funding plan, for the fee summary to fold into its row.
+  /// Null while the venue cash covers the stake (nothing moves), on a
+  /// Ledger slip, or before the stake is typed; a null `usd` while the
+  /// plan for this stake is still being read.
+  ({double? usd})? _moveFee(double? cash) {
+    if (_isLedger || cash == null || _amount <= 0) return null;
+    final terms = ref
+            .watch(polymarketFeeTermsProvider(_selectedTokenId ?? ''))
+            .valueOrNull ??
+        PolymarketFeeTerms.worstCase;
+    if (_predictionsShortfall(cash, terms) <= 0) return null;
+    final plan = _fundingPlanAmount == _amount ? _fundingPlan : null;
+    return (usd: plan?.feeUsd);
+  }
 
   /// Source account detail in the advanced order summary.
   Widget _buildFundingSource(AppColorsExtension c) {
@@ -3753,13 +4118,17 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         _ => l10n.betPlacingPrediction,
       };
     }
+    // One balance: the funding leg is on its way, then the order.
+    final moving = context.l10n.slipMovingToVenue(
+        _fiatCompanion(_fundingUsd ?? _fundingPlan?.fundUsd ?? _amount),
+        context.l10n.predictions);
     switch (status) {
-      case PendingBetStatus.awaitingBalance:
-        return context.l10n.betContactingPolymarket;
       case PendingBetStatus.placing:
+      case PendingBetStatus.done:
+      case PendingBetStatus.awaitingConfirmation:
         return context.l10n.betPlacingOrder;
       default:
-        return context.l10n.betSendingBitcoin;
+        return moving;
     }
   }
 

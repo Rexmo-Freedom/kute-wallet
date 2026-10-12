@@ -17,9 +17,8 @@ import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/kute_back_button.dart'
     show KuteCirclePillButton;
 import 'package:kute/screens/shared/open_once.dart';
-import 'package:kute/screens/portfolio/open_investments_screen.dart'
-    show OpenInvestmentsScreen;
-import 'package:kute/providers/asset_icon_provider.dart' show kUsdMarkAsset;
+import 'package:kute/providers/asset_icon_provider.dart'
+    show kInvestmentsIcon;
 import 'package:kute/screens/home/shell_venue_tabs.dart'
     show shellShowsPredictionsTab, shellShowsTradingTab;
 import 'package:kute/screens/shared/wallet_icon.dart';
@@ -27,8 +26,9 @@ import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
 /// The Financial hub: the wallet list, switch wallet (with its step-up) and
-/// Add wallet, the Portfolio, and Settings (a labelled pill) and
-/// Notifications (the round bell) side by side in its header. It opens from the + at the top right of the shell's top bar (the
+/// Add wallet, and Settings (a labelled pill) and Notifications (the
+/// round bell) side by side in its header. No Portfolio row: the
+/// Portfolio lives inside Investments (one balance, October 2026). It opens from the + at the top right of the shell's top bar (the
 /// only door on the shell; it replaced the Settings gear) and from the
 /// wallet's name on a pushed wallet screen, which has no +. The dock's
 /// square button is search everywhere (owner decision: give each job one
@@ -90,7 +90,6 @@ class _WalletMoneyActionsSheet extends StatelessWidget {
                 ],
               ),
             ),
-            _PortfolioSection(callerContext: callerContext),
             _WalletsSection(
               sheetContext: context,
               callerContext: callerContext,
@@ -129,53 +128,6 @@ class _HubSettingsButton extends StatelessWidget {
         if (!callerContext.mounted) return;
         callerContext.push('/settings');
       },
-    );
-  }
-}
-
-/// The Portfolio from the hub: one row in the roster's grouped card style,
-/// above the wallets (Add account stays the hub's last item), wearing the
-/// dock's Portfolio glyph. It opens the
-/// same Portfolio screen the docks open (the spending account's bitcoin,
-/// dollars and both venues), from whichever tab the hub was opened on.
-/// Absent while there is no spending account to show.
-class _PortfolioSection extends ConsumerWidget {
-  const _PortfolioSection({required this.callerContext});
-
-  final BuildContext callerContext;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final c = context.colors;
-    final spending = ref
-        .watch(settingsProvider.select((s) => pickSpendingWallet(s) != null));
-    if (!spending) return const SizedBox.shrink();
-    return Padding(
-      padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 12.h),
-      child: Container(
-        decoration: BoxDecoration(
-          color: c.surfaceLight,
-          borderRadius: BorderRadius.circular(20.r),
-          border: Border.all(color: c.borderSubtle, width: 0.5),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: _WalletRow(
-          key: const ValueKey('hub-portfolio'),
-          label: context.l10n.walletPortfolioAction,
-          leading:
-              Icon(Icons.pie_chart_rounded, size: 20.sp, color: c.textPrimary),
-          isActive: false,
-          onTap: () {
-            HapticFeedback.selectionClick();
-            Navigator.of(context).pop();
-            if (!callerContext.mounted) return;
-            Navigator.of(callerContext, rootNavigator: true).push(
-                MaterialPageRoute(
-                    builder: (_) =>
-                        const OpenInvestmentsScreen(source: 'hub')));
-          },
-        ),
-      ),
     );
   }
 }
@@ -319,7 +271,6 @@ class _WalletsSection extends ConsumerWidget {
 
 class _WalletRow extends StatelessWidget {
   const _WalletRow({
-    super.key,
     required this.label,
     required this.leading,
     required this.isActive,
@@ -403,8 +354,9 @@ class _VenueMarks extends StatelessWidget {
     this.predictions = true,
   });
 
-  /// The spending account also carries Dollars as a tab of its own, so
-  /// its row shows that mark beside the two venues. A Ledger does not.
+  /// The spending account also carries Investments (the dollar balance)
+  /// as a tab of its own, so its row shows the Investments arrow beside
+  /// the two venues, never the USDB coin. A Ledger does not.
   final bool withDollars;
 
   /// Which venue marks to draw: a Ledger draws only the venues it has.
@@ -425,7 +377,8 @@ class _VenueMarks extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (withDollars) ...[
-            SvgPicture.asset(kUsdMarkAsset, width: size, height: size),
+            Icon(kInvestmentsIcon,
+                size: size, color: context.colors.textPrimary),
             if (investing || predictions) SizedBox(width: 6.w),
           ],
           if (investing)

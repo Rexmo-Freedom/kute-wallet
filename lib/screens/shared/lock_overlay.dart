@@ -213,13 +213,16 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
     setState(() => _verifying = true);
     try {
       final auth = AuthModel();
+      // Before the check, as on the cold-start PIN screen: a match may
+      // re-save old copies, and the policy must still see the wallet as
+      // it was so a kept `biometric_pin` stays.
+      final dependency = await _v1Dependency();
       final check = await auth.checkPin(_pin);
       if (!mounted) return;
       if (check == PinCheck.match) {
         final typedPin = _pin;
         await PinAttemptGuard(auth).recordSuccess();
         await auth.recoverPendingPinChange(typedPin);
-        final dependency = await _v1Dependency();
         await BiometricPinPolicy()
             .applyAfterUnlock(dependency, typedPin: typedPin);
         if (!mounted) return;

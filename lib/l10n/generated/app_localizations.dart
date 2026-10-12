@@ -6630,7 +6630,7 @@ abstract class AppLocalizations {
   /// No description provided for @usdAccountTab.
   ///
   /// In en, this message translates to:
-  /// **'Dollars'**
+  /// **'Investments'**
   String get usdAccountTab;
 
   /// No description provided for @activityFromAmount.
@@ -10642,10 +10642,10 @@ abstract class AppLocalizations {
   /// **'Buy bitcoin'**
   String get moveBuyBitcoin;
 
-  /// The ONE label for the door that funds the dollar balance: the button on the Dollars screen, the Move sheet title, and the payment method's second line. Always shown beside the shared dollar mark.
+  /// The ONE label for the door that funds the dollar balance (the Investments balance): the button on the Investments screen, the Move sheet title, and the payment method's second line. Shown beside the Investments arrow, the Home deposit button's icon.
   ///
   /// In en, this message translates to:
-  /// **'Dollar deposit'**
+  /// **'Investments deposit'**
   String get dollarDeposit;
 
   /// The other side of dollarDeposit: money leaving the dollar balance. Same mark.
@@ -11013,6 +11013,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Investing withdrawals are temporarily unavailable'**
   String get investingWithdrawalsUnavailable;
+
+  /// Investing move stopped before anything moved: the small HYPE float that pays network fees needs about $1 from Dollars (or Bitcoin) and neither balance has it.
+  ///
+  /// In en, this message translates to:
+  /// **'Add about \$1 to Dollars to cover the network fee for this move. Nothing was sent.'**
+  String get investingNeedsDollarsForNetworkFee;
 
   /// No description provided for @betReceiptCost.
   ///
@@ -11482,16 +11488,16 @@ abstract class AppLocalizations {
   /// **'Search predictions'**
   String get searchPredictionsHint;
 
-  /// Name of the dollar balance as an asset row in the cross asset pickers.
+  /// Name of the dollar balance (Investments) as a source or destination row: the cross asset pickers, the Move route card, the move overlays. Its row wears the Investments arrow, never the USDB coin.
   ///
   /// In en, this message translates to:
-  /// **'Dollars'**
+  /// **'Investments'**
   String get assetDollars;
 
-  /// Second line on the Dollars row in the move sheet source picker, where the dollar balance funds a venue deposit.
+  /// Second line on the Investments row in the move sheet source picker, where the dollar balance funds a venue deposit or a bitcoin buy.
   ///
   /// In en, this message translates to:
-  /// **'Pay with your dollar balance'**
+  /// **'Pay with your Investments balance'**
   String get moveSourceDollarsSubtitle;
 
   /// Placeholder for the recipient field when the send destination is a dollar balance.
@@ -11933,10 +11939,10 @@ abstract class AppLocalizations {
   /// **'Pick what lands in your spending account.'**
   String get moveWithdrawDestinationHint;
 
-  /// Second line on the Dollars row of the withdrawal destination picker.
+  /// Second line on the Investments row of the withdrawal destination picker.
   ///
   /// In en, this message translates to:
-  /// **'Into your dollar balance'**
+  /// **'Into your Investments balance'**
   String get moveDestDollarsSubtitle;
 
   /// Note on the confirmation overlay after a transfer that has to convert. Deliberately states no arrival time, because the app is not told one.
@@ -18072,6 +18078,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{side, select, long{Flipped to long · {size} {coin}} other{Flipped to short · {size} {coin}}}'**
   String hlReceiptFlipped(String side, String size, String coin);
+
+  /// Label of the total of every venue's holdings on the one-balance home.
+  ///
+  /// In en, this message translates to:
+  /// **'Investments total'**
+  String get investmentsTotal;
+
+  /// In-flight line on the one-balance home for dollars leaving the spending account for a venue. {amount} is a formatted dollar amount, {venue} the venue's display name.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} moving to {venue}'**
+  String oneBalanceMovingTo(String amount, String venue);
+
+  /// In-flight line on the one-balance home for dollars leaving a venue for the spending account. {amount} is a formatted dollar amount, {venue} the venue's display name.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} coming back from {venue}'**
+  String oneBalanceComingBack(String amount, String venue);
+
+  /// Line on the one-balance home for idle venue cash the sweeper has not brought home yet. {amount} is a formatted dollar amount.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} unavailable until balancing completes'**
+  String oneBalanceWaitingToWithdraw(String amount);
+
+  /// Line on the one-balance home for a receive still confirming. {amount} is a formatted dollar amount.
+  ///
+  /// In en, this message translates to:
+  /// **'Incoming {amount}'**
+  String oneBalanceIncoming(String amount);
+
+  /// Progress line on an order slip while the shortfall is funded from the spending account. {amount} is a formatted dollar amount, {venue} the venue's display name.
+  ///
+  /// In en, this message translates to:
+  /// **'Moving {amount} to {venue}'**
+  String slipMovingToVenue(String amount, String venue);
+
+  /// Button on an order slip that moves the shortfall into the venue before placing the order. {amount} is a formatted dollar amount.
+  ///
+  /// In en, this message translates to:
+  /// **'Add {amount} to Investments'**
+  String slipAddToInvestments(String amount);
+
+  /// Row label on an order slip for the cost of moving the shortfall into the venue.
+  ///
+  /// In en, this message translates to:
+  /// **'Move fee'**
+  String get slipMoveFee;
 }
 
 class _AppLocalizationsDelegate

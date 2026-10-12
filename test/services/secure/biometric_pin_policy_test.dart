@@ -10,6 +10,7 @@ import 'package:kute/services/auth/pin_encryption.dart';
 import 'package:kute/services/auth/pin_hash.dart';
 import 'package:kute/services/secure/biometric_pin_policy.dart';
 
+import '../support/fake_legacy_keychain_lookup.dart';
 import '../support/fake_secret_store.dart';
 import '../support/recording_secret_store.dart';
 
@@ -21,14 +22,19 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   final storageError = PlatformException(code: 'x', details: -25308);
   late FakeKeychain keychain;
+  late FakeLegacyKeychainLookup lookup;
   late BiometricPinPolicy policy;
   final w1 = [WalletConfig(id: 'w1', name: 'Wallet')];
 
   setUp(() {
     keychain = FakeKeychain();
-    policy =
-        BiometricPinPolicy(store: keychain.local, syncedStore: keychain.synced);
+    lookup = FakeLegacyKeychainLookup(keychain);
+    policy = BiometricPinPolicy(
+        store: keychain.local, syncedStore: keychain.synced, lookup: lookup);
   });
+
+  void seedLegacy(String key, String value) =>
+      keychain.seed(key, value, options: legacyAccessibility);
 
   group('evaluate', () {
     test('keeps it when a V1 copy is the only source', () async {
@@ -89,6 +95,37 @@ void main() {
       });
     }
 
+    test('a copy under the legacy Keychain accessibility counts', () async {
+      seedLegacy('mnemonic_w1', 'cipher');
+      final encryptedOnly = await policy.evaluate(w1);
+      expect(encryptedOnly.exists, isTrue);
+      expect(encryptedOnly.pinFree, isFalse);
+      expect(lookup.reads, isEmpty, reason: 'attributes only, no item read');
+
+      keychain = FakeKeychain();
+      lookup = FakeLegacyKeychainLookup(keychain);
+      policy = BiometricPinPolicy(
+          store: keychain.local, syncedStore: keychain.synced, lookup: lookup);
+      seedLegacy('v2:wallet:w1.mnemonic', phrase);
+      expect((await policy.evaluate(w1)).exists, isTrue,
+          reason: 'not readable through the store, so not known PIN-free');
+    });
+
+    test('a readable V2 copy is PIN-free, absence is not', () async {
+      expect((await policy.evaluate(w1)).pinFree, isFalse);
+      keychain.seed('v2:wallet:w1.mnemonic', phrase);
+      expect((await policy.evaluate(w1)).pinFree, isTrue);
+      expect((await policy.evaluate(const [])).pinFree, isTrue,
+          reason: 'no stored-seed wallet needs anything');
+    });
+
+    test('a failing Keychain listing keeps it', () async {
+      lookup.failure = PlatformException(code: 'x', details: -25308);
+      final dependency = await policy.evaluate(w1);
+      expect(dependency.exists, isFalse);
+      expect(dependency.pinFree, isFalse);
+    });
+
     test('reports the stored PIN state', () async {
       expect((await policy.evaluate(w1)).biometricPin, StoredPinState.absent);
       keychain.seed('biometric_pin', '123456');
@@ -112,6 +149,15 @@ void main() {
       expect(keychain.mutations, const [
         FakeMutation('local', 'deleteLocalOnly', 'biometric_pin'),
       ]);
+    });
+
+    test('is never deleted on plain absence of a seed', () async {
+      keychain.seed('biometric_pin', '123456');
+      final dependency = await policy.evaluate(w1);
+      expect(dependency.exists, isFalse);
+      await policy.applyAfterUnlock(dependency, typedPin: '123456');
+      expect(keychain.peek('biometric_pin'), '123456');
+      expect(keychain.mutations, isEmpty);
     });
 
     test('without a dependency and no copy nothing is written', () async {

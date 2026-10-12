@@ -1,12 +1,16 @@
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:hive_ce/hive.dart';
 import 'package:kute/models/orchestra_model.dart' show disclosedKuteFeeBps;
 import 'package:kute/services/api/orchestra_api.dart';
 import 'package:kute/services/orchestra/orchestra_capability_requirements.dart'
     show orchestraReceiveAddressCapabilities;
+import 'package:kute/services/orchestra/receive_route_availability.dart'
+    show ReceiveRouteAvailability;
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/security/address_guard.dart';
+import 'package:kute/services/tracking_service.dart';
 
 /// References and immutable terms are persisted before registration. Flashnet
 /// has no reference-list endpoint; forgetting an old ref loses deposit
@@ -199,6 +203,7 @@ abstract final class StandingDepositStore {
 
   static Future<void> clear() {
     _generation++;
+    _destinations = null;
     return _mutate(() async {
       if (_opening != null) await _opening;
       await Hive.deleteBoxFromDisk(boxName);
@@ -210,12 +215,50 @@ abstract final class StandingDepositStore {
   static String labelFor(String recipient, String asset, int revision) =>
       's${sha256.convert(utf8.encode('spark|$asset|$recipient|$revision|50')).toString().substring(0, 30)}';
 
-  /// Funding restrictions documented separately from general swap routes.
+  /// Funding restrictions documented separately from general swap routes
+  /// (https://docs.flashnet.xyz/orchestra/deposit-addresses: Bitcoin, EVM
+  /// chains, Solana, and Tron for USDT only). HyperCore is an EVM address
+  /// family but never a deposit source the app asks for; see
+  /// [ReceiveRouteAvailability.isHyperCoreSource].
   static bool supportsSource(String chain, String asset) =>
-      kEvmAddressChains.contains(chain) ||
-      chain == 'solana' ||
-      chain == 'bitcoin' ||
-      (chain == 'tron' && asset.toUpperCase() == 'USDT');
+      !ReceiveRouteAvailability.isHyperCoreSource(chain) &&
+      (kEvmAddressChains.contains(chain) ||
+          chain == 'solana' ||
+          chain == 'bitcoin' ||
+          (chain == 'tron' && asset.toUpperCase() == 'USDT'));
+
+  /// The provider's standing destination pairs ('chain:ASSET'), read at
+  /// most every [_destinationsMaxAge]. The bitcoin receive asks this on
+  /// every pick and the answer (spark:BTC absent, on 2026-09-25 and still
+  /// on 2026-10-12) changes by support request, not by the minute.
+  static ({DateTime at, Set<String> pairs})? _destinations;
+  static const Duration _destinationsMaxAge = Duration(minutes: 15);
+
+  /// Forgets the memoised destination list (tests).
+  @visibleForTesting
+  static void forgetDestinations() => _destinations = null;
+
+  /// Whether the provider lists spark:[destinationAsset] as a standing
+  /// destination. A malformed answer is false and not memoised.
+  static Future<bool> destinationSupported(
+      String destinationAsset, bool Function() current) async {
+    final cached = _destinations;
+    if (cached != null &&
+        DateTime.now().difference(cached.at) <= _destinationsMaxAge) {
+      return cached.pairs.contains('spark:$destinationAsset');
+    }
+    final destinations =
+        await standingRequest(operation: 'destinations', current: current);
+    final rows = destinations['destinations'];
+    if (rows is! List) return false;
+    final pairs = <String>{
+      for (final v in rows)
+        if (v is Map && v['chain'] is String && v['asset'] is String)
+          '${v['chain']}:${v['asset']}',
+    };
+    _destinations = (at: DateTime.now(), pairs: pairs);
+    return pairs.contains('spark:$destinationAsset');
+  }
 
   /// Runs one standing-address operation. Injectable so registration,
   /// reuse, restore and the deposit listing can be exercised without the
@@ -404,6 +447,12 @@ abstract final class StandingDepositStore {
             sourceAsset: sourceAsset,
             destinationAsset: destinationAsset));
     if (!valid()) throw StateError('Wallet changed');
+    void reused() =>
+        TrackingService.track('reusable_deposit_address_reused', params: {
+          'source_chain': sourceChain,
+          'source_asset': sourceAsset,
+          'model': 'standing',
+        });
     final held = await _reusable(
         walletId: walletId,
         recipient: recipient,
@@ -411,7 +460,16 @@ abstract final class StandingDepositStore {
         sourceChain: sourceChain,
         scope: scope,
         valid: valid);
-    if (held != null) return held;
+    if (held != null) {
+      reused();
+      return held;
+    }
+    // A destination the provider has no standing address for (spark:BTC
+    // today) is answered from the memoised list before any recovery
+    // read, so the bitcoin receive's standing-first question costs one
+    // request per quarter hour rather than two per pick.
+    if (!await destinationSupported(destinationAsset, valid)) return null;
+    if (!valid()) throw StateError('Wallet changed');
     // Another install may have registered one. Recover those first, both
     // to reuse them and so their held deposits stay visible; a failed
     // recovery read must not stop registration, which replays
@@ -427,19 +485,12 @@ abstract final class StandingDepositStore {
         sourceChain: sourceChain,
         scope: scope,
         valid: valid);
-    if (recovered != null) return recovered;
+    if (recovered != null) {
+      reused();
+      return recovered;
+    }
     final revision = RuntimeCapabilitiesService.instance.snapshot?.revision;
     if (revision == null) throw StateError('Deposit terms unavailable');
-    final destinations =
-        await standingRequest(operation: 'destinations', current: valid);
-    final rows = destinations['destinations'];
-    if (rows is! List ||
-        !rows.any((v) =>
-            v is Map &&
-            v['chain'] == 'spark' &&
-            v['asset'] == destinationAsset)) {
-      return null;
-    }
     final label = labelFor(recipient, destinationAsset, revision);
     final existing = await records(walletId);
     final record = existing.where((r) => r.label == label).firstOrNull ??
@@ -483,6 +534,12 @@ abstract final class StandingDepositStore {
         AddressFormatMatch.ok) {
       throw StateError('Invalid deposit address');
     }
+    TrackingService.track('reusable_deposit_address_created', params: {
+      'source_chain': sourceChain,
+      'source_asset': sourceAsset,
+      'destination_asset': destinationAsset,
+      'model': 'standing',
+    });
     return updated;
   }
 

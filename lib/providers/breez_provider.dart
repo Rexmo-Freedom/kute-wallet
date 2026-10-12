@@ -14,6 +14,8 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/services/hardware/ledger/ledger_operation_scope.dart';
+import 'package:kute/services/funding/conv_timing.dart';
+import 'package:kute/models/breez/shared_sync.dart';
 
 enum AnalyzedPaymentType { lightning, bitcoin, spark, lnurl, bip21, unknown }
 
@@ -155,9 +157,7 @@ void reflectAcceptedSparkSend(
 Future<void> _catchUpSparkBalance(WalletBalanceCacheNotifier cache,
     BreezSdk sdk, String walletId, String paymentId) async {
   try {
-    await sdk
-        .syncWallet(request: const SyncWalletRequest())
-        .timeout(const Duration(seconds: 20));
+    await sharedSyncWallet(sdk).timeout(const Duration(seconds: 20));
     final info = await sdk.getInfo(request: const GetInfoRequest());
     cache.settleOutgoingSparkSend(
         walletId, paymentId, info.balanceSats.toInt());
@@ -267,24 +267,18 @@ int sparkPreparedRecipientSats(
   return net > 0 ? net : 0;
 }
 
-/// The spending wallet's balance, synced with the operators first when
-/// that is possible.
+/// The spending wallet's balance as the SDK holds it, for a 100% send.
 ///
-/// A 100% send spends every leaf, so the figure it asks for has to be
-/// the one leaf selection will find. `getInfo` reads the balance the
-/// last background sync cached: one that lags a payment that just left
-/// asks for more than the leaves hold (refused as insufficient funds),
-/// and one that lags a payment that just arrived leaves it behind. A
-/// failed sync (offline, timeout) falls back to the cached figure; the
-/// SDK still refuses a drain it cannot fund, it never overspends.
+/// Reads the SDK's cached `getInfo` at once and never waits for a sync:
+/// a forced sync takes seconds (20 s when one of its steps keeps failing,
+/// measured 19.9 s on 12 Oct 2026) and blocks the SDK's runtime loop, so
+/// the operator stream updates that keep the cache current wait behind
+/// it. The move sheet starts one shared background sync when it opens
+/// (see [kickSharedSyncWallet]) so the cache is fresh by confirm. A
+/// figure that is stale high is refused by the SDK as insufficient funds
+/// (it never overspends, and it refreshes its outputs and retries before
+/// refusing); one that is stale low leaves the difference behind as dust.
 Future<int> sparkDrainBalanceSats(BreezSdk sdk) async {
-  try {
-    await sdk
-        .syncWallet(request: const SyncWalletRequest())
-        .timeout(const Duration(seconds: 20));
-  } catch (_) {
-    // Cached balance below.
-  }
   final info = await sdk.getInfo(request: const GetInfoRequest());
   return info.balanceSats.toInt();
 }
@@ -311,10 +305,13 @@ int lnurlDrainAmountSats(int balanceSats, BigInt maxSendableMsat) {
 final prepareGenericPaymentProvider = FutureProvider.autoDispose.family<PrepareSendPaymentResponse,
     ({String destination, int amountSats, bool isDraining})>((ref, params) async {
   try {
+    ConvTiming.mark('prepareGeneric sdkBinding start');
     final binding = await _paymentSdkBinding(ref);
     final sdk = binding.sdk;
 
+    ConvTiming.mark('prepareGeneric sdk.parse start');
     final parsedInput = await sdk.parse(input: params.destination);
+    ConvTiming.mark('prepareGeneric sdk.parse end');
 
     if (parsedInput is! InputType_BitcoinAddress &&
         parsedInput is! InputType_SparkAddress &&
@@ -356,7 +353,9 @@ final prepareGenericPaymentProvider = FutureProvider.autoDispose.family<PrepareS
       feePolicy: feePolicy,
     );
 
+    ConvTiming.mark('prepareGeneric prepareSendPayment start');
     final prepared = await sdk.prepareSendPayment(request: req);
+    ConvTiming.mark('prepareGeneric prepareSendPayment end');
     binding.check(ref);
     _preparedPaymentBindings[prepared] = binding;
     return prepared;
@@ -389,17 +388,21 @@ final prepareSparkTokenPaymentProvider = FutureProvider.autoDispose.family<
     if (params.amountBaseUnits <= BigInt.zero) {
       throw Exception('Enter an amount to send.');
     }
+    ConvTiming.mark('prepareToken sdkBinding start');
     final binding = await _paymentSdkBinding(ref);
     final sdk = binding.sdk;
 
     // Tokens live on Spark only. A Bitcoin address here would silently
     // mean a different rail, so it is refused rather than reinterpreted.
+    ConvTiming.mark('prepareToken sdk.parse start');
     final parsedInput = await sdk.parse(input: params.destination);
+    ConvTiming.mark('prepareToken sdk.parse end');
     if (parsedInput is! InputType_SparkAddress &&
         parsedInput is! InputType_SparkInvoice) {
       throw Exception('Invalid address type. Expected a Spark address.');
     }
 
+    ConvTiming.mark('prepareToken prepareSendPayment start');
     final prepared = await sdk.prepareSendPayment(
       request: PrepareSendPaymentRequest(
         paymentRequest: PaymentRequest.input(input: params.destination),
@@ -407,6 +410,7 @@ final prepareSparkTokenPaymentProvider = FutureProvider.autoDispose.family<
         tokenIdentifier: params.tokenIdentifier,
       ),
     );
+    ConvTiming.mark('prepareToken prepareSendPayment end');
     binding.check(ref);
     _preparedPaymentBindings[prepared] = binding;
     return prepared;

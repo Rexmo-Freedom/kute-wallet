@@ -21,7 +21,8 @@ class _QuickAuth extends AuthModel {
       : super(store: keychain.local, syncedStore: keychain.synced);
 
   @override
-  Future<PinCheck> checkPin(String incomingPin) async =>
+  Future<PinCheck> checkPin(String incomingPin,
+          {String rescueSource = 'pin'}) async =>
       incomingPin == '111111' ? PinCheck.match : PinCheck.mismatch;
 }
 

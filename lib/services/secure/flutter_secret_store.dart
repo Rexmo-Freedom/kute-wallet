@@ -33,9 +33,23 @@ class FlutterSecretStore implements SecretStore {
     }
   }
 
+  /// The plugin write, retried once as a local-only in-place update when
+  /// it fails with `errSecDuplicateItem` (-25299): an item stored by a 1.x
+  /// build under another accessibility is invisible to the plugin's
+  /// exists-check, so it goes to `SecItemAdd` and collides with it. The
+  /// update replaces that item's value and accessibility, so later reads
+  /// see it. Only where local-only operations exist; the synced store
+  /// rethrows.
   @override
-  Future<void> write({required String key, required String value}) =>
-      storage.write(key: key, value: value);
+  Future<void> write({required String key, required String value}) async {
+    try {
+      await storage.write(key: key, value: value);
+    } catch (error) {
+      final local = localOnly;
+      if (local == null || !isDuplicateItemError(error)) rethrow;
+      await local.writeLocalOnly(key: key, value: value);
+    }
+  }
 
   @override
   Future<void> writeLocalOnly({required String key, required String value}) =>

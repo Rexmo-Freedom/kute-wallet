@@ -19,10 +19,20 @@
 // to place, and only while the session is unlocked. No grant (for example
 // after a restart) or an expired one cancels the bet and asks the user to
 // confirm it again.
+//
+// One balance (2026-10): a bet short of venue cash is funded from Dollars
+// by `OrderFundingController` and queued here at `awaitingBalance` with
+// `PendingBetIntent.fundUsd`; the one approval the slip asked for binds
+// both legs (`PmGrants.fundedBetReview`). The deposit's credit
+// (`depositSettled`) fires it: a market bet is placed for what landed
+// (down to the venue's minimum), a limit bet that landed short fails,
+// and a bet queued more than 30 minutes ago never fires. The journey's
+// `order_funding_*` outcome is reported from here.
 
 import 'dart:async';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:kute/helpers/auth_grant.dart';
@@ -42,11 +52,47 @@ import 'package:kute/providers/polymarket_cost_basis_provider.dart';
 import 'package:kute/providers/polymarket_live_prices_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/services/one_balance/one_balance_state.dart'
+    show OneBalanceVenue;
+import 'package:kute/services/one_balance/order_funding.dart'
+    show OrderFundingJourney, OrderFundingStage;
 import 'package:kute/services/polymarket/hot_order_guard.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/services/venue_analytics.dart';
 
 const double _kMaxAutoSlippagePct = 30.0;
+
+/// The CLOB's smallest order, the slip's floor too (`_kMinBetUsd`).
+const double _kMinBetUsd = 1.0;
+
+/// How long a queued bet waits for its funds to land before it is failed
+/// with the funds-timeout copy. The money stays as venue cash (the
+/// sweeper brings it home); the person can place again by hand.
+const Duration kFundsTimeout = Duration(minutes: 12);
+
+/// A funded market bet is placed for what actually landed, when the
+/// deposit landed short: the largest stake whose stake plus fees fits
+/// [balance] at [price] ([feeTerms]), never above [amount]. Null when
+/// what landed cannot carry the venue's minimum: the bet fails instead.
+/// `resized` says the stake shrank by a cent or more. A limit bet never
+/// resizes (its price is the person's): short is short.
+@visibleForTesting
+({double usd, bool resized})? landedStakeFor({
+  required double amount,
+  required double balance,
+  required PolymarketFeeTerms feeTerms,
+  required double price,
+  required bool isLimit,
+}) {
+  if (!amount.isFinite || amount <= 0) return null;
+  final fits = isLimit
+      ? min(amount, balance * 0.99)
+      : min(amount, feeTerms.maxNotionalFor(balance, price));
+  if (!fits.isFinite || fits < _kMinBetUsd) return null;
+  final resized = fits + 0.01 <= amount;
+  if (isLimit && resized) return null;
+  return (usd: fits, resized: resized);
+}
 
 /// The autofire grant slot for the one pending Polymarket bet (D-10). The
 /// pending provider holds a single intent, so a new confirm replaces the
@@ -54,12 +100,12 @@ const double _kMaxAutoSlippagePct = 30.0;
 const String kPendingBetAutofireId = 'polymarket_pending_bet';
 
 /// Slippage the autofire applies at [marketPrice].
-double _autofireSlippagePct(double marketPrice, double slippagePct) => min(
+double autofireSlippagePct(double marketPrice, double slippagePct) => min(
     marketPrice < 0.25 ? max(slippagePct, 10.0) : slippagePct,
     _kMaxAutoSlippagePct);
 
 /// The order price the autofire submits at [marketPrice].
-double _autofireOrderPrice(double marketPrice, double slippagePct) =>
+double autofireOrderPrice(double marketPrice, double slippagePct) =>
     (marketPrice * (1 + slippagePct / 100)).clamp(0.01, 0.99).toDouble();
 
 final pendingBetAutoFireProvider = Provider<PendingBetAutoFire>((ref) {
@@ -190,7 +236,6 @@ class PendingBetAutoFire {
   Timer? _awaitPoll;
   DateTime? _awaitStart;
   static const Duration _kAwaitPollInterval = Duration(seconds: 15);
-  static const Duration _kAwaitMaxWait = Duration(minutes: 12);
 
   Future<void> _maybeFire() async {
     if (_firing) return;
@@ -214,6 +259,18 @@ class PendingBetAutoFire {
     // and silently fires the order.
     if (intent.status != PendingBetStatus.awaitingBalance) {
       _stopAwaitPolling();
+      return;
+    }
+    // A bet queued more than 30 minutes ago never fires, whatever the
+    // balance says now: the person confirms it again.
+    if (intent.isStale()) {
+      _stopAwaitPolling();
+      _trackFailed(intent, 'approval_expired');
+      if (intent.funded) {
+        OrderFundingJourney.instance.failed(
+            OneBalanceVenue.predictions, OrderFundingStage.credit, 'expired');
+      }
+      _cancelForReconfirm();
       return;
     }
     // Nothing signs behind the lock; the next trading tick after unlock
@@ -268,9 +325,15 @@ class PendingBetAutoFire {
       // USDC is present) instead of staring at a frozen "Contacting
       // Polymarket".
       if (_awaitStart != null &&
-          DateTime.now().difference(_awaitStart!) > _kAwaitMaxWait) {
+          DateTime.now().difference(_awaitStart!) > kFundsTimeout) {
         _stopAwaitPolling();
         _trackFailed(intent, 'funds_timeout');
+        if (intent.funded) {
+          // The Dollars left and sit as venue cash now; the sweeper
+          // returns them.
+          OrderFundingJourney.instance.failed(
+              OneBalanceVenue.predictions, OrderFundingStage.credit, 'timeout');
+        }
         final msg = l10nForLanguage(ref.read(settingsProvider).language)
             .betAutofireFundsTimeout;
         ref
@@ -313,7 +376,7 @@ class PendingBetAutoFire {
   /// surface that queued it.
   Map<String, Object> _analytics(PendingBetIntent intent) => {
         'origin': intent.entrySource ?? 'unknown',
-        'funding_source': 'venue_balance',
+        'funding_source': intent.funded ? 'dollars' : 'venue_balance',
         if (intent.isLimit) 'limit_price': intent.limitPrice,
         if (!intent.isLimit)
           'slippage_bps': VenueAnalytics.bps(intent.slippagePct),
@@ -347,6 +410,18 @@ class PendingBetAutoFire {
     }
 
     pendingNotifier.updateStatus(PendingBetStatus.placing);
+    final journey = OrderFundingJourney.instance;
+    final funded = intent.funded;
+    if (funded) journey.credited(OneBalanceVenue.predictions);
+    // The funding leg's cap and venue ride on the order intent too, so the
+    // one approval the slip asked for covers exactly this order.
+    final fundingLimits = funded
+        ? PmGrants.fundingLimits(
+            fundUsd: intent.fundUsd!, venue: IntentVenue.polymarket)
+        : const <String, Object?>{};
+    SensitiveIntent withFunding(SensitiveIntent order) => fundingLimits.isEmpty
+        ? order
+        : order.copyWith(limits: {...order.limits, ...fundingLimits});
 
     // LIMIT (GTC): the swapped USDC has landed — place the resting limit
     // order at the user's chosen price. No placing tile (it isn't a filled
@@ -361,6 +436,26 @@ class PendingBetAutoFire {
         // placed. Same 99% cap as the market path below.
         final balance =
             ref.read(polymarketTradingProvider).valueOrNull?.usdcBalance ?? 0;
+        // A funded limit bet whose deposit landed short is not placed
+        // for less at the person's price: it fails, the cash stays as
+        // venue cash for the sweeper.
+        if (funded &&
+            landedStakeFor(
+                    amount: intent.amount,
+                    balance: balance,
+                    feeTerms: intent.feeTerms ?? PolymarketFeeTerms.worstCase,
+                    price: price,
+                    isLimit: true) ==
+                null) {
+          _trackFailed(intent, 'insufficient_usdc');
+          journey.failed(OneBalanceVenue.predictions, OrderFundingStage.order,
+              'insufficient_funds');
+          pendingNotifier.updateStatus(PendingBetStatus.failed,
+              errorMessage:
+                  l10nForLanguage(ref.read(settingsProvider).language)
+                      .betAddFundsToPredict);
+          return;
+        }
         final effectiveAmount = min(intent.amount, balance * 0.99);
         double shares =
             ((effectiveAmount / price) * 100).floorToDouble() / 100;
@@ -373,15 +468,18 @@ class PendingBetAutoFire {
         if (shares <= 0) {
           throw Exception('Amount too small for this limit price.');
         }
-        final grant = _autofireGrant(PmIntents.order(
+        final grant = _autofireGrant(withFunding(PmIntents.order(
           walletId: tradingNotifier.signingWalletId ?? '',
           tokenId: intent.tokenId,
           isBuy: true,
           amountMax: PmGrants.buyCostMicros(shares, price),
           limitPrice: price,
           orderType: OrderType.gtc.name,
-        ));
-        if (grant == null) return;
+        )));
+        if (grant == null) {
+          if (funded) journey.abandoned(OneBalanceVenue.predictions);
+          return;
+        }
         await tradingNotifier.placeOrder(
           tokenId: intent.tokenId,
           side: OrderSide.buy,
@@ -393,13 +491,18 @@ class PendingBetAutoFire {
           marketImage: intent.marketImage,
           marketOutcome: intent.outcomeName,
           marketCategory: intent.marketCategory,
-          source: 'btc_pool', // autofire only runs after a BTC→USDC swap
+          // Funded from Dollars (one balance) or after a BTC→USDC swap.
+          source: funded ? 'usdc_pool' : 'btc_pool',
           entrySource: 'autofire',
           analytics: _analytics(intent),
           grant: grant,
         );
         unawaited(tradingNotifier.refresh().catchError((_) {}));
         ref.invalidate(polymarketOpenOrdersProvider);
+        if (funded) {
+          journey.completed(OneBalanceVenue.predictions,
+              resized: false, amountUsd: shares * price);
+        }
         pendingNotifier.updateStatus(PendingBetStatus.done);
         Future.delayed(const Duration(milliseconds: 600), () {
           try {
@@ -408,10 +511,17 @@ class PendingBetAutoFire {
         });
       } catch (e, st) {
         if (e is PendingPolymarketOrder) {
+          if (funded) {
+            journey.completed(OneBalanceVenue.predictions, resized: false);
+          }
           pendingNotifier.updateStatus(PendingBetStatus.awaitingConfirmation);
           return;
         }
         _trackFailed(intent, TrackingService.errorCategory(e), stackTrace: st);
+        if (funded) {
+          journey.failed(OneBalanceVenue.predictions, OrderFundingStage.order,
+              TrackingService.errorCategory(e));
+        }
         pendingNotifier.updateStatus(PendingBetStatus.failed,
             errorMessage: _friendlyError(e));
       }
@@ -489,6 +599,10 @@ class PendingBetAutoFire {
       }
       if (bestAsk <= 0) {
         _trackFailed(intent, 'book_unavailable');
+        if (funded) {
+          journey.failed(OneBalanceVenue.predictions, OrderFundingStage.order,
+              'book_unavailable');
+        }
         final msg = l10nForLanguage(ref.read(settingsProvider).language)
             .betAutofireBookUnavailable;
         pendingNotifier.updateStatus(PendingBetStatus.failed,
@@ -512,13 +626,34 @@ class PendingBetAutoFire {
           ref.read(polymarketTradingProvider).valueOrNull?.usdcBalance ?? 0;
 
       // Same rule [pendingBetAutofireIntent] approved.
-      final slippage = _autofireSlippagePct(marketPrice, intent.slippagePct);
-      final orderPrice = _autofireOrderPrice(marketPrice, slippage);
+      final slippage = autofireSlippagePct(marketPrice, intent.slippagePct);
+      final orderPrice = autofireOrderPrice(marketPrice, slippage);
       // The swap lands roughly the stake; the venue also takes its fees
       // from the same balance. Size the stake so stake plus fees fits what
       // actually arrived (documented maxima when the curve was not read),
       // instead of shaving a flat 1% that neither matched the fees nor
       // left enough on low-priced outcomes.
+      // A funded bet is placed for what landed when the deposit came in
+      // short, down to the venue's minimum; under it, it fails and the
+      // cash stays as venue cash for the sweeper.
+      final landed = landedStakeFor(
+          amount: intent.amount,
+          balance: balance,
+          feeTerms: intent.feeTerms ?? PolymarketFeeTerms.worstCase,
+          price: orderPrice,
+          isLimit: false);
+      if (funded && landed == null) {
+        _trackFailed(intent, 'insufficient_usdc');
+        journey.failed(OneBalanceVenue.predictions, OrderFundingStage.order,
+            'insufficient_funds');
+        final msg = l10nForLanguage(ref.read(settingsProvider).language)
+            .betAddFundsToPredict;
+        pendingNotifier.updateStatus(PendingBetStatus.failed,
+            errorMessage: msg);
+        placingNotifier.markFailed(placementId, msg);
+        return;
+      }
+      final resized = funded && (landed?.resized ?? false);
       final effectiveAmount = min(
           intent.amount,
           (intent.feeTerms ?? PolymarketFeeTerms.worstCase)
@@ -553,7 +688,7 @@ class PendingBetAutoFire {
       }
 
       final grant = _autofireGrant(
-        PmIntents.order(
+        withFunding(PmIntents.order(
           walletId: tradingNotifier.signingWalletId ?? '',
           tokenId: intent.tokenId,
           isBuy: true,
@@ -561,10 +696,13 @@ class PendingBetAutoFire {
           limitPrice: orderPrice,
           orderType: OrderType.fak.name,
           maxSlippageBps: IntentUnits.bps(slippage),
-        ),
+        )),
         placementId: placementId,
       );
-      if (grant == null) return;
+      if (grant == null) {
+        if (funded) journey.abandoned(OneBalanceVenue.predictions);
+        return;
+      }
 
       // Final stage of the progress bar — the CLOB call is in flight.
       placingNotifier.advanceStep(placementId,
@@ -583,7 +721,8 @@ class PendingBetAutoFire {
         marketImage: intent.marketImage,
         marketOutcome: intent.outcomeName,
         marketCategory: intent.marketCategory,
-        source: 'btc_pool', // autofire only runs after a BTC→USDC swap
+        // Funded from Dollars (one balance) or after a BTC→USDC swap.
+        source: funded ? 'usdc_pool' : 'btc_pool',
         entrySource: 'autofire',
         analytics: _analytics(intent),
         grant: grant,
@@ -616,6 +755,10 @@ class PendingBetAutoFire {
 
       pendingNotifier.recordFill(response);
       unawaited(tradingNotifier.refresh().catchError((_) {}));
+      if (funded) {
+        journey.completed(OneBalanceVenue.predictions,
+            resized: resized, amountUsd: verifiedFill ? paidUsdc : null);
+      }
       if (!verifiedFill) {
         ref.invalidate(polymarketOpenOrdersProvider);
         pendingNotifier.updateStatus(PendingBetStatus.awaitingConfirmation);
@@ -641,11 +784,18 @@ class PendingBetAutoFire {
       });
     } catch (e, st) {
       if (e is PendingPolymarketOrder) {
+        if (funded) {
+          journey.completed(OneBalanceVenue.predictions, resized: false);
+        }
         pendingNotifier.updateStatus(PendingBetStatus.awaitingConfirmation);
         placingNotifier.clear(placementId);
         return;
       }
       _trackFailed(intent, TrackingService.errorCategory(e), stackTrace: st);
+      if (funded) {
+        journey.failed(OneBalanceVenue.predictions, OrderFundingStage.order,
+            TrackingService.errorCategory(e));
+      }
       final msg = _friendlyError(e);
       pendingNotifier.updateStatus(PendingBetStatus.failed, errorMessage: msg);
       placingNotifier.markFailed(placementId, msg);

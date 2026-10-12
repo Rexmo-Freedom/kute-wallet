@@ -1,6 +1,8 @@
 import 'package:kute/services/tracking/latency_tracker.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/services/orchestra/orchestra_capability_requirements.dart';
+import 'package:kute/services/orchestra/receive_route_availability.dart'
+    show ReceiveRouteAvailability;
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'dart:convert';
 import 'dart:math' show Random;
@@ -15,6 +17,7 @@ import 'package:kute/models/orchestra_route_limits.dart';
 import 'package:kute/models/orchestra_routes_model.dart' show RouteKey;
 import 'package:kute/handlers/response_handlers.dart';
 import 'package:kute/services/debug/settlement_fault_registry.dart';
+import 'package:kute/services/funding/conv_timing.dart';
 
 /// Flashnet Orchestra onramp fiat band, as documented by the venue
 /// (docs.flashnet.xyz/orchestra — orchestration limits: $1.00 minimum,
@@ -110,14 +113,19 @@ class OrchestraService {
   /// than fetched again (see [RuntimeCapabilitiesService.ensureAllAllowed]).
   static Future<void> _ensureCapabilities(Iterable<String> capabilities,
       {Duration maxAge = Duration.zero}) async {
-    if (await AffiliateService.ensureSession() == null) {
+    ConvTiming.mark('ensureCapabilities.ensureSession start');
+    final convSession = await AffiliateService.ensureSession();
+    ConvTiming.mark('ensureCapabilities.ensureSession end');
+    if (convSession == null) {
       TrackingService.walletSessionAuth(
           route: 'orchestra', outcome: 'unavailable');
       throw WalletSessionUnavailable(
           AffiliateService.sessionUnavailableMessage());
     }
+    ConvTiming.mark('ensureCapabilities.ensureAllAllowed start');
     await RuntimeCapabilitiesService.instance
         .ensureAllAllowed(capabilities, maxAge: maxAge);
+    ConvTiming.mark('ensureCapabilities.ensureAllAllowed end');
   }
 
   /// How old a policy a quote may read instead of fetching it again. The
@@ -662,6 +670,7 @@ class OrchestraService {
     String? deliveryMode,
     int? slippageBps,
     String? idempotencyKey,
+    String? tag,
   }) async {
     // Quote request → response round-trip (durations only; route legs
     // are categorical). Started right before the HTTP send so capability
@@ -700,6 +709,7 @@ class OrchestraService {
       return Result(error: 'Failed to get quote');
     }
     try {
+      ConvTiming.mark('createQuote ensureCapabilities start');
       await _ensureCapabilities(
           orchestraCapabilityRequirements(
               sourceChain: sourceChain,
@@ -707,6 +717,7 @@ class OrchestraService {
               destinationChain: destinationChain,
               destinationAsset: destinationAsset),
           maxAge: _quotePolicyMaxAge);
+      ConvTiming.mark('createQuote ensureCapabilities end');
       final body = <String, dynamic>{
         'sourceChain': sourceChain,
         'sourceAsset': sourceAsset,
@@ -718,8 +729,15 @@ class OrchestraService {
       };
       if (deliveryMode != null) body['deliveryMode'] = deliveryMode;
       if (slippageBps != null) body['slippageBps'] = slippageBps;
+      // Orchestra's own `tag` (1–64 of [A-Za-z0-9._:-]): what the quote
+      // is for (a one-balance move's purpose and venue, or the Move
+      // sheet's own), so the backend classifies the order without
+      // guessing from its legs. Never an id, amount or address; absent
+      // when the flow sets none.
+      if (tag != null) body['tag'] = tag;
 
       roundtrip.start();
+      ConvTiming.mark('createQuote http send');
       final res = await _send(
         (h) => http
             .post(
@@ -730,6 +748,7 @@ class OrchestraService {
             .timeout(const Duration(seconds: 15)),
         extra: _idempotency(idempotencyKey),
       );
+      ConvTiming.mark('createQuote http response ${res.statusCode}');
 
       if (res.statusCode >= 200 && res.statusCode < 300) {
         final quote = OrchestraQuote.fromJson(
@@ -783,6 +802,7 @@ class OrchestraService {
       if (bitcoinTxid != null) body['bitcoinTxid'] = bitcoinTxid;
       if (bitcoinVout != null) body['bitcoinVout'] = bitcoinVout;
 
+      ConvTiming.mark('submitDeposit http send');
       final res = await _send(
         (h) => http
             .post(
@@ -793,6 +813,7 @@ class OrchestraService {
             .timeout(timeout),
         extra: _idempotency(idempotencyKey),
       );
+      ConvTiming.mark('submitDeposit http response ${res.statusCode}');
 
       if (res.statusCode >= 200 && res.statusCode < 300) {
         final submitted =
@@ -936,7 +957,14 @@ class OrchestraService {
     }
   }
 
-  // ─── Accumulation Addresses ─────────────────────────────────────
+  // ─── Accumulation Addresses (LEGACY) ────────────────────────────
+  //
+  // Flashnet marks POST /v1/accumulation-addresses as its legacy address
+  // model ("new integrations use standing deposit addresses"). The app
+  // asks `standingRequest` first (see ReusableDepositAddressService) and
+  // reaches this call only where no standing address exists for the
+  // destination or the source chain. Keep it until spark:BTC is a
+  // standing destination; delete it then.
 
   /// [refundAddresses] maps source-chain slug → a refund address the
   /// user controls on that chain (Flashnet's `refundAddresses` field —
@@ -944,6 +972,10 @@ class OrchestraService {
   /// because receive flows watch for EXTERNAL senders the app holds no
   /// source-chain address for; pass it whenever the depositing wallet
   /// is the user's own (e.g. the Hyperliquid EOA on Arbitrum).
+  ///
+  /// A HyperCore source is refused before any network call: Flashnet
+  /// says "HyperCore source address creation is unavailable until
+  /// independent deposit verification is supported".
   static Future<Result<OrchestraAccumulationAddress>>
       createAccumulationAddress({
     required String sourceChain,
@@ -954,6 +986,11 @@ class OrchestraService {
     Map<String, String>? refundAddresses,
     String? idempotencyKey,
   }) async {
+    if (ReceiveRouteAvailability.isHyperCoreSource(sourceChain)) {
+      return Result(
+          error: 'Unsupported source chain: hypercore',
+          errorCode: 'unsupported_route');
+    }
     try {
       // Exactly the operation guard's list for this endpoint.
       await _ensureCapabilities(orchestraReceiveAddressCapabilities(
@@ -993,10 +1030,29 @@ class OrchestraService {
         }
         return Result(data: address);
       }
-      return Result(error: _parseError(res.body));
+      // Status and code travel with the message so the caller can tell a
+      // refused route (4xx, `unsupported_route`) from a retryable fault.
+      return Result(
+          error: _parseError(res.body),
+          statusCode: res.statusCode,
+          errorCode: _parseErrorCode(res.body));
     } catch (e) {
       return Result(error: e.toString());
     }
+  }
+
+  /// The provider's machine-readable `error.code` (or top-level `code`)
+  /// from a JSON error body, or null.
+  static String? _parseErrorCode(String body) {
+    try {
+      final parsed = jsonDecode(body);
+      if (parsed is Map<String, dynamic>) {
+        final error = parsed['error'];
+        if (error is Map<String, dynamic>) return error['code']?.toString();
+        return parsed['code']?.toString();
+      }
+    } catch (_) {}
+    return null;
   }
 
   static Future<Result<List<OrchestraAccumulationAddress>>>

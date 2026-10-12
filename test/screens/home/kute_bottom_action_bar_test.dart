@@ -294,6 +294,10 @@ void main() {
       (tester) async {
     final container =
         await _pump(tester, const UsdAccountActionBar());
+    // The Portfolio pill's square searches the activity; a venue pill's
+    // searches that venue's markets.
+    container.read(investmentsTabProvider.notifier).state =
+        InvestmentsTab.portfolio;
     expect(find.byType(KuteDogMagnifier), findsOneWidget);
     expect(find.byIcon(Icons.add_rounded), findsNothing);
     await tester.tap(find.byType(KuteDogMagnifier));
@@ -385,9 +389,9 @@ void main() {
       await _pump(tester, InvestmentActionBar(product: product));
       final bar = tester
           .widget<KuteBottomActionBar>(find.byType(KuteBottomActionBar));
-      expect(bar.actions.map((a) => a.trackingId), ['portfolio', 'withdraw']);
+      expect(bar.actions.map((a) => a.trackingId), ['portfolio']);
       expect(bar.actions.first.icon, Icons.pie_chart_rounded);
-      expect(bar.actions.map((a) => a.solid), [true, false]);
+      expect(bar.actions.map((a) => a.solid), [true]);
       expect(find.byIcon(Icons.account_balance_wallet_rounded), findsNothing);
     }
   });

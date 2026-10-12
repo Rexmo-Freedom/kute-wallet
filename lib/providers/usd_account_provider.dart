@@ -37,13 +37,14 @@
 import 'dart:async';
 
 import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart'
-    show BreezSdk, GetInfoRequest, GetInfoResponse, SyncWalletRequest;
+    show BreezSdk, GetInfoRequest, GetInfoResponse;
 import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:kute/models/balance_history.dart';
 import 'package:kute/models/transactions_model.dart';
 import 'package:kute/providers/breez_config_provider.dart';
+import 'package:kute/models/breez/shared_sync.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/transactions_provider.dart'
     show walletTransactionCacheProvider;
@@ -123,18 +124,16 @@ BigInt usdBaseUnitsFromNodeInfo(GetInfoResponse info) {
   return BigInt.zero;
 }
 
-/// The dollar balance a 100% dollar move sends, in base units, read after
-/// a sync so it is not the cached figure the last background sync left.
-/// A failed sync falls back to that cached figure; the SDK still refuses
-/// a transfer it cannot fund.
+/// The dollar balance a 100% dollar move sends, in base units, read from
+/// the SDK's cached `getInfo` at once. It never waits for a sync: a forced
+/// sync takes seconds and blocks the SDK's runtime loop, holding back the
+/// operator stream updates that keep the cache current. The move sheet
+/// starts one shared background sync when it opens (see
+/// [kickSharedSyncWallet]) so the cache is fresh by confirm. The SDK
+/// refuses a token send it cannot fund (after refreshing its outputs and
+/// retrying), so a stale-high figure never overspends; a stale-low one
+/// leaves the difference behind as dust.
 Future<BigInt> usdDrainBaseUnits(BreezSdk sdk) async {
-  try {
-    await sdk
-        .syncWallet(request: const SyncWalletRequest())
-        .timeout(const Duration(seconds: 20));
-  } catch (_) {
-    // Cached reading below.
-  }
   return usdBaseUnitsFromNodeInfo(
       await sdk.getInfo(request: const GetInfoRequest()));
 }
@@ -282,7 +281,7 @@ final usdSdkBalanceProvider = StreamProvider<double?>((ref) async* {
       _debugLogUsdReading('ledger', info);
       return info;
     },
-    syncWallet: () => sdk.syncWallet(request: const SyncWalletRequest()),
+    syncWallet: () => sharedSyncWallet(sdk),
     publish: (reading) {
       if (!readings.isClosed) readings.add(reading);
     },

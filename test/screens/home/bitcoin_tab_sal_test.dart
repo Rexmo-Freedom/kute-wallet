@@ -1,7 +1,9 @@
-// The top tab strip draws Bitcoin, Dollars, Investing and Predictions with
-// one icon family at one size (user decision 2026-10-12: no mascot, no
-// dollar mark, no venue logos). The KuteDogBitcoin glyph tests below pin
-// the scene widget itself, still used elsewhere.
+// The top tab strip draws Bitcoin and Dollars (Investments) with one icon
+// family at one size (user decision 2026-10-12: no mascot, no dollar
+// mark, no venue logos). With one balance the spending account's venues
+// are pills inside Investments, so the strip carries no Investing or
+// Predictions tab for it. The KuteDogBitcoin glyph tests below pin the
+// scene widget itself, still used elsewhere.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -75,22 +77,20 @@ Widget _glyph() => const MaterialApp(
 void main() {
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
 
-  testWidgets('the four tabs share one icon family: Bitcoin, dollars, a '
-      'rising trend and a ring, no mascot or logos', (tester) async {
-    for (final tab in [ActiveNavTab.home, ActiveNavTab.trading]) {
+  testWidgets('the two tabs share one icon family: Bitcoin and dollars, '
+      'no venue tabs, no mascot or logos', (tester) async {
+    for (final tab in [ActiveNavTab.home, ActiveNavTab.usd]) {
       await _pumpStrip(tester, tab);
       expect(find.byIcon(Icons.currency_bitcoin_rounded), findsOneWidget);
       expect(find.byIcon(Icons.attach_money_rounded), findsOneWidget);
-      expect(find.byIcon(Icons.trending_up_rounded), findsOneWidget);
-      expect(find.byIcon(Icons.donut_large_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.trending_up_rounded), findsNothing);
+      expect(find.byIcon(Icons.donut_large_rounded), findsNothing);
       expect(find.byType(KuteDogBitcoin), findsNothing);
       expect(_plainDog(), findsNothing);
       expect(find.byType(SvgPicture), findsNothing);
       for (final icon in [
         Icons.currency_bitcoin_rounded,
         Icons.attach_money_rounded,
-        Icons.trending_up_rounded,
-        Icons.donut_large_rounded,
       ]) {
         expect(tester.widget<Icon>(find.byIcon(icon)).size, 24.sp);
       }

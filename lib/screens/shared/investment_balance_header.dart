@@ -5,11 +5,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/providers/investment_balances_provider.dart';
+import 'package:kute/providers/one_balance_provider.dart';
 import 'package:kute/providers/pending_pool_deposits_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
+import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/venue_total_cache_service.dart';
+import 'package:kute/screens/activity/activity_history_screen.dart'
+    show showActivityHistory;
 import 'package:kute/screens/portfolio/open_investments_screen.dart';
 import 'package:kute/screens/shared/pending_deposit_line.dart';
 import 'package:kute/screens/shared/pool_balance_header.dart';
@@ -58,24 +62,41 @@ class InvestmentDiscoveryNotice extends ConsumerWidget {
       );
 }
 
-/// Shared by each market browser and its full-screen portfolio. Investing
-/// shows spendable cash; Predictions shows its total with a cash/position split.
+/// The pool hero. Two modes:
+///
+///   * PER VENUE (the default): one venue's total with its cash/position
+///     split, the venue's Deposit button under it, and the in-flight
+///     Orchestra lines of that venue. The Ledger venue screens and a
+///     venue browser standing on its own use this.
+///   * ONE BALANCE ([oneBalance]): the Investments tab's hero, reading
+///     [oneBalanceProvider]. The total is Dollars plus the open positions
+///     of every venue; under it Available (the Dollars balance, what an
+///     order can draw on right now) and Invested (what the venues hold).
+///     While anything is on a rail that split gives way to the in-flight
+///     lines, in order: moving to a venue, coming back from one, incoming
+///     from outside, unavailable until balancing completes (below the route minimum). Money
+///     in flight is never hidden. No Deposit button: money only reaches a
+///     venue through an order. Tapping the lines opens the dollar
+///     activity, where each move is a row.
 ///
 /// [showDepositButton]: the venue's Deposit button under the balance (the
 /// market browsers). The Portfolio screen hides it; its dock carries
-/// Deposit there.
+/// Deposit there. Ignored in one-balance mode.
 class InvestmentBalanceHeader extends ConsumerWidget {
   final InvestmentsProduct product;
   final bool showDepositButton;
+  final bool oneBalance;
 
   const InvestmentBalanceHeader({
     super.key,
     required this.product,
     this.showDepositButton = true,
+    this.oneBalance = false,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (oneBalance) return _buildOneBalance(context, ref);
     final predictions = product == InvestmentsProduct.predictions;
     final balances = ref.watch(investmentBalancesProvider(product));
     final visible = ref.watch(settingsProvider.select((s) => s.balanceVisible));
@@ -168,6 +189,71 @@ class InvestmentBalanceHeader extends ConsumerWidget {
                   : null,
             )
           : null,
+    );
+  }
+
+  /// The venue's name in the app language, as the strip names it.
+  static String _venueName(BuildContext context, OneBalanceVenue venue) =>
+      switch (venue) {
+        OneBalanceVenue.investing => context.l10n.trading,
+        OneBalanceVenue.predictions => context.l10n.predictions,
+      };
+
+  /// The in-flight lines, in order, for [state]. Public so a test can pin
+  /// the order and the wording without a widget tree.
+  static List<String> inFlightLines(BuildContext context, OneBalanceState state,
+      String Function(double) amount) {
+    final l10n = context.l10n;
+    return [
+      for (final move in state.inFlight)
+        if (move.kind == InFlightKind.toVenue)
+          l10n.oneBalanceMovingTo(
+              amount(move.usd), _venueName(context, move.venue!)),
+      for (final move in state.inFlight)
+        if (move.kind == InFlightKind.fromVenue)
+          l10n.oneBalanceComingBack(
+              amount(move.usd), _venueName(context, move.venue!)),
+      for (final move in state.inFlight)
+        if (move.kind == InFlightKind.incomingDollars)
+          l10n.oneBalanceIncoming(amount(move.usd)),
+      for (final usd in state.waiting.values)
+        if (usd > 0) l10n.oneBalanceWaitingToWithdraw(amount(usd)),
+    ];
+  }
+
+  Widget _buildOneBalance(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(oneBalanceProvider);
+    final visible = ref.watch(settingsProvider.select((s) => s.balanceVisible));
+    String amount(double value) =>
+        visible ? formatPolyFiatForced(ref, value) : '••••••';
+    final lines = inFlightLines(context, state, amount);
+    return PoolBalanceHeader(
+      amountText: amount(state.totalUsd),
+      // A venue still to answer counts as zero: the figure reads dimmed
+      // until both have, never as a dash or a skeleton over the dollars
+      // the account already knows.
+      stale: !state.investingKnown || !state.predictionsKnown,
+      totalLabel: context.l10n.investmentsTotal,
+      availableLabel: context.l10n.available,
+      investedLabel: context.l10n.betInvested,
+      // The split, or the in-flight lines in its place.
+      availableText: lines.isEmpty ? amount(state.availableUsd) : null,
+      investedText: lines.isEmpty ? amount(state.investedUsd) : null,
+      showActionRow: false,
+      investedChild: lines.isEmpty
+          ? null
+          : GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => showActivityHistory(context,
+                  onlyUsdb: true, source: 'investments_header'),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (final line in lines)
+                    PendingDepositLine(investedText: '', noteText: line),
+                ],
+              ),
+            ),
     );
   }
 }

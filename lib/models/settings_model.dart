@@ -8,7 +8,7 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/services/secure/flutter_secret_store.dart';
-import 'package:kute/services/secure_storage.dart';
+import 'package:kute/services/secure/secret_error_class.dart';
 import 'package:kute/services/hardware/ledger/ledger_venue_descriptor_store.dart'
     show wipeLedgerWalletLocalData;
 import 'package:hive_ce/hive.dart';
@@ -514,7 +514,6 @@ class SettingsModel extends StateNotifier<Settings> {
   WalletConfig? walletById(String id) =>
       state.wallets.where((wallet) => wallet.id == id).firstOrNull;
 
-  final _secureStorage = secureStorage;
 
   Future<void> addWallet(WalletConfig newWallet) async {
     final box = await Hive.openBox('settings');
@@ -927,12 +926,22 @@ class SettingsModel extends StateNotifier<Settings> {
     state = state.copyWith(signerEnabled: enabled);
   }
 
+  /// A review flag, not a secret: a write that fails never surfaces. On
+  /// iOS a 1.x build may have stored `reviewDone` under another Keychain
+  /// accessibility, which the plugin's add collides with
+  /// (`errSecDuplicateItem`); that case is retried as an in-place
+  /// local-only update, and anything else is left for the next prompt.
   Future<void> setReviewDone(bool hasBeenReviewed) async {
-    await _secureStorage.write(
-      key: 'reviewDone',
-      value: hasBeenReviewed.toString(),
-    );
     state = state.copyWith(reviewDone: hasBeenReviewed);
+    final value = hasBeenReviewed.toString();
+    try {
+      await SecretStores.local.write(key: 'reviewDone', value: value);
+    } catch (error) {
+      if (!isDuplicateItemError(error)) return;
+      try {
+        await SecretStores.local.writeLocalOnly(key: 'reviewDone', value: value);
+      } catch (_) {}
+    }
   }
 
   Future<void> setAffiliateCode(String code) async {

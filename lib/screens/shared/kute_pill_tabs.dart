@@ -20,7 +20,11 @@ class KutePillItem {
   final String label;
   final IconData? icon;
 
-  const KutePillItem({required this.label, this.icon});
+  /// A small image before the label (a venue's logo), at the label's
+  /// height; see [KutePill.leading].
+  final Widget? leading;
+
+  const KutePillItem({required this.label, this.icon, this.leading});
 }
 
 /// A single pill. [selected] picks the card chrome (white/surface fill,
@@ -202,6 +206,7 @@ class _KutePillTabsState extends State<KutePillTabs> {
                   child: KutePill(
                     label: items[i].label,
                     icon: items[i].icon,
+                    leading: items[i].leading,
                     selected: _isSelected(i),
                     fillWidth: true,
                     onTap: () => widget.onTap(i),
@@ -251,6 +256,7 @@ class _KutePillTabsState extends State<KutePillTabs> {
             itemBuilder: (context, i) => KutePill(
               label: items[i].label,
               icon: items[i].icon,
+              leading: items[i].leading,
               selected: _isSelected(i),
               onTap: () => widget.onTap(i),
             ),

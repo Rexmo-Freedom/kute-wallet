@@ -192,6 +192,11 @@ class _OpenPinState extends ConsumerState<OpenPin>
 
     try {
       final authModel = AuthModel();
+      // Evaluated before the PIN check: a match re-saves old copies the
+      // store could not read (`checkPin`), and the policy below must still
+      // see the wallet as it was, so a kept `biometric_pin` stays and the
+      // typed PIN refreshes it. The next cold start evaluates afresh.
+      final dependency = await _v1Dependency();
       // Async variant runs PBKDF2 on a background isolate so the UI
       // thread isn't blocked between the 6th digit and the home screen.
       final check = await authModel.checkPin(pin);
@@ -200,7 +205,6 @@ class _OpenPinState extends ConsumerState<OpenPin>
         final typedPin = pin;
         await _guard.recordSuccess();
         await authModel.recoverPendingPinChange(typedPin);
-        final dependency = await _v1Dependency();
         await BiometricPinPolicy()
             .applyAfterUnlock(dependency, typedPin: typedPin);
 

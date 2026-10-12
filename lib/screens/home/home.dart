@@ -12,7 +12,9 @@ import 'dart:ui';
 import 'package:kute/providers/auth_provider.dart';
 import 'package:kute/services/passkey_service.dart';
 import 'package:kute/providers/balance_provider.dart';
+import 'package:kute/providers/balance_snapshot_provider.dart';
 import 'package:kute/providers/claim_auto_fire.dart';
+import 'package:kute/providers/venue_sweeper_provider.dart';
 import 'package:kute/providers/pending_bet_autofire.dart';
 import 'package:kute/providers/placing_polymarket_bet_provider.dart';
 import 'package:kute/screens/home/components/deposit_sheet.dart'
@@ -462,6 +464,11 @@ class _HomeState extends ConsumerState<Home> with TickerProviderStateMixin {
     // soon as they turn redeemable (user decision: auto-claim is back,
     // the Claim tap is no longer required).
     ref.read(claimAutoFireProvider);
+    // The swap-back sweeper — brings idle venue cash home to Dollars on
+    // every close, claim, cancel, resume and heartbeat, under the
+    // never-sweep rules; and the once-per-session balance snapshot.
+    ref.read(venueSweeperProvider);
+    ref.read(balanceSnapshotReporterProvider);
 
     final (activeWallet, country) =
         ref.watch(settingsProvider.select((s) => (s.activeWallet, s.country)));

@@ -19,6 +19,14 @@ import 'package:cached_network_image/cached_network_image.dart';
 /// dollar disc, and the only word beside it is ever "USD".
 const String kUsdMarkAsset = 'lib/assets/usdb-logo.svg';
 
+/// The Investments arrow: the dock's Receive/deposit arrow on Home
+/// ([bitcoinWalletDockActions]), reused wherever the dollar balance is
+/// a source or destination row (the Move sheet pickers and route card,
+/// the send and receive confirmations, the Financial hub's spending
+/// row). Those rows never wear the USDB coin; [kUsdMarkAsset] stays for
+/// the Activity coin rows and the USD surfaces themselves.
+const IconData kInvestmentsIcon = Icons.south_west_rounded;
+
 /// The same for bitcoin: the purchase door on the Bitcoin screen and
 /// the bitcoin leg of a Move wear this one mark, the way the dollar
 /// balance wears [kUsdMarkAsset].

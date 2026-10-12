@@ -1934,8 +1934,11 @@ class TrackingService {
   static void seedRestoreStartFresh() => track('seed_restore_start_fresh');
 
   /// The lookup for wallet copies an older build stored under the legacy
-  /// Keychain accessibility ran. [source]: startup | sheet | start_over;
-  /// [outcome]: found | none | failed. Counts of copies by era only.
+  /// Keychain accessibility ran. [source]: startup | sheet | start_over |
+  /// pin (a typed PIN verified) | biometric (the stored `biometric_pin`
+  /// verified after a biometric unlock); [outcome]: found | none | failed.
+  /// Counts of copies by era only. The `pin` and `biometric` lookups run
+  /// only when some stored-seed wallet has no readable copy.
   static void seedRescueLookupCompleted({
     required String source,
     required String outcome,
@@ -1952,6 +1955,8 @@ class TrackingService {
       });
 
   /// One old copy was validated and re-saved (or added as a wallet).
+  /// [source]: startup | sheet | start_over | pin | biometric | read (a
+  /// seed read that found the copy only through the legacy lookup);
   /// [era]: a (PIN-encrypted) | b (plain) | icloud; [check]: address |
   /// proxy | none (what public data the phrase was compared against).
   static void seedRescueRestored({
@@ -1962,8 +1967,9 @@ class TrackingService {
       track('seed_rescue_restored',
           params: {'source': source, 'era': era, 'check': check});
 
-  /// One old copy could not be restored. [reason]: invalidPhrase |
-  /// mismatch | wrongPin | readFailed | writeFailed | cancelled.
+  /// One old copy could not be restored. [source] as for
+  /// [seedRescueRestored]; [reason]: invalidPhrase | mismatch | wrongPin |
+  /// readFailed | writeFailed | cancelled.
   static void seedRescueFailed({
     required String source,
     required String era,
@@ -3107,7 +3113,14 @@ class TrackingService {
     });
   }
 
-  // -- Accumulation Addresses (Receive) --
+  // -- Reusable deposit addresses (Receive) --
+  //
+  // Since 2026-10-12 `reusable_deposit_address_created` and `_reused`
+  // carry `model: standing|accumulation` (which Flashnet address model
+  // served the receive) and are tracked inline by StandingDepositStore
+  // and AccumulationAddressCache; `receive_address_failed` carries the
+  // same `model` beside `error_category`. The helpers below keep the
+  // schema for reference; new call sites pass the literal with `model`.
 
   static void reusableDepositAddressCreated({
     required String sourceChain,
@@ -4819,12 +4832,83 @@ class TrackingService {
     double? amountUsd,
     String? destination, // btc | usd
     String? walletKind,
+    String? route, // hyperevm | direct
   }) =>
       track('hyperliquid_withdraw_initiated', params: {
         'venue': 'hyperliquid',
         if (destination != null) 'destination': destination,
         if (walletKind != null) 'wallet_kind': walletKind,
+        if (route != null) 'route': route,
         ...moneyParams(amountUsd: amountUsd),
+      });
+
+  /// One real step of an Investing withdrawal through HyperEVM:
+  /// `core_to_evm` (HyperCore → HyperEVM sent), `evm_arrived` (USDC landed
+  /// on HyperEVM), `provider_sent` (transfer to Orchestra broadcast).
+  /// [durationMs] since the steps began. Exact amount, no ids.
+  static void hyperliquidWithdrawStep({
+    required String step,
+    double? amountUsd,
+    int? durationMs,
+  }) =>
+      track('hyperliquid_withdraw_step', params: {
+        'venue': 'hyperliquid',
+        'step': step,
+        'route': 'hyperevm',
+        'wallet_kind': 'hot',
+        if (durationMs != null) 'duration_ms': durationMs,
+        ...moneyParams(amountUsd: amountUsd),
+      });
+
+  /// One real step of an Investing deposit through HyperEVM after the
+  /// money left Spark: `core_credited` (the USDC Orchestra delivered to
+  /// HyperEVM reached HyperCore).
+  static void hyperliquidDepositStep({
+    required String step,
+    double? amountUsd,
+  }) =>
+      track('hyperliquid_deposit_step', params: {
+        'venue': 'hyperliquid',
+        'step': step,
+        'route': 'hyperevm',
+        'wallet_kind': 'hot',
+        ...moneyParams(amountUsd: amountUsd),
+      });
+
+  /// The $1 of HYPE an Investing move bought for HyperEVM / HyperCore gas.
+  /// A supporting leg (`purpose: gas_float`): folded into the move's fee,
+  /// never a money action and never revenue. [sourceAsset] `usd` | `btc`,
+  /// [trigger] `deposit` | `withdraw`.
+  static void hyperevmGasFloatBought({
+    required String sourceAsset,
+    required String trigger,
+    required double amountUsd,
+  }) =>
+      track('hyperevm_gas_float_bought', params: {
+        'venue': 'hyperliquid',
+        'provider': 'orchestra',
+        'purpose': 'gas_float',
+        'source_asset': sourceAsset,
+        'trigger': trigger,
+        'wallet_kind': 'hot',
+        'amount_usd': _round(amountUsd, 2),
+      });
+
+  /// The gas float could not be bought or made ready; the move stopped
+  /// before anything moved. [stage] `quote` | `send` | `arrival` |
+  /// `no_source` | `gas_spike` | `rebalance` | `pending`.
+  static void hyperevmGasFloatFailed({
+    required String stage,
+    required String trigger,
+    Object? error,
+  }) =>
+      track('hyperevm_gas_float_failed', params: {
+        'venue': 'hyperliquid',
+        'purpose': 'gas_float',
+        'stage': stage,
+        'trigger': trigger,
+        'wallet_kind': 'hot',
+        'error_category': errorCategory(error ?? stage),
       });
 
   /// [orderId] / [quoteId]: as on [hyperliquidDepositCompleted].
@@ -4850,6 +4934,7 @@ class TrackingService {
     double? amountUsd,
     String? destination,
     String? walletKind,
+    String? route,
   }) =>
       track('hyperliquid_withdraw_failed', params: {
         'venue': 'hyperliquid',
@@ -4857,6 +4942,7 @@ class TrackingService {
         'error_category': errorCategory(reason),
         if (destination != null) 'destination': destination,
         if (walletKind != null) 'wallet_kind': walletKind,
+        if (route != null) 'route': route,
         ...moneyParams(amountUsd: amountUsd),
       });
 

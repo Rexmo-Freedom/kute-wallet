@@ -32,6 +32,13 @@ import 'package:kute/services/venue_owner_link_service.dart';
 import 'package:kute/l10n/l10n.dart' show l10nForLanguage;
 import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/helpers/venue_intents.dart';
+import 'package:kute/services/one_balance/one_balance_state.dart'
+    show OneBalanceVenue;
+import 'package:kute/services/one_balance/venue_cash_released.dart';
+import 'package:kute/services/one_balance/venue_funder.dart'
+    show SweepAuthorization;
+import 'package:kute/services/orchestra/orchestra_quote_guard.dart'
+    show VerifiedOrchestraQuote;
 import 'package:kute/services/security/wallet_guard_exception.dart';
 import 'package:kute/services/usdc_balance_history_service.dart';
 import 'package:kute/models/polymarket_model.dart';
@@ -3040,6 +3047,12 @@ class PolymarketTradingNotifier
             });
           }
 
+          // A sale that filled freed venue cash: the sweeper brings it
+          // home.
+          if (side == OrderSide.sell && hasFill) {
+            VenueCashReleased.emit(
+                OneBalanceVenue.predictions, 'position_closed');
+          }
           if (hasFill) {
             TrackingService.polymarketBetPlaced(
               // SELLs are reported by polymarket_position_sold (market) or
@@ -3416,6 +3429,9 @@ class PolymarketTradingNotifier
       throw StateError('Polymarket account is not connected.');
     }
     await _backendService!.cancelOrder(orderId);
+    // The cash the order reserved is idle again: the sweeper may bring it
+    // home.
+    VenueCashReleased.emit(OneBalanceVenue.predictions, 'order_cancelled');
     await refresh();
   }
 
@@ -4043,6 +4059,11 @@ class PolymarketTradingNotifier
     }
     _devLog(
         '[redeem] credited: pUSD=+$finalPusdDelta USDC.e=+$finalUsdceDelta');
+    // A resolved market paid out into venue cash: the sweeper brings it
+    // home. A lost position credited nothing and releases nothing.
+    if (finalPusdDelta > BigInt.zero || finalUsdceDelta > BigInt.zero) {
+      VenueCashReleased.emit(OneBalanceVenue.predictions, 'market_resolved');
+    }
 
     // Task #170: redemption lands as pUSD in the Safe — that's the
     // canonical resting state now, so we don't sweep to USDC.e.
@@ -4545,13 +4566,39 @@ class PolymarketTradingNotifier
   /// [exactMicroUsdc] paid to the Orchestra quote's deposit address. It is
   /// checked before the seed is read and consumed right before the batch is
   /// signed.
+  ///
+  /// Without a grant, the one-balance sweeper may pass
+  /// [SweepAuthorization.automatic] with the verified quote it pays
+  /// ([sweepQuote]): accepted only for a bridged, quote-bound send of the
+  /// quote's exact amount to the quote's deposit address whose verified
+  /// recipient is this wallet's own Spark address (the quote gate's rule
+  /// 7 checked that address). Money can only ever come home under it, at
+  /// the same trust level as auto-claim (`SeedAccess.automatic`); the
+  /// session must be unlocked as for any signing.
   Future<String> withdrawUsdc({
     required String toAddress,
     required double amount,
     bool bridged = false,
     BigInt? exactMicroUsdc,
-    required AuthGrant grant,
+    AuthGrant? grant,
+    SweepAuthorization? sweep,
+    VerifiedOrchestraQuote? sweepQuote,
   }) async {
+    final sweeping = grant == null;
+    if (sweeping) {
+      if (sweep == null ||
+          sweepQuote == null ||
+          !PmGrants.sweepCoversWithdrawal(
+            recipientKind: sweepQuote.request.recipientKind,
+            quoteDepositAddress: sweepQuote.depositAddress,
+            quoteAmountIn: sweepQuote.amountIn,
+            toAddress: toAddress,
+            exactMicroUsdc: exactMicroUsdc,
+            bridged: bridged,
+          )) {
+        throw StateError('Withdrawal not authorized. Nothing was sent.');
+      }
+    }
     // A quote-bound withdrawal was gated on this same capability by its
     // Orchestra quote moments ago; a policy fetched within the last
     // minute is read, not fetched again, the way an order post re-checks
@@ -4584,17 +4631,20 @@ class PolymarketTradingNotifier
     // figure is the most this call can send.
     SensitiveIntent executedWithdraw(BigInt micros) =>
         PmGrants.executedWithdraw(
-          grant,
+          grant!,
           account: proxyWallet,
           amountMicros: micros,
           bridged: bridged,
           quoteBound: exactMicroUsdc != null,
         );
-    GrantGuard.check(
-      grant,
-      executedWithdraw(exactMicroUsdc ?? BigInt.from((amount * 1e6).round())),
-      allowed: PmGrants.withdrawActions,
-    );
+    if (!sweeping) {
+      GrantGuard.check(
+        grant,
+        executedWithdraw(
+            exactMicroUsdc ?? BigInt.from((amount * 1e6).round())),
+        allowed: PmGrants.withdrawActions,
+      );
+    }
 
     final settings = ref.read(settingsProvider);
     final spending = pickSpendingWallet(settings);
@@ -4674,10 +4724,13 @@ class PolymarketTradingNotifier
                 BigInt.from((amount * 1e6).round()), spendable);
 
         // Phase 1b.4: consume against exactly what the batch sends, before it is
-        // signed.
+        // signed. A sweep has no grant: its exact quote amount was checked
+        // above and `checkExactWithdrawMicroUsdc` held the batch to it.
         checkAccount();
-        GrantGuard.consume(grant, executedWithdraw(amountAtomic),
-            allowed: PmGrants.withdrawActions);
+        if (!sweeping) {
+          GrantGuard.consume(grant, executedWithdraw(amountAtomic),
+              allowed: PmGrants.withdrawActions);
+        }
 
         // How much pUSD we actually need to unwrap to top up USDC.e.
         final unwrapMicro =

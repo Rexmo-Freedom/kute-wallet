@@ -40,6 +40,8 @@ import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:flutter/services.dart';
 import 'package:kute/models/affiliate_model.dart';
+import 'package:kute/models/breez/shared_sync.dart';
+import 'package:kute/models/breez/sdk_instance.dart';
 import 'package:kute/screens/shared/wallet_icon.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -68,6 +70,7 @@ import 'package:kute/screens/ledger/funding/ledger_withdraw_predictions_sheet.da
 import 'package:kute/screens/ledger/funding/ledger_polymarket_funding_explainer_sheet.dart';
 import 'package:kute/services/funding/ledger_polymarket_funding_service.dart'
     show LedgerPmFundingDirection;
+import 'package:kute/services/funding/conv_timing.dart';
 import 'package:kute/services/funding/ledger_hypercore_funding_service.dart'
     show kHypercoreUsdcDecimals;
 import 'package:kute/services/hyperliquid/hypercore_cash.dart';
@@ -111,7 +114,8 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/services/polymarket_usdc_cache_service.dart';
 import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceProvider, usdSdkBalanceProvider, usdDrainBaseUnits;
-import 'package:kute/providers/asset_icon_provider.dart' show kUsdMarkAsset;
+import 'package:kute/providers/asset_icon_provider.dart'
+    show kInvestmentsIcon, kUsdMarkAsset;
 import 'package:kute/providers/swap_orders_provider.dart';
 import 'package:kute/services/fee_history_service.dart';
 import 'package:kute/screens/home/components/move_sent_overlay.dart';
@@ -209,6 +213,35 @@ enum MoveLockedSide {
   /// bank transfers are coming soon. Title stays 'Buy bitcoin'.
   buyToPredictions,
   buyToHyperliquid,
+}
+
+/// The door the SPENDING wallet's Move sheet opens for [side] (one
+/// balance, October 2026). The spending wallet has no venue doors:
+/// money reaches Investing and Predictions through an order funded from
+/// Dollars alone, and comes back through the sweeper. So a venue deposit
+/// or buy asked for on it opens the Dollars deposit door instead (the
+/// same ways in — bitcoin, Cash App while offered, other coins — and no
+/// venue as a source or destination anywhere in it or its pickers), and
+/// a venue withdrawal opens nothing (null): there is no such door. A
+/// Ledger ([ledger]) keeps every one of its doors, which are its own
+/// accounts'.
+MoveLockedSide? spendingWalletLockedSide(MoveLockedSide side,
+    {required bool ledger}) {
+  if (ledger) return side;
+  switch (side) {
+    case MoveLockedSide.depositToPredictions:
+    case MoveLockedSide.depositToHyperliquid:
+    case MoveLockedSide.buyToPredictions:
+    case MoveLockedSide.buyToHyperliquid:
+      return MoveLockedSide.depositToUsd;
+    case MoveLockedSide.withdrawFromPredictions:
+    case MoveLockedSide.withdrawFromHyperliquid:
+      return null;
+    case MoveLockedSide.depositToUsd:
+    case MoveLockedSide.depositFromFiat:
+    case MoveLockedSide.withdrawToFiat:
+      return side;
+  }
 }
 
 /// Where Continue goes in a Ledger-context Move sheet.
@@ -379,6 +412,10 @@ Future<void> showDepositSheet(
     return;
   }
   if (!context.mounted) return;
+  // The spending wallet has no venue doors (see [spendingWalletLockedSide]).
+  final side = spendingWalletLockedSide(lockedSide,
+      ledger: (ledgerWalletId ?? venueWalletId) != null);
+  if (side == null) return;
   // Full-screen amount entry pushed on the ROOT navigator so it floats
   // above the persistent shell nav bar — same rule the modal sheets
   // followed. Not awaited, matching the fire-and-forget contract the
@@ -389,7 +426,7 @@ Future<void> showDepositSheet(
       fullscreenDialog: true,
       builder: (_) => DepositSheet(
         initialSourceAsset: initialSourceAsset,
-        lockedSide: lockedSide,
+        lockedSide: side,
         fiatDepositWalletId: fiatDepositWalletId,
         venueWalletId: venueWalletId,
         ledgerWalletId: ledgerWalletId,
@@ -831,8 +868,27 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   }
 
   String _moveFailure(Object error) =>
+      _investingStopCopy(error) ??
       HotSettlement.messageFor(error, context.l10n) ??
       userErrorCopy(context, error, fallback: context.l10n.moveFailure);
+
+  /// An Investing move that stopped before anything reached the provider:
+  /// the gas float needs about $1 in Dollars, or the HyperEVM leg is not
+  /// ready right now. Older reasons keep their own copy.
+  String? _investingStopCopy(Object error) {
+    if (error is! HypercoreFundingUnavailable) return null;
+    switch (error.reason) {
+      case HypercoreFundingUnavailableReason.floatUnavailable:
+        return context.l10n.investingNeedsDollarsForNetworkFee;
+      case HypercoreFundingUnavailableReason.floatPending:
+      case HypercoreFundingUnavailableReason.gasSpike:
+      case HypercoreFundingUnavailableReason.coreTransferRefused:
+      case HypercoreFundingUnavailableReason.arrivalTimeout:
+        return context.l10n.routeUnavailableNothingSent;
+      default:
+        return null;
+    }
+  }
 
   // ─── Move funnel (product analytics) ────────────────────────────
 
@@ -1931,6 +1987,15 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       _warmUpMove();
     }
 
+    // A 100% move reads the SDK's cached balance at confirm without
+    // waiting for a sync (see [sparkDrainBalanceSats], [usdDrainBaseUnits]).
+    // Start one shared background sync now, never awaited, so that cache
+    // is fresh by then.
+    if (!_isLedgerMove) {
+      final sdk = BreezSdkSpark().instance;
+      if (sdk != null) kickSharedSyncWallet(sdk);
+    }
+
     // Refresh the SOURCE wallet's UTXOs once before the user types —
     // but ONLY when SENDING from a Ledger's bitcoin (`_sourceWalletId`
     // non-null) AND that source is the scoped wallet (so scanBdkScope
@@ -2245,6 +2310,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       return null;
     }
     final l10n = context.l10n;
+    ConvTiming.mark('requireFreshAuthGrant shown');
     return requireFreshAuthGrant(
       context,
       ref,
@@ -2270,6 +2336,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     double? amountUsd,
   }) {
     return (auth) async {
+      ConvTiming.mark('_settlementStepUp start');
       // No quote review sheet. The person already decided on the amount
       // step; the signing prompt below is the confirmation, and a
       // second one before it was a speed bump, not a safeguard (user
@@ -2294,6 +2361,8 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       final grant = await _approveMove(intent,
           amountLabel: amountLabel(auth), amountUsd: amountUsd,
           reasonOverride: sourceFeeReason);
+      ConvTiming.mark(
+          '_settlementStepUp requireFreshAuthGrant returned granted=${grant != null}');
       if (grant == null) {
         return false;
       }
@@ -2347,6 +2416,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// refund target, same `withdrawUsdc` funding call, same
   /// [SensitiveAction.venueWithdraw] grant, same runner.
   Future<void> _convertUsdToBtc() async {
+    ConvTiming.mark('_convertUsdToBtc entry');
     var usd = _selectedUsdcFromRatio;
     if (usd < _kMinUsdc || _processing) {
       return;
@@ -2392,6 +2462,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         venue: 'polymarket');
     TrackingService.polymarketWithdrawInitiated(amountUsdc: usd);
 
+    ConvTiming.mark('_convertUsdToBtc setState processing');
     setState(() {
       _processing = true;
       _error = null;
@@ -2402,7 +2473,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     var usdcSent = false;
     try {
       // 1. Get Spark self address for BTC settlement.
+      ConvTiming.mark('_convertUsdToBtc sparkSelfAddressProvider read start');
       final sparkAddress = await ref.read(sparkSelfAddressProvider.future);
+      ConvTiming.mark('_convertUsdToBtc sparkSelfAddressProvider read end');
 
       // 2. Create Flashnet quote: polygon native USDC → spark BTC.
       // Refund target = the Polymarket deposit wallet (proxy) the
@@ -2447,7 +2520,10 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       // Phase 1b.4: the approval the step-up hook got, handed to
       // `withdrawUsdc` in `fund`, which consumes it right before signing.
       AuthGrant? approved;
+      ConvTiming.mark('_convertUsdToBtc HotSettlement.runner() start');
       final runner = await HotSettlement.runner();
+      ConvTiming.mark('_convertUsdToBtc HotSettlement.runner() end');
+      ConvTiming.mark('_convertUsdToBtc runner.run call');
       final settled = await runner.run(HotSettlement.plan(
         ref.read,
         flow: dollars
@@ -2472,6 +2548,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
             refundAddress: refundEvm,
             recipientKind: RecipientKind.ownSpark,
             ownAddress: await _ownAddressFor(RecipientKind.ownSpark),
+            tag: kManualMoveQuoteTag,
           );
           return HotSettlement.quote(ref.read, quoteRequest,
               flow: dollars ? 'move_convert_to_dollars' : 'move_convert_to_btc',
@@ -2525,6 +2602,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
           return grant != null;
         },
       ));
+      ConvTiming.mark('_convertUsdToBtc runner.run returned');
       final orchQuote = settled.quote.quote;
       // Register the expected inbound BTC delivery so the Spark receive
       // (Orchestra delivers in about 1 to 3 min) gets hidden from the home
@@ -2566,7 +2644,10 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         walletId: ref.read(settingsProvider).activeWalletId,
         operationId: settled.operation.operationId,
       );
+      ConvTiming.mark('_convertUsdToBtc addExchange(exchange) start');
       await ref.read(swapOrdersProvider.notifier).addExchange(exchange);
+      ConvTiming.mark('_convertUsdToBtc addExchange(exchange) end');
+      ConvTiming.mark('_convertUsdToBtc followSettlementRegistration');
       followSettlementRegistration(appRead, settled);
       // Backend provider_events row for revenue attribution
       // (Predictions USDC → spending BTC via Orchestra). Only the REAL
@@ -2658,11 +2739,13 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       final spendingName =
           ref.read(settingsProvider).activeWallet?.name ?? 'Spending';
       final l10n = context.l10n;
+      ConvTiming.mark('_convertUsdToBtc sheet pop');
       context.pop();
       // Same sent overlay as every other move (user decision: the old
       // "Conversion started" card read small and off-language). It names
       // what landed, so a dollar cash-out reads in dollars.
       _trackMoveCompleted();
+      ConvTiming.mark('_convertUsdToBtc overlay push');
       pushMoveSentOverlay(
         navigator: rootNav,
         amount: dollars
@@ -2673,7 +2756,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         assetIconAsset: 'lib/assets/polymarket-logo.svg',
         note: l10n.moveConversionOngoing,
       );
+      ConvTiming.mark('_convertUsdToBtc overlay pushed (spinner closed)');
     } catch (e) {
+      ConvTiming.mark('_convertUsdToBtc error ${e.runtimeType}');
       // Once the USDC left, the order's real outcome comes from the
       // background sync's terminal poll, not from this throw.
       if (!usdcSent) {
@@ -2732,6 +2817,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// The app's own address for [kind], looked up from its source
   /// provider and never from the recipient a flow is about to quote to.
   Future<String?> _ownAddressFor(RecipientKind kind) async {
+    ConvTiming.mark('_ownAddressFor start (${kind.name})');
     switch (kind) {
       case RecipientKind.ownSpark:
         return ref.read(sparkSelfAddressProvider.future);
@@ -2748,16 +2834,20 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   }
 
   /// 100% of the spending wallet, resolved when the quote is requested
-  /// rather than on the tap: the freshly synced Spark balance. The sheet's
+  /// rather than on the tap: the SDK's cached Spark balance, kept fresh by
+  /// the shared sync the sheet starts when it opens. The sheet's
   /// own figure is a cache that can lag a payment (and used to add a
   /// vestigial on-chain balance), and a Spark-to-Spark deposit charges no
   /// fee, so this whole figure is what the quote asks for and what the
   /// SDK then sends.
   Future<int> _sparkDrainSats() async {
+    ConvTiming.mark('_sparkDrainSats start');
     final wrapper = await ref.read(breezSDKProvider.future);
+    ConvTiming.mark('_sparkDrainSats breezSDKProvider ready');
     final sdk = wrapper.instance;
     if (sdk == null) throw StateError('The spending wallet is disconnected.');
     final sats = await sparkDrainBalanceSats(sdk);
+    ConvTiming.mark('_sparkDrainSats sparkDrainBalanceSats end');
     if (sats < _kMinSats) throw context.l10n.insufficientBalance;
     return sats;
   }
@@ -2778,7 +2868,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     required String flow,
     required String idempotencyKey,
   }) async {
+    ConvTiming.mark('_quoteWithArrivalTarget start');
     final ownAddress = await _ownAddressFor(recipientKind);
+    ConvTiming.mark('_quoteWithArrivalTarget _ownAddressFor end');
     Future<SettlementQuoteResult> quoteFor(int amountSats, String key) {
       final request = OrchestraQuoteRequest(
         sourceChain: 'spark',
@@ -2790,6 +2882,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         refundAddress: refundAddress,
         recipientKind: recipientKind,
         ownAddress: ownAddress,
+        tag: kManualMoveQuoteTag,
       );
       return HotSettlement.quote(ref.read, request,
           flow: flow, idempotencyKey: key);
@@ -2823,7 +2916,10 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         );
       }
     }
+    ConvTiming.mark(
+        '_quoteWithArrivalTarget quote#1 start (estimate grossup=${sendSats != sats})');
     var fetched = await quoteFor(sendSats, idempotencyKey);
+    ConvTiming.mark('_quoteWithArrivalTarget quote#1 end');
     if (target > 0) {
       final estOut = orchestraAmountToDouble(
           fetched.quote.quote.estimatedOut, destinationAsset,
@@ -2840,8 +2936,10 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         if (scaled > sendSats) {
           sendSats = scaled;
           // A different request body takes its own idempotency key.
+          ConvTiming.mark('_quoteWithArrivalTarget quote#2 (gross-up) start');
           fetched = await quoteFor(
               sendSats, OrchestraService.generateIdempotencyKey());
+          ConvTiming.mark('_quoteWithArrivalTarget quote#2 (gross-up) end');
         }
       }
     }
@@ -2849,6 +2947,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   }
 
   Future<void> _dispatchBtcToPredictions(int requestedSats) async {
+    ConvTiming.mark('_dispatchBtcToPredictions entry');
     final appRead = _appReader;
     var sats = requestedSats;
     final drain = _drainArmed;
@@ -2886,6 +2985,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       venue: 'polymarket',
     );
 
+    ConvTiming.mark('_dispatchBtcToPredictions setState processing');
     setState(() {
       _processing = true;
       _error = null;
@@ -2898,15 +2998,22 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     var sparkSent = false;
     String? pendingQuoteRowId;
     try {
+      ConvTiming.mark('_dispatchBtcToPredictions sparkDrainSats (drain=$drain) start');
       if (drain) sats = await _sparkDrainSats();
+      ConvTiming.mark('_dispatchBtcToPredictions sparkDrainSats (drain=$drain) end');
       // 1. Orchestra quote: spark BTC → polygon USDC.e (Safe), grossed
       // up so the typed USD target actually arrives post-spread.
       // Spark-source leg → refund target is the user's own Spark
       // address; resolution failure throws BEFORE anything moves. The
       // runner persists the settlement record before the quote and
       // `broadcasting` before the Spark send (Phase 5 plan B6).
+      ConvTiming.mark('_dispatchBtcToPredictions sparkSelfAddressProvider read start');
       final sparkRefund = await ref.read(sparkSelfAddressProvider.future);
+      ConvTiming.mark('_dispatchBtcToPredictions sparkSelfAddressProvider read end');
+      ConvTiming.mark('_dispatchBtcToPredictions HotSettlement.runner() start');
       final runner = await HotSettlement.runner();
+      ConvTiming.mark('_dispatchBtcToPredictions HotSettlement.runner() end');
+      ConvTiming.mark('_dispatchBtcToPredictions runner.run call');
       final settled = await runner.run(HotSettlement.plan(
         ref.read,
         flow: SettlementFlow.moveBtcToPredictions,
@@ -2987,11 +3094,14 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
           // 2. Send BTC via Spark to the quote's deposit address. From here
           // the BTC may have left, so the row is kept whatever happens.
           sparkSent = true;
+          ConvTiming.mark('_dispatchBtcToPredictions sendSpark start');
           final paymentId = await HotSettlement.sendSpark(ref.read, prepared);
+          ConvTiming.mark('_dispatchBtcToPredictions sendSpark end');
           PolymarketSparkTxsService.tag(paymentId);
           return SettlementFundingProof.spark(paymentId);
         },
       ));
+      ConvTiming.mark('_dispatchBtcToPredictions runner.run returned');
       final orchQuote = settled.quote.quote;
       sats = settled.quote.amountIn.toInt();
 
@@ -3031,13 +3141,16 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       // Add-then-delete, NOT delete-then-add: addExchange is id-keyed,
       // so the transient double row is harmless, while the reverse
       // order has a kill-window with NO row for an in-flight deposit.
+      ConvTiming.mark('_dispatchBtcToPredictions addExchange(exchange) start');
       await ref.read(swapOrdersProvider.notifier).addExchange(exchange);
+      ConvTiming.mark('_dispatchBtcToPredictions addExchange(exchange) end');
       if (orderId != orchQuote.quoteId) {
         await ref
             .read(swapOrdersProvider.notifier)
             .deleteExchange(orchQuote.quoteId);
       }
       pendingQuoteRowId = null;
+      ConvTiming.mark('_dispatchBtcToPredictions followSettlementRegistration');
       followSettlementRegistration(appRead, settled);
       // Backend provider_events row for revenue attribution
       // (spending BTC → Predictions USDC.e via Orchestra). Only the REAL order
@@ -3085,8 +3198,10 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       final navigator = Navigator.of(context);
       final settings = ref.read(settingsProvider);
       final fromName = settings.activeWallet?.name ?? 'Spending';
+      ConvTiming.mark('_dispatchBtcToPredictions sheet pop');
       navigator.pop();
       _trackMoveCompleted();
+      ConvTiming.mark('_dispatchBtcToPredictions overlay push');
       pushMoveSentOverlay(
         navigator: navigator,
         amount: '₿${sats.toFormattedString(btcFormat)}',
@@ -3100,7 +3215,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
             ? context.l10n.moveConversionOngoing
             : context.l10n.settlementRegistering,
       );
+      ConvTiming.mark('_dispatchBtcToPredictions overlay pushed (spinner closed)');
     } catch (e) {
+      ConvTiming.mark('_dispatchBtcToPredictions error ${e.runtimeType}');
       // Failure BEFORE the Spark send: nothing moved, so the
       // pre-persisted quote row must not linger as a phantom
       // "Exchanging" Activity row + "$X arriving" hero line.
@@ -3158,6 +3275,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// The token's own name stays inside the quote, the exchange row and
   /// the analytics, where every other internal identifier lives.
   Future<void> _dispatchBtcToUsd(int requestedSats) async {
+    ConvTiming.mark('_dispatchBtcToUsd entry');
     if (_processing) return;
     final appRead = _appReader;
     var sats = requestedSats;
@@ -3181,6 +3299,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         toNetwork: kOrchestraUsdChain,
         venue: 'wallet');
 
+    ConvTiming.mark('_dispatchBtcToUsd setState processing');
     setState(() {
       _processing = true;
       _error = null;
@@ -3190,12 +3309,19 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     // Whether the sats were handed to the send, for failure analytics.
     var btcSent = false;
     try {
+      ConvTiming.mark('_dispatchBtcToUsd sparkDrainSats (drain=$drain) start');
       if (drain) sats = await _sparkDrainSats();
+      ConvTiming.mark('_dispatchBtcToUsd sparkDrainSats (drain=$drain) end');
       // 1. The dollar leg settles on the wallet's own Spark address, and
       // a failed swap refunds to that same address. Resolution failure
       // throws BEFORE anything moves.
+      ConvTiming.mark('_dispatchBtcToUsd sparkSelfAddressProvider read start');
       final sparkAddress = await ref.read(sparkSelfAddressProvider.future);
+      ConvTiming.mark('_dispatchBtcToUsd sparkSelfAddressProvider read end');
+      ConvTiming.mark('_dispatchBtcToUsd HotSettlement.runner() start');
       final runner = await HotSettlement.runner();
+      ConvTiming.mark('_dispatchBtcToUsd HotSettlement.runner() end');
+      ConvTiming.mark('_dispatchBtcToUsd runner.run call');
       final settled = await runner.run(HotSettlement.plan(
         ref.read,
         flow: SettlementFlow.moveBtcToUsdc,
@@ -3239,11 +3365,14 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
           // outbound leg so the Activity feed tells the story once, on
           // the exchange row, instead of twice.
           btcSent = true;
+          ConvTiming.mark('_dispatchBtcToUsd sendSpark start');
           final paymentId = await HotSettlement.sendSpark(ref.read, prepared);
+          ConvTiming.mark('_dispatchBtcToUsd sendSpark end');
           PolymarketSparkTxsService.tag(paymentId);
           return SettlementFundingProof.spark(paymentId);
         },
       ));
+      ConvTiming.mark('_dispatchBtcToUsd runner.run returned');
       final orchQuote = settled.quote.quote;
       sats = settled.quote.amountIn.toInt();
       final orderId = settled.orderId ?? orchQuote.quoteId;
@@ -3273,8 +3402,11 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         walletId: ref.read(settingsProvider).activeWalletId,
         operationId: settled.operation.operationId,
       );
+      ConvTiming.mark('_dispatchBtcToUsd addExchange(exchange) start');
       await ref.read(swapOrdersProvider.notifier).addExchange(exchange);
+      ConvTiming.mark('_dispatchBtcToUsd addExchange(exchange) end');
       // The background submit moves the row to the order id it returns.
+      ConvTiming.mark('_dispatchBtcToUsd followSettlementRegistration');
       followSettlementRegistration(appRead, settled);
       // Backend attribution for the REAL order only — a quote id (q_…)
       // would create a row the completion can never reconcile with.
@@ -3331,8 +3463,10 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       final navigator = Navigator.of(context);
       final settings = ref.read(settingsProvider);
       final l10n = context.l10n;
+      ConvTiming.mark('_dispatchBtcToUsd sheet pop');
       navigator.pop();
       _trackMoveCompleted();
+      ConvTiming.mark('_dispatchBtcToUsd overlay push');
       pushMoveSentOverlay(
         navigator: navigator,
         amount: '\$${estOut.toStringAsFixed(2)}',
@@ -3343,7 +3477,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
             ? l10n.moveConversionOngoing
             : l10n.settlementRegistering,
       );
+      ConvTiming.mark('_dispatchBtcToUsd overlay pushed (spinner closed)');
     } catch (e) {
+      ConvTiming.mark('_dispatchBtcToUsd error ${e.runtimeType}');
       // Once the sats left, the order's real outcome comes from the
       // background sync's terminal poll, not from this throw.
       if (!btcSent) {
@@ -3380,10 +3516,13 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// cent-floored figure on screen (which left sub-cent dust behind) or a
   /// ledger-sum fallback. A Spark token transfer charges no fee on top.
   Future<BigInt> _usdDrainBaseUnits() async {
+    ConvTiming.mark('_usdDrainBaseUnits start');
     final wrapper = await ref.read(breezSDKProvider.future);
+    ConvTiming.mark('_usdDrainBaseUnits breezSDKProvider ready');
     final sdk = wrapper.instance;
     if (sdk == null) throw StateError('The spending wallet is disconnected.');
     final units = await usdDrainBaseUnits(sdk);
+    ConvTiming.mark('_usdDrainBaseUnits usdDrainBaseUnits end');
     if (units < BigInt.from((_kMinUsdc * 1e6).round())) {
       throw context.l10n.insufficientBalance;
     }
@@ -3406,6 +3545,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// delivery lands as an ordinary receive beside the exchange row, the
   /// same way the bitcoin → dollars leg does.
   Future<void> _dispatchUsdToBtc(double usd) async {
+    ConvTiming.mark('_dispatchUsdToBtc entry');
     if (_processing) return;
     final appRead = _appReader;
     var amountBaseUnits = _usdBaseUnits(usd);
@@ -3430,6 +3570,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       venue: 'wallet',
     );
 
+    ConvTiming.mark('_dispatchUsdToBtc setState processing');
     setState(() {
       _processing = true;
       _error = null;
@@ -3439,13 +3580,22 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     // Whether the dollars were handed to the send, for failure analytics.
     var usdSent = false;
     try {
+      ConvTiming.mark('_dispatchUsdToBtc usdDrainBaseUnits (drain=$drain) start');
       if (drain) amountBaseUnits = await _usdDrainBaseUnits();
+      ConvTiming.mark('_dispatchUsdToBtc usdDrainBaseUnits (drain=$drain) end');
       // Both legs settle on the wallet's own Spark address, and a failed
       // swap refunds to that same address. Resolution failure throws
       // BEFORE anything moves.
+      ConvTiming.mark('_dispatchUsdToBtc sparkSelfAddressProvider read start');
       final sparkAddress = await ref.read(sparkSelfAddressProvider.future);
+      ConvTiming.mark('_dispatchUsdToBtc sparkSelfAddressProvider read end');
+      ConvTiming.mark('_dispatchUsdToBtc _ownAddressFor(ownSpark) start');
       final ownSpark = await _ownAddressFor(RecipientKind.ownSpark);
+      ConvTiming.mark('_dispatchUsdToBtc _ownAddressFor(ownSpark) end');
+      ConvTiming.mark('_dispatchUsdToBtc HotSettlement.runner() start');
       final runner = await HotSettlement.runner();
+      ConvTiming.mark('_dispatchUsdToBtc HotSettlement.runner() end');
+      ConvTiming.mark('_dispatchUsdToBtc runner.run call');
       final settled = await runner.run(HotSettlement.plan(
         ref.read,
         flow: SettlementFlow.moveDollarsToBtc,
@@ -3476,6 +3626,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
             refundAddress: sparkAddress,
             recipientKind: RecipientKind.ownSpark,
             ownAddress: ownSpark,
+            tag: kManualMoveQuoteTag,
           ),
           flow: 'move_buy_bitcoin_dollars',
           idempotencyKey: key,
@@ -3489,11 +3640,14 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         registerInBackground: true,
         fund: (verifiedQuote, prepared) async {
           usdSent = true;
+          ConvTiming.mark('_dispatchUsdToBtc sendSpark start');
           final paymentId = await HotSettlement.sendSpark(ref.read, prepared);
+          ConvTiming.mark('_dispatchUsdToBtc sendSpark end');
           PolymarketSparkTxsService.tag(paymentId);
           return SettlementFundingProof.spark(paymentId);
         },
       ));
+      ConvTiming.mark('_dispatchUsdToBtc runner.run returned');
       final orchQuote = settled.quote.quote;
       final sentUsd = settled.quote.amountIn.toDouble() / 1e6;
       final orderId = settled.orderId ?? orchQuote.quoteId;
@@ -3523,7 +3677,10 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         walletId: ref.read(settingsProvider).activeWalletId,
         operationId: settled.operation.operationId,
       );
+      ConvTiming.mark('_dispatchUsdToBtc addExchange(exchange) start');
       await ref.read(swapOrdersProvider.notifier).addExchange(exchange);
+      ConvTiming.mark('_dispatchUsdToBtc addExchange(exchange) end');
+      ConvTiming.mark('_dispatchUsdToBtc followSettlementRegistration');
       followSettlementRegistration(appRead, settled);
       // Backend attribution for the REAL order only — a quote id (q_…)
       // would create a row the completion can never reconcile with.
@@ -3580,8 +3737,10 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       final navigator = Navigator.of(context);
       final settings = ref.read(settingsProvider);
       final l10n = context.l10n;
+      ConvTiming.mark('_dispatchUsdToBtc sheet pop');
       navigator.pop();
       _trackMoveCompleted();
+      ConvTiming.mark('_dispatchUsdToBtc overlay push');
       pushMoveSentOverlay(
         navigator: navigator,
         amount: '\$${sentUsd.toStringAsFixed(2)}',
@@ -3592,7 +3751,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
             ? l10n.moveConversionOngoing
             : l10n.settlementRegistering,
       );
+      ConvTiming.mark('_dispatchUsdToBtc overlay pushed (spinner closed)');
     } catch (e) {
+      ConvTiming.mark('_dispatchUsdToBtc error ${e.runtimeType}');
       // Once the dollars left, the order's real outcome comes from the
       // background sync's terminal poll, not from this throw.
       if (!usdSent) {
@@ -3629,6 +3790,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// There is no gross-up: on a dollar source the typed number IS what
   /// leaves, the same as every other same-denomination spend.
   Future<void> _dispatchUsdToPredictions(double usd) async {
+    ConvTiming.mark('_dispatchUsdToPredictions entry');
     if (_processing) return;
     final appRead = _appReader;
     final evm = await _evmAddressForDispatch();
@@ -3666,6 +3828,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       venue: 'polymarket',
     );
 
+    ConvTiming.mark('_dispatchUsdToPredictions setState processing');
     setState(() {
       _processing = true;
       _error = null;
@@ -3675,10 +3838,19 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     var dollarsSent = false;
     String? pendingQuoteRowId;
     try {
+      ConvTiming.mark('_dispatchUsdToPredictions usdDrainBaseUnits (drain=$drain) start');
       if (drain) amountBaseUnits = await _usdDrainBaseUnits();
+      ConvTiming.mark('_dispatchUsdToPredictions usdDrainBaseUnits (drain=$drain) end');
+      ConvTiming.mark('_dispatchUsdToPredictions sparkSelfAddressProvider read start');
       final sparkRefund = await ref.read(sparkSelfAddressProvider.future);
+      ConvTiming.mark('_dispatchUsdToPredictions sparkSelfAddressProvider read end');
+      ConvTiming.mark('_dispatchUsdToPredictions _ownAddressFor(ownPmWallet) start');
       final ownPm = await _ownAddressFor(RecipientKind.ownPmWallet);
+      ConvTiming.mark('_dispatchUsdToPredictions _ownAddressFor(ownPmWallet) end');
+      ConvTiming.mark('_dispatchUsdToPredictions HotSettlement.runner() start');
       final runner = await HotSettlement.runner();
+      ConvTiming.mark('_dispatchUsdToPredictions HotSettlement.runner() end');
+      ConvTiming.mark('_dispatchUsdToPredictions runner.run call');
       final settled = await runner.run(HotSettlement.plan(
         ref.read,
         flow: SettlementFlow.moveUsdToPredictions,
@@ -3709,6 +3881,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
             refundAddress: sparkRefund,
             recipientKind: RecipientKind.ownPmWallet,
             ownAddress: ownPm,
+            tag: kManualMoveQuoteTag,
           ),
           flow: 'move_predictions_dollars',
           idempotencyKey: key,
@@ -3736,11 +3909,14 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         registerInBackground: true,
         fund: (verifiedQuote, prepared) async {
           dollarsSent = true;
+          ConvTiming.mark('_dispatchUsdToPredictions sendSpark start');
           final paymentId = await HotSettlement.sendSpark(ref.read, prepared);
+          ConvTiming.mark('_dispatchUsdToPredictions sendSpark end');
           PolymarketSparkTxsService.tag(paymentId);
           return SettlementFundingProof.spark(paymentId);
         },
       ));
+      ConvTiming.mark('_dispatchUsdToPredictions runner.run returned');
       final orchQuote = settled.quote.quote;
       final sentUsd = settled.quote.amountIn.toDouble() / 1e6;
       final orderId = settled.orderId ?? orchQuote.quoteId;
@@ -3751,13 +3927,16 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         sparkRefund: sparkRefund,
         operationId: settled.operation.operationId,
       );
+      ConvTiming.mark('_dispatchUsdToPredictions addExchange(exchange) start');
       await ref.read(swapOrdersProvider.notifier).addExchange(exchange);
+      ConvTiming.mark('_dispatchUsdToPredictions addExchange(exchange) end');
       if (orderId != orchQuote.quoteId) {
         await ref
             .read(swapOrdersProvider.notifier)
             .deleteExchange(orchQuote.quoteId);
       }
       pendingQuoteRowId = null;
+      ConvTiming.mark('_dispatchUsdToPredictions followSettlementRegistration');
       followSettlementRegistration(appRead, settled);
       final estOut = orchestraAmountToDouble(orchQuote.estimatedOut, 'USDC.e',
           chain: 'polygon');
@@ -3792,8 +3971,10 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       if (!mounted) return;
       final navigator = Navigator.of(context);
       final l10n = context.l10n;
+      ConvTiming.mark('_dispatchUsdToPredictions sheet pop');
       navigator.pop();
       _trackMoveCompleted();
+      ConvTiming.mark('_dispatchUsdToPredictions overlay push');
       pushMoveSentOverlay(
         navigator: navigator,
         amount: '\$${sentUsd.toStringAsFixed(2)}',
@@ -3804,7 +3985,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
             ? l10n.moveConversionOngoing
             : context.l10n.settlementRegistering,
       );
+      ConvTiming.mark('_dispatchUsdToPredictions overlay pushed (spinner closed)');
     } catch (e) {
+      ConvTiming.mark('_dispatchUsdToPredictions error ${e.runtimeType}');
       final staleRowId = pendingQuoteRowId;
       if (!dollarsSent && staleRowId != null) {
         // ignore: unawaited_futures
@@ -3882,6 +4065,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// shared funding service as the bitcoin deposit, told which balance
   /// pays. [usd] is dollars; it becomes the token's own base units once.
   Future<void> _dispatchUsdToHyperliquid(double usd) async {
+    ConvTiming.mark('_dispatchUsdToHyperliquid entry');
     if (_processing) return;
     var amountBaseUnits = _usdBaseUnits(usd);
     final drain = _drainArmed;
@@ -3893,19 +4077,24 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       'provider': 'orchestra',
     });
     _trackMoveSubmitted();
+    ConvTiming.mark('_dispatchUsdToHyperliquid setState processing');
     setState(() {
       _processing = true;
       _error = null;
     });
     try {
+      ConvTiming.mark('_dispatchUsdToHyperliquid usdDrainBaseUnits (drain=$drain) start');
       if (drain) amountBaseUnits = await _usdDrainBaseUnits();
+      ConvTiming.mark('_dispatchUsdToHyperliquid usdDrainBaseUnits (drain=$drain) end');
       final direct = ref.read(sparkHypercoreFundingServiceProvider);
+      ConvTiming.mark('_dispatchUsdToHyperliquid direct.ensureAvailable start');
       await direct.ensureAvailable(deposit: true);
+      ConvTiming.mark('_dispatchUsdToHyperliquid direct.ensureAvailable end');
       TrackingService.hyperliquidDepositInitiated(
         amountUsd: usd,
         sourceAsset: 'usd',
         walletKind: 'hot',
-        route: 'direct',
+        route: 'hyperevm',
       );
       final result = await direct.depositFromSpark(
         registerInBackground: true,
@@ -3933,8 +4122,10 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       if (!mounted) return;
       final navigator = Navigator.of(context);
       final l10n = context.l10n;
+      ConvTiming.mark('_dispatchUsdToHyperliquid sheet pop');
       navigator.pop();
       _trackMoveCompleted();
+      ConvTiming.mark('_dispatchUsdToHyperliquid overlay push');
       pushMoveSentOverlay(
         navigator: navigator,
         amount: '\$${(result.amountIn.toDouble() / 1e6).toStringAsFixed(2)}',
@@ -3945,7 +4136,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
             ? l10n.moveConversionOngoing
             : l10n.settlementRegistering,
       );
+      ConvTiming.mark('_dispatchUsdToHyperliquid overlay pushed (spinner closed)');
     } catch (e) {
+      ConvTiming.mark('_dispatchUsdToHyperliquid error ${e.runtimeType}');
       if (_stoppedByApproval(e, SensitiveAction.venueDeposit)) {
         return;
       }
@@ -3954,7 +4147,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       TrackingService.hyperliquidDepositFailed(
         reason: TrackingService.errorCategory(e),
         amountUsd: usd,
-        route: 'direct',
+        route: 'hyperevm',
         walletKind: 'hot',
       );
       _trackMoveFailed(e);
@@ -3972,6 +4165,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// Funding stays on HyperCore. An unavailable route never redirects funds
   /// through an Arbitrum address or the retired gas-paying relayer.
   Future<void> _dispatchBtcToHyperliquid(int requestedSats) async {
+    ConvTiming.mark('_dispatchBtcToHyperliquid entry');
     if (_processing) return;
     var sats = requestedSats;
     final drain = _drainArmed;
@@ -3984,19 +4178,24 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       'provider': 'orchestra',
     });
     _trackMoveSubmitted();
+    ConvTiming.mark('_dispatchBtcToHyperliquid setState processing');
     setState(() {
       _processing = true;
       _error = null;
     });
     try {
       final direct = ref.read(sparkHypercoreFundingServiceProvider);
+      ConvTiming.mark('_dispatchBtcToHyperliquid direct.ensureAvailable start');
       await direct.ensureAvailable(deposit: true);
+      ConvTiming.mark('_dispatchBtcToHyperliquid direct.ensureAvailable end');
+      ConvTiming.mark('_dispatchBtcToHyperliquid sparkDrainSats (drain=$drain) start');
       if (drain) sats = await _sparkDrainSats();
+      ConvTiming.mark('_dispatchBtcToHyperliquid sparkDrainSats (drain=$drain) end');
       TrackingService.hyperliquidDepositInitiated(
         amountUsd: approxUsd,
         sourceAsset: 'btc',
         walletKind: 'hot',
-        route: 'direct',
+        route: 'hyperevm',
       );
       final result = await direct.depositFromSpark(
         registerInBackground: true,
@@ -4020,8 +4219,10 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       final navigator = Navigator.of(context);
       final settings = ref.read(settingsProvider);
       final l10n = context.l10n;
+      ConvTiming.mark('_dispatchBtcToHyperliquid sheet pop');
       navigator.pop();
       _trackMoveCompleted();
+      ConvTiming.mark('_dispatchBtcToHyperliquid overlay push');
       pushMoveSentOverlay(
         navigator: navigator,
         amount:
@@ -4033,14 +4234,16 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
             ? l10n.moveConversionOngoing
             : l10n.settlementRegistering,
       );
+      ConvTiming.mark('_dispatchBtcToHyperliquid overlay pushed (spinner closed)');
     } catch (e) {
+      ConvTiming.mark('_dispatchBtcToHyperliquid error ${e.runtimeType}');
       if (_stoppedByApproval(e, SensitiveAction.venueDeposit)) {
         return;
       }
       TrackingService.hyperliquidDepositFailed(
         reason: TrackingService.errorCategory(e),
         amountUsd: approxUsd,
-        route: 'direct',
+        route: 'hyperevm',
         walletKind: 'hot',
       );
       _trackMoveFailed(e);
@@ -4061,16 +4264,20 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// withdrawal is pointed at changes — same HyperCore source, same
   /// [SensitiveAction.venueWithdraw] grant, same runner.
   Future<void> _dispatchHyperliquidToBtc(double usd) async {
+    ConvTiming.mark('_dispatchHyperliquidToBtc entry');
     if (_processing) return;
     final dollars = _destUsd;
     final drain = _drainArmed;
+    ConvTiming.mark('_dispatchHyperliquidToBtc setState processing');
     setState(() {
       _processing = true;
       _error = null;
     });
     try {
       final direct = ref.read(sparkHypercoreFundingServiceProvider);
+      ConvTiming.mark('_dispatchHyperliquidToBtc direct.ensureAvailable start');
       await direct.ensureAvailable(deposit: false);
+      ConvTiming.mark('_dispatchHyperliquidToBtc direct.ensureAvailable end');
       if (drain) {
         // 100%: everything the account holds now, read fresh, not the
         // cent-floored snapshot on screen: perpetuals, builder-DEX and
@@ -4089,6 +4296,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         amountUsd: usd,
         destination: dollars ? 'usd' : 'btc',
         walletKind: 'hot',
+        route: 'hyperevm',
       );
       _trackMoveSubmitted();
       await direct.withdrawToSpark(
@@ -4117,8 +4325,10 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       final l10n = context.l10n;
       final name =
           ref.read(settingsProvider).activeWallet?.name ?? l10n.spending;
+      ConvTiming.mark('_dispatchHyperliquidToBtc sheet pop');
       navigator.pop();
       _trackMoveCompleted();
+      ConvTiming.mark('_dispatchHyperliquidToBtc overlay push');
       pushMoveSentOverlay(
         navigator: navigator,
         amount: '\$${usd.toStringAsFixed(2)}',
@@ -4127,7 +4337,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         assetIconAsset: 'lib/assets/hyperliquid-logo.svg',
         note: l10n.moveConversionOngoing,
       );
+      ConvTiming.mark('_dispatchHyperliquidToBtc overlay pushed (spinner closed)');
     } catch (e) {
+      ConvTiming.mark('_dispatchHyperliquidToBtc error ${e.runtimeType}');
       if (_stoppedByApproval(e, SensitiveAction.venueWithdraw)) {
         return;
       }
@@ -4137,6 +4349,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         amountUsd: usd,
         destination: dollars ? 'usd' : 'btc',
         walletKind: 'hot',
+        route: 'hyperevm',
       );
       _trackMoveFailed(e);
       if (!mounted) {
@@ -5433,6 +5646,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   }
 
   Future<void> _convert() async {
+    ConvTiming.start('tap _convert');
     // A Ledger context never reaches any hot-wallet or legacy dispatcher.
     if (_isLedgerMove) {
       // A Cash App source funds the Ledger's venue account through the
@@ -6664,10 +6878,10 @@ class _DirectionToggle extends ConsumerWidget {
         // same mode) keep the payment rails only.
         if (dollarsSourceAvailable)
           _PickerRow(
-            // The same mark the Dollars tab and the wallet
-            // switcher wear. A second dollar glyph here made
-            // it look like a different account.
-            asset: kUsdMarkAsset,
+            // The Investments arrow (the Home deposit button's icon):
+            // the dollar balance as a source or destination row never
+            // wears the USDB coin.
+            icon: kInvestmentsIcon,
             title: context.l10n.assetDollars,
             subtitle: context.l10n.moveSourceDollarsSubtitle,
             // Already the chosen source: SELECTED, not dead.
@@ -6738,8 +6952,9 @@ class _DirectionToggle extends ConsumerWidget {
           },
         ),
         _PickerRow(
-          // The same mark the Dollars tab and the wallet switcher wear.
-          asset: kUsdMarkAsset,
+          // The Investments arrow, as on every row the dollar balance
+          // is a source or destination of.
+          icon: kInvestmentsIcon,
           title: context.l10n.assetDollars,
           subtitle: context.l10n.moveDestDollarsSubtitle,
           disabled: usdDest,
@@ -6932,15 +7147,17 @@ class _DirectionToggle extends ConsumerWidget {
                   ? 'lib/assets/cashapp-logo.svg'
                   : fiatSource
                       ? 'lib/assets/bank-transfer-logo.svg'
-                      : dollarsSource
-                          ? kUsdMarkAsset
-                          : sourceIsHyperliquid
-                              ? 'lib/assets/hyperliquid-logo.svg'
-                              : sourceIsUsdc
-                                  ? 'lib/assets/polymarket-logo.svg'
-                                  : (sourceBrandAsset ??
-                                      'lib/assets/bitcoin-icon.svg'),
+                      : sourceIsHyperliquid
+                          ? 'lib/assets/hyperliquid-logo.svg'
+                          : sourceIsUsdc
+                              ? 'lib/assets/polymarket-logo.svg'
+                              : (sourceBrandAsset ??
+                                  'lib/assets/bitcoin-icon.svg'),
               assetTint: sourceBrandAsset != null ? sourceBrandColor : null,
+              // The dollar balance as a source wears the Investments
+              // arrow, never the USDB coin (`asset` is ignored while
+              // `iconData` is set).
+              iconData: dollarsSource ? kInvestmentsIcon : null,
               // Bank on the FROM side is money coming in, so the second
               // line names the action ('Deposit') rather than repeating
               // the rail ('Bank transfer'), which said nothing the title
@@ -6989,7 +7206,10 @@ class _DirectionToggle extends ConsumerWidget {
       to: _isVenueWithdraw && !ledgerContext
           ? MoveRouteEndpoint(
               name: usdDest ? context.l10n.assetDollars : 'Bitcoin',
-              asset: usdDest ? kUsdMarkAsset : 'lib/assets/bitcoin-icon.svg',
+              asset: 'lib/assets/bitcoin-icon.svg',
+              // The dollar balance as a destination wears the
+              // Investments arrow (`asset` is ignored while set).
+              iconData: usdDest ? kInvestmentsIcon : null,
               // A cash-out lands in the spending account and nowhere
               // else, so there is no second account to tell apart.
               // The venue's spendable balance rides this row. A
@@ -7018,7 +7238,12 @@ class _DirectionToggle extends ConsumerWidget {
 }
 
 class _PickerRow extends StatelessWidget {
-  final String asset;
+  /// Brand SVG for the mark. Exactly one of [asset] and [icon] is set.
+  final String? asset;
+
+  /// Glyph mark, drawn the way the route card draws its glyph
+  /// endpoints: the Investments arrow on the dollar balance's row.
+  final IconData? icon;
   final String title;
   final String subtitle;
   final VoidCallback onTap;
@@ -7031,17 +7256,30 @@ class _PickerRow extends StatelessWidget {
   final String disabledLabel;
 
   const _PickerRow({
-    required this.asset,
+    this.asset,
+    this.icon,
     required this.title,
     required this.subtitle,
     required this.onTap,
     this.disabled = false,
     this.disabledLabel = 'SOON',
-  });
+  }) : assert((asset == null) != (icon == null),
+            'A picker row wears one mark: an SVG asset or a glyph');
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final mark = icon != null
+        ? Container(
+            width: 36.sp,
+            height: 36.sp,
+            decoration: BoxDecoration(
+              color: c.textPrimary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(11.r),
+            ),
+            child: Icon(icon, color: c.textPrimary, size: 20.sp),
+          )
+        : SvgPicture.asset(asset!, width: 36.sp, height: 36.sp);
     // Custom Row instead of ListTile to control the exact left
     // padding. ListTile applied an implicit `_minLeadingWidth`
     // gap that left a visible empty band between the screen edge
@@ -7056,7 +7294,7 @@ class _PickerRow extends StatelessWidget {
             padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
             child: Row(
               children: [
-                SvgPicture.asset(asset, width: 36.sp, height: 36.sp),
+                mark,
                 SizedBox(width: 14.w),
                 Expanded(
                   child: Column(

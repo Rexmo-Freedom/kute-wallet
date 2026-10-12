@@ -1,0 +1,563 @@
+// lib/services/one_balance/order_funding.dart
+//
+// "The order needs more than the venue holds: move the difference from
+// Dollars, wait for the credit, then place it." The slips hand the
+// numbers to one controller so Predictions and Investing fund an order
+// the same way and report the same stages.
+//
+// The controller moves the money and returns as soon as Dollars have
+// left (`OrderFundingFunded`); the venue's own autofire waits for the
+// credit and places the queued order. Nothing is placed from here, and
+// nothing leaves Dollars without the venue funder's verified quote.
+//
+// Money safety: the slip checks Dollars BEFORE asking for the one
+// approval, and this controller checks them again right before the
+// move. A refusal of any kind before the funder's `fund` resolves means
+// nothing left Dollars (`OrderFundingRefused`); the only path on which
+// money moved is `OrderFundingFunded`.
+//
+// Analytics (journey events, exact amounts, refs only via
+// `TrackingService.orderRef`): `order_funding_started`,
+// `order_funding_step`, `order_funding_submitted`, then exactly one of
+// `order_funding_completed` / `order_funding_failed` /
+// `order_funding_abandoned` per run, reported by [OrderFundingJourney].
+// The move itself keeps the venue's own `polymarket_deposit_*` events
+// (purpose `conversion_leg`), so money is counted once.
+
+import 'dart:async';
+
+import 'package:flutter/foundation.dart' show visibleForTesting;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:kute/providers/usd_account_provider.dart'
+    show usdBalanceProvider;
+import 'package:kute/services/funding/settlement_funding_outcome.dart'
+    show SettlementFundingNotStarted;
+import 'package:kute/services/funding/settlement_runner.dart'
+    show SettlementFundingUnknown, SettlementStopReason, SettlementStopped;
+import 'package:kute/services/funding/venue_shortfall.dart';
+import 'package:kute/services/one_balance/hyperliquid_venue_funder.dart'
+    show hyperliquidVenueFunderProvider;
+import 'package:kute/services/one_balance/one_balance_state.dart';
+import 'package:kute/services/one_balance/predictions_venue_funder.dart'
+    show predictionsVenueFunderProvider;
+import 'package:kute/services/one_balance/venue_funder.dart';
+import 'package:kute/services/runtime_capabilities_service.dart'
+    show CapabilityUnavailableException;
+import 'package:kute/services/tracking_service.dart';
+
+/// Where a funded order is, for the slip's progress line.
+enum OrderFundingStage {
+  /// Asking the rail what the move costs.
+  quote,
+
+  /// Dollars leaving the spending account.
+  fund,
+
+  /// Waiting for the venue to credit the move.
+  credit,
+
+  /// Placing the order.
+  order,
+}
+
+/// How a funding attempt ended.
+sealed class OrderFundingOutcome {
+  const OrderFundingOutcome();
+}
+
+/// Dollars moved; the venue now holds enough for the order.
+final class OrderFundingFunded extends OrderFundingOutcome {
+  const OrderFundingFunded(this.move);
+
+  final VenueMoveResult move;
+}
+
+/// The venue already held enough; nothing moved.
+final class OrderFundingNotNeeded extends OrderFundingOutcome {
+  const OrderFundingNotNeeded();
+}
+
+/// The move was refused (user declined, route unavailable, below the
+/// rail's minimum). Nothing left Dollars.
+final class OrderFundingRefused extends OrderFundingOutcome {
+  const OrderFundingRefused(this.reason, {this.error});
+
+  /// A fixed analytics category (`user_cancelled`, `no_route`, …).
+  final String reason;
+
+  /// What the funder threw, for the slip's copy. Null for a refusal the
+  /// controller decided itself.
+  final Object? error;
+}
+
+/// Dollars plus the venue together cannot cover the order.
+final class OrderFundingNeedsDollars extends OrderFundingOutcome {
+  const OrderFundingNeedsDollars(this.shortfallUsd);
+
+  /// What the user has to add to Dollars first.
+  final double shortfallUsd;
+}
+
+/// What a funded order would move, worked out from the venue's estimate
+/// before anything is approved: the slip shows the fee and names the
+/// amount on its button, and the approval binds [fundUsd].
+class OrderFundingPlan {
+  const OrderFundingPlan({
+    required this.fundUsd,
+    required this.arrivingUsd,
+    required this.rule,
+    required this.minUsd,
+  });
+
+  /// What leaves Dollars: [ShortfallRules.topUp], never under the rail's
+  /// minimum.
+  final double fundUsd;
+
+  /// What the estimate says lands at the venue for [fundUsd].
+  final double arrivingUsd;
+
+  /// `prefill_rule` of the top-up ([ShortfallRules.topUp]).
+  final String rule;
+
+  /// The rail's minimum at the time of the estimate.
+  final double minUsd;
+
+  /// The move's cost: what leaves less what arrives, to the cent.
+  double get feeUsd => _ceilCents(fundUsd - arrivingUsd).clamp(0, fundUsd);
+
+  /// A plan without a live estimate: [ShortfallRules.fallbackRouteFee]
+  /// stands in for the route's share until the real one is read.
+  factory OrderFundingPlan.fallback({
+    required double orderUsd,
+    required double requiredUsd,
+    required double readyUsd,
+    double minUsd = ShortfallRules.minTopUpUsd,
+  }) =>
+      OrderFundingPlan.from(
+        orderUsd: orderUsd,
+        requiredUsd: requiredUsd,
+        readyUsd: readyUsd,
+        routeFee: ShortfallRules.fallbackRouteFee,
+        minUsd: minUsd,
+      );
+
+  /// The plan for a route keeping [routeFee] of what is sent (the Kute
+  /// fee already inside it, as a venue funder's estimate folds it).
+  factory OrderFundingPlan.from({
+    required double orderUsd,
+    required double requiredUsd,
+    required double readyUsd,
+    required double routeFee,
+    double minUsd = ShortfallRules.minTopUpUsd,
+  }) {
+    final top = ShortfallRules.topUp(
+        orderUsd: orderUsd,
+        requiredUsd: requiredUsd,
+        readyUsd: readyUsd,
+        routeFee: routeFee);
+    final floor = minUsd.isFinite && minUsd > 0 ? minUsd : 0.0;
+    final fund = top.usd < floor ? _ceilCents(floor) : top.usd;
+    final keep = routeFee.isFinite && routeFee > 0 && routeFee < 1
+        ? 1 - routeFee
+        : 1.0;
+    return OrderFundingPlan(
+      fundUsd: fund,
+      arrivingUsd: fund * keep,
+      rule: top.rule,
+      minUsd: floor,
+    );
+  }
+
+  /// The plan from the venue's live estimate for the order's own amount:
+  /// the route's share is read off what the estimate says arrives, then
+  /// the top-up is grossed up by it. Falls back to the fallback share on
+  /// an unusable estimate; a failed read throws.
+  static Future<OrderFundingPlan> read(
+    VenueFunder funder, {
+    required double orderUsd,
+    required double requiredUsd,
+    required double readyUsd,
+  }) async {
+    final base = orderUsd.isFinite && orderUsd > 0
+        ? orderUsd
+        : ShortfallRules.minTopUpUsd;
+    final estimate = await funder.estimate(base);
+    final fee = ShortfallRules.routeFeeFrom(
+            sentUsd: base, arrivingUsd: estimate.arrivingUsd) ??
+        ShortfallRules.fallbackRouteFee;
+    return OrderFundingPlan.from(
+      orderUsd: orderUsd,
+      requiredUsd: requiredUsd,
+      readyUsd: readyUsd,
+      routeFee: fee,
+      minUsd: estimate.minUsd,
+    );
+  }
+
+  static double _ceilCents(double usd) =>
+      ((usd * 100) - 1e-9).ceilToDouble() / 100;
+
+  @override
+  String toString() => 'OrderFundingPlan(fund: $fundUsd, '
+      'arriving: $arrivingUsd, rule: $rule, min: $minUsd)';
+}
+
+/// A venue funder that can say where its move is while it runs (quote
+/// verified, Dollars leaving), so the slip's line and the latency figures
+/// are exact. A plain [VenueFunder] reports only around the whole move.
+abstract interface class StagedVenueFunder implements VenueFunder {
+  Future<VenueMoveResult> fundStaged({
+    required double usd,
+    required MoveAuthorization auth,
+    String purpose = 'order_funding',
+    void Function(OrderFundingStage stage)? onStage,
+  });
+}
+
+/// Analytics value for a venue.
+String orderFundingVenueCode(OneBalanceVenue venue) => switch (venue) {
+      OneBalanceVenue.predictions => 'polymarket',
+      OneBalanceVenue.investing => 'hyperliquid',
+    };
+
+/// Funds an order's shortfall from Dollars and queues the order behind
+/// the credit.
+class OrderFundingController {
+  const OrderFundingController({
+    required VenueFunder Function(OneBalanceVenue venue) funderFor,
+    required double Function() dollarsUsd,
+  })  : _funderFor = funderFor,
+        _dollarsUsd = dollarsUsd;
+
+  final VenueFunder Function(OneBalanceVenue venue) _funderFor;
+  final double Function() _dollarsUsd;
+
+  /// [orderUsd] is the order's size, [requiredUsd] what the venue must
+  /// hold for it (size plus any margin or reservation), [readyUsd] what
+  /// the venue holds now. The difference is the move. [onStage] reports
+  /// progress for the slip.
+  ///
+  /// [fundUsd] is the amount the slip already worked out and had approved
+  /// ([OrderFundingPlan]); without it the controller reads the venue's
+  /// estimate itself. [entrySource] is the surface that queued the order,
+  /// for the journey's first event.
+  ///
+  /// Resolves the venue's funder before anything else: a venue without
+  /// one (Investing until its funder is bound) throws at once.
+  Future<OrderFundingOutcome> fundAndQueue({
+    required OneBalanceVenue venue,
+    required double orderUsd,
+    required double requiredUsd,
+    required double readyUsd,
+    required MoveAuthorization auth,
+    void Function(OrderFundingStage)? onStage,
+    double? fundUsd,
+    String? entrySource,
+    String purpose = 'order_funding',
+  }) {
+    final funder = _funderFor(venue);
+    return _run(
+      funder,
+      venue: venue,
+      orderUsd: orderUsd,
+      requiredUsd: requiredUsd,
+      readyUsd: readyUsd,
+      auth: auth,
+      onStage: onStage,
+      fundUsd: fundUsd,
+      entrySource: entrySource,
+      purpose: purpose,
+    );
+  }
+
+  Future<OrderFundingOutcome> _run(
+    VenueFunder funder, {
+    required OneBalanceVenue venue,
+    required double orderUsd,
+    required double requiredUsd,
+    required double readyUsd,
+    required MoveAuthorization auth,
+    void Function(OrderFundingStage)? onStage,
+    double? fundUsd,
+    String? entrySource,
+    required String purpose,
+  }) async {
+    final shortfall =
+        ShortfallRules.shortfallUsd(requiredUsd: requiredUsd, readyUsd: readyUsd);
+    if (shortfall <= 0) return const OrderFundingNotNeeded();
+    final journey = OrderFundingJourney.instance;
+    final dollars = _dollarsUsd();
+    journey.start(venue,
+        orderUsd: orderUsd,
+        fundUsd: fundUsd ?? 0,
+        readyUsd: readyUsd,
+        dollarsUsd: dollars,
+        entrySource: entrySource);
+
+    // Quote: the amount to move, from the venue's estimate unless the slip
+    // already had it approved.
+    onStage?.call(OrderFundingStage.quote);
+    journey.step(venue, OrderFundingStage.quote);
+    double fund;
+    if (fundUsd != null && fundUsd.isFinite && fundUsd > 0) {
+      fund = fundUsd;
+    } else {
+      try {
+        fund = (await OrderFundingPlan.read(funder,
+                orderUsd: orderUsd,
+                requiredUsd: requiredUsd,
+                readyUsd: readyUsd))
+            .fundUsd;
+      } catch (e) {
+        final reason = _refusalReason(e);
+        journey.failed(venue, OrderFundingStage.quote, reason);
+        return OrderFundingRefused(reason, error: e);
+      }
+      journey.setFundUsd(venue, fund);
+    }
+    final minimum = await _minimum(funder);
+    if (fund < minimum) fund = minimum;
+
+    // Dollars are checked again right here, the last read before any
+    // approval is used: a balance that fell since the slip looked sends
+    // the person to the Dollars door, with nothing moved.
+    if (!dollars.isFinite || dollars + 1e-9 < fund) {
+      journey.failed(venue, OrderFundingStage.quote, 'insufficient_funds');
+      return OrderFundingNeedsDollars(
+          OrderFundingPlan._ceilCents(fund - (dollars.isFinite ? dollars : 0)));
+    }
+
+    onStage?.call(OrderFundingStage.fund);
+    journey.step(venue, OrderFundingStage.fund);
+    final VenueMoveResult move;
+    try {
+      move = funder is StagedVenueFunder
+          ? await funder.fundStaged(
+              usd: fund,
+              auth: auth,
+              purpose: purpose,
+              onStage: (stage) {
+                onStage?.call(stage);
+                journey.step(venue, stage);
+              })
+          : await funder.fund(usd: fund, auth: auth, purpose: purpose);
+    } catch (e) {
+      final reason = _refusalReason(e);
+      journey.failed(venue, OrderFundingStage.fund, reason);
+      return OrderFundingRefused(reason, error: e);
+    }
+
+    // Dollars have left. The credit is the venue autofire's to wait for.
+    onStage?.call(OrderFundingStage.credit);
+    journey.funded(venue, move, orderUsd: orderUsd);
+    return OrderFundingFunded(move);
+  }
+
+  Future<double> _minimum(VenueFunder funder) async {
+    try {
+      final min = await funder.minimumUsd();
+      return min.isFinite && min > 0 ? min : ShortfallRules.minTopUpUsd;
+    } catch (_) {
+      return ShortfallRules.minTopUpUsd;
+    }
+  }
+
+  /// The fixed analytics category for a refusal. Every one of these means
+  /// nothing left Dollars, except [SettlementFundingUnknown], where the
+  /// runner could not tell and the sweeper brings any landed cash home.
+  static String _refusalReason(Object e) {
+    if (e is SettlementStopped) {
+      return switch (e.reason) {
+        SettlementStopReason.declined => 'user_cancelled',
+        SettlementStopReason.routeUnavailable => 'no_route',
+        SettlementStopReason.blockedPending => 'settlement_blocked_pending',
+        SettlementStopReason.quoteExpired => 'expired',
+        SettlementStopReason.quoteReplaced => 'quote_rejected',
+      };
+    }
+    if (e is RouteUnavailable) return 'no_route';
+    if (e is CapabilityUnavailableException) return 'capability';
+    if (e is SettlementFundingUnknown) return 'settlement';
+    if (e is SettlementFundingNotStarted) return 'settlement';
+    return TrackingService.errorCategory(e);
+  }
+}
+
+/// Investing's funder: `HyperliquidVenueFunder` over whatever rail
+/// `hyperliquidMoveRailProvider` binds.
+final investingVenueFunderProvider = Provider<VenueFunder>(
+    (ref) => ref.watch(hyperliquidVenueFunderProvider));
+
+final orderFundingControllerProvider = Provider<OrderFundingController>(
+  (ref) => OrderFundingController(
+    funderFor: (venue) => switch (venue) {
+      OneBalanceVenue.predictions => ref.read(predictionsVenueFunderProvider),
+      OneBalanceVenue.investing => ref.read(investingVenueFunderProvider),
+    },
+    dollarsUsd: () {
+      try {
+        return ref.read(usdBalanceProvider);
+      } catch (_) {
+        return 0;
+      }
+    },
+  ),
+);
+
+// ── Journey ────────────────────────────────────────────────────────
+
+class _FundingRun {
+  _FundingRun({
+    required this.startedAt,
+    required this.orderUsd,
+    required this.fundUsd,
+  });
+
+  final DateTime startedAt;
+  final double orderUsd;
+  double fundUsd;
+  OrderFundingStage stage = OrderFundingStage.quote;
+  DateTime? quotedAt;
+  DateTime? fundedAt;
+  DateTime? creditedAt;
+  double? arrivingUsd;
+}
+
+/// Follows one funded order per venue from the slip's tap to its one
+/// outcome, for analytics. It moves nothing: the controller reports the
+/// move, the venue's autofire the credit and the order. Exactly one of
+/// completed / failed / abandoned per started run; a second start on the
+/// same venue abandons the first.
+class OrderFundingJourney {
+  OrderFundingJourney._();
+
+  static OrderFundingJourney instance = OrderFundingJourney._();
+
+  /// Test seam: the clock every `ms_*` figure is measured on.
+  static DateTime Function() clock = DateTime.now;
+
+  final Map<OneBalanceVenue, _FundingRun> _runs = {};
+
+  /// Whether a run is open for [venue].
+  bool isRunning(OneBalanceVenue venue) => _runs.containsKey(venue);
+
+  @visibleForTesting
+  static void reset() => instance = OrderFundingJourney._();
+
+  void start(
+    OneBalanceVenue venue, {
+    required double orderUsd,
+    required double fundUsd,
+    required double readyUsd,
+    required double dollarsUsd,
+    String? entrySource,
+  }) {
+    if (_runs.containsKey(venue)) abandoned(venue);
+    _runs[venue] =
+        _FundingRun(startedAt: clock(), orderUsd: orderUsd, fundUsd: fundUsd);
+    TrackingService.track('order_funding_started', params: {
+      'venue': orderFundingVenueCode(venue),
+      'order_usd': orderUsd,
+      'fund_usd': fundUsd,
+      'ready_usd': readyUsd,
+      'dollars_usd': dollarsUsd,
+      'entry_source': entrySource ?? 'unknown',
+      'wallet_kind': 'hot',
+    });
+  }
+
+  void setFundUsd(OneBalanceVenue venue, double fundUsd) {
+    _runs[venue]?.fundUsd = fundUsd;
+  }
+
+  void step(OneBalanceVenue venue, OrderFundingStage stage) {
+    final run = _runs[venue];
+    if (run == null) return;
+    run.stage = stage;
+    if (stage == OrderFundingStage.fund) run.quotedAt ??= clock();
+    TrackingService.track('order_funding_step', params: {
+      'venue': orderFundingVenueCode(venue),
+      'step': stage.name,
+    });
+  }
+
+  /// Dollars have left for [venue].
+  void funded(OneBalanceVenue venue, VenueMoveResult move,
+      {required double orderUsd}) {
+    final run = _runs[venue];
+    if (run == null) return;
+    run.fundedAt = clock();
+    run.quotedAt ??= run.fundedAt;
+    run.stage = OrderFundingStage.credit;
+    run.fundUsd = move.sentUsd;
+    run.arrivingUsd = move.arrivingUsdEstimate;
+    void submitted(String? orderId) {
+      TrackingService.track('order_funding_submitted', params: {
+        'venue': orderFundingVenueCode(venue),
+        'fund_usd': move.sentUsd,
+        'amount_usd': orderUsd,
+        'quote_id': move.quoteId,
+        if (orderId != null && orderId.isNotEmpty) 'order_id': orderId,
+      });
+    }
+
+    final orderId = move.orderId;
+    final registration = move.registration;
+    if (orderId != null || registration == null) {
+      submitted(orderId);
+    } else {
+      // Reported once the background registration names the order (or
+      // gives up: the quote id alone still joins the row).
+      unawaited(registration.then(submitted, onError: (_) => submitted(null)));
+    }
+  }
+
+  /// The venue credited the move: the order is about to be placed.
+  void credited(OneBalanceVenue venue) {
+    final run = _runs[venue];
+    if (run == null) return;
+    run.creditedAt ??= clock();
+    step(venue, OrderFundingStage.order);
+  }
+
+  void completed(OneBalanceVenue venue,
+      {required bool resized, double? amountUsd}) {
+    final run = _runs.remove(venue);
+    if (run == null) return;
+    final now = clock();
+    final quoted = run.quotedAt ?? run.startedAt;
+    final funded = run.fundedAt ?? quoted;
+    final credited = run.creditedAt ?? funded;
+    TrackingService.track('order_funding_completed', params: {
+      'venue': orderFundingVenueCode(venue),
+      'fund_usd': run.fundUsd,
+      'amount_usd': amountUsd ?? run.orderUsd,
+      'ms_quote': quoted.difference(run.startedAt).inMilliseconds,
+      'ms_fund': funded.difference(quoted).inMilliseconds,
+      'ms_credit': credited.difference(funded).inMilliseconds,
+      'ms_order': now.difference(credited).inMilliseconds,
+      'duration_ms': now.difference(run.startedAt).inMilliseconds,
+      'resized': resized,
+    });
+  }
+
+  void failed(OneBalanceVenue venue, OrderFundingStage stage, String category) {
+    final run = _runs.remove(venue);
+    if (run == null) return;
+    TrackingService.track('order_funding_failed', params: {
+      'venue': orderFundingVenueCode(venue),
+      'stage': stage.name,
+      'error_category': TrackingService.errorCategory(category),
+      'duration_ms': clock().difference(run.startedAt).inMilliseconds,
+    });
+  }
+
+  void abandoned(OneBalanceVenue venue, {OrderFundingStage? stage}) {
+    final run = _runs.remove(venue);
+    if (run == null) return;
+    TrackingService.track('order_funding_abandoned', params: {
+      'venue': orderFundingVenueCode(venue),
+      'stage': (stage ?? run.stage).name,
+    });
+  }
+}

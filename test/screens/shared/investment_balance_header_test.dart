@@ -10,8 +10,12 @@ import 'package:hive_ce/hive.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/investment_balances_provider.dart';
+import 'package:kute/providers/one_balance_provider.dart';
 import 'package:kute/providers/pending_pool_deposits_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/screens/shared/pending_deposit_line.dart';
+import 'package:kute/services/one_balance/one_balance_state.dart';
+import 'package:kute/services/tracking_service.dart';
 import 'package:kute/screens/portfolio/open_investments_screen.dart';
 import 'package:kute/screens/home/components/kute_bottom_action_bar.dart';
 import 'package:kute/screens/shared/investment_action_bar.dart';
@@ -28,6 +32,7 @@ Future<void> _pump(WidgetTester tester, Widget child,
     {List<Override> overrides = const [],
     Locale? locale,
     List<WalletConfig> wallets = const [],
+    int balancePrivacy = 0,
     bool settle = true}) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
@@ -40,7 +45,7 @@ Future<void> _pump(WidgetTester tester, Widget child,
               language: 'en',
               btcFormat: 'sats',
               backup: false,
-              balancePrivacy: 0,
+              balancePrivacy: balancePrivacy,
               biometricsEnabled: false,
               bitcoinElectrumNode: '',
               nodeType: '',
@@ -174,21 +179,22 @@ void main() {
       expect(find.textContaining('deposit'), findsNothing);
     });
     testWidgets(
-        '${product.name} dock carries Portfolio and Withdraw with no account read',
+        '${product.name} dock carries Portfolio alone with no account read',
         (tester) async {
       await _pump(
           tester,
           Column(mainAxisSize: MainAxisSize.min, children: [
             InvestmentActionBar(product: product),
           ]));
-      // Portfolio on the left (the venue's top button is Deposit), Withdraw
-      // on the right, search in the square.
+      // Portfolio, and search in the square. No Withdraw: with one
+      // balance money comes back to Dollars on its own.
       final bar =
           tester.widget<KuteBottomActionBar>(find.byType(KuteBottomActionBar));
-      expect(bar.actions.map((a) => a.label), ['Portfolio', 'Withdraw']);
-      expect(bar.actions.map((a) => a.trackingId), ['portfolio', 'withdraw']);
+      expect(bar.actions.map((a) => a.label), ['Portfolio']);
+      expect(bar.actions.map((a) => a.trackingId), ['portfolio']);
       expect(bar.actions.every((a) => a.onTap != null), isTrue);
       expect(find.text('Deposit'), findsNothing);
+      expect(find.text('Withdraw'), findsNothing);
       expect(find.byIcon(Icons.search_rounded), findsOneWidget);
       expect(find.text('Ask Sal anything'), findsNothing);
       expect(find.textContaining('available'), findsNothing);
@@ -196,6 +202,176 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+  group('one balance (the Investments hero)', () {
+    const known = OneBalanceState(
+        dollarsUsd: 42.5,
+        investedUsd: 57.5,
+        investingKnown: true,
+        predictionsKnown: true);
+    PoolBalanceHeader header(WidgetTester tester) =>
+        tester.widget<PoolBalanceHeader>(find.byType(PoolBalanceHeader));
+    Future<void> pumpOne(WidgetTester tester, OneBalanceState state,
+            {int balancePrivacy = 0, Locale? locale}) =>
+        _pump(
+            tester,
+            const InvestmentBalanceHeader(
+                product: InvestmentsProduct.trading, oneBalance: true),
+            balancePrivacy: balancePrivacy,
+            locale: locale,
+            overrides: [oneBalanceProvider.overrideWithValue(state)]);
+
+    testWidgets('total over the Available / Invested split, no deposit door',
+        (tester) async {
+      await pumpOne(tester, known);
+      expect(header(tester).amountText, r'$100.00');
+      expect(header(tester).totalLabel, 'Investments total');
+      expect(header(tester).availableLabel, 'Available');
+      expect(header(tester).availableText, r'$42.50');
+      expect(header(tester).investedLabel, 'Invested');
+      expect(header(tester).investedText, r'$57.50');
+      expect(header(tester).stale, isFalse);
+      expect(header(tester).loading, isFalse);
+      expect(header(tester).investedChild, isNull);
+      expect(find.byType(VenueDepositButton), findsNothing);
+      expect(find.textContaining('deposit'), findsNothing);
+      expect(find.text('Withdraw'), findsNothing);
+      expect(find.text('Investing total'), findsNothing);
+      expect(find.text('Predictions total'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a venue still to answer counts as zero and dims the figure',
+        (tester) async {
+      await pumpOne(
+          tester, known.copyWith(investedUsd: 0, predictionsKnown: false));
+      expect(header(tester).amountText, r'$42.50');
+      expect(header(tester).stale, isTrue);
+      expect(header(tester).loading, isFalse);
+      expect(find.text('—'), findsNothing);
+    });
+
+    testWidgets(
+        'money on a rail replaces the split with the in-flight lines, in '
+        'order, and the total counts it', (tester) async {
+      await pumpOne(
+          tester,
+          known.copyWith(inFlight: const [
+            InFlightMove(kind: InFlightKind.incomingDollars, usd: 20),
+            InFlightMove(
+                kind: InFlightKind.fromVenue,
+                venue: OneBalanceVenue.investing,
+                usd: 12.4),
+            InFlightMove(
+                kind: InFlightKind.toVenue,
+                venue: OneBalanceVenue.predictions,
+                usd: 5),
+          ], waiting: const {
+            OneBalanceVenue.investing: 0.6
+          }));
+      // 42.5 + 57.5 + 5 + 12.4 + 20 + 0.6
+      expect(header(tester).amountText, r'$138.00');
+      expect(header(tester).availableText, isNull);
+      expect(header(tester).investedText, isNull);
+      final lines = [
+        r'$5.00 moving to Predictions',
+        r'$12.40 coming back from Investing',
+        r'Incoming $20.00',
+        r'$0.60 unavailable until balancing completes',
+      ];
+      expect(find.byType(PendingDepositLine), findsNWidgets(4));
+      double top(String line) => tester.getTopLeft(find.text(line)).dy;
+      for (var i = 0; i < lines.length; i++) {
+        expect(find.text(lines[i]), findsOneWidget, reason: lines[i]);
+        if (i > 0) expect(top(lines[i]), greaterThan(top(lines[i - 1])));
+      }
+      expect(find.textContaining('arriving'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('each in-flight line on its own', (tester) async {
+      await pumpOne(
+          tester,
+          known.copyWith(inFlight: const [
+            InFlightMove(
+                kind: InFlightKind.toVenue,
+                venue: OneBalanceVenue.investing,
+                usd: 7.25),
+          ]));
+      expect(find.text(r'$7.25 moving to Investing'), findsOneWidget);
+      expect(find.byType(PendingDepositLine), findsOneWidget);
+      await pumpOne(
+          tester,
+          known.copyWith(inFlight: const [
+            InFlightMove(
+                kind: InFlightKind.fromVenue,
+                venue: OneBalanceVenue.predictions,
+                usd: 3),
+          ]));
+      expect(find.text(r'$3.00 coming back from Predictions'), findsOneWidget);
+      await pumpOne(tester,
+          known.copyWith(waiting: const {OneBalanceVenue.predictions: 0.8}));
+      expect(find.text(r'$0.80 unavailable until balancing completes'),
+          findsOneWidget);
+      await pumpOne(
+          tester,
+          known.copyWith(inFlight: const [
+            InFlightMove(kind: InFlightKind.incomingDollars, usd: 20),
+          ]));
+      expect(find.text(r'Incoming $20.00'), findsOneWidget);
+    });
+
+    testWidgets('the lines are in the app language', (tester) async {
+      await pumpOne(
+          tester,
+          known.copyWith(inFlight: const [
+            InFlightMove(
+                kind: InFlightKind.toVenue,
+                venue: OneBalanceVenue.predictions,
+                usd: 5),
+          ]),
+          locale: const Locale('pt'));
+      // The venue is named as the strip names it (the line's own
+      // translation lives in the ARB files).
+      expect(find.textContaining('Previsões'), findsOneWidget);
+      expect(find.textContaining('Predictions'), findsNothing);
+    });
+
+    testWidgets('tapping the lines opens the dollar activity', (tester) async {
+      final events = <(String, Map<String, Object>?)>[];
+      TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+      addTearDown(() => TrackingService.debugTrackObserver = null);
+      await pumpOne(
+          tester,
+          known.copyWith(inFlight: const [
+            InFlightMove(
+                kind: InFlightKind.toVenue,
+                venue: OneBalanceVenue.predictions,
+                usd: 5),
+          ]));
+      await tester.tap(find.text(r'$5.00 moving to Predictions'));
+      await tester.pump();
+      final opened =
+          events.where((e) => e.$1 == 'activity_history_opened').single;
+      expect(opened.$2, {'entry_source': 'investments_header', 'scope': 'usd'});
+    });
+
+    testWidgets('hidden balances mask the total, the split and the lines',
+        (tester) async {
+      await pumpOne(
+          tester,
+          known.copyWith(inFlight: const [
+            InFlightMove(
+                kind: InFlightKind.toVenue,
+                venue: OneBalanceVenue.predictions,
+                usd: 5),
+          ]),
+          balancePrivacy: 1);
+      expect(header(tester).amountText, '••••••');
+      expect(find.text('•••••• moving to Predictions'), findsOneWidget);
+      expect(find.textContaining(r'$'), findsNothing);
+    });
+  });
+
   testWidgets('the split line is in the app language, never English',
       (tester) async {
     await _pump(tester,

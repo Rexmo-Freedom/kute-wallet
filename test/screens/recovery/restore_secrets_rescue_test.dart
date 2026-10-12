@@ -49,7 +49,6 @@ void main() {
     wipes = 0;
     events = [];
     TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
-    LegacyKeychainRescue.debugReset();
     SecretStores.debugOverride(local: keychain.local, synced: keychain.synced);
     messenger.setMockMethodCallHandler(NativeOnchainService.channel,
         (call) async {
@@ -61,7 +60,6 @@ void main() {
 
   tearDown(() {
     TrackingService.debugTrackObserver = null;
-    LegacyKeychainRescue.debugReset();
     SecretStores.debugReset();
     messenger.setMockMethodCallHandler(NativeOnchainService.channel, null);
   });
@@ -208,11 +206,16 @@ void main() {
 
     expect(wipes, 0);
     expect(find.text('Restored'), findsOneWidget);
-    expect(LegacyKeychainRescue.hasPendingAfterPin, isTrue);
     expect(await keychain.local.read(key: 'v2:wallet:w1.mnemonic'),
         isA<SecretAbsent>());
-    // The PIN entry that follows finishes the rescue. (PBKDF2 runs on an
-    // isolate, which needs the real event loop.)
+    // The PIN entry that follows finishes the rescue through the same
+    // verified-PIN hook every unlock runs. (PBKDF2 runs on an isolate,
+    // which needs the real event loop.)
+    final auth = AuthModel(
+        store: keychain.local,
+        syncedStore: keychain.synced,
+        rescue: rescue(),
+        wallets: () async => [w1]);
     final check = await tester.runAsync(() => auth.checkPin(pin));
     expect(check, PinCheck.match);
     expect((await keychain.local.read(key: 'v2:wallet:w1.mnemonic'))

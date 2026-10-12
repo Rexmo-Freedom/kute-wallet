@@ -90,7 +90,7 @@ enum RouteRequirement {
   live,
 }
 
-/// [RouteRequirement.live] for a `bitcoin` or `hypercore` leg, a Ledger
+/// [RouteRequirement.live] for a `bitcoin`, `hypercore` or `hyperevm` leg, a Ledger
 /// wallet, or a versioned route other than the legacy versions (B2).
 RouteRequirement routeRequirementFor(
   RouteKey key, {
@@ -98,7 +98,9 @@ RouteRequirement routeRequirementFor(
   String? routeVersion,
 }) {
   if (ledgerWallet) return RouteRequirement.live;
-  if (key.involvesChain('bitcoin') || key.involvesChain('hypercore')) {
+  if (key.involvesChain('bitcoin') ||
+      key.involvesChain('hypercore') ||
+      key.involvesChain('hyperevm')) {
     return RouteRequirement.live;
   }
   if (routeVersion != null &&

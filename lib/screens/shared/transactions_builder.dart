@@ -212,7 +212,10 @@ class _TransactionListState extends ConsumerState<TransactionList> {
     if (!mounted) {
       return;
     }
-    ref.read(settingsProvider.notifier).setReviewDone(true);
+    // Never throws (the flag is updated in memory first and a failed
+    // Keychain write is dropped), so nothing here can reach the zone
+    // handler as a fatal.
+    unawaited(ref.read(settingsProvider.notifier).setReviewDone(true));
   }
 
   @override

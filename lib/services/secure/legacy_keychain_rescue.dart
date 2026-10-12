@@ -248,27 +248,6 @@ class LegacyKeychainRescue {
   static String v2Key(String walletId) => '$_v2Prefix$walletId$_v2Suffix';
   static String v1Key(String walletId) => '$_v1Prefix$walletId';
 
-  /// Wallet ids of the encrypted-only copies the startup path left for the
-  /// PIN screen. `AuthModel.checkPin` finishes them on a matching PIN.
-  static Future<void> Function(String pin)? _pendingAfterPin;
-
-  @visibleForTesting
-  static bool get hasPendingAfterPin => _pendingAfterPin != null;
-
-  @visibleForTesting
-  static void debugReset() => _pendingAfterPin = null;
-
-  /// Runs the rescue the startup path left for the PIN screen, once, with
-  /// the PIN that just verified. Never throws.
-  static Future<void> runPendingWithPin(String pin) async {
-    final pending = _pendingAfterPin;
-    if (pending == null) return;
-    _pendingAfterPin = null;
-    try {
-      await pending(pin);
-    } catch (_) {}
-  }
-
   // ───────────────────────── lookup ─────────────────────────
 
   Future<bool> _readableNow(SecretStore store, String key) async =>
@@ -276,6 +255,23 @@ class LegacyKeychainRescue {
         SecretPresent(:final value) => value.isNotEmpty,
         _ => false,
       };
+
+  /// Stored-seed wallets in [wallets] with no copy the current store can
+  /// read: no V2 (local or synced) and no V1. Reads through the store
+  /// only; the Keychain is not listed. A failed read counts as readable so
+  /// a storage outage never starts a rescue.
+  Future<List<WalletConfig>> walletsWithoutReadableSeed(
+      List<WalletConfig> wallets) async {
+    final missing = <WalletConfig>[];
+    for (final wallet in wallets.where(RecoveryCheck.holdsStoredSeed)) {
+      final v2 = v2Key(wallet.id);
+      if (await _store.read(key: v2) is! SecretAbsent) continue;
+      if (await _synced.read(key: v2) is! SecretAbsent) continue;
+      if (await _store.read(key: v1Key(wallet.id)) is! SecretAbsent) continue;
+      missing.add(wallet);
+    }
+    return missing;
+  }
 
   /// Looks up old copies for [wallets] (stored-seed wallets only) and, when
   /// [includeUnlisted] is set, for wallet ids the Keychain still names but
@@ -507,6 +503,13 @@ class LegacyKeychainRescue {
 
   /// Validates and re-saves the plain copy of [copy] for its own wallet id.
   Future<LegacyCopyCheck> restorePlainInPlace(LegacyWalletCopy copy,
+          {required String source}) async =>
+      (await restorePlainPhrase(copy, source: source)).check;
+
+  /// [restorePlainInPlace] that also returns the phrase it re-saved, so a
+  /// seed read can serve it without a second Keychain round trip.
+  Future<({String phrase, LegacyCopyCheck check})> restorePlainPhrase(
+      LegacyWalletCopy copy,
       {required String source}) async {
     final era = copy.plain ? LegacyCopyEra.b : LegacyCopyEra.icloud;
     try {
@@ -524,7 +527,7 @@ class LegacyKeychainRescue {
       }
       TrackingService.seedRescueRestored(
           source: source, era: era.name, check: check.name);
-      return check;
+      return (phrase: phrase, check: check);
     } on LegacyRescueException catch (e) {
       TrackingService.seedRescueFailed(
           source: source, era: era.name, reason: e.reason.name);
@@ -536,6 +539,15 @@ class LegacyKeychainRescue {
   /// it as this wallet's V2 copy; the V1 blob is re-saved in place too so
   /// `changePin` keeps seeing it. Nothing is deleted.
   Future<LegacyCopyCheck> restoreEncryptedInPlace(
+    LegacyWalletCopy copy,
+    String pin, {
+    required String source,
+  }) async =>
+      (await restoreEncryptedPhrase(copy, pin, source: source)).check;
+
+  /// [restoreEncryptedInPlace] that also returns the decrypted phrase, so
+  /// a seed read can serve it without decrypting the blob twice.
+  Future<({String phrase, LegacyCopyCheck check})> restoreEncryptedPhrase(
     LegacyWalletCopy copy,
     String pin, {
     required String source,
@@ -552,7 +564,7 @@ class LegacyKeychainRescue {
       }
       TrackingService.seedRescueRestored(
           source: source, era: LegacyCopyEra.a.name, check: check.name);
-      return check;
+      return (phrase: phrase, check: check);
     } on LegacyRescueException catch (e) {
       TrackingService.seedRescueFailed(
           source: source, era: LegacyCopyEra.a.name, reason: e.reason.name);
@@ -564,8 +576,9 @@ class LegacyKeychainRescue {
 
   /// Applies a [scan] to the wallets it names: plain copies are validated
   /// and re-saved, PIN material is re-saved, and encrypted-only wallets
-  /// are left for the next matching PIN entry. Returns the wallet ids that
-  /// still wait for the PIN.
+  /// are left for the next verified PIN ([restoreWithVerifiedPin], run by
+  /// `AuthModel.checkPin` on every match, typed or biometric). Returns the
+  /// wallet ids that still wait for the PIN.
   Future<Set<String>> apply(LegacyRescueScan scan,
       {required String source}) async {
     final pendingPin = <String>{};
@@ -580,30 +593,66 @@ class LegacyKeychainRescue {
       }
       if (copy.encrypted) pendingPin.add(copy.walletId);
     }
-    var pinMaterial = false;
     try {
-      pinMaterial = await resavePinMaterial(scan);
+      await resavePinMaterial(scan);
     } on LegacyRescueException catch (e) {
       TrackingService.seedRescueFailed(
           source: source, era: 'pin', reason: e.reason.name);
     }
-    if (pendingPin.isNotEmpty && pinMaterial) {
-      final copies = {
-        for (final c in scan.copies)
-          if (pendingPin.contains(c.walletId)) c.walletId: c,
-      };
-      _pendingAfterPin = (pin) async {
-        for (final copy in copies.values) {
+    return pendingPin;
+  }
+
+  /// Runs after a PIN verified against the current store's PIN material,
+  /// typed ([source] `pin`) or the stored `biometric_pin` ([source]
+  /// `biometric`). When some stored-seed wallet has no readable copy, the
+  /// Keychain is listed (attributes only) and every old copy of those
+  /// wallets is re-saved in place: plain ones as they are, encrypted ones
+  /// decrypted with [pin]. A `biometric_pin` still under the legacy
+  /// accessibility is re-saved too. Depends on nothing set earlier in the
+  /// process, so it works on any unlock, after restarts included. Returns
+  /// the number of wallets restored. Never throws; off iOS it returns 0
+  /// without calling [wallets].
+  Future<int> restoreWithVerifiedPin(
+    Future<List<WalletConfig>> Function() wallets,
+    String pin, {
+    required String source,
+  }) async {
+    if (!_isCupertino) return 0;
+    try {
+      final listed = await wallets();
+      final missing = await walletsWithoutReadableSeed(listed);
+      if (missing.isEmpty) return 0;
+      final scan = await this.scan(missing, source: source);
+      var restored = 0;
+      for (final copy in scan.copies.where((c) => c.wallet != null)) {
+        if (copy.plain) {
           try {
-            await restoreEncryptedInPlace(copy, pin, source: source);
+            await restorePlainInPlace(copy, source: source);
+            restored++;
+            continue;
           } on LegacyRescueException {
-            // Reported; the next PIN entry does not retry (the pending
-            // hook is consumed), and the restore screen stays reachable.
+            // Fall through to the encrypted copy when there is one.
           }
         }
-      };
+        if (!copy.encrypted) continue;
+        try {
+          await restoreEncryptedInPlace(copy, pin, source: source);
+          restored++;
+        } on LegacyRescueException {
+          // Reported; the copy stays where it is for the restore screen.
+        }
+      }
+      if (scan.biometricPin) {
+        try {
+          await _resave('biometric_pin');
+        } on LegacyRescueException {
+          // Biometric unlock is a convenience; the PIN still works.
+        }
+      }
+      return restored;
+    } catch (_) {
+      return 0;
     }
-    return pendingPin;
   }
 
   /// The silent startup path, run only when the cold-start classification

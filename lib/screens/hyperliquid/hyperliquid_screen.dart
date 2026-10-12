@@ -25,6 +25,8 @@ import 'package:kute/providers/nav_bar_visibility_provider.dart';
 import 'package:kute/providers/pending_hyperliquid_order_provider.dart';
 import 'package:kute/screens/shared/investment_action_bar.dart';
 import 'package:kute/screens/shared/investment_balance_header.dart';
+import 'package:kute/screens/home/components/kute_dock_host.dart'
+    show kuteDockScrollClearance;
 import 'package:kute/screens/home/components/deposit_sheet.dart';
 import 'package:kute/screens/hyperliquid/components/hl_market_card.dart';
 import 'package:kute/screens/polymarket/components/poly_browse_bar.dart'
@@ -39,11 +41,34 @@ import 'package:kute/theme/app_theme.dart';
 class HyperliquidScreen extends ConsumerStatefulWidget {
   final bool autoShowDeposit;
   final bool autoShowWithdraw;
+
+  /// Mounted inside the Investments tab (one balance): the market
+  /// browser alone, with no room for the top bar, no hero of its own (the
+  /// Investments hero sits above the pills), no dock and no blur band
+  /// (the Investments dock is the host's), and no funding doors at all
+  /// ([autoShowDeposit] / [autoShowWithdraw] are ignored: money reaches
+  /// the venue only through an order).
+  final bool embedded;
+
   const HyperliquidScreen({
     super.key,
     this.autoShowDeposit = false,
     this.autoShowWithdraw = false,
+    this.embedded = false,
   });
+
+  /// A pull-to-refresh: the markets and the account read again. The
+  /// screen's own indicator and the Investments page's (which hosts the
+  /// embedded browser) both run this.
+  static Future<void> refresh(
+      void Function(ProviderOrFamily provider) invalidate) async {
+    invalidate(hyperliquidPerpMarketsProvider);
+    invalidate(hyperliquidPerpCoreMarketsProvider);
+    invalidate(hyperliquidSpotMarketsProvider);
+    invalidate(hyperliquidAccountProvider);
+    // Wait a moment for providers to start refetching.
+    await Future.delayed(const Duration(milliseconds: 500));
+  }
 
   @override
   ConsumerState<HyperliquidScreen> createState() => _HyperliquidScreenState();
@@ -129,8 +154,9 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
   void initState() {
     super.initState();
     // Drive the persistent shell nav bar's hide/reveal from this tab's
-    // scroll.
-    _scrollController.addListener(_onScrollNavBar);
+    // scroll. Embedded, the list scrolls inside the Investments page,
+    // which drives the bar from its own scroll notifications.
+    if (!widget.embedded) _scrollController.addListener(_onScrollNavBar);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       // Warm the builder settings now so a slow connection has already
@@ -144,7 +170,17 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
       // (they used to be bare ref.watch calls at the top of build).
       ref.listenManual(pendingHlOrderAutoFireProvider, (_, __) {});
       ref.listenManual(hyperliquidUserEventsProvider, (_, __) {});
-      if (widget.autoShowDeposit || widget.autoShowWithdraw) {
+      if (widget.embedded) {
+        // Inside Investments the live-price notifier is born while the
+        // shell tab is Investments, not Trading, so it would start
+        // pause-requested on every recreation and nothing would resume
+        // it until the next tab switch. Held alive from this mount
+        // instead (the screen lives as long as the shell), so the shell
+        // policy's resume on the Investing pill always finds it.
+        ref.listenManual(hyperliquidLivePricesProvider, (_, __) {});
+      }
+      if (!widget.embedded &&
+          (widget.autoShowDeposit || widget.autoShowWithdraw)) {
         Future.delayed(const Duration(milliseconds: 500), () {
           if (!mounted) return;
           if (widget.autoShowDeposit) {
@@ -260,14 +296,7 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
         lockedSide: MoveLockedSide.withdrawFromHyperliquid);
   }
 
-  Future<void> _onRefresh() async {
-    ref.invalidate(hyperliquidPerpMarketsProvider);
-    ref.invalidate(hyperliquidPerpCoreMarketsProvider);
-    ref.invalidate(hyperliquidSpotMarketsProvider);
-    ref.invalidate(hyperliquidAccountProvider);
-    // Wait a moment for providers to start refetching.
-    await Future.delayed(const Duration(milliseconds: 500));
-  }
+  Future<void> _onRefresh() => HyperliquidScreen.refresh(ref.invalidate);
 
   /// The category pills on offer, hiding any whose list is empty. While
   /// the builder-dex markets are still to be read ([awaitingBuilder]) the
@@ -332,36 +361,20 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
     final sub = hlEffectiveSub(selection.sub, subs);
     final markets = _listFor(tab, sub, universe);
 
-    return Scaffold(
-      backgroundColor: context.isDark ? c.gradientBottom : c.background,
-      // Tap anywhere outside the search field to dismiss the keyboard.
-      body: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => FocusScope.of(context).unfocus(),
-        child: Stack(
-          children: [
-            Container(decoration: AppDecorations.screenGradient(context)),
-            Positioned(
-              top: -100.h,
-              left: 0,
-              right: 0,
-              height: 400.h,
-              child: Container(
-                decoration: AppDecorations.ambientGlow(context),
-              ),
-            ),
-            PlatformSafeArea(
-              child: RefreshIndicator(
-                onRefresh: _onRefresh,
-                color: c.textPrimary,
-                backgroundColor: c.surface,
-                child: CustomScrollView(
-                  controller: _scrollController,
+    // The browser's own scroll view. Embedded in Investments it is the
+    // body of that page's nested scroll: it takes the page's primary
+    // (inner) controller so the hero and pills above it scroll away
+    // first, the page's own indicator refreshes it, and its list runs
+    // under the host's dock.
+    final embedded = widget.embedded;
+    final list = CustomScrollView(
+                  controller: embedded ? null : _scrollController,
                   physics: const AlwaysScrollableScrollPhysics(
                       parent: BouncingScrollPhysics()),
                   slivers: [
                     // Clears the integrated top nav bar.
-                    SliverToBoxAdapter(child: SizedBox(height: 64.h)),
+                    if (!embedded)
+                      SliverToBoxAdapter(child: SizedBox(height: 64.h)),
 
                     // Hero balance, like the main screen (user decision:
                     // the balance lives at the top of each pool screen,
@@ -369,10 +382,12 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
                     // Its own ConsumerWidget so account/vault/pending
                     // ticks rebuild ONLY the header, not the whole
                     // scroll view (the old inline closures used this
-                    // screen's ref).
-                    SliverToBoxAdapter(
-                        child: const InvestmentBalanceHeader(
-                            product: InvestmentsProduct.trading)),
+                    // screen's ref). Inside Investments the one-balance
+                    // hero above the pills is the hero.
+                    if (!embedded)
+                      const SliverToBoxAdapter(
+                          child: InvestmentBalanceHeader(
+                              product: InvestmentsProduct.trading)),
 
                     // Categories: the side-scrolling pill strip under the
                     // balance and, under it, the subcategories of the
@@ -507,14 +522,49 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
                             ),
                         ],
                       ),
-                      // Clears the bottom action bar.
+                      // Clears the bottom action bar (the host's dock
+                      // when embedded).
                       SliverToBoxAdapter(
-                          child: SizedBox(height: _bottomDockHeight + 24.h)),
+                          child: SizedBox(
+                              height: embedded
+                                  ? kuteDockScrollClearance(context)
+                                  : _bottomDockHeight + 24.h)),
                     ],
                   ],
-                ),
+                );
+    if (embedded) {
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: list,
+      );
+    }
+    final scroll = RefreshIndicator(
+      onRefresh: _onRefresh,
+      color: c.textPrimary,
+      backgroundColor: c.surface,
+      child: list,
+    );
+
+    return Scaffold(
+      backgroundColor: context.isDark ? c.gradientBottom : c.background,
+      // Tap anywhere outside the search field to dismiss the keyboard.
+      body: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: Stack(
+          children: [
+            Container(decoration: AppDecorations.screenGradient(context)),
+            Positioned(
+              top: -100.h,
+              left: 0,
+              right: 0,
+              height: 400.h,
+              child: Container(
+                decoration: AppDecorations.ambientGlow(context),
               ),
             ),
+            PlatformSafeArea(child: scroll),
 
             // The integrated top nav bar now lives ONCE in the persistent
             // nav shell (lib/screens/app_shell.dart), mounted above all four

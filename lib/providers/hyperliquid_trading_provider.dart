@@ -57,6 +57,9 @@ import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/providers/auth_provider.dart';
 import 'package:kute/providers/hyperliquid_account_provider.dart';
 import 'package:kute/services/hyperliquid/hl_optimistic_margin.dart';
+import 'package:kute/services/one_balance/one_balance_state.dart'
+    show OneBalanceVenue;
+import 'package:kute/services/one_balance/venue_cash_released.dart';
 import 'package:kute/providers/hyperliquid_live_prices_provider.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
@@ -1423,6 +1426,11 @@ class HyperliquidTradingNotifier
         );
       }
       _afterAction();
+      // The margin (and any profit) is idle venue cash now: the sweeper
+      // brings it home to Dollars at once instead of on its next pass.
+      if (result.isFilled) {
+        VenueCashReleased.emit(OneBalanceVenue.investing, 'close');
+      }
       return result;
     } catch (e, st) {
       if (marked) {
@@ -2401,6 +2409,9 @@ class HyperliquidTradingNotifier
       ));
     }
     unawaited(_silentOrdersRefresh());
+    // The cash the order reserved is idle again: the sweeper may bring it
+    // home.
+    VenueCashReleased.emit(OneBalanceVenue.investing, 'cancel');
   }
 
   /// Cancels every resting order in one signed batch action.
@@ -2458,6 +2469,7 @@ class HyperliquidTradingNotifier
             current.openOrders.where((o) => !gone.contains(o.oid)).toList(),
       ));
     }
+    VenueCashReleased.emit(OneBalanceVenue.investing, 'cancel');
     return cancels.length;
   }
 

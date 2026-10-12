@@ -3688,7 +3688,7 @@ class AppLocalizationsFi extends AppLocalizations {
   String get activityProcessingEllipsis => 'Käsitellään…';
 
   @override
-  String get usdAccountTab => 'Dollarit';
+  String get usdAccountTab => 'Investments';
 
   @override
   String activityFromAmount(String amount) {
@@ -6061,7 +6061,7 @@ class AppLocalizationsFi extends AppLocalizations {
   String get moveBuyBitcoin => 'Osta bitcoinia';
 
   @override
-  String get dollarDeposit => 'Dollaritalletus';
+  String get dollarDeposit => 'Investments deposit';
 
   @override
   String get dollarWithdrawal => 'Dollarinosto';
@@ -6290,6 +6290,10 @@ class AppLocalizationsFi extends AppLocalizations {
   @override
   String get investingWithdrawalsUnavailable =>
       'Sijoita-nostot eivät ole tilapäisesti käytettävissä';
+
+  @override
+  String get investingNeedsDollarsForNetworkFee =>
+      'Add about \$1 to Dollars to cover the network fee for this move. Nothing was sent.';
 
   @override
   String get betReceiptCost => 'Hinta';
@@ -6561,10 +6565,10 @@ class AppLocalizationsFi extends AppLocalizations {
   String get searchPredictionsHint => 'Hae ennusteita';
 
   @override
-  String get assetDollars => 'Dollarit';
+  String get assetDollars => 'Investments';
 
   @override
-  String get moveSourceDollarsSubtitle => 'Maksa dollarisaldollasi';
+  String get moveSourceDollarsSubtitle => 'Pay with your Investments balance';
 
   @override
   String get sendDollarAccountAddressHint => 'Dollaritilin osoite';
@@ -6834,7 +6838,7 @@ class AppLocalizationsFi extends AppLocalizations {
       'Valitse, mitä käyttötilillesi saapuu.';
 
   @override
-  String get moveDestDollarsSubtitle => 'Dollarisaldoosi';
+  String get moveDestDollarsSubtitle => 'Into your Investments balance';
 
   @override
   String get moveConversionOngoing => 'Muunnos käynnissä';
@@ -10679,4 +10683,40 @@ class AppLocalizationsFi extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get investmentsTotal => 'Investments total';
+
+  @override
+  String oneBalanceMovingTo(String amount, String venue) {
+    return '$amount moving to $venue';
+  }
+
+  @override
+  String oneBalanceComingBack(String amount, String venue) {
+    return '$amount coming back from $venue';
+  }
+
+  @override
+  String oneBalanceWaitingToWithdraw(String amount) {
+    return '$amount unavailable until balancing completes';
+  }
+
+  @override
+  String oneBalanceIncoming(String amount) {
+    return 'Incoming $amount';
+  }
+
+  @override
+  String slipMovingToVenue(String amount, String venue) {
+    return 'Moving $amount to $venue';
+  }
+
+  @override
+  String slipAddToInvestments(String amount) {
+    return 'Add $amount to Investments';
+  }
+
+  @override
+  String get slipMoveFee => 'Move fee';
 }

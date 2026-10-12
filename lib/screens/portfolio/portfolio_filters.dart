@@ -1,10 +1,10 @@
 // lib/screens/portfolio/portfolio_filters.dart
 //
 // What the one Portfolio screen carries, and the pill row it switches
-// with. The Portfolio is the spending account's: its bitcoin, its dollars
-// and both venues on one screen, the same from every door (owner decision
-// October 2026: the Portfolio button used to open a different screen per
-// tab). A venue the shell would not draw a tab for (shellShowsTradingTab /
+// with. The Portfolio is the spending account's: both venues on one
+// screen, the same from every door (owner decision October 2026: the
+// Portfolio button used to open a different screen per tab). A venue the
+// shell would not draw a tab for (shellShowsTradingTab /
 // shellShowsPredictionsTab) is absent here too: no pill, no section.
 
 import 'package:flutter/material.dart';
@@ -14,11 +14,11 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
 import 'package:kute/screens/home/shell_venue_tabs.dart'
-    show shellShowsPredictionsTab, shellShowsTradingTab, shellShowsUsdTab;
+    show shellShowsPredictionsTab, shellShowsTradingTab;
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 
-/// Which accounts and venues the Portfolio shows.
+/// Which venues the Portfolio shows.
 @immutable
 class PortfolioVenues {
   /// Investing (Hyperliquid).
@@ -27,14 +27,7 @@ class PortfolioVenues {
   /// Predictions (Polymarket).
   final bool predictions;
 
-  /// The dollar balance (the spending account's own).
-  final bool dollars;
-
-  const PortfolioVenues({
-    required this.trading,
-    required this.predictions,
-    required this.dollars,
-  });
+  const PortfolioVenues({required this.trading, required this.predictions});
 
   bool get any => trading || predictions;
 
@@ -42,11 +35,10 @@ class PortfolioVenues {
   bool operator ==(Object other) =>
       other is PortfolioVenues &&
       other.trading == trading &&
-      other.predictions == predictions &&
-      other.dollars == dollars;
+      other.predictions == predictions;
 
   @override
-  int get hashCode => Object.hash(trading, predictions, dollars);
+  int get hashCode => Object.hash(trading, predictions);
 }
 
 /// The shell's own tab rules, applied to the spending account the
@@ -57,7 +49,6 @@ final portfolioVenuesProvider = Provider<PortfolioVenues>((ref) {
   return PortfolioVenues(
     trading: shellShowsTradingTab(spending, policy: policy),
     predictions: shellShowsPredictionsTab(spending, policy: policy),
-    dollars: shellShowsUsdTab(spending),
   );
 });
 

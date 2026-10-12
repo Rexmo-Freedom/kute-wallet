@@ -4,9 +4,9 @@ import 'package:kute/models/settings_model.dart' show WalletConfig;
 import 'package:kute/providers/shell_wallet_provider.dart';
 import 'package:kute/screens/home/shell_venue_tabs.dart'
     show
+        shellDrawsPredictionsTab,
+        shellDrawsTradingTab,
         shellShowsLedgerVenues,
-        shellShowsPredictionsTab,
-        shellShowsTradingTab,
         shellShowsUsdTab;
 import 'package:kute/screens/usd/usd_account_screen.dart'
     show trackUsdTabOpened;
@@ -42,11 +42,12 @@ const Color redColor = AppColors.marketDown;
 
 final selectedNetworkTypeProvider = StateProvider<String>((ref) => "Bitcoin Network");
 
-/// Navigation-only pill. Holds the four destination tabs that drive
-/// repeated product exposure (every session, every screen a user returns
-/// from): Home / Stocks / Predictions / Cash In. Money actions (Send /
-/// Receive / Convert / Pay Link) live on the home card stack, so the nav
-/// never competes with transactional intent.
+/// Navigation-only pill. Holds the destination tabs that drive repeated
+/// product exposure (every session, every screen a user returns from):
+/// Bitcoin | Investments for the spending account, the wallet | Investing
+/// | Predictions for a Ledger. Money actions (Send / Receive / Convert /
+/// Pay Link) live on the home card stack, so the nav never competes with
+/// transactional intent.
 class FloatingActionPill extends ConsumerStatefulWidget {
   final ActiveNavTab activeTab;
 
@@ -234,10 +235,12 @@ class _FloatingActionPillState extends ConsumerState<FloatingActionPill> {
             }
           },
         ),
-      // USD — the spending account's dollar balance and its activity,
-      // in the slot the Bank tab used to hold. Dropped for a wallet that
-      // has no dollars of its own (Bitcoin-only, watch-only, tracked,
-      // signer) and for a Ledger, which brings its own venues instead.
+      // USD — the spending account's Investments: its dollars and, as
+      // pills inside, Investing, Predictions, Portfolio and Earn (one
+      // balance, October 2026). In the slot the Bank tab used to hold.
+      // Dropped for a wallet that has no dollars of its own (Bitcoin-only,
+      // watch-only, tracked, signer) and for a Ledger, which brings its
+      // own venues instead.
       if (shellShowsUsdTab(owner))
         ServiceTabData(
           icon: Icons.attach_money_rounded,
@@ -250,21 +253,20 @@ class _FloatingActionPillState extends ConsumerState<FloatingActionPill> {
       // Earn tab removed too (user decision): Earn is a pushed detail
       // screen off the Home Earn card now, not a shell branch.
       // Trading (Hyperliquid) sits BEFORE Predictions in the strip.
-      // Both are dropped when the first tab holds a wallet that has no
-      // venues of its own: a Bitcoin wallet, a watch-only wallet, an
-      // imported address or a signer. Leaving them in made those wallets
-      // show the spending account's positions, which is not their money.
+      // Only a LEDGER gets them as tabs: the spending account's venues
+      // are pills of its Investments tab, and a Bitcoin wallet, a
+      // watch-only wallet, an imported address or a signer has none.
       // A Ledger's own Investing and Predictions are each drawn only
       // while that Ledger venue is on (its runtime capability): absent
       // otherwise, never a disabled chip.
-      if (shellShowsTradingTab(owner, policy: policy))
+      if (shellDrawsTradingTab(owner, policy: policy))
         ServiceTabData(
           icon: Icons.trending_up_rounded,
           label: context.l10n.trading,
           active: widget.activeTab == ActiveNavTab.trading,
           onTap: () => _handleTrading(context),
         ),
-      if (shellShowsPredictionsTab(owner, policy: policy))
+      if (shellDrawsPredictionsTab(owner, policy: policy))
         ServiceTabData(
           icon: Icons.donut_large_rounded,
           label: context.l10n.predictions,
@@ -273,9 +275,11 @@ class _FloatingActionPillState extends ConsumerState<FloatingActionPill> {
         ),
     ];
 
-    // Shared strip (lib/screens/shared/service_tab_strip.dart): same
-    // visuals, slide and reduced-motion handling as before the extraction.
-    return ServiceTabStrip(tabs: tabs);
+    // Shared strip (lib/screens/shared/service_tab_strip.dart). The
+    // spending account's two tabs, Bitcoin and Investments, are drawn
+    // plain: both labelled, equal width, no slide (user decision
+    // 2026-10-12). A Ledger's three keep the sliding pill.
+    return ServiceTabStrip(tabs: tabs, plain: tabs.length <= 2);
   }
 }
 

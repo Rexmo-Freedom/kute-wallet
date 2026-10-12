@@ -80,7 +80,9 @@ class SettlementOwnership {
 const Map<SettlementAccountKind, Set<String>> _kHotAccountChains = {
   SettlementAccountKind.sparkHot: {'spark'},
   SettlementAccountKind.pmHot: {'polygon'},
-  SettlementAccountKind.hlHot: {'hypercore'},
+  // The same EOA on both sides of Hyperliquid: HyperCore, and HyperEVM,
+  // where the Investing moves now meet Orchestra.
+  SettlementAccountKind.hlHot: {'hypercore', 'hyperevm'},
 };
 
 /// Chains each Ledger account can hold an address on (B4 Ledger rows).

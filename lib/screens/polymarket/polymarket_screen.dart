@@ -38,6 +38,8 @@ import 'package:kute/services/polymarket/crypto_window_results.dart';
 import 'package:kute/screens/polymarket/market_detail_sheet.dart';
 import 'package:kute/screens/shared/investment_action_bar.dart';
 import 'package:kute/screens/shared/investment_balance_header.dart';
+import 'package:kute/screens/home/components/kute_dock_host.dart'
+    show kuteDockScrollClearance;
 import 'package:kute/screens/home/components/deposit_sheet.dart'
     show showDepositSheet, MoveLockedSide;
 import 'package:kute/screens/shared/kute_skeleton.dart';
@@ -89,8 +91,47 @@ typedef _LiveGroup = ({PolySub sub, List<PolymarketEvent> games});
 class PolymarketScreen extends ConsumerStatefulWidget {
   final bool autoShowDeposit;
   final bool autoShowWithdraw;
+
+  /// Mounted inside the Investments tab (one balance): the market
+  /// browser alone, with no room for the top bar, no hero of its own (the
+  /// Investments hero sits above the pills), no dock and no blur band
+  /// (the Investments dock is the host's), and no funding doors at all
+  /// ([autoShowDeposit] / [autoShowWithdraw] are ignored: money reaches
+  /// the venue only through an order).
+  final bool embedded;
+
   const PolymarketScreen(
-      {super.key, this.autoShowDeposit = false, this.autoShowWithdraw = false});
+      {super.key,
+      this.autoShowDeposit = false,
+      this.autoShowWithdraw = false,
+      this.embedded = false});
+
+  /// A pull-to-refresh: the balance, the account and the list on screen
+  /// read again. The screen's own indicator and the Investments page's
+  /// (which hosts the embedded browser) both run this.
+  static Future<void> refresh(WidgetRef ref) async {
+    ref.invalidate(polymarketBalanceProvider);
+    ref.invalidate(polymarketTradingProvider);
+    final selection = ref.read(polyBrowseSelectionProvider);
+    final pill = selection.pill;
+    final canBrowse =
+        ref.read(runtimeCapabilitiesProvider).allows('polymarket.browse');
+    final fiveMinOnly = pill == PolyPill.crypto && selection.sub == '5m';
+    // The list on screen and its chips; the other lists keep what they
+    // hold. The 5-min hero/grid refresh themselves on a 10s cadence and
+    // roll every 5 minutes, so they're deliberately left out.
+    polyRefreshBrowse(
+      query: !canBrowse || fiveMinOnly
+          ? null
+          : pill == PolyPill.live
+              ? const PolyFeedQuery(pill: PolyPill.live)
+              : selection.query,
+      pill: pill,
+      invalidate: ref.invalidate,
+    );
+    // Wait a moment for providers to start refetching
+    await Future.delayed(const Duration(milliseconds: 500));
+  }
 
   @override
   ConsumerState<PolymarketScreen> createState() => _PolymarketScreenState();
@@ -125,7 +166,14 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
   /// nears its end.
   void _onScroll() {
     _updateNavBarHidden();
-    final pos = _scrollController.position;
+    _onScrollMetrics(_scrollController.position);
+  }
+
+  /// The paging and depth rules on [pos], the list's metrics: read off
+  /// the screen's own controller, or, embedded in the Investments page
+  /// (where the list has no controller of its own), off the list's
+  /// scroll notifications ([_onEmbeddedScroll]).
+  void _onScrollMetrics(ScrollMetrics pos) {
     if (!pos.hasContentDimensions || pos.maxScrollExtent <= 0) return;
 
     if (pos.extentAfter < 900) _loadMore();
@@ -137,6 +185,20 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
         TrackingService.polymarketListScrolled(depthPct: t);
       }
     }
+  }
+
+  /// Embedded: every scroll update and every change of the list's size
+  /// runs the paging and depth rules, so a short first page still reads
+  /// on until the list fills the screen (the post-frame check the
+  /// controller used to make).
+  bool _onEmbeddedScroll(Notification notification) {
+    if (notification is ScrollUpdateNotification && notification.depth == 0) {
+      _onScrollMetrics(notification.metrics);
+    } else if (notification is ScrollMetricsNotification &&
+        notification.depth == 0) {
+      _onScrollMetrics(notification.metrics);
+    }
+    return false;
   }
 
   void _loadMore() {
@@ -204,7 +266,9 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_onScroll);
+    // Embedded, the list scrolls inside the Investments page, which
+    // drives the nav bar itself; paging reads the notifications instead.
+    if (!widget.embedded) _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // The widget can be disposed between initState and this post-frame
       // callback (fast navigation in/out of Predictions). Touching `ref`
@@ -217,7 +281,17 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
       // answered by the time the person places an order.
       unawaited(PolymarketBackendService.prefetchBuilderCode());
       _autoEnableTrading();
-      if (widget.autoShowDeposit || widget.autoShowWithdraw) {
+      if (widget.embedded) {
+        // Inside Investments the CLOB notifier is born while the shell
+        // tab is Investments, not Predictions, so it would start
+        // pause-requested on every recreation and nothing would resume
+        // it until the next tab switch. Held alive from this mount
+        // instead (the screen lives as long as the shell), so the shell
+        // policy's resume on the Predictions pill always finds it.
+        ref.listenManual(livePriceProvider, (_, __) {});
+      }
+      if (!widget.embedded &&
+          (widget.autoShowDeposit || widget.autoShowWithdraw)) {
         Future.delayed(const Duration(milliseconds: 500), () {
           if (!mounted) return;
           if (widget.autoShowDeposit) {
@@ -456,7 +530,8 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
     }
 
     // A short first page leaves nothing to scroll: read on until the
-    // list fills the screen or ends.
+    // list fills the screen or ends (embedded, the list's metrics
+    // notifications do this, see [_onEmbeddedScroll]).
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_scrollController.hasClients) return;
       final pos = _scrollController.position;
@@ -480,41 +555,20 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
     // sliver, every section) on every WS price tick, which is what made
     // the whole browse experience stutter.
 
-    return Scaffold(
-      // No AppBar — the custom inline header below reclaims the ~56px
-      // a Material AppBar would eat, so the first market card lands
-      // visibly higher on screen. PlatformSafeArea handles the notch.
-      backgroundColor: context.isDark ? c.gradientBottom : c.background,
-      // Tap anywhere outside the search field to dismiss the keyboard.
-      // opaque hit behavior so taps on empty space still register
-      // even though the Stack's gradient background has no tap targets.
-      body: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => FocusScope.of(context).unfocus(),
-        child: Stack(
-          children: [
-            Container(decoration: AppDecorations.screenGradient(context)),
-            Positioned(
-              top: -100.h,
-              left: 0,
-              right: 0,
-              height: 400.h,
-              child: Container(
-                decoration: AppDecorations.ambientGlow(context),
-              ),
-            ),
-            PlatformSafeArea(
-              child: RefreshIndicator(
-                onRefresh: _onRefresh,
-                color: c.textPrimary,
-                backgroundColor: c.surface,
-                child: CustomScrollView(
-                  controller: _scrollController,
+    // The browser's own scroll view. Embedded in Investments it is the
+    // body of that page's nested scroll: it takes the page's primary
+    // (inner) controller so the hero and pills above it scroll away
+    // first, the page's own indicator refreshes it, and its list runs
+    // under the host's dock.
+    final embedded = widget.embedded;
+    final list = CustomScrollView(
+                  controller: embedded ? null : _scrollController,
                   physics: const AlwaysScrollableScrollPhysics(
                       parent: BouncingScrollPhysics()),
                   slivers: [
                     // Clears the integrated top nav bar (avatar + tabs).
-                    SliverToBoxAdapter(child: SizedBox(height: 64.h)),
+                    if (!embedded)
+                      SliverToBoxAdapter(child: SizedBox(height: 64.h)),
 
                     // Hero balance, like the main screen (user decision:
                     // the balance lives at the top of each pool screen,
@@ -522,10 +576,13 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
                     // Its own ConsumerWidget so balance/position/pending
                     // ticks rebuild ONLY the header, not the whole scroll
                     // view (the old inline Builder used the screen's ref).
-                    const SliverToBoxAdapter(
-                      child: InvestmentBalanceHeader(
-                          product: InvestmentsProduct.predictions),
-                    ),
+                    // Inside Investments the one-balance hero above the
+                    // pills is the hero.
+                    if (!embedded)
+                      const SliverToBoxAdapter(
+                        child: InvestmentBalanceHeader(
+                            product: InvestmentsProduct.predictions),
+                      ),
 
                     if (!canBrowse)
                       const SliverToBoxAdapter(
@@ -593,13 +650,56 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
                         ],
                       ),
                     ],
-                    // Bottom clearance above the floating action bar.
+                    // Bottom clearance above the floating action bar (the
+                    // host's dock when embedded).
                     SliverToBoxAdapter(
-                        child: SizedBox(height: _bottomDockHeight + 24.h)),
+                        child: SizedBox(
+                            height: embedded
+                                ? kuteDockScrollClearance(context)
+                                : _bottomDockHeight + 24.h)),
                   ],
-                ),
+                );
+    if (embedded) {
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: NotificationListener<Notification>(
+          onNotification: _onEmbeddedScroll,
+          child: list,
+        ),
+      );
+    }
+    final scroll = RefreshIndicator(
+      onRefresh: _onRefresh,
+      color: c.textPrimary,
+      backgroundColor: c.surface,
+      child: list,
+    );
+
+    return Scaffold(
+      // No AppBar — the custom inline header below reclaims the ~56px
+      // a Material AppBar would eat, so the first market card lands
+      // visibly higher on screen. PlatformSafeArea handles the notch.
+      backgroundColor: context.isDark ? c.gradientBottom : c.background,
+      // Tap anywhere outside the search field to dismiss the keyboard.
+      // opaque hit behavior so taps on empty space still register
+      // even though the Stack's gradient background has no tap targets.
+      body: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: Stack(
+          children: [
+            Container(decoration: AppDecorations.screenGradient(context)),
+            Positioned(
+              top: -100.h,
+              left: 0,
+              right: 0,
+              height: 400.h,
+              child: Container(
+                decoration: AppDecorations.ambientGlow(context),
               ),
             ),
+            PlatformSafeArea(child: scroll),
 
             // The integrated top nav bar now lives ONCE in the persistent nav
             // shell (lib/screens/app_shell.dart), mounted above all four tab
@@ -837,20 +937,7 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
     return slivers;
   }
 
-  Future<void> _onRefresh() async {
-    ref.invalidate(polymarketBalanceProvider);
-    ref.invalidate(polymarketTradingProvider);
-    // The list on screen and its chips; the other lists keep what they
-    // hold. The 5-min hero/grid refresh themselves on a 10s cadence and
-    // roll every 5 minutes, so they're deliberately left out.
-    polyRefreshBrowse(
-      query: _feedQuery,
-      pill: ref.read(polyBrowseSelectionProvider).pill,
-      invalidate: ref.invalidate,
-    );
-    // Wait a moment for providers to start refetching
-    await Future.delayed(const Duration(milliseconds: 500));
-  }
+  Future<void> _onRefresh() => PolymarketScreen.refresh(ref);
 
   void _showWithdrawSheet(BuildContext context, WidgetRef ref) {
     TrackingService.polymarketFundingAction('withdraw');

@@ -379,4 +379,18 @@ void main() {
     expect(syncs, 1);
     expect(container.read(usdBalanceProvider), 15);
   });
+
+  test('a 100% dollar move reads the cached balance and never waits for a sync',
+      () async {
+    registerFallbackValue(const breez.SyncWalletRequest());
+    registerFallbackValue(const breez.GetInfoRequest());
+    final sdk = _Sdk();
+    when(() => sdk.getInfo(request: any(named: 'request'))).thenAnswer(
+        (_) async => _info({usdbTokenIdentifier: ('USDB', 7250000)}));
+    // A sync that never answers (a step that keeps failing).
+    when(() => sdk.syncWallet(request: any(named: 'request')))
+        .thenAnswer((_) => Completer<breez.SyncWalletResponse>().future);
+    expect(await usdDrainBaseUnits(sdk), BigInt.from(7250000));
+    verifyNever(() => sdk.syncWallet(request: any(named: 'request')));
+  });
 }

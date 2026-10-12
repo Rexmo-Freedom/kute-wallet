@@ -35,6 +35,8 @@ import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/services/funding/settlement_runner.dart'
     show SettlementAuthorizationIntent;
+import 'package:kute/services/orchestra/orchestra_quote_guard.dart'
+    show RecipientKind;
 
 /// Venue strings used in intents.
 abstract final class IntentVenue {
@@ -105,6 +107,14 @@ abstract final class VenueLimit {
 
   /// Hyperliquid withdrawals: `own_eoa` or `accumulation`.
   static const destinationKind = 'destinationKind';
+
+  /// An order funded from Dollars (one balance): the most the funding leg
+  /// may move, in the dollar token's six-decimal base units, as a decimal
+  /// string. Bound exactly, so the one approval covers both legs.
+  static const fundingUsd = 'fundingUsd';
+
+  /// The venue the funding leg moves into (`polymarket` | `hyperliquid`).
+  static const fundingVenue = 'fundingVenue';
 }
 
 /// Hyperliquid intents (`hlOrder`, `venueWithdraw`).
@@ -856,6 +866,80 @@ abstract final class PmGrants {
     if (grant.isExpiredAt(AuthGrants.clock())) throw const GrantExpired();
     final drift = AuthGrants.driftBetween(grant.boundIntent, actual);
     if (drift.isNotEmpty) throw ReauthRequired(drift);
+  }
+
+  // ── One balance: an order funded from Dollars ─────────────────────
+
+  /// The limits a funded order's review intent carries on top of the bet
+  /// review: the funding leg's cap and venue. The autofire rebuilds the
+  /// same two on the order it places, so the digest covers both legs.
+  static Map<String, Object?> fundingLimits({
+    required double fundUsd,
+    required String venue,
+  }) =>
+      {
+        VenueLimit.fundingUsd: IntentUnits.usd(fundUsd).toString(),
+        VenueLimit.fundingVenue: venue,
+      };
+
+  /// [review] (a bet review intent) extended with [fundingLimits]: the one
+  /// approval a funded bet asks for.
+  static SensitiveIntent fundedBetReview(
+    SensitiveIntent review, {
+    required double fundUsd,
+    required String venue,
+  }) =>
+      review.copyWith(limits: {
+        ...review.limits,
+        ...fundingLimits(fundUsd: fundUsd, venue: venue),
+      });
+
+  /// Whether [grant], the one approval of a funded bet, still covers a
+  /// funding leg of [amountIn] base units into [venue]: live (not
+  /// revoked, consumed or expired), a bet approval, bound to this venue,
+  /// and bound to a cap at or above the amount about to leave. Pure;
+  /// [now] defaults to the grant clock.
+  static bool fundingGrantCovers(
+    AuthGrant grant, {
+    required BigInt amountIn,
+    required String venue,
+    DateTime? now,
+  }) {
+    if (grant.revoked || grant.consumed) return false;
+    if (grant.isExpiredAt(now ?? AuthGrants.clock())) return false;
+    if (grant.action != SensitiveAction.pmBet &&
+        grant.action != SensitiveAction.hlOrder) {
+      return false;
+    }
+    final limits = grant.boundIntent.limits;
+    if (limits[VenueLimit.fundingVenue] != venue) return false;
+    final cap = limits[VenueLimit.fundingUsd];
+    final capUnits = cap is String ? BigInt.tryParse(cap) : null;
+    if (capUnits == null || capUnits <= BigInt.zero) return false;
+    return amountIn > BigInt.zero && amountIn <= capUnits;
+  }
+
+  /// The sweep variant of a Predictions withdrawal: no grant, so the
+  /// venue's own rule decides. Money may only ever come home: the
+  /// withdrawal must pay exactly a verified Orchestra quote whose
+  /// recipient is the wallet's own Spark address (rule 7 of the quote
+  /// gate checked that address), to that quote's deposit address, for
+  /// that quote's exact amount, as the bridged token the quote declared.
+  /// Anything else is refused.
+  static bool sweepCoversWithdrawal({
+    required RecipientKind recipientKind,
+    required String quoteDepositAddress,
+    required BigInt quoteAmountIn,
+    required String toAddress,
+    required BigInt? exactMicroUsdc,
+    required bool bridged,
+  }) {
+    if (recipientKind != RecipientKind.ownSpark) return false;
+    if (!bridged) return false;
+    if (exactMicroUsdc == null || exactMicroUsdc <= BigInt.zero) return false;
+    if (exactMicroUsdc != quoteAmountIn) return false;
+    return toAddress.trim().toLowerCase() ==
+        quoteDepositAddress.trim().toLowerCase();
   }
 
   /// True when [grant] approved an Orchestra-funded move.

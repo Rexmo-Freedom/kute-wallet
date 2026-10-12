@@ -1,23 +1,32 @@
 // lib/screens/portfolio/open_investments_screen.dart
 //
-// The Portfolio: one screen, the same from every door (the Investing and
-// Predictions docks, Home's Predictions card, the Financial hub, a placed
-// bet or order, a trade notification). Owner decision October 2026: the
-// Portfolio button used to open a different screen per tab, so the same
-// button gave different results.
+// The Portfolio: one screen, the same from every door (the Investments
+// tab's Portfolio pill, where it lives embedded; Home's Predictions card,
+// the Financial hub, a placed bet or order and a trade notification, which
+// push it). Owner decision October 2026: the Portfolio button used to
+// open a different screen per tab, so the same button gave different
+// results.
 //
 // Layout: the app bar over the tab strip (Open, Orders, Activity,
 // Statistics), no balance header and no deposit or withdrawal buttons
-// (those stay on the venue tabs).
+// (the Investments tab carries the one deposit door).
 //   * Open: All | Investing | Predictions pills, always opening on All.
-//     All is the Wallet section (the spending account's bitcoin and
-//     dollars, portfolio_wallet_rows.dart), then the Investing positions
-//     (Hyperliquid perps and spot holdings) and the Predictions positions
-//     (Polymarket), each under its plain section name with no total. A
-//     venue pill shows that venue's list with its own empty state.
-//   * Orders, Activity and Statistics: an Investing | Predictions switch
-//     over the venue's own list (one choice shared by the three tabs),
-//     on Predictions first when the account has it.
+//     Positions only (owner decision October 2026: the Wallet section
+//     with the account's bitcoin and dollars is gone, the balances live
+//     in the hero above): the Investing positions (Hyperliquid perps and
+//     spot holdings) and the Predictions positions (Polymarket), each
+//     under its plain section name with no total. A venue pill shows
+//     that venue's list with its own empty state.
+//   * Orders: an Investing | Predictions switch over the venue's own
+//     list, on Predictions first when the account has it.
+//   * Activity: ONE merged list (portfolio_activity.dart), the venues'
+//     activity and the wallet's deposits and moves sorted by time, with
+//     no venue switch.
+//   * Statistics: the Orders switch again, sharing its choice, plus an
+//     Earn pill while the backend allows it (`usd.earn`,
+//     usdEarnEnabledProvider): the Earn chart in the venue figures'
+//     place, mounted on its first pick so looking at the statistics
+//     never reads the rewards API or fires `usd_earn_opened`.
 // A venue the shell draws no tab for (portfolio_filters.dart) has no pill
 // and no section here.
 //
@@ -52,7 +61,6 @@ import 'package:kute/providers/polymarket_live_prices_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart'
     show polymarketTradingProvider;
 import 'package:kute/screens/home/components/kute_dock_host.dart';
-import 'package:kute/screens/hyperliquid/components/fills_history_list.dart';
 import 'package:kute/screens/hyperliquid/components/hl_format.dart';
 import 'package:kute/screens/hyperliquid/components/hl_isolated_margin.dart';
 import 'package:kute/screens/hyperliquid/components/hl_liquidation_distance.dart';
@@ -66,12 +74,14 @@ import 'package:kute/screens/polymarket/components/open_orders_sheet.dart';
 import 'package:kute/screens/polymarket/components/position_card.dart';
 import 'package:kute/screens/polymarket/components/position_claim.dart';
 import 'package:kute/screens/polymarket/components/position_detail_sheet.dart';
-import 'package:kute/screens/polymarket/prediction_history_screen.dart';
 import 'package:kute/screens/portfolio/poly_position_events.dart'
     show polyPortfolioEventsPrefetchProvider;
+import 'package:kute/providers/usd_rewards_provider.dart'
+    show usdEarnEnabledProvider;
+import 'package:kute/screens/portfolio/portfolio_activity.dart';
 import 'package:kute/screens/portfolio/portfolio_filters.dart';
 import 'package:kute/screens/portfolio/portfolio_statistics.dart';
-import 'package:kute/screens/portfolio/portfolio_wallet_rows.dart';
+import 'package:kute/screens/usd/components/usd_balance_tabs.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart';
 import 'package:kute/screens/shared/portfolio_position_card.dart';
@@ -106,11 +116,19 @@ class OpenInvestmentsScreen extends ConsumerStatefulWidget {
   /// All.
   final InvestmentsProduct? initialVenue;
 
+  /// Mounted as the Investments tab's Portfolio pill (one balance): the
+  /// tab strip over the lists, with no Scaffold, no app bar and no back
+  /// button (the pills are the navigation), exactly the Ledger's
+  /// embedded portfolio. Pushed from a placed bet, an order or a trade
+  /// notification it keeps its own screen.
+  final bool embedded;
+
   const OpenInvestmentsScreen({
     super.key,
     required this.source,
     this.initialTab = 0,
     this.initialVenue,
+    this.embedded = false,
   });
 
   @override
@@ -119,7 +137,7 @@ class OpenInvestmentsScreen extends ConsumerStatefulWidget {
 }
 
 class _OpenInvestmentsScreenState extends ConsumerState<OpenInvestmentsScreen> {
-  /// The venue Orders, Activity and Statistics show, shared by the three.
+  /// The venue Orders and Statistics show, shared by the two.
   late final ValueNotifier<InvestmentsProduct?> _venue =
       ValueNotifier(widget.initialVenue);
 
@@ -150,80 +168,73 @@ class _OpenInvestmentsScreenState extends ConsumerState<OpenInvestmentsScreen> {
       (context.l10n.activity, Icons.history_rounded),
       (context.l10n.portfolioTabStatistics, Icons.insights_outlined),
     ];
+    final tabs = Padding(
+      padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 8.h),
+      child: PortfolioTabs(tabs: tabLabels),
+    );
+    // Each list runs to the bottom of the screen and keeps its last row
+    // clear of the home indicator, or of the host's dock when embedded
+    // (kuteDockScrollClearance).
+    final content = TabBarView(
+      children: [
+        _PositionsTab(venues: venues),
+        _VenueTab(
+          tab: 'orders',
+          venues: venues,
+          venue: _venue,
+          builder: (v) => v == InvestmentsProduct.trading
+              ? const HlOpenOrdersSheet(embedded: true)
+              : const OpenOrdersSheet(embedded: true),
+        ),
+        const PortfolioActivityList(),
+        _StatisticsTab(venues: venues, venue: _venue),
+      ],
+    );
     return DefaultTabController(
       length: 4,
       initialIndex: widget.initialTab,
-      child: Scaffold(
-        backgroundColor: c.background,
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          surfaceTintColor: Colors.transparent,
-          elevation: 0,
-          scrolledUnderElevation: 0,
-          centerTitle: true,
-          leading: const KuteBackButton(),
-          title: Text(
-            context.l10n.walletPortfolioAction,
-            style: TextStyle(
-              color: c.textPrimary,
-              fontSize: 20.sp,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.3,
-            ),
-          ),
-        ),
-        body: Container(
-          decoration: AppDecorations.screenGradient(context),
-          child: SafeArea(
-            top: false,
-            bottom: false,
-            child: Column(
-              children: [
-                Padding(
-                  padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 8.h),
-                  child: PortfolioTabs(tabs: tabLabels),
+      child: widget.embedded
+          // The same strip and lists under the Investments pills, as the
+          // Ledger's embedded portfolio mounts them.
+          ? Material(
+              color: Colors.transparent,
+              child: Column(children: [
+                tabs,
+                Expanded(child: content),
+              ]))
+          : Scaffold(
+              backgroundColor: c.background,
+              appBar: AppBar(
+                backgroundColor: Colors.transparent,
+                surfaceTintColor: Colors.transparent,
+                elevation: 0,
+                scrolledUnderElevation: 0,
+                centerTitle: true,
+                leading: const KuteBackButton(),
+                title: Text(
+                  context.l10n.walletPortfolioAction,
+                  style: TextStyle(
+                    color: c.textPrimary,
+                    fontSize: 20.sp,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.3,
+                  ),
                 ),
-                // Each list runs to the bottom of the screen and keeps its
-                // last row clear of the home indicator
-                // (kuteDockScrollClearance).
-                Expanded(
-                  child: TabBarView(
+              ),
+              body: Container(
+                decoration: AppDecorations.screenGradient(context),
+                child: SafeArea(
+                  top: false,
+                  bottom: false,
+                  child: Column(
                     children: [
-                      _PositionsTab(venues: venues),
-                      _VenueTab(
-                        tab: 'orders',
-                        venues: venues,
-                        venue: _venue,
-                        builder: (v) => v == InvestmentsProduct.trading
-                            ? const HlOpenOrdersSheet(embedded: true)
-                            : const OpenOrdersSheet(embedded: true),
-                      ),
-                      _VenueTab(
-                        tab: 'activity',
-                        venues: venues,
-                        venue: _venue,
-                        builder: (v) => v == InvestmentsProduct.trading
-                            ? const HlFillsHistoryList()
-                            : const PredictionHistoryScreen(embedded: true),
-                      ),
-                      _VenueTab(
-                        tab: 'statistics',
-                        venues: venues,
-                        venue: _venue,
-                        builder: (v) => PortfolioStatistics(
-                            key: ValueKey('statistics-${_venueKey(v)}'),
-                            venue: v == InvestmentsProduct.trading
-                                ? PortfolioPerformanceVenue.trading
-                                : PortfolioPerformanceVenue.predictions),
-                      ),
+                      tabs,
+                      Expanded(child: content),
                     ],
                   ),
                 ),
-              ],
+              ),
             ),
-          ),
-        ),
-      ),
     );
   }
 }
@@ -301,9 +312,8 @@ class _PositionsTabState extends State<_PositionsTab> {
   }
 }
 
-/// All: the Wallet section, then each venue's positions under its plain
-/// name. A venue with nothing open has no section; nothing open anywhere
-/// is one quiet line under the Wallet rows.
+/// All: each venue's positions under its plain name. A venue with
+/// nothing open has no section; nothing open anywhere is one quiet line.
 class _AllPositions extends ConsumerWidget {
   const _AllPositions({required this.venues});
 
@@ -344,8 +354,6 @@ class _AllPositions extends ConsumerWidget {
       padding: EdgeInsets.fromLTRB(
           16.w, 4.h, 16.w, 32.h + kuteDockScrollClearance(context)),
       children: [
-        _SectionHeader(l10n.accountWallet),
-        PortfolioWalletRows(showDollars: venues.dollars),
         if (trading.isNotEmpty || tradingLoading) ...[
           _SectionHeader(l10n.trading),
           if (tradingLoading) const _LoadingCard() else ...trading,
@@ -354,7 +362,7 @@ class _AllPositions extends ConsumerWidget {
           _SectionHeader(l10n.predictions),
           if (predictionsLoading) const _LoadingCard() else ...predictions,
         ],
-        if (nothingOpen && venues.any) _QuietLine(l10n.ledgerNoPositionsYet),
+        if (nothingOpen) _QuietLine(l10n.ledgerNoPositionsYet),
       ],
     );
   }
@@ -362,10 +370,9 @@ class _AllPositions extends ConsumerWidget {
 
 // ──────────────────────────── venue switch ────────────────────────────
 
-/// Orders, Activity and Statistics: the venue's own list under an
-/// Investing | Predictions switch (no switch with one venue). The choice
-/// is shared by the three tabs; with none made it is Predictions when the
-/// account has it.
+/// Orders: the venue's own list under an Investing | Predictions switch
+/// (no switch with one venue). The choice is shared with Statistics; with
+/// none made it is Predictions when the account has it.
 class _VenueTab extends StatelessWidget {
   const _VenueTab({
     required this.tab,
@@ -430,6 +437,135 @@ class _VenueTab extends StatelessWidget {
       },
     );
   }
+}
+
+// ────────────────────────────── statistics ──────────────────────────────
+
+/// The Statistics switch: the two venues, and Earn.
+enum _StatisticsPick { trading, predictions, earn }
+
+/// Statistics: the venue's figures (PortfolioStatistics) under the
+/// Orders tab's Investing | Predictions switch, sharing its choice, with
+/// an Earn pill beside them while the backend allows Earn. Earn is the
+/// Earn chart (UsdBalanceTabs) in the figures' place; it mounts on its
+/// first pick, so the rewards API is never read and `usd_earn_opened`
+/// never fires for someone who only looks at the venue figures. Earn
+/// switched off while picked falls back to the venue.
+class _StatisticsTab extends ConsumerStatefulWidget {
+  const _StatisticsTab({required this.venues, required this.venue});
+
+  final PortfolioVenues venues;
+  final ValueNotifier<InvestmentsProduct?> venue;
+
+  @override
+  ConsumerState<_StatisticsTab> createState() => _StatisticsTabState();
+}
+
+class _StatisticsTabState extends ConsumerState<_StatisticsTab> {
+  /// Earn picked over the venue the two tabs share.
+  bool _earn = false;
+
+  bool _on(InvestmentsProduct p) => p == InvestmentsProduct.trading
+      ? widget.venues.trading
+      : widget.venues.predictions;
+
+  void _pick(_StatisticsPick next, _StatisticsPick current) {
+    if (next == current) return;
+    HapticFeedback.selectionClick();
+    if (next == _StatisticsPick.earn) {
+      TrackingService.track('portfolio_tab_changed',
+          params: {'tab': 'statistics', 'subtab': 'earn'});
+      setState(() => _earn = true);
+      return;
+    }
+    final product = next == _StatisticsPick.trading
+        ? InvestmentsProduct.trading
+        : InvestmentsProduct.predictions;
+    TrackingService.track('portfolio_tab_changed',
+        params: {'tab': 'statistics', 'venue': _venueKey(product)});
+    setState(() => _earn = false);
+    widget.venue.value = product;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final v = widget.venues;
+    final earnAllowed = ref.watch(usdEarnEnabledProvider);
+    return ValueListenableBuilder<InvestmentsProduct?>(
+      valueListenable: widget.venue,
+      builder: (context, picked, _) {
+        final venue = picked != null && _on(picked)
+            ? picked
+            : v.predictions
+                ? InvestmentsProduct.predictions
+                : v.trading
+                    ? InvestmentsProduct.trading
+                    : null;
+        if (venue == null && !earnAllowed) {
+          return const _EmptyState(product: InvestmentsProduct.trading);
+        }
+        final current = earnAllowed && (_earn || venue == null)
+            ? _StatisticsPick.earn
+            : venue == InvestmentsProduct.trading
+                ? _StatisticsPick.trading
+                : _StatisticsPick.predictions;
+        final items = <(_StatisticsPick, String, Key)>[
+          if (v.trading)
+            (
+              _StatisticsPick.trading,
+              l10n.trading,
+              const ValueKey('portfolio-statistics-trading')
+            ),
+          if (v.predictions)
+            (
+              _StatisticsPick.predictions,
+              l10n.predictions,
+              const ValueKey('portfolio-statistics-predictions')
+            ),
+          if (earnAllowed)
+            (
+              _StatisticsPick.earn,
+              l10n.usdEarnTitle,
+              const ValueKey('portfolio-statistics-earn')
+            ),
+        ];
+        return Column(
+          children: [
+            if (items.length > 1)
+              PortfolioPillRow<_StatisticsPick>(
+                items: items,
+                selected: current,
+                onSelected: (next) => _pick(next, current),
+              ),
+            Expanded(
+              child: current == _StatisticsPick.earn
+                  ? const _EarnSection()
+                  : PortfolioStatistics(
+                      key: ValueKey('statistics-${_venueKey(venue!)}'),
+                      venue: venue == InvestmentsProduct.trading
+                          ? PortfolioPerformanceVenue.trading
+                          : PortfolioPerformanceVenue.predictions),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// The Earn chart alone, on the lists' 16 gutter, scrolling clear of
+/// the dock.
+class _EarnSection extends StatelessWidget {
+  const _EarnSection();
+
+  @override
+  Widget build(BuildContext context) => SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.fromLTRB(
+            16.w, 4.h, 16.w, kuteDockScrollClearance(context)),
+        child: const UsdBalanceTabs(),
+      );
 }
 
 // ───────────────────────────── predictions ─────────────────────────────

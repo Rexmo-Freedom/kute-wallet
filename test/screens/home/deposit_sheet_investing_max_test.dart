@@ -127,6 +127,7 @@ class _Hypercore extends SparkHypercoreFundingService {
     SparkFundingAsset destination = SparkFundingAsset.bitcoin,
     required SettlementStepUpHook stepUp,
     bool registerInBackground = false,
+    String purpose = 'manual_move',
   }) async {
     sent.add((usd: usd, destination: destination));
     final quoted = await quoteHypercoreBudget<BigInt>(
@@ -223,7 +224,7 @@ Future<(ProviderContainer, _Hypercore)> _open(
 Future<void> _pickDollars(WidgetTester tester) async {
   await tester.tap(find.text('Bitcoin').first);
   await tester.pumpAndSettle(const Duration(milliseconds: 50));
-  await tester.tap(find.text('Dollars').last);
+  await tester.tap(find.text('Investments').last);
   await tester.pumpAndSettle(const Duration(milliseconds: 50));
 }
 

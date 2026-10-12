@@ -115,6 +115,11 @@ const _market = HlMarket(
   dayNtlVlm: 0,
 );
 
+/// The hot ticket's door when the venue cannot cover the order and Dollars
+/// cannot fund the move: "Add $X to Investments" (the Dollar deposit).
+final Matcher _dollarDoor =
+    allOf(startsWith('Add \$'), endsWith('to Investments'));
+
 Future<void> _pumpSlip(WidgetTester tester,
     {double available = 500,
     bool isLong = true,
@@ -321,7 +326,7 @@ void main() {
             poolDepositRow(id: 'ord_1', network: 'POLYGON', usd: 25),
           ]));
       expect(tester.widget<AppButton>(find.byType(AppButton)).text,
-          'Deposit to invest');
+          _dollarDoor);
       await tester.pumpWidget(const SizedBox.shrink());
     });
 
@@ -337,7 +342,7 @@ void main() {
       ]);
       await _settle(tester);
       final button = tester.widget<AppButton>(find.byType(AppButton));
-      expect(button.text, 'Deposit to invest');
+      expect(button.text, _dollarDoor);
       expect(button.onPressed, isNotNull);
       expect(find.text("Your deposit didn't go through. You can deposit again."),
           findsOneWidget);
@@ -518,7 +523,7 @@ void main() {
       await _pumpSlip(tester, available: 0);
       expect(find.byType(AmountMaxChip), findsNothing);
       expect(tester.widget<AppButton>(find.byType(AppButton)).text,
-          'Deposit to invest');
+          _dollarDoor);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     });
@@ -536,7 +541,7 @@ void main() {
     }
     await tester.pumpAndSettle();
     final button = tester.widget<AppButton>(find.byType(AppButton));
-    expect(button.text, 'Deposit to invest');
+    expect(button.text, _dollarDoor);
     expect(button.onPressed, isNotNull);
     expect(find.text('Add funds to continue'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -637,6 +642,8 @@ void main() {
     await tester.pumpAndSettle();
 
     final button = tester.widget<AppButton>(find.byType(AppButton));
+    // Nothing typed on a Pro ticket: no order to size a Dollars move on,
+    // so the plain door (it opens the Dollar deposit too).
     expect(button.text, 'Deposit to invest');
     expect(button.onPressed, isNotNull);
     expect(find.text('Duration must be between 5 minutes and 7 days.'),
@@ -648,7 +655,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('TWAP'), findsNothing);
     expect(tester.widget<AppButton>(find.byType(AppButton)).text,
-        'Deposit to invest');
+        _dollarDoor);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
@@ -665,7 +672,7 @@ void main() {
     await tester.pumpAndSettle();
 
     var button = tester.widget<AppButton>(find.byType(AppButton));
-    expect(button.text, 'Deposit to invest');
+    expect(button.text, _dollarDoor);
     expect(button.onPressed, isNotNull);
 
     await tester.enterText(find.byType(TextField).first, '100');
@@ -699,14 +706,14 @@ void main() {
     container.read(_availableFunds.notifier).state = 0;
     await tester.pumpAndSettle();
     var button = tester.widget<AppButton>(find.byType(AppButton));
-    expect(button.text, 'Deposit to invest');
+    expect(button.text, _dollarDoor);
     expect(button.onPressed, isNotNull);
     expect(_LivePrices.acquired, 1);
 
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     button = tester.widget<AppButton>(find.byType(AppButton));
-    expect(button.text, 'Deposit to invest');
+    expect(button.text, _dollarDoor);
     expect(find.text('Est. liquidation'), findsNothing);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
@@ -724,7 +731,7 @@ void main() {
       addTearDown(tester.view.resetViewInsets);
       await tester.pumpAndSettle();
       final scroll = find.byKey(const ValueKey('hl-advanced-form-scroll'));
-      final action = find.text('Deposit to invest');
+      final action = find.textContaining('to Investments');
       final position = tester
           .state<ScrollableState>(find
               .descendant(of: scroll, matching: find.byType(Scrollable))
@@ -969,7 +976,7 @@ void main() {
       expect(button(tester).text, r'Go Long BTC 1x · $20.00');
       expect(button(tester).onPressed, isNotNull);
       await _typeOnKeypad(tester, '600');
-      expect(button(tester).text, 'Deposit to invest');
+      expect(button(tester).text, _dollarDoor);
       await tester.pumpWidget(const SizedBox.shrink());
     });
 

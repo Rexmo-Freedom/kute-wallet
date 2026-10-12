@@ -65,7 +65,13 @@ class ServiceTabStrip extends StatefulWidget {
   /// Strip height. Defaults to the Home pill height (44.h).
   final double? height;
 
-  const ServiceTabStrip({super.key, required this.tabs, this.height});
+  /// Every tab keeps its label and its share of the width; the active one
+  /// wears the fill. No slide and no reflow (user decision 2026-10-12 for
+  /// the two-tab spending strip: "just make them normal, no animation").
+  final bool plain;
+
+  const ServiceTabStrip(
+      {super.key, required this.tabs, this.height, this.plain = false});
 
   @override
   State<ServiceTabStrip> createState() => _ServiceTabStripState();
@@ -102,6 +108,24 @@ class _ServiceTabStripState extends State<ServiceTabStrip>
 
     final int activeIndex =
         tabs.indexWhere((t) => t.active).clamp(0, tabs.length - 1);
+    if (widget.plain) {
+      return SizedBox(
+        height: widget.height ?? 44.h,
+        child: Row(
+          children: [
+            for (var i = 0; i < tabs.length; i++)
+              Expanded(
+                child: ServiceTab(
+                  data: tabs[i],
+                  colors: c,
+                  reveal: i == activeIndex ? 1 : 0,
+                  labelled: true,
+                ),
+              ),
+          ],
+        ),
+      );
+    }
     final reduceMotion = MediaQuery.of(context).disableAnimations;
 
     // Start the slide when the active tab changes: the active tab's flex
@@ -178,16 +202,23 @@ class ServiceTab extends StatelessWidget {
   /// 0 = plain icon (inactive), 1 = full pill + label (active).
   final double reveal;
 
+  /// The label is always drawn, in the tab foreground; [reveal] then only
+  /// drives the fill and the tint (the plain two-tab strip).
+  final bool labelled;
+
   const ServiceTab({
     super.key,
     required this.data,
     required this.colors,
     required this.reveal,
+    this.labelled = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final double r = reveal.clamp(0.0, 1.0);
+    // How much of the label shows: all of it on a labelled tab.
+    final double l = labelled ? 1 : r;
     final Color foreground =
         Color.lerp(colors.textSecondary, colors.textPrimary, r)!;
     final bool isLight = Theme.of(context).brightness == Brightness.light;
@@ -276,26 +307,32 @@ class ServiceTab extends StatelessWidget {
                 // collapsed by [widthFactor] (not just faded), so by the time
                 // reveal hits ~0 the label already occupies zero width and
                 // can drop out with no layout snap.
-                if (r > 0.001)
+                if (l > 0.001)
                   Flexible(
                     child: ClipRect(
                       child: Align(
                         alignment: Alignment.centerLeft,
-                        widthFactor: r,
+                        widthFactor: l,
                         child: Opacity(
-                          opacity: r,
-                          child: Padding(
-                            padding: EdgeInsets.only(left: 8.w),
-                            child: Text(
-                              data.label,
-                              maxLines: 1,
-                              softWrap: false,
-                              overflow: TextOverflow.clip,
-                              style: TextStyle(
-                                color: colors.textPrimary,
-                                fontSize: 14.sp,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0.1,
+                          opacity: l,
+                          // The tab's Semantics already names it; the
+                          // visible label must not be read a second time.
+                          child: ExcludeSemantics(
+                            child: Padding(
+                              padding: EdgeInsets.only(left: 8.w),
+                              child: Text(
+                                data.label,
+                                maxLines: 1,
+                                softWrap: false,
+                                overflow: TextOverflow.clip,
+                                style: TextStyle(
+                                  color: labelled
+                                      ? foreground
+                                      : colors.textPrimary,
+                                  fontSize: 14.sp,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.1,
+                                ),
                               ),
                             ),
                           ),

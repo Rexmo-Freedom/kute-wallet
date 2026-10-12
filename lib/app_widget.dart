@@ -6,6 +6,8 @@ import 'package:kute/providers/auth_provider.dart';
 import 'package:kute/providers/current_route_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart'
     show polymarketTradingProvider;
+import 'package:kute/providers/venue_sweeper_provider.dart'
+    show venueSweeperProvider;
 import 'package:kute/models/settings_model.dart' show Settings;
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/wallet_backup_provider.dart'
@@ -412,6 +414,11 @@ class _AppWidgetState extends ConsumerState<AppWidget>
             unawaited(ref
                 .read(polymarketTradingProvider.notifier)
                 .wrapIdleUsdcE(trigger: 'resume'));
+          }
+          // Idle venue cash that freed while the app was away: one
+          // sweeper pass now (its own rules decide what moves).
+          if (ref.exists(venueSweeperProvider)) {
+            unawaited(ref.read(venueSweeperProvider.notifier).trigger('resume'));
           }
         });
       }

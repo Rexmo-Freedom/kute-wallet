@@ -60,6 +60,8 @@ void main() {
       'tron:USDT': 6,
       'plasma:USDT': 6,
       'hypercore:USDC': 8,
+      'hyperevm:USDC': 6,
+      'hyperevm:HYPE': 18,
       'bsc:USDC': 18,
     });
     expect(pinnedOrchestraDecimals('Polygon', 'USDC.e'), 6);

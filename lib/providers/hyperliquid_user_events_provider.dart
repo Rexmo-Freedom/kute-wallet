@@ -31,6 +31,9 @@ import 'package:kute/providers/hyperliquid_account_provider.dart';
 import 'package:kute/providers/hyperliquid_trading_provider.dart';
 import 'package:kute/providers/placing_hyperliquid_order_provider.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_websocket.dart';
+import 'package:kute/services/one_balance/one_balance_state.dart'
+    show OneBalanceVenue;
+import 'package:kute/services/one_balance/venue_cash_released.dart';
 
 class HlUserEventsState {
   /// Newest-last ring of recent order lifecycle events, capped at 50. The
@@ -157,6 +160,12 @@ class HlUserEventsNotifier extends AutoDisposeNotifier<HlUserEventsState> {
     // 2. Fresh account snapshot — the position/balance moved.
     ref.invalidate(hyperliquidAccountProvider);
 
+    // 2b. A fill that reduced, closed, flipped or sold freed venue cash:
+    //     tell the sweeper once per batch so it can bring it home now.
+    if (fillsIn.any(hlFillReleasesCash)) {
+      VenueCashReleased.emit(OneBalanceVenue.investing, 'reduce_fill');
+    }
+
     // 3. Patch the trading notifier's fills ring without a REST
     //    roundtrip — only when it's already alive; instantiating it
     //    from here would trigger a mnemonic derivation as a side
@@ -202,6 +211,18 @@ class HlUserEventsNotifier extends AutoDisposeNotifier<HlUserEventsState> {
       } catch (_) {}
     }
   }
+}
+
+/// Whether [fill] freed venue cash: it closed or reduced a perp position
+/// ('Close Long', 'Close Short', a 'Long > Short' flip, a liquidation) or
+/// sold spot ('Sell'). Opens and buys commit cash, they never free it.
+bool hlFillReleasesCash(HlFill fill) {
+  if (fill.liquidated) return true;
+  final dir = fill.dir.trim();
+  if (dir.startsWith('Close')) return true;
+  if (dir.contains('>')) return true;
+  if (dir == 'Sell') return true;
+  return false;
 }
 
 final hyperliquidUserEventsProvider =

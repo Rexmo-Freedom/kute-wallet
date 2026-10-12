@@ -1,18 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/providers/active_shell_tab_provider.dart';
 import 'package:kute/providers/unified_search_provider.dart'
     show SearchCategory;
 import 'package:kute/screens/home/components/kute_bottom_action_bar.dart';
 import 'package:kute/screens/portfolio/open_investments_screen.dart';
 import 'package:kute/screens/search/unified_search_screen.dart';
-import 'package:kute/screens/shared/investment_funding.dart';
+import 'package:kute/screens/usd/usd_account_screen.dart'
+    show InvestmentsTab, investmentsTabProvider;
 
-/// Shared dock for the active wallet's venues: Portfolio and Withdraw sit
-/// in the dock itself (Deposit is the venue's top button), and the square
-/// button is this surface's way into search, scoped to the venue's own
-/// markets. Portfolio opens the one Portfolio screen, the same from both
-/// venues (it carries both, with no deposit or withdrawal of its own).
+/// Shared dock for the spending account's venue browsers when they stand
+/// on their own: Portfolio in the dock, and the square button is this
+/// surface's way into search, scoped to the venue's own markets.
+///
+/// With one balance (October 2026) the hot wallet has no venue Withdraw:
+/// money comes back to Dollars on its own, so the dock carries Portfolio
+/// alone. Portfolio switches the Investments pill — the one Portfolio
+/// screen lives there now — rather than pushing a copy over it.
 class InvestmentActionBar extends ConsumerWidget {
   final InvestmentsProduct product;
   final ValueChanged<double>? onHeightChanged;
@@ -22,6 +28,15 @@ class InvestmentActionBar extends ConsumerWidget {
     required this.product,
     this.onHeightChanged,
   });
+
+  void _openPortfolio(BuildContext context, WidgetRef ref) {
+    ref.read(investmentsTabProvider.notifier).state =
+        InvestmentsTab.portfolio;
+    // From anywhere but the Investments tab itself, go there.
+    if (ref.read(activeShellTabProvider) != ActiveNavTab.usd) {
+      context.go('/usd');
+    }
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -38,19 +53,7 @@ class InvestmentActionBar extends ConsumerWidget {
           label: context.l10n.walletPortfolioAction,
           trackingId: 'portfolio',
           solid: true,
-          onTap: () => Navigator.of(context, rootNavigator: true).push(
-              MaterialPageRoute(
-                  builder: (_) => OpenInvestmentsScreen(
-                      source: predictions
-                          ? 'dock_predictions'
-                          : 'dock_investing'))),
-        ),
-        KuteDockAction(
-          icon: Icons.north_east_rounded,
-          label: context.l10n.withdraw,
-          trackingId: 'withdraw',
-          onTap: () =>
-              openInvestmentFunding(context, ref, product, deposit: false),
+          onTap: () => _openPortfolio(context, ref),
         ),
       ],
       // A venue dock searches its own markets: the search sheet opens on

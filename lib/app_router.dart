@@ -564,10 +564,21 @@ class AppRouter {
                 GoRoute(
                   path: '/usd',
                   name: 'usd',
-                  pageBuilder: (context, state) => NoTransitionPage<void>(
-                    key: state.pageKey,
-                    child: const UsdAccountScreen(),
-                  ),
+                  // `?tab=investing|predictions|portfolio|earn` (what the
+                  // venue routes redirect to) or `extra: {'tab': …}`
+                  // picks the Investments pill; nothing keeps the pill
+                  // where it was. The page updates in place on a new
+                  // link (same pageKey), and the screen applies it then.
+                  pageBuilder: (context, state) {
+                    final extra = state.extra;
+                    final tab = state.uri.queryParameters['tab'] ??
+                        (extra is Map ? extra['tab'] as String? : null);
+                    return NoTransitionPage<void>(
+                      key: state.pageKey,
+                      child: UsdAccountScreen(
+                          initialTab: InvestmentsTab.fromKey(tab)),
+                    );
+                  },
                 ),
               ],
             ),
@@ -578,18 +589,18 @@ class AppRouter {
                 GoRoute(
                   path: '/hyperliquid',
                   name: 'hyperliquid',
-                  // Bottom-nav tab destination. `extra` (deep link /
-                  // context.go('/hyperliquid', extra:'deposit')) still reaches
-                  // the branch's initial screen and auto-opens the sheet.
+                  // For the spending account Investing is a pill of the
+                  // Investments tab: the link lands on /usd with that
+                  // pill (one balance; no venue deposit exists, so the
+                  // old `extra: 'deposit'` auto-open is gone). A Ledger
+                  // owner keeps its own branch.
+                  redirect: (context, _) =>
+                      spendingVenueRedirect(context, InvestmentsTab.investing),
                   pageBuilder: (context, state) => NoTransitionPage<void>(
                     key: state.pageKey,
-                    // Wallet-aware: the spending account's Hyperliquid
-                    // screen, or the Ledger's own Hyperliquid tab when a
-                    // Ledger wallet owns the first tab.
-                    child: ShellTradingTab(
-                      autoShowDeposit: state.extra == 'deposit',
-                      autoShowWithdraw: state.extra == 'withdraw',
-                    ),
+                    // The Ledger's own Hyperliquid tab when a Ledger
+                    // wallet owns the first tab; empty otherwise.
+                    child: const ShellTradingTab(),
                   ),
                 ),
               ],
@@ -601,18 +612,15 @@ class AppRouter {
                 GoRoute(
                   path: '/polymarket',
                   name: 'polymarket',
-                  // Bottom-nav tab destination. `extra` (deep link
-                  // context.go('/polymarket', extra:'deposit')) still reaches
-                  // the branch's initial screen and auto-opens the sheet.
+                  // See /hyperliquid: the spending account's Predictions
+                  // is a pill of the Investments tab.
+                  redirect: (context, _) => spendingVenueRedirect(
+                      context, InvestmentsTab.predictions),
                   pageBuilder: (context, state) => NoTransitionPage<void>(
                     key: state.pageKey,
-                    // Wallet-aware: the spending account's Polymarket
-                    // screen, or the Ledger's own Polymarket tab when a
-                    // Ledger wallet owns the first tab.
-                    child: ShellPredictionsTab(
-                      autoShowDeposit: state.extra == 'deposit',
-                      autoShowWithdraw: state.extra == 'withdraw',
-                    ),
+                    // The Ledger's own Polymarket tab when a Ledger
+                    // wallet owns the first tab; empty otherwise.
+                    child: const ShellPredictionsTab(),
                   ),
                 ),
               ],

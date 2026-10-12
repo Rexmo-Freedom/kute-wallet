@@ -30,8 +30,6 @@ import 'package:kute/services/trade_notification_store.dart'
     show TradeNotification;
 import 'package:kute/theme/app_theme.dart';
 
-import 'package:kute/screens/portfolio/open_investments_screen.dart';
-
 import '../../helpers/offline_venue_overrides.dart';
 import '../../helpers/portfolio_overrides.dart';
 
@@ -189,33 +187,13 @@ void main() {
     semantics.dispose();
   });
 
-  testWidgets(
-      'the hub carries the Portfolio above the wallets; it closes the hub '
-      'and opens the same Portfolio screen', (tester) async {
-    final events = _events();
+  testWidgets('the hub has no Portfolio row (it lives inside Investments)',
+      (tester) async {
     await _pump(tester, activeTab: ActiveNavTab.trading);
     await tester.tap(find.byType(HubPlusGearGlyph));
     await tester.pumpAndSettle();
-    final row = find.byKey(const ValueKey('hub-portfolio'));
-    expect(row, findsOneWidget);
-    expect(
-        find.descendant(
-            of: row, matching: find.byIcon(Icons.pie_chart_rounded)),
-        findsOneWidget);
-    expect(find.descendant(of: row, matching: find.text('Portfolio')),
-        findsOneWidget);
-    // Add account stays the hub's last item.
-    expect(tester.getTopLeft(row).dy,
-        lessThan(tester.getTopLeft(find.text('Spending')).dy));
-    await tester.tap(row);
-    await tester.pumpAndSettle();
-    expect(find.text('Financial hub'), findsNothing);
-    final screen = tester
-        .widget<OpenInvestmentsScreen>(find.byType(OpenInvestmentsScreen));
-    expect(screen.source, 'hub');
-    expect(screen.initialTab, 0);
-    expect(events.where((e) => e.$1 == 'portfolio_opened').single.$2?['source'],
-        'hub');
+    expect(find.byKey(const ValueKey('hub-portfolio')), findsNothing);
+    expect(find.text('Portfolio'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 

@@ -111,6 +111,26 @@ class PendingBetIntent {
   /// placement check uses. Null for a typed stake, which is never changed.
   final double? spendAllBudgetUsd;
 
+  /// One balance: the Dollars moved into Predictions for this bet, or
+  /// null for a bet paid from venue cash that was already there. Set
+  /// when the bet is queued behind its own funding leg
+  /// (`OrderFundingController`); the autofire then fires from
+  /// [PendingBetStatus.awaitingBalance] on the deposit's credit, resizes
+  /// a market bet to what landed, and fails a limit bet that landed short.
+  final double? fundUsd;
+
+  /// The funding leg's quote, as the one-way analytics reference
+  /// (`TrackingService.orderRef`), never the raw id.
+  final String? fundQuoteRef;
+
+  /// When the bet was queued behind its funding leg. A queued bet older
+  /// than [maxQueuedAge] never fires.
+  final DateTime? queuedAt;
+
+  /// Longest a queued bet may wait before it is dropped unplaced: the
+  /// approval's own life (the 30 min autofire grant).
+  static const Duration maxQueuedAge = Duration(minutes: 30);
+
   const PendingBetIntent({
     this.marketQuote,
     this.feeTerms,
@@ -136,7 +156,22 @@ class PendingBetIntent {
     this.negRisk = false,
     this.entrySource,
     this.spendAllBudgetUsd,
+    this.fundUsd,
+    this.fundQuoteRef,
+    this.queuedAt,
   });
+
+  /// Whether this bet is (or was) funded from Dollars for the order.
+  bool get funded => fundUsd != null;
+
+  /// A queued bet past [maxQueuedAge] (counted from [queuedAt]) must not
+  /// fire, whatever the balance says now. Never stale without a
+  /// [queuedAt].
+  bool isStale({DateTime? now}) {
+    final at = queuedAt;
+    if (at == null) return false;
+    return (now ?? DateTime.now()).difference(at) > maxQueuedAge;
+  }
 
   /// True when the market resolves in less than [threshold] (default
   /// 5 min). Used to force USDC-pool funding — a BTC swap roundtrip
@@ -159,6 +194,9 @@ class PendingBetIntent {
     PendingBetStatus? status,
     String? errorMessage,
     double? retryMaxPrice,
+    double? fundUsd,
+    String? fundQuoteRef,
+    DateTime? queuedAt,
   }) {
     return PendingBetIntent(
       marketQuote: marketQuote ?? this.marketQuote,
@@ -185,6 +223,9 @@ class PendingBetIntent {
       negRisk: negRisk,
       entrySource: entrySource,
       spendAllBudgetUsd: spendAllBudgetUsd,
+      fundUsd: fundUsd ?? this.fundUsd,
+      fundQuoteRef: fundQuoteRef ?? this.fundQuoteRef,
+      queuedAt: queuedAt ?? this.queuedAt,
     );
   }
 }
@@ -210,6 +251,18 @@ class PendingPolymarketBetNotifier extends Notifier<PendingBetIntent?> {
           ? PendingBetStage.submitting
           : null,
     );
+  }
+
+  /// The funding leg has left Dollars: keep its quote reference on the
+  /// queued bet, whatever status the autofire has moved it to since.
+  void recordFunding({required String quoteRef}) {
+    final current = state;
+    if (current == null) return;
+    state = current.copyWith(
+        status: current.status,
+        errorMessage: current.errorMessage,
+        retryMaxPrice: current.retryMaxPrice,
+        fundQuoteRef: quoteRef);
   }
 
   /// The submitted placement moved on (see [PendingBetStage]).
@@ -255,6 +308,9 @@ class PendingPolymarketBetNotifier extends Notifier<PendingBetIntent?> {
       negRisk: current.negRisk,
       entrySource: current.entrySource,
       spendAllBudgetUsd: current.spendAllBudgetUsd,
+      fundUsd: current.fundUsd,
+      fundQuoteRef: current.fundQuoteRef,
+      queuedAt: current.queuedAt,
     );
   }
 

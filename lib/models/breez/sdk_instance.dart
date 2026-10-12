@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart' as spark;
 import 'package:flutter/foundation.dart';
 import 'package:kute/models/breez/deposit_update.dart';
+import 'package:kute/models/breez/shared_sync.dart';
 import 'package:kute/services/tracking/latency_tracker.dart';
 import 'package:kute/services/tracking_service.dart';
 
@@ -203,13 +204,12 @@ class BreezSdkSpark {
     }
   }
 
-  /// Forces an SDK wallet sync, which rewrites the SDK's cached balance
-  /// from its leaves, then re-reads the wallet data.
+  /// Forces an SDK wallet sync (the shared one, see [sharedSyncWallet]),
+  /// which rewrites the SDK's cached balance from its leaves, then re-reads
+  /// the wallet data.
   Future<void> _syncThenFetchWalletData(spark.BreezSdk sdk) async {
     try {
-      await sdk
-          .syncWallet(request: const spark.SyncWalletRequest())
-          .timeout(const Duration(seconds: 20));
+      await sharedSyncWallet(sdk).timeout(const Duration(seconds: 20));
     } catch (_) {
       // The periodic sync catches up.
     }
@@ -218,27 +218,40 @@ class BreezSdkSpark {
 
   Future<void>? _syncAndRefresh;
 
-  /// Syncs the connected wallet now and re-reads its balance and payments,
-  /// for money known to have just landed (an Orchestra order delivering to
-  /// this wallet completed) that the SDK's own periodic sync (every 60 s)
-  /// would show only later: an incoming dollar token transfer is often
-  /// picked up only by a sync. When the balance has not risen yet, syncs
-  /// again after each of [kArrivalSyncRetryDelays]. Every read publishes to
-  /// the wallet-info and payments streams the balance providers follow.
-  /// Concurrent calls share the run in flight. Never throws.
+  /// Re-reads the connected wallet's balance and payments for money known
+  /// to have just landed (an Orchestra order delivering to this wallet
+  /// completed). The operator stream normally updates the SDK's cached
+  /// balance within a second or so of the transfer, so the cache is polled
+  /// first (see [syncUntilBalanceRises]); only when it has not risen does
+  /// one shared wallet sync run. A sync blocks the SDK's runtime loop, so
+  /// syncing first would hold back the very stream update being waited
+  /// for. The final reading publishes to the wallet-info and payments
+  /// streams the balance providers follow. Concurrent calls share the run
+  /// in flight. Never throws.
   Future<void> syncAndRefresh() {
     final sdk = _instance;
     if (sdk == null) return Future<void>.value();
     return _syncAndRefresh ??= syncUntilBalanceRises(
-      readBalances: () async =>
-          balancesOf(await sdk.getInfo(request: const spark.GetInfoRequest())),
-      sync: () async {
+      readBalances: () async {
         // Another wallet connected meanwhile: stop.
         if (!identical(_instance, sdk)) throw StateError('SDK replaced');
-        await _syncThenFetchWalletData(sdk);
+        return balancesOf(
+            await sdk.getInfo(request: const spark.GetInfoRequest()));
       },
-    ).then<void>((_) {}).catchError((Object _) {}).whenComplete(
-        () => _syncAndRefresh = null);
+      sync: () async {
+        if (!identical(_instance, sdk)) throw StateError('SDK replaced');
+        try {
+          await sharedSyncWallet(sdk).timeout(const Duration(seconds: 20));
+        } catch (_) {
+          // Read what the cache holds anyway.
+        }
+      },
+    )
+        .then<void>((_) {})
+        .catchError((Object _) {})
+        .then<void>((_) async {
+      if (identical(_instance, sdk)) await _fetchWalletData(sdk);
+    }).whenComplete(() => _syncAndRefresh = null);
   }
 
   Future<spark.GetInfoResponse> _getInfo(spark.BreezSdk sdk) async {
@@ -264,12 +277,25 @@ class BreezSdkSpark {
 
   /// Initializes SDK log stream.
   /// Call once on your Dart entrypoint file, e.g.; `lib/main.dart`.
-  void initializeLogStream() {
+  ///
+  /// [logFilter] is the SDK's tracing filter (its own default when null).
+  /// [printSyncSteps] prints the SDK's per-step wallet sync lines (see
+  /// [isSdkSyncLogLine]) with an `[sdk-sync]` prefix, in debug builds only.
+  void initializeLogStream({String? logFilter, bool printSyncSteps = false}) {
+    if (_breezLogStream != null) return;
     // In Spark, logging is initialized via the static API
     // ignore: invalid_use_of_internal_member
-    _breezLogStream ??= spark.BreezSdkSparkLib.instance.api
-        .crateSdkInitLogging()
+    final stream = spark.BreezSdkSparkLib.instance.api
+        .crateSdkInitLogging(logFilter: logFilter)
         .asBroadcastStream();
+    _breezLogStream = stream;
+    if (kDebugMode && printSyncSteps) {
+      stream.listen((entry) {
+        if (!isSdkSyncLogLine(entry.line)) return;
+        // ignore: avoid_print
+        print('[sdk-sync] ${entry.level} ${entry.line.trim()}');
+      }, onError: (Object _) {});
+    }
   }
 
   StreamSubscription<spark.SdkEvent>? _breezEventsSubscription;
@@ -452,13 +478,27 @@ class PaymentException implements Exception {
   String toString() => "PaymentException: Payment ${payment.id} failed.";
 }
 
-/// Waits before each extra sync while an expected arrival has not shown in
-/// the balance yet.
-const List<Duration> kArrivalSyncRetryDelays = [
-  Duration(seconds: 2),
-  Duration(seconds: 5),
-  Duration(seconds: 10),
-];
+/// How often [syncUntilBalanceRises] re-reads the SDK's cached balance
+/// while waiting for an expected arrival.
+const Duration kArrivalPollInterval = Duration(milliseconds: 300);
+
+/// How long [syncUntilBalanceRises] polls the cached balance before it
+/// asks for a wallet sync.
+const Duration kArrivalPollWindow = Duration(seconds: 3);
+
+/// The SDK tracing filter for debug builds: warnings, plus the wallet sync
+/// steps and the per-operator query failures.
+const String kSdkSyncDebugLogFilter =
+    'warn,breez_sdk_spark::sdk::sync=debug,spark::tree::service=error';
+
+/// Whether [line] from the SDK's log stream is one of its own wallet sync
+/// step lines (timings and failures).
+bool isSdkSyncLogLine(String line) =>
+    line.contains('sync_wallet_internal') ||
+    line.contains('Spark wallet sync failed') ||
+    line.contains('Failed to query operator') ||
+    line.contains('Deposits sync completed') ||
+    line.contains('Failed to check and claim static deposits');
 
 /// Every balance the wallet holds, by asset: `sats` and each token id.
 Map<String, BigInt> balancesOf(spark.GetInfoResponse info) => {
@@ -467,13 +507,18 @@ Map<String, BigInt> balancesOf(spark.GetInfoResponse info) => {
         entry.key: entry.value.balance,
     };
 
-/// Runs [sync], then again after each of [retryDelays], until some balance
-/// [readBalances] reports is above what it was before the first sync.
-/// Returns whether one rose. A failed read counts as not risen yet.
+/// Waits for some balance [readBalances] reports to rise above the one it
+/// reported first. Polls every [pollInterval] for up to [pollWindow] (the
+/// operator stream usually lands an incoming transfer in the SDK's cache
+/// within that); only when nothing has risen by then runs [sync] once and
+/// reads again. Returns whether one rose. A failed read counts as not risen
+/// yet; when even the first read fails there is nothing to compare, so it
+/// syncs once and returns false.
 Future<bool> syncUntilBalanceRises({
   required Future<Map<String, BigInt>> Function() readBalances,
   required Future<void> Function() sync,
-  List<Duration> retryDelays = kArrivalSyncRetryDelays,
+  Duration pollInterval = kArrivalPollInterval,
+  Duration pollWindow = kArrivalPollWindow,
   Future<void> Function(Duration delay) sleep = _sleepFor,
 }) async {
   Map<String, BigInt>? before;
@@ -482,19 +527,30 @@ Future<bool> syncUntilBalanceRises({
   } catch (_) {
     before = null;
   }
-  for (var attempt = 0;; attempt++) {
+  final baseline = before;
+  if (baseline == null) {
     await sync();
-    final baseline = before;
-    if (baseline == null) return false;
+    return false;
+  }
+  Future<bool> rose() async {
     try {
       final after = await readBalances();
-      final rose = after.entries
+      return after.entries
           .any((e) => e.value > (baseline[e.key] ?? BigInt.zero));
-      if (rose) return true;
-    } catch (_) {}
-    if (attempt >= retryDelays.length) return false;
-    await sleep(retryDelays[attempt]);
+    } catch (_) {
+      return false;
+    }
   }
+
+  final polls = pollInterval > Duration.zero
+      ? pollWindow.inMicroseconds ~/ pollInterval.inMicroseconds
+      : 0;
+  for (var i = 0; i < polls; i++) {
+    await sleep(pollInterval);
+    if (await rose()) return true;
+  }
+  await sync();
+  return rose();
 }
 
 Future<void> _sleepFor(Duration d) => Future<void>.delayed(d);

@@ -71,7 +71,8 @@ import 'package:kute/models/orchestra_routes_model.dart'
 import 'package:kute/models/settlement_operation.dart'
     show SettlementAccountKind, SettlementFlow;
 import 'package:kute/models/swap_order_model.dart';
-import 'package:kute/providers/asset_icon_provider.dart' show kUsdMarkAsset;
+import 'package:kute/providers/asset_icon_provider.dart'
+    show kInvestmentsIcon, kUsdMarkAsset;
 import 'package:kute/providers/breez_config_provider.dart'
     show breezSDKProvider;
 import 'package:kute/providers/orchestra_supported_routes_provider.dart';
@@ -1036,7 +1037,7 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
   // ─── Step 3: Review ───────────────────────────────────────────────
 
   /// 100%, made exact: the dollar balance in the token's own base units,
-  /// read from a freshly synced SDK, replacing the cent-floored figure the
+  /// read from the SDK's cached balance, replacing the cent-floored figure the
   /// amount step showed. The send moves exactly this.
   Future<void> _resolveDrain() async {
     setState(() {
@@ -1202,8 +1203,10 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
                         title: l10n.assetDollars,
                         subtitle: l10n.sendAvailableBalanceSubtitle(
                             '\$${available.toStringAsFixed(2)}'),
-                        icon: SvgPicture.asset(kUsdMarkAsset,
-                            width: 24.sp, height: 24.sp),
+                        // The dollar balance as a source row wears the
+                        // Investments arrow, never the USDB coin.
+                        icon: Icon(kInvestmentsIcon,
+                            size: 24.sp, color: c.textPrimary),
                       ),
                       Divider(
                           height: 1,

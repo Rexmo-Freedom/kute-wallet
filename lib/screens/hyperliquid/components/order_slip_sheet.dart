@@ -83,8 +83,11 @@ import 'package:kute/providers/ledger/ledger_hyperliquid_account_provider.dart';
 import 'package:kute/providers/hyperliquid_orderbook_provider.dart';
 import 'package:kute/providers/hyperliquid_trading_provider.dart';
 import 'package:kute/providers/hyperliquid_user_events_provider.dart';
+import 'package:kute/providers/pending_hyperliquid_order_provider.dart';
 import 'package:kute/providers/placing_hyperliquid_order_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/providers/usd_account_provider.dart'
+    show usdBalanceProvider;
 import 'package:kute/screens/home/components/action_pill.dart'
     show greenColor, redColor;
 import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
@@ -118,6 +121,8 @@ import 'package:kute/screens/shared/message_display.dart'
     show showMessageSnackBar;
 import 'package:kute/screens/shared/slip_shortfall.dart';
 import 'package:kute/services/funding/venue_shortfall.dart';
+import 'package:kute/services/one_balance/hyperliquid_venue_funder.dart';
+import 'package:kute/services/one_balance/order_funding.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/screens/shared/capability_block_note.dart';
@@ -205,6 +210,30 @@ class _SlipOrder {
   final SensitiveIntent intent;
   final Future<HlOrderResult> Function(AuthGrant grant) place;
 }
+
+/// What funding the shortfall from Dollars costs, as the ticket shows it
+/// before the tap: [fundUsd] leaves Dollars so that [shortfallUsd]
+/// arrives; the difference is the Move fee row.
+class _FundPlan {
+  const _FundPlan({required this.shortfallUsd, required this.fundUsd});
+
+  final double shortfallUsd;
+  final double fundUsd;
+
+  double get moveFeeUsd => math.max(0, fundUsd - shortfallUsd);
+}
+
+/// Test seam: stands in for the Dollar deposit door a short hot ticket
+/// opens ("Add $X to Investments"), with the prefill it was given.
+@visibleForTesting
+Future<void> Function(MoveLockedSide side, double? initialTargetUsd)?
+    debugShowHlDollarsDeposit;
+
+/// Test seam: stands in for the one approval a funded order asks for.
+/// Receives the autofire intent (the order plus its funding limits) and
+/// answers with the grant the registry holds for it, or null.
+@visibleForTesting
+Future<AuthGrant?> Function(SensitiveIntent intent)? debugHlOrderFundingApproval;
 
 class HlOrderSlipSheet extends ConsumerStatefulWidget {
   final HlMarket market;
@@ -452,6 +481,34 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   /// being worked out. The button shows it and the form is frozen, so the
   /// sheet is sized for the order on the ticket at the tap.
   bool _depositCalculating = false;
+
+  // ── Per-order funding (one balance) ───────────────────────────────
+  // A hot ticket short of venue cash funds the shortfall from Dollars on
+  // the same tap that places the order: one approval, "Moving $X to
+  // Investing", then the placing tile and the receipt. The plan below is
+  // what the ticket shows before the tap (the Move fee row and the
+  // Dollars check); the controller quotes again when the money moves.
+
+  /// The venue cash the order on the ticket still needs, as computed in
+  /// the last build (zero when it is covered, or on a Ledger ticket).
+  double _slipShortfallUsd = 0;
+
+  /// The funding the ticket currently shows, for [_slipShortfallUsd].
+  _FundPlan? _fundPlan;
+
+  /// Dollars cover the move the ticket shows (set in build).
+  bool _canFundFromDollars = false;
+
+  /// The shortfall the plan (or the estimate on its way) is for.
+  String? _fundPlanKey;
+  Timer? _fundPlanTimer;
+
+  /// Where a funded order is, from the tap to the placement. Null while
+  /// nothing is being funded.
+  OrderFundingStage? _fundingStage;
+  DateTime? _fundingStartedAt;
+  double _fundingUsd = 0;
+  ProviderSubscription<PendingHlOrderIntent?>? _pendingSub;
 
   /// One order per slip lifetime — set once a fill/ack has routed so a
   /// racing WS fill + REST result can't push two.
@@ -810,6 +867,19 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         });
       } catch (_) {}
     }
+    // The person closed the ticket while its funding was still going:
+    // the queued order carries on off-screen (the tile and the receipt
+    // overlay still show), the ticket just stops watching.
+    if (_fundingStage != null && !_completed) {
+      try {
+        TrackingService.track('order_funding_abandoned', params: {
+          'venue': 'hyperliquid',
+          'stage': _fundingStage!.name,
+        });
+      } catch (_) {}
+    }
+    _pendingSub?.close();
+    _fundPlanTimer?.cancel();
     TrackingService.clearFlowContext('hl_order');
     VenueAnalytics.unstage('hl', market.coin);
     VenueAnalytics.resetSettings(_settingsScope);
@@ -996,6 +1066,14 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     _placeMinimumOnBuild = true;
     _fillAmountChip(minAmountUsd, 'min_direct');
   }
+
+  /// Nothing typed on a market order with a minimum of [minAmountUsd]:
+  /// the empty ticket's button is the order at that minimum.
+  bool placesMinimumAmount(double minAmountUsd) =>
+      _marginUsd <= 0 &&
+      _mode == _OrderMode.market &&
+      !_reduceOnly &&
+      minAmountUsd > 0;
 
   double? _parse(TextEditingController c) {
     final v = double.tryParse(c.text.trim());
@@ -1521,6 +1599,21 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       return;
     }
     final cloid = newHlCloid();
+    // The venue cannot cover the order yet: fund the difference from
+    // Dollars on this same tap, then place it once the money lands.
+    final shortfall = _shortfallNow();
+    if (shortfall > 0) {
+      await _confirmFunded(
+        walletId: walletId,
+        cloid: cloid,
+        mid: mid,
+        shortfallUsd: shortfall,
+        orderKind: 'market',
+        resizable: true,
+        orderAt: _marketOrderAt(walletId, cloid),
+      );
+      return;
+    }
     _trackStep('approval');
     final grant = await _approve(
       _marketOrder(walletId, cloid).intent,
@@ -1733,6 +1826,24 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     final approved = _advancedOrder(walletId, mid, cloid);
     if (approved == null) return; // Market mode: handled by _confirmMarket.
     _sentPlan = null;
+    // A resting order needs its margin as much as a market one: fund the
+    // difference from Dollars, then place it exactly as approved (never
+    // resized) once the money lands.
+    final shortfall = _reduceOnly ? 0.0 : _shortfallNow();
+    if (shortfall > 0) {
+      await _confirmFunded(
+        walletId: walletId,
+        cloid: cloid,
+        mid: mid,
+        shortfallUsd: shortfall,
+        orderKind: _mode == _OrderMode.limit ? 'limit' : 'pro',
+        resizable: false,
+        // Built once, here: the call captures the ticket's values and
+        // may run after the ticket is gone.
+        orderAt: (_) => approved,
+      );
+      return;
+    }
     _trackStep('approval');
     final grant = await _approve(approved.intent, amountUsd: _marginUsd);
     if (grant == null || !mounted) {
@@ -1793,6 +1904,419 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         });
       }
     }
+  }
+
+  // ── Per-order funding (one balance) ─────────────────────────────────
+
+  /// Dollars on the spending account, read live. Zero when unreadable.
+  double _dollarsUsd({bool watch = false}) {
+    try {
+      return watch
+          ? ref.watch(usdBalanceProvider)
+          : ref.read(usdBalanceProvider);
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /// The venue cash the order on the ticket (or the minimum order, with
+  /// nothing typed) still needs beyond what is ready. Zero on a Ledger
+  /// ticket, which keeps its own deposit door.
+  double _shortfallNow({double? marginUsd}) {
+    if (_isLedger) return 0;
+    final margin = marginUsd ?? _marginUsd;
+    if (margin <= 0) return 0;
+    return ShortfallRules.shortfallUsd(
+        requiredUsd: _hlRequiredUsdFor(margin), readyUsd: _hlReadyUsd());
+  }
+
+  /// What the Move sheet prefills when Dollars fall short of [fundUsd].
+  double _dollarsShortUsd(double fundUsd) {
+    final short = fundUsd - _dollarsUsd();
+    if (short <= 1e-6) return 0;
+    return ((short * 100) - 1e-9).ceilToDouble() / 100;
+  }
+
+  /// The funding shown for [shortfallUsd]: the plan the estimate gave,
+  /// else the route's fallback fee while it is on its way (the
+  /// controller quotes again when the money moves).
+  _FundPlan _fundPlanFor(double shortfallUsd) {
+    final plan = _fundPlan;
+    if (plan != null && (plan.shortfallUsd - shortfallUsd).abs() < 0.005) {
+      return plan;
+    }
+    final fallback = ((shortfallUsd / (1 - ShortfallRules.fallbackRouteFee)) *
+                    100 -
+                1e-9)
+            .ceilToDouble() /
+        100;
+    return _FundPlan(shortfallUsd: shortfallUsd, fundUsd: fallback);
+  }
+
+  /// Asks the funder what moving [shortfallUsd] costs, once per distinct
+  /// shortfall, a moment after the amount settles. Read, never moved.
+  void _scheduleFundPlan(double shortfallUsd) {
+    final key = shortfallUsd.toStringAsFixed(2);
+    if (_fundPlanKey == key) return;
+    _fundPlanKey = key;
+    _fundPlanTimer?.cancel();
+    if (shortfallUsd <= 0) return;
+    _fundPlanTimer = Timer(const Duration(milliseconds: 300), () async {
+      if (!mounted || _fundPlanKey != key) return;
+      _FundPlan plan;
+      try {
+        final quote = await ref
+            .read(hyperliquidVenueFunderProvider)
+            .estimate(shortfallUsd)
+            .timeout(const Duration(seconds: 6));
+        plan = _FundPlan(
+          shortfallUsd: shortfallUsd,
+          fundUsd: HyperliquidVenueFunder.fundUsdFor(
+              shortfallUsd: shortfallUsd, quote: quote),
+        );
+      } catch (_) {
+        plan = _fundPlanFor(shortfallUsd);
+      }
+      if (!mounted || _fundPlanKey != key) return;
+      _updateDraft(() => _fundPlan = plan);
+    });
+  }
+
+  /// `order_funding_step` and the ticket's own step, together.
+  void _trackFundingStep(OrderFundingStage stage) {
+    if (_fundingStage == stage) return;
+    _fundingStage = stage;
+    TrackingService.track('order_funding_step', params: {
+      'venue': 'hyperliquid',
+      'step': stage.name,
+    });
+  }
+
+  void _trackFundingFailed(String stage, Object? error, {String? category}) {
+    final startedAt = _fundingStartedAt;
+    TrackingService.track('order_funding_failed', params: {
+      'venue': 'hyperliquid',
+      'stage': stage,
+      'error_category': category ?? TrackingService.errorCategory(error),
+      'duration_ms': startedAt == null
+          ? 0
+          : DateTime.now().difference(startedAt).inMilliseconds,
+    });
+  }
+
+  /// Funds [shortfallUsd] from Dollars and places the order once the
+  /// money lands: one approval (the order plus the dollars allowed to
+  /// leave for it, held as the autofire grant), the controller moves the
+  /// money, and the pending-order watcher places the order on the credit
+  /// through [orderAt]. The ticket stays open saying "Moving $X to
+  /// Investing", then shows the placing tile and the receipt.
+  ///
+  /// A refusal before any funds left (declined, no route, below the
+  /// minimum) leaves Dollars untouched and the ticket as it was; Dollars
+  /// that cannot cover the move turn the button into "Add $X to
+  /// Investments". A credit timeout keeps the cash at the venue for the
+  /// sweeper and says so with the existing copy.
+  Future<void> _confirmFunded({
+    required String walletId,
+    required String cloid,
+    required double mid,
+    required double shortfallUsd,
+    required String orderKind,
+    required bool resizable,
+    required _SlipOrder Function(double marginUsd) orderAt,
+  }) async {
+    final lev = isSpot ? 1 : _leverage;
+    final marginUsd = _marginUsd;
+    final ready = _hlReadyUsd();
+    final required = _hlRequiredUsdFor(marginUsd);
+    _fundingStartedAt = DateTime.now();
+    _fundingStage = null;
+    _trackFundingStep(OrderFundingStage.quote);
+    _updateDraft(() => _preparing = true);
+
+    // What the move costs, from the funder: the Move fee the ticket
+    // shows, and whether Dollars cover it.
+    final quoteStart = DateTime.now();
+    final double fundUsd;
+    try {
+      final quote = await ref
+          .read(hyperliquidVenueFunderProvider)
+          .estimate(shortfallUsd)
+          .timeout(const Duration(seconds: 8));
+      fundUsd = HyperliquidVenueFunder.fundUsdFor(
+          shortfallUsd: shortfallUsd, quote: quote);
+    } catch (e) {
+      _trackFundingFailed('quote', e);
+      _stopped('funding_quote', error: e);
+      if (mounted) {
+        _updateDraft(() {
+          _fundingStage = null;
+          _errorCause = e;
+          _errorText = _messageFor(e);
+        });
+      }
+      return;
+    }
+    final quoteMs = DateTime.now().difference(quoteStart).inMilliseconds;
+    if (!mounted) return;
+    final plan = _FundPlan(shortfallUsd: shortfallUsd, fundUsd: fundUsd);
+    _fundPlanKey = shortfallUsd.toStringAsFixed(2);
+    final dollars = _dollarsUsd();
+    TrackingService.track('order_funding_started', params: {
+      'venue': 'hyperliquid',
+      'order_usd': marginUsd,
+      'fund_usd': fundUsd,
+      'ready_usd': ready,
+      'dollars_usd': dollars,
+      'entry_source': _entrySource,
+      'wallet_kind': 'hot',
+      'order_kind': orderKind,
+      if (_positionEffectName != null) 'position_effect': _positionEffectName!,
+    });
+    if (dollars + 1e-9 < fundUsd) {
+      // Not enough Dollars for the move: the button becomes the Dollar
+      // deposit door for exactly what is missing. Nothing moved.
+      _trackFundingFailed('quote', null, category: 'insufficient_funds');
+      _stopped('insufficient_balance');
+      _updateDraft(() {
+        _fundingStage = null;
+        _fundPlan = plan;
+      });
+      return;
+    }
+
+    // One approval for the order AND the dollars that leave for it. The
+    // grant is held as the autofire grant: the rail's step-up hook reads
+    // its funding limits before the money moves, and the watcher
+    // consumes it against the exact order when it places it.
+    final pending = PendingHlOrderIntent(
+      coin: market.coin,
+      kind: market.kind,
+      isLong: _isLong,
+      marginUsd: marginUsd,
+      leverage: lev,
+      slippagePct: _mode == _OrderMode.market ? _slippagePct : 0,
+      expectedPx: mid,
+      marketLabel: isSpot
+          ? market.coin
+          : '${market.coin} · ${hlKindLabel(_strings, isSpot: false)}',
+      source: widget.source,
+      market: market,
+      placement: PendingHlOrderPlacement(
+        intentAt: (margin) => orderAt(margin).intent,
+        placeAt: (grant, margin) => orderAt(margin).place(grant),
+        resizable: resizable,
+        cloid: cloid,
+      ),
+      fundUsd: fundUsd,
+      requiredUsd: required,
+      readyAtQueueUsd: ready,
+      arrivingUsd: shortfallUsd,
+      orderKind: orderKind,
+      positionEffect: _positionEffectName,
+      entrySource: _entrySource,
+      quoteMs: quoteMs,
+    );
+    _trackStep('approval');
+    final approved =
+        pendingHlOrderAutofireIntent(pending, market, walletId: walletId);
+    final seam = debugHlOrderFundingApproval;
+    final grant = seam != null
+        ? await seam(approved)
+        : await requireFreshAuthGrant(
+            context,
+            ref,
+            intent: approved,
+            reason: context.l10n.stepUpReasonOrder(pending.marketLabel),
+            amountUsd: marginUsd,
+            autofireIntentId: kPendingHlOrderAutofireId,
+          );
+    if (grant == null || !mounted) {
+      if (grant == null) {
+        _stopped('signing_declined');
+        TrackingService.track('order_funding_abandoned', params: {
+          'venue': 'hyperliquid',
+          'stage': 'approval',
+        });
+      }
+      if (mounted) _updateDraft(() => _fundingStage = null);
+      return;
+    }
+
+    // Listen for the order's fill BEFORE anything moves, so a fast fill
+    // cannot slip between the placement and the subscription.
+    _orderFills.clear();
+    _fillSub?.cancel();
+    _fillSub =
+        ref.read(hyperliquidUserEventsProvider.notifier).fills.listen((f) {
+      if (f.coin != market.coin) return;
+      if (f.cloid != null && f.cloid != cloid) return;
+      _orderFills.add(f);
+      if (_attachTrailing) return;
+      if (_sentPlan != null) return;
+      _onFilled(sizeFilled: f.sz, avgPx: f.px);
+    });
+    _listenPending();
+    _updateDraft(() {
+      _isPlacing = true;
+      _preparing = false;
+      _fundingUsd = fundUsd;
+      _fundPlan = plan;
+      _errorText = null;
+      _errorCause = null;
+    });
+    _trackFundingStep(OrderFundingStage.fund);
+
+    final OrderFundingOutcome outcome;
+    try {
+      // The watcher that places the order on the credit, alive before
+      // the order is queued (the Investing screen normally keeps it so).
+      ref.read(pendingHlOrderAutoFireProvider);
+      outcome =
+          await ref.read(pendingHyperliquidOrderProvider.notifier).fundAndQueue(
+        pending,
+        grant: grant,
+        controller: ref.read(orderFundingControllerProvider),
+        orderUsd: marginUsd,
+        requiredUsd: required,
+        readyUsd: ready,
+        onStage: (stage) {
+          if (stage == OrderFundingStage.quote ||
+              stage == OrderFundingStage.fund) {
+            _trackFundingStep(stage);
+          }
+        },
+      );
+    } catch (e) {
+      _fundingFailedBeforeMove('fund', e, _messageFor(e));
+      return;
+    }
+    if (!mounted) return;
+    switch (outcome) {
+      case OrderFundingFunded(:final move):
+        _submitted = true;
+        TrackingService.track('order_funding_submitted', params: {
+          'venue': 'hyperliquid',
+          'fund_usd': move.sentUsd,
+          'amount_usd': marginUsd,
+          'quote_id': TrackingService.orderRef(move.quoteId),
+          'order_id': TrackingService.orderRef(move.orderId ?? ''),
+        });
+        _trackFundingStep(OrderFundingStage.credit);
+      case OrderFundingNotNeeded():
+        // The venue covered it after all: the watcher places it now.
+        _submitted = true;
+        _trackFundingStep(OrderFundingStage.credit);
+      case OrderFundingRefused(:final reason):
+        _fundingFailedBeforeMove('fund', reason, _strings.errorCopyGeneric);
+      case OrderFundingNeedsDollars(:final shortfallUsd):
+        // Dollars fell short once the controller quoted: the button
+        // becomes the Dollar deposit door for the difference.
+        _fillSub?.cancel();
+        _pendingSub?.close();
+        _pendingSub = null;
+        _trackFundingFailed('fund', null, category: 'insufficient_funds');
+        _stopped('insufficient_balance');
+        _updateDraft(() {
+          _isPlacing = false;
+          _fundingStage = null;
+          _fundPlan = _FundPlan(
+              shortfallUsd: shortfallUsd,
+              fundUsd: _dollarsUsd() + shortfallUsd);
+        });
+    }
+  }
+
+  /// The move stopped before any funds left: the queued order is gone
+  /// (the notifier cleared it with its grant), the ticket says why.
+  void _fundingFailedBeforeMove(String stage, Object? error, String message) {
+    _fillSub?.cancel();
+    _pendingSub?.close();
+    _pendingSub = null;
+    _trackFundingFailed(stage, error);
+    _lastErrorCategory = TrackingService.errorCategory(error);
+    _stopped('funding_refused', error: error);
+    if (!mounted) return;
+    _updateDraft(() {
+      _isPlacing = false;
+      _preparing = false;
+      _fundingStage = null;
+      _errorText = message;
+      _errorCause = error;
+    });
+  }
+
+  /// Follows the queued order from the credit to the placement: the
+  /// placing stage, then the venue's answer (the receipt, or the ticket
+  /// closing on an accepted order) or the failure, on this ticket.
+  void _listenPending() {
+    _pendingSub?.close();
+    _pendingSub = ref.listenManual(pendingHyperliquidOrderProvider,
+        (previous, next) {
+      if (!mounted || next == null) return;
+      switch (next.status) {
+        case PendingHlOrderStatus.placing:
+          _trackFundingStep(OrderFundingStage.order);
+          _trackStep('placing');
+        case PendingHlOrderStatus.done:
+          _onFundedPlaced(next);
+        case PendingHlOrderStatus.failed:
+          _onFundedFailed(next);
+        case PendingHlOrderStatus.awaitingDeposit:
+        case PendingHlOrderStatus.awaitingBalance:
+          break;
+      }
+    });
+  }
+
+  /// The watcher placed the funded order: the same receipt the direct
+  /// path shows (filled, resting, or accepted and closing the ticket).
+  Future<void> _onFundedPlaced(PendingHlOrderIntent intent) async {
+    if (_completed || !mounted) return;
+    _pendingSub?.close();
+    _pendingSub = null;
+    _fundingStage = null;
+    final result = intent.result;
+    if (result != null && result.filledSz > 0) {
+      if (intent.orderKind == 'market') {
+        await _placeAttachedTrailing(result.filledSz);
+        if (!mounted) return;
+      }
+      _onFilled(sizeFilled: result.filledSz, avgPx: result.avgPx);
+      return;
+    }
+    if (intent.orderKind != 'market') {
+      _onRestingAccepted();
+      return;
+    }
+    // Accepted but not (yet) filled — the WS listener / placing tile
+    // takes over; close the ticket so the person is not trapped.
+    if (!_completed) {
+      final navigator = Navigator.of(context, rootNavigator: true);
+      final ticketRoute = ModalRoute.of(context);
+      navigator.popUntil((route) => route == ticketRoute || route.isFirst);
+      if (ticketRoute?.isCurrent == true && navigator.canPop()) {
+        navigator.pop();
+      }
+    }
+  }
+
+  /// The funded order did not place (the credit never came, the grant
+  /// lapsed, the venue refused): the ticket shows the watcher's own
+  /// message, with the money where it is (the sweeper brings idle venue
+  /// cash home).
+  void _onFundedFailed(PendingHlOrderIntent intent) {
+    if (_completed || !mounted) return;
+    _pendingSub?.close();
+    _pendingSub = null;
+    _fillSub?.cancel();
+    _stopped('funding_failed');
+    _updateDraft(() {
+      _isPlacing = false;
+      _fundingStage = null;
+      _errorText = intent.errorMessage ?? _strings.errorCopyGeneric;
+      _errorCause = null;
+    });
   }
 
   // ── Step-up (Wallet Hardening Phase 1b.3) ───────────────────────────
@@ -1999,26 +2523,38 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         );
         return;
       }
-      // Hot ticket: prefilled with the order's own amount (the fees added
-      // only when the deposit alone would not cover it), on the spending
-      // source that covers it alone. The ticket stays open underneath with
-      // the same coin, side, size, leverage and order type. Everything the
-      // top-up is sized on is read here, at the tap.
-      final ready = _hlReadyUsd();
-      final required = _hlRequiredUsd();
-      setState(() => _depositCalculating = true);
-      await openSlipTopUp(
+      // Hot ticket: money only reaches Investing through an order funded
+      // from Dollars, so the door is the Dollar deposit, prefilled with
+      // what Dollars lack for this order's move. The ticket stays open
+      // underneath with the same coin, side, size, leverage and order
+      // type; once the Dollars are there the button is the order again.
+      final shortfall = _slipShortfallUsd;
+      final fundUsd = _fundPlanFor(shortfall).fundUsd;
+      final target = _dollarsShortUsd(fundUsd);
+      TrackingService.track('slip_top_up_opened', params: {
+        'venue': 'hyperliquid',
+        'shortfall_bucket': TrackingService.usdBucket(shortfall),
+        'top_up_bucket': TrackingService.usdBucket(target),
+        'prefill_rule': 'dollars_shortfall',
+        'suggested_source': 'dollars',
+      });
+      final seam = debugShowHlDollarsDeposit;
+      if (seam != null) {
+        await seam(MoveLockedSide.depositToUsd, target > 0 ? target : null);
+        return;
+      }
+      await showDepositSheet(
         context,
-        ref,
-        venue: SlipVenue.investing,
-        shortfallUsd: ShortfallRules.shortfallUsd(
-            requiredUsd: required, readyUsd: ready),
-        orderUsd: _marginUsd,
-        requiredUsd: required,
-        readyUsd: ready,
-        fallbackTargetUsd: _marginUsd > 0 ? _marginUsd : null,
-        onReturned: slipTopUpReturned,
-        onSheetOpening: _depositSheetOpening,
+        lockedSide: MoveLockedSide.depositToUsd,
+        initialTargetUsd: target > 0 ? target : null,
+        onCompleted: () {
+          if (!mounted) return;
+          TrackingService.track('slip_top_up_returned', params: {
+            'venue': 'hyperliquid',
+            'top_up_bucket': TrackingService.usdBucket(target),
+          });
+          slipTopUpReturned();
+        },
       );
     } catch (_) {
       if (mounted) {
@@ -2034,14 +2570,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           _depositCalculating = false;
         });
       }
-    }
-  }
-
-  /// The top-up is worked out: the door stops calculating while its Move
-  /// sheet is open.
-  void _depositSheetOpening() {
-    if (mounted && _depositCalculating) {
-      setState(() => _depositCalculating = false);
     }
   }
 
@@ -2076,8 +2604,13 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
 
   /// The venue cash this order takes: the margin with its price headroom
   /// plus fees.
-  double _hlRequiredUsd() => ShortfallRules.hyperliquidRequiredUsd(
-        marginUsd: _marginUsd,
+  double _hlRequiredUsd() => _hlRequiredUsdFor(_marginUsd);
+
+  /// [_hlRequiredUsd] for an order of [marginUsd] with the ticket's
+  /// leverage and slippage.
+  double _hlRequiredUsdFor(double marginUsd) =>
+      ShortfallRules.hyperliquidRequiredUsd(
+        marginUsd: marginUsd,
         leverage: isSpot ? 1 : _leverage,
         slippagePct: _mode == _OrderMode.market ? _slippagePct : 0,
       );
@@ -2107,11 +2640,13 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   }
 
   /// The market order for the ticket as it is now (placeSpotOrder or
-  /// openPosition).
-  _SlipOrder _marketOrder(String walletId, String cloid) {
+  /// openPosition), at [marginUsd] when a funded order goes out smaller
+  /// than typed. Every ticket value is read here, once: the call may run
+  /// from the auto-fire after the ticket is gone.
+  _SlipOrder _marketOrder(String walletId, String cloid, {double? marginUsd}) {
     final trading = ref.read(hyperliquidTradingProvider.notifier);
     final isLong = _isLong;
-    final marginUsd = _marginUsd;
+    final margin = marginUsd ?? _marginUsd;
     final slippagePct = _slippagePct;
     final source = widget.source;
     if (isSpot) {
@@ -2120,13 +2655,13 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           walletId: walletId,
           market: market,
           isBuy: isLong,
-          usd: marginUsd,
+          usd: margin,
           slippagePct: slippagePct,
         ),
         (grant) => trading.placeSpotOrder(
           market: market,
           isBuy: isLong,
-          usd: marginUsd,
+          usd: margin,
           slippagePct: slippagePct,
           source: source,
           cloid: cloid,
@@ -2138,12 +2673,13 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     final isCross = _isCross;
     final takeProfitPx = _attachTpSl ? _parse(_tpController) : null;
     final stopLossPx = _attachTpSl ? _parse(_slController) : null;
+    final changeOpenPosition = _leverageTouched;
     return _SlipOrder(
       HlIntents.openPosition(
         walletId: walletId,
         market: market,
         isLong: isLong,
-        marginUsd: marginUsd,
+        marginUsd: margin,
         leverage: leverage,
         slippagePct: slippagePct,
         isCross: isCross,
@@ -2153,7 +2689,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       (grant) => trading.openPosition(
         market: market,
         isLong: isLong,
-        marginUsd: marginUsd,
+        marginUsd: margin,
         leverage: leverage,
         slippagePct: slippagePct,
         isCross: isCross,
@@ -2161,10 +2697,74 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         stopLossPx: stopLossPx,
         source: source,
         cloid: cloid,
-        changeOpenPosition: _leverageTouched,
+        changeOpenPosition: changeOpenPosition,
         grant: grant,
       ),
     );
+  }
+
+  /// A margin-parameterised copy of [_marketOrder] with the ticket read
+  /// once, for the auto-fire to resize a funded market order after the
+  /// ticket's controllers are gone.
+  _SlipOrder Function(double marginUsd) _marketOrderAt(
+      String walletId, String cloid) {
+    final trading = ref.read(hyperliquidTradingProvider.notifier);
+    final isLong = _isLong;
+    final slippagePct = _slippagePct;
+    final source = widget.source;
+    final leverage = _leverage;
+    final isCross = _isCross;
+    final takeProfitPx = _attachTpSl ? _parse(_tpController) : null;
+    final stopLossPx = _attachTpSl ? _parse(_slController) : null;
+    final changeOpenPosition = _leverageTouched;
+    final spot = isSpot;
+    final mkt = market;
+    return (margin) => spot
+        ? _SlipOrder(
+            HlIntents.spotOrder(
+              walletId: walletId,
+              market: mkt,
+              isBuy: isLong,
+              usd: margin,
+              slippagePct: slippagePct,
+            ),
+            (grant) => trading.placeSpotOrder(
+              market: mkt,
+              isBuy: isLong,
+              usd: margin,
+              slippagePct: slippagePct,
+              source: source,
+              cloid: cloid,
+              grant: grant,
+            ),
+          )
+        : _SlipOrder(
+            HlIntents.openPosition(
+              walletId: walletId,
+              market: mkt,
+              isLong: isLong,
+              marginUsd: margin,
+              leverage: leverage,
+              slippagePct: slippagePct,
+              isCross: isCross,
+              takeProfitPx: takeProfitPx,
+              stopLossPx: stopLossPx,
+            ),
+            (grant) => trading.openPosition(
+              market: mkt,
+              isLong: isLong,
+              marginUsd: margin,
+              leverage: leverage,
+              slippagePct: slippagePct,
+              isCross: isCross,
+              takeProfitPx: takeProfitPx,
+              stopLossPx: stopLossPx,
+              source: source,
+              cloid: cloid,
+              changeOpenPosition: changeOpenPosition,
+              grant: grant,
+            ),
+          );
   }
 
   /// The Limit or Pro order for the ticket as it is now, or null in Market
@@ -2691,24 +3291,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     final changesPosition = heldPosition != null &&
         (heldPosition.leverageValue != _leverage ||
             (heldPosition.isCross && !market.onlyIsolated) != _isCross);
-    final gatesOpen = advancedBlock == null &&
-        openBlock == null &&
-        !insufficient &&
-        !_isPlacing &&
-        !_preparing &&
-        !priceStaleBlocks &&
-        !ledgerBlocked &&
-        !_ledgerBusy &&
-        !_ledgerPending &&
-        (!_isLedger || _ledgerAddress != null);
-    final canConfirm = formValid && gatesOpen;
-    // Nothing typed yet on a market order that has a minimum: the button
-    // is the order at that minimum, and a tap places exactly that.
-    final placesMinimum = _marginUsd <= 0 &&
-        _mode == _OrderMode.market &&
-        !_reduceOnly &&
-        !netPlan.opposes &&
-        minAmountUsd > 0;
     // Funding is navigation, so it does not depend on a complete order form.
     // Order validation still applies when the user returns with funds.
     final canDeposit = showDepositCta;
@@ -2736,6 +3318,42 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     // only "Add more" goes.
     final incoming =
         funding != null && funding.isIncoming && openBlock == null;
+    // Per-order funding (one balance): a hot ticket short of venue cash
+    // funds the difference from Dollars on the order's own tap. With
+    // nothing typed, the minimum order is what the move is sized for, so
+    // the empty ticket's button is still the order. Dollars that cannot
+    // cover the move make the button the Dollar deposit door instead.
+    final fundShortfall = _isLedger || !canDeposit || depositBlock != null
+        ? 0.0
+        : _shortfallNow(
+            marginUsd: _marginUsd > 0
+                ? _marginUsd
+                : (placesMinimumAmount(minAmountUsd) ? minAmountUsd : 0));
+    _slipShortfallUsd = fundShortfall;
+    _scheduleFundPlan(fundShortfall);
+    final fundPlan = fundShortfall > 0 ? _fundPlanFor(fundShortfall) : null;
+    final dollarsUsd = _dollarsUsd(watch: true);
+    final canFundFromDollars = fundPlan != null &&
+        openBlock == null &&
+        dollarsUsd + 1e-9 >= fundPlan.fundUsd;
+    _canFundFromDollars = canFundFromDollars;
+    final dollarsShort =
+        fundPlan == null ? 0.0 : _dollarsShortUsd(fundPlan.fundUsd);
+    final gatesOpen = advancedBlock == null &&
+        openBlock == null &&
+        (!insufficient || canFundFromDollars) &&
+        !_isPlacing &&
+        !_preparing &&
+        !priceStaleBlocks &&
+        !ledgerBlocked &&
+        !_ledgerBusy &&
+        !_ledgerPending &&
+        (!_isLedger || _ledgerAddress != null);
+    final canConfirm = formValid && gatesOpen;
+    // Nothing typed yet on a market order that has a minimum: the button
+    // is the order at that minimum, and a tap places exactly that.
+    final placesMinimum = placesMinimumAmount(minAmountUsd) &&
+        !netPlan.opposes;
 
     // The one line a Ledger carries that the hot ticket cannot tell the
     // user: what the device is about to ask for, or why it is shut. It
@@ -2914,19 +3532,30 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       primaryLabel = context.l10n.ledgerPmMakeAvailableCta;
       primaryAction = _ledgerBusy ? null : _ledgerMakeFundsAvailable;
       primaryNeutral = true;
+    } else if (_fundingStage != null && _isPlacing) {
+      // The order's own money is on its way from Dollars: the trade
+      // button, busy, saying so. Its own deposit row on its way must not
+      // read as a second deposit.
+      primaryKind = 'trade';
+      primaryLabel = _positionCtaLabel(netPlan) ?? _ctaLabel();
+      primaryAction = null;
+      primaryNeutral = false;
     } else if (incoming) {
       primaryKind = 'incoming';
       primaryLabel = context.l10n
           .slipDepositIncoming(formatHlUsd(funding.incomingUsd));
       primaryAction = null;
       primaryNeutral = true;
-    } else if (canDeposit) {
-      // Insufficient balance for this trade: open the Move sheet locked
-      // to Trading with the trade's margin prefilled (user decision: one
-      // deposit door, value already filled in). A Ledger ticket pins the
-      // move to its own account.
+    } else if (canDeposit && !canFundFromDollars) {
+      // Insufficient balance for this trade and Dollars cannot fund it:
+      // the hot ticket's button is the Dollar deposit door for what is
+      // missing ("Add $X to Investments"); a Ledger ticket keeps the Move
+      // sheet locked to its own Investing account with the margin
+      // prefilled.
       primaryKind = 'deposit';
-      primaryLabel = context.l10n.depositToTrade;
+      primaryLabel = !_isLedger && dollarsShort > 0
+          ? context.l10n.slipAddToInvestments(formatHlUsd(dollarsShort))
+          : context.l10n.depositToTrade;
       // Funding a position that cannot be opened here would only strand
       // the money, so the door shuts with the open gate too.
       primaryAction =
@@ -3067,7 +3696,13 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                     ? context.l10n.loadingAccount
                     : _depositCalculating && primaryKind == 'deposit'
                         ? context.l10n.feeUiCalculating
-                        : null,
+                        : _isPlacing &&
+                                _fundingStage != null &&
+                                _fundingStage != OrderFundingStage.order
+                            ? context.l10n.slipMovingToVenue(
+                                formatHlUsd(_fundingUsd),
+                                context.l10n.trading)
+                            : null,
                 color: c.textPrimary,
                 textColor: primaryNeutral
                     ? contrastingOnColor(c.textPrimary)
@@ -4410,10 +5045,23 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           maker: _mode == _OrderMode.limit && _postOnly,
           builder: !_isTwap,
           dex: market.dex,
-          hasFunds: hasFunds,
+          hasFunds: hasFunds || _canFundFromDollars,
           // The Ledger account's own fee tier, never the hot account's.
           address: _isLedger ? _ledgerAddress : null,
           useHotAccount: !_isLedger,
+          // What moving the shortfall from Dollars costs (the route's fee,
+          // with the gas float on an empty account folded in), inside the
+          // one fee row: added to the total, one "Move fee" detail. Only
+          // while the order needs the move.
+          moveFeeUsd: _slipShortfallUsd > 0 &&
+                  _fundPlan != null &&
+                  (_fundPlan!.shortfallUsd - _slipShortfallUsd).abs() < 0.005
+              ? _fundPlan!.moveFeeUsd
+              : null,
+          moveFeeLabel: _strings.slipMoveFee,
+          moveFeePending: _slipShortfallUsd > 0 &&
+              (_fundPlan == null ||
+                  (_fundPlan!.shortfallUsd - _slipShortfallUsd).abs() >= 0.005),
         ),
         // What this order will actually do, in one plain sentence, so the
         // type picked in Advanced is never a mystery at the button.

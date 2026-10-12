@@ -20,9 +20,10 @@ enum CashAppDestination {
   /// Orchestra catalogue: lightning:BTC reaches spark:USDB (its `to`
   /// rule is an except list that does not name the dollar token), so
   /// the onramp lands in dollars rather than buying bitcoin first.
-  /// The label is the only user-visible string here, and it says
-  /// dollars, never the token's own name.
-  dollars(kOrchestraUsdChain, kOrchestraUsdAssetCode, 'Dollars'),
+  /// The label is the only user-visible string here, and it names the
+  /// balance the way every source and destination row does
+  /// ("Investments"), never the token's own name.
+  dollars(kOrchestraUsdChain, kOrchestraUsdAssetCode, 'Investments'),
   predictions('polygon', 'USDC.e', 'Predictions'),
   investing('hypercore', 'USDC', 'Investing');
 

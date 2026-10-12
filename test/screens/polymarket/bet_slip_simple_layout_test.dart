@@ -21,6 +21,10 @@ import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/services/polymarket/placement_waits.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/swap_orders_provider.dart';
+import 'package:kute/providers/usd_account_provider.dart'
+    show usdBalanceProvider;
+import 'package:kute/services/one_balance/predictions_venue_funder.dart'
+    show PredictionsVenueFunder;
 import 'package:kute/services/polymarket/polymarket_fee_terms.dart';
 import 'package:kute/screens/polymarket/components/bet_slip_sheet.dart';
 import 'package:kute/screens/polymarket/components/slip_chrome.dart';
@@ -108,6 +112,10 @@ Future<void> _pumpSlip(WidgetTester tester,
     // in; null opens empty like a plain tap does.
     double? initialAmountUsd = 10,
     String? ledgerWalletId,
+    // One balance: the spending account's Dollars. Zero, so a short bet
+    // shows the Dollars door ("Add $X to Investments") like the old
+    // deposit door did; a balance that covers the move shows the bet.
+    double dollars = 0,
     bool settle = true}) async {
   tester.view.physicalSize = Size(width, height);
   tester.view.devicePixelRatio = 1;
@@ -132,11 +140,12 @@ Future<void> _pumpSlip(WidgetTester tester,
       livePriceProvider.overrideWith(_Prices.new),
       polymarketOpenOrdersProvider.overrideWith((ref) => Stream.value(orders)),
       aiEnabledProvider.overrideWith((ref) async => false),
-      if (feeTerms != null) ...[
+      usdBalanceProvider.overrideWithValue(dollars),
+      // A fee figure (the venue's, the move's) formats through the app's
+      // rates, whose real notifier opens Hive.
+      currencyProvider.overrideWith((ref) => _Currency()),
+      if (feeTerms != null)
         polymarketFeeTermsProvider.overrideWith((ref, _) async => feeTerms),
-        // A fee figure formats through the app's rates.
-        currencyProvider.overrideWith((ref) => _Currency()),
-      ],
       ...extraOverrides,
     ],
     child: ScreenUtilInit(
@@ -213,7 +222,13 @@ Future<void> _release(
 }
 
 void main() {
-  setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
+  setUp(() {
+    GoogleFonts.config.allowRuntimeFetching = false;
+    // The short slip reads the venue's estimate for its "Move fee" row:
+    // a route keeping nothing, answered at once, never the network.
+    PredictionsVenueFunder.debugRouteShare = (_) async => 0;
+  });
+  tearDown(() => PredictionsVenueFunder.debugRouteShare = null);
 
   testWidgets('simple slip keeps selection, amount, payout and fees visible',
       (tester) async {
@@ -297,7 +312,7 @@ void main() {
   testWidgets('empty Predictions balance offers deposit directly',
       (tester) async {
     await _pumpSlip(tester, balance: 0);
-    expect(find.text('Deposit to predict'), findsOneWidget);
+    expect(find.textContaining('to Investments'), findsOneWidget);
     expect(find.text('Max'), findsNothing);
     expect(find.text('Enter an amount'), findsNothing);
     expect(tester.takeException(), isNull);
@@ -412,7 +427,7 @@ void main() {
       expect(await policy.refresh(), isTrue);
       // $5 cannot cover the $10 default stake.
       await _pumpSlip(tester, balance: 5);
-      expect(door(tester).label, 'Deposit to predict');
+      expect(door(tester).label, startsWith(r'Add $'));
       expect(door(tester).enabled, isFalse);
       expect(find.text('This feature is currently unavailable in Kute.'),
           findsOneWidget);
@@ -669,7 +684,7 @@ void main() {
       await tester.pumpAndSettle();
       final scroll =
           find.byKey(const ValueKey('prediction-advanced-form-scroll'));
-      final action = find.text('Deposit to predict');
+      final action = find.textContaining('to Investments');
       final position = tester
           .state<ScrollableState>(find
               .descendant(of: scroll, matching: find.byType(Scrollable))
@@ -706,7 +721,7 @@ void main() {
     expect(position.maxScrollExtent, 0);
     final action = find
         .ancestor(
-            of: find.text('Deposit to predict'), matching: find.byType(InkWell))
+            of: find.textContaining('to Investments'), matching: find.byType(InkWell))
         .first;
     expect(tester.getRect(action).bottom, closeTo(1600 - 16 * 1600 / 932, 1));
     expect(tester.takeException(), isNull);

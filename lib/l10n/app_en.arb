@@ -2031,7 +2031,7 @@
   "activityDepositReceived": "Deposit Received",
   "activityApproved": "Approved",
   "activityProcessingEllipsis": "Processing…",
-  "usdAccountTab": "Dollars",
+  "usdAccountTab": "Investments",
   "activityFromAmount": "from {amount}",
   "@activityFromAmount": {
     "placeholders": {
@@ -3188,13 +3188,13 @@
   "moveWithdrawPredictions": "Withdraw from Predictions",
   "moveWithdrawInvesting": "Withdraw from Investing",
   "moveBuyBitcoin": "Buy bitcoin",
-  "dollarDeposit": "Dollar deposit",
+  "dollarDeposit": "Investments deposit",
   "dollarWithdrawal": "Dollar withdrawal",
   "@dollarWithdrawal": {
     "description": "The other side of dollarDeposit: money leaving the dollar balance. Same mark."
   },
   "@dollarDeposit": {
-    "description": "The ONE label for the door that funds the dollar balance: the button on the Dollars screen, the Move sheet title, and the payment method's second line. Always shown beside the shared dollar mark."
+    "description": "The ONE label for the door that funds the dollar balance (the Investments balance): the button on the Investments screen, the Move sheet title, and the payment method's second line. Shown beside the Investments arrow, the Home deposit button's icon."
   },
   "moveSellBitcoin": "Sell bitcoin",
   "moveTransfer": "Move money",
@@ -3332,6 +3332,10 @@
   "investingFundingReceived": "Funding received",
   "investingDepositsUnavailable": "Investing deposits are temporarily unavailable",
   "investingWithdrawalsUnavailable": "Investing withdrawals are temporarily unavailable",
+  "investingNeedsDollarsForNetworkFee": "Add about $1 to Dollars to cover the network fee for this move. Nothing was sent.",
+  "@investingNeedsDollarsForNetworkFee": {
+    "description": "Investing move stopped before anything moved: the small HYPE float that pays network fees needs about $1 from Dollars (or Bitcoin) and neither balance has it."
+  },
   "betReceiptCost": "Cost",
   "betReceiptPayout": "Payout if you win",
   "betReceiptUpdating": "Final amounts are updating.",
@@ -3438,13 +3442,13 @@
   "sendEstimatedNetworkFee": "Estimated network fee",
   "searchInvestmentsHint": "Search investments",
   "searchPredictionsHint": "Search predictions",
-  "assetDollars": "Dollars",
+  "assetDollars": "Investments",
   "@assetDollars": {
-    "description": "Name of the dollar balance as an asset row in the cross asset pickers."
+    "description": "Name of the dollar balance (Investments) as a source or destination row: the cross asset pickers, the Move route card, the move overlays. Its row wears the Investments arrow, never the USDB coin."
   },
-  "moveSourceDollarsSubtitle": "Pay with your dollar balance",
+  "moveSourceDollarsSubtitle": "Pay with your Investments balance",
   "@moveSourceDollarsSubtitle": {
-    "description": "Second line on the Dollars row in the move sheet source picker, where the dollar balance funds a venue deposit."
+    "description": "Second line on the Investments row in the move sheet source picker, where the dollar balance funds a venue deposit or a bitcoin buy."
   },
   "sendDollarAccountAddressHint": "Dollar account address",
   "@sendDollarAccountAddressHint": {
@@ -3747,9 +3751,9 @@
   "@moveWithdrawDestinationHint": {
     "description": "Hint under the title of the two-entry picker that chooses what a venue withdrawal delivers: bitcoin or dollars."
   },
-  "moveDestDollarsSubtitle": "Into your dollar balance",
+  "moveDestDollarsSubtitle": "Into your Investments balance",
   "@moveDestDollarsSubtitle": {
-    "description": "Second line on the Dollars row of the withdrawal destination picker."
+    "description": "Second line on the Investments row of the withdrawal destination picker."
   },
   "moveConversionOngoing": "Conversion ongoing",
   "@moveConversionOngoing": {
@@ -6480,5 +6484,76 @@
         "type": "String"
       }
     }
+  },
+  "investmentsTotal": "Investments total",
+  "@investmentsTotal": {
+    "description": "Label of the total of every venue's holdings on the one-balance home."
+  },
+  "oneBalanceMovingTo": "{amount} moving to {venue}",
+  "@oneBalanceMovingTo": {
+    "description": "In-flight line on the one-balance home for dollars leaving the spending account for a venue. {amount} is a formatted dollar amount, {venue} the venue's display name.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "venue": {
+        "type": "String"
+      }
+    }
+  },
+  "oneBalanceComingBack": "{amount} coming back from {venue}",
+  "@oneBalanceComingBack": {
+    "description": "In-flight line on the one-balance home for dollars leaving a venue for the spending account. {amount} is a formatted dollar amount, {venue} the venue's display name.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "venue": {
+        "type": "String"
+      }
+    }
+  },
+  "oneBalanceWaitingToWithdraw": "{amount} unavailable until balancing completes",
+  "@oneBalanceWaitingToWithdraw": {
+    "description": "Line on the one-balance home for idle venue cash the sweeper has not brought home yet. {amount} is a formatted dollar amount.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "oneBalanceIncoming": "Incoming {amount}",
+  "@oneBalanceIncoming": {
+    "description": "Line on the one-balance home for a receive still confirming. {amount} is a formatted dollar amount.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "slipMovingToVenue": "Moving {amount} to {venue}",
+  "@slipMovingToVenue": {
+    "description": "Progress line on an order slip while the shortfall is funded from the spending account. {amount} is a formatted dollar amount, {venue} the venue's display name.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "venue": {
+        "type": "String"
+      }
+    }
+  },
+  "slipAddToInvestments": "Add {amount} to Investments",
+  "@slipAddToInvestments": {
+    "description": "Button on an order slip that moves the shortfall into the venue before placing the order. {amount} is a formatted dollar amount.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "slipMoveFee": "Move fee",
+  "@slipMoveFee": {
+    "description": "Row label on an order slip for the cost of moving the shortfall into the venue."
   }
 }

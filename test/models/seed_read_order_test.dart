@@ -3,8 +3,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/models/auth_model.dart';
 import 'package:kute/services/auth/pin_encryption.dart';
 import 'package:kute/services/auth/pin_hash.dart';
+import 'package:kute/models/settings_model.dart';
 import 'package:kute/services/onchain/native_onchain_service.dart';
+import 'package:kute/services/secure/legacy_keychain_rescue.dart';
+import 'package:kute/services/secure/secret_store.dart';
+import 'package:kute/services/tracking_service.dart';
 
+import '../services/support/fake_legacy_keychain_lookup.dart';
 import '../services/support/fake_secret_store.dart';
 import '../services/support/recording_secret_store.dart';
 
@@ -280,6 +285,122 @@ void main() {
       final read = await auth.readMnemonic('w1',
           access: SeedAccess.automatic, session: unlocked);
       expect((read as SeedOk).source, SeedSource.v2Synced);
+    });
+  });
+
+  group('legacy Keychain copies (iOS)', () {
+    late FakeLegacyKeychainLookup lookup;
+    late List<(String, Map<String, Object>?)> events;
+    final w1 = WalletConfig(id: 'w1', name: 'Wallet', sparkEnabled: true);
+
+    setUp(() {
+      lookup = FakeLegacyKeychainLookup(keychain);
+      events = [];
+      TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+      auth = AuthModel(
+        store: keychain.local,
+        syncedStore: keychain.synced,
+        legacyLookup: lookup,
+        rescue: LegacyKeychainRescue(
+          lookup: lookup,
+          store: keychain.local,
+          syncedStore: keychain.synced,
+          validate: (m) async => m == phrase,
+          deriveAddress: (m, _) async => m == phrase ? '0xAAAA' : '0xBBBB',
+          isCupertino: true,
+        ),
+        wallets: () async => [w1],
+      );
+    });
+
+    tearDown(() => TrackingService.debugTrackObserver = null);
+
+    void seedLegacy(String key, String value) =>
+        keychain.seed(key, value, options: legacyAccessibility);
+    Map<String, Object>? paramsOf(String event) =>
+        events.where((e) => e.$1 == event).map((e) => e.$2).firstOrNull;
+
+    test('a plain V2 copy is validated, re-saved in place and served',
+        () async {
+      seedLegacy(v2Key, phrase);
+      final read = await auth.readMnemonic('w1',
+          access: SeedAccess.automatic, session: unlocked);
+      expect((read as SeedOk).source, SeedSource.v2Local);
+      expect(read.value, phrase);
+      expect(ops(), ['writeLocalOnly:$v2Key']);
+      expect((await keychain.local.read(key: v2Key)).valueOrThrow(), phrase);
+      expect(paramsOf('seed_rescue_restored'),
+          {'source': 'read', 'era': 'b', 'check': 'none'});
+
+      // Readable through the store now: the lookup is not consulted again.
+      final before = lookup.reads.length;
+      await auth.readMnemonic('w1',
+          access: SeedAccess.automatic, session: unlocked);
+      expect(lookup.reads, hasLength(before));
+    });
+
+    test('a plain copy that mismatches the wallet is not served', () async {
+      seedLegacy(v2Key, 'zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo wrong');
+      final read = await auth.readMnemonic('w1',
+          access: SeedAccess.automatic, session: unlocked);
+      expect((read as SeedUnavailable).reason, SeedUnavailableReason.absent);
+      expect(keychain.mutations, isEmpty);
+      expect(paramsOf('seed_rescue_failed')!['reason'], 'invalidPhrase');
+    });
+
+    test('an encrypted V1 copy decrypts with the typed PIN and is re-saved',
+        () async {
+      final blob = PinEncryptionHelper.encryptData(phrase, '123456');
+      seedLegacy('mnemonic_w1', blob);
+      final read = await auth.readMnemonic('w1',
+          access: SeedAccess.automatic,
+          session: const SeedSession(unlocked: true, typedPin: '123456'));
+      expect((read as SeedOk).source, SeedSource.v1);
+      expect(read.value, phrase);
+      expect(ops(), ['writeLocalOnly:$v2Key', 'writeLocalOnly:mnemonic_w1']);
+      expect(keychain.peek(v2Key), phrase);
+      expect(keychain.peek('mnemonic_w1'), blob);
+      expect(paramsOf('seed_rescue_restored'),
+          {'source': 'read', 'era': 'a', 'check': 'none'});
+    });
+
+    test('an encrypted copy decrypts with a kept biometric_pin', () async {
+      keychain
+        ..seed('pin_hash', PinHashHelper.hashPin('123456'))
+        ..seed('biometric_pin', '123456');
+      seedLegacy('mnemonic_w1', PinEncryptionHelper.encryptData(phrase, '123456'));
+      final read = await auth.readMnemonic('w1',
+          access: SeedAccess.automatic, session: unlocked);
+      expect((read as SeedOk).value, phrase);
+      expect(keychain.peek(v2Key), phrase);
+    });
+
+    test('an encrypted copy without a PIN source is locked, not absent',
+        () async {
+      seedLegacy('mnemonic_w1', PinEncryptionHelper.encryptData(phrase, '123456'));
+      expect(
+          await auth.readMnemonic('w1',
+              access: SeedAccess.automatic, session: unlocked),
+          isA<SeedLocked>());
+      expect(keychain.mutations, isEmpty);
+    });
+
+    test('an encrypted copy under another PIN is unreadable and kept',
+        () async {
+      seedLegacy('mnemonic_w1', PinEncryptionHelper.encryptData(phrase, '000000'));
+      final read = await auth.readMnemonic('w1',
+          access: SeedAccess.interactive,
+          session: const SeedSession(typedPin: '123456'));
+      expect((read as SeedUnavailable).reason, SeedUnavailableReason.unreadable);
+      expect(keychain.mutations, isEmpty);
+      expect(paramsOf('seed_rescue_failed')!['reason'], 'wrongPin');
+    });
+
+    test('a copy the store reads never reaches the lookup', () async {
+      keychain.seed(v2Key, phrase);
+      await auth.readMnemonic('w1',
+          access: SeedAccess.automatic, session: unlocked);
+      expect(lookup.reads, isEmpty);
     });
   });
 }

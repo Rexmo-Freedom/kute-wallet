@@ -84,7 +84,7 @@ import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/asset_network_picker.dart';
 import 'package:kute/screens/shared/coin_asset_grid.dart';
 import 'package:kute/providers/asset_icon_provider.dart'
-    show SafeSvgNetwork, kUsdMarkAsset;
+    show SafeSvgNetwork, kInvestmentsIcon;
 import 'package:kute/screens/shared/kute_skeleton.dart';
 import 'package:kute/screens/shared/btc_amount_text.dart';
 import 'package:kute/screens/shared/custom_button.dart';
@@ -674,15 +674,34 @@ class _DestAsset {
   final String name;
   final String? iconUrl;
   final String? svgAsset;
+
+  /// Glyph mark: the Investments arrow on the dollar balance's row,
+  /// drawn the way the Move route card draws its glyph endpoints.
+  final IconData? icon;
   final Color color;
   _DestAsset(
       {required this.code,
       required this.name,
       required this.color,
       this.iconUrl,
-      this.svgAsset});
+      this.svgAsset,
+      this.icon});
 
   Widget iconWidget({required double size}) {
+    if (icon != null) {
+      return Builder(builder: (context) {
+        final c = context.colors;
+        return Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            color: c.textPrimary.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(size * 0.3),
+          ),
+          child: Icon(icon, color: c.textPrimary, size: size * 0.56),
+        );
+      });
+    }
     if (svgAsset != null) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(size * 0.3),
@@ -2296,9 +2315,11 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
                     // the dollar row.
                     : (top?.name ?? row.displayName),
                 color: _getCoinColor(normCode),
-                // The dollar balance has a local mark; the catalogue
-                // ships no artwork for it.
-                svgAsset: isDollars ? kUsdMarkAsset : top?.svgAsset,
+                // The dollar balance as a destination wears the
+                // Investments arrow, never the USDB coin; the catalogue
+                // ships no artwork for it either way.
+                svgAsset: isDollars ? null : top?.svgAsset,
+                icon: isDollars ? kInvestmentsIcon : null,
                 // No local brand SVG → the same remote mark the picker
                 // row showed, so the selection summary and the
                 // transaction modal stay visually consistent.
@@ -2852,7 +2873,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
       return;
     }
     // Spark hot wallet with a live Orchestra quote. 100% resolves
-    // here, when the quote is requested: the freshly synced Spark
+    // here, when the quote is requested: the SDK's cached Spark
     // balance, not the figure the chip seeded on the Amount step. A
     // Spark-to-Spark deposit has no fee on top, so the whole balance
     // is what the quote asks for and the SDK sends.
