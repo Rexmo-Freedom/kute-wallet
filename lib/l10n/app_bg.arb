@@ -2330,6 +2330,7 @@
   "predictLiveRound": "Рунд на живо",
   "predictUpOrDown": "{asset} нагоре или надолу {minutes}м",
   "predictTargetPrice": "Цел {price}",
+  "predictPastRounds": "Предишни рундове",
   "predictNoOpenMarketsCategory": "В момента няма отворени пазари в тази категория",
   "predictSharesCount": "{count} дяла",
   "predictStartsIn": "Започва след {time}",

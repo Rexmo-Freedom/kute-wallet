@@ -2330,6 +2330,7 @@
   "predictLiveRound": "Élő kör",
   "predictUpOrDown": "{asset} fel vagy le {minutes} p",
   "predictTargetPrice": "Cél: {price}",
+  "predictPastRounds": "Korábbi körök",
   "predictNoOpenMarketsCategory": "Ebben a kategóriában most nincs nyitott piac",
   "predictSharesCount": "{count} egység",
   "predictStartsIn": "Kezdés: {time} múlva",

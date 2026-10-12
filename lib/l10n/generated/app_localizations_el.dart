@@ -8200,6 +8200,9 @@ class AppLocalizationsEl extends AppLocalizations {
   }
 
   @override
+  String get predictPastRounds => 'Προηγούμενοι γύροι';
+
+  @override
   String get predictNoOpenMarketsCategory =>
       'Δεν υπάρχουν ανοιχτές αγορές σε αυτή την κατηγορία αυτή τη στιγμή';
 

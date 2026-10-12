@@ -22,6 +22,8 @@ import 'package:kute/providers/polymarket_user_channel_provider.dart';
 import 'package:kute/screens/polymarket/components/live_game.dart';
 import 'package:kute/providers/polymarket_watchlist_provider.dart';
 import 'package:kute/screens/polymarket/components/live_token_scope.dart';
+import 'package:kute/screens/polymarket/components/crypto_odds_scope.dart';
+import 'package:kute/providers/crypto_live_odds_provider.dart';
 import 'package:kute/screens/polymarket/components/market_card.dart';
 import 'package:kute/screens/polymarket/components/poly_category_icons.dart';
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
@@ -32,6 +34,7 @@ import 'package:kute/screens/polymarket/components/price_format.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/screens/polymarket/components/poly_browse_bar.dart';
 import 'package:kute/services/polymarket/crypto_round.dart';
+import 'package:kute/services/polymarket/crypto_window_results.dart';
 import 'package:kute/screens/polymarket/market_detail_sheet.dart';
 import 'package:kute/screens/shared/investment_action_bar.dart';
 import 'package:kute/screens/shared/investment_balance_header.dart';
@@ -1001,13 +1004,6 @@ class _PolyFeedCard extends ConsumerWidget {
 /// countdown, live CLOB odds on the Up/Down buttons) and reused by
 /// `FiveMinMarketDetailSheet` to surface the same widget in detail-sheet
 /// form when a 5-min market is opened from the grid.
-/// How old a CLOB live odds tick may be before [CryptoPredictBanner]
-/// stops trusting it and falls back to the 10s Gamma poll. Generous
-/// against a thin 5-min book's frame gaps, tight enough that a silently
-/// dead feed (stalled socket, exhausted reconnects) hands over within
-/// one window's opening seconds.
-const _kLiveOddsMaxAge = Duration(seconds: 30);
-
 /// Registers its subtree in [cryptoCardsOnScreenProvider] while
 /// tickers are enabled there. A hidden shell branch turns tickers off
 /// (`Offstage` + `TickerMode`), so a banner counts only while it can be
@@ -1095,6 +1091,15 @@ class CryptoPredictBanner extends ConsumerWidget {
     ];
   }
 
+  /// A price difference in dollars: cents above $1 (polymarket.com prints
+  /// "$309.98"), four decimals below.
+  static String _formatDiff(double diff) {
+    if (diff >= 1) {
+      return '\$${NumberFormat('#,##0.00', 'en_US').format(diff)}';
+    }
+    return '\$${diff.toStringAsFixed(4)}';
+  }
+
   String _formatPrice(double? price) {
     if (price == null) return '—';
     if (price >= 1000) {
@@ -1119,8 +1124,14 @@ class CryptoPredictBanner extends ConsumerWidget {
             epochSeconds: targetWindowEpoch,
           )));
     final predictState = predictAsync.asData?.value;
+    // The window length on screen: the chips' choice for the rolling
+    // card, five minutes for a specific window.
+    final minutes = targetWindowEpoch == null
+        ? ref.watch(cryptoPredictWindowProvider)
+        : 5;
     final upPctPolled = predictState?.upPct ?? 50;
-    final countdown = predictState?.countdownText ?? '05:00';
+    final countdown = predictState?.countdownText ??
+        '${minutes.toString().padLeft(2, '0')}:00';
     final priceStr = _formatPrice(predictState?.currentPrice);
 
     // Don't render if event couldn't be loaded (asset not on Polymarket)
@@ -1157,41 +1168,24 @@ class CryptoPredictBanner extends ConsumerWidget {
     );
 
     // --- LIVE odds wiring ---
-    // The 10s polling cadence in CryptoPredictNotifier is too slow
-    // for the up/down odds bar to feel alive. The [LiveTokenScope]
-    // wrapping this banner (see the return below) subscribes the
-    // event's up/down CLOB token IDs on the order-book WS
-    // (livePriceProvider), re-registers them when the 5-min window
-    // rolls to new tokens, and releases them on unmount.
+    // The [LiveTokenScope] wrapping this banner (see the return below)
+    // keeps the event's up/down CLOB tokens on the order-book socket,
+    // re-registering them when the window rolls to new tokens; the
+    // [CryptoOddsScope] inside it registers the Up token with
+    // [cryptoLiveOddsProvider], which reads the live book raw (midpoint,
+    // or last trade on a book wider than 10¢), with no smoothing window
+    // or band, and the CLOB's REST midpoint every 1.5 s while the socket
+    // has no current book. It drops a chance nobody confirmed for 10 s,
+    // and then the market list's price (Gamma, polled every 10 s) shows.
     final upTokenId = predictState?.event?.upTokenId;
     final downTokenId = predictState?.event?.downTokenId;
-
-    // Watch live prices for just this event's tokens — `.select`
-    // narrows rebuilds so this banner only repaints when *its*
-    // token prices move, not on every WS event for the wider app.
-    // The CLOB price is trusted only while the feed reports live AND
-    // this token ticked within [_kLiveOddsMaxAge]: a stalled feed
-    // (dead socket, exhausted reconnects) otherwise pins the `??`
-    // fallback off forever and the buttons freeze while the price
-    // chart keeps moving — the polled Gamma odds below refresh every
-    // 10s, so they take over within one staleness window. The 1s
-    // countdown rebuild re-evaluates this gate even when no live
-    // frame arrives to trigger it.
-    final nowMs = DateTime.now().millisecondsSinceEpoch;
     final liveUpPriceRaw = ref.watch(
-      livePriceProvider.select((s) {
-        if (upTokenId == null || !s.live) return null;
-        final tickedAt = s.updatedAtMs[upTokenId];
-        if (tickedAt == null ||
-            nowMs - tickedAt > _kLiveOddsMaxAge.inMilliseconds) {
-          return null;
-        }
-        return s.prices[upTokenId];
-      }),
+      cryptoLiveOddsProvider
+          .select((s) => upTokenId == null ? null : s[upTokenId]?.up),
     );
 
     // Resolve "up" probability (0..1):
-    //   1. live order-book mid if it's actually fresh
+    //   1. the live book, raw, else the REST midpoint (1.5 s)
     //   2. polled state from the 10s notifier
     //   3. 0.50 fallback
     final livePctUp = liveUpPriceRaw ?? (upPctPolled / 100.0);
@@ -1209,7 +1203,7 @@ class CryptoPredictBanner extends ConsumerWidget {
       // five minutes is the fallback.
       final end = event!.endDate!.toLocal();
       final start = (event.windowStartTime ??
-              event.endDate!.subtract(const Duration(minutes: 5)))
+              event.endDate!.subtract(Duration(minutes: minutes)))
           .toLocal();
       final dateStr = DateFormat('MMM d').format(start);
       final startTime = DateFormat('h:mm').format(start);
@@ -1220,6 +1214,27 @@ class CryptoPredictBanner extends ConsumerWidget {
     }
     final priceToBeat = predictState?.priceToBeat;
     final priceToBeatStr = _formatPrice(priceToBeat);
+    // How far the live price is from the price to beat, as polymarket.com
+    // prints it beside the current price ("▲ $12.34"), in the market's
+    // up/down colors.
+    final currentPrice = predictState?.currentPrice;
+    final double? diffToBeat = currentPrice != null && priceToBeat != null
+        ? currentPrice - priceToBeat
+        : null;
+    // The windows before this one, for the results strip under the chart.
+    final windowStart = event?.windowStartTime;
+    final resultsKey = windowStart == null
+        ? null
+        : (
+            asset: config.asset,
+            minutes: minutes,
+            currentStart: windowStart.millisecondsSinceEpoch ~/ 1000,
+          );
+    final pastResults = resultsKey == null
+        ? const <CryptoWindowResult>[]
+        : ref.watch(cryptoRecentResultsProvider(resultsKey)).valueOrNull ??
+            carriedCryptoResults(
+                resultsKey.asset, resultsKey.minutes, resultsKey.currentStart);
     final String? feedName = switch (predictState?.feed) {
       CryptoPriceFeed.binance => 'Binance',
       CryptoPriceFeed.coingecko => 'CoinGecko',
@@ -1245,7 +1260,7 @@ class CryptoPredictBanner extends ConsumerWidget {
     // market that resolves before the swap lands. Fall back to the
     // slug-derived window start + 5 min when Gamma omitted endDate.
     final DateTime? marketEndAt = event?.endDate ??
-        event?.windowStartTime?.add(const Duration(minutes: 5));
+        event?.windowStartTime?.add(Duration(minutes: minutes));
 
     // Counts this banner as on screen while its tickers run, so the
     // shared Chainlink feed also streams when it is shown outside the
@@ -1256,6 +1271,8 @@ class CryptoPredictBanner extends ConsumerWidget {
         if (upTokenId != null && upTokenId.isNotEmpty) upTokenId,
         if (downTokenId != null && downTokenId.isNotEmpty) downTokenId,
       ],
+      child: CryptoOddsScope(
+      token: upTokenId,
       child: Container(
         padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 14.h),
         decoration: BoxDecoration(
@@ -1311,7 +1328,7 @@ class CryptoPredictBanner extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        context.l10n.predictUpOrDown(config.asset, 5),
+                        context.l10n.predictUpOrDown(config.asset, minutes),
                         style: TextStyle(
                           color: c.textPrimary,
                           fontSize: 17.sp,
@@ -1417,6 +1434,22 @@ class CryptoPredictBanner extends ConsumerWidget {
                           ),
                         ),
                       ),
+                      if (diffToBeat != null) ...[
+                        SizedBox(width: 8.w),
+                        Text(
+                          '${diffToBeat >= 0 ? '▲' : '▼'} '
+                          '${_formatDiff(diffToBeat.abs())}',
+                          style: TextStyle(
+                            color: diffToBeat >= 0
+                                ? AppColors.marketUp
+                                : AppColors.marketDown,
+                            fontSize: 13.sp,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -0.1,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                      ],
                       if (feedName != null) ...[
                         SizedBox(width: 6.w),
                         Text(
@@ -1470,6 +1503,10 @@ class CryptoPredictBanner extends ConsumerWidget {
                 showHeader: false,
               ),
             SizedBox(height: 10.h),
+            if (pastResults.isNotEmpty) ...[
+              _CryptoPastRounds(results: pastResults),
+              SizedBox(height: 10.h),
+            ],
 
             // De-emphasized probability split below the chart. The Up /
             // Down CTAs now carry the live odds as their labels, so the
@@ -1519,7 +1556,7 @@ class CryptoPredictBanner extends ConsumerWidget {
                       BetSlipSheet.show(context,
                           marketQuestion:
                               event?.title ??
-                                  context.l10n.predictUpOrDown(config.asset, 5),
+                                  context.l10n.predictUpOrDown(config.asset, minutes),
                           marketSlug: event?.slug,
                           marketImage: event?.image,
                           outcomes: outcomes,
@@ -1553,7 +1590,7 @@ class CryptoPredictBanner extends ConsumerWidget {
                       BetSlipSheet.show(context,
                           marketQuestion:
                               event?.title ??
-                                  context.l10n.predictUpOrDown(config.asset, 5),
+                                  context.l10n.predictUpOrDown(config.asset, minutes),
                           marketSlug: event?.slug,
                           marketImage: event?.image,
                           outcomes: outcomes,
@@ -1572,7 +1609,70 @@ class CryptoPredictBanner extends ConsumerWidget {
           ],
         ),
       ),
-    ));
+    )));
+  }
+}
+
+/// How the last few windows ended, oldest first: a quiet label and one
+/// mark per window (an up or down arrow in the market colors, a hairline
+/// circle while a window is still settling), the row polymarket.com shows
+/// beside its "Past" menu.
+class _CryptoPastRounds extends StatelessWidget {
+  const _CryptoPastRounds({required this.results});
+
+  final List<CryptoWindowResult> results;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    Widget mark(bool? up) {
+      final size = 16.sp;
+      if (up == null) {
+        return Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            color: c.surfaceLight,
+            shape: BoxShape.circle,
+            border: Border.all(color: c.borderSubtle, width: 0.5),
+          ),
+        );
+      }
+      final color = up ? AppColors.marketUp : AppColors.marketDown;
+      return Semantics(
+        label: up ? context.l10n.upLabel : context.l10n.downLabel,
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          alignment: Alignment.center,
+          child: Icon(
+            up ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
+            size: 11.sp,
+            color: contrastingOnColor(color),
+          ),
+        ),
+      );
+    }
+
+    return Row(
+      children: [
+        Text(
+          context.l10n.predictPastRounds,
+          style: TextStyle(
+            color: c.textTertiary,
+            fontSize: 12.sp,
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.1,
+          ),
+        ),
+        SizedBox(width: 8.w),
+        for (var i = 0; i < results.length; i++) ...[
+          if (i > 0) SizedBox(width: 4.w),
+          mark(results[i].up),
+        ],
+      ],
+    );
   }
 }
 
@@ -1778,11 +1878,11 @@ class _FiveMinTile extends ConsumerWidget {
 
     final upToken = ev.upTokenId;
     final downToken = ev.downTokenId;
-    // Live CLOB odds via a narrowed select — the tile only repaints when
-    // ITS up-token price moves.
+    // Live odds, raw from the book (see [cryptoLiveOddsProvider]), via a
+    // narrowed select — the tile only repaints when ITS Up chance moves.
     final liveUp = ref.watch(
-      livePriceProvider.select(
-        (s) => upToken != null ? s.prices[upToken] : null,
+      cryptoLiveOddsProvider.select(
+        (s) => upToken != null ? s[upToken]?.up : null,
       ),
     );
     final upFrac = (liveUp ?? ev.upPrice).clamp(0.0, 1.0).toDouble();
@@ -1962,12 +2062,15 @@ class _FiveMinTile extends ConsumerWidget {
           if (upToken != null && upToken.isNotEmpty) upToken,
           if (downToken != null && downToken.isNotEmpty) downToken,
         ],
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () => _openDetail(context, ev, minutes),
-          child: Padding(
-            padding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 4.w),
-            child: body,
+        child: CryptoOddsScope(
+          token: upToken,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => _openDetail(context, ev, minutes),
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 4.w),
+              child: body,
+            ),
           ),
         ),
       );
@@ -2000,8 +2103,11 @@ class _FiveMinTile extends ConsumerWidget {
         if (upToken != null && upToken.isNotEmpty) upToken,
         if (downToken != null && downToken.isNotEmpty) downToken,
       ],
-      child: RepaintBoundary(
-        child: wide ? card : AspectRatio(aspectRatio: 1.15, child: card),
+      child: CryptoOddsScope(
+        token: upToken,
+        child: RepaintBoundary(
+          child: wide ? card : AspectRatio(aspectRatio: 1.15, child: card),
+        ),
       ),
     );
   }

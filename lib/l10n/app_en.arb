@@ -4531,6 +4531,10 @@
       }
     }
   },
+  "predictPastRounds": "Past rounds",
+  "@predictPastRounds": {
+    "description": "Label before the up/down marks showing how the last few windows of a crypto Up or Down market ended."
+  },
   "predictNoOpenMarketsCategory": "No open markets in this category right now",
   "predictSharesCount": "{count} shares",
   "@predictSharesCount": {

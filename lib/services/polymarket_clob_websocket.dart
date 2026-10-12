@@ -412,6 +412,10 @@ class PolymarketLiveBooks {
   static PolymarketLiveBooks instance = PolymarketLiveBooks._();
 
   final Map<String, PolymarketLiveBook> _books = {};
+
+  /// The last trade the feed reported per token: what Polymarket shows for
+  /// a book wider than 10¢ ([lastTrade]).
+  final Map<String, double> _lastTrades = {};
   final Map<PolymarketClobWebSocket, DateTime> _socketSeenAt = {};
   DateTime Function() clock = DateTime.now;
 
@@ -422,6 +426,7 @@ class PolymarketLiveBooks {
   @visibleForTesting
   void reset() {
     _books.clear();
+    _lastTrades.clear();
     _socketSeenAt.clear();
     clock = DateTime.now;
     PolymarketMarketTermsStore.feedIsCurrent = (id) => isCurrent(id);
@@ -458,6 +463,12 @@ class PolymarketLiveBooks {
         }
         book.updatedAt = clock();
       }
+    } else if (msg is PolymarketLastTradePriceMessage) {
+      final id = msg.assetId;
+      final p = msg.price;
+      if (id != null && id.isNotEmpty && p.isFinite && p > 0 && p < 1) {
+        _lastTrades[id] = p;
+      }
     } else if (msg is PolymarketTickSizeChangeMessage) {
       final id = msg.assetId;
       if (id != null && id.isNotEmpty && msg.newTickSize.isNotEmpty) {
@@ -468,6 +479,10 @@ class PolymarketLiveBooks {
 
   /// The latest snapshot for [tokenId], current or not.
   PolymarketLiveBook? latest(String tokenId) => _books[tokenId];
+
+  /// The last trade the feed reported for [tokenId], strictly inside
+  /// (0, 1); null before the first one.
+  double? lastTrade(String tokenId) => _lastTrades[tokenId];
 
   /// Whether the feed is current for [tokenId]: a frame for it, or any
   /// frame on a socket subscribed to it, within [maxAge].

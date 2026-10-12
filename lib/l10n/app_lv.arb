@@ -2330,6 +2330,7 @@
   "predictLiveRound": "Tiešraides raunds",
   "predictUpOrDown": "{asset} augšup vai lejup {minutes} min",
   "predictTargetPrice": "Mērķis {price}",
+  "predictPastRounds": "Iepriekšējie raundi",
   "predictNoOpenMarketsCategory": "Šajā kategorijā pašlaik nav atvērtu tirgu",
   "predictSharesCount": "{count} daļas",
   "predictStartsIn": "Sākas pēc {time}",

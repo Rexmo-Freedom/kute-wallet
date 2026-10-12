@@ -14082,6 +14082,12 @@ abstract class AppLocalizations {
   /// **'Target {price}'**
   String predictTargetPrice(String price);
 
+  /// Label before the up/down marks showing how the last few windows of a crypto Up or Down market ended.
+  ///
+  /// In en, this message translates to:
+  /// **'Past rounds'**
+  String get predictPastRounds;
+
   /// No description provided for @predictNoOpenMarketsCategory.
   ///
   /// In en, this message translates to:

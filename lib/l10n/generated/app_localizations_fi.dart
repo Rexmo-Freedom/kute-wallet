@@ -8141,6 +8141,9 @@ class AppLocalizationsFi extends AppLocalizations {
   }
 
   @override
+  String get predictPastRounds => 'Aiemmat kierrokset';
+
+  @override
   String get predictNoOpenMarketsCategory =>
       'Tässä kategoriassa ei ole nyt avoimia markkinoita';
 

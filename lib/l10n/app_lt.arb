@@ -2330,6 +2330,7 @@
   "predictLiveRound": "Tiesioginis raundas",
   "predictUpOrDown": "{asset} kils ar kris per {minutes} min.",
   "predictTargetPrice": "Tikslas {price}",
+  "predictPastRounds": "Ankstesni raundai",
   "predictNoOpenMarketsCategory": "Šioje kategorijoje šiuo metu nėra atvirų rinkų",
   "predictSharesCount": "{count} vnt.",
   "predictStartsIn": "Prasidės po {time}",

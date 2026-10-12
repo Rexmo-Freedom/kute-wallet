@@ -2330,6 +2330,7 @@
   "predictLiveRound": "Otsevoor",
   "predictUpOrDown": "{asset} üles või alla {minutes} min",
   "predictTargetPrice": "Siht {price}",
+  "predictPastRounds": "Eelmised voorud",
   "predictNoOpenMarketsCategory": "Selles kategoorias pole praegu avatud turge",
   "predictSharesCount": "{count} osakut",
   "predictStartsIn": "Algab {time} pärast",

@@ -7789,6 +7789,9 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String get predictPastRounds => '過去のラウンド';
+
+  @override
   String get predictNoOpenMarketsCategory => '現在、このカテゴリに受付中のマーケットはありません';
 
   @override

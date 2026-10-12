@@ -8200,6 +8200,9 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String get predictPastRounds => 'Manches précédentes';
+
+  @override
   String get predictNoOpenMarketsCategory =>
       'Aucun marché ouvert dans cette catégorie pour le moment';
 

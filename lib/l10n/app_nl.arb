@@ -2330,6 +2330,7 @@
   "predictLiveRound": "Live ronde",
   "predictUpOrDown": "{asset} omhoog of omlaag {minutes} min",
   "predictTargetPrice": "Doel {price}",
+  "predictPastRounds": "Vorige rondes",
   "predictNoOpenMarketsCategory": "Nu geen open markten in deze categorie",
   "predictSharesCount": "{count} aandelen",
   "predictStartsIn": "Begint over {time}",

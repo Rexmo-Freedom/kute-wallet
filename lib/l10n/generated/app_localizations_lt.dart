@@ -8171,6 +8171,9 @@ class AppLocalizationsLt extends AppLocalizations {
   }
 
   @override
+  String get predictPastRounds => 'Ankstesni raundai';
+
+  @override
   String get predictNoOpenMarketsCategory =>
       'Šioje kategorijoje šiuo metu nėra atvirų rinkų';
 

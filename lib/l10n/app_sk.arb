@@ -2330,6 +2330,7 @@
   "predictLiveRound": "Živé kolo",
   "predictUpOrDown": "{asset} Hore alebo Dole {minutes} min",
   "predictTargetPrice": "Cieľ {price}",
+  "predictPastRounds": "Predchádzajúce kolá",
   "predictNoOpenMarketsCategory": "V tejto kategórii teraz nie sú otvorené trhy",
   "predictSharesCount": "Podiely: {count}",
   "predictStartsIn": "Začína o {time}",

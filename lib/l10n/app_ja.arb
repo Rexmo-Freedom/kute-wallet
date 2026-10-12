@@ -2330,6 +2330,7 @@
   "predictLiveRound": "ライブラウンド",
   "predictUpOrDown": "{asset} 上昇か下落か {minutes}分",
   "predictTargetPrice": "目標 {price}",
+  "predictPastRounds": "過去のラウンド",
   "predictNoOpenMarketsCategory": "現在、このカテゴリに受付中のマーケットはありません",
   "predictSharesCount": "{count}シェア",
   "predictStartsIn": "開始まで{time}",

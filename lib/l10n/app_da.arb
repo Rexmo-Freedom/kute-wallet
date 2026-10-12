@@ -2330,6 +2330,7 @@
   "predictLiveRound": "Live-runde",
   "predictUpOrDown": "{asset} op eller ned {minutes} min",
   "predictTargetPrice": "Mål {price}",
+  "predictPastRounds": "Tidligere runder",
   "predictNoOpenMarketsCategory": "Ingen åbne markeder i denne kategori lige nu",
   "predictSharesCount": "{count} andele",
   "predictStartsIn": "Starter om {time}",

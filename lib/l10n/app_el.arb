@@ -2330,6 +2330,7 @@
   "predictLiveRound": "Ζωντανός γύρος",
   "predictUpOrDown": "{asset} Πάνω ή Κάτω {minutes}λ",
   "predictTargetPrice": "Στόχος {price}",
+  "predictPastRounds": "Προηγούμενοι γύροι",
   "predictNoOpenMarketsCategory": "Δεν υπάρχουν ανοιχτές αγορές σε αυτή την κατηγορία αυτή τη στιγμή",
   "predictSharesCount": "{count} μερίδια",
   "predictStartsIn": "Ξεκινά σε {time}",

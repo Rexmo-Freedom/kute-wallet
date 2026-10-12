@@ -8143,6 +8143,9 @@ class AppLocalizationsSk extends AppLocalizations {
   }
 
   @override
+  String get predictPastRounds => 'Predchádzajúce kolá';
+
+  @override
   String get predictNoOpenMarketsCategory =>
       'V tejto kategórii teraz nie sú otvorené trhy';
 

@@ -2330,6 +2330,7 @@
   "predictLiveRound": "Runda uživo",
   "predictUpOrDown": "{asset} gore ili dolje {minutes} min",
   "predictTargetPrice": "Cilj {price}",
+  "predictPastRounds": "Prethodne runde",
   "predictNoOpenMarketsCategory": "Trenutačno nema otvorenih tržišta u ovoj kategoriji",
   "predictSharesCount": "{count} udjela",
   "predictStartsIn": "Počinje za {time}",

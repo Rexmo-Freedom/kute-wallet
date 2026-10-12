@@ -8180,6 +8180,9 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String get predictPastRounds => 'Rondas anteriores';
+
+  @override
   String get predictNoOpenMarketsCategory =>
       'Ahora mismo no hay mercados abiertos en esta categoría';
 

@@ -8158,6 +8158,9 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
+  String get predictPastRounds => 'Korábbi körök';
+
+  @override
   String get predictNoOpenMarketsCategory =>
       'Ebben a kategóriában most nincs nyitott piac';
 

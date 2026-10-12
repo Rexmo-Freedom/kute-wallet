@@ -8122,6 +8122,9 @@ class AppLocalizationsEt extends AppLocalizations {
   }
 
   @override
+  String get predictPastRounds => 'Eelmised voorud';
+
+  @override
   String get predictNoOpenMarketsCategory =>
       'Selles kategoorias pole praegu avatud turge';
 

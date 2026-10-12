@@ -8155,6 +8155,9 @@ class AppLocalizationsHr extends AppLocalizations {
   }
 
   @override
+  String get predictPastRounds => 'Prethodne runde';
+
+  @override
   String get predictNoOpenMarketsCategory =>
       'Trenutačno nema otvorenih tržišta u ovoj kategoriji';
 

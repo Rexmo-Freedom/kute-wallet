@@ -8183,6 +8183,9 @@ class AppLocalizationsRo extends AppLocalizations {
   }
 
   @override
+  String get predictPastRounds => 'Runde anterioare';
+
+  @override
   String get predictNoOpenMarketsCategory =>
       'Nicio piață deschisă în această categorie acum';
 

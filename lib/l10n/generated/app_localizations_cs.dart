@@ -8133,6 +8133,9 @@ class AppLocalizationsCs extends AppLocalizations {
   }
 
   @override
+  String get predictPastRounds => 'Předchozí kola';
+
+  @override
   String get predictNoOpenMarketsCategory =>
       'V této kategorii teď nejsou žádné otevřené trhy';
 

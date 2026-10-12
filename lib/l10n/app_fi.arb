@@ -2330,6 +2330,7 @@
   "predictLiveRound": "Live-kierros",
   "predictUpOrDown": "{asset} ylös vai alas {minutes} min",
   "predictTargetPrice": "Tavoite {price}",
+  "predictPastRounds": "Aiemmat kierrokset",
   "predictNoOpenMarketsCategory": "Tässä kategoriassa ei ole nyt avoimia markkinoita",
   "predictSharesCount": "{count} osuutta",
   "predictStartsIn": "Alkaa {time} kuluttua",

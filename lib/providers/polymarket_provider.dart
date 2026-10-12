@@ -6,6 +6,7 @@ import 'package:kute/providers/active_shell_tab_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart'
     show polymarketTradingProvider;
 import 'package:kute/services/binance_btc_live_feed.dart';
+import 'package:kute/services/polymarket/crypto_window_results.dart';
 import 'package:kute/services/polymarket/polybolt_price_socket.dart';
 import 'package:kute/services/polymarket/polymarket_price_source.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -1078,3 +1079,27 @@ final cryptoPredictAtWindowProvider = AutoDisposeAsyncNotifierProvider.family<
     CryptoPredictAtWindowNotifier, CryptoPredictState, CryptoPredictWindowKey>(
   () => CryptoPredictAtWindowNotifier(),
 );
+
+/// Family key for [cryptoRecentResultsProvider]: the market and the start
+/// (UTC epoch seconds) of the window on screen.
+typedef CryptoResultsKey = ({String asset, int minutes, int currentStart});
+
+/// How the [kCryptoRecentResults] windows before the one on screen ended,
+/// oldest first (see `crypto_window_results.dart`). The key moves with the
+/// window, so a rollover reads again and the window that just ended joins
+/// the strip; while it is still pending it is asked again every 10 s, as
+/// long as a card shows it.
+final cryptoRecentResultsProvider = FutureProvider.autoDispose
+    .family<List<CryptoWindowResult>, CryptoResultsKey>((ref, key) async {
+  final results = await fetchCryptoRecentResults(
+    asset: key.asset,
+    minutes: key.minutes,
+    currentStart: key.currentStart,
+  );
+  rememberCryptoResults(key.asset, key.minutes, results);
+  if (results.isNotEmpty && results.last.up == null) {
+    final again = Timer(const Duration(seconds: 10), ref.invalidateSelf);
+    ref.onDispose(again.cancel);
+  }
+  return results;
+});

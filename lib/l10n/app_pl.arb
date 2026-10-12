@@ -2330,6 +2330,7 @@
   "predictLiveRound": "Runda na żywo",
   "predictUpOrDown": "{asset} w górę czy w dół {minutes} min",
   "predictTargetPrice": "Cel {price}",
+  "predictPastRounds": "Poprzednie rundy",
   "predictNoOpenMarketsCategory": "W tej kategorii nie ma teraz otwartych rynków",
   "predictSharesCount": "Udziały: {count}",
   "predictStartsIn": "Start za {time}",

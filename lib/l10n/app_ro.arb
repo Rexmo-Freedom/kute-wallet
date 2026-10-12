@@ -2330,6 +2330,7 @@
   "predictLiveRound": "Rundă live",
   "predictUpOrDown": "{asset} Sus sau Jos {minutes} min",
   "predictTargetPrice": "Țintă {price}",
+  "predictPastRounds": "Runde anterioare",
   "predictNoOpenMarketsCategory": "Nicio piață deschisă în această categorie acum",
   "predictSharesCount": "{count} unități",
   "predictStartsIn": "Începe în {time}",
