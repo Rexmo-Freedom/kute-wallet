@@ -95,8 +95,8 @@ class BetPlacedOverlay extends StatelessWidget {
           return;
         }
         nav.push(MaterialPageRoute(
-            builder: (_) => const OpenInvestmentsScreen(
-                product: InvestmentsProduct.predictions)));
+            builder: (_) =>
+                const OpenInvestmentsScreen(source: 'bet_placed')));
       },
       detail: note ?? (estimated ? context.l10n.betReceiptUpdating : null),
       receipt: TradeReceipt(

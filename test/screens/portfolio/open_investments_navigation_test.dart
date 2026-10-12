@@ -1,3 +1,9 @@
+// The one Portfolio screen (owner decision October 2026): the same screen
+// from every door, both venues merged under All | Investing | Predictions
+// pills, the spending account's bitcoin and dollars on top, no total
+// header and no deposit or withdrawal buttons. Statistics (and Orders,
+// Activity) switch venue with Investing | Predictions pills.
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -5,44 +11,71 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart';
+import 'package:kute/models/portfolio_performance.dart';
+import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/hyperliquid_live_prices_provider.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart'
     show hyperliquidAccountMarketProvider;
 import 'package:kute/providers/hyperliquid_trading_provider.dart';
-import 'package:kute/screens/home/components/kute_dock_host.dart';
-import 'package:kute/screens/shared/charts/kute_donut_chart.dart';
-import 'package:kute/providers/hyperliquid_sats_pnl_provider.dart';
-import 'package:kute/providers/trade_notifications_provider.dart';
-import 'package:kute/models/settings_model.dart';
+import 'package:kute/providers/placing_polymarket_bet_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
-import 'package:kute/providers/investment_balances_provider.dart';
-import 'package:kute/providers/pending_pool_deposits_provider.dart';
+import 'package:kute/screens/portfolio/open_investments_screen.dart';
+import 'package:kute/screens/portfolio/portfolio_filters.dart';
+import 'package:kute/screens/portfolio/portfolio_statistics.dart';
+import 'package:kute/screens/portfolio/portfolio_wallet_rows.dart';
+import 'package:kute/screens/shared/charts/kute_donut_chart.dart';
 import 'package:kute/screens/shared/investment_action_bar.dart';
 import 'package:kute/screens/shared/investment_balance_header.dart';
-import 'package:kute/screens/portfolio/open_investments_screen.dart';
+import 'package:kute/screens/shared/kute_motion.dart' show RollingFigure;
+import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:kute/screens/shared/portfolio_tabs.dart';
 import 'package:kute/screens/shared/trade_results_button.dart';
+import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
-class _Trading extends HyperliquidTradingNotifier {
-  _Trading([this.initial = const HyperliquidTradingState()]);
-  final HyperliquidTradingState initial;
+import '../../helpers/portfolio_overrides.dart';
 
-  @override
-  Future<HyperliquidTradingState> build() async => initial;
-}
+const _btcPosition = HlPerpPosition(
+    coin: 'BTC',
+    szi: 0.1,
+    entryPx: 60000,
+    positionValue: 6000,
+    unrealizedPnl: 0,
+    returnOnEquity: 0,
+    liquidationPx: null,
+    marginUsed: 600,
+    leverageType: 'cross',
+    leverageValue: 10,
+    maxLeverage: 40);
+
+const _withPosition =
+    HyperliquidTradingState(isInitialized: true, positions: [_btcPosition]);
+
+final _placing = PlacingBet(
+    placementId: 'p1',
+    tokenId: 't1',
+    marketQuestion: 'Will it rain tomorrow?',
+    outcomeName: 'Yes',
+    amount: 5,
+    shares: 10,
+    avgPrice: 0.5,
+    startedAt: DateTime(2026, 10, 1));
 
 Future<void> _pump(WidgetTester tester,
     {int initialTab = 0,
+    InvestmentsProduct? initialVenue,
     Widget? home,
-    HyperliquidTradingState state = const HyperliquidTradingState()}) async {
-  tester.view.physicalSize = const Size(320, 700);
+    HyperliquidTradingState state = const HyperliquidTradingState(),
+    List<PlacingBet> placing = const [],
+    PortfolioVenues venues = kPortfolioBothVenues,
+    int balancePrivacy = 0}) async {
+  tester.view.physicalSize = const Size(400, 1000);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
   await tester.pumpWidget(ProviderScope(
       overrides: [
-        hyperliquidTradingProvider.overrideWith(() => _Trading(state)),
+        ...portfolioOverrides(trading: state, placing: placing, venues: venues),
         hyperliquidLiveMidProvider('BTC').overrideWith((_) => null),
         hyperliquidAccountMarketProvider('BTC').overrideWith((_) => null),
         settingsProvider.overrideWith((_) => SettingsModel(Settings(
@@ -53,14 +86,8 @@ Future<void> _pump(WidgetTester tester,
             biometricsEnabled: false,
             bitcoinElectrumNode: '',
             nodeType: '',
-            reviewDone: true))),
-        investmentBalancesProvider(InvestmentsProduct.trading).overrideWith(
-            (_) => const InvestmentBalances(
-                available: 150, portfolio: 0, total: 150)),
-        pendingTradingDepositUsdProvider.overrideWith((_) => 0),
-        pendingTradingWithdrawalUsdProvider.overrideWith((_) => 0),
-        hyperliquidUserFillsProvider.overrideWith((_) async => []),
-        tradeNotificationsProvider.overrideWith((_) => Stream.value([])),
+            reviewDone: true,
+            balancePrivacy: balancePrivacy))),
       ],
       child: ScreenUtilInit(
         designSize: const Size(430, 932),
@@ -73,149 +100,258 @@ Future<void> _pump(WidgetTester tester,
           supportedLocales: AppLocalizations.supportedLocales,
           home: home ??
               OpenInvestmentsScreen(
-                  product: InvestmentsProduct.trading, initialTab: initialTab),
+                  source: 'test',
+                  initialTab: initialTab,
+                  initialVenue: initialVenue),
         ),
       )));
   await tester.pumpAndSettle();
 }
 
+/// A card's big figure ([PortfolioCardValue] rolls its digits, so the
+/// text is not one Text widget).
+Finder _figure(String text) =>
+    find.byWidgetPredicate((w) => w is RollingFigure && w.text == text);
+
+bool _selected(WidgetTester tester, String key) =>
+    tester.widget<KutePill>(find.byKey(ValueKey(key))).selected;
+
+List<(String, Map<String, Object>?)> _events() {
+  final events = <(String, Map<String, Object>?)>[];
+  TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+  addTearDown(() => TrackingService.debugTrackObserver = null);
+  return events;
+}
+
 void main() {
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
-  testWidgets('empty portfolio only offers position management views',
-      (tester) async {
+
+  testWidgets(
+      'no total header, no deposit or withdrawal, no dock: the tabs over '
+      'the merged list', (tester) async {
     await _pump(tester);
     expect(find.text('Portfolio'), findsOneWidget);
-    expect(find.text('No open investments'), findsOneWidget);
-    expect(find.text('Build portfolio'), findsNothing);
-    // Earn belongs to the dollar balance now; Investing does not offer it.
-    expect(find.text('Earn'), findsNothing);
-    // The header leads with the Investing total and splits it underneath.
-    expect(find.text('Investing total'), findsOneWidget);
-    expect(find.textContaining('Available'), findsOneWidget);
-    // Four pills side-scroll at natural width; Statistics may sit past the
-    // right edge of a narrow phone.
-    expect(find.text('Statistics', skipOffstage: false), findsOneWidget);
-    expect(
-        tester
-            .widget<InvestmentBalanceHeader>(
-                find.byType(InvestmentBalanceHeader))
-            .showDepositButton,
-        isFalse);
+    expect(find.byType(InvestmentBalanceHeader), findsNothing);
+    expect(find.text('Investing total'), findsNothing);
+    expect(find.text('Predictions total'), findsNothing);
+    expect(find.text('Deposit'), findsNothing);
+    expect(find.text('Withdraw'), findsNothing);
+    expect(find.byType(InvestmentActionBar), findsNothing);
     expect(find.byType(TradeResultsButton), findsNothing);
-    expect(find.text('Browse markets'), findsNothing);
-    expect(find.byType(TextField), findsNothing);
-    // The dock carries Deposit and Withdraw, and its square chip searches
-    // this venue instead of adding (Ask Sal lives in the search sheet).
-    expect(find.text('Deposit'), findsOneWidget);
-    expect(find.text('Withdraw'), findsOneWidget);
-    expect(find.text('Ask Sal anything'), findsNothing);
-    expect(find.byIcon(Icons.search_rounded), findsOneWidget);
-    expect(find.byIcon(Icons.add_rounded), findsNothing);
-    expect(tester.takeException(), isNull);
-  });
-  testWidgets('the Open tab is the plain position list: no category donut',
-      (tester) async {
-    await _pump(tester,
-        state: const HyperliquidTradingState(
-          isInitialized: true,
-          positions: [
-            HlPerpPosition(
-                coin: 'BTC',
-                szi: 0.1,
-                entryPx: 60000,
-                positionValue: 6000,
-                unrealizedPnl: 0,
-                returnOnEquity: 0,
-                liquidationPx: null,
-                marginUsed: 600,
-                leverageType: 'cross',
-                leverageValue: 10,
-                maxLeverage: 40),
-          ],
-        ));
-    expect(find.byType(HlPortfolioPositionCard), findsOneWidget);
-    // The donut lives at the bottom of Statistics only.
-    expect(find.byType(KuteDonutChart), findsNothing);
-    expect(tester.takeException(), isNull);
-  });
-  testWidgets('the venue dock\'s Portfolio opens the portfolio screen',
-      (tester) async {
-    await _pump(tester,
-        home: const Scaffold(
-            bottomNavigationBar:
-                InvestmentActionBar(product: InvestmentsProduct.trading)));
-    expect(find.byType(OpenInvestmentsScreen), findsNothing);
-    await tester.tap(find.text('Portfolio'));
-    await tester.pumpAndSettle();
-    expect(find.byType(OpenInvestmentsScreen), findsOneWidget);
-    // On the portfolio screen the dock is Deposit and Withdraw again.
-    expect(find.text('Deposit'), findsOneWidget);
-    expect(find.text('Withdraw'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
-  testWidgets('portfolio shortcut opens requested Orders tab', (tester) async {
-    await _pump(tester, initialTab: 1);
-    final context = tester.element(find.byType(PortfolioTabs));
-    expect(DefaultTabController.of(context).index, 1);
-    // The Orders pill is the tab's title; the embedded list adds no second
-    // "Open orders" heading.
-    expect(find.text('Orders'), findsOneWidget);
-    expect(find.text('Open orders'), findsNothing);
-    expect(find.textContaining('No resting orders.'), findsOneWidget);
-    expect(find.text('Activity'), findsOneWidget);
-    expect(find.text('History'), findsNothing);
-    expect(tester.takeException(), isNull);
-  });
-  testWidgets(
-      'the dock floats over the list as on Home: the list runs under the '
-      'frost band and only its last row stops clear of the dock',
-      (tester) async {
-    await _pump(tester,
-        state: const HyperliquidTradingState(
-          isInitialized: true,
-          positions: [
-            HlPerpPosition(
-                coin: 'BTC',
-                szi: 0.1,
-                entryPx: 60000,
-                positionValue: 6000,
-                unrealizedPnl: 0,
-                returnOnEquity: 0,
-                liquidationPx: null,
-                marginUsed: 600,
-                leverageType: 'cross',
-                leverageValue: 10,
-                maxLeverage: 40),
-          ],
-        ));
-    // Home's mount: the dock is KuteDockHost's.
-    final dock = find.byType(InvestmentActionBar);
-    expect(
-        find.descendant(of: find.byType(KuteDockHost), matching: dock),
-        findsOneWidget);
-    final dockTop = tester.getTopLeft(dock).dy;
-    final screenBottom = tester.view.physicalSize.height;
-    // The list reaches the bottom of the screen, under the dock...
-    final list = find
-        .ancestor(
-            of: find.byType(HlPortfolioPositionCard),
-            matching: find.byType(ListView))
-        .first;
-    expect(tester.getBottomLeft(list).dy, screenBottom);
-    expect(tester.getBottomLeft(list).dy, greaterThan(dockTop));
-    // ...and its own bottom room clears the dock and the frost band.
-    final padding =
-        tester.widget<ListView>(list).padding!.resolve(TextDirection.ltr);
-    expect(padding.bottom, greaterThan(screenBottom - dockTop));
+    expect(find.text('Statistics', skipOffstage: false), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('an empty tab centres its line above the dock, not behind it',
+  testWidgets(
+      'opens on All: the Wallet rows and one empty line when nothing is open',
       (tester) async {
     await _pump(tester);
-    final dockTop = tester.getTopLeft(find.byType(InvestmentActionBar)).dy;
-    expect(tester.getBottomLeft(find.text('No open investments')).dy,
-        lessThan(dockTop));
+    expect(_selected(tester, 'portfolio-filter-all'), isTrue);
+    expect(_selected(tester, 'portfolio-filter-trading'), isFalse);
+    expect(_selected(tester, 'portfolio-filter-predictions'), isFalse);
+    expect(find.text('Wallet'), findsOneWidget);
+    expect(
+        find.byKey(const ValueKey('portfolio-wallet-bitcoin')), findsOneWidget);
+    expect(
+        find.byKey(const ValueKey('portfolio-wallet-dollars')), findsOneWidget);
+    // 250,000 sats at $100,000 a bitcoin.
+    expect(find.text('250,000 sats'), findsOneWidget);
+    expect(_figure(r'$250.00'), findsOneWidget);
+    expect(find.text('Dollars'), findsOneWidget);
+    expect(_figure(r'$42.50'), findsOneWidget);
+    // One combined line, no per-venue empty states, no venue sections.
+    expect(find.text('No positions yet'), findsOneWidget);
+    expect(find.text('No open investments'), findsNothing);
+    expect(find.text('No open predictions'), findsNothing);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('hidden balances mask both Wallet rows', (tester) async {
+    await _pump(tester, balancePrivacy: 1);
+    expect(find.text('250,000 sats'), findsNothing);
+    expect(_figure(r'$250.00'), findsNothing);
+    expect(_figure(r'$42.50'), findsNothing);
+    // The bitcoin caption and both figures (the dollars carry no caption
+    // in a dollar currency).
+    expect(find.text(kPortfolioHiddenAmount), findsOneWidget);
+    expect(_figure(kPortfolioHiddenAmount), findsNWidgets(2));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'All lists both venues under their plain names, with no total; the '
+      'pills filter to one venue', (tester) async {
+    await _pump(tester, state: _withPosition, placing: [_placing]);
+    expect(find.text('Investing'), findsNWidgets(2)); // pill + section
+    expect(find.text('Predictions'), findsNWidgets(2));
+    expect(find.byType(HlPortfolioPositionCard), findsOneWidget);
+    expect(find.text('Will it rain tomorrow?'), findsOneWidget);
+    expect(find.text('No positions yet'), findsNothing);
+    expect(find.textContaining('total'), findsNothing);
+
+    final events = _events();
+    await tester.tap(find.byKey(const ValueKey('portfolio-filter-trading')));
+    await tester.pumpAndSettle();
+    expect(find.byType(HlPortfolioPositionCard), findsOneWidget);
+    expect(find.text('Will it rain tomorrow?'), findsNothing);
+    expect(find.text('Wallet'), findsNothing);
+    expect(events.last.$1, 'portfolio_tab_changed');
+    expect(events.last.$2, {'tab': 'open', 'filter': 'trading'});
+
+    await tester
+        .tap(find.byKey(const ValueKey('portfolio-filter-predictions')));
+    await tester.pumpAndSettle();
+    expect(find.byType(HlPortfolioPositionCard), findsNothing);
+    expect(find.text('Will it rain tomorrow?'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a filtered venue with nothing open keeps its own empty state',
+      (tester) async {
+    await _pump(tester, state: _withPosition);
+    // Nothing in Predictions: no section under All.
+    expect(find.text('Predictions'), findsOneWidget); // the pill only
+    await tester
+        .tap(find.byKey(const ValueKey('portfolio-filter-predictions')));
+    await tester.pumpAndSettle();
+    expect(find.text('No open predictions'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('portfolio-filter-trading')));
+    await tester.pumpAndSettle();
+    expect(find.text('No open investments'), findsNothing);
+    expect(find.byType(HlPortfolioPositionCard), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the Open tab is the plain position list: no category donut',
+      (tester) async {
+    await _pump(tester, state: _withPosition);
+    expect(find.byType(HlPortfolioPositionCard), findsOneWidget);
+    expect(find.byType(KuteDonutChart), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'a venue gated off loses its pill and its section; no Dollars row '
+      'without a dollar account', (tester) async {
+    await _pump(tester,
+        state: _withPosition,
+        placing: [_placing],
+        venues: const PortfolioVenues(
+            trading: false, predictions: true, dollars: false));
+    expect(
+        find.byKey(const ValueKey('portfolio-filter-trading')), findsNothing);
+    expect(find.byKey(const ValueKey('portfolio-filter-predictions')),
+        findsOneWidget);
+    expect(find.text('Investing'), findsNothing);
+    expect(find.byType(HlPortfolioPositionCard), findsNothing);
+    expect(find.text('Will it rain tomorrow?'), findsOneWidget);
+    expect(
+        find.byKey(const ValueKey('portfolio-wallet-bitcoin')), findsOneWidget);
+    expect(
+        find.byKey(const ValueKey('portfolio-wallet-dollars')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('no venue at all: the Wallet rows alone, no pills',
+      (tester) async {
+    await _pump(tester,
+        venues: const PortfolioVenues(
+            trading: false, predictions: false, dollars: false));
+    expect(find.byKey(const ValueKey('portfolio-filter-all')), findsNothing);
+    expect(
+        find.byKey(const ValueKey('portfolio-wallet-bitcoin')), findsOneWidget);
+    expect(find.text('No positions yet'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'Statistics opens on Predictions and switches venue with the pills',
+      (tester) async {
+    await _pump(tester, initialTab: 3);
+    PortfolioStatistics stats() =>
+        tester.widget<PortfolioStatistics>(find.byType(PortfolioStatistics));
+    expect(stats().venue, PortfolioPerformanceVenue.predictions);
+    expect(_selected(tester, 'portfolio-statistics-predictions'), isTrue);
+
+    final events = _events();
+    await tester
+        .tap(find.byKey(const ValueKey('portfolio-statistics-trading')));
+    await tester.pumpAndSettle();
+    expect(stats().venue, PortfolioPerformanceVenue.trading);
+    expect(events.firstWhere((e) => e.$1 == 'portfolio_tab_changed').$2,
+        {'tab': 'statistics', 'venue': 'trading'});
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Statistics without Predictions is Investing, with no switch',
+      (tester) async {
+    await _pump(tester,
+        initialTab: 3,
+        venues: const PortfolioVenues(
+            trading: true, predictions: false, dollars: true));
+    expect(
+        tester
+            .widget<PortfolioStatistics>(find.byType(PortfolioStatistics))
+            .venue,
+        PortfolioPerformanceVenue.trading);
+    expect(find.byKey(const ValueKey('portfolio-statistics-trading')),
+        findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('opens the requested tab and venue (a trade notification)',
+      (tester) async {
+    await _pump(tester,
+        initialTab: 1, initialVenue: InvestmentsProduct.trading);
+    final context = tester.element(find.byType(PortfolioTabs));
+    expect(DefaultTabController.of(context).index, 1);
+    expect(_selected(tester, 'portfolio-orders-trading'), isTrue);
+    expect(find.text('Open orders'), findsNothing);
+    expect(find.textContaining('No resting orders.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('opening reports portfolio_opened with its source, once',
+      (tester) async {
+    final events = _events();
+    await _pump(tester, initialTab: 3);
+    final opened = events.where((e) => e.$1 == 'portfolio_opened').toList();
+    expect(opened, hasLength(1));
+    expect(opened.single.$2, {'source': 'test', 'tab': 'statistics'});
+  });
+
+  for (final product in InvestmentsProduct.values) {
+    testWidgets('the ${product.name} dock opens the same Portfolio, on All',
+        (tester) async {
+      final events = _events();
+      await _pump(tester,
+          state: _withPosition,
+          placing: [_placing],
+          home: Scaffold(
+              bottomNavigationBar: InvestmentActionBar(product: product)));
+      expect(find.byType(OpenInvestmentsScreen), findsNothing);
+      await tester.tap(find.text('Portfolio'));
+      await tester.pumpAndSettle();
+      final screen = tester
+          .widget<OpenInvestmentsScreen>(find.byType(OpenInvestmentsScreen));
+      expect(screen.initialTab, 0);
+      expect(screen.initialVenue, isNull);
+      expect(
+          screen.source,
+          product == InvestmentsProduct.trading
+              ? 'dock_investing'
+              : 'dock_predictions');
+      expect(_selected(tester, 'portfolio-filter-all'), isTrue);
+      // Both venues and the wallet, whichever dock opened it.
+      expect(find.byType(HlPortfolioPositionCard), findsOneWidget);
+      expect(find.text('Will it rain tomorrow?'), findsOneWidget);
+      expect(find.byKey(const ValueKey('portfolio-wallet-bitcoin')),
+          findsOneWidget);
+      expect(find.text('Deposit'), findsNothing);
+      expect(
+          events.where((e) => e.$1 == 'portfolio_opened').single.$2?['source'],
+          screen.source);
+      expect(tester.takeException(), isNull);
+    });
+  }
 }

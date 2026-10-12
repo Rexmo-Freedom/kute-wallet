@@ -195,18 +195,6 @@ void main() {
       expect(find.textContaining('Updating'), findsNothing);
       expect(tester.takeException(), isNull);
     });
-    testWidgets('${product.name} portfolio screen dock is Deposit and Withdraw',
-        (tester) async {
-      await _pump(
-          tester,
-          Column(mainAxisSize: MainAxisSize.min, children: [
-            InvestmentActionBar(product: product, onPortfolio: true),
-          ]));
-      final bar =
-          tester.widget<KuteBottomActionBar>(find.byType(KuteBottomActionBar));
-      expect(bar.actions.map((a) => a.label), ['Deposit', 'Withdraw']);
-      expect(find.text('Portfolio'), findsNothing);
-    });
   }
   testWidgets('the split line is in the app language, never English',
       (tester) async {

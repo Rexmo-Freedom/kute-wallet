@@ -1359,7 +1359,7 @@ class _HomeActions extends ConsumerWidget {
                         onTap: () => Navigator.of(context, rootNavigator: true)
                             .push(MaterialPageRoute(
                                 builder: (_) => const OpenInvestmentsScreen(
-                                    product: InvestmentsProduct.predictions)))),
+                                    source: 'home')))),
                     KuteDockAction(
                         icon: Icons.north_east_rounded,
                         label: context.l10n.withdraw,

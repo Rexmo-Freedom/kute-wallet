@@ -30,7 +30,10 @@ import 'package:kute/services/trade_notification_store.dart'
     show TradeNotification;
 import 'package:kute/theme/app_theme.dart';
 
+import 'package:kute/screens/portfolio/open_investments_screen.dart';
+
 import '../../helpers/offline_venue_overrides.dart';
+import '../../helpers/portfolio_overrides.dart';
 
 class _Policy extends Fake implements RuntimeCapabilitiesService {
   @override
@@ -59,6 +62,8 @@ Future<void> _pump(WidgetTester tester,
       // The sheet's header carries the trade results button; the venues
       // and the notification store stay offline here.
       ...offlineVenueOverrides,
+      // The Portfolio the hub opens, offline.
+      ...portfolioOverrides(notifications: false),
       ...?notifications,
       if (notifications == null)
         tradeNotificationsProvider
@@ -177,12 +182,41 @@ void main() {
     expect(find.text('Ask Sal anything'), findsNothing);
     expect(find.text('Ask Sal'), findsNothing);
     expect(
-        events.where((e) => e.$1 == 'wallet_actions_opened').map((e) => e.$2),
-        [
-          {'source': 'home_plus'}
-        ]);
+        events.where((e) => e.$1 == 'wallet_actions_opened').map((e) => e.$2), [
+      {'source': 'home_plus'}
+    ]);
     expect(tester.takeException(), isNull);
     semantics.dispose();
+  });
+
+  testWidgets(
+      'the hub carries the Portfolio above the wallets; it closes the hub '
+      'and opens the same Portfolio screen', (tester) async {
+    final events = _events();
+    await _pump(tester, activeTab: ActiveNavTab.trading);
+    await tester.tap(find.byType(HubPlusGearGlyph));
+    await tester.pumpAndSettle();
+    final row = find.byKey(const ValueKey('hub-portfolio'));
+    expect(row, findsOneWidget);
+    expect(
+        find.descendant(
+            of: row, matching: find.byIcon(Icons.pie_chart_rounded)),
+        findsOneWidget);
+    expect(find.descendant(of: row, matching: find.text('Portfolio')),
+        findsOneWidget);
+    // Add account stays the hub's last item.
+    expect(tester.getTopLeft(row).dy,
+        lessThan(tester.getTopLeft(find.text('Spending')).dy));
+    await tester.tap(row);
+    await tester.pumpAndSettle();
+    expect(find.text('Financial hub'), findsNothing);
+    final screen = tester
+        .widget<OpenInvestmentsScreen>(find.byType(OpenInvestmentsScreen));
+    expect(screen.source, 'hub');
+    expect(screen.initialTab, 0);
+    expect(events.where((e) => e.$1 == 'portfolio_opened').single.$2?['source'],
+        'hub');
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('the button names the tab it was opened on', (tester) async {
@@ -192,10 +226,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Financial hub'), findsOneWidget);
     expect(
-        events.where((e) => e.$1 == 'wallet_actions_opened').map((e) => e.$2),
-        [
-          {'source': 'predictions_plus'}
-        ]);
+        events.where((e) => e.$1 == 'wallet_actions_opened').map((e) => e.$2), [
+      {'source': 'predictions_plus'}
+    ]);
   });
 
   testWidgets('Settings in the hub header closes it and opens /settings',
@@ -233,8 +266,7 @@ void main() {
         ]);
   });
 
-  testWidgets('re-tapping the active first tab opens nothing',
-      (tester) async {
+  testWidgets('re-tapping the active first tab opens nothing', (tester) async {
     final events = _events();
     await _pump(tester);
     await tester.tap(find.text('Bitcoin'));
@@ -276,8 +308,8 @@ void main() {
             .overrideWith((_) => Stream.value(store.values.toList())),
         markTradeNotificationsReadProvider.overrideWithValue((items) async {
           for (final n in items) {
-            store[n.id] = TradeNotification.fromJson(
-                {...n.toJson(), 'read': true});
+            store[n.id] =
+                TradeNotification.fromJson({...n.toJson(), 'read': true});
           }
         }),
       ];

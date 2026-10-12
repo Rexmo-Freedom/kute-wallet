@@ -139,8 +139,8 @@ class HlOrderPlacedOverlay extends StatelessWidget {
         final nav = Navigator.of(context);
         nav.pop();
         nav.push(MaterialPageRoute(
-            builder: (_) => const OpenInvestmentsScreen(
-                product: InvestmentsProduct.trading)));
+            builder: (_) =>
+                const OpenInvestmentsScreen(source: 'order_placed')));
       },
       detail: context.l10n.investingBalanceUpdating,
       receipt: TradeReceipt(
