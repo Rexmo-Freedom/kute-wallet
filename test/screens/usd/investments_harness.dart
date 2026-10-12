@@ -129,8 +129,9 @@ Future<RecordingRewardsApi> pumpInvestments(
   Widget? child,
   List<Override> overrides = const [],
   bool settle = false,
+  Size size = const Size(390, 844),
 }) async {
-  tester.view.physicalSize = const Size(390, 844);
+  tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);

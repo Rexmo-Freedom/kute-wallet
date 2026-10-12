@@ -27,6 +27,35 @@ class KutePillItem {
   const KutePillItem({required this.label, this.icon, this.leading});
 }
 
+/// A pill's size: the row's height, the pill's padding, its label and
+/// its glyph, in design units (scaled with ScreenUtil where used).
+/// [regular] is every strip's size; the Investments pills are [large] on
+/// the page and [compact] in its collapsed bar, the same chrome a step
+/// up and a step down.
+enum KutePillSize {
+  compact(height: 28, hPad: 10, vPad: 6, font: 11, icon: 12),
+  regular(height: 34, hPad: 14, vPad: 9, font: 13, icon: 15),
+  large(height: 40, hPad: 12, vPad: 11, font: 14, icon: 16);
+
+  const KutePillSize({
+    required this.height,
+    required this.hPad,
+    required this.vPad,
+    required this.font,
+    required this.icon,
+  });
+
+  /// The row's height.
+  final double height;
+
+  /// The pill's horizontal padding: a minimum inset for the equal-width
+  /// pills, the whole inset for a natural-width one.
+  final double hPad;
+  final double vPad;
+  final double font;
+  final double icon;
+}
+
 /// A single pill. [selected] picks the card chrome (white/surface fill,
 /// hairline border, bold label) over the quiet tonal treatment; link
 /// rows pass `selected: true` for every pill so each reads as a button.
@@ -40,6 +69,7 @@ class KutePill extends StatelessWidget {
   final bool selected;
   final bool fillWidth;
   final VoidCallback onTap;
+  final KutePillSize size;
 
   const KutePill({
     super.key,
@@ -49,6 +79,7 @@ class KutePill extends StatelessWidget {
     this.icon,
     this.leading,
     this.fillWidth = false,
+    this.size = KutePillSize.regular,
   });
 
   @override
@@ -63,7 +94,8 @@ class KutePill extends StatelessWidget {
       child: AnimatedContainer(
         duration: kuteMotion(context, const Duration(milliseconds: 180)),
         curve: Curves.easeOut,
-        padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 9.h),
+        padding:
+            EdgeInsets.symmetric(horizontal: size.hPad.w, vertical: size.vPad.h),
         decoration: BoxDecoration(
           color: selected
               ? (isLight ? Colors.white : c.surface)
@@ -92,7 +124,7 @@ class KutePill extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             if (icon != null) ...[
-              Icon(icon, size: 15.sp, color: fg),
+              Icon(icon, size: size.icon.sp, color: fg),
               SizedBox(width: 6.w),
             ],
             if (leading != null) ...[
@@ -106,7 +138,7 @@ class KutePill extends StatelessWidget {
                 overflow: TextOverflow.clip,
                 softWrap: false,
                 style: TextStyle(
-                  fontSize: 13.sp,
+                  fontSize: size.font.sp,
                   fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                   color: fg,
                   letterSpacing: 0.1,
@@ -121,7 +153,7 @@ class KutePill extends StatelessWidget {
   }
 }
 
-/// A 34.h row of [KutePill]s.
+/// A row of [KutePill]s, 34.h tall at the regular [size].
 ///
 /// With a [selectedIndex] the row behaves as tabs: up to three pills
 /// share the width equally, more side-scroll. With `selectedIndex: null`
@@ -135,12 +167,16 @@ class KutePillTabs extends StatefulWidget {
   /// Horizontal inset of the row's content (also the scroll padding).
   final double horizontalPadding;
 
+  /// The pills' size (see [KutePillSize]).
+  final KutePillSize size;
+
   const KutePillTabs({
     super.key,
     required this.items,
     required this.onTap,
     this.selectedIndex,
     this.horizontalPadding = 4,
+    this.size = KutePillSize.regular,
   });
 
   @override
@@ -196,7 +232,7 @@ class _KutePillTabsState extends State<KutePillTabs> {
     // strips side-scroll at natural width instead.
     if (widget.selectedIndex != null && items.length <= 3) {
       return SizedBox(
-        height: 34.h,
+        height: widget.size.height.h,
         child: Padding(
           padding: EdgeInsets.symmetric(horizontal: pad),
           child: Row(
@@ -209,6 +245,7 @@ class _KutePillTabsState extends State<KutePillTabs> {
                     leading: items[i].leading,
                     selected: _isSelected(i),
                     fillWidth: true,
+                    size: widget.size,
                     onTap: () => widget.onTap(i),
                   ),
                 ),
@@ -243,7 +280,7 @@ class _KutePillTabsState extends State<KutePillTabs> {
         );
 
     return SizedBox(
-      height: 34.h,
+      height: widget.size.height.h,
       child: Stack(
         children: [
           ListView.separated(
@@ -258,6 +295,7 @@ class _KutePillTabsState extends State<KutePillTabs> {
               icon: items[i].icon,
               leading: items[i].leading,
               selected: _isSelected(i),
+              size: widget.size,
               onTap: () => widget.onTap(i),
             ),
           ),

@@ -1,16 +1,17 @@
 // The Investments tab (one balance): the spending account's top strip is
 // Bitcoin | Investments, and Investments carries Investing · Predictions
-// · Portfolio as pills over the embedded screens (the two venue pills
-// wearing the venues' own marks), the one-balance hero above them, the
-// Investments deposit door (the dollar coin) under the hero, and the
-// Receive / Send / search dock with the search scoped to the pill. No
-// venue Deposit or Withdraw exists anywhere inside it. The whole page
-// scrolls as one on every pill: the hero, the door and the pills scroll
-// away with the content, the pills pinning at the top.
+// · Portfolio as pills over the embedded screens (each pill wearing a
+// glyph of the one icon family, a step bigger than the Home strip), the
+// one-balance hero above them, the Investments deposit door (the dollar
+// coin) under the hero, and the Receive / Send / search dock with the
+// search scoped to the pill. No venue Deposit or Withdraw exists anywhere
+// inside it. The whole page scrolls as one on every pill, and the chrome
+// collapses: the hero and the door leave, the pills condense into the
+// compact pinned bar with a small copy of the total and a chevron that
+// brings everything back, as does scrolling to the very top.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/l10n/l10n.dart';
@@ -27,12 +28,14 @@ import 'package:kute/screens/shared/investment_action_bar.dart';
 import 'package:kute/screens/shared/investment_balance_header.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_pill_tabs.dart'
-    show KutePill, KutePillTabs;
+    show KutePill, KutePillSize, KutePillTabs;
 import 'package:kute/screens/shared/pool_balance_header.dart';
 import 'package:kute/screens/shared/portfolio_tabs.dart';
 import 'package:kute/screens/shared/venue_deposit_button.dart';
 import 'package:kute/screens/usd/components/usd_earn_chart.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart';
+import 'package:kute/services/one_balance/one_balance_state.dart';
+import 'package:kute/theme/app_theme.dart';
 
 import 'investments_harness.dart';
 
@@ -44,38 +47,50 @@ AppLocalizations _l10n(WidgetTester tester) =>
 ProviderContainer _container(WidgetTester tester) =>
     ProviderScope.containerOf(tester.element(find.byType(InvestmentsBody)));
 
-/// The asset an SVG mark was loaded from.
-String? _markAsset(Widget? leading) =>
-    leading is SvgPicture && leading.bytesLoader is SvgAssetLoader
-        ? (leading.bytesLoader as SvgAssetLoader).assetName
-        : null;
-
 Future<void> _pumpFrames(WidgetTester tester, [int frames = 8]) async {
   for (var i = 0; i < frames; i++) {
     await tester.pump(const Duration(milliseconds: 100));
   }
 }
 
+/// The small copy of the total the compact bar carries.
+final _compactTotal = find.byKey(const ValueKey('investments-compact-total'));
+
+/// The compact bar's chevron.
+final _chevron = find.byKey(const ValueKey('investments-expand'));
+
+/// The pill strip on screen: the large one in the expanded header, the
+/// compact one in the collapsed bar (the other is offstage).
+KutePillTabs _strip(WidgetTester tester) =>
+    tester.widget<KutePillTabs>(find.byType(KutePillTabs).first);
+
 void main() {
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
 
   testWidgets(
-      'three pills in order, Investing first, the venue pills wearing the '
-      'venues\' marks, over the embedded browsers', (tester) async {
+      'three pills in order, Investing first, each wearing its glyph of '
+      'the one icon family, a step bigger, over the embedded browsers',
+      (tester) async {
     await pumpInvestments(tester, earn: kEarnOn);
     final l10n = _l10n(tester);
-    final strip = tester.widget<KutePillTabs>(find.byType(KutePillTabs).first);
+    final strip = _strip(tester);
     expect(strip.items.map((i) => i.label),
         [l10n.trading, l10n.predictions, l10n.walletPortfolioAction]);
-    // The Hyperliquid and Polymarket logos on their pills (the marks the
-    // hub's wallet rows draw), nothing on Portfolio; no glyphs.
-    expect(_markAsset(strip.items[0].leading), kInvestingMarkAsset);
-    expect(_markAsset(strip.items[1].leading), kPredictionsMarkAsset);
-    expect(strip.items[2].leading, isNull);
-    expect(strip.items.map((i) => i.icon), everyElement(isNull));
+    // The rising trend and the ring the top tabs used, the pie the
+    // Portfolio's dock action wears; no venue logos.
+    expect(strip.items.map((i) => i.icon), [
+      Icons.trending_up_rounded,
+      Icons.donut_large_rounded,
+      Icons.pie_chart_rounded,
+    ]);
+    expect(strip.items.map((i) => i.leading), everyElement(isNull));
+    expect(strip.size, KutePillSize.large);
     for (final label in strip.items.map((i) => i.label)) {
       expect(_pill(label), findsOneWidget, reason: label);
     }
+    // The compact bar is not on screen at the top of the page.
+    expect(_compactTotal, findsNothing);
+    expect(_chevron, findsNothing);
     expect(tester.widget<KutePill>(_pill(l10n.trading)).selected, isTrue);
     expect(_container(tester).read(investmentsTabProvider),
         InvestmentsTab.investing);
@@ -184,7 +199,8 @@ void main() {
     expect(find.byType(PortfolioTabs), findsOneWidget);
     expect(find.byType(KuteBackButton), findsNothing);
     expect(find.byType(AppBar), findsNothing);
-    expect(find.byKey(const ValueKey('portfolio-filter-all')), findsOneWidget);
+    // No third row: the Open tab is the one list.
+    expect(find.byKey(const ValueKey('portfolio-filter-all')), findsNothing);
     expect(
         events.where((e) => e.$1 == 'portfolio_opened').single.$2,
         {'source': 'investments_tab', 'tab': 'open'});
@@ -246,11 +262,30 @@ void main() {
     expect(InvestmentsTab.fromKey('earn'), isNull);
   });
 
+  testWidgets('the three large pills share one row on a 375-wide phone',
+      (tester) async {
+    await pumpInvestments(tester, size: const Size(375, 812));
+    final strip = find.byType(KutePillTabs).first;
+    expect(tester.widget<KutePillTabs>(strip).size, KutePillSize.large);
+    final pills = find.descendant(of: strip, matching: find.byType(KutePill));
+    expect(pills, findsNWidgets(3));
+    // Side by side, each inside the strip, none wrapped or overflowing.
+    final top = tester.getTopLeft(pills.at(0)).dy;
+    for (var i = 0; i < 3; i++) {
+      expect(tester.getTopLeft(pills.at(i)).dy, top);
+      expect(tester.getBottomRight(pills.at(i)).dx,
+          lessThanOrEqualTo(tester.getBottomRight(strip).dx + 0.01));
+    }
+    expect(tester.takeException(), isNull);
+    await unmountInvestments(tester);
+  });
+
   for (final tab in InvestmentsTab.values) {
     testWidgets(
-        'on ${tab.key}: the whole page scrolls as one — the hero and the '
-        'door scroll away, the pills pin, the nav bar hides; the pull '
-        'refreshes', (tester) async {
+        'on ${tab.key}: scrolling collapses the chrome — the hero and the '
+        'door leave, the compact bar pins with the small total, the pills '
+        'and the chevron, the nav bar hides; the chevron and the very top '
+        'expand it again; the pull refreshes', (tester) async {
       await pumpInvestments(tester, earn: kEarnOn);
       final l10n = _l10n(tester);
       final label = switch (tab) {
@@ -263,26 +298,53 @@ void main() {
       final container = _container(tester);
       expect(find.byType(PoolBalanceHeader), findsOneWidget);
       expect(find.text(l10n.dollarDeposit), findsOneWidget);
+      expect(_compactTotal, findsNothing);
       final pillsTop = tester.getTopLeft(find.byType(KutePillTabs).first).dy;
       expect(container.read(navBarHiddenProvider), isFalse);
 
-      // Scroll the content: the hero and the door leave, the pills stay
-      // at the top of the page, the nav bar hides.
+      // Scroll the content: the hero and the door leave, the compact bar
+      // is what stays at the top of the page, the nav bar hides.
       await tester.drag(find.byType(NestedScrollView), const Offset(0, -400));
       await _pumpFrames(tester);
       expect(find.byType(PoolBalanceHeader), findsNothing);
       expect(find.text(l10n.dollarDeposit), findsNothing);
+      expect(_strip(tester).size, KutePillSize.compact);
       expect(_pill(label), findsOneWidget);
       expect(tester.widget<KutePill>(_pill(label)).selected, isTrue);
       expect(tester.getTopLeft(find.byType(KutePillTabs).first).dy,
           lessThan(pillsTop));
+      // The total, small, with no second line; the chevron at the right.
+      expect(_compactTotal, findsOneWidget);
+      final total = tester.widget<Text>(_compactTotal);
+      expect(total.data, r'$25.00');
+      expect(total.style!.fontSize, lessThan(20));
+      expect(find.textContaining(l10n.available), findsNothing);
+      expect(_chevron, findsOneWidget);
+      expect(tester.getTopRight(_chevron).dx,
+          greaterThan(tester.getTopRight(find.byType(KutePillTabs).first).dx));
       expect(container.read(navBarHiddenProvider), isTrue);
 
-      // Back to the top: everything returns, and so does the nav bar.
+      // The chevron: everything returns, and so does the nav bar.
+      await tester.tap(_chevron);
+      await _pumpFrames(tester);
+      expect(find.byType(PoolBalanceHeader), findsOneWidget);
+      expect(find.text(l10n.dollarDeposit), findsOneWidget);
+      expect(_compactTotal, findsNothing);
+      expect(_chevron, findsNothing);
+      expect(_strip(tester).size, KutePillSize.large);
+      expect(tester.getTopLeft(find.byType(KutePillTabs).first).dy, pillsTop);
+      expect(container.read(navBarHiddenProvider), isFalse);
+
+      // Collapsed again, then scrolled back to the very top by hand.
+      await tester.drag(find.byType(NestedScrollView), const Offset(0, -400));
+      await _pumpFrames(tester);
+      expect(find.byType(PoolBalanceHeader), findsNothing);
+      expect(_compactTotal, findsOneWidget);
       await tester.drag(find.byType(NestedScrollView), const Offset(0, 400));
       await _pumpFrames(tester);
       expect(find.byType(PoolBalanceHeader), findsOneWidget);
       expect(find.text(l10n.dollarDeposit), findsOneWidget);
+      expect(_compactTotal, findsNothing);
       expect(tester.getTopLeft(find.byType(KutePillTabs).first).dy, pillsTop);
       expect(container.read(navBarHiddenProvider), isFalse);
 
@@ -295,4 +357,60 @@ void main() {
       await unmountInvestments(tester);
     });
   }
+
+  testWidgets('the compact bar dims the total while a venue is still to answer',
+      (tester) async {
+    await pumpInvestments(tester,
+        balance: const OneBalanceState(
+            dollarsUsd: 25,
+            investedUsd: 0,
+            investingKnown: false,
+            predictionsKnown: true));
+    await tester.drag(find.byType(NestedScrollView), const Offset(0, -400));
+    await _pumpFrames(tester);
+    final total = tester.widget<Text>(_compactTotal);
+    expect(total.data, r'$25.00');
+    final c = tester.element(_compactTotal).colors;
+    expect(total.style!.color, c.textSecondary);
+    expect(tester.takeException(), isNull);
+    await unmountInvestments(tester);
+  });
+
+  testWidgets(
+      'under Reduce Motion the header snaps between its two states, with '
+      'no blend and no scroll animation', (tester) async {
+    await pumpInvestments(tester,
+        child: Builder(
+            builder: (context) => MediaQuery(
+                data: MediaQuery.of(context).copyWith(disableAnimations: true),
+                child: const UsdAccountScreen())));
+    // A short scroll stays expanded (the whole header drawn, nothing of
+    // the bar), and the scroll's end snaps back to the top.
+    final gesture = await tester.startGesture(
+        tester.getCenter(find.byType(NestedScrollView)));
+    await gesture.moveBy(const Offset(0, -40));
+    await tester.pump();
+    expect(find.byType(PoolBalanceHeader), findsOneWidget);
+    expect(_compactTotal, findsNothing);
+    await gesture.up();
+    await _pumpFrames(tester, 3);
+    expect(find.byType(PoolBalanceHeader), findsOneWidget);
+    expect(_compactTotal, findsNothing);
+
+    // Past half way the bar is there at once, fully drawn.
+    await tester.drag(find.byType(NestedScrollView), const Offset(0, -400));
+    await _pumpFrames(tester, 3);
+    expect(find.byType(PoolBalanceHeader), findsNothing);
+    expect(_compactTotal, findsOneWidget);
+    final bar = find.ancestor(of: _compactTotal, matching: find.byType(Opacity));
+    expect(tester.widget<Opacity>(bar.first).opacity, 1.0);
+
+    // The chevron jumps: expanded on the very next frame.
+    await tester.tap(_chevron);
+    await tester.pump();
+    expect(find.byType(PoolBalanceHeader), findsOneWidget);
+    expect(_compactTotal, findsNothing);
+    expect(tester.takeException(), isNull);
+    await unmountInvestments(tester);
+  });
 }

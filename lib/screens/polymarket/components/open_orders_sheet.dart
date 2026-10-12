@@ -158,7 +158,7 @@ class OpenOrdersSheet extends ConsumerWidget {
                         : null,
                     itemCount: orders.length,
                     separatorBuilder: (_, __) => SizedBox(height: 10.h),
-                    itemBuilder: (_, i) => _OrderRow(
+                    itemBuilder: (_, i) => PolyOrderRow(
                         key: ValueKey('$walletId:${orders[i].id}'),
                         order: orders[i],
                         ledgerWalletId: walletId),
@@ -172,16 +172,18 @@ class OpenOrdersSheet extends ConsumerWidget {
   }
 }
 
-class _OrderRow extends ConsumerStatefulWidget {
+/// A resting Predictions limit order with its Cancel. Public: the
+/// Portfolio's merged Orders list draws the same row.
+class PolyOrderRow extends ConsumerStatefulWidget {
   final Order order;
   final String? ledgerWalletId;
-  const _OrderRow({super.key, required this.order, this.ledgerWalletId});
+  const PolyOrderRow({super.key, required this.order, this.ledgerWalletId});
 
   @override
-  ConsumerState<_OrderRow> createState() => _OrderRowState();
+  ConsumerState<PolyOrderRow> createState() => _OrderRowState();
 }
 
-class _OrderRowState extends ConsumerState<_OrderRow> {
+class _OrderRowState extends ConsumerState<PolyOrderRow> {
   bool _cancelling = false;
 
   Future<void> _cancel() async {
@@ -352,6 +354,55 @@ class _CancelAllButton extends ConsumerStatefulWidget {
   ConsumerState<_CancelAllButton> createState() => _CancelAllButtonState();
 }
 
+/// Cancels EVERY resting Predictions order in one batch action, with this
+/// sheet's own events and error wording, and reads the list again.
+/// Shared with the Portfolio's merged Orders list (portfolio_orders.dart),
+/// whose one Cancel all runs each venue's routine in turn.
+Future<void> polyCancelAllOrders(BuildContext context, WidgetRef ref,
+    {String? ledgerWalletId}) async {
+  final walletKind = ledgerWalletId == null ? 'hot' : 'ledger';
+  try {
+    if (ledgerWalletId == null) {
+      await ref.read(polymarketTradingProvider.notifier).cancelAllOrders();
+    } else {
+      final orders =
+          await ref.read(ledgerPmOpenOrdersProvider(ledgerWalletId).future);
+      if (orders == null) throw StateError('Account unavailable');
+      for (final order in orders) {
+        if (!context.mounted) return;
+        await cancelLedgerPmOrder(ref, ledgerWalletId, order.id);
+      }
+    }
+    TrackingService.track('polymarket_order_cancelled', params: {
+      'venue': 'polymarket',
+      'scope': 'all',
+      'wallet_kind': walletKind,
+    });
+  } catch (e) {
+    TrackingService.track('polymarket_order_cancel_failed', params: {
+      'venue': 'polymarket',
+      'scope': 'all',
+      'wallet_kind': walletKind,
+      'error_category': TrackingService.errorCategory(e),
+    });
+    if (context.mounted) {
+      showMessageSnackBar(
+        context: context,
+        message: context.l10n.pmOrdersCancelAllFailed,
+        error: true,
+      );
+    }
+  } finally {
+    if (context.mounted) {
+      if (ledgerWalletId == null) {
+        ref.invalidate(polymarketOpenOrdersProvider);
+      } else {
+        ref.invalidate(ledgerPmOpenOrdersProvider(ledgerWalletId));
+      }
+    }
+  }
+}
+
 class _CancelAllButtonState extends ConsumerState<_CancelAllButton> {
   bool _busy = false;
 
@@ -359,48 +410,11 @@ class _CancelAllButtonState extends ConsumerState<_CancelAllButton> {
     if (_busy) return;
     setState(() => _busy = true);
     HapticFeedback.lightImpact();
-    final walletKind = widget.ledgerWalletId == null ? 'hot' : 'ledger';
     try {
-      final walletId = widget.ledgerWalletId;
-      if (walletId == null) {
-        await ref.read(polymarketTradingProvider.notifier).cancelAllOrders();
-      } else {
-        final orders =
-            await ref.read(ledgerPmOpenOrdersProvider(walletId).future);
-        if (orders == null) throw StateError('Account unavailable');
-        for (final order in orders) {
-          if (!mounted) return;
-          await cancelLedgerPmOrder(ref, walletId, order.id);
-        }
-      }
-      TrackingService.track('polymarket_order_cancelled', params: {
-        'venue': 'polymarket',
-        'scope': 'all',
-        'wallet_kind': walletKind,
-      });
-    } catch (e) {
-      TrackingService.track('polymarket_order_cancel_failed', params: {
-        'venue': 'polymarket',
-        'scope': 'all',
-        'wallet_kind': walletKind,
-        'error_category': TrackingService.errorCategory(e),
-      });
-      if (mounted) {
-        showMessageSnackBar(
-          context: context,
-          message: context.l10n.pmOrdersCancelAllFailed,
-          error: true,
-        );
-      }
+      await polyCancelAllOrders(context, ref,
+          ledgerWalletId: widget.ledgerWalletId);
     } finally {
-      if (mounted) {
-        if (widget.ledgerWalletId == null) {
-          ref.invalidate(polymarketOpenOrdersProvider);
-        } else {
-          ref.invalidate(ledgerPmOpenOrdersProvider(widget.ledgerWalletId!));
-        }
-        setState(() => _busy = false);
-      }
+      if (mounted) setState(() => _busy = false);
     }
   }
 

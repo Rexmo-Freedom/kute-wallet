@@ -221,18 +221,30 @@ class InvestmentBalanceHeader extends ConsumerWidget {
     ];
   }
 
+  /// The one-balance total as the hero prints it — the text and whether
+  /// it reads dimmed — for a small copy of it elsewhere (the Investments
+  /// tab's collapsed bar). A venue still to answer counts as zero: the
+  /// figure reads dimmed until both have, never as a dash or a skeleton
+  /// over the dollars the account already knows.
+  static ({String text, bool stale}) oneBalanceFigure(WidgetRef ref) {
+    final state = ref.watch(oneBalanceProvider);
+    final visible = ref.watch(settingsProvider.select((s) => s.balanceVisible));
+    return (
+      text: visible ? formatPolyFiatForced(ref, state.totalUsd) : '••••••',
+      stale: !state.investingKnown || !state.predictionsKnown,
+    );
+  }
+
   Widget _buildOneBalance(BuildContext context, WidgetRef ref) {
     final state = ref.watch(oneBalanceProvider);
     final visible = ref.watch(settingsProvider.select((s) => s.balanceVisible));
     String amount(double value) =>
         visible ? formatPolyFiatForced(ref, value) : '••••••';
     final lines = inFlightLines(context, state, amount);
+    final figure = oneBalanceFigure(ref);
     return PoolBalanceHeader(
-      amountText: amount(state.totalUsd),
-      // A venue still to answer counts as zero: the figure reads dimmed
-      // until both have, never as a dash or a skeleton over the dollars
-      // the account already knows.
-      stale: !state.investingKnown || !state.predictionsKnown,
+      amountText: figure.text,
+      stale: figure.stale,
       totalLabel: context.l10n.investmentsTotal,
       availableLabel: context.l10n.available,
       investedLabel: context.l10n.betInvested,

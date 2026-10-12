@@ -6788,6 +6788,13 @@ class _DirectionToggle extends ConsumerWidget {
       lockedSide == MoveLockedSide.buyToPredictions ||
       lockedSide == MoveLockedSide.buyToHyperliquid;
 
+  /// Whether the dollar balance's own rows wear the USDB coin
+  /// ([kUsdMarkAsset]) in place of the Investments arrow: on the
+  /// buy-bitcoin door (Dollars → Bitcoin), where the balance is the
+  /// money paying, the way the Investments deposit door wears it. The
+  /// withdraw and send rows elsewhere keep the arrow.
+  bool get _dollarsWearCoin => lockedSide == MoveLockedSide.depositFromFiat;
+
   /// The From picker, the only side picker left: every door pins its
   /// destination. It opens on the venue deposits, the Dollar deposit and
   /// the buy doors (the withdrawals pin their source, a Ledger move has
@@ -6878,10 +6885,13 @@ class _DirectionToggle extends ConsumerWidget {
         // same mode) keep the payment rails only.
         if (dollarsSourceAvailable)
           _PickerRow(
-            // The Investments arrow (the Home deposit button's icon):
-            // the dollar balance as a source or destination row never
-            // wears the USDB coin.
-            icon: kInvestmentsIcon,
+            // Paying for bitcoin out of the Investments balance (the buy
+            // door), the row wears the USDB coin: the money is the coin
+            // itself. Everywhere else the dollar balance as a source or
+            // destination row wears the Investments arrow (the Home
+            // deposit button's icon).
+            asset: _dollarsWearCoin ? kUsdMarkAsset : null,
+            icon: _dollarsWearCoin ? null : kInvestmentsIcon,
             title: context.l10n.assetDollars,
             subtitle: context.l10n.moveSourceDollarsSubtitle,
             // Already the chosen source: SELECTED, not dead.
@@ -7147,17 +7157,21 @@ class _DirectionToggle extends ConsumerWidget {
                   ? 'lib/assets/cashapp-logo.svg'
                   : fiatSource
                       ? 'lib/assets/bank-transfer-logo.svg'
-                      : sourceIsHyperliquid
-                          ? 'lib/assets/hyperliquid-logo.svg'
-                          : sourceIsUsdc
-                              ? 'lib/assets/polymarket-logo.svg'
-                              : (sourceBrandAsset ??
-                                  'lib/assets/bitcoin-icon.svg'),
+                      : dollarsSource && _dollarsWearCoin
+                          ? kUsdMarkAsset
+                          : sourceIsHyperliquid
+                              ? 'lib/assets/hyperliquid-logo.svg'
+                              : sourceIsUsdc
+                                  ? 'lib/assets/polymarket-logo.svg'
+                                  : (sourceBrandAsset ??
+                                      'lib/assets/bitcoin-icon.svg'),
               assetTint: sourceBrandAsset != null ? sourceBrandColor : null,
               // The dollar balance as a source wears the Investments
-              // arrow, never the USDB coin (`asset` is ignored while
-              // `iconData` is set).
-              iconData: dollarsSource ? kInvestmentsIcon : null,
+              // arrow (`asset` is ignored while `iconData` is set),
+              // except on the buy-bitcoin door, where it wears the USDB
+              // coin above ([_dollarsWearCoin]).
+              iconData:
+                  dollarsSource && !_dollarsWearCoin ? kInvestmentsIcon : null,
               // Bank on the FROM side is money coming in, so the second
               // line names the action ('Deposit') rather than repeating
               // the rail ('Bank transfer'), which said nothing the title

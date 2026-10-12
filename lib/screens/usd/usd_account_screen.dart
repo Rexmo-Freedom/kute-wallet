@@ -16,12 +16,12 @@
 //     hidden;
 //   * the Investments deposit door under it, wearing the dollar coin;
 //   * one pill row under that, Investing · Predictions · Portfolio, the
-//     same pills the Home strip uses, the two venue pills wearing the
-//     venues' own marks (the Hyperliquid and Polymarket logos, as the
-//     hub's wallet rows draw them), over an IndexedStack of the existing
+//     same pills the Home strip uses a step bigger ([KutePillSize.large]),
+//     each wearing a glyph of the one icon family the top tabs used
+//     (rising trend, ring, pie), over an IndexedStack of the existing
 //     screens in their embedded shape: the Hyperliquid and Polymarket
 //     browsers with their own hero and dock taken out, and the one
-//     Portfolio screen exactly as it is pushed (same tabs, filters and
+//     Portfolio screen exactly as it is pushed (same tabs and
 //     drill-down). Earn is a section of the Portfolio's Statistics tab
 //     (open_investments_screen.dart), no longer a pill here;
 //   * the same dock as before — Receive on the left, Send on the right,
@@ -29,17 +29,26 @@
 //     screen: the venue's own markets on Investing and Predictions, this
 //     account's activity on Portfolio.
 //
-// THE WHOLE PAGE SCROLLS AS ONE, on every pill. The hero, the deposit
-// door and the pills are the header slivers of a [NestedScrollView]; the
-// pill on screen is its body, and each embedded screen's own list
-// scrolls inside it through the primary scroll controller, so scrolling
-// the content scrolls the header away first, the way the Activity list
-// does. The pills pin once they reach the top (the Portfolio's own tab
-// strip pins the same way on the Ledger, see PortfolioTabsSliver): a
-// list a screen deep can still change pill. Pull-to-refresh is the
-// page's one [RefreshIndicator] over the pill on screen, and the top
-// nav bar's hide-on-scroll is driven from the page's scroll
-// notifications, so the embedded screens carry neither.
+// THE WHOLE PAGE SCROLLS AS ONE, on every pill, AND THE CHROME COLLAPSES
+// (owner decision October 2026: "Investing and Predictions become the
+// main thing"). The hero, the door and the pills are ONE pinned
+// [SliverPersistentHeader] of a [NestedScrollView]; the pill on screen is
+// its body, and each embedded screen's own list scrolls inside it
+// through the primary scroll controller. Scrolling down shrinks the
+// header from its expanded height (measured from the hero, the door and
+// the large pills, so the in-flight lines never clip) to a compact
+// pinned bar ([_InvestmentsCompactBar]): a small copy of the total over
+// the same pills a step smaller, the one on screen highlighted, and a
+// chevron at its right end. The total scales down and fades as it
+// leaves, the bar fades in; a scroll that stops in between snaps to the
+// nearer state. Scrolling back to the very top, or tapping the chevron
+// (which scrolls there), expands everything again. Under Reduce Motion
+// the two states switch at once, with no blend and no scroll animation.
+// The bar never carries the hero's second line: the in-flight note is
+// read in the expanded header. Pull-to-refresh is the page's one
+// [RefreshIndicator] over the pill on screen, and the top nav bar's
+// hide-on-scroll is driven from the page's scroll notifications, so the
+// embedded screens carry neither.
 //
 // NO VENUE DEPOSIT OR WITHDRAW. Money only reaches a venue through an
 // order funded from Dollars, and comes back on its own; the venue
@@ -67,11 +76,14 @@
 // `shellShowsUsdTab` in shell_venue_tabs.dart) — a Bitcoin-only,
 // watch-only, tracked, signer or Ledger account has no dollars.
 
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:kute/l10n/l10n.dart';
@@ -97,6 +109,7 @@ import 'package:kute/screens/portfolio/open_investments_screen.dart';
 import 'package:kute/screens/search/unified_search_screen.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/investment_balance_header.dart';
+import 'package:kute/screens/shared/kute_motion.dart' show kuteReduceMotion;
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:kute/screens/usd/usd_send_screen.dart';
 import 'package:kute/providers/settings_provider.dart';
@@ -108,23 +121,29 @@ import 'package:kute/theme/app_theme.dart';
 /// Source key for every event this surface emits.
 const String kUsdSurfaceSource = 'usd';
 
-/// The venues' own marks, as the hub's wallet rows and the Move sheet's
-/// rows draw them: the Investing pill wears the Hyperliquid logo, the
-/// Predictions pill the Polymarket logo.
-const String kInvestingMarkAsset = 'lib/assets/hyperliquid-logo.svg';
-const String kPredictionsMarkAsset = 'lib/assets/polymarket-logo.svg';
+/// The compact pinned bar's height, in design units: the small total line
+/// over the compact pills, with the bar's own air.
+const double kInvestmentsCompactBarHeight = 6 + 20 + 6 + 28 + 8;
+
+/// The expanded header's height until its first layout reports the real
+/// one (design units): the hero with its split line, the door and the
+/// large pills.
+const double _kExpandedHeaderEstimate = 236;
 
 /// The Investments pills, in strip order. [key] is the analytics value
 /// and the `?tab=` query value, fixed English so a pill reads the same in
-/// PostHog and in a link in every app language.
+/// PostHog and in a link in every app language. [icon] is the pill's
+/// glyph: the one icon family the top tabs used (rising trend, ring) and
+/// the pie the Portfolio's dock action wears.
 enum InvestmentsTab {
-  investing('investing'),
-  predictions('predictions'),
-  portfolio('portfolio');
+  investing('investing', Icons.trending_up_rounded),
+  predictions('predictions', Icons.donut_large_rounded),
+  portfolio('portfolio', Icons.pie_chart_rounded);
 
-  const InvestmentsTab(this.key);
+  const InvestmentsTab(this.key, this.icon);
 
   final String key;
+  final IconData icon;
 
   /// The pill a link names, or null for an unknown or missing key (the
   /// old `earn` pill among them: Earn lives under Portfolio › Statistics).
@@ -227,7 +246,8 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
   /// see the file header).
   final Set<InvestmentsTab> _opened = {};
 
-  /// The outer (header) scroll, for the nav bar's "near the top" reveal.
+  /// The outer (header) scroll: the collapse, the chevron's way back up
+  /// and the nav bar's "near the top" reveal all read it.
   final ScrollController _outer = ScrollController();
 
   /// Accumulated same-direction travel, feeding the nav-bar hide/reveal
@@ -235,10 +255,59 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
   /// every pill).
   double _navAccum = 0;
 
+  /// The expanded header's height as its last layout measured it (the
+  /// hero with whatever lines it carries, the door and the large pills);
+  /// zero until the first layout. The collapse runs over this minus the
+  /// compact bar.
+  double _expandedExtent = 0;
+
+  /// The collapse's travel, as the last build sized it: the outer scroll
+  /// offset at which the header is the compact bar.
+  double _collapseRange = 0;
+
   @override
   void dispose() {
     _outer.dispose();
     super.dispose();
+  }
+
+  /// The expanded header's layout reported its height (post-frame, see
+  /// [_MeasureHeight]): a different one resizes the sliver.
+  void _onExpandedHeight(double height) {
+    if (!mounted || (height - _expandedExtent).abs() < 0.5) return;
+    setState(() => _expandedExtent = height);
+  }
+
+  /// Scrolls the page to the very top: the one state in which the whole
+  /// header is on screen. Under Reduce Motion it jumps.
+  void _expand() {
+    if (!_outer.hasClients) return;
+    HapticFeedback.selectionClick();
+    if (kuteReduceMotion(context)) {
+      _outer.jumpTo(0);
+    } else {
+      _outer.animateTo(0,
+          duration: const Duration(milliseconds: 260),
+          curve: Curves.easeOutCubic);
+    }
+  }
+
+  /// A scroll that stops with the header between its two states finishes
+  /// the collapse, or undoes it, towards the nearer one: the header is the
+  /// hero or the compact bar, never a blend left on screen. Run after the
+  /// scroll's own end notification, never from inside it.
+  void _snap() {
+    if (!mounted || !_outer.hasClients) return;
+    final range = _collapseRange;
+    final pixels = _outer.position.pixels;
+    if (range <= 0 || pixels <= 0 || pixels >= range) return;
+    final target = pixels < range / 2 ? 0.0 : range;
+    if (kuteReduceMotion(context)) {
+      _outer.jumpTo(target);
+    } else {
+      _outer.animateTo(target,
+          duration: const Duration(milliseconds: 180), curve: Curves.easeOut);
+    }
   }
 
   void _pick(InvestmentsTab next) {
@@ -278,7 +347,12 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
   /// scroll, whichever pill is scrolling. Reveal near the very top of the
   /// page; otherwise only toggle after ~12px of travel in one direction
   /// (hysteresis), the rule the venue screens used on their own lists.
+  /// The outer scroll's end is also where the header snaps.
   bool _onScroll(ScrollNotification notification) {
+    if (notification is ScrollEndNotification && notification.depth == 0) {
+      Future<void>.microtask(_snap);
+      return false;
+    }
     if (notification is! ScrollUpdateNotification ||
         !_fromVisiblePill(notification)) {
       return false;
@@ -334,18 +408,20 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
     _opened.add(selected);
     const tabs = InvestmentsTab.values;
 
-    KutePillItem item(InvestmentsTab tab) => switch (tab) {
-          InvestmentsTab.investing => KutePillItem(
-              label: l10n.trading,
-              leading: SvgPicture.asset(kInvestingMarkAsset,
-                  width: 15.sp, height: 15.sp)),
-          InvestmentsTab.predictions => KutePillItem(
-              label: l10n.predictions,
-              leading: SvgPicture.asset(kPredictionsMarkAsset,
-                  width: 15.sp, height: 15.sp)),
-          InvestmentsTab.portfolio =>
-            KutePillItem(label: l10n.walletPortfolioAction),
-        };
+    KutePillItem item(InvestmentsTab tab) => KutePillItem(
+          label: switch (tab) {
+            InvestmentsTab.investing => l10n.trading,
+            InvestmentsTab.predictions => l10n.predictions,
+            InvestmentsTab.portfolio => l10n.walletPortfolioAction,
+          },
+          icon: tab.icon,
+        );
+
+    final compactExtent = kInvestmentsCompactBarHeight.h;
+    final expandedExtent = math.max(
+        _expandedExtent > 0 ? _expandedExtent : _kExpandedHeaderEstimate.h,
+        compactExtent);
+    _collapseRange = expandedExtent - compactExtent;
 
     final c = context.colors;
     return NotificationListener<ScrollNotification>(
@@ -364,29 +440,19 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
           physics: const AlwaysScrollableScrollPhysics(
               parent: BouncingScrollPhysics()),
           headerSliverBuilder: (context, _) => [
-            SliverToBoxAdapter(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const InvestmentBalanceHeader(
-                    product: InvestmentsProduct.trading,
-                    oneBalance: true,
-                  ),
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 10.h),
-                    child: const _InvestmentsPrimaryActions(),
-                  ),
-                ],
-              ),
-            ),
-            // The Home strip's pills, pinned once they reach the top.
+            // The hero, the door and the pills as one collapsing header
+            // (see the file header), pinned as the compact bar.
             SliverPersistentHeader(
               pinned: true,
-              delegate: _InvestmentsPillsDelegate(
+              delegate: _InvestmentsHeaderDelegate(
                 items: [for (final tab in tabs) item(tab)],
                 selectedIndex: tabs.indexOf(selected),
                 onTap: (i) => _pick(tabs[i]),
-                extent: 34.h + 12.h,
+                onExpand: _expand,
+                onExpandedHeight: _onExpandedHeight,
+                figure: InvestmentBalanceHeader.oneBalanceFigure(ref),
+                expandedExtent: expandedExtent,
+                compactExtent: compactExtent,
                 background: Theme.of(context).scaffoldBackgroundColor,
               ),
             ),
@@ -417,46 +483,152 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
   }
 }
 
-/// The pill row as a pinned sliver header (PortfolioTabsSliver's shape):
-/// the strip's own background so the list frosts under nothing, the row
-/// on the Home strip's inset, 12.h of air under it.
-class _InvestmentsPillsDelegate extends SliverPersistentHeaderDelegate {
-  _InvestmentsPillsDelegate({
+/// The collapsing header (see the file header): the hero, the door and
+/// the large pills at [expandedExtent], the compact bar at
+/// [compactExtent], and the blend between them driven by the shrink
+/// offset. The strip's own background, so the list frosts under nothing.
+///
+/// The expanded chrome is bottom-aligned in the shrinking box and
+/// clipped, so it scrolls away the way it always did (the hero first,
+/// the pills last) while it fades and the hero scales down; the compact
+/// bar sits at the top and fades in. Whichever is under half way is the
+/// one that takes taps and reads to assistive tech; the other is
+/// offstage, with its state kept. The expanded chrome is laid out at its
+/// own height whatever the box's, and reports that height
+/// ([onExpandedHeight]) so the sliver's extent follows the hero's lines.
+class _InvestmentsHeaderDelegate extends SliverPersistentHeaderDelegate {
+  _InvestmentsHeaderDelegate({
     required this.items,
     required this.selectedIndex,
     required this.onTap,
-    required this.extent,
+    required this.onExpand,
+    required this.onExpandedHeight,
+    required this.figure,
+    required this.expandedExtent,
+    required this.compactExtent,
     required this.background,
   });
 
   final List<KutePillItem> items;
   final int selectedIndex;
   final ValueChanged<int> onTap;
-  final double extent;
+  final VoidCallback onExpand;
+  final ValueChanged<double> onExpandedHeight;
+
+  /// The total as the hero prints it, for the compact bar.
+  final ({String text, bool stale}) figure;
+  final double expandedExtent;
+  final double compactExtent;
   final Color background;
 
   @override
-  double get minExtent => extent;
+  double get minExtent => compactExtent;
   @override
-  double get maxExtent => extent;
+  double get maxExtent => math.max(expandedExtent, compactExtent);
 
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlaps) =>
-      Container(
-        color: background,
-        padding: EdgeInsets.fromLTRB(12.w, 0, 12.w, 12.h),
-        child: KutePillTabs(
-          items: items,
-          selectedIndex: selectedIndex,
-          onTap: onTap,
+  Widget build(BuildContext context, double shrinkOffset, bool overlaps) {
+    final range = maxExtent - minExtent;
+    var t = range <= 0 ? 1.0 : (shrinkOffset / range).clamp(0.0, 1.0);
+    // Reduce Motion: the two states, nothing in between.
+    if (kuteReduceMotion(context)) t = t < 0.5 ? 0.0 : 1.0;
+    final expandedOn = t < 0.5;
+
+    final expanded = Positioned.fill(
+      child: Offstage(
+        offstage: t >= 1,
+        child: IgnorePointer(
+          ignoring: !expandedOn,
+          child: ExcludeSemantics(
+            excluding: !expandedOn,
+            child: OverflowBox(
+              alignment: Alignment.bottomCenter,
+              minHeight: 0,
+              maxHeight: double.infinity,
+              child: Opacity(
+                opacity: 1 - t,
+                child: _MeasureHeight(
+                  onHeight: onExpandedHeight,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // The total scales down towards the compact line's
+                      // corner as it leaves.
+                      Transform.scale(
+                        scale: 1 - 0.6 * t,
+                        alignment: Alignment.topLeft,
+                        child: const InvestmentBalanceHeader(
+                          product: InvestmentsProduct.trading,
+                          oneBalance: true,
+                        ),
+                      ),
+                      Padding(
+                        padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 10.h),
+                        child: const _InvestmentsPrimaryActions(),
+                      ),
+                      // The Home strip's pills, a step bigger, on the
+                      // strip's inset with 12.h of air under them.
+                      Padding(
+                        padding: EdgeInsets.fromLTRB(12.w, 0, 12.w, 12.h),
+                        child: KutePillTabs(
+                          items: items,
+                          selectedIndex: selectedIndex,
+                          onTap: onTap,
+                          size: KutePillSize.large,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
         ),
-      );
+      ),
+    );
+
+    final compact = Positioned(
+      left: 0,
+      right: 0,
+      top: 0,
+      height: compactExtent,
+      child: Offstage(
+        offstage: t <= 0,
+        child: IgnorePointer(
+          ignoring: expandedOn,
+          child: ExcludeSemantics(
+            excluding: expandedOn,
+            child: Opacity(
+              opacity: t,
+              child: _InvestmentsCompactBar(
+                items: items,
+                selectedIndex: selectedIndex,
+                onTap: onTap,
+                onExpand: onExpand,
+                figure: figure,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    return ColoredBox(
+      color: background,
+      child: ClipRect(
+        child: Stack(children: [expanded, compact]),
+      ),
+    );
+  }
 
   @override
-  bool shouldRebuild(_InvestmentsPillsDelegate old) =>
+  bool shouldRebuild(_InvestmentsHeaderDelegate old) =>
       old.selectedIndex != selectedIndex ||
-      old.extent != extent ||
+      old.expandedExtent != expandedExtent ||
+      old.compactExtent != compactExtent ||
       old.background != background ||
+      old.figure != figure ||
       old.items.length != items.length ||
       !_sameLabels(old.items, items);
 
@@ -465,6 +637,122 @@ class _InvestmentsPillsDelegate extends SliverPersistentHeaderDelegate {
       if (a[i].label != b[i].label) return false;
     }
     return true;
+  }
+}
+
+/// The collapsed header: the total in small text (the hero's figure, no
+/// second line) over the same pills a step smaller, and a chevron at the
+/// right end that expands everything again.
+class _InvestmentsCompactBar extends StatelessWidget {
+  const _InvestmentsCompactBar({
+    required this.items,
+    required this.selectedIndex,
+    required this.onTap,
+    required this.onExpand,
+    required this.figure,
+  });
+
+  final List<KutePillItem> items;
+  final int selectedIndex;
+  final ValueChanged<int> onTap;
+  final VoidCallback onExpand;
+  final ({String text, bool stale}) figure;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(12.w, 6.h, 12.w, 8.h),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(
+                  height: 20.h,
+                  child: Padding(
+                    padding: EdgeInsets.only(left: 4.w),
+                    child: Text(
+                      figure.text,
+                      key: const ValueKey('investments-compact-total'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: figure.stale ? c.textSecondary : c.textPrimary,
+                        fontSize: 15.sp,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.3,
+                        height: 1.0,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(height: 6.h),
+                KutePillTabs(
+                  items: items,
+                  selectedIndex: selectedIndex,
+                  onTap: onTap,
+                  size: KutePillSize.compact,
+                ),
+              ],
+            ),
+          ),
+          SizedBox(width: 4.w),
+          GestureDetector(
+            onTap: onExpand,
+            behavior: HitTestBehavior.opaque,
+            child: SizedBox(
+              width: 36.w,
+              height: 54.h,
+              child: Icon(
+                Icons.expand_more_rounded,
+                key: const ValueKey('investments-expand'),
+                size: 22.sp,
+                color: c.textTertiary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Reports its child's laid-out height, after the frame, whenever it
+/// changes: how the collapsing header learns the expanded chrome's size.
+class _MeasureHeight extends SingleChildRenderObjectWidget {
+  const _MeasureHeight({required this.onHeight, required super.child});
+
+  final ValueChanged<double> onHeight;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderMeasureHeight(onHeight);
+
+  @override
+  void updateRenderObject(
+          BuildContext context, _RenderMeasureHeight renderObject) =>
+      renderObject.onHeight = onHeight;
+}
+
+class _RenderMeasureHeight extends RenderProxyBox {
+  _RenderMeasureHeight(this.onHeight);
+
+  ValueChanged<double> onHeight;
+  double? _reported;
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    final height = size.height;
+    if (_reported == height) return;
+    _reported = height;
+    // Layout is no time to rebuild: report once the frame is drawn.
+    SchedulerBinding.instance.addPostFrameCallback((_) => onHeight(height));
   }
 }
 

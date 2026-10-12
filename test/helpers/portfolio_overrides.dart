@@ -15,6 +15,7 @@ import 'package:kute/providers/hyperliquid_sats_pnl_provider.dart';
 import 'package:kute/providers/hyperliquid_trading_provider.dart';
 import 'package:kute/providers/placing_polymarket_bet_provider.dart';
 import 'package:kute/providers/polymarket_combos_provider.dart';
+import 'package:kute/providers/polymarket_open_orders_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/portfolio_performance_provider.dart';
 import 'package:kute/providers/spark_address_provider.dart';
@@ -27,6 +28,7 @@ import 'package:kute/screens/portfolio/poly_position_events.dart'
     show polyPortfolioEventsPrefetchProvider;
 import 'package:kute/screens/portfolio/portfolio_filters.dart';
 import 'package:money2/money2.dart';
+import 'package:polybrainz_polymarket/polybrainz_polymarket.dart' show Order;
 
 import 'fake_swap_orders.dart';
 
@@ -103,6 +105,10 @@ List<Override> portfolioOverrides({
           .overrideWith(() => PortfolioTestTrading(trading)),
       hyperliquidUserFillsProvider.overrideWith((_) async => []),
       polymarketTradingProvider.overrideWith(_Poly.new),
+      // The Orders tab reads both venues: no Predictions orders, and no
+      // poll timer left pending at the end of a test.
+      polymarketOpenOrdersProvider
+          .overrideWith((_) => Stream.value(const <Order>[])),
       polymarketCombosProvider.overrideWith(_Combos.new),
       placingPolymarketBetProvider.overrideWith(() => _Placing(placing)),
       polyPortfolioEventsPrefetchProvider.overrideWith((_) {}),

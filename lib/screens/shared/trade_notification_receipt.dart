@@ -173,10 +173,8 @@ void openTradeNotificationReceipt({
                   walletId: wallet.id, product: product, initialTab: tab)));
         } else if (spending) {
           navigator.push(MaterialPageRoute(
-              builder: (_) => OpenInvestmentsScreen(
-                  source: 'notification',
-                  initialTab: tab,
-                  initialVenue: product)));
+              builder: (_) =>
+                  OpenInvestmentsScreen(source: 'notification', initialTab: tab)));
         }
       },
     ),

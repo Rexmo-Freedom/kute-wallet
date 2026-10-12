@@ -66,10 +66,18 @@ enum StatisticsScope { active, historic }
 ///     pick carries the sub-tab as `scope`. The chart's range and scrub
 ///     events are portfolio_pnl_chart.dart's.
 class PortfolioStatistics extends ConsumerStatefulWidget {
-  const PortfolioStatistics({super.key, required this.venue, this.walletId});
+  const PortfolioStatistics(
+      {super.key, required this.venue, this.walletId, this.inline = false});
 
   final PortfolioPerformanceVenue venue;
   final String? walletId;
+
+  /// Laid out as one section of a parent list (the spending account's
+  /// Statistics tab stacks Investing, Predictions and Earn): a column on
+  /// the parent's gutter with no scroll view, padding or dock clearance
+  /// of its own; loading is a short centred box, never the whole tab.
+  /// Off (a Ledger's Statistics), the widget is the tab's own list.
+  final bool inline;
 
   @override
   ConsumerState<PortfolioStatistics> createState() =>
@@ -94,6 +102,12 @@ class _PortfolioStatisticsState extends ConsumerState<PortfolioStatistics> {
     final request =
         PortfolioPerformanceRequest(venue: venue, walletId: walletId);
     final performance = ref.watch(portfolioPerformanceProvider(request));
+    final inline = widget.inline;
+    // The tab runs under the dock (the Portfolio's KuteDockHost): the
+    // centred states keep clear of it, the list keeps its last row
+    // clear. A section of a parent list leaves that to the parent.
+    Widget clear(Widget child) =>
+        inline ? child : KuteDockClearance(child: child);
     return performance.when(
       // The account and session providers this one reads re-emit while the
       // screen is open. Without these the whole tab dropped back to a
@@ -101,12 +115,10 @@ class _PortfolioStatisticsState extends ConsumerState<PortfolioStatistics> {
       // reloading"); the last good figures stay up instead.
       skipLoadingOnReload: true,
       skipLoadingOnRefresh: true,
-      // The tab runs under the dock (the Portfolio's KuteDockHost): the
-      // centred states keep clear of it, the list keeps its last row clear.
-      loading: () => const KuteDockClearance(
-          child: Center(child: CircularProgressIndicator.adaptive())),
-      error: (e, __) => KuteDockClearance(
-          child: _PerformanceError(
+      loading: () => clear(SizedBox(
+          height: inline ? 120.h : null,
+          child: const Center(child: CircularProgressIndicator.adaptive()))),
+      error: (e, __) => clear(_PerformanceError(
         venue: venue,
         errorCategory: TrackingService.errorCategory(e),
         onRetry: () {
@@ -120,6 +132,7 @@ class _PortfolioStatisticsState extends ConsumerState<PortfolioStatistics> {
           walletId: walletId,
           scope: _scope,
           onScope: _pick,
+          inline: inline,
           data: request.venue == PortfolioPerformanceVenue.predictions
               ? _withLivePredictions(ref, data)
               : data),
@@ -179,12 +192,16 @@ class _PerformanceBody extends ConsumerWidget {
     required this.data,
     required this.scope,
     required this.onScope,
+    required this.inline,
     this.walletId,
   });
   final PortfolioPerformanceVenue venue;
   final PortfolioPerformance data;
   final StatisticsScope scope;
   final ValueChanged<StatisticsScope> onScope;
+
+  /// See [PortfolioStatistics.inline].
+  final bool inline;
 
   /// Null for the spending account; a Ledger wallet's ID otherwise.
   final String? walletId;
@@ -330,38 +347,43 @@ class _PerformanceBody extends ConsumerWidget {
       lead = [_EmptyLine(text: text, tag: 'statistics-chart-empty')];
     }
 
+    final children = [
+      ...lead,
+      SizedBox(height: 12.h),
+      // Natural width, as the Sent | Received pair; under very large
+      // text they share the row rather than overflow it.
+      Row(
+        children: [
+          Flexible(
+            child: KutePill(
+              key: const ValueKey('statistics-active'),
+              label: l10n.portfolioStatsActive,
+              selected: scope == StatisticsScope.active,
+              onTap: () => onScope(StatisticsScope.active),
+            ),
+          ),
+          SizedBox(width: 6.w),
+          Flexible(
+            child: KutePill(
+              key: const ValueKey('statistics-historic'),
+              label: l10n.portfolioStatsHistoric,
+              selected: scope == StatisticsScope.historic,
+              onTap: () => onScope(StatisticsScope.historic),
+            ),
+          ),
+        ],
+      ),
+      SizedBox(height: 12.h),
+      ...content,
+    ];
+    if (inline) {
+      return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch, children: children);
+    }
     return ListView(
       padding: EdgeInsets.fromLTRB(
           16.w, 4.h, 16.w, 32.h + kuteDockScrollClearance(context)),
-      children: [
-        ...lead,
-        SizedBox(height: 12.h),
-        // Natural width, as the Sent | Received pair; under very large
-        // text they share the row rather than overflow it.
-        Row(
-          children: [
-            Flexible(
-              child: KutePill(
-                key: const ValueKey('statistics-active'),
-                label: l10n.portfolioStatsActive,
-                selected: scope == StatisticsScope.active,
-                onTap: () => onScope(StatisticsScope.active),
-              ),
-            ),
-            SizedBox(width: 6.w),
-            Flexible(
-              child: KutePill(
-                key: const ValueKey('statistics-historic'),
-                label: l10n.portfolioStatsHistoric,
-                selected: scope == StatisticsScope.historic,
-                onTap: () => onScope(StatisticsScope.historic),
-              ),
-            ),
-          ],
-        ),
-        SizedBox(height: 12.h),
-        ...content,
-      ],
+      children: children,
     );
   }
 }
