@@ -347,6 +347,67 @@ void main() {
         'route_unavailable');
   });
 
+  test('a rail that cannot carry the move retries every 10 min at most',
+      () async {
+    host.idle(OneBalanceVenue.investing, 6.54);
+    host.sendError[OneBalanceVenue.investing] =
+        () => const RouteUnavailable('cctp_fee_terms_unavailable');
+    await sweeper.trigger('resume');
+    expect(sweeper.nextDueIn(), const Duration(minutes: 2));
+    var expected = const Duration(minutes: 2);
+    for (var i = 0; i < 5; i++) {
+      host.clock = host.clock.add(expected);
+      await sweeper.trigger('retry');
+      expected = expected * 2 > kSweepRouteBackoffMax
+          ? kSweepRouteBackoffMax
+          : expected * 2;
+      expect(sweeper.nextDueIn(), expected);
+      expect(sweeper.nextDueIsRetry(), isTrue);
+    }
+    expect(expected, kSweepRouteBackoffMax);
+    expect(sweeper.state.waiting, {OneBalanceVenue.investing: 6.54});
+    expect(host.eventsNamed('venue_sweep_failed').length, 1);
+    // The backend turns ready: the next retry moves the cash.
+    host.sendError.remove(OneBalanceVenue.investing);
+    host.clock = host.clock.add(kSweepRouteBackoffMax);
+    await sweeper.trigger('retry');
+    expect(host.sent.single.usd, 6.54);
+  });
+
+  test('coming back to the foreground retries a backed-off venue', () async {
+    host.idle(OneBalanceVenue.investing, 6.54);
+    host.sendError[OneBalanceVenue.investing] =
+        () => const RouteUnavailable('route_unavailable');
+    await sweeper.trigger('resume');
+    expect(host.lastEvent('venue_sweep_failed')['error_category'],
+        'route_unavailable');
+    // A quick app switch: still inside the backoff, nothing is asked.
+    host.clock = host.clock.add(const Duration(seconds: 20));
+    host.sendError.remove(OneBalanceVenue.investing);
+    await sweeper.trigger('resume');
+    expect(host.sent, isEmpty);
+    expect(host.lastEvent('venue_sweep_skipped')['reason'], 'backoff');
+    // A heartbeat inside the backoff waits too.
+    host.clock = host.clock.add(const Duration(seconds: 50));
+    await sweeper.trigger('timer');
+    expect(host.sent, isEmpty);
+    // Back after a minute: tried at once, without waiting the backoff out.
+    await sweeper.trigger('resume');
+    expect(host.sent.single.usd, 6.54);
+    expect(host.lastEvent('venue_sweep_started')['trigger'], 'resume');
+    expect(sweeper.nextDueIn(), isNull);
+  });
+
+  test('a resume retry that fails again keeps climbing the ladder', () async {
+    host.idle(OneBalanceVenue.investing, 6.54);
+    host.sendError[OneBalanceVenue.investing] =
+        () => const RouteUnavailable('route_unavailable');
+    await sweeper.trigger('resume');
+    host.clock = host.clock.add(const Duration(minutes: 1));
+    await sweeper.trigger('resume');
+    expect(sweeper.nextDueIn(), const Duration(minutes: 4));
+  });
+
   test('the legacy rail reporting nothing withdrawable shows waiting', () async {
     host.venues[OneBalanceVenue.investing] =
         const VenueSnapshot(idleUsd: 15, sweepableUsd: 0);

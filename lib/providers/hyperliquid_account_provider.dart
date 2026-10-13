@@ -444,10 +444,12 @@ class HlOpenPositionsCountNotifier extends Notifier<int> {
   }
 }
 
-/// Open perp positions + non-USDC spot holdings, for the home pill's
-/// Trading badge. NOT autoDispose — the pill watches it permanently —
-/// and deliberately independent of [hyperliquidAccountProvider] so
-/// mounting the pill never spins up the full trading stack: its own
+/// Open perp positions + non-USDC spot holdings. NOT autoDispose — the
+/// venue sweeper listens to it for the whole session (it is what fills
+/// [hyperliquidProvisionedProvider] and [hyperliquidFreeUsdcProvider],
+/// whatever browse/trade/deposit the policy allows) — and deliberately
+/// independent of [hyperliquidAccountProvider] so keeping it alive
+/// never spins up the full trading stack: its own
 /// 60 s poll only touches the network for wallets that have actually
 /// provisioned Hyperliquid (see the once-flag gate in [_tick]).
 final hyperliquidOpenPositionsCountProvider =

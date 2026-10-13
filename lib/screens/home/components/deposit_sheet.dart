@@ -153,8 +153,6 @@ import 'package:kute/services/funding/settlement_runner.dart'
         SettlementStopReason,
         SettlementStopped;
 import 'package:kute/services/orchestra/orchestra_quote_guard.dart';
-import 'package:kute/services/orchestra/orchestra_quote_gate.dart'
-    show OrchestraQuoteFailure;
 import 'package:kute/services/hyperliquid/cctp_withdrawal.dart'
     show CctpUnavailable, hypercoreCctpWithdrawalProvider;
 import 'package:kute/services/one_balance/hyperliquid_move_rail.dart'
@@ -4402,11 +4400,12 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
               dollars ? SparkFundingAsset.dollars : SparkFundingAsset.bitcoin,
           stepUp: stepUp(),
         );
-      } on OrchestraQuoteFailure catch (e) {
-        // Orchestra refuses the HyperCore route itself (nothing signed):
+      } catch (e) {
+        // Orchestra does not offer the HyperCore route (its catalog lists
+        // no destination for it, or the quote refuses it; nothing signed):
         // to Dollars, Circle CCTP brings the cash home instead. A Bitcoin
         // withdrawal keeps the refusal ("isn't available right now").
-        if (!dollars || !HyperCoreMoveRail.isRouteRefusal(e)) rethrow;
+        if (!dollars || !HyperCoreMoveRail.opensCctpFallback(e)) rethrow;
         route = 'cctp';
         TrackingService.hyperliquidWithdrawStep(
           step: 'cctp_fallback',

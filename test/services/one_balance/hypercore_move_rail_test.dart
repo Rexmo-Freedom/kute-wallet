@@ -290,6 +290,44 @@ void main() {
       }
     });
 
+    test('the catalog listing no destination for HyperCore opens the '
+        'fallback too', () async {
+      // Flashnet's catalog lists `hypercore:USDC` with `to: []`: the
+      // runner's availability check stops on the missing pair before any
+      // quote is asked, so the quote's refusal is never seen.
+      const missing = SettlementStopped(SettlementStopReason.routeUnavailable,
+          routeReason: RouteUnavailableReason.pairMissing);
+      expect(HyperCoreMoveRail.opensCctpFallback(missing), isTrue);
+      final service = _ScriptedService(container.read, missing);
+      final cctp = _FakeCctp();
+      final rail = HyperCoreMoveRail(withService(service), cctp: () => cctp);
+      final result = await rail.withdrawToDollars(
+          usd: 6.54, auth: SweepAuthorization.automatic, purpose: 'sweep');
+      expect(service.calls, ['withdraw:sweep:dollars:6.54']);
+      expect(cctp.calls, ['sweep:6.54']);
+      expect(result.sentUsd, 6.54);
+    });
+
+    test('a stale or unread catalog, a pause or a decline keep the stop',
+        () {
+      for (final error in <Object>[
+        const SettlementStopped(SettlementStopReason.routeUnavailable,
+            routeReason: RouteUnavailableReason.stale),
+        const SettlementStopped(SettlementStopReason.routeUnavailable,
+            routeReason: RouteUnavailableReason.noLiveData),
+        const SettlementStopped(SettlementStopReason.routeUnavailable,
+            routeReason: RouteUnavailableReason.paused),
+        const SettlementStopped(SettlementStopReason.declined),
+        const HypercoreFundingUnavailable(
+            HypercoreFundingUnavailableReason.paused),
+        StateError('boom'),
+      ]) {
+        expect(HyperCoreMoveRail.opensCctpFallback(error), isFalse,
+            reason: '$error');
+      }
+      expect(HyperCoreMoveRail.opensCctpFallback(_refused()), isTrue);
+    });
+
     test('the normal route is used when Orchestra accepts it', () async {
       final service = _ScriptedService(container.read, null);
       final cctp = _FakeCctp();

@@ -16,8 +16,12 @@
 //
 // Flashnet refuses every HyperCore-source route today (`unsupported_route`,
 // "HyperCore source routes require independent deposit verification and
-// are unavailable"). The refusal arrives with the quote, before anything
-// is signed or sent. A withdrawal to Dollars then falls back to Circle
+// are unavailable"), and its route catalog lists `hypercore:USDC` with no
+// destinations at all. Either answer arrives before anything is signed or
+// sent: the quote's refusal, or (first, in practice) the settlement
+// runner's catalog check stopping on the missing pair
+// (`SettlementStopped(routeUnavailable, pair_missing)`), which never gets
+// as far as a quote. A withdrawal to Dollars then falls back to Circle
 // CCTP out of HyperCore (lib/services/hyperliquid/cctp_withdrawal.dart):
 // one `sendToEvmWithData` to the wallet's own Investing-withdrawal
 // standing address on Arbitrum, which Orchestra converts to dollars. Only
@@ -29,7 +33,8 @@
 
 import 'dart:async';
 
-import 'package:flutter/foundation.dart' show visibleForTesting;
+import 'package:flutter/foundation.dart'
+    show debugPrint, kDebugMode, visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/helpers/auth_grant.dart' show AuthGrants, SensitiveAction;
 import 'package:kute/helpers/orchestra_router.dart'
@@ -38,7 +43,8 @@ import 'package:kute/helpers/venue_intents.dart' show OrchestraGrants;
 import 'package:kute/models/orchestra_model.dart' show OrchestraEstimate;
 import 'package:kute/models/orchestra_route_limits.dart'
     show RouteQuoteError, RouteQuoteErrorCode;
-import 'package:kute/models/orchestra_routes_model.dart' show RouteKey;
+import 'package:kute/models/orchestra_routes_model.dart'
+    show RouteKey, RouteUnavailableReason;
 import 'package:kute/providers/hyperliquid_account_provider.dart'
     show hyperliquidAddressProvider;
 import 'package:kute/providers/hyperliquid_markets_provider.dart'
@@ -224,10 +230,16 @@ class HyperCoreMoveRail implements HyperliquidMoveRail {
             sentUsd: result.amountIn.toDouble() / 1e8,
             arrivingUsdEstimate: result.estimatedOut,
           );
-        } on OrchestraQuoteFailure catch (e) {
-          // Only Orchestra refusing the route itself, before anything was
-          // signed, opens the fallback. An amount refusal stays one.
-          if (!isRouteRefusal(e)) rethrow;
+        } catch (e) {
+          // Only Orchestra not offering the route itself, before anything
+          // was signed, opens the fallback ([opensCctpFallback]). An
+          // amount refusal stays one; a pause stays a pause.
+          if (!opensCctpFallback(e)) rethrow;
+          if (kDebugMode) {
+            debugPrint('[investing-withdraw] direct route not offered '
+                '(${e is SettlementStopped ? 'catalog' : 'quote'}); '
+                'trying CCTP');
+          }
           route = 'cctp';
           TrackingService.hyperliquidWithdrawStep(
             step: 'cctp_fallback',
@@ -283,6 +295,10 @@ class HyperCoreMoveRail implements HyperliquidMoveRail {
         arrivingUsdEstimate: result.arrivingUsdEstimate,
       );
     } on CctpUnavailable catch (e) {
+      if (kDebugMode) {
+        debugPrint('[investing-withdraw] CCTP fallback unavailable: '
+            '${e.reason.code} ($purpose)');
+      }
       throw RouteUnavailable('cctp_${e.reason.code}');
     }
   }
@@ -321,10 +337,26 @@ class HyperCoreMoveRail implements HyperliquidMoveRail {
     }
   }
 
+  /// The direct route stopped because Orchestra does not offer it, before
+  /// anything was signed: the quote's route refusal ([isRouteRefusal]),
+  /// or the runner's catalog check finding the pair missing (Flashnet's
+  /// catalog lists `hypercore:USDC` with no destinations, so this stop
+  /// comes first and the quote is never asked). The one test both CCTP
+  /// fallbacks (this rail and the Move sheet) open on. A stale or unread
+  /// catalog, a pause, an amount refusal or a declined approval do not.
+  static bool opensCctpFallback(Object e) => switch (e) {
+        OrchestraQuoteFailure() => isRouteRefusal(e),
+        SettlementStopped(
+          reason: SettlementStopReason.routeUnavailable,
+          routeReason: RouteUnavailableReason.pairMissing,
+        ) =>
+          true,
+        _ => false,
+      };
+
   /// Flashnet refused the route itself, not the amount: a
   /// `route_unavailable` code (which `unsupported_route` reads as), or a
-  /// refusal whose text names the HyperCore-source block. The one test
-  /// both CCTP fallbacks (this rail and the Move sheet) open on.
+  /// refusal whose text names the HyperCore-source block.
   static bool isRouteRefusal(OrchestraQuoteFailure e) {
     if (e.routeError?.code == RouteQuoteErrorCode.routeUnavailable) {
       return true;

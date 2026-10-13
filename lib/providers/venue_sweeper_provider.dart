@@ -29,6 +29,7 @@ import 'package:kute/providers/hyperliquid_account_provider.dart'
     show
         hyperliquidFreeUsdcProvider,
         hyperliquidHeldPositionsProvider,
+        hyperliquidOpenPositionsCountProvider,
         hyperliquidProvisionedProvider;
 import 'package:kute/providers/hyperliquid_trading_provider.dart';
 import 'package:kute/providers/investment_balances_provider.dart'
@@ -302,6 +303,18 @@ class VenueSweeperNotifier extends Notifier<VenueSweeperState> {
       final (venue, reason) = event;
       unawaited(trigger(reason, venue: venue));
     });
+
+    // Keeps the Investing badge poll alive for the session: it is what
+    // fills `hyperliquidProvisionedProvider` and `hyperliquidFreeUsdcProvider`
+    // (60 s, a local no-op for a wallet that never traded). Nothing else
+    // mounted it, so without this the venue's cash was read only while
+    // the trading stack ran, which only a browse/trade surface starts: a
+    // region where `hyperliquid.browse` is withheld never saw its cash in
+    // the header and never swept it home. The money is read whatever
+    // browse, trade or deposit allow; only `hyperliquid.withdraw`, which
+    // the rail checks, decides whether it moves.
+    ref.listen(hyperliquidOpenPositionsCountProvider, (_, __) {},
+        onError: (_, __) {});
 
     // Keeps the Predictions state warm for the session, like auto-claim,
     // and restarts the grace window when its deposit settle-and-wrap

@@ -7,7 +7,11 @@
 // the wallet's own Spark address, made only while the session is
 // unlocked, under `SweepAuthorization.automatic` — the same trust level
 // as auto-claim (`ClaimAutoFire`), whose shape this copies: one move per
-// venue at a time, failures back off 2 → 30 min, a locked session waits.
+// venue at a time, failures back off 2 → 30 min (a rail that cannot carry
+// the move, `RouteUnavailable`, 2 → 10 min: it turns ready server-side,
+// and its cash must not wait half an hour after), a locked session waits.
+// Coming back to the foreground retries a backed-off venue at once (at
+// most once a minute); an app restart starts the ladder afresh.
 //
 // Everything that touches the app (balances, rails, Hive, analytics)
 // goes through [VenueSweeperHost], so the state machine here is tested
@@ -25,7 +29,8 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart'
-    show immutable, mapEquals, setEquals, visibleForTesting;
+    show debugPrint, immutable, kDebugMode, mapEquals, setEquals,
+        visibleForTesting;
 import 'package:kute/models/orchestra_route_limits.dart'
     show RouteQuoteError, RouteQuoteErrorCode;
 import 'package:kute/models/swap_order_model.dart';
@@ -144,12 +149,23 @@ const Duration kSweepSettleLag = Duration(minutes: 2);
 const Duration _kBackoffFirst = Duration(minutes: 2);
 const Duration _kBackoffMax = Duration(minutes: 30);
 
+/// The longest wait after a `RouteUnavailable`: the rail (Orchestra's
+/// route, the CCTP fallback's fee terms) turns ready on the server, so the
+/// venue's cash retries at least this often until it moves.
+const Duration kSweepRouteBackoffMax = Duration(minutes: 10);
+
+/// A `resume` (the app back in the foreground, the session unlocked)
+/// retries a backed-off venue now, once its last failure is this old, so
+/// quick app switches never hammer the rail.
+const Duration kSweepResumeRetryAfter = Duration(minutes: 1);
+
 /// The three event triggers the rate limit yields to.
 const Set<String> kSweepEventTriggers = {'close', 'claim', 'cancel'};
 
 class _VenueMemory {
   DateTime? backoffUntil;
   Duration? backoff;
+  DateTime? lastFailureAt;
   DateTime? lastSweepAt;
   DateTime? heldSince;
   double? waitingShownUsd;
@@ -319,6 +335,7 @@ class VenueSweeper {
       {OneBalanceVenue? venue, bool flushHeld = false}) async {
     final wallet = _host.spendingWalletId;
     final unlocked = _host.sessionUnlocked;
+    if (trigger == 'resume') _liftBackoffsOnResume();
     if (wallet != null && unlocked && !_host.rolloutDone(wallet)) {
       await _rolloutPass(wallet);
       return;
@@ -332,6 +349,20 @@ class VenueSweeper {
           trigger: trigger,
           eventDriven: kSweepEventTriggers.contains(trigger) && v == venue,
           flushHeld: flushHeld);
+    }
+  }
+
+  /// Back in the foreground: a venue backing off after a failure at least
+  /// [kSweepResumeRetryAfter] old is tried again in this pass. The ladder
+  /// is kept, so a failure again waits the next step.
+  void _liftBackoffsOnResume() {
+    final now = _host.now();
+    for (final m in _memory.values) {
+      final failedAt = m.lastFailureAt;
+      if (m.backoffUntil == null || failedAt == null) continue;
+      if (now.difference(failedAt) >= kSweepResumeRetryAfter) {
+        m.backoffUntil = null;
+      }
     }
   }
 
@@ -485,6 +516,7 @@ class VenueSweeper {
       m.lastSweepAt = sentAt;
       m.backoff = null;
       m.backoffUntil = null;
+      m.lastFailureAt = null;
       m.failureReported = false;
       m.recentlySweptUsd = result.sentUsd;
       m.recentlySweptAt = sentAt;
@@ -519,14 +551,22 @@ class VenueSweeper {
         _setWaiting(venue, idleUsd);
         _fail(venue, stage: 'quote', category: e.code.code, trigger: trigger);
       }
-    } on RouteUnavailable {
+    } on RouteUnavailable catch (e) {
       // The rail cannot carry a withdraw right now (Orchestra refusing the
-      // HyperCore-source route, a paused route): the cash is simply
-      // waiting, shown as unavailable until balancing completes. No error
-      // UI; a backoff keeps the passes from hammering the rail.
+      // HyperCore-source route and the CCTP fallback unable to run, a
+      // paused route): the cash is simply waiting, shown as unavailable
+      // until balancing completes. No error UI; a short backoff keeps the
+      // passes from hammering the rail and retries once it is ready.
+      if (kDebugMode) {
+        debugPrint('[venue-sweep] ${venue.analyticsName} route unavailable: '
+            '${e.reason ?? 'unknown'}');
+      }
       _setWaiting(venue, idleUsd);
       _fail(venue,
-          stage: stage, category: 'route_unavailable', trigger: trigger);
+          stage: stage,
+          category: 'route_unavailable',
+          trigger: trigger,
+          maxBackoff: kSweepRouteBackoffMax);
     } catch (e) {
       _setWaiting(venue, idleUsd);
       _fail(venue,
@@ -545,13 +585,17 @@ class VenueSweeper {
     required String category,
     required String trigger,
     bool backoff = true,
+    Duration maxBackoff = _kBackoffMax,
   }) {
     final m = _memory[venue]!;
     if (backoff) {
-      final cur = m.backoff ?? _kBackoffFirst;
-      m.backoffUntil = _host.now().add(cur);
+      final now = _host.now();
+      var cur = m.backoff ?? _kBackoffFirst;
+      if (cur > maxBackoff) cur = maxBackoff;
+      m.backoffUntil = now.add(cur);
+      m.lastFailureAt = now;
       final doubled = cur * 2;
-      m.backoff = doubled > _kBackoffMax ? _kBackoffMax : doubled;
+      m.backoff = doubled > maxBackoff ? maxBackoff : doubled;
     }
     // A backoff retry is the same failure, not a new one: reported once
     // per episode, like auto-claim.
