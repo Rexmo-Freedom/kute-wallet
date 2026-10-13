@@ -1,9 +1,11 @@
 // lib/screens/shared/multi_source_move_activity.dart
 //
 // One Activity row per action that took money from more than one place
-// (`MultiSourceMove`, lib/services/one_balance/multi_source_move.dart):
-// "Send $50" or "Move $50 to Bitcoin" stands for every leg, and the legs
-// are listed inside its detail sheet (transactions_builder.dart).
+// (`MultiSourceMove`, lib/services/one_balance/multi_source_move.dart)
+// stands for every leg, and the legs are listed inside its detail sheet
+// (transactions_builder.dart). A move to Bitcoin reads as the Investments
+// withdrawal row and a send as the Dollars send row
+// ([multiSourceMoveStandardRow]); any other move as "Move $50 to …".
 //
 // Where it shows: the Dollars activity (and the Portfolio's Activity,
 // which lists the dollar ledger) for every move, and the Bitcoin activity
@@ -12,7 +14,13 @@
 // are not listed beside it. Pure, so the lists can be tested without a
 // widget tree.
 
+import 'package:kute/helpers/orchestra_router.dart' show orchestraRowAmount;
+import 'package:kute/models/swap_order_model.dart';
 import 'package:kute/models/transactions_model.dart';
+import 'package:kute/services/one_balance/venue_cash_source.dart'
+    show VenueCashFor;
+import 'package:kute/services/orchestra_routes.dart'
+    show kOrchestraUsdAssetCode;
 import 'package:kute/services/one_balance/multi_source_move.dart';
 import 'package:kute/services/orchestra/own_spark_arrivals.dart';
 import 'package:kute/services/one_balance/venue_funder.dart'
@@ -66,6 +74,89 @@ class MultiSourceMoveTransaction extends BaseTransaction {
   @override
   int get hashCode => Object.hash(super.hashCode, move.legs.length,
       move.finalOperationId, legRows.length);
+}
+
+/// The existing Activity row [tx] reads as, or null when its kind has
+/// none (a move into Dollars or a venue keeps the move's own row). One
+/// balance: where the money came from is Investments, whichever venue
+/// paid each leg (the legs are in the detail sheet).
+///
+///  * To Bitcoin: the Investments withdrawal to Bitcoin ("Withdraw · from
+///    Investments · ₿received · from $spent", a `USDB → BTC` row on the
+///    wallet's own Spark). Its bitcoin is what the move's rows delivered
+///    to Bitcoin, `0` while none is known.
+///  * A send that went: the send's own row (the Dollars send), for the
+///    person's whole amount.
+///
+/// Its status is the move's: settled, needing attention after a failed
+/// leg (`failed`), else on its way.
+SwapOrderTransaction? multiSourceMoveStandardRow(
+    MultiSourceMoveTransaction tx) {
+  final move = tx.move;
+  final status = tx.partial
+      ? 'failed'
+      : tx.complete
+          ? 'success'
+          : 'exchanging';
+  final at = move.createdAt.millisecondsSinceEpoch;
+  SwapOrder? details;
+  if (move.destination == VenueCashDestination.bitcoin) {
+    details = SwapOrder(
+      id: move.id,
+      coinFrom: kOrchestraUsdAssetCode,
+      networkFrom: 'SPARK',
+      coinTo: 'BTC',
+      networkTo: 'SPARK',
+      depositAddress: '',
+      depositAmount: move.spentUsd.toStringAsFixed(2),
+      withdrawalAmount: multiSourceMoveBitcoin(tx).toStringAsFixed(8),
+      status: status,
+      timestamp: at,
+      withdrawalAddress: '',
+      depositMin: '0',
+      depositMax: '0',
+      rate: '0',
+      refundAddress: '',
+      provider: 'Orchestra',
+      walletId: move.walletId,
+    );
+  } else if (move.forAction == VenueCashFor.send &&
+      move.finalOperationId != null) {
+    final send = tx.legRows
+        .where((r) =>
+            _rowOf(r, move.finalOperationId, null) &&
+            r.details.activityDirection == 'send')
+        .firstOrNull;
+    if (send != null) {
+      details = send.details.copyWith(
+        id: move.id,
+        depositAmount: move.totalUsd.toStringAsFixed(2),
+        status: status,
+        timestamp: at,
+      );
+    }
+  }
+  if (details == null) return null;
+  return SwapOrderTransaction(
+    id: move.id,
+    timestamp: move.createdAt,
+    isConfirmed: tx.isConfirmed,
+    details: details,
+  );
+}
+
+/// The bitcoin [tx]'s rows delivered to the wallet's own Spark balance
+/// (estimates until each order reports its own), in BTC.
+double multiSourceMoveBitcoin(MultiSourceMoveTransaction tx) {
+  var btc = 0.0;
+  for (final r in tx.legRows) {
+    final d = r.details;
+    if (d.coinTo.toUpperCase() != 'BTC' || d.networkTo.toUpperCase() != 'SPARK') {
+      continue;
+    }
+    btc += orchestraRowAmount(d.withdrawalAmount, 'BTC');
+  }
+  return btc;
 }
 
 /// Whether [row] is one of [move]'s legs (or its own step).

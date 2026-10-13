@@ -2743,7 +2743,11 @@ Widget _buildNativeUsdcSendRow(
 }
 
 Widget _buildSwapOrderItem(
-    SwapOrderTransaction tx, BuildContext context, WidgetRef ref) {
+    SwapOrderTransaction tx, BuildContext context, WidgetRef ref,
+    {VoidCallback? onTap,
+    String? amount,
+    bool amountIsBtc = false,
+    String? fiatAmount}) {
   final details = tx.details;
   // Delivered to the wallet's own Spark balance, which does not show it
   // yet: still on its way as far as the person can see.
@@ -2769,9 +2773,14 @@ Widget _buildSwapOrderItem(
   }
 
   final activity = swapActivityFor(details);
-  final isPolymarket = activity.isPredictions;
-  final isTradingPool = activity.isInvesting;
-  final isDollarPool = activity.isDollars;
+  // One balance: bitcoin moving out of or into a venue moves out of or
+  // into Investments, and reads exactly as the Investments (Dollars) row
+  // does: "Withdraw · from Investments", the same mark.
+  final venueBitcoinMove = (activity.isPredictions || activity.isInvesting) &&
+      orchestraTouchesBitcoin(details);
+  final isPolymarket = activity.isPredictions && !venueBitcoinMove;
+  final isTradingPool = activity.isInvesting && !venueBitcoinMove;
+  final isDollarPool = activity.isDollars || venueBitcoinMove;
   final isPoolDeposit = activity.isDeposit;
   final isExternal = activity.isExternal;
   final isExternalSend = activity == SwapActivityKind.send;
@@ -3007,7 +3016,7 @@ Widget _buildSwapOrderItem(
   }
 
   return _TransactionRow(
-    onTap: () => _showSwapOrderDetails(context, ref, tx),
+    onTap: onTap ?? () => _showSwapOrderDetails(context, ref, tx),
     leading: iconWidget,
     title: _RowTitle(title),
     subtitle: _withTime(where, tx.timestamp),
@@ -3020,17 +3029,20 @@ Widget _buildSwapOrderItem(
     // received amount is primary makes the row consistent with
     // the rest (amount column = balance change in your favour).
     // Outflow shifts to the secondary line as "from X coin".
-    amount: (isExternal && !isExternalSend) || isDollarSend
-        ? formatSwapAmount(details.depositAmount, details.coinFrom)
-        : formatSwapAmount(details.withdrawalAmount, details.coinTo),
-    amountIsBtc: ((isExternal && !isExternalSend) || isDollarSend
-            ? details.coinFrom
-            : details.coinTo) ==
-        'BTC',
+    amount: amount ??
+        ((isExternal && !isExternalSend) || isDollarSend
+            ? formatSwapAmount(details.depositAmount, details.coinFrom)
+            : formatSwapAmount(details.withdrawalAmount, details.coinTo)),
+    amountIsBtc: amount != null
+        ? amountIsBtc
+        : ((isExternal && !isExternalSend) || isDollarSend
+                ? details.coinFrom
+                : details.coinTo) ==
+            'BTC',
     // A purchase names the fiat paid ("from $55.00"); the Lightning
     // sats that moved behind it are not what the user handed over.
     // A stuck deposit converted into nothing, so no "→ $0.00" line.
-    fiatAmount: details.isStuckStandingDeposit
+    fiatAmount: fiatAmount ?? (details.isStuckStandingDeposit
         ? ''
         // A dollar send's delivered amount is the quote's estimate until
         // the first status check writes the real one, and that estimate
@@ -3043,7 +3055,7 @@ Widget _buildSwapOrderItem(
                 purchaseFiat != null &&
                 purchaseFiat.isNotEmpty
             ? '\$$purchaseFiat'
-            : formatSwapAmount(details.depositAmount, details.coinFrom)),
+            : formatSwapAmount(details.depositAmount, details.coinFrom))),
   );
 }
 
@@ -5670,23 +5682,41 @@ _RowStatus? _multiSourceMoveStatus(
   return null;
 }
 
+/// A move's one row. A move to Bitcoin and a send read as the rows those
+/// actions already have (multiSourceMoveStandardRow: the Investments
+/// withdrawal to Bitcoin, the Dollars send), opening the move's detail
+/// with its legs; any other move keeps its own "Move $X to …" row.
 Widget _buildMultiSourceMoveItem(
     MultiSourceMoveTransaction tx, BuildContext context, WidgetRef ref) {
   final move = tx.move;
   final l10n = context.l10n;
+  void open() => _showMultiSourceMoveDetails(context, ref, tx);
+  final standard = multiSourceMoveStandardRow(tx);
+  if (standard != null) {
+    // A move to Bitcoin whose bitcoin no order has reported yet reads in
+    // dollars until one does, never as "₿0".
+    final noBitcoinYet = move.destination == VenueCashDestination.bitcoin &&
+        multiSourceMoveBitcoin(tx) <= 0;
+    return _buildSwapOrderItem(standard, context, ref,
+        onTap: open,
+        amount: noBitcoinYet ? formatPolyAmount(ref, move.spentUsd) : null,
+        fiatAmount: noBitcoinYet ? '' : null);
+  }
   final sent = move.forAction == VenueCashFor.send &&
       move.finalOperationId != null;
-  final venues = {for (final l in move.okLegs) l.venue}
-      .map((v) => venueCashVenueName(l10n, v))
-      .join(' · ');
   var icon = _multiSourceMoveIcon(move);
   if (!tx.complete && !tx.partial) icon = _PendingIconWrapper(child: icon);
   return _TransactionRow(
-    onTap: () => _showMultiSourceMoveDetails(context, ref, tx),
+    onTap: open,
     leading: icon,
     title: _RowTitle(multiSourceMoveTitle(l10n, move)),
-    subtitle:
-        _withTime(venues.isEmpty ? '' : l10n.activityRowFrom(venues), tx.timestamp),
+    // One balance: the money came from Investments, whichever venue
+    // paid each leg (the legs are in the detail).
+    subtitle: _withTime(
+        move.destination == VenueCashDestination.dollars
+            ? ''
+            : l10n.activityRowFrom(l10n.assetDollars),
+        tx.timestamp),
     status: _multiSourceMoveStatus(context, tx),
     flow: sent ? ActivityFlow.moneyOut : ActivityFlow.neutral,
     amount: formatPolyAmount(ref, move.totalUsd),
@@ -5846,7 +5876,16 @@ class _MultiSourceMoveDetailSheetState
                   valueColor: leg.ok ? null : AppColors.marketDown,
                 ),
               if (move.partial) ...[
-                SizedBox(height: 16.h),
+                SizedBox(height: 12.h),
+                // What was delivered and what is left: the row reads as
+                // the action's own, so the detail says it.
+                Text(
+                  multiSourceMoveProgress(l10n, move) ?? '',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      fontSize: 14.sp, color: AppColors.marketDown),
+                ),
+                SizedBox(height: 12.h),
                 SizedBox(
                   width: double.infinity,
                   height: 48.h,

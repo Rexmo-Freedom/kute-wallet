@@ -273,6 +273,200 @@ void main() {
     });
   });
 
+  group('the standard row', () {
+    test('to Bitcoin: an Investments withdrawal of the bitcoin delivered', () {
+      final pm = _row('ord_pm',
+          from: 'USDC', fromNet: 'POLYGON', to: 'BTC', toNet: 'SPARK',
+          operationId: 'op-pm', status: 'success');
+      final hl = _row('ord_hl',
+          from: 'USDC', fromNet: 'ARBITRUM', to: 'BTC', toNet: 'SPARK',
+          operationId: 'op-hl', status: 'success');
+      final tx = MultiSourceMoveTransaction(move: _move(), legRows: [pm, hl]);
+      final row = multiSourceMoveStandardRow(tx)!;
+      expect(row.id, 'msm_1');
+      expect(classifySwapActivity(row.details),
+          SwapActivityKind.dollarWithdrawal);
+      expect(row.details.withdrawalAmount, '39.60000000',
+          reason: 'what both legs delivered (fixture amounts)');
+      expect(row.details.depositAmount, '50.00');
+      expect(row.details.status, 'success');
+      expect(row.timestamp, _move().createdAt);
+    });
+
+    test('a send that went is the send\'s own row for the whole amount', () {
+      final send = SwapOrderTransaction(
+        id: 'ord_send',
+        timestamp: _t0,
+        isConfirmed: false,
+        details: _row('ord_send',
+                from: 'USDB', fromNet: 'SPARK', to: 'BTC', toNet: 'LIGHTNING',
+                operationId: 'op-send')
+            .details
+            .copyWith(activityDirection: 'send'),
+      );
+      final move = _move(
+          forAction: VenueCashFor.send,
+          destination: VenueCashDestination.dollars,
+          finalOp: 'op-send');
+      final row = multiSourceMoveStandardRow(
+          MultiSourceMoveTransaction(move: move, legRows: [send]))!;
+      expect(row.id, 'msm_1');
+      expect(row.details.activityDirection, 'send');
+      expect(row.details.depositAmount, '50.00');
+      expect(row.details.status, 'exchanging');
+      expect(classifySwapActivity(row.details), SwapActivityKind.send);
+    });
+
+    test('a move into Dollars or a venue keeps its own row', () {
+      expect(
+          multiSourceMoveStandardRow(MultiSourceMoveTransaction(
+              move: _move(destination: VenueCashDestination.predictions),
+              legRows: const [])),
+          isNull);
+    });
+  });
+
+  group('rows on screen', () {
+    setUp(() {
+      Intl.defaultLocale = 'en_US';
+      OwnSparkArrivals.reset();
+    });
+    tearDown(() {
+      Intl.defaultLocale = null;
+      OwnSparkArrivals.reset();
+    });
+
+    Future<void> pumpRow(WidgetTester tester, BaseTransaction tx) async {
+      tester.view.physicalSize = const Size(1290, 2796);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(ProviderScope(
+        overrides: [
+          settingsProvider.overrideWith((ref) => SettingsModel(Settings(
+                currency: 'USD',
+                language: 'en',
+                btcFormat: 'sats',
+                backup: false,
+                balancePrivacy: 0,
+                biometricsEnabled: false,
+                bitcoinElectrumNode: 'localhost',
+                nodeType: 'Blockstream',
+                reviewDone: false,
+                wallets: [WalletConfig(id: 'spending', name: 'Spending')],
+                activeWalletId: 'spending',
+              ))),
+        ],
+        child: ScreenUtilInit(
+          designSize: const Size(430, 932),
+          builder: (_, __) => MaterialApp(
+            theme: buildLightTheme(),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Scaffold(
+              body: Consumer(
+                  builder: (context, ref, _) =>
+                      buildUnifiedTransactionItem(tx, context, ref)),
+            ),
+          ),
+        ),
+      ));
+    }
+
+    testWidgets(
+        'Predictions to Bitcoin reads "Withdraw · from Investments", '
+        'the bitcoin received from the dollars spent', (tester) async {
+      final pm = SwapOrderTransaction(
+        id: 'ord_pm',
+        timestamp: _t0,
+        isConfirmed: true,
+        details: _row('ord_pm',
+                from: 'USDC',
+                fromNet: 'POLYGON',
+                to: 'BTC',
+                toNet: 'SPARK',
+                operationId: 'op-pm',
+                status: 'success')
+            .details
+            .copyWith(withdrawalAmount: '0.00009300'),
+      );
+      final move = _move(legs: [
+        _leg(OneBalanceVenue.predictions, op: 'op-pm', usd: 7.78),
+      ]);
+      await pumpRow(
+          tester, MultiSourceMoveTransaction(move: move, legRows: [pm]));
+      expect(find.text('Withdraw'), findsOneWidget);
+      expect(find.textContaining('from Investments'), findsOneWidget);
+      expect(find.textContaining('Predictions'), findsNothing);
+      expect(find.textContaining('9,300'), findsOneWidget);
+      expect(find.text('from \$50.00'), findsOneWidget);
+      expect(find.textContaining('Pending', findRichText: true), findsNothing);
+    });
+
+    testWidgets(
+        'a plain Investing to Bitcoin move reads as the same row, '
+        '"from Investments"', (tester) async {
+      final hl = _row('ord_hl',
+              from: 'USDC', fromNet: 'HYPERCORE', to: 'BTC', toNet: 'SPARK',
+              status: 'success')
+          .details
+          .copyWith(
+              routeVersion: 'hypercore_to_spark_v1',
+              withdrawalAmount: '0.00008002',
+              depositAmount: '6.66');
+      expect(classifySwapActivity(hl), SwapActivityKind.investingWithdrawal);
+      await pumpRow(
+          tester,
+          SwapOrderTransaction(
+              id: hl.id, timestamp: _t0, isConfirmed: true, details: hl));
+      expect(find.text('Withdraw'), findsOneWidget);
+      expect(find.textContaining('from Investments'), findsOneWidget);
+      expect(find.textContaining('Investing'), findsNothing);
+      expect(find.textContaining('8,002'), findsOneWidget);
+    });
+
+    testWidgets('a delivery the wallet has not counted yet stays Pending',
+        (tester) async {
+      OwnSparkArrivals.refresh = (_) => Completer<void>().future;
+      final pm = _row('ord_pm',
+          from: 'USDC', fromNet: 'POLYGON', to: 'BTC', toNet: 'SPARK',
+          operationId: 'op-pm', status: 'success');
+      OwnSparkArrivals.landed(pm.details);
+      final move = _move(legs: [_leg(OneBalanceVenue.predictions, op: 'op-pm')]);
+      await pumpRow(
+          tester, MultiSourceMoveTransaction(move: move, legRows: [pm]));
+      expect(find.text('Withdraw'), findsOneWidget);
+      expect(find.textContaining('Pending', findRichText: true), findsOneWidget);
+    });
+
+    testWidgets('a multi-source send reads as the Dollars send row',
+        (tester) async {
+      final send = SwapOrderTransaction(
+        id: 'ord_send',
+        timestamp: _t0,
+        isConfirmed: false,
+        details: _row('ord_send',
+                from: 'USDB',
+                fromNet: 'SPARK',
+                to: 'BTC',
+                toNet: 'LIGHTNING',
+                operationId: 'op-send',
+                status: 'success')
+            .details
+            .copyWith(activityDirection: 'send'),
+      );
+      final move = _move(
+          forAction: VenueCashFor.send,
+          destination: VenueCashDestination.dollars,
+          finalOp: 'op-send',
+          legs: [_leg(OneBalanceVenue.predictions, direct: false)]);
+      await pumpRow(
+          tester, MultiSourceMoveTransaction(move: move, legRows: [send]));
+      expect(find.text('Sent'), findsOneWidget);
+      expect(find.text('Send \$50.00'), findsNothing);
+      expect(find.textContaining('to Lightning'), findsOneWidget);
+    });
+  });
+
   group('copy', () {
     late AppLocalizations l10n;
     setUpAll(() async =>
@@ -378,12 +572,16 @@ void main() {
           ),
         ),
       ));
-      expect(find.text('Move \$50.00 to Bitcoin'), findsOneWidget);
-      expect(find.textContaining('\$20.20 remaining'), findsOneWidget);
+      // The standard Investments withdrawal row; what is left is in the
+      // detail.
+      expect(find.text('Withdraw'), findsOneWidget);
+      expect(find.text('Move \$50.00 to Bitcoin'), findsNothing);
+      expect(find.textContaining('remaining'), findsNothing);
 
-      await tester.tap(find.text('Move \$50.00 to Bitcoin'));
+      await tester.tap(find.text('Withdraw'));
       await tester.pumpAndSettle();
       expect(find.text('Retry'), findsOneWidget);
+      expect(find.textContaining('\$20.20 remaining'), findsOneWidget);
 
       hl.gate = Completer<void>();
       await tester.tap(find.text('Retry'));

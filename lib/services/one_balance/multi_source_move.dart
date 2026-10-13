@@ -178,6 +178,13 @@ class MultiSourceMove {
   /// A leg failed and part of the amount never left its venue.
   bool get partial => remainingUsd >= 0.01;
 
+  /// What the move spent: the person's amount, or after a failed leg
+  /// what Dollars gave and the legs that went took.
+  double get spentUsd => partial
+      ? math.min(totalUsd,
+          _cents(dollarsUsd + okLegs.fold<double>(0, (s, l) => s + l.usd)))
+      : totalUsd;
+
   /// The Activity row ids and operation ids that belong to this move.
   Set<String> get linkedIds => {
         for (final l in legs) ...[
