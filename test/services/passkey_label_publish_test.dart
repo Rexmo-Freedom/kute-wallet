@@ -175,6 +175,10 @@ void main() {
     await PasskeyService.getWallet(label: 'A · 1', legacy: false);
     await _until(() async => labels.stored.isNotEmpty);
     await _until(() async => !await PasskeyService.hasPendingLabel('A · 1'));
+    // The retry event is tracked just after the pending entry clears; under
+    // a loaded test run it can trail by a few turns of the event loop.
+    await _until(() async => events.any((e) =>
+        e.$1 == 'passkey_label_published' && e.$2?['trigger'] == 'retry'));
     expect(labels.stored, ['A · 1']);
     expect(await PasskeyService.hasPendingLabel('A · 1'), isFalse);
     expect(await PasskeyService.hasPendingLabel('B · 2'), isTrue);
