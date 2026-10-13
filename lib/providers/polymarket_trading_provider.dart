@@ -34,6 +34,7 @@ import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/helpers/venue_intents.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart'
     show OneBalanceVenue;
+import 'package:kute/services/one_balance/venue_activity.dart';
 import 'package:kute/services/one_balance/venue_cash_released.dart';
 import 'package:kute/services/one_balance/venue_funder.dart'
     show SweepAuthorization;
@@ -2459,6 +2460,9 @@ class PolymarketTradingNotifier
     // Progress only; it changes nothing about the order.
     void Function(String step)? onStep,
   }) async {
+    // Any order attempt is Predictions activity: its cash stays there,
+    // available, for the next day at least (VenueActivity).
+    VenueActivity.note(OneBalanceVenue.predictions);
     final orderWalletId = _credentialsWalletId();
     final orderEoa = state.valueOrNull?.walletAddress;
     final orderPrivateKey = _privateKey;
@@ -3054,6 +3058,7 @@ class PolymarketTradingNotifier
           // A sale that filled freed venue cash: the sweeper brings it
           // home.
           if (side == OrderSide.sell && hasFill) {
+            VenueActivity.note(OneBalanceVenue.predictions);
             VenueCashReleased.emit(
                 OneBalanceVenue.predictions, 'position_closed');
           }
@@ -3106,6 +3111,10 @@ class PolymarketTradingNotifier
                   side == OrderSide.buy || orderType == OrderType.gtc,
               extra: {
                 ...?analytics,
+                // The price the fill came at (pUSD per share, exact), next
+                // to the `quoted_price` the caller priced it from.
+                'fill_price':
+                    side == OrderSide.buy ? making / taking : taking / making,
                 // v1 (CTF) | v2 (Protocol V2 / ExchangeV3), from the token.
                 'market_protocol': PolyMarketProtocol.wireForToken(tokenId),
                 // biometric | fast_window | allowance: how this order
@@ -3435,6 +3444,7 @@ class PolymarketTradingNotifier
     await _backendService!.cancelOrder(orderId);
     // The cash the order reserved is idle again: the sweeper may bring it
     // home.
+    VenueActivity.note(OneBalanceVenue.predictions);
     VenueCashReleased.emit(OneBalanceVenue.predictions, 'order_cancelled');
     await refresh();
   }
@@ -3549,6 +3559,8 @@ class PolymarketTradingNotifier
     String? surface,
   }) async {
     await RuntimeCapabilitiesService.instance.ensureAllowed('polymarket.close');
+    // A claim is Predictions activity: its proceeds stay there, available.
+    VenueActivity.note(OneBalanceVenue.predictions);
     final current = state.valueOrNull;
     if (current == null || current.walletAddress == null) {
       throw Exception('No wallet address');
@@ -4066,6 +4078,7 @@ class PolymarketTradingNotifier
     // A resolved market paid out into venue cash: the sweeper brings it
     // home. A lost position credited nothing and releases nothing.
     if (finalPusdDelta > BigInt.zero || finalUsdceDelta > BigInt.zero) {
+      VenueActivity.note(OneBalanceVenue.predictions);
       VenueCashReleased.emit(OneBalanceVenue.predictions, 'market_resolved');
     }
 
@@ -4881,6 +4894,66 @@ class PolymarketTradingNotifier
         () => _readCollateralSplit(wallet),
         maxAge: const Duration(seconds: 20))
       ..start();
+  }
+
+  /// Converts held USDC.e to pUSD when pUSD alone is short of a buy
+  /// costing [costUsd] (fees included) and the two together cover it,
+  /// the same check [placeOrder] makes before signing. A queued bet calls
+  /// it once its deposit has landed and BEFORE it reads the book it is
+  /// priced from, so the conversion (a relayer round trip) never sits
+  /// between that read and the signature. Never throws: anything left
+  /// over is [placeOrder]'s own pre-sign check and refusal path. The
+  /// account's reads for the order are prefetched again afterwards.
+  Future<void> readyCollateralForBuy(double costUsd) async {
+    final current = state.valueOrNull;
+    final eoa = current?.walletAddress;
+    final wallet = current?.proxyWalletAddress;
+    final key = _privateKey;
+    if (_disposed ||
+        eoa == null ||
+        wallet == null ||
+        wallet.isEmpty ||
+        key == null ||
+        !costUsd.isFinite ||
+        costUsd <= 0) {
+      return;
+    }
+    void ensureCurrent() {
+      if (_disposed ||
+          state.valueOrNull?.proxyWalletAddress?.toLowerCase() !=
+              wallet.toLowerCase()) {
+        throw StateError('The selected Predictions account changed.');
+      }
+    }
+
+    try {
+      final split = await _collateralSplitForOrder(wallet);
+      if (split == null ||
+          !polyShouldWrapBeforeBuy(
+            pusd: split.pusd,
+            usdce: split.usdce,
+            costMicros: BigInt.from((costUsd * 1e6).ceil()),
+          )) {
+        return;
+      }
+      final wrapped = await _wrapHeldUsdcE(
+        eoa: eoa,
+        privateKey: key,
+        wallet: wallet,
+        trigger: 'order',
+        ensureCurrent: ensureCurrent,
+      ).timeout(PolymarketPlacementWaits.conversion);
+      if (wrapped > BigInt.zero) {
+        await _backendService?.updateBalanceAllowance(
+          assetType: 'COLLATERAL',
+          signatureType: 3,
+        );
+      }
+    } catch (e) {
+      _devLog('[wrap] ready-for-buy conversion: $e');
+    } finally {
+      prefetchOrderReads();
+    }
   }
 
   /// The pUSD / USDC.e split for a buy: the prefetched read for [wallet]

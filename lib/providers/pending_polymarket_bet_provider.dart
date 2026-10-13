@@ -123,6 +123,13 @@ class PendingBetIntent {
   /// (`TrackingService.orderRef`), never the raw id.
   final String? fundQuoteRef;
 
+  /// What the venue already held when the funding leg left, and what the
+  /// leg's quote said would arrive: the queued bet fires once the venue
+  /// holds [fundReadyUsd] plus 99% of [fundArrivingUsd] (the move landed),
+  /// not on the venue cash alone, which could already cover part of it.
+  final double? fundReadyUsd;
+  final double? fundArrivingUsd;
+
   /// When the bet was queued behind its funding leg. A queued bet older
   /// than [maxQueuedAge] never fires.
   final DateTime? queuedAt;
@@ -158,6 +165,8 @@ class PendingBetIntent {
     this.spendAllBudgetUsd,
     this.fundUsd,
     this.fundQuoteRef,
+    this.fundReadyUsd,
+    this.fundArrivingUsd,
     this.queuedAt,
   });
 
@@ -196,6 +205,8 @@ class PendingBetIntent {
     double? retryMaxPrice,
     double? fundUsd,
     String? fundQuoteRef,
+    double? fundReadyUsd,
+    double? fundArrivingUsd,
     DateTime? queuedAt,
   }) {
     return PendingBetIntent(
@@ -225,6 +236,8 @@ class PendingBetIntent {
       spendAllBudgetUsd: spendAllBudgetUsd,
       fundUsd: fundUsd ?? this.fundUsd,
       fundQuoteRef: fundQuoteRef ?? this.fundQuoteRef,
+      fundReadyUsd: fundReadyUsd ?? this.fundReadyUsd,
+      fundArrivingUsd: fundArrivingUsd ?? this.fundArrivingUsd,
       queuedAt: queuedAt ?? this.queuedAt,
     );
   }
@@ -310,6 +323,8 @@ class PendingPolymarketBetNotifier extends Notifier<PendingBetIntent?> {
       spendAllBudgetUsd: current.spendAllBudgetUsd,
       fundUsd: current.fundUsd,
       fundQuoteRef: current.fundQuoteRef,
+      fundReadyUsd: current.fundReadyUsd,
+      fundArrivingUsd: current.fundArrivingUsd,
       queuedAt: current.queuedAt,
     );
   }

@@ -302,20 +302,21 @@ void main() {
         'queues nothing', (tester) async {
       sheet = Completer<void>();
       expect(await policy.refresh(), isTrue);
-      // $5 of venue cash cannot cover the $10 bet; $2 of Dollars cannot
-      // cover the $10 move.
+      // $5 of venue cash cannot cover the $10 bet; only the rest moves
+      // (about $5.51 with fees, tolerance and buffer), and $2 of Dollars
+      // cannot cover that move.
       await _pumpSlip(tester,
           Future.value(const PolymarketTradingState(usdcBalance: 5)),
           dollars: 2);
       await _frames(tester);
-      expect(_cta(tester).label, r'Add $8.00 to Investments');
+      expect(_cta(tester).label, r'Add $3.51 to Investments');
       expect(_cta(tester).enabled, isTrue);
 
       await tester.tap(_door);
       await _frames(tester, 3);
-      // One door, prefilled with the $8 missing from Dollars, nothing
+      // One door, prefilled with the $3.51 missing from Dollars, nothing
       // queued behind it: the person places the bet themselves after.
-      expect(sheets, [8.0]);
+      expect(sheets, [3.51]);
       expect(_queued(tester), isNull);
       expect(events, isNot(contains('prediction_place_cta_tapped')));
       expect(events, isNot(contains('bet_slip_deposit_to_trade_tapped')));
@@ -339,7 +340,7 @@ void main() {
       // The door closes without a deposit: the door again, amount kept.
       sheet!.complete();
       await _frames(tester, 3);
-      expect(_cta(tester).label, r'Add $8.00 to Investments');
+      expect(_cta(tester).label, r'Add $3.51 to Investments');
       expect(_cta(tester).enabled, isTrue);
       expect(find.text(r'$10'), findsOneWidget);
       await release(tester);

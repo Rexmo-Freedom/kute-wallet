@@ -420,6 +420,10 @@ class VenueSweeper {
     final snapshot = _discountRecentSweep(raw, m);
 
     final now = _host.now();
+    // A venue under the idle rule (Predictions) only sweeps once it has
+    // been idle a day: then all of its cash goes home in one move, named
+    // for the rule, with no rate limit or batching wait.
+    final idleRule = snapshot.lastActivityAt != null;
     final decision = decideSweep(
       snapshot,
       SweepContext(
@@ -430,8 +434,8 @@ class VenueSweeper {
         backoffUntil: m.backoffUntil,
         lastSweepAt: m.lastSweepAt,
         heldSince: m.heldSince,
-        eventDriven: eventDriven || rollout,
-        flushHeld: flushHeld,
+        eventDriven: eventDriven || rollout || idleRule,
+        flushHeld: flushHeld || idleRule,
       ),
     );
 
@@ -457,8 +461,15 @@ class VenueSweeper {
       case SweepSkip(:final reason, :final idleUsd):
         if (reason != SweepSkipReason.backoff) m.heldSince = null;
         // Backed-off cash stays visible: a failed swap-back never
-        // vanishes into a hidden venue balance.
-        _setWaiting(venue, reason == SweepSkipReason.backoff ? idleUsd : null);
+        // vanishes into a hidden venue balance. Cash a venue in use keeps
+        // (the idle rule) is the venue's money, counted like dust: in the
+        // total, never shown as waiting.
+        if (reason == SweepSkipReason.active) {
+          _setDust(venue, idleUsd);
+        } else {
+          _setWaiting(
+              venue, reason == SweepSkipReason.backoff ? idleUsd : null);
+        }
         if (m.lastSkip != reason) {
           m.lastSkip = reason;
           _host.track('venue_sweep_skipped', {
@@ -482,7 +493,7 @@ class VenueSweeper {
             usd: usd,
             idleUsd: snapshot.idleUsd,
             minimumUsd: minimum,
-            trigger: trigger,
+            trigger: idleRule && !rollout ? '${venue.name}_idle_24h' : trigger,
             rollout: rollout);
     }
     return true;
@@ -497,6 +508,20 @@ class VenueSweeper {
     required bool rollout,
   }) async {
     final m = _memory[venue]!;
+    // A bet may have been queued or started placing since the pass read
+    // the venue (the minimum is a network read): read it again right
+    // before the move and leave the cash where it is if anything now holds
+    // it. Not a failure: no backoff, the next pass decides again.
+    final again = await _host.readVenue(venue);
+    final activeAt = again?.lastActivityAt;
+    if (again == null ||
+        again.hasPendingIntent ||
+        again.isPlacing ||
+        again.hasPendingMove ||
+        (activeAt != null &&
+            _host.now().difference(activeAt) < kVenueIdleSweepAfter)) {
+      return;
+    }
     _inFlight.add(venue);
     _publish();
     final startedAt = _host.now();
@@ -659,6 +684,7 @@ class VenueSweeper {
       isPlacing: s.isPlacing,
       hasOpenTwap: s.hasOpenTwap,
       isClaiming: s.isClaiming,
+      lastActivityAt: s.lastActivityAt,
     );
   }
 

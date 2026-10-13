@@ -82,8 +82,8 @@ class PolymarketBetController {
     return spendableUsdc(state.usdcBalance, state.openOrders);
   }
 
-  /// [cash] less the unfilled part of every resting BUY in [orders].
-  @visibleForTesting
+  /// [cash] less the unfilled part of every resting BUY in [orders]. The
+  /// slip sizes a funded bet's move against the same figure.
   static double spendableUsdc(double cash, List<Order> orders) {
     var committed = 0.0;
     for (final order in orders) {
@@ -469,14 +469,12 @@ class PolymarketBetController {
     }
   }
 
-  /// A fill-and-kill the venue killed for want of sellers at the cap (not
-  /// a balance or any other refusal).
-  static bool _isNoMatch(Object e) {
-    if (e is! PolymarketOrderNotAcceptedException) return false;
-    final m = e.reason.toLowerCase();
-    return m.contains('no orders found to match') ||
-        m.contains("couldn't be fully filled");
-  }
+  /// A refusal that says the price moved (the fill-and-kill matched
+  /// nothing at its cap, or the price was refused): not a balance or any
+  /// other refusal.
+  static bool _isNoMatch(Object e) =>
+      e is PolymarketOrderNotAcceptedException &&
+      isPolymarketPriceRefusal(e.reason);
 
   /// The resting price of a limit bet.
   static double _gtcPrice(PendingBetIntent intent) =>
@@ -575,6 +573,7 @@ class PolymarketBetController {
     }
     _approval = FastBetWindow.approvalParam(grant.method);
     _orderPrice = null;
+    _retried = false;
 
     final tradingState = ref.read(polymarketTradingProvider).valueOrNull;
     final proxyWallet = tradingState?.proxyWalletAddress;
@@ -639,6 +638,9 @@ class PolymarketBetController {
         if (!intent.isLimit)
           'slippage_bps': VenueAnalytics.bps(intent.slippagePct),
         'stage': polymarketFailureStage(reason, error),
+        // Whether a second, re-priced order went out after the first was
+        // refused for its price.
+        'retried': _retried,
         ...placementContext(intent,
             approval: _approval, orderPrice: _orderPrice),
         // What the order book said when it refused the order: a closed
@@ -655,6 +657,8 @@ class PolymarketBetController {
   /// (the order guard holds it), so one of each is enough.
   String? _approval;
   double? _orderPrice;
+  bool _retried = false;
+  double? _requotedPrice;
 
   /// What every placement failure event carries about the order: the
   /// exchange it goes to, its time in force, the market's shape, the
@@ -902,6 +906,7 @@ class PolymarketBetController {
       Object? lastErr;
       Map<String, dynamic>? accepted;
       var orderedShares = 0.0;
+      _requotedPrice = null;
       for (var i = 0; i < 2; i++) {
         // The order built during the approval when the price is the
         // approved one (the usual case), else built now for the price
@@ -914,6 +919,7 @@ class PolymarketBetController {
         });
 
         _orderPrice = orderPrice;
+        _retried = i > 0;
         try {
           final fillResponse = await notifier.placeOrder(
             tokenId: intent.tokenId,
@@ -929,6 +935,14 @@ class PolymarketBetController {
             marketCategory: intent.marketCategory,
             source: 'usdc_pool',
             entrySource: entrySource,
+            // On polymarket_bet_placed: the tolerance, whether this is the
+            // re-priced second order, and the price the book quoted for
+            // the stake (next to the fill_price the venue gave).
+            analytics: {
+              'slippage_bps': VenueAnalytics.bps(intent.slippagePct),
+              'retried': i > 0,
+              'quoted_price': _requotedPrice ?? sendQuote.price,
+            },
             grant: ladder.rung(
               walletId: notifier.signingWalletId ?? '',
               tokenId: intent.tokenId,
@@ -997,6 +1011,7 @@ class PolymarketBetController {
             rethrow;
           }
           orderPrice = min(fresh.maxPrice, approvedPrice);
+          _requotedPrice = fresh.price;
           PolymarketPlacementDiagnostics.note('requote', {
             'price': orderPrice,
             'bestAsk': fresh.bestAsk,

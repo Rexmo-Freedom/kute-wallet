@@ -47,10 +47,12 @@ import 'package:kute/services/funding/settlement_stage.dart';
 import 'package:kute/services/funding/settlement_store.dart';
 import 'package:kute/services/one_balance/hyperliquid_move_rail.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
+import 'package:kute/services/one_balance/prediction_funding_ledger.dart';
 import 'package:kute/services/one_balance/predictions_venue_funder.dart'
     show predictionsVenueFunderProvider;
 import 'package:kute/services/one_balance/route_minimums.dart';
 import 'package:kute/services/one_balance/sweep_rules.dart';
+import 'package:kute/services/one_balance/venue_activity.dart';
 import 'package:kute/services/one_balance/venue_cash_released.dart';
 import 'package:kute/services/one_balance/venue_funder.dart';
 import 'package:kute/services/one_balance/venue_sweeper.dart';
@@ -73,6 +75,48 @@ const Duration kVenueSweepHeartbeat = Duration(minutes: 3);
 /// The one-time rollout flag's key for a wallet, in the settings box.
 String oneBalanceRolloutKey(String walletId) =>
     'one_balance_rollout_v1:$walletId';
+
+/// Whether the queued Predictions bet in [intent] still holds venue cash:
+/// it waits for its funds, is being placed, or went out and its answer is
+/// not in yet. A bet that failed, finished, or is only a slip being filled
+/// in (nothing sent) holds nothing. Before, any bet left in the provider
+/// held every sweep: a failed one stays there until a slip button resets
+/// it, and closing the slip or failing with the slip gone never did.
+bool pendingBetHoldsCash(PendingBetIntent? intent) => switch (intent?.status) {
+      PendingBetStatus.converting ||
+      PendingBetStatus.awaitingBalance ||
+      PendingBetStatus.placing ||
+      PendingBetStatus.awaitingConfirmation =>
+        true,
+      _ => false,
+    };
+
+/// Whether a settlement record in [stage], last updated at [updatedAt],
+/// is money genuinely on its way (broadcast to processing, and recent)
+/// and so holds the venue's sweep. A failed, needs-attention, unknown or
+/// late record is watched by the reconciler for weeks; it is not a move in
+/// flight, and it used to hold every sweep for that long.
+bool settlementHoldsVenueCash(SettlementStage stage, DateTime updatedAt,
+    {required DateTime now}) {
+  const moving = {
+    SettlementStage.broadcasting,
+    SettlementStage.funded,
+    SettlementStage.submitted,
+    SettlementStage.processing,
+  };
+  return moving.contains(stage) &&
+      now.difference(updatedAt) < kVenueMoveMaxAge;
+}
+
+/// When Predictions was last used, for the idle rule: now while it has
+/// open orders, else the last order, sale, claim, cancel or funded bet
+/// ([VenueActivity]); the epoch when nothing is known (cash from before
+/// the rule is long idle).
+DateTime predictionsLastActivity({required bool openOrders, required DateTime now}) {
+  if (openOrders) return now;
+  return VenueActivity.last(OneBalanceVenue.predictions) ??
+      DateTime.fromMillisecondsSinceEpoch(0);
+}
 
 /// Orchestra chains a venue's settlement operations run on.
 const Map<OneBalanceVenue, Set<String>> _venueChains = {
@@ -147,14 +191,24 @@ class _RiverpodSweeperHost extends VenueSweeperHost {
           // reserved until it can.
           sweepableUsd: available ?? 0,
           hasReservations: available == null || (balances.committed ?? 0) > 0,
-          hasPendingMove: pendingRows || pendingOps,
+          hasPendingMove: pendingRows ||
+              pendingOps ||
+              PredictionFundingLedger.instance.hasInFlight,
           lastDepositSettledAt: settledAt,
-          hasPendingIntent: _ref.read(pendingPolymarketBetProvider) != null,
+          hasPendingIntent:
+              pendingBetHoldsCash(_ref.read(pendingPolymarketBetProvider)) ||
+                  PredictionFundingLedger.instance.hasReserved,
           isPlacing: pm.isPlacingOrder ||
-              _ref.read(placingPolymarketBetProvider).isNotEmpty,
+              _ref
+                  .read(placingPolymarketBetProvider)
+                  .any((b) => b.status != PlacingBetStatus.failed),
           isClaiming: pm.openPositions.any((p) => p.redeemable) ||
               pm.clearingConditionIds.isNotEmpty ||
               pm.pendingSaleTokens.isNotEmpty,
+          // Predictions cash stays, available, until the venue has been
+          // idle a day (no orders, sells, claims, cancels, open orders).
+          lastActivityAt: predictionsLastActivity(
+              openOrders: pm.openOrders.isNotEmpty, now: now()),
         );
       case OneBalanceVenue.investing:
         double idle;
@@ -209,10 +263,12 @@ class _RiverpodSweeperHost extends VenueSweeperHost {
     try {
       final store = await SettlementStore.shared();
       final chains = _venueChains[venue]!;
+      final at = now();
       for (final op in await store.pendingForReconcile()) {
         if (wallet != null && op.walletId != wallet) continue;
-        // Proven never sent: nothing of it is on a rail.
-        if (op.stage == SettlementStage.notFunded) continue;
+        if (!settlementHoldsVenueCash(op.stage, op.updatedAt, now: at)) {
+          continue;
+        }
         if (chains.any(op.route.involvesChain)) return true;
       }
       return false;

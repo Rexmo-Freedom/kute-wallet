@@ -97,12 +97,16 @@ import 'package:kute/services/tracking_service.dart';
 import 'package:kute/screens/shared/slip_shortfall.dart';
 import 'package:kute/services/funding/venue_shortfall.dart';
 import 'package:kute/providers/pending_bet_autofire.dart'
-    show autofireOrderPrice, autofireSlippagePct, kPendingBetAutofireId;
+    show autofireSlippagePct, kPendingBetAutofireId, polymarketFundedWorstPrice;
+import 'package:kute/providers/venue_sweeper_provider.dart'
+    show pendingBetHoldsCash, venueSweeperProvider;
+import 'package:kute/services/one_balance/prediction_funding_ledger.dart';
 import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceProvider;
 import 'package:kute/services/funding/hot_settlement.dart' show HotSettlement;
 import 'package:kute/services/one_balance/one_balance_state.dart'
     show OneBalanceVenue;
+import 'package:kute/services/one_balance/bet_funding_plan.dart';
 import 'package:kute/services/one_balance/order_funding.dart';
 import 'package:kute/services/one_balance/predictions_venue_funder.dart'
     show predictionsVenueFunderProvider;
@@ -633,7 +637,13 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       polymarketDefaultSlippagePct(
           slug: widget.marketSlug,
           question: widget.marketQuestion,
-          endAt: widget.marketEndAt);
+          endAt: widget.marketEndAt,
+          // A game in play (the venue holds its orders for an in-play
+          // delay) moves like a short round and starts as wide.
+          live: (_liveDelays[
+                      widget.outcomes[_selectedIndex].conditionId ?? ''] ??
+                  0) >
+              0);
   set _slippagePct(double value) => _draft.slippageChoice = value;
 
   static const _slippageOptions = [1.0, 2.0, 5.0, 10.0];
@@ -1897,6 +1907,33 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       'market': _truncMarket(widget.marketQuestion),
       'outcome': outcomeLabel,
     });
+    // One bet queued behind its funding at a time (one approval slot): a
+    // second tap must not overwrite the queued one, whose money is on its
+    // way. And never while Predictions cash is on its way home: the stake
+    // would be sized against cash that is leaving.
+    final queued = ref.read(pendingPolymarketBetProvider);
+    final sweeping = ref
+        .read(venueSweeperProvider)
+        .sweeping
+        .contains(OneBalanceVenue.predictions);
+    if ((queued != null && queued.funded && pendingBetHoldsCash(queued)) ||
+        sweeping) {
+      _stopped(sweeping ? 'venue_settling' : 'previous_order_pending');
+      PolymarketPlacementDiagnostics.declined(
+          sweeping ? 'venue_settling' : 'previous_order_pending');
+      PolymarketPlacementTimeline.finish('declined',
+          reason: sweeping ? 'venue_settling' : 'previous_order_pending');
+      if (mounted) {
+        showMessageSnackBar(
+          context: context,
+          message: sweeping
+              ? context.l10n.betVenueSettling
+              : context.l10n.ledgerBetPending,
+          error: true,
+        );
+      }
+      return;
+    }
     // Display odds are a provisional estimate. Before approval, preparation
     // replaces them with the executable book price for this dollar amount.
     final livePrices = ref.read(livePriceProvider);
@@ -2160,8 +2197,10 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     if (!pending.isLimit) {
       final slip = autofireSlippagePct(pending.expectedPrice, pending.slippagePct);
       final bound = review.limits[IntentLimit.limitPrice];
+      // The same worst price the autofire prices the order under once the
+      // money lands (from a fresh book, never above it).
       final worst = max(bound is double ? bound : 0.0,
-          autofireOrderPrice(pending.expectedPrice, slip));
+          polymarketFundedWorstPrice(pending));
       final cap = IntentUnits.usd(pending.amount + 0.02);
       intent = review.copyWith(
         amountMax: review.amountMax > cap ? review.amountMax : cap,
@@ -2261,7 +2300,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       await _openDollarsTopUp(
         shortfallUsd: _predictionsShortfall(cash, terms),
         requiredUsd: required,
-        readyUsd: cash,
+        readyUsd: _predictionsReady(cash),
         topUpUsd: _fundingPlan?.fundUsd,
       );
     } catch (_) {
@@ -2325,18 +2364,16 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   Future<OrderFundingPlan> _fundingPlanFor(
       {required double required, required double ready}) async {
     final held = _fundingPlan;
-    if (held != null && _fundingPlanAmount == _amount) {
-      return OrderFundingPlan.from(
-        orderUsd: _amount,
+    if (held != null && _fundingPlanAmount == _amount && held.fundUsd > 0) {
+      return planBetFunding(
         requiredUsd: required,
         readyUsd: ready,
-        routeFee: held.fundUsd > 0 ? 1 - held.arrivingUsd / held.fundUsd : 0,
+        routeFee: 1 - held.arrivingUsd / held.fundUsd,
         minUsd: held.minUsd,
       );
     }
-    final plan = await OrderFundingPlan.read(
+    final plan = await readBetFunding(
       ref.read(predictionsVenueFunderProvider),
-      orderUsd: _amount,
       requiredUsd: required,
       readyUsd: ready,
     );
@@ -2359,9 +2396,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     final amount = _amount;
     unawaited(() async {
       try {
-        final plan = await OrderFundingPlan.read(
+        final plan = await readBetFunding(
           ref.read(predictionsVenueFunderProvider),
-          orderUsd: amount,
           requiredUsd: required,
           readyUsd: ready,
         );
@@ -2410,9 +2446,10 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       return;
     }
     final required = _predictionsRequired(terms);
+    final ready = _predictionsReady(balance);
     OrderFundingPlan plan;
     try {
-      plan = await _fundingPlanFor(required: required, ready: balance);
+      plan = await _fundingPlanFor(required: required, ready: ready);
     } catch (e) {
       _decline('quote_failed', error: e);
       PolymarketPlacementTimeline.finish('declined', reason: 'quote_failed');
@@ -2438,7 +2475,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       await _openDollarsTopUp(
           shortfallUsd: shortfallUsd,
           requiredUsd: required,
-          readyUsd: balance,
+          readyUsd: ready,
           topUpUsd: plan.fundUsd);
       return;
     }
@@ -2477,19 +2514,18 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       _isPlacing = true;
       _placedSuccess = false;
     });
-    // Queue, then fund: the autofire watches from here and places the
-    // bet on the deposit's credit (or fails it after `kFundsTimeout`).
-    pendingNotifier.setIntent(pending.copyWith(
-      status: PendingBetStatus.awaitingBalance,
-      fundUsd: plan.fundUsd,
-      queuedAt: DateTime.now(),
-    ));
+    // Fund first, queue once the Dollars have left. Queued before the move,
+    // venue cash already covering 99% of the stake fired the bet at once
+    // (a smaller bet, the approval consumed) and the funding leg was then
+    // refused, or both happened. The intent carries the funding cap now
+    // (nothing fires before awaitingBalance).
+    pendingNotifier.setIntent(pending.copyWith(fundUsd: plan.fundUsd));
     final outcome =
         await ref.read(orderFundingControllerProvider).fundAndQueue(
       venue: OneBalanceVenue.predictions,
       orderUsd: pending.amount,
       requiredUsd: required,
-      readyUsd: balance,
+      readyUsd: ready,
       auth: UserGrantAuthorization(grant),
       fundUsd: plan.fundUsd,
       entrySource: widget.source,
@@ -2500,14 +2536,28 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     switch (outcome) {
       case OrderFundingFunded(:final move):
         // Dollars have left. The row is in Activity; the autofire takes
-        // over. The slip may close now: nothing here is needed any more.
+        // over, once the venue holds what it held plus this move. The slip
+        // may close now: nothing here is needed any more.
         PolymarketPlacementTimeline.mark('funded');
-        pendingNotifier.recordFunding(
-            quoteRef: TrackingService.orderRef(move.quoteId));
+        final quoteRef = TrackingService.orderRef(move.quoteId);
+        PredictionFundingLedger.instance.sent(quoteRef, usd: move.sentUsd);
+        final current = ref.read(pendingPolymarketBetProvider) ?? pending;
+        pendingNotifier.setIntent(current.copyWith(
+          status: PendingBetStatus.awaitingBalance,
+          fundUsd: plan.fundUsd,
+          fundQuoteRef: quoteRef,
+          fundReadyUsd: balance,
+          fundArrivingUsd: move.arrivingUsdEstimate,
+          queuedAt: DateTime.now(),
+        ));
       case OrderFundingNotNeeded():
         // The venue covers it after all: the queued bet fires on the next
         // balance tick.
-        break;
+        final current = ref.read(pendingPolymarketBetProvider) ?? pending;
+        pendingNotifier.setIntent(current.copyWith(
+          status: PendingBetStatus.awaitingBalance,
+          queuedAt: DateTime.now(),
+        ));
       case OrderFundingRefused(:final reason, :final error):
         // Nothing left Dollars: the queued bet goes, the slip is back.
         grant.revoke();
@@ -2545,7 +2595,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         await _openDollarsTopUp(
             shortfallUsd: shortfallUsd,
             requiredUsd: required,
-            readyUsd: balance,
+            readyUsd: ready,
             topUpUsd: plan.fundUsd);
     }
   }
@@ -2569,9 +2619,24 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   double _predictionsRequired(PolymarketFeeTerms terms) {
     if (!_amount.isFinite || _amount <= 0) return 0;
     final selected = widget.outcomes[_selectedIndex];
-    final price =
-        (_maxFeePrice ?? selected.price).clamp(0.01, 0.99).toDouble();
-    return terms.allInCost(_amount, price);
+    // The fees at the order's worst price (its tolerance), plus the
+    // rounding cent: the most the order can take of the venue's cash.
+    final shown = _maxFeePrice ?? selected.price;
+    final worst = _isLimitMode && _limitPrice > 0
+        ? _limitPrice
+        : shown * (1 + _slippagePct / 100);
+    final price = worst.clamp(0.01, 0.99).toDouble();
+    return terms.allInCost(_amount, price) +
+        PolymarketMarketBuyQuote.roundingHeadroom;
+  }
+
+  /// What the venue lets a new buy spend of [cash]: less what resting buys
+  /// reserve (the placement checks the same figure).
+  double _predictionsReady(double cash) {
+    final orders =
+        ref.read(polymarketTradingProvider).valueOrNull?.openOrders ??
+            const [];
+    return PolymarketBetController.spendableUsdc(cash, orders);
   }
 
   /// What this stake is short of in Predictions cash:
@@ -2580,7 +2645,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   double _predictionsShortfall(double cash, PolymarketFeeTerms terms) {
     if (!_amount.isFinite || _amount <= 0) return 0;
     return ShortfallRules.shortfallUsd(
-        requiredUsd: _predictionsRequired(terms), readyUsd: cash);
+        requiredUsd: _predictionsRequired(terms),
+        readyUsd: _predictionsReady(cash));
   }
 
   @override
@@ -3916,13 +3982,11 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       // Only when Dollars cannot cover that move either is the button the
       // Dollars door, naming exactly what is missing.
       final required = _predictionsRequired(terms);
-      _refreshFundingPlan(required: required, ready: cash);
+      final ready = _predictionsReady(cash);
+      _refreshFundingPlan(required: required, ready: ready);
       final plan = _fundingPlanAmount == _amount && _fundingPlan != null
           ? _fundingPlan!
-          : OrderFundingPlan.fallback(
-              orderUsd: _amount > 0 ? _amount : _effectiveMinBetUsd,
-              requiredUsd: required,
-              readyUsd: cash);
+          : planBetFunding(requiredUsd: required, readyUsd: ready);
       final dollars = ref.watch(usdBalanceProvider);
       final missing = slipDollarsShortfallUsd(
           topUpUsd: plan.fundUsd, dollarsUsd: dollars);

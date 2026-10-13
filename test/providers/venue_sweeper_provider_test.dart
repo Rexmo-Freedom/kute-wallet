@@ -26,7 +26,14 @@ import 'package:kute/services/one_balance/route_minimums.dart';
 import 'package:kute/services/one_balance/venue_funder.dart';
 import 'package:kute/services/one_balance/venue_sweeper.dart'
     show SweepableVenueFunder;
+import 'package:kute/providers/pending_polymarket_bet_provider.dart';
+import 'package:kute/services/funding/settlement_stage.dart';
+import 'package:kute/services/one_balance/prediction_funding_ledger.dart';
+import 'package:kute/services/one_balance/sweep_rules.dart'
+    show kVenueIdleSweepAfter;
+import 'package:kute/services/one_balance/venue_activity.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
+import 'package:kute/services/tracking_service.dart';
 import 'package:polybrainz_polymarket/polybrainz_polymarket.dart'
     show Position;
 
@@ -185,6 +192,9 @@ void main() {
     expect(await policy.refresh(), isTrue);
     RuntimeCapabilitiesService.debugInstance = policy;
     _Badge.builds = 0;
+    VenueActivity.reset();
+    VenueActivity.clock = DateTime.now;
+    PredictionFundingLedger.reset();
   });
 
   tearDown(() {
@@ -269,5 +279,135 @@ void main() {
     final state = b.c.read(oneBalanceProvider);
     expect(state.investedUsd, 30, reason: 'the open position stays visible');
     expect(state.predictionsKnown, isTrue);
+  });
+
+  group('Predictions cash after a funded bet that failed', () {
+    PendingBetIntent failedBet() => const PendingBetIntent(
+          tokenId: '1',
+          amount: 10,
+          slippagePct: 5,
+          marketQuestion: 'Bitcoin Up or Down',
+          outcomeName: 'Up',
+          expectedPrice: 0.5,
+          status: PendingBetStatus.failed,
+          fundUsd: 10,
+          fundQuoteRef: 'ref_move',
+        );
+
+    Future<({ProviderContainer c, _PmFunder pm})> landed() async {
+      final b = bind(const PolymarketTradingState(
+          isAuthenticated: true, balanceKnown: true, usdcBalance: 10.4));
+      b.c.read(venueSweeperProvider);
+      await b.c.read(polymarketTradingProvider.future);
+      await Future<void>.delayed(Duration.zero);
+      return (c: b.c, pm: b.pm);
+    }
+
+    test('funded, failed, landed: the cash stays, available, while the '
+        'venue is in use', () async {
+      // The move left, landed, its order failed and released it now.
+      final ledger = PredictionFundingLedger.instance;
+      ledger.sent('ref_move', usd: 10);
+      ledger.landed('ref_move');
+      ledger.release('ref_move', reason: 'failed');
+      final b = await landed();
+      b.c.read(pendingPolymarketBetProvider.notifier).setIntent(failedBet());
+      await b.c.read(venueSweeperProvider.notifier).trigger('resume');
+      expect(b.pm.calls, isEmpty, reason: 'no sweep within a day of use');
+      expect(b.c.read(venueSweeperProvider).waiting, isEmpty,
+          reason: 'never shown as waiting or unavailable');
+      // Still the person's money in the total meanwhile.
+      expect(b.c.read(venueSweeperProvider).dust,
+          {OneBalanceVenue.predictions: 10.4});
+      expect(b.c.read(oneBalanceProvider).totalUsd, closeTo(10.4, 1e-9));
+    });
+
+    test('a day idle: swept back to Dollars with no action, although the '
+        'failed bet is still on the slip', () async {
+      final events = <(String, Map<String, Object>?)>[];
+      TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+      addTearDown(() => TrackingService.debugTrackObserver = null);
+      final ledger = PredictionFundingLedger.instance;
+      final dayAgo = DateTime.now()
+          .subtract(kVenueIdleSweepAfter + const Duration(minutes: 1));
+      VenueActivity.clock = () => dayAgo;
+      PredictionFundingLedger.clock = () => dayAgo;
+      addTearDown(() => PredictionFundingLedger.clock = DateTime.now);
+      ledger.sent('ref_move', usd: 10);
+      ledger.landed('ref_move');
+      ledger.release('ref_move', reason: 'failed');
+      VenueActivity.clock = DateTime.now;
+      final b = await landed();
+      // Before: any intent on the provider held every sweep for good.
+      b.c.read(pendingPolymarketBetProvider.notifier).setIntent(failedBet());
+      await b.c.read(venueSweeperProvider.notifier).trigger('timer');
+      expect(b.pm.calls, ['sweep:10.4']);
+      final started =
+          events.firstWhere((e) => e.$1 == 'venue_sweep_started').$2!;
+      expect(started['trigger'], 'predictions_idle_24h');
+    });
+
+    test('a bet still waiting for its money holds the cash, idle or not',
+        () async {
+      final b = await landed();
+      b.c.read(pendingPolymarketBetProvider.notifier).setIntent(
+          failedBet().copyWith(status: PendingBetStatus.awaitingBalance));
+      await b.c.read(venueSweeperProvider.notifier).trigger('timer');
+      expect(b.pm.calls, isEmpty);
+    });
+
+    test('open orders keep the venue in use', () {
+      final now = DateTime.now();
+      expect(predictionsLastActivity(openOrders: true, now: now), now);
+      expect(predictionsLastActivity(openOrders: false, now: now),
+          DateTime.fromMillisecondsSinceEpoch(0));
+    });
+  });
+
+  test('only a recent move on its way holds a sweep, not a stuck record',
+      () {
+    final now = DateTime.now();
+    final recent = now.subtract(const Duration(minutes: 5));
+    final old = now.subtract(const Duration(days: 3));
+    expect(settlementHoldsVenueCash(SettlementStage.processing, recent,
+        now: now), isTrue);
+    expect(settlementHoldsVenueCash(SettlementStage.broadcasting, recent,
+        now: now), isTrue);
+    expect(settlementHoldsVenueCash(SettlementStage.processing, old, now: now),
+        isFalse);
+    for (final stuck in [
+      SettlementStage.failed,
+      SettlementStage.needsAttention,
+      SettlementStage.fundingUnknown,
+      SettlementStage.lateDeposit,
+      SettlementStage.notFunded,
+    ]) {
+      expect(settlementHoldsVenueCash(stuck, recent, now: now), isFalse,
+          reason: stuck.name);
+    }
+  });
+
+  test('only a bet waiting, placing or awaiting its answer holds the cash',
+      () {
+    PendingBetIntent at(PendingBetStatus s) => PendingBetIntent(
+        tokenId: '1',
+        amount: 1,
+        slippagePct: 5,
+        marketQuestion: 'q',
+        outcomeName: 'o',
+        expectedPrice: 0.5,
+        status: s);
+    expect(pendingBetHoldsCash(null), isFalse);
+    for (final s in PendingBetStatus.values) {
+      expect(
+          pendingBetHoldsCash(at(s)),
+          const {
+            PendingBetStatus.converting,
+            PendingBetStatus.awaitingBalance,
+            PendingBetStatus.placing,
+            PendingBetStatus.awaitingConfirmation,
+          }.contains(s),
+          reason: s.name);
+    }
   });
 }

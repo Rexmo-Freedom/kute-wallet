@@ -7982,11 +7982,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get betAutofireFundsTimeout =>
-      'Your funds are safe in your Polymarket balance, but the prediction couldn\'t be placed automatically. Open Predictions and tap to place it again. It should be instant.';
+      'The prediction couldn\'t be placed automatically. Your money stays available in Investments, and placing it again uses it first. It should be instant.';
 
   @override
   String get betAutofireBookUnavailable =>
-      'Could not reach Polymarket to place the prediction. Your funds are safe in your Polymarket balance. Try again.';
+      'Could not reach Polymarket to place the prediction. Your money stays available in Investments, and trying again uses it first.';
 
   @override
   String get moveInvestingDepositsUnavailable =>

@@ -113,7 +113,11 @@ enum SweepSkipReason {
   claiming('claiming'),
   belowMinimum('below_minimum'),
   locked('locked'),
-  backoff('backoff');
+  backoff('backoff'),
+
+  /// The venue was used within [kVenueIdleSweepAfter] (or has open
+  /// orders): its cash stays there, available, until it has been idle.
+  active('venue_active');
 
   const SweepSkipReason(this.label);
 
@@ -148,6 +152,7 @@ class VenueSnapshot {
     this.isPlacing = false,
     this.hasOpenTwap = false,
     this.isClaiming = false,
+    this.lastActivityAt,
   });
 
   /// Venue cash not in a position: what the header would otherwise hide.
@@ -185,7 +190,19 @@ class VenueSnapshot {
   /// A claim is redeemable, clearing or otherwise mid-settlement (a
   /// withdraw or sale in flight).
   final bool isClaiming;
+
+  /// Set for a venue whose cash stays until it has been idle
+  /// [kVenueIdleSweepAfter] (Predictions): when it was last used (an
+  /// order, a sale, a claim, a cancel, a funded bet; now, while orders
+  /// are open). Null leaves the venue under the plain rules.
+  final DateTime? lastActivityAt;
 }
+
+/// A venue under the idle rule ([VenueSnapshot.lastActivityAt]) keeps its
+/// cash, counted as available, until it has been idle this long: no
+/// orders, sells, claims or cancels and no open orders. Positions held do
+/// not count; only the cash moves.
+const Duration kVenueIdleSweepAfter = Duration(hours: 24);
 
 /// The session facts a pass adds to the snapshot.
 @immutable
@@ -293,6 +310,17 @@ SweepDecision decideSweep(VenueSnapshot venue, SweepContext ctx) {
 
   if (!ctx.spendingWalletActive || !ctx.sessionUnlocked) {
     return SweepSkip(SweepSkipReason.locked, idleUsd: idle);
+  }
+
+  final activeAt = venue.lastActivityAt;
+  if (activeAt != null &&
+      ctx.now.difference(activeAt) < kVenueIdleSweepAfter) {
+    // The unreserved cash (what resting orders hold is already counted as
+    // invested): the venue's money, counted in the total meanwhile.
+    return SweepSkip(SweepSkipReason.active,
+        idleUsd: venue.hasReservations
+            ? math.min(_clean(venue.sweepableUsd), idle)
+            : idle);
   }
 
   final backoffUntil = ctx.backoffUntil;
