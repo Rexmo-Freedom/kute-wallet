@@ -1198,31 +1198,6 @@ class AppLocalizationsFr extends AppLocalizations {
   String get totalFee => 'Frais totaux';
 
   @override
-  String get usdEarnTitle => 'Rendement';
-
-  @override
-  String get usdEarnRate => 'Taux annuel récent';
-
-  @override
-  String get usdEarnNextPayment => 'Prochain versement';
-
-  @override
-  String get usdEarnNextPaymentIn => 'Versement dans';
-
-  @override
-  String get usdEarnRatePending => 'Chargement';
-
-  @override
-  String get usdEarnRateUnavailable => 'Indisponible pour le moment';
-
-  @override
-  String get usdEarnActivityEmpty => 'Aucun versement pour l\'instant';
-
-  @override
-  String get usdEarnActivityUnavailable =>
-      'L\'historique des versements est indisponible pour le moment';
-
-  @override
   String hlYieldAvailableLine(String amount) {
     return '$amount disponible';
   }
@@ -2713,9 +2688,6 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get walletsEnterFriendCodeDescriptionNoDiscount =>
       'Si un ami vous a invité, saisissez son code.';
-
-  @override
-  String get accountEarn => 'Gagner';
 
   @override
   String get accountInviteFriendsEarnShare =>
@@ -6865,18 +6837,6 @@ class AppLocalizationsFr extends AppLocalizations {
   String get betAdvancedSaleSellingAll => 'Vente de toute votre position';
 
   @override
-  String get usdEarnProjectionNote =>
-      'La ligne pointillée est une estimation au taux du jour, pas de l\'argent reçu.';
-
-  @override
-  String usdEarnBelowMinimum(String amount) {
-    return 'Les récompenses commencent dès que vous détenez $amount. Elles sont versées chaque jour en bitcoin.';
-  }
-
-  @override
-  String get usdEarnProjectedLabel => 'Projection au taux du jour';
-
-  @override
   String get moveWithdrawDestinationHint =>
       'Choisissez ce qui arrive sur votre compte de dépenses.';
 
@@ -7482,7 +7442,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get shareCodeTimedOut =>
-      'Votre code est en cours de création. Vous le trouverez à tout moment dans Paramètres → Gagner.';
+      'Votre code est en cours de création. Vous le trouverez à tout moment dans Paramètres → Programme de parrainage.';
 
   @override
   String get referrerCaptureInvalid =>
@@ -7509,7 +7469,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get referrerAddLater =>
-      'Vous pouvez aussi l\'ajouter plus tard dans Paramètres → Gagner (sous 7 jours).';
+      'Vous pouvez aussi l\'ajouter plus tard dans Paramètres → Programme de parrainage (sous 7 jours).';
 
   @override
   String get referrerSkip => 'Passer, je n\'ai pas de code';

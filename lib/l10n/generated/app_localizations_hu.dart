@@ -1193,31 +1193,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String get totalFee => 'Teljes díj';
 
   @override
-  String get usdEarnTitle => 'Hozam';
-
-  @override
-  String get usdEarnRate => 'Legutóbbi éves ráta';
-
-  @override
-  String get usdEarnNextPayment => 'Következő kifizetés';
-
-  @override
-  String get usdEarnNextPaymentIn => 'Kifizetésig';
-
-  @override
-  String get usdEarnRatePending => 'Betöltés';
-
-  @override
-  String get usdEarnRateUnavailable => 'Most nem érhető el';
-
-  @override
-  String get usdEarnActivityEmpty => 'Még nincs kifizetés';
-
-  @override
-  String get usdEarnActivityUnavailable =>
-      'A kifizetési előzmények most nem érhetők el';
-
-  @override
   String hlYieldAvailableLine(String amount) {
     return '$amount elérhető';
   }
@@ -2699,9 +2674,6 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String get walletsEnterFriendCodeDescriptionNoDiscount =>
       'Ha egy barátod meghívott, add meg a kódját.';
-
-  @override
-  String get accountEarn => 'Hozam';
 
   @override
   String get accountInviteFriendsEarnShare =>
@@ -6834,18 +6806,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String get betAdvancedSaleSellingAll => 'A teljes pozíciód eladása';
 
   @override
-  String get usdEarnProjectionNote =>
-      'A szaggatott vonal a mai rátán alapuló becslés, nem kapott pénz.';
-
-  @override
-  String usdEarnBelowMinimum(String amount) {
-    return 'A jutalmak akkor indulnak, ha legalább $amount van nálad. Naponta, bitcoinban fizetjük őket.';
-  }
-
-  @override
-  String get usdEarnProjectedLabel => 'Becslés a mai rátán';
-
-  @override
   String get moveWithdrawDestinationHint =>
       'Válaszd ki, mi érkezzen a költési fiókodba.';
 
@@ -7447,7 +7407,7 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get shareCodeTimedOut =>
-      'A kódod most készül. Bármikor megtalálod a Beállítások → Hozam menüben.';
+      'A kódod most készül. Bármikor megtalálod a Beállítások → Ajánlói program menüben.';
 
   @override
   String get referrerCaptureInvalid =>
@@ -7474,7 +7434,7 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get referrerAddLater =>
-      'Később is megadhatod a Beállítások → Hozam menüben (7 napon belül).';
+      'Később is megadhatod a Beállítások → Ajánlói program menüben (7 napon belül).';
 
   @override
   String get referrerSkip => 'Kihagyom, nincs kódom';

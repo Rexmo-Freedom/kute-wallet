@@ -1183,30 +1183,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get totalFee => '手数料合計';
 
   @override
-  String get usdEarnTitle => '利回り';
-
-  @override
-  String get usdEarnRate => '直近の年利';
-
-  @override
-  String get usdEarnNextPayment => '次回の支払い';
-
-  @override
-  String get usdEarnNextPaymentIn => '支払いまで';
-
-  @override
-  String get usdEarnRatePending => '読み込み中';
-
-  @override
-  String get usdEarnRateUnavailable => '現在利用できません';
-
-  @override
-  String get usdEarnActivityEmpty => '支払いはまだありません';
-
-  @override
-  String get usdEarnActivityUnavailable => '現在、支払い履歴を表示できません';
-
-  @override
   String hlYieldAvailableLine(String amount) {
     return '$amount 利用可能';
   }
@@ -2612,9 +2588,6 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get walletsEnterFriendCodeDescriptionNoDiscount =>
       '友達から招待された場合は、そのコードを入力してください。';
-
-  @override
-  String get accountEarn => '報酬';
 
   @override
   String get accountInviteFriendsEarnShare =>
@@ -6550,17 +6523,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get betAdvancedSaleSellingAll => 'ポジションをすべて売却します';
 
   @override
-  String get usdEarnProjectionNote => '点線は現在のレートに基づく推定値で、受け取った金額ではありません。';
-
-  @override
-  String usdEarnBelowMinimum(String amount) {
-    return '$amount以上を保有すると報酬が発生します。報酬は毎日ビットコインで支払われます。';
-  }
-
-  @override
-  String get usdEarnProjectedLabel => '現在のレートでの予測';
-
-  @override
   String get moveWithdrawDestinationHint => '支払い用アカウントに受け取る通貨を選択してください。';
 
   @override
@@ -7112,7 +7074,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get shareCodeSettingUp => 'コードを準備中…';
 
   @override
-  String get shareCodeTimedOut => 'コードを作成中です。設定 → 報酬からいつでも確認できます。';
+  String get shareCodeTimedOut => 'コードを作成中です。設定 → 紹介プログラムからいつでも確認できます。';
 
   @override
   String get referrerCaptureInvalid => '招待コードを確認できませんでした。お持ちの場合は手動で入力してください。';
@@ -7135,7 +7097,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get referrerCodeAdded => 'コードを追加しました';
 
   @override
-  String get referrerAddLater => '後から 設定 → 報酬 でも追加できます（7日以内）。';
+  String get referrerAddLater => '後から 設定 → 紹介プログラム でも追加できます（7日以内）。';
 
   @override
   String get referrerSkip => 'スキップ（コードを持っていない）';

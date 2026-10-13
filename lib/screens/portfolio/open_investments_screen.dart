@@ -26,10 +26,9 @@
 //     twice (PortfolioStatisticsOverview): one P&L chart with an All ·
 //     Investing · Predictions toggle, one allocation donut that opens a
 //     venue (then a category) in the same ring, then one Active |
-//     Historic pair over one card of figures for what the donut shows
-//     (Earn's paid-to-date one of the account's while the backend allows
-//     Earn, `usd.earn`). Earn's chart shows only when it is the only
-//     figure (no venue, or no P&L ever moved).
+//     Historic pair over one card of figures for what the donut shows.
+//     Earn (the dollar rewards programme) is shown nowhere, whatever the
+//     backend's `usd.earn` says (owner decision).
 // A venue the shell draws no tab for (portfolio_filters.dart) has no
 // section and no rows here.
 //
@@ -42,7 +41,6 @@
 // never repaints the rest of the list.
 
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -77,14 +75,11 @@ import 'package:kute/screens/polymarket/components/position_claim.dart';
 import 'package:kute/screens/polymarket/components/position_detail_sheet.dart';
 import 'package:kute/screens/portfolio/poly_position_events.dart'
     show polyPortfolioEventsPrefetchProvider;
-import 'package:kute/providers/usd_rewards_provider.dart'
-    show usdEarnEnabledProvider;
 import 'package:kute/screens/portfolio/portfolio_activity.dart';
 import 'package:kute/screens/portfolio/portfolio_empty_state.dart';
 import 'package:kute/screens/portfolio/portfolio_filters.dart';
 import 'package:kute/screens/portfolio/portfolio_orders.dart';
 import 'package:kute/screens/portfolio/portfolio_statistics.dart';
-import 'package:kute/screens/usd/components/usd_balance_tabs.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart';
 import 'package:kute/screens/shared/portfolio_position_card.dart';
@@ -277,64 +272,22 @@ class _AllPositions extends ConsumerWidget {
 /// Statistics: Investing and Predictions as one account, said once
 /// ([PortfolioStatisticsOverview]: one P&L chart with a venue toggle, one
 /// allocation donut, one Active | Historic pair over one card of
-/// figures). Earn's paid-to-date is one of the account's figures; its
-/// chart shows only when it is the only figure: no venue on the account
-/// (under its heading,
-/// built once it is on screen, so `usd_earn_opened` fires when it is
-/// seen), or venues whose P&L never moved.
-class _StatisticsTab extends ConsumerWidget {
+/// figures). No venue on the account: the empty state.
+class _StatisticsTab extends StatelessWidget {
   const _StatisticsTab({required this.venues});
 
   final PortfolioVenues venues;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final v = venues;
-    final earnAllowed = ref.watch(usdEarnEnabledProvider);
-    if (!v.any && !earnAllowed) {
+    if (!v.any) {
       return PortfolioEmptyState(context.l10n.openInvestNoOpenInvestments);
     }
-    if (v.any) {
-      return PortfolioStatisticsOverview(
-          key: const ValueKey('statistics-overview'),
-          trading: v.trading,
-          predictions: v.predictions,
-          earn: earnAllowed);
-    }
-    return ListView(
-      scrollCacheExtent: const ScrollCacheExtent.pixels(0),
-      padding: EdgeInsets.fromLTRB(
-          16.w, 4.h, 16.w, 32.h + kuteDockScrollClearance(context)),
-      children: [
-        _SectionHeader(context.l10n.usdEarnTitle,
-            key: const ValueKey('portfolio-statistics-earn')),
-        const _KeptSection(child: UsdBalanceTabs()),
-      ],
-    );
-  }
-}
-
-/// A Statistics section, built once it is on screen and kept from then
-/// on: its sub-tab, its drill-down and the Earn chart's one open event
-/// survive scrolling it out of view and back.
-class _KeptSection extends StatefulWidget {
-  const _KeptSection({required this.child});
-
-  final Widget child;
-
-  @override
-  State<_KeptSection> createState() => _KeptSectionState();
-}
-
-class _KeptSectionState extends State<_KeptSection>
-    with AutomaticKeepAliveClientMixin {
-  @override
-  bool get wantKeepAlive => true;
-
-  @override
-  Widget build(BuildContext context) {
-    super.build(context);
-    return widget.child;
+    return PortfolioStatisticsOverview(
+        key: const ValueKey('statistics-overview'),
+        trading: v.trading,
+        predictions: v.predictions);
   }
 }
 
@@ -550,7 +503,7 @@ class HlPortfolioPositionCard extends ConsumerWidget {
 /// The app's section-header grammar: 22sp w800, tight tracking.
 class _SectionHeader extends StatelessWidget {
   final String title;
-  const _SectionHeader(this.title, {super.key});
+  const _SectionHeader(this.title);
 
   @override
   Widget build(BuildContext context) {

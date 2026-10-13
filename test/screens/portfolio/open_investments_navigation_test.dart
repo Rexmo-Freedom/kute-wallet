@@ -54,7 +54,6 @@ import 'package:kute/screens/shared/kute_motion.dart' show RollingFigure;
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:kute/screens/shared/portfolio_tabs.dart';
 import 'package:kute/screens/shared/trade_results_button.dart';
-import 'package:kute/screens/usd/components/usd_earn_chart.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -231,19 +230,6 @@ class _PaidRewardsApi extends RecordingRewardsApi {
         ],
         total: 3);
   }
-}
-
-/// A stat tile's figure, read under its [label] in [of].
-String _tile(WidgetTester tester, Finder of, String label) {
-  final column = find.ancestor(
-      of: find.descendant(of: of, matching: find.text(label)),
-      matching: find.byType(Column));
-  final texts = tester
-      .widgetList<Text>(
-          find.descendant(of: column.first, matching: find.byType(Text)))
-      .map((t) => t.data)
-      .toList();
-  return texts[texts.indexOf(label) + 1]!;
 }
 
 /// Every pill on screen belongs to the tab strip: no third row under it.
@@ -433,9 +419,8 @@ void main() {
               matching: find.byKey(ValueKey('statistics-venue-$venue'))),
           findsOneWidget);
     }
-    // No Earn while the backend does not allow it.
-    expect(find.byType(UsdEarnChart, skipOffstage: false), findsNothing);
-    expect(find.text('Earn'), findsNothing);
+    // No Earn, ever.
+    expect(find.text('Earn', skipOffstage: false), findsNothing);
     expect(events.where((e) => e.$1 == 'portfolio_tab_changed'), isEmpty);
 
     // The one range row reports the combined chart as venue `all`.
@@ -519,70 +504,81 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets(
-      'Earn is one figure of the account with what it has paid; its chart '
-      'does not repeat under the venues', (tester) async {
-    final api = _PaidRewardsApi();
-    final events = _events();
-    await _pump(tester, initialTab: 3, overrides: [
-      ..._performance(),
-      usdEarnEnabledProvider.overrideWithValue(true),
-      sparkIdentityPubkeyProvider.overrideWith((_) async => 'pub'),
-      usdRewardsApiProvider.overrideWithValue(api),
-    ]);
-    final figures = find.byKey(const ValueKey('statistics-figures'));
-    // Paid days only: 1,000 + 500 sats; on the figures card, not the
-    // chart's.
-    expect(_tile(tester, figures, 'Earn'), '+1,500 sats');
-    expect(
-        find.descendant(
-            of: find.byType(PortfolioPnlChart), matching: find.text('Earn')),
-        findsNothing);
-    expect(find.byType(UsdEarnChart, skipOffstage: false), findsNothing);
-    expect(
-        find.byKey(const ValueKey('portfolio-statistics-earn')), findsNothing);
-    expect(events.where((e) => e.$1 == 'usd_earn_opened'), isEmpty);
-    expect(api.calls, ['payouts']);
-    await tester.pumpWidget(const SizedBox());
-    expect(tester.takeException(), isNull);
-  });
+  // Earn is shown nowhere (owner decision), whatever `usd.earn` says:
+  // no figure, no chart, no heading, no rewards read, no `usd_earn_*`.
+  for (final earnAllowed in [true, false]) {
+    final label = earnAllowed ? 'usd.earn allowed' : 'usd.earn denied';
 
-  testWidgets(
-      'Earn is the only figure (nothing charted on the venues): its chart '
-      'takes the lead, opened once', (tester) async {
-    final api = RecordingRewardsApi(estimatedSatsToday: 1234);
-    final events = _events();
-    await _pump(tester, initialTab: 3, overrides: [
-      usdEarnEnabledProvider.overrideWithValue(true),
-      sparkIdentityPubkeyProvider.overrideWith((_) async => 'pub'),
-      usdRewardsApiProvider.overrideWithValue(api),
-    ]);
-    for (var i = 0; i < 5; i++) {
-      await tester.pump(const Duration(milliseconds: 100));
-    }
-    expect(find.byType(UsdEarnChart), findsOneWidget);
-    expect(find.byKey(const ValueKey('statistics-chart-empty')), findsNothing);
-    expect(
-        tester.getTopLeft(find.byType(UsdEarnChart)).dy,
-        lessThan(tester
-            .getTopLeft(find.byKey(const ValueKey('statistics-active')))
-            .dy));
-    expect(api.calls, contains('summary'));
-    expect(events.where((e) => e.$1 == 'usd_earn_opened'), hasLength(1));
-    // One type scale with the P&L header: the balance hero.
-    final hero = tester
-        .widget<RollingNumberText>(find.descendant(
-            of: find.byType(UsdEarnChart),
-            matching: find.byType(RollingNumberText)))
-        .style;
-    expect(
-        hero.fontSize,
-        AppTextStyles.balance(tester.element(find.byType(UsdEarnChart)))
-            .fontSize);
-    // Unmount with the chart's countdown stopped.
-    await tester.pumpWidget(const SizedBox());
-    expect(tester.takeException(), isNull);
-  });
+    testWidgets(
+        '$label: Statistics with P&L shows no Earn figure and never reads '
+        'the rewards API', (tester) async {
+      final api = _PaidRewardsApi();
+      final events = _events();
+      await _pump(tester, initialTab: 3, overrides: [
+        ..._performance(),
+        usdEarnEnabledProvider.overrideWithValue(earnAllowed),
+        sparkIdentityPubkeyProvider.overrideWith((_) async => 'pub'),
+        usdRewardsApiProvider.overrideWithValue(api),
+      ]);
+      expect(find.byType(PortfolioPnlChart), findsOneWidget);
+      expect(find.byKey(const ValueKey('statistics-active')), findsOneWidget);
+      expect(find.text('Earn', skipOffstage: false), findsNothing);
+      expect(find.textContaining('1,500 sats', skipOffstage: false),
+          findsNothing);
+      expect(find.byKey(const ValueKey('portfolio-statistics-earn')),
+          findsNothing);
+      expect(events.where((e) => e.$1.startsWith('usd_earn_')), isEmpty);
+      expect(api.calls, isEmpty);
+      await tester.pumpWidget(const SizedBox());
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+        '$label, nothing ever done: the one empty state, no Earn chart '
+        'leading', (tester) async {
+      final api = RecordingRewardsApi(estimatedSatsToday: 1234);
+      final events = _events();
+      await _pump(tester, initialTab: 3, overrides: [
+        usdEarnEnabledProvider.overrideWithValue(earnAllowed),
+        sparkIdentityPubkeyProvider.overrideWith((_) async => 'pub'),
+        usdRewardsApiProvider.overrideWithValue(api),
+      ]);
+      for (var i = 0; i < 5; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(find.byKey(const ValueKey('statistics-chart-empty')),
+          findsOneWidget);
+      expect(find.byType(NoActivityState), findsOneWidget);
+      expect(find.byKey(const ValueKey('statistics-empty')), findsNothing);
+      expect(find.byKey(const ValueKey('statistics-active')), findsNothing);
+      expect(find.byType(KuteLineChart), findsNothing);
+      expect(find.text('Earn', skipOffstage: false), findsNothing);
+      expect(events.where((e) => e.$1.startsWith('usd_earn_')), isEmpty);
+      expect(events.where((e) => e.$1 == 'usd_chart_range_changed'), isEmpty);
+      expect(api.calls, isEmpty);
+      await tester.pumpWidget(const SizedBox());
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('$label, no venue: the portfolio empty state, no Earn section',
+        (tester) async {
+      final api = RecordingRewardsApi();
+      await _pump(tester,
+          initialTab: 3,
+          venues: const PortfolioVenues(trading: false, predictions: false),
+          overrides: [
+            usdEarnEnabledProvider.overrideWithValue(earnAllowed),
+            sparkIdentityPubkeyProvider.overrideWith((_) async => 'pub'),
+            usdRewardsApiProvider.overrideWithValue(api),
+          ]);
+      expect(find.byType(PortfolioStatisticsOverview), findsNothing);
+      expect(find.byKey(const ValueKey('portfolio-statistics-earn')),
+          findsNothing);
+      expect(find.text('Earn', skipOffstage: false), findsNothing);
+      expect(api.calls, isEmpty);
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   testWidgets('opens the requested tab (a trade notification)', (tester) async {
     await _pump(tester, initialTab: 1);

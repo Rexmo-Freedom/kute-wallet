@@ -1191,31 +1191,6 @@ class AppLocalizationsSv extends AppLocalizations {
   String get totalFee => 'Total avgift';
 
   @override
-  String get usdEarnTitle => 'Tjäna';
-
-  @override
-  String get usdEarnRate => 'Senaste årsränta';
-
-  @override
-  String get usdEarnNextPayment => 'Nästa utbetalning';
-
-  @override
-  String get usdEarnNextPaymentIn => 'Betalas om';
-
-  @override
-  String get usdEarnRatePending => 'Laddar';
-
-  @override
-  String get usdEarnRateUnavailable => 'Inte tillgänglig just nu';
-
-  @override
-  String get usdEarnActivityEmpty => 'Inga utbetalningar än';
-
-  @override
-  String get usdEarnActivityUnavailable =>
-      'Betalningshistoriken är inte tillgänglig just nu';
-
-  @override
   String hlYieldAvailableLine(String amount) {
     return '$amount tillgängligt';
   }
@@ -2688,9 +2663,6 @@ class AppLocalizationsSv extends AppLocalizations {
   @override
   String get walletsEnterFriendCodeDescriptionNoDiscount =>
       'Om en vän bjöd in dig, ange vännens kod.';
-
-  @override
-  String get accountEarn => 'Tjäna';
 
   @override
   String get accountInviteFriendsEarnShare =>
@@ -6810,18 +6782,6 @@ class AppLocalizationsSv extends AppLocalizations {
   String get betAdvancedSaleSellingAll => 'Säljer hela din position';
 
   @override
-  String get usdEarnProjectionNote =>
-      'Den streckade linjen är en uppskattning till dagens ränta, inte mottagna pengar.';
-
-  @override
-  String usdEarnBelowMinimum(String amount) {
-    return 'Belöningar börjar när du har $amount. De betalas ut dagligen i bitcoin.';
-  }
-
-  @override
-  String get usdEarnProjectedLabel => 'Prognos till dagens ränta';
-
-  @override
   String get moveWithdrawDestinationHint =>
       'Välj vad som hamnar på ditt vardagskonto.';
 
@@ -7422,7 +7382,7 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String get shareCodeTimedOut =>
-      'Din kod skapas. Du hittar den när som helst i Inställningar → Tjäna.';
+      'Din kod skapas. Du hittar den när som helst i Inställningar → Värvningsprogram.';
 
   @override
   String get referrerCaptureInvalid =>
@@ -7449,7 +7409,7 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String get referrerAddLater =>
-      'Du kan också lägga till den senare under Inställningar → Tjäna (inom 7 dagar).';
+      'Du kan också lägga till den senare under Inställningar → Värvningsprogram (inom 7 dagar).';
 
   @override
   String get referrerSkip => 'Hoppa över, jag har ingen kod';

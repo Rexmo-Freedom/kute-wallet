@@ -1198,31 +1198,6 @@ class AppLocalizationsPt extends AppLocalizations {
   String get totalFee => 'Taxa total';
 
   @override
-  String get usdEarnTitle => 'Ganhar';
-
-  @override
-  String get usdEarnRate => 'Taxa anual recente';
-
-  @override
-  String get usdEarnNextPayment => 'Próximo pagamento';
-
-  @override
-  String get usdEarnNextPaymentIn => 'Paga em';
-
-  @override
-  String get usdEarnRatePending => 'A carregar';
-
-  @override
-  String get usdEarnRateUnavailable => 'Indisponível de momento';
-
-  @override
-  String get usdEarnActivityEmpty => 'Ainda não há pagamentos';
-
-  @override
-  String get usdEarnActivityUnavailable =>
-      'O histórico de pagamentos está indisponível de momento';
-
-  @override
   String hlYieldAvailableLine(String amount) {
     return '$amount disponível';
   }
@@ -2707,9 +2682,6 @@ class AppLocalizationsPt extends AppLocalizations {
   @override
   String get walletsEnterFriendCodeDescriptionNoDiscount =>
       'Se um amigo o convidou, introduza o código dele.';
-
-  @override
-  String get accountEarn => 'Rendimento';
 
   @override
   String get accountInviteFriendsEarnShare =>
@@ -6845,18 +6817,6 @@ class AppLocalizationsPt extends AppLocalizations {
   String get betAdvancedSaleSellingAll => 'A vender a posição inteira';
 
   @override
-  String get usdEarnProjectionNote =>
-      'A linha tracejada é uma estimativa à taxa de hoje, não é dinheiro recebido.';
-
-  @override
-  String usdEarnBelowMinimum(String amount) {
-    return 'As recompensas começam quando tiver $amount. São pagas diariamente em bitcoin.';
-  }
-
-  @override
-  String get usdEarnProjectedLabel => 'Projeção à taxa de hoje';
-
-  @override
   String get moveWithdrawDestinationHint =>
       'Escolha o que chega à sua conta de despesas.';
 
@@ -7459,7 +7419,7 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get shareCodeTimedOut =>
-      'O seu código está a ser criado. Pode encontrá-lo a qualquer momento em Definições → Rendimento.';
+      'O seu código está a ser criado. Pode encontrá-lo a qualquer momento em Definições → Programa de referências.';
 
   @override
   String get referrerCaptureInvalid =>
@@ -7486,7 +7446,7 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get referrerAddLater =>
-      'Também o pode adicionar mais tarde em Definições → Rendimento (no prazo de 7 dias).';
+      'Também o pode adicionar mais tarde em Definições → Programa de referências (no prazo de 7 dias).';
 
   @override
   String get referrerSkip => 'Saltar, não tenho código';

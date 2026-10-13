@@ -1195,31 +1195,6 @@ class AppLocalizationsSl extends AppLocalizations {
   String get totalFee => 'Skupna provizija';
 
   @override
-  String get usdEarnTitle => 'Donos';
-
-  @override
-  String get usdEarnRate => 'Nedavna letna obrestna mera';
-
-  @override
-  String get usdEarnNextPayment => 'Naslednje izplačilo';
-
-  @override
-  String get usdEarnNextPaymentIn => 'Izplačilo čez';
-
-  @override
-  String get usdEarnRatePending => 'Nalaganje';
-
-  @override
-  String get usdEarnRateUnavailable => 'Trenutno ni na voljo';
-
-  @override
-  String get usdEarnActivityEmpty => 'Še ni izplačil';
-
-  @override
-  String get usdEarnActivityUnavailable =>
-      'Zgodovina izplačil trenutno ni na voljo';
-
-  @override
   String hlYieldAvailableLine(String amount) {
     return 'Na voljo: $amount';
   }
@@ -2696,9 +2671,6 @@ class AppLocalizationsSl extends AppLocalizations {
   @override
   String get walletsEnterFriendCodeDescriptionNoDiscount =>
       'Če vas je povabil prijatelj, vnesite njegovo kodo.';
-
-  @override
-  String get accountEarn => 'Zaslužek';
 
   @override
   String get accountInviteFriendsEarnShare =>
@@ -6832,18 +6804,6 @@ class AppLocalizationsSl extends AppLocalizations {
   String get betAdvancedSaleSellingAll => 'Prodajate celotno pozicijo';
 
   @override
-  String get usdEarnProjectionNote =>
-      'Črtkana črta je ocena po današnji obrestni meri, ne prejeti denar.';
-
-  @override
-  String usdEarnBelowMinimum(String amount) {
-    return 'Nagrade se začnejo, ko imate $amount. Izplačujejo se dnevno v bitcoinu.';
-  }
-
-  @override
-  String get usdEarnProjectedLabel => 'Projekcija po današnji meri';
-
-  @override
   String get moveWithdrawDestinationHint =>
       'Izberite, kaj prispe na vaš račun za porabo.';
 
@@ -7445,7 +7405,7 @@ class AppLocalizationsSl extends AppLocalizations {
 
   @override
   String get shareCodeTimedOut =>
-      'Vaša koda se ustvarja. Kadar koli jo najdete v Nastavitve → Zaslužek.';
+      'Vaša koda se ustvarja. Kadar koli jo najdete v Nastavitve → Program priporočil.';
 
   @override
   String get referrerCaptureInvalid =>
@@ -7472,7 +7432,7 @@ class AppLocalizationsSl extends AppLocalizations {
 
   @override
   String get referrerAddLater =>
-      'Dodate jo lahko tudi pozneje v Nastavitve → Zaslužek (v 7 dneh).';
+      'Dodate jo lahko tudi pozneje v Nastavitve → Program priporočil (v 7 dneh).';
 
   @override
   String get referrerSkip => 'Preskoči, nimam kode';

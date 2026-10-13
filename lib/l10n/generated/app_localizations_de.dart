@@ -1198,31 +1198,6 @@ class AppLocalizationsDe extends AppLocalizations {
   String get totalFee => 'Gesamtgebühr';
 
   @override
-  String get usdEarnTitle => 'Erträge';
-
-  @override
-  String get usdEarnRate => 'Aktueller Jahreszins';
-
-  @override
-  String get usdEarnNextPayment => 'Nächste Zahlung';
-
-  @override
-  String get usdEarnNextPaymentIn => 'Zahlung in';
-
-  @override
-  String get usdEarnRatePending => 'Wird geladen';
-
-  @override
-  String get usdEarnRateUnavailable => 'Gerade nicht verfügbar';
-
-  @override
-  String get usdEarnActivityEmpty => 'Noch keine Zahlungen';
-
-  @override
-  String get usdEarnActivityUnavailable =>
-      'Zahlungsverlauf ist gerade nicht verfügbar';
-
-  @override
   String hlYieldAvailableLine(String amount) {
     return '$amount verfügbar';
   }
@@ -2713,9 +2688,6 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get walletsEnterFriendCodeDescriptionNoDiscount =>
       'Wenn dich ein Freund eingeladen hat, gib seinen Code ein.';
-
-  @override
-  String get accountEarn => 'Verdienen';
 
   @override
   String get accountInviteFriendsEarnShare =>
@@ -6868,18 +6840,6 @@ class AppLocalizationsDe extends AppLocalizations {
       'Deine gesamte Position wird verkauft';
 
   @override
-  String get usdEarnProjectionNote =>
-      'Die gestrichelte Linie ist eine Schätzung zum heutigen Satz, kein erhaltenes Geld.';
-
-  @override
-  String usdEarnBelowMinimum(String amount) {
-    return 'Erträge gibt es ab einem Bestand von $amount. Sie werden täglich in Bitcoin ausgezahlt.';
-  }
-
-  @override
-  String get usdEarnProjectedLabel => 'Hochrechnung zum heutigen Satz';
-
-  @override
   String get moveWithdrawDestinationHint =>
       'Wähle, was in deinem Ausgabenkonto ankommt.';
 
@@ -7485,7 +7445,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get shareCodeTimedOut =>
-      'Dein Code wird erstellt. Du findest ihn jederzeit unter Einstellungen → Verdienen.';
+      'Dein Code wird erstellt. Du findest ihn jederzeit unter Einstellungen → Empfehlungsprogramm.';
 
   @override
   String get referrerCaptureInvalid =>
@@ -7512,7 +7472,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get referrerAddLater =>
-      'Du kannst ihn auch später unter Einstellungen → Verdienen hinzufügen (innerhalb von 7 Tagen).';
+      'Du kannst ihn auch später unter Einstellungen → Empfehlungsprogramm hinzufügen (innerhalb von 7 Tagen).';
 
   @override
   String get referrerSkip => 'Überspringen, ich habe keinen Code';

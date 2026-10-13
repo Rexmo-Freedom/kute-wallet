@@ -1194,31 +1194,6 @@ class AppLocalizationsBg extends AppLocalizations {
   String get totalFee => 'Обща такса';
 
   @override
-  String get usdEarnTitle => 'Доходност';
-
-  @override
-  String get usdEarnRate => 'Скорошна годишна ставка';
-
-  @override
-  String get usdEarnNextPayment => 'Следващо плащане';
-
-  @override
-  String get usdEarnNextPaymentIn => 'Плаща се след';
-
-  @override
-  String get usdEarnRatePending => 'Зареждане';
-
-  @override
-  String get usdEarnRateUnavailable => 'Не е налично в момента';
-
-  @override
-  String get usdEarnActivityEmpty => 'Още няма плащания';
-
-  @override
-  String get usdEarnActivityUnavailable =>
-      'Историята на плащанията не е налична в момента';
-
-  @override
   String hlYieldAvailableLine(String amount) {
     return '$amount налични';
   }
@@ -2699,9 +2674,6 @@ class AppLocalizationsBg extends AppLocalizations {
   @override
   String get walletsEnterFriendCodeDescriptionNoDiscount =>
       'Ако те е поканил приятел, въведи кода му.';
-
-  @override
-  String get accountEarn => 'Доход';
 
   @override
   String get accountInviteFriendsEarnShare =>
@@ -6829,18 +6801,6 @@ class AppLocalizationsBg extends AppLocalizations {
   String get betAdvancedSaleSellingAll => 'Продаваш цялата си позиция';
 
   @override
-  String get usdEarnProjectionNote =>
-      'Пунктирната линия е оценка по днешната ставка, а не получени пари.';
-
-  @override
-  String usdEarnBelowMinimum(String amount) {
-    return 'Наградите започват, щом държиш $amount. Изплащат се ежедневно в bitcoin.';
-  }
-
-  @override
-  String get usdEarnProjectedLabel => 'Прогноза по днешната ставка';
-
-  @override
   String get moveWithdrawDestinationHint =>
       'Избери какво да пристигне в акаунта ти за плащания.';
 
@@ -7443,7 +7403,7 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get shareCodeTimedOut =>
-      'Кодът ти се създава. Можеш да го намериш по всяко време в Настройки → Доход.';
+      'Кодът ти се създава. Можеш да го намериш по всяко време в Настройки → Програма за покани.';
 
   @override
   String get referrerCaptureInvalid =>
@@ -7470,7 +7430,7 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get referrerAddLater =>
-      'Можеш да го добавиш и по-късно от Настройки → Доход (до 7 дни).';
+      'Можеш да го добавиш и по-късно от Настройки → Програма за покани (до 7 дни).';
 
   @override
   String get referrerSkip => 'Пропусни, нямам код';

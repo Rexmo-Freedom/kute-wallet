@@ -5,7 +5,6 @@ import 'package:kute/screens/home/components/kute_dock_host.dart'
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
-import 'package:kute/helpers/formatters/currency_formatter.dart';
 import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
 import 'package:kute/helpers/hyperliquid_activity.dart';
 import 'package:kute/l10n/l10n.dart';
@@ -19,8 +18,6 @@ import 'package:kute/providers/ledger/ledger_hyperliquid_activity_provider.dart'
 import 'package:kute/providers/polymarket_live_prices_provider.dart';
 import 'package:kute/providers/portfolio_performance_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
-import 'package:kute/providers/usd_rewards_provider.dart'
-    show earnPayoutPage, payoutHistoryProvider;
 import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart';
 import 'package:kute/screens/portfolio/portfolio_category_donut.dart';
 import 'package:kute/screens/portfolio/portfolio_category_drill.dart';
@@ -39,7 +36,6 @@ import 'package:kute/screens/shared/no_activity_state.dart';
 import 'package:kute/screens/hyperliquid/components/hl_isolated_margin.dart'
     show hlCloseValue, hlPositionMargin;
 import 'package:kute/services/portfolio/portfolio_categories.dart';
-import 'package:kute/screens/usd/components/usd_balance_tabs.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -156,10 +152,11 @@ class _PortfolioStatisticsState extends ConsumerState<PortfolioStatistics> {
 ///     on the moments either published, [PortfolioPerformance.combine]),
 ///     and the headline and change with it. A venue whose P&L never moved
 ///     is not offered (it would draw a flat line); with one left the
-///     toggle is gone. A P&L that never moved draws no line: Earn's chart
-///     takes the lead when the backend allows it (it is the only figure
-///     then), else no chart. Nothing on either sub-tab either: the whole
-///     tab is the app's empty state ([NoActivityState]), nothing else.
+///     toggle is gone. A P&L that never moved draws no line, never a
+///     flat one. Nothing on either sub-tab either: the whole tab is the
+///     app's empty state ([NoActivityState]), nothing else. Earn (the
+///     dollar rewards programme) is never shown here, whatever the
+///     backend's `usd.earn` says (owner decision).
 ///   * ONE allocation donut under it ([_AllocationCard]): what the account
 ///     holds now, Investing against Predictions, the total in the hole. A
 ///     slice or legend row opens that venue in the same ring (its
@@ -168,8 +165,8 @@ class _PortfolioStatisticsState extends ConsumerState<PortfolioStatistics> {
 ///     account: the ring opens on it, with no way up. Nothing held: no
 ///     donut.
 ///   * ONE Active | Historic pair and ONE card of figures under it, for
-///     what the donut shows: the account (each figure the venues' added;
-///     Earn's paid-to-date one more tile), or the venue opened. A sub-tab
+///     what the donut shows: the account (each figure the venues' added),
+///     or the venue opened. A sub-tab
 ///     with nothing on it is the compact empty state, no card of zeros.
 ///   * A venue the account has not, or whose read failed, is left out.
 ///     Loading is one spinner until every venue has answered; every venue
@@ -184,15 +181,11 @@ class PortfolioStatisticsOverview extends ConsumerStatefulWidget {
     super.key,
     required this.trading,
     required this.predictions,
-    this.earn = false,
   });
 
   /// The venues on the account (portfolio_filters.dart).
   final bool trading;
   final bool predictions;
-
-  /// Earn allowed by the backend (`usd.earn`).
-  final bool earn;
 
   @override
   ConsumerState<PortfolioStatisticsOverview> createState() =>
@@ -294,7 +287,6 @@ class _PortfolioStatisticsOverviewState
       onOpen: _open,
       charted: _charted,
       onChart: _chart,
-      earn: widget.earn,
     );
   }
 }
@@ -309,7 +301,6 @@ class _OverviewBody extends ConsumerWidget {
     required this.onOpen,
     required this.charted,
     required this.onChart,
-    required this.earn,
   });
 
   /// The venues read (a venue whose read failed is left out).
@@ -321,12 +312,10 @@ class _OverviewBody extends ConsumerWidget {
   final ValueChanged<PortfolioPerformanceVenue?> onOpen;
   final PortfolioPerformanceVenue? charted;
   final ValueChanged<PortfolioPerformanceVenue?> onChart;
-  final bool earn;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
-    final visible = ref.watch(settingsProvider.select((s) => s.balanceVisible));
     final single = venues.length == 1 ? venues.single : null;
     // What the donut and the figures under it show: the venue open (the
     // only one, on a one-venue account), or the account.
@@ -360,10 +349,9 @@ class _OverviewBody extends ConsumerWidget {
             trading: trading);
     final figures = figuresOn(scope);
 
-    // Never traded: no chart, no Earn, nothing on either sub-tab. The page
-    // is one empty state (the chart's words), no pills over nothing.
+    // Never traded: no chart, nothing on either sub-tab. The page is one
+    // empty state (the chart's words), no pills over nothing.
     if (!combined.hasMovement &&
-        !earn &&
         _Figures.quiet(figures) &&
         _Figures.quiet(figuresOn(_otherScope(scope)))) {
       return _PageEmpty(
@@ -387,26 +375,15 @@ class _OverviewBody extends ConsumerWidget {
               : null,
         ),
       ];
-    } else if (earn) {
-      // Nothing moved on the venues: Earn's chart is the only figure.
-      lead = const [UsdBalanceTabs()];
     } else {
       // A P&L that never moved, with something below: no chart, and no
       // second empty state over the figures.
       lead = const [];
     }
 
-    // Earn's paid-to-date: one more figure of the account's (its chart
-    // leads instead when it is the only one). Earning counts as something
-    // on either sub-tab.
-    final earnTile =
-        earn && combined.hasMovement && (selection == null || single != null)
-            ? _earnTile(context, ref, visible)
-            : null;
     final tiles = [
       if (!_Figures.quiet(figures))
         ..._tilesOf(context, ref, figures!, selection, scope),
-      if (earnTile != null) earnTile,
     ];
     final List<Widget> stats;
     if (tiles.isNotEmpty) {
@@ -820,27 +797,6 @@ String _quietText(AppLocalizations l10n, PortfolioPerformanceVenue? venue,
           ? l10n.openInvestNoOpenPredictions
           : l10n.openInvestNoOpenInvestments)
       : (predictions ? l10n.betHistoryEmpty : l10n.hlNoHistoryYet);
-}
-
-/// Earn's paid-to-date as a figure: every payout received, in the
-/// unit the wallet reads in. Nothing when nothing was paid, the ledger is
-/// not read yet, or the page does not hold every payout (it would not be
-/// the whole figure).
-(String, String, Color)? _earnTile(
-    BuildContext context, WidgetRef ref, bool visible) {
-  final history = ref.watch(payoutHistoryProvider(earnPayoutPage)).valueOrNull;
-  if (history == null || history.hasMore) return null;
-  final sats = history.totalPayoutSats;
-  if (sats <= 0) return null;
-  final label = context.l10n.usdEarnTitle;
-  if (!visible) return (label, '••••••', context.colors.textPrimary);
-  final btcFormat = ref.watch(settingsProvider.select((s) => s.btcFormat));
-  return (
-    label,
-    '+${sats.toFormattedString(btcFormat)} '
-        '${btcFormat == 'sats' ? 'sats' : 'BTC'}',
-    AppColors.marketUp,
-  );
 }
 
 /// A P&L tile: signed and in the up / down colour, as the chart's

@@ -50,11 +50,6 @@ import 'package:intl/intl.dart' hide TextDirection;
 import 'package:shimmer/shimmer.dart'; // REQUIRED: Add shimmer to pubspec.yaml
 
 enum AnalyticsTab {
-  /// What a balance has PAID over time. Only the Dollars tab offers it,
-  /// via [HomeAnalyticsWidget.earnChild]: the dollar rewards programme
-  /// pays on the whole balance, so Earn is a view of this same money and
-  /// not a destination of its own.
-  earn,
   activity,
   balance,
   valuation,
@@ -109,12 +104,6 @@ class HomeAnalyticsWidget extends ConsumerStatefulWidget {
   /// wrong money entirely.
   final Widget? valuationChild;
 
-  /// When non-null, an "Earn" tab LEADS the strip and renders this.
-  /// Only the Dollars tab passes it, and only alongside
-  /// [activityAndBalanceOnly]: the earnings series is a sibling of the
-  /// balance series, drawn in the same card by the same chart engine.
-  final Widget? earnChild;
-
   /// When non-null, a "Breakdown" tab follows Balance and renders this:
   /// the money in and out of the account by kind, all time. Home passes
   /// it for the spending wallet and Dollars for the dollar account; no
@@ -127,7 +116,7 @@ class HomeAnalyticsWidget extends ConsumerStatefulWidget {
   final bool showPrice;
 
   /// When true the strip is the caller's own short strip — Activity and
-  /// Balance, led by Earn when [earnChild] is passed — whatever the
+  /// Balance (and Breakdown when passed) — whatever the
   /// scope filters would otherwise allow. The Dollars tab passes it: a
   /// cash account has no price chart and no coins map, so Price / Coins
   /// Tapping Activity while Activity is already showing. The pill
@@ -162,7 +151,6 @@ class HomeAnalyticsWidget extends ConsumerStatefulWidget {
     this.includeFees = false,
     this.activityChild,
     this.valuationChild,
-    this.earnChild,
     this.breakdownChild,
     this.showPrice = true,
     this.activityAndBalanceOnly = false,
@@ -180,12 +168,7 @@ class _HomeAnalyticsWidgetState extends ConsumerState<HomeAnalyticsWidget> {
   @override
   void initState() {
     super.initState();
-    // Earn leads where it is offered (owner decision): on the dollar
-    // balance the programme is what the screen is for, so the strip
-    // opens on it rather than on the ledger.
-    if (widget.earnChild != null) {
-      _selectedTab = AnalyticsTab.earn;
-    } else if (widget.activityChild != null) {
+    if (widget.activityChild != null) {
       // Activity is the landing tab everywhere else — the list is the
       // primary content, the charts are the drill-down.
       _selectedTab = AnalyticsTab.activity;
@@ -255,11 +238,9 @@ class _HomeAnalyticsWidgetState extends ConsumerState<HomeAnalyticsWidget> {
     if (widget.onlySplit) {
       tabs = const [AnalyticsTab.allocation];
     } else if (widget.activityAndBalanceOnly && widget.activityChild != null) {
-      // The short strip: what the balance has earned, then the list the
-      // caller passed, then the balance over time. Same pills, same
-      // switching, no scope filtering. Earn leads when it is offered.
+      // The short strip: the list the caller passed, then the balance
+      // over time. Same pills, same switching, no scope filtering.
       tabs = [
-        if (widget.earnChild != null) AnalyticsTab.earn,
         AnalyticsTab.activity,
         AnalyticsTab.valuation,
         if (widget.breakdownChild != null) AnalyticsTab.breakdown,
@@ -269,8 +250,6 @@ class _HomeAnalyticsWidgetState extends ConsumerState<HomeAnalyticsWidget> {
     } else {
       tabs = AnalyticsTab.values.where((t) {
         if (t == AnalyticsTab.activity) return widget.activityChild != null;
-        // Earn only ever rides the short strip above.
-        if (t == AnalyticsTab.earn) return false;
         if (t == AnalyticsTab.balance) return false; // legacy
         // Breakdown is the caller's own child; Price is opt-out.
         if (t == AnalyticsTab.breakdown) return widget.breakdownChild != null;
@@ -342,8 +321,6 @@ class _HomeAnalyticsWidgetState extends ConsumerState<HomeAnalyticsWidget> {
         _selectedTab == AnalyticsTab.activity && widget.activityChild != null;
     final showingValuationChild =
         _selectedTab == AnalyticsTab.valuation && widget.valuationChild != null;
-    final showingEarnChild =
-        _selectedTab == AnalyticsTab.earn && widget.earnChild != null;
     final showingBreakdownChild =
         _selectedTab == AnalyticsTab.breakdown && widget.breakdownChild != null;
     return Padding(
@@ -369,17 +346,15 @@ class _HomeAnalyticsWidgetState extends ConsumerState<HomeAnalyticsWidget> {
           else
             Padding(
               padding: EdgeInsets.symmetric(horizontal: 16.w),
-              child: showingEarnChild
-                  ? widget.earnChild!
-                  : showingBreakdownChild
-                      ? widget.breakdownChild!
-                      : showingValuationChild
-                          ? widget.valuationChild!
-                          : _InternalAnalyticsView(
-                              currentTab: _selectedTab,
-                              surface: _surface,
-                              showBalanceHeadline: widget.showBalanceHeadline,
-                            ),
+              child: showingBreakdownChild
+                  ? widget.breakdownChild!
+                  : showingValuationChild
+                      ? widget.valuationChild!
+                      : _InternalAnalyticsView(
+                          currentTab: _selectedTab,
+                          surface: _surface,
+                          showBalanceHeadline: widget.showBalanceHeadline,
+                        ),
             ),
         ],
       ),
@@ -410,11 +385,6 @@ class _HomeAnalyticsWidgetState extends ConsumerState<HomeAnalyticsWidget> {
 
   KutePillItem _pillItem(AnalyticsTab tab) {
     switch (tab) {
-      case AnalyticsTab.earn:
-        return KutePillItem(
-          label: context.l10n.usdEarnTitle,
-          icon: Icons.auto_graph_rounded,
-        );
       case AnalyticsTab.activity:
         // Already showing it: the pill stops naming the tab and starts
         // naming what a second tap does.

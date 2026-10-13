@@ -1192,31 +1192,6 @@ class AppLocalizationsSk extends AppLocalizations {
   String get totalFee => 'Celkový poplatok';
 
   @override
-  String get usdEarnTitle => 'Výnos';
-
-  @override
-  String get usdEarnRate => 'Nedávna ročná sadzba';
-
-  @override
-  String get usdEarnNextPayment => 'Ďalšia výplata';
-
-  @override
-  String get usdEarnNextPaymentIn => 'Výplata o';
-
-  @override
-  String get usdEarnRatePending => 'Načítava sa';
-
-  @override
-  String get usdEarnRateUnavailable => 'Teraz nedostupné';
-
-  @override
-  String get usdEarnActivityEmpty => 'Zatiaľ žiadne výplaty';
-
-  @override
-  String get usdEarnActivityUnavailable =>
-      'História výplat teraz nie je dostupná';
-
-  @override
   String hlYieldAvailableLine(String amount) {
     return 'Dostupné: $amount';
   }
@@ -2694,9 +2669,6 @@ class AppLocalizationsSk extends AppLocalizations {
   @override
   String get walletsEnterFriendCodeDescriptionNoDiscount =>
       'Ak ťa pozval kamarát, zadaj jeho kód.';
-
-  @override
-  String get accountEarn => 'Odmeny';
 
   @override
   String get accountInviteFriendsEarnShare =>
@@ -6822,18 +6794,6 @@ class AppLocalizationsSk extends AppLocalizations {
   String get betAdvancedSaleSellingAll => 'Predáva sa celá pozícia';
 
   @override
-  String get usdEarnProjectionNote =>
-      'Prerušovaná čiara je odhad podľa dnešnej sadzby, nie prijaté peniaze.';
-
-  @override
-  String usdEarnBelowMinimum(String amount) {
-    return 'Odmeny začnú, keď budeš mať aspoň $amount. Vyplácajú sa denne v bitcoine.';
-  }
-
-  @override
-  String get usdEarnProjectedLabel => 'Odhad podľa dnešnej sadzby';
-
-  @override
   String get moveWithdrawDestinationHint =>
       'Vyber, čo príde na tvoj účet na platby.';
 
@@ -7435,7 +7395,7 @@ class AppLocalizationsSk extends AppLocalizations {
 
   @override
   String get shareCodeTimedOut =>
-      'Tvoj kód sa vytvára. Kedykoľvek ho nájdeš v Nastavenia → Odmeny.';
+      'Tvoj kód sa vytvára. Kedykoľvek ho nájdeš v Nastavenia → Odporúčací program.';
 
   @override
   String get referrerCaptureInvalid =>
@@ -7462,7 +7422,7 @@ class AppLocalizationsSk extends AppLocalizations {
 
   @override
   String get referrerAddLater =>
-      'Môžeš ho pridať aj neskôr v Nastavenia → Odmeny (do 7 dní).';
+      'Môžeš ho pridať aj neskôr v Nastavenia → Odporúčací program (do 7 dní).';
 
   @override
   String get referrerSkip => 'Preskočiť, nemám kód';

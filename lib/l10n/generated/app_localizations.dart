@@ -2426,54 +2426,6 @@ abstract class AppLocalizations {
   /// **'Total Fee'**
   String get totalFee;
 
-  /// No description provided for @usdEarnTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Earn'**
-  String get usdEarnTitle;
-
-  /// No description provided for @usdEarnRate.
-  ///
-  /// In en, this message translates to:
-  /// **'Recent yearly rate'**
-  String get usdEarnRate;
-
-  /// Label above the amount the rewards programme pays at the next daily cut.
-  ///
-  /// In en, this message translates to:
-  /// **'Next payment'**
-  String get usdEarnNextPayment;
-
-  /// Label above the countdown to the next payout, which is cut at 00:00 UTC.
-  ///
-  /// In en, this message translates to:
-  /// **'Pays in'**
-  String get usdEarnNextPaymentIn;
-
-  /// No description provided for @usdEarnRatePending.
-  ///
-  /// In en, this message translates to:
-  /// **'Loading'**
-  String get usdEarnRatePending;
-
-  /// No description provided for @usdEarnRateUnavailable.
-  ///
-  /// In en, this message translates to:
-  /// **'Unavailable right now'**
-  String get usdEarnRateUnavailable;
-
-  /// No description provided for @usdEarnActivityEmpty.
-  ///
-  /// In en, this message translates to:
-  /// **'No payments yet'**
-  String get usdEarnActivityEmpty;
-
-  /// No description provided for @usdEarnActivityUnavailable.
-  ///
-  /// In en, this message translates to:
-  /// **'Payment history is unavailable right now'**
-  String get usdEarnActivityUnavailable;
-
   /// No description provided for @hlYieldAvailableLine.
   ///
   /// In en, this message translates to:
@@ -4987,12 +4939,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'If a friend invited you, enter their code.'**
   String get walletsEnterFriendCodeDescriptionNoDiscount;
-
-  /// No description provided for @accountEarn.
-  ///
-  /// In en, this message translates to:
-  /// **'Earn'**
-  String get accountEarn;
 
   /// No description provided for @accountInviteFriendsEarnShare.
   ///
@@ -11909,24 +11855,6 @@ abstract class AppLocalizations {
   /// **'Selling your whole position'**
   String get betAdvancedSaleSellingAll;
 
-  /// Line under the Earn chart explaining that the dashed tail is an extrapolation of today's rate, not a payment.
-  ///
-  /// In en, this message translates to:
-  /// **'The dashed line is an estimate at today\'s rate, not money received.'**
-  String get usdEarnProjectionNote;
-
-  /// Shown on the Earn tab only while the dollar balance is under the programme minimum. {amount} is that minimum, formatted as money.
-  ///
-  /// In en, this message translates to:
-  /// **'Rewards start once you hold {amount}. They are paid daily in bitcoin.'**
-  String usdEarnBelowMinimum(String amount);
-
-  /// Headline label on the Earn chart while the scrub sits on a projected day instead of a paid one.
-  ///
-  /// In en, this message translates to:
-  /// **'Projected at today\'s rate'**
-  String get usdEarnProjectedLabel;
-
   /// Hint under the title of the two-entry picker that chooses what a venue withdrawal delivers: bitcoin or dollars.
   ///
   /// In en, this message translates to:
@@ -12897,7 +12825,7 @@ abstract class AppLocalizations {
   /// No description provided for @shareCodeTimedOut.
   ///
   /// In en, this message translates to:
-  /// **'Your code is being created. You can find it any time in Settings → Earn.'**
+  /// **'Your code is being created. You can find it any time in Settings → Referral program.'**
   String get shareCodeTimedOut;
 
   /// No description provided for @referrerCaptureInvalid.
@@ -12939,7 +12867,7 @@ abstract class AppLocalizations {
   /// No description provided for @referrerAddLater.
   ///
   /// In en, this message translates to:
-  /// **'You can also add it later from Settings → Earn (within 7 days).'**
+  /// **'You can also add it later from Settings → Referral program (within 7 days).'**
   String get referrerAddLater;
 
   /// No description provided for @referrerSkip.

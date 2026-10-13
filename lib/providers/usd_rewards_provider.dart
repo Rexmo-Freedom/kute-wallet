@@ -1,5 +1,11 @@
 // lib/providers/usd_rewards_provider.dart
 //
+// NO SCREEN READS THESE (owner decision, 2026-10-13): Earn is shown
+// nowhere in the app, whatever the backend's `usd.earn` says, so nothing
+// in the UI path watches a provider here and the rewards API is never
+// called. The reads, the client and the capability id are kept, unused,
+// for the day Earn comes back; the gate below still fails closed.
+//
 // The dollar Earn screen's reads, recovered from the rewards section of
 // the deleted lib/providers/flashnet_provider.dart (commit b7e7c6f8^):
 // the Spark identity pubkey every route is keyed on, the client, the

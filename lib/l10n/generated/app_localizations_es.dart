@@ -1196,31 +1196,6 @@ class AppLocalizationsEs extends AppLocalizations {
   String get totalFee => 'Comisión total';
 
   @override
-  String get usdEarnTitle => 'Ganar';
-
-  @override
-  String get usdEarnRate => 'Tasa anual reciente';
-
-  @override
-  String get usdEarnNextPayment => 'Próximo pago';
-
-  @override
-  String get usdEarnNextPaymentIn => 'Se paga en';
-
-  @override
-  String get usdEarnRatePending => 'Cargando';
-
-  @override
-  String get usdEarnRateUnavailable => 'No disponible ahora';
-
-  @override
-  String get usdEarnActivityEmpty => 'Aún no hay pagos';
-
-  @override
-  String get usdEarnActivityUnavailable =>
-      'El historial de pagos no está disponible ahora';
-
-  @override
   String hlYieldAvailableLine(String amount) {
     return '$amount disponibles';
   }
@@ -2709,9 +2684,6 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get walletsEnterFriendCodeDescriptionNoDiscount =>
       'Si te ha invitado un amigo, introduce su código.';
-
-  @override
-  String get accountEarn => 'Ganar';
 
   @override
   String get accountInviteFriendsEarnShare =>
@@ -6851,18 +6823,6 @@ class AppLocalizationsEs extends AppLocalizations {
   String get betAdvancedSaleSellingAll => 'Vendiendo toda tu posición';
 
   @override
-  String get usdEarnProjectionNote =>
-      'La línea discontinua es una estimación al tipo actual, no dinero recibido.';
-
-  @override
-  String usdEarnBelowMinimum(String amount) {
-    return 'Las recompensas empiezan cuando tengas $amount. Se pagan a diario en bitcoin.';
-  }
-
-  @override
-  String get usdEarnProjectedLabel => 'Proyección al tipo actual';
-
-  @override
   String get moveWithdrawDestinationHint =>
       'Elige qué llega a tu cuenta de gastos.';
 
@@ -7464,7 +7424,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get shareCodeTimedOut =>
-      'Tu código se está creando. Lo encontrarás cuando quieras en Ajustes → Ganar.';
+      'Tu código se está creando. Lo encontrarás cuando quieras en Ajustes → Programa de referidos.';
 
   @override
   String get referrerCaptureInvalid =>
@@ -7491,7 +7451,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get referrerAddLater =>
-      'También puedes añadirlo más tarde en Ajustes → Ganar (en un plazo de 7 días).';
+      'También puedes añadirlo más tarde en Ajustes → Programa de referidos (en un plazo de 7 días).';
 
   @override
   String get referrerSkip => 'Saltar, no tengo código';

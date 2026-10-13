@@ -1198,31 +1198,6 @@ class AppLocalizationsEl extends AppLocalizations {
   String get totalFee => 'Συνολική χρέωση';
 
   @override
-  String get usdEarnTitle => 'Απόδοση';
-
-  @override
-  String get usdEarnRate => 'Πρόσφατο ετήσιο επιτόκιο';
-
-  @override
-  String get usdEarnNextPayment => 'Επόμενη πληρωμή';
-
-  @override
-  String get usdEarnNextPaymentIn => 'Πληρώνει σε';
-
-  @override
-  String get usdEarnRatePending => 'Φόρτωση';
-
-  @override
-  String get usdEarnRateUnavailable => 'Μη διαθέσιμο αυτή τη στιγμή';
-
-  @override
-  String get usdEarnActivityEmpty => 'Καμία πληρωμή ακόμα';
-
-  @override
-  String get usdEarnActivityUnavailable =>
-      'Το ιστορικό πληρωμών δεν είναι διαθέσιμο αυτή τη στιγμή';
-
-  @override
   String hlYieldAvailableLine(String amount) {
     return '$amount διαθέσιμα';
   }
@@ -2720,9 +2695,6 @@ class AppLocalizationsEl extends AppLocalizations {
   @override
   String get walletsEnterFriendCodeDescriptionNoDiscount =>
       'Αν σε προσκάλεσε ένας φίλος, βάλε τον κωδικό του.';
-
-  @override
-  String get accountEarn => 'Απόδοση';
 
   @override
   String get accountInviteFriendsEarnShare =>
@@ -6868,18 +6840,6 @@ class AppLocalizationsEl extends AppLocalizations {
   String get betAdvancedSaleSellingAll => 'Πουλάς όλη τη θέση σου';
 
   @override
-  String get usdEarnProjectionNote =>
-      'Η διακεκομμένη γραμμή είναι εκτίμηση με το σημερινό επιτόκιο, όχι χρήματα που έχεις λάβει.';
-
-  @override
-  String usdEarnBelowMinimum(String amount) {
-    return 'Οι ανταμοιβές ξεκινούν μόλις κατέχεις $amount. Πληρώνονται καθημερινά σε bitcoin.';
-  }
-
-  @override
-  String get usdEarnProjectedLabel => 'Πρόβλεψη με το σημερινό επιτόκιο';
-
-  @override
   String get moveWithdrawDestinationHint =>
       'Διάλεξε τι καταλήγει στον λογαριασμό εξόδων σου.';
 
@@ -7482,7 +7442,7 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get shareCodeTimedOut =>
-      'Ο κωδικός σου δημιουργείται. Θα τον βρίσκεις πάντα στις Ρυθμίσεις → Απόδοση.';
+      'Ο κωδικός σου δημιουργείται. Θα τον βρίσκεις πάντα στις Ρυθμίσεις → Πρόγραμμα παραπομπών.';
 
   @override
   String get referrerCaptureInvalid =>
@@ -7509,7 +7469,7 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get referrerAddLater =>
-      'Μπορείς να τον προσθέσεις και αργότερα από τις Ρυθμίσεις → Απόδοση (μέσα σε 7 ημέρες).';
+      'Μπορείς να τον προσθέσεις και αργότερα από τις Ρυθμίσεις → Πρόγραμμα παραπομπών (μέσα σε 7 ημέρες).';
 
   @override
   String get referrerSkip => 'Παράλειψη, δεν έχω κωδικό';

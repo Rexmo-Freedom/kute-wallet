@@ -1197,31 +1197,6 @@ class AppLocalizationsLt extends AppLocalizations {
   String get totalFee => 'Bendras mokestis';
 
   @override
-  String get usdEarnTitle => 'Uždarbis';
-
-  @override
-  String get usdEarnRate => 'Naujausia metinė norma';
-
-  @override
-  String get usdEarnNextPayment => 'Kitas mokėjimas';
-
-  @override
-  String get usdEarnNextPaymentIn => 'Mokėjimas po';
-
-  @override
-  String get usdEarnRatePending => 'Įkeliama';
-
-  @override
-  String get usdEarnRateUnavailable => 'Šiuo metu negalima';
-
-  @override
-  String get usdEarnActivityEmpty => 'Mokėjimų dar nėra';
-
-  @override
-  String get usdEarnActivityUnavailable =>
-      'Mokėjimų istorija šiuo metu negalima';
-
-  @override
   String hlYieldAvailableLine(String amount) {
     return 'Prieinama $amount';
   }
@@ -2696,9 +2671,6 @@ class AppLocalizationsLt extends AppLocalizations {
   @override
   String get walletsEnterFriendCodeDescriptionNoDiscount =>
       'Jei jus pakvietė draugas, įveskite jo kodą.';
-
-  @override
-  String get accountEarn => 'Uždarbis';
 
   @override
   String get accountInviteFriendsEarnShare =>
@@ -6849,18 +6821,6 @@ class AppLocalizationsLt extends AppLocalizations {
   String get betAdvancedSaleSellingAll => 'Parduodama visa jūsų pozicija';
 
   @override
-  String get usdEarnProjectionNote =>
-      'Punktyrinė linija yra įvertinimas pagal šiandienos normą, ne gauti pinigai.';
-
-  @override
-  String usdEarnBelowMinimum(String amount) {
-    return 'Atlygis pradedamas mokėti, kai turite $amount. Jis mokamas kasdien bitcoin.';
-  }
-
-  @override
-  String get usdEarnProjectedLabel => 'Prognozė pagal šiandienos normą';
-
-  @override
   String get moveWithdrawDestinationHint =>
       'Pasirinkite, kas pateks į jūsų išlaidų paskyrą.';
 
@@ -7460,7 +7420,7 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get shareCodeTimedOut =>
-      'Jūsų kodas kuriamas. Jį bet kada rasite skiltyje Nustatymai → Uždarbis.';
+      'Jūsų kodas kuriamas. Jį bet kada rasite skiltyje Nustatymai → Rekomendacijų programa.';
 
   @override
   String get referrerCaptureInvalid =>
@@ -7487,7 +7447,7 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get referrerAddLater =>
-      'Jį taip pat galite pridėti vėliau skiltyje Nustatymai → Uždarbis (per 7 dienas).';
+      'Jį taip pat galite pridėti vėliau skiltyje Nustatymai → Rekomendacijų programa (per 7 dienas).';
 
   @override
   String get referrerSkip => 'Praleisti, neturiu kodo';

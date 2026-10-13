@@ -1194,31 +1194,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get totalFee => 'Total Fee';
 
   @override
-  String get usdEarnTitle => 'Earn';
-
-  @override
-  String get usdEarnRate => 'Recent yearly rate';
-
-  @override
-  String get usdEarnNextPayment => 'Next payment';
-
-  @override
-  String get usdEarnNextPaymentIn => 'Pays in';
-
-  @override
-  String get usdEarnRatePending => 'Loading';
-
-  @override
-  String get usdEarnRateUnavailable => 'Unavailable right now';
-
-  @override
-  String get usdEarnActivityEmpty => 'No payments yet';
-
-  @override
-  String get usdEarnActivityUnavailable =>
-      'Payment history is unavailable right now';
-
-  @override
   String hlYieldAvailableLine(String amount) {
     return '$amount available';
   }
@@ -2685,9 +2660,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get walletsEnterFriendCodeDescriptionNoDiscount =>
       'If a friend invited you, enter their code.';
-
-  @override
-  String get accountEarn => 'Earn';
 
   @override
   String get accountInviteFriendsEarnShare =>
@@ -6799,18 +6771,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get betAdvancedSaleSellingAll => 'Selling your whole position';
 
   @override
-  String get usdEarnProjectionNote =>
-      'The dashed line is an estimate at today\'s rate, not money received.';
-
-  @override
-  String usdEarnBelowMinimum(String amount) {
-    return 'Rewards start once you hold $amount. They are paid daily in bitcoin.';
-  }
-
-  @override
-  String get usdEarnProjectedLabel => 'Projected at today\'s rate';
-
-  @override
   String get moveWithdrawDestinationHint =>
       'Pick what lands in your spending account.';
 
@@ -7403,7 +7363,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get shareCodeTimedOut =>
-      'Your code is being created. You can find it any time in Settings → Earn.';
+      'Your code is being created. You can find it any time in Settings → Referral program.';
 
   @override
   String get referrerCaptureInvalid =>
@@ -7430,7 +7390,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get referrerAddLater =>
-      'You can also add it later from Settings → Earn (within 7 days).';
+      'You can also add it later from Settings → Referral program (within 7 days).';
 
   @override
   String get referrerSkip => 'Skip, I don\'t have a code';

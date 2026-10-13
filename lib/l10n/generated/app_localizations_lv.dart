@@ -1191,31 +1191,6 @@ class AppLocalizationsLv extends AppLocalizations {
   String get totalFee => 'Kopējā maksa';
 
   @override
-  String get usdEarnTitle => 'Pelnīt';
-
-  @override
-  String get usdEarnRate => 'Nesenā gada likme';
-
-  @override
-  String get usdEarnNextPayment => 'Nākamais maksājums';
-
-  @override
-  String get usdEarnNextPaymentIn => 'Izmaksa pēc';
-
-  @override
-  String get usdEarnRatePending => 'Ielādē';
-
-  @override
-  String get usdEarnRateUnavailable => 'Šobrīd nav pieejams';
-
-  @override
-  String get usdEarnActivityEmpty => 'Vēl nav maksājumu';
-
-  @override
-  String get usdEarnActivityUnavailable =>
-      'Maksājumu vēsture šobrīd nav pieejama';
-
-  @override
   String hlYieldAvailableLine(String amount) {
     return 'Pieejams: $amount';
   }
@@ -2682,9 +2657,6 @@ class AppLocalizationsLv extends AppLocalizations {
   @override
   String get walletsEnterFriendCodeDescriptionNoDiscount =>
       'Ja tevi uzaicināja draugs, ievadi viņa kodu.';
-
-  @override
-  String get accountEarn => 'Pelnīt';
 
   @override
   String get accountInviteFriendsEarnShare =>
@@ -6800,18 +6772,6 @@ class AppLocalizationsLv extends AppLocalizations {
   String get betAdvancedSaleSellingAll => 'Pārdod visu pozīciju';
 
   @override
-  String get usdEarnProjectionNote =>
-      'Raustītā līnija ir aprēķins pēc šodienas likmes, nevis saņemta nauda.';
-
-  @override
-  String usdEarnBelowMinimum(String amount) {
-    return 'Atlīdzības sākas, kad tev ir $amount. Tās tiek izmaksātas katru dienu bitcoin.';
-  }
-
-  @override
-  String get usdEarnProjectedLabel => 'Prognoze pēc šodienas likmes';
-
-  @override
   String get moveWithdrawDestinationHint =>
       'Izvēlies, kas nonāk tavā tēriņu kontā.';
 
@@ -7406,7 +7366,7 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get shareCodeTimedOut =>
-      'Tavs kods tiek veidots. To vari atrast jebkurā laikā sadaļā Iestatījumi → Pelnīt.';
+      'Tavs kods tiek veidots. To vari atrast jebkurā laikā sadaļā Iestatījumi → Ieteikumu programma.';
 
   @override
   String get referrerCaptureInvalid =>
@@ -7433,7 +7393,7 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get referrerAddLater =>
-      'To vari pievienot arī vēlāk sadaļā Iestatījumi → Pelnīt (7 dienu laikā).';
+      'To vari pievienot arī vēlāk sadaļā Iestatījumi → Ieteikumu programma (7 dienu laikā).';
 
   @override
   String get referrerSkip => 'Izlaist, man nav koda';

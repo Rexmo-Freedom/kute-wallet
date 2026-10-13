@@ -1192,31 +1192,6 @@ class AppLocalizationsEt extends AppLocalizations {
   String get totalFee => 'Tasu kokku';
 
   @override
-  String get usdEarnTitle => 'Teeni';
-
-  @override
-  String get usdEarnRate => 'Hiljutine aastamäär';
-
-  @override
-  String get usdEarnNextPayment => 'Järgmine makse';
-
-  @override
-  String get usdEarnNextPaymentIn => 'Makse';
-
-  @override
-  String get usdEarnRatePending => 'Laadimine';
-
-  @override
-  String get usdEarnRateUnavailable => 'Praegu pole saadaval';
-
-  @override
-  String get usdEarnActivityEmpty => 'Makseid veel pole';
-
-  @override
-  String get usdEarnActivityUnavailable =>
-      'Maksete ajalugu pole praegu saadaval';
-
-  @override
   String hlYieldAvailableLine(String amount) {
     return '$amount saadaval';
   }
@@ -2687,9 +2662,6 @@ class AppLocalizationsEt extends AppLocalizations {
   @override
   String get walletsEnterFriendCodeDescriptionNoDiscount =>
       'Kui sõber sind kutsus, sisesta tema kood.';
-
-  @override
-  String get accountEarn => 'Teeni';
 
   @override
   String get accountInviteFriendsEarnShare =>
@@ -6802,18 +6774,6 @@ class AppLocalizationsEt extends AppLocalizations {
   String get betAdvancedSaleSellingAll => 'Müüd kogu oma positsiooni';
 
   @override
-  String get usdEarnProjectionNote =>
-      'Katkendjoon on tänase määra põhjal tehtud hinnang, mitte saadud raha.';
-
-  @override
-  String usdEarnBelowMinimum(String amount) {
-    return 'Preemiad algavad, kui sul on vähemalt $amount. Need makstakse iga päev bitcoinis.';
-  }
-
-  @override
-  String get usdEarnProjectedLabel => 'Prognoos tänase määra järgi';
-
-  @override
   String get moveWithdrawDestinationHint =>
       'Vali, mis jõuab sinu kulutuskontole.';
 
@@ -7412,7 +7372,7 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get shareCodeTimedOut =>
-      'Sinu koodi luuakse. Leiad selle igal ajal jaotisest Seaded → Teeni.';
+      'Sinu koodi luuakse. Leiad selle igal ajal jaotisest Seaded → Soovitusprogramm.';
 
   @override
   String get referrerCaptureInvalid =>
@@ -7439,7 +7399,7 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get referrerAddLater =>
-      'Saad selle lisada ka hiljem jaotises Seaded → Teeni (7 päeva jooksul).';
+      'Saad selle lisada ka hiljem jaotises Seaded → Soovitusprogramm (7 päeva jooksul).';
 
   @override
   String get referrerSkip => 'Jäta vahele, mul pole koodi';

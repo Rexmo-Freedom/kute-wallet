@@ -1198,31 +1198,6 @@ class AppLocalizationsRo extends AppLocalizations {
   String get totalFee => 'Comision total';
 
   @override
-  String get usdEarnTitle => 'Randament';
-
-  @override
-  String get usdEarnRate => 'Rată anuală recentă';
-
-  @override
-  String get usdEarnNextPayment => 'Următoarea plată';
-
-  @override
-  String get usdEarnNextPaymentIn => 'Plătește în';
-
-  @override
-  String get usdEarnRatePending => 'Se încarcă';
-
-  @override
-  String get usdEarnRateUnavailable => 'Indisponibil momentan';
-
-  @override
-  String get usdEarnActivityEmpty => 'Nicio plată încă';
-
-  @override
-  String get usdEarnActivityUnavailable =>
-      'Istoricul plăților nu e disponibil momentan';
-
-  @override
   String hlYieldAvailableLine(String amount) {
     return '$amount disponibil';
   }
@@ -2707,9 +2682,6 @@ class AppLocalizationsRo extends AppLocalizations {
   @override
   String get walletsEnterFriendCodeDescriptionNoDiscount =>
       'Dacă te-a invitat un prieten, introdu codul lui.';
-
-  @override
-  String get accountEarn => 'Câștiguri';
 
   @override
   String get accountInviteFriendsEarnShare =>
@@ -6855,18 +6827,6 @@ class AppLocalizationsRo extends AppLocalizations {
   String get betAdvancedSaleSellingAll => 'Vinzi toată poziția';
 
   @override
-  String get usdEarnProjectionNote =>
-      'Linia punctată este o estimare la rata de azi, nu bani primiți.';
-
-  @override
-  String usdEarnBelowMinimum(String amount) {
-    return 'Recompensele încep când deții $amount. Se plătesc zilnic în bitcoin.';
-  }
-
-  @override
-  String get usdEarnProjectedLabel => 'Proiecție la rata de azi';
-
-  @override
   String get moveWithdrawDestinationHint =>
       'Alege ce ajunge în contul de cheltuieli.';
 
@@ -7468,7 +7428,7 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get shareCodeTimedOut =>
-      'Codul tău se creează. Îl găsești oricând în Setări → Câștiguri.';
+      'Codul tău se creează. Îl găsești oricând în Setări → Program de recomandare.';
 
   @override
   String get referrerCaptureInvalid =>
@@ -7495,7 +7455,7 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get referrerAddLater =>
-      'Îl poți adăuga și mai târziu din Setări → Câștiguri (în 7 zile).';
+      'Îl poți adăuga și mai târziu din Setări → Program de recomandare (în 7 zile).';
 
   @override
   String get referrerSkip => 'Omite, nu am cod';

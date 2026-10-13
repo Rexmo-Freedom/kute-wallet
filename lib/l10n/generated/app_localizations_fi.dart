@@ -1194,31 +1194,6 @@ class AppLocalizationsFi extends AppLocalizations {
   String get totalFee => 'Maksu yhteensä';
 
   @override
-  String get usdEarnTitle => 'Tuotto';
-
-  @override
-  String get usdEarnRate => 'Viimeaikainen vuosituotto';
-
-  @override
-  String get usdEarnNextPayment => 'Seuraava maksu';
-
-  @override
-  String get usdEarnNextPaymentIn => 'Maksetaan';
-
-  @override
-  String get usdEarnRatePending => 'Ladataan';
-
-  @override
-  String get usdEarnRateUnavailable => 'Ei saatavilla juuri nyt';
-
-  @override
-  String get usdEarnActivityEmpty => 'Ei vielä maksuja';
-
-  @override
-  String get usdEarnActivityUnavailable =>
-      'Maksuhistoria ei ole nyt saatavilla';
-
-  @override
   String hlYieldAvailableLine(String amount) {
     return '$amount käytettävissä';
   }
@@ -2690,9 +2665,6 @@ class AppLocalizationsFi extends AppLocalizations {
   @override
   String get walletsEnterFriendCodeDescriptionNoDiscount =>
       'Jos ystävä kutsui sinut, anna hänen koodinsa.';
-
-  @override
-  String get accountEarn => 'Tuotto';
 
   @override
   String get accountInviteFriendsEarnShare =>
@@ -6818,18 +6790,6 @@ class AppLocalizationsFi extends AppLocalizations {
   String get betAdvancedSaleSellingAll => 'Myydään koko positiosi';
 
   @override
-  String get usdEarnProjectionNote =>
-      'Katkoviiva on arvio tämänpäiväisellä tasolla, ei saatua rahaa.';
-
-  @override
-  String usdEarnBelowMinimum(String amount) {
-    return 'Palkkiot alkavat, kun sinulla on $amount. Ne maksetaan päivittäin bitcoinina.';
-  }
-
-  @override
-  String get usdEarnProjectedLabel => 'Ennuste tämänpäiväisellä tasolla';
-
-  @override
   String get moveWithdrawDestinationHint =>
       'Valitse, mitä käyttötilillesi saapuu.';
 
@@ -7433,7 +7393,7 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get shareCodeTimedOut =>
-      'Koodiasi luodaan. Löydät sen milloin tahansa kohdasta Asetukset → Tuotto.';
+      'Koodiasi luodaan. Löydät sen milloin tahansa kohdasta Asetukset → Suositteluohjelma.';
 
   @override
   String get referrerCaptureInvalid =>
@@ -7460,7 +7420,7 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get referrerAddLater =>
-      'Voit lisätä sen myös myöhemmin kohdasta Asetukset → Tuotto (7 päivän sisällä).';
+      'Voit lisätä sen myös myöhemmin kohdasta Asetukset → Suositteluohjelma (7 päivän sisällä).';
 
   @override
   String get referrerSkip => 'Ohita, minulla ei ole koodia';

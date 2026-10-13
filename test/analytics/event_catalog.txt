@@ -649,9 +649,6 @@ tx_detail_action
 tx_flow_detail_opened
 unhandled_exception_caught
 unlock_failed
-usd_chart_range_changed
-usd_earn_opened
-usd_earn_state_shown
 usd_receive_abandoned
 usd_receive_address_copied
 usd_receive_address_shared

@@ -25,13 +25,6 @@ class Chart extends StatefulWidget {
   /// pill tapped again).
   final Object? viewResetKey;
 
-  /// How many of the trailing days in [selectedDays] are a forecast
-  /// rather than something that happened. Zero (the default) is every
-  /// existing caller. Those days are drawn as a projected tail by
-  /// [KuteLineChart] and are deliberately kept out of the trend colour
-  /// and the percent badge, which describe the past only.
-  final int projectedDays;
-
   const Chart({
     super.key,
     required this.selectedDays,
@@ -46,7 +39,6 @@ class Chart extends StatefulWidget {
     required this.isBitcoinAsset,
     required this.selectedAsset,
     this.viewResetKey,
-    this.projectedDays = 0,
   });
 
   @override
@@ -70,14 +62,7 @@ class _ChartState extends State<Chart> {
     final sortedDays = List<DateTime>.from(widget.selectedDays)
       ..sort((a, b) => a.compareTo(b));
     final values = _createValues(widget.mainData, sortedDays);
-    // History only. A forecast is not allowed to tint the line or move
-    // the badge: both report what actually happened.
-    final projected = widget.projectedDays.clamp(0, values.length - 1);
-    final int? projectedFrom =
-        projected > 0 ? values.length - 1 - projected : null;
-    final actualValues =
-        projectedFrom == null ? values : values.sublist(0, projectedFrom + 1);
-    final trend = _computeTrend(actualValues);
+    final trend = _computeTrend(values);
 
     // Unified chart language: no grid, no axes, just the engine curve
     // (monotone cubic, 0.14 gradient fill, endpoint dot). The change over
@@ -97,24 +82,17 @@ class _ChartState extends State<Chart> {
         break;
     }
     final locale = kuteChartLocale(context);
-    final l10n = context.l10n;
 
     return Padding(
       padding: EdgeInsets.only(top: 4.h),
       child: KuteLineChart(
         values: values,
         lineColor: lineColor,
-        projectedFrom: projectedFrom,
         viewResetKey: widget.viewResetKey,
-        // History only: a forecast is not allowed to move the change,
-        // which reports what actually happened.
         summaryBuilder: (first, last) {
-          final end = projectedFrom == null
-              ? last
-              : last.clamp(0, projectedFrom).toInt();
-          if (end <= first) return null;
+          if (last <= first) return null;
           final percent =
-              _computePercentChange(values.sublist(first, end + 1));
+              _computePercentChange(values.sublist(first, last + 1));
           if (percent == null) return null;
           return Align(
             alignment: Alignment.centerRight,
@@ -138,9 +116,6 @@ class _ChartState extends State<Chart> {
           return kuteChartDay(sortedDays[index], locale);
         },
         detailTextBuilder: (index) => [
-          // Out in the dashed tail the figure is a forecast.
-          if (projectedFrom != null && index > projectedFrom)
-            l10n.usdEarnProjectedLabel,
           // A fiat valuation of bitcoin: what was held that day.
           if (widget.isCurrency &&
               widget.isBitcoinAsset &&

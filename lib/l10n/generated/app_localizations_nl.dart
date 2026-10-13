@@ -1195,31 +1195,6 @@ class AppLocalizationsNl extends AppLocalizations {
   String get totalFee => 'Totale kosten';
 
   @override
-  String get usdEarnTitle => 'Rendement';
-
-  @override
-  String get usdEarnRate => 'Recent jaartarief';
-
-  @override
-  String get usdEarnNextPayment => 'Volgende uitbetaling';
-
-  @override
-  String get usdEarnNextPaymentIn => 'Betaalt over';
-
-  @override
-  String get usdEarnRatePending => 'Laden';
-
-  @override
-  String get usdEarnRateUnavailable => 'Nu niet beschikbaar';
-
-  @override
-  String get usdEarnActivityEmpty => 'Nog geen uitbetalingen';
-
-  @override
-  String get usdEarnActivityUnavailable =>
-      'Betaalgeschiedenis is nu niet beschikbaar';
-
-  @override
   String hlYieldAvailableLine(String amount) {
     return '$amount beschikbaar';
   }
@@ -2703,9 +2678,6 @@ class AppLocalizationsNl extends AppLocalizations {
   @override
   String get walletsEnterFriendCodeDescriptionNoDiscount =>
       'Heeft een vriend je uitgenodigd? Voer zijn of haar code in.';
-
-  @override
-  String get accountEarn => 'Verdienen';
 
   @override
   String get accountInviteFriendsEarnShare =>
@@ -6840,18 +6812,6 @@ class AppLocalizationsNl extends AppLocalizations {
   String get betAdvancedSaleSellingAll => 'Je hele positie verkopen';
 
   @override
-  String get usdEarnProjectionNote =>
-      'De stippellijn is een schatting tegen het tarief van vandaag, geen ontvangen geld.';
-
-  @override
-  String usdEarnBelowMinimum(String amount) {
-    return 'Beloningen starten zodra je $amount aanhoudt. Ze worden dagelijks in bitcoin uitbetaald.';
-  }
-
-  @override
-  String get usdEarnProjectedLabel => 'Verwacht tegen tarief van vandaag';
-
-  @override
   String get moveWithdrawDestinationHint =>
       'Kies wat er op je bestedingsrekening binnenkomt.';
 
@@ -7454,7 +7414,7 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get shareCodeTimedOut =>
-      'Je code wordt aangemaakt. Je vindt hem altijd in Instellingen → Verdienen.';
+      'Je code wordt aangemaakt. Je vindt hem altijd in Instellingen → Verwijsprogramma.';
 
   @override
   String get referrerCaptureInvalid =>
@@ -7481,7 +7441,7 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get referrerAddLater =>
-      'Je kunt hem ook later toevoegen via Instellingen → Verdienen (binnen 7 dagen).';
+      'Je kunt hem ook later toevoegen via Instellingen → Verwijsprogramma (binnen 7 dagen).';
 
   @override
   String get referrerSkip => 'Overslaan, ik heb geen code';

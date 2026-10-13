@@ -1191,31 +1191,6 @@ class AppLocalizationsDa extends AppLocalizations {
   String get totalFee => 'Samlet gebyr';
 
   @override
-  String get usdEarnTitle => 'Optjen';
-
-  @override
-  String get usdEarnRate => 'Seneste årlige sats';
-
-  @override
-  String get usdEarnNextPayment => 'Næste udbetaling';
-
-  @override
-  String get usdEarnNextPaymentIn => 'Udbetales om';
-
-  @override
-  String get usdEarnRatePending => 'Indlæser';
-
-  @override
-  String get usdEarnRateUnavailable => 'Ikke tilgængelig lige nu';
-
-  @override
-  String get usdEarnActivityEmpty => 'Ingen udbetalinger endnu';
-
-  @override
-  String get usdEarnActivityUnavailable =>
-      'Udbetalingshistorikken er ikke tilgængelig lige nu';
-
-  @override
   String hlYieldAvailableLine(String amount) {
     return '$amount tilgængelig';
   }
@@ -2692,9 +2667,6 @@ class AppLocalizationsDa extends AppLocalizations {
   @override
   String get walletsEnterFriendCodeDescriptionNoDiscount =>
       'Hvis en ven har inviteret dig, så indtast vedkommendes kode.';
-
-  @override
-  String get accountEarn => 'Optjen';
 
   @override
   String get accountInviteFriendsEarnShare =>
@@ -6819,18 +6791,6 @@ class AppLocalizationsDa extends AppLocalizations {
   String get betAdvancedSaleSellingAll => 'Sælger hele din position';
 
   @override
-  String get usdEarnProjectionNote =>
-      'Den stiplede linje er et estimat med dagens sats, ikke modtagne penge.';
-
-  @override
-  String usdEarnBelowMinimum(String amount) {
-    return 'Belønninger starter, når du har $amount. De udbetales dagligt i bitcoin.';
-  }
-
-  @override
-  String get usdEarnProjectedLabel => 'Fremskrevet med dagens sats';
-
-  @override
   String get moveWithdrawDestinationHint =>
       'Vælg, hvad der lander på din forbrugskonto.';
 
@@ -7431,7 +7391,7 @@ class AppLocalizationsDa extends AppLocalizations {
 
   @override
   String get shareCodeTimedOut =>
-      'Din kode bliver oprettet. Du kan altid finde den i Indstillinger → Optjen.';
+      'Din kode bliver oprettet. Du kan altid finde den i Indstillinger → Henvisningsprogram.';
 
   @override
   String get referrerCaptureInvalid =>
@@ -7458,7 +7418,7 @@ class AppLocalizationsDa extends AppLocalizations {
 
   @override
   String get referrerAddLater =>
-      'Du kan også tilføje den senere under Indstillinger → Optjen (inden for 7 dage).';
+      'Du kan også tilføje den senere under Indstillinger → Henvisningsprogram (inden for 7 dage).';
 
   @override
   String get referrerSkip => 'Spring over, jeg har ingen kode';

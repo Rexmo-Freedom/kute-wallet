@@ -36,7 +36,6 @@ import 'package:kute/screens/shared/kute_pill_tabs.dart'
 import 'package:kute/screens/shared/pool_balance_header.dart';
 import 'package:kute/screens/shared/portfolio_tabs.dart';
 import 'package:kute/screens/shared/venue_deposit_button.dart';
-import 'package:kute/screens/usd/components/usd_earn_chart.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -99,10 +98,9 @@ void main() {
     expect(tester.widget<KutePill>(_pill(l10n.trading)).selected, isTrue);
     expect(_container(tester).read(investmentsTabProvider),
         InvestmentsTab.investing);
-    // Earn is no pill here, whatever the capability says: it lives under
-    // Portfolio › Statistics.
-    expect(_pill(l10n.usdEarnTitle), findsNothing);
-    expect(find.byType(UsdEarnChart, skipOffstage: false), findsNothing);
+    // Earn is no pill here (nor anywhere), whatever the capability says.
+    expect(_pill('Earn'), findsNothing);
+    expect(find.text('Earn', skipOffstage: false), findsNothing);
 
     // Both venue browsers are mounted from the start, embedded; the
     // Portfolio waits for its pill.

@@ -199,8 +199,7 @@ Future<RecordingRewardsApi> pumpInvestments(
       ),
     ),
   ));
-  // The Earn chart keeps a one-second countdown timer and the browsers'
-  // skeletons shimmer, so settle by hand rather than wait for a quiet
+  // The browsers' skeletons shimmer, so settle by hand rather than wait for a quiet
   // frame that may never come.
   if (settle) {
     await tester.pumpAndSettle();

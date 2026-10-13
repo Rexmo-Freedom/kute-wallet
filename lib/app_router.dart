@@ -565,9 +565,10 @@ class AppRouter {
                 GoRoute(
                   path: '/usd',
                   name: 'usd',
-                  // `?tab=investing|predictions|portfolio|earn` (what the
-                  // venue routes redirect to) or `extra: {'tab': …}`
-                  // picks the Investments pill; nothing keeps the pill
+                  // `?tab=investing|predictions|portfolio` (what the venue
+                  // routes redirect to) or `extra: {'tab': …}` picks the
+                  // Investments pill (an old `earn` link opens the default
+                  // pill: Earn is shown nowhere); nothing keeps the pill
                   // where it was. The page updates in place on a new
                   // link (same pageKey), and the screen applies it then.
                   pageBuilder: (context, state) {

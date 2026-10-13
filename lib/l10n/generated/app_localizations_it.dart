@@ -1196,31 +1196,6 @@ class AppLocalizationsIt extends AppLocalizations {
   String get totalFee => 'Commissione totale';
 
   @override
-  String get usdEarnTitle => 'Rendimento';
-
-  @override
-  String get usdEarnRate => 'Tasso annuo recente';
-
-  @override
-  String get usdEarnNextPayment => 'Prossimo pagamento';
-
-  @override
-  String get usdEarnNextPaymentIn => 'Pagamento tra';
-
-  @override
-  String get usdEarnRatePending => 'Caricamento';
-
-  @override
-  String get usdEarnRateUnavailable => 'Non disponibile ora';
-
-  @override
-  String get usdEarnActivityEmpty => 'Ancora nessun pagamento';
-
-  @override
-  String get usdEarnActivityUnavailable =>
-      'La cronologia dei pagamenti non è disponibile ora';
-
-  @override
   String hlYieldAvailableLine(String amount) {
     return '$amount disponibili';
   }
@@ -2703,9 +2678,6 @@ class AppLocalizationsIt extends AppLocalizations {
   @override
   String get walletsEnterFriendCodeDescriptionNoDiscount =>
       'Se un amico ti ha invitato, inserisci il suo codice.';
-
-  @override
-  String get accountEarn => 'Guadagni';
 
   @override
   String get accountInviteFriendsEarnShare =>
@@ -6839,18 +6811,6 @@ class AppLocalizationsIt extends AppLocalizations {
   String get betAdvancedSaleSellingAll => 'Vendi l\'intera posizione';
 
   @override
-  String get usdEarnProjectionNote =>
-      'La linea tratteggiata è una stima al tasso di oggi, non denaro ricevuto.';
-
-  @override
-  String usdEarnBelowMinimum(String amount) {
-    return 'Le ricompense iniziano quando detieni $amount. Vengono pagate ogni giorno in bitcoin.';
-  }
-
-  @override
-  String get usdEarnProjectedLabel => 'Proiezione al tasso di oggi';
-
-  @override
   String get moveWithdrawDestinationHint =>
       'Scegli cosa arriva sul tuo conto di spesa.';
 
@@ -7455,7 +7415,7 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get shareCodeTimedOut =>
-      'Il tuo codice è in fase di creazione. Lo trovi sempre in Impostazioni → Guadagni.';
+      'Il tuo codice è in fase di creazione. Lo trovi sempre in Impostazioni → Programma inviti.';
 
   @override
   String get referrerCaptureInvalid =>
@@ -7482,7 +7442,7 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get referrerAddLater =>
-      'Puoi anche aggiungerlo più tardi da Impostazioni → Guadagni (entro 7 giorni).';
+      'Puoi anche aggiungerlo più tardi da Impostazioni → Programma inviti (entro 7 giorni).';
 
   @override
   String get referrerSkip => 'Salta, non ho un codice';

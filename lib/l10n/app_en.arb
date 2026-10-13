@@ -430,20 +430,6 @@
   "timestamp": "Timestamp",
   "total": "Total",
   "totalFee": "Total Fee",
-  "usdEarnTitle": "Earn",
-  "usdEarnRate": "Recent yearly rate",
-  "usdEarnNextPayment": "Next payment",
-  "@usdEarnNextPayment": {
-    "description": "Label above the amount the rewards programme pays at the next daily cut."
-  },
-  "usdEarnNextPaymentIn": "Pays in",
-  "@usdEarnNextPaymentIn": {
-    "description": "Label above the countdown to the next payout, which is cut at 00:00 UTC."
-  },
-  "usdEarnRatePending": "Loading",
-  "usdEarnRateUnavailable": "Unavailable right now",
-  "usdEarnActivityEmpty": "No payments yet",
-  "usdEarnActivityUnavailable": "Payment history is unavailable right now",
   "hlYieldAvailableLine": "{amount} available",
   "@hlYieldAvailableLine": {
     "placeholders": {
@@ -1245,7 +1231,6 @@
     }
   },
   "walletsEnterFriendCodeDescriptionNoDiscount": "If a friend invited you, enter their code.",
-  "accountEarn": "Earn",
   "accountInviteFriendsEarnShare": "Invite friends and earn a share of what Kute makes from them.",
   "accountCouldntLoadEarnData": "Couldn't load your Earn data",
   "accountTryAgain": "Try again",
@@ -3726,23 +3711,6 @@
   "betProceedsToPredictions": "To Predictions",
   "betYourPosition": "Your position",
   "betAdvancedSaleSellingAll": "Selling your whole position",
-  "usdEarnProjectionNote": "The dashed line is an estimate at today's rate, not money received.",
-  "usdEarnBelowMinimum": "Rewards start once you hold {amount}. They are paid daily in bitcoin.",
-  "@usdEarnBelowMinimum": {
-    "description": "Shown on the Earn tab only while the dollar balance is under the programme minimum. {amount} is that minimum, formatted as money.",
-    "placeholders": {
-      "amount": {
-        "type": "String"
-      }
-    }
-  },
-  "@usdEarnProjectionNote": {
-    "description": "Line under the Earn chart explaining that the dashed tail is an extrapolation of today's rate, not a payment."
-  },
-  "usdEarnProjectedLabel": "Projected at today's rate",
-  "@usdEarnProjectedLabel": {
-    "description": "Headline label on the Earn chart while the scrub sits on a projected day instead of a paid one."
-  },
   "moveWithdrawDestinationHint": "Pick what lands in your spending account.",
   "@moveWithdrawDestinationHint": {
     "description": "Hint under the title of the two-entry picker that chooses what a venue withdrawal delivers: bitcoin or dollars."
@@ -4078,7 +4046,7 @@
   "shareCodeTitle": "Invite friends, earn together",
   "shareCodeStartUsing": "Start using Kute",
   "shareCodeSettingUp": "Setting up your code…",
-  "shareCodeTimedOut": "Your code is being created. You can find it any time in Settings → Earn.",
+  "shareCodeTimedOut": "Your code is being created. You can find it any time in Settings → Referral program.",
   "referrerCaptureInvalid": "We couldn't verify your invite code. Enter it manually if you have one.",
   "referrerCodeNotFound": "We couldn't find that code. Double-check with your friend.",
   "referrerCodeNetwork": "Couldn't verify the code. Check your connection and try again.",
@@ -4092,7 +4060,7 @@
   },
   "referrerGotCode": "Got a friend's code?",
   "referrerCodeAdded": "Code added",
-  "referrerAddLater": "You can also add it later from Settings → Earn (within 7 days).",
+  "referrerAddLater": "You can also add it later from Settings → Referral program (within 7 days).",
   "referrerSkip": "Skip, I don't have a code",
   "recoverBtcFailed": "Could not recover the Bitcoin wallet. Check the 12 words and try again.",
   "recoverOriginalAddressType": "Original address type",
