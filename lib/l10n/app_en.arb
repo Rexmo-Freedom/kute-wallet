@@ -6563,5 +6563,9 @@
     "description": "Statistics tile on Active: the profit or loss of the positions still open (Predictions at live prices, Investing perps unrealised)."
   },
   "usdReceiveFromYourBitcoin": "From your Bitcoin",
-  "@usdReceiveFromYourBitcoin": {"description": "Row title at the top of the Investments receive screen that opens the move from the spending bitcoin into Investments."}
+  "@usdReceiveFromYourBitcoin": {"description": "Row title at the top of the Investments receive screen that opens the move from the spending bitcoin into Investments."},
+  "stepUpReasonBetReady": "Get your {amount} prediction ready",
+  "@stepUpReasonBetReady": {"description": "Step-up prompt reason when a fast prediction (a 5- or 15-minute round or a game in play) is got ready before Confirm: the one approval moves the money into Predictions now and also approves the bet itself.", "placeholders": {"amount": {"type": "String"}}},
+  "betMarketClosingNoFunding": "This market closes before money could arrive. Nothing was moved.",
+  "@betMarketClosingNoFunding": {"description": "Prediction slip notice when a bet would need money moved into Predictions but the market ends before the move could land. Nothing was moved."}
 }

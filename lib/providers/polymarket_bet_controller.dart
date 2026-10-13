@@ -39,6 +39,8 @@ import 'package:kute/providers/polymarket_browse_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/services/polymarket/fast_bet_window.dart';
+import 'package:kute/services/polymarket/bet_prefund.dart'
+    show PolymarketMarketWindow;
 import 'package:kute/services/polymarket/hot_order_guard.dart';
 import 'package:kute/services/polymarket/market_buy_quote.dart';
 import 'package:kute/services/polymarket/market_terms_store.dart';
@@ -60,6 +62,12 @@ import 'package:kute/services/polymarket_onboarding_service.dart'
 import 'package:kute/services/sound_service.dart';
 import 'package:kute/services/venue_analytics.dart';
 import 'package:kute/services/tracking_service.dart';
+
+/// Reads a market's trading window (`PolymarketBetController.marketWindow`)
+/// before a bet is funded: the slip's closing-market check (audit P1-5).
+final polymarketMarketWindowReaderProvider =
+    Provider<Future<PolymarketMarketWindow?> Function(String conditionId)>(
+        (ref) => PolymarketBetController.marketWindow);
 
 final polymarketBetControllerProvider =
     Provider<PolymarketBetController>((ref) => PolymarketBetController(ref));
@@ -279,6 +287,30 @@ class PolymarketBetController {
           jsonDecode(response.body) as Map<String, dynamic>);
       PolymarketMarketTermsStore.saveFromBook(book);
       return book;
+    });
+  }
+
+  /// `GET /markets/{condition_id}` on the warm connection: whether the
+  /// market takes orders now, and its end. Null when it cannot be read.
+  static Future<PolymarketMarketWindow?> marketWindow(String conditionId,
+      {Duration timeout = const Duration(seconds: 4)}) async {
+    if (!RegExp(r'^0x[0-9a-fA-F]{64}$').hasMatch(conditionId)) return null;
+    return PolymarketWarmConnections.withClob((c) async {
+      final response = await c
+          .get(Uri.https(
+              PolymarketWarmConnections.clobHost, '/markets/$conditionId'))
+          .timeout(timeout);
+      if (response.statusCode != 200) return null;
+      final body = jsonDecode(response.body);
+      if (body is! Map) return null;
+      final accepting = body['accepting_orders'];
+      if (accepting is! bool) return null;
+      final end = body['end_date_iso'];
+      return PolymarketMarketWindow(
+        acceptingOrders: accepting,
+        closed: body['closed'] == true,
+        endAt: end is String ? DateTime.tryParse(end) : null,
+      );
     });
   }
 

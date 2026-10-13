@@ -3008,5 +3008,7 @@
   "depositFromAnotherWallet": "Друг портфейл или борса",
   "depositFromAnotherWalletSubtitle": "Вземете адрес, на който да изпратите долари",
   "portfolioStatOpenPnl": "Отворена печалба / загуба",
-  "usdReceiveFromYourBitcoin": "От вашия биткойн"
+  "usdReceiveFromYourBitcoin": "От вашия биткойн",
+  "stepUpReasonBetReady": "Подготви прогноза за {amount}",
+  "betMarketClosingNoFunding": "Този пазар се затваря, преди парите да пристигнат. Нищо не е преместено."
 }

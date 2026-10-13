@@ -351,6 +351,19 @@ class PendingPolymarketBetNotifier extends Notifier<PendingBetIntent?> {
   void clear() {
     state = null;
   }
+
+  /// Drops an armed bet: one got ready on a fast market's slip
+  /// (`BetPrefund`), still waiting for Confirm (`awaitingDeposit` with a
+  /// funding cap). Clearing it drops its approval too (the autofire's
+  /// listener). A queued, placing, failed or finished bet is left alone.
+  void dropArmed() {
+    final current = state;
+    if (current != null &&
+        current.funded &&
+        current.status == PendingBetStatus.awaitingDeposit) {
+      state = null;
+    }
+  }
 }
 
 final pendingPolymarketBetProvider =

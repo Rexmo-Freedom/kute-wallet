@@ -3008,5 +3008,7 @@
   "depositFromAnotherWallet": "En anden wallet eller børs",
   "depositFromAnotherWalletSubtitle": "Få en adresse at sende dollars til",
   "portfolioStatOpenPnl": "Åben gevinst / tab",
-  "usdReceiveFromYourBitcoin": "Fra din bitcoin"
+  "usdReceiveFromYourBitcoin": "Fra din bitcoin",
+  "stepUpReasonBetReady": "Gør en forudsigelse på {amount} klar",
+  "betMarketClosingNoFunding": "Dette marked lukker, før pengene kan nå frem. Intet blev flyttet."
 }

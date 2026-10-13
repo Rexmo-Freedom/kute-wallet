@@ -10750,4 +10750,13 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String get usdReceiveFromYourBitcoin => 'S vašeg bitcoina';
+
+  @override
+  String stepUpReasonBetReady(String amount) {
+    return 'Pripremi predviđanje od $amount';
+  }
+
+  @override
+  String get betMarketClosingNoFunding =>
+      'Ovo tržište zatvara se prije nego što bi novac stigao. Ništa nije premješteno.';
 }

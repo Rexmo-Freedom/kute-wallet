@@ -3008,5 +3008,7 @@
   "depositFromAnotherWallet": "Otra billetera o exchange",
   "depositFromAnotherWalletSubtitle": "Obtén una dirección para enviar dólares",
   "portfolioStatOpenPnl": "Beneficio / pérdida abierto",
-  "usdReceiveFromYourBitcoin": "Desde tu Bitcoin"
+  "usdReceiveFromYourBitcoin": "Desde tu Bitcoin",
+  "stepUpReasonBetReady": "Prepara una predicción de {amount}",
+  "betMarketClosingNoFunding": "Este mercado cierra antes de que el dinero pueda llegar. No se movió nada."
 }

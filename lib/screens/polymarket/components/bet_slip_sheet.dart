@@ -111,6 +111,7 @@ import 'package:kute/services/one_balance/venue_cash_source.dart'
     show
         VenueCashFor,
         VenueCashPullOutcome,
+        VenueCashPuller,
         venueCashPullerProvider,
         venueCashReachExcludingProvider;
 import 'package:kute/screens/shared/venue_cash_pull_copy.dart'
@@ -121,6 +122,7 @@ import 'package:kute/services/one_balance/predictions_venue_funder.dart'
 import 'package:kute/services/one_balance/venue_funder.dart'
     show UserGrantAuthorization;
 import 'package:kute/services/polymarket/polymarket_category_gate.dart';
+import 'package:kute/services/polymarket/bet_prefund.dart';
 import 'package:kute/services/venue_analytics.dart';
 import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
 
@@ -221,6 +223,14 @@ class _BetSlipDraft extends ChangeNotifier {
   /// The open gate's refusal, shared with the Advanced page: see
   /// `_BetSlipSheetState._capabilityBlockMessage`.
   String? openBlockMessage;
+
+  /// The policy answered and allows this bet (not on offline grace): a
+  /// fast market's slip may get the bet ready before Confirm.
+  bool gateAllowed = false;
+
+  /// Getting a fast market's bet ready before Confirm ([BetPrefund]):
+  /// the root slip owns it, the Advanced page confirms through it too.
+  BetPrefund? prefund;
 
   /// The policy could not be reached and the last check still allows a
   /// prediction: the decision's own words, shown above the button without
@@ -386,6 +396,20 @@ class BetSlipSheet extends ConsumerStatefulWidget {
         !ledgerInvestmentAllowed(ledgerPredictionsCapability)) {
       unawaited(showLedgerInvestmentUnavailable(
           context, ledgerPredictionsCapability));
+      return;
+    }
+    // A market already over (closed, ended, or a short round past its
+    // end) never opens a slip: nothing could be placed, and a funded bet
+    // would only move money for nothing.
+    if (polymarketSlipEnded(
+        event: event,
+        slug: marketSlug,
+        question: marketQuestion,
+        endAt: marketEndAt)) {
+      showMessageSnackBar(
+          context: context,
+          message: context.l10n.builderMarketGone,
+          error: true);
       return;
     }
     if (event != null) VenueAnalytics.rememberPolymarketEvent(event);
@@ -620,6 +644,18 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   /// What the running funding leg moves, for the busy label.
   double? _fundingUsd;
 
+  /// Read once in initState: dispose and a pre-fund move finishing after
+  /// the slip went must not touch `ref`.
+  late final PendingPolymarketBetNotifier _pendingNotifier;
+  late final OrderFundingController _orderFunding;
+  late final VenueCashPuller _venueCashPuller;
+  late final Future<PolymarketMarketWindow?> Function(String conditionId)
+      _marketWindowReader;
+
+  /// What the pre-fund hold last looked at (outcome token, stake, order
+  /// shape, market kind): a change restarts the one-second hold.
+  (String?, double, bool, double, PrefundMarketKind?)? _prefundKey;
+
   /// Latches the success state so the ticket stays locked while the slip
   /// closes, even after the intent provider clears (the BTC auto-fire
   /// nulls it ~600ms after `done`).
@@ -775,6 +811,35 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     }
     _draft.addListener(_onDraftChanged);
     if (!_isLedger) _loadLiveDelay(widget.outcomes[_selectedIndex].conditionId);
+    _pendingNotifier = ref.read(pendingPolymarketBetProvider.notifier);
+    _orderFunding = ref.read(orderFundingControllerProvider);
+    _venueCashPuller = ref.read(venueCashPullerProvider);
+    _marketWindowReader = ref.read(polymarketMarketWindowReaderProvider);
+    if (_ownsDraft && !_isLedger) {
+      _draft.prefund = BetPrefund(
+        approve: _prefundApprove,
+        fund: _prefundFund,
+        plan: ({required requiredUsd, required readyUsd}) =>
+            _fundingPlanFor(required: requiredUsd, ready: readyUsd),
+        window: _fundingWindow,
+        onDisarm: _dropArmedBet,
+        onChanged: () {
+          if (mounted) _updateState(() {});
+        },
+      );
+      // Moves made to get the bet ready land with the venue's balance; an
+      // account read late (or a policy answered late) looks again.
+      ref.listenManual(polymarketTradingProvider, (prev, next) {
+        final state = next.valueOrNull;
+        final balance = state?.usdcBalance;
+        if (balance != null) _draft.prefund?.observeBalance(balance);
+        if (state?.balanceKnown == true &&
+            prev?.valueOrNull?.balanceKnown != true) {
+          _prefundKey = null;
+          _maybeScheduleHold();
+        }
+      });
+    }
 
     // Hold the live-price feed while the slip is up — it can open from
     // surfaces outside the Predictions tab (Home hot-events feed, AI
@@ -855,12 +920,20 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       // Allowed. When that is the last check standing in for a policy
       // that cannot be reached (offline grace), say so above the button,
       // which stays enabled.
+      var offlineGrace = false;
       for (final id in _betCapabilities()) {
         final decision = RuntimeCapabilitiesService.instance.decision(id);
         if (decision.offline) {
+          offlineGrace = true;
           _updateState(() => _draft.openOfflineNote = decision.message);
           break;
         }
+      }
+      // Only a policy that answered lets the slip get a bet ready early.
+      if (!offlineGrace) {
+        _draft.gateAllowed = true;
+        _prefundKey = null;
+        _maybeScheduleHold();
       }
       return;
     }
@@ -879,6 +952,308 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
 
   void _onDraftChanged() {
     if (mounted) setState(() {});
+    _maybeScheduleHold();
+  }
+
+  // ── Getting a fast market's bet ready (BetPrefund) ─────────────────────
+
+  /// A 5- or 15-minute round, or a game in play, else null.
+  PrefundMarketKind? get _prefundKind => prefundMarketKind(
+      slug: widget.marketSlug,
+      question: widget.marketQuestion,
+      endAt: widget.marketEndAt,
+      live: (_liveDelays[widget.outcomes[_selectedIndex].conditionId ?? ''] ??
+              0) >
+          0);
+
+  /// The root slip restarts the one-second hold whenever the stake, the
+  /// outcome, the order or the market's kind changes.
+  void _maybeScheduleHold() {
+    final prefund = _draft.prefund;
+    if (!_ownsDraft || prefund == null || !mounted) return;
+    final key =
+        (_selectedTokenId, _amount, _isLimitMode, _slippagePct, _prefundKind);
+    if (key == _prefundKey) return;
+    _prefundKey = key;
+    prefund.scheduleHold(_prefundSnapshot);
+  }
+
+  /// The slip as the pre-funding reads it. Reads only, never watches.
+  PrefundSnapshot _prefundSnapshot() {
+    final trading = ref.read(polymarketTradingProvider);
+    final account = trading.valueOrNull;
+    final cash = account?.usdcBalance ?? 0;
+    final token = _selectedTokenId;
+    final terms = ref
+            .read(polymarketFeeTermsProvider(
+                widget.outcomes[_selectedIndex].tokenId ?? ''))
+            .valueOrNull ??
+        PolymarketFeeTerms.worstCase;
+    final caps = ref.read(runtimeCapabilitiesProvider);
+    final queued = ref.read(pendingPolymarketBetProvider);
+    final sweeping = ref
+        .read(venueSweeperProvider)
+        .sweeping
+        .contains(OneBalanceVenue.predictions);
+    return PrefundSnapshot(
+      kind: _prefundKind,
+      selection: PrefundSelection(
+          tokenId: token ?? '',
+          isLimit: _isLimitMode,
+          slippagePct: _slippagePct),
+      amountUsd: _amount,
+      minBetUsd: _effectiveMinBetUsd,
+      requiredUsd: _predictionsRequired(terms),
+      readyUsd: _predictionsReady(cash),
+      balanceUsd: cash,
+      dollarsUsd: _fundingReachUsd(),
+      allowed: !_isLedger &&
+          token != null &&
+          token.isNotEmpty &&
+          trading.hasValue &&
+          !trading.hasError &&
+          (account?.balanceKnown ?? false) &&
+          _draft.gateAllowed &&
+          _capabilityBlockMessage == null &&
+          caps.blockReason('polymarket.deposit') == null &&
+          (!_usesAdvanced || caps.blockReason('trading.advanced') == null),
+      busy: _isPlacing ||
+          _buyInFlight ||
+          _doorCalculating ||
+          _orderPlaced ||
+          _placedSuccess ||
+          (queued != null && queued.funded && pendingBetHoldsCash(queued)) ||
+          sweeping,
+    );
+  }
+
+  /// The one prompt of a pre-funded bet: the slip's bet prepared, then
+  /// the funded bet's approval (bet + funding cap, the autofire grant).
+  /// The prepared bet stays in the pending provider, armed: waiting
+  /// (`awaitingDeposit`) with its funding cap, so it never fires until
+  /// Confirm queues it.
+  Future<PrefundApproval> _prefundApprove(PrefundRequest request) async {
+    if (!mounted) return const PrefundApproval.unavailable();
+    final intent = _slipIntent();
+    if (intent == null) return const PrefundApproval.unavailable();
+    _pendingNotifier.setIntent(intent);
+    final grant = await _approveBet(
+        funding: OrderFundingPlan(
+            fundUsd: request.fundingCapUsd,
+            arrivingUsd: 0,
+            rule: ShortfallRules.ruleRemaining,
+            minUsd: 0),
+        prefund: !request.atConfirm);
+    if (grant == null) {
+      final declined = _lastDeclineReason == 'approval_not_granted';
+      if (mounted &&
+          ref.read(pendingPolymarketBetProvider)?.status !=
+              PendingBetStatus.failed) {
+        _pendingNotifier.clear();
+      }
+      return declined
+          ? const PrefundApproval.declined()
+          : const PrefundApproval.unavailable();
+    }
+    final pending = mounted ? ref.read(pendingPolymarketBetProvider) : null;
+    if (pending == null || !_orderMatchesSelection(pending.tokenId)) {
+      grant.revoke();
+      _pendingNotifier.clear();
+      return const PrefundApproval.unavailable();
+    }
+    final armed = pending.copyWith(fundUsd: request.fundingCapUsd);
+    _pendingNotifier.setIntent(armed);
+    return PrefundApproval.approved(grant, armed);
+  }
+
+  /// A pre-funding move under the armed approval, through the shared
+  /// funding engine: Dollars first; what Dollars lack is Investing cash
+  /// pulled home first (the automatic home-only authorization, as at
+  /// Confirm), so the approval stays the only prompt.
+  Future<OrderFundingOutcome> _prefundFund(double fundUsd, AuthGrant grant,
+      {required double requiredUsd, required double readyUsd}) async {
+    final dollars = _dollarsUsd();
+    if (dollars + 1e-9 < fundUsd) {
+      VenueCashPullOutcome? pulled;
+      try {
+        pulled = await _venueCashPuller.pullShortfall(
+          neededUsd: fundUsd,
+          forAction: VenueCashFor.predictions,
+          exclude: OneBalanceVenue.predictions,
+        );
+      } catch (_) {
+        pulled = null;
+      }
+      if (pulled == null || !pulled.dollarsCover) {
+        return OrderFundingNeedsDollars(fundUsd - dollars);
+      }
+    }
+    return _orderFunding.fundAndQueue(
+      venue: OneBalanceVenue.predictions,
+      orderUsd: _draft.amount,
+      requiredUsd: requiredUsd,
+      readyUsd: readyUsd,
+      auth: UserGrantAuthorization(grant),
+      fundUsd: fundUsd,
+      entrySource: widget.source,
+    );
+  }
+
+  /// Dollars, or (when they fall short) Dollars plus the Investing cash
+  /// the shared engine can pull home: what a move for this bet can reach.
+  double _fundingReachUsd() {
+    final dollars = _dollarsUsd();
+    try {
+      final reach = ref
+          .read(venueCashReachExcludingProvider(OneBalanceVenue.predictions))
+          .valueOrNull;
+      return reach != null && reach > dollars ? reach : dollars;
+    } catch (_) {
+      return dollars;
+    }
+  }
+
+  /// The armed approval went: the armed bet leaves the pending provider
+  /// (which drops its grant). Deferred: it may run from dispose.
+  void _dropArmedBet() {
+    final notifier = _pendingNotifier;
+    if (_disposing) {
+      scheduleMicrotask(notifier.dropArmed);
+    } else {
+      notifier.dropArmed();
+    }
+  }
+
+  /// Set in dispose, where providers must not be changed synchronously.
+  bool _disposing = false;
+
+  /// Whether this market can take a funded bet in time (audit P1-5): it
+  /// takes orders, by the CLOB's own word, and does not end before the
+  /// move could land. [requireRead]: an unread market blocks too.
+  Future<PredictionsFundingBlock?> _fundingWindow(
+      {required bool requireRead}) async {
+    final conditionId = widget.outcomes[_selectedIndex].conditionId;
+    PolymarketMarketWindow? market;
+    if (conditionId != null && conditionId.isNotEmpty) {
+      try {
+        market = await _marketWindowReader(conditionId);
+      } catch (_) {}
+    }
+    return predictionsFundingBlock(
+      market: market,
+      endAt: widget.marketEndAt,
+      fastRound: isPolymarketFastRound(
+          slug: widget.marketSlug,
+          question: widget.marketQuestion,
+          endAt: widget.marketEndAt),
+      requireRead: requireRead,
+    );
+  }
+
+  /// Says why nothing was funded: the market is over, or closes before a
+  /// move could land.
+  void _showFundingBlock(PredictionsFundingBlock block) {
+    _stopped(block == PredictionsFundingBlock.closing
+        ? 'market_closing'
+        : 'market_ended');
+    PolymarketPlacementDiagnostics.declined('market_${block.name}');
+    PolymarketPlacementTimeline.finish('declined',
+        reason: 'market_${block.name}');
+    if (!mounted) return;
+    showMessageSnackBar(
+      context: context,
+      message: block == PredictionsFundingBlock.closing
+          ? context.l10n.betMarketClosingNoFunding
+          : context.l10n.builderMarketGone,
+      error: true,
+    );
+  }
+
+  /// Confirm on a slip whose bet was got ready: queued behind the money
+  /// with no second prompt (or the bet's own one prompt when the slip
+  /// changed past what was approved). False when nothing was got ready:
+  /// Confirm then runs as before.
+  Future<bool> _confirmPrefunded(BetPrefund prefund,
+      {required double balance,
+      required String mode,
+      required String outcomeLabel}) async {
+    if (_refuseBlockedDeposit() != null) {
+      _stopped('insufficient_balance');
+      PolymarketPlacementDiagnostics.declined('deposit_blocked');
+      PolymarketPlacementTimeline.finish('declined',
+          reason: 'deposit_blocked');
+      return true;
+    }
+    final result = await prefund.confirm(_prefundSnapshot());
+    switch (result) {
+      case PrefundNotUsed():
+        return false;
+      case PrefundQueued(:final intent, :final fundUsd):
+        // The autofire places it the moment the money lands (at once when
+        // it already has), under the approval already given.
+        _pendingNotifier.setIntent(intent);
+        PolymarketPlacementTimeline.mark('funded');
+        if (!mounted) return true;
+        _swapNeeded = fundUsd > 0;
+        _fundingUsd = fundUsd > 0 ? fundUsd : null;
+        TrackingService.track('bet_slip_place', params: {
+          'amount_bucket': TrackingService.usdBucket(_amount),
+          'mode': mode,
+          'swap_needed': _swapNeeded ? 1 : 0,
+          'balance_bucket': TrackingService.usdBucket(balance),
+          'market': _truncMarket(widget.marketQuestion),
+          'outcome': outcomeLabel,
+        });
+        _orderPlaced = true;
+        _trackSubmitted();
+        _updateState(() {
+          _isPlacing = true;
+          _placedSuccess = false;
+        });
+        return true;
+      case PrefundDeclined():
+        PolymarketPlacementTimeline.finish('declined',
+            reason: _lastDeclineReason ?? 'approval');
+        return true;
+      case PrefundBlocked(:final block):
+        _pendingNotifier.dropArmed();
+        _showFundingBlock(block);
+        return true;
+      case PrefundFundingFailed(:final outcome):
+        _pendingNotifier.dropArmed();
+        _stopped('funding_refused',
+            error: outcome is OrderFundingRefused ? outcome.error : null);
+        PolymarketPlacementTimeline.finish('failed', reason: 'funding_prefund');
+        if (!mounted) return true;
+        if (outcome is OrderFundingRefused) {
+          final error = outcome.error;
+          if (error is AuthGrantException) {
+            await handleGrantFailure(context, error,
+                action: SensitiveAction.pmBet);
+            return true;
+          }
+          if (outcome.reason == 'user_cancelled') return true;
+          showMessageSnackBar(
+              context: context,
+              message: (error == null
+                      ? null
+                      : HotSettlement.messageFor(error, context.l10n)) ??
+                  context.l10n.betActionNotCompleted,
+              error: true);
+        } else if (outcome is OrderFundingNeedsDollars) {
+          final terms = ref
+                  .read(polymarketFeeTermsProvider(
+                      widget.outcomes[_selectedIndex].tokenId ?? ''))
+                  .valueOrNull ??
+              PolymarketFeeTerms.worstCase;
+          await _openDollarsTopUp(
+              shortfallUsd: _predictionsShortfall(balance, terms),
+              requiredUsd: _predictionsRequired(terms),
+              readyUsd: _predictionsReady(balance),
+              topUpUsd: _fundingPlan?.fundUsd);
+        }
+        return true;
+    }
   }
 
   void _updateState(VoidCallback update) {
@@ -1172,6 +1547,10 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     if (_ownsDraft) {
       TrackingService.clearFlowContext('polymarket_bet');
       VenueAnalytics.resetSettings(_settingsScope);
+      // Closed before Confirm: the approval goes, cash already moved stays
+      // on Predictions (one balance), nothing comes back.
+      _disposing = true;
+      _draft.prefund?.close();
     }
     // Release the live-feed hold exactly once (nulled to guard a double
     // dispose from decrementing another surface's hold).
@@ -1801,6 +2180,50 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     }
   }
 
+  /// What the outcome on the slip is called on the bet ("Lula Yes").
+  String get _outcomeLabel {
+    final selected = widget.outcomes[_selectedIndex];
+    return _isCandidatePicker
+        ? '${selected.name} ${_buyNo ? "No" : "Yes"}'
+        : selected.name;
+  }
+
+  /// The bet on the slip as a pending intent, before preparation; null
+  /// when the selected outcome has no token.
+  PendingBetIntent? _slipIntent() {
+    final selected = widget.outcomes[_selectedIndex];
+    final tokenId = _selectedTokenId;
+    if (tokenId == null || tokenId.isEmpty) return null;
+    // Display odds are a provisional estimate. Before approval, preparation
+    // replaces them with the executable book price for this dollar amount.
+    final livePrices = ref.read(livePriceProvider);
+    final double displayFallback = _isCandidatePicker && _buyNo
+        ? (1.0 - selected.price).clamp(0.0001, 0.9999)
+        : selected.price;
+    // Tick bounds, not a 1c/99c band — otherwise a sub-1% or >99% outcome is
+    // priced (and sized) as if it were 1%/99%, mismatching the odds shown.
+    final double expectedPrice =
+        (livePrices.prices[tokenId] ?? displayFallback).clamp(0.0001, 0.9999);
+    return PendingBetIntent(
+      tokenId: tokenId,
+      amount: _amount,
+      slippagePct: _slippagePct,
+      marketQuestion: widget.marketQuestion,
+      marketImage: widget.marketImage,
+      outcomeName: _outcomeLabel,
+      // Limit mode resting price, else the live market price the user saw.
+      expectedPrice:
+          _isLimitMode && _limitPrice > 0 ? _limitPrice : expectedPrice,
+      marketEndAt: widget.marketEndAt,
+      marketCategory: widget.marketCategory,
+      isLimit: _isLimitMode,
+      limitPrice: _isLimitMode ? _limitPrice.clamp(0.01, 0.99).toDouble() : 0.0,
+      negRisk: widget.negRisk,
+      entrySource: widget.source,
+      spendAllBudgetUsd: _isLimitMode ? null : _spendAllBudgetUsd,
+    );
+  }
+
   Future<void> _handleBuy() async {
     if (_isLedger) {
       await _handleLedgerBuy();
@@ -1903,9 +2326,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
 
     // Store the reviewed draft before funding or fresh approval.
     if (!mounted) return;
-    final outcomeLabel = _isCandidatePicker
-        ? '${selected.name} ${_buyNo ? "No" : "Yes"}'
-        : selected.name;
+    final outcomeLabel = _outcomeLabel;
     TrackingService.track('bet_slip_open_picker', params: {
       // Never send raw amounts or balances — bucket them. The market
       // question is truncated to keep the param bounded.
@@ -1942,37 +2363,22 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       }
       return;
     }
-    // Display odds are a provisional estimate. Before approval, preparation
-    // replaces them with the executable book price for this dollar amount.
-    final livePrices = ref.read(livePriceProvider);
-    final double displayFallback = _isCandidatePicker && _buyNo
-        ? (1.0 - selected.price).clamp(0.0001, 0.9999)
-        : selected.price;
-    // Tick bounds, not a 1c/99c band — otherwise a sub-1% or >99% outcome is
-    // priced (and sized) as if it were 1%/99%, mismatching the odds shown.
-    final double expectedPrice =
-        (livePrices.prices[tokenId] ?? displayFallback).clamp(0.0001, 0.9999);
-    ref.read(pendingPolymarketBetProvider.notifier).setIntent(
-          PendingBetIntent(
-            tokenId: tokenId,
-            amount: _amount,
-            slippagePct: _slippagePct,
-            marketQuestion: widget.marketQuestion,
-            marketImage: widget.marketImage,
-            outcomeName: outcomeLabel,
-            // Limit mode resting price, else the live market price the user saw.
-            expectedPrice:
-                _isLimitMode && _limitPrice > 0 ? _limitPrice : expectedPrice,
-            marketEndAt: widget.marketEndAt,
-            marketCategory: widget.marketCategory,
-            isLimit: _isLimitMode,
-            limitPrice:
-                _isLimitMode ? _limitPrice.clamp(0.01, 0.99).toDouble() : 0.0,
-            negRisk: widget.negRisk,
-            entrySource: widget.source,
-            spendAllBudgetUsd: _isLimitMode ? null : _spendAllBudgetUsd,
-          ),
-        );
+    // A fast market's bet got ready before Confirm: queued behind its
+    // money under the approval already given, no second prompt.
+    final prefund = _draft.prefund;
+    if (prefund != null && prefund.engaged) {
+      TrackingService.polymarketBetConfirmationShown(
+        marketId: widget.marketQuestion,
+        amountUsdc: _amount,
+      );
+      _trackStep('review');
+      if (await _confirmPrefunded(prefund,
+          balance: balance, mode: _resolveMode(), outcomeLabel: outcomeLabel)) {
+        return;
+      }
+      if (!mounted) return;
+    }
+    ref.read(pendingPolymarketBetProvider.notifier).setIntent(_slipIntent()!);
 
     TrackingService.polymarketBetConfirmationShown(
       marketId: widget.marketQuestion,
@@ -2065,22 +2471,34 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   /// needs: the bet review extended with the funding leg's cap and venue
   /// ([PmGrants.fundedBetReview]), issued as the autofire grant the queued
   /// bet fires on. No second prompt for the move.
-  Future<AuthGrant?> _approveBet({OrderFundingPlan? funding}) async {
+  ///
+  /// [prefund]: asked to get a fast market's bet ready before Confirm
+  /// (`BetPrefund`). Its own reason line, and quiet: nothing on the slip
+  /// or in the funnel changes when it cannot be asked (Confirm then runs
+  /// as before).
+  Future<AuthGrant?> _approveBet(
+      {OrderFundingPlan? funding, bool prefund = false}) async {
     _lastDeclineReason = null;
+    AuthGrant? decline(String reason, {Object? error}) {
+      if (!prefund) return _decline(reason, error: error);
+      _lastDeclineReason = reason;
+      return null;
+    }
+
     if (_usesAdvanced) {
       try {
         await RuntimeCapabilitiesService.instance
             .ensureAllowed('trading.advanced');
       } on CapabilityUnavailableException catch (e) {
-        if (mounted) {
+        if (mounted && !prefund) {
           showMessageSnackBar(
               context: context, message: e.decision.message, error: true);
         }
-        return _decline('advanced_unavailable', error: e);
+        return decline('advanced_unavailable', error: e);
       }
     }
     var pending = ref.read(pendingPolymarketBetProvider);
-    if (pending == null) return _decline('no_intent');
+    if (pending == null) return decline('no_intent');
     final controller = ref.read(polymarketBetControllerProvider);
     try {
       pending = await controller.prepareIntent(pending);
@@ -2096,6 +2514,10 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       }
     } catch (e) {
       final setup = e is PolymarketSetupIncomplete ? e : null;
+      if (prefund) {
+        decline('prepare_failed', error: e);
+        return null;
+      }
       _decline(
           setup == null
               ? (e is PolymarketThinBook || '$e'.contains('No liquidity')
@@ -2143,12 +2565,14 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           .read(polymarketTradingProvider.notifier)
           .enableTrading()
           .catchError((_) {}));
-      showMessageSnackBar(
-        context: context,
-        message: context.l10n.receiveUsdcWalletNotReady,
-        error: true,
-      );
-      return _decline('wallet_not_ready');
+      if (!prefund) {
+        showMessageSnackBar(
+          context: context,
+          message: context.l10n.receiveUsdcWalletNotReady,
+          error: true,
+        );
+      }
+      return decline('wallet_not_ready');
     }
     PolymarketPlacementDiagnostics.note('review', {
       'amount': pending.amount,
@@ -2159,21 +2583,26 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       'feeCeiling': pending.marketQuote?.feeCeiling,
       'liveFeeTerms': pending.feeTerms?.live,
     });
-    _trackStep('approval');
-    // The book (kept at most a second old) and the account's pUSD are
-    // read while the approval is on screen, not after it.
-    controller.prefetchForSend(pending);
+    if (!prefund) {
+      _trackStep('approval');
+      // The book (kept at most a second old) and the account's pUSD are
+      // read while the approval is on screen, not after it.
+      controller.prefetchForSend(pending);
+    }
     if (funding != null) {
+      final stake = '\$${pending.amount.toStringAsFixed(2)}';
       final grant = await requireFreshAuthGrant(
         context,
         ref,
         intent: _fundedReviewIntent(review, pending, funding),
-        reason: context.l10n
-            .stepUpReasonBet('\$${pending.amount.toStringAsFixed(2)}'),
+        // Getting it ready moves the money now and approves the bet too.
+        reason: prefund
+            ? context.l10n.stepUpReasonBetReady(stake)
+            : context.l10n.stepUpReasonBet(stake),
         amountUsd: pending.amount,
         autofireIntentId: kPendingBetAutofireId,
       );
-      if (grant == null) return _decline('approval_not_granted');
+      if (grant == null) return decline('approval_not_granted');
       return grant;
     }
     final grant = await requireFreshAuthGrant(
@@ -2455,9 +2884,18 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     }
     final required = _predictionsRequired(terms);
     final ready = _predictionsReady(balance);
+    // Nothing moves for a market that cannot take the bet by the time the
+    // money lands (audit P1-5). Read alongside the move's estimate.
+    final window = _fundingWindow(requireRead: false);
     OrderFundingPlan plan;
     try {
       plan = await _fundingPlanFor(required: required, ready: ready);
+      final block = await window;
+      if (block != null && block != PredictionsFundingBlock.unread) {
+        dropQueued();
+        _showFundingBlock(block);
+        return;
+      }
     } catch (e) {
       _decline('quote_failed', error: e);
       PolymarketPlacementTimeline.finish('declined', reason: 'quote_failed');
@@ -3967,10 +4405,15 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
             .watch(polymarketFeeTermsProvider(selected.tokenId ?? ''))
             .valueOrNull ??
         PolymarketFeeTerms.worstCase;
+    // Money moved to get this bet ready and still on its way counts as
+    // there: the button stays the bet (Confirm queues it behind the move).
+    final prefund = _draft.prefund;
+    final prefundIncoming = prefund?.inFlightArrivingUsd ?? 0;
     final noFunds = trading.hasValue &&
         !trading.hasError &&
         cash != null &&
-        (cash < 0.01 || _predictionsShortfall(cash, terms) > 0);
+        (cash + prefundIncoming < 0.01 ||
+            _predictionsShortfall(cash + prefundIncoming, terms) > 0);
     if (failed) {
       return PolySlipCta(
         key: const ValueKey('bet-slip-retry'),
@@ -4012,7 +4455,9 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       // A closed trade gate keeps its own shut door and note; a deposit
       // already on its way still reads as incoming when new deposits are
       // withheld, only "Add more" goes.
-      if (funding.isIncoming && _tradeBlock == null) {
+      if (funding.isIncoming &&
+          _tradeBlock == null &&
+          !(prefund?.engaged ?? false)) {
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -4040,7 +4485,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       // Only when Dollars cannot cover that move either is the button the
       // Dollars door, naming exactly what is missing.
       final required = _predictionsRequired(terms);
-      final ready = _predictionsReady(cash);
+      final ready = _predictionsReady(cash) + prefundIncoming;
       _refreshFundingPlan(required: required, ready: ready);
       final plan = _fundingPlanAmount == _amount && _fundingPlan != null
           ? _fundingPlan!

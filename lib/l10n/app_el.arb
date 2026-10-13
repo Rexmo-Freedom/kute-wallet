@@ -3008,5 +3008,7 @@
   "depositFromAnotherWallet": "Άλλο πορτοφόλι ή ανταλλακτήριο",
   "depositFromAnotherWalletSubtitle": "Λάβετε μια διεύθυνση για να στείλετε δολάρια",
   "portfolioStatOpenPnl": "Ανοιχτό κέρδος / ζημιά",
-  "usdReceiveFromYourBitcoin": "Από το Bitcoin σας"
+  "usdReceiveFromYourBitcoin": "Από το Bitcoin σας",
+  "stepUpReasonBetReady": "Ετοίμασε πρόβλεψη {amount}",
+  "betMarketClosingNoFunding": "Αυτή η αγορά κλείνει πριν φτάσουν τα χρήματα. Δεν μεταφέρθηκε τίποτα."
 }

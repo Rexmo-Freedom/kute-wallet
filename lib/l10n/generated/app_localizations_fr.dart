@@ -10810,4 +10810,13 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get usdReceiveFromYourBitcoin => 'Depuis votre Bitcoin';
+
+  @override
+  String stepUpReasonBetReady(String amount) {
+    return 'Préparer une prédiction de $amount';
+  }
+
+  @override
+  String get betMarketClosingNoFunding =>
+      'Ce marché ferme avant que l\'argent puisse arriver. Rien n\'a été déplacé.';
 }

@@ -10695,4 +10695,13 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get usdReceiveFromYourBitcoin => 'No jūsu bitcoin';
+
+  @override
+  String stepUpReasonBetReady(String amount) {
+    return 'Sagatavo prognozi $amount apmērā';
+  }
+
+  @override
+  String get betMarketClosingNoFunding =>
+      'Šis tirgus slēgsies, pirms nauda varētu pienākt. Nekas netika pārvietots.';
 }

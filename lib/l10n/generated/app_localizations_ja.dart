@@ -10308,4 +10308,12 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get usdReceiveFromYourBitcoin => 'あなたのビットコインから';
+
+  @override
+  String stepUpReasonBetReady(String amount) {
+    return '$amountの予測を準備';
+  }
+
+  @override
+  String get betMarketClosingNoFunding => 'この市場は資金が届く前に終了します。何も移動していません。';
 }

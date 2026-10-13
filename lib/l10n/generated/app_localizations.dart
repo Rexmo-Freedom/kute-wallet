@@ -18162,6 +18162,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'From your Bitcoin'**
   String get usdReceiveFromYourBitcoin;
+
+  /// Step-up prompt reason when a fast prediction (a 5- or 15-minute round or a game in play) is got ready before Confirm: the one approval moves the money into Predictions now and also approves the bet itself.
+  ///
+  /// In en, this message translates to:
+  /// **'Get your {amount} prediction ready'**
+  String stepUpReasonBetReady(String amount);
+
+  /// Prediction slip notice when a bet would need money moved into Predictions but the market ends before the move could land. Nothing was moved.
+  ///
+  /// In en, this message translates to:
+  /// **'This market closes before money could arrive. Nothing was moved.'**
+  String get betMarketClosingNoFunding;
 }
 
 class _AppLocalizationsDelegate

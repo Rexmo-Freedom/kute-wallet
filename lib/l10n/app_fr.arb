@@ -3008,5 +3008,7 @@
   "depositFromAnotherWallet": "Un autre portefeuille ou une plateforme",
   "depositFromAnotherWalletSubtitle": "Obtenez une adresse pour envoyer des dollars",
   "portfolioStatOpenPnl": "Gain / perte latent",
-  "usdReceiveFromYourBitcoin": "Depuis votre Bitcoin"
+  "usdReceiveFromYourBitcoin": "Depuis votre Bitcoin",
+  "stepUpReasonBetReady": "Préparer une prédiction de {amount}",
+  "betMarketClosingNoFunding": "Ce marché ferme avant que l'argent puisse arriver. Rien n'a été déplacé."
 }

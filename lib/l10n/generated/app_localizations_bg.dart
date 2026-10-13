@@ -10746,4 +10746,13 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get usdReceiveFromYourBitcoin => 'От вашия биткойн';
+
+  @override
+  String stepUpReasonBetReady(String amount) {
+    return 'Подготви прогноза за $amount';
+  }
+
+  @override
+  String get betMarketClosingNoFunding =>
+      'Този пазар се затваря, преди парите да пристигнат. Нищо не е преместено.';
 }

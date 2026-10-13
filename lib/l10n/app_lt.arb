@@ -3008,5 +3008,7 @@
   "depositFromAnotherWallet": "Kita piniginė ar birža",
   "depositFromAnotherWalletSubtitle": "Gaukite adresą, kuriuo siųsti dolerius",
   "portfolioStatOpenPnl": "Atviras pelnas / nuostolis",
-  "usdReceiveFromYourBitcoin": "Iš jūsų bitkoino"
+  "usdReceiveFromYourBitcoin": "Iš jūsų bitkoino",
+  "stepUpReasonBetReady": "Paruoškite {amount} prognozę",
+  "betMarketClosingNoFunding": "Ši rinka užsidaro anksčiau, nei pinigai spėtų atkeliauti. Niekas nebuvo perkelta."
 }

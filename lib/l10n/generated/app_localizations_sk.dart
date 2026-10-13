@@ -10732,4 +10732,13 @@ class AppLocalizationsSk extends AppLocalizations {
 
   @override
   String get usdReceiveFromYourBitcoin => 'Z vášho bitcoinu';
+
+  @override
+  String stepUpReasonBetReady(String amount) {
+    return 'Priprav predpoveď $amount';
+  }
+
+  @override
+  String get betMarketClosingNoFunding =>
+      'Tento trh sa zatvorí skôr, než by peniaze dorazili. Nič sa nepresunulo.';
 }

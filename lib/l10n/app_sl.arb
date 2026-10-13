@@ -3008,5 +3008,7 @@
   "depositFromAnotherWallet": "Druga denarnica ali borza",
   "depositFromAnotherWalletSubtitle": "Pridobite naslov, na katerega pošljete dolarje",
   "portfolioStatOpenPnl": "Odprt dobiček / izguba",
-  "usdReceiveFromYourBitcoin": "Iz vašega bitcoina"
+  "usdReceiveFromYourBitcoin": "Iz vašega bitcoina",
+  "stepUpReasonBetReady": "Pripravite napoved {amount}",
+  "betMarketClosingNoFunding": "Ta trg se zapre, preden bi denar lahko prispel. Nič ni bilo premaknjeno."
 }

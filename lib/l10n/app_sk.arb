@@ -3008,5 +3008,7 @@
   "depositFromAnotherWallet": "Iná peňaženka alebo burza",
   "depositFromAnotherWalletSubtitle": "Získajte adresu, na ktorú pošlete doláre",
   "portfolioStatOpenPnl": "Otvorený zisk / strata",
-  "usdReceiveFromYourBitcoin": "Z vášho bitcoinu"
+  "usdReceiveFromYourBitcoin": "Z vášho bitcoinu",
+  "stepUpReasonBetReady": "Priprav predpoveď {amount}",
+  "betMarketClosingNoFunding": "Tento trh sa zatvorí skôr, než by peniaze dorazili. Nič sa nepresunulo."
 }

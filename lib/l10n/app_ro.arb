@@ -3008,5 +3008,7 @@
   "depositFromAnotherWallet": "Alt portofel sau exchange",
   "depositFromAnotherWalletSubtitle": "Obține o adresă la care să trimiți dolari",
   "portfolioStatOpenPnl": "Profit / pierdere deschis",
-  "usdReceiveFromYourBitcoin": "Din Bitcoin-ul tău"
+  "usdReceiveFromYourBitcoin": "Din Bitcoin-ul tău",
+  "stepUpReasonBetReady": "Pregătește o predicție de {amount}",
+  "betMarketClosingNoFunding": "Această piață se închide înainte ca banii să poată ajunge. Nu s-a mutat nimic."
 }

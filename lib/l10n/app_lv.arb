@@ -3008,5 +3008,7 @@
   "depositFromAnotherWallet": "Cits maks vai birža",
   "depositFromAnotherWalletSubtitle": "Iegūstiet adresi, uz kuru sūtīt dolārus",
   "portfolioStatOpenPnl": "Atvērtā peļņa / zaudējumi",
-  "usdReceiveFromYourBitcoin": "No jūsu bitcoin"
+  "usdReceiveFromYourBitcoin": "No jūsu bitcoin",
+  "stepUpReasonBetReady": "Sagatavo prognozi {amount} apmērā",
+  "betMarketClosingNoFunding": "Šis tirgus slēgsies, pirms nauda varētu pienākt. Nekas netika pārvietots."
 }

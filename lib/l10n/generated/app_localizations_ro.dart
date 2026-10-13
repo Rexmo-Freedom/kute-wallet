@@ -10786,4 +10786,13 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get usdReceiveFromYourBitcoin => 'Din Bitcoin-ul tău';
+
+  @override
+  String stepUpReasonBetReady(String amount) {
+    return 'Pregătește o predicție de $amount';
+  }
+
+  @override
+  String get betMarketClosingNoFunding =>
+      'Această piață se închide înainte ca banii să poată ajunge. Nu s-a mutat nimic.';
 }

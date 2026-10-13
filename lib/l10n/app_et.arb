@@ -3008,5 +3008,7 @@
   "depositFromAnotherWallet": "Teine rahakott või börs",
   "depositFromAnotherWalletSubtitle": "Saa aadress, kuhu dollareid saata",
   "portfolioStatOpenPnl": "Avatud kasum / kahjum",
-  "usdReceiveFromYourBitcoin": "Sinu bitcoinist"
+  "usdReceiveFromYourBitcoin": "Sinu bitcoinist",
+  "stepUpReasonBetReady": "Valmista ette ennustus {amount}",
+  "betMarketClosingNoFunding": "See turg sulgub enne, kui raha jõuaks kohale. Midagi ei liigutatud."
 }

@@ -3008,5 +3008,7 @@
   "depositFromAnotherWallet": "Drugi novčanik ili mjenjačnica",
   "depositFromAnotherWalletSubtitle": "Dobijte adresu na koju šaljete dolare",
   "portfolioStatOpenPnl": "Otvorena dobit / gubitak",
-  "usdReceiveFromYourBitcoin": "S vašeg bitcoina"
+  "usdReceiveFromYourBitcoin": "S vašeg bitcoina",
+  "stepUpReasonBetReady": "Pripremi predviđanje od {amount}",
+  "betMarketClosingNoFunding": "Ovo tržište zatvara se prije nego što bi novac stigao. Ništa nije premješteno."
 }
