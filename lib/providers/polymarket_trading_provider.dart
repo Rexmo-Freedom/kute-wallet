@@ -67,6 +67,7 @@ import 'package:kute/services/polymarket/market_protocol.dart';
 import 'package:kute/services/polymarket/order_amounts.dart';
 import 'package:kute/services/polymarket/order_refusal.dart';
 import 'package:kute/services/polymarket/usdce_wrap_gate.dart';
+import 'package:kute/services/polymarket/venue_collateral.dart';
 import 'package:kute/services/polymarket/placement_waits.dart';
 import 'package:kute/services/polymarket/deposit_timings_reporter.dart';
 import 'package:kute/services/polymarket_optimistic_activity_service.dart';
@@ -2607,63 +2608,58 @@ class PolymarketTradingNotifier
     }
 
     ensureCurrent();
-    // Ready pUSD goes directly to the order book. A deposit that landed
-    // while the app was closed (or a moment ago) is still USDC.e, which the
-    // order book does not count: when pUSD alone is short and pUSD + USDC.e
-    // covers this buy, convert it before signing instead of waiting for the
-    // refusal. The refusal path inside the guard stays as the fallback.
+    // A buy goes to the order book only once the book counts the money
+    // for it (venue_collateral.dart): a deposit that landed a moment ago
+    // is still USDC.e, which the book does not count, and a conversion
+    // the book has not re-read yet is still counted as the old pUSD. That
+    // refused the first prediction after money arrived, and the refusal's
+    // immediate retry hit the same stale count. Held USDC.e is converted,
+    // a missing exchange allowance set, and the book's count re-read until
+    // it covers this buy, then the order is signed. When the book cannot
+    // be read or does not catch up in time, the order goes out anyway and
+    // the refusal path inside the guard stays the fallback.
     //
     // This runs before the order guard takes the account, not inside it:
     // the conversion joins one already running for the wallet and can take
     // a relayer round trip, and while the guard is held every other tap
     // (and the status check) is refused as "a previous prediction is still
     // being confirmed" although nothing was sent.
+    final buySpenders = side == OrderSide.buy
+        ? polyBuySpenders(tokenId,
+            negRisk: marketQuote?.tokenId == tokenId
+                ? marketQuote!.negRisk
+                : PolymarketMarketTermsStore.read(tokenId)?.negRisk ?? negRisk)
+        : const <String>[];
+    // The venue counts the fees against pUSD too: a buy whose notional
+    // fits pUSD but not its fees is refused all the same.
+    final buyCostMicros = side == OrderSide.buy
+        ? polyBuyCostMicros(size: size, price: price) +
+            BigInt.from(((marketQuote?.tokenId == tokenId
+                        ? marketQuote!.feeCeiling
+                        : 0.0) *
+                    1e6)
+                .ceil())
+        : BigInt.zero;
+    PolyVenueCollateralOps venueOps({required bool prefetched}) =>
+        _venueCollateralOps(
+          eoa: orderEoa,
+          privateKey: orderPrivateKey,
+          wallet: orderAccount,
+          ensureCurrent: ensureCurrent,
+          onStep: onStep,
+          prefetched: prefetched,
+        );
     if (side == OrderSide.buy) {
       PolymarketPlacementTimeline.trace('collateral_wait');
-      final split = await _collateralSplitForOrder(orderAccount);
+      final readiness = await polyReadyVenueCollateral(
+        costMicros: buyCostMicros,
+        spenders: buySpenders,
+        ops: venueOps(prefetched: true),
+      );
+      PolymarketPlacementTimeline.tag('venue_count', readiness.name);
       PolymarketPlacementTimeline.trace('collateral');
-      ensureCurrent();
-      if (split != null &&
-          polyShouldWrapBeforeBuy(
-            pusd: split.pusd,
-            usdce: split.usdce,
-            // The venue counts the fees against pUSD too: a buy whose
-            // notional fits pUSD but not its fees is refused all the same.
-            costMicros: polyBuyCostMicros(size: size, price: price) +
-                BigInt.from(((marketQuote?.tokenId == tokenId
-                                ? marketQuote!.feeCeiling
-                                : 0.0) *
-                            1e6)
-                        .ceil()),
-          )) {
-        onStep?.call('approving');
-        try {
-          final wrapped = await _wrapHeldUsdcE(
-            eoa: orderEoa,
-            privateKey: orderPrivateKey,
-            wallet: orderAccount,
-            trigger: 'order',
-            ensureCurrent: ensureCurrent,
-          ).timeout(PolymarketPlacementWaits.conversion);
-          ensureCurrent();
-          if (wrapped > BigInt.zero) {
-            await _backendService?.updateBalanceAllowance(
-              assetType: 'COLLATERAL',
-              signatureType: 3,
-            );
-          }
-        } on TimeoutException {
-          // The conversion keeps going; nothing has been signed. Saying so
-          // beats an order the book would refuse for want of pUSD.
-          ensureCurrent();
-          throw const PolymarketFundsConverting();
-        } catch (e) {
-          // A changed account or grant still stops the order here;
-          // a failed conversion leaves it to the refusal path.
-          ensureCurrent();
-          _devLog('[wrap] before-order conversion failed: $e');
-        }
-      }
+      PolymarketPlacementDiagnostics.note(
+          'venue_count', {'readiness': readiness.name});
       ensureCurrent();
     }
     return HotPolymarketOrderGuard().run(
@@ -2828,21 +2824,33 @@ class PolymarketTradingNotifier
                   onStep?.call('approving');
                   ensureCurrent();
                   if (side == OrderSide.buy) {
-                    await _wrapHeldUsdcE(
-                      eoa: orderEoa,
-                      privateKey: orderPrivateKey,
-                      wallet: orderAccount,
-                      trigger: 'refusal',
-                      ensureCurrent: ensureCurrent,
+                    // The one refresh: the wallet re-read on chain, its
+                    // USDC.e converted, and the book's count re-read until
+                    // it covers the buy (briefly) before signing again.
+                    // Signing at once used to meet the same stale count.
+                    final readiness = await polyReadyVenueCollateral(
+                      costMicros: buyCostMicros,
+                      spenders: buySpenders,
+                      ops: venueOps(prefetched: false),
+                      afterRefusal: true,
                     );
+                    PolymarketPlacementTimeline.tag(
+                        'venue_count_after_refusal', readiness.name);
                     ensureCurrent();
+                    continue;
                   }
-                  await _backendService!.updateBalanceAllowance(
-                    assetType:
-                        side == OrderSide.buy ? 'COLLATERAL' : 'CONDITIONAL',
-                    signatureType: 3,
-                    tokenId: side == OrderSide.sell ? tokenId : null,
-                  );
+                  try {
+                    await _backendService!.updateBalanceAllowance(
+                      assetType: 'CONDITIONAL',
+                      signatureType: 3,
+                      tokenId: tokenId,
+                    );
+                  } catch (e) {
+                    // The book answers 404 for a wallet it has not indexed
+                    // yet: the signed retry decides.
+                    if (e is InvalidApiKeyException) rethrow;
+                    _devLog('[pm-heal] balance-allowance/update threw: $e');
+                  }
                   ensureCurrent();
                   continue;
                 }
@@ -2953,10 +2961,25 @@ class PolymarketTradingNotifier
                     throw PolymarketSetupIncomplete(cause: error);
                   }
                   ensureCurrent();
-                  await _backendService!.updateBalanceAllowance(
-                    assetType: 'COLLATERAL',
-                    signatureType: 3,
-                  );
+                  // Have the book re-read it, and wait (briefly) until it
+                  // counts the buy before signing again.
+                  if (side == OrderSide.buy) {
+                    await polyAwaitVenueCount(
+                      costMicros: buyCostMicros,
+                      spenders: buySpenders,
+                      ops: venueOps(prefetched: false),
+                    );
+                  } else {
+                    try {
+                      await _backendService!.updateBalanceAllowance(
+                        assetType: 'COLLATERAL',
+                        signatureType: 3,
+                      );
+                    } catch (e) {
+                      if (e is InvalidApiKeyException) rethrow;
+                      _devLog('[pm-heal] balance-allowance/update threw: $e');
+                    }
+                  }
                   ensureCurrent();
                   continue;
                 }
@@ -4909,6 +4932,74 @@ class PolymarketTradingNotifier
         () => _readCollateralSplit(wallet),
         maxAge: const Duration(seconds: 20))
       ..start();
+    // What the order book counts for the wallet, read with it: when it
+    // already covers the buy, the order goes straight out.
+    _venueCountPrefetch?.cancel();
+    _venueCountPrefetch = null;
+    final backend = _backendService;
+    if (backend == null) return;
+    _venueCountPrefetch = PolymarketSendTimeRead<PolyVenueCount?>(
+        () => _readVenueCount(backend),
+        maxAge: const Duration(seconds: 20))
+      ..start();
+  }
+
+  PolymarketSendTimeRead<PolyVenueCount?>? _venueCountPrefetch;
+
+  static Future<PolyVenueCount?> _readVenueCount(
+          PolymarketBackendService backend) async =>
+      PolyVenueCount.fromClob(await backend.getCollateralBalanceAllowance());
+
+  /// The account operations a buy's collateral check runs
+  /// ([polyReadyVenueCollateral]). [prefetched] lets the first read of the
+  /// book's count take what [prefetchOrderReads] started while the
+  /// approval was on screen.
+  PolyVenueCollateralOps _venueCollateralOps({
+    required String eoa,
+    required String privateKey,
+    required String wallet,
+    required void Function() ensureCurrent,
+    void Function(String step)? onStep,
+    required bool prefetched,
+  }) {
+    var takePrefetch = prefetched;
+    return PolyVenueCollateralOps(
+      readVenue: () async {
+        final prefetch = _venueCountPrefetch;
+        if (takePrefetch && prefetch != null) {
+          takePrefetch = false;
+          _venueCountPrefetch = null;
+          return prefetch.take();
+        }
+        takePrefetch = false;
+        final backend = _backendService;
+        if (backend == null) return null;
+        return _readVenueCount(backend);
+      },
+      readSplit: ({required bool fresh}) => fresh
+          ? _readCollateralSplit(wallet)
+          : _collateralSplitForOrder(wallet),
+      wrap: () => _wrapHeldUsdcE(
+        eoa: eoa,
+        privateKey: privateKey,
+        wallet: wallet,
+        // polymarket_deposit_converted's trigger, as before: the refusal's
+        // own refresh says refusal.
+        trigger: prefetched ? 'order' : 'refusal',
+        ensureCurrent: ensureCurrent,
+      ),
+      refreshVenue: () async => _backendService?.updateBalanceAllowance(
+          assetType: 'COLLATERAL', signatureType: 3),
+      approveSpender: (spender) => PolymarketOnboardingService()
+          .approveRefusalSpender(
+              eoaAddress: eoa,
+              privateKey: privateKey,
+              walletAddress: wallet,
+              spender: spender,
+              ensureCurrent: ensureCurrent),
+      ensureCurrent: ensureCurrent,
+      onStep: onStep,
+    );
   }
 
   /// Converts held USDC.e to pUSD when pUSD alone is short of a buy

@@ -63,12 +63,18 @@ void main() {
       final code = stripComments(
           File('lib/providers/polymarket_trading_provider.dart')
               .readAsStringSync());
-      final decide = code.indexOf('polyShouldWrapBeforeBuy(');
+      // The decision lives in the buy's collateral check
+      // (venue_collateral.dart), which runs before the order is signed.
+      final decide = code.indexOf('polyReadyVenueCollateral(');
       final sign = code.indexOf('final signed = await buildOrder();');
       expect(decide, greaterThan(0));
       expect(sign, greaterThan(decide));
+      expect(
+          File('lib/services/polymarket/venue_collateral.dart')
+              .readAsStringSync(),
+          contains('polyShouldWrapBeforeBuy('));
       expect(code, contains('isPolymarketBalanceRefusal(e.reason)'));
-      expect(code, contains("trigger: 'refusal'"));
+      expect(code, contains("trigger: prefetched ? 'order' : 'refusal'"));
     });
   });
 

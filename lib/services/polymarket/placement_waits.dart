@@ -45,4 +45,12 @@ class PolymarketPlacementWaits {
   /// Longest an order waits for the conversion of a fresh deposit that it
   /// needs. One conversion is a single relayer batch (about 10 to 30 s).
   static Duration conversion = const Duration(seconds: 90);
+
+  /// Longest an order waits for the order book to count money the wallet
+  /// holds (after a conversion or a re-read request) before it is posted
+  /// anyway. The book normally catches up within a block or two.
+  static Duration venueCount = const Duration(seconds: 10);
+
+  /// How often the order book's count is read while waiting for it.
+  static Duration venueCountPoll = const Duration(seconds: 1);
 }
