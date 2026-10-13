@@ -136,8 +136,9 @@ const String kUsdSurfaceSource = 'usd';
 const String kUsdDockSource = 'usd_dock';
 
 /// The compact pinned bar's height, in design units: the small total line
-/// over the compact pills, with the bar's own air.
-const double kInvestmentsCompactBarHeight = 6 + 20 + 6 + 28 + 8;
+/// over the compact pills ([KutePillSize.compact], 32 high), with the
+/// bar's own air.
+const double kInvestmentsCompactBarHeight = 6 + 20 + 6 + 32 + 8;
 
 /// The expanded header's height until its first layout reports the real
 /// one (design units): the hero with its split line and the large pills.
@@ -745,7 +746,7 @@ class _InvestmentsCompactBar extends StatelessWidget {
             behavior: HitTestBehavior.opaque,
             child: SizedBox(
               width: 36.w,
-              height: 54.h,
+              height: 58.h,
               child: Icon(
                 Icons.expand_more_rounded,
                 key: const ValueKey('investments-expand'),

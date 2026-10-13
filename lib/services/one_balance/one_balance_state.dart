@@ -102,13 +102,15 @@ class OneBalanceState {
   final double dollarsUsd;
 
   /// Held by the venues: positions, equity and cash reserved for open
-  /// orders, across every venue that has answered.
+  /// orders, across every venue that has answered, plus venue dust (idle
+  /// cash below every route minimum, which no sweep can move).
   final double investedUsd;
 
   /// Money on a rail, in either direction.
   final List<InFlightMove> inFlight;
 
-  /// Venue cash the sweeper owes back to Dollars, by venue.
+  /// Venue cash the sweeper owes back to Dollars, by venue. Never dust:
+  /// cash below the route minimum is counted in [investedUsd] instead.
   final Map<OneBalanceVenue, double> waiting;
 
   final bool investingKnown;

@@ -13,7 +13,10 @@
 //     (cash minus BUY reservations), Investing only the rail's
 //     withdrawable amount;
 //   - mid-claim: a redeem reads and moves the venue's balances;
-//   - below the route minimum: the quote would refuse it;
+//   - below the route minimum: the quote would refuse it. That cash is
+//     dust ([SweepDust]): it stays the user's money in the total, but it
+//     is never shown as waiting and never retried, because no pass can
+//     move it until more cash joins it;
 //   - batching: each sweep is an Orchestra order with a fee, so small
 //     amounts wait a little for more.
 
@@ -97,7 +100,9 @@ const Duration kSweepDepositGrace = Duration(seconds: 90);
 /// claim, cancel) asks for one.
 const Duration kSweepRateLimit = Duration(minutes: 10);
 
-/// Idle below this is dust the venue cannot even report reliably.
+/// Idle below this is nothing at all: a residue the venue cannot even
+/// report reliably. Cash between this and the route minimum is
+/// [SweepDust].
 const double kSweepDustUsd = 0.01;
 
 /// Why a pass left a venue alone. The names are the analytics values.
@@ -115,11 +120,9 @@ enum SweepSkipReason {
   final String label;
 }
 
-/// Why idle cash is shown as waiting instead of swept.
+/// Why idle cash is shown as waiting instead of swept. Cash under the
+/// route minimum is not one of them: it is dust ([SweepDust]).
 enum SweepWaitingCause {
-  /// Under the route minimum: shown as "$X unavailable until balancing completes".
-  belowMinimum,
-
   /// Between the minimum and the batch size, or inside the rate-limit
   /// window: waiting for more or for the window to pass.
   batching,
@@ -252,6 +255,16 @@ final class SweepSkip extends SweepDecision {
   final double idleUsd;
 }
 
+/// [usd] is below the smallest sweep the route takes: dust (the CCTP
+/// reserve left on HyperCore, a few cents of Predictions cash). It stays
+/// at the venue, counts in the total as venue money and is neither shown
+/// as waiting nor retried; only more cash joining it changes the answer.
+final class SweepDust extends SweepDecision {
+  const SweepDust(this.usd);
+
+  final double usd;
+}
+
 /// Keep [usd] at the venue and show it as waiting.
 final class SweepWaiting extends SweepDecision {
   const SweepWaiting(this.usd, {required this.cause});
@@ -266,6 +279,17 @@ double _clean(double v) => v.isFinite && v > 0 ? v : 0;
 SweepDecision decideSweep(VenueSnapshot venue, SweepContext ctx) {
   final idle = _clean(venue.idleUsd);
   if (idle < kSweepDustUsd) return const SweepNothing();
+
+  // Below the route minimum the cash can never move on its own, whatever
+  // else holds the venue: dust, before any skip or backoff could show it.
+  // With reservations only the unreserved part is the venue's idle cash
+  // (the reserved part is already counted as invested).
+  final minimum = math.max(_clean(ctx.minimumUsd), kSweepDustUsd);
+  if (idle + 1e-9 < minimum) {
+    return SweepDust(venue.hasReservations
+        ? math.min(_clean(venue.sweepableUsd), idle)
+        : idle);
+  }
 
   if (!ctx.spendingWalletActive || !ctx.sessionUnlocked) {
     return SweepSkip(SweepSkipReason.locked, idleUsd: idle);
@@ -302,10 +326,7 @@ SweepDecision decideSweep(VenueSnapshot venue, SweepContext ctx) {
     return SweepWaiting(idle, cause: SweepWaitingCause.routeUnavailable);
   }
 
-  final minimum = math.max(_clean(ctx.minimumUsd), kSweepDustUsd);
-  if (sweepable + 1e-9 < minimum) {
-    return SweepWaiting(sweepable, cause: SweepWaitingCause.belowMinimum);
-  }
+  if (sweepable + 1e-9 < minimum) return SweepDust(sweepable);
 
   final lastSweepAt = ctx.lastSweepAt;
   if (!ctx.eventDriven &&

@@ -34,6 +34,20 @@ void main() {
     expect(asked.map((r) => r.fromChain), ['polygon', 'hypercore']);
   });
 
+  test('Investing never goes under the CCTP fallback floor incl. its reserve',
+      () async {
+    // Orchestra's Arbitrum floor + the pre-flight margin + the $0.06
+    // HyperCore reserve.
+    expect(kInvestingCctpMinimumUsd, closeTo(0.91, 1e-9));
+    final minimums =
+        RouteMinimums(fetch: (_) async => null, floorUsd: 0.5);
+    expect(await minimums.minimumUsd(OneBalanceVenue.investing),
+        closeTo(0.91, 1e-9));
+    expect(await minimums.minimumUsd(OneBalanceVenue.predictions), 0.5);
+    // The app's $1 floor already sits above it.
+    expect(venueFloorUsd(OneBalanceVenue.investing), 1);
+  });
+
   test('a read is cached ten minutes, then refreshed', () async {
     var clock = DateTime(2026, 10, 12, 12);
     var reads = 0;

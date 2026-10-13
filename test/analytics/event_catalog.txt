@@ -663,7 +663,6 @@ usd_send_step
 usd_send_top_up_opened
 usd_tab_opened
 venue_account_link_result
-venue_cash_waiting_shown
 venue_sweep_completed
 venue_sweep_failed
 venue_sweep_skipped

@@ -38,6 +38,10 @@ class _FakeHost extends VenueSweeperHost {
   final Set<String> claimed = {};
   int nextOrder = 1;
   bool registerLate = false;
+
+  /// What the rail reports as sent for an ask of `usd` (default: all of
+  /// it). The CCTP fallback keeps a HyperCore reserve back.
+  double Function(double usd)? sendResult;
   Future<void> Function()? beforeSend;
   Future<void> Function()? onPrepare;
 
@@ -83,6 +87,7 @@ class _FakeHost extends VenueSweeperHost {
     await beforeSend?.call();
     final error = sendError[venue];
     if (error != null) throw error();
+    final sentUsd = sendResult?.call(usd) ?? usd;
     sent.add(_Sent(venue, usd, purpose));
     final id = 'ord_${nextOrder++}';
     // The venue has not caught up yet: its idle figure still shows it.
@@ -90,8 +95,8 @@ class _FakeHost extends VenueSweeperHost {
       quoteId: 'quote_$id',
       orderId: registerLate ? null : id,
       registration: registerLate ? Future.value(id) : null,
-      sentUsd: usd,
-      arrivingUsdEstimate: usd * 0.999,
+      sentUsd: sentUsd,
+      arrivingUsdEstimate: sentUsd * 0.999,
     );
   }
 
@@ -236,32 +241,93 @@ void main() {
     expect(host.sent.single.usd, 25);
   });
 
-  test('below the minimum shows waiting once per episode and clears when crossed',
+  test('below the minimum is dust: never waiting, never sent, reported once',
       () async {
     host.minimums[OneBalanceVenue.predictions] = 1;
     host.idle(OneBalanceVenue.predictions, 0.6);
     await sweeper.trigger('market_resolved', venue: OneBalanceVenue.predictions);
     expect(host.sent, isEmpty);
-    expect(sweeper.state.waiting, {OneBalanceVenue.predictions: 0.6});
-    final shown = host.lastEvent('venue_cash_waiting_shown');
-    expect(shown['amount_usd'], 0.6);
-    expect(shown['minimum_usd'], 1);
+    expect(sweeper.state.waiting, isEmpty);
+    expect(sweeper.state.dust, {OneBalanceVenue.predictions: 0.6});
     expect(host.lastEvent('venue_sweep_skipped')['reason'], 'below_minimum');
-    // Retried on every trigger, reported once.
+    // Nothing scheduled for it, nothing sent on later passes, one report.
+    expect(sweeper.nextDueIn(), isNull);
     await sweeper.trigger('timer');
     await sweeper.trigger('resume');
-    expect(host.eventsNamed('venue_cash_waiting_shown').length, 1);
+    expect(host.sent, isEmpty);
     expect(host.eventsNamed('venue_sweep_skipped').length, 1);
+    expect(host.eventsNamed('venue_sweep_failed'), isEmpty);
+    expect(host.eventsNamed('venue_cash_waiting_shown'), isEmpty);
     // More cash: crosses the minimum and the \$5 batch size.
     host.idle(OneBalanceVenue.predictions, 6);
     await sweeper.trigger('market_resolved', venue: OneBalanceVenue.predictions);
     expect(host.sent.single.usd, 6);
     expect(sweeper.state.waiting, isEmpty);
+    expect(sweeper.state.dust, isEmpty);
     // A new episode reports again.
     host.idle(OneBalanceVenue.predictions, 0.3);
     host.clock = host.clock.add(const Duration(minutes: 3));
     await sweeper.trigger('timer');
-    expect(host.eventsNamed('venue_cash_waiting_shown').length, 2);
+    expect(sweeper.state.dust, {OneBalanceVenue.predictions: 0.3});
+    expect(host.eventsNamed('venue_sweep_skipped').length, 2);
+  });
+
+  test('Investing dust (the CCTP reserve left behind) is never waiting',
+      () async {
+    host.idle(OneBalanceVenue.investing, 6.28);
+    await sweeper.trigger('position_closed', venue: OneBalanceVenue.investing);
+    expect(host.sent.single.usd, 6.28);
+    // The move kept the HyperCore reserve back: what the venue reads next
+    // is six cents, below every minimum.
+    host.idle(OneBalanceVenue.investing, 0.06);
+    host.clock = host.clock.add(const Duration(minutes: 3));
+    await sweeper.trigger('timer');
+    expect(sweeper.state.waiting, isEmpty);
+    expect(sweeper.state.dust, {OneBalanceVenue.investing: 0.06});
+    expect(host.sent, hasLength(1));
+    expect(sweeper.nextDueIn(), isNull);
+  });
+
+  test('what a sweep leaves below the minimum is dust at once', () async {
+    host.idle(OneBalanceVenue.investing, 6.28);
+    host.sendResult = (usd) => usd - 0.06;
+    await sweeper.trigger('position_closed', venue: OneBalanceVenue.investing);
+    expect(sweeper.state.waiting, isEmpty);
+    expect(sweeper.state.dust[OneBalanceVenue.investing],
+        closeTo(0.06, 1e-9));
+  });
+
+  test('dust is not shown while the venue backs off', () async {
+    host.idle(OneBalanceVenue.predictions, 20);
+    host.sendError[OneBalanceVenue.predictions] = () => StateError('boom');
+    await sweeper.trigger('position_closed', venue: OneBalanceVenue.predictions);
+    expect(sweeper.state.waiting, {OneBalanceVenue.predictions: 20});
+    // Most of it left another way; the cents left are dust, not waiting.
+    host.idle(OneBalanceVenue.predictions, 0.4);
+    await sweeper.trigger('timer');
+    expect(sweeper.state.waiting, isEmpty);
+    expect(sweeper.state.dust, {OneBalanceVenue.predictions: 0.4});
+  });
+
+  test('the CCTP floor refusing the amount is dust, with no backoff',
+      () async {
+    host.idle(OneBalanceVenue.investing, 1.02);
+    host.sendError[OneBalanceVenue.investing] =
+        () => const RouteUnavailable('cctp_below_minimum');
+    // Leaving the foreground flushes the held batch into a send.
+    await sweeper.onAppPaused();
+    expect(host.tooSmall, [(OneBalanceVenue.investing, 1.02)]);
+    expect(sweeper.state.waiting, isEmpty);
+    expect(sweeper.state.dust, {OneBalanceVenue.investing: 1.02});
+    expect(sweeper.nextDueIn(), isNull);
+    expect(host.lastEvent('venue_sweep_failed')['error_category'],
+        'amount_too_small');
+    // The raised minimum keeps the next passes from trying again.
+    host.minimums[OneBalanceVenue.investing] = 1.03;
+    await sweeper.trigger('timer');
+    await sweeper.trigger('resume');
+    expect(host.sent, isEmpty);
+    expect(host.eventsNamed('venue_sweep_failed').length, 1);
   });
 
   test('between the minimum and \$5 the cash waits, then goes after 10 min',
@@ -417,14 +483,15 @@ void main() {
     expect(host.eventsNamed('venue_sweep_failed'), isEmpty);
   });
 
-  test('a quote refusing the amount raises the minimum and shows waiting',
+  test('a quote refusing the amount raises the minimum and holds it as dust',
       () async {
     host.idle(OneBalanceVenue.predictions, 6);
     host.sendError[OneBalanceVenue.predictions] =
         () => const RouteQuoteError(RouteQuoteErrorCode.amountTooSmall);
     await sweeper.trigger('position_closed', venue: OneBalanceVenue.predictions);
     expect(host.tooSmall, [(OneBalanceVenue.predictions, 6.0)]);
-    expect(sweeper.state.waiting, {OneBalanceVenue.predictions: 6});
+    expect(sweeper.state.waiting, isEmpty);
+    expect(sweeper.state.dust, {OneBalanceVenue.predictions: 6});
     final failed = host.lastEvent('venue_sweep_failed');
     expect(failed['stage'], 'quote');
     expect(failed['error_category'], 'amount_too_small');
@@ -506,12 +573,13 @@ void main() {
       expect(host.sent.last.purpose, 'sweep');
     });
 
-    test('below the minimum at rollout shows waiting and still marks done',
+    test('below the minimum at rollout is dust and still marks done',
         () async {
       host.idle(OneBalanceVenue.predictions, 0.5);
       await sweeper.trigger('resume');
       expect(host.sent, isEmpty);
-      expect(sweeper.state.waiting, {OneBalanceVenue.predictions: 0.5});
+      expect(sweeper.state.waiting, isEmpty);
+      expect(sweeper.state.dust, {OneBalanceVenue.predictions: 0.5});
       expect(host.rolloutFlags, {'spend'});
     });
 

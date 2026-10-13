@@ -32,23 +32,37 @@ void main() {
 
   test('a waiting bet backs the tick off to 30 s whatever else is going on',
       () {
-    int seconds({bool waiting = false, bool deposit = false,
-            bool visible = true, bool open = false}) =>
+    int? seconds({bool waiting = false, bool deposit = false,
+            bool visible = true, bool open = false, bool result = false}) =>
         polymarketRefreshIntervalSeconds(
           pendingBetWaiting: waiting,
           awaitingDeposit: deposit,
           visible: visible,
           hasOpenBet: open,
-          awaitingResult: false,
+          awaitingResult: result,
           minMinutesToExpiry: open ? 10 : null,
         );
-    expect(seconds(), 5);
     expect(seconds(open: true), 3);
     expect(seconds(deposit: true), 3);
-    expect(seconds(visible: false), 60);
     expect(seconds(visible: false, open: true), 30);
+    expect(seconds(visible: false, result: true), 20);
     expect(seconds(waiting: true), 30);
     expect(seconds(waiting: true, deposit: true, open: true), 30);
+  });
+
+  test('holding nothing and waiting for nothing: no periodic read at all',
+      () {
+    for (final visible in [true, false]) {
+      expect(
+          polymarketRefreshIntervalSeconds(
+            pendingBetWaiting: false,
+            awaitingDeposit: false,
+            visible: visible,
+            hasOpenBet: false,
+            awaitingResult: false,
+          ),
+          isNull);
+    }
   });
 
   test('the wrap receipt is read every second for 20 s, then every 2 s', () {

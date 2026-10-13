@@ -1,14 +1,16 @@
 // lib/services/one_balance/route_minimums.dart
 //
 // "What is the smallest sweep the route takes right now?" The sweeper
-// asks this before every pass so cash below the floor shows as "$X
-// unavailable until balancing completes" instead of being quoted and refused. The live
-// figure comes from Orchestra's `/limits` (the backend proxy, then the
-// public host) for the two swap-back routes, cached ten minutes; the
-// app's own $1 floor sits under it. A quote that still answers
-// `amount_too_small` raises the floor for that venue until the cache
-// turns over, because provider legs add moving minimums `/limits`
-// does not show.
+// asks this before every pass: cash below it is dust (never quoted,
+// never shown as waiting, never retried; it stays in the total as venue
+// money). The live figure comes from Orchestra's `/limits` (the backend
+// proxy, then the public host) for the two swap-back routes, cached ten
+// minutes; the app's own $1 floor sits under it, and for Investing the
+// Circle CCTP fallback's own floor (Orchestra's Arbitrum minimum, its
+// margin and the HyperCore reserve the burn keeps back). A quote (or the
+// CCTP pre-flight) that still answers "too small" raises the floor for
+// that venue until the cache turns over, because provider legs add
+// moving minimums `/limits` does not show.
 //
 // Nothing here moves money; a failed read falls back to the floor.
 
@@ -16,10 +18,30 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/models/orchestra_route_limits.dart';
 import 'package:kute/models/orchestra_routes_model.dart' show RouteKey;
 import 'package:kute/services/api/orchestra_api.dart';
+import 'package:kute/services/hyperliquid/cctp_withdrawal.dart'
+    show kCctpCoreFeeReserve, kCctpFallbackMinimumUsd, kCctpMinimumMarginUsd;
 import 'package:kute/services/one_balance/one_balance_state.dart';
 
 /// The app's floor for a USD leg, under whatever the route says.
 const double kOneBalanceMinimumUsd = 1.0;
+
+/// The smallest Investing idle balance the CCTP fallback can carry home:
+/// Orchestra's floor for `arbitrum:USDC → spark:USDB`, the pre-flight's
+/// margin over it, and the HyperCore gas reserve the burn leaves behind
+/// (the forwarding fee is live and lands through the "too small" hint).
+final double kInvestingCctpMinimumUsd = kCctpFallbackMinimumUsd +
+    kCctpMinimumMarginUsd +
+    kCctpCoreFeeReserve.toDouble() / 1e8;
+
+/// The fixed floor under [venue]'s live minimum.
+double venueFloorUsd(OneBalanceVenue venue,
+        {double floorUsd = kOneBalanceMinimumUsd}) =>
+    switch (venue) {
+      OneBalanceVenue.investing => floorUsd > kInvestingCctpMinimumUsd
+          ? floorUsd
+          : kInvestingCctpMinimumUsd,
+      OneBalanceVenue.predictions => floorUsd,
+    };
 
 /// How long a live limit (or a refused-amount hint) is trusted.
 const Duration kRouteMinimumsCacheTtl = Duration(minutes: 10);
@@ -108,7 +130,7 @@ class RouteMinimums {
   }
 
   double _combine(OneBalanceVenue venue, double? live) {
-    var min = floorUsd;
+    var min = venueFloorUsd(venue, floorUsd: floorUsd);
     if (live != null && live.isFinite && live > min) min = live;
     final hint = _refused[venue];
     if (hint != null) {

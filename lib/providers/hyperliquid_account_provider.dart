@@ -183,8 +183,18 @@ const int kHlDepositPendingIntervalSecs = 4;
 /// Poll interval with open positions or a placement in flight.
 const int kHlActiveIntervalSecs = 5;
 
-/// Idle poll interval.
+/// Poll interval with spot tokens held (their value moves) or before the
+/// first snapshot has loaded (a failed first read retries on it).
 const int kHlIdleIntervalSecs = 15;
+
+/// The cadence an account holding nothing gets: no periodic read at all
+/// (founder, 2026-10-13: "no open positions on a venue → no polling for
+/// it"). Its cash changes only through events that read it themselves: a
+/// fill (userFills invalidates this provider), a deposit (the pending
+/// cadence above), a funding move or sweep landing and a close (the
+/// one-balance live refresh). The sweeper's free-USDC badge poll is
+/// separate and stays.
+const int kHlNoPollIntervalSecs = 0;
 
 class HlAccountNotifier extends AutoDisposeAsyncNotifier<HlAccountSnapshot> {
   Timer? _timer;
@@ -239,6 +249,8 @@ class HlAccountNotifier extends AutoDisposeAsyncNotifier<HlAccountSnapshot> {
     final snap = await model.getPortfolioSnapshot(address);
     _reconcilePlacements(snap);
     _publishPositions(snap);
+    // The first snapshot is in: an account holding nothing stops polling.
+    _applyCadence(snap);
     return snap;
   }
 
@@ -247,9 +259,13 @@ class HlAccountNotifier extends AutoDisposeAsyncNotifier<HlAccountSnapshot> {
     if (depositPending) return kHlDepositPendingIntervalSecs;
     final placing = ref.read(placingHyperliquidOrderProvider).isNotEmpty;
     final hasPositions = (snap?.positions.isNotEmpty ?? false);
-    return (placing || hasPositions)
-        ? kHlActiveIntervalSecs
-        : kHlIdleIntervalSecs;
+    if (placing || hasPositions) return kHlActiveIntervalSecs;
+    // Not loaded yet: keep the retry tick. Spot tokens held: their value
+    // moves, keep the idle read. Nothing held: no poll.
+    if (snap == null) return kHlIdleIntervalSecs;
+    final holdsSpot =
+        snap.spotBalances.any((b) => b.coin != 'USDC' && b.total > 0);
+    return holdsSpot ? kHlIdleIntervalSecs : kHlNoPollIntervalSecs;
   }
 
   bool _depositPending() {
@@ -260,20 +276,24 @@ class HlAccountNotifier extends AutoDisposeAsyncNotifier<HlAccountSnapshot> {
     }
   }
 
-  void _applyCadence() {
+  void _applyCadence([HlAccountSnapshot? snap]) {
     if (_disposed) return;
-    final target = _targetIntervalSecs(state.valueOrNull);
-    if (target == _currentIntervalSecs && _timer != null) return;
+    final target = _targetIntervalSecs(snap ?? state.valueOrNull);
+    if (target == _currentIntervalSecs && (_timer != null) == (target > 0)) {
+      return;
+    }
     _currentIntervalSecs = target;
     _startTimer();
   }
 
   void _startTimer() {
     _timer?.cancel();
-    _timer = Timer.periodic(
-      Duration(seconds: _currentIntervalSecs),
-      (_) => _silentRefresh(),
-    );
+    _timer = _currentIntervalSecs <= 0
+        ? null
+        : Timer.periodic(
+            Duration(seconds: _currentIntervalSecs),
+            (_) => _silentRefresh(),
+          );
   }
 
   Future<void> _silentRefresh() async {

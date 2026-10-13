@@ -53,8 +53,9 @@ class BalanceSnapshotInputs {
   final double dollarsUsd;
   final UnifiedVenueBalances venues;
 
-  /// Venue cash the sweeper still owes back (below the minimum, batching,
-  /// backing off), all venues.
+  /// Venue cash the sweeper still owes back (batching, backing off, a
+  /// rail not ready), all venues. Dust below the route minimum is not
+  /// owed back and is not in it (it stays in the venue cash figures).
   final double waitingUsd;
 
   /// Dollars on a rail in either direction, plus dollars arriving.

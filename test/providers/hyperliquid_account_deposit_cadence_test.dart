@@ -1,6 +1,7 @@
 // While a HyperCore deposit is pending the account snapshot is polled
 // every 4 s so the credit shows within one short poll; once the Orchestra
-// row settles the cadence returns to the idle 15 s.
+// row settles an account holding nothing is not polled at all (founder,
+// 2026-10-13: no positions → no polling; events read it).
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -20,7 +21,8 @@ class _CountingModel extends HyperliquidModel {
 }
 
 void main() {
-  test('a pending deposit polls every 4 s, then back to 15 s', () {
+  test('a pending deposit polls every 4 s; holding nothing, no poll at all',
+      () {
     fakeAsync((async) {
       final model = _CountingModel();
       final pending = StateProvider<double>((_) => 0);
@@ -37,10 +39,10 @@ void main() {
       async.flushMicrotasks();
       expect(model.calls, 1, reason: 'initial load');
       final notifier = container.read(hyperliquidAccountProvider.notifier);
-      expect(notifier.debugIntervalSecs, kHlIdleIntervalSecs);
+      expect(notifier.debugIntervalSecs, kHlNoPollIntervalSecs);
 
-      // Idle: nothing for 14 s.
-      async.elapse(const Duration(seconds: 14));
+      // Nothing held: no read for minutes.
+      async.elapse(const Duration(minutes: 5));
       expect(model.calls, 1);
 
       // A deposit starts: an immediate tick, then 4 s cadence.
@@ -52,15 +54,13 @@ void main() {
       async.elapse(const Duration(seconds: 12));
       expect(model.calls, 2 + 3, reason: 'ticks at 4, 8, 12 s');
 
-      // The credit lands (row settles): back to 15 s.
+      // The credit lands (row settles): nothing held, no poll again.
       container.read(pending.notifier).state = 0;
       async.elapse(Duration.zero);
-      expect(notifier.debugIntervalSecs, kHlIdleIntervalSecs);
+      expect(notifier.debugIntervalSecs, kHlNoPollIntervalSecs);
       final before = model.calls;
-      async.elapse(const Duration(seconds: 14));
-      expect(model.calls, before, reason: 'no 4 s ticks any more');
-      async.elapse(const Duration(seconds: 1));
-      expect(model.calls, before + 1, reason: 'idle tick at 15 s');
+      async.elapse(const Duration(minutes: 5));
+      expect(model.calls, before, reason: 'no periodic read when idle');
     });
   });
 }

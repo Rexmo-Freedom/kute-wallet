@@ -42,27 +42,36 @@ import 'package:kute/services/one_balance/venue_funder.dart';
 import 'package:kute/services/tracking_service.dart';
 
 /// What the sweeper shows: `waiting` is what each venue still owes back
-/// (below the minimum, batching, backing off), `sweeping` the venues a
-/// move is running for right now.
+/// (batching, backing off, a rail not ready), `dust` the venue cash below
+/// the route minimum that no sweep can move (counted, never shown as
+/// waiting), `sweeping` the venues a move is running for right now. A
+/// venue is in at most one of `waiting` and `dust`.
 @immutable
 class VenueSweeperState {
   const VenueSweeperState({
     this.waiting = const <OneBalanceVenue, double>{},
+    this.dust = const <OneBalanceVenue, double>{},
     this.sweeping = const <OneBalanceVenue>{},
   });
 
   /// Idle venue cash not yet brought home, by venue.
   final Map<OneBalanceVenue, double> waiting;
 
+  /// Idle venue cash below the route minimum, by venue: still the user's
+  /// money at the venue, but nothing is on its way.
+  final Map<OneBalanceVenue, double> dust;
+
   /// Venues with a sweep in progress.
   final Set<OneBalanceVenue> sweeping;
 
   VenueSweeperState copyWith({
     Map<OneBalanceVenue, double>? waiting,
+    Map<OneBalanceVenue, double>? dust,
     Set<OneBalanceVenue>? sweeping,
   }) =>
       VenueSweeperState(
         waiting: waiting ?? this.waiting,
+        dust: dust ?? this.dust,
         sweeping: sweeping ?? this.sweeping,
       );
 
@@ -70,17 +79,19 @@ class VenueSweeperState {
   bool operator ==(Object other) =>
       other is VenueSweeperState &&
       mapEquals(other.waiting, waiting) &&
+      mapEquals(other.dust, dust) &&
       setEquals(other.sweeping, sweeping);
 
   @override
   int get hashCode => Object.hash(
         Object.hashAll(waiting.entries.map((e) => Object.hash(e.key, e.value))),
+        Object.hashAll(dust.entries.map((e) => Object.hash(e.key, e.value))),
         Object.hashAllUnordered(sweeping),
       );
 
   @override
   String toString() =>
-      'VenueSweeperState(waiting: $waiting, sweeping: $sweeping)';
+      'VenueSweeperState(waiting: $waiting, dust: $dust, sweeping: $sweeping)';
 }
 
 /// A venue funder that can also bring idle cash home. Predictions binds
@@ -168,7 +179,6 @@ class _VenueMemory {
   DateTime? lastFailureAt;
   DateTime? lastSweepAt;
   DateTime? heldSince;
-  double? waitingShownUsd;
   SweepSkipReason? lastSkip;
   bool failureReported = false;
   double recentlySweptUsd = 0;
@@ -202,6 +212,7 @@ class VenueSweeper {
   final Set<OneBalanceVenue> _inFlight = {};
   final Map<String, _OpenSweep> _openSweeps = {};
   final Map<OneBalanceVenue, double> _waiting = {};
+  final Map<OneBalanceVenue, double> _dust = {};
 
   bool _passing = false;
   String? _rerunReason;
@@ -428,10 +439,22 @@ class VenueSweeper {
       case SweepNothing():
         m.heldSince = null;
         m.lastSkip = null;
-        _endWaitingEpisode(m);
         _setWaiting(venue, null);
+      case SweepDust(:final usd):
+        // Below every route minimum: counted as the venue's money, never
+        // shown as waiting, never sent or retried. Reported once per
+        // episode as a below-minimum skip.
+        m.heldSince = null;
+        _setDust(venue, usd);
+        if (m.lastSkip != SweepSkipReason.belowMinimum) {
+          m.lastSkip = SweepSkipReason.belowMinimum;
+          _host.track('venue_sweep_skipped', {
+            'venue': venue.analyticsName,
+            'reason': SweepSkipReason.belowMinimum.label,
+            'idle_usd': _usd(snapshot.idleUsd),
+          });
+        }
       case SweepSkip(:final reason, :final idleUsd):
-        _endWaitingEpisode(m);
         if (reason != SweepSkipReason.backoff) m.heldSince = null;
         // Backed-off cash stays visible: a failed swap-back never
         // vanishes into a hidden venue balance.
@@ -445,40 +468,20 @@ class VenueSweeper {
           });
         }
       case SweepWaiting(:final usd, :final cause):
-        if (cause != SweepWaitingCause.belowMinimum) m.lastSkip = null;
+        m.lastSkip = null;
         _setWaiting(venue, usd);
         if (cause == SweepWaitingCause.batching) {
           m.heldSince ??= now;
         } else {
           m.heldSince = null;
         }
-        if (cause == SweepWaitingCause.belowMinimum) {
-          if (m.waitingShownUsd == null) {
-            m.waitingShownUsd = usd;
-            _host.track('venue_cash_waiting_shown', {
-              'venue': venue.analyticsName,
-              'amount_usd': _usd(usd),
-              'minimum_usd': _usd(minimum),
-            });
-          }
-          if (m.lastSkip != SweepSkipReason.belowMinimum) {
-            m.lastSkip = SweepSkipReason.belowMinimum;
-            _host.track('venue_sweep_skipped', {
-              'venue': venue.analyticsName,
-              'reason': SweepSkipReason.belowMinimum.label,
-              'idle_usd': _usd(snapshot.idleUsd),
-            });
-          }
-        } else {
-          _endWaitingEpisode(m);
-        }
       case SweepNow(:final usd):
         m.lastSkip = null;
         m.heldSince = null;
-        _endWaitingEpisode(m);
         await _execute(venue,
             usd: usd,
             idleUsd: snapshot.idleUsd,
+            minimumUsd: minimum,
             trigger: trigger,
             rollout: rollout);
     }
@@ -489,6 +492,7 @@ class VenueSweeper {
     OneBalanceVenue venue, {
     required double usd,
     required double idleUsd,
+    required double minimumUsd,
     required String trigger,
     required bool rollout,
   }) async {
@@ -520,7 +524,14 @@ class VenueSweeper {
       m.failureReported = false;
       m.recentlySweptUsd = result.sentUsd;
       m.recentlySweptAt = sentAt;
-      _setWaiting(venue, _remaining(idleUsd, result.sentUsd));
+      // What the move left behind (the CCTP fallback keeps a HyperCore
+      // gas reserve back) is dust when no sweep could take it.
+      final left = _remaining(idleUsd, result.sentUsd);
+      if (left + 1e-9 < minimumUsd) {
+        _setDust(venue, left);
+      } else {
+        _setWaiting(venue, left);
+      }
       _host.track('venue_sweep_submitted', {
         'venue': venue.analyticsName,
         'amount_usd': _usd(result.sentUsd),
@@ -537,11 +548,11 @@ class VenueSweeper {
       }
     } on RouteQuoteError catch (e) {
       if (e.code == RouteQuoteErrorCode.amountTooSmall) {
-        // The route's real floor is above what we tried: show it as
-        // waiting and let the next pass compare against the raised
-        // minimum. No backoff — more cash changes the answer.
+        // The route's real floor is above what we tried: the cash is
+        // dust until more joins it, and the next pass compares against
+        // the raised minimum. No backoff, nothing shown as waiting.
         _host.noteAmountTooSmall(venue, usd);
-        _setWaiting(venue, idleUsd);
+        _setDust(venue, usd);
         _fail(venue,
             stage: 'quote',
             category: e.code.code,
@@ -552,6 +563,20 @@ class VenueSweeper {
         _fail(venue, stage: 'quote', category: e.code.code, trigger: trigger);
       }
     } on RouteUnavailable catch (e) {
+      if (_isBelowMinimum(e)) {
+        // The fallback rail's own floor (the CCTP minimum after its fee
+        // and the HyperCore reserve) is above the amount: the same answer
+        // as a quote refusing it. Dust, the minimum raised, no backoff (a
+        // backoff here retried the same refused amount every 2–10 min).
+        _host.noteAmountTooSmall(venue, usd);
+        _setDust(venue, usd);
+        _fail(venue,
+            stage: stage,
+            category: RouteQuoteErrorCode.amountTooSmall.code,
+            trigger: trigger,
+            backoff: false);
+        return;
+      }
       // The rail cannot carry a withdraw right now (Orchestra refusing the
       // HyperCore-source route and the CCTP fallback unable to run, a
       // paused route): the cash is simply waiting, shown as unavailable
@@ -642,23 +667,38 @@ class VenueSweeper {
     return left.isFinite && left > kSweepDustUsd ? left : 0;
   }
 
-  void _endWaitingEpisode(_VenueMemory m) {
-    m.waitingShownUsd = null;
-  }
+  /// A rail answer meaning "below my minimum" (`cctp_below_minimum`).
+  static bool _isBelowMinimum(RouteUnavailable e) =>
+      e.reason?.endsWith('below_minimum') ?? false;
 
-  void _setWaiting(OneBalanceVenue venue, double? usd) {
-    if (usd == null || !usd.isFinite || usd < kSweepDustUsd) {
-      if (_waiting.remove(venue) != null) _publish();
-      return;
+  /// Shows [usd] of [venue] as waiting (null clears it); the venue is no
+  /// longer dust.
+  void _setWaiting(OneBalanceVenue venue, double? usd) =>
+      _setCash(venue, waiting: usd);
+
+  /// Records [usd] of [venue] as dust; the venue no longer waits.
+  void _setDust(OneBalanceVenue venue, double usd) =>
+      _setCash(venue, dust: usd);
+
+  void _setCash(OneBalanceVenue venue, {double? waiting, double? dust}) {
+    bool put(Map<OneBalanceVenue, double> map, double? usd) {
+      if (usd == null || !usd.isFinite || usd < kSweepDustUsd) {
+        return map.remove(venue) != null;
+      }
+      if (map[venue] == usd) return false;
+      map[venue] = usd;
+      return true;
     }
-    if (_waiting[venue] == usd) return;
-    _waiting[venue] = usd;
-    _publish();
+
+    final a = put(_waiting, waiting);
+    final b = put(_dust, dust);
+    if (a || b) _publish();
   }
 
   void _publish() {
     final next = VenueSweeperState(
       waiting: Map.unmodifiable(_waiting),
+      dust: Map.unmodifiable(_dust),
       sweeping: Set.unmodifiable(_inFlight),
     );
     if (next == _state) return;

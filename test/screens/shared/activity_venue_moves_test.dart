@@ -779,5 +779,149 @@ void main() {
       expect(on(onlyUsdb: false, keep: true), isEmpty);
       expect(on(onlyUsdb: true), ['ord_cctp']);
     });
+
+    group('a CCTP sweep whose dollars Orchestra held for 42 minutes', () {
+      // The founder's screenshot: "Withdraw · from Investing · 12:54 ·
+      // $6.20 · from $6.28" and "Deposit · 13:36 · $6.20" for one sweep.
+      final cctp = _swap(
+        id: 'ord_cctp_late',
+        coinFrom: 'USDC',
+        networkFrom: 'HYPERCORE',
+        coinTo: kOrchestraUsdAssetCode,
+        networkTo: 'SPARK',
+        depositAmount: '6.28',
+        withdrawalAmount: '6.20',
+        status: 'success',
+        operationId: 'op-cctp',
+      );
+      final landed = _dollars('usd_in_late',
+          usd: 6.20,
+          type: breez.PaymentType.receive,
+          at: _t0.add(const Duration(minutes: 42)));
+      List<String> on(List<BaseTransaction> rows, {required bool onlyUsdb}) {
+        final sorted = [...rows]
+          ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+        return _ids(assembleActivityRows(
+          sorted,
+          ownAddresses: {_self},
+          isHardwareOrWatchOnly: false,
+          onlyUsdb: onlyUsdb,
+        ));
+      }
+
+      test('is one row on Dollars and in the Portfolio activity', () {
+        expect(on([cctp, landed], onlyUsdb: true), ['ord_cctp_late']);
+      });
+
+      test('leaves nothing on the bitcoin side', () {
+        expect(on([cctp, landed], onlyUsdb: false), isEmpty);
+      });
+
+      test('an unrelated \$6.20 receive later keeps its own row', () {
+        final friend = _dollars('usd_in_friend',
+            usd: 6.20,
+            type: breez.PaymentType.receive,
+            at: _t0.add(const Duration(hours: 3)));
+        expect(on([cctp, landed, friend], onlyUsdb: true),
+            ['usd_in_friend', 'ord_cctp_late']);
+      });
+
+      test('a \$6.20 receive before the sweep started keeps its own row', () {
+        final before = _dollars('usd_in_before',
+            usd: 6.20,
+            type: breez.PaymentType.receive,
+            at: _t0.subtract(const Duration(hours: 2)));
+        expect(on([cctp, before], onlyUsdb: true),
+            ['ord_cctp_late', 'usd_in_before']);
+      });
+
+      test('another amount 42 minutes later is not its arrival', () {
+        final other = _dollars('usd_in_other',
+            usd: 6.15,
+            type: breez.PaymentType.receive,
+            at: _t0.add(const Duration(minutes: 42)));
+        expect(on([cctp, other], onlyUsdb: true),
+            ['usd_in_other', 'ord_cctp_late']);
+      });
+
+      test('a failed sweep takes no arrival', () {
+        final failed = _swap(
+          id: 'ord_cctp_failed',
+          coinFrom: 'USDC',
+          networkFrom: 'HYPERCORE',
+          coinTo: kOrchestraUsdAssetCode,
+          networkTo: 'SPARK',
+          depositAmount: '6.28',
+          withdrawalAmount: '6.20',
+          status: 'failed',
+          operationId: 'op-cctp',
+        );
+        expect(on([failed, landed], onlyUsdb: true),
+            ['usd_in_late', 'ord_cctp_failed']);
+      });
+    });
+  });
+
+  group('venue withdrawals Orchestra holds past half an hour', () {
+    test('a Predictions sweep to Dollars landing an hour later is one row',
+        () {
+      final sweep = _swap(
+        id: 'ord_pm_late',
+        coinFrom: 'USDC',
+        networkFrom: 'POLYGON',
+        coinTo: kOrchestraUsdAssetCode,
+        networkTo: 'SPARK',
+        depositAmount: '10.00',
+        withdrawalAmount: '9.85',
+        status: 'success',
+      );
+      final landed = _dollars('usd_in_pm_late',
+          usd: 9.85,
+          type: breez.PaymentType.receive,
+          at: _t0.add(const Duration(minutes: 65)));
+      const kinds = {'ord_pm_late': SwapActivityKind.predictionsWithdrawal};
+      expect(_ids(_surface([sweep, landed], kinds: kinds, onlyUsdb: true)),
+          ['ord_pm_late']);
+      expect(_ids(_surface([sweep, landed], kinds: kinds)), isEmpty);
+    });
+
+    test('the direct HyperCore route landing late is one row', () {
+      final sweep = _swap(
+        id: 'ord_hl_late',
+        coinFrom: 'USDC',
+        networkFrom: 'HYPERCORE',
+        coinTo: kOrchestraUsdAssetCode,
+        networkTo: 'SPARK',
+        depositAmount: '20.00',
+        withdrawalAmount: '19.90',
+      );
+      final landed = _dollars('usd_in_hl_late',
+          usd: 19.90,
+          type: breez.PaymentType.receive,
+          at: _t0.add(const Duration(minutes: 50)));
+      const kinds = {'ord_hl_late': SwapActivityKind.investingWithdrawal};
+      expect(_ids(_surface([sweep, landed], kinds: kinds, onlyUsdb: true)),
+          ['ord_hl_late']);
+    });
+
+    test('a withdrawal to someone else\'s address takes no late receive', () {
+      final foreign = _swap(
+        id: 'ord_foreign',
+        coinFrom: 'USDC',
+        networkFrom: 'POLYGON',
+        coinTo: kOrchestraUsdAssetCode,
+        networkTo: 'SPARK',
+        depositAmount: '10.00',
+        withdrawalAmount: '9.85',
+        withdrawalAddress: 'sp1someoneelse',
+      );
+      final receive = _dollars('usd_in_unrelated',
+          usd: 9.85,
+          type: breez.PaymentType.receive,
+          at: _t0.add(const Duration(minutes: 65)));
+      const kinds = {'ord_foreign': SwapActivityKind.predictionsWithdrawal};
+      expect(_ids(_surface([foreign, receive], kinds: kinds, onlyUsdb: true)),
+          ['usd_in_unrelated', 'ord_foreign']);
+    });
   });
 }

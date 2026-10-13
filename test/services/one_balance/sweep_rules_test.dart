@@ -155,15 +155,65 @@ void main() {
       expect(d.usd, 20);
     });
 
-    test('below the minimum waits with the sweepable amount', () {
+    test('below the minimum is dust, never waiting', () {
       final d = decideSweep(
           const VenueSnapshot(idleUsd: 0.6, sweepableUsd: 0.6), _ctx());
-      expect((d as SweepWaiting).cause, SweepWaitingCause.belowMinimum);
-      expect(d.usd, 0.6);
+      expect((d as SweepDust).usd, 0.6);
       final live = decideSweep(
           const VenueSnapshot(idleUsd: 3, sweepableUsd: 3),
           _ctx(minimumUsd: 4));
-      expect((live as SweepWaiting).cause, SweepWaitingCause.belowMinimum);
+      expect((live as SweepDust).usd, 3);
+    });
+
+    test('the CCTP reserve left on HyperCore is dust', () {
+      final d = decideSweep(
+          const VenueSnapshot(idleUsd: 0.06, sweepableUsd: 0.06), _ctx());
+      expect((d as SweepDust).usd, 0.06);
+    });
+
+    test('dust wins over a backoff, a pending move and a rail not ready', () {
+      final now = DateTime(2026, 10, 13, 13);
+      expect(
+          decideSweep(
+              const VenueSnapshot(idleUsd: 0.4, sweepableUsd: 0.4),
+              SweepContext(
+                  now: now,
+                  minimumUsd: 1,
+                  backoffUntil: now.add(const Duration(minutes: 5)))),
+          isA<SweepDust>());
+      expect(
+          decideSweep(
+              const VenueSnapshot(
+                  idleUsd: 0.4, sweepableUsd: 0.4, hasPendingMove: true),
+              _ctx()),
+          isA<SweepDust>());
+      expect(
+          (decideSweep(const VenueSnapshot(idleUsd: 0.4, sweepableUsd: 0),
+                  _ctx()) as SweepDust)
+              .usd,
+          0.4);
+    });
+
+    test('with reservations only the unreserved cash is dust', () {
+      final small = decideSweep(
+          const VenueSnapshot(
+              idleUsd: 0.8, sweepableUsd: 0.3, hasReservations: true),
+          _ctx());
+      expect((small as SweepDust).usd, 0.3);
+      final reserved = decideSweep(
+          const VenueSnapshot(
+              idleUsd: 30, sweepableUsd: 0.5, hasReservations: true),
+          _ctx());
+      expect((reserved as SweepDust).usd, 0.5);
+    });
+
+    test('at or above the minimum it still waits as before', () {
+      final batching = decideSweep(
+          const VenueSnapshot(idleUsd: 1, sweepableUsd: 1), _ctx());
+      expect((batching as SweepWaiting).cause, SweepWaitingCause.batching);
+      final rail = decideSweep(
+          const VenueSnapshot(idleUsd: 1.5, sweepableUsd: 0), _ctx());
+      expect((rail as SweepWaiting).cause, SweepWaitingCause.routeUnavailable);
     });
 
     test('exactly the minimum is not below it', () {

@@ -41,9 +41,11 @@ class KutePillItem {
 /// its glyph, in design units (scaled with ScreenUtil where used).
 /// [regular] is every strip's size; the Investments pills are [large] on
 /// the page and [compact] in its collapsed bar, the same chrome a step
-/// up and a step down.
+/// up and a step down. [compact] went up one notch (founder, 2026-10-13:
+/// "just a little bit bigger"): 12 sp labels, 14 glyphs, 32 high, still
+/// under [regular] and [large].
 enum KutePillSize {
-  compact(height: 28, hPad: 10, vPad: 6, font: 11, icon: 12),
+  compact(height: 32, hPad: 11, vPad: 7, font: 12, icon: 14),
   regular(height: 34, hPad: 14, vPad: 9, font: 13, icon: 15),
   large(height: 40, hPad: 12, vPad: 11, font: 14, icon: 16);
 

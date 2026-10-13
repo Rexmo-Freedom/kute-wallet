@@ -180,6 +180,18 @@ void main() {
     await unmountInvestments(tester);
   });
 
+  test('the collapsed bar\'s pills are a notch up, still under the page\'s',
+      () {
+    const compact = KutePillSize.compact;
+    expect(compact.font, 12);
+    expect(compact.icon, 14);
+    expect(compact.height, 32);
+    expect(compact.height, lessThan(KutePillSize.large.height));
+    expect(compact.font, lessThan(KutePillSize.large.font));
+    // The bar grew with them, so nothing under it overlaps.
+    expect(kInvestmentsCompactBarHeight, 6 + 20 + 6 + compact.height + 8);
+  });
+
   test('the search square follows the pill', () {
     expect(UsdAccountActionBar.searchTarget(InvestmentsTab.investing),
         (category: SearchCategory.perpetuals, source: 'trading'));

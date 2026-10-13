@@ -8,8 +8,14 @@
 //
 //   dollars   = the spending account's USDB balance;
 //   invested  = Hyperliquid portfolio + Predictions positions and the
-//               cash open BUY orders hold (never a venue's idle cash:
-//               that is being swept and shows as in flight or waiting);
+//               cash open BUY orders hold, plus venue dust (idle cash
+//               below every route minimum, which no sweep can move: the
+//               user's money at the venue, shown as invested, never as
+//               waiting), plus the live marks of held positions while the
+//               header is on screen (one_balance_live_provider.dart: the
+//               positions at live prices between the venues' reads).
+//               Never other idle cash: that is being swept and shows as
+//               in flight or waiting;
 //   in flight = pending Orchestra rows, by direction: Dollars → venue
 //               (an order being funded), venue → Dollars (a sweep or a
 //               withdrawal), and dollars arriving from anywhere else
@@ -22,6 +28,7 @@
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/models/swap_order_model.dart';
+import 'package:kute/providers/one_balance_live_provider.dart';
 import 'package:kute/providers/pending_pool_deposits_provider.dart'
     show isPendingDollarsIncoming;
 import 'package:kute/providers/settings_provider.dart';
@@ -88,6 +95,17 @@ List<InFlightMove> inFlightMovesFrom(
   ];
 }
 
+/// The venues' invested figure with their dust added: cash below every
+/// route minimum stays at the venue and counts as the venue's money (in
+/// the total and the Invested line), never as waiting. Pure for the tests.
+double investedWithDust(double investedUsd, Map<OneBalanceVenue, double> dust) {
+  var sum = investedUsd.isFinite && investedUsd > 0 ? investedUsd : 0.0;
+  for (final usd in dust.values) {
+    if (usd.isFinite && usd > 0) sum += usd;
+  }
+  return sum;
+}
+
 /// The one-balance picture, recomputed whenever any input moves.
 final oneBalanceProvider = Provider<OneBalanceState>((ref) {
   final dollars = ref.watch(usdBalanceProvider);
@@ -99,10 +117,16 @@ final oneBalanceProvider = Provider<OneBalanceState>((ref) {
     nowMs: DateTime.now().millisecondsSinceEpoch,
   );
   final waiting = ref.watch(venueSweeperProvider.select((s) => s.waiting));
+  final dust = ref.watch(venueSweeperProvider.select((s) => s.dust));
+  // Held positions marked to market between the venues' reads, while the
+  // header is on screen (zero otherwise).
+  final marks = ref.watch(oneBalanceLiveProvider);
+  final invested = investedWithDust(venues.investedUsd, dust) +
+      marks.totalDeltaUsd;
 
   return OneBalanceState(
     dollarsUsd: dollars.isFinite && dollars > 0 ? dollars : 0,
-    investedUsd: venues.investedUsd,
+    investedUsd: invested.isFinite && invested > 0 ? invested : 0,
     inFlight: inFlight,
     waiting: waiting,
     investingKnown: venues.investingKnown,

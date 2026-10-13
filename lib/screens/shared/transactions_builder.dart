@@ -1035,6 +1035,109 @@ bool _isDollarLegOf(UsdbTokenTransaction tx, SwapOrderTransaction ex) {
       30 * 60 * 1000;
 }
 
+/// How long after a venue withdrawal to Dollars started its dollars may
+/// still land and be linked to it. Orchestra can hold an order well past
+/// the 30 minutes [_isDollarLegOf] allows (the first Circle CCTP sweep
+/// landed 42 minutes after it left, held for screening); the link then
+/// rests on the record and the exact amount, not on the clock.
+const Duration kVenueWithdrawalArrivalWindow = Duration(hours: 24);
+
+/// Whether [d] is the wallet's own withdrawal from Investing or
+/// Predictions into Dollars (a sweep, the Circle CCTP fallback, a manual
+/// move) that can still deliver: a settlement-record row (its recipient
+/// is the wallet's own Spark address by construction) or one that settles
+/// to an address the wallet owns. Failed, refunded or expired orders never
+/// deliver, so nothing links to them.
+bool _isOwnVenueWithdrawalToDollars(
+  SwapOrder d,
+  SwapActivityKind kind, {
+  required Set<String> ownAddresses,
+}) {
+  if (!d.isOrchestra) return false;
+  if (d.coinTo.toUpperCase() != kOrchestraUsdAssetCode) return false;
+  if (kind != SwapActivityKind.investingWithdrawal &&
+      kind != SwapActivityKind.predictionsWithdrawal) {
+    return false;
+  }
+  if (!d.isComplete && !d.isPending) return false;
+  final settle = d.withdrawalAddress.trim().toLowerCase();
+  return d.operationId != null ||
+      (settle.isNotEmpty && ownAddresses.contains(settle));
+}
+
+/// Whether the dollar receive [tx] can be the late arrival of the venue
+/// withdrawal [ex]: exactly the order's dollar amount (to the cent), and
+/// landing after the order started, within [kVenueWithdrawalArrivalWindow].
+bool _isLateArrivalOf(UsdbTokenTransaction tx, SwapOrderTransaction ex) {
+  if (tx.details.paymentType != breez.PaymentType.receive) return false;
+  final dollars = tx.amount.toInt() / 1e6;
+  final amount = _exchangeUsdFieldToDollars(ex.details.withdrawalAmount);
+  if (dollars <= 0 || amount <= 0) return false;
+  if ((dollars - amount).abs() > 0.005 + 1e-9) return false;
+  final delta = tx.timestamp.difference(ex.timestamp);
+  // A small clock margin before the order (the row is stamped when the
+  // app wrote it, the transfer by the network).
+  return delta >= const Duration(minutes: -2) &&
+      delta <= kVenueWithdrawalArrivalWindow;
+}
+
+/// The dollar transfers in [transfers] that settled one of [exchanges],
+/// so their own rows can go behind the move's row.
+///
+/// Two links, the first one winning:
+///   * the near match ([_isDollarLegOf]): same side, the amount within
+///     two percent, within 30 minutes of the order;
+///   * a late arrival into Dollars from the wallet's own venue withdrawal
+///     ([_isOwnVenueWithdrawalToDollars]) that has no near match: the
+///     receive of exactly its amount, after it started, within a day.
+///     One receive per withdrawal and one withdrawal per receive, the
+///     oldest withdrawal taking the first receive after it, so an
+///     unrelated transfer of the same amount (the next one, or one before
+///     the move) keeps its own row.
+Set<String> _settledDollarLegIds(
+  List<SwapOrderTransaction> exchanges,
+  Iterable<UsdbTokenTransaction> transfers, {
+  required Set<String> ownAddresses,
+  required SwapActivityKind Function(SwapOrder order) classify,
+}) {
+  final legs = <String>{};
+  if (exchanges.isEmpty) return legs;
+  final list = transfers.toList();
+  final nearMatched = <String>{};
+  for (final tx in list) {
+    for (final ex in exchanges) {
+      if (_isDollarLegOf(tx, ex)) {
+        legs.add(tx.id);
+        nearMatched.add(ex.id);
+      }
+    }
+  }
+  final waiting = [
+    for (final ex in exchanges)
+      if (!nearMatched.contains(ex.id) &&
+          _isOwnVenueWithdrawalToDollars(ex.details, classify(ex.details),
+              ownAddresses: ownAddresses))
+        ex,
+  ]..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+  if (waiting.isEmpty) return legs;
+  final receives = [
+    for (final tx in list)
+      if (!legs.contains(tx.id) &&
+          tx.details.paymentType == breez.PaymentType.receive)
+        tx,
+  ]..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+  for (final ex in waiting) {
+    for (final tx in receives) {
+      if (legs.contains(tx.id)) continue;
+      if (_isLateArrivalOf(tx, ex)) {
+        legs.add(tx.id);
+        break;
+      }
+    }
+  }
+  return legs;
+}
+
 /// Whether a send paid from dollars knows what the recipient got: its
 /// delivered amount is at least one sat for bitcoin, or a cent for
 /// anything else. Before the first status check the row holds the
@@ -1167,10 +1270,11 @@ List<BaseTransaction> assembleActivityRows(
       return false;
     }).toList();
     if (dollarVenueMoves.isNotEmpty) {
+      final legs = _settledDollarLegIds(
+          dollarVenueMoves, rows.whereType<UsdbTokenTransaction>(),
+          ownAddresses: ownAddresses, classify: classify);
       rows = rows
-          .where((tx) =>
-              tx is! UsdbTokenTransaction ||
-              !dollarVenueMoves.any((ex) => _isDollarLegOf(tx, ex)))
+          .where((tx) => tx is! UsdbTokenTransaction || !legs.contains(tx.id))
           .toList();
     }
     if (dollarSends.isNotEmpty) {
@@ -1451,9 +1555,13 @@ List<BaseTransaction> _collapsePolymarketFlows(
   /// settled it — the way a Predictions or Investing deposit used to.
   /// The swap row is the user-meaningful one (it names both ends), so
   /// the settle leg goes, and a dollar transfer with no conversion
-  /// beside it still stands on its own.
-  bool hideDollarLeg(UsdbTokenTransaction tx) =>
-      exchanges.any((ex) => _isDollarLegOf(tx, ex));
+  /// beside it still stands on its own. A venue withdrawal whose dollars
+  /// Orchestra held past half an hour still takes its arrival by the
+  /// exact amount ([_settledDollarLegIds]).
+  final dollarLegs = _settledDollarLegIds(
+      exchanges, transactions.whereType<UsdbTokenTransaction>(),
+      ownAddresses: ownAddresses, classify: classify);
+  bool hideDollarLeg(UsdbTokenTransaction tx) => dollarLegs.contains(tx.id);
 
   return transactions.where((tx) {
     if (tx is SwapOrderTransaction) {

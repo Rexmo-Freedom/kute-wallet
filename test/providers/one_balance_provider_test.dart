@@ -259,6 +259,35 @@ void main() {
       expect(s.totalUsd, closeTo(75.6, 1e-9));
     });
 
+    test('dust counts in the total as invested, never as waiting', () async {
+      // The founder's screenshot: $6.20 home, $0.06 left on HyperCore.
+      final c = container(
+        dollars: 6.20,
+        pm: const PolymarketTradingState(
+            isAuthenticated: true, balanceKnown: true, usdcBalance: 0),
+        sweeper: const VenueSweeperState(
+            dust: {OneBalanceVenue.investing: 0.06}),
+      );
+      addTearDown(c.dispose);
+      await c.read(polymarketTradingProvider.future);
+      final s = c.read(oneBalanceProvider);
+      expect(s.waiting, isEmpty);
+      expect(s.waitingUsd, 0);
+      expect(s.inFlight, isEmpty);
+      expect(s.investedUsd, closeTo(0.06, 1e-9));
+      expect(s.totalUsd, closeTo(6.26, 1e-9));
+    });
+
+    test('investedWithDust adds every venue\'s dust', () {
+      expect(
+          investedWithDust(10, const {
+            OneBalanceVenue.investing: 0.06,
+            OneBalanceVenue.predictions: 0.3,
+          }),
+          closeTo(10.36, 1e-9));
+      expect(investedWithDust(double.nan, const {}), 0);
+    });
+
     test('the sweeper state reaching the header is one provider tick',
         () async {
       final c = container(

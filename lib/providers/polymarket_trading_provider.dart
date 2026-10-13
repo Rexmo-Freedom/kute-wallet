@@ -2191,14 +2191,18 @@ class PolymarketTradingNotifier
       minMinutesToExpiry: minMinutesToExpiry,
     );
 
-    // Only recreate timer if interval changed
-    if (_currentRefreshInterval != targetInterval) {
-      _currentRefreshInterval = targetInterval;
+    // Only recreate timer if interval changed. Null: nothing held, no
+    // periodic read at all (0 here) — events refresh the account.
+    final seconds = targetInterval ?? 0;
+    if (_currentRefreshInterval != seconds) {
+      _currentRefreshInterval = seconds;
       _refreshTimer?.cancel();
-      _refreshTimer = Timer.periodic(
-        Duration(seconds: targetInterval),
-        (_) => _silentRefresh(),
-      );
+      _refreshTimer = seconds <= 0
+          ? null
+          : Timer.periodic(
+              Duration(seconds: seconds),
+              (_) => _silentRefresh(),
+            );
     }
   }
 
@@ -5195,8 +5199,15 @@ PolymarketRefreshScope polymarketRefreshScopeForTick(int tick) =>
 /// waiting for its deposit ([pendingBetWaiting]) outranks everything: the
 /// deposit's own path reads the balance when the money lands, so the tick
 /// only backs it up and stops overlapping the order-status poll.
+///
+/// Null: no periodic read at all. An account holding nothing open (no
+/// open bet, none awaiting its result) and waiting for nothing changes
+/// only through events, which read it themselves: a fill (the user
+/// channel), a funding move or sweep landing and a claim or sale (the
+/// one-balance live refresh, `one_balance_live_provider.dart`). Founder,
+/// 2026-10-13: "no open positions on a venue → no polling for it".
 @visibleForTesting
-int polymarketRefreshIntervalSeconds({
+int? polymarketRefreshIntervalSeconds({
   required bool pendingBetWaiting,
   required bool awaitingDeposit,
   required bool visible,
@@ -5212,16 +5223,15 @@ int polymarketRefreshIntervalSeconds({
     // deposit is inbound.
     return 3;
   }
+  if (!hasOpenBet && !awaitingResult) return null;
   if (!visible) {
     // Predictions surface off-screen: nothing animates, so the fast
     // tier is pure network/battery burn. Back off hard — 30s with
-    // open bets (positions still track loosely for the home tile),
-    // 60s when the user holds nothing open.
-    return awaitingResult ? 20 : (hasOpenBet ? 30 : 60);
+    // open bets (positions still track loosely for the home tile).
+    return awaitingResult ? 20 : 30;
   }
-  if (minMinutesToExpiry != null && minMinutesToExpiry < 60) return 3;
-  if (hasOpenBet) return 3;
-  return 5;
+  // Something open on screen: 3 s (near expiry or not).
+  return 3;
 }
 
 /// Timing of one account start, by step, for `polymarket_balance_loaded`
