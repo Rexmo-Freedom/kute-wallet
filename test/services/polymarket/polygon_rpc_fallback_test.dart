@@ -138,12 +138,15 @@ void main() {
   test('a slow first endpoint loses the race to a fast second one', () async {
     final rpcs = _Rpcs(
         _known, [_Mode.slow, _Mode.polygon, _Mode.polygon, _Mode.polygon])
-      ..slowBy = const Duration(milliseconds: 40);
+      // Far slower than any CI scheduling hiccup, so "answered without
+      // waiting for it" can't flip on a busy runner (74 ms seen for a 40 ms
+      // bound).
+      ..slowBy = const Duration(seconds: 1);
     final clock = Stopwatch()..start();
     final deployed = await _with(rpcs,
         () => PolymarketOnboardingService().hasContractCodeOrThrow(_wallet));
     expect(deployed, isTrue);
-    expect(clock.elapsedMilliseconds, lessThan(40));
+    expect(clock.elapsedMilliseconds, lessThan(800));
     expect(rpcs.hostsAskedFor('eth_getCode'), [_host(_known[0]), _host(_known[1])]);
     await _settle();
   });
