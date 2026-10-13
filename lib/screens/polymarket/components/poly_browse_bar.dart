@@ -1,14 +1,12 @@
 // lib/screens/polymarket/components/poly_browse_bar.dart
 //
-// The Predictions browse controls: the row of categories and, inside a
-// category that has them, a second row of its subcategories. Both are the
-// shared KutePill in its text styles (owner decision 2026-10-13): under
-// the Investments pills the categories are level 2, text tabs with an
-// underline under the one on screen ([KutePillStyle.tab]), and the
-// subcategories level 3, smaller text with no box ([KutePillStyle.subtle]),
-// so the stack reads as one hierarchy rather than three rows of boxed
-// buttons. Rows scroll sideways and bring the selected pill into view by
-// themselves.
+// The Predictions browse controls: ONE row of category pills (the shared
+// boxed KutePill every other row in the app uses). A category that has
+// subcategories drills in: tapping it swaps the row for a back pill
+// ("‹ Sports") and its subcategory pills; the back pill brings the
+// categories back (owner decision 2026-10-13: rows are never stacked).
+// [PolyDrillRow] runs the swap and Investing uses it too. Rows scroll
+// sideways and bring the selected pill into view by themselves.
 // "More" lists every category with its subcategories on the app's shared
 // bottom sheet.
 
@@ -23,6 +21,7 @@ import 'package:kute/providers/polymarket_browse_provider.dart';
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
+import 'package:kute/screens/shared/kute_motion.dart';
 import 'package:kute/services/polymarket/polymarket_category_gate.dart'
     show polymarketTagOffered;
 import 'package:kute/services/runtime_capabilities_service.dart';
@@ -170,6 +169,11 @@ class PolyAutoScrollRow extends StatefulWidget {
   /// Inset at the two ends of the row (the screen's side margin).
   final double padding;
 
+  /// Whether the row's first layout brings the selected child into view;
+  /// false starts it at its beginning (a row [PolyDrillRow] has just
+  /// swapped in).
+  final bool revealOnMount;
+
   const PolyAutoScrollRow({
     super.key,
     required this.itemCount,
@@ -178,6 +182,7 @@ class PolyAutoScrollRow extends StatefulWidget {
     required this.height,
     this.spacing = 6,
     this.padding = 16,
+    this.revealOnMount = true,
   });
 
   @override
@@ -193,7 +198,7 @@ class _PolyAutoScrollRowState extends State<PolyAutoScrollRow> {
   @override
   void initState() {
     super.initState();
-    _reveal(animate: false);
+    if (widget.revealOnMount) _reveal(animate: false);
   }
 
   @override
@@ -261,12 +266,80 @@ class _PolyAutoScrollRowState extends State<PolyAutoScrollRow> {
   }
 }
 
-/// The categories plus "More ›": level 2 under the Investments pills.
+/// One row that is either a strip of categories or, drilled into one of
+/// them ([drilledInto]), that category's back pill and subcategories.
+/// The row keeps its height, so the content under it never jumps; the
+/// swap cross-fades with [ArrivalSwitcher] (at once under Reduce Motion)
+/// and the row swapped in starts at its beginning, where the back pill
+/// is. Predictions and Investing both browse with it.
+class PolyDrillRow extends StatefulWidget {
+  /// The category whose subcategories are on screen, or null for the
+  /// categories.
+  final Object? drilledInto;
+
+  /// The row on screen. [revealOnMount] is false for a row the swap has
+  /// just brought in (pass it on to [PolyAutoScrollRow.revealOnMount]).
+  final Widget Function(BuildContext context, bool revealOnMount) builder;
+
+  const PolyDrillRow({
+    super.key,
+    required this.drilledInto,
+    required this.builder,
+  });
+
+  @override
+  State<PolyDrillRow> createState() => _PolyDrillRowState();
+}
+
+class _PolyDrillRowState extends State<PolyDrillRow> {
+  /// Whether the row has swapped since it was first built: the first row
+  /// still brings its selected pill into view, as every row did.
+  bool _swapped = false;
+
+  @override
+  void didUpdateWidget(covariant PolyDrillRow old) {
+    super.didUpdateWidget(old);
+    if (old.drilledInto != widget.drilledInto) _swapped = true;
+  }
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        height: kutePillRowHeight(),
+        child: ArrivalSwitcher(
+          state: (#polyDrillRow, widget.drilledInto),
+          alignment: Alignment.centerLeft,
+          animateSize: false,
+          child: widget.builder(context, !_swapped),
+        ),
+      );
+}
+
+/// The pill that leads a drilled-in row: "‹ Sports", boxed like the
+/// subcategories after it. Screen readers hear "Back, Sports", a button.
+Widget kuteBackPill(
+  BuildContext context, {
+  required String label,
+  required VoidCallback onTap,
+}) =>
+    KutePill(
+      key: const ValueKey('kute-back-pill'),
+      label: label,
+      icon: Icons.chevron_left_rounded,
+      selected: true,
+      link: true,
+      semanticLabel: '${context.l10n.back}, $label',
+      onTap: onTap,
+    );
+
+/// The categories plus "More ›".
 class PolyPillRow extends StatelessWidget {
   final List<PolyPill> pills;
   final PolyPill selected;
   final ValueChanged<PolyPill> onSelect;
   final VoidCallback onMore;
+
+  /// See [PolyAutoScrollRow.revealOnMount].
+  final bool revealOnMount;
 
   const PolyPillRow({
     super.key,
@@ -274,6 +347,7 @@ class PolyPillRow extends StatelessWidget {
     required this.selected,
     required this.onSelect,
     required this.onMore,
+    this.revealOnMount = true,
   });
 
   @override
@@ -281,9 +355,8 @@ class PolyPillRow extends StatelessWidget {
     final l10n = context.l10n;
     final index = pills.indexOf(selected);
     return PolyAutoScrollRow(
-      height: kuteTextPillRowHeight(),
-      spacing: 0,
-      padding: 16 - kKuteTextPillInset,
+      height: kutePillRowHeight(),
+      revealOnMount: revealOnMount,
       itemCount: pills.length + 1,
       selectedIndex: index < 0 ? null : index,
       itemBuilder: (context, i) {
@@ -292,7 +365,6 @@ class PolyPillRow extends StatelessWidget {
             label: '${l10n.polyPillMore} ›',
             selected: false,
             link: true,
-            style: KutePillStyle.tab,
             onTap: onMore,
           );
         }
@@ -300,7 +372,6 @@ class PolyPillRow extends StatelessWidget {
         return KutePill(
           label: polyPillLabel(l10n, pill),
           selected: pill == selected,
-          style: KutePillStyle.tab,
           onTap: () => onSelect(pill),
         );
       },
@@ -308,13 +379,21 @@ class PolyPillRow extends StatelessWidget {
   }
 }
 
-/// The subcategories of the category on screen: level 3, smaller text
-/// under the categories' tabs.
+/// The subcategories of the category on screen, in the same pills as
+/// the categories. With [onBack] the row leads with the back pill that
+/// names the category ([kuteBackPill]): the drilled-in row of
+/// [PolyDrillRow].
 class PolySubRow extends StatelessWidget {
   final PolyPill pill;
   final List<PolySub> subs;
   final String selectedKey;
   final ValueChanged<PolySub> onSelect;
+
+  /// The back pill's tap; null draws no back pill.
+  final VoidCallback? onBack;
+
+  /// See [PolyAutoScrollRow.revealOnMount].
+  final bool revealOnMount;
 
   const PolySubRow({
     super.key,
@@ -322,25 +401,33 @@ class PolySubRow extends StatelessWidget {
     required this.subs,
     required this.selectedKey,
     required this.onSelect,
+    this.onBack,
+    this.revealOnMount = true,
   });
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final lead = onBack == null ? 0 : 1;
     final index = subs.indexWhere((s) => s.key == selectedKey);
     return PolyAutoScrollRow(
-      height: kuteTextPillRowHeight(),
-      spacing: 0,
-      padding: 16 - kKuteTextPillInset,
-      itemCount: subs.length,
-      selectedIndex: index < 0 ? null : index,
-      itemBuilder: (context, i) => KutePill(
-        label: polySubLabel(l10n, subs[i]),
-        leading: polySubLogo(pill, subs[i]),
-        selected: subs[i].key == selectedKey,
-        style: KutePillStyle.subtle,
-        onTap: () => onSelect(subs[i]),
-      ),
+      height: kutePillRowHeight(),
+      revealOnMount: revealOnMount,
+      itemCount: subs.length + lead,
+      selectedIndex: index < 0 ? null : index + lead,
+      itemBuilder: (context, i) {
+        if (i < lead) {
+          return kuteBackPill(context,
+              label: polyPillLabel(l10n, pill), onTap: onBack!);
+        }
+        final sub = subs[i - lead];
+        return KutePill(
+          label: polySubLabel(l10n, sub),
+          leading: polySubLogo(pill, sub),
+          selected: sub.key == selectedKey,
+          onTap: () => onSelect(sub),
+        );
+      },
     );
   }
 }

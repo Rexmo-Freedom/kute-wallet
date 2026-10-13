@@ -69,12 +69,22 @@ class RecordingRewardsApi implements UsdRewardsApi {
 /// venues (so the embedded browsers show their notice and read no feed)
 /// and allows everything else.
 class InvestmentsTestPolicy extends Fake implements RuntimeCapabilitiesService {
-  InvestmentsTestPolicy(this.earn);
+  InvestmentsTestPolicy(this.earn,
+      {this.browseInvesting = false, this.browsePredictions = false});
   final CapabilityDecision earn;
+
+  /// Lets the Investing / Predictions browser browse (its category row
+  /// on screen).
+  final bool browseInvesting;
+  final bool browsePredictions;
 
   @override
   CapabilityDecision decision(String id) => switch (id) {
         'usd.earn' => earn,
+        'hyperliquid.browse' when browseInvesting =>
+          const CapabilityDecision(allowed: true),
+        'polymarket.browse' when browsePredictions =>
+          const CapabilityDecision(allowed: true),
         'hyperliquid.browse' ||
         'polymarket.browse' =>
           const CapabilityDecision(allowed: false, reason: 'disabled'),
@@ -130,6 +140,8 @@ Future<RecordingRewardsApi> pumpInvestments(
   List<Override> overrides = const [],
   bool settle = false,
   Size size = const Size(390, 844),
+  bool browseInvesting = false,
+  bool browsePredictions = false,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -148,7 +160,8 @@ Future<RecordingRewardsApi> pumpInvestments(
     activeWalletId: 'spending',
     wallets: [WalletConfig(id: 'spending', name: 'Spending')],
   );
-  final policy = InvestmentsTestPolicy(earn);
+  final policy = InvestmentsTestPolicy(earn,
+      browseInvesting: browseInvesting, browsePredictions: browsePredictions);
   RuntimeCapabilitiesService.debugInstance = policy;
   addTearDown(() => RuntimeCapabilitiesService.debugInstance = null);
   await tester.pumpWidget(ProviderScope(

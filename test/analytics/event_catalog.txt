@@ -104,6 +104,7 @@ cashapp_payment_window_ended
 cashapp_purchase_cancelled
 cashapp_purchase_created
 category_pill_tapped
+category_row_back_tapped
 change_pin_blocked
 chart_autoscale_toggled
 chart_drawing_redone

@@ -30,7 +30,7 @@ import 'package:kute/screens/home/components/kute_dock_host.dart'
 import 'package:kute/screens/home/components/deposit_sheet.dart';
 import 'package:kute/screens/hyperliquid/components/hl_market_card.dart';
 import 'package:kute/screens/polymarket/components/poly_browse_bar.dart'
-    show PolyAutoScrollRow;
+    show PolyAutoScrollRow, PolyDrillRow, kuteBackPill;
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:kute/screens/portfolio/open_investments_screen.dart';
 import 'package:kute/screens/hyperliquid/components/order_slip_sheet.dart';
@@ -121,9 +121,23 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
     return _subsCache.putIfAbsent(tab, () => hlSubsForTab(tab, universe));
   }
 
+  /// The category whose subcategories the one browse row shows, in place
+  /// of the categories ([PolyDrillRow]); null shows the categories.
+  HlBrowseTab? _drilledInto;
+
+  /// A selection that names a subcategory (a pick that outlived this
+  /// screen) shows that category's row, so the pill on screen is seen.
+  static HlBrowseTab? _drillFor(HlBrowseSelection s) {
+    final sub = s.subs[s.tab];
+    return sub != null && sub != HlBrowseSub.all ? s.tab : null;
+  }
+
   /// A category pill shows its list here, in place: nothing is pushed.
+  /// One with subcategories also swaps the row for them; one with none
+  /// leaves the row as it is.
   void _onTab(HlBrowseTab tab) {
     HapticFeedback.selectionClick();
+    setState(() => _drilledInto = tab);
     final current = ref.read(hlBrowseSelectionProvider);
     if (tab == current.tab) return;
     TrackingService.track('hl_category_pill_tapped',
@@ -145,6 +159,22 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
         current.copyWith(sub: sub);
   }
 
+  /// The back pill: the categories again, the category still on screen
+  /// at its default list (as when it is picked).
+  void _onBack(HlBrowseTab parent) {
+    HapticFeedback.selectionClick();
+    TrackingService.track('category_row_back_tapped', params: {
+      'surface': 'investing',
+      'parent': parent.key,
+    });
+    setState(() => _drilledInto = null);
+    final current = ref.read(hlBrowseSelectionProvider);
+    if (current.sub != HlBrowseSub.all) {
+      ref.read(hlBrowseSelectionProvider.notifier).state =
+          current.copyWith(sub: HlBrowseSub.all);
+    }
+  }
+
   /// Live-price notifier captured while `ref` is valid — dispose() must
   /// NOT call ref.read (unmounted ConsumerStatefulElement throws
   /// _assertNotDisposed; same crash-fix as PolymarketScreen).
@@ -153,6 +183,7 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
   @override
   void initState() {
     super.initState();
+    _drilledInto = _drillFor(ref.read(hlBrowseSelectionProvider));
     // Drive the persistent shell nav bar's hide/reveal from this tab's
     // scroll. Embedded, the list scrolls inside the Investments page,
     // which drives the bar from its own scroll notifications.
@@ -348,6 +379,12 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
 
     // The category on screen; one that has emptied falls back to Trending.
     var selection = ref.watch(hlBrowseSelectionProvider);
+    ref.listen<HlBrowseSelection>(hlBrowseSelectionProvider, (prev, next) {
+      final drill = _drillFor(next);
+      if (drill != null && drill != _drilledInto) {
+        setState(() => _drilledInto = drill);
+      }
+    });
     if (availableTabs.isNotEmpty && !availableTabs.contains(selection.tab)) {
       selection = selection.copyWith(tab: HlBrowseTab.trending);
     }
@@ -359,6 +396,9 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
         ? const <HlBrowseSub>[]
         : _subsFor(tab, universe);
     final sub = hlEffectiveSub(selection.sub, subs);
+    // The one browse row shows the subcategories of the category drilled
+    // into, while it has a row of them.
+    final drilled = _drilledInto == tab && subs.length > 1;
     final markets = _listFor(tab, sub, universe);
 
     // The browser's own scroll view. Embedded in Investments it is the
@@ -389,51 +429,48 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
                           child: InvestmentBalanceHeader(
                               product: InvestmentsProduct.trading)),
 
-                    // Categories: the side-scrolling row under the
-                    // balance and, under it, the subcategories of the
-                    // category on screen. Both filter the list below in
-                    // place, like Predictions. Under the Investments
-                    // pills they are levels 2 and 3 of one hierarchy:
-                    // text tabs with an underline, then smaller text,
-                    // never a second and third row of boxed chips.
+                    // Categories: ONE side-scrolling row of pills under
+                    // the balance. A category with subcategories drills
+                    // in: the row becomes "‹ Category" and its
+                    // subcategories. Both filter the list below in place,
+                    // like Predictions.
                     if (canBrowse && availableTabs.isNotEmpty)
                       SliverToBoxAdapter(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            SizedBox(height: 4.h),
-                            PolyAutoScrollRow(
-                              height: kuteTextPillRowHeight(),
-                              spacing: 0,
-                              padding: 16 - kKuteTextPillInset,
-                              itemCount: availableTabs.length,
-                              selectedIndex: availableTabs.indexOf(tab),
-                              itemBuilder: (context, i) => KutePill(
-                                label: availableTabs[i]
-                                    .localizedLabel(context.l10n),
-                                selected: availableTabs[i] == tab,
-                                style: KutePillStyle.tab,
-                                onTap: () => _onTab(availableTabs[i]),
-                              ),
-                            ),
-                            if (subs.length > 1)
-                              PolyAutoScrollRow(
-                                // A new category starts its row afresh.
-                                key: ValueKey('hl-subs-${tab.name}'),
-                                height: kuteTextPillRowHeight(),
-                                spacing: 0,
-                                padding: 16 - kKuteTextPillInset,
-                                itemCount: subs.length,
-                                selectedIndex: subs.indexOf(sub),
-                                itemBuilder: (context, i) => KutePill(
-                                  label: subs[i].localizedLabel(context.l10n),
-                                  selected: subs[i] == sub,
-                                  style: KutePillStyle.subtle,
-                                  onTap: () => _onSub(subs[i]),
-                                ),
-                              ),
-                          ],
+                        child: Padding(
+                          padding: EdgeInsets.only(top: 4.h),
+                          child: PolyDrillRow(
+                            drilledInto: drilled ? tab : null,
+                            builder: (context, revealOnMount) => drilled
+                                ? PolyAutoScrollRow(
+                                    height: kutePillRowHeight(),
+                                    revealOnMount: revealOnMount,
+                                    itemCount: subs.length + 1,
+                                    selectedIndex: subs.indexOf(sub) + 1,
+                                    itemBuilder: (context, i) => i == 0
+                                        ? kuteBackPill(context,
+                                            label: tab
+                                                .localizedLabel(context.l10n),
+                                            onTap: () => _onBack(tab))
+                                        : KutePill(
+                                            label: subs[i - 1]
+                                                .localizedLabel(context.l10n),
+                                            selected: subs[i - 1] == sub,
+                                            onTap: () => _onSub(subs[i - 1]),
+                                          ),
+                                  )
+                                : PolyAutoScrollRow(
+                                    height: kutePillRowHeight(),
+                                    revealOnMount: revealOnMount,
+                                    itemCount: availableTabs.length,
+                                    selectedIndex: availableTabs.indexOf(tab),
+                                    itemBuilder: (context, i) => KutePill(
+                                      label: availableTabs[i]
+                                          .localizedLabel(context.l10n),
+                                      selected: availableTabs[i] == tab,
+                                      onTap: () => _onTab(availableTabs[i]),
+                                    ),
+                                  ),
+                          ),
                         ),
                       ),
 

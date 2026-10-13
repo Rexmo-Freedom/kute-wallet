@@ -263,9 +263,22 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
     _container = ProviderScope.containerOf(context, listen: false);
   }
 
+  /// The category whose subcategories the one browse row shows, in place
+  /// of the categories ([PolyDrillRow]); null shows the categories.
+  PolyPill? _drilledInto;
+
+  /// A selection that names a subcategory other than its category's
+  /// default (a deep link, a pick on "More") shows that category's row,
+  /// so the chip that is on screen can be seen.
+  static PolyPill? _drillFor(PolyBrowseSelection s) {
+    final sub = s.subs[s.pill];
+    return sub != null && sub != s.pill.defaultSub ? s.pill : null;
+  }
+
   @override
   void initState() {
     super.initState();
+    _drilledInto = _drillFor(ref.read(polyBrowseSelectionProvider));
     // Embedded, the list scrolls inside the Investments page, which
     // drives the nav bar itself; paging reads the notifications instead.
     if (!widget.embedded) _scrollController.addListener(_onScroll);
@@ -389,8 +402,11 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
     return null;
   }
 
+  /// A category: its list, and its subcategories in place of the
+  /// categories when it has any (the row stays put when it has none).
   void _onPill(PolyPill pill) {
     HapticFeedback.selectionClick();
+    setState(() => _drilledInto = pill);
     final current = ref.read(polyBrowseSelectionProvider);
     if (pill == current.pill) return;
     TrackingService.track('category_pill_tapped',
@@ -409,6 +425,21 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
     _select(current.copyWith(sub: sub.key));
   }
 
+  /// The back pill: the categories again, the category still on screen
+  /// at its default list (as when it is picked).
+  void _onBack(PolyPill parent) {
+    HapticFeedback.selectionClick();
+    TrackingService.track('category_row_back_tapped', params: {
+      'surface': 'predictions',
+      'parent': parent.key,
+    });
+    setState(() => _drilledInto = null);
+    final current = ref.read(polyBrowseSelectionProvider);
+    if (current.sub != parent.defaultSub) {
+      _select(current.copyWith(sub: parent.defaultSub));
+    }
+  }
+
   /// "More": every category with its subcategories; a row shows its list.
   void _onMore(List<PolyPill> pills) {
     HapticFeedback.selectionClick();
@@ -423,6 +454,7 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
           'section': pill.key,
           'subcategory': sub.route,
         });
+        if (mounted) setState(() => _drilledInto = pill);
         _select(current.copyWith(pill: pill).copyWith(sub: sub.key));
       },
     );
@@ -444,6 +476,13 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
           p
     ];
     var selection = ref.watch(polyBrowseSelectionProvider);
+    ref.listen<PolyBrowseSelection>(polyBrowseSelectionProvider,
+        (prev, next) {
+      final drill = _drillFor(next);
+      if (drill != null && drill != _drilledInto) {
+        setState(() => _drilledInto = drill);
+      }
+    });
     if (!pills.contains(selection.pill)) {
       selection = selection.copyWith(pill: PolyPill.trending);
     }
@@ -486,6 +525,9 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
       }
     }
     final sub = _subFor(selection, subs) ?? PolySub(selection.sub);
+    // The one browse row shows the subcategories of the category drilled
+    // into, while it has a row of them.
+    final drilled = _drilledInto == pill && subs.length > 1;
     // Live always reads the one list of games in play; a league pill
     // narrows it on screen.
     final query = pill == PolyPill.live
@@ -590,30 +632,32 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
                             capability: 'polymarket.browse'),
                       )
                     else ...[
-                      // ── Categories: the side-scrolling text tabs under
-                      // the balance, and under them the subcategories of
-                      // the category on screen in smaller text (levels 2
-                      // and 3 under the Investments pills).
+                      // ── Categories: ONE side-scrolling row of pills
+                      // under the balance. A category with subcategories
+                      // drills in: the row becomes "‹ Category" and its
+                      // subcategories. Both filter the list below in place.
                       SliverToBoxAdapter(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            SizedBox(height: 4.h),
-                            PolyPillRow(
-                              pills: pills,
-                              selected: pill,
-                              onSelect: _onPill,
-                              onMore: () => _onMore(pills),
-                            ),
-                            if (subs.length > 1)
-                              PolySubRow(
-                                pill: pill,
-                                subs: subs,
-                                selectedKey: selection.sub,
-                                onSelect: _onSub,
-                              ),
-                          ],
+                        child: Padding(
+                          padding: EdgeInsets.only(top: 4.h),
+                          child: PolyDrillRow(
+                            drilledInto: drilled ? pill : null,
+                            builder: (context, revealOnMount) => drilled
+                                ? PolySubRow(
+                                    pill: pill,
+                                    subs: subs,
+                                    selectedKey: selection.sub,
+                                    onSelect: _onSub,
+                                    onBack: () => _onBack(pill),
+                                    revealOnMount: revealOnMount,
+                                  )
+                                : PolyPillRow(
+                                    pills: pills,
+                                    selected: pill,
+                                    onSelect: _onPill,
+                                    onMore: () => _onMore(pills),
+                                    revealOnMount: revealOnMount,
+                                  ),
+                          ),
                         ),
                       ),
 

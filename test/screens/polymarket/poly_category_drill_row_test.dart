@@ -1,0 +1,126 @@
+// Predictions browses with ONE row of boxed category pills (owner
+// decision 2026-10-13). Finance has subcategories: a tap swaps the row for
+// "‹ Finance" and All · Daily · …, All selected; the back pill brings the
+// categories back with Finance still on screen at its default list, and
+// says so to PostHog. A category with none (New) selects and the row
+// stays.
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:kute/l10n/l10n.dart';
+import 'package:kute/providers/polymarket_browse_provider.dart';
+import 'package:kute/screens/polymarket/components/poly_browse_bar.dart'
+    show PolyDrillRow;
+import 'package:kute/screens/polymarket/polymarket_screen.dart';
+import 'package:kute/screens/shared/kute_pill_tabs.dart';
+import 'package:kute/services/tracking_service.dart';
+
+import '../usd/investments_harness.dart';
+
+/// Every list empty and read: nothing goes to the network.
+class _EmptyFeed extends PolyFeedNotifier {
+  @override
+  PolyFeedState build(PolyFeedQuery arg) => const PolyFeedState(done: true);
+}
+
+Finder _inBrowser(Finder f) =>
+    find.descendant(of: find.byType(PolymarketScreen), matching: f);
+
+Finder _pill(String label) => _inBrowser(find.widgetWithText(KutePill, label));
+
+final _back = _inBrowser(find.byKey(const ValueKey('kute-back-pill')));
+
+bool _selected(WidgetTester tester, String label) =>
+    tester.widget<KutePill>(_pill(label)).selected;
+
+/// Brings [f] into view (the row side-scrolls) and taps it.
+Future<void> _tap(WidgetTester tester, Finder f) async {
+  await tester.ensureVisible(f);
+  await tester.pump();
+  await tester.tap(f);
+}
+
+Future<void> _settle(WidgetTester tester) async {
+  for (var i = 0; i < 5; i++) {
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+}
+
+void main() {
+  setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
+
+  testWidgets(
+      'Finance drills in to its back pill and subcategories; back restores '
+      'the categories at Finance\'s default list; New stays put',
+      (tester) async {
+    final events = <(String, Map<String, Object>?)>[];
+    TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+    addTearDown(() => TrackingService.debugTrackObserver = null);
+
+    await pumpInvestments(tester, browsePredictions: true, overrides: [
+      polyBrowseFeedProvider.overrideWith(_EmptyFeed.new),
+    ]);
+    final l10n =
+        AppLocalizations.of(tester.element(find.byType(KutePillTabs).first));
+    await tapAndPump(tester, investmentsPill(l10n.predictions));
+    final container = ProviderScope.containerOf(
+        tester.element(find.byType(PolymarketScreen)));
+
+    final row = _inBrowser(find.byType(PolyDrillRow));
+    expect(row, findsOneWidget);
+    final rowSize = tester.getSize(row);
+    expect(_selected(tester, 'Trending'), isTrue);
+    expect(_back, findsNothing);
+
+    // New has no subcategories: it selects, the row stays.
+    await _tap(tester, _pill('New'));
+    await _settle(tester);
+    expect(_selected(tester, 'New'), isTrue);
+    expect(_back, findsNothing);
+    expect(_pill('More ›'), findsOneWidget);
+
+    // Finance drills in: "‹ Finance", then All (selected), Daily …
+    await _tap(tester, _pill('Finance'));
+    await _settle(tester);
+    expect(_pill('Trending'), findsNothing);
+    expect(_pill('More ›'), findsNothing);
+    expect(_back, findsOneWidget);
+    expect(tester.widget<KutePill>(_back).label, 'Finance');
+    expect(_selected(tester, 'All'), isTrue);
+    expect(_selected(tester, 'Daily'), isFalse);
+    expect(tester.getSize(row), rowSize);
+
+    await _tap(tester, _pill('Daily'));
+    await _settle(tester);
+    expect(_selected(tester, 'Daily'), isTrue);
+    expect(container.read(polyBrowseSelectionProvider).sub, 'daily');
+
+    // Back: the categories, Finance still selected, at its default list.
+    await _tap(tester, _back);
+    await _settle(tester);
+    expect(_back, findsNothing);
+    expect(_selected(tester, 'Finance'), isTrue);
+    expect(container.read(polyBrowseSelectionProvider).pill, PolyPill.finance);
+    expect(container.read(polyBrowseSelectionProvider).sub, 'all');
+
+    expect(
+        events.where((e) => e.$1 == 'category_pill_tapped').map((e) => e.$2), [
+      {'section': 'new'},
+      {'section': 'finance'},
+      {'section': 'finance', 'subcategory': 'daily'},
+    ]);
+    expect(
+        events
+            .where((e) => e.$1 == 'category_row_back_tapped')
+            .map((e) => e.$2),
+        [
+          {'surface': 'predictions', 'parent': 'finance'},
+        ]);
+
+    await unmountInvestments(tester);
+    // The BTC price feed lets its socket go 30 s after the last listener.
+    await tester.pump(const Duration(seconds: 31));
+  });
+}

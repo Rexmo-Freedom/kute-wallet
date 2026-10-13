@@ -30,8 +30,6 @@ import 'package:kute/screens/shared/hyperliquid_activity_list.dart';
 import 'package:kute/providers/ledger/ledger_hyperliquid_activity_provider.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
-import 'package:kute/screens/shared/kute_pill_tabs.dart'
-    show kKuteTextPillInset;
 import 'package:kute/screens/shared/portfolio_tabs.dart';
 import 'package:kute/screens/portfolio/portfolio_statistics.dart';
 import 'package:kute/models/portfolio_performance.dart';
@@ -61,8 +59,7 @@ class LedgerPortfolioScreen extends StatelessWidget {
       (context.l10n.portfolioTabStatistics, Icons.insights_outlined),
     ];
     final tabs = Padding(
-      padding: EdgeInsets.fromLTRB((16 - kKuteTextPillInset).w, 4.h,
-          (16 - kKuteTextPillInset).w, 8.h),
+      padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 8.h),
       child: PortfolioTabs(tabs: tabLabels),
     );
     final content = TabBarView(children: [
