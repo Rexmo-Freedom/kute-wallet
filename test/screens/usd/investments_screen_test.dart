@@ -4,8 +4,8 @@
 // glyph of the one icon family, a step bigger than the Home strip), the
 // one-balance hero above them, and the Receive / Send / search dock with
 // the search scoped to the pill. Receive (the dock's, no door under the
-// hero any more) opens the Dollars receive screen on its address step;
-// its "From your Bitcoin" row opens the Investments deposit sheet. No
+// hero any more) opens the Dollars receive screen on its coin step, whose
+// "From your Bitcoin" row opens the Investments deposit sheet. No
 // venue Deposit or Withdraw exists anywhere inside it.
 // The whole page scrolls as one on every pill, and the chrome collapses:
 // the hero leaves, the pills condense into the compact pinned bar with a

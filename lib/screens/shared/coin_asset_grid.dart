@@ -323,6 +323,37 @@ String? coinNetworkRowNote(
         OrchestraReceiveOption option, AppLocalizations l10n) =>
     option.reusableAddress ? null : l10n.receiveOneOffTag;
 
+/// [groups] minus the networks the runtime policy withdraws for this
+/// region, regrouped so a coin left with no network disappears with
+/// them; and the reason the first hidden row gave. What
+/// [CoinAssetPickerSheet] offers, and what a step that shows the grid
+/// itself offers, so the two can never be a different set.
+({List<CoinAssetGroup> groups, String? hiddenReason})
+    coinGroupsOfferedUnderPolicy(
+  List<CoinAssetGroup> groups, {
+  String otherLegAsset = 'BTC',
+  bool depositAddress = false,
+}) {
+  final policy = RuntimeCapabilitiesService.instance;
+  final offered = <CoinAssetGroup>[];
+  String? reason;
+  for (final group in groups) {
+    final result = orchestraOptionsOfferedUnderPolicy(group.options, policy,
+        otherLegAsset: otherLegAsset, depositAddress: depositAddress);
+    reason ??= result.hiddenReason;
+    if (result.offered.isEmpty) continue;
+    offered.add(result.offered.length == group.options.length
+        ? group
+        : CoinAssetGroup(
+            key: group.key,
+            displayName: group.displayName,
+            displaySymbol: group.displaySymbol,
+            options: result.offered,
+          ));
+  }
+  return (groups: offered, hiddenReason: reason);
+}
+
 /// The coins a balance can be funded with, or sent to.
 ///
 /// ASSET FIRST, NETWORK SECOND, and that ordering is the whole point.
@@ -414,27 +445,10 @@ class _CoinAssetPickerSheetState extends State<CoinAssetPickerSheet> {
   /// [CoinAssetPickerSheet.groups] minus the networks the runtime policy
   /// withdraws for this region, regrouped so a coin left with no network
   /// disappears with them; and the reason the first hidden row gave.
-  ({List<CoinAssetGroup> groups, String? hiddenReason}) _offered() {
-    final policy = RuntimeCapabilitiesService.instance;
-    final groups = <CoinAssetGroup>[];
-    String? reason;
-    for (final group in widget.groups) {
-      final result = orchestraOptionsOfferedUnderPolicy(group.options, policy,
+  ({List<CoinAssetGroup> groups, String? hiddenReason}) _offered() =>
+      coinGroupsOfferedUnderPolicy(widget.groups,
           otherLegAsset: widget.otherLegAsset,
           depositAddress: widget.depositAddress);
-      reason ??= result.hiddenReason;
-      if (result.offered.isEmpty) continue;
-      groups.add(result.offered.length == group.options.length
-          ? group
-          : CoinAssetGroup(
-              key: group.key,
-              displayName: group.displayName,
-              displaySymbol: group.displaySymbol,
-              options: result.offered,
-            ));
-    }
-    return (groups: groups, hiddenReason: reason);
-  }
 
   @override
   void initState() {

@@ -467,17 +467,14 @@ class AppRouter {
                     // way in, and it is the dollars that land. Its own
                     // route so the destination is carried by the URL
                     // rather than by a one-shot provider a deep link
-                    // could miss. `?coin=auto` (the Investments dock's
-                    // Receive) opens it on the address with a coin picked.
+                    // could miss. Every way in opens its coin step; an
+                    // old `?coin=auto` link is accepted and ignored.
                     GoRoute(
                       path: '/receive_dollars',
                       name: 'receiveDollars',
                       parentNavigatorKey: _rootNavigatorKey,
                       pageBuilder: (context, state) => _buildFadeScalePage(
-                        child: UsdReceiveScreen(
-                          autoPickCoin:
-                              state.uri.queryParameters['coin'] == 'auto',
-                        ),
+                        child: const UsdReceiveScreen(),
                         state: state,
                       ),
                     ),

@@ -800,9 +800,9 @@ class _RenderMeasureHeight extends RenderProxyBox {
 ///
 /// RECEIVE (owner decision, 2026-10-13, replacing the dock's Deposit)
 /// wears the Bitcoin dock's Receive label and arrow and opens the Dollars
-/// receive screen (usd_receive_screen.dart) straight on the address step,
-/// the coin already picked: the one last used, else USDC on Solana,
-/// Base or Polygon, else the first one offered. The dollar token is a
+/// receive screen (usd_receive_screen.dart) on its first step: "From your
+/// Bitcoin" first, then the coins it also accepts; nothing is picked for
+/// the person, a coin they tap shows its address. The dollar token is a
 /// first-class Orchestra asset, so the same reusable deposit address the
 /// Bitcoin screen mints for a cross-asset receive is minted pointed at
 /// the dollar balance instead, and Orchestra converts on the way in. The
@@ -849,18 +849,19 @@ class UsdAccountActionBar extends ConsumerWidget {
   final ValueChanged<double>? onHeightChanged;
 
   /// Test seam: what Receive opens. Null pushes the Dollars receive
-  /// route with its coin picked (`receiveDollars?coin=auto`); a test
-  /// swaps in a recorder so the dock can be driven without a router.
+  /// route (`receiveDollars`); a test swaps in a recorder so the dock can
+  /// be driven without a router.
   @visibleForTesting
   static void Function(BuildContext context)? debugReceiveOpener;
 
-  /// The dock's Receive: the Dollars receive screen on its address step.
+  /// The dock's Receive: the Dollars receive screen on its first step,
+  /// "From your Bitcoin" over the coins it also accepts.
   void _receive(BuildContext context) {
     TrackingService.markEntrySource('usd_receive', kUsdDockSource);
     final open = debugReceiveOpener;
     if (open != null) return open(context);
     // ignore: discarded_futures
-    context.pushNamed('receiveDollars', queryParameters: {'coin': 'auto'});
+    context.pushNamed('receiveDollars');
   }
 
   /// What the square searches for [tab]: a venue's own markets, results

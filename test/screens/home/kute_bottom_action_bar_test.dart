@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/settings_model.dart';
@@ -54,8 +55,10 @@ Settings _settings() => Settings(
       activeWalletId: 'spending',
     );
 
+/// [routes] mounts the dock under a real router (at `/`) beside them, so
+/// a test can see where a dock action navigates.
 Future<ProviderContainer> _pump(WidgetTester tester, Widget dock,
-    {bool aiEnabled = true, bool dark = false}) async {
+    {bool aiEnabled = true, bool dark = false, List<GoRoute>? routes}) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
@@ -73,24 +76,38 @@ Future<ProviderContainer> _pump(WidgetTester tester, Widget dock,
     hyperliquidAllMarketsProvider.overrideWith((_) => []),
   ]);
   addTearDown(container.dispose);
+  final theme = ThemeData(
+    brightness: dark ? Brightness.dark : Brightness.light,
+    splashFactory: NoSplash.splashFactory,
+    fontFamily: 'Inter',
+    extensions: [dark ? AppColorsExtension.dark() : AppColorsExtension.light()],
+  );
+  final home =
+      Scaffold(body: const SizedBox.shrink(), bottomNavigationBar: dock);
+  final router = routes == null
+      ? null
+      : GoRouter(routes: [
+          GoRoute(path: '/', builder: (_, __) => home),
+          ...routes,
+        ]);
+  if (router != null) addTearDown(router.dispose);
   await tester.pumpWidget(UncontrolledProviderScope(
     container: container,
     child: ScreenUtilInit(
       designSize: const Size(430, 932),
-      builder: (_, __) => MaterialApp(
-        theme: ThemeData(
-          brightness: dark ? Brightness.dark : Brightness.light,
-          splashFactory: NoSplash.splashFactory,
-          fontFamily: 'Inter',
-          extensions: [
-            dark ? AppColorsExtension.dark() : AppColorsExtension.light()
-          ],
-        ),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: Scaffold(
-            body: const SizedBox.shrink(), bottomNavigationBar: dock),
-      ),
+      builder: (_, __) => router != null
+          ? MaterialApp.router(
+              routerConfig: router,
+              theme: theme,
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+            )
+          : MaterialApp(
+              theme: theme,
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              home: home,
+            ),
     ),
   ));
   await tester.pumpAndSettle();
@@ -321,6 +338,28 @@ void main() {
         {'action': 'receive', 'source': 'usd'});
     expect(TrackingService.takeEntrySource('usd_receive'), 'usd_dock');
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'the Investments dock\'s Receive pushes the Dollars receive route '
+      'plain, so it opens on its coin step (no auto-picked coin)',
+      (tester) async {
+    final opened = <Uri>[];
+    await _pump(tester, const UsdAccountActionBar(), routes: [
+      GoRoute(
+        path: '/receive_dollars',
+        name: 'receiveDollars',
+        builder: (_, state) {
+          opened.add(state.uri);
+          return const Scaffold(body: SizedBox.expand());
+        },
+      ),
+    ]);
+    await tester.tap(find.text('Receive'));
+    await tester.pumpAndSettle();
+    expect(opened.map((u) => u.toString()).toSet(), {'/receive_dollars'});
+    expect(opened.first.queryParameters, isEmpty);
+    expect(TrackingService.takeEntrySource('usd_receive'), 'usd_dock');
   });
 
   testWidgets('the Dollars dock searches the spending account\'s activity',

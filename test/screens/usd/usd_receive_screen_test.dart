@@ -1,10 +1,9 @@
-// The Investments receive: the dock's Receive opens it straight on the
-// address step with a coin already picked (the one last used, else USDC
-// on Solana, Base or Polygon, else the first offered), and both steps
-// carry "From your Bitcoin" at the top, which opens the Investments
-// deposit from the spending bitcoin. Nothing here reaches a money call:
-// the wallet never answers, so the address step stays on its loading
-// shape.
+// The Investments receive: every way in (the dock's Receive included)
+// opens on the coin step, "From your Bitcoin" first, which opens the
+// Investments deposit from the spending bitcoin, then "Also accepts" over
+// the coin grid. Nothing is picked for the person: a coin they tap shows
+// its address. Nothing here reaches a money call: the wallet never
+// answers, so the address step stays on its loading shape.
 
 import 'dart:async';
 
@@ -27,8 +26,12 @@ import 'package:kute/providers/currency_conversions_provider.dart';
 import 'package:kute/providers/orchestra_supported_routes_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/home/components/deposit_sheet.dart'
-    show MoveLockedSide, MovePickerRow;
+    show MoveLockedSide;
+import 'package:kute/screens/shared/asset_network_picker.dart' show PickerRow;
+import 'package:kute/screens/shared/coin_asset_grid.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
+import 'package:kute/screens/shared/send/send_flow_widgets.dart'
+    show SendToListRow;
 import 'package:kute/screens/usd/usd_receive_screen.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -52,7 +55,7 @@ Map<String, dynamic> _row(String chain, String asset, {int decimals = 6}) => {
       'route': {'to': 'all', 'fixedTo': [], 'exactOutTo': []},
     };
 
-OrchestraRoutesCatalog _catalog({bool solana = true, bool stables = true}) =>
+OrchestraRoutesCatalog _catalog({bool stables = true}) =>
     OrchestraRoutesCatalog.fromJson(
       {
         'assets': [
@@ -62,7 +65,7 @@ OrchestraRoutesCatalog _catalog({bool solana = true, bool stables = true}) =>
             _row('arbitrum', 'USDC'),
             _row('base', 'USDC'),
             _row('polygon', 'USDC'),
-            if (solana) _row('solana', 'USDC'),
+            _row('solana', 'USDC'),
             _row('ethereum', 'USDT'),
           ],
         ],
@@ -83,25 +86,12 @@ class _Routes extends OrchestraSupportedRoutesNotifier {
   Future<bool> refresh() async => false;
 }
 
-OrchestraReceiveOption _option(String chain, String asset,
-        {bool reusable = true}) =>
-    OrchestraReceiveOption(
-      assetCode: asset,
-      displayName: asset,
-      displaySymbol: asset,
-      chain: chain,
-      chainDisplayName: chain,
-      decimals: 6,
-      reusableAddress: reusable,
-    );
-
 final _l10n = AppLocalizationsEn();
 
+const _bitcoinRow = ValueKey('usd-receive-from-bitcoin');
+
 Future<void> _pump(WidgetTester tester,
-    {bool autoPickCoin = true,
-    bool solana = true,
-    bool stables = true,
-    int? spendingSats}) async {
+    {bool stables = true, int? spendingSats}) async {
   await tester.pumpWidget(ProviderScope(
     overrides: [
       settingsProvider.overrideWith((_) => SettingsModel(Settings(
@@ -116,8 +106,8 @@ Future<void> _pump(WidgetTester tester,
             activeWalletId: 'spending',
             wallets: [WalletConfig(id: 'spending', name: 'Spending')],
           ))),
-      orchestraSupportedRoutesProvider.overrideWith(
-          (_) => _Routes(_catalog(solana: solana, stables: stables))),
+      orchestraSupportedRoutesProvider
+          .overrideWith((_) => _Routes(_catalog(stables: stables))),
       orchestraRoutesReadyProvider.overrideWith((_) async {}),
       // Bitcoin at $60,000; the spending balance only when given.
       selectedCurrencyProvider.overrideWith(
@@ -140,7 +130,7 @@ Future<void> _pump(WidgetTester tester,
             extensions: [AppColorsExtension.light()]),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-        home: UsdReceiveScreen(autoPickCoin: autoPickCoin),
+        home: const UsdReceiveScreen(),
       ),
     ),
   ));
@@ -155,20 +145,16 @@ Future<void> _unmount(WidgetTester tester) async {
   await tester.pump(const Duration(seconds: 1));
 }
 
-Map<String, Object>? _selected(List<(String, Map<String, Object>?)> events) =>
-    events.where((e) => e.$1 == 'usd_receive_coin_selected').single.$2;
+Finder _tile(String symbol) => find.widgetWithText(CoinAssetTile, symbol).first;
 
 void main() {
   late List<(String, Map<String, Object>?)> events;
-  late Map<String, String> store;
 
   setUp(() async {
     GoogleFonts.config.allowRuntimeFetching = false;
     final policy = runtimePolicyFixture();
     RuntimeCapabilitiesService.debugInstance = policy;
     expect(await policy.refresh(), isTrue);
-    store = {};
-    UsdReceiveLastCoin.debugStore = store;
     events = [];
     TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
   });
@@ -177,158 +163,132 @@ void main() {
     RuntimeCapabilitiesService.debugInstance = null;
     TrackingService.debugTrackObserver = null;
     UsdReceiveScreen.debugDepositSheetOpener = null;
-    UsdReceiveLastCoin.debugStore = null;
   });
 
-  group('usdReceivePreselect', () {
-    final offered = [
-      _option('arbitrum', 'USDC'),
-      _option('base', 'USDC'),
-      _option('polygon', 'USDC'),
-      _option('solana', 'USDC'),
-    ];
-    String? pickId(List<OrchestraReceiveOption> o, {String? lastUsed}) {
-      final pick = usdReceivePreselect(o, lastUsed: lastUsed);
-      return pick == null ? null : usdReceiveCoinId(pick.option);
-    }
-
-    test('the one last used, while still offered as a reusable address', () {
-      final pick = usdReceivePreselect(offered, lastUsed: 'arbitrum:USDC')!;
-      expect(usdReceiveCoinId(pick.option), 'arbitrum:USDC');
-      expect(pick.reason, 'last_used');
-    });
-
-    test('else USDC on Solana, then Base, then Polygon', () {
-      expect(pickId(offered), 'solana:USDC');
-      expect(usdReceivePreselect(offered)!.reason, 'default');
-      // A last-used coin no longer offered falls through to the defaults.
-      expect(pickId(offered, lastUsed: 'tron:USDT'), 'solana:USDC');
-      final noSolana = offered.where((o) => o.chain != 'solana').toList();
-      expect(pickId(noSolana), 'base:USDC');
-      final polygonLeft = [
-        _option('arbitrum', 'USDT'),
-        _option('polygon', 'USDC'),
-      ];
-      expect(pickId(polygonLeft), 'polygon:USDC');
-      // A one-time Solana route is no default: Base takes it.
-      expect(
-          pickId([
-            _option('solana', 'USDC', reusable: false),
-            _option('base', 'USDC'),
-          ]),
-          'base:USDC');
-    });
-
-    test('else the first offered coin; one-time routes are never picked', () {
-      final pick = usdReceivePreselect([
-        _option('polygon', 'USDC', reusable: false),
-        _option('arbitrum', 'USDT'),
-      ])!;
-      expect(usdReceiveCoinId(pick.option), 'arbitrum:USDT');
-      expect(pick.reason, 'default');
-      expect(pickId([_option('polygon', 'USDC', reusable: false)]), isNull);
-      expect(pickId(const []), isNull);
-    });
-  });
+  Iterable<String> names() => events.map((e) => e.$1);
 
   testWidgets(
-      'the dock\'s Receive opens on the address step with USDC on Solana '
-      'picked, and remembers it', (tester) async {
+      'opens on the coin step: "From your Bitcoin" first, "Also accepts" '
+      'and the coin grid below, nothing picked and no sheet over it',
+      (tester) async {
     await _pump(tester);
-    expect(find.text(_l10n.usdReceiveShareStep), findsOneWidget);
-    expect(find.text(_l10n.usdFlowStepCoin), findsNothing);
-    expect(find.text(_l10n.usdReceiveCreating), findsOneWidget);
-    expect(_selected(events), {
-      'asset': 'USDC',
-      'chain': 'solana',
-      'address_kind': 'reusable',
-      'preselected': true,
-      'preselect_reason': 'default',
-    });
-    expect(store, {'last': 'solana:USDC'});
-    // No balance read yet: the Bitcoin row's plain subtitle.
-    expect(
-        tester
-            .widget<MovePickerRow>(
-                find.byKey(const ValueKey('usd-receive-from-bitcoin')))
-            .subtitle,
-        _l10n.depositFromSpendingWallet);
+    final row = find.byKey(_bitcoinRow);
+    expect(row, findsOneWidget);
+    final accepts = find.text(_l10n.receiveAlsoAccepts);
+    expect(accepts, findsOneWidget);
+    expect(find.byType(CoinAssetGrid), findsOneWidget);
+    expect(_tile('USDC'), findsOneWidget);
+    expect(_tile('USDT'), findsOneWidget);
+    // Top to bottom: the Bitcoin row, the heading, the grid.
+    expect(tester.getTopLeft(row).dy, lessThan(tester.getTopLeft(accepts).dy));
+    expect(tester.getTopLeft(accepts).dy,
+        lessThan(tester.getTopLeft(find.byType(CoinAssetGrid)).dy));
 
-    // Back lands on the coin step, whose picker still changes it.
-    await tester.tap(find.byType(KuteBackButton));
-    await tester.pump(const Duration(milliseconds: 400));
-    expect(find.text(_l10n.usdFlowStepCoin), findsOneWidget);
+    // No address, no auto pick, no sheet.
+    expect(find.text(_l10n.usdReceiveShareStep), findsNothing);
+    expect(find.text(_l10n.usdReceiveCreating), findsNothing);
+    expect(names(), isNot(contains('usd_receive_coin_selected')));
+    expect(names(), isNot(contains('usd_receive_coin_picker_opened')));
+    expect(find.byType(CoinAssetPickerSheet), findsNothing);
+    expect(names(), contains('usd_receive_opened'));
     expect(tester.takeException(), isNull);
     await _unmount(tester);
   });
 
-  testWidgets('the coin last received with wins', (tester) async {
-    store['last'] = 'polygon:USDC';
-    await _pump(tester);
-    expect(find.text(_l10n.usdReceiveShareStep), findsOneWidget);
-    expect(_selected(events), {
-      'asset': 'USDC',
-      'chain': 'polygon',
-      'address_kind': 'reusable',
-      'preselected': true,
-      'preselect_reason': 'last_used',
-    });
-    await _unmount(tester);
-  });
-
-  testWidgets('without Solana it is USDC on Base', (tester) async {
-    await _pump(tester, solana: false);
-    expect(_selected(events)!['chain'], 'base');
-    expect(_selected(events)!['preselect_reason'], 'default');
-    await _unmount(tester);
-  });
-
-  testWidgets('nothing offered: today\'s coin step, nothing picked',
-      (tester) async {
-    await _pump(tester, stables: false);
-    expect(find.text(_l10n.usdReceiveShareStep), findsNothing);
-    expect(events.where((e) => e.$1 == 'usd_receive_coin_selected'), isEmpty);
-    expect(
-        events.map((e) => e.$1), contains('usd_receive_coin_picker_opened'));
-    await _unmount(tester);
-  });
-
-  testWidgets('opened without the dock it starts on the coin step',
-      (tester) async {
-    await _pump(tester, autoPickCoin: false);
-    expect(find.text(_l10n.usdReceiveShareStep), findsNothing);
-    expect(events.where((e) => e.$1 == 'usd_receive_coin_selected'), isEmpty);
-    await _unmount(tester);
-  });
-
   testWidgets(
-      '"From your Bitcoin" sits at the top and opens the Investments '
-      'deposit from the spending bitcoin', (tester) async {
+      '"From your Bitcoin" is a full list row with the spending balance and '
+      'opens the Investments deposit from the spending bitcoin',
+      (tester) async {
     final opened = <MoveLockedSide>[];
     UsdReceiveScreen.debugDepositSheetOpener =
         (_, {required lockedSide}) async => opened.add(lockedSide);
     await _pump(tester, spendingSats: 100000);
-    final row = find.byKey(const ValueKey('usd-receive-from-bitcoin'));
-    expect(row, findsOneWidget);
-    final picker = tester.widget<MovePickerRow>(row);
-    expect(picker.title, _l10n.usdReceiveFromYourBitcoin);
-    expect(picker.asset, 'lib/assets/bitcoin-icon.svg');
+    final row = tester.widget<SendToListRow>(find.byKey(_bitcoinRow));
+    expect(row.title, _l10n.usdReceiveFromYourBitcoin);
     // The spending bitcoin in dollars, as the Move sheet's row reads it.
-    expect(picker.subtitle, 'Your spending wallet · \$60.00');
-    // Above the step heading.
-    expect(tester.getTopLeft(row).dy,
-        lessThan(tester.getTopLeft(find.text(_l10n.usdReceiveShareStep)).dy));
+    expect(row.subtitle, 'Your spending wallet · \$60.00');
+    expect(find.byIcon(Icons.chevron_right_rounded), findsOneWidget);
 
-    await tester.tap(row);
+    await tester.tap(find.byKey(_bitcoinRow));
     await tester.pump();
     expect(opened, [MoveLockedSide.depositToUsd]);
     expect(TrackingService.takeEntrySource('move'), 'usd_receive_bitcoin_row');
+    await _unmount(tester);
+  });
 
-    // The coin step carries it too.
+  testWidgets('without a balance the row says just the spending wallet',
+      (tester) async {
+    await _pump(tester);
+    expect(tester.widget<SendToListRow>(find.byKey(_bitcoinRow)).subtitle,
+        _l10n.depositFromSpendingWallet);
+    await _unmount(tester);
+  });
+
+  testWidgets(
+      'a coin on one network goes straight to its address; the Bitcoin row '
+      'is not repeated there and Back returns to the coin step',
+      (tester) async {
+    await _pump(tester);
+    await tester.tap(_tile('USDT'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text(_l10n.usdReceiveShareStep), findsOneWidget);
+    expect(find.text(_l10n.usdReceiveCreating), findsOneWidget);
+    expect(find.byKey(_bitcoinRow), findsNothing);
+    final selected =
+        events.where((e) => e.$1 == 'usd_receive_coin_selected').single.$2;
+    expect(selected, {
+      'asset': 'USDT',
+      'chain': 'ethereum',
+      'address_kind': 'reusable',
+      'preselected': false,
+      'preselect_reason': 'none',
+    });
+
     await tester.tap(find.byType(KuteBackButton));
     await tester.pump(const Duration(milliseconds: 400));
-    expect(find.text(_l10n.usdFlowStepCoin), findsOneWidget);
-    expect(row, findsOneWidget);
+    expect(find.text(_l10n.usdReceiveShareStep), findsNothing);
+    expect(find.byKey(_bitcoinRow), findsOneWidget);
+    expect(find.text(_l10n.receiveAlsoAccepts), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await _unmount(tester);
+  });
+
+  testWidgets(
+      'a coin on several networks asks which one, then shows that address',
+      (tester) async {
+    await _pump(tester);
+    await tester.tap(_tile('USDC'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byType(CoinAssetPickerSheet), findsOneWidget);
+    expect(names(), contains('usd_receive_coin_picker_opened'));
+    expect(names(), isNot(contains('usd_receive_coin_selected')));
+
+    // Open on USDC's networks, not on the sheet's grid.
+    final networks = find.byType(PickerRow);
+    expect(networks, findsNWidgets(4));
+    await tester.tap(find.byWidgetPredicate(
+        (w) => w is PickerRow && w.title.toLowerCase().contains('solana')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text(_l10n.usdReceiveShareStep), findsOneWidget);
+    final selected =
+        events.where((e) => e.$1 == 'usd_receive_coin_selected').single.$2!;
+    expect(selected['chain'], 'solana');
+    expect(selected['preselected'], false);
+    expect(selected['preselect_reason'], 'none');
+    await _unmount(tester);
+  });
+
+  testWidgets('nothing offered: the Bitcoin row still leads, then the note',
+      (tester) async {
+    await _pump(tester, stables: false);
+    expect(find.byKey(_bitcoinRow), findsOneWidget);
+    expect(find.text(_l10n.usdReceiveCoinsUnavailable), findsOneWidget);
+    expect(find.byType(CoinAssetGrid), findsNothing);
+    expect(find.text(_l10n.usdReceiveShareStep), findsNothing);
+    expect(names(), isNot(contains('usd_receive_coin_selected')));
     await _unmount(tester);
   });
 }
