@@ -29,11 +29,12 @@ import 'package:kute/providers/hyperliquid_trading_provider.dart';
 import 'package:kute/providers/hyperliquid_user_events_provider.dart';
 import 'package:kute/providers/polymarket_open_orders_provider.dart';
 import 'package:kute/screens/home/components/kute_dock_host.dart'
-    show KuteDockClearance, kuteDockScrollClearance;
+    show kuteDockScrollClearance;
 import 'package:kute/screens/hyperliquid/components/open_orders_sheet.dart'
     show HlEndedOrderRow, HlOrderRow, HlTwapRow, hlCancelAllOrders;
 import 'package:kute/screens/polymarket/components/open_orders_sheet.dart'
     show PolyOrderRow, polyCancelAllOrders;
+import 'package:kute/screens/portfolio/portfolio_empty_state.dart';
 import 'package:kute/screens/portfolio/portfolio_filters.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart';
@@ -99,20 +100,9 @@ class PortfolioOpenOrders extends ConsumerWidget {
 
     if (loading) return const _OrdersSkeleton();
     if (rows.isEmpty && ended.isEmpty && !pmFailed) {
-      // Centred in the tab like every other empty portfolio view.
-      return KuteDockClearance(
-        child: Center(
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 32.w),
-            child: Text(
-              l10n.betNoRestingOrders,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                  color: c.textSecondary, fontSize: 15.sp, height: 1.4),
-            ),
-          ),
-        ),
-      );
+      // The empty state every Portfolio tab shows; the headline is the
+      // string's first line (its second is an explanatory note).
+      return PortfolioEmptyState(l10n.betNoRestingOrders.split('\n').first);
     }
 
     final items = <Widget>[

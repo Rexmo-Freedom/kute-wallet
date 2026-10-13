@@ -80,6 +80,7 @@ import 'package:kute/screens/portfolio/poly_position_events.dart'
 import 'package:kute/providers/usd_rewards_provider.dart'
     show usdEarnEnabledProvider;
 import 'package:kute/screens/portfolio/portfolio_activity.dart';
+import 'package:kute/screens/portfolio/portfolio_empty_state.dart';
 import 'package:kute/screens/portfolio/portfolio_filters.dart';
 import 'package:kute/screens/portfolio/portfolio_orders.dart';
 import 'package:kute/screens/portfolio/portfolio_statistics.dart';
@@ -216,7 +217,7 @@ class _OpenInvestmentsScreenState extends ConsumerState<OpenInvestmentsScreen> {
 
 /// The Open tab: each venue's positions under its plain name, in one
 /// list. A venue with nothing open has no section; nothing open anywhere
-/// is one quiet line.
+/// is the Portfolio empty state ([PortfolioEmptyState]).
 class _AllPositions extends ConsumerWidget {
   const _AllPositions({required this.venues});
 
@@ -252,6 +253,7 @@ class _AllPositions extends ConsumerWidget {
         predictions.isEmpty &&
         !tradingLoading &&
         !predictionsLoading;
+    if (nothingOpen) return PortfolioEmptyState(l10n.ledgerNoPositionsYet);
 
     return ListView(
       padding: EdgeInsets.fromLTRB(
@@ -265,7 +267,6 @@ class _AllPositions extends ConsumerWidget {
           _SectionHeader(l10n.predictions),
           if (predictionsLoading) const _LoadingCard() else ...predictions,
         ],
-        if (nothingOpen) _QuietLine(l10n.ledgerNoPositionsYet),
       ],
     );
   }
@@ -291,7 +292,7 @@ class _StatisticsTab extends ConsumerWidget {
     final v = venues;
     final earnAllowed = ref.watch(usdEarnEnabledProvider);
     if (!v.any && !earnAllowed) {
-      return const _EmptyState(product: InvestmentsProduct.trading);
+      return PortfolioEmptyState(context.l10n.openInvestNoOpenInvestments);
     }
     if (v.any) {
       return PortfolioStatisticsOverview(
@@ -569,31 +570,6 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-/// Portfolio emptiness is informational; browsing remains on the product page.
-/// One centred sentence, nothing else.
-class _EmptyState extends StatelessWidget {
-  final InvestmentsProduct product;
-  const _EmptyState({required this.product});
-
-  @override
-  Widget build(BuildContext context) => KuteDockClearance(
-          child: Center(
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 32.w),
-          child: Text(
-              product == InvestmentsProduct.predictions
-                  ? context.l10n.openInvestNoOpenPredictions
-                  : context.l10n.openInvestNoOpenInvestments,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                  color: context.colors.textSecondary,
-                  fontSize: 15.sp,
-                  fontWeight: FontWeight.w500)),
-        ),
-      ));
-}
 
 /// A spot holding as the portfolio's card: logo, name over "TICKER ·
 /// Spot", its value at the live mid with the profit or loss against what
@@ -664,8 +640,8 @@ class _LoadingCard extends StatelessWidget {
       );
 }
 
-/// One quiet sentence inside a list (All with nothing open, a venue that
-/// could not be read): the empty state's type, left in the flow.
+/// One quiet sentence inside a list (a venue that could not be read),
+/// left in the flow.
 class _QuietLine extends StatelessWidget {
   const _QuietLine(this.text);
 

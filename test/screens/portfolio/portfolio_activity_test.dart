@@ -25,6 +25,7 @@ import 'package:kute/screens/shared/transactions_builder.dart'
     show ActivityDaySection, assembleActivityRows;
 import 'package:kute/services/orchestra_routes.dart'
     show kOrchestraUsdAssetCode;
+import 'package:kute/screens/shared/no_activity_state.dart';
 import 'package:kute/theme/app_theme.dart';
 
 import '../../helpers/offline_venue_overrides.dart';
@@ -329,10 +330,11 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('nothing yet: one quiet line', (tester) async {
+    testWidgets('nothing yet: the app\'s empty state', (tester) async {
       await pump(tester);
       expect(find.byType(PortfolioActivityList), findsOneWidget);
       expect(find.text('No activity yet'), findsOneWidget);
+      expect(find.byType(NoActivityState), findsOneWidget);
       expect(find.byType(ActivityDaySection), findsNothing);
       expect(tester.takeException(), isNull);
     });

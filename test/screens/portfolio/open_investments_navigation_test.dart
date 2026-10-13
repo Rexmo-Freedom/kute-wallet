@@ -44,6 +44,7 @@ import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart';
 import 'package:kute/screens/portfolio/portfolio_statistics.dart';
 import 'package:kute/screens/shared/charts/kute_chart_range_pills.dart';
 import 'package:kute/screens/shared/charts/kute_line_chart.dart';
+import 'package:kute/screens/shared/no_activity_state.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/screens/shared/charts/kute_donut_chart.dart';
 import 'package:kute/screens/shared/investment_action_bar.dart';
@@ -390,6 +391,9 @@ void main() {
       (tester) async {
     await _pump(tester, initialTab: 1);
     expect(find.textContaining('No resting orders.'), findsOneWidget);
+    // The app's empty state, headline only: no explanatory second line.
+    expect(find.byType(NoActivityState), findsOneWidget);
+    expect(find.textContaining('Limit orders you place'), findsNothing);
     expect(find.byKey(const ValueKey('portfolio-orders-cancel-all')),
         findsNothing);
     _expectNoPillsBeyondTabs(tester);
@@ -476,13 +480,15 @@ void main() {
   });
 
   testWidgets(
-      'Statistics with nothing charted: one quiet line, never a flat line '
-      'at zero', (tester) async {
+      'Statistics with nothing ever done: the one empty state, never a '
+      'flat line at zero, no pills over nothing', (tester) async {
     await _pump(tester, initialTab: 3);
     expect(find.byType(KuteLineChart), findsNothing);
     expect(
         find.byKey(const ValueKey('statistics-chart-empty')), findsOneWidget);
-    expect(find.byKey(const ValueKey('statistics-active')), findsOneWidget);
+    expect(find.byType(NoActivityState), findsOneWidget);
+    expect(find.byKey(const ValueKey('statistics-empty')), findsNothing);
+    expect(find.byKey(const ValueKey('statistics-active')), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -631,6 +637,7 @@ void main() {
     await _pump(tester,
         state: _withPosition,
         placing: [_placing],
+        overrides: _performance(),
         home: const Scaffold(
             body: OpenInvestmentsScreen(
                 source: 'investments_tab', embedded: true)));

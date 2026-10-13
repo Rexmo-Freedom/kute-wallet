@@ -37,9 +37,9 @@ import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
 import 'package:kute/screens/home/components/kute_dock_host.dart'
     show KuteDockClearance, kuteDockScrollClearance;
+import 'package:kute/screens/portfolio/portfolio_empty_state.dart';
 import 'package:kute/screens/shared/hyperliquid_fill_activity.dart';
 import 'package:kute/screens/shared/transactions_builder.dart';
-import 'package:kute/theme/app_theme.dart';
 
 /// One entry of the merged list: a transaction row or a fill, with the
 /// time it sorts by.
@@ -88,7 +88,6 @@ class PortfolioActivityList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final c = context.colors;
     final l10n = context.l10n;
     // The spending account's own history, the slot the Dollars activity
     // and Home read.
@@ -124,12 +123,10 @@ class PortfolioActivityList extends ConsumerWidget {
     // Under the host's dock: the centred states keep clear of it, the
     // list runs under it with its last row clear.
     if (entries.isEmpty && !history.hasError) {
-      return KuteDockClearance(
-          child: Center(
-              child: history.isLoading
-                  ? const CircularProgressIndicator.adaptive()
-                  : Text(l10n.ledgerActivityEmpty,
-                      style: TextStyle(color: c.textTertiary))));
+      return history.isLoading
+          ? const KuteDockClearance(
+              child: Center(child: CircularProgressIndicator.adaptive()))
+          : PortfolioEmptyState(l10n.ledgerActivityEmpty);
     }
     final children = <Widget>[];
     if (history.hasError) {

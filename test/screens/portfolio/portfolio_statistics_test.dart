@@ -29,6 +29,7 @@ import 'package:kute/screens/shared/charts/kute_donut_chart.dart';
 import 'package:kute/screens/shared/charts/kute_line_chart.dart';
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart';
+import 'package:kute/screens/shared/no_activity_state.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/services/portfolio/portfolio_categories.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -1120,6 +1121,95 @@ void main() {
       await _pump(tester,
           trading: true, textScale: 2, scope: StatisticsScope.active);
       expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('Empty states', () {
+    final sal = find.byType(NoActivityState);
+
+    /// The app's empty state (Sal, the headline, a tagline) saying
+    /// [title], [compact] or not, with no card around it and no figures.
+    void expectEmptyState(WidgetTester tester, String title,
+        {required bool compact}) {
+      expect(sal, findsOneWidget);
+      expect(tester.widget<NoActivityState>(sal).compact, compact);
+      expect(find.descendant(of: sal, matching: find.text(title)),
+          findsOneWidget);
+      expect(
+          find.ancestor(
+              of: sal,
+              matching: find.byWidgetPredicate(
+                  (w) => w is Container && w.decoration != null)),
+          findsNothing);
+      expect(_card, findsNothing);
+      expect(find.byKey(const ValueKey('statistics-figures')), findsNothing);
+      expect(find.text(r'$0.00'), findsNothing);
+      expect(tester.takeException(), isNull);
+    }
+
+    testWidgets(
+        'Active with nothing open: the compact empty state under the pills, '
+        'no card, no figures of zeros', (tester) async {
+      await _pump(tester,
+          predictions: true, noOpen: true, scope: StatisticsScope.active);
+      expect(find.byKey(const ValueKey('statistics-empty')), findsOneWidget);
+      expect(find.byKey(const ValueKey('statistics-active')), findsOneWidget);
+      expect(find.text('Open P&L'), findsNothing);
+      expect(find.text('At stake'), findsNothing);
+      expectEmptyState(tester, 'No open predictions', compact: true);
+    });
+
+    testWidgets(
+        'the spending account\'s Active with nothing open: the chart, then '
+        'only the compact empty state', (tester) async {
+      await _pump(tester,
+          flat: true,
+          scope: StatisticsScope.active,
+          home: const PortfolioStatisticsOverview(
+              trading: true, predictions: false));
+      expect(find.byType(PortfolioPnlChart), findsOneWidget);
+      expect(find.byKey(const ValueKey('statistics-chart-empty')),
+          findsNothing);
+      expect(find.text('Open P&L'), findsNothing);
+      expectEmptyState(tester, 'No open investments', compact: true);
+    });
+
+    testWidgets('Historic with nothing ever closed: the same compact state',
+        (tester) async {
+      await _pump(tester, predictions: true, noPredictions: true);
+      expect(find.byKey(const ValueKey('statistics-empty')), findsOneWidget);
+      expect(find.text('Realized P&L'), findsNothing);
+      expect(find.text('Amount predicted'), findsNothing);
+      expectEmptyState(tester, 'No predictions yet', compact: true);
+    });
+
+    for (final scope in StatisticsScope.values) {
+      testWidgets(
+          'never traded (${scope.name}): one empty state for the page, no '
+          'pills, nothing stacked', (tester) async {
+        await _pump(tester, empty: true, scope: scope);
+        expect(find.byKey(const ValueKey('statistics-chart-empty')),
+            findsOneWidget);
+        expect(find.byKey(const ValueKey('statistics-empty')), findsNothing);
+        expect(find.byType(KutePill), findsNothing);
+        expectEmptyState(tester, 'No predictions yet', compact: false);
+      });
+    }
+
+    testWidgets(
+        'the spending account never traded: one empty state for the page',
+        (tester) async {
+      await _pump(tester,
+          empty: true,
+          scope: StatisticsScope.active,
+          home: const PortfolioStatisticsOverview(
+              trading: false, predictions: true));
+      expect(
+          find.byKey(const ValueKey('statistics-chart-empty')), findsOneWidget);
+      expect(find.byKey(const ValueKey('statistics-empty')), findsNothing);
+      expect(find.byType(KutePill), findsNothing);
+      expect(find.byType(PortfolioCategoryCard), findsNothing);
+      expectEmptyState(tester, 'No predictions yet', compact: false);
     });
   });
 

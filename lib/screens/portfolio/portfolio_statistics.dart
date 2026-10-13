@@ -24,6 +24,7 @@ import 'package:kute/providers/usd_rewards_provider.dart'
 import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart';
 import 'package:kute/screens/portfolio/portfolio_category_donut.dart';
 import 'package:kute/screens/portfolio/portfolio_category_drill.dart';
+import 'package:kute/screens/portfolio/portfolio_empty_state.dart';
 import 'package:kute/screens/polymarket/components/market_card.dart'
     show polyCardFigureStyle;
 import 'package:kute/screens/shared/portfolio_position_card.dart'
@@ -34,6 +35,7 @@ import 'package:kute/screens/shared/charts/kute_chart_range_pills.dart'
     show KuteRangePill;
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
+import 'package:kute/screens/shared/no_activity_state.dart';
 import 'package:kute/screens/hyperliquid/components/hl_isolated_margin.dart'
     show hlCloseValue, hlPositionMargin;
 import 'package:kute/services/portfolio/portfolio_categories.dart';
@@ -55,7 +57,9 @@ enum StatisticsScope { active, historic }
 ///     by that change with a dashed baseline at the range's start, a long
 ///     press scrubbing the header, and the 1D … ALL range pills. The same
 ///     chart on both sub-tabs. No observations yet, or a P&L that never
-///     moved off zero: the quiet line in its place, never a flat line.
+///     moved off zero: no chart, never a flat line. Nothing on either
+///     sub-tab either: the whole tab is the app's empty state
+///     ([NoActivityState]: Sal, the headline, a tagline), nothing else.
 ///   * Two small pills under it (the app's [KutePill] pair, as the
 ///     Breakdown tab's Sent | Received), Active first and picked.
 ///   * Active: what is open now. The donut splits the open positions'
@@ -64,10 +68,11 @@ enum StatisticsScope { active, historic }
 ///     loss, the Open tab card's figure, and each spot holding at the
 ///     mid); the tiles are the open P&L, the amount at stake (Predictions:
 ///     what the open positions cost; Investing: the margin they use) and
-///     the open positions. Nothing open: one quiet line.
+///     the open positions. Nothing open: the empty state, compact, and no
+///     card (never a card of zeros).
 ///   * Historic: the all-time donut (amount predicted, volume traded) and
 ///     the realised P&L, the amount predicted or volume traded and the
-///     count. Nothing ever done: one quiet line.
+///     count. Nothing ever done: the same compact empty state.
 ///   * A slice picked opens up in the legend's place: what is in it
 ///     (events, coins), and under each its P&L lines
 ///     (portfolio_category_drill.dart).
@@ -153,7 +158,8 @@ class _PortfolioStatisticsState extends ConsumerState<PortfolioStatistics> {
 ///     is not offered (it would draw a flat line); with one left the
 ///     toggle is gone. A P&L that never moved draws no line: Earn's chart
 ///     takes the lead when the backend allows it (it is the only figure
-///     then), else the quiet line.
+///     then), else no chart. Nothing on either sub-tab either: the whole
+///     tab is the app's empty state ([NoActivityState]), nothing else.
 ///   * ONE allocation donut under it ([_AllocationCard]): what the account
 ///     holds now, Investing against Predictions, the total in the hole. A
 ///     slice or legend row opens that venue in the same ring (its
@@ -164,7 +170,7 @@ class _PortfolioStatisticsState extends ConsumerState<PortfolioStatistics> {
 ///   * ONE Active | Historic pair and ONE card of figures under it, for
 ///     what the donut shows: the account (each figure the venues' added;
 ///     Earn's paid-to-date one more tile), or the venue opened. A sub-tab
-///     with nothing on it is one quiet line.
+///     with nothing on it is the compact empty state, no card of zeros.
 ///   * A venue the account has not, or whose read failed, is left out.
 ///     Loading is one spinner until every venue has answered; every venue
 ///     failing is the retry state (one `portfolio_performance_error_shown`
@@ -339,8 +345,34 @@ class _OverviewBody extends ConsumerWidget {
     final toggled = moving.length > 1 && moving.contains(charted);
     final series = toggled ? charted! : single;
 
+    // The figures for the selection on a sub-tab: a venue's, or the
+    // venues' added.
+    _Figures? figuresOn(StatisticsScope on) => selection == null
+        ? _Figures.sum([
+            for (final v in venues)
+              _venueFigures(
+                  venue: v, data: data[v]!, scope: on, trading: trading)
+          ])
+        : _venueFigures(
+            venue: selection,
+            data: data[selection]!,
+            scope: on,
+            trading: trading);
+    final figures = figuresOn(scope);
+
+    // Never traded: no chart, no Earn, nothing on either sub-tab. The page
+    // is one empty state (the chart's words), no pills over nothing.
+    if (!combined.hasMovement &&
+        !earn &&
+        _Figures.quiet(figures) &&
+        _Figures.quiet(figuresOn(_otherScope(scope)))) {
+      return _PageEmpty(
+          text: single == PortfolioPerformanceVenue.predictions
+              ? l10n.betHistoryEmpty
+              : l10n.hlNoHistoryYet);
+    }
+
     final List<Widget> lead;
-    var quietLead = false;
     if (combined.hasMovement) {
       lead = [
         PortfolioPnlChart(
@@ -359,28 +391,11 @@ class _OverviewBody extends ConsumerWidget {
       // Nothing moved on the venues: Earn's chart is the only figure.
       lead = const [UsdBalanceTabs()];
     } else {
-      quietLead = true;
-      lead = [
-        _EmptyLine(
-            text: single == PortfolioPerformanceVenue.predictions
-                ? l10n.betHistoryEmpty
-                : l10n.hlNoHistoryYet,
-            tag: 'statistics-chart-empty'),
-      ];
+      // A P&L that never moved, with something below: no chart, and no
+      // second empty state over the figures.
+      lead = const [];
     }
 
-    // The figures for the selection: a venue's, or the venues' added.
-    final figures = selection == null
-        ? _Figures.sum([
-            for (final v in venues)
-              _venueFigures(
-                  venue: v, data: data[v]!, scope: scope, trading: trading)
-          ])
-        : _venueFigures(
-            venue: selection,
-            data: data[selection]!,
-            scope: scope,
-            trading: trading);
     // Earn's paid-to-date: one more figure of the account's (its chart
     // leads instead when it is the only one). Earning counts as something
     // on either sub-tab.
@@ -389,8 +404,8 @@ class _OverviewBody extends ConsumerWidget {
             ? _earnTile(context, ref, visible)
             : null;
     final tiles = [
-      if (figures != null && !figures.empty)
-        ..._tilesOf(context, ref, figures, selection, scope),
+      if (!_Figures.quiet(figures))
+        ..._tilesOf(context, ref, figures!, selection, scope),
       if (earnTile != null) earnTile,
     ];
     final List<Widget> stats;
@@ -403,11 +418,12 @@ class _OverviewBody extends ConsumerWidget {
           child: _StatTiles(tiles: tiles),
         ),
       ];
-    } else if (figures == null || quietLead) {
-      // Nothing to say, or the chart's quiet line already says it.
+    } else if (figures == null) {
+      // Nothing to say.
       stats = const [];
     } else {
-      stats = [_EmptyLine(text: _quietText(l10n, selection, scope))];
+      // Nothing on the sub-tab: the empty state, never a card of zeros.
+      stats = [_SubTabEmpty(text: _quietText(l10n, selection, scope))];
     }
 
     return ListView(
@@ -651,6 +667,13 @@ class _Figures {
   final double? amount;
   final int? count;
 
+  /// Nothing to show on the sub-tab: no figures, nothing on it, or every
+  /// figure a zero (a card of zeros says nothing).
+  static bool quiet(_Figures? f) =>
+      f == null ||
+      f.empty ||
+      (f.count == 0 && (f.pnl ?? 0) == 0 && (f.amount ?? 0) == 0);
+
   /// The venues' figures added (a venue with nothing on the sub-tab adds
   /// nothing; a part one venue does not know is not known). Null when no
   /// venue has figures.
@@ -787,7 +810,7 @@ List<(String, String, Color)> _tilesOf(BuildContext context, WidgetRef ref,
         ];
 }
 
-/// The quiet line of a sub-tab with nothing on it, for [venue] (null:
+/// The empty state's headline on a sub-tab with nothing on it, for [venue] (null:
 /// the account).
 String _quietText(AppLocalizations l10n, PortfolioPerformanceVenue? venue,
     StatisticsScope scope) {
@@ -838,9 +861,11 @@ String _quietText(AppLocalizations l10n, PortfolioPerformanceVenue? venue,
   );
 }
 
-/// A sub-tab's content that is only its quiet line (or nothing).
-bool _isQuiet(List<Widget> content) =>
-    content.isEmpty || (content.length == 1 && content.single is _EmptyLine);
+/// The sub-tab not picked.
+StatisticsScope _otherScope(StatisticsScope scope) =>
+    scope == StatisticsScope.active
+        ? StatisticsScope.historic
+        : StatisticsScope.active;
 
 /// The "performance unavailable" state. Its event fires once per mount
 /// and venue, not per rebuild of the provider's error.
@@ -946,29 +971,30 @@ class _PerformanceBody extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     final predictions = venue == PortfolioPerformanceVenue.predictions;
-    var content = _scopeContent(context, ref,
-        venue: venue, data: data, scope: scope, walletId: walletId);
+    final trading = predictions ? null : _tradingFigures(ref, walletId);
+    bool quietOn(StatisticsScope on) => _Figures.quiet(_venueFigures(
+        venue: venue, data: data, scope: on, trading: trading));
 
     // The chart leads, whatever sub-tab is picked: the account's P&L
     // over time, realised and open together. Nothing published yet, or a
-    // P&L that never moved off zero: one quiet line in its place (never a
-    // flat line at zero), and the sub-tab's own quiet line (the same
-    // news) stands down.
-    final List<Widget> lead;
-    if (data.hasMovement) {
-      lead = [PortfolioPnlChart(venue: venue, data: data)];
-    } else {
-      final text = predictions ? l10n.betHistoryEmpty : l10n.hlNoHistoryYet;
-      if (_isQuiet(content)) content = const [];
-      lead = [_EmptyLine(text: text, tag: 'statistics-chart-empty')];
+    // P&L that never moved off zero: no chart (never a flat line at
+    // zero). With nothing on either sub-tab either, the page is one empty
+    // state, no pills over nothing.
+    if (!data.hasMovement && quietOn(scope) && quietOn(_otherScope(scope))) {
+      return _PageEmpty(
+          text: predictions ? l10n.betHistoryEmpty : l10n.hlNoHistoryYet);
     }
+    final content = _scopeContent(context, ref,
+        venue: venue, data: data, scope: scope, walletId: walletId);
+    final lead = [
+      if (data.hasMovement) PortfolioPnlChart(venue: venue, data: data)
+    ];
 
     return ListView(
       padding: EdgeInsets.fromLTRB(
           16.w, 4.h, 16.w, 32.h + kuteDockScrollClearance(context)),
       children: [
-        ...lead,
-        SizedBox(height: 12.h),
+        if (lead.isNotEmpty) ...[...lead, SizedBox(height: 12.h)],
         _ScopePills(scope: scope, onScope: onScope),
         SizedBox(height: 12.h),
         ...content,
@@ -978,7 +1004,7 @@ class _PerformanceBody extends ConsumerWidget {
 }
 
 /// One venue's sub-tab on a Ledger: its card (the category donut, then
-/// the figures under it), or its quiet line.
+/// the figures under it), or its empty state.
 List<Widget> _scopeContent(
   BuildContext context,
   WidgetRef ref, {
@@ -999,8 +1025,8 @@ List<Widget> _scopeContent(
   final figures =
       _venueFigures(venue: venue, data: data, scope: scope, trading: trading);
   if (figures == null) return const [];
-  if (figures.empty) {
-    return [_EmptyLine(text: _quietText(l10n, venue, scope))];
+  if (_Figures.quiet(figures)) {
+    return [_SubTabEmpty(text: _quietText(l10n, venue, scope))];
   }
   final tiles =
       _StatTiles(tiles: _tilesOf(context, ref, figures, venue, scope));
@@ -1065,31 +1091,29 @@ List<Widget> _scopeContent(
   ];
 }
 
-/// Nothing to show on a sub-tab (or nothing to chart yet): one quiet line
-/// on the card surface (the Breakdown tab's empty card).
-class _EmptyLine extends StatelessWidget {
-  const _EmptyLine({required this.text, this.tag = 'statistics-empty'});
+/// Nothing ever done on the account: the whole tab is the app's empty
+/// state, as every other empty Portfolio tab ([PortfolioEmptyState]).
+class _PageEmpty extends StatelessWidget {
+  const _PageEmpty({required this.text});
   final String text;
 
-  /// The line's key, for the tests: the sub-tab's or the chart's.
-  final String tag;
+  @override
+  Widget build(BuildContext context) => PortfolioEmptyState(text,
+      key: const ValueKey('statistics-chart-empty'));
+}
+
+/// Nothing on a sub-tab: the same empty state, compact, under the pills.
+/// No card around it.
+class _SubTabEmpty extends StatelessWidget {
+  const _SubTabEmpty({required this.text});
+  final String text;
 
   @override
-  Widget build(BuildContext context) => Container(
-        key: ValueKey(tag),
-        width: double.infinity,
-        padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 32.h),
-        decoration: AppDecorations.card(context),
-        child: Text(
-          text,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: context.colors.textTertiary,
-            fontSize: 13.sp,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      );
+  Widget build(BuildContext context) => NoActivityState(
+      key: const ValueKey('statistics-empty'),
+      title: text,
+      compact: true,
+      cycles: 3);
 }
 
 /// The Active Predictions donut: what the live predictions are worth now
