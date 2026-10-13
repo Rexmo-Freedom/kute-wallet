@@ -590,30 +590,29 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
                             capability: 'polymarket.browse'),
                       )
                     else ...[
-                      // ── Categories: the side-scrolling pill strip under
-                      // the balance, and under it the subcategories of
-                      // the category on screen, in the same pills.
+                      // ── Categories: the side-scrolling text tabs under
+                      // the balance, and under them the subcategories of
+                      // the category on screen in smaller text (levels 2
+                      // and 3 under the Investments pills).
                       SliverToBoxAdapter(
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            SizedBox(height: 12.h),
+                            SizedBox(height: 4.h),
                             PolyPillRow(
                               pills: pills,
                               selected: pill,
                               onSelect: _onPill,
                               onMore: () => _onMore(pills),
                             ),
-                            if (subs.length > 1) ...[
-                              SizedBox(height: 8.h),
+                            if (subs.length > 1)
                               PolySubRow(
                                 pill: pill,
                                 subs: subs,
                                 selectedKey: selection.sub,
                                 onSelect: _onSub,
                               ),
-                            ],
                           ],
                         ),
                       ),

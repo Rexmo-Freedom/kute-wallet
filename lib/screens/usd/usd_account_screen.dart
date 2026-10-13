@@ -46,6 +46,17 @@
 // nearer state. Scrolling back to the very top, or tapping the chevron
 // (which scrolls there), expands everything again. Under Reduce Motion
 // the two states switch at once, with no blend and no scroll animation.
+// THE NAV BAR'S ROOM GOES WITH THE NAV BAR (owner decision 2026-10-13:
+// "when we scroll up too much space on the top, just scroll up like we
+// do in home"): the 64.h the floating Bitcoin | Investments strip needs
+// is the top of the header, not a fixed spacer above the page, and it
+// is there only while the strip is. When the strip slides away the
+// header gives the room back with it, so the compact bar sits straight
+// under the status bar and the list runs right under it; when the strip
+// slides back the room returns with it, so the strip never lands on the
+// pills. The room follows the strip's own 220 ms slide (at once under
+// Reduce Motion), and both of the header's extents carry it, so the
+// collapse's travel and the scroll position never change with it.
 // The bar never carries the hero's second line: the in-flight note is
 // read in the expanded header. Pull-to-refresh is the page's one
 // [RefreshIndicator] over the pill on screen, and the top nav bar's
@@ -108,7 +119,8 @@ import 'package:kute/screens/polymarket/polymarket_screen.dart';
 import 'package:kute/screens/portfolio/open_investments_screen.dart';
 import 'package:kute/screens/search/unified_search_screen.dart';
 import 'package:kute/screens/shared/investment_balance_header.dart';
-import 'package:kute/screens/shared/kute_motion.dart' show kuteReduceMotion;
+import 'package:kute/screens/shared/kute_motion.dart'
+    show kuteMotion, kuteReduceMotion;
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:kute/screens/usd/usd_send_screen.dart';
 import 'package:kute/providers/settings_provider.dart';
@@ -219,11 +231,11 @@ class _UsdAccountScreenState extends ConsumerState<UsdAccountScreen> {
           bottom: false,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // The floating nav bar's room stays put, so the pinned
-              // pills never slide under the bar when it reappears.
-              SizedBox(height: kShellTopBarSpacing.h),
-              const Expanded(child: InvestmentsBody()),
+            children: const [
+              // The floating nav bar's room is the top of the page's
+              // header, there only while the bar is (see the file
+              // header), never a fixed spacer here.
+              Expanded(child: InvestmentsBody()),
             ],
           ),
         ),
@@ -447,19 +459,29 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
               parent: BouncingScrollPhysics()),
           headerSliverBuilder: (context, _) => [
             // The hero and the pills as one collapsing header (see the
-            // file header), pinned as the compact bar.
-            SliverPersistentHeader(
-              pinned: true,
-              delegate: _InvestmentsHeaderDelegate(
-                items: [for (final tab in tabs) item(tab)],
-                selectedIndex: tabs.indexOf(selected),
-                onTap: (i) => _pick(tabs[i]),
-                onExpand: _expand,
-                onExpandedHeight: _onExpandedHeight,
-                figure: InvestmentBalanceHeader.oneBalanceFigure(ref),
-                expandedExtent: expandedExtent,
-                compactExtent: compactExtent,
-                background: Theme.of(context).scaffoldBackgroundColor,
+            // file header), pinned as the compact bar, under the nav
+            // bar's room while the bar is on screen.
+            Consumer(
+              builder: (context, ref, _) => TweenAnimationBuilder<double>(
+                tween: Tween<double>(
+                    end: ref.watch(navBarHiddenProvider) ? 0 : 1),
+                duration: kuteMotion(context, kNavBarSlideDuration),
+                curve: Curves.easeOut,
+                builder: (context, room, _) => SliverPersistentHeader(
+                  pinned: true,
+                  delegate: _InvestmentsHeaderDelegate(
+                    items: [for (final tab in tabs) item(tab)],
+                    selectedIndex: tabs.indexOf(selected),
+                    onTap: (i) => _pick(tabs[i]),
+                    onExpand: _expand,
+                    onExpandedHeight: _onExpandedHeight,
+                    figure: InvestmentBalanceHeader.oneBalanceFigure(ref),
+                    expandedExtent: expandedExtent,
+                    compactExtent: compactExtent,
+                    topRoom: kShellTopBarSpacing.h * room,
+                    background: Theme.of(context).scaffoldBackgroundColor,
+                  ),
+                ),
               ),
             ),
           ],
@@ -512,6 +534,7 @@ class _InvestmentsHeaderDelegate extends SliverPersistentHeaderDelegate {
     required this.figure,
     required this.expandedExtent,
     required this.compactExtent,
+    required this.topRoom,
     required this.background,
   });
 
@@ -525,12 +548,18 @@ class _InvestmentsHeaderDelegate extends SliverPersistentHeaderDelegate {
   final ({String text, bool stale}) figure;
   final double expandedExtent;
   final double compactExtent;
+
+  /// The floating nav bar's room above the chrome: its full height while
+  /// the bar is on screen, none while it is away, eased in between (see
+  /// the file header). Both extents carry it, so the collapse's travel
+  /// stays the same whatever it is.
+  final double topRoom;
   final Color background;
 
   @override
-  double get minExtent => compactExtent;
+  double get minExtent => topRoom + compactExtent;
   @override
-  double get maxExtent => math.max(expandedExtent, compactExtent);
+  double get maxExtent => topRoom + math.max(expandedExtent, compactExtent);
 
   @override
   Widget build(BuildContext context, double shrinkOffset, bool overlaps) {
@@ -617,10 +646,15 @@ class _InvestmentsHeaderDelegate extends SliverPersistentHeaderDelegate {
       ),
     );
 
-    return ColoredBox(
-      color: background,
-      child: ClipRect(
-        child: Stack(children: [expanded, compact]),
+    // The room stays clear: the screen's gradient shows under the nav
+    // bar, as it did above the page.
+    return Padding(
+      padding: EdgeInsets.only(top: topRoom),
+      child: ColoredBox(
+        color: background,
+        child: ClipRect(
+          child: Stack(children: [expanded, compact]),
+        ),
       ),
     );
   }
@@ -630,6 +664,7 @@ class _InvestmentsHeaderDelegate extends SliverPersistentHeaderDelegate {
       old.selectedIndex != selectedIndex ||
       old.expandedExtent != expandedExtent ||
       old.compactExtent != compactExtent ||
+      old.topRoom != topRoom ||
       old.background != background ||
       old.figure != figure ||
       old.items.length != items.length ||

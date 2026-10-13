@@ -7,9 +7,12 @@ import 'package:kute/screens/shared/kute_pill_tabs.dart';
 /// them: Open, Orders, Activity, Statistics.
 const kPortfolioTabKeys = ['open', 'orders', 'activity', 'statistics'];
 
-/// Portfolio views use the same pills as the Home Balance / Price strip and
-/// the category rows ([KutePillTabs]). Stays in sync with the enclosing
-/// [DefaultTabController].
+/// The Portfolio's tabs: the shared [KutePillTabs] row as text tabs
+/// ([KutePillStyle.tab]), level 2 under the Investments pills, so the
+/// boxed Investing · Predictions · Portfolio pills are not stacked on a
+/// second row of boxed chips. Callers pad it by `16 - kKuteTextPillInset`
+/// so its first label sits on the 16 margin. Stays in sync with the
+/// enclosing [DefaultTabController].
 class PortfolioTabs extends StatelessWidget {
   const PortfolioTabs({super.key, required this.tabs, this.keys = kPortfolioTabKeys});
 
@@ -19,7 +22,7 @@ class PortfolioTabs extends StatelessWidget {
   /// so a tab reads the same in PostHog in every app language.
   final List<String> keys;
 
-  static double height(BuildContext context) => 44.h;
+  static double height(BuildContext context) => kuteTextPillRowHeight();
 
   @override
   Widget build(BuildContext context) {
@@ -35,6 +38,8 @@ class PortfolioTabs extends StatelessWidget {
                 KutePillItem(label: label, icon: icon),
             ],
             selectedIndex: controller.index,
+            style: KutePillStyle.tab,
+            horizontalPadding: 0,
             onTap: (i) {
               if (i != controller.index && i < tabs.length) {
                 TrackingService.track('portfolio_tab_changed',
@@ -90,7 +95,8 @@ class _PortfolioTabsDelegate extends SliverPersistentHeaderDelegate {
   Widget build(BuildContext context, double shrinkOffset, bool overlaps) =>
       Container(
         color: background,
-        padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 8.h),
+        padding: EdgeInsets.fromLTRB((16 - kKuteTextPillInset).w, 4.h,
+            (16 - kKuteTextPillInset).w, 8.h),
         child: PortfolioTabs(tabs: tabs),
       );
 

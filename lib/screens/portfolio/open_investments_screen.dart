@@ -87,6 +87,8 @@ import 'package:kute/screens/usd/components/usd_balance_tabs.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart';
 import 'package:kute/screens/shared/portfolio_position_card.dart';
+import 'package:kute/screens/shared/kute_pill_tabs.dart'
+    show kKuteTextPillInset;
 import 'package:kute/screens/shared/portfolio_tabs.dart';
 import 'package:kute/services/polymarket/combos/combo_models.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -149,7 +151,8 @@ class _OpenInvestmentsScreenState extends ConsumerState<OpenInvestmentsScreen> {
       (context.l10n.portfolioTabStatistics, Icons.insights_outlined),
     ];
     final tabs = Padding(
-      padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 8.h),
+      padding: EdgeInsets.fromLTRB((16 - kKuteTextPillInset).w, 4.h,
+          (16 - kKuteTextPillInset).w, 8.h),
       child: PortfolioTabs(tabs: tabLabels),
     );
     // Each list runs to the bottom of the screen and keeps its last row

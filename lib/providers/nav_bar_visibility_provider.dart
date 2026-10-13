@@ -11,3 +11,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// bar can't own four different scroll controllers, so the hide state is
 /// routed through here instead.
 final navBarHiddenProvider = StateProvider<bool>((ref) => false);
+
+/// How long the top nav bar takes to slide away or back; a screen that
+/// gives the bar's room back while it is away (Investments) eases that
+/// room over the same time so the two move together.
+const Duration kNavBarSlideDuration = Duration(milliseconds: 220);

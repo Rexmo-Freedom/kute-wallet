@@ -87,7 +87,7 @@ class KuteTopNavBar extends ConsumerWidget {
     return AnimatedSlide(
       offset: hidden ? const Offset(0, -1) : Offset.zero,
       duration:
-          reduceMotion ? Duration.zero : const Duration(milliseconds: 220),
+          reduceMotion ? Duration.zero : kNavBarSlideDuration,
       curve: Curves.easeOut,
       child: IgnorePointer(ignoring: hidden, child: bar),
     );

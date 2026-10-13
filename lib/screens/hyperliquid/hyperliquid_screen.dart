@@ -389,43 +389,50 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
                           child: InvestmentBalanceHeader(
                               product: InvestmentsProduct.trading)),
 
-                    // Categories: the side-scrolling pill strip under the
+                    // Categories: the side-scrolling row under the
                     // balance and, under it, the subcategories of the
-                    // category on screen, in the same pills. Both filter
-                    // the list below in place, like Predictions.
+                    // category on screen. Both filter the list below in
+                    // place, like Predictions. Under the Investments
+                    // pills they are levels 2 and 3 of one hierarchy:
+                    // text tabs with an underline, then smaller text,
+                    // never a second and third row of boxed chips.
                     if (canBrowse && availableTabs.isNotEmpty)
                       SliverToBoxAdapter(
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            SizedBox(height: 12.h),
+                            SizedBox(height: 4.h),
                             PolyAutoScrollRow(
-                              height: 34.h,
+                              height: kuteTextPillRowHeight(),
+                              spacing: 0,
+                              padding: 16 - kKuteTextPillInset,
                               itemCount: availableTabs.length,
                               selectedIndex: availableTabs.indexOf(tab),
                               itemBuilder: (context, i) => KutePill(
                                 label: availableTabs[i]
                                     .localizedLabel(context.l10n),
                                 selected: availableTabs[i] == tab,
+                                style: KutePillStyle.tab,
                                 onTap: () => _onTab(availableTabs[i]),
                               ),
                             ),
-                            if (subs.length > 1) ...[
-                              SizedBox(height: 8.h),
+                            if (subs.length > 1)
                               PolyAutoScrollRow(
                                 // A new category starts its row afresh.
                                 key: ValueKey('hl-subs-${tab.name}'),
-                                height: 34.h,
+                                height: kuteTextPillRowHeight(),
+                                spacing: 0,
+                                padding: 16 - kKuteTextPillInset,
                                 itemCount: subs.length,
                                 selectedIndex: subs.indexOf(sub),
                                 itemBuilder: (context, i) => KutePill(
                                   label: subs[i].localizedLabel(context.l10n),
                                   selected: subs[i] == sub,
+                                  style: KutePillStyle.subtle,
                                   onTap: () => _onSub(subs[i]),
                                 ),
                               ),
-                            ],
                           ],
                         ),
                       ),

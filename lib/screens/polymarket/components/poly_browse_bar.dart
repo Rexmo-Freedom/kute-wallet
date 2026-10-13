@@ -1,10 +1,14 @@
 // lib/screens/polymarket/components/poly_browse_bar.dart
 //
-// The Predictions browse controls: the row of category pills and, inside
-// a category that has them, a second row of its subcategories. Both rows
-// are the shared KutePill (the pill every other row in the app uses), so
-// they read exactly like the category strip this screen always had. Rows
-// scroll sideways and bring the selected pill into view by themselves.
+// The Predictions browse controls: the row of categories and, inside a
+// category that has them, a second row of its subcategories. Both are the
+// shared KutePill in its text styles (owner decision 2026-10-13): under
+// the Investments pills the categories are level 2, text tabs with an
+// underline under the one on screen ([KutePillStyle.tab]), and the
+// subcategories level 3, smaller text with no box ([KutePillStyle.subtle]),
+// so the stack reads as one hierarchy rather than three rows of boxed
+// buttons. Rows scroll sideways and bring the selected pill into view by
+// themselves.
 // "More" lists every category with its subcategories on the app's shared
 // bottom sheet.
 
@@ -257,7 +261,7 @@ class _PolyAutoScrollRowState extends State<PolyAutoScrollRow> {
   }
 }
 
-/// Level 1: the category pills plus "More ›".
+/// The categories plus "More ›": level 2 under the Investments pills.
 class PolyPillRow extends StatelessWidget {
   final List<PolyPill> pills;
   final PolyPill selected;
@@ -277,7 +281,9 @@ class PolyPillRow extends StatelessWidget {
     final l10n = context.l10n;
     final index = pills.indexOf(selected);
     return PolyAutoScrollRow(
-      height: 34.h,
+      height: kuteTextPillRowHeight(),
+      spacing: 0,
+      padding: 16 - kKuteTextPillInset,
       itemCount: pills.length + 1,
       selectedIndex: index < 0 ? null : index,
       itemBuilder: (context, i) {
@@ -285,6 +291,8 @@ class PolyPillRow extends StatelessWidget {
           return KutePill(
             label: '${l10n.polyPillMore} ›',
             selected: false,
+            link: true,
+            style: KutePillStyle.tab,
             onTap: onMore,
           );
         }
@@ -292,6 +300,7 @@ class PolyPillRow extends StatelessWidget {
         return KutePill(
           label: polyPillLabel(l10n, pill),
           selected: pill == selected,
+          style: KutePillStyle.tab,
           onTap: () => onSelect(pill),
         );
       },
@@ -299,8 +308,8 @@ class PolyPillRow extends StatelessWidget {
   }
 }
 
-/// Level 2: the subcategories of the category on screen, in the same
-/// pills as the row above.
+/// The subcategories of the category on screen: level 3, smaller text
+/// under the categories' tabs.
 class PolySubRow extends StatelessWidget {
   final PolyPill pill;
   final List<PolySub> subs;
@@ -320,13 +329,16 @@ class PolySubRow extends StatelessWidget {
     final l10n = context.l10n;
     final index = subs.indexWhere((s) => s.key == selectedKey);
     return PolyAutoScrollRow(
-      height: 34.h,
+      height: kuteTextPillRowHeight(),
+      spacing: 0,
+      padding: 16 - kKuteTextPillInset,
       itemCount: subs.length,
       selectedIndex: index < 0 ? null : index,
       itemBuilder: (context, i) => KutePill(
         label: polySubLabel(l10n, subs[i]),
         leading: polySubLogo(pill, subs[i]),
         selected: subs[i].key == selectedKey,
+        style: KutePillStyle.subtle,
         onTap: () => onSelect(subs[i]),
       ),
     );

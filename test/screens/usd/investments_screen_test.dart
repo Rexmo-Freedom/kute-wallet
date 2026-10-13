@@ -14,6 +14,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/l10n/l10n.dart';
@@ -21,6 +22,8 @@ import 'package:kute/providers/nav_bar_visibility_provider.dart';
 import 'package:kute/providers/unified_search_provider.dart'
     show SearchCategory;
 import 'package:kute/screens/home/components/kute_bottom_action_bar.dart';
+import 'package:kute/screens/home/shell_wallet_screen.dart'
+    show kShellTopBarSpacing;
 import 'package:kute/screens/hyperliquid/hyperliquid_screen.dart';
 import 'package:kute/screens/polymarket/polymarket_screen.dart';
 import 'package:kute/screens/portfolio/open_investments_screen.dart';
@@ -367,6 +370,10 @@ void main() {
 
       // Pull past the top: the page's one refresh indicator, reported
       // with the pill that was refreshed.
+      // Let the last drag's bounce and the indicator's cancel finish:
+      // the nav bar's room easing back in under the header restarts the
+      // bounce once, so it ends a few frames later than it used to.
+      await _pumpFrames(tester, 10);
       final events = recordEvents();
       await tester.drag(find.byType(NestedScrollView), const Offset(0, 300));
       await tester.pump();
@@ -382,6 +389,71 @@ void main() {
       await unmountInvestments(tester);
     });
   }
+
+  testWidgets(
+      'collapsed with the nav bar away, the compact bar sits under the '
+      'status bar with no room kept for the bar; the room comes back with '
+      'the bar', (tester) async {
+    const statusBar = 47.0;
+    tester.view.padding = const FakeViewPadding(top: statusBar);
+    addTearDown(tester.view.resetPadding);
+    await pumpInvestments(tester);
+    final container = _container(tester);
+    final padTop = 6.h;
+    final barSpace = kShellTopBarSpacing.h;
+    final pillsTop = tester.getTopLeft(find.byType(KutePillTabs).first).dy;
+    // Expanded, the nav bar's room sits above the hero, as before.
+    expect(tester.getTopLeft(find.byType(PoolBalanceHeader)).dy,
+        greaterThanOrEqualTo(statusBar + barSpace - 0.5));
+
+    await tester.drag(find.byType(NestedScrollView), const Offset(0, -400));
+    await _pumpFrames(tester);
+    expect(container.read(navBarHiddenProvider), isTrue);
+    expect(_compactTotal, findsOneWidget);
+    // The compact bar's top is the safe-area top, plus only its own air.
+    final totalTop = tester.getTopLeft(_compactTotal).dy;
+    expect(totalTop, moreOrLessEquals(statusBar + padTop, epsilon: 0.5));
+    expect(totalTop, lessThan(statusBar + barSpace));
+
+    // The bar comes back (a scroll the other way): the room returns with
+    // it, so the bar never lands on the compact pills.
+    container.read(navBarHiddenProvider.notifier).state = false;
+    await _pumpFrames(tester, 4);
+    expect(tester.getTopLeft(_compactTotal).dy,
+        moreOrLessEquals(statusBar + barSpace + padTop, epsilon: 0.5));
+
+    // Back at the very top, everything is where it started.
+    await tester.tap(_chevron);
+    await _pumpFrames(tester);
+    expect(tester.getTopLeft(find.byType(KutePillTabs).first).dy, pillsTop);
+    expect(tester.takeException(), isNull);
+    await unmountInvestments(tester);
+  });
+
+  testWidgets('under Reduce Motion the room goes and comes back at once',
+      (tester) async {
+    await pumpInvestments(
+      tester,
+      child: Builder(
+        builder: (context) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(disableAnimations: true),
+          child: const UsdAccountScreen(),
+        ),
+      ),
+    );
+    final container = _container(tester);
+    await tester.drag(find.byType(NestedScrollView), const Offset(0, -400));
+    await _pumpFrames(tester);
+    expect(container.read(navBarHiddenProvider), isTrue);
+    expect(tester.getTopLeft(_compactTotal).dy,
+        moreOrLessEquals(6.h, epsilon: 0.5));
+    container.read(navBarHiddenProvider.notifier).state = false;
+    await tester.pump();
+    await tester.pump();
+    expect(tester.getTopLeft(_compactTotal).dy,
+        moreOrLessEquals(kShellTopBarSpacing.h + 6.h, epsilon: 0.5));
+    await unmountInvestments(tester);
+  });
 
   testWidgets('the compact bar dims the total while a venue is still to answer',
       (tester) async {
