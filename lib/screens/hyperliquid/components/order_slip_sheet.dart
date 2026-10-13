@@ -93,6 +93,7 @@ import 'package:kute/screens/home/components/action_pill.dart'
 import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
 import 'package:kute/screens/hyperliquid/components/hl_format.dart';
 import 'package:kute/screens/hyperliquid/components/order_placed_overlay.dart';
+import 'package:kute/screens/hyperliquid/components/hl_order_funding_rules.dart';
 import 'package:kute/screens/ledger/hyperliquid/ledger_hl_execution_target.dart'
     show
         runLedgerHlClose,
@@ -123,6 +124,21 @@ import 'package:kute/screens/shared/slip_shortfall.dart';
 import 'package:kute/services/funding/venue_shortfall.dart';
 import 'package:kute/services/one_balance/hyperliquid_venue_funder.dart';
 import 'package:kute/services/one_balance/order_funding.dart';
+import 'package:kute/services/one_balance/venue_cash_source.dart'
+    show
+        VenueCashFor,
+        VenueCashPullOutcome,
+        venueCashPullerProvider,
+        venueCashReachExcludingProvider;
+import 'package:kute/screens/shared/venue_cash_pull_copy.dart'
+    show venueCashStoppedText;
+import 'package:kute/helpers/auth_grant_registry.dart';
+import 'package:kute/services/one_balance/one_balance_state.dart'
+    show OneBalanceVenue;
+import 'package:kute/services/one_balance/venue_funder.dart'
+    show RouteUnavailable;
+import 'package:kute/providers/venue_sweeper_provider.dart'
+    show venueSweeperProvider;
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/screens/shared/capability_block_note.dart';
@@ -212,15 +228,22 @@ class _SlipOrder {
 }
 
 /// What funding the shortfall from Dollars costs, as the ticket shows it
-/// before the tap: [fundUsd] leaves Dollars so that [shortfallUsd]
-/// arrives; the difference is the Move fee row.
+/// before the tap: [fundUsd] leaves Dollars so that [arrivingUsd] lands
+/// (at least the shortfall plus the engine's safety buffer,
+/// [OrderFundingEngine.targetUsd]); the difference is the Move fee row.
+/// What lands beyond the order stays at the venue as its cash.
 class _FundPlan {
-  const _FundPlan({required this.shortfallUsd, required this.fundUsd});
+  const _FundPlan({
+    required this.shortfallUsd,
+    required this.fundUsd,
+    required this.arrivingUsd,
+  });
 
   final double shortfallUsd;
   final double fundUsd;
+  final double arrivingUsd;
 
-  double get moveFeeUsd => math.max(0, fundUsd - shortfallUsd);
+  double get moveFeeUsd => math.max(0, fundUsd - arrivingUsd);
 }
 
 /// Test seam: stands in for the Dollar deposit door a short hot ticket
@@ -495,6 +518,11 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
 
   /// The funding the ticket currently shows, for [_slipShortfallUsd].
   _FundPlan? _fundPlan;
+
+  /// This order is funded into an account that holds nothing yet: the
+  /// one-time builder-fee approval cannot be signed before the money
+  /// lands, so the auto-fire signs it after the credit, before placing.
+  bool _deferBuilderApproval = false;
 
   /// Dollars cover the move the ticket shows (set in build).
   bool _canFundFromDollars = false;
@@ -1526,7 +1554,18 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     }
     if (!mounted) return;
 
-    if (!await ensureHotHlBuilderFeeConsent(context, ref)) {
+    // The venue's cash read fresh, not the last poll: a close a moment
+    // ago, a sweep or a credit since changes what the order needs moved.
+    await _refreshVenueCashNow();
+    if (!mounted) return;
+
+    // An account Hyperliquid has never funded cannot post the signed
+    // builder-fee approval; an order that funds it signs it after the
+    // money lands instead (the auto-fire, before placing).
+    _deferBuilderApproval = hlDeferBuilderApproval(
+        accountUnfunded: _accountUnfunded(), shortfallUsd: _shortfallNow());
+    if (!_deferBuilderApproval &&
+        !await ensureHotHlBuilderFeeConsent(context, ref)) {
       _trackBlocked('builder_fee');
       return;
     }
@@ -1930,9 +1969,14 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         requiredUsd: _hlRequiredUsdFor(margin), readyUsd: _hlReadyUsd());
   }
 
-  /// What the Move sheet prefills when Dollars fall short of [fundUsd].
-  double _dollarsShortUsd(double fundUsd) {
-    final short = fundUsd - _dollarsUsd();
+  /// The rest of Investments the last build read (Dollars plus the other
+  /// venue's cash), for the "Add" door's prefill.
+  double? _slipInvestmentsUsd;
+
+  /// What the Move sheet prefills when everything in Investments
+  /// ([haveUsd], Dollars alone by default) falls short of [fundUsd].
+  double _dollarsShortUsd(double fundUsd, {double? haveUsd}) {
+    final short = fundUsd - (haveUsd ?? _dollarsUsd());
     if (short <= 1e-6) return 0;
     return ((short * 100) - 1e-9).ceilToDouble() / 100;
   }
@@ -1945,12 +1989,13 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     if (plan != null && (plan.shortfallUsd - shortfallUsd).abs() < 0.005) {
       return plan;
     }
-    final fallback = ((shortfallUsd / (1 - ShortfallRules.fallbackRouteFee)) *
-                    100 -
-                1e-9)
-            .ceilToDouble() /
-        100;
-    return _FundPlan(shortfallUsd: shortfallUsd, fundUsd: fallback);
+    final target = OrderFundingEngine.targetUsd(shortfallUsd: shortfallUsd);
+    final fallback =
+        ((target / (1 - ShortfallRules.fallbackRouteFee)) * 100 - 1e-9)
+                .ceilToDouble() /
+            100;
+    return _FundPlan(
+        shortfallUsd: shortfallUsd, fundUsd: fallback, arrivingUsd: target);
   }
 
   /// Asks the funder what moving [shortfallUsd] costs, once per distinct
@@ -1965,14 +2010,18 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       if (!mounted || _fundPlanKey != key) return;
       _FundPlan plan;
       try {
+        final target =
+            OrderFundingEngine.targetUsd(shortfallUsd: shortfallUsd);
         final quote = await ref
             .read(hyperliquidVenueFunderProvider)
-            .estimate(shortfallUsd)
+            .estimate(target)
             .timeout(const Duration(seconds: 6));
+        final fund =
+            HyperliquidVenueFunder.fundUsdFor(shortfallUsd: target, quote: quote);
         plan = _FundPlan(
           shortfallUsd: shortfallUsd,
-          fundUsd: HyperliquidVenueFunder.fundUsdFor(
-              shortfallUsd: shortfallUsd, quote: quote),
+          fundUsd: fund,
+          arrivingUsd: target,
         );
       } catch (_) {
         plan = _fundPlanFor(shortfallUsd);
@@ -2027,6 +2076,30 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   }) async {
     final lev = isSpot ? 1 : _leverage;
     final marginUsd = _marginUsd;
+    // One funded order at a time: while one is queued behind its money or
+    // being placed, a second never takes its money or its approval.
+    if (PendingHyperliquidOrderNotifier.isActive(
+        ref.read(pendingHyperliquidOrderProvider))) {
+      _trackBlocked('order_queued');
+      _updateDraft(() {
+        _errorCause = null;
+        _errorText = _strings.slipDepositIncomingNote;
+      });
+      return;
+    }
+    // Before any money moves: the market must still take the order.
+    final unavailable = await _fundedMarketBlock();
+    if (unavailable != null) {
+      _trackBlocked(unavailable);
+      if (mounted) {
+        _updateDraft(() {
+          _errorCause = null;
+          _errorText = _strings.errorCopyGeneric;
+        });
+      }
+      return;
+    }
+    if (!mounted) return;
     final ready = _hlReadyUsd();
     final required = _hlRequiredUsdFor(marginUsd);
     _fundingStartedAt = DateTime.now();
@@ -2034,17 +2107,28 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     _trackFundingStep(OrderFundingStage.quote);
     _updateDraft(() => _preparing = true);
 
-    // What the move costs, from the funder: the Move fee the ticket
-    // shows, and whether Dollars cover it.
+    // ONE plan before anything is approved: what must land (the
+    // shortfall plus the engine's safety buffer, never under $1), and
+    // what to send for it, priced on what ARRIVES at the very amount sent
+    // (the route's near-flat cost and an unseen account's one-time
+    // activation are inside the estimate). The approval binds exactly
+    // that amount and the controller sends exactly it.
     final quoteStart = DateTime.now();
     final double fundUsd;
+    final double arrivingUsd;
+    final target = OrderFundingEngine.targetUsd(shortfallUsd: shortfallUsd);
     try {
-      final quote = await ref
-          .read(hyperliquidVenueFunderProvider)
-          .estimate(shortfallUsd)
-          .timeout(const Duration(seconds: 8));
-      fundUsd = HyperliquidVenueFunder.fundUsdFor(
-          shortfallUsd: shortfallUsd, quote: quote);
+      final size = await HyperliquidVenueFunder.sizeFunding(
+              ref.read(hyperliquidVenueFunderProvider),
+              neededUsd: target)
+          .timeout(const Duration(seconds: 12));
+      if (!size.covers(shortfallUsd)) {
+        // Even the most the rail sends would not land what the order
+        // needs: refused here, before any approval or money.
+        throw const RouteUnavailable('arriving_below_needed');
+      }
+      fundUsd = size.fundUsd;
+      arrivingUsd = size.arrivingUsd;
     } catch (e) {
       _trackFundingFailed('quote', e);
       _stopped('funding_quote', error: e);
@@ -2059,7 +2143,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     }
     final quoteMs = DateTime.now().difference(quoteStart).inMilliseconds;
     if (!mounted) return;
-    final plan = _FundPlan(shortfallUsd: shortfallUsd, fundUsd: fundUsd);
+    final plan = _FundPlan(
+        shortfallUsd: shortfallUsd, fundUsd: fundUsd, arrivingUsd: arrivingUsd);
     _fundPlanKey = shortfallUsd.toStringAsFixed(2);
     final dollars = _dollarsUsd();
     TrackingService.track('order_funding_started', params: {
@@ -2073,7 +2158,27 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       'order_kind': orderKind,
       if (_positionEffectName != null) 'position_effect': _positionEffectName!,
     });
+    // The funding engine: Dollars first, then the other venue's cash
+    // (pulled home inside this same Confirm, after the one approval).
+    // Only when even that falls short is the button the "Add" door.
+    var pullFirst = false;
     if (dollars + 1e-9 < fundUsd) {
+      var reach = dollars;
+      try {
+        reach = await ref
+            .read(venueCashPullerProvider)
+            .reachUsd(exclude: OneBalanceVenue.investing)
+            .timeout(const Duration(seconds: 8));
+      } catch (_) {}
+      if (!mounted) return;
+      pullFirst = OrderFundingEngine.decide(
+            needUsd: fundUsd,
+            haveHereUsd: dollars,
+            investmentsUsd: reach - dollars,
+          ).route ==
+          OrderFundingRoute.move;
+    }
+    if (dollars + 1e-9 < fundUsd && !pullFirst) {
       // Not enough Dollars for the move: the button becomes the Dollar
       // deposit door for exactly what is missing. Nothing moved.
       _trackFundingFailed('quote', null, category: 'insufficient_funds');
@@ -2111,8 +2216,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       fundUsd: fundUsd,
       requiredUsd: required,
       readyAtQueueUsd: ready,
-      arrivingUsd: shortfallUsd,
+      arrivingUsd: arrivingUsd,
       orderKind: orderKind,
+      needsBuilderApproval: _deferBuilderApproval,
       positionEffect: _positionEffectName,
       entrySource: _entrySource,
       quoteMs: quoteMs,
@@ -2141,6 +2247,40 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       }
       if (mounted) _updateDraft(() => _fundingStage = null);
       return;
+    }
+
+    if (pullFirst) {
+      // Dollars short of the move: the rest comes home from the other
+      // venue first (fastest leg first, never Investing's own cash),
+      // under the automatic home-only authorization; this approval
+      // stays the only prompt. Nothing is queued until Dollars cover it.
+      _updateDraft(() {
+        _isPlacing = true;
+        _preparing = false;
+        _fundingUsd = fundUsd;
+        _fundPlan = plan;
+      });
+      _trackFundingStep(OrderFundingStage.fund);
+      VenueCashPullOutcome? pulled;
+      try {
+        pulled = await ref.read(venueCashPullerProvider).pullShortfall(
+              neededUsd: fundUsd,
+              forAction: VenueCashFor.investing,
+              exclude: OneBalanceVenue.investing,
+            );
+      } catch (_) {
+        pulled = null;
+      }
+      if (!mounted) return;
+      if (pulled == null || !pulled.dollarsCover) {
+        AuthGrantRegistry.instance.cancelAutofire(kPendingHlOrderAutofireId);
+        _fundingFailedBeforeMove(
+            'pull',
+            'insufficient_funds',
+            (pulled == null ? null : venueCashStoppedText(_strings, pulled)) ??
+                _strings.errorCopyGeneric);
+        return;
+      }
     }
 
     // Listen for the order's fill BEFORE anything moves, so a fast fill
@@ -2207,6 +2347,15 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         // The venue covered it after all: the watcher places it now.
         _submitted = true;
         _trackFundingStep(OrderFundingStage.credit);
+      case OrderFundingUnconfirmed():
+        // The rail could not say whether the money left: the order stays
+        // queued and the watcher keeps reading the venue. The ticket
+        // keeps its "Moving" line; a retry cannot fund it twice.
+        _submitted = true;
+        _trackFundingStep(OrderFundingStage.credit);
+      case OrderFundingRefused(:final reason) when reason == kHlOrderQueuedReason:
+        _fundingFailedBeforeMove(
+            'fund', reason, _strings.slipDepositIncomingNote);
       case OrderFundingRefused(:final reason):
         _fundingFailedBeforeMove('fund', reason, _strings.errorCopyGeneric);
       case OrderFundingNeedsDollars(:final shortfallUsd):
@@ -2221,8 +2370,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           _isPlacing = false;
           _fundingStage = null;
           _fundPlan = _FundPlan(
-              shortfallUsd: shortfallUsd,
-              fundUsd: _dollarsUsd() + shortfallUsd);
+              shortfallUsd: plan.shortfallUsd,
+              fundUsd: _dollarsUsd() + shortfallUsd,
+              arrivingUsd: plan.arrivingUsd);
         });
     }
   }
@@ -2530,7 +2680,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       // type; once the Dollars are there the button is the order again.
       final shortfall = _slipShortfallUsd;
       final fundUsd = _fundPlanFor(shortfall).fundUsd;
-      final target = _dollarsShortUsd(fundUsd);
+      final target = _dollarsShortUsd(fundUsd, haveUsd: _slipInvestmentsUsd);
       TrackingService.track('slip_top_up_opened', params: {
         'venue': 'hyperliquid',
         'shortfall_bucket': TrackingService.usdBucket(shortfall),
@@ -2595,11 +2745,55 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   /// The hot account's Investing cash that is ready: perp withdrawable
   /// plus spot USDC (the notifier sweeps between them on the way).
   double _hlReadyUsd() {
-    var ready = ref.read(hyperliquidWithdrawableProvider);
+    var spot = 0.0;
     for (final b in ref.read(hyperliquidSpotBalancesProvider)) {
-      if (b.coin == 'USDC') ready += b.available;
+      if (b.coin == 'USDC') spot += b.available;
     }
-    return ready;
+    final queued = ref.read(pendingHyperliquidOrderProvider);
+    return hlSlipReadyUsd(
+      withdrawableUsd: ref.read(hyperliquidWithdrawableProvider),
+      spotUsdc: spot,
+      // A funded order still queued or placing owns the money it moved.
+      queuedRequiredUsd: PendingHyperliquidOrderNotifier.isActive(queued)
+          ? PendingHlOrderAutoFire.requiredFor(queued!)
+          : 0,
+      // A sweep carrying the venue's cash home right now: none of it is
+      // this order's (the funding then covers the whole order).
+      sweeping: ref.exists(venueSweeperProvider) &&
+          ref
+              .read(venueSweeperProvider)
+              .sweeping
+              .contains(OneBalanceVenue.investing),
+    );
+  }
+
+  /// Why the market cannot take a funded order right now (checked before
+  /// any money moves), or null: a perp at its open-interest cap refuses
+  /// new exposure, and a market no longer listed (delisted, halted out
+  /// of the venue's universe) takes nothing.
+  Future<String?> _fundedMarketBlock() async {
+    bool? listed;
+    try {
+      final markets = await (isSpot
+              ? ref.read(hyperliquidSpotMarketsProvider.future)
+              : ref.read(hyperliquidPerpMarketsProvider.future))
+          .timeout(const Duration(seconds: 4));
+      if (markets.isNotEmpty) {
+        listed = markets.any((m) => m.coin == market.coin);
+      }
+    } catch (_) {
+      // The list could not be read: the venue answers at the order.
+    }
+    return hlFundedMarketBlock(
+      isSpot: isSpot,
+      reduceOnly: _reduceOnly,
+      oiCapped: ref
+              .read(hyperliquidOiCappedProvider(market.dex))
+              .valueOrNull
+              ?.contains(market.wireCoin) ??
+          false,
+      listed: listed,
+    );
   }
 
   /// The venue cash this order takes: the margin with its price headroom
@@ -2614,6 +2808,28 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         leverage: isSpot ? 1 : _leverage,
         slippagePct: _mode == _OrderMode.market ? _slippagePct : 0,
       );
+
+  /// Reads the Investing account now (bounded); a failed read keeps the
+  /// last figures.
+  Future<void> _refreshVenueCashNow() async {
+    if (_isLedger) return;
+    try {
+      await ref
+          .read(hyperliquidAccountProvider.notifier)
+          .refresh()
+          .timeout(const Duration(seconds: 5));
+    } catch (_) {}
+  }
+
+  /// Nothing on the Investing account yet: no cash and no position.
+  bool _accountUnfunded() {
+    if (_isLedger) return false;
+    var ready = ref.read(hyperliquidWithdrawableProvider);
+    for (final b in ref.read(hyperliquidSpotBalancesProvider)) {
+      if (b.coin == 'USDC') ready += b.total;
+    }
+    return ready < 0.01 && ref.read(hyperliquidPerpPositionsProvider).isEmpty;
+  }
 
   @override
   SlipVenue get slipVenue => SlipVenue.investing;
@@ -3333,12 +3549,23 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     _scheduleFundPlan(fundShortfall);
     final fundPlan = fundShortfall > 0 ? _fundPlanFor(fundShortfall) : null;
     final dollarsUsd = _dollarsUsd(watch: true);
+    // The rest of Investments (Dollars plus the other venue's cash): the
+    // order moves what it needs from there inside the same Confirm, and
+    // only when even that is short does the button become "Add".
+    final investmentsUsd = fundPlan == null || dollarsUsd + 1e-9 >= fundPlan.fundUsd
+        ? dollarsUsd
+        : (ref
+                .watch(venueCashReachExcludingProvider(OneBalanceVenue.investing))
+                .valueOrNull ??
+            dollarsUsd);
     final canFundFromDollars = fundPlan != null &&
         openBlock == null &&
-        dollarsUsd + 1e-9 >= fundPlan.fundUsd;
+        investmentsUsd + 1e-9 >= fundPlan.fundUsd;
     _canFundFromDollars = canFundFromDollars;
-    final dollarsShort =
-        fundPlan == null ? 0.0 : _dollarsShortUsd(fundPlan.fundUsd);
+    _slipInvestmentsUsd = investmentsUsd;
+    final dollarsShort = fundPlan == null
+        ? 0.0
+        : _dollarsShortUsd(fundPlan.fundUsd, haveUsd: investmentsUsd);
     final gatesOpen = advancedBlock == null &&
         openBlock == null &&
         (!insufficient || canFundFromDollars) &&

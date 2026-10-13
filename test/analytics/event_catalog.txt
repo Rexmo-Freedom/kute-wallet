@@ -163,6 +163,7 @@ hardware_device_selected
 hardware_wallet_added
 hl_builder_address_source
 hl_builder_config_rejected
+hl_builder_fee_after_funding
 hl_builder_fee_approval_failed
 hl_builder_fee_approved
 hl_cancel_all_orders
@@ -229,6 +230,7 @@ hyperliquid_withdraw_initiated
 hyperliquid_withdraw_step
 hyperliquid_withdraw_submitted
 indicator_toggled
+investing_cash_pulled
 investing_close_available_tapped
 investing_position_details_opened
 investment_category_opened
@@ -306,6 +308,8 @@ move_source_dollars_selected
 move_step
 move_submitted
 move_withdraw_destination_selected
+multi_source_move_finished
+multi_source_move_started
 notification_subscribed
 onboarding_completed
 onboarding_cta_tapped
@@ -446,6 +450,7 @@ prediction_outcome_tapped
 prediction_place_cta_tapped
 prediction_sell_cta_tapped
 prediction_slippage_adjusted
+predictions_cash_pulled
 predictions_position_detail_viewed
 pull_to_refresh_executed
 purchase_row_reattributed

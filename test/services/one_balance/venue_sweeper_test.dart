@@ -611,5 +611,30 @@ void main() {
     expect(VenueSweeper.normalizeTrigger('order_cancelled'), 'cancel');
     expect(VenueSweeper.normalizeTrigger('manual'), 'resume');
     expect(VenueSweeper.normalizeTrigger('retry'), 'retry');
+    // A TP/SL fill closes (part of) a position.
+    expect(VenueSweeper.normalizeTrigger('reduce_fill'), 'close');
+  });
+
+  test('a venue in use keeps its cash as Available (held), never dust or '
+      'waiting, and wakes when its idle window ends', () async {
+    final usedAt = host.clock.subtract(const Duration(hours: 23));
+    host.venues[OneBalanceVenue.investing] = VenueSnapshot(
+        idleUsd: 12, sweepableUsd: 12, lastActivityAt: usedAt);
+    await sweeper.trigger('close', venue: OneBalanceVenue.investing);
+    expect(host.sent, isEmpty);
+    expect(sweeper.state.held, {OneBalanceVenue.investing: 12});
+    expect(sweeper.state.waiting, isEmpty);
+    expect(sweeper.state.dust, isEmpty);
+    expect(host.lastEvent('venue_sweep_skipped')['reason'], 'venue_active');
+    // The idle window ends an hour from now: a pass is due then.
+    expect(sweeper.nextDueIn(), const Duration(hours: 1));
+
+    // A day idle: the cash goes home, named for the rule.
+    host.clock = host.clock.add(const Duration(hours: 1, minutes: 1));
+    await sweeper.trigger('timer');
+    expect(host.sent.single.usd, 12);
+    expect(host.lastEvent('venue_sweep_started')['trigger'],
+        'investing_idle_24h');
+    expect(sweeper.state.held, isEmpty);
   });
 }

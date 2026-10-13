@@ -177,14 +177,20 @@ void main() {
 
     test('a free route sends the shortfall itself, never under the minimum',
         () {
-      const free = VenueMoveQuote(
-          arrivingUsd: 5, feeUsd: 0, fixedCostUsd: 0, minUsd: 10, maxUsd: 100);
-      expect(HyperliquidVenueFunder.fundUsdFor(shortfallUsd: 5, quote: free),
+      VenueMoveQuote free(double arriving) => VenueMoveQuote(
+          arrivingUsd: arriving,
+          feeUsd: 0,
+          fixedCostUsd: 0,
+          minUsd: 10,
+          maxUsd: 100);
+      expect(HyperliquidVenueFunder.fundUsdFor(shortfallUsd: 5, quote: free(5)),
           10);
       expect(
-          HyperliquidVenueFunder.fundUsdFor(shortfallUsd: 50.004, quote: free),
+          HyperliquidVenueFunder.fundUsdFor(
+              shortfallUsd: 50.004, quote: free(50.004)),
           50.01);
-      expect(HyperliquidVenueFunder.fundUsdFor(shortfallUsd: 0, quote: free),
+      expect(
+          HyperliquidVenueFunder.fundUsdFor(shortfallUsd: 0, quote: free(0)),
           0);
     });
 
@@ -194,6 +200,53 @@ void main() {
       expect(
           HyperliquidVenueFunder.fundUsdFor(shortfallUsd: 50, quote: capped),
           40);
+    });
+  });
+
+  group('sizing on what arrives (the HyperCore route is near-flat)', () {
+    test('a \$10 shortfall on a \$1.24 flat route sends enough to land it',
+        () async {
+      // Measured: \$10 keeps 87.6%. A rate read off it (12.4%) was refused
+      // by the old 4% rule and replaced by 2%, which under-funded.
+      final f = _CostFunder(flat: 1.24, rate: 0.0008);
+      final size =
+          await HyperliquidVenueFunder.sizeFunding(f, neededUsd: 10);
+      expect(size.covers(10), isTrue);
+      expect(f.arriving(size.fundUsd), greaterThanOrEqualTo(10));
+      // Not wildly over.
+      expect(size.fundUsd, lessThan(11.4));
+      expect(size.costUsd, closeTo(size.fundUsd - size.arrivingUsd, 0.01));
+    });
+
+    test('a \$1 shortfall is never under-sent (the old 50% cap did)',
+        () async {
+      final f = _CostFunder(flat: 1.24, rate: 0.0008);
+      final size = await HyperliquidVenueFunder.sizeFunding(f, neededUsd: 1);
+      expect(f.arriving(size.fundUsd), greaterThanOrEqualTo(1));
+      // fundUsdFor alone, from one estimate, already lands it.
+      final one = HyperliquidVenueFunder.fundUsdFor(
+          shortfallUsd: 1, quote: await f.estimate(1));
+      expect(f.arriving(one), greaterThanOrEqualTo(1));
+    });
+
+    test('an account Hyperliquid has never seen pays its activation too',
+        () async {
+      // Orchestra prices the one-time \$1 activation into what arrives
+      // for an account it does not know.
+      final f = _CostFunder(flat: 1.24, rate: 0.0008, activation: 1.0);
+      final size =
+          await HyperliquidVenueFunder.sizeFunding(f, neededUsd: 20);
+      expect(f.arriving(size.fundUsd), greaterThanOrEqualTo(20));
+      expect(size.fundUsd, greaterThan(22.2));
+    });
+
+    test('a route that cannot land it (its maximum) does not cover',
+        () async {
+      final f = _CostFunder(flat: 1.24, rate: 0, max: 15);
+      final size =
+          await HyperliquidVenueFunder.sizeFunding(f, neededUsd: 20);
+      expect(size.covers(20), isFalse);
+      expect(size.fundUsd, 15);
     });
   });
 
@@ -214,4 +267,41 @@ void main() {
     expect(container.read(hyperliquidVenueFunderProvider),
         isA<HyperliquidVenueFunder>());
   });
+}
+
+/// A funder whose route keeps [flat] (plus [activation]) and [rate] of
+/// what is sent, the way the HyperCore route's live quotes do.
+class _CostFunder implements VenueFunder {
+  _CostFunder(
+      {required this.flat,
+      required this.rate,
+      this.activation = 0,
+      this.max = 1e6});
+  final double flat;
+  final double rate;
+  final double activation;
+  final double max;
+
+  double arriving(double usd) => usd * (1 - rate) - flat - activation;
+
+  @override
+  Future<VenueMoveQuote> estimate(double usd) async => VenueMoveQuote(
+      arrivingUsd: arriving(usd),
+      feeUsd: usd - arriving(usd),
+      fixedCostUsd: 0,
+      minUsd: 1,
+      maxUsd: max);
+
+  @override
+  Future<VenueMoveResult> fund(
+          {required double usd,
+          required MoveAuthorization auth,
+          String purpose = 'order_funding'}) =>
+      throw UnimplementedError();
+
+  @override
+  Future<double> idleUsd() async => 0;
+
+  @override
+  Future<double> minimumUsd() async => 1;
 }

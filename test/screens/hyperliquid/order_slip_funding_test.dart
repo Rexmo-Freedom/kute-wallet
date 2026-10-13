@@ -259,13 +259,14 @@ void main() {
     expect(button.text, startsWith('Add \$'));
     expect(button.text, endsWith('to Investments'));
     expect(button.onPressed, isNotNull);
-    // $21.27 has to leave Dollars; $5 are there.
-    expect(button.text, 'Add \$16.27 to Investments');
+    // The $20.24 need plus the engine's safety buffer (2%, ≥ $0.25) lands,
+    // so $21.68 has to leave Dollars; $5 are there.
+    expect(button.text, 'Add \$16.68 to Investments');
     expect(_moveFeeRow(tester).usd, closeTo(1.03, 0.011));
 
     await tester.tap(find.byType(AppButton));
     await _frames(tester, 3);
-    expect(doors, [(MoveLockedSide.depositToUsd, 16.27)]);
+    expect(doors, [(MoveLockedSide.depositToUsd, 16.68)]);
     expect(events.where((e) => e.$1 == 'slip_top_up_opened').length, 1);
     expect(events.singleWhere((e) => e.$1 == 'slip_top_up_opened').$2!['suggested_source'],
         'dollars');
@@ -277,7 +278,7 @@ void main() {
     sheet.complete();
     await _frames(tester, 3);
     expect(_button(tester).onPressed, isNotNull);
-    expect(_button(tester).text, 'Add \$16.27 to Investments');
+    expect(_button(tester).text, 'Add \$16.68 to Investments');
     await tester.pumpWidget(const SizedBox.shrink());
   });
 

@@ -117,6 +117,8 @@ import 'package:kute/services/orchestra_routes.dart'
         orchestraAssetCodeFor,
         orchestraChainDisplayName;
 import 'package:kute/services/orchestra_usd_send_routes.dart';
+import 'package:kute/services/one_balance/venue_cash_source.dart';
+import 'package:kute/screens/shared/venue_cash_pull_copy.dart';
 import 'package:kute/services/polymarket_spark_txs_service.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -227,6 +229,10 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
   bool _processing = false;
   String? _error;
 
+  /// While venue cash is coming home for this send: one line per leg,
+  /// shown where Review's footnote is.
+  String? _pullProgress;
+
   /// A top-up from the shortfall button went through: the send moves on
   /// to its recipient once the dollars cover the amount still typed.
   bool _awaitingTopUp = false;
@@ -314,6 +320,16 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
   BigInt get _availableBaseUnits =>
       BigInt.from((_availableUsd * 1000000).floor());
 
+  /// How far the send reaches: Dollars plus the venue cash that can come
+  /// home for it (net of the move's cost), never less than Dollars.
+  double get _reachUsd {
+    final dollars = _availableUsd;
+    final reach = ref.read(venueCashReachProvider).valueOrNull;
+    return reach != null && reach > dollars ? reach : dollars;
+  }
+
+  BigInt get _reachBaseUnits => BigInt.from((_reachUsd * 1000000).floor());
+
   /// The typed amount as base units, or null when the string is not a
   /// plain decimal the token can express.
   BigInt? get _typedBaseUnits =>
@@ -333,14 +349,14 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
 
   bool get _amountExceedsBalance {
     final units = _typedBaseUnits;
-    return !_drain && units != null && units > _availableBaseUnits;
+    return !_drain && units != null && units > _reachBaseUnits;
   }
 
   /// What the typed amount is missing from the balance, to the cent.
   double get _shortfallUsd {
     final units = _typedBaseUnits;
     if (_drain || units == null) return 0;
-    return usdSendShortfallUsd(units, _availableBaseUnits);
+    return usdSendShortfallUsd(units, _reachBaseUnits);
   }
 
   /// The shortfall button: the Investments deposit from the spending
@@ -382,7 +398,7 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
   bool get _amountStepValid {
     final units = _typedBaseUnits;
     if (units == null) return false;
-    return units >= _minBaseUnits && units <= _availableBaseUnits;
+    return units >= _minBaseUnits && units <= _reachBaseUnits;
   }
 
   /// The gate the dispatch re-checks.
@@ -394,7 +410,7 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
           units >= _minBaseUnits &&
           _drainError == null;
     }
-    return units >= _minBaseUnits && units <= _availableBaseUnits;
+    return units >= _minBaseUnits && units <= _reachBaseUnits;
   }
 
   /// A dollar figure as the hero shows it: cents always, and every
@@ -702,7 +718,9 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
   // ─── Step 1: Amount ───────────────────────────────────────────────
 
   Widget _amountPage(AppColorsExtension c) {
-    final available = ref.watch(usdBalanceProvider);
+    ref.watch(usdBalanceProvider);
+    ref.watch(venueCashReachProvider);
+    final available = _reachUsd;
     final overBalance = _amountExceedsBalance;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -826,15 +844,19 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
   /// from the SDK, so no sub-cent dust is left behind.
   void _onPercent(double ratio) {
     HapticFeedback.selectionClick();
-    final drain = ratio >= 1;
-    _amountMethod = drain ? 'max' : 'percent_${(ratio * 100).round()}';
+    // 100% of Dollars alone is the exact drain; with venue cash in reach
+    // it is the reach to the cent, sent as typed.
+    final reach = _reachUsd;
+    final withVenueCash = reach > _availableUsd + 0.005;
+    final drain = ratio >= 1 && !withVenueCash;
+    _amountMethod = ratio >= 1 ? 'max' : 'percent_${(ratio * 100).round()}';
     TrackingService.track('send_amount_percent_tapped', params: {
       'percent': (ratio * 100).round(),
       'source_asset': 'usd',
     });
     // Cents, floored: the keypad types two decimals, so the percentage
     // lands on one too rather than on a sub-cent amount it cannot show.
-    final cents = (_availableUsd * ratio * 100).floor();
+    final cents = (reach * ratio * 100).floor();
     _awaitingTopUp = false;
     setState(() {
       _error = null;
@@ -1369,9 +1391,10 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
           label: _processing ? l10n.sendSendingEllipsis : l10n.send,
           loading: _processing,
           onPressed: canSend ? _confirmSend : null,
-          footnote: waiting
-              ? l10n.sendWaitForFee
-              : l10n.sendFundsLeaveYourWalletImmediately,
+          footnote: _pullProgress ??
+              (waiting
+                  ? l10n.sendWaitForFee
+                  : l10n.sendFundsLeaveYourWalletImmediately),
         ),
       ],
     );
@@ -1479,7 +1502,7 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
     if (amountBaseUnits == null || !_amountValid) {
       final exceeds = amountBaseUnits != null &&
           !_drain &&
-          amountBaseUnits > _availableBaseUnits;
+          amountBaseUnits > _reachBaseUnits;
       TrackingService.moneyFlowError(
           'usd_send', exceeds ? 'insufficient_funds' : 'below_minimum');
       setState(() {
@@ -1501,6 +1524,14 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
           'chain': destination.chain,
           ..._flowInputs(),
         });
+
+    // Dollars first: when they do not hold the amount, the shortfall
+    // comes home from venue cash before the send asks for its one
+    // approval. Nothing is sent until Dollars hold the whole amount.
+    if (!_drain && amountBaseUnits > _availableBaseUnits) {
+      final ready = await _pullVenueCash(usdForDisplay);
+      if (!ready) return;
+    }
 
     // Outcome analytics: one `send_completed` / `send_failed` per send
     // that passed the gates above.
@@ -1745,6 +1776,52 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
             context.l10n.usdSendFailed;
       });
     }
+  }
+
+  /// Brings the shortfall of [usd] home from venue cash and waits,
+  /// bounded, for Dollars to hold it. True to go on with the send; false
+  /// when it stopped (the reason is on screen, and whatever was pulled
+  /// stays in Dollars: the send never goes twice).
+  Future<bool> _pullVenueCash(double usd) async {
+    setState(() {
+      _processing = true;
+      _error = null;
+    });
+    VenueCashPullOutcome? outcome;
+    try {
+      outcome = await ref.read(venueCashPullerProvider).pullShortfall(
+            neededUsd: usd,
+            forAction: VenueCashFor.send,
+            onPlanned: (plan) {
+              if (!mounted || plan.pulls.isEmpty) return;
+              setState(() =>
+                  _pullProgress = venueCashProgressText(context.l10n, plan));
+            },
+          );
+    } catch (_) {
+      outcome = null;
+    }
+    if (!mounted) return false;
+    if (outcome != null && outcome.dollarsCover) {
+      setState(() => _pullProgress = null);
+      return true;
+    }
+    TrackingService.moneyFlowError(
+        'usd_send',
+        outcome == null || !outcome.plan.covers
+            ? 'insufficient_funds'
+            : 'venue_cash_pending');
+    setState(() {
+      _processing = false;
+      _pullProgress = null;
+      _error = (outcome == null
+              ? null
+              : venueCashStoppedText(context.l10n, outcome)) ??
+          (outcome != null && !outcome.plan.covers
+              ? context.l10n.usdSendNotEnough
+              : context.l10n.usdSendFailed);
+    });
+    return false;
   }
 
   void _showSent(UsdSendDestination destination, {String? detail}) {

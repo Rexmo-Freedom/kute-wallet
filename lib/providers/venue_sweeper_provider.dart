@@ -27,10 +27,13 @@ import 'package:kute/providers/auth_provider.dart'
     show appVisibleProvider, sessionUnlockedProvider;
 import 'package:kute/providers/hyperliquid_account_provider.dart'
     show
+        hyperliquidAddressProvider,
         hyperliquidFreeUsdcProvider,
         hyperliquidHeldPositionsProvider,
         hyperliquidOpenPositionsCountProvider,
         hyperliquidProvisionedProvider;
+import 'package:kute/providers/hyperliquid_markets_provider.dart'
+    show hyperliquidTradingModelProvider;
 import 'package:kute/providers/hyperliquid_trading_provider.dart';
 import 'package:kute/providers/investment_balances_provider.dart'
     show polymarketInvestmentBalances;
@@ -46,6 +49,7 @@ import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
 import 'package:kute/services/funding/settlement_stage.dart';
 import 'package:kute/services/funding/settlement_store.dart';
 import 'package:kute/services/one_balance/hyperliquid_move_rail.dart';
+import 'package:kute/services/one_balance/investing_sweep_rules.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/one_balance/prediction_funding_ledger.dart';
 import 'package:kute/services/one_balance/predictions_venue_funder.dart'
@@ -118,6 +122,27 @@ DateTime predictionsLastActivity({required bool openOrders, required DateTime no
       DateTime.fromMillisecondsSinceEpoch(0);
 }
 
+/// Whether any order rests at the Investing account, read from the venue
+/// itself (for when the trading state is not running). Unreadable holds:
+/// an order resting there must never lose the cash it fills against.
+/// Overridden in tests.
+final investingRestingOrdersReaderProvider =
+    Provider<Future<bool> Function()>((ref) => () async {
+          try {
+            final address = await ref
+                .read(hyperliquidAddressProvider.future)
+                .timeout(const Duration(seconds: 5));
+            if (address == null || address.isEmpty) return true;
+            final orders = await ref
+                .read(hyperliquidTradingModelProvider)
+                .getOpenOrders(address)
+                .timeout(const Duration(seconds: 8));
+            return orders.isNotEmpty;
+          } catch (_) {
+            return true;
+          }
+        });
+
 /// Orchestra chains a venue's settlement operations run on.
 const Map<OneBalanceVenue, Set<String>> _venueChains = {
   OneBalanceVenue.predictions: {'polygon'},
@@ -150,7 +175,14 @@ class _RiverpodSweeperHost extends VenueSweeperHost {
   /// settle-and-wrap finished: the venue's grace window restarts.
   void noteDepositSettled(OneBalanceVenue venue) {
     _lastDepositSettledAt[venue] = now();
+    // Money landing at Investing is Investing activity: its cash stays.
+    if (venue == OneBalanceVenue.investing) {
+      VenueActivity.note(OneBalanceVenue.investing);
+    }
   }
+
+  Future<bool> _restingOrdersAtVenue() =>
+      _ref.read(investingRestingOrdersReaderProvider)();
 
   void noteOrdersChanged(List<SwapOrder>? previous, List<SwapOrder> next) {
     final wallet = spendingWalletId;
@@ -216,6 +248,8 @@ class _RiverpodSweeperHost extends VenueSweeperHost {
         var placing = false;
         var twap = false;
         var closing = false;
+        var positions = false;
+        bool? resting;
         final hl = _ref.exists(hyperliquidTradingProvider)
             ? _ref.read(hyperliquidTradingProvider).valueOrNull
             : null;
@@ -227,12 +261,29 @@ class _RiverpodSweeperHost extends VenueSweeperHost {
           placing = hl.isPlacingOrder;
           twap = hl.runningTwaps.any((t) => !t.expired);
           closing = hl.pendingCloseCoins.isNotEmpty;
+          positions = hl.positions.isNotEmpty;
+          resting = hl.openOrders.isNotEmpty;
         } else if (!_ref.read(hyperliquidProvisionedProvider)) {
           // Never provisioned: nothing there, and known to be nothing.
           idle = 0;
+          resting = false;
         } else {
           idle = _ref.read(hyperliquidFreeUsdcProvider);
           reservations = _ref.read(hyperliquidHeldPositionsProvider).isNotEmpty;
+          positions = reservations;
+        }
+        // Investing cash stays, Available, until the account has sat idle
+        // a day with nothing open (investing_sweep_rules.dart).
+        var activeAt = investingLastActivity(
+            hasOpenPositions: positions,
+            hasRestingOrders: resting ?? false,
+            now: now());
+        if (resting == null &&
+            idle >= kSweepDustUsd &&
+            !venueKeepsCash(activeAt, now()) &&
+            await _restingOrdersAtVenue()) {
+          activeAt = investingLastActivity(
+              hasOpenPositions: positions, hasRestingOrders: true, now: now());
         }
         double withdrawable = 0;
         if (idle >= kSweepDustUsd) {
@@ -249,11 +300,15 @@ class _RiverpodSweeperHost extends VenueSweeperHost {
           hasReservations: reservations,
           hasPendingMove: pendingRows || pendingOps,
           lastDepositSettledAt: settledAt,
-          hasPendingIntent: _ref.read(pendingHyperliquidOrderProvider) != null,
+          // Only an order queued behind its money or being placed holds
+          // the cash; a finished one never does.
+          hasPendingIntent: PendingHyperliquidOrderNotifier.isActive(
+              _ref.read(pendingHyperliquidOrderProvider)),
           isPlacing: placing ||
               _ref.read(placingHyperliquidOrderProvider).isNotEmpty,
           hasOpenTwap: twap,
           isClaiming: closing,
+          lastActivityAt: activeAt,
         );
     }
   }
@@ -357,6 +412,11 @@ class VenueSweeperNotifier extends Notifier<VenueSweeperState> {
 
     final released = VenueCashReleased.stream.listen((event) {
       final (venue, reason) = event;
+      // A close, cancel, fill or failed order is Investing activity: its
+      // cash stays there (Available) and the idle window restarts.
+      if (venue == OneBalanceVenue.investing) {
+        VenueActivity.note(OneBalanceVenue.investing);
+      }
       unawaited(trigger(reason, venue: venue));
     });
 

@@ -43,6 +43,7 @@ import 'dart:async';
 import 'package:kute/constants/hyperliquid_constants.dart';
 import 'package:kute/services/hyperliquid/hl_failure_analytics.dart';
 import 'package:kute/services/hyperliquid/hypercore_cash.dart';
+import 'package:kute/services/hyperliquid/hyperliquid_onboarding_service.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -65,6 +66,7 @@ import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart'
 import 'package:kute/services/one_balance/hyperliquid_move_rail.dart';
 import 'package:kute/services/one_balance/hyperliquid_venue_funder.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
+import 'package:kute/services/one_balance/venue_cash_released.dart';
 import 'package:kute/services/one_balance/order_funding.dart';
 import 'package:kute/services/one_balance/venue_funder.dart';
 import 'package:kute/services/venue_analytics.dart';
@@ -196,6 +198,12 @@ class PendingHlOrderIntent {
   /// The venue's answer, once placed.
   final HlOrderResult? result;
 
+  /// The account could not sign the one-time builder-fee approval before
+  /// its first money landed (an account Hyperliquid has never seen cannot
+  /// post a signed action): the auto-fire signs it once the funds are
+  /// there, retried with backoff, before it places the order.
+  final bool needsBuilderApproval;
+
   PendingHlOrderIntent({
     required this.coin,
     required this.kind,
@@ -226,6 +234,7 @@ class PendingHlOrderIntent {
     this.placingAt,
     this.placedMarginUsd,
     this.result,
+    this.needsBuilderApproval = false,
   }) : createdAt = createdAt ?? DateTime.now();
 
   /// Whether the auto-fire may shrink this order to what arrived.
@@ -274,6 +283,7 @@ class PendingHlOrderIntent {
       placingAt: placingAt ?? this.placingAt,
       placedMarginUsd: placedMarginUsd ?? this.placedMarginUsd,
       result: result ?? this.result,
+      needsBuilderApproval: needsBuilderApproval,
     );
   }
 }
@@ -284,27 +294,62 @@ class PendingHyperliquidOrderNotifier extends Notifier<PendingHlOrderIntent?> {
 
   void setIntent(PendingHlOrderIntent intent) {
     state = intent;
+    _settleIfTerminal();
   }
 
   void updateStatus(PendingHlOrderStatus status, {String? errorMessage}) {
     final current = state;
     if (current == null) return;
     state = current.copyWith(status: status, errorMessage: errorMessage);
+    _settleIfTerminal();
   }
 
   void clear() {
     state = null;
   }
 
+  /// Whether an order is queued behind its money or being placed right
+  /// now: the one state that holds the venue's cash for it. A finished
+  /// order (done or failed) never holds it.
+  static bool isActive(PendingHlOrderIntent? intent) =>
+      intent != null &&
+      (intent.status == PendingHlOrderStatus.awaitingBalance ||
+          intent.status == PendingHlOrderStatus.placing);
+
+  /// A done or failed order is reported to every listener (the slip shows
+  /// its receipt or its message from that change) and then cleared, so
+  /// nothing reads a finished order as one still holding the venue's cash
+  /// (the sweeper, the next slip). A failure leaves whatever landed at the
+  /// venue as its cash, released at once (`order_failed`).
+  void _settleIfTerminal() {
+    final current = state;
+    if (current == null) return;
+    if (current.status != PendingHlOrderStatus.done &&
+        current.status != PendingHlOrderStatus.failed) {
+      return;
+    }
+    final failed = current.status == PendingHlOrderStatus.failed;
+    state = null;
+    if (failed) {
+      VenueCashReleased.emit(OneBalanceVenue.investing, 'order_failed');
+    }
+  }
+
   /// Queues [intent] behind its funding: the order is marked
   /// `awaitingBalance` (the one state the auto-fire places from), the
-  /// controller moves the shortfall from Dollars under [grant] (the
-  /// confirm-time autofire grant, which the rail's step-up hook honours),
-  /// and the auto-fire places the order once the venue holds the money.
+  /// controller moves exactly the approved [PendingHlOrderIntent.fundUsd]
+  /// from Dollars under [grant] (the confirm-time autofire grant, which
+  /// the rail's step-up hook honours), and the auto-fire places the order
+  /// once the venue holds the money.
   ///
   /// A refusal, a Dollars shortfall or an error before any funds left
   /// clears the intent and the grant: nothing is queued, Dollars are
-  /// untouched. The outcome is returned for the slip to show.
+  /// untouched. A move the rail could not confirm either way
+  /// ([OrderFundingUnconfirmed]) keeps the order queued and watched: the
+  /// money may be on its way, and a retry must not fund it twice. A
+  /// second order while one is queued or placing is refused
+  /// ([kHlOrderQueuedReason]) with nothing changed. The outcome is
+  /// returned for the slip to show.
   Future<OrderFundingOutcome> fundAndQueue(
     PendingHlOrderIntent intent, {
     required AuthGrant grant,
@@ -314,6 +359,11 @@ class PendingHyperliquidOrderNotifier extends Notifier<PendingHlOrderIntent?> {
     required double readyUsd,
     void Function(OrderFundingStage)? onStage,
   }) async {
+    if (isActive(state)) {
+      // One funded order at a time: the queued one's grant and money are
+      // not this one's to take.
+      return const OrderFundingRefused(kHlOrderQueuedReason);
+    }
     // The watcher ([pendingHlOrderAutoFireProvider]) must be alive: the
     // slip reads it before calling, and every state change below reaches
     // its listener, so the first check runs as soon as the move is sent.
@@ -328,6 +378,11 @@ class PendingHyperliquidOrderNotifier extends Notifier<PendingHlOrderIntent?> {
         readyUsd: readyUsd,
         auth: UserGrantAuthorization(grant),
         onStage: onStage,
+        // The amount the person approved, never a second sizing: the
+        // grant's funding limit is exactly this figure.
+        fundUsd: intent.fundUsd > 0 ? intent.fundUsd : null,
+        entrySource: intent.entrySource,
+        keepUnconfirmed: true,
       );
     } catch (e) {
       _dropQueued(intent);
@@ -355,6 +410,9 @@ class PendingHyperliquidOrderNotifier extends Notifier<PendingHlOrderIntent?> {
           }
         }
       case OrderFundingNotNeeded():
+      case OrderFundingUnconfirmed():
+        // Unconfirmed: the order stays queued and the auto-fire keeps
+        // watching the venue; the credit wait starts now.
         final current = state;
         if (current != null && identical(current.placement, intent.placement)) {
           state = current.copyWith(fundMs: fundMs, fundedAt: DateTime.now());
@@ -375,6 +433,10 @@ class PendingHyperliquidOrderNotifier extends Notifier<PendingHlOrderIntent?> {
   }
 }
 
+/// [OrderFundingRefused.reason] for a funded order refused because
+/// another one is still queued or placing.
+const String kHlOrderQueuedReason = 'order_queued';
+
 final pendingHyperliquidOrderProvider =
     NotifierProvider<PendingHyperliquidOrderNotifier, PendingHlOrderIntent?>(
   PendingHyperliquidOrderNotifier.new,
@@ -382,6 +444,40 @@ final pendingHyperliquidOrderProvider =
 
 /// The autofire grant slot for the one pending Hyperliquid order (D-10).
 const String kPendingHlOrderAutofireId = 'hyperliquid_pending_order';
+
+/// The waits between the auto-fire's builder-fee approval attempts on a
+/// first order: the venue accepts a signed action from a new account a
+/// few seconds after its first money credits, rarely at once.
+const List<Duration> kHlBuilderApprovalBackoff = [
+  Duration(seconds: 2),
+  Duration(seconds: 5),
+  Duration(seconds: 10),
+];
+
+/// Signs the one-time builder-fee approval once the account holds money,
+/// retried on [kHlBuilderApprovalBackoff]. True once approved (or nothing
+/// is published to approve). Never throws. Overridden in tests.
+final hlBuilderApprovalAfterFundingProvider =
+    Provider<Future<bool> Function()>((ref) => () async {
+          for (var attempt = 0;; attempt++) {
+            try {
+              await ref
+                  .read(hyperliquidTradingProvider.notifier)
+                  .approveBuilderAfterFunding();
+              final walletId =
+                  pickSpendingWallet(ref.read(settingsProvider))?.id;
+              if (walletId != null &&
+                  await HyperliquidOnboardingService.hasApprovedBuilderFee(
+                      walletId)) {
+                return true;
+              }
+            } catch (_) {
+              // Retried below.
+            }
+            if (attempt >= kHlBuilderApprovalBackoff.length) return false;
+            await Future<void>.delayed(kHlBuilderApprovalBackoff[attempt]);
+          }
+        });
 
 /// The order the auto-fire places for [intent] at [marginUsd]: the slip's
 /// own call when it handed one over, else the plain market order.
@@ -707,6 +803,14 @@ class PendingHlOrderAutoFire {
 
     try {
       final market = intent.market ?? await _resolveMarket(intent);
+      if (intent.needsBuilderApproval) {
+        // First order on a new account: the approval the slip could not
+        // sign before the money landed. A failure is not final here: the
+        // order path asks once more and names the obstacle if it stays.
+        final approved = await ref.read(hlBuilderApprovalAfterFundingProvider)();
+        TrackingService.track('hl_builder_fee_after_funding',
+            params: {'approved': approved});
+      }
       final walletId = pickSpendingWallet(ref.read(settingsProvider))?.id ?? '';
       final grant = _autofireGrant(
         pendingHlOrderAutofireIntent(intent, market,

@@ -26,6 +26,9 @@ import 'package:kute/screens/home/components/deposit_sheet.dart'
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/usd/usd_send_screen.dart';
 import 'package:kute/services/orchestra_usd_send_routes.dart';
+import 'package:kute/services/one_balance/one_balance_state.dart';
+import 'package:kute/services/one_balance/venue_cash_source.dart';
+import 'package:kute/services/one_balance/venue_funder.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -83,6 +86,35 @@ String? _clipboard;
 /// The dollar balance the screen reads, settable mid-test.
 final _balance = StateProvider<double>((_) => 100);
 
+/// How far Dollars plus venue cash reach; null is Dollars alone.
+final _reach = StateProvider<double?>((_) => null);
+
+/// The puller the screen uses; null is one with no venue cash.
+VenueCashPuller? _puller;
+
+/// A venue whose cash the test sets, recording each pull.
+class _Venue implements VenueCashSource {
+  _Venue(this.venue, this.available);
+
+  @override
+  final OneBalanceVenue venue;
+  double available;
+  final pulls = <double>[];
+
+  @override
+  Duration get estimatedArrival => kVenuePullEta[venue]!;
+
+  @override
+  Future<double> availableUsd() async => available;
+
+  @override
+  Future<VenueMoveResult> pull(double usd, {required String purpose}) async {
+    pulls.add(usd);
+    return VenueMoveResult(
+        quoteId: 'q', sentUsd: usd, arrivingUsdEstimate: usd * 0.99);
+  }
+}
+
 Future<void> _pump(WidgetTester tester, {bool arbitrumUsdc = true}) async {
   await tester.pumpWidget(ProviderScope(
     overrides: [
@@ -99,6 +131,14 @@ Future<void> _pump(WidgetTester tester, {bool arbitrumUsdc = true}) async {
             wallets: [WalletConfig(id: 'spending', name: 'Spending')],
           ))),
       usdBalanceProvider.overrideWith((ref) => ref.watch(_balance)),
+      venueCashReachProvider.overrideWith(
+          (ref) async => ref.watch(_reach) ?? ref.watch(_balance)),
+      venueCashPullerProvider.overrideWith((ref) =>
+          _puller ??
+          VenueCashPuller(
+              sources: const [],
+              readDollars: () => ref.read(_balance),
+              minimumUsd: (_) async => 1)),
       orchestraSupportedRoutesProvider
           .overrideWith((_) => _Routes(_catalog(arbitrumUsdc: arbitrumUsdc))),
       orchestraRoutesReadyProvider.overrideWith((_) async {}),
@@ -170,6 +210,7 @@ void main() {
     RuntimeCapabilitiesService.debugInstance = policy;
     expect(await policy.refresh(), isTrue);
     _clipboard = null;
+    _puller = null;
   });
 
   tearDown(() {
@@ -232,8 +273,8 @@ void main() {
     addTearDown(() => TrackingService.debugTrackObserver = null);
     final opened = <(MoveLockedSide, double?)>[];
     VoidCallback? completed;
-    UsdSendScreen.debugDepositSheetOpener = (_,
-        {required lockedSide, initialTargetUsd, onCompleted}) async {
+    UsdSendScreen.debugDepositSheetOpener =
+        (_, {required lockedSide, initialTargetUsd, onCompleted}) async {
       opened.add((lockedSide, initialTargetUsd));
       completed = onCompleted;
     };
@@ -364,5 +405,79 @@ void main() {
     await _paste(tester, 'ethereum:$_evm@424242');
     expect(find.text(_l10n.usdSendAddressUnsupported), findsOneWidget);
     expect(_continueEnabled(tester), isFalse);
+  });
+
+  testWidgets(
+      'over Dollars but within venue cash: no "not enough", the reach is '
+      'what is available, and Continue goes on', (tester) async {
+    tester.view.physicalSize = const Size(1290, 2796);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    await withClipboard(tester);
+    await _pump(tester);
+    ProviderScope.containerOf(tester.element(find.byType(UsdSendScreen)))
+        .read(_reach.notifier)
+        .state = 180;
+    await tester.pumpAndSettle();
+
+    expect(find.text(_l10n.hlYieldAvailableLine('\$180.00')), findsOneWidget);
+    await _type(tester, '150');
+    expect(find.text(_l10n.sendMoreThanAvailable), findsNothing);
+    expect(find.byKey(const ValueKey('usd-send-top-up')), findsNothing);
+    expect(_continueEnabled(tester), isTrue);
+
+    // Past the reach it is "more than available" again, with the top-up
+    // for what the reach misses.
+    await tester.tap(find.text('0'));
+    await tester.pump();
+    expect(find.text(_l10n.sendMoreThanAvailable), findsOneWidget);
+    expect(find.text(_l10n.slipAddToInvestments('\$1320.00')), findsOneWidget);
+    expect(_continueEnabled(tester), isFalse);
+  });
+
+  testWidgets(
+      'Send past Dollars pulls the shortfall first; when it has not landed '
+      'in time it stops and says so, and nothing is sent', (tester) async {
+    final events = <(String, Map<String, Object>?)>[];
+    TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+    addTearDown(() => TrackingService.debugTrackObserver = null);
+    final venue = _Venue(OneBalanceVenue.predictions, 100);
+    var now = DateTime(2026, 10, 13, 12);
+    _puller = VenueCashPuller(
+      sources: [venue],
+      readDollars: () => 100,
+      minimumUsd: (_) async => 1,
+      clock: () => now,
+      sleep: (d) async => now = now.add(d),
+    );
+    tester.view.physicalSize = const Size(1290, 2796);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    await withClipboard(tester);
+    await _pump(tester);
+    ProviderScope.containerOf(tester.element(find.byType(UsdSendScreen)))
+        .read(_reach.notifier)
+        .state = 180;
+    await tester.pumpAndSettle();
+    _clipboard = _evm;
+    await _toSendTo(tester, amount: '150');
+    await tester.tap(find.text(_l10n.useIt));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(_l10n.continueLabel));
+    await tester.pumpAndSettle();
+    expect(find.text(_l10n.sendConfirmTheDetails), findsOneWidget);
+
+    await tester.tap(find.text(_l10n.send));
+    await tester.pumpAndSettle();
+
+    // 50 missing: 50 / 0.98 → $51.03 from Predictions, once.
+    expect(venue.pulls, [51.03]);
+    expect(
+        find.text('${_l10n.oneBalanceComingBack('\$51.03', _l10n.predictions)}'
+            '\n${_l10n.activityBitcoinAddedPending}'),
+        findsOneWidget);
+    expect(events.map((e) => e.$1), contains('predictions_cash_pulled'));
+    // The send itself never started.
+    expect(events.map((e) => e.$1), isNot(contains('usd_send_initiated')));
   });
 }

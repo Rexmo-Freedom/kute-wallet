@@ -36,6 +36,35 @@ const String kFundVenueInvesting = 'investing';
 BigInt dollarsBaseUnits(double usd) =>
     usd.isFinite && usd > 0 ? BigInt.from((usd * 1e6).round()) : BigInt.zero;
 
+/// What [HyperliquidVenueFunder.sizeFunding] decided: send [fundUsd],
+/// [arrivingUsd] lands (the live estimate at that amount).
+class FundingSize {
+  const FundingSize({
+    required this.fundUsd,
+    required this.arrivingUsd,
+    required this.minUsd,
+  });
+
+  final double fundUsd;
+  final double arrivingUsd;
+
+  /// The rail's minimum at the time of the estimate.
+  final double minUsd;
+
+  /// What leaves Dollars less what arrives, to the cent.
+  double get costUsd {
+    final c = fundUsd - arrivingUsd;
+    return c.isFinite && c > 0 ? ((c * 100) - 1e-9).ceilToDouble() / 100 : 0;
+  }
+
+  /// Whether what arrives covers [neededUsd].
+  bool covers(double neededUsd) => arrivingUsd + 1e-6 >= neededUsd;
+
+  @override
+  String toString() =>
+      'FundingSize(fund: $fundUsd, arriving: $arrivingUsd, min: $minUsd)';
+}
+
 class HyperliquidVenueFunder implements VenueFunder {
   HyperliquidVenueFunder(this._rail);
 
@@ -44,6 +73,55 @@ class HyperliquidVenueFunder implements VenueFunder {
   /// A deposit rate the quote cannot be believed above (the quote guard
   /// refuses anything over 4%; this only keeps the gross-up finite).
   static const double _maxProportionalFee = 0.5;
+
+  /// The most of a move the quote guard lets a declared fee take (400
+  /// bps, `OrchestraQuoteBounds.maxFeeBps`): anything a quote keeps
+  /// beyond this share is the route's flat cost.
+  static const double _maxProportionalRate = 0.04;
+
+  /// How many times [sizeFunding] re-prices its answer before it gives up.
+  static const int _sizeRounds = 3;
+
+  /// The ONE sizing of an order's funding on what ARRIVES: what to send
+  /// from Dollars so that at least [neededUsd] lands at the venue, read
+  /// from the funder's live estimates (flat cost, proportional fee and
+  /// the one-time activation of an account Hyperliquid has never seen,
+  /// all inside what the estimate says arrives). The first estimate is
+  /// priced for [neededUsd] itself; the answer is then priced again at
+  /// the amount it would send and topped up by any gap, up to
+  /// [_sizeRounds] times. [FundingSize.covers] is false when even that
+  /// does not land [neededUsd] (the rail's maximum, a quote that keeps
+  /// moving): the caller refuses before anything is approved.
+  static Future<FundingSize> sizeFunding(
+    VenueFunder funder, {
+    required double neededUsd,
+  }) async {
+    if (!neededUsd.isFinite || neededUsd <= 0) {
+      return const FundingSize(fundUsd: 0, arrivingUsd: 0, minUsd: 0);
+    }
+    final first = await funder.estimate(neededUsd);
+    var fund = fundUsdFor(shortfallUsd: neededUsd, quote: first);
+    var quote = first;
+    for (var round = 0; round < _sizeRounds; round++) {
+      quote = await funder.estimate(fund);
+      final arriving = quote.arrivingUsd.isFinite ? quote.arrivingUsd : 0.0;
+      if (arriving + 1e-6 >= neededUsd) {
+        return FundingSize(
+            fundUsd: fund, arrivingUsd: arriving, minUsd: quote.minUsd);
+      }
+      final max = quote.maxUsd.isFinite && quote.maxUsd > 0
+          ? quote.maxUsd
+          : double.infinity;
+      if (fund + 1e-9 >= max) break;
+      final next = math.min(max, _ceilCents(fund + (neededUsd - arriving)));
+      if (next <= fund) break;
+      fund = next;
+    }
+    return FundingSize(
+        fundUsd: fund,
+        arrivingUsd: quote.arrivingUsd.isFinite ? quote.arrivingUsd : 0,
+        minUsd: quote.minUsd);
+  }
 
   @override
   Future<VenueMoveResult> fund({
@@ -112,11 +190,31 @@ class HyperliquidVenueFunder implements VenueFunder {
     required VenueMoveQuote quote,
   }) {
     if (!shortfallUsd.isFinite || shortfallUsd <= 0) return 0;
-    final fixed = quote.fixedCostUsd.isFinite && quote.fixedCostUsd > 0
+    var fixed = quote.fixedCostUsd.isFinite && quote.fixedCostUsd > 0
         ? quote.fixedCostUsd
         : 0.0;
-    final total = quote.feeUsd.isFinite && quote.feeUsd > 0 ? quote.feeUsd : 0.0;
-    final proportional = math.max(0.0, total - fixed);
+    // The whole cost of the move as the quote prices it: what it says
+    // arrives against the amount it was asked for, or its declared fee,
+    // whichever is larger. The HyperCore route's cost is close to flat
+    // (about $1.24, plus the one-time activation an account Hyperliquid
+    // has never seen pays, which Orchestra prices in when the quote
+    // names the account): a rate read off it would under-send small
+    // moves and over-send large ones.
+    final declared =
+        quote.feeUsd.isFinite && quote.feeUsd > 0 ? quote.feeUsd : 0.0;
+    final implied = quote.arrivingUsd.isFinite && quote.arrivingUsd > 0
+        ? shortfallUsd - quote.arrivingUsd
+        : 0.0;
+    final total = math.max(declared, implied);
+    // A proportional fee is capped by the quote guard
+    // ([_maxProportionalRate]); whatever the quote charges beyond that
+    // share is flat and is added once, not grossed up.
+    var proportional = math.max(0.0, total - fixed);
+    final cap = shortfallUsd * _maxProportionalRate;
+    if (proportional > cap) {
+      fixed += proportional - cap;
+      proportional = cap;
+    }
     var rate = proportional / shortfallUsd;
     if (!rate.isFinite || rate < 0) rate = 0;
     if (rate > _maxProportionalFee) rate = _maxProportionalFee;

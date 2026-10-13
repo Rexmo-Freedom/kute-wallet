@@ -52,7 +52,13 @@ class VenueSweeperState {
     this.waiting = const <OneBalanceVenue, double>{},
     this.dust = const <OneBalanceVenue, double>{},
     this.sweeping = const <OneBalanceVenue>{},
+    this.held = const <OneBalanceVenue, double>{},
   });
+
+  /// Idle venue cash a venue in use keeps (the idle rule, both venues):
+  /// the person's Available money, drawn on by orders and sends, never
+  /// "waiting" or "moving".
+  final Map<OneBalanceVenue, double> held;
 
   /// Idle venue cash not yet brought home, by venue.
   final Map<OneBalanceVenue, double> waiting;
@@ -68,11 +74,13 @@ class VenueSweeperState {
     Map<OneBalanceVenue, double>? waiting,
     Map<OneBalanceVenue, double>? dust,
     Set<OneBalanceVenue>? sweeping,
+    Map<OneBalanceVenue, double>? held,
   }) =>
       VenueSweeperState(
         waiting: waiting ?? this.waiting,
         dust: dust ?? this.dust,
         sweeping: sweeping ?? this.sweeping,
+        held: held ?? this.held,
       );
 
   @override
@@ -80,18 +88,21 @@ class VenueSweeperState {
       other is VenueSweeperState &&
       mapEquals(other.waiting, waiting) &&
       mapEquals(other.dust, dust) &&
+      mapEquals(other.held, held) &&
       setEquals(other.sweeping, sweeping);
 
   @override
   int get hashCode => Object.hash(
         Object.hashAll(waiting.entries.map((e) => Object.hash(e.key, e.value))),
         Object.hashAll(dust.entries.map((e) => Object.hash(e.key, e.value))),
+        Object.hashAll(held.entries.map((e) => Object.hash(e.key, e.value))),
         Object.hashAllUnordered(sweeping),
       );
 
   @override
   String toString() =>
-      'VenueSweeperState(waiting: $waiting, dust: $dust, sweeping: $sweeping)';
+      'VenueSweeperState(waiting: $waiting, dust: $dust, held: $held, '
+      'sweeping: $sweeping)';
 }
 
 /// A venue funder that can also bring idle cash home. Predictions binds
@@ -213,6 +224,11 @@ class VenueSweeper {
   final Map<String, _OpenSweep> _openSweeps = {};
   final Map<OneBalanceVenue, double> _waiting = {};
   final Map<OneBalanceVenue, double> _dust = {};
+  final Map<OneBalanceVenue, double> _held = {};
+
+  /// When each held venue last saw activity: its idle window ends
+  /// [kVenueIdleSweepAfter] later, a pass of its own ([nextDueIn]).
+  final Map<OneBalanceVenue, DateTime> _activeAt = {};
 
   bool _passing = false;
   String? _rerunReason;
@@ -316,6 +332,14 @@ class VenueSweeper {
       consider(m.backoffUntil);
       final held = m.heldSince;
       if (held != null) consider(held.add(kSweepHoldMax));
+    }
+    // A held venue's idle window running out.
+    if (kVenueIdleSweepEnabled) {
+      for (final e in _activeAt.entries) {
+        if (_held.containsKey(e.key)) {
+          consider(e.value.add(kVenueIdleSweepAfter));
+        }
+      }
     }
     return best;
   }
@@ -465,7 +489,9 @@ class VenueSweeper {
         // (the idle rule) is the venue's money, counted like dust: in the
         // total, never shown as waiting.
         if (reason == SweepSkipReason.active) {
-          _setDust(venue, idleUsd);
+          final at = snapshot.lastActivityAt;
+          if (at != null) _activeAt[venue] = at;
+          _setCash(venue, held: idleUsd);
         } else {
           _setWaiting(
               venue, reason == SweepSkipReason.backoff ? idleUsd : null);
@@ -513,13 +539,11 @@ class VenueSweeper {
     // before the move and leave the cash where it is if anything now holds
     // it. Not a failure: no backoff, the next pass decides again.
     final again = await _host.readVenue(venue);
-    final activeAt = again?.lastActivityAt;
     if (again == null ||
         again.hasPendingIntent ||
         again.isPlacing ||
         again.hasPendingMove ||
-        (activeAt != null &&
-            _host.now().difference(activeAt) < kVenueIdleSweepAfter)) {
+        venueKeepsCash(again.lastActivityAt, _host.now())) {
       return;
     }
     _inFlight.add(venue);
@@ -706,7 +730,8 @@ class VenueSweeper {
   void _setDust(OneBalanceVenue venue, double usd) =>
       _setCash(venue, dust: usd);
 
-  void _setCash(OneBalanceVenue venue, {double? waiting, double? dust}) {
+  void _setCash(OneBalanceVenue venue,
+      {double? waiting, double? dust, double? held}) {
     bool put(Map<OneBalanceVenue, double> map, double? usd) {
       if (usd == null || !usd.isFinite || usd < kSweepDustUsd) {
         return map.remove(venue) != null;
@@ -718,13 +743,15 @@ class VenueSweeper {
 
     final a = put(_waiting, waiting);
     final b = put(_dust, dust);
-    if (a || b) _publish();
+    final h = put(_held, held);
+    if (a || b || h) _publish();
   }
 
   void _publish() {
     final next = VenueSweeperState(
       waiting: Map.unmodifiable(_waiting),
       dust: Map.unmodifiable(_dust),
+      held: Map.unmodifiable(_held),
       sweeping: Set.unmodifiable(_inFlight),
     );
     if (next == _state) return;
@@ -762,7 +789,11 @@ class VenueSweeper {
     if (r.contains('resolve') || r.contains('claim') || r.contains('redeem')) {
       return 'claim';
     }
-    if (r.contains('close') || r.contains('sold') || r.contains('sell')) {
+    if (r.contains('close') ||
+        r.contains('sold') ||
+        r.contains('sell') ||
+        // A TP/SL or other reduce-only fill closes (part of) a position.
+        r.contains('reduce')) {
       return 'close';
     }
     if (r.contains('resume') || r.contains('unlock') || r == 'manual') {

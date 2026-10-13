@@ -10,22 +10,26 @@
 // one balance. "Add $X" shows only when Dollars cannot cover this move.
 //
 // Example: Predictions holds $2, a $3.50 minimum bet needs about $3.58
-// with fees, so about $1.66 moves (not the whole $3.50).
+// with fees, so about $1.85 moves (not the whole $3.50).
 //
-// One function so the shared planner (Dollars first, then the other
-// venue's cash) can replace it: [planBetFunding] / [readBetFunding].
+// The landing target is the shared funding engine's
+// ([OrderFundingEngine.targetUsd]: the shortfall plus 2%, at least $0.25,
+// never under $1), the same rule an Investing order uses. Where the move
+// comes from (Dollars first, then Investing cash pulled home) is the
+// slip's, through the shared venue-cash planner.
 
 import 'dart:math' as math;
 
 import 'package:kute/services/funding/venue_shortfall.dart';
 import 'package:kute/services/one_balance/order_funding.dart'
-    show OrderFundingPlan;
+    show OrderFundingEngine, OrderFundingPlan;
 import 'package:kute/services/one_balance/venue_funder.dart';
 
-/// The buffer on a funding move: this share of what is missing, at least
-/// [kBetFundingBufferMinUsd].
-const double kBetFundingBufferPct = 0.01;
-const double kBetFundingBufferMinUsd = 0.05;
+/// The buffer on a funding move: the shared engine's
+/// ([OrderFundingEngine.bufferShare] of what is missing, at least
+/// [OrderFundingEngine.bufferMinUsd]).
+const double kBetFundingBufferPct = OrderFundingEngine.bufferShare;
+const double kBetFundingBufferMinUsd = OrderFundingEngine.bufferMinUsd;
 
 double _ceilCents(double usd) => ((usd * 100) - 1e-9).ceilToDouble() / 100;
 
@@ -52,10 +56,8 @@ OrderFundingPlan planBetFunding({
   final keep = routeFee.isFinite && routeFee > 0 && routeFee < 1
       ? 1 - routeFee
       : 1.0;
-  final buffer =
-      math.max(kBetFundingBufferMinUsd, missing * kBetFundingBufferPct);
-  final fund = math.max(
-      _ceilCents((missing + buffer) / keep),
+  final target = OrderFundingEngine.targetUsd(shortfallUsd: missing);
+  final fund = math.max(_ceilCents(target / keep),
       math.max(ShortfallRules.minTopUpUsd, _ceilCents(floor)));
   return OrderFundingPlan(
     fundUsd: fund,

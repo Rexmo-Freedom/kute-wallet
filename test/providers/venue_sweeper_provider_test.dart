@@ -32,6 +32,7 @@ import 'package:kute/services/one_balance/prediction_funding_ledger.dart';
 import 'package:kute/services/one_balance/sweep_rules.dart'
     show kVenueIdleSweepAfter;
 import 'package:kute/services/one_balance/venue_activity.dart';
+import 'package:kute/services/one_balance/venue_cash_released.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:polybrainz_polymarket/polybrainz_polymarket.dart'
@@ -203,8 +204,19 @@ void main() {
     policy.dispose();
   });
 
+  /// Investing last used a day and a minute ago: its idle rule lets the
+  /// cash go home.
+  void investingIdleForADay() {
+    final dayAgo =
+        DateTime.now().subtract(kVenueIdleSweepAfter + const Duration(minutes: 1));
+    VenueActivity.clock = () => dayAgo;
+    VenueActivity.note(OneBalanceVenue.investing);
+    VenueActivity.clock = DateTime.now;
+  }
+
   ({ProviderContainer c, _Rail rail, _PmFunder pm}) bind(
-      PolymarketTradingState pmState) {
+      PolymarketTradingState pmState,
+      {bool restingAtVenue = false}) {
     final rail = _Rail();
     final pm = _PmFunder();
     final c = ProviderContainer(overrides: [
@@ -220,6 +232,8 @@ void main() {
           .overrideWithValue(RouteMinimums(fetch: (_) async => null)),
       hyperliquidMoveRailProvider.overrideWithValue(rail),
       predictionsSweepFunderProvider.overrideWithValue(pm),
+      investingRestingOrdersReaderProvider
+          .overrideWithValue(() async => restingAtVenue),
     ]);
     addTearDown(c.dispose);
     return (c: c, rail: rail, pm: pm);
@@ -234,8 +248,48 @@ void main() {
     expect(policy.allows('polymarket.close'), isTrue);
   });
 
-  test('Investing cash comes home with no Investing surface ever opened',
+  test('Investing cash stays, Available, while the account is in use',
       () async {
+    final events = <(String, Map<String, Object>?)>[];
+    TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+    addTearDown(() => TrackingService.debugTrackObserver = null);
+    final b = bind(const PolymarketTradingState());
+    b.c.read(venueSweeperProvider);
+    await Future<void>.delayed(Duration.zero);
+    // Nothing ever recorded: the idle window starts at first sight.
+    await b.c.read(venueSweeperProvider.notifier).trigger('resume');
+    expect(b.rail.calls, isEmpty);
+    expect(VenueActivity.last(OneBalanceVenue.investing), isNotNull);
+    final sweeper = b.c.read(venueSweeperProvider);
+    expect(sweeper.waiting, isEmpty);
+    expect(sweeper.held, {OneBalanceVenue.investing: 6.54});
+    final state = b.c.read(oneBalanceProvider);
+    expect(state.availableUsd, closeTo(6.54, 1e-9));
+    expect(state.totalUsd, closeTo(6.54, 1e-9));
+    // A close a moment later is activity too: still held, no sweep.
+    VenueCashReleased.emit(OneBalanceVenue.investing, 'reduce_fill');
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    expect(b.rail.calls, isEmpty);
+  });
+
+  test('a day idle but an order resting at the venue: the cash stays',
+      () async {
+    investingIdleForADay();
+    final b = bind(const PolymarketTradingState(), restingAtVenue: true);
+    b.c.read(venueSweeperProvider);
+    await Future<void>.delayed(Duration.zero);
+    await b.c.read(venueSweeperProvider.notifier).trigger('timer');
+    expect(b.rail.calls, isEmpty);
+    expect(b.c.read(venueSweeperProvider).held,
+        {OneBalanceVenue.investing: 6.54});
+  });
+
+  test('Investing cash comes home after a day idle, no surface ever opened',
+      () async {
+    investingIdleForADay();
+    final events = <(String, Map<String, Object>?)>[];
+    TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+    addTearDown(() => TrackingService.debugTrackObserver = null);
     final b = bind(const PolymarketTradingState());
     b.c.read(venueSweeperProvider);
     // The sweeper keeps the badge poll alive: it is what knows the cash.
@@ -248,10 +302,14 @@ void main() {
     expect(b.rail.calls, ['sweep:6.54']);
     expect(b.c.exists(hyperliquidTradingProvider), isFalse,
         reason: 'the trading stack is not needed to read or sweep the cash');
+    final started =
+        events.lastWhere((e) => e.$1 == 'venue_sweep_started').$2!;
+    expect(started['trigger'], 'investing_idle_24h');
   });
 
   test('cash the rail cannot carry yet stays in the header total and line',
       () async {
+    investingIdleForADay();
     final b = bind(const PolymarketTradingState());
     b.c.read(venueSweeperProvider);
     await Future<void>.delayed(Duration.zero);
@@ -316,10 +374,13 @@ void main() {
       expect(b.pm.calls, isEmpty, reason: 'no sweep within a day of use');
       expect(b.c.read(venueSweeperProvider).waiting, isEmpty,
           reason: 'never shown as waiting or unavailable');
-      // Still the person's money in the total meanwhile.
-      expect(b.c.read(venueSweeperProvider).dust,
-          {OneBalanceVenue.predictions: 10.4});
-      expect(b.c.read(oneBalanceProvider).totalUsd, closeTo(10.4, 1e-9));
+      // Still the person's money, Available, in the total meanwhile.
+      // (Investing's \$6.54 stays too, Available: its own rule.)
+      expect(b.c.read(venueSweeperProvider).held,
+          {OneBalanceVenue.predictions: 10.4, OneBalanceVenue.investing: 6.54});
+      expect(b.c.read(oneBalanceProvider).totalUsd, closeTo(16.94, 1e-9));
+      expect(
+          b.c.read(oneBalanceProvider).availableUsd, closeTo(16.94, 1e-9));
     });
 
     test('a day idle: swept back to Dollars with no action, although the '

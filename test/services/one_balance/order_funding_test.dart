@@ -8,7 +8,7 @@ import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/helpers/venue_intents.dart';
 import 'package:kute/services/funding/settlement_funding_outcome.dart';
 import 'package:kute/services/funding/settlement_runner.dart'
-    show SettlementStopReason, SettlementStopped;
+    show SettlementFundingUnknown, SettlementStopReason, SettlementStopped;
 import 'package:kute/services/funding/venue_shortfall.dart';
 import 'package:kute/services/one_balance/hyperliquid_venue_funder.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
@@ -380,6 +380,96 @@ void main() {
       j.failed(OneBalanceVenue.investing, OrderFundingStage.order, 'x');
       j.abandoned(OneBalanceVenue.investing);
       expect(events, isEmpty);
+    });
+  });
+
+  group('an unconfirmed move (SettlementFundingUnknown)', () {
+    test('Investing keeps the run open at the credit and says so', () async {
+      final funder =
+          _Funder(error: const SettlementFundingUnknown('op', 'timeout'));
+      final outcome = await controller(funder).fundAndQueue(
+        venue: OneBalanceVenue.investing,
+        orderUsd: 10,
+        requiredUsd: 10.2,
+        readyUsd: 0,
+        auth: UserGrantAuthorization(_grant()),
+        fundUsd: 11.5,
+        keepUnconfirmed: true,
+      );
+      expect(outcome, isA<OrderFundingUnconfirmed>());
+      // A refusal to any caller that does not tell the two apart.
+      expect(outcome, isA<OrderFundingRefused>());
+      expect(names(), isNot(contains('order_funding_failed')));
+      expect(OrderFundingJourney.instance.isRunning(OneBalanceVenue.investing),
+          isTrue);
+    });
+
+    test('without the opt-in it stays a refusal, as before', () async {
+      final funder =
+          _Funder(error: const SettlementFundingUnknown('op', 'timeout'));
+      final outcome = await controller(funder).fundAndQueue(
+        venue: OneBalanceVenue.predictions,
+        orderUsd: 10,
+        requiredUsd: 10.2,
+        readyUsd: 5,
+        auth: UserGrantAuthorization(_grant()),
+        fundUsd: 5.3,
+      );
+      expect(outcome, isNot(isA<OrderFundingUnconfirmed>()));
+      expect((outcome as OrderFundingRefused).reason, 'settlement');
+    });
+  });
+
+  test('the approved amount is sent as is, never re-planned', () async {
+    final funder = _Funder(routeFee: 0.12);
+    await controller(funder).fundAndQueue(
+      venue: OneBalanceVenue.investing,
+      orderUsd: 10,
+      requiredUsd: 10.2,
+      readyUsd: 0.5,
+      auth: UserGrantAuthorization(_grant()),
+      fundUsd: 11.46,
+    );
+    expect(funder.funded, [11.46]);
+    expect(funder.estimates, 0);
+  });
+
+  group('OrderFundingEngine (founder rule)', () {
+    test('the venue already covers it: place directly', () {
+      final d = OrderFundingEngine.decide(
+          needUsd: 3.5, haveHereUsd: 4, investmentsUsd: 0);
+      expect(d.route, OrderFundingRoute.direct);
+      expect(d.targetUsd, 0);
+    });
+
+    test("the founder's example: \$6 in all, \$2 here, a \$3.50 bet moves "
+        'about \$1.75 silently', () {
+      // Dollars + the other venue hold \$4; the venue holds \$2.
+      final d = OrderFundingEngine.decide(
+          needUsd: 3.5, haveHereUsd: 2, investmentsUsd: 4, moveCostUsd: 0.01);
+      expect(d.route, OrderFundingRoute.move);
+      expect(d.shortfallUsd, 1.5);
+      // \$1.50 + the \$0.25 floor of the buffer: \$1.75, never under \$1.
+      expect(d.targetUsd, 1.75);
+      expect(d.addUsd, 0);
+    });
+
+    test('rounds up to the route minimum and to \$1', () {
+      expect(OrderFundingEngine.targetUsd(shortfallUsd: 0.1), 1.0);
+      expect(
+          OrderFundingEngine.targetUsd(shortfallUsd: 0.5, routeMinimumUsd: 2),
+          2.0);
+      // 2% of \$100 beats the \$0.25 floor; cents round up.
+      expect(OrderFundingEngine.targetUsd(shortfallUsd: 100.001), 102.01);
+      expect(OrderFundingEngine.targetUsd(shortfallUsd: 0), 0);
+    });
+
+    test('total Investments short: the Add door for exactly the rest', () {
+      final d = OrderFundingEngine.decide(
+          needUsd: 20, haveHereUsd: 0, investmentsUsd: 5, moveCostUsd: 1.24);
+      expect(d.route, OrderFundingRoute.addFunds);
+      // \$20 + \$0.40 buffer + \$1.24 route cost − \$5 = \$16.64.
+      expect(d.addUsd, 16.64);
     });
   });
 }

@@ -107,6 +107,14 @@ import 'package:kute/services/funding/hot_settlement.dart' show HotSettlement;
 import 'package:kute/services/one_balance/one_balance_state.dart'
     show OneBalanceVenue;
 import 'package:kute/services/one_balance/bet_funding_plan.dart';
+import 'package:kute/services/one_balance/venue_cash_source.dart'
+    show
+        VenueCashFor,
+        VenueCashPullOutcome,
+        venueCashPullerProvider,
+        venueCashReachExcludingProvider;
+import 'package:kute/screens/shared/venue_cash_pull_copy.dart'
+    show venueCashStoppedText;
 import 'package:kute/services/one_balance/order_funding.dart';
 import 'package:kute/services/one_balance/predictions_venue_funder.dart'
     show predictionsVenueFunderProvider;
@@ -2464,8 +2472,22 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     }
     if (!mounted) return;
     PolymarketPlacementTimeline.mark('funding_plan');
-    // Dollars short of the move: the Dollars door, nothing queued.
+    // The shared funding engine: Dollars first, then Investing cash pulled
+    // home inside this same Confirm (after the one approval). Only when
+    // even that falls short is it the Dollars door, nothing queued.
+    var pullFirst = false;
     if (_dollarsUsd() + 1e-9 < plan.fundUsd) {
+      var reach = _dollarsUsd();
+      try {
+        reach = await ref
+            .read(venueCashPullerProvider)
+            .reachUsd(exclude: OneBalanceVenue.predictions)
+            .timeout(const Duration(seconds: 8));
+      } catch (_) {}
+      if (!mounted) return;
+      pullFirst = reach + 1e-9 >= plan.fundUsd;
+    }
+    if (_dollarsUsd() + 1e-9 < plan.fundUsd && !pullFirst) {
       _stopped('insufficient_balance');
       _trackStep('deposit');
       PolymarketPlacementDiagnostics.declined('insufficient_dollars');
@@ -2497,6 +2519,42 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       grant.revoke();
       dropQueued();
       return;
+    }
+    if (pullFirst) {
+      // Investing cash comes home for what Dollars lack, under the
+      // automatic home-only authorization; this approval stays the only
+      // prompt. Nothing is queued or funded until Dollars cover the move.
+      _updateState(() => _isPlacing = true);
+      VenueCashPullOutcome? pulled;
+      try {
+        pulled = await ref.read(venueCashPullerProvider).pullShortfall(
+              neededUsd: plan.fundUsd,
+              forAction: VenueCashFor.predictions,
+              exclude: OneBalanceVenue.predictions,
+            );
+      } catch (_) {
+        pulled = null;
+      }
+      if (!mounted) {
+        grant.revoke();
+        return;
+      }
+      if (pulled == null || !pulled.dollarsCover) {
+        grant.revoke();
+        dropQueued();
+        _stopped('insufficient_balance');
+        PolymarketPlacementTimeline.finish('declined',
+            reason: 'venue_cash_pending');
+        _updateState(() => _isPlacing = false);
+        showMessageSnackBar(
+            context: context,
+            message: (pulled == null
+                    ? null
+                    : venueCashStoppedText(context.l10n, pulled)) ??
+                context.l10n.betActionNotCompleted,
+            error: pulled == null || !pulled.anyPulled);
+        return;
+      }
     }
     _swapNeeded = true;
     _fundingUsd = plan.fundUsd;
@@ -3987,7 +4045,15 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       final plan = _fundingPlanAmount == _amount && _fundingPlan != null
           ? _fundingPlan!
           : planBetFunding(requiredUsd: required, readyUsd: ready);
-      final dollars = ref.watch(usdBalanceProvider);
+      // Dollars plus Investing cash: the bet pulls what Dollars lack.
+      final dollarsOnly = ref.watch(usdBalanceProvider);
+      final dollars = dollarsOnly + 1e-9 >= plan.fundUsd
+          ? dollarsOnly
+          : (ref
+                  .watch(venueCashReachExcludingProvider(
+                      OneBalanceVenue.predictions))
+                  .valueOrNull ??
+              dollarsOnly);
       final missing = slipDollarsShortfallUsd(
           topUpUsd: plan.fundUsd, dollarsUsd: dollars);
       if (missing > 0) {

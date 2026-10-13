@@ -204,6 +204,16 @@ class VenueSnapshot {
 /// not count; only the cash moves.
 const Duration kVenueIdleSweepAfter = Duration(hours: 24);
 
+/// Whether an idle venue's cash ever goes home on its own. False keeps it
+/// at the venue for good (it then only leaves on demand). One line.
+const bool kVenueIdleSweepEnabled = true;
+
+/// Whether a venue under the idle rule, last used at [activeAt], still
+/// keeps its cash at [now].
+bool venueKeepsCash(DateTime? activeAt, DateTime now) =>
+    activeAt != null &&
+    (!kVenueIdleSweepEnabled || now.difference(activeAt) < kVenueIdleSweepAfter);
+
 /// The session facts a pass adds to the snapshot.
 @immutable
 class SweepContext {
@@ -312,9 +322,7 @@ SweepDecision decideSweep(VenueSnapshot venue, SweepContext ctx) {
     return SweepSkip(SweepSkipReason.locked, idleUsd: idle);
   }
 
-  final activeAt = venue.lastActivityAt;
-  if (activeAt != null &&
-      ctx.now.difference(activeAt) < kVenueIdleSweepAfter) {
+  if (venueKeepsCash(venue.lastActivityAt, ctx.now)) {
     // The unreserved cash (what resting orders hold is already counted as
     // invested): the venue's money, counted in the total meanwhile.
     return SweepSkip(SweepSkipReason.active,

@@ -17,9 +17,10 @@ void main() {
       // Predictions holds $2; a $3.50 minimum bet needs $3.58 with fees.
       final plan = planBetFunding(
           requiredUsd: 3.58, readyUsd: 2, routeFee: 0.01, minUsd: 1);
-      // $1.58 missing + $0.05 buffer, grossed up by the 1% route fee.
-      expect(plan.fundUsd, 1.65);
-      expect(plan.arrivingUsd, greaterThanOrEqualTo(1.58 + 0.05 - 1e-9));
+      // $1.58 missing + the engine's $0.25 buffer, grossed up by the 1%
+      // route fee.
+      expect(plan.fundUsd, 1.85);
+      expect(plan.arrivingUsd, greaterThanOrEqualTo(1.58 + 0.25 - 1e-9));
       expect(plan.rule, ShortfallRules.ruleRemaining);
     });
 
@@ -40,10 +41,10 @@ void main() {
       expect(plan.arrivingUsd, 0);
     });
 
-    test('a large shortfall carries a 1% buffer', () {
+    test('a large shortfall carries a 2% buffer', () {
       final plan =
           planBetFunding(requiredUsd: 100, readyUsd: 0, routeFee: 0);
-      expect(plan.fundUsd, 101.0);
+      expect(plan.fundUsd, 102.0);
     });
   });
 

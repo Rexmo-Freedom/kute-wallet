@@ -24,6 +24,12 @@
 // Spending wallet only: the Ledger signer has no reviewed path for this
 // action, so the position screen hides the button for a Ledger position.
 //
+// Adding more than the Investing balance holds funds the difference from
+// Dollars the way an order does (one approval binds the margin change and
+// the dollars allowed to leave for it; the order-funding controller moves
+// exactly that amount, sized on what arrives; the change is signed once
+// the money lands). What lands beyond the margin stays as Investing cash.
+//
 // Analytics (hyperliquid_margin_adjust_*): started on open, submitted
 // once approved, then exactly one completed (venue accepted) or failed,
 // or abandoned when closed without submitting. Each carries `source`
@@ -46,6 +52,8 @@ import 'package:kute/providers/hyperliquid_account_provider.dart';
 import 'package:kute/providers/hyperliquid_live_prices_provider.dart';
 import 'package:kute/providers/hyperliquid_trading_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/providers/usd_account_provider.dart'
+    show usdBalanceProvider;
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
 import 'package:kute/screens/home/components/deposit/deposit_quick_amounts.dart';
@@ -60,6 +68,17 @@ import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/screens/shared/side_tint_palette.dart';
 import 'package:kute/screens/shared/trade_receipt.dart';
+import 'package:kute/services/one_balance/hyperliquid_venue_funder.dart';
+import 'package:kute/services/one_balance/one_balance_state.dart'
+    show OneBalanceVenue;
+import 'package:kute/services/one_balance/order_funding.dart';
+import 'package:kute/services/one_balance/venue_funder.dart'
+    show RouteUnavailable, UserGrantAuthorization, VenueFunder;
+import 'package:kute/services/hyperliquid/hypercore_cash.dart'
+    show hypercoreAvailableUsdc;
+import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart'
+    show HyperliquidInsufficientMarginException;
+import 'package:kute/services/funding/venue_shortfall.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/services/venue_analytics.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -146,6 +165,10 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
   String? _errorText;
   Object? _errorCause;
 
+  /// While a Dollars move for the change is on its way: the button's
+  /// wait says so ("Moving $X to …").
+  String? _movingLabel;
+
   HlMarket get _market => widget.market;
 
   /// The mode: true adds margin, false removes it. A market that locks
@@ -199,11 +222,32 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
   /// The Investing balance (perp cash on every dex plus spot USDC).
   double _cash(HyperliquidTradingState? state) => state?.availableUsdc ?? 0;
 
-  /// The most this change can move: the Investing balance when adding,
-  /// what the venue lets come out when removing. Floored to a cent.
-  double _limit(HyperliquidTradingState? state, HlPerpPosition pos) => _add
-      ? (_cash(state) * 100).floorToDouble() / 100
-      : hlRemovableMargin(pos);
+  /// Dollars on the spending account, read live. Zero when unreadable.
+  double _dollars({bool watch = false}) {
+    try {
+      final v = watch ? ref.watch(usdBalanceProvider) : ref.read(usdBalanceProvider);
+      return v.isFinite && v > 0 ? v : 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /// About what Dollars can land at the venue (the route's near-flat cost
+  /// and the fallback share off): the most a Dollars-funded addition
+  /// reaches. The exact figure is priced at the tap.
+  static double fundableFromDollars(double dollarsUsd) =>
+      HlAdjustMarginSheetFunding.fundable(dollarsUsd);
+
+  /// The most this change can move: the Investing balance plus what
+  /// Dollars can fund when adding, what the venue lets come out when
+  /// removing. Floored to a cent.
+  double _limit(HyperliquidTradingState? state, HlPerpPosition pos,
+          {double dollarsUsd = 0}) =>
+      _add
+          ? ((_cash(state) + fundableFromDollars(dollarsUsd)) * 100)
+                  .floorToDouble() /
+              100
+          : hlRemovableMargin(pos);
 
   void _setAmount(String v) {
     if (v == _amountText) return;
@@ -258,15 +302,50 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
         liveMid: ref.read(hyperliquidLiveMidProvider(pos.coin)),
         delta: usd,
       );
+      final change = HlIntents.isolatedMargin(
+        walletId: walletId,
+        market: _market,
+        positionIsLong: pos.isLong,
+        usd: usd,
+      );
+      // More than the Investing balance: the difference comes from
+      // Dollars, planned in full before the approval.
+      final cash = _cash(ref.read(hyperliquidTradingProvider).valueOrNull);
+      final shortfall = _add
+          ? ShortfallRules.shortfallUsd(requiredUsd: amount, readyUsd: cash)
+          : 0.0;
+      FundingSize? funding;
+      if (shortfall > 0) {
+        setState(() => _busy = true);
+        try {
+          funding = await planMarginFunding(
+              ref.read(hyperliquidVenueFunderProvider),
+              shortfallUsd: shortfall,
+              dollarsUsd: _dollars());
+        } catch (e) {
+          funding = null;
+          if (mounted) {
+            setState(() {
+              _errorCause = e;
+              _errorText = hlTradeErrorMessage(l10n, e);
+            });
+          }
+        } finally {
+          if (mounted) setState(() => _busy = false);
+        }
+        if (funding == null || !mounted) return;
+      }
+      final approved = funding == null
+          ? change
+          : change.copyWith(limits: {
+              ...change.limits,
+              kFundUsdLimit: dollarsBaseUnits(funding.fundUsd),
+              kFundVenueLimit: kFundVenueInvesting,
+            });
       final grant = await requireFreshAuthGrant(
         context,
         ref,
-        intent: HlIntents.isolatedMargin(
-          walletId: walletId,
-          market: _market,
-          positionIsLong: pos.isLong,
-          usd: usd,
-        ),
+        intent: approved,
         reason: l10n.hlMarginStepUp(_market.coin),
         amountUsd: amount,
       );
@@ -280,13 +359,33 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
         _errorCause = null;
       });
       try {
+        var signWith = grant;
+        if (funding != null) {
+          setState(() => _movingLabel = l10n.slipMovingToVenue(
+              formatHlUsd(funding!.fundUsd), l10n.trading));
+          final landed = await fundMarginShortfall(
+            ref,
+            grant: grant,
+            funding: funding,
+            amountUsd: amount,
+            readyUsd: cash,
+          );
+          if (!landed) {
+            // Nothing signed; whatever arrives stays Investing cash.
+            throw StateError(l10n.hlFundsTimeout);
+          }
+          // The approval covered the move and the change together: the
+          // change signs under a grant bound to it alone.
+          signWith = GrantGuard.chain(grant, change);
+          grant.revoke();
+        }
         await ref
             .read(hyperliquidTradingProvider.notifier)
             .adjustIsolatedMargin(
               market: _market,
               position: pos,
               usd: usd,
-              grant: grant,
+              grant: signWith,
             );
       } catch (e) {
         TrackingService.track('hyperliquid_margin_adjust_failed', params: {
@@ -298,11 +397,14 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
         if (!mounted) return;
         setState(() {
           _busy = false;
+          _movingLabel = null;
           _errorCause = e;
           // A StateError stopped before anything was signed (the position
           // changed, or the market allows no removal).
           _errorText = e is StateError
-              ? l10n.ledgerErrorDetailsChanged
+              ? (e.message == l10n.hlFundsTimeout
+                  ? l10n.hlFundsTimeout
+                  : l10n.ledgerErrorDetailsChanged)
               : hlTradeErrorMessage(l10n, e);
         });
         return;
@@ -312,7 +414,10 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
       if (!mounted) return;
       // Released first: the ticket holds itself while busy, and a held
       // ticket would refuse its own hand-off to the confirmation.
-      setState(() => _busy = false);
+      setState(() {
+        _busy = false;
+        _movingLabel = null;
+      });
       Navigator.of(context).pop();
       pushKuteSuccessOverlay(
         navigator: rootNav,
@@ -358,7 +463,7 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
     final state = ref.watch(hyperliquidTradingProvider).valueOrNull;
     final pos = _live(ref);
     final liveMid = ref.watch(hyperliquidLiveMidProvider(pos.coin));
-    final limit = _limit(state, pos);
+    final limit = _limit(state, pos, dollarsUsd: _dollars(watch: true));
     final amount = _amount;
     final over = amount != null && amount > limit + 1e-9;
     final canConfirm = !_busy && amount != null && !over && limit > 0;
@@ -588,7 +693,7 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
                   onTap: () => _confirm(limit, pos),
                   enabled: canConfirm,
                   isBusy: _busy,
-                  busyLabel: l10n.loading,
+                  busyLabel: _movingLabel ?? l10n.loading,
                   color: _side,
                 ),
               ),
@@ -638,4 +743,104 @@ class _Figures {
           marginAfter > 0 ? p.positionValue.abs() / marginAfter : null,
     );
   }
+}
+
+/// The sheet's Dollars-funding figures, for tests.
+abstract final class HlAdjustMarginSheetFunding {
+  /// About what [dollarsUsd] can land as margin (see the sheet's limit).
+  static double fundable(double dollarsUsd) {
+    final land = (dollarsUsd - kHlMarginFundingFlatUsd) *
+        (1 - ShortfallRules.fallbackRouteFee);
+    return land > OrderFundingEngine.floorUsd ? land : 0;
+  }
+}
+
+/// A flat allowance for the Dollars → Investing route's cost, used only for
+/// the margin sheet's "can add" figure before the tap prices it exactly.
+const double kHlMarginFundingFlatUsd = 1.25;
+
+/// The Dollars move for adding [shortfallUsd] more margin than the
+/// Investing balance holds: the engine's target (the shortfall plus its
+/// buffer, never under $1), sized on what arrives. Throws when the route
+/// cannot land the shortfall or Dollars do not cover the move (nothing
+/// is approved or moved).
+Future<FundingSize> planMarginFunding(
+  VenueFunder funder, {
+  required double shortfallUsd,
+  required double dollarsUsd,
+}) async {
+  final target = OrderFundingEngine.targetUsd(shortfallUsd: shortfallUsd);
+  final size = await HyperliquidVenueFunder.sizeFunding(funder,
+          neededUsd: target)
+      .timeout(const Duration(seconds: 12));
+  if (!size.covers(shortfallUsd)) {
+    throw const RouteUnavailable('arriving_below_needed');
+  }
+  if (!dollarsUsd.isFinite || dollarsUsd + 1e-9 < size.fundUsd) {
+    throw const HyperliquidInsufficientMarginException(
+        'Insufficient Dollars for this margin');
+  }
+  return size;
+}
+
+/// How long the margin sheet waits for its Dollars move to land.
+const Duration kHlMarginCreditWait = Duration(minutes: 12);
+
+/// Moves [funding] from Dollars under [grant] through the order-funding
+/// controller and waits (bounded) until the Investing account holds
+/// [amountUsd]. True once it does; false when the move was refused before
+/// anything left (Dollars untouched) or the credit did not come in time
+/// (what arrives stays Investing cash).
+Future<bool> fundMarginShortfall(
+  WidgetRef ref, {
+  required AuthGrant grant,
+  required FundingSize funding,
+  required double amountUsd,
+  required double readyUsd,
+  Duration wait = kHlMarginCreditWait,
+}) async {
+  final outcome = await ref.read(orderFundingControllerProvider).fundAndQueue(
+        venue: OneBalanceVenue.investing,
+        orderUsd: amountUsd,
+        requiredUsd: amountUsd,
+        readyUsd: readyUsd,
+        auth: UserGrantAuthorization(grant),
+        fundUsd: funding.fundUsd,
+        entrySource: 'add_margin',
+        purpose: 'order_funding',
+        keepUnconfirmed: true,
+      );
+  switch (outcome) {
+    case OrderFundingUnconfirmed():
+    case OrderFundingFunded():
+    case OrderFundingNotNeeded():
+      break;
+    case OrderFundingRefused():
+    case OrderFundingNeedsDollars():
+      return false;
+  }
+  final deadline = DateTime.now().add(wait);
+  var interval = const Duration(seconds: 1);
+  while (DateTime.now().isBefore(deadline)) {
+    try {
+      final snap = await ref.read(hyperliquidAccountProvider.future);
+      ref.invalidate(hyperliquidAccountProvider);
+      if (hypercoreAvailableUsdc(snap.withdrawable, snap.spotBalances) + 1e-6 >=
+          amountUsd) {
+        // The funding journey ends here (no auto-fire follows a margin
+        // change): the credit came, the change is signed next.
+        OrderFundingJourney.instance.credited(OneBalanceVenue.investing);
+        OrderFundingJourney.instance.completed(OneBalanceVenue.investing,
+            resized: false, amountUsd: amountUsd);
+        return true;
+      }
+    } catch (_) {}
+    await Future<void>.delayed(interval);
+    if (interval < const Duration(seconds: 4)) {
+      interval = const Duration(seconds: 4);
+    }
+  }
+  OrderFundingJourney.instance
+      .failed(OneBalanceVenue.investing, OrderFundingStage.credit, 'timeout');
+  return false;
 }

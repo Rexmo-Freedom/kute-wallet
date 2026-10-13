@@ -96,7 +96,23 @@ class OneBalanceState {
     this.waiting = const <OneBalanceVenue, double>{},
     this.investingKnown = false,
     this.predictionsKnown = false,
+    this.venueCash = const <OneBalanceVenue, double>{},
   });
+
+  /// Idle cash that stays at a venue by design (Investing until it sits
+  /// idle), by venue: part of [availableUsd], since an order, a send or
+  /// the other venue draws on it when Dollars fall short. Never waiting,
+  /// never moving.
+  final Map<OneBalanceVenue, double> venueCash;
+
+  /// Total of [venueCash].
+  double get venueCashUsd {
+    var sum = 0.0;
+    for (final usd in venueCash.values) {
+      if (usd.isFinite && usd > 0) sum += usd;
+    }
+    return sum;
+  }
 
   /// Spendable now, on the spending account.
   final double dollarsUsd;
@@ -125,11 +141,12 @@ class OneBalanceState {
     for (final usd in waiting.values) {
       total += usd;
     }
-    return total;
+    return total + venueCashUsd;
   }
 
-  /// What a new order can draw on without a move: the spending account.
-  double get availableUsd => dollarsUsd;
+  /// What a new order can draw on: the spending account plus the cash
+  /// the venues keep ([venueCash]).
+  double get availableUsd => dollarsUsd + venueCashUsd;
 
   /// Total of the in-flight rows, all kinds.
   double get inFlightUsd {
@@ -156,8 +173,10 @@ class OneBalanceState {
     Map<OneBalanceVenue, double>? waiting,
     bool? investingKnown,
     bool? predictionsKnown,
+    Map<OneBalanceVenue, double>? venueCash,
   }) =>
       OneBalanceState(
+        venueCash: venueCash ?? this.venueCash,
         dollarsUsd: dollarsUsd ?? this.dollarsUsd,
         investedUsd: investedUsd ?? this.investedUsd,
         inFlight: inFlight ?? this.inFlight,
@@ -173,6 +192,7 @@ class OneBalanceState {
       other.investedUsd == investedUsd &&
       listEquals(other.inFlight, inFlight) &&
       mapEquals(other.waiting, waiting) &&
+      mapEquals(other.venueCash, venueCash) &&
       other.investingKnown == investingKnown &&
       other.predictionsKnown == predictionsKnown;
 
@@ -182,6 +202,8 @@ class OneBalanceState {
         investedUsd,
         Object.hashAll(inFlight),
         Object.hashAll(waiting.entries.map((e) => Object.hash(e.key, e.value))),
+        Object.hashAll(
+            venueCash.entries.map((e) => Object.hash(e.key, e.value))),
         investingKnown,
         predictionsKnown,
       );
@@ -189,5 +211,6 @@ class OneBalanceState {
   @override
   String toString() => 'OneBalanceState(dollars: $dollarsUsd, '
       'invested: $investedUsd, inFlight: $inFlight, waiting: $waiting, '
+      'venueCash: $venueCash, '
       'investingKnown: $investingKnown, predictionsKnown: $predictionsKnown)';
 }

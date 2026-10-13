@@ -278,6 +278,28 @@ void main() {
       expect(s.totalUsd, closeTo(6.26, 1e-9));
     });
 
+    test('cash a venue keeps (held) is Available, never waiting or moving',
+        () async {
+      final c = container(
+        dollars: 4,
+        pm: const PolymarketTradingState(
+            isAuthenticated: true, balanceKnown: true, usdcBalance: 0),
+        sweeper: const VenueSweeperState(held: {
+          OneBalanceVenue.investing: 12.5,
+          OneBalanceVenue.predictions: 2,
+        }),
+      );
+      addTearDown(c.dispose);
+      await c.read(polymarketTradingProvider.future);
+      final s = c.read(oneBalanceProvider);
+      expect(s.waiting, isEmpty);
+      expect(s.inFlight, isEmpty);
+      expect(s.venueCashUsd, closeTo(14.5, 1e-9));
+      expect(s.availableUsd, closeTo(18.5, 1e-9));
+      expect(s.investedUsd, 0);
+      expect(s.totalUsd, closeTo(18.5, 1e-9));
+    });
+
     test('investedWithDust adds every venue\'s dust', () {
       expect(
           investedWithDust(10, const {

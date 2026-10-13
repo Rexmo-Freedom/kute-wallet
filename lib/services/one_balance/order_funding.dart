@@ -25,8 +25,9 @@
 // (purpose `conversion_leg`), so money is counted once.
 
 import 'dart:async';
+import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart' show visibleForTesting;
+import 'package:flutter/foundation.dart' show immutable, visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceProvider;
@@ -88,6 +89,17 @@ final class OrderFundingRefused extends OrderFundingOutcome {
   /// What the funder threw, for the slip's copy. Null for a refusal the
   /// controller decided itself.
   final Object? error;
+}
+
+/// The rail could not tell whether the move left Dollars
+/// ([SettlementFundingUnknown]): the money may be on its way. A caller
+/// that asked for it ([OrderFundingController.fundAndQueue]'s
+/// `keepUnconfirmed`) keeps the order queued and keeps watching the
+/// venue, so a retry never funds the same order twice; any landed cash
+/// stays at the venue. A [OrderFundingRefused] for callers that do not
+/// tell the two apart.
+final class OrderFundingUnconfirmed extends OrderFundingRefused {
+  const OrderFundingUnconfirmed({super.error}) : super('settlement_unknown');
 }
 
 /// Dollars plus the venue together cannot cover the order.
@@ -202,6 +214,160 @@ class OrderFundingPlan {
       'arriving: $arrivingUsd, rule: $rule, min: $minUsd)';
 }
 
+/// What the funding engine decided for one order (founder rule, October
+/// 2026). See [OrderFundingEngine.decide].
+enum OrderFundingRoute {
+  /// The venue's own cash covers the order: place it directly.
+  direct,
+
+  /// The venue is short but the person's Investments (Dollars plus the
+  /// other venue's spendable cash) cover the move: it is planned inside
+  /// the same Confirm and approval, then the order is placed. No extra
+  /// step, no "Add $X".
+  move,
+
+  /// Even everything in Investments is short of what the order needs:
+  /// the existing "Add $X to Investments" door, for [OrderFundingDecision
+  /// .addUsd].
+  addFunds,
+}
+
+/// The engine's answer: the route, and the figures behind it.
+@immutable
+class OrderFundingDecision {
+  const OrderFundingDecision({
+    required this.route,
+    required this.needUsd,
+    required this.haveHereUsd,
+    required this.shortfallUsd,
+    required this.targetUsd,
+    required this.addUsd,
+  });
+
+  final OrderFundingRoute route;
+
+  /// What the venue must hold for the order: stake or margin, every fee,
+  /// the price tolerance and the venue minimum.
+  final double needUsd;
+
+  /// The venue's spendable cash (reserved cash already taken off).
+  final double haveHereUsd;
+
+  /// [needUsd] − [haveHereUsd], to the cent; zero when covered.
+  final double shortfallUsd;
+
+  /// What the move must LAND at the venue: the shortfall plus the safety
+  /// buffer, never under [OrderFundingEngine.floorUsd] or the route's
+  /// minimum. Zero on [OrderFundingRoute.direct]. What it sends on top of
+  /// that is the route's cost ([HyperliquidVenueFunder.sizeFunding] for
+  /// Investing); the extra simply stays at the venue as its cash.
+  final double targetUsd;
+
+  /// On [OrderFundingRoute.addFunds], what is missing from Investments as
+  /// a whole, to the cent; zero otherwise.
+  final double addUsd;
+
+  @override
+  String toString() => 'OrderFundingDecision(${route.name}, need: $needUsd, '
+      'here: $haveHereUsd, short: $shortfallUsd, target: $targetUsd, '
+      'add: $addUsd)';
+}
+
+/// The shared funding engine for a venue order (Predictions bets and
+/// Investing orders alike). Pure.
+///
+///   need       = stake/notional + all fees + price tolerance + the venue
+///                minimum, worked out by the slip;
+///   have here  = the venue's spendable cash, minus what is reserved;
+///   shortfall  = need − have here.
+///
+/// No shortfall: place directly. A shortfall that the person's
+/// Investments cover (Dollars plus the other venue's spendable cash, less
+/// the move's cost): move it silently inside the same Confirm, then place
+/// — the move lands max(shortfall + buffer, route minimum, $1), rounded up
+/// to the cent, so the order surely works and the extra stays at the
+/// venue. Only when everything in Investments is short does the slip show
+/// the existing "Add $X to Investments".
+abstract final class OrderFundingEngine {
+  /// The share of the shortfall added as a safety buffer for fee and
+  /// price drift between the quote and the order.
+  static const double bufferShare = 0.02;
+
+  /// The smallest buffer, in dollars.
+  static const double bufferMinUsd = 0.25;
+
+  /// No move lands less than this.
+  static const double floorUsd = 1.0;
+
+  /// What a move for [shortfallUsd] must land: the shortfall plus the
+  /// larger of [bufferShare] of it and [bufferMinUsd], never under
+  /// [routeMinimumUsd] or [floorUsd], rounded UP to the cent. Zero for no
+  /// shortfall.
+  static double targetUsd({
+    required double shortfallUsd,
+    double routeMinimumUsd = 0,
+  }) {
+    if (!shortfallUsd.isFinite || shortfallUsd <= 1e-6) return 0;
+    final buffer = math.max(shortfallUsd * bufferShare, bufferMinUsd);
+    final min = routeMinimumUsd.isFinite && routeMinimumUsd > 0
+        ? routeMinimumUsd
+        : 0.0;
+    return OrderFundingPlan._ceilCents(
+        math.max(math.max(shortfallUsd + buffer, min), floorUsd));
+  }
+
+  /// The decision for an order needing [needUsd] at a venue holding
+  /// [haveHereUsd] spendable, with [investmentsUsd] spendable elsewhere
+  /// in Investments (Dollars plus the other venue's spendable cash) and
+  /// [moveCostUsd] the route's cost for the move (what is sent on top of
+  /// what lands).
+  static OrderFundingDecision decide({
+    required double needUsd,
+    required double haveHereUsd,
+    required double investmentsUsd,
+    double moveCostUsd = 0,
+    double routeMinimumUsd = 0,
+  }) {
+    double clean(double v) => v.isFinite && v > 0 ? v : 0;
+    final need = clean(needUsd);
+    final here = clean(haveHereUsd);
+    final shortfall =
+        ShortfallRules.shortfallUsd(requiredUsd: need, readyUsd: here);
+    if (shortfall <= 0) {
+      return OrderFundingDecision(
+        route: OrderFundingRoute.direct,
+        needUsd: need,
+        haveHereUsd: here,
+        shortfallUsd: 0,
+        targetUsd: 0,
+        addUsd: 0,
+      );
+    }
+    final target =
+        targetUsd(shortfallUsd: shortfall, routeMinimumUsd: routeMinimumUsd);
+    final send = target + clean(moveCostUsd);
+    final elsewhere = clean(investmentsUsd);
+    if (elsewhere + 1e-9 >= send) {
+      return OrderFundingDecision(
+        route: OrderFundingRoute.move,
+        needUsd: need,
+        haveHereUsd: here,
+        shortfallUsd: shortfall,
+        targetUsd: target,
+        addUsd: 0,
+      );
+    }
+    return OrderFundingDecision(
+      route: OrderFundingRoute.addFunds,
+      needUsd: need,
+      haveHereUsd: here,
+      shortfallUsd: shortfall,
+      targetUsd: target,
+      addUsd: OrderFundingPlan._ceilCents(send - elsewhere),
+    );
+  }
+}
+
 /// A venue funder that can say where its move is while it runs (quote
 /// verified, Dollars leaving), so the slip's line and the latency figures
 /// are exact. A plain [VenueFunder] reports only around the whole move.
@@ -242,6 +408,11 @@ class OrderFundingController {
   /// estimate itself. [entrySource] is the surface that queued the order,
   /// for the journey's first event.
   ///
+  /// [keepUnconfirmed]: a move the rail could not confirm either way
+  /// answers [OrderFundingUnconfirmed] (the run stays open at the credit)
+  /// instead of a refusal, for a caller that keeps its order queued and
+  /// watched (Investing). Off, it is a refusal as before.
+  ///
   /// Resolves the venue's funder before anything else: a venue without
   /// one (Investing until its funder is bound) throws at once.
   Future<OrderFundingOutcome> fundAndQueue({
@@ -254,6 +425,7 @@ class OrderFundingController {
     double? fundUsd,
     String? entrySource,
     String purpose = 'order_funding',
+    bool keepUnconfirmed = false,
   }) {
     final funder = _funderFor(venue);
     return _run(
@@ -267,6 +439,7 @@ class OrderFundingController {
       fundUsd: fundUsd,
       entrySource: entrySource,
       purpose: purpose,
+      keepUnconfirmed: keepUnconfirmed,
     );
   }
 
@@ -281,6 +454,7 @@ class OrderFundingController {
     double? fundUsd,
     String? entrySource,
     required String purpose,
+    bool keepUnconfirmed = false,
   }) async {
     final shortfall =
         ShortfallRules.shortfallUsd(requiredUsd: requiredUsd, readyUsd: readyUsd);
@@ -342,6 +516,13 @@ class OrderFundingController {
               })
           : await funder.fund(usd: fund, auth: auth, purpose: purpose);
     } catch (e) {
+      if (keepUnconfirmed && e is SettlementFundingUnknown) {
+        // Maybe sent: the run stays open at the credit, which the venue's
+        // autofire closes (placed, or the credit wait running out).
+        onStage?.call(OrderFundingStage.credit);
+        journey.step(venue, OrderFundingStage.credit);
+        return OrderFundingUnconfirmed(error: e);
+      }
       final reason = _refusalReason(e);
       journey.failed(venue, OrderFundingStage.fund, reason);
       return OrderFundingRefused(reason, error: e);

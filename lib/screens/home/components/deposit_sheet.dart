@@ -133,6 +133,13 @@ import 'package:kute/services/investment_provider_availability.dart'
     show InvestmentProviderAvailability;
 import 'package:kute/models/settlement_operation.dart'
     show SettlementAccountKind, SettlementFlow;
+import 'package:kute/services/one_balance/venue_cash_source.dart'
+    show
+        VenueCashFor,
+        VenueCashPullOutcome,
+        venueCashPullerProvider,
+        venueCashReachProvider;
+import 'package:kute/screens/shared/venue_cash_pull_copy.dart';
 import 'package:kute/services/funding/hot_settlement.dart';
 import 'package:kute/screens/ledger/ledger_investment_gate.dart'
     show
@@ -689,6 +696,32 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// The dollar balance, in dollars.
   double get _availableUsd => ref.read(usdBalanceProvider);
 
+  /// Dollars buying spending bitcoin also reach venue cash: Dollars
+  /// first, the rest pulled home from Predictions and Investing before
+  /// the purchase (lib/services/one_balance/venue_cash_source.dart).
+  bool get _dollarsReachVenueCash =>
+      _dollarsAreSource &&
+      !_destPredictions &&
+      !_destHyperliquid &&
+      !_destUsd &&
+      !_destFiat &&
+      _destAsset == 'btc' &&
+      _sourceWalletId == null &&
+      _destWalletId == null;
+
+  /// What the dollar source can pay: Dollars, plus the venue cash that
+  /// can come home for a purchase (never less than Dollars).
+  double get _dollarsSourceUsd {
+    final dollars = _availableUsd;
+    if (!_dollarsReachVenueCash) return dollars;
+    final reach = ref.read(venueCashReachProvider).valueOrNull;
+    return reach != null && reach > dollars ? reach : dollars;
+  }
+
+  /// While venue cash is coming home for a purchase: one line per leg,
+  /// on the sheet's quiet caption line.
+  String? _pullProgress;
+
   /// The live lock. Seeded from `widget.lockedSide` but mutable: the swap
   /// button inverts a venue exchange between withdraw (venue → BTC) and
   /// deposit (BTC → venue), so the picker-locks and direction follow the
@@ -1208,7 +1241,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     // Dollars as the source: the spending account's own dollar balance.
     // Checked first so it can never read a venue pool by accident — it
     // is a third pool, not a flavour of either.
-    if (_dollarsAreSource) return _availableUsd;
+    if (_dollarsAreSource) return _dollarsSourceUsd;
     // HyperCore refunds arrive in spot. Native funding spends that cash
     // first, then transfers any shortfall from withdrawable perp cash.
     if (_fromHyperliquid) {
@@ -3609,6 +3642,49 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     return units;
   }
 
+  /// Brings the shortfall of [usd] home from venue cash and waits,
+  /// bounded, for Dollars to hold it. True to go on with the purchase;
+  /// false when it stopped (the reason is on the caption line, whatever
+  /// was pulled stays in Dollars, and the purchase never goes twice).
+  Future<bool> _pullVenueCashForPurchase(double usd) async {
+    VenueCashPullOutcome? outcome;
+    try {
+      outcome = await ref.read(venueCashPullerProvider).pullShortfall(
+            neededUsd: usd,
+            forAction: VenueCashFor.buyBitcoin,
+            onPlanned: (plan) {
+              if (!mounted || plan.pulls.isEmpty) return;
+              setState(() =>
+                  _pullProgress = venueCashProgressText(context.l10n, plan));
+            },
+          );
+    } catch (_) {
+      outcome = null;
+    }
+    if (!mounted) return false;
+    if (outcome != null && outcome.dollarsCover) {
+      setState(() => _pullProgress = null);
+      return true;
+    }
+    final covered = outcome != null && outcome.plan.covers;
+    _moveOutcome.failed(
+        covered ? 'venue_cash_pending' : 'insufficient_funds',
+        stage: 'dispatch');
+    TrackingService.moneyFlowError(
+        'move', covered ? 'venue_cash_pending' : 'insufficient_funds');
+    setState(() {
+      _processing = false;
+      _pullProgress = null;
+      _error = (outcome == null
+              ? null
+              : venueCashStoppedText(context.l10n, outcome)) ??
+          (covered
+              ? context.l10n.usdSendFailed
+              : context.l10n.insufficientBalance);
+    });
+    return false;
+  }
+
   /// The spending account's DOLLAR balance → spending BITCOIN. The buy
   /// door paid from a balance the user already holds: `spark:USDB` →
   /// `spark:BTC`, both ends the wallet's own Spark address, so the
@@ -3629,7 +3705,10 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     if (_processing) return;
     final appRead = _appReader;
     var amountBaseUnits = _usdBaseUnits(usd);
-    final drain = _drainArmed;
+    // 100% of Dollars is the exact drain; an amount past Dollars (venue
+    // cash in reach) is sent exactly as chosen.
+    final pullsVenueCash = usd > _availableUsd + 0.005;
+    final drain = _drainArmed && !pullsVenueCash;
     if (amountBaseUnits <= BigInt.zero) return;
 
     TrackingService.track('move_initiated', params: {
@@ -3663,6 +3742,10 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       ConvTiming.mark('_dispatchUsdToBtc usdDrainBaseUnits (drain=$drain) start');
       if (drain) amountBaseUnits = await _usdDrainBaseUnits();
       ConvTiming.mark('_dispatchUsdToBtc usdDrainBaseUnits (drain=$drain) end');
+      // Dollars first: the shortfall comes home from venue cash before
+      // the purchase asks for its one approval. Nothing is bought until
+      // Dollars hold the whole amount.
+      if (pullsVenueCash && !await _pullVenueCashForPurchase(usd)) return;
       // Both legs settle on the wallet's own Spark address, and a failed
       // swap refunds to that same address. Resolution failure throws
       // BEFORE anything moves.
@@ -5965,6 +6048,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         if (_sourceWalletId == null) ref.watch(sparkBitcoinBalanceProvider);
       } else if (_dollarsAreSource) {
         ref.watch(usdBalanceProvider);
+        if (_dollarsReachVenueCash) ref.watch(venueCashReachProvider);
       } else if (_fromHyperliquid) {
         ref.watch(hyperliquidAccountProvider);
       } else {
@@ -6502,6 +6586,21 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
                               ),
                             );
                           }),
+                        // Venue cash on its way home for a purchase,
+                        // on the same quiet caption line.
+                        if (_pullProgress != null && _error == null)
+                          Padding(
+                            padding: EdgeInsets.only(top: 10.h),
+                            child: Text(
+                              _pullProgress!,
+                              style: TextStyle(
+                                color: c.textSecondary,
+                                fontSize: 12.sp,
+                                fontWeight: FontWeight.w500,
+                                height: 1.35,
+                              ),
+                            ),
+                          ),
                         // A failure reads on the same quiet line as the
                         // fee, in the error ink: no tinted box on this
                         // screen. The button keeps its own state.

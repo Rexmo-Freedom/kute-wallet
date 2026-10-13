@@ -83,6 +83,7 @@ const Map<String, String> kPredictionsQuoteTags = {
   'order_funding': 'kute:order_funding_predictions',
   'sweep': 'kute:sweep_predictions',
   'rollout_sweep': 'kute:rollout_sweep_predictions',
+  'cash_pull': 'kute:cash_pull_predictions',
 };
 
 /// The tag for [purpose], the plain sweep tag for one not listed.

@@ -21,7 +21,9 @@
 //               withdrawal), and dollars arriving from anywhere else
 //               (Bitcoin → Dollars, a receive, Cash App) — all under the
 //               same 30-minute age cap as the pending pool rows;
-//   waiting   = what the sweeper still owes back, from its own state.
+//   waiting   = what the sweeper still owes back, from its own state;
+//   venue cash = idle cash a venue keeps by design (Investing until it
+//               sits idle 24 h), counted in Available, never waiting.
 //
 // Unknown venue reads count as zero with the matching `…Known` flag
 // false, so the state never throws before the venues have answered.
@@ -118,6 +120,8 @@ final oneBalanceProvider = Provider<OneBalanceState>((ref) {
   );
   final waiting = ref.watch(venueSweeperProvider.select((s) => s.waiting));
   final dust = ref.watch(venueSweeperProvider.select((s) => s.dust));
+  // Cash a venue keeps by design (Investing until idle): Available.
+  final held = ref.watch(venueSweeperProvider.select((s) => s.held));
   // Held positions marked to market between the venues' reads, while the
   // header is on screen (zero otherwise).
   final marks = ref.watch(oneBalanceLiveProvider);
@@ -129,6 +133,7 @@ final oneBalanceProvider = Provider<OneBalanceState>((ref) {
     investedUsd: invested.isFinite && invested > 0 ? invested : 0,
     inFlight: inFlight,
     waiting: waiting,
+    venueCash: held,
     investingKnown: venues.investingKnown,
     predictionsKnown: venues.predictionsKnown,
   );

@@ -22,6 +22,7 @@ import 'package:kute/services/one_balance/hyperliquid_move_rail.dart';
 import 'package:kute/services/one_balance/hyperliquid_venue_funder.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/one_balance/order_funding.dart';
+import 'package:kute/services/one_balance/venue_cash_released.dart';
 import 'package:kute/services/one_balance/venue_funder.dart';
 import 'package:kute/services/tracking_service.dart';
 
@@ -62,6 +63,8 @@ class _Controller implements OrderFundingController {
   _Controller(this.answer);
   final Future<OrderFundingOutcome> Function() answer;
   final asks = <({double orderUsd, double requiredUsd, double readyUsd})>[];
+  final fundUsds = <double?>[];
+  final keptUnconfirmed = <bool>[];
   MoveAuthorization? auth;
 
   @override
@@ -75,8 +78,11 @@ class _Controller implements OrderFundingController {
     double? fundUsd,
     String? entrySource,
     String purpose = 'order_funding',
+    bool keepUnconfirmed = false,
   }) {
     expect(venue, OneBalanceVenue.investing);
+    fundUsds.add(fundUsd);
+    keptUnconfirmed.add(keepUnconfirmed);
     expect(purpose, 'order_funding');
     asks.add((orderUsd: orderUsd, requiredUsd: requiredUsd, readyUsd: readyUsd));
     this.auth = auth;
@@ -166,6 +172,13 @@ void main() {
   late FakeHyperliquidMoveRail rail;
   late double withdrawable;
   late List<(String, Map<String, Object?>?)> events;
+  // Every state the pending order went through: a finished order is
+  // reported, then cleared.
+  late List<PendingHlOrderIntent?> history;
+  PendingHlOrderIntent terminal() => history.lastWhere((s) =>
+      s != null &&
+      (s.status == PendingHlOrderStatus.done ||
+          s.status == PendingHlOrderStatus.failed))!;
 
   setUp(() {
     rail = FakeHyperliquidMoveRail();
@@ -193,6 +206,8 @@ void main() {
     addTearDown(c.dispose);
     // The slip bootstraps the watcher before it queues; so does the test.
     c.read(pendingHlOrderAutoFireProvider);
+    history = [];
+    c.listen(pendingHyperliquidOrderProvider, (_, n) => history.add(n));
     return c;
   }
 
@@ -264,7 +279,8 @@ void main() {
       async.elapse(const Duration(seconds: 1));
       async.flushMicrotasks();
       expect(placement.placed, [20]);
-      final done = c.read(pendingHyperliquidOrderProvider)!;
+      final done = terminal();
+      expect(c.read(pendingHyperliquidOrderProvider), isNull);
       expect(done.status, PendingHlOrderStatus.done);
       expect(done.result?.oid, 7);
       expect(done.placedMarginUsd, 20);
@@ -309,7 +325,8 @@ void main() {
       expect(margin, lessThan(20));
       expect(margin, closeTo(19.99 / (1.01 * 1.0019), 0.011));
       expect(margin, greaterThanOrEqualTo(10));
-      final done = c.read(pendingHyperliquidOrderProvider)!;
+      final done = terminal();
+      expect(c.read(pendingHyperliquidOrderProvider), isNull);
       expect(done.status, PendingHlOrderStatus.done);
       expect(done.placedMarginUsd, margin);
       final completed =
@@ -365,7 +382,8 @@ void main() {
       async.elapse(const Duration(seconds: 1));
       async.flushMicrotasks();
       expect(placement.placed, [20]);
-      final done = c.read(pendingHyperliquidOrderProvider)!;
+      final done = terminal();
+      expect(c.read(pendingHyperliquidOrderProvider), isNull);
       expect(done.status, PendingHlOrderStatus.done);
       expect(done.result?.kind, HlOrderResultKind.resting);
       expect(events.singleWhere((e) => e.$1 == 'order_funding_completed').$2![
@@ -393,8 +411,8 @@ void main() {
       rail.creditedController.add(null);
       async.flushMicrotasks();
       expect(placement.placed, [20]);
-      expect(c.read(pendingHyperliquidOrderProvider)!.status,
-          PendingHlOrderStatus.done);
+      expect(terminal().status, PendingHlOrderStatus.done);
+      expect(c.read(pendingHyperliquidOrderProvider), isNull);
     });
   });
 
@@ -494,8 +512,8 @@ void main() {
           readyUsd: 30);
       async.flushMicrotasks();
       expect(placement.placed, [20]);
-      expect(c.read(pendingHyperliquidOrderProvider)!.status,
-          PendingHlOrderStatus.done);
+      expect(terminal().status, PendingHlOrderStatus.done);
+      expect(c.read(pendingHyperliquidOrderProvider), isNull);
     });
   });
 
@@ -537,13 +555,191 @@ void main() {
       withdrawable = 25;
       async.elapse(const Duration(seconds: 1));
       async.flushMicrotasks();
-      final failed = c.read(pendingHyperliquidOrderProvider)!;
+      final failed = terminal();
+      expect(c.read(pendingHyperliquidOrderProvider), isNull);
       expect(failed.status, PendingHlOrderStatus.failed);
       expect(failed.errorMessage, isNotEmpty);
       final event =
           events.singleWhere((e) => e.$1 == 'order_funding_failed').$2!;
       expect(event['stage'], 'order');
       expect(event['error_category'], 'insufficient_funds');
+    });
+  });
+
+  test('the controller sends exactly the approved amount, never a re-plan',
+      () {
+    fakeAsync((async) {
+      final controller = _Controller(() async => _funded);
+      final c = container(controller);
+      final intent = _intent(_Placement(resizable: true));
+      c.read(pendingHyperliquidOrderProvider.notifier).fundAndQueue(intent,
+          grant: approve(intent),
+          controller: controller,
+          orderUsd: 20,
+          requiredUsd: intent.requiredUsd,
+          readyUsd: 0.5);
+      async.flushMicrotasks();
+      expect(controller.fundUsds.single, 20.03);
+      expect(controller.keptUnconfirmed.single, isTrue);
+    });
+  });
+
+  test('a move the rail cannot confirm keeps the order queued and placed on '
+      'arrival', () {
+    fakeAsync((async) {
+      final controller =
+          _Controller(() async => const OrderFundingUnconfirmed());
+      final c = container(controller);
+      final placement = _Placement(resizable: true);
+      final intent = _intent(placement);
+      OrderFundingOutcome? outcome;
+      c
+          .read(pendingHyperliquidOrderProvider.notifier)
+          .fundAndQueue(intent,
+              grant: approve(intent),
+              controller: controller,
+              orderUsd: 20,
+              requiredUsd: intent.requiredUsd,
+              readyUsd: 0)
+          .then((o) => outcome = o);
+      async.flushMicrotasks();
+      expect(outcome, isA<OrderFundingUnconfirmed>());
+      final queued = c.read(pendingHyperliquidOrderProvider)!;
+      expect(queued.status, PendingHlOrderStatus.awaitingBalance);
+      expect(queued.fundedAt, isNotNull);
+      expect(AuthGrantRegistry.instance.hasAutofireGrant(kPendingHlOrderAutofireId),
+          isTrue);
+      // A retry while it is queued is refused: nothing funds twice.
+      final retry = _intent(_Placement(resizable: true));
+      OrderFundingOutcome? second;
+      c
+          .read(pendingHyperliquidOrderProvider.notifier)
+          .fundAndQueue(retry,
+              grant: approve(intent),
+              controller: controller,
+              orderUsd: 20,
+              requiredUsd: retry.requiredUsd,
+              readyUsd: 0)
+          .then((o) => second = o);
+      async.flushMicrotasks();
+      expect((second as OrderFundingRefused).reason, kHlOrderQueuedReason);
+      expect(controller.asks, hasLength(1));
+      // The money did move: it lands and the order goes out.
+      withdrawable = 21;
+      async.elapse(const Duration(seconds: 1));
+      async.flushMicrotasks();
+      expect(placement.placed, [20]);
+      expect(terminal().status, PendingHlOrderStatus.done);
+    });
+  });
+
+  test('a finished order no longer holds the venue; a failure releases its '
+      'cash', () {
+    fakeAsync((async) {
+      final released = <(OneBalanceVenue, String)>[];
+      final sub = VenueCashReleased.stream.listen(released.add);
+      addTearDown(sub.cancel);
+      final controller = _Controller(() async => _funded);
+      final c = container(controller);
+      final failing = PendingHlOrderPlacement(
+        intentAt: _Placement(resizable: true).intentAt,
+        placeAt: (g, m) async => throw StateError('rejected'),
+        resizable: true,
+      );
+      final intent = PendingHlOrderIntent(
+        coin: 'BTC',
+        kind: HlMarketKind.perp,
+        isLong: true,
+        marginUsd: 20,
+        leverage: 1,
+        slippagePct: 1,
+        expectedPx: 60000,
+        marketLabel: 'BTC · Perp',
+        market: _market,
+        placement: failing,
+        fundUsd: 20.03,
+        requiredUsd: 20.24,
+        arrivingUsd: 20.24,
+      );
+      c.read(pendingHyperliquidOrderProvider.notifier).fundAndQueue(intent,
+          grant: approve(intent),
+          controller: controller,
+          orderUsd: 20,
+          requiredUsd: 20.24,
+          readyUsd: 0);
+      async.flushMicrotasks();
+      expect(
+          PendingHyperliquidOrderNotifier.isActive(
+              c.read(pendingHyperliquidOrderProvider)),
+          isTrue);
+      withdrawable = 25;
+      async.elapse(const Duration(seconds: 1));
+      async.flushMicrotasks();
+      expect(c.read(pendingHyperliquidOrderProvider), isNull);
+      expect(PendingHyperliquidOrderNotifier.isActive(null), isFalse);
+      expect(released, [(OneBalanceVenue.investing, 'order_failed')]);
+    });
+  });
+
+  test('a first order on a new account signs the builder approval after the '
+      'money lands, before placing', () {
+    fakeAsync((async) {
+      final controller = _Controller(() async => _funded);
+      final calls = <String>[];
+      final c = ProviderContainer(overrides: [
+        settingsProvider.overrideWith((_) => SettingsModel(_settings())),
+        sessionUnlockedProvider.overrideWith((_) => true),
+        hyperliquidAccountProvider
+            .overrideWith(() => _Account(() => withdrawable)),
+        hyperliquidMoveRailProvider.overrideWithValue(rail),
+        orderFundingControllerProvider.overrideWithValue(controller),
+        hlBuilderApprovalAfterFundingProvider.overrideWithValue(() async {
+          calls.add('approve');
+          return true;
+        }),
+      ]);
+      addTearDown(c.dispose);
+      c.read(pendingHlOrderAutoFireProvider);
+      final placement = _Placement(resizable: true);
+      final base = _intent(placement);
+      final intent = PendingHlOrderIntent(
+        coin: base.coin,
+        kind: base.kind,
+        isLong: base.isLong,
+        marginUsd: base.marginUsd,
+        leverage: base.leverage,
+        slippagePct: base.slippagePct,
+        expectedPx: base.expectedPx,
+        marketLabel: base.marketLabel,
+        market: _market,
+        placement: PendingHlOrderPlacement(
+          intentAt: placement.intentAt,
+          placeAt: (g, m) {
+            calls.add('place');
+            return placement.placement.placeAt(g, m);
+          },
+          resizable: true,
+        ),
+        fundUsd: base.fundUsd,
+        requiredUsd: base.requiredUsd,
+        arrivingUsd: base.arrivingUsd,
+        needsBuilderApproval: true,
+      );
+      c.read(pendingHyperliquidOrderProvider.notifier).fundAndQueue(intent,
+          grant: approve(intent),
+          controller: controller,
+          orderUsd: 20,
+          requiredUsd: intent.requiredUsd,
+          readyUsd: 0);
+      async.flushMicrotasks();
+      expect(calls, isEmpty);
+      withdrawable = 21;
+      async.elapse(const Duration(seconds: 1));
+      async.flushMicrotasks();
+      expect(calls, ['approve', 'place']);
+      expect(
+          events.singleWhere((e) => e.$1 == 'hl_builder_fee_after_funding').$2,
+          {'approved': true});
     });
   });
 }
