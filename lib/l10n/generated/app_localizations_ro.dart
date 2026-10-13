@@ -10762,4 +10762,22 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get slipMoveFee => 'Move fee';
+
+  @override
+  String get addMoneyToInvestments => 'Adaugă bani în Investments';
+
+  @override
+  String get depositFromSpendingWallet => 'Portofelul tău de cheltuieli';
+
+  @override
+  String depositFromSpendingWalletWithBalance(String amount) {
+    return 'Portofelul tău de cheltuieli · $amount';
+  }
+
+  @override
+  String get depositFromAnotherWallet => 'Alt portofel sau exchange';
+
+  @override
+  String get depositFromAnotherWalletSubtitle =>
+      'Obține o adresă la care să trimiți dolari';
 }

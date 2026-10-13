@@ -10745,4 +10745,22 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get slipMoveFee => 'Move fee';
+
+  @override
+  String get addMoneyToInvestments => 'Įnešti pinigų į Investments';
+
+  @override
+  String get depositFromSpendingWallet => 'Jūsų išlaidų piniginė';
+
+  @override
+  String depositFromSpendingWalletWithBalance(String amount) {
+    return 'Jūsų išlaidų piniginė · $amount';
+  }
+
+  @override
+  String get depositFromAnotherWallet => 'Kita piniginė ar birža';
+
+  @override
+  String get depositFromAnotherWalletSubtitle =>
+      'Gaukite adresą, kuriuo siųsti dolerius';
 }

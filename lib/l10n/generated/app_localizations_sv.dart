@@ -10698,4 +10698,22 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String get slipMoveFee => 'Move fee';
+
+  @override
+  String get addMoneyToInvestments => 'Lägg till pengar i Investments';
+
+  @override
+  String get depositFromSpendingWallet => 'Din spendera-plånbok';
+
+  @override
+  String depositFromSpendingWalletWithBalance(String amount) {
+    return 'Din spendera-plånbok · $amount';
+  }
+
+  @override
+  String get depositFromAnotherWallet => 'En annan plånbok eller börs';
+
+  @override
+  String get depositFromAnotherWalletSubtitle =>
+      'Få en adress att skicka dollar till';
 }

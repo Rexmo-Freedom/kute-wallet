@@ -10726,4 +10726,22 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String get slipMoveFee => 'Move fee';
+
+  @override
+  String get addMoneyToInvestments => 'Dodaj novac u Investments';
+
+  @override
+  String get depositFromSpendingWallet => 'Vaš novčanik za potrošnju';
+
+  @override
+  String depositFromSpendingWalletWithBalance(String amount) {
+    return 'Vaš novčanik za potrošnju · $amount';
+  }
+
+  @override
+  String get depositFromAnotherWallet => 'Drugi novčanik ili mjenjačnica';
+
+  @override
+  String get depositFromAnotherWalletSubtitle =>
+      'Dobijte adresu na koju šaljete dolare';
 }

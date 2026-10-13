@@ -10736,4 +10736,22 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get slipMoveFee => 'Move fee';
+
+  @override
+  String get addMoneyToInvestments => 'Geld toevoegen aan Investments';
+
+  @override
+  String get depositFromSpendingWallet => 'Je bestedingswallet';
+
+  @override
+  String depositFromSpendingWalletWithBalance(String amount) {
+    return 'Je bestedingswallet · $amount';
+  }
+
+  @override
+  String get depositFromAnotherWallet => 'Andere wallet of exchange';
+
+  @override
+  String get depositFromAnotherWalletSubtitle =>
+      'Krijg een adres om dollars naartoe te sturen';
 }

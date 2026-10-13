@@ -18120,6 +18120,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Move fee'**
   String get slipMoveFee;
+
+  /// No description provided for @addMoneyToInvestments.
+  ///
+  /// In en, this message translates to:
+  /// **'Add money to Investments'**
+  String get addMoneyToInvestments;
+
+  /// No description provided for @depositFromSpendingWallet.
+  ///
+  /// In en, this message translates to:
+  /// **'Your spending wallet'**
+  String get depositFromSpendingWallet;
+
+  /// No description provided for @depositFromSpendingWalletWithBalance.
+  ///
+  /// In en, this message translates to:
+  /// **'Your spending wallet · {amount}'**
+  String depositFromSpendingWalletWithBalance(String amount);
+
+  /// No description provided for @depositFromAnotherWallet.
+  ///
+  /// In en, this message translates to:
+  /// **'Another wallet or exchange'**
+  String get depositFromAnotherWallet;
+
+  /// No description provided for @depositFromAnotherWalletSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Get an address to send dollars to'**
+  String get depositFromAnotherWalletSubtitle;
 }
 
 class _AppLocalizationsDelegate

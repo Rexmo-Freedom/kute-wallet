@@ -10715,4 +10715,22 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get slipMoveFee => 'Move fee';
+
+  @override
+  String get addMoneyToInvestments => 'Lisää rahaa Investmentsiin';
+
+  @override
+  String get depositFromSpendingWallet => 'Käyttölompakkosi';
+
+  @override
+  String depositFromSpendingWalletWithBalance(String amount) {
+    return 'Käyttölompakkosi · $amount';
+  }
+
+  @override
+  String get depositFromAnotherWallet => 'Toinen lompakko tai pörssi';
+
+  @override
+  String get depositFromAnotherWalletSubtitle =>
+      'Hae osoite, johon lähettää dollareita';
 }

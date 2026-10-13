@@ -10763,4 +10763,22 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get slipMoveFee => 'Move fee';
+
+  @override
+  String get addMoneyToInvestments => 'Añadir dinero a Investments';
+
+  @override
+  String get depositFromSpendingWallet => 'Tu billetera de gastos';
+
+  @override
+  String depositFromSpendingWalletWithBalance(String amount) {
+    return 'Tu billetera de gastos · $amount';
+  }
+
+  @override
+  String get depositFromAnotherWallet => 'Otra billetera o exchange';
+
+  @override
+  String get depositFromAnotherWalletSubtitle =>
+      'Obtén una dirección para enviar dólares';
 }

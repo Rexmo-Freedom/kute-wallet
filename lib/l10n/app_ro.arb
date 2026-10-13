@@ -3001,5 +3001,10 @@
   "oneBalanceIncoming": "Incoming {amount}",
   "slipMovingToVenue": "Moving {amount} to {venue}",
   "slipAddToInvestments": "Add {amount} to Investments",
-  "slipMoveFee": "Move fee"
+  "slipMoveFee": "Move fee",
+  "addMoneyToInvestments": "Adaugă bani în Investments",
+  "depositFromSpendingWallet": "Portofelul tău de cheltuieli",
+  "depositFromSpendingWalletWithBalance": "Portofelul tău de cheltuieli · {amount}",
+  "depositFromAnotherWallet": "Alt portofel sau exchange",
+  "depositFromAnotherWalletSubtitle": "Obține o adresă la care să trimiți dolari"
 }

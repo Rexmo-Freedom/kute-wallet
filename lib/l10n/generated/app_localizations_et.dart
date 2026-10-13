@@ -10691,4 +10691,22 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get slipMoveFee => 'Move fee';
+
+  @override
+  String get addMoneyToInvestments => 'Lisa raha Investmentsisse';
+
+  @override
+  String get depositFromSpendingWallet => 'Sinu kulutamise rahakott';
+
+  @override
+  String depositFromSpendingWalletWithBalance(String amount) {
+    return 'Sinu kulutamise rahakott · $amount';
+  }
+
+  @override
+  String get depositFromAnotherWallet => 'Teine rahakott või börs';
+
+  @override
+  String get depositFromAnotherWalletSubtitle =>
+      'Saa aadress, kuhu dollareid saata';
 }

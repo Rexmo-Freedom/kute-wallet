@@ -3001,5 +3001,10 @@
   "oneBalanceIncoming": "Incoming {amount}",
   "slipMovingToVenue": "Moving {amount} to {venue}",
   "slipAddToInvestments": "Add {amount} to Investments",
-  "slipMoveFee": "Move fee"
+  "slipMoveFee": "Move fee",
+  "addMoneyToInvestments": "Přidat peníze do Investments",
+  "depositFromSpendingWallet": "Vaše peněženka na útratu",
+  "depositFromSpendingWalletWithBalance": "Vaše peněženka na útratu · {amount}",
+  "depositFromAnotherWallet": "Jiná peněženka nebo burza",
+  "depositFromAnotherWalletSubtitle": "Získejte adresu, na kterou pošlete dolary"
 }

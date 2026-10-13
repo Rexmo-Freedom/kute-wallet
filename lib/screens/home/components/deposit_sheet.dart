@@ -6992,30 +6992,32 @@ class _DirectionToggle extends ConsumerWidget {
       return context.l10n.moveHintFrom(list);
     }
 
+    // The Investments deposit reads as what it is, adding money to
+    // Investments: your own bitcoin first, with what it holds, then a
+    // way in from outside (owner decision, October 2026: "Move from" over
+    // a "Receive" row read as moving money out of a receive screen).
+    final investmentsDeposit =
+        lockedSide == MoveLockedSide.depositToUsd && !ledgerContext;
+    final spendingSubtitle = investmentsDeposit
+        ? (fromBtc && sourceAvailable != null
+            ? context.l10n.depositFromSpendingWalletWithBalance(
+                sourceAvailable!)
+            : context.l10n.depositFromSpendingWallet)
+        : context.l10n.spending;
     _showPickerSheet(
       context,
-      // Contextual to the action: a fiat buy reads "Buy from", every
+      // Contextual to the action: a fiat buy reads "Buy from", the
+      // Investments deposit reads "Add money to Investments", every
       // other door reads "Move from". (User: "it's a Buy not a Move.")
-      title: (fiatSource || cashAppSource)
-          ? context.l10n.moveBuyFrom
-          : context.l10n.moveMoveFrom,
-      hint: (policy) => pickerHint(cashAppOffered(policy)),
+      title: investmentsDeposit
+          ? context.l10n.addMoneyToInvestments
+          : (fiatSource || cashAppSource)
+              ? context.l10n.moveBuyFrom
+              : context.l10n.moveMoveFrom,
+      // The rows say it all on the Investments deposit: no hint.
+      hint: (policy) =>
+          investmentsDeposit ? '' : pickerHint(cashAppOffered(policy)),
       rows: (sheetCtx, policy) => [
-        // Receive FIRST on the Investments deposit door: the Dollars
-        // receive screen the dock's Receive used to open (owner
-        // decision, October 2026). It wears the dock's inflow arrow and
-        // the receive screen's own opening line; it is a way in, not a
-        // source to pay from, so it never reads "selected".
-        if (onPickReceive != null)
-          _PickerRow(
-            icon: Icons.south_west_rounded,
-            title: context.l10n.receive,
-            subtitle: context.l10n.usdReceivePickCoin,
-            onTap: () {
-              Navigator.of(sheetCtx).pop();
-              onPickReceive!();
-            },
-          ),
         // Spending bitcoin: the venue deposits and the Dollar deposit.
         // Their other side is a venue or the dollars, never spending
         // bitcoin itself, so the row is never "in use".
@@ -7023,10 +7025,25 @@ class _DirectionToggle extends ConsumerWidget {
           _PickerRow(
             asset: 'lib/assets/bitcoin-icon.svg',
             title: 'Bitcoin',
-            subtitle: context.l10n.spending,
+            subtitle: spendingSubtitle,
             onTap: () {
               Navigator.of(sheetCtx).pop();
               onPickSpendingBitcoin();
+            },
+          ),
+        // Another wallet or exchange, under the bitcoin, on the
+        // Investments deposit door only: the Dollars receive screen the
+        // dock's Receive used to open. It wears the dock's inflow arrow;
+        // it is a way in, not a source to pay from, so it never reads
+        // "selected".
+        if (onPickReceive != null)
+          _PickerRow(
+            icon: Icons.south_west_rounded,
+            title: context.l10n.depositFromAnotherWallet,
+            subtitle: context.l10n.depositFromAnotherWalletSubtitle,
+            onTap: () {
+              Navigator.of(sheetCtx).pop();
+              onPickReceive!();
             },
           ),
         // Dollars as a SOURCE. Offered on the two venue-deposit doors
@@ -7199,16 +7216,18 @@ class _DirectionToggle extends ConsumerWidget {
                             letterSpacing: -0.6,
                           ),
                         ),
-                        SizedBox(height: 6.h),
-                        Text(
-                          hint(policy),
-                          style: TextStyle(
-                            color: pc.textTertiary,
-                            fontSize: 15.sp,
-                            fontWeight: FontWeight.w500,
-                            letterSpacing: -0.1,
+                        if (hint(policy).isNotEmpty) ...[
+                          SizedBox(height: 6.h),
+                          Text(
+                            hint(policy),
+                            style: TextStyle(
+                              color: pc.textTertiary,
+                              fontSize: 15.sp,
+                              fontWeight: FontWeight.w500,
+                              letterSpacing: -0.1,
+                            ),
                           ),
-                        ),
+                        ],
                       ],
                     ),
                   ),

@@ -3001,5 +3001,10 @@
   "oneBalanceIncoming": "Incoming {amount}",
   "slipMovingToVenue": "Moving {amount} to {venue}",
   "slipAddToInvestments": "Add {amount} to Investments",
-  "slipMoveFee": "Move fee"
+  "slipMoveFee": "Move fee",
+  "addMoneyToInvestments": "Tilføj penge til Investments",
+  "depositFromSpendingWallet": "Din forbrugspung",
+  "depositFromSpendingWalletWithBalance": "Din forbrugspung · {amount}",
+  "depositFromAnotherWallet": "En anden wallet eller børs",
+  "depositFromAnotherWalletSubtitle": "Få en adresse at sende dollars til"
 }

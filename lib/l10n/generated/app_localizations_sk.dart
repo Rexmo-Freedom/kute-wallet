@@ -10708,4 +10708,22 @@ class AppLocalizationsSk extends AppLocalizations {
 
   @override
   String get slipMoveFee => 'Move fee';
+
+  @override
+  String get addMoneyToInvestments => 'Pridať peniaze do Investments';
+
+  @override
+  String get depositFromSpendingWallet => 'Vaša peňaženka na míňanie';
+
+  @override
+  String depositFromSpendingWalletWithBalance(String amount) {
+    return 'Vaša peňaženka na míňanie · $amount';
+  }
+
+  @override
+  String get depositFromAnotherWallet => 'Iná peňaženka alebo burza';
+
+  @override
+  String get depositFromAnotherWalletSubtitle =>
+      'Získajte adresu, na ktorú pošlete doláre';
 }

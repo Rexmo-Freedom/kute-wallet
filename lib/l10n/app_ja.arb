@@ -3001,5 +3001,10 @@
   "oneBalanceIncoming": "Incoming {amount}",
   "slipMovingToVenue": "Moving {amount} to {venue}",
   "slipAddToInvestments": "Add {amount} to Investments",
-  "slipMoveFee": "Move fee"
+  "slipMoveFee": "Move fee",
+  "addMoneyToInvestments": "Investments に入金",
+  "depositFromSpendingWallet": "支払い用ウォレット",
+  "depositFromSpendingWalletWithBalance": "支払い用ウォレット · {amount}",
+  "depositFromAnotherWallet": "別のウォレットまたは取引所",
+  "depositFromAnotherWalletSubtitle": "ドルを送るアドレスを取得"
 }

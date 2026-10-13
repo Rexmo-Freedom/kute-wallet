@@ -10722,4 +10722,22 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get slipMoveFee => 'Move fee';
+
+  @override
+  String get addMoneyToInvestments => 'Добави пари в Investments';
+
+  @override
+  String get depositFromSpendingWallet => 'Вашият портфейл за харчене';
+
+  @override
+  String depositFromSpendingWalletWithBalance(String amount) {
+    return 'Вашият портфейл за харчене · $amount';
+  }
+
+  @override
+  String get depositFromAnotherWallet => 'Друг портфейл или борса';
+
+  @override
+  String get depositFromAnotherWalletSubtitle =>
+      'Вземете адрес, на който да изпратите долари';
 }

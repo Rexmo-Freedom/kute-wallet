@@ -10285,4 +10285,21 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get slipMoveFee => 'Move fee';
+
+  @override
+  String get addMoneyToInvestments => 'Investments に入金';
+
+  @override
+  String get depositFromSpendingWallet => '支払い用ウォレット';
+
+  @override
+  String depositFromSpendingWalletWithBalance(String amount) {
+    return '支払い用ウォレット · $amount';
+  }
+
+  @override
+  String get depositFromAnotherWallet => '別のウォレットまたは取引所';
+
+  @override
+  String get depositFromAnotherWalletSubtitle => 'ドルを送るアドレスを取得';
 }

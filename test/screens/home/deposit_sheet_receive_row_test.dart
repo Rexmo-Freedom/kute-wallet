@@ -206,7 +206,8 @@ void main() {
   });
 
   testWidgets(
-      'the Investments deposit\'s From picker leads with Receive, which '
+      'the Investments deposit\'s picker reads "Add money to Investments": '
+      'the spending bitcoin first, then another wallet or exchange, which '
       'closes the sheet and opens the Dollars receive screen from the sheet',
       (tester) async {
     final container = await _open(tester, MoveLockedSide.depositToUsd);
@@ -214,23 +215,29 @@ void main() {
     final l10n = AppLocalizations.of(tester.element(find.byType(DepositSheet)));
 
     await _openFromPicker(tester);
-    // Receive first, in the picker's own row style: the inflow arrow,
-    // "Receive" and the receive screen's opening line, over Bitcoin.
-    final receive = find.text(l10n.receive);
-    expect(receive, findsOneWidget);
-    expect(find.text(l10n.usdReceivePickCoin), findsOneWidget);
-    expect(find.byIcon(Icons.south_west_rounded), findsOneWidget);
-    // The picker's Bitcoin row is the one under Receive (the route card
-    // behind the picker names Bitcoin too, higher up the page).
+    // Says what the sheet is for, with no hint line under it.
+    expect(find.text(l10n.addMoneyToInvestments), findsOneWidget);
+    expect(find.text(l10n.moveMoveFrom), findsNothing);
+    // The picker's Bitcoin row (the route card behind the picker names
+    // Bitcoin too, higher up the page) is the spending wallet, first.
     final bitcoinRow = find.text('Bitcoin').last;
-    expect(tester.getTopLeft(receive).dy,
-        lessThan(tester.getTopLeft(bitcoinRow).dy));
-    expect(tester.getTopLeft(bitcoinRow).dy - tester.getTopLeft(receive).dy,
+    expect(find.textContaining(l10n.depositFromSpendingWallet), findsOneWidget);
+    expect(find.text(l10n.spending), findsNothing);
+    // Then the way in from outside, in the picker's own row style: the
+    // inflow arrow, what it is and what it does.
+    final other = find.text(l10n.depositFromAnotherWallet);
+    expect(other, findsOneWidget);
+    expect(find.text(l10n.depositFromAnotherWalletSubtitle), findsOneWidget);
+    expect(find.byIcon(Icons.south_west_rounded), findsOneWidget);
+    expect(find.text(l10n.receive), findsNothing);
+    expect(tester.getTopLeft(bitcoinRow).dy,
+        lessThan(tester.getTopLeft(other).dy));
+    expect(tester.getTopLeft(other).dy - tester.getTopLeft(bitcoinRow).dy,
         lessThan(120));
     // A way in, not a source to pay from: never marked selected.
     expect(find.text(l10n.moveSelectedBadge), findsNothing);
 
-    await tester.tap(receive);
+    await tester.tap(other);
     await tester.pumpAndSettle(const Duration(milliseconds: 50));
     expect(find.byKey(_receiveKey), findsOneWidget);
     expect(find.byType(DepositSheet, skipOffstage: false), findsNothing);
@@ -245,8 +252,10 @@ void main() {
     final l10n = AppLocalizations.of(tester.element(find.byType(DepositSheet)));
     await _openFromPicker(tester);
     expect(find.text('Bitcoin'), findsWidgets);
-    expect(find.text(l10n.receive), findsNothing);
-    expect(find.text(l10n.usdReceivePickCoin), findsNothing);
+    expect(find.text(l10n.depositFromAnotherWallet), findsNothing);
+    // Venue doors keep their "Move from" picker and its wording.
+    expect(find.text(l10n.moveMoveFrom), findsOneWidget);
+    expect(find.text(l10n.spending), findsOneWidget);
     expect(tester.takeException(), isNull);
     await _close(tester, container);
   });

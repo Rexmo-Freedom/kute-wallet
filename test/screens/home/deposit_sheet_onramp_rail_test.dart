@@ -138,8 +138,14 @@ void main() {
         ).hasMatch(source),
         isTrue,
       );
-      expect(source,
-          contains('hint: (policy) => pickerHint(cashAppOffered(policy))'));
+      // The hint follows the same answer (the Investments deposit draws
+      // no hint at all).
+      expect(
+        RegExp(r"hint: \(policy\) =>\s*investmentsDeposit \? '' : "
+                r'pickerHint\(cashAppOffered\(policy\)\)')
+            .hasMatch(source),
+        isTrue,
+      );
       // The one answer is the policy helper: no bank row, and no other
       // condition can list a withheld Cash App.
       expect(

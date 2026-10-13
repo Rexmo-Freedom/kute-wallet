@@ -3001,5 +3001,10 @@
   "oneBalanceIncoming": "Incoming {amount}",
   "slipMovingToVenue": "Moving {amount} to {venue}",
   "slipAddToInvestments": "Add {amount} to Investments",
-  "slipMoveFee": "Move fee"
+  "slipMoveFee": "Move fee",
+  "addMoneyToInvestments": "Geld zu Investments hinzufügen",
+  "depositFromSpendingWallet": "Deine Ausgaben-Wallet",
+  "depositFromSpendingWalletWithBalance": "Deine Ausgaben-Wallet · {amount}",
+  "depositFromAnotherWallet": "Andere Wallet oder Börse",
+  "depositFromAnotherWalletSubtitle": "Erhalte eine Adresse, an die du Dollar sendest"
 }

@@ -3001,5 +3001,10 @@
   "oneBalanceIncoming": "Incoming {amount}",
   "slipMovingToVenue": "Moving {amount} to {venue}",
   "slipAddToInvestments": "Add {amount} to Investments",
-  "slipMoveFee": "Move fee"
+  "slipMoveFee": "Move fee",
+  "addMoneyToInvestments": "Προσθήκη χρημάτων στα Investments",
+  "depositFromSpendingWallet": "Το πορτοφόλι εξόδων σας",
+  "depositFromSpendingWalletWithBalance": "Το πορτοφόλι εξόδων σας · {amount}",
+  "depositFromAnotherWallet": "Άλλο πορτοφόλι ή ανταλλακτήριο",
+  "depositFromAnotherWalletSubtitle": "Λάβετε μια διεύθυνση για να στείλετε δολάρια"
 }

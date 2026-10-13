@@ -3001,5 +3001,10 @@
   "oneBalanceIncoming": "Incoming {amount}",
   "slipMovingToVenue": "Moving {amount} to {venue}",
   "slipAddToInvestments": "Add {amount} to Investments",
-  "slipMoveFee": "Move fee"
+  "slipMoveFee": "Move fee",
+  "addMoneyToInvestments": "Pénz hozzáadása az Investmentshez",
+  "depositFromSpendingWallet": "A költési tárcád",
+  "depositFromSpendingWalletWithBalance": "A költési tárcád · {amount}",
+  "depositFromAnotherWallet": "Másik tárca vagy tőzsde",
+  "depositFromAnotherWalletSubtitle": "Kérj egy címet, ahová dollárt küldhetsz"
 }

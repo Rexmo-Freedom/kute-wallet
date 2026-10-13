@@ -3001,5 +3001,10 @@
   "oneBalanceIncoming": "Incoming {amount}",
   "slipMovingToVenue": "Moving {amount} to {venue}",
   "slipAddToInvestments": "Add {amount} to Investments",
-  "slipMoveFee": "Move fee"
+  "slipMoveFee": "Move fee",
+  "addMoneyToInvestments": "Добави пари в Investments",
+  "depositFromSpendingWallet": "Вашият портфейл за харчене",
+  "depositFromSpendingWalletWithBalance": "Вашият портфейл за харчене · {amount}",
+  "depositFromAnotherWallet": "Друг портфейл или борса",
+  "depositFromAnotherWalletSubtitle": "Вземете адрес, на който да изпратите долари"
 }

@@ -10727,4 +10727,22 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get slipMoveFee => 'Move fee';
+
+  @override
+  String get addMoneyToInvestments => 'Pénz hozzáadása az Investmentshez';
+
+  @override
+  String get depositFromSpendingWallet => 'A költési tárcád';
+
+  @override
+  String depositFromSpendingWalletWithBalance(String amount) {
+    return 'A költési tárcád · $amount';
+  }
+
+  @override
+  String get depositFromAnotherWallet => 'Másik tárca vagy tőzsde';
+
+  @override
+  String get depositFromAnotherWalletSubtitle =>
+      'Kérj egy címet, ahová dollárt küldhetsz';
 }

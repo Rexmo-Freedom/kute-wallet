@@ -3001,5 +3001,10 @@
   "oneBalanceIncoming": "Incoming {amount}",
   "slipMovingToVenue": "Moving {amount} to {venue}",
   "slipAddToInvestments": "Add {amount} to Investments",
-  "slipMoveFee": "Move fee"
+  "slipMoveFee": "Move fee",
+  "addMoneyToInvestments": "Lisää rahaa Investmentsiin",
+  "depositFromSpendingWallet": "Käyttölompakkosi",
+  "depositFromSpendingWalletWithBalance": "Käyttölompakkosi · {amount}",
+  "depositFromAnotherWallet": "Toinen lompakko tai pörssi",
+  "depositFromAnotherWalletSubtitle": "Hae osoite, johon lähettää dollareita"
 }

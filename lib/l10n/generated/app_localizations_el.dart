@@ -10779,4 +10779,22 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get slipMoveFee => 'Move fee';
+
+  @override
+  String get addMoneyToInvestments => 'Προσθήκη χρημάτων στα Investments';
+
+  @override
+  String get depositFromSpendingWallet => 'Το πορτοφόλι εξόδων σας';
+
+  @override
+  String depositFromSpendingWalletWithBalance(String amount) {
+    return 'Το πορτοφόλι εξόδων σας · $amount';
+  }
+
+  @override
+  String get depositFromAnotherWallet => 'Άλλο πορτοφόλι ή ανταλλακτήριο';
+
+  @override
+  String get depositFromAnotherWalletSubtitle =>
+      'Λάβετε μια διεύθυνση για να στείλετε δολάρια';
 }

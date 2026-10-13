@@ -3001,5 +3001,10 @@
   "oneBalanceIncoming": "Incoming {amount}",
   "slipMovingToVenue": "Moving {amount} to {venue}",
   "slipAddToInvestments": "Add {amount} to Investments",
-  "slipMoveFee": "Move fee"
+  "slipMoveFee": "Move fee",
+  "addMoneyToInvestments": "Lisa raha Investmentsisse",
+  "depositFromSpendingWallet": "Sinu kulutamise rahakott",
+  "depositFromSpendingWalletWithBalance": "Sinu kulutamise rahakott · {amount}",
+  "depositFromAnotherWallet": "Teine rahakott või börs",
+  "depositFromAnotherWalletSubtitle": "Saa aadress, kuhu dollareid saata"
 }

@@ -3001,5 +3001,10 @@
   "oneBalanceIncoming": "Incoming {amount}",
   "slipMovingToVenue": "Moving {amount} to {venue}",
   "slipAddToInvestments": "Add {amount} to Investments",
-  "slipMoveFee": "Move fee"
+  "slipMoveFee": "Move fee",
+  "addMoneyToInvestments": "Pievienot naudu Investments",
+  "depositFromSpendingWallet": "Jūsu tēriņu maks",
+  "depositFromSpendingWalletWithBalance": "Jūsu tēriņu maks · {amount}",
+  "depositFromAnotherWallet": "Cits maks vai birža",
+  "depositFromAnotherWalletSubtitle": "Iegūstiet adresi, uz kuru sūtīt dolārus"
 }
