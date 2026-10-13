@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/models/swap_order_model.dart';
+import 'package:kute/providers/hyperliquid_account_provider.dart'
+    show hyperliquidFreeUsdcProvider;
 import 'package:kute/providers/hyperliquid_trading_provider.dart';
 import 'package:kute/providers/one_balance_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
@@ -171,9 +173,11 @@ void main() {
       List<SwapOrder> rows = const [],
       VenueSweeperState sweeper = const VenueSweeperState(),
       double dollars = 0,
+      double hlFreeUsdc = 0,
       bool spending = true,
     }) =>
         ProviderContainer(overrides: [
+          hyperliquidFreeUsdcProvider.overrideWith((_) => hlFreeUsdc),
           settingsProvider.overrideWith(
               (_) => SettingsModel(_settings(spending: spending))),
           hyperliquidTradingProvider.overrideWith(_UninitializedHl.new),
@@ -244,6 +248,7 @@ void main() {
           _row(id: 'a', coinFrom: 'USDB', networkFrom: 'SPARK', coinTo: 'USDC', networkTo: 'POLYGON', depositAmount: '5'),
           _row(id: 'b', coinFrom: 'BTC', networkFrom: 'SPARK', coinTo: 'USDB', networkTo: 'SPARK', withdrawalAmount: '20'),
         ],
+        hlFreeUsdc: 0.6,
         sweeper: const VenueSweeperState(
             waiting: {OneBalanceVenue.investing: 0.6},
             sweeping: {OneBalanceVenue.investing}),
@@ -263,6 +268,7 @@ void main() {
       // The founder's screenshot: $6.20 home, $0.06 left on HyperCore.
       final c = container(
         dollars: 6.20,
+        hlFreeUsdc: 0.06,
         pm: const PolymarketTradingState(
             isAuthenticated: true, balanceKnown: true, usdcBalance: 0),
         sweeper: const VenueSweeperState(
@@ -282,8 +288,9 @@ void main() {
         () async {
       final c = container(
         dollars: 4,
+        hlFreeUsdc: 12.5,
         pm: const PolymarketTradingState(
-            isAuthenticated: true, balanceKnown: true, usdcBalance: 0),
+            isAuthenticated: true, balanceKnown: true, usdcBalance: 2),
         sweeper: const VenueSweeperState(held: {
           OneBalanceVenue.investing: 12.5,
           OneBalanceVenue.predictions: 2,
@@ -314,7 +321,7 @@ void main() {
         () async {
       final c = container(
         pm: const PolymarketTradingState(
-            isAuthenticated: true, balanceKnown: true, usdcBalance: 0),
+            isAuthenticated: true, balanceKnown: true, usdcBalance: 0.4),
       );
       addTearDown(c.dispose);
       await c.read(polymarketTradingProvider.future);

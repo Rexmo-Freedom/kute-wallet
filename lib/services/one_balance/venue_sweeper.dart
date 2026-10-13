@@ -27,6 +27,7 @@
 //   retry                   — a backoff ending.
 
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart'
     show debugPrint, immutable, kDebugMode, mapEquals, setEquals,
@@ -488,13 +489,38 @@ class VenueSweeper {
         // vanishes into a hidden venue balance. Cash a venue in use keeps
         // (the idle rule) is the venue's money, counted like dust: in the
         // total, never shown as waiting.
-        if (reason == SweepSkipReason.active) {
-          final at = snapshot.lastActivityAt;
-          if (at != null) _activeAt[venue] = at;
-          _setCash(venue, held: idleUsd);
-        } else {
-          _setWaiting(
-              venue, reason == SweepSkipReason.backoff ? idleUsd : null);
+        switch (reason) {
+          case SweepSkipReason.active:
+            final at = snapshot.lastActivityAt;
+            if (at != null) _activeAt[venue] = at;
+            _setCash(venue, held: idleUsd);
+          case SweepSkipReason.backoff:
+            _setWaiting(venue, idleUsd);
+          case SweepSkipReason.locked:
+          case SweepSkipReason.pendingDeposit:
+            // Nothing decided: the venue's cash stays counted as the last
+            // pass left it (the header caps it by the venue's live read).
+            // Clearing it dropped the cash from the total whenever a pass
+            // ran locked or with a move pending. A move pending may be a
+            // sweep the venue's read still shows, already counted in
+            // flight, so the read's figure is not taken here.
+            break;
+          default:
+            // Held back for a moment (the grace after a deposit, a claim
+            // or sale settling, an order queued or placing): still the
+            // person's money at the venue, usable by the order that holds
+            // it. Counted in Available, never dropped from the total (it
+            // used to vanish until the next pass). Only the unreserved
+            // part: what open orders hold is invested.
+            _setCash(venue,
+                held: snapshot.hasReservations
+                    ? math.min(
+                        snapshot.sweepableUsd.isFinite &&
+                                snapshot.sweepableUsd > 0
+                            ? snapshot.sweepableUsd
+                            : 0.0,
+                        idleUsd)
+                    : idleUsd);
         }
         if (m.lastSkip != reason) {
           m.lastSkip = reason;

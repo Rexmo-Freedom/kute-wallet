@@ -637,4 +637,43 @@ void main() {
         'investing_idle_24h');
     expect(sweeper.state.held, isEmpty);
   });
+
+  test('a pass that decides nothing keeps the venue cash counted', () async {
+    // A venue in use keeps its cash (held).
+    final usedAt = host.clock.subtract(const Duration(hours: 1));
+    host.venues[OneBalanceVenue.predictions] = VenueSnapshot(
+        idleUsd: 3.55, sweepableUsd: 3.55, lastActivityAt: usedAt);
+    await sweeper.trigger('timer');
+    expect(sweeper.state.held, {OneBalanceVenue.predictions: 3.55});
+    // Locked: nothing decided, the cash stays where the last pass put it
+    // (it used to drop out of the total).
+    host.unlocked = false;
+    await sweeper.trigger('timer');
+    expect(host.lastEvent('venue_sweep_skipped')['reason'], 'locked');
+    expect(sweeper.state.held, {OneBalanceVenue.predictions: 3.55});
+  });
+
+  test('cash held back for a moment is Available, never dropped', () async {
+    // Idle a day (no idle rule keeping it) but a bet is queued on it.
+    host.venues[OneBalanceVenue.predictions] = const VenueSnapshot(
+        idleUsd: 12, sweepableUsd: 12, hasPendingIntent: true);
+    await sweeper.trigger('timer');
+    expect(host.sent, isEmpty);
+    expect(sweeper.state.held, {OneBalanceVenue.predictions: 12});
+    expect(sweeper.state.waiting, isEmpty);
+    // What a resting order holds is not Available.
+    host.venues[OneBalanceVenue.predictions] = const VenueSnapshot(
+        idleUsd: 12,
+        sweepableUsd: 7,
+        hasReservations: true,
+        isClaiming: true);
+    await sweeper.trigger('timer');
+    expect(sweeper.state.held, {OneBalanceVenue.predictions: 7});
+    // A move pending keeps what the last pass counted (a sweep the read
+    // still shows is counted in flight already).
+    host.venues[OneBalanceVenue.predictions] = const VenueSnapshot(
+        idleUsd: 30, sweepableUsd: 30, hasPendingMove: true);
+    await sweeper.trigger('timer');
+    expect(sweeper.state.held, {OneBalanceVenue.predictions: 7});
+  });
 }

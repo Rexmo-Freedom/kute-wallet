@@ -6,6 +6,8 @@ import 'package:kute/providers/hyperliquid_trading_provider.dart';
 import 'package:kute/providers/polymarket_open_orders_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/screens/portfolio/open_investments_screen.dart';
+import 'package:kute/services/polymarket/pending_fills.dart'
+    show pendingFillsValueUsd;
 import 'package:polybrainz_polymarket/polybrainz_polymarket.dart' show Order;
 
 /// Available is spendable cash. Portfolio is money committed to investments,
@@ -126,6 +128,11 @@ InvestmentBalances polymarketInvestmentBalances({
   if (comboValueUsd.isFinite && comboValueUsd > 0) {
     positions += comboValueUsd;
   }
+  // A buy the positions read does not list yet, at its fill price: the
+  // shares are held the moment the venue matched them (its cost is
+  // already off the cash), never dropped while the read catches up.
+  final pendingFills = pendingFillsValueUsd(state.pendingFills);
+  if (pendingFills.isFinite && pendingFills > 0) positions += pendingFills;
   complete = complete && reserved.isFinite && positions.isFinite;
   return InvestmentBalances(
     available: complete ? cash - heldCash : null,
@@ -136,6 +143,7 @@ InvestmentBalances polymarketInvestmentBalances({
     positions: positionsComplete && positions.isFinite ? positions : null,
     committed: complete ? heldCash : null,
     hasPortfolioContent: state.openPositions.isNotEmpty ||
+        state.pendingFills.isNotEmpty ||
         (orders?.isNotEmpty ?? false) ||
         state.closedPositions.isNotEmpty ||
         hasCombos ||

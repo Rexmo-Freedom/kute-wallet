@@ -32,6 +32,7 @@
 
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/models/hyperliquid_market.dart' show HlPerpPosition;
 import 'package:kute/models/swap_order_model.dart';
@@ -116,11 +117,19 @@ final oneBalanceVenueRefreshProvider =
 final liveMarksClockProvider =
     Provider<DateTime Function()>((_) => DateTime.now);
 
-List<HeldOutcome> _heldOutcomes(PolymarketTradingState? pm) => [
+/// What Predictions holds, as its venue last read it: the listed
+/// positions and the fills the positions read has not listed yet (counted
+/// at their fill price, so the socket marks them from the first tick).
+@visibleForTesting
+List<HeldOutcome> heldOutcomesOf(PolymarketTradingState? pm) => [
       if (pm != null)
         for (final p in pm.openPositions)
           if (!p.redeemable && p.size > 0 && p.asset.isNotEmpty)
             HeldOutcome(token: p.asset, size: p.size, readPrice: p.curPrice),
+      if (pm != null)
+        for (final f in pm.pendingFills)
+          if (!f.indexed && f.shares > 0 && f.price > 0)
+            HeldOutcome(token: f.tokenId, size: f.shares, readPrice: f.price),
     ];
 
 bool _sameOutcomes(List<HeldOutcome> a, List<HeldOutcome> b) {
@@ -185,10 +194,10 @@ class OneBalanceLiveNotifier extends Notifier<OneBalanceLiveMarks> {
       }
     });
 
-    _outcomes = _heldOutcomes(ref.read(polymarketTradingProvider).valueOrNull);
+    _outcomes = heldOutcomesOf(ref.read(polymarketTradingProvider).valueOrNull);
     ref.listen<AsyncValue<PolymarketTradingState>>(polymarketTradingProvider,
         (prev, next) {
-      final held = _heldOutcomes(next.valueOrNull);
+      final held = heldOutcomesOf(next.valueOrNull);
       if (_sameOutcomes(held, _outcomes)) return;
       final tokensChanged =
           !_sameTokens(held.map((h) => h.token), _outcomes.map((h) => h.token));

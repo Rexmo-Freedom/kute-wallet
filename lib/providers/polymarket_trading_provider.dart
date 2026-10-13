@@ -4,6 +4,7 @@ import 'package:kute/services/polymarket/placement_diagnostics.dart';
 import 'package:kute/services/polymarket/warm_connections.dart';
 import 'package:kute/services/polymarket/placement_timeline.dart';
 import 'package:kute/services/polymarket/send_time_read.dart';
+import 'package:kute/services/polymarket/pending_fills.dart';
 import 'package:kute/services/polymarket/combos/combo_service.dart';
 import 'package:kute/services/polymarket/combos/combo_transport.dart';
 import 'package:kute/services/polymarket/credential_identity.dart';
@@ -141,6 +142,12 @@ class PolymarketTradingState {
   /// on its way. Surfaces may mark the figures as updating.
   final bool refreshing;
 
+  /// Buys the venue matched that the positions read or the cash read has
+  /// not caught up with yet (pending_fills.dart): counted at their fill
+  /// price until the positions read lists them; their cost is already off
+  /// [usdcBalance] until a cash read shows it.
+  final List<PolymarketPendingFill> pendingFills;
+
   const PolymarketTradingState({
     this.isAuthenticated = false,
     this.usdcBalance = 0,
@@ -157,6 +164,7 @@ class PolymarketTradingState {
     this.clearingConditionIds = const {},
     this.balanceKnown = true,
     this.refreshing = false,
+    this.pendingFills = const [],
   });
 
   PolymarketTradingState copyWith({
@@ -175,6 +183,7 @@ class PolymarketTradingState {
     Set<String>? clearingConditionIds,
     bool? balanceKnown,
     bool? refreshing,
+    List<PolymarketPendingFill>? pendingFills,
   }) {
     return PolymarketTradingState(
       isAuthenticated: isAuthenticated ?? this.isAuthenticated,
@@ -192,6 +201,7 @@ class PolymarketTradingState {
       clearingConditionIds: clearingConditionIds ?? this.clearingConditionIds,
       balanceKnown: balanceKnown ?? this.balanceKnown,
       refreshing: refreshing ?? this.refreshing,
+      pendingFills: pendingFills ?? this.pendingFills,
     );
   }
 
@@ -223,6 +233,7 @@ class PolymarketTradingState {
         setEquals(pendingSaleTokens, other.pendingSaleTokens) &&
         setEquals(clearingConditionIds, other.clearingConditionIds) &&
         _samePositionValues(openPositions, other.openPositions) &&
+        listEquals(pendingFills, other.pendingFills) &&
         listEquals(closedPositions, other.closedPositions) &&
         listEquals(openOrders, other.openOrders);
   }
@@ -243,6 +254,7 @@ class PolymarketTradingState {
         Object.hashAll(openOrders),
         Object.hashAll(pendingSaleTokens),
         Object.hashAll(clearingConditionIds),
+        Object.hashAll(pendingFills),
       );
 }
 
@@ -652,6 +664,101 @@ class PolymarketTradingNotifier
     }
   }
 
+  /// Buys the venue matched that the reads have not caught up with, for the
+  /// deposit wallet [_pendingFillsWallet] (pending_fills.dart).
+  List<PolymarketPendingFill> _pendingFills = const [];
+  String? _pendingFillsWallet;
+
+  List<PolymarketPendingFill> _fillsFor(String? wallet) =>
+      wallet != null &&
+              _pendingFillsWallet != null &&
+              wallet.toLowerCase() == _pendingFillsWallet
+          ? _pendingFills
+          : const [];
+
+  /// The pending fills against a fresh read of [wallet]: [rawCashUsd] (a
+  /// cash read, or null when none was made) and [positions] (a positions
+  /// read, or null). Returns the cash net of the unsettled fills (null
+  /// without a cash read) and the fills left.
+  (double?, List<PolymarketPendingFill>) _settlePendingFills(
+    String? wallet, {
+    double? rawCashUsd,
+    List<Position>? positions,
+  }) {
+    var fills = _fillsFor(wallet);
+    if (fills.isEmpty) return (rawCashUsd, const []);
+    final now = DateTime.now();
+    final listed = <String, double>{};
+    if (positions != null) {
+      for (final p in positions) {
+        if (p.asset.isEmpty || !p.size.isFinite) continue;
+        listed[p.asset] = (listed[p.asset] ?? 0) + p.size;
+      }
+    } else {
+      // No positions read: what is indexed stays indexed.
+      for (final f in fills) {
+        if (f.indexed) listed[f.tokenId] = f.expectedShares;
+      }
+    }
+    fills = reconcilePendingFills(fills, listed, now);
+    double? net = rawCashUsd;
+    if (rawCashUsd != null) {
+      final (cash, next) = netCashOfPendingFills(rawCashUsd, fills);
+      net = cash;
+      fills = [
+        for (final f in next)
+          if (!(f.indexed && f.cashSettled)) f,
+      ];
+    }
+    _pendingFills = List.unmodifiable(fills);
+    return (net, _pendingFills);
+  }
+
+  /// The venue matched a buy of [shares] of [tokenId] for [costUsd]
+  /// (pUSD), order [key]. Until the reads catch up the cost is off the cash
+  /// at once (Available drops on the fill, not on the next read) and the
+  /// shares count at the fill price (the total never drops to cash only
+  /// while the positions read lags). Once per [key]; never throws.
+  void notePendingFill({
+    required String key,
+    required String tokenId,
+    required double shares,
+    required double costUsd,
+  }) {
+    try {
+      final current = state.valueOrNull;
+      final wallet = current?.proxyWalletAddress?.toLowerCase();
+      if (current == null || wallet == null || wallet.isEmpty) return;
+      if (_pendingFillsWallet != wallet) {
+        _pendingFills = const [];
+        _pendingFillsWallet = wallet;
+      }
+      if (_pendingFills.any((f) => f.key == key)) return;
+      var listed = 0.0;
+      for (final p in current.openPositions) {
+        if (p.asset == tokenId && p.size.isFinite) listed += p.size;
+      }
+      final fill = newPendingFill(
+        key: key,
+        tokenId: tokenId,
+        shares: shares,
+        costUsd: costUsd,
+        listedShares: listed,
+        stateCashUsd: current.usdcBalance,
+        pending: _pendingFills,
+        now: DateTime.now(),
+      );
+      if (fill == null) return;
+      _pendingFills = List.unmodifiable([..._pendingFills, fill]);
+      invalidateBalanceCache();
+      _setData(current.copyWith(
+        usdcBalance:
+            (current.usdcBalance - costUsd).clamp(0.0, double.infinity),
+        pendingFills: _pendingFills,
+      ));
+    } catch (_) {}
+  }
+
   /// A buy just matched: one targeted read of the account's cash, so the
   /// balance moves at once instead of on the next 5 s tick. Positions
   /// follow through [refreshAfterSale]. Never throws.
@@ -673,7 +780,9 @@ class PolymarketTradingNotifier
           latest.proxyWalletAddress?.toLowerCase() != wallet.toLowerCase()) {
         return;
       }
-      _setData(latest.copyWith(usdcBalance: cash));
+      final settled = _settlePendingFills(wallet, rawCashUsd: cash);
+      _setData(latest.copyWith(
+          usdcBalance: settled.$1 ?? cash, pendingFills: settled.$2));
     } catch (_) {}
   }
 
@@ -1583,12 +1692,18 @@ class PolymarketTradingNotifier
     final full = scope == PolymarketRefreshScope.full;
     final previous = state.valueOrNull;
 
+    // A buy still settling: its spend shows only on a fresh read, never on
+    // the 30 s cached balance from before it settled.
+    if (_fillsFor(addr).any((f) => !f.cashSettled)) {
+      model.invalidateBalanceCache();
+    }
+
     // Fetch each independently — don't let one failure kill the others.
     // A balance that could not be read stays 0 but is marked unknown.
     var balanceRead = addr != null;
     final results = await Future.wait([
       addr != null
-          ? model.getPositions(addr).catchError((_) => <Position>[])
+          ? model.getPositionsOrNull(addr)
           : Future.value(<Position>[]),
       full
           ? (_backendService?.getOpenOrders() ?? Future.value(<Order>[]))
@@ -1608,7 +1723,14 @@ class PolymarketTradingNotifier
           : Future.value(previous?.closedPositions ?? <ClosedPosition>[]),
     ]);
 
-    var positions = results[0] as List<Position>;
+    // A positions read that failed keeps this account's last list: an
+    // empty list for a failed read dropped every position from the
+    // Investments total (and the Portfolio) until the next read.
+    final samePreviousAccount = previous != null &&
+        addr != null &&
+        previous.proxyWalletAddress?.toLowerCase() == addr.toLowerCase();
+    var positions = (results[0] as List<Position>?) ??
+        (samePreviousAccount ? previous.openPositions : const <Position>[]);
     final orders = results[1] as List<Order>;
     final onChainUsdc = results[2] as double;
     // The settled rows held to their result (the state's closedPositions,
@@ -1834,8 +1956,19 @@ class PolymarketTradingNotifier
         nowSale.difference(at) > const Duration(seconds: 120) ||
         !positions.any((p) => p.asset == tok));
 
+    // Buys the reads have not caught up with (pending_fills.dart): the
+    // shares count until the positions read lists them, the cost comes off
+    // the cash until a read shows it. Read last, after every await, so a
+    // fill recorded while this read ran is netted too.
+    final settled = _settlePendingFills(
+      addr,
+      rawCashUsd: balanceRead ? onChainUsdc : null,
+      positions: positions,
+    );
+
     return PolymarketTradingState(
-      usdcBalance: onChainUsdc,
+      usdcBalance: settled.$1 ?? onChainUsdc,
+      pendingFills: settled.$2,
       totalPnl: totalPnl,
       totalPnlPercent: totalPnlPercent,
       openPositions: positions,
@@ -3036,6 +3169,17 @@ class PolymarketTradingNotifier
                   taking != null &&
                   taking.isFinite &&
                   taking > 0;
+          // The buy matched: its cost leaves the cash and its shares count
+          // now, not when the chain settles and the Data API lists them.
+          if (side == OrderSide.buy && hasFill && isCurrentAccount()) {
+            notePendingFill(
+              key: responseOrderId ??
+                  '$tokenId@${DateTime.now().microsecondsSinceEpoch}',
+              tokenId: tokenId,
+              shares: taking,
+              costUsd: making,
+            );
+          }
           // Submitted orders are not filled activity. Indexing supplies the final
           // amounts when the acknowledgement does not contain a verified fill.
           // Keyed by the trade id (never a CLOB id posing as a chain hash);
@@ -4160,7 +4304,10 @@ class PolymarketTradingNotifier
         openPositions: latestState.openPositions
             .where((p) => p.conditionId != conditionId)
             .toList(),
-        usdcBalance: refreshedCash ?? latestState.usdcBalance,
+        usdcBalance: refreshedCash == null
+            ? latestState.usdcBalance
+            : _settlePendingFills(proxyWallet, rawCashUsd: refreshedCash).$1,
+        pendingFills: _fillsFor(proxyWallet),
         // If the lagging Data API resurrects this row on the next
         // refresh, it comes back LOCKED as "Clearing…" (see
         // clearingConditionIds) instead of a tappable Claim/Clear the

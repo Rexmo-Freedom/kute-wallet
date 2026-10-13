@@ -76,6 +76,10 @@ final predictionsSweepFunderProvider = Provider<SweepableVenueFunder?>(
 /// The foreground heartbeat between event-driven passes.
 const Duration kVenueSweepHeartbeat = Duration(minutes: 3);
 
+/// How long after a venue's cash moves its pass runs: a fill's balance
+/// read and the reads behind it land as one pass.
+const Duration kVenueCashPassDelay = Duration(seconds: 2);
+
 /// The one-time rollout flag's key for a wallet, in the settings box.
 String oneBalanceRolloutKey(String walletId) =>
     'one_balance_rollout_v1:$walletId';
@@ -184,19 +188,27 @@ class _RiverpodSweeperHost extends VenueSweeperHost {
   Future<bool> _restingOrdersAtVenue() =>
       _ref.read(investingRestingOrdersReaderProvider)();
 
-  void noteOrdersChanged(List<SwapOrder>? previous, List<SwapOrder> next) {
+  /// Notes the deposit rows into a venue that just landed; returns their
+  /// venues.
+  Set<OneBalanceVenue> noteOrdersChanged(
+      List<SwapOrder>? previous, List<SwapOrder> next) {
     final wallet = spendingWalletId;
     final before = {
       for (final row in previous ?? const <SwapOrder>[]) row.id: row,
     };
-    if (previous == null) return; // the first read is history
+    final landed = <OneBalanceVenue>{};
+    if (previous == null) return landed; // the first read is history
     for (final row in next) {
       if (!row.isComplete) continue;
       final was = before[row.id];
       if (was != null && was.isComplete) continue;
       final venue = venueDepositRowOf(row, walletId: wallet);
-      if (venue != null) noteDepositSettled(venue);
+      if (venue != null) {
+        noteDepositSettled(venue);
+        landed.add(venue);
+      }
     }
+    return landed;
   }
 
   @override
@@ -400,6 +412,8 @@ class VenueSweeperNotifier extends Notifier<VenueSweeperState> {
   late final _RiverpodSweeperHost _host;
   Timer? _heartbeat;
   Timer? _due;
+  Timer? _cashPass;
+  OneBalanceVenue? _cashPassVenue;
   bool _visible = true;
 
   @override
@@ -434,8 +448,19 @@ class VenueSweeperNotifier extends Notifier<VenueSweeperState> {
 
     // Keeps the Predictions state warm for the session, like auto-claim,
     // and restarts the grace window when its deposit settle-and-wrap
-    // finishes.
-    ref.listen(polymarketTradingProvider, (_, __) {});
+    // finishes. Its cash moving (a fill, a deposit, a sale, a fresh read)
+    // re-classifies it soon: the header's venue cash is this state's
+    // `held` / `dust` / `waiting`, and a bet paid from Predictions cash
+    // left them stale until the 3-minute heartbeat.
+    ref.listen(
+        polymarketTradingProvider.select((s) => (
+              cash: s.valueOrNull?.usdcBalance,
+              orders: s.valueOrNull?.openOrders.length,
+            )), (previous, next) {
+      if (previous != null && previous != next) {
+        _cashMoved(OneBalanceVenue.predictions);
+      }
+    });
     StreamSubscription<void>? depositSettled;
     try {
       depositSettled = ref
@@ -447,8 +472,12 @@ class VenueSweeperNotifier extends Notifier<VenueSweeperState> {
     }
 
     ref.listen<List<SwapOrder>>(swapOrdersProvider, (previous, next) {
-      _host.noteOrdersChanged(previous, next);
+      final landed = _host.noteOrdersChanged(previous, next);
       _sweeper.noteOrders(next);
+      // Money landing at a venue is venue cash to classify.
+      for (final venue in landed) {
+        _cashMoved(venue);
+      }
     });
 
     ref.listen<bool>(sessionUnlockedProvider, (previous, next) {
@@ -471,9 +500,26 @@ class VenueSweeperNotifier extends Notifier<VenueSweeperState> {
       depositSettled?.cancel();
       _heartbeat?.cancel();
       _due?.cancel();
+      _cashPass?.cancel();
       _sweeper.dispose();
     });
     return const VenueSweeperState();
+  }
+
+  /// A venue's cash moved: one pass shortly after, coalesced, so the
+  /// header's venue cash follows the venue instead of waiting for the
+  /// heartbeat. A timer pass: the rules (rate limit, batching, the idle
+  /// rule) decide exactly as on the heartbeat.
+  void _cashMoved(OneBalanceVenue venue) {
+    _cashPassVenue =
+        _cashPass == null || _cashPassVenue == venue ? venue : null;
+    _cashPass?.cancel();
+    _cashPass = Timer(kVenueCashPassDelay, () {
+      _cashPass = null;
+      final v = _cashPassVenue;
+      _cashPassVenue = null;
+      if (_visible) unawaited(trigger('timer', venue: v));
+    });
   }
 
   void _startHeartbeat() {

@@ -1340,6 +1340,28 @@ class PolymarketModel {
     return await Isolate.run(() => _parsePositions(body));
   }
 
+  /// Like [getPositions] but null when the read failed (a non-200, a
+  /// timeout, a malformed body), so a caller holding an earlier read keeps
+  /// it instead of taking a failed read for "no positions": the trading
+  /// state's refresh, where an empty list dropped every position from the
+  /// Investments total until the next read.
+  Future<List<Position>?> getPositionsOrNull(
+    String walletAddress, {
+    http.Client? client,
+  }) async {
+    try {
+      final addr = walletAddress.toLowerCase();
+      final resp = await (client ?? _dataApiClient)
+          .get(_positionsUri(addr))
+          .timeout(const Duration(seconds: 10));
+      if (resp.statusCode != 200) return null;
+      final body = resp.body;
+      return await Isolate.run(() => _parsePositions(body));
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Like [getPositions] but THROWS on a non-200 or malformed body, so a
   /// failed read is flagged instead of rendering as "no positions"
   /// (Wallet hardening Phase 3, Ledger read providers). [client] is

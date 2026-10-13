@@ -1164,6 +1164,19 @@ class PolymarketBetController {
     final pending = ref.read(pendingPolymarketBetProvider.notifier);
     pending.recordSettlement(
         filledShares: shares, filledCost: cost, orderedShares: orderedShares);
+    // The matched shares count and their cost leaves the cash at once
+    // (a no-op when the POST's echo already recorded this order).
+    final orderId =
+        (accepted['orderID'] ?? accepted['orderId'] ?? accepted['order_id'])
+            ?.toString();
+    if (orderId != null && orderId.isNotEmpty) {
+      notifier.notePendingFill(
+        key: orderId,
+        tokenId: intent.tokenId,
+        shares: shares,
+        costUsd: cost ?? shares * intent.expectedPrice,
+      );
+    }
     // The cash moved: one targeted read now, not the next 5 s tick.
     unawaited(notifier.refreshBalanceAfterMatch());
     notifier.refreshAfterSale();

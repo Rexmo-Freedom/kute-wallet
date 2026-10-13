@@ -25,6 +25,13 @@
 //   venue cash = idle cash a venue keeps by design (Investing until it
 //               sits idle 24 h), counted in Available, never waiting.
 //
+// Waiting, dust and venue cash are the sweeper's classification from its
+// last pass, each capped by the venue's live unreserved cash
+// ([cappedVenueCash]): a bet paid from venue cash leaves Available at the
+// fill, never stays there next to the position it bought. A buy the
+// positions read has not listed yet counts at its fill price
+// (`PolymarketTradingState.pendingFills`, in the venue's invested figure).
+//
 // Unknown venue reads count as zero with the matching `…Known` flag
 // false, so the state never throws before the venues have answered.
 
@@ -42,7 +49,7 @@ import 'package:kute/screens/portfolio/open_investments_screen.dart'
     show InvestmentsProduct;
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/one_balance/sweep_rules.dart'
-    show pendingVenueMoveOf;
+    show kSweepDustUsd, pendingVenueMoveOf;
 
 /// The venue a [OneBalanceVenue] reads its balances as.
 InvestmentsProduct investmentsProductOf(OneBalanceVenue venue) =>
@@ -108,6 +115,92 @@ double investedWithDust(double investedUsd, Map<OneBalanceVenue, double> dust) {
   return sum;
 }
 
+double _clean(double v) => v.isFinite && v > 0 ? v : 0;
+
+/// The venue's idle cash as its own read says now (unreserved: what open
+/// orders hold is in `investedUsd`), or null while the venue has not
+/// answered.
+double? _liveIdleCash(UnifiedVenueBalances venues, OneBalanceVenue venue) =>
+    switch (venue) {
+      OneBalanceVenue.investing =>
+        venues.investingKnown ? _clean(venues.readyInInvestingUsd) : null,
+      OneBalanceVenue.predictions =>
+        venues.predictionsKnown ? _clean(venues.readyInPredictionsUsd) : null,
+    };
+
+/// The sweeper's buckets for the venue cash (waiting, dust, held), each
+/// capped by what the venue's live read says is idle there now.
+///
+/// The sweeper classifies the cash on its passes (events, the 3-minute
+/// heartbeat); the venues' reads move between them. A bet paid from
+/// Predictions cash takes the cash off the live read at the fill, and the
+/// position onto it, while the sweeper's `held` still said $3.55 until
+/// its next pass: the spent cash stayed in Available next to the position
+/// it bought. The live read can only lower a bucket here, never raise it
+/// (cash a read shows that the sweeper has not classified yet can be a
+/// sweep that left a moment ago and is counted in flight), and the sweeper
+/// re-classifies on its next pass.
+({
+  Map<OneBalanceVenue, double> waiting,
+  Map<OneBalanceVenue, double> dust,
+  Map<OneBalanceVenue, double> held,
+}) cappedVenueCash(UnifiedVenueBalances venues, VenueSweeperState sweeper) {
+  final waiting = <OneBalanceVenue, double>{};
+  final dust = <OneBalanceVenue, double>{};
+  final held = <OneBalanceVenue, double>{};
+  for (final venue in OneBalanceVenue.values) {
+    var room = _liveIdleCash(venues, venue) ?? double.infinity;
+    double take(double? usd) {
+      final want = usd == null ? 0.0 : _clean(usd);
+      final got = want < room ? want : room;
+      room -= got;
+      return got;
+    }
+
+    final w = take(sweeper.waiting[venue]);
+    final d = take(sweeper.dust[venue]);
+    final h = take(sweeper.held[venue]);
+    if (w >= kSweepDustUsd) waiting[venue] = w;
+    if (d >= kSweepDustUsd) dust[venue] = d;
+    if (h >= kSweepDustUsd) held[venue] = h;
+  }
+  return (waiting: waiting, dust: dust, held: held);
+}
+
+/// The one-balance picture from its inputs. Pure for the tests.
+///
+///   total     = Dollars + venue positions (at the live marks) + venue
+///               cash (held, dust, waiting) + in flight;
+///   Available = Dollars + the cash venues keep (held);
+///   Invested  = positions, cash open orders reserve and pending fills
+///               (`venues.investedUsd`), at the live marks, plus dust.
+///
+/// Each venue dollar is in exactly one place: cash in the venue's read is
+/// unreserved cash (held, dust or waiting, capped by the read), reserved
+/// cash and positions are in `venues.investedUsd`.
+OneBalanceState oneBalanceStateFrom({
+  required double dollarsUsd,
+  required UnifiedVenueBalances venues,
+  required List<InFlightMove> inFlight,
+  required VenueSweeperState sweeper,
+  OneBalanceLiveMarks marks = OneBalanceLiveMarks.zero,
+}) {
+  final cash = cappedVenueCash(venues, sweeper);
+  // The marks move the positions only: a mark below the read never eats
+  // into the dust.
+  final marked = _clean(venues.investedUsd) + marks.totalDeltaUsd;
+  final invested = investedWithDust(_clean(marked), cash.dust);
+  return OneBalanceState(
+    dollarsUsd: _clean(dollarsUsd),
+    investedUsd: invested,
+    inFlight: inFlight,
+    waiting: cash.waiting,
+    venueCash: cash.held,
+    investingKnown: venues.investingKnown,
+    predictionsKnown: venues.predictionsKnown,
+  );
+}
+
 /// The one-balance picture, recomputed whenever any input moves.
 final oneBalanceProvider = Provider<OneBalanceState>((ref) {
   final dollars = ref.watch(usdBalanceProvider);
@@ -118,23 +211,15 @@ final oneBalanceProvider = Provider<OneBalanceState>((ref) {
     walletId: walletId,
     nowMs: DateTime.now().millisecondsSinceEpoch,
   );
-  final waiting = ref.watch(venueSweeperProvider.select((s) => s.waiting));
-  final dust = ref.watch(venueSweeperProvider.select((s) => s.dust));
-  // Cash a venue keeps by design (Investing until idle): Available.
-  final held = ref.watch(venueSweeperProvider.select((s) => s.held));
-  // Held positions marked to market between the venues' reads, while the
-  // header is on screen (zero otherwise).
-  final marks = ref.watch(oneBalanceLiveProvider);
-  final invested = investedWithDust(venues.investedUsd, dust) +
-      marks.totalDeltaUsd;
-
-  return OneBalanceState(
-    dollarsUsd: dollars.isFinite && dollars > 0 ? dollars : 0,
-    investedUsd: invested.isFinite && invested > 0 ? invested : 0,
+  return oneBalanceStateFrom(
+    dollarsUsd: dollars,
+    venues: venues,
     inFlight: inFlight,
-    waiting: waiting,
-    venueCash: held,
-    investingKnown: venues.investingKnown,
-    predictionsKnown: venues.predictionsKnown,
+    // Waiting, dust and the cash a venue keeps (Available), from the
+    // sweeper's passes, capped by the venues' live reads.
+    sweeper: ref.watch(venueSweeperProvider),
+    // Held positions marked to market between the venues' reads, while
+    // the header is on screen (zero otherwise).
+    marks: ref.watch(oneBalanceLiveProvider),
   );
 });
