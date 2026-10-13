@@ -23,14 +23,13 @@
 //     Portfolio screen exactly as it is pushed (same tabs and
 //     drill-down). Earn is a section of the Portfolio's Statistics tab
 //     (open_investments_screen.dart), no longer a pill here;
-//   * the dock — Deposit on the left, Send on the right, search in the
+//   * the dock — Receive on the left, Send on the right, search in the
 //     square — with the search scoped to the pill on screen: the venue's
 //     own markets on Investing and Predictions, this account's activity
-//     on Portfolio. Deposit is the ONE way to fund this balance (owner
-//     decision, October 2026: the full-width door under the hero is
-//     gone, the dock carries it): it opens the Investments deposit sheet,
-//     whose From picker leads with Receive — the Dollars receive screen
-//     the dock's own Receive used to open — over Bitcoin and Cash App.
+//     on Portfolio. Receive (owner decision, 2026-10-13, replacing the
+//     dock's Deposit) opens the Dollars receive screen straight on an
+//     address, with "From your Bitcoin" at its top for the Investments
+//     deposit from the spending bitcoin.
 //
 // THE WHOLE PAGE SCROLLS AS ONE, on every pill, AND THE CHROME COLLAPSES
 // (owner decision October 2026: "Investing and Predictions become the
@@ -69,9 +68,9 @@
 // ([investmentsTabLocation]), and the dock's Portfolio action on a venue
 // screen switches the pill instead of pushing.
 //
-// Receive (the deposit sheet's first option) opens the coin picker off
-// the Orchestra route list, pointed at this balance: whatever coin the
-// money arrives in, dollars land. Send is its own screen
+// Receive opens the Dollars receive screen off the Orchestra route list,
+// pointed at this balance: whatever coin the money arrives in, dollars
+// land. Send is its own screen
 // (usd_send_screen.dart), pointed the other way. A Ledger
 // account is not part of this: it keeps its own Investing and Predictions
 // tabs of the strip, with its own screens, buttons and layout.
@@ -99,8 +98,7 @@ import 'package:kute/providers/polymarket_trading_provider.dart'
     show polymarketTradingProvider;
 import 'package:kute/providers/unified_search_provider.dart'
     show SearchCategory;
-import 'package:kute/screens/home/components/deposit_sheet.dart'
-    show showDepositSheet, MoveLockedSide;
+import 'package:go_router/go_router.dart';
 import 'package:kute/screens/home/components/kute_bottom_action_bar.dart';
 import 'package:kute/screens/home/components/kute_dock_host.dart';
 import 'package:kute/screens/home/shell_wallet_screen.dart'
@@ -122,8 +120,7 @@ import 'package:kute/theme/app_theme.dart';
 /// Source key for every event this surface emits.
 const String kUsdSurfaceSource = 'usd';
 
-/// Where the deposit sheet is opened from when the dock's Deposit opens
-/// it: the move flow's `entry_source`.
+/// The dock's Receive as the Dollars receive flow's `entry_source`.
 const String kUsdDockSource = 'usd_dock';
 
 /// The compact pinned bar's height, in design units: the small total line
@@ -765,27 +762,18 @@ class _RenderMeasureHeight extends RenderProxyBox {
 /// The Investments dock, in the Bitcoin dock's shape: money in on the
 /// left, Send on the right, search in the square.
 ///
-/// DEPOSIT is the ONE way to fund this balance (owner decision, October
-/// 2026, replacing the full-width door under the hero). It wears the
-/// dock's inflow arrow — a dock action takes a glyph, so the dollar coin
-/// the door wore stays on the sheet's own rows — and opens
-/// [MoveLockedSide.depositToUsd] with the destination pinned here and
-/// the source left pickable, so bitcoin and Cash App (while the policy
-/// offers it) are ways to pay for a deposit rather than doors of their
-/// own. It is a deposit into Dollars, not into a venue: the venues have
-/// no deposit door at all. The dock emits the door's own
-/// `quick_action_tapped` (`dollar_deposit`) under this surface's
-/// source; the move flow's entry source is [kUsdDockSource].
-///
-/// RECEIVE moved into that sheet, as the first option of its From
-/// picker: the Dollars receive screen (usd_receive_screen.dart) the
-/// dock used to open itself. The dollar token is a first-class Orchestra
-/// asset, so the same reusable deposit address the Bitcoin screen mints
-/// for a cross-asset receive can be minted pointed at the dollar
-/// balance instead: the user picks which coin the money is coming in as
-/// — bitcoin included, it is an ordinary source here — and Orchestra
-/// converts it on the way in. The picked coin's own deposit address is
-/// what the QR shows; the dollars land on the wallet's Spark address.
+/// RECEIVE (owner decision, 2026-10-13, replacing the dock's Deposit)
+/// wears the Bitcoin dock's Receive label and arrow and opens the Dollars
+/// receive screen (usd_receive_screen.dart) straight on the address step,
+/// the coin already picked: the one last used, else USDC on Solana,
+/// Base or Polygon, else the first one offered. The dollar token is a
+/// first-class Orchestra asset, so the same reusable deposit address the
+/// Bitcoin screen mints for a cross-asset receive is minted pointed at
+/// the dollar balance instead, and Orchestra converts on the way in. The
+/// screen's "From your Bitcoin" row opens the Investments deposit
+/// (`MoveLockedSide.depositToUsd`) the old Deposit opened. The dock emits
+/// `quick_action_tapped` (`receive`) under this surface's source; the
+/// receive flow's entry source is [kUsdDockSource].
 ///
 /// SEND IS LIVE, through [UsdSendScreen] — its OWN screen, not the
 /// Bitcoin send stepper. The three things that kept this button null
@@ -824,20 +812,19 @@ class UsdAccountActionBar extends ConsumerWidget {
 
   final ValueChanged<double>? onHeightChanged;
 
-  /// Test seam: what Deposit opens. Null opens the real sheet
-  /// ([showDepositSheet]); a test swaps in a recorder so the dock can be
-  /// driven without the sheet's providers behind it.
+  /// Test seam: what Receive opens. Null pushes the Dollars receive
+  /// route with its coin picked (`receiveDollars?coin=auto`); a test
+  /// swaps in a recorder so the dock can be driven without a router.
   @visibleForTesting
-  static Future<void> Function(BuildContext context,
-      {required MoveLockedSide lockedSide})? debugDepositSheetOpener;
+  static void Function(BuildContext context)? debugReceiveOpener;
 
-  /// The dock's Deposit: the Investments deposit sheet pointed at this
-  /// balance, entered from the dock.
-  void _deposit(BuildContext context) {
-    TrackingService.markEntrySource('move', kUsdDockSource);
-    final open = debugDepositSheetOpener ?? showDepositSheet;
+  /// The dock's Receive: the Dollars receive screen on its address step.
+  void _receive(BuildContext context) {
+    TrackingService.markEntrySource('usd_receive', kUsdDockSource);
+    final open = debugReceiveOpener;
+    if (open != null) return open(context);
     // ignore: discarded_futures
-    open(context, lockedSide: MoveLockedSide.depositToUsd);
+    context.pushNamed('receiveDollars', queryParameters: {'coin': 'auto'});
   }
 
   /// What the square searches for [tab]: a venue's own markets, results
@@ -890,13 +877,14 @@ class UsdAccountActionBar extends ConsumerWidget {
         source: kUsdSurfaceSource,
         onHeightChanged: onHeightChanged,
         actions: [
+          // The Bitcoin dock's Receive, label, arrow and action key; the
+          // dock sends it under this surface's source (`usd`). Before
+          // 2026-10-13 this slot was Deposit (`dollar_deposit`).
           KuteDockAction(
             icon: Icons.south_west_rounded,
-            label: context.l10n.deposit,
-            // The door's own action key, so the existing tiles keep
-            // counting; the dock sends it under this surface's source.
-            trackingId: 'dollar_deposit',
-            onTap: () => _deposit(context),
+            label: context.l10n.receive,
+            trackingId: 'receive',
+            onTap: () => _receive(context),
           ),
           KuteDockAction(
             icon: Icons.north_east_rounded,

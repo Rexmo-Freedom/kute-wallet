@@ -18156,6 +18156,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Open P&L'**
   String get portfolioStatOpenPnl;
+
+  /// Row title at the top of the Investments receive screen that opens the move from the spending bitcoin into Investments.
+  ///
+  /// In en, this message translates to:
+  /// **'From your Bitcoin'**
+  String get usdReceiveFromYourBitcoin;
 }
 
 class _AppLocalizationsDelegate

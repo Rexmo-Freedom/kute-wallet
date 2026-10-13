@@ -3007,5 +3007,6 @@
   "depositFromSpendingWalletWithBalance": "Din spendera-plånbok · {amount}",
   "depositFromAnotherWallet": "En annan plånbok eller börs",
   "depositFromAnotherWalletSubtitle": "Få en adress att skicka dollar till",
-  "portfolioStatOpenPnl": "Öppen vinst/förlust"
+  "portfolioStatOpenPnl": "Öppen vinst/förlust",
+  "usdReceiveFromYourBitcoin": "Från din bitcoin"
 }

@@ -7022,7 +7022,7 @@ class _DirectionToggle extends ConsumerWidget {
         // Their other side is a venue or the dollars, never spending
         // bitcoin itself, so the row is never "in use".
         if (!paymentMethodsOnly)
-          _PickerRow(
+          MovePickerRow(
             asset: 'lib/assets/bitcoin-icon.svg',
             title: 'Bitcoin',
             subtitle: spendingSubtitle,
@@ -7037,7 +7037,7 @@ class _DirectionToggle extends ConsumerWidget {
         // it is a way in, not a source to pay from, so it never reads
         // "selected".
         if (onPickReceive != null)
-          _PickerRow(
+          MovePickerRow(
             icon: Icons.south_west_rounded,
             title: context.l10n.depositFromAnotherWallet,
             subtitle: context.l10n.depositFromAnotherWalletSubtitle,
@@ -7059,7 +7059,7 @@ class _DirectionToggle extends ConsumerWidget {
         // which doors see it, so the buy-to-pool doors (which are the
         // same mode) keep the payment rails only.
         if (dollarsSourceAvailable)
-          _PickerRow(
+          MovePickerRow(
             // Paying for bitcoin out of the Investments balance (the buy
             // door), the row wears the USDB coin: the money is the coin
             // itself. Everywhere else the dollar balance as a source or
@@ -7087,7 +7087,7 @@ class _DirectionToggle extends ConsumerWidget {
         // delivers the dollar asset itself). Withheld by the policy, it
         // is not drawn at all ([cashAppOffered]).
         if (cashAppOffered(policy))
-          _PickerRow(
+          MovePickerRow(
             asset: 'lib/assets/cashapp-logo.svg',
             title: 'Cash App',
             subtitle: (predictionsDest || hyperliquidDest)
@@ -7123,7 +7123,7 @@ class _DirectionToggle extends ConsumerWidget {
       title: context.l10n.moveMoveTo,
       hint: (_) => context.l10n.moveWithdrawDestinationHint,
       rows: (sheetCtx, _) => [
-        _PickerRow(
+        MovePickerRow(
           asset: 'lib/assets/bitcoin-icon.svg',
           title: 'Bitcoin',
           subtitle: context.l10n.spending,
@@ -7136,7 +7136,7 @@ class _DirectionToggle extends ConsumerWidget {
             onPickWithdrawDestination(dollars: false);
           },
         ),
-        _PickerRow(
+        MovePickerRow(
           // The Investments arrow, as on every row the dollar balance
           // is a source or destination of.
           icon: kInvestmentsIcon,
@@ -7428,7 +7428,11 @@ class _DirectionToggle extends ConsumerWidget {
   }
 }
 
-class _PickerRow extends StatelessWidget {
+/// One row of the Move sheet's pickers: a mark, a title over a subtitle,
+/// and a chevron (or a badge while [disabled]). Public so the Investments
+/// receive screen can carry its "From your Bitcoin" row in the very same
+/// shape.
+class MovePickerRow extends StatelessWidget {
   /// Brand SVG for the mark. Exactly one of [asset] and [icon] is set.
   final String? asset;
 
@@ -7446,7 +7450,12 @@ class _PickerRow extends StatelessWidget {
   /// opposite side.
   final String disabledLabel;
 
-  const _PickerRow({
+  /// The row's side inset. Null keeps the sheet's own 20 (design units);
+  /// a page that already insets its content passes zero.
+  final double? horizontalPadding;
+
+  const MovePickerRow({
+    super.key,
     this.asset,
     this.icon,
     required this.title,
@@ -7454,6 +7463,7 @@ class _PickerRow extends StatelessWidget {
     required this.onTap,
     this.disabled = false,
     this.disabledLabel = 'SOON',
+    this.horizontalPadding,
   }) : assert((asset == null) != (icon == null),
             'A picker row wears one mark: an SVG asset or a glyph');
 
@@ -7482,7 +7492,8 @@ class _PickerRow extends StatelessWidget {
         child: InkWell(
           onTap: disabled ? null : onTap,
           child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
+            padding: EdgeInsets.symmetric(
+                horizontal: horizontalPadding ?? 20.w, vertical: 12.h),
             child: Row(
               children: [
                 mark,

@@ -66,6 +66,9 @@ Future<void> openStartupHiveBoxes() async {
   //  * runtime_policy_cache — the last runtime policy fetched for this
   //    wallet (public metadata, no token), so a boot with a bad link
   //    keeps what the backend last allowed (RuntimeCapabilitiesService).
+  //  * usd_receive_last_coin — the coin the Investments receive last
+  //    showed an address for (`chain:asset`, never the address), read
+  //    synchronously when the dock's Receive opens on it.
   //  * settings — pre-opened here (was opened lazily by
   //    initialSettingsProvider on the splash critical path; opening it
   //    in this parallel batch removes that sequential cost — openBox
@@ -98,6 +101,7 @@ Future<void> openStartupHiveBoxes() async {
     _openHiveBoxSafe<String>('hyperliquid_sparklines_v1'),
     _openHiveBoxSafe<String>('polymarket_feed_cache_v1'),
     _openHiveBoxSafe<String>('wallet_transaction_cache'),
+    _openHiveBoxSafe<String>('usd_receive_last_coin'),
     _openHiveBoxSafe<String>('spark_address_ring'),
     _openHiveBoxSafe<String>(HiveRuntimePolicySnapshotStore.boxName),
     // Settings box: plain open, NOT _openHiveBoxSafe — the safe variant

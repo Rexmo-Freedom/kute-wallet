@@ -10800,4 +10800,7 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get portfolioStatOpenPnl => 'Ανοιχτό κέρδος / ζημιά';
+
+  @override
+  String get usdReceiveFromYourBitcoin => 'Από το Bitcoin σας';
 }

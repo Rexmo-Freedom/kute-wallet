@@ -10719,4 +10719,7 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String get portfolioStatOpenPnl => 'Öppen vinst/förlust';
+
+  @override
+  String get usdReceiveFromYourBitcoin => 'Från din bitcoin';
 }

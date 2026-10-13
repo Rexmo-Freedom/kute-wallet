@@ -3007,5 +3007,6 @@
   "depositFromSpendingWalletWithBalance": "Votre portefeuille de dépenses · {amount}",
   "depositFromAnotherWallet": "Un autre portefeuille ou une plateforme",
   "depositFromAnotherWalletSubtitle": "Obtenez une adresse pour envoyer des dollars",
-  "portfolioStatOpenPnl": "Gain / perte latent"
+  "portfolioStatOpenPnl": "Gain / perte latent",
+  "usdReceiveFromYourBitcoin": "Depuis votre Bitcoin"
 }

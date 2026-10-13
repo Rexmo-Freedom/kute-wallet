@@ -3007,5 +3007,6 @@
   "depositFromSpendingWalletWithBalance": "Din forbrugspung · {amount}",
   "depositFromAnotherWallet": "En anden wallet eller børs",
   "depositFromAnotherWalletSubtitle": "Få en adresse at sende dollars til",
-  "portfolioStatOpenPnl": "Åben gevinst / tab"
+  "portfolioStatOpenPnl": "Åben gevinst / tab",
+  "usdReceiveFromYourBitcoin": "Fra din bitcoin"
 }

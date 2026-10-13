@@ -3007,5 +3007,6 @@
   "depositFromSpendingWalletWithBalance": "支払い用ウォレット · {amount}",
   "depositFromAnotherWallet": "別のウォレットまたは取引所",
   "depositFromAnotherWalletSubtitle": "ドルを送るアドレスを取得",
-  "portfolioStatOpenPnl": "含み損益"
+  "portfolioStatOpenPnl": "含み損益",
+  "usdReceiveFromYourBitcoin": "あなたのビットコインから"
 }

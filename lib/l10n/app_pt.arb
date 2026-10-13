@@ -3311,5 +3311,6 @@
   "depositFromSpendingWalletWithBalance": "A sua carteira de despesas · {amount}",
   "depositFromAnotherWallet": "Outra carteira ou exchange",
   "depositFromAnotherWalletSubtitle": "Obtenha um endereço para enviar dólares",
-  "portfolioStatOpenPnl": "Lucro / prejuízo em aberto"
+  "portfolioStatOpenPnl": "Lucro / prejuízo em aberto",
+  "usdReceiveFromYourBitcoin": "Da sua bitcoin"
 }

@@ -6561,5 +6561,7 @@
   "portfolioStatOpenPnl": "Open P&L",
   "@portfolioStatOpenPnl": {
     "description": "Statistics tile on Active: the profit or loss of the positions still open (Predictions at live prices, Investing perps unrealised)."
-  }
+  },
+  "usdReceiveFromYourBitcoin": "From your Bitcoin",
+  "@usdReceiveFromYourBitcoin": {"description": "Row title at the top of the Investments receive screen that opens the move from the spending bitcoin into Investments."}
 }

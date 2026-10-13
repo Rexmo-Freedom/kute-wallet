@@ -3007,5 +3007,6 @@
   "depositFromSpendingWalletWithBalance": "Вашият портфейл за харчене · {amount}",
   "depositFromAnotherWallet": "Друг портфейл или борса",
   "depositFromAnotherWalletSubtitle": "Вземете адрес, на който да изпратите долари",
-  "portfolioStatOpenPnl": "Отворена печалба / загуба"
+  "portfolioStatOpenPnl": "Отворена печалба / загуба",
+  "usdReceiveFromYourBitcoin": "От вашия биткойн"
 }

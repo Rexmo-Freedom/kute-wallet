@@ -10805,4 +10805,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get portfolioStatOpenPnl => 'Offener Gewinn / Verlust';
+
+  @override
+  String get usdReceiveFromYourBitcoin => 'Von deinem Bitcoin';
 }

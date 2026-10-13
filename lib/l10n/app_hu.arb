@@ -3007,5 +3007,6 @@
   "depositFromSpendingWalletWithBalance": "A költési tárcád · {amount}",
   "depositFromAnotherWallet": "Másik tárca vagy tőzsde",
   "depositFromAnotherWalletSubtitle": "Kérj egy címet, ahová dollárt küldhetsz",
-  "portfolioStatOpenPnl": "Nyitott nyereség / veszteség"
+  "portfolioStatOpenPnl": "Nyitott nyereség / veszteség",
+  "usdReceiveFromYourBitcoin": "A bitcoinodból"
 }

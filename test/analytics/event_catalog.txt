@@ -657,6 +657,7 @@ usd_send_destination_selected
 usd_send_initiated
 usd_send_opened
 usd_send_step
+usd_send_top_up_opened
 usd_tab_opened
 venue_account_link_result
 venue_cash_waiting_shown

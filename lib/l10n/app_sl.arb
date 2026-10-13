@@ -3007,5 +3007,6 @@
   "depositFromSpendingWalletWithBalance": "Vaša denarnica za porabo · {amount}",
   "depositFromAnotherWallet": "Druga denarnica ali borza",
   "depositFromAnotherWalletSubtitle": "Pridobite naslov, na katerega pošljete dolarje",
-  "portfolioStatOpenPnl": "Odprt dobiček / izguba"
+  "portfolioStatOpenPnl": "Odprt dobiček / izguba",
+  "usdReceiveFromYourBitcoin": "Iz vašega bitcoina"
 }

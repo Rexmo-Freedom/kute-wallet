@@ -84,6 +84,8 @@ import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceProvider, usdDrainBaseUnits;
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
+import 'package:kute/screens/home/components/deposit_sheet.dart'
+    show MoveLockedSide, showDepositSheet;
 import 'package:kute/screens/shared/account_switcher_pill.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart'
     show AmountKeypad, AmountPercentChips;
@@ -91,6 +93,8 @@ import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/ask_sal_chip.dart';
 import 'package:kute/screens/shared/asset_network_picker.dart';
 import 'package:kute/screens/shared/coin_asset_grid.dart';
+import 'package:kute/screens/shared/custom_button.dart'
+    show AppButton, AppButtonVariant;
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart';
@@ -131,9 +135,42 @@ const int _kAmountStep = 0;
 const int _kSendToStep = 1;
 const int _kReviewStep = 2;
 
+/// The Move sheet's `entry_source` when a send short of dollars opens it.
+const String kUsdSendShortfallSource = 'usd_send_shortfall';
+
+/// What a send typed over the dollar balance is missing, in dollars,
+/// rounded UP to the cent so the top-up covers it: [typedUnits] less
+/// [availableUnits], both in the token's six-decimal base units. Zero
+/// when the balance covers it. Pure.
+double usdSendShortfallUsd(BigInt typedUnits, BigInt availableUnits) {
+  final missing = typedUnits - availableUnits;
+  if (missing <= BigInt.zero) return 0;
+  final cent = BigInt.from(10000);
+  final cents = (missing + cent - BigInt.one) ~/ cent;
+  return cents.toInt() / 100;
+}
+
 /// Full-screen dollar send. Push it on the root navigator.
+///
+/// Typed over the balance, the amount step's "not enough" line carries
+/// one button, the slips' "Add $X to Investments": the Investments
+/// deposit (spending bitcoin into Dollars) prefilled with exactly what is
+/// missing. Nothing moves until the person confirms it there; no bitcoin
+/// is ever pulled and no position sold on their behalf. Once that deposit
+/// went through they are back here with the amount kept, and the send
+/// carries on to its recipient as soon as the dollars cover it.
 class UsdSendScreen extends ConsumerStatefulWidget {
   const UsdSendScreen({super.key});
+
+  /// Test seam: what the shortfall button opens. Null opens the real Move
+  /// sheet ([showDepositSheet]).
+  @visibleForTesting
+  static Future<void> Function(
+    BuildContext context, {
+    required MoveLockedSide lockedSide,
+    double? initialTargetUsd,
+    VoidCallback? onCompleted,
+  })? debugDepositSheetOpener;
 
   @override
   ConsumerState<UsdSendScreen> createState() => _UsdSendScreenState();
@@ -189,6 +226,10 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
   bool _reviewToExpanded = false;
   bool _processing = false;
   String? _error;
+
+  /// A top-up from the shortfall button went through: the send moves on
+  /// to its recipient once the dollars cover the amount still typed.
+  bool _awaitingTopUp = false;
 
   @override
   void initState() {
@@ -293,6 +334,43 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
   bool get _amountExceedsBalance {
     final units = _typedBaseUnits;
     return !_drain && units != null && units > _availableBaseUnits;
+  }
+
+  /// What the typed amount is missing from the balance, to the cent.
+  double get _shortfallUsd {
+    final units = _typedBaseUnits;
+    if (_drain || units == null) return 0;
+    return usdSendShortfallUsd(units, _availableBaseUnits);
+  }
+
+  /// The shortfall button: the Investments deposit from the spending
+  /// bitcoin, prefilled with what is missing (the slips' top-up pattern).
+  void _openTopUp() {
+    final shortfall = _shortfallUsd;
+    if (shortfall <= 0 || _processing) return;
+    HapticFeedback.selectionClick();
+    TrackingService.track('usd_send_top_up_opened',
+        params: {'shortfall_usd': shortfall});
+    TrackingService.markEntrySource('move', kUsdSendShortfallSource);
+    final open = UsdSendScreen.debugDepositSheetOpener ?? showDepositSheet;
+    unawaited(open(
+      context,
+      lockedSide: MoveLockedSide.depositToUsd,
+      initialTargetUsd: shortfall,
+      onCompleted: () {
+        if (!mounted) return;
+        _awaitingTopUp = true;
+        _continueAfterTopUp();
+      },
+    ));
+  }
+
+  /// Back from a top-up: on to the recipient once the dollars cover the
+  /// amount, which is kept exactly as typed.
+  void _continueAfterTopUp() {
+    if (!_awaitingTopUp || _step != _kAmountStep || !_amountStepValid) return;
+    _awaitingTopUp = false;
+    _confirmAmount();
   }
 
   bool get _amountBelowMinimum {
@@ -539,6 +617,8 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
     ref.listen(orchestraSupportedRoutesProvider, (_, __) {
       if (_step == _kSendToStep) _applyDefaultDestination();
     });
+    // Dollars landing from a top-up carry the send on.
+    ref.listen(usdBalanceProvider, (_, __) => _continueAfterTopUp());
     return PopScope(
       canPop: !_processing,
       child: KeyboardDismissOnTap(
@@ -682,6 +762,17 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
                     ),
                   ),
                 ],
+                if (overBalance && _shortfallUsd > 0) ...[
+                  SizedBox(height: 10.h),
+                  AppButton(
+                    key: const ValueKey('usd-send-top-up'),
+                    text: context.l10n.slipAddToInvestments(
+                        '\$${_shortfallUsd.toStringAsFixed(2)}'),
+                    variant: AppButtonVariant.secondary,
+                    compact: true,
+                    onPressed: _processing ? null : _openTopUp,
+                  ),
+                ],
                 SizedBox(height: 10.h),
                 Text(
                   context.l10n.hlYieldAvailableLine(
@@ -711,6 +802,7 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
             maxDecimals: 2,
             enabled: !_processing,
             onChanged: (v) {
+              _awaitingTopUp = false;
               setState(() {
                 _amountMethod = 'keypad';
                 _drain = false;
@@ -743,6 +835,7 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
     // Cents, floored: the keypad types two decimals, so the percentage
     // lands on one too rather than on a sub-cent amount it cannot show.
     final cents = (_availableUsd * ratio * 100).floor();
+    _awaitingTopUp = false;
     setState(() {
       _error = null;
       _drain = drain;

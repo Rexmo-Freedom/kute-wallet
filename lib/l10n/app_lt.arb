@@ -3007,5 +3007,6 @@
   "depositFromSpendingWalletWithBalance": "Jūsų išlaidų piniginė · {amount}",
   "depositFromAnotherWallet": "Kita piniginė ar birža",
   "depositFromAnotherWalletSubtitle": "Gaukite adresą, kuriuo siųsti dolerius",
-  "portfolioStatOpenPnl": "Atviras pelnas / nuostolis"
+  "portfolioStatOpenPnl": "Atviras pelnas / nuostolis",
+  "usdReceiveFromYourBitcoin": "Iš jūsų bitkoino"
 }

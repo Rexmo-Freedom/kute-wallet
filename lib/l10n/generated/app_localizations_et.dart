@@ -10712,4 +10712,7 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get portfolioStatOpenPnl => 'Avatud kasum / kahjum';
+
+  @override
+  String get usdReceiveFromYourBitcoin => 'Sinu bitcoinist';
 }

@@ -10748,4 +10748,7 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get portfolioStatOpenPnl => 'Nyitott nyereség / veszteség';
+
+  @override
+  String get usdReceiveFromYourBitcoin => 'A bitcoinodból';
 }

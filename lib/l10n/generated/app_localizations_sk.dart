@@ -10729,4 +10729,7 @@ class AppLocalizationsSk extends AppLocalizations {
 
   @override
   String get portfolioStatOpenPnl => 'Otvorený zisk / strata';
+
+  @override
+  String get usdReceiveFromYourBitcoin => 'Z vášho bitcoinu';
 }

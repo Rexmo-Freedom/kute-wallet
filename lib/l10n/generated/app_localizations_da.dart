@@ -10725,4 +10725,7 @@ class AppLocalizationsDa extends AppLocalizations {
 
   @override
   String get portfolioStatOpenPnl => 'Åben gevinst / tab';
+
+  @override
+  String get usdReceiveFromYourBitcoin => 'Fra din bitcoin';
 }

@@ -3007,5 +3007,6 @@
   "depositFromSpendingWalletWithBalance": "Je bestedingswallet · {amount}",
   "depositFromAnotherWallet": "Andere wallet of exchange",
   "depositFromAnotherWalletSubtitle": "Krijg een adres om dollars naartoe te sturen",
-  "portfolioStatOpenPnl": "Open winst / verlies"
+  "portfolioStatOpenPnl": "Open winst / verlies",
+  "usdReceiveFromYourBitcoin": "Vanuit je bitcoin"
 }

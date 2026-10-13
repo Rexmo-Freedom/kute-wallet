@@ -21,10 +21,13 @@ import 'package:kute/providers/orchestra_supported_routes_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/spark_address_provider.dart';
 import 'package:kute/providers/usd_account_provider.dart';
+import 'package:kute/screens/home/components/deposit_sheet.dart'
+    show MoveLockedSide;
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/usd/usd_send_screen.dart';
 import 'package:kute/services/orchestra_usd_send_routes.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
+import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
 import '../../helpers/runtime_policy_fixture.dart';
@@ -77,6 +80,9 @@ class _Routes extends OrchestraSupportedRoutesNotifier {
 final _l10n = AppLocalizationsEn();
 String? _clipboard;
 
+/// The dollar balance the screen reads, settable mid-test.
+final _balance = StateProvider<double>((_) => 100);
+
 Future<void> _pump(WidgetTester tester, {bool arbitrumUsdc = true}) async {
   await tester.pumpWidget(ProviderScope(
     overrides: [
@@ -92,7 +98,7 @@ Future<void> _pump(WidgetTester tester, {bool arbitrumUsdc = true}) async {
             activeWalletId: 'spending',
             wallets: [WalletConfig(id: 'spending', name: 'Spending')],
           ))),
-      usdBalanceProvider.overrideWithValue(100),
+      usdBalanceProvider.overrideWith((ref) => ref.watch(_balance)),
       orchestraSupportedRoutesProvider
           .overrideWith((_) => _Routes(_catalog(arbitrumUsdc: arbitrumUsdc))),
       orchestraRoutesReadyProvider.overrideWith((_) async {}),
@@ -207,6 +213,66 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('100.00'), findsOneWidget);
     expect(_continueEnabled(tester), isTrue);
+  });
+
+  test('the shortfall is what the balance misses, up to the cent', () {
+    BigInt u(String usd) => BigInt.from((double.parse(usd) * 1e6).round());
+    expect(usdSendShortfallUsd(u('150'), u('100')), 50.0);
+    expect(usdSendShortfallUsd(u('100.01'), u('100.004')), 0.01);
+    expect(usdSendShortfallUsd(u('100'), u('100')), 0);
+    expect(usdSendShortfallUsd(u('5'), u('100')), 0);
+  });
+
+  testWidgets(
+      'over the balance, one button opens the Investments deposit with the '
+      'shortfall; back with the dollars, the send carries on with the '
+      'amount kept', (tester) async {
+    final events = <(String, Map<String, Object>?)>[];
+    TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+    addTearDown(() => TrackingService.debugTrackObserver = null);
+    final opened = <(MoveLockedSide, double?)>[];
+    VoidCallback? completed;
+    UsdSendScreen.debugDepositSheetOpener = (_,
+        {required lockedSide, initialTargetUsd, onCompleted}) async {
+      opened.add((lockedSide, initialTargetUsd));
+      completed = onCompleted;
+    };
+    addTearDown(() => UsdSendScreen.debugDepositSheetOpener = null);
+    // A phone-sized screen, so the hero has the room it has on a phone.
+    tester.view.physicalSize = const Size(1290, 2796);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    await withClipboard(tester);
+    await _pump(tester);
+
+    final button = find.byKey(const ValueKey('usd-send-top-up'));
+    expect(button, findsNothing);
+    await _type(tester, '150');
+    expect(find.text(_l10n.sendMoreThanAvailable), findsOneWidget);
+    expect(_continueEnabled(tester), isFalse);
+    expect(button, findsOneWidget);
+    expect(find.text(_l10n.slipAddToInvestments('\$50.00')), findsOneWidget);
+
+    await tester.tap(button);
+    await tester.pump();
+    expect(opened, [(MoveLockedSide.depositToUsd, 50.0)]);
+    expect(events.where((e) => e.$1 == 'usd_send_top_up_opened').single.$2,
+        {'shortfall_usd': 50.0});
+    expect(TrackingService.takeEntrySource('move'), 'usd_send_shortfall');
+
+    // The deposit went through but the dollars are not in yet: still on
+    // Amount, the figure kept.
+    completed!();
+    await tester.pumpAndSettle();
+    expect(find.text(_l10n.usdSendAmountSubtitle), findsOneWidget);
+    expect(find.text('150'), findsOneWidget);
+
+    // They land: on to the recipient.
+    ProviderScope.containerOf(tester.element(find.byType(UsdSendScreen)))
+        .read(_balance.notifier)
+        .state = 160;
+    await tester.pumpAndSettle();
+    expect(find.text(_l10n.sendWhereShouldItLand), findsOneWidget);
   });
 
   String label(String chain, String asset) {

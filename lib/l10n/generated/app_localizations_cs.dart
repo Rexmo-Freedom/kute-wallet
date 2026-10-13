@@ -10715,4 +10715,7 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get portfolioStatOpenPnl => 'Otevřený zisk / ztráta';
+
+  @override
+  String get usdReceiveFromYourBitcoin => 'Z vašeho bitcoinu';
 }

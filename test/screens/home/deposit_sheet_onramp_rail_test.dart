@@ -133,7 +133,7 @@ void main() {
       );
       expect(
         RegExp(
-          r"if \(cashAppOffered\(policy\)\)\s*_PickerRow\(\s*"
+          r"if \(cashAppOffered\(policy\)\)\s*MovePickerRow\(\s*"
           r"asset: 'lib/assets/cashapp-logo\.svg',",
         ).hasMatch(source),
         isTrue,

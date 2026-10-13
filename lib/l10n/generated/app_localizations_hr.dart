@@ -10747,4 +10747,7 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String get portfolioStatOpenPnl => 'Otvorena dobit / gubitak';
+
+  @override
+  String get usdReceiveFromYourBitcoin => 'S vašeg bitcoina';
 }

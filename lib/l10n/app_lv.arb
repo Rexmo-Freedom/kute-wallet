@@ -3007,5 +3007,6 @@
   "depositFromSpendingWalletWithBalance": "Jūsu tēriņu maks · {amount}",
   "depositFromAnotherWallet": "Cits maks vai birža",
   "depositFromAnotherWalletSubtitle": "Iegūstiet adresi, uz kuru sūtīt dolārus",
-  "portfolioStatOpenPnl": "Atvērtā peļņa / zaudējumi"
+  "portfolioStatOpenPnl": "Atvērtā peļņa / zaudējumi",
+  "usdReceiveFromYourBitcoin": "No jūsu bitcoin"
 }

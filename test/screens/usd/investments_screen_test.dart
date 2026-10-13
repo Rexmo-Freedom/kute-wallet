@@ -2,10 +2,11 @@
 // Bitcoin | Investments, and Investments carries Investing · Predictions
 // · Portfolio as pills over the embedded screens (each pill wearing a
 // glyph of the one icon family, a step bigger than the Home strip), the
-// one-balance hero above them, and the Deposit / Send / search dock with
-// the search scoped to the pill. Deposit (the dock's, no door under the
-// hero any more) opens the Investments deposit sheet; Receive lives in
-// that sheet. No venue Deposit or Withdraw exists anywhere inside it.
+// one-balance hero above them, and the Receive / Send / search dock with
+// the search scoped to the pill. Receive (the dock's, no door under the
+// hero any more) opens the Dollars receive screen on its address step;
+// its "From your Bitcoin" row opens the Investments deposit sheet. No
+// venue Deposit or Withdraw exists anywhere inside it.
 // The whole page scrolls as one on every pill, and the chrome collapses:
 // the hero leaves, the pills condense into the compact pinned bar with a
 // small copy of the total and a chevron that brings everything back, as
@@ -19,8 +20,6 @@ import 'package:kute/l10n/l10n.dart';
 import 'package:kute/providers/nav_bar_visibility_provider.dart';
 import 'package:kute/providers/unified_search_provider.dart'
     show SearchCategory;
-import 'package:kute/screens/home/components/deposit_sheet.dart'
-    show MoveLockedSide;
 import 'package:kute/screens/home/components/kute_bottom_action_bar.dart';
 import 'package:kute/screens/hyperliquid/hyperliquid_screen.dart';
 import 'package:kute/screens/polymarket/polymarket_screen.dart';
@@ -129,13 +128,12 @@ void main() {
 
   testWidgets(
       'no venue Deposit or Withdraw anywhere and no door under the hero; '
-      'the one way in is the dock\'s Deposit, which opens the Investments '
-      'deposit sheet', (tester) async {
+      'the way in is the dock\'s Receive, which opens the Dollars receive '
+      'screen', (tester) async {
     final events = recordEvents();
-    final opened = <MoveLockedSide>[];
-    UsdAccountActionBar.debugDepositSheetOpener =
-        (_, {required lockedSide}) async => opened.add(lockedSide);
-    addTearDown(() => UsdAccountActionBar.debugDepositSheetOpener = null);
+    var receiveOpened = 0;
+    UsdAccountActionBar.debugReceiveOpener = (_) => receiveOpened++;
+    addTearDown(() => UsdAccountActionBar.debugReceiveOpener = null);
     await pumpInvestments(tester, earn: kEarnOn);
     final l10n = _l10n(tester);
     expect(find.byType(VenueDepositButton, skipOffstage: false), findsNothing);
@@ -153,28 +151,28 @@ void main() {
     expect(tester.getTopLeft(find.byType(KutePillTabs).first).dy,
         lessThan(tester.getBottomLeft(find.byType(PoolBalanceHeader)).dy + 40));
 
-    // The dock: Deposit, Send, and the search square. No Receive: it is
-    // the deposit sheet's first option.
+    // The dock: Receive (the Bitcoin dock's label and arrow), Send, and
+    // the search square. No Deposit.
     final bar =
         tester.widget<KuteBottomActionBar>(find.byType(KuteBottomActionBar));
-    expect(bar.actions.map((a) => a.label), [l10n.deposit, l10n.send]);
-    expect(bar.actions.map((a) => a.trackingId), ['dollar_deposit', 'send']);
+    expect(bar.actions.map((a) => a.label), [l10n.receive, l10n.send]);
+    expect(bar.actions.map((a) => a.trackingId), ['receive', 'send']);
     expect(bar.actions.map((a) => a.icon),
         [Icons.south_west_rounded, Icons.north_east_rounded]);
     expect(bar.onSearch, isNotNull);
     expect(bar.source, 'usd');
-    expect(find.text(l10n.deposit), findsOneWidget);
-    expect(find.text(l10n.receive, skipOffstage: false), findsNothing);
+    expect(find.text(l10n.receive), findsOneWidget);
+    expect(find.text(l10n.deposit, skipOffstage: false), findsNothing);
 
-    // Deposit opens the Dollars deposit door (destination pinned), with
-    // the door's own quick-action event and the dock as the move's
-    // entry source.
-    await tester.tap(find.text(l10n.deposit));
+    // Receive opens the Dollars receive screen, with the Bitcoin dock's
+    // quick-action key under this surface and the dock as the receive
+    // flow's entry source.
+    await tester.tap(find.text(l10n.receive));
     await tester.pump();
-    expect(opened, [MoveLockedSide.depositToUsd]);
+    expect(receiveOpened, 1);
     expect(events.where((e) => e.$1 == 'quick_action_tapped').single.$2,
-        {'action': 'dollar_deposit', 'source': 'usd'});
-    expect(TrackingService.takeEntrySource('move'), 'usd_dock');
+        {'action': 'receive', 'source': 'usd'});
+    expect(TrackingService.takeEntrySource('usd_receive'), 'usd_dock');
     expect(tester.takeException(), isNull);
     await unmountInvestments(tester);
   });

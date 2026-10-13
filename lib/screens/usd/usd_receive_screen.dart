@@ -8,17 +8,24 @@ import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hive_ce/hive.dart';
 import 'package:share_plus/share_plus.dart';
 
 import 'package:kute/helpers/user_error_copy.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/orchestra_routes_model.dart';
 import 'package:kute/models/swap_order_model.dart';
+import 'package:kute/providers/balance_provider.dart'
+    show walletBalanceCacheProvider;
+import 'package:kute/providers/currency_conversions_provider.dart'
+    show selectedCurrencyProvider;
 import 'package:kute/providers/orchestra_supported_routes_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/breez_config_provider.dart';
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
+import 'package:kute/screens/home/components/deposit_sheet.dart'
+    show MovePickerRow, MoveLockedSide, showDepositSheet;
 import 'package:kute/screens/receive/orchestra_deposit_poller.dart';
 import 'package:kute/screens/receive/quoted_receive_screen.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
@@ -47,9 +54,106 @@ import 'package:kute/theme/app_theme.dart';
 
 enum _Step { coin, address }
 
+/// The Move sheet's `entry_source` when the "From your Bitcoin" row at the
+/// top of this screen opens it.
+const String kUsdReceiveBitcoinRowSource = 'usd_receive_bitcoin_row';
+
+/// The coins the Investments receive opens on when it picks one itself,
+/// in order, after the one last used: USDC on Solana, Base, Polygon.
+const List<String> kUsdReceiveDefaultCoins = [
+  'solana:USDC',
+  'base:USDC',
+  'polygon:USDC',
+];
+
+/// The `chain:asset` id the coin sheet selects by.
+String usdReceiveCoinId(OrchestraReceiveOption o) =>
+    '${o.chain}:${o.assetCode}';
+
+/// The coin the Investments receive opens on when the dock's Receive opens
+/// it ([UsdReceiveScreen.autoPickCoin]), from what the live catalog
+/// offers ([offered], in the coin sheet's order) as a reusable address:
+/// the one last used ([lastUsed], `chain:asset`), else the first of
+/// [kUsdReceiveDefaultCoins] on offer, else the first offered coin. Null
+/// when no reusable address is offered: the screen opens on its coin step.
+/// [reason] is the analytics `preselect_reason`. Pure.
+({OrchestraReceiveOption option, String reason})? usdReceivePreselect(
+    Iterable<OrchestraReceiveOption> offered,
+    {String? lastUsed}) {
+  final reusable = offered.where((o) => o.reusableAddress).toList();
+  if (reusable.isEmpty) return null;
+  OrchestraReceiveOption? find(String id) {
+    final want = id.toLowerCase();
+    for (final o in reusable) {
+      if (usdReceiveCoinId(o).toLowerCase() == want) return o;
+    }
+    return null;
+  }
+
+  final last = lastUsed == null ? null : find(lastUsed);
+  if (last != null) return (option: last, reason: 'last_used');
+  for (final id in kUsdReceiveDefaultCoins) {
+    final o = find(id);
+    if (o != null) return (option: o, reason: 'default');
+  }
+  return (option: reusable.first, reason: 'default');
+}
+
+/// The coin the Investments receive last showed an address for, as
+/// `chain:asset` (never the address), in the box the app opens at boot.
+/// Best effort both ways: a box that is not open reads as nothing.
+abstract final class UsdReceiveLastCoin {
+  static const String boxName = 'usd_receive_last_coin';
+  static const String _key = 'last';
+
+  /// Test seam: stands in for the box when set.
+  @visibleForTesting
+  static Map<String, String>? debugStore;
+
+  static String? read() {
+    final store = debugStore;
+    if (store != null) return store[_key];
+    try {
+      if (!Hive.isBoxOpen(boxName)) return null;
+      return Hive.box<String>(boxName).get(_key);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static void write(String id) {
+    final store = debugStore;
+    if (store != null) {
+      store[_key] = id;
+      return;
+    }
+    try {
+      if (!Hive.isBoxOpen(boxName)) return;
+      unawaited(Hive.box<String>(boxName).put(_key, id).catchError((_) {}));
+    } catch (_) {}
+  }
+}
+
 /// Full-screen dollar receive.
+///
+/// [autoPickCoin] (the Investments dock's Receive) opens straight on the
+/// address step with a coin already picked ([usdReceivePreselect]); the
+/// coin step and its sheet still change it. Without it, or when nothing
+/// can be picked, the screen opens on the coin step as it always did.
+///
+/// Both steps carry, at the top, the Move sheet's Bitcoin row as "From
+/// your Bitcoin": it opens the Investments deposit (spending bitcoin into
+/// Dollars), exactly what the dock's old Deposit opened.
 class UsdReceiveScreen extends ConsumerStatefulWidget {
-  const UsdReceiveScreen({super.key});
+  const UsdReceiveScreen({super.key, this.autoPickCoin = false});
+
+  final bool autoPickCoin;
+
+  /// Test seam: what the "From your Bitcoin" row opens. Null opens the
+  /// real Move sheet ([showDepositSheet]).
+  @visibleForTesting
+  static Future<void> Function(BuildContext context,
+      {required MoveLockedSide lockedSide})? debugDepositSheetOpener;
 
   @override
   ConsumerState<UsdReceiveScreen> createState() => _UsdReceiveScreenState();
@@ -79,6 +183,10 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
   int _requestId = 0;
   bool Function()? _sameSdk;
 
+  /// The dock's Receive is still picking its coin: the address step's
+  /// loading shape is on screen until the live catalog says what to show.
+  bool _autoPicking = false;
+
   bool get _spendingIsActive {
     final settings = ref.read(settingsProvider);
     final spending = pickSpendingWallet(settings);
@@ -100,8 +208,15 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
     );
     // The offering is live-catalogue only, so nudge it rather than
     // waiting for the 6 h cadence.
-    // ignore: discarded_futures
-    ref.read(orchestraSupportedRoutesProvider.notifier).refresh();
+    final refreshed =
+        ref.read(orchestraSupportedRoutesProvider.notifier).refresh();
+    if (widget.autoPickCoin && _spendingIsActive) {
+      _autoPicking = true;
+      _step = _Step.address;
+      unawaited(_autoPick(refreshed));
+      return;
+    }
+    unawaited(refreshed);
     // The coin question opens as a sheet, the way it does on the
     // bitcoin screens, so the first tap of the flow lands on the grid
     // rather than on a page that then has to be tapped again.
@@ -109,6 +224,82 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
       if (!mounted || _step != _Step.coin || !_spendingIsActive) return;
       _openCoinPicker();
     });
+  }
+
+  /// The dock's Receive: pick the coin ([usdReceivePreselect]) from a
+  /// live catalog, waiting for the refresh [initState] nudged when the
+  /// one in hand is not fresh. Nothing to pick (or no live catalog) lands
+  /// on the coin step with its sheet open, as the screen always opened.
+  Future<void> _autoPick(Future<bool> refreshed) async {
+    await Future<void>.delayed(Duration.zero);
+    if (!mounted || !_autoPicking) return;
+    if (!ref.read(orchestraSupportedRoutesProvider).isFresh(DateTime.now())) {
+      try {
+        await refreshed.timeout(const Duration(seconds: 8));
+      } catch (_) {}
+      if (!mounted || !_autoPicking) return;
+    }
+    final catalog = ref.read(orchestraSupportedRoutesProvider);
+    final pick = catalog.isFresh(DateTime.now()) && _spendingIsActive
+        ? usdReceivePreselect(
+            [
+              for (final g in _coinGroups(watch: false))
+                ...g.options.where((o) =>
+                    orchestraReceiveChainForDestination(o.assetCode, o.chain,
+                        destinationAsset: kOrchestraUsdAssetCode) !=
+                    null),
+            ],
+            lastUsed: UsdReceiveLastCoin.read(),
+          )
+        : null;
+    setState(() => _autoPicking = false);
+    if (pick == null) {
+      setState(() => _step = _Step.coin);
+      if (_spendingIsActive) _openCoinPicker();
+      return;
+    }
+    _pick(pick.option, preselectReason: pick.reason);
+  }
+
+  /// The spending bitcoin's balance in dollars, as the Move sheet's
+  /// Bitcoin row prints it (floored to the cent), or null while unknown.
+  String? _spendingBitcoinUsd() {
+    try {
+      final spending = pickSpendingWallet(ref.watch(settingsProvider));
+      if (spending == null) return null;
+      final sats = ref
+          .watch(walletBalanceCacheProvider)[spending.id]
+          ?.sparkBitcoinbalance;
+      final rate = ref.watch(selectedCurrencyProvider('USD')).toDouble();
+      if (sats == null || rate <= 0) return null;
+      final usd = sats / 1e8 * rate;
+      return '\$${((usd * 100).floor() / 100).toStringAsFixed(2)}';
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// "From your Bitcoin": the Investments deposit from the spending
+  /// bitcoin, the Move sheet the dock's old Deposit opened.
+  void _openFromBitcoin() {
+    TrackingService.markEntrySource('move', kUsdReceiveBitcoinRowSource);
+    final open = UsdReceiveScreen.debugDepositSheetOpener ?? showDepositSheet;
+    unawaited(open(context, lockedSide: MoveLockedSide.depositToUsd));
+  }
+
+  Widget _bitcoinRow(BuildContext context) {
+    final l10n = context.l10n;
+    final balance = _spendingBitcoinUsd();
+    return MovePickerRow(
+      key: const ValueKey('usd-receive-from-bitcoin'),
+      asset: 'lib/assets/bitcoin-icon.svg',
+      title: l10n.usdReceiveFromYourBitcoin,
+      subtitle: balance != null
+          ? l10n.depositFromSpendingWalletWithBalance(balance)
+          : l10n.depositFromSpendingWallet,
+      horizontalPadding: 0,
+      onTap: _openFromBitcoin,
+    );
   }
 
   @override
@@ -176,36 +367,47 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
       resizeToAvoidBottomInset: false,
       child: !_spendingIsActive
           ? UsdFlowNote(lines: [l10n.receiveOtherCoinsSpendingOnly])
-          : switch (_step) {
-              _Step.coin => StepPageWrapper(
-                  title: l10n.usdFlowStepCoin,
-                  subtitle: l10n.usdReceivePickCoin,
-                  colors: c,
-                  child: _buildCoinStep(context),
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _bitcoinRow(context),
+                Expanded(
+                  child: switch (_step) {
+                    _Step.coin => StepPageWrapper(
+                        title: l10n.usdFlowStepCoin,
+                        subtitle: l10n.usdReceivePickCoin,
+                        colors: c,
+                        child: _buildCoinStep(context),
+                      ),
+                    // Not `tight`: the bitcoin receive gives its share step
+                    // the full heading, and a dollar receive that shrank its
+                    // own was one of the things that made the two look
+                    // unrelated.
+                    _Step.address => StepPageWrapper(
+                        title: l10n.usdReceiveShareStep,
+                        subtitle: option == null ||
+                                _display == null ||
+                                !_reusableRouteSupported
+                            ? ''
+                            : l10n.usdReceiveShareSubtitle(
+                                option.displaySymbol, option.chainDisplayName),
+                        colors: c,
+                        child: _buildAddressStep(context),
+                      ),
+                  },
                 ),
-              // Not `tight`: the bitcoin receive gives its share step the
-              // full heading, and a dollar receive that shrank its own was
-              // one of the things that made the two look unrelated.
-              _Step.address => StepPageWrapper(
-                  title: l10n.usdReceiveShareStep,
-                  subtitle: option == null ||
-                          _display == null ||
-                          !_reusableRouteSupported
-                      ? ''
-                      : l10n.usdReceiveShareSubtitle(
-                          option.displaySymbol, option.chainDisplayName),
-                  colors: c,
-                  child: _buildAddressStep(context),
-                ),
-            },
+              ],
+            ),
     );
   }
 
   /// The coins that can be converted into this balance, folded one per
   /// coin. The same fold and the same marks the sheet shows, so the
   /// line on the step and the grid in the sheet can never disagree.
-  List<CoinAssetGroup> _coinGroups() => receiveCoinGroups(
-        ref.watch(orchestraSupportedRoutesProvider),
+  List<CoinAssetGroup> _coinGroups({bool watch = true}) => receiveCoinGroups(
+        watch
+            ? ref.watch(orchestraSupportedRoutesProvider)
+            : ref.read(orchestraSupportedRoutesProvider),
         context.l10n,
         destinationChain: kOrchestraUsdChain,
         destinationAsset: kOrchestraUsdAssetCode,
@@ -266,9 +468,8 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
                 ? ctx.l10n.usdReceiveRoutesUnavailable
                 : ctx.l10n.usdReceiveCoinsUnavailable,
             flow: 'usd_receive',
-            selectedOptionId: _option == null
-                ? null
-                : '${_option!.chain}:${_option!.assetCode}',
+            selectedOptionId:
+                _option == null ? null : usdReceiveCoinId(_option!),
             onPicked: (option) {
               Navigator.of(sheetCtx).pop();
               _pick(option);
@@ -283,8 +484,21 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
   /// Uses the same QR, address and action sizing as Bitcoin receive.
   Widget _buildAddressStep(BuildContext context) {
     final l10n = context.l10n;
-    final option = _option!;
+    final option = _option;
     final display = _display;
+    if (option == null) {
+      // The dock's Receive picking its coin: the loading shape below.
+      return SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const ReceiveQrPlate(child: ReceiveQrShimmer()),
+            SizedBox(height: ReceiveGaps.qrToCaption),
+            ReceiveCaption(text: l10n.usdReceiveCreating),
+          ],
+        ),
+      );
+    }
 
     final routeRetired = display != null && !_reusableRouteSupported;
     if ((_error != null && display == null) || routeRetired) {
@@ -379,6 +593,7 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
   void _onBack() {
     _requestId++;
     _poller.cancel();
+    _autoPicking = false;
     if (_step == _Step.coin) {
       Navigator.of(context).maybePop();
       return;
@@ -391,20 +606,26 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
     });
   }
 
-  void _pick(OrchestraReceiveOption option) {
+  /// [preselectReason] is set when the screen picked the coin itself
+  /// (`last_used` or `default`, see [usdReceivePreselect]).
+  void _pick(OrchestraReceiveOption option, {String? preselectReason}) {
     if (!_spendingIsActive) return;
     _requestId++;
     _poller.cancel();
+    _autoPicking = false;
     if (!option.reusableAddress) {
       _openQuoted(option);
       return;
     }
+    UsdReceiveLastCoin.write(usdReceiveCoinId(option));
     TrackingService.swapAssetSelected(
         flow: 'receive_dollars', asset: option.assetCode);
     TrackingService.track('usd_receive_coin_selected', params: {
       'asset': option.assetCode,
       'chain': option.chain,
       'address_kind': 'reusable',
+      'preselected': preselectReason != null,
+      'preselect_reason': preselectReason ?? 'none',
     });
     TrackingService.moneyFlowStep('usd_receive', 'coin_selected', props: {
       'asset': option.assetCode,
@@ -428,6 +649,8 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
       'asset': option.assetCode,
       'chain': option.chain,
       'address_kind': 'one_time',
+      'preselected': false,
+      'preselect_reason': 'none',
     });
     TrackingService.markEntrySource('quoted_receive', 'usd_receive');
     _requestId++;
@@ -502,6 +725,7 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
     _requestId++;
     _poller.cancel();
     _sameSdk = null;
+    _autoPicking = false;
     setState(() {
       _option = null;
       _display = null;

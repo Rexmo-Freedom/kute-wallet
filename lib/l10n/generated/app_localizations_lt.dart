@@ -10766,4 +10766,7 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get portfolioStatOpenPnl => 'Atviras pelnas / nuostolis';
+
+  @override
+  String get usdReceiveFromYourBitcoin => 'Iš jūsų bitkoino';
 }
