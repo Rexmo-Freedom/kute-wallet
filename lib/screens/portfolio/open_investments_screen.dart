@@ -23,12 +23,13 @@
 //   * Activity: ONE merged list (portfolio_activity.dart), the venues'
 //     activity and the wallet's deposits and moves sorted by time.
 //   * Statistics: Investing and Predictions as ONE account, nothing said
-//     twice (PortfolioStatisticsOverview): one P&L headline, chart and
-//     range row for both, the per-venue breakdown under it (and Earn's
-//     paid-to-date while the backend allows Earn, `usd.earn`), then one
-//     Active | Historic pair over each venue's donut and figures, each
-//     keeping its drill-down. Earn's chart shows only when it is the
-//     only figure (no venue, or no P&L ever moved).
+//     twice (PortfolioStatisticsOverview): one P&L chart with an All ·
+//     Investing · Predictions toggle, one allocation donut that opens a
+//     venue (then a category) in the same ring, then one Active |
+//     Historic pair over one card of figures for what the donut shows
+//     (Earn's paid-to-date one of the account's while the backend allows
+//     Earn, `usd.earn`). Earn's chart shows only when it is the only
+//     figure (no venue, or no P&L ever moved).
 // A venue the shell draws no tab for (portfolio_filters.dart) has no
 // section and no rows here.
 //
@@ -273,10 +274,11 @@ class _AllPositions extends ConsumerWidget {
 // ────────────────────────────── statistics ──────────────────────────────
 
 /// Statistics: Investing and Predictions as one account, said once
-/// ([PortfolioStatisticsOverview]: one P&L headline, chart and range row,
-/// the per-venue breakdown under it, one Active | Historic pair). Earn
-/// joins the breakdown with its paid-to-date; its chart shows only when
-/// it is the only figure: no venue on the account (under its heading,
+/// ([PortfolioStatisticsOverview]: one P&L chart with a venue toggle, one
+/// allocation donut, one Active | Historic pair over one card of
+/// figures). Earn's paid-to-date is one of the account's figures; its
+/// chart shows only when it is the only figure: no venue on the account
+/// (under its heading,
 /// built once it is on screen, so `usd_earn_opened` fires when it is
 /// seen), or venues whose P&L never moved.
 class _StatisticsTab extends ConsumerWidget {

@@ -30,6 +30,8 @@ import 'package:kute/screens/shared/portfolio_position_card.dart'
     show portfolioCardCaptionStyle;
 import 'package:kute/screens/shared/charts/kute_chart_format.dart'
     show kuteChangeSign;
+import 'package:kute/screens/shared/charts/kute_chart_range_pills.dart'
+    show KuteRangePill;
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:kute/screens/hyperliquid/components/hl_isolated_margin.dart'
@@ -140,25 +142,37 @@ class _PortfolioStatisticsState extends ConsumerState<PortfolioStatistics> {
 }
 
 /// The spending account's Statistics tab: Investing and Predictions as
-/// one account, said once.
+/// one account, said once, from the top down.
 ///
-///   * ONE profit and loss card leads ([PortfolioPnlChart], venue `all`
-///     in its events): the venues' P&L added on the moments either
-///     published ([PortfolioPerformance.combine]; a venue with no series
-///     adds nothing), one headline, one line, one row of range pills.
-///     Under the pills on the same card, with both venues on the account,
-///     the breakdown: each venue's P&L, signed and coloured (a venue whose
-///     read failed is a dash), then Earn's paid-to-date when it has paid
-///     anything. A P&L that never moved draws no line: Earn's chart takes
-///     the lead when the backend allows it (it is the only figure then),
-///     else the quiet line.
-///   * ONE Active | Historic pair under it; each venue's card (donut and
-///     tiles) stacked under it, the donut's hole naming the venue. A venue
-///     with nothing on the sub-tab has no card; neither has: one quiet
-///     line.
-///   * A venue the account has not is left out. Loading is one spinner
-///     until every venue has answered; every venue failing is the retry
-///     state (one `portfolio_performance_error_shown` per venue).
+///   * ONE profit and loss card leads ([PortfolioPnlChart]): one headline,
+///     one line, one row of range pills. With both venues' P&L moving, a
+///     small All · Investing · Predictions toggle at the top of the card
+///     switches the series drawn in the same chart (All: the venues added
+///     on the moments either published, [PortfolioPerformance.combine]),
+///     and the headline and change with it. A venue whose P&L never moved
+///     is not offered (it would draw a flat line); with one left the
+///     toggle is gone. A P&L that never moved draws no line: Earn's chart
+///     takes the lead when the backend allows it (it is the only figure
+///     then), else the quiet line.
+///   * ONE allocation donut under it ([_AllocationCard]): what the account
+///     holds now, Investing against Predictions, the total in the hole. A
+///     slice or legend row opens that venue in the same ring (its
+///     categories, the venue in the hole, a chevron pill back up); a
+///     category then opens up as on a venue's own tab. One venue on the
+///     account: the ring opens on it, with no way up. Nothing held: no
+///     donut.
+///   * ONE Active | Historic pair and ONE card of figures under it, for
+///     what the donut shows: the account (each figure the venues' added;
+///     Earn's paid-to-date one more tile), or the venue opened. A sub-tab
+///     with nothing on it is one quiet line.
+///   * A venue the account has not, or whose read failed, is left out.
+///     Loading is one spinner until every venue has answered; every venue
+///     failing is the retry state (one `portfolio_performance_error_shown`
+///     per venue).
+///   * Analytics: the toggle sends `portfolio_statistics_venue_toggled`
+///     {venue}, the donut `portfolio_allocation_drilled` {venue, level:
+///     venue | top}; the chart's range and scrub events carry the series
+///     drawn as `venue` (`all`, `hyperliquid`, `polymarket`).
 class PortfolioStatisticsOverview extends ConsumerStatefulWidget {
   const PortfolioStatisticsOverview({
     super.key,
@@ -179,14 +193,46 @@ class PortfolioStatisticsOverview extends ConsumerStatefulWidget {
       _PortfolioStatisticsOverviewState();
 }
 
+/// A venue as the spending account's Statistics events name it; null is
+/// the account as a whole.
+String _eventVenue(PortfolioPerformanceVenue? venue) => switch (venue) {
+      null => 'all',
+      PortfolioPerformanceVenue.trading => 'hyperliquid',
+      PortfolioPerformanceVenue.predictions => 'polymarket',
+    };
+
 class _PortfolioStatisticsOverviewState
     extends ConsumerState<PortfolioStatisticsOverview> {
   StatisticsScope _scope = StatisticsScope.active;
+
+  /// The venue the allocation donut has open; null: the top level.
+  PortfolioPerformanceVenue? _opened;
+
+  /// The venue the chart draws; null: All.
+  PortfolioPerformanceVenue? _charted;
 
   void _pick(StatisticsScope next) {
     if (next == _scope) return;
     _trackScope(next);
     setState(() => _scope = next);
+  }
+
+  void _chart(PortfolioPerformanceVenue? next) {
+    if (next == _charted) return;
+    HapticFeedback.selectionClick();
+    TrackingService.track('portfolio_statistics_venue_toggled',
+        params: {'venue': _eventVenue(next)});
+    setState(() => _charted = next);
+  }
+
+  void _open(PortfolioPerformanceVenue? next) {
+    final venue = next ?? _opened;
+    if (next == _opened || venue == null) return;
+    TrackingService.track('portfolio_allocation_drilled', params: {
+      'venue': _eventVenue(venue),
+      'level': next == null ? 'top' : 'venue',
+    });
+    setState(() => _opened = next);
   }
 
   @override
@@ -231,10 +277,17 @@ class _PortfolioStatisticsOverviewState
       ));
     }
     return _OverviewBody(
-      venues: venues,
+      venues: [
+        for (final v in venues)
+          if (data.containsKey(v)) v
+      ],
       data: data,
       scope: _scope,
       onScope: _pick,
+      opened: _opened,
+      onOpen: _open,
+      charted: _charted,
+      onChart: _chart,
       earn: widget.earn,
     );
   }
@@ -246,114 +299,507 @@ class _OverviewBody extends ConsumerWidget {
     required this.data,
     required this.scope,
     required this.onScope,
+    required this.opened,
+    required this.onOpen,
+    required this.charted,
+    required this.onChart,
     required this.earn,
   });
 
+  /// The venues read (a venue whose read failed is left out).
   final List<PortfolioPerformanceVenue> venues;
-
-  /// The venues read; a venue whose read failed is missing.
   final Map<PortfolioPerformanceVenue, PortfolioPerformance> data;
   final StatisticsScope scope;
   final ValueChanged<StatisticsScope> onScope;
+  final PortfolioPerformanceVenue? opened;
+  final ValueChanged<PortfolioPerformanceVenue?> onOpen;
+  final PortfolioPerformanceVenue? charted;
+  final ValueChanged<PortfolioPerformanceVenue?> onChart;
   final bool earn;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     final visible = ref.watch(settingsProvider.select((s) => s.balanceVisible));
-    final both = venues.length > 1;
-    final combined = PortfolioPerformance.combine([
-      for (final v in venues)
-        if (data[v] case final d?) d
-    ]);
+    final single = venues.length == 1 ? venues.single : null;
+    // What the donut and the figures under it show: the venue open (the
+    // only one, on a one-venue account), or the account.
+    final selection = single ?? (venues.contains(opened) ? opened : null);
+    final trading = venues.contains(PortfolioPerformanceVenue.trading)
+        ? _tradingFigures(ref, null)
+        : null;
 
-    final perVenue = [
+    // The chart: the account's P&L, or one venue's under the toggle.
+    final combined =
+        PortfolioPerformance.combine([for (final v in venues) data[v]!]);
+    final moving = [
       for (final v in venues)
-        if (data[v] case final d?)
-          _scopeContent(context, ref,
-              venue: v, data: d, scope: scope, named: both),
+        if (data[v]!.hasMovement) v
     ];
-    var content = perVenue.length == 1
-        ? perVenue.single
-        : () {
-            final filled = [
-              for (final list in perVenue)
-                if (!_isQuiet(list)) list
-            ];
-            if (filled.isEmpty) {
-              return <Widget>[
-                _EmptyLine(
-                    text: scope == StatisticsScope.active
-                        ? l10n.openInvestNoOpenInvestments
-                        : l10n.hlNoHistoryYet)
-              ];
-            }
-            return [
-              for (var i = 0; i < filled.length; i++) ...[
-                if (i > 0) SizedBox(height: 12.h),
-                ...filled[i],
-              ],
-            ];
-          }();
+    final toggled = moving.length > 1 && moving.contains(charted);
+    final series = toggled ? charted! : single;
 
     final List<Widget> lead;
+    var quietLead = false;
     if (combined.hasMovement) {
-      final tiles = <(String, String, Color)>[
-        if (both)
-          for (final v in venues)
-            _pnlTile(
-                context,
-                ref,
-                visible,
-                v == PortfolioPerformanceVenue.trading
-                    ? l10n.trading
-                    : l10n.predictions,
-                switch (data[v]) {
-                  null => null,
-                  final d => d.totalPnlUsd ?? d.points.lastOrNull?.pnlUsd ?? 0,
-                }),
-        if (earn)
-          if (_earnTile(context, ref, visible) case final tile?) tile,
-      ];
       lead = [
         PortfolioPnlChart(
-          venue: both ? null : venues.single,
-          data: combined,
-          footer: tiles.isEmpty
-              ? null
-              : _StatTiles(
-                  key: const ValueKey('statistics-breakdown'), tiles: tiles),
+          venue: series,
+          eventVenue: _eventVenue(series),
+          data: toggled ? data[charted]! : combined,
+          selector: moving.length > 1
+              ? _VenueToggle(
+                  venues: moving,
+                  selected: toggled ? charted : null,
+                  onSelected: onChart)
+              : null,
         ),
       ];
     } else if (earn) {
       // Nothing moved on the venues: Earn's chart is the only figure.
       lead = const [UsdBalanceTabs()];
     } else {
-      if (_isQuiet(content)) content = const [];
+      quietLead = true;
       lead = [
         _EmptyLine(
-            text: venues.length == 1 &&
-                    venues.single == PortfolioPerformanceVenue.predictions
+            text: single == PortfolioPerformanceVenue.predictions
                 ? l10n.betHistoryEmpty
                 : l10n.hlNoHistoryYet,
             tag: 'statistics-chart-empty'),
       ];
     }
+
+    // The figures for the selection: a venue's, or the venues' added.
+    final figures = selection == null
+        ? _Figures.sum([
+            for (final v in venues)
+              _venueFigures(
+                  venue: v, data: data[v]!, scope: scope, trading: trading)
+          ])
+        : _venueFigures(
+            venue: selection,
+            data: data[selection]!,
+            scope: scope,
+            trading: trading);
+    // Earn's paid-to-date: one more figure of the account's (its chart
+    // leads instead when it is the only one). Earning counts as something
+    // on either sub-tab.
+    final earnTile =
+        earn && combined.hasMovement && (selection == null || single != null)
+            ? _earnTile(context, ref, visible)
+            : null;
+    final tiles = [
+      if (figures != null && !figures.empty)
+        ..._tilesOf(context, ref, figures, selection, scope),
+      if (earnTile != null) earnTile,
+    ];
+    final List<Widget> stats;
+    if (tiles.isNotEmpty) {
+      stats = [
+        Container(
+          key: const ValueKey('statistics-figures'),
+          clipBehavior: Clip.antiAlias,
+          decoration: AppDecorations.card(context),
+          child: _StatTiles(tiles: tiles),
+        ),
+      ];
+    } else if (figures == null || quietLead) {
+      // Nothing to say, or the chart's quiet line already says it.
+      stats = const [];
+    } else {
+      stats = [_EmptyLine(text: _quietText(l10n, selection, scope))];
+    }
+
     return ListView(
       padding: EdgeInsets.fromLTRB(
           16.w, 4.h, 16.w, 32.h + kuteDockScrollClearance(context)),
       children: [
         ...lead,
+        _AllocationCard(
+          venues: venues,
+          data: data,
+          trading: trading,
+          level: selection,
+          single: single != null,
+          onOpen: onOpen,
+        ),
         SizedBox(height: 12.h),
         _ScopePills(scope: scope, onScope: onScope),
         SizedBox(height: 12.h),
-        ...content,
+        ...stats,
       ],
     );
   }
 }
 
-/// Earn's paid-to-date for the breakdown: every payout received, in the
+/// All · Investing · Predictions at the top of the P&L card: the range
+/// row's pills (the card's own selector style), at their natural width.
+class _VenueToggle extends StatelessWidget {
+  const _VenueToggle({
+    required this.venues,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  /// The venues offered after All.
+  final List<PortfolioPerformanceVenue> venues;
+
+  /// The venue drawn; null: All.
+  final PortfolioPerformanceVenue? selected;
+  final ValueChanged<PortfolioPerformanceVenue?> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    Widget pill(PortfolioPerformanceVenue? venue, String label) =>
+        KuteRangePill(
+          key: ValueKey('statistics-venue-${_eventVenue(venue)}'),
+          label: label,
+          selected: venue == selected,
+          onTap: () => onSelected(venue),
+        );
+    return Align(
+      alignment: Alignment.centerLeft,
+      // Under very large text the row scales down rather than overflow.
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            pill(null, l10n.searchFilterAll),
+            for (final v in venues) pill(v, _venueName(l10n, v)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A venue's name as the app writes it.
+String _venueName(AppLocalizations l10n, PortfolioPerformanceVenue venue) =>
+    venue == PortfolioPerformanceVenue.predictions
+        ? l10n.predictions
+        : l10n.trading;
+
+/// The spending account's one donut: what it holds now. The top level
+/// splits it by venue (an Investing holding at what closing it gives back
+/// or at the mid, a live prediction at the live price), the total in the
+/// hole, each venue in the legend (one holding nothing at 0%, so it can
+/// still be opened); a slice or row opens the venue in the same ring
+/// ([level]): its categories, its name and value in the hole, a chevron
+/// pill back up, a category opening up to what is in it. A venue not read
+/// yet is left out until it lands. Nothing held: no card (a venue opened
+/// from above keeps its empty ring and its way back).
+class _AllocationCard extends ConsumerWidget {
+  const _AllocationCard({
+    required this.venues,
+    required this.data,
+    required this.trading,
+    required this.level,
+    required this.single,
+    required this.onOpen,
+  });
+
+  final List<PortfolioPerformanceVenue> venues;
+  final Map<PortfolioPerformanceVenue, PortfolioPerformance> data;
+  final _TradingParts? trading;
+
+  /// The venue open; null: the top level.
+  final PortfolioPerformanceVenue? level;
+
+  /// The account's only venue: open from the start, no way up.
+  final bool single;
+  final ValueChanged<PortfolioPerformanceVenue?> onOpen;
+
+  /// One card for every level, so the ring morphs between them.
+  static const _key = ValueKey('statistics-allocation');
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+    final livePrices = ref.watch(livePriceProvider.select((s) => s.prices));
+
+    final positions = trading?.positions;
+    final spot = trading?.spot;
+    final (holdings, byWire) = positions != null && spot != null
+        ? _tradingHoldings(ref, positions, spot)
+        : (null, const <String, HlMarket>{});
+    final book = data[PortfolioPerformanceVenue.predictions]?.predictions;
+    final live = book == null ? null : livePredictionRecords(book);
+    const request = PortfolioPerformanceRequest(
+        venue: PortfolioPerformanceVenue.predictions);
+    // Read while the top level shows, so opening Predictions is instant.
+    final categories = live == null
+        ? null
+        : ref.watch(predictionOpenCategoriesProvider(request));
+
+    Map<String, double>? tradingValues() => holdings == null
+        ? null
+        : tradingOpenCategoryValues(
+            [for (final h in holdings) (h.coin, h.market, h.value)]);
+    double? valueOf(PortfolioPerformanceVenue venue) {
+      final values = switch (venue) {
+        PortfolioPerformanceVenue.trading => tradingValues(),
+        PortfolioPerformanceVenue.predictions => live == null
+            ? null
+            : predictionOpenCategoryValues(live, const {}, livePrices),
+      };
+      return values?.values.fold<double>(0, (sum, v) => sum + v);
+    }
+
+    final open = level;
+    if (open == null) {
+      final known = {
+        for (final v in venues)
+          if (valueOf(v) case final value?) v: value
+      };
+      final values = {
+        for (final MapEntry(key: v, value: value) in known.entries)
+          if (value > 0) v.name: value
+      };
+      if (values.isEmpty) return const SizedBox.shrink();
+      return PortfolioCategoryCard(
+        key: _key,
+        level: 'top',
+        values: values,
+        // The venues' names, not a venue's categories.
+        venue: CategoryVenue.trading,
+        labelOf: (key) =>
+            _venueName(l10n, PortfolioPerformanceVenue.values.byName(key)),
+        listed: [for (final v in known.keys) v.name],
+        centreLabel: l10n.total,
+        onOpen: (key) => onOpen(PortfolioPerformanceVenue.values.byName(key)),
+      );
+    }
+
+    final back = single ? null : () => onOpen(null);
+    final scope = StatisticsScope.active.name;
+    if (open == PortfolioPerformanceVenue.trading) {
+      final values = tradingValues() ?? const <String, double>{};
+      if (single && values.isEmpty) return const SizedBox.shrink();
+      return PortfolioCategoryCard(
+        key: _key,
+        level: open,
+        values: values,
+        venue: CategoryVenue.trading,
+        scope: scope,
+        centreLabel: l10n.trading,
+        onBack: back,
+        drill: holdings == null
+            ? null
+            : (context, slice, inSlice) => TradingCategoryDrill.active(
+                  holdings: holdings,
+                  inSlice: (coin, market) =>
+                      inSlice(hlFillCategory(coin, market)),
+                  marketsByWire: byWire,
+                  params: categoryDrillParams(slice,
+                      venue: CategoryVenue.trading,
+                      walletKind: 'hot',
+                      scope: scope),
+                ),
+      );
+    }
+
+    final records = live ?? const <PredictionRecord>[];
+    // Their markets' categories still being read: the placeholder.
+    if (records.isNotEmpty &&
+        categories != null &&
+        !categories.hasValue &&
+        !categories.hasError) {
+      return const PortfolioCategorySkeleton();
+    }
+    // A read that failed files every prediction under Other.
+    final byMarket = categories?.valueOrNull;
+    final values =
+        predictionOpenCategoryValues(records, byMarket ?? const {}, livePrices);
+    if (single && values.isEmpty) return const SizedBox.shrink();
+    return PortfolioCategoryCard(
+      key: _key,
+      level: open,
+      values: values,
+      venue: CategoryVenue.predictions,
+      scope: scope,
+      centreLabel: l10n.predictions,
+      onBack: back,
+      drill: byMarket == null
+          ? null
+          : (context, slice, inSlice) => PredictionCategoryDrill(
+                records: records,
+                categories: byMarket,
+                inSlice: inSlice,
+                active: true,
+                params: categoryDrillParams(slice,
+                    venue: CategoryVenue.predictions,
+                    walletKind: 'hot',
+                    scope: scope),
+              ),
+    );
+  }
+}
+
+/// A sub-tab's figures for a venue, or the venues added: the P&L (open on
+/// Active, realised on Historic), the amount (at stake; predicted or
+/// traded) and the count (open positions; predictions or trades). Null
+/// parts are not known (a dash, never a zero). [empty]: nothing on the
+/// sub-tab.
+class _Figures {
+  const _Figures({required this.empty, this.pnl, this.amount, this.count});
+
+  final bool empty;
+  final double? pnl;
+  final double? amount;
+  final int? count;
+
+  /// The venues' figures added (a venue with nothing on the sub-tab adds
+  /// nothing; a part one venue does not know is not known). Null when no
+  /// venue has figures.
+  static _Figures? sum(List<_Figures?> parts) {
+    final known = parts.whereType<_Figures>().toList();
+    if (known.isEmpty) return null;
+    final filled = known.where((f) => !f.empty).toList();
+    if (filled.isEmpty) return const _Figures(empty: true);
+    double? add(double? Function(_Figures) part) {
+      var total = 0.0;
+      for (final f in filled) {
+        final v = part(f);
+        if (v == null) return null;
+        total += v;
+      }
+      return total;
+    }
+
+    int? count() {
+      var total = 0;
+      for (final f in filled) {
+        final v = f.count;
+        if (v == null) return null;
+        total += v;
+      }
+      return total;
+    }
+
+    return _Figures(
+        empty: false,
+        pnl: add((f) => f.pnl),
+        amount: add((f) => f.amount),
+        count: count());
+  }
+}
+
+/// The Investing account's parts ([_tradingFigures]).
+typedef _TradingParts = ({
+  TradingBook? book,
+  List<HlPerpPosition>? positions,
+  List<HlSpotBalance>? spot,
+  double? openPnlUsd,
+});
+
+/// [venue]'s figures on [scope]; null when it has none to show (no
+/// predictions book, the Investing parts not given).
+_Figures? _venueFigures({
+  required PortfolioPerformanceVenue venue,
+  required PortfolioPerformance data,
+  required StatisticsScope scope,
+  required _TradingParts? trading,
+}) {
+  final active = scope == StatisticsScope.active;
+  if (venue == PortfolioPerformanceVenue.predictions) {
+    final book = data.predictions;
+    if (book == null) return null;
+    if (active) {
+      final live = livePredictionRecords(book);
+      return _Figures(
+          empty: live.isEmpty,
+          pnl: data.openPnlUsd,
+          amount: live.fold<double>(0, (sum, r) => sum + r.entryCostUsd),
+          count: live.length);
+    }
+    final stats = book.statsSince(null);
+    return _Figures(
+        empty: stats != null &&
+            stats.count == 0 &&
+            (data.realizedPnlUsd ?? 0) == 0,
+        pnl: data.realizedPnlUsd,
+        amount: stats?.stakedUsd,
+        count: stats?.count);
+  }
+  if (trading == null) return null;
+  if (active) {
+    final positions = trading.positions;
+    final spot = trading.spot;
+    final known = positions != null && spot != null;
+    return _Figures(
+        empty: known && positions.isEmpty && spot.isEmpty,
+        pnl: trading.openPnlUsd,
+        amount:
+            positions?.fold<double>(0, (sum, p) => sum + hlPositionMargin(p)),
+        count: known ? positions.length + spot.length : null);
+  }
+  // What closing realised (net of fees), the notional traded and the
+  // fills. A figure the fills do not reach back to, or one not read yet,
+  // is a dash, never a zero.
+  final stats = trading.book?.statsSince(null);
+  return _Figures(
+      empty: stats != null && stats.count == 0,
+      pnl: stats?.realizedUsd,
+      amount: stats?.volumeUsd,
+      count: stats?.count);
+}
+
+/// The tiles of [figures] for [venue] (null: the account) on [scope].
+List<(String, String, Color)> _tilesOf(BuildContext context, WidgetRef ref,
+    _Figures figures, PortfolioPerformanceVenue? venue, StatisticsScope scope) {
+  final c = context.colors;
+  final l10n = context.l10n;
+  final visible = ref.watch(settingsProvider.select((s) => s.balanceVisible));
+  final predictions = venue == PortfolioPerformanceVenue.predictions;
+  final money = !visible
+      ? '••••••'
+      : figures.amount == null
+          ? '—'
+          : formatPolyAmount(ref, figures.amount!);
+  final count = figures.count == null
+      ? '—'
+      : NumberFormat.decimalPattern().format(figures.count);
+  return scope == StatisticsScope.active
+      ? [
+          _pnlTile(
+              context, ref, visible, l10n.portfolioStatOpenPnl, figures.pnl),
+          (l10n.portfolioStatAtStake, money, c.textPrimary),
+          (l10n.accountOpenPositions, count, c.textPrimary),
+        ]
+      : [
+          _pnlTile(
+              context, ref, visible, l10n.portfolioStatRealized, figures.pnl),
+          (
+            predictions
+                ? l10n.portfolioStatAmountPredicted
+                : l10n.portfolioStatVolume,
+            money,
+            c.textPrimary
+          ),
+          (
+            predictions ? l10n.portfolioStatCount : l10n.portfolioStatTrades,
+            count,
+            c.textPrimary
+          ),
+        ];
+}
+
+/// The quiet line of a sub-tab with nothing on it, for [venue] (null:
+/// the account).
+String _quietText(AppLocalizations l10n, PortfolioPerformanceVenue? venue,
+    StatisticsScope scope) {
+  final predictions = venue == PortfolioPerformanceVenue.predictions;
+  return scope == StatisticsScope.active
+      ? (predictions
+          ? l10n.openInvestNoOpenPredictions
+          : l10n.openInvestNoOpenInvestments)
+      : (predictions ? l10n.betHistoryEmpty : l10n.hlNoHistoryYet);
+}
+
+/// Earn's paid-to-date as a figure: every payout received, in the
 /// unit the wallet reads in. Nothing when nothing was paid, the ledger is
 /// not read yet, or the page does not hold every payout (it would not be
 /// the whole figure).
@@ -531,9 +977,8 @@ class _PerformanceBody extends ConsumerWidget {
   }
 }
 
-/// One venue's sub-tab: its card (the category donut, then the figures
-/// under it), or its quiet line. [named] puts the venue's name in the
-/// donut's hole (the spending account's tab stacks both venues' cards).
+/// One venue's sub-tab on a Ledger: its card (the category donut, then
+/// the figures under it), or its quiet line.
 List<Widget> _scopeContent(
   BuildContext context,
   WidgetRef ref, {
@@ -541,33 +986,24 @@ List<Widget> _scopeContent(
   required PortfolioPerformance data,
   required StatisticsScope scope,
   String? walletId,
-  bool named = false,
 }) {
-  final c = context.colors;
   final l10n = context.l10n;
-  final visible = ref.watch(settingsProvider.select((s) => s.balanceVisible));
   final predictions = venue == PortfolioPerformanceVenue.predictions;
   final request = PortfolioPerformanceRequest(venue: venue, walletId: walletId);
   final walletKind = walletId == null ? 'hot' : 'ledger';
   final book = predictions ? data.predictions : null;
-  final venueName = predictions ? l10n.predictions : l10n.trading;
   // The Investing figures come from what is already on the device: the
   // account's fills and its open positions (the venue's P&L series
   // carries no realised / open split).
   final trading = predictions ? null : _tradingFigures(ref, walletId);
-  String money(double? value) => !visible
-      ? '••••••'
-      : value == null
-          ? '—'
-          : formatPolyAmount(ref, value);
-  String count(int? value) =>
-      value == null ? '—' : NumberFormat.decimalPattern().format(value);
-  (String, String, Color) moneyTile(String label, double? value) =>
-      (label, money(value), c.textPrimary);
-  (String, String, Color) countTile(String label, int? value) =>
-      (label, count(value), c.textPrimary);
-  (String, String, Color) pnlTile(String label, double? value) =>
-      _pnlTile(context, ref, visible, label, value);
+  final figures =
+      _venueFigures(venue: venue, data: data, scope: scope, trading: trading);
+  if (figures == null) return const [];
+  if (figures.empty) {
+    return [_EmptyLine(text: _quietText(l10n, venue, scope))];
+  }
+  final tiles =
+      _StatTiles(tiles: _tilesOf(context, ref, figures, venue, scope));
 
   // One card on the lists' 16 gutter, the position cards' surface: the
   // kinds of markets the money is (or went) to, then the figures under
@@ -583,98 +1019,50 @@ List<Widget> _scopeContent(
       );
 
   if (scope == StatisticsScope.active) {
-    final centre = named ? venueName : l10n.portfolioStatsActive;
     if (book != null) {
-      final live = livePredictionRecords(book);
-      return live.isEmpty
-          ? [_EmptyLine(text: l10n.openInvestNoOpenPredictions)]
-          : [
-              card([
-                _PredictionOpenCategories(
-                    request: request,
-                    records: live,
-                    walletKind: walletKind,
-                    centreLabel: centre),
-                _StatTiles(tiles: [
-                  pnlTile(l10n.portfolioStatOpenPnl, data.openPnlUsd),
-                  moneyTile(l10n.portfolioStatAtStake,
-                      live.fold<double>(0, (sum, r) => sum + r.entryCostUsd)),
-                  countTile(l10n.accountOpenPositions, live.length),
-                ]),
-              ]),
-            ];
+      return [
+        card([
+          _PredictionOpenCategories(
+              request: request,
+              records: livePredictionRecords(book),
+              walletKind: walletKind,
+              centreLabel: l10n.portfolioStatsActive),
+          tiles,
+        ]),
+      ];
     }
-    if (trading != null) {
-      final positions = trading.positions;
-      final spot = trading.spot;
-      final known = positions != null && spot != null;
-      return known && positions.isEmpty && spot.isEmpty
-          ? [_EmptyLine(text: l10n.openInvestNoOpenInvestments)]
-          : [
-              card([
-                if (known)
-                  _TradingOpenCategories(
-                      positions: positions,
-                      spot: spot,
-                      walletKind: walletKind,
-                      walletId: walletId,
-                      centreLabel: centre),
-                _StatTiles(tiles: [
-                  pnlTile(l10n.portfolioStatOpenPnl, trading.openPnlUsd),
-                  moneyTile(
-                      l10n.portfolioStatAtStake,
-                      positions?.fold<double>(
-                          0, (sum, p) => sum + hlPositionMargin(p))),
-                  countTile(l10n.accountOpenPositions,
-                      known ? positions.length + spot.length : null),
-                ]),
-              ]),
-            ];
-    }
-    return const [];
+    final positions = trading?.positions;
+    final spot = trading?.spot;
+    return [
+      card([
+        if (positions != null && spot != null)
+          _TradingOpenCategories(
+              positions: positions,
+              spot: spot,
+              walletKind: walletKind,
+              walletId: walletId,
+              centreLabel: l10n.portfolioStatsActive),
+        tiles,
+      ]),
+    ];
   }
 
-  final centre = named ? venueName : null;
   if (book != null) {
-    final stats = book.statsSince(null);
-    return stats != null && stats.count == 0 && (data.realizedPnlUsd ?? 0) == 0
-        ? [_EmptyLine(text: l10n.betHistoryEmpty)]
-        : [
-            card([
-              _PredictionCategories(
-                  request: request, book: book, centreLabel: centre),
-              _StatTiles(tiles: [
-                pnlTile(l10n.portfolioStatRealized, data.realizedPnlUsd),
-                moneyTile(l10n.portfolioStatAmountPredicted, stats?.stakedUsd),
-                countTile(l10n.portfolioStatCount, stats?.count),
-              ]),
-            ]),
-          ];
+    return [
+      card([
+        _PredictionCategories(request: request, book: book),
+        tiles,
+      ]),
+    ];
   }
-  if (trading != null) {
-    final stats = trading.book?.statsSince(null);
-    return stats != null && stats.count == 0
-        ? [_EmptyLine(text: l10n.hlNoHistoryYet)]
-        : [
-            card([
-              if (trading.book != null)
-                _TradingCategories(
-                    book: trading.book!,
-                    walletKind: walletKind,
-                    walletId: walletId,
-                    centreLabel: centre),
-              // What closing realised (net of fees), the notional traded
-              // and the fills. A figure the fills do not reach back to, or
-              // one not read yet, is a dash, never a zero.
-              _StatTiles(tiles: [
-                pnlTile(l10n.portfolioStatRealized, stats?.realizedUsd),
-                moneyTile(l10n.portfolioStatVolume, stats?.volumeUsd),
-                countTile(l10n.portfolioStatTrades, stats?.count),
-              ]),
-            ]),
-          ];
-  }
-  return const [];
+  return [
+    card([
+      if (trading?.book case final tradingBook?)
+        _TradingCategories(
+            book: tradingBook, walletKind: walletKind, walletId: walletId),
+      tiles,
+    ]),
+  ];
 }
 
 /// Nothing to show on a sub-tab (or nothing to chart yet): one quiet line
@@ -775,26 +1163,7 @@ class _TradingOpenCategories extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final markets = ref.watch(hyperliquidAllMarketsProvider);
-    final byWire = {for (final m in markets) m.wireCoin: m};
-    final spotMarkets = ref.watch(hyperliquidSpotMarketsProvider).valueOrNull ??
-        const <HlMarket>[];
-    final holdings = [
-      for (final p in positions)
-        TradingHolding(
-            coin: p.coin,
-            market: byWire[p.coin],
-            value: hlCloseValue(p),
-            position: p),
-      for (final balance in spot)
-        if (spotMarkets.where((m) => m.coin == balance.coin).firstOrNull
-            case final market? when market.midPx > 0)
-          TradingHolding(
-              coin: market.wireCoin,
-              market: market,
-              value: balance.total * market.midPx,
-              spot: balance),
-    ];
+    final (holdings, byWire) = _tradingHoldings(ref, positions, spot);
     final values = tradingOpenCategoryValues(
         [for (final h in holdings) (h.coin, h.market, h.value)]);
     return PortfolioCategoryCard(
@@ -818,17 +1187,44 @@ class _TradingOpenCategories extends ConsumerWidget {
   }
 }
 
+/// Each open perp at what closing it gives back (its margin plus its
+/// profit or loss, the Open tab card's figure) and each spot holding at
+/// the mid (one whose market or price is not known yet is left out), with
+/// the markets by wire coin.
+(List<TradingHolding>, Map<String, HlMarket>) _tradingHoldings(
+    WidgetRef ref, List<HlPerpPosition> positions, List<HlSpotBalance> spot) {
+  final markets = ref.watch(hyperliquidAllMarketsProvider);
+  final byWire = {for (final m in markets) m.wireCoin: m};
+  final spotMarkets = ref.watch(hyperliquidSpotMarketsProvider).valueOrNull ??
+      const <HlMarket>[];
+  return (
+    [
+      for (final p in positions)
+        TradingHolding(
+            coin: p.coin,
+            market: byWire[p.coin],
+            value: hlCloseValue(p),
+            position: p),
+      for (final balance in spot)
+        if (spotMarkets.where((m) => m.coin == balance.coin).firstOrNull
+            case final market? when market.midPx > 0)
+          TradingHolding(
+              coin: market.wireCoin,
+              market: market,
+              value: balance.total * market.midPx,
+              spot: balance),
+    ],
+    byWire,
+  );
+}
+
 /// The Historic Predictions donut: the amount predicted per category, all
 /// time. A placeholder while the markets' categories are read; nothing
 /// when the history was cut, the read failed or nothing was predicted.
 class _PredictionCategories extends ConsumerWidget {
-  const _PredictionCategories(
-      {required this.request, required this.book, this.centreLabel});
+  const _PredictionCategories({required this.request, required this.book});
   final PortfolioPerformanceRequest request;
   final PredictionsBook book;
-
-  /// The donut's hole; "All time" when null.
-  final String? centreLabel;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -851,7 +1247,6 @@ class _PredictionCategories extends ConsumerWidget {
               walletKind: walletKind,
               embedded: true,
               scope: StatisticsScope.historic.name,
-              centreLabel: centreLabel,
               drill: categories == null
                   ? null
                   : (context, slice, inSlice) => PredictionCategoryDrill(
@@ -873,16 +1268,10 @@ class _PredictionCategories extends ConsumerWidget {
 /// time, from the fills the tiles read. Nothing when the fills were cut.
 class _TradingCategories extends ConsumerWidget {
   const _TradingCategories(
-      {required this.book,
-      required this.walletKind,
-      this.walletId,
-      this.centreLabel});
+      {required this.book, required this.walletKind, this.walletId});
   final TradingBook book;
   final String walletKind;
   final String? walletId;
-
-  /// The donut's hole; "All time" when null.
-  final String? centreLabel;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -897,7 +1286,6 @@ class _TradingCategories extends ConsumerWidget {
         walletKind: walletKind,
         embedded: true,
         scope: StatisticsScope.historic.name,
-        centreLabel: centreLabel,
         drill: (context, slice, inSlice) => TradingCategoryDrill.historic(
               fills: book.fills,
               inSlice: (coin, market) => inSlice(hlFillCategory(coin, market)),
@@ -916,12 +1304,7 @@ class _TradingCategories extends ConsumerWidget {
 /// at, from the providers the Open and Activity tabs already read. Null
 /// parts are not known yet (still loading, or a read that failed), never
 /// zero.
-({
-  TradingBook? book,
-  List<HlPerpPosition>? positions,
-  List<HlSpotBalance>? spot,
-  double? openPnlUsd,
-}) _tradingFigures(WidgetRef ref, String? walletId) {
+_TradingParts _tradingFigures(WidgetRef ref, String? walletId) {
   TradingBook? book;
   List<HlPerpPosition>? positions;
   List<HlSpotBalance>? balances;
@@ -962,10 +1345,10 @@ class _TradingCategories extends ConsumerWidget {
   );
 }
 
-/// Figures under the category donut on the same card, two to a row: each
-/// a caption label over its figure, as on the position cards.
+/// Figures on a card, two to a row: each a caption label over its
+/// figure, as on the position cards.
 class _StatTiles extends StatelessWidget {
-  const _StatTiles({super.key, required this.tiles});
+  const _StatTiles({required this.tiles});
 
   /// Label, figure and the figure's colour.
   final List<(String, String, Color)> tiles;

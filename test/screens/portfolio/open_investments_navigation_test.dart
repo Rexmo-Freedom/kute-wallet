@@ -2,7 +2,9 @@
 // from every door, both venues on every tab with no third row to switch
 // them — Open is one list of positions under the venues' plain names,
 // Orders one merged list newest first, Statistics both venues as one
-// account (one P&L chart, one breakdown, one Active | Historic pair) —
+// account (one P&L chart with an All · Investing · Predictions toggle,
+// one allocation donut, one Active | Historic pair and one card of
+// figures) —
 // positions only (no Wallet section), no total header and no deposit or
 // withdrawal buttons.
 
@@ -395,9 +397,9 @@ void main() {
   });
 
   testWidgets(
-      'Statistics is one block for both venues: one P&L headline, chart '
-      'and range row, the per-venue breakdown under it, one Active | '
-      'Historic pair', (tester) async {
+      'Statistics is one block for both venues: one P&L chart whose toggle '
+      'switches the series, headline and change, one Active | Historic pair',
+      (tester) async {
     final events = _events();
     await _pump(tester, initialTab: 3, overrides: _performance());
     expect(find.byType(PortfolioStatisticsOverview), findsOneWidget);
@@ -407,32 +409,29 @@ void main() {
         findsNothing);
     expect(find.byKey(const ValueKey('portfolio-statistics-predictions')),
         findsNothing);
+    expect(find.byKey(const ValueKey('statistics-breakdown')), findsNothing);
     expect(find.byType(PortfolioPnlChart), findsOneWidget);
     expect(find.byType(KuteLineChart), findsOneWidget);
     expect(find.byType(KuteRangePills), findsOneWidget);
     expect(find.text('Profit and loss'), findsOneWidget);
     expect(find.byKey(const ValueKey('statistics-active')), findsOneWidget);
-    // The venues added on the moments either published: Investing's 15
-    // and Predictions' 4.
-    expect(
-        tester
-            .widget<RollingNumberText>(
-                find.byKey(const ValueKey('statistics-pnl-headline')))
-            .text,
-        r'+$19.00');
-    final breakdown = find.byKey(const ValueKey('statistics-breakdown'));
-    expect(
-        find.descendant(
-            of: find.byType(PortfolioPnlChart), matching: breakdown),
-        findsOneWidget);
-    expect(_tile(tester, breakdown, 'Investing'), r'+$15.00');
-    expect(_tile(tester, breakdown, 'Predictions'), r'+$4.00');
-    expect(tester.widget<Text>(find.text(r'+$15.00')).style?.color,
-        AppColors.marketUp);
+    String headline() => tester
+        .widget<RollingNumberText>(
+            find.byKey(const ValueKey('statistics-pnl-headline')))
+        .text;
+    // All: the venues added on the moments either published, Investing's
+    // 15 and Predictions' 4.
+    expect(headline(), r'+$19.00');
+    for (final venue in ['all', 'hyperliquid', 'polymarket']) {
+      expect(
+          find.descendant(
+              of: find.byType(PortfolioPnlChart),
+              matching: find.byKey(ValueKey('statistics-venue-$venue'))),
+          findsOneWidget);
+    }
     // No Earn while the backend does not allow it.
     expect(find.byType(UsdEarnChart, skipOffstage: false), findsNothing);
-    expect(find.descendant(of: breakdown, matching: find.text('Earn')),
-        findsNothing);
+    expect(find.text('Earn'), findsNothing);
     expect(events.where((e) => e.$1 == 'portfolio_tab_changed'), isEmpty);
 
     // The one range row reports the combined chart as venue `all`.
@@ -444,6 +443,35 @@ void main() {
             .single
             .$2,
         {'venue': 'all', 'from': '1M', 'to': 'ALL'});
+
+    // The toggle draws one venue in the same chart: its headline.
+    await tester.tap(find.byKey(const ValueKey('statistics-venue-polymarket')));
+    await tester.pumpAndSettle();
+    expect(find.byType(PortfolioPnlChart), findsOneWidget);
+    expect(find.byType(KuteLineChart), findsOneWidget);
+    expect(headline(), r'+$4.00');
+    expect(events.last.$1, 'portfolio_statistics_venue_toggled');
+    expect(events.last.$2, {'venue': 'polymarket'});
+    await tester
+        .tap(find.byKey(const ValueKey('statistics-venue-hyperliquid')));
+    await tester.pumpAndSettle();
+    expect(headline(), r'+$15.00');
+    await tester.tap(find.text('1W'));
+    await tester.pumpAndSettle();
+    expect(
+        events
+            .where((e) => e.$1 == 'portfolio_performance_range_changed')
+            .last
+            .$2?['venue'],
+        'hyperliquid');
+    await tester.tap(find.byKey(const ValueKey('statistics-venue-all')));
+    await tester.pumpAndSettle();
+    expect(headline(), r'+$19.00');
+    expect(
+        events
+            .where((e) => e.$1 == 'portfolio_statistics_venue_toggled')
+            .map((e) => e.$2?['venue']),
+        ['polymarket', 'hyperliquid', 'all']);
     expect(tester.takeException(), isNull);
   });
 
@@ -472,8 +500,8 @@ void main() {
                 find.byKey(const ValueKey('statistics-pnl-headline')))
             .text,
         r'+$15.00');
-    // One venue: a breakdown would only say the headline again.
-    expect(find.byKey(const ValueKey('statistics-breakdown')), findsNothing);
+    // One venue: no toggle (it would only say the headline again).
+    expect(find.byKey(const ValueKey('statistics-venue-all')), findsNothing);
     await tester.tap(find.text('ALL'));
     await tester.pumpAndSettle();
     expect(
@@ -481,13 +509,13 @@ void main() {
             .where((e) => e.$1 == 'portfolio_performance_range_changed')
             .single
             .$2?['venue'],
-        'trading');
+        'hyperliquid');
     expect(tester.takeException(), isNull);
   });
 
   testWidgets(
-      'Earn joins the breakdown with what it has paid; its chart does not '
-      'repeat under the venues', (tester) async {
+      'Earn is one figure of the account with what it has paid; its chart '
+      'does not repeat under the venues', (tester) async {
     final api = _PaidRewardsApi();
     final events = _events();
     await _pump(tester, initialTab: 3, overrides: [
@@ -496,9 +524,14 @@ void main() {
       sparkIdentityPubkeyProvider.overrideWith((_) async => 'pub'),
       usdRewardsApiProvider.overrideWithValue(api),
     ]);
-    final breakdown = find.byKey(const ValueKey('statistics-breakdown'));
-    // Paid days only: 1,000 + 500 sats.
-    expect(_tile(tester, breakdown, 'Earn'), '+1,500 sats');
+    final figures = find.byKey(const ValueKey('statistics-figures'));
+    // Paid days only: 1,000 + 500 sats; on the figures card, not the
+    // chart's.
+    expect(_tile(tester, figures, 'Earn'), '+1,500 sats');
+    expect(
+        find.descendant(
+            of: find.byType(PortfolioPnlChart), matching: find.text('Earn')),
+        findsNothing);
     expect(find.byType(UsdEarnChart, skipOffstage: false), findsNothing);
     expect(
         find.byKey(const ValueKey('portfolio-statistics-earn')), findsNothing);

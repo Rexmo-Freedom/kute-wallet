@@ -1,6 +1,6 @@
 // The Earn view is a rate display gated by the backend `usd.earn`
 // capability. On the Portfolio's Statistics tab (Investments › Portfolio
-// › Statistics) Earn joins the venues' P&L breakdown with what it has
+// › Statistics) Earn is one of the account's figures with what it has
 // paid, and its chart shows only when it is the only figure (here: the
 // venues have charted nothing). Off, or with no policy to read, there is
 // no Earn at all: the rewards API is never asked and no `usd_earn_*`

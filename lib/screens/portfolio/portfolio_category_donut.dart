@@ -23,6 +23,14 @@
 //     back, and the caller's list of what is in it
 //     (portfolio_category_drill.dart).
 //   * Hidden balances mask the amounts and the shares alike.
+//   * Levels (the spending account's allocation card): with
+//     [PortfolioCategoryCard.onOpen] a pick opens what the slice stands
+//     for instead (the top level: one slice per venue), and
+//     [PortfolioCategoryCard.listed] keeps a key in the legend at 0%;
+//     with [PortfolioCategoryCard.onBack] a small chevron pill over the
+//     ring goes back up. A new [PortfolioCategoryCard.level] clears the
+//     pick and the hues, and the same ring morphs to the new slices
+//     (drawn at once under Reduce Motion).
 //   * One analytics event once a pick settles (a walk around the ring is
 //     one event): the venue, the slice's rank and kind, the category's
 //     public slug, the wallet kind and the sub-tab (`scope`). Never an
@@ -324,6 +332,25 @@ class PortfolioCategoryCard extends ConsumerStatefulWidget {
   /// the legend under a pick.
   final CategoryDrillBuilder? drill;
 
+  /// The slices' names; [venue]'s category labels when null.
+  final String Function(String key)? labelOf;
+
+  /// A level whose slices open something else (the venues of an
+  /// account): a tap on a slice or a legend row calls this with its key
+  /// instead of picking it (no slice event, no drill).
+  final ValueChanged<String>? onOpen;
+
+  /// Keys the legend lists even when worth nothing (at 0%, after the
+  /// slices), for [onOpen].
+  final List<String> listed;
+
+  /// Back up a level: a small chevron pill over the ring. Null: none.
+  final VoidCallback? onBack;
+
+  /// Which level the card draws; a change clears the pick and hands the
+  /// hues out afresh, and the ring morphs to the new slices.
+  final Object? level;
+
   const PortfolioCategoryCard({
     super.key,
     required this.values,
@@ -333,6 +360,11 @@ class PortfolioCategoryCard extends ConsumerStatefulWidget {
     this.scope,
     this.centreLabel,
     this.drill,
+    this.labelOf,
+    this.onOpen,
+    this.listed = const [],
+    this.onBack,
+    this.level,
   });
 
   @override
@@ -362,8 +394,29 @@ class _PortfolioCategoryCardState extends ConsumerState<PortfolioCategoryCard> {
     super.dispose();
   }
 
+  @override
+  void didUpdateWidget(covariant PortfolioCategoryCard old) {
+    super.didUpdateWidget(old);
+    if (old.level != widget.level) {
+      _settleTimer?.cancel();
+      _selected = null;
+      _reported = null;
+      _colorSlots.reset();
+    }
+  }
+
+  String _labelOf(AppLocalizations l10n, String key) =>
+      widget.labelOf?.call(key) ?? categoryLabel(l10n, widget.venue, key);
+
   void _select(Object? key) {
     final next = key as String?;
+    if (widget.onOpen != null) {
+      if (next != null) {
+        HapticFeedback.selectionClick();
+        widget.onOpen!(next);
+      }
+      return;
+    }
     if (next == _selected) return;
     setState(() => _selected = next);
     _settleTimer?.cancel();
@@ -394,6 +447,7 @@ class _PortfolioCategoryCardState extends ConsumerState<PortfolioCategoryCard> {
   }
 
   void _onLegendTap(String key) {
+    if (widget.onOpen != null) return _select(key);
     if (key != _selected) HapticFeedback.selectionClick();
     // The picked row again clears, as the centre of the ring does.
     _select(key == _selected ? null : key);
@@ -405,20 +459,30 @@ class _PortfolioCategoryCardState extends ConsumerState<PortfolioCategoryCard> {
     final l10n = context.l10n;
     final visible = ref.watch(settingsProvider.select((s) => s.balanceVisible));
     // Categories that read the same are one slice.
-    final slices = categorySlices(widget.values,
-        labelOf: (key) => categoryLabel(l10n, widget.venue, key));
+    final slices =
+        categorySlices(widget.values, labelOf: (key) => _labelOf(l10n, key));
     _slices = slices;
-    if (slices.isEmpty) return const SizedBox.shrink();
+    // Keys listed at 0%: those the slices leave out.
+    final zero = [
+      for (final key in widget.listed)
+        if (!slices.any((s) => s.key == key)) key
+    ];
+    // A level reached from above keeps its ring (and its way back) with
+    // nothing in it.
+    if (slices.isEmpty && zero.isEmpty && widget.onBack == null) {
+      return const SizedBox.shrink();
+    }
 
     // Each category keeps its hue while values move; "Other" is grey.
     final slots = _colorSlots.assign([
       for (final s in slices)
         if (s.kind == CategorySliceKind.category) s.key,
+      ...zero,
     ]);
     Color colorOf(CategorySlice s) =>
         KuteCategoryColorSlots.colorOf(c.chartCategorical,
             slot: slots[s.key], other: s.kind == CategorySliceKind.other);
-    String label(CategorySlice s) => categoryLabel(l10n, widget.venue, s.key);
+    String label(CategorySlice s) => _labelOf(l10n, s.key);
     String money(double v) => visible ? formatPolyAmount(ref, v) : '••••••';
     String share(CategorySlice s) => !visible
         ? '••%'
@@ -478,6 +542,29 @@ class _PortfolioCategoryCardState extends ConsumerState<PortfolioCategoryCard> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
+          if (widget.onBack != null)
+            Align(
+              alignment: Alignment.centerLeft,
+              // An opened slice brings its own way back (its "All" pill):
+              // one at a time. The row keeps its place so the ring holds
+              // still.
+              child: Visibility(
+                visible: widget.drill == null || selected == null,
+                maintainSize: true,
+                maintainAnimation: true,
+                maintainState: true,
+                child: KutePill(
+                  key: const ValueKey('category-level-back'),
+                  label: l10n.searchFilterAll,
+                  icon: Icons.chevron_left_rounded,
+                  selected: false,
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    widget.onBack!();
+                  },
+                ),
+              ),
+            ),
           Center(
             child: KuteDonutChart(
               diameter: _diameter,
@@ -502,7 +589,7 @@ class _PortfolioCategoryCardState extends ConsumerState<PortfolioCategoryCard> {
           SizedBox(height: 12.h),
           // The legend, or the picked slice opened up in its place; the
           // card grows or shrinks to the new content.
-          SheetAnimatedSize(
+          _LegendSize(
             child: widget.drill != null && selected != null
                 ? Column(
                     key: ValueKey('category-drill-${selected.key}'),
@@ -521,11 +608,8 @@ class _PortfolioCategoryCardState extends ConsumerState<PortfolioCategoryCard> {
                           context,
                           selected,
                           (category) =>
-                              categorySliceKeyOf(
-                                  category,
-                                  slices,
-                                  (key) =>
-                                      categoryLabel(l10n, widget.venue, key)) ==
+                              categorySliceKeyOf(category, slices,
+                                  (key) => _labelOf(l10n, key)) ==
                               selected.key),
                     ],
                   )
@@ -544,6 +628,18 @@ class _PortfolioCategoryCardState extends ConsumerState<PortfolioCategoryCard> {
                           selected: s.key == selected?.key,
                           onTap: () => _onLegendTap(s.key),
                         ),
+                      for (final key in zero)
+                        _LegendRow(
+                          key: ValueKey('category-legend-$key'),
+                          color: KuteCategoryColorSlots.colorOf(
+                              c.chartCategorical,
+                              slot: slots[key]),
+                          label: _labelOf(l10n, key),
+                          share: visible ? '0%' : '••%',
+                          value: money(0),
+                          selected: false,
+                          onTap: () => _onLegendTap(key),
+                        ),
                     ],
                   ),
           ),
@@ -551,6 +647,18 @@ class _PortfolioCategoryCardState extends ConsumerState<PortfolioCategoryCard> {
       ),
     );
   }
+}
+
+/// The legend's box: it eases to its new height, and under Reduce Motion
+/// takes it at once (an AnimatedSize of no duration re-dirties itself in
+/// its own layout).
+class _LegendSize extends StatelessWidget {
+  const _LegendSize({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) =>
+      kuteReduceMotion(context) ? child : SheetAnimatedSize(child: child);
 }
 
 /// The top of an opened slice: its dot and name, as its legend row wrote

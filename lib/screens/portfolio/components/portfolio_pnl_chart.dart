@@ -23,8 +23,10 @@
 //     3M, YTD, 1Y, ALL, less those reaching back past the series' first
 //     point (they would draw ALL again). The tab opens on 1M, or on ALL
 //     when 1M already reaches back that far;
-//   * an optional [PortfolioPnlChart.footer] on the same card (the
-//     per-venue breakdown of the spending account's figure).
+//   * an optional [PortfolioPnlChart.selector] at the top of the card
+//     (the spending account's All · Investing · Predictions toggle: the
+//     same chart, another series) and an optional
+//     [PortfolioPnlChart.footer] under the range pills.
 //
 // The line is the cumulative P&L series ([PortfolioPerformance.points]:
 // realised plus open), from the P&L the account had when the range began
@@ -35,8 +37,10 @@
 //
 // Analytics: `portfolio_performance_range_changed` {venue, from, to} and
 // `portfolio_performance_chart_scrubbed` {venue, range}, once per scrub
-// gesture; venue is `trading`, `predictions`, or `all` for the spending
-// account's combined chart.
+// gesture; venue is the chart's [PortfolioPnlChart.eventVenue] when
+// given (the spending account's toggle: `all`, `hyperliquid` or
+// `polymarket`), else `trading`, `predictions`, or `all` for a combined
+// chart.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -131,6 +135,8 @@ class PortfolioPnlChart extends ConsumerStatefulWidget {
     required this.data,
     this.now,
     this.footer,
+    this.selector,
+    this.eventVenue,
   });
 
   /// The venue charted; null for Investing and Predictions together (the
@@ -145,6 +151,14 @@ class PortfolioPnlChart extends ConsumerStatefulWidget {
 
   /// Laid out on the card under the range pills.
   final Widget? footer;
+
+  /// Laid out at the top of the card, over the caption: which series the
+  /// chart draws (the spending account's venue toggle).
+  final Widget? selector;
+
+  /// The `venue` the range and scrub events send; [venue]'s name (or
+  /// `all`) when null.
+  final String? eventVenue;
 
   @override
   ConsumerState<PortfolioPnlChart> createState() => _PortfolioPnlChartState();
@@ -166,17 +180,31 @@ class _PortfolioPnlChartState extends ConsumerState<PortfolioPnlChart> {
   PnlChartRange? _picked;
 
   /// The range drawn: the one picked, else 1M, or ALL when 1M would draw
-  /// it anyway.
-  PnlChartRange get _range =>
-      _picked ??
-      (pnlRangeRepeatsAll(kPnlChartDefaultRange, widget.data)
-          ? PnlChartRange.all
-          : kPnlChartDefaultRange);
+  /// it anyway. A pick the series now drawn does not reach back to (the
+  /// toggle changed the series) draws as if nothing were picked.
+  PnlChartRange get _range {
+    final picked = _picked;
+    if (picked != null && !pnlRangeRepeatsAll(picked, widget.data)) {
+      return picked;
+    }
+    return pnlRangeRepeatsAll(kPnlChartDefaultRange, widget.data)
+        ? PnlChartRange.all
+        : kPnlChartDefaultRange;
+  }
 
   /// The index under the finger while scrubbing, in the range's points.
   int? _scrub;
 
-  String get _venueName => widget.venue?.name ?? 'all';
+  String get _venueName => widget.eventVenue ?? widget.venue?.name ?? 'all';
+
+  @override
+  void didUpdateWidget(covariant PortfolioPnlChart old) {
+    super.didUpdateWidget(old);
+    // Another series: no finger on it yet.
+    if (old.venue != widget.venue || old.eventVenue != widget.eventVenue) {
+      _scrub = null;
+    }
+  }
 
   void _pick(int index) {
     final next = PnlChartRange.values[index];
@@ -284,6 +312,10 @@ class _PortfolioPnlChartState extends ConsumerState<PortfolioPnlChart> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (widget.selector != null) ...[
+                  widget.selector!,
+                  SizedBox(height: 12.h),
+                ],
                 Text(l10n.portfolioProfitLoss,
                     style: portfolioCardCaptionStyle(c)),
                 SizedBox(height: 4.h),
