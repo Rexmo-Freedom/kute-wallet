@@ -6,7 +6,14 @@
 // a bet from it, and the total went to $6.65"; Available did not drop on
 // the fill. Before the bet: $6.20 Dollars + $0.06 Investing dust + $3.55
 // Predictions cash = $9.81. After a $3.55 bet at ~$0.50 (7.1 shares) the
-// total stays ≈ $9.81 (the position at its mark), Available is $6.20.
+// total stays ≈ $9.81 (the position at its mark), Available is $6.26.
+//
+// Founder decision (same day): venue cash is ALWAYS Available, dust
+// included. Dust (below the route minimum) only keeps the sweeper away;
+// it is spendable at its venue and the engine can pull it. Invested is
+// positions (marked), reserved order cash and pending fills, nothing else.
+// So before the bet Available is the whole $9.81, and after a $3.55 bet
+// that filled at $3.16 it is $6.20 + $0.06 + $0.39 = $6.65.
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -219,8 +226,8 @@ void main() {
         sweeper: const VenueSweeperState(
             dust: _hlDust, held: {OneBalanceVenue.predictions: 3.55}),
         total: 9.81,
-        available: 9.75,
-        invested: 0.06,
+        available: 9.81,
+        invested: 0,
       ),
       _Case(
         'the fill, before any read: cash off at once, the shares counted, '
@@ -229,8 +236,8 @@ void main() {
         sweeper: const VenueSweeperState(
             dust: _hlDust, held: {OneBalanceVenue.predictions: 3.55}),
         total: 9.81,
-        available: 6.20,
-        invested: 3.61,
+        available: 6.26,
+        invested: 3.55,
       ),
       _Case(
         'the founder\'s \$6.65: a \$3.16 fill left \$0.39, the sweeper made '
@@ -242,10 +249,11 @@ void main() {
           OneBalanceVenue.investing: 0.06,
           OneBalanceVenue.predictions: 0.39,
         }),
-        // Was 6.20 + 0.06 + 0.39 = 6.65 with the shares dropped.
+        // Was 6.20 + 0.06 + 0.39 = 6.65 in all with the shares dropped.
+        // Now the leftover and the dust are Available, the shares Invested.
         total: 9.81,
-        available: 6.20,
-        invested: 3.61,
+        available: 6.65,
+        invested: 3.16,
       ),
       _Case(
         'the positions read caught up; the sweeper still says 3.55 held',
@@ -253,8 +261,8 @@ void main() {
         sweeper: const VenueSweeperState(
             dust: _hlDust, held: {OneBalanceVenue.predictions: 3.55}),
         total: 9.81,
-        available: 6.20,
-        invested: 3.61,
+        available: 6.26,
+        invested: 3.55,
       ),
       _Case(
         'marked at the bid between reads (0.48)',
@@ -262,8 +270,8 @@ void main() {
         sweeper: const VenueSweeperState(dust: _hlDust),
         marks: const OneBalanceLiveMarks(predictionsDeltaUsd: 7.1 * -0.02),
         total: 9.81 - 0.142,
-        available: 6.20,
-        invested: 3.61 - 0.142,
+        available: 6.26,
+        invested: 3.55 - 0.142,
       ),
       _Case(
         'a pending fill is marked from the first tick too',
@@ -271,17 +279,17 @@ void main() {
         sweeper: const VenueSweeperState(dust: _hlDust),
         marks: const OneBalanceLiveMarks(predictionsDeltaUsd: 7.1 * -0.02),
         total: 9.81 - 0.142,
-        available: 6.20,
-        invested: 3.61 - 0.142,
+        available: 6.26,
+        invested: 3.55 - 0.142,
       ),
       _Case(
-        'partial cash use: a \$2 bet, \$1.55 stays Available',
+        'partial cash use: a \$2 bet, \$1.55 stays Available (with the dust)',
         pm: _pm(cash: 1.55, positions: [_position(size: 4, price: 0.50)]),
         sweeper: const VenueSweeperState(
             dust: _hlDust, held: {OneBalanceVenue.predictions: 3.55}),
         total: 9.81,
-        available: 7.75,
-        invested: 2.06,
+        available: 7.81,
+        invested: 2,
       ),
       _Case(
         'a resting buy reserves \$2 of the \$3.55: Invested, not Available',
@@ -289,8 +297,8 @@ void main() {
         sweeper: const VenueSweeperState(
             dust: _hlDust, held: {OneBalanceVenue.predictions: 3.55}),
         total: 9.81,
-        available: 7.75,
-        invested: 2.06,
+        available: 7.81,
+        invested: 2,
       ),
       _Case(
         'an Investing position with its cash',
@@ -329,12 +337,23 @@ void main() {
         invested: 6 + 3.55,
       ),
       _Case(
-        'Investing dust is counted once (dust, not also venue cash)',
+        'Investing dust is counted once, in Available',
         pm: _pm(cash: 0),
-        sweeper: const VenueSweeperState(dust: _hlDust),
+        sweeper: const VenueSweeperState(
+            dust: _hlDust, held: {OneBalanceVenue.investing: 0.06}),
         total: 6.26,
-        available: 6.20,
-        invested: 0.06,
+        available: 6.26,
+        invested: 0,
+      ),
+      _Case(
+        'Predictions dust at a venue in use: Available, never Invested',
+        pm: _pm(cash: 3.55),
+        hlFreeUsdc: 0,
+        sweeper: const VenueSweeperState(
+            dust: {OneBalanceVenue.predictions: 3.55}),
+        total: 9.75,
+        available: 9.75,
+        invested: 0,
       ),
     ];
 
@@ -365,13 +384,14 @@ void main() {
       addTearDown(container.dispose);
       final before = await _header(container);
       expect(before.totalUsd, closeTo(9.81, 1e-6));
-      expect(before.availableUsd, closeTo(9.75, 1e-6));
+      expect(before.availableUsd, closeTo(9.81, 1e-6));
+      expect(before.investedUsd, 0);
 
       container.read(polymarketTradingProvider.notifier).notePendingFill(
           key: 'order-1', tokenId: _token, shares: 7.1, costUsd: 3.55);
       final after = container.read(oneBalanceProvider);
-      expect(after.availableUsd, closeTo(6.20, 1e-6));
-      expect(after.investedUsd, closeTo(3.61, 1e-6));
+      expect(after.availableUsd, closeTo(6.26, 1e-6));
+      expect(after.investedUsd, closeTo(3.55, 1e-6));
       expect(after.totalUsd, closeTo(9.81, 1e-6));
 
       // The same order again (the controller after the POST's echo):
@@ -382,6 +402,31 @@ void main() {
       final venues = container.read(unifiedVenueBalancesProvider);
       expect(venues.readyInPredictionsUsd, 0);
       expect(venues.investedInPredictionsUsd, closeTo(3.55, 1e-6));
+    });
+
+    test(
+        'the founder\'s case: a \$3.55 bet that fills at \$3.16 leaves '
+        '\$0.39 Available with the Dollars and the dust', () async {
+      final container = _container(_Case('founder',
+          pm: _pm(cash: 3.55),
+          sweeper: const VenueSweeperState(
+              dust: _hlDust, held: {OneBalanceVenue.predictions: 3.55}),
+          total: 0,
+          available: 0,
+          invested: 0));
+      addTearDown(container.dispose);
+      final before = await _header(container);
+      expect(before.availableUsd, closeTo(9.81, 1e-6));
+      expect(before.investedUsd, 0);
+      expect(before.totalUsd, closeTo(9.81, 1e-6));
+
+      container.read(polymarketTradingProvider.notifier).notePendingFill(
+          key: 'order-1', tokenId: _token, shares: 6.32, costUsd: 3.16);
+      final after = container.read(oneBalanceProvider);
+      expect(after.availableUsd, closeTo(6.20 + 0.06 + 0.39, 1e-6));
+      expect(after.investedUsd, closeTo(3.16, 1e-6));
+      expect(after.totalUsd, closeTo(9.81, 1e-6));
+      expect(after.waiting, isEmpty);
     });
   });
 

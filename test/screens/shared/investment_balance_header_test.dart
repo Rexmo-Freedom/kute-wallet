@@ -292,16 +292,16 @@ void main() {
         'dust left on a venue shows as the normal split, never as an '
         'unavailable line', (tester) async {
       // The provider folds the sweeper's dust (the $0.06 CCTP reserve)
-      // into Invested; nothing waits.
+      // into the venue cash: Available, like any venue cash; nothing waits.
       await pumpOne(
           tester,
           known.copyWith(
               dollarsUsd: 6.20,
-              investedUsd: investedWithDust(
-                  0, const {OneBalanceVenue.investing: 0.06})));
+              investedUsd: 0,
+              venueCash: const {OneBalanceVenue.investing: 0.06}));
       expect(header(tester).amountText, r'$6.26');
-      expect(header(tester).availableText, r'$6.20');
-      expect(header(tester).investedText, r'$0.06');
+      expect(header(tester).availableText, r'$6.26');
+      expect(header(tester).investedText, r'$0.00');
       expect(header(tester).investedChild, isNull);
       expect(find.textContaining('unavailable'), findsNothing);
     });

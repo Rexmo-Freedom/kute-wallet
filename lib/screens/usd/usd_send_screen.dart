@@ -339,19 +339,15 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
   /// home for it, net of the planned move costs (the Max, a figure the
   /// engine's plan covers), never less than Dollars. From the last known
   /// values ([investmentsSpendableProvider]): never loading.
+  ///
+  /// It is also the figure the available line and the Review From row
+  /// show (founder decision 13 October 2026): what can actually be sent,
+  /// so any amount up to it goes through and "more than available" starts
+  /// a cent above it.
   double get _reachUsd {
     final dollars = _availableUsd;
     final max = ref.read(investmentsSpendableProvider).maxUsd;
     return max > dollars ? max : dollars;
-  }
-
-  /// What the available line shows: what Investments can spend, Dollars
-  /// plus reachable venue cash before costs (the header's Available,
-  /// positions never counted).
-  double get _shownAvailableUsd {
-    final total = ref.read(investmentsSpendableProvider).totalUsd;
-    final reach = _reachUsd;
-    return total > reach ? total : reach;
   }
 
   BigInt get _reachBaseUnits => BigInt.from((_reachUsd * 1000000).floor());
@@ -749,7 +745,7 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
     // again in the background and the number follows.
     ref.watch(investmentsSpendableProvider);
     ref.watch(venueCashRefreshProvider);
-    final available = _shownAvailableUsd;
+    final available = _reachUsd;
     final overBalance = _amountExceedsBalance;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1277,11 +1273,11 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
     final l10n = context.l10n;
     final destination = _destination;
     final addr = _address.text.trim();
-    // The From row reads what Investments can spend, as on the amount
-    // step: Dollars plus reachable venue cash.
+    // The From row reads what the send can spend, as on the amount step:
+    // the Max (Dollars plus reachable venue cash, net of the move costs).
     ref.watch(usdBalanceProvider);
     ref.watch(investmentsSpendableProvider);
-    final available = _shownAvailableUsd;
+    final available = _reachUsd;
     final units = _amountBaseUnits;
     final heroText = units == null ? '0.00' : _formatUsdUnits(units);
     final waiting = _resolvingDrain || _estimateLoading;

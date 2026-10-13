@@ -99,10 +99,11 @@ class OneBalanceState {
     this.venueCash = const <OneBalanceVenue, double>{},
   });
 
-  /// Idle cash that stays at a venue by design (Investing until it sits
-  /// idle), by venue: part of [availableUsd], since an order, a send or
-  /// the other venue draws on it when Dollars fall short. Never waiting,
-  /// never moving.
+  /// Unreserved cash at a venue that the sweeper is not moving, by venue:
+  /// cash a venue keeps by design (Investing until it sits idle, a venue
+  /// in use) and dust below every route minimum. Part of [availableUsd],
+  /// since an order or a bet there, a send or the other venue draws on it
+  /// when Dollars fall short. Never waiting, never moving, never invested.
   final Map<OneBalanceVenue, double> venueCash;
 
   /// Total of [venueCash].
@@ -117,16 +118,17 @@ class OneBalanceState {
   /// Spendable now, on the spending account.
   final double dollarsUsd;
 
-  /// Held by the venues: positions, equity and cash reserved for open
-  /// orders, across every venue that has answered, plus venue dust (idle
-  /// cash below every route minimum, which no sweep can move).
+  /// Held by the venues: positions, equity, cash reserved for open orders
+  /// and fills the positions read has not listed yet, across every venue
+  /// that has answered. Never idle cash, dust included: that is
+  /// [venueCash].
   final double investedUsd;
 
   /// Money on a rail, in either direction.
   final List<InFlightMove> inFlight;
 
   /// Venue cash the sweeper owes back to Dollars, by venue. Never dust:
-  /// cash below the route minimum is counted in [investedUsd] instead.
+  /// cash below the route minimum is [venueCash] (Available) instead.
   final Map<OneBalanceVenue, double> waiting;
 
   final bool investingKnown;

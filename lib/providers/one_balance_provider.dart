@@ -8,22 +8,24 @@
 //
 //   dollars   = the spending account's USDB balance;
 //   invested  = Hyperliquid portfolio + Predictions positions and the
-//               cash open BUY orders hold, plus venue dust (idle cash
-//               below every route minimum, which no sweep can move: the
-//               user's money at the venue, shown as invested, never as
-//               waiting), plus the live marks of held positions while the
-//               header is on screen (one_balance_live_provider.dart: the
-//               positions at live prices between the venues' reads).
-//               Never other idle cash: that is being swept and shows as
-//               in flight or waiting;
+//               cash open BUY orders hold, plus the pending fills and
+//               the live marks of held positions while the header is on
+//               screen (one_balance_live_provider.dart: the positions at
+//               live prices between the venues' reads). Never idle cash:
+//               cash at a venue is Available (venue cash) or waiting;
 //   in flight = pending Orchestra rows, by direction: Dollars → venue
 //               (an order being funded), venue → Dollars (a sweep or a
 //               withdrawal), and dollars arriving from anywhere else
 //               (Bitcoin → Dollars, a receive, Cash App) — all under the
 //               same 30-minute age cap as the pending pool rows;
 //   waiting   = what the sweeper still owes back, from its own state;
-//   venue cash = idle cash a venue keeps by design (Investing until it
-//               sits idle 24 h), counted in Available, never waiting.
+//   venue cash = the venues' unreserved cash the sweeper is not moving:
+//               cash a venue keeps by design (Investing until it sits
+//               idle 24 h, a venue in use) AND dust (below every route
+//               minimum, which the sweeper never moves). Spendable at the
+//               venue and reachable by the engine, so always Available
+//               (founder decision 13 October 2026: one balance), never
+//               Invested. Dust only tells the sweeper to leave it alone.
 //
 // Waiting, dust and venue cash are the sweeper's classification from its
 // last pass, each capped by the venue's live unreserved cash
@@ -104,17 +106,6 @@ List<InFlightMove> inFlightMovesFrom(
   ];
 }
 
-/// The venues' invested figure with their dust added: cash below every
-/// route minimum stays at the venue and counts as the venue's money (in
-/// the total and the Invested line), never as waiting. Pure for the tests.
-double investedWithDust(double investedUsd, Map<OneBalanceVenue, double> dust) {
-  var sum = investedUsd.isFinite && investedUsd > 0 ? investedUsd : 0.0;
-  for (final usd in dust.values) {
-    if (usd.isFinite && usd > 0) sum += usd;
-  }
-  return sum;
-}
-
 double _clean(double v) => v.isFinite && v > 0 ? v : 0;
 
 /// The venue's idle cash as its own read says now (unreserved: what open
@@ -171,9 +162,11 @@ double? _liveIdleCash(UnifiedVenueBalances venues, OneBalanceVenue venue) =>
 ///
 ///   total     = Dollars + venue positions (at the live marks) + venue
 ///               cash (held, dust, waiting) + in flight;
-///   Available = Dollars + the cash venues keep (held);
+///   Available = Dollars + the venues' unreserved cash the sweeper is not
+///               moving (held and dust alike: spendable at the venue,
+///               reachable by the engine);
 ///   Invested  = positions, cash open orders reserve and pending fills
-///               (`venues.investedUsd`), at the live marks, plus dust.
+///               (`venues.investedUsd`), at the live marks.
 ///
 /// Each venue dollar is in exactly one place: cash in the venue's read is
 /// unreserved cash (held, dust or waiting, capped by the read), reserved
@@ -186,16 +179,21 @@ OneBalanceState oneBalanceStateFrom({
   OneBalanceLiveMarks marks = OneBalanceLiveMarks.zero,
 }) {
   final cash = cappedVenueCash(venues, sweeper);
-  // The marks move the positions only: a mark below the read never eats
-  // into the dust.
+  // Dust is venue cash like any other: the sweeper leaves it where it is,
+  // and a bet or an order there spends it.
+  final venueCash = <OneBalanceVenue, double>{};
+  for (final venue in OneBalanceVenue.values) {
+    final usd = (cash.held[venue] ?? 0) + (cash.dust[venue] ?? 0);
+    if (usd >= kSweepDustUsd) venueCash[venue] = usd;
+  }
+  // The marks move the positions only.
   final marked = _clean(venues.investedUsd) + marks.totalDeltaUsd;
-  final invested = investedWithDust(_clean(marked), cash.dust);
   return OneBalanceState(
     dollarsUsd: _clean(dollarsUsd),
-    investedUsd: invested,
+    investedUsd: _clean(marked),
     inFlight: inFlight,
     waiting: cash.waiting,
-    venueCash: cash.held,
+    venueCash: venueCash,
     investingKnown: venues.investingKnown,
     predictionsKnown: venues.predictionsKnown,
   );
@@ -215,8 +213,8 @@ final oneBalanceProvider = Provider<OneBalanceState>((ref) {
     dollarsUsd: dollars,
     venues: venues,
     inFlight: inFlight,
-    // Waiting, dust and the cash a venue keeps (Available), from the
-    // sweeper's passes, capped by the venues' live reads.
+    // Waiting, and the cash a venue keeps or cannot move (dust), both
+    // Available, from the sweeper's passes, capped by the venues' reads.
     sweeper: ref.watch(venueSweeperProvider),
     // Held positions marked to market between the venues' reads, while
     // the header is on screen (zero otherwise).

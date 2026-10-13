@@ -404,11 +404,11 @@ void main() {
   });
 
   testWidgets(
-      'over Dollars but within venue cash: no "not enough", Investments '
-      'shows Dollars plus venue cash, Max is what the plan covers, and '
-      'Continue goes on', (tester) async {
-    // $100 of Dollars and $80 of Predictions cash: $180 to spend, $178.40
-    // once the move's planned cost ($80 x 2%) is out.
+      'over Dollars but within venue cash: no "not enough", the available '
+      'line is the Max the plan covers, and Continue goes on',
+      (tester) async {
+    // $100 of Dollars and $80 of Predictions cash: $178.40 can be sent
+    // once the move's planned cost ($80 x 2%) is out, and that is shown.
     _puller = VenueCashPuller(
       sources: [_Venue(OneBalanceVenue.predictions, 80)],
       readDollars: () => 100,
@@ -420,7 +420,8 @@ void main() {
     await withClipboard(tester);
     await _pump(tester);
 
-    expect(find.text(_l10n.hlYieldAvailableLine('\$180.00')), findsOneWidget);
+    expect(find.text(_l10n.hlYieldAvailableLine('\$178.40')), findsOneWidget);
+    expect(find.text(_l10n.hlYieldAvailableLine('\$180.00')), findsNothing);
     await _type(tester, '150');
     expect(find.text(_l10n.sendMoreThanAvailable), findsNothing);
     expect(find.byKey(const ValueKey('usd-send-top-up')), findsNothing);
@@ -445,6 +446,31 @@ void main() {
   });
 
   testWidgets(
+      'typing exactly the shown figure is fine; one cent above it is '
+      '"more than available"', (tester) async {
+    _puller = VenueCashPuller(
+      sources: [_Venue(OneBalanceVenue.predictions, 80)],
+      readDollars: () => 100,
+      minimumUsd: (_) async => 1,
+    );
+    tester.view.physicalSize = const Size(1290, 2796);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    await withClipboard(tester);
+    await _pump(tester);
+    expect(find.text(_l10n.hlYieldAvailableLine('\$178.40')), findsOneWidget);
+
+    await _type(tester, '178.4');
+    expect(find.text(_l10n.sendMoreThanAvailable), findsNothing);
+    expect(_continueEnabled(tester), isTrue);
+    expect((await _puller!.plan(neededUsd: 178.40)).covers, isTrue);
+
+    await _type(tester, '1');
+    expect(find.text(_l10n.sendMoreThanAvailable), findsOneWidget);
+    expect(_continueEnabled(tester), isFalse);
+  });
+
+  testWidgets(
       'the available line is instant: the last venue read shows on the '
       'first frame, and a fresh read updates it in place', (tester) async {
     final venue = _Venue(OneBalanceVenue.predictions, 80);
@@ -460,15 +486,15 @@ void main() {
     await _pump(tester);
     final container =
         ProviderScope.containerOf(tester.element(find.byType(UsdSendScreen)));
-    expect(find.text(_l10n.hlYieldAvailableLine('\$180.00')), findsOneWidget);
+    expect(find.text(_l10n.hlYieldAvailableLine('\$178.40')), findsOneWidget);
     // The venue moves; the figure follows the next read, never blanking.
     venue.available = 50;
     container.invalidate(venueCashRefreshProvider);
     await tester.pump();
-    expect(find.text(_l10n.hlYieldAvailableLine('\$180.00')), findsOneWidget,
+    expect(find.text(_l10n.hlYieldAvailableLine('\$178.40')), findsOneWidget,
         reason: 'the last read stays up while the venues are read again');
     await tester.pumpAndSettle();
-    expect(find.text(_l10n.hlYieldAvailableLine('\$150.00')), findsOneWidget);
+    expect(find.text(_l10n.hlYieldAvailableLine('\$149.00')), findsOneWidget);
   });
 
   testWidgets(

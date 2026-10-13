@@ -4,12 +4,15 @@
 // out of Investments through the venue-cash engine (Buy bitcoin from
 // Investments in the Move sheet, the Dollars send): Dollars plus the
 // venue cash the engine can reach (venue_cash_source.dart), never the
-// positions. The same "Available" the Investments header shows.
+// positions: the part of the Investments header's Available a route
+// can carry.
 //
-//  * [investmentsSpendable] is the pure figure: the total on the From row
-//    (Dollars + reachable venue cash) and the Max, which is that total
+//  * [investmentsSpendable] is the pure figure: the total (Dollars +
+//    reachable venue cash, before costs) and the Max, which is that total
 //    less the planned move costs, checked against the engine's own plan
 //    ([planDollarsShortfall]) so Max is always an amount it can execute.
+//    The From row and the available line show the Max (founder decision
+//    13 October 2026): any amount up to the shown figure goes through.
 //  * The figure is instant: it reads the engine's LAST venue read
 //    ([venueCashLastReadProvider], kept for the app's life), else the
 //    one-balance picture's venue cash ([venueCashSeedProvider]), else
@@ -53,7 +56,8 @@ class InvestmentsSpendable {
   /// the planned move costs, a figure the engine's plan covers.
   final double maxUsd;
 
-  /// Dollars plus reachable venue cash: the From row's figure.
+  /// Dollars plus reachable venue cash, before costs. The From row shows
+  /// [maxUsd], what can actually be spent.
   double get totalUsd => _floorCents(dollarsUsd + venueCashUsd);
 
   @override

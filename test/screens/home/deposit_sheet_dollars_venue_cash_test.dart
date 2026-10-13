@@ -1,8 +1,9 @@
-// Buy bitcoin from Investments: the From row shows what Investments can
-// spend (Dollars plus the venue cash the engine reaches) on the first
-// frame, from the last known values, with no loading state; Max is what
-// the engine's plan covers; the venues are read again in the background
-// and the figure follows. Past what Dollars hold the venue cash in reach
+// Buy bitcoin from Investments: the From row shows what can actually be
+// bought (the Max: Dollars plus the venue cash the engine reaches, net of
+// the planned move costs, a figure the engine's plan covers) on the first
+// frame, from the last known values, with no loading state; any amount up
+// to it goes through and a cent above is "insufficient"; the venues are
+// read again in the background and the figure follows. Past what Dollars hold the venue cash in reach
 // counts, the purchase asks its ONE approval before any venue cash
 // moves (declined: nothing moves), the legs then go under it (straight to
 // Bitcoin where the venue offers it, home to Dollars otherwise), and when
@@ -499,10 +500,11 @@ void main() {
         cachedRate: true,
         lastRead: _read(predictions: 60, investing: 40),
         settle: false);
-    // First frame: $10 of Dollars + $60 + $40 of venue cash, under the
-    // Investments name, no "Updating balance", no skeleton.
+    // First frame: $10 of Dollars + $60 + $40 of venue cash net of the
+    // moves' costs (60 x 0.98 + 40 x 0.98 - 0.30), under the Investments
+    // name, no "Updating balance", no skeleton.
     final l10n = lookupAppLocalizations(const Locale('en'));
-    expect(_shown('110.00'), findsOneWidget);
+    expect(_shown('107.70'), findsOneWidget);
     expect(find.text(l10n.assetDollars), findsWidgets);
     expect(find.text('Updating balance'), findsNothing);
     expect(find.byType(CircularProgressIndicator), findsNothing);
@@ -512,8 +514,9 @@ void main() {
     venue.gate.complete();
     await tester.pump();
     await tester.pump();
-    expect(_shown('80.00'), findsOneWidget);
-    expect(_shown('110.00'), findsNothing);
+    // $10 + $70 x 0.98, a cent under where the plan's gross-up rounds.
+    expect(_shown('78.59'), findsOneWidget);
+    expect(_shown('107.70'), findsNothing);
     expect(_big(tester).loading, isFalse);
     await tester.pump(const Duration(seconds: 6));
     await _close(tester, container);
@@ -536,7 +539,7 @@ void main() {
     for (var i = 0; i < 10; i++) {
       await tester.pump(const Duration(milliseconds: 50));
     }
-    expect(_shown('110.00'), findsOneWidget);
+    expect(_shown('108.00'), findsOneWidget);
     expect(container.read(venueCashLastReadProvider), isNotNull,
         reason: 'the read is kept for the next screen');
     await _close(tester, container);
@@ -553,14 +556,14 @@ void main() {
     );
     final container = await _open(tester, MoveLockedSide.depositFromFiat,
         lastRead: _read(predictions: 60), settle: false);
-    expect(_shown('60.00'), findsOneWidget);
+    expect(_shown('58.80'), findsOneWidget);
     expect(find.text('Cash App'), findsNothing);
     await _close(tester, container);
   });
 
   testWidgets(
-      'Max is what the engine plan covers; between Dollars and the total '
-      'is no "insufficient", above the total is', (tester) async {
+      'the From row is the Max the engine plan covers; up to it is no '
+      '"insufficient", a cent above it is', (tester) async {
     final venue = _Venue(100);
     _puller = VenueCashPuller(
       sources: [venue],
@@ -568,11 +571,14 @@ void main() {
       minimumUsd: (_) async => 1,
     );
     final container = await _open(tester, MoveLockedSide.depositFromFiat);
-    // $10 of Dollars and $100 of Predictions cash: $110 to spend.
-    expect(_shown('110.00'), findsOneWidget);
+    // $10 of Dollars and $100 of Predictions cash less its 2% planned
+    // cost: $108 can be bought.
+    expect(_shown('108.00'), findsOneWidget);
+    expect(_shown('110.00'), findsNothing);
+    expect(container.read(investmentsSpendableProvider).maxUsd, 108);
 
-    // Max (the figure is the Max): $100 less its 2% planned cost.
-    await tester.tap(_shown('110.00'));
+    // Tapping the figure is Max: the same $108.
+    await tester.tap(_shown('108.00'));
     await tester.pump();
     expect(_big(tester).amountText, '108.00');
     expect(find.text(_insufficient), findsNothing);
@@ -591,10 +597,52 @@ void main() {
     expect(find.text(_insufficient), findsNothing);
     expect(tester.widget<AppButton>(_cta).onPressed, isNotNull);
 
-    // $600: above the total.
+    // Exactly the shown figure: fine.
+    typeAmount('108');
+    await tester.pump();
+    expect(find.text(_insufficient), findsNothing);
+    expect(tester.widget<AppButton>(_cta).onPressed, isNotNull);
+
+    // One cent above the shown figure: insufficient.
+    typeAmount('108.01');
+    await tester.pump();
+    expect(find.text(_insufficient), findsWidgets);
+
+    // $600: well above.
     typeAmount('600');
     await tester.pump();
     expect(find.text(_insufficient), findsWidgets);
+    await _close(tester, container);
+  });
+
+  testWidgets(
+      'buying exactly the shown figure goes through: the engine plans the '
+      'whole venue cash under one approval', (tester) async {
+    final venue = _Venue(100);
+    final approvals = _Approvals(() => venue.pulls.length);
+    debugBuyBitcoinApproval = approvals.call;
+    var now = DateTime(2026, 10, 13, 12);
+    _puller = VenueCashPuller(
+      sources: [venue],
+      readDollars: () => _dollars,
+      minimumUsd: (_) async => 1,
+      clock: () => now,
+      sleep: (d) async => now = now.add(d),
+    );
+    final container = await _open(tester, MoveLockedSide.depositFromFiat);
+    expect(_shown('108.00'), findsOneWidget);
+    tester.widget<AmountKeypad>(find.byType(AmountKeypad)).onChanged('108');
+    await tester.pump();
+    expect(find.text(_insufficient), findsNothing);
+    await tester.tap(_cta);
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    // One approval, and the whole $100 asked of Predictions: $98 lands
+    // next to the $10 of Dollars, exactly the $108 shown.
+    expect(approvals.prompts, hasLength(1));
+    expect(venue.pulls, [100]);
+    expect(find.text(_insufficient), findsNothing);
     await _close(tester, container);
   });
 }

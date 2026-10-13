@@ -1275,20 +1275,8 @@ final venueCashPullerProvider = Provider<VenueCashPuller>((ref) {
   );
 });
 
-/// How far Dollars plus venue cash reach right now, for an amount
-/// screen's ceiling. Refreshed when Dollars change; 0-venue fallback on
-/// any failure is Dollars alone.
-final venueCashReachProvider = FutureProvider.autoDispose<double>((ref) async {
-  final dollars = ref.watch(usdBalanceProvider);
-  try {
-    return await ref.read(venueCashPullerProvider).reachUsd();
-  } catch (_) {
-    return dollars;
-  }
-});
-
-/// [venueCashReachProvider] for an order at [exclude]: Dollars plus the
-/// OTHER venues' cash (the target venue's own cash is already counted as
+/// How far Dollars plus venue cash reach for an order at [exclude]:
+/// Dollars plus the OTHER venues' cash (the target venue's own cash is already counted as
 /// what it holds). What the order slips' funding engine
 /// (`OrderFundingEngine.decide`) reads as "the rest of Investments".
 final venueCashReachExcludingProvider =

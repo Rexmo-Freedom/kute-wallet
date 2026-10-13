@@ -725,27 +725,16 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// engine can bring into a purchase, net of the planned move costs (the
   /// Max, never less than Dollars). Read from the last known values
   /// ([investmentsSpendableProvider]): never loading.
+  ///
+  /// It is also the From row's figure (founder decision 13 October 2026):
+  /// the row shows what can actually be bought, so any amount up to the
+  /// shown number goes through and "insufficient" starts a cent above it.
   double get _dollarsSourceUsd {
     final dollars = _availableUsd;
     if (!_dollarsReachVenueCash) return dollars;
     final max = ref.read(investmentsSpendableProvider).maxUsd;
     return max > dollars ? max : dollars;
   }
-
-  /// What the From row shows for the dollar source: what Investments can
-  /// spend, Dollars plus reachable venue cash before costs (the header's
-  /// Available, positions never counted). Dollars alone off a purchase.
-  double get _dollarsSourceShownUsd {
-    if (!_dollarsReachVenueCash) return _availableUsdc;
-    if (_processing && _shownUsdAtSubmit != null) return _shownUsdAtSubmit!;
-    final total = ref.read(investmentsSpendableProvider).totalUsd;
-    final payable = _liveAvailableUsdc;
-    return total > payable ? total : payable;
-  }
-
-  /// [_dollarsSourceShownUsd] held while a purchase spends it (venue cash
-  /// on its way counts in neither pool for a moment).
-  double? _shownUsdAtSubmit;
 
   /// While venue cash is coming home for a purchase: one line per leg,
   /// on the sheet's quiet caption line.
@@ -6126,8 +6115,6 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         !_isFiatMode && _fromBtc ? _liveAvailableSats : null;
     _availableUsdcAtSubmit =
         !_isFiatMode && !_fromBtc ? _liveAvailableUsdc : null;
-    _shownUsdAtSubmit =
-        !_isFiatMode && _dollarsReachVenueCash ? _dollarsSourceShownUsd : null;
 
     // Cash App source — the one LIVE fiat leg. Continue creates the
     // Flashnet onramp and the build swaps to the inline payment
@@ -6407,8 +6394,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         String dollars(double usd) =>
             '\$${((usd * 100).floor() / 100).toStringAsFixed(2)}';
         if (!_fromBtc) {
-          availableValue = dollars(
-              _dollarsAreSource ? _dollarsSourceShownUsd : _availableUsdc);
+          // Buying bitcoin from Investments: the Max, what the purchase
+          // can actually spend (held while a purchase spends it).
+          availableValue = dollars(_availableUsdc);
         } else {
           final sats = _isLedgerMove ? _maxConvertibleSats : _availableSats;
           if (_usdPerBtc > 0) {

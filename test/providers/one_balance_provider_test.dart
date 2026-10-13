@@ -264,7 +264,8 @@ void main() {
       expect(s.totalUsd, closeTo(75.6, 1e-9));
     });
 
-    test('dust counts in the total as invested, never as waiting', () async {
+    test('dust is Available venue cash, never invested, never waiting',
+        () async {
       // The founder's screenshot: $6.20 home, $0.06 left on HyperCore.
       final c = container(
         dollars: 6.20,
@@ -280,8 +281,50 @@ void main() {
       expect(s.waiting, isEmpty);
       expect(s.waitingUsd, 0);
       expect(s.inFlight, isEmpty);
-      expect(s.investedUsd, closeTo(0.06, 1e-9));
+      expect(s.investedUsd, 0);
+      expect(s.venueCash, {OneBalanceVenue.investing: 0.06});
+      expect(s.availableUsd, closeTo(6.26, 1e-9));
       expect(s.totalUsd, closeTo(6.26, 1e-9));
+    });
+
+    test(
+        'Predictions cash below the Polygon route minimum at a venue in use '
+        'is Available (the founder\'s \$3.55), never Invested', () async {
+      final c = container(
+        dollars: 6.20,
+        hlFreeUsdc: 0.06,
+        pm: const PolymarketTradingState(
+            isAuthenticated: true, balanceKnown: true, usdcBalance: 3.55),
+        sweeper: const VenueSweeperState(dust: {
+          OneBalanceVenue.investing: 0.06,
+          OneBalanceVenue.predictions: 3.55,
+        }),
+      );
+      addTearDown(c.dispose);
+      await c.read(polymarketTradingProvider.future);
+      final s = c.read(oneBalanceProvider);
+      expect(s.waiting, isEmpty);
+      expect(s.investedUsd, 0);
+      expect(s.availableUsd, closeTo(9.81, 1e-9));
+      expect(s.totalUsd, closeTo(9.81, 1e-9));
+    });
+
+    test('held and dust at one venue add up, capped by the live read',
+        () async {
+      final c = container(
+        dollars: 1,
+        pm: const PolymarketTradingState(
+            isAuthenticated: true, balanceKnown: true, usdcBalance: 2),
+        sweeper: const VenueSweeperState(
+            dust: {OneBalanceVenue.predictions: 0.5},
+            held: {OneBalanceVenue.predictions: 3}),
+      );
+      addTearDown(c.dispose);
+      await c.read(polymarketTradingProvider.future);
+      final s = c.read(oneBalanceProvider);
+      expect(s.venueCash, {OneBalanceVenue.predictions: 2});
+      expect(s.availableUsd, closeTo(3, 1e-9));
+      expect(s.investedUsd, 0);
     });
 
     test('cash a venue keeps (held) is Available, never waiting or moving',
@@ -305,16 +348,6 @@ void main() {
       expect(s.availableUsd, closeTo(18.5, 1e-9));
       expect(s.investedUsd, 0);
       expect(s.totalUsd, closeTo(18.5, 1e-9));
-    });
-
-    test('investedWithDust adds every venue\'s dust', () {
-      expect(
-          investedWithDust(10, const {
-            OneBalanceVenue.investing: 0.06,
-            OneBalanceVenue.predictions: 0.3,
-          }),
-          closeTo(10.36, 1e-9));
-      expect(investedWithDust(double.nan, const {}), 0);
     });
 
     test('the sweeper state reaching the header is one provider tick',

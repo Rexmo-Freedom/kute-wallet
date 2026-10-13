@@ -70,14 +70,15 @@ class InvestmentDiscoveryNotice extends ConsumerWidget {
 ///     venue browser standing on its own use this.
 ///   * ONE BALANCE ([oneBalance]): the Investments tab's hero, reading
 ///     [oneBalanceProvider]. The total is Dollars plus the open positions
-///     of every venue; under it Available (the Dollars balance, what an
-///     order can draw on right now) and Invested (what the venues hold).
+///     of every venue; under it Available (Dollars plus the venues'
+///     unreserved cash, what an order can draw on right now) and Invested
+///     (positions, reserved order cash and pending fills).
 ///     While anything is on a rail that split gives way to the in-flight
 ///     lines, in order: moving to a venue, coming back from one, incoming
 ///     from outside, unavailable until balancing completes (venue cash the
 ///     sweeper still owes back). Money in flight is never hidden. Venue
 ///     dust below every route minimum is no line at all: it is part of
-///     Invested, since no sweep will ever move it. No Deposit button: money only reaches a
+///     Available like the rest of the venues' cash. No Deposit button: money only reaches a
 ///     venue through an order. Tapping the lines opens the dollar
 ///     activity, where each move is a row.
 ///
