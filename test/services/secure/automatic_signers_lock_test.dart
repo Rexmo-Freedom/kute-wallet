@@ -18,6 +18,7 @@ import 'package:kute/services/passkey_prf_service.dart';
 import 'package:kute/services/passkey_service.dart';
 import 'package:kute/services/secure/flutter_secret_store.dart';
 import 'package:kute/services/secure/recovery_check.dart';
+import 'package:kute/services/venue_analytics.dart';
 import 'package:polybrainz_polymarket/polybrainz_polymarket.dart' show Position;
 
 import '../../helpers/fake_swap_orders.dart';
@@ -146,6 +147,15 @@ void main() {
   tearDown(() async {
     SecretStores.debugReset();
     messenger.setMockMethodCallHandler(prfChannel, null);
+    // The Predictions trading provider opens the venue analytics box
+    // without awaiting it (VenueAnalytics.warmUp). Under full-suite load
+    // that open was still in flight here, so Hive.close raced it and
+    // failed deleting `venue_analytics.lock` in a directory already being
+    // removed. Await the open (the one this test started, or a finished
+    // one: it is opened once per test file) and drop the pending persist
+    // before closing; only then remove the directory.
+    await VenueAnalytics.warmUp();
+    VenueAnalytics.debugReset();
     await Hive.close();
     await hiveDir.delete(recursive: true);
   });
