@@ -2983,7 +2983,7 @@
   "hlReceiptClosed": "{side, select, long{Έκλεισε η θέση long} other{Έκλεισε η θέση short}}",
   "hlReceiptFlipped": "{side, select, long{Αναστράφηκε σε long · {size} {coin}} other{Αναστράφηκε σε short · {size} {coin}}}",
   "investmentsTotal": "Investments total",
-  "oneBalanceMovingTo": "{amount} moving to {venue}",
+  "oneBalanceMovingTo": "{amount} σε μεταφορά προς {venue}",
   "oneBalanceComingBack": "{amount} coming back from {venue}",
   "oneBalanceWaitingToWithdraw": "{amount} unavailable until balancing completes",
   "oneBalanceIncoming": "Incoming {amount}",

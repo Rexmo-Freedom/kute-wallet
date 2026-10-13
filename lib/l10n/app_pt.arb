@@ -3287,7 +3287,7 @@
   "hlReceiptClosed": "{side, select, long{Long fechado} other{Short fechado}}",
   "hlReceiptFlipped": "{side, select, long{Mudou para long · {size} {coin}} other{Mudou para short · {size} {coin}}}",
   "investmentsTotal": "Investments total",
-  "oneBalanceMovingTo": "{amount} moving to {venue}",
+  "oneBalanceMovingTo": "{amount} a caminho de {venue}",
   "oneBalanceComingBack": "{amount} coming back from {venue}",
   "oneBalanceWaitingToWithdraw": "{amount} unavailable until balancing completes",
   "oneBalanceIncoming": "Incoming {amount}",

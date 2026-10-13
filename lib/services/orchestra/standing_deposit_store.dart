@@ -395,7 +395,10 @@ abstract final class StandingDepositStore {
                       destination: asset == 'BTC'
                           ? InvestingWithdrawalDestination.bitcoin
                           : InvestingWithdrawalDestination.dollars) ==
-                  label)
+                  label ||
+              (asset == 'USDB' &&
+                  investingWithdrawalLabelFor(own, revision, legacy: true) ==
+                      label))
           .firstOrNull;
       final state = await standingRequest(
           operation: 'read', label: label, current: valid);
@@ -625,10 +628,51 @@ abstract final class StandingDepositStore {
   /// instructions are never shared with a Receive address and are only
   /// used once their stored terms carry the destination's purpose. A
   /// label never serves another destination (the backend answers 409).
+  ///
+  /// Dollars has a second scheme ([legacy] false, the default): the
+  /// backend keeps a label's first pin for life, and the first Dollars
+  /// labels were all pinned `venue_withdrawal` before it could pin a move
+  /// home to the wallet's own Spark address as `investments_internal`.
+  /// A new label is the only way to the new rule. [legacy] is the old
+  /// Dollars label, kept for history and as a fallback only.
   static String investingWithdrawalLabelFor(String recipient, int revision,
           {InvestingWithdrawalDestination destination =
-              InvestingWithdrawalDestination.dollars}) =>
-      'w${sha256.convert(utf8.encode('investing_withdrawal|${destination.labelKey}|$recipient|$revision|50')).toString().substring(0, 30)}';
+              InvestingWithdrawalDestination.dollars,
+          bool legacy = false}) =>
+      'w${sha256.convert(utf8.encode('investing_withdrawal|${destination.labelKey}|$recipient|$revision|50${destination == InvestingWithdrawalDestination.dollars && !legacy ? '|internal' : ''}')).toString().substring(0, 30)}';
+
+  /// Whether [record] is a Dollars Investing-withdrawal instruction of the
+  /// current label scheme (see [investingWithdrawalLabelFor]), for its own
+  /// recipient or for [recipient]. Anything else on Dollars is legacy.
+  static bool _currentDollarsLabel(
+          StandingDepositRecord record, String recipient) =>
+      record.label ==
+          investingWithdrawalLabelFor(record.recipient, record.revision) ||
+      record.label == investingWithdrawalLabelFor(recipient, record.revision);
+
+  /// Whether [record]'s stored terms carry a rule [destination] accepts.
+  static bool _verifiedTerms(
+      StandingDepositRecord record, InvestingWithdrawalDestination destination) {
+    final policy = record.response['kuteFeePolicy'];
+    return policy is Map && destination.feePurposes.contains(policy['purpose']);
+  }
+
+  /// The Kute fee an Investing-withdrawal instruction charges on what
+  /// arrives, for the withdrawal's fee line: the frozen terms' disclosed
+  /// rate ([StandingDepositRecord.kuteFeeBps]), or 0 when the instruction
+  /// is pinned as a move inside Investments (`investments_internal`) at no
+  /// rate. Null when the terms state neither.
+  static int? investingWithdrawalKuteFeeBps(StandingDepositRecord record) {
+    final disclosed = record.kuteFeeBps;
+    if (disclosed != null) return disclosed;
+    final policy = record.response['kuteFeePolicy'];
+    if (policy is Map &&
+        policy['providerDefault'] != true &&
+        policy['purpose'] == kInvestmentsInternalFeePurpose) {
+      return 0;
+    }
+    return null;
+  }
 
   static bool isInvestingWithdrawalLabel(String label) =>
       label.length == 31 && label.startsWith('w');
@@ -688,6 +732,14 @@ abstract final class StandingDepositStore {
   /// (400), a gate is shut (403), the label is taken (409), the terms
   /// cannot be met (422, 503), or, for any destination but Dollars, any
   /// other refusal of the backend or the provider. Nothing is sent then.
+  ///
+  /// Dollars registers its current-scheme label lazily, on the first
+  /// withdrawal that needs it (`investments_internal` from a backend that
+  /// verifies the own Spark address, `venue_withdrawal` from an older
+  /// one; both accepted). If that registration fails, a legacy Dollars
+  /// instruction this wallet already holds is used instead, unless a
+  /// current-scheme one has ever had verified terms. One instruction per
+  /// call: the withdrawal pays exactly the one returned.
   static Future<StandingDepositRecord> investingWithdrawalInstruction({
     required String walletId,
     required String recipient,
@@ -711,7 +763,68 @@ abstract final class StandingDepositStore {
             _sameRecipient(destination.chain, r.recipient, recipient))
         .toList()
       ..sort((a, b) => b.revision.compareTo(a.revision));
-    for (final record in held) {
+    // Dollars: the current label scheme first; a legacy label (pinned
+    // `venue_withdrawal` for life) only when the new one cannot be had.
+    final scheme = home
+        ? held.where((r) => _currentDollarsLabel(r, recipient)).toList()
+        : held;
+    final legacy = home
+        ? held.where((r) => !_currentDollarsLabel(r, recipient)).toList()
+        : const <StandingDepositRecord>[];
+    final reused = await _usableInvestingWithdrawal(scheme,
+        recipient: recipient,
+        destination: destination,
+        scope: scope,
+        valid: valid);
+    if (reused != null) return reused;
+    if (!valid()) throw StateError('Wallet changed');
+    try {
+      return await _registerInvestingWithdrawal(
+          walletId: walletId,
+          recipient: recipient,
+          refundAddress: refundAddress,
+          destination: destination,
+          held: held,
+          scope: scope,
+          valid: valid);
+    } catch (e, stack) {
+      // A legacy Dollars instruction still works (at its frozen rate): a
+      // withdrawal is not failed for want of the new label. Never once a
+      // current-scheme instruction has verified terms: from then on the
+      // legacy one is history only.
+      if (!home ||
+          legacy.isEmpty ||
+          !valid() ||
+          scheme.any((r) => _verifiedTerms(r, destination))) {
+        rethrow;
+      }
+      StandingDepositRecord? fallback;
+      try {
+        fallback = await _usableInvestingWithdrawal(legacy,
+            recipient: recipient,
+            destination: destination,
+            scope: scope,
+            valid: valid);
+      } catch (_) {
+        // The registration's own failure is the one to report.
+      }
+      if (fallback == null || !valid()) Error.throwWithStackTrace(e, stack);
+      return fallback;
+    }
+  }
+
+  /// The first of [candidates] (newest first) the provider still holds,
+  /// enabled, with verified terms for [destination], read (never
+  /// re-registered), or null.
+  static Future<StandingDepositRecord?> _usableInvestingWithdrawal(
+    List<StandingDepositRecord> candidates, {
+    required String recipient,
+    required InvestingWithdrawalDestination destination,
+    required StandingDepositScope scope,
+    required bool Function() valid,
+  }) async {
+    final home = destination == InvestingWithdrawalDestination.dollars;
+    for (final record in candidates) {
       if (!valid()) throw StateError('Wallet changed');
       final Map<String, dynamic> state;
       try {
@@ -738,7 +851,22 @@ abstract final class StandingDepositStore {
         return updated;
       }
     }
-    if (!valid()) throw StateError('Wallet changed');
+    return null;
+  }
+
+  /// Registers the current-scheme instruction to [destination] (see
+  /// [investingWithdrawalInstruction] for what a refusal means). Its own
+  /// label, so its own idempotency key: a key never spans two labels.
+  static Future<StandingDepositRecord> _registerInvestingWithdrawal({
+    required String walletId,
+    required String recipient,
+    required String refundAddress,
+    required InvestingWithdrawalDestination destination,
+    required List<StandingDepositRecord> held,
+    required StandingDepositScope scope,
+    required bool Function() valid,
+  }) async {
+    final home = destination == InvestingWithdrawalDestination.dollars;
     // Predictions is the wallet's own venue only once the backend knows
     // the Polymarket wallet is this user's (the venue-owner link): only
     // then is the instruction registered, so its terms are the internal

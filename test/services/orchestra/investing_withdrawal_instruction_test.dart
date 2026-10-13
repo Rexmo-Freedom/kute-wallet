@@ -33,6 +33,7 @@ void main() {
   late bool linked;
   late Future<bool> Function(String) originalLinked;
   late int? refuseWith;
+  late List<Map<String, dynamic>> mine;
   late Future<Map<String, dynamic>> Function(
       {required String operation,
       String? label,
@@ -67,6 +68,7 @@ void main() {
     originalLinked = StandingDepositStore.polymarketLinked;
     StandingDepositStore.polymarketLinked = (_) async => linked;
     refuseWith = null;
+    mine = [];
     original = StandingDepositStore.standingRequest;
     StandingDepositStore.standingRequest = (
         {required operation,
@@ -84,7 +86,7 @@ void main() {
             ]
           };
         case 'mine':
-          return {'references': <Map<String, dynamic>>[]};
+          return {'references': mine};
         case 'register':
           bodies.add(body);
           keys.add(idempotencyKey);
@@ -96,16 +98,17 @@ void main() {
           final investing = body?['kuteRoute'] == 'investing_withdrawal';
           final to = body?['destination'] as Map?;
           final key = '${to?['chain']}:${to?['asset']}';
+          final pinned =
+              investing ? (purposes[key] ?? purpose) : 'usdb_swap_deposit';
           return provider[label!] ??= {
             'standingAddressId': 'sda_$label',
             'enabled': true,
             'addresses': {'arbitrum': _arbitrum, 'base': _base},
             'kuteFeePolicy': {
               'revision': revision,
-              'purpose': investing
-                  ? (purposes[key] ?? purpose)
-                  : 'usdb_swap_deposit',
-              'appFeeBps': investing ? 50 : 0,
+              'purpose': pinned,
+              'appFeeBps':
+                  investing && pinned != 'investments_internal' ? 50 : 0,
             },
           };
         case 'read':
@@ -289,6 +292,189 @@ void main() {
       refuseWith = 502;
       await expectLater(to(InvestingWithdrawalDestination.dollars),
           throwsA(isA<StandingRequestException>()));
+    });
+  });
+
+  group('Dollars: the internal label', () {
+    final legacyLabel = StandingDepositStore.investingWithdrawalLabelFor(
+        _spark, 5,
+        legacy: true);
+    final newLabel = StandingDepositStore.investingWithdrawalLabelFor(_spark, 5);
+
+    // A wallet that already withdrew under the first Dollars label, pinned
+    // `venue_withdrawal` (0.5%) for life.
+    Future<void> holdLegacy() async {
+      final terms = <String, dynamic>{
+        'standingAddressId': 'sda_$legacyLabel',
+        'enabled': true,
+        'addresses': {'arbitrum': _arbitrum, 'base': _base},
+        'kuteFeePolicy': {
+          'revision': 5,
+          'purpose': 'venue_withdrawal',
+          'appFeeBps': 50,
+        },
+      };
+      provider[legacyLabel] = terms;
+      await StandingDepositStore.ensureRecord(
+          StandingDepositRecord(
+              walletId: 'a',
+              label: legacyLabel,
+              recipient: _spark,
+              asset: 'USDB',
+              revision: 5,
+              response: terms),
+          StandingDepositStore.capture('a'));
+    }
+
+    test('a new label, distinct from the legacy one, both withdrawal labels',
+        () {
+      expect(newLabel, isNot(legacyLabel));
+      expect(StandingDepositStore.isInvestingWithdrawalLabel(newLabel), isTrue);
+      expect(StandingDepositStore.isInvestingWithdrawalLabel(legacyLabel),
+          isTrue);
+      expect(RegExp(r'^[a-z0-9][a-z0-9_-]{0,31}$').hasMatch(newLabel), isTrue,
+          reason: "the backend's label format");
+      // Bitcoin and Predictions keep the labels they always had.
+      expect(
+          StandingDepositStore.investingWithdrawalLabelFor(_spark, 5,
+              destination: InvestingWithdrawalDestination.bitcoin),
+          StandingDepositStore.investingWithdrawalLabelFor(_spark, 5,
+              destination: InvestingWithdrawalDestination.bitcoin,
+              legacy: true));
+    });
+
+    test('registers the new label lazily, pinned investments_internal, 0%',
+        () async {
+      await usePolicy(5);
+      await holdLegacy();
+      purposes['spark:USDB'] = 'investments_internal';
+      final record = await instruction();
+      expect(record.label, newLabel);
+      expect(keys, ['register-$newLabel']);
+      expect(calls.where((c) => c.startsWith('register')), hasLength(1));
+      expect(StandingDepositStore.investingWithdrawalAddress(record, _spark),
+          _arbitrum);
+      expect(StandingDepositStore.investingWithdrawalKuteFeeBps(record), 0,
+          reason: 'the fee line shows 0%');
+
+      // Reused from then on; the legacy label is never minted to again.
+      calls.clear();
+      final again = await instruction();
+      expect(again.label, newLabel);
+      expect(calls, ['read:w'],
+          reason: 'one read of the new label, nothing registered');
+    });
+
+    test('an old backend pins venue_withdrawal on the new label: still used',
+        () async {
+      await usePolicy(5);
+      purpose = 'venue_withdrawal';
+      final record = await instruction();
+      expect(record.label, newLabel);
+      expect(StandingDepositStore.investingWithdrawalAddress(record, _spark),
+          _arbitrum);
+      expect(StandingDepositStore.investingWithdrawalKuteFeeBps(record), 50);
+    });
+
+    test('a failed registration falls back to the legacy label', () async {
+      await usePolicy(5);
+      await holdLegacy();
+      for (final status in [400, 502]) {
+        calls.clear();
+        keys.clear();
+        refuseWith = status;
+        final record = await instruction();
+        expect(record.label, legacyLabel, reason: '$status');
+        expect(StandingDepositStore.investingWithdrawalAddress(record, _spark),
+            _arbitrum);
+        expect(StandingDepositStore.investingWithdrawalKuteFeeBps(record), 50);
+        // One registration, of the new label under its own key; the legacy
+        // label is only read, never registered.
+        expect(keys, ['register-$newLabel']);
+        expect(calls.where((c) => c.startsWith('register')), hasLength(1));
+      }
+      // Without a legacy instruction the failure stands, as before.
+      await StandingDepositStore.deleteWallet('a');
+      refuseWith = 400;
+      await expectLater(
+          instruction(), throwsA(isA<InvestingWithdrawalTermsUnavailable>()));
+      refuseWith = 502;
+      await expectLater(
+          instruction(), throwsA(isA<StandingRequestException>()));
+    });
+
+    test('once the new label had verified terms the legacy one is history',
+        () async {
+      await usePolicy(5);
+      await holdLegacy();
+      purposes['spark:USDB'] = 'investments_internal';
+      await instruction();
+      // The provider pauses the new instruction and re-registration is
+      // refused: no fallback to the 0.5% label.
+      provider[newLabel]!['enabled'] = false;
+      refuseWith = 400;
+      await expectLater(
+          instruction(), throwsA(isA<InvestingWithdrawalTermsUnavailable>()));
+    });
+
+    test('restore recognises both Dollars labels', () async {
+      await usePolicy(5);
+      for (final label in [legacyLabel, newLabel]) {
+        provider[label] = {
+          'standingAddressId': 'sda_$label',
+          'enabled': true,
+          'addresses': {'arbitrum': _arbitrum},
+        };
+      }
+      mine = [
+        for (final label in [legacyLabel, newLabel])
+          {
+            'label': label,
+            'destinationChain': 'spark',
+            'destinationAsset': 'USDB',
+            'policyRevision': 5,
+          }
+      ];
+      expect(
+          await StandingDepositStore.restore(
+              walletId: 'a', recipient: _spark, wanted: () => true),
+          2);
+    });
+
+    test('the fee line: investments_internal is 0%, others their rate', () {
+      StandingDepositRecord withPolicy(Map<String, dynamic> policy) =>
+          StandingDepositRecord(
+              walletId: 'a',
+              label: newLabel,
+              recipient: _spark,
+              asset: 'USDB',
+              revision: 5,
+              response: {'kuteFeePolicy': policy});
+      expect(
+          StandingDepositStore.investingWithdrawalKuteFeeBps(withPolicy(
+              {'purpose': 'investments_internal', 'appFeeBps': 0})),
+          0);
+      expect(
+          StandingDepositStore.investingWithdrawalKuteFeeBps(
+              withPolicy({'purpose': 'investments_internal'})),
+          0);
+      expect(
+          StandingDepositStore.investingWithdrawalKuteFeeBps(withPolicy(
+              {'purpose': 'investments_internal', 'appFeeBps': 25})),
+          25,
+          reason: 'a published inside rate is disclosed as published');
+      expect(
+          StandingDepositStore.investingWithdrawalKuteFeeBps(
+              withPolicy({'purpose': 'venue_withdrawal', 'appFeeBps': 50})),
+          50);
+      expect(
+          StandingDepositStore.investingWithdrawalKuteFeeBps(withPolicy({
+            'purpose': 'investments_internal',
+            'appFeeBps': 0,
+            'providerDefault': true
+          })),
+          isNull,
+          reason: 'provider-default pricing states no rate');
     });
   });
 

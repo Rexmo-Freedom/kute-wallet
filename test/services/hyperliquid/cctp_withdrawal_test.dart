@@ -18,6 +18,7 @@ import 'package:kute/models/settlement_operation.dart';
 import 'package:kute/models/swap_order_model.dart';
 import 'package:kute/providers/settlement_reconciler_provider.dart'
     show SettlementReconcilerDriver;
+import 'package:kute/screens/shared/fee_copy.dart' show feeRateText;
 import 'package:kute/services/arbitrum_read_rpc.dart';
 import 'package:kute/services/funding/settlement_funding_outcome.dart';
 import 'package:kute/services/funding/settlement_runner.dart';
@@ -50,13 +51,15 @@ StandingDepositRecord _record({
   String recipient = _spark,
   String purpose = 'venue_withdrawal',
   bool enabled = true,
+  int appFeeBps = 50,
+  bool legacy = false,
   InvestingWithdrawalDestination destination =
       InvestingWithdrawalDestination.dollars,
 }) =>
     StandingDepositRecord(
       walletId: 'w',
       label: StandingDepositStore.investingWithdrawalLabelFor(recipient, 7,
-          destination: destination),
+          destination: destination, legacy: legacy),
       recipient: recipient,
       asset: destination.asset,
       chain: destination.chain,
@@ -68,7 +71,7 @@ StandingDepositRecord _record({
         'kuteFeePolicy': {
           'revision': 7,
           'purpose': purpose,
-          'appFeeBps': 50,
+          'appFeeBps': appFeeBps,
         },
       },
     );
@@ -542,6 +545,41 @@ void main() {
     // A later pass never reports the outcome twice.
     await service().reconcile(op, force: true);
     expect(named('hyperliquid_withdraw_completed').length, 1);
+  });
+
+  group('the Kute fee of the instruction paid', () {
+    test('investments_internal on the new Dollars label: the fee line is 0%',
+        () async {
+      orchestra.held = _record(purpose: 'investments_internal', appFeeBps: 0);
+      reads.ledger = (nonce) => nonce == sender.nonce ? _ledgerHash : null;
+      final result = await service().withdrawToDollars(
+          usd: 5.25, stepUp: approve(), purpose: 'manual_move');
+      expect(result.kuteFeeBps, 0);
+      expect(feeRateText(result.kuteFeeBps!), '0.00%');
+      final op = await only();
+      final cctp = op.raw['cctp'] as Map;
+      expect(cctp['kuteFeeBps'], 0);
+      // One withdrawal, one instruction, one address.
+      expect(orchestra.instructions, 1);
+      expect(cctp['label'], orchestra.held!.label);
+      expect(sender.sends.single.destination, _standing);
+    });
+
+    test('venue_withdrawal (an old backend, or the legacy label): its rate',
+        () async {
+      orchestra.held = _record(legacy: true);
+      reads.ledger = (nonce) => nonce == sender.nonce ? _ledgerHash : null;
+      final result = await service().withdrawToDollars(
+          usd: 5.25, stepUp: approve(), purpose: 'manual_move');
+      expect(result.kuteFeeBps, 50);
+      expect(feeRateText(result.kuteFeeBps!), '0.50%');
+      final op = await only();
+      expect((op.raw['cctp'] as Map)['kuteFeeBps'], 50);
+      expect((op.raw['cctp'] as Map)['label'],
+          StandingDepositStore.investingWithdrawalLabelFor(_spark, 7,
+              legacy: true));
+      expect(sender.sends, hasLength(1));
+    });
   });
 
   group('straight to the final destination', () {

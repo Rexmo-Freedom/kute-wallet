@@ -2983,7 +2983,7 @@
   "hlReceiptClosed": "{side, select, long{long pozíció zárva} other{short pozíció zárva}}",
   "hlReceiptFlipped": "{side, select, long{Átfordítva long irányba · {size} {coin}} other{Átfordítva short irányba · {size} {coin}}}",
   "investmentsTotal": "Investments total",
-  "oneBalanceMovingTo": "{amount} moving to {venue}",
+  "oneBalanceMovingTo": "{amount} úton ide: {venue}",
   "oneBalanceComingBack": "{amount} coming back from {venue}",
   "oneBalanceWaitingToWithdraw": "{amount} unavailable until balancing completes",
   "oneBalanceIncoming": "Incoming {amount}",

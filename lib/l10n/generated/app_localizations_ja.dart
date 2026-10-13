@@ -10217,7 +10217,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String oneBalanceMovingTo(String amount, String venue) {
-    return '$amount moving to $venue';
+    return '$amountを$venueへ移動中';
   }
 
   @override

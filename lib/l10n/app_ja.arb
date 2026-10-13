@@ -2983,7 +2983,7 @@
   "hlReceiptClosed": "{side, select, long{ロングを決済しました} other{ショートを決済しました}}",
   "hlReceiptFlipped": "{side, select, long{ロングに転換しました · {size} {coin}} other{ショートに転換しました · {size} {coin}}}",
   "investmentsTotal": "Investments total",
-  "oneBalanceMovingTo": "{amount} moving to {venue}",
+  "oneBalanceMovingTo": "{amount}を{venue}へ移動中",
   "oneBalanceComingBack": "{amount} coming back from {venue}",
   "oneBalanceWaitingToWithdraw": "{amount} unavailable until balancing completes",
   "oneBalanceIncoming": "Incoming {amount}",

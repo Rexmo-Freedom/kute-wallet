@@ -2983,7 +2983,7 @@
   "hlReceiptClosed": "{side, select, long{Long pozicija uždaryta} other{Short pozicija uždaryta}}",
   "hlReceiptFlipped": "{side, select, long{Apversta į long · {size} {coin}} other{Apversta į short · {size} {coin}}}",
   "investmentsTotal": "Investments total",
-  "oneBalanceMovingTo": "{amount} moving to {venue}",
+  "oneBalanceMovingTo": "{amount} perkeliama į {venue}",
   "oneBalanceComingBack": "{amount} coming back from {venue}",
   "oneBalanceWaitingToWithdraw": "{amount} unavailable until balancing completes",
   "oneBalanceIncoming": "Incoming {amount}",

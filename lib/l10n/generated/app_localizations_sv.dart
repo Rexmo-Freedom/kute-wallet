@@ -10628,7 +10628,7 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String oneBalanceMovingTo(String amount, String venue) {
-    return '$amount moving to $venue';
+    return '$amount flyttas till $venue';
   }
 
   @override

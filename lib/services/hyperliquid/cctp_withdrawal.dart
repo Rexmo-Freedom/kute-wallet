@@ -16,9 +16,11 @@
 //     place it meets the switch.
 //  1. Kute's backend registers (or this wallet reuses) the wallet's
 //     Investing-withdrawal standing instruction, `arbitrum:USDC →
-//     spark:USDB` to the wallet's own Spark address, with the
-//     venue-withdrawal fee pinned (StandingDepositStore
-//     .investingWithdrawalInstruction). No verified fee, no send.
+//     spark:USDB` to the wallet's own Spark address, with Kute's rule
+//     pinned: `investments_internal` (0%) once the backend verifies the
+//     own address, `venue_withdrawal` from an older backend or on a
+//     legacy label (StandingDepositStore.investingWithdrawalInstruction).
+//     No verified fee, no send.
 //  2. Read-only pre-flight on HyperEVM (Circle's CoreDepositWallet):
 //     `paused()` must be false, `calculateCrossChainWithdrawalFee(true, 3)`
 //     is the forwarding fee. The amount after that fee must clear
@@ -293,9 +295,16 @@ class CctpWithdrawalResult {
     required this.sentUsd,
     required this.arrivingUsdEstimate,
     required this.registration,
+    this.kuteFeeBps,
   });
 
   final String operationId;
+
+  /// The Kute fee the instruction paid charges on what arrives, for the
+  /// withdrawal's fee line (StandingDepositStore
+  /// .investingWithdrawalKuteFeeBps): 0 on an instruction pinned as a move
+  /// inside Investments, null when its terms state no rate.
+  final int? kuteFeeBps;
 
   /// What left Investing (the burned amount).
   final double sentUsd;
@@ -683,6 +692,8 @@ class HypercoreCctpWithdrawal {
     if (depositAddress == null) {
       _unavailable(CctpUnavailableReason.feeTermsUnavailable, usd);
     }
+    final kuteFeeBps =
+        StandingDepositStore.investingWithdrawalKuteFeeBps(record);
 
     // 2. Amount and the read-only pre-flight.
     final BigInt sendable;
@@ -774,6 +785,7 @@ class HypercoreCctpWithdrawal {
           'amount6': amount6.toString(),
           'token': cctpTokenWire(tokenForm),
           'purpose': purpose,
+          if (kuteFeeBps != null) 'kuteFeeBps': kuteFeeBps,
           if (fromBlock != null) 'fromBlock': fromBlock,
           'steps': <String>[],
         },
@@ -848,7 +860,8 @@ class HypercoreCctpWithdrawal {
           operationId: op.operationId,
           sentUsd: sentUsd,
           arrivingUsdEstimate: arrivingUsd,
-          registration: _registration(op.operationId));
+          registration: _registration(op.operationId),
+          kuteFeeBps: kuteFeeBps);
     }
     if (lease != null) store.releaseLease(op.operationId, lease);
     await _step(store, op.operationId, 'cctp_sent', sentUsd);
@@ -872,7 +885,8 @@ class HypercoreCctpWithdrawal {
         operationId: op.operationId,
         sentUsd: sentUsd,
         arrivingUsdEstimate: arrivingUsd,
-        registration: _registration(op.operationId));
+        registration: _registration(op.operationId),
+        kuteFeeBps: kuteFeeBps);
   }
 
   // ─────────────────────────── watching ───────────────────────────

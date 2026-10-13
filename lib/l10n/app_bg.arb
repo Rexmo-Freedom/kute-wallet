@@ -2983,7 +2983,7 @@
   "hlReceiptClosed": "{side, select, long{Затворена long позиция} other{Затворена short позиция}}",
   "hlReceiptFlipped": "{side, select, long{Обърната в long · {size} {coin}} other{Обърната в short · {size} {coin}}}",
   "investmentsTotal": "Investments total",
-  "oneBalanceMovingTo": "{amount} moving to {venue}",
+  "oneBalanceMovingTo": "{amount} се прехвърлят към {venue}",
   "oneBalanceComingBack": "{amount} coming back from {venue}",
   "oneBalanceWaitingToWithdraw": "{amount} unavailable until balancing completes",
   "oneBalanceIncoming": "Incoming {amount}",

@@ -10601,7 +10601,7 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String oneBalanceMovingTo(String amount, String venue) {
-    return '$amount moving to $venue';
+    return '$amount tiek pārvietoti uz $venue';
   }
 
   @override
