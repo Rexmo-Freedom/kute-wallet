@@ -18174,6 +18174,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'This market closes before money could arrive. Nothing was moved.'**
   String get betMarketClosingNoFunding;
+
+  /// Activity row title of a send that took its dollars from more than one place (Dollars plus cash brought back from Predictions or Investing): one row for the whole send. {amount} is the formatted dollar amount.
+  ///
+  /// In en, this message translates to:
+  /// **'Send {amount}'**
+  String multiMoveSendTitle(String amount);
+
+  /// Activity row title of one action that moved money from more than one place (Dollars plus Predictions or Investing cash) to one destination: one row for the whole move, its parts listed in the detail sheet. {amount} is the formatted dollar amount, {destination} the destination's display name (Bitcoin, Predictions, Trading).
+  ///
+  /// In en, this message translates to:
+  /// **'Move {amount} to {destination}'**
+  String multiMoveTitle(String amount, String destination);
+
+  /// Detail sheet line of a move that took money from more than one place when one part failed: what reached the destination and what is still where it was. Both are formatted dollar amounts.
+  ///
+  /// In en, this message translates to:
+  /// **'{delivered} delivered · {remaining} remaining'**
+  String multiMoveDeliveredRemaining(String delivered, String remaining);
 }
 
 class _AppLocalizationsDelegate

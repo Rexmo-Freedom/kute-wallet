@@ -3010,5 +3010,8 @@
   "portfolioStatOpenPnl": "Отворена печалба / загуба",
   "usdReceiveFromYourBitcoin": "От вашия биткойн",
   "stepUpReasonBetReady": "Подготви прогноза за {amount}",
-  "betMarketClosingNoFunding": "Този пазар се затваря, преди парите да пристигнат. Нищо не е преместено."
+  "betMarketClosingNoFunding": "Този пазар се затваря, преди парите да пристигнат. Нищо не е преместено.",
+  "multiMoveSendTitle": "Send {amount}",
+  "multiMoveTitle": "Move {amount} to {destination}",
+  "multiMoveDeliveredRemaining": "{delivered} delivered · {remaining} remaining"
 }

@@ -40,6 +40,7 @@ const _otherSpark =
     'spark1pgssy7d7vel0nh9m4326qc54e6rskpczn07dktww9rv4nu5ptvt0s9uc489gg2';
 const _account = '0x7578d21940ee6ac4f882b6d5173d26bce62f5136';
 const _standing = '0x5aaeb6053f3e94c9b9a09f33669435e7ef1beaed';
+const _pmWallet = '0x9999999999999999999999999999999999999999';
 const _ledgerHash =
     '0x3e1e694226c985983f9804466f30530208450027c1cca46ae1e71494e5cd5f82';
 const _mintTx =
@@ -49,12 +50,16 @@ StandingDepositRecord _record({
   String recipient = _spark,
   String purpose = 'venue_withdrawal',
   bool enabled = true,
+  InvestingWithdrawalDestination destination =
+      InvestingWithdrawalDestination.dollars,
 }) =>
     StandingDepositRecord(
       walletId: 'w',
-      label: StandingDepositStore.investingWithdrawalLabelFor(recipient, 7),
+      label: StandingDepositStore.investingWithdrawalLabelFor(recipient, 7,
+          destination: destination),
       recipient: recipient,
-      asset: 'USDB',
+      asset: destination.asset,
+      chain: destination.chain,
       revision: 7,
       response: {
         'standingAddressId': 'sda_1',
@@ -164,6 +169,7 @@ class _Orchestra implements CctpOrchestraPort {
   double? minimum = 0.8;
   final logged = <String>[];
   int instructions = 0;
+  final destinations = <InvestingWithdrawalDestination>[];
 
   @override
   Future<StandingDepositRecord> instruction({
@@ -171,8 +177,11 @@ class _Orchestra implements CctpOrchestraPort {
     required String recipient,
     required String refundAddress,
     required bool Function() wanted,
+    InvestingWithdrawalDestination destination =
+        InvestingWithdrawalDestination.dollars,
   }) async {
     instructions++;
+    destinations.add(destination);
     expect(refundAddress, _account);
     if (instructionError != null) throw instructionError!;
     return held!;
@@ -193,7 +202,10 @@ class _Orchestra implements CctpOrchestraPort {
   Future<OrchestraOrder?> order(String orderId) async => orders[orderId];
 
   @override
-  Future<double?> minimumUsd() async => minimum;
+  Future<double?> minimumUsd(
+          {InvestingWithdrawalDestination destination =
+              InvestingWithdrawalDestination.dollars}) async =>
+      minimum;
 
   @override
   void logPending(SwapOrder row) => logged.add(row.id);
@@ -226,6 +238,11 @@ class _Wallet implements CctpWalletContext {
 
   @override
   Future<String> sparkAddress() async => spark;
+
+  String predictions = _pmWallet;
+
+  @override
+  Future<String> predictionsAddress() async => predictions;
 }
 
 void main() {
@@ -525,6 +542,84 @@ void main() {
     // A later pass never reports the outcome twice.
     await service().reconcile(op, force: true);
     expect(named('hyperliquid_withdraw_completed').length, 1);
+  });
+
+  group('straight to the final destination', () {
+    test('Bitcoin: its own instruction, the BTC route, own Spark', () async {
+      orchestra.held = _record(destination: InvestingWithdrawalDestination.bitcoin);
+      reads.ledger = (nonce) => nonce == sender.nonce ? _ledgerHash : null;
+      final result = await service().withdrawTo(
+          destination: InvestingWithdrawalDestination.bitcoin,
+          usd: 5.25,
+          stepUp: approve(),
+          purpose: 'cash_pull');
+      expect(result.sentUsd, 5.25);
+      expect(orchestra.destinations, [InvestingWithdrawalDestination.bitcoin]);
+      expect(sender.sends.single.destination, _standing);
+      final intent = intents.single;
+      expect(intent.flow, SettlementFlow.investingToBtcCctp);
+      expect(intent.destination, '$_spark|$kHypercoreCctpBtcRouteVersion');
+      expect(intent.routeLabel,
+          cctpRouteFor(InvestingWithdrawalDestination.bitcoin).label);
+      final op = (await store.all()).single;
+      expect(op.flow, SettlementFlow.investingToBtcCctp);
+      expect(op.recipient?.address, _spark);
+      final row = rows.byId['$kCctpRowPrefix${op.operationId}']!;
+      expect(row.coinTo, 'BTC');
+      expect(row.networkTo, 'SPARK');
+    });
+
+    test('Predictions: the own deposit wallet on Polygon USDC.e', () async {
+      orchestra.held = _record(
+          recipient: _pmWallet,
+          purpose: 'investments_internal',
+          destination: InvestingWithdrawalDestination.predictions);
+      reads.ledger = (nonce) => nonce == sender.nonce ? _ledgerHash : null;
+      await service().withdrawTo(
+          destination: InvestingWithdrawalDestination.predictions,
+          usd: 5.25,
+          stepUp: approve(),
+          purpose: 'cash_pull');
+      final op = (await store.all()).single;
+      expect(op.flow, SettlementFlow.investingToPredictionsCctp);
+      expect(op.recipient?.kind, OwnedAddressKind.polymarketDepositWallet);
+      expect(intents.single.destination,
+          '$_pmWallet|$kHypercoreCctpPredictionsRouteVersion');
+      final row = rows.byId['$kCctpRowPrefix${op.operationId}']!;
+      expect(row.coinTo, 'USDC.e');
+      expect(row.networkTo, 'POLYGON');
+    });
+
+    test('an instruction pinned to another rule is never paid', () async {
+      // A Bitcoin instruction that came back with the deposit rule.
+      orchestra.held = _record(
+          purpose: 'cross_chain_deposit',
+          destination: InvestingWithdrawalDestination.bitcoin);
+      await expectLater(
+          service().withdrawTo(
+              destination: InvestingWithdrawalDestination.bitcoin,
+              usd: 5,
+              stepUp: approve()),
+          throwsA(isA<CctpUnavailable>().having((e) => e.reason, 'reason',
+              CctpUnavailableReason.feeTermsUnavailable)));
+      // The Dollars instruction never stands in for Bitcoin.
+      orchestra.held = _record();
+      await expectLater(
+          service().withdrawTo(
+              destination: InvestingWithdrawalDestination.bitcoin,
+              usd: 5,
+              stepUp: approve()),
+          throwsA(isA<CctpUnavailable>()));
+      expect(sender.sends, isEmpty);
+      expect(intents, isEmpty);
+    });
+
+    test('Predictions needs polymarket.deposit too', () {
+      expect(cctpCapabilitiesFor(InvestingWithdrawalDestination.predictions),
+          containsAll(['hyperliquid.withdraw', 'polymarket.deposit']));
+      expect(cctpCapabilitiesFor(InvestingWithdrawalDestination.bitcoin),
+          ['hyperliquid.withdraw']);
+    });
   });
 
   group('runtime policy', () {

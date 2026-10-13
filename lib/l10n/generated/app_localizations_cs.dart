@@ -10727,4 +10727,19 @@ class AppLocalizationsCs extends AppLocalizations {
   @override
   String get betMarketClosingNoFunding =>
       'Tento trh se uzavře dřív, než by peníze dorazily. Nic nebylo přesunuto.';
+
+  @override
+  String multiMoveSendTitle(String amount) {
+    return 'Send $amount';
+  }
+
+  @override
+  String multiMoveTitle(String amount, String destination) {
+    return 'Move $amount to $destination';
+  }
+
+  @override
+  String multiMoveDeliveredRemaining(String delivered, String remaining) {
+    return '$delivered delivered · $remaining remaining';
+  }
 }

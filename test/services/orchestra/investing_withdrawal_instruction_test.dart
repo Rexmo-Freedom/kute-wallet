@@ -28,6 +28,10 @@ void main() {
   late List<Map<String, dynamic>?> bodies;
   late Map<String, Map<String, dynamic>> provider;
   late String purpose;
+  late Map<String, String> purposes;
+  late List<String?> keys;
+  late bool linked;
+  late Future<bool> Function(String) originalLinked;
   late int? refuseWith;
   late Future<Map<String, dynamic>> Function(
       {required String operation,
@@ -57,6 +61,11 @@ void main() {
     bodies = [];
     provider = {};
     purpose = 'venue_withdrawal';
+    purposes = {'polygon:USDC.e': 'investments_internal'};
+    keys = [];
+    linked = true;
+    originalLinked = StandingDepositStore.polymarketLinked;
+    StandingDepositStore.polymarketLinked = (_) async => linked;
     refuseWith = null;
     original = StandingDepositStore.standingRequest;
     StandingDepositStore.standingRequest = (
@@ -78,19 +87,24 @@ void main() {
           return {'references': <Map<String, dynamic>>[]};
         case 'register':
           bodies.add(body);
+          keys.add(idempotencyKey);
           if (refuseWith != null) {
             throw StandingRequestException(refuseWith!, 'bad request');
           }
           final revision =
               RuntimeCapabilitiesService.instance.snapshot!.revision;
           final investing = body?['kuteRoute'] == 'investing_withdrawal';
+          final to = body?['destination'] as Map?;
+          final key = '${to?['chain']}:${to?['asset']}';
           return provider[label!] ??= {
             'standingAddressId': 'sda_$label',
             'enabled': true,
             'addresses': {'arbitrum': _arbitrum, 'base': _base},
             'kuteFeePolicy': {
               'revision': revision,
-              'purpose': investing ? purpose : 'usdb_swap_deposit',
+              'purpose': investing
+                  ? (purposes[key] ?? purpose)
+                  : 'usdb_swap_deposit',
               'appFeeBps': investing ? 50 : 0,
             },
           };
@@ -110,6 +124,7 @@ void main() {
 
   tearDown(() async {
     StandingDepositStore.standingRequest = original;
+    StandingDepositStore.polymarketLinked = originalLinked;
     RuntimeCapabilitiesService.debugInstance = null;
     AffiliateService.debugSessionToken = null;
     await Hive.close();
@@ -154,6 +169,127 @@ void main() {
     purpose = 'usdb_swap_deposit';
     await expectLater(
         instruction(), throwsA(isA<InvestingWithdrawalTermsUnavailable>()));
+  });
+
+  group('one instruction per destination', () {
+    const pm = '0x9999999999999999999999999999999999999999';
+
+    Future<StandingDepositRecord> to(InvestingWithdrawalDestination d) =>
+        StandingDepositStore.investingWithdrawalInstruction(
+            walletId: 'a',
+            recipient: d == InvestingWithdrawalDestination.predictions
+                ? pm
+                : _spark,
+            refundAddress: _eoa,
+            wanted: () => true,
+            destination: d);
+
+    test('each destination registers its own label with its own body',
+        () async {
+      await usePolicy(5);
+      final dollars = await to(InvestingWithdrawalDestination.dollars);
+      final bitcoin = await to(InvestingWithdrawalDestination.bitcoin);
+      final predictions = await to(InvestingWithdrawalDestination.predictions);
+      expect({dollars.label, bitcoin.label, predictions.label}, hasLength(3),
+          reason: 'a label never serves a second destination (409)');
+      expect(
+          [
+            for (final r in [dollars, bitcoin, predictions])
+              StandingDepositStore.isInvestingWithdrawalLabel(r.label)
+          ],
+          everyElement(isTrue));
+      expect(bodies.map((b) => b!['destination']), [
+        {'chain': 'spark', 'asset': 'USDB', 'address': _spark},
+        {'chain': 'spark', 'asset': 'BTC', 'address': _spark},
+        {'chain': 'polygon', 'asset': 'USDC.e', 'address': pm},
+      ]);
+      expect(bodies.map((b) => b!['kuteRoute']),
+          everyElement('investing_withdrawal'));
+      expect(bodies.map((b) => b!['refundAddresses']),
+          everyElement({'arbitrum': _eoa}));
+      expect(bitcoin.asset, 'BTC');
+      expect(predictions.chain, 'polygon');
+      expect(
+          StandingDepositStore.investingWithdrawalAddress(bitcoin, _spark,
+              destination: InvestingWithdrawalDestination.bitcoin),
+          _arbitrum);
+      expect(
+          StandingDepositStore.investingWithdrawalAddress(predictions, pm,
+              destination: InvestingWithdrawalDestination.predictions),
+          _arbitrum);
+      // Never one destination's instruction for another.
+      expect(
+          StandingDepositStore.investingWithdrawalAddress(bitcoin, _spark),
+          isNull);
+      // Reused per destination: no second registration.
+      await to(InvestingWithdrawalDestination.bitcoin);
+      expect(calls.where((c) => c.startsWith('register')), hasLength(3));
+    });
+
+    test('the purpose sets per destination', () {
+      expect(InvestingWithdrawalDestination.dollars.feePurposes,
+          {'venue_withdrawal', 'investments_internal'});
+      expect(InvestingWithdrawalDestination.bitcoin.feePurposes,
+          {'venue_withdrawal', 'investments_internal'});
+      expect(InvestingWithdrawalDestination.predictions.feePurposes,
+          {'investments_internal', 'venue_withdrawal'});
+    });
+
+    test('the returned purpose is checked per destination', () async {
+      await usePolicy(5);
+      // Bitcoin pinned to its plain deposit rule: refused.
+      purpose = 'cross_chain_deposit';
+      await expectLater(to(InvestingWithdrawalDestination.bitcoin),
+          throwsA(isA<InvestingWithdrawalTermsUnavailable>()));
+      // Predictions pinned to the Predictions deposit rule: refused.
+      purposes['polygon:USDC.e'] = 'predictions_deposit';
+      await expectLater(to(InvestingWithdrawalDestination.predictions),
+          throwsA(isA<InvestingWithdrawalTermsUnavailable>()));
+    });
+
+    test('either accepted rule is used, on Spark and on Polygon', () async {
+      await usePolicy(5);
+      purpose = 'investments_internal';
+      expect(
+          StandingDepositStore.investingWithdrawalAddress(
+              await to(InvestingWithdrawalDestination.bitcoin), _spark,
+              destination: InvestingWithdrawalDestination.bitcoin),
+          _arbitrum);
+      purposes['polygon:USDC.e'] = 'venue_withdrawal';
+      expect(
+          StandingDepositStore.investingWithdrawalAddress(
+              await to(InvestingWithdrawalDestination.predictions), pm,
+              destination: InvestingWithdrawalDestination.predictions),
+          _arbitrum);
+    });
+
+    test('Predictions registers only once the Polymarket wallet is linked',
+        () async {
+      await usePolicy(5);
+      linked = false;
+      await expectLater(to(InvestingWithdrawalDestination.predictions),
+          throwsA(isA<InvestingWithdrawalTermsUnavailable>()));
+      expect(calls.where((c) => c.startsWith('register')), isEmpty,
+          reason: 'nothing registered before the link: via Dollars');
+      linked = true;
+      await to(InvestingWithdrawalDestination.predictions);
+      // Never the same key as an unlinked registration (409).
+      expect(keys.single, endsWith('-linked'));
+    });
+
+    test('past Dollars any refusal means: go through Dollars', () async {
+      await usePolicy(5);
+      for (final status in [400, 403, 409, 422, 500, 502]) {
+        refuseWith = status;
+        await expectLater(to(InvestingWithdrawalDestination.bitcoin),
+            throwsA(isA<InvestingWithdrawalTermsUnavailable>()),
+            reason: '$status');
+      }
+      // Dollars keep their own rule: a provider outage is not a refusal.
+      refuseWith = 502;
+      await expectLater(to(InvestingWithdrawalDestination.dollars),
+          throwsA(isA<StandingRequestException>()));
+    });
   });
 
   test('Dollars Receive never shows the Investing-withdrawal address',

@@ -62,6 +62,8 @@ import 'package:kute/models/swap_order_model.dart';
 import 'package:kute/providers/auth_provider.dart';
 import 'package:kute/providers/hyperliquid_account_provider.dart'
     show hyperliquidAddressProvider;
+import 'package:kute/providers/polymarket_trading_provider.dart'
+    show polymarketTradingProvider;
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/spark_address_provider.dart'
     show sparkSelfAddressProvider;
@@ -189,6 +191,56 @@ final RouteKey kArbitrumUsdcToDollarsRoute = RouteKey(
 /// CCTP watcher owns these rows; the Orchestra status poller never asks
 /// about them (`SwapOrder.shouldPollOrchestra`).
 const String kCctpRowPrefix = 'cctp-';
+
+/// The HyperCore → [destination] route a CCTP move stands for.
+RouteKey cctpRouteFor(InvestingWithdrawalDestination destination) =>
+    destination == InvestingWithdrawalDestination.dollars
+        ? kHypercoreToSparkUsdRoute
+        : RouteKey(
+            fromChain: 'hypercore',
+            fromAsset: 'USDC',
+            toChain: destination.chain,
+            toAsset: destination.asset);
+
+/// The settlement flow a CCTP move into [destination] is recorded under.
+SettlementFlow cctpFlowFor(InvestingWithdrawalDestination destination) =>
+    switch (destination) {
+      InvestingWithdrawalDestination.dollars =>
+        SettlementFlow.investingToDollarsCctp,
+      InvestingWithdrawalDestination.bitcoin =>
+        SettlementFlow.investingToBtcCctp,
+      InvestingWithdrawalDestination.predictions =>
+        SettlementFlow.investingToPredictionsCctp,
+    };
+
+/// The destination a CCTP operation was recorded for.
+InvestingWithdrawalDestination cctpDestinationOf(SettlementFlow flow) =>
+    switch (flow) {
+      SettlementFlow.investingToBtcCctp => InvestingWithdrawalDestination.bitcoin,
+      SettlementFlow.investingToPredictionsCctp =>
+        InvestingWithdrawalDestination.predictions,
+      _ => InvestingWithdrawalDestination.dollars,
+    };
+
+/// The runtime-policy capabilities a CCTP move into [destination] needs:
+/// what Orchestra's own quote would ask of the HyperCore route
+/// (`hyperliquid.withdraw`, plus `polymarket.deposit` into Predictions).
+List<String> cctpCapabilitiesFor(InvestingWithdrawalDestination destination) =>
+    destination == InvestingWithdrawalDestination.dollars
+        ? kCctpCapabilities
+        : orchestraCapabilityRequirements(
+            sourceChain: 'hypercore',
+            sourceAsset: 'USDC',
+            destinationChain: destination.chain,
+            destinationAsset: destination.asset);
+
+/// The analytics `destination` of a CCTP move into [destination].
+String cctpAnalyticsDestination(InvestingWithdrawalDestination destination) =>
+    switch (destination) {
+      InvestingWithdrawalDestination.dollars => 'usd',
+      InvestingWithdrawalDestination.bitcoin => 'btc',
+      InvestingWithdrawalDestination.predictions => 'predictions',
+    };
 
 // ───────────────────────────── outcomes ──────────────────────────────
 
@@ -438,6 +490,8 @@ abstract interface class CctpOrchestraPort {
     required String recipient,
     required String refundAddress,
     required bool Function() wanted,
+    InvestingWithdrawalDestination destination =
+        InvestingWithdrawalDestination.dollars,
   });
 
   Future<StandingDepositRecord?> record(String walletId, String label);
@@ -449,7 +503,9 @@ abstract interface class CctpOrchestraPort {
   Future<OrchestraOrder?> order(String orderId);
 
   /// The route's live floor in dollars, or null when unreachable.
-  Future<double?> minimumUsd();
+  Future<double?> minimumUsd(
+      {InvestingWithdrawalDestination destination =
+          InvestingWithdrawalDestination.dollars});
 
   void logPending(SwapOrder row);
 }
@@ -465,6 +521,10 @@ abstract interface class CctpWalletContext {
   void ensureSpending(String walletId);
   Future<String> investingAddress();
   Future<String> sparkAddress();
+
+  /// The wallet's own Predictions account (its Polymarket deposit
+  /// wallet), or '' when it is not set up.
+  Future<String> predictionsAddress();
 }
 
 // ───────────────────────────── service ───────────────────────────────
@@ -531,20 +591,49 @@ class HypercoreCctpWithdrawal {
     required double usd,
     required SettlementStepUpHook stepUp,
     String purpose = 'manual_move',
+  }) =>
+      withdrawTo(
+          destination: InvestingWithdrawalDestination.dollars,
+          usd: usd,
+          stepUp: stepUp,
+          purpose: purpose);
+
+  /// Moves [usd] of Investing cash by CCTP straight to [destination]:
+  /// Dollars or Bitcoin on the wallet's own Spark address, or the
+  /// wallet's own Predictions account. Each destination pays its own
+  /// standing instruction, registered with the destination's fee rule.
+  /// Throws [CctpUnavailable] (the instruction refused included, as
+  /// [CctpUnavailableReason.feeTermsUnavailable]) or the step-up's
+  /// [SettlementStopped] before anything is signed.
+  Future<CctpWithdrawalResult> withdrawTo({
+    required InvestingWithdrawalDestination destination,
+    required double usd,
+    required SettlementStepUpHook stepUp,
+    String purpose = 'manual_move',
   }) async {
     final walletId = wallet.spendingWalletId();
+    final predictions =
+        destination == InvestingWithdrawalDestination.predictions;
+    final flow = cctpFlowFor(destination);
+    final route = cctpRouteFor(destination);
+    final routeVersion = hypercoreCctpRouteVersion(destination);
     final String account;
     final String spark;
     try {
       account = await wallet.investingAddress();
       wallet.ensureSpending(walletId);
-      spark = await wallet.sparkAddress();
+      spark = predictions
+          ? await wallet.predictionsAddress()
+          : await wallet.sparkAddress();
       wallet.ensureSpending(walletId);
     } catch (_) {
       throw const WalletGuardException(WalletGuardReason.ownAddressUnavailable,
           field: 'wallet');
     }
-    if (!isEvmAddress(account) || spark.isEmpty) {
+    if (!isEvmAddress(account) ||
+        spark.isEmpty ||
+        (predictions &&
+            (!isEvmAddress(spark) || sameEvmAddress(spark, account)))) {
       throw const WalletGuardException(WalletGuardReason.ownAddressUnavailable,
           field: 'wallet');
     }
@@ -553,7 +642,7 @@ class HypercoreCctpWithdrawal {
     // Orchestra: the deposit match must never be ambiguous.
     for (final op in await store.pendingForReconcile()) {
       if (op.walletId == walletId &&
-          op.flow == SettlementFlow.investingToDollarsCctp &&
+          op.flow.isInvestingCctp &&
           (op.stage == SettlementStage.created ||
               op.stage == SettlementStage.broadcasting ||
               op.stage == SettlementStage.fundingUnknown ||
@@ -567,8 +656,8 @@ class HypercoreCctpWithdrawal {
     // table (`hyperliquid.withdraw` is an exit, allowed) unless a policy
     // seen earlier denied it.
     try {
-      await _policy()
-          .ensureAllAllowed(kCctpCapabilities, maxAge: kCctpPolicyMaxAge);
+      await _policy().ensureAllAllowed(cctpCapabilitiesFor(destination),
+          maxAge: kCctpPolicyMaxAge);
     } on CapabilityUnavailableException catch (e) {
       _unavailable(CctpUnavailableReason.capability, usd,
           decision: e.decision);
@@ -582,14 +671,16 @@ class HypercoreCctpWithdrawal {
           walletId: walletId,
           recipient: spark,
           refundAddress: account,
-          wanted: () => wallet.spendingWalletId() == walletId);
+          wanted: () => wallet.spendingWalletId() == walletId,
+          destination: destination);
     } on InvestingWithdrawalTermsUnavailable {
       _unavailable(CctpUnavailableReason.feeTermsUnavailable, usd);
     }
     wallet.ensureSpending(walletId);
-    final destination =
-        StandingDepositStore.investingWithdrawalAddress(record, spark);
-    if (destination == null) {
+    final depositAddress = StandingDepositStore.investingWithdrawalAddress(
+        record, spark,
+        destination: destination);
+    if (depositAddress == null) {
       _unavailable(CctpUnavailableReason.feeTermsUnavailable, usd);
     }
 
@@ -616,7 +707,7 @@ class HypercoreCctpWithdrawal {
       _unavailable(CctpUnavailableReason.feeReadFailed, usd);
     }
     final minimum = await orchestra
-            .minimumUsd()
+            .minimumUsd(destination: destination)
             .catchError((Object _) => null) ??
         kCctpFallbackMinimumUsd;
     final blocker = cctpPreflightBlocker(
@@ -632,10 +723,10 @@ class HypercoreCctpWithdrawal {
     // through its own standing instruction; the intent names that, as the
     // normal route's does.
     final intent = SettlementAuthorizationIntent(
-      flow: SettlementFlow.investingToDollarsCctp,
+      flow: flow,
       walletId: walletId,
-      destination: '$spark|$kHypercoreCctpRouteVersion',
-      routeLabel: kHypercoreToSparkUsdRoute.label,
+      destination: '$spark|$routeVersion',
+      routeLabel: route.label,
       amountIn: amount8,
       minReceive: (amount6 - fee6) * BigInt.from(9900) ~/ BigInt.from(10000),
       maxFeeBps: 100,
@@ -659,12 +750,15 @@ class HypercoreCctpWithdrawal {
       operationId: OrchestraService.generateIdempotencyKey(),
       walletId: walletId,
       accountKind: SettlementAccountKind.hlHot,
-      flow: SettlementFlow.investingToDollarsCctp,
-      routeVersion: kHypercoreCctpRouteVersion,
-      route: kHypercoreToSparkUsdRoute,
+      flow: flow,
+      routeVersion: routeVersion,
+      route: route,
       amountInBaseUnits: amount8.toString(),
       recipient: SettlementAddressRef(
-          address: spark, kind: OwnedAddressKind.sparkSelf),
+          address: spark,
+          kind: predictions
+              ? OwnedAddressKind.polymarketDepositWallet
+              : OwnedAddressKind.sparkSelf),
       refund: SettlementAddressRef(
           address: account, kind: OwnedAddressKind.hyperliquidEoa),
       stage: SettlementStage.created,
@@ -673,7 +767,8 @@ class HypercoreCctpWithdrawal {
       raw: {
         'cctp': {
           'label': record.label,
-          'depositAddress': destination,
+          'depositAddress': depositAddress,
+          'destination': destination.key,
           'domain': kCctpArbitrumDomain,
           'forwardFee6': fee6.toString(),
           'amount6': amount6.toString(),
@@ -686,14 +781,15 @@ class HypercoreCctpWithdrawal {
     ));
     TrackingService.settlementOperationStarted(
         flow: op.flow.code,
-        routeVersion: kHypercoreCctpRouteVersion,
+        routeVersion: routeVersion,
         amountUsd: sentUsd);
     final lease = store.acquireLease(op.operationId);
     final rowId = rowIdFor(op.operationId);
     await rows.put(_pendingRow(
         id: rowId,
         op: op,
-        destination: destination,
+        destination: depositAddress,
+        target: destination,
         spark: spark,
         account: account,
         amount6: amount6,
@@ -703,7 +799,7 @@ class HypercoreCctpWithdrawal {
       nonce = await sender.send(
         walletId: walletId,
         account: account,
-        destination: destination,
+        destination: depositAddress,
         amount8: amount8,
         domain: kCctpArbitrumDomain,
         token: cctpTokenWire(tokenForm),
@@ -828,7 +924,7 @@ class HypercoreCctpWithdrawal {
   /// settlement reconciler driver on start, resume, unlock and each sync.
   /// Never signs or sends.
   Future<void> reconcile(SettlementOperation op, {bool force = false}) async {
-    if (op.flow != SettlementFlow.investingToDollarsCctp) return;
+    if (!op.flow.isInvestingCctp) return;
     if (op.stage.isTerminal) return;
     if (!_running.add(op.operationId)) return;
     try {
@@ -984,10 +1080,13 @@ class HypercoreCctpWithdrawal {
     if (orderId is String && orderId.startsWith('ord_')) {
       final order = await orchestra.order(orderId);
       final status = order?.status ?? '${deposit['status']}';
+      final evmRecipient = record.chain != 'spark';
       if (order != null &&
           (order.id != orderId ||
               (order.recipientAddress != null &&
-                  !sameSparkAddress(order.recipientAddress!, spark)))) {
+                  !(evmRecipient
+                      ? sameEvmAddress(order.recipientAddress!, spark)
+                      : sameSparkAddress(order.recipientAddress!, spark))))) {
         return; // Not this wallet's dollars: never adopt it.
       }
       if (current.orderId == null) {
@@ -1079,6 +1178,7 @@ class HypercoreCctpWithdrawal {
       return;
     }
     final usd = op.amountIn.toDouble() / 1e8;
+    final destination = cctpAnalyticsDestination(cctpDestinationOf(op.flow));
     TrackingService.settlementTerminal(
       route: op.route.label,
       outcome: stage.name,
@@ -1090,7 +1190,7 @@ class HypercoreCctpWithdrawal {
     if (ok) {
       TrackingService.hyperliquidWithdrawCompleted(
           amountUsd: usd,
-          destination: 'usd',
+          destination: destination,
           walletKind: 'hot',
           route: 'cctp',
           orderId: orderId);
@@ -1098,7 +1198,7 @@ class HypercoreCctpWithdrawal {
       TrackingService.hyperliquidWithdrawFailed(
           reason: stage.name,
           amountUsd: usd,
-          destination: 'usd',
+          destination: destination,
           walletKind: 'hot',
           route: 'cctp');
     }
@@ -1124,8 +1224,7 @@ class HypercoreCctpWithdrawal {
       SettlementStore store, SettlementOperation op, String key) async {
     final out = <String>{};
     for (final other in await store.all()) {
-      if (other.operationId == op.operationId ||
-          other.flow != SettlementFlow.investingToDollarsCctp) {
+      if (other.operationId == op.operationId || !other.flow.isInvestingCctp) {
         continue;
       }
       final value = _cctp(other)[key];
@@ -1227,6 +1326,7 @@ class HypercoreCctpWithdrawal {
     required String id,
     required SettlementOperation op,
     required String destination,
+    required InvestingWithdrawalDestination target,
     required String spark,
     required String account,
     required BigInt amount6,
@@ -1236,11 +1336,14 @@ class HypercoreCctpWithdrawal {
         id: id,
         coinFrom: 'USDC',
         networkFrom: 'HYPERCORE',
-        coinTo: 'USDB',
-        networkTo: 'SPARK',
+        coinTo: target.asset,
+        networkTo: target.chain.toUpperCase(),
         depositAddress: destination,
         depositAmount: (amount6.toDouble() / 1e6).toStringAsFixed(2),
-        withdrawalAmount: ((amount6 - fee6).toDouble() / 1e6).toStringAsFixed(2),
+        // Bitcoin's amount is the order's, once there is one.
+        withdrawalAmount: target == InvestingWithdrawalDestination.bitcoin
+            ? '0'
+            : ((amount6 - fee6).toDouble() / 1e6).toStringAsFixed(2),
         status: 'exchanging',
         timestamp: _clock().millisecondsSinceEpoch,
         withdrawalAddress: spark,
@@ -1251,7 +1354,7 @@ class HypercoreCctpWithdrawal {
         provider: 'Orchestra',
         walletId: op.walletId,
         operationId: op.operationId,
-        routeVersion: kHypercoreCctpRouteVersion,
+        routeVersion: hypercoreCctpRouteVersion(target),
       );
 }
 
@@ -1504,12 +1607,15 @@ class LiveCctpOrchestraPort implements CctpOrchestraPort {
     required String recipient,
     required String refundAddress,
     required bool Function() wanted,
+    InvestingWithdrawalDestination destination =
+        InvestingWithdrawalDestination.dollars,
   }) =>
       StandingDepositStore.investingWithdrawalInstruction(
           walletId: walletId,
           recipient: recipient,
           refundAddress: refundAddress,
-          wanted: wanted);
+          wanted: wanted,
+          destination: destination);
 
   @override
   Future<StandingDepositRecord?> record(String walletId, String label) async =>
@@ -1532,9 +1638,17 @@ class LiveCctpOrchestraPort implements CctpOrchestraPort {
   }
 
   @override
-  Future<double?> minimumUsd() async {
+  Future<double?> minimumUsd(
+      {InvestingWithdrawalDestination destination =
+          InvestingWithdrawalDestination.dollars}) async {
     final limits = await OrchestraService.getRouteLimits(
-            kArbitrumUsdcToDollarsRoute)
+            destination == InvestingWithdrawalDestination.dollars
+                ? kArbitrumUsdcToDollarsRoute
+                : RouteKey(
+                    fromChain: 'arbitrum',
+                    fromAsset: 'USDC',
+                    toChain: destination.chain,
+                    toAsset: destination.asset))
         .timeout(const Duration(seconds: 8), onTimeout: () => null);
     final cents = limits?.exactInMinUsdCents ?? limits?.orderMinUsdCents;
     return cents == null ? null : cents / 100;
@@ -1608,6 +1722,15 @@ class RiverpodCctpWalletContext implements CctpWalletContext {
   Future<String> sparkAddress() async {
     final String? address = await _read(sparkSelfAddressProvider.future);
     return address ?? '';
+  }
+
+  @override
+  Future<String> predictionsAddress() async {
+    final live =
+        _read(polymarketTradingProvider).valueOrNull?.proxyWalletAddress;
+    if (live != null && live.isNotEmpty) return live;
+    return await _read(polymarketTradingProvider.notifier).depositAddress() ??
+        '';
   }
 }
 

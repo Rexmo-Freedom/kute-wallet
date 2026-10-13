@@ -310,7 +310,7 @@ class SettlementReconcilerDriver {
     }
     for (final op in pending) {
       try {
-        if (op.flow == SettlementFlow.investingToDollarsCctp) {
+        if (op.flow.isInvestingCctp) {
           await _cctp?.call(op);
           continue;
         }

@@ -309,6 +309,7 @@ move_step
 move_submitted
 move_withdraw_destination_selected
 multi_source_move_finished
+multi_source_move_retry_tapped
 multi_source_move_started
 notification_subscribed
 onboarding_completed

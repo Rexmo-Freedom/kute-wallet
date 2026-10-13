@@ -10724,4 +10724,19 @@ class AppLocalizationsEt extends AppLocalizations {
   @override
   String get betMarketClosingNoFunding =>
       'See turg sulgub enne, kui raha jõuaks kohale. Midagi ei liigutatud.';
+
+  @override
+  String multiMoveSendTitle(String amount) {
+    return 'Send $amount';
+  }
+
+  @override
+  String multiMoveTitle(String amount, String destination) {
+    return 'Move $amount to $destination';
+  }
+
+  @override
+  String multiMoveDeliveredRemaining(String delivered, String remaining) {
+    return '$delivered delivered · $remaining remaining';
+  }
 }

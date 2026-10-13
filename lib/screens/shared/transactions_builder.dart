@@ -1,4 +1,13 @@
 import 'package:kute/screens/shared/orchestra_swap_refund_action.dart';
+import 'package:kute/screens/shared/multi_source_move_activity.dart';
+import 'package:kute/screens/shared/venue_cash_pull_copy.dart';
+import 'package:kute/services/one_balance/multi_source_move.dart';
+import 'package:kute/services/one_balance/venue_cash_source.dart'
+    show
+        VenueCashDestination,
+        VenueCashFor,
+        VenueCashPullOutcome,
+        venueCashPullerProvider;
 import 'package:kute/screens/shared/activity_row_copy.dart';
 export 'package:kute/screens/shared/activity_row_copy.dart' show ActivityFlow;
 import 'package:kute/helpers/swap_activity.dart';
@@ -280,11 +289,18 @@ class _TransactionListState extends ConsumerState<TransactionList> {
     // What this surface shows, one row per user intent. The surface
     // filters run FIRST and the leg collapse second, so a leg is only ever
     // hidden behind a row that is still on screen (see [assembleActivityRows]).
+    // The spending account's multi-source moves (one row each). Another
+    // wallet's list (the override) never carries them.
+    final moves = override == null
+        ? ref.watch(multiSourceMovesProvider)
+        : const <MultiSourceMove>[];
     final allSorted = assembleActivityRows(
       homeTransactionsSorted,
       ownAddresses: activityOwnSettleAddresses(ref),
       isHardwareOrWatchOnly: isHardwareOrWatchOnly,
       onlyUsdb: widget.onlyUsdb,
+      moves: moves,
+      walletId: override ?? ref.read(settingsProvider).activeWalletId,
     );
 
     final recentTransactions = widget.showAll
@@ -1187,6 +1203,8 @@ List<BaseTransaction> assembleActivityRows(
   required bool onlyUsdb,
   bool keepVenueMoves = false,
   SwapActivityKind Function(SwapOrder order) classify = swapActivityFor,
+  List<MultiSourceMove> moves = const [],
+  String? walletId,
 }) {
   // Home activity is bitcoin-anchored (user decision): pool deposits
   // and withdrawals stay (they move wallet funds), but pool-internal
@@ -1288,12 +1306,17 @@ List<BaseTransaction> assembleActivityRows(
   }
 
   // One row per user intent, judged only against rows still on the list.
-  return _collapsePolymarketFlows(
+  final collapsed = _collapsePolymarketFlows(
     rows,
     ownAddresses: ownAddresses,
     keepVenueMoves: keepVenueMoves,
     classify: classify,
   );
+  // An action that took money from more than one place is one row too:
+  // its legs fold into it (multi_source_move_activity.dart).
+  if (moves.isEmpty || isHardwareOrWatchOnly) return collapsed;
+  return collapseMultiSourceMoves(collapsed, moves,
+      onlyUsdb: onlyUsdb, walletId: walletId);
 }
 
 /// ─── Polymarket / Orchestra flow collapse ────────────────────────────
@@ -1611,6 +1634,9 @@ Widget _buildUnifiedTransactionItem(
   if (transaction is OutlogicTransaction) {
     return _buildOutlogicItem(transaction, context, ref);
   }
+  if (transaction is MultiSourceMoveTransaction) {
+    return _buildMultiSourceMoveItem(transaction, context, ref);
+  }
   return const SizedBox.shrink();
 }
 
@@ -1681,6 +1707,8 @@ Future<void> openTransactionDetails(
     _showPolymarketUsdcReceiveDetails(context, ref, transaction);
   } else if (transaction is OutlogicTransaction) {
     _showOutlogicTxDetails(context, ref, transaction);
+  } else if (transaction is MultiSourceMoveTransaction) {
+    _showMultiSourceMoveDetails(context, ref, transaction);
   }
 }
 
@@ -5584,6 +5612,195 @@ class _LedgerSettlementLink extends ConsumerWidget {
             foregroundColor: c.textPrimary,
             side: BorderSide(color: c.border),
             shape: RoundedRectangleBorder(borderRadius: AppRadius.buttonBorder),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── One row per multi-source move ───────────────────────────────────
+
+/// The mark of a move's destination, the one its own rows carry.
+Widget _multiSourceMoveIcon(MultiSourceMove move) =>
+    switch (move.destination) {
+      VenueCashDestination.bitcoin =>
+        const _AssetTxIcon(assetCode: 'BTC', isSend: false),
+      VenueCashDestination.predictions => const _PolymarketTxIcon(
+          isSend: true, type: ActivityType.deposit),
+      VenueCashDestination.investing => SizedBox(
+          width: 44.sp,
+          height: 44.sp,
+          child: AssetIcon(assetCode: 'Trading', size: 44.sp),
+        ),
+      VenueCashDestination.dollars => move.forAction == VenueCashFor.send &&
+              move.finalOperationId != null
+          ? const _AssetTxIcon(assetCode: 'USD', isSend: true)
+          : SizedBox(
+              width: 44.sp,
+              height: 44.sp,
+              child: AssetIcon(assetCode: 'USD', size: 44.sp),
+            ),
+    };
+
+/// The status a move's row leads with: what is left after a failed leg,
+/// or the legs still on their way. Null once every leg has settled.
+_RowStatus? _multiSourceMoveStatus(
+    BuildContext context, MultiSourceMoveTransaction tx) {
+  if (tx.partial) {
+    return _RowStatus(
+        text: context.l10n.activityNeedsAttention,
+        color: AppColors.marketDown);
+  }
+  if (!tx.complete) {
+    return _RowStatus(
+        text: context.l10n.pending, color: context.colors.warning);
+  }
+  return null;
+}
+
+Widget _buildMultiSourceMoveItem(
+    MultiSourceMoveTransaction tx, BuildContext context, WidgetRef ref) {
+  final move = tx.move;
+  final l10n = context.l10n;
+  final sent = move.forAction == VenueCashFor.send &&
+      move.finalOperationId != null;
+  final venues = {for (final l in move.okLegs) l.venue}
+      .map((v) => venueCashVenueName(l10n, v))
+      .join(' · ');
+  var icon = _multiSourceMoveIcon(move);
+  if (!tx.complete && !tx.partial) icon = _PendingIconWrapper(child: icon);
+  return _TransactionRow(
+    onTap: () => _showMultiSourceMoveDetails(context, ref, tx),
+    leading: icon,
+    title: _RowTitle(multiSourceMoveTitle(l10n, move)),
+    subtitle:
+        _withTime(venues.isEmpty ? '' : l10n.activityRowFrom(venues), tx.timestamp),
+    status: _multiSourceMoveStatus(context, tx),
+    flow: sent ? ActivityFlow.moneyOut : ActivityFlow.neutral,
+    amount: formatPolyAmount(ref, move.totalUsd),
+    fiatAmount: multiSourceMoveProgress(l10n, move) ?? '',
+  );
+}
+
+void _showMultiSourceMoveDetails(
+    BuildContext context, WidgetRef ref, MultiSourceMoveTransaction tx) {
+  TrackingService.transactionDetailViewed('multi_source_move');
+  showAppBottomSheet(
+    context: context,
+    builder: (ctx) => _MultiSourceMoveDetailSheet(tx: tx),
+  );
+}
+
+/// The move's detail: its legs, each with where it came from, what it
+/// moved and where it is; what was delivered and what is left after a
+/// failed leg, with Retry for the remainder.
+class _MultiSourceMoveDetailSheet extends ConsumerStatefulWidget {
+  const _MultiSourceMoveDetailSheet({required this.tx});
+
+  final MultiSourceMoveTransaction tx;
+
+  @override
+  ConsumerState<_MultiSourceMoveDetailSheet> createState() =>
+      _MultiSourceMoveDetailSheetState();
+}
+
+class _MultiSourceMoveDetailSheetState
+    extends ConsumerState<_MultiSourceMoveDetailSheet> {
+  Future<void> _retry(MultiSourceMove move) async {
+    trackMultiSourceMoveRetry(move.remainingUsd);
+    VenueCashPullOutcome? outcome;
+    try {
+      outcome = await ref.read(venueCashPullerProvider).retryMove(move.id);
+    } catch (_) {
+      outcome = null;
+    }
+    if (!mounted) return;
+    if (outcome == null || outcome.failedLegs.isNotEmpty || !outcome.plan.covers) {
+      showMessageSnackBar(
+          context: context,
+          message: (outcome == null
+                  ? null
+                  : venueCashStoppedText(context.l10n, outcome)) ??
+              context.l10n.errorCopyGeneric,
+          error: outcome == null || !outcome.anyPulled);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final l10n = context.l10n;
+    // The record as it stands now (a Retry adds legs while the sheet is up).
+    final moves = ref.watch(multiSourceMovesProvider);
+    final move =
+        moves.where((m) => m.id == widget.tx.move.id).firstOrNull ??
+            widget.tx.move;
+    final tx =
+        MultiSourceMoveTransaction(move: move, legRows: widget.tx.legRows);
+    final retrying = MultiSourceMoveStore.retrying(move.id);
+    String legStatus(MultiSourceMoveLeg leg) {
+      if (!leg.ok) return l10n.failed;
+      final row = tx.legRows
+          .where((r) =>
+              r.details.operationId != null &&
+              r.details.operationId == leg.operationId)
+          .firstOrNull;
+      return row != null && row.isComplete ? l10n.completed : l10n.pending;
+    }
+
+    return AppBottomSheetContainer(
+      maxHeight: 0.9,
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 24.w),
+        child: SheetScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TransactionDetailHeader(
+                row: _buildMultiSourceMoveItem(tx, context, ref),
+              ),
+              _sheetDetailRow(
+                  c, l10n.date, activitySheetDate(context, tx.timestamp)),
+              if (move.dollarsUsd > 0)
+                _sheetDetailRow(c, l10n.assetDollars,
+                    '\$${move.dollarsUsd.toStringAsFixed(2)}'),
+              for (final leg in move.legs)
+                _sheetDetailRow(
+                  c,
+                  venueCashVenueName(l10n, leg.venue),
+                  '\$${leg.usd.toStringAsFixed(2)} · ${legStatus(leg)}',
+                  valueColor: leg.ok ? null : AppColors.marketDown,
+                ),
+              if (move.partial) ...[
+                SizedBox(height: 16.h),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48.h,
+                  child: OutlinedButton(
+                    onPressed: retrying ? null : () => _retry(move),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: c.textPrimary,
+                      side: BorderSide(color: c.border),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: AppRadius.buttonBorder),
+                    ),
+                    child: retrying
+                        ? SizedBox(
+                            width: 18.sp,
+                            height: 18.sp,
+                            child: const CircularProgressIndicator.adaptive(
+                                strokeWidth: 2))
+                        : Text(
+                            l10n.retry,
+                            style: TextStyle(
+                                fontSize: 16.sp, fontWeight: FontWeight.w600),
+                          ),
+                  ),
+                ),
+              ],
+              SizedBox(height: 10.h),
+            ],
           ),
         ),
       ),

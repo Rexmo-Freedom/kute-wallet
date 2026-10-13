@@ -135,10 +135,13 @@ import 'package:kute/models/settlement_operation.dart'
     show SettlementAccountKind, SettlementFlow;
 import 'package:kute/services/one_balance/venue_cash_source.dart'
     show
+        VenueCashDestination,
         VenueCashFor,
         VenueCashPullOutcome,
         venueCashPullerProvider,
         venueCashReachProvider;
+import 'package:kute/services/one_balance/multi_source_move.dart'
+    show MultiSourceMoveStore, trackMultiSourceMoveRetry;
 import 'package:kute/screens/shared/venue_cash_pull_copy.dart';
 import 'package:kute/services/funding/hot_settlement.dart';
 import 'package:kute/screens/ledger/ledger_investment_gate.dart'
@@ -721,6 +724,17 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// While venue cash is coming home for a purchase: one line per leg,
   /// on the sheet's quiet caption line.
   String? _pullProgress;
+
+  /// The multi-source move a purchase's venue cash went under, and the
+  /// amount it was for: Retry of the same amount continues it (money
+  /// already moved is reused, never pulled twice) and the purchase joins
+  /// its one Activity row.
+  String? _moveId;
+  double? _moveUsd;
+
+  /// The last pull stopped with a leg that did not go: the button is
+  /// Retry for the remainder until the amount changes.
+  bool _retryPull = false;
 
   /// The live lock. Seeded from `widget.lockedSide` but mutable: the swap
   /// button inverts a venue exchange between withdraw (venue → BTC) and
@@ -3642,16 +3656,23 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     return units;
   }
 
-  /// Brings the shortfall of [usd] home from venue cash and waits,
-  /// bounded, for Dollars to hold it. True to go on with the purchase;
-  /// false when it stopped (the reason is on the caption line, whatever
-  /// was pulled stays in Dollars, and the purchase never goes twice).
-  Future<bool> _pullVenueCashForPurchase(double usd) async {
+  /// Takes the shortfall of [usd] from venue cash for a purchase of
+  /// bitcoin: Dollars first, then each venue leg straight to the wallet's
+  /// own Bitcoin where the venue's rail offers it, home to Dollars
+  /// otherwise; waits, bounded, for Dollars to hold what the purchase
+  /// still takes from them. That amount (0 when the legs bought it all)
+  /// to go on with the purchase; null when it stopped (the reason is on
+  /// the caption line, whatever moved stays where it went, and the
+  /// purchase never goes twice: Retry continues the same move).
+  Future<double?> _pullVenueCashForPurchase(double usd) async {
     VenueCashPullOutcome? outcome;
+    if (_moveUsd != usd) _moveId = null;
     try {
       outcome = await ref.read(venueCashPullerProvider).pullShortfall(
             neededUsd: usd,
             forAction: VenueCashFor.buyBitcoin,
+            destination: VenueCashDestination.bitcoin,
+            moveId: _moveId,
             onPlanned: (plan) {
               if (!mounted || plan.pulls.isEmpty) return;
               setState(() =>
@@ -3661,12 +3682,17 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     } catch (_) {
       outcome = null;
     }
-    if (!mounted) return false;
+    if (outcome?.moveId != null) {
+      _moveId = outcome!.moveId;
+      _moveUsd = usd;
+    }
+    if (!mounted) return null;
     if (outcome != null && outcome.dollarsCover) {
       setState(() => _pullProgress = null);
-      return true;
+      return outcome.dollarsNeededUsd;
     }
     final covered = outcome != null && outcome.plan.covers;
+    _retryPull = outcome != null && outcome.failedLegs.isNotEmpty;
     _moveOutcome.failed(
         covered ? 'venue_cash_pending' : 'insufficient_funds',
         stage: 'dispatch');
@@ -3682,7 +3708,27 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
               ? context.l10n.usdSendFailed
               : context.l10n.insufficientBalance);
     });
-    return false;
+    return null;
+  }
+
+  /// A purchase every venue leg delivered straight to Bitcoin: nothing
+  /// was bought from Dollars, the move's one row tells the rest.
+  void _finishDirectPurchase(double usd) {
+    _moveId = null;
+    if (!mounted) return;
+    final navigator = Navigator.of(context);
+    final settings = ref.read(settingsProvider);
+    final l10n = context.l10n;
+    navigator.pop();
+    _trackMoveCompleted();
+    pushMoveSentOverlay(
+      navigator: navigator,
+      amount: '\$${usd.toStringAsFixed(2)}',
+      fromWalletName: l10n.assetDollars,
+      toWalletName: settings.activeWallet?.name ?? l10n.spending,
+      assetIconAsset: 'lib/assets/bitcoin-icon.svg',
+      note: l10n.moveConversionOngoing,
+    );
   }
 
   /// The spending account's DOLLAR balance → spending BITCOIN. The buy
@@ -3745,7 +3791,28 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       // Dollars first: the shortfall comes home from venue cash before
       // the purchase asks for its one approval. Nothing is bought until
       // Dollars hold the whole amount.
-      if (pullsVenueCash && !await _pullVenueCashForPurchase(usd)) return;
+      if (_retryPull && _error != null && _moveId != null) {
+        trackMultiSourceMoveRetry(
+            MultiSourceMoveStore.get(_moveId!)?.remainingUsd ?? 0);
+      }
+      _retryPull = false;
+      if (!pullsVenueCash && _moveUsd != usd) _moveId = null;
+      if (pullsVenueCash) {
+        final onward = await _pullVenueCashForPurchase(usd);
+        if (onward == null) return;
+        if (onward < 0.01) {
+          // Every leg went straight to Bitcoin: nothing left to buy from
+          // Dollars, no second approval.
+          _finishDirectPurchase(usd);
+          return;
+        }
+        // The purchase takes from Dollars only what the direct legs did
+        // not bring.
+        if (onward + 0.005 < usd) {
+          usd = onward;
+          amountBaseUnits = _usdBaseUnits(onward);
+        }
+      }
       // Both legs settle on the wallet's own Spark address, and a failed
       // swap refunds to that same address. Resolution failure throws
       // BEFORE anything moves.
@@ -3840,6 +3907,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         walletId: ref.read(settingsProvider).activeWalletId,
         operationId: settled.operation.operationId,
       );
+      // The purchase is the last leg of its multi-source move: one row.
+      MultiSourceMoveStore.attachFinal(_moveId, settled.operation.operationId);
+      _moveId = null;
       ConvTiming.mark('_dispatchUsdToBtc addExchange(exchange) start');
       await ref.read(swapOrdersProvider.notifier).addExchange(exchange);
       ConvTiming.mark('_dispatchUsdToBtc addExchange(exchange) end');
@@ -6814,6 +6884,8 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
                     ? context.l10n.continueLabel
                     : !_isSupportedSwap
                         ? context.l10n.comingSoon2
+                        : _retryPull && _error != null
+                            ? context.l10n.retry
                         : _needsFunding
                             ? context.l10n.moveAddFunds
                             : (() {

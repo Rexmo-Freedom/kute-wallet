@@ -3010,5 +3010,8 @@
   "portfolioStatOpenPnl": "Åben gevinst / tab",
   "usdReceiveFromYourBitcoin": "Fra din bitcoin",
   "stepUpReasonBetReady": "Gør en forudsigelse på {amount} klar",
-  "betMarketClosingNoFunding": "Dette marked lukker, før pengene kan nå frem. Intet blev flyttet."
+  "betMarketClosingNoFunding": "Dette marked lukker, før pengene kan nå frem. Intet blev flyttet.",
+  "multiMoveSendTitle": "Send {amount}",
+  "multiMoveTitle": "Move {amount} to {destination}",
+  "multiMoveDeliveredRemaining": "{delivered} delivered · {remaining} remaining"
 }

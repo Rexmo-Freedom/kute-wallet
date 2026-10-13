@@ -28,6 +28,8 @@ import 'package:kute/services/one_balance/hyperliquid_move_rail.dart';
 import 'package:kute/services/orchestra/orchestra_quote_guard.dart';
 import 'package:kute/services/one_balance/venue_funder.dart';
 import 'package:kute/services/orchestra/orchestra_quote_gate.dart';
+import 'package:kute/services/orchestra/standing_deposit_store.dart'
+    show InvestingWithdrawalDestination;
 import 'package:kute/services/runtime_capabilities_service.dart'
     show CapabilityDecision;
 import 'package:kute/services/tracking_service.dart';
@@ -173,6 +175,71 @@ void main() {
           isFalse);
       expect(await hook(intent(kHypercoreToSparkRoute)), isFalse);
       expect(await hook(intent(kSparkUsdToHypercoreRoute)), isFalse);
+    });
+  });
+
+  group('straight to the final destination by CCTP', () {
+    SettlementAuthorizationIntent intent(RouteKey route,
+            {String recipient = _sparkSelf}) =>
+        SettlementAuthorizationIntent(
+          flow: SettlementFlow.investingToBtcCctp,
+          walletId: 'w',
+          destination: '$recipient|hypercore_cctp_to_spark_btc_v1',
+          routeLabel: route.label,
+          amountIn: BigInt.from(1200000000),
+          minReceive: BigInt.from(1),
+          maxFeeBps: 100,
+        );
+
+    test('Bitcoin: CCTP with the own-Spark rule for the BTC route', () async {
+      final events = <(String, Map<String, Object?>?)>[];
+      TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+      addTearDown(() => TrackingService.debugTrackObserver = null);
+      final cctp = _FakeCctp();
+      final rail = HyperCoreMoveRail(container.read, cctp: () => cctp);
+      final result = await rail.withdrawDirect(
+          destination: InvestingWithdrawalDestination.bitcoin,
+          usd: 12,
+          auth: SweepAuthorization.automatic);
+      expect(cctp.calls, ['bitcoin:cash_pull:12.0']);
+      expect(result.operationId, 'op-direct');
+      expect(result.quoteId, 'op-direct');
+      final btc = cctpRouteFor(InvestingWithdrawalDestination.bitcoin);
+      expect(await cctp.lastStepUp!(intent(btc)), isTrue);
+      expect(await cctp.lastStepUp!(intent(btc, recipient: 'sprt1qother')),
+          isFalse);
+      expect(await cctp.lastStepUp!(intent(kHypercoreToSparkUsdRoute)),
+          isFalse,
+          reason: 'only the route it was asked for');
+      final submitted =
+          events.singleWhere((e) => e.$1 == 'hyperliquid_withdraw_submitted');
+      expect(submitted.$2?['destination'], 'btc');
+      expect(submitted.$2?['route'], 'cctp');
+    });
+
+    test('a refusal before signing is a DirectRouteRefused', () async {
+      final cctp = _FakeCctp(
+          error:
+              const CctpUnavailable(CctpUnavailableReason.feeTermsUnavailable));
+      final rail = HyperCoreMoveRail(container.read, cctp: () => cctp);
+      await expectLater(
+          rail.withdrawDirect(
+              destination: InvestingWithdrawalDestination.predictions,
+              usd: 12,
+              auth: SweepAuthorization.automatic),
+          throwsA(isA<DirectRouteRefused>().having(
+              (e) => e.reason, 'reason', 'cctp_fee_terms_unavailable')));
+    });
+
+    test('a failure after the signature is never a refusal', () async {
+      final cctp = _FakeCctp(error: StateError('posted'));
+      final rail = HyperCoreMoveRail(container.read, cctp: () => cctp);
+      await expectLater(
+          rail.withdrawDirect(
+              destination: InvestingWithdrawalDestination.bitcoin,
+              usd: 12,
+              auth: SweepAuthorization.automatic),
+          throwsA(isNot(isA<DirectRouteRefused>())));
     });
   });
 
@@ -610,6 +677,25 @@ class _FakeCctp implements HypercoreCctpWithdrawal {
       sentUsd: usd,
       arrivingUsdEstimate: usd - 0.2,
       registration: Future.value('ord_cctp'),
+    );
+  }
+
+  @override
+  Future<CctpWithdrawalResult> withdrawTo({
+    required InvestingWithdrawalDestination destination,
+    required double usd,
+    required SettlementStepUpHook stepUp,
+    String purpose = 'manual_move',
+  }) async {
+    calls.add('${destination.name}:$purpose:$usd');
+    lastStepUp = stepUp;
+    final failure = error;
+    if (failure != null) throw failure;
+    return CctpWithdrawalResult(
+      operationId: 'op-direct',
+      sentUsd: usd,
+      arrivingUsdEstimate: usd - 0.2,
+      registration: Future.value('ord_direct'),
     );
   }
 

@@ -117,6 +117,8 @@ import 'package:kute/services/orchestra_routes.dart'
         orchestraAssetCodeFor,
         orchestraChainDisplayName;
 import 'package:kute/services/orchestra_usd_send_routes.dart';
+import 'package:kute/services/one_balance/multi_source_move.dart'
+    show MultiSourceMoveStore, trackMultiSourceMoveRetry;
 import 'package:kute/services/one_balance/venue_cash_source.dart';
 import 'package:kute/screens/shared/venue_cash_pull_copy.dart';
 import 'package:kute/services/polymarket_spark_txs_service.dart';
@@ -232,6 +234,17 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
   /// While venue cash is coming home for this send: one line per leg,
   /// shown where Review's footnote is.
   String? _pullProgress;
+
+  /// The multi-source move this send's venue cash went under, and the
+  /// amount it was for: a Retry of the same amount continues it (the money
+  /// already on its way is reused, never pulled twice) and the send joins
+  /// its one Activity row.
+  String? _moveId;
+  double? _moveUsd;
+
+  /// The last pull stopped with a leg that did not go: the button is
+  /// Retry for the remainder until the slip changes.
+  bool _retryPull = false;
 
   /// A top-up from the shortfall button went through: the send moves on
   /// to its recipient once the dollars cover the amount still typed.
@@ -1388,7 +1401,11 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
         ),
         SizedBox(height: 16.h),
         SendReviewAction(
-          label: _processing ? l10n.sendSendingEllipsis : l10n.send,
+          label: _processing
+              ? l10n.sendSendingEllipsis
+              : _retryPull && _error != null
+                  ? l10n.retry
+                  : l10n.send,
           loading: _processing,
           onPressed: canSend ? _confirmSend : null,
           footnote: _pullProgress ??
@@ -1528,9 +1545,16 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
     // Dollars first: when they do not hold the amount, the shortfall
     // comes home from venue cash before the send asks for its one
     // approval. Nothing is sent until Dollars hold the whole amount.
+    if (_retryPull && _error != null && _moveId != null) {
+      trackMultiSourceMoveRetry(
+          MultiSourceMoveStore.get(_moveId!)?.remainingUsd ?? 0);
+    }
+    _retryPull = false;
     if (!_drain && amountBaseUnits > _availableBaseUnits) {
       final ready = await _pullVenueCash(usdForDisplay);
       if (!ready) return;
+    } else if (_moveUsd != usdForDisplay) {
+      _moveId = null;
     }
 
     // Outcome analytics: one `send_completed` / `send_failed` per send
@@ -1664,6 +1688,9 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
         walletId: ref.read(settingsProvider).activeWalletId,
         operationId: settled.operation.operationId,
       );
+      // The send is the last leg of its multi-source move: one row.
+      MultiSourceMoveStore.attachFinal(_moveId, settled.operation.operationId);
+      _moveId = null;
       await ref.read(swapOrdersProvider.notifier).addExchange(exchange);
       ref
           .read(walletTransactionCacheProvider.notifier)
@@ -1789,9 +1816,11 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
     });
     VenueCashPullOutcome? outcome;
     try {
+      if (_moveUsd != usd) _moveId = null;
       outcome = await ref.read(venueCashPullerProvider).pullShortfall(
             neededUsd: usd,
             forAction: VenueCashFor.send,
+            moveId: _moveId,
             onPlanned: (plan) {
               if (!mounted || plan.pulls.isEmpty) return;
               setState(() =>
@@ -1801,11 +1830,17 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
     } catch (_) {
       outcome = null;
     }
+    if (outcome?.moveId != null) {
+      _moveId = outcome!.moveId;
+      _moveUsd = usd;
+    }
     if (!mounted) return false;
     if (outcome != null && outcome.dollarsCover) {
       setState(() => _pullProgress = null);
       return true;
     }
+    // A leg that did not go: Retry pulls only what it left behind.
+    _retryPull = outcome != null && outcome.failedLegs.isNotEmpty;
     TrackingService.moneyFlowError(
         'usd_send',
         outcome == null || !outcome.plan.covers

@@ -8,6 +8,7 @@
 // show in your balance."
 
 import 'package:kute/l10n/generated/app_localizations.dart';
+import 'package:kute/services/one_balance/multi_source_move.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/one_balance/venue_cash_source.dart';
 
@@ -35,9 +36,43 @@ String? venueCashStoppedText(
   final sent = [
     for (final l in outcome.legs)
       if (l.ok)
-        l10n.oneBalanceComingBack(
-            _usd(l.sentUsd), venueCashVenueName(l10n, l.venue)),
+        // A leg that went straight to the destination is moving there.
+        l.direct
+            ? l10n.oneBalanceMovingTo(
+                _usd(l.sentUsd), venueCashDestinationName(l10n, l.landsIn))
+            : l10n.oneBalanceComingBack(
+                _usd(l.sentUsd), venueCashVenueName(l10n, l.venue)),
   ];
   if (sent.isEmpty) return null;
   return '${sent.join('\n')}\n${l10n.activityBitcoinAddedPending}';
 }
+
+/// Where a move's money is going, as the app names it.
+String venueCashDestinationName(
+        AppLocalizations l10n, VenueCashDestination destination) =>
+    switch (destination) {
+      VenueCashDestination.dollars => l10n.assetDollars,
+      VenueCashDestination.bitcoin => l10n.bitcoin,
+      VenueCashDestination.predictions => l10n.predictions,
+      VenueCashDestination.investing => l10n.trading,
+    };
+
+/// The one Activity row's title for [move]: what the person asked for.
+/// "Send $50" once the send went; otherwise "Move $50 to Bitcoin" (a send
+/// that never went says where its money did go: Dollars).
+String multiSourceMoveTitle(AppLocalizations l10n, MultiSourceMove move) {
+  final amount = _usd(move.totalUsd);
+  if (move.forAction == VenueCashFor.send && move.finalOperationId != null) {
+    return l10n.multiMoveSendTitle(amount);
+  }
+  return l10n.multiMoveTitle(
+      amount, venueCashDestinationName(l10n, move.destination));
+}
+
+/// "$29.80 delivered · $20.20 remaining" for a move a leg failed for,
+/// else null.
+String? multiSourceMoveProgress(AppLocalizations l10n, MultiSourceMove move) =>
+    move.partial
+        ? l10n.multiMoveDeliveredRemaining(
+            _usd(move.deliveredUsd), _usd(move.remainingUsd))
+        : null;

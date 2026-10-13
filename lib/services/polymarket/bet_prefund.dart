@@ -704,6 +704,18 @@ class BetPrefund {
     }
   }
 
+  /// What Confirm-time funding (the path Confirm takes when [confirm]
+  /// says [PrefundNotUsed], a limit order among them) counts as there:
+  /// what the venue lets a new buy spend ([spendableUsd]) plus what this
+  /// slip moved and is still on its way, once [balanceUsd] (the venue's
+  /// cash now) has been looked at. Money already moved is never moved a
+  /// second time.
+  double readyAtConfirmUsd(
+      {required double spendableUsd, required double balanceUsd}) {
+    observeBalance(balanceUsd);
+    return spendableUsd + inFlightArrivingUsd;
+  }
+
   /// The slip is gone: the approval goes, the moved cash stays.
   void close() {
     if (_closed) return;

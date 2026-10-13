@@ -10759,4 +10759,19 @@ class AppLocalizationsHr extends AppLocalizations {
   @override
   String get betMarketClosingNoFunding =>
       'Ovo tržište zatvara se prije nego što bi novac stigao. Ništa nije premješteno.';
+
+  @override
+  String multiMoveSendTitle(String amount) {
+    return 'Send $amount';
+  }
+
+  @override
+  String multiMoveTitle(String amount, String destination) {
+    return 'Move $amount to $destination';
+  }
+
+  @override
+  String multiMoveDeliveredRemaining(String delivered, String remaining) {
+    return '$delivered delivered · $remaining remaining';
+  }
 }

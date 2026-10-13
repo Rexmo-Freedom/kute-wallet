@@ -46,7 +46,12 @@ class VenueMoveResult {
     required this.arrivingUsdEstimate,
     this.orderId,
     this.registration,
+    this.operationId,
   });
+
+  /// The settlement operation that carries the move, when the rail has
+  /// one: its Activity rows carry the same id.
+  final String? operationId;
 
   /// The provider quote the send was made against.
   final String quoteId;
@@ -124,4 +129,43 @@ class RouteUnavailable implements Exception {
   @override
   String toString() =>
       reason == null ? 'RouteUnavailable' : 'RouteUnavailable: $reason';
+}
+
+/// A move straight to its final destination (venue cash → Bitcoin, the
+/// other venue) was refused before anything moved: the route or its fee
+/// terms are not offered, a gate is shut, an own address could not be
+/// read. The caller goes through Dollars instead.
+class DirectRouteRefused extends RouteUnavailable {
+  const DirectRouteRefused([super.reason]);
+
+  @override
+  String toString() => 'DirectRouteRefused: $reason';
+}
+
+/// Where an action's money is going when venue cash is pulled for it:
+/// Dollars (a send, the rest of an order's funding), the wallet's own
+/// Bitcoin, or one of the venues. A leg goes straight there when the
+/// venue's rail offers the route, through Dollars otherwise.
+enum VenueCashDestination {
+  dollars,
+  bitcoin,
+  predictions,
+  investing;
+
+  /// Analytics value.
+  String get code => name;
+}
+
+/// A venue whose cash can go straight to a destination other than
+/// Dollars, without a tap: only ever to one of the wallet's own accounts.
+abstract interface class DirectSweepableVenueFunder {
+  /// Sends [usd] of venue cash straight to [destination]. Throws
+  /// [DirectRouteRefused] when the route was refused before anything
+  /// moved; anything else may have moved and is rethrown untouched.
+  Future<VenueMoveResult> sweepTo({
+    required VenueCashDestination destination,
+    required double usd,
+    required MoveAuthorization auth,
+    String purpose = 'cash_pull',
+  });
 }

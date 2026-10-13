@@ -61,8 +61,18 @@ import 'package:kute/services/funding/settlement_runner.dart'
         SettlementStopReason,
         SettlementStopped;
 import 'package:kute/services/funding/spark_hypercore_funding_service.dart';
+import 'package:kute/providers/polymarket_trading_provider.dart'
+    show polymarketTradingProvider;
 import 'package:kute/services/hyperliquid/cctp_withdrawal.dart'
-    show CctpUnavailable, HypercoreCctpWithdrawal, hypercoreCctpWithdrawalProvider;
+    show
+        CctpUnavailable,
+        CctpWithdrawalResult,
+        HypercoreCctpWithdrawal,
+        cctpAnalyticsDestination,
+        cctpRouteFor,
+        hypercoreCctpWithdrawalProvider;
+import 'package:kute/services/orchestra/standing_deposit_store.dart'
+    show InvestingWithdrawalDestination;
 import 'package:kute/services/hyperliquid/hypercore_cash.dart'
     show hypercoreSendableUsdc;
 import 'package:kute/services/one_balance/venue_funder.dart';
@@ -188,6 +198,7 @@ class HyperCoreMoveRail implements HyperliquidMoveRail {
       registration: result.run.registration,
       sentUsd: usd,
       arrivingUsdEstimate: result.estimatedOut,
+      operationId: result.run.operation.operationId,
     );
   }
 
@@ -229,6 +240,7 @@ class HyperCoreMoveRail implements HyperliquidMoveRail {
             // HyperCore USDC carries eight decimals.
             sentUsd: result.amountIn.toDouble() / 1e8,
             arrivingUsdEstimate: result.estimatedOut,
+            operationId: result.run.operation.operationId,
           );
         } catch (e) {
           // Only Orchestra not offering the route itself, before anything
@@ -293,6 +305,7 @@ class HyperCoreMoveRail implements HyperliquidMoveRail {
         registration: result.registration,
         sentUsd: result.sentUsd,
         arrivingUsdEstimate: result.arrivingUsdEstimate,
+        operationId: result.operationId,
       );
     } on CctpUnavailable catch (e) {
       if (kDebugMode) {
@@ -301,6 +314,112 @@ class HyperCoreMoveRail implements HyperliquidMoveRail {
       }
       throw RouteUnavailable('cctp_${e.reason.code}');
     }
+  }
+
+  /// Investing cash straight to [destination] by CCTP: Bitcoin on the
+  /// wallet's own Spark address, or the wallet's own Predictions account
+  /// (Orchestra refuses every HyperCore-source route, so CCTP is the one
+  /// way out). Each destination pays its own standing instruction with
+  /// the destination's fee rule. Throws [DirectRouteRefused] when the
+  /// move was refused before anything was signed (the instruction's
+  /// terms, a shut gate, the pre-flight, an own address that cannot be
+  /// read, the own-address check): the caller then goes through Dollars.
+  /// Anything after the signature is rethrown untouched.
+  ///
+  /// The same withdrawal funnel as [withdrawToDollars], with the
+  /// destination it went to.
+  Future<VenueMoveResult> withdrawDirect({
+    required InvestingWithdrawalDestination destination,
+    required double usd,
+    required MoveAuthorization auth,
+    String purpose = 'cash_pull',
+  }) async {
+    final analytics = cctpAnalyticsDestination(destination);
+    TrackingService.hyperliquidWithdrawInitiated(
+      amountUsd: usd,
+      destination: analytics,
+      walletKind: 'hot',
+      purpose: purpose,
+    );
+    try {
+      final CctpWithdrawalResult result;
+      try {
+        result = await _cctp.withdrawTo(
+            destination: destination,
+            usd: usd,
+            stepUp: stepUpForDirect(auth, destination),
+            purpose: purpose);
+      } on CctpUnavailable catch (e) {
+        throw DirectRouteRefused('cctp_${e.reason.code}');
+      } on WalletGuardException catch (e) {
+        if (e.reason == WalletGuardReason.ownAddressUnavailable) {
+          throw const DirectRouteRefused('account_unavailable');
+        }
+        rethrow;
+      } on SettlementStopped catch (e) {
+        // Stopped at the approval, before the signature.
+        throw DirectRouteRefused('settlement_${e.reason.name}');
+      }
+      TrackingService.hyperliquidWithdrawSubmitted(
+        amountUsd: result.sentUsd,
+        route: 'cctp',
+        destination: analytics,
+        walletKind: 'hot',
+        purpose: purpose,
+      );
+      return VenueMoveResult(
+        quoteId: result.operationId,
+        registration: result.registration,
+        sentUsd: result.sentUsd,
+        arrivingUsdEstimate: result.arrivingUsdEstimate,
+        operationId: result.operationId,
+      );
+    } catch (e) {
+      TrackingService.hyperliquidWithdrawFailed(
+        reason: switch (e) {
+          RouteUnavailable(:final reason) => reason ?? 'route_unavailable',
+          _ => TrackingService.errorCategory(e),
+        },
+        route: 'cctp',
+        amountUsd: usd,
+        destination: analytics,
+        walletKind: 'hot',
+        purpose: purpose,
+      );
+      rethrow;
+    }
+  }
+
+  /// [stepUpFor] for a move straight to [destination]. A user grant is
+  /// checked as before. A sweep carries no tap: it is accepted only for
+  /// that destination's route, delivered to the wallet's own Spark
+  /// address (Bitcoin) or its own Predictions account.
+  @visibleForTesting
+  SettlementStepUpHook stepUpForDirect(
+          MoveAuthorization auth, InvestingWithdrawalDestination destination) =>
+      (intent) async {
+        if (auth is UserGrantAuthorization) return stepUpFor(auth)(intent);
+        if (intent.routeLabel != cctpRouteFor(destination).label) return false;
+        final recipient = recipientOf(intent);
+        try {
+          if (destination.chain == 'spark') {
+            final String? own = await _read(sparkSelfAddressProvider.future);
+            return own != null && own.isNotEmpty && recipient == own;
+          }
+          final own = await _ownPredictionsAccount();
+          return own != null &&
+              own.isNotEmpty &&
+              recipient.toLowerCase() == own.toLowerCase();
+        } catch (_) {
+          return false;
+        }
+      };
+
+  Future<String?> _ownPredictionsAccount() async {
+    final live =
+        _read(polymarketTradingProvider).valueOrNull?.proxyWalletAddress;
+    if (live != null && live.isNotEmpty) return live;
+    return _read(polymarketTradingProvider.notifier).depositAddress();
   }
 
   /// A stop before anything moved, in the one-balance layer's own words.

@@ -56,6 +56,7 @@ SwapActivityKind classifySwapActivity(SwapOrder order,
     case SettlementFlow.predictionsBtcRoute:
     case SettlementFlow.predictionsToLedgerBtc:
     case SettlementFlow.movePredictionsToDollars:
+    case SettlementFlow.movePredictionsToInvesting:
       return SwapActivityKind.predictionsWithdrawal;
     case SettlementFlow.moveBtcToInvesting:
     case SettlementFlow.ledgerBtcToInvesting:
@@ -67,6 +68,8 @@ SwapActivityKind classifySwapActivity(SwapOrder order,
     case SettlementFlow.investingToSparkDirect:
     case SettlementFlow.investingToSparkUsdDirect:
     case SettlementFlow.investingToDollarsCctp:
+    case SettlementFlow.investingToBtcCctp:
+    case SettlementFlow.investingToPredictionsCctp:
       return SwapActivityKind.investingWithdrawal;
     case SettlementFlow.moveDollarsToBtc:
       return SwapActivityKind.dollarWithdrawal;

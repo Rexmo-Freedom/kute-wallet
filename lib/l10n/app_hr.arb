@@ -3010,5 +3010,8 @@
   "portfolioStatOpenPnl": "Otvorena dobit / gubitak",
   "usdReceiveFromYourBitcoin": "S vašeg bitcoina",
   "stepUpReasonBetReady": "Pripremi predviđanje od {amount}",
-  "betMarketClosingNoFunding": "Ovo tržište zatvara se prije nego što bi novac stigao. Ništa nije premješteno."
+  "betMarketClosingNoFunding": "Ovo tržište zatvara se prije nego što bi novac stigao. Ništa nije premješteno.",
+  "multiMoveSendTitle": "Send {amount}",
+  "multiMoveTitle": "Move {amount} to {destination}",
+  "multiMoveDeliveredRemaining": "{delivered} delivered · {remaining} remaining"
 }

@@ -358,6 +358,7 @@ class PendingHyperliquidOrderNotifier extends Notifier<PendingHlOrderIntent?> {
     required double requiredUsd,
     required double readyUsd,
     void Function(OrderFundingStage)? onStage,
+    double? fundUsd,
   }) async {
     if (isActive(state)) {
       // One funded order at a time: the queued one's grant and money are
@@ -379,8 +380,9 @@ class PendingHyperliquidOrderNotifier extends Notifier<PendingHlOrderIntent?> {
         auth: UserGrantAuthorization(grant),
         onStage: onStage,
         // The amount the person approved, never a second sizing: the
-        // grant's funding limit is exactly this figure.
-        fundUsd: intent.fundUsd > 0 ? intent.fundUsd : null,
+        // grant's funding limit is exactly this figure. [fundUsd] is less
+        // when other venue cash already went straight to the account.
+        fundUsd: fundUsd ?? (intent.fundUsd > 0 ? intent.fundUsd : null),
         entrySource: intent.entrySource,
         keepUnconfirmed: true,
       );

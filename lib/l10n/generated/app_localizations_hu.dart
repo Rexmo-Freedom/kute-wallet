@@ -10760,4 +10760,19 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String get betMarketClosingNoFunding =>
       'Ez a piac bezár, mielőtt a pénz megérkezhetne. Semmi sem lett áthelyezve.';
+
+  @override
+  String multiMoveSendTitle(String amount) {
+    return 'Send $amount';
+  }
+
+  @override
+  String multiMoveTitle(String amount, String destination) {
+    return 'Move $amount to $destination';
+  }
+
+  @override
+  String multiMoveDeliveredRemaining(String delivered, String remaining) {
+    return '$delivered delivered · $remaining remaining';
+  }
 }

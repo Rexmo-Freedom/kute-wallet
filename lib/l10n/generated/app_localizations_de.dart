@@ -10817,4 +10817,19 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get betMarketClosingNoFunding =>
       'Dieser Markt schließt, bevor das Geld ankommen kann. Es wurde nichts verschoben.';
+
+  @override
+  String multiMoveSendTitle(String amount) {
+    return 'Send $amount';
+  }
+
+  @override
+  String multiMoveTitle(String amount, String destination) {
+    return 'Move $amount to $destination';
+  }
+
+  @override
+  String multiMoveDeliveredRemaining(String delivered, String remaining) {
+    return '$delivered delivered · $remaining remaining';
+  }
 }

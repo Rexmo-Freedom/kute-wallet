@@ -126,10 +126,13 @@ import 'package:kute/services/one_balance/hyperliquid_venue_funder.dart';
 import 'package:kute/services/one_balance/order_funding.dart';
 import 'package:kute/services/one_balance/venue_cash_source.dart'
     show
+        VenueCashDestination,
         VenueCashFor,
         VenueCashPullOutcome,
         venueCashPullerProvider,
         venueCashReachExcludingProvider;
+import 'package:kute/services/one_balance/multi_source_move.dart'
+    show MultiSourceMoveStore;
 import 'package:kute/screens/shared/venue_cash_pull_copy.dart'
     show venueCashStoppedText;
 import 'package:kute/helpers/auth_grant_registry.dart';
@@ -529,6 +532,12 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
 
   /// The shortfall the plan (or the estimate on its way) is for.
   String? _fundPlanKey;
+
+  /// The multi-source move this order's funding pulled venue cash under,
+  /// and the funding it was for: another Confirm of the same funding
+  /// continues it (money already moved is reused, never pulled twice).
+  String? _moveId;
+  double? _moveUsd;
   Timer? _fundPlanTimer;
 
   /// Where a funded order is, from the tap to the placement. Null while
@@ -2249,6 +2258,10 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       return;
     }
 
+    // What the Dollars move is sized on: the approved figure, less what
+    // other venue cash already sent straight to the account (below).
+    double? queueFundUsd;
+    var queueReadyUsd = ready;
     if (pullFirst) {
       // Dollars short of the move: the rest comes home from the other
       // venue first (fastest leg first, never Investing's own cash),
@@ -2262,16 +2275,34 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       });
       _trackFundingStep(OrderFundingStage.fund);
       VenueCashPullOutcome? pulled;
+      if (_moveUsd != fundUsd) _moveId = null;
       try {
         pulled = await ref.read(venueCashPullerProvider).pullShortfall(
               neededUsd: fundUsd,
               forAction: VenueCashFor.investing,
+              // Predictions cash goes straight into the Investing account
+              // where Orchestra routes it; home to Dollars otherwise.
+              destination: VenueCashDestination.investing,
               exclude: OneBalanceVenue.investing,
+              moveId: _moveId,
             );
       } catch (_) {
         pulled = null;
       }
+      if (pulled?.moveId != null) {
+        _moveId = pulled!.moveId;
+        _moveUsd = fundUsd;
+      }
       if (!mounted) return;
+      if (pulled != null && pulled.dollarsCover) {
+        // What went straight to the account is already on its way there:
+        // the move from Dollars is only the rest.
+        final direct = pulled.directArrivingUsd + pulled.alreadyDeliveredUsd;
+        if (direct > 0) {
+          queueFundUsd = math.max(0, pulled.dollarsNeededUsd);
+          queueReadyUsd = ready + direct;
+        }
+      }
       if (pulled == null || !pulled.dollarsCover) {
         AuthGrantRegistry.instance.cancelAutofire(kPendingHlOrderAutofireId);
         _fundingFailedBeforeMove(
@@ -2319,7 +2350,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         controller: ref.read(orderFundingControllerProvider),
         orderUsd: marginUsd,
         requiredUsd: required,
-        readyUsd: ready,
+        readyUsd: queueReadyUsd,
+        fundUsd: queueFundUsd,
         onStage: (stage) {
           if (stage == OrderFundingStage.quote ||
               stage == OrderFundingStage.fund) {
@@ -2335,6 +2367,11 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     switch (outcome) {
       case OrderFundingFunded(:final move):
         _submitted = true;
+        // The order's own funding move is the last leg of its
+        // multi-source move: one Activity row.
+        MultiSourceMoveStore.attachFinal(
+            _moveId, move.operationId ?? move.quoteId);
+        _moveId = null;
         TrackingService.track('order_funding_submitted', params: {
           'venue': 'hyperliquid',
           'fund_usd': move.sentUsd,

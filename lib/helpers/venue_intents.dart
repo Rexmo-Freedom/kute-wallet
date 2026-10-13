@@ -920,12 +920,14 @@ abstract final class PmGrants {
   }
 
   /// The sweep variant of a Predictions withdrawal: no grant, so the
-  /// venue's own rule decides. Money may only ever come home: the
-  /// withdrawal must pay exactly a verified Orchestra quote whose
-  /// recipient is the wallet's own Spark address (rule 7 of the quote
-  /// gate checked that address), to that quote's deposit address, for
-  /// that quote's exact amount, as the bridged token the quote declared.
-  /// Anything else is refused.
+  /// venue's own rule decides. Money may only ever go to the wallet's own
+  /// accounts: the withdrawal must pay exactly a verified Orchestra quote
+  /// whose recipient is the wallet's own Spark address, or its own
+  /// Investing account when another action pulls the cash straight there
+  /// (rule 7 of the quote gate checked that address against the one the
+  /// wallet derived), to that quote's deposit address, for that quote's
+  /// exact amount, as the bridged token the quote declared. Anything else
+  /// is refused.
   static bool sweepCoversWithdrawal({
     required RecipientKind recipientKind,
     required String quoteDepositAddress,
@@ -934,7 +936,10 @@ abstract final class PmGrants {
     required BigInt? exactMicroUsdc,
     required bool bridged,
   }) {
-    if (recipientKind != RecipientKind.ownSpark) return false;
+    if (recipientKind != RecipientKind.ownSpark &&
+        recipientKind != RecipientKind.ownEvm) {
+      return false;
+    }
     if (!bridged) return false;
     if (exactMicroUsdc == null || exactMicroUsdc <= BigInt.zero) return false;
     if (exactMicroUsdc != quoteAmountIn) return false;

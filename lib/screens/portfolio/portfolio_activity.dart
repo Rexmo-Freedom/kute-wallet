@@ -39,6 +39,10 @@ import 'package:kute/screens/home/components/kute_dock_host.dart'
     show KuteDockClearance, kuteDockScrollClearance;
 import 'package:kute/screens/portfolio/portfolio_empty_state.dart';
 import 'package:kute/screens/shared/hyperliquid_fill_activity.dart';
+import 'package:kute/screens/shared/multi_source_move_activity.dart'
+    show multiSourceMoveLegIds;
+import 'package:kute/services/one_balance/multi_source_move.dart'
+    show multiSourceMovesProvider;
 import 'package:kute/screens/shared/transactions_builder.dart';
 
 /// One entry of the merged list: a transaction row or a fill, with the
@@ -51,14 +55,17 @@ typedef PortfolioActivityEntry = ({DateTime time, BaseTransaction? tx, HlFill? f
 /// [dollarRows] is the dollar ledger as the Dollars activity lists it;
 /// [swaps] every conversion the wallet knows (venue moves the ledger
 /// does not carry are added from it); [bets] the predictions placed,
-/// sold, won or lost; [fills] the Investing fills.
+/// sold, won or lost; [fills] the Investing fills; [movedLegIds] the
+/// rows folded into a multi-source move's one row (never listed again).
 List<PortfolioActivityEntry> mergePortfolioActivity({
   required List<BaseTransaction> dollarRows,
   required List<SwapOrderTransaction> swaps,
   required List<PolymarketTransaction> bets,
   required List<HlFill> fills,
+  Set<String> movedLegIds = const {},
 }) {
-  final listed = <String>{for (final tx in dollarRows) tx.id};
+  // A leg of a multi-source move is inside that move's one row.
+  final listed = <String>{for (final tx in dollarRows) tx.id, ...movedLegIds};
   final entries = <PortfolioActivityEntry>[
     for (final tx in dollarRows) (time: tx.timestamp, tx: tx, fill: null),
     // A venue move the dollar ledger does not carry: paid in bitcoin
@@ -96,11 +103,18 @@ class PortfolioActivityList extends ConsumerWidget {
     final txs = ref.watch(walletTransactionCacheProvider
             .select((cache) => walletId == null ? null : cache[walletId])) ??
         Transaction.empty();
+    // One row per action that took money from more than one place.
+    final moves = [
+      for (final m in ref.watch(multiSourceMovesProvider))
+        if (m.walletId == null || m.walletId == walletId) m,
+    ];
     final dollarRows = assembleActivityRows(
       txs.allTransactionsSorted,
       ownAddresses: activityOwnSettleAddresses(ref),
       isHardwareOrWatchOnly: false,
       onlyUsdb: true,
+      moves: moves,
+      walletId: walletId,
     );
     final bets = <PolymarketTransaction>[
       ...txs.polymarketTransactions.where((t) =>
@@ -118,6 +132,7 @@ class PortfolioActivityList extends ConsumerWidget {
       swaps: txs.swapOrderTransactions,
       bets: bets,
       fills: fills,
+      movedLegIds: multiSourceMoveLegIds(txs.swapOrderTransactions, moves),
     );
 
     // Under the host's dock: the centred states keep clear of it, the

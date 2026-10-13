@@ -20,6 +20,30 @@ import 'package:kute/services/orchestra/standing_deposit_store.dart';
 /// `StandingDepositStore.investingWithdrawalInstruction`).
 const String kHypercoreCctpRouteVersion = 'hypercore_cctp_to_spark_usd_v1';
 
+/// The same for an Investing → Bitcoin move by CCTP (spark:BTC).
+const String kHypercoreCctpBtcRouteVersion = 'hypercore_cctp_to_spark_btc_v1';
+
+/// The same for an Investing → Predictions move by CCTP (polygon:USDC.e).
+const String kHypercoreCctpPredictionsRouteVersion =
+    'hypercore_cctp_to_polygon_usdce_v1';
+
+/// The route version of a CCTP move into [destination].
+String hypercoreCctpRouteVersion(InvestingWithdrawalDestination destination) =>
+    switch (destination) {
+      InvestingWithdrawalDestination.dollars => kHypercoreCctpRouteVersion,
+      InvestingWithdrawalDestination.bitcoin => kHypercoreCctpBtcRouteVersion,
+      InvestingWithdrawalDestination.predictions =>
+        kHypercoreCctpPredictionsRouteVersion,
+    };
+
+/// The route version of rows on [record], an Investing-withdrawal
+/// instruction.
+String hypercoreCctpRouteVersionFor(StandingDepositRecord record) =>
+    hypercoreCctpRouteVersion(InvestingWithdrawalDestination.values
+            .where((d) => d.chain == record.chain && d.asset == record.asset)
+            .firstOrNull ??
+        InvestingWithdrawalDestination.dollars);
+
 /// The row status for a standing deposit that never became an order, or
 /// null when it is not stuck (still converting, or converted).
 ///
@@ -100,7 +124,7 @@ SwapOrder? stuckStandingDepositRow({
     coinFrom: investing ? 'USDC' : asset,
     networkFrom: investing ? 'HYPERCORE' : chain,
     coinTo: record.asset,
-    networkTo: 'SPARK',
+    networkTo: record.chain.toUpperCase(),
     depositAddress: record.addressFor(chain) ?? '',
     depositAmount:
         orchestraAmountToDecimalString('${deposit['amount']}', asset, chain: chain),
@@ -115,7 +139,7 @@ SwapOrder? stuckStandingDepositRow({
     provider: 'Orchestra',
     walletId: walletId,
     purchaseSource: investing ? null : 'crypto_receive',
-    routeVersion: investing ? kHypercoreCctpRouteVersion : null,
+    routeVersion: investing ? hypercoreCctpRouteVersionFor(record) : null,
   );
 }
 
@@ -145,11 +169,11 @@ SwapOrder standingOrderRow({
     coinFrom: investing ? 'USDC' : asset,
     networkFrom: investing ? 'HYPERCORE' : chain,
     coinTo: record.asset,
-    networkTo: 'SPARK',
+    networkTo: record.chain.toUpperCase(),
     depositAddress: depositAddress,
     depositAmount: orchestraAmountToDecimalString(amountIn, asset, chain: chain),
     withdrawalAmount:
-        orchestraAmountToDecimalString(amountOut, record.asset, chain: 'spark'),
+        orchestraAmountToDecimalString(amountOut, record.asset, chain: record.chain),
     status: status,
     timestamp: timestamp,
     withdrawalAddress: recipient,
@@ -161,6 +185,6 @@ SwapOrder standingOrderRow({
     walletId: walletId,
     purchaseSource: investing ? null : 'crypto_receive',
     operationId: operationId,
-    routeVersion: investing ? kHypercoreCctpRouteVersion : null,
+    routeVersion: investing ? hypercoreCctpRouteVersionFor(record) : null,
   );
 }

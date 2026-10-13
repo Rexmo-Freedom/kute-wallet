@@ -273,6 +273,38 @@ void main() {
     });
   });
 
+  group('switching to a limit order after a pre-fund', () {
+    const limit =
+        PrefundSelection(tokenId: _token, isLimit: true, slippagePct: 10);
+
+    test('Confirm-time funding counts the money still on its way', () async {
+      final rig = _Rig();
+      await rig.prefund.holdFired(_slip);
+      final arriving = rig.prefund.moves.single.arrivingUsd;
+      // A limit order is Confirm-time funded…
+      expect(await rig.prefund.confirm(_slip(selection: limit)),
+          isA<PrefundNotUsed>());
+      // …against the venue cash plus what is still on its way, so the
+      // same shortfall is never moved twice.
+      final ready =
+          rig.prefund.readyAtConfirmUsd(spendableUsd: 5, balanceUsd: 5);
+      expect(ready, closeTo(5 + arriving, 1e-9));
+      expect(planBetFunding(requiredUsd: 20.5, readyUsd: ready).fundUsd, 0);
+      expect(rig.funded, hasLength(1));
+    });
+
+    test('once it has landed, the venue cash alone counts', () async {
+      final rig = _Rig();
+      await rig.prefund.holdFired(_slip);
+      final arriving = rig.prefund.moves.single.arrivingUsd;
+      await rig.prefund.confirm(_slip(selection: limit));
+      final ready = rig.prefund.readyAtConfirmUsd(
+          spendableUsd: 5 + arriving, balanceUsd: 5 + arriving);
+      expect(ready, closeTo(5 + arriving, 1e-9));
+      expect(rig.prefund.inFlightArrivingUsd, 0);
+    });
+  });
+
   group('declining', () {
     test('falls back to Confirm-time funding and never asks again', () async {
       final rig = _Rig(answer: PrefundApprovalResult.declined);

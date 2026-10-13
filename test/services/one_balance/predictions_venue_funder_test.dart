@@ -269,6 +269,73 @@ void main() {
     });
   });
 
+  group('directSweepAuthorized', () {
+    final toBitcoin = _intent(
+        flow: SettlementFlow.moveUsdToBtc,
+        recipient: _ownSpark,
+        reviewed: _sweepQuote());
+
+    test('Bitcoin: the cash-out flow and the own Spark address only', () {
+      expect(
+          PredictionsVenueFunder.directSweepAuthorized(toBitcoin,
+              destination: VenueCashDestination.bitcoin,
+              ownRecipient: _ownSpark,
+              sessionUnlocked: true),
+          isTrue);
+      expect(
+          PredictionsVenueFunder.directSweepAuthorized(toBitcoin,
+              destination: VenueCashDestination.bitcoin,
+              ownRecipient: _ownSpark,
+              sessionUnlocked: false),
+          isFalse,
+          reason: 'locked');
+      expect(
+          PredictionsVenueFunder.directSweepAuthorized(toBitcoin,
+              destination: VenueCashDestination.bitcoin,
+              ownRecipient: 'spark1someoneelse',
+              sessionUnlocked: true),
+          isFalse,
+          reason: 'not the own address');
+      expect(
+          PredictionsVenueFunder.directSweepAuthorized(
+              _intent(
+                  flow: SettlementFlow.movePredictionsToDollars,
+                  recipient: _ownSpark,
+                  reviewed: _sweepQuote()),
+              destination: VenueCashDestination.bitcoin,
+              ownRecipient: _ownSpark,
+              sessionUnlocked: true),
+          isFalse,
+          reason: 'another flow');
+      expect(
+          PredictionsVenueFunder.directSweepAuthorized(
+              _intent(flow: SettlementFlow.moveUsdToBtc, recipient: _ownSpark),
+              destination: VenueCashDestination.bitcoin,
+              ownRecipient: _ownSpark,
+              sessionUnlocked: true),
+          isFalse,
+          reason: 'no reviewed quote');
+    });
+
+    test('Investing needs its own flow and a HyperCore quote', () {
+      expect(
+          PredictionsVenueFunder.directSweepAuthorized(toBitcoin,
+              destination: VenueCashDestination.investing,
+              ownRecipient: _ownSpark,
+              sessionUnlocked: true),
+          isFalse);
+      for (final d in [
+        VenueCashDestination.dollars,
+        VenueCashDestination.predictions
+      ]) {
+        expect(
+            PredictionsVenueFunder.directSweepAuthorized(toBitcoin,
+                destination: d, ownRecipient: _ownSpark, sessionUnlocked: true),
+            isFalse);
+      }
+    });
+  });
+
   group('PmGrants.sweepCoversWithdrawal', () {
     test('exact quote amount, bridged, to the quote deposit address', () {
       final quote = _sweepQuote();
@@ -304,6 +371,9 @@ void main() {
       expect(covers(exact: quote.amountIn + BigInt.one), isFalse);
       expect(covers(bridged: false), isFalse);
       expect(covers(kind: RecipientKind.ownPmWallet), isFalse);
+      // A pull straight into the own Investing account (the quote gate
+      // checked the recipient against the derived account).
+      expect(covers(kind: RecipientKind.ownEvm), isTrue);
       expect(covers(kind: RecipientKind.external), isFalse);
     });
   });

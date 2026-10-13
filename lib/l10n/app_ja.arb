@@ -3010,5 +3010,8 @@
   "portfolioStatOpenPnl": "含み損益",
   "usdReceiveFromYourBitcoin": "あなたのビットコインから",
   "stepUpReasonBetReady": "{amount}の予測を準備",
-  "betMarketClosingNoFunding": "この市場は資金が届く前に終了します。何も移動していません。"
+  "betMarketClosingNoFunding": "この市場は資金が届く前に終了します。何も移動していません。",
+  "multiMoveSendTitle": "Send {amount}",
+  "multiMoveTitle": "Move {amount} to {destination}",
+  "multiMoveDeliveredRemaining": "{delivered} delivered · {remaining} remaining"
 }

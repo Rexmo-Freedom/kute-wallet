@@ -3010,5 +3010,8 @@
   "portfolioStatOpenPnl": "Atviras pelnas / nuostolis",
   "usdReceiveFromYourBitcoin": "Iš jūsų bitkoino",
   "stepUpReasonBetReady": "Paruoškite {amount} prognozę",
-  "betMarketClosingNoFunding": "Ši rinka užsidaro anksčiau, nei pinigai spėtų atkeliauti. Niekas nebuvo perkelta."
+  "betMarketClosingNoFunding": "Ši rinka užsidaro anksčiau, nei pinigai spėtų atkeliauti. Niekas nebuvo perkelta.",
+  "multiMoveSendTitle": "Send {amount}",
+  "multiMoveTitle": "Move {amount} to {destination}",
+  "multiMoveDeliveredRemaining": "{delivered} delivered · {remaining} remaining"
 }

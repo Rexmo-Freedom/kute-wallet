@@ -2396,7 +2396,10 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     final shortfall = _predictionsShortfall(balance, terms);
     if (shortfall > 0) {
       // One balance: the bet funds its shortfall from Dollars and queues
-      // behind the credit, under one approval.
+      // behind the credit, under one approval. Money this slip moved
+      // before Confirm and still on its way (a pre-fund the slip left
+      // for a limit order, or for a stake past what was approved) counts
+      // as there: only the rest moves, never the same money twice.
       await _fundAndPlace(
           balance: balance,
           terms: terms,
@@ -2883,7 +2886,14 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       return;
     }
     final required = _predictionsRequired(terms);
-    final ready = _predictionsReady(balance);
+    final spendable = _predictionsReady(balance);
+    final prefund = _draft.prefund;
+    final ready = prefund == null
+        ? spendable
+        : prefund.readyAtConfirmUsd(
+            spendableUsd: spendable, balanceUsd: balance);
+    // Pre-funded money still on its way: the queued bet waits for it too.
+    final incoming = ready - spendable;
     // Nothing moves for a market that cannot take the bet by the time the
     // money lands (audit P1-5). Read alongside the move's estimate.
     final window = _fundingWindow(requireRead: false);
@@ -3042,16 +3052,21 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           status: PendingBetStatus.awaitingBalance,
           fundUsd: plan.fundUsd,
           fundQuoteRef: quoteRef,
-          fundReadyUsd: balance,
+          // Earlier moves still on their way count as held before this
+          // one, so the bet fires once both have landed.
+          fundReadyUsd: balance + incoming,
           fundArrivingUsd: move.arrivingUsdEstimate,
           queuedAt: DateTime.now(),
         ));
       case OrderFundingNotNeeded():
-        // The venue covers it after all: the queued bet fires on the next
-        // balance tick.
+        // The venue covers it after all (or with the pre-funded money on
+        // its way): the queued bet fires on the balance tick that shows
+        // it landed.
         final current = ref.read(pendingPolymarketBetProvider) ?? pending;
         pendingNotifier.setIntent(current.copyWith(
           status: PendingBetStatus.awaitingBalance,
+          fundReadyUsd: incoming > 0 ? balance : null,
+          fundArrivingUsd: incoming > 0 ? incoming : null,
           queuedAt: DateTime.now(),
         ));
       case OrderFundingRefused(:final reason, :final error):

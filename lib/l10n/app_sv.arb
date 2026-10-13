@@ -3010,5 +3010,8 @@
   "portfolioStatOpenPnl": "Öppen vinst/förlust",
   "usdReceiveFromYourBitcoin": "Från din bitcoin",
   "stepUpReasonBetReady": "Gör en prognos på {amount} redo",
-  "betMarketClosingNoFunding": "Den här marknaden stänger innan pengarna hinner fram. Inget flyttades."
+  "betMarketClosingNoFunding": "Den här marknaden stänger innan pengarna hinner fram. Inget flyttades.",
+  "multiMoveSendTitle": "Send {amount}",
+  "multiMoveTitle": "Move {amount} to {destination}",
+  "multiMoveDeliveredRemaining": "{delivered} delivered · {remaining} remaining"
 }

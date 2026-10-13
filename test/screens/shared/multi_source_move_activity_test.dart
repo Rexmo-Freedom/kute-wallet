@@ -1,0 +1,341 @@
+// One Activity row per action that took money from more than one place:
+// the legs fold into it on the Dollars activity (and the Portfolio's,
+// which lists the dollar ledger) and on Bitcoin when Bitcoin is the
+// destination; partial failures show what was delivered and what is left;
+// the detail sheet's Retry pulls only the failed remainder, once.
+
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/intl.dart';
+import 'package:kute/helpers/swap_activity.dart';
+import 'package:kute/l10n/generated/app_localizations.dart';
+import 'package:kute/models/settings_model.dart';
+import 'package:kute/models/swap_order_model.dart';
+import 'package:kute/models/transactions_model.dart';
+import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/screens/portfolio/portfolio_activity.dart';
+import 'package:kute/screens/shared/multi_source_move_activity.dart';
+import 'package:kute/screens/shared/transactions_builder.dart';
+import 'package:kute/screens/shared/venue_cash_pull_copy.dart';
+import 'package:kute/services/one_balance/multi_source_move.dart';
+import 'package:kute/services/one_balance/one_balance_state.dart';
+import 'package:kute/services/one_balance/venue_cash_source.dart';
+import 'package:kute/services/one_balance/venue_funder.dart';
+import 'package:kute/services/tracking_service.dart';
+import 'package:kute/theme/app_theme.dart';
+
+final _t0 = DateTime.utc(2026, 10, 13, 12);
+
+SwapOrderTransaction _row(String id,
+        {required String from,
+        required String fromNet,
+        required String to,
+        required String toNet,
+        String? operationId,
+        String status = 'exchanging',
+        Duration after = Duration.zero}) =>
+    SwapOrderTransaction(
+      id: id,
+      timestamp: _t0.add(after),
+      isConfirmed: false,
+      details: SwapOrder(
+        id: id,
+        coinFrom: from,
+        networkFrom: fromNet,
+        coinTo: to,
+        networkTo: toNet,
+        depositAddress: 'deposit-$id',
+        depositAmount: '20.00',
+        withdrawalAmount: '19.80',
+        status: status,
+        timestamp: _t0.add(after).millisecondsSinceEpoch,
+        withdrawalAddress: 'sp1self',
+        depositMin: '0',
+        depositMax: '0',
+        rate: '0',
+        refundAddress: '',
+        provider: 'Orchestra',
+        walletId: 'w1',
+        operationId: operationId,
+      ),
+    );
+
+MultiSourceMoveLeg _leg(OneBalanceVenue venue,
+        {bool ok = true, String? op, double usd = 20, bool direct = true}) =>
+    MultiSourceMoveLeg(
+      venue: venue,
+      usd: usd,
+      arrivingUsd: usd * 0.99,
+      route: direct ? VenueCashRoute.direct : VenueCashRoute.viaDollars,
+      ok: ok,
+      at: _t0,
+      operationId: op,
+      error: ok ? null : 'route',
+    );
+
+MultiSourceMove _move({
+  String id = 'msm_1',
+  String forAction = VenueCashFor.buyBitcoin,
+  VenueCashDestination destination = VenueCashDestination.bitcoin,
+  List<MultiSourceMoveLeg>? legs,
+  String? finalOp,
+  String? walletId = 'w1',
+}) =>
+    MultiSourceMove(
+      id: id,
+      walletId: walletId,
+      forAction: forAction,
+      destination: destination,
+      totalUsd: 50,
+      dollarsUsd: 10,
+      createdAt: _t0.add(const Duration(seconds: 1)),
+      legs: legs ??
+          [
+            _leg(OneBalanceVenue.predictions, op: 'op-pm'),
+            _leg(OneBalanceVenue.investing, op: 'op-hl'),
+          ],
+      finalOperationId: finalOp,
+    );
+
+/// No settlement box in a pure test: classify by the row's shape.
+SwapActivityKind _classify(SwapOrder o) => classifySwapActivity(o);
+
+void main() {
+  group('collapse', () {
+    final pmLeg = _row('ord_pm',
+        from: 'USDC', fromNet: 'POLYGON', to: 'BTC', toNet: 'SPARK',
+        operationId: 'op-pm');
+    final hlLeg = _row('cctp-op-hl',
+        from: 'USDC', fromNet: 'HYPERCORE', to: 'BTC', toNet: 'SPARK',
+        operationId: 'op-hl');
+    final purchase = _row('ord_buy',
+        from: 'USDB', fromNet: 'SPARK', to: 'BTC', toNet: 'SPARK',
+        operationId: 'op-buy');
+    final unrelated = _row('ord_other',
+        from: 'BTC', fromNet: 'LIGHTNING', to: 'BTC', toNet: 'SPARK',
+        after: const Duration(minutes: 5));
+
+    test('Bitcoin as the destination: one row on the Bitcoin tab', () {
+      final rows = collapseMultiSourceMoves(
+          [unrelated, purchase, hlLeg, pmLeg],
+          [_move(finalOp: 'op-buy')],
+          onlyUsdb: false,
+          walletId: 'w1');
+      expect(rows.map((r) => r.id), ['ord_other', 'msm_1']);
+      final parent = rows.last as MultiSourceMoveTransaction;
+      expect(parent.legRows.map((r) => r.id),
+          containsAll(['ord_pm', 'cctp-op-hl', 'ord_buy']));
+      expect(parent.complete, isFalse, reason: 'legs still on their way');
+    });
+
+    test('a send is one row on Dollars, never on the Bitcoin tab', () {
+      final send = _move(
+          forAction: VenueCashFor.send,
+          destination: VenueCashDestination.dollars,
+          finalOp: 'op-buy');
+      final dollars = collapseMultiSourceMoves([purchase, pmLeg], [send],
+          onlyUsdb: true, walletId: 'w1');
+      expect(dollars.single, isA<MultiSourceMoveTransaction>());
+      final bitcoin = collapseMultiSourceMoves([purchase, pmLeg], [send],
+          onlyUsdb: false, walletId: 'w1');
+      expect(bitcoin.map((r) => r.id), ['ord_buy', 'ord_pm'],
+          reason: 'untouched where the move has no row');
+    });
+
+    test('another wallet\'s move, or one where nothing moved, has no row',
+        () {
+      expect(
+          collapseMultiSourceMoves([pmLeg], [_move(walletId: 'w2')],
+                  onlyUsdb: true, walletId: 'w1')
+              .single
+              .id,
+          'ord_pm');
+      final nothing = _move(legs: [
+        _leg(OneBalanceVenue.investing, ok: false),
+      ]);
+      expect(
+          collapseMultiSourceMoves([pmLeg], [nothing],
+                  onlyUsdb: true, walletId: 'w1')
+              .single
+              .id,
+          'ord_pm');
+    });
+
+    test('assembleActivityRows folds the legs on Dollars', () {
+      final rows = assembleActivityRows(
+        [purchase, pmLeg],
+        ownAddresses: const {'sp1self'},
+        isHardwareOrWatchOnly: false,
+        onlyUsdb: true,
+        classify: _classify,
+        moves: [_move(finalOp: 'op-buy')],
+        walletId: 'w1',
+      );
+      expect(rows.whereType<MultiSourceMoveTransaction>(), hasLength(1));
+      expect(rows.whereType<SwapOrderTransaction>(), isEmpty);
+    });
+
+    test('the Portfolio never lists a leg beside its move', () {
+      final move = _move(finalOp: 'op-buy');
+      final dollarRows = collapseMultiSourceMoves([purchase], [move],
+          onlyUsdb: true, walletId: 'w1');
+      final entries = mergePortfolioActivity(
+        dollarRows: dollarRows,
+        swaps: [pmLeg, hlLeg, purchase],
+        bets: const [],
+        fills: const [],
+        movedLegIds: multiSourceMoveLegIds([pmLeg, hlLeg, purchase], [move]),
+      );
+      expect(entries.map((e) => e.tx!.id), ['msm_1']);
+    });
+  });
+
+  group('copy', () {
+    late AppLocalizations l10n;
+    setUpAll(() async =>
+        l10n = await AppLocalizations.delegate.load(const Locale('en')));
+
+    test('the person\'s intent is the title', () {
+      expect(multiSourceMoveTitle(l10n, _move()), 'Move \$50.00 to Bitcoin');
+      expect(
+          multiSourceMoveTitle(
+              l10n,
+              _move(
+                  forAction: VenueCashFor.send,
+                  destination: VenueCashDestination.dollars,
+                  finalOp: 'op-send')),
+          'Send \$50.00');
+    });
+
+    test('a partial failure says what was delivered and what is left', () {
+      final partial = _move(legs: [
+        _leg(OneBalanceVenue.predictions, op: 'op-pm'),
+        _leg(OneBalanceVenue.investing, ok: false, usd: 21),
+      ]);
+      expect(partial.partial, isTrue);
+      expect(multiSourceMoveProgress(l10n, partial),
+          '\$29.80 delivered · \$20.20 remaining');
+      expect(multiSourceMoveProgress(l10n, _move()), isNull);
+      // The action's own step went: nothing is left.
+      expect(
+          multiSourceMoveProgress(l10n,
+              partial.copyWith(finalOperationId: 'op-buy')),
+          isNull);
+    });
+  });
+
+  group('detail sheet Retry', () {
+    late List<String> events;
+    setUp(() {
+      Intl.defaultLocale = 'en_US';
+      events = [];
+      TrackingService.debugTrackObserver = (e, _) => events.add(e);
+      MultiSourceMoveStore.reset();
+      DirectRouteRefusals.reset();
+    });
+    tearDown(() {
+      Intl.defaultLocale = null;
+      TrackingService.debugTrackObserver = null;
+    });
+
+    testWidgets('pulls the remainder once and the row stops needing it',
+        (tester) async {
+      tester.view.physicalSize = const Size(1290, 2796);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+      final hl = _RetrySource();
+      final puller = VenueCashPuller(
+        sources: [hl],
+        readDollars: () => 0,
+        minimumUsd: (_) async => 1,
+      );
+      MultiSourceMoveStore.start(_move(legs: [
+        _leg(OneBalanceVenue.predictions, op: 'op-pm'),
+        _leg(OneBalanceVenue.investing, ok: false, usd: 21),
+      ]));
+      final tx = MultiSourceMoveTransaction(
+          move: MultiSourceMoveStore.get('msm_1')!, legRows: const []);
+      await tester.pumpWidget(ProviderScope(
+        overrides: [
+          settingsProvider.overrideWith((ref) => SettingsModel(Settings(
+                currency: 'USD',
+                language: 'en',
+                btcFormat: 'sats',
+                backup: false,
+                balancePrivacy: 0,
+                biometricsEnabled: false,
+                bitcoinElectrumNode: 'localhost',
+                nodeType: 'Blockstream',
+                reviewDone: false,
+              ))),
+          venueCashPullerProvider.overrideWithValue(puller),
+        ],
+        child: ScreenUtilInit(
+          designSize: const Size(430, 932),
+          builder: (_, __) => MaterialApp(
+            theme: buildLightTheme(),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Scaffold(
+              body: Consumer(
+                  builder: (context, ref, _) =>
+                      buildUnifiedTransactionItem(tx, context, ref)),
+            ),
+          ),
+        ),
+      ));
+      expect(find.text('Move \$50.00 to Bitcoin'), findsOneWidget);
+      expect(find.textContaining('\$20.20 remaining'), findsOneWidget);
+
+      await tester.tap(find.text('Move \$50.00 to Bitcoin'));
+      await tester.pumpAndSettle();
+      expect(find.text('Retry'), findsOneWidget);
+
+      hl.gate = Completer<void>();
+      await tester.tap(find.text('Retry'));
+      await tester.pump();
+      // A second tap while it runs pulls nothing more.
+      expect(MultiSourceMoveStore.retrying('msm_1'), isTrue);
+      await tester.tap(find.byType(OutlinedButton), warnIfMissed: false);
+      await tester.pump();
+      hl.gate!.complete();
+      // The row is pending again (its spinner never settles): pump.
+      for (var i = 0; i < 5; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      expect(hl.pulls, hasLength(1));
+      expect(hl.pulls.single, greaterThanOrEqualTo(20.2));
+      expect(events, contains('multi_source_move_retry_tapped'));
+      expect(MultiSourceMoveStore.get('msm_1')!.partial, isFalse);
+      expect(find.text('Retry'), findsNothing);
+    });
+  });
+}
+
+/// Investing cash with no direct door: the remainder comes home.
+class _RetrySource implements VenueCashSource {
+  final pulls = <double>[];
+  Completer<void>? gate;
+
+  @override
+  OneBalanceVenue get venue => OneBalanceVenue.investing;
+
+  @override
+  Duration get estimatedArrival => const Duration(minutes: 5);
+
+  @override
+  Future<double> availableUsd() async => 500;
+
+  @override
+  Future<VenueMoveResult> pull(double usd, {required String purpose}) async {
+    pulls.add(usd);
+    final g = gate;
+    if (g != null) await g.future;
+    return VenueMoveResult(
+        quoteId: 'q', sentUsd: usd, arrivingUsdEstimate: usd * 0.99);
+  }
+}

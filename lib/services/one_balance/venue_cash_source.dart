@@ -29,18 +29,36 @@
 // only when nothing on the account can be leaning on it. Predictions
 // pulls only cash not reserved by an open BUY order.
 //
-// Routing today: every leg comes home to Dollars (spark:USDB) and the
-// action continues from Dollars.
-// TODO(one-balance): direct legs. Orchestra offers polygon:USDC(.e) →
-// spark:BTC and → hypercore:USDC, and arbitrum:USDC (the CCTP exit) →
-// spark:BTC / polygon:USDC(.e); the backend accepts the Investing
-// withdrawal standing address for spark:USDB only until the
-// `cctp-any-destination` change lands. Each direct leg needs its own
-// settlement flow, quote-guard recipient kind and reconciler wiring.
+// Routing: an action names where its money is going
+// ([VenueCashDestination]). Dollars (a send): every leg comes home to
+// Dollars (spark:USDB). Anywhere else, a leg goes STRAIGHT there when its
+// venue's rail offers the route, always to one of the wallet's own
+// accounts under the same automatic authorization:
+//
+//  * Investing → Bitcoin or Predictions: Circle CCTP to the destination's
+//    own standing instruction (spark:BTC to the own Spark address, or
+//    polygon:USDC.e to the own Polymarket deposit wallet), each with its
+//    own label and fee rule (`HyperCoreMoveRail.withdrawDirect`).
+//  * Predictions → Bitcoin or Investing: the Predictions cash-out quoted
+//    by Orchestra to the destination (polygon:USDC.e → spark:BTC or →
+//    hypercore:USDC to the own Investing account)
+//    (`PredictionsVenueFunder.sweepTo`).
+//
+// A refusal before anything moved (the standing terms, the route, the
+// quote, a shut gate, the Polymarket wallet not linked yet) brings that
+// leg home to Dollars instead (`via_dollars`) and the action takes it on
+// from there; the refusal is remembered for the session
+// ([DirectRouteRefusals]). Every action with legs is one move
+// (multi_source_move.dart): one Activity row, the legs inside it, and
+// Retry for a failed remainder.
+
+export 'package:kute/services/one_balance/venue_funder.dart'
+    show VenueCashDestination, DirectRouteRefused;
 
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/models/hyperliquid_market.dart'
     show HlOpenOrder, HlPerpPosition;
@@ -50,14 +68,18 @@ import 'package:kute/providers/hyperliquid_markets_provider.dart'
     show hyperliquidTradingModelProvider;
 import 'package:kute/providers/polymarket_trading_provider.dart'
     show polymarketTradingProvider;
+import 'package:kute/providers/settings_provider.dart' show settingsProvider;
 import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceProvider;
+import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
+    show pickSpendingWallet;
 import 'package:kute/services/background_sync_service.dart';
 import 'package:kute/services/funding/owned_address_resolver.dart'
     show ProviderReader;
 import 'package:kute/services/hyperliquid/cctp_withdrawal.dart'
     show kCctpCoreFeeReserve;
 import 'package:kute/services/one_balance/hyperliquid_move_rail.dart';
+import 'package:kute/services/one_balance/multi_source_move.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/one_balance/predictions_venue_funder.dart'
     show predictionsVenueFunderProvider;
@@ -65,6 +87,8 @@ import 'package:kute/services/one_balance/route_minimums.dart';
 import 'package:kute/services/one_balance/venue_funder.dart';
 import 'package:kute/services/one_balance/venue_sweeper.dart'
     show SweepableVenueFunder;
+import 'package:kute/services/orchestra/standing_deposit_store.dart'
+    show InvestingWithdrawalDestination;
 import 'package:kute/services/tracking_service.dart';
 
 // ─── Actions ───────────────────────────────────────────────────────
@@ -364,10 +388,54 @@ abstract interface class VenueCashSource {
   Future<VenueMoveResult> pull(double usd, {required String purpose});
 }
 
+/// A source whose cash can also go straight to the action's destination
+/// (Bitcoin, the other venue) under [SweepAuthorization.automatic], only
+/// ever to one of the wallet's own accounts.
+abstract interface class DirectVenueCashSource {
+  /// Whether this venue's rail offers a direct route to [destination].
+  bool canPullTo(VenueCashDestination destination);
+
+  /// Sends [usd] straight to [destination]. Throws [DirectRouteRefused]
+  /// when the route was refused before anything moved (the puller then
+  /// brings the leg home to Dollars instead); anything else may have
+  /// moved and fails the leg.
+  Future<VenueMoveResult> pullTo(VenueCashDestination destination, double usd,
+      {required String purpose});
+}
+
+/// Direct routes refused this session, per venue and destination: a
+/// refusal (the standing terms, the route, a gate) is not asked again
+/// until the app restarts; those legs go through Dollars.
+abstract final class DirectRouteRefusals {
+  static final Set<String> _refused = {};
+
+  static String _key(OneBalanceVenue venue, VenueCashDestination d) =>
+      '${venue.name}>${d.name}';
+
+  static bool isRefused(OneBalanceVenue venue, VenueCashDestination d) =>
+      _refused.contains(_key(venue, d));
+
+  static void refuse(OneBalanceVenue venue, VenueCashDestination d) =>
+      _refused.add(_key(venue, d));
+
+  @visibleForTesting
+  static void reset() => _refused.clear();
+}
+
+/// The venue a destination is, if it is one: its own cash is never
+/// pulled for it.
+OneBalanceVenue? venueOfDestination(VenueCashDestination destination) =>
+    switch (destination) {
+      VenueCashDestination.predictions => OneBalanceVenue.predictions,
+      VenueCashDestination.investing => OneBalanceVenue.investing,
+      _ => null,
+    };
+
 /// Predictions cash: what [SweepableVenueFunder.idleUsd] calls idle (the
 /// cash balance less what open BUY orders reserve; 0 when the orders
-/// cannot be read), brought home by its sweep.
-class PolymarketCashSource implements VenueCashSource {
+/// cannot be read), brought home by its sweep, or straight to Bitcoin or
+/// Investing by its direct cash-out.
+class PolymarketCashSource implements VenueCashSource, DirectVenueCashSource {
   PolymarketCashSource(this._funder, {bool Function()? isLive})
       : _isLive = isLive;
 
@@ -402,6 +470,27 @@ class PolymarketCashSource implements VenueCashSource {
         auth: SweepAuthorization.automatic,
         purpose: purpose,
       );
+
+  @override
+  bool canPullTo(VenueCashDestination destination) =>
+      _funder is DirectSweepableVenueFunder &&
+      (destination == VenueCashDestination.bitcoin ||
+          destination == VenueCashDestination.investing);
+
+  @override
+  Future<VenueMoveResult> pullTo(VenueCashDestination destination, double usd,
+      {required String purpose}) {
+    final funder = _funder;
+    if (funder is! DirectSweepableVenueFunder || !canPullTo(destination)) {
+      throw const DirectRouteRefused('no_direct_route');
+    }
+    return (funder as DirectSweepableVenueFunder).sweepTo(
+      destination: destination,
+      usd: usd,
+      auth: SweepAuthorization.automatic,
+      purpose: purpose,
+    );
+  }
 }
 
 /// What the Investing account has open, for [HyperliquidCashSource].
@@ -427,19 +516,28 @@ bool hlPullAllowed(HlPullGuardState state) {
   return true;
 }
 
+/// Investing's direct door: CCTP straight to a destination's own standing
+/// instruction (`HyperCoreMoveRail.withdrawDirect`).
+typedef HlDirectWithdraw = Future<VenueMoveResult> Function(
+    InvestingWithdrawalDestination destination, double usd, String purpose);
+
 /// Investing cash: the rail's sendable figure (withdrawable perpetuals
 /// cash plus unheld spot USDC, never isolated margin or cross
 /// collateral), less the HyperCore reserve the CCTP burn keeps back, and
 /// nothing at all while a cross position or a resting perp order could
-/// lean on it. An unreadable account is 0.
-class HyperliquidCashSource implements VenueCashSource {
-  HyperliquidCashSource(this._rail, {required this.readGuard});
+/// lean on it. An unreadable account is 0. With [direct], it also goes
+/// straight to Bitcoin or Predictions by CCTP.
+class HyperliquidCashSource implements VenueCashSource, DirectVenueCashSource {
+  HyperliquidCashSource(this._rail, {required this.readGuard, this.direct});
 
   final HyperliquidMoveRail _rail;
 
   /// The account's open positions and resting orders, or null when they
   /// cannot be read.
   final Future<HlPullGuardState?> Function() readGuard;
+
+  /// The CCTP move straight to a destination, or null for none.
+  final HlDirectWithdraw? direct;
 
   @override
   OneBalanceVenue get venue => OneBalanceVenue.investing;
@@ -461,19 +559,48 @@ class HyperliquidCashSource implements VenueCashSource {
     }
   }
 
-  @override
-  Future<VenueMoveResult> pull(double usd, {required String purpose}) async {
+  Future<void> _ensureFree() async {
     // Read again at the moment of the pull: an order placed since the
     // plan turns the account off.
     final guard = await readGuard();
     if (guard == null || !hlPullAllowed(guard)) {
       throw const RouteUnavailable('investing_cash_in_use');
     }
+  }
+
+  @override
+  Future<VenueMoveResult> pull(double usd, {required String purpose}) async {
+    await _ensureFree();
     return _rail.withdrawToDollars(
       usd: usd,
       auth: SweepAuthorization.automatic,
       purpose: purpose,
     );
+  }
+
+  static InvestingWithdrawalDestination? _cctpDestination(
+          VenueCashDestination d) =>
+      switch (d) {
+        VenueCashDestination.bitcoin => InvestingWithdrawalDestination.bitcoin,
+        VenueCashDestination.predictions =>
+          InvestingWithdrawalDestination.predictions,
+        _ => null,
+      };
+
+  @override
+  bool canPullTo(VenueCashDestination destination) =>
+      direct != null && _cctpDestination(destination) != null;
+
+  @override
+  Future<VenueMoveResult> pullTo(VenueCashDestination destination, double usd,
+      {required String purpose}) async {
+    final to = _cctpDestination(destination);
+    final send = direct;
+    if (to == null || send == null) {
+      throw const DirectRouteRefused('no_direct_route');
+    }
+    await _ensureFree();
+    return send(to, usd, purpose);
   }
 }
 
@@ -504,6 +631,8 @@ class VenueCashLegOutcome {
     required this.pull,
     this.result,
     this.error,
+    this.route = VenueCashRoute.viaDollars,
+    this.landsIn = VenueCashDestination.dollars,
   });
 
   final VenueCashPull pull;
@@ -514,11 +643,26 @@ class VenueCashLegOutcome {
   /// Why the leg did not go; its money stays on its venue.
   final Object? error;
 
+  /// [VenueCashRoute.direct] or [VenueCashRoute.viaDollars].
+  final String route;
+
+  /// Where the leg's money lands: the action's destination for a direct
+  /// leg, Dollars otherwise.
+  final VenueCashDestination landsIn;
+
   OneBalanceVenue get venue => pull.venue;
   bool get ok => result != null;
+  bool get direct => route == VenueCashRoute.direct;
 
   /// What left the venue (0 for a failed leg).
   double get sentUsd => result?.sentUsd ?? 0;
+
+  /// What the leg is expected to land (0 for a failed leg).
+  double get arrivingUsd => ok
+      ? (result!.arrivingUsdEstimate > 0
+          ? result!.arrivingUsdEstimate
+          : pull.arrivingUsd)
+      : 0;
 }
 
 /// What [VenueCashPuller.pullShortfall] did.
@@ -528,6 +672,10 @@ class VenueCashPullOutcome {
     required this.legs,
     required this.dollarsCover,
     required this.eta,
+    this.destination = VenueCashDestination.dollars,
+    this.moveId,
+    this.onwardUsd,
+    this.alreadyDeliveredUsd = 0,
   });
 
   final VenueCashPlan plan;
@@ -535,26 +683,42 @@ class VenueCashPullOutcome {
   /// Each venue leg, in plan order.
   final List<VenueCashLegOutcome> legs;
 
-  /// Dollars held the needed amount when the call returned (after the
-  /// wait, when one was asked for).
+  /// Dollars held what the action takes from them ([onwardUsd]) when the
+  /// call returned (after the wait, when one was asked for).
   final bool dollarsCover;
 
   /// The plan's ETA: how long the slowest leg should take.
   final Duration eta;
 
+  /// Where the action's money is going.
+  final VenueCashDestination destination;
+
+  /// The move's record (`MultiSourceMoveStore`), when any leg ran: the
+  /// id a Retry and the action's own step are linked by.
+  final String? moveId;
+
+  /// What the action still takes from Dollars: the whole amount for a
+  /// Dollars destination, otherwise what the direct legs do not deliver.
+  final double? onwardUsd;
+
+  /// What earlier attempts of the same move already sent straight to the
+  /// destination (a Retry never pulls it again).
+  final double alreadyDeliveredUsd;
+
   /// What left the venues on legs that went.
   double get pulledUsd => legs.fold(0.0, (sum, l) => sum + l.sentUsd);
 
   /// What successful legs are expected to land.
-  double get arrivingUsd => legs.fold(
-      0.0,
-      (sum, l) =>
-          sum +
-          (l.ok
-              ? (l.result!.arrivingUsdEstimate > 0
-                  ? l.result!.arrivingUsdEstimate
-                  : l.pull.arrivingUsd)
-              : 0));
+  double get arrivingUsd => legs.fold(0.0, (sum, l) => sum + l.arrivingUsd);
+
+  /// What legs that went straight to the destination will land there.
+  double get directArrivingUsd => legs
+      .where((l) => l.ok && l.direct)
+      .fold(0.0, (sum, l) => sum + l.arrivingUsd);
+
+  /// What the action takes from Dollars, [plan]'s amount when no figure
+  /// was worked out.
+  double get dollarsNeededUsd => onwardUsd ?? plan.neededUsd;
 
   /// Legs that did not go.
   List<VenueCashLegOutcome> get failedLegs => [
@@ -569,13 +733,20 @@ class VenueCashPullOutcome {
   bool get dollarsOnly => legs.isEmpty && plan.covers;
 }
 
+/// The smallest amount an action sends on from Dollars to a destination
+/// other than Dollars (the Orchestra floor plus a margin): Dollars below
+/// it are left alone and the venue legs cover the whole amount when they
+/// can, so no leg is left too small to go on.
+const double kVenueCashOnwardMinimumUsd = 1.0;
+
 /// Plans, pulls in parallel and (optionally) waits for Dollars.
 ///
 /// Calls are serialized: a second call waits for the first to finish
 /// and plans again against what is left, so the same venue cash is never
-/// pulled twice. Pulls already sent but not yet seen landing count
+/// pulled twice. Pulls already sent home but not yet seen landing count
 /// toward Dollars for [pendingTtl], so a retry right after a stop waits
-/// on the money already coming instead of pulling more.
+/// on the money already coming instead of pulling more; legs that went
+/// straight to the destination count through the move's record.
 class VenueCashPuller {
   VenueCashPuller({
     required List<VenueCashSource> sources,
@@ -584,6 +755,7 @@ class VenueCashPuller {
     DateTime Function()? clock,
     Future<void> Function(Duration)? sleep,
     void Function()? nudge,
+    String? Function()? walletId,
     this.pollEvery = const Duration(seconds: 3),
     this.nudgeEvery = const Duration(seconds: 20),
     this.pendingTtl = const Duration(minutes: 20),
@@ -592,7 +764,8 @@ class VenueCashPuller {
         _minimumUsd = minimumUsd,
         _clock = clock ?? DateTime.now,
         _sleep = sleep ?? ((d) => Future<void>.delayed(d)),
-        _nudge = nudge;
+        _nudge = nudge,
+        _walletId = walletId;
 
   final List<VenueCashSource> _sources;
   final double Function() _readDollars;
@@ -600,6 +773,7 @@ class VenueCashPuller {
   final DateTime Function() _clock;
   final Future<void> Function(Duration) _sleep;
   final void Function()? _nudge;
+  final String? Function()? _walletId;
 
   /// How often the wait reads Dollars.
   final Duration pollEvery;
@@ -647,20 +821,37 @@ class VenueCashPuller {
 
   /// The plan for [neededUsd] against Dollars (plus pulls on their way)
   /// and the venues' free cash right now. Moves nothing.
-  Future<VenueCashPlan> plan(
-      {required double neededUsd, OneBalanceVenue? exclude}) async {
-    final dollars = _readDollars();
-    final pending = pendingUsd;
-    if (dollars + pending + 0.000001 >= _ceilCents(neededUsd)) {
+  ///
+  /// For a [destination] other than Dollars, Dollars short of
+  /// [kVenueCashOnwardMinimumUsd] are left alone when the venues can cover
+  /// the whole amount, so the onward step is never too small to go.
+  /// [useDollars] false plans the venues alone (a Retry of a remainder).
+  Future<VenueCashPlan> plan({
+    required double neededUsd,
+    OneBalanceVenue? exclude,
+    VenueCashDestination destination = VenueCashDestination.dollars,
+    bool useDollars = true,
+  }) async {
+    final dollars = useDollars ? _readDollars() + pendingUsd : 0.0;
+    if (dollars + 0.000001 >= _ceilCents(neededUsd)) {
       return planDollarsShortfall(
+          neededUsd: neededUsd, dollarsUsd: dollars, sources: const []);
+    }
+    final sources = await candidates(exclude: exclude);
+    if (destination != VenueCashDestination.dollars &&
+        dollars > 0 &&
+        dollars < kVenueCashOnwardMinimumUsd) {
+      final venuesOnly = planDollarsShortfall(
           neededUsd: neededUsd,
-          dollarsUsd: dollars + pending,
-          sources: const []);
+          dollarsUsd: 0,
+          sources: sources,
+          exclude: exclude);
+      if (venuesOnly.covers) return venuesOnly;
     }
     return planDollarsShortfall(
       neededUsd: neededUsd,
-      dollarsUsd: dollars + pending,
-      sources: await candidates(exclude: exclude),
+      dollarsUsd: dollars,
+      sources: sources,
       exclude: exclude,
     );
   }
@@ -677,73 +868,149 @@ class VenueCashPuller {
   /// Uses Dollars first and pulls only the shortfall from venue cash.
   ///
   /// Every leg starts at once; one failing does not stop the others (its
-  /// money stays on its venue). [onPlanned] hears the plan before any leg
-  /// starts, for the progress lines. The call then reads Dollars every
-  /// [pollEvery] until they reach [neededUsd] or the wait runs out; the
-  /// outcome says which. [waitFor] null waits [venueCashWaitFor] the
-  /// plan's ETA; [Duration.zero] returns once the legs are sent. A plan
-  /// that does not cover the amount pulls nothing, and a failed leg
-  /// skips the wait.
+  /// money stays on its venue). For a [destination] other than Dollars a
+  /// leg goes straight there when its venue's rail offers the route
+  /// ([DirectVenueCashSource]); a refusal before anything moved brings it
+  /// home to Dollars instead (and that route is not asked again this
+  /// session). [onPlanned] hears the plan before any leg starts, for the
+  /// progress lines. The call then reads Dollars every [pollEvery] until
+  /// they hold what the action takes from them
+  /// ([VenueCashPullOutcome.onwardUsd]) or the wait runs out; the outcome
+  /// says which. [waitFor] null waits [venueCashWaitFor] the plan's ETA;
+  /// [Duration.zero] returns once the legs are sent. A plan that does not
+  /// cover the amount pulls nothing, and a failed leg skips the wait.
+  ///
+  /// Every call with legs is one move ([MultiSourceMoveStore]): [moveId]
+  /// continues an earlier one (a Retry), whose legs that already went
+  /// straight to the destination are not pulled again.
   Future<VenueCashPullOutcome> pullShortfall({
     required double neededUsd,
     required String forAction,
+    VenueCashDestination destination = VenueCashDestination.dollars,
     OneBalanceVenue? exclude,
     Duration? waitFor,
+    String? moveId,
     void Function(VenueCashPlan plan)? onPlanned,
   }) {
     final run = _tail.then((_) => _pullShortfall(
           neededUsd: neededUsd,
           forAction: forAction,
+          destination: destination,
           exclude: exclude,
           waitFor: waitFor,
+          moveId: moveId,
           onPlanned: onPlanned,
         ));
     _tail = run.then((_) {}, onError: (_) {});
     return run;
   }
 
+  /// Retry on a move a leg failed for: pulls ONLY the failed remainder
+  /// from the venues to the move's destination (Dollars, the money
+  /// already arrived, are not asked again), as legs of the same move.
+  /// Null when there is nothing left to pull or a Retry is running.
+  Future<VenueCashPullOutcome?> retryMove(String moveId,
+      {Duration waitFor = Duration.zero}) async {
+    final move = MultiSourceMoveStore.get(moveId);
+    if (move == null || !move.partial) return null;
+    if (!MultiSourceMoveStore.beginRetry(moveId)) return null;
+    try {
+      final run = _tail.then((_) => _pullShortfall(
+            neededUsd: move.remainingUsd,
+            forAction: move.forAction,
+            destination: move.destination,
+            exclude: venueOfDestination(move.destination),
+            waitFor: waitFor,
+            moveId: moveId,
+            useDollars: false,
+            remainderOnly: true,
+          ));
+      _tail = run.then((_) {}, onError: (_) {});
+      return await run;
+    } finally {
+      MultiSourceMoveStore.endRetry(moveId);
+    }
+  }
+
   Future<VenueCashPullOutcome> _pullShortfall({
     required double neededUsd,
     required String forAction,
+    required VenueCashDestination destination,
     OneBalanceVenue? exclude,
     Duration? waitFor,
+    String? moveId,
+    bool useDollars = true,
+    bool remainderOnly = false,
     void Function(VenueCashPlan plan)? onPlanned,
   }) async {
-    final plan = await this.plan(neededUsd: neededUsd, exclude: exclude);
+    final excluded = exclude ?? venueOfDestination(destination);
+    // A Retry of the whole action: what earlier legs already sent
+    // straight to the destination is not pulled again.
+    final earlier = moveId == null ? null : MultiSourceMoveStore.get(moveId);
+    final alreadyDirect =
+        remainderOnly ? 0.0 : (earlier?.directDeliveredUsd ?? 0.0);
+    final needed = math.max(0.0, neededUsd - alreadyDirect);
+    final plan = await this.plan(
+        neededUsd: needed,
+        exclude: excluded,
+        destination: destination,
+        useDollars: useDollars);
     if (!plan.covers) {
       return VenueCashPullOutcome(
-          plan: plan, legs: const [], dollarsCover: false, eta: plan.eta);
+          plan: plan,
+          legs: const [],
+          dollarsCover: false,
+          eta: plan.eta,
+          destination: destination,
+          moveId: moveId,
+          alreadyDeliveredUsd: alreadyDirect);
     }
     onPlanned?.call(plan);
     final legs = <VenueCashLegOutcome>[];
+    String? id = moveId;
     if (plan.pulls.isNotEmpty) {
+      id ??= MultiSourceMoveStore.newId();
+      String? wallet;
+      try {
+        wallet = _walletId?.call();
+      } catch (_) {}
+      MultiSourceMoveStore.start(MultiSourceMove(
+        id: id,
+        walletId: wallet,
+        forAction: forAction,
+        destination: destination,
+        totalUsd: _cents(neededUsd),
+        dollarsUsd: _cents(plan.dollarsUsd),
+        createdAt: _clock(),
+      ));
       TrackingService.track('multi_source_move_started', params: {
         'legs': plan.pulls.length + (plan.dollarsUsd > 0 ? 1 : 0),
         'total_usd': plan.neededUsd,
         'destination': forAction,
       });
+      final moveKey = id;
       legs.addAll(await Future.wait([
-        for (final p in plan.pulls) _runLeg(p, forAction),
+        for (final p in plan.pulls) _runLeg(p, forAction, destination, moveKey),
       ]));
     }
     final failed = legs.where((l) => !l.ok).length;
-    var cover = _readDollars() + 0.000001 >= plan.neededUsd;
+    // What the action takes from Dollars: the whole amount when Dollars
+    // are the destination, else what the direct legs do not bring.
+    final direct = legs
+        .where((l) => l.ok && l.direct)
+        .fold<double>(0, (sum, l) => sum + l.pull.arrivingUsd);
+    final onward = destination == VenueCashDestination.dollars
+        ? plan.neededUsd
+        : (remainderOnly ? 0.0 : _cents(math.max(0, plan.neededUsd - direct)));
+    var cover = remainderOnly || _readDollars() + 0.000001 >= onward;
     final wait = waitFor ?? venueCashWaitFor(plan.eta);
     if (!cover && failed == 0 && wait > Duration.zero) {
-      cover = await _waitForDollars(plan.neededUsd, wait);
+      cover = await _waitForDollars(onward, wait);
     }
-    if (cover) _pending.clear();
+    if (cover && !remainderOnly) _pending.clear();
     if (plan.pulls.isNotEmpty) {
       final delivered = plan.dollarsUsd +
-          legs.fold<double>(
-              0,
-              (sum, l) =>
-                  sum +
-                  (l.ok
-                      ? (l.result!.arrivingUsdEstimate > 0
-                          ? l.result!.arrivingUsdEstimate
-                          : l.pull.arrivingUsd)
-                      : 0));
+          legs.fold<double>(0, (sum, l) => sum + l.arrivingUsd);
       TrackingService.track('multi_source_move_finished', params: {
         'delivered_usd': _cents(delivered),
         'failed_legs': failed,
@@ -755,37 +1022,90 @@ class VenueCashPuller {
         plan: plan,
         legs: List.unmodifiable(legs),
         dollarsCover: cover,
-        eta: plan.eta);
+        eta: plan.eta,
+        destination: destination,
+        moveId: id,
+        onwardUsd: onward,
+        alreadyDeliveredUsd: alreadyDirect);
   }
 
-  Future<VenueCashLegOutcome> _runLeg(VenueCashPull p, String forAction) async {
+  Future<VenueCashLegOutcome> _runLeg(VenueCashPull p, String forAction,
+      VenueCashDestination destination, String moveId) async {
     VenueCashSource? source;
     for (final s in _sources) {
       if (s.venue == p.venue) source = s;
     }
     if (source == null) {
-      return VenueCashLegOutcome(
-          pull: p, error: const RouteUnavailable('no_source'));
+      return _recorded(
+          moveId,
+          VenueCashLegOutcome(
+              pull: p, error: const RouteUnavailable('no_source')));
     }
+    var route = VenueCashRoute.viaDollars;
     try {
-      final result = await source.pull(p.usd, purpose: kVenueCashPullPurpose);
-      final arriving = result.arrivingUsdEstimate > 0
-          ? result.arrivingUsdEstimate
-          : p.arrivingUsd;
-      _pending.add((usd: arriving, at: _clock()));
-      final amount = _cents(result.sentUsd > 0 ? result.sentUsd : p.usd);
+      VenueMoveResult? result;
+      if (destination != VenueCashDestination.dollars &&
+          source is DirectVenueCashSource &&
+          (source as DirectVenueCashSource).canPullTo(destination) &&
+          !DirectRouteRefusals.isRefused(p.venue, destination)) {
+        route = VenueCashRoute.direct;
+        try {
+          result = await (source as DirectVenueCashSource)
+              .pullTo(destination, p.usd, purpose: kVenueCashPullPurpose);
+        } on DirectRouteRefused {
+          // Refused before anything moved: through Dollars instead, and
+          // not asked again this session.
+          DirectRouteRefusals.refuse(p.venue, destination);
+          route = VenueCashRoute.viaDollars;
+        }
+      }
+      result ??= await source.pull(p.usd, purpose: kVenueCashPullPurpose);
+      final outcome = VenueCashLegOutcome(
+        pull: p,
+        result: result,
+        route: route,
+        landsIn: route == VenueCashRoute.direct
+            ? destination
+            : VenueCashDestination.dollars,
+      );
+      if (route == VenueCashRoute.viaDollars) {
+        _pending.add((usd: outcome.arrivingUsd, at: _clock()));
+      }
+      final params = {
+        'amount_usd': _cents(result.sentUsd > 0 ? result.sentUsd : p.usd),
+        'for': forAction,
+        'route': route,
+        'destination': destination.code,
+      };
       switch (p.venue) {
         case OneBalanceVenue.investing:
-          TrackingService.track('investing_cash_pulled',
-              params: {'amount_usd': amount, 'for': forAction});
+          TrackingService.track('investing_cash_pulled', params: params);
         case OneBalanceVenue.predictions:
-          TrackingService.track('predictions_cash_pulled',
-              params: {'amount_usd': amount, 'for': forAction});
+          TrackingService.track('predictions_cash_pulled', params: params);
       }
-      return VenueCashLegOutcome(pull: p, result: result);
+      return _recorded(moveId, outcome);
     } catch (e) {
-      return VenueCashLegOutcome(pull: p, error: e);
+      return _recorded(
+          moveId, VenueCashLegOutcome(pull: p, error: e, route: route));
     }
+  }
+
+  VenueCashLegOutcome _recorded(String moveId, VenueCashLegOutcome leg) {
+    final result = leg.result;
+    MultiSourceMoveStore.addLeg(
+        moveId,
+        MultiSourceMoveLeg(
+          venue: leg.venue,
+          usd: leg.ok ? _cents(leg.sentUsd) : leg.pull.usd,
+          arrivingUsd: leg.ok ? _cents(leg.arrivingUsd) : leg.pull.arrivingUsd,
+          route: leg.route,
+          ok: leg.ok,
+          at: _clock(),
+          operationId: result?.operationId,
+          quoteId: result?.quoteId,
+          error: leg.ok ? null : TrackingService.errorCategory(leg.error),
+        ));
+    return leg;
   }
 
   Future<bool> _waitForDollars(double neededUsd, Duration waitFor) async {
@@ -811,14 +1131,24 @@ class VenueCashPuller {
 // ─── Riverpod ──────────────────────────────────────────────────────
 
 /// Both venues' cash, Predictions first.
-final venueCashSourcesProvider = Provider<List<VenueCashSource>>((ref) => [
-      PolymarketCashSource(ref.read(predictionsVenueFunderProvider),
-          isLive: () => ref.exists(polymarketTradingProvider)),
-      HyperliquidCashSource(
-        ref.read(hyperliquidMoveRailProvider),
-        readGuard: () => readHyperliquidPullGuard(ref.read),
-      ),
-    ]);
+final venueCashSourcesProvider = Provider<List<VenueCashSource>>((ref) {
+  final rail = ref.read(hyperliquidMoveRailProvider);
+  return [
+    PolymarketCashSource(ref.read(predictionsVenueFunderProvider),
+        isLive: () => ref.exists(polymarketTradingProvider)),
+    HyperliquidCashSource(
+      rail,
+      readGuard: () => readHyperliquidPullGuard(ref.read),
+      direct: rail is HyperCoreMoveRail
+          ? (destination, usd, purpose) => rail.withdrawDirect(
+              destination: destination,
+              usd: usd,
+              auth: SweepAuthorization.automatic,
+              purpose: purpose)
+          : null,
+    ),
+  ];
+});
 
 /// The app's puller. Not autoDispose: it remembers pulls on their way.
 final venueCashPullerProvider = Provider<VenueCashPuller>((ref) {
@@ -828,6 +1158,7 @@ final venueCashPullerProvider = Provider<VenueCashPuller>((ref) {
     readDollars: () => ref.read(usdBalanceProvider),
     minimumUsd: minimums.minimumUsd,
     nudge: () => BackgroundSyncService().syncNow(),
+    walletId: () => pickSpendingWallet(ref.read(settingsProvider))?.id,
   );
 });
 

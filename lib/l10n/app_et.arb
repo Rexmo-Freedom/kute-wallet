@@ -3010,5 +3010,8 @@
   "portfolioStatOpenPnl": "Avatud kasum / kahjum",
   "usdReceiveFromYourBitcoin": "Sinu bitcoinist",
   "stepUpReasonBetReady": "Valmista ette ennustus {amount}",
-  "betMarketClosingNoFunding": "See turg sulgub enne, kui raha jõuaks kohale. Midagi ei liigutatud."
+  "betMarketClosingNoFunding": "See turg sulgub enne, kui raha jõuaks kohale. Midagi ei liigutatud.",
+  "multiMoveSendTitle": "Send {amount}",
+  "multiMoveTitle": "Move {amount} to {destination}",
+  "multiMoveDeliveredRemaining": "{delivered} delivered · {remaining} remaining"
 }

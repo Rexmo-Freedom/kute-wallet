@@ -3010,5 +3010,8 @@
   "portfolioStatOpenPnl": "Otwarty zysk / strata",
   "usdReceiveFromYourBitcoin": "Z Twojego bitcoina",
   "stepUpReasonBetReady": "Przygotuj prognozę {amount}",
-  "betMarketClosingNoFunding": "Ten rynek zamyka się, zanim pieniądze zdążą dotrzeć. Nic nie zostało przeniesione."
+  "betMarketClosingNoFunding": "Ten rynek zamyka się, zanim pieniądze zdążą dotrzeć. Nic nie zostało przeniesione.",
+  "multiMoveSendTitle": "Send {amount}",
+  "multiMoveTitle": "Move {amount} to {destination}",
+  "multiMoveDeliveredRemaining": "{delivered} delivered · {remaining} remaining"
 }

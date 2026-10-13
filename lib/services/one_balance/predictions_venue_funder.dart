@@ -45,6 +45,8 @@ import 'package:kute/models/settlement_operation.dart'
     show SettlementAccountKind, SettlementFlow;
 import 'package:kute/models/swap_order_model.dart';
 import 'package:kute/providers/auth_provider.dart' show sessionUnlockedProvider;
+import 'package:kute/providers/hyperliquid_account_provider.dart'
+    show hyperliquidAddressProvider;
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/spark_address_provider.dart';
@@ -104,7 +106,10 @@ const Duration _kRouteShareMaxAge = Duration(minutes: 5);
 const double kPredictionsMinMoveUsd = ShortfallRules.minTopUpUsd;
 
 class PredictionsVenueFunder
-    implements StagedVenueFunder, SweepableVenueFunder {
+    implements
+        StagedVenueFunder,
+        SweepableVenueFunder,
+        DirectSweepableVenueFunder {
   PredictionsVenueFunder(this._read);
 
   final ProviderReader _read;
@@ -582,6 +587,7 @@ class PredictionsVenueFunder
         registration: settled.registration,
         sentUsd: usd,
         arrivingUsdEstimate: estOut,
+        operationId: settled.operation.operationId,
       );
     } catch (e) {
       TrackingService.track('polymarket_withdraw_failed', params: {
@@ -609,6 +615,277 @@ class PredictionsVenueFunder
     final reviewed = intent.reviewedQuote;
     if (reviewed == null) return false;
     return reviewed.request.recipientKind == RecipientKind.ownSpark;
+  }
+
+  // ── Direct: Predictions → Bitcoin, Predictions → Investing ──────
+
+  /// Predictions cash straight to [destination] when another action pulls
+  /// it: the Predictions cash-out (the same relayer withdrawal of the
+  /// bridged token to a verified quote's deposit address) quoted by
+  /// Orchestra to the final destination, `polygon:USDC.e → spark:BTC` to
+  /// the wallet's own Spark address or `→ hypercore:USDC` to its own
+  /// Investing account. [VenueCashDestination.dollars] is
+  /// [sweepToDollars]. Under [SweepAuthorization.automatic] the quote's
+  /// verified recipient must be that own account ([directSweepAuthorized],
+  /// and `withdrawUsdc` again).
+  ///
+  /// Throws [DirectRouteRefused] when the route was refused before any
+  /// USDC.e left (no route, a refused or unverified quote, a shut gate, an
+  /// own account that cannot be read): the caller goes through Dollars.
+  /// Anything after the withdrawal started is rethrown untouched.
+  @override
+  Future<VenueMoveResult> sweepTo({
+    required VenueCashDestination destination,
+    required double usd,
+    required MoveAuthorization auth,
+    String purpose = 'cash_pull',
+  }) async {
+    switch (destination) {
+      case VenueCashDestination.dollars:
+        return sweepToDollars(usd: usd, auth: auth, purpose: purpose);
+      case VenueCashDestination.predictions:
+        throw ArgumentError('Predictions cash is already in Predictions');
+      case VenueCashDestination.bitcoin:
+      case VenueCashDestination.investing:
+        break;
+    }
+    if (!usd.isFinite || usd < kPredictionsMinMoveUsd) {
+      throw const DirectRouteRefused('below the Predictions minimum');
+    }
+    final bitcoin = destination == VenueCashDestination.bitcoin;
+    final toChain = bitcoin ? 'spark' : 'hypercore';
+    final toAsset = bitcoin ? 'BTC' : 'USDC';
+    final read = _read;
+    final pm = read(polymarketTradingProvider.notifier);
+    var usdcSent = false;
+    try {
+      final String? refundEvm;
+      final String? recipient;
+      final BigInt microUsdc;
+      try {
+        refundEvm = await _ownPredictionsAccount();
+        recipient = bitcoin
+            ? await read(sparkSelfAddressProvider.future)
+            : await read(hyperliquidAddressProvider.future);
+        microUsdc = await pm.payableMicroUsdc(usd);
+      } catch (_) {
+        throw const DirectRouteRefused('account_unavailable');
+      }
+      if (refundEvm == null ||
+          refundEvm.isEmpty ||
+          recipient == null ||
+          recipient.isEmpty) {
+        throw const DirectRouteRefused('account_unavailable');
+      }
+      final String ownTo = recipient;
+      final String refund = refundEvm;
+      AuthGrant? approved;
+      final runner = await HotSettlement.runner();
+      final SettlementRunResult settled;
+      try {
+        settled = await runner.run(HotSettlement.plan(
+          read,
+          flow: bitcoin
+              ? SettlementFlow.moveUsdToBtc
+              : SettlementFlow.movePredictionsToInvesting,
+          route: RouteKey(
+              fromChain: 'polygon',
+              fromAsset: 'USDC.e',
+              toChain: toChain,
+              toAsset: toAsset),
+          source: SettlementAccountKind.pmHot,
+          destination: bitcoin
+              ? SettlementAccountKind.sparkHot
+              : SettlementAccountKind.hlHot,
+          amountUsd: usd,
+          requestQuote: (key) => HotSettlement.quote(
+            read,
+            OrchestraQuoteRequest(
+              sourceChain: 'polygon',
+              sourceAsset: 'USDC.e',
+              destinationChain: toChain,
+              destinationAsset: toAsset,
+              amountBaseUnits: microUsdc,
+              recipientAddress: ownTo,
+              refundAddress: refund,
+              recipientKind:
+                  bitcoin ? RecipientKind.ownSpark : RecipientKind.ownEvm,
+              ownAddress: ownTo,
+              tag: predictionsQuoteTag(purpose),
+            ),
+            flow: kSweepPredictionsFlow,
+            idempotencyKey: key,
+          ),
+          stepUp: (intent) async {
+            switch (auth) {
+              case UserGrantAuthorization(:final grant):
+                approved = grant;
+                try {
+                  AuthGrants.check(
+                      grant,
+                      OrchestraGrants.settlement(intent,
+                          action: SensitiveAction.venueWithdraw,
+                          asset: 'USDC.e',
+                          account: refund,
+                          limits: const {VenueLimit.bridged: true}));
+                  return true;
+                } on AuthGrantException {
+                  return false;
+                }
+              case SweepAuthorization():
+                return directSweepAuthorized(intent,
+                    destination: destination,
+                    ownRecipient: ownTo,
+                    sessionUnlocked: _sessionUnlocked());
+            }
+          },
+          fund: (verifiedQuote, _) async {
+            usdcSent = true;
+            final txHash = await pm.withdrawUsdc(
+              toAddress: verifiedQuote.depositAddress,
+              amount: usd,
+              bridged: true,
+              exactMicroUsdc: verifiedQuote.amountIn,
+              grant: approved,
+              sweep: auth is SweepAuthorization ? auth : null,
+              sweepQuote: verifiedQuote,
+            );
+            return SettlementFundingProof.relayer(txHash);
+          },
+          registerInBackground: true,
+        ));
+      } catch (e) {
+        // Nothing left Predictions: the route, the quote or the approval
+        // refused it. The caller goes through Dollars.
+        if (!usdcSent && e is! SettlementFundingUnknown) {
+          throw DirectRouteRefused(_failReason(e));
+        }
+        rethrow;
+      }
+      if (bitcoin) {
+        // The bitcoin delivery is this cash-out's, as on the Move sheet.
+        PolymarketSparkTxsService.recordExpectedClaimDelivery(
+          microUsd: BigInt.from((usd * 1e6).round()),
+        );
+      }
+      final orchQuote = settled.quote.quote;
+      final orderId = settled.orderId ?? orchQuote.quoteId;
+      final estOut = orchestraAmountToDouble(orchQuote.estimatedOut, toAsset,
+          chain: toChain);
+      final exchange = SwapOrder(
+        id: orderId,
+        coinFrom: 'USDC',
+        networkFrom: 'POLYGON',
+        coinTo: toAsset,
+        networkTo: toChain.toUpperCase(),
+        depositAddress: orchQuote.depositAddress,
+        depositAmount: usd.toStringAsFixed(2),
+        withdrawalAmount: estOut.toStringAsFixed(bitcoin ? 8 : 2),
+        status: 'exchanging',
+        timestamp: DateTime.now().millisecondsSinceEpoch,
+        withdrawalAddress: ownTo,
+        depositMin: '0',
+        depositMax: '0',
+        rate: '0',
+        refundAddress: refund,
+        provider: 'Orchestra',
+        walletId: read(settingsProvider).activeWalletId,
+        operationId: settled.operation.operationId,
+      );
+      await read(swapOrdersProvider.notifier).addExchange(exchange);
+      followSettlementRegistration(read, settled);
+      if (orderId.startsWith('ord_')) {
+        // ignore: unawaited_futures
+        AffiliateService.logProviderEvent(
+          provider: 'orchestra',
+          providerOrderId: orderId,
+          status: 'pending',
+          sourceAsset: 'USDC',
+          sourceAmount: usd,
+          destinationAsset: toAsset,
+          destinationAmount: estOut,
+        );
+      }
+      try {
+        read(walletTransactionCacheProvider.notifier).mergeSwapOrder(exchange);
+      } catch (_) {}
+      BackgroundSyncService().syncNow();
+      withSettlementOrderId(
+          settled,
+          (orderId) =>
+              TrackingService.track('polymarket_withdraw_submitted', params: {
+                'order_id': orderId,
+                ...TrackingService.orchestraJoinParams(orderId),
+                'venue': 'polymarket',
+                'destination': bitcoin ? 'btc' : 'investing',
+                'purpose': purpose,
+                ...TrackingService.moneyParams(
+                    amountUsd: usd, asset: 'usdc', amount: usd),
+              }));
+      // What lands, in dollars: Bitcoin's output is sats, so the dollar
+      // figure is what left less the route's share at the quote's fee.
+      final arrivingUsd = bitcoin
+          ? usd * (1 - orchQuote.combinedFeeBps / 10000)
+          : estOut;
+      return VenueMoveResult(
+        quoteId: orchQuote.quoteId,
+        orderId: settled.orderId,
+        registration: settled.registration,
+        sentUsd: usd,
+        arrivingUsdEstimate: arrivingUsd,
+        operationId: settled.operation.operationId,
+      );
+    } catch (e) {
+      TrackingService.track('polymarket_withdraw_failed', params: {
+        'venue': 'polymarket',
+        'provider': 'orchestra',
+        'stage': usdcSent ? 'post_send' : 'pre_send',
+        'purpose': purpose,
+        'error_category': e is DirectRouteRefused
+            ? (e.reason ?? 'route_unavailable')
+            : _failReason(e),
+        ...TrackingService.moneyParams(amountUsd: usd),
+      });
+      rethrow;
+    }
+  }
+
+  /// Whether the app may pay [intent] without a tap when another action
+  /// pulls Predictions cash straight to [destination]: the session is
+  /// unlocked, the flow is that destination's, and the verified quote's
+  /// recipient is the wallet's own account for it ([ownRecipient]: its
+  /// Spark address for Bitcoin, its Investing account otherwise). Pure.
+  @visibleForTesting
+  static bool directSweepAuthorized(
+    SettlementAuthorizationIntent intent, {
+    required VenueCashDestination destination,
+    required String ownRecipient,
+    required bool sessionUnlocked,
+  }) {
+    if (!sessionUnlocked) return false;
+    final reviewed = intent.reviewedQuote;
+    if (reviewed == null) return false;
+    final request = reviewed.request;
+    switch (destination) {
+      case VenueCashDestination.bitcoin:
+        if (intent.flow != SettlementFlow.moveUsdToBtc ||
+            request.recipientKind != RecipientKind.ownSpark ||
+            request.destinationAsset != 'BTC') {
+          return false;
+        }
+        return request.recipientAddress == ownRecipient;
+      case VenueCashDestination.investing:
+        if (intent.flow != SettlementFlow.movePredictionsToInvesting ||
+            request.recipientKind != RecipientKind.ownEvm ||
+            request.destinationChain != 'hypercore') {
+          return false;
+        }
+        return request.recipientAddress.toLowerCase() ==
+            ownRecipient.toLowerCase();
+      case VenueCashDestination.dollars:
+      case VenueCashDestination.predictions:
+        return false;
+    }
   }
 
   // ── Shared ──────────────────────────────────────────────────────
