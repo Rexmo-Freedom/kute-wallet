@@ -5,6 +5,8 @@
 // payment and Activity row code, and this file supplies the runner, the
 // pinned wallet id, route availability, ownership and error copy.
 
+import 'package:kute/services/hyperliquid/cctp_withdrawal.dart'
+    show CctpUnavailable, CctpUnavailableReason;
 import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart'
     show BreezSdk, PrepareSendPaymentResponse, SendPaymentMethod_SparkAddress,
         SendPaymentRequest;
@@ -316,6 +318,12 @@ class HotSettlement {
     }
     if (error is EarlierPolymarketWithdrawalPending) {
       return l10n.withdrawalEarlierStillSettlingBody;
+    }
+    // The Investing → Dollars CCTP fallback stopped before signing.
+    if (error is CctpUnavailable) {
+      return error.reason == CctpUnavailableReason.belowMinimum
+          ? l10n.routeAmountTooSmallGeneric
+          : l10n.routeUnavailableNothingSent;
     }
     if (error is WalletGuardException) return error.messageFor(l10n);
     if (error is OrchestraQuoteFailure) {

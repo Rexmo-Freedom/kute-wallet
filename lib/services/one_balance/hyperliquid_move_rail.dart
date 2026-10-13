@@ -17,9 +17,13 @@
 // Flashnet refuses every HyperCore-source route today (`unsupported_route`,
 // "HyperCore source routes require independent deposit verification and
 // are unavailable"). The refusal arrives with the quote, before anything
-// is signed or sent, and the rail reports it as `RouteUnavailable`: the
-// sweeper shows the cash as waiting, an order's funding never depends on
-// it, and nothing moves until the route answers again.
+// is signed or sent. A withdrawal to Dollars then falls back to Circle
+// CCTP out of HyperCore (lib/services/hyperliquid/cctp_withdrawal.dart):
+// one `sendToEvmWithData` to the wallet's own Investing-withdrawal
+// standing address on Arbitrum, which Orchestra converts to dollars. Only
+// when that cannot run either (paused, below the minimum, the fee terms
+// not verified, a failed read) the rail reports `RouteUnavailable`: the
+// sweeper shows the cash as waiting and nothing moves.
 
 import 'dart:async';
 
@@ -49,6 +53,8 @@ import 'package:kute/services/funding/settlement_runner.dart'
         SettlementStopReason,
         SettlementStopped;
 import 'package:kute/services/funding/spark_hypercore_funding_service.dart';
+import 'package:kute/services/hyperliquid/cctp_withdrawal.dart'
+    show CctpUnavailable, HypercoreCctpWithdrawal, hypercoreCctpWithdrawalProvider;
 import 'package:kute/services/hyperliquid/hypercore_cash.dart'
     show hypercoreSendableUsdc;
 import 'package:kute/services/one_balance/venue_funder.dart';
@@ -124,9 +130,11 @@ class HyperCoreMoveRail implements HyperliquidMoveRail {
         estimate,
     Future<HyperCoreRouteBounds?> Function(RouteKey route)? limits,
     Future<double> Function(String address)? sendableUsd,
+    HypercoreCctpWithdrawal Function()? cctp,
   })  : _estimate = estimate ?? _estimateNative,
         _limits = limits ?? _limitsNative,
-        _sendableUsd = sendableUsd;
+        _sendableUsd = sendableUsd,
+        _cctpOverride = cctp;
 
   final ProviderReader _read;
 
@@ -136,6 +144,10 @@ class HyperCoreMoveRail implements HyperliquidMoveRail {
       RouteKey route, String amount, String? recipient) _estimate;
   final Future<HyperCoreRouteBounds?> Function(RouteKey route) _limits;
   final Future<double> Function(String address)? _sendableUsd;
+  final HypercoreCctpWithdrawal Function()? _cctpOverride;
+
+  HypercoreCctpWithdrawal get _cctp =>
+      _cctpOverride?.call() ?? _read(hypercoreCctpWithdrawalProvider);
 
   SparkHypercoreFundingService get _service =>
       _read(sparkHypercoreFundingServiceProvider);
@@ -176,21 +188,54 @@ class HyperCoreMoveRail implements HyperliquidMoveRail {
     required MoveAuthorization auth,
     String purpose = 'sweep',
   }) async {
-    final result = await _refusalsAsRoute(() => _service.withdrawToSpark(
+    return _refusalsAsRoute(() async {
+      try {
+        final result = await _service.withdrawToSpark(
           usd: usd,
           destination: SparkFundingAsset.dollars,
           stepUp: stepUpFor(auth),
           registerInBackground: true,
           purpose: purpose,
-        ));
-    return VenueMoveResult(
-      quoteId: result.run.quote.quoteId,
-      orderId: result.run.orderId,
-      registration: result.run.registration,
-      // HyperCore USDC carries eight decimals.
-      sentUsd: result.amountIn.toDouble() / 1e8,
-      arrivingUsdEstimate: result.estimatedOut,
-    );
+        );
+        return VenueMoveResult(
+          quoteId: result.run.quote.quoteId,
+          orderId: result.run.orderId,
+          registration: result.run.registration,
+          // HyperCore USDC carries eight decimals.
+          sentUsd: result.amountIn.toDouble() / 1e8,
+          arrivingUsdEstimate: result.estimatedOut,
+        );
+      } on OrchestraQuoteFailure catch (e) {
+        // Only Orchestra refusing the route itself, before anything was
+        // signed, opens the fallback. An amount refusal stays one.
+        if (!isRouteRefusal(e)) rethrow;
+        return _withdrawByCctp(usd: usd, auth: auth, purpose: purpose);
+      }
+    });
+  }
+
+  /// The CCTP fallback for [withdrawToDollars]. The same step-up hook
+  /// approves it: a sweep passes only because the intent's final
+  /// recipient is the wallet's own Spark address, reached through the
+  /// wallet's own standing instruction, which the fallback verifies
+  /// before it signs.
+  Future<VenueMoveResult> _withdrawByCctp({
+    required double usd,
+    required MoveAuthorization auth,
+    required String purpose,
+  }) async {
+    try {
+      final result = await _cctp.withdrawToDollars(
+          usd: usd, stepUp: stepUpFor(auth), purpose: purpose);
+      return VenueMoveResult(
+        quoteId: result.operationId,
+        registration: result.registration,
+        sentUsd: result.sentUsd,
+        arrivingUsdEstimate: result.arrivingUsdEstimate,
+      );
+    } on CctpUnavailable catch (e) {
+      throw RouteUnavailable('cctp_${e.reason.code}');
+    }
   }
 
   /// A stop before anything moved, in the one-balance layer's own words.
@@ -229,8 +274,8 @@ class HyperCoreMoveRail implements HyperliquidMoveRail {
 
   /// Flashnet refused the route itself, not the amount: a
   /// `route_unavailable` code (which `unsupported_route` reads as), or a
-  /// refusal whose text names the HyperCore-source block.
-  @visibleForTesting
+  /// refusal whose text names the HyperCore-source block. The one test
+  /// both CCTP fallbacks (this rail and the Move sheet) open on.
   static bool isRouteRefusal(OrchestraQuoteFailure e) {
     if (e.routeError?.code == RouteQuoteErrorCode.routeUnavailable) {
       return true;

@@ -66,6 +66,15 @@ class StandingDepositRecord {
           refunds: refunds ?? this.refunds);
 }
 
+/// Kute's backend did not pin the venue-withdrawal fee on the
+/// Investing-withdrawal instruction, so nothing may be sent to it.
+class InvestingWithdrawalTermsUnavailable implements Exception {
+  const InvestingWithdrawalTermsUnavailable();
+
+  @override
+  String toString() => 'Investing withdrawal terms unavailable';
+}
+
 class StandingDepositScope {
   const StandingDepositScope(
       this.walletId, this.generation, this.walletGeneration);
@@ -330,7 +339,10 @@ abstract final class StandingDepositStore {
         continue;
       }
       String? owner = ownRecipients
-          .where((own) => labelFor(own, asset, revision) == label)
+          .where((own) =>
+              labelFor(own, asset, revision) == label ||
+              (asset == 'USDB' &&
+                  investingWithdrawalLabelFor(own, revision) == label))
           .firstOrNull;
       final state = await standingRequest(
           operation: 'read', label: label, current: valid);
@@ -382,6 +394,9 @@ abstract final class StandingDepositStore {
   }) async {
     final candidates = (await records(walletId))
         .where((r) =>
+            // The Investing-withdrawal instruction carries the withdrawal
+            // fee terms: it is never the address Receive shows.
+            !isInvestingWithdrawalLabel(r.label) &&
             r.asset == destinationAsset &&
             sameSparkAddress(r.recipient, recipient) &&
             r.response['standingAddressId'] is String)
@@ -540,6 +555,150 @@ abstract final class StandingDepositStore {
       'destination_asset': destinationAsset,
       'model': 'standing',
     });
+    return updated;
+  }
+
+  // ───────────────── Investing withdrawals by CCTP ─────────────────
+
+  /// The Investing → Dollars fallback (Circle CCTP out of HyperCore when
+  /// Orchestra refuses HyperCore-source routes) lands Arbitrum USDC on a
+  /// standing `arbitrum:USDC → spark:USDB` address of its own: same
+  /// recipient as the Dollars receive, but registered with
+  /// `kuteRoute: investing_withdrawal` so Kute's backend pins the
+  /// venue-withdrawal fee rule (`venue_withdrawal`) instead of the dollar
+  /// deposit one, which a plain spark:USDB instruction gets. The fee plan
+  /// is frozen at creation, so this instruction is never shared with the
+  /// Receive address and is only used once its stored terms say
+  /// `venue_withdrawal`.
+  static String investingWithdrawalLabelFor(String recipient, int revision) =>
+      'w${sha256.convert(utf8.encode('investing_withdrawal|USDB|$recipient|$revision|50')).toString().substring(0, 30)}';
+
+  static bool isInvestingWithdrawalLabel(String label) =>
+      label.length == 31 && label.startsWith('w');
+
+  /// The backend fee purpose an Investing-withdrawal instruction must
+  /// carry before anything is sent to it.
+  static const String investingWithdrawalFeePurpose = 'venue_withdrawal';
+
+  /// Whether [record] is an Investing-withdrawal instruction this wallet
+  /// may send to: its label, own [recipient], dollars on Spark, enabled,
+  /// a valid Arbitrum address, and Kute's venue-withdrawal fee pinned.
+  static String? investingWithdrawalAddress(
+      StandingDepositRecord record, String recipient) {
+    final policy = record.response['kuteFeePolicy'];
+    final address = record.addressFor('arbitrum');
+    if (!isInvestingWithdrawalLabel(record.label) ||
+        record.asset != 'USDB' ||
+        !sameSparkAddress(record.recipient, recipient) ||
+        record.response['standingAddressId'] is! String ||
+        !record.enabled ||
+        policy is! Map ||
+        policy['purpose'] != investingWithdrawalFeePurpose ||
+        address == null ||
+        formatMatchesChain('arbitrum', address, mainnet: true) !=
+            AddressFormatMatch.ok) {
+      return null;
+    }
+    return address;
+  }
+
+  /// The Investing-withdrawal instruction for [recipient], reused when
+  /// this wallet already holds one with verified terms, registered
+  /// through Kute's backend otherwise. [refundAddress] is the wallet's
+  /// own EVM address, where Orchestra returns a generated order's refund
+  /// on Arbitrum. Throws [InvestingWithdrawalTermsUnavailable] when the
+  /// backend does not pin the venue-withdrawal fee (an older backend
+  /// refuses `kuteRoute` with a 400): nothing is sent then.
+  static Future<StandingDepositRecord> investingWithdrawalInstruction({
+    required String walletId,
+    required String recipient,
+    required String refundAddress,
+    required bool Function() wanted,
+  }) async {
+    final scope = capture(walletId);
+    bool valid() => current(scope) && wanted();
+    if (!isSparkAddress(recipient, mainnet: true) ||
+        !isEvmAddress(refundAddress)) {
+      throw StateError('Invalid receiving wallet');
+    }
+    final held = (await records(walletId))
+        .where((r) =>
+            isInvestingWithdrawalLabel(r.label) &&
+            sameSparkAddress(r.recipient, recipient))
+        .toList()
+      ..sort((a, b) => b.revision.compareTo(a.revision));
+    for (final record in held) {
+      if (!valid()) throw StateError('Wallet changed');
+      final Map<String, dynamic> state;
+      try {
+        state = await standingRequest(
+            operation: 'read', label: record.label, current: valid);
+      } on StandingRequestException catch (e) {
+        if (e.status == 404) continue;
+        rethrow;
+      }
+      if (state['standingAddressId'] is! String ||
+          state['enabled'] is! bool ||
+          state['addresses'] is! Map) {
+        continue;
+      }
+      // A read answers without the instruction; the fee terms are the
+      // ones the registration stored.
+      final response = {...record.response, ...state};
+      await saveResponse(record, response, scope);
+      final updated = record.copy(response: response);
+      if (investingWithdrawalAddress(updated, recipient) != null) {
+        return updated;
+      }
+    }
+    if (!valid()) throw StateError('Wallet changed');
+    final revision = RuntimeCapabilitiesService.instance.snapshot?.revision;
+    if (revision == null) throw const InvestingWithdrawalTermsUnavailable();
+    final label = investingWithdrawalLabelFor(recipient, revision);
+    final record = held.where((r) => r.label == label).firstOrNull ??
+        StandingDepositRecord(
+            walletId: walletId,
+            label: label,
+            recipient: recipient,
+            asset: 'USDB',
+            revision: revision);
+    await ensureRecord(record, scope);
+    final Map<String, dynamic> response;
+    try {
+      response = await standingRequest(
+          operation: 'register',
+          label: label,
+          current: valid,
+          idempotencyKey: 'register-$label',
+          body: {
+            'destination': {
+              'chain': 'spark',
+              'asset': 'USDB',
+              'address': recipient
+            },
+            'slippageBps': 50,
+            'refundAddresses': {'arbitrum': refundAddress.toLowerCase()},
+            'kuteRoute': 'investing_withdrawal',
+          });
+    } on StandingRequestException catch (e) {
+      // 400 (a backend that does not know `kuteRoute`), 409 (terms
+      // conflict) and 503 (fee configuration unavailable) all mean the
+      // venue-withdrawal fee cannot be guaranteed.
+      if (const {400, 409, 422, 503}.contains(e.status)) {
+        throw const InvestingWithdrawalTermsUnavailable();
+      }
+      rethrow;
+    }
+    final policy = response['kuteFeePolicy'];
+    if (policy is! Map || policy['revision'] != revision) {
+      throw const InvestingWithdrawalTermsUnavailable();
+    }
+    final updated = record.copy(response: response);
+    await saveResponse(record, response, scope);
+    if (!valid()) throw StateError('Wallet changed');
+    if (investingWithdrawalAddress(updated, recipient) == null) {
+      throw const InvestingWithdrawalTermsUnavailable();
+    }
     return updated;
   }
 

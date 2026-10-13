@@ -153,6 +153,12 @@ import 'package:kute/services/funding/settlement_runner.dart'
         SettlementStopReason,
         SettlementStopped;
 import 'package:kute/services/orchestra/orchestra_quote_guard.dart';
+import 'package:kute/services/orchestra/orchestra_quote_gate.dart'
+    show OrchestraQuoteFailure;
+import 'package:kute/services/hyperliquid/cctp_withdrawal.dart'
+    show CctpUnavailable, hypercoreCctpWithdrawalProvider;
+import 'package:kute/services/one_balance/hyperliquid_move_rail.dart'
+    show HyperCoreMoveRail;
 import 'package:kute/services/orchestra/cash_app_onramp_guard.dart';
 import 'package:kute/services/security/wallet_guard_exception.dart';
 import 'package:kute/services/orchestra/move_rate_sample.dart';
@@ -4344,6 +4350,8 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     if (_processing) return;
     final dollars = _destUsd;
     final drain = _drainArmed;
+    // `cctp` once the withdrawal went out by the Circle CCTP fallback.
+    String? route;
     ConvTiming.mark('_dispatchHyperliquidToBtc setState processing');
     setState(() {
       _processing = true;
@@ -4374,26 +4382,46 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         walletKind: 'hot',
       );
       _trackMoveSubmitted();
-      await direct.withdrawToSpark(
-        registerInBackground: true,
-        usd: usd,
-        destination:
-            dollars ? SparkFundingAsset.dollars : SparkFundingAsset.bitcoin,
-        stepUp: _settlementStepUp(
-          action: SensitiveAction.venueWithdraw,
-          asset: 'USDC',
-          account: account,
-          amountLabel: (_) => _usdApprovalLabel(usd),
+      SettlementStepUpHook stepUp() => _settlementStepUp(
+            action: SensitiveAction.venueWithdraw,
+            asset: 'USDC',
+            account: account,
+            amountLabel: (_) => _usdApprovalLabel(usd),
+            amountUsd: usd,
+          );
+      try {
+        await direct.withdrawToSpark(
+          registerInBackground: true,
+          usd: usd,
+          destination:
+              dollars ? SparkFundingAsset.dollars : SparkFundingAsset.bitcoin,
+          stepUp: stepUp(),
+        );
+      } on OrchestraQuoteFailure catch (e) {
+        // Orchestra refuses the HyperCore route itself (nothing signed):
+        // to Dollars, Circle CCTP brings the cash home instead. A Bitcoin
+        // withdrawal keeps the refusal ("isn't available right now").
+        if (!dollars || !HyperCoreMoveRail.isRouteRefusal(e)) rethrow;
+        route = 'cctp';
+        TrackingService.hyperliquidWithdrawInitiated(
           amountUsd: usd,
-        ),
-      );
-      // Handed to the runner; the real outcome is reported by the
-      // settlement reconciler (hyperliquid_withdraw_completed/failed).
+          destination: 'usd',
+          walletKind: 'hot',
+          route: route,
+        );
+        await ref.read(hypercoreCctpWithdrawalProvider).withdrawToDollars(
+            usd: usd, stepUp: stepUp(), purpose: 'manual_move');
+      }
+      // Handed to the runner (or the CCTP watcher); the real outcome is
+      // reported by the settlement reconciler
+      // (hyperliquid_withdraw_completed/failed).
       TrackingService.track('hyperliquid_withdraw_submitted', params: {
         'venue': 'hyperliquid',
         'destination': dollars ? 'usd' : 'btc',
         'wallet_kind': 'hot',
         'amount_bucket': TrackingService.usdBucket(usd),
+        'amount_usd': usd,
+        if (route != null) 'route': route,
       });
       if (!mounted) return;
       final navigator = Navigator.of(context);
@@ -4420,10 +4448,13 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       }
       // A fixed category, never the error text.
       TrackingService.hyperliquidWithdrawFailed(
-        reason: TrackingService.errorCategory(e),
+        reason: e is CctpUnavailable
+            ? e.reason.code
+            : TrackingService.errorCategory(e),
         amountUsd: usd,
         destination: dollars ? 'usd' : 'btc',
         walletKind: 'hot',
+        route: route,
       );
       _trackMoveFailed(e);
       if (!mounted) {

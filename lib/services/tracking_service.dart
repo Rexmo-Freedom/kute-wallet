@@ -4828,16 +4828,52 @@ class TrackingService {
         ...moneyParams(amountUsd: amountUsd),
       });
 
+  /// [route] is `cctp` when the move went out by the Circle CCTP
+  /// fallback (Orchestra refusing the HyperCore route).
   static void hyperliquidWithdrawInitiated({
     double? amountUsd,
     String? destination, // btc | usd
     String? walletKind,
+    String? route,
   }) =>
       track('hyperliquid_withdraw_initiated', params: {
         'venue': 'hyperliquid',
         if (destination != null) 'destination': destination,
         if (walletKind != null) 'wallet_kind': walletKind,
+        if (route != null) 'route': route,
         ...moneyParams(amountUsd: amountUsd),
+      });
+
+  /// One real transition of an Investing withdrawal that went out by the
+  /// Circle CCTP fallback. [step]: `cctp_sent` (the exchange accepted the
+  /// burn), `core_confirmed` (the HyperCore ledger shows it),
+  /// `arbitrum_minted` (Circle minted on Arbitrum), `orchestra_detected`
+  /// (Orchestra saw the deposit). [durationMs] since the send was signed.
+  static void hyperliquidWithdrawStep({
+    required String step,
+    required int durationMs,
+    double? amountUsd,
+    String route = 'cctp',
+  }) =>
+      track('hyperliquid_withdraw_step', params: {
+        'venue': 'hyperliquid',
+        'step': step,
+        'route': route,
+        'duration_ms': durationMs,
+        if (amountUsd != null && amountUsd.isFinite) 'amount_usd': amountUsd,
+      });
+
+  /// The CCTP fallback could not run, before anything was signed.
+  /// [reason]: `paused` | `below_minimum` | `fee_read_failed` |
+  /// `rpc_failed` | `fee_terms_unavailable`.
+  static void hyperliquidCctpUnavailable({
+    required String reason,
+    double? amountUsd,
+  }) =>
+      track('hyperliquid_cctp_unavailable', params: {
+        'venue': 'hyperliquid',
+        'reason': reason,
+        if (amountUsd != null && amountUsd.isFinite) 'amount_usd': amountUsd,
       });
 
   /// [orderId] / [quoteId]: as on [hyperliquidDepositCompleted].
@@ -4863,6 +4899,7 @@ class TrackingService {
     double? amountUsd,
     String? destination,
     String? walletKind,
+    String? route,
   }) =>
       track('hyperliquid_withdraw_failed', params: {
         'venue': 'hyperliquid',
@@ -4870,6 +4907,7 @@ class TrackingService {
         'error_category': errorCategory(reason),
         if (destination != null) 'destination': destination,
         if (walletKind != null) 'wallet_kind': walletKind,
+        if (route != null) 'route': route,
         ...moneyParams(amountUsd: amountUsd),
       });
 

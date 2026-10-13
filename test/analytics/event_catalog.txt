@@ -193,6 +193,7 @@ hyperliquid_autofire_failed
 hyperliquid_banner_shown
 hyperliquid_banner_tapped
 hyperliquid_cancel_failed
+hyperliquid_cctp_unavailable
 hyperliquid_close_abandoned
 hyperliquid_close_started
 hyperliquid_close_submitted
@@ -224,6 +225,7 @@ hyperliquid_trading_enabled
 hyperliquid_withdraw_completed
 hyperliquid_withdraw_failed
 hyperliquid_withdraw_initiated
+hyperliquid_withdraw_step
 hyperliquid_withdraw_submitted
 indicator_toggled
 investing_close_available_tapped

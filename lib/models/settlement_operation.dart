@@ -78,6 +78,15 @@ enum SettlementFlow {
   /// funding unit, so it must reconcile and report under its own name.
   moveDollarsToBtc,
 
+  /// Investing cash brought home to the spending account's DOLLARS by
+  /// Circle CCTP out of HyperCore, the fallback while Orchestra refuses
+  /// HyperCore-source routes: one `sendToEvmWithData` to the wallet's
+  /// Investing-withdrawal standing address on Arbitrum, which Orchestra
+  /// converts to dollars with no quote. No quote, no submit: the funding
+  /// proof is the HyperCore ledger row, the order comes from the standing
+  /// address's deposits (lib/services/hyperliquid/cctp_withdrawal.dart).
+  investingToDollarsCctp,
+
   /// Written by a newer build. Kept raw on disk.
   unknown;
 

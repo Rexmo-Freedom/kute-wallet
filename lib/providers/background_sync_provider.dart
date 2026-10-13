@@ -895,30 +895,20 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
                     recipientSparkAddress: recipient)) {
               continue;
             }
-            final row = SwapOrder(
-                id: id,
-                activityDirection: 'receive',
-                coinFrom: asset,
-                networkFrom: chain,
-                coinTo: record.asset,
-                networkTo: 'SPARK',
+            final row = standingOrderRow(
+                record: record,
+                orderId: id,
+                chain: chain,
+                asset: asset,
                 depositAddress: address,
-                depositAmount: orchestraAmountToDecimalString(
-                    order.amountIn ?? '0', asset, chain: chain),
-                withdrawalAmount: orchestraAmountToDecimalString(
-                    order.amountOut ?? '0', record.asset, chain: 'spark'),
+                amountIn: order.amountIn ?? '0',
+                amountOut: order.amountOut ?? '0',
                 status: orchestraExchangeStatus(order.status),
                 timestamp: DateTime.tryParse(order.createdAt)
                         ?.millisecondsSinceEpoch ??
                     DateTime.now().millisecondsSinceEpoch,
-                withdrawalAddress: recipient,
-                depositMin: '0',
-                depositMax: '0',
-                rate: '0',
-                refundAddress: '',
-                provider: 'Orchestra',
-                walletId: walletId,
-                purchaseSource: 'crypto_receive');
+                recipient: recipient,
+                walletId: walletId);
             if (!current()) return;
             await ref.read(swapOrdersProvider.notifier).addExchange(row);
             if (!current()) return;

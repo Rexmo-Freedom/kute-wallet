@@ -930,6 +930,65 @@ class HyperliquidExchangeService {
     return nonce;
   }
 
+  /// HyperCore USDC out through Circle CCTP (`sendToEvmWithData`): burns
+  /// [amount] on HyperCore and has Circle's Forwarding Service mint native
+  /// USDC (minus Circle's forwarding fee) to [destination] on the CCTP
+  /// domain [destinationDomain]. [sourceDex] is `''` (perpetuals) or
+  /// `spot`. [token] is the wire token (`USDC`, or `USDC:<tokenId>`).
+  /// [data] stays empty: Circle's default forwarding hook, never custom
+  /// hook data. Never retries: a timeout leaves the operation pending for
+  /// the public ledger lookup, instead of risking a second burn with a
+  /// fresh nonce. Returns the signed nonce.
+  Future<int> sendToEvmWithData({
+    required String destination,
+    required String amount,
+    required String sourceDex,
+    required int destinationDomain,
+    required int gasLimit,
+    required String token,
+    void Function()? beforeSend,
+  }) async {
+    if (!isEvmAddress(destination) ||
+        sameEvmAddress(destination, walletAddress) ||
+        !RegExp(r'^\d+(?:\.\d{1,6})?$').hasMatch(amount) ||
+        (double.tryParse(amount) ?? 0) <= 0 ||
+        (sourceDex != '' && sourceDex != 'spot') ||
+        destinationDomain < 0 ||
+        gasLimit <= 0 ||
+        (token != 'USDC' && !token.startsWith('USDC:0x'))) {
+      throw ArgumentError('Invalid CCTP withdrawal');
+    }
+    final nonce = nextNonce();
+    final action = buildSendToEvmWithDataAction(
+      token: token,
+      amount: amount,
+      sourceDex: sourceDex,
+      destinationRecipient: destination.toLowerCase(),
+      destinationChainId: destinationDomain,
+      gasLimit: gasLimit,
+      nonce: nonce,
+    );
+    final signature = await signUserSignedAction(
+      credentials: _credentials,
+      externalSigner: externalSigner,
+      action: action,
+      fields: sendToEvmWithDataSignTypes,
+      primaryType: sendToEvmWithDataPrimaryType,
+      isMainnet: HyperliquidConstants.isMainnet,
+      signatureChainId: _userSignedChainId,
+    );
+    final response = await _post(
+        action: action,
+        signature: signature,
+        nonce: nonce,
+        beforeSend: beforeSend);
+    if (response['status'] != 'ok') {
+      throw HyperliquidApiException(
+          statusCode: 200, body: jsonEncode(response));
+    }
+    return nonce;
+  }
+
   /// Withdraws perp USDC to [destination] on Arbitrum (~$1 exchange fee,
   /// arrives in a few minutes). The signed `time` field IS the POSTed
   /// nonce (protocol requirement). Callers pass an

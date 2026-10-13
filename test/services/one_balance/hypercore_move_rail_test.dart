@@ -1,7 +1,11 @@
 // The direct HyperCore rail between Dollars and Investing: estimates
 // that name the move's recipient, the sweep's own-Spark-only rule, and a
-// HyperCore-source route Orchestra refuses reported as RouteUnavailable
-// before anything is signed or sent.
+// HyperCore-source route Orchestra refuses: the withdrawal to Dollars falls
+// back to Circle CCTP, and only when that cannot run either it is reported
+// as RouteUnavailable, before anything is signed or sent.
+
+import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/widgets.dart' show Locale;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,8 +21,11 @@ import 'package:kute/services/funding/hot_settlement.dart';
 import 'package:kute/services/funding/owned_address_resolver.dart'
     show ProviderReader;
 import 'package:kute/services/funding/settlement_runner.dart';
+import 'package:kute/services/funding/settlement_stage.dart';
 import 'package:kute/services/funding/spark_hypercore_funding_service.dart';
+import 'package:kute/services/hyperliquid/cctp_withdrawal.dart';
 import 'package:kute/services/one_balance/hyperliquid_move_rail.dart';
+import 'package:kute/services/orchestra/orchestra_quote_guard.dart';
 import 'package:kute/services/one_balance/venue_funder.dart';
 import 'package:kute/services/orchestra/orchestra_quote_gate.dart';
 
@@ -187,14 +194,87 @@ void main() {
           l10n.routeUnavailableNothingSent);
     });
 
-    test('a sweep stops as RouteUnavailable with nothing signed', () async {
+    test('a sweep falls back to CCTP after the refusal', () async {
       final service = _ScriptedService(container.read, _refused());
-      final rail = HyperCoreMoveRail(withService(service));
+      final cctp = _FakeCctp();
+      final rail = HyperCoreMoveRail(withService(service), cctp: () => cctp);
+      final result = await rail.withdrawToDollars(
+          usd: 12, auth: SweepAuthorization.automatic, purpose: 'sweep');
+      // The normal route is asked first; CCTP only after its refusal.
+      expect(service.calls, ['withdraw:sweep:dollars:12.0']);
+      expect(cctp.calls, ['sweep:12.0']);
+      expect(result.quoteId, 'op-1');
+      expect(result.orderId, isNull);
+      expect(await result.registration, 'ord_cctp');
+      expect(result.sentUsd, 12);
+      expect(result.arrivingUsdEstimate, 11.8);
+      // The sweep's step-up the fallback is handed is the own-Spark rule.
+      final ok = await cctp.lastStepUp!(SettlementAuthorizationIntent(
+        flow: SettlementFlow.investingToDollarsCctp,
+        walletId: 'w',
+        destination: '$_sparkSelf|hypercore_cctp_to_spark_usd_v1',
+        routeLabel: kHypercoreToSparkUsdRoute.label,
+        amountIn: BigInt.from(1200000000),
+        minReceive: BigInt.from(11000000),
+        maxFeeBps: 100,
+      ));
+      expect(ok, isTrue);
+      final stranger = await cctp.lastStepUp!(SettlementAuthorizationIntent(
+        flow: SettlementFlow.investingToDollarsCctp,
+        walletId: 'w',
+        destination: 'sprt1qother|hypercore_cctp_to_spark_usd_v1',
+        routeLabel: kHypercoreToSparkUsdRoute.label,
+        amountIn: BigInt.from(1200000000),
+        minReceive: BigInt.from(11000000),
+        maxFeeBps: 100,
+      ));
+      expect(stranger, isFalse);
+    });
+
+    test('CCTP that cannot run either leaves the cash waiting', () async {
+      final service = _ScriptedService(container.read, _refused());
+      final cctp = _FakeCctp(
+          error: const CctpUnavailable(CctpUnavailableReason.belowMinimum));
+      final rail = HyperCoreMoveRail(withService(service), cctp: () => cctp);
       await expectLater(
           rail.withdrawToDollars(
-              usd: 12, auth: SweepAuthorization.automatic, purpose: 'sweep'),
-          throwsA(isA<RouteUnavailable>()));
-      expect(service.calls, ['withdraw:sweep:dollars:12.0']);
+              usd: 0.9, auth: SweepAuthorization.automatic, purpose: 'sweep'),
+          throwsA(isA<RouteUnavailable>()
+              .having((e) => e.reason, 'reason', 'cctp_below_minimum')));
+      expect(cctp.calls, ['sweep:0.9']);
+    });
+
+    test('only a route refusal opens the fallback', () async {
+      for (final error in <Object>[
+        const OrchestraQuoteFailure('too small',
+            routeError: RouteQuoteError(RouteQuoteErrorCode.amountTooSmall)),
+        const OrchestraQuoteFailure('quote expired'),
+        const SettlementStopped(SettlementStopReason.routeUnavailable),
+        const SettlementStopped(SettlementStopReason.blockedPending),
+        const HypercoreFundingUnavailable(
+            HypercoreFundingUnavailableReason.paused),
+      ]) {
+        final cctp = _FakeCctp();
+        final rail = HyperCoreMoveRail(
+            withService(_ScriptedService(container.read, error)),
+            cctp: () => cctp);
+        await expectLater(
+            rail.withdrawToDollars(usd: 5, auth: SweepAuthorization.automatic),
+            throwsA(anything),
+            reason: '$error');
+        expect(cctp.calls, isEmpty, reason: '$error');
+      }
+    });
+
+    test('the normal route is used when Orchestra accepts it', () async {
+      final service = _ScriptedService(container.read, null);
+      final cctp = _FakeCctp();
+      final rail = HyperCoreMoveRail(withService(service), cctp: () => cctp);
+      final result = await rail.withdrawToDollars(
+          usd: 5, auth: SweepAuthorization.automatic, purpose: 'sweep');
+      expect(service.calls, ['withdraw:sweep:dollars:5.0']);
+      expect(cctp.calls, isEmpty);
+      expect(result.orderId, 'ord_direct');
     });
 
     test('a route refusal named only in the text is still a refusal', () {
@@ -216,7 +296,8 @@ void main() {
             HypercoreFundingUnavailableReason.paused),
       ]) {
         final rail = HyperCoreMoveRail(
-            withService(_ScriptedService(container.read, error)));
+            withService(_ScriptedService(container.read, error)),
+            cctp: _FakeCctp.new);
         await expectLater(
             rail.withdrawToDollars(
                 usd: 5,
@@ -267,11 +348,12 @@ void main() {
 }
 
 /// Records each move and stops it with [error], the way the real service
-/// stops when the quote is refused: before the step-up and the send.
+/// stops when the quote is refused: before the step-up and the send. A
+/// null [error] is a route Orchestra accepted.
 class _ScriptedService extends SparkHypercoreFundingService {
   _ScriptedService(super.read, this.error);
 
-  final Object error;
+  final Object? error;
   final calls = <String>[];
 
   @override
@@ -285,7 +367,7 @@ class _ScriptedService extends SparkHypercoreFundingService {
     String purpose = 'manual_move',
   }) async {
     calls.add('deposit:$purpose:${asset.name}:$amountBaseUnits');
-    throw error;
+    throw error!;
   }
 
   @override
@@ -298,6 +380,82 @@ class _ScriptedService extends SparkHypercoreFundingService {
   }) async {
     calls.add('withdraw:$purpose:${destination.name}:$usd');
     expect(registerInBackground, isTrue);
-    throw error;
+    final failure = error;
+    if (failure != null) throw failure;
+    return DirectHypercoreResult(
+      run: SettlementRunResult(
+        operation: SettlementOperation(
+          operationId: 'op-direct',
+          walletId: 'w',
+          accountKind: SettlementAccountKind.hlHot,
+          flow: SettlementFlow.investingToSparkUsdDirect,
+          route: kHypercoreToSparkUsdRoute,
+          amountInBaseUnits: '500000000',
+          stage: SettlementStage.funded,
+          createdAt: DateTime.utc(2026, 10, 13),
+          updatedAt: DateTime.utc(2026, 10, 13),
+        ),
+        quote: _verifiedQuote(),
+        proof: const SettlementFundingProof.hyperliquid('0xhash'),
+        orderId: 'ord_direct',
+      ),
+      amountIn: BigInt.from(500000000),
+      estimatedOut: 4.99,
+    );
   }
+}
+
+/// Any verified quote: the rail reads only its id.
+VerifiedOrchestraQuote _verifiedQuote() => verifyOrchestraQuote(
+      OrchestraQuoteRequest(
+        sourceChain: 'polygon',
+        sourceAsset: 'USDC.e',
+        destinationChain: 'spark',
+        destinationAsset: 'BTC',
+        amountBaseUnits: BigInt.from(50000000),
+        recipientAddress: _ownSpark,
+        refundAddress: '0xfB6916095ca1df60bB79Ce92cE3Ea74c37c5d359',
+        recipientKind: RecipientKind.ownSpark,
+        ownAddress: _ownSpark,
+      ),
+      OrchestraQuote.fromJson(jsonDecode(
+          File('test/services/fixtures/orchestra_quote_polygon_to_spark.json')
+              .readAsStringSync()) as Map<String, dynamic>),
+      now: DateTime.utc(2026, 9, 15, 12),
+      bounds: OrchestraQuoteBounds.forSource('polygon',
+          inputValueInOutputUnits: 83333),
+      mainnet: true,
+    );
+
+const _ownSpark =
+    'spark1pgss93sy072yrmtad5cy2srwjhq8ekzuw78yhr808jn6htqfh9w8p8h9mfwlv9';
+
+/// The CCTP fallback, scripted.
+class _FakeCctp implements HypercoreCctpWithdrawal {
+  _FakeCctp({this.error});
+
+  final Object? error;
+  final calls = <String>[];
+  SettlementStepUpHook? lastStepUp;
+
+  @override
+  Future<CctpWithdrawalResult> withdrawToDollars({
+    required double usd,
+    required SettlementStepUpHook stepUp,
+    String purpose = 'manual_move',
+  }) async {
+    calls.add('$purpose:$usd');
+    lastStepUp = stepUp;
+    final failure = error;
+    if (failure != null) throw failure;
+    return CctpWithdrawalResult(
+      operationId: 'op-1',
+      sentUsd: usd,
+      arrivingUsdEstimate: usd - 0.2,
+      registration: Future.value('ord_cctp'),
+    );
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

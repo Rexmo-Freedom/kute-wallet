@@ -14,6 +14,12 @@ import 'package:kute/services/orchestra/standing_deposit_store.dart';
 /// an address never writes a row, and neither does a deposit that is
 /// still on its way to becoming an order.
 
+/// Route version on the Activity rows of an Investing → Dollars move that
+/// went out of HyperCore by Circle CCTP and was converted by the
+/// Investing-withdrawal standing instruction (see
+/// `StandingDepositStore.investingWithdrawalInstruction`).
+const String kHypercoreCctpRouteVersion = 'hypercore_cctp_to_spark_usd_v1';
+
 /// The row status for a standing deposit that never became an order, or
 /// null when it is not stuck (still converting, or converted).
 ///
@@ -84,11 +90,15 @@ SwapOrder? stuckStandingDepositRow({
               now ??
               DateTime.now())
           .millisecondsSinceEpoch;
+  // Money on the Investing-withdrawal instruction left Investing: its row
+  // reads as the Investing withdrawal it is, whoever writes it first (the
+  // standing sweep or the CCTP watcher), so the two never disagree.
+  final investing = StandingDepositStore.isInvestingWithdrawalLabel(record.label);
   return SwapOrder(
     id: id,
-    activityDirection: 'receive',
-    coinFrom: asset,
-    networkFrom: chain,
+    activityDirection: investing ? null : 'receive',
+    coinFrom: investing ? 'USDC' : asset,
+    networkFrom: investing ? 'HYPERCORE' : chain,
     coinTo: record.asset,
     networkTo: 'SPARK',
     depositAddress: record.addressFor(chain) ?? '',
@@ -104,6 +114,53 @@ SwapOrder? stuckStandingDepositRow({
     refundAddress: '',
     provider: 'Orchestra',
     walletId: walletId,
-    purchaseSource: 'crypto_receive',
+    purchaseSource: investing ? null : 'crypto_receive',
+    routeVersion: investing ? kHypercoreCctpRouteVersion : null,
+  );
+}
+
+/// The Activity row of the order [orderId] a deposit on [record]'s
+/// [chain]/[asset] address became. A receive into [record]'s asset, or,
+/// on the Investing-withdrawal instruction, the Investing → Dollars
+/// withdrawal it is. Shared by the standing sweep and the CCTP watcher so
+/// whichever writes it first writes the same row.
+SwapOrder standingOrderRow({
+  required StandingDepositRecord record,
+  required String orderId,
+  required String chain,
+  required String asset,
+  required String depositAddress,
+  required String amountIn,
+  required String amountOut,
+  required String status,
+  required int timestamp,
+  required String recipient,
+  required String walletId,
+  String? operationId,
+}) {
+  final investing = StandingDepositStore.isInvestingWithdrawalLabel(record.label);
+  return SwapOrder(
+    id: orderId,
+    activityDirection: investing ? null : 'receive',
+    coinFrom: investing ? 'USDC' : asset,
+    networkFrom: investing ? 'HYPERCORE' : chain,
+    coinTo: record.asset,
+    networkTo: 'SPARK',
+    depositAddress: depositAddress,
+    depositAmount: orchestraAmountToDecimalString(amountIn, asset, chain: chain),
+    withdrawalAmount:
+        orchestraAmountToDecimalString(amountOut, record.asset, chain: 'spark'),
+    status: status,
+    timestamp: timestamp,
+    withdrawalAddress: recipient,
+    depositMin: '0',
+    depositMax: '0',
+    rate: '0',
+    refundAddress: '',
+    provider: 'Orchestra',
+    walletId: walletId,
+    purchaseSource: investing ? null : 'crypto_receive',
+    operationId: operationId,
+    routeVersion: investing ? kHypercoreCctpRouteVersion : null,
   );
 }

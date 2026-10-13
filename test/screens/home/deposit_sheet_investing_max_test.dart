@@ -40,6 +40,7 @@ import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/services/funding/settlement_runner.dart'
     show SettlementStepUpHook;
 import 'package:kute/services/funding/spark_hypercore_funding_service.dart';
+import 'package:kute/services/hyperliquid/cctp_withdrawal.dart';
 import 'package:kute/services/hyperliquid/hypercore_activation_fee.dart';
 import 'package:kute/services/hyperliquid/hypercore_cash.dart';
 import 'package:kute/services/orchestra/orchestra_quote_gate.dart'
@@ -164,6 +165,29 @@ class _Hypercore extends SparkHypercoreFundingService {
   }
 }
 
+/// The Circle CCTP fallback, scripted: records the move and stays in
+/// flight, or stops before signing with [error].
+class _Cctp implements HypercoreCctpWithdrawal {
+  final moves = <double>[];
+  Object? error;
+
+  @override
+  Future<CctpWithdrawalResult> withdrawToDollars({
+    required double usd,
+    required SettlementStepUpHook stepUp,
+    String purpose = 'manual_move',
+  }) async {
+    moves.add(usd);
+    expect(purpose, 'manual_move');
+    final failure = error;
+    if (failure != null) throw failure;
+    return Completer<CctpWithdrawalResult>().future;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 HlAccountSnapshot _snapshot({
   required double perp,
   double spot = 0,
@@ -194,7 +218,8 @@ HlAccountSnapshot _snapshot({
     );
 
 Future<(ProviderContainer, _Hypercore)> _open(
-    WidgetTester tester, HlAccountSnapshot account) async {
+    WidgetTester tester, HlAccountSnapshot account,
+    {_Cctp? cctp}) async {
   tester.view.physicalSize = const Size(430, 932);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -207,6 +232,7 @@ Future<(ProviderContainer, _Hypercore)> _open(
     hyperliquidAccountProvider.overrideWith(() => _Account(account)),
     sparkHypercoreFundingServiceProvider
         .overrideWith((ref) => hypercore = _Hypercore(ref.read, account)),
+    hypercoreCctpWithdrawalProvider.overrideWithValue(cctp ?? _Cctp()),
   ]);
   await http.runWithClient(
     () => tester.pumpWidget(UncontrolledProviderScope(
@@ -334,23 +360,66 @@ void main() {
     await _close(tester, container);
   });
 
+  // Flashnet's answer to a HyperCore-source quote today
+  // (`unsupported_route`), as the quote gate raises it.
+  OrchestraQuoteFailure refused() => OrchestraQuoteFailure(
+      'HyperCore source routes require independent deposit verification '
+      'and are unavailable',
+      routeError:
+          RouteQuoteError(RouteQuoteErrorCode.fromCode('unsupported_route')!));
+
   testWidgets(
-      'Investing → Dollars: a route Orchestra refuses says nothing was sent',
+      'Investing → Dollars: a route Orchestra refuses goes out by CCTP',
       (tester) async {
-    // Flashnet's answer to a HyperCore-source quote today
-    // (`unsupported_route`), as the quote gate raises it.
-    final (container, hypercore) = await _open(tester, _snapshot(perp: 10));
+    final cctp = _Cctp();
+    final (container, hypercore) =
+        await _open(tester, _snapshot(perp: 10), cctp: cctp);
     await _pickDollars(tester);
-    hypercore.quoteRefusal = OrchestraQuoteFailure(
-        'HyperCore source routes require independent deposit verification '
-        'and are unavailable',
-        routeError: RouteQuoteError(
-            RouteQuoteErrorCode.fromCode('unsupported_route')!));
+    hypercore.quoteRefusal = refused();
     await _maxAndContinue(tester);
 
+    // The normal route first, then the fallback with the same amount.
     expect(hypercore.sent.single.usd, 10);
+    expect(cctp.moves, [10]);
+    expect(find.text(_refusedCopy), findsNothing);
+    expect(find.text(_generic), findsNothing);
+    expect(tester.widget<AppButton>(find.byType(AppButton).last).isLoading,
+        isTrue,
+        reason: 'the CCTP move is in flight');
+    await _close(tester, container);
+  });
+
+  testWidgets(
+      'Investing → Dollars: CCTP that cannot run says nothing was sent',
+      (tester) async {
+    final cctp = _Cctp()
+      ..error = const CctpUnavailable(CctpUnavailableReason.paused);
+    final (container, hypercore) =
+        await _open(tester, _snapshot(perp: 10), cctp: cctp);
+    await _pickDollars(tester);
+    hypercore.quoteRefusal = refused();
+    await _maxAndContinue(tester);
+
+    expect(cctp.moves, [10]);
     expect(find.text(_refusedCopy), findsWidgets);
     expect(find.text(_generic), findsNothing);
+    expect(tester.widget<AppButton>(find.byType(AppButton).last).isLoading,
+        isFalse);
+    await _close(tester, container);
+  });
+
+  testWidgets(
+      'Investing → Bitcoin: a refused route keeps saying nothing was sent',
+      (tester) async {
+    final cctp = _Cctp();
+    final (container, hypercore) =
+        await _open(tester, _snapshot(perp: 10), cctp: cctp);
+    hypercore.quoteRefusal = refused();
+    await _maxAndContinue(tester);
+
+    expect(hypercore.sent.single.destination, SparkFundingAsset.bitcoin);
+    expect(cctp.moves, isEmpty, reason: 'CCTP lands as dollars only');
+    expect(find.text(_refusedCopy), findsWidgets);
     expect(tester.widget<AppButton>(find.byType(AppButton).last).isLoading,
         isFalse);
     await _close(tester, container);

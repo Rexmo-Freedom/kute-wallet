@@ -42,6 +42,7 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/swap_orders_provider.dart';
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
+import 'package:kute/services/funding/settlement_stage.dart';
 import 'package:kute/services/funding/settlement_store.dart';
 import 'package:kute/services/one_balance/hyperliquid_move_rail.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
@@ -209,6 +210,8 @@ class _RiverpodSweeperHost extends VenueSweeperHost {
       final chains = _venueChains[venue]!;
       for (final op in await store.pendingForReconcile()) {
         if (wallet != null && op.walletId != wallet) continue;
+        // Proven never sent: nothing of it is on a rail.
+        if (op.stage == SettlementStage.notFunded) continue;
         if (chains.any(op.route.involvesChain)) return true;
       }
       return false;

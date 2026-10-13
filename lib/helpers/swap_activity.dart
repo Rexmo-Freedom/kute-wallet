@@ -66,6 +66,7 @@ SwapActivityKind classifySwapActivity(SwapOrder order,
     case SettlementFlow.investingToLedgerBtc:
     case SettlementFlow.investingToSparkDirect:
     case SettlementFlow.investingToSparkUsdDirect:
+    case SettlementFlow.investingToDollarsCctp:
       return SwapActivityKind.investingWithdrawal;
     case SettlementFlow.moveDollarsToBtc:
       return SwapActivityKind.dollarWithdrawal;

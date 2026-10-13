@@ -463,6 +463,10 @@ class SwapOrder {
   bool get shouldPollOrchestra =>
       isOrchestra &&
       !isStuckStandingDeposit &&
+      // An Investing → Dollars CCTP move before Orchestra has an order for
+      // it: no id to ask about. Its watcher (cctp_withdrawal.dart) moves
+      // the row to the order id once the standing address made one.
+      !id.startsWith('cctp-') &&
       !const ['success', 'settled', 'refunded', 'expired', 'canceled']
           .contains(status);
 

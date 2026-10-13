@@ -20,6 +20,21 @@ class ArbitrumReadException implements Exception {
   String toString() => 'ArbitrumReadException: $message';
 }
 
+/// keccak256("Transfer(address,address,uint256)").
+const String kErc20TransferTopic =
+    '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+
+/// One token mint read from Arbitrum logs.
+class ArbitrumTokenMint {
+  const ArbitrumTokenMint(
+      {required this.amount, required this.txHash, required this.block});
+
+  /// Token base units.
+  final BigInt amount;
+  final String txHash;
+  final int block;
+}
+
 class ArbitrumReadRpc {
   static const int chainId = 42161;
 
@@ -77,6 +92,63 @@ class ArbitrumReadRpc {
       throw const ArbitrumReadException('balanceOf returned no uint256');
     }
     return BigInt.parse(word, radix: 16);
+  }
+
+  /// The latest Arbitrum One block number.
+  Future<int> blockNumber() async =>
+      (await _quantity('eth_blockNumber', const [])).toInt();
+
+  /// ERC-20 `Transfer` events on [token] minted (from the zero address)
+  /// to [to], from block [fromBlock] to the latest. Throws when no
+  /// endpoint answers, so a failed read is never an empty list.
+  Future<List<ArbitrumTokenMint>> mintsTo({
+    required String token,
+    required String to,
+    required int fromBlock,
+  }) async {
+    final hex = to.toLowerCase().replaceFirst('0x', '');
+    if (!RegExp(r'^[0-9a-f]{40}$').hasMatch(hex) || fromBlock < 0) {
+      throw ArgumentError.value(to, 'to', 'not an address');
+    }
+    final logs = await _firstListAnswer('eth_getLogs', [
+      {
+        'address': token,
+        'fromBlock': '0x${fromBlock.toRadixString(16)}',
+        'toBlock': 'latest',
+        'topics': [
+          kErc20TransferTopic,
+          '0x${'0' * 64}',
+          '0x${hex.padLeft(64, '0')}',
+        ],
+      }
+    ]);
+    final out = <ArbitrumTokenMint>[];
+    for (final log in logs) {
+      if (log is! Map) continue;
+      final data = log['data'];
+      final tx = log['transactionHash'];
+      final block = log['blockNumber'];
+      if (data is! String || tx is! String || block is! String) continue;
+      final amount = BigInt.tryParse(data.replaceFirst('0x', ''), radix: 16);
+      final number = int.tryParse(block.replaceFirst('0x', ''), radix: 16);
+      if (amount == null || number == null) continue;
+      out.add(ArbitrumTokenMint(amount: amount, txHash: tx, block: number));
+    }
+    return out;
+  }
+
+  Future<List<Object?>> _firstListAnswer(
+      String method, List<Object> params) async {
+    for (final rpc in _order()) {
+      if (!await _isArbitrum(rpc)) continue;
+      final result = (await _request(rpc, method, params))?.result;
+      if (result is List) {
+        _cooldownUntil.remove(rpc);
+        return result;
+      }
+      _failed(rpc);
+    }
+    throw ArbitrumReadException('$method: no Arbitrum RPC answered');
   }
 
   Future<BigInt> _quantity(String method, List<Object> params) async {
