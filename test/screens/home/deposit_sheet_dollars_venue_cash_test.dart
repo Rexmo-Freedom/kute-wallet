@@ -1,5 +1,9 @@
-// Buy bitcoin with Dollars past what Dollars hold: the venue cash in
-// reach counts, the purchase asks its ONE approval before any venue cash
+// Buy bitcoin from Investments: the From row shows what Investments can
+// spend (Dollars plus the venue cash the engine reaches) on the first
+// frame, from the last known values, with no loading state; Max is what
+// the engine's plan covers; the venues are read again in the background
+// and the figure follows. Past what Dollars hold the venue cash in reach
+// counts, the purchase asks its ONE approval before any venue cash
 // moves (declined: nothing moves), the legs then go under it (straight to
 // Bitcoin where the venue offers it, home to Dollars otherwise), and when
 // what comes home has not landed in time the purchase stops and says so
@@ -33,12 +37,15 @@ import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/spark_address_provider.dart';
 import 'package:kute/screens/home/components/deposit_sheet.dart';
+import 'package:kute/screens/shared/amount_keypad_panel.dart'
+    show AmountKeypad, BigAmountDisplay;
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/services/funding/spark_hypercore_funding_service.dart';
 import 'package:kute/services/http/shared_http_client.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceProvider;
+import 'package:kute/services/one_balance/investments_spendable.dart';
 import 'package:kute/services/one_balance/multi_source_move.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/one_balance/venue_cash_source.dart';
@@ -72,10 +79,14 @@ MockClient _orchestra(
     });
 
 /// The app-wide price, without the Hive box behind the real notifier.
+/// [btc] carries the cached BTC/USD rate the currency cache keeps.
 class _Currency extends StateNotifier<CurrencyState>
     implements CurrencyNotifier {
-  _Currency()
-      : super(CurrencyState({'USD': Fixed.fromInt(_usdPerBtc.round())}));
+  _Currency({bool btc = false})
+      : super(CurrencyState({
+          'USD': Fixed.fromInt(_usdPerBtc.round()),
+          if (btc) 'BTC': Fixed.fromNum(1 / _usdPerBtc, decimalDigits: 16),
+        }));
 
   @override
   Future<void> updateRates() async {}
@@ -120,14 +131,17 @@ class _Settings extends SettingsModel {
 /// [sdk] stands in for the spending SDK; left alone it never answers.
 Future<ProviderContainer> _open(WidgetTester tester, MoveLockedSide side,
     {MockClient Function() orchestra = _orchestra,
-    Completer<BreezSdkSpark>? sdk}) async {
+    Completer<BreezSdkSpark>? sdk,
+    bool cachedRate = false,
+    VenueCashLastRead? lastRead,
+    bool settle = true}) async {
   tester.view.physicalSize = const Size(430, 932);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
   final container = ProviderContainer(overrides: [
     settingsProvider.overrideWith((_) => _Settings()),
-    currencyProvider.overrideWith((_) => _Currency()),
+    currencyProvider.overrideWith((_) => _Currency(btc: cachedRate)),
     polymarketTradingProvider.overrideWith(_Trading.new),
     polymarketBalanceProvider.overrideWith((_) => 0),
     sparkHypercoreFundingServiceProvider
@@ -140,10 +154,12 @@ Future<ProviderContainer> _open(WidgetTester tester, MoveLockedSide side,
         .overrideWith((_) => (sdk ?? Completer<BreezSdkSpark>()).future),
     usdBalanceProvider.overrideWith((_) => _dollars),
     sparkSelfAddressProvider.overrideWith((_) async => _ownSpark),
-    venueCashReachProvider.overrideWith((_) async => _reach),
     venueCashPullerProvider.overrideWith((_) => _puller!),
   ]);
   _setBalance(container, _balanceSats);
+  if (lastRead != null) {
+    container.read(venueCashLastReadProvider.notifier).state = lastRead;
+  }
   // The price sample is read over the shared keep-alive client, which
   // `runWithClient` cannot reach; it answers from the same fake until the
   // test's tearDown clears it.
@@ -164,6 +180,7 @@ Future<ProviderContainer> _open(WidgetTester tester, MoveLockedSide side,
     )),
     orchestra,
   );
+  if (!settle) return container;
   // The price sample lands.
   for (var i = 0; i < 10; i++) {
     await tester.pump(const Duration(milliseconds: 50));
@@ -176,7 +193,6 @@ void _setBalance(ProviderContainer container, int sats) =>
         WalletBalance(onChainBtcBalance: 0, sparkBitcoinbalance: sats));
 
 double _dollars = 10;
-const double _reach = 60;
 const String _ownSpark = 'spark1self';
 VenueCashPuller? _puller;
 
@@ -225,6 +241,48 @@ class _DirectVenue extends _Venue implements DirectVenueCashSource {
         arrivingUsdEstimate: usd * 0.99);
   }
 }
+
+/// Predictions cash whose read waits on [gate]: the venue read still on
+/// its way while the sheet is already up.
+class _SlowVenue extends _Venue {
+  _SlowVenue(super.available);
+
+  final gate = Completer<void>();
+
+  @override
+  Future<double> availableUsd() async {
+    await gate.future;
+    return available;
+  }
+}
+
+/// The engine's last read: Predictions and Investing cash, for the
+/// spending wallet.
+VenueCashLastRead _read({double predictions = 0, double investing = 0}) => (
+      walletId: 'spending',
+      candidates: [
+        if (predictions > 0)
+          (
+            venue: OneBalanceVenue.predictions,
+            availableUsd: predictions,
+            eta: kVenuePullEta[OneBalanceVenue.predictions]!,
+            minimumUsd: 1.0,
+          ),
+        if (investing > 0)
+          (
+            venue: OneBalanceVenue.investing,
+            availableUsd: investing,
+            eta: kVenuePullEta[OneBalanceVenue.investing]!,
+            minimumUsd: 5.0,
+          ),
+      ],
+    );
+
+/// The From row's figure, as the route card prints it.
+Finder _shown(String usd) => find.text('\$$usd');
+
+BigAmountDisplay _big(WidgetTester tester) =>
+    tester.widget<BigAmountDisplay>(find.byType(BigAmountDisplay));
 
 /// Predictions cash the test sets, recording each pull.
 class _Venue implements VenueCashSource {
@@ -421,6 +479,122 @@ void main() {
     // Back to the amount, quietly: no error, no spinner.
     expect(tester.widget<AppButton>(_cta).isLoading, isFalse);
     expect(find.text(_insufficient), findsNothing);
+    await _close(tester, container);
+  });
+
+  testWidgets(
+      'Buy Bitcoin from Investments: Dollars plus venue cash and the price '
+      'are on the very first frame, from the last known values, with no '
+      'loading state; the fresh venue read updates the figure in place',
+      (tester) async {
+    final venue = _SlowVenue(70);
+    _puller = VenueCashPuller(
+      sources: [venue],
+      readDollars: () => _dollars,
+      minimumUsd: (_) async => 1,
+    );
+    // The route's own price sample is slow; the cached price stands in.
+    final container = await _open(tester, MoveLockedSide.depositFromFiat,
+        orchestra: () => _orchestra(delay: const Duration(seconds: 5)),
+        cachedRate: true,
+        lastRead: _read(predictions: 60, investing: 40),
+        settle: false);
+    // First frame: $10 of Dollars + $60 + $40 of venue cash, under the
+    // Investments name, no "Updating balance", no skeleton.
+    final l10n = lookupAppLocalizations(const Locale('en'));
+    expect(_shown('110.00'), findsOneWidget);
+    expect(find.text(l10n.assetDollars), findsWidgets);
+    expect(find.text('Updating balance'), findsNothing);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(_big(tester).loading, isFalse);
+
+    // The venues answer: Predictions now holds $70 and Investing nothing.
+    venue.gate.complete();
+    await tester.pump();
+    await tester.pump();
+    expect(_shown('80.00'), findsOneWidget);
+    expect(_shown('110.00'), findsNothing);
+    expect(_big(tester).loading, isFalse);
+    await tester.pump(const Duration(seconds: 6));
+    await _close(tester, container);
+  });
+
+  testWidgets(
+      'cold start: nothing cached shows Dollars at once, then folds venue '
+      'cash in when the read lands', (tester) async {
+    final venue = _SlowVenue(100);
+    _puller = VenueCashPuller(
+      sources: [venue],
+      readDollars: () => _dollars,
+      minimumUsd: (_) async => 1,
+    );
+    final container = await _open(tester, MoveLockedSide.depositFromFiat,
+        settle: false);
+    expect(_shown('10.00'), findsOneWidget);
+    expect(find.text('Updating balance'), findsNothing);
+    venue.gate.complete();
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    expect(_shown('110.00'), findsOneWidget);
+    expect(container.read(venueCashLastReadProvider), isNotNull,
+        reason: 'the read is kept for the next screen');
+    await _close(tester, container);
+  });
+
+  testWidgets(
+      'no Dollars but venue cash cached: the door still opens on '
+      'Investments with what it can spend', (tester) async {
+    _dollars = 0;
+    _puller = VenueCashPuller(
+      sources: [_SlowVenue(60)],
+      readDollars: () => _dollars,
+      minimumUsd: (_) async => 1,
+    );
+    final container = await _open(tester, MoveLockedSide.depositFromFiat,
+        lastRead: _read(predictions: 60), settle: false);
+    expect(_shown('60.00'), findsOneWidget);
+    expect(find.text('Cash App'), findsNothing);
+    await _close(tester, container);
+  });
+
+  testWidgets(
+      'Max is what the engine plan covers; between Dollars and the total '
+      'is no "insufficient", above the total is', (tester) async {
+    final venue = _Venue(100);
+    _puller = VenueCashPuller(
+      sources: [venue],
+      readDollars: () => _dollars,
+      minimumUsd: (_) async => 1,
+    );
+    final container = await _open(tester, MoveLockedSide.depositFromFiat);
+    // $10 of Dollars and $100 of Predictions cash: $110 to spend.
+    expect(_shown('110.00'), findsOneWidget);
+
+    // Max (the figure is the Max): $100 less its 2% planned cost.
+    await tester.tap(_shown('110.00'));
+    await tester.pump();
+    expect(_big(tester).amountText, '108.00');
+    expect(find.text(_insufficient), findsNothing);
+    expect(tester.widget<AppButton>(_cta).onPressed, isNotNull);
+    final plan = await _puller!
+        .plan(neededUsd: 108, destination: VenueCashDestination.bitcoin);
+    expect(plan.covers, isTrue);
+    expect(plan.pulls.single.usd, 100);
+
+    // $60: past Dollars, inside the total.
+    void typeAmount(String v) =>
+        tester.widget<AmountKeypad>(find.byType(AmountKeypad)).onChanged(v);
+    typeAmount('60');
+    await tester.pump();
+    expect(_big(tester).amountText, '60');
+    expect(find.text(_insufficient), findsNothing);
+    expect(tester.widget<AppButton>(_cta).onPressed, isNotNull);
+
+    // $600: above the total.
+    typeAmount('600');
+    await tester.pump();
+    expect(find.text(_insufficient), findsWidgets);
     await _close(tester, container);
   });
 }

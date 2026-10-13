@@ -140,8 +140,9 @@ import 'package:kute/services/one_balance/venue_cash_source.dart'
         VenueCashPlan,
         VenueCashPullOutcome,
         kVenueCashMaxWait,
-        venueCashPullerProvider,
-        venueCashReachProvider;
+        venueCashPullerProvider;
+import 'package:kute/services/one_balance/investments_spendable.dart'
+    show investmentsSpendableProvider, venueCashRefreshProvider;
 import 'package:kute/services/one_balance/multi_source_move.dart'
     show MultiSourceMoveStore, trackMultiSourceMoveRetry;
 import 'package:kute/screens/shared/venue_cash_pull_copy.dart';
@@ -720,14 +721,31 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       _sourceWalletId == null &&
       _destWalletId == null;
 
-  /// What the dollar source can pay: Dollars, plus the venue cash that
-  /// can come home for a purchase (never less than Dollars).
+  /// What the dollar source can pay: Dollars, plus the venue cash the
+  /// engine can bring into a purchase, net of the planned move costs (the
+  /// Max, never less than Dollars). Read from the last known values
+  /// ([investmentsSpendableProvider]): never loading.
   double get _dollarsSourceUsd {
     final dollars = _availableUsd;
     if (!_dollarsReachVenueCash) return dollars;
-    final reach = ref.read(venueCashReachProvider).valueOrNull;
-    return reach != null && reach > dollars ? reach : dollars;
+    final max = ref.read(investmentsSpendableProvider).maxUsd;
+    return max > dollars ? max : dollars;
   }
+
+  /// What the From row shows for the dollar source: what Investments can
+  /// spend, Dollars plus reachable venue cash before costs (the header's
+  /// Available, positions never counted). Dollars alone off a purchase.
+  double get _dollarsSourceShownUsd {
+    if (!_dollarsReachVenueCash) return _availableUsdc;
+    if (_processing && _shownUsdAtSubmit != null) return _shownUsdAtSubmit!;
+    final total = ref.read(investmentsSpendableProvider).totalUsd;
+    final payable = _liveAvailableUsdc;
+    return total > payable ? total : payable;
+  }
+
+  /// [_dollarsSourceShownUsd] held while a purchase spends it (venue cash
+  /// on its way counts in neither pool for a moment).
+  double? _shownUsdAtSubmit;
 
   /// While venue cash is coming home for a purchase: one line per leg,
   /// on the sheet's quiet caption line.
@@ -1348,6 +1366,10 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         // fallback while that is connecting, so it always has a number.
         final balance = ref.read(usdSdkBalanceProvider);
         if (balance.hasValue) return null;
+        // Buying bitcoin from Investments shows the last known balance at
+        // once (the settled ledger stands in) and follows the SDK when it
+        // answers: no loading text.
+        if (_dollarsReachVenueCash && !balance.hasError) return null;
         return balance.hasError ? 'Balance unavailable' : 'Updating balance';
       }
       if (_fromHyperliquid) {
@@ -1883,9 +1905,12 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       // first is the honest answer. Every rail stays one tap away. An
       // explicit Cash App request (Activity's "Create new purchase")
       // repeats a Cash App purchase, so it opens on Cash App instead.
+      // Investments' venue cash the engine can reach counts: the
+      // purchase pays from Dollars first and brings the rest in.
       final dollarsLead = !widget.cashAppSource &&
           widget.fiatDepositWalletId == null &&
-          ref.read(usdBalanceProvider) > 0;
+          (ref.read(usdBalanceProvider) > 0 ||
+              ref.read(investmentsSpendableProvider).totalUsd > 0);
       _sourceUsd = dollarsLead;
       _sourceFiat = !dollarsLead;
       _sourceWalletId = null;
@@ -2287,6 +2312,16 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
           mounted) {
         showedHeld = true;
         _applyRate(held.rate, prefill: true);
+      } else if (_dollarsReachVenueCash && !_isLedgerMove && mounted) {
+        // Dollars paying for bitcoin type dollars: the price only labels
+        // the estimate, so the app's cached BTC/USD rate puts the screen
+        // up at once and the route's own sample replaces it when it
+        // lands. Every dispatch quotes afresh.
+        final cached = _cachedUsdPerBtc();
+        if (cached != null) {
+          showedHeld = true;
+          _applyRate(cached, prefill: true);
+        }
       }
       // The Predictions account only names where the money lands or
       // refunds, and the dispatch reads it live at the tap; the price
@@ -2361,6 +2396,16 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         });
       }
     }
+  }
+
+  /// The app-wide BTC/USD price (the currency cache, restored from disk
+  /// at launch), or null when it has none that is plausible.
+  double? _cachedUsdPerBtc() {
+    final perUsd =
+        double.tryParse('${ref.read(currencyProvider).rates['BTC'] ?? ''}');
+    if (perUsd == null || !perUsd.isFinite || perUsd <= 0) return null;
+    final usdPerBtc = 1 / perUsd;
+    return usdPerBtc > 1000 && usdPerBtc < 10000000 ? usdPerBtc : null;
   }
 
   /// The last price sample per route, so a sheet reopened (or a source
@@ -6081,6 +6126,8 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         !_isFiatMode && _fromBtc ? _liveAvailableSats : null;
     _availableUsdcAtSubmit =
         !_isFiatMode && !_fromBtc ? _liveAvailableUsdc : null;
+    _shownUsdAtSubmit =
+        !_isFiatMode && _dollarsReachVenueCash ? _dollarsSourceShownUsd : null;
 
     // Cash App source — the one LIVE fiat leg. Continue creates the
     // Flashnet onramp and the build swaps to the inline payment
@@ -6257,7 +6304,12 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         if (_sourceWalletId == null) ref.watch(sparkBitcoinBalanceProvider);
       } else if (_dollarsAreSource) {
         ref.watch(usdBalanceProvider);
-        if (_dollarsReachVenueCash) ref.watch(venueCashReachProvider);
+        if (_dollarsReachVenueCash) {
+          // The last known figure is on screen at once; the venues are
+          // read again in the background and the number follows.
+          ref.watch(investmentsSpendableProvider);
+          ref.watch(venueCashRefreshProvider);
+        }
       } else if (_fromHyperliquid) {
         ref.watch(hyperliquidAccountProvider);
       } else {
@@ -6355,7 +6407,8 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         String dollars(double usd) =>
             '\$${((usd * 100).floor() / 100).toStringAsFixed(2)}';
         if (!_fromBtc) {
-          availableValue = dollars(_availableUsdc);
+          availableValue = dollars(
+              _dollarsAreSource ? _dollarsSourceShownUsd : _availableUsdc);
         } else {
           final sats = _isLedgerMove ? _maxConvertibleSats : _availableSats;
           if (_usdPerBtc > 0) {

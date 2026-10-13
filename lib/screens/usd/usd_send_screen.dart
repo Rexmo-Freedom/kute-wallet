@@ -120,6 +120,8 @@ import 'package:kute/services/orchestra_usd_send_routes.dart';
 import 'package:kute/services/one_balance/multi_source_move.dart'
     show MultiSourceMoveStore, trackMultiSourceMoveRetry;
 import 'package:kute/services/one_balance/venue_cash_source.dart';
+import 'package:kute/services/one_balance/investments_spendable.dart'
+    show investmentsSpendableProvider, venueCashRefreshProvider;
 import 'package:kute/screens/shared/venue_cash_pull_copy.dart';
 import 'package:kute/services/polymarket_spark_txs_service.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
@@ -334,11 +336,22 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
       BigInt.from((_availableUsd * 1000000).floor());
 
   /// How far the send reaches: Dollars plus the venue cash that can come
-  /// home for it (net of the move's cost), never less than Dollars.
+  /// home for it, net of the planned move costs (the Max, a figure the
+  /// engine's plan covers), never less than Dollars. From the last known
+  /// values ([investmentsSpendableProvider]): never loading.
   double get _reachUsd {
     final dollars = _availableUsd;
-    final reach = ref.read(venueCashReachProvider).valueOrNull;
-    return reach != null && reach > dollars ? reach : dollars;
+    final max = ref.read(investmentsSpendableProvider).maxUsd;
+    return max > dollars ? max : dollars;
+  }
+
+  /// What the available line shows: what Investments can spend, Dollars
+  /// plus reachable venue cash before costs (the header's Available,
+  /// positions never counted).
+  double get _shownAvailableUsd {
+    final total = ref.read(investmentsSpendableProvider).totalUsd;
+    final reach = _reachUsd;
+    return total > reach ? total : reach;
   }
 
   BigInt get _reachBaseUnits => BigInt.from((_reachUsd * 1000000).floor());
@@ -732,8 +745,11 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
 
   Widget _amountPage(AppColorsExtension c) {
     ref.watch(usdBalanceProvider);
-    ref.watch(venueCashReachProvider);
-    final available = _reachUsd;
+    // The last known figure is on screen at once; the venues are read
+    // again in the background and the number follows.
+    ref.watch(investmentsSpendableProvider);
+    ref.watch(venueCashRefreshProvider);
+    final available = _shownAvailableUsd;
     final overBalance = _amountExceedsBalance;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1261,7 +1277,11 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
     final l10n = context.l10n;
     final destination = _destination;
     final addr = _address.text.trim();
-    final available = ref.watch(usdBalanceProvider);
+    // The From row reads what Investments can spend, as on the amount
+    // step: Dollars plus reachable venue cash.
+    ref.watch(usdBalanceProvider);
+    ref.watch(investmentsSpendableProvider);
+    final available = _shownAvailableUsd;
     final units = _amountBaseUnits;
     final heroText = units == null ? '0.00' : _formatUsdUnits(units);
     final waiting = _resolvingDrain || _estimateLoading;
