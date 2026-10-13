@@ -46,6 +46,7 @@ import 'package:kute/services/hyperliquid/hypercore_cash.dart';
 import 'package:kute/services/orchestra/orchestra_quote_gate.dart'
     show OrchestraQuoteFailure;
 import 'package:kute/services/runtime_capabilities_service.dart';
+import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:money2/money2.dart' show Fixed;
 
@@ -281,6 +282,14 @@ Future<void> _close(WidgetTester tester, ProviderContainer container) async {
   await tester.pump(const Duration(minutes: 3));
 }
 
+/// The Investing withdrawal funnel events the sheet sent, in order.
+final _withdrawEvents = <(String, Map<String, Object>?)>[];
+
+List<String> _withdrawNames() => [for (final e in _withdrawEvents) e.$1];
+
+Map<String, Object> _withdrawOnly(String name) =>
+    _withdrawEvents.singleWhere((e) => e.$1 == name).$2!;
+
 void main() {
   setUpAll(() {
     dotenv.loadFromString(envString: 'BACKEND=https://backend.test');
@@ -289,8 +298,13 @@ void main() {
   setUp(() {
     AffiliateService.debugSessionToken = 'test-session';
     RuntimeCapabilitiesService.debugInstance = runtimePolicyFixture();
+    _withdrawEvents.clear();
+    TrackingService.debugTrackObserver = (e, p) {
+      if (e.startsWith('hyperliquid_withdraw_')) _withdrawEvents.add((e, p));
+    };
   });
   tearDown(() {
+    TrackingService.debugTrackObserver = null;
     RuntimeCapabilitiesService.debugInstance?.dispose();
     RuntimeCapabilitiesService.debugInstance = null;
     AffiliateService.debugSessionToken = null;
@@ -355,6 +369,12 @@ void main() {
     expect(hypercore.sent.single.usd, 10);
     expect(find.text(_generic), findsNothing);
     expect(find.text(_insufficient), findsWidgets);
+    // The direct route's stop: one initiated, a failed on route direct.
+    expect(_withdrawNames(),
+        ['hyperliquid_withdraw_initiated', 'hyperliquid_withdraw_failed']);
+    expect(_withdrawOnly('hyperliquid_withdraw_failed')['route'], 'direct');
+    expect(
+        _withdrawOnly('hyperliquid_withdraw_failed')['purpose'], 'manual_move');
     expect(tester.widget<AppButton>(find.byType(AppButton).last).isLoading,
         isFalse);
     await _close(tester, container);
@@ -383,6 +403,16 @@ void main() {
     expect(cctp.moves, [10]);
     expect(find.text(_refusedCopy), findsNothing);
     expect(find.text(_generic), findsNothing);
+    // One initiated for the attempt (route direct, the route tried
+    // first); the switch is a step, never a second initiated.
+    expect(_withdrawNames(),
+        ['hyperliquid_withdraw_initiated', 'hyperliquid_withdraw_step']);
+    final initiated = _withdrawOnly('hyperliquid_withdraw_initiated');
+    expect(initiated['route'], 'direct');
+    expect(initiated['purpose'], 'manual_move');
+    expect(initiated['amount_usd'], 10);
+    expect(initiated.containsKey('amount_bucket'), isFalse);
+    expect(_withdrawOnly('hyperliquid_withdraw_step')['step'], 'cctp_fallback');
     expect(tester.widget<AppButton>(find.byType(AppButton).last).isLoading,
         isTrue,
         reason: 'the CCTP move is in flight');
@@ -403,6 +433,15 @@ void main() {
     expect(cctp.moves, [10]);
     expect(find.text(_refusedCopy), findsWidgets);
     expect(find.text(_generic), findsNothing);
+    expect(_withdrawNames(), [
+      'hyperliquid_withdraw_initiated',
+      'hyperliquid_withdraw_step',
+      'hyperliquid_withdraw_failed',
+    ]);
+    final failed = _withdrawOnly('hyperliquid_withdraw_failed');
+    expect(failed['route'], 'cctp');
+    expect(failed['reason'], 'paused');
+    expect(failed['purpose'], 'manual_move');
     expect(tester.widget<AppButton>(find.byType(AppButton).last).isLoading,
         isFalse);
     await _close(tester, container);

@@ -445,7 +445,7 @@ class SettlementReconcilerDriver {
             walletKind: walletKind,
             amountUsd: amountUsd,
           );
-          _reportVenueTerminal(op, result.stage, walletKind, amountUsd);
+          reportVenueTerminal(op, result.stage, walletKind, amountUsd);
         case SettlementReconcileSignal.regressionIgnored:
           break;
       }
@@ -467,9 +467,13 @@ class SettlementReconcilerDriver {
   };
 
   /// The real Investing (HyperCore) funding outcome, on the operation's
-  /// terminal signal. The Move sheet only reports initiated/submitted.
-  /// Claimed once per operation so overlapping reconciles cannot double it.
-  void _reportVenueTerminal(SettlementOperation op, SettlementStage stage,
+  /// terminal signal. The Move sheet and the sweeper only report
+  /// initiated/submitted. Every flow here is the direct route, so both
+  /// withdraw outcomes carry `route: direct` (the CCTP watcher reports its
+  /// own with `route: cctp`). Claimed once per operation so overlapping
+  /// reconciles cannot double it.
+  @visibleForTesting
+  void reportVenueTerminal(SettlementOperation op, SettlementStage stage,
       String walletKind, double? amountUsd) {
     final deposit = _investingDepositFlows.contains(op.flow);
     final withdraw = _investingWithdrawFlows.contains(op.flow);
@@ -515,6 +519,7 @@ class SettlementReconcilerDriver {
     } else {
       TrackingService.hyperliquidWithdrawFailed(
         reason: stage.name,
+        route: 'direct',
         amountUsd: amountUsd,
         destination: destination,
         walletKind: walletKind,

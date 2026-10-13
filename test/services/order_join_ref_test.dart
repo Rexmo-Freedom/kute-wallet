@@ -204,7 +204,7 @@ void main() {
     TrackingService.hyperliquidDepositCompleted(
         amountUsd: 5, orderId: 'ord_hl_1', quoteId: 'q_hl_1');
     TrackingService.hyperliquidWithdrawCompleted(
-        amountUsd: 5, quoteId: 'q_hl_2');
+        amountUsd: 5, route: 'direct', quoteId: 'q_hl_2');
 
     expect(only('polymarket_deposit_submitted')['quote_ref'],
         TrackingService.orderRef('q_dep_1'));

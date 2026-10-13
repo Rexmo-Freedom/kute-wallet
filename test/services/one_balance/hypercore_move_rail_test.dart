@@ -30,6 +30,7 @@ import 'package:kute/services/one_balance/venue_funder.dart';
 import 'package:kute/services/orchestra/orchestra_quote_gate.dart';
 import 'package:kute/services/runtime_capabilities_service.dart'
     show CapabilityDecision;
+import 'package:kute/services/tracking_service.dart';
 
 const _eoa = '0x1111111111111111111111111111111111111111';
 const _sparkSelf = 'sprt1qself';
@@ -342,6 +343,101 @@ void main() {
           rail.withdrawToDollars(usd: 0.5, auth: SweepAuthorization.automatic),
           throwsA(isA<RouteQuoteError>().having(
               (e) => e.code, 'code', RouteQuoteErrorCode.amountTooSmall)));
+    });
+  });
+
+  group('a sweep reports the Investing withdrawal funnel', () {
+    final events = <(String, Map<String, Object>?)>[];
+    setUp(() {
+      events.clear();
+      TrackingService.debugTrackObserver = (e, p) {
+        if (e.startsWith('hyperliquid_withdraw_')) events.add((e, p));
+      };
+    });
+    tearDown(() => TrackingService.debugTrackObserver = null);
+
+    List<String> names() => [for (final e in events) e.$1];
+    Map<String, Object> only(String name) =>
+        events.singleWhere((e) => e.$1 == name).$2!;
+
+    test('direct: initiated then submitted, purpose sweep', () async {
+      final rail = HyperCoreMoveRail(
+          withService(_ScriptedService(container.read, null)),
+          cctp: _FakeCctp.new);
+      await rail.withdrawToDollars(
+          usd: 5, auth: SweepAuthorization.automatic, purpose: 'sweep');
+      expect(names(),
+          ['hyperliquid_withdraw_initiated', 'hyperliquid_withdraw_submitted']);
+      final initiated = only('hyperliquid_withdraw_initiated');
+      expect(initiated['route'], 'direct');
+      expect(initiated['purpose'], 'sweep');
+      expect(initiated['destination'], 'usd');
+      expect(initiated['amount_usd'], 5);
+      final submitted = only('hyperliquid_withdraw_submitted');
+      expect(submitted['route'], 'direct');
+      expect(submitted['purpose'], 'sweep');
+      expect(submitted['amount_usd'], 5);
+      expect(submitted.containsKey('amount_bucket'), isFalse);
+    });
+
+    test('CCTP fallback: one initiated, the switch as a step, submitted '
+        'with route cctp', () async {
+      final rail = HyperCoreMoveRail(
+          withService(_ScriptedService(container.read, _refused())),
+          cctp: _FakeCctp.new);
+      await rail.withdrawToDollars(
+          usd: 12, auth: SweepAuthorization.automatic, purpose: 'rollout_sweep');
+      expect(names(), [
+        'hyperliquid_withdraw_initiated',
+        'hyperliquid_withdraw_step',
+        'hyperliquid_withdraw_submitted',
+      ]);
+      expect(only('hyperliquid_withdraw_initiated')['route'], 'direct');
+      expect(only('hyperliquid_withdraw_step')['step'], 'cctp_fallback');
+      expect(only('hyperliquid_withdraw_step')['route'], 'cctp');
+      final submitted = only('hyperliquid_withdraw_submitted');
+      expect(submitted['route'], 'cctp');
+      expect(submitted['purpose'], 'rollout_sweep');
+      expect(submitted['amount_usd'], 12);
+      expect(submitted.containsKey('amount_bucket'), isFalse);
+    });
+
+    test('a stop before submission is a failed with its route', () async {
+      final rail = HyperCoreMoveRail(
+          withService(_ScriptedService(container.read, _refused())),
+          cctp: () => _FakeCctp(
+              error:
+                  const CctpUnavailable(CctpUnavailableReason.belowMinimum)));
+      await expectLater(
+          rail.withdrawToDollars(
+              usd: 0.9, auth: SweepAuthorization.automatic, purpose: 'sweep'),
+          throwsA(isA<RouteUnavailable>()));
+      expect(names(), [
+        'hyperliquid_withdraw_initiated',
+        'hyperliquid_withdraw_step',
+        'hyperliquid_withdraw_failed',
+      ]);
+      final failed = only('hyperliquid_withdraw_failed');
+      expect(failed['route'], 'cctp');
+      expect(failed['purpose'], 'sweep');
+      expect(failed['reason'], 'cctp_below_minimum');
+      expect(failed['amount_usd'], 0.9);
+    });
+
+    test('an amount refusal on the direct route fails with route direct',
+        () async {
+      final rail = HyperCoreMoveRail(withService(_ScriptedService(
+          container.read,
+          const OrchestraQuoteFailure('too small',
+              routeError:
+                  RouteQuoteError(RouteQuoteErrorCode.amountTooSmall)))));
+      await expectLater(
+          rail.withdrawToDollars(usd: 0.5, auth: SweepAuthorization.automatic),
+          throwsA(isA<RouteQuoteError>()));
+      final failed = only('hyperliquid_withdraw_failed');
+      expect(failed['route'], 'direct');
+      expect(failed['reason'], RouteQuoteErrorCode.amountTooSmall.code);
+      expect(only('hyperliquid_withdraw_initiated')['purpose'], 'sweep');
     });
   });
 

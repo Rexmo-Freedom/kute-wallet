@@ -856,7 +856,8 @@ class TrackingService {
   }
 
   /// Exact money properties for an outcome event. Null/non-finite values
-  /// are dropped. [amountUsd] also emits the legacy `amount_bucket`.
+  /// are dropped. [amountUsd] also emits the legacy `amount_bucket` unless
+  /// [legacyBucket] is false (events that carry exact amounts only).
   /// [feeUsd] is the fee shown to the user (`fee_shown_usd`); [feeBasis]
   /// becomes `fee_shown_basis`.
   static Map<String, Object> moneyParams({
@@ -871,11 +872,13 @@ class TrackingService {
     int? feeSats,
     String? feeTier,
     String feeBasis = 'shown_at_quote',
+    bool legacyBucket = true,
   }) {
     bool ok(double? v) => v != null && v.isFinite;
     return {
       if (ok(amountUsd)) 'amount_usd': _round(amountUsd!, 2),
-      if (ok(amountUsd)) 'amount_bucket': _usdBucket(amountUsd!),
+      if (ok(amountUsd) && legacyBucket)
+        'amount_bucket': _usdBucket(amountUsd!),
       if (ok(amount)) 'amount': _round(amount!, _assetDecimals(asset)),
       if (asset != null) 'asset': asset.toLowerCase(),
       if (amountSats != null) 'amount_sats': amountSats,
@@ -4828,27 +4831,72 @@ class TrackingService {
         ...moneyParams(amountUsd: amountUsd),
       });
 
-  /// [route] is `cctp` when the move went out by the Circle CCTP
-  /// fallback (Orchestra refusing the HyperCore route).
+  // ─── Investing withdrawal funnel ───
+  // One attempt (the Move sheet's Investing cash-out, or a sweep bringing
+  // Investing cash home to Dollars) reports exactly one
+  // `hyperliquid_withdraw_initiated`, at most one
+  // `hyperliquid_withdraw_submitted` and one terminal
+  // `hyperliquid_withdraw_completed` / `hyperliquid_withdraw_failed`.
+  // Exact amounts only (`amount_usd`, no `amount_bucket`); never an
+  // address, id or key. Shared properties:
+  //  - `route`: `direct` (the HyperCore route through Orchestra) or
+  //    `cctp` (the Circle CCTP fallback). Every attempt starts direct, so
+  //    `initiated` says `direct`; the switch to CCTP is the
+  //    `hyperliquid_withdraw_step` `cctp_fallback` (initiated is not sent
+  //    again), and submitted, completed and failed carry the route the
+  //    money actually took.
+  //  - `purpose`: who started it: `manual_move` (the Move sheet), `sweep`
+  //    or `rollout_sweep` (the one-balance sweeper), the same values
+  //    `polymarket_withdraw_submitted` / `_failed` carry for a
+  //    Predictions sweep. Absent on completed/failed from the settlement
+  //    watchers, which do not know who started the move.
+  //  - `destination`: `btc` | `usd`; `wallet_kind`: `hot`.
+
+  /// The attempt started. [route] is `direct` (see above); [purpose]:
+  /// `manual_move` | `sweep` | `rollout_sweep`.
   static void hyperliquidWithdrawInitiated({
     double? amountUsd,
     String? destination, // btc | usd
     String? walletKind,
-    String? route,
+    String route = 'direct',
+    String? purpose,
   }) =>
       track('hyperliquid_withdraw_initiated', params: {
         'venue': 'hyperliquid',
         if (destination != null) 'destination': destination,
         if (walletKind != null) 'wallet_kind': walletKind,
-        if (route != null) 'route': route,
-        ...moneyParams(amountUsd: amountUsd),
+        'route': route,
+        if (purpose != null) 'purpose': purpose,
+        ...moneyParams(amountUsd: amountUsd, legacyBucket: false),
       });
 
-  /// One real transition of an Investing withdrawal that went out by the
-  /// Circle CCTP fallback. [step]: `cctp_sent` (the exchange accepted the
-  /// burn), `core_confirmed` (the HyperCore ledger shows it),
-  /// `arbitrum_minted` (Circle minted on Arbitrum), `orchestra_detected`
-  /// (Orchestra saw the deposit). [durationMs] since the send was signed.
+  /// Handed to the settlement runner (direct) or the CCTP watcher; the
+  /// outcome is `hyperliquid_withdraw_completed` / `_failed`. [route] is
+  /// the route the money took; [amountUsd] what was sent, exactly.
+  static void hyperliquidWithdrawSubmitted({
+    required double amountUsd,
+    required String route, // direct | cctp
+    String? destination,
+    String? walletKind,
+    String? purpose,
+  }) =>
+      track('hyperliquid_withdraw_submitted', params: {
+        'venue': 'hyperliquid',
+        if (destination != null) 'destination': destination,
+        if (walletKind != null) 'wallet_kind': walletKind,
+        'route': route,
+        if (purpose != null) 'purpose': purpose,
+        ...moneyParams(amountUsd: amountUsd, legacyBucket: false),
+      });
+
+  /// One real transition of an Investing withdrawal. [step]:
+  /// `cctp_fallback` (Orchestra refused the direct route before anything
+  /// was signed and the attempt switched to CCTP; [durationMs] since the
+  /// attempt was initiated), then, on the CCTP route, `cctp_sent` (the
+  /// exchange accepted the burn), `core_confirmed` (the HyperCore ledger
+  /// shows it), `arbitrum_minted` (Circle minted on Arbitrum) and
+  /// `orchestra_detected` (Orchestra saw the deposit), each with
+  /// [durationMs] since the send was signed.
   static void hyperliquidWithdrawStep({
     required String step,
     required int durationMs,
@@ -4877,12 +4925,13 @@ class TrackingService {
         if (amountUsd != null && amountUsd.isFinite) 'amount_usd': amountUsd,
       });
 
-  /// [orderId] / [quoteId]: as on [hyperliquidDepositCompleted].
+  /// [route]: `direct` | `cctp`, always sent. [orderId] / [quoteId]: as
+  /// on [hyperliquidDepositCompleted].
   static void hyperliquidWithdrawCompleted({
     double? amountUsd,
     String? destination,
     String? walletKind,
-    String? route,
+    required String route,
     String? orderId,
     String? quoteId,
   }) =>
@@ -4891,16 +4940,25 @@ class TrackingService {
         ...orchestraJoinParams(orderId, quoteId: quoteId),
         if (destination != null) 'destination': destination,
         if (walletKind != null) 'wallet_kind': walletKind,
-        if (route != null) 'route': route,
-        ...moneyParams(amountUsd: amountUsd, asset: 'usdc', amount: amountUsd),
+        'route': route,
+        ...moneyParams(
+            amountUsd: amountUsd,
+            asset: 'usdc',
+            amount: amountUsd,
+            legacyBucket: false),
       });
 
+  /// [route]: `direct` | `cctp`, always sent: the route the attempt was
+  /// on when it failed. [purpose] as on [hyperliquidWithdrawInitiated],
+  /// sent when the attempt itself stopped before submission; the
+  /// settlement watchers' terminal failure has none.
   static void hyperliquidWithdrawFailed({
     required String reason,
+    required String route,
     double? amountUsd,
     String? destination,
     String? walletKind,
-    String? route,
+    String? purpose,
   }) =>
       track('hyperliquid_withdraw_failed', params: {
         'venue': 'hyperliquid',
@@ -4908,8 +4966,9 @@ class TrackingService {
         'error_category': errorCategory(reason),
         if (destination != null) 'destination': destination,
         if (walletKind != null) 'wallet_kind': walletKind,
-        if (route != null) 'route': route,
-        ...moneyParams(amountUsd: amountUsd),
+        'route': route,
+        if (purpose != null) 'purpose': purpose,
+        ...moneyParams(amountUsd: amountUsd, legacyBucket: false),
       });
 
   // ─── Predictions (Phase 5 engagement) ────────────────────────────

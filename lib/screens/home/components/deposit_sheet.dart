@@ -4350,8 +4350,10 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     if (_processing) return;
     final dollars = _destUsd;
     final drain = _drainArmed;
-    // `cctp` once the withdrawal went out by the Circle CCTP fallback.
-    String? route;
+    // Every attempt starts on the direct route; `cctp` once it switched
+    // to the Circle CCTP fallback. Sent on submitted and failed.
+    var route = 'direct';
+    final attemptClock = Stopwatch();
     ConvTiming.mark('_dispatchHyperliquidToBtc setState processing');
     setState(() {
       _processing = true;
@@ -4376,11 +4378,14 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         }
       }
       final account = await ref.read(hyperliquidAddressProvider.future);
+      // Once per attempt: the CCTP fallback below does not send it again.
       TrackingService.hyperliquidWithdrawInitiated(
         amountUsd: usd,
         destination: dollars ? 'usd' : 'btc',
         walletKind: 'hot',
+        purpose: 'manual_move',
       );
+      attemptClock.start();
       _trackMoveSubmitted();
       SettlementStepUpHook stepUp() => _settlementStepUp(
             action: SensitiveAction.venueWithdraw,
@@ -4403,11 +4408,10 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         // withdrawal keeps the refusal ("isn't available right now").
         if (!dollars || !HyperCoreMoveRail.isRouteRefusal(e)) rethrow;
         route = 'cctp';
-        TrackingService.hyperliquidWithdrawInitiated(
+        TrackingService.hyperliquidWithdrawStep(
+          step: 'cctp_fallback',
+          durationMs: attemptClock.elapsedMilliseconds,
           amountUsd: usd,
-          destination: 'usd',
-          walletKind: 'hot',
-          route: route,
         );
         await ref.read(hypercoreCctpWithdrawalProvider).withdrawToDollars(
             usd: usd, stepUp: stepUp(), purpose: 'manual_move');
@@ -4415,14 +4419,13 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       // Handed to the runner (or the CCTP watcher); the real outcome is
       // reported by the settlement reconciler
       // (hyperliquid_withdraw_completed/failed).
-      TrackingService.track('hyperliquid_withdraw_submitted', params: {
-        'venue': 'hyperliquid',
-        'destination': dollars ? 'usd' : 'btc',
-        'wallet_kind': 'hot',
-        'amount_bucket': TrackingService.usdBucket(usd),
-        'amount_usd': usd,
-        if (route != null) 'route': route,
-      });
+      TrackingService.hyperliquidWithdrawSubmitted(
+        amountUsd: usd,
+        route: route,
+        destination: dollars ? 'usd' : 'btc',
+        walletKind: 'hot',
+        purpose: 'manual_move',
+      );
       if (!mounted) return;
       final navigator = Navigator.of(context);
       final l10n = context.l10n;
@@ -4451,10 +4454,11 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         reason: e is CctpUnavailable
             ? e.reason.code
             : TrackingService.errorCategory(e),
+        route: route,
         amountUsd: usd,
         destination: dollars ? 'usd' : 'btc',
         walletKind: 'hot',
-        route: route,
+        purpose: 'manual_move',
       );
       _trackMoveFailed(e);
       if (!mounted) {

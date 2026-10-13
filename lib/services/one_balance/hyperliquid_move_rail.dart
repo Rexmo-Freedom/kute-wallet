@@ -37,7 +37,7 @@ import 'package:kute/helpers/orchestra_router.dart'
 import 'package:kute/helpers/venue_intents.dart' show OrchestraGrants;
 import 'package:kute/models/orchestra_model.dart' show OrchestraEstimate;
 import 'package:kute/models/orchestra_route_limits.dart'
-    show RouteQuoteErrorCode;
+    show RouteQuoteError, RouteQuoteErrorCode;
 import 'package:kute/models/orchestra_routes_model.dart' show RouteKey;
 import 'package:kute/providers/hyperliquid_account_provider.dart'
     show hyperliquidAddressProvider;
@@ -64,6 +64,7 @@ import 'package:kute/services/orchestra/orchestra_fee_amount.dart';
 import 'package:kute/services/orchestra/orchestra_quote_gate.dart'
     show OrchestraQuoteFailure;
 import 'package:kute/services/security/wallet_guard_exception.dart';
+import 'package:kute/services/tracking_service.dart';
 
 /// Orchestra's floor on the direct HyperCore routes (its `/limits` for
 /// `spark:USDB → hypercore:USDC`, read 2026-10-13: `minUsdCents` 80). The
@@ -184,36 +185,82 @@ class HyperCoreMoveRail implements HyperliquidMoveRail {
     );
   }
 
+  /// Reports the same Investing withdrawal funnel as the Move sheet's
+  /// cash-out, with [purpose] (`sweep`, `rollout_sweep`) as who started
+  /// it: one `hyperliquid_withdraw_initiated` (route `direct`), the
+  /// `cctp_fallback` step when Orchestra refuses the route, one
+  /// `hyperliquid_withdraw_submitted` with the route the money took, and
+  /// `hyperliquid_withdraw_failed` when the attempt stops before that.
+  /// The settlement watchers report completed/failed after submission.
   @override
   Future<VenueMoveResult> withdrawToDollars({
     required double usd,
     required MoveAuthorization auth,
     String purpose = 'sweep',
   }) async {
-    return _refusalsAsRoute(() async {
-      try {
-        final result = await _service.withdrawToSpark(
-          usd: usd,
-          destination: SparkFundingAsset.dollars,
-          stepUp: stepUpFor(auth),
-          registerInBackground: true,
-          purpose: purpose,
-        );
-        return VenueMoveResult(
-          quoteId: result.run.quote.quoteId,
-          orderId: result.run.orderId,
-          registration: result.run.registration,
-          // HyperCore USDC carries eight decimals.
-          sentUsd: result.amountIn.toDouble() / 1e8,
-          arrivingUsdEstimate: result.estimatedOut,
-        );
-      } on OrchestraQuoteFailure catch (e) {
-        // Only Orchestra refusing the route itself, before anything was
-        // signed, opens the fallback. An amount refusal stays one.
-        if (!isRouteRefusal(e)) rethrow;
-        return _withdrawByCctp(usd: usd, auth: auth, purpose: purpose);
-      }
-    });
+    var route = 'direct';
+    final clock = Stopwatch()..start();
+    TrackingService.hyperliquidWithdrawInitiated(
+      amountUsd: usd,
+      destination: 'usd',
+      walletKind: 'hot',
+      purpose: purpose,
+    );
+    try {
+      final result = await _refusalsAsRoute(() async {
+        try {
+          final result = await _service.withdrawToSpark(
+            usd: usd,
+            destination: SparkFundingAsset.dollars,
+            stepUp: stepUpFor(auth),
+            registerInBackground: true,
+            purpose: purpose,
+          );
+          return VenueMoveResult(
+            quoteId: result.run.quote.quoteId,
+            orderId: result.run.orderId,
+            registration: result.run.registration,
+            // HyperCore USDC carries eight decimals.
+            sentUsd: result.amountIn.toDouble() / 1e8,
+            arrivingUsdEstimate: result.estimatedOut,
+          );
+        } on OrchestraQuoteFailure catch (e) {
+          // Only Orchestra refusing the route itself, before anything was
+          // signed, opens the fallback. An amount refusal stays one.
+          if (!isRouteRefusal(e)) rethrow;
+          route = 'cctp';
+          TrackingService.hyperliquidWithdrawStep(
+            step: 'cctp_fallback',
+            durationMs: clock.elapsedMilliseconds,
+            amountUsd: usd,
+          );
+          return _withdrawByCctp(usd: usd, auth: auth, purpose: purpose);
+        }
+      });
+      TrackingService.hyperliquidWithdrawSubmitted(
+        amountUsd: result.sentUsd,
+        route: route,
+        destination: 'usd',
+        walletKind: 'hot',
+        purpose: purpose,
+      );
+      return result;
+    } catch (e) {
+      // A fixed code, never the error text.
+      TrackingService.hyperliquidWithdrawFailed(
+        reason: switch (e) {
+          RouteUnavailable(:final reason) => reason ?? 'route_unavailable',
+          RouteQuoteError(:final code) => code.code,
+          _ => TrackingService.errorCategory(e),
+        },
+        route: route,
+        amountUsd: usd,
+        destination: 'usd',
+        walletKind: 'hot',
+        purpose: purpose,
+      );
+      rethrow;
+    }
   }
 
   /// The CCTP fallback for [withdrawToDollars]. The same step-up hook
