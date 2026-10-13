@@ -9,6 +9,11 @@
 // refused for the route itself, before anything is signed, the rail and
 // the Move sheet come here:
 //
+//  0. The runtime policy: the capabilities the normal route's quote asks
+//     of `hypercore:USDC → spark:USDB` (`hyperliquid.withdraw`), checked
+//     the same way and read as fresh. Withheld, nothing is registered,
+//     approved or signed. The fallback never quotes, so this is the only
+//     place it meets the switch.
 //  1. Kute's backend registers (or this wallet reuses) the wallet's
 //     Investing-withdrawal standing instruction, `arbitrum:USDC →
 //     spark:USDB` to the wallet's own Spark address, with the
@@ -87,11 +92,14 @@ import 'package:kute/services/hyperliquid/hypercore_transfer_proof.dart'
     show hypercorePerpUsdcWire, hypercoreUsdcToken, verifyHypercoreUsdcMetadata;
 import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_onboarding_service.dart';
+import 'package:kute/services/orchestra/orchestra_capability_requirements.dart'
+    show orchestraCapabilityRequirements;
 import 'package:kute/services/orchestra/standing_deposit_activity.dart';
 import 'package:kute/services/orchestra/standing_deposit_store.dart';
 import 'package:kute/services/orchestra_routes.dart'
     show claimOrderTerminalAnalytics, orchestraExchangeStatus;
 import 'package:kute/services/passkey_service.dart';
+import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/security/address_guard.dart';
 import 'package:kute/services/security/wallet_guard_exception.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -127,6 +135,22 @@ const double kCctpMinimumMarginUsd = 0.05;
 /// Orchestra's floor for `arbitrum:USDC → spark:USDB` (/limits, read
 /// 2026-10-13: `minUsdCents` 80) when the live limits are unreachable.
 const double kCctpFallbackMinimumUsd = 0.80;
+
+/// The runtime-policy capabilities a CCTP move needs: exactly what the
+/// normal route's quote asks of `hypercore:USDC → spark:USDB`
+/// (`hyperliquid.withdraw`), so the fallback can never run while the
+/// route it stands in for is switched off.
+final List<String> kCctpCapabilities = orchestraCapabilityRequirements(
+    sourceChain: kHypercoreToSparkUsdRoute.fromChain,
+    sourceAsset: kHypercoreToSparkUsdRoute.fromAsset,
+    destinationChain: kHypercoreToSparkUsdRoute.toChain,
+    destinationAsset: kHypercoreToSparkUsdRoute.toAsset);
+
+/// How old a policy the pre-flight may read instead of fetching it again:
+/// the minute the Orchestra quote and the order posts use. The Move sheet
+/// and the sweeper reach the fallback moments after the normal route's
+/// quote fetched it.
+const Duration kCctpPolicyMaxAge = Duration(seconds: 60);
 
 /// A recorded nonce with no ledger row this long after signing proves the
 /// burn never happened: the signed action was never stored, so nothing
@@ -174,7 +198,11 @@ enum CctpUnavailableReason {
   feeReadFailed('fee_read_failed'),
   rpcFailed('rpc_failed'),
   feeTermsUnavailable('fee_terms_unavailable'),
-  inFlight('in_flight');
+  inFlight('in_flight'),
+
+  /// The runtime policy withholds a capability the route needs
+  /// ([kCctpCapabilities]): an emergency switch or a region rule.
+  capability('capability');
 
   const CctpUnavailableReason(this.code);
 
@@ -184,8 +212,13 @@ enum CctpUnavailableReason {
 
 /// The fallback cannot run. Thrown before anything is signed.
 class CctpUnavailable implements Exception {
-  const CctpUnavailable(this.reason);
+  const CctpUnavailable(this.reason, {this.decision});
   final CctpUnavailableReason reason;
+
+  /// The policy's denial when [reason] is
+  /// [CctpUnavailableReason.capability], so a screen can show it the way
+  /// every other withheld capability is shown.
+  final CapabilityDecision? decision;
 
   @override
   String toString() => 'CctpUnavailable(${reason.code})';
@@ -445,13 +478,15 @@ class HypercoreCctpWithdrawal {
     required this.wallet,
     Future<SettlementStore> Function()? store,
     DateTime Function()? clock,
+    RuntimeCapabilitiesService Function()? policy,
     this.tokenForm = kHypercoreCctpTokenForm,
     this.confirmAttempts = 7,
     this.confirmInterval = const Duration(seconds: 1),
     this.watchInterval = const Duration(seconds: 4),
     this.watchFor = const Duration(minutes: 20),
   })  : _store = store ?? SettlementStore.shared,
-        _clock = clock ?? DateTime.now;
+        _clock = clock ?? DateTime.now,
+        _policy = policy ?? (() => RuntimeCapabilitiesService.instance);
 
   factory HypercoreCctpWithdrawal.live(ProviderReader read) =>
       HypercoreCctpWithdrawal(
@@ -469,6 +504,7 @@ class HypercoreCctpWithdrawal {
   final CctpWalletContext wallet;
   final Future<SettlementStore> Function() _store;
   final DateTime Function() _clock;
+  final RuntimeCapabilitiesService Function() _policy;
   final CctpTokenForm tokenForm;
   final int confirmAttempts;
   final Duration confirmInterval;
@@ -480,10 +516,11 @@ class HypercoreCctpWithdrawal {
 
   static String rowIdFor(String operationId) => '$kCctpRowPrefix$operationId';
 
-  Never _unavailable(CctpUnavailableReason reason, double usd) {
+  Never _unavailable(CctpUnavailableReason reason, double usd,
+      {CapabilityDecision? decision}) {
     TrackingService.hyperliquidCctpUnavailable(
         reason: reason.code, amountUsd: usd);
-    throw CctpUnavailable(reason);
+    throw CctpUnavailable(reason, decision: decision);
   }
 
   /// Brings [usd] of Investing cash home to Dollars by CCTP. [stepUp]
@@ -524,6 +561,19 @@ class HypercoreCctpWithdrawal {
         _unavailable(CctpUnavailableReason.inFlight, usd);
       }
     }
+
+    // 0. The runtime policy, as the normal route's quote checks it. A
+    // policy that cannot be read follows the same rule: the offline
+    // table (`hyperliquid.withdraw` is an exit, allowed) unless a policy
+    // seen earlier denied it.
+    try {
+      await _policy()
+          .ensureAllAllowed(kCctpCapabilities, maxAge: kCctpPolicyMaxAge);
+    } on CapabilityUnavailableException catch (e) {
+      _unavailable(CctpUnavailableReason.capability, usd,
+          decision: e.decision);
+    }
+    wallet.ensureSpending(walletId);
 
     // 1. The instruction, with Kute's venue-withdrawal fee verified.
     final StandingDepositRecord record;

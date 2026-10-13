@@ -409,6 +409,35 @@ void main() {
   });
 
   testWidgets(
+      'Investing → Dollars: CCTP withheld by the policy shows the capability '
+      'sheet', (tester) async {
+    const decision = CapabilityDecision(allowed: false, reason: 'disabled');
+    final cctp = _Cctp()
+      ..error = const CctpUnavailable(CctpUnavailableReason.capability,
+          decision: decision);
+    final (container, hypercore) =
+        await _open(tester, _snapshot(perp: 10), cctp: cctp);
+    await _pickDollars(tester);
+    hypercore.quoteRefusal = refused();
+    await _maxAndContinue(tester);
+    await tester.pumpAndSettle(const Duration(milliseconds: 50));
+
+    final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+    expect(cctp.moves, [10]);
+    // The shared sheet the Investing withdraw door shows for the same
+    // decision, with the policy's own sentence; no banner on the sheet.
+    expect(find.text(l10n.gateUnavailableTitle), findsOneWidget);
+    expect(find.text(decision.messageIn(l10n)), findsOneWidget);
+    expect(find.text(_refusedCopy), findsNothing);
+    expect(find.text(_generic), findsNothing);
+    expect(tester.widget<AppButton>(find.byType(AppButton).last).isLoading,
+        isFalse);
+    await tester.tap(find.text(l10n.gotIt));
+    await tester.pumpAndSettle(const Duration(milliseconds: 50));
+    await _close(tester, container);
+  });
+
+  testWidgets(
       'Investing → Bitcoin: a refused route keeps saying nothing was sent',
       (tester) async {
     final cctp = _Cctp();

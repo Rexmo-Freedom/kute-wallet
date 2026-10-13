@@ -4865,7 +4865,8 @@ class TrackingService {
 
   /// The CCTP fallback could not run, before anything was signed.
   /// [reason]: `paused` | `below_minimum` | `fee_read_failed` |
-  /// `rpc_failed` | `fee_terms_unavailable`.
+  /// `rpc_failed` | `fee_terms_unavailable` | `in_flight` | `capability`
+  /// (the runtime policy withholds `hyperliquid.withdraw`).
   static void hyperliquidCctpUnavailable({
     required String reason,
     double? amountUsd,

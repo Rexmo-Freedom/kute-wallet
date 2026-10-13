@@ -5,10 +5,14 @@
 // the record as it is persisted.
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_ce/hive.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/models/orchestra_model.dart';
 import 'package:kute/models/settlement_operation.dart';
 import 'package:kute/models/swap_order_model.dart';
@@ -22,9 +26,13 @@ import 'package:kute/services/funding/settlement_store.dart';
 import 'package:kute/services/funding/spark_hypercore_funding_service.dart'
     show kHypercoreToSparkUsdRoute;
 import 'package:kute/services/hyperliquid/cctp_withdrawal.dart';
+import 'package:kute/services/orchestra/orchestra_capability_requirements.dart';
 import 'package:kute/services/orchestra/standing_deposit_activity.dart';
 import 'package:kute/services/orchestra/standing_deposit_store.dart';
+import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
+
+import '../../helpers/runtime_policy_fixture.dart';
 
 const _spark =
     'spark1pgss93sy072yrmtad5cy2srwjhq8ekzuw78yhr808jn6htqfh9w8p8h9mfwlv9';
@@ -155,6 +163,7 @@ class _Orchestra implements CctpOrchestraPort {
   final orders = <String, OrchestraOrder>{};
   double? minimum = 0.8;
   final logged = <String>[];
+  int instructions = 0;
 
   @override
   Future<StandingDepositRecord> instruction({
@@ -163,6 +172,7 @@ class _Orchestra implements CctpOrchestraPort {
     required String refundAddress,
     required bool Function() wanted,
   }) async {
+    instructions++;
     expect(refundAddress, _account);
     if (instructionError != null) throw instructionError!;
     return held!;
@@ -229,6 +239,7 @@ void main() {
   late DateTime now;
   late List<(String, Map<String, Object>?)> events;
   late List<SettlementAuthorizationIntent> intents;
+  late RuntimeCapabilitiesService policy;
 
   HypercoreCctpWithdrawal service() => HypercoreCctpWithdrawal(
         reads: reads,
@@ -238,6 +249,7 @@ void main() {
         wallet: wallet,
         store: () async => store,
         clock: () => now,
+        policy: () => policy,
         confirmAttempts: 2,
         confirmInterval: Duration.zero,
         watchFor: Duration.zero,
@@ -273,11 +285,15 @@ void main() {
     wallet = _Wallet();
     events = [];
     intents = [];
+    AffiliateService.debugSessionToken = 'test-session';
+    policy = runtimePolicyFixture();
     TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
   });
 
   tearDown(() async {
     TrackingService.debugTrackObserver = null;
+    policy.dispose();
+    AffiliateService.debugSessionToken = null;
     await Hive.deleteFromDisk();
     await temporary.delete(recursive: true);
   });
@@ -509,6 +525,125 @@ void main() {
     // A later pass never reports the outcome twice.
     await service().reconcile(op, force: true);
     expect(named('hyperliquid_withdraw_completed').length, 1);
+  });
+
+  group('runtime policy', () {
+    // The normal route's quote answers to these for
+    // `hypercore:USDC → spark:USDB`; the fallback must answer to the same.
+    Future<Object?> normalRoute() async {
+      try {
+        await policy.ensureAllAllowed(orchestraCapabilityRequirements(
+            sourceChain: 'hypercore',
+            sourceAsset: 'USDC',
+            destinationChain: 'spark',
+            destinationAsset: 'USDB'));
+        return null;
+      } catch (e) {
+        return e;
+      }
+    }
+
+    /// A policy whose backend answers [answer]; its own clock.
+    RuntimeCapabilitiesService serving(
+            Future<http.Response> Function() answer,
+            {DateTime Function()? clock}) =>
+        RuntimeCapabilitiesService.forTesting(
+          client: MockClient((_) => answer()),
+          baseUrl: () => 'https://policy.test',
+          sessionToken: () => AffiliateService.sessionToken,
+          clock: clock,
+        );
+
+    http.Response policyBody({required bool withdraw}) {
+      final evaluated = DateTime.now().toUtc();
+      return http.Response(
+          jsonEncode({
+            'schemaVersion': 1,
+            'revision': 1,
+            'evaluatedAt': evaluated.toIso8601String(),
+            'expiresAt': evaluated
+                .add(const Duration(minutes: 2))
+                .toIso8601String(),
+            'capabilities': {
+              'hyperliquid.withdraw': {
+                'allowed': withdraw,
+                'reason': withdraw ? '' : 'disabled',
+                'comingSoon': false,
+              },
+            },
+          }),
+          200);
+    }
+
+    test('the fallback needs what the normal route needs', () {
+      expect(kCctpCapabilities, ['hyperliquid.withdraw']);
+    });
+
+    test('withheld hyperliquid.withdraw: nothing registered, approved or '
+        'signed', () async {
+      policy.dispose();
+      policy = runtimePolicyFixture(blocked: {'hyperliquid.withdraw'});
+      await expectLater(
+          service().withdrawToDollars(usd: 5, stepUp: approve()),
+          throwsA(isA<CctpUnavailable>()
+              .having((e) => e.reason, 'reason',
+                  CctpUnavailableReason.capability)
+              .having((e) => e.decision?.allowed, 'decision.allowed', false)
+              .having((e) => e.decision?.reason, 'decision.reason',
+                  'disabled')));
+      expect(await normalRoute(), isA<CapabilityUnavailableException>(),
+          reason: 'the normal route refuses too');
+      expect(orchestra.instructions, 0);
+      expect(reads.pausedReads, 0);
+      expect(intents, isEmpty, reason: 'no approval asked');
+      expect(sender.sends, isEmpty);
+      expect(await store.all(), isEmpty);
+      expect(rows.byId, isEmpty);
+      expect(named('hyperliquid_cctp_unavailable'), ['capability']);
+    });
+
+    test('allowed: the move goes out as before', () async {
+      expect(await normalRoute(), isNull);
+      final result =
+          await service().withdrawToDollars(usd: 5, stepUp: approve());
+      expect(result.sentUsd, 5);
+      expect(sender.sends, hasLength(1));
+      expect(named('hyperliquid_cctp_unavailable'), isEmpty);
+    });
+
+    test('a policy that cannot be read: the normal route\'s rule (an exit, '
+        'allowed)', () async {
+      policy.dispose();
+      policy = serving(() async => http.Response('unavailable', 503));
+      expect(await normalRoute(), isNull,
+          reason: 'hyperliquid.withdraw is in the offline table');
+      await service().withdrawToDollars(usd: 5, stepUp: approve());
+      expect(sender.sends, hasLength(1));
+      expect(named('hyperliquid_cctp_unavailable'), isEmpty);
+    });
+
+    test('a policy that cannot be read after a denial: still refused, as '
+        'the normal route', () async {
+      var policyNow = DateTime.now();
+      var reachable = true;
+      policy.dispose();
+      policy = serving(
+          () async => reachable
+              ? policyBody(withdraw: false)
+              : http.Response('unavailable', 503),
+          clock: () => policyNow);
+      expect(await policy.refresh(), isTrue);
+      // The denial expires and the backend goes away.
+      reachable = false;
+      policyNow = policyNow.add(const Duration(minutes: 5));
+      expect(await normalRoute(), isA<CapabilityUnavailableException>());
+      await expectLater(
+          service().withdrawToDollars(usd: 5, stepUp: approve()),
+          throwsA(isA<CctpUnavailable>().having(
+              (e) => e.reason, 'reason', CctpUnavailableReason.capability)));
+      expect(sender.sends, isEmpty);
+      expect(named('hyperliquid_cctp_unavailable'), ['capability']);
+    });
   });
 
   test('a paused CoreDepositWallet stops before anything is signed', () async {

@@ -4460,6 +4460,14 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       if (!mounted) {
         return;
       }
+      // The policy withholds `hyperliquid.withdraw` (the CCTP fallback
+      // checks it before anything is signed): the shared capability
+      // sheet, as the Investing withdraw door shows it.
+      if (e is CctpUnavailable && e.decision != null) {
+        setState(() => _processing = false);
+        unawaited(showCapabilityDecisionSheet(context, e.decision!));
+        return;
+      }
       setState(() {
         _processing = false;
         _error = _moveFailure(e);

@@ -28,6 +28,8 @@ import 'package:kute/services/one_balance/hyperliquid_move_rail.dart';
 import 'package:kute/services/orchestra/orchestra_quote_guard.dart';
 import 'package:kute/services/one_balance/venue_funder.dart';
 import 'package:kute/services/orchestra/orchestra_quote_gate.dart';
+import 'package:kute/services/runtime_capabilities_service.dart'
+    show CapabilityDecision;
 
 const _eoa = '0x1111111111111111111111111111111111111111';
 const _sparkSelf = 'sprt1qself';
@@ -244,6 +246,27 @@ void main() {
       expect(cctp.calls, ['sweep:0.9']);
     });
 
+    test('a withheld hyperliquid.withdraw leaves the cash waiting until the '
+        'switch is back', () async {
+      final service = _ScriptedService(container.read, _refused());
+      final cctp = _FakeCctp(
+          error: const CctpUnavailable(CctpUnavailableReason.capability,
+              decision:
+                  CapabilityDecision(allowed: false, reason: 'disabled')));
+      final rail = HyperCoreMoveRail(withService(service), cctp: () => cctp);
+      await expectLater(
+          rail.withdrawToDollars(
+              usd: 12, auth: SweepAuthorization.automatic, purpose: 'sweep'),
+          throwsA(isA<RouteUnavailable>()
+              .having((e) => e.reason, 'reason', 'cctp_capability')));
+      // The switch comes back: the next pass moves the cash, nothing held.
+      cctp.error = null;
+      final result = await rail.withdrawToDollars(
+          usd: 12, auth: SweepAuthorization.automatic, purpose: 'sweep');
+      expect(result.sentUsd, 12);
+      expect(cctp.calls, ['sweep:12.0', 'sweep:12.0']);
+    });
+
     test('only a route refusal opens the fallback', () async {
       for (final error in <Object>[
         const OrchestraQuoteFailure('too small',
@@ -434,7 +457,7 @@ const _ownSpark =
 class _FakeCctp implements HypercoreCctpWithdrawal {
   _FakeCctp({this.error});
 
-  final Object? error;
+  Object? error;
   final calls = <String>[];
   SettlementStepUpHook? lastStepUp;
 

@@ -22,8 +22,10 @@
 // one `sendToEvmWithData` to the wallet's own Investing-withdrawal
 // standing address on Arbitrum, which Orchestra converts to dollars. Only
 // when that cannot run either (paused, below the minimum, the fee terms
-// not verified, a failed read) the rail reports `RouteUnavailable`: the
-// sweeper shows the cash as waiting and nothing moves.
+// not verified, a failed read, the runtime policy withholding
+// `hyperliquid.withdraw`) the rail reports `RouteUnavailable`: the
+// sweeper shows the cash as waiting, backs off and tries again later;
+// nothing moves until the fallback can run.
 
 import 'dart:async';
 
