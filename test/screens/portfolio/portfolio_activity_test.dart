@@ -11,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:kute/helpers/swap_activity.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/models/polymarket_model.dart' show Activity;
@@ -21,7 +22,7 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/portfolio/open_investments_screen.dart';
 import 'package:kute/screens/portfolio/portfolio_activity.dart';
 import 'package:kute/screens/shared/transactions_builder.dart'
-    show ActivityDaySection;
+    show ActivityDaySection, assembleActivityRows;
 import 'package:kute/services/orchestra_routes.dart'
     show kOrchestraUsdAssetCode;
 import 'package:kute/theme/app_theme.dart';
@@ -210,6 +211,47 @@ void main() {
               dollarRows: [], swaps: [buy], bets: [], fills: []),
           isEmpty);
     });
+  });
+
+  // The Dollars ↔ venue moves the Bitcoin tab no longer lists (they moved
+  // no bitcoin) are this list's: each one row, through the dollar ledger.
+  test(
+      'Dollars and venue moves, sweeps and the CCTP withdrawal included, '
+      'are each listed once', () {
+    final deposit = _fundingMove('to_hl', 'HYPERCORE', _t0);
+    final cctp = _swap('cctp',
+        coinFrom: 'USDC',
+        networkFrom: 'HYPERCORE',
+        coinTo: kOrchestraUsdAssetCode,
+        networkTo: 'SPARK',
+        at: _t0.add(const Duration(minutes: 5)),
+        routeVersion: 'hypercore_cctp_v1');
+    final pmSweep = _swap('pm_sweep',
+        coinFrom: 'USDC.E',
+        networkFrom: 'POLYGON',
+        coinTo: kOrchestraUsdAssetCode,
+        networkTo: 'SPARK',
+        at: _t0.add(const Duration(minutes: 9)));
+    final toPm =
+        _fundingMove('to_pm', 'POLYGON', _t0.add(const Duration(minutes: 12)));
+    const kinds = {
+      'to_hl': SwapActivityKind.investingDeposit,
+      'cctp': SwapActivityKind.investingWithdrawal,
+      'pm_sweep': SwapActivityKind.predictionsWithdrawal,
+      'to_pm': SwapActivityKind.predictionsDeposit,
+    };
+    final swaps = [toPm, pmSweep, cctp, deposit];
+    final dollarRows = assembleActivityRows(
+      swaps,
+      ownAddresses: const {'sp1self'},
+      isHardwareOrWatchOnly: false,
+      onlyUsdb: true,
+      classify: (o) => kinds[o.id]!,
+    );
+    final entries = mergePortfolioActivity(
+        dollarRows: dollarRows, swaps: swaps, bets: [], fills: []);
+    expect(
+        entries.map((e) => e.tx?.id), ['to_pm', 'pm_sweep', 'cctp', 'to_hl']);
   });
 
   group('the Activity tab', () {

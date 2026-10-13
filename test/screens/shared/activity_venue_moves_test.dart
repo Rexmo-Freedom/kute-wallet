@@ -1,13 +1,19 @@
 // A venue move (money into or out of Predictions or Investing) is one row
-// on every activity surface, from the moment it starts. The leg that
-// settled it (a Spark payment or a dollar transfer) is hidden only behind
-// that row; when the row is missing, the leg stays visible. Never both gone.
+// on every activity surface for a balance it moved, from the moment it
+// starts. The leg that settled it (a Spark payment or a dollar transfer)
+// is hidden only behind that row; when the row is missing, the leg stays
+// visible. Never both gone.
 //
 // The bug this pins: a Predictions cash-out to dollars vanished from Home.
 // Its dollar receive was hidden behind the conversion row, and the
 // bitcoin-ledger filter then dropped that row, because it touches no
 // bitcoin. A cash-out to bitcoin made a few minutes after a claim vanished
 // the same way: hidden behind the "won" row, which Home does not show.
+//
+// And its mirror (owner decision October 2026): a move whose two sides
+// are Dollars and a venue moved no bitcoin, so the bitcoin surfaces (Home,
+// its "See all", the Breakdown) list neither the move nor its dollar
+// transfer. It is one row on Dollars and in the Investments activity.
 
 import 'dart:io';
 
@@ -173,14 +179,14 @@ void main() {
         at: _t0.add(const Duration(minutes: 3)));
     const linked = {'ord_pm_usd': SwapActivityKind.predictionsWithdrawal};
 
-    test('Home shows one Predictions withdrawal row and hides the receive',
-        () {
-      expect(_ids(_surface([cashOut, arrived], kinds: linked)),
-          ['ord_pm_usd']);
+    test('Home lists neither the withdrawal nor its dollar receive', () {
+      expect(_ids(_surface([cashOut, arrived], kinds: linked)), isEmpty);
+      expect(_ids(_surface([cashOut], kinds: linked)), isEmpty);
     });
 
     test('the row is there while pending, before the dollars arrive', () {
-      expect(_ids(_surface([cashOut], kinds: linked)), ['ord_pm_usd']);
+      expect(_ids(_surface([cashOut], kinds: linked, onlyUsdb: true)),
+          ['ord_pm_usd']);
     });
 
     test('the USD tab shows the same single row', () {
@@ -232,7 +238,7 @@ void main() {
   });
 
   group('Investing', () {
-    test('a cash-out to dollars is one row on Home', () {
+    test('a cash-out to dollars is off Home and one row on Dollars', () {
       final cashOut = _swap(
         id: 'ord_hl_usd',
         coinFrom: 'USDC',
@@ -246,9 +252,9 @@ void main() {
           usd: 19.9,
           type: breez.PaymentType.receive,
           at: _t0.add(const Duration(minutes: 2)));
-      expect(
-          _ids(_surface([cashOut, arrived],
-              kinds: {'ord_hl_usd': SwapActivityKind.investingWithdrawal})),
+      const kinds = {'ord_hl_usd': SwapActivityKind.investingWithdrawal};
+      expect(_ids(_surface([cashOut, arrived], kinds: kinds)), isEmpty);
+      expect(_ids(_surface([cashOut, arrived], kinds: kinds, onlyUsdb: true)),
           ['ord_hl_usd']);
     });
 
@@ -274,8 +280,7 @@ void main() {
   });
 
   group('venue deposits', () {
-    test('Dollars into Predictions is one row on Home and on the USD tab',
-        () {
+    test('Dollars into Predictions is off Home and one row on the USD tab', () {
       final deposit = _swap(
         id: 'ord_usd_pm',
         coinFrom: kOrchestraUsdAssetCode,
@@ -290,7 +295,7 @@ void main() {
           type: breez.PaymentType.send,
           at: _t0.add(const Duration(seconds: 20)));
       const kinds = {'ord_usd_pm': SwapActivityKind.predictionsDeposit};
-      expect(_ids(_surface([deposit, left], kinds: kinds)), ['ord_usd_pm']);
+      expect(_ids(_surface([deposit, left], kinds: kinds)), isEmpty);
       expect(_ids(_surface([deposit, left], kinds: kinds, onlyUsdb: true)),
           ['ord_usd_pm']);
     });
@@ -484,6 +489,192 @@ void main() {
     });
   });
 
+  // The founder's Bitcoin tab: "Withdraw · from Investing · \$0.00 · from
+  // \$6.28" and "Deposit · to Investing · \$6.54 · from \$6.60". The bitcoin
+  // surfaces list a conversion only when bitcoin moved.
+  group('the bitcoin side lists only moves of bitcoin', () {
+    SwapOrderTransaction move(String id,
+            {required String coinFrom,
+            required String networkFrom,
+            required String coinTo,
+            required String networkTo,
+            String depositAmount = '6.60',
+            String withdrawalAmount = '6.54'}) =>
+        _swap(
+          id: id,
+          coinFrom: coinFrom,
+          networkFrom: networkFrom,
+          coinTo: coinTo,
+          networkTo: networkTo,
+          depositAmount: depositAmount,
+          withdrawalAmount: withdrawalAmount,
+          status: 'success',
+        );
+
+    final dollarsToInvesting = move('ord_usd_hl',
+        coinFrom: kOrchestraUsdAssetCode,
+        networkFrom: 'SPARK',
+        coinTo: 'USDC',
+        networkTo: 'HYPERCORE');
+    final investingSweep = move('ord_hl_sweep',
+        coinFrom: 'USDC',
+        networkFrom: 'HYPERCORE',
+        coinTo: kOrchestraUsdAssetCode,
+        networkTo: 'SPARK',
+        depositAmount: '6.28',
+        withdrawalAmount: '6.20');
+    final predictionsSweep = move('ord_pm_sweep',
+        coinFrom: 'USDC.E',
+        networkFrom: 'POLYGON',
+        coinTo: kOrchestraUsdAssetCode,
+        networkTo: 'SPARK',
+        depositAmount: '3.00',
+        withdrawalAmount: '2.95');
+    final dollarsToPredictions = move('ord_usd_pm2',
+        coinFrom: kOrchestraUsdAssetCode,
+        networkFrom: 'SPARK',
+        coinTo: 'USDC',
+        networkTo: 'POLYGON',
+        depositAmount: '5.00',
+        withdrawalAmount: '4.95');
+    final venueToVenue = move('ord_pm_hl',
+        coinFrom: 'USDC.E',
+        networkFrom: 'POLYGON',
+        coinTo: 'USDC',
+        networkTo: 'HYPERCORE');
+    final bitcoinToInvesting = move('ord_btc_hl',
+        coinFrom: 'BTC',
+        networkFrom: 'SPARK',
+        coinTo: 'USDC',
+        networkTo: 'HYPERCORE',
+        depositAmount: '0.00008002',
+        withdrawalAmount: '6.60');
+    final investingToBitcoin = move('ord_hl_btc2',
+        coinFrom: 'USDC',
+        networkFrom: 'HYPERCORE',
+        coinTo: 'BTC',
+        networkTo: 'SPARK',
+        depositAmount: '6.66',
+        withdrawalAmount: '0.00008002');
+    final bitcoinToDollars = move('ord_btc_usd',
+        coinFrom: 'BTC',
+        networkFrom: 'SPARK',
+        coinTo: kOrchestraUsdAssetCode,
+        networkTo: 'SPARK',
+        depositAmount: '0.00008002',
+        withdrawalAmount: '6.60');
+    const kinds = {
+      'ord_usd_hl': SwapActivityKind.investingDeposit,
+      'ord_hl_sweep': SwapActivityKind.investingWithdrawal,
+      'ord_pm_sweep': SwapActivityKind.predictionsWithdrawal,
+      'ord_usd_pm2': SwapActivityKind.predictionsDeposit,
+      'ord_pm_hl': SwapActivityKind.investingDeposit,
+      'ord_btc_hl': SwapActivityKind.investingDeposit,
+      'ord_hl_btc2': SwapActivityKind.investingWithdrawal,
+      'ord_btc_usd': SwapActivityKind.dollarDeposit,
+    };
+    // Each Dollars move's own dollar transfer.
+    final leftForInvesting = _dollars('usd_out_hl',
+        usd: 6.60,
+        type: breez.PaymentType.send,
+        at: _t0.add(const Duration(seconds: 10)));
+    final sweptHome = _dollars('usd_in_sweep',
+        usd: 6.20,
+        type: breez.PaymentType.receive,
+        at: _t0.add(const Duration(minutes: 4)));
+    final unrelated = _dollars('usd_in_other',
+        usd: 42,
+        type: breez.PaymentType.receive,
+        at: _t0.add(const Duration(minutes: 20)));
+
+    final all = <BaseTransaction>[
+      dollarsToInvesting,
+      investingSweep,
+      predictionsSweep,
+      dollarsToPredictions,
+      venueToVenue,
+      bitcoinToInvesting,
+      investingToBitcoin,
+      bitcoinToDollars,
+      leftForInvesting,
+      sweptHome,
+      unrelated,
+    ];
+
+    test('Dollars and venue moves are off Home, their dollar legs with them',
+        () {
+      final home = _ids(_surface(all, kinds: kinds)).toSet();
+      expect(
+          home.intersection({
+            'ord_usd_hl',
+            'ord_hl_sweep',
+            'ord_pm_sweep',
+            'ord_usd_pm2',
+            'ord_pm_hl',
+            'usd_out_hl',
+            'usd_in_sweep',
+          }),
+          isEmpty);
+    });
+
+    test('bitcoin into or out of a venue or Dollars stays on Home', () {
+      final home = _ids(_surface(all, kinds: kinds)).toSet();
+      expect(home.containsAll({'ord_btc_hl', 'ord_hl_btc2', 'ord_btc_usd'}),
+          isTrue);
+    });
+
+    test('an unrelated dollar transfer stays where it was', () {
+      expect(_ids(_surface(all, kinds: kinds)), contains('usd_in_other'));
+    });
+
+    test('the Breakdown reads the same bitcoin rows', () {
+      final sorted = [...all]
+        ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+      final rows = assembleActivityRows(
+        sorted,
+        ownAddresses: {_self},
+        isHardwareOrWatchOnly: false,
+        onlyUsdb: false,
+        keepVenueMoves: true,
+        classify: (o) => kinds[o.id] ?? classifySwapActivity(o),
+      );
+      final swaps = {
+        for (final r in rows)
+          if (r is SwapOrderTransaction) r.id
+      };
+      expect(swaps, {'ord_btc_hl', 'ord_hl_btc2', 'ord_btc_usd'});
+    });
+
+    test('the Dollars ledger still lists each Dollars move once', () {
+      final usd = _ids(_surface(all, kinds: kinds, onlyUsdb: true));
+      for (final id in [
+        'ord_usd_hl',
+        'ord_hl_sweep',
+        'ord_pm_sweep',
+        'ord_usd_pm2',
+      ]) {
+        expect(usd.where((x) => x == id), hasLength(1), reason: id);
+      }
+      expect(usd, isNot(contains('usd_out_hl')));
+      expect(usd, isNot(contains('usd_in_sweep')));
+    });
+
+    test('a Ledger wallet keeps its venue moves of bitcoin', () {
+      final ledgerDeposit = move('ord_ledger_hl',
+          coinFrom: 'BTC',
+          networkFrom: 'BITCOIN',
+          coinTo: 'USDC',
+          networkTo: 'HYPERCORE',
+          depositAmount: '0.00100000',
+          withdrawalAmount: '99.00');
+      expect(
+          _ids(_surface([ledgerDeposit],
+              kinds: {'ord_ledger_hl': SwapActivityKind.investingDeposit},
+              hardware: true)),
+          ['ord_ledger_hl']);
+    });
+  });
+
   group('with the real settlement record', () {
     late Directory dir;
 
@@ -509,6 +700,24 @@ void main() {
           updatedAt: _t0,
         )),
       );
+      await box.put(
+        'op-cctp',
+        SettlementCodec.encodeJson(SettlementOperation(
+          operationId: 'op-cctp',
+          walletId: 'spending',
+          accountKind: SettlementAccountKind.hlHot,
+          flow: SettlementFlow.investingToDollarsCctp,
+          route: RouteKey(
+              fromChain: 'hypercore',
+              fromAsset: 'USDC',
+              toChain: 'spark',
+              toAsset: kOrchestraUsdAssetCode),
+          amountInBaseUnits: '6280000',
+          stage: SettlementStage.submitted,
+          createdAt: _t0,
+          updatedAt: _t0,
+        )),
+      );
     });
 
     tearDownAll(() async {
@@ -516,7 +725,7 @@ void main() {
       await dir.delete(recursive: true);
     });
 
-    test('a Predictions cash-out to dollars reads and shows as one row', () {
+    test('a Predictions cash-out to dollars reads as one Dollars row', () {
       final cashOut = _swap(
         id: 'ord_real',
         coinFrom: 'USDC',
@@ -533,13 +742,42 @@ void main() {
           usd: 9.85,
           type: breez.PaymentType.receive,
           at: _t0.add(const Duration(minutes: 3)));
-      final rows = assembleActivityRows(
-        [arrived, cashOut],
-        ownAddresses: {_self},
-        isHardwareOrWatchOnly: false,
-        onlyUsdb: false,
+      List<String> on({required bool onlyUsdb}) => _ids(assembleActivityRows(
+            [arrived, cashOut],
+            ownAddresses: {_self},
+            isHardwareOrWatchOnly: false,
+            onlyUsdb: onlyUsdb,
+          ));
+      expect(on(onlyUsdb: true), ['ord_real']);
+      expect(on(onlyUsdb: false), isEmpty);
+    });
+
+    test('the Circle CCTP withdrawal to Dollars stays off the bitcoin side',
+        () {
+      final cctp = _swap(
+        id: 'ord_cctp',
+        coinFrom: 'USDC',
+        networkFrom: 'HYPERCORE',
+        coinTo: kOrchestraUsdAssetCode,
+        networkTo: 'SPARK',
+        depositAmount: '6.28',
+        withdrawalAmount: '0.00',
+        operationId: 'op-cctp',
       );
-      expect(_ids(rows), ['ord_real']);
+      expect(
+          swapActivityFor(cctp.details), SwapActivityKind.investingWithdrawal);
+      List<String> on({required bool onlyUsdb, bool keep = false}) =>
+          _ids(assembleActivityRows(
+            [cctp],
+            ownAddresses: {_self},
+            isHardwareOrWatchOnly: false,
+            onlyUsdb: onlyUsdb,
+            keepVenueMoves: keep,
+          ));
+      expect(on(onlyUsdb: false), isEmpty);
+      // The Breakdown's pass reads the same rows.
+      expect(on(onlyUsdb: false, keep: true), isEmpty);
+      expect(on(onlyUsdb: true), ['ord_cctp']);
     });
   });
 }

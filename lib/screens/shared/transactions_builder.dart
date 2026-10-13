@@ -1066,6 +1066,11 @@ bool dollarSendDeliveredKnown(SwapOrder order) {
 /// alone; every other surface drops it together with the token transfer
 /// that funded it, since both are the Dollars ledger's.
 ///
+/// A venue move belongs to the balances it moved. Dollars into or out of
+/// Investing or Predictions shows on Dollars and in the Investments
+/// activity; the bitcoin surfaces drop it together with its dollar
+/// transfer. Only a venue move paid in or out in bitcoin is listed there.
+///
 /// [keepVenueMoves] keeps every Predictions move's own conversion row even
 /// when a Predictions deposit or withdrawal row beside it tells the story
 /// (the Breakdown donut weighs the conversion, in the ledger's own unit;
@@ -1121,10 +1126,17 @@ List<BaseTransaction> assembleActivityRows(
       return kind != SwapActivityKind.send || _isDollarFundedSend(d, kind);
     }).toList();
   } else {
-    // A conversion that only touches dollars is the dollar ledger's, not
-    // this one's. A venue move is the exception: money entering or leaving
-    // Predictions or Investing is always one row on every surface, in
-    // whichever unit it moved.
+    // The bitcoin ledger lists a conversion only when bitcoin moved. One
+    // that only touches dollars is the dollar ledger's, not this one's,
+    // and so is a venue move whose two sides are Dollars and a venue
+    // (into or out of Investing or Predictions, the Circle CCTP
+    // withdrawal and the sweeps included): the person's bitcoin never
+    // moved (owner decision October 2026, after "Withdraw from Investing
+    // $0.00 from $6.28" and "Deposit to Investing $6.54 from $6.60" sat
+    // on the Bitcoin tab). Those moves are the Investments activity's and
+    // the Dollars activity's. A venue move with no bitcoin and no dollar
+    // leg (venue to venue) is not this ledger's either. A venue move paid
+    // in or out in bitcoin stays: bitcoin moved.
     //
     // A send paid from dollars is the dollar ledger's too, whatever it
     // delivers (user decision: "All sends from Dollars should only show
@@ -1132,11 +1144,18 @@ List<BaseTransaction> assembleActivityRows(
     // to show here as a bitcoin "Sent", because the order delivers BTC.
     // The send leaves with the token transfer that funded it: both are
     // the Dollars ledger's, and the Dollars tab shows the send as one row.
+    // A Dollars ↔ venue move leaves with its dollar transfer the same way,
+    // so the move never resurfaces here as a bare dollar row.
     final dollarSends = <SwapOrderTransaction>[];
+    final dollarVenueMoves = <SwapOrderTransaction>[];
     rows = rows.where((tx) {
       if (tx is! SwapOrderTransaction) return true;
       final d = tx.details;
-      if (!orchestraTouchesDollars(d)) return true;
+      if (!orchestraTouchesDollars(d)) {
+        if (orchestraTouchesBitcoin(d)) return true;
+        final kind = classify(d);
+        return !(kind.isPredictions || kind.isInvesting);
+      }
       if (d.isCashAppPurchase) return orchestraTouchesBitcoin(d);
       final kind = classify(d);
       if (_isDollarFundedSend(d, kind)) {
@@ -1144,8 +1163,16 @@ List<BaseTransaction> assembleActivityRows(
         return false;
       }
       if (orchestraTouchesBitcoin(d)) return true;
-      return kind.isPredictions || kind.isInvesting;
+      if (kind.isPredictions || kind.isInvesting) dollarVenueMoves.add(tx);
+      return false;
     }).toList();
+    if (dollarVenueMoves.isNotEmpty) {
+      rows = rows
+          .where((tx) =>
+              tx is! UsdbTokenTransaction ||
+              !dollarVenueMoves.any((ex) => _isDollarLegOf(tx, ex)))
+          .toList();
+    }
     if (dollarSends.isNotEmpty) {
       rows = rows
           .where((tx) =>
