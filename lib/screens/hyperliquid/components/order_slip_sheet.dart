@@ -2199,6 +2199,33 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       return;
     }
 
+    // The other venue's legs are planned before the one approval (nothing
+    // moves): a leg straight into the Investing account runs only under
+    // that approval, which binds its cap.
+    Map<String, Object?>? directLegs;
+    if (pullFirst) {
+      if (_moveUsd != fundUsd) _moveId = null;
+      try {
+        final puller = ref.read(venueCashPullerProvider);
+        final earlier =
+            _moveId == null ? null : MultiSourceMoveStore.get(_moveId!);
+        final legPlan = await puller
+            .plan(
+              neededUsd:
+                  math.max(0.0, fundUsd - (earlier?.directDeliveredUsd ?? 0)),
+              exclude: OneBalanceVenue.investing,
+              destination: VenueCashDestination.investing,
+            )
+            .timeout(const Duration(seconds: 8));
+        directLegs =
+            puller.directLegLimit(legPlan, VenueCashDestination.investing);
+      } catch (_) {
+        // No plan read: every leg comes home to Dollars instead.
+        directLegs = null;
+      }
+      if (!mounted) return;
+    }
+
     // One approval for the order AND the dollars that leave for it. The
     // grant is held as the autofire grant: the rail's step-up hook reads
     // its funding limits before the money moves, and the watcher
@@ -2223,6 +2250,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         cloid: cloid,
       ),
       fundUsd: fundUsd,
+      directLegs: directLegs,
       requiredUsd: required,
       readyAtQueueUsd: ready,
       arrivingUsd: arrivingUsd,
@@ -2263,10 +2291,12 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     double? queueFundUsd;
     var queueReadyUsd = ready;
     if (pullFirst) {
-      // Dollars short of the move: the rest comes home from the other
-      // venue first (fastest leg first, never Investing's own cash),
-      // under the automatic home-only authorization; this approval
-      // stays the only prompt. Nothing is queued until Dollars cover it.
+      // Dollars short of the move: the rest comes from the other venue
+      // (fastest leg first, never Investing's own cash), straight into
+      // the account under THIS approval (within the leg caps it binds),
+      // or home to Dollars under the automatic home-only authorization;
+      // this approval stays the only prompt. Nothing is queued until
+      // Dollars cover what is left.
       _updateDraft(() {
         _isPlacing = true;
         _preparing = false;
@@ -2275,7 +2305,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       });
       _trackFundingStep(OrderFundingStage.fund);
       VenueCashPullOutcome? pulled;
-      if (_moveUsd != fundUsd) _moveId = null;
       try {
         pulled = await ref.read(venueCashPullerProvider).pullShortfall(
               neededUsd: fundUsd,
@@ -2285,6 +2314,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
               destination: VenueCashDestination.investing,
               exclude: OneBalanceVenue.investing,
               moveId: _moveId,
+              approval: grant,
             );
       } catch (_) {
         pulled = null;

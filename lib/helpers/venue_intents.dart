@@ -115,6 +115,13 @@ abstract final class VenueLimit {
 
   /// The venue the funding leg moves into (`polymarket` | `hyperliquid`).
   static const fundingVenue = 'fundingVenue';
+
+  /// The venue-cash legs an action sends straight to its destination
+  /// (venue cash to Bitcoin, to the other venue), bound into the action's
+  /// own one approval: `{to, legs: {venue: cap}, total}`, caps in the
+  /// dollar token's six-decimal base units as decimal strings. Bound
+  /// exactly; [DirectLegGrants] reads it.
+  static const directLegs = 'directLegs';
 }
 
 /// Hyperliquid intents (`hlOrder`, `venueWithdraw`).
@@ -873,13 +880,18 @@ abstract final class PmGrants {
   /// The limits a funded order's review intent carries on top of the bet
   /// review: the funding leg's cap and venue. The autofire rebuilds the
   /// same two on the order it places, so the digest covers both legs.
+  ///
+  /// [directLegs] ([DirectLegGrants.limit]) binds the venue-cash legs that
+  /// go straight into the venue for this bet, when there are any.
   static Map<String, Object?> fundingLimits({
     required double fundUsd,
     required String venue,
+    Map<String, Object?>? directLegs,
   }) =>
       {
         VenueLimit.fundingUsd: IntentUnits.usd(fundUsd).toString(),
         VenueLimit.fundingVenue: venue,
+        if (directLegs != null) VenueLimit.directLegs: directLegs,
       };
 
   /// [review] (a bet review intent) extended with [fundingLimits]: the one
@@ -888,10 +900,12 @@ abstract final class PmGrants {
     SensitiveIntent review, {
     required double fundUsd,
     required String venue,
+    Map<String, Object?>? directLegs,
   }) =>
       review.copyWith(limits: {
         ...review.limits,
-        ...fundingLimits(fundUsd: fundUsd, venue: venue),
+        ...fundingLimits(
+            fundUsd: fundUsd, venue: venue, directLegs: directLegs),
       });
 
   /// Whether [grant], the one approval of a funded bet, still covers a
@@ -1021,6 +1035,213 @@ class PmLadderGrant {
   /// Ends the approval once the ladder stops (filled, failed or abandoned).
   void close() {
     if (!approval.consumed) approval.revoke();
+  }
+}
+
+// ── One balance: venue-cash legs under the action's approval ─────────
+
+/// The venue-cash legs an action sends straight to a destination other
+/// than Dollars (venue cash to Bitcoin, Investing to Predictions,
+/// Predictions to Investing) run only under that action's ONE user
+/// approval, never under the automatic no-tap authorization (which only
+/// ever brings money home to the wallet's own Dollars).
+///
+/// The approval binds [VenueLimit.directLegs] ([limit]): the destination,
+/// a cap per venue and the total. A rail asked to move a leg under
+/// `ApprovedLegAuthorization` calls [take], which accepts it only while
+/// the grant is live (not consumed, revoked or expired, so a leg never
+/// runs after the action it was approved for), is one of [actions], binds
+/// legs to that destination, and the leg fits its venue's cap and the
+/// total with what earlier legs under the same grant already took. Pure
+/// apart from the per-grant tally.
+abstract final class DirectLegGrants {
+  /// The approvals a leg may run under: a Move (Buy Bitcoin, a Retry), an
+  /// Investing order, a prediction.
+  static const Set<SensitiveAction> actions = {
+    SensitiveAction.moveTransfer,
+    SensitiveAction.hlOrder,
+    SensitiveAction.pmBet,
+  };
+
+  static final Expando<Map<String, BigInt>> _taken =
+      Expando<Map<String, BigInt>>('directLegsTaken');
+
+  /// The [VenueLimit.directLegs] value for legs to [destination] (a
+  /// `VenueCashDestination` code) capped at [capsUsd] per venue name.
+  /// Null when there is no leg. Each cap is the leg's own amount to the
+  /// micro, rounded up.
+  static Map<String, Object?>? limit({
+    required String destination,
+    required Map<String, double> capsUsd,
+  }) {
+    final legs = <String, String>{};
+    var total = BigInt.zero;
+    capsUsd.forEach((venue, usd) {
+      final units = IntentUnits.usd(usd);
+      if (units <= BigInt.zero) return;
+      legs[venue] = units.toString();
+      total += units;
+    });
+    if (legs.isEmpty) return null;
+    return {
+      'to': destination,
+      'legs': legs,
+      'total': total.toString(),
+    };
+  }
+
+  static BigInt? _units(Object? v) => switch (v) {
+        BigInt b => b,
+        int i => BigInt.from(i),
+        String s => BigInt.tryParse(s),
+        _ => null,
+      };
+
+  /// [grant]'s cap for a leg from [venue] to [destination] and its total,
+  /// or null when it binds no such leg.
+  static ({BigInt cap, BigInt total})? _caps(
+      AuthGrant grant, String venue, String destination) {
+    final bound = grant.boundIntent.limits[VenueLimit.directLegs];
+    if (bound is! Map) return null;
+    if (bound['to'] != destination) return null;
+    final legs = bound['legs'];
+    if (legs is! Map) return null;
+    final cap = _units(legs[venue]);
+    final total = _units(bound['total']);
+    if (cap == null || cap <= BigInt.zero) return null;
+    if (total == null || total <= BigInt.zero) return null;
+    return (cap: cap, total: total);
+  }
+
+  static bool _live(AuthGrant grant, DateTime? now) =>
+      actions.contains(grant.action) &&
+      !grant.revoked &&
+      !grant.consumed &&
+      !grant.isExpiredAt(now ?? AuthGrants.clock());
+
+  /// What legs under [grant] took so far, from [venue] (or in all).
+  static BigInt takenBy(AuthGrant grant, [String? venue]) {
+    final taken = _taken[grant];
+    if (taken == null) return BigInt.zero;
+    if (venue != null) return taken[venue] ?? BigInt.zero;
+    return taken.values.fold(BigInt.zero, (a, b) => a + b);
+  }
+
+  /// Whether [grant] is live and binds a leg from [venue] to
+  /// [destination], whatever is left of its cap: the executor's re-check
+  /// after the rail's step-up already counted the leg ([take]).
+  static bool binds(
+    AuthGrant? grant, {
+    required String venue,
+    required String destination,
+    DateTime? now,
+  }) =>
+      grant != null &&
+      _live(grant, now) &&
+      _caps(grant, venue, destination) != null;
+
+  /// Whether [grant] still covers a leg of [amount] base units from
+  /// [venue] to [destination]. Takes nothing.
+  static bool covers(
+    AuthGrant? grant, {
+    required String venue,
+    required String destination,
+    required BigInt amount,
+    DateTime? now,
+  }) {
+    if (grant == null || !_live(grant, now)) return false;
+    if (amount <= BigInt.zero) return false;
+    final caps = _caps(grant, venue, destination);
+    if (caps == null) return false;
+    return takenBy(grant, venue) + amount <= caps.cap &&
+        takenBy(grant) + amount <= caps.total;
+  }
+
+  /// [covers], then counts the leg against [grant]'s caps. The rail's
+  /// last check before a leg's money moves.
+  static bool take(
+    AuthGrant? grant, {
+    required String venue,
+    required String destination,
+    required BigInt amount,
+    DateTime? now,
+  }) {
+    if (!covers(grant,
+        venue: venue, destination: destination, amount: amount, now: now)) {
+      return false;
+    }
+    final taken = _taken[grant!] ??= <String, BigInt>{};
+    taken[venue] = (taken[venue] ?? BigInt.zero) + amount;
+    return true;
+  }
+
+  /// The Buy Bitcoin approval when venue cash is part of it: ONE Move
+  /// approval for the whole purchase (at most [totalUsd] bought from
+  /// Dollars, to the wallet's own Spark address [ownSpark] by [route]) and
+  /// the legs that go straight to Bitcoin ([directLegs]; null when every
+  /// leg comes home to Dollars). [ttl] covers the wait for the legs.
+  static SensitiveIntent buyBitcoin({
+    required String walletId,
+    required String ownSpark,
+    required String route,
+    required String asset,
+    required double totalUsd,
+    required Map<String, Object?>? directLegs,
+    required Duration ttl,
+  }) =>
+      SensitiveIntent(
+        action: SensitiveAction.moveTransfer,
+        walletId: walletId,
+        venue: IntentVenue.orchestra,
+        destination: ownSpark,
+        asset: asset,
+        amountMax: IntentUnits.usd(totalUsd),
+        limits: {
+          IntentLimit.provider: IntentVenue.orchestra,
+          IntentLimit.route: route,
+          if (directLegs != null) VenueLimit.directLegs: directLegs,
+        },
+        ttl: ttl,
+      );
+
+  /// The approval a Retry of a move's remainder asks for when the
+  /// remainder goes straight to a destination other than Dollars: the
+  /// legs and nothing else.
+  static SensitiveIntent retry({
+    required String walletId,
+    required String destination,
+    required double totalUsd,
+    required Map<String, Object?> directLegs,
+  }) =>
+      SensitiveIntent(
+        action: SensitiveAction.moveTransfer,
+        walletId: walletId,
+        venue: IntentVenue.local,
+        destination: destination,
+        asset: 'USD',
+        amountMax: IntentUnits.usd(totalUsd),
+        limits: {VenueLimit.directLegs: directLegs},
+      );
+
+  /// Whether the Buy Bitcoin approval [grant] ([buyBitcoin]) covers the
+  /// purchase settlement about to be paid: live, the same wallet, the
+  /// own Spark address it was approved for, the approved route, and no
+  /// more than approved. The caller consumes it right after.
+  static bool coversPurchase(
+    AuthGrant grant, {
+    required String walletId,
+    required String recipient,
+    required String routeLabel,
+    required BigInt amountIn,
+    DateTime? now,
+  }) {
+    if (grant.action != SensitiveAction.moveTransfer) return false;
+    if (!_live(grant, now)) return false;
+    final bound = grant.boundIntent;
+    if (bound.walletId != walletId) return false;
+    if ((bound.destination ?? '').trim() != recipient.trim()) return false;
+    if (bound.limits[IntentLimit.route] != routeLabel) return false;
+    return amountIn > BigInt.zero && amountIn <= bound.amountMax;
   }
 }
 

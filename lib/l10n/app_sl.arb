@@ -3011,7 +3011,7 @@
   "usdReceiveFromYourBitcoin": "Iz vašega bitcoina",
   "stepUpReasonBetReady": "Pripravite napoved {amount}",
   "betMarketClosingNoFunding": "Ta trg se zapre, preden bi denar lahko prispel. Nič ni bilo premaknjeno.",
-  "multiMoveSendTitle": "Send {amount}",
-  "multiMoveTitle": "Move {amount} to {destination}",
-  "multiMoveDeliveredRemaining": "{delivered} delivered · {remaining} remaining"
+  "multiMoveSendTitle": "Pošlji {amount}",
+  "multiMoveTitle": "Premakni {amount} v {destination}",
+  "multiMoveDeliveredRemaining": "{delivered} dostavljeno · {remaining} preostane"
 }

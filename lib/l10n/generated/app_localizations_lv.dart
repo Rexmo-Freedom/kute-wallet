@@ -10707,16 +10707,16 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String multiMoveSendTitle(String amount) {
-    return 'Send $amount';
+    return 'Sūtīt $amount';
   }
 
   @override
   String multiMoveTitle(String amount, String destination) {
-    return 'Move $amount to $destination';
+    return 'Pārvietot $amount uz $destination';
   }
 
   @override
   String multiMoveDeliveredRemaining(String delivered, String remaining) {
-    return '$delivered delivered · $remaining remaining';
+    return '$delivered piegādāti · $remaining atlikuši';
   }
 }

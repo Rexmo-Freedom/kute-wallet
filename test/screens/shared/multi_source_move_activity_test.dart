@@ -11,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/intl.dart';
+import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/helpers/swap_activity.dart';
 import 'package:kute/l10n/generated/app_localizations.dart';
 import 'package:kute/models/settings_model.dart';
@@ -240,6 +241,7 @@ void main() {
     tearDown(() {
       Intl.defaultLocale = null;
       TrackingService.debugTrackObserver = null;
+      debugMultiSourceRetryApproval = null;
     });
 
     testWidgets('pulls the remainder once and the row stops needing it',
@@ -248,6 +250,14 @@ void main() {
       tester.view.devicePixelRatio = 3;
       addTearDown(tester.view.reset);
       final hl = _RetrySource();
+      // A remainder to Bitcoin asks its own one approval, before any leg.
+      final prompts = <SensitiveIntent>[];
+      final pulledAtPrompt = <int>[];
+      debugMultiSourceRetryApproval = (intent) async {
+        prompts.add(intent);
+        pulledAtPrompt.add(hl.pulls.length);
+        return AuthGrants.issue(intent, method: AuthGrantMethod.biometric);
+      };
       final puller = VenueCashPuller(
         sources: [hl],
         readDollars: () => 0,
@@ -271,6 +281,8 @@ void main() {
                 bitcoinElectrumNode: 'localhost',
                 nodeType: 'Blockstream',
                 reviewDone: false,
+                wallets: [WalletConfig(id: 'spending', name: 'Spending')],
+                activeWalletId: 'spending',
               ))),
           venueCashPullerProvider.overrideWithValue(puller),
         ],
@@ -309,6 +321,9 @@ void main() {
       }
       expect(hl.pulls, hasLength(1));
       expect(hl.pulls.single, greaterThanOrEqualTo(20.2));
+      expect(prompts, hasLength(1), reason: 'one prompt, the second tap none');
+      expect(pulledAtPrompt, [0], reason: 'nothing moved before it');
+      expect(prompts.single.action, SensitiveAction.moveTransfer);
       expect(events, contains('multi_source_move_retry_tapped'));
       expect(MultiSourceMoveStore.get('msm_1')!.partial, isFalse);
       expect(find.text('Retry'), findsNothing);

@@ -37,9 +37,16 @@ import 'package:kute/services/one_balance/one_balance_state.dart'
 import 'package:kute/services/one_balance/venue_activity.dart';
 import 'package:kute/services/one_balance/venue_cash_released.dart';
 import 'package:kute/services/one_balance/venue_funder.dart'
-    show SweepAuthorization;
+    show
+        ApprovedLegAuthorization,
+        MoveAuthorization,
+        SweepAuthorization,
+        UserGrantAuthorization,
+        VenueCashDestination;
 import 'package:kute/services/orchestra/orchestra_quote_guard.dart'
-    show VerifiedOrchestraQuote;
+    show RecipientKind, VerifiedOrchestraQuote;
+import 'package:kute/services/orchestra_routes.dart'
+    show kOrchestraUsdAssetCode, kOrchestraUsdChain;
 import 'package:kute/services/security/wallet_guard_exception.dart';
 import 'package:kute/services/usdc_balance_history_service.dart';
 import 'package:kute/models/polymarket_model.dart';
@@ -4584,27 +4591,35 @@ class PolymarketTradingNotifier
   /// checked before the seed is read and consumed right before the batch is
   /// signed.
   ///
-  /// Without a grant, the one-balance sweeper may pass
-  /// [SweepAuthorization.automatic] with the verified quote it pays
-  /// ([sweepQuote]): accepted only for a bridged, quote-bound send of the
-  /// quote's exact amount to the quote's deposit address whose verified
-  /// recipient is this wallet's own Spark address (the quote gate's rule
-  /// 7 checked that address). Money can only ever come home under it, at
-  /// the same trust level as auto-claim (`SeedAccess.automatic`); the
-  /// session must be unlocked as for any signing.
+  /// Without a grant, the one-balance layer may pass the verified quote it
+  /// pays ([sweepQuote]) with [sweep]: accepted only for a bridged,
+  /// quote-bound send of the quote's exact amount to the quote's deposit
+  /// address (the quote gate's rule 7 checked its recipient against the
+  /// wallet's own address), and only as [sweepAllowedFor] says:
+  ///
+  ///  * [SweepAuthorization.automatic] (the sweeper, a pull home): only a
+  ///    quote that delivers Dollars (`spark:USDB`) to this wallet's own
+  ///    Spark address. Money can only ever come home under it, at the
+  ///    same trust level as auto-claim (`SeedAccess.automatic`).
+  ///  * [ApprovedLegAuthorization] (a leg straight to an action's
+  ///    destination, after its one approval): Bitcoin on the own Spark
+  ///    address or the own Investing account, and only while the action's
+  ///    approval is live and binds a Predictions leg to that destination.
+  ///
+  /// The session must be unlocked as for any signing.
   Future<String> withdrawUsdc({
     required String toAddress,
     required double amount,
     bool bridged = false,
     BigInt? exactMicroUsdc,
     AuthGrant? grant,
-    SweepAuthorization? sweep,
+    MoveAuthorization? sweep,
     VerifiedOrchestraQuote? sweepQuote,
   }) async {
     final sweeping = grant == null;
     if (sweeping) {
-      if (sweep == null ||
-          sweepQuote == null ||
+      if (sweepQuote == null ||
+          !sweepAllowedFor(sweep, sweepQuote) ||
           !PmGrants.sweepCoversWithdrawal(
             recipientKind: sweepQuote.request.recipientKind,
             quoteDepositAddress: sweepQuote.depositAddress,
@@ -4989,6 +5004,40 @@ class PolymarketTradingNotifier
   /// The micro-USDC [withdrawUsdc] would send for [amount] from the
   /// deposit wallet's current pUSD + USDC.e balance. Quote-bound flows
   /// quote this figure, then pass the quoted amount as `exactMicroUsdc`.
+  /// Who may pay [quote] from Predictions without a grant (see
+  /// [withdrawUsdc]): the automatic authorization only home to Dollars on
+  /// the own Spark address; a leg of an approved action only to Bitcoin on
+  /// the own Spark address or to the own Investing account, while that
+  /// approval binds the leg. Pure.
+  @visibleForTesting
+  static bool sweepAllowedFor(
+      MoveAuthorization? sweep, VerifiedOrchestraQuote quote) {
+    final request = quote.request;
+    switch (sweep) {
+      case SweepAuthorization():
+        return request.recipientKind == RecipientKind.ownSpark &&
+            request.destinationChain == kOrchestraUsdChain &&
+            request.destinationAsset == kOrchestraUsdAssetCode;
+      case ApprovedLegAuthorization(:final grant):
+        final VenueCashDestination destination;
+        if (request.recipientKind == RecipientKind.ownSpark &&
+            request.destinationChain == 'spark' &&
+            request.destinationAsset == 'BTC') {
+          destination = VenueCashDestination.bitcoin;
+        } else if (request.recipientKind == RecipientKind.ownEvm &&
+            request.destinationChain == 'hypercore') {
+          destination = VenueCashDestination.investing;
+        } else {
+          return false;
+        }
+        return DirectLegGrants.binds(grant,
+            venue: 'predictions', destination: destination.code);
+      case UserGrantAuthorization():
+      case null:
+        return false;
+    }
+  }
+
   Future<BigInt> payableMicroUsdc(double amount) async {
     return clampWithdrawMicroUsdc(
         BigInt.from((amount * 1e6).round()), await spendableMicroUsdc());

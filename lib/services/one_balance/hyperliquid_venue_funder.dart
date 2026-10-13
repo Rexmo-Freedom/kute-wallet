@@ -134,6 +134,9 @@ class HyperliquidVenueFunder implements VenueFunder {
       // Money only ever comes home on its own; a sweep never deposits.
       SweepAuthorization() =>
         throw const RouteUnavailable('a sweep never funds a venue'),
+      // A venue-cash leg is never a deposit from Dollars.
+      ApprovedLegAuthorization() =>
+        throw const RouteUnavailable('a venue leg never funds from Dollars'),
     };
     final units = dollarsBaseUnits(usd);
     if (units <= BigInt.zero) {

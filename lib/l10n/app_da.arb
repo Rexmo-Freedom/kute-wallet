@@ -3012,6 +3012,6 @@
   "stepUpReasonBetReady": "Gør en forudsigelse på {amount} klar",
   "betMarketClosingNoFunding": "Dette marked lukker, før pengene kan nå frem. Intet blev flyttet.",
   "multiMoveSendTitle": "Send {amount}",
-  "multiMoveTitle": "Move {amount} to {destination}",
-  "multiMoveDeliveredRemaining": "{delivered} delivered · {remaining} remaining"
+  "multiMoveTitle": "Flyt {amount} til {destination}",
+  "multiMoveDeliveredRemaining": "{delivered} leveret · {remaining} tilbage"
 }

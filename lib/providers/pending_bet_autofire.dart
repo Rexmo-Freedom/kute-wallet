@@ -516,7 +516,9 @@ class PendingBetAutoFire {
     // one approval the slip asked for covers exactly this order.
     final fundingLimits = funded
         ? PmGrants.fundingLimits(
-            fundUsd: intent.fundUsd!, venue: IntentVenue.polymarket)
+            fundUsd: intent.fundUsd!,
+            venue: IntentVenue.polymarket,
+            directLegs: intent.directLegs)
         : const <String, Object?>{};
     SensitiveIntent withFunding(SensitiveIntent order) => fundingLimits.isEmpty
         ? order

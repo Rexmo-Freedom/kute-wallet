@@ -8,6 +8,8 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kute/helpers/auth_grant.dart';
+import 'package:kute/helpers/venue_intents.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/services/one_balance/multi_source_move.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
@@ -156,14 +158,16 @@ class _DirectSource extends _Source implements DirectVenueCashSource {
   bool refuse = false;
   Object? directError;
   final directs = <({VenueCashDestination to, double usd})>[];
+  final auths = <MoveAuthorization>[];
 
   @override
   bool canPullTo(VenueCashDestination destination) => to.contains(destination);
 
   @override
   Future<VenueMoveResult> pullTo(VenueCashDestination destination, double usd,
-      {required String purpose}) async {
+      {required String purpose, required MoveAuthorization auth}) async {
     directs.add((to: destination, usd: usd));
+    auths.add(auth);
     final g = gate;
     if (g != null) await g.future;
     if (refuse) throw const DirectRouteRefused('cctp_fee_terms_unavailable');
@@ -190,13 +194,36 @@ class _DirectFunder extends _Funder implements DirectSweepableVenueFunder {
     required MoveAuthorization auth,
     String purpose = 'cash_pull',
   }) async {
-    expect(auth, same(SweepAuthorization.automatic));
+    // Never the automatic authorization: only the action's approval.
+    expect(auth, isA<ApprovedLegAuthorization>());
     direct.add((to: destination, usd: usd));
     if (refuse) throw const DirectRouteRefused('route_unavailable');
     return VenueMoveResult(
         quoteId: 'q-pm', sentUsd: usd, arrivingUsdEstimate: usd * 0.99);
   }
 }
+
+/// The action's one approval, binding legs to [to] capped per venue.
+AuthGrant _approval({
+  VenueCashDestination to = VenueCashDestination.bitcoin,
+  Map<String, double> caps = const {'investing': 1000, 'predictions': 1000},
+  SensitiveAction action = SensitiveAction.moveTransfer,
+}) =>
+    AuthGrants.issue(
+      SensitiveIntent(
+        action: action,
+        walletId: 'w1',
+        venue: IntentVenue.orchestra,
+        asset: 'USDB',
+        amountMax: IntentUnits.usd(1000),
+        limits: {
+          VenueLimit.directLegs:
+              DirectLegGrants.limit(destination: to.code, capsUsd: caps),
+        },
+        ttl: const Duration(minutes: 10),
+      ),
+      method: AuthGrantMethod.biometric,
+    );
 
 void main() {
   group('planDollarsShortfall', () {
@@ -570,6 +597,117 @@ void main() {
     Map<String, Object>? event(String name) =>
         events.where((e) => e.$1 == name).single.$2;
 
+    test('a leg anywhere but Dollars never moves without the approval',
+        () async {
+      final i = _DirectSource(_i, 500, to: {
+        VenueCashDestination.bitcoin,
+        VenueCashDestination.predictions,
+      });
+      final funder = _DirectFunder()..idle = 100;
+      final pm = PolymarketCashSource(funder);
+      for (final to in [
+        VenueCashDestination.bitcoin,
+        VenueCashDestination.predictions,
+        VenueCashDestination.investing,
+      ]) {
+        await expectLater(
+            puller([pm, i]).pullShortfall(
+                neededUsd: 50, forAction: 'x', destination: to),
+            throwsA(isA<VenueLegApprovalRequired>()));
+      }
+      expect(i.directs, isEmpty);
+      expect(i.pulls, isEmpty, reason: 'not even home to Dollars');
+      expect(funder.direct, isEmpty);
+      expect(funder.sweeps, isEmpty);
+      expect(MultiSourceMoveStore.all(), isEmpty);
+      expect(events, isEmpty);
+    });
+
+    test('Dollars that already cover it need no leg approval', () async {
+      dollars = 100;
+      final i = _DirectSource(_i, 500, to: {VenueCashDestination.bitcoin});
+      final outcome = await puller([i]).pullShortfall(
+          neededUsd: 50,
+          forAction: VenueCashFor.buyBitcoin,
+          destination: VenueCashDestination.bitcoin);
+      expect(outcome.dollarsOnly, isTrue);
+      expect(i.directs, isEmpty);
+    });
+
+    test('a leg runs under the action\'s approval itself', () async {
+      final grant = _approval(caps: {'investing': 60});
+      final i = _DirectSource(_i, 500, to: {VenueCashDestination.bitcoin});
+      final outcome = await puller([i]).pullShortfall(
+          neededUsd: 50,
+          forAction: VenueCashFor.buyBitcoin,
+          destination: VenueCashDestination.bitcoin,
+          approval: grant);
+      expect(outcome.legs.single.route, VenueCashRoute.direct);
+      final auth = i.auths.single;
+      expect(auth, isA<ApprovedLegAuthorization>());
+      expect((auth as ApprovedLegAuthorization).grant, same(grant));
+      expect(grant.consumed, isFalse, reason: 'the action consumes it');
+    });
+
+    test('a leg past its cap, or after the approval lapsed, comes home',
+        () async {
+      final i = _DirectSource(_i, 500, to: {VenueCashDestination.bitcoin});
+      final small = _approval(caps: {'investing': 5});
+      final outcome = await puller([i]).pullShortfall(
+          neededUsd: 20,
+          forAction: VenueCashFor.buyBitcoin,
+          destination: VenueCashDestination.bitcoin,
+          approval: small,
+          waitFor: Duration.zero);
+      expect(i.directs, isEmpty);
+      expect(i.pulls, hasLength(1));
+      expect(outcome.legs.single.route, VenueCashRoute.viaDollars);
+      // Not the route's refusal: the next action may go straight.
+      expect(DirectRouteRefusals.isRefused(_i, VenueCashDestination.bitcoin),
+          isFalse);
+
+      MultiSourceMoveStore.reset();
+      final lapsed = _approval()..revoke();
+      await puller([i]).pullShortfall(
+          neededUsd: 20,
+          forAction: VenueCashFor.buyBitcoin,
+          destination: VenueCashDestination.bitcoin,
+          approval: lapsed,
+          waitFor: Duration.zero);
+      expect(i.directs, isEmpty);
+      expect(i.pulls, hasLength(2));
+
+      // An approval bound to another destination covers nothing here.
+      MultiSourceMoveStore.reset();
+      await puller([i]).pullShortfall(
+          neededUsd: 20,
+          forAction: VenueCashFor.buyBitcoin,
+          destination: VenueCashDestination.bitcoin,
+          approval: _approval(to: VenueCashDestination.predictions),
+          waitFor: Duration.zero);
+      expect(i.directs, isEmpty);
+    });
+
+    test('directLegLimit binds only the legs that can go straight there',
+        () async {
+      dollars = 0;
+      final p = _Source(_p, 20);
+      final i = _DirectSource(_i, 500, to: {VenueCashDestination.bitcoin});
+      final pull = puller([p, i]);
+      final plan = await pull.plan(
+          neededUsd: 50, destination: VenueCashDestination.bitcoin);
+      expect(plan.pulls, hasLength(2));
+      final limit = pull.directLegLimit(plan, VenueCashDestination.bitcoin)!;
+      final investing = plan.pullFrom(_i)!.usd;
+      expect(limit['to'], 'bitcoin');
+      expect(limit['legs'],
+          {'investing': IntentUnits.usd(investing).toString()});
+      expect(limit['total'], IntentUnits.usd(investing).toString());
+      expect(pull.directLegLimit(plan, VenueCashDestination.dollars), isNull);
+      DirectRouteRefusals.refuse(_i, VenueCashDestination.bitcoin);
+      expect(pull.directLegLimit(plan, VenueCashDestination.bitcoin), isNull);
+    });
+
     test('Investing → Bitcoin goes straight there; nothing waits on Dollars',
         () async {
       final i = _DirectSource(_i, 500, to: {VenueCashDestination.bitcoin});
@@ -577,7 +715,8 @@ void main() {
       final outcome = await pull.pullShortfall(
           neededUsd: 50,
           forAction: VenueCashFor.buyBitcoin,
-          destination: VenueCashDestination.bitcoin);
+          destination: VenueCashDestination.bitcoin,
+          approval: _approval(to: VenueCashDestination.bitcoin));
       expect(i.directs.single.to, VenueCashDestination.bitcoin);
       expect(i.pulls, isEmpty, reason: 'never home first');
       final leg = outcome.legs.single;
@@ -608,6 +747,7 @@ void main() {
           neededUsd: 20,
           forAction: VenueCashFor.buyBitcoin,
           destination: VenueCashDestination.bitcoin,
+          approval: _approval(to: VenueCashDestination.bitcoin),
           waitFor: Duration.zero);
       final outcome = await first;
       expect(i.directs, hasLength(1));
@@ -628,6 +768,7 @@ void main() {
           neededUsd: 150,
           forAction: VenueCashFor.buyBitcoin,
           destination: VenueCashDestination.bitcoin,
+          approval: _approval(to: VenueCashDestination.bitcoin),
           waitFor: Duration.zero);
       expect(i.directs, hasLength(1), reason: 'the refusal is cached');
       expect(i.pulls, hasLength(2));
@@ -639,7 +780,8 @@ void main() {
       final outcome = await puller([i]).pullShortfall(
           neededUsd: 20,
           forAction: VenueCashFor.buyBitcoin,
-          destination: VenueCashDestination.bitcoin);
+          destination: VenueCashDestination.bitcoin,
+          approval: _approval(to: VenueCashDestination.bitcoin));
       expect(i.pulls, isEmpty, reason: 'no second pull of the same cash');
       expect(outcome.failedLegs.single.route, VenueCashRoute.direct);
       expect(outcome.dollarsCover, isFalse);
@@ -653,7 +795,8 @@ void main() {
       final outcome = await puller([pm, i]).pullShortfall(
           neededUsd: 30,
           forAction: VenueCashFor.investing,
-          destination: VenueCashDestination.investing);
+          destination: VenueCashDestination.investing,
+          approval: _approval(to: VenueCashDestination.investing));
       expect(funder.direct.single.to, VenueCashDestination.investing);
       expect(funder.sweeps, isEmpty);
       expect(i.pulls, isEmpty);
@@ -672,6 +815,7 @@ void main() {
               neededUsd: 30,
               forAction: VenueCashFor.buyBitcoin,
               destination: VenueCashDestination.bitcoin,
+              approval: _approval(to: VenueCashDestination.bitcoin),
               waitFor: Duration.zero);
       expect(funder.direct.single.to, VenueCashDestination.bitcoin);
       expect(funder.sweeps.single.auth, same(SweepAuthorization.automatic));
@@ -686,7 +830,8 @@ void main() {
       final outcome = await puller([i]).pullShortfall(
           neededUsd: 20,
           forAction: VenueCashFor.buyBitcoin,
-          destination: VenueCashDestination.bitcoin);
+          destination: VenueCashDestination.bitcoin,
+          approval: _approval(to: VenueCashDestination.bitcoin));
       expect(outcome.plan.dollarsUsd, 0);
       expect(outcome.onwardUsd, 0);
       // Dollars of the minimum or more are used first, as always.
@@ -695,17 +840,41 @@ void main() {
       final more = await puller([i]).pullShortfall(
           neededUsd: 20,
           forAction: VenueCashFor.buyBitcoin,
-          destination: VenueCashDestination.bitcoin);
+          destination: VenueCashDestination.bitcoin,
+          approval: _approval(to: VenueCashDestination.bitcoin));
       expect(more.plan.dollarsUsd, 5);
       expect(more.onwardUsd, closeTo(5, 0.01));
     });
 
-    test('Investing → Predictions by CCTP when the bet slip asks', () async {
+    test('Investing → Predictions by CCTP when the bet slip asks, only '
+        'under the bet\'s own approval', () async {
       final i = _DirectSource(_i, 500, to: {VenueCashDestination.predictions});
+      await expectLater(
+          puller([i]).pullShortfall(
+              neededUsd: 12,
+              forAction: VenueCashFor.predictions,
+              destination: VenueCashDestination.predictions),
+          throwsA(isA<VenueLegApprovalRequired>()));
+      expect(i.directs, isEmpty);
+      expect(i.pulls, isEmpty);
+      final bet = _approval(
+          to: VenueCashDestination.predictions,
+          caps: {'investing': 20},
+          action: SensitiveAction.pmBet);
+      final approved = await puller([i]).pullShortfall(
+          neededUsd: 12,
+          forAction: VenueCashFor.predictions,
+          destination: VenueCashDestination.predictions,
+          approval: bet);
+      expect((i.auths.single as ApprovedLegAuthorization).grant, same(bet));
+      expect(approved.onwardUsd, 0);
+      MultiSourceMoveStore.reset();
+      i.directs.clear();
       final outcome = await puller([i]).pullShortfall(
           neededUsd: 12,
           forAction: VenueCashFor.predictions,
-          destination: VenueCashDestination.predictions);
+          destination: VenueCashDestination.predictions,
+          approval: _approval(to: VenueCashDestination.predictions));
       expect(i.directs.single.to, VenueCashDestination.predictions);
       expect(outcome.onwardUsd, 0);
     });
@@ -743,7 +912,8 @@ void main() {
       final outcome = await puller([p, i]).pullShortfall(
           neededUsd: 50,
           forAction: VenueCashFor.buyBitcoin,
-          destination: VenueCashDestination.bitcoin);
+          destination: VenueCashDestination.bitcoin,
+          approval: _approval(to: VenueCashDestination.bitcoin));
       final move = MultiSourceMoveStore.get(outcome.moveId!)!;
       expect(move.walletId, 'w1');
       expect(move.totalUsd, 50);
@@ -768,14 +938,15 @@ void main() {
       final first = await pull.pullShortfall(
           neededUsd: 50,
           forAction: VenueCashFor.buyBitcoin,
-          destination: VenueCashDestination.bitcoin);
+          destination: VenueCashDestination.bitcoin,
+          approval: _approval(to: VenueCashDestination.bitcoin));
       final id = first.moveId!;
       final remaining = MultiSourceMoveStore.get(id)!.remainingUsd;
       expect(p.directs, hasLength(1));
 
       i.directError = null;
       dollars = 0; // Dollars spent elsewhere: Retry uses the venues only.
-      final retry = await pull.retryMove(id);
+      final retry = await pull.retryMove(id, approval: _approval());
       expect(retry, isNotNull);
       expect(retry!.moveId, id);
       expect(p.directs, hasLength(1), reason: 'Predictions already sent');
@@ -789,7 +960,7 @@ void main() {
       expect(move.remainingUsd, 0);
 
       // Nothing left: a second Retry pulls nothing.
-      expect(await pull.retryMove(id), isNull);
+      expect(await pull.retryMove(id, approval: _approval()), isNull);
       expect(i.directs, hasLength(2));
     });
 
@@ -801,13 +972,14 @@ void main() {
       final id = (await pull.pullShortfall(
               neededUsd: 50,
               forAction: VenueCashFor.buyBitcoin,
-              destination: VenueCashDestination.bitcoin))
+              destination: VenueCashDestination.bitcoin,
+              approval: _approval(to: VenueCashDestination.bitcoin)))
           .moveId!;
       i
         ..directError = null
         ..gate = Completer<void>();
-      final a = pull.retryMove(id);
-      final b = pull.retryMove(id);
+      final a = pull.retryMove(id, approval: _approval());
+      final b = pull.retryMove(id, approval: _approval());
       expect(await b, isNull, reason: 'one Retry runs at a time');
       i.gate!.complete();
       expect(await a, isNotNull);
@@ -823,7 +995,8 @@ void main() {
       final first = await pull.pullShortfall(
           neededUsd: 50,
           forAction: VenueCashFor.buyBitcoin,
-          destination: VenueCashDestination.bitcoin);
+          destination: VenueCashDestination.bitcoin,
+          approval: _approval(to: VenueCashDestination.bitcoin));
       expect(first.dollarsCover, isFalse);
       i.directError = null;
       // The action's own Retry asks for the whole $50 again, same move.
@@ -831,6 +1004,7 @@ void main() {
           neededUsd: 50,
           forAction: VenueCashFor.buyBitcoin,
           destination: VenueCashDestination.bitcoin,
+          approval: _approval(to: VenueCashDestination.bitcoin),
           moveId: first.moveId);
       expect(again.alreadyDeliveredUsd, closeTo(19.8, 0.01));
       expect(p.directs, hasLength(1), reason: 'no double pull');
@@ -849,6 +1023,26 @@ void main() {
       final move = MultiSourceMoveStore.get(outcome.moveId!)!;
       expect(move.finalOperationId, 'op-send');
       expect(move.linkedIds, contains('op-send'));
+    });
+
+    test('Retry to Bitcoin never moves without its own approval', () async {
+      final p = _DirectSource(_p, 20, to: {VenueCashDestination.bitcoin});
+      final i = _DirectSource(_i, 500, to: {VenueCashDestination.bitcoin})
+        ..directError = const RouteUnavailable('paused');
+      final pull = puller([p, i]);
+      final id = (await pull.pullShortfall(
+              neededUsd: 50,
+              forAction: VenueCashFor.buyBitcoin,
+              destination: VenueCashDestination.bitcoin,
+              approval: _approval()))
+          .moveId!;
+      i.directError = null;
+      final plan = await pull.planRetry(id);
+      expect(plan!.pulls.single.venue, _i);
+      await expectLater(
+          pull.retryMove(id), throwsA(isA<VenueLegApprovalRequired>()));
+      expect(i.directs, hasLength(1), reason: 'only the first, failed leg');
+      expect(i.pulls, isEmpty);
     });
 
     test('retry_tapped carries the remainder only', () {

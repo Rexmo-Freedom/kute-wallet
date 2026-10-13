@@ -10763,16 +10763,16 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String multiMoveSendTitle(String amount) {
-    return 'Send $amount';
+    return '$amount küldése';
   }
 
   @override
   String multiMoveTitle(String amount, String destination) {
-    return 'Move $amount to $destination';
+    return '$amount mozgatása ide: $destination';
   }
 
   @override
   String multiMoveDeliveredRemaining(String delivered, String remaining) {
-    return '$delivered delivered · $remaining remaining';
+    return '$delivered megérkezett · $remaining hátravan';
   }
 }

@@ -3011,7 +3011,7 @@
   "usdReceiveFromYourBitcoin": "От вашия биткойн",
   "stepUpReasonBetReady": "Подготви прогноза за {amount}",
   "betMarketClosingNoFunding": "Този пазар се затваря, преди парите да пристигнат. Нищо не е преместено.",
-  "multiMoveSendTitle": "Send {amount}",
-  "multiMoveTitle": "Move {amount} to {destination}",
-  "multiMoveDeliveredRemaining": "{delivered} delivered · {remaining} remaining"
+  "multiMoveSendTitle": "Изпрати {amount}",
+  "multiMoveTitle": "Прехвърли {amount} към {destination}",
+  "multiMoveDeliveredRemaining": "{delivered} доставени · {remaining} остават"
 }

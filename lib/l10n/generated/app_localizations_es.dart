@@ -10799,16 +10799,16 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String multiMoveSendTitle(String amount) {
-    return 'Send $amount';
+    return 'Enviar $amount';
   }
 
   @override
   String multiMoveTitle(String amount, String destination) {
-    return 'Move $amount to $destination';
+    return 'Mover $amount a $destination';
   }
 
   @override
   String multiMoveDeliveredRemaining(String delivered, String remaining) {
-    return '$delivered delivered · $remaining remaining';
+    return '$delivered entregados · $remaining pendientes';
   }
 }

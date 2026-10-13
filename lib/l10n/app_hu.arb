@@ -3011,7 +3011,7 @@
   "usdReceiveFromYourBitcoin": "A bitcoinodból",
   "stepUpReasonBetReady": "{amount} előrejelzés előkészítése",
   "betMarketClosingNoFunding": "Ez a piac bezár, mielőtt a pénz megérkezhetne. Semmi sem lett áthelyezve.",
-  "multiMoveSendTitle": "Send {amount}",
-  "multiMoveTitle": "Move {amount} to {destination}",
-  "multiMoveDeliveredRemaining": "{delivered} delivered · {remaining} remaining"
+  "multiMoveSendTitle": "{amount} küldése",
+  "multiMoveTitle": "{amount} mozgatása ide: {destination}",
+  "multiMoveDeliveredRemaining": "{delivered} megérkezett · {remaining} hátravan"
 }

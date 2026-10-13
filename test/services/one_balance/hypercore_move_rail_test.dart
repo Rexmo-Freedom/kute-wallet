@@ -10,6 +10,8 @@ import 'dart:io';
 import 'package:flutter/widgets.dart' show Locale;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kute/helpers/auth_grant.dart';
+import 'package:kute/helpers/venue_intents.dart';
 import 'package:kute/l10n/generated/app_localizations.dart';
 import 'package:kute/models/orchestra_model.dart';
 import 'package:kute/models/orchestra_route_limits.dart';
@@ -191,30 +193,86 @@ void main() {
           maxFeeBps: 100,
         );
 
+    AuthGrant approval({String to = 'bitcoin', double cap = 12}) =>
+        AuthGrants.issue(
+          SensitiveIntent(
+            action: SensitiveAction.moveTransfer,
+            walletId: 'w',
+            venue: IntentVenue.orchestra,
+            asset: 'USDB',
+            amountMax: IntentUnits.usd(100),
+            limits: {
+              VenueLimit.directLegs: DirectLegGrants.limit(
+                  destination: to, capsUsd: {'investing': cap}),
+            },
+          ),
+          method: AuthGrantMethod.biometric,
+        );
+
     test('Bitcoin: CCTP with the own-Spark rule for the BTC route', () async {
       final events = <(String, Map<String, Object?>?)>[];
       TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
       addTearDown(() => TrackingService.debugTrackObserver = null);
       final cctp = _FakeCctp();
       final rail = HyperCoreMoveRail(container.read, cctp: () => cctp);
+      final grant = approval();
       final result = await rail.withdrawDirect(
           destination: InvestingWithdrawalDestination.bitcoin,
           usd: 12,
-          auth: SweepAuthorization.automatic);
+          auth: ApprovedLegAuthorization(grant));
       expect(cctp.calls, ['bitcoin:cash_pull:12.0']);
       expect(result.operationId, 'op-direct');
       expect(result.quoteId, 'op-direct');
       final btc = cctpRouteFor(InvestingWithdrawalDestination.bitcoin);
-      expect(await cctp.lastStepUp!(intent(btc)), isTrue);
       expect(await cctp.lastStepUp!(intent(btc, recipient: 'sprt1qother')),
           isFalse);
       expect(await cctp.lastStepUp!(intent(kHypercoreToSparkUsdRoute)),
           isFalse,
           reason: 'only the route it was asked for');
+      expect(await cctp.lastStepUp!(intent(btc)), isTrue);
+      expect(await cctp.lastStepUp!(intent(btc)), isFalse,
+          reason: 'the leg cap is spent');
+      expect(grant.consumed, isFalse, reason: 'the purchase consumes it');
       final submitted =
           events.singleWhere((e) => e.$1 == 'hyperliquid_withdraw_submitted');
       expect(submitted.$2?['destination'], 'btc');
       expect(submitted.$2?['route'], 'cctp');
+    });
+
+    test('the automatic authorization never moves Investing cash anywhere '
+        'but home to Dollars', () async {
+      final rail = HyperCoreMoveRail(container.read);
+      final btc = cctpRouteFor(InvestingWithdrawalDestination.bitcoin);
+      expect(
+          await rail.stepUpForDirect(SweepAuthorization.automatic,
+              InvestingWithdrawalDestination.bitcoin)(intent(btc)),
+          isFalse);
+      expect(
+          await rail.stepUpForDirect(SweepAuthorization.automatic,
+              InvestingWithdrawalDestination.predictions)(intent(btc)),
+          isFalse);
+      // A leg approval never brings cash home either (that is the
+      // automatic authorization's move).
+      expect(
+          await rail.stepUpFor(ApprovedLegAuthorization(approval()))(intent(
+              kHypercoreToSparkUsdRoute)),
+          isFalse);
+    });
+
+    test('a leg is accepted only within the approval that binds it',
+        () async {
+      final rail = HyperCoreMoveRail(container.read);
+      final btc = cctpRouteFor(InvestingWithdrawalDestination.bitcoin);
+      Future<bool> run(AuthGrant g) => rail.stepUpForDirect(
+          ApprovedLegAuthorization(g),
+          InvestingWithdrawalDestination.bitcoin)(intent(btc));
+      expect(await run(approval(cap: 11.99)), isFalse, reason: 'past the cap');
+      expect(await run(approval(to: 'predictions')), isFalse,
+          reason: 'approved for another destination');
+      final spent = approval();
+      AuthGrants.consume(spent, spent.boundIntent);
+      expect(await run(spent), isFalse, reason: 'the action already went');
+      expect(await run(approval()..revoke()), isFalse);
     });
 
     test('a refusal before signing is a DirectRouteRefused', () async {

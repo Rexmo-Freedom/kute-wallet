@@ -159,6 +159,11 @@ class PendingHlOrderIntent {
   /// grant's [kFundUsdLimit]). Zero when the venue already held enough.
   final double fundUsd;
 
+  /// The other venue's cash approved to go straight into the Investing
+  /// account for this order (`VenueLimit.directLegs`: a cap per venue and
+  /// the total), bound into the same one approval. Null when none.
+  final Map<String, Object?>? directLegs;
+
   /// What the venue must hold for the order (margin with its headroom
   /// and fees). Zero means "the margin itself", as before funding.
   final double requiredUsd;
@@ -220,6 +225,7 @@ class PendingHlOrderIntent {
     this.market,
     this.placement,
     this.fundUsd = 0,
+    this.directLegs,
     this.requiredUsd = 0,
     this.readyAtQueueUsd = 0,
     this.arrivingUsd = 0,
@@ -269,6 +275,7 @@ class PendingHlOrderIntent {
       market: market,
       placement: placement,
       fundUsd: fundUsd,
+      directLegs: directLegs,
       requiredUsd: requiredUsd,
       readyAtQueueUsd: readyAtQueueUsd,
       arrivingUsd: arrivingUsd,
@@ -525,10 +532,12 @@ SensitiveIntent pendingHlOrderAutofireIntent(
   final order = pendingHlOrderPlacementIntent(intent, market,
       walletId: walletId, marginUsd: marginUsd);
   if (intent.fundUsd <= 0) return order;
+  final legs = intent.directLegs;
   return order.copyWith(limits: {
     ...order.limits,
     kFundUsdLimit: dollarsBaseUnits(intent.fundUsd),
     kFundVenueLimit: kFundVenueInvesting,
+    if (legs != null) VenueLimit.directLegs: legs,
   });
 }
 

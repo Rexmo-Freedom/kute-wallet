@@ -10772,16 +10772,16 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String multiMoveSendTitle(String amount) {
-    return 'Send $amount';
+    return '$amount versturen';
   }
 
   @override
   String multiMoveTitle(String amount, String destination) {
-    return 'Move $amount to $destination';
+    return '$amount naar $destination verplaatsen';
   }
 
   @override
   String multiMoveDeliveredRemaining(String delivered, String remaining) {
-    return '$delivered delivered · $remaining remaining';
+    return '$delivered aangekomen · $remaining resterend';
   }
 }

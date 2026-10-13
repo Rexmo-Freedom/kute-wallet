@@ -10730,16 +10730,16 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String multiMoveSendTitle(String amount) {
-    return 'Send $amount';
+    return 'Odeslat $amount';
   }
 
   @override
   String multiMoveTitle(String amount, String destination) {
-    return 'Move $amount to $destination';
+    return 'Přesunout $amount do $destination';
   }
 
   @override
   String multiMoveDeliveredRemaining(String delivered, String remaining) {
-    return '$delivered delivered · $remaining remaining';
+    return '$delivered doručeno · $remaining zbývá';
   }
 }

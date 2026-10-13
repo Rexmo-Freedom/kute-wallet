@@ -3315,7 +3315,7 @@
   "usdReceiveFromYourBitcoin": "Da sua bitcoin",
   "stepUpReasonBetReady": "Preparar uma previsão de {amount}",
   "betMarketClosingNoFunding": "Este mercado fecha antes de o dinheiro poder chegar. Nada foi movido.",
-  "multiMoveSendTitle": "Send {amount}",
-  "multiMoveTitle": "Move {amount} to {destination}",
-  "multiMoveDeliveredRemaining": "{delivered} delivered · {remaining} remaining"
+  "multiMoveSendTitle": "Enviar {amount}",
+  "multiMoveTitle": "Mover {amount} para {destination}",
+  "multiMoveDeliveredRemaining": "{delivered} entregues · {remaining} em falta"
 }

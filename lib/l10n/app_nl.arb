@@ -3011,7 +3011,7 @@
   "usdReceiveFromYourBitcoin": "Vanuit je bitcoin",
   "stepUpReasonBetReady": "Zet een voorspelling van {amount} klaar",
   "betMarketClosingNoFunding": "Deze markt sluit voordat het geld kan aankomen. Er is niets verplaatst.",
-  "multiMoveSendTitle": "Send {amount}",
-  "multiMoveTitle": "Move {amount} to {destination}",
-  "multiMoveDeliveredRemaining": "{delivered} delivered · {remaining} remaining"
+  "multiMoveSendTitle": "{amount} versturen",
+  "multiMoveTitle": "{amount} naar {destination} verplaatsen",
+  "multiMoveDeliveredRemaining": "{delivered} aangekomen · {remaining} resterend"
 }

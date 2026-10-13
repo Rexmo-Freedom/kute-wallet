@@ -3011,7 +3011,7 @@
   "usdReceiveFromYourBitcoin": "Din Bitcoin-ul tău",
   "stepUpReasonBetReady": "Pregătește o predicție de {amount}",
   "betMarketClosingNoFunding": "Această piață se închide înainte ca banii să poată ajunge. Nu s-a mutat nimic.",
-  "multiMoveSendTitle": "Send {amount}",
-  "multiMoveTitle": "Move {amount} to {destination}",
-  "multiMoveDeliveredRemaining": "{delivered} delivered · {remaining} remaining"
+  "multiMoveSendTitle": "Trimite {amount}",
+  "multiMoveTitle": "Mută {amount} în {destination}",
+  "multiMoveDeliveredRemaining": "{delivered} livrați · {remaining} rămași"
 }

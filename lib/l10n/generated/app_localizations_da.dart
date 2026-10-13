@@ -10745,11 +10745,11 @@ class AppLocalizationsDa extends AppLocalizations {
 
   @override
   String multiMoveTitle(String amount, String destination) {
-    return 'Move $amount to $destination';
+    return 'Flyt $amount til $destination';
   }
 
   @override
   String multiMoveDeliveredRemaining(String delivered, String remaining) {
-    return '$delivered delivered · $remaining remaining';
+    return '$delivered leveret · $remaining tilbage';
   }
 }

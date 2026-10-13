@@ -119,6 +119,11 @@ class PendingBetIntent {
   /// a market bet to what landed, and fails a limit bet that landed short.
   final double? fundUsd;
 
+  /// Investing cash approved to go straight into Predictions for this bet
+  /// (`VenueLimit.directLegs`: a cap per venue and the total), bound into
+  /// the same one approval as [fundUsd]. Null when none.
+  final Map<String, Object?>? directLegs;
+
   /// The funding leg's quote, as the one-way analytics reference
   /// (`TrackingService.orderRef`), never the raw id.
   final String? fundQuoteRef;
@@ -164,6 +169,7 @@ class PendingBetIntent {
     this.entrySource,
     this.spendAllBudgetUsd,
     this.fundUsd,
+    this.directLegs,
     this.fundQuoteRef,
     this.fundReadyUsd,
     this.fundArrivingUsd,
@@ -204,6 +210,7 @@ class PendingBetIntent {
     String? errorMessage,
     double? retryMaxPrice,
     double? fundUsd,
+    Object? directLegs = _keep,
     String? fundQuoteRef,
     double? fundReadyUsd,
     double? fundArrivingUsd,
@@ -235,6 +242,9 @@ class PendingBetIntent {
       entrySource: entrySource,
       spendAllBudgetUsd: spendAllBudgetUsd,
       fundUsd: fundUsd ?? this.fundUsd,
+      directLegs: identical(directLegs, _keep)
+          ? this.directLegs
+          : directLegs as Map<String, Object?>?,
       fundQuoteRef: fundQuoteRef ?? this.fundQuoteRef,
       fundReadyUsd: fundReadyUsd ?? this.fundReadyUsd,
       fundArrivingUsd: fundArrivingUsd ?? this.fundArrivingUsd,
@@ -242,6 +252,10 @@ class PendingBetIntent {
     );
   }
 }
+
+/// [PendingBetIntent.copyWith]'s "leave [PendingBetIntent.directLegs] as
+/// it is" (null clears it).
+const Object _keep = Object();
 
 class PendingPolymarketBetNotifier extends Notifier<PendingBetIntent?> {
   @override
@@ -322,6 +336,7 @@ class PendingPolymarketBetNotifier extends Notifier<PendingBetIntent?> {
       entrySource: current.entrySource,
       spendAllBudgetUsd: current.spendAllBudgetUsd,
       fundUsd: current.fundUsd,
+      directLegs: current.directLegs,
       fundQuoteRef: current.fundQuoteRef,
       fundReadyUsd: current.fundReadyUsd,
       fundArrivingUsd: current.fundArrivingUsd,

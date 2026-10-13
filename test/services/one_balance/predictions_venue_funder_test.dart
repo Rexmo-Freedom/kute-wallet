@@ -10,6 +10,8 @@ import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/helpers/venue_intents.dart';
 import 'package:kute/models/orchestra_model.dart';
 import 'package:kute/models/settlement_operation.dart' show SettlementFlow;
+import 'package:kute/providers/polymarket_trading_provider.dart'
+    show PolymarketTradingNotifier;
 import 'package:kute/services/funding/settlement_runner.dart'
     show SettlementAuthorizationIntent;
 import 'package:kute/services/one_balance/predictions_venue_funder.dart';
@@ -269,7 +271,7 @@ void main() {
     });
   });
 
-  group('directSweepAuthorized', () {
+  group('directLegAuthorized', () {
     final toBitcoin = _intent(
         flow: SettlementFlow.moveUsdToBtc,
         recipient: _ownSpark,
@@ -277,27 +279,27 @@ void main() {
 
     test('Bitcoin: the cash-out flow and the own Spark address only', () {
       expect(
-          PredictionsVenueFunder.directSweepAuthorized(toBitcoin,
+          PredictionsVenueFunder.directLegAuthorized(toBitcoin,
               destination: VenueCashDestination.bitcoin,
               ownRecipient: _ownSpark,
               sessionUnlocked: true),
           isTrue);
       expect(
-          PredictionsVenueFunder.directSweepAuthorized(toBitcoin,
+          PredictionsVenueFunder.directLegAuthorized(toBitcoin,
               destination: VenueCashDestination.bitcoin,
               ownRecipient: _ownSpark,
               sessionUnlocked: false),
           isFalse,
           reason: 'locked');
       expect(
-          PredictionsVenueFunder.directSweepAuthorized(toBitcoin,
+          PredictionsVenueFunder.directLegAuthorized(toBitcoin,
               destination: VenueCashDestination.bitcoin,
               ownRecipient: 'spark1someoneelse',
               sessionUnlocked: true),
           isFalse,
           reason: 'not the own address');
       expect(
-          PredictionsVenueFunder.directSweepAuthorized(
+          PredictionsVenueFunder.directLegAuthorized(
               _intent(
                   flow: SettlementFlow.movePredictionsToDollars,
                   recipient: _ownSpark,
@@ -308,7 +310,7 @@ void main() {
           isFalse,
           reason: 'another flow');
       expect(
-          PredictionsVenueFunder.directSweepAuthorized(
+          PredictionsVenueFunder.directLegAuthorized(
               _intent(flow: SettlementFlow.moveUsdToBtc, recipient: _ownSpark),
               destination: VenueCashDestination.bitcoin,
               ownRecipient: _ownSpark,
@@ -319,7 +321,7 @@ void main() {
 
     test('Investing needs its own flow and a HyperCore quote', () {
       expect(
-          PredictionsVenueFunder.directSweepAuthorized(toBitcoin,
+          PredictionsVenueFunder.directLegAuthorized(toBitcoin,
               destination: VenueCashDestination.investing,
               ownRecipient: _ownSpark,
               sessionUnlocked: true),
@@ -329,10 +331,64 @@ void main() {
         VenueCashDestination.predictions
       ]) {
         expect(
-            PredictionsVenueFunder.directSweepAuthorized(toBitcoin,
+            PredictionsVenueFunder.directLegAuthorized(toBitcoin,
                 destination: d, ownRecipient: _ownSpark, sessionUnlocked: true),
             isFalse);
       }
+    });
+  });
+
+  group('who may pay a Predictions withdrawal without a grant', () {
+    AuthGrant legs(String to, {Map<String, double>? caps}) => AuthGrants.issue(
+          SensitiveIntent(
+            action: SensitiveAction.moveTransfer,
+            walletId: 'w',
+            venue: IntentVenue.orchestra,
+            asset: 'USDB',
+            amountMax: IntentUnits.usd(100),
+            limits: {
+              VenueLimit.directLegs: DirectLegGrants.limit(
+                  destination: to, capsUsd: caps ?? const {'predictions': 60}),
+            },
+          ),
+          method: AuthGrantMethod.biometric,
+        );
+
+    test('the automatic authorization: home to Dollars only', () {
+      // Bitcoin on the own Spark address is not Dollars: refused.
+      expect(
+          PolymarketTradingNotifier.sweepAllowedFor(
+              SweepAuthorization.automatic, _sweepQuote()),
+          isFalse);
+      expect(PolymarketTradingNotifier.sweepAllowedFor(null, _sweepQuote()),
+          isFalse);
+    });
+
+    test('a leg of an approved action: while its approval binds the leg',
+        () {
+      final grant = legs('bitcoin');
+      expect(
+          PolymarketTradingNotifier.sweepAllowedFor(
+              ApprovedLegAuthorization(grant), _sweepQuote()),
+          isTrue);
+      expect(
+          PolymarketTradingNotifier.sweepAllowedFor(
+              ApprovedLegAuthorization(legs('investing')), _sweepQuote()),
+          isFalse,
+          reason: 'approved for another destination');
+      expect(
+          PolymarketTradingNotifier.sweepAllowedFor(
+              ApprovedLegAuthorization(
+                  legs('bitcoin', caps: const {'investing': 60})),
+              _sweepQuote()),
+          isFalse,
+          reason: 'no Predictions leg approved');
+      grant.revoke();
+      expect(
+          PolymarketTradingNotifier.sweepAllowedFor(
+              ApprovedLegAuthorization(grant), _sweepQuote()),
+          isFalse,
+          reason: 'the approval went');
     });
   });
 

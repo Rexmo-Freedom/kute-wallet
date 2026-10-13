@@ -1,6 +1,9 @@
 // Buy bitcoin with Dollars past what Dollars hold: the venue cash in
-// reach counts, the shortfall comes home first, and when it has not
-// landed in time the purchase stops and says so (nothing is bought).
+// reach counts, the purchase asks its ONE approval before any venue cash
+// moves (declined: nothing moves), the legs then go under it (straight to
+// Bitcoin where the venue offers it, home to Dollars otherwise), and when
+// what comes home has not landed in time the purchase stops and says so
+// (nothing is bought).
 
 import 'dart:async';
 import 'dart:convert';
@@ -13,7 +16,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/helpers/orchestra_router.dart';
+import 'package:kute/helpers/venue_intents.dart';
 import 'package:kute/l10n/generated/app_localizations.dart';
 import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/models/balance_model.dart';
@@ -26,6 +31,7 @@ import 'package:kute/providers/breez_provider.dart';
 import 'package:kute/providers/currency_conversions_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/providers/spark_address_provider.dart';
 import 'package:kute/screens/home/components/deposit_sheet.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/services/funding/spark_hypercore_funding_service.dart';
@@ -33,6 +39,7 @@ import 'package:kute/services/http/shared_http_client.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceProvider;
+import 'package:kute/services/one_balance/multi_source_move.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/one_balance/venue_cash_source.dart';
 import 'package:kute/services/one_balance/venue_funder.dart';
@@ -132,6 +139,7 @@ Future<ProviderContainer> _open(WidgetTester tester, MoveLockedSide side,
     breezSDKProvider
         .overrideWith((_) => (sdk ?? Completer<BreezSdkSpark>()).future),
     usdBalanceProvider.overrideWith((_) => _dollars),
+    sparkSelfAddressProvider.overrideWith((_) async => _ownSpark),
     venueCashReachProvider.overrideWith((_) async => _reach),
     venueCashPullerProvider.overrideWith((_) => _puller!),
   ]);
@@ -167,9 +175,56 @@ void _setBalance(ProviderContainer container, int sats) =>
     container.read(walletBalanceCacheProvider.notifier).setBalance('spending',
         WalletBalance(onChainBtcBalance: 0, sparkBitcoinbalance: sats));
 
-const double _dollars = 10;
+double _dollars = 10;
 const double _reach = 60;
+const String _ownSpark = 'spark1self';
 VenueCashPuller? _puller;
+
+/// The one approval, as the person answers it: every prompt is recorded
+/// with what had moved by then; [approve] false declines.
+class _Approvals {
+  _Approvals(this.moved, {this.approve = true});
+
+  /// How much venue cash had moved, read when the prompt shows.
+  final int Function() moved;
+  final bool approve;
+  final prompts = <SensitiveIntent>[];
+  final movedAtPrompt = <int>[];
+  final grants = <AuthGrant>[];
+
+  Future<AuthGrant?> call(SensitiveIntent intent) async {
+    prompts.add(intent);
+    movedAtPrompt.add(moved());
+    if (!approve) return null;
+    final grant =
+        AuthGrants.issue(intent, method: AuthGrantMethod.biometric);
+    grants.add(grant);
+    return grant;
+  }
+}
+
+/// Predictions cash with the direct cash-out to Bitcoin, recording each
+/// leg and the authorization it ran under.
+class _DirectVenue extends _Venue implements DirectVenueCashSource {
+  _DirectVenue(super.available);
+
+  final directs = <({double usd, MoveAuthorization auth})>[];
+
+  @override
+  bool canPullTo(VenueCashDestination destination) =>
+      destination == VenueCashDestination.bitcoin;
+
+  @override
+  Future<VenueMoveResult> pullTo(VenueCashDestination destination, double usd,
+      {required String purpose, required MoveAuthorization auth}) async {
+    directs.add((usd: usd, auth: auth));
+    return VenueMoveResult(
+        quoteId: 'q-direct',
+        operationId: 'op-direct',
+        sentUsd: usd,
+        arrivingUsdEstimate: usd * 0.99);
+  }
+}
 
 /// Predictions cash the test sets, recording each pull.
 class _Venue implements VenueCashSource {
@@ -211,8 +266,12 @@ void main() {
   setUp(() {
     AffiliateService.debugSessionToken = 'test-session';
     RuntimeCapabilitiesService.debugInstance = runtimePolicyFixture();
+    _dollars = 10;
+    MultiSourceMoveStore.reset();
+    DirectRouteRefusals.reset();
   });
   tearDown(() {
+    debugBuyBitcoinApproval = null;
     RuntimeCapabilitiesService.debugInstance?.dispose();
     RuntimeCapabilitiesService.debugInstance = null;
     AffiliateService.debugSessionToken = null;
@@ -228,6 +287,8 @@ void main() {
     final events = <String>[];
     TrackingService.debugTrackObserver = (e, _) => events.add(e);
     final venue = _Venue(100);
+    final approvals = _Approvals(() => venue.pulls.length);
+    debugBuyBitcoinApproval = approvals.call;
     var now = DateTime(2026, 10, 13, 12);
     _puller = VenueCashPuller(
       sources: [venue],
@@ -249,8 +310,17 @@ void main() {
     for (var i = 0; i < 10; i++) {
       await tester.pump(const Duration(milliseconds: 50));
     }
+    // One approval, asked before anything moved, for the whole purchase.
+    expect(approvals.prompts, hasLength(1));
+    expect(approvals.movedAtPrompt, [0]);
+    expect(approvals.prompts.single.action, SensitiveAction.moveTransfer);
+    expect(approvals.prompts.single.destination, _ownSpark);
+    // No leg of this venue can go straight to Bitcoin: none is bound.
+    expect(approvals.prompts.single.limits[VenueLimit.directLegs], isNull);
     // 20 missing: 20 / 0.98 → $20.41 from Predictions, once.
     expect(venue.pulls, [20.41]);
+    // Stopped before the purchase: its approval goes with it.
+    expect(approvals.grants.single.revoked, isTrue);
     final l10n = lookupAppLocalizations(const Locale('en'));
     expect(
         find.text('${l10n.oneBalanceComingBack(r'$20.41', l10n.predictions)}'
@@ -259,6 +329,98 @@ void main() {
     expect(events, contains('predictions_cash_pulled'));
     expect(events, isNot(contains('convert_success')));
     expect(tester.widget<AppButton>(_cta).isLoading, isFalse);
+    await _close(tester, container);
+  });
+
+  testWidgets(
+      'Buy Bitcoin with every leg straight to Bitcoin: ONE prompt, before '
+      'anything moves, and the legs run under it', (tester) async {
+    // Dollars under the onward minimum are left alone: the venue covers
+    // the whole purchase straight to Bitcoin.
+    _dollars = 0.5;
+    final events = <String>[];
+    TrackingService.debugTrackObserver = (e, _) => events.add(e);
+    final venue = _DirectVenue(100);
+    final approvals =
+        _Approvals(() => venue.pulls.length + venue.directs.length);
+    debugBuyBitcoinApproval = approvals.call;
+    var now = DateTime(2026, 10, 13, 12);
+    _puller = VenueCashPuller(
+      sources: [venue],
+      readDollars: () => _dollars,
+      minimumUsd: (_) async => 1,
+      clock: () => now,
+      sleep: (d) async => now = now.add(d),
+    );
+    final container = await _open(tester, MoveLockedSide.depositFromFiat);
+    for (final key in ['3', '0']) {
+      await tester.tap(find.text(key).last);
+      await tester.pump();
+    }
+    await tester.tap(_cta);
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    expect(approvals.prompts, hasLength(1), reason: 'one prompt, no second');
+    expect(approvals.movedAtPrompt, [0], reason: 'nothing before approval');
+    final intent = approvals.prompts.single;
+    expect(intent.action, SensitiveAction.moveTransfer);
+    expect(intent.destination, _ownSpark);
+    // The approval binds the leg's cap and the total.
+    expect(intent.limits[VenueLimit.directLegs], {
+      'to': 'bitcoin',
+      'legs': {'predictions': '30620000'},
+      'total': '30620000',
+    });
+    expect(venue.pulls, isEmpty, reason: 'never home first');
+    final leg = venue.directs.single;
+    expect(leg.usd, 30.62);
+    expect(leg.auth, isA<ApprovedLegAuthorization>());
+    expect((leg.auth as ApprovedLegAuthorization).grant,
+        same(approvals.grants.single));
+    expect(events, contains('predictions_cash_pulled'));
+    // Every dollar went straight to Bitcoin: nothing to buy from Dollars,
+    // and the approval ends there.
+    expect(events, isNot(contains('convert_success')));
+    expect(approvals.grants.single.revoked, isTrue);
+    await _close(tester, container);
+  });
+
+  testWidgets('declining the one prompt moves nothing at all',
+      (tester) async {
+    final events = <String>[];
+    TrackingService.debugTrackObserver = (e, _) => events.add(e);
+    final venue = _DirectVenue(100);
+    final approvals = _Approvals(
+        () => venue.pulls.length + venue.directs.length,
+        approve: false);
+    debugBuyBitcoinApproval = approvals.call;
+    var now = DateTime(2026, 10, 13, 12);
+    _puller = VenueCashPuller(
+      sources: [venue],
+      readDollars: () => _dollars,
+      minimumUsd: (_) async => 1,
+      clock: () => now,
+      sleep: (d) async => now = now.add(d),
+    );
+    final container = await _open(tester, MoveLockedSide.depositFromFiat);
+    for (final key in ['3', '0']) {
+      await tester.tap(find.text(key).last);
+      await tester.pump();
+    }
+    await tester.tap(_cta);
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    expect(approvals.prompts, hasLength(1));
+    expect(venue.directs, isEmpty);
+    expect(venue.pulls, isEmpty);
+    expect(MultiSourceMoveStore.all(), isEmpty);
+    expect(events.where((e) => e.endsWith('_cash_pulled')), isEmpty);
+    expect(events, isNot(contains('multi_source_move_started')));
+    // Back to the amount, quietly: no error, no spinner.
+    expect(tester.widget<AppButton>(_cta).isLoading, isFalse);
+    expect(find.text(_insufficient), findsNothing);
     await _close(tester, container);
   });
 }

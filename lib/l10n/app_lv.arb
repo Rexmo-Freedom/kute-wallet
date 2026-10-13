@@ -3011,7 +3011,7 @@
   "usdReceiveFromYourBitcoin": "No jūsu bitcoin",
   "stepUpReasonBetReady": "Sagatavo prognozi {amount} apmērā",
   "betMarketClosingNoFunding": "Šis tirgus slēgsies, pirms nauda varētu pienākt. Nekas netika pārvietots.",
-  "multiMoveSendTitle": "Send {amount}",
-  "multiMoveTitle": "Move {amount} to {destination}",
-  "multiMoveDeliveredRemaining": "{delivered} delivered · {remaining} remaining"
+  "multiMoveSendTitle": "Sūtīt {amount}",
+  "multiMoveTitle": "Pārvietot {amount} uz {destination}",
+  "multiMoveDeliveredRemaining": "{delivered} piegādāti · {remaining} atlikuši"
 }

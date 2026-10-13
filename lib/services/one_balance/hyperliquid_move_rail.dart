@@ -39,7 +39,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/helpers/auth_grant.dart' show AuthGrants, SensitiveAction;
 import 'package:kute/helpers/orchestra_router.dart'
     show doubleToOrchestraAmount, orchestraAmountToDouble;
-import 'package:kute/helpers/venue_intents.dart' show OrchestraGrants;
+import 'package:kute/helpers/venue_intents.dart'
+    show DirectLegGrants, OrchestraGrants;
 import 'package:kute/models/orchestra_model.dart' show OrchestraEstimate;
 import 'package:kute/models/orchestra_route_limits.dart'
     show RouteQuoteError, RouteQuoteErrorCode;
@@ -391,27 +392,54 @@ class HyperCoreMoveRail implements HyperliquidMoveRail {
   }
 
   /// [stepUpFor] for a move straight to [destination]. A user grant is
-  /// checked as before. A sweep carries no tap: it is accepted only for
-  /// that destination's route, delivered to the wallet's own Spark
-  /// address (Bitcoin) or its own Predictions account.
+  /// checked as before. A leg of an approved action
+  /// ([ApprovedLegAuthorization]) is accepted only for that destination's
+  /// route, delivered to the wallet's own Spark address (Bitcoin) or its
+  /// own Predictions account, and only within the leg caps the action's
+  /// approval binds (`DirectLegGrants.take`). The automatic authorization
+  /// never moves Investing cash anywhere but home to Dollars: refused.
   @visibleForTesting
   SettlementStepUpHook stepUpForDirect(
           MoveAuthorization auth, InvestingWithdrawalDestination destination) =>
       (intent) async {
-        if (auth is UserGrantAuthorization) return stepUpFor(auth)(intent);
-        if (intent.routeLabel != cctpRouteFor(destination).label) return false;
-        final recipient = recipientOf(intent);
-        try {
-          if (destination.chain == 'spark') {
-            final String? own = await _read(sparkSelfAddressProvider.future);
-            return own != null && own.isNotEmpty && recipient == own;
-          }
-          final own = await _ownPredictionsAccount();
-          return own != null &&
-              own.isNotEmpty &&
-              recipient.toLowerCase() == own.toLowerCase();
-        } catch (_) {
-          return false;
+        switch (auth) {
+          case UserGrantAuthorization():
+            return stepUpFor(auth)(intent);
+          case SweepAuthorization():
+            return false;
+          case ApprovedLegAuthorization(:final grant):
+            if (intent.routeLabel != cctpRouteFor(destination).label) {
+              return false;
+            }
+            final to = switch (destination) {
+              InvestingWithdrawalDestination.bitcoin =>
+                VenueCashDestination.bitcoin,
+              InvestingWithdrawalDestination.predictions =>
+                VenueCashDestination.predictions,
+              _ => null,
+            };
+            if (to == null) return false;
+            final recipient = recipientOf(intent);
+            try {
+              final bool own;
+              if (destination.chain == 'spark') {
+                final String? self = await _read(sparkSelfAddressProvider.future);
+                own = self != null && self.isNotEmpty && recipient == self;
+              } else {
+                final self = await _ownPredictionsAccount();
+                own = self != null &&
+                    self.isNotEmpty &&
+                    recipient.toLowerCase() == self.toLowerCase();
+              }
+              if (!own) return false;
+            } catch (_) {
+              return false;
+            }
+            // HyperCore USDC carries eight decimals; the caps six.
+            return DirectLegGrants.take(grant,
+                venue: 'investing',
+                destination: to.code,
+                amount: intent.amountIn ~/ BigInt.from(100));
         }
       };
 
@@ -508,6 +536,10 @@ class HyperCoreMoveRail implements HyperliquidMoveRail {
             } catch (_) {
               return false;
             }
+          case ApprovedLegAuthorization():
+            // A leg of an approved action only ever goes straight to its
+            // destination ([stepUpForDirect]); home is the automatic one's.
+            return false;
           case SweepAuthorization():
             if (!isDollarRouteHome(intent)) return false;
             final String? own;

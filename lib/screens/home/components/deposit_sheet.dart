@@ -137,7 +137,9 @@ import 'package:kute/services/one_balance/venue_cash_source.dart'
     show
         VenueCashDestination,
         VenueCashFor,
+        VenueCashPlan,
         VenueCashPullOutcome,
+        kVenueCashMaxWait,
         venueCashPullerProvider,
         venueCashReachProvider;
 import 'package:kute/services/one_balance/multi_source_move.dart'
@@ -487,6 +489,12 @@ Widget _untinted(BuildContext context, Widget child) {
   );
 }
 
+/// Test seam: stands in for the one approval a purchase of bitcoin asks
+/// before venue cash moves for it. Receives the purchase intent (with its
+/// leg caps) and answers with a grant for it, or null (declined).
+@visibleForTesting
+Future<AuthGrant?> Function(SensitiveIntent intent)? debugBuyBitcoinApproval;
+
 class DepositSheet extends ConsumerStatefulWidget {
   final String? initialSourceAsset;
   final MoveLockedSide lockedSide;
@@ -735,6 +743,11 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// The last pull stopped with a leg that did not go: the button is
   /// Retry for the remainder until the amount changes.
   bool _retryPull = false;
+
+  /// The purchase's ONE approval when venue cash is part of it: asked
+  /// before any leg moves, it covers the legs (their caps) and the
+  /// purchase itself, which consumes it instead of asking again.
+  AuthGrant? _purchaseGrant;
 
   /// The live lock. Seeded from `widget.lockedSide` but mutable: the swap
   /// button inverts a venue exchange between withdraw (venue → BTC) and
@@ -2068,6 +2081,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
 
   @override
   void dispose() {
+    _purchaseGrant?.revoke();
     _moveOutcome.closed();
     TrackingService.moneyFlowAbandoned('buy', props: _lastMoveInputs);
     _cashAppPoll?.cancel();
@@ -3657,28 +3671,76 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   }
 
   /// Takes the shortfall of [usd] from venue cash for a purchase of
-  /// bitcoin: Dollars first, then each venue leg straight to the wallet's
-  /// own Bitcoin where the venue's rail offers it, home to Dollars
+  /// bitcoin, in the order every action keeps: plan the legs (nothing
+  /// moves), ONE approval covering the legs and the purchase, then the
+  /// legs at once, then the purchase. Dollars first, then each venue leg
+  /// straight to the wallet's own Bitcoin where the venue's rail offers
+  /// it (only under that approval, within its caps), home to Dollars
   /// otherwise; waits, bounded, for Dollars to hold what the purchase
   /// still takes from them. That amount (0 when the legs bought it all)
-  /// to go on with the purchase; null when it stopped (the reason is on
-  /// the caption line, whatever moved stays where it went, and the
-  /// purchase never goes twice: Retry continues the same move).
+  /// to go on with the purchase, which then pays under [_purchaseGrant];
+  /// null when it stopped (declined: nothing moved, quietly; otherwise
+  /// the reason is on the caption line, whatever moved stays where it
+  /// went, and the purchase never goes twice: Retry continues the same
+  /// move).
   Future<double?> _pullVenueCashForPurchase(double usd) async {
-    VenueCashPullOutcome? outcome;
+    final puller = ref.read(venueCashPullerProvider);
     if (_moveUsd != usd) _moveId = null;
+    _purchaseGrant?.revoke();
+    _purchaseGrant = null;
+    VenueCashPullOutcome? outcome;
+    AuthGrant? grant;
     try {
-      outcome = await ref.read(venueCashPullerProvider).pullShortfall(
-            neededUsd: usd,
-            forAction: VenueCashFor.buyBitcoin,
-            destination: VenueCashDestination.bitcoin,
-            moveId: _moveId,
-            onPlanned: (plan) {
-              if (!mounted || plan.pulls.isEmpty) return;
-              setState(() =>
-                  _pullProgress = venueCashProgressText(context.l10n, plan));
-            },
-          );
+      // What earlier legs of the same move already delivered to Bitcoin
+      // is not asked again.
+      final earlier =
+          _moveId == null ? null : MultiSourceMoveStore.get(_moveId!);
+      final needed = math.max(0.0, usd - (earlier?.directDeliveredUsd ?? 0));
+      final plan = await puller.plan(
+          neededUsd: needed, destination: VenueCashDestination.bitcoin);
+      if (!mounted) return null;
+      if (!plan.covers) {
+        outcome = VenueCashPullOutcome(
+            plan: plan,
+            legs: const [],
+            dollarsCover: false,
+            eta: plan.eta,
+            destination: VenueCashDestination.bitcoin);
+      } else {
+        if (plan.pulls.isNotEmpty) {
+          grant = await _approvePurchaseWithLegs(usd, plan);
+          if (grant == null) {
+            // Declined: nothing moved.
+            _trackMoveFailed(
+                const SettlementStopped(SettlementStopReason.declined),
+                stage: 'approval');
+            if (mounted) {
+              setState(() {
+                _processing = false;
+                _pullProgress = null;
+                _error = null;
+              });
+            }
+            return null;
+          }
+        }
+        if (!mounted) {
+          grant?.revoke();
+          return null;
+        }
+        outcome = await puller.pullShortfall(
+          neededUsd: usd,
+          forAction: VenueCashFor.buyBitcoin,
+          destination: VenueCashDestination.bitcoin,
+          moveId: _moveId,
+          approval: grant,
+          onPlanned: (plan) {
+            if (!mounted || plan.pulls.isEmpty) return;
+            setState(() =>
+                _pullProgress = venueCashProgressText(context.l10n, plan));
+          },
+        );
+      }
     } catch (_) {
       outcome = null;
     }
@@ -3686,11 +3748,16 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       _moveId = outcome!.moveId;
       _moveUsd = usd;
     }
-    if (!mounted) return null;
+    if (!mounted) {
+      grant?.revoke();
+      return null;
+    }
     if (outcome != null && outcome.dollarsCover) {
       setState(() => _pullProgress = null);
+      _purchaseGrant = grant;
       return outcome.dollarsNeededUsd;
     }
+    grant?.revoke();
     final covered = outcome != null && outcome.plan.covers;
     _retryPull = outcome != null && outcome.failedLegs.isNotEmpty;
     _moveOutcome.failed(
@@ -3711,10 +3778,72 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     return null;
   }
 
+  /// The route a purchase from Dollars takes.
+  static final RouteKey _dollarsToBtcRoute = RouteKey(
+      fromChain: kOrchestraUsdChain,
+      fromAsset: kOrchestraUsdAssetCode,
+      toChain: 'spark',
+      toAsset: 'BTC');
+
+  /// The purchase's one prompt when [plan] takes venue cash: the Move
+  /// approval for the whole [usd] to the wallet's own Bitcoin, binding
+  /// the legs that go straight there (a cap per venue, the total), long
+  /// enough to cover the wait for the legs. Null when declined.
+  Future<AuthGrant?> _approvePurchaseWithLegs(
+      double usd, VenueCashPlan plan) async {
+    final walletId = pickSpendingWallet(ref.read(settingsProvider))?.id;
+    if (walletId == null || walletId.isEmpty) return null;
+    final String ownSpark = await ref.read(sparkSelfAddressProvider.future);
+    if (!mounted || ownSpark.isEmpty) return null;
+    final legs = ref
+        .read(venueCashPullerProvider)
+        .directLegLimit(plan, VenueCashDestination.bitcoin);
+    final intent = DirectLegGrants.buyBitcoin(
+      walletId: walletId,
+      ownSpark: ownSpark,
+      route: _dollarsToBtcRoute.label,
+      asset: kOrchestraUsdAssetCode,
+      totalUsd: usd,
+      directLegs: legs,
+      ttl: kVenueCashMaxWait + const Duration(minutes: 2),
+    );
+    final seam = debugBuyBitcoinApproval;
+    if (seam != null) return seam(intent);
+    return _approveMove(intent,
+        amountLabel: _usdApprovalLabel(usd), amountUsd: usd);
+  }
+
+  /// The purchase's step-up under the approval it already has ([grant],
+  /// from [_approvePurchaseWithLegs]): no second prompt. Accepted only for
+  /// the own Spark address and the route it binds and no more than
+  /// approved; consumed right before the runner pays.
+  SettlementStepUpHook _approvedPurchaseStepUp(AuthGrant grant) =>
+      (auth) async {
+        final sep = auth.destination.lastIndexOf('|');
+        final recipient =
+            sep < 0 ? auth.destination : auth.destination.substring(0, sep);
+        if (!DirectLegGrants.coversPurchase(grant,
+            walletId: auth.walletId,
+            recipient: recipient,
+            routeLabel: auth.routeLabel,
+            amountIn: auth.amountIn)) {
+          return false;
+        }
+        try {
+          AuthGrants.consume(
+              grant, GrantGuard.derive(grant, amountMax: auth.amountIn));
+          return true;
+        } on AuthGrantException {
+          return false;
+        }
+      };
+
   /// A purchase every venue leg delivered straight to Bitcoin: nothing
   /// was bought from Dollars, the move's one row tells the rest.
   void _finishDirectPurchase(double usd) {
     _moveId = null;
+    _purchaseGrant?.revoke();
+    _purchaseGrant = null;
     if (!mounted) return;
     final navigator = Navigator.of(context);
     final settings = ref.read(settingsProvider);
@@ -3788,14 +3917,17 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       ConvTiming.mark('_dispatchUsdToBtc usdDrainBaseUnits (drain=$drain) start');
       if (drain) amountBaseUnits = await _usdDrainBaseUnits();
       ConvTiming.mark('_dispatchUsdToBtc usdDrainBaseUnits (drain=$drain) end');
-      // Dollars first: the shortfall comes home from venue cash before
-      // the purchase asks for its one approval. Nothing is bought until
-      // Dollars hold the whole amount.
+      // Dollars first; the shortfall from venue cash. With venue cash the
+      // purchase asks its ONE approval before any leg moves, the legs go
+      // under it, and the purchase then pays under the same approval.
+      // Nothing is bought until Dollars hold what it takes from them.
       if (_retryPull && _error != null && _moveId != null) {
         trackMultiSourceMoveRetry(
             MultiSourceMoveStore.get(_moveId!)?.remainingUsd ?? 0);
       }
       _retryPull = false;
+      _purchaseGrant?.revoke();
+      _purchaseGrant = null;
       if (!pullsVenueCash && _moveUsd != usd) _moveId = null;
       if (pullsVenueCash) {
         final onward = await _pullVenueCashForPurchase(usd);
@@ -3837,13 +3969,17 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         source: SettlementAccountKind.sparkHot,
         destination: SettlementAccountKind.sparkHot,
         amountUsd: usd,
-        stepUp: _settlementStepUp(
-          action: SensitiveAction.moveTransfer,
-          asset: kOrchestraUsdAssetCode,
-          amountLabel: (auth) =>
-              _usdApprovalLabel(auth.amountIn.toDouble() / 1e6),
-          amountUsd: usd,
-        ),
+        // Venue cash in the purchase: its one approval was asked before
+        // the legs moved and covers this step too.
+        stepUp: _purchaseGrant != null
+            ? _approvedPurchaseStepUp(_purchaseGrant!)
+            : _settlementStepUp(
+                action: SensitiveAction.moveTransfer,
+                asset: kOrchestraUsdAssetCode,
+                amountLabel: (auth) =>
+                    _usdApprovalLabel(auth.amountIn.toDouble() / 1e6),
+                amountUsd: usd,
+              ),
         requestQuote: (key) => HotSettlement.quote(
           ref.read,
           OrchestraQuoteRequest(
@@ -3987,6 +4123,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       ConvTiming.mark('_dispatchUsdToBtc overlay pushed (spinner closed)');
     } catch (e) {
       ConvTiming.mark('_dispatchUsdToBtc error ${e.runtimeType}');
+      // The purchase's approval ends with it (a Retry asks again).
+      _purchaseGrant?.revoke();
+      _purchaseGrant = null;
       // Once the dollars left, the order's real outcome comes from the
       // background sync's terminal poll, not from this throw.
       if (!usdSent) {

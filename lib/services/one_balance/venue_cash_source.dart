@@ -20,20 +20,28 @@
 //    venue, still available) and can wait, bounded, for Dollars to reach
 //    the amount the action needs.
 //
-// Money safety: every pull is a move HOME, to the wallet's own Spark
-// address, under [SweepAuthorization.automatic], which both rails accept
-// only for that recipient and only while the session is unlocked. So the
-// action's own single approval (the send, the purchase, the order) stays
-// the only prompt. Investing is never pulled from while it holds a cross
-// position or a resting perp order: only the rail's sendable cash, and
-// only when nothing on the account can be leaning on it. Predictions
-// pulls only cash not reserved by an open BUY order.
+// Money safety: a pull HOME to the wallet's own Dollars (spark:USDB on
+// its own Spark address) runs under [SweepAuthorization.automatic], which
+// both rails accept only for that recipient and only while the session
+// is unlocked: no tap. That automatic authorization is ONLY for Dollars.
+// A leg whose destination is anything else (Bitcoin, the other venue)
+// runs only AFTER and UNDER the action's own single approval (the Buy,
+// the order, the bet: [ApprovedLegAuthorization]), whose grant binds the
+// legs' destination, a cap per venue and the total (`DirectLegGrants`):
+// validate, plan the legs ([VenueCashPuller.plan] /
+// [VenueCashPuller.directLegLimit]), ONE approval, then the legs, then
+// the action. [VenueCashPuller.pullShortfall] refuses such a destination
+// without the approval, before anything moves. Investing is never pulled
+// from while it holds a cross position or a resting perp order: only the
+// rail's sendable cash, and only when nothing on the account can be
+// leaning on it. Predictions pulls only cash not reserved by an open BUY
+// order.
 //
 // Routing: an action names where its money is going
 // ([VenueCashDestination]). Dollars (a send): every leg comes home to
 // Dollars (spark:USDB). Anywhere else, a leg goes STRAIGHT there when its
-// venue's rail offers the route, always to one of the wallet's own
-// accounts under the same automatic authorization:
+// venue's rail offers the route and the action's approval covers it,
+// always to one of the wallet's own accounts:
 //
 //  * Investing → Bitcoin or Predictions: Circle CCTP to the destination's
 //    own standing instruction (spark:BTC to the own Spark address, or
@@ -60,6 +68,9 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:kute/helpers/auth_grant.dart' show AuthGrant;
+import 'package:kute/helpers/venue_intents.dart'
+    show DirectLegGrants, IntentUnits;
 import 'package:kute/models/hyperliquid_market.dart'
     show HlOpenOrder, HlPerpPosition;
 import 'package:kute/providers/hyperliquid_account_provider.dart'
@@ -389,18 +400,28 @@ abstract interface class VenueCashSource {
 }
 
 /// A source whose cash can also go straight to the action's destination
-/// (Bitcoin, the other venue) under [SweepAuthorization.automatic], only
-/// ever to one of the wallet's own accounts.
+/// (Bitcoin, the other venue) under the action's approval
+/// ([ApprovedLegAuthorization]), only ever to one of the wallet's own
+/// accounts.
 abstract interface class DirectVenueCashSource {
   /// Whether this venue's rail offers a direct route to [destination].
   bool canPullTo(VenueCashDestination destination);
 
-  /// Sends [usd] straight to [destination]. Throws [DirectRouteRefused]
-  /// when the route was refused before anything moved (the puller then
-  /// brings the leg home to Dollars instead); anything else may have
-  /// moved and fails the leg.
+  /// Sends [usd] straight to [destination] under [auth]. Throws
+  /// [DirectRouteRefused] when the route was refused before anything
+  /// moved (the puller then brings the leg home to Dollars instead);
+  /// anything else may have moved and fails the leg.
   Future<VenueMoveResult> pullTo(VenueCashDestination destination, double usd,
-      {required String purpose});
+      {required String purpose, required MoveAuthorization auth});
+}
+
+/// A leg to a destination other than Dollars was asked for without the
+/// action's approval: nothing moved.
+class VenueLegApprovalRequired implements Exception {
+  const VenueLegApprovalRequired();
+
+  @override
+  String toString() => 'VenueLegApprovalRequired';
 }
 
 /// Direct routes refused this session, per venue and destination: a
@@ -479,7 +500,7 @@ class PolymarketCashSource implements VenueCashSource, DirectVenueCashSource {
 
   @override
   Future<VenueMoveResult> pullTo(VenueCashDestination destination, double usd,
-      {required String purpose}) {
+      {required String purpose, required MoveAuthorization auth}) {
     final funder = _funder;
     if (funder is! DirectSweepableVenueFunder || !canPullTo(destination)) {
       throw const DirectRouteRefused('no_direct_route');
@@ -487,7 +508,7 @@ class PolymarketCashSource implements VenueCashSource, DirectVenueCashSource {
     return (funder as DirectSweepableVenueFunder).sweepTo(
       destination: destination,
       usd: usd,
-      auth: SweepAuthorization.automatic,
+      auth: auth,
       purpose: purpose,
     );
   }
@@ -517,9 +538,12 @@ bool hlPullAllowed(HlPullGuardState state) {
 }
 
 /// Investing's direct door: CCTP straight to a destination's own standing
-/// instruction (`HyperCoreMoveRail.withdrawDirect`).
+/// instruction (`HyperCoreMoveRail.withdrawDirect`), under [auth].
 typedef HlDirectWithdraw = Future<VenueMoveResult> Function(
-    InvestingWithdrawalDestination destination, double usd, String purpose);
+    InvestingWithdrawalDestination destination,
+    double usd,
+    String purpose,
+    MoveAuthorization auth);
 
 /// Investing cash: the rail's sendable figure (withdrawable perpetuals
 /// cash plus unheld spot USDC, never isolated margin or cross
@@ -593,14 +617,14 @@ class HyperliquidCashSource implements VenueCashSource, DirectVenueCashSource {
 
   @override
   Future<VenueMoveResult> pullTo(VenueCashDestination destination, double usd,
-      {required String purpose}) async {
+      {required String purpose, required MoveAuthorization auth}) async {
     final to = _cctpDestination(destination);
     final send = direct;
     if (to == null || send == null) {
       throw const DirectRouteRefused('no_direct_route');
     }
     await _ensureFree();
-    return send(to, usd, purpose);
+    return send(to, usd, purpose, auth);
   }
 }
 
@@ -856,6 +880,49 @@ class VenueCashPuller {
     );
   }
 
+  /// What the action's one approval binds for [plan]'s legs that would go
+  /// straight to [destination] (`VenueLimit.directLegs`): a cap per venue
+  /// (the leg's amount) and the total. Null for a Dollars destination or
+  /// when no leg can go straight there (they all come home to Dollars
+  /// under the automatic authorization). Moves nothing.
+  Map<String, Object?>? directLegLimit(
+      VenueCashPlan plan, VenueCashDestination destination) {
+    if (destination == VenueCashDestination.dollars) return null;
+    final caps = <String, double>{};
+    for (final p in plan.pulls) {
+      final source = _sourceFor(p.venue);
+      if (source is DirectVenueCashSource &&
+          (source as DirectVenueCashSource).canPullTo(destination) &&
+          !DirectRouteRefusals.isRefused(p.venue, destination)) {
+        caps[p.venue.name] = p.usd;
+      }
+    }
+    return DirectLegGrants.limit(
+        destination: destination.code, capsUsd: caps);
+  }
+
+  /// The plan a Retry of [moveId] would run: the failed remainder from
+  /// the venues alone, for the approval a Retry to a destination other
+  /// than Dollars asks first. Null when there is nothing to retry.
+  Future<VenueCashPlan?> planRetry(String moveId) async {
+    final move = MultiSourceMoveStore.get(moveId);
+    if (move == null || !move.partial) return null;
+    return plan(
+      neededUsd: move.remainingUsd,
+      exclude: venueOfDestination(move.destination),
+      destination: move.destination,
+      useDollars: false,
+    );
+  }
+
+  VenueCashSource? _sourceFor(OneBalanceVenue venue) {
+    VenueCashSource? source;
+    for (final s in _sources) {
+      if (s.venue == venue) source = s;
+    }
+    return source;
+  }
+
   /// The most an action can ask for: Dollars plus every venue's free
   /// cash net of the pull cost.
   Future<double> reachUsd({OneBalanceVenue? exclude}) async =>
@@ -883,6 +950,15 @@ class VenueCashPuller {
   /// Every call with legs is one move ([MultiSourceMoveStore]): [moveId]
   /// continues an earlier one (a Retry), whose legs that already went
   /// straight to the destination are not pulled again.
+  ///
+  /// [approval]: the action's one user approval, given BEFORE this call
+  /// and binding [directLegLimit] of the plan. Required whenever a
+  /// [destination] other than Dollars needs venue legs: without it
+  /// nothing moves ([VenueLegApprovalRequired]; Dollars that already
+  /// cover it are only waited on). A leg goes straight to the destination
+  /// only while the approval covers it ([ApprovedLegAuthorization]); one
+  /// it does not cover comes home to Dollars instead. Legs home to
+  /// Dollars run under the automatic authorization.
   Future<VenueCashPullOutcome> pullShortfall({
     required double neededUsd,
     required String forAction,
@@ -890,6 +966,7 @@ class VenueCashPuller {
     OneBalanceVenue? exclude,
     Duration? waitFor,
     String? moveId,
+    AuthGrant? approval,
     void Function(VenueCashPlan plan)? onPlanned,
   }) {
     final run = _tail.then((_) => _pullShortfall(
@@ -899,6 +976,7 @@ class VenueCashPuller {
           exclude: exclude,
           waitFor: waitFor,
           moveId: moveId,
+          approval: approval,
           onPlanned: onPlanned,
         ));
     _tail = run.then((_) {}, onError: (_) {});
@@ -908,11 +986,17 @@ class VenueCashPuller {
   /// Retry on a move a leg failed for: pulls ONLY the failed remainder
   /// from the venues to the move's destination (Dollars, the money
   /// already arrived, are not asked again), as legs of the same move.
-  /// Null when there is nothing left to pull or a Retry is running.
+  /// Null when there is nothing left to pull or a Retry is running. A
+  /// move to a destination other than Dollars needs [approval] (asked
+  /// for [planRetry]'s legs first); without it nothing moves.
   Future<VenueCashPullOutcome?> retryMove(String moveId,
-      {Duration waitFor = Duration.zero}) async {
+      {Duration waitFor = Duration.zero, AuthGrant? approval}) async {
     final move = MultiSourceMoveStore.get(moveId);
     if (move == null || !move.partial) return null;
+    if (move.destination != VenueCashDestination.dollars &&
+        approval == null) {
+      throw const VenueLegApprovalRequired();
+    }
     if (!MultiSourceMoveStore.beginRetry(moveId)) return null;
     try {
       final run = _tail.then((_) => _pullShortfall(
@@ -924,6 +1008,7 @@ class VenueCashPuller {
             moveId: moveId,
             useDollars: false,
             remainderOnly: true,
+            approval: approval,
           ));
       _tail = run.then((_) {}, onError: (_) {});
       return await run;
@@ -941,6 +1026,7 @@ class VenueCashPuller {
     String? moveId,
     bool useDollars = true,
     bool remainderOnly = false,
+    AuthGrant? approval,
     void Function(VenueCashPlan plan)? onPlanned,
   }) async {
     final excluded = exclude ?? venueOfDestination(destination);
@@ -964,6 +1050,13 @@ class VenueCashPuller {
           destination: destination,
           moveId: moveId,
           alreadyDeliveredUsd: alreadyDirect);
+    }
+    // No leg to a destination other than Dollars moves before the
+    // action's own approval: refused here, before anything moved.
+    if (plan.pulls.isNotEmpty &&
+        destination != VenueCashDestination.dollars &&
+        approval == null) {
+      throw const VenueLegApprovalRequired();
     }
     onPlanned?.call(plan);
     final legs = <VenueCashLegOutcome>[];
@@ -990,7 +1083,8 @@ class VenueCashPuller {
       });
       final moveKey = id;
       legs.addAll(await Future.wait([
-        for (final p in plan.pulls) _runLeg(p, forAction, destination, moveKey),
+        for (final p in plan.pulls)
+          _runLeg(p, forAction, destination, moveKey, approval),
       ]));
     }
     final failed = legs.where((l) => !l.ok).length;
@@ -1029,12 +1123,13 @@ class VenueCashPuller {
         alreadyDeliveredUsd: alreadyDirect);
   }
 
-  Future<VenueCashLegOutcome> _runLeg(VenueCashPull p, String forAction,
-      VenueCashDestination destination, String moveId) async {
-    VenueCashSource? source;
-    for (final s in _sources) {
-      if (s.venue == p.venue) source = s;
-    }
+  Future<VenueCashLegOutcome> _runLeg(
+      VenueCashPull p,
+      String forAction,
+      VenueCashDestination destination,
+      String moveId,
+      AuthGrant? approval) async {
+    final source = _sourceFor(p.venue);
     if (source == null) {
       return _recorded(
           moveId,
@@ -1044,18 +1139,31 @@ class VenueCashPuller {
     var route = VenueCashRoute.viaDollars;
     try {
       VenueMoveResult? result;
+      // Straight to the destination only under the action's approval,
+      // and only within the leg caps it binds; otherwise home to Dollars
+      // (the automatic authorization's one destination).
       if (destination != VenueCashDestination.dollars &&
+          approval != null &&
           source is DirectVenueCashSource &&
           (source as DirectVenueCashSource).canPullTo(destination) &&
-          !DirectRouteRefusals.isRefused(p.venue, destination)) {
+          !DirectRouteRefusals.isRefused(p.venue, destination) &&
+          DirectLegGrants.covers(approval,
+              venue: p.venue.name,
+              destination: destination.code,
+              amount: IntentUnits.usd(p.usd))) {
         route = VenueCashRoute.direct;
         try {
-          result = await (source as DirectVenueCashSource)
-              .pullTo(destination, p.usd, purpose: kVenueCashPullPurpose);
-        } on DirectRouteRefused {
+          result = await (source as DirectVenueCashSource).pullTo(
+              destination, p.usd,
+              purpose: kVenueCashPullPurpose,
+              auth: ApprovedLegAuthorization(approval));
+        } on DirectRouteRefused catch (e) {
           // Refused before anything moved: through Dollars instead, and
-          // not asked again this session.
-          DirectRouteRefusals.refuse(p.venue, destination);
+          // not asked again this session, unless it was this approval
+          // that did not cover the leg (the next action brings its own).
+          if (!_approvalRefusal(e)) {
+            DirectRouteRefusals.refuse(p.venue, destination);
+          }
           route = VenueCashRoute.viaDollars;
         }
       }
@@ -1126,6 +1234,11 @@ class VenueCashPuller {
   }
 
   static double _cents(double usd) => (usd * 100).round() / 100;
+
+  /// A direct leg the rail's approval check refused (the approval lapsed
+  /// or did not cover it), not the route itself.
+  static bool _approvalRefusal(DirectRouteRefused e) =>
+      e.reason == 'settlement_declined' || e.reason == 'user_cancelled';
 }
 
 // ─── Riverpod ──────────────────────────────────────────────────────
@@ -1140,10 +1253,10 @@ final venueCashSourcesProvider = Provider<List<VenueCashSource>>((ref) {
       rail,
       readGuard: () => readHyperliquidPullGuard(ref.read),
       direct: rail is HyperCoreMoveRail
-          ? (destination, usd, purpose) => rail.withdrawDirect(
+          ? (destination, usd, purpose, auth) => rail.withdrawDirect(
               destination: destination,
               usd: usd,
-              auth: SweepAuthorization.automatic,
+              auth: auth,
               purpose: purpose)
           : null,
     ),

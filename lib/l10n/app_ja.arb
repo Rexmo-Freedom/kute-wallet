@@ -3011,7 +3011,7 @@
   "usdReceiveFromYourBitcoin": "あなたのビットコインから",
   "stepUpReasonBetReady": "{amount}の予測を準備",
   "betMarketClosingNoFunding": "この市場は資金が届く前に終了します。何も移動していません。",
-  "multiMoveSendTitle": "Send {amount}",
-  "multiMoveTitle": "Move {amount} to {destination}",
-  "multiMoveDeliveredRemaining": "{delivered} delivered · {remaining} remaining"
+  "multiMoveSendTitle": "{amount}を送金",
+  "multiMoveTitle": "{amount}を{destination}へ移動",
+  "multiMoveDeliveredRemaining": "{delivered} 着金 · 残り {remaining}"
 }

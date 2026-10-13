@@ -3011,7 +3011,7 @@
   "usdReceiveFromYourBitcoin": "Από το Bitcoin σας",
   "stepUpReasonBetReady": "Ετοίμασε πρόβλεψη {amount}",
   "betMarketClosingNoFunding": "Αυτή η αγορά κλείνει πριν φτάσουν τα χρήματα. Δεν μεταφέρθηκε τίποτα.",
-  "multiMoveSendTitle": "Send {amount}",
-  "multiMoveTitle": "Move {amount} to {destination}",
-  "multiMoveDeliveredRemaining": "{delivered} delivered · {remaining} remaining"
+  "multiMoveSendTitle": "Αποστολή {amount}",
+  "multiMoveTitle": "Μετακίνηση {amount} σε {destination}",
+  "multiMoveDeliveredRemaining": "{delivered} παραδόθηκαν · {remaining} απομένουν"
 }

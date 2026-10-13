@@ -106,6 +106,11 @@ void main() {
       ('lib/services/one_balance/predictions_venue_funder.dart', 'evm'): 1,
       ('lib/services/one_balance/predictions_venue_funder.dart',
           'sparkAddress'): 1,
+      // The direct Predictions leg (→ own Bitcoin or own Investing): `ownTo`
+      // is read from sparkSelfAddressProvider / hyperliquidAddressProvider,
+      // and the leg runs under HotSettlement.plan with a sparkHot / hlHot
+      // destination, which OwnedAddressResolver re-derives before paying.
+      ('lib/services/one_balance/predictions_venue_funder.dart', 'ownTo'): 1,
     };
     final recipientArg = RegExp(r'recipientAddress:\s*([^,\n]+),');
     final ownArg = RegExp(r'ownAddress:\s*([^,]+),');

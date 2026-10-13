@@ -23,6 +23,7 @@ import 'package:kute/screens/home/components/deposit_sheet.dart'
     show MoveLockedSide, showDepositSheet;
 import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/helpers/require_fresh_auth.dart';
+import 'package:kute/helpers/venue_intents.dart' show DirectLegGrants;
 import 'package:kute/helpers/user_error_copy.dart';
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
@@ -5695,6 +5696,13 @@ void _showMultiSourceMoveDetails(
 /// The move's detail: its legs, each with where it came from, what it
 /// moved and where it is; what was delivered and what is left after a
 /// failed leg, with Retry for the remainder.
+/// Test seam: stands in for the one approval a Retry of a move to a
+/// destination other than Dollars asks first. Receives the Retry intent
+/// (its leg caps) and answers with a grant for it, or null (declined).
+@visibleForTesting
+Future<AuthGrant?> Function(SensitiveIntent intent)?
+    debugMultiSourceRetryApproval;
+
 class _MultiSourceMoveDetailSheet extends ConsumerStatefulWidget {
   const _MultiSourceMoveDetailSheet({required this.tx});
 
@@ -5708,12 +5716,27 @@ class _MultiSourceMoveDetailSheet extends ConsumerStatefulWidget {
 class _MultiSourceMoveDetailSheetState
     extends ConsumerState<_MultiSourceMoveDetailSheet> {
   Future<void> _retry(MultiSourceMove move) async {
+    // One Retry at a time: a second tap neither asks nor pulls.
+    if (MultiSourceMoveStore.retrying(move.id)) return;
     trackMultiSourceMoveRetry(move.remainingUsd);
+    final puller = ref.read(venueCashPullerProvider);
+    // A remainder going anywhere but Dollars moves only under its own one
+    // approval, asked before any leg (declined: nothing moves).
+    AuthGrant? approval;
+    if (move.destination != VenueCashDestination.dollars) {
+      approval = await _approveRetry(move);
+      if (approval == null || !mounted) {
+        approval?.revoke();
+        return;
+      }
+    }
     VenueCashPullOutcome? outcome;
     try {
-      outcome = await ref.read(venueCashPullerProvider).retryMove(move.id);
+      outcome = await puller.retryMove(move.id, approval: approval);
     } catch (_) {
       outcome = null;
+    } finally {
+      approval?.revoke();
     }
     if (!mounted) return;
     if (outcome == null || outcome.failedLegs.isNotEmpty || !outcome.plan.covers) {
@@ -5725,6 +5748,42 @@ class _MultiSourceMoveDetailSheetState
               context.l10n.errorCopyGeneric,
           error: outcome == null || !outcome.anyPulled);
     }
+  }
+
+  /// The one approval a Retry of [move]'s remainder to a destination
+  /// other than Dollars asks first: the legs it would run, a cap per venue
+  /// and the total. Null when declined or when nothing would move.
+  Future<AuthGrant?> _approveRetry(MultiSourceMove move) async {
+    final puller = ref.read(venueCashPullerProvider);
+    final walletId = pickSpendingWallet(ref.read(settingsProvider))?.id;
+    if (walletId == null || walletId.isEmpty) return null;
+    final plan = await puller.planRetry(move.id);
+    if (plan == null || !plan.covers || plan.pulls.isEmpty || !mounted) {
+      return null;
+    }
+    final legs = puller.directLegLimit(plan, move.destination) ??
+        // Every leg comes home to Dollars: the approval binds no direct
+        // leg, the remainder lands in Dollars.
+        const <String, Object?>{};
+    final total = plan.pulledUsd;
+    final amount = '\$${total.toStringAsFixed(2)}';
+    final intent = DirectLegGrants.retry(
+      walletId: walletId,
+      destination: move.destination.code,
+      totalUsd: total,
+      directLegs: legs,
+    );
+    final seam = debugMultiSourceRetryApproval;
+    if (seam != null) return seam(intent);
+    return requireFreshAuthGrant(
+      context,
+      ref,
+      intent: intent,
+      reason: move.destination == VenueCashDestination.bitcoin
+          ? context.l10n.stepUpReasonSend(amount)
+          : context.l10n.stepUpReasonDeposit(amount),
+      amountUsd: total,
+    );
   }
 
   @override

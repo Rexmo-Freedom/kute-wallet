@@ -88,14 +88,29 @@ final class UserGrantAuthorization extends MoveAuthorization {
 
 /// No user tap: the move was started by the app itself.
 ///
-/// Accepted only when the verified quote's recipient is the wallet's own
-/// Spark address and the session is unlocked — the same trust level as
-/// auto-claim. Money can only ever come home under it; a rail asked to
-/// send anywhere else under a sweep must refuse.
+/// Accepted only for money coming HOME to the wallet's own Dollars
+/// (`spark:USDB` on its own Spark address) while the session is unlocked
+/// — the same trust level as auto-claim: the idle sweep, and a pull whose
+/// destination is Dollars. A rail asked to send anywhere else under it
+/// (Bitcoin, the other venue, any other address) must refuse; those legs
+/// run only under the action's own approval ([ApprovedLegAuthorization]).
 final class SweepAuthorization extends MoveAuthorization {
   const SweepAuthorization._();
 
   static const SweepAuthorization automatic = SweepAuthorization._();
+}
+
+/// A venue-cash leg straight to an action's destination other than
+/// Dollars (Bitcoin, the other venue), run AFTER and UNDER that action's
+/// one user approval: [grant] is the Buy / order / bet approval, and it
+/// binds the legs' destination, a cap per venue and the total
+/// (`DirectLegGrants`). The rail accepts it only for the wallet's own
+/// account at that destination and only within those caps; the grant is
+/// never consumed by a leg (the action consumes it).
+final class ApprovedLegAuthorization extends MoveAuthorization {
+  const ApprovedLegAuthorization(this.grant);
+
+  final AuthGrant grant;
 }
 
 /// A venue's door for the one-balance layer.
@@ -157,9 +172,11 @@ enum VenueCashDestination {
 }
 
 /// A venue whose cash can go straight to a destination other than
-/// Dollars, without a tap: only ever to one of the wallet's own accounts.
+/// Dollars: only ever to one of the wallet's own accounts, and only under
+/// the action's approval ([ApprovedLegAuthorization]).
 abstract interface class DirectSweepableVenueFunder {
-  /// Sends [usd] of venue cash straight to [destination]. Throws
+  /// Sends [usd] of venue cash straight to [destination] under [auth] (an
+  /// [ApprovedLegAuthorization]; the automatic one is refused). Throws
   /// [DirectRouteRefused] when the route was refused before anything
   /// moved; anything else may have moved and is rethrown untouched.
   Future<VenueMoveResult> sweepTo({

@@ -3011,7 +3011,7 @@
   "usdReceiveFromYourBitcoin": "Omasta bitcoinistasi",
   "stepUpReasonBetReady": "Valmistele {amount} ennuste",
   "betMarketClosingNoFunding": "Tämä markkina sulkeutuu ennen kuin rahat ehtisivät perille. Mitään ei siirretty.",
-  "multiMoveSendTitle": "Send {amount}",
-  "multiMoveTitle": "Move {amount} to {destination}",
-  "multiMoveDeliveredRemaining": "{delivered} delivered · {remaining} remaining"
+  "multiMoveSendTitle": "Lähetä {amount}",
+  "multiMoveTitle": "Siirrä {amount} kohteeseen {destination}",
+  "multiMoveDeliveredRemaining": "{delivered} perillä · {remaining} jäljellä"
 }

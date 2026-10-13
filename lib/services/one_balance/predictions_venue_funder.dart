@@ -509,6 +509,10 @@ class PredictionsVenueFunder
             case SweepAuthorization():
               return sweepAuthorized(intent,
                   sessionUnlocked: _sessionUnlocked());
+            case ApprovedLegAuthorization():
+              // Home to Dollars is the automatic authorization's move; a
+              // leg of an approved action goes straight on ([sweepTo]).
+              return false;
           }
         },
         fund: (verifiedQuote, _) async {
@@ -625,9 +629,11 @@ class PredictionsVenueFunder
   /// Orchestra to the final destination, `polygon:USDC.e → spark:BTC` to
   /// the wallet's own Spark address or `→ hypercore:USDC` to its own
   /// Investing account. [VenueCashDestination.dollars] is
-  /// [sweepToDollars]. Under [SweepAuthorization.automatic] the quote's
-  /// verified recipient must be that own account ([directSweepAuthorized],
-  /// and `withdrawUsdc` again).
+  /// [sweepToDollars]. Only under the action's approval
+  /// ([ApprovedLegAuthorization]): the quote's verified recipient must be
+  /// that own account and the leg inside the approval's caps
+  /// ([directLegAuthorized], `DirectLegGrants.take`, and `withdrawUsdc`
+  /// again). [SweepAuthorization.automatic] is refused here.
   ///
   /// Throws [DirectRouteRefused] when the route was refused before any
   /// USDC.e left (no route, a refused or unverified quote, a shut gate, an
@@ -733,10 +739,19 @@ class PredictionsVenueFunder
                   return false;
                 }
               case SweepAuthorization():
-                return directSweepAuthorized(intent,
-                    destination: destination,
-                    ownRecipient: ownTo,
-                    sessionUnlocked: _sessionUnlocked());
+                // The automatic authorization only ever brings money home
+                // to Dollars; a leg anywhere else waits for the action's
+                // own approval.
+                return false;
+              case ApprovedLegAuthorization(:final grant):
+                return directLegAuthorized(intent,
+                        destination: destination,
+                        ownRecipient: ownTo,
+                        sessionUnlocked: _sessionUnlocked()) &&
+                    DirectLegGrants.take(grant,
+                        venue: 'predictions',
+                        destination: destination.code,
+                        amount: intent.amountIn);
             }
           },
           fund: (verifiedQuote, _) async {
@@ -747,7 +762,7 @@ class PredictionsVenueFunder
               bridged: true,
               exactMicroUsdc: verifiedQuote.amountIn,
               grant: approved,
-              sweep: auth is SweepAuthorization ? auth : null,
+              sweep: auth is ApprovedLegAuthorization ? auth : null,
               sweepQuote: verifiedQuote,
             );
             return SettlementFundingProof.relayer(txHash);
@@ -850,13 +865,14 @@ class PredictionsVenueFunder
     }
   }
 
-  /// Whether the app may pay [intent] without a tap when another action
-  /// pulls Predictions cash straight to [destination]: the session is
-  /// unlocked, the flow is that destination's, and the verified quote's
-  /// recipient is the wallet's own account for it ([ownRecipient]: its
-  /// Spark address for Bitcoin, its Investing account otherwise). Pure.
+  /// Whether a leg of an approved action may pay [intent] when it pulls
+  /// Predictions cash straight to [destination]: the session is unlocked,
+  /// the flow is that destination's, and the verified quote's recipient is
+  /// the wallet's own account for it ([ownRecipient]: its Spark address
+  /// for Bitcoin, its Investing account otherwise). The leg caps of the
+  /// action's approval are checked on top (`DirectLegGrants.take`). Pure.
   @visibleForTesting
-  static bool directSweepAuthorized(
+  static bool directLegAuthorized(
     SettlementAuthorizationIntent intent, {
     required VenueCashDestination destination,
     required String ownRecipient,

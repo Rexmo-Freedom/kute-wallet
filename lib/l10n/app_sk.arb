@@ -3011,7 +3011,7 @@
   "usdReceiveFromYourBitcoin": "Z vášho bitcoinu",
   "stepUpReasonBetReady": "Priprav predpoveď {amount}",
   "betMarketClosingNoFunding": "Tento trh sa zatvorí skôr, než by peniaze dorazili. Nič sa nepresunulo.",
-  "multiMoveSendTitle": "Send {amount}",
-  "multiMoveTitle": "Move {amount} to {destination}",
-  "multiMoveDeliveredRemaining": "{delivered} delivered · {remaining} remaining"
+  "multiMoveSendTitle": "Odoslať {amount}",
+  "multiMoveTitle": "Presunúť {amount} do {destination}",
+  "multiMoveDeliveredRemaining": "{delivered} doručené · {remaining} zostáva"
 }
