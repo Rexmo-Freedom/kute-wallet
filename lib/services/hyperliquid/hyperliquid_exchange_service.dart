@@ -36,7 +36,6 @@ import 'package:kute/services/http/shared_http_client.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_rounding.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_signing.dart';
-import 'package:kute/services/hyperevm/hyperevm_constants.dart';
 import 'package:kute/services/security/address_guard.dart';
 import 'package:kute/services/security/wallet_guard_exception.dart';
 import 'package:kute/services/tracking/order_ack_latency.dart';
@@ -916,76 +915,6 @@ class HyperliquidExchangeService {
       action: action,
       fields: spotSendSignTypes,
       primaryType: spotSendPrimaryType,
-      isMainnet: HyperliquidConstants.isMainnet,
-      signatureChainId: _userSignedChainId,
-    );
-    final response = await _post(
-        action: action,
-        signature: signature,
-        nonce: nonce,
-        beforeSend: beforeSend);
-    if (response['status'] != 'ok') {
-      throw HyperliquidApiException(
-          statusCode: 200, body: jsonEncode(response));
-    }
-    return nonce;
-  }
-
-  /// Moves [amount] of [token] from this HyperCore account to the SAME
-  /// account's HyperEVM address, through the token's system address
-  /// (Hyperliquid docs, "HyperCore <> HyperEVM transfers": a `sendAsset`
-  /// to the system address, after which the system pays the sender on
-  /// HyperEVM; Circle's guide does the same for USDC). Only USDC (to
-  /// 0x2000…0000) and HYPE (to 0x2222…2222) are accepted, the destination
-  /// side is always 'spot', and HYPE can only leave the spot balance (only
-  /// the collateral token moves to or from a perp dex). [sourceDex] is ''
-  /// for the default perpetuals balance or 'spot'.
-  ///
-  /// USDC amounts carry at most six decimals (HyperEVM USDC has six; a
-  /// finer amount would lose its remainder) and HYPE at most eight.
-  /// Never retries: a timeout leaves the caller's persisted nonce to settle
-  /// what happened, never a second transfer.
-  Future<int> sendAssetToEvm({
-    required String token,
-    required String amount,
-    required String sourceDex,
-    void Function()? beforeSend,
-  }) async {
-    final String destination;
-    final RegExp format;
-    if (token == HyperCoreTokens.usdc) {
-      destination = HyperEvmChain.usdcSystemAddress;
-      format = RegExp(r'^\d+(?:\.\d{1,6})?$');
-    } else if (token == HyperCoreTokens.hype) {
-      destination = HyperEvmChain.hypeSystemAddress;
-      format = RegExp(r'^\d+(?:\.\d{1,8})?$');
-      if (sourceDex != HyperCoreTokens.spotDex) {
-        throw ArgumentError('HYPE leaves the spot balance only');
-      }
-    } else {
-      throw ArgumentError('Unsupported HyperEVM transfer token');
-    }
-    if ((sourceDex != HyperCoreTokens.perpsDex &&
-            sourceDex != HyperCoreTokens.spotDex) ||
-        !format.hasMatch(amount) ||
-        (double.tryParse(amount) ?? 0) <= 0) {
-      throw ArgumentError('Invalid HyperEVM transfer');
-    }
-    final nonce = nextNonce();
-    final action = buildSendAssetAction(
-      destination: destination,
-      sourceDex: sourceDex,
-      destinationDex: HyperCoreTokens.spotDex,
-      token: token,
-      amount: amount,
-      nonce: nonce,
-    );
-    final signature = await signUserSignedAction(
-      credentials: _credentials,
-      externalSigner: externalSigner,
-      action: action,
-      fields: sendAssetSignTypes,
-      primaryType: sendAssetPrimaryType,
       isMainnet: HyperliquidConstants.isMainnet,
       signatureChainId: _userSignedChainId,
     );

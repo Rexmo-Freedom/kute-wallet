@@ -2,8 +2,8 @@
 //
 // Investing's door for the one-balance layer: `VenueFunder` over the
 // `HyperliquidMoveRail`. The order-funding controller and the sweeper
-// talk to this; which rail carries the move (HyperCore via Orchestra
-// today, HyperEVM once it lands) is the rail provider's business.
+// talk to this; which rail carries the move (HyperCore via Orchestra) is
+// the rail provider's business.
 //
 // A deposit here is always an ORDER's: the user approved the order once,
 // and that grant (the autofire grant the slip stores, extended with the
@@ -77,8 +77,8 @@ class HyperliquidVenueFunder implements VenueFunder {
   Future<double> minimumUsd() => _rail.minimumUsd(deposit: true);
 
   /// The rail's quote with the flat cost folded into [VenueMoveQuote.feeUsd],
-  /// so a reader of the fee sees the whole cost of the move (the $1 gas
-  /// float on an empty account included). [VenueMoveQuote.arrivingUsd] is
+  /// so a reader of the fee sees the whole cost of the move.
+  /// [VenueMoveQuote.arrivingUsd] is
   /// the rail's own figure, already net of everything, and
   /// [VenueMoveQuote.fixedCostUsd] stays for anyone who needs the split.
   @override
@@ -106,7 +106,7 @@ class HyperliquidVenueFunder implements VenueFunder {
   /// cent, never under the rail's minimum. Capped at the rail's maximum,
   /// where a market order resizes to what arrives.
   ///
-  /// Shortfall $19.00 on a 0.1% route with a $1 float: $20.02.
+  /// Shortfall $19.00 on a 0.1% route with a $1 flat cost: $20.02.
   static double fundUsdFor({
     required double shortfallUsd,
     required VenueMoveQuote quote,

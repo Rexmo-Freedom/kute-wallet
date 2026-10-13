@@ -6303,10 +6303,6 @@ class AppLocalizationsBg extends AppLocalizations {
       'Тегленията от Инвестиране временно не са достъпни';
 
   @override
-  String get investingNeedsDollarsForNetworkFee =>
-      'Add about \$1 to Dollars to cover the network fee for this move. Nothing was sent.';
-
-  @override
   String get betReceiptCost => 'Цена';
 
   @override

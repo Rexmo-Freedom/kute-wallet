@@ -623,6 +623,8 @@ class _LedgerWithdrawReview extends StatelessWidget {
         ),
         OrchestraFeeSummary(
           sourceFeeUsd: review.activationFeeBaseUnits.toDouble() / 1e8,
+          // The device-verified Ledger address the reviewed quote pays.
+          recipient: review.recipient.address,
           route: (
             fromChain: 'hypercore',
             fromAsset: 'USDC',

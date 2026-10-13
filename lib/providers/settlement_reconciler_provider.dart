@@ -40,12 +40,6 @@ import 'package:kute/services/tracking_service.dart';
 import 'package:kute/services/orchestra_routes.dart'
     show claimOrderTerminalAnalytics, isOrchestraUsdLikeCoin;
 import 'package:kute/services/hyperliquid/hypercore_transfer_proof.dart';
-import 'package:kute/services/hyperevm/hyperevm_bridge.dart'
-    show HyperEvmReader, HyperEvmReaderNative;
-import 'package:kute/services/hyperevm/hyperevm_runtime.dart'
-    show maybeSweepHyperEvm;
-import 'package:kute/services/hyperevm/hyperevm_withdrawal.dart'
-    show HyperEvmFundingProbe, probeHyperEvmWithdrawal;
 
 /// A completed full Spark SDK sync the payment lookup can count.
 typedef SparkSyncMark = ({
@@ -216,9 +210,6 @@ final settlementReconcilerProvider =
     sessionUnlocked: () => ref.read(sessionUnlockedProvider),
     sparkPayments: sparkPayments,
     activityRows: _SwapOrderActivityRows(ref),
-    // USDC an Investing move left on the HyperEVM address goes into
-    // HyperCore; checked after each pass, read only when one may exist.
-    onPassComplete: () => unawaited(maybeSweepHyperEvm(ref)),
   );
   final synced =
       BreezSdkSpark().syncedStream.listen((_) => sparkPayments.onSynced());
@@ -255,10 +246,7 @@ class SettlementReconcilerDriver {
     Future<SettlementStore> Function() store = SettlementStore.shared,
     BitcoinChainReader? bitcoinChain,
     RelayerTransactionReader? relayerState,
-    HyperEvmReader? hyperEvmReader,
-    this.onPassComplete,
   })  : _sessionUnlocked = sessionUnlocked,
-        _hyperEvmReader = hyperEvmReader ?? HyperEvmReaderNative(),
         _sparkPayments = sparkPayments,
         _activityRows = activityRows,
         _clock = clock,
@@ -276,12 +264,6 @@ class SettlementReconcilerDriver {
 
   /// Public relayer reads for Ledger Polymarket funding probes. No secrets.
   final RelayerTransactionReader _relayerState;
-
-  /// Public HyperEVM reads for Investing withdrawal probes. No secrets.
-  final HyperEvmReader _hyperEvmReader;
-
-  /// Runs after every reconcile pass (the HyperEVM sweep check).
-  final void Function()? onPassComplete;
 
   /// The Phase 1a session check (`sessionUnlockedProvider`). Backend reads
   /// and the Spark lookup wait for it; public probes do not.
@@ -329,9 +311,6 @@ class SettlementReconcilerDriver {
     try {
       await store.prune();
     } catch (_) {}
-    try {
-      onPassComplete?.call();
-    } catch (_) {}
   }
 
   /// Closes Activity rows whose operation ended without moving funds. Runs
@@ -378,7 +357,6 @@ class SettlementReconcilerDriver {
       bitcoinChain: _bitcoinChain,
       relayerState: _relayerState,
       sparkPayments: mark == null ? null : _sparkPayments,
-      hyperEvmReader: _hyperEvmReader,
     );
     final result = await runSettlementReconcileCycle(
       op.toReconcileState(ownedByLiveFlow: store.isLeased(op.operationId)),
@@ -483,24 +461,17 @@ class SettlementReconcilerDriver {
     final withdraw = _investingWithdrawFlows.contains(op.flow);
     if (!deposit && !withdraw) return;
     final ok = stage == SettlementStage.settled;
-    final viaEvm =
-        op.route.toChain == 'hyperevm' || op.route.fromChain == 'hyperevm';
-    // A deposit through HyperEVM is complete when its USDC reaches
-    // HyperCore, which the sweeper reports (reportHyperEvmDepositsCredited);
-    // Orchestra settling only means it reached HyperEVM.
-    if (deposit && ok && op.route.toChain == 'hyperevm') return;
     if (!claimOrderTerminalAnalytics('settlement_op:${op.operationId}',
         success: ok)) {
       return;
     }
-    final route = viaEvm ? 'hyperevm' : 'direct';
     if (deposit) {
       final sourceAsset =
           op.route.fromAsset.toUpperCase() == 'BTC' ? 'btc' : 'usd';
       if (ok) {
         TrackingService.hyperliquidDepositCompleted(
           amountUsd: amountUsd,
-          route: route,
+          route: 'direct',
           walletKind: walletKind,
           sourceAsset: sourceAsset,
           orderId: op.orderId,
@@ -510,7 +481,7 @@ class SettlementReconcilerDriver {
         TrackingService.hyperliquidDepositFailed(
           reason: stage.name,
           amountUsd: amountUsd,
-          route: route,
+          route: 'direct',
           walletKind: walletKind,
         );
       }
@@ -523,7 +494,7 @@ class SettlementReconcilerDriver {
         amountUsd: amountUsd,
         destination: destination,
         walletKind: walletKind,
-        route: route,
+        route: 'direct',
         orderId: op.orderId,
         quoteId: op.quote?.quoteId,
       );
@@ -533,7 +504,6 @@ class SettlementReconcilerDriver {
         amountUsd: amountUsd,
         destination: destination,
         walletKind: walletKind,
-        route: route,
       );
     }
   }
@@ -566,11 +536,7 @@ class _OrchestraSettlementPorts implements SettlementReconcilePorts {
     required this.bitcoinChain,
     required this.relayerState,
     required this.sparkPayments,
-    required this.hyperEvmReader,
   });
-
-  /// Public HyperEVM reads for the Investing withdrawal probe.
-  final HyperEvmReader hyperEvmReader;
 
   final SettlementOperation op;
   final Set<String> claimedElsewhere;
@@ -649,25 +615,6 @@ class _OrchestraSettlementPorts implements SettlementReconcilePorts {
   /// a provider order.
   @override
   Future<FundingSourceProbe> probeFundingSource() async {
-    if (op.route.fromChain == 'hyperevm' &&
-        op.refund != null &&
-        op.quote != null &&
-        (op.funding?.kind == null ||
-            op.funding?.kind == SettlementFundingKind.evm)) {
-      try {
-        final result = await probeHyperEvmWithdrawal(
-            op: op, reader: hyperEvmReader, now: DateTime.now());
-        relayerTxHash = result.hash;
-        return switch (result.probe) {
-          HyperEvmFundingProbe.confirmed => FundingSourceProbe.confirmed,
-          HyperEvmFundingProbe.provenNotSent =>
-            FundingSourceProbe.provenNotSent,
-          HyperEvmFundingProbe.inconclusive => FundingSourceProbe.inconclusive,
-        };
-      } catch (_) {
-        return FundingSourceProbe.unavailable;
-      }
-    }
     if (op.funding?.kind == SettlementFundingKind.hyperliquid &&
         op.route.fromChain == 'hypercore' && op.funding?.hlNonce != null &&
         op.refund != null && op.quote != null) {

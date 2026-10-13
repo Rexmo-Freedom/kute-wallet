@@ -6297,10 +6297,6 @@ class AppLocalizationsSk extends AppLocalizations {
       'Výbery z Investovania sú dočasne nedostupné';
 
   @override
-  String get investingNeedsDollarsForNetworkFee =>
-      'Add about \$1 to Dollars to cover the network fee for this move. Nothing was sent.';
-
-  @override
   String get betReceiptCost => 'Cena';
 
   @override

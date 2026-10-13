@@ -1819,7 +1819,6 @@
   "investingFundingReceived": "Saadud rahastamistasu",
   "investingDepositsUnavailable": "Investeerimise sissemaksed pole ajutiselt saadaval",
   "investingWithdrawalsUnavailable": "Investeerimise väljamaksed pole ajutiselt saadaval",
-  "investingNeedsDollarsForNetworkFee": "Add about $1 to Dollars to cover the network fee for this move. Nothing was sent.",
   "betReceiptCost": "Maksumus",
   "betReceiptPayout": "Väljamakse võidu korral",
   "betReceiptUpdating": "Lõplikud summad uuenevad.",

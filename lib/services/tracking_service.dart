@@ -4832,83 +4832,12 @@ class TrackingService {
     double? amountUsd,
     String? destination, // btc | usd
     String? walletKind,
-    String? route, // hyperevm | direct
   }) =>
       track('hyperliquid_withdraw_initiated', params: {
         'venue': 'hyperliquid',
         if (destination != null) 'destination': destination,
         if (walletKind != null) 'wallet_kind': walletKind,
-        if (route != null) 'route': route,
         ...moneyParams(amountUsd: amountUsd),
-      });
-
-  /// One real step of an Investing withdrawal through HyperEVM:
-  /// `core_to_evm` (HyperCore → HyperEVM sent), `evm_arrived` (USDC landed
-  /// on HyperEVM), `provider_sent` (transfer to Orchestra broadcast).
-  /// [durationMs] since the steps began. Exact amount, no ids.
-  static void hyperliquidWithdrawStep({
-    required String step,
-    double? amountUsd,
-    int? durationMs,
-  }) =>
-      track('hyperliquid_withdraw_step', params: {
-        'venue': 'hyperliquid',
-        'step': step,
-        'route': 'hyperevm',
-        'wallet_kind': 'hot',
-        if (durationMs != null) 'duration_ms': durationMs,
-        ...moneyParams(amountUsd: amountUsd),
-      });
-
-  /// One real step of an Investing deposit through HyperEVM after the
-  /// money left Spark: `core_credited` (the USDC Orchestra delivered to
-  /// HyperEVM reached HyperCore).
-  static void hyperliquidDepositStep({
-    required String step,
-    double? amountUsd,
-  }) =>
-      track('hyperliquid_deposit_step', params: {
-        'venue': 'hyperliquid',
-        'step': step,
-        'route': 'hyperevm',
-        'wallet_kind': 'hot',
-        ...moneyParams(amountUsd: amountUsd),
-      });
-
-  /// The $1 of HYPE an Investing move bought for HyperEVM / HyperCore gas.
-  /// A supporting leg (`purpose: gas_float`): folded into the move's fee,
-  /// never a money action and never revenue. [sourceAsset] `usd` | `btc`,
-  /// [trigger] `deposit` | `withdraw`.
-  static void hyperevmGasFloatBought({
-    required String sourceAsset,
-    required String trigger,
-    required double amountUsd,
-  }) =>
-      track('hyperevm_gas_float_bought', params: {
-        'venue': 'hyperliquid',
-        'provider': 'orchestra',
-        'purpose': 'gas_float',
-        'source_asset': sourceAsset,
-        'trigger': trigger,
-        'wallet_kind': 'hot',
-        'amount_usd': _round(amountUsd, 2),
-      });
-
-  /// The gas float could not be bought or made ready; the move stopped
-  /// before anything moved. [stage] `quote` | `send` | `arrival` |
-  /// `no_source` | `gas_spike` | `rebalance` | `pending`.
-  static void hyperevmGasFloatFailed({
-    required String stage,
-    required String trigger,
-    Object? error,
-  }) =>
-      track('hyperevm_gas_float_failed', params: {
-        'venue': 'hyperliquid',
-        'purpose': 'gas_float',
-        'stage': stage,
-        'trigger': trigger,
-        'wallet_kind': 'hot',
-        'error_category': errorCategory(error ?? stage),
       });
 
   /// [orderId] / [quoteId]: as on [hyperliquidDepositCompleted].
@@ -4934,7 +4863,6 @@ class TrackingService {
     double? amountUsd,
     String? destination,
     String? walletKind,
-    String? route,
   }) =>
       track('hyperliquid_withdraw_failed', params: {
         'venue': 'hyperliquid',
@@ -4942,7 +4870,6 @@ class TrackingService {
         'error_category': errorCategory(reason),
         if (destination != null) 'destination': destination,
         if (walletKind != null) 'wallet_kind': walletKind,
-        if (route != null) 'route': route,
         ...moneyParams(amountUsd: amountUsd),
       });
 

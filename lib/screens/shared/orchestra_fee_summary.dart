@@ -14,14 +14,8 @@ import 'package:kute/services/orchestra_routes.dart'
     show kOrchestraUsdAssetCode, kOrchestraUsdChain;
 import 'package:kute/providers/hyperliquid_account_provider.dart'
     show hyperliquidAddressProvider;
-import 'package:kute/services/hyperevm/hyperevm_bridge.dart'
-    show HyperEvmReaderNative;
-import 'package:kute/services/hyperevm/hyperevm_constants.dart'
-    show HyperEvmGas;
-import 'package:kute/services/hyperevm/hyperevm_gas_float.dart'
-    show HyperEvmMove;
-import 'package:kute/services/hyperevm/hyperevm_vault.dart'
-    show HiveHyperEvmTxJournal, HyperEvmFloatKeeper;
+import 'package:kute/providers/spark_address_provider.dart'
+    show sparkSelfAddressProvider;
 
 typedef FeeRoute = ({
   String fromChain,
@@ -30,19 +24,34 @@ typedef FeeRoute = ({
   String toAsset,
   String amount
 });
+
+/// One fee estimate: the route and the address it delivers to. The
+/// recipient is part of the key, so two recipients never share an
+/// estimate (a HyperCore account Hyperliquid has already seen costs about
+/// $1.22 less to reach than one it has not). Build it with
+/// [feeEstimateKey].
+typedef FeeEstimateKey = ({FeeRoute route, String? recipient});
+
+/// The key for [route] delivered to [recipient]; blank or null is "not
+/// known", and the estimate is then asked without one.
+FeeEstimateKey feeEstimateKey(FeeRoute route, {String? recipient}) =>
+    (route: route, recipient: OrchestraService.estimateRecipient(recipient));
+
 final orchestraFeeEstimateProvider = FutureProvider.autoDispose
-    .family<OrchestraEstimate, FeeRoute>(
-        (ref, route) => _loadFeeEstimate(ref, route, onramp: false));
+    .family<OrchestraEstimate, FeeEstimateKey>(
+        (ref, key) => _loadFeeEstimate(ref, key, onramp: false));
 
 /// The estimate for a route a Cash App onramp order will run. The backend
 /// prices an onramp at its own rule (not the quote's), so the Kute fee and
 /// what arrives are asked for under that rule.
 final orchestraOnrampFeeEstimateProvider = FutureProvider.autoDispose
-    .family<OrchestraEstimate, FeeRoute>(
-        (ref, route) => _loadFeeEstimate(ref, route, onramp: true));
+    .family<OrchestraEstimate, FeeEstimateKey>(
+        (ref, key) => _loadFeeEstimate(ref, key, onramp: true));
 
-Future<OrchestraEstimate> _loadFeeEstimate(Ref ref, FeeRoute route,
+Future<OrchestraEstimate> _loadFeeEstimate(Ref ref, FeeEstimateKey key,
     {required bool onramp}) async {
+  final route = key.route;
+  // Timing marks name the route and amount only, never the recipient.
   final convLabel =
       '${route.fromAsset}->${route.toAsset} amount=${route.amount}';
   ConvTiming.mark('estimate triggered (amount changed) $convLabel');
@@ -62,7 +71,8 @@ Future<OrchestraEstimate> _loadFeeEstimate(Ref ref, FeeRoute route,
           destinationChain: route.toChain,
           destinationAsset: route.toAsset,
           amount: route.amount,
-          onramp: onramp)
+          onramp: onramp,
+          recipientAddress: key.recipient)
       .timeout(const Duration(seconds: 10));
   ConvTiming.mark(
       'estimate returned ok=${result.data != null} $convLabel');
@@ -100,14 +110,19 @@ class OrchestraFeeSummary extends ConsumerWidget {
       this.sourceFeeIsMaximum = false,
       this.onramp = false,
       this.showReceive = false,
-      this.extraNetworkFeeUsd = 0});
+      this.recipient,
+      this.recipientPending = false});
   final FeeRoute route;
 
-  /// A network cost outside the quote that this move pays, in dollars:
-  /// the HyperEVM gas float an Investing move buys when it runs low. It is
-  /// part of the total and of the "Network fee" row, never a line of its
-  /// own.
-  final double extraNetworkFeeUsd;
+  /// Where the move delivers: the address its quote (or onramp order)
+  /// names. Null when not known; the estimate then prices a HyperCore
+  /// destination as an account Hyperliquid has never seen.
+  final String? recipient;
+
+  /// [recipient] is still being read. The block says "Calculating…"
+  /// rather than show, for a moment, a HyperCore fee with the activation
+  /// an account that already exists will never pay.
+  final bool recipientPending;
 
   /// The route runs as a Cash App onramp order: estimated at the rule that
   /// order is charged, not the quote's.
@@ -129,9 +144,13 @@ class OrchestraFeeSummary extends ConsumerWidget {
     if (amount == null || !amount.isFinite || amount <= 0) {
       return const MoneyFeeSummary(label: 'Fees', state: 'Enter an amount');
     }
+    if (recipientPending) {
+      return const MoneyFeeSummary(label: 'Fees', state: 'Calculating…');
+    }
+    final key = feeEstimateKey(route, recipient: recipient);
     final source = onramp
-        ? orchestraOnrampFeeEstimateProvider(route)
-        : orchestraFeeEstimateProvider(route);
+        ? orchestraOnrampFeeEstimateProvider(key)
+        : orchestraFeeEstimateProvider(key);
     final estimate = ref.watch(source);
     void retry() => ref.invalidate(source);
     // A refresh in flight and a refresh that failed both keep the previous
@@ -150,7 +169,6 @@ class OrchestraFeeSummary extends ConsumerWidget {
         sourceFeeIsMaximum: sourceFeeIsMaximum,
         bitcoinFirst: bitcoinFirst,
         showReceive: showReceive,
-        extraNetworkFeeUsd: extraNetworkFeeUsd,
         stale: estimate.hasError,
         retry: retry);
   }
@@ -165,10 +183,8 @@ class _OrchestraEstimateBlock extends ConsumerWidget {
       required this.bitcoinFirst,
       required this.showReceive,
       required this.stale,
-      required this.retry,
-      this.extraNetworkFeeUsd = 0});
+      required this.retry});
   final OrchestraEstimate quote;
-  final double extraNetworkFeeUsd;
   final FeeRoute route;
   final double sourceFeeUsd;
   final bool sourceFeeIsMaximum;
@@ -212,24 +228,14 @@ class _OrchestraEstimateBlock extends ConsumerWidget {
     // showing nothing, so when the arithmetic is unavailable the block
     // says the figure comes before confirming rather than quoting a
     // number that is wrong by fifty times.
-    final withSource = sourceFeeUsd > 0 && cost.isAvailable
+    final total = sourceFeeUsd > 0 && cost.isAvailable
         ? orchestraFeeSum(cost, OrchestraFeeAmount(usd: sourceFeeUsd),
             usdPerBtc: usdPerBtc)
         : cost;
-    final extra = extraNetworkFeeUsd > 0 && extraNetworkFeeUsd.isFinite
-        ? OrchestraFeeAmount(usd: extraNetworkFeeUsd)
-        : null;
-    final total = extra != null && withSource.isAvailable
-        ? orchestraFeeSum(withSource, extra, usdPerBtc: usdPerBtc)
-        : withSource;
-    // Whatever the quoted fees do not explain is the route's own cost,
-    // plus any network cost this move pays outside the quote.
-    final routeOnly = cost.isAvailable
+    // Whatever the quoted fees do not explain is the route's own cost.
+    final routePart = cost.isAvailable
         ? orchestraFeeDifference(cost, quoted, usdPerBtc: usdPerBtc)
         : const OrchestraFeeAmount();
-    final routePart = extra != null && routeOnly.isAvailable
-        ? orchestraFeeSum(routeOnly, extra, usdPerBtc: usdPerBtc)
-        : routeOnly;
     final received = showReceive
         ? orchestraNetReceiveAmount(quote,
             destinationChain: route.toChain, destinationAsset: route.toAsset)
@@ -309,27 +315,6 @@ class _OrchestraEstimateBlock extends ConsumerWidget {
   }
 }
 
-/// What the gas float adds to an Investing move's fee, in dollars: the $1
-/// purchase when this move has to refill a side of the float, else
-/// nothing (gas drawn from a float already paid for is not charged again).
-/// Re-read every minute while shown; a failed read shows no extra.
-final hyperEvmFloatFeeUsdProvider =
-    FutureProvider.autoDispose.family<double, bool>((ref, deposit) async {
-  final timer = Timer(const Duration(seconds: 60), ref.invalidateSelf);
-  ref.onDispose(timer.cancel);
-  final address = await ref.watch(hyperliquidAddressProvider.future);
-  if (address == null) return 0;
-  try {
-    final reader = HyperEvmReaderNative();
-    final plan = await HyperEvmFloatKeeper(
-            reader: reader, journal: const HiveHyperEvmTxJournal())
-        .plan(address, deposit ? HyperEvmMove.deposit : HyperEvmMove.withdraw);
-    return plan.buy ? HyperEvmGas.floatUsd : 0;
-  } catch (_) {
-    return 0;
-  }
-});
-
 /// Resolve native HyperCore availability before displaying fees.
 final _directHypercore =
     FutureProvider.autoDispose.family<bool, bool>((ref, deposit) async {
@@ -386,23 +371,31 @@ class MoveHyperliquidFees extends ConsumerWidget {
             }
             final fromChain = deposit
                 ? (fromDollars ? kOrchestraUsdChain : 'spark')
-                : 'hyperevm';
+                : 'hypercore';
             final fromAsset = deposit
                 ? (fromDollars ? kOrchestraUsdAssetCode : 'BTC')
                 : 'USDC';
-            // Both legs meet Orchestra on HyperEVM. The gas float, when
-            // this move has to refill it, is folded into the network fee.
-            final floatFee =
-                ref.watch(hyperEvmFloatFeeUsdProvider(deposit)).valueOrNull ??
-                    0;
+            // A withdrawal is a perpetuals usdSend, which costs the source
+            // only its amount (hypercoreUsdSendSenderFee): the whole figure
+            // is priced, with no activation line and nothing held back.
+            // The address the move's quote names: the Investing account
+            // on the way in (so an account Hyperliquid already knows is not
+            // priced with the one-time activation), the own Spark address on
+            // the way out (SparkHypercoreFundingService._addresses).
+            final AsyncValue<String?> recipient = deposit
+                ? ref.watch(hyperliquidAddressProvider)
+                : ref.watch(sparkSelfAddressProvider);
             return OrchestraFeeSummary(
                 bitcoinFirst: bitcoinFirst,
-                extraNetworkFeeUsd: floatFee,
+                recipient: recipient.valueOrNull,
+                // Only the way in has an activation to misstate.
+                recipientPending:
+                    deposit && recipient.isLoading && !recipient.hasValue,
                 route: (
               fromChain: fromChain,
               fromAsset: fromAsset,
               toChain: deposit
-                  ? 'hyperevm'
+                  ? 'hypercore'
                   : (toDollars ? kOrchestraUsdChain : 'spark'),
               toAsset: deposit
                   ? 'USDC'

@@ -1091,6 +1091,9 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
         destinationChain: destination.chain,
         destinationAsset: orchestraAssetCodeFor(destination.assetCode),
         amount: units.toString(), // dollar base units, six decimals
+        // The address the send's quote pays, once it is one the
+        // destination accepts.
+        recipientAddress: _recipientReady ? _address.text.trim() : null,
       );
       if (!mounted || seq != _estimateSeq) return;
       final gross = est.data == null

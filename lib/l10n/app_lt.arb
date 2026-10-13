@@ -1819,7 +1819,6 @@
   "investingFundingReceived": "Gautas finansavimas",
   "investingDepositsUnavailable": "Įnašai į Investavimą laikinai negalimi",
   "investingWithdrawalsUnavailable": "Išėmimai iš Investavimo laikinai negalimi",
-  "investingNeedsDollarsForNetworkFee": "Add about $1 to Dollars to cover the network fee for this move. Nothing was sent.",
   "betReceiptCost": "Kaina",
   "betReceiptPayout": "Išmoka, jei laimėsite",
   "betReceiptUpdating": "Galutinės sumos atnaujinamos.",

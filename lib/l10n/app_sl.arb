@@ -1819,7 +1819,6 @@
   "investingFundingReceived": "Prejeto financiranje",
   "investingDepositsUnavailable": "Pologi v Investiranje začasno niso na voljo",
   "investingWithdrawalsUnavailable": "Dvigi iz Investiranja začasno niso na voljo",
-  "investingNeedsDollarsForNetworkFee": "Add about $1 to Dollars to cover the network fee for this move. Nothing was sent.",
   "betReceiptCost": "Strošek",
   "betReceiptPayout": "Izplačilo ob zmagi",
   "betReceiptUpdating": "Končni zneski se posodabljajo.",

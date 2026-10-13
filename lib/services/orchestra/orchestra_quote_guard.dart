@@ -62,12 +62,10 @@ class OrchestraQuoteRequest {
   /// recipient must equal it. Null for [RecipientKind.external].
   final String? ownAddress;
 
-  /// The provider-side `tag` the quote is filed under: a categorical
-  /// purpose the backend reads, so it can tell a one-balance move (an
-  /// order's funding leg, a sweep) from a Move-sheet move, and the gas
-  /// float from either: `kute:order_funding_predictions`,
-  /// `kute:sweep_investing`, [kManualMoveQuoteTag], `kute:gas_float`, …
-  /// Never an id, amount or address. Null sends none.
+  /// The provider-side `tag` the quote is filed under, so the backend can
+  /// tell a one-balance move (an order's funding leg, a sweep) from a
+  /// Move-sheet move: `kute:order_funding_predictions`,
+  /// `kute:sweep_investing`, [kManualMoveQuoteTag], … Null sends none.
   final String? tag;
 
   /// Analytics label, e.g. `spark_btc>polygon_usdc.e`. No amounts or

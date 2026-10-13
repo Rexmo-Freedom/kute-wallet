@@ -6278,10 +6278,6 @@ class AppLocalizationsEt extends AppLocalizations {
       'Investeerimise väljamaksed pole ajutiselt saadaval';
 
   @override
-  String get investingNeedsDollarsForNetworkFee =>
-      'Add about \$1 to Dollars to cover the network fee for this move. Nothing was sent.';
-
-  @override
   String get betReceiptCost => 'Maksumus';
 
   @override

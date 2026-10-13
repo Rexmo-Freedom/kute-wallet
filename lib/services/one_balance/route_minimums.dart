@@ -36,7 +36,7 @@ RouteKey sweepRouteOf(OneBalanceVenue venue) => switch (venue) {
           toAsset: 'USDB',
         ),
       OneBalanceVenue.investing => RouteKey(
-          fromChain: 'hyperevm',
+          fromChain: 'hypercore',
           fromAsset: 'USDC',
           toChain: 'spark',
           toAsset: 'USDB',

@@ -6275,10 +6275,6 @@ class AppLocalizationsLv extends AppLocalizations {
       'Izņemšana no Investēšanas īslaicīgi nav pieejama';
 
   @override
-  String get investingNeedsDollarsForNetworkFee =>
-      'Add about \$1 to Dollars to cover the network fee for this move. Nothing was sent.';
-
-  @override
   String get betReceiptCost => 'Izmaksas';
 
   @override

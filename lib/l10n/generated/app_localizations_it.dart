@@ -6310,10 +6310,6 @@ class AppLocalizationsIt extends AppLocalizations {
       'I prelievi da Investire non sono momentaneamente disponibili';
 
   @override
-  String get investingNeedsDollarsForNetworkFee =>
-      'Add about \$1 to Dollars to cover the network fee for this move. Nothing was sent.';
-
-  @override
   String get betReceiptCost => 'Costo';
 
   @override

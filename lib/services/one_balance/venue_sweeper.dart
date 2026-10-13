@@ -113,7 +113,7 @@ abstract class VenueSweeperHost {
   /// A quote refused [usd] as too small.
   void noteAmountTooSmall(OneBalanceVenue venue, double usd);
 
-  /// Readies the rail for a move (Investing tops up its gas float).
+  /// Readies the rail for a move (a no-op for both rails today).
   Future<void> prepare(OneBalanceVenue venue);
 
   /// Sends [usd] from [venue] home. Throws [RouteUnavailable] when the
@@ -520,8 +520,9 @@ class VenueSweeper {
         _fail(venue, stage: 'quote', category: e.code.code, trigger: trigger);
       }
     } on RouteUnavailable {
-      // The rail cannot carry a withdraw right now (the legacy HyperCore
-      // binding, a paused route): the cash is simply waiting. No error
+      // The rail cannot carry a withdraw right now (Orchestra refusing the
+      // HyperCore-source route, a paused route): the cash is simply
+      // waiting, shown as unavailable until balancing completes. No error
       // UI; a backoff keeps the passes from hammering the rail.
       _setWaiting(venue, idleUsd);
       _fail(venue,

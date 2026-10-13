@@ -6338,10 +6338,6 @@ class AppLocalizationsFr extends AppLocalizations {
       'Les retraits Investir sont temporairement indisponibles';
 
   @override
-  String get investingNeedsDollarsForNetworkFee =>
-      'Add about \$1 to Dollars to cover the network fee for this move. Nothing was sent.';
-
-  @override
   String get betReceiptCost => 'Coût';
 
   @override

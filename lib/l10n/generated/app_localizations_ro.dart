@@ -6328,10 +6328,6 @@ class AppLocalizationsRo extends AppLocalizations {
       'Retragerile din Investiții sunt temporar indisponibile';
 
   @override
-  String get investingNeedsDollarsForNetworkFee =>
-      'Add about \$1 to Dollars to cover the network fee for this move. Nothing was sent.';
-
-  @override
   String get betReceiptCost => 'Cost';
 
   @override

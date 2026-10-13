@@ -19,7 +19,7 @@ void main() {
     final pm = sweepRouteOf(OneBalanceVenue.predictions);
     expect(pm.label, 'polygon_usdc.e>spark_usdb');
     final hl = sweepRouteOf(OneBalanceVenue.investing);
-    expect(hl.label, 'hyperevm_usdc>spark_usdb');
+    expect(hl.label, 'hypercore_usdc>spark_usdb');
   });
 
   test('the live minimum wins over the floor, the floor over a lower read',
@@ -31,7 +31,7 @@ void main() {
     });
     expect(await minimums.minimumUsd(OneBalanceVenue.predictions), 1);
     expect(await minimums.minimumUsd(OneBalanceVenue.investing), 2.5);
-    expect(asked.map((r) => r.fromChain), ['polygon', 'hyperevm']);
+    expect(asked.map((r) => r.fromChain), ['polygon', 'hypercore']);
   });
 
   test('a read is cached ten minutes, then refreshed', () async {

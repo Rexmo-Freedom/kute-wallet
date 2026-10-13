@@ -79,14 +79,6 @@ class SettlementFundingProof {
         sparkPaymentId = null,
         evmTxHash = txHash;
 
-  /// A HyperEVM transfer from the account's own address (an Investing
-  /// withdrawal). The hash is submitted as `txHash` with that address as
-  /// `sourceAddress`.
-  const SettlementFundingProof.evm(String txHash)
-      : kind = SettlementFundingKind.evm,
-        sparkPaymentId = null,
-        evmTxHash = txHash;
-
   final SettlementFundingKind kind;
   final String? sparkPaymentId;
   final String? evmTxHash;
@@ -947,8 +939,7 @@ class SettlementRunner {
       // submit can take most of a minute while Flashnet verifies it.
       if (plan.registerInBackground ||
           proof.kind == SettlementFundingKind.relayer ||
-          proof.kind == SettlementFundingKind.hyperliquid ||
-          proof.kind == SettlementFundingKind.evm) {
+          proof.kind == SettlementFundingKind.hyperliquid) {
         // The funds moved and the proof is on disk: the flow can finish
         // now. The submit keeps this operation's lease until it ends, so
         // the reconciler does not submit it a second time meanwhile.

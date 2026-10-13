@@ -1819,7 +1819,6 @@
   "investingFundingReceived": "Funding modtaget",
   "investingDepositsUnavailable": "Indbetalinger til Investering er midlertidigt utilgængelige",
   "investingWithdrawalsUnavailable": "Udbetalinger fra Investering er midlertidigt utilgængelige",
-  "investingNeedsDollarsForNetworkFee": "Add about $1 to Dollars to cover the network fee for this move. Nothing was sent.",
   "betReceiptCost": "Pris",
   "betReceiptPayout": "Udbetaling, hvis du vinder",
   "betReceiptUpdating": "De endelige beløb opdateres.",

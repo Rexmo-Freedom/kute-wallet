@@ -139,7 +139,7 @@ void main() {
     test('classifies every pending row by direction and venue', () {
       final moves = inFlightMovesFrom([
         _row(id: 'a', coinFrom: 'USDB', networkFrom: 'SPARK', coinTo: 'USDC', networkTo: 'POLYGON', depositAmount: '5'),
-        _row(id: 'b', coinFrom: 'USDB', networkFrom: 'SPARK', coinTo: 'USDC', networkTo: 'HYPEREVM', depositAmount: '7'),
+        _row(id: 'b', coinFrom: 'USDB', networkFrom: 'SPARK', coinTo: 'USDC', networkTo: 'HYPERCORE', depositAmount: '7'),
         _row(id: 'c', coinFrom: 'USDC.e', networkFrom: 'POLYGON', coinTo: 'USDB', networkTo: 'SPARK', withdrawalAmount: '12.4'),
         _row(id: 'd', coinFrom: 'USDC', networkFrom: 'HYPERCORE', coinTo: 'USDB', networkTo: 'SPARK', withdrawalAmount: '3'),
         _row(id: 'e', coinFrom: 'BTC', networkFrom: 'SPARK', coinTo: 'USDB', networkTo: 'SPARK', withdrawalAmount: '20'),

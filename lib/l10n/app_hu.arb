@@ -1819,7 +1819,6 @@
   "investingFundingReceived": "Kapott finanszírozás",
   "investingDepositsUnavailable": "A Befektetés befizetések átmenetileg nem érhetők el",
   "investingWithdrawalsUnavailable": "A Befektetés kivételek átmenetileg nem érhetők el",
-  "investingNeedsDollarsForNetworkFee": "Add about $1 to Dollars to cover the network fee for this move. Nothing was sent.",
   "betReceiptCost": "Költség",
   "betReceiptPayout": "Kifizetés, ha nyersz",
   "betReceiptUpdating": "A végső összegek frissülnek.",

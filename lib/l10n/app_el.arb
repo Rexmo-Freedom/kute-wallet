@@ -1819,7 +1819,6 @@
   "investingFundingReceived": "Funding που ελήφθη",
   "investingDepositsUnavailable": "Οι καταθέσεις στις Επενδύσεις δεν είναι προσωρινά διαθέσιμες",
   "investingWithdrawalsUnavailable": "Οι αναλήψεις από τις Επενδύσεις δεν είναι προσωρινά διαθέσιμες",
-  "investingNeedsDollarsForNetworkFee": "Add about $1 to Dollars to cover the network fee for this move. Nothing was sent.",
   "betReceiptCost": "Κόστος",
   "betReceiptPayout": "Πληρωμή αν κερδίσεις",
   "betReceiptUpdating": "Τα τελικά ποσά ενημερώνονται.",

@@ -33,8 +33,12 @@ import 'package:kute/providers/balance_provider.dart'
     show walletBalanceCacheProvider;
 import 'package:kute/providers/currency_conversions_provider.dart'
     show selectedCurrencyProvider;
+import 'package:kute/providers/hyperliquid_account_provider.dart'
+    show hyperliquidAddressProvider;
 import 'package:kute/providers/pending_pool_deposits_provider.dart'
     show isPendingPoolDeposit;
+import 'package:kute/providers/polymarket_trading_provider.dart'
+    show polymarketTradingProvider;
 import 'package:kute/providers/settings_provider.dart' show settingsProvider;
 import 'package:kute/providers/swap_orders_provider.dart'
     show swapOrdersProvider;
@@ -152,11 +156,17 @@ Future<void> Function(SlipVenue venue, double? initialTargetUsd)?
 /// for that amount. Falls back to the last estimate, then to
 /// [ShortfallRules.fallbackRouteFee] with the last Kute rate seen. An
 /// estimate is a read: nothing is quoted or moved.
+///
+/// [recipient] is the venue account the deposit lands in (the address its
+/// quote names), so a HyperCore account Hyperliquid already knows is not
+/// priced with the one-time activation. Part of the held estimate's key.
 Future<SlipRouteFee> _slipRouteFee(SlipVenue venue, ShortfallSource source,
-    double amountUsd, double usdPerBtc) async {
+    double amountUsd, double usdPerBtc,
+    {String? recipient}) async {
   final seam = debugSlipRouteFee;
   if (seam != null) return seam(venue, source, amountUsd);
-  final key = '${venue.code}:${source.code}';
+  final to = OrchestraService.estimateRecipient(recipient);
+  final key = '${venue.code}:${source.code}:${to ?? ''}';
   final held = _routeFees[key];
   try {
     final destinationChain =
@@ -178,6 +188,7 @@ Future<SlipRouteFee> _slipRouteFee(SlipVenue venue, ShortfallSource source,
       destinationChain: destinationChain,
       destinationAsset: destinationAsset,
       amount: amount,
+      recipientAddress: to,
     ).timeout(const Duration(seconds: 4));
     final est = result.data;
     final fee = est == null
@@ -199,6 +210,22 @@ Future<SlipRouteFee> _slipRouteFee(SlipVenue venue, ShortfallSource source,
     return held.fee;
   }
   return (fee: ShortfallRules.fallbackRouteFee, kuteBps: _lastKuteBps);
+}
+
+/// The venue account a deposit into [venue] lands in, as already resolved
+/// (never awaited): the Investing account's own EVM address, the
+/// Predictions deposit wallet. Null while unknown. Only ever the estimate's
+/// recipient; never sent to analytics or logged.
+String? _slipVenueRecipient(WidgetRef ref, SlipVenue venue) {
+  try {
+    return switch (venue) {
+      SlipVenue.investing => ref.read(hyperliquidAddressProvider).valueOrNull,
+      SlipVenue.predictions =>
+        ref.read(polymarketTradingProvider).valueOrNull?.proxyWalletAddress,
+    };
+  } catch (_) {
+    return null;
+  }
 }
 
 /// One top-up sheet at a time: a second tap while the route fee is read
@@ -265,7 +292,8 @@ Future<void> openSlipTopUp(
           : orderUsd;
       if (base > 0) {
         final route = await _slipRouteFee(
-            venue, ShortfallSource.dollars, base, balances.usdPerBtc);
+            venue, ShortfallSource.dollars, base, balances.usdPerBtc,
+            recipient: _slipVenueRecipient(ref, venue));
         top = incomingUsd != null
             ? ShortfallRules.remainingTopUpUsd(
                 shortfallUsd: shortfallUsd,

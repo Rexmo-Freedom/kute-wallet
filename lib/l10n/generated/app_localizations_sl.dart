@@ -6306,10 +6306,6 @@ class AppLocalizationsSl extends AppLocalizations {
       'Dvigi iz Investiranja začasno niso na voljo';
 
   @override
-  String get investingNeedsDollarsForNetworkFee =>
-      'Add about \$1 to Dollars to cover the network fee for this move. Nothing was sent.';
-
-  @override
   String get betReceiptCost => 'Strošek';
 
   @override

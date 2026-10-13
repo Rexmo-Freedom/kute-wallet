@@ -614,6 +614,12 @@ class OrchestraService {
     }
   }
 
+  /// [recipientAddress] is where the move delivers: the same address the
+  /// quote that follows names. Orchestra prices the destination as it
+  /// really is from it. Without one, a HyperCore estimate assumes an
+  /// account Hyperliquid has never seen and counts the one-time
+  /// activation (about $1.22) on every deposit. Sent only when known; it
+  /// never reaches analytics or logs, and a failure's text has it removed.
   static Future<Result<OrchestraEstimate>> getEstimate({
     required String sourceChain,
     required String sourceAsset,
@@ -621,7 +627,9 @@ class OrchestraService {
     required String destinationAsset,
     required String amount,
     bool onramp = false,
+    String? recipientAddress,
   }) async {
+    final recipient = estimateRecipient(recipientAddress);
     try {
       final uri = Uri.parse('$_baseUrl/estimate').replace(queryParameters: {
         'sourceChain': sourceChain,
@@ -633,6 +641,7 @@ class OrchestraService {
         // prices at its own rule; the flag asks the estimate for that same
         // rule so the fee shown is the fee charged.
         if (onramp) 'onramp': 'true',
+        if (recipient != null) 'recipientAddress': recipient,
       });
       final res = await _send((h) => SharedHttpClient.get(uri,
           headers: h,
@@ -646,8 +655,22 @@ class OrchestraService {
       }
       return Result(error: _parseError(res.body));
     } catch (e) {
-      return Result(error: e.toString());
+      // A transport error can quote the request URL, query included.
+      final text = e.toString();
+      return Result(
+          error: recipient == null
+              ? text
+              : text.replaceAll(recipient, '<recipient>'));
     }
+  }
+
+  /// The recipient an estimate is asked for, or null when there is none
+  /// to send: blank means unknown. Estimate cache keys go through this
+  /// too, so a blank and a missing recipient are one estimate and two
+  /// different recipients never are.
+  static String? estimateRecipient(String? address) {
+    final trimmed = address?.trim();
+    return trimmed == null || trimmed.isEmpty ? null : trimmed;
   }
 
   // ─── Quote & Submit (Spark orchestration) ──────────────────────
@@ -729,11 +752,9 @@ class OrchestraService {
       };
       if (deliveryMode != null) body['deliveryMode'] = deliveryMode;
       if (slippageBps != null) body['slippageBps'] = slippageBps;
-      // Orchestra's own `tag` (1–64 of [A-Za-z0-9._:-]): what the quote
-      // is for (a one-balance move's purpose and venue, or the Move
-      // sheet's own), so the backend classifies the order without
-      // guessing from its legs. Never an id, amount or address; absent
-      // when the flow sets none.
+      // The provider-side tag the quote is filed under (a one-balance
+      // move's purpose and venue, or the Move sheet's own); absent when
+      // the flow sets none.
       if (tag != null) body['tag'] = tag;
 
       roundtrip.start();

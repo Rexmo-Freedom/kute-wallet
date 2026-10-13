@@ -874,27 +874,8 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   }
 
   String _moveFailure(Object error) =>
-      _investingStopCopy(error) ??
       HotSettlement.messageFor(error, context.l10n) ??
       userErrorCopy(context, error, fallback: context.l10n.moveFailure);
-
-  /// An Investing move that stopped before anything reached the provider:
-  /// the gas float needs about $1 in Dollars, or the HyperEVM leg is not
-  /// ready right now. Older reasons keep their own copy.
-  String? _investingStopCopy(Object error) {
-    if (error is! HypercoreFundingUnavailable) return null;
-    switch (error.reason) {
-      case HypercoreFundingUnavailableReason.floatUnavailable:
-        return context.l10n.investingNeedsDollarsForNetworkFee;
-      case HypercoreFundingUnavailableReason.floatPending:
-      case HypercoreFundingUnavailableReason.gasSpike:
-      case HypercoreFundingUnavailableReason.coreTransferRefused:
-      case HypercoreFundingUnavailableReason.arrivalTimeout:
-        return context.l10n.routeUnavailableNothingSent;
-      default:
-        return null;
-    }
-  }
 
   // ─── Move funnel (product analytics) ────────────────────────────
 
@@ -2106,6 +2087,56 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     return evm == null || evm.isEmpty ? null : evm;
   }
 
+  /// The address this move's quote (or Cash App order) will name for a
+  /// [chain] destination, taken from what the sheet already resolved and
+  /// never awaited, so it never holds an estimate up. An estimate asked
+  /// without it prices a HyperCore destination as an account Hyperliquid
+  /// has never seen, the one-time activation (about $1.22) on every
+  /// deposit. Null while unknown. Build passes `ref.watch` as [read] so
+  /// the fee block asks again once the address lands. It goes to
+  /// Orchestra's estimate only, never to analytics or logs.
+  String? _estimateRecipientFor(String chain,
+      {required T Function<T>(ProviderListenable<T> provider) read}) {
+    final ledgerWalletId = widget.venueWalletId ?? widget.ledgerWalletId;
+    if (_isLedgerMove && ledgerWalletId != null) {
+      // A Ledger lands on HyperCore in its own device-verified EVM
+      // account (LedgerHypercoreFundingService, _ledgerCashAppRecipient).
+      // Its Predictions deposit wallet is resolved at the tap: unknown.
+      if (chain != 'hypercore') return null;
+      final identity = read(ledgerIdentityProvider(ledgerWalletId));
+      return identity != null && identity.hasVerifiedEvm
+          ? identity.evmAddress
+          : null;
+    }
+    switch (chain) {
+      case 'hypercore':
+        return read(hyperliquidAddressProvider).valueOrNull;
+      case 'polygon':
+        // [_resolveEvmAddress] without its network fallback.
+        final live = read(polymarketTradingProvider
+            .select((s) => s.valueOrNull?.proxyWalletAddress));
+        if (live != null && live.isNotEmpty) return live;
+        final spending = pickSpendingWallet(ref.read(settingsProvider));
+        return spending == null
+            ? null
+            : PolymarketAccountCache.read(spending.id)?.depositAddress;
+      case 'spark':
+        return read(sparkSelfAddressProvider).valueOrNull;
+    }
+    return null;
+  }
+
+  /// The Investing account is still being derived for a [chain] fee block
+  /// that needs it: the block waits rather than show the activation for
+  /// a moment. Build only.
+  bool _estimateRecipientPending(String chain) {
+    if (_isLedgerMove || chain != 'hypercore') {
+      return false;
+    }
+    final account = ref.watch(hyperliquidAddressProvider);
+    return account.isLoading && !account.hasValue;
+  }
+
   /// [_resolveEvmAddress] for a dispatch. Read live at the tap, never a
   /// copy kept from when the sheet opened. The account is normally up by
   /// now (the sheet starts it waking as it opens); when Continue beat it,
@@ -2176,9 +2207,16 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         investing: investing,
         buyingDollars: _buyingDollars,
       );
-      final sampleKey = '${sample.sourceChain}:${sample.sourceAsset}>'
-          '${sample.destinationChain}:${sample.destinationAsset}';
-      final held = _isLedgerMove ? null : _rateSamples[sampleKey];
+      // The sample asks for the address the move will deliver to, so a
+      // HyperCore account Hyperliquid already knows is not priced with
+      // the one-time activation; it is part of the held sample's key.
+      var recipient =
+          _estimateRecipientFor(sample.destinationChain, read: ref.read);
+      String keyFor(String? to) =>
+          '${sample.sourceChain}:${sample.sourceAsset}>'
+          '${sample.destinationChain}:${sample.destinationAsset}'
+          '>${OrchestraService.estimateRecipient(to) ?? ''}';
+      final held = _isLedgerMove ? null : _rateSamples[keyFor(recipient)];
       if (held != null &&
           DateTime.now().difference(held.at) < _rateSampleMaxAge &&
           mounted) {
@@ -2194,12 +2232,26 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       if (!investing && !_buyingDollars && !_isLedgerMove) {
         unawaited(_resolveEvmAddress());
       }
+      // The Investing account is derived as the sheet opens. When it has
+      // not landed yet it is waited for briefly: without it a $100
+      // sample prices the activation in, about 1% off the rate.
+      if (recipient == null &&
+          !_isLedgerMove &&
+          sample.destinationChain == 'hypercore') {
+        try {
+          recipient = await ref
+              .read(hyperliquidAddressProvider.future)
+              .timeout(const Duration(seconds: 2));
+        } catch (_) {}
+        if (!mounted || request != _rateRequest) return;
+      }
       final result = await OrchestraService.getEstimate(
         sourceChain: sample.sourceChain,
         sourceAsset: sample.sourceAsset,
         destinationChain: sample.destinationChain,
         destinationAsset: sample.destinationAsset,
         amount: sample.amount,
+        recipientAddress: recipient,
       );
       if (!mounted || request != _rateRequest || _isFiatMode) return;
       final est = result.data;
@@ -2221,7 +2273,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         ..._moveRouteParams(),
       });
       if (!_isLedgerMove) {
-        _rateSamples[sampleKey] = (rate: rate, at: DateTime.now());
+        _rateSamples[keyFor(recipient)] = (rate: rate, at: DateTime.now());
       }
       if (mounted) _applyRate(rate, prefill: !showedHeld);
     } catch (e) {
@@ -2915,13 +2967,18 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       // Gross up the FIRST quote from the estimate the fee block already
       // holds for this exact amount, so the typed figure usually arrives
       // on one quote instead of two.
+      // Only an estimate for this quote's own recipient counts (the fee
+      // block asks for the same one).
       final estimate = ref
-          .read(orchestraFeeEstimateProvider((
-            fromChain: 'spark',
-            fromAsset: 'BTC',
-            toChain: destinationChain,
-            toAsset: destinationAsset,
-            amount: sats.toString(),
+          .read(orchestraFeeEstimateProvider(feeEstimateKey(
+            (
+              fromChain: 'spark',
+              fromAsset: 'BTC',
+              toChain: destinationChain,
+              toAsset: destinationAsset,
+              amount: sats.toString(),
+            ),
+            recipient: recipient,
           )))
           .valueOrNull;
       if (estimate != null) {
@@ -4113,7 +4170,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         amountUsd: usd,
         sourceAsset: 'usd',
         walletKind: 'hot',
-        route: 'hyperevm',
+        route: 'direct',
       );
       final result = await direct.depositFromSpark(
         registerInBackground: true,
@@ -4166,7 +4223,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       TrackingService.hyperliquidDepositFailed(
         reason: TrackingService.errorCategory(e),
         amountUsd: usd,
-        route: 'hyperevm',
+        route: 'direct',
         walletKind: 'hot',
       );
       _trackMoveFailed(e);
@@ -4214,7 +4271,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         amountUsd: approxUsd,
         sourceAsset: 'btc',
         walletKind: 'hot',
-        route: 'hyperevm',
+        route: 'direct',
       );
       final result = await direct.depositFromSpark(
         registerInBackground: true,
@@ -4262,7 +4319,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       TrackingService.hyperliquidDepositFailed(
         reason: TrackingService.errorCategory(e),
         amountUsd: approxUsd,
-        route: 'hyperevm',
+        route: 'direct',
         walletKind: 'hot',
       );
       _trackMoveFailed(e);
@@ -4315,7 +4372,6 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         amountUsd: usd,
         destination: dollars ? 'usd' : 'btc',
         walletKind: 'hot',
-        route: 'hyperevm',
       );
       _trackMoveSubmitted();
       await direct.withdrawToSpark(
@@ -4368,7 +4424,6 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         amountUsd: usd,
         destination: dollars ? 'usd' : 'btc',
         walletKind: 'hot',
-        route: 'hyperevm',
       );
       _trackMoveFailed(e);
       if (!mounted) {
@@ -6452,6 +6507,13 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
                             if (!_fromHyperliquid && !_destHyperliquid)
                               OrchestraFeeSummary(
                                   bitcoinFirst: false,
+                                  recipient: _estimateRecipientFor(
+                                      _destPredictions
+                                          ? 'polygon'
+                                          : (_destUsd
+                                              ? kOrchestraUsdChain
+                                              : 'spark'),
+                                      read: ref.watch),
                                   route: (
                                     fromChain: _sourceFeeChain,
                                     fromAsset: _sourceFeeAsset,
@@ -6503,6 +6565,11 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
                                 bitcoinFirst: false,
                                 onramp: true,
                                 showReceive: true,
+                                recipient: _estimateRecipientFor(
+                                    _cashAppDestination.chain,
+                                    read: ref.watch),
+                                recipientPending: _estimateRecipientPending(
+                                    _cashAppDestination.chain),
                                 route: (
                               fromChain: 'lightning',
                               fromAsset: 'BTC',

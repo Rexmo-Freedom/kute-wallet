@@ -30,6 +30,7 @@ import 'package:kute/l10n/generated/app_localizations.dart';
 import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/models/currency_conversions.dart';
 import 'package:kute/models/hyperliquid_market.dart';
+import 'package:kute/models/orchestra_route_limits.dart';
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/currency_conversions_provider.dart';
 import 'package:kute/providers/hyperliquid_account_provider.dart';
@@ -41,6 +42,8 @@ import 'package:kute/services/funding/settlement_runner.dart'
 import 'package:kute/services/funding/spark_hypercore_funding_service.dart';
 import 'package:kute/services/hyperliquid/hypercore_activation_fee.dart';
 import 'package:kute/services/hyperliquid/hypercore_cash.dart';
+import 'package:kute/services/orchestra/orchestra_quote_gate.dart'
+    show OrchestraQuoteFailure;
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:money2/money2.dart' show Fixed;
@@ -53,6 +56,8 @@ const _depositAddress = '0x2222222222222222222222222222222222222222';
 const _generic = 'The move could not be completed. Check its status before '
     'trying again.';
 const _insufficient = 'Insufficient balance';
+const _refusedCopy =
+    "This transfer isn't available right now. Nothing was sent.";
 
 MockClient _orchestra() => MockClient((request) async {
       if (!request.url.path.endsWith('/estimate')) {
@@ -118,6 +123,10 @@ class _Hypercore extends SparkHypercoreFundingService {
   final sent = <({double usd, SparkFundingAsset destination})>[];
   final requested = <BigInt>[];
 
+  /// Thrown where the real service meets Orchestra's quote: before the
+  /// step-up and before anything is sent.
+  Object? quoteRefusal;
+
   @override
   Future<void> ensureAvailable({required bool deposit}) async {}
 
@@ -130,6 +139,8 @@ class _Hypercore extends SparkHypercoreFundingService {
     String purpose = 'manual_move',
   }) async {
     sent.add((usd: usd, destination: destination));
+    final refusal = quoteRefusal;
+    if (refusal != null) throw refusal;
     final quoted = await quoteHypercoreBudget<BigInt>(
       budget: hypercoreUsdcBaseUnits(usd),
       request: (amount, _) async => HypercoreBudgetQuote(
@@ -318,6 +329,28 @@ void main() {
     expect(hypercore.sent.single.usd, 10);
     expect(find.text(_generic), findsNothing);
     expect(find.text(_insufficient), findsWidgets);
+    expect(tester.widget<AppButton>(find.byType(AppButton).last).isLoading,
+        isFalse);
+    await _close(tester, container);
+  });
+
+  testWidgets(
+      'Investing → Dollars: a route Orchestra refuses says nothing was sent',
+      (tester) async {
+    // Flashnet's answer to a HyperCore-source quote today
+    // (`unsupported_route`), as the quote gate raises it.
+    final (container, hypercore) = await _open(tester, _snapshot(perp: 10));
+    await _pickDollars(tester);
+    hypercore.quoteRefusal = OrchestraQuoteFailure(
+        'HyperCore source routes require independent deposit verification '
+        'and are unavailable',
+        routeError: RouteQuoteError(
+            RouteQuoteErrorCode.fromCode('unsupported_route')!));
+    await _maxAndContinue(tester);
+
+    expect(hypercore.sent.single.usd, 10);
+    expect(find.text(_refusedCopy), findsWidgets);
+    expect(find.text(_generic), findsNothing);
     expect(tester.widget<AppButton>(find.byType(AppButton).last).isLoading,
         isFalse);
     await _close(tester, container);

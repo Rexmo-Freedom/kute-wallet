@@ -2392,12 +2392,17 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
       if (_hasSource && _isSparkHotWalletSource()) {
         final orchChain = orchestraSendChainFor(asset.code, network.network);
         if (orchChain != null) {
+          // The address the send's quote pays, once it reads as a valid
+          // address: a half-typed one would only fail the estimate.
+          final typed = addressController.text.trim();
           final est = await OrchestraService.getEstimate(
             sourceChain: 'spark',
             sourceAsset: 'BTC',
             destinationChain: orchChain,
             destinationAsset: orchestraAssetCodeFor(asset.code),
             amount: amount.toString(), // sats — source smallest units
+            recipientAddress:
+                _detectAddressType(typed).valid ? typed : null,
           );
           final grossOut = est.data == null
               ? 0.0

@@ -244,7 +244,6 @@ class SettlementCodec {
         'relayerTxId': f.relayerTxId,
         'hlNonce': f.hlNonce,
         'hlActionHash': f.hlActionHash,
-        'evmNonce': f.evmNonce,
       };
 
   /// Writes [known] over [raw]. A null known value removes the key, a
@@ -356,7 +355,6 @@ class SettlementCodec {
         relayerTxId: fundingReader.optStr('relayerTxId'),
         hlNonce: fundingReader.optInt('hlNonce'),
         hlActionHash: fundingReader.optStr('hlActionHash'),
-        evmNonce: fundingReader.optInt('evmNonce'),
       );
     }
 

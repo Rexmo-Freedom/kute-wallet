@@ -6313,10 +6313,6 @@ class AppLocalizationsPl extends AppLocalizations {
       'Wypłaty z Inwestowania są chwilowo niedostępne';
 
   @override
-  String get investingNeedsDollarsForNetworkFee =>
-      'Add about \$1 to Dollars to cover the network fee for this move. Nothing was sent.';
-
-  @override
   String get betReceiptCost => 'Koszt';
 
   @override

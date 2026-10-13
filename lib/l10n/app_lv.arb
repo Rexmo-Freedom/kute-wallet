@@ -1819,7 +1819,6 @@
   "investingFundingReceived": "Saņemtais finansējums",
   "investingDepositsUnavailable": "Iemaksas Investēšanā īslaicīgi nav pieejamas",
   "investingWithdrawalsUnavailable": "Izņemšana no Investēšanas īslaicīgi nav pieejama",
-  "investingNeedsDollarsForNetworkFee": "Add about $1 to Dollars to cover the network fee for this move. Nothing was sent.",
   "betReceiptCost": "Izmaksas",
   "betReceiptPayout": "Izmaksa, ja uzvarēsi",
   "betReceiptUpdating": "Galīgās summas tiek atjauninātas.",

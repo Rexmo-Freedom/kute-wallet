@@ -451,13 +451,6 @@ SettlementReconcilePlan planSettlementReconcile(
   switch (stage) {
     case SettlementStage.broadcasting:
     case SettlementStage.fundingUnknown:
-      // A HyperEVM withdrawal still running in this process owns its own
-      // record: a probe between its steps would read "not signed yet".
-      if ((state.fundingKind == SettlementFundingKind.evm ||
-              state.fundingKind == null) &&
-          state.ownedByLiveFlow) {
-        return SettlementReconcilePlan.idle;
-      }
       if (state.fundingKind == SettlementFundingKind.spark) {
         final counted = state.lastSdkSyncGeneration;
         // A send a live runner holds is left to it until the cadence is due.

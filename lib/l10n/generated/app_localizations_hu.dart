@@ -6307,10 +6307,6 @@ class AppLocalizationsHu extends AppLocalizations {
       'A Befektetés kivételek átmenetileg nem érhetők el';
 
   @override
-  String get investingNeedsDollarsForNetworkFee =>
-      'Add about \$1 to Dollars to cover the network fee for this move. Nothing was sent.';
-
-  @override
   String get betReceiptCost => 'Költség';
 
   @override

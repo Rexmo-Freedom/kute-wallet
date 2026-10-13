@@ -1819,7 +1819,6 @@
   "investingFundingReceived": "受け取ったファンディング",
   "investingDepositsUnavailable": "投資への入金は一時的に利用できません",
   "investingWithdrawalsUnavailable": "投資からの出金は一時的に利用できません",
-  "investingNeedsDollarsForNetworkFee": "Add about $1 to Dollars to cover the network fee for this move. Nothing was sent.",
   "betReceiptCost": "費用",
   "betReceiptPayout": "的中時の払い戻し",
   "betReceiptUpdating": "最終金額を更新中です。",

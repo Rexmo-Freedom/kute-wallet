@@ -1819,7 +1819,6 @@
   "investingFundingReceived": "Saatu rahoitus",
   "investingDepositsUnavailable": "Sijoita-talletukset eivät ole tilapäisesti käytettävissä",
   "investingWithdrawalsUnavailable": "Sijoita-nostot eivät ole tilapäisesti käytettävissä",
-  "investingNeedsDollarsForNetworkFee": "Add about $1 to Dollars to cover the network fee for this move. Nothing was sent.",
   "betReceiptCost": "Hinta",
   "betReceiptPayout": "Maksu, jos voitat",
   "betReceiptUpdating": "Lopullisia summia päivitetään.",

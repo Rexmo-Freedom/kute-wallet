@@ -27,11 +27,10 @@ import 'package:kute/services/one_balance/one_balance_state.dart';
 /// not money on a rail (the same cap the pool hero uses).
 const Duration kVenueMoveMaxAge = Duration(minutes: 30);
 
-/// The exchange-row network labels a venue's moves carry. Investing has
-/// two: the legacy HyperCore rail and the HyperEVM rail that replaces it.
+/// The exchange-row network labels a venue's moves carry.
 Set<String> venueNetworksOf(OneBalanceVenue venue) => switch (venue) {
       OneBalanceVenue.predictions => const {'POLYGON'},
-      OneBalanceVenue.investing => const {'HYPERCORE', 'HYPEREVM'},
+      OneBalanceVenue.investing => const {'HYPERCORE'},
     };
 
 bool _dollarCoin(String coin) {

@@ -5049,10 +5049,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           // The Ledger account's own fee tier, never the hot account's.
           address: _isLedger ? _ledgerAddress : null,
           useHotAccount: !_isLedger,
-          // What moving the shortfall from Dollars costs (the route's fee,
-          // with the gas float on an empty account folded in), inside the
-          // one fee row: added to the total, one "Move fee" detail. Only
-          // while the order needs the move.
+          // What moving the shortfall from Dollars costs (the route's fee),
+          // inside the one fee row: added to the total, one "Move fee"
+          // detail. Only while the order needs the move.
           moveFeeUsd: _slipShortfallUsd > 0 &&
                   _fundPlan != null &&
                   (_fundPlan!.shortfallUsd - _slipShortfallUsd).abs() < 0.005

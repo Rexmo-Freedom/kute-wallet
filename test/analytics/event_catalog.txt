@@ -188,8 +188,6 @@ hw_sign_method_selected
 hw_sign_other_methods_toggled
 hw_sign_qr_help_toggled
 hw_sign_retry
-hyperevm_gas_float_bought
-hyperevm_gas_float_failed
 hyperliquid_attached_trailing_failed
 hyperliquid_autofire_failed
 hyperliquid_banner_shown
@@ -201,7 +199,6 @@ hyperliquid_close_submitted
 hyperliquid_deposit_completed
 hyperliquid_deposit_failed
 hyperliquid_deposit_initiated
-hyperliquid_deposit_step
 hyperliquid_funding_blocked
 hyperliquid_geoblocked_shown
 hyperliquid_leverage_adjusted
@@ -227,7 +224,6 @@ hyperliquid_trading_enabled
 hyperliquid_withdraw_completed
 hyperliquid_withdraw_failed
 hyperliquid_withdraw_initiated
-hyperliquid_withdraw_step
 hyperliquid_withdraw_submitted
 indicator_toggled
 investing_close_available_tapped

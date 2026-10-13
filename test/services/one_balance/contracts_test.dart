@@ -5,11 +5,9 @@ import 'package:kute/providers/one_balance_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/swap_orders_provider.dart';
 import 'package:kute/providers/venue_sweeper_provider.dart';
-import 'package:kute/services/one_balance/hyperevm_move_rail.dart';
 import 'package:kute/services/one_balance/hyperliquid_move_rail.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/one_balance/venue_cash_released.dart';
-import 'package:kute/services/one_balance/venue_funder.dart';
 
 import '../../helpers/fake_swap_orders.dart';
 
@@ -116,18 +114,12 @@ void main() {
       expect(container.read(venueSweeperProvider).sweeping, isEmpty);
     });
 
-    test('the Investing rail binds to the HyperEVM rail', () async {
+    test('the Investing rail binds to the direct HyperCore rail', () async {
       final rail = container.read(hyperliquidMoveRailProvider);
-      expect(rail, isA<HyperEvmMoveRail>());
-      // No Investing account in this container: nothing can be read or
-      // moved, and the rail says so before anything leaves Dollars.
-      expect(await rail.withdrawableUsd(), 0);
-      expect(rail.credited.isBroadcast, isTrue);
-      await expectLater(
-        rail.withdrawToDollars(
-            usd: 10, auth: SweepAuthorization.automatic),
-        throwsA(isA<RouteUnavailable>()),
-      );
+      expect(rail, isA<HyperCoreMoveRail>());
+      // No gas of its own, no push signal: the slip's poll sees credits.
+      await rail.ensureGasFloat();
+      expect(await rail.credited.isEmpty, isTrue);
     });
   });
 }

@@ -11014,12 +11014,6 @@ abstract class AppLocalizations {
   /// **'Investing withdrawals are temporarily unavailable'**
   String get investingWithdrawalsUnavailable;
 
-  /// Investing move stopped before anything moved: the small HYPE float that pays network fees needs about $1 from Dollars (or Bitcoin) and neither balance has it.
-  ///
-  /// In en, this message translates to:
-  /// **'Add about \$1 to Dollars to cover the network fee for this move. Nothing was sent.'**
-  String get investingNeedsDollarsForNetworkFee;
-
   /// No description provided for @betReceiptCost.
   ///
   /// In en, this message translates to:

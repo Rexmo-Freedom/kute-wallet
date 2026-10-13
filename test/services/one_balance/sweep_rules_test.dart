@@ -214,15 +214,19 @@ void main() {
   group('row predicates', () {
     test('venue networks and deposit rows', () {
       expect(venueNetworksOf(OneBalanceVenue.predictions), {'POLYGON'});
-      expect(venueNetworksOf(OneBalanceVenue.investing),
-          {'HYPERCORE', 'HYPEREVM'});
+      expect(venueNetworksOf(OneBalanceVenue.investing), {'HYPERCORE'});
       final pm = _row(
           coinFrom: 'USDB', networkFrom: 'SPARK', coinTo: 'USDC', networkTo: 'POLYGON');
       expect(venueDepositRowOf(pm, walletId: 'w1'), OneBalanceVenue.predictions);
-      final evm = _row(
-          coinFrom: 'USDB', networkFrom: 'SPARK', coinTo: 'USDC', networkTo: 'HYPEREVM');
-      expect(venueDepositRowOf(evm, walletId: 'w1'), OneBalanceVenue.investing);
-      expect(venueDepositRowOf(evm, walletId: 'other'), isNull);
+      final hl = _row(
+          coinFrom: 'USDB', networkFrom: 'SPARK', coinTo: 'USDC', networkTo: 'HYPERCORE');
+      expect(venueDepositRowOf(hl, walletId: 'w1'), OneBalanceVenue.investing);
+      expect(venueDepositRowOf(hl, walletId: 'other'), isNull);
+      // A receive from a HyperEVM chain is dollars arriving, never a
+      // venue move.
+      final receive = _row(
+          coinFrom: 'USDC', networkFrom: 'HYPEREVM', coinTo: 'USDB', networkTo: 'SPARK');
+      expect(venueWithdrawalRowOf(receive, walletId: 'w1'), isNull);
       final btc = _row(
           coinFrom: 'BTC', networkFrom: 'SPARK', coinTo: 'USDB', networkTo: 'SPARK');
       expect(venueDepositRowOf(btc, walletId: 'w1'), isNull);
@@ -239,7 +243,7 @@ void main() {
       expect(pendingVenueMoveOf(sweep, walletId: 'w1', nowMs: nowMs),
           (OneBalanceVenue.predictions, InFlightKind.fromVenue));
       final hl = _row(
-          coinFrom: 'USDC', networkFrom: 'HYPEREVM', coinTo: 'USDB', networkTo: 'SPARK');
+          coinFrom: 'USDC', networkFrom: 'HYPERCORE', coinTo: 'USDB', networkTo: 'SPARK');
       expect(pendingVenueMoveOf(hl, walletId: 'w1', nowMs: nowMs),
           (OneBalanceVenue.investing, InFlightKind.fromVenue));
       final done = _row(

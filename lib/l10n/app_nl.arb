@@ -1819,7 +1819,6 @@
   "investingFundingReceived": "Funding ontvangen",
   "investingDepositsUnavailable": "Stortingen in Beleggen zijn tijdelijk niet beschikbaar",
   "investingWithdrawalsUnavailable": "Opnames uit Beleggen zijn tijdelijk niet beschikbaar",
-  "investingNeedsDollarsForNetworkFee": "Add about $1 to Dollars to cover the network fee for this move. Nothing was sent.",
   "betReceiptCost": "Kosten",
   "betReceiptPayout": "Uitbetaling als je wint",
   "betReceiptUpdating": "Eindbedragen worden bijgewerkt.",

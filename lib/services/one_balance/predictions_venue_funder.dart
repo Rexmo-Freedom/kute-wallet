@@ -92,7 +92,7 @@ String predictionsQuoteTag(String purpose) =>
 /// The route's share of a move, as read from one estimate (the route's
 /// own share, with Kute's app fee folded in when the estimate left it
 /// out), and when it was read.
-typedef _RouteShare = ({double fee, DateTime at});
+typedef _RouteShare = ({double fee, DateTime at, String? recipient});
 
 /// How long one estimate's fee share stands in for the next read, so a
 /// slip retyping the amount does not wait on the network every time.
@@ -172,7 +172,16 @@ class PredictionsVenueFunder
   Future<double> _routeShare(double usd) async {
     final seam = debugRouteShare;
     if (seam != null) return seam(usd);
-    final held = _lastShare;
+    // The deposit wallet the move's quote pays, as the live account has
+    // it (the first answer [_ownPredictionsAccount] gives); never awaited
+    // here. A share read for one recipient never stands in for another.
+    String? recipient;
+    try {
+      recipient = OrchestraService.estimateRecipient(
+          _read(polymarketTradingProvider).valueOrNull?.proxyWalletAddress);
+    } catch (_) {}
+    final last = _lastShare;
+    final held = last != null && last.recipient == recipient ? last : null;
     try {
       final amount = doubleToOrchestraAmount(
           usd <= 0 ? kPredictionsMinMoveUsd : usd, kOrchestraUsdAssetCode,
@@ -183,6 +192,7 @@ class PredictionsVenueFunder
         destinationChain: 'polygon',
         destinationAsset: 'USDC.e',
         amount: amount,
+        recipientAddress: recipient,
       ).timeout(const Duration(seconds: 4));
       final est = result.data;
       if (est != null) {
@@ -191,7 +201,8 @@ class PredictionsVenueFunder
             arrivingUsd: orchestraAmountToDouble(est.estimatedOut, 'USDC.e',
                 chain: 'polygon'));
         if (share != null) {
-          _lastShare = (fee: share, at: DateTime.now());
+          _lastShare =
+              (fee: share, at: DateTime.now(), recipient: recipient);
           return share;
         }
       }

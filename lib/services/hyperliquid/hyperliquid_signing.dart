@@ -198,21 +198,7 @@ const List<HlTypedField> approveBuilderFeeSignTypes = [
   (name: 'nonce', type: 'uint64'),
 ];
 
-/// `sendAsset` (hyperliquid-python-sdk SEND_ASSET_SIGN_TYPES, the same
-/// fields and order as the Hyperliquid docs and Circle's HyperCore guide).
-const List<HlTypedField> sendAssetSignTypes = [
-  (name: 'hyperliquidChain', type: 'string'),
-  (name: 'destination', type: 'string'),
-  (name: 'sourceDex', type: 'string'),
-  (name: 'destinationDex', type: 'string'),
-  (name: 'token', type: 'string'),
-  (name: 'amount', type: 'string'),
-  (name: 'fromSubAccount', type: 'string'),
-  (name: 'nonce', type: 'uint64'),
-];
-
 const String withdrawPrimaryType = 'HyperliquidTransaction:Withdraw';
-const String sendAssetPrimaryType = 'HyperliquidTransaction:SendAsset';
 const String usdSendPrimaryType = 'HyperliquidTransaction:UsdSend';
 const String spotSendPrimaryType = 'HyperliquidTransaction:SpotSend';
 const String usdClassTransferPrimaryType =
@@ -487,27 +473,6 @@ Map<String, dynamic> buildSpotSendAction({
   'time': time,
   'type': 'spotSend',
 };
-
-/// A `sendAsset` action map, keys in the order the Python SDK builds
-/// them (`Exchange.send_asset`). The signed `nonce` IS the POSTed nonce.
-Map<String, dynamic> buildSendAssetAction({
-  required String destination,
-  required String sourceDex,
-  required String destinationDex,
-  required String token,
-  required String amount,
-  required int nonce,
-}) =>
-    {
-      'type': 'sendAsset',
-      'destination': destination,
-      'sourceDex': sourceDex,
-      'destinationDex': destinationDex,
-      'token': token,
-      'amount': amount,
-      'fromSubAccount': '',
-      'nonce': nonce,
-    };
 
 Map<String, dynamic> buildWithdraw3Action({
   required String destination,

@@ -1819,7 +1819,6 @@
   "investingFundingReceived": "Přijatý funding",
   "investingDepositsUnavailable": "Vklady do Investování jsou dočasně nedostupné",
   "investingWithdrawalsUnavailable": "Výběry z Investování jsou dočasně nedostupné",
-  "investingNeedsDollarsForNetworkFee": "Add about $1 to Dollars to cover the network fee for this move. Nothing was sent.",
   "betReceiptCost": "Cena",
   "betReceiptPayout": "Výplata při výhře",
   "betReceiptUpdating": "Konečné částky se aktualizují.",

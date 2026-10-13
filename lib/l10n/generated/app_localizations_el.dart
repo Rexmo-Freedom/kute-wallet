@@ -6340,10 +6340,6 @@ class AppLocalizationsEl extends AppLocalizations {
       'Οι αναλήψεις από τις Επενδύσεις δεν είναι προσωρινά διαθέσιμες';
 
   @override
-  String get investingNeedsDollarsForNetworkFee =>
-      'Add about \$1 to Dollars to cover the network fee for this move. Nothing was sent.';
-
-  @override
   String get betReceiptCost => 'Κόστος';
 
   @override

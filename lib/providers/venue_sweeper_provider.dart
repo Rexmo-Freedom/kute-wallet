@@ -75,7 +75,7 @@ String oneBalanceRolloutKey(String walletId) =>
 /// Orchestra chains a venue's settlement operations run on.
 const Map<OneBalanceVenue, Set<String>> _venueChains = {
   OneBalanceVenue.predictions: {'polygon'},
-  OneBalanceVenue.investing: {'hypercore', 'hyperevm'},
+  OneBalanceVenue.investing: {'hypercore'},
 };
 
 class _RiverpodSweeperHost extends VenueSweeperHost {

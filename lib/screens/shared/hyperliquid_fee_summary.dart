@@ -156,7 +156,7 @@ class HyperliquidFeeSummary extends ConsumerWidget {
   final List<HyperliquidFeeLeg>? legs;
 
   /// One balance: what moving the order's shortfall from Dollars costs
-  /// (the route's fee with the gas float folded in). Added to the total
+  /// (the route's fee). Added to the total
   /// and listed as one [moveFeeLabel] detail row, so the ticket shows the
   /// whole cost of the order in the one fee row. Null while no money has
   /// to move.

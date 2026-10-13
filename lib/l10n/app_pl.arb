@@ -1819,7 +1819,6 @@
   "investingFundingReceived": "Otrzymany funding",
   "investingDepositsUnavailable": "Wpłaty do Inwestowania są chwilowo niedostępne",
   "investingWithdrawalsUnavailable": "Wypłaty z Inwestowania są chwilowo niedostępne",
-  "investingNeedsDollarsForNetworkFee": "Add about $1 to Dollars to cover the network fee for this move. Nothing was sent.",
   "betReceiptCost": "Koszt",
   "betReceiptPayout": "Wypłata w razie wygranej",
   "betReceiptUpdating": "Ostateczne kwoty są aktualizowane.",

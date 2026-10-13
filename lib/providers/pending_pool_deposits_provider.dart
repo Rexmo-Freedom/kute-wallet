@@ -22,8 +22,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/models/swap_order_model.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/swap_orders_provider.dart';
-import 'package:kute/services/hyperevm/hyperevm_runtime.dart'
-    show hyperEvmParkedUsdProvider;
 
 const Duration _kPendingDepositMaxAge = Duration(minutes: 30);
 
@@ -50,8 +48,8 @@ bool isPendingPoolDeposit(
 /// True for a pending Orchestra order delivering dollars to this
 /// wallet's own Spark balance from anywhere that is not a venue: a
 /// Bitcoin → Dollars conversion, a receive still confirming, a Cash App
-/// purchase. Venue withdrawals (USDC leaving POLYGON / HYPERCORE /
-/// HYPEREVM) are "coming back", not "incoming", and are excluded here.
+/// purchase. Venue withdrawals (USDC leaving POLYGON / HYPERCORE) are
+/// "coming back", not "incoming", and are excluded here.
 /// Same wallet and age rules as [isPendingPoolDeposit].
 bool isPendingDollarsIncoming(
   SwapOrder e, {
@@ -61,7 +59,7 @@ bool isPendingDollarsIncoming(
   if (!e.isOrchestra || !e.isPending) return false;
   if (e.coinTo.toUpperCase() != 'USDB') return false;
   if (e.networkTo.toUpperCase() != 'SPARK') return false;
-  if (const {'POLYGON', 'HYPERCORE', 'HYPEREVM'}
+  if (const {'POLYGON', 'HYPERCORE'}
       .contains(e.networkFrom.toUpperCase())) {
     return false;
   }
@@ -113,16 +111,9 @@ double _pendingUsdFrom(Ref ref, String network) {
 final pendingPredictionsDepositUsdProvider =
     Provider.autoDispose<double>((ref) => _pendingUsdTo(ref, 'POLYGON'));
 
-/// USD in flight to Investing. Includes USDC sitting on the account's
-/// HyperEVM address (a delivered deposit the sweep has not moved into
-/// HyperCore yet, or a refund), so money on its way never looks gone. The
-/// larger of the two counts, never their sum: a deposit whose row is still
-/// pending and whose USDC already landed would otherwise count twice.
-final pendingTradingDepositUsdProvider = Provider.autoDispose<double>((ref) {
-  final rows = _pendingUsdTo(ref, 'HYPERCORE');
-  final parked = ref.watch(hyperEvmParkedUsdProvider);
-  return parked > rows ? parked : rows;
-});
+/// USD in flight to Investing through native HyperCore funding.
+final pendingTradingDepositUsdProvider =
+    Provider.autoDispose<double>((ref) => _pendingUsdTo(ref, 'HYPERCORE'));
 
 /// USD leaving the Predictions pool (polygon USDC → BTC).
 final pendingPredictionsWithdrawalUsdProvider =

@@ -1819,7 +1819,6 @@
   "investingFundingReceived": "Financement reçu",
   "investingDepositsUnavailable": "Les dépôts Investir sont temporairement indisponibles",
   "investingWithdrawalsUnavailable": "Les retraits Investir sont temporairement indisponibles",
-  "investingNeedsDollarsForNetworkFee": "Add about $1 to Dollars to cover the network fee for this move. Nothing was sent.",
   "betReceiptCost": "Coût",
   "betReceiptPayout": "Gain si vous gagnez",
   "betReceiptUpdating": "Mise à jour des montants finaux.",

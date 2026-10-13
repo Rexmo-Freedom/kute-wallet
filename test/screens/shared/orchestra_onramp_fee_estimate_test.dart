@@ -192,15 +192,16 @@ void main() {
 
     test('the onramp fee estimate asks for the onramp rule', () async {
       Future<String?> flagFor(
-          AutoDisposeFutureProviderFamily<OrchestraEstimate, FeeRoute>
+          AutoDisposeFutureProviderFamily<OrchestraEstimate, FeeEstimateKey>
               family) async {
         String? flag;
         final container = ProviderContainer();
         addTearDown(container.dispose);
         await withFakeNetwork(
           () async {
-            final sub = container.listen(family(_route), (_, __) {});
-            await container.read(family(_route).future);
+            final sub =
+                container.listen(family(feeEstimateKey(_route)), (_, __) {});
+            await container.read(family(feeEstimateKey(_route)).future);
             sub.close();
           },
           () => MockClient((request) async {
@@ -223,9 +224,9 @@ void main() {
         const OrchestraFeeSummary(
             route: _route, bitcoinFirst: false, onramp: true),
         [
-          orchestraOnrampFeeEstimateProvider(_route)
+          orchestraOnrampFeeEstimateProvider(feeEstimateKey(_route))
               .overrideWith((_) async => _estimate(bps: 100)),
-          orchestraFeeEstimateProvider(_route)
+          orchestraFeeEstimateProvider(feeEstimateKey(_route))
               .overrideWith((_) async => _estimate(bps: 50)),
         ]));
     // $25 in, 24.75 × 0.99 = $24.5025 arrives: $0.4975 in all.
@@ -243,7 +244,7 @@ void main() {
         const OrchestraFeeSummary(
             route: _route, bitcoinFirst: false, onramp: true),
         [
-          orchestraOnrampFeeEstimateProvider(_route)
+          orchestraOnrampFeeEstimateProvider(feeEstimateKey(_route))
               .overrideWith((_) async => _estimate(bps: 80, discount: 20)),
         ]));
     // 24.75 × 0.992 = $24.552 arrives: $0.448 in all.
@@ -261,9 +262,9 @@ void main() {
       (tester) async {
     await tester.pumpWidget(
         _host(const OrchestraFeeSummary(route: _route, bitcoinFirst: false), [
-      orchestraOnrampFeeEstimateProvider(_route)
+      orchestraOnrampFeeEstimateProvider(feeEstimateKey(_route))
           .overrideWith((_) async => _estimate(bps: 100)),
-      orchestraFeeEstimateProvider(_route)
+      orchestraFeeEstimateProvider(feeEstimateKey(_route))
           .overrideWith((_) async => _estimate(bps: 50)),
     ]));
     // 24.75 × 0.995 = $24.62625 arrives: $0.37375 in all.
@@ -284,9 +285,9 @@ void main() {
             onramp: true,
             showReceive: true),
         [
-          orchestraOnrampFeeEstimateProvider(_dollarsRoute)
+          orchestraOnrampFeeEstimateProvider(feeEstimateKey(_dollarsRoute))
               .overrideWith((_) async => _dollarsEstimate(bps: 100)),
-          orchestraFeeEstimateProvider(_dollarsRoute)
+          orchestraFeeEstimateProvider(feeEstimateKey(_dollarsRoute))
               .overrideWith((_) async => _dollarsEstimate(bps: 0)),
         ]));
     // $25 in, 24.75 × 0.99 = $24.5025 arrives: $0.4975 in all.

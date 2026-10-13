@@ -6054,10 +6054,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get investingWithdrawalsUnavailable => '投資からの出金は一時的に利用できません';
 
   @override
-  String get investingNeedsDollarsForNetworkFee =>
-      'Add about \$1 to Dollars to cover the network fee for this move. Nothing was sent.';
-
-  @override
   String get betReceiptCost => '費用';
 
   @override

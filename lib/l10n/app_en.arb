@@ -3332,10 +3332,6 @@
   "investingFundingReceived": "Funding received",
   "investingDepositsUnavailable": "Investing deposits are temporarily unavailable",
   "investingWithdrawalsUnavailable": "Investing withdrawals are temporarily unavailable",
-  "investingNeedsDollarsForNetworkFee": "Add about $1 to Dollars to cover the network fee for this move. Nothing was sent.",
-  "@investingNeedsDollarsForNetworkFee": {
-    "description": "Investing move stopped before anything moved: the small HYPE float that pays network fees needs about $1 from Dollars (or Bitcoin) and neither balance has it."
-  },
   "betReceiptCost": "Cost",
   "betReceiptPayout": "Payout if you win",
   "betReceiptUpdating": "Final amounts are updating.",

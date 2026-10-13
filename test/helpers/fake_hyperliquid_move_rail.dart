@@ -1,6 +1,7 @@
 // A Hyperliquid move rail for tests: records what it was asked and answers
 // from fields. Deposits succeed unless [depositError] is set; withdraws
-// always report RouteUnavailable, as the legacy rail does.
+// always report RouteUnavailable, as the HyperCore rail does while
+// Orchestra refuses HyperCore-source routes.
 
 import 'dart:async';
 

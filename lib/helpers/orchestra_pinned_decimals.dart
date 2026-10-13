@@ -28,10 +28,6 @@ const Map<String, int> kPinnedOrchestraDecimals = {
   'tron:USDT': 6,
   'plasma:USDT': 6,
   'hypercore:USDC': 8,
-  // The Investing moves' HyperEVM legs (Circle's native USDC, and HYPE,
-  // HyperEVM's gas token, for the gas float).
-  'hyperevm:USDC': 6,
-  'hyperevm:HYPE': 18,
   'bsc:USDC': 18,
 };
 

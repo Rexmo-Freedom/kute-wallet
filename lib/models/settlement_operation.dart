@@ -78,11 +78,6 @@ enum SettlementFlow {
   /// funding unit, so it must reconcile and report under its own name.
   moveDollarsToBtc,
 
-  /// The $1 of HYPE an Investing move buys for HyperEVM and HyperCore gas
-  /// (spending Spark → the account's own HyperEVM address). A supporting
-  /// leg: folded into the move's fee, never counted as a move or revenue.
-  hyperevmGasFloat,
-
   /// Written by a newer build. Kept raw on disk.
   unknown;
 
@@ -224,7 +219,6 @@ class SettlementFunding {
     this.relayerTxId,
     this.hlNonce,
     this.hlActionHash,
-    this.evmNonce,
   });
 
   /// Null only for a kind written by a newer build.
@@ -239,11 +233,6 @@ class SettlementFunding {
   final String? relayerTxId;
   final int? hlNonce;
   final String? hlActionHash;
-
-  /// The nonce of a signed HyperEVM transaction ([evmTxHash]) persisted
-  /// before its broadcast: a later nonce read tells whether it, or
-  /// something else, used that slot.
-  final int? evmNonce;
 
   bool get hasProof => kind == SettlementFundingKind.hyperliquid
       // A signed nonce locates an uncertain send; only its confirmed hash is
@@ -264,7 +253,6 @@ class SettlementFunding {
     String? relayerTxId,
     int? hlNonce,
     String? hlActionHash,
-    int? evmNonce,
   }) =>
       SettlementFunding(
         kind: kind ?? this.kind,
@@ -276,7 +264,6 @@ class SettlementFunding {
         relayerTxId: relayerTxId ?? this.relayerTxId,
         hlNonce: hlNonce ?? this.hlNonce,
         hlActionHash: hlActionHash ?? this.hlActionHash,
-        evmNonce: evmNonce ?? this.evmNonce,
       );
 }
 

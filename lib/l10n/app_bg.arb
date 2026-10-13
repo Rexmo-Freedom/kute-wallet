@@ -1819,7 +1819,6 @@
   "investingFundingReceived": "Получен funding",
   "investingDepositsUnavailable": "Депозитите в Инвестиране временно не са достъпни",
   "investingWithdrawalsUnavailable": "Тегленията от Инвестиране временно не са достъпни",
-  "investingNeedsDollarsForNetworkFee": "Add about $1 to Dollars to cover the network fee for this move. Nothing was sent.",
   "betReceiptCost": "Цена",
   "betReceiptPayout": "Изплащане при печалба",
   "betReceiptUpdating": "Крайните суми се обновяват.",

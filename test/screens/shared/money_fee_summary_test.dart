@@ -96,7 +96,8 @@ void main() {
         overrides: [
           currencyProvider.overrideWith((ref) => _CurrencyNotifier(
               {'BTC': Fixed.parse('0.00001', decimalDigits: 8)})),
-          orchestraFeeEstimateProvider(route).overrideWith((_) async => quote),
+          orchestraFeeEstimateProvider(feeEstimateKey(route))
+              .overrideWith((_) async => quote),
         ]));
     await tester.pumpAndSettle();
     // The headline is what does not arrive, not the declared fees.
@@ -139,7 +140,8 @@ void main() {
     await tester.pumpWidget(_host(
         const OrchestraFeeSummary(route: route, bitcoinFirst: false),
         overrides: [
-          orchestraFeeEstimateProvider(route).overrideWith((_) async => quote),
+          orchestraFeeEstimateProvider(feeEstimateKey(route))
+              .overrideWith((_) async => quote),
         ]));
     await tester.pumpAndSettle();
     expect(find.text('Shown before you confirm'), findsOneWidget);
