@@ -26,6 +26,7 @@ import 'package:kute/services/one_balance/multi_source_move.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/one_balance/venue_cash_source.dart';
 import 'package:kute/services/one_balance/venue_funder.dart';
+import 'package:kute/services/orchestra/own_spark_arrivals.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -192,6 +193,83 @@ void main() {
         movedLegIds: multiSourceMoveLegIds([pmLeg, hlLeg, purchase], [move]),
       );
       expect(entries.map((e) => e.tx!.id), ['msm_1']);
+    });
+  });
+
+  group('settled only when the destination has the money', () {
+    setUp(OwnSparkArrivals.reset);
+    tearDown(OwnSparkArrivals.reset);
+
+    final directPm = _row('ord_pm',
+        from: 'USDC', fromNet: 'POLYGON', to: 'BTC', toNet: 'SPARK',
+        operationId: 'op-pm', status: 'success');
+    MultiSourceMove direct() => _move(legs: [
+          _leg(OneBalanceVenue.predictions, op: 'op-pm'),
+        ]);
+
+    test('a direct leg Orchestra finished waits for the wallet to count it',
+        () {
+      OwnSparkArrivals.refresh = (_) => Completer<void>().future;
+      OwnSparkArrivals.landed(directPm.details);
+      final waiting = MultiSourceMoveTransaction(
+          move: direct(), legRows: [directPm]);
+      expect(waiting.complete, isFalse);
+      OwnSparkArrivals.reset();
+      expect(
+          MultiSourceMoveTransaction(move: direct(), legRows: [directPm])
+              .complete,
+          isTrue);
+    });
+
+    test('every leg that went needs its own settled row', () {
+      final move = _move(legs: [
+        _leg(OneBalanceVenue.predictions, op: 'op-pm'),
+        _leg(OneBalanceVenue.investing, op: 'op-hl'),
+      ]);
+      expect(
+          MultiSourceMoveTransaction(move: move, legRows: [directPm]).complete,
+          isFalse,
+          reason: 'the Investing leg has no row yet');
+    });
+
+    test('dollars brought home for Bitcoin: settled once the purchase is',
+        () {
+      final viaDollars = _move(legs: [
+        _leg(OneBalanceVenue.predictions, op: 'op-pm', direct: false),
+      ]);
+      final home = _row('ord_pm',
+          from: 'USDC', fromNet: 'POLYGON', to: 'USDB', toNet: 'SPARK',
+          operationId: 'op-pm', status: 'success');
+      expect(
+          MultiSourceMoveTransaction(move: viaDollars, legRows: [home])
+              .complete,
+          isFalse);
+      final bought = _row('ord_buy',
+          from: 'USDB', fromNet: 'SPARK', to: 'BTC', toNet: 'SPARK',
+          operationId: 'op-buy', status: 'success');
+      expect(
+          MultiSourceMoveTransaction(
+                  move: viaDollars.copyWith(finalOperationId: 'op-buy'),
+                  legRows: [home, bought])
+              .complete,
+          isTrue);
+    });
+
+    test('a surface that does not list a leg still reads it', () {
+      // The Dollars activity never lists a USDC → BTC leg; the move's row
+      // settles on it all the same.
+      final rows = assembleActivityRows(
+        [directPm],
+        ownAddresses: const {'sp1self'},
+        isHardwareOrWatchOnly: false,
+        onlyUsdb: true,
+        classify: _classify,
+        moves: [direct()],
+        walletId: 'w1',
+      );
+      final move = rows.single as MultiSourceMoveTransaction;
+      expect(move.legRows.map((r) => r.id), ['ord_pm']);
+      expect(move.complete, isTrue);
     });
   });
 

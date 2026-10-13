@@ -14,6 +14,7 @@
 
 import 'package:kute/models/transactions_model.dart';
 import 'package:kute/services/one_balance/multi_source_move.dart';
+import 'package:kute/services/orchestra/own_spark_arrivals.dart';
 import 'package:kute/services/one_balance/venue_funder.dart'
     show VenueCashDestination;
 
@@ -26,10 +27,13 @@ class MultiSourceMoveTransaction extends BaseTransaction {
   }) : super(
           id: move.id,
           timestamp: move.createdAt,
-          isConfirmed: legRows.isNotEmpty && legRows.every((r) => r.isComplete),
+          isConfirmed: multiSourceMoveSettled(move, legRows),
         );
 
   final MultiSourceMove move;
+
+  /// The rows of the move's legs and of its own step that the wallet
+  /// holds, on whatever surface they would show.
   final List<SwapOrderTransaction> legRows;
 
   /// A leg failed and part of the amount is still where it was.
@@ -71,6 +75,43 @@ bool isMultiSourceMoveLeg(SwapOrderTransaction row, MultiSourceMove move) {
   return ids.contains(row.id) || (op != null && ids.contains(op));
 }
 
+bool _rowOf(SwapOrderTransaction row, String? operationId, String? quoteId) =>
+    (operationId != null &&
+        (row.details.operationId == operationId ||
+            row.id == operationId ||
+            row.id == 'cctp-$operationId')) ||
+    (quoteId != null && row.id == quoteId);
+
+/// Whether [move]'s money is where it was going: every leg that went has
+/// its row and that row has settled; a move to Bitcoin that brought money
+/// home to Dollars first has bought it too (its own step went and
+/// settled); and no row's delivery to the wallet's own Spark balance is
+/// still waiting for the balance to show it
+/// ([OwnSparkArrivals.awaitingCredit]: Orchestra reports an order done as
+/// it sends, a moment before the wallet counts it). [legRows] are the
+/// rows the wallet holds for the move.
+bool multiSourceMoveSettled(
+    MultiSourceMove move, List<SwapOrderTransaction> legRows) {
+  if (legRows.isEmpty) return false;
+  for (final r in legRows) {
+    if (!r.isComplete || OwnSparkArrivals.awaitingCredit(r.id)) return false;
+  }
+  for (final leg in move.okLegs) {
+    if (!legRows.any((r) => _rowOf(r, leg.operationId, leg.quoteId))) {
+      return false;
+    }
+  }
+  final finalOp = move.finalOperationId;
+  if (finalOp != null) {
+    if (!legRows.any((r) => _rowOf(r, finalOp, null))) return false;
+  } else if (move.destination == VenueCashDestination.bitcoin &&
+      move.okLegs.any((l) => !l.direct)) {
+    // Its dollars are home; the purchase has not gone yet.
+    return false;
+  }
+  return true;
+}
+
 /// Whether [move] has a row on a surface: something moved for it (a leg
 /// went, or the action's own step did), and the surface is the dollar
 /// ledger ([onlyUsdb]) or Bitcoin is where it went.
@@ -81,12 +122,16 @@ bool multiSourceMoveShows(MultiSourceMove move, {required bool onlyUsdb}) {
 
 /// [rows] (newest first) with each of [moves]' legs folded into one row
 /// for the move, at the time the move started. Moves of another wallet
-/// ([walletId]) are left out.
+/// ([walletId]) are left out. [everyRow] is the wallet's whole history
+/// (default: [rows]): a move's row reads its legs from it, so it settles
+/// on the legs a surface does not list too (a direct leg to Bitcoin on
+/// the Dollars activity).
 List<BaseTransaction> collapseMultiSourceMoves(
   List<BaseTransaction> rows,
   List<MultiSourceMove> moves, {
   required bool onlyUsdb,
   String? walletId,
+  List<BaseTransaction>? everyRow,
 }) {
   final shown = [
     for (final m in moves)
@@ -95,17 +140,19 @@ List<BaseTransaction> collapseMultiSourceMoves(
         m,
   ];
   if (shown.isEmpty) return rows;
+  MultiSourceMove? ownerOf(SwapOrderTransaction row) =>
+      shown.where((m) => isMultiSourceMoveLeg(row, m)).firstOrNull;
   final legsOf = {for (final m in shown) m.id: <SwapOrderTransaction>[]};
   final out = <BaseTransaction>[];
   for (final row in rows) {
-    if (row is SwapOrderTransaction) {
-      final owner = shown.where((m) => isMultiSourceMoveLeg(row, m)).firstOrNull;
-      if (owner != null) {
-        legsOf[owner.id]!.add(row);
-        continue;
-      }
-    }
+    if (row is SwapOrderTransaction && ownerOf(row) != null) continue;
     out.add(row);
+  }
+  final seen = <String>{};
+  for (final row in [...?everyRow, ...rows]) {
+    if (row is! SwapOrderTransaction || !seen.add(row.id)) continue;
+    final owner = ownerOf(row);
+    if (owner != null) legsOf[owner.id]!.add(row);
   }
   for (final m in shown) {
     // In time order, the rows already there keeping theirs.

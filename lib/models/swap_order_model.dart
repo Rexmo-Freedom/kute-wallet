@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:kute/helpers/cash_app_invoice_expiry.dart';
+import 'package:kute/services/orchestra/own_spark_arrivals.dart';
 
 part 'swap_order_model.g.dart';
 
@@ -497,13 +498,22 @@ class SwapOrdersNotifier extends StateNotifier<List<SwapOrder>> {
     final box = await Hive.openBox<SwapOrder>(kSwapOrdersBoxName);
     box.watch().listen((event) => _updateExchanges());
     _updateExchanges();
+    _loaded = true;
   }
+
+  /// Set once the box's rows are first read: that reading is the
+  /// baseline (history), not a change.
+  bool _loaded = false;
 
   void _updateExchanges() {
     final box = Hive.box<SwapOrder>(kSwapOrdersBoxName);
     final exchanges = box.values.toList();
     exchanges.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    final before = state;
     state = exchanges;
+    // A delivery to the wallet's own Spark balance that just completed,
+    // whoever wrote it, refreshes the wallet at once.
+    if (_loaded) OwnSparkArrivals.rowsChanged(before, exchanges);
   }
 
   Future<void> addExchange(SwapOrder exchange) async {

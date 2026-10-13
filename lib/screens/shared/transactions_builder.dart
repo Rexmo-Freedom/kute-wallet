@@ -2,6 +2,7 @@ import 'package:kute/screens/shared/orchestra_swap_refund_action.dart';
 import 'package:kute/screens/shared/multi_source_move_activity.dart';
 import 'package:kute/screens/shared/venue_cash_pull_copy.dart';
 import 'package:kute/services/one_balance/multi_source_move.dart';
+import 'package:kute/services/orchestra/own_spark_arrivals.dart';
 import 'package:kute/services/one_balance/venue_cash_source.dart'
     show
         VenueCashDestination,
@@ -295,6 +296,9 @@ class _TransactionListState extends ConsumerState<TransactionList> {
     final moves = override == null
         ? ref.watch(multiSourceMovesProvider)
         : const <MultiSourceMove>[];
+    // A delivery to Spark the balance does not show yet keeps its row
+    // pending: rebuild when that changes.
+    ref.watch(ownSparkArrivalsProvider);
     final allSorted = assembleActivityRows(
       homeTransactionsSorted,
       ownAddresses: activityOwnSettleAddresses(ref),
@@ -1317,7 +1321,7 @@ List<BaseTransaction> assembleActivityRows(
   // its legs fold into it (multi_source_move_activity.dart).
   if (moves.isEmpty || isHardwareOrWatchOnly) return collapsed;
   return collapseMultiSourceMoves(collapsed, moves,
-      onlyUsdb: onlyUsdb, walletId: walletId);
+      onlyUsdb: onlyUsdb, walletId: walletId, everyRow: sorted);
 }
 
 /// ─── Polymarket / Orchestra flow collapse ────────────────────────────
@@ -2741,7 +2745,10 @@ Widget _buildNativeUsdcSendRow(
 Widget _buildSwapOrderItem(
     SwapOrderTransaction tx, BuildContext context, WidgetRef ref) {
   final details = tx.details;
-  final isPending = details.isPending;
+  // Delivered to the wallet's own Spark balance, which does not show it
+  // yet: still on its way as far as the person can see.
+  final awaitingCredit = OwnSparkArrivals.awaitingCredit(details.id);
+  final isPending = details.isPending || awaitingCredit;
 
   // Same-asset transfer (USDC → USDC, USDC → USDC.e on Polygon, etc.).
   // Older builds saved these in the swap-order list with
@@ -2851,6 +2858,8 @@ Widget _buildSwapOrderItem(
   } else if (details.isExpired) {
     statusLabel = context.l10n.expired;
     statusColor = AppColors.marketDown;
+  } else if (awaitingCredit) {
+    statusLabel = context.l10n.pending;
   } else {
     switch (details.status) {
       case 'success':
@@ -2952,7 +2961,8 @@ Widget _buildSwapOrderItem(
     return '$rawAmount $displayCoin';
   }
 
-  final bool showBadge = !tx.isComplete || details.canRefund;
+  final bool showBadge =
+      !tx.isComplete || awaitingCredit || details.canRefund;
 
   // Title: what happened, verb first, one line. Context line: where the
   // money went, then the time. The provider, the networks and the full
@@ -5805,7 +5815,11 @@ class _MultiSourceMoveDetailSheetState
               r.details.operationId != null &&
               r.details.operationId == leg.operationId)
           .firstOrNull;
-      return row != null && row.isComplete ? l10n.completed : l10n.pending;
+      return row != null &&
+              row.isComplete &&
+              !OwnSparkArrivals.awaitingCredit(row.id)
+          ? l10n.completed
+          : l10n.pending;
     }
 
     return AppBottomSheetContainer(

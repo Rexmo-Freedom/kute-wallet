@@ -88,6 +88,41 @@ void main() {
       expect(syncs, 1);
     });
 
+    test('a bitcoin arrival does not end on dollars that rose meanwhile',
+        () async {
+      final polls =
+          kArrivalPollWindow.inMilliseconds ~/ kArrivalPollInterval.inMilliseconds;
+      final readings = [
+        {'sats': BigInt.from(0), 'usdb': BigInt.from(5000000)},
+        // A sweep's dollars land first: not this arrival.
+        for (var i = 0; i < polls; i++)
+          {'sats': BigInt.from(0), 'usdb': BigInt.from(9000000)},
+        // The sync brings the bitcoin in.
+        {'sats': BigInt.from(9300), 'usdb': BigInt.from(9000000)},
+      ];
+      final rose = await syncUntilBalanceRises(
+        asset: ArrivalAsset.bitcoin,
+        readBalances: () async =>
+            readings[reads < readings.length ? reads++ : readings.length - 1],
+        sync: () async => syncs++,
+        sleep: (d) async => sleeps.add(d),
+      );
+      expect(rose, isTrue);
+      expect(syncs, 1, reason: 'the dollar rise never stopped the wait');
+      expect(sleeps, hasLength(polls));
+    });
+
+    test('a dollar arrival counts any token, never sats', () {
+      expect(ArrivalAsset.dollars.counts('sats'), isFalse);
+      expect(ArrivalAsset.dollars.counts('btkn1usdb'), isTrue);
+      expect(ArrivalAsset.bitcoin.counts('btkn1usdb'), isFalse);
+      expect(ArrivalAsset.any.counts('sats'), isTrue);
+      expect(ArrivalAsset.bitcoin.merge(ArrivalAsset.dollars),
+          ArrivalAsset.any);
+      expect(ArrivalAsset.bitcoin.merge(ArrivalAsset.bitcoin),
+          ArrivalAsset.bitcoin);
+    });
+
     test('no baseline: one sync, nothing to compare', () async {
       final rose = await run([
         {'sats': BigInt.from(1000)},
@@ -95,6 +130,69 @@ void main() {
       expect(rose, isFalse);
       expect(syncs, 1);
       expect(sleeps, isEmpty);
+    });
+  });
+
+  group('ArrivalRefreshQueue', () {
+    test('an arrival reported mid-run gets a run of its own after it',
+        () async {
+      final started = <ArrivalAsset>[];
+      final gates = <Completer<void>>[];
+      final queue = ArrivalRefreshQueue((asset) {
+        started.add(asset);
+        final c = Completer<void>();
+        gates.add(c);
+        return c.future;
+      });
+      var firstDone = false;
+      var secondDone = false;
+      unawaited(queue
+          .request(ArrivalAsset.dollars)
+          .then((_) => firstDone = true));
+      // The bitcoin lands while the dollar refresh runs: it must not
+      // share that run (its baseline predates the bitcoin).
+      unawaited(queue
+          .request(ArrivalAsset.bitcoin)
+          .then((_) => secondDone = true));
+      unawaited(queue.request(ArrivalAsset.bitcoin));
+      expect(started, [ArrivalAsset.dollars]);
+
+      gates[0].complete();
+      await pumpEventQueue();
+      expect(started, [ArrivalAsset.dollars, ArrivalAsset.bitcoin],
+          reason: 'one more run for every request made meanwhile');
+      expect(secondDone, isFalse, reason: 'its own run has not finished');
+
+      gates[1].completeError(StateError('sync failed'));
+      await pumpEventQueue();
+      expect(firstDone && secondDone, isTrue);
+      expect(started, hasLength(2));
+
+      // Idle again: the next request runs at once.
+      unawaited(queue.request(ArrivalAsset.bitcoin));
+      expect(started, hasLength(3));
+      gates[2].complete();
+      await pumpEventQueue();
+    });
+
+    test('requests for different assets mid-run merge into one run for any',
+        () async {
+      final started = <ArrivalAsset>[];
+      final gates = <Completer<void>>[];
+      final queue = ArrivalRefreshQueue((asset) {
+        started.add(asset);
+        final c = Completer<void>();
+        gates.add(c);
+        return c.future;
+      });
+      unawaited(queue.request(ArrivalAsset.bitcoin));
+      unawaited(queue.request(ArrivalAsset.bitcoin));
+      unawaited(queue.request(ArrivalAsset.dollars));
+      gates[0].complete();
+      await pumpEventQueue();
+      expect(started, [ArrivalAsset.bitcoin, ArrivalAsset.any]);
+      gates[1].complete();
+      await pumpEventQueue();
     });
   });
 

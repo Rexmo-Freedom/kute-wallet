@@ -43,6 +43,8 @@ import 'package:kute/screens/shared/multi_source_move_activity.dart'
     show multiSourceMoveLegIds;
 import 'package:kute/services/one_balance/multi_source_move.dart'
     show multiSourceMovesProvider;
+import 'package:kute/services/orchestra/own_spark_arrivals.dart'
+    show ownSparkArrivalsProvider;
 import 'package:kute/screens/shared/transactions_builder.dart';
 
 /// One entry of the merged list: a transaction row or a fill, with the
@@ -108,6 +110,9 @@ class PortfolioActivityList extends ConsumerWidget {
       for (final m in ref.watch(multiSourceMovesProvider))
         if (m.walletId == null || m.walletId == walletId) m,
     ];
+    // A delivery to Spark the balance does not show yet keeps its row
+    // pending: rebuild when that changes.
+    ref.watch(ownSparkArrivalsProvider);
     final dollarRows = assembleActivityRows(
       txs.allTransactionsSorted,
       ownAddresses: activityOwnSettleAddresses(ref),

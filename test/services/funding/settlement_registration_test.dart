@@ -1,7 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/models/swap_order_model.dart';
-import 'package:kute/providers/background_sync_provider.dart'
-    show orchestraCompletionLandsOnSpark;
 import 'package:kute/services/funding/settlement_registration.dart';
 
 SwapOrder _row(String id,
@@ -101,33 +99,6 @@ void main() {
           quoteId: 'q_1', orderId: 'ord_1', rows: rows.sink);
       expect(moved!.id, 'ord_1');
       expect(rows.logged, isEmpty);
-    });
-  });
-
-  group('orchestraCompletionLandsOnSpark', () {
-    test('a newly completed delivery to Spark syncs the wallet', () {
-      expect(
-          orchestraCompletionLandsOnSpark(_row('ord_1'), 'success',
-              wasTerminal: false),
-          isTrue);
-    });
-
-    test('nothing else does', () {
-      expect(
-          orchestraCompletionLandsOnSpark(_row('ord_1'), 'success',
-              wasTerminal: true),
-          isFalse,
-          reason: 'already reported');
-      expect(
-          orchestraCompletionLandsOnSpark(_row('ord_1'), 'exchanging',
-              wasTerminal: false),
-          isFalse);
-      expect(
-          orchestraCompletionLandsOnSpark(
-              _row('ord_1', networkTo: 'POLYGON'), 'success',
-              wasTerminal: false),
-          isFalse,
-          reason: 'a venue deposit lands elsewhere');
     });
   });
 }

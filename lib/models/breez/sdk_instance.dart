@@ -216,42 +216,51 @@ class BreezSdkSpark {
     if (identical(_instance, sdk)) await _fetchWalletData(sdk);
   }
 
-  Future<void>? _syncAndRefresh;
+  late final ArrivalRefreshQueue _arrivalRefreshes =
+      ArrivalRefreshQueue(_refreshForArrival);
 
   /// Re-reads the connected wallet's balance and payments for money known
   /// to have just landed (an Orchestra order delivering to this wallet
   /// completed). The operator stream normally updates the SDK's cached
   /// balance within a second or so of the transfer, so the cache is polled
-  /// first (see [syncUntilBalanceRises]); only when it has not risen does
-  /// one shared wallet sync run. A sync blocks the SDK's runtime loop, so
-  /// syncing first would hold back the very stream update being waited
-  /// for. The final reading publishes to the wallet-info and payments
-  /// streams the balance providers follow. Concurrent calls share the run
-  /// in flight. Never throws.
-  Future<void> syncAndRefresh() {
+  /// first (see [syncUntilBalanceRises]); only when [asset]'s balance has
+  /// not risen does one shared wallet sync run. A sync blocks the SDK's
+  /// runtime loop, so syncing first would hold back the very stream update
+  /// being waited for. The final reading publishes to the wallet-info and
+  /// payments streams the balance providers follow.
+  ///
+  /// One run at a time; an arrival reported while one runs gets a run of
+  /// its own right after it (see [ArrivalRefreshQueue]), so a bitcoin
+  /// arrival never ends on a dollar one that landed first, nor on a run
+  /// whose starting balance predates it. Never throws.
+  Future<void> syncAndRefresh({ArrivalAsset asset = ArrivalAsset.any}) {
+    if (_instance == null) return Future<void>.value();
+    return _arrivalRefreshes.request(asset);
+  }
+
+  Future<void> _refreshForArrival(ArrivalAsset asset) async {
     final sdk = _instance;
-    if (sdk == null) return Future<void>.value();
-    return _syncAndRefresh ??= syncUntilBalanceRises(
-      readBalances: () async {
-        // Another wallet connected meanwhile: stop.
-        if (!identical(_instance, sdk)) throw StateError('SDK replaced');
-        return balancesOf(
-            await sdk.getInfo(request: const spark.GetInfoRequest()));
-      },
-      sync: () async {
-        if (!identical(_instance, sdk)) throw StateError('SDK replaced');
-        try {
-          await sharedSyncWallet(sdk).timeout(const Duration(seconds: 20));
-        } catch (_) {
-          // Read what the cache holds anyway.
-        }
-      },
-    )
-        .then<void>((_) {})
-        .catchError((Object _) {})
-        .then<void>((_) async {
-      if (identical(_instance, sdk)) await _fetchWalletData(sdk);
-    }).whenComplete(() => _syncAndRefresh = null);
+    if (sdk == null) return;
+    try {
+      await syncUntilBalanceRises(
+        asset: asset,
+        readBalances: () async {
+          // Another wallet connected meanwhile: stop.
+          if (!identical(_instance, sdk)) throw StateError('SDK replaced');
+          return balancesOf(
+              await sdk.getInfo(request: const spark.GetInfoRequest()));
+        },
+        sync: () async {
+          if (!identical(_instance, sdk)) throw StateError('SDK replaced');
+          try {
+            await sharedSyncWallet(sdk).timeout(const Duration(seconds: 20));
+          } catch (_) {
+            // Read what the cache holds anyway.
+          }
+        },
+      );
+    } catch (_) {}
+    if (identical(_instance, sdk)) await _fetchWalletData(sdk);
   }
 
   Future<spark.GetInfoResponse> _getInfo(spark.BreezSdk sdk) async {
@@ -507,8 +516,59 @@ Map<String, BigInt> balancesOf(spark.GetInfoResponse info) => {
         entry.key: entry.value.balance,
     };
 
+/// Which balance an expected arrival lands in: [bitcoin] is the sats
+/// balance, [dollars] any token balance, [any] either.
+enum ArrivalAsset {
+  bitcoin,
+  dollars,
+  any;
+
+  /// Whether a rise of balance [key] (`sats` or a token id, see
+  /// [balancesOf]) is this arrival.
+  bool counts(String key) => switch (this) {
+        ArrivalAsset.bitcoin => key == 'sats',
+        ArrivalAsset.dollars => key != 'sats',
+        ArrivalAsset.any => true,
+      };
+
+  ArrivalAsset merge(ArrivalAsset other) => this == other ? this : any;
+}
+
+/// Runs arrival refreshes one at a time. A request made while one runs
+/// does not share that run (its starting balance may predate the new
+/// arrival, and it may be waiting on another asset): one more run follows
+/// it, for every request made meanwhile, and their futures complete once
+/// that run has. Errors of a run are swallowed.
+class ArrivalRefreshQueue {
+  ArrivalRefreshQueue(this._run);
+
+  final Future<void> Function(ArrivalAsset asset) _run;
+  Future<void>? _current;
+  ArrivalAsset? _next;
+
+  Future<void> request(ArrivalAsset asset) {
+    final current = _current;
+    if (current != null) {
+      _next = _next?.merge(asset) ?? asset;
+      return current;
+    }
+    return _current = _drain(asset).whenComplete(() => _current = null);
+  }
+
+  Future<void> _drain(ArrivalAsset first) async {
+    ArrivalAsset? asset = first;
+    while (asset != null) {
+      try {
+        await _run(asset);
+      } catch (_) {}
+      asset = _next;
+      _next = null;
+    }
+  }
+}
+
 /// Waits for some balance [readBalances] reports to rise above the one it
-/// reported first. Polls every [pollInterval] for up to [pollWindow] (the
+/// reported first ([asset] says which balances count). Polls every [pollInterval] for up to [pollWindow] (the
 /// operator stream usually lands an incoming transfer in the SDK's cache
 /// within that); only when nothing has risen by then runs [sync] once and
 /// reads again. Returns whether one rose. A failed read counts as not risen
@@ -516,6 +576,7 @@ Map<String, BigInt> balancesOf(spark.GetInfoResponse info) => {
 /// syncs once and returns false.
 Future<bool> syncUntilBalanceRises({
   required Future<Map<String, BigInt>> Function() readBalances,
+  ArrivalAsset asset = ArrivalAsset.any,
   required Future<void> Function() sync,
   Duration pollInterval = kArrivalPollInterval,
   Duration pollWindow = kArrivalPollWindow,
@@ -535,8 +596,8 @@ Future<bool> syncUntilBalanceRises({
   Future<bool> rose() async {
     try {
       final after = await readBalances();
-      return after.entries
-          .any((e) => e.value > (baseline[e.key] ?? BigInt.zero));
+      return after.entries.any((e) =>
+          asset.counts(e.key) && e.value > (baseline[e.key] ?? BigInt.zero));
     } catch (_) {
       return false;
     }
