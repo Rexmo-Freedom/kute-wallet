@@ -10733,4 +10733,7 @@ class AppLocalizationsFi extends AppLocalizations {
   @override
   String get depositFromAnotherWalletSubtitle =>
       'Hae osoite, johon lähettää dollareita';
+
+  @override
+  String get portfolioStatOpenPnl => 'Avoin voitto / tappio';
 }

@@ -10740,4 +10740,7 @@ class AppLocalizationsBg extends AppLocalizations {
   @override
   String get depositFromAnotherWalletSubtitle =>
       'Вземете адрес, на който да изпратите долари';
+
+  @override
+  String get portfolioStatOpenPnl => 'Отворена печалба / загуба';
 }

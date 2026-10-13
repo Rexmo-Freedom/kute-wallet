@@ -3006,5 +3006,6 @@
   "depositFromSpendingWallet": "Vaš novčanik za potrošnju",
   "depositFromSpendingWalletWithBalance": "Vaš novčanik za potrošnju · {amount}",
   "depositFromAnotherWallet": "Drugi novčanik ili mjenjačnica",
-  "depositFromAnotherWalletSubtitle": "Dobijte adresu na koju šaljete dolare"
+  "depositFromAnotherWalletSubtitle": "Dobijte adresu na koju šaljete dolare",
+  "portfolioStatOpenPnl": "Otvorena dobit / gubitak"
 }

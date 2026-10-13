@@ -10769,4 +10769,7 @@ class AppLocalizationsIt extends AppLocalizations {
   @override
   String get depositFromAnotherWalletSubtitle =>
       'Ottieni un indirizzo a cui inviare dollari';
+
+  @override
+  String get portfolioStatOpenPnl => 'Profitto / perdita aperto';
 }

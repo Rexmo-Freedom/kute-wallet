@@ -1,12 +1,12 @@
 // The Earn view is a rate display gated by the backend `usd.earn`
-// capability. It lives under the Portfolio's Statistics tab (Investments
-// › Portfolio › Statistics › Earn), the last of the stacked sections
-// there, under the venues' figures. Off, or with no policy to read, the
-// section does not exist: the rewards API is never asked and no
-// `usd_earn_*` event fires. On, the section is there and its chart mounts
-// when it first comes on screen, and only then reads the API and fires
-// the open event, once. The Investments strip itself has no Earn pill in
-// either case.
+// capability. On the Portfolio's Statistics tab (Investments › Portfolio
+// › Statistics) Earn joins the venues' P&L breakdown with what it has
+// paid, and its chart shows only when it is the only figure (here: the
+// venues have charted nothing). Off, or with no policy to read, there is
+// no Earn at all: the rewards API is never asked and no `usd_earn_*`
+// event fires. On, the chart mounts when Statistics opens, and only then
+// reads the API and fires the open event, once. The Investments strip
+// itself has no Earn pill in either case.
 
 import 'dart:convert';
 
@@ -70,7 +70,7 @@ Finder _pill(String label) => investmentsPill(label);
 AppLocalizations _l10n(WidgetTester tester) =>
     tester.element(find.byType(InvestmentsBody)).l10n;
 
-/// The Earn section's heading.
+/// The Earn section's heading (only on an account with no venue).
 final _earnSection = find.byKey(const ValueKey('portfolio-statistics-earn'));
 
 /// Opens Portfolio › Statistics.
@@ -83,17 +83,16 @@ Future<void> _openStatistics(WidgetTester tester) async {
   }
 }
 
-/// Scrolls the Statistics list (by its first section) by [dy]: to its
-/// end, so the last section is on screen whatever the figures above it
-/// take, or back up.
+/// Scrolls the Statistics list by [dy]: to its end, or back up.
 Future<void> _scrollStatistics(WidgetTester tester, double dy) async {
-  await tester.drag(find.byType(PortfolioStatistics).first, Offset(0, dy));
+  await tester.drag(find.byType(PortfolioStatisticsOverview), Offset(0, dy));
   for (var i = 0; i < 8; i++) {
     await tester.pump(const Duration(milliseconds: 100));
   }
 }
 
-Future<void> _scrollToEnd(WidgetTester tester) => _scrollStatistics(tester, -800);
+Future<void> _scrollToEnd(WidgetTester tester) =>
+    _scrollStatistics(tester, -800);
 
 void main() {
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
@@ -109,24 +108,19 @@ void main() {
     expect(find.byType(UsdBalanceTabs, skipOffstage: false), findsNothing);
     expect(find.byType(UsdEarnChart, skipOffstage: false), findsNothing);
     expect(find.text(l10n.usdEarnRate), findsNothing);
-    // The venue statistics are there regardless, stacked under their
-    // headings with no switch.
-    expect(find.byKey(const ValueKey('portfolio-statistics-trading'),
-            skipOffstage: false),
-        findsOneWidget);
-    expect(find.byKey(const ValueKey('portfolio-statistics-predictions'),
-            skipOffstage: false),
-        findsOneWidget);
-    expect(find.byType(PortfolioStatistics, skipOffstage: false),
-        findsNWidgets(2));
+    // The venues' statistics are there regardless, as one block: nothing
+    // charted yet, so its quiet line.
+    expect(find.byType(PortfolioStatisticsOverview), findsOneWidget);
+    expect(
+        find.byKey(const ValueKey('statistics-chart-empty')), findsOneWidget);
     expect(api.calls, isEmpty);
     expect(tester.takeException(), isNull);
     await unmountInvestments(tester);
   });
 
   testWidgets(
-      'capability on: Earn is the last Statistics section, never an '
-      'Investments pill; its chart mounts as it comes on screen, once',
+      'capability on: with nothing charted on the venues Earn\'s chart '
+      'leads Statistics, never an Investments pill; it mounts once',
       (tester) async {
     final events = recordEvents();
     final api =
@@ -134,18 +128,21 @@ void main() {
     final l10n = _l10n(tester);
     expect(_pill(l10n.usdEarnTitle), findsNothing);
     // Nothing reads the rewards API before the Statistics tab shows the
-    // section.
+    // chart.
     expect(api.calls, isEmpty);
     expect(events.any((e) => e.$1 == 'usd_earn_opened'), isFalse);
     await _openStatistics(tester);
     await _scrollToEnd(tester);
-    // The section is there, after the venues, and the chart in it is
-    // what reads the API.
-    expect(_earnSection, findsOneWidget);
+    // The chart takes the P&L chart's place, over the venues' Active |
+    // Historic pair, and it is what reads the API.
     expect(find.byType(UsdBalanceTabs), findsOneWidget);
     expect(find.byType(UsdEarnChart), findsOneWidget);
-    expect(tester.getTopLeft(_earnSection).dy,
-        greaterThan(tester.getTopLeft(find.byType(PortfolioStatistics).last).dy));
+    expect(find.byKey(const ValueKey('statistics-chart-empty')), findsNothing);
+    expect(
+        tester.getTopLeft(find.byType(UsdEarnChart)).dy,
+        lessThan(tester
+            .getTopLeft(find.byKey(const ValueKey('statistics-active')))
+            .dy));
     expect(api.calls, contains('summary'));
     expect(events.where((e) => e.$1 == 'usd_earn_opened'), hasLength(1));
     expect(events.where((e) => e.$1 == 'portfolio_tab_changed'), isEmpty);
@@ -162,11 +159,11 @@ void main() {
         findsOneWidget);
     expect(find.text(l10n.usdEarnRate), findsOneWidget);
     expect(find.text('4.5%'), findsOneWidget);
-    // No inner Balance pill: the Earn section IS the view.
-    expect(find.byKey(const ValueKey('usd-balance-view-balance')),
-        findsNothing);
+    // No inner Balance pill: the chart IS the view.
+    expect(
+        find.byKey(const ValueKey('usd-balance-view-balance')), findsNothing);
 
-    // Scrolled away and back, the section is kept: one open, one read.
+    // Scrolled away and back, the chart is kept: one open, one read.
     await _scrollStatistics(tester, 800);
     await _scrollToEnd(tester);
     expect(find.byType(UsdEarnChart), findsOneWidget);

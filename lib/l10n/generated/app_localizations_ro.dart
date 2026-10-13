@@ -10780,4 +10780,7 @@ class AppLocalizationsRo extends AppLocalizations {
   @override
   String get depositFromAnotherWalletSubtitle =>
       'Obține o adresă la care să trimiți dolari';
+
+  @override
+  String get portfolioStatOpenPnl => 'Profit / pierdere deschis';
 }

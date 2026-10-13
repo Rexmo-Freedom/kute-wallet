@@ -3006,5 +3006,6 @@
   "depositFromSpendingWallet": "Din forbrugspung",
   "depositFromSpendingWalletWithBalance": "Din forbrugspung · {amount}",
   "depositFromAnotherWallet": "En anden wallet eller børs",
-  "depositFromAnotherWalletSubtitle": "Få en adresse at sende dollars til"
+  "depositFromAnotherWalletSubtitle": "Få en adresse at sende dollars til",
+  "portfolioStatOpenPnl": "Åben gevinst / tab"
 }

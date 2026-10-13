@@ -3006,5 +3006,6 @@
   "depositFromSpendingWallet": "Portofelul tău de cheltuieli",
   "depositFromSpendingWalletWithBalance": "Portofelul tău de cheltuieli · {amount}",
   "depositFromAnotherWallet": "Alt portofel sau exchange",
-  "depositFromAnotherWalletSubtitle": "Obține o adresă la care să trimiți dolari"
+  "depositFromAnotherWalletSubtitle": "Obține o adresă la care să trimiți dolari",
+  "portfolioStatOpenPnl": "Profit / pierdere deschis"
 }

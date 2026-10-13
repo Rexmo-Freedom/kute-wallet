@@ -6557,5 +6557,9 @@
   "depositFromSpendingWalletWithBalance": "Your spending wallet · {amount}",
   "@depositFromSpendingWalletWithBalance": {"placeholders": {"amount": {"type": "String"}}},
   "depositFromAnotherWallet": "Another wallet or exchange",
-  "depositFromAnotherWalletSubtitle": "Get an address to send dollars to"
+  "depositFromAnotherWalletSubtitle": "Get an address to send dollars to",
+  "portfolioStatOpenPnl": "Open P&L",
+  "@portfolioStatOpenPnl": {
+    "description": "Statistics tile on Active: the profit or loss of the positions still open (Predictions at live prices, Investing perps unrealised)."
+  }
 }

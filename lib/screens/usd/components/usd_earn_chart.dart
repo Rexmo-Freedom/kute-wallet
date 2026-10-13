@@ -67,7 +67,11 @@ import 'package:kute/screens/analytics/components/analytics_card.dart';
 import 'package:kute/screens/analytics/components/chart.dart';
 import 'package:kute/screens/analytics/components/home_analytics_widget.dart'
     show HomeDateRangeSelector, applyAnalyticsDateRange, kHomeDateRanges;
+import 'package:kute/screens/polymarket/components/market_card.dart'
+    show polyCardFigureStyle;
 import 'package:kute/screens/shared/kute_skeleton.dart';
+import 'package:kute/screens/shared/portfolio_position_card.dart'
+    show portfolioCardCaptionStyle;
 import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -209,10 +213,6 @@ class _UsdEarnChartState extends ConsumerState<UsdEarnChart> {
     );
 
     final Widget body;
-    // The note belongs to the curve, so it only appears when the curve
-    // does: a skeleton or a notice in that slot has no dashed tail to
-    // explain.
-    var chartDrawn = false;
     if (history == null && payoutsAsync.isLoading) {
       body = const _ChartSkeleton();
     } else if (payoutsAsync.hasError) {
@@ -220,7 +220,6 @@ class _UsdEarnChartState extends ConsumerState<UsdEarnChart> {
     } else if (byDay.isEmpty) {
       body = _Notice(text: l10n.usdEarnActivityEmpty);
     } else {
-      chartDrawn = true;
       body = Chart(
         selectedDays: projection.days,
         mainData: projection.byDay,
@@ -282,10 +281,6 @@ class _UsdEarnChartState extends ConsumerState<UsdEarnChart> {
                     c: c,
                   ),
                   Expanded(child: body),
-                  if (chartDrawn && projection.isOn) ...[
-                    SizedBox(height: 6.h),
-                    _ProjectionNote(text: l10n.usdEarnProjectionNote),
-                  ],
                   // The gate, said only where it bites. A balance already
                   // over the floor does not need telling about it, and a
                   // balance under it is earning nothing and deserves to
@@ -293,7 +288,7 @@ class _UsdEarnChartState extends ConsumerState<UsdEarnChart> {
                   // clears the line by itself.
                   if (belowMinimum) ...[
                     SizedBox(height: 6.h),
-                    _ProjectionNote(
+                    _FloorNote(
                         text: l10n.usdEarnBelowMinimum(
                             formatUsdEarnMinimum(kUsdEarnMinimumDollars))),
                   ],
@@ -449,10 +444,10 @@ class UsdEarnProjection {
   }
 }
 
-/// The line under the curve that says the dashed part has not happened.
-/// Passive text, so nothing to track.
-class _ProjectionNote extends StatelessWidget {
-  const _ProjectionNote({required this.text});
+/// The quiet line under the curve: why a balance under the floor earns
+/// nothing. Passive text, so nothing to track.
+class _FloorNote extends StatelessWidget {
+  const _FloorNote({required this.text});
 
   final String text;
 
@@ -478,10 +473,12 @@ class _ProjectionNote extends StatelessWidget {
 
 /// The headline above the earnings chart: the next payment with the
 /// countdown under it, and the rate — the one place in the app allowed
-/// to print it — parked on the right. Same typography and same rolling
-/// cadence as the dollar balance header; the countdown is the hero's
-/// own "quiet second line", in the projection note's type, so the row
-/// still fits a narrow phone with the rate's long label beside it.
+/// to print it — parked on the right. The Statistics P&L header's type
+/// (portfolio_pnl_chart.dart), so the Portfolio reads in one scale: the
+/// position cards' caption over the balance hero, the countdown as its
+/// quiet second line in the caption, the rate in the stat tiles' figure
+/// so the row still fits a narrow phone with the rate's long label
+/// beside it.
 class _EarnHeader extends StatelessWidget {
   const _EarnHeader({
     required this.headlineLabel,
@@ -503,18 +500,9 @@ class _EarnHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final labelStyle = TextStyle(
-      color: c.textTertiary,
-      fontSize: 12.sp,
-      fontWeight: FontWeight.w600,
-    );
-    final valueStyle = TextStyle(
-      color: c.textPrimary,
-      fontSize: 18.sp,
-      fontWeight: FontWeight.w700,
-      letterSpacing: -0.5,
-      height: 1.0,
-    );
+    final labelStyle = portfolioCardCaptionStyle(c);
+    final valueStyle =
+        AppTextStyles.balance(context).copyWith(color: c.textPrimary);
 
     return Padding(
       padding: EdgeInsets.only(bottom: 4.h),
@@ -531,7 +519,7 @@ class _EarnHeader extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: labelStyle,
                 ),
-                SizedBox(height: 2.h),
+                SizedBox(height: 4.h),
                 // Scaled down rather than clipped when the rate's label
                 // leaves it short of room, as the hero amount is.
                 Align(
@@ -555,12 +543,7 @@ class _EarnHeader extends StatelessWidget {
                   '$countdownLabel $countdownText',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: c.textTertiary,
-                    fontSize: 11.sp,
-                    fontWeight: FontWeight.w500,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
+                  style: labelStyle,
                 ),
               ],
             ),
@@ -575,12 +558,12 @@ class _EarnHeader extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: labelStyle,
               ),
-              SizedBox(height: 2.h),
+              SizedBox(height: 4.h),
               Text(
                 rateText,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: valueStyle,
+                style: polyCardFigureStyle(c.textPrimary),
               ),
             ],
           ),

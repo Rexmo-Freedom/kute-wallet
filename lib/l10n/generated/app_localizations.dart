@@ -18150,6 +18150,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Get an address to send dollars to'**
   String get depositFromAnotherWalletSubtitle;
+
+  /// Statistics tile on Active: the profit or loss of the positions still open (Predictions at live prices, Investing perps unrealised).
+  ///
+  /// In en, this message translates to:
+  /// **'Open P&L'**
+  String get portfolioStatOpenPnl;
 }
 
 class _AppLocalizationsDelegate

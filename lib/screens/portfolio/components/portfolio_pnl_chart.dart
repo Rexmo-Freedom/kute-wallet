@@ -1,34 +1,42 @@
 // lib/screens/portfolio/components/portfolio_pnl_chart.dart
 //
-// The profit and loss chart that leads the Portfolio's Statistics tab,
-// for Predictions and Investing, on the spending account and on a
-// Ledger. Laid out as a brokerage P&L view:
+// The profit and loss chart that leads the Portfolio's Statistics tab:
+// on the spending account one chart for Investing and Predictions
+// together (their series added, [PortfolioPerformance.combine]), on a
+// Ledger the venue's own. Laid out as a brokerage P&L view:
 //
-//   * the caption, then the P&L as the big figure (the position cards'
-//     figure type, rolling), in the up / down colour; under it what the
-//     range drawn gained or lost ("+$20.00 past 1m"), in the up / down
-//     colour. On ALL the headline already is the change, so the row is
-//     empty;
+//   * the caption, then the P&L as the hero figure (the balance type,
+//     [AppTextStyles.balance], as animated_balance.dart draws a balance,
+//     rolling), in the up / down colour; under it what the range drawn
+//     gained or lost ("+$20.00 past 1m"), in the up / down colour. On ALL
+//     the headline already is the change, so the row is empty;
 //   * the shared [KuteLineChart] (the balance charts' line: monotone
-//     curve, gradient fill, endpoint dot, no scale, the time axis under
-//     the plot), coloured by the sign of the range's change, with a
-//     dashed hairline at the range's starting value ([PnlBaselinePainter]);
+//     curve, no fill, endpoint dot, no scale, the time axis under the
+//     plot), coloured by the sign of the range's change, with a dashed
+//     hairline at the range's starting value ([PnlBaselinePainter]) when
+//     the line moves over the range;
 //   * a long press scrubs: the hairline and dot ride the line and the
 //     header writes the point under the finger (its P&L, its change from
 //     the range's start and its date) and snaps back on release. The
 //     chart draws no scrub card of its own: the header is the card;
 //   * the range pills every chart shares ([KuteRangePills]): 1D, 1W, 1M,
-//     3M, YTD, 1Y, ALL.
+//     3M, YTD, 1Y, ALL, less those reaching back past the series' first
+//     point (they would draw ALL again). The tab opens on 1M, or on ALL
+//     when 1M already reaches back that far;
+//   * an optional [PortfolioPnlChart.footer] on the same card (the
+//     per-venue breakdown of the spending account's figure).
 //
-// The line is the venue's own cumulative P&L series
-// ([PortfolioPerformance.points]: realised plus open), from the P&L the
-// account had when the range began ([PortfolioPerformance.rangeView]).
-// Nothing is interpolated: every point is a published observation (or,
-// for Predictions, the current figures rebuilt from the positions).
+// The line is the cumulative P&L series ([PortfolioPerformance.points]:
+// realised plus open), from the P&L the account had when the range began
+// ([PortfolioPerformance.rangeView]). Nothing is interpolated: every point
+// is a published observation (or, for Predictions, the current figures
+// rebuilt from the positions). A series with no movement is never drawn
+// here: the Statistics tab shows its quiet line instead.
 //
 // Analytics: `portfolio_performance_range_changed` {venue, from, to} and
 // `portfolio_performance_chart_scrubbed` {venue, range}, once per scrub
-// gesture.
+// gesture; venue is `trading`, `predictions`, or `all` for the spending
+// account's combined chart.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -40,8 +48,6 @@ import 'package:kute/models/portfolio_performance.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/analytics/components/chart.dart'
     show ChartChangeText;
-import 'package:kute/screens/polymarket/components/market_card.dart'
-    show polyCardFigureStyle;
 import 'package:kute/screens/shared/charts/kute_chart_core.dart'
     show kuteSameSeries;
 import 'package:kute/screens/shared/charts/kute_chart_format.dart';
@@ -124,36 +130,65 @@ class PortfolioPnlChart extends ConsumerStatefulWidget {
     required this.venue,
     required this.data,
     this.now,
+    this.footer,
   });
 
-  final PortfolioPerformanceVenue venue;
+  /// The venue charted; null for Investing and Predictions together (the
+  /// spending account's Statistics tab), `all` in the events.
+  final PortfolioPerformanceVenue? venue;
 
-  /// The venue's P&L series; nothing is drawn without points.
+  /// The P&L series; nothing is drawn without points.
   final PortfolioPerformance data;
 
   /// This moment, for whether the series' last point is now; tests pin it.
   final DateTime? now;
 
+  /// Laid out on the card under the range pills.
+  final Widget? footer;
+
   @override
   ConsumerState<PortfolioPnlChart> createState() => _PortfolioPnlChartState();
 }
 
+/// Whether [range] reaches back to (or past) the first point of [data]:
+/// it would draw ALL again.
+bool pnlRangeRepeatsAll(PnlChartRange range, PortfolioPerformance data) {
+  if (data.points.isEmpty) return range != PnlChartRange.all;
+  final span = range.spanEnding(data.points.last.timestamp);
+  if (span == null) return false;
+  return !data.points.last.timestamp
+      .subtract(span)
+      .isAfter(data.points.first.timestamp);
+}
+
 class _PortfolioPnlChartState extends ConsumerState<PortfolioPnlChart> {
-  PnlChartRange _range = kPnlChartDefaultRange;
+  /// The range picked; null until a pill is tapped (see [_range]).
+  PnlChartRange? _picked;
+
+  /// The range drawn: the one picked, else 1M, or ALL when 1M would draw
+  /// it anyway.
+  PnlChartRange get _range =>
+      _picked ??
+      (pnlRangeRepeatsAll(kPnlChartDefaultRange, widget.data)
+          ? PnlChartRange.all
+          : kPnlChartDefaultRange);
 
   /// The index under the finger while scrubbing, in the range's points.
   int? _scrub;
 
+  String get _venueName => widget.venue?.name ?? 'all';
+
   void _pick(int index) {
     final next = PnlChartRange.values[index];
-    if (next == _range) return;
+    final current = _range;
+    if (next == current) return;
     TrackingService.track('portfolio_performance_range_changed', params: {
-      'venue': widget.venue.name,
-      'from': _range.label,
+      'venue': _venueName,
+      'from': current.label,
       'to': next.label,
     });
     setState(() {
-      _range = next;
+      _picked = next;
       _scrub = null;
     });
   }
@@ -165,11 +200,13 @@ class _PortfolioPnlChartState extends ConsumerState<PortfolioPnlChart> {
     final c = context.colors;
     final l10n = context.l10n;
     final visible = ref.watch(settingsProvider.select((s) => s.balanceVisible));
-    final view = data.rangeView(_range.spanEnding(data.points.last.timestamp));
+    final range = _range;
+    final view = data.rangeView(range.spanEnding(data.points.last.timestamp));
     final points = view.points;
     final values = [for (final p in points) p.pnlUsd];
     final baseline = points.first.pnlUsd;
     final change = view.changeUsd ?? 0;
+    final flat = values.every((v) => v == values.first);
     // The line's colour is the sign of the range's change, the balance
     // charts' rule (the accent when flat).
     final lineColor = change > 0
@@ -229,7 +266,7 @@ class _PortfolioPnlChartState extends ConsumerState<PortfolioPnlChart> {
         ],
       );
     } else {
-      final text = _range.changeText(l10n, amount(change));
+      final text = range.changeText(l10n, amount(change));
       changeRow = text == null
           ? null
           : ChartChangeText.written(text, direction: change.sign.toInt());
@@ -250,13 +287,20 @@ class _PortfolioPnlChartState extends ConsumerState<PortfolioPnlChart> {
                 Text(l10n.portfolioProfitLoss,
                     style: portfolioCardCaptionStyle(c)),
                 SizedBox(height: 4.h),
-                RollingNumberText(
-                  key: const ValueKey('statistics-pnl-headline'),
-                  text: amount(headline),
-                  // Quick under the finger, settled otherwise.
-                  duration: Duration(milliseconds: scrubbing ? 120 : 350),
-                  dimColor: c.textTertiary,
-                  style: polyCardFigureStyle(headlineColor),
+                // The figure leads: the balance type, scaled down rather
+                // than cut on a narrow phone or under large text.
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: RollingNumberText(
+                    key: const ValueKey('statistics-pnl-headline'),
+                    text: amount(headline),
+                    // Quick under the finger, settled otherwise.
+                    duration: Duration(milliseconds: scrubbing ? 120 : 350),
+                    dimColor: c.textTertiary,
+                    style: AppTextStyles.balance(context)
+                        .copyWith(color: headlineColor),
+                  ),
                 ),
                 SizedBox(height: 4.h),
                 Align(
@@ -284,9 +328,10 @@ class _PortfolioPnlChartState extends ConsumerState<PortfolioPnlChart> {
                 children: [
                   Positioned.fill(
                     child: KuteLineChart(
-                      key: ValueKey('statistics-pnl-chart-${_range.name}'),
+                      key: ValueKey('statistics-pnl-chart-${range.name}'),
                       values: values,
                       lineColor: lineColor,
+                      showFill: false,
                       // The ranges are the zoom; the baseline is drawn
                       // for the whole range.
                       zoomable: false,
@@ -300,30 +345,32 @@ class _PortfolioPnlChartState extends ConsumerState<PortfolioPnlChart> {
                       onScrubStart: () => TrackingService.track(
                           'portfolio_performance_chart_scrubbed',
                           params: {
-                            'venue': widget.venue.name,
-                            'range': _range.label,
+                            'venue': _venueName,
+                            'range': range.label,
                           }),
                       onScrub: (i) => setState(() => _scrub = i),
                       onScrubEnd: () => setState(() => _scrub = null),
                     ),
                   ),
                   // The range's starting value, dashed across the plot
-                  // (the time axis row is under the plot).
-                  Positioned.fill(
-                    child: IgnorePointer(
-                      child: Padding(
-                        padding:
-                            const EdgeInsets.only(bottom: kKuteTimeAxisHeight),
-                        child: CustomPaint(
-                          painter: PnlBaselinePainter(
-                            values: values,
-                            baseline: baseline,
-                            color: c.border,
+                  // (the time axis row is under the plot); a line that
+                  // does not move over the range needs none.
+                  if (!flat)
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: Padding(
+                          padding: const EdgeInsets.only(
+                              bottom: kKuteTimeAxisHeight),
+                          child: CustomPaint(
+                            painter: PnlBaselinePainter(
+                              values: values,
+                              baseline: baseline,
+                              color: c.border,
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
                 ],
               ),
             ),
@@ -332,10 +379,13 @@ class _PortfolioPnlChartState extends ConsumerState<PortfolioPnlChart> {
             padding: EdgeInsets.fromLTRB(12.w, 0, 12.w, 12.h),
             child: KuteRangePills(
               labels: [for (final r in PnlChartRange.values) r.label],
-              selectedIndex: _range.index,
+              selectedIndex: range.index,
               onSelected: _pick,
+              isShown: (i) =>
+                  !pnlRangeRepeatsAll(PnlChartRange.values[i], data),
             ),
           ),
+          if (widget.footer != null) widget.footer!,
         ],
       ),
     );

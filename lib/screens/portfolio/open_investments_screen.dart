@@ -22,15 +22,13 @@
 //     each row its venue sheet's own (portfolio_orders.dart).
 //   * Activity: ONE merged list (portfolio_activity.dart), the venues'
 //     activity and the wallet's deposits and moves sorted by time.
-//   * Statistics: the sections stacked under the section headings —
-//     Investing (its P&L chart and figures, PortfolioStatistics inline),
-//     Predictions (the same), and Earn (the Earn chart, UsdBalanceTabs)
-//     while the backend allows it (`usd.earn`, usdEarnEnabledProvider).
-//     Each section keeps its own drill-down. The list builds a section
-//     only once it is on screen, so the Earn chart mounts, reads the
-//     rewards API and fires `usd_earn_opened` when it first becomes
-//     visible, never for someone who only looks at the venue figures
-//     above it.
+//   * Statistics: Investing and Predictions as ONE account, nothing said
+//     twice (PortfolioStatisticsOverview): one P&L headline, chart and
+//     range row for both, the per-venue breakdown under it (and Earn's
+//     paid-to-date while the backend allows Earn, `usd.earn`), then one
+//     Active | Historic pair over each venue's donut and figures, each
+//     keeping its drill-down. Earn's chart shows only when it is the
+//     only figure (no venue, or no P&L ever moved).
 // A venue the shell draws no tab for (portfolio_filters.dart) has no
 // section and no rows here.
 //
@@ -50,7 +48,6 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart';
-import 'package:kute/models/portfolio_performance.dart';
 import 'package:kute/providers/hyperliquid_live_prices_provider.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart'
     show hyperliquidAccountMarketProvider, hyperliquidSpotMarketsProvider;
@@ -275,15 +272,13 @@ class _AllPositions extends ConsumerWidget {
 
 // ────────────────────────────── statistics ──────────────────────────────
 
-/// Statistics: the sections stacked in one list under the section
-/// headings — Investing and Predictions (each venue's P&L chart and
-/// figures, PortfolioStatistics inline, with its own Active | Historic
-/// pair and drill-down), then Earn (the Earn chart, UsdBalanceTabs)
-/// while the backend allows it. A venue the account has not is no
-/// section. The list builds a section only once it is on screen
-/// (no scroll cache), so the Earn chart mounts, reads the rewards API
-/// and fires `usd_earn_opened` when it first becomes visible, never for
-/// someone who only looks at the venue figures above it.
+/// Statistics: Investing and Predictions as one account, said once
+/// ([PortfolioStatisticsOverview]: one P&L headline, chart and range row,
+/// the per-venue breakdown under it, one Active | Historic pair). Earn
+/// joins the breakdown with its paid-to-date; its chart shows only when
+/// it is the only figure: no venue on the account (under its heading,
+/// built once it is on screen, so `usd_earn_opened` fires when it is
+/// seen), or venues whose P&L never moved.
 class _StatisticsTab extends ConsumerWidget {
   const _StatisticsTab({required this.venues});
 
@@ -291,40 +286,26 @@ class _StatisticsTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = context.l10n;
     final v = venues;
     final earnAllowed = ref.watch(usdEarnEnabledProvider);
     if (!v.any && !earnAllowed) {
       return const _EmptyState(product: InvestmentsProduct.trading);
+    }
+    if (v.any) {
+      return PortfolioStatisticsOverview(
+          key: const ValueKey('statistics-overview'),
+          trading: v.trading,
+          predictions: v.predictions,
+          earn: earnAllowed);
     }
     return ListView(
       scrollCacheExtent: const ScrollCacheExtent.pixels(0),
       padding: EdgeInsets.fromLTRB(
           16.w, 4.h, 16.w, 32.h + kuteDockScrollClearance(context)),
       children: [
-        if (v.trading) ...[
-          _SectionHeader(l10n.trading,
-              key: const ValueKey('portfolio-statistics-trading')),
-          const _KeptSection(
-              child: PortfolioStatistics(
-                  key: ValueKey('statistics-trading'),
-                  venue: PortfolioPerformanceVenue.trading,
-                  inline: true)),
-        ],
-        if (v.predictions) ...[
-          _SectionHeader(l10n.predictions,
-              key: const ValueKey('portfolio-statistics-predictions')),
-          const _KeptSection(
-              child: PortfolioStatistics(
-                  key: ValueKey('statistics-predictions'),
-                  venue: PortfolioPerformanceVenue.predictions,
-                  inline: true)),
-        ],
-        if (earnAllowed) ...[
-          _SectionHeader(l10n.usdEarnTitle,
-              key: const ValueKey('portfolio-statistics-earn')),
-          const _KeptSection(child: UsdBalanceTabs()),
-        ],
+        _SectionHeader(context.l10n.usdEarnTitle,
+            key: const ValueKey('portfolio-statistics-earn')),
+        const _KeptSection(child: UsdBalanceTabs()),
       ],
     );
   }

@@ -3006,5 +3006,6 @@
   "depositFromSpendingWallet": "Το πορτοφόλι εξόδων σας",
   "depositFromSpendingWalletWithBalance": "Το πορτοφόλι εξόδων σας · {amount}",
   "depositFromAnotherWallet": "Άλλο πορτοφόλι ή ανταλλακτήριο",
-  "depositFromAnotherWalletSubtitle": "Λάβετε μια διεύθυνση για να στείλετε δολάρια"
+  "depositFromAnotherWalletSubtitle": "Λάβετε μια διεύθυνση για να στείλετε δολάρια",
+  "portfolioStatOpenPnl": "Ανοιχτό κέρδος / ζημιά"
 }

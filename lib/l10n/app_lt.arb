@@ -3006,5 +3006,6 @@
   "depositFromSpendingWallet": "Jūsų išlaidų piniginė",
   "depositFromSpendingWalletWithBalance": "Jūsų išlaidų piniginė · {amount}",
   "depositFromAnotherWallet": "Kita piniginė ar birža",
-  "depositFromAnotherWalletSubtitle": "Gaukite adresą, kuriuo siųsti dolerius"
+  "depositFromAnotherWalletSubtitle": "Gaukite adresą, kuriuo siųsti dolerius",
+  "portfolioStatOpenPnl": "Atviras pelnas / nuostolis"
 }

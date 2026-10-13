@@ -3006,5 +3006,6 @@
   "depositFromSpendingWallet": "Sinu kulutamise rahakott",
   "depositFromSpendingWalletWithBalance": "Sinu kulutamise rahakott · {amount}",
   "depositFromAnotherWallet": "Teine rahakott või börs",
-  "depositFromAnotherWalletSubtitle": "Saa aadress, kuhu dollareid saata"
+  "depositFromAnotherWalletSubtitle": "Saa aadress, kuhu dollareid saata",
+  "portfolioStatOpenPnl": "Avatud kasum / kahjum"
 }

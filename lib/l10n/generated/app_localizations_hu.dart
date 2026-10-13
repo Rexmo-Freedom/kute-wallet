@@ -10745,4 +10745,7 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String get depositFromAnotherWalletSubtitle =>
       'Kérj egy címet, ahová dollárt küldhetsz';
+
+  @override
+  String get portfolioStatOpenPnl => 'Nyitott nyereség / veszteség';
 }

@@ -3006,5 +3006,6 @@
   "depositFromSpendingWallet": "Käyttölompakkosi",
   "depositFromSpendingWalletWithBalance": "Käyttölompakkosi · {amount}",
   "depositFromAnotherWallet": "Toinen lompakko tai pörssi",
-  "depositFromAnotherWalletSubtitle": "Hae osoite, johon lähettää dollareita"
+  "depositFromAnotherWalletSubtitle": "Hae osoite, johon lähettää dollareita",
+  "portfolioStatOpenPnl": "Avoin voitto / tappio"
 }

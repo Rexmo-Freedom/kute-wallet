@@ -10763,4 +10763,7 @@ class AppLocalizationsLt extends AppLocalizations {
   @override
   String get depositFromAnotherWalletSubtitle =>
       'Gaukite adresą, kuriuo siųsti dolerius';
+
+  @override
+  String get portfolioStatOpenPnl => 'Atviras pelnas / nuostolis';
 }

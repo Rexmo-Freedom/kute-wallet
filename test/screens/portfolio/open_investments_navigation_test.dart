@@ -1,9 +1,10 @@
 // The one Portfolio screen (owner decision October 2026): the same screen
 // from every door, both venues on every tab with no third row to switch
 // them — Open is one list of positions under the venues' plain names,
-// Orders one merged list newest first, Statistics the venues' figures and
-// Earn stacked under section headings — positions only (no Wallet
-// section), no total header and no deposit or withdrawal buttons.
+// Orders one merged list newest first, Statistics both venues as one
+// account (one P&L chart, one breakdown, one Active | Historic pair) —
+// positions only (no Wallet section), no total header and no deposit or
+// withdrawal buttons.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -34,7 +35,14 @@ import 'package:kute/screens/portfolio/open_investments_screen.dart';
 import 'package:kute/providers/usd_rewards_provider.dart';
 import 'package:kute/screens/portfolio/portfolio_filters.dart';
 import 'package:kute/screens/portfolio/portfolio_orders.dart';
+import 'package:kute/models/usd_rewards_model.dart';
+import 'package:kute/providers/portfolio_performance_provider.dart'
+    show portfolioPerformanceProvider;
+import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart';
 import 'package:kute/screens/portfolio/portfolio_statistics.dart';
+import 'package:kute/screens/shared/charts/kute_chart_range_pills.dart';
+import 'package:kute/screens/shared/charts/kute_line_chart.dart';
+import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/screens/shared/charts/kute_donut_chart.dart';
 import 'package:kute/screens/shared/investment_action_bar.dart';
 import 'package:kute/screens/shared/investment_balance_header.dart';
@@ -132,7 +140,8 @@ Future<void> _pump(WidgetTester tester,
         // offline.
         hyperliquidPerpMarketsProvider.overrideWith((_) async => <HlMarket>[]),
         hyperliquidSpotMarketsProvider.overrideWith((_) async => <HlMarket>[]),
-        polymarketOpenOrdersProvider.overrideWith((_) => Stream.value(pmOrders)),
+        polymarketOpenOrdersProvider
+            .overrideWith((_) => Stream.value(pmOrders)),
         polymarketOrderMetadataProvider.overrideWith((_) async => const {}),
         settingsProvider.overrideWith((_) => SettingsModel(Settings(
             currency: 'USD',
@@ -174,22 +183,72 @@ List<(String, Map<String, Object>?)> _events() {
   return events;
 }
 
-/// The venues of the Statistics sections on screen, top to bottom.
-List<PortfolioPerformanceVenue> _statisticsVenues(WidgetTester tester) {
-  final finder = find.byType(PortfolioStatistics);
-  final sections = tester.widgetList<PortfolioStatistics>(finder).toList();
-  final tops = [
-    for (var i = 0; i < sections.length; i++)
-      (tester.getTopLeft(finder.at(i)).dy, sections[i].venue)
-  ]..sort((a, b) => a.$1.compareTo(b.$1));
-  return [for (final t in tops) t.$2];
+/// The venues' P&L series: Investing forty days old, Predictions twenty.
+List<Override> _performance() {
+  final now = DateTime.now().toUtc();
+  DateTime ago(int days) => now.subtract(Duration(days: days));
+  PortfolioPerformance series(List<(int, double)> points) =>
+      PortfolioPerformance(
+          points: [
+            for (final (days, pnl) in points)
+              PortfolioPnlPoint(timestamp: ago(days), pnlUsd: pnl)
+          ],
+          totalPnlUsd: points.last.$2,
+          sourceLabel: '',
+          basisLabel: 'P&L',
+          coverageLabel: 'All time');
+  return [
+    portfolioPerformanceProvider(const PortfolioPerformanceRequest(
+            venue: PortfolioPerformanceVenue.trading))
+        .overrideWith((_) async => series([(40, -5), (10, 9), (2, 15)])),
+    portfolioPerformanceProvider(const PortfolioPerformanceRequest(
+            venue: PortfolioPerformanceVenue.predictions))
+        .overrideWith((_) async => series([(20, 0), (1, 4)])),
+  ];
+}
+
+/// The rewards ledger with two paid days (and one pending).
+class _PaidRewardsApi extends RecordingRewardsApi {
+  @override
+  Future<PayoutHistoryResponse> getPayoutHistory(String pubkey,
+      {int limit = 30, int offset = 0}) async {
+    calls.add('payouts');
+    RewardPayout payout(String day, int sats, String status) => RewardPayout(
+        day: day,
+        usdbBalanceDisplay: 25,
+        rewardsBracket: 0,
+        payoutSats: sats,
+        status: status);
+    return PayoutHistoryResponse(
+        pubkey: 'pub',
+        payouts: [
+          payout('2026-10-10', 1000, 'paid'),
+          payout('2026-10-11', 500, 'paid'),
+          payout('2026-10-12', 300, 'pending'),
+        ],
+        total: 3);
+  }
+}
+
+/// A stat tile's figure, read under its [label] in [of].
+String _tile(WidgetTester tester, Finder of, String label) {
+  final column = find.ancestor(
+      of: find.descendant(of: of, matching: find.text(label)),
+      matching: find.byType(Column));
+  final texts = tester
+      .widgetList<Text>(
+          find.descendant(of: column.first, matching: find.byType(Text)))
+      .map((t) => t.data)
+      .toList();
+  return texts[texts.indexOf(label) + 1]!;
 }
 
 /// Every pill on screen belongs to the tab strip: no third row under it.
 void _expectNoPillsBeyondTabs(WidgetTester tester) {
   final all = find.byType(KutePill).evaluate().length;
   final tabs = find
-      .descendant(of: find.byType(PortfolioTabs), matching: find.byType(KutePill))
+      .descendant(
+          of: find.byType(PortfolioTabs), matching: find.byType(KutePill))
       .evaluate()
       .length;
   expect(all, tabs);
@@ -257,8 +316,8 @@ void main() {
     // The Investing section above the Predictions one.
     expect(tester.getTopLeft(find.text('Investing')).dy,
         lessThan(tester.getTopLeft(find.text('Predictions')).dy));
-    expect(find.byKey(const ValueKey('portfolio-filter-trading')),
-        findsNothing);
+    expect(
+        find.byKey(const ValueKey('portfolio-filter-trading')), findsNothing);
     expect(events.where((e) => e.$1 == 'portfolio_tab_changed'), isEmpty);
     expect(tester.takeException(), isNull);
   });
@@ -316,8 +375,8 @@ void main() {
     expect(find.byKey(const ValueKey('portfolio-orders-cancel-all')),
         findsOneWidget);
     // No switch, no second title.
-    expect(find.byKey(const ValueKey('portfolio-orders-trading')),
-        findsNothing);
+    expect(
+        find.byKey(const ValueKey('portfolio-orders-trading')), findsNothing);
     expect(find.byKey(const ValueKey('portfolio-orders-predictions')),
         findsNothing);
     expect(find.text('Open orders'), findsNothing);
@@ -336,48 +395,122 @@ void main() {
   });
 
   testWidgets(
-      'Statistics stacks Investing then Predictions under section '
-      'headings, each with its own figures, and nothing to switch',
-      (tester) async {
+      'Statistics is one block for both venues: one P&L headline, chart '
+      'and range row, the per-venue breakdown under it, one Active | '
+      'Historic pair', (tester) async {
     final events = _events();
-    await _pump(tester, initialTab: 3);
-    expect(_statisticsVenues(tester), [
-      PortfolioPerformanceVenue.trading,
-      PortfolioPerformanceVenue.predictions,
-    ]);
-    final investing = find.byKey(const ValueKey('portfolio-statistics-trading'));
-    final predictions =
-        find.byKey(const ValueKey('portfolio-statistics-predictions'));
-    expect(investing, findsOneWidget);
-    expect(predictions, findsOneWidget);
-    expect(tester.getTopLeft(investing).dy,
-        lessThan(tester.getTopLeft(predictions).dy));
-    // No Earn section while the backend does not allow it.
-    expect(find.byKey(const ValueKey('portfolio-statistics-earn')),
+    await _pump(tester, initialTab: 3, overrides: _performance());
+    expect(find.byType(PortfolioStatisticsOverview), findsOneWidget);
+    expect(find.byType(PortfolioStatistics), findsNothing);
+    // No section headings, nothing said twice.
+    expect(find.byKey(const ValueKey('portfolio-statistics-trading')),
         findsNothing);
-    expect(find.byType(UsdEarnChart, skipOffstage: false), findsNothing);
-    // Each section keeps its own Active | Historic pair.
-    expect(find.byKey(const ValueKey('statistics-active')), findsNWidgets(2));
-    expect(events.where((e) => e.$1 == 'portfolio_tab_changed'), isEmpty);
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('Statistics without Predictions is the Investing section only',
-      (tester) async {
-    await _pump(tester,
-        initialTab: 3,
-        venues: const PortfolioVenues(trading: true, predictions: false));
-    expect(_statisticsVenues(tester), [PortfolioPerformanceVenue.trading]);
     expect(find.byKey(const ValueKey('portfolio-statistics-predictions')),
         findsNothing);
-    expect(find.byKey(const ValueKey('portfolio-statistics-earn')),
+    expect(find.byType(PortfolioPnlChart), findsOneWidget);
+    expect(find.byType(KuteLineChart), findsOneWidget);
+    expect(find.byType(KuteRangePills), findsOneWidget);
+    expect(find.text('Profit and loss'), findsOneWidget);
+    expect(find.byKey(const ValueKey('statistics-active')), findsOneWidget);
+    // The venues added on the moments either published: Investing's 15
+    // and Predictions' 4.
+    expect(
+        tester
+            .widget<RollingNumberText>(
+                find.byKey(const ValueKey('statistics-pnl-headline')))
+            .text,
+        r'+$19.00');
+    final breakdown = find.byKey(const ValueKey('statistics-breakdown'));
+    expect(
+        find.descendant(
+            of: find.byType(PortfolioPnlChart), matching: breakdown),
+        findsOneWidget);
+    expect(_tile(tester, breakdown, 'Investing'), r'+$15.00');
+    expect(_tile(tester, breakdown, 'Predictions'), r'+$4.00');
+    expect(tester.widget<Text>(find.text(r'+$15.00')).style?.color,
+        AppColors.marketUp);
+    // No Earn while the backend does not allow it.
+    expect(find.byType(UsdEarnChart, skipOffstage: false), findsNothing);
+    expect(find.descendant(of: breakdown, matching: find.text('Earn')),
         findsNothing);
+    expect(events.where((e) => e.$1 == 'portfolio_tab_changed'), isEmpty);
+
+    // The one range row reports the combined chart as venue `all`.
+    await tester.tap(find.text('ALL'));
+    await tester.pumpAndSettle();
+    expect(
+        events
+            .where((e) => e.$1 == 'portfolio_performance_range_changed')
+            .single
+            .$2,
+        {'venue': 'all', 'from': '1M', 'to': 'ALL'});
     expect(tester.takeException(), isNull);
   });
 
   testWidgets(
-      'Statistics ends with Earn while the backend allows it: the chart '
-      'under its heading, mounted as it comes on screen', (tester) async {
+      'Statistics with nothing charted: one quiet line, never a flat line '
+      'at zero', (tester) async {
+    await _pump(tester, initialTab: 3);
+    expect(find.byType(KuteLineChart), findsNothing);
+    expect(
+        find.byKey(const ValueKey('statistics-chart-empty')), findsOneWidget);
+    expect(find.byKey(const ValueKey('statistics-active')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Statistics without Predictions is the Investing figure only',
+      (tester) async {
+    final events = _events();
+    await _pump(tester,
+        initialTab: 3,
+        venues: const PortfolioVenues(trading: true, predictions: false),
+        overrides: _performance());
+    expect(find.byType(PortfolioPnlChart), findsOneWidget);
+    expect(
+        tester
+            .widget<RollingNumberText>(
+                find.byKey(const ValueKey('statistics-pnl-headline')))
+            .text,
+        r'+$15.00');
+    // One venue: a breakdown would only say the headline again.
+    expect(find.byKey(const ValueKey('statistics-breakdown')), findsNothing);
+    await tester.tap(find.text('ALL'));
+    await tester.pumpAndSettle();
+    expect(
+        events
+            .where((e) => e.$1 == 'portfolio_performance_range_changed')
+            .single
+            .$2?['venue'],
+        'trading');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'Earn joins the breakdown with what it has paid; its chart does not '
+      'repeat under the venues', (tester) async {
+    final api = _PaidRewardsApi();
+    final events = _events();
+    await _pump(tester, initialTab: 3, overrides: [
+      ..._performance(),
+      usdEarnEnabledProvider.overrideWithValue(true),
+      sparkIdentityPubkeyProvider.overrideWith((_) async => 'pub'),
+      usdRewardsApiProvider.overrideWithValue(api),
+    ]);
+    final breakdown = find.byKey(const ValueKey('statistics-breakdown'));
+    // Paid days only: 1,000 + 500 sats.
+    expect(_tile(tester, breakdown, 'Earn'), '+1,500 sats');
+    expect(find.byType(UsdEarnChart, skipOffstage: false), findsNothing);
+    expect(
+        find.byKey(const ValueKey('portfolio-statistics-earn')), findsNothing);
+    expect(events.where((e) => e.$1 == 'usd_earn_opened'), isEmpty);
+    expect(api.calls, ['payouts']);
+    await tester.pumpWidget(const SizedBox());
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'Earn is the only figure (nothing charted on the venues): its chart '
+      'takes the lead, opened once', (tester) async {
     final api = RecordingRewardsApi(estimatedSatsToday: 1234);
     final events = _events();
     await _pump(tester, initialTab: 3, overrides: [
@@ -385,27 +518,34 @@ void main() {
       sparkIdentityPubkeyProvider.overrideWith((_) async => 'pub'),
       usdRewardsApiProvider.overrideWithValue(api),
     ]);
-    // Bring the end of the list on screen whatever the figures take.
-    await tester.drag(
-        find.byType(PortfolioStatistics).first, const Offset(0, -800));
     for (var i = 0; i < 5; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }
-    final earn = find.byKey(const ValueKey('portfolio-statistics-earn'));
-    expect(earn, findsOneWidget);
     expect(find.byType(UsdEarnChart), findsOneWidget);
-    expect(tester.getTopLeft(earn).dy,
-        greaterThan(tester.getTopLeft(find.byType(PortfolioStatistics).last).dy));
+    expect(find.byKey(const ValueKey('statistics-chart-empty')), findsNothing);
+    expect(
+        tester.getTopLeft(find.byType(UsdEarnChart)).dy,
+        lessThan(tester
+            .getTopLeft(find.byKey(const ValueKey('statistics-active')))
+            .dy));
     expect(api.calls, contains('summary'));
     expect(events.where((e) => e.$1 == 'usd_earn_opened'), hasLength(1));
-    expect(events.where((e) => e.$1 == 'portfolio_tab_changed'), isEmpty);
+    // One type scale with the P&L header: the balance hero.
+    final hero = tester
+        .widget<RollingNumberText>(find.descendant(
+            of: find.byType(UsdEarnChart),
+            matching: find.byType(RollingNumberText)))
+        .style;
+    expect(
+        hero.fontSize,
+        AppTextStyles.balance(tester.element(find.byType(UsdEarnChart)))
+            .fontSize);
     // Unmount with the chart's countdown stopped.
     await tester.pumpWidget(const SizedBox());
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('opens the requested tab (a trade notification)',
-      (tester) async {
+  testWidgets('opens the requested tab (a trade notification)', (tester) async {
     await _pump(tester, initialTab: 1);
     final context = tester.element(find.byType(PortfolioTabs));
     expect(DefaultTabController.of(context).index, 1);
@@ -469,8 +609,7 @@ void main() {
     expect(find.byType(InvestmentBalanceHeader), findsNothing);
     expect(find.text('Deposit'), findsNothing);
     expect(find.text('Withdraw'), findsNothing);
-    expect(
-        events.where((e) => e.$1 == 'portfolio_opened').single.$2,
+    expect(events.where((e) => e.$1 == 'portfolio_opened').single.$2,
         {'source': 'investments_tab', 'tab': 'open'});
 
     // Open: both venues, no Wallet section, no filter row.
@@ -479,14 +618,12 @@ void main() {
     expect(find.byType(HlPortfolioPositionCard), findsOneWidget);
     expect(find.text('Will it rain tomorrow?'), findsOneWidget);
 
-    // The same tabs and drill-down: Statistics with both sections, each
-    // with its own Active | Historic pair.
+    // The same tabs and drill-down: Statistics as one block with one
+    // Active | Historic pair.
     await _openTab(tester, 3);
-    expect(_statisticsVenues(tester), [
-      PortfolioPerformanceVenue.trading,
-      PortfolioPerformanceVenue.predictions,
-    ]);
-    await tester.tap(find.byKey(const ValueKey('statistics-historic')).first);
+    expect(find.byType(PortfolioStatisticsOverview), findsOneWidget);
+    expect(find.byKey(const ValueKey('statistics-historic')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('statistics-historic')));
     await tester.pumpAndSettle();
     expect(events.last.$1, 'portfolio_tab_changed');
     expect(events.last.$2, {'tab': 'statistics', 'subtab': 'historic'});

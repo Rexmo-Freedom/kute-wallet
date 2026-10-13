@@ -10804,4 +10804,7 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get depositFromAnotherWalletSubtitle =>
       'Obtenez une adresse pour envoyer des dollars';
+
+  @override
+  String get portfolioStatOpenPnl => 'Gain / perte latent';
 }

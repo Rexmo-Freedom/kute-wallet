@@ -10712,4 +10712,7 @@ class AppLocalizationsCs extends AppLocalizations {
   @override
   String get depositFromAnotherWalletSubtitle =>
       'Získejte adresu, na kterou pošlete dolary';
+
+  @override
+  String get portfolioStatOpenPnl => 'Otevřený zisk / ztráta';
 }

@@ -10716,4 +10716,7 @@ class AppLocalizationsSv extends AppLocalizations {
   @override
   String get depositFromAnotherWalletSubtitle =>
       'Få en adress att skicka dollar till';
+
+  @override
+  String get portfolioStatOpenPnl => 'Öppen vinst/förlust';
 }

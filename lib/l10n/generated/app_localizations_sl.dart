@@ -10749,4 +10749,7 @@ class AppLocalizationsSl extends AppLocalizations {
   @override
   String get depositFromAnotherWalletSubtitle =>
       'Pridobite naslov, na katerega pošljete dolarje';
+
+  @override
+  String get portfolioStatOpenPnl => 'Odprt dobiček / izguba';
 }

@@ -3006,5 +3006,6 @@
   "depositFromSpendingWallet": "Twój portfel wydatków",
   "depositFromSpendingWalletWithBalance": "Twój portfel wydatków · {amount}",
   "depositFromAnotherWallet": "Inny portfel lub giełda",
-  "depositFromAnotherWalletSubtitle": "Uzyskaj adres, na który wyślesz dolary"
+  "depositFromAnotherWalletSubtitle": "Uzyskaj adres, na który wyślesz dolary",
+  "portfolioStatOpenPnl": "Otwarty zysk / strata"
 }

@@ -288,6 +288,7 @@ Future<void> _pump(WidgetTester tester,
     {bool hidden = false,
     bool empty = false,
     bool fail = false,
+    PortfolioPerformance? series,
     bool predictions = false,
     bool trading = false,
     bool noOpen = false,
@@ -322,6 +323,7 @@ Future<void> _pump(WidgetTester tester,
                 venue: PortfolioPerformanceVenue.predictions))
             .overrideWith((_) async {
           if (fail) throw Exception('offline');
+          if (series != null) return series;
           return empty
               ? const PortfolioPerformance(
                   points: [],
@@ -479,15 +481,41 @@ void main() {
     // From the P&L the account had a month ago (−5, forty days in) through
     // the venue's points to now.
     expect(chart.values, [-5, 9, 15, 16]);
-    for (final pill in ['1D', '1W', '1M', '3M', 'YTD', '1Y', 'ALL']) {
+    // The account is forty days old: the ranges reaching back past its
+    // first point would draw ALL again, so they are not offered.
+    for (final pill in ['1D', '1W', '1M', 'ALL']) {
       expect(find.text(pill), findsOneWidget);
     }
+    for (final pill in ['3M', 'YTD', '1Y']) {
+      expect(find.text(pill), findsNothing);
+    }
+    // No fill under the line; it moves, so the dashed baseline is drawn.
+    expect(chart.showFill, isFalse);
+    expect(
+        find.byWidgetPredicate(
+            (w) => w is CustomPaint && w.painter is PnlBaselinePainter),
+        findsOneWidget);
+    // The figure leads: the balance type, over the 20sp tile figures.
+    final hero = tester
+        .widget<RollingNumberText>(
+            find.byKey(const ValueKey('statistics-pnl-headline')))
+        .style;
+    final balance =
+        AppTextStyles.balance(tester.element(find.byType(PortfolioPnlChart)));
+    expect(hero.fontSize, balance.fontSize);
+    expect(hero.fontWeight, FontWeight.w700);
+    expect(hero.color, AppColors.marketUp);
     expect(find.text('Total gains and losses'), findsNothing);
     // Chart, then the sub-tab pills, then the donut card.
-    expect(tester.getBottomLeft(_chartCard).dy,
-        lessThan(tester.getTopLeft(find.byKey(const ValueKey('statistics-active'))).dy));
     expect(
-        tester.getBottomLeft(find.byKey(const ValueKey('statistics-active'))).dy,
+        tester.getBottomLeft(_chartCard).dy,
+        lessThan(tester
+            .getTopLeft(find.byKey(const ValueKey('statistics-active')))
+            .dy));
+    expect(
+        tester
+            .getBottomLeft(find.byKey(const ValueKey('statistics-active')))
+            .dy,
         lessThan(tester.getTopLeft(_card).dy));
     // Two rolling figures: the chart's headline and the donut's hole.
     expect(find.byType(RollingNumberText), findsNWidgets(2));
@@ -508,8 +536,11 @@ void main() {
     expect(donutBox.margin, isNull);
     expect(tester.getBottomLeft(find.byType(KuteDonutChart)).dy,
         lessThan(tester.getTopLeft(find.text('Amount predicted')).dy));
-    // The P&L is the chart's headline, not a tile again.
-    expect(find.text('Realized P&L'), findsNothing);
+    // What is settled, signed and coloured as the headline, leads the
+    // tiles.
+    expect(_tile(tester, 'Realized P&L'), r'+$6.00');
+    expect(tester.widget<Text>(find.text(r'+$6.00')).style?.color,
+        AppColors.marketUp);
     expect(tester.takeException(), isNull);
   });
   testWidgets('without categories the card starts with the tiles',
@@ -525,7 +556,7 @@ void main() {
             tester.getTopLeft(_card).dy,
         closeTo(16 * 390 / 430, 1));
     expect(_tile(tester, 'Amount predicted'), r'$33.00');
-    expect(find.text('Realized P&L'), findsNothing);
+    expect(_tile(tester, 'Realized P&L'), r'+$6.00');
     expect(tester.takeException(), isNull);
   });
   testWidgets('while the categories load, the skeleton sits in the card',
@@ -538,7 +569,7 @@ void main() {
         findsNothing);
     expect(tester.getTopLeft(skeleton).dy, tester.getTopLeft(_card).dy);
     expect(find.text('Amount predicted'), findsOneWidget);
-    expect(find.text('Realized P&L'), findsNothing);
+    expect(find.text('Realized P&L'), findsOneWidget);
   });
   testWidgets(
       'empty history does not fabricate a zero result: the quiet line in '
@@ -546,7 +577,8 @@ void main() {
     await _pump(tester, empty: true);
     expect(find.byType(KuteLineChart), findsNothing);
     expect(_chartCard, findsNothing);
-    expect(find.byKey(const ValueKey('statistics-chart-empty')), findsOneWidget);
+    expect(
+        find.byKey(const ValueKey('statistics-chart-empty')), findsOneWidget);
     expect(find.text('No predictions yet'), findsOneWidget);
     expect(find.textContaining(r'$'), findsNothing);
     expect(find.byIcon(Icons.insights_outlined), findsNothing);
@@ -554,7 +586,8 @@ void main() {
   testWidgets('nothing published and nothing done: one quiet line, not two',
       (tester) async {
     await _pump(tester, empty: true, scope: StatisticsScope.active);
-    expect(find.byKey(const ValueKey('statistics-chart-empty')), findsOneWidget);
+    expect(
+        find.byKey(const ValueKey('statistics-chart-empty')), findsOneWidget);
     expect(find.byKey(const ValueKey('statistics-empty')), findsNothing);
     expect(find.text('No predictions yet'), findsOneWidget);
   });
@@ -570,14 +603,145 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  group('Empty and flat lines', () {
+    PortfolioPerformance series(List<(int, double)> points) {
+      final now = DateTime.now().toUtc();
+      return PortfolioPerformance(
+          points: [
+            for (final (days, pnl) in points)
+              PortfolioPnlPoint(
+                  timestamp: now.subtract(Duration(days: days)), pnlUsd: pnl)
+          ],
+          totalPnlUsd: points.last.$2,
+          sourceLabel: 'Polymarket',
+          basisLabel: 'Economic P&L',
+          coverageLabel: 'All time');
+    }
+
+    bool baselineDrawn() => find
+        .byWidgetPredicate(
+            (w) => w is CustomPaint && w.painter is PnlBaselinePainter)
+        .evaluate()
+        .isNotEmpty;
+
+    testWidgets(
+        'a P&L at zero all the way draws no line: the quiet line in its '
+        'place', (tester) async {
+      await _pump(tester, series: series([(40, 0), (10, 0), (1, 0)]));
+      expect(find.byType(KuteLineChart), findsNothing);
+      expect(_chartCard, findsNothing);
+      expect(
+          find.byKey(const ValueKey('statistics-chart-empty')), findsOneWidget);
+      expect(find.text('No predictions yet'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+        'a range the line does not move over: the line, no dashed '
+        'baseline', (tester) async {
+      // Five dollars made two months ago, nothing since: the month drawn
+      // is flat.
+      await _pump(tester, series: series([(60, 5), (40, 5), (1, 5)]));
+      expect(find.byType(KuteLineChart), findsOneWidget);
+      expect(tester.widget<KuteLineChart>(find.byType(KuteLineChart)).values,
+          [5, 5]);
+      expect(baselineDrawn(), isFalse);
+      // All time it moved (from zero): the baseline is back.
+      await tester.tap(find.text('ALL'));
+      await tester.pumpAndSettle();
+      expect(baselineDrawn(), isTrue);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+        'a young account opens on ALL; the ranges that would draw it again '
+        'are not offered', (tester) async {
+      await _pump(tester, series: series([(10, 2), (1, 5)]));
+      final chart = find.byType(KuteLineChart);
+      expect(chart, findsOneWidget);
+      expect(find.byKey(const ValueKey('statistics-pnl-chart-all')),
+          findsOneWidget);
+      for (final pill in ['1D', '1W', 'ALL']) {
+        expect(find.text(pill), findsOneWidget);
+      }
+      for (final pill in ['1M', '3M', 'YTD', '1Y']) {
+        expect(find.text(pill), findsNothing);
+      }
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('PortfolioPerformance.combine', () {
+    final t0 = DateTime.utc(2026, 9, 1);
+    DateTime day(int n) => t0.add(Duration(days: n));
+    PortfolioPerformance series(List<(int, double)> points,
+            {double? realized, double? open}) =>
+        PortfolioPerformance(
+            points: [
+              for (final (n, pnl) in points)
+                PortfolioPnlPoint(timestamp: day(n), pnlUsd: pnl)
+            ],
+            totalPnlUsd: points.isEmpty ? null : points.last.$2,
+            realizedPnlUsd: realized,
+            openPnlUsd: open,
+            sourceLabel: 'v',
+            basisLabel: 'P&L',
+            coverageLabel: 'All time');
+
+    test(
+        'adds the venues on every moment either published, carrying each '
+        'at its last point (zero before its first)', () {
+      final sum = PortfolioPerformance.combine([
+        series([(0, -5), (3, 9), (5, 15)]),
+        series([(2, 1), (3, 2), (6, 4)]),
+      ]);
+      expect([for (final p in sum.points) p.timestamp],
+          [day(0), day(2), day(3), day(5), day(6)]);
+      expect([for (final p in sum.points) p.pnlUsd], [-5, -4, 11, 17, 19]);
+      expect(sum.totalPnlUsd, 19);
+      expect(sum.hasMovement, isTrue);
+    });
+
+    test('a venue with no series is the other venue', () {
+      final sum = PortfolioPerformance.combine([
+        series([]),
+        series([(1, 3), (2, 7)], realized: 2, open: 5),
+      ]);
+      expect([for (final p in sum.points) p.pnlUsd], [3, 7]);
+      expect(sum.totalPnlUsd, 7);
+      expect(sum.realizedPnlUsd, 2);
+      expect(sum.openPnlUsd, 5);
+    });
+
+    test('a split one venue does not publish leaves the sum\'s unknown', () {
+      final sum = PortfolioPerformance.combine([
+        series([(1, 3)], realized: 2, open: 1),
+        series([(1, 4)]),
+      ]);
+      expect(sum.realizedPnlUsd, isNull);
+      expect(sum.openPnlUsd, isNull);
+      expect(sum.totalPnlUsd, 7);
+    });
+
+    test('nothing at all, or zero all the way, has no movement', () {
+      expect(PortfolioPerformance.combine([]).hasMovement, isFalse);
+      expect(
+          PortfolioPerformance.combine([
+            series([(0, 0), (2, 0)]),
+            series([(1, 0)]),
+          ]).hasMovement,
+          isFalse);
+    });
+  });
+
   group('Predictions figures', () {
     testWidgets('the tiles are all time, today\'s positions included',
         (tester) async {
       await _pump(tester, predictions: true);
       await tester.scrollUntilVisible(find.text('Predictions'), 100);
-      // Every stake and every prediction; the P&L is the chart's
-      // headline, not a tile.
-      expect(find.text('Realized P&L'), findsNothing);
+      // What is settled, every stake and every prediction; the open P&L
+      // is Active's.
+      expect(_tile(tester, 'Realized P&L'), r'+$6.00');
       expect(find.text('Open P&L'), findsNothing);
       expect(_tile(tester, 'Amount predicted'), r'$33.00');
       expect(_tile(tester, 'Predictions'), '3');
@@ -594,7 +758,7 @@ void main() {
       expect(find.textContaining(r'$'), findsNothing);
       expect(_tile(tester, 'Predictions'), '3');
       expect(_tile(tester, 'Amount predicted'), '••••••');
-      expect(find.text('Realized P&L'), findsNothing);
+      expect(_tile(tester, 'Realized P&L'), '••••••');
     });
 
     testWidgets('without positions there are no prediction tiles',
@@ -610,9 +774,9 @@ void main() {
         'open positions', (tester) async {
       await _pump(tester, trading: true);
       await tester.scrollUntilVisible(find.text('Trades'), 100);
-      // Every fill: the ETH round trip and the BTC open; the P&L is the
-      // chart's headline, not a tile.
-      expect(find.text('Realized P&L'), findsNothing);
+      // Every fill: the ETH round trip (+10 on 1 of fees) and the BTC
+      // open (1 of fees); what closing realised leads.
+      expect(_tile(tester, 'Realized P&L'), r'+$8.00');
       expect(find.text('Open P&L'), findsNothing);
       expect(_tile(tester, 'Volume traded'), r'$6,210.00');
       expect(_tile(tester, 'Trades'), '3');
@@ -631,6 +795,7 @@ void main() {
       expect(find.textContaining(r'$'), findsNothing);
       expect(_tile(tester, 'Trades'), '3');
       expect(_tile(tester, 'Volume traded'), '••••••');
+      expect(_tile(tester, 'Realized P&L'), '••••••');
     });
 
     testWidgets('fits accessibility text', (tester) async {
@@ -836,7 +1001,8 @@ void main() {
           lessThan(tester.getTopLeft(_card).dy));
       expect(find.text('Amount at stake'), findsOneWidget);
       expect(find.text('Amount predicted'), findsNothing);
-      expect(find.text('Open P&L'), findsNothing);
+      expect(find.text('Open P&L'), findsOneWidget);
+      expect(find.text('Realized P&L'), findsNothing);
       expect(events.where((e) => e.$1 == 'portfolio_tab_changed'), isEmpty);
 
       await tester.tap(find.byKey(const ValueKey('statistics-historic')));
@@ -844,7 +1010,8 @@ void main() {
       expect(selected(tester, 'historic'), isTrue);
       expect(find.text('Amount at stake'), findsNothing);
       expect(find.text('Amount predicted'), findsOneWidget);
-      expect(find.text('Realized P&L'), findsNothing);
+      expect(find.text('Realized P&L'), findsOneWidget);
+      expect(find.text('Open P&L'), findsNothing);
       expect(_donutTexts(tester).first, 'All time');
       expect(events.where((e) => e.$1 == 'portfolio_tab_changed').single.$2,
           {'tab': 'statistics', 'subtab': 'historic'});
@@ -870,7 +1037,8 @@ void main() {
       expect(_hole(tester), r'$30.00');
       expect(find.text('Sports'), findsNothing);
       await tester.scrollUntilVisible(find.text('Open positions'), 100);
-      expect(find.text('Open P&L'), findsNothing);
+      // 40 shares bought at 0.50 now at 0.75.
+      expect(_tile(tester, 'Open P&L'), r'+$10.00');
       expect(_tile(tester, 'Amount at stake'), r'$20.00');
       expect(_tile(tester, 'Open positions'), '1');
       expect(find.text('Amount predicted'), findsNothing);
@@ -884,7 +1052,8 @@ void main() {
       expect(_donutTexts(tester),
           containsAllInOrder(['Active', 'Crypto', '100%', r'$65.00']));
       await tester.scrollUntilVisible(find.text('Open positions'), 100);
-      expect(find.text('Open P&L'), findsNothing);
+      // BTC +7.5, SOL −2.5.
+      expect(_tile(tester, 'Open P&L'), r'+$5.00');
       expect(_tile(tester, 'Amount at stake'), r'$60.00');
       expect(_tile(tester, 'Open positions'), '2');
       expect(find.text('Volume traded'), findsNothing);

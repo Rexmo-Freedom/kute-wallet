@@ -3006,5 +3006,6 @@
   "depositFromSpendingWallet": "Vaša peňaženka na míňanie",
   "depositFromSpendingWalletWithBalance": "Vaša peňaženka na míňanie · {amount}",
   "depositFromAnotherWallet": "Iná peňaženka alebo burza",
-  "depositFromAnotherWalletSubtitle": "Získajte adresu, na ktorú pošlete doláre"
+  "depositFromAnotherWalletSubtitle": "Získajte adresu, na ktorú pošlete doláre",
+  "portfolioStatOpenPnl": "Otvorený zisk / strata"
 }

@@ -10709,4 +10709,7 @@ class AppLocalizationsEt extends AppLocalizations {
   @override
   String get depositFromAnotherWalletSubtitle =>
       'Saa aadress, kuhu dollareid saata';
+
+  @override
+  String get portfolioStatOpenPnl => 'Avatud kasum / kahjum';
 }

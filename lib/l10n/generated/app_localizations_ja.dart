@@ -10302,4 +10302,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get depositFromAnotherWalletSubtitle => 'ドルを送るアドレスを取得';
+
+  @override
+  String get portfolioStatOpenPnl => '含み損益';
 }
