@@ -338,7 +338,9 @@ void main() {
       });
     });
 
-    test('each request polls its own window from when it joined', () {
+    test(
+        'each request polls its own window from when it joined; a sync that '
+        'started after it joined is its sync too', () {
       fakeAsync((async) {
         bool? second;
         refresher.request(asset: ArrivalAsset.bitcoin);
@@ -355,8 +357,75 @@ void main() {
         expect(syncs, 1);
         expect(second, isNull);
         async.elapse(kArrivalPollInterval);
-        expect(syncs, 2);
         expect(second, isFalse);
+        expect(syncs, 1,
+            reason: 'the sync it saw already read what the operators hold');
+      });
+    });
+
+    test('a request that joins while the sync runs gets a sync of its own',
+        () {
+      fakeAsync((async) {
+        syncGate = Completer<void>();
+        bool? second;
+        refresher.request(asset: ArrivalAsset.bitcoin);
+        async.elapse(kArrivalPollWindow);
+        expect(syncs, 1);
+        refresher
+            .request(asset: ArrivalAsset.bitcoin)
+            .then((r) => second = r);
+        async.flushMicrotasks();
+        syncGate!.complete();
+        syncGate = null;
+        async.elapse(kArrivalPollWindow + kArrivalPollInterval * 2);
+        expect(second, isFalse);
+        expect(syncs, 2);
+      });
+    });
+
+    test(
+        'an arrival the sync did not show is read late, without a sync, and '
+        'published the moment it shows', () {
+      fakeAsync((async) {
+        bool? rose;
+        refresher
+            .request(
+                asset: ArrivalAsset.dollars,
+                baseline: {'usdb': BigInt.from(5000000)})
+            .then((r) => rose = r);
+        async.elapse(kArrivalPollWindow + kArrivalPollInterval);
+        expect(rose, isFalse, reason: 'the request itself ends as before');
+        expect(syncs, 1);
+        expect(publishes, 1);
+        expect(refresher.lateWaiting, 1);
+
+        // The SDK writes the transfer into its cache after the sync, and
+        // raises no event for it.
+        balances['usdb'] = BigInt.from(17400000);
+        async.elapse(kArrivalLateCheckInterval);
+        expect(publishes, 2, reason: 'the late reading reached the UI');
+        expect(refresher.lateWaiting, 0);
+        expect(syncs, 1, reason: 'late reads never sync');
+        final idle = reads;
+        async.elapse(const Duration(minutes: 1));
+        expect(reads, idle);
+      });
+    });
+
+    test('late reads stop after half a minute', () {
+      fakeAsync((async) {
+        refresher.request(
+            asset: ArrivalAsset.dollars,
+            baseline: {'usdb': BigInt.from(5000000)});
+        async.elapse(kArrivalPollWindow + kArrivalPollInterval);
+        final before = reads;
+        async.elapse(kArrivalLateCheckInterval * kArrivalLateChecks);
+        expect(reads, before + kArrivalLateChecks);
+        expect(refresher.lateWaiting, 0);
+        async.elapse(const Duration(minutes: 1));
+        expect(reads, before + kArrivalLateChecks);
+        expect(publishes, 1);
+        expect(syncs, 1);
       });
     });
 

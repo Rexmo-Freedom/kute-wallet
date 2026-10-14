@@ -213,6 +213,16 @@ class BreezSdkSpark {
     }
   }
 
+  /// Re-reads the connected wallet's balances and payments once and
+  /// publishes them to the streams the balance providers follow: no poll,
+  /// no sync. For a change the wallet made itself (one of its own sends
+  /// finished, an order paid from it failed): the SDK's cache already has
+  /// it, nothing has to arrive. Never throws.
+  Future<void> rereadWalletData() async {
+    final sdk = _instance;
+    if (sdk != null) await _fetchWalletData(sdk);
+  }
+
   /// Forces an SDK wallet sync (the shared one, see [sharedSyncWallet]),
   /// which rewrites the SDK's cached balance from its leaves, then re-reads
   /// the wallet data.
@@ -537,6 +547,13 @@ const Duration kArrivalPollInterval = Duration(milliseconds: 300);
 /// asks for a wallet sync.
 const Duration kArrivalPollWindow = Duration(seconds: 3);
 
+/// How often a request that ended without its rise (see [ArrivalRefresher])
+/// reads the cached balance again, without a sync.
+const Duration kArrivalLateCheckInterval = Duration(seconds: 5);
+
+/// How many such late reads it gets: half a minute in all.
+const int kArrivalLateChecks = 6;
+
 /// How long after the last `synced` event of a burst [SyncedReread] reads
 /// the balance a second time.
 const Duration kSyncedRereadSettle = Duration(milliseconds: 300);
@@ -688,6 +705,14 @@ class _ArrivalWaiter {
   int pollsLeft;
   final Completer<bool> done = Completer<bool>();
 
+  /// A sync started after this request joined: its reading already
+  /// carries whatever the operators held for it, so it never asks for
+  /// another one.
+  bool synced = false;
+
+  /// Late reads left once it ended without its rise.
+  int lateLeft = 0;
+
   bool roseIn(Map<String, BigInt> balances) {
     final base = baseline;
     if (base == null) return false;
@@ -711,9 +736,21 @@ class _ArrivalWaiter {
 /// request due at that moment, and ends on the reading after it.
 ///
 /// A request made while the poll runs joins it (no queue behind the
-/// running one) with its own baseline and its own window. Whenever
-/// requests end, [publish] runs once before their futures complete, so
-/// the reading reaches the UI first. Never throws.
+/// running one) with its own baseline and its own window. A sync serves
+/// every request that joined before it started: one whose window ends
+/// after such a sync ends on its reading without asking for another, so
+/// a burst of arrivals (the legs of a Rebalance landing one after the
+/// other) costs one sync, not one each. Whenever requests end, [publish]
+/// runs once before their futures complete, so the reading reaches the UI
+/// first.
+///
+/// A request that ends without its rise is not forgotten: the SDK can
+/// write a transfer into its cached balance after the sync answered (a
+/// sync holds the operator stream back, and once a sync has recorded the
+/// payment the stream's late balance write raises no payment event, so
+/// nothing else re-reads). Its baseline is read again every
+/// [lateCheckInterval], without a sync, [lateChecks] times; a reading that
+/// shows the rise is published at once. Never throws.
 class ArrivalRefresher {
   ArrivalRefresher({
     required this.readBalances,
@@ -721,6 +758,8 @@ class ArrivalRefresher {
     Future<void> Function()? publish,
     this.pollInterval = kArrivalPollInterval,
     this.pollWindow = kArrivalPollWindow,
+    this.lateCheckInterval = kArrivalLateCheckInterval,
+    this.lateChecks = kArrivalLateChecks,
     Future<void> Function(Duration delay) sleep = _sleepFor,
   })  : _publish = publish,
         _sleep = sleep;
@@ -730,11 +769,15 @@ class ArrivalRefresher {
   final Future<void> Function()? _publish;
   final Duration pollInterval;
   final Duration pollWindow;
+  final Duration lateCheckInterval;
+  final int lateChecks;
   final Future<void> Function(Duration delay) _sleep;
 
   final List<_ArrivalWaiter> _waiters = [];
+  final List<_ArrivalWaiter> _late = [];
   int _generation = 0;
   int? _loopGeneration;
+  int? _lateGeneration;
   Map<String, BigInt>? _lastReading;
 
   int get _pollsPerWindow => pollInterval > Duration.zero
@@ -744,6 +787,10 @@ class ArrivalRefresher {
   /// Requests waiting now.
   @visibleForTesting
   int get waiting => _waiters.length;
+
+  /// Requests that ended without their rise and are still read late.
+  @visibleForTesting
+  int get lateWaiting => _late.length;
 
   /// Waits for an arrival of [asset] above [baseline]. Completes with
   /// whether one rose.
@@ -768,6 +815,7 @@ class ArrivalRefresher {
   void cancelAll() {
     _generation++;
     _lastReading = null;
+    _late.clear();
     final dropped = List.of(_waiters);
     _waiters.clear();
     for (final w in dropped) {
@@ -820,6 +868,51 @@ class ArrivalRefresher {
     }
     for (final (w, rose) in ended) {
       if (!w.done.isCompleted) w.done.complete(rose);
+      if (!rose && w.baseline != null && lateChecks > 0) {
+        w.lateLeft = lateChecks;
+        _late.add(w);
+      }
+    }
+    if (_late.isNotEmpty && _lateGeneration != _generation) {
+      _lateGeneration = _generation;
+      unawaited(_lateLoop(_generation));
+    }
+  }
+
+  /// Reads the requests that ended without their rise again, every
+  /// [lateCheckInterval], no sync; publishes once for a reading that
+  /// shows any of them.
+  Future<void> _lateLoop(int gen) async {
+    bool live() => gen == _generation;
+    try {
+      while (live() && _late.isNotEmpty) {
+        await _sleep(lateCheckInterval);
+        if (!live()) break;
+        Map<String, BigInt>? reading;
+        try {
+          reading = await readBalances();
+        } catch (_) {
+          reading = null;
+        }
+        if (!live()) break;
+        var rose = false;
+        for (final w in List.of(_late)) {
+          if (reading != null && w.roseIn(reading)) {
+            rose = true;
+            _late.remove(w);
+          } else if (--w.lateLeft <= 0) {
+            _late.remove(w);
+          }
+        }
+        final publish = _publish;
+        if (rose && publish != null) {
+          try {
+            await publish();
+          } catch (_) {}
+        }
+      }
+    } finally {
+      if (_lateGeneration == gen) _lateGeneration = null;
     }
   }
 
@@ -845,7 +938,19 @@ class ArrivalRefresher {
           for (final w in _waiters)
             if (w.baseline == null || w.pollsLeft <= 0) w,
         ];
-        if (due.isNotEmpty) {
+        if (due.isNotEmpty && due.every((w) => w.synced)) {
+          // Each already saw a sync that started after it joined, and the
+          // reading above came after that sync: nothing more to sync for.
+          await _end([
+            for (final w in due)
+              if (_waiters.contains(w)) (w, false),
+          ]);
+          if (!live() || _waiters.isEmpty) break;
+        } else if (due.isNotEmpty) {
+          // This sync serves every request waiting now.
+          for (final w in _waiters) {
+            w.synced = true;
+          }
           try {
             await sync();
           } catch (_) {
@@ -893,6 +998,7 @@ Future<bool> syncUntilBalanceRises({
       sync: sync,
       pollInterval: pollInterval,
       pollWindow: pollWindow,
+      lateChecks: 0,
       sleep: sleep,
     ).request(asset: asset, baseline: baseline);
 

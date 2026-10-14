@@ -395,6 +395,77 @@ void main() {
           reason: 'the same total as while it was in flight, never 95.6');
     });
 
+    test(
+        'a Rebalance landing: Dollars shows each leg as it lands, the venues '
+        'and in flight drop it, never counted twice', () async {
+      const pm = PolymarketTradingState(
+          isAuthenticated: true, balanceKnown: true, usdcBalance: 0);
+      // Both legs left their venues (the venues' reads show nothing idle).
+      SwapOrder predictionsLeg(String status) => _row(
+          id: 'ord_pm',
+          coinFrom: 'USDC.e',
+          networkFrom: 'POLYGON',
+          coinTo: 'USDB',
+          networkTo: 'SPARK',
+          withdrawalAmount: '12.4',
+          status: status,
+          at: _now.subtract(const Duration(minutes: 2)));
+      SwapOrder investingLeg(String status) => _row(
+          id: 'ord_cctp',
+          coinFrom: 'USDC',
+          networkFrom: 'HYPERCORE',
+          coinTo: 'USDB',
+          networkTo: 'SPARK',
+          withdrawalAmount: '7.5',
+          status: status,
+          at: _now.subtract(const Duration(minutes: 20)));
+      Future<OneBalanceState> header({
+        required double dollars,
+        required List<SwapOrder> rows,
+        List<UsdbTokenTransaction> ledger = const [],
+      }) async {
+        final c = container(
+            dollars: dollars, pm: pm, rows: rows, dollarLedger: ledger);
+        addTearDown(c.dispose);
+        await c.read(polymarketTradingProvider.future);
+        return c.read(oneBalanceProvider);
+      }
+
+      // Under way: Dollars 10, both legs in flight.
+      final moving = await header(
+          dollars: 10,
+          rows: [predictionsLeg('exchanging'), investingLeg('exchanging')]);
+      expect(moving.dollarsUsd, 10);
+      expect(moving.totalUsd, closeTo(29.9, 1e-9));
+
+      // The Predictions leg's dollars are in the balance (the arrival
+      // refresh or the SDK's event) while Orchestra still says under way.
+      final pmRx = _dollarReceive('rx_pm',
+          usd: 12.38, at: _now.subtract(const Duration(minutes: 1)));
+      final half = await header(
+          dollars: 22.38,
+          rows: [predictionsLeg('exchanging'), investingLeg('exchanging')],
+          ledger: [pmRx]);
+      expect(half.dollarsUsd, 22.38);
+      expect(half.inFlight, const [
+        InFlightMove(
+            kind: InFlightKind.fromVenue,
+            venue: OneBalanceVenue.investing,
+            usd: 7.5),
+      ]);
+      expect(half.totalUsd, closeTo(29.88, 1e-9));
+
+      // Both done and refreshed: everything is Dollars.
+      final done = await header(
+          dollars: 29.86,
+          rows: [predictionsLeg('success'), investingLeg('success')],
+          ledger: [pmRx, _dollarReceive('rx_hl', usd: 7.48, at: _now)]);
+      expect(done.dollarsUsd, 29.86);
+      expect(done.inFlight, isEmpty);
+      expect(done.waiting, isEmpty);
+      expect(done.totalUsd, closeTo(29.86, 1e-9));
+    });
+
     test('dust is Available venue cash, never invested, never waiting',
         () async {
       // The founder's screenshot: $6.20 home, $0.06 left on HyperCore.
