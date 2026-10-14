@@ -631,15 +631,17 @@ String hlPriceTagTemplate(double lo, double hi, {int? decimalCap}) {
 /// end of the data and covers no candle and no line. The latest price's
 /// pill is sized for [priceTemplate] ([hlPriceTagTemplate]); the trade
 /// lines' tags ([kuteTradeTagColumnWidth], written with [formatPrice])
-/// may widen it up to [kPolyTagMaxGutterShare] of the chart, past which
-/// they write a shorter text; [entryTag] holds the painter's own "Entry"
-/// tag. The lead ([kPolyTagLead]) is included.
+/// and the market-signal levels' tags ([kuteSignalLevelColumnWidth]) may
+/// widen it up to [kPolyTagMaxGutterShare] of the chart, past which they
+/// write a shorter text; [entryTag] holds the painter's own "Entry" tag.
+/// The lead ([kPolyTagLead]) is included.
 double hlChartTagGutter({
   required double width,
   required String priceTemplate,
   bool entryTag = false,
   List<ChartTradeLine> tradeLines = const [],
   String Function(double price)? formatPrice,
+  List<ChartSignalLevel> signalLevels = const [],
 }) {
   var pill = _HlCandlePainter._cachedTp(
               priceTemplate, Colors.white, 10.5.sp, FontWeight.w800)
@@ -657,6 +659,16 @@ double hlChartTagGutter({
       kuteTradeTagColumnWidth(
         tradeLines,
         formatPrice: formatPrice ?? (p) => formatHlPrice(p),
+        maxWidth: math.max(gutter, width * kPolyTagMaxGutterShare),
+        lead: kPolyTagLead,
+      ),
+    );
+  }
+  if (signalLevels.isNotEmpty) {
+    gutter = math.max(
+      gutter,
+      kuteSignalLevelColumnWidth(
+        signalLevels,
         maxWidth: math.max(gutter, width * kPolyTagMaxGutterShare),
         lead: kPolyTagLead,
       ),
@@ -2740,20 +2752,37 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                 ),
                               ),
                             // ── Market signals (off unless the host hands
-                            // some in): quiet levels, dates, rings and a
-                            // caption, above the trade lines.
+                            // some in): quiet levels with their tags in the
+                            // tag column, date lines and rings, above the
+                            // trade lines. The dates' names and the caption
+                            // are the band's, under the plot.
                             if (!widget.signals.isEmpty)
-                              Positioned(
-                                left: 0,
-                                top: 0,
-                                bottom: 0,
-                                width: plotW,
+                              Positioned.fill(
                                 child: IgnorePointer(
                                   child: RepaintBoundary(
                                     child: CustomPaint(
                                       painter: KuteChartSignalsPainter(
                                         signals: widget.signals,
                                         hits: _signalHits,
+                                        tagColumn: gutter,
+                                        tagLead: kPolyTagLead,
+                                        // The latest price's tag and the
+                                        // trade lines' (painted just
+                                        // before) keep their places.
+                                        fixedTags: (size, geom) => [
+                                          for (final t in _latestTags(
+                                              geom,
+                                              candles,
+                                              leadingClose,
+                                              morphSeries))
+                                            (top: t.top, height: t.height),
+                                          if (widget.tradeLines.isNotEmpty)
+                                            for (final h in _tradeHits)
+                                              (
+                                                top: h.rect.top,
+                                                height: h.rect.height,
+                                              ),
+                                        ],
                                         palette: ChartSignalPalette(
                                           neutral: c.textSecondary,
                                           up: AppColors.marketUp,
@@ -2764,7 +2793,8 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                         ),
                                         resolveGeometry: (size) =>
                                             _drawingGeometry(
-                                          size,
+                                          Size(hlPlotWidth(size.width, gutter),
+                                              size.height),
                                           leadingClose: leadingClose,
                                           morphSeries: morphSeries,
                                         ),
@@ -2780,6 +2810,8 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                           widget.logScale,
                                           isDark,
                                           domain,
+                                          widget.tradeLines,
+                                          _tradeDrag,
                                         ),
                                       ),
                                     ),
@@ -2931,6 +2963,9 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
         // Editing shows where on the calendar the window sits: a few
         // dates under the plot at the bars they belong to, in a form
         // that suits the window's span.
+        // The signals' dates and caption, under the plot, off the data.
+        if (kuteSignalBandRows(widget.signals) > 0)
+          _signalBand(c, isDark, candles),
         if (widget.drawingMode && candles.isNotEmpty) _dateAxis(c, candles),
         if (widget.indicators.contains('rsi'))
           _pane(
@@ -3062,6 +3097,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
       width,
       template,
       widget.tradeLines,
+      widget.signals.levels,
       entryTag,
       hlPriceDecimals(reference, decimalCap: widget.decimalCap),
     );
@@ -3074,6 +3110,63 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
       tradeLines: widget.tradeLines,
       formatPrice: (p) =>
           formatHlPriceLike(p, reference, decimalCap: widget.decimalCap),
+      signalLevels: widget.signals.levels,
+    );
+  }
+
+  /// Tag rects from the last signal band paint, for tap hit-testing.
+  final List<ChartSignalHit> _bandHits = [];
+
+  /// The band under the plot with the market signals' words
+  /// ([KuteChartSignalBandPainter]): the names of the dates in view
+  /// under their lines, the upcoming dates' tags (tappable) at its right
+  /// end, and the caption. Mapped through the plot's own time scale.
+  Widget _signalBand(
+      AppColorsExtension c, bool isDark, List<HyperliquidCandle> candles) {
+    return SizedBox(
+      height: kuteSignalBandRows(widget.signals) * kuteSignalBandRowHeight,
+      width: double.infinity,
+      child: LayoutBuilder(builder: (context, constraints) {
+        final w = constraints.maxWidth;
+        final plotW = hlPlotWidth(w, _gutterFor(w));
+        final geom = _drawingGeometry(Size(plotW, 100));
+        return GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTapUp: widget.onSignalTapped == null
+              ? null
+              : (d) {
+                  final hit = kuteHitTestSignalTags(_bandHits, d.localPosition,
+                      tolerance: 4);
+                  if (hit == null) return;
+                  HapticFeedback.selectionClick();
+                  widget.onSignalTapped!(hit.id);
+                },
+          child: CustomPaint(
+            painter: KuteChartSignalBandPainter(
+              signals: widget.signals,
+              palette: ChartSignalPalette(
+                neutral: c.textSecondary,
+                up: AppColors.marketUp,
+                down: AppColors.marketDown,
+                tagBackground: isDark ? Colors.black : Colors.white,
+              ),
+              xForTime: (t) => geom?.xForTime(t),
+              plotWidth: plotW,
+              hits: _bandHits,
+              repaintKey: (
+                candles.length,
+                candles.isEmpty
+                    ? 0
+                    : candles.first.openTime.millisecondsSinceEpoch,
+                candles.isEmpty
+                    ? 0
+                    : candles.last.openTime.millisecondsSinceEpoch,
+                w,
+              ),
+            ),
+          ),
+        );
+      }),
     );
   }
 

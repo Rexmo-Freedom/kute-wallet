@@ -17,6 +17,7 @@ import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_model.dart';
 import 'package:kute/screens/hyperliquid/components/hl_charts.dart';
 import 'package:kute/screens/hyperliquid/components/hl_format.dart';
+import 'package:kute/screens/shared/charts/kute_chart_signals.dart';
 import 'package:kute/screens/shared/charts/kute_chart_trade_lines.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -69,6 +70,7 @@ Future<void> _pump(
   bool drawingMode = false,
   double last = 86140,
   List<ChartTradeLine>? lines,
+  ChartSignals signals = ChartSignals.none,
 }) async {
   tester.view.physicalSize = Size(width, 812);
   tester.view.devicePixelRatio = 1;
@@ -96,6 +98,8 @@ Future<void> _pump(
             drawingMode: drawingMode,
             tradeLines: lines ?? _lines,
             onTradeLineMoved: (_, __) {},
+            signals: signals,
+            onSignalTapped: (_) {},
           ),
         ),
       ),
@@ -352,4 +356,88 @@ void main() {
       expect(h.rect.right, lessThanOrEqualTo(width + 0.01));
     }
   });
+
+  // Every market-signal layer on: crowd levels, funding and macro dates
+  // (one ahead of the tape), large trades and the open-interest caption.
+  const t0 = 1700000000000;
+  const signals = ChartSignals(
+    levels: [
+      ChartSignalLevel(
+          id: 'level:0',
+          price: 86200,
+          label: '↑ 56% by Oct 31',
+          shortLabel: '↑ 56%'),
+      ChartSignalLevel(
+          id: 'level:1',
+          price: 99000,
+          label: '↑ 4% by Oct 31',
+          shortLabel: '↑ 4%'),
+      ChartSignalLevel(
+          id: 'level:2',
+          price: 70000,
+          label: '↓ 3% by Oct 31',
+          shortLabel: '↓ 3%'),
+    ],
+    dates: [
+      ChartSignalDate(timeMs: t0 + 30 * 300000, label: 'Funding +'),
+      ChartSignalDate(timeMs: t0 + 70 * 300000, label: 'Funding −'),
+      ChartSignalDate(
+          timeMs: t0 + 9999 * 300000,
+          label: 'US inflation · Oct 28',
+          shortLabel: 'US inflation',
+          id: 'date:0',
+          pinWhenAhead: true),
+    ],
+    dots: [ChartSignalDot(timeMs: t0 + 50 * 300000, price: 86100, isBuy: true)],
+    caption: 'Open interest rising: +2.0% in 12 min',
+  );
+
+  for (final width in [375.0, 320.0]) {
+    testWidgets(
+        'every signal layer at ${width.round()}pt, text x1.3: no signal label '
+        'over the data, none cut', (tester) async {
+      await _pump(tester, width: width, signals: signals);
+      expect(tester.takeException(), isNull);
+      _expectDataClearOfTags(tester);
+      final plotRight = _plotRight(tester);
+      final layer = _layer(tester, 'KuteChartSignalsPainter');
+      final c = _calls(tester, 'KuteChartSignalsPainter');
+      final levelTags = [for (final r in c.rrects) r];
+      expect(levelTags, isNotEmpty);
+      for (final r in levelTags) {
+        expect(r.left, greaterThanOrEqualTo(plotRight),
+            reason: 'a level tag covers the candles');
+        expect(r.right, lessThanOrEqualTo(layer.size.width + 0.01));
+      }
+      for (final t in c.texts) {
+        expect(t.dx, greaterThanOrEqualTo(plotRight));
+      }
+      // The dotted level lines stop at the column's tags.
+      for (final (a, b) in c.lines) {
+        if (a.dy != b.dy) continue;
+        expect(b.dx, lessThanOrEqualTo(plotRight + 8 + 0.01));
+      }
+      // The level tags keep off the latest price's and the trade tags.
+      final trade = _tradePainter(tester).hits.map((h) => h.rect);
+      for (final r in levelTags) {
+        for (final t in trade) {
+          expect(r.overlaps(t), isFalse,
+              reason: 'a level tag over a trade tag');
+        }
+      }
+      // The band (dates' names, the upcoming date, the caption) is under
+      // the plot, and writes every label whole.
+      final band = tester.renderObject<RenderBox>(find.byWidgetPredicate(
+          (w) => w is CustomPaint && w.painter is KuteChartSignalBandPainter));
+      final plotBottom = layer.localToGlobal(Offset(0, layer.size.height)).dy;
+      expect(band.localToGlobal(Offset.zero).dy,
+          greaterThanOrEqualTo(plotBottom - 0.01));
+      final b = _calls(tester, 'KuteChartSignalBandPainter');
+      expect(b.texts.length, greaterThanOrEqualTo(2));
+      for (final r in b.rrects) {
+        expect(r.left, greaterThanOrEqualTo(0));
+        expect(r.right, lessThanOrEqualTo(band.size.width + 0.01));
+      }
+    });
+  }
 }

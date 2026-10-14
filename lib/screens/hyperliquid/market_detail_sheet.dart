@@ -1744,11 +1744,14 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
         final l = crowd.levels[i];
         final id = 'level:$i';
         targets[id] = (l.event, l.kind.name);
+        final arrow = l.kind == HlCrowdKind.reach ? '↑' : '↓';
         levels.add(ChartSignalLevel(
           id: id,
           price: l.strike,
-          label: '${l.kind == HlCrowdKind.reach ? '↑' : '↓'} '
+          label: '$arrow '
               '${l10n.hlChartCrowdLevel(_crowdPercent(l.chance), _crowdDay(l.day))}',
+          // Where the tag column cannot hold the day: the chance alone.
+          shortLabel: '$arrow ${_crowdPercent(l.chance)}',
         ));
       }
     }
@@ -1767,10 +1770,12 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
         final fed = d.kind == HlMacroKind.fedDecision;
         final id = 'date:$i';
         targets[id] = (d.event, fed ? 'fed_date' : 'inflation_date');
+        final name = fed ? l10n.hlChartFedDecision : l10n.hlChartUsInflation;
         dates.add(ChartSignalDate(
           timeMs: d.day.millisecondsSinceEpoch,
-          label: '${fed ? l10n.hlChartFedDecision : l10n.hlChartUsInflation}'
-              ' · ${_crowdDay(d.day)}',
+          label: '$name · ${_crowdDay(d.day)}',
+          // Where the band cannot hold the day: the event alone.
+          shortLabel: name,
           id: id,
           pinWhenAhead: true,
         ));
