@@ -71,6 +71,12 @@ Finder get _surface => find.descendant(
     matching: find.byWidgetPredicate(
         (w) => w is GestureDetector && w.onPanUpdate != null));
 
+/// The plot the data is drawn across: the chart less its tag column at
+/// the right (the crosshair layer spans exactly that).
+Finder get _plot => find.descendant(
+    of: find.byType(HlCandlestickChart),
+    matching: find.byType(KuteChartCrosshair));
+
 HlFillTooltipPainter? _tooltip(WidgetTester tester) => tester
     .widgetList<CustomPaint>(find.byType(CustomPaint))
     .map((w) => w.painter)
@@ -82,7 +88,7 @@ List<HlFillMarker> _markers(WidgetTester tester, {bool line = false}) {
   return hlResolveFillMarkers(
     candles: candles,
     fills: _fills,
-    size: tester.getSize(_surface),
+    size: tester.getSize(_plot),
     renderAsLine: line,
     showVolume: false,
     leadingClose: candles.last.close,
