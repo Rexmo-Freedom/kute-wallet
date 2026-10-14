@@ -495,7 +495,8 @@ void main() {
       expect(find.byType(PortfolioStatistics), findsNothing);
       expect(find.byType(PortfolioPnlChart), findsOneWidget);
       expect(find.byType(KuteLineChart), findsOneWidget);
-      expect(find.byType(KuteRangePills), findsOneWidget);
+      // No range row: the whole history, pinched to zoom.
+      expect(find.byType(KuteRangePills), findsNothing);
       expect(find.text('Profit and loss'), findsOneWidget);
       String headline() => tester
           .widget<RollingNumberText>(
@@ -514,14 +515,7 @@ void main() {
       // No Earn, ever.
       expect(find.text('Earn', skipOffstage: false), findsNothing);
 
-      await tester.tap(find.text('ALL'));
-      await tester.pumpAndSettle();
-      expect(
-          events
-              .where((e) => e.$1 == 'portfolio_performance_range_changed')
-              .single
-              .$2,
-          {'venue': 'all', 'from': '1M', 'to': 'ALL'});
+      expect(find.text('ALL'), findsNothing);
       await tester
           .tap(find.byKey(const ValueKey('statistics-venue-polymarket')));
       await tester.pumpAndSettle();
@@ -570,14 +564,17 @@ void main() {
           r'+$15.00');
       // One venue: no toggle (it would only say the headline again).
       expect(find.byKey(const ValueKey('statistics-venue-all')), findsNothing);
-      await tester.tap(find.text('ALL'));
+      // The scrub event names the one venue charted.
+      await tester.longPress(find.byType(KuteLineChart));
       await tester.pumpAndSettle();
       expect(
           events
-              .where((e) => e.$1 == 'portfolio_performance_range_changed')
+              .where((e) => e.$1 == 'portfolio_performance_chart_scrubbed')
               .single
-              .$2?['venue'],
-          'hyperliquid');
+              .$2,
+          {'venue': 'hyperliquid'});
+      expect(events.where((e) => e.$1 == 'portfolio_performance_range_changed'),
+          isEmpty);
       expect(tester.takeException(), isNull);
     });
 
