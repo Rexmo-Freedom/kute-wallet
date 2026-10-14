@@ -62,6 +62,66 @@ void main() {
               isSpot: false, reduceOnly: false, oiCapped: false, listed: null),
           isNull);
     });
+
+    test('a builder perp whose dex does not settle in USDC is refused '
+        'before any Dollars move', () {
+      expect(
+          hlFundedMarketBlock(
+              isSpot: false,
+              reduceOnly: false,
+              oiCapped: false,
+              listed: true,
+              hip3: true,
+              usdcCollateral: false),
+          'collateral_not_usdc');
+      // Even an exit: Dollars can never fund that dex.
+      expect(
+          hlFundedMarketBlock(
+              isSpot: false,
+              reduceOnly: true,
+              oiCapped: false,
+              listed: null,
+              hip3: true,
+              usdcCollateral: false),
+          'collateral_not_usdc');
+      // Collateral that could not be confirmed waits rather than funds.
+      expect(
+          hlFundedMarketBlock(
+              isSpot: false,
+              reduceOnly: false,
+              oiCapped: false,
+              listed: true,
+              hip3: true,
+              usdcCollateral: null),
+          'collateral_unverified');
+      // A USDC builder dex funds as before.
+      expect(
+          hlFundedMarketBlock(
+              isSpot: false,
+              reduceOnly: false,
+              oiCapped: false,
+              listed: true,
+              hip3: true,
+              usdcCollateral: true),
+          isNull);
+      // Spot and the main dex settle in USDC: collateral is never asked.
+      expect(
+          hlFundedMarketBlock(
+              isSpot: true,
+              reduceOnly: false,
+              oiCapped: false,
+              listed: true,
+              usdcCollateral: null),
+          isNull);
+    });
+
+    test('the slip names the market as unavailable only when it is', () {
+      expect(hlFundedBlockIsMarketUnavailable('collateral_not_usdc'), isTrue);
+      expect(hlFundedBlockIsMarketUnavailable('market_unavailable'), isTrue);
+      expect(hlFundedBlockIsMarketUnavailable('collateral_unverified'),
+          isFalse);
+      expect(hlFundedBlockIsMarketUnavailable('oi_capped'), isFalse);
+    });
   });
 
   test('the first order on an unfunded account defers the builder approval',

@@ -207,5 +207,16 @@ void main() {
         HlPerpCatalogue(markets: [m('BTC')], complete: false, annotated: false),
         null);
     expect(nothing.map((x) => x.wireCoin), ['BTC']);
+
+    // A dex read and found settling in another stablecoin is left out on
+    // purpose: a short answer never brings its markets back.
+    final nonUsdc = hlKeepLastKnownBuilderMarkets(
+        HlPerpCatalogue(
+            markets: [m('BTC')],
+            complete: false,
+            annotated: true,
+            nonUsdcDexes: const {'flx'}),
+        lastKnown);
+    expect(nonUsdc.map((x) => x.wireCoin), ['BTC', 'xyz:TSLA']);
   });
 }

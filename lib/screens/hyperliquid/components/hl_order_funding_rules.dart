@@ -26,21 +26,40 @@ double hlSlipReadyUsd({
 }
 
 /// Why a funded order must not move money (checked before any approval),
-/// or null: a perp at its open-interest cap refuses new exposure
-/// (`oi_capped`), and a market no longer in the venue's list — delisted or
-/// halted out of the universe — takes nothing (`market_unavailable`).
+/// or null:
+///   - a builder (HIP-3) perp whose dex settles in another stablecoin than
+///     USDC can never be funded with Dollars (`collateral_not_usdc`), and
+///     one whose collateral could not be confirmed waits
+///     (`collateral_unverified`): placement would refuse it only after the
+///     money had moved;
+///   - a perp at its open-interest cap refuses new exposure (`oi_capped`);
+///   - a market no longer in the venue's list — delisted or halted out of
+///     the universe — takes nothing (`market_unavailable`).
 /// [listed] is null when the list could not be read (the venue answers at
-/// the order then).
+/// the order then). [usdcCollateral] is whether the market's dex settles
+/// in USDC, null when it could not be read; spot and main-dex perps
+/// ([hip3] false) always settle in USDC.
 String? hlFundedMarketBlock({
   required bool isSpot,
   required bool reduceOnly,
   required bool oiCapped,
   required bool? listed,
+  bool hip3 = false,
+  bool? usdcCollateral = true,
 }) {
+  if (!isSpot && hip3) {
+    if (usdcCollateral == false) return 'collateral_not_usdc';
+    if (usdcCollateral == null) return 'collateral_unverified';
+  }
   if (!isSpot && !reduceOnly && oiCapped) return 'oi_capped';
   if (listed == false) return 'market_unavailable';
   return null;
 }
+
+/// Whether a [hlFundedMarketBlock] reason means the market itself cannot
+/// take the order (it says so), rather than a moment to try again.
+bool hlFundedBlockIsMarketUnavailable(String reason) =>
+    reason == 'collateral_not_usdc' || reason == 'market_unavailable';
 
 /// Whether the one-time builder-fee approval waits until the order's
 /// money has landed: an account Hyperliquid has never funded cannot post

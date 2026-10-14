@@ -2103,7 +2103,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       if (mounted) {
         _updateDraft(() {
           _errorCause = null;
-          _errorText = _strings.errorCopyGeneric;
+          _errorText = _fundedBlockText ?? _strings.errorCopyGeneric;
         });
       }
       return;
@@ -2835,10 +2835,25 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   }
 
   /// Why the market cannot take a funded order right now (checked before
-  /// any money moves), or null: a perp at its open-interest cap refuses
-  /// new exposure, and a market no longer listed (delisted, halted out
-  /// of the venue's universe) takes nothing.
+  /// any money moves), or null: a builder perp whose dex does not settle
+  /// in USDC (or whose collateral cannot be confirmed) can't be funded
+  /// with Dollars, a perp at its open-interest cap refuses new exposure,
+  /// and a market no longer listed (delisted, halted out of the venue's
+  /// universe) takes nothing. On a block it also sets the reason the
+  /// slip shows.
   Future<String?> _fundedMarketBlock() async {
+    final hip3 = !isSpot && market.dex.isNotEmpty;
+    bool? usdcCollateral = true;
+    if (hip3) {
+      try {
+        usdcCollateral = await ref
+            .read(hyperliquidTradingModelProvider)
+            .isUsdcCollateralDex(market.dex)
+            .timeout(const Duration(seconds: 4));
+      } catch (_) {
+        usdcCollateral = null;
+      }
+    }
     bool? listed;
     try {
       final markets = await (isSpot
@@ -2846,12 +2861,13 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
               : ref.read(hyperliquidPerpMarketsProvider.future))
           .timeout(const Duration(seconds: 4));
       if (markets.isNotEmpty) {
-        listed = markets.any((m) => m.coin == market.coin);
+        // The dex-qualified coin: a bare name repeats across dexes.
+        listed = markets.any((m) => m.wireCoin == market.wireCoin);
       }
     } catch (_) {
       // The list could not be read: the venue answers at the order.
     }
-    return hlFundedMarketBlock(
+    final reason = hlFundedMarketBlock(
       isSpot: isSpot,
       reduceOnly: _reduceOnly,
       oiCapped: ref
@@ -2860,8 +2876,20 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
               ?.contains(market.wireCoin) ??
           false,
       listed: listed,
+      hip3: hip3,
+      usdcCollateral: usdcCollateral,
     );
+    if (reason != null && hlFundedBlockIsMarketUnavailable(reason)) {
+      _fundedBlockText = _strings.salMarketUnavailable;
+    } else {
+      _fundedBlockText = null;
+    }
+    return reason;
   }
+
+  /// What the slip says for the last [_fundedMarketBlock] block: the
+  /// market's own reason when it has one, else the generic retry line.
+  String? _fundedBlockText;
 
   /// The venue cash this order takes: the margin with its price headroom
   /// plus fees.

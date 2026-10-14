@@ -1015,6 +1015,13 @@ class HyperliquidTradingNotifier
       throw StateError('Account unavailable');
     }
     final model = ref.read(hyperliquidTradingModelProvider);
+    // USDC funds USDC-settled dexes only (the fee read refuses the rest;
+    // a fee-free margin move checks here), before anything moves.
+    if (!tradingFee &&
+        market.dex.isNotEmpty &&
+        !await model.isUsdcCollateralDex(market.dex)) {
+      throw const FormatException('USDC collateral terms unavailable');
+    }
     var snapshot = await model.getAccountSnapshot(address);
     final feeRate =
         tradingFee ? await model.getPerpTakerFundingRate(address, market) : 0.0;
