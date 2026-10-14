@@ -3,7 +3,16 @@
 // The named haptic patterns for things that HAPPEN (as opposed to things
 // the person taps, which keep their plain `HapticFeedback` calls): money
 // arriving, the odds moving on the open market, the last seconds of a held
-// round, a combo leg resolving, an Investing alert. The money-success two-beat stays in success_feedback.dart.
+// round, a combo leg resolving, an Investing alert. The money-success beat
+// stays in success_feedback.dart.
+//
+// Each plays its own pattern on the native engine ([HapticPatterns], the
+// way Instagram builds theirs: a continuous base layer under intensity and
+// sharpness curves, sharp transients on top, swells into snaps), through
+// [ContinuousHaptics.play]: Core Haptics on iOS, the same events rendered
+// as an amplitude waveform on Android. A phone that cannot play them (no
+// Core Haptics, Android without amplitude control) plays today's beats
+// below instead: the system impacts, or the `vibration` waveform.
 //
 // Haptics are always on (founder decision): no setting, no preference.
 // The OS-level setting still applies, as it does to every haptic.
@@ -14,7 +23,9 @@
 //   * one pattern at a time: a pattern asked for while another is still
 //     playing is dropped, never queued;
 //   * money arriving and the money-success beat are one moment: whichever
-//     plays first, the other stays quiet for a few seconds.
+//     plays first, the other stays quiet for a few seconds; a rubber
+//     band's success release is that beat too ([noteSuccessRelease]), so
+//     an overlay right after it does not play it again.
 //
 // This is feedback, not an action: no analytics event fires here.
 
@@ -25,36 +36,54 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:vibration/vibration.dart';
 
+import 'package:kute/services/continuous_haptics.dart';
+import 'package:kute/services/haptic_patterns.dart';
+
 enum KuteHaptic {
-  /// Money landed in Bitcoin or in Dollars: a soft tap, then a medium one.
+  /// Money landed in Bitcoin or in Dollars: a soft rising swell, one
+  /// clean snap, a short fading tail ([HapticPatterns.moneyIn]).
   moneyIn(minGapMs: 3000),
 
-  /// The open market's price moved a point: the lightest tick there is.
+  /// The open market's price moved a point: the lightest, crispest tick.
   oddsTick(minGapMs: 1000),
 
-  /// Last seconds of a held round: a "lub-dub", once a second.
+  /// Last seconds of a held round: a soft "lub-dub" with a tiny tail,
+  /// once a second.
   heartbeat(minGapMs: 900),
 
-  /// A combo leg won: two light taps.
+  /// A combo leg won: two bright ticks and a short shimmer.
   legWon(minGapMs: 1500),
 
-  /// A combo leg lost: one soft, low tap.
+  /// A combo leg lost: one soft, dull thud that fades.
   legLost(minGapMs: 1500),
 
-  /// An Investing order filled or a take-profit hit: one medium tap.
+  /// An Investing order filled or a take-profit hit: a brief whoosh into
+  /// a firm snap.
   fill(minGapMs: 1500),
 
   /// An Investing trigger fired or a level is near: one light tap.
   notice(minGapMs: 1500),
 
   /// An Investing warning (liquidation, stop-loss near, a cancelled
-  /// order): three quick heavy taps.
+  /// order): three hard, sharp hits, close together.
   warning(minGapMs: 1500);
 
   const KuteHaptic({required this.minGapMs});
 
   /// The least time between two plays of this pattern.
   final int minGapMs;
+
+  /// Its pattern on the native engine ([HapticPatterns]).
+  HapticPattern get pattern => switch (this) {
+        KuteHaptic.moneyIn => HapticPatterns.moneyIn,
+        KuteHaptic.oddsTick => HapticPatterns.oddsTick,
+        KuteHaptic.heartbeat => HapticPatterns.heartbeat,
+        KuteHaptic.legWon => HapticPatterns.legWon,
+        KuteHaptic.legLost => HapticPatterns.legLost,
+        KuteHaptic.fill => HapticPatterns.fill,
+        KuteHaptic.notice => HapticPatterns.notice,
+        KuteHaptic.warning => HapticPatterns.warning,
+      };
 }
 
 enum _Impact { selection, light, medium, heavy }
@@ -69,6 +98,8 @@ class _Beat {
   final int amplitude;
 }
 
+/// Today's beats, kept as the fallback for a phone that cannot play the
+/// native patterns.
 const Map<KuteHaptic, List<_Beat>> _patterns = {
   KuteHaptic.moneyIn: [
     _Beat(0, _Impact.light, 25, 90),
@@ -112,8 +143,14 @@ abstract final class KuteHaptics {
   static const Duration moneyInAfterSuccess = Duration(seconds: 8);
   static const Duration successAfterMoneyIn = Duration(seconds: 3);
 
+  /// How long the money-success beat stays quiet after a rubber band's
+  /// success release played the same pattern (a sheet closing onto its
+  /// confirmation within [RubberBand.snapSettle] and a frame or two).
+  static const Duration successAfterRelease = Duration(seconds: 2);
+
   static final Map<KuteHaptic, DateTime> _lastPlayed = {};
   static DateTime? _lastMoneySuccess;
+  static DateTime? _lastRelease;
   static bool _running = false;
 
   @visibleForTesting
@@ -123,6 +160,7 @@ abstract final class KuteHaptics {
     debugNow = null;
     _lastPlayed.clear();
     _lastMoneySuccess = null;
+    _lastRelease = null;
     _running = false;
   }
 
@@ -145,8 +183,21 @@ abstract final class KuteHaptics {
     if (arrived != null && now.difference(arrived) < successAfterMoneyIn) {
       return false;
     }
+    final released = _lastRelease;
+    if (released != null && now.difference(released) < successAfterRelease) {
+      return false;
+    }
     _lastMoneySuccess = now;
     return true;
+  }
+
+  /// A rubber band's success release just played [HapticPatterns.success]
+  /// (a send, a bet, an order placed): it is the money-success moment,
+  /// so the overlay's beat and money arriving right after it stay quiet.
+  static void noteSuccessRelease() {
+    final now = _now();
+    _lastRelease = now;
+    _lastMoneySuccess = now;
   }
 
   /// Plays [pattern] unless a rule says no. Returns whether it played.
@@ -171,6 +222,9 @@ abstract final class KuteHaptics {
       final seam = debugOverride;
       if (seam != null) {
         await seam(pattern);
+      } else if (await ContinuousHaptics.play(pattern.pattern)) {
+        // Native: held for as long as it plays (one pattern at a time).
+        await Future<void>.delayed(pattern.pattern.duration);
       } else {
         await _emit(_patterns[pattern]!);
       }
@@ -182,6 +236,8 @@ abstract final class KuteHaptics {
     return true;
   }
 
+  /// Today's beats: what a phone that cannot play the native pattern
+  /// feels.
   static Future<void> _emit(List<_Beat> beats) async {
     // Android shapes a multi-beat pattern as one waveform, the way
     // success_feedback.dart does; a single tap stays a system haptic.

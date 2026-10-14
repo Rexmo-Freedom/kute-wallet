@@ -28,15 +28,17 @@ import kotlin.math.roundToInt
  *  - `tick(intensity, sharpness)`: a ratchet click. Android plays one
  *    vibration at a time, so the click is the head of a new waveform whose
  *    tail repeats the rumble: [click, rumble...];
- *  - `pulse(intensity)`, `snap()`, `softTap()`: one-shots (the snap is a
- *    quick rise into a click where the phone has those primitives, a
- *    rising amplitude ramp into a full-strength hit otherwise).
+ *  - `pulse(intensity)`: a one-shot heartbeat beat;
+ *  - `pattern(timings, amplitudes)`: one of the app's named patterns
+ *    (`lib/services/haptic_patterns.dart`), the waveform Dart rendered from
+ *    the same events Core Haptics plays; a wanted rumble resumes after it.
+ *    Answers whether it played.
  *
  * Without amplitude control the rumble cannot be shaped, so it is not
- * played: the ratchet's clicks, the heartbeat, the snap and the soft tap
- * are plain pulses.
+ * played: the ratchet's clicks and the heartbeat are plain pulses, and a
+ * pattern answers false (Dart plays today's system impacts instead).
  *
- * Every method answers null and never fails. VIBRATE is declared in the
+ * Every other method answers null and never fails. VIBRATE is declared in the
  * app's manifest (and merged from the `vibration` package). Usage is
  * touch feedback, so the system's haptics setting applies. [stopAll] runs
  * from MainActivity.onPause: nothing buzzes once the app leaves the front.
@@ -113,14 +115,11 @@ class ContinuousHapticsPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
                     val amp = if (amplitude) (40 + 110 * i).roundToInt() else VibrationEffect.DEFAULT_AMPLITUDE
                     vibrate(VibrationEffect.createOneShot(30, amp))
                 }
-                "snap" -> {
-                    stopRumble()
-                    snap()
-                }
-                "softTap" -> {
-                    stopRumble()
-                    val amp = if (amplitude) 90 else VibrationEffect.DEFAULT_AMPLITUDE
-                    vibrate(VibrationEffect.createOneShot(14, amp))
+                "pattern" -> {
+                    // Answers whether it played: Dart falls back to the
+                    // system impacts when it did not.
+                    result.success(pattern(call))
+                    return
                 }
                 else -> {
                     result.notImplemented()
@@ -174,37 +173,38 @@ class ContinuousHapticsPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         }
     }
 
-    /** The whoosh, then the snap. */
-    private fun snap() {
-        val v = vibrator ?: return
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            val rise = VibrationEffect.Composition.PRIMITIVE_QUICK_RISE
-            val hit = VibrationEffect.Composition.PRIMITIVE_CLICK
-            val composed = try {
-                v.areAllPrimitivesSupported(rise, hit)
-            } catch (_: Throwable) {
-                false
-            }
-            if (composed) {
+    /**
+     * One of the app's named patterns, as the waveform Dart rendered from
+     * its events (`timings` ms, `amplitudes` 0..255). Needs amplitude
+     * control (else false: Dart plays the system impacts). A rumble still
+     * wanted picks up again after it, as the waveform's repeating tail.
+     */
+    private fun pattern(call: MethodCall): Boolean {
+        if (!amplitude || vibrator == null) return false
+        val timings = (call.argument<List<Number>>("timings") ?: return false)
+            .map { it.toLong().coerceAtLeast(0) }
+        val amps = (call.argument<List<Number>>("amplitudes") ?: return false)
+            .map { it.toInt().coerceIn(0, 255) }
+        if (timings.isEmpty() || timings.size != amps.size || timings.sum() <= 0) return false
+        return try {
+            if (wantRumble && rumbleAmp > 0) {
+                issuedAmp = rumbleAmp
+                clickUntil = SystemClock.uptimeMillis() + timings.sum()
                 vibrate(
-                    VibrationEffect.startComposition()
-                        .addPrimitive(rise, 0.8f)
-                        .addPrimitive(hit, 1f)
-                        .compose()
+                    VibrationEffect.createWaveform(
+                        (timings + SEGMENT_MS).toLongArray(),
+                        (amps + rumbleAmp).toIntArray(),
+                        timings.size
+                    )
                 )
-                return
+            } else {
+                vibrate(
+                    VibrationEffect.createWaveform(timings.toLongArray(), amps.toIntArray(), -1)
+                )
             }
-        }
-        if (amplitude) {
-            vibrate(
-                VibrationEffect.createWaveform(
-                    longArrayOf(15, 15, 15, 15, 15, 15, 35),
-                    intArrayOf(40, 70, 100, 135, 170, 210, 255),
-                    -1
-                )
-            )
-        } else {
-            vibrate(VibrationEffect.createWaveform(longArrayOf(0, 60, 25, 40), -1))
+            true
+        } catch (_: Throwable) {
+            false
         }
     }
 

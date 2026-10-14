@@ -1,6 +1,7 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/services/continuous_haptics.dart';
+import 'package:kute/services/haptic_patterns.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -37,7 +38,8 @@ void main() {
       expect(log.map((c) => c.method), ['start', 'stop']);
     });
 
-    test('several bands: one rumble at the strongest level, one ratchet, '
+    test(
+        'several bands: one rumble at the strongest level, one ratchet, '
         'and a snap leaves the others rumbling', () {
       final a = Object();
       final b = Object();
@@ -51,12 +53,14 @@ void main() {
       expect(log, hasLength(2));
       ContinuousHaptics.tick(0.8, 0.8, owner: b);
       expect(log.last.method, 'tick');
-      // b lands: the snap, then a's rumble again.
+      // b lands: its rumble gives way to a's level, and the success
+      // pattern plays over a's rumble, which keeps going.
       ContinuousHaptics.stop(owner: b);
       expect(log.last.method, 'update');
       expect(log.last.intensity, 0.4);
       ContinuousHaptics.snap(owner: b);
-      expect(log.map((c) => c.method).skip(4), ['snap', 'start']);
+      expect(log.map((c) => c.method).skip(4), ['snap']);
+      expect(log.last.pattern, same(HapticPatterns.success));
       expect(ContinuousHaptics.isRunning(a), isTrue);
       ContinuousHaptics.stop(owner: a);
       expect(log.last.method, 'stop');
@@ -70,8 +74,9 @@ void main() {
     });
   });
 
-  test('without the bridge nothing throws, and the snap falls back to the '
-      'system heavy impact', () async {
+  test(
+      'without the bridge nothing throws, and the snap falls back to the '
+      'system beat: medium, then heavy', () async {
     ContinuousHaptics.debugReset();
     ContinuousHaptics.debugLog = null;
     final system = <MethodCall>[];
@@ -89,12 +94,17 @@ void main() {
     ContinuousHaptics.pulse(0.5);
     ContinuousHaptics.stop();
     await pumpEventQueue();
+    expect(await ContinuousHaptics.play(HapticPatterns.fill), isFalse,
+        reason: 'a pattern says it did not play');
     ContinuousHaptics.snap();
     await pumpEventQueue();
-    expect(
-        system.where((c) =>
-            c.method == 'HapticFeedback.vibrate' &&
-            c.arguments == 'HapticFeedbackType.heavyImpact'),
-        hasLength(1));
+    await Future<void>.delayed(const Duration(milliseconds: 150));
+    expect([
+      for (final c in system)
+        if (c.method == 'HapticFeedback.vibrate') c.arguments,
+    ], [
+      'HapticFeedbackType.mediumImpact',
+      'HapticFeedbackType.heavyImpact'
+    ]);
   });
 }

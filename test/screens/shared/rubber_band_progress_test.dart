@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/services/continuous_haptics.dart';
+import 'package:kute/services/haptic_patterns.dart';
 
 Widget _host(double progress,
     {RubberBandOutcome outcome = RubberBandOutcome.none,
@@ -477,6 +478,8 @@ void main() {
           .pumpWidget(_busyHost(true, outcome: RubberBandOutcome.success));
       await frames(tester, const Duration(seconds: 1));
       expect(methods().sublist(before), ['stop', 'snap']);
+      // The money-success family: the whoosh into the double snap.
+      expect(log.last.pattern, same(HapticPatterns.success));
       expect(_state(tester).feeling, isFalse);
       await tester
           .pumpWidget(_busyHost(false, outcome: RubberBandOutcome.success));
@@ -564,6 +567,7 @@ void main() {
       await tester.pumpWidget(_host(0.6, outcome: RubberBandOutcome.failure));
       await frames(tester, const Duration(seconds: 1));
       expect(methods().sublist(end), ['stop', 'softTap']);
+      expect(log.last.pattern, same(HapticPatterns.softRelease));
       expect(_state(tester).ticking, isFalse);
     });
 

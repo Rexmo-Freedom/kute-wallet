@@ -28,9 +28,9 @@
 //     the app is in the background, or at rest;
 //   * felt the whole time it runs: a continuous rumble with a ratchet
 //     over it that rise with the band, until it is placed or fails, then
-//     a whoosh and a snap (or a soft tap); after 20 s of one waiting step
-//     it drops to a soft heartbeat ([RubberBandHaptics], the long-wait
-//     rule). The rumble stops at once when the band is covered, the app
+//     a whoosh and a double snap (or a soft tap); after 20 s of one
+//     waiting step it drops to a soft heartbeat ([RubberBandHaptics], the
+//     long-wait rule). The rumble stops at once when the band is covered, the app
 //     leaves the foreground, under Reduce Motion and on dispose;
 //   * the app's springs ([SpringSimulation]) and its own haptics bridge
 //     ([ContinuousHaptics]: Core Haptics, Android's Vibrator), no new
@@ -43,6 +43,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 import 'package:flutter/scheduler.dart' show Ticker;
 import 'package:kute/services/continuous_haptics.dart';
+import 'package:kute/services/kute_haptics.dart';
 
 /// How a [RubberBandProgress]'s action ended.
 enum RubberBandOutcome {
@@ -89,10 +90,10 @@ double rubberBandEasedProgress(
 /// "sprocket"): a continuous rumble ([ContinuousHaptics]) that starts low
 /// but felt the moment the action starts and rises with the band toward
 /// full strength near placement, a ratchet of clicks over it that comes
-/// faster and harder as the band tightens, and on success a whoosh then a
-/// snap ([ContinuousHaptics.snap]); a soft tap on a release without. It
-/// plays the whole time the action runs, holds included, until it is
-/// placed or fails.
+/// faster and harder as the band tightens, and on success a whoosh into a
+/// double snap ([ContinuousHaptics.snap]: the money-success pattern); a
+/// soft tap on a release without. It plays the whole time the action
+/// runs, holds included, until it is placed or fails.
 ///
 /// The long-wait rule: a funded bet or order can wait 1-5 minutes for its
 /// money to land, and a minutes-long rumble would be unbearable and drain
@@ -259,7 +260,7 @@ class RubberBandProgress extends StatefulWidget {
 
   /// The pull's continuous haptic while the action runs
   /// ([RubberBandHaptics]: a rumble and a ratchet rising with the band, a
-  /// heartbeat on a long wait), a whoosh and a snap on success and a soft
+  /// heartbeat on a long wait), a whoosh and a double snap on success and a soft
   /// tap on a release without.
   final bool haptic;
 
@@ -546,11 +547,14 @@ class RubberBandProgressState extends State<RubberBandProgress>
         if (!fromOutcome && _level.isAnimating) return;
         final success = widget.outcome == RubberBandOutcome.success;
         if (widget.haptic && fromOutcome) {
-          // The release is felt: the rumble stops, then a whoosh and a
-          // snap when it went through, one soft tap when it let go
-          // without.
+          // The release is felt: the rumble stops, then the money-success
+          // pattern (a whoosh into a double snap) when it went through,
+          // one soft tap when it let go without. The success is the
+          // money-success moment: the confirmation right after it does
+          // not play it again.
           _stopFeel();
           if (success) {
+            KuteHaptics.noteSuccessRelease();
             ContinuousHaptics.snap(owner: this);
           } else if (_level.value > 1e-3) {
             ContinuousHaptics.softTap(owner: this);

@@ -20,14 +20,15 @@ import UIKit
 ///     the rumble;
 ///   * `pulse(intensity)` — one soft, dull transient (a long wait's
 ///     heartbeat);
-///   * `snap()` — stops the rumble, then a 90 ms continuous swell (the
-///     whoosh) into a transient at full intensity and sharpness (the snap);
-///   * `softTap()` — stops the rumble, then one soft transient.
+///   * `pattern(events, curves)` — one of the app's named patterns
+///     (the rubber band's release, the money-success beat, money arriving,
+///     the alerts), built as a `CHHapticPattern` with parameter curves and
+///     played on its own player, on top of any rumble. Answers whether it
+///     played, so Dart falls back to the system impacts when it did not.
 ///
-/// Every method answers `nil` at once and never fails: a device without
-/// haptics (`CHHapticEngine.capabilitiesForHardware().supportsHaptics`),
-/// an engine that cannot start, or a player error plays nothing (the snap
-/// and the soft tap fall back to `UIImpactFeedbackGenerator`). The engine's
+/// Every other method answers `nil` at once and never fails: a device
+/// without haptics (`CHHapticEngine.capabilitiesForHardware().supportsHaptics`),
+/// an engine that cannot start, or a player error plays nothing. The engine's
 /// `stoppedHandler` and `resetHandler` drop the players; a rumble Dart
 /// still wants is rebuilt on the next update (reset: at once). The rumble
 /// stops and the engine stops when the app enters the background. The
@@ -107,16 +108,11 @@ final class ContinuousHapticsPlugin: NSObject, FlutterPlugin {
       _ = transient(intensity: i, sharpness: s)
     case "pulse":
       _ = transient(intensity: i * 0.8, sharpness: 0.12)
-    case "snap":
-      stopRumble()
-      if !playSnap() {
-        UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
-      }
-    case "softTap":
-      stopRumble()
-      if !transient(intensity: 0.45, sharpness: 0.2) {
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-      }
+    case "pattern":
+      // Answers whether it played: Dart falls back to the system impacts
+      // when it did not.
+      result(playPattern(args))
+      return
     default:
       result(FlutterMethodNotImplemented)
       return
@@ -258,43 +254,53 @@ final class ContinuousHapticsPlugin: NSObject, FlutterPlugin {
     }
   }
 
-  /// The whoosh (a 90 ms swell, soft to full) into the snap (a transient
-  /// at full intensity and sharpness).
-  private func playSnap() -> Bool {
-    guard let e = readyEngine() else { return false }
-    let whoosh: TimeInterval = 0.09
+  /// One of the app's named patterns (`lib/services/haptic_patterns.dart`):
+  /// `events` ({type: transient|continuous, time, duration, intensity,
+  /// sharpness}, seconds) and `curves` ({parameter: intensity|sharpness,
+  /// points: [[time, value]]}, as the intensity and sharpness controls),
+  /// played on its own player, on top of any rumble. Answers whether it
+  /// played.
+  private func playPattern(_ args: [String: Any]?) -> Bool {
+    guard let e = readyEngine(), let args = args else { return false }
+    var events: [CHHapticEvent] = []
+    for raw in args["events"] as? [[String: Any]] ?? [] {
+      let time = (raw["time"] as? NSNumber)?.doubleValue ?? 0
+      let params = [
+        CHHapticEventParameter(
+          parameterID: .hapticIntensity, value: Self.unit(raw["intensity"], fallback: 0.5)),
+        CHHapticEventParameter(
+          parameterID: .hapticSharpness, value: Self.unit(raw["sharpness"], fallback: 0.5)),
+      ]
+      if (raw["type"] as? String) == "continuous" {
+        let duration = (raw["duration"] as? NSNumber)?.doubleValue ?? 0.05
+        events.append(
+          CHHapticEvent(
+            eventType: .hapticContinuous, parameters: params, relativeTime: time,
+            duration: duration))
+      } else {
+        events.append(
+          CHHapticEvent(eventType: .hapticTransient, parameters: params, relativeTime: time))
+      }
+    }
+    guard !events.isEmpty else { return false }
+    var curves: [CHHapticParameterCurve] = []
+    for raw in args["curves"] as? [[String: Any]] ?? [] {
+      let id: CHHapticDynamicParameter.ID =
+        (raw["parameter"] as? String) == "sharpness"
+        ? .hapticSharpnessControl : .hapticIntensityControl
+      let points = (raw["points"] as? [[NSNumber]] ?? []).compactMap {
+        pair -> CHHapticParameterCurve.ControlPoint? in
+        guard pair.count == 2 else { return nil }
+        return CHHapticParameterCurve.ControlPoint(
+          relativeTime: pair[0].doubleValue, value: pair[1].floatValue)
+      }
+      guard let first = points.first else { continue }
+      curves.append(
+        CHHapticParameterCurve(
+          parameterID: id, controlPoints: points, relativeTime: first.relativeTime))
+    }
     do {
-      let swell = CHHapticEvent(
-        eventType: .hapticContinuous,
-        parameters: [
-          CHHapticEventParameter(parameterID: .hapticIntensity, value: 1),
-          CHHapticEventParameter(parameterID: .hapticSharpness, value: 0.3),
-        ],
-        relativeTime: 0,
-        duration: whoosh)
-      let snap = CHHapticEvent(
-        eventType: .hapticTransient,
-        parameters: [
-          CHHapticEventParameter(parameterID: .hapticIntensity, value: 1),
-          CHHapticEventParameter(parameterID: .hapticSharpness, value: 1),
-        ],
-        relativeTime: whoosh)
-      let rise = CHHapticParameterCurve(
-        parameterID: .hapticIntensityControl,
-        controlPoints: [
-          CHHapticParameterCurve.ControlPoint(relativeTime: 0, value: 0.15),
-          CHHapticParameterCurve.ControlPoint(relativeTime: whoosh, value: 1),
-        ],
-        relativeTime: 0)
-      let edge = CHHapticParameterCurve(
-        parameterID: .hapticSharpnessControl,
-        controlPoints: [
-          CHHapticParameterCurve.ControlPoint(relativeTime: 0, value: -0.2),
-          CHHapticParameterCurve.ControlPoint(relativeTime: whoosh, value: 0.4),
-        ],
-        relativeTime: 0)
-      let pattern = try CHHapticPattern(
-        events: [swell, snap], parameterCurves: [rise, edge])
+      let pattern = try CHHapticPattern(events: events, parameterCurves: curves)
       let player = try e.makePlayer(with: pattern)
       try player.start(atTime: CHHapticTimeImmediate)
       return true

@@ -18,13 +18,16 @@
 //
 // Methods: `start(intensity, sharpness)`, `update(intensity, sharpness)`,
 // `stop()`, `tick(intensity, sharpness)` (one ratchet click),
-// `pulse(intensity)` (one soft heartbeat beat), `snap()` (the whoosh then
-// the snap, on success) and `softTap()` (a release without).
+// `pulse(intensity)` (one soft heartbeat beat) and `pattern(...)` (one of
+// the app's named patterns, lib/services/haptic_patterns.dart: events and
+// curves for Core Haptics, the rendered waveform for Android; answers
+// whether it played). [snap] and [softTap] are the band's releases:
+// [HapticPatterns.success] and [HapticPatterns.softRelease].
 //
 // Rules, enforced here so no caller can forget them:
 //   * every call is fire-and-forget and never throws; a phone or platform
-//     without the bridge plays nothing (the snap and the soft tap fall back
-//     to the system impacts);
+//     without the bridge plays nothing (a pattern answers false, so its
+//     caller falls back to the system impacts);
 //   * `update` is throttled to about 30 Hz ([updateGap]);
 //   * one rumble at a time: each owner (a band) starts and stops its
 //     own, and the phone plays the strongest owner's level and only its
@@ -37,26 +40,32 @@
 
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
+import 'package:kute/services/haptic_patterns.dart';
 
-/// One call into the bridge, as a test sees it.
+/// One call into the bridge, as a test sees it. A pattern's [method] is
+/// what asked for it: `snap` and `softTap` (the band's releases) or
+/// `pattern` (a named moment), with the [pattern] itself.
 @immutable
 class ContinuousHapticsCall {
-  const ContinuousHapticsCall(this.method, [this.intensity, this.sharpness]);
+  const ContinuousHapticsCall(this.method,
+      [this.intensity, this.sharpness, this.pattern]);
 
   final String method;
   final double? intensity;
   final double? sharpness;
+  final HapticPattern? pattern;
 
   @override
-  String toString() => intensity == null
-      ? method
-      : '$method(${intensity!.toStringAsFixed(2)}'
-          '${sharpness == null ? '' : ', ${sharpness!.toStringAsFixed(2)}'})';
+  String toString() => pattern != null
+      ? '$method(${pattern!.name})'
+      : intensity == null
+          ? method
+          : '$method(${intensity!.toStringAsFixed(2)}'
+              '${sharpness == null ? '' : ', ${sharpness!.toStringAsFixed(2)}'})';
 }
 
 abstract final class ContinuousHaptics {
-  static const MethodChannel channel =
-      MethodChannel('kute/continuous_haptics');
+  static const MethodChannel channel = MethodChannel('kute/continuous_haptics');
 
   /// The closest two live updates come: about 30 Hz.
   static const Duration updateGap = Duration(milliseconds: 33);
@@ -69,8 +78,7 @@ abstract final class ContinuousHaptics {
   /// The owners whose rumble is wanted now, each with its level
   /// (intensity, sharpness), in the order they started. The phone plays
   /// one rumble: the strongest owner's (the leader's).
-  static final Map<Object, ({double intensity, double sharpness})> _owners =
-      {};
+  static final Map<Object, ({double intensity, double sharpness})> _owners = {};
 
   /// When each owner's last update went out, on its own clock.
   static final Map<Object, Duration> _lastUpdate = {};
@@ -175,27 +183,56 @@ abstract final class ContinuousHaptics {
     _send('pulse', _unit(intensity));
   }
 
-  /// The whoosh, then the snap, at full strength: [owner]'s action went
-  /// through. The phone stops the rumble for it; another owner's rumble
-  /// starts again right after.
+  /// The band's release on success: [HapticPatterns.success] (the whoosh
+  /// and the double snap, the family every money success shares) for
+  /// [owner], whose rumble stops. Another band's rumble carries on under
+  /// it (Core Haptics plays the pattern on top of it; Android's waveform
+  /// picks the rumble up again after it). Without the bridge, the system's
+  /// medium-then-heavy beat.
   static void snap({Object? owner}) {
-    if (owner != null) {
-      _owners.remove(owner);
-      _lastUpdate.remove(owner);
-    }
-    _send('snap', null, null, HapticFeedback.heavyImpact);
-    _restart();
+    _leave(owner);
+    _playPattern('snap', HapticPatterns.success, successFallback);
   }
 
-  /// One soft tap: [owner]'s band let go without the action going through.
-  /// The phone stops the rumble for it; another owner's starts again.
+  /// The band's release without: [HapticPatterns.softRelease] for
+  /// [owner], whose rumble stops. Without the bridge, a light impact.
   static void softTap({Object? owner}) {
-    if (owner != null) {
-      _owners.remove(owner);
-      _lastUpdate.remove(owner);
+    _leave(owner);
+    _playPattern(
+        'softTap', HapticPatterns.softRelease, HapticFeedback.lightImpact);
+  }
+
+  /// Plays [pattern] natively, answering whether it played: false on a
+  /// device that cannot (no Core Haptics, Android without amplitude
+  /// control) or without the bridge, so the caller plays its fallback.
+  /// Never throws. [logAs] names the call in [debugLog].
+  static Future<bool> play(HapticPattern pattern,
+      {String logAs = 'pattern'}) async {
+    final log = debugLog;
+    if (log != null) {
+      log.add(ContinuousHapticsCall(logAs, null, null, pattern));
+      return true;
     }
-    _send('softTap', null, null, HapticFeedback.lightImpact);
-    _restart();
+    if (_unavailable) return false;
+    try {
+      final played =
+          await channel.invokeMethod<bool>('pattern', pattern.toMap());
+      return played ?? false;
+    } on MissingPluginException {
+      _unavailable = true;
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// The money-success beat as the system impacts (medium, then heavy
+  /// 90 ms later): what a phone that cannot play [HapticPatterns.success]
+  /// feels, as before.
+  static Future<void> successFallback() async {
+    await HapticFeedback.mediumImpact();
+    await Future<void>.delayed(const Duration(milliseconds: 90));
+    await HapticFeedback.heavyImpact();
   }
 
   @visibleForTesting
@@ -204,6 +241,14 @@ abstract final class ContinuousHaptics {
     _lastUpdate.clear();
     _lastPulse = null;
     _unavailable = false;
+  }
+
+  /// [owner] leaves before its release: its rumble stops (the phone's,
+  /// when it was the last).
+  static void _leave(Object? owner) {
+    if (owner == null) return;
+    _lastUpdate.remove(owner);
+    if (_owners.remove(owner) != null) _resume('stop');
   }
 
   /// After an owner left: stop when it was the last ([method]), otherwise
@@ -218,14 +263,11 @@ abstract final class ContinuousHaptics {
     }
   }
 
-  /// The native snap and soft tap stop the rumble: start it again for the
-  /// owners still waiting.
-  static void _restart() {
-    final lead = _leader;
-    if (lead == null) return;
-    final level = _owners[lead]!;
-    _lastUpdate.clear();
-    _send('start', level.intensity, level.sharpness);
+  static void _playPattern(
+      String logAs, HapticPattern pattern, Future<void> Function() fallback) {
+    play(pattern, logAs: logAs).then((played) {
+      if (!played) _fallback(fallback);
+    }, onError: (Object _) => _fallback(fallback));
   }
 
   static final Object _anonymous = Object();
@@ -249,17 +291,13 @@ abstract final class ContinuousHaptics {
     }
   }
 
-  static void _send(String method,
-      [double? intensity, double? sharpness, Future<void> Function()? fallback]) {
+  static void _send(String method, [double? intensity, double? sharpness]) {
     final log = debugLog;
     if (log != null) {
       log.add(ContinuousHapticsCall(method, intensity, sharpness));
       return;
     }
-    if (_unavailable) {
-      _fallback(fallback);
-      return;
-    }
+    if (_unavailable) return;
     final args = <String, double>{
       if (intensity != null) 'intensity': intensity,
       if (sharpness != null) 'sharpness': sharpness,
@@ -269,11 +307,9 @@ abstract final class ContinuousHaptics {
           .invokeMethod<void>(method, args.isEmpty ? null : args)
           .catchError((Object e) {
         if (e is MissingPluginException) _unavailable = true;
-        _fallback(fallback);
       });
     } catch (_) {
       _unavailable = true;
-      _fallback(fallback);
     }
   }
 
