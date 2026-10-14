@@ -8,25 +8,32 @@
 // everything the dollars do:
 //
 //   * the shared hero, [InvestmentBalanceHeader] in its one-balance mode:
-//     the total (dollars plus the venues' open positions) over an
-//     Available / Invested split, and, while anything is on a rail, the
-//     in-flight lines in that split's place ("$5.00 moving to
-//     Predictions", "$12.40 coming back from Investing", "Incoming
-//     $20.00", "$0.60 unavailable until balancing completes"), so money in flight is never
-//     hidden;
-//   * one pill row under it, Investing · Predictions · Portfolio, the
+//     the total (dollars plus the venues' open positions) standing alone,
+//     no title over it, over "Available $X · Invested $Y" and a chevron,
+//     and, while anything is on a rail, the in-flight lines in that
+//     split's place ("$5.00 moving to Predictions", "$12.40 coming back
+//     from Investing", "Incoming $20.00", "$0.60 unavailable until
+//     balancing completes"), so money in flight is never hidden. THE
+//     BALANCE IS THE DOOR TO THE PORTFOLIO (owner decision October 2026):
+//     the whole block, the total and the line under it, opens the
+//     Portfolio screen full screen (OpenInvestmentsScreen, pushed with the
+//     app's back), with the cards' press feedback; so does the compact
+//     bar's small total once the header has collapsed
+//     (`investments_balance_tapped`);
+//   * one pill row under it, Investing · Predictions · Positions, the
 //     same pills the Home strip uses a step bigger ([KutePillSize.large]),
 //     each wearing a glyph of the one icon family the top tabs used
-//     (rising trend, ring, pie), over an IndexedStack of the existing
-//     screens in their embedded shape: the Hyperliquid and Polymarket
-//     browsers with their own hero and dock taken out, and the one
-//     Portfolio screen exactly as it is pushed (same tabs and
-//     drill-down). Earn is a section of the Portfolio's Statistics tab
-//     (open_investments_screen.dart), no longer a pill here;
+//     (rising trend, ring, pie), over an IndexedStack: the Hyperliquid and
+//     Polymarket browsers in their embedded shape, their own hero and dock
+//     taken out, and Positions, everything held now at both venues in one
+//     list with the resting orders under it ([PortfolioPositions]). The
+//     Portfolio's old Open / Orders / Activity / Statistics tabs are gone:
+//     Open and Orders are Positions, Activity and Statistics the Portfolio
+//     screen. Earn is shown nowhere;
 //   * the dock — Receive on the left, Send on the right, search in the
 //     square — with the search scoped to the pill on screen: the venue's
 //     own markets on Investing and Predictions, this account's activity
-//     on Portfolio. Receive (owner decision, 2026-10-13, replacing the
+//     on Positions. Receive (owner decision, 2026-10-13, replacing the
 //     dock's Deposit) opens the Dollars receive screen straight on an
 //     address, with "From your Bitcoin" at its top for the Investments
 //     deposit from the spending bitcoin.
@@ -67,17 +74,19 @@
 // order funded from Dollars, and comes back on its own; the venue
 // browsers mount with no funding doors, and the dock carries none.
 //
-// The Portfolio mounts on its first tap (`portfolio_opened` is a view,
-// not a mount); the two venue browsers are mounted from the start, the
-// way their shell branches were, so the Investing screen's session-long
-// side-cars (the deposit→order auto-fire watcher, the user-events
-// socket) keep running from app start.
+// Positions mounts on its first tap; the two venue browsers are mounted
+// from the start, the way their shell branches were, so the Investing
+// screen's session-long side-cars (the deposit→order auto-fire watcher,
+// the user-events socket) keep running from app start.
 //
 // THE PILL IS SHARED STATE ([investmentsTabProvider]) so a deep link, a
 // placed bet or Sal can open a pill from anywhere: `/hyperliquid` and
 // `/polymarket` redirect here with `?tab=investing|predictions`
-// ([investmentsTabLocation]), and the dock's Portfolio action on a venue
-// screen switches the pill instead of pushing.
+// ([investmentsTabLocation]); a placed order's "View positions" opens
+// Positions ([openInvestmentsPositions]). The old Portfolio links keep
+// working: `?tab=portfolio|open|orders` opens Positions,
+// `?tab=activity|statistics` the Portfolio screen
+// ([investmentsLinkOpensPortfolio]).
 //
 // Receive opens the Dollars receive screen off the Orchestra route list,
 // pointed at this balance: whatever coin the money arrives in, dollars
@@ -98,13 +107,16 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/providers/active_shell_tab_provider.dart';
 import 'package:kute/providers/hyperliquid_account_provider.dart'
     show hyperliquidAccountProvider;
 import 'package:kute/providers/hyperliquid_sats_pnl_provider.dart'
     show hyperliquidUserFillsProvider;
 import 'package:kute/providers/nav_bar_visibility_provider.dart';
+import 'package:kute/providers/one_balance_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart'
     show polymarketTradingProvider;
 import 'package:kute/providers/unified_search_provider.dart'
@@ -121,7 +133,7 @@ import 'package:kute/screens/receive/receive_sheet.dart'
 import 'package:kute/screens/search/unified_search_screen.dart';
 import 'package:kute/screens/shared/investment_balance_header.dart';
 import 'package:kute/screens/shared/kute_motion.dart'
-    show kuteMotion, kuteReduceMotion;
+    show KutePressScale, kuteMotion, kuteReduceMotion;
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:kute/screens/usd/usd_send_screen.dart';
 import 'package:kute/providers/settings_provider.dart';
@@ -147,13 +159,14 @@ const double _kExpandedHeaderEstimate = 158;
 
 /// The Investments pills, in strip order. [key] is the analytics value
 /// and the `?tab=` query value, fixed English so a pill reads the same in
-/// PostHog and in a link in every app language. [icon] is the pill's
-/// glyph: the one icon family the top tabs used (rising trend, ring) and
-/// the pie the Portfolio's dock action wears.
+/// PostHog and in a link in every app language (Positions sends
+/// `positions` where the old Portfolio pill sent `portfolio`). [icon] is
+/// the pill's glyph: the one icon family the top tabs used (rising trend,
+/// ring) and the pie the old Portfolio pill wore.
 enum InvestmentsTab {
   investing('investing', Icons.trending_up_rounded),
   predictions('predictions', Icons.donut_large_rounded),
-  portfolio('portfolio', Icons.pie_chart_rounded);
+  positions('positions', Icons.pie_chart_rounded);
 
   const InvestmentsTab(this.key, this.icon);
 
@@ -161,12 +174,34 @@ enum InvestmentsTab {
   final IconData icon;
 
   /// The pill a link names, or null for an unknown or missing key (the
-  /// old `earn` pill among them: Earn lives under Portfolio › Statistics).
+  /// old `earn` pill among them: Earn is shown nowhere). The old
+  /// Portfolio pill and its Open and Orders tabs are Positions.
   static InvestmentsTab? fromKey(String? key) {
     for (final tab in values) {
       if (tab.key == key) return tab;
     }
-    return null;
+    return switch (key) {
+      'portfolio' || 'open' || 'orders' => InvestmentsTab.positions,
+      _ => null,
+    };
+  }
+}
+
+/// Whether an Investments link names one of the old Portfolio tabs that
+/// live on the Portfolio screen now (Activity, Statistics): the link opens
+/// that screen over the tab.
+bool investmentsLinkOpensPortfolio(String? key) =>
+    key == 'activity' || key == 'statistics';
+
+/// Opens the Positions pill from anywhere (a placed order's "View
+/// positions", a trade notification): the pill, then the Investments tab
+/// when another tab is on screen.
+void openInvestmentsPositions(BuildContext context) {
+  final container = ProviderScope.containerOf(context, listen: false);
+  container.read(investmentsTabProvider.notifier).state =
+      InvestmentsTab.positions;
+  if (container.read(activeShellTabProvider) != ActiveNavTab.usd) {
+    context.go('/usd');
   }
 }
 
@@ -186,14 +221,19 @@ String investmentsTabLocation(InvestmentsTab tab) => '/usd?tab=${tab.key}';
 /// [initialTab] is the pill a link asked for (`/usd?tab=…`); null leaves
 /// the pill where it was. Applied on mount and again whenever a new link
 /// lands on the branch (the page is updated in place, never remounted).
+/// [openPortfolio]: the link named an old Portfolio tab that lives on the
+/// Portfolio screen now ([investmentsLinkOpensPortfolio]); the screen is
+/// pushed over the tab.
 ///
 /// The backup banner [ShellWalletScreen] carries above its body is
 /// deliberately not repeated here: this IS the spending account, and Home
 /// already shows that account its card.
 class UsdAccountScreen extends ConsumerStatefulWidget {
-  const UsdAccountScreen({super.key, this.initialTab});
+  const UsdAccountScreen(
+      {super.key, this.initialTab, this.openPortfolio = false});
 
   final InvestmentsTab? initialTab;
+  final bool openPortfolio;
 
   @override
   ConsumerState<UsdAccountScreen> createState() => _UsdAccountScreenState();
@@ -204,12 +244,14 @@ class _UsdAccountScreenState extends ConsumerState<UsdAccountScreen> {
   void initState() {
     super.initState();
     _applyLinkedTab();
+    if (widget.openPortfolio) _openLinkedPortfolio();
   }
 
   @override
   void didUpdateWidget(covariant UsdAccountScreen old) {
     super.didUpdateWidget(old);
     if (old.initialTab != widget.initialTab) _applyLinkedTab();
+    if (widget.openPortfolio && !old.openPortfolio) _openLinkedPortfolio();
   }
 
   /// Post-frame: provider writes are illegal while the tree is building.
@@ -219,6 +261,14 @@ class _UsdAccountScreenState extends ConsumerState<UsdAccountScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       ref.read(investmentsTabProvider.notifier).state = tab;
+    });
+  }
+
+  /// Post-frame: no route is pushed while the tree is building.
+  void _openLinkedPortfolio() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      OpenInvestmentsScreen.show(context, source: 'link');
     });
   }
 
@@ -256,9 +306,9 @@ class InvestmentsBody extends ConsumerStatefulWidget {
 }
 
 class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
-  /// The pills opened at least once: the Portfolio mounts on its first
-  /// tap and stays mounted after (the venue browsers are always mounted,
-  /// see the file header).
+  /// The pills opened at least once: Positions mounts on its first tap
+  /// and stays mounted after (the venue browsers are always mounted, see
+  /// the file header).
   final Set<InvestmentsTab> _opened = {};
 
   /// The outer (header) scroll: the collapse, the chevron's way back up
@@ -342,10 +392,23 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
         TrackingService.hyperliquidTabOpened();
       case InvestmentsTab.predictions:
         TrackingService.polymarketTabOpened();
-      case InvestmentsTab.portfolio:
+      case InvestmentsTab.positions:
         break;
     }
     ref.read(investmentsTabProvider.notifier).state = next;
+  }
+
+  /// The balance was tapped, in the expanded hero or as the compact bar's
+  /// small total: the Portfolio, full screen.
+  void _openPortfolio({required bool collapsed}) {
+    final state = ref.read(oneBalanceProvider);
+    TrackingService.track('investments_balance_tapped', params: {
+      'state': InvestmentBalanceHeader.showsInFlight(state)
+          ? 'in_flight'
+          : 'normal',
+      'collapsed': collapsed,
+    });
+    OpenInvestmentsScreen.show(context, source: 'investments_balance');
   }
 
   /// Whether [notification] comes from the pill on screen (or the page
@@ -413,7 +476,7 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
         await HyperliquidScreen.refresh(ref.invalidate);
       case InvestmentsTab.predictions:
         await PolymarketScreen.refresh(ref);
-      case InvestmentsTab.portfolio:
+      case InvestmentsTab.positions:
         ref.invalidate(hyperliquidAccountProvider);
         ref.invalidate(hyperliquidUserFillsProvider);
         ref.invalidate(polymarketTradingProvider);
@@ -432,7 +495,7 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
           label: switch (tab) {
             InvestmentsTab.investing => l10n.trading,
             InvestmentsTab.predictions => l10n.predictions,
-            InvestmentsTab.portfolio => l10n.walletPortfolioAction,
+            InvestmentsTab.positions => l10n.ledgerPositionsTitle,
           },
           icon: tab.icon,
         );
@@ -476,6 +539,7 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
                     selectedIndex: tabs.indexOf(selected),
                     onTap: (i) => _pick(tabs[i]),
                     onExpand: _expand,
+                    onBalance: _openPortfolio,
                     onExpandedHeight: _onExpandedHeight,
                     figure: InvestmentBalanceHeader.oneBalanceFigure(ref),
                     expandedExtent: expandedExtent,
@@ -499,9 +563,8 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
                       const HyperliquidScreen(embedded: true),
                     InvestmentsTab.predictions =>
                       const PolymarketScreen(embedded: true),
-                    InvestmentsTab.portfolio => _opened.contains(tab)
-                        ? const OpenInvestmentsScreen(
-                            source: 'investments_tab', embedded: true)
+                    InvestmentsTab.positions => _opened.contains(tab)
+                        ? const PortfolioPositions()
                         : const SizedBox.shrink(),
                   },
                 ),
@@ -532,6 +595,7 @@ class _InvestmentsHeaderDelegate extends SliverPersistentHeaderDelegate {
     required this.selectedIndex,
     required this.onTap,
     required this.onExpand,
+    required this.onBalance,
     required this.onExpandedHeight,
     required this.figure,
     required this.expandedExtent,
@@ -544,6 +608,9 @@ class _InvestmentsHeaderDelegate extends SliverPersistentHeaderDelegate {
   final int selectedIndex;
   final ValueChanged<int> onTap;
   final VoidCallback onExpand;
+
+  /// The balance tapped: the hero's block, or the compact bar's total.
+  final void Function({required bool collapsed}) onBalance;
   final ValueChanged<double> onExpandedHeight;
 
   /// The total as the hero prints it, for the compact bar.
@@ -595,9 +662,10 @@ class _InvestmentsHeaderDelegate extends SliverPersistentHeaderDelegate {
                       Transform.scale(
                         scale: 1 - 0.6 * t,
                         alignment: Alignment.topLeft,
-                        child: const InvestmentBalanceHeader(
+                        child: InvestmentBalanceHeader(
                           product: InvestmentsProduct.trading,
                           oneBalance: true,
+                          onTap: () => onBalance(collapsed: false),
                         ),
                       ),
                       // The Home strip's pills, a step bigger, on the
@@ -640,6 +708,7 @@ class _InvestmentsHeaderDelegate extends SliverPersistentHeaderDelegate {
                 selectedIndex: selectedIndex,
                 onTap: onTap,
                 onExpand: onExpand,
+                onBalance: () => onBalance(collapsed: true),
                 figure: figure,
               ),
             ),
@@ -681,14 +750,16 @@ class _InvestmentsHeaderDelegate extends SliverPersistentHeaderDelegate {
 }
 
 /// The collapsed header: the total in small text (the hero's figure, no
-/// second line) over the same pills a step smaller, and a chevron at the
-/// right end that expands everything again.
+/// second line; a tap opens the Portfolio, as the hero does) over the same
+/// pills a step smaller, and a chevron at the right end that expands
+/// everything again.
 class _InvestmentsCompactBar extends StatelessWidget {
   const _InvestmentsCompactBar({
     required this.items,
     required this.selectedIndex,
     required this.onTap,
     required this.onExpand,
+    required this.onBalance,
     required this.figure,
   });
 
@@ -696,6 +767,7 @@ class _InvestmentsCompactBar extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onTap;
   final VoidCallback onExpand;
+  final VoidCallback onBalance;
   final ({String text, bool stale}) figure;
 
   @override
@@ -713,20 +785,33 @@ class _InvestmentsCompactBar extends StatelessWidget {
               children: [
                 SizedBox(
                   height: 20.h,
-                  child: Padding(
-                    padding: EdgeInsets.only(left: 4.w),
-                    child: Text(
-                      figure.text,
-                      key: const ValueKey('investments-compact-total'),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: figure.stale ? c.textSecondary : c.textPrimary,
-                        fontSize: 15.sp,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.3,
-                        height: 1.0,
-                        fontFeatures: const [FontFeature.tabularFigures()],
+                  child: Align(
+                    alignment: Alignment.topLeft,
+                    child: Semantics(
+                      button: true,
+                      child: KutePressScale(
+                        onTap: onBalance,
+                        child: Padding(
+                          padding: EdgeInsets.only(left: 4.w),
+                          child: Text(
+                            figure.text,
+                            key: const ValueKey('investments-compact-total'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: figure.stale
+                                  ? c.textSecondary
+                                  : c.textPrimary,
+                              fontSize: 15.sp,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.3,
+                              height: 1.0,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures()
+                              ],
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -839,7 +924,7 @@ class _RenderMeasureHeight extends RenderProxyBox {
 /// equality, so a dollar send is a dollar payment or it is no payment.
 ///
 /// SEARCH follows the pill: a venue pill searches that venue's own
-/// markets, results first, exactly as the venue docks did; Portfolio
+/// markets, results first, exactly as the venue docks did; Positions
 /// searches this account's activity, the dollar rows included.
 ///
 /// Neither money verb may ever point at a venue's own pool: those are
@@ -879,7 +964,10 @@ class UsdAccountActionBar extends ConsumerWidget {
             category: SearchCategory.predictions,
             source: 'predictions'
           ),
-        InvestmentsTab.portfolio => (category: null, source: kUsdSurfaceSource),
+        InvestmentsTab.positions => (
+            category: null,
+            source: kUsdSurfaceSource
+          ),
       };
 
   void _search(BuildContext context, WidgetRef ref) {

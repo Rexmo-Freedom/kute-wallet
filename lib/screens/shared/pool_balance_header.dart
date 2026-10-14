@@ -47,6 +47,14 @@ class PoolBalanceHeader extends StatelessWidget {
   /// "Available", so no screen shows them in English.
   final String? investedLabel;
   final String? availableLabel;
+
+  /// The split reads "Available $Y · Invested $X" (the Investments tab's
+  /// hero) instead of invested first.
+  final bool availableFirst;
+
+  /// Closes the split line (the Investments hero's chevron, its tap
+  /// affordance). Null: nothing.
+  final Widget? splitTrailing;
   final String? totalLabel;
   final String? balanceDetail;
 
@@ -102,6 +110,8 @@ class PoolBalanceHeader extends StatelessWidget {
     this.availableText,
     this.investedLabel,
     this.availableLabel,
+    this.availableFirst = false,
+    this.splitTrailing,
     this.totalLabel,
     this.balanceDetail,
     this.amountFontSize,
@@ -184,7 +194,9 @@ class PoolBalanceHeader extends StatelessWidget {
                 investedText: investedText,
                 availableText: availableText,
                 investedLabel: investedLabel ?? context.l10n.betInvested,
-                availableLabel: availableLabel ?? context.l10n.available),
+                availableLabel: availableLabel ?? context.l10n.available,
+                availableFirst: availableFirst,
+                trailing: splitTrailing),
           ],
           if (balanceDetail != null && balanceDetail!.isNotEmpty)
             Padding(
@@ -314,11 +326,15 @@ class _BalanceSplitLine extends StatelessWidget {
   final String? availableText;
 
   final String investedLabel, availableLabel;
+  final bool availableFirst;
+  final Widget? trailing;
   const _BalanceSplitLine(
       {this.investedText,
       this.availableText,
       required this.investedLabel,
-      required this.availableLabel});
+      required this.availableLabel,
+      this.availableFirst = false,
+      this.trailing});
 
   @override
   Widget build(BuildContext context) {
@@ -338,24 +354,31 @@ class _BalanceSplitLine extends StatelessWidget {
       height: 1.0,
       fontFeatures: const [FontFeature.tabularFigures()],
     );
+    final invested = [
+      if (investedText != null) ...[
+        Text('$investedLabel ', style: labelStyle),
+        RollingNumberText(text: investedText!, style: valueStyle),
+      ],
+    ];
+    final available = [
+      if (availableText != null) ...[
+        Text('$availableLabel ', style: labelStyle),
+        RollingNumberText(text: availableText!, style: valueStyle),
+      ],
+    ];
     return Wrap(
       alignment: WrapAlignment.center,
       crossAxisAlignment: WrapCrossAlignment.center,
       runSpacing: 8,
       children: [
-        if (investedText != null) ...[
-          Text('$investedLabel ', style: labelStyle),
-          RollingNumberText(text: investedText!, style: valueStyle),
-        ],
+        ...availableFirst ? available : invested,
         if (investedText != null && availableText != null)
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 8.w),
             child: Text('·', style: labelStyle),
           ),
-        if (availableText != null) ...[
-          Text('$availableLabel ', style: labelStyle),
-          RollingNumberText(text: availableText!, style: valueStyle),
-        ],
+        ...availableFirst ? invested : available,
+        if (trailing != null) trailing!,
       ],
     );
   }

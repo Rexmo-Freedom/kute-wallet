@@ -211,20 +211,32 @@ void main() {
     PoolBalanceHeader header(WidgetTester tester) =>
         tester.widget<PoolBalanceHeader>(find.byType(PoolBalanceHeader));
     Future<void> pumpOne(WidgetTester tester, OneBalanceState state,
-            {int balancePrivacy = 0, Locale? locale}) =>
+            {int balancePrivacy = 0, Locale? locale, VoidCallback? onTap}) =>
         _pump(
             tester,
-            const InvestmentBalanceHeader(
-                product: InvestmentsProduct.trading, oneBalance: true),
+            InvestmentBalanceHeader(
+                product: InvestmentsProduct.trading,
+                oneBalance: true,
+                onTap: onTap),
             balancePrivacy: balancePrivacy,
             locale: locale,
             overrides: [oneBalanceProvider.overrideWithValue(state)]);
 
-    testWidgets('total over the Available / Invested split, no deposit door',
-        (tester) async {
+    final chevron = find.byKey(const ValueKey('investments-balance-chevron'));
+
+    testWidgets(
+        'no title: the total alone over "Available · Invested", no deposit '
+        'door', (tester) async {
       await pumpOne(tester, known);
       expect(header(tester).amountText, r'$100.00');
-      expect(header(tester).totalLabel, 'Investments total');
+      expect(header(tester).totalLabel, isNull);
+      expect(find.text('Investments total'), findsNothing);
+      expect(header(tester).availableFirst, isTrue);
+      expect(tester.getTopLeft(find.text('Available ')).dx,
+          lessThan(tester.getTopLeft(find.text('Invested ')).dx));
+      // Not tappable without a door: no chevron, no press feedback.
+      expect(chevron, findsNothing);
+      expect(find.byKey(const ValueKey('investments-balance')), findsNothing);
       expect(header(tester).availableLabel, 'Available');
       expect(header(tester).availableText, r'$42.50');
       expect(header(tester).investedLabel, 'Invested');
@@ -354,10 +366,33 @@ void main() {
       expect(find.textContaining('Predictions'), findsNothing);
     });
 
-    testWidgets('tapping the lines opens the dollar activity', (tester) async {
+    testWidgets(
+        'the whole block is one tap, the total and the split alike, with a '
+        'chevron closing the split', (tester) async {
+      var taps = 0;
+      await pumpOne(tester, known, onTap: () => taps++);
+      expect(chevron, findsOneWidget);
+      // The chevron ends the line, after Invested.
+      expect(tester.getTopLeft(chevron).dx,
+          greaterThan(tester.getTopLeft(find.text('Invested ')).dx));
+      await tester.tap(find.byType(RollingNumberText).first);
+      await tester.pumpAndSettle();
+      expect(taps, 1);
+      await tester.tap(find.text('Available '));
+      await tester.pumpAndSettle();
+      expect(taps, 2);
+      await tester.tap(chevron);
+      await tester.pumpAndSettle();
+      expect(taps, 3);
+    });
+
+    testWidgets(
+        'the in-flight lines are still part of the tap (no activity door of '
+        'their own), the chevron beside them', (tester) async {
       final events = <(String, Map<String, Object>?)>[];
       TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
       addTearDown(() => TrackingService.debugTrackObserver = null);
+      var taps = 0;
       await pumpOne(
           tester,
           known.copyWith(inFlight: const [
@@ -365,12 +400,26 @@ void main() {
                 kind: InFlightKind.toVenue,
                 venue: OneBalanceVenue.predictions,
                 usd: 5),
-          ]));
+          ]),
+          onTap: () => taps++);
+      expect(chevron, findsOneWidget);
+      expect(
+          InvestmentBalanceHeader.showsInFlight(known.copyWith(inFlight: const [
+            InFlightMove(
+                kind: InFlightKind.toVenue,
+                venue: OneBalanceVenue.predictions,
+                usd: 5),
+          ])),
+          isTrue);
+      expect(InvestmentBalanceHeader.showsInFlight(known), isFalse);
+      expect(
+          InvestmentBalanceHeader.showsInFlight(
+              known.copyWith(waiting: const {OneBalanceVenue.investing: 0.6})),
+          isTrue);
       await tester.tap(find.text(r'$5.00 moving to Predictions'));
-      await tester.pump();
-      final opened =
-          events.where((e) => e.$1 == 'activity_history_opened').single;
-      expect(opened.$2, {'entry_source': 'investments_header', 'scope': 'usd'});
+      await tester.pumpAndSettle();
+      expect(taps, 1);
+      expect(events.where((e) => e.$1 == 'activity_history_opened'), isEmpty);
     });
 
     testWidgets('hidden balances mask the total, the split and the lines',

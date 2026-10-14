@@ -8,7 +8,8 @@ import 'package:flutter/material.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart' show PolymarketPosition;
 import 'package:kute/screens/polymarket/components/position_detail_sheet.dart';
 import 'package:kute/screens/shared/trade_receipt.dart';
-import 'package:kute/screens/portfolio/open_investments_screen.dart';
+import 'package:kute/screens/usd/usd_account_screen.dart'
+    show openInvestmentsPositions;
 
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
@@ -94,9 +95,8 @@ class BetPlacedOverlay extends StatelessWidget {
           PositionDetailSheet.show(nav.context, position: placed);
           return;
         }
-        nav.push(MaterialPageRoute(
-            builder: (_) =>
-                const OpenInvestmentsScreen(source: 'bet_placed')));
+        // What the account holds now: the Investments tab's Positions.
+        openInvestmentsPositions(nav.context);
       },
       detail: note ?? (estimated ? context.l10n.betReceiptUpdating : null),
       receipt: TradeReceipt(

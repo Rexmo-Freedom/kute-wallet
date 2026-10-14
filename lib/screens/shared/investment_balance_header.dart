@@ -2,6 +2,7 @@ import 'package:kute/screens/shared/kute_dog_scenes.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/providers/investment_balances_provider.dart';
@@ -12,9 +13,8 @@ import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/venue_total_cache_service.dart';
-import 'package:kute/screens/activity/activity_history_screen.dart'
-    show showActivityHistory;
 import 'package:kute/screens/portfolio/open_investments_screen.dart';
+import 'package:kute/screens/shared/kute_motion.dart' show KutePressScale;
 import 'package:kute/screens/shared/pending_deposit_line.dart';
 import 'package:kute/screens/shared/pool_balance_header.dart';
 import 'package:kute/screens/shared/portfolio_builder/builder_legs_provider.dart';
@@ -69,18 +69,21 @@ class InvestmentDiscoveryNotice extends ConsumerWidget {
 ///     Orchestra lines of that venue. The Ledger venue screens and a
 ///     venue browser standing on its own use this.
 ///   * ONE BALANCE ([oneBalance]): the Investments tab's hero, reading
-///     [oneBalanceProvider]. The total is Dollars plus the open positions
-///     of every venue; under it Available (Dollars plus the venues'
-///     unreserved cash, what an order can draw on right now) and Invested
-///     (positions, reserved order cash and pending fills).
-///     While anything is on a rail that split gives way to the in-flight
-///     lines, in order: moving to a venue, coming back from one, incoming
-///     from outside, unavailable until balancing completes (venue cash the
-///     sweeper still owes back). Money in flight is never hidden. Venue
-///     dust below every route minimum is no line at all: it is part of
-///     Available like the rest of the venues' cash. No Deposit button: money only reaches a
-///     venue through an order. Tapping the lines opens the dollar
-///     activity, where each move is a row.
+///     [oneBalanceProvider]. No title over it (owner decision October
+///     2026): the total stands alone, Dollars plus the open positions of
+///     every venue; under it "Available $X · Invested $Y" (Available:
+///     Dollars plus the venues' unreserved cash, what an order can draw
+///     on right now; Invested: positions, reserved order cash and pending
+///     fills) closed by a chevron. While anything is on a rail that split
+///     gives way to the in-flight lines, in order: moving to a venue,
+///     coming back from one, incoming from outside, unavailable until
+///     balancing completes (venue cash the sweeper still owes back), the
+///     chevron beside them. Money in flight is never hidden. Venue dust
+///     below every route minimum is no line at all: it is part of
+///     Available like the rest of the venues' cash. No Deposit button:
+///     money only reaches a venue through an order. The whole block, the
+///     total and the line under it, is one tap ([onTap]: the Portfolio),
+///     with the cards' press feedback ([KutePressScale]).
 ///
 /// [showDepositButton]: the venue's Deposit button under the balance (the
 /// market browsers). The Portfolio screen hides it; its dock carries
@@ -90,11 +93,16 @@ class InvestmentBalanceHeader extends ConsumerWidget {
   final bool showDepositButton;
   final bool oneBalance;
 
+  /// One balance only: what tapping the balance block opens (the
+  /// Portfolio). Null: the block is not tappable and wears no chevron.
+  final VoidCallback? onTap;
+
   const InvestmentBalanceHeader({
     super.key,
     required this.product,
     this.showDepositButton = true,
     this.oneBalance = false,
+    this.onTap,
   });
 
   @override
@@ -224,6 +232,10 @@ class InvestmentBalanceHeader extends ConsumerWidget {
     ];
   }
 
+  /// Whether [state] puts the in-flight lines where the split would be.
+  static bool showsInFlight(OneBalanceState state) =>
+      state.inFlight.isNotEmpty || state.waiting.values.any((usd) => usd > 0);
+
   /// The one-balance total as the hero prints it — the text and whether
   /// it reads dimmed — for a small copy of it elsewhere (the Investments
   /// tab's collapsed bar). A venue still to answer counts as zero: the
@@ -245,30 +257,55 @@ class InvestmentBalanceHeader extends ConsumerWidget {
         visible ? formatPolyFiatForced(ref, value) : '••••••';
     final lines = inFlightLines(context, state, amount);
     final figure = oneBalanceFigure(ref);
-    return PoolBalanceHeader(
+    final tap = onTap;
+    // The tap affordance: the list rows' disclosure chevron, at the end of
+    // the line under the total.
+    final chevron = tap == null
+        ? null
+        : Padding(
+            padding: EdgeInsets.only(left: 2.w),
+            child: Icon(Icons.chevron_right_rounded,
+                key: const ValueKey('investments-balance-chevron'),
+                color: context.colors.textTertiary,
+                size: 20.sp),
+          );
+    final header = PoolBalanceHeader(
       amountText: figure.text,
       stale: figure.stale,
-      totalLabel: context.l10n.investmentsTotal,
       availableLabel: context.l10n.available,
       investedLabel: context.l10n.betInvested,
+      availableFirst: true,
+      splitTrailing: chevron,
       // The split, or the in-flight lines in its place.
       availableText: lines.isEmpty ? amount(state.availableUsd) : null,
       investedText: lines.isEmpty ? amount(state.investedUsd) : null,
       showActionRow: false,
       investedChild: lines.isEmpty
           ? null
-          : GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => showActivityHistory(context,
-                  onlyUsdb: true, source: 'investments_header'),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (final line in lines)
-                    PendingDepositLine(investedText: '', noteText: line),
-                ],
-              ),
+          : Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Flexible(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (final line in lines)
+                        PendingDepositLine(investedText: '', noteText: line),
+                    ],
+                  ),
+                ),
+                if (chevron != null) chevron,
+              ],
             ),
+    );
+    if (tap == null) return header;
+    return Semantics(
+      button: true,
+      child: KutePressScale(
+        key: const ValueKey('investments-balance'),
+        onTap: tap,
+        child: header,
+      ),
     );
   }
 }

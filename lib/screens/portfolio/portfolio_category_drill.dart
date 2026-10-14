@@ -530,6 +530,7 @@ class PredictionCategoryDrill extends ConsumerWidget {
     required this.active,
     required this.params,
     this.walletId,
+    this.shareOf,
   });
 
   final List<PredictionRecord> records;
@@ -540,6 +541,11 @@ class PredictionCategoryDrill extends ConsumerWidget {
 
   /// Null for the spending account; a Ledger wallet's ID otherwise.
   final String? walletId;
+
+  /// What an item's share is of: the slice's whole amount when the slice
+  /// holds both venues (the Portfolio screen's allocation); null: these
+  /// items' own total.
+  final double? shareOf;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -556,7 +562,8 @@ class PredictionCategoryDrill extends ConsumerWidget {
     final inThisSlice = records.where((r) => inSlice(
         categories[r.conditionId.toLowerCase()] ?? kPortfolioOtherCategory));
     final events = predictionEventItems(inThisSlice, amount);
-    final total = events.fold<double>(0, (sum, e) => sum + e.value);
+    final total =
+        shareOf ?? events.fold<double>(0, (sum, e) => sum + e.value);
 
     CategoryDrillLine line(PredictionRecord r) {
       final shares = l10n.portfolioPredictionEntry(
@@ -719,6 +726,7 @@ class TradingCategoryDrill extends ConsumerWidget {
     required this.marketsByWire,
     required this.params,
     this.walletId,
+    this.shareOf,
   }) : fills = null;
 
   const TradingCategoryDrill.historic({
@@ -728,6 +736,7 @@ class TradingCategoryDrill extends ConsumerWidget {
     required this.marketsByWire,
     required this.params,
     this.walletId,
+    this.shareOf,
   }) : holdings = null;
 
   final List<TradingHolding>? holdings;
@@ -740,6 +749,11 @@ class TradingCategoryDrill extends ConsumerWidget {
 
   /// Null for the spending account; a Ledger wallet's ID otherwise.
   final String? walletId;
+
+  /// What an item's share is of: the slice's whole amount when the slice
+  /// holds both venues (the Portfolio screen's allocation); null: these
+  /// items' own total.
+  final double? shareOf;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -774,7 +788,7 @@ class TradingCategoryDrill extends ConsumerWidget {
         holdings!.where((h) => inSlice(h.coin, h.market)),
         coinOf: (h) => h.coin,
         amount: (h) => h.value);
-    final total = coins.fold<double>(0, (sum, i) => sum + i.value);
+    final total = shareOf ?? coins.fold<double>(0, (sum, i) => sum + i.value);
 
     CategoryDrillLine line(TradingHolding h) {
       final p = h.position;
@@ -841,7 +855,7 @@ class TradingCategoryDrill extends ConsumerWidget {
         fills!.where((fill) => inSlice(fill.coin, marketsByWire[fill.coin])),
         coinOf: (fill) => fill.coin,
         amount: (fill) => fill.px * fill.sz);
-    final total = coins.fold<double>(0, (sum, i) => sum + i.value);
+    final total = shareOf ?? coins.fold<double>(0, (sum, i) => sum + i.value);
     final day = DateFormat.MMMd();
     String date(int ms) => day.format(DateTime.fromMillisecondsSinceEpoch(ms));
 

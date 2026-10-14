@@ -1,9 +1,10 @@
 // The Investments tab (one balance): the spending account's top strip is
 // Bitcoin | Investments, and Investments carries Investing · Predictions
-// · Portfolio as pills over the embedded screens (each pill wearing a
+// · Positions as pills over the embedded screens (each pill wearing a
 // glyph of the one icon family, a step bigger than the Home strip), the
-// one-balance hero above them, and the Receive / Send / search dock with
-// the search scoped to the pill. Receive (the dock's, no door under the
+// one-balance hero above them (no title; the balance block opens the
+// Portfolio full screen, as does the compact bar's total), and the
+// Receive / Send / search dock with the search scoped to the pill. Receive (the dock's, no door under the
 // hero any more) opens the Dollars receive screen on its coin step, whose
 // "From your Bitcoin" row opens the Investments deposit sheet. No
 // venue Deposit or Withdraw exists anywhere inside it.
@@ -34,7 +35,7 @@ import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_pill_tabs.dart'
     show KutePill, KutePillSize, KutePillTabs;
 import 'package:kute/screens/shared/pool_balance_header.dart';
-import 'package:kute/screens/shared/portfolio_tabs.dart';
+import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/screens/shared/venue_deposit_button.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
@@ -72,16 +73,20 @@ void main() {
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
 
   testWidgets(
-      'three pills in order, Investing first, each wearing its glyph of '
-      'the one icon family, a step bigger, over the embedded browsers',
-      (tester) async {
+      'three pills in order, Investing · Predictions · Positions, each '
+      'wearing its glyph of the one icon family, a step bigger, over the '
+      'embedded browsers', (tester) async {
     await pumpInvestments(tester, earn: kEarnOn);
     final l10n = _l10n(tester);
     final strip = _strip(tester);
     expect(strip.items.map((i) => i.label),
-        [l10n.trading, l10n.predictions, l10n.walletPortfolioAction]);
-    // The rising trend and the ring the top tabs used, the pie the
-    // Portfolio's dock action wears; no venue logos.
+        [l10n.trading, l10n.predictions, l10n.ledgerPositionsTitle]);
+    expect(strip.items.map((i) => i.label), ['Investing', 'Predictions',
+        'Positions']);
+    // No Portfolio pill any more: the balance opens the Portfolio.
+    expect(_pill(l10n.walletPortfolioAction), findsNothing);
+    // The rising trend and the ring the top tabs used, the pie the old
+    // Portfolio pill wore; no venue logos.
     expect(strip.items.map((i) => i.icon), [
       Icons.trending_up_rounded,
       Icons.donut_large_rounded,
@@ -102,8 +107,8 @@ void main() {
     expect(_pill('Earn'), findsNothing);
     expect(find.text('Earn', skipOffstage: false), findsNothing);
 
-    // Both venue browsers are mounted from the start, embedded; the
-    // Portfolio waits for its pill.
+    // Both venue browsers are mounted from the start, embedded; Positions
+    // waits for its pill, and the Portfolio is a screen of its own.
     expect(tester.widget<HyperliquidScreen>(find.byType(HyperliquidScreen))
         .embedded, isTrue);
     expect(
@@ -114,12 +119,28 @@ void main() {
         isTrue);
     expect(find.byType(OpenInvestmentsScreen, skipOffstage: false),
         findsNothing);
+    expect(find.byType(PortfolioPositions, skipOffstage: false), findsNothing);
 
-    // The one-balance hero, once, above the pills.
+    // The one-balance hero, once, above the pills: no title, the total
+    // alone over "Available $X · Invested $Y" and the chevron.
     final header =
         tester.widget<PoolBalanceHeader>(find.byType(PoolBalanceHeader));
-    expect(header.totalLabel, l10n.investmentsTotal);
+    expect(header.totalLabel, isNull);
+    expect(find.text(l10n.investmentsTotal), findsNothing);
     expect(header.amountText, r'$25.00');
+    expect(header.availableFirst, isTrue);
+    expect(find.byKey(const ValueKey('investments-balance-chevron')),
+        findsOneWidget);
+    expect(
+        tester
+            .getTopLeft(find.text('${l10n.available} '))
+            .dx,
+        lessThan(tester.getTopLeft(find.text('${l10n.betInvested} ')).dx));
+    expect(
+        tester
+            .getTopLeft(find.byKey(const ValueKey('investments-balance-chevron')))
+            .dx,
+        greaterThan(tester.getTopLeft(find.text('${l10n.betInvested} ')).dx));
     expect(find.byType(InvestmentBalanceHeader), findsOneWidget);
     expect(tester.getTopLeft(find.byType(PoolBalanceHeader)).dy,
         lessThan(tester.getTopLeft(find.byType(KutePillTabs).first).dy));
@@ -195,15 +216,15 @@ void main() {
         (category: SearchCategory.perpetuals, source: 'trading'));
     expect(UsdAccountActionBar.searchTarget(InvestmentsTab.predictions),
         (category: SearchCategory.predictions, source: 'predictions'));
-    // Portfolio searches this account's activity, as before.
-    expect(UsdAccountActionBar.searchTarget(InvestmentsTab.portfolio),
+    // Positions searches this account's activity, as the old Portfolio
+    // pill did.
+    expect(UsdAccountActionBar.searchTarget(InvestmentsTab.positions),
         (category: null, source: 'usd'));
   });
 
   testWidgets(
       'a pill tap reports analytics_tab_selected and the venue open event, '
-      'and Portfolio mounts the one Portfolio screen embedded',
-      (tester) async {
+      'and Positions mounts the merged positions list', (tester) async {
     final events = recordEvents();
     await pumpInvestments(tester, earn: kEarnOn);
     final l10n = _l10n(tester);
@@ -224,32 +245,26 @@ void main() {
     await tapPill(tester, l10n.predictions);
     expect(events.length, before);
 
-    await tapPill(tester, l10n.walletPortfolioAction);
-    final portfolio = tester
-        .widget<OpenInvestmentsScreen>(find.byType(OpenInvestmentsScreen));
-    expect(portfolio.embedded, isTrue);
-    expect(portfolio.source, 'investments_tab');
-    // The same strip, no app bar and no back button: the pills navigate.
-    expect(find.byType(PortfolioTabs), findsOneWidget);
+    await tapPill(tester, l10n.ledgerPositionsTitle);
+    expect(find.byType(PortfolioPositions), findsOneWidget);
+    // Nothing held, nothing resting: the Sal empty state.
+    expect(find.text('No positions yet'), findsOneWidget);
+    // Positions is a list under the pills, not the Portfolio screen: no
+    // tabs of its own, no app bar, no back button.
+    expect(find.byType(OpenInvestmentsScreen), findsNothing);
     expect(find.byType(KuteBackButton), findsNothing);
     expect(find.byType(AppBar), findsNothing);
-    // No third row: the Open tab is the one list.
-    expect(find.byKey(const ValueKey('portfolio-filter-all')), findsNothing);
-    expect(
-        events.where((e) => e.$1 == 'portfolio_opened').single.$2,
-        {'source': 'investments_tab', 'tab': 'open'});
+    expect(events.where((e) => e.$1 == 'portfolio_opened'), isEmpty);
     expect(
         events.where((e) => e.$1 == 'analytics_tab_selected').last.$2,
-        {'tab': 'portfolio', 'from_tab': 'predictions', 'surface': 'investments'});
+        {'tab': 'positions', 'from_tab': 'predictions', 'surface': 'investments'});
 
     await tapPill(tester, l10n.trading);
     expect(events.any((e) => e.$1 == 'hyperliquid_tab_opened'), isTrue);
     expect(find.byType(HyperliquidScreen), findsOneWidget);
-    // The Portfolio keeps its state behind the stack: one mount, one
-    // portfolio_opened.
-    expect(find.byType(OpenInvestmentsScreen, skipOffstage: false),
+    // Positions keeps its state behind the stack: one mount.
+    expect(find.byType(PortfolioPositions, skipOffstage: false),
         findsOneWidget);
-    expect(events.where((e) => e.$1 == 'portfolio_opened'), hasLength(1));
     expect(tester.takeException(), isNull);
     await unmountInvestments(tester);
   });
@@ -285,15 +300,116 @@ void main() {
 
   test('the pill keys are the link and analytics vocabulary', () {
     expect(InvestmentsTab.values.map((t) => t.key),
-        ['investing', 'predictions', 'portfolio']);
+        ['investing', 'predictions', 'positions']);
     for (final tab in InvestmentsTab.values) {
       expect(InvestmentsTab.fromKey(tab.key), tab);
       expect(investmentsTabLocation(tab), '/usd?tab=${tab.key}');
+      expect(investmentsLinkOpensPortfolio(tab.key), isFalse);
     }
     expect(InvestmentsTab.fromKey(null), isNull);
     expect(InvestmentsTab.fromKey('deposit'), isNull);
     // The old Earn pill's link lands on the first pill, never a blank.
     expect(InvestmentsTab.fromKey('earn'), isNull);
+    // The old Portfolio links: the pill and its Open and Orders tabs are
+    // Positions; Activity and Statistics open the Portfolio screen.
+    for (final key in ['portfolio', 'open', 'orders']) {
+      expect(InvestmentsTab.fromKey(key), InvestmentsTab.positions,
+          reason: key);
+      expect(investmentsLinkOpensPortfolio(key), isFalse, reason: key);
+    }
+    for (final key in ['activity', 'statistics']) {
+      expect(InvestmentsTab.fromKey(key), isNull, reason: key);
+      expect(investmentsLinkOpensPortfolio(key), isTrue, reason: key);
+    }
+  });
+
+  testWidgets(
+      'a link to the old Activity or Statistics tab opens the Portfolio '
+      'screen over the tab', (tester) async {
+    final events = recordEvents();
+    await pumpInvestments(tester,
+        child: const UsdAccountScreen(openPortfolio: true));
+    await _pumpFrames(tester, 6);
+    expect(find.byType(OpenInvestmentsScreen), findsOneWidget);
+    expect(events.where((e) => e.$1 == 'portfolio_opened').single.$2,
+        {'source': 'link'});
+    expect(tester.takeException(), isNull);
+    await unmountInvestments(tester);
+  });
+
+  testWidgets(
+      'the balance block opens the Portfolio full screen, with its back; '
+      'investments_balance_tapped reports the state', (tester) async {
+    final events = recordEvents();
+    await pumpInvestments(tester);
+    expect(find.byType(OpenInvestmentsScreen), findsNothing);
+    // The big number is part of the tap, not only the line under it.
+    await tester.tap(find
+        .descendant(
+            of: find.byType(PoolBalanceHeader),
+            matching: find.byType(RollingNumberText))
+        .first);
+    await _pumpFrames(tester, 6);
+    expect(find.byType(OpenInvestmentsScreen), findsOneWidget);
+    expect(find.byType(KuteBackButton), findsOneWidget);
+    expect(events.where((e) => e.$1 == 'investments_balance_tapped').single.$2,
+        {'state': 'normal', 'collapsed': false});
+    expect(events.where((e) => e.$1 == 'portfolio_opened').single.$2,
+        {'source': 'investments_balance'});
+    // Back (a plain pop here: the harness has no router) returns to the
+    // tab.
+    Navigator.of(tester.element(find.byType(OpenInvestmentsScreen))).pop();
+    await _pumpFrames(tester, 6);
+    expect(find.byType(OpenInvestmentsScreen), findsNothing);
+    expect(find.byType(InvestmentsBody), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await unmountInvestments(tester);
+  });
+
+  testWidgets(
+      'with money on a rail the in-flight lines replace the split and are '
+      'still the door to the Portfolio', (tester) async {
+    final events = recordEvents();
+    await pumpInvestments(tester,
+        balance: const OneBalanceState(
+            dollarsUsd: 25,
+            investedUsd: 0,
+            investingKnown: true,
+            predictionsKnown: true,
+            inFlight: [
+              InFlightMove(
+                  kind: InFlightKind.toVenue,
+                  venue: OneBalanceVenue.predictions,
+                  usd: 5),
+            ]));
+    final l10n = _l10n(tester);
+    expect(find.textContaining(l10n.available), findsNothing);
+    expect(find.byKey(const ValueKey('investments-balance-chevron')),
+        findsOneWidget);
+    await tester.tap(find.text(r'$5.00 moving to Predictions'));
+    await _pumpFrames(tester, 6);
+    expect(find.byType(OpenInvestmentsScreen), findsOneWidget);
+    expect(events.where((e) => e.$1 == 'investments_balance_tapped').single.$2,
+        {'state': 'in_flight', 'collapsed': false});
+    expect(events.where((e) => e.$1 == 'activity_history_opened'), isEmpty);
+    expect(tester.takeException(), isNull);
+    await unmountInvestments(tester);
+  });
+
+  testWidgets("collapsed, the compact bar's total opens the Portfolio",
+      (tester) async {
+    final events = recordEvents();
+    await pumpInvestments(tester);
+    await tester.drag(find.byType(NestedScrollView), const Offset(0, -400));
+    await _pumpFrames(tester);
+    expect(_compactTotal, findsOneWidget);
+    await tester.tap(_compactTotal);
+    await _pumpFrames(tester, 6);
+    expect(find.byType(OpenInvestmentsScreen), findsOneWidget);
+    expect(events.where((e) => e.$1 == 'investments_balance_tapped').single.$2,
+        {'state': 'normal', 'collapsed': true});
+    expect(tester.takeException(), isNull);
+    await unmountInvestments(tester);
   });
 
   testWidgets('the three large pills share one row on a 375-wide phone',
@@ -325,7 +441,7 @@ void main() {
       final label = switch (tab) {
         InvestmentsTab.investing => l10n.trading,
         InvestmentsTab.predictions => l10n.predictions,
-        InvestmentsTab.portfolio => l10n.walletPortfolioAction,
+        InvestmentsTab.positions => l10n.ledgerPositionsTitle,
       };
       await tapPill(tester, label);
       expect(_container(tester).read(investmentsTabProvider), tab);

@@ -14,12 +14,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:kute/l10n/l10n.dart';
 import 'package:kute/providers/usd_rewards_provider.dart';
 import 'package:kute/screens/portfolio/portfolio_statistics.dart';
 import 'package:kute/screens/shared/pool_balance_header.dart';
-import 'package:kute/screens/shared/portfolio_tabs.dart';
-import 'package:kute/screens/usd/usd_account_screen.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 
 import 'investments_harness.dart';
@@ -69,12 +66,9 @@ Finder _earnCopy() => find.textContaining(
         r'No payments yet|Rewards start once'),
     skipOffstage: false);
 
-/// Opens Portfolio › Statistics.
+/// Opens the Portfolio from the Investments balance.
 Future<void> _openStatistics(WidgetTester tester) async {
-  await tapPill(tester,
-      tester.element(find.byType(InvestmentsBody)).l10n.walletPortfolioAction);
-  final context = tester.element(find.byType(PortfolioTabs));
-  DefaultTabController.of(context).animateTo(3);
+  await tester.tap(find.byKey(const ValueKey('investments-balance')));
   for (var i = 0; i < 8; i++) {
     await tester.pump(const Duration(milliseconds: 100));
   }

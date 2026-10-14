@@ -1,8 +1,8 @@
 // lib/screens/portfolio/portfolio_category_donut.dart
 //
-// The category donut at the top of the Portfolio's Statistics card, for
-// Predictions and Investing, on the spending wallet and on a Ledger: the
-// kinds of markets the account has put its money on, all time, as slices
+// The category donut of the Portfolio screen (both venues' categories
+// merged, [CategoryVenue.all]) and of a Ledger's Statistics card (one
+// venue's): the kinds of markets the account has put its money on, as slices
 // of one ring (the shared chart engine's KuteDonutChart), the total in the
 // hole, a compact legend under it.
 //
@@ -234,14 +234,30 @@ String? categorySliceKeyOf(String category, List<CategorySlice> slices,
 typedef CategoryDrillBuilder = Widget Function(BuildContext context,
     CategorySlice slice, bool Function(String category) inSlice);
 
-/// Which venue's categories a donut shows; picks the labels.
-enum CategoryVenue { predictions, trading }
+/// Which venue's categories a donut shows; picks the labels. [all] is
+/// both venues' categories as one set (the Portfolio screen's allocation):
+/// an Investing class keeps its Investing name, any other key its
+/// Predictions pill's, and a key both venues use (crypto, other) is one
+/// category.
+enum CategoryVenue { predictions, trading, all }
+
+/// The Investing classes, by key ([hlFillCategory]'s vocabulary).
+const Set<String> _kTradingCategoryKeys = {
+  'crypto',
+  'spot',
+  'stocks',
+  'indices',
+  'commodities',
+  'fx',
+  'preipo',
+};
 
 /// A category's name as its venue's tab writes it: a Predictions pill's
 /// label, an Investing class's.
 String categoryLabel(AppLocalizations l10n, CategoryVenue venue, String key) {
   if (key == kPortfolioOtherCategory) return l10n.betGroupOther;
-  if (venue == CategoryVenue.predictions) {
+  if (venue == CategoryVenue.predictions ||
+      (venue == CategoryVenue.all && !_kTradingCategoryKeys.contains(key))) {
     final pill = PolyPillX.fromKey(key);
     return pill == null ? l10n.betGroupOther : polyPillLabel(l10n, pill);
   }
@@ -351,6 +367,10 @@ class PortfolioCategoryCard extends ConsumerStatefulWidget {
   /// hues out afresh, and the ring morphs to the new slices.
   final Object? level;
 
+  /// Told the slice picked (null: cleared) the moment the pick changes,
+  /// before the settled slice event; the caller's own drill-down event.
+  final ValueChanged<String?>? onPicked;
+
   const PortfolioCategoryCard({
     super.key,
     required this.values,
@@ -365,6 +385,7 @@ class PortfolioCategoryCard extends ConsumerStatefulWidget {
     this.listed = const [],
     this.onBack,
     this.level,
+    this.onPicked,
   });
 
   @override
@@ -419,6 +440,7 @@ class _PortfolioCategoryCardState extends ConsumerState<PortfolioCategoryCard> {
     }
     if (next == _selected) return;
     setState(() => _selected = next);
+    widget.onPicked?.call(next);
     _settleTimer?.cancel();
     if (next == null) {
       _reported = null;

@@ -304,6 +304,7 @@ Future<void> _pump(WidgetTester tester,
     bool settle = true,
     bool tagsPending = false,
     bool tagsFail = false,
+    Map<String, Set<String>>? tags,
     double textScale = 1,
     Widget? home}) async {
   tester.view.physicalSize = const Size(390, 844);
@@ -352,7 +353,9 @@ Future<void> _pump(WidgetTester tester,
             ? (ids) => Completer<Map<String, Set<String>>>().future
             : tagsFail
                 ? (ids) async => throw Exception('offline')
-                : (ids) async => {
+                : (ids) async =>
+                    tags ??
+                    {
                       '0xsports': {'sports', 'nba'},
                       '0xpolitics': {'politics', 'us-politics'},
                       '0xcrypto': {'crypto', 'bitcoin'},
@@ -1499,7 +1502,7 @@ void main() {
     });
   });
 
-  group('Overview (the spending account)', () {
+  group('Overview (the Portfolio screen)', () {
     late List<(String, Map<String, Object>?)> events;
     setUp(() {
       events = [];
@@ -1512,10 +1515,12 @@ void main() {
             bool predictions = true,
             bool reduceMotion = false,
             bool flat = false,
+            Map<String, Set<String>>? tags,
             double textScale = 1}) =>
         _pump(tester,
             predictions: true,
             flat: flat,
+            tags: tags,
             scope: StatisticsScope.active,
             reduceMotion: reduceMotion,
             textScale: textScale,
@@ -1546,6 +1551,33 @@ void main() {
       await tester.tap(target);
       await tester.pumpAndSettle();
     }
+
+    /// The opened slice's items, top to bottom.
+    List<String> items(WidgetTester tester) {
+      final found = find
+          .byWidgetPredicate((w) =>
+              w.key is ValueKey<String> &&
+              (w.key as ValueKey<String>)
+                  .value
+                  .startsWith('category-drill-item-'))
+          .evaluate()
+          .toList()
+        ..sort((a, b) => tester
+            .getTopLeft(find.byWidget(a.widget))
+            .dy
+            .compareTo(tester.getTopLeft(find.byWidget(b.widget)).dy));
+      return [
+        for (final e in found)
+          (e.widget.key as ValueKey<String>)
+              .value
+              .substring('category-drill-item-'.length)
+      ];
+    }
+
+    List<Map<String, Object>?> drilled() => [
+          for (final e in events)
+            if (e.$1 == 'portfolio_allocation_drilled') e.$2
+        ];
 
     void expectOneOfEach(WidgetTester tester) {
       expect(find.byType(PortfolioPnlChart), findsOneWidget);
@@ -1594,161 +1626,226 @@ void main() {
     });
 
     testWidgets(
-        'one donut: the venues at the top, a row opens one in the same '
-        'ring and the figures follow; back returns', (tester) async {
+        'top down: the chart, the Active | Historic pair, the donut, the '
+        'figures', (tester) async {
       await pumpOverview(tester);
-      final ring = tester.state(find.byType(KuteDonutChart));
-      // The top level: the venues by what they hold now, the total.
-      expect(_donutTexts(tester), contains('Total'));
+      double top(Finder f) => tester.getTopLeft(f).dy;
+      final pair = find.byKey(const ValueKey('statistics-active'));
+      final donut = find.byType(PortfolioCategoryCard);
+      expect(top(find.byType(PortfolioPnlChart)), lessThan(top(pair)));
+      expect(top(pair), lessThan(top(donut)));
+      await tester.ensureVisible(figures);
+      await tester.pumpAndSettle();
+      expect(top(donut), lessThan(top(figures)));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+        'Active: one donut by category with the venues merged — crypto at '
+        'both venues is one slice; it opens to both venues\' positions',
+        (tester) async {
+      await pumpOverview(tester);
+      // No venue level any more: the categories straight away, what is
+      // held now, both venues added in the hole.
       expect(_hole(tester), r'$95.00');
+      expect(_donutTexts(tester), contains('Active'));
+      expect(_ring(tester).arcs.map((a) => a.id), ['crypto']);
+      expect(find.byKey(const ValueKey('category-legend-crypto')),
+          findsOneWidget);
       expect(find.byKey(const ValueKey('category-legend-trading')),
-          findsOneWidget);
+          findsNothing);
       expect(find.byKey(const ValueKey('category-legend-predictions')),
-          findsOneWidget);
+          findsNothing);
       expect(find.byKey(const ValueKey('category-level-back')), findsNothing);
       // The account's figures: both venues added.
       expect(figure(tester, 'Open P&L'), r'+$15.00');
       expect(figure(tester, 'Amount at stake'), r'$80.00');
       expect(figure(tester, 'Open positions'), '3');
 
-      await open(
-          tester, find.byKey(const ValueKey('category-legend-predictions')));
-      expect(
-          events.where((e) => e.$1 == 'portfolio_allocation_drilled').last.$2,
-          {'venue': 'polymarket', 'level': 'venue'});
-      // The same ring, now the venue's categories.
-      expect(tester.state(find.byType(KuteDonutChart)), same(ring));
-      expect(_ring(tester).arcs.map((a) => a.id), ['crypto']);
-      expect(
-          _donutTexts(tester), containsAllInOrder(['Predictions', 'Crypto']));
-      expect(_hole(tester), r'$30.00');
-      expect(
-          find.byKey(const ValueKey('category-legend-trading')), findsNothing);
-      expect(find.byKey(const ValueKey('category-level-back')), findsOneWidget);
-      // The figures are the venue's now, shown once.
-      expect(figure(tester, 'Open P&L'), r'+$10.00');
-      expect(figure(tester, 'Amount at stake'), r'$20.00');
-      expect(figure(tester, 'Open positions'), '1');
-      expectOneOfEach(tester);
-      // A category opens up as on the venue's own tab, one way back at a
-      // time.
       await open(tester, find.byKey(const ValueKey('category-legend-crypto')));
-      expect(find.byKey(const ValueKey('category-drill-back')), findsOneWidget);
-      expect(
-          tester
-              .widget<Visibility>(find.ancestor(
-                  of: find.byKey(const ValueKey('category-level-back')),
-                  matching: find.byType(Visibility)))
-              .visible,
-          isFalse);
+      // Investing's coins (it holds more of the slice) over Predictions'
+      // event.
+      expect(items(tester), ['BTC', 'SOL', 'btc-100k']);
+      expect(drilled().last, {
+        'venue': 'all',
+        'level': 'category',
+        'category': 'crypto',
+        'view': 'active',
+      });
       await open(tester, find.byKey(const ValueKey('category-drill-back')));
-
-      await open(tester, find.byKey(const ValueKey('category-level-back')));
-      expect(
-          events.where((e) => e.$1 == 'portfolio_allocation_drilled').last.$2,
-          {'venue': 'polymarket', 'level': 'top'});
-      expect(tester.state(find.byType(KuteDonutChart)), same(ring));
-      expect(find.byKey(const ValueKey('category-legend-trading')),
+      expect(drilled().last, {
+        'venue': 'all',
+        'level': 'top',
+        'category': 'crypto',
+        'view': 'active',
+      });
+      expect(find.byKey(const ValueKey('category-legend-crypto')),
           findsOneWidget);
-      expect(figure(tester, 'Open positions'), '3');
-
-      // Investing opened from the ring itself.
-      await open(tester, find.byKey(const ValueKey('category-legend-trading')));
-      expect(
-          events.where((e) => e.$1 == 'portfolio_allocation_drilled').last.$2,
-          {'venue': 'hyperliquid', 'level': 'venue'});
-      expect(_donutTexts(tester), contains('Investing'));
-      expect(_hole(tester), r'$65.00');
-      expect(figure(tester, 'Open positions'), '2');
-      // A venue pick sends no slice event of its own; the category opened
-      // inside Predictions did.
-      expect(
-          events
-              .where((e) => e.$1 == 'portfolio_category_slice_selected')
-              .map((e) => e.$2?['category']),
-          ['crypto']);
+      // The slice event names the merged set as its venue.
+      final slices = events
+          .where((e) => e.$1 == 'portfolio_category_slice_selected')
+          .toList();
+      for (final e in slices) {
+        expect(e.$2?['venue'], 'all');
+      }
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('Historic: the figures follow the level, said once',
+    testWidgets(
+        'Active: Investing\'s and Predictions\' categories sit in the one '
+        'ring, each slice opening to its own venue\'s positions',
+        (tester) async {
+      await pumpOverview(tester, tags: {
+        '0xsports': {'sports'},
+        '0xpolitics': {'politics'},
+        '0xcrypto': {'sports', 'nba'},
+      });
+      expect(_hole(tester), r'$95.00');
+      expect(_ring(tester).arcs.map((a) => a.id), ['crypto', 'sports']);
+      expect(_donutTexts(tester), containsAllInOrder(['Crypto', 'Sports']));
+
+      await open(tester, find.byKey(const ValueKey('category-legend-sports')));
+      expect(items(tester), ['btc-100k']);
+      await open(tester, find.byKey(const ValueKey('category-drill-back')));
+      await open(tester, find.byKey(const ValueKey('category-legend-crypto')));
+      expect(items(tester), ['BTC', 'SOL']);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+        'Historic: everything ever traded or predicted, by category, merged; '
+        'the figures follow the pair; a slice opens to its history rows',
         (tester) async {
       await pumpOverview(tester);
+      final ring = tester.state(find.byType(KuteDonutChart));
       await open(tester, find.byKey(const ValueKey('statistics-historic')));
+      expect(
+          events
+              .where((e) => e.$1 == 'portfolio_allocation_view_changed')
+              .map((e) => e.$2),
+          [
+            {'view': 'historic'}
+          ]);
+      // The old sub-tab event is the Ledger's alone now.
+      expect(events.where((e) => e.$1 == 'portfolio_tab_changed'), isEmpty);
       expectOneOfEach(tester);
+      // The same ring, now all time: Investing's volume (6,000 + 110 +
+      // 100, all crypto) and Predictions' stakes (20 crypto, 8 sports, 5
+      // politics).
+      expect(tester.state(find.byType(KuteDonutChart)), same(ring));
+      expect(_hole(tester), r'$6,243.00');
+      expect(_donutTexts(tester), contains('All time'));
+      expect(_ring(tester).arcs.map((a) => a.id),
+          ['crypto', 'sports', 'politics']);
+      // The figures for the pair, the account's: realised P&L, volume
+      // traded, trades.
       expect(find.text('Realized P&L'), findsOneWidget);
       expect(find.descendant(of: figures, matching: find.text('Volume traded')),
           findsOneWidget);
       expect(find.descendant(of: figures, matching: find.text('Trades')),
           findsOneWidget);
-      await open(
-          tester, find.byKey(const ValueKey('category-legend-predictions')));
-      expect(figure(tester, 'Realized P&L'), r'+$6.00');
-      expect(
-          find.descendant(of: figures, matching: find.text('Amount predicted')),
-          findsOneWidget);
-      expect(find.text('Realized P&L'), findsOneWidget);
+      expect(find.text('Open P&L'), findsNothing);
+      expect(find.text('Amount predicted'), findsNothing);
+
+      await open(tester, find.byKey(const ValueKey('category-legend-sports')));
+      expect(items(tester), ['nba-champion']);
+      expect(drilled().last, {
+        'venue': 'all',
+        'level': 'category',
+        'category': 'sports',
+        'view': 'historic',
+      });
+      await open(tester, find.byKey(const ValueKey('category-drill-back')));
+      await open(tester, find.byKey(const ValueKey('category-legend-crypto')));
+      expect(items(tester), ['BTC', 'ETH', 'btc-100k']);
+
+      // Back to Active: the ring morphs back, nothing open.
+      await open(tester, find.byKey(const ValueKey('statistics-active')));
+      expect(_hole(tester), r'$95.00');
+      expect(find.byKey(const ValueKey('category-drill-back')), findsNothing);
+      expect(figure(tester, 'Open positions'), '3');
       expect(tester.takeException(), isNull);
     });
 
     testWidgets(
-        'a venue holding nothing is listed at 0%; opened, its ring is empty '
-        'and its sub-tab says so once', (tester) async {
-      await pumpOverview(tester, flat: true);
-      expect(_hole(tester), r'$30.00');
-      expect(_donutTexts(tester), containsAllInOrder(['Investing', '0%']));
-      await open(tester, find.byKey(const ValueKey('category-legend-trading')));
-      expect(find.byKey(const ValueKey('category-level-back')), findsOneWidget);
-      expect(_ring(tester).arcs, isEmpty);
-      expect(_hole(tester), r'$0.00');
+        'nothing held now: no donut on Active, the compact empty state; '
+        'Historic still draws', (tester) async {
+      await pumpOverview(tester, flat: true, predictions: false);
+      expect(find.byType(PortfolioCategoryCard), findsNothing);
       expect(figures, findsNothing);
       expect(find.text('No open investments'), findsOneWidget);
       await open(tester, find.byKey(const ValueKey('statistics-historic')));
+      expect(_hole(tester), r'$6,210.00');
       expect(figure(tester, 'Trades'), '3');
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('one venue: the ring opens on it, no way up, no toggle',
+    testWidgets('one venue: no chart toggle; the donut is its categories',
         (tester) async {
       await pumpOverview(tester, trading: false);
       expect(find.byKey(const ValueKey('statistics-venue-all')), findsNothing);
       expect(find.byKey(const ValueKey('category-level-back')), findsNothing);
-      expect(find.byKey(const ValueKey('category-legend-predictions')),
-          findsNothing);
-      expect(
-          _donutTexts(tester), containsAllInOrder(['Predictions', 'Crypto']));
+      expect(_donutTexts(tester), containsAllInOrder(['Active', 'Crypto']));
       expect(_hole(tester), r'$30.00');
       expect(figure(tester, 'Open positions'), '1');
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('the ring morphs between levels; at once under Reduce Motion',
-        (tester) async {
-      final row = find.byKey(const ValueKey('category-legend-predictions'));
-      await pumpOverview(tester);
-      await tester.ensureVisible(row);
+    testWidgets(
+        'the ring morphs between Active and Historic; at once under Reduce '
+        'Motion', (tester) async {
+      final pill = find.byKey(const ValueKey('statistics-historic'));
+      await pumpOverview(tester, tags: {
+        '0xsports': {'sports'},
+        '0xpolitics': {'politics'},
+        '0xcrypto': {'sports'},
+      });
+      await tester.tap(pill);
       await tester.pumpAndSettle();
-      await tester.tap(row);
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
-      // Mid-morph: the venues' slices on their way out.
-      expect(_ring(tester).arcs.map((a) => a.id), contains('trading'));
-      await tester.pumpAndSettle();
-      expect(_ring(tester).arcs.map((a) => a.id), ['crypto']);
+      expect(_ring(tester).arcs.map((a) => a.id),
+          ['crypto', 'sports', 'politics']);
 
       await tester.pumpWidget(const SizedBox());
-      await pumpOverview(tester, reduceMotion: true);
-      await tester.ensureVisible(row);
-      await tester.pumpAndSettle();
-      await tester.tap(row);
+      await pumpOverview(tester, reduceMotion: true, tags: {
+        '0xsports': {'sports'},
+        '0xpolitics': {'politics'},
+        '0xcrypto': {'sports'},
+      });
+      await tester.tap(pill);
       await tester.pump();
-      expect(_ring(tester).arcs.map((a) => a.id), ['crypto']);
-      expect(_ring(tester).arcs.single.fraction, 1);
+      await tester.pump();
+      expect(_ring(tester).arcs.map((a) => a.id),
+          ['crypto', 'sports', 'politics']);
+    });
+
+    testWidgets('a footer runs under the figures', (tester) async {
+      await _pump(tester,
+          predictions: true,
+          scope: StatisticsScope.active,
+          home: const PortfolioStatisticsOverview(
+              trading: true,
+              predictions: true,
+              footerEmpty: false,
+              footer: [
+                SliverToBoxAdapter(
+                    child: SizedBox(
+                        key: ValueKey('footer'), height: 40, width: 10)),
+              ]));
+      await tester.scrollUntilVisible(find.byKey(const ValueKey('footer')), 200,
+          scrollable: find
+              .descendant(
+                  of: find.byType(CustomScrollView),
+                  matching: find.byType(Scrollable))
+              .first);
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(find.byKey(const ValueKey('footer'))).dy,
+          greaterThanOrEqualTo(tester.getBottomLeft(figures).dy - 0.5));
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('fits accessibility text', (tester) async {
       await pumpOverview(tester, textScale: 2);
-      await open(
-          tester, find.byKey(const ValueKey('category-legend-predictions')));
+      await open(tester, find.byKey(const ValueKey('category-legend-crypto')));
       expect(tester.takeException(), isNull);
     });
   });

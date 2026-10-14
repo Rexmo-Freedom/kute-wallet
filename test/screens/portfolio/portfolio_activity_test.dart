@@ -255,7 +255,7 @@ void main() {
         entries.map((e) => e.tx?.id), ['to_pm', 'pm_sweep', 'cctp', 'to_hl']);
   });
 
-  group('the Activity tab', () {
+  group('the Portfolio screen\'s Activity', () {
     Future<void> pump(WidgetTester tester, {Transaction? history}) async {
       tester.view.physicalSize = const Size(400, 1000);
       tester.view.devicePixelRatio = 1;
@@ -286,7 +286,7 @@ void main() {
                   extensions: [AppColorsExtension.light()]),
               localizationsDelegates: AppLocalizations.localizationsDelegates,
               supportedLocales: AppLocalizations.supportedLocales,
-              home: const OpenInvestmentsScreen(source: 'test', initialTab: 2),
+              home: const OpenInvestmentsScreen(source: 'test'),
             ),
           )));
       for (var i = 0; i < 8; i++) {
@@ -314,7 +314,12 @@ void main() {
               _bet('bet', _t0.add(const Duration(days: 1))),
             ],
           ));
-      expect(find.byType(PortfolioActivityList), findsOneWidget);
+      expect(find.byType(PortfolioActivitySliver), findsOneWidget);
+      // Under its heading; never traded, so nothing above it.
+      expect(find.byKey(const ValueKey('portfolio-activity-heading')),
+          findsOneWidget);
+      expect(find.byKey(const ValueKey('statistics-chart-empty')),
+          findsNothing);
       expect(find.byKey(const ValueKey('portfolio-activity-trading')),
           findsNothing);
       expect(find.byKey(const ValueKey('portfolio-activity-predictions')),
@@ -330,10 +335,14 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('nothing yet: the app\'s empty state', (tester) async {
+    testWidgets(
+        'nothing yet, never traded: the page is the app\'s one empty state',
+        (tester) async {
       await pump(tester);
-      expect(find.byType(PortfolioActivityList), findsOneWidget);
-      expect(find.text('No activity yet'), findsOneWidget);
+      expect(find.byType(PortfolioActivitySliver), findsNothing);
+      expect(find.byKey(const ValueKey('portfolio-activity-heading')),
+          findsNothing);
+      expect(find.text('No history yet'), findsOneWidget);
       expect(find.byType(NoActivityState), findsOneWidget);
       expect(find.byType(ActivityDaySection), findsNothing);
       expect(tester.takeException(), isNull);

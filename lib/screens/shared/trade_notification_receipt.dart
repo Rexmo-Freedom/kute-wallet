@@ -16,6 +16,8 @@ import 'package:kute/screens/portfolio/open_investments_screen.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/trade_notification_copy.dart';
 import 'package:kute/screens/shared/trade_receipt.dart';
+import 'package:kute/screens/usd/usd_account_screen.dart'
+    show openInvestmentsPositions;
 import 'package:kute/services/trade_notification_store.dart';
 
 /// The market art of a results-inbox receipt: the prediction's crest or
@@ -172,9 +174,15 @@ void openTradeNotificationReceipt({
               builder: (_) => LedgerPortfolioScreen(
                   walletId: wallet.id, product: product, initialTab: tab)));
         } else if (spending) {
-          navigator.push(MaterialPageRoute(
-              builder: (_) =>
-                  OpenInvestmentsScreen(source: 'notification', initialTab: tab)));
+          // A fill's own row is in the Portfolio's Activity; everything
+          // else held is under Positions.
+          if (tab == 2) {
+            navigator.push(MaterialPageRoute(
+                builder: (_) =>
+                    const OpenInvestmentsScreen(source: 'notification')));
+          } else {
+            openInvestmentsPositions(navigator.context);
+          }
         }
       },
     ),

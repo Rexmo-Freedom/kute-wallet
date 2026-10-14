@@ -399,10 +399,10 @@ void main() {
       (tester) async {
     final container =
         await _pump(tester, const UsdAccountActionBar());
-    // The Portfolio pill's square searches the activity; a venue pill's
+    // The Positions pill's square searches the activity; a venue pill's
     // searches that venue's markets.
     container.read(investmentsTabProvider.notifier).state =
-        InvestmentsTab.portfolio;
+        InvestmentsTab.positions;
     expect(find.byType(KuteDogMagnifier), findsOneWidget);
     expect(find.byIcon(Icons.add_rounded), findsNothing);
     await tester.tap(find.byType(KuteDogMagnifier));

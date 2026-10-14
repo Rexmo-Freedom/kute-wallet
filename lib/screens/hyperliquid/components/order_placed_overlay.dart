@@ -10,7 +10,8 @@ import 'package:flutter/material.dart';
 import 'package:kute/screens/hyperliquid/components/hl_format.dart';
 import 'package:kute/services/hyperliquid/hl_position_effect.dart';
 import 'package:kute/screens/shared/trade_receipt.dart';
-import 'package:kute/screens/portfolio/open_investments_screen.dart';
+import 'package:kute/screens/usd/usd_account_screen.dart'
+    show openInvestmentsPositions;
 
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
@@ -138,9 +139,8 @@ class HlOrderPlacedOverlay extends StatelessWidget {
       onDone: () {
         final nav = Navigator.of(context);
         nav.pop();
-        nav.push(MaterialPageRoute(
-            builder: (_) =>
-                const OpenInvestmentsScreen(source: 'order_placed')));
+        // What the account holds now: the Investments tab's Positions.
+        openInvestmentsPositions(nav.context);
       },
       detail: context.l10n.investingBalanceUpdating,
       receipt: TradeReceipt(

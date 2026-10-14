@@ -1,8 +1,9 @@
 // lib/screens/portfolio/portfolio_activity.dart
 //
-// The Portfolio's Activity tab: ONE list, everything the spending
-// account's investments did, newest first (owner decision October 2026,
-// replacing the Investing | Predictions switch over two lists).
+// The Portfolio screen's Activity, at its bottom (it was the Portfolio's
+// Activity tab): ONE list, everything the spending account's investments
+// did, newest first (owner decision October 2026, replacing the Investing
+// | Predictions switch over two lists).
 //
 //   * the venues' own activity: every Hyperliquid fill
 //     (HyperliquidFillActivityRow, the Investing list's row) and every
@@ -23,7 +24,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/helpers/swap_activity.dart' show swapActivityFor;
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart' show HlFill;
@@ -35,9 +35,6 @@ import 'package:kute/providers/transactions_provider.dart'
     show walletTransactionCacheProvider;
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
-import 'package:kute/screens/home/components/kute_dock_host.dart'
-    show KuteDockClearance, kuteDockScrollClearance;
-import 'package:kute/screens/portfolio/portfolio_empty_state.dart';
 import 'package:kute/screens/shared/hyperliquid_fill_activity.dart';
 import 'package:kute/screens/shared/multi_source_move_activity.dart'
     show multiSourceMoveLegIds;
@@ -91,82 +88,93 @@ bool _isVenueMove(SwapOrderTransaction tx) {
   return kind.isInvesting || kind.isPredictions;
 }
 
-/// The Activity tab's list for the spending account.
-class PortfolioActivityList extends ConsumerWidget {
-  const PortfolioActivityList({super.key});
+/// The spending account's merged activity as the Portfolio reads it:
+/// the entries newest first, and whether the Investing history is still
+/// on its way or failed.
+typedef PortfolioActivity = ({
+  List<PortfolioActivityEntry> entries,
+  bool loading,
+  bool failed,
+});
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = context.l10n;
-    // The spending account's own history, the slot the Dollars activity
-    // and Home read.
-    final walletId =
-        ref.watch(settingsProvider.select((s) => pickSpendingWallet(s)?.id));
-    final txs = ref.watch(walletTransactionCacheProvider
-            .select((cache) => walletId == null ? null : cache[walletId])) ??
-        Transaction.empty();
-    // One row per action that took money from more than one place.
-    final moves = [
-      for (final m in ref.watch(multiSourceMovesProvider))
-        if (m.walletId == null || m.walletId == walletId) m,
-    ];
-    // A delivery to Spark the balance does not show yet keeps its row
-    // pending: rebuild when that changes.
-    ref.watch(ownSparkArrivalsProvider);
-    final dollarRows = assembleActivityRows(
-      txs.allTransactionsSorted,
-      ownAddresses: activityOwnSettleAddresses(ref),
-      isHardwareOrWatchOnly: false,
-      onlyUsdb: true,
-      moves: moves,
-      walletId: walletId,
-    );
-    final bets = <PolymarketTransaction>[
-      ...txs.polymarketTransactions.where((t) =>
-          t.activityType == ActivityType.trade ||
-          t.activityType == ActivityType.redeem),
-      // The results the history does not record: a lost prediction is
-      // never claimed, so only its resolved market says it lost (and a
-      // win shows here until it is claimed).
-      ...predictionResultTransactions(ref, txs.polymarketTransactions),
-    ];
-    final fills = ref.watch(hyperliquidActivityFillsProvider);
-    final history = ref.watch(hyperliquidUserFillsProvider);
-    final entries = mergePortfolioActivity(
+/// Watches everything the merged list is made of (see the file header)
+/// for the spending account and merges it.
+PortfolioActivity watchPortfolioActivity(WidgetRef ref) {
+  // The spending account's own history, the slot the Dollars activity
+  // and Home read.
+  final walletId =
+      ref.watch(settingsProvider.select((s) => pickSpendingWallet(s)?.id));
+  final txs = ref.watch(walletTransactionCacheProvider
+          .select((cache) => walletId == null ? null : cache[walletId])) ??
+      Transaction.empty();
+  // One row per action that took money from more than one place.
+  final moves = [
+    for (final m in ref.watch(multiSourceMovesProvider))
+      if (m.walletId == null || m.walletId == walletId) m,
+  ];
+  // A delivery to Spark the balance does not show yet keeps its row
+  // pending: rebuild when that changes.
+  ref.watch(ownSparkArrivalsProvider);
+  final dollarRows = assembleActivityRows(
+    txs.allTransactionsSorted,
+    ownAddresses: activityOwnSettleAddresses(ref),
+    isHardwareOrWatchOnly: false,
+    onlyUsdb: true,
+    moves: moves,
+    walletId: walletId,
+  );
+  final bets = <PolymarketTransaction>[
+    ...txs.polymarketTransactions.where((t) =>
+        t.activityType == ActivityType.trade ||
+        t.activityType == ActivityType.redeem),
+    // The results the history does not record: a lost prediction is
+    // never claimed, so only its resolved market says it lost (and a
+    // win shows here until it is claimed).
+    ...predictionResultTransactions(ref, txs.polymarketTransactions),
+  ];
+  final fills = ref.watch(hyperliquidActivityFillsProvider);
+  final history = ref.watch(hyperliquidUserFillsProvider);
+  return (
+    entries: mergePortfolioActivity(
       dollarRows: dollarRows,
       swaps: txs.swapOrderTransactions,
       bets: bets,
       fills: fills,
       movedLegIds: multiSourceMoveLegIds(txs.swapOrderTransactions, moves),
-    );
+    ),
+    loading: history.isLoading,
+    failed: history.hasError,
+  );
+}
 
-    // Under the host's dock: the centred states keep clear of it, the
-    // list runs under it with its last row clear.
-    if (entries.isEmpty && !history.hasError) {
-      return history.isLoading
-          ? const KuteDockClearance(
-              child: Center(child: CircularProgressIndicator.adaptive()))
-          : PortfolioEmptyState(l10n.ledgerActivityEmpty);
-    }
-    final children = <Widget>[];
-    if (history.hasError) {
-      children.add(TextButton.icon(
-          onPressed: () => ref.invalidate(hyperliquidUserFillsProvider),
-          icon: const Icon(Icons.refresh_rounded),
-          label: Text(l10n.hlActivityRefreshFailedRetry)));
-    }
-    // Same day cards as Home and the wallets.
-    children.addAll(activityDaySections<PortfolioActivityEntry>(
-      entries,
-      timeOf: (e) => e.time,
-      rowOf: (e) => e.fill != null
-          ? HyperliquidFillActivityRow(
-              fill: e.fill!, compareWithSpendingWallet: true)
-          : buildUnifiedTransactionItem(e.tx!, context, ref),
-    ));
-    return ListView(
-        padding: EdgeInsets.fromLTRB(
-            0, 8.h, 0, 40.h + kuteDockScrollClearance(context)),
-        children: children);
+/// The Portfolio screen's Activity, at its bottom: [entries] on the same
+/// day cards as Home and the wallets, each row the widget its own surface
+/// draws; the Investing history's retry first when it [failed].
+class PortfolioActivitySliver extends ConsumerWidget {
+  const PortfolioActivitySliver(
+      {super.key, required this.entries, this.failed = false});
+
+  final List<PortfolioActivityEntry> entries;
+  final bool failed;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final children = <Widget>[
+      if (failed)
+        TextButton.icon(
+            onPressed: () => ref.invalidate(hyperliquidUserFillsProvider),
+            icon: const Icon(Icons.refresh_rounded),
+            label: Text(context.l10n.hlActivityRefreshFailedRetry)),
+      // Same day cards as Home and the wallets.
+      ...activityDaySections<PortfolioActivityEntry>(
+        entries,
+        timeOf: (e) => e.time,
+        rowOf: (e) => e.fill != null
+            ? HyperliquidFillActivityRow(
+                fill: e.fill!, compareWithSpendingWallet: true)
+            : buildUnifiedTransactionItem(e.tx!, context, ref),
+      ),
+    ];
+    return SliverList(delegate: SliverChildListDelegate(children));
   }
 }

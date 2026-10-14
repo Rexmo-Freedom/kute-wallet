@@ -1,7 +1,8 @@
 // lib/screens/portfolio/components/portfolio_pnl_chart.dart
 //
-// The profit and loss chart that leads the Portfolio's Statistics tab:
-// on the spending account one chart for Investing and Predictions
+// The profit and loss chart that leads the Portfolio screen (a Ledger's
+// Statistics tab): on the spending account one chart for Investing and
+// Predictions
 // together (their series added, [PortfolioPerformance.combine]), on a
 // Ledger the venue's own. Laid out as a brokerage P&L view:
 //

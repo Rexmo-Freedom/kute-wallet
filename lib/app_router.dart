@@ -571,10 +571,12 @@ class AppRouter {
                 GoRoute(
                   path: '/usd',
                   name: 'usd',
-                  // `?tab=investing|predictions|portfolio` (what the venue
+                  // `?tab=investing|predictions|positions` (what the venue
                   // routes redirect to) or `extra: {'tab': …}` picks the
                   // Investments pill (an old `earn` link opens the default
-                  // pill: Earn is shown nowhere); nothing keeps the pill
+                  // pill: Earn is shown nowhere; the old Portfolio tabs map
+                  // to Positions or open the Portfolio screen, see
+                  // investmentsLinkOpensPortfolio); nothing keeps the pill
                   // where it was. The page updates in place on a new
                   // link (same pageKey), and the screen applies it then.
                   pageBuilder: (context, state) {
@@ -584,7 +586,8 @@ class AppRouter {
                     return NoTransitionPage<void>(
                       key: state.pageKey,
                       child: UsdAccountScreen(
-                          initialTab: InvestmentsTab.fromKey(tab)),
+                          initialTab: InvestmentsTab.fromKey(tab),
+                          openPortfolio: investmentsLinkOpensPortfolio(tab)),
                     );
                   },
                 ),

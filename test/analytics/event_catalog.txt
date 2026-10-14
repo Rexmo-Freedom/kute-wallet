@@ -234,6 +234,7 @@ investing_cash_pulled
 investing_close_available_tapped
 investing_position_details_opened
 investment_category_opened
+investments_balance_tapped
 ledger_account_viewed
 ledger_action_sheet_opened
 ledger_action_submitted
@@ -436,6 +437,7 @@ polymarket_withdraw_failed
 polymarket_withdraw_initiated
 polymarket_withdraw_submitted
 portfolio_allocation_drilled
+portfolio_allocation_view_changed
 portfolio_category_slice_selected
 portfolio_opened
 portfolio_performance_chart_scrubbed

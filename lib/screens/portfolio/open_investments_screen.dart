@@ -1,36 +1,34 @@
 // lib/screens/portfolio/open_investments_screen.dart
 //
-// The Portfolio: one screen, the same from every door (the Investments
-// tab's Portfolio pill, where it lives embedded; Home's Predictions card,
-// the Financial hub, a placed bet or order and a trade notification, which
-// push it). Owner decision October 2026: the Portfolio button used to
-// open a different screen per tab, so the same button gave different
-// results.
+// The spending account's investments, in two places (owner decision
+// October 2026):
 //
-// Layout: the app bar over the tab strip (Open, Orders, Activity,
-// Statistics), no balance header and no deposit or withdrawal buttons
-// (the Investments tab carries the one deposit door). NO THIRD ROW on
-// any tab (owner decision October 2026): every tab shows both venues,
-// with nothing to switch.
-//   * Open: positions only (owner decision October 2026: the Wallet
-//     section with the account's bitcoin and dollars is gone, the
-//     balances live in the hero above): the Investing positions
-//     (Hyperliquid perps and spot holdings) and the Predictions positions
-//     (Polymarket), each under its plain section name with no total, in
-//     one list.
-//   * Orders: ONE merged list of both venues' open orders, newest first,
-//     each row its venue sheet's own (portfolio_orders.dart).
-//   * Activity: ONE merged list (portfolio_activity.dart), the venues'
-//     activity and the wallet's deposits and moves sorted by time.
-//   * Statistics: Investing and Predictions as ONE account, nothing said
-//     twice (PortfolioStatisticsOverview): one P&L chart with an All ·
-//     Investing · Predictions toggle, one allocation donut that opens a
-//     venue (then a category) in the same ring, then one Active |
-//     Historic pair over one card of figures for what the donut shows.
-//     Earn (the dollar rewards programme) is shown nowhere, whatever the
-//     backend's `usd.earn` says (owner decision).
-// A venue the shell draws no tab for (portfolio_filters.dart) has no
-// section and no rows here.
+//   * POSITIONS ([PortfolioPositions]), the Investments tab's third pill:
+//     everything held now, at both venues, in ONE list — wins to claim and
+//     bets on their way first, then every open position, Predictions
+//     (Polymarket, combos included) and Investing (Hyperliquid perps and
+//     spot holdings) alike, largest first by what it is worth — and under
+//     them the resting orders of both venues under their Orders heading,
+//     with one count and one Cancel all (portfolio_orders.dart). Each row
+//     is the card or order row it always was, with its drill-down and its
+//     actions. Nothing held and nothing resting: the Sal empty state ("No
+//     positions yet").
+//   * THE PORTFOLIO ([OpenInvestmentsScreen]), full screen, opened from
+//     the Investments balance (and Home's Predictions card, a venue
+//     browser's dock, a link to the old Activity or Statistics tab): the
+//     app bar with its back over one scrolling page — the one P&L chart
+//     with its All · Investing · Predictions toggle, the Active |
+//     Historic pair over one allocation donut by category with both
+//     venues merged, the figures for the pair
+//     (PortfolioStatisticsOverview), then the Activity, the one merged
+//     list (portfolio_activity.dart). No balance header and no deposit or
+//     withdrawal buttons. Never traded and nothing in the Activity: the
+//     one Sal empty state.
+//
+// The Portfolio's old Open / Orders / Activity / Statistics tabs are
+// gone: Open and Orders are Positions, Activity and Statistics the
+// Portfolio screen. A venue the shell draws no tab for
+// (portfolio_filters.dart) has no rows in either.
 //
 // Each position is the portfolio's card, in the language of its product's
 // list card: names on the left, the position's value on the right with
@@ -61,7 +59,8 @@ import 'package:kute/providers/polymarket_combos_provider.dart';
 import 'package:kute/providers/polymarket_live_prices_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart'
     show polymarketTradingProvider;
-import 'package:kute/screens/home/components/kute_dock_host.dart';
+import 'package:kute/screens/home/components/kute_dock_host.dart'
+    show kuteDockScrollClearance;
 import 'package:kute/screens/hyperliquid/components/hl_format.dart';
 import 'package:kute/screens/hyperliquid/components/hl_isolated_margin.dart';
 import 'package:kute/screens/hyperliquid/components/hl_liquidation_distance.dart';
@@ -83,7 +82,6 @@ import 'package:kute/screens/portfolio/portfolio_statistics.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart';
 import 'package:kute/screens/shared/portfolio_position_card.dart';
-import 'package:kute/screens/shared/portfolio_tabs.dart';
 import 'package:kute/services/polymarket/combos/combo_models.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -93,29 +91,20 @@ import 'package:kute/theme/app_theme.dart';
 /// both.
 enum InvestmentsProduct { trading, predictions }
 
+/// The Portfolio, full screen (see the file header).
 class OpenInvestmentsScreen extends ConsumerStatefulWidget {
-  /// The door it was opened from, for `portfolio_opened`: dock_investing |
-  /// dock_predictions | home | hub | bet_placed | order_placed |
-  /// notification.
+  /// The door it was opened from, for `portfolio_opened`:
+  /// investments_balance | home | dock_investing | dock_predictions |
+  /// notification | link.
   final String source;
 
-  /// The tab it opens on (kPortfolioTabKeys order). Every tab shows both
-  /// venues, so there is no venue to open on.
-  final int initialTab;
+  const OpenInvestmentsScreen({super.key, required this.source});
 
-  /// Mounted as the Investments tab's Portfolio pill (one balance): the
-  /// tab strip over the lists, with no Scaffold, no app bar and no back
-  /// button (the pills are the navigation), exactly the Ledger's
-  /// embedded portfolio. Pushed from a placed bet, an order or a trade
-  /// notification it keeps its own screen.
-  final bool embedded;
-
-  const OpenInvestmentsScreen({
-    super.key,
-    required this.source,
-    this.initialTab = 0,
-    this.embedded = false,
-  });
+  /// Pushes the Portfolio full screen, over the shell's nav bar and dock,
+  /// with the app's standard back.
+  static Future<void> show(BuildContext context, {required String source}) =>
+      Navigator.of(context, rootNavigator: true).push(MaterialPageRoute<void>(
+          builder: (_) => OpenInvestmentsScreen(source: source)));
 
   @override
   ConsumerState<OpenInvestmentsScreen> createState() =>
@@ -127,167 +116,155 @@ class _OpenInvestmentsScreenState extends ConsumerState<OpenInvestmentsScreen> {
   void initState() {
     super.initState();
     // Once per mount.
-    TrackingService.track('portfolio_opened', params: {
-      'source': widget.source,
-      'tab': kPortfolioTabKeys[
-          widget.initialTab.clamp(0, kPortfolioTabKeys.length - 1)],
-    });
+    TrackingService.track('portfolio_opened', params: {'source': widget.source});
   }
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final venues = ref.watch(portfolioVenuesProvider);
-    final tabLabels = <(String, IconData)>[
-      (context.l10n.portfolioTabOpen, Icons.account_balance_wallet_outlined),
-      (context.l10n.portfolioTabOrders, Icons.receipt_long_outlined),
-      (context.l10n.activity, Icons.history_rounded),
-      (context.l10n.portfolioTabStatistics, Icons.insights_outlined),
-    ];
-    final tabs = Padding(
-      padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 8.h),
-      child: PortfolioTabs(tabs: tabLabels),
-    );
-    // Each list runs to the bottom of the screen and keeps its last row
-    // clear of the home indicator, or of the host's dock when embedded
-    // (kuteDockScrollClearance).
-    final content = TabBarView(
-      children: [
-        _AllPositions(venues: venues),
-        PortfolioOpenOrders(venues: venues),
-        const PortfolioActivityList(),
-        _StatisticsTab(venues: venues),
-      ],
-    );
-    return DefaultTabController(
-      length: 4,
-      initialIndex: widget.initialTab,
-      child: widget.embedded
-          // The same strip and lists under the Investments pills, as the
-          // Ledger's embedded portfolio mounts them.
-          ? Material(
-              color: Colors.transparent,
-              child: Column(children: [
-                tabs,
-                Expanded(child: content),
-              ]))
-          : Scaffold(
-              backgroundColor: c.background,
-              appBar: AppBar(
-                backgroundColor: Colors.transparent,
-                surfaceTintColor: Colors.transparent,
-                elevation: 0,
-                scrolledUnderElevation: 0,
-                centerTitle: true,
-                leading: const KuteBackButton(),
-                title: Text(
-                  context.l10n.walletPortfolioAction,
-                  style: TextStyle(
-                    color: c.textPrimary,
-                    fontSize: 20.sp,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.3,
-                  ),
-                ),
-              ),
-              body: Container(
-                decoration: AppDecorations.screenGradient(context),
-                child: SafeArea(
-                  top: false,
-                  bottom: false,
-                  child: Column(
-                    children: [
-                      tabs,
-                      Expanded(child: content),
-                    ],
-                  ),
-                ),
-              ),
-            ),
+    return Scaffold(
+      backgroundColor: c.background,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        centerTitle: true,
+        leading: const KuteBackButton(),
+        title: Text(
+          context.l10n.walletPortfolioAction,
+          style: TextStyle(
+            color: c.textPrimary,
+            fontSize: 20.sp,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.3,
+          ),
+        ),
+      ),
+      body: Container(
+        decoration: AppDecorations.screenGradient(context),
+        child: const SafeArea(
+          top: false,
+          bottom: false,
+          child: Material(color: Colors.transparent, child: _PortfolioPage()),
+        ),
+      ),
     );
   }
 }
 
-// ──────────────────────────────── open ────────────────────────────────
-
-/// The Open tab: each venue's positions under its plain name, in one
-/// list. A venue with nothing open has no section; nothing open anywhere
-/// is the Portfolio empty state ([PortfolioEmptyState]).
-class _AllPositions extends ConsumerWidget {
-  const _AllPositions({required this.venues});
-
-  final PortfolioVenues venues;
+/// The Portfolio's one page: the chart, the pair, the donut and the
+/// figures (PortfolioStatisticsOverview), then the Activity under its
+/// heading. No venue on the account: the Activity alone.
+class _PortfolioPage extends ConsumerWidget {
+  const _PortfolioPage();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
-    final List<Widget> trading;
+    final venues = ref.watch(portfolioVenuesProvider);
+    final activity = watchPortfolioActivity(ref);
+    final footer = <Widget>[
+      if (activity.entries.isNotEmpty || activity.failed) ...[
+        SliverPadding(
+          padding: EdgeInsets.symmetric(horizontal: 16.w),
+          sliver: SliverToBoxAdapter(
+            child: _SectionHeader(l10n.activity,
+                key: const ValueKey('portfolio-activity-heading')),
+          ),
+        ),
+        PortfolioActivitySliver(
+            entries: activity.entries, failed: activity.failed),
+      ] else if (activity.loading)
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: 24.h),
+            child: const Center(child: CircularProgressIndicator.adaptive()),
+          ),
+        ),
+    ];
+    if (!venues.any) {
+      if (footer.isEmpty) return PortfolioEmptyState(l10n.hlNoHistoryYet);
+      return CustomScrollView(slivers: [
+        ...footer,
+        SliverToBoxAdapter(
+            child: SizedBox(height: 32.h + kuteDockScrollClearance(context))),
+      ]);
+    }
+    return PortfolioStatisticsOverview(
+      key: const ValueKey('statistics-overview'),
+      trading: venues.trading,
+      predictions: venues.predictions,
+      footer: footer,
+      footerEmpty: footer.isEmpty,
+    );
+  }
+}
+
+// ────────────────────────────── positions ──────────────────────────────
+
+/// Positions, the Investments tab's third pill: everything held now at
+/// both venues in one list, then the resting orders (see the file
+/// header). A venue still loading holds one placeholder card; nothing held
+/// and nothing resting is the Portfolio empty state
+/// ([PortfolioEmptyState]).
+class PortfolioPositions extends ConsumerWidget {
+  const PortfolioPositions({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+    final venues = ref.watch(portfolioVenuesProvider);
+
+    var trading = const <(double, Widget)>[];
     var tradingLoading = false;
+    var tradingFailed = false;
     if (venues.trading) {
       final hlAsync = ref.watch(hyperliquidTradingProvider);
-      trading = _tradingCards(hlAsync.valueOrNull);
-      if (trading.isEmpty && hlAsync.isLoading) {
-        tradingLoading = true;
-      } else if (trading.isEmpty && hlAsync.hasError) {
-        trading.add(_QuietLine(l10n.openInvestPositionsUnavailable));
-      }
-    } else {
-      trading = [];
+      trading = _tradingCards(ref, hlAsync.valueOrNull);
+      tradingLoading = trading.isEmpty && hlAsync.isLoading;
+      tradingFailed = trading.isEmpty && !hlAsync.isLoading && hlAsync.hasError;
     }
-    final List<Widget> predictions;
-    var predictionsLoading = false;
-    if (venues.predictions) {
-      final book = _PolyBook.watch(ref);
-      predictions = book.cards(context, ref);
-      predictionsLoading =
-          predictions.isEmpty && ref.watch(polymarketTradingProvider).isLoading;
-    } else {
-      predictions = [];
+    final book = venues.predictions ? _PolyBook.watch(ref) : null;
+    final predictionsLoading = book != null &&
+        book.isEmpty &&
+        ref.watch(polymarketTradingProvider).isLoading;
+
+    // Wins to claim and bets on their way lead; then every open position,
+    // both venues together, largest first (ties keep their venue order).
+    final leading = book?.leading(context, ref) ?? const <Widget>[];
+    final open = [...trading, ...?book?.openCards()];
+    final ranked = [for (var i = 0; i < open.length; i++) (i, open[i])]
+      ..sort((a, b) {
+        final byValue = b.$2.$1.compareTo(a.$2.$1);
+        return byValue != 0 ? byValue : a.$1.compareTo(b.$1);
+      });
+    final orders = PortfolioOrdersBook.watch(ref, venues);
+    final loading = tradingLoading || predictionsLoading;
+
+    if (leading.isEmpty &&
+        open.isEmpty &&
+        !loading &&
+        !tradingFailed &&
+        orders.isEmpty) {
+      if (orders.loading) return const PortfolioOrdersSkeleton();
+      return PortfolioEmptyState(l10n.ledgerNoPositionsYet);
     }
-    final nothingOpen = trading.isEmpty &&
-        predictions.isEmpty &&
-        !tradingLoading &&
-        !predictionsLoading;
-    if (nothingOpen) return PortfolioEmptyState(l10n.ledgerNoPositionsYet);
 
     return ListView(
       padding: EdgeInsets.fromLTRB(
           16.w, 4.h, 16.w, 32.h + kuteDockScrollClearance(context)),
       children: [
-        if (trading.isNotEmpty || tradingLoading) ...[
-          _SectionHeader(l10n.trading),
-          if (tradingLoading) const _LoadingCard() else ...trading,
-        ],
-        if (predictions.isNotEmpty || predictionsLoading) ...[
-          _SectionHeader(l10n.predictions),
-          if (predictionsLoading) const _LoadingCard() else ...predictions,
-        ],
+        ...leading,
+        for (final (_, (_, card)) in ranked) card,
+        if (loading) const _LoadingCard(),
+        if (tradingFailed) _QuietLine(l10n.openInvestPositionsUnavailable),
+        ...orders.items(context, ref,
+            header: (trailing) => _SectionHeader(l10n.portfolioTabOrders,
+                key: const ValueKey('portfolio-orders-heading'),
+                trailing: trailing)),
       ],
     );
-  }
-}
-
-// ────────────────────────────── statistics ──────────────────────────────
-
-/// Statistics: Investing and Predictions as one account, said once
-/// ([PortfolioStatisticsOverview]: one P&L chart with a venue toggle, one
-/// allocation donut, one Active | Historic pair over one card of
-/// figures). No venue on the account: the empty state.
-class _StatisticsTab extends StatelessWidget {
-  const _StatisticsTab({required this.venues});
-
-  final PortfolioVenues venues;
-
-  @override
-  Widget build(BuildContext context) {
-    final v = venues;
-    if (!v.any) {
-      return PortfolioEmptyState(context.l10n.openInvestNoOpenInvestments);
-    }
-    return PortfolioStatisticsOverview(
-        key: const ValueKey('statistics-overview'),
-        trading: v.trading,
-        predictions: v.predictions);
   }
 }
 
@@ -333,18 +310,22 @@ class _PolyBook {
     );
   }
 
-  /// The cards in order, under the Predictions section's one name: wins
-  /// to claim, bets on their way, open positions, combos.
-  List<Widget> cards(BuildContext context, WidgetRef ref) {
+  bool get isEmpty =>
+      open.isEmpty &&
+      claimable.isEmpty &&
+      placing.isEmpty &&
+      openCombos.isEmpty &&
+      claimableCombos.isEmpty;
+
+  /// What leads Positions: wins to claim, then bets on their way.
+  List<Widget> leading(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     return [
-      if (claimable.isNotEmpty || claimableCombos.isNotEmpty) ...[
-        for (final p in claimable)
-          _PolyPositionCard(key: ValueKey('poly-r-${p.tokenId}'), position: p),
-        for (final p in claimableCombos)
-          ComboPositionCard(
-              key: ValueKey('combo-r-${p.conditionId}'), position: p),
-      ],
+      for (final p in claimable)
+        _PolyPositionCard(key: ValueKey('poly-r-${p.tokenId}'), position: p),
+      for (final p in claimableCombos)
+        ComboPositionCard(
+            key: ValueKey('combo-r-${p.conditionId}'), position: p),
       // A bet on its way to the book: the position card's frame in a
       // pending state. The stake is the number; the state is a caption.
       for (final p in placing)
@@ -360,12 +341,25 @@ class _PolyBook {
                 : p.stepLabel ?? l10n.openInvestUpdatingPosition,
           ],
         ),
-      for (final p in open)
-        _PolyPositionCard(key: ValueKey('poly-${p.tokenId}'), position: p),
-      for (final p in openCombos)
-        ComboPositionCard(key: ValueKey('combo-${p.conditionId}'), position: p),
     ];
   }
+
+  /// The open positions and combos, each with what it is worth at its
+  /// last read price (the order Positions ranks them in; the cards
+  /// themselves follow the live price).
+  List<(double, Widget)> openCards() => [
+        for (final p in open)
+          (
+            p.size * p.currentPrice,
+            _PolyPositionCard(key: ValueKey('poly-${p.tokenId}'), position: p)
+          ),
+        for (final p in openCombos)
+          (
+            p.estimatedValueUsd,
+            ComboPositionCard(
+                key: ValueKey('combo-${p.conditionId}'), position: p)
+          ),
+      ];
 }
 
 /// One Polymarket position as the portfolio's card (PolyPositionCard):
@@ -429,17 +423,37 @@ class _PolyPositionCard extends ConsumerWidget {
 // ────────────────────────────── investing ──────────────────────────────
 
 /// The Investing cards: open perps, then spot holdings (USDC is cash, not
-/// a holding).
-List<Widget> _tradingCards(HyperliquidTradingState? state) {
+/// a holding), each with what it is worth at the account's last read (a
+/// perp at what closing it gives back, a holding at the mid; one whose
+/// market is not known yet at zero), the order Positions ranks them in.
+List<(double, Widget)> _tradingCards(
+    WidgetRef ref, HyperliquidTradingState? state) {
   final positions = state?.positions ?? const <HlPerpPosition>[];
   final spot = (state?.spotBalances ?? const <HlSpotBalance>[])
-      .where((balance) => balance.coin != 'USDC' && balance.total > 0);
+      .where((balance) => balance.coin != 'USDC' && balance.total > 0)
+      .toList();
+  final markets = spot.isEmpty
+      ? const <HlMarket>[]
+      : ref.watch(hyperliquidSpotMarketsProvider).valueOrNull ??
+          const <HlMarket>[];
+  double spotValue(HlSpotBalance balance) {
+    final mid =
+        markets.where((m) => m.coin == balance.coin).firstOrNull?.midPx ?? 0;
+    return mid > 0 ? balance.total * mid : 0;
+  }
+
   return [
     for (final p in positions)
-      HlPortfolioPositionCard(key: ValueKey('hl-${p.coin}'), position: p),
+      (
+        hlCloseValue(p),
+        HlPortfolioPositionCard(key: ValueKey('hl-${p.coin}'), position: p)
+      ),
     for (final holding in spot)
-      _SpotPositionCard(
-          key: ValueKey('hl-spot-${holding.coin}'), balance: holding),
+      (
+        spotValue(holding),
+        _SpotPositionCard(
+            key: ValueKey('hl-spot-${holding.coin}'), balance: holding)
+      ),
   ];
 }
 
@@ -500,25 +514,31 @@ class HlPortfolioPositionCard extends ConsumerWidget {
 
 // ─────────────────────────── shared chrome ───────────────────────────
 
-/// The app's section-header grammar: 22sp w800, tight tracking.
+/// The app's section-header grammar: 22sp w800, tight tracking, with
+/// whatever acts on the section at its right end ([trailing]: the orders'
+/// count and Cancel all).
 class _SectionHeader extends StatelessWidget {
   final String title;
-  const _SectionHeader(this.title);
+  final Widget? trailing;
+  const _SectionHeader(this.title, {super.key, this.trailing});
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final text = Text(
+      title,
+      style: TextStyle(
+        color: c.textPrimary,
+        fontSize: 22.sp,
+        fontWeight: FontWeight.w800,
+        letterSpacing: -0.4,
+      ),
+    );
     return Padding(
       padding: EdgeInsets.only(top: 20.h, bottom: 12.h),
-      child: Text(
-        title,
-        style: TextStyle(
-          color: c.textPrimary,
-          fontSize: 22.sp,
-          fontWeight: FontWeight.w800,
-          letterSpacing: -0.4,
-        ),
-      ),
+      child: trailing == null
+          ? text
+          : Row(children: [Expanded(child: text), trailing!]),
     );
   }
 }
@@ -580,7 +600,7 @@ class _SpotPositionCard extends ConsumerWidget {
   }
 }
 
-/// A venue still loading under All: one placeholder card under its name.
+/// A venue still loading: one placeholder card.
 class _LoadingCard extends StatelessWidget {
   const _LoadingCard();
 
