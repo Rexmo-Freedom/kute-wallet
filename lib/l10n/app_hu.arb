@@ -3019,5 +3019,7 @@
   "slipFundingReadyToPlace": "A(z) {amount} az Investmentsben van. Koppints a megadáshoz.",
   "slipFundingBitcoinBack": "Az Investmentshez adás nem sikerült. A bitcoinod visszaérkezik.",
   "oneBalancePlacingBet": "{amount} feltétele erre: {side} · {market}",
-  "oneBalanceOpeningOrder": "{amount} értékű {market} megbízás nyitása"
+  "oneBalanceOpeningOrder": "{amount} értékű {market} megbízás nyitása",
+  "hlMarginStepAdding": "{amount} fedezet hozzáadása: {coin}",
+  "hlMarginFundingReady": "A(z) {amount} az Investmentsben van. Koppints a fedezet hozzáadásához."
 }

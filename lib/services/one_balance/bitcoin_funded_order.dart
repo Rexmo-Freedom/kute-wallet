@@ -24,7 +24,9 @@
 //     balance rising, then a fresh wallet read);
 //   * the venue move runs under the SAME grant (`fundVenue`, the
 //     controller's own Dollars check is the guard), no second prompt;
-//   * the venue's autofire places the order; the runner follows it.
+//   * the venue's autofire places the order; the runner follows it. (The
+//     margin sheet runs the same chain and signs its margin change in
+//     this step instead: `margin_funding.dart`.)
 //
 // Anything that stops the chain after the Bitcoin left leaves the money
 // in Dollars, visible, with the order dropped and its approval cancelled:
@@ -297,7 +299,10 @@ class BitcoinFundedOrderRequest {
   /// placed for it.
   final void Function() dropOrder;
 
-  /// Overrides the venue's own placement watch (tests).
+  /// The step after the venue move, in place of the venue's own placement
+  /// watch: the margin sheet signs its margin change here once the credit
+  /// lands (`MarginFundingRunner`); tests stand in for it too. Null
+  /// follows the venue's autofire, which places the slip's queued order.
   final BitcoinPlacementWait? awaitPlacement;
 }
 

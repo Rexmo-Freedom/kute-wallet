@@ -6567,5 +6567,9 @@
   "oneBalancePlacingBet": "Placing {amount} on {side} · {market}",
   "@oneBalancePlacingBet": {"description": "In-flight line on the Investments header while money moves to place a specific prediction. {amount} is the stake, {side} the outcome, {market} the market's short name.", "placeholders": {"amount": {"type": "String"}, "side": {"type": "String"}, "market": {"type": "String"}}},
   "oneBalanceOpeningOrder": "Opening {amount} {market} order",
-  "@oneBalanceOpeningOrder": {"description": "In-flight line on the Investments header while money moves to open a specific Investing order. {amount} is the margin, {market} the market's short name (e.g. Opening $5 NVDA order).", "placeholders": {"amount": {"type": "String"}, "market": {"type": "String"}}}
+  "@oneBalanceOpeningOrder": {"description": "In-flight line on the Investments header while money moves to open a specific Investing order. {amount} is the margin, {market} the market's short name (e.g. Opening $5 NVDA order).", "placeholders": {"amount": {"type": "String"}, "market": {"type": "String"}}},
+  "hlMarginStepAdding": "Adding {amount} margin to {coin}",
+  "@hlMarginStepAdding": {"description": "The margin sheet's last funding step, and the Investments header's in-flight line, while money moves to add margin to an isolated Investing position. {amount} is the margin added, {coin} the market (e.g. Adding $5 margin to BTC).", "placeholders": {"amount": {"type": "String"}, "coin": {"type": "String"}}},
+  "hlMarginFundingReady": "Your {amount} is in Investments. Tap to add margin.",
+  "@hlMarginFundingReady": {"description": "Line above the margin sheet's button when adding margin funded from bitcoin stopped with the money in Investments and the margin not added. {amount} is what the bitcoin added.", "placeholders": {"amount": {"type": "String"}}}
 }

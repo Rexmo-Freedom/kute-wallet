@@ -3019,5 +3019,7 @@
   "slipFundingReadyToPlace": "Deine {amount} sind in Investments. Tippe zum Platzieren.",
   "slipFundingBitcoinBack": "Das Hinzufügen zu Investments hat nicht geklappt. Deine Bitcoin kommen zurück.",
   "oneBalancePlacingBet": "{amount} auf {side} werden platziert · {market}",
-  "oneBalanceOpeningOrder": "{amount}-Order für {market} wird eröffnet"
+  "oneBalanceOpeningOrder": "{amount}-Order für {market} wird eröffnet",
+  "hlMarginStepAdding": "{amount} Margin kommen zu {coin}",
+  "hlMarginFundingReady": "Deine {amount} sind in Investments. Tippe, um Margin hinzuzufügen."
 }

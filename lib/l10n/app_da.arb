@@ -3019,5 +3019,7 @@
   "slipFundingReadyToPlace": "Dine {amount} er i Investments. Tryk for at placere.",
   "slipFundingBitcoinBack": "Tilføjelsen til Investments gik ikke igennem. Din bitcoin er på vej tilbage.",
   "oneBalancePlacingBet": "Placerer {amount} på {side} · {market}",
-  "oneBalanceOpeningOrder": "Åbner {amount} {market}-ordre"
+  "oneBalanceOpeningOrder": "Åbner {amount} {market}-ordre",
+  "hlMarginStepAdding": "Tilføjer {amount} margin til {coin}",
+  "hlMarginFundingReady": "Dine {amount} er i Investments. Tryk for at tilføje margin."
 }

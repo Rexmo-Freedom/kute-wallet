@@ -121,6 +121,43 @@ void main() {
         isNull);
   });
 
+  test(
+      'margin added through Investments is its own kind: kept across a '
+      'restart, its note only on the margin sheet, named as margin', () {
+    const margin = FundedOrderLabel(
+      venue: OneBalanceVenue.investing,
+      orderUsd: 30,
+      side: 'Long',
+      market: 'TSLA',
+      marketKey: 'TSLA',
+      kind: FundedOrderKind.margin,
+    );
+    final first = ProviderContainer();
+    final orders = first.read(fundedOrdersProvider.notifier);
+    final id = orders.start(margin, stage: FundedOrderStage.adding, addUsd: 9);
+    expect(orders.byId(id)!.toInFlightOrder().margin, isTrue);
+    orders.setStage(id, FundedOrderStage.ready, reason: 'timeout');
+    first.dispose();
+
+    final second = ProviderContainer();
+    addTearDown(second.dispose);
+    final records = second.read(fundedOrdersProvider);
+    expect(records.single.label.kind, FundedOrderKind.margin);
+    final now = DateTime.now();
+    // The order slip for the same market never reads it as its own.
+    expect(
+        FundedOrdersNotifier.readyOn(
+            records, OneBalanceVenue.investing, 'TSLA', now),
+        isNull);
+    expect(
+        FundedOrdersNotifier.readyOn(
+            records, OneBalanceVenue.investing, 'TSLA', now,
+            kind: FundedOrderKind.margin),
+        isNotNull);
+    // An order's label stays as it always was on disk.
+    expect(_bet.toJson().containsKey('kind'), isFalse);
+  });
+
   test('rows carrying a live order are named by it, once per order', () {
     final c = ProviderContainer();
     addTearDown(c.dispose);

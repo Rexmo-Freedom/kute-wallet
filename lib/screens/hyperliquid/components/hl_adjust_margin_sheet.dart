@@ -11,11 +11,10 @@
 // leverage chips, an Add / Remove pill pair under it switches the mode
 // (Add by default; no Remove on a market that locks isolated margin),
 // the one big figure is typed on the pinned keypad,
-// $10 / $25 / $50 / Max fill it (Max: the Investing balance when adding,
-// what the venue lets come out when removing), a summary says in plain
-// words what the tap does with the numbers that change, and the pinned
-// button carries the wait. Success is the app's confirmation screen with
-// a receipt; a refusal stays on the ticket in plain words.
+// $10 / $25 / $50 / Max fill it, a summary says in plain words what the
+// tap does with the numbers that change, and the pinned button carries
+// the wait. Success is the app's confirmation screen with a receipt; a
+// refusal stays on the ticket in plain words.
 //
 // Money safety: the amount is approved with the same step-up grant as
 // every other money action (HlIntents.isolatedMargin binds market, side,
@@ -24,18 +23,33 @@
 // Spending wallet only: the Ledger signer has no reviewed path for this
 // action, so the position screen hides the button for a Ledger position.
 //
-// Adding more than the Investing balance holds funds the difference from
-// Dollars the way an order does (one approval binds the margin change and
-// the dollars allowed to leave for it; the order-funding controller moves
-// exactly that amount, sized on what arrives; the change is signed once
-// the money lands). What lands beyond the margin stays as Investing cash.
+// Adding is funded exactly as the Investing order slip funds an order
+// (founder, 14 October 2026). "Available" and Max are the whole spendable
+// Investments (the Investing cash plus Dollars and the Predictions cash
+// a move can reach, `investmentsSpendableExcludingProvider`), never the
+// Investing cash alone. More than the Investing cash is drawn, in order,
+// from Dollars, then the Predictions cash straight into Investing, then
+// the person's own bitcoin for X = what the whole Investments balance
+// lacks (decided on the wallet at the tap, `decideSlipFunding`); when the
+// bitcoin cannot cover X the button reads "Add $X to Investments" and
+// opens the Investments Receive sheet. Everything is planned before ONE
+// approval that binds the margin change, the Dollars move, the direct
+// legs' caps and the Bitcoin leg; then the chain runs headless
+// (`MarginFundingRunner`): legs, Dollars, the Investing move, and the
+// change signed once the money landed, on the very position it was
+// approved for. The sheet may close meanwhile; its steps (the slips'
+// `SlipFundingSteps`) show while it is open.
 //
 // Analytics (hyperliquid_margin_adjust_*): started on open, submitted
 // once approved, then exactly one completed (venue accepted) or failed,
 // or abandoned when closed without submitting. Each carries `source`
 // (where the sheet was opened from: [HlMarginSource]) and `action` (the
-// mode at that moment). Exact amount_usd; no ids, addresses or balances.
+// mode at that moment); an Add also carries `funding_source` (the sources
+// used, in order) and the exact amount from each. The funding itself
+// reports through the slips' `order_funding_*` journey. No ids or
+// addresses.
 
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -51,7 +65,11 @@ import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/providers/hyperliquid_account_provider.dart';
 import 'package:kute/providers/hyperliquid_live_prices_provider.dart';
 import 'package:kute/providers/hyperliquid_trading_provider.dart';
+import 'package:kute/providers/pending_hyperliquid_order_provider.dart'
+    show PendingHyperliquidOrderNotifier, pendingHyperliquidOrderProvider;
 import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/providers/spark_address_provider.dart'
+    show sparkSelfAddressProvider;
 import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceProvider;
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
@@ -63,25 +81,39 @@ import 'package:kute/screens/hyperliquid/components/hl_format.dart';
 import 'package:kute/screens/hyperliquid/components/hl_isolated_margin.dart';
 import 'package:kute/screens/polymarket/components/slip_chrome.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart';
+import 'package:kute/screens/shared/capability_block_note.dart';
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/screens/shared/side_tint_palette.dart';
+import 'package:kute/screens/shared/slip_shortfall.dart';
 import 'package:kute/screens/shared/trade_receipt.dart';
+import 'package:kute/services/funding/hot_settlement.dart' show HotSettlement;
+import 'package:kute/services/funding/venue_shortfall.dart';
+import 'package:kute/services/one_balance/bitcoin_funded_order.dart'
+    show SlipFundingRoute, decideSlipFunding;
+import 'package:kute/services/one_balance/bitcoin_to_dollars_leg.dart'
+    show BitcoinLegPlan, BitcoinLegRules;
+import 'package:kute/services/one_balance/funded_orders.dart';
 import 'package:kute/services/one_balance/hyperliquid_venue_funder.dart';
+import 'package:kute/services/one_balance/investments_spendable.dart'
+    show investmentsSpendableExcludingProvider, venueCashRefreshProvider;
+import 'package:kute/services/one_balance/margin_funding.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart'
     show OneBalanceVenue;
-import 'package:kute/services/one_balance/order_funding.dart';
-import 'package:kute/services/one_balance/venue_funder.dart'
-    show RouteUnavailable, UserGrantAuthorization, VenueFunder;
-import 'package:kute/services/hyperliquid/hypercore_cash.dart'
-    show hypercoreAvailableUsdc;
-import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart'
-    show HyperliquidInsufficientMarginException;
-import 'package:kute/services/funding/venue_shortfall.dart';
+import 'package:kute/services/one_balance/order_funding.dart'
+    show OrderFundingEngine;
+import 'package:kute/services/one_balance/venue_cash_source.dart'
+    show venueCashReachExcludingProvider;
+import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/services/venue_analytics.dart';
 import 'package:kute/theme/app_theme.dart';
+
+/// Test seam: stands in for the one approval a funded Add asks for (the
+/// Face ID), with the intent it binds.
+@visibleForTesting
+Future<AuthGrant?> Function(SensitiveIntent intent)? debugHlMarginApproval;
 
 /// Where the margin sheet was opened from (the `source` analytics
 /// property).
@@ -129,7 +161,7 @@ class HlAdjustMarginSheet extends ConsumerStatefulWidget {
       isScrollControlled: true,
       isDismissible: true,
       // Drag-to-dismiss bypasses PopScope, so it is off (tap outside still
-      // dismisses, and is held while the change is in flight).
+      // dismisses, and is held while the change is being approved).
       enableDrag: false,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
@@ -157,7 +189,13 @@ class HlAdjustMarginSheet extends ConsumerStatefulWidget {
 class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
   /// The typed amount in dollars, as the keypad writes it.
   String _amountText = '';
+
+  /// Working out or approving the change (or signing one the Investing
+  /// cash covers): the ticket holds still and cannot be dismissed.
   bool _busy = false;
+
+  /// The "Add $X to Investments" tap is reading the wallet's bitcoin.
+  bool _calculating = false;
 
   /// Synchronous re-entrancy guard: [_busy] only flips inside setState.
   bool _inFlight = false;
@@ -165,10 +203,28 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
   String? _errorText;
   Object? _errorCause;
 
-  /// While a Dollars move for the change is on its way: the button's
-  /// wait says so, around the action ("Preparing your order"), never as
-  /// money moving into Investments (it is already there).
-  String? _movingLabel;
+  /// This ticket's funded change on its way (its record id). The chain
+  /// runs whatever happens to the ticket.
+  String? _runId;
+
+  /// The X "Add $X to Investments" names, set by the build.
+  double? _shownAddUsd;
+
+  /// [_shownAddUsd] and the leg sized at the Add tap: what the tap
+  /// converts, never more.
+  double? _tapAddUsd;
+  BitcoinLegPlan? _tapLeg;
+
+  /// The route's own estimate for the move a shortfall needs (read once
+  /// per distinct shortfall, a moment after the amount settles).
+  ({double shortfallUsd, double fundUsd, double arrivingUsd})? _heldFund;
+  String? _fundKey;
+  Timer? _fundTimer;
+
+  /// Holds the wallet's own Spark address (the Bitcoin leg's pinned
+  /// recipient) from when "Add $X" first shows.
+  ProviderSubscription<AsyncValue<String>>? _ownSparkWarm;
+  bool _ownSparkWarmed = false;
 
   HlMarket get _market => widget.market;
 
@@ -206,6 +262,8 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
 
   @override
   void dispose() {
+    _fundTimer?.cancel();
+    _ownSparkWarm?.close();
     if (!_submitted) {
       try {
         TrackingService.track('hyperliquid_margin_adjust_abandoned',
@@ -233,22 +291,108 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
     }
   }
 
-  /// About what Dollars can land at the venue (the route's near-flat cost
-  /// and the fallback share off): the most a Dollars-funded addition
-  /// reaches. The exact figure is priced at the tap.
-  static double fundableFromDollars(double dollarsUsd) =>
-      HlAdjustMarginSheetFunding.fundable(dollarsUsd);
+  /// What the rest of Investments can bring beyond the Investing cash
+  /// (Dollars plus the Predictions cash, net of pull costs): the order
+  /// slip's own figure. Zero while new deposits into Investing are
+  /// withheld.
+  double _otherSpendable({required bool blocked}) {
+    if (blocked) return 0;
+    try {
+      ref.watch(venueCashRefreshProvider);
+    } catch (_) {}
+    try {
+      final v = ref
+          .watch(investmentsSpendableExcludingProvider(
+              OneBalanceVenue.investing))
+          .maxUsd;
+      return v.isFinite && v > 0 ? v : 0;
+    } catch (_) {
+      return _dollars(watch: true);
+    }
+  }
 
-  /// The most this change can move: the Investing balance plus what
-  /// Dollars can fund when adding, what the venue lets come out when
-  /// removing. Floored to a cent.
-  double _limit(HyperliquidTradingState? state, HlPerpPosition pos,
-          {double dollarsUsd = 0}) =>
-      _add
-          ? ((_cash(state) + fundableFromDollars(dollarsUsd)) * 100)
-                  .floorToDouble() /
-              100
-          : hlRemovableMargin(pos);
+  /// Dollars plus the Predictions cash a move can reach, read through the
+  /// one-balance engine; Dollars until it answers.
+  double _reach(double dollarsUsd) {
+    try {
+      return ref
+              .watch(venueCashReachExcludingProvider(OneBalanceVenue.investing))
+              .valueOrNull ??
+          dollarsUsd;
+    } catch (_) {
+      return dollarsUsd;
+    }
+  }
+
+  /// `hyperliquid.deposit` withheld: nothing moves into Investing, so
+  /// only the Investing cash can be added.
+  String? _depositBlock() {
+    try {
+      return ref
+          .watch(runtimeCapabilitiesProvider)
+          .blockReason('hyperliquid.deposit');
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// The move [shortfallUsd] needs: the route's estimate once read, else
+  /// the near-flat route cost allowance (the controller sizes it exactly
+  /// at the tap).
+  ({double fundUsd, double arrivingUsd}) _fundFor(double shortfallUsd) {
+    final held = _heldFund;
+    if (held != null && (held.shortfallUsd - shortfallUsd).abs() < 0.005) {
+      return (fundUsd: held.fundUsd, arrivingUsd: held.arrivingUsd);
+    }
+    return HlAdjustMarginSheetFunding.fallback(shortfallUsd);
+  }
+
+  /// Asks the route what moving [shortfallUsd] costs, once per distinct
+  /// shortfall, a moment after the amount settles. Read, never moved.
+  void _scheduleFundEstimate(double shortfallUsd) {
+    final key = shortfallUsd.toStringAsFixed(2);
+    if (_fundKey == key) return;
+    _fundKey = key;
+    _fundTimer?.cancel();
+    if (shortfallUsd <= 0) return;
+    _fundTimer = Timer(const Duration(milliseconds: 300), () async {
+      if (!mounted || _fundKey != key) return;
+      try {
+        final target = OrderFundingEngine.targetUsd(shortfallUsd: shortfallUsd);
+        final quote = await ref
+            .read(hyperliquidVenueFunderProvider)
+            .estimate(target)
+            .timeout(const Duration(seconds: 6));
+        final fund =
+            HyperliquidVenueFunder.fundUsdFor(shortfallUsd: target, quote: quote);
+        if (!mounted || _fundKey != key) return;
+        setState(() => _heldFund = (
+              shortfallUsd: shortfallUsd,
+              fundUsd: fund,
+              arrivingUsd: target,
+            ));
+      } catch (_) {}
+    });
+  }
+
+  /// From the first time "Add $X" shows, holds the wallet's own Spark
+  /// address so the tap finds it ready. Once per ticket.
+  void _warmBitcoinLeg() {
+    if (_ownSparkWarmed) return;
+    _ownSparkWarmed = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _ownSparkWarm != null) return;
+      try {
+        if (pickSpendingWallet(ref.read(settingsProvider)) == null) return;
+        _ownSparkWarm = ref.listenManual(sparkSelfAddressProvider, (_, next) {
+          if (next.hasError) {
+            _ownSparkWarm?.close();
+            _ownSparkWarm = null;
+          }
+        });
+      } catch (_) {}
+    });
+  }
 
   void _setAmount(String v) {
     if (v == _amountText) return;
@@ -263,7 +407,7 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
   /// Switches between adding and removing. The figure typed for one is
   /// not a figure for the other (Max differs), so it starts afresh.
   void _setMode(bool add) {
-    if (_busy || _inFlight || add == _add) return;
+    if (_busy || _inFlight || _calculating || add == _add) return;
     HapticFeedback.selectionClick();
     setState(() {
       _add = add;
@@ -279,9 +423,44 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
     _setAmount(limit.toStringAsFixed(2));
   }
 
-  Future<void> _confirm(double limit, HlPerpPosition pos) async {
+  /// The live funded change for this market, this ticket's or one started
+  /// before it was reopened.
+  FundedOrderRecord? _activeRun(List<FundedOrderRecord> records) {
+    FundedOrderRecord? any;
+    for (final r in records) {
+      if (!r.stage.active ||
+          r.label.kind != FundedOrderKind.margin ||
+          r.label.venue != OneBalanceVenue.investing ||
+          r.label.marketKey != _market.coin) {
+        continue;
+      }
+      if (r.id == _runId) return r;
+      any ??= r;
+    }
+    return any;
+  }
+
+  /// Another funded order or change on Investing is on its way: a second
+  /// never takes its money or its approval.
+  bool _fundingBusyElsewhere() {
+    try {
+      if (FundedOrdersNotifier.activeOf(
+              ref.read(fundedOrdersProvider), OneBalanceVenue.investing) !=
+          null) {
+        return true;
+      }
+      return PendingHyperliquidOrderNotifier.isActive(
+          ref.read(pendingHyperliquidOrderProvider));
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> _confirm(double limit, HlPerpPosition pos,
+      {bool fromAdd = false}) async {
     final amount = _amount;
-    if (_inFlight || _busy || amount == null || amount > limit + 1e-9) return;
+    if (_inFlight || _busy || amount == null) return;
+    if (!_add && amount > limit + 1e-9) return;
     final l10n = context.l10n;
     final walletId = pickSpendingWallet(ref.read(settingsProvider))?.id;
     if (walletId == null) {
@@ -294,158 +473,405 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
     _inFlight = true;
     try {
       HapticFeedback.mediumImpact();
-      final usd = _add ? amount : -amount;
-      // The confirmation lives on the root navigator, past this sheet.
-      final rootNav = Navigator.of(context, rootNavigator: true);
-      final preview = _Figures.of(
-        pos,
-        cash: _cash(ref.read(hyperliquidTradingProvider).valueOrNull),
-        liveMid: ref.read(hyperliquidLiveMidProvider(pos.coin)),
-        delta: usd,
-      );
-      final change = HlIntents.isolatedMargin(
-        walletId: walletId,
-        market: _market,
-        positionIsLong: pos.isLong,
-        usd: usd,
-      );
-      // More than the Investing balance: the difference comes from
-      // Dollars, planned in full before the approval.
       final cash = _cash(ref.read(hyperliquidTradingProvider).valueOrNull);
       final shortfall = _add
           ? ShortfallRules.shortfallUsd(requiredUsd: amount, readyUsd: cash)
           : 0.0;
-      FundingSize? funding;
       if (shortfall > 0) {
-        setState(() => _busy = true);
-        try {
-          funding = await planMarginFunding(
-              ref.read(hyperliquidVenueFunderProvider),
-              shortfallUsd: shortfall,
-              dollarsUsd: _dollars());
-        } catch (e) {
-          funding = null;
-          if (mounted) {
-            setState(() {
-              _errorCause = e;
-              _errorText = hlTradeErrorMessage(l10n, e);
-            });
-          }
-        } finally {
-          if (mounted) setState(() => _busy = false);
-        }
-        if (funding == null || !mounted) return;
+        await _confirmFunded(amount, cash, pos, walletId, fromAdd: fromAdd);
+      } else {
+        await _confirmDirect(amount, pos, walletId);
       }
-      final approved = funding == null
-          ? change
-          : change.copyWith(limits: {
-              ...change.limits,
-              kFundUsdLimit: dollarsBaseUnits(funding.fundUsd),
-              kFundVenueLimit: kFundVenueInvesting,
-            });
-      final grant = await requireFreshAuthGrant(
-        context,
-        ref,
-        intent: approved,
-        reason: l10n.hlMarginStepUp(_market.coin),
-        amountUsd: amount,
-      );
-      if (grant == null || !mounted) return;
-      _submitted = true;
-      TrackingService.track('hyperliquid_margin_adjust_submitted',
-          params: _params(amount));
-      setState(() {
-        _busy = true;
-        _errorText = null;
-        _errorCause = null;
-      });
-      try {
-        var signWith = grant;
-        if (funding != null) {
-          setState(() => _movingLabel = l10n.slipStepPreparingOrder);
-          final landed = await fundMarginShortfall(
-            ref,
-            grant: grant,
-            funding: funding,
-            amountUsd: amount,
-            readyUsd: cash,
-          );
-          if (!landed) {
-            // Nothing signed; whatever arrives stays Investing cash.
-            throw StateError(l10n.hlFundsTimeout);
-          }
-          // The approval covered the move and the change together: the
-          // change signs under a grant bound to it alone.
-          signWith = GrantGuard.chain(grant, change);
-          grant.revoke();
-        }
-        await ref
-            .read(hyperliquidTradingProvider.notifier)
-            .adjustIsolatedMargin(
-              market: _market,
-              position: pos,
-              usd: usd,
-              grant: signWith,
-            );
-      } catch (e) {
-        TrackingService.track('hyperliquid_margin_adjust_failed', params: {
-          ..._params(amount),
-          'error_category': e is AuthGrantException
-              ? 'approval_expired'
-              : TrackingService.errorCategory(e),
-        });
-        if (!mounted) return;
-        setState(() {
-          _busy = false;
-          _movingLabel = null;
-          _errorCause = e;
-          // A StateError stopped before anything was signed (the position
-          // changed, or the market allows no removal).
-          _errorText = e is StateError
-              ? (e.message == l10n.hlFundsTimeout
-                  ? l10n.hlFundsTimeout
-                  : l10n.ledgerErrorDetailsChanged)
-              : hlTradeErrorMessage(l10n, e);
-        });
-        return;
-      }
-      TrackingService.track('hyperliquid_margin_adjust_completed',
-          params: _params(amount));
-      if (!mounted) return;
-      // Released first: the ticket holds itself while busy, and a held
-      // ticket would refuse its own hand-off to the confirmation.
-      setState(() {
-        _busy = false;
-        _movingLabel = null;
-      });
-      Navigator.of(context).pop();
-      pushKuteSuccessOverlay(
-        navigator: rootNav,
-        overlay: KuteConfirmation(
-          message: _add ? l10n.hlMarginAdded : l10n.hlMarginRemoved,
-          showCloseButton: true,
-          onDone: () => rootNav.pop(),
-          detail: l10n.investingBalanceUpdating,
-          receipt: TradeReceipt(
-            leading: _artwork(),
-            title: _market.coin,
-            subtitle: pos.isLong ? l10n.longLabel : l10n.shortLabel,
-            rows: {
-              _add ? l10n.hlMarginAdd : l10n.hlMarginRemove:
-                  formatHlUsd(amount),
-              if (preview.moneyAfter != null)
-                l10n.hlPositionMoney: '≈ ${formatHlUsd(preview.moneyAfter!)}',
-              if (preview.liqAfter != null)
-                l10n.chartLiquidationPrice:
-                    '≈ ${formatHlPrice(preview.liqAfter!, decimalCap: _market.pxDecimalCap)}',
-              l10n.moveInvestingBalance:
-                  '≈ ${formatHlUsd(math.max(0, preview.cashAfter))}',
-            },
-          ),
-        ),
-      );
     } finally {
       _inFlight = false;
+    }
+  }
+
+  /// A change the Investing cash covers (any Remove, an Add within the
+  /// cash): one approval, signed here.
+  Future<void> _confirmDirect(
+      double amount, HlPerpPosition pos, String walletId) async {
+    final l10n = context.l10n;
+    final usd = _add ? amount : -amount;
+    // The confirmation lives on the root navigator, past this sheet.
+    final rootNav = Navigator.of(context, rootNavigator: true);
+    final preview = _Figures.of(
+      pos,
+      cash: _cash(ref.read(hyperliquidTradingProvider).valueOrNull),
+      liveMid: ref.read(hyperliquidLiveMidProvider(pos.coin)),
+      delta: usd,
+    );
+    final params = {
+      ..._params(amount),
+      if (_add) ...MarginFundingPlan.investingOnlyParams(amount),
+    };
+    final change = HlIntents.isolatedMargin(
+      walletId: walletId,
+      market: _market,
+      positionIsLong: pos.isLong,
+      usd: usd,
+    );
+    final grant = await requireFreshAuthGrant(
+      context,
+      ref,
+      intent: change,
+      reason: l10n.hlMarginStepUp(_market.coin),
+      amountUsd: amount,
+    );
+    if (grant == null || !mounted) return;
+    _submitted = true;
+    TrackingService.track('hyperliquid_margin_adjust_submitted',
+        params: params);
+    setState(() {
+      _busy = true;
+      _errorText = null;
+      _errorCause = null;
+    });
+    try {
+      await ref.read(hyperliquidTradingProvider.notifier).adjustIsolatedMargin(
+            market: _market,
+            position: pos,
+            usd: usd,
+            grant: grant,
+          );
+    } catch (e) {
+      TrackingService.track('hyperliquid_margin_adjust_failed', params: {
+        ...params,
+        'error_category': e is AuthGrantException
+            ? 'approval_expired'
+            : TrackingService.errorCategory(e),
+      });
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _errorCause = e;
+        // A StateError stopped before anything was signed (the position
+        // changed, or the market allows no removal).
+        _errorText = e is StateError
+            ? l10n.ledgerErrorDetailsChanged
+            : hlTradeErrorMessage(l10n, e);
+      });
+      return;
+    }
+    TrackingService.track('hyperliquid_margin_adjust_completed',
+        params: params);
+    if (!mounted) return;
+    _showDone(rootNav, amount, pos, preview);
+  }
+
+  /// More than the Investing cash: the order slip's funding, decided here
+  /// on fresh figures, then ONE approval and the headless chain.
+  Future<void> _confirmFunded(
+      double amount, double cash, HlPerpPosition pos, String walletId,
+      {required bool fromAdd}) async {
+    final l10n = context.l10n;
+    // One funded order or change on Investing at a time.
+    if (_activeRun(ref.read(fundedOrdersProvider)) != null ||
+        _fundingBusyElsewhere()) {
+      setState(() {
+        _errorCause = null;
+        _errorText = l10n.slipDepositIncomingNote;
+      });
+      return;
+    }
+    // Validated before any money moves: an isolated perp position, and
+    // neither the change (`hyperliquid.close`, what signing it checks) nor
+    // the move into Investing withheld.
+    if (_market.isSpot || pos.isCross) {
+      setState(() {
+        _errorCause = null;
+        _errorText = l10n.ledgerErrorDetailsChanged;
+      });
+      return;
+    }
+    String? block;
+    try {
+      final caps = ref.read(runtimeCapabilitiesProvider);
+      block = caps.blockReason('hyperliquid.close') ??
+          caps.blockReason('hyperliquid.deposit');
+    } catch (_) {}
+    if (block != null) {
+      setState(() {
+        _errorCause = null;
+        _errorText = block;
+      });
+      return;
+    }
+    final container = ProviderScope.containerOf(context, listen: false);
+    final rootNav = Navigator.of(context, rootNavigator: true);
+    final preview = _Figures.of(
+      pos,
+      cash: cash,
+      liveMid: ref.read(hyperliquidLiveMidProvider(pos.coin)),
+      delta: amount,
+    );
+    setState(() {
+      _busy = true;
+      _errorText = null;
+      _errorCause = null;
+    });
+    MarginFundingDecision decision;
+    try {
+      decision = await decideMarginFunding(
+        container.read,
+        amountUsd: amount,
+        readyUsd: cash,
+        dollarsUsd: _dollars(),
+        shownAddUsd: fromAdd ? _tapAddUsd : null,
+        tapLeg: fromAdd ? _tapLeg : null,
+      );
+    } catch (e) {
+      decision = MarginFundingUnavailable('unknown', error: e);
+    }
+    if (!mounted) return;
+    final MarginFundingPlan plan;
+    switch (decision) {
+      case MarginFundingPlanned(plan: final planned):
+        plan = planned;
+      case MarginFundingNeedsReceive(:final addUsd):
+        setState(() => _busy = false);
+        await _openInvestmentsReceive(addUsd);
+        return;
+      case MarginFundingAddChanged():
+        // The button names the new X on the next build; nothing moved.
+        setState(() => _busy = false);
+        return;
+      case MarginFundingUnavailable(:final error):
+        setState(() {
+          _busy = false;
+          _errorCause = error;
+          _errorText = error == null
+              ? l10n.errorCopyGeneric
+              : hlTradeErrorMessage(l10n, error);
+        });
+        return;
+    }
+
+    final change = HlIntents.isolatedMargin(
+      walletId: walletId,
+      market: _market,
+      positionIsLong: pos.isLong,
+      usd: amount,
+    );
+    // The ONE approval: the change, the Dollars that may move into
+    // Investing for it, the Predictions legs straight into Investing and
+    // the Bitcoin leg. Long enough for the money to land.
+    final approved = change.copyWith(
+      limits: {...change.limits, ...plan.grantLimits()},
+      ttl: AuthGrants.autofireTtl,
+    );
+    final params = {..._params(amount), ...plan.analyticsParams()};
+    final reason = l10n.hlMarginStepUp(_market.coin);
+    var declined = false;
+    final runner = container.read(marginFundingRunnerProvider);
+    final run = await runner.startApproved(
+      plan: plan,
+      target: MarginTarget(
+        market: _market,
+        position: pos,
+        change: change,
+        label: FundedOrderLabel(
+          venue: OneBalanceVenue.investing,
+          orderUsd: amount,
+          side: pos.isLong ? l10n.longLabel : l10n.shortLabel,
+          market: FundedOrderLabel.shortName(_market.coin),
+          marketKey: _market.coin,
+          kind: FundedOrderKind.margin,
+        ),
+      ),
+      approve: () async {
+        final seam = debugHlMarginApproval;
+        final AuthGrant? grant;
+        if (seam != null) {
+          grant = await seam(approved);
+        } else if (!mounted) {
+          grant = null;
+        } else {
+          grant = await requireFreshAuthGrant(
+            context,
+            ref,
+            intent: approved,
+            reason: reason,
+            amountUsd: amount,
+          );
+        }
+        declined = grant == null;
+        return grant;
+      },
+    );
+    if (run == null) {
+      if (declined) {
+        TrackingService.track('order_funding_abandoned', params: {
+          'venue': 'hyperliquid',
+          'stage': 'approval',
+          'funding_source': plan.sources.join(','),
+        });
+      }
+      if (mounted) setState(() => _busy = false);
+      return;
+    }
+    _submitted = true;
+    TrackingService.track('hyperliquid_margin_adjust_submitted',
+        params: params);
+    if (mounted) {
+      setState(() {
+        _busy = false;
+        _runId = run.id;
+      });
+    }
+    unawaited(run.ended.then((end) {
+      // Reported whatever happened to the ticket.
+      final error = runner.errorOf(run.id);
+      if (end == MarginFundedEnd.signed) {
+        TrackingService.track('hyperliquid_margin_adjust_completed',
+            params: params);
+      } else {
+        TrackingService.track('hyperliquid_margin_adjust_failed', params: {
+          ...params,
+          'funding_end': end.name,
+          'error_category': error is AuthGrantException
+              ? 'approval_expired'
+              : TrackingService.errorCategory(error ?? end.name),
+        });
+      }
+      if (mounted) _onRunEnded(run.id, end, error, rootNav, amount, pos, preview);
+    }));
+  }
+
+  /// This ticket's funded change ended while it is open.
+  void _onRunEnded(String id, MarginFundedEnd end, Object? error,
+      NavigatorState rootNav, double amount, HlPerpPosition pos,
+      _Figures preview) {
+    if (_runId != id) return;
+    final l10n = context.l10n;
+    if (end == MarginFundedEnd.signed) {
+      setState(() => _runId = null);
+      _showDone(rootNav, amount, pos, preview);
+      return;
+    }
+    String? message(Object? e) => e == null || e is String
+        ? null
+        : (e is StateError || e is AuthGrantException
+            ? hlTradeErrorMessage(l10n, e)
+            : HotSettlement.messageFor(e, l10n) ?? hlTradeErrorMessage(l10n, e));
+    setState(() {
+      _runId = null;
+      _errorCause = error is String ? null : error;
+      _errorText = switch (end) {
+        MarginFundedEnd.signed => null,
+        // The "Tap to add margin" note says it; the button is the change
+        // again.
+        MarginFundedEnd.ready => null,
+        MarginFundedEnd.changed => l10n.ledgerErrorDetailsChanged,
+        MarginFundedEnd.refunded => l10n.slipFundingBitcoinBack,
+        MarginFundedEnd.maybeSent => l10n.settlementFundingUnknownBody,
+        MarginFundedEnd.stopped => message(error) ?? l10n.hlFundsTimeout,
+        MarginFundedEnd.notSent => message(error) ?? l10n.errorCopyGeneric,
+      };
+    });
+  }
+
+  void _showDone(NavigatorState rootNav, double amount, HlPerpPosition pos,
+      _Figures preview) {
+    final l10n = context.l10n;
+    // Released first: the ticket holds itself while busy, and a held
+    // ticket would refuse its own hand-off to the confirmation.
+    setState(() => _busy = false);
+    Navigator.of(context).pop();
+    pushKuteSuccessOverlay(
+      navigator: rootNav,
+      overlay: KuteConfirmation(
+        message: _add ? l10n.hlMarginAdded : l10n.hlMarginRemoved,
+        showCloseButton: true,
+        onDone: () => rootNav.pop(),
+        detail: l10n.investingBalanceUpdating,
+        receipt: TradeReceipt(
+          leading: _artwork(),
+          title: _market.coin,
+          subtitle: pos.isLong ? l10n.longLabel : l10n.shortLabel,
+          rows: {
+            _add ? l10n.hlMarginAdd : l10n.hlMarginRemove: formatHlUsd(amount),
+            if (preview.moneyAfter != null)
+              l10n.hlPositionMoney: '≈ ${formatHlUsd(preview.moneyAfter!)}',
+            if (preview.liqAfter != null)
+              l10n.chartLiquidationPrice:
+                  '≈ ${formatHlPrice(preview.liqAfter!, decimalCap: _market.pxDecimalCap)}',
+            l10n.moveInvestingBalance:
+                '≈ ${formatHlUsd(math.max(0, preview.cashAfter))}',
+          },
+        ),
+      ),
+    );
+  }
+
+  /// "Add $X to Investments": decided on the spending bitcoin, read fresh
+  /// when the app's figures are not in yet ("Calculating…" meanwhile),
+  /// the order slip's same decision. Bitcoin covers X: the tap is the
+  /// change itself, funded through Investments under its one approval.
+  /// It does not: the Investments Receive sheet. Nothing could be read:
+  /// a message, nothing moves.
+  Future<void> _openDepositDoor(HlPerpPosition pos) async {
+    final shown = _shownAddUsd;
+    if (_calculating || _busy || _inFlight || shown == null || shown <= 0) {
+      return;
+    }
+    final read = ProviderScope.containerOf(context, listen: false).read;
+    setState(() => _calculating = true);
+    final SlipFundingRoute route;
+    BitcoinLegPlan? leg;
+    try {
+      final decision = await decideSlipFunding(read, addUsd: shown);
+      route = decision.route;
+      leg = decision.plan;
+    } finally {
+      if (mounted) setState(() => _calculating = false);
+    }
+    if (!mounted) return;
+    switch (route) {
+      case SlipFundingRoute.bitcoin:
+        _tapAddUsd = shown;
+        _tapLeg = leg;
+        try {
+          await _confirm(double.infinity, pos, fromAdd: true);
+        } finally {
+          _tapAddUsd = null;
+          _tapLeg = null;
+        }
+      case SlipFundingRoute.insufficient:
+        await _openInvestmentsReceive(shown);
+      case SlipFundingRoute.unavailable:
+        setState(() {
+          _errorCause = null;
+          _errorText = context.l10n.errorCopyGeneric;
+        });
+    }
+  }
+
+  /// The Investments Receive sheet for an X the bitcoin cannot cover; the
+  /// ticket stays open underneath.
+  Future<void> _openInvestmentsReceive(double addUsd) async {
+    if (!mounted) return;
+    // What the Investing cash lacks for the margin typed.
+    final shortfall = ShortfallRules.shortfallUsd(
+        requiredUsd: _amount ?? 0,
+        readyUsd: _cash(ref.read(hyperliquidTradingProvider).valueOrNull));
+    setState(() => _calculating = true);
+    try {
+      // `slip_top_up_opened` is sent by openSlipReceive itself.
+      await openSlipReceive(context,
+          venue: SlipVenue.investing,
+          addUsd: addUsd,
+          shortfallUsd: shortfall,
+          entrySource: kMarginEntrySource);
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _errorCause = null;
+          _errorText = context.l10n.errorCopyGeneric;
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _calculating = false);
     }
   }
 
@@ -463,14 +889,103 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
     final state = ref.watch(hyperliquidTradingProvider).valueOrNull;
     final pos = _live(ref);
     final liveMid = ref.watch(hyperliquidLiveMidProvider(pos.coin));
-    final limit = _limit(state, pos, dollarsUsd: _dollars(watch: true));
     final amount = _amount;
-    final over = amount != null && amount > limit + 1e-9;
-    final canConfirm = !_busy && amount != null && !over && limit > 0;
+    final cash = _cash(state);
+
+    // ── What the change can draw on ─────────────────────────────────
+    // Add: the whole spendable Investments, as the order slip shows it;
+    // Max the largest addition its own funding check passes on it.
+    // Remove: what the venue lets come out.
+    final depositBlock = _add ? _depositBlock() : null;
+    final dollars = _add ? _dollars(watch: true) : 0.0;
+    final other =
+        _add ? _otherSpendable(blocked: depositBlock != null) : 0.0;
+    final available = _add
+        ? slipAvailableUsd(venueUsd: cash, otherSpendableUsd: other)
+        : hlRemovableMargin(pos);
+    // Beyond Dollars only when there is Predictions cash to reach.
+    final reach =
+        other > dollars + 1e-9 ? math.min(other, _reach(dollars)) : dollars;
+    final double maxUsd;
+    if (!_add) {
+      maxUsd = available;
+    } else if (other <= 0) {
+      maxUsd = ((cash * 100) + 1e-6).floorToDouble() / 100;
+    } else {
+      final held = _heldFund;
+      maxUsd = slipMaxFundableUsd(
+        upperUsd: available,
+        fits: (margin) {
+          final short =
+              ShortfallRules.shortfallUsd(requiredUsd: margin, readyUsd: cash);
+          if (short <= 0) return true;
+          // The route's cost is near flat: the last estimate's cost stands
+          // for any size, never under the fallback allowance.
+          final heldCost = held == null
+              ? 0.0
+              : math.max(0.0, held.fundUsd - held.arrivingUsd);
+          final fund = math.max(_fundFor(short).fundUsd,
+              OrderFundingEngine.targetUsd(shortfallUsd: short) + heldCost);
+          return fund * (1 + kSlipMaxMoveHeadroom) <= reach + 1e-9;
+        },
+      );
+    }
+
+    // ── The typed amount ────────────────────────────────────────────
+    final shortfall = _add && amount != null
+        ? ShortfallRules.shortfallUsd(requiredUsd: amount, readyUsd: cash)
+        : 0.0;
+    if (_add) _scheduleFundEstimate(shortfall);
+    final fund = shortfall > 0 ? _fundFor(shortfall).fundUsd : null;
+    final investmentsUsd = fund == null || dollars + 1e-9 >= fund
+        ? dollars
+        : math.max(dollars, _reach(dollars));
+    final canFund = fund == null ||
+        (depositBlock == null && investmentsUsd + 1e-9 >= fund);
+    // The whole Investments balance is short of the move: "Add $X to
+    // Investments", X exactly what the bitcoin would add.
+    final addX = fund == null || canFund || depositBlock != null
+        ? 0.0
+        : BitcoinLegRules.addUsd(fundUsd: fund, investmentsUsd: investmentsUsd);
+    _shownAddUsd = addX > 0 ? addX : null;
+    if (_shownAddUsd != null) _warmBitcoinLeg();
+
+    // ── A funded change on its way, or stopped ──────────────────────
+    final records = ref.watch(fundedOrdersProvider);
+    final run = _activeRun(records);
+    final runSteps = run == null
+        ? null
+        : [
+            if (run.fromBitcoin)
+              l10n.slipStepAddingToInvestments(formatHlUsd(run.addUsd)),
+            l10n.slipStepPreparingOrder,
+            l10n.hlMarginStepAdding(
+                formatHlUsd(run.label.orderUsd), _market.coin),
+          ];
+    final runStep = run == null
+        ? null
+        : switch (run.stage) {
+            FundedOrderStage.adding => 0,
+            FundedOrderStage.preparing => run.fromBitcoin ? 1 : 0,
+            _ => run.fromBitcoin ? 2 : 1,
+          };
+    final ready = run != null || _busy || !_add
+        ? null
+        : FundedOrdersNotifier.readyOn(records, OneBalanceVenue.investing,
+            _market.coin, DateTime.now(),
+            kind: FundedOrderKind.margin);
+    final locked = _busy || _calculating || run != null;
+
+    final over = amount != null && amount > available + 1e-9;
+    final door = _add && _shownAddUsd != null;
+    final canConfirm = !locked &&
+        amount != null &&
+        (_add ? canFund : !over) &&
+        available > 0;
     final failed = _errorText != null;
     final figures = _Figures.of(
       pos,
-      cash: _cash(state),
+      cash: cash,
       liveMid: liveMid,
       delta: (amount ?? 0) * (_add ? 1 : -1),
     );
@@ -539,6 +1054,8 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
                         IconButton(
                           tooltip: MaterialLocalizations.of(context)
                               .closeButtonTooltip,
+                          // A funded change on its way keeps going when
+                          // the ticket closes.
                           onPressed: _busy
                               ? null
                               : () => Navigator.of(context).maybePop(),
@@ -560,35 +1077,37 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
                           KutePillItem(label: l10n.hlMarginModeRemove),
                         ],
                         selectedIndex: _add ? 0 : 1,
-                        onTap: (i) => _setMode(i == 0),
+                        onTap: (i) {
+                          if (run == null) _setMode(i == 0);
+                        },
                       ),
                     ],
                     SizedBox(height: 18.h),
 
                     // ── Amount ───────────────────────────────────────
                     // Typed on the pinned keypad; the line under it is
-                    // the most this change can move (tap fills it).
+                    // what the change can draw on (tap fills Max).
                     BigAmountDisplay(
                       prefix: r'$',
                       amountText: _amountText,
                       availableLabel: _add
-                          ? l10n.hlMarginCanAdd(formatHlUsd(limit))
-                          : l10n.hlMarginCanRemove(formatHlUsd(limit)),
+                          ? l10n.hlMarginCanAdd(formatHlUsd(available))
+                          : l10n.hlMarginCanRemove(formatHlUsd(available)),
                       availableExceeded: over,
-                      onAvailableTap: _busy ? null : () => _fillMax(limit),
+                      onAvailableTap: locked ? null : () => _fillMax(maxUsd),
                     ),
                     SizedBox(height: 14.h),
                     AmountQuickChips(
-                      enabled: !_busy && limit > 0,
+                      enabled: !locked && maxUsd > 0,
                       chips: moveQuickAmountChips(
                         amountIsUsd: true,
                         maxLabel: l10n.max,
-                        exceedsAvailable: (usd) => usd > limit + 1e-9,
+                        exceedsAvailable: (usd) => usd > available + 1e-9,
                         onDollars: (usd) {
                           HapticFeedback.selectionClick();
                           _setAmount(moveQuickAmountTyped(usd));
                         },
-                        onPercent: (_, {chip}) => _fillMax(limit),
+                        onPercent: (_, {chip}) => _fillMax(maxUsd),
                       ),
                     ),
                     SizedBox(height: 14.h),
@@ -657,7 +1176,7 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
                         ],
                       ],
                     ]),
-                    if (over) ...[
+                    if (over && !_add) ...[
                       SizedBox(height: 10.h),
                       Text(l10n.hlMarginTooMuch,
                           style: TextStyle(color: c.error, fontSize: 13.sp)),
@@ -677,7 +1196,7 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
                 child: AmountKeypad(
                   value: _amountText,
                   maxDecimals: 2,
-                  enabled: !_busy,
+                  enabled: !locked,
                   onChanged: _setAmount,
                 ),
               ),
@@ -686,15 +1205,66 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
               Padding(
                 padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w,
                     math.max(16.h, MediaQuery.of(context).padding.bottom)),
-                child: PolySlipCta(
-                  label: failed
-                      ? l10n.retry
-                      : (_add ? l10n.hlMarginAdd : l10n.hlMarginRemove),
-                  onTap: () => _confirm(limit, pos),
-                  enabled: canConfirm,
-                  isBusy: _busy,
-                  busyLabel: _movingLabel ?? l10n.loading,
-                  color: _side,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_add &&
+                        depositBlock != null &&
+                        amount != null &&
+                        shortfall > 0)
+                      CapabilityBlockNote(depositBlock),
+                    if (ready != null)
+                      SlipFundingReadyNote(
+                        amount: formatHlUsd(ready.addUsd),
+                        text: l10n.hlMarginFundingReady(
+                            formatHlUsd(ready.addUsd)),
+                      ),
+                    if (runSteps != null && runStep != null)
+                      // The funded change's own step, busy, on the one
+                      // button.
+                      PolySlipCta(
+                        label: runSteps[runStep],
+                        onTap: () {},
+                        enabled: false,
+                        isBusy: true,
+                        busyLabel: runSteps[runStep],
+                        color: _side,
+                      )
+                    else if (door)
+                      // The whole Investments balance cannot fund it: the
+                      // door, never wearing the change's direction.
+                      PolySlipCta(
+                        label: l10n.slipAddToInvestments(
+                            formatHlUsd(_shownAddUsd!)),
+                        onTap: () => _openDepositDoor(pos),
+                        enabled: !locked,
+                        isBusy: _calculating || _busy,
+                        busyLabel: _calculating
+                            ? l10n.feeUiCalculating
+                            : l10n.loading,
+                        color: _side,
+                        neutral: true,
+                      )
+                    else
+                      PolySlipCta(
+                        label: failed
+                            ? l10n.retry
+                            : (_add ? l10n.hlMarginAdd : l10n.hlMarginRemove),
+                        onTap: () => _confirm(available, pos),
+                        enabled: canConfirm,
+                        isBusy: _busy || _calculating,
+                        busyLabel: _calculating
+                            ? l10n.feeUiCalculating
+                            : l10n.loading,
+                        color: _side,
+                      ),
+                    if (runSteps != null && runStep != null)
+                      SlipFundingSteps(
+                        steps: runSteps,
+                        active: runStep,
+                        slow: run!.slow,
+                      ),
+                  ],
                 ),
               ),
             ],
@@ -703,7 +1273,8 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
       ),
     );
 
-    // An in-flight change cannot be dismissed out from under itself.
+    // A change being approved cannot be dismissed out from under itself;
+    // a funded one on its way runs on whether the ticket is open or not.
     return PopScope(
         canPop: !_busy,
         child: SideTintedSubtree(side: _side, child: sheet));
@@ -745,102 +1316,25 @@ class _Figures {
   }
 }
 
-/// The sheet's Dollars-funding figures, for tests.
+/// The sheet's funding figures, for tests.
 abstract final class HlAdjustMarginSheetFunding {
-  /// About what [dollarsUsd] can land as margin (see the sheet's limit).
-  static double fundable(double dollarsUsd) {
-    final land = (dollarsUsd - kHlMarginFundingFlatUsd) *
-        (1 - ShortfallRules.fallbackRouteFee);
-    return land > OrderFundingEngine.floorUsd ? land : 0;
+  /// The move a shortfall of [shortfallUsd] needs before the route's own
+  /// estimate is in: the engine's target grossed up by the route's
+  /// fallback share plus its near-flat cost allowance, to the cent. The
+  /// tap sizes it exactly ([sizeMarginFunding]).
+  static ({double fundUsd, double arrivingUsd}) fallback(
+      double shortfallUsd) {
+    final target = OrderFundingEngine.targetUsd(shortfallUsd: shortfallUsd);
+    if (target <= 0) return (fundUsd: 0, arrivingUsd: 0);
+    final fund = target / (1 - ShortfallRules.fallbackRouteFee) +
+        kHlMarginFundingFlatUsd;
+    return (
+      fundUsd: ((fund * 100) - 1e-9).ceilToDouble() / 100,
+      arrivingUsd: target,
+    );
   }
 }
 
 /// A flat allowance for the Dollars → Investing route's cost, used only for
-/// the margin sheet's "can add" figure before the tap prices it exactly.
+/// the margin sheet's figures before the route's estimate is in.
 const double kHlMarginFundingFlatUsd = 1.25;
-
-/// The Dollars move for adding [shortfallUsd] more margin than the
-/// Investing balance holds: the engine's target (the shortfall plus its
-/// buffer, never under $1), sized on what arrives. Throws when the route
-/// cannot land the shortfall or Dollars do not cover the move (nothing
-/// is approved or moved).
-Future<FundingSize> planMarginFunding(
-  VenueFunder funder, {
-  required double shortfallUsd,
-  required double dollarsUsd,
-}) async {
-  final target = OrderFundingEngine.targetUsd(shortfallUsd: shortfallUsd);
-  final size = await HyperliquidVenueFunder.sizeFunding(funder,
-          neededUsd: target)
-      .timeout(const Duration(seconds: 12));
-  if (!size.covers(shortfallUsd)) {
-    throw const RouteUnavailable('arriving_below_needed');
-  }
-  if (!dollarsUsd.isFinite || dollarsUsd + 1e-9 < size.fundUsd) {
-    throw const HyperliquidInsufficientMarginException(
-        'Insufficient Dollars for this margin');
-  }
-  return size;
-}
-
-/// How long the margin sheet waits for its Dollars move to land.
-const Duration kHlMarginCreditWait = Duration(minutes: 12);
-
-/// Moves [funding] from Dollars under [grant] through the order-funding
-/// controller and waits (bounded) until the Investing account holds
-/// [amountUsd]. True once it does; false when the move was refused before
-/// anything left (Dollars untouched) or the credit did not come in time
-/// (what arrives stays Investing cash).
-Future<bool> fundMarginShortfall(
-  WidgetRef ref, {
-  required AuthGrant grant,
-  required FundingSize funding,
-  required double amountUsd,
-  required double readyUsd,
-  Duration wait = kHlMarginCreditWait,
-}) async {
-  final outcome = await ref.read(orderFundingControllerProvider).fundAndQueue(
-        venue: OneBalanceVenue.investing,
-        orderUsd: amountUsd,
-        requiredUsd: amountUsd,
-        readyUsd: readyUsd,
-        auth: UserGrantAuthorization(grant),
-        fundUsd: funding.fundUsd,
-        entrySource: 'add_margin',
-        purpose: 'order_funding',
-        keepUnconfirmed: true,
-      );
-  switch (outcome) {
-    case OrderFundingUnconfirmed():
-    case OrderFundingFunded():
-    case OrderFundingNotNeeded():
-      break;
-    case OrderFundingRefused():
-    case OrderFundingNeedsDollars():
-      return false;
-  }
-  final deadline = DateTime.now().add(wait);
-  var interval = const Duration(seconds: 1);
-  while (DateTime.now().isBefore(deadline)) {
-    try {
-      final snap = await ref.read(hyperliquidAccountProvider.future);
-      ref.invalidate(hyperliquidAccountProvider);
-      if (hypercoreAvailableUsdc(snap.withdrawable, snap.spotBalances) + 1e-6 >=
-          amountUsd) {
-        // The funding journey ends here (no auto-fire follows a margin
-        // change): the credit came, the change is signed next.
-        OrderFundingJourney.instance.credited(OneBalanceVenue.investing);
-        OrderFundingJourney.instance.completed(OneBalanceVenue.investing,
-            resized: false, amountUsd: amountUsd);
-        return true;
-      }
-    } catch (_) {}
-    await Future<void>.delayed(interval);
-    if (interval < const Duration(seconds: 4)) {
-      interval = const Duration(seconds: 4);
-    }
-  }
-  OrderFundingJourney.instance
-      .failed(OneBalanceVenue.investing, OrderFundingStage.credit, 'timeout');
-  return false;
-}

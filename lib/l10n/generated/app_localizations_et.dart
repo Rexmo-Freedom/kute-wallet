@@ -10767,4 +10767,14 @@ class AppLocalizationsEt extends AppLocalizations {
   String oneBalanceOpeningOrder(String amount, String market) {
     return 'Avame $amount $market tehingu';
   }
+
+  @override
+  String hlMarginStepAdding(String amount, String coin) {
+    return 'Lisame $coin positsioonile $amount marginaali';
+  }
+
+  @override
+  String hlMarginFundingReady(String amount) {
+    return 'Sinu $amount on kontol Investments. Puuduta, et lisada marginaali.';
+  }
 }

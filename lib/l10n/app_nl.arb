@@ -3019,5 +3019,7 @@
   "slipFundingReadyToPlace": "Je {amount} staat in Investments. Tik om te plaatsen.",
   "slipFundingBitcoinBack": "Toevoegen aan Investments is niet gelukt. Je bitcoin komt terug.",
   "oneBalancePlacingBet": "{amount} inzetten op {side} · {market}",
-  "oneBalanceOpeningOrder": "Order van {amount} op {market} openen"
+  "oneBalanceOpeningOrder": "Order van {amount} op {market} openen",
+  "hlMarginStepAdding": "{amount} marge toevoegen aan {coin}",
+  "hlMarginFundingReady": "Je {amount} staat in Investments. Tik om marge toe te voegen."
 }

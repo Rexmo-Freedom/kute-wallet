@@ -582,11 +582,16 @@ class PolySlipDetailRow extends StatelessWidget {
             child: Text(label,
                 style: TextStyle(fontSize: 14.sp, color: c.textSecondary))),
         SizedBox(width: 12.w),
-        Text(value,
-            style: TextStyle(
-                fontSize: 14.sp,
-                fontWeight: FontWeight.w600,
-                color: c.textPrimary)),
+        // A long figure ("$200.00 → $10,199.00" at a large text size)
+        // wraps instead of running off the sheet.
+        Flexible(
+          child: Text(value,
+              textAlign: TextAlign.end,
+              style: TextStyle(
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w600,
+                  color: c.textPrimary)),
+        ),
       ],
     );
   }

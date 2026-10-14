@@ -18228,6 +18228,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Opening {amount} {market} order'**
   String oneBalanceOpeningOrder(String amount, String market);
+
+  /// The margin sheet's last funding step, and the Investments header's in-flight line, while money moves to add margin to an isolated Investing position. {amount} is the margin added, {coin} the market (e.g. Adding $5 margin to BTC).
+  ///
+  /// In en, this message translates to:
+  /// **'Adding {amount} margin to {coin}'**
+  String hlMarginStepAdding(String amount, String coin);
+
+  /// Line above the margin sheet's button when adding margin funded from bitcoin stopped with the money in Investments and the margin not added. {amount} is what the bitcoin added.
+  ///
+  /// In en, this message translates to:
+  /// **'Your {amount} is in Investments. Tap to add margin.'**
+  String hlMarginFundingReady(String amount);
 }
 
 class _AppLocalizationsDelegate

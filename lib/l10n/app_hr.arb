@@ -3019,5 +3019,7 @@
   "slipFundingReadyToPlace": "Tvojih {amount} je u Investments. Dodirni za postavljanje.",
   "slipFundingBitcoinBack": "Dodavanje u Investments nije uspjelo. Tvoj bitcoin se vraća.",
   "oneBalancePlacingBet": "Ulaganje {amount} na {side} · {market}",
-  "oneBalanceOpeningOrder": "Otvaranje naloga od {amount} za {market}"
+  "oneBalanceOpeningOrder": "Otvaranje naloga od {amount} za {market}",
+  "hlMarginStepAdding": "Dodavanje margine od {amount} na {coin}",
+  "hlMarginFundingReady": "Tvojih {amount} je u Investments. Dodirni za dodavanje margine."
 }

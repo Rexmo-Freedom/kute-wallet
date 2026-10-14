@@ -3019,5 +3019,7 @@
   "slipFundingReadyToPlace": "{amount}はInvestmentsにあります。タップして注文してください。",
   "slipFundingBitcoinBack": "Investmentsへの追加は完了しませんでした。ビットコインは返金されます。",
   "oneBalancePlacingBet": "{side}に{amount}を予測中 · {market}",
-  "oneBalanceOpeningOrder": "{amount}の{market}注文を発注中"
+  "oneBalanceOpeningOrder": "{amount}の{market}注文を発注中",
+  "hlMarginStepAdding": "{coin}に証拠金{amount}を追加中",
+  "hlMarginFundingReady": "{amount}はInvestmentsにあります。タップして証拠金を追加してください。"
 }

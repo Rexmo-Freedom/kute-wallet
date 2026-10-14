@@ -10822,4 +10822,14 @@ class AppLocalizationsLt extends AppLocalizations {
   String oneBalanceOpeningOrder(String amount, String market) {
     return 'Atidaromas $amount $market pavedimas';
   }
+
+  @override
+  String hlMarginStepAdding(String amount, String coin) {
+    return 'Pridedama $amount maržos prie $coin';
+  }
+
+  @override
+  String hlMarginFundingReady(String amount) {
+    return 'Jūsų $amount yra Investments. Bakstelėkite, kad pridėtumėte maržos.';
+  }
 }

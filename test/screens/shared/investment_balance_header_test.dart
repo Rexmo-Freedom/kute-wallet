@@ -363,6 +363,25 @@ void main() {
           ]));
       expect(find.text(r'Opening $7.25 NVDA order'), findsOneWidget);
       expect(find.byType(PendingDepositLine), findsOneWidget);
+      // Margin added to a position through Investments names the margin,
+      // never an order.
+      await pumpOne(
+          tester,
+          known.copyWith(inFlight: const [
+            InFlightMove(
+                kind: InFlightKind.toVenue,
+                venue: OneBalanceVenue.investing,
+                usd: 30,
+                order: InFlightOrder(
+                    id: 'fo_margin',
+                    venue: OneBalanceVenue.investing,
+                    orderUsd: 30,
+                    side: 'Long',
+                    market: 'TSLA',
+                    margin: true)),
+          ]));
+      expect(find.text(r'Adding $30.00 margin to TSLA'), findsOneWidget);
+      expect(find.textContaining('order'), findsNothing);
       // The Bitcoin leg of the same order (dollars arriving for it) and
       // its move into the venue: one line, the order's.
       await pumpOne(

@@ -40,7 +40,8 @@ enum InFlightKind {
 
 /// The order a sum on a rail is for: what the person is doing, in the
 /// words the header shows ("Placing $5 on Yes · Lakers", "Opening $5 NVDA
-/// order"), from the funded-order record that owns the rail's row.
+/// order", "Adding $5 margin to BTC"), from the funded-order record that
+/// owns the rail's row.
 @immutable
 class InFlightOrder {
   const InFlightOrder({
@@ -49,6 +50,7 @@ class InFlightOrder {
     required this.orderUsd,
     required this.side,
     required this.market,
+    this.margin = false,
   });
 
   /// The funded order's local id (one line per order).
@@ -64,6 +66,10 @@ class InFlightOrder {
   /// A short name of the market.
   final String market;
 
+  /// Margin added to an isolated Investing position ([orderUsd] is the
+  /// margin), not an order.
+  final bool margin;
+
   @override
   bool operator ==(Object other) =>
       other is InFlightOrder &&
@@ -71,10 +77,11 @@ class InFlightOrder {
       other.venue == venue &&
       other.orderUsd == orderUsd &&
       other.side == side &&
-      other.market == market;
+      other.market == market &&
+      other.margin == margin;
 
   @override
-  int get hashCode => Object.hash(id, venue, orderUsd, side, market);
+  int get hashCode => Object.hash(id, venue, orderUsd, side, market, margin);
 }
 
 /// One sum of money on a rail. Rows with the same kind and venue are not

@@ -10775,4 +10775,14 @@ class AppLocalizationsSv extends AppLocalizations {
   String oneBalanceOpeningOrder(String amount, String market) {
     return 'Öppnar order på $amount för $market';
   }
+
+  @override
+  String hlMarginStepAdding(String amount, String coin) {
+    return 'Lägger till $amount marginal på $coin';
+  }
+
+  @override
+  String hlMarginFundingReady(String amount) {
+    return 'Dina $amount finns i Investments. Tryck för att lägga till marginal.';
+  }
 }

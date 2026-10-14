@@ -10807,4 +10807,14 @@ class AppLocalizationsSl extends AppLocalizations {
   String oneBalanceOpeningOrder(String amount, String market) {
     return 'Odpiranje naročila $amount za $market';
   }
+
+  @override
+  String hlMarginStepAdding(String amount, String coin) {
+    return 'Dodajanje kritja $amount za $coin';
+  }
+
+  @override
+  String hlMarginFundingReady(String amount) {
+    return 'Vaših $amount je v Investments. Tapnite za dodajanje kritja.';
+  }
 }

@@ -51,6 +51,11 @@ enum FundedOrderStage {
       this == adding || this == preparing || this == placing;
 }
 
+/// What a funded record is for: an order (or bet) a slip places, or
+/// margin the margin sheet adds to an isolated Investing position. Both
+/// run the same funding chain; the screens name them differently.
+enum FundedOrderKind { order, margin }
+
 /// What the order is, in the words the screens show.
 @immutable
 class FundedOrderLabel {
@@ -60,6 +65,7 @@ class FundedOrderLabel {
     required this.side,
     required this.market,
     required this.marketKey,
+    this.kind = FundedOrderKind.order,
   });
 
   final OneBalanceVenue venue;
@@ -76,6 +82,9 @@ class FundedOrderLabel {
   /// The market's own key (token id, coin), to match a slip.
   final String marketKey;
 
+  /// An order, or margin added to a position ([orderUsd] is the margin).
+  final FundedOrderKind kind;
+
   /// The market's name cut to [max] characters for one line.
   static String shortName(String name, {int max = 32}) {
     final t = name.trim().replaceAll(RegExp(r'\s+'), ' ');
@@ -89,6 +98,7 @@ class FundedOrderLabel {
         'side': side,
         'market': market,
         'marketKey': marketKey,
+        if (kind != FundedOrderKind.order) 'kind': kind.name,
       };
 
   static FundedOrderLabel? fromJson(Object? v) {
@@ -104,6 +114,10 @@ class FundedOrderLabel {
       side: v['side'] is String ? v['side'] as String : '',
       market: v['market'] is String ? v['market'] as String : '',
       marketKey: v['marketKey'] is String ? v['marketKey'] as String : '',
+      kind: FundedOrderKind.values
+              .where((e) => e.name == v['kind'])
+              .firstOrNull ??
+          FundedOrderKind.order,
     );
   }
 }
@@ -158,6 +172,7 @@ class FundedOrderRecord {
         orderUsd: label.orderUsd,
         side: label.side,
         market: label.market,
+        margin: label.kind == FundedOrderKind.margin,
       );
 
   FundedOrderRecord copyWith({
@@ -306,7 +321,7 @@ class FundedOrdersNotifier extends Notifier<List<FundedOrderRecord>> {
     final now = clock();
     final id = 'fo_${now.microsecondsSinceEpoch}_${_seq++}';
     // One live record per venue: an older one still marked live is over.
-    // A "Tap to place" note for the same market has been acted on.
+    // A "Tap to place" note for the same market and kind has been acted on.
     final older = [
       for (final r in state)
         if (r.label.venue == label.venue && r.stage.active)
@@ -316,7 +331,8 @@ class FundedOrdersNotifier extends Notifier<List<FundedOrderRecord>> {
               updatedAt: now)
         else if (r.label.venue == label.venue &&
             r.stage == FundedOrderStage.ready &&
-            r.label.marketKey == label.marketKey)
+            r.label.marketKey == label.marketKey &&
+            r.label.kind == label.kind)
           r.copyWith(stage: FundedOrderStage.done, updatedAt: now)
         else
           r,
@@ -390,13 +406,16 @@ class FundedOrdersNotifier extends Notifier<List<FundedOrderRecord>> {
     return null;
   }
 
-  /// The "Tap to place" record for the market [marketKey] on [venue].
+  /// The "Tap to place" record for the market [marketKey] on [venue]
+  /// ([kind]: an order's for the slips, margin's for the margin sheet).
   static FundedOrderRecord? readyOn(List<FundedOrderRecord> records,
-      OneBalanceVenue venue, String marketKey, DateTime now) {
+      OneBalanceVenue venue, String marketKey, DateTime now,
+      {FundedOrderKind kind = FundedOrderKind.order}) {
     for (final r in records) {
       if (r.label.venue == venue &&
           r.stage == FundedOrderStage.ready &&
           r.fromBitcoin &&
+          r.label.kind == kind &&
           r.label.marketKey == marketKey &&
           now.difference(r.updatedAt) <= readyNoteFor) {
         return r;

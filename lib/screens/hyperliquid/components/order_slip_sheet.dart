@@ -2129,13 +2129,14 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     // One funded order at a time: while one is queued behind its money or
     // being placed, a second never takes its money or its approval.
     // A Bitcoin-funded order still on its way here counts too: its order
-    // waits (unqueued) for its dollars.
+    // waits (unqueued) for its dollars. So does margin being added from
+    // Investments (the margin sheet): its credit must not be this order's.
+    final activeFunding = FundedOrdersNotifier.activeOf(
+        ref.read(fundedOrdersProvider), OneBalanceVenue.investing);
     if (PendingHyperliquidOrderNotifier.isActive(
             ref.read(pendingHyperliquidOrderProvider)) ||
-        FundedOrdersNotifier.activeOf(ref.read(fundedOrdersProvider),
-                    OneBalanceVenue.investing)
-                ?.fromBitcoin ==
-            true) {
+        activeFunding?.fromBitcoin == true ||
+        activeFunding?.label.kind == FundedOrderKind.margin) {
       _trackBlocked('order_queued');
       _updateDraft(() {
         _errorCause = null;
@@ -3278,20 +3279,13 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     if (!mounted) return;
     _stopped('insufficient_balance');
     _trackStep('deposit');
-    final shortfall = _slipShortfallUsd;
-    TrackingService.track('slip_top_up_opened', params: {
-      'venue': 'hyperliquid',
-      'shortfall_bucket': TrackingService.usdBucket(shortfall),
-      ...TrackingService.exactUsd('shortfall_usd', shortfall),
-      'top_up_bucket': TrackingService.usdBucket(addUsd),
-      ...TrackingService.exactUsd('top_up_usd', addUsd),
-      'prefill_rule': 'investments_shortfall',
-      'suggested_source': 'receive',
-    });
     setState(() => _depositDoorBusy = true);
     try {
+      // `slip_top_up_opened` is sent by openSlipReceive itself.
       await openSlipReceive(context,
-          venue: SlipVenue.investing, addUsd: addUsd);
+          venue: SlipVenue.investing,
+          addUsd: addUsd,
+          shortfallUsd: _slipShortfallUsd);
     } catch (_) {
       if (mounted) {
         showMessageSnackBar(
@@ -4514,6 +4508,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         fundedOrders, OneBalanceVenue.investing);
     final bitcoinRecord = bitcoinRun != null &&
             bitcoinRun.fromBitcoin &&
+            bitcoinRun.label.kind == FundedOrderKind.order &&
             bitcoinRun.label.marketKey == market.coin
         ? bitcoinRun
         : null;

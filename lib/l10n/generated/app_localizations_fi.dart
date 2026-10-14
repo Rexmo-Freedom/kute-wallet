@@ -10791,4 +10791,14 @@ class AppLocalizationsFi extends AppLocalizations {
   String oneBalanceOpeningOrder(String amount, String market) {
     return 'Avataan $amount $market -toimeksianto';
   }
+
+  @override
+  String hlMarginStepAdding(String amount, String coin) {
+    return 'Lisätään $amount marginaalia kohteeseen $coin';
+  }
+
+  @override
+  String hlMarginFundingReady(String amount) {
+    return '$amount on tililläsi Investments. Napauta lisätäksesi marginaalia.';
+  }
 }

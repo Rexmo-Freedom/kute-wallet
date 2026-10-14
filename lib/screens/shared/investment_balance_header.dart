@@ -214,7 +214,7 @@ class InvestmentBalanceHeader extends ConsumerWidget {
   /// (founder decision 14 October 2026):
   ///   * money on a rail for an order (its Bitcoin leg or its move into
   ///     the venue): the order itself, once ("Placing $5 on Yes · Lakers",
-  ///     "Opening $5 NVDA order");
+  ///     "Opening $5 NVDA order", "Adding $5 margin to BTC");
   ///   * dollars arriving from outside: "Incoming $X";
   ///   * venue cash the sweeper still owes back: "unavailable until
   ///     balancing completes".
@@ -231,8 +231,10 @@ class InvestmentBalanceHeader extends ConsumerWidget {
           switch (order.venue) {
             OneBalanceVenue.predictions => l10n.oneBalancePlacingBet(
                 amount(order.orderUsd), order.side, order.market),
-            OneBalanceVenue.investing => l10n.oneBalanceOpeningOrder(
-                amount(order.orderUsd), order.market),
+            OneBalanceVenue.investing => order.margin
+                ? l10n.hlMarginStepAdding(amount(order.orderUsd), order.market)
+                : l10n.oneBalanceOpeningOrder(
+                    amount(order.orderUsd), order.market),
           },
       for (final move in state.inFlight)
         if (move.order == null && move.kind == InFlightKind.incomingDollars)

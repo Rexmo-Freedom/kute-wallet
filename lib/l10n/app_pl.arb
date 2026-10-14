@@ -3019,5 +3019,7 @@
   "slipFundingReadyToPlace": "Twoje {amount} jest w Investments. Stuknij, aby złożyć.",
   "slipFundingBitcoinBack": "Dodanie do Investments nie powiodło się. Twój bitcoin wraca.",
   "oneBalancePlacingBet": "Stawianie {amount} na {side} · {market}",
-  "oneBalanceOpeningOrder": "Otwieranie zlecenia {amount} na {market}"
+  "oneBalanceOpeningOrder": "Otwieranie zlecenia {amount} na {market}",
+  "hlMarginStepAdding": "Dodawanie {amount} depozytu do {coin}",
+  "hlMarginFundingReady": "Twoje {amount} jest w Investments. Stuknij, aby dodać depozyt."
 }

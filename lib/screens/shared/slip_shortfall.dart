@@ -63,6 +63,7 @@ import 'package:kute/services/one_balance/one_balance_state.dart'
     show OneBalanceVenue;
 import 'package:kute/services/orchestra_routes.dart'
     show kOrchestraUsdAssetCode, kOrchestraUsdChain;
+import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
 /// The venue a slip funds.
@@ -431,15 +432,33 @@ Future<void> Function(SlipVenue venue, double addUsd)? debugShowSlipReceiveSheet
 /// cover (none, or too little once the route's spread is counted): the
 /// money has to come from outside, so this is the Investments Receive
 /// sheet, the one the Investments dock's Receive opens, never the Bitcoin
-/// Move sheet. The sheet takes no amount ([addUsd] is for the seam only);
-/// the slip stays open underneath with everything typed. No events of its
-/// own.
+/// Move sheet. The sheet takes no amount ([addUsd] is for the seam and the
+/// event only); the slip stays open underneath with everything typed.
+///
+/// Sends `slip_top_up_opened` once, here, for every caller (the Investing
+/// ticket, the Predictions slip, the margin sheet): [venue]'s code, the
+/// exact [shortfallUsd] the venue's cash lacks and the [addUsd] the button
+/// named (with their legacy buckets), `prefill_rule:
+/// investments_shortfall`, `suggested_source: receive`, and
+/// [entrySource] when the caller is not a slip (`add_margin`).
 Future<void> openSlipReceive(
   BuildContext context, {
   required SlipVenue venue,
   required double addUsd,
+  required double shortfallUsd,
+  String? entrySource,
 }) async {
   if (!context.mounted) return;
+  TrackingService.track('slip_top_up_opened', params: {
+    'venue': venue.code,
+    if (entrySource != null) 'entry_source': entrySource,
+    'shortfall_bucket': TrackingService.usdBucket(shortfallUsd),
+    ...TrackingService.exactUsd('shortfall_usd', shortfallUsd),
+    'top_up_bucket': TrackingService.usdBucket(addUsd),
+    ...TrackingService.exactUsd('top_up_usd', addUsd),
+    'prefill_rule': 'investments_shortfall',
+    'suggested_source': 'receive',
+  });
   final seam = debugShowSlipReceiveSheet;
   if (seam != null) {
     await seam(venue, addUsd);
@@ -800,19 +819,23 @@ class SlipFundingSteps extends StatelessWidget {
 
 /// The plain line above a slip's button when its funding stopped with the
 /// money in Investments and the order not placed: "Your $X is in
-/// Investments. Tap to place." Same type as [SlipDepositFailedNote].
+/// Investments. Tap to place." Same type as [SlipDepositFailedNote]. The
+/// margin sheet passes its own line ([text]: "Tap to add margin").
 class SlipFundingReadyNote extends StatelessWidget {
-  const SlipFundingReadyNote({super.key, required this.amount});
+  const SlipFundingReadyNote({super.key, required this.amount, this.text});
 
   /// The formatted amount that landed.
   final String amount;
+
+  /// The line itself, when it is not the slips' "Tap to place".
+  final String? text;
 
   @override
   Widget build(BuildContext context) => Padding(
         key: const ValueKey('slip-funding-ready'),
         padding: EdgeInsets.only(bottom: 8.h),
         child: Text(
-          context.l10n.slipFundingReadyToPlace(amount),
+          text ?? context.l10n.slipFundingReadyToPlace(amount),
           textAlign: TextAlign.center,
           style: TextStyle(
               color: context.colors.textSecondary,

@@ -3019,5 +3019,7 @@
   "slipFundingReadyToPlace": "Sinu {amount} on kontol Investments. Puuduta, et esitada.",
   "slipFundingBitcoinBack": "Lisamine kontole Investments ei õnnestunud. Sinu bitcoin tuleb tagasi.",
   "oneBalancePlacingBet": "Panustame {amount} valikule {side} · {market}",
-  "oneBalanceOpeningOrder": "Avame {amount} {market} tehingu"
+  "oneBalanceOpeningOrder": "Avame {amount} {market} tehingu",
+  "hlMarginStepAdding": "Lisame {coin} positsioonile {amount} marginaali",
+  "hlMarginFundingReady": "Sinu {amount} on kontol Investments. Puuduta, et lisada marginaali."
 }

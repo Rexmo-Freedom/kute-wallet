@@ -10780,4 +10780,14 @@ class AppLocalizationsDa extends AppLocalizations {
   String oneBalanceOpeningOrder(String amount, String market) {
     return 'Åbner $amount $market-ordre';
   }
+
+  @override
+  String hlMarginStepAdding(String amount, String coin) {
+    return 'Tilføjer $amount margin til $coin';
+  }
+
+  @override
+  String hlMarginFundingReady(String amount) {
+    return 'Dine $amount er i Investments. Tryk for at tilføje margin.';
+  }
 }

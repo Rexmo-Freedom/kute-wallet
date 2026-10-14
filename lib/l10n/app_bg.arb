@@ -3019,5 +3019,7 @@
   "slipFundingReadyToPlace": "Твоите {amount} са в Investments. Докосни, за да заложиш.",
   "slipFundingBitcoinBack": "Добавянето към Investments не мина. Биткойнът ти се връща.",
   "oneBalancePlacingBet": "Залагане на {amount} за {side} · {market}",
-  "oneBalanceOpeningOrder": "Отваряне на поръчка за {amount} {market}"
+  "oneBalanceOpeningOrder": "Отваряне на поръчка за {amount} {market}",
+  "hlMarginStepAdding": "Добавяне на {amount} маржин към {coin}",
+  "hlMarginFundingReady": "Твоите {amount} са в Investments. Докосни, за да добавиш маржин."
 }

@@ -10358,4 +10358,14 @@ class AppLocalizationsJa extends AppLocalizations {
   String oneBalanceOpeningOrder(String amount, String market) {
     return '$amountの$market注文を発注中';
   }
+
+  @override
+  String hlMarginStepAdding(String amount, String coin) {
+    return '$coinに証拠金$amountを追加中';
+  }
+
+  @override
+  String hlMarginFundingReady(String amount) {
+    return '$amountはInvestmentsにあります。タップして証拠金を追加してください。';
+  }
 }

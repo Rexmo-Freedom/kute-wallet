@@ -10814,4 +10814,14 @@ class AppLocalizationsNl extends AppLocalizations {
   String oneBalanceOpeningOrder(String amount, String market) {
     return 'Order van $amount op $market openen';
   }
+
+  @override
+  String hlMarginStepAdding(String amount, String coin) {
+    return '$amount marge toevoegen aan $coin';
+  }
+
+  @override
+  String hlMarginFundingReady(String amount) {
+    return 'Je $amount staat in Investments. Tik om marge toe te voegen.';
+  }
 }

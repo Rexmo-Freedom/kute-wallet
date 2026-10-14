@@ -3019,5 +3019,7 @@
   "slipFundingReadyToPlace": "Cei {amount} ai tăi sunt în Investments. Atinge pentru a plasa.",
   "slipFundingBitcoinBack": "Adăugarea în Investments nu a reușit. Bitcoinul tău se întoarce.",
   "oneBalancePlacingBet": "Se plasează {amount} pe {side} · {market}",
-  "oneBalanceOpeningOrder": "Se deschide ordinul de {amount} pe {market}"
+  "oneBalanceOpeningOrder": "Se deschide ordinul de {amount} pe {market}",
+  "hlMarginStepAdding": "Se adaugă marjă de {amount} la {coin}",
+  "hlMarginFundingReady": "Cei {amount} ai tăi sunt în Investments. Atinge pentru a adăuga marjă."
 }

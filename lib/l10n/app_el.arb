@@ -3019,5 +3019,7 @@
   "slipFundingReadyToPlace": "Τα {amount} σου είναι στα Investments. Πάτησε για τοποθέτηση.",
   "slipFundingBitcoinBack": "Η προσθήκη στα Investments δεν ολοκληρώθηκε. Τα bitcoin σου επιστρέφουν.",
   "oneBalancePlacingBet": "Τοποθέτηση {amount} στο {side} · {market}",
-  "oneBalanceOpeningOrder": "Άνοιγμα εντολής {amount} {market}"
+  "oneBalanceOpeningOrder": "Άνοιγμα εντολής {amount} {market}",
+  "hlMarginStepAdding": "Προσθήκη περιθωρίου {amount} στο {coin}",
+  "hlMarginFundingReady": "Τα {amount} σου είναι στα Investments. Πάτησε για προσθήκη περιθωρίου."
 }

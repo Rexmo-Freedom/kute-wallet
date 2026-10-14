@@ -3019,5 +3019,7 @@
   "slipFundingReadyToPlace": "Dina {amount} finns i Investments. Tryck för att lägga.",
   "slipFundingBitcoinBack": "Det gick inte att lägga till i Investments. Din bitcoin kommer tillbaka.",
   "oneBalancePlacingBet": "Lägger {amount} på {side} · {market}",
-  "oneBalanceOpeningOrder": "Öppnar order på {amount} för {market}"
+  "oneBalanceOpeningOrder": "Öppnar order på {amount} för {market}",
+  "hlMarginStepAdding": "Lägger till {amount} marginal på {coin}",
+  "hlMarginFundingReady": "Dina {amount} finns i Investments. Tryck för att lägga till marginal."
 }

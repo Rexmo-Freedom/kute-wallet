@@ -3019,5 +3019,7 @@
   "slipFundingReadyToPlace": "Jūsų {amount} yra Investments. Bakstelėkite, kad pateiktumėte.",
   "slipFundingBitcoinBack": "Pridėti į Investments nepavyko. Jūsų bitcoin grįžta.",
   "oneBalancePlacingBet": "Statoma {amount} už {side} · {market}",
-  "oneBalanceOpeningOrder": "Atidaromas {amount} {market} pavedimas"
+  "oneBalanceOpeningOrder": "Atidaromas {amount} {market} pavedimas",
+  "hlMarginStepAdding": "Pridedama {amount} maržos prie {coin}",
+  "hlMarginFundingReady": "Jūsų {amount} yra Investments. Bakstelėkite, kad pridėtumėte maržos."
 }

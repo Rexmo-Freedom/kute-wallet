@@ -3019,5 +3019,7 @@
   "slipFundingReadyToPlace": "Tvých {amount} je v Investments. Klepnutím zadáš.",
   "slipFundingBitcoinBack": "Přidání do Investments neproběhlo. Tvůj bitcoin se vrací.",
   "oneBalancePlacingBet": "Sázka {amount} na {side} · {market}",
-  "oneBalanceOpeningOrder": "Otevírání příkazu {amount} {market}"
+  "oneBalanceOpeningOrder": "Otevírání příkazu {amount} {market}",
+  "hlMarginStepAdding": "Přidávání marže {amount} do {coin}",
+  "hlMarginFundingReady": "Tvých {amount} je v Investments. Klepnutím přidáš marži."
 }

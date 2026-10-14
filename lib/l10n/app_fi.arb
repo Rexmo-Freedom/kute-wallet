@@ -3019,5 +3019,7 @@
   "slipFundingReadyToPlace": "{amount} on tililläsi Investments. Napauta asettaaksesi.",
   "slipFundingBitcoinBack": "Lisäys tilille Investments ei onnistunut. Bitcoinisi palaavat.",
   "oneBalancePlacingBet": "Asetetaan {amount} vaihtoehdolle {side} · {market}",
-  "oneBalanceOpeningOrder": "Avataan {amount} {market} -toimeksianto"
+  "oneBalanceOpeningOrder": "Avataan {amount} {market} -toimeksianto",
+  "hlMarginStepAdding": "Lisätään {amount} marginaalia kohteeseen {coin}",
+  "hlMarginFundingReady": "{amount} on tililläsi Investments. Napauta lisätäksesi marginaalia."
 }

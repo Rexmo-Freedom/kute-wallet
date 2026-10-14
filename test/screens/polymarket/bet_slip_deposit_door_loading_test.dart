@@ -325,6 +325,7 @@ void main() {
   group('the "Add" door with no bitcoin to cover X', () {
     late RuntimeCapabilitiesService policy;
     late List<String> events;
+    late Map<String, Map<String, Object>?> lastParams;
     late List<double?> sheets;
     late List<double> receives;
     Completer<void>? sheet;
@@ -334,7 +335,11 @@ void main() {
       policy = runtimePolicyFixture();
       RuntimeCapabilitiesService.debugInstance = policy;
       events = [];
-      TrackingService.debugTrackObserver = (e, _) => events.add(e);
+      lastParams = {};
+      TrackingService.debugTrackObserver = (e, p) {
+        events.add(e);
+        lastParams[e] = p;
+      };
       sheets = [];
       debugShowSlipTopUpSheet = (venue, target) {
         sheets.add(target);
@@ -388,7 +393,16 @@ void main() {
       expect(_queued(tester), isNull);
       expect(events, isNot(contains('prediction_place_cta_tapped')));
       expect(events, isNot(contains('bet_slip_deposit_to_trade_tapped')));
-      expect(events, isNot(contains('slip_top_up_opened')));
+      // The Receive sheet reports itself once, as the Investing ticket's
+      // does: this venue, the exact figures, the rule and the source.
+      expect(events.where((e) => e == 'slip_top_up_opened').length, 1);
+      final topUp = lastParams['slip_top_up_opened']!;
+      expect(topUp['venue'], 'polymarket');
+      expect(topUp['prefill_rule'], 'investments_shortfall');
+      expect(topUp['suggested_source'], 'receive');
+      expect(topUp['top_up_usd'], 3.70);
+      expect(topUp['shortfall_usd'], greaterThan(0));
+      expect(topUp.keys, containsAll(['shortfall_bucket', 'top_up_bucket']));
       // The door is open: shut until it closes.
       expect(_cta(tester).isBusy, isFalse);
       expect(_cta(tester).enabled, isFalse);

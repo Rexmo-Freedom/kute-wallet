@@ -3019,5 +3019,7 @@
   "slipFundingReadyToPlace": "Tavi {amount} ir kontā Investments. Pieskaries, lai iesniegtu.",
   "slipFundingBitcoinBack": "Pievienošana kontam Investments neizdevās. Tavs bitcoin atgriežas.",
   "oneBalancePlacingBet": "Liek {amount} uz {side} · {market}",
-  "oneBalanceOpeningOrder": "Atver {amount} {market} rīkojumu"
+  "oneBalanceOpeningOrder": "Atver {amount} {market} rīkojumu",
+  "hlMarginStepAdding": "Pievieno {amount} maržu pozīcijai {coin}",
+  "hlMarginFundingReady": "Tavi {amount} ir kontā Investments. Pieskaries, lai pievienotu maržu."
 }

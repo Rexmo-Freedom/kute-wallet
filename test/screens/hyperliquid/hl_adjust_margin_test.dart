@@ -9,9 +9,9 @@ import 'package:kute/providers/hyperliquid_trading_provider.dart'
 import 'package:kute/screens/hyperliquid/components/hl_adjust_margin_sheet.dart';
 import 'package:kute/screens/hyperliquid/components/hl_isolated_margin.dart';
 import 'package:kute/helpers/auth_grant.dart';
-import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart'
-    show HyperliquidInsufficientMarginException;
 import 'package:kute/services/one_balance/hyperliquid_venue_funder.dart';
+import 'package:kute/services/one_balance/margin_funding.dart'
+    show sizeMarginFunding;
 import 'package:kute/services/one_balance/venue_funder.dart';
 
 const _long = HlPerpPosition(
@@ -196,34 +196,25 @@ void main() {
     expect(add.limits, isNot(equals(remove.limits)));
   });
 
-  group('adding more than the Investing balance funds the rest from Dollars',
-      () {
-    test('the "can add" figure reaches what Dollars can land', () {
-      expect(HlAdjustMarginSheetFunding.fundable(0), 0);
-      // Too little to clear the route's cost and the \$1 floor.
-      expect(HlAdjustMarginSheetFunding.fundable(2), 0);
-      final f = HlAdjustMarginSheetFunding.fundable(50);
-      expect(f, greaterThan(47));
-      expect(f, lessThan(50));
+  group('adding more than the Investing balance funds the rest from '
+      'Investments', () {
+    test('before the route answers, the move is priced conservatively', () {
+      expect(HlAdjustMarginSheetFunding.fallback(0).fundUsd, 0);
+      // \$10 short: \$10.25 must land; the route's share and its near-flat
+      // cost on top.
+      final f = HlAdjustMarginSheetFunding.fallback(10);
+      expect(f.arrivingUsd, 10.25);
+      expect(f.fundUsd, closeTo(10.25 / 0.98 + 1.25, 0.011));
     });
 
     test('the move is sized on what arrives, with the engine buffer',
         () async {
       final funder = _FlatFunder(flat: 1.24);
-      final size = await planMarginFunding(funder,
-          shortfallUsd: 10, dollarsUsd: 100);
+      final size = await sizeMarginFunding(funder, shortfallUsd: 10);
       // \$10 short + \$0.25 buffer must land.
       expect(size.arrivingUsd, greaterThanOrEqualTo(10.25));
       // Within a few cents of the exact \$11.49; the extra stays as cash.
       expect(size.fundUsd, inInclusiveRange(11.49, 11.6));
-    });
-
-    test('Dollars that cannot cover the move refuse before any approval',
-        () async {
-      await expectLater(
-          planMarginFunding(_FlatFunder(flat: 1.24),
-              shortfallUsd: 10, dollarsUsd: 5),
-          throwsA(isA<HyperliquidInsufficientMarginException>()));
     });
 
     test('the approval binds the change AND the dollars for it', () {

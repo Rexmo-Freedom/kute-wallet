@@ -10784,4 +10784,14 @@ class AppLocalizationsSk extends AppLocalizations {
   String oneBalanceOpeningOrder(String amount, String market) {
     return 'Otvárame príkaz $amount na $market';
   }
+
+  @override
+  String hlMarginStepAdding(String amount, String coin) {
+    return 'Pridávame maržu $amount do $coin';
+  }
+
+  @override
+  String hlMarginFundingReady(String amount) {
+    return 'Tvojich $amount je v Investments. Ťuknutím pridáš maržu.';
+  }
 }

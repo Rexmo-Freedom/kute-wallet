@@ -10798,4 +10798,14 @@ class AppLocalizationsBg extends AppLocalizations {
   String oneBalanceOpeningOrder(String amount, String market) {
     return 'Отваряне на поръчка за $amount $market';
   }
+
+  @override
+  String hlMarginStepAdding(String amount, String coin) {
+    return 'Добавяне на $amount маржин към $coin';
+  }
+
+  @override
+  String hlMarginFundingReady(String amount) {
+    return 'Твоите $amount са в Investments. Докосни, за да добавиш маржин.';
+  }
 }

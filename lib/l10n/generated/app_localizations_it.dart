@@ -10828,4 +10828,14 @@ class AppLocalizationsIt extends AppLocalizations {
   String oneBalanceOpeningOrder(String amount, String market) {
     return 'Apertura ordine da $amount su $market';
   }
+
+  @override
+  String hlMarginStepAdding(String amount, String coin) {
+    return 'Aggiunta di $amount di margine a $coin';
+  }
+
+  @override
+  String hlMarginFundingReady(String amount) {
+    return 'I tuoi $amount sono in Investments. Tocca per aggiungere margine.';
+  }
 }

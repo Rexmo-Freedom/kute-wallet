@@ -10804,4 +10804,14 @@ class AppLocalizationsHu extends AppLocalizations {
   String oneBalanceOpeningOrder(String amount, String market) {
     return '$amount értékű $market megbízás nyitása';
   }
+
+  @override
+  String hlMarginStepAdding(String amount, String coin) {
+    return '$amount fedezet hozzáadása: $coin';
+  }
+
+  @override
+  String hlMarginFundingReady(String amount) {
+    return 'A(z) $amount az Investmentsben van. Koppints a fedezet hozzáadásához.';
+  }
 }

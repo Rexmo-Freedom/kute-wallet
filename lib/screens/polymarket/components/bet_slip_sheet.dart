@@ -2953,6 +2953,22 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     }
   }
 
+  /// What this stake lacks in Predictions cash right now, for the Receive
+  /// sheet's `slip_top_up_opened` (sent by [openSlipReceive]).
+  double _receiveShortfallUsd() {
+    try {
+      final terms = ref
+              .read(polymarketFeeTermsProvider(_selectedTokenId ?? ''))
+              .valueOrNull ??
+          PolymarketFeeTerms.worstCase;
+      final cash =
+          ref.read(polymarketTradingProvider).valueOrNull?.usdcBalance ?? 0;
+      return _predictionsShortfall(cash, terms);
+    } catch (_) {
+      return 0;
+    }
+  }
+
   /// The Investments Receive sheet for an X the bitcoin cannot cover, the
   /// slip frozen while it is up ([openSlipReceive]).
   Future<void> _openInvestmentsReceive(double addUsd) async {
@@ -2963,7 +2979,9 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     _updateState(() => _buyInFlight = true);
     try {
       await openSlipReceive(context,
-          venue: SlipVenue.predictions, addUsd: addUsd);
+          venue: SlipVenue.predictions,
+          addUsd: addUsd,
+          shortfallUsd: _receiveShortfallUsd());
     } catch (_) {
       if (mounted) {
         showMessageSnackBar(
@@ -3513,7 +3531,9 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       _trackStep('deposit');
       PolymarketPlacementDiagnostics.declined('insufficient_dollars');
       await openSlipReceive(context,
-          venue: SlipVenue.predictions, addUsd: missingUsd);
+          venue: SlipVenue.predictions,
+          addUsd: missingUsd,
+          shortfallUsd: _receiveShortfallUsd());
     }
 
     /// Nothing could be worked out in time (no price, the wallet's own
