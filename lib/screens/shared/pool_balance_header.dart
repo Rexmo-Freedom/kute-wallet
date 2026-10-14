@@ -52,9 +52,14 @@ class PoolBalanceHeader extends StatelessWidget {
   /// hero) instead of invested first.
   final bool availableFirst;
 
-  /// Closes the split line (the Investments hero's chevron, its tap
-  /// affordance). Null: nothing.
+  /// Closes the split line. Null: nothing.
   final Widget? splitTrailing;
+
+  /// Sits right after the hero number (the Investments hero's chevron, its
+  /// tap affordance). An empty box of [amountTrailingWidth] mirrors it on
+  /// the left so the number stays centred. Null: nothing.
+  final Widget? amountTrailing;
+  final double amountTrailingWidth;
   final String? totalLabel;
   final String? balanceDetail;
 
@@ -112,6 +117,8 @@ class PoolBalanceHeader extends StatelessWidget {
     this.availableLabel,
     this.availableFirst = false,
     this.splitTrailing,
+    this.amountTrailing,
+    this.amountTrailingWidth = 0,
     this.totalLabel,
     this.balanceDetail,
     this.amountFontSize,
@@ -150,6 +157,8 @@ class PoolBalanceHeader extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
+                if (amountTrailing != null)
+                  SizedBox(width: amountTrailingWidth),
                 if (loading)
                   KuteSkeleton(
                     child: SkeletonBar(150.w, (amountFontSize ?? 48.sp) * 0.9,
@@ -185,6 +194,7 @@ class PoolBalanceHeader extends StatelessWidget {
                       ),
                     ),
                   ),
+                if (amountTrailing != null) amountTrailing!,
               ],
             ),
           ),

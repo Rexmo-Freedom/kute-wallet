@@ -71,14 +71,15 @@ class InvestmentDiscoveryNotice extends ConsumerWidget {
 ///   * ONE BALANCE ([oneBalance]): the Investments tab's hero, reading
 ///     [oneBalanceProvider]. No title over it (owner decision October
 ///     2026): the total stands alone, Dollars plus the open positions of
-///     every venue; under it "Available $X · Invested $Y" (Available:
+///     every venue, a chevron right after it; under it "Available $X ·
+///     Invested $Y" (Available:
 ///     Dollars plus the venues' unreserved cash, what an order can draw
 ///     on right now; Invested: positions, reserved order cash and pending
-///     fills) closed by a chevron. While anything is on a rail that split
+///     fills). While anything is on a rail that split
 ///     gives way to the in-flight lines, in order: moving to a venue,
 ///     coming back from one, incoming from outside, unavailable until
-///     balancing completes (venue cash the sweeper still owes back), the
-///     chevron beside them. Money in flight is never hidden. Venue dust
+///     balancing completes (venue cash the sweeper still owes back). Money
+///     in flight is never hidden. Venue dust
 ///     below every route minimum is no line at all: it is part of
 ///     Available like the rest of the venues' cash. No Deposit button:
 ///     money only reaches a venue through an order. The whole block, the
@@ -258,16 +259,18 @@ class InvestmentBalanceHeader extends ConsumerWidget {
     final lines = inFlightLines(context, state, amount);
     final figure = oneBalanceFigure(ref);
     final tap = onTap;
-    // The tap affordance: the list rows' disclosure chevron, at the end of
-    // the line under the total.
+    // The tap affordance: the list rows' disclosure chevron, right after
+    // the big total (founder decision), sized to sit with the 48 sp number.
+    final chevronGap = 4.w;
+    final chevronSize = 30.sp;
     final chevron = tap == null
         ? null
         : Padding(
-            padding: EdgeInsets.only(left: 2.w),
+            padding: EdgeInsets.only(left: chevronGap),
             child: Icon(Icons.chevron_right_rounded,
                 key: const ValueKey('investments-balance-chevron'),
                 color: context.colors.textTertiary,
-                size: 20.sp),
+                size: chevronSize),
           );
     final header = PoolBalanceHeader(
       amountText: figure.text,
@@ -275,7 +278,8 @@ class InvestmentBalanceHeader extends ConsumerWidget {
       availableLabel: context.l10n.available,
       investedLabel: context.l10n.betInvested,
       availableFirst: true,
-      splitTrailing: chevron,
+      amountTrailing: chevron,
+      amountTrailingWidth: chevron == null ? 0 : chevronGap + chevronSize,
       // The split, or the in-flight lines in its place.
       availableText: lines.isEmpty ? amount(state.availableUsd) : null,
       investedText: lines.isEmpty ? amount(state.investedUsd) : null,
@@ -294,7 +298,6 @@ class InvestmentBalanceHeader extends ConsumerWidget {
                     ],
                   ),
                 ),
-                if (chevron != null) chevron,
               ],
             ),
     );
