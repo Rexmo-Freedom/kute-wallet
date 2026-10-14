@@ -31,7 +31,7 @@ import 'package:kute/theme/app_theme.dart';
 /// The send stepper's body under the app bar: the screen gradient, the
 /// step progress, the steps as pages the flow advances itself, and the
 /// shared bottom action.
-class SendStepperFrame extends StatelessWidget {
+class SendStepperFrame extends StatefulWidget {
   const SendStepperFrame({
     super.key,
     required this.progress,
@@ -52,14 +52,55 @@ class SendStepperFrame extends StatelessWidget {
   final ValueChanged<int>? onPageChanged;
 
   @override
+  State<SendStepperFrame> createState() => _SendStepperFrameState();
+}
+
+class _SendStepperFrameState extends State<SendStepperFrame> {
+  /// A text field (the recipient) has focus. The steps make room for the
+  /// keyboard only then: a step that has just taken over from the field
+  /// (Continue puts the keyboard away) lays out at its full height at
+  /// once instead of being squeezed while the keyboard slides down. The
+  /// amount step's keypad has no room to give.
+  bool _textFocus = false;
+
+  @override
+  void initState() {
+    super.initState();
+    FocusManager.instance.addListener(_onFocus);
+    _textFocus = _hasTextFocus();
+  }
+
+  @override
+  void dispose() {
+    FocusManager.instance.removeListener(_onFocus);
+    super.dispose();
+  }
+
+  static bool _hasTextFocus() =>
+      FocusManager.instance.primaryFocus?.context
+          ?.findAncestorWidgetOfExactType<EditableText>() !=
+      null;
+
+  void _onFocus() {
+    final next = _hasTextFocus();
+    if (next != _textFocus && mounted) setState(() => _textFocus = next);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final viewInsets = MediaQuery.of(context).viewInsets.bottom;
+    final viewInsets =
+        _textFocus ? MediaQuery.viewInsetsOf(context).bottom : 0.0;
     // Bottom padding for the Continue CTA. iOS sits ~44dp above the
     // home indicator (was 32.h); Android adds the gesture-nav inset
     // on top of a 28.h baseline.
-    final bottomPad = Platform.isAndroid
-        ? 28.h + MediaQuery.of(context).padding.bottom
-        : 44.h;
+    // With the keyboard up the home indicator is under it, so the CTA
+    // rests a short, even gap above the keys (pinned there, frame for
+    // frame with the platform's keyboard animation).
+    final bottomPad = viewInsets > 0
+        ? 12.h
+        : Platform.isAndroid
+            ? 28.h + MediaQuery.of(context).padding.bottom
+            : 44.h;
     return Container(
       decoration: AppDecorations.screenGradient(context),
       child: SafeArea(
@@ -68,24 +109,23 @@ class SendStepperFrame extends StatelessWidget {
           // 20.w horizontal padding so the Continue CTA sits inside
           // the standard screen gutter instead of stretching nearly
           // edge-to-edge.
-          padding: EdgeInsets.fromLTRB(
-              20.w, 12.h, 20.w, bottomPad + (viewInsets > 0 ? viewInsets : 0)),
+          padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, bottomPad + viewInsets),
           child: Column(
             children: [
-              progress,
+              widget.progress,
               SizedBox(height: 12.h),
               Expanded(
                 child: PageView(
-                  controller: controller,
+                  controller: widget.controller,
                   // Steps advance only via the Continue/Next buttons.
                   // Swiping must NOT skip a step — it would bypass the
                   // per-step validation and completion tracking.
                   physics: const NeverScrollableScrollPhysics(),
-                  onPageChanged: onPageChanged,
-                  children: pages,
+                  onPageChanged: widget.onPageChanged,
+                  children: widget.pages,
                 ),
               ),
-              cta,
+              widget.cta,
             ],
           ),
         ),
@@ -265,6 +305,20 @@ class SendRecipientField extends StatelessWidget {
               cursorWidth: 2.0,
               maxLines: 2,
               minLines: 1,
+              // An address or invoice, never prose: a plain text
+              // keyboard with nothing that rewrites what is pasted or
+              // typed (autocorrect, suggestions, capitals, smart
+              // punctuation would all corrupt a recipient).
+              keyboardType: TextInputType.text,
+              textInputAction: TextInputAction.done,
+              autocorrect: false,
+              enableSuggestions: false,
+              textCapitalization: TextCapitalization.none,
+              smartDashesType: SmartDashesType.disabled,
+              smartQuotesType: SmartQuotesType.disabled,
+              // Room under the field when the keyboard scrolls it into
+              // view, so the badge under it shows too.
+              scrollPadding: EdgeInsets.only(bottom: 120.h),
               onChanged: onChanged,
               decoration: InputDecoration(
                 hintText: hintText ??

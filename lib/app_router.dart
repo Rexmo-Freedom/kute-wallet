@@ -11,6 +11,7 @@ import 'package:kute/screens/creation/passkey_choice.dart';
 import 'package:kute/screens/creation/confirm_pin.dart';
 import 'package:kute/screens/pay/components/confirm_send.dart';
 import 'package:kute/screens/shared/bitcoin_transactions_details_screen.dart';
+import 'package:kute/screens/shared/send/send_sheet.dart';
 import 'package:kute/screens/spash/splash.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kute/screens/home/main_screen.dart';
@@ -428,9 +429,14 @@ class AppRouter {
                           path: 'confirm_send',
                           name: 'pay_send',
                           parentNavigatorKey: _rootNavigatorKey,
-                          pageBuilder: (context, state) => _buildFadeScalePage(
+                          // The send sheet (send_sheet.dart): every way
+                          // in (the dock, the scanner hand-off, payment
+                          // links) opens it over the screen it came
+                          // from; a preset recipient opens it full.
+                          pageBuilder: (context, state) => SendSheetPage<void>(
+                            key: state.pageKey,
+                            name: state.name,
                             child: const ConfirmSend(),
-                            state: state,
                           ),
                         ),
                         // Legacy aliases — keep `pay_bitcoin` and

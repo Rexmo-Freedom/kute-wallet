@@ -13,6 +13,7 @@ import 'package:kute/providers/wallet_scope_provider.dart';
 import 'package:kute/screens/home/components/action_pill.dart';
 import 'package:kute/screens/home/components/kute_bottom_action_bar.dart';
 import 'package:kute/screens/receive/receive_sheet.dart' show ReceiveSheets;
+import 'package:kute/screens/shared/send/send_sheet.dart';
 import 'package:kute/screens/shared/wallet_bitcoin_body.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -62,7 +63,11 @@ Future<ProviderContainer> _pump(WidgetTester tester, WalletConfig wallet,
     GoRoute(
         path: '/send',
         name: 'pay_send',
-        builder: (_, __) => const Text('Send route')),
+        // The real route presents the send sheet (app_router.dart).
+        pageBuilder: (_, state) => SendSheetPage<void>(
+            key: state.pageKey,
+            name: state.name,
+            child: const Text('Send route'))),
   ]);
   addTearDown(router.dispose);
   await tester.pumpWidget(UncontrolledProviderScope(
@@ -121,6 +126,11 @@ void main() {
       await tester.tap(find.text('Send'));
       await tester.pumpAndSettle();
       expect(find.text('Send route'), findsOneWidget);
+      // Over the wallet, as the send sheet at medium height.
+      final sheet = find.byKey(const ValueKey('send-sheet'));
+      expect(tester.getSize(sheet).height,
+          moreOrLessEquals(600 * kSendSheetMediumFraction));
+      expect(find.byType(WalletBitcoinActionBar), findsOneWidget);
       expect(scope.read(bdkScopeWalletIdProvider), wallet.id);
       expect(scope.read(viewedWalletIdProvider), wallet.id);
     });

@@ -98,6 +98,7 @@ import 'package:kute/screens/shared/custom_button.dart'
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart';
+import 'package:kute/screens/shared/send/send_sheet.dart';
 import 'package:kute/screens/shared/stepper/stepper_widgets.dart';
 import 'package:kute/models/affiliate_model.dart' show AffiliateService;
 import 'package:kute/services/api/orchestra_api.dart' show OrchestraService;
@@ -136,9 +137,11 @@ const double _kMinUsd = 1.0;
 /// pin makes the route unavailable in the quote gate long before here.
 const int _kUsdDecimals = 6;
 
-/// Page indices of the stepper, in the bitcoin send's order.
-const int _kAmountStep = 0;
-const int _kSendToStep = 1;
+/// Page indices of the stepper, in the bitcoin send's order: the
+/// recipient first (the send sheet's medium-height step), then the
+/// amount on the keypad, then Review.
+const int _kSendToStep = 0;
+const int _kAmountStep = 1;
 const int _kReviewStep = 2;
 
 /// The Move sheet's `entry_source` when a send short of dollars opens it.
@@ -156,7 +159,8 @@ double usdSendShortfallUsd(BigInt typedUnits, BigInt availableUnits) {
   return cents.toInt() / 100;
 }
 
-/// Full-screen dollar send. Push it on the root navigator.
+/// The dollar send. Open it with `showSendSheet` (send_sheet.dart): it
+/// reports to the sheet what height it needs and when it may close.
 ///
 /// Typed over the balance, the amount step's "not enough" line carries
 /// one button, the slips' "Add $X to Investments": the Investments
@@ -164,7 +168,7 @@ double usdSendShortfallUsd(BigInt typedUnits, BigInt availableUnits) {
 /// missing. Nothing moves until the person confirms it there; no bitcoin
 /// is ever pulled and no position sold on their behalf. Once that deposit
 /// went through they are back here with the amount kept, and the send
-/// carries on to its recipient as soon as the dollars cover it.
+/// carries on to Review as soon as the dollars cover it.
 class UsdSendScreen extends ConsumerStatefulWidget {
   const UsdSendScreen({super.key});
 
@@ -190,7 +194,7 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
   /// The "digit lands" bounce on each keystroke, as on the bitcoin send.
   late final AnimationController _amountPulse;
 
-  int _step = _kAmountStep;
+  int _step = _kSendToStep;
   final Set<int> _completedSteps = <int>{};
 
   /// The typed amount, in dollars, exactly as the keypad produced it.
@@ -266,8 +270,19 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
       entrySource: TrackingService.takeEntrySource('usd_send', fallback: 'usd'),
       walletKind: _walletKind(),
       network: 'spark',
-      props: {'source': 'usd', 'source_asset': 'usd'},
+      props: {
+        'source': 'usd',
+        'source_asset': 'usd',
+        'presentation': SendSheetScope.presented(context) ? 'sheet' : 'screen',
+      },
     );
+    // Send to is the first step: start it on USDC · Arbitrum and offer a
+    // recipient already sitting in the clipboard, as arriving on it does.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _step != _kSendToStep) return;
+      _applyDefaultDestination();
+      unawaited(_checkClipboard());
+    });
     // A dollar send is a money decision on a live route, so nudge the
     // catalog rather than waiting for its 6 h cadence. Fire and forget:
     // the screen renders the current table meanwhile.
@@ -403,8 +418,8 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
     ));
   }
 
-  /// Back from a top-up: on to the recipient once the dollars cover the
-  /// amount, which is kept exactly as typed.
+  /// Back from a top-up: on to Review once the dollars cover the amount,
+  /// which is kept exactly as typed.
   void _continueAfterTopUp() {
     if (!_awaitingTopUp || _step != _kAmountStep || !_amountStepValid) return;
     _awaitingTopUp = false;
@@ -651,14 +666,28 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
   Widget build(BuildContext context) {
     final c = context.colors;
     final spending = pickSpendingWallet(ref.watch(settingsProvider));
-    // A catalog that lands after Amount still gets the default.
+    // A catalog that lands after the sheet opened still gets the default.
     ref.listen(orchestraSupportedRoutesProvider, (_, __) {
       if (_step == _kSendToStep) _applyDefaultDestination();
     });
     // Dollars landing from a top-up carry the send on.
     ref.listen(usdBalanceProvider, (_, __) => _continueAfterTopUp());
+    // The send sheet: medium on Send to until a recipient is in, full
+    // from there on. A drag or a scrim tap may close it only on Send to
+    // and never while the send (or a venue pull for it) is running.
+    final onFirstStep = _step == _kSendToStep;
+    SendSheetScope.sync(
+      context,
+      expanded: !onFirstStep || _address.text.trim().isNotEmpty,
+      dismissible: onFirstStep && !_processing,
+    );
     return PopScope(
-      canPop: !_processing,
+      // Past Send to, system back steps back inside the send instead of
+      // dropping it.
+      canPop: !_processing && onFirstStep,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && !_processing && !onFirstStep) _onLeadingTap();
+      },
       child: KeyboardDismissOnTap(
         child: Scaffold(
           extendBodyBehindAppBar: true,
@@ -680,7 +709,7 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
                     account: UsdcSpendingAccount(spending),
                     readOnly: true,
                   ),
-            leading: _step == _kAmountStep
+            leading: onFirstStep
                 ? KuteBareCloseButton(onPressed: _onLeadingTap)
                 : KuteBackButton(onPressed: _onLeadingTap),
           ),
@@ -698,16 +727,16 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
             },
             pages: [
               StepPageWrapper(
-                title: context.l10n.amount,
-                subtitle: context.l10n.usdSendAmountSubtitle,
-                colors: c,
-                child: _amountPage(c),
-              ),
-              StepPageWrapper(
                 title: context.l10n.sendTo,
                 subtitle: context.l10n.sendWhereShouldItLand,
                 colors: c,
                 child: _sendToPage(c),
+              ),
+              StepPageWrapper(
+                title: context.l10n.amount,
+                subtitle: context.l10n.usdSendAmountSubtitle,
+                colors: c,
+                child: _amountPage(c),
               ),
               StepPageWrapper(
                 title: context.l10n.sendReview,
@@ -722,7 +751,7 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
             cta: SharedStepCta(
               step: _step,
               colors: c,
-              visibleSteps: const {_kAmountStep, _kSendToStep},
+              visibleSteps: const {_kSendToStep, _kAmountStep},
               enabled: _step == _kAmountStep
                   ? _amountStepValid
                   : _step == _kSendToStep && _recipientReady,
@@ -737,7 +766,7 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
     );
   }
 
-  // ─── Step 1: Amount ───────────────────────────────────────────────
+  // ─── Step 2: Amount ───────────────────────────────────────────────
 
   Widget _amountPage(AppColorsExtension c) {
     ref.watch(usdBalanceProvider);
@@ -892,14 +921,21 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
     });
   }
 
+  /// Amount → Review. The recipient was settled on the step before; it
+  /// is held to the same gate again here, so Review never opens on a
+  /// destination that stopped fitting.
   void _confirmAmount() {
-    if (!_amountStepValid) return;
-    _applyDefaultDestination();
-    TrackingService.moneyFlowStep('usd_send', 'address', props: _flowInputs());
-    _advanceTo(_kSendToStep, completed: _kAmountStep);
+    if (!_amountStepValid || !_recipientReady) return;
+    TrackingService.moneyFlowStep('usd_send', 'review', props: _flowInputs());
+    _advanceTo(_kReviewStep, completed: _kAmountStep);
+    if (_drain) {
+      unawaited(_resolveDrain());
+    } else {
+      unawaited(_fetchEstimate());
+    }
   }
 
-  // ─── Step 2: Send to ──────────────────────────────────────────────
+  // ─── Step 1: Send to ──────────────────────────────────────────────
 
   /// Starts the send on USDC · Arbitrum when nothing is chosen yet and
   /// that route is offered; otherwise leaves the destination to the
@@ -1163,15 +1199,11 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
     unawaited(closed);
   }
 
+  /// Send to → Amount.
   void _confirmRecipient() {
     if (!_recipientReady) return;
-    TrackingService.moneyFlowStep('usd_send', 'review', props: _flowInputs());
-    _advanceTo(_kReviewStep, completed: _kSendToStep);
-    if (_drain) {
-      unawaited(_resolveDrain());
-    } else {
-      unawaited(_fetchEstimate());
-    }
+    TrackingService.moneyFlowStep('usd_send', 'amount', props: _flowInputs());
+    _advanceTo(_kAmountStep, completed: _kSendToStep);
   }
 
   // ─── Step 3: Review ───────────────────────────────────────────────
@@ -1478,10 +1510,10 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
     }
   }
 
-  /// First tap on a later step goes back one page; on Amount it closes.
+  /// First tap on a later step goes back one page; on Send to it closes.
   void _onLeadingTap() {
     if (_processing) return;
-    if (_step <= _kAmountStep) {
+    if (_step <= _kSendToStep) {
       Navigator.of(context).maybePop();
       return;
     }

@@ -91,6 +91,7 @@ import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/screens/shared/powered_by_badge.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart';
+import 'package:kute/screens/shared/send/send_sheet.dart';
 import 'package:kute/screens/shared/stepper/stepper_widgets.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/transaction_modal.dart';
@@ -1308,16 +1309,30 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
   /// pinned to this ID while the active account remains the spending wallet.
   String? _selectedWalletId;
 
-  /// Active step in the progressive-disclosure stepper.
-  ///   0 — Pay with (source pool)
+  /// Active page of the stepper. Recipient first (the send sheet's
+  /// medium-height step, founder decision October 2026), then the
+  /// amount on the keypad, then Review, then Sign for an external
+  /// signer:
+  ///   0 — Send to (address, paste, scan, recents, network)
   ///   1 — Amount (and Max)
-  ///   2 — Send to (network + address)
-  ///   3 — Review (sticky; Send button enabled)
-  /// Steps "lock" past their currently active value: tapping a
-  /// previously-completed step re-opens it for editing and resets
-  /// `_step` to that index, leaving downstream entries intact but
-  /// re-confirmable.
-  int _step = 0;
+  ///   2 — Review (Send button enabled)
+  ///   3 — Sign (hardware / watch-only only)
+  /// Going back re-opens the previous step for editing, leaving later
+  /// entries intact but re-confirmable.
+  int _step = _kSendToPage;
+
+  static const int _kSendToPage = 0;
+  static const int _kAmountPage = 1;
+  static const int _kReviewPage = 2;
+
+  /// The first page this send shows: Send to, or past what a preset
+  /// address (and its own amount) already answered. Its leading control
+  /// closes the sheet, and only on it may a drag close the sheet.
+  int get _firstVisiblePage => _skipAmountStep
+      ? _kReviewPage
+      : _skipSendToStep
+          ? _kAmountPage
+          : _kSendToPage;
 
   /// True once each step has been confirmed at least once. Used to
   /// render the collapsed summary line on completed sections.
@@ -1326,13 +1341,13 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
   /// True when the address was preloaded into `sendTxProvider` before
   /// this screen mounted (scanner / contact entry) AND the detected
   /// rail is a native BTC one — Bitcoin on-chain, Lightning, Spark.
-  /// The Send-to step (index 1) is then hidden from the stepper and
-  /// the Amount Continue jumps straight to Review.
+  /// The Send-to step (page 0) is then hidden from the stepper and the
+  /// send opens on Amount, whose Continue goes to Review.
   bool _skipSendToStep = false;
 
   /// True when the preloaded address already carries a fixed amount
   /// (Bolt11/12 invoice with amount, Spark invoice with amount). The
-  /// Amount step (index 0) is then hidden too and the user lands
+  /// Amount step (page 1) is then hidden too and the user lands
   /// directly on Review.
   bool _skipAmountStep = false;
 
@@ -1436,7 +1451,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     // Default initial step. Overridden below when the address is
     // preset (scanner / contact / external-entry) so the stepper
     // collapses past steps the user has effectively already answered.
-    _step = 0;
+    _step = _kSendToPage;
 
     // Pre-filled state shortcut. The smart scanner and any other
     // upstream entry writes `address` (and optionally `amount`) into
@@ -1462,7 +1477,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
       if (isNativeBtcRail && hasFixedAmount) {
         _skipSendToStep = true;
         _skipAmountStep = true;
-        _step = 2;
+        _step = _kReviewPage;
         // Both Amount and Send-to are answered by the preset address +
         // embedded amount, so the user lands straight on Review without
         // tapping Continue on either. Pre-mark them complete or the
@@ -1484,12 +1499,16 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
         TrackingService.track('send_invoice_fastpath',
             params: {'entry': 'mount'});
       } else if (isNativeBtcRail) {
-        _skipSendToStep = true; // Amount → Review, skip Send-to
-        _step = 0;
+        // Opens on Amount, whose Continue goes to Review. The preset
+        // address answers Send-to, so it counts as done (the Review
+        // "Send" button gates on {0, 1}).
+        _skipSendToStep = true;
+        _step = _kAmountPage;
+        _completedSteps.add(_kSendToPage);
       }
-      // Non-native rails fall through: _step stays 0, no auto-skip;
-      // the user advances through Amount → Send-to and the
-      // attention-flagged tile on Send-to forces a chain pick.
+      // Non-native rails fall through: the send opens on Send-to with
+      // the address in, and the attention-flagged tile there forces a
+      // chain pick before Amount.
     }
     _pageCtrl = PageController(initialPage: _step);
 
@@ -1497,8 +1516,8 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     // outer `pay_send` route, so each stepper page needs its own emit.
     // Fires once on mount + on every swipe/animate to a new page.
     const stepNames = [
-      'pay_send_amount',
       'pay_send_send_to',
+      'pay_send_amount',
       'pay_send_review',
       'pay_send_sign',
     ];
@@ -1549,6 +1568,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
         'source_asset': 'btc',
         'address_prefilled': preAddress.isNotEmpty,
         'amount_prefilled': sendTxState.amount > 0,
+        'presentation': SendSheetScope.presented(context) ? 'sheet' : 'screen',
       },
     );
     if (_step > 0) {
@@ -1558,6 +1578,9 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      // Opening on Send to: offer a recognisable address or invoice
+      // already sitting in the clipboard, as arriving on it always has.
+      if (_step == _kSendToPage) unawaited(_checkClipboardForAddress());
       // The PSBT is built from the send wallet's own BDK state, so that
       // state has to be loaded before the user can draft one. Sync it
       // here and keep it fresh for as long as the flow is open.
@@ -2468,8 +2491,8 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
   }
 
   static String _sendStepName(int page) => switch (page) {
-        0 => 'amount',
-        1 => 'send_to',
+        0 => 'send_to',
+        1 => 'amount',
         2 => 'review',
         3 => 'sign',
         _ => 'page_$page',
@@ -4970,7 +4993,10 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
   /// auto-advance.
   void _onLeadingTap() {
     if (_signerBusy) return;
-    if (_step <= 0) {
+    // The first page this send shows closes it; a page a preset address
+    // already answered (hidden from the progress bar) is never stepped
+    // back into.
+    if (_step <= _firstVisiblePage) {
       _closeAndReset();
       return;
     }
@@ -5088,8 +5114,23 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     // Rebuild on BTC/USD moves: Review's quote fee note reads it.
     ref.watch(selectedCurrencyProvider('USD')).toDouble();
 
+    // The send sheet: medium on the recipient step until one is in,
+    // full from there on (and from the start when a scan or deep link
+    // brought the recipient). A drag or a scrim tap may close it only
+    // on the first step and never while a send, an approval or a
+    // signer is busy.
+    final busy = isProcessing || _signerBusy || _paymentAuthInFlight;
+    final onFirstPage = _step <= _firstVisiblePage;
+    SendSheetScope.sync(
+      context,
+      expanded: _step != _kSendToPage || addressController.text.isNotEmpty,
+      dismissible: onFirstPage && !busy,
+    );
+
     return PopScope(
-      canPop: !isProcessing && !_signerBusy,
+      // Past the first step, system back steps back inside the send
+      // (onPopInvoked below) instead of dropping it.
+      canPop: !busy && onFirstPage,
       // Reset send-tx state when this route is popped — but DO NOT
       // call context.pop() again here. onPopInvoked fires *during*
       // the pop already in progress; calling pop again from inside
@@ -5097,7 +5138,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
       // close-button branch still calls _closeAndReset (which
       // triggers the pop that lands here), so resetting once is
       // enough.
-      onPopInvoked: (bool didPop) {
+      onPopInvokedWithResult: (bool didPop, Object? _) {
         // Defer the provider mutation. `onPopInvoked` runs
         // inside the navigator's build/route-update phase —
         // when the resume handler routes to `/home` and pops
@@ -5109,6 +5150,8 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
             if (!mounted) return;
             _resetSendState();
           });
+        } else if (!busy && !onFirstPage) {
+          _onLeadingTap();
         }
       },
       child: KeyboardDismissOnTap(
@@ -5140,9 +5183,9 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
             // gesture cheap to undo a mis-click without
             // losing the whole address/amount they typed.
             // Back uses the same thin chevron as KuteBackButton
-            // everywhere else; step 0 keeps a close glyph since
-            // there's nothing to go back to.
-            leading: _step == 0
+            // everywhere else; the first page keeps a close glyph
+            // since there's nothing to go back to.
+            leading: onFirstPage
                 ? KuteBareCloseButton(
                     onPressed: () {
                       if (!isProcessing) _onLeadingTap();
@@ -5210,8 +5253,8 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
         // completed get re-indexed to the visible positions.
         final internalTotal = isExternalSigner ? 4 : 3;
         final hidden = <int>{};
-        if (_skipAmountStep) hidden.add(0);
-        if (_skipSendToStep) hidden.add(1);
+        if (_skipSendToStep) hidden.add(_kSendToPage);
+        if (_skipAmountStep) hidden.add(_kAmountPage);
         final visiblePages = <int>[
           for (var i = 0; i < internalTotal; i++)
             if (!hidden.contains(i)) i
@@ -5248,9 +5291,15 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
         setState(() => _step = i);
         // Arriving on Send to: offer a recognisable address
         // or invoice already sitting in the clipboard.
-        if (i == 1) _checkClipboardForAddress();
+        if (i == _kSendToPage) _checkClipboardForAddress();
       },
       pages: [
+        StepPageWrapper(
+          title: context.l10n.sendTo,
+          subtitle: context.l10n.sendWhereShouldItLand,
+          colors: c,
+          child: _sendToPage(c),
+        ),
         StepPageWrapper(
           title: context.l10n.amount,
           subtitle: _hasSource
@@ -5258,12 +5307,6 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
               : context.l10n.sendHowMuch,
           colors: c,
           child: _amountPage(c, currentInputCurrency, btcFormat, btcSats),
-        ),
-        StepPageWrapper(
-          title: context.l10n.sendTo,
-          subtitle: context.l10n.sendWhereShouldItLand,
-          colors: c,
-          child: _sendToPage(c),
         ),
         StepPageWrapper(
           title: context.l10n.sendReview,
@@ -5304,21 +5347,20 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
             child: _signPage(c, btcFormat),
           ),
       ],
-      // Shared bottom CTA — single Continue button that
-      // adapts per step. Hidden on Step 0 (auto-advance on
-      // tile tap) and Step 3 (slide-to-send lives in the
-      // page itself).
+      // Shared bottom CTA — single Continue button on Send to
+      // and Amount. Review and Sign own their primary action in
+      // the page itself.
       cta: SharedStepCta(
         step: _step,
         colors: c,
-        visibleSteps: const {0, 1},
+        visibleSteps: const {_kSendToPage, _kAmountPage},
         enabled: () {
-          if (_step == 0) {
+          if (_step == _kAmountPage) {
             final amount = ref.watch(sendTxProvider).amount;
             return amount > 0 &&
                 !_amountExceedsPool(amount, _selectedPoolSats(btcSats));
           }
-          if (_step == 1) {
+          if (_step == _kSendToPage) {
             final addr = addressController.text;
             if (addr.isEmpty) return false;
             final detected = _detectAddressType(addr);
@@ -5373,8 +5415,9 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
           return false;
         }(),
         onContinue: () {
-          if (_step == 0) _confirmStep(0);
-          if (_step == 1) _confirmStep(1);
+          if (_step == _kSendToPage || _step == _kAmountPage) {
+            _confirmStep(_step);
+          }
         },
       ),
     );
@@ -7359,32 +7402,23 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     FocusManager.instance.primaryFocus?.unfocus();
     _completedSteps.add(step);
     if (then != null) then();
-    // Phase 3 send funnel: confirming the Amount step (index 0) is the
+    // Phase 3 send funnel: confirming the Amount step (page 1) is the
     // amount-entered milestone. One-shot via a State flag.
-    if (step == 0 && !_amountEnteredTracked) {
+    if (step == _kAmountPage && !_amountEnteredTracked) {
       _amountEnteredTracked = true;
       final type = ref.read(sendTxProvider).type;
       TrackingService.sendAmountEntered(network: _networkLabel(type));
     }
-    if (_step == step && step < 2) {
-      // Address-preset shortcut: when the user landed on Amount
-      // with the address already filled by the scanner / contact
-      // entry AND the address is a native BTC rail, the Send-to
-      // step has nothing to ask. Jump straight to Review. Non-native
-      // rails still need Send-to so the user picks a chain.
-      int targetPage = step + 1;
-      if (step == 0 && _skipSendToStep) {
-        targetPage = 2;
-        // The Send-to step is hidden for address-preset native BTC rails
-        // (scanner / contact entry), so the user never taps Continue on
-        // it. Mark it complete anyway — the Review "Send" button gates on
-        // `_completedSteps.containsAll({0, 1})`, and without this the
-        // button stays disabled forever on the LNURL-via-scanner path.
-        _completedSteps.add(1);
-      }
+    if (_step == step && step < _kReviewPage) {
+      // Send to → Amount → Review. A preset native address opens the
+      // send on Amount (Send to hidden, and marked done at mount so the
+      // Review "Send" button, which gates on {0, 1}, is live on the
+      // LNURL-via-scanner path), so its Continue lands on Review the
+      // same way.
+      final int targetPage = step + 1;
       // Phase 3 send funnel: arriving at the Review page (index 2).
       // One-shot via a State flag so swiping back/forward doesn't dupe.
-      if (targetPage == 2 && !_reviewShownTracked) {
+      if (targetPage == _kReviewPage && !_reviewShownTracked) {
         _reviewShownTracked = true;
         final type = ref.read(sendTxProvider).type;
         TrackingService.sendReviewShown(network: _networkLabel(type));
@@ -7404,14 +7438,13 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
       // debounce and force a fresh quote so the user doesn't sit on
       // a perpetual "Calculating…" if they advanced before the
       // debounce timer fired.
-      if (step == 1 && _selectedDestAsset != null) {
+      if (targetPage == _kReviewPage && _selectedDestAsset != null) {
         _rateDebounce?.cancel();
         _fetchRate();
       }
-      // Send-to → Review transition: if the user tapped MAX before
-      // we knew the destination address, the value we stored was the
-      // raw balance (no fee deduction). Now that the address is set,
-      // recompute the real sendable amount so Review/Sign show what
+      // Amount → Review transition: a MAX stored on Amount can be the
+      // raw balance (no fee deduction). With the address set and the
+      // amount final, recompute the real sendable amount so Review/Sign show what
       // will actually hit the recipient (balance − network fee at the
       // currently-selected fee rate). Without this, on small balances
       // the displayed MAX exceeds the drainable amount and broadcast
@@ -7421,7 +7454,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
       // from the SDK's own send-all preparation.
       // BDK (hot, hardware, watch-only): build a probe drain PSBT and
       // read what its single output pays.
-      if (step == 1 &&
+      if (targetPage == _kReviewPage &&
           _isDraining &&
           _hasSource &&
           _selectedDestAsset == null) {

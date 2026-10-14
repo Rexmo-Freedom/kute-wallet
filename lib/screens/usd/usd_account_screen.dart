@@ -135,6 +135,7 @@ import 'package:kute/screens/shared/investment_balance_header.dart';
 import 'package:kute/screens/shared/kute_motion.dart'
     show KutePressScale, kuteMotion, kuteReduceMotion;
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
+import 'package:kute/screens/shared/send/send_sheet.dart' show showSendSheet;
 import 'package:kute/screens/usd/usd_send_screen.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
@@ -1014,14 +1015,12 @@ class UsdAccountActionBar extends ConsumerWidget {
             label: context.l10n.send,
             trackingId: 'send',
             // `usd_send_opened` fires once from the screen's initState.
-            onTap: () {
-              Navigator.of(context, rootNavigator: true).push(
-                MaterialPageRoute<void>(
-                  fullscreenDialog: true,
-                  builder: (_) => const UsdSendScreen(),
-                ),
-              );
-            },
+            // Opens as the send sheet (send_sheet.dart), as the
+            // Bitcoin dock's Send does.
+            onTap: () => showSendSheet<void>(
+              context,
+              builder: (_) => const UsdSendScreen(),
+            ),
           ),
         ],
         onSearch: () => _search(context, ref),
