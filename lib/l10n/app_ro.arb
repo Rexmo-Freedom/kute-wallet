@@ -3002,5 +3002,15 @@
   "multiMoveTitle": "Mută {amount} în {destination}",
   "multiMoveDeliveredRemaining": "{delivered} livrați · {remaining} rămași",
   "usdReceiveFromYourWallet": "Din portofelul tău",
-  "usdReceiveFromAnotherWallet": "Din alt portofel sau exchange"
+  "usdReceiveFromAnotherWallet": "Din alt portofel sau exchange",
+  "slipStepAddingToInvestments": "Se adaugă {amount} în Investments",
+  "slipStepPreparingPrediction": "Îți pregătim predicția",
+  "slipStepPreparingOrder": "Îți pregătim ordinul",
+  "slipStepPlacingBet": "Se plasează {amount} pe {side}",
+  "slipStepOpeningOrder": "Se deschide {amount} {side} {market}",
+  "slipStepTakingLonger": "Durează mai mult decât de obicei",
+  "slipFundingReadyToPlace": "Cei {amount} ai tăi sunt în Investments. Atinge pentru a plasa.",
+  "slipFundingBitcoinBack": "Adăugarea în Investments nu a reușit. Bitcoinul tău se întoarce.",
+  "oneBalancePlacingBet": "Se plasează {amount} pe {side} · {market}",
+  "oneBalanceOpeningOrder": "Se deschide ordinul de {amount} pe {market}"
 }

@@ -10682,4 +10682,47 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get usdReceiveFromAnotherWallet => 'No cita maka vai biržas';
+
+  @override
+  String slipStepAddingToInvestments(String amount) {
+    return 'Pievieno $amount kontam Investments';
+  }
+
+  @override
+  String get slipStepPreparingPrediction => 'Gatavojam tavu prognozi';
+
+  @override
+  String get slipStepPreparingOrder => 'Gatavojam tavu rīkojumu';
+
+  @override
+  String slipStepPlacingBet(String amount, String side) {
+    return 'Liek $amount uz $side';
+  }
+
+  @override
+  String slipStepOpeningOrder(String amount, String side, String market) {
+    return 'Atver $amount $side $market';
+  }
+
+  @override
+  String get slipStepTakingLonger => 'Aizņem ilgāk nekā parasti';
+
+  @override
+  String slipFundingReadyToPlace(String amount) {
+    return 'Tavi $amount ir kontā Investments. Pieskaries, lai iesniegtu.';
+  }
+
+  @override
+  String get slipFundingBitcoinBack =>
+      'Pievienošana kontam Investments neizdevās. Tavs bitcoin atgriežas.';
+
+  @override
+  String oneBalancePlacingBet(String amount, String side, String market) {
+    return 'Liek $amount uz $side · $market';
+  }
+
+  @override
+  String oneBalanceOpeningOrder(String amount, String market) {
+    return 'Atver $amount $market rīkojumu';
+  }
 }

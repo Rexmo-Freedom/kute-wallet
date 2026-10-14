@@ -10715,4 +10715,47 @@ class AppLocalizationsDa extends AppLocalizations {
 
   @override
   String get usdReceiveFromAnotherWallet => 'Fra en anden wallet eller børs';
+
+  @override
+  String slipStepAddingToInvestments(String amount) {
+    return 'Tilføjer $amount til Investments';
+  }
+
+  @override
+  String get slipStepPreparingPrediction => 'Gør din forudsigelse klar';
+
+  @override
+  String get slipStepPreparingOrder => 'Gør din ordre klar';
+
+  @override
+  String slipStepPlacingBet(String amount, String side) {
+    return 'Placerer $amount på $side';
+  }
+
+  @override
+  String slipStepOpeningOrder(String amount, String side, String market) {
+    return 'Åbner $amount $side $market';
+  }
+
+  @override
+  String get slipStepTakingLonger => 'Det tager længere tid end normalt';
+
+  @override
+  String slipFundingReadyToPlace(String amount) {
+    return 'Dine $amount er i Investments. Tryk for at placere.';
+  }
+
+  @override
+  String get slipFundingBitcoinBack =>
+      'Tilføjelsen til Investments gik ikke igennem. Din bitcoin er på vej tilbage.';
+
+  @override
+  String oneBalancePlacingBet(String amount, String side, String market) {
+    return 'Placerer $amount på $side · $market';
+  }
+
+  @override
+  String oneBalanceOpeningOrder(String amount, String market) {
+    return 'Åbner $amount $market-ordre';
+  }
 }

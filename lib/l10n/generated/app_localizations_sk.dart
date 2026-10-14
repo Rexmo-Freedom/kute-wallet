@@ -10719,4 +10719,47 @@ class AppLocalizationsSk extends AppLocalizations {
 
   @override
   String get usdReceiveFromAnotherWallet => 'Z inej peňaženky alebo burzy';
+
+  @override
+  String slipStepAddingToInvestments(String amount) {
+    return 'Pridávame $amount do Investments';
+  }
+
+  @override
+  String get slipStepPreparingPrediction => 'Pripravujeme tvoju predikciu';
+
+  @override
+  String get slipStepPreparingOrder => 'Pripravujeme tvoj príkaz';
+
+  @override
+  String slipStepPlacingBet(String amount, String side) {
+    return 'Stávka $amount na $side';
+  }
+
+  @override
+  String slipStepOpeningOrder(String amount, String side, String market) {
+    return 'Otvárame $amount $side $market';
+  }
+
+  @override
+  String get slipStepTakingLonger => 'Trvá to dlhšie ako zvyčajne';
+
+  @override
+  String slipFundingReadyToPlace(String amount) {
+    return 'Tvojich $amount je v Investments. Ťuknutím zadáš.';
+  }
+
+  @override
+  String get slipFundingBitcoinBack =>
+      'Pridanie do Investments sa nepodarilo. Tvoj bitcoin sa vracia.';
+
+  @override
+  String oneBalancePlacingBet(String amount, String side, String market) {
+    return 'Stávka $amount na $side · $market';
+  }
+
+  @override
+  String oneBalanceOpeningOrder(String amount, String market) {
+    return 'Otvárame príkaz $amount na $market';
+  }
 }

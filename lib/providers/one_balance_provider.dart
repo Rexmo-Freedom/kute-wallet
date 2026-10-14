@@ -20,7 +20,9 @@
 //               same 30-minute age cap as the pending pool rows. A row
 //               bound for Dollars leaves in flight as soon as a settled
 //               receive shows its money (dollarRowsAlreadyCounted): the
-//               balance counts it from then on;
+//               balance counts it from then on. A row that carries a
+//               funded order's money (`fundedOrdersProvider`) is tagged
+//               with that order, so the header names the order;
 //   waiting   = what the sweeper still owes back, from its own state;
 //   venue cash = the venues' unreserved cash the sweeper is not moving:
 //               cash a venue keeps by design (Investing until it sits
@@ -53,6 +55,8 @@ import 'package:kute/providers/usd_account_provider.dart';
 import 'package:kute/providers/venue_sweeper_provider.dart';
 import 'package:kute/screens/portfolio/open_investments_screen.dart'
     show InvestmentsProduct;
+import 'package:kute/services/one_balance/funded_orders.dart'
+    show FundedOrdersNotifier, fundedOrdersProvider;
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/one_balance/sweep_rules.dart'
     show kSweepDustUsd, kVenueMoveMaxAge, pendingVenueMoveOf;
@@ -141,18 +145,31 @@ Set<String> dollarRowsAlreadyCounted(
 }
 
 /// The in-flight rows from the exchange rows, one row per kind and venue
-/// (the header reads one figure per direction). A row whose dollars a
-/// receive in [dollarReceives] already shows is not in flight (see
-/// [dollarRowsAlreadyCounted]). Pure for the tests.
+/// (the header reads one figure per direction), and one per order for the
+/// rows [orderOf] says carry a funded order's money (its Bitcoin leg or
+/// its move into the venue), so the header can name the order. A row
+/// whose dollars a receive in [dollarReceives] already shows is not in
+/// flight (see [dollarRowsAlreadyCounted]). Pure for the tests.
 List<InFlightMove> inFlightMovesFrom(
   Iterable<SwapOrder> rows, {
   required String? walletId,
   required int nowMs,
   Iterable<DollarReceive> dollarReceives = const [],
+  InFlightOrder? Function(String rowId)? orderOf,
 }) {
   final counted = dollarRowsAlreadyCounted(rows, dollarReceives,
       walletId: walletId, nowMs: nowMs);
-  final sums = <(InFlightKind, OneBalanceVenue?), double>{};
+  final sums = <(InFlightKind, OneBalanceVenue?, InFlightOrder?), double>{};
+  final orders = <InFlightOrder>[];
+  void add(InFlightKind kind, OneBalanceVenue? venue, String rowId,
+      double usd) {
+    if (usd <= 0) return;
+    final order = orderOf?.call(rowId);
+    if (order != null && !orders.contains(order)) orders.add(order);
+    final key = (kind, venue, order);
+    sums[key] = (sums[key] ?? 0) + usd;
+  }
+
   for (final row in rows) {
     if (counted.contains(row.id)) continue;
     final move = pendingVenueMoveOf(row, walletId: walletId, nowMs: nowMs);
@@ -163,27 +180,25 @@ List<InFlightMove> inFlightMovesFrom(
       final usd = kind == InFlightKind.toVenue
           ? _parse(row.depositAmount)
           : _parse(row.withdrawalAmount);
-      if (usd > 0) sums[(kind, venue)] = (sums[(kind, venue)] ?? 0) + usd;
+      add(kind, venue, row.id, usd);
       continue;
     }
     if (isPendingDollarsIncoming(row, walletId: walletId, nowMs: nowMs)) {
-      final usd = _parse(row.withdrawalAmount);
-      if (usd > 0) {
-        sums[(InFlightKind.incomingDollars, null)] =
-            (sums[(InFlightKind.incomingDollars, null)] ?? 0) + usd;
-      }
+      add(InFlightKind.incomingDollars, null, row.id,
+          _parse(row.withdrawalAmount));
     }
   }
-  const order = [
+  const kinds = [
     InFlightKind.toVenue,
     InFlightKind.fromVenue,
     InFlightKind.incomingDollars,
   ];
   return [
-    for (final kind in order)
+    for (final kind in kinds)
       for (final venue in [...OneBalanceVenue.values, null])
-        if (sums[(kind, venue)] case final usd?)
-          InFlightMove(kind: kind, venue: venue, usd: usd),
+        for (final order in [null, ...orders])
+          if (sums[(kind, venue, order)] case final usd?)
+            InFlightMove(kind: kind, venue: venue, usd: usd, order: order),
   ];
 }
 
@@ -285,6 +300,7 @@ final oneBalanceProvider = Provider<OneBalanceState>((ref) {
   final dollars = ref.watch(usdBalanceProvider);
   final venues = ref.watch(unifiedVenueBalancesProvider);
   final walletId = ref.watch(settingsProvider.select((s) => s.activeWalletId));
+  final funded = ref.watch(fundedOrdersProvider);
   final inFlight = inFlightMovesFrom(
     ref.watch(swapOrdersProvider),
     walletId: walletId,
@@ -296,6 +312,9 @@ final oneBalanceProvider = Provider<OneBalanceState>((ref) {
         if (tx.type == TransactionType.received)
           (at: tx.timestamp, usd: tx.amount.toInt() / 1e6),
     ],
+    // Rows carrying a funded order's money name the order.
+    orderOf: (rowId) =>
+        FundedOrdersNotifier.liveOwnerOf(funded, rowId)?.toInFlightOrder(),
   );
   return oneBalanceStateFrom(
     dollarsUsd: dollars,

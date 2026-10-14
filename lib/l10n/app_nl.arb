@@ -3002,5 +3002,15 @@
   "multiMoveTitle": "{amount} naar {destination} verplaatsen",
   "multiMoveDeliveredRemaining": "{delivered} aangekomen · {remaining} resterend",
   "usdReceiveFromYourWallet": "Vanuit je wallet",
-  "usdReceiveFromAnotherWallet": "Vanuit een andere wallet of exchange"
+  "usdReceiveFromAnotherWallet": "Vanuit een andere wallet of exchange",
+  "slipStepAddingToInvestments": "{amount} toevoegen aan Investments",
+  "slipStepPreparingPrediction": "Je voorspelling wordt klaargezet",
+  "slipStepPreparingOrder": "Je order wordt klaargezet",
+  "slipStepPlacingBet": "{amount} inzetten op {side}",
+  "slipStepOpeningOrder": "{amount} {side} {market} openen",
+  "slipStepTakingLonger": "Dit duurt langer dan normaal",
+  "slipFundingReadyToPlace": "Je {amount} staat in Investments. Tik om te plaatsen.",
+  "slipFundingBitcoinBack": "Toevoegen aan Investments is niet gelukt. Je bitcoin komt terug.",
+  "oneBalancePlacingBet": "{amount} inzetten op {side} · {market}",
+  "oneBalanceOpeningOrder": "Order van {amount} op {market} openen"
 }

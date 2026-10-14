@@ -3002,5 +3002,15 @@
   "multiMoveTitle": "Sposta {amount} su {destination}",
   "multiMoveDeliveredRemaining": "{delivered} consegnati · {remaining} rimanenti",
   "usdReceiveFromYourWallet": "Dal tuo wallet",
-  "usdReceiveFromAnotherWallet": "Da un altro wallet o exchange"
+  "usdReceiveFromAnotherWallet": "Da un altro wallet o exchange",
+  "slipStepAddingToInvestments": "Aggiunta di {amount} a Investments",
+  "slipStepPreparingPrediction": "Prepariamo la tua previsione",
+  "slipStepPreparingOrder": "Prepariamo il tuo ordine",
+  "slipStepPlacingBet": "Puntata di {amount} su {side}",
+  "slipStepOpeningOrder": "Apertura di {amount} {side} {market}",
+  "slipStepTakingLonger": "Ci vuole più del solito",
+  "slipFundingReadyToPlace": "I tuoi {amount} sono in Investments. Tocca per piazzare.",
+  "slipFundingBitcoinBack": "L'aggiunta a Investments non è andata a buon fine. I tuoi bitcoin stanno tornando.",
+  "oneBalancePlacingBet": "Puntata di {amount} su {side} · {market}",
+  "oneBalanceOpeningOrder": "Apertura ordine da {amount} su {market}"
 }

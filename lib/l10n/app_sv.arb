@@ -3002,5 +3002,15 @@
   "multiMoveTitle": "Flytta {amount} till {destination}",
   "multiMoveDeliveredRemaining": "{delivered} levererat · {remaining} kvar",
   "usdReceiveFromYourWallet": "Från din plånbok",
-  "usdReceiveFromAnotherWallet": "Från en annan plånbok eller börs"
+  "usdReceiveFromAnotherWallet": "Från en annan plånbok eller börs",
+  "slipStepAddingToInvestments": "Lägger till {amount} i Investments",
+  "slipStepPreparingPrediction": "Gör din förutsägelse klar",
+  "slipStepPreparingOrder": "Gör din order klar",
+  "slipStepPlacingBet": "Lägger {amount} på {side}",
+  "slipStepOpeningOrder": "Öppnar {amount} {side} {market}",
+  "slipStepTakingLonger": "Det tar längre tid än vanligt",
+  "slipFundingReadyToPlace": "Dina {amount} finns i Investments. Tryck för att lägga.",
+  "slipFundingBitcoinBack": "Det gick inte att lägga till i Investments. Din bitcoin kommer tillbaka.",
+  "oneBalancePlacingBet": "Lägger {amount} på {side} · {market}",
+  "oneBalanceOpeningOrder": "Öppnar order på {amount} för {market}"
 }

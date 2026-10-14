@@ -10702,4 +10702,47 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get usdReceiveFromAnotherWallet => 'Teisest rahakotist või börsilt';
+
+  @override
+  String slipStepAddingToInvestments(String amount) {
+    return 'Lisame $amount kontole Investments';
+  }
+
+  @override
+  String get slipStepPreparingPrediction => 'Valmistame sinu ennustust ette';
+
+  @override
+  String get slipStepPreparingOrder => 'Valmistame sinu tehingut ette';
+
+  @override
+  String slipStepPlacingBet(String amount, String side) {
+    return 'Panustame $amount valikule $side';
+  }
+
+  @override
+  String slipStepOpeningOrder(String amount, String side, String market) {
+    return 'Avame $amount $side $market';
+  }
+
+  @override
+  String get slipStepTakingLonger => 'Võtab tavapärasest kauem aega';
+
+  @override
+  String slipFundingReadyToPlace(String amount) {
+    return 'Sinu $amount on kontol Investments. Puuduta, et esitada.';
+  }
+
+  @override
+  String get slipFundingBitcoinBack =>
+      'Lisamine kontole Investments ei õnnestunud. Sinu bitcoin tuleb tagasi.';
+
+  @override
+  String oneBalancePlacingBet(String amount, String side, String market) {
+    return 'Panustame $amount valikule $side · $market';
+  }
+
+  @override
+  String oneBalanceOpeningOrder(String amount, String market) {
+    return 'Avame $amount $market tehingu';
+  }
 }

@@ -10791,4 +10791,47 @@ class AppLocalizationsEl extends AppLocalizations {
   @override
   String get usdReceiveFromAnotherWallet =>
       'Από άλλο πορτοφόλι ή ανταλλακτήριο';
+
+  @override
+  String slipStepAddingToInvestments(String amount) {
+    return 'Προσθήκη $amount στα Investments';
+  }
+
+  @override
+  String get slipStepPreparingPrediction => 'Ετοιμάζουμε την πρόβλεψή σου';
+
+  @override
+  String get slipStepPreparingOrder => 'Ετοιμάζουμε την εντολή σου';
+
+  @override
+  String slipStepPlacingBet(String amount, String side) {
+    return 'Τοποθέτηση $amount στο $side';
+  }
+
+  @override
+  String slipStepOpeningOrder(String amount, String side, String market) {
+    return 'Άνοιγμα $amount $side $market';
+  }
+
+  @override
+  String get slipStepTakingLonger => 'Αργεί περισσότερο από το συνηθισμένο';
+
+  @override
+  String slipFundingReadyToPlace(String amount) {
+    return 'Τα $amount σου είναι στα Investments. Πάτησε για τοποθέτηση.';
+  }
+
+  @override
+  String get slipFundingBitcoinBack =>
+      'Η προσθήκη στα Investments δεν ολοκληρώθηκε. Τα bitcoin σου επιστρέφουν.';
+
+  @override
+  String oneBalancePlacingBet(String amount, String side, String market) {
+    return 'Τοποθέτηση $amount στο $side · $market';
+  }
+
+  @override
+  String oneBalanceOpeningOrder(String amount, String market) {
+    return 'Άνοιγμα εντολής $amount $market';
+  }
 }

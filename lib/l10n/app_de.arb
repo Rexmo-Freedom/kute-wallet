@@ -3002,5 +3002,15 @@
   "multiMoveTitle": "{amount} nach {destination} verschieben",
   "multiMoveDeliveredRemaining": "{delivered} angekommen · {remaining} offen",
   "usdReceiveFromYourWallet": "Aus deinem Wallet",
-  "usdReceiveFromAnotherWallet": "Aus einem anderen Wallet oder einer Börse"
+  "usdReceiveFromAnotherWallet": "Aus einem anderen Wallet oder einer Börse",
+  "slipStepAddingToInvestments": "{amount} kommen zu Investments",
+  "slipStepPreparingPrediction": "Deine Prognose wird vorbereitet",
+  "slipStepPreparingOrder": "Deine Order wird vorbereitet",
+  "slipStepPlacingBet": "{amount} auf {side} werden platziert",
+  "slipStepOpeningOrder": "{amount} {side} {market} wird eröffnet",
+  "slipStepTakingLonger": "Dauert länger als üblich",
+  "slipFundingReadyToPlace": "Deine {amount} sind in Investments. Tippe zum Platzieren.",
+  "slipFundingBitcoinBack": "Das Hinzufügen zu Investments hat nicht geklappt. Deine Bitcoin kommen zurück.",
+  "oneBalancePlacingBet": "{amount} auf {side} werden platziert · {market}",
+  "oneBalanceOpeningOrder": "{amount}-Order für {market} wird eröffnet"
 }

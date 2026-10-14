@@ -3002,5 +3002,15 @@
   "multiMoveTitle": "Flyt {amount} til {destination}",
   "multiMoveDeliveredRemaining": "{delivered} leveret · {remaining} tilbage",
   "usdReceiveFromYourWallet": "Fra din wallet",
-  "usdReceiveFromAnotherWallet": "Fra en anden wallet eller børs"
+  "usdReceiveFromAnotherWallet": "Fra en anden wallet eller børs",
+  "slipStepAddingToInvestments": "Tilføjer {amount} til Investments",
+  "slipStepPreparingPrediction": "Gør din forudsigelse klar",
+  "slipStepPreparingOrder": "Gør din ordre klar",
+  "slipStepPlacingBet": "Placerer {amount} på {side}",
+  "slipStepOpeningOrder": "Åbner {amount} {side} {market}",
+  "slipStepTakingLonger": "Det tager længere tid end normalt",
+  "slipFundingReadyToPlace": "Dine {amount} er i Investments. Tryk for at placere.",
+  "slipFundingBitcoinBack": "Tilføjelsen til Investments gik ikke igennem. Din bitcoin er på vej tilbage.",
+  "oneBalancePlacingBet": "Placerer {amount} på {side} · {market}",
+  "oneBalanceOpeningOrder": "Åbner {amount} {market}-ordre"
 }

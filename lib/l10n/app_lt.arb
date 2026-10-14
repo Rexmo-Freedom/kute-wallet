@@ -3002,5 +3002,15 @@
   "multiMoveTitle": "Perkelti {amount} į {destination}",
   "multiMoveDeliveredRemaining": "{delivered} pristatyta · {remaining} liko",
   "usdReceiveFromYourWallet": "Iš jūsų piniginės",
-  "usdReceiveFromAnotherWallet": "Iš kitos piniginės ar biržos"
+  "usdReceiveFromAnotherWallet": "Iš kitos piniginės ar biržos",
+  "slipStepAddingToInvestments": "Pridedama {amount} į Investments",
+  "slipStepPreparingPrediction": "Ruošiame jūsų prognozę",
+  "slipStepPreparingOrder": "Ruošiame jūsų pavedimą",
+  "slipStepPlacingBet": "Statoma {amount} už {side}",
+  "slipStepOpeningOrder": "Atidaroma {amount} {side} {market}",
+  "slipStepTakingLonger": "Užtrunka ilgiau nei įprastai",
+  "slipFundingReadyToPlace": "Jūsų {amount} yra Investments. Bakstelėkite, kad pateiktumėte.",
+  "slipFundingBitcoinBack": "Pridėti į Investments nepavyko. Jūsų bitcoin grįžta.",
+  "oneBalancePlacingBet": "Statoma {amount} už {side} · {market}",
+  "oneBalanceOpeningOrder": "Atidaromas {amount} {market} pavedimas"
 }

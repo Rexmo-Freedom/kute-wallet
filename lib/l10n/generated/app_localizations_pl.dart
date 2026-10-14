@@ -10747,4 +10747,47 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get usdReceiveFromAnotherWallet => 'Z innego portfela lub giełdy';
+
+  @override
+  String slipStepAddingToInvestments(String amount) {
+    return 'Dodawanie $amount do Investments';
+  }
+
+  @override
+  String get slipStepPreparingPrediction => 'Przygotowujemy Twoją prognozę';
+
+  @override
+  String get slipStepPreparingOrder => 'Przygotowujemy Twoje zlecenie';
+
+  @override
+  String slipStepPlacingBet(String amount, String side) {
+    return 'Stawianie $amount na $side';
+  }
+
+  @override
+  String slipStepOpeningOrder(String amount, String side, String market) {
+    return 'Otwieranie $amount $side $market';
+  }
+
+  @override
+  String get slipStepTakingLonger => 'Trwa to dłużej niż zwykle';
+
+  @override
+  String slipFundingReadyToPlace(String amount) {
+    return 'Twoje $amount jest w Investments. Stuknij, aby złożyć.';
+  }
+
+  @override
+  String get slipFundingBitcoinBack =>
+      'Dodanie do Investments nie powiodło się. Twój bitcoin wraca.';
+
+  @override
+  String oneBalancePlacingBet(String amount, String side, String market) {
+    return 'Stawianie $amount na $side · $market';
+  }
+
+  @override
+  String oneBalanceOpeningOrder(String amount, String market) {
+    return 'Otwieranie zlecenia $amount na $market';
+  }
 }

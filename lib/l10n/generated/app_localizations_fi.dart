@@ -10726,4 +10726,47 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get usdReceiveFromAnotherWallet => 'Toisesta lompakosta tai pörssistä';
+
+  @override
+  String slipStepAddingToInvestments(String amount) {
+    return 'Lisätään $amount tilille Investments';
+  }
+
+  @override
+  String get slipStepPreparingPrediction => 'Valmistellaan ennustustasi';
+
+  @override
+  String get slipStepPreparingOrder => 'Valmistellaan toimeksiantoasi';
+
+  @override
+  String slipStepPlacingBet(String amount, String side) {
+    return 'Asetetaan $amount vaihtoehdolle $side';
+  }
+
+  @override
+  String slipStepOpeningOrder(String amount, String side, String market) {
+    return 'Avataan $amount $side $market';
+  }
+
+  @override
+  String get slipStepTakingLonger => 'Kestää tavallista kauemmin';
+
+  @override
+  String slipFundingReadyToPlace(String amount) {
+    return '$amount on tililläsi Investments. Napauta asettaaksesi.';
+  }
+
+  @override
+  String get slipFundingBitcoinBack =>
+      'Lisäys tilille Investments ei onnistunut. Bitcoinisi palaavat.';
+
+  @override
+  String oneBalancePlacingBet(String amount, String side, String market) {
+    return 'Asetetaan $amount vaihtoehdolle $side · $market';
+  }
+
+  @override
+  String oneBalanceOpeningOrder(String amount, String market) {
+    return 'Avataan $amount $market -toimeksianto';
+  }
 }

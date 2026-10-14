@@ -10773,4 +10773,47 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get usdReceiveFromAnotherWallet => 'Din alt portofel sau exchange';
+
+  @override
+  String slipStepAddingToInvestments(String amount) {
+    return 'Se adaugă $amount în Investments';
+  }
+
+  @override
+  String get slipStepPreparingPrediction => 'Îți pregătim predicția';
+
+  @override
+  String get slipStepPreparingOrder => 'Îți pregătim ordinul';
+
+  @override
+  String slipStepPlacingBet(String amount, String side) {
+    return 'Se plasează $amount pe $side';
+  }
+
+  @override
+  String slipStepOpeningOrder(String amount, String side, String market) {
+    return 'Se deschide $amount $side $market';
+  }
+
+  @override
+  String get slipStepTakingLonger => 'Durează mai mult decât de obicei';
+
+  @override
+  String slipFundingReadyToPlace(String amount) {
+    return 'Cei $amount ai tăi sunt în Investments. Atinge pentru a plasa.';
+  }
+
+  @override
+  String get slipFundingBitcoinBack =>
+      'Adăugarea în Investments nu a reușit. Bitcoinul tău se întoarce.';
+
+  @override
+  String oneBalancePlacingBet(String amount, String side, String market) {
+    return 'Se plasează $amount pe $side · $market';
+  }
+
+  @override
+  String oneBalanceOpeningOrder(String amount, String market) {
+    return 'Se deschide ordinul de $amount pe $market';
+  }
 }

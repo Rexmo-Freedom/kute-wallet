@@ -10296,4 +10296,47 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get usdReceiveFromAnotherWallet => '別のウォレットまたは取引所から';
+
+  @override
+  String slipStepAddingToInvestments(String amount) {
+    return 'Investmentsに$amountを追加中';
+  }
+
+  @override
+  String get slipStepPreparingPrediction => '予測を準備しています';
+
+  @override
+  String get slipStepPreparingOrder => '注文を準備しています';
+
+  @override
+  String slipStepPlacingBet(String amount, String side) {
+    return '$sideに$amountを予測中';
+  }
+
+  @override
+  String slipStepOpeningOrder(String amount, String side, String market) {
+    return '$amountの$market $sideを開始中';
+  }
+
+  @override
+  String get slipStepTakingLonger => '通常より時間がかかっています';
+
+  @override
+  String slipFundingReadyToPlace(String amount) {
+    return '$amountはInvestmentsにあります。タップして注文してください。';
+  }
+
+  @override
+  String get slipFundingBitcoinBack =>
+      'Investmentsへの追加は完了しませんでした。ビットコインは返金されます。';
+
+  @override
+  String oneBalancePlacingBet(String amount, String side, String market) {
+    return '$sideに$amountを予測中 · $market';
+  }
+
+  @override
+  String oneBalanceOpeningOrder(String amount, String market) {
+    return '$amountの$market注文を発注中';
+  }
 }

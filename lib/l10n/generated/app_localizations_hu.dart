@@ -10738,4 +10738,47 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get usdReceiveFromAnotherWallet => 'Másik tárcából vagy tőzsdéről';
+
+  @override
+  String slipStepAddingToInvestments(String amount) {
+    return '$amount hozzáadása az Investmentshez';
+  }
+
+  @override
+  String get slipStepPreparingPrediction => 'Előkészítjük a tippedet';
+
+  @override
+  String get slipStepPreparingOrder => 'Előkészítjük a megbízásodat';
+
+  @override
+  String slipStepPlacingBet(String amount, String side) {
+    return '$amount feltétele erre: $side';
+  }
+
+  @override
+  String slipStepOpeningOrder(String amount, String side, String market) {
+    return '$amount $side $market nyitása';
+  }
+
+  @override
+  String get slipStepTakingLonger => 'A szokásosnál tovább tart';
+
+  @override
+  String slipFundingReadyToPlace(String amount) {
+    return 'A(z) $amount az Investmentsben van. Koppints a megadáshoz.';
+  }
+
+  @override
+  String get slipFundingBitcoinBack =>
+      'Az Investmentshez adás nem sikerült. A bitcoinod visszaérkezik.';
+
+  @override
+  String oneBalancePlacingBet(String amount, String side, String market) {
+    return '$amount feltétele erre: $side · $market';
+  }
+
+  @override
+  String oneBalanceOpeningOrder(String amount, String market) {
+    return '$amount értékű $market megbízás nyitása';
+  }
 }

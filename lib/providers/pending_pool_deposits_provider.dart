@@ -69,6 +69,32 @@ bool isPendingDollarsIncoming(
   return nowMs - e.timestamp <= _kPendingDepositMaxAge.inMilliseconds;
 }
 
+/// True for a pending Bitcoin → Dollars leg on this wallet's own Spark
+/// account (BTC on SPARK in, the dollar token on SPARK out), same wallet
+/// and age rules as [isPendingPoolDeposit]. A slip counts such a row as
+/// its own deposit on its way when the funded-order record that started
+/// it names the slip's venue (`FundedOrdersNotifier.btcRowVenue`), so a
+/// second "Add" never converts more while the first is on its way.
+bool isPendingBitcoinLeg(
+  SwapOrder e, {
+  required String? walletId,
+  required int nowMs,
+}) {
+  if (!e.isOrchestra || !e.isPending) return false;
+  if (e.coinFrom.toUpperCase() != 'BTC' ||
+      e.networkFrom.toUpperCase() != 'SPARK') {
+    return false;
+  }
+  if (e.coinTo.toUpperCase() != 'USDB' ||
+      e.networkTo.toUpperCase() != 'SPARK') {
+    return false;
+  }
+  if (walletId != null && e.walletId != null && e.walletId != walletId) {
+    return false;
+  }
+  return nowMs - e.timestamp <= _kPendingDepositMaxAge.inMilliseconds;
+}
+
 double _pendingUsdTo(Ref ref, String network) {
   final exchanges = ref.watch(swapOrdersProvider);
   final walletId = ref.watch(settingsProvider.select((s) => s.activeWalletId));

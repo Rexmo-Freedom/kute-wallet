@@ -3002,5 +3002,15 @@
   "multiMoveTitle": "Pārvietot {amount} uz {destination}",
   "multiMoveDeliveredRemaining": "{delivered} piegādāti · {remaining} atlikuši",
   "usdReceiveFromYourWallet": "No tava maka",
-  "usdReceiveFromAnotherWallet": "No cita maka vai biržas"
+  "usdReceiveFromAnotherWallet": "No cita maka vai biržas",
+  "slipStepAddingToInvestments": "Pievieno {amount} kontam Investments",
+  "slipStepPreparingPrediction": "Gatavojam tavu prognozi",
+  "slipStepPreparingOrder": "Gatavojam tavu rīkojumu",
+  "slipStepPlacingBet": "Liek {amount} uz {side}",
+  "slipStepOpeningOrder": "Atver {amount} {side} {market}",
+  "slipStepTakingLonger": "Aizņem ilgāk nekā parasti",
+  "slipFundingReadyToPlace": "Tavi {amount} ir kontā Investments. Pieskaries, lai iesniegtu.",
+  "slipFundingBitcoinBack": "Pievienošana kontam Investments neizdevās. Tavs bitcoin atgriežas.",
+  "oneBalancePlacingBet": "Liek {amount} uz {side} · {market}",
+  "oneBalanceOpeningOrder": "Atver {amount} {market} rīkojumu"
 }

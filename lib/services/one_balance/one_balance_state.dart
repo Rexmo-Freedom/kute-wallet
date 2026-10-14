@@ -38,6 +38,45 @@ enum InFlightKind {
   incomingDollars,
 }
 
+/// The order a sum on a rail is for: what the person is doing, in the
+/// words the header shows ("Placing $5 on Yes · Lakers", "Opening $5 NVDA
+/// order"), from the funded-order record that owns the rail's row.
+@immutable
+class InFlightOrder {
+  const InFlightOrder({
+    required this.id,
+    required this.venue,
+    required this.orderUsd,
+    required this.side,
+    required this.market,
+  });
+
+  /// The funded order's local id (one line per order).
+  final String id;
+  final OneBalanceVenue venue;
+
+  /// The bet's stake or the order's margin.
+  final double orderUsd;
+
+  /// "Yes", "Long", ...
+  final String side;
+
+  /// A short name of the market.
+  final String market;
+
+  @override
+  bool operator ==(Object other) =>
+      other is InFlightOrder &&
+      other.id == id &&
+      other.venue == venue &&
+      other.orderUsd == orderUsd &&
+      other.side == side &&
+      other.market == market;
+
+  @override
+  int get hashCode => Object.hash(id, venue, orderUsd, side, market);
+}
+
 /// One sum of money on a rail. Rows with the same kind and venue are not
 /// merged here; the provider decides how coarse the list is.
 @immutable
@@ -46,6 +85,7 @@ class InFlightMove {
     required this.kind,
     required this.usd,
     this.venue,
+    this.order,
   }) : assert(kind == InFlightKind.incomingDollars || venue != null,
             'a venue move needs a venue');
 
@@ -56,15 +96,29 @@ class InFlightMove {
 
   final double usd;
 
+  /// The order this money is for (an order funded from Dollars, or from
+  /// Bitcoin through Dollars), when one is: the header names the order,
+  /// not the rail. Null for money on a rail for no order.
+  final InFlightOrder? order;
+
+  /// Whether the header gives this move a line of its own: the order it
+  /// funds, or dollars arriving from outside. Money moving between the
+  /// person's own accounts for no order (a sweep home, a move with no
+  /// order) leaves the total unchanged and is plumbing: no line.
+  bool get hasLine =>
+      order != null || kind == InFlightKind.incomingDollars;
+
   InFlightMove copyWith({
     InFlightKind? kind,
     OneBalanceVenue? venue,
     double? usd,
+    InFlightOrder? order,
   }) =>
       InFlightMove(
         kind: kind ?? this.kind,
         venue: venue ?? this.venue,
         usd: usd ?? this.usd,
+        order: order ?? this.order,
       );
 
   @override
@@ -72,13 +126,15 @@ class InFlightMove {
       other is InFlightMove &&
       other.kind == kind &&
       other.venue == venue &&
-      other.usd == usd;
+      other.usd == usd &&
+      other.order == order;
 
   @override
-  int get hashCode => Object.hash(kind, venue, usd);
+  int get hashCode => Object.hash(kind, venue, usd, order);
 
   @override
-  String toString() => 'InFlightMove(${kind.name}, ${venue?.name}, $usd)';
+  String toString() => 'InFlightMove(${kind.name}, ${venue?.name}, $usd'
+      '${order == null ? '' : ', order'})';
 }
 
 /// The whole picture at one instant.

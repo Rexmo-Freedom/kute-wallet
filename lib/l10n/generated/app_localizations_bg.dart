@@ -10733,4 +10733,47 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get usdReceiveFromAnotherWallet => 'От друг портфейл или борса';
+
+  @override
+  String slipStepAddingToInvestments(String amount) {
+    return 'Добавяне на $amount към Investments';
+  }
+
+  @override
+  String get slipStepPreparingPrediction => 'Подготвяме прогнозата ти';
+
+  @override
+  String get slipStepPreparingOrder => 'Подготвяме поръчката ти';
+
+  @override
+  String slipStepPlacingBet(String amount, String side) {
+    return 'Залагане на $amount за $side';
+  }
+
+  @override
+  String slipStepOpeningOrder(String amount, String side, String market) {
+    return 'Отваряне на $amount $side $market';
+  }
+
+  @override
+  String get slipStepTakingLonger => 'Отнема повече време от обикновено';
+
+  @override
+  String slipFundingReadyToPlace(String amount) {
+    return 'Твоите $amount са в Investments. Докосни, за да заложиш.';
+  }
+
+  @override
+  String get slipFundingBitcoinBack =>
+      'Добавянето към Investments не мина. Биткойнът ти се връща.';
+
+  @override
+  String oneBalancePlacingBet(String amount, String side, String market) {
+    return 'Залагане на $amount за $side · $market';
+  }
+
+  @override
+  String oneBalanceOpeningOrder(String amount, String market) {
+    return 'Отваряне на поръчка за $amount $market';
+  }
 }

@@ -77,10 +77,12 @@ class InvestmentDiscoveryNotice extends ConsumerWidget {
 ///     ([PortfolioArrowGlyph]); under it "Invested $Y" alone (positions,
 ///     reserved order cash and pending fills; Available is not shown,
 ///     founder decision October 2026). While anything is on a rail that
-///     line gives way to the in-flight lines, in order: moving to a venue,
-///     coming back from one, incoming from outside, unavailable until
-///     balancing completes (venue cash the sweeper still owes back). Money
-///     in flight is never hidden. Venue dust
+///     line gives way to the in-flight lines, in order: the order money
+///     on a rail is for ("Placing $5 on Yes · Lakers"), incoming from
+///     outside, unavailable until balancing completes (venue cash the
+///     sweeper still owes back). Money on a rail between the person's
+///     own accounts for no order (a sweep home) stays in the total with
+///     no line: it is plumbing. Venue dust
 ///     below every route minimum is no line at all: it is part of the
 ///     total like the rest of the venues' cash. No Deposit button:
 ///     money only reaches a venue through an order. The whole block, the
@@ -205,38 +207,46 @@ class InvestmentBalanceHeader extends ConsumerWidget {
     );
   }
 
-  /// The venue's name in the app language, as the strip names it.
-  static String _venueName(BuildContext context, OneBalanceVenue venue) =>
-      switch (venue) {
-        OneBalanceVenue.investing => context.l10n.trading,
-        OneBalanceVenue.predictions => context.l10n.predictions,
-      };
-
   /// The in-flight lines, in order, for [state]. Public so a test can pin
   /// the order and the wording without a widget tree.
+  ///
+  /// The lines name what the person is doing, never the plumbing
+  /// (founder decision 14 October 2026):
+  ///   * money on a rail for an order (its Bitcoin leg or its move into
+  ///     the venue): the order itself, once ("Placing $5 on Yes · Lakers",
+  ///     "Opening $5 NVDA order");
+  ///   * dollars arriving from outside: "Incoming $X";
+  ///   * venue cash the sweeper still owes back: "unavailable until
+  ///     balancing completes".
+  /// Money moving between the person's own accounts for no order (the
+  /// idle sweep home, a move with no order) leaves the total unchanged:
+  /// no line.
   static List<String> inFlightLines(BuildContext context, OneBalanceState state,
       String Function(double) amount) {
     final l10n = context.l10n;
+    final named = <String>{};
     return [
       for (final move in state.inFlight)
-        if (move.kind == InFlightKind.toVenue)
-          l10n.oneBalanceMovingTo(
-              amount(move.usd), _venueName(context, move.venue!)),
+        if (move.order case final order? when named.add(order.id))
+          switch (order.venue) {
+            OneBalanceVenue.predictions => l10n.oneBalancePlacingBet(
+                amount(order.orderUsd), order.side, order.market),
+            OneBalanceVenue.investing => l10n.oneBalanceOpeningOrder(
+                amount(order.orderUsd), order.market),
+          },
       for (final move in state.inFlight)
-        if (move.kind == InFlightKind.fromVenue)
-          l10n.oneBalanceComingBack(
-              amount(move.usd), _venueName(context, move.venue!)),
-      for (final move in state.inFlight)
-        if (move.kind == InFlightKind.incomingDollars)
+        if (move.order == null && move.kind == InFlightKind.incomingDollars)
           l10n.oneBalanceIncoming(amount(move.usd)),
       for (final usd in state.waiting.values)
         if (usd > 0) l10n.oneBalanceWaitingToWithdraw(amount(usd)),
     ];
   }
 
-  /// Whether [state] puts the in-flight lines where the split would be.
+  /// Whether [state] puts the in-flight lines where the split would be:
+  /// whenever [inFlightLines] has one.
   static bool showsInFlight(OneBalanceState state) =>
-      state.inFlight.isNotEmpty || state.waiting.values.any((usd) => usd > 0);
+      state.inFlight.any((move) => move.hasLine) ||
+      state.waiting.values.any((usd) => usd > 0);
 
   /// The one-balance total as the hero prints it — the text and whether
   /// it reads dimmed — for a small copy of it elsewhere (the Investments

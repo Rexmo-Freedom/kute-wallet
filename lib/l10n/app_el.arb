@@ -3002,5 +3002,15 @@
   "multiMoveTitle": "Μετακίνηση {amount} σε {destination}",
   "multiMoveDeliveredRemaining": "{delivered} παραδόθηκαν · {remaining} απομένουν",
   "usdReceiveFromYourWallet": "Από το πορτοφόλι σου",
-  "usdReceiveFromAnotherWallet": "Από άλλο πορτοφόλι ή ανταλλακτήριο"
+  "usdReceiveFromAnotherWallet": "Από άλλο πορτοφόλι ή ανταλλακτήριο",
+  "slipStepAddingToInvestments": "Προσθήκη {amount} στα Investments",
+  "slipStepPreparingPrediction": "Ετοιμάζουμε την πρόβλεψή σου",
+  "slipStepPreparingOrder": "Ετοιμάζουμε την εντολή σου",
+  "slipStepPlacingBet": "Τοποθέτηση {amount} στο {side}",
+  "slipStepOpeningOrder": "Άνοιγμα {amount} {side} {market}",
+  "slipStepTakingLonger": "Αργεί περισσότερο από το συνηθισμένο",
+  "slipFundingReadyToPlace": "Τα {amount} σου είναι στα Investments. Πάτησε για τοποθέτηση.",
+  "slipFundingBitcoinBack": "Η προσθήκη στα Investments δεν ολοκληρώθηκε. Τα bitcoin σου επιστρέφουν.",
+  "oneBalancePlacingBet": "Τοποθέτηση {amount} στο {side} · {market}",
+  "oneBalanceOpeningOrder": "Άνοιγμα εντολής {amount} {market}"
 }

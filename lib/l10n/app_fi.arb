@@ -3002,5 +3002,15 @@
   "multiMoveTitle": "Siirrä {amount} kohteeseen {destination}",
   "multiMoveDeliveredRemaining": "{delivered} perillä · {remaining} jäljellä",
   "usdReceiveFromYourWallet": "Lompakostasi",
-  "usdReceiveFromAnotherWallet": "Toisesta lompakosta tai pörssistä"
+  "usdReceiveFromAnotherWallet": "Toisesta lompakosta tai pörssistä",
+  "slipStepAddingToInvestments": "Lisätään {amount} tilille Investments",
+  "slipStepPreparingPrediction": "Valmistellaan ennustustasi",
+  "slipStepPreparingOrder": "Valmistellaan toimeksiantoasi",
+  "slipStepPlacingBet": "Asetetaan {amount} vaihtoehdolle {side}",
+  "slipStepOpeningOrder": "Avataan {amount} {side} {market}",
+  "slipStepTakingLonger": "Kestää tavallista kauemmin",
+  "slipFundingReadyToPlace": "{amount} on tililläsi Investments. Napauta asettaaksesi.",
+  "slipFundingBitcoinBack": "Lisäys tilille Investments ei onnistunut. Bitcoinisi palaavat.",
+  "oneBalancePlacingBet": "Asetetaan {amount} vaihtoehdolle {side} · {market}",
+  "oneBalanceOpeningOrder": "Avataan {amount} {market} -toimeksianto"
 }

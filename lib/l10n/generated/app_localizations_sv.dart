@@ -10709,4 +10709,47 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String get usdReceiveFromAnotherWallet => 'Från en annan plånbok eller börs';
+
+  @override
+  String slipStepAddingToInvestments(String amount) {
+    return 'Lägger till $amount i Investments';
+  }
+
+  @override
+  String get slipStepPreparingPrediction => 'Gör din förutsägelse klar';
+
+  @override
+  String get slipStepPreparingOrder => 'Gör din order klar';
+
+  @override
+  String slipStepPlacingBet(String amount, String side) {
+    return 'Lägger $amount på $side';
+  }
+
+  @override
+  String slipStepOpeningOrder(String amount, String side, String market) {
+    return 'Öppnar $amount $side $market';
+  }
+
+  @override
+  String get slipStepTakingLonger => 'Det tar längre tid än vanligt';
+
+  @override
+  String slipFundingReadyToPlace(String amount) {
+    return 'Dina $amount finns i Investments. Tryck för att lägga.';
+  }
+
+  @override
+  String get slipFundingBitcoinBack =>
+      'Det gick inte att lägga till i Investments. Din bitcoin kommer tillbaka.';
+
+  @override
+  String oneBalancePlacingBet(String amount, String side, String market) {
+    return 'Lägger $amount på $side · $market';
+  }
+
+  @override
+  String oneBalanceOpeningOrder(String amount, String market) {
+    return 'Öppnar order på $amount för $market';
+  }
 }

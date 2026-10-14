@@ -18126,6 +18126,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'From another wallet or exchange'**
   String get usdReceiveFromAnotherWallet;
+
+  /// Step 1 of a slip funded from bitcoin: the person's own bitcoin becoming Investments dollars. {amount} is a formatted dollar amount.
+  ///
+  /// In en, this message translates to:
+  /// **'Adding {amount} to Investments'**
+  String slipStepAddingToInvestments(String amount);
+
+  /// Step 2 of a prediction slip funded from Investments: the money moving into the prediction venue, phrased around the bet, never as a move into Investments.
+  ///
+  /// In en, this message translates to:
+  /// **'Getting your prediction ready'**
+  String get slipStepPreparingPrediction;
+
+  /// Step 2 of an Investing order slip funded from Investments: the money moving into the trading venue, phrased around the order.
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing your order'**
+  String get slipStepPreparingOrder;
+
+  /// Step 3 of a funded prediction slip: the bet being placed at a fresh price. {amount} is the stake, {side} the outcome (Yes, No, a team).
+  ///
+  /// In en, this message translates to:
+  /// **'Placing {amount} on {side}'**
+  String slipStepPlacingBet(String amount, String side);
+
+  /// Step 3 of a funded Investing order slip: the order being placed. {amount} is the margin, {side} Long/Short/Buy, {market} the market's short name (e.g. Opening $5 Long NVIDIA).
+  ///
+  /// In en, this message translates to:
+  /// **'Opening {amount} {side} {market}'**
+  String slipStepOpeningOrder(String amount, String side, String market);
+
+  /// Small line under the funding steps when adding to Investments has taken more than two minutes. The money is safe; nothing to do.
+  ///
+  /// In en, this message translates to:
+  /// **'Taking longer than usual'**
+  String get slipStepTakingLonger;
+
+  /// Line above a slip's button when its funding stopped with the money in Investments and the order not placed: one tap places it. {amount} is a formatted dollar amount.
+  ///
+  /// In en, this message translates to:
+  /// **'Your {amount} is in Investments. Tap to place.'**
+  String slipFundingReadyToPlace(String amount);
+
+  /// Slip message when the bitcoin to Investments conversion failed and the provider refunds the bitcoin to the person's wallet.
+  ///
+  /// In en, this message translates to:
+  /// **'Adding to Investments didn\'t go through. Your bitcoin is coming back.'**
+  String get slipFundingBitcoinBack;
+
+  /// In-flight line on the Investments header while money moves to place a specific prediction. {amount} is the stake, {side} the outcome, {market} the market's short name.
+  ///
+  /// In en, this message translates to:
+  /// **'Placing {amount} on {side} · {market}'**
+  String oneBalancePlacingBet(String amount, String side, String market);
+
+  /// In-flight line on the Investments header while money moves to open a specific Investing order. {amount} is the margin, {market} the market's short name (e.g. Opening $5 NVDA order).
+  ///
+  /// In en, this message translates to:
+  /// **'Opening {amount} {market} order'**
+  String oneBalanceOpeningOrder(String amount, String market);
 }
 
 class _AppLocalizationsDelegate

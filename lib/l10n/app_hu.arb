@@ -3002,5 +3002,15 @@
   "multiMoveTitle": "{amount} mozgatása ide: {destination}",
   "multiMoveDeliveredRemaining": "{delivered} megérkezett · {remaining} hátravan",
   "usdReceiveFromYourWallet": "A tárcádból",
-  "usdReceiveFromAnotherWallet": "Másik tárcából vagy tőzsdéről"
+  "usdReceiveFromAnotherWallet": "Másik tárcából vagy tőzsdéről",
+  "slipStepAddingToInvestments": "{amount} hozzáadása az Investmentshez",
+  "slipStepPreparingPrediction": "Előkészítjük a tippedet",
+  "slipStepPreparingOrder": "Előkészítjük a megbízásodat",
+  "slipStepPlacingBet": "{amount} feltétele erre: {side}",
+  "slipStepOpeningOrder": "{amount} {side} {market} nyitása",
+  "slipStepTakingLonger": "A szokásosnál tovább tart",
+  "slipFundingReadyToPlace": "A(z) {amount} az Investmentsben van. Koppints a megadáshoz.",
+  "slipFundingBitcoinBack": "Az Investmentshez adás nem sikerült. A bitcoinod visszaérkezik.",
+  "oneBalancePlacingBet": "{amount} feltétele erre: {side} · {market}",
+  "oneBalanceOpeningOrder": "{amount} értékű {market} megbízás nyitása"
 }

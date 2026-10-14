@@ -3002,5 +3002,15 @@
   "multiMoveTitle": "{amount}を{destination}へ移動",
   "multiMoveDeliveredRemaining": "{delivered} 着金 · 残り {remaining}",
   "usdReceiveFromYourWallet": "あなたのウォレットから",
-  "usdReceiveFromAnotherWallet": "別のウォレットまたは取引所から"
+  "usdReceiveFromAnotherWallet": "別のウォレットまたは取引所から",
+  "slipStepAddingToInvestments": "Investmentsに{amount}を追加中",
+  "slipStepPreparingPrediction": "予測を準備しています",
+  "slipStepPreparingOrder": "注文を準備しています",
+  "slipStepPlacingBet": "{side}に{amount}を予測中",
+  "slipStepOpeningOrder": "{amount}の{market} {side}を開始中",
+  "slipStepTakingLonger": "通常より時間がかかっています",
+  "slipFundingReadyToPlace": "{amount}はInvestmentsにあります。タップして注文してください。",
+  "slipFundingBitcoinBack": "Investmentsへの追加は完了しませんでした。ビットコインは返金されます。",
+  "oneBalancePlacingBet": "{side}に{amount}を予測中 · {market}",
+  "oneBalanceOpeningOrder": "{amount}の{market}注文を発注中"
 }

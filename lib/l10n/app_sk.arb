@@ -3002,5 +3002,15 @@
   "multiMoveTitle": "Presunúť {amount} do {destination}",
   "multiMoveDeliveredRemaining": "{delivered} doručené · {remaining} zostáva",
   "usdReceiveFromYourWallet": "Z tvojej peňaženky",
-  "usdReceiveFromAnotherWallet": "Z inej peňaženky alebo burzy"
+  "usdReceiveFromAnotherWallet": "Z inej peňaženky alebo burzy",
+  "slipStepAddingToInvestments": "Pridávame {amount} do Investments",
+  "slipStepPreparingPrediction": "Pripravujeme tvoju predikciu",
+  "slipStepPreparingOrder": "Pripravujeme tvoj príkaz",
+  "slipStepPlacingBet": "Stávka {amount} na {side}",
+  "slipStepOpeningOrder": "Otvárame {amount} {side} {market}",
+  "slipStepTakingLonger": "Trvá to dlhšie ako zvyčajne",
+  "slipFundingReadyToPlace": "Tvojich {amount} je v Investments. Ťuknutím zadáš.",
+  "slipFundingBitcoinBack": "Pridanie do Investments sa nepodarilo. Tvoj bitcoin sa vracia.",
+  "oneBalancePlacingBet": "Stávka {amount} na {side} · {market}",
+  "oneBalanceOpeningOrder": "Otvárame príkaz {amount} na {market}"
 }

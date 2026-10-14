@@ -3002,5 +3002,15 @@
   "multiMoveTitle": "Premakni {amount} v {destination}",
   "multiMoveDeliveredRemaining": "{delivered} dostavljeno · {remaining} preostane",
   "usdReceiveFromYourWallet": "Iz vaše denarnice",
-  "usdReceiveFromAnotherWallet": "Iz druge denarnice ali borze"
+  "usdReceiveFromAnotherWallet": "Iz druge denarnice ali borze",
+  "slipStepAddingToInvestments": "Dodajanje {amount} v Investments",
+  "slipStepPreparingPrediction": "Pripravljamo vašo napoved",
+  "slipStepPreparingOrder": "Pripravljamo vaše naročilo",
+  "slipStepPlacingBet": "Stava {amount} na {side}",
+  "slipStepOpeningOrder": "Odpiranje {amount} {side} {market}",
+  "slipStepTakingLonger": "Traja dlje kot običajno",
+  "slipFundingReadyToPlace": "Vaših {amount} je v Investments. Tapnite za oddajo.",
+  "slipFundingBitcoinBack": "Dodajanje v Investments ni uspelo. Vaš bitcoin se vrača.",
+  "oneBalancePlacingBet": "Stava {amount} na {side} · {market}",
+  "oneBalanceOpeningOrder": "Odpiranje naročila {amount} za {market}"
 }

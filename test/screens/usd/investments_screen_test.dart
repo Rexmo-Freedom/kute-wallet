@@ -379,13 +379,19 @@ void main() {
               InFlightMove(
                   kind: InFlightKind.toVenue,
                   venue: OneBalanceVenue.predictions,
-                  usd: 5),
+                  usd: 5,
+                  order: InFlightOrder(
+                      id: 'fo_bet',
+                      venue: OneBalanceVenue.predictions,
+                      orderUsd: 5,
+                      side: 'Yes',
+                      market: 'Lakers vs Celtics')),
             ]));
     final l10n = _l10n(tester);
     expect(find.textContaining(l10n.available), findsNothing);
     expect(find.byKey(const ValueKey('investments-balance-chevron')),
         findsOneWidget);
-    await tester.tap(find.text(r'$5.00 moving to Predictions'));
+    await tester.tap(find.text(r'Placing $5.00 on Yes · Lakers vs Celtics'));
     await _pumpFrames(tester, 6);
     expect(find.byType(OpenInvestmentsScreen), findsOneWidget);
     expect(events.where((e) => e.$1 == 'investments_balance_tapped').single.$2,

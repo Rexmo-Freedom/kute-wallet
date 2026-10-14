@@ -10738,4 +10738,47 @@ class AppLocalizationsHr extends AppLocalizations {
   @override
   String get usdReceiveFromAnotherWallet =>
       'Iz drugog novčanika ili mjenjačnice';
+
+  @override
+  String slipStepAddingToInvestments(String amount) {
+    return 'Dodavanje $amount u Investments';
+  }
+
+  @override
+  String get slipStepPreparingPrediction => 'Pripremamo tvoje predviđanje';
+
+  @override
+  String get slipStepPreparingOrder => 'Pripremamo tvoj nalog';
+
+  @override
+  String slipStepPlacingBet(String amount, String side) {
+    return 'Ulaganje $amount na $side';
+  }
+
+  @override
+  String slipStepOpeningOrder(String amount, String side, String market) {
+    return 'Otvaranje $amount $side $market';
+  }
+
+  @override
+  String get slipStepTakingLonger => 'Traje dulje nego inače';
+
+  @override
+  String slipFundingReadyToPlace(String amount) {
+    return 'Tvojih $amount je u Investments. Dodirni za postavljanje.';
+  }
+
+  @override
+  String get slipFundingBitcoinBack =>
+      'Dodavanje u Investments nije uspjelo. Tvoj bitcoin se vraća.';
+
+  @override
+  String oneBalancePlacingBet(String amount, String side, String market) {
+    return 'Ulaganje $amount na $side · $market';
+  }
+
+  @override
+  String oneBalanceOpeningOrder(String amount, String market) {
+    return 'Otvaranje naloga od $amount za $market';
+  }
 }

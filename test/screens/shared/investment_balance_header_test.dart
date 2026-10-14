@@ -29,6 +29,22 @@ import 'package:kute/screens/shared/venue_deposit_button.dart';
 import 'package:kute/services/venue_total_cache_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
+/// A bet funded through Investments, as the header names it.
+const _bet = InFlightOrder(
+    id: 'fo_bet',
+    venue: OneBalanceVenue.predictions,
+    orderUsd: 5,
+    side: 'Yes',
+    market: 'Lakers vs Celtics');
+
+/// An Investing order funded through Investments.
+const _order = InFlightOrder(
+    id: 'fo_order',
+    venue: OneBalanceVenue.investing,
+    orderUsd: 7.25,
+    side: 'Long',
+    market: 'NVDA');
+
 Future<void> _pump(WidgetTester tester, Widget child,
     {List<Override> overrides = const [],
     Locale? locale,
@@ -275,21 +291,24 @@ void main() {
             InFlightMove(
                 kind: InFlightKind.toVenue,
                 venue: OneBalanceVenue.predictions,
-                usd: 5),
+                usd: 5,
+                order: _bet),
           ], waiting: const {
             OneBalanceVenue.investing: 0.6
           }));
-      // 42.5 + 57.5 + 5 + 12.4 + 20 + 0.6
+      // 42.5 + 57.5 + 5 + 12.4 + 20 + 0.6: the sweep home is counted, it
+      // only has no line.
       expect(header(tester).amountText, r'$138.00');
       expect(header(tester).availableText, isNull);
       expect(header(tester).investedText, isNull);
       final lines = [
-        r'$5.00 moving to Predictions',
-        r'$12.40 coming back from Investing',
+        r'Placing $5.00 on Yes · Lakers vs Celtics',
         r'Incoming $20.00',
         r'$0.60 unavailable until balancing completes',
       ];
-      expect(find.byType(PendingDepositLine), findsNWidgets(4));
+      expect(find.byType(PendingDepositLine), findsNWidgets(3));
+      expect(find.textContaining('coming back'), findsNothing);
+      expect(find.textContaining('moving to'), findsNothing);
       double top(String line) => tester.getTopLeft(find.text(line)).dy;
       for (var i = 0; i < lines.length; i++) {
         expect(find.text(lines[i]), findsOneWidget, reason: lines[i]);
@@ -325,10 +344,29 @@ void main() {
             InFlightMove(
                 kind: InFlightKind.toVenue,
                 venue: OneBalanceVenue.investing,
-                usd: 7.25),
+                usd: 7.25,
+                order: _order),
           ]));
-      expect(find.text(r'$7.25 moving to Investing'), findsOneWidget);
+      expect(find.text(r'Opening $7.25 NVDA order'), findsOneWidget);
       expect(find.byType(PendingDepositLine), findsOneWidget);
+      // The Bitcoin leg of the same order (dollars arriving for it) and
+      // its move into the venue: one line, the order's.
+      await pumpOne(
+          tester,
+          known.copyWith(inFlight: const [
+            InFlightMove(
+                kind: InFlightKind.toVenue,
+                venue: OneBalanceVenue.predictions,
+                usd: 2,
+                order: _bet),
+            InFlightMove(
+                kind: InFlightKind.incomingDollars, usd: 3.1, order: _bet),
+          ]));
+      expect(find.text(r'Placing $5.00 on Yes · Lakers vs Celtics'),
+          findsOneWidget);
+      expect(find.textContaining('Incoming'), findsNothing);
+      expect(find.byType(PendingDepositLine), findsOneWidget);
+      // The idle sweep home is plumbing: no line, and the split stays.
       await pumpOne(
           tester,
           known.copyWith(inFlight: const [
@@ -337,7 +375,19 @@ void main() {
                 venue: OneBalanceVenue.predictions,
                 usd: 3),
           ]));
-      expect(find.text(r'$3.00 coming back from Predictions'), findsOneWidget);
+      expect(find.textContaining('coming back'), findsNothing);
+      expect(find.byType(PendingDepositLine), findsNothing);
+      expect(header(tester).investedText, isNotNull);
+      // Money moving to a venue for no order: no line either.
+      await pumpOne(
+          tester,
+          known.copyWith(inFlight: const [
+            InFlightMove(
+                kind: InFlightKind.toVenue,
+                venue: OneBalanceVenue.investing,
+                usd: 4),
+          ]));
+      expect(find.byType(PendingDepositLine), findsNothing);
       await pumpOne(tester,
           known.copyWith(waiting: const {OneBalanceVenue.predictions: 0.8}));
       expect(find.text(r'$0.80 unavailable until balancing completes'),
@@ -357,13 +407,13 @@ void main() {
             InFlightMove(
                 kind: InFlightKind.toVenue,
                 venue: OneBalanceVenue.predictions,
-                usd: 5),
+                usd: 5,
+                order: _bet),
           ]),
           locale: const Locale('pt'));
-      // The venue is named as the strip names it (the line's own
-      // translation lives in the ARB files).
-      expect(find.textContaining('Previsões'), findsOneWidget);
-      expect(find.textContaining('Predictions'), findsNothing);
+      // The line's own translation lives in the ARB files.
+      expect(find.textContaining('A colocar'), findsOneWidget);
+      expect(find.textContaining('Placing'), findsNothing);
     });
 
     testWidgets(
@@ -404,7 +454,8 @@ void main() {
             InFlightMove(
                 kind: InFlightKind.toVenue,
                 venue: OneBalanceVenue.predictions,
-                usd: 5),
+                usd: 5,
+                order: _bet),
           ]),
           onTap: () => taps++);
       expect(chevron, findsOneWidget);
@@ -413,15 +464,25 @@ void main() {
             InFlightMove(
                 kind: InFlightKind.toVenue,
                 venue: OneBalanceVenue.predictions,
-                usd: 5),
+                usd: 5,
+                order: _bet),
           ])),
           isTrue);
+      // A sweep home alone has no line, so the split stays.
+      expect(
+          InvestmentBalanceHeader.showsInFlight(known.copyWith(inFlight: const [
+            InFlightMove(
+                kind: InFlightKind.fromVenue,
+                venue: OneBalanceVenue.investing,
+                usd: 5),
+          ])),
+          isFalse);
       expect(InvestmentBalanceHeader.showsInFlight(known), isFalse);
       expect(
           InvestmentBalanceHeader.showsInFlight(
               known.copyWith(waiting: const {OneBalanceVenue.investing: 0.6})),
           isTrue);
-      await tester.tap(find.text(r'$5.00 moving to Predictions'));
+      await tester.tap(find.text(r'Placing $5.00 on Yes · Lakers vs Celtics'));
       await tester.pumpAndSettle();
       expect(taps, 1);
       expect(events.where((e) => e.$1 == 'activity_history_opened'), isEmpty);
@@ -435,11 +496,13 @@ void main() {
             InFlightMove(
                 kind: InFlightKind.toVenue,
                 venue: OneBalanceVenue.predictions,
-                usd: 5),
+                usd: 5,
+                order: _bet),
           ]),
           balancePrivacy: 1);
       expect(header(tester).amountText, '••••••');
-      expect(find.text('•••••• moving to Predictions'), findsOneWidget);
+      expect(find.text('Placing •••••• on Yes · Lakers vs Celtics'),
+          findsOneWidget);
       expect(find.textContaining(r'$'), findsNothing);
     });
   });
