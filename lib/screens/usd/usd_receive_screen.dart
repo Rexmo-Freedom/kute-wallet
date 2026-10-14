@@ -33,6 +33,8 @@ import 'package:kute/screens/receive/quoted_receive_screen.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/custom_button.dart'
     show AppButton, AppButtonVariant;
+import 'package:kute/screens/shared/kute_back_button.dart'
+    show KuteCircleBackButton, KuteCloseButton;
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/screens/shared/qr_code.dart';
 import 'package:kute/screens/shared/receive_surface.dart';
@@ -66,7 +68,8 @@ const String kUsdReceiveBitcoinRowSource = 'usd_receive_bitcoin_row';
 String usdReceiveCoinId(OrchestraReceiveOption o) =>
     '${o.chain}:${o.assetCode}';
 
-/// Full-screen dollar receive.
+/// The dollar receive, a sheet over the current screen
+/// (`showUsdReceiveSheet`, or the `receiveDollars` route's sheet page).
 ///
 /// Every way in (the Investments dock's Receive included) opens on the
 /// coin step: "From your Bitcoin" first, the Move sheet's way in from the
@@ -126,7 +129,7 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
       event: 'usd_receive_opened',
       entrySource:
           TrackingService.takeEntrySource('usd_receive', fallback: 'usd'),
-      props: {'source': 'usd'},
+      props: {'source': 'usd', 'presentation': 'sheet'},
     );
     // The offering is live-catalogue only, so nudge it rather than
     // waiting for the 6 h cadence. The coin step holds the grid itself,
@@ -242,32 +245,61 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
     final c = context.colors;
     final l10n = context.l10n;
     final option = _option;
-    return UsdFlowScaffold(
-      title: l10n.usdReceiveTitle,
-      totalSteps: 2,
-      currentStep: _step == _Step.coin ? 0 : 1,
-      completedSteps: _step == _Step.coin ? const {} : const {0},
-      onBack: _onBack,
-      resizeToAvoidBottomInset: false,
-      child: !_spendingIsActive
-          ? UsdFlowNote(lines: [l10n.receiveOtherCoinsSpendingOnly])
-          : switch (_step) {
-              _Step.coin => _buildCoinStep(context),
-              // Not `tight`: the bitcoin receive gives its share step the
-              // full heading, and a dollar receive that shrank its own was
-              // one of the things that made the two look unrelated.
-              _Step.address => StepPageWrapper(
-                  title: l10n.usdReceiveShareStep,
-                  subtitle: option == null ||
-                          _display == null ||
-                          !_reusableRouteSupported
-                      ? ''
-                      : l10n.usdReceiveShareSubtitle(
-                          option.displaySymbol, option.chainDisplayName),
-                  colors: c,
-                  child: _buildAddressStep(context),
-                ),
-            },
+    // Opens as a sheet over the current screen (receive_sheet.dart), and
+    // both steps happen inside it: the header's close becomes a back
+    // once a coin is picked, and back returns to the coin step.
+    return ReceiveSheetFrame(
+      leading: _step == _Step.coin
+          ? KuteCloseButton(onPressed: _onBack)
+          : KuteCircleBackButton(onPressed: _onBack),
+      title: Text(
+        l10n.usdReceiveTitle,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: c.textPrimary,
+          fontWeight: FontWeight.w800,
+          fontSize: 17.sp,
+          letterSpacing: -0.3,
+        ),
+      ),
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(20.w, 6.h, 20.w, 0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            StepperProgress(
+              totalSteps: 2,
+              currentStep: _step == _Step.coin ? 0 : 1,
+              completedSteps: _step == _Step.coin ? const {} : const {0},
+              colors: c,
+            ),
+            Expanded(
+              child: !_spendingIsActive
+                  ? UsdFlowNote(lines: [l10n.receiveOtherCoinsSpendingOnly])
+                  : switch (_step) {
+                      _Step.coin => _buildCoinStep(context),
+                      // Not `tight`: the bitcoin receive gives its share
+                      // step the full heading, and a dollar receive that
+                      // shrank its own was one of the things that made
+                      // the two look unrelated.
+                      _Step.address => StepPageWrapper(
+                          title: l10n.usdReceiveShareStep,
+                          subtitle: option == null ||
+                                  _display == null ||
+                                  !_reusableRouteSupported
+                              ? ''
+                              : l10n.usdReceiveShareSubtitle(
+                                  option.displaySymbol,
+                                  option.chainDisplayName),
+                          colors: c,
+                          child: _buildAddressStep(context),
+                        ),
+                    },
+            ),
+          ],
+        ),
+      ),
     );
   }
 

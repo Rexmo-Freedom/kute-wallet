@@ -17,8 +17,7 @@ import 'package:kute/screens/home/main_screen.dart';
 import 'package:kute/screens/creation/start.dart';
 import 'package:kute/screens/settings/components/seed_words.dart';
 import 'package:kute/screens/settings/settings.dart';
-import 'package:kute/screens/receive/receive.dart';
-import 'package:kute/screens/usd/usd_receive_screen.dart';
+import 'package:kute/screens/receive/receive_sheet.dart';
 import 'package:kute/screens/creation/set_pin.dart';
 import 'package:kute/screens/login/open_pin.dart';
 import 'package:kute/screens/creation/recover_choice.dart';
@@ -452,30 +451,37 @@ class AppRouter {
                         ),
                       ],
                     ),
+                    // The Bitcoin receive. The dock opens it as a sheet
+                    // (receive_sheet.dart); this route stays for deep
+                    // links and opens that same sheet over the current
+                    // screen.
                     GoRoute(
                       path: '/receive',
-                      name: 'receive',
+                      name: kBitcoinReceiveRouteName,
                       parentNavigatorKey: _rootNavigatorKey,
-                      pageBuilder: (context, state) => _buildFadeScalePage(
-                        child: const Receive(),
-                        state: state,
+                      pageBuilder: (context, state) => ReceiveSheetPage(
+                        key: state.pageKey,
+                        name: state.name,
+                        usd: false,
                       ),
                     ),
-                    // The Dollars tab's own Receive. Its OWN screen
+                    // The Dollars tab's own Receive
                     // (usd_receive_screen.dart), the twin of the dollar
                     // send: the coin the user picks is converted on the
-                    // way in, and it is the dollars that land. Its own
-                    // route so the destination is carried by the URL
-                    // rather than by a one-shot provider a deep link
-                    // could miss. Every way in opens its coin step; an
-                    // old `?coin=auto` link is accepted and ignored.
+                    // way in, and it is the dollars that land. Like the
+                    // Bitcoin one it opens as a sheet; this route stays
+                    // for deep links (and the Investments deposit's
+                    // Receive row) and opens that same sheet. Every way
+                    // in opens its coin step; an old `?coin=auto` link
+                    // is accepted and ignored.
                     GoRoute(
                       path: '/receive_dollars',
-                      name: 'receiveDollars',
+                      name: kUsdReceiveRouteName,
                       parentNavigatorKey: _rootNavigatorKey,
-                      pageBuilder: (context, state) => _buildFadeScalePage(
-                        child: const UsdReceiveScreen(),
-                        state: state,
+                      pageBuilder: (context, state) => ReceiveSheetPage(
+                        key: state.pageKey,
+                        name: state.name,
+                        usd: true,
                       ),
                     ),
                     GoRoute(

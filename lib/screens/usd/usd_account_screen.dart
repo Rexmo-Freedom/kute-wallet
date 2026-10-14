@@ -109,7 +109,6 @@ import 'package:kute/providers/polymarket_trading_provider.dart'
     show polymarketTradingProvider;
 import 'package:kute/providers/unified_search_provider.dart'
     show SearchCategory;
-import 'package:go_router/go_router.dart';
 import 'package:kute/screens/home/components/kute_bottom_action_bar.dart';
 import 'package:kute/screens/home/components/kute_dock_host.dart';
 import 'package:kute/screens/home/shell_wallet_screen.dart'
@@ -117,6 +116,8 @@ import 'package:kute/screens/home/shell_wallet_screen.dart'
 import 'package:kute/screens/hyperliquid/hyperliquid_screen.dart';
 import 'package:kute/screens/polymarket/polymarket_screen.dart';
 import 'package:kute/screens/portfolio/open_investments_screen.dart';
+import 'package:kute/screens/receive/receive_sheet.dart'
+    show showUsdReceiveSheet;
 import 'package:kute/screens/search/unified_search_screen.dart';
 import 'package:kute/screens/shared/investment_balance_header.dart';
 import 'package:kute/screens/shared/kute_motion.dart'
@@ -848,20 +849,20 @@ class UsdAccountActionBar extends ConsumerWidget {
 
   final ValueChanged<double>? onHeightChanged;
 
-  /// Test seam: what Receive opens. Null pushes the Dollars receive
-  /// route (`receiveDollars`); a test swaps in a recorder so the dock can
-  /// be driven without a router.
+  /// Test seam: what Receive opens. Null opens the Dollars receive sheet
+  /// ([showUsdReceiveSheet]); a test swaps in a recorder so the dock can
+  /// be driven on its own.
   @visibleForTesting
   static void Function(BuildContext context)? debugReceiveOpener;
 
-  /// The dock's Receive: the Dollars receive screen on its first step,
+  /// The dock's Receive: the Dollars receive sheet on its first step,
   /// "From your Bitcoin" over the coins it also accepts.
   void _receive(BuildContext context) {
     TrackingService.markEntrySource('usd_receive', kUsdDockSource);
     final open = debugReceiveOpener;
     if (open != null) return open(context);
     // ignore: discarded_futures
-    context.pushNamed('receiveDollars');
+    showUsdReceiveSheet(context);
   }
 
   /// What the square searches for [tab]: a venue's own markets, results
@@ -878,10 +879,7 @@ class UsdAccountActionBar extends ConsumerWidget {
             category: SearchCategory.predictions,
             source: 'predictions'
           ),
-        InvestmentsTab.portfolio => (
-            category: null,
-            source: kUsdSurfaceSource
-          ),
+        InvestmentsTab.portfolio => (category: null, source: kUsdSurfaceSource),
       };
 
   void _search(BuildContext context, WidgetRef ref) {

@@ -13,6 +13,8 @@ import 'package:kute/providers/wallet_scope_provider.dart';
 import 'package:kute/screens/home/components/action_pill.dart'
     show selectedNetworkTypeProvider;
 import 'package:kute/screens/home/components/deposit_sheet.dart';
+import 'package:kute/screens/receive/receive_sheet.dart'
+    show showBitcoinReceiveSheet;
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/pool_balance_header.dart';
@@ -55,7 +57,8 @@ List<KuteDockAction> bitcoinWalletDockActions(
         if (!_pinBitcoinWallet(context, ref, wallet)) return;
         ref.read(selectedNetworkTypeProvider.notifier).state =
             'Bitcoin Network';
-        context.pushNamed('receive');
+        // ignore: discarded_futures
+        showBitcoinReceiveSheet(context);
       },
     ),
     KuteDockAction(

@@ -27,9 +27,58 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:shimmer/shimmer.dart';
 
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/screens/shared/app_bottom_sheet.dart'
+    show AppBottomSheetContainer;
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/fee_copy.dart' show feeRateText;
 import 'package:kute/theme/app_theme.dart';
+
+/// How tall the receive sheet stands, as a share of the screen.
+const double kReceiveSheetMaxHeight = 0.9;
+
+/// The receive sheet's frame, the same for both receives: the app's sheet
+/// container and drag handle, then the header row the full-screen
+/// receives had in their app bar ([leading] on the left, [title] centred),
+/// then the body filling the rest. Swipe down closes it like every sheet.
+class ReceiveSheetFrame extends StatelessWidget {
+  const ReceiveSheetFrame({
+    super.key,
+    required this.leading,
+    required this.title,
+    required this.child,
+  });
+
+  final Widget leading;
+  final Widget title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppBottomSheetContainer(
+      maxHeight: kReceiveSheetMaxHeight,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: EdgeInsets.only(top: 12.h),
+            child: AppDecorations.dragHandle(context),
+          ),
+          Padding(
+            padding: EdgeInsets.fromLTRB(12.w, 8.h, 12.w, 0),
+            child: Row(
+              children: [
+                SizedBox(width: 44.w, child: Center(child: leading)),
+                Expanded(child: Center(child: title)),
+                SizedBox(width: 44.w),
+              ],
+            ),
+          ),
+          Expanded(child: child),
+        ],
+      ),
+    );
+  }
+}
 
 /// The receive surface's vertical rhythm, so the two screens cannot
 /// disagree about how far apart their own parts sit.
@@ -50,9 +99,16 @@ abstract final class ReceiveGaps {
   static double get tail => 16.h;
 }
 
-/// The white plate the QR sits on. Fixed square, generous radius, and a
-/// small inner padding so the code dominates the frame instead of
-/// floating in a bed of whitespace. White is not a themed colour here on
+/// The QR plate's side: as large as the receive sheet allows, about
+/// three quarters of its width, never under 240 nor over 320 points. The
+/// sheet spans the screen, so the screen's width is the sheet's.
+double receiveQrSide(BuildContext context) =>
+    (MediaQuery.sizeOf(context).width * 0.74).clamp(240.0, 320.0);
+
+/// The white plate the QR sits on. A square [receiveQrSide] wide,
+/// generous radius, and a small inner padding so the code dominates the
+/// frame instead of floating in a bed of whitespace (the code keeps its
+/// own quiet zone inside it). White is not a themed colour here on
 /// purpose: a QR needs the contrast in both themes.
 class ReceiveQrPlate extends StatelessWidget {
   const ReceiveQrPlate({super.key, required this.child});
@@ -61,10 +117,11 @@ class ReceiveQrPlate extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final side = receiveQrSide(context);
     return Center(
       child: Container(
-        width: 280.w,
-        height: 280.w,
+        width: side,
+        height: side,
         padding: EdgeInsets.all(8.w),
         decoration: BoxDecoration(
           color: Colors.white,

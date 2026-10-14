@@ -23,6 +23,7 @@ import 'package:kute/screens/home/components/kute_bottom_action_bar.dart';
 import 'package:kute/screens/home/home.dart' show HomeDock;
 import 'package:kute/screens/portfolio/open_investments_screen.dart'
     show InvestmentsProduct;
+import 'package:kute/screens/receive/receive_sheet.dart' show ReceiveSheets;
 import 'package:kute/screens/search/unified_search_screen.dart';
 import 'package:kute/screens/shared/ask_sal_sheet.dart'
     show SalSuggestionButton;
@@ -341,25 +342,57 @@ void main() {
   });
 
   testWidgets(
-      'the Investments dock\'s Receive pushes the Dollars receive route '
-      'plain, so it opens on its coin step (no auto-picked coin)',
-      (tester) async {
-    final opened = <Uri>[];
+      'the Investments dock\'s Receive opens the Dollars receive as a '
+      'bottom sheet over the screen, not a route push', (tester) async {
+    ReceiveSheets.debugUsdBody = (_) => const Text('usd receive body');
+    addTearDown(() => ReceiveSheets.debugUsdBody = null);
+    final pushed = <Uri>[];
     await _pump(tester, const UsdAccountActionBar(), routes: [
       GoRoute(
         path: '/receive_dollars',
         name: 'receiveDollars',
         builder: (_, state) {
-          opened.add(state.uri);
+          pushed.add(state.uri);
           return const Scaffold(body: SizedBox.expand());
         },
       ),
     ]);
     await tester.tap(find.text('Receive'));
     await tester.pumpAndSettle();
-    expect(opened.map((u) => u.toString()).toSet(), {'/receive_dollars'});
-    expect(opened.first.queryParameters, isEmpty);
+    expect(pushed, isEmpty);
+    expect(find.text('usd receive body'), findsOneWidget);
+    final route = ModalRoute.of(tester.element(find.text('usd receive body')));
+    expect(route, isA<ModalBottomSheetRoute<void>>());
+    expect(route!.settings.name, 'receiveDollars');
+    // The dock is still underneath.
+    expect(find.byType(KuteBottomActionBar), findsOneWidget);
     expect(TrackingService.takeEntrySource('usd_receive'), 'usd_dock');
+  });
+
+  testWidgets(
+      'the Bitcoin dock\'s Receive opens the Bitcoin receive as a bottom '
+      'sheet over the screen, not a route push', (tester) async {
+    ReceiveSheets.debugBitcoinBody = (_) => const Text('btc receive body');
+    addTearDown(() => ReceiveSheets.debugBitcoinBody = null);
+    final pushed = <Uri>[];
+    await _pump(tester, const HomeDock(), routes: [
+      GoRoute(
+        path: '/receive',
+        name: 'receive',
+        builder: (_, state) {
+          pushed.add(state.uri);
+          return const Scaffold(body: SizedBox.expand());
+        },
+      ),
+    ]);
+    await tester.tap(find.text('Receive'));
+    await tester.pumpAndSettle();
+    expect(pushed, isEmpty);
+    expect(find.text('btc receive body'), findsOneWidget);
+    final route = ModalRoute.of(tester.element(find.text('btc receive body')));
+    expect(route, isA<ModalBottomSheetRoute<void>>());
+    expect(route!.settings.name, 'receive');
+    expect(find.byType(KuteBottomActionBar), findsOneWidget);
   });
 
   testWidgets('the Dollars dock searches the spending account\'s activity',

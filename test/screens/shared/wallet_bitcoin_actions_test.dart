@@ -12,6 +12,7 @@ import 'package:kute/providers/viewed_wallet_provider.dart';
 import 'package:kute/providers/wallet_scope_provider.dart';
 import 'package:kute/screens/home/components/action_pill.dart';
 import 'package:kute/screens/home/components/kute_bottom_action_bar.dart';
+import 'package:kute/screens/receive/receive_sheet.dart' show ReceiveSheets;
 import 'package:kute/screens/shared/wallet_bitcoin_body.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -86,6 +87,8 @@ Future<ProviderContainer> _pump(WidgetTester tester, WalletConfig wallet,
 void main() {
   testWidgets('hardware receive pins exact wallet and Bitcoin network',
       (tester) async {
+    ReceiveSheets.debugBitcoinBody = (_) => const Text('Receive sheet');
+    addTearDown(() => ReceiveSheets.debugBitcoinBody = null);
     final wallet = WalletConfig(
         id: 'ledger', name: 'Ledger', isHardware: true, isWatchOnly: true);
     final scope = await _pump(tester, wallet);
@@ -96,7 +99,11 @@ void main() {
     expect(bar.actions.map((a) => a.label), ['Receive', 'Send']);
     await tester.tap(find.text('Receive'));
     await tester.pumpAndSettle();
-    expect(find.text('Receive route'), findsOneWidget);
+    // Receive opens as a sheet over the wallet, not the old route.
+    expect(find.text('Receive sheet'), findsOneWidget);
+    expect(find.text('Receive route'), findsNothing);
+    expect(ModalRoute.of(tester.element(find.text('Receive sheet'))),
+        isA<ModalBottomSheetRoute<void>>());
     expect(scope.read(bdkScopeWalletIdProvider), wallet.id);
     expect(scope.read(viewedWalletIdProvider), wallet.id);
     expect(scope.read(selectedNetworkTypeProvider), 'Bitcoin Network');

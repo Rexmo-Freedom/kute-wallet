@@ -26,6 +26,9 @@ Future<T?> showAppBottomSheet<T>({
   // with it. The root navigator sits above the shell — mirror the Polymarket /
   // Hyperliquid sheets, which all use useRootNavigator: true.
   bool useRootNavigator = true,
+  // A name for the sheet's route, for a sheet that stands in for a named
+  // screen (Receive): the route observers keep seeing that name.
+  RouteSettings? routeSettings,
 }) {
   return showModalBottomSheet<T>(
     context: context,
@@ -35,6 +38,7 @@ Future<T?> showAppBottomSheet<T>({
     enableDrag: enableDrag,
     useSafeArea: useSafeArea,
     useRootNavigator: useRootNavigator,
+    routeSettings: routeSettings,
     // Tap anywhere on the sheet outside a focused field to dismiss the
     // keyboard. Child buttons/inputs still win their own taps; only empty
     // space triggers the unfocus. Applies to every sheet opened this way.

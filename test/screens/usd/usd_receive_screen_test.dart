@@ -29,7 +29,13 @@ import 'package:kute/screens/home/components/deposit_sheet.dart'
     show MoveLockedSide;
 import 'package:kute/screens/shared/asset_network_picker.dart' show PickerRow;
 import 'package:kute/screens/shared/coin_asset_grid.dart';
+import 'package:kute/screens/receive/receive_sheet.dart'
+    show showUsdReceiveSheet;
 import 'package:kute/screens/shared/kute_back_button.dart';
+import 'package:kute/screens/shared/receive_surface.dart'
+    show ReceiveQrPlate, ReceiveSheetFrame;
+import 'package:kute/screens/shared/stepper/stepper_widgets.dart'
+    show StepperProgress;
 import 'package:kute/screens/shared/send/send_flow_widgets.dart'
     show SendToListRow;
 import 'package:kute/screens/usd/usd_receive_screen.dart';
@@ -90,8 +96,13 @@ final _l10n = AppLocalizationsEn();
 
 const _bitcoinRow = ValueKey('usd-receive-from-bitcoin');
 
+/// Opens the receive the way the dock does: a sheet over a screen, at a
+/// 390pt-wide phone.
 Future<void> _pump(WidgetTester tester,
     {bool stables = true, int? spendingSats}) async {
+  tester.view.physicalSize = const Size(390, 844);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
   await tester.pumpWidget(ProviderScope(
     overrides: [
       settingsProvider.overrideWith((_) => SettingsModel(Settings(
@@ -130,14 +141,26 @@ Future<void> _pump(WidgetTester tester,
             extensions: [AppColorsExtension.light()]),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-        home: const UsdReceiveScreen(),
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => Center(
+              child: TextButton(
+                onPressed: () => showUsdReceiveSheet(context),
+                child: const Text(_underneath),
+              ),
+            ),
+          ),
+        ),
       ),
     ),
   ));
+  await tester.tap(find.text(_underneath));
   await tester.pump();
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 400));
 }
+
+const _underneath = 'open receive';
 
 /// Unmounts the screen and lets its timers (the shimmer, the sheet) go.
 Future<void> _unmount(WidgetTester tester) async {
@@ -225,16 +248,31 @@ void main() {
   });
 
   testWidgets(
-      'a coin on one network goes straight to its address; the Bitcoin row '
-      'is not repeated there and Back returns to the coin step',
-      (tester) async {
+      'a coin on one network goes straight to its address inside the same '
+      'sheet; the Bitcoin row is not repeated there and Back returns to the '
+      'coin step, still inside the sheet', (tester) async {
     await _pump(tester);
+    final sheet = ModalRoute.of(tester.element(find.byKey(_bitcoinRow)));
+    expect(sheet, isA<ModalBottomSheetRoute<void>>());
+    expect(find.byType(KuteCloseButton), findsOneWidget);
     await tester.tap(_tile('USDT'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.text(_l10n.usdReceiveShareStep), findsOneWidget);
     expect(find.text(_l10n.usdReceiveCreating), findsOneWidget);
     expect(find.byKey(_bitcoinRow), findsNothing);
+    // The address step is the same sheet, not a pushed screen.
+    expect(
+        ModalRoute.of(tester.element(find.text(_l10n.usdReceiveShareStep))),
+        same(sheet));
+    // The QR plate is as large as fits: at least 240pt on a 390pt phone.
+    final plate = tester.getSize(find
+        .descendant(
+            of: find.byType(ReceiveQrPlate), matching: find.byType(Container))
+        .first);
+    expect(plate.height, plate.width);
+    expect(plate.width, greaterThanOrEqualTo(240));
+    expect(plate.width, lessThanOrEqualTo(320));
     final selected =
         events.where((e) => e.$1 == 'usd_receive_coin_selected').single.$2;
     expect(selected, {
@@ -245,12 +283,40 @@ void main() {
       'preselect_reason': 'none',
     });
 
-    await tester.tap(find.byType(KuteBackButton));
+    await tester.tap(find.byType(KuteCircleBackButton));
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.text(_l10n.usdReceiveShareStep), findsNothing);
     expect(find.byKey(_bitcoinRow), findsOneWidget);
     expect(find.text(_l10n.receiveAlsoAccepts), findsOneWidget);
+    expect(ModalRoute.of(tester.element(find.byKey(_bitcoinRow))), same(sheet));
+
+    // On the coin step the header's close closes the sheet.
+    await tester.tap(find.byType(KuteCloseButton));
+    await tester.pumpAndSettle();
+    expect(find.byKey(_bitcoinRow), findsNothing);
+    expect(find.text(_underneath), findsOneWidget);
     expect(tester.takeException(), isNull);
+    await _unmount(tester);
+  });
+
+  testWidgets('the sheet opens with presentation: sheet and swipes away',
+      (tester) async {
+    await _pump(tester);
+    final opened =
+        events.where((e) => e.$1 == 'usd_receive_opened').single.$2!;
+    expect(opened['presentation'], 'sheet');
+    expect(opened['source'], 'usd');
+    // Tall: about 90% of the screen.
+    final frame = tester.getSize(find.byType(ReceiveSheetFrame));
+    expect(frame.height, greaterThan(844 * 0.8));
+    expect(frame.height, lessThanOrEqualTo(844 * 0.9 + 0.5));
+
+    await tester.fling(
+        find.byType(StepperProgress), const Offset(0, 600), 2000);
+    await tester.pumpAndSettle();
+    expect(find.byType(UsdReceiveScreen), findsNothing);
+    expect(find.text(_underneath), findsOneWidget);
+    expect(names(), contains('usd_receive_abandoned'));
     await _unmount(tester);
   });
 

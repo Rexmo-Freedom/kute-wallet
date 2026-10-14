@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io' show Platform;
 
 import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -353,7 +352,10 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
       entrySource: TrackingService.takeEntrySource('receive'),
       walletKind: _receiveWalletKind,
       network: selected is UsdcSpendingAccount ? 'polygon' : 'bitcoin',
-      props: {'pool': selected is UsdcSpendingAccount ? 'usdc' : 'btc'},
+      props: {
+        'pool': selected is UsdcSpendingAccount ? 'usdc' : 'btc',
+        'presentation': 'sheet',
+      },
     );
     // Seed the pool + network branch the Share body reads off of.
     // `_selectedPool` is what flips the QR to the Polymarket Safe and
@@ -769,15 +771,13 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
     _closeAndReset();
   }
 
+  /// Closes the receive sheet (the route a deep link opened is the same
+  /// sheet, so popping it is right either way).
   void _closeAndReset() {
     try {
       ref.read(inputAmountProvider.notifier).state = '0.0';
     } catch (_) {}
-    if (context.canPop()) {
-      context.pop();
-    } else {
-      context.go('/home');
-    }
+    Navigator.of(context).maybePop();
   }
 
   // ─── Build ─────────────────────────────────────────────────────
@@ -810,74 +810,53 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
           });
         }
       },
+      // Opens as a sheet over the current screen (receive_sheet.dart):
+      // the close button and the account the money lands in sit in the
+      // sheet's header row, where the app bar had them.
       child: KeyboardDismissOnTap(
-        child: Scaffold(
-          extendBodyBehindAppBar: true,
-          backgroundColor: c.background,
-          resizeToAvoidBottomInset: false,
-          appBar: AppBar(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            surfaceTintColor: Colors.transparent,
-            shadowColor: Colors.transparent,
-            scrolledUnderElevation: 0,
-            centerTitle: true,
-            // The destination stays fixed for the entire receive flow.
-            title: AccountSwitcherPill(
-              pickerTitle: context.l10n.receiveInto,
-              account: _selectedAccount,
-              readOnly: true,
-            ),
-            leading: Center(
-              child: KuteCloseButton(onPressed: _onLeadingTap),
-            ),
+        child: ReceiveSheetFrame(
+          leading: KuteCloseButton(onPressed: _onLeadingTap),
+          // The destination stays fixed for the entire receive flow.
+          title: AccountSwitcherPill(
+            pickerTitle: context.l10n.receiveInto,
+            account: _selectedAccount,
+            readOnly: true,
           ),
-          body: _buildStepperBody(context, c),
+          child: _buildStepperBody(context, c),
         ),
       ),
     );
   }
 
+  /// The sheet's body. The sheet container already keeps it above the
+  /// home indicator and the keyboard.
   Widget _buildStepperBody(BuildContext context, AppColorsExtension c) {
-    final viewInsets = MediaQuery.of(context).viewInsets.bottom;
-    // Android-only system-nav inset (see camera.dart / confirm_send.dart
-    // for rationale — iOS keeps the 20.h baseline so we don't introduce
-    // a "fake bar" under the home indicator).
-    final androidNavInset =
-        Platform.isAndroid ? MediaQuery.of(context).padding.bottom : 0.0;
-    return Container(
-      decoration: AppDecorations.screenGradient(context),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w,
-              20.h + androidNavInset + (viewInsets > 0 ? viewInsets : 0)),
-          child: Column(
-            children: [
-              // A single receive surface for the account shown in the header.
-              Expanded(
-                child: StepPageWrapper(
-                  title: context.l10n.receive,
-                  subtitle: context.l10n.receiveScanOrShareSubtitle,
-                  colors: c,
-                  child: _sharePage(c),
-                ),
-              ),
-              // Share step owns its own primary actions (Generate
-              // invoice / Update QR / Share / verify-on-device), and
-              // Step 0 auto-advances on tile tap, so the shared CTA
-              // never surfaces. Kept here for shape-parity with the
-              // Send stepper in case future steps need a Continue.
-              SharedStepCta(
-                step: _step,
-                colors: c,
-                visibleSteps: const <int>{},
-                enabled: false,
-                onContinue: () {},
-              ),
-            ],
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 20.w),
+      child: Column(
+        children: [
+          // A single receive surface for the account shown in the header.
+          Expanded(
+            child: StepPageWrapper(
+              title: context.l10n.receive,
+              subtitle: context.l10n.receiveScanOrShareSubtitle,
+              colors: c,
+              child: _sharePage(c),
+            ),
           ),
-        ),
+          // Share step owns its own primary actions (Generate
+          // invoice / Update QR / Share / verify-on-device), and
+          // Step 0 auto-advances on tile tap, so the shared CTA
+          // never surfaces. Kept here for shape-parity with the
+          // Send stepper in case future steps need a Continue.
+          SharedStepCta(
+            step: _step,
+            colors: c,
+            visibleSteps: const <int>{},
+            enabled: false,
+            onContinue: () {},
+          ),
+        ],
       ),
     );
   }
