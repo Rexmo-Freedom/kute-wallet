@@ -30,6 +30,8 @@ import 'package:kute/screens/shared/amount_keypad_panel.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/hyperliquid_fee_summary.dart';
 import 'package:kute/screens/shared/money_fee_summary.dart';
+import 'package:kute/screens/shared/side_tint_palette.dart'
+    show slipCtaLabelColor;
 import 'package:kute/services/one_balance/hyperliquid_move_rail.dart';
 import 'package:kute/services/one_balance/venue_funder.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
@@ -103,7 +105,8 @@ const _market = HlMarket(
 Future<void> _pumpSlip(WidgetTester tester,
     {required double venueUsd,
     required double dollarsUsd,
-    required FakeHyperliquidMoveRail rail}) async {
+    required FakeHyperliquidMoveRail rail,
+    bool dark = false}) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -136,9 +139,12 @@ Future<void> _pumpSlip(WidgetTester tester,
       designSize: const Size(430, 932),
       builder: (_, __) => MaterialApp(
         theme: ThemeData(
+          brightness: dark ? Brightness.dark : Brightness.light,
           splashFactory: NoSplash.splashFactory,
           fontFamily: 'Inter',
-          extensions: [AppColorsExtension.light()],
+          extensions: [
+            dark ? AppColorsExtension.dark() : AppColorsExtension.light()
+          ],
         ),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
@@ -178,6 +184,13 @@ Future<void> _typeOnKeypad(WidgetTester tester, String amount) async {
 
 AppButton _button(WidgetTester tester) =>
     tester.widget<AppButton>(find.byType(AppButton));
+
+/// The colour the ticket's one button letters its label in.
+Color? _buttonLabelColor(WidgetTester tester) => tester
+    .widget<Text>(find.descendant(
+        of: find.byType(AppButton), matching: find.byType(Text)))
+    .style
+    ?.color;
 
 /// The move fee the ticket's one fee row folds in: the summary's
 /// `moveFeeUsd`, with `state` standing for its "Calculating…" while the
@@ -298,6 +311,48 @@ void main() {
     expect(door.onPressed, isNotNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
+
+  testWidgets(
+      'nothing typed, venue cash under the minimum and no Dollars: '
+      '"Add \$X to Investments" from the start, the one action',
+      (tester) async {
+    await _pumpSlip(tester, venueUsd: 3, dollarsUsd: 0, rail: rail);
+    final door = _button(tester);
+    expect(door.text, startsWith('Add \$'));
+    expect(door.text, endsWith('to Investments'));
+    expect(door.onPressed, isNotNull);
+    expect(find.textContaining('Go Long'), findsNothing);
+    expect(find.byType(AppButton), findsOneWidget);
+    expect(find.textContaining('to Investments'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  for (final dark in [false, true]) {
+    final mode = dark ? 'dark' : 'light';
+    // The bet slip letters its button the same way (see
+    // bet_slip_deposit_door_loading_test): the trade in its side colour on
+    // the sheet's white ink, the "Add $X to Investments" door in black.
+    testWidgets('$mode: the door contrasts with its fill, the order wears '
+        'its side', (tester) async {
+      await _pumpSlip(tester,
+          venueUsd: 0, dollarsUsd: 0, rail: rail, dark: dark);
+      await _typeOnKeypad(tester, '20');
+      expect(_button(tester).text, endsWith('to Investments'));
+      expect(_buttonLabelColor(tester), Colors.black);
+      expect(
+          _buttonLabelColor(tester),
+          slipCtaLabelColor(
+              fill: Colors.white, side: AppColors.marketUp, neutral: true));
+      await tester.pumpWidget(const SizedBox.shrink());
+
+      await _pumpSlip(tester,
+          venueUsd: 500, dollarsUsd: 0, rail: rail, dark: dark);
+      await _typeOnKeypad(tester, '20');
+      expect(_button(tester).text, startsWith('Go Long BTC 1x'));
+      expect(_buttonLabelColor(tester), AppColors.marketUp);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
 
   testWidgets('venue cash that covers the order: no move, no Move fee row',
       (tester) async {

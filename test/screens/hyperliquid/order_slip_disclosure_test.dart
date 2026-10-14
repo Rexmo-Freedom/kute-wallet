@@ -556,7 +556,7 @@ void main() {
           available: available, blocked: {'hyperliquid.deposit'});
       if (available > 0) await _typeOnKeypad(tester, '20');
       final button = tester.widget<AppButton>(find.byType(AppButton));
-      expect(button.text, 'Deposit to invest');
+      expect(button.text, 'Add money to Investments');
       expect(button.onPressed, isNull);
       expect(find.text(_AllowedCapabilities.blockedMessage), findsOneWidget);
       // A tap on the shut door opens nothing.
@@ -603,7 +603,7 @@ void main() {
     await _pumpSlip(tester,
         available: 0, blocked: {'hyperliquid.trade', 'hyperliquid.deposit'});
     final button = tester.widget<AppButton>(find.byType(AppButton));
-    expect(button.text, 'Deposit to invest');
+    expect(button.text, 'Add money to Investments');
     expect(button.onPressed, isNull);
     expect(find.byType(CapabilityBlockNote), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -644,7 +644,7 @@ void main() {
     final button = tester.widget<AppButton>(find.byType(AppButton));
     // Nothing typed on a Pro ticket: no order to size a Dollars move on,
     // so the plain door (it opens the Dollar deposit too).
-    expect(button.text, 'Deposit to invest');
+    expect(button.text, 'Add money to Investments');
     expect(button.onPressed, isNotNull);
     expect(find.text('Duration must be between 5 minutes and 7 days.'),
         findsOneWidget);
@@ -981,16 +981,33 @@ void main() {
     });
 
     testWidgets(
-        'less available than the minimum: a tap writes it and the button '
-        'is the deposit door', (tester) async {
+        'less in Investments than the minimum: the one button says "Add '
+        '\$X to Investments" from the start, never the order', (tester) async {
+      await _pumpSlip(tester, available: 5);
+      expect(typed(tester), '');
+      expect(button(tester).text, _dollarDoor);
+      expect(button(tester).onPressed, isNotNull);
+      expect(find.textContaining('Go Long'), findsNothing);
+      // One action: no second Add or Deposit beside it.
+      expect(
+          find.descendant(
+              of: find.byType(HlOrderSlipSheet),
+              matching: find.byType(AppButton)),
+          findsOneWidget);
+      expect(find.textContaining('to Investments'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+
+    testWidgets(
+        'less than the minimum with the deposit withheld: the shut door '
+        'still says where the money goes', (tester) async {
       await _pumpSlip(tester, available: 5, blocked: {'hyperliquid.deposit'});
-      final min = minimum(tester);
-      expect(button(tester).text, 'Go Long BTC 1x · \$$min');
-      await tester.tap(find.byType(AppButton));
+      expect(button(tester).text, 'Add money to Investments');
+      expect(button(tester).onPressed, isNull);
+      // The door is shut here, so nothing opens over the ticket.
+      await tester.tap(find.byType(AppButton), warnIfMissed: false);
       await tester.pumpAndSettle();
-      expect(typed(tester), min);
-      expect(button(tester).text, 'Deposit to invest');
-      // The door is shut here, so nothing opened over the ticket.
       expect(find.byType(HlOrderSlipSheet), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());

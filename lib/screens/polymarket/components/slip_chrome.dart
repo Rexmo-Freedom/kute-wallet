@@ -243,7 +243,11 @@ class PolySlipFigureRow extends StatelessWidget {
 ///
 /// On a side-tinted sheet the CTA inverts: the sheet's ink becomes the
 /// fill and the side colour becomes the label, so the one action still
-/// reads as the one action. A red button on a red sheet does not.
+/// reads as the one action. A red button on a red sheet does not. A
+/// [neutral] action (the deposit door, a wait) keeps a label that
+/// contrasts with that fill instead, so the funding door never wears the
+/// trade's direction. Same rule, and the same faded disabled state, as
+/// the order slip's `AppButton` ([slipCtaLabelColor]).
 class PolySlipCta extends StatelessWidget {
   const PolySlipCta({
     super.key,
@@ -253,6 +257,7 @@ class PolySlipCta extends StatelessWidget {
     required this.onTap,
     required this.label,
     this.busyLabel,
+    this.neutral = false,
   });
 
   final Color color;
@@ -260,6 +265,11 @@ class PolySlipCta extends StatelessWidget {
   final bool enabled;
   final VoidCallback onTap;
   final String label;
+
+  /// Not the trade itself (the deposit door, a wait, a status check): on
+  /// a tinted sheet its label contrasts with the fill rather than wearing
+  /// the side colour.
+  final bool neutral;
 
   /// Shown beside the spinner while [isBusy]. Defaults to the buy slip's
   /// "Placing order…".
@@ -271,16 +281,18 @@ class PolySlipCta extends StatelessWidget {
     // Reduce-motion: the enabled/colour fill tween is decorative.
     final reduceMotion = MediaQuery.of(context).disableAnimations;
     final tint = SheetTint.maybeOf(context);
-    final bg = tint == null
-        ? (enabled ? color : color.withValues(alpha: 0.40))
-        : tint.on.withValues(alpha: enabled ? 1 : 0.22);
+    final bg = tint == null ? color : tint.on;
     // Label contrast follows the fill (the deposit branch runs the dark
     // primary fill, which is WHITE in dark mode — white text there was
-    // the old invisible-label bug class).
+    // the old invisible-label bug class). On the tint, the order slip's
+    // rule: the trade wears its side colour, a neutral action contrasts.
     final fg = tint == null
         ? contrastingOnColor(color)
-        : (enabled ? tint.side : tint.on.withValues(alpha: 0.65));
-    return SizedBox(
+        : slipCtaLabelColor(fill: tint.on, side: tint.side, neutral: neutral);
+    // Disabled the way `AppButton` is: the whole button, fill and label
+    // together, fades to 0.35. A busy button stays at full strength.
+    final faded = !enabled && !isBusy;
+    final button = SizedBox(
       width: double.infinity,
       height: 56.h,
       child: Material(
@@ -367,6 +379,12 @@ class PolySlipCta extends StatelessWidget {
           ),
         ),
       ),
+    );
+    return AnimatedOpacity(
+      opacity: faded ? 0.35 : 1,
+      duration:
+          reduceMotion ? Duration.zero : const Duration(milliseconds: 140),
+      child: button,
     );
   }
 }

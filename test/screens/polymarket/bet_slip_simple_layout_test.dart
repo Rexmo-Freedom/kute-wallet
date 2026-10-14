@@ -1030,8 +1030,9 @@ void main() {
       await _release(tester, policy);
     });
 
-    testWidgets('less available than the minimum still offers the minimum',
-        (tester) async {
+    testWidgets(
+        'less in Investments than the minimum: the one button says '
+        '"Add \$X to Investments", never the bet', (tester) async {
       final policy = await _allowEverything();
       await _pumpSlip(tester,
           balance: 3,
@@ -1039,9 +1040,12 @@ void main() {
           outcomes: outcomes,
           extraOverrides: [tenShares]);
       expect(find.text(r'$0'), findsOneWidget);
-      // The tap runs the placement, which offers the deposit it needs.
-      expect(cta(tester).label, r'Place $5.00 on Yes');
+      // Measured on the $5 minimum the empty slip would place: the $3
+      // there and no Dollars leave $2.48 (fees counted) to add.
+      expect(cta(tester).label, r'Add $2.48 to Investments');
       expect(cta(tester).enabled, isTrue);
+      expect(find.byType(PolySlipCta), findsOneWidget);
+      expect(find.textContaining('Place '), findsNothing);
       await _release(tester, policy);
     });
   });

@@ -34,6 +34,8 @@ import 'package:kute/screens/shared/polymarket_fee_summary.dart';
 import 'package:kute/services/polymarket/polymarket_fee_terms.dart';
 import 'package:kute/screens/polymarket/components/slip_chrome.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart';
+import 'package:kute/screens/shared/side_tint_palette.dart'
+    show slipCtaLabelColor;
 import 'package:kute/screens/shared/slip_shortfall.dart';
 import 'package:kute/services/one_balance/predictions_venue_funder.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
@@ -79,7 +81,9 @@ const _outcomes = [
 
 Future<void> _pumpSlip(WidgetTester tester,
     Future<PolymarketTradingState> account,
-    {double dollars = 0}) async {
+    {double dollars = 0,
+    double? initialAmountUsd = 10,
+    bool dark = false}) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -114,19 +118,22 @@ Future<void> _pumpSlip(WidgetTester tester,
       designSize: const Size(430, 932),
       builder: (_, __) => MaterialApp(
         theme: ThemeData(
+            brightness: dark ? Brightness.dark : Brightness.light,
             splashFactory: NoSplash.splashFactory,
             fontFamily: 'Inter',
-            extensions: [AppColorsExtension.light()]),
+            extensions: [
+              dark ? AppColorsExtension.dark() : AppColorsExtension.light()
+            ]),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-        home: const Scaffold(
+        home: Scaffold(
           resizeToAvoidBottomInset: false,
           body: Align(
             alignment: Alignment.bottomCenter,
             child: BetSlipSheet(
                 marketQuestion: 'Will it rain?',
                 outcomes: _outcomes,
-                initialAmountUsd: 10),
+                initialAmountUsd: initialAmountUsd),
           ),
         ),
       ),
@@ -146,6 +153,13 @@ PolySlipCta _cta(WidgetTester tester) =>
     tester.widget<PolySlipCta>(find.byType(PolySlipCta));
 
 Finder get _door => find.byKey(const ValueKey('bet-slip-deposit-door'));
+
+/// The colour the slip's one button letters its label in.
+Color? _ctaLabelColor(WidgetTester tester) => tester
+    .widget<Text>(find.descendant(
+        of: find.byType(PolySlipCta), matching: find.byType(Text)))
+    .style
+    ?.color;
 
 PendingBetIntent? _queued(WidgetTester tester) =>
     ProviderScope.containerOf(tester.element(find.byType(BetSlipSheet)))
@@ -367,5 +381,99 @@ void main() {
       await _frames(tester, 3);
       await release(tester);
     });
+
+    testWidgets(
+        'nothing typed and Investments short of the minimum: the one button '
+        'says "Add \$X to Investments", never "Place"', (tester) async {
+      sheet = Completer<void>();
+      expect(await policy.refresh(), isTrue);
+      await _pumpSlip(tester,
+          Future.value(const PolymarketTradingState(usdcBalance: 0)),
+          dollars: 0,
+          initialAmountUsd: null);
+      await _frames(tester);
+      expect(_door, findsOneWidget);
+      expect(_cta(tester).label, startsWith(r'Add $'));
+      expect(_cta(tester).label, endsWith('to Investments'));
+      expect(_cta(tester).enabled, isTrue);
+      expect(find.textContaining('Place'), findsNothing);
+      // One action: no second Add or Deposit beside it.
+      expect(find.byType(PolySlipCta), findsOneWidget);
+      expect(find.textContaining('to Investments'), findsOneWidget);
+      final label = _cta(tester).label;
+
+      // The tap opens the Dollars door for that amount, queues nothing,
+      // and the button keeps saying the same thing.
+      await tester.tap(_door);
+      await _frames(tester, 3);
+      expect(sheets, hasLength(1));
+      expect(sheets.single,
+          closeTo(double.parse(label.split(' ')[1].substring(1)), 0.011));
+      expect(_queued(tester), isNull);
+      expect(events, isNot(contains('prediction_place_cta_tapped')));
+      sheet!.complete();
+      await _frames(tester, 3);
+      expect(_cta(tester).label, endsWith('to Investments'));
+      await release(tester);
+    });
+
+    testWidgets(
+        'nothing typed and Dollars that cover the minimum: the bet at the '
+        'minimum', (tester) async {
+      expect(await policy.refresh(), isTrue);
+      await _pumpSlip(tester,
+          Future.value(const PolymarketTradingState(usdcBalance: 0)),
+          dollars: 100,
+          initialAmountUsd: null);
+      await _frames(tester);
+      expect(_door, findsNothing);
+      expect(_cta(tester).label, startsWith('Place '));
+      expect(_cta(tester).enabled, isTrue);
+      await release(tester);
+    });
+  });
+
+  group('button label colour', () {
+    // The order slip letters its button the same way (see
+    // order_slip_funding_test): the trade in its side colour on the
+    // sheet's white ink, the "Add $X to Investments" door in black on it.
+    late RuntimeCapabilitiesService policy;
+    setUp(() async {
+      AffiliateService.debugSessionToken = 'test-session';
+      policy = runtimePolicyFixture();
+      RuntimeCapabilitiesService.debugInstance = policy;
+    });
+    tearDown(() {
+      RuntimeCapabilitiesService.debugInstance = null;
+      AffiliateService.debugSessionToken = null;
+    });
+
+    for (final dark in [false, true]) {
+      final mode = dark ? 'dark' : 'light';
+      testWidgets('$mode: the door contrasts with its fill, the bet wears '
+          'its side', (tester) async {
+        expect(await policy.refresh(), isTrue);
+        await _pumpSlip(tester,
+            Future.value(const PolymarketTradingState(usdcBalance: 0)),
+            dollars: 0,
+            dark: dark);
+        await _frames(tester);
+        expect(_door, findsOneWidget);
+        expect(_ctaLabelColor(tester), Colors.black);
+        expect(_ctaLabelColor(tester),
+            slipCtaLabelColor(
+                fill: Colors.white, side: AppColors.marketUp, neutral: true));
+        await tester.pumpWidget(const SizedBox.shrink());
+
+        await _pumpSlip(tester,
+            Future.value(const PolymarketTradingState(usdcBalance: 100)),
+            dark: dark);
+        await _frames(tester);
+        expect(_cta(tester).label, r'Place $10.00 on Yes');
+        expect(_ctaLabelColor(tester), AppColors.marketUp);
+        await tester.pumpWidget(const SizedBox.shrink());
+        policy.dispose();
+      });
+    }
   });
 }

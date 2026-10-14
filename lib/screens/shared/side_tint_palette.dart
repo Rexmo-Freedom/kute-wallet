@@ -38,6 +38,16 @@ AppColorsExtension sideTintPalette(AppColorsExtension base, Color side) {
   ) as AppColorsExtension;
 }
 
+/// The label colour of a slip's one primary button whose fill is [fill].
+/// A trade (Yes/No, Long/Short) sitting on the sheet's ink is lettered in
+/// its side colour [side]; anything neutral (the "Add $X to Investments"
+/// door, a wait, a retry) contrasts with its fill, the way `AppButton`'s
+/// own label does. The bet slip and the order slip both read this, so
+/// their buttons letter alike in light and dark.
+Color slipCtaLabelColor(
+        {required Color fill, required Color side, required bool neutral}) =>
+    neutral ? contrastingOnColor(fill) : side;
+
 /// Money in is green, money out is red: the sheet wears the direction of
 /// the move the user is about to make.
 Color sideTintForMoneyIn(bool moneyIn) =>

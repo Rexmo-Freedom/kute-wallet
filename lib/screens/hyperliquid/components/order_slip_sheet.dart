@@ -3486,10 +3486,20 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     bool insufficient = false;
     String? insufficientLine;
     double transferFromPerp = 0;
+    // The margin the button stands for: what is typed, or on a hot ticket
+    // with nothing typed the minimum order its button places. Measured on
+    // that, a ticket whose Investments cannot cover even the minimum reads
+    // "Add $X to Investments" from the start, never an order whose tap
+    // only opens the deposit. A Ledger ticket keeps its own doors.
+    final fundMarginUsd = _marginUsd > 0 || _isLedger
+        ? _marginUsd
+        : (placesMinimumAmount(minAmountUsd) && !netPlan.opposes
+            ? minAmountUsd
+            : 0.0);
     if (!_reduceOnly && !exitPlan) {
       if (isSpot) {
         if (_isLong) {
-          insufficient = _marginUsd > available + 1e-6;
+          insufficient = fundMarginUsd > available + 1e-6;
           if (!_isLedger && !insufficient && _marginUsd > spotUsdc + 1e-6) {
             transferFromPerp = _marginUsd - spotUsdc;
           }
@@ -3509,7 +3519,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         final fundedMargin = netPlan.effect == HlPositionEffect.flip &&
                 netPlan.orderSize > 0
             ? _marginUsd * netPlan.remainder / netPlan.orderSize
-            : _marginUsd;
+            : fundMarginUsd;
         insufficient = fundedMargin > available + 1e-6;
       }
     }
@@ -3847,9 +3857,13 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       // sheet locked to its own Investing account with the margin
       // prefilled.
       primaryKind = 'deposit';
-      primaryLabel = !_isLedger && dollarsShort > 0
-          ? context.l10n.slipAddToInvestments(formatHlUsd(dollarsShort))
-          : context.l10n.depositToTrade;
+      // With no amount to name yet (nothing typed on a limit ticket, or a
+      // shut door), the hot ticket still says where the money goes.
+      primaryLabel = _isLedger
+          ? context.l10n.depositToTrade
+          : dollarsShort > 0
+              ? context.l10n.slipAddToInvestments(formatHlUsd(dollarsShort))
+              : context.l10n.addMoneyToInvestments;
       // Funding a position that cannot be opened here would only strand
       // the money, so the door shuts with the open gate too.
       primaryAction =
@@ -3998,9 +4012,11 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                                 context.l10n.trading)
                             : null,
                 color: c.textPrimary,
-                textColor: primaryNeutral
-                    ? contrastingOnColor(c.textPrimary)
-                    : sideColor,
+                // The one label rule the bet slip's button reads too.
+                textColor: slipCtaLabelColor(
+                    fill: c.textPrimary,
+                    side: sideColor,
+                    neutral: primaryNeutral),
                 fontWeight: FontWeight.w800,
               ),
             ),

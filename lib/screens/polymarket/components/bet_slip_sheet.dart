@@ -1710,8 +1710,10 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     final door = PolySlipCta(
       key: const ValueKey('bet-slip-deposit-door'),
       // Deposit door: dark primary fill per the CTA grammar (directional
-      // color stays reserved for the actual Predict confirm).
+      // color stays reserved for the actual Predict confirm), and on the
+      // tinted sheet a label that contrasts with it, never the side colour.
       color: context.ctaFill,
+      neutral: true,
       isBusy: !shut && busy,
       busyLabel: busyLabel,
       enabled: !shut && enabled,
@@ -2131,6 +2133,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           SizedBox(height: 12.h),
           PolySlipCta(
             color: context.ctaFill,
+            neutral: true,
             isBusy: _draft.ledgerBusy,
             enabled: !_draft.ledgerBusy,
             onTap: _checkLedgerPrediction,
@@ -2142,6 +2145,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     if (pending.hasError || pending.isLoading) {
       return PolySlipCta(
         color: context.ctaFill,
+        neutral: true,
         isBusy: pending.isLoading,
         busyLabel: context.l10n.loadingAccount,
         enabled: !_draft.ledgerBusy && !pending.isLoading,
@@ -2158,6 +2162,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     if (buyingPower.hasError) {
       return PolySlipCta(
         color: context.ctaFill,
+        neutral: true,
         isBusy: false,
         enabled: !_draft.ledgerBusy,
         onTap: () => ref.invalidate(ledgerPmBuyingPowerProvider(walletId)),
@@ -2928,13 +2933,19 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   /// Reads the venue's estimate for the stake on the slip while it is
   /// short of venue cash, so the ticket can show the move's fee and the
   /// button can say what Dollars are missing before any tap. One read per
-  /// amount; a failed read keeps the fallback plan.
-  void _refreshFundingPlan({required double required, required double ready}) {
-    if (_fundingPlanReading || _fundingPlanAmount == _amount || _amount <= 0) {
+  /// amount; a failed read keeps the fallback plan. [stakeUsd] is the
+  /// stake the button stands for (the minimum on an empty slip).
+  void _refreshFundingPlan(
+      {required double required,
+      required double ready,
+      required double stakeUsd}) {
+    if (_fundingPlanReading ||
+        _fundingPlanAmount == stakeUsd ||
+        stakeUsd <= 0) {
       return;
     }
     _fundingPlanReading = true;
-    final amount = _amount;
+    final amount = stakeUsd;
     unawaited(() async {
       try {
         final plan = await readBetFunding(
@@ -3269,9 +3280,12 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   }
 
   /// The Predictions cash this stake takes: the stake plus the venue's
-  /// fee ceiling at the price the ticket shows.
-  double _predictionsRequired(PolymarketFeeTerms terms) {
-    if (!_amount.isFinite || _amount <= 0) return 0;
+  /// fee ceiling at the price the ticket shows. [stakeUsd] defaults to
+  /// the typed stake; the empty slip's button passes the minimum it
+  /// would place.
+  double _predictionsRequired(PolymarketFeeTerms terms, {double? stakeUsd}) {
+    final stake = stakeUsd ?? _amount;
+    if (!stake.isFinite || stake <= 0) return 0;
     final selected = widget.outcomes[_selectedIndex];
     // The fees at the order's worst price (its tolerance), plus the
     // rounding cent: the most the order can take of the venue's cash.
@@ -3280,7 +3294,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         ? _limitPrice
         : shown * (1 + _slippagePct / 100);
     final price = worst.clamp(0.01, 0.99).toDouble();
-    return terms.allInCost(_amount, price) +
+    return terms.allInCost(stake, price) +
         PolymarketMarketBuyQuote.roundingHeadroom;
   }
 
@@ -3296,10 +3310,12 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   /// What this stake is short of in Predictions cash:
   /// [_predictionsRequired] less [cash]. The button and the tap read the
   /// same figure.
-  double _predictionsShortfall(double cash, PolymarketFeeTerms terms) {
-    if (!_amount.isFinite || _amount <= 0) return 0;
+  double _predictionsShortfall(double cash, PolymarketFeeTerms terms,
+      {double? stakeUsd}) {
+    final stake = stakeUsd ?? _amount;
+    if (!stake.isFinite || stake <= 0) return 0;
     return ShortfallRules.shortfallUsd(
-        requiredUsd: _predictionsRequired(terms),
+        requiredUsd: _predictionsRequired(terms, stakeUsd: stake),
         readyUsd: _predictionsReady(cash));
   }
 
@@ -4567,11 +4583,20 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     // there: the button stays the bet (Confirm queues it behind the move).
     final prefund = _draft.prefund;
     final prefundIncoming = prefund?.inFlightArrivingUsd ?? 0;
+    // The stake the button stands for: what is typed, or the market's
+    // minimum the empty slip's button places. Measured on that, a slip
+    // whose Investments cannot cover even the minimum reads "Add $X to
+    // Investments" from the start, never a bet whose tap only opens the
+    // deposit.
+    final stake =
+        _emptyStake ? _minimumStakeUsd(_effectiveMinBetUsd) : _amount;
     final noFunds = trading.hasValue &&
         !trading.hasError &&
         cash != null &&
         (cash + prefundIncoming < 0.01 ||
-            _predictionsShortfall(cash + prefundIncoming, terms) > 0);
+            _predictionsShortfall(cash + prefundIncoming, terms,
+                    stakeUsd: stake) >
+                0);
     if (failed) {
       return PolySlipCta(
         key: const ValueKey('bet-slip-retry'),
@@ -4598,6 +4623,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       return PolySlipCta(
         key: const ValueKey('bet-slip-loading-account'),
         color: context.ctaFill,
+        neutral: true,
         isBusy: true,
         busyLabel: context.l10n.loadingAccount,
         enabled: false,
@@ -4608,7 +4634,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     if (noFunds && !_isPlacing) {
       // A deposit into Predictions already on its way: say so, never offer
       // a second one while it lands.
-      final shortfall = _predictionsShortfall(cash, terms);
+      final shortfall = _predictionsShortfall(cash, terms, stakeUsd: stake);
       final funding = slipFunding(shortfallUsd: shortfall);
       // A closed trade gate keeps its own shut door and note; a deposit
       // already on its way still reads as incoming when new deposits are
@@ -4622,6 +4648,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
             PolySlipCta(
               key: const ValueKey('bet-slip-deposit-incoming'),
               color: context.ctaFill,
+              neutral: true,
               // Disabled, like the order slip's: the line under it says
               // what is happening.
               isBusy: false,
@@ -4642,10 +4669,10 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       // One balance: the bet funds its shortfall from Dollars at the tap.
       // Only when Dollars cannot cover that move either is the button the
       // Dollars door, naming exactly what is missing.
-      final required = _predictionsRequired(terms);
+      final required = _predictionsRequired(terms, stakeUsd: stake);
       final ready = _predictionsReady(cash) + prefundIncoming;
-      _refreshFundingPlan(required: required, ready: ready);
-      final plan = _fundingPlanAmount == _amount && _fundingPlan != null
+      _refreshFundingPlan(required: required, ready: ready, stakeUsd: stake);
+      final plan = _fundingPlanAmount == stake && _fundingPlan != null
           ? _fundingPlan!
           : planBetFunding(requiredUsd: required, readyUsd: ready);
       // Dollars plus Investing cash: the bet pulls what Dollars lack.
