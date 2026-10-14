@@ -25,6 +25,7 @@ import 'package:kute/screens/shared/kute_skeleton.dart';
 import 'package:kute/screens/shared/pool_balance_header.dart';
 import 'package:kute/screens/shared/portfolio_arrow_glyph.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
+import 'package:kute/screens/shared/stale_shimmer.dart';
 import 'package:kute/screens/shared/venue_deposit_button.dart';
 import 'package:kute/services/venue_total_cache_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -228,7 +229,10 @@ void main() {
     PoolBalanceHeader header(WidgetTester tester) =>
         tester.widget<PoolBalanceHeader>(find.byType(PoolBalanceHeader));
     Future<void> pumpOne(WidgetTester tester, OneBalanceState state,
-            {int balancePrivacy = 0, Locale? locale, VoidCallback? onTap}) =>
+            {int balancePrivacy = 0,
+            Locale? locale,
+            VoidCallback? onTap,
+            bool settle = true}) =>
         _pump(
             tester,
             InvestmentBalanceHeader(
@@ -237,6 +241,7 @@ void main() {
                 onTap: onTap),
             balancePrivacy: balancePrivacy,
             locale: locale,
+            settle: settle,
             overrides: [oneBalanceProvider.overrideWithValue(state)]);
 
     final chevron = find.byKey(const ValueKey('investments-balance-chevron'));
@@ -269,12 +274,21 @@ void main() {
 
     testWidgets('a venue still to answer counts as zero and dims the figure',
         (tester) async {
+      // A stale figure sweeps for as long as it is stale: never settles.
       await pumpOne(
-          tester, known.copyWith(investedUsd: 0, predictionsKnown: false));
+          tester, known.copyWith(investedUsd: 0, predictionsKnown: false),
+          settle: false);
       expect(header(tester).amountText, r'$42.50');
       expect(header(tester).stale, isTrue);
       expect(header(tester).loading, isFalse);
       expect(find.text('—'), findsNothing);
+      // Dimmed and sweeping over the digits, which stay text.
+      final shimmer = tester.widget<StaleShimmer>(find.descendant(
+          of: find.byType(PoolBalanceHeader),
+          matching: find.byType(StaleShimmer)));
+      expect(shimmer.stale, isTrue);
+      expect(find.text('4'), findsWidgets);
+      expect(tester.binding.hasScheduledFrame, isTrue);
     });
 
     testWidgets(
@@ -591,7 +605,9 @@ void main() {
         final container = ProviderScope.containerOf(
             tester.element(find.byType(InvestmentBalanceHeader)));
         container.read(balances.notifier).state = const InvestmentBalances();
-        await tester.pumpAndSettle();
+        // Stale, the figure sweeps: it never settles.
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 500));
         expect(header(tester).loading, isFalse);
         expect(header(tester).amountText, r'$100.00');
         expect(header(tester).stale, isTrue);
@@ -600,6 +616,13 @@ void main() {
             of: find.byType(PoolBalanceHeader),
             matching: find.byType(RollingNumberText)));
         expect(figure.style.color, AppColorsExtension.light().textSecondary);
+        expect(
+            tester
+                .widget<StaleShimmer>(find.descendant(
+                    of: find.byType(PoolBalanceHeader),
+                    matching: find.byType(StaleShimmer)))
+                .stale,
+            isTrue);
         expect(find.text('—'), findsNothing);
 
         // The next sync brings it back fresh.
@@ -608,6 +631,8 @@ void main() {
         await tester.pumpAndSettle();
         expect(header(tester).amountText, r'$120.00');
         expect(header(tester).stale, isFalse);
+        // Fresh again: the sweep is gone and nothing is left ticking.
+        expect(tester.binding.hasScheduledFrame, isFalse);
       });
     }
 

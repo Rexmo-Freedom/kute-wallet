@@ -17,6 +17,7 @@ import 'package:kute/screens/home/components/home_action_row.dart'
 import 'package:kute/theme/app_theme.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart';
+import 'package:kute/screens/shared/stale_shimmer.dart';
 
 class PoolBalanceHeader extends StatelessWidget {
   /// The formatted hero figure. Since the invested-first flip (user
@@ -99,8 +100,8 @@ class PoolBalanceHeader extends StatelessWidget {
   final bool loading;
 
   /// The headline is the last known figure, not a fresh read (still on
-  /// its way, or the read failed): it reads in the secondary text colour
-  /// until the next sync brings a fresh one.
+  /// its way, or the read failed): it reads in the secondary text colour,
+  /// with a [StaleShimmer] sweep, until the next sync brings a fresh one.
   final bool stale;
 
   const PoolBalanceHeader({
@@ -165,19 +166,24 @@ class PoolBalanceHeader extends StatelessWidget {
                         radius: 12.r),
                   )
                 else
-                  RollingNumberText(
-                    // The formatted amount carries its own currency
-                    // symbol ($ / € / ₿ per settings) — no icon, per
-                    // Joao. Rolls per digit like every live number
-                    // on these screens.
-                    text: amountText,
-                    style: TextStyle(
-                      color: stale ? c.textSecondary : c.textPrimary,
-                      fontSize: amountFontSize ?? 48.sp,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -1.2,
-                      height: 1.0,
-                      fontFeatures: const [FontFeature.tabularFigures()],
+                  // Still updating: dimmed, with the skeleton's sweep
+                  // running over the digits.
+                  StaleShimmer(
+                    stale: stale,
+                    child: RollingNumberText(
+                      // The formatted amount carries its own currency
+                      // symbol ($ / € / ₿ per settings) — no icon, per
+                      // Joao. Rolls per digit like every live number
+                      // on these screens.
+                      text: amountText,
+                      style: TextStyle(
+                        color: stale ? c.textSecondary : c.textPrimary,
+                        fontSize: amountFontSize ?? 48.sp,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -1.2,
+                        height: 1.0,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
                     ),
                   ),
                 if (heroPctText != null)

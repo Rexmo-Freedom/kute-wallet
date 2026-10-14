@@ -136,6 +136,7 @@ import 'package:kute/screens/shared/kute_motion.dart'
     show KutePressScale, kuteMotion, kuteReduceMotion;
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:kute/screens/shared/send/send_sheet.dart' show showSendSheet;
+import 'package:kute/screens/shared/stale_shimmer.dart';
 import 'package:kute/screens/usd/usd_send_screen.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
@@ -794,22 +795,28 @@ class _InvestmentsCompactBar extends StatelessWidget {
                         onTap: onBalance,
                         child: Padding(
                           padding: EdgeInsets.only(left: 4.w),
-                          child: Text(
-                            figure.text,
-                            key: const ValueKey('investments-compact-total'),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: figure.stale
-                                  ? c.textSecondary
-                                  : c.textPrimary,
-                              fontSize: 15.sp,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -0.3,
-                              height: 1.0,
-                              fontFeatures: const [
-                                FontFeature.tabularFigures()
-                              ],
+                          // Still updating: dimmed and sweeping, as the
+                          // hero is.
+                          child: StaleShimmer(
+                            stale: figure.stale,
+                            child: Text(
+                              figure.text,
+                              key:
+                                  const ValueKey('investments-compact-total'),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: figure.stale
+                                    ? c.textSecondary
+                                    : c.textPrimary,
+                                fontSize: 15.sp,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.3,
+                                height: 1.0,
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures()
+                                ],
+                              ),
                             ),
                           ),
                         ),

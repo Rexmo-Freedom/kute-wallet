@@ -36,6 +36,7 @@ import 'package:kute/screens/shared/kute_pill_tabs.dart'
     show KutePill, KutePillSize, KutePillTabs;
 import 'package:kute/screens/shared/pool_balance_header.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
+import 'package:kute/screens/shared/stale_shimmer.dart';
 import 'package:kute/screens/shared/venue_deposit_button.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
@@ -600,6 +601,13 @@ void main() {
     expect(total.data, r'$25.00');
     final c = tester.element(_compactTotal).colors;
     expect(total.style!.color, c.textSecondary);
+    // Dimmed and sweeping, as the hero is.
+    expect(
+        tester
+            .widget<StaleShimmer>(find.ancestor(
+                of: _compactTotal, matching: find.byType(StaleShimmer)))
+            .stale,
+        isTrue);
     expect(tester.takeException(), isNull);
     await unmountInvestments(tester);
   });
