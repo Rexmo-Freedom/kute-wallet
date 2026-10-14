@@ -313,13 +313,18 @@ class _TrailingStopState extends ConsumerState<HlTrailingStopSheet> {
             _percent
                 ? context.l10n.slipDistancePercent
                 : context.l10n.trailingDistanceUsd),
-        SwitchListTile.adaptive(
-            contentPadding: EdgeInsets.zero,
-            title: Text(context.l10n.slipActivationPrice),
-            value: _activate,
-            onChanged: _busy || _pending
-                ? null
-                : (v) => setState(() => _activate = v)),
+        // A ListTile needs a Material ancestor to paint its ink; the
+        // sheet's coloured box has none, so give it a transparent one.
+        Material(
+          type: MaterialType.transparency,
+          child: SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              title: Text(context.l10n.slipActivationPrice),
+              value: _activate,
+              onChanged: _busy || _pending
+                  ? null
+                  : (v) => setState(() => _activate = v)),
+        ),
         if (_activate)
           _field(_activation, context.l10n.trailingActivationPriceUsd),
       ]),
