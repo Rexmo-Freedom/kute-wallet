@@ -8,7 +8,9 @@
 //
 // The pills keep a column of their own at the chart's right, past the
 // end of the lines ([polyTagStyle]): the lines stop short of it, so no
-// pill ever covers a line. The column is as wide as the widest pill the
+// pill ever covers a line. The column is there only while the pills are:
+// panned back in time it eases shut and the lines take the chart's full
+// width (market_chart.dart). It is as wide as the widest pill the
 // chart can write (its name and the widest chance, "99.55%"), and never
 // more than [kPolyTagMaxGutterShare] of the chart:
 //   * a name is the outcome's short name ([polyChartShortName]); one that

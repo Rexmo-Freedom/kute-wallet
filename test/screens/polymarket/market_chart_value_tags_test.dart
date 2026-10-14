@@ -3,8 +3,12 @@
 // never covers a line and its text is never cut. An event whose outcomes
 // carry the market question ("Will Flávio Bolsonaro win the 2026
 // Brazilian presidential election?") writes the candidate, on a phone's
-// width with large text too.
+// width with large text too. Panned back in time the pills go and so does
+// their column: the lines, the time axis and the crosshair take the full
+// width, easing there (at once under Reduce Motion), and the column comes
+// back with the pills at the live edge.
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -84,7 +88,9 @@ double _measure(String text, double fontSize) {
 }
 
 Future<void> _pump(WidgetTester tester, List<_Line> lines,
-    {double width = 375, double textScale = 1.0}) async {
+    {double width = 375,
+    double textScale = 1.0,
+    bool reduceMotion = false}) async {
   tester.view.physicalSize = Size(width, 812);
   tester.view.devicePixelRatio = 1;
   tester.platformDispatcher.textScaleFactorTestValue = textScale;
@@ -107,6 +113,11 @@ Future<void> _pump(WidgetTester tester, List<_Line> lines,
         theme: buildLightTheme(),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
+        builder: (context, child) => MediaQuery(
+          data:
+              MediaQuery.of(context).copyWith(disableAnimations: reduceMotion),
+          child: child!,
+        ),
         home: Scaffold(
           body: Padding(
             padding: const EdgeInsets.all(16),
@@ -216,6 +227,86 @@ void _expectWholeAndClear(WidgetTester tester, List<_Line> lines) {
   }
 }
 
+/// Where the lines end in the plot this frame: the plot's width less the
+/// space the lines layer keeps at its right (the tag column, as open as it
+/// is, or the old right margin once it is shut).
+double _linesEnd(WidgetTester tester) {
+  final finder = find.byWidgetPredicate((w) =>
+      w is CustomPaint && w.painter?.runtimeType.toString() == '_LinesPainter');
+  final painter = tester.widget<CustomPaint>(finder).painter as dynamic;
+  return tester.getSize(finder).width - (painter.rightInset as double);
+}
+
+/// The window the lines layer paints this frame.
+({int start, int end}) _window(WidgetTester tester) {
+  final painter = tester
+      .widget<CustomPaint>(find.byWidgetPredicate((w) =>
+          w is CustomPaint &&
+          w.painter?.runtimeType.toString() == '_LinesPainter'))
+      .painter as dynamic;
+  return (start: painter.start as int, end: painter.end as int);
+}
+
+/// The time axis's end label, and how far right it reaches.
+double _axisEnd(WidgetTester tester) =>
+    tester.getRect(find.byKey(const ValueKey('kute-time-axis-end'))).right;
+
+/// The x of the crosshair's hairline, or null with no crosshair up.
+double? _crosshairX(WidgetTester tester) {
+  double? x;
+  final layer = tester.renderObject(find.byWidgetPredicate((w) =>
+      w is CustomPaint &&
+      w.painter?.runtimeType.toString() == 'KuteCrosshairPainter'));
+  expect(
+    layer,
+    paints
+      ..everything((method, args) {
+        if (method == #drawLine) x = (args.first as Offset).dx;
+        return true;
+      }),
+  );
+  return x;
+}
+
+/// A point on the plot, [dx] from the chart's left edge.
+Offset _onPlot(WidgetTester tester, double dx) {
+  final rect = tester.getRect(find.byType(MarketChart));
+  return Offset(rect.left + dx, rect.top + 60);
+}
+
+/// Two fingers apart on the plot: the window zooms in on its newest
+/// points, still at the live edge.
+Future<void> _zoomIn(WidgetTester tester) async {
+  final rect = tester.getRect(find.byType(MarketChart));
+  final y = rect.top + 60;
+  final a = await tester.startGesture(Offset(rect.center.dx - 30, y));
+  final b =
+      await tester.startGesture(Offset(rect.center.dx + 30, y), pointer: 2);
+  for (var i = 1; i <= 6; i++) {
+    await a.moveTo(Offset(rect.center.dx - 30 - i * 15, y));
+    await b.moveTo(Offset(rect.center.dx + 30 + i * 15, y));
+    await tester.pump(const Duration(milliseconds: 16));
+  }
+  await a.up();
+  await b.up();
+  await tester.pumpAndSettle();
+}
+
+/// One finger across the plot by [dx] (right walks back in time), then
+/// everything allowed to settle.
+Future<void> _pan(WidgetTester tester, double dx) async {
+  final rect = tester.getRect(find.byType(MarketChart));
+  final from = Offset(rect.center.dx - dx / 2, rect.top + 60);
+  final g = await tester.startGesture(from);
+  const steps = 8;
+  for (var i = 1; i <= steps; i++) {
+    await g.moveTo(from + Offset(dx * i / steps, 0));
+    await tester.pump(const Duration(milliseconds: 16));
+  }
+  await g.up();
+  await tester.pumpAndSettle();
+}
+
 void main() {
   setUpAll(() async {
     final inter = FontLoader('Inter');
@@ -277,5 +368,141 @@ void main() {
     await _pump(tester, lines);
     expect(tester.takeException(), isNull);
     _expectWholeAndClear(tester, lines);
+  });
+
+  // Panned back in time the pills are not drawn, so their column goes too:
+  // the lines, the axis and the crosshair take the plot's full width (less
+  // the lines' old right margin, 12), and the column comes back with the
+  // pills at the live edge. Every kind of chart: binary, a game's two
+  // sides, a soccer game's three outcomes and a many-candidate event.
+  final kinds = <String, List<_Line>>{
+    'binary': [(label: 'Yes', from: 0.31, to: 0.18)],
+    'game winner': [
+      (label: 'Team Falcons', from: 0.55, to: 0.71),
+      (label: 'NIP', from: 0.45, to: 0.29),
+    ],
+    'soccer 3-way': [
+      (label: 'Arsenal', from: 0.45, to: 0.52),
+      (label: 'Draw', from: 0.28, to: 0.26),
+      (label: 'Chelsea', from: 0.27, to: 0.22),
+    ],
+    'many candidates': brazil,
+  };
+  for (final kind in kinds.entries) {
+    for (final scale in [1.0, 1.3]) {
+      testWidgets(
+          '${kind.key}, text x$scale: panned back the lines take the full '
+          'width; back at the live edge the column returns', (tester) async {
+        final lines = kind.value;
+        await _pump(tester, lines, textScale: scale);
+        await _zoomIn(tester);
+        final width = _layer(tester, '_TagsPainter').size.width;
+        final chart = tester.getRect(find.byType(MarketChart));
+        final gutter =
+            polyChartTagStyle([for (final l in lines) l.label], width).gutter;
+        expect(gutter, greaterThan(12));
+        // Zoomed in, still live: the pills in their column.
+        expect(_linesEnd(tester), closeTo(width - gutter, 0.01));
+        _expectWholeAndClear(tester, lines);
+
+        await _pan(tester, 120);
+        expect(tester.takeException(), isNull);
+        expect(_pills(tester), isEmpty);
+        expect(_linesEnd(tester), closeTo(width - 12, 0.01));
+        // The axis's end label reaches the chart's right edge.
+        expect(_axisEnd(tester), closeTo(chart.right, 0.5));
+        expect(tester.binding.transientCallbackCount, 0,
+            reason: 'no ticker left running');
+
+        // All the way forward again: the live edge, the column back and
+        // its pills right of the lines.
+        await _pan(tester, -250);
+        await _pan(tester, -250);
+        expect(tester.takeException(), isNull);
+        expect(_linesEnd(tester), closeTo(width - gutter, 0.01));
+        _expectWholeAndClear(tester, lines);
+        expect(tester.binding.transientCallbackCount, 0);
+      });
+    }
+  }
+
+  testWidgets(
+      'the column eases shut and a pan reads the width painted that frame',
+      (tester) async {
+    await _pump(tester, brazil);
+    await _zoomIn(tester);
+    final width = _layer(tester, '_TagsPainter').size.width;
+    final narrow = _linesEnd(tester);
+    final rect = tester.getRect(find.byType(MarketChart));
+    final g = await tester.startGesture(rect.center);
+    await g.moveBy(const Offset(40, 0));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    // Part way: wider than with the column, short of the full width.
+    final mid = _linesEnd(tester);
+    expect(mid, greaterThan(narrow + 1));
+    expect(mid, lessThan(width - 12 - 1));
+
+    // A move now walks the window by its pixels at the width on screen.
+    final before = _window(tester);
+    await g.moveBy(const Offset(10, 0));
+    await tester.pump();
+    final after = _window(tester);
+    expect(_linesEnd(tester), mid, reason: 'no time passed');
+    final span = before.end - before.start;
+    expect(after.end - after.start, span);
+    expect((before.end - after.end).toDouble(),
+        closeTo(10 / mid * span, 1.5));
+
+    await g.up();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(_linesEnd(tester), closeTo(width - 12, 0.01));
+    expect(tester.binding.transientCallbackCount, 0,
+        reason: 'the column settled, no ticker left running');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('panned back, the crosshair reaches where the column was',
+      (tester) async {
+    await _pump(tester, brazil);
+    await _zoomIn(tester);
+    final width = _layer(tester, '_TagsPainter').size.width;
+    final gutter =
+        polyChartTagStyle([for (final l in brazil) l.label], width).gutter;
+    await _pan(tester, 120);
+    // A long press inside what was the column.
+    final x = width - gutter / 2;
+    final g = await tester.startGesture(_onPlot(tester, x));
+    await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+    final hair = _crosshairX(tester);
+    expect(hair, isNotNull);
+    // On the hourly point nearest the finger.
+    final w = _window(tester);
+    final hourPx = 3600000 / (w.end - w.start) * (width - 12);
+    expect(hair!, closeTo(x, hourPx / 2 + 0.5));
+    await g.up();
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('under Reduce Motion the column goes and comes back at once',
+      (tester) async {
+    await _pump(tester, brazil, reduceMotion: true);
+    await _zoomIn(tester);
+    final width = _layer(tester, '_TagsPainter').size.width;
+    final narrow = _linesEnd(tester);
+    final rect = tester.getRect(find.byType(MarketChart));
+    final g = await tester.startGesture(rect.center);
+    await g.moveBy(const Offset(60, 0));
+    await tester.pump();
+    expect(_linesEnd(tester), closeTo(width - 12, 0.01));
+    expect(tester.binding.transientCallbackCount, 0);
+    await g.moveBy(const Offset(-2000, 0));
+    await tester.pump();
+    expect(_linesEnd(tester), narrow);
+    expect(tester.binding.transientCallbackCount, 0);
+    await g.up();
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
   });
 }

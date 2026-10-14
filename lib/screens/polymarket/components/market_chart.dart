@@ -66,7 +66,11 @@
 // own at the plot's right, sized to the widest of them, and the lines end
 // where it starts, so a pill never covers a line or is cut; where lines
 // end close together the pills stack clear of each other
-// (poly_chart_tags.dart). The user's average
+// (poly_chart_tags.dart). Panned back in time the pills are not drawn and
+// the column eases shut, so the lines and the time axis take the full
+// width; back at the live edge it eases open again (at once under Reduce
+// Motion), and every gesture maps through the width painted that frame.
+// The user's average
 // price on a shown outcome is drawn as a dashed "Bought · 32¢" line, the
 // Polymarket twin of the Hyperliquid "Entry" line, through the shared
 // trade-lines layer.
@@ -132,6 +136,11 @@ const Duration _kRangeMotion = Duration(milliseconds: 250);
 /// The scale's glide to a new fit (a pan or a pinch ended, a line added
 /// or removed, a line walking out of the scale).
 const Duration _kRefitMotion = Duration(milliseconds: 150);
+
+/// The value tags' column easing open as the view comes back to the live
+/// edge (the pills return) and shut as it leaves it (the pills go, and the
+/// lines take the plot's full width).
+const Duration _kTagColumnMotion = Duration(milliseconds: 220);
 
 /// Left price-label strip: a vertical drag that starts here scales the
 /// axis by hand (the Hyperliquid chart's strip width).
@@ -769,22 +778,52 @@ class _MarketChartState extends ConsumerState<MarketChart>
   /// worked out for.
   _TagColumn _tags = _TagColumn.none;
 
-  /// The plot's width the lines are drawn across: up to the tag column.
-  double get _chartW => math.max(1.0, _plotWidth - _tags.gutter);
+  /// How open the tag column is: 1 while the pills are drawn (the newest
+  /// points on screen), 0 once they are not (panned back in time), when
+  /// the lines, the axis, the markers and the crosshair take the plot's
+  /// full width. Eased between the two ([_kTagColumnMotion]), at once
+  /// under Reduce Motion.
+  late final AnimationController _column = AnimationController(
+    vsync: this,
+    duration: _kTagColumnMotion,
+    value: 1,
+  );
+  late final Animation<double> _columnCurve =
+      CurvedAnimation(parent: _column, curve: Curves.easeInOut);
+
+  /// Whether the column was last asked to be open; null until the chart
+  /// first draws (and again for another market), when it lands at once.
+  bool? _columnOpen;
+
+  /// The space this frame keeps right of the lines: the tag column, as
+  /// open as [_column] has it, down to the lines' old right margin.
+  double get _gutterNow =>
+      _kRightMargin + (_tags.gutter - _kRightMargin) * _columnCurve.value;
+
+  /// The plot's width the lines are drawn across this frame: up to the
+  /// tag column, or the full width while it is shut. Every gesture maps
+  /// through it, so a touch reads the lines as they are painted.
+  double get _chartW => math.max(1.0, _plotWidth - _gutterNow);
 
   /// Raw pointers on the plot, for the pinch. Two of them zoom; every
   /// one-finger handler stays quiet until all fingers lift.
   final Map<int, Offset> _pointers = {};
   bool _pinching = false;
   double? _pinchStartDistance;
-  double? _pinchStartFocalX;
+  double? _pinchLastFocalX;
+
+  /// How far (ms) the pinch's two fingers have slid the window since it
+  /// started, summed move by move at the lines' width then.
+  double _pinchPanMs = 0;
   int? _pinchStartSpan;
   int? _pinchStartEnd;
 
-  /// One-finger pan of the window in time.
+  /// One-finger pan of the window in time: the finger's last x and the
+  /// window's end it has walked to, unrounded and before the data clamps
+  /// it.
   bool _panningView = false;
-  double _panStartX = 0;
-  int _panStartEnd = 0;
+  double _panLastX = 0;
+  double _panEnd = 0;
   int _panSpan = 0;
 
   /// A drag that starts on the left label strip scales the axis when it
@@ -982,6 +1021,7 @@ class _MarketChartState extends ConsumerState<MarketChart>
       _cleanedTapes.clear();
       _touchMs = null;
       _tappedCluster = null;
+      _columnOpen = null;
       _stopRangeMotion();
       _resetViewport();
       _resetScale(jump: !sameMarket);
@@ -1017,10 +1057,25 @@ class _MarketChartState extends ConsumerState<MarketChart>
     _lead.dispose();
     _refit.dispose();
     _range.dispose();
+    _column.dispose();
     super.dispose();
   }
 
   // ─────────────────────────── motion ───────────────────────────
+
+  /// The tag column follows the pills: open while they are drawn ([open],
+  /// the newest points on screen), shut once they are not. It eases there
+  /// ([_kTagColumnMotion]); the first frame, another market and Reduce
+  /// Motion land it at once.
+  void _syncColumn(bool open) {
+    final target = open ? 1.0 : 0.0;
+    if (_columnOpen == null || _reduceMotion) {
+      if (_column.value != target) _column.value = target;
+    } else if (_columnOpen != open) {
+      _column.animateTo(target);
+    }
+    _columnOpen = open;
+  }
 
   /// A range change starts from what is on screen now. Nothing moves
   /// under Reduce Motion or before the chart has drawn.
@@ -1342,7 +1397,8 @@ class _MarketChartState extends ConsumerState<MarketChart>
       _panningView = false;
       _pinching = true;
       _pinchStartDistance = (points[0] - points[1]).distance;
-      _pinchStartFocalX = (points[0].dx + points[1].dx) / 2;
+      _pinchLastFocalX = (points[0].dx + points[1].dx) / 2;
+      _pinchPanMs = 0;
       _pinchStartSpan = f.end - f.start;
       _pinchStartEnd = f.end;
       setState(() => _touchMs = null);
@@ -1364,10 +1420,11 @@ class _MarketChartState extends ConsumerState<MarketChart>
     // Fingers apart → a shorter span (zoom in); together → longer.
     final scale = (distance / startDistance).clamp(0.05, 20.0);
     final span = (startSpan / scale).round().clamp(f.minSpan, total);
-    // Sliding both fingers pans the window.
-    final panMs =
-        ((focalX - (_pinchStartFocalX ?? focalX)) / _plotWidth * span).round();
-    final wantEnd = (_pinchStartEnd ?? f.end) - panMs;
+    // Sliding both fingers pans the window, each move at the lines' width
+    // in this frame (the tag column may be easing open or shut).
+    _pinchPanMs += (focalX - (_pinchLastFocalX ?? focalX)) / _chartW * span;
+    _pinchLastFocalX = focalX;
+    final wantEnd = (_pinchStartEnd ?? f.end) - _pinchPanMs.round();
     // Zooming out with the whole range already on screen, or sliding past
     // its oldest point, is a request for more history.
     if (span >= total && scale < 0.98) _requestMoreHistory();
@@ -1380,7 +1437,8 @@ class _MarketChartState extends ConsumerState<MarketChart>
     if (_pointers.isEmpty && _pinching) {
       _pinching = false;
       _pinchStartDistance = null;
-      _pinchStartFocalX = null;
+      _pinchLastFocalX = null;
+      _pinchPanMs = 0;
       _pinchStartSpan = null;
       _pinchStartEnd = null;
     }
@@ -1395,8 +1453,8 @@ class _MarketChartState extends ConsumerState<MarketChart>
         pos.dy <= size.height - _kBottomMargin &&
         _shownDomain != null;
     _panningView = !_axisCandidate;
-    _panStartX = pos.dx;
-    _panStartEnd = f.end;
+    _panLastX = pos.dx;
+    _panEnd = f.end.toDouble();
     _panSpan = f.end - f.start;
   }
 
@@ -1420,9 +1478,13 @@ class _MarketChartState extends ConsumerState<MarketChart>
     }
     final f = _frame;
     if (!_panningView || f == null || _plotWidth <= 0) return;
-    // Dragging right walks back in time.
-    final wantEnd = _panStartEnd -
-        ((d.localPosition.dx - _panStartX) / _plotWidth * _panSpan).round();
+    // Dragging right walks back in time. Each move is read at the lines'
+    // width in this frame, so the lines keep with the finger, and a tag
+    // column easing open or shut never rescales the way already walked.
+    final dx = d.localPosition.dx - _panLastX;
+    _panLastX = d.localPosition.dx;
+    _panEnd -= dx / _chartW * _panSpan;
+    final wantEnd = _panEnd.round();
     if (wantEnd < f.dataStart + _panSpan) _requestMoreHistory();
     _setView(_panSpan, wantEnd, f);
   }
@@ -1897,6 +1959,7 @@ class _MarketChartState extends ConsumerState<MarketChart>
     final f = _frameFor(series);
     _frame = f;
     final atLiveEdge = f.end >= f.dataEnd;
+    _syncColumn(atLiveEdge);
     _updateLead([
       for (final s in series) s.points.isEmpty ? 0.5 : s.points.last.price
     ]);
@@ -1923,7 +1986,7 @@ class _MarketChartState extends ConsumerState<MarketChart>
     // of the plot move together.
     if (!loading && !partial) _maybeScheduleNudge(series);
     return AnimatedBuilder(
-      animation: Listenable.merge([_range, _nudge.listenable]),
+      animation: Listenable.merge([_range, _nudge.listenable, _column]),
       builder: (context, _) {
         final rangeT = _rangeT;
         final from = _rangeFrom;
@@ -2024,14 +2087,16 @@ class _MarketChartState extends ConsumerState<MarketChart>
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         plot,
-        // Ending where the lines do, before the tag column.
+        // Ending where the lines do, before the tag column (as open as
+        // it is this frame; the full width while it is shut).
         LayoutBuilder(
           builder: (context, constraints) => Padding(
             padding: EdgeInsets.only(
               right: math.max(
                   0.0,
-                  _tags.forPlot(constraints.maxWidth, series).gutter -
-                      _kRightMargin),
+                  (_tags.forPlot(constraints.maxWidth, series).gutter -
+                          _kRightMargin) *
+                      _columnCurve.value),
             ),
             child: KuteTimeAxis(start: axis.start, end: axis.end),
           ),
@@ -2069,6 +2134,8 @@ class _MarketChartState extends ConsumerState<MarketChart>
         : null;
     final colors = [for (final s in series) s.color];
     final tags = _tags;
+    final gutter = _gutterNow;
+    final column = _columnCurve.value;
     final bought = _boughtFor(series);
     final clusters = _clustersFor(f, _chartW);
 
@@ -2099,7 +2166,7 @@ class _MarketChartState extends ConsumerState<MarketChart>
                         domain: domain,
                         atLiveEdge: from.edge,
                         isDark: isDark,
-                        rightInset: tags.gutter,
+                        rightInset: gutter,
                       ),
                     ),
                   ),
@@ -2119,7 +2186,7 @@ class _MarketChartState extends ConsumerState<MarketChart>
                       domain: domain,
                       atLiveEdge: atLiveEdge,
                       isDark: isDark,
-                      rightInset: tags.gutter,
+                      rightInset: gutter,
                     ),
                   ),
                 ),
@@ -2262,6 +2329,8 @@ class _MarketChartState extends ConsumerState<MarketChart>
                           domain: domain,
                           atLiveEdge: from.edge,
                           tags: tags,
+                          inset: gutter,
+                          opacity: column,
                         ),
                       ),
                     ),
@@ -2283,6 +2352,8 @@ class _MarketChartState extends ConsumerState<MarketChart>
                         domain: domain,
                         atLiveEdge: atLiveEdge,
                         tags: tags,
+                        inset: gutter,
+                        opacity: column,
                       ),
                     ),
                   ),
@@ -2308,6 +2379,7 @@ class _MarketChartState extends ConsumerState<MarketChart>
                   series.length,
                   domain,
                   isDark,
+                  gutter,
                 ),
                 isDark: isDark,
                 hairlineColor: c.textTertiary,
@@ -2378,7 +2450,7 @@ class _MarketChartState extends ConsumerState<MarketChart>
 
   List<KutePulsePoint> _pulsePoints(Size size, List<_Series> series, _Frame f,
       KuteYDomain domain, List<double> leads) {
-    final chartW = size.width - _tags.gutter;
+    final chartW = size.width - _gutterNow;
     final drawH = size.height - _kBottomMargin;
     if (chartW <= 0 || drawH <= 0) return const [];
     final out = <KutePulsePoint>[];
@@ -2406,7 +2478,7 @@ class _MarketChartState extends ConsumerState<MarketChart>
     int touch,
     KuteScrubCardData? card,
   ) {
-    final chartW = size.width - _tags.gutter;
+    final chartW = size.width - _gutterNow;
     final drawH = size.height - _kBottomMargin;
     if (chartW <= 0 || drawH <= 0 || series.isEmpty) return null;
     final dots = <KuteCrosshairDot>[];
@@ -2663,6 +2735,14 @@ class _TagsPainter extends CustomPainter {
   final bool atLiveEdge;
   final _TagColumn tags;
 
+  /// The space right of the lines this frame (the tag column as open as
+  /// it is): the pills sit just past the lines' end, sliding in with the
+  /// column as it opens.
+  final double inset;
+
+  /// How open the column is (0..1): the pills fade in as it opens.
+  final double opacity;
+
   _TagsPainter({
     required this.series,
     required this.leads,
@@ -2671,11 +2751,13 @@ class _TagsPainter extends CustomPainter {
     required this.domain,
     required this.atLiveEdge,
     required this.tags,
+    required this.inset,
+    required this.opacity,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    final chartW = size.width - tags.gutter;
+    final chartW = size.width - inset;
     final drawH = size.height - _kBottomMargin;
     if (chartW <= 0 || drawH <= 0 || series.isEmpty) return;
     final placed = _valueTags(
@@ -2688,7 +2770,17 @@ class _TagsPainter extends CustomPainter {
       tags: tags,
       atLiveEdge: atLiveEdge,
     );
+    if (placed.isEmpty || opacity <= 0) return;
     final left = chartW + kPolyTagLead;
+    // While the column eases open the pills slide in from the plot's
+    // edge: kept inside it, and faded in with it.
+    final easing = opacity < 1;
+    if (easing) {
+      canvas.save();
+      canvas.clipRect(Offset.zero & size);
+      canvas.saveLayer(Offset.zero & size,
+          Paint()..color = Color.fromRGBO(0, 0, 0, opacity));
+    }
     for (final t in placed) {
       final text = _endpointTp(
         t.text,
@@ -2705,6 +2797,10 @@ class _TagsPainter extends CustomPainter {
       );
       text.paint(canvas, Offset(left + _kTagPadH, t.top + _kTagPadV));
     }
+    if (easing) {
+      canvas.restore();
+      canvas.restore();
+    }
   }
 
   @override
@@ -2715,7 +2811,9 @@ class _TagsPainter extends CustomPainter {
       old.end != end ||
       old.domain != domain ||
       old.atLiveEdge != atLiveEdge ||
-      !identical(old.tags, tags);
+      !identical(old.tags, tags) ||
+      old.inset != inset ||
+      old.opacity != opacity;
 }
 
 /// The probability scale: 4-6 nice levels (the Hyperliquid ladder) as

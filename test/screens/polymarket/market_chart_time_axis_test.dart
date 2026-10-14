@@ -182,6 +182,10 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
       expect(_end(tester), isNot('Now'));
       expect(_end(tester), matches(RegExp(r'^\d{2}:\d{2}$')));
+      // Away from the live edge there is no tag, so no tag column: the
+      // axis ends at the plot's right edge, as the lines do.
+      final e = tester.getRect(find.byKey(const ValueKey('kute-time-axis-end')));
+      expect(e.right, closeTo(rect.right, 0.5));
       expect(tester.takeException(), isNull);
     });
 
