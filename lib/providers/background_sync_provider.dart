@@ -1399,6 +1399,10 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
               e.providerName == 'Orchestra' &&
               !e.isCashAppPurchase &&
               e.networkTo == 'SPARK' &&
+              // Only bitcoin deliveries: the candidates below are
+              // bitcoin receives, and a USDB row (often with no amount
+              // to check) would otherwise claim any of them.
+              e.coinTo.toUpperCase() == 'BTC' &&
               e.isPending)
           .toList();
       final alreadyHidden =
