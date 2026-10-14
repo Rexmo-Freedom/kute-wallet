@@ -201,7 +201,7 @@ tasks.configureEach { task ->
 
 dependencies {
     // Official BDK mobile bindings. Keep Wallet 3.0 SQLite compatibility.
-    implementation('org.bitcoindevkit:bdk-android:3.1.0') {
+    implementation('org.bitcoindevkit:bdk-android:3.1.1') {
         exclude group: 'net.java.dev.jna', module: 'jna'
     }
     // The older transitive JNA has 4 KB x86_64 segments. This upstream
