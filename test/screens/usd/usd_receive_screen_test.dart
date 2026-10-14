@@ -26,6 +26,7 @@ import 'package:kute/providers/breez_config_provider.dart'
 import 'package:kute/providers/currency_conversions_provider.dart';
 import 'package:kute/providers/orchestra_supported_routes_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/screens/shared/account_switcher_pill.dart';
 import 'package:kute/screens/home/components/deposit_sheet.dart'
     show MoveLockedSide;
 import 'package:kute/screens/shared/asset_network_picker.dart' show PickerRow;
@@ -245,8 +246,8 @@ void main() {
     await _pump(tester, spendingSats: 100000);
     final row = tester.widget<SendToListRow>(find.byKey(_bitcoinRow));
     expect(row.title, _l10n.bitcoin);
-    // The spending bitcoin in dollars, as the Move sheet's row reads it.
-    expect(row.subtitle, 'Your spending wallet · \$60.00');
+    // The Bitcoin balance in dollars, alone: never "spending wallet".
+    expect(row.subtitle, '\$60.00');
     expect(
         find.descendant(
             of: find.byKey(_bitcoinRow),
@@ -270,7 +271,7 @@ void main() {
     expect(node, isSemantics(isButton: true, hasTapAction: true));
     final label = node.getSemanticsData().label;
     expect(label, contains(_l10n.bitcoin));
-    expect(label, contains('Your spending wallet · \$60.00'));
+    expect(label, isNot(contains('spending wallet')));
     expect(label, contains(_l10n.moveAdd));
     // The label above is plain text, not a button.
     expect(
@@ -325,11 +326,13 @@ void main() {
     await _unmount(tester);
   });
 
-  testWidgets('without a balance the row says just the spending wallet',
-      (tester) async {
+  testWidgets(
+      'without a balance the row is just "Bitcoin", never the spending '
+      'wallet', (tester) async {
     await _pump(tester);
     expect(tester.widget<SendToListRow>(find.byKey(_bitcoinRow)).subtitle,
-        _l10n.depositFromSpendingWallet);
+        isNull);
+    expect(find.textContaining('spending wallet'), findsNothing);
     await _unmount(tester);
   });
 
@@ -406,14 +409,16 @@ void main() {
     expect(frame.height, greaterThan(844 * 0.8));
     expect(frame.height, lessThanOrEqualTo(844 * 0.9 + 0.5));
 
-    // The sheet has no visible title and no step bar: the close, then
-    // the step. A screen reader still hears what the sheet is.
+    // The sheet's title names the balance the money lands in,
+    // "Investments", never the spending wallet; no step bar.
     expect(find.text(_l10n.usdReceiveTitle), findsNothing);
+    expect(
+        find.descendant(
+            of: find.byType(AccountSwitcherPill),
+            matching: find.text(_l10n.assetDollars)),
+        findsOneWidget);
+    expect(find.textContaining('spending wallet'), findsNothing);
     expect(find.byType(StepperProgress), findsNothing);
-    final handle = tester.ensureSemantics();
-    await tester.pump();
-    expect(find.bySemanticsLabel(_l10n.usdReceiveTitle), findsOneWidget);
-    handle.dispose();
 
     await tester.fling(
         find.byType(KuteCloseButton), const Offset(0, 600), 2000);

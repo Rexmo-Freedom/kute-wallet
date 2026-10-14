@@ -56,6 +56,12 @@ class AccountSwitcherPill extends ConsumerWidget {
   /// without a dropdown, tap action, or account-picker semantics.
   final bool readOnly;
 
+  /// Names the pill outright instead of the account's wallet, with no
+  /// brand mark: the Investments sheets say "Investments", the balance
+  /// the money leaves from or lands in, not the spending wallet that
+  /// holds it (founder decision October 2026). Only with [readOnly].
+  final String? label;
+
   const AccountSwitcherPill({
     super.key,
     required this.pickerTitle,
@@ -63,7 +69,8 @@ class AccountSwitcherPill extends ConsumerWidget {
     this.account,
     this.onPicked,
     this.readOnly = false,
-  });
+    this.label,
+  }) : assert(label == null || readOnly);
 
   Future<void> _open(BuildContext context, WidgetRef ref) async {
     final current = account ?? ref.read(selectedAccountProvider);
@@ -98,6 +105,10 @@ class AccountSwitcherPill extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
+    final override = this.label;
+    if (override != null) {
+      return Semantics(header: true, child: _titleRow(c, override, null));
+    }
     final acc = account ?? ref.watch(selectedAccountProvider);
     if (acc == null) return const SizedBox.shrink();
 
@@ -159,36 +170,7 @@ class AccountSwitcherPill extends ConsumerWidget {
       );
     }
 
-    final title = Padding(
-      padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 4.h),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (leading != null) leading,
-          Flexible(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: c.textPrimary,
-                fontSize: 17.sp,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.3,
-              ),
-            ),
-          ),
-          if (!readOnly) ...[
-            SizedBox(width: 4.w),
-            Icon(
-              Icons.keyboard_arrow_down_rounded,
-              color: c.textSecondary,
-              size: 22.sp,
-            ),
-          ],
-        ],
-      ),
-    );
+    final title = _titleRow(c, label, leading);
     if (readOnly) return Semantics(header: true, child: title);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -199,4 +181,38 @@ class AccountSwitcherPill extends ConsumerWidget {
       child: title,
     );
   }
+
+  /// The label (and the wallet's mark, when it has one) with the picker's
+  /// chevron unless [readOnly].
+  Widget _titleRow(AppColorsExtension c, String label, Widget? leading) =>
+      Padding(
+        padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 4.h),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (leading != null) leading,
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: c.textPrimary,
+                  fontSize: 17.sp,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.3,
+                ),
+              ),
+            ),
+            if (!readOnly) ...[
+              SizedBox(width: 4.w),
+              Icon(
+                Icons.keyboard_arrow_down_rounded,
+                color: c.textSecondary,
+                size: 22.sp,
+              ),
+            ],
+          ],
+        ),
+      );
 }

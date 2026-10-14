@@ -28,6 +28,7 @@ import 'package:kute/providers/orchestra_supported_routes_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/spark_address_provider.dart';
 import 'package:kute/providers/usd_account_provider.dart';
+import 'package:kute/screens/shared/account_switcher_pill.dart';
 import 'package:kute/screens/shared/coin_asset_grid.dart'
     show CoinAssetPickerSheet;
 import 'package:kute/screens/shared/custom_button.dart';
@@ -442,7 +443,14 @@ void main() {
     await tester.pumpAndSettle();
     expect(_step(_l10n.sendReview), findsOneWidget);
     expect(find.text(_l10n.sendReview), findsNothing);
-    expect(find.text(_l10n.assetDollars), findsOneWidget);
+    // "Investments" twice: the sheet's title (the balance the dollars
+    // leave from, never the spending wallet) and Review's From line.
+    expect(find.text(_l10n.assetDollars), findsNWidgets(2));
+    expect(
+        find.descendant(
+            of: find.byType(AccountSwitcherPill),
+            matching: find.text(_l10n.assetDollars)),
+        findsOneWidget);
     expect(_chipLabel(tester), label('arbitrum', 'USDC'));
     // Route params name the coin and its network; never the address.
     final step = events.lastWhere((e) => e.$1 == 'usd_send_step').$2!;

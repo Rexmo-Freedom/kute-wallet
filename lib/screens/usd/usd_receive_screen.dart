@@ -37,6 +37,7 @@ import 'package:kute/screens/shared/kute_back_button.dart'
     show KuteCircleBackButton, KuteCloseButton;
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/screens/shared/qr_code.dart';
+import 'package:kute/screens/shared/account_switcher_pill.dart';
 import 'package:kute/screens/shared/receive_surface.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart'
     show SendToListCard, SendToListRow, SendToSectionHeader;
@@ -184,9 +185,9 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
               leading: SvgPicture.asset('lib/assets/bitcoin-icon.svg',
                   width: 40.sp, height: 40.sp),
               title: l10n.bitcoin,
-              subtitle: balance != null
-                  ? l10n.depositFromSpendingWalletWithBalance(balance)
-                  : l10n.depositFromSpendingWallet,
+              // The Bitcoin balance alone: the card is "Bitcoin", the
+              // tab's name, never "spending wallet" (founder decision).
+              subtitle: balance,
               trailing: _bitcoinRowButton(context),
               colors: c,
               onTap: _openFromBitcoin,
@@ -294,9 +295,14 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
       leading: _step == _Step.coin
           ? KuteCloseButton(onPressed: _onBack)
           : KuteCircleBackButton(onPressed: _onBack),
-      // No visible title and no step bar: the sheet already says what it
-      // is, and the close/back in the header says where you are. The
-      // name stays for screen readers.
+      // The balance the money lands in, read-only, where the bitcoin
+      // receive names its wallet: "Investments" (founder decision). No
+      // step bar; the close/back in the header says where you are.
+      title: AccountSwitcherPill(
+        pickerTitle: l10n.receiveInto,
+        readOnly: true,
+        label: l10n.assetDollars,
+      ),
       semanticTitle: l10n.usdReceiveTitle,
       child: Padding(
         padding: EdgeInsets.fromLTRB(20.w, 6.h, 20.w, 0),

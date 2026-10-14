@@ -71,7 +71,6 @@ import 'package:kute/helpers/require_fresh_auth.dart';
 import 'package:kute/helpers/scanned_address.dart';
 import 'package:kute/helpers/venue_intents.dart' show OrchestraGrants;
 import 'package:kute/l10n/l10n.dart';
-import 'package:kute/models/account.dart' show UsdcSpendingAccount;
 import 'package:kute/models/orchestra_routes_model.dart'
     show OrchestraReceiveOption, OrchestraRoutesCatalog, RouteKey;
 import 'package:kute/models/settlement_operation.dart'
@@ -699,14 +698,15 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
             shadowColor: Colors.transparent,
             scrolledUnderElevation: 0,
             centerTitle: true,
-            // The wallet the dollars leave from, read-only, exactly as
-            // the bitcoin send names its source.
+            // The balance the dollars leave from, read-only, in the place
+            // the bitcoin send names its wallet: "Investments", never the
+            // spending wallet that holds it (founder decision).
             title: spending == null
                 ? null
                 : AccountSwitcherPill(
                     pickerTitle: context.l10n.sendFromPickerTitle,
-                    account: UsdcSpendingAccount(spending),
                     readOnly: true,
+                    label: context.l10n.assetDollars,
                   ),
             leading: onFirstStep
                 ? KuteBareCloseButton(onPressed: _onLeadingTap)
