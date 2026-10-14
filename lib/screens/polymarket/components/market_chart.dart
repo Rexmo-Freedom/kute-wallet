@@ -61,11 +61,12 @@
 // Reduce Motion everything lands at once and the live pulse stops.
 //
 // Multi-outcome markets keep one line per outcome in the host's colours.
-// Each line ends in a right-edge value pill in its colour reading its
-// short name and chance ("Sakatsume 72.5%", "Yes 18%"), drawn over the
-// lines and the pulse; where lines end close together the pills stack
-// clear of each other and of the end dots, and a crowded stack writes
-// its chances alone (poly_chart_tags.dart). The user's average
+// Each line ends in a value pill in its colour reading its short name and
+// chance ("Sakatsume 72.5%", "Yes 18%"). The pills keep a column of their
+// own at the plot's right, sized to the widest of them, and the lines end
+// where it starts, so a pill never covers a line or is cut; where lines
+// end close together the pills stack clear of each other
+// (poly_chart_tags.dart). The user's average
 // price on a shown outcome is drawn as a dashed "Bought · 32¢" line, the
 // Polymarket twin of the Hyperliquid "Entry" line, through the shared
 // trade-lines layer.
@@ -175,13 +176,80 @@ List<double> spreadChartTags(
     kuteLayoutTags([for (final t in tops) (top: t, height: height)],
         maxBottom: maxBottom, gap: gap);
 
-/// The right-edge value tags of [series] for one frame (poly_chart_tags.dart):
-/// each line's tag at the end of its line, written as its short name and
-/// chance ("Sakatsume 72.5%"), moved apart from the others where lines end
-/// close together, with its colour. Only while the newest points are on
-/// screen ([atLiveEdge]). Shared by the tags layer, which draws them, and
-/// the "Bought" layer, which keeps its tags off them: these are the
-/// latest prices' own tags.
+/// The value tags' column a chart of lines labelled [labels] keeps at the
+/// right of a plot [width] wide ([polyTagStyle]), measured in the tags'
+/// own font: the lines end [PolyTagStyle.gutter] short of the plot's
+/// right edge.
+PolyTagStyle polyChartTagStyle(List<String> labels, double width) =>
+    polyTagStyle(
+      labels: labels,
+      width: width,
+      padH: _kTagPadH,
+      minGutter: _kRightMargin,
+      measure: (text, fontSize) =>
+          _endpointTp(text, Colors.white, fontSize, FontWeight.w800).width,
+    );
+
+/// The value tags' column at the plot's right for one plot width and set
+/// of lines ([polyTagStyle]): how wide it is ([gutter], from the end of
+/// the lines to the plot's edge), the tags' [fontSize] and the name each
+/// line's tag writes, by the line's label. Worked out again only when the
+/// width or the lines' labels change.
+class _TagColumn {
+  final double width;
+  final List<String> labels;
+  final double gutter;
+  final double fontSize;
+  final Map<String, String> names;
+
+  const _TagColumn({
+    required this.width,
+    required this.labels,
+    required this.gutter,
+    required this.fontSize,
+    required this.names,
+  });
+
+  /// Before the first layout: the lines' old right margin.
+  static const none = _TagColumn(
+    width: -1,
+    labels: [],
+    gutter: _kRightMargin,
+    fontSize: _kTagFontSize,
+    names: {},
+  );
+
+  /// The tag column for [series] on a plot [width] wide; this one when it
+  /// was worked out for the same.
+  _TagColumn forPlot(double width, List<_Series> series) {
+    if (width == this.width && series.length == labels.length) {
+      var same = true;
+      for (var i = 0; i < labels.length && same; i++) {
+        same = series[i].label == labels[i];
+      }
+      if (same) return this;
+    }
+    final labelsNow = [for (final s in series) s.label];
+    final style = polyChartTagStyle(labelsNow, width);
+    return _TagColumn(
+      width: width,
+      labels: labelsNow,
+      gutter: style.gutter,
+      fontSize: style.fontSize,
+      names: {
+        for (var i = 0; i < labelsNow.length; i++) labelsNow[i]: style.names[i],
+      },
+    );
+  }
+}
+
+/// The value tags of [series] for one frame (poly_chart_tags.dart): each
+/// line's tag in the tag column ([tags]) level with the end of its line,
+/// written as its short name and chance ("Sakatsume 72.5%"), moved apart
+/// from the others where lines end close together, with its colour. Only
+/// while the newest points are on screen ([atLiveEdge]). Shared by the
+/// tags layer, which draws them, and the "Bought" layer, which keeps its
+/// tags off them: these are the latest prices' own tags.
 List<
         ({
           double y,
@@ -198,10 +266,11 @@ List<
   required int end,
   required KuteYDomain domain,
   required double drawH,
-  required double plotWidth,
+  required _TagColumn tags,
   required bool atLiveEdge,
 }) {
   if (!atLiveEdge || drawH <= 0) return const [];
+  final fontSize = tags.fontSize;
   final raw = <({double y, double price, Color color, String name})>[];
   for (var li = 0; li < series.length; li++) {
     final s = series[li];
@@ -215,24 +284,24 @@ List<
       y: _yFor(tag ?? lead, domain, drawH),
       price: tag ?? pts.last.price,
       color: s.color,
-      name: polyChartShortName(s.label),
+      name: tags.names[s.label] ?? '',
     ));
   }
   if (raw.isEmpty) return const [];
-  final pillH = _endpointTp('0%', Colors.white, _kTagFontSize, FontWeight.w800)
-          .height +
-      _kTagPadV * 2;
+  final pillH =
+      _endpointTp('0%', Colors.white, fontSize, FontWeight.w800).height +
+          _kTagPadV * 2;
   final placed = polyLayoutValueTags(
     lines: [
       for (final t in raw)
         (y: t.y, price: t.price, pct: polyChartTagPct(t.price), name: t.name),
     ],
-    plotWidth: plotWidth,
+    maxWidth: tags.gutter - kPolyTagLead,
     drawH: drawH,
     tagHeight: pillH,
     padH: _kTagPadH,
     measure: (text) =>
-        _endpointTp(text, Colors.white, _kTagFontSize, FontWeight.w800).width,
+        _endpointTp(text, Colors.white, fontSize, FontWeight.w800).width,
   );
   return [
     for (final p in placed)
@@ -694,6 +763,14 @@ class _MarketChartState extends ConsumerState<MarketChart>
   /// The window painted last frame, for the gesture handlers.
   _Frame? _frame;
   double _plotWidth = 0;
+
+  /// The value tags' column at the plot's right ([polyTagStyle]): the
+  /// lines end where it starts. Kept for the width and labels it was
+  /// worked out for.
+  _TagColumn _tags = _TagColumn.none;
+
+  /// The plot's width the lines are drawn across: up to the tag column.
+  double get _chartW => math.max(1.0, _plotWidth - _tags.gutter);
 
   /// Raw pointers on the plot, for the pinch. Two of them zoom; every
   /// one-finger handler stays quiet until all fingers lift.
@@ -1550,7 +1627,7 @@ class _MarketChartState extends ConsumerState<MarketChart>
     if (f == null || series.isEmpty || _plotWidth <= 0) return;
     final pts = series.first.points;
     if (pts.isEmpty) return;
-    final chartW = math.max(1.0, _plotWidth - _kRightMargin);
+    final chartW = _chartW;
     final x = dx.clamp(0.0, chartW);
     final t = f.start + (x / chartW * (f.end - f.start)).round();
     var i = _lowerBound(pts, t).clamp(0, pts.length - 1);
@@ -1626,7 +1703,7 @@ class _MarketChartState extends ConsumerState<MarketChart>
   _MarkerCluster? _clusterNear(double dx, double slop) {
     final f = _frame;
     if (f == null || widget.markers.isEmpty || _plotWidth <= 0) return null;
-    final chartW = math.max(1.0, _plotWidth - _kRightMargin);
+    final chartW = _chartW;
     _MarkerCluster? best;
     var bestDist = slop;
     for (final c in _clustersFor(f, chartW)) {
@@ -1877,6 +1954,7 @@ class _MarketChartState extends ConsumerState<MarketChart>
     final plot = LayoutBuilder(builder: (context, constraints) {
       final w = constraints.maxWidth;
       _plotWidth = w;
+      _tags = _tags.forPlot(w, series);
       final size = Size(w, _plotH);
       return Listener(
         onPointerDown: _onPointerDown,
@@ -1946,7 +2024,18 @@ class _MarketChartState extends ConsumerState<MarketChart>
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         plot,
-        KuteTimeAxis(start: axis.start, end: axis.end),
+        // Ending where the lines do, before the tag column.
+        LayoutBuilder(
+          builder: (context, constraints) => Padding(
+            padding: EdgeInsets.only(
+              right: math.max(
+                  0.0,
+                  _tags.forPlot(constraints.maxWidth, series).gutter -
+                      _kRightMargin),
+            ),
+            child: KuteTimeAxis(start: axis.start, end: axis.end),
+          ),
+        ),
       ],
     );
   }
@@ -1979,9 +2068,9 @@ class _MarketChartState extends ConsumerState<MarketChart>
         ? rangeT
         : null;
     final colors = [for (final s in series) s.color];
+    final tags = _tags;
     final bought = _boughtFor(series);
-    final clusters =
-        _clustersFor(f, math.max(1.0, _plotWidth - _kRightMargin));
+    final clusters = _clustersFor(f, _chartW);
 
     // The scrub card is written here, never inside a paint pass.
     final card = touch == null ? null : _scrubCard(series, f, touch);
@@ -2010,6 +2099,7 @@ class _MarketChartState extends ConsumerState<MarketChart>
                         domain: domain,
                         atLiveEdge: from.edge,
                         isDark: isDark,
+                        rightInset: tags.gutter,
                       ),
                     ),
                   ),
@@ -2029,6 +2119,7 @@ class _MarketChartState extends ConsumerState<MarketChart>
                       domain: domain,
                       atLiveEdge: atLiveEdge,
                       isDark: isDark,
+                      rightInset: tags.gutter,
                     ),
                   ),
                 ),
@@ -2094,13 +2185,13 @@ class _MarketChartState extends ConsumerState<MarketChart>
                             end: f.end,
                             domain: domain,
                             drawH: geom.priceH,
-                            plotWidth: size.width - _kRightMargin,
+                            tags: tags,
                             atLiveEdge: atLiveEdge,
                           ))
                             (y: t.y, top: t.top, height: t.height),
                         ],
                         repaintKey: (domain, isDark, leads, f.start, f.end,
-                            atLiveEdge),
+                            atLiveEdge, tags),
                       ),
                     ),
                   ),
@@ -2170,6 +2261,7 @@ class _MarketChartState extends ConsumerState<MarketChart>
                           end: f.end,
                           domain: domain,
                           atLiveEdge: from.edge,
+                          tags: tags,
                         ),
                       ),
                     ),
@@ -2190,6 +2282,7 @@ class _MarketChartState extends ConsumerState<MarketChart>
                         end: f.end,
                         domain: domain,
                         atLiveEdge: atLiveEdge,
+                        tags: tags,
                       ),
                     ),
                   ),
@@ -2285,7 +2378,7 @@ class _MarketChartState extends ConsumerState<MarketChart>
 
   List<KutePulsePoint> _pulsePoints(Size size, List<_Series> series, _Frame f,
       KuteYDomain domain, List<double> leads) {
-    final chartW = size.width - _kRightMargin;
+    final chartW = size.width - _tags.gutter;
     final drawH = size.height - _kBottomMargin;
     if (chartW <= 0 || drawH <= 0) return const [];
     final out = <KutePulsePoint>[];
@@ -2313,7 +2406,7 @@ class _MarketChartState extends ConsumerState<MarketChart>
     int touch,
     KuteScrubCardData? card,
   ) {
-    final chartW = size.width - _kRightMargin;
+    final chartW = size.width - _tags.gutter;
     final drawH = size.height - _kBottomMargin;
     if (chartW <= 0 || drawH <= 0 || series.isEmpty) return null;
     final dots = <KuteCrosshairDot>[];
@@ -2341,7 +2434,7 @@ class _MarketChartState extends ConsumerState<MarketChart>
         DateTime.fromMillisecondsSinceEpoch(touch), kuteChartLocale(context));
     final details = <String>[];
     if (widget.markers.isNotEmpty) {
-      final chartW = math.max(1.0, _plotWidth - _kRightMargin);
+      final chartW = _chartW;
       final near = _clusterNear(_xFor(touch, f, chartW), 10);
       if (near != null) details.add(_clusterLabel(near.markers));
     }
@@ -2467,6 +2560,8 @@ class _LinesPainter extends CustomPainter {
   final bool atLiveEdge;
   final bool isDark;
 
+  /// The tag column's width: the lines end where it starts.
+  final double rightInset;
 
   _LinesPainter({
     required this.series,
@@ -2476,11 +2571,12 @@ class _LinesPainter extends CustomPainter {
     required this.domain,
     required this.atLiveEdge,
     required this.isDark,
+    required this.rightInset,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    final chartW = size.width - _kRightMargin;
+    final chartW = size.width - rightInset;
     final drawH = size.height - _kBottomMargin;
     if (chartW <= 0 || drawH <= 0 || series.isEmpty) return;
     final f = (dataStart: start, dataEnd: end, start: start, end: end, minSpan: 0);
@@ -2539,7 +2635,8 @@ class _LinesPainter extends CustomPainter {
       old.end != end ||
       old.domain != domain ||
       old.atLiveEdge != atLiveEdge ||
-      old.isDark != isDark;
+      old.isDark != isDark ||
+      old.rightInset != rightInset;
 
   static bool _sameLeads(List<double> a, List<double> b) {
     if (identical(a, b)) return true;
@@ -2551,11 +2648,12 @@ class _LinesPainter extends CustomPainter {
   }
 }
 
-/// The right-edge value tags ([_valueTags]): a small rounded pill per
-/// line filled with the line's colour, contrast text by luminance (the
-/// Hyperliquid price tag treatment), reading the outcome's short name and
-/// its chance. Their own layer, over the live pulse, so no ring of a dot
-/// shows through a pill.
+/// The value tags ([_valueTags]): a small rounded pill per line filled
+/// with the line's colour, contrast text by luminance (the Hyperliquid
+/// price tag treatment), reading the outcome's short name and its chance.
+/// They sit in the tag column past the end of the lines, so they never
+/// cover a line; their own layer, over the live pulse, so no ring of a
+/// dot shows through a pill.
 class _TagsPainter extends CustomPainter {
   final List<_Series> series;
   final List<double> leads;
@@ -2563,6 +2661,7 @@ class _TagsPainter extends CustomPainter {
   final int end;
   final KuteYDomain domain;
   final bool atLiveEdge;
+  final _TagColumn tags;
 
   _TagsPainter({
     required this.series,
@@ -2571,39 +2670,40 @@ class _TagsPainter extends CustomPainter {
     required this.end,
     required this.domain,
     required this.atLiveEdge,
+    required this.tags,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    final chartW = size.width - _kRightMargin;
+    final chartW = size.width - tags.gutter;
     final drawH = size.height - _kBottomMargin;
     if (chartW <= 0 || drawH <= 0 || series.isEmpty) return;
-    final tags = _valueTags(
+    final placed = _valueTags(
       series: series,
       leads: leads,
       start: start,
       end: end,
       domain: domain,
       drawH: drawH,
-      plotWidth: chartW,
+      tags: tags,
       atLiveEdge: atLiveEdge,
     );
-    for (final t in tags) {
+    final left = chartW + kPolyTagLead;
+    for (final t in placed) {
       final text = _endpointTp(
         t.text,
         t.color.computeLuminance() > 0.55 ? Colors.black : Colors.white,
-        _kTagFontSize,
+        tags.fontSize,
         FontWeight.w800,
       );
       canvas.drawRRect(
         RRect.fromRectAndRadius(
-          Rect.fromLTWH(size.width - t.width, t.top, t.width, t.height),
+          Rect.fromLTWH(left, t.top, t.width, t.height),
           const Radius.circular(5),
         ),
         Paint()..color = t.color,
       );
-      text.paint(canvas,
-          Offset(size.width - t.width + _kTagPadH, t.top + _kTagPadV));
+      text.paint(canvas, Offset(left + _kTagPadH, t.top + _kTagPadV));
     }
   }
 
@@ -2614,7 +2714,8 @@ class _TagsPainter extends CustomPainter {
       old.start != start ||
       old.end != end ||
       old.domain != domain ||
-      old.atLiveEdge != atLiveEdge;
+      old.atLiveEdge != atLiveEdge ||
+      !identical(old.tags, tags);
 }
 
 /// The probability scale: 4-6 nice levels (the Hyperliquid ladder) as

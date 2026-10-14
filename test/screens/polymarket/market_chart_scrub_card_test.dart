@@ -189,8 +189,11 @@ void main() {
     );
     expect(find.textContaining('past'), findsNothing);
     final rect = tester.getRect(find.byType(MarketChart));
-    // The week fills the plot; the marker sits half way across it.
-    await tester.tapAt(Offset(rect.left + (rect.width - 12) / 2, rect.top + 100));
+    // The week fills the plot up to the tag column; the marker sits half
+    // way across it.
+    final gutter = polyChartTagStyle([''], rect.width).gutter;
+    await tester
+        .tapAt(Offset(rect.left + (rect.width - gutter) / 2, rect.top + 100));
     await tester.pump();
     final card = find.byType(KuteScrubCard);
     expect(card, findsOneWidget);
