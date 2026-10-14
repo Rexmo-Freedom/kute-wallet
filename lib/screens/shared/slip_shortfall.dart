@@ -36,7 +36,7 @@ import 'package:kute/providers/currency_conversions_provider.dart'
 import 'package:kute/providers/hyperliquid_account_provider.dart'
     show hyperliquidAddressProvider;
 import 'package:kute/providers/pending_pool_deposits_provider.dart'
-    show isPendingPoolDeposit;
+    show isPendingBitcoinLeg, isPendingPoolDeposit;
 import 'package:kute/providers/polymarket_trading_provider.dart'
     show polymarketTradingProvider;
 import 'package:kute/providers/settings_provider.dart' show settingsProvider;
@@ -51,6 +51,9 @@ import 'package:kute/screens/home/components/deposit_sheet.dart'
     show showDepositSheet, MoveLockedSide;
 import 'package:kute/services/api/orchestra_api.dart' show OrchestraService;
 import 'package:kute/services/funding/venue_shortfall.dart';
+import 'package:kute/services/one_balance/funded_orders.dart';
+import 'package:kute/services/one_balance/one_balance_state.dart'
+    show OneBalanceVenue;
 import 'package:kute/services/orchestra_routes.dart'
     show kOrchestraUsdAssetCode, kOrchestraUsdChain;
 import 'package:kute/theme/app_theme.dart';
@@ -70,6 +73,12 @@ enum SlipVenue {
 
   /// The Move sheet door into this venue.
   final MoveLockedSide lockedSide;
+
+  /// The one-balance venue this slip funds.
+  OneBalanceVenue get oneBalanceVenue => switch (this) {
+        SlipVenue.predictions => OneBalanceVenue.predictions,
+        SlipVenue.investing => OneBalanceVenue.investing,
+      };
 }
 
 /// The spending balances a top-up can come from, in dollars, and the
@@ -388,13 +397,20 @@ mixin SlipIncomingDeposit<T extends ConsumerStatefulWidget>
     final orders = ref.watch(swapOrdersProvider);
     final walletId =
         ref.watch(settingsProvider.select((s) => s.activeWalletId));
+    final funded = ref.watch(fundedOrdersProvider);
     final now = DateTime.now();
     final pending = <String, double>{};
     for (final e in orders) {
-      if (!isPendingPoolDeposit(e,
-          network: slipVenue.network,
-          walletId: walletId,
-          nowMs: now.millisecondsSinceEpoch)) {
+      final nowMs = now.millisecondsSinceEpoch;
+      // A Bitcoin → Dollars leg a slip on this venue started for its
+      // order (kept across restarts) is this venue's deposit on its way.
+      final ownBitcoinLeg =
+          isPendingBitcoinLeg(e, walletId: walletId, nowMs: nowMs) &&
+              FundedOrdersNotifier.btcRowVenue(funded, e.id) ==
+                  slipVenue.oneBalanceVenue;
+      if (!ownBitcoinLeg &&
+          !isPendingPoolDeposit(e,
+              network: slipVenue.network, walletId: walletId, nowMs: nowMs)) {
         continue;
       }
       // An unpaid Cash App invoice is not money on its way.
@@ -569,6 +585,127 @@ class SlipDepositFailedNote extends StatelessWidget {
         padding: EdgeInsets.only(bottom: 8.h),
         child: Text(
           context.l10n.slipDepositFailedNote,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+              color: context.colors.textSecondary,
+              fontSize: 13.sp,
+              height: 1.35),
+        ),
+      );
+}
+
+/// The staged progress of an order funded through Investments (founder
+/// decision 14 October 2026): each step a line under the slip's one
+/// button, a check once done, the small working sign the "Deposit
+/// incoming" note uses while active, the rest waiting in a quieter tone.
+/// No new chrome: the note's own type, colours and spinner.
+class SlipFundingSteps extends StatelessWidget {
+  const SlipFundingSteps({
+    super.key,
+    required this.steps,
+    required this.active,
+    this.slow = false,
+  });
+
+  /// The steps, in order.
+  final List<String> steps;
+
+  /// The step running now; the ones before it are done.
+  final int active;
+
+  /// The first step is taking longer than usual.
+  final bool slow;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final still = kuteReduceMotion(context);
+    Widget lead(int i) {
+      if (i < active) {
+        return Icon(Icons.check_rounded,
+            key: ValueKey('slip-funding-step-done-$i'),
+            size: 14.r,
+            color: c.textSecondary);
+      }
+      if (i == active) {
+        return SizedBox.square(
+          key: ValueKey('slip-funding-step-active-$i'),
+          dimension: 12.r,
+          child: still
+              ? DecoratedBox(
+                  decoration: BoxDecoration(
+                      color: c.textSecondary, shape: BoxShape.circle))
+              : CircularProgressIndicator(
+                  strokeWidth: 1.6, color: c.textSecondary),
+        );
+      }
+      return SizedBox.square(dimension: 12.r);
+    }
+
+    return Padding(
+      key: const ValueKey('slip-funding-steps'),
+      padding: EdgeInsets.only(top: 10.h),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var i = 0; i < steps.length; i++)
+            Padding(
+              key: ValueKey('slip-funding-step-$i'),
+              padding: EdgeInsets.symmetric(vertical: 3.h),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 22.w,
+                    child: Align(
+                        alignment: Alignment.centerLeft, child: lead(i)),
+                  ),
+                  Flexible(
+                    child: Text(
+                      steps[i],
+                      style: TextStyle(
+                        color: i <= active ? c.textSecondary : c.textTertiary,
+                        fontSize: 13.sp,
+                        height: 1.35,
+                        fontWeight:
+                            i == active ? FontWeight.w600 : FontWeight.w400,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          if (slow)
+            Padding(
+              padding: EdgeInsets.only(top: 4.h, left: 22.w),
+              child: Text(
+                context.l10n.slipStepTakingLonger,
+                key: const ValueKey('slip-funding-slow'),
+                style: TextStyle(
+                    color: c.textTertiary, fontSize: 12.sp, height: 1.35),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The plain line above a slip's button when its funding stopped with the
+/// money in Investments and the order not placed: "Your $X is in
+/// Investments. Tap to place." Same type as [SlipDepositFailedNote].
+class SlipFundingReadyNote extends StatelessWidget {
+  const SlipFundingReadyNote({super.key, required this.amount});
+
+  /// The formatted amount that landed.
+  final String amount;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        key: const ValueKey('slip-funding-ready'),
+        padding: EdgeInsets.only(bottom: 8.h),
+        child: Text(
+          context.l10n.slipFundingReadyToPlace(amount),
           textAlign: TextAlign.center,
           style: TextStyle(
               color: context.colors.textSecondary,

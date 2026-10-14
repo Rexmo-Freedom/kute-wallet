@@ -38,6 +38,9 @@ import 'package:kute/screens/shared/side_tint_palette.dart'
     show slipCtaLabelColor;
 import 'package:kute/screens/shared/slip_shortfall.dart';
 import 'package:kute/services/one_balance/predictions_venue_funder.dart';
+import 'package:kute/services/one_balance/funded_orders.dart';
+import 'package:kute/services/one_balance/one_balance_state.dart'
+    show OneBalanceVenue;
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -79,11 +82,38 @@ const _outcomes = [
   PolymarketOutcome(name: 'No', price: 0.5, tokenId: 'no-token'),
 ];
 
+class _Funded extends FundedOrdersNotifier {
+  _Funded(this.records);
+  final List<FundedOrderRecord> records;
+  @override
+  List<FundedOrderRecord> build() => records;
+}
+
+FundedOrderRecord _btcBet(FundedOrderStage stage,
+        {String marketKey = 'yes-token', bool slow = false}) =>
+    FundedOrderRecord(
+      id: 'fo_bet',
+      label: FundedOrderLabel(
+        venue: OneBalanceVenue.predictions,
+        orderUsd: 10,
+        side: 'Yes',
+        market: 'Will it rain?',
+        marketKey: marketKey,
+      ),
+      stage: stage,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+      addUsd: 6,
+      btcRowIds: const {'q_btc'},
+      slow: slow,
+    );
+
 Future<void> _pumpSlip(WidgetTester tester,
     Future<PolymarketTradingState> account,
     {double dollars = 0,
     double? initialAmountUsd = 10,
-    bool dark = false}) async {
+    bool dark = false,
+    List<FundedOrderRecord>? funded}) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -113,6 +143,8 @@ Future<void> _pumpSlip(WidgetTester tester,
       // network.
       polymarketFeeTermsProvider
           .overrideWith((ref, _) async => PolymarketFeeTerms.worstCase),
+      if (funded != null)
+        fundedOrdersProvider.overrideWith(() => _Funded(funded)),
     ],
     child: ScreenUtilInit(
       designSize: const Size(430, 932),
@@ -475,5 +507,87 @@ void main() {
         policy.dispose();
       });
     }
+  });
+
+  group('a bet funded from bitcoin shows its steps', () {
+    late RuntimeCapabilitiesService policy;
+    setUp(() async {
+      AffiliateService.debugSessionToken = 'test-session';
+      policy = runtimePolicyFixture();
+      RuntimeCapabilitiesService.debugInstance = policy;
+    });
+    tearDown(() {
+      RuntimeCapabilitiesService.debugInstance = null;
+      AffiliateService.debugSessionToken = null;
+    });
+    Future<void> release(WidgetTester tester) async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      policy.dispose();
+    }
+
+    Future<void> pumpAt(WidgetTester tester, FundedOrderStage stage,
+        {bool slow = false}) async {
+      expect(await policy.refresh(), isTrue);
+      await _pumpSlip(
+          tester, Future.value(const PolymarketTradingState(usdcBalance: 0)),
+          funded: [_btcBet(stage, slow: slow)]);
+      await _frames(tester);
+    }
+
+    testWidgets('adding: the first step runs, one busy button',
+        (tester) async {
+      await pumpAt(tester, FundedOrderStage.adding);
+      expect(find.byKey(const ValueKey('bet-slip-bitcoin-funding')),
+          findsOneWidget);
+      expect(_cta(tester).isBusy, isTrue);
+      expect(_cta(tester).enabled, isFalse);
+      expect(_cta(tester).busyLabel, r'Adding $6.00 to Investments');
+      expect(find.byKey(const ValueKey('slip-funding-step-active-0')),
+          findsOneWidget);
+      expect(find.text('Getting your prediction ready'), findsOneWidget);
+      expect(find.text(r'Placing $10.00 on Yes'), findsOneWidget);
+      // Never a second "Add" while it runs.
+      expect(_door, findsNothing);
+      expect(find.textContaining('Moving'), findsNothing);
+      await release(tester);
+    });
+
+    testWidgets('slow: taking longer than usual', (tester) async {
+      await pumpAt(tester, FundedOrderStage.adding, slow: true);
+      expect(find.text('Taking longer than usual'), findsOneWidget);
+      await release(tester);
+    });
+
+    testWidgets('preparing, then placing', (tester) async {
+      await pumpAt(tester, FundedOrderStage.preparing);
+      expect(_cta(tester).busyLabel, 'Getting your prediction ready');
+      expect(find.byKey(const ValueKey('slip-funding-step-done-0')),
+          findsOneWidget);
+      expect(find.byKey(const ValueKey('slip-funding-step-active-1')),
+          findsOneWidget);
+      await release(tester);
+    });
+
+    testWidgets('placing: the bet itself', (tester) async {
+      await pumpAt(tester, FundedOrderStage.placing);
+      expect(_cta(tester).busyLabel, r'Placing $10.00 on Yes');
+      expect(find.byKey(const ValueKey('slip-funding-step-active-2')),
+          findsOneWidget);
+      await release(tester);
+    });
+
+    testWidgets('stopped with the money in Investments: tap to place',
+        (tester) async {
+      expect(await policy.refresh(), isTrue);
+      await _pumpSlip(
+          tester, Future.value(const PolymarketTradingState(usdcBalance: 0)),
+          dollars: 100, funded: [_btcBet(FundedOrderStage.ready)]);
+      await _frames(tester);
+      expect(find.text(r'Your $6.00 is in Investments. Tap to place.'),
+          findsOneWidget);
+      expect(_cta(tester).label, r'Place $10.00 on Yes');
+      expect(_cta(tester).enabled, isTrue);
+      await release(tester);
+    });
   });
 }

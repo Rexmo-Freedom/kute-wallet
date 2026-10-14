@@ -79,6 +79,7 @@ class _Controller implements OrderFundingController {
     String? entrySource,
     String purpose = 'order_funding',
     bool keepUnconfirmed = false,
+    bool continueJourney = false,
   }) {
     expect(venue, OneBalanceVenue.investing);
     fundUsds.add(fundUsd);
@@ -90,6 +91,9 @@ class _Controller implements OrderFundingController {
     onStage?.call(OrderFundingStage.fund);
     return answer();
   }
+
+  @override
+  OrderFundingController withDollars(double Function() dollarsUsd) => this;
 }
 
 const _funded = OrderFundingFunded(VenueMoveResult(

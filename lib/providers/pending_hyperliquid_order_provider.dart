@@ -164,6 +164,11 @@ class PendingHlOrderIntent {
   /// the total), bound into the same one approval. Null when none.
   final Map<String, Object?>? directLegs;
 
+  /// The Bitcoin → Dollars leg approved to top Dollars up before the
+  /// funding move (`VenueLimit.fundBtc`, [BitcoinLegGrants.limit]), bound
+  /// into the same one approval. Null when Dollars already covered it.
+  final Map<String, Object?>? btcLeg;
+
   /// What the venue must hold for the order (margin with its headroom
   /// and fees). Zero means "the margin itself", as before funding.
   final double requiredUsd;
@@ -209,6 +214,14 @@ class PendingHlOrderIntent {
   /// there, retried with backoff, before it places the order.
   final bool needsBuilderApproval;
 
+  /// `bitcoin` for an order funded from the person's own bitcoin (its
+  /// Dollars topped up by a Bitcoin leg first), else null.
+  final String? fundingSource;
+
+  /// The Bitcoin leg's sats left, and its dollars landed in Dollars.
+  final DateTime? bitcoinSentAt;
+  final DateTime? bitcoinLandedAt;
+
   PendingHlOrderIntent({
     required this.coin,
     required this.kind,
@@ -226,6 +239,7 @@ class PendingHlOrderIntent {
     this.placement,
     this.fundUsd = 0,
     this.directLegs,
+    this.btcLeg,
     this.requiredUsd = 0,
     this.readyAtQueueUsd = 0,
     this.arrivingUsd = 0,
@@ -241,6 +255,9 @@ class PendingHlOrderIntent {
     this.placedMarginUsd,
     this.result,
     this.needsBuilderApproval = false,
+    this.fundingSource,
+    this.bitcoinSentAt,
+    this.bitcoinLandedAt,
   }) : createdAt = createdAt ?? DateTime.now();
 
   /// Whether the auto-fire may shrink this order to what arrived.
@@ -258,6 +275,9 @@ class PendingHlOrderIntent {
     DateTime? placingAt,
     double? placedMarginUsd,
     HlOrderResult? result,
+    String? fundingSource,
+    DateTime? bitcoinSentAt,
+    DateTime? bitcoinLandedAt,
   }) {
     return PendingHlOrderIntent(
       coin: coin,
@@ -276,6 +296,7 @@ class PendingHlOrderIntent {
       placement: placement,
       fundUsd: fundUsd,
       directLegs: directLegs,
+      btcLeg: btcLeg,
       requiredUsd: requiredUsd,
       readyAtQueueUsd: readyAtQueueUsd,
       arrivingUsd: arrivingUsd,
@@ -291,6 +312,9 @@ class PendingHlOrderIntent {
       placedMarginUsd: placedMarginUsd ?? this.placedMarginUsd,
       result: result ?? this.result,
       needsBuilderApproval: needsBuilderApproval,
+      fundingSource: fundingSource ?? this.fundingSource,
+      bitcoinSentAt: bitcoinSentAt ?? this.bitcoinSentAt,
+      bitcoinLandedAt: bitcoinLandedAt ?? this.bitcoinLandedAt,
     );
   }
 }
@@ -366,6 +390,7 @@ class PendingHyperliquidOrderNotifier extends Notifier<PendingHlOrderIntent?> {
     required double readyUsd,
     void Function(OrderFundingStage)? onStage,
     double? fundUsd,
+    bool continueJourney = false,
   }) async {
     if (isActive(state)) {
       // One funded order at a time: the queued one's grant and money are
@@ -392,6 +417,7 @@ class PendingHyperliquidOrderNotifier extends Notifier<PendingHlOrderIntent?> {
         fundUsd: fundUsd ?? (intent.fundUsd > 0 ? intent.fundUsd : null),
         entrySource: intent.entrySource,
         keepUnconfirmed: true,
+        continueJourney: continueJourney,
       );
     } catch (e) {
       _dropQueued(intent);
@@ -520,7 +546,8 @@ SensitiveIntent pendingHlOrderPlacementIntent(
 /// What a queued order is approved for at confirm time (D-10): exactly the
 /// order the autofire places (market, side, margin, leverage, slippage)
 /// plus, when Dollars fund it, the most that may leave the spending
-/// account for it ([kFundUsdLimit]) and where it goes ([kFundVenueLimit]).
+/// account for it ([kFundUsdLimit]) and where it goes ([kFundVenueLimit]),
+/// and, when Bitcoin tops Dollars up first, that leg ([VenueLimit.fundBtc]).
 /// The rail's step-up hook reads those two; the placement consumes the
 /// grant against this same intent.
 SensitiveIntent pendingHlOrderAutofireIntent(
@@ -533,11 +560,13 @@ SensitiveIntent pendingHlOrderAutofireIntent(
       walletId: walletId, marginUsd: marginUsd);
   if (intent.fundUsd <= 0) return order;
   final legs = intent.directLegs;
+  final btc = intent.btcLeg;
   return order.copyWith(limits: {
     ...order.limits,
     kFundUsdLimit: dollarsBaseUnits(intent.fundUsd),
     kFundVenueLimit: kFundVenueInvesting,
     if (legs != null) VenueLimit.directLegs: legs,
+    if (btc != null) VenueLimit.fundBtc: btc,
   });
 }
 
@@ -834,7 +863,8 @@ class PendingHlOrderAutoFire {
       VenueAnalytics.stage('hl', intent.coin, {
         'origin': intent.source ?? 'unknown',
         'entry_source': 'autofire',
-        'funding_source': intent.fundUsd > 0 ? 'dollars' : 'venue_balance',
+        'funding_source': intent.fundingSource ??
+            (intent.fundUsd > 0 ? 'dollars' : 'venue_balance'),
         'slippage_bps': VenueAnalytics.bps(intent.slippagePct),
       });
       final placement = intent.placement;
@@ -938,6 +968,14 @@ class PendingHlOrderAutoFire {
       'order_kind': intent.orderKind,
       if (intent.positionEffect != null)
         'position_effect': intent.positionEffect!,
+      if (intent.fundingSource != null)
+        'funding_source': intent.fundingSource!,
+      ...OrderFundingJourney.bitcoinTimings(
+        sentAt: intent.bitcoinSentAt,
+        landedAt: intent.bitcoinLandedAt,
+        creditedAt: intent.fundingSource == null ? null : placingAt,
+        placedAt: intent.fundingSource == null ? null : now,
+      ),
     });
   }
 
@@ -954,6 +992,8 @@ class PendingHlOrderAutoFire {
       'duration_ms':
           DateTime.now().difference(intent.createdAt).inMilliseconds,
       'order_kind': intent.orderKind,
+      if (intent.fundingSource != null)
+        'funding_source': intent.fundingSource!,
     });
   }
 

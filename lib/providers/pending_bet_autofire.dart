@@ -467,7 +467,11 @@ class PendingBetAutoFire {
   /// surface that queued it.
   Map<String, Object> _analytics(PendingBetIntent intent) => {
         'origin': intent.entrySource ?? 'unknown',
-        'funding_source': intent.funded ? 'dollars' : 'venue_balance',
+        'funding_source': intent.btcLeg != null
+            ? 'bitcoin'
+            : intent.funded
+                ? 'dollars'
+                : 'venue_balance',
         if (intent.isLimit) 'limit_price': intent.limitPrice,
         if (!intent.isLimit)
           'slippage_bps': VenueAnalytics.bps(intent.slippagePct),
@@ -518,7 +522,8 @@ class PendingBetAutoFire {
         ? PmGrants.fundingLimits(
             fundUsd: intent.fundUsd!,
             venue: IntentVenue.polymarket,
-            directLegs: intent.directLegs)
+            directLegs: intent.directLegs,
+            btcLeg: intent.btcLeg)
         : const <String, Object?>{};
     SensitiveIntent withFunding(SensitiveIntent order) => fundingLimits.isEmpty
         ? order

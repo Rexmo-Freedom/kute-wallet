@@ -48,6 +48,11 @@ import 'package:kute/services/tracking_service.dart';
 
 /// Where a funded order is, for the slip's progress line.
 enum OrderFundingStage {
+  /// Bitcoin → Dollars on the spending wallet, before the move: an order
+  /// short of the whole Investments balance, funded from the person's own
+  /// bitcoin under its one approval (`bitcoin_funded_order.dart`).
+  bitcoin,
+
   /// Asking the rail what the move costs.
   quote,
 
@@ -398,6 +403,12 @@ class OrderFundingController {
   final VenueFunder Function(OneBalanceVenue venue) _funderFor;
   final double Function() _dollarsUsd;
 
+  /// This controller reading Dollars through [dollarsUsd]: an order funded
+  /// from bitcoin passes the fresh balance its dollars landed in, before
+  /// the shown balance caught up. The check stays the guard.
+  OrderFundingController withDollars(double Function() dollarsUsd) =>
+      OrderFundingController(funderFor: _funderFor, dollarsUsd: dollarsUsd);
+
   /// [orderUsd] is the order's size, [requiredUsd] what the venue must
   /// hold for it (size plus any margin or reservation), [readyUsd] what
   /// the venue holds now. The difference is the move. [onStage] reports
@@ -413,6 +424,11 @@ class OrderFundingController {
   /// instead of a refusal, for a caller that keeps its order queued and
   /// watched (Investing). Off, it is a refusal as before.
   ///
+  /// [continueJourney]: the journey was started earlier for this order
+  /// (an order funded from bitcoin starts it at the tap, before its
+  /// Bitcoin → Dollars leg), so this move carries on that run instead of
+  /// opening a second one.
+  ///
   /// Resolves the venue's funder before anything else: a venue without
   /// one (Investing until its funder is bound) throws at once.
   Future<OrderFundingOutcome> fundAndQueue({
@@ -426,6 +442,7 @@ class OrderFundingController {
     String? entrySource,
     String purpose = 'order_funding',
     bool keepUnconfirmed = false,
+    bool continueJourney = false,
   }) {
     final funder = _funderFor(venue);
     return _run(
@@ -440,6 +457,7 @@ class OrderFundingController {
       entrySource: entrySource,
       purpose: purpose,
       keepUnconfirmed: keepUnconfirmed,
+      continueJourney: continueJourney,
     );
   }
 
@@ -455,18 +473,21 @@ class OrderFundingController {
     String? entrySource,
     required String purpose,
     bool keepUnconfirmed = false,
+    bool continueJourney = false,
   }) async {
     final shortfall =
         ShortfallRules.shortfallUsd(requiredUsd: requiredUsd, readyUsd: readyUsd);
     if (shortfall <= 0) return const OrderFundingNotNeeded();
     final journey = OrderFundingJourney.instance;
     final dollars = _dollarsUsd();
-    journey.start(venue,
-        orderUsd: orderUsd,
-        fundUsd: fundUsd ?? 0,
-        readyUsd: readyUsd,
-        dollarsUsd: dollars,
-        entrySource: entrySource);
+    if (!continueJourney || !journey.isRunning(venue)) {
+      journey.start(venue,
+          orderUsd: orderUsd,
+          fundUsd: fundUsd ?? 0,
+          readyUsd: readyUsd,
+          dollarsUsd: dollars,
+          entrySource: entrySource);
+    }
 
     // Quote: the amount to move, from the venue's estimate unless the slip
     // already had it approved.
@@ -598,6 +619,13 @@ class _FundingRun {
   final double orderUsd;
   double fundUsd;
   OrderFundingStage stage = OrderFundingStage.quote;
+
+  /// `bitcoin` for an order funded from the person's own bitcoin.
+  String? fundingSource;
+
+  /// The Bitcoin leg's sats left, and its dollars landed.
+  DateTime? bitcoinSentAt;
+  DateTime? bitcoinLandedAt;
   DateTime? quotedAt;
   DateTime? fundedAt;
   DateTime? creditedAt;
@@ -632,10 +660,13 @@ class OrderFundingJourney {
     required double readyUsd,
     required double dollarsUsd,
     String? entrySource,
+    String? fundingSource,
+    Map<String, Object> extra = const {},
   }) {
     if (_runs.containsKey(venue)) abandoned(venue);
     _runs[venue] =
-        _FundingRun(startedAt: clock(), orderUsd: orderUsd, fundUsd: fundUsd);
+        _FundingRun(startedAt: clock(), orderUsd: orderUsd, fundUsd: fundUsd)
+          ..fundingSource = fundingSource;
     TrackingService.track('order_funding_started', params: {
       'venue': orderFundingVenueCode(venue),
       'order_usd': orderUsd,
@@ -644,7 +675,33 @@ class OrderFundingJourney {
       'dollars_usd': dollarsUsd,
       'entry_source': entrySource ?? 'unknown',
       'wallet_kind': 'hot',
+      if (fundingSource != null) 'funding_source': fundingSource,
+      ...extra,
     });
+  }
+
+  /// The run's `funding_source`, when it has one.
+  String? fundingSourceOf(OneBalanceVenue venue) =>
+      _runs[venue]?.fundingSource;
+
+  /// An order funded from bitcoin: its Bitcoin leg's sats left now.
+  void bitcoinSent(OneBalanceVenue venue) {
+    final run = _runs[venue];
+    if (run == null) return;
+    run.bitcoinSentAt ??= clock();
+    step(venue, OrderFundingStage.bitcoin);
+  }
+
+  /// An order funded from bitcoin: its dollars landed now. Returns the
+  /// milliseconds from the sats leaving to the dollars landing.
+  int? bitcoinLanded(OneBalanceVenue venue) {
+    final run = _runs[venue];
+    if (run == null) return null;
+    run.bitcoinLandedAt ??= clock();
+    final sent = run.bitcoinSentAt;
+    return sent == null
+        ? null
+        : run.bitcoinLandedAt!.difference(sent).inMilliseconds;
   }
 
   void setFundUsd(OneBalanceVenue venue, double fundUsd) {
@@ -659,6 +716,7 @@ class OrderFundingJourney {
     TrackingService.track('order_funding_step', params: {
       'venue': orderFundingVenueCode(venue),
       'step': stage.name,
+      if (run.fundingSource != null) 'funding_source': run.fundingSource!,
     });
   }
 
@@ -706,19 +764,29 @@ class OrderFundingJourney {
     final run = _runs.remove(venue);
     if (run == null) return;
     final now = clock();
-    final quoted = run.quotedAt ?? run.startedAt;
+    // An order funded from bitcoin quotes its move once the dollars
+    // landed: its quote time starts there, the Bitcoin leg has its own.
+    final quoteFrom = run.bitcoinLandedAt ?? run.startedAt;
+    final quoted = run.quotedAt ?? quoteFrom;
     final funded = run.fundedAt ?? quoted;
     final credited = run.creditedAt ?? funded;
     TrackingService.track('order_funding_completed', params: {
       'venue': orderFundingVenueCode(venue),
       'fund_usd': run.fundUsd,
       'amount_usd': amountUsd ?? run.orderUsd,
-      'ms_quote': quoted.difference(run.startedAt).inMilliseconds,
+      'ms_quote': quoted.difference(quoteFrom).inMilliseconds,
       'ms_fund': funded.difference(quoted).inMilliseconds,
       'ms_credit': credited.difference(funded).inMilliseconds,
       'ms_order': now.difference(credited).inMilliseconds,
       'duration_ms': now.difference(run.startedAt).inMilliseconds,
       'resized': resized,
+      if (run.fundingSource != null) 'funding_source': run.fundingSource!,
+      ...bitcoinTimings(
+        sentAt: run.bitcoinSentAt,
+        landedAt: run.bitcoinLandedAt,
+        creditedAt: run.creditedAt,
+        placedAt: now,
+      ),
     });
   }
 
@@ -730,6 +798,7 @@ class OrderFundingJourney {
       'stage': stage.name,
       'error_category': TrackingService.errorCategory(category),
       'duration_ms': clock().difference(run.startedAt).inMilliseconds,
+      if (run.fundingSource != null) 'funding_source': run.fundingSource!,
     });
   }
 
@@ -739,6 +808,31 @@ class OrderFundingJourney {
     TrackingService.track('order_funding_abandoned', params: {
       'venue': orderFundingVenueCode(venue),
       'stage': (stage ?? run.stage).name,
+      if (run.fundingSource != null) 'funding_source': run.fundingSource!,
     });
+  }
+
+  /// The three stage timings of an order funded from bitcoin, in exact
+  /// milliseconds: the sats leaving to the dollars landing
+  /// (`ms_bitcoin_landed`), the dollars landing to the venue crediting the
+  /// move (`ms_venue_credited`), the credit to the order placed
+  /// (`ms_placed`). Only the figures whose two ends are known.
+  static Map<String, Object> bitcoinTimings({
+    DateTime? sentAt,
+    DateTime? landedAt,
+    DateTime? creditedAt,
+    DateTime? placedAt,
+  }) {
+    int? between(DateTime? a, DateTime? b) => a == null || b == null
+        ? null
+        : b.difference(a).inMilliseconds.clamp(0, 1 << 31).toInt();
+    final landed = between(sentAt, landedAt);
+    final credited = between(landedAt, creditedAt);
+    final placed = between(creditedAt, placedAt);
+    return {
+      if (landed != null) 'ms_bitcoin_landed': landed,
+      if (credited != null) 'ms_venue_credited': credited,
+      if (placed != null) 'ms_placed': placed,
+    };
   }
 }

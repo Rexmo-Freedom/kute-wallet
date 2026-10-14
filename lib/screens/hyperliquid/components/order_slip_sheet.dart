@@ -124,6 +124,14 @@ import 'package:kute/screens/shared/slip_shortfall.dart';
 import 'package:kute/services/funding/venue_shortfall.dart';
 import 'package:kute/services/one_balance/hyperliquid_venue_funder.dart';
 import 'package:kute/services/one_balance/order_funding.dart';
+import 'package:kute/services/one_balance/bitcoin_funded_order.dart';
+import 'package:kute/services/one_balance/bitcoin_to_dollars_leg.dart'
+    show BitcoinLegPlan, BitcoinLegRules;
+import 'package:kute/services/one_balance/funded_orders.dart';
+import 'package:kute/services/funding/hot_settlement.dart'
+    show HotSettlement;
+import 'package:kute/providers/spark_address_provider.dart'
+    show sparkSelfAddressProvider;
 import 'package:kute/services/one_balance/venue_cash_source.dart'
     show
         VenueCashDestination,
@@ -503,6 +511,18 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   /// without one): further taps open nothing.
   bool _depositDoorBusy = false;
 
+  /// The "Add $X to Investments" tap is running the order through the
+  /// normal confirm, to be funded from the person's own bitcoin
+  /// ([_confirmFundedFromBitcoin]) where Dollars fall short.
+  bool _bitcoinArmed = false;
+
+  /// The bitcoin could not cover it after all: the tap opens the Dollars
+  /// door as before.
+  bool _bitcoinFellBack = false;
+
+  /// The Bitcoin-funded run this ticket started, if any.
+  String? _bitcoinRunId;
+
   /// From a Deposit door tap until the Move sheet opens: the top-up is
   /// being worked out. The button shows it and the form is frozen, so the
   /// sheet is sized for the order on the ticket at the tap.
@@ -544,7 +564,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   /// nothing is being funded.
   OrderFundingStage? _fundingStage;
   DateTime? _fundingStartedAt;
-  double _fundingUsd = 0;
   ProviderSubscription<PendingHlOrderIntent?>? _pendingSub;
 
   /// One order per slip lifetime — set once a fill/ack has routed so a
@@ -2090,8 +2109,14 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     final marginUsd = _marginUsd;
     // One funded order at a time: while one is queued behind its money or
     // being placed, a second never takes its money or its approval.
+    // A Bitcoin-funded order still on its way here counts too: its order
+    // waits (unqueued) for its dollars.
     if (PendingHyperliquidOrderNotifier.isActive(
-        ref.read(pendingHyperliquidOrderProvider))) {
+            ref.read(pendingHyperliquidOrderProvider)) ||
+        FundedOrdersNotifier.activeOf(ref.read(fundedOrdersProvider),
+                    OneBalanceVenue.investing)
+                ?.fromBitcoin ==
+            true) {
       _trackBlocked('order_queued');
       _updateDraft(() {
         _errorCause = null;
@@ -2169,6 +2194,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       'wallet_kind': 'hot',
       'order_kind': orderKind,
       if (_positionEffectName != null) 'position_effect': _positionEffectName!,
+      if (_bitcoinArmed) 'funding_source': 'bitcoin',
     });
     // The funding engine: Dollars first, then the other venue's cash
     // (pulled home inside this same Confirm, after the one approval).
@@ -2189,6 +2215,25 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
             investmentsUsd: reach - dollars,
           ).route ==
           OrderFundingRoute.move;
+    }
+    if (dollars + 1e-9 < fundUsd && !pullFirst && _bitcoinArmed) {
+      // "Add $X to Investments" tapped: the person's own bitcoin tops
+      // Dollars up first, under this order's one approval.
+      await _confirmFundedFromBitcoin(
+        walletId: walletId,
+        cloid: cloid,
+        mid: mid,
+        orderKind: orderKind,
+        resizable: resizable,
+        orderAt: orderAt,
+        plan: plan,
+        ready: ready,
+        required: required,
+        quoteMs: quoteMs,
+        marginUsd: marginUsd,
+        lev: lev,
+      );
+      return;
     }
     if (dollars + 1e-9 < fundUsd && !pullFirst) {
       // Not enough Dollars for the move: the button becomes the Dollar
@@ -2303,7 +2348,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       _updateDraft(() {
         _isPlacing = true;
         _preparing = false;
-        _fundingUsd = fundUsd;
         _fundPlan = plan;
       });
       _trackFundingStep(OrderFundingStage.fund);
@@ -2364,7 +2408,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     _updateDraft(() {
       _isPlacing = true;
       _preparing = false;
-      _fundingUsd = fundUsd;
       _fundPlan = plan;
       _errorText = null;
       _errorCause = null;
@@ -2400,6 +2443,16 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     switch (outcome) {
       case OrderFundingFunded(:final move):
         _submitted = true;
+        // The header names this order while its money is on the way.
+        ref.read(bitcoinFundedOrderRunnerProvider).followDollarsFunded(
+            FundedOrderLabel(
+              venue: OneBalanceVenue.investing,
+              orderUsd: marginUsd,
+              side: _sideWord(),
+              market: FundedOrderLabel.shortName(market.coin),
+              marketKey: market.coin,
+            ),
+            move);
         // The order's own funding move is the last leg of its
         // multi-source move: one Activity row.
         MultiSourceMoveStore.attachFinal(
@@ -2446,6 +2499,264 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         });
     }
   }
+
+  /// "Add $X to Investments" on a hot ticket whose whole Investments
+  /// balance is short (founder decision 14 October 2026): ONE approval for
+  /// the order, the Dollars move AND a Bitcoin → Dollars leg (at most the
+  /// sized sats, `spark:BTC → spark:USDB`, to the wallet's own Spark
+  /// address), then the chain runs headless ([BitcoinFundedOrderRunner]):
+  /// Bitcoin → Dollars, Dollars → Investing, the order at a fresh price.
+  /// Everything was validated by the normal confirm before this point;
+  /// the leg is sized and checked against the wallet's bitcoin here,
+  /// before the prompt. Declining moves nothing.
+  Future<void> _confirmFundedFromBitcoin({
+    required String walletId,
+    required String cloid,
+    required double mid,
+    required String orderKind,
+    required bool resizable,
+    required _SlipOrder Function(double marginUsd) orderAt,
+    required _FundPlan plan,
+    required double ready,
+    required double required,
+    required int quoteMs,
+    required double marginUsd,
+    required int lev,
+  }) async {
+    final container = ProviderScope.containerOf(context, listen: false);
+    final fundUsd = plan.fundUsd;
+    // One funded order per venue at a time.
+    if (FundedOrdersNotifier.activeOf(
+            ref.read(fundedOrdersProvider), OneBalanceVenue.investing) !=
+        null) {
+      _trackBlocked('order_queued');
+      _updateDraft(() {
+        _fundingStage = null;
+        _errorCause = null;
+        _errorText = _strings.slipDepositIncomingNote;
+      });
+      return;
+    }
+    // The leg: what Dollars lack for the move, plus its buffer, against
+    // the wallet's bitcoin. Nothing approved or moved yet.
+    final sizing = await sizeBitcoinLegFor(container.read,
+        dollarsShortUsd: fundUsd - _dollarsUsd());
+    final BitcoinLegPlan? leg = sizing.plan;
+    String? ownSpark;
+    if (leg != null) {
+      try {
+        ownSpark = await ref
+            .read(sparkSelfAddressProvider.future)
+            .timeout(const Duration(seconds: 6));
+      } catch (_) {
+        ownSpark = null;
+      }
+    }
+    if (!mounted) return;
+    if (leg == null || ownSpark == null || ownSpark.isEmpty) {
+      // The bitcoin does not cover it: the Dollars door, as before.
+      _bitcoinFellBack = true;
+      _updateDraft(() {
+        _fundingStage = null;
+        _fundPlan = plan;
+      });
+      return;
+    }
+    final pending = PendingHlOrderIntent(
+      coin: market.coin,
+      kind: market.kind,
+      isLong: _isLong,
+      marginUsd: marginUsd,
+      leverage: lev,
+      slippagePct: _mode == _OrderMode.market ? _slippagePct : 0,
+      expectedPx: mid,
+      marketLabel: isSpot
+          ? market.coin
+          : '${market.coin} · ${hlKindLabel(_strings, isSpot: false)}',
+      source: widget.source,
+      market: market,
+      placement: PendingHlOrderPlacement(
+        intentAt: (margin) => orderAt(margin).intent,
+        placeAt: (grant, margin) => orderAt(margin).place(grant),
+        resizable: resizable,
+        cloid: cloid,
+      ),
+      fundUsd: fundUsd,
+      btcLeg: BitcoinLegGrants.limit(maxSats: leg.maxSats, ownSpark: ownSpark),
+      requiredUsd: required,
+      readyAtQueueUsd: ready,
+      arrivingUsd: plan.arrivingUsd,
+      orderKind: orderKind,
+      needsBuilderApproval: _deferBuilderApproval,
+      positionEffect: _positionEffectName,
+      entrySource: _entrySource,
+      quoteMs: quoteMs,
+      fundingSource: 'bitcoin',
+    );
+    _trackStep('approval');
+    // The ONE approval: the order, the Dollars it may take, the bitcoin
+    // leg that tops them up. Held as the order's autofire grant.
+    final approved =
+        pendingHlOrderAutofireIntent(pending, market, walletId: walletId);
+    final seam = debugHlOrderFundingApproval;
+    final grant = seam != null
+        ? await seam(approved)
+        : await requireFreshAuthGrant(
+            context,
+            ref,
+            intent: approved,
+            reason: context.l10n.stepUpReasonOrder(pending.marketLabel),
+            amountUsd: marginUsd,
+            autofireIntentId: kPendingHlOrderAutofireId,
+          );
+    if (grant == null || !mounted) {
+      if (grant == null) {
+        _stopped('signing_declined');
+        TrackingService.track('order_funding_abandoned', params: {
+          'venue': 'hyperliquid',
+          'stage': 'approval',
+          'funding_source': 'bitcoin',
+        });
+      } else {
+        grant.revoke();
+        AuthGrantRegistry.instance.cancelAutofire(kPendingHlOrderAutofireId);
+      }
+      if (mounted) _updateDraft(() => _fundingStage = null);
+      return;
+    }
+
+    // Held, never fired, while the bitcoin leg runs (awaitingDeposit).
+    ref.read(pendingHyperliquidOrderProvider.notifier).setIntent(pending);
+    // The watcher that places the order on the credit, alive before the
+    // order is queued.
+    ref.read(pendingHlOrderAutoFireProvider);
+    // Listen for the order's fill BEFORE anything moves.
+    _orderFills.clear();
+    _fillSub?.cancel();
+    _fillSub =
+        ref.read(hyperliquidUserEventsProvider.notifier).fills.listen((f) {
+      if (f.coin != market.coin) return;
+      if (f.cloid != null && f.cloid != cloid) return;
+      _orderFills.add(f);
+      if (_attachTrailing) return;
+      if (_sentPlan != null) return;
+      _onFilled(sizeFilled: f.sz, avgPx: f.px);
+    });
+    _listenPending();
+    _submitted = true;
+    _updateDraft(() {
+      _isPlacing = true;
+      _preparing = false;
+      _fundPlan = plan;
+      _errorText = null;
+      _errorCause = null;
+      _fundingStage = OrderFundingStage.bitcoin;
+    });
+
+    final runner = container.read(bitcoinFundedOrderRunnerProvider);
+    final run = runner.start(BitcoinFundedOrderRequest(
+      venue: OneBalanceVenue.investing,
+      grant: grant,
+      plan: leg,
+      label: FundedOrderLabel(
+        venue: OneBalanceVenue.investing,
+        orderUsd: marginUsd,
+        side: _sideWord(),
+        market: FundedOrderLabel.shortName(market.coin),
+        marketKey: market.coin,
+      ),
+      fundUsd: fundUsd,
+      readyUsd: ready,
+      entrySource: _entrySource,
+      // Runs whatever happens to this ticket: reads only the container.
+      fundVenue: (controller,
+              {required bitcoinSentAt, required bitcoinLandedAt}) =>
+          container.read(pendingHyperliquidOrderProvider.notifier).fundAndQueue(
+                pending.copyWith(
+                    bitcoinSentAt: bitcoinSentAt,
+                    bitcoinLandedAt: bitcoinLandedAt),
+                grant: grant,
+                controller: controller,
+                orderUsd: marginUsd,
+                requiredUsd: required,
+                readyUsd: ready,
+                fundUsd: fundUsd,
+                continueJourney: true,
+              ),
+      dropOrder: () {
+        final current = container.read(pendingHyperliquidOrderProvider);
+        if (current != null &&
+            identical(current.placement, pending.placement) &&
+            !PendingHyperliquidOrderNotifier.isActive(current)) {
+          container.read(pendingHyperliquidOrderProvider.notifier).clear();
+        }
+        AuthGrantRegistry.instance.cancelAutofire(kPendingHlOrderAutofireId);
+        grant.revoke();
+      },
+    ));
+    _bitcoinRunId = run.id;
+    unawaited(run.ended.then((end) {
+      if (mounted) _onBitcoinRunEnded(run.id, end);
+    }));
+  }
+
+  /// The ticket's Bitcoin-funded run ended. A placed order or a venue
+  /// refusal is the pending listener's (receipt, or the venue's message);
+  /// a chain that stopped before the order says so here, with the money
+  /// where it is.
+  void _onBitcoinRunEnded(String id, BitcoinFundedEnd end) {
+    if (_bitcoinRunId != id || _completed) return;
+    _bitcoinRunId = null;
+    if (end == BitcoinFundedEnd.placed ||
+        end == BitcoinFundedEnd.placementFailed) {
+      return;
+    }
+    _pendingSub?.close();
+    _pendingSub = null;
+    _fillSub?.cancel();
+    final error = ref.read(bitcoinFundedOrderRunnerProvider).errorOf(id);
+    _stopped('funding_refused', error: error);
+    _updateDraft(() {
+      _isPlacing = false;
+      _preparing = false;
+      _fundingStage = null;
+      _errorCause = null;
+      _errorText = switch (end) {
+        // The "Tap to place" note says it; the button is the order again.
+        BitcoinFundedEnd.ready => null,
+        BitcoinFundedEnd.refunded => _strings.slipFundingBitcoinBack,
+        BitcoinFundedEnd.maybeSent => _strings.settlementFundingUnknownBody,
+        _ => (error == null ? null : HotSettlement.messageFor(error, _strings)) ??
+            _strings.errorCopyGeneric,
+      };
+    });
+  }
+
+  /// Whether this ticket's "Add" can be funded from the person's own
+  /// bitcoin: an order is typed, nothing funded is on its way here, and
+  /// the spending bitcoin plainly covers what Dollars lack. The exact leg
+  /// is sized at the tap.
+  bool _bitcoinMayCover() {
+    if (_isLedger || _marginUsd <= 0) return false;
+    if (FundedOrdersNotifier.activeOf(
+            ref.read(fundedOrdersProvider), OneBalanceVenue.investing) !=
+        null) {
+      return false;
+    }
+    final fund = _fundPlanFor(_slipShortfallUsd).fundUsd;
+    final short = fund - _dollarsUsd();
+    if (short <= 0) return false;
+    return spendingBitcoinUsd(ref.read) >=
+        BitcoinLegRules.targetUsd(short) * 1.04;
+  }
+
+  /// The step lines of a Bitcoin-funded order on this ticket.
+  List<String> _bitcoinSteps(FundedOrderRecord record) => [
+        _strings.slipStepAddingToInvestments(formatHlUsd(record.addUsd)),
+        _strings.slipStepPreparingOrder,
+        _strings.slipStepOpeningOrder(formatHlUsd(record.label.orderUsd),
+            record.label.side, market.annotatedName ?? market.coin),
+      ];
 
   /// The move stopped before any funds left: the queued order is gone
   /// (the notifier cleared it with its grant), the ticket says why.
@@ -2729,6 +3040,19 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
             .blockReason('hyperliquid.deposit') !=
         null) {
       return;
+    }
+    // The person's own bitcoin covers what is missing: the tap is the
+    // order itself, funded Bitcoin → Dollars → Investing under its one
+    // approval, with the steps on this ticket.
+    if (_bitcoinMayCover()) {
+      _bitcoinArmed = true;
+      _bitcoinFellBack = false;
+      try {
+        await _handleConfirm();
+      } finally {
+        _bitcoinArmed = false;
+      }
+      if (!mounted || !_bitcoinFellBack) return;
     }
     _stopped('insufficient_balance');
     _trackStep('deposit');
@@ -3850,7 +4174,41 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     final bool primaryNeutral;
     // What the button is, for its cross-fade (presentation only).
     final String primaryKind;
-    if (ledgerBlocked || _ledgerPending) {
+    // A Bitcoin-funded order for this market on its way (this ticket's,
+    // or one started before it was reopened): the steps, one busy button.
+    final fundedOrders = _isLedger
+        ? const <FundedOrderRecord>[]
+        : ref.watch(fundedOrdersProvider);
+    final bitcoinRun = FundedOrdersNotifier.activeOf(
+        fundedOrders, OneBalanceVenue.investing);
+    final bitcoinRecord = bitcoinRun != null &&
+            bitcoinRun.fromBitcoin &&
+            bitcoinRun.label.marketKey == market.coin
+        ? bitcoinRun
+        : null;
+    final bitcoinStepIndex = switch (bitcoinRecord?.stage) {
+      FundedOrderStage.adding => 0,
+      FundedOrderStage.preparing => 1,
+      FundedOrderStage.placing => 2,
+      _ => null,
+    };
+    final bitcoinSteps =
+        bitcoinRecord == null ? null : _bitcoinSteps(bitcoinRecord);
+    final bitcoinStep = bitcoinSteps == null || bitcoinStepIndex == null
+        ? null
+        : bitcoinSteps[bitcoinStepIndex];
+    // Stopped with the money in Investments: one line, the button is the
+    // order again.
+    final readyRecord = _isLedger || bitcoinRecord != null || _isPlacing
+        ? null
+        : FundedOrdersNotifier.readyOn(fundedOrders,
+            OneBalanceVenue.investing, market.coin, DateTime.now());
+    if (bitcoinStep != null) {
+      primaryKind = 'trade';
+      primaryLabel = bitcoinStep;
+      primaryAction = null;
+      primaryNeutral = false;
+    } else if (ledgerBlocked || _ledgerPending) {
       primaryKind = 'close';
       primaryLabel = context.l10n.ledgerApprovalClose;
       primaryAction = _ledgerBusy ? null : () => Navigator.of(context).pop();
@@ -3979,6 +4337,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
             CapabilityBlockNote(depositBlock),
           if (!incoming && (funding?.failed ?? false))
             const SlipDepositFailedNote(),
+          if (readyRecord != null && bitcoinStep == null)
+            SlipFundingReadyNote(amount: formatHlUsd(readyRecord.addUsd)),
           if (priceStaleBlocks)
             Padding(
               padding: EdgeInsets.only(bottom: 8.h),
@@ -4031,6 +4391,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                 text: primaryLabel,
                 onPressed: primaryAction,
                 isLoading: _ledgerBusy ||
+                    bitcoinStep != null ||
                     _isPlacing ||
                     _preparing ||
                     _depositCalculating ||
@@ -4039,13 +4400,14 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                     ? context.l10n.loadingAccount
                     : _depositCalculating && primaryKind == 'deposit'
                         ? context.l10n.feeUiCalculating
-                        : _isPlacing &&
-                                _fundingStage != null &&
-                                _fundingStage != OrderFundingStage.order
-                            ? context.l10n.slipMovingToVenue(
-                                formatHlUsd(_fundingUsd),
-                                context.l10n.trading)
-                            : null,
+                        : bitcoinStep ??
+                            (_isPlacing &&
+                                    _fundingStage != null &&
+                                    _fundingStage != OrderFundingStage.order
+                                // Phrased around the order, never as money
+                                // moving into Investments (it is there).
+                                ? context.l10n.slipStepPreparingOrder
+                                : null),
                 color: c.textPrimary,
                 // The one label rule the bet slip's button reads too.
                 textColor: slipCtaLabelColor(
@@ -4056,7 +4418,13 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
               ),
             ),
           ),
-          if (incoming)
+          if (bitcoinSteps != null && bitcoinStepIndex != null)
+            SlipFundingSteps(
+              steps: bitcoinSteps,
+              active: bitcoinStepIndex,
+              slow: bitcoinRecord!.slow,
+            )
+          else if (incoming)
             SlipIncomingDepositNote(
               onAddMore: funding.state == SlipFundingState.incomingShort &&
                       depositBlock == null

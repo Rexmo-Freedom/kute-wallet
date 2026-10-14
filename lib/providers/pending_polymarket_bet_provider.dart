@@ -124,6 +124,11 @@ class PendingBetIntent {
   /// the same one approval as [fundUsd]. Null when none.
   final Map<String, Object?>? directLegs;
 
+  /// The Bitcoin → Dollars leg approved to top Dollars up before the
+  /// funding move (`VenueLimit.fundBtc`), bound into the same one
+  /// approval as [fundUsd]. Null when Dollars already covered it.
+  final Map<String, Object?>? btcLeg;
+
   /// The funding leg's quote, as the one-way analytics reference
   /// (`TrackingService.orderRef`), never the raw id.
   final String? fundQuoteRef;
@@ -170,6 +175,7 @@ class PendingBetIntent {
     this.spendAllBudgetUsd,
     this.fundUsd,
     this.directLegs,
+    this.btcLeg,
     this.fundQuoteRef,
     this.fundReadyUsd,
     this.fundArrivingUsd,
@@ -211,6 +217,7 @@ class PendingBetIntent {
     double? retryMaxPrice,
     double? fundUsd,
     Object? directLegs = _keep,
+    Object? btcLeg = _keep,
     String? fundQuoteRef,
     double? fundReadyUsd,
     double? fundArrivingUsd,
@@ -245,6 +252,9 @@ class PendingBetIntent {
       directLegs: identical(directLegs, _keep)
           ? this.directLegs
           : directLegs as Map<String, Object?>?,
+      btcLeg: identical(btcLeg, _keep)
+          ? this.btcLeg
+          : btcLeg as Map<String, Object?>?,
       fundQuoteRef: fundQuoteRef ?? this.fundQuoteRef,
       fundReadyUsd: fundReadyUsd ?? this.fundReadyUsd,
       fundArrivingUsd: fundArrivingUsd ?? this.fundArrivingUsd,
@@ -337,6 +347,7 @@ class PendingPolymarketBetNotifier extends Notifier<PendingBetIntent?> {
       spendAllBudgetUsd: current.spendAllBudgetUsd,
       fundUsd: current.fundUsd,
       directLegs: current.directLegs,
+      btcLeg: current.btcLeg,
       fundQuoteRef: current.fundQuoteRef,
       fundReadyUsd: current.fundReadyUsd,
       fundArrivingUsd: current.fundArrivingUsd,

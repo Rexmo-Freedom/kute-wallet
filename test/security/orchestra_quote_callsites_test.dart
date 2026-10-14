@@ -111,6 +111,17 @@ void main() {
       // and the leg runs under HotSettlement.plan with a sparkHot / hlHot
       // destination, which OwnedAddressResolver re-derives before paying.
       ('lib/services/one_balance/predictions_venue_funder.dart', 'ownTo'): 1,
+      // The Bitcoin → Dollars leg of an order funded from bitcoin
+      // (BitcoinToDollarsLeg.quoteForTarget): `sparkAddress` is the Spark
+      // SDK's own address (sparkSelfAddressProvider), both the recipient
+      // and the refund of a spark:BTC → spark:USDB quote. The leg runs
+      // under HotSettlement.plan with sparkHot on both ends, whose
+      // resolveOwnership re-derives the address before paying, and its
+      // step-up (BitcoinLegGrants.take) refuses any quote whose route,
+      // recipient or refund is not that own address, or whose sats exceed
+      // what the order's one approval bound.
+      ('lib/services/one_balance/bitcoin_to_dollars_leg.dart',
+          'sparkAddress'): 1,
     };
     final recipientArg = RegExp(r'recipientAddress:\s*([^,\n]+),');
     final ownArg = RegExp(r'ownAddress:\s*([^,]+),');

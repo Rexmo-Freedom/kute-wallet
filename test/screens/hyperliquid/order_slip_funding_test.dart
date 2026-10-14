@@ -34,6 +34,11 @@ import 'package:kute/screens/shared/side_tint_palette.dart'
     show slipCtaLabelColor;
 import 'package:kute/services/one_balance/hyperliquid_move_rail.dart';
 import 'package:kute/services/one_balance/venue_funder.dart';
+import 'package:kute/services/one_balance/funded_orders.dart';
+import 'package:kute/services/one_balance/one_balance_state.dart'
+    show OneBalanceVenue;
+import 'package:kute/screens/shared/slip_shortfall.dart'
+    show SlipFundingSteps;
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -102,11 +107,38 @@ const _market = HlMarket(
   dayNtlVlm: 0,
 );
 
+class _Funded extends FundedOrdersNotifier {
+  _Funded(this.records);
+  final List<FundedOrderRecord> records;
+  @override
+  List<FundedOrderRecord> build() => records;
+}
+
+FundedOrderRecord _btcRecord(FundedOrderStage stage,
+        {String marketKey = 'BTC', bool slow = false}) =>
+    FundedOrderRecord(
+      id: 'fo_1',
+      label: FundedOrderLabel(
+        venue: OneBalanceVenue.investing,
+        orderUsd: 20,
+        side: 'Long',
+        market: marketKey,
+        marketKey: marketKey,
+      ),
+      stage: stage,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+      addUsd: 6,
+      btcRowIds: const {'q_btc'},
+      slow: slow,
+    );
+
 Future<void> _pumpSlip(WidgetTester tester,
     {required double venueUsd,
     required double dollarsUsd,
     required FakeHyperliquidMoveRail rail,
-    bool dark = false}) async {
+    bool dark = false,
+    List<FundedOrderRecord>? funded}) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -134,6 +166,8 @@ Future<void> _pumpSlip(WidgetTester tester,
       runtimeCapabilitiesProvider.overrideWithValue(_Allowed()),
       usdBalanceProvider.overrideWith((_) => dollarsUsd),
       hyperliquidMoveRailProvider.overrideWithValue(rail),
+      if (funded != null)
+        fundedOrdersProvider.overrideWith(() => _Funded(funded)),
     ],
     child: ScreenUtilInit(
       designSize: const Size(430, 932),
@@ -384,5 +418,84 @@ void main() {
     // 2% of $20.24 as the fallback.
     expect(_moveFeeRow(tester).usd, closeTo(0.42, 0.011));
     await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  group('an order funded from bitcoin shows its steps', () {
+    Future<void> pumpAt(WidgetTester tester, FundedOrderStage stage,
+        {bool slow = false}) async {
+      await _pumpSlip(tester,
+          venueUsd: 0,
+          dollarsUsd: 0,
+          rail: rail,
+          funded: [_btcRecord(stage, slow: slow)]);
+    }
+
+    testWidgets('adding: the first step runs, one busy button',
+        (tester) async {
+      await pumpAt(tester, FundedOrderStage.adding);
+      final button = _button(tester);
+      expect(button.text, r'Adding $6.00 to Investments');
+      expect(button.isLoading, isTrue);
+      expect(button.onPressed, isNull);
+      expect(find.byType(SlipFundingSteps), findsOneWidget);
+      expect(find.byKey(const ValueKey('slip-funding-step-active-0')),
+          findsOneWidget);
+      expect(find.text('Preparing your order'), findsOneWidget);
+      expect(find.text(r'Opening $20.00 Long BTC'), findsOneWidget);
+      expect(find.byKey(const ValueKey('slip-funding-slow')), findsNothing);
+      // Never the old "moving to Investing" wording.
+      expect(find.textContaining('Moving'), findsNothing);
+    });
+
+    testWidgets('taking longer than usual is said under the steps',
+        (tester) async {
+      await pumpAt(tester, FundedOrderStage.adding, slow: true);
+      expect(find.text('Taking longer than usual'), findsOneWidget);
+    });
+
+    testWidgets('preparing: the first step done, the second runs',
+        (tester) async {
+      await pumpAt(tester, FundedOrderStage.preparing);
+      expect(_button(tester).text, 'Preparing your order');
+      expect(find.byKey(const ValueKey('slip-funding-step-done-0')),
+          findsOneWidget);
+      expect(find.byKey(const ValueKey('slip-funding-step-active-1')),
+          findsOneWidget);
+    });
+
+    testWidgets('placing: the order itself, at its fresh price',
+        (tester) async {
+      await pumpAt(tester, FundedOrderStage.placing);
+      expect(_button(tester).text, r'Opening $20.00 Long BTC');
+      expect(find.byKey(const ValueKey('slip-funding-step-done-1')),
+          findsOneWidget);
+      expect(find.byKey(const ValueKey('slip-funding-step-active-2')),
+          findsOneWidget);
+    });
+
+    testWidgets('stopped with the money in Investments: tap to place',
+        (tester) async {
+      await _pumpSlip(tester,
+          venueUsd: 0,
+          dollarsUsd: 100,
+          rail: rail,
+          funded: [_btcRecord(FundedOrderStage.ready)]);
+      await _typeOnKeypad(tester, '20');
+      expect(find.text(r'Your $6.00 is in Investments. Tap to place.'),
+          findsOneWidget);
+      expect(_button(tester).text, startsWith('Go Long BTC'));
+      expect(_button(tester).onPressed, isNotNull);
+      expect(find.byType(SlipFundingSteps), findsNothing);
+    });
+
+    testWidgets('another market\'s run shows no steps here',
+        (tester) async {
+      await _pumpSlip(tester,
+          venueUsd: 0,
+          dollarsUsd: 100,
+          rail: rail,
+          funded: [_btcRecord(FundedOrderStage.adding, marketKey: 'ETH')]);
+      expect(find.byType(SlipFundingSteps), findsNothing);
+    });
   });
 }
