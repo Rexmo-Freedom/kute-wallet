@@ -1,14 +1,17 @@
-// The top of the Portfolio (founder request, October 2026): the
-// Investments balance's cash part by part (Dollars, Investing,
-// Predictions), live on the one-balance state, with one Rebalance that
-// runs one manual sweeper pass; and the Positions section (the Positions
-// pill's rows) above the Activity.
+// The top of the Portfolio (founder requests, October 2026): the
+// Investments balance part by part (Dollars, Investing, Predictions) in
+// one row of equal tiles, each venue's Available and Positions, live on
+// the one-balance state and adding up to the header; one Rebalance under
+// the row that runs one manual sweeper pass, shown from the venues as they
+// are when the Portfolio opens (never the sweeper's last pass); and the
+// Positions section (the Positions pill's rows) above the Activity.
 
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/l10n/l10n.dart';
@@ -21,16 +24,22 @@ import 'package:kute/providers/hyperliquid_markets_provider.dart'
         hyperliquidPerpMarketsProvider,
         hyperliquidSpotMarketsProvider;
 import 'package:kute/providers/hyperliquid_trading_provider.dart';
+import 'package:kute/providers/one_balance_live_provider.dart'
+    show OneBalanceLiveMarks;
 import 'package:kute/providers/one_balance_provider.dart';
 import 'package:kute/providers/polymarket_open_orders_provider.dart';
 import 'package:kute/providers/polymarket_order_metadata_provider.dart';
+import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/portfolio_rebalance_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/providers/unified_balances_provider.dart';
 import 'package:kute/providers/venue_sweeper_provider.dart';
 import 'package:kute/screens/portfolio/open_investments_screen.dart';
 import 'package:kute/screens/portfolio/portfolio_balance_breakdown.dart';
+import 'package:kute/screens/portfolio/portfolio_figure_tiles.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show RollingFigure;
+import 'package:kute/screens/shared/stale_shimmer.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/one_balance/sweep_rules.dart'
     show SweepSkipReason;
@@ -42,6 +51,11 @@ import '../../helpers/portfolio_overrides.dart';
 
 final _balance = StateProvider<OneBalanceState>((_) => const OneBalanceState(
       dollarsUsd: 42.5,
+      investedUsd: 605,
+      investedByVenue: {
+        OneBalanceVenue.investing: 600,
+        OneBalanceVenue.predictions: 5,
+      },
       investingKnown: true,
       predictionsKnown: true,
       venueCash: {OneBalanceVenue.investing: 6.54},
@@ -52,14 +66,29 @@ final _sweeperState =
     StateProvider<VenueSweeperState>((_) => const VenueSweeperState());
 
 /// The sweeper as the Portfolio sees it: its state from [_sweeperState],
-/// and a Rebalance that waits on [gate] and answers [outcomes].
+/// a Rebalance that waits on [gate] and answers [outcomes], and a preview
+/// (the venues read as the Portfolio opens) that publishes [previewed].
 class _FakeSweeper extends VenueSweeperNotifier {
   static int calls = 0;
+  static int previews = 0;
+  static int passes = 0;
   static Completer<void>? gate;
   static Map<OneBalanceVenue, RebalanceOutcome> outcomes = const {};
+  static VenueSweeperState? previewed;
 
   @override
   VenueSweeperState build() => ref.watch(_sweeperState);
+
+  @override
+  Future<void> preview() async {
+    previews++;
+    final next = previewed;
+    if (next != null) ref.read(_sweeperState.notifier).state = next;
+  }
+
+  @override
+  Future<void> trigger(String reason, {OneBalanceVenue? venue}) async =>
+      passes++;
 
   @override
   Future<Map<OneBalanceVenue, RebalanceOutcome>> rebalance() async {
@@ -117,6 +146,23 @@ HyperliquidTradingState _tradingWith(
           }),
         ]);
 
+/// Predictions whose refresh waits on [gate] (the Portfolio's refresh on
+/// open), with the cash it knows.
+class _SlowPoly extends PolymarketTradingNotifier {
+  static Completer<void>? gate;
+  static int refreshes = 0;
+
+  @override
+  Future<PolymarketTradingState> build() async =>
+      const PolymarketTradingState(isAuthenticated: true, usdcBalance: 2.77);
+
+  @override
+  Future<void> refresh() async {
+    refreshes++;
+    await gate?.future;
+  }
+}
+
 Future<ProviderContainer> _pump(
   WidgetTester tester, {
   required Widget home,
@@ -124,6 +170,8 @@ Future<ProviderContainer> _pump(
   Size size = const Size(400, 1000),
   double textScale = 1,
   List<NavigatorObserver> observers = const [],
+  List<Override> overrides = const [],
+  bool settle = true,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -152,6 +200,7 @@ Future<ProviderContainer> _pump(
             reviewDone: true))),
         oneBalanceProvider.overrideWith((ref) => ref.watch(_balance)),
         venueSweeperProvider.overrideWith(_FakeSweeper.new),
+        ...overrides,
       ],
       child: ScreenUtilInit(
         designSize: const Size(430, 932),
@@ -166,7 +215,7 @@ Future<ProviderContainer> _pump(
           home: home,
         ),
       )));
-  await tester.pumpAndSettle();
+  if (settle) await tester.pumpAndSettle();
   return ProviderScope.containerOf(tester.element(find.byWidget(home)));
 }
 
@@ -182,6 +231,25 @@ Finder _inCard(String venue, Finder finder) => find.descendant(
 
 Finder get _rebalance => find.byKey(const ValueKey('portfolio-rebalance'));
 
+Finder get _row => find.byKey(const ValueKey('portfolio-balance-row'));
+
+Rect _tile(WidgetTester tester, String venue) =>
+    tester.getRect(find.byKey(ValueKey('portfolio-balance-$venue')));
+
+/// The figure under [label] in [venue]'s tile.
+String _figureUnder(WidgetTester tester, String venue, String label) {
+  final stat = find.ancestor(
+      of: _inCard(venue, find.text(label)),
+      matching: find.byType(PortfolioTileStat));
+  return tester
+      .widget<RollingFigure>(
+          find.descendant(of: stat, matching: find.byType(RollingFigure)))
+      .text;
+}
+
+double _usd(String text) =>
+    double.parse(text.replaceAll(RegExp(r'[^0-9.]'), ''));
+
 List<(String, Map<String, Object>?)> _events() {
   final events = <(String, Map<String, Object>?)>[];
   TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
@@ -193,38 +261,96 @@ void main() {
   setUp(() {
     GoogleFonts.config.allowRuntimeFetching = false;
     _FakeSweeper.calls = 0;
+    _FakeSweeper.previews = 0;
+    _FakeSweeper.passes = 0;
     _FakeSweeper.gate = null;
     _FakeSweeper.outcomes = const {};
+    _FakeSweeper.previewed = null;
+    _SlowPoly.gate = null;
+    _SlowPoly.refreshes = 0;
   });
 
   group('the balance breakdown', () {
     testWidgets(
-        'Dollars, Investing and Predictions with their marks and cash, '
+        'Dollars, Investing and Predictions side by side: one row of three '
+        'equal tiles, each with its mark, name, Available and Positions, '
         'following the one-balance state', (tester) async {
       final c = await _pump(tester, home: _breakdown);
       expect(_inCard('dollars', find.text('Dollars')), findsOneWidget);
-      expect(_inCard('dollars', find.text('USDB')), findsOneWidget);
-      expect(_inCard('dollars', _figure(r'$42.50')), findsOneWidget);
+      expect(_inCard('dollars', find.byType(SvgPicture)), findsOneWidget);
+      expect(_figureUnder(tester, 'dollars', 'Available'), r'$42.50');
+      // Dollars hold no positions.
+      expect(_inCard('dollars', find.text('Positions')), findsNothing);
       expect(_inCard('investing', find.text('Investing')), findsOneWidget);
-      expect(_inCard('investing', find.text('Hyperliquid')), findsOneWidget);
-      expect(_inCard('investing', _figure(r'$6.54')), findsOneWidget);
+      expect(_inCard('investing', find.byType(SvgPicture)), findsOneWidget);
+      expect(_figureUnder(tester, 'investing', 'Available'), r'$6.54');
+      expect(_figureUnder(tester, 'investing', 'Positions'), r'$600.00');
       expect(_inCard('predictions', find.text('Predictions')), findsOneWidget);
-      expect(_inCard('predictions', find.text('Polymarket')), findsOneWidget);
-      expect(_inCard('predictions', _figure(r'$3.00')), findsOneWidget);
-      // Top down: Dollars, Investing, Predictions.
-      double top(String v) =>
-          tester.getTopLeft(find.byKey(ValueKey('portfolio-balance-$v'))).dy;
-      expect(top('dollars'), lessThan(top('investing')));
-      expect(top('investing'), lessThan(top('predictions')));
+      expect(_inCard('predictions', find.byType(SvgPicture)), findsOneWidget);
+      expect(_figureUnder(tester, 'predictions', 'Available'), r'$3.00');
+      expect(_figureUnder(tester, 'predictions', 'Positions'), r'$5.00');
 
-      // Live: the rows follow the provider.
+      // One row: the same top, equal widths and heights, left to right,
+      // never stretched to the full width.
+      final d = _tile(tester, 'dollars');
+      final i = _tile(tester, 'investing');
+      final p = _tile(tester, 'predictions');
+      for (final r in [i, p]) {
+        expect(r.top, d.top);
+        expect(r.height, d.height);
+        expect(r.width, moreOrLessEquals(d.width, epsilon: 0.01));
+      }
+      expect(d.right, lessThan(i.left));
+      expect(i.right, lessThan(p.left));
+      expect(d.width, lessThan(tester.getSize(_row).width / 2));
+
+      // Live: the tiles follow the provider.
       c.read(_balance.notifier).state = const OneBalanceState(
           dollarsUsd: 49.04, investingKnown: true, predictionsKnown: true);
       await tester.pumpAndSettle();
       expect(_inCard('dollars', _figure(r'$49.04')), findsOneWidget);
-      expect(_inCard('investing', _figure(r'$0.00')), findsOneWidget);
-      expect(_inCard('predictions', _figure(r'$0.00')), findsOneWidget);
+      expect(_figureUnder(tester, 'investing', 'Available'), r'$0.00');
+      expect(_figureUnder(tester, 'predictions', 'Positions'), r'$0.00');
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+        'the tiles add up to the header: Dollars and every Available and '
+        'Positions make the total, the Positions the Invested', (tester) async {
+      // The header's own arithmetic, from the venues' reads, the
+      // sweeper's classification and the live marks.
+      final state = oneBalanceStateFrom(
+        dollarsUsd: 42.5,
+        venues: const UnifiedVenueBalances(
+          readyInInvestingUsd: 6.54,
+          readyInPredictionsUsd: 2.77,
+          investedInInvestingUsd: 600,
+          investedInPredictionsUsd: 9, // positions $5 + $4 in open orders
+          investingKnown: true,
+          predictionsKnown: true,
+        ),
+        inFlight: const [],
+        sweeper: const VenueSweeperState(held: {
+          OneBalanceVenue.investing: 6.54,
+          OneBalanceVenue.predictions: 2.77,
+        }),
+        marks: const OneBalanceLiveMarks(
+            investingDeltaUsd: 12.5, predictionsDeltaUsd: -1.25),
+      );
+      final c = await _pump(tester, home: _breakdown);
+      c.read(_balance.notifier).state = state;
+      await tester.pumpAndSettle();
+      final positions = _usd(_figureUnder(tester, 'investing', 'Positions')) +
+          _usd(_figureUnder(tester, 'predictions', 'Positions'));
+      final total = _usd(_figureUnder(tester, 'dollars', 'Available')) +
+          _usd(_figureUnder(tester, 'investing', 'Available')) +
+          _usd(_figureUnder(tester, 'predictions', 'Available')) +
+          positions;
+      expect(positions, moreOrLessEquals(state.investedUsd, epsilon: 0.005));
+      expect(total, moreOrLessEquals(state.totalUsd, epsilon: 0.005));
+      expect(_figureUnder(tester, 'investing', 'Positions'), r'$612.50');
+      expect(_figureUnder(tester, 'predictions', 'Positions'), r'$7.75');
+      expect(_figureUnder(tester, 'predictions', 'Available'), r'$2.77');
     });
 
     testWidgets('a venue not read yet reads a dash, never a guess',
@@ -233,7 +359,9 @@ void main() {
       c.read(_balance.notifier).state =
           const OneBalanceState(dollarsUsd: 1, predictionsKnown: true);
       await tester.pumpAndSettle();
-      expect(_inCard('investing', _figure('—')), findsOneWidget);
+      // Available and Positions both: never a guess, never a shimmer.
+      expect(_inCard('investing', _figure('—')), findsNWidgets(2));
+      expect(_figureUnder(tester, 'predictions', 'Available'), r'$0.00');
     });
 
     testWidgets('nothing a Rebalance can move: no button', (tester) async {
@@ -249,8 +377,14 @@ void main() {
       c.read(_sweeperState.notifier).state =
           const VenueSweeperState(movable: {OneBalanceVenue.investing: 6.54});
       await tester.pumpAndSettle();
-      expect(_inCard('dollars', _rebalance), findsOneWidget);
-      expect(_inCard('dollars', find.text('Rebalance')), findsOneWidget);
+      expect(_rebalance, findsOneWidget);
+      expect(find.text('Rebalance'), findsOneWidget);
+      // Under the row, the row's full width.
+      final row = tester.getRect(_row);
+      final button = tester.getRect(_rebalance);
+      expect(button.top, greaterThan(row.bottom));
+      expect(button.width, moreOrLessEquals(row.width, epsilon: 1));
+      expect(_inCard('dollars', _rebalance), findsNothing);
 
       _FakeSweeper.gate = Completer<void>();
       _FakeSweeper.outcomes = const {
@@ -360,6 +494,129 @@ void main() {
           'Moving to USDB…');
       // Landed: the row gone, no line.
       expect(note(empty, at.add(const Duration(minutes: 5))), isNull);
+    });
+
+    testWidgets(
+        r"the founder's $2.77 at Predictions: on open, with no sweeper pass "
+        'ever run, the venues are read and Rebalance is there, enabled, '
+        'within the first frames', (tester) async {
+      _FakeSweeper.previewed = const VenueSweeperState(
+          movable: {OneBalanceVenue.predictions: 2.77},
+          held: {OneBalanceVenue.predictions: 2.77});
+      final c = await _pump(tester,
+          home: _breakdown,
+          overrides: [polymarketTradingProvider.overrideWith(_SlowPoly.new)],
+          settle: false);
+      c.read(_balance.notifier).state = const OneBalanceState(
+          dollarsUsd: 42.5,
+          investingKnown: true,
+          predictionsKnown: true,
+          venueCash: {OneBalanceVenue.predictions: 2.77});
+      // No time passes beyond the first frame and its microtasks: the
+      // heartbeat (3 minutes) and the sweeper's passes play no part.
+      await tester.pump();
+      await tester.pump();
+      expect(_FakeSweeper.previews, greaterThanOrEqualTo(1));
+      expect(_FakeSweeper.passes, 0);
+      expect(_figureUnder(tester, 'predictions', 'Available'), r'$2.77');
+      expect(_rebalance, findsOneWidget);
+      expect(tester.widget<AppButton>(_rebalance).onPressed, isNotNull);
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets(
+        'on open both venues refresh; their figures shimmer meanwhile, '
+        'never a dash, then read again for the sweeper', (tester) async {
+      _SlowPoly.gate = Completer<void>();
+      await _pump(tester,
+          home: _breakdown,
+          overrides: [polymarketTradingProvider.overrideWith(_SlowPoly.new)],
+          settle: false);
+      await tester.pump();
+      await tester.pump();
+      expect(_SlowPoly.refreshes, 1);
+      bool shimmering(String venue) => tester
+          .widgetList<StaleShimmer>(_inCard(venue, find.byType(StaleShimmer)))
+          .every((w) => w.stale);
+      expect(shimmering('predictions'), isTrue);
+      expect(_figureUnder(tester, 'predictions', 'Available'), r'$3.00');
+      expect(_inCard('predictions', _figure('—')), findsNothing);
+      // Dollars are not refreshed here: steady.
+      expect(
+          tester
+              .widget<StaleShimmer>(
+                  _inCard('dollars', find.byType(StaleShimmer)))
+              .stale,
+          isFalse);
+      final before = _FakeSweeper.previews;
+      _SlowPoly.gate!.complete();
+      await tester.pump();
+      await tester.pump();
+      expect(shimmering('predictions'), isFalse);
+      expect(_FakeSweeper.previews, greaterThan(before));
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets(
+        'cash below the route minimum: Rebalance stays, disabled, and the '
+        'venue says why', (tester) async {
+      final c = await _pump(tester, home: _breakdown);
+      c.read(_sweeperState.notifier).state = const VenueSweeperState(
+          belowMinimum: {OneBalanceVenue.predictions: 2.77});
+      await tester.pumpAndSettle();
+      expect(_rebalance, findsOneWidget);
+      expect(tester.widget<AppButton>(_rebalance).onPressed, isNull);
+      expect(tester.widget<AppButton>(_rebalance).isLoading, isFalse);
+      expect(_inCard('predictions', find.text('Below the minimum to move')),
+          findsOneWidget);
+      // A tap does nothing.
+      await tester.tap(_rebalance, warnIfMissed: false);
+      await tester.pump();
+      expect(_FakeSweeper.calls, 0);
+
+      // Above it: enabled, no line.
+      c.read(_sweeperState.notifier).state =
+          const VenueSweeperState(movable: {OneBalanceVenue.predictions: 2.77});
+      await tester.pumpAndSettle();
+      expect(tester.widget<AppButton>(_rebalance).onPressed, isNotNull);
+      expect(find.text('Below the minimum to move'), findsNothing);
+
+      // The few cents a CCTP move leaves behind are not worth a button.
+      c.read(_sweeperState.notifier).state = const VenueSweeperState(
+          belowMinimum: {OneBalanceVenue.investing: 0.06});
+      await tester.pumpAndSettle();
+      expect(_rebalance, findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+        '375 pt at 130 % text: the row fits, large figures scale down, '
+        'nothing cut', (tester) async {
+      final c = await _pump(tester,
+          home: _breakdown, size: const Size(375, 812), textScale: 1.3);
+      c.read(_balance.notifier).state = const OneBalanceState(
+        dollarsUsd: 123456.78,
+        investedUsd: 1111111.11,
+        investedByVenue: {
+          OneBalanceVenue.investing: 987654.32,
+          OneBalanceVenue.predictions: 123456.79,
+        },
+        investingKnown: true,
+        predictionsKnown: true,
+        venueCash: {OneBalanceVenue.investing: 45678.9},
+        waiting: {OneBalanceVenue.predictions: 34567.89},
+      );
+      c.read(_sweeperState.notifier).state = const VenueSweeperState(
+          belowMinimum: {OneBalanceVenue.predictions: 0.5});
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      final d = _tile(tester, 'dollars');
+      final p = _tile(tester, 'predictions');
+      expect(p.top, d.top);
+      expect(p.width, moreOrLessEquals(d.width, epsilon: 0.01));
+      expect(p.right, lessThanOrEqualTo(375));
+      expect(_figureUnder(tester, 'investing', 'Positions'), r'$987,654.32');
+      expect(find.text('Below the minimum to move'), findsOneWidget);
     });
   });
 

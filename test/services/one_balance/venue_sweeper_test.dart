@@ -74,6 +74,13 @@ class _FakeHost extends VenueSweeperHost {
   @override
   Future<double> minimumUsd(OneBalanceVenue venue) async => minimums[venue]!;
 
+  /// The session's cached minimums for the preview, when a test sets one.
+  final Map<OneBalanceVenue, double> previewMinimums = {};
+
+  @override
+  Future<double> previewMinimumUsd(OneBalanceVenue venue) async =>
+      previewMinimums[venue] ?? minimums[venue]!;
+
   @override
   void noteAmountTooSmall(OneBalanceVenue venue, double usd) =>
       tooSmall.add((venue, usd));
@@ -826,6 +833,117 @@ void main() {
       expect(host.sent, isEmpty);
       expect(out[OneBalanceVenue.investing]!.reason, SweepSkipReason.locked);
       expect(sweeper.state.movable, isEmpty);
+    });
+
+    test(
+        'a venue backing off after a failure a Rebalance would retry shows '
+        'as movable, not hidden until the backoff ends', () async {
+      host.idle(OneBalanceVenue.predictions, 12);
+      host.sendError[OneBalanceVenue.predictions] =
+          () => StateError('rail down');
+      await sweeper.trigger('timer'); // fails: backs off 2 minutes
+      expect(host.sent, isEmpty);
+      host.sendError.remove(OneBalanceVenue.predictions);
+      host.venues[OneBalanceVenue.predictions] = inUse(2.77);
+      // 30 s later: too soon, a Rebalance would still wait.
+      host.clock = host.clock.add(const Duration(seconds: 30));
+      await sweeper.trigger('timer');
+      expect(sweeper.state.movable, isEmpty);
+      // 90 s after the failure a Rebalance lifts the backoff: the button
+      // shows what it would move, though the backoff runs another 30 s.
+      host.clock = host.clock.add(const Duration(minutes: 1));
+      await sweeper.trigger('timer');
+      expect(sweeper.state.movable, {OneBalanceVenue.predictions: 2.77});
+      await sweeper.sweepNow();
+      expect(host.sent.single.usd, 2.77);
+    });
+  });
+
+  group('preview (the Portfolio opening)', () {
+    /// Predictions used an hour ago: the idle rule keeps its cash, so no
+    /// pass of its own would ever move it.
+    VenueSnapshot inUse(double usd,
+            {double? sweepable, bool reservations = false}) =>
+        VenueSnapshot(
+          idleUsd: usd,
+          sweepableUsd: sweepable ?? usd,
+          hasReservations: reservations,
+          lastActivityAt: host.clock.subtract(const Duration(hours: 1)),
+        );
+
+    test(
+        r"the founder's $2.77 of free Predictions cash: movable at once, "
+        'with no pass ever run, nothing sent, nothing reported', () async {
+      host.venues[OneBalanceVenue.predictions] = inUse(2.77);
+      // No pass has run: the sweeper knows nothing yet.
+      expect(sweeper.state, const VenueSweeperState());
+      await sweeper.preview();
+      expect(sweeper.state.movable, {OneBalanceVenue.predictions: 2.77});
+      expect(sweeper.state.belowMinimum, isEmpty);
+      // The cash is counted as the pass would count it: Available.
+      expect(sweeper.state.held, {OneBalanceVenue.predictions: 2.77});
+      expect(host.sent, isEmpty);
+      expect(host.events, isEmpty);
+      // And a tap moves exactly that.
+      await sweeper.sweepNow();
+      expect(host.sent.single.venue, OneBalanceVenue.predictions);
+      expect(host.sent.single.usd, 2.77);
+    });
+
+    test(r'$2.77 under a $3 route minimum: below the minimum, not movable',
+        () async {
+      host.venues[OneBalanceVenue.predictions] = inUse(2.77);
+      host.minimums[OneBalanceVenue.predictions] = 3;
+      await sweeper.preview();
+      expect(sweeper.state.movable, isEmpty);
+      expect(sweeper.state.belowMinimum, {OneBalanceVenue.predictions: 2.77});
+      expect(sweeper.state.dust, {OneBalanceVenue.predictions: 2.77});
+      expect(host.sent, isEmpty);
+    });
+
+    test('reads with the session\'s minimum, not a fresh network read',
+        () async {
+      host.venues[OneBalanceVenue.predictions] = inUse(2.77);
+      host.previewMinimums[OneBalanceVenue.predictions] = 1;
+      host.minimums[OneBalanceVenue.predictions] = 99; // never asked
+      await sweeper.preview();
+      expect(sweeper.state.movable, {OneBalanceVenue.predictions: 2.77});
+    });
+
+    test('cash open orders reserve is never movable', () async {
+      host.venues[OneBalanceVenue.predictions] =
+          inUse(8, sweepable: 0, reservations: true);
+      await sweeper.preview();
+      expect(sweeper.state.movable, isEmpty);
+      expect(sweeper.state.belowMinimum, isEmpty);
+    });
+
+    test('a locked session: nothing movable', () async {
+      host.venues[OneBalanceVenue.predictions] = inUse(2.77);
+      host.unlocked = false;
+      await sweeper.preview();
+      expect(sweeper.state.movable, isEmpty);
+    });
+
+    test('a venue that has not answered: nothing claimed for it', () async {
+      host.venues[OneBalanceVenue.predictions] = null;
+      await sweeper.preview();
+      expect(sweeper.state.movable, isEmpty);
+    });
+
+    test('a move that started while it read: what it read is dropped',
+        () async {
+      host.venues[OneBalanceVenue.predictions] = inUse(2.77);
+      final gate = Completer<void>();
+      host.beforeSend = () => gate.future;
+      final manual = sweeper.sweepNow();
+      await Future<void>.delayed(Duration.zero);
+      await sweeper.preview();
+      // The move is running: the preview leaves the venue to it.
+      expect(sweeper.state.movable, isEmpty);
+      gate.complete();
+      await manual;
+      expect(host.sent.length, 1);
     });
   });
 }

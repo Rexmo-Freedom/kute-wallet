@@ -161,8 +161,8 @@ List<InFlightMove> inFlightMovesFrom(
       walletId: walletId, nowMs: nowMs);
   final sums = <(InFlightKind, OneBalanceVenue?, InFlightOrder?), double>{};
   final orders = <InFlightOrder>[];
-  void add(InFlightKind kind, OneBalanceVenue? venue, String rowId,
-      double usd) {
+  void add(
+      InFlightKind kind, OneBalanceVenue? venue, String rowId, double usd) {
     if (usd <= 0) return;
     final order = orderOf?.call(rowId);
     if (order != null && !orders.contains(order)) orders.add(order);
@@ -282,11 +282,18 @@ OneBalanceState oneBalanceStateFrom({
     final usd = (cash.held[venue] ?? 0) + (cash.dust[venue] ?? 0);
     if (usd >= kSweepDustUsd) venueCash[venue] = usd;
   }
-  // The marks move the positions only.
-  final marked = _clean(venues.investedUsd) + marks.totalDeltaUsd;
+  // The marks move the positions only, each venue's its own. Invested is
+  // the venues' added, so the Portfolio's tiles add up to the header.
+  final investedByVenue = {
+    OneBalanceVenue.investing:
+        _clean(_clean(venues.investedInInvestingUsd) + marks.investingDeltaUsd),
+    OneBalanceVenue.predictions: _clean(
+        _clean(venues.investedInPredictionsUsd) + marks.predictionsDeltaUsd),
+  };
   return OneBalanceState(
     dollarsUsd: _clean(dollarsUsd),
-    investedUsd: _clean(marked),
+    investedUsd: investedByVenue.values.fold(0.0, (sum, usd) => sum + usd),
+    investedByVenue: investedByVenue,
     inFlight: inFlight,
     waiting: cash.waiting,
     venueCash: venueCash,

@@ -22,10 +22,7 @@ import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart';
 import 'package:kute/screens/portfolio/portfolio_category_donut.dart';
 import 'package:kute/screens/portfolio/portfolio_category_drill.dart';
 import 'package:kute/screens/portfolio/portfolio_empty_state.dart';
-import 'package:kute/screens/polymarket/components/market_card.dart'
-    show polyCardFigureStyle;
-import 'package:kute/screens/shared/portfolio_position_card.dart'
-    show portfolioCardCaptionStyle;
+import 'package:kute/screens/portfolio/portfolio_figure_tiles.dart';
 import 'package:kute/screens/shared/charts/kute_chart_format.dart'
     show kuteChangeSign;
 import 'package:kute/screens/shared/charts/kute_chart_range_pills.dart'
@@ -48,11 +45,11 @@ enum StatisticsScope { active, historic }
 /// account ([PortfolioStatisticsOverview]), from the same parts.
 ///
 ///   * The profit and loss chart leads ([PortfolioPnlChart]): the
-///     account's P&L (realised plus open) as the headline, the change over
-///     the range drawn under it, the venue's P&L series as a line coloured
-///     by that change with a dashed baseline at the range's start, a long
-///     press scrubbing the header, and the 1D … ALL range pills. The same
-///     chart on both sub-tabs. No observations yet, or a P&L that never
+///     account's P&L (realised plus open) as the headline, the venue's
+///     whole P&L history as a line coloured by its change with a dashed
+///     baseline at zero, a pinch zooming the time window, a long press
+///     scrubbing the header; no range row. The same chart on both
+///     sub-tabs. No observations yet, or a P&L that never
 ///     moved off zero: no chart, never a flat line. Nothing on either
 ///     sub-tab either: the whole tab is the app's empty state
 ///     ([NoActivityState]: Sal, the headline, a tagline), nothing else.
@@ -62,9 +59,9 @@ enum StatisticsScope { active, historic }
 ///     value by category (Predictions: a live prediction's shares at the
 ///     live price; Investing: an open perp's margin plus its profit or
 ///     loss, the Open tab card's figure, and each spot holding at the
-///     mid); the tiles are the open P&L, the amount at stake (Predictions:
-///     what the open positions cost; Investing: the margin they use) and
-///     the open positions. Nothing open: the empty state, compact, and no
+///     mid); the tiles, in one row, are the open P&L, the amount at stake
+///     (Predictions: what the open positions cost; Investing: the margin
+///     they use) and the open positions. Nothing open: the empty state, compact, and no
 ///     card (never a card of zeros).
 ///   * Historic: the all-time donut (amount predicted, volume traded) and
 ///     the realised P&L, the amount predicted or volume traded and the
@@ -73,8 +70,8 @@ enum StatisticsScope { active, historic }
 ///     (events, coins), and under each its P&L lines
 ///     (portfolio_category_drill.dart).
 ///   * Switching sends `portfolio_tab_changed` with the sub-tab; a slice
-///     pick carries the sub-tab as `scope`. The chart's range and scrub
-///     events are portfolio_pnl_chart.dart's.
+///     pick carries the sub-tab as `scope`. The chart's scrub event is
+///     portfolio_pnl_chart.dart's.
 class PortfolioStatistics extends ConsumerStatefulWidget {
   const PortfolioStatistics({super.key, required this.venue, this.walletId});
 
@@ -147,7 +144,8 @@ class _PortfolioStatisticsState extends ConsumerState<PortfolioStatistics> {
 /// once, from the top down.
 ///
 ///   * ONE profit and loss card leads ([PortfolioPnlChart]): one headline,
-///     one line, one row of range pills. With both venues' P&L moving, a
+///     one line over the whole history, pinch to zoom. With both venues'
+///     P&L moving, a
 ///     small All · Investing · Predictions toggle at the top of the card
 ///     switches the series drawn in the same chart (All: the venues added
 ///     on the moments either published, [PortfolioPerformance.combine]),
@@ -166,10 +164,12 @@ class _PortfolioStatisticsState extends ConsumerState<PortfolioStatistics> {
 ///     or predicted (the volume traded, the amount predicted), all time.
 ///     A slice opens up to what is in it at both venues: the positions
 ///     (Active) or the history rows (Historic). Nothing in it: no donut.
-///   * ONE card of figures for the pair, each the venues' added: Active
-///     the open P&L, the amount at stake and the open positions; Historic
-///     the realised P&L, the volume traded and the trades. A sub-tab with
-///     nothing on it is the compact empty state, no card of zeros.
+///   * ONE row of figures for the pair, each the venues' added, as small
+///     equal tiles side by side (portfolio_figure_tiles.dart, the balance
+///     breakdown's tiles): Active the open P&L, the amount at stake and
+///     the open positions; Historic the realised P&L, the volume traded
+///     and the trades. A sub-tab with nothing on it is the compact empty
+///     state, no tiles of zeros.
 ///   * [footer]: slivers under everything (the screen's Activity).
 ///   * Never traded (no chart, nothing on either sub-tab): the page is the
 ///     app's one empty state ([NoActivityState]), or only the [footer]
@@ -182,8 +182,8 @@ class _PortfolioStatisticsState extends ConsumerState<PortfolioStatistics> {
 ///     {venue}; the pair `portfolio_allocation_view_changed` {view: active
 ///     | historic}; a slice opened, or closed again,
 ///     `portfolio_allocation_drilled` {venue: all, level: category | top,
-///     category, view}; the chart's range and scrub events carry the
-///     series drawn as `venue` (`all`, `hyperliquid`, `polymarket`).
+///     category, view}; the chart's scrub event carries the series drawn
+///     as `venue` (`all`, `hyperliquid`, `polymarket`).
 class PortfolioStatisticsOverview extends ConsumerStatefulWidget {
   const PortfolioStatisticsOverview({
     super.key,
@@ -443,12 +443,10 @@ class _OverviewBody extends ConsumerWidget {
     final List<Widget> stats;
     if (tiles.isNotEmpty) {
       stats = [
-        Container(
-          key: const ValueKey('statistics-figures'),
-          clipBehavior: Clip.antiAlias,
-          decoration: AppDecorations.card(context),
-          child: _StatTiles(tiles: tiles),
-        ),
+        _StatTiles(
+            key: const ValueKey('statistics-figures'),
+            tiles: tiles,
+            boxed: true),
       ];
     } else if (figures == null) {
       // Nothing to say.
@@ -489,8 +487,9 @@ class _OverviewBody extends ConsumerWidget {
   }
 }
 
-/// All · Investing · Predictions at the top of the P&L card: the range
-/// row's pills (the card's own selector style), at their natural width.
+/// All · Investing · Predictions at the top of the P&L card: the charts'
+/// small pills ([KuteRangePill], the card's own selector style), at their
+/// natural width.
 class _VenueToggle extends StatelessWidget {
   const _VenueToggle({
     required this.venues,
@@ -1453,42 +1452,34 @@ _TradingParts _tradingFigures(WidgetRef ref, String? walletId) {
   );
 }
 
-/// Figures on a card, two to a row: each a caption label over its
-/// figure, as on the position cards.
+/// The figures in ONE row of equal tiles (founder request, October
+/// 2026), each a caption label over its figure, as on the position cards
+/// and the balance breakdown (portfolio_figure_tiles.dart): each tile on
+/// the card surface ([boxed], the Portfolio), or side by side inside the
+/// card that holds them (a Ledger's Statistics).
 class _StatTiles extends StatelessWidget {
-  const _StatTiles({required this.tiles});
+  const _StatTiles({super.key, required this.tiles, this.boxed = false});
 
   /// Label, figure and the figure's colour.
   final List<(String, String, Color)> tiles;
 
+  final bool boxed;
+
   @override
   Widget build(BuildContext context) {
-    final c = context.colors;
-    return Padding(
-      padding: EdgeInsets.all(16.w),
-      child: LayoutBuilder(builder: (context, constraints) {
-        final gap = 12.w;
-        final width = (constraints.maxWidth - gap) / 2;
-        return Wrap(
-          spacing: gap,
-          runSpacing: 16.h,
+    final row = PortfolioTileRow(children: [
+      for (final (label, figure, color) in tiles)
+        PortfolioTile(
+          boxed: boxed,
           children: [
-            for (final (label, figure, color) in tiles)
-              SizedBox(
-                width: width,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(label, style: portfolioCardCaptionStyle(c)),
-                    SizedBox(height: 4.h),
-                    Text(figure, style: polyCardFigureStyle(color)),
-                  ],
-                ),
-              ),
+            PortfolioTileStat(
+                label: label,
+                figure: PortfolioTileFigure(figure, color: color)),
           ],
-        );
-      }),
-    );
+        ),
+    ]);
+    if (boxed) return row;
+    return Padding(padding: EdgeInsets.all(16.w), child: row);
   }
 }
 

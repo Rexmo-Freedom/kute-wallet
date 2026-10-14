@@ -63,13 +63,20 @@ class VenueSweeperState {
     this.sweeping = const <OneBalanceVenue>{},
     this.held = const <OneBalanceVenue, double>{},
     this.movable = const <OneBalanceVenue, double>{},
+    this.belowMinimum = const <OneBalanceVenue, double>{},
   });
 
   /// What a Rebalance ([VenueSweeper.sweepNow]) would send home from each
-  /// venue right now, as the last pass read it: the rules with the idle
-  /// wait set aside, at or above the route minimum. Empty when nothing
-  /// could move (the Portfolio hides its Rebalance then).
+  /// venue right now, as the last read of the venues saw it (a pass, or
+  /// [VenueSweeper.preview] when the Portfolio opens): the rules with the
+  /// idle wait set aside, at or above the route minimum. Empty when
+  /// nothing could move.
   final Map<OneBalanceVenue, double> movable;
+
+  /// Venue cash a Rebalance would leave where it is because it is below
+  /// the route minimum, under the same rules as [movable]: the Portfolio
+  /// says so instead of hiding its Rebalance without a word.
+  final Map<OneBalanceVenue, double> belowMinimum;
 
   /// Idle venue cash a venue in use keeps (the idle rule, both venues):
   /// the person's Available money, drawn on by orders and sends, never
@@ -92,6 +99,7 @@ class VenueSweeperState {
     Set<OneBalanceVenue>? sweeping,
     Map<OneBalanceVenue, double>? held,
     Map<OneBalanceVenue, double>? movable,
+    Map<OneBalanceVenue, double>? belowMinimum,
   }) =>
       VenueSweeperState(
         waiting: waiting ?? this.waiting,
@@ -99,6 +107,7 @@ class VenueSweeperState {
         sweeping: sweeping ?? this.sweeping,
         held: held ?? this.held,
         movable: movable ?? this.movable,
+        belowMinimum: belowMinimum ?? this.belowMinimum,
       );
 
   @override
@@ -108,6 +117,7 @@ class VenueSweeperState {
       mapEquals(other.dust, dust) &&
       mapEquals(other.held, held) &&
       mapEquals(other.movable, movable) &&
+      mapEquals(other.belowMinimum, belowMinimum) &&
       setEquals(other.sweeping, sweeping);
 
   @override
@@ -116,13 +126,15 @@ class VenueSweeperState {
         Object.hashAll(dust.entries.map((e) => Object.hash(e.key, e.value))),
         Object.hashAll(held.entries.map((e) => Object.hash(e.key, e.value))),
         Object.hashAll(movable.entries.map((e) => Object.hash(e.key, e.value))),
+        Object.hashAll(
+            belowMinimum.entries.map((e) => Object.hash(e.key, e.value))),
         Object.hashAllUnordered(sweeping),
       );
 
   @override
   String toString() =>
       'VenueSweeperState(waiting: $waiting, dust: $dust, held: $held, '
-      'movable: $movable, sweeping: $sweeping)';
+      'movable: $movable, belowMinimum: $belowMinimum, sweeping: $sweeping)';
 }
 
 /// What a pass did with one venue, as the Portfolio's Rebalance reports it.
@@ -219,6 +231,11 @@ abstract class VenueSweeperHost {
   /// The route minimum for a sweep from [venue], floored.
   Future<double> minimumUsd(OneBalanceVenue venue);
 
+  /// [minimumUsd] for [VenueSweeper.preview], which must not wait on the
+  /// network when the answer is already known: the last minimum read this
+  /// session when there is one (refreshed behind it), else a read.
+  Future<double> previewMinimumUsd(OneBalanceVenue venue) => minimumUsd(venue);
+
   /// A quote refused [usd] as too small.
   void noteAmountTooSmall(OneBalanceVenue venue, double usd);
 
@@ -308,6 +325,11 @@ class VenueSweeper {
   final Map<OneBalanceVenue, double> _dust = {};
   final Map<OneBalanceVenue, double> _held = {};
   final Map<OneBalanceVenue, double> _movable = {};
+  final Map<OneBalanceVenue, double> _belowMinimum = {};
+
+  /// Moves started per venue: a [preview] that read a venue before a move
+  /// left it does not record what it read.
+  final Map<OneBalanceVenue, int> _sends = {};
 
   /// When each held venue last saw activity: its idle window ends
   /// [kVenueIdleSweepAfter] later, a pass of its own ([nextDueIn]).
@@ -422,6 +444,83 @@ class VenueSweeper {
 
   /// The app is leaving the foreground: held batches sweep now.
   Future<void> onAppPaused() => trigger('timer', flushHeld: true);
+
+  /// The venues as they are now, read and classified without a pass, for
+  /// the Portfolio: it calls this as it opens and whenever a venue's
+  /// figures move, so its balances and its Rebalance never wait on the
+  /// sweeper's schedule (the 3-minute heartbeat, an event, a resume).
+  ///
+  /// The same reads (the Rebalance's: an Investing order resting at the
+  /// venue is resolved there), the same minimum (the session's last read
+  /// when there is one) and the same rules as a pass record the venue
+  /// cash a pass would record (held, dust, waiting; cash a pass would send
+  /// now counts as waiting until it does) and what a Rebalance would do
+  /// ([VenueSweeperState.movable], [VenueSweeperState.belowMinimum]).
+  /// Nothing is sent, nothing is reported, no pass is waited for, and the
+  /// rules' memory (backoff, batching, rate limit, skips) is left as is. A venue with a move running, or one a move
+  /// started for while it was read, is left to the pass. Venues are read
+  /// side by side.
+  Future<void> preview() async {
+    if (_disposed) return;
+    final wallet = _host.spendingWalletId;
+    final unlocked = _host.sessionUnlocked;
+    await Future.wait([
+      for (final venue in OneBalanceVenue.values)
+        _previewVenue(venue, wallet: wallet, unlocked: unlocked),
+    ]);
+  }
+
+  Future<void> _previewVenue(OneBalanceVenue venue,
+      {required String? wallet, required bool unlocked}) async {
+    final sends = _sends[venue] ?? 0;
+    bool moved() =>
+        _disposed || _inFlight.contains(venue) || (_sends[venue] ?? 0) != sends;
+    if (moved()) return;
+    final VenueSnapshot? raw;
+    final double minimum;
+    try {
+      (raw, minimum) = await (
+        _host.readVenueForRebalance(venue),
+        wallet != null && unlocked
+            ? _host.previewMinimumUsd(venue)
+            : Future.value(kOneBalanceMinimumUsd),
+      ).wait;
+    } catch (_) {
+      return; // the next pass, or the next preview, reads it again
+    }
+    if (moved()) return;
+    if (raw == null) {
+      _setRebalancePreview(venue, null);
+      return;
+    }
+    final m = _memory[venue]!;
+    final snapshot = _discountRecentSweep(raw, m);
+    final now = _host.now();
+    SweepContext rules({required bool rebalance}) => _context(m,
+        now: now,
+        minimum: minimum,
+        unlocked: unlocked,
+        wallet: wallet,
+        rebalance: rebalance,
+        eventDriven: false,
+        flushHeld: false,
+        ignoreIdle: false,
+        idleRule: snapshot.lastActivityAt != null);
+    switch (decideSweep(snapshot, rules(rebalance: false))) {
+      case SweepNothing():
+        _setWaiting(venue, null);
+      case SweepDust(:final usd):
+        _setDust(venue, usd);
+      case SweepSkip(:final reason, :final idleUsd):
+        _recordSkip(venue, reason, idleUsd, snapshot);
+      case SweepWaiting(:final usd):
+        _setWaiting(venue, usd);
+      case SweepNow(:final usd):
+        // Owed back: the next pass sends it.
+        _setWaiting(venue, usd);
+    }
+    _setRebalancePreview(venue, decideSweep(snapshot, rules(rebalance: true)));
+  }
 
   /// The Orchestra rows moved: settle any sweep this instance submitted.
   void noteOrders(Iterable<SwapOrder> rows) {
@@ -586,7 +685,7 @@ class VenueSweeper {
         ? await _host.readVenueForRebalance(venue)
         : await _host.readVenue(venue);
     if (raw == null) {
-      _setMovable(venue, null);
+      _setRebalancePreview(venue, null);
       return const RebalanceOutcome(RebalanceOutcomeKind.unknown);
     }
     final minimum = wallet != null && unlocked
@@ -599,24 +698,22 @@ class VenueSweeper {
     // been idle a day: then all of its cash goes home in one move, named
     // for the rule, with no rate limit or batching wait.
     final idleRule = snapshot.lastActivityAt != null && !ignoreIdle;
-    SweepContext rules({required bool rebalance}) => SweepContext(
-          now: now,
-          minimumUsd: minimum,
-          sessionUnlocked: unlocked,
-          spendingWalletActive: wallet != null,
-          backoffUntil: m.backoffUntil,
-          lastSweepAt: m.lastSweepAt,
-          heldSince: m.heldSince,
-          eventDriven: rebalance || eventDriven || rollout || idleRule,
-          flushHeld: rebalance || flushHeld || idleRule,
-          ignoreIdle: rebalance || ignoreIdle,
-        );
+    SweepContext rules({required bool rebalance}) => _context(m,
+        now: now,
+        minimum: minimum,
+        unlocked: unlocked,
+        wallet: wallet,
+        rebalance: rebalance,
+        eventDriven: eventDriven || rollout,
+        flushHeld: flushHeld,
+        ignoreIdle: ignoreIdle,
+        idleRule: idleRule);
     final decision = decideSweep(snapshot, rules(rebalance: false));
-    // What a Rebalance would move now, for the Portfolio's button: the
-    // same read under the Rebalance's rules, no I/O.
+    // What a Rebalance would do now, for the Portfolio's button: the same
+    // read under the Rebalance's rules, no I/O.
     final preview =
         ignoreIdle ? decision : decideSweep(snapshot, rules(rebalance: true));
-    _setMovable(venue, preview is SweepNow ? preview.usd : null);
+    _setRebalancePreview(venue, preview);
 
     // A pass of its own reports a skip once per episode; the Rebalance
     // reports each venue once per tap, with its trigger.
@@ -650,43 +747,7 @@ class VenueSweeper {
         return RebalanceOutcome(RebalanceOutcomeKind.belowMinimum, usd: usd);
       case SweepSkip(:final reason, :final idleUsd):
         if (reason != SweepSkipReason.backoff) m.heldSince = null;
-        // Backed-off cash stays visible: a failed swap-back never
-        // vanishes into a hidden venue balance. Cash a venue in use keeps
-        // (the idle rule) is the venue's money, counted like dust: in the
-        // total, never shown as waiting.
-        switch (reason) {
-          case SweepSkipReason.active:
-            final at = snapshot.lastActivityAt;
-            if (at != null) _activeAt[venue] = at;
-            _setCash(venue, held: idleUsd);
-          case SweepSkipReason.backoff:
-            _setWaiting(venue, idleUsd);
-          case SweepSkipReason.locked:
-          case SweepSkipReason.pendingDeposit:
-            // Nothing decided: the venue's cash stays counted as the last
-            // pass left it (the header caps it by the venue's live read).
-            // Clearing it dropped the cash from the total whenever a pass
-            // ran locked or with a move pending. A move pending may be a
-            // sweep the venue's read still shows, already counted in
-            // flight, so the read's figure is not taken here.
-            break;
-          default:
-            // Held back for a moment (the grace after a deposit, a claim
-            // or sale settling, an order queued or placing): still the
-            // person's money at the venue, usable by the order that holds
-            // it. Counted in Available, never dropped from the total (it
-            // used to vanish until the next pass). Only the unreserved
-            // part: what open orders hold is invested.
-            _setCash(venue,
-                held: snapshot.hasReservations
-                    ? math.min(
-                        snapshot.sweepableUsd.isFinite &&
-                                snapshot.sweepableUsd > 0
-                            ? snapshot.sweepableUsd
-                            : 0.0,
-                        idleUsd)
-                    : idleUsd);
-        }
+        _recordSkip(venue, reason, idleUsd, snapshot);
         skipped(reason, reason.label, idleUsd);
         return switch (reason) {
           // A move already pending at the venue (a sweep its read still
@@ -772,7 +833,8 @@ class VenueSweeper {
           usd: usd, reason: holds);
     }
     _inFlight.add(venue);
-    _setMovable(venue, null);
+    _sends[venue] = (_sends[venue] ?? 0) + 1;
+    _setRebalancePreview(venue, null);
     _publish();
     final startedAt = _host.now();
     _host.track('venue_sweep_started', {
@@ -962,17 +1024,103 @@ class VenueSweeper {
   void _setDust(OneBalanceVenue venue, double usd) =>
       _setCash(venue, dust: usd);
 
-  /// Records what a Rebalance would move from [venue] (null: nothing).
-  void _setMovable(OneBalanceVenue venue, double? usd) {
-    final keep = usd != null && usd.isFinite && usd >= kSweepDustUsd;
-    final changed = keep ? _movable[venue] != usd : _movable.containsKey(venue);
-    if (!changed) return;
-    if (keep) {
-      _movable[venue] = usd;
-    } else {
-      _movable.remove(venue);
+  /// Records what a Rebalance would do at [venue] under the Rebalance's
+  /// rules ([decision]; null: the venue has not answered, or a move is
+  /// running): the cash it would move ([VenueSweeperState.movable]), or
+  /// the cash it would leave because it is below the route minimum
+  /// ([VenueSweeperState.belowMinimum]).
+  void _setRebalancePreview(OneBalanceVenue venue, SweepDecision? decision) {
+    bool put(Map<OneBalanceVenue, double> map, double? usd) {
+      final keep = usd != null && usd.isFinite && usd >= kSweepDustUsd;
+      if (!keep) return map.remove(venue) != null;
+      if (map[venue] == usd) return false;
+      map[venue] = usd;
+      return true;
     }
-    _publish();
+
+    final a = put(_movable, decision is SweepNow ? decision.usd : null);
+    final b = put(_belowMinimum, decision is SweepDust ? decision.usd : null);
+    if (a || b) _publish();
+  }
+
+  /// The venue cash a skip leaves where it is, as a pass records it.
+  void _recordSkip(OneBalanceVenue venue, SweepSkipReason reason,
+      double idleUsd, VenueSnapshot snapshot) {
+    // Backed-off cash stays visible: a failed swap-back never vanishes
+    // into a hidden venue balance. Cash a venue in use keeps (the idle
+    // rule) is the venue's money, counted like dust: in the total, never
+    // shown as waiting.
+    switch (reason) {
+      case SweepSkipReason.active:
+        final at = snapshot.lastActivityAt;
+        if (at != null) _activeAt[venue] = at;
+        _setCash(venue, held: idleUsd);
+      case SweepSkipReason.backoff:
+        _setWaiting(venue, idleUsd);
+      case SweepSkipReason.locked:
+      case SweepSkipReason.pendingDeposit:
+        // Nothing decided: the venue's cash stays counted as the last
+        // pass left it (the header caps it by the venue's live read).
+        // Clearing it dropped the cash from the total whenever a pass ran
+        // locked or with a move pending. A move pending may be a sweep the
+        // venue's read still shows, already counted in flight, so the
+        // read's figure is not taken here.
+        break;
+      default:
+        // Held back for a moment (the grace after a deposit, a claim or
+        // sale settling, an order queued or placing): still the person's
+        // money at the venue, usable by the order that holds it. Counted
+        // in Available, never dropped from the total (it used to vanish
+        // until the next pass). Only the unreserved part: what open orders
+        // hold is invested.
+        _setCash(venue,
+            held: snapshot.hasReservations
+                ? math.min(
+                    snapshot.sweepableUsd.isFinite && snapshot.sweepableUsd > 0
+                        ? snapshot.sweepableUsd
+                        : 0.0,
+                    idleUsd)
+                : idleUsd);
+    }
+  }
+
+  /// The rules' session facts for a decision at a venue with memory [m].
+  /// [rebalance] is the Rebalance's own view: the idle wait set aside, no
+  /// rate limit or batching wait, and a backoff a Rebalance would lift
+  /// ([sweepNow] lifts one whose failure is [kSweepResumeRetryAfter] old)
+  /// lifted, so "can a Rebalance move this?" answers what a tap would do.
+  SweepContext _context(
+    _VenueMemory m, {
+    required DateTime now,
+    required double minimum,
+    required bool unlocked,
+    required String? wallet,
+    required bool rebalance,
+    required bool eventDriven,
+    required bool flushHeld,
+    required bool ignoreIdle,
+    required bool idleRule,
+  }) {
+    var backoffUntil = m.backoffUntil;
+    final failedAt = m.lastFailureAt;
+    if (rebalance &&
+        backoffUntil != null &&
+        failedAt != null &&
+        now.difference(failedAt) >= kSweepResumeRetryAfter) {
+      backoffUntil = null;
+    }
+    return SweepContext(
+      now: now,
+      minimumUsd: minimum,
+      sessionUnlocked: unlocked,
+      spendingWalletActive: wallet != null,
+      backoffUntil: backoffUntil,
+      lastSweepAt: m.lastSweepAt,
+      heldSince: m.heldSince,
+      eventDriven: rebalance || eventDriven || idleRule,
+      flushHeld: rebalance || flushHeld || idleRule,
+      ignoreIdle: rebalance || ignoreIdle,
+    );
   }
 
   void _setCash(OneBalanceVenue venue,
@@ -998,6 +1146,7 @@ class VenueSweeper {
       dust: Map.unmodifiable(_dust),
       held: Map.unmodifiable(_held),
       movable: Map.unmodifiable(_movable),
+      belowMinimum: Map.unmodifiable(_belowMinimum),
       sweeping: Set.unmodifiable(_inFlight),
     );
     if (next == _state) return;

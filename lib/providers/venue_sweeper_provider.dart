@@ -375,6 +375,17 @@ class _RiverpodSweeperHost extends VenueSweeperHost {
   Future<double> minimumUsd(OneBalanceVenue venue) =>
       _ref.read(routeMinimumsProvider).minimumUsd(venue);
 
+  /// The session's last minimum for [venue] at once when there is one
+  /// (read again behind it once its ten minutes are up), else a read.
+  @override
+  Future<double> previewMinimumUsd(OneBalanceVenue venue) async {
+    final minimums = _ref.read(routeMinimumsProvider);
+    final cached = minimums.cachedMinimumUsd(venue);
+    if (cached == null) return minimums.minimumUsd(venue);
+    unawaited(minimums.minimumUsd(venue).then((_) {}, onError: (_) {}));
+    return cached;
+  }
+
   @override
   void noteAmountTooSmall(OneBalanceVenue venue, double usd) =>
       _ref.read(routeMinimumsProvider).noteAmountTooSmall(venue, usd);
@@ -587,6 +598,12 @@ class VenueSweeperNotifier extends Notifier<VenueSweeperState> {
     _armDueTimer();
     return out;
   }
+
+  /// The venues read and classified now, without a pass and without
+  /// sending anything ([VenueSweeper.preview]): the Portfolio's balances
+  /// and its Rebalance as it opens and as the venues' figures move, never
+  /// waiting on the heartbeat.
+  Future<void> preview() => _sweeper.preview();
 }
 
 final venueSweeperProvider =
