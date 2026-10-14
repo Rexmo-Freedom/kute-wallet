@@ -113,7 +113,7 @@ abstract final class ReceiveGaps {
   /// QR plate to the address under it.
   static double get qrToAddress => 24.h;
 
-  /// Address to the Share/Copy row.
+  /// Address to the Share button.
   static double get addressToActions => 14.h;
 
   /// Between any two blocks below the actions.
@@ -126,7 +126,7 @@ abstract final class ReceiveGaps {
 /// The QR plate's side: as large as the receive sheet allows, 87% of
 /// its width, never under 260 nor over 380 points. The sheet spans the
 /// screen, so the screen's width is the sheet's. At 390pt that is about
-/// 339pt, which still leaves the address and the Copy/Share row above
+/// 339pt, which still leaves the address and the Share button above
 /// the fold on a 390x844 phone, and still fits inside both screens'
 /// side padding.
 double receiveQrSide(BuildContext context) =>
@@ -453,53 +453,35 @@ class ReceiveAddressIconButton extends StatelessWidget {
   }
 }
 
-/// Copy and Share, side by side, directly under the address: two
-/// equal-width buttons, Copy the neutral one and Share the filled one,
-/// the row every modern wallet puts under its code.
+/// Share, full width, directly under the address. Copy lives on the
+/// address line itself (the row and its copy button), so the row under
+/// it is Share alone (founder decision October 2026: a second Copy was
+/// redundant).
 ///
-/// They sit in the page rather than pinned to the floor because they
-/// act on the thing above them: the exact payload the QR encodes. A
-/// pinned pair reads as "finish the flow", which is the wrong promise
-/// on a screen where the job is done the moment the code is on screen.
+/// It sits in the page rather than pinned to the floor because it acts
+/// on the thing above it: the exact payload the QR encodes. A pinned
+/// button reads as "finish the flow", which is the wrong promise on a
+/// screen where the job is done the moment the code is on screen.
 ///
 /// Anything else the receive can do with that code (the bitcoin
-/// screen's request amount) sits under this row as a quiet text
-/// action, never as a third button in it.
+/// screen's request amount) sits under it as a quiet text action, never
+/// as a second button beside it.
 class ReceiveActionPills extends StatelessWidget {
   const ReceiveActionPills({
     super.key,
     required this.onShare,
-    required this.onCopy,
   });
 
   final VoidCallback? onShare;
-  final VoidCallback? onCopy;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: AppButton(
-            onPressed: onCopy,
-            text: context.l10n.copy,
-            icon: Icons.copy_rounded,
-            variant: AppButtonVariant.secondary,
-            compact: true,
-            fontSize: 15.sp,
-          ),
-        ),
-        SizedBox(width: 10.w),
-        Expanded(
-          child: AppButton(
-            onPressed: onShare,
-            text: context.l10n.share,
-            icon: Icons.ios_share_rounded,
-            compact: true,
-            fontSize: 15.sp,
-          ),
-        ),
-      ],
+    return AppButton(
+      onPressed: onShare,
+      text: context.l10n.share,
+      icon: Icons.ios_share_rounded,
+      compact: true,
+      fontSize: 15.sp,
     );
   }
 }

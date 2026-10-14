@@ -1219,8 +1219,8 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
                   ],
                 ],
 
-                // 2a. Copy / Share row. It lives right under the
-                // address and hands out the exact payload the QR
+                // 2a. Share. It lives right under the address (which
+                // copies on tap) and hands out the exact payload the QR
                 // encodes (unified BIP21, invoice, address or swap
                 // deposit address), with request amount as a quiet
                 // text action under it. Hidden while the plate shimmers
@@ -1439,9 +1439,9 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
     return 'bitcoin:$bitcoinAddress';
   }
 
-  /// Copy and Share side by side under the address, both acting on
-  /// [payload], the exact string the QR encodes. With
-  /// [showRequestAmount] a quiet text action under the row opens the
+  /// Share under the address (copy lives on the address line), acting
+  /// on [payload], the exact string the QR encodes. With
+  /// [showRequestAmount] a quiet text action under it opens the
   /// amount sheet; once a request is live it shows the requested amount
   /// and a tap clears it.
   Widget _buildActionPills({
@@ -1457,7 +1457,6 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
       children: [
         ReceiveActionPills(
           onShare: () => _sharePayload(payload, orchestraId: orchestraId),
-          onCopy: () => _copyPayload(payload, orchestraId: orchestraId),
         ),
         if (showRequestAmount) ...[
           SizedBox(height: 4.h),
@@ -1507,7 +1506,7 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
   }
 
   /// Clipboard copy with the shared snackbar and the copy events. Used
-  /// by the Copy pill and the copy icon on every address row.
+  /// by the address row and its copy icon.
   void _copyPayload(String payload, {String? orchestraId}) {
     if (!_canExportReceivePayload(payload, orchestraId)) return;
     Clipboard.setData(ClipboardData(text: payload));

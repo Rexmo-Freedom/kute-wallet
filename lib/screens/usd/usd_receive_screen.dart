@@ -531,7 +531,6 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
           SizedBox(height: ReceiveGaps.addressToActions),
           ReceiveActionPills(
             onShare: () => _share(payload),
-            onCopy: () => _copy(payload),
           ),
           SizedBox(height: ReceiveGaps.block),
           UsdReviewPlate(children: [

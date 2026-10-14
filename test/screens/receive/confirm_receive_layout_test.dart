@@ -189,46 +189,42 @@ void main() {
   });
 
   testWidgets(
-      'Copy and Share are one row of equal-width buttons under the address, '
-      'Copy neutral and Share filled, and request amount is a text action '
-      'under them; all of it above the fold at 390x844', (tester) async {
+      'Share is one full-width filled button under the address, with no '
+      'Copy beside it (the address line copies), and request amount is a '
+      'text action under it; all of it above the fold at 390x844',
+      (tester) async {
     await _pump(tester);
     final address = find.byType(ReceiveAddressLine);
-    final copy = _button(_l10n.copy);
     final share = _button(_l10n.share);
     final request = find.byKey(const ValueKey('receive-request-amount'));
     expect(address, findsOneWidget);
-    expect(copy, findsOneWidget);
     expect(share, findsOneWidget);
+    expect(_button(_l10n.copy), findsNothing);
     expect(request, findsOneWidget);
 
-    expect(tester.widget<AppButton>(copy).variant,
-        AppButtonVariant.secondary);
     expect(tester.widget<AppButton>(share).variant, AppButtonVariant.primary);
     expect(tester.widget(request), isA<AppTextButton>());
     expect(find.text(_l10n.receiveRequestAmount), findsOneWidget);
-    // Only two big buttons in the row: request amount is not one.
+    // Request amount is not a big button.
     expect(find.widgetWithText(AppButton, _l10n.receiveRequestAmount),
         findsNothing);
 
-    final copyRect = tester.getRect(copy);
     final shareRect = tester.getRect(share);
-    expect(copyRect.top, closeTo(shareRect.top, 0.5));
-    expect(copyRect.width, closeTo(shareRect.width, 0.5));
-    expect(copyRect.right, lessThan(shareRect.left));
-    expect(copyRect.top, greaterThan(tester.getRect(address).bottom));
-    expect(tester.getRect(request).top, greaterThan(copyRect.bottom));
+    final addressRect = tester.getRect(address);
+    // Full width: as wide as the address line's column.
+    expect(shareRect.width, greaterThan(addressRect.width * 0.9));
+    expect(shareRect.top, greaterThan(addressRect.bottom));
+    expect(tester.getRect(request).top, greaterThan(shareRect.bottom));
 
-    // Above the fold: the address and the row end inside the screen
+    // Above the fold: the address and Share end inside the screen
     // without a scroll.
-    expect(tester.getRect(address).bottom, lessThan(844));
+    expect(addressRect.bottom, lessThan(844));
     expect(shareRect.bottom, lessThan(844));
-    expect(copyRect.bottom, lessThan(844));
 
     // Format chips and "also accepts" follow, reachable by scroll.
     final chips = find.text(_l10n.receiveQrFormatUnified);
     expect(chips, findsOneWidget);
-    expect(tester.getTopLeft(chips).dy, greaterThan(copyRect.bottom));
+    expect(tester.getTopLeft(chips).dy, greaterThan(shareRect.bottom));
     final accepts = find.byType(CoinMarksLine);
     await tester.scrollUntilVisible(accepts, 200,
         scrollable: find.byType(Scrollable).first);
@@ -237,8 +233,9 @@ void main() {
     await _unmount(tester);
   });
 
-  testWidgets('Copy copies and Share shares the exact QR payload',
-      (tester) async {
+  testWidgets(
+      'the address line copies the address it shows and Share shares the '
+      'exact QR payload', (tester) async {
     final events = <(String, Map<String, Object>?)>[];
     TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
     final copied = <String>[];
@@ -262,10 +259,11 @@ void main() {
         .setMockMethodCallHandler(shareChannel, null));
 
     await _pump(tester);
-    const payload = 'bitcoin:$_address?lightning=$_lnurl';
-    await tester.tap(_button(_l10n.copy));
+    await tester.tap(find.descendant(
+        of: find.byType(ReceiveAddressLine),
+        matching: find.byIcon(Icons.copy_rounded)));
     await tester.pump();
-    expect(copied, [payload]);
+    expect(copied, [_lnAddress]);
     expect(
         events.where((e) => e.$1 == 'receive_qr_shared').map((e) => e.$2),
         [
@@ -277,6 +275,8 @@ void main() {
     await tester.tap(_button(_l10n.share));
     await tester.pump();
     expect(shared, isNotEmpty);
+    expect(shared.single.arguments.toString(),
+        contains('bitcoin:$_address?lightning=$_lnurl'));
     expect(events.where((e) => e.$1 == 'receive_qr_shared').last.$2,
         {'method': 'share', 'invoice_type': 'bip21'});
     await _unmount(tester);
@@ -288,10 +288,8 @@ void main() {
     expect(tester.takeException(), isNull);
     final side = _plate(tester);
     expect(side.width, closeTo(375 * 0.87, 0.5));
-    final copyRect = tester.getRect(_button(_l10n.copy));
-    final shareRect = tester.getRect(_button(_l10n.share));
-    expect(copyRect.width, closeTo(shareRect.width, 0.5));
-    expect(copyRect.top, closeTo(shareRect.top, 0.5));
+    expect(_button(_l10n.share), findsOneWidget);
+    expect(_button(_l10n.copy), findsNothing);
     await tester.scrollUntilVisible(find.byType(CoinMarksLine), 200,
         scrollable: find.byType(Scrollable).first);
     expect(tester.takeException(), isNull);
