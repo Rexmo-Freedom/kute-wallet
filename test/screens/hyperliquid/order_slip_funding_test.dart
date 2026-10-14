@@ -26,6 +26,10 @@ import 'package:kute/providers/swap_orders_provider.dart';
 import 'package:kute/providers/usd_account_provider.dart';
 import 'package:kute/screens/home/components/deposit_sheet.dart'
     show MoveLockedSide;
+import 'package:kute/models/affiliate_model.dart';
+import 'package:kute/screens/hyperliquid/components/hl_error_copy.dart'
+    show HlTradeErrorNotice;
+import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/screens/hyperliquid/components/order_slip_sheet.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart';
 import 'package:kute/screens/shared/custom_button.dart';
@@ -55,6 +59,7 @@ import 'package:money2/money2.dart';
 
 import '../../helpers/fake_hyperliquid_move_rail.dart';
 import '../../helpers/fake_swap_orders.dart';
+import '../../helpers/runtime_policy_fixture.dart';
 
 class _LivePrices extends HlLivePricesNotifier {
   @override
@@ -142,12 +147,38 @@ FundedOrderRecord _btcRecord(FundedOrderStage stage,
       slow: slow,
     );
 
+/// An order funded from Dollars or the Predictions cash (no Bitcoin leg).
+FundedOrderRecord _fundedOrder(FundedOrderStage stage,
+        {FundedOrderStage? stoppedAt,
+        FundedMoneyAt? moneyAt,
+        String? reason,
+        String? message}) =>
+    FundedOrderRecord(
+      id: 'fo_dollars',
+      label: const FundedOrderLabel(
+        venue: OneBalanceVenue.investing,
+        orderUsd: 20,
+        side: 'Long',
+        market: 'BTC',
+        marketKey: 'BTC',
+      ),
+      stage: stage,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+      venueRowIds: const {'q_move'},
+      stoppedAt: stoppedAt,
+      moneyAt: moneyAt,
+      reason: reason,
+      message: message,
+    );
+
 Future<void> _pumpSlip(WidgetTester tester,
     {required double venueUsd,
     required double dollarsUsd,
     required FakeHyperliquidMoveRail rail,
     bool dark = false,
-    List<FundedOrderRecord>? funded}) async {
+    List<FundedOrderRecord>? funded,
+    bool withWallet = false}) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -163,6 +194,10 @@ Future<void> _pumpSlip(WidgetTester tester,
             bitcoinElectrumNode: '',
             nodeType: 'Blockstream',
             reviewDone: false,
+            wallets: withWallet
+                ? [WalletConfig(id: 'w1', name: 'Spending')]
+                : const [],
+            activeWalletId: withWallet ? 'w1' : null,
           ))),
       hyperliquidLivePricesProvider.overrideWith(_LivePrices.new),
       hyperliquidAccountProvider.overrideWith(() => _Account(venueUsd)),
@@ -513,6 +548,149 @@ void main() {
           rail: rail,
           funded: [_btcRecord(FundedOrderStage.adding, marketKey: 'ETH')]);
       expect(find.byType(SlipFundingSteps), findsNothing);
+    });
+  });
+
+  group('every funded order shows its steps, whatever funds it', () {
+    RubberBandProgressState band(WidgetTester tester) =>
+        tester.state<RubberBandProgressState>(
+            find.byKey(const ValueKey('order-slip-funded-progress')));
+
+    testWidgets('from Dollars: the move, then the order, one busy button',
+        (tester) async {
+      await _pumpSlip(tester,
+          venueUsd: 0,
+          dollarsUsd: 100,
+          rail: rail,
+          funded: [_fundedOrder(FundedOrderStage.preparing)]);
+      final button = _button(tester);
+      expect(button.text, 'Preparing your order');
+      expect(button.isLoading, isTrue);
+      expect(button.onPressed, isNull);
+      expect(find.byKey(const ValueKey('slip-funding-step-active-0')),
+          findsOneWidget);
+      expect(find.text(r'Opening $20.00 Long BTC'), findsOneWidget);
+      // No Bitcoin step without a Bitcoin leg.
+      expect(find.textContaining('to Investments'), findsNothing);
+      await _frames(tester, 20);
+      expect(band(tester).stretch, greaterThan(0));
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+
+    testWidgets('from the Predictions cash: then the order itself',
+        (tester) async {
+      await _pumpSlip(tester,
+          venueUsd: 0,
+          dollarsUsd: 100,
+          rail: rail,
+          funded: [_fundedOrder(FundedOrderStage.placing)]);
+      expect(_button(tester).text, r'Opening $20.00 Long BTC');
+      expect(find.byKey(const ValueKey('slip-funding-step-done-0')),
+          findsOneWidget);
+      expect(find.byKey(const ValueKey('slip-funding-step-active-1')),
+          findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+
+    testWidgets(
+        'refused once the money landed: the failed step and that the money '
+        'is in Investing, never a second notice', (tester) async {
+      await _pumpSlip(tester,
+          venueUsd: 0,
+          dollarsUsd: 100,
+          rail: rail,
+          funded: [
+            _fundedOrder(FundedOrderStage.failed,
+                stoppedAt: FundedOrderStage.placing,
+                moneyAt: FundedMoneyAt.venue,
+                reason: 'placement',
+                message: 'Order rejected.')
+          ]);
+      expect(find.byKey(const ValueKey('slip-funding-step-failed-1')),
+          findsOneWidget);
+      expect(
+          find.text(r'Order rejected. Your $20.00 is in Investing. '
+              'Tap to try again.'),
+          findsOneWidget);
+      expect(find.byType(HlTradeErrorNotice), findsNothing);
+      expect(_button(tester).isLoading, isFalse);
+      await _frames(tester, 20);
+      expect(band(tester).stretch, 0);
+      expect(band(tester).ticking, isFalse);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+
+    testWidgets('closed mid-way and reopened: the current step',
+        (tester) async {
+      await _pumpSlip(tester,
+          venueUsd: 0,
+          dollarsUsd: 100,
+          rail: rail,
+          funded: [_fundedOrder(FundedOrderStage.preparing)]);
+      expect(find.byKey(const ValueKey('slip-funding-step-active-0')),
+          findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await _pumpSlip(tester,
+          venueUsd: 0,
+          dollarsUsd: 100,
+          rail: rail,
+          funded: [_fundedOrder(FundedOrderStage.placing)]);
+      expect(find.byKey(const ValueKey('slip-funding-step-active-1')),
+          findsOneWidget);
+      expect(_button(tester).text, r'Opening $20.00 Long BTC');
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+
+    testWidgets(
+        'an unfunded order (the Investing cash is there): the button is '
+        'drawn up while it places',
+        (tester) async {
+      AffiliateService.debugSessionToken = 'test-session';
+      final policy = runtimePolicyFixture();
+      RuntimeCapabilitiesService.debugInstance = policy;
+      addTearDown(() {
+        RuntimeCapabilitiesService.debugInstance = null;
+        AffiliateService.debugSessionToken = null;
+      });
+      expect(await policy.refresh(), isTrue);
+      await _pumpSlip(tester,
+          venueUsd: 100, dollarsUsd: 0, rail: rail, withWallet: true);
+      await _typeOnKeypad(tester, '20');
+      expect(_button(tester).text, startsWith('Go Long BTC'));
+      RubberBandProgressState placement() =>
+          tester.state<RubberBandProgressState>(find.descendant(
+              of: find.byKey(const ValueKey('order-slip-placement-band')),
+              matching: find.byType(RubberBandProgress)));
+      expect(placement().stretch, 0);
+      expect(placement().ticking, isFalse);
+      await tester.tap(find.byType(AppButton));
+      var pulled = 0.0;
+      var low = double.infinity;
+      var sawBusy = false;
+      for (var i = 0; i < 60; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+        final busy = tester
+            .widget<AppButton>(find.descendant(
+                of: find.byType(HlOrderSlipSheet),
+                matching: find.byType(AppButton)))
+            .isLoading;
+        sawBusy = sawBusy || busy;
+        final s = placement().stretch;
+        if (busy && s > pulled) pulled = s;
+        if (!busy && sawBusy && s < low) low = s;
+      }
+      expect(sawBusy, isTrue);
+      expect(pulled, greaterThan(0));
+      expect(pulled, lessThanOrEqualTo(RubberBandProgress.defaultMaxStretch));
+      // No funded steps for an order the cash already covers.
+      expect(find.byType(SlipFundingSteps), findsNothing);
+      // Never past rest on the way (the success and failure releases are
+      // the button's own: slip_cta_rubber_band_test).
+      expect(low, greaterThanOrEqualTo(-1e-9));
+      await tester.pumpWidget(const SizedBox.shrink());
+      policy.dispose();
+      // The harness has no venue: let its reads time out.
+      await tester.pump(const Duration(minutes: 1));
     });
   });
 

@@ -10772,6 +10772,23 @@ class AppLocalizationsDa extends AppLocalizations {
       'Tilføjelsen til Investments gik ikke igennem. Din bitcoin er på vej tilbage.';
 
   @override
+  String get slipFundingPriceMoved => 'Prisen ændrede sig for hurtigt.';
+
+  @override
+  String get slipFundingRoundClosed =>
+      'Denne runde lukkede, før dine penge nåede frem.';
+
+  @override
+  String slipFundingInPredictions(String amount) {
+    return 'Dine $amount er i Forudsigelser. Tryk for at prøve igen.';
+  }
+
+  @override
+  String slipFundingInInvesting(String amount) {
+    return 'Dine $amount er i Investering. Tryk for at prøve igen.';
+  }
+
+  @override
   String oneBalancePlacingBet(String amount, String side, String market) {
     return 'Placerer $amount på $side · $market';
   }

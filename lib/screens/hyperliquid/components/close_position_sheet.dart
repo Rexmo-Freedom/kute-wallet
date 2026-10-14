@@ -41,6 +41,7 @@ import 'package:kute/screens/shared/amount_keypad_panel.dart';
 import 'package:kute/screens/polymarket/components/slip_chrome.dart';
 import 'package:kute/screens/shared/side_tint_palette.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
+import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/services/hyperliquid/hl_failure_analytics.dart';
@@ -177,6 +178,27 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
   /// Synchronous re-entrancy guard (mirrors the bet slip's
   /// `_buyInFlight`) — `_isClosing` only flips inside setState.
   bool _closeInFlight = false;
+
+  /// The close's rubber band on the CTA: how far along it is (checks,
+  /// approval, sent to the exchange), and how it ended. Presentation
+  /// only; set beside [_isClosing], never read by the close itself.
+  double? _bandProgress;
+  RubberBandOutcome? _bandOutcome;
+
+  /// Moves the band to the close's next phase.
+  void _bandTo(double progress) {
+    if (!mounted) return;
+    setState(() => _bandProgress = progress);
+  }
+
+  /// The close worked: the band snaps (a light tap) as the CTA lets go,
+  /// straight into the confirmation. Set in the same frame the busy flag
+  /// drops.
+  void _bandSucceeded() {
+    if (!mounted) return;
+    setState(() => _bandOutcome = RubberBandOutcome.success);
+  }
+
   String? _errorText;
   Object? _errorDetails;
 
@@ -556,6 +578,8 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
     _closeInFlight = true;
     setState(() {
       _isClosing = true;
+      _bandProgress = 0.15;
+      _bandOutcome = null;
       _errorText = null;
       _errorDetails = null;
     });
@@ -620,6 +644,7 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
         final notionalUsd = closeSize * _markNow();
         final isMarketClose = _isMarketClose;
         _trackSubmitted();
+        _bandTo(0.4);
         final outcome = await runLedgerHlClose(context, ref,
             walletId: widget.ledgerWalletId!,
             position: pos,
@@ -714,6 +739,7 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
     }
     if (!mounted) return;
     _trackStep('approval');
+    _bandTo(0.3);
     final grant = await requireFreshAuthGrant(
       context,
       ref,
@@ -730,6 +756,8 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
     _trackSubmitted();
     setState(() {
       _isClosing = true;
+      // Approved and sent: waiting on the exchange's answer.
+      _bandProgress = 0.55;
       _errorText = null;
     });
     // Capture the root navigator BEFORE any pops — `context` dies with
@@ -943,6 +971,7 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
   void _showClosedResult(NavigatorState nav, HlOrderResult result,
       {bool checkOpenOrders = false}) {
     final l10n = context.l10n;
+    if (result.filledSz > 0) _bandSucceeded();
     _popToHost(nav);
 
     // Actual fill figures — never the requested size (IOC can
@@ -1006,6 +1035,7 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
 
   void _showCloseAccepted(NavigatorState nav) {
     final amount = '${formatHlSize(_closeSize)} $_displayCoin';
+    _bandSucceeded();
     _popToHost(nav);
     pushKuteSuccessOverlay(
       navigator: nav,
@@ -1149,6 +1179,8 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
               PolySlipCta(
                 color: AppColors.marketDown,
                 isBusy: _isClosing,
+                bandProgress: _bandProgress,
+                bandOutcome: _bandOutcome,
                 enabled: canConfirm && !_isClosing && _advancedBlock == null,
                 onTap: _handleClose,
                 label: failed ? context.l10n.retry : _ctaLabel(),
@@ -1338,6 +1370,8 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
                     enabled:
                         canConfirm && !_isClosing && _advancedBlock == null,
                     isBusy: _isClosing,
+                    bandProgress: _bandProgress,
+                    bandOutcome: _bandOutcome,
                     busyLabel: context.l10n.loading,
                     color: AppColors.marketDown,
                   ),

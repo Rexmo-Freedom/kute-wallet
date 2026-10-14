@@ -20,6 +20,7 @@ import 'package:kute/screens/polymarket/components/poly_crest_image.dart'
 import 'package:kute/helpers/user_error_copy.dart';
 import 'package:kute/screens/polymarket/components/polymarket_error_copy.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
+import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/screens/shared/trade_receipt.dart';
 import 'package:kute/services/polymarket_backend_service.dart';
 import 'package:kute/screens/shared/polymarket_fee_summary.dart';
@@ -146,6 +147,18 @@ class _SellSheetState extends ConsumerState<SellSheet> {
   /// The CTA's label while a sale is in flight once it has moved past
   /// "Selling…" ("Sold · confirming"); null for the plain busy label.
   String? _progressLabel;
+
+  /// The sale's rubber band on the CTA: how far along it is (approval,
+  /// sent, accepted, the venue's answer), and how it ended. Presentation
+  /// only; set beside [_isSelling], never read by the sale itself.
+  double? _bandProgress;
+  RubberBandOutcome? _bandOutcome;
+
+  /// Moves the band to the sale's next phase while it runs.
+  void _bandTo(double progress) {
+    if (!mounted || !_isSelling) return;
+    setState(() => _bandProgress = progress);
+  }
 
   /// The venue held the order for a live game's delay, and the shares have
   /// sold (the trade is on its way on chain). Drive the line over the CTA.
@@ -448,6 +461,8 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     if (_isSelling) return;
     setState(() {
       _isSelling = true;
+      _bandProgress = 0.15;
+      _bandOutcome = null;
       _progressLabel = null;
       _venueDelayed = false;
       _matched = false;
@@ -544,6 +559,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
           return;
         }
         _trackSubmitted(tokenId);
+        _bandTo(0.4);
         final placed =
             await ref.read(polymarketTradingProvider.notifier).placeOrder(
                   tokenId: tokenId,
@@ -560,6 +576,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
                   marketOutcome: pos.outcome,
                 );
         ref.invalidate(polymarketOpenOrdersProvider);
+        _bandTo(0.65);
         // What the order did on arrival: rests whole, sold part of it
         // against bids already at the price (the rest still for sale), or
         // sold it all. One read of the order says which.
@@ -669,6 +686,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
       return;
     }
     _trackSubmitted(tokenId);
+    _bandTo(0.4);
     // One approval for the whole ladder: each rung gets a child grant bound
     // to exactly that rung.
     final ladder = PmLadderGrant(approval);
@@ -805,6 +823,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
       // then its trades on chain), and the Portfolio card says "Selling…"
       // until there is an answer.
       notifier.markPositionSelling(tokenId);
+      _bandTo(0.6);
       final PmSellSettlement settlement;
       try {
         settlement = await _watchSale(response,
@@ -912,6 +931,16 @@ class _SellSheetState extends ConsumerState<SellSheet> {
         setState(() {
           if (stage == PmSellStage.delayed) _venueDelayed = true;
           _matched = stage == PmSellStage.matched;
+          if (_isSelling) {
+            final next = _matched
+                ? 0.88
+                : _venueDelayed
+                    ? 0.72
+                    : null;
+            if (next != null && next > (_bandProgress ?? 0)) {
+              _bandProgress = next;
+            }
+          }
           _progressLabel = _matched ? l10n.betSoldConfirming : null;
         });
       },
@@ -1142,6 +1171,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     // the flow closing itself rather than the person leaving mid-order.
     setState(() {
       _isSelling = false;
+      _bandOutcome = RubberBandOutcome.success;
       _progressLabel = null;
     });
     _closeTicket();
@@ -1195,7 +1225,10 @@ class _SellSheetState extends ConsumerState<SellSheet> {
   void _showLimitPlaced(double price, double shares, AppLocalizations l10n) {
     if (!mounted) return;
     final navigator = Navigator.of(context, rootNavigator: true);
-    setState(() => _isSelling = false);
+    setState(() {
+      _isSelling = false;
+      _bandOutcome = RubberBandOutcome.success;
+    });
     _closeTicket();
     pushKuteSuccessOverlay(
         navigator: navigator,
@@ -1701,6 +1734,10 @@ class _SellSheetState extends ConsumerState<SellSheet> {
                       child: PolySlipCta(
                         color: sideColor,
                         isBusy: _isSelling,
+                        // Approval, sent, accepted, the venue's answer;
+                        // a snap into the receipt when it sold.
+                        bandProgress: _bandProgress,
+                        bandOutcome: _bandOutcome,
                         enabled:
                             canSell && !_isSelling && _advancedBlock == null,
                         onTap: _sellFailed ? _retrySell : _handleSell,

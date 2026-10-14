@@ -18217,6 +18217,30 @@ abstract class AppLocalizations {
   /// **'Adding to Investments didn\'t go through. Your bitcoin is coming back.'**
   String get slipFundingBitcoinBack;
 
+  /// Slip funding steps, the line under a failed placement step: the order was refused because the price moved past the approved maximum while the money was on its way. Followed by where the money is.
+  ///
+  /// In en, this message translates to:
+  /// **'Price moved too fast.'**
+  String get slipFundingPriceMoved;
+
+  /// Slip funding steps, the line under a failed step: a short (5 or 15 minute) prediction round closed before the money moved for the bet arrived. Followed by where the money is.
+  ///
+  /// In en, this message translates to:
+  /// **'This round closed before your money arrived.'**
+  String get slipFundingRoundClosed;
+
+  /// Slip funding steps: after a funded prediction did not place, where its money is now (as Predictions cash, available). {amount} is a formatted dollar amount.
+  ///
+  /// In en, this message translates to:
+  /// **'Your {amount} is in Predictions. Tap to try again.'**
+  String slipFundingInPredictions(String amount);
+
+  /// Slip funding steps: after a funded Investing order did not place, where its money is now (as Investing cash, available). {amount} is a formatted dollar amount.
+  ///
+  /// In en, this message translates to:
+  /// **'Your {amount} is in Investing. Tap to try again.'**
+  String slipFundingInInvesting(String amount);
+
   /// In-flight line on the Investments header while money moves to place a specific prediction. {amount} is the stake, {side} the outcome, {market} the market's short name.
   ///
   /// In en, this message translates to:

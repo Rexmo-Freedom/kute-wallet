@@ -215,6 +215,10 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
   bool _processing = false;
   String? _error;
 
+  /// The send's step-up prompt is up. Presentation only: Review's
+  /// rubber band holds through it and pulls harder once it is answered.
+  bool _approving = false;
+
   /// While venue cash is coming home for this send: one line per leg,
   /// shown where Review's footnote is.
   String? _pullProgress;
@@ -1416,18 +1420,27 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
           ),
         ),
         SizedBox(height: 16.h),
-        SendReviewAction(
-          label: _processing
-              ? l10n.sendSendingEllipsis
-              : _retryPull && _error != null
-                  ? l10n.retry
-                  : l10n.send,
-          loading: _processing,
-          onPressed: canSend ? _confirmSend : null,
-          footnote: _pullProgress ??
-              (waiting
-                  ? l10n.sendWaitForFee
-                  : l10n.sendFundsLeaveYourWalletImmediately),
+        // The bitcoin send's rubber band, on the same block: it eases up
+        // while venue cash comes home and the quote is made, holds through
+        // the step-up, pulls harder while the dollars go out, and lets go
+        // softly on a stop. A send that goes out closes this sheet at once.
+        SendRubberBand(
+          busy: _processing,
+          authorising: _approving,
+          expected: const Duration(seconds: 6),
+          child: SendReviewAction(
+            label: _processing
+                ? l10n.sendSendingEllipsis
+                : _retryPull && _error != null
+                    ? l10n.retry
+                    : l10n.send,
+            loading: _processing,
+            onPressed: canSend ? _confirmSend : null,
+            footnote: _pullProgress ??
+                (waiting
+                    ? l10n.sendWaitForFee
+                    : l10n.sendFundsLeaveYourWalletImmediately),
+          ),
         ),
       ],
     );
@@ -1645,14 +1658,24 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
             action: SensitiveAction.send,
             asset: kOrchestraUsdAssetCode,
           );
-          final grant = await requireFreshAuthGrant(
-            context,
-            ref,
-            intent: intent,
-            reason: context.l10n.stepUpReasonSend(
-                '\$${(auth.amountIn.toDouble() / 1e6).toStringAsFixed(2)}'),
-            amountUsd: auth.amountIn.toDouble() / 1e6,
-          );
+          if (mounted) setState(() => _approving = true);
+          final AuthGrant? grant;
+          try {
+            grant = await requireFreshAuthGrant(
+              context,
+              ref,
+              intent: intent,
+              reason: context.l10n.stepUpReasonSend(
+                  '\$${(auth.amountIn.toDouble() / 1e6).toStringAsFixed(2)}'),
+              amountUsd: auth.amountIn.toDouble() / 1e6,
+            );
+          } finally {
+            if (mounted) {
+              setState(() => _approving = false);
+            } else {
+              _approving = false;
+            }
+          }
           if (grant == null) return false;
           try {
             AuthGrants.consume(grant, intent);

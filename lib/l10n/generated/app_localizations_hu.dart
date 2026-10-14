@@ -10796,6 +10796,23 @@ class AppLocalizationsHu extends AppLocalizations {
       'Az Investmentshez adás nem sikerült. A bitcoinod visszaérkezik.';
 
   @override
+  String get slipFundingPriceMoved => 'Az ár túl gyorsan mozdult.';
+
+  @override
+  String get slipFundingRoundClosed =>
+      'Ez a kör lezárult, mielőtt a pénzed megérkezett.';
+
+  @override
+  String slipFundingInPredictions(String amount) {
+    return 'A(z) $amount az Előrejelzésekben van. Koppints az újrapróbáláshoz.';
+  }
+
+  @override
+  String slipFundingInInvesting(String amount) {
+    return 'A(z) $amount a Befektetésben van. Koppints az újrapróbáláshoz.';
+  }
+
+  @override
   String oneBalancePlacingBet(String amount, String side, String market) {
     return '$amount feltétele erre: $side · $market';
   }

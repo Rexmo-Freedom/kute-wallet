@@ -10849,6 +10849,23 @@ class AppLocalizationsEl extends AppLocalizations {
       'Η προσθήκη στα Investments δεν ολοκληρώθηκε. Τα bitcoin σου επιστρέφουν.';
 
   @override
+  String get slipFundingPriceMoved => 'Η τιμή άλλαξε πολύ γρήγορα.';
+
+  @override
+  String get slipFundingRoundClosed =>
+      'Αυτός ο γύρος έκλεισε πριν φτάσουν τα χρήματά σου.';
+
+  @override
+  String slipFundingInPredictions(String amount) {
+    return 'Τα $amount σου είναι στις Προβλέψεις. Πάτησε για να ξαναδοκιμάσεις.';
+  }
+
+  @override
+  String slipFundingInInvesting(String amount) {
+    return 'Τα $amount σου είναι στις Επενδύσεις. Πάτησε για να ξαναδοκιμάσεις.';
+  }
+
+  @override
   String oneBalancePlacingBet(String amount, String side, String market) {
     return 'Τοποθέτηση $amount στο $side · $market';
   }

@@ -42,6 +42,8 @@ import 'package:kute/services/one_balance/one_balance_state.dart'
     show OneBalanceVenue;
 import 'package:kute/services/one_balance/order_funding.dart';
 import 'package:kute/services/one_balance/prediction_funding_ledger.dart';
+import 'package:kute/services/one_balance/venue_cash_source.dart'
+    show kVenuePullEta;
 import 'package:kute/services/polymarket/event_trading_over.dart'
     show polyTradingOver;
 import 'package:kute/services/polymarket/polymarket_slippage_defaults.dart'
@@ -54,6 +56,30 @@ const Duration kPredictionsFundingP95 = Duration(seconds: 90);
 
 /// Room on top of [kPredictionsFundingP95] for the order itself.
 const Duration kPredictionsFundingMargin = Duration(seconds: 30);
+
+/// How long a Bitcoin → Dollars leg takes to land before the Dollars move
+/// can leave (the chain calls it "taking longer than usual" past this).
+const Duration kBitcoinLegLanding = Duration(minutes: 2);
+
+/// How long a move of [fundUsd] into Predictions takes to land, from
+/// where the money is: Dollars alone ([kPredictionsFundingP95]); Dollars
+/// short, the other venue's cash first (its pull ETA, `kVenuePullEta`,
+/// then the move); short of that too, a Bitcoin leg first. A 5-minute
+/// round cannot wait for Investing cash: the slip says so before any
+/// money moves instead of moving it into a round that closes first.
+Duration predictionsLandingFor({
+  required double fundUsd,
+  required double dollarsUsd,
+  double? reachUsd,
+}) {
+  if (!fundUsd.isFinite || fundUsd <= dollarsUsd + 1e-9) {
+    return kPredictionsFundingP95;
+  }
+  if (reachUsd != null && fundUsd <= reachUsd + 1e-9) {
+    return kPredictionsFundingP95 + kVenuePullEta[OneBalanceVenue.investing]!;
+  }
+  return kPredictionsFundingP95 + kBitcoinLegLanding;
+}
 
 /// How long an amount must stay unchanged before the slip gets it ready.
 const Duration kPrefundHold = Duration(seconds: 1);
@@ -278,8 +304,10 @@ typedef PrefundFund = Future<OrderFundingOutcome> Function(
     {required double requiredUsd, required double readyUsd});
 typedef PrefundPlan = Future<OrderFundingPlan> Function(
     {required double requiredUsd, required double readyUsd});
+/// Whether the market can take a funded bet in time, for a move of
+/// [fundUsd] (its landing depends on where the money comes from).
 typedef PrefundWindow = Future<PredictionsFundingBlock?> Function(
-    {required bool requireRead});
+    {required bool requireRead, double fundUsd});
 
 /// One move made for the slip.
 class PrefundMove {
@@ -292,6 +320,10 @@ class PrefundMove {
 
   /// The move's one-way analytics reference (never the raw quote id).
   final String ref;
+
+  /// The move's Activity row ids (local only, never tracked): the funded
+  /// record a Confirm makes names the bet on them.
+  Set<String> rowIds = const {};
   final double sentUsd;
   final double arrivingUsd;
 
@@ -420,6 +452,17 @@ class BetPrefund {
   bool get engaged =>
       !_handedOff && (armed || running || inFlightArrivingUsd > 0);
 
+  /// Money this slip got ready is moving for the bet, approved and not
+  /// yet handed to Confirm: the slip shows the move's steps.
+  bool get moving =>
+      !_handedOff &&
+      !_closed &&
+      armed &&
+      (running || inFlightArrivingUsd > 0);
+
+  /// The Activity row ids of every move made here (local only).
+  Set<String> get rowIds => {for (final m in _moves) ...m.rowIds};
+
   /// What the moves still on their way will bring.
   double get inFlightArrivingUsd => _moves
       .where((m) => !m.landed)
@@ -505,14 +548,18 @@ class BetPrefund {
     if (arm != null && armed && _withinCaps(arm, s.amountUsd, plan.fundUsd)) {
       // Inside what was approved: top up under the same approval.
       if (s.dollarsUsd + 1e-9 < plan.fundUsd) return;
-      if (await _window(requireRead: true) != null) return;
+      if (await _window(requireRead: true, fundUsd: plan.fundUsd) != null) {
+        return;
+      }
       await _move(arm, plan.fundUsd, s, ready);
       return;
     }
     if (_declined) return;
     // Dollars short of the move: Confirm shows the Add path as before.
     if (s.dollarsUsd + 1e-9 < plan.fundUsd) return;
-    if (await _window(requireRead: true) != null) return;
+    if (await _window(requireRead: true, fundUsd: plan.fundUsd) != null) {
+      return;
+    }
     if (_closed) return;
     final approval = await _approve(PrefundRequest(
         amountUsd: s.amountUsd,
@@ -579,7 +626,10 @@ class BetPrefund {
           sentUsd: move.sentUsd,
           arrivingUsd: move.arrivingUsdEstimate,
           readyBeforeUsd: readyBefore,
-        ));
+        )..rowIds = {
+            if (move.quoteId.isNotEmpty) move.quoteId,
+            if (move.orderId case final id? when id.isNotEmpty) id,
+          });
         arm.fundedUsd += move.sentUsd;
         // The slip went while the move was being sent: the cash stays on
         // Predictions, held by nothing.
@@ -622,7 +672,7 @@ class BetPrefund {
     final moves = plan.fundUsd > 0;
     if (moves) {
       // Nothing more moves for a market that cannot take the bet in time.
-      final block = await _window(requireRead: false);
+      final block = await _window(requireRead: false, fundUsd: plan.fundUsd);
       if (block != null && block != PredictionsFundingBlock.unread) {
         return PrefundBlocked(block);
       }

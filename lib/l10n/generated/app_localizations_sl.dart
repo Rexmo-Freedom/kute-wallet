@@ -10799,6 +10799,23 @@ class AppLocalizationsSl extends AppLocalizations {
       'Dodajanje v Investments ni uspelo. Vaš bitcoin se vrača.';
 
   @override
+  String get slipFundingPriceMoved => 'Cena se je premaknila prehitro.';
+
+  @override
+  String get slipFundingRoundClosed =>
+      'Ta krog se je zaprl, preden je prispel vaš denar.';
+
+  @override
+  String slipFundingInPredictions(String amount) {
+    return 'Vaših $amount je v Napovedih. Tapnite za ponoven poskus.';
+  }
+
+  @override
+  String slipFundingInInvesting(String amount) {
+    return 'Vaših $amount je v Investiranju. Tapnite za ponoven poskus.';
+  }
+
+  @override
   String oneBalancePlacingBet(String amount, String side, String market) {
     return 'Stava $amount na $side · $market';
   }

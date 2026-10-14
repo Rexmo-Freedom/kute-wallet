@@ -121,6 +121,7 @@ import 'package:kute/services/tracking_service.dart';
 import 'package:kute/screens/shared/message_display.dart'
     show showMessageSnackBar;
 import 'package:kute/screens/shared/slip_shortfall.dart';
+import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/services/funding/venue_shortfall.dart';
 import 'package:kute/services/one_balance/hyperliquid_venue_funder.dart';
 import 'package:kute/services/one_balance/order_funding.dart';
@@ -130,8 +131,6 @@ import 'package:kute/services/one_balance/investments_spendable.dart'
 import 'package:kute/services/one_balance/bitcoin_to_dollars_leg.dart'
     show BitcoinLegPlan, BitcoinLegRules;
 import 'package:kute/services/one_balance/funded_orders.dart';
-import 'package:kute/services/funding/hot_settlement.dart'
-    show HotSettlement;
 import 'package:kute/providers/spark_address_provider.dart'
     show sparkSelfAddressProvider;
 import 'package:kute/services/one_balance/venue_cash_source.dart'
@@ -1560,6 +1559,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       return;
     }
     if (_orderInFlight || _isPlacing) return;
+    // A new try: an earlier funded order's stop gives way to it.
+    _clearFundedStop();
     _orderInFlight = true;
     // The button starts thinking HERE, on the tap, not once the order
     // is on the wire. Everything _confirmInner does before that point
@@ -2350,6 +2351,16 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       if (mounted) _updateDraft(() => _fundingStage = null);
       return;
     }
+    // Approved: the order's steps show from now, on this ticket and
+    // (named) on the Investments header, whatever happens to the ticket.
+    final runner = ref.read(bitcoinFundedOrderRunnerProvider);
+    final fundedId = runner.beginFunded(FundedOrderLabel(
+      venue: OneBalanceVenue.investing,
+      orderUsd: marginUsd,
+      side: _sideWord(),
+      market: FundedOrderLabel.shortName(market.coin),
+      marketKey: market.coin,
+    ));
 
     // What the Dollars move is sized on: the approved figure, less what
     // other venue cash already sent straight to the account (below).
@@ -2387,7 +2398,10 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         _moveId = pulled!.moveId;
         _moveUsd = fundUsd;
       }
-      if (!mounted) return;
+      if (!mounted) {
+        runner.stopFunded(fundedId, reason: 'interrupted');
+        return;
+      }
       if (pulled != null && pulled.dollarsCover) {
         // What went straight to the account is already on its way there:
         // the move from Dollars is only the rest.
@@ -2399,11 +2413,15 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       }
       if (pulled == null || !pulled.dollarsCover) {
         AuthGrantRegistry.instance.cancelAutofire(kPendingHlOrderAutofireId);
-        _fundingFailedBeforeMove(
-            'pull',
-            'insufficient_funds',
+        final message =
             (pulled == null ? null : venueCashStoppedText(_strings, pulled)) ??
-                _strings.errorCopyGeneric);
+                _strings.errorCopyGeneric;
+        // The move step failed; the steps say it and that the money is in
+        // Investments.
+        runner.stopFunded(fundedId,
+            reason: 'venue_cash_pending', message: message);
+        _fundingFailedBeforeMove('pull', 'insufficient_funds', message,
+            inSteps: true);
         return;
       }
     }
@@ -2453,23 +2471,31 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         },
       );
     } catch (e) {
-      _fundingFailedBeforeMove('fund', e, _messageFor(e));
+      runner.stopFunded(fundedId,
+          reason: 'venue_refused', message: _messageFor(e));
+      _fundingFailedBeforeMove('fund', e, _messageFor(e), inSteps: true);
       return;
+    }
+    // Followed to the end whatever happens to the ticket.
+    switch (outcome) {
+      case OrderFundingFunded(:final move):
+        runner.followFunded(fundedId, move: move);
+      case OrderFundingNotNeeded() || OrderFundingUnconfirmed():
+        runner.followFunded(fundedId);
+      case OrderFundingRefused(:final reason)
+          when reason == kHlOrderQueuedReason:
+        runner.dropFunded(fundedId);
+      case OrderFundingRefused():
+        runner.stopFunded(fundedId,
+            reason: 'venue_refused', message: _strings.errorCopyGeneric);
+      case OrderFundingNeedsDollars():
+        // The button turns into the Add door: nothing to show in steps.
+        runner.dropFunded(fundedId);
     }
     if (!mounted) return;
     switch (outcome) {
       case OrderFundingFunded(:final move):
         _submitted = true;
-        // The header names this order while its money is on the way.
-        ref.read(bitcoinFundedOrderRunnerProvider).followDollarsFunded(
-            FundedOrderLabel(
-              venue: OneBalanceVenue.investing,
-              orderUsd: marginUsd,
-              side: _sideWord(),
-              market: FundedOrderLabel.shortName(market.coin),
-              marketKey: market.coin,
-            ),
-            move);
         // The order's own funding move is the last leg of its
         // multi-source move: one Activity row.
         MultiSourceMoveStore.attachFinal(
@@ -2497,7 +2523,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         _fundingFailedBeforeMove(
             'fund', reason, _strings.slipDepositIncomingNote);
       case OrderFundingRefused(:final reason):
-        _fundingFailedBeforeMove('fund', reason, _strings.errorCopyGeneric);
+        _fundingFailedBeforeMove('fund', reason, _strings.errorCopyGeneric,
+            inSteps: true);
       case OrderFundingNeedsDollars(:final shortfallUsd):
         // Dollars fell short once the controller quoted: the button
         // becomes the Dollar deposit door for the difference.
@@ -2861,19 +2888,14 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     _fillSub?.cancel();
     final error = ref.read(bitcoinFundedOrderRunnerProvider).errorOf(id);
     _stopped('funding_refused', error: error);
+    // The steps keep the stop: the failed step and one line saying what
+    // happened and where the money is; the button is the order again.
     _updateDraft(() {
       _isPlacing = false;
       _preparing = false;
       _fundingStage = null;
       _errorCause = null;
-      _errorText = switch (end) {
-        // The "Tap to place" note says it; the button is the order again.
-        BitcoinFundedEnd.ready => null,
-        BitcoinFundedEnd.refunded => _strings.slipFundingBitcoinBack,
-        BitcoinFundedEnd.maybeSent => _strings.settlementFundingUnknownBody,
-        _ => (error == null ? null : HotSettlement.messageFor(error, _strings)) ??
-            _strings.errorCopyGeneric,
-      };
+      _errorText = null;
     });
   }
 
@@ -2913,17 +2935,73 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     });
   }
 
-  /// The step lines of a Bitcoin-funded order on this ticket.
-  List<String> _bitcoinSteps(FundedOrderRecord record) => [
-        _strings.slipStepAddingToInvestments(formatHlUsd(record.addUsd)),
+  /// The step lines of a funded order on this ticket: the Bitcoin leg
+  /// (only with one), the move into Investing, the order.
+  List<String> _fundingSteps(FundedOrderRecord record) => [
+        if (record.fromBitcoin)
+          _strings.slipStepAddingToInvestments(formatHlUsd(record.addUsd)),
         _strings.slipStepPreparingOrder,
         _strings.slipStepOpeningOrder(formatHlUsd(record.label.orderUsd),
             record.label.side, market.annotatedName ?? market.coin),
       ];
 
+  /// The funded order for the market on this ticket (this ticket's, or
+  /// one started before it was reopened): on its way, just placed while
+  /// this ticket still follows it, or stopped and not yet tried again.
+  FundedProgress? _fundedProgress(List<FundedOrderRecord> records) {
+    if (_isLedger) return null;
+    final progress = FundedOrdersNotifier.progressOn(
+        records, OneBalanceVenue.investing, market.coin, DateTime.now());
+    if (progress != null && progress.done && !_isPlacing && !_completed) {
+      return null;
+    }
+    return progress;
+  }
+
+  /// The ticket's rubber band around its button and steps: a funded
+  /// order's tension follows its steps; any other placement eases while
+  /// it is placing. Success snaps back, a stop lets go softly.
+  Widget _orderBand({required FundedProgress? funded, required Widget child}) {
+    if (funded != null) {
+      return RubberBandProgress(
+        key: const ValueKey('order-slip-funded-progress'),
+        progress: funded.progress,
+        outcome: funded.done
+            ? RubberBandOutcome.success
+            : funded.failed
+                ? RubberBandOutcome.failure
+                : RubberBandOutcome.none,
+        child: child,
+      );
+    }
+    return RubberBandBusy(
+      key: const ValueKey('order-slip-placement-band'),
+      busy: !_isLedger && (_isPlacing || _preparing) && !_completed,
+      outcome: _completed ? RubberBandOutcome.success : null,
+      expected: const Duration(seconds: 3),
+      child: child,
+    );
+  }
+
+  /// A new try on this market: an earlier stop's steps give way to it.
+  void _clearFundedStop() {
+    if (_isLedger) return;
+    final progress = FundedOrdersNotifier.progressOn(
+        ref.read(fundedOrdersProvider),
+        OneBalanceVenue.investing,
+        market.coin,
+        DateTime.now());
+    if (progress != null && progress.failed) {
+      ref.read(fundedOrdersProvider.notifier).clearStop(progress.record.id);
+    }
+  }
+
   /// The move stopped before any funds left: the queued order is gone
-  /// (the notifier cleared it with its grant), the ticket says why.
-  void _fundingFailedBeforeMove(String stage, Object? error, String message) {
+  /// (the notifier cleared it with its grant), the ticket says why
+  /// ([inSteps]: in the funded steps, where the failed step and the line
+  /// under it carry it, so never a second notice).
+  void _fundingFailedBeforeMove(String stage, Object? error, String message,
+      {bool inSteps = false}) {
     _fillSub?.cancel();
     _pendingSub?.close();
     _pendingSub = null;
@@ -2935,8 +3013,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       _isPlacing = false;
       _preparing = false;
       _fundingStage = null;
-      _errorText = message;
-      _errorCause = error;
+      _errorText = inSteps ? null : message;
+      _errorCause = inSteps ? null : error;
     });
   }
 
@@ -4482,7 +4560,13 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                   color: c.textSecondary, fontSize: 13.sp, height: 1.4),
             ),
           ],
-          if (_errorText != null) ...[
+          // A funded order's stop is told in its steps: never twice.
+          if (_errorText != null &&
+              !(_isLedger
+                  ? false
+                  : _fundedProgress(ref.watch(fundedOrdersProvider))
+                          ?.failed ??
+                      false)) ...[
             SizedBox(height: 10.h),
             HlTradeErrorNotice(message: _errorText!, error: _errorCause),
           ],
@@ -4504,28 +4588,19 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     final fundedOrders = _isLedger
         ? const <FundedOrderRecord>[]
         : ref.watch(fundedOrdersProvider);
-    final bitcoinRun = FundedOrdersNotifier.activeOf(
-        fundedOrders, OneBalanceVenue.investing);
-    final bitcoinRecord = bitcoinRun != null &&
-            bitcoinRun.fromBitcoin &&
-            bitcoinRun.label.kind == FundedOrderKind.order &&
-            bitcoinRun.label.marketKey == market.coin
-        ? bitcoinRun
+    // A funded order for this market (from Bitcoin, Dollars, Predictions
+    // or any mix): its steps from the approval to the end; a stop keeps
+    // them, the failed step marked, the button the order again.
+    final funded = _fundedProgress(fundedOrders);
+    final fundedSteps = funded == null ? null : _fundingSteps(funded.record);
+    final fundedRunning = funded != null && !funded.failed;
+    // The busy button's words while its money moves (or it just placed).
+    final bitcoinStep = fundedRunning
+        ? fundedSteps![funded.active.clamp(0, fundedSteps.length - 1)]
         : null;
-    final bitcoinStepIndex = switch (bitcoinRecord?.stage) {
-      FundedOrderStage.adding => 0,
-      FundedOrderStage.preparing => 1,
-      FundedOrderStage.placing => 2,
-      _ => null,
-    };
-    final bitcoinSteps =
-        bitcoinRecord == null ? null : _bitcoinSteps(bitcoinRecord);
-    final bitcoinStep = bitcoinSteps == null || bitcoinStepIndex == null
-        ? null
-        : bitcoinSteps[bitcoinStepIndex];
     // Stopped with the money in Investments: one line, the button is the
-    // order again.
-    final readyRecord = _isLedger || bitcoinRecord != null || _isPlacing
+    // order again (a stop shown in the steps says it there).
+    final readyRecord = _isLedger || funded != null || _isPlacing
         ? null
         : FundedOrdersNotifier.readyOn(fundedOrders,
             OneBalanceVenue.investing, market.coin, DateTime.now());
@@ -4691,6 +4766,11 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           // The button cross-fades when it changes what it is (the
           // deposit door giving way to the trade once a deposit lands),
           // never as its amount changes.
+          // The placement's band: pulled while the order (and its money)
+          // goes, snapped back once placed, let go softly when it is not.
+          _orderBand(
+            funded: funded,
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
           ArrivalSwitcher(
             state: primaryKind,
             alignment: Alignment.bottomCenter,
@@ -4744,11 +4824,15 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
               ),
             ),
           ),
-          if (bitcoinSteps != null && bitcoinStepIndex != null)
+          if (funded != null)
             SlipFundingSteps(
-              steps: bitcoinSteps,
-              active: bitcoinStepIndex,
-              slow: bitcoinRecord!.slow,
+              steps: fundedSteps!,
+              active: funded.active,
+              slow: funded.record.slow,
+              failed: funded.failed,
+              note: funded.failed
+                  ? fundedStopLine(_strings, funded.record, formatHlUsd)
+                  : null,
             )
           else if (incoming)
             SlipIncomingDepositNote(
@@ -4757,6 +4841,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                   ? () => _addMoreDeposit(hlShortfall, funding!.incomingUsd)
                   : null,
             ),
+            ]),
+          ),
         ],
       ),
     );

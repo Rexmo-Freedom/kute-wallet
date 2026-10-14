@@ -42,6 +42,8 @@ import 'package:flutter/foundation.dart' show immutable, visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/helpers/auth_grant.dart' show AuthGrant;
 import 'package:kute/helpers/venue_intents.dart' show BitcoinLegGrants;
+import 'package:kute/l10n/l10n.dart';
+import 'package:kute/services/funding/hot_settlement.dart' show HotSettlement;
 import 'package:kute/models/breez/sdk_instance.dart'
     show ArrivalAsset, BreezSdkSpark;
 import 'package:kute/models/orchestra_model.dart' show OrchestraEstimate;
@@ -364,8 +366,14 @@ class BitcoinFundedOrderRunner {
     final venue = r.venue;
 
     BitcoinFundedEnd stop(FundedOrderStage stage, BitcoinFundedEnd end,
-        {required String reason, String? category}) {
-      orders.update(id, (rec) => rec.copyWith(stage: stage, reason: reason, slow: false));
+        {required String reason,
+        String? category,
+        FundedMoneyAt? moneyAt,
+        String? message}) {
+      // The step it was on is the one that failed; the slip says where
+      // the money is.
+      orders.stop(id,
+          stage: stage, reason: reason, moneyAt: moneyAt, message: message);
       if (category != null) {
         journey.failed(venue, OrderFundingStage.bitcoin, category);
       }
@@ -401,7 +409,10 @@ class BitcoinFundedOrderRunner {
     } catch (e) {
       _errors[id] = e;
       return stop(FundedOrderStage.failed, BitcoinFundedEnd.notSent,
-          reason: 'not_sent', category: TrackingService.errorCategory(e));
+          reason: 'not_sent',
+          category: TrackingService.errorCategory(e),
+          moneyAt: FundedMoneyAt.bitcoin,
+          message: _errorText(e));
     }
     DateTime? sentAt;
     BitcoinLegTicket ticket;
@@ -421,10 +432,15 @@ class BitcoinFundedOrderRunner {
         // The sats may have left: never resend, never place. The
         // reconciler resolves the leg; any dollars stay in Dollars.
         return stop(FundedOrderStage.ready, BitcoinFundedEnd.maybeSent,
-            reason: 'maybe_sent', category: 'settlement_unknown');
+            reason: 'maybe_sent',
+            category: 'settlement_unknown',
+            message: _l10n().settlementFundingUnknownBody);
       }
       return stop(FundedOrderStage.failed, BitcoinFundedEnd.notSent,
-          reason: 'not_sent', category: TrackingService.errorCategory(e));
+          reason: 'not_sent',
+          category: TrackingService.errorCategory(e),
+          moneyAt: FundedMoneyAt.bitcoin,
+          message: _errorText(e));
     }
     sentAt ??= clock();
     orders.addBtcRow(id, ticket.quoteId);
@@ -452,12 +468,17 @@ class BitcoinFundedOrderRunner {
     switch (landing) {
       case DollarsLegFailed():
         return stop(FundedOrderStage.failed, BitcoinFundedEnd.refunded,
-            reason: 'refunded', category: 'refunded');
+            reason: 'refunded',
+            category: 'refunded',
+            moneyAt: FundedMoneyAt.bitcoin,
+            message: _l10n().slipFundingBitcoinBack);
       case DollarsLandingTimedOut():
         // Never placed later at a price nobody saw: the order goes, the
         // dollars land in Dollars whenever they do.
         return stop(FundedOrderStage.ready, BitcoinFundedEnd.ready,
-            reason: 'timeout', category: 'timeout');
+            reason: 'timeout',
+            category: 'timeout',
+            moneyAt: FundedMoneyAt.investments);
       case DollarsLanded(:final freshDollarsUsd):
         final landedAt = clock();
         journey.bitcoinLanded(venue);
@@ -494,16 +515,20 @@ class BitcoinFundedOrderRunner {
           case OrderFundingRefused(:final reason, :final error):
             if (error != null) _errors[id] = error;
             // Nothing left Dollars: the money is there, the order is not.
-            orders.update(id,
-                (rec) => rec.copyWith(stage: FundedOrderStage.ready, reason: 'venue_refused'));
+            orders.stop(id,
+                stage: FundedOrderStage.ready,
+                reason: 'venue_refused',
+                moneyAt: FundedMoneyAt.investments);
             journey.failed(venue, OrderFundingStage.fund, reason);
             try {
               r.dropOrder();
             } catch (_) {}
             return BitcoinFundedEnd.ready;
           case OrderFundingNeedsDollars():
-            orders.update(id,
-                (rec) => rec.copyWith(stage: FundedOrderStage.ready, reason: 'venue_refused'));
+            orders.stop(id,
+                stage: FundedOrderStage.ready,
+                reason: 'venue_refused',
+                moneyAt: FundedMoneyAt.investments);
             journey.failed(venue, OrderFundingStage.fund, 'insufficient_funds');
             try {
               r.dropOrder();
@@ -511,7 +536,13 @@ class BitcoinFundedOrderRunner {
             return BitcoinFundedEnd.ready;
         }
         // 4. The venue's autofire places the order at a fresh price.
-        final wait = r.awaitPlacement ?? _placementWait(venue);
+        String? failedText;
+        String? failedCode;
+        final wait = r.awaitPlacement ??
+            _placementWait(venue, onFailed: (message, code) {
+              failedText = message;
+              failedCode = code;
+            });
         final placed = await wait(onCredited: () {
           orders.setStage(id, FundedOrderStage.placing);
         });
@@ -519,7 +550,13 @@ class BitcoinFundedOrderRunner {
           orders.setStage(id, FundedOrderStage.done);
           return BitcoinFundedEnd.placed;
         }
-        orders.setStage(id, FundedOrderStage.failed, reason: 'placement');
+        // The money reached the venue (or is on its way there): it stays
+        // as its cash, available.
+        orders.stop(id,
+            stage: FundedOrderStage.failed,
+            reason: failedCode ?? 'placement',
+            moneyAt: FundedMoneyAt.venue,
+            message: failedText);
         return BitcoinFundedEnd.placementFailed;
     }
   }
@@ -527,16 +564,35 @@ class BitcoinFundedOrderRunner {
   /// An order funded from Dollars alone (no Bitcoin leg): its move left
   /// Dollars as [move]. Recorded so the Investments header names the
   /// order instead of the move, and followed to its end. Never throws.
-  void followDollarsFunded(FundedOrderLabel label, VenueMoveResult move) {
+  void followDollarsFunded(FundedOrderLabel label, VenueMoveResult move) =>
+      followFunded(beginFunded(label), move: move);
+
+  /// An order funded from Dollars or the other venue's cash, recorded the
+  /// moment the person approved it ("Getting your prediction ready"), so
+  /// the slip shows its steps from the first second and the Investments
+  /// header names it while its money moves. Returns the record's id.
+  String beginFunded(FundedOrderLabel label) => _ref
+      .read(fundedOrdersProvider.notifier)
+      .start(label, stage: FundedOrderStage.preparing);
+
+  /// [id]'s money left for the venue as [move] (null: nothing had to
+  /// move, or what moved is in [rowIds]): its rows name the order, and
+  /// the venue's autofire is followed to the end (placing on the credit,
+  /// then placed or stopped with the venue's own words). Never throws.
+  void followFunded(String id,
+      {VenueMoveResult? move, Set<String> rowIds = const {}}) {
     try {
       final orders = _ref.read(fundedOrdersProvider.notifier);
-      final id = orders.start(label,
-          stage: FundedOrderStage.preparing,
-          venueRowIds: {
-            move.quoteId,
-            if (move.orderId != null) move.orderId!,
-          });
-      final reg = move.registration;
+      final record = orders.byId(id);
+      if (record == null || !record.stage.active) return;
+      for (final row in {
+        ...rowIds,
+        if (move != null) move.quoteId,
+        if (move?.orderId case final orderId?) orderId,
+      }) {
+        orders.addVenueRow(id, row);
+      }
+      final reg = move?.registration;
       if (reg != null) {
         unawaited(reg.then((orderId) {
           if (orderId != null && orderId.isNotEmpty) {
@@ -544,20 +600,68 @@ class BitcoinFundedOrderRunner {
           }
         }).catchError((Object _) {}));
       }
-      unawaited(_placementWait(label.venue)(onCredited: () {
+      String? failedText;
+      String? failedCode;
+      unawaited(_placementWait(record.label.venue, onFailed: (message, code) {
+        failedText = message;
+        failedCode = code;
+      })(onCredited: () {
         orders.setStage(id, FundedOrderStage.placing);
       }).then((placed) {
-        orders.setStage(
-            id, placed ? FundedOrderStage.done : FundedOrderStage.failed,
-            reason: placed ? null : 'placement');
+        if (placed) {
+          orders.setStage(id, FundedOrderStage.done);
+          return;
+        }
+        orders.stop(id,
+            stage: FundedOrderStage.failed,
+            reason: failedCode ?? 'placement',
+            moneyAt: FundedMoneyAt.venue,
+            message: failedText);
       }));
     } catch (_) {}
   }
 
+  /// [id] stopped before its order could go, with the money at [moneyAt]
+  /// ([message]: what the rail said). Never throws.
+  void stopFunded(String id,
+      {required String reason,
+      FundedMoneyAt moneyAt = FundedMoneyAt.investments,
+      String? message}) {
+    try {
+      _ref.read(fundedOrdersProvider.notifier).stop(id,
+          stage: FundedOrderStage.failed,
+          reason: reason,
+          moneyAt: moneyAt,
+          message: message);
+    } catch (_) {}
+  }
+
+  /// Nothing happened for [id] after all (the approval went, or the
+  /// button turns into the Add door): it is forgotten. Never throws.
+  void dropFunded(String id) {
+    try {
+      _ref.read(fundedOrdersProvider.notifier).remove(id);
+    } catch (_) {}
+  }
+
+  AppLocalizations _l10n() =>
+      l10nForLanguage(_ref.read(settingsProvider).language);
+
+  /// The words for a leg that was refused before anything left.
+  String? _errorText(Object e) {
+    try {
+      return HotSettlement.messageFor(e, _l10n());
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Follows the venue's queued order to its end: placing is the credit,
   /// done (or awaiting the venue's confirmation) is placed, failed or
-  /// cleared before either is not.
-  BitcoinPlacementWait _placementWait(OneBalanceVenue venue) =>
+  /// cleared before either is not. [onFailed] hears the venue's own words
+  /// and code when it failed.
+  BitcoinPlacementWait _placementWait(OneBalanceVenue venue,
+          {void Function(String? message, String? code)? onFailed}) =>
       ({required void Function() onCredited}) {
         final done = Completer<bool>();
         void end(bool placed) {
@@ -576,6 +680,12 @@ class BitcoinFundedOrderRunner {
                 case PendingHlOrderStatus.done:
                   end(true);
                 case PendingHlOrderStatus.failed:
+                  final message = next.errorMessage;
+                  onFailed?.call(
+                      message,
+                      message != null && message == _l10n().hlFundsTimeout
+                          ? 'funds_timeout'
+                          : null);
                   end(false);
                 case PendingHlOrderStatus.awaitingDeposit:
                 case PendingHlOrderStatus.awaitingBalance:
@@ -593,6 +703,10 @@ class BitcoinFundedOrderRunner {
                 case PendingBetStatus.awaitingConfirmation:
                   end(true);
                 case PendingBetStatus.failed:
+                  onFailed?.call(
+                      next.errorMessage,
+                      next.failureCode ??
+                          (next.retryMaxPrice != null ? 'price_moved' : null));
                   end(false);
                 case PendingBetStatus.awaitingDeposit:
                 case PendingBetStatus.converting:

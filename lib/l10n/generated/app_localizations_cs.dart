@@ -10762,6 +10762,23 @@ class AppLocalizationsCs extends AppLocalizations {
       'Přidání do Investments neproběhlo. Tvůj bitcoin se vrací.';
 
   @override
+  String get slipFundingPriceMoved => 'Cena se pohnula příliš rychle.';
+
+  @override
+  String get slipFundingRoundClosed =>
+      'Toto kolo skončilo dřív, než tvoje peníze dorazily.';
+
+  @override
+  String slipFundingInPredictions(String amount) {
+    return 'Tvých $amount je v Predikcích. Klepnutím to zkusíš znovu.';
+  }
+
+  @override
+  String slipFundingInInvesting(String amount) {
+    return 'Tvých $amount je v Investování. Klepnutím to zkusíš znovu.';
+  }
+
+  @override
   String oneBalancePlacingBet(String amount, String side, String market) {
     return 'Sázka $amount na $side · $market';
   }

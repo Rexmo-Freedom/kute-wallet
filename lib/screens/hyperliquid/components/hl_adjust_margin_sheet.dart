@@ -85,6 +85,7 @@ import 'package:kute/screens/shared/capability_block_note.dart';
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/open_once.dart';
+import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/screens/shared/side_tint_palette.dart';
 import 'package:kute/screens/shared/slip_shortfall.dart';
 import 'package:kute/screens/shared/trade_receipt.dart';
@@ -206,6 +207,42 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
   /// This ticket's funded change on its way (its record id). The chain
   /// runs whatever happens to the ticket.
   String? _runId;
+
+  // ── The rubber band (presentation only) ─────────────────────────────
+  // A change the Investing cash covers wears the CTA's own band
+  // ([PolySlipCta]); a funded one wears one band over the CTA and its
+  // steps, pulled by the step that is running.
+
+  /// How the direct change ended: success snaps the CTA's band into the
+  /// confirmation.
+  RubberBandOutcome? _bandOutcome;
+
+  /// A funded change being decided and approved, before its steps show:
+  /// the steps band's tension then. Null when no funded change is on
+  /// this ticket.
+  double? _fundBand;
+
+  /// How the last funded change on this ticket ended, once its record is
+  /// gone.
+  RubberBandOutcome _fundOutcome = RubberBandOutcome.none;
+
+  /// The funded change the steps band last showed, so its end (done,
+  /// stopped) reads from its record. Remembered by the build; never
+  /// drives a rebuild.
+  String? _bandRunId;
+
+  void _fundBandTo(double progress) {
+    if (!mounted) return;
+    setState(() => _fundBand = progress);
+  }
+
+  /// The funded change stopped before or after its steps: the steps band
+  /// lets go, snapping only when it [worked].
+  void _fundBandEnded({required bool worked}) {
+    _fundBand = null;
+    _fundOutcome =
+        worked ? RubberBandOutcome.success : RubberBandOutcome.failure;
+  }
 
   /// The X "Add $X to Investments" names, set by the build.
   double? _shownAddUsd;
@@ -524,6 +561,7 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
         params: params);
     setState(() {
       _busy = true;
+      _bandOutcome = null;
       _errorText = null;
       _errorCause = null;
     });
@@ -607,6 +645,9 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
     );
     setState(() {
       _busy = true;
+      _bandOutcome = null;
+      _fundBand = 0.15;
+      _fundOutcome = RubberBandOutcome.none;
       _errorText = null;
       _errorCause = null;
     });
@@ -629,16 +670,23 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
       case MarginFundingPlanned(plan: final planned):
         plan = planned;
       case MarginFundingNeedsReceive(:final addUsd):
-        setState(() => _busy = false);
+        setState(() {
+          _busy = false;
+          _fundBandEnded(worked: false);
+        });
         await _openInvestmentsReceive(addUsd);
         return;
       case MarginFundingAddChanged():
         // The button names the new X on the next build; nothing moved.
-        setState(() => _busy = false);
+        setState(() {
+          _busy = false;
+          _fundBandEnded(worked: false);
+        });
         return;
       case MarginFundingUnavailable(:final error):
         setState(() {
           _busy = false;
+          _fundBandEnded(worked: false);
           _errorCause = error;
           _errorText = error == null
               ? l10n.errorCopyGeneric
@@ -680,6 +728,7 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
         ),
       ),
       approve: () async {
+        _fundBandTo(0.25);
         final seam = debugHlMarginApproval;
         final AuthGrant? grant;
         if (seam != null) {
@@ -707,7 +756,12 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
           'funding_source': plan.sources.join(','),
         });
       }
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _fundBandEnded(worked: false);
+        });
+      }
       return;
     }
     _submitted = true;
@@ -745,7 +799,10 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
     if (_runId != id) return;
     final l10n = context.l10n;
     if (end == MarginFundedEnd.signed) {
-      setState(() => _runId = null);
+      setState(() {
+        _runId = null;
+        _fundBandEnded(worked: true);
+      });
       _showDone(rootNav, amount, pos, preview);
       return;
     }
@@ -756,6 +813,7 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
             : HotSettlement.messageFor(e, l10n) ?? hlTradeErrorMessage(l10n, e));
     setState(() {
       _runId = null;
+      _fundBandEnded(worked: false);
       _errorCause = error is String ? null : error;
       _errorText = switch (end) {
         MarginFundedEnd.signed => null,
@@ -775,8 +833,12 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
       _Figures preview) {
     final l10n = context.l10n;
     // Released first: the ticket holds itself while busy, and a held
-    // ticket would refuse its own hand-off to the confirmation.
-    setState(() => _busy = false);
+    // ticket would refuse its own hand-off to the confirmation. The band
+    // snaps as it lets go.
+    setState(() {
+      _busy = false;
+      _bandOutcome = RubberBandOutcome.success;
+    });
     Navigator.of(context).pop();
     pushKuteSuccessOverlay(
       navigator: rootNav,
@@ -969,6 +1031,28 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
             FundedOrderStage.preparing => run.fromBitcoin ? 1 : 0,
             _ => run.fromBitcoin ? 2 : 1,
           };
+    // The steps band: pulled by the running step (most of the way by the
+    // last), else by the decision and approval before the steps show; it
+    // lets go when the change's record says it ended.
+    if (run != null) _bandRunId = run.id;
+    final bandRecord = run ??
+        (_bandRunId == null
+            ? null
+            : records.where((r) => r.id == _bandRunId).firstOrNull);
+    final double? stepsBand =
+        run != null && runSteps != null && runStep != null
+            ? 0.9 * (runStep + 1) / runSteps.length
+            : _fundBand;
+    final RubberBandOutcome stepsOutcome = stepsBand != null
+        ? RubberBandOutcome.none
+        : bandRecord != null
+            ? (bandRecord.stage == FundedOrderStage.done
+                ? RubberBandOutcome.success
+                : RubberBandOutcome.failure)
+            : _fundOutcome;
+    // A funded change's band is the steps band; the CTA's own band only
+    // carries a change the Investing cash covers.
+    final ctaBand = stepsBand == null;
     final ready = run != null || _busy || !_add
         ? null
         : FundedOrdersNotifier.readyOn(records, OneBalanceVenue.investing,
@@ -1219,51 +1303,72 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
                         text: l10n.hlMarginFundingReady(
                             formatHlUsd(ready.addUsd)),
                       ),
-                    if (runSteps != null && runStep != null)
-                      // The funded change's own step, busy, on the one
-                      // button.
-                      PolySlipCta(
-                        label: runSteps[runStep],
-                        onTap: () {},
-                        enabled: false,
-                        isBusy: true,
-                        busyLabel: runSteps[runStep],
-                        color: _side,
-                      )
-                    else if (door)
-                      // The whole Investments balance cannot fund it: the
-                      // door, never wearing the change's direction.
-                      PolySlipCta(
-                        label: l10n.slipAddToInvestments(
-                            formatHlUsd(_shownAddUsd!)),
-                        onTap: () => _openDepositDoor(pos),
-                        enabled: !locked,
-                        isBusy: _calculating || _busy,
-                        busyLabel: _calculating
-                            ? l10n.feeUiCalculating
-                            : l10n.loading,
-                        color: _side,
-                        neutral: true,
-                      )
-                    else
-                      PolySlipCta(
-                        label: failed
-                            ? l10n.retry
-                            : (_add ? l10n.hlMarginAdd : l10n.hlMarginRemove),
-                        onTap: () => _confirm(available, pos),
-                        enabled: canConfirm,
-                        isBusy: _busy || _calculating,
-                        busyLabel: _calculating
-                            ? l10n.feeUiCalculating
-                            : l10n.loading,
-                        color: _side,
+                    // One band over the button and its steps: the funded
+                    // change's, pulled by the step running (at rest
+                    // otherwise; a change the cash covers wears the
+                    // button's own).
+                    RubberBandProgress(
+                      progress: stepsBand ?? 0,
+                      outcome: stepsOutcome,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (runSteps != null && runStep != null)
+                            // The funded change's own step, busy, on the
+                            // one button.
+                            PolySlipCta(
+                              label: runSteps[runStep],
+                              onTap: () {},
+                              enabled: false,
+                              isBusy: true,
+                              band: false,
+                              busyLabel: runSteps[runStep],
+                              color: _side,
+                            )
+                          else if (door)
+                            // The whole Investments balance cannot fund
+                            // it: the door, never wearing the change's
+                            // direction.
+                            PolySlipCta(
+                              label: l10n.slipAddToInvestments(
+                                  formatHlUsd(_shownAddUsd!)),
+                              onTap: () => _openDepositDoor(pos),
+                              enabled: !locked,
+                              isBusy: _calculating || _busy,
+                              band: ctaBand,
+                              busyLabel: _calculating
+                                  ? l10n.feeUiCalculating
+                                  : l10n.loading,
+                              color: _side,
+                              neutral: true,
+                            )
+                          else
+                            PolySlipCta(
+                              label: failed
+                                  ? l10n.retry
+                                  : (_add
+                                      ? l10n.hlMarginAdd
+                                      : l10n.hlMarginRemove),
+                              onTap: () => _confirm(available, pos),
+                              enabled: canConfirm,
+                              isBusy: _busy || _calculating,
+                              band: ctaBand,
+                              bandOutcome: _bandOutcome,
+                              bandExpected: const Duration(seconds: 2),
+                              busyLabel: _calculating
+                                  ? l10n.feeUiCalculating
+                                  : l10n.loading,
+                              color: _side,
+                            ),
+                          if (runSteps != null && runStep != null)
+                            SlipFundingSteps(
+                              steps: runSteps,
+                              active: runStep,
+                              slow: run!.slow,
+                            ),
+                        ],
                       ),
-                    if (runSteps != null && runStep != null)
-                      SlipFundingSteps(
-                        steps: runSteps,
-                        active: runStep,
-                        slow: run!.slow,
-                      ),
+                    ),
                   ],
                 ),
               ),

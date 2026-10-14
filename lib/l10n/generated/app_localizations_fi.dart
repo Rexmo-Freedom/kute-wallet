@@ -10783,6 +10783,23 @@ class AppLocalizationsFi extends AppLocalizations {
       'Lisäys tilille Investments ei onnistunut. Bitcoinisi palaavat.';
 
   @override
+  String get slipFundingPriceMoved => 'Hinta muuttui liian nopeasti.';
+
+  @override
+  String get slipFundingRoundClosed =>
+      'Tämä kierros sulkeutui ennen kuin rahasi saapuivat.';
+
+  @override
+  String slipFundingInPredictions(String amount) {
+    return '$amount on tililläsi Ennusteet. Napauta yrittääksesi uudelleen.';
+  }
+
+  @override
+  String slipFundingInInvesting(String amount) {
+    return '$amount on tililläsi Sijoita. Napauta yrittääksesi uudelleen.';
+  }
+
+  @override
   String oneBalancePlacingBet(String amount, String side, String market) {
     return 'Asetetaan $amount vaihtoehdolle $side · $market';
   }

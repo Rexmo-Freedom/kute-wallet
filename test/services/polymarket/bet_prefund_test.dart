@@ -99,7 +99,7 @@ class _Rig {
       // The single sizing entry point.
       plan: ({required requiredUsd, required readyUsd}) async =>
           planBetFunding(requiredUsd: requiredUsd, readyUsd: readyUsd),
-      window: ({required requireRead}) async {
+      window: ({required requireRead, fundUsd = 0}) async {
         windowReads.add(requireRead);
         return block;
       },

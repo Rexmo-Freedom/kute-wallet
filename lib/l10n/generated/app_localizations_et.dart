@@ -10759,6 +10759,23 @@ class AppLocalizationsEt extends AppLocalizations {
       'Lisamine kontole Investments ei õnnestunud. Sinu bitcoin tuleb tagasi.';
 
   @override
+  String get slipFundingPriceMoved => 'Hind muutus liiga kiiresti.';
+
+  @override
+  String get slipFundingRoundClosed =>
+      'See voor sulgus enne, kui sinu raha kohale jõudis.';
+
+  @override
+  String slipFundingInPredictions(String amount) {
+    return 'Sinu $amount on kontol Ennustused. Puuduta, et uuesti proovida.';
+  }
+
+  @override
+  String slipFundingInInvesting(String amount) {
+    return 'Sinu $amount on kontol Investeerimine. Puuduta, et uuesti proovida.';
+  }
+
+  @override
   String oneBalancePlacingBet(String amount, String side, String market) {
     return 'Panustame $amount valikule $side · $market';
   }

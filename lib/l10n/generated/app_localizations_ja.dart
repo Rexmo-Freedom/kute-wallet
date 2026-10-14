@@ -10350,6 +10350,22 @@ class AppLocalizationsJa extends AppLocalizations {
       'Investmentsへの追加は完了しませんでした。ビットコインは返金されます。';
 
   @override
+  String get slipFundingPriceMoved => '価格の動きが速すぎました。';
+
+  @override
+  String get slipFundingRoundClosed => '資金が届く前にこのラウンドが終了しました。';
+
+  @override
+  String slipFundingInPredictions(String amount) {
+    return '$amountは予測にあります。タップしてもう一度お試しください。';
+  }
+
+  @override
+  String slipFundingInInvesting(String amount) {
+    return '$amountは投資にあります。タップしてもう一度お試しください。';
+  }
+
+  @override
   String oneBalancePlacingBet(String amount, String side, String market) {
     return '$sideに$amountを予測中 · $market';
   }

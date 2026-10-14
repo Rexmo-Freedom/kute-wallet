@@ -12,6 +12,7 @@ import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart';
 import 'package:kute/screens/ledger/hyperliquid/ledger_hl_execution_target.dart';
 import 'package:kute/screens/polymarket/components/slip_chrome.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
+import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_rounding.dart';
 import 'package:kute/services/hyperliquid/trailing_stop.dart';
@@ -88,6 +89,16 @@ class _TrailingStopState extends ConsumerState<HlTrailingStopSheet> {
   final _activation = TextEditingController();
   bool _percent = true, _activate = false, _busy = false, _pending = false;
   String? _error;
+
+  /// The placement's rubber band on the CTA: how far along it is (checks,
+  /// approval, sent), and how it ended. Presentation only.
+  double? _bandProgress;
+  RubberBandOutcome? _bandOutcome;
+
+  void _bandTo(double progress) {
+    if (!mounted) return;
+    setState(() => _bandProgress = progress);
+  }
   @override
   void dispose() {
     _distance.dispose();
@@ -99,6 +110,8 @@ class _TrailingStopState extends ConsumerState<HlTrailingStopSheet> {
     if (_busy || _pending) return;
     setState(() {
       _busy = true;
+      _bandProgress = 0.15;
+      _bandOutcome = null;
       _error = null;
     });
     FocusManager.instance.primaryFocus?.unfocus();
@@ -121,6 +134,7 @@ class _TrailingStopState extends ConsumerState<HlTrailingStopSheet> {
           market: widget.market, isBuy: widget.isBuy, referencePrice: price);
       if (!mounted) return;
       HlOrderResult? result;
+      _bandTo(0.3);
       if (widget.ledger) {
         result = await runLedgerHlTrailingStop(context, ref,
             walletId: widget.walletId,
@@ -157,6 +171,7 @@ class _TrailingStopState extends ConsumerState<HlTrailingStopSheet> {
             reason: context.l10n.stepUpReasonOrder(widget.market.coin),
             amountUsd: widget.size * price / widget.leverage);
         if (grant == null || !mounted) return;
+        _bandTo(0.55);
         result = await ref
             .read(hyperliquidTradingProvider.notifier)
             .placeTrailingStop(
@@ -198,7 +213,11 @@ class _TrailingStopState extends ConsumerState<HlTrailingStopSheet> {
         );
       }
       if (mounted && result != null) {
-        setState(() => _busy = false);
+        setState(() {
+          _busy = false;
+          // Placed: the band snaps straight into the confirmation.
+          _bandOutcome = RubberBandOutcome.success;
+        });
         if (widget.embedded) {
           widget.onResult?.call(result);
         } else {
@@ -314,6 +333,8 @@ class _TrailingStopState extends ConsumerState<HlTrailingStopSheet> {
             ? AppColors.marketDown
             : AppColors.marketUp,
         isBusy: _busy,
+        bandProgress: _bandProgress,
+        bandOutcome: _bandOutcome,
         enabled: !_busy && !_pending,
         onTap: _submit,
         label: context.l10n.trailingPlace,

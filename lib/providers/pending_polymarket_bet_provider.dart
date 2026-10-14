@@ -74,6 +74,12 @@ class PendingBetIntent {
   /// slip's retry reads "Retry at 85¢". Cleared like [errorMessage].
   final double? retryMaxPrice;
 
+  /// Why a failed bet stopped, as a fixed code (price_moved,
+  /// market_closed, funds_timeout, book_unavailable, insufficient_usdc,
+  /// approval_expired, ...), for the slip's steps to say what happened
+  /// and where the money is. Cleared like [errorMessage].
+  final String? failureCode;
+
   /// When the market closes (resolves). Used to gate fast-finalising
   /// markets ("5-minute bets" like hourly Bitcoin Up/Down) so they
   /// can only be funded from USDC — a BTC→USDC swap would not land
@@ -168,6 +174,7 @@ class PendingBetIntent {
     this.status = PendingBetStatus.awaitingDeposit,
     this.errorMessage,
     this.retryMaxPrice,
+    this.failureCode,
     this.isLimit = false,
     this.limitPrice = 0.0,
     this.negRisk = false,
@@ -215,6 +222,7 @@ class PendingBetIntent {
     PendingBetStatus? status,
     String? errorMessage,
     double? retryMaxPrice,
+    String? failureCode,
     double? fundUsd,
     Object? directLegs = _keep,
     Object? btcLeg = _keep,
@@ -243,6 +251,7 @@ class PendingBetIntent {
       status: status ?? this.status,
       errorMessage: errorMessage,
       retryMaxPrice: retryMaxPrice,
+      failureCode: failureCode,
       isLimit: isLimit,
       limitPrice: limitPrice,
       negRisk: negRisk,
@@ -276,13 +285,14 @@ class PendingPolymarketBetNotifier extends Notifier<PendingBetIntent?> {
   }
 
   void updateStatus(PendingBetStatus status,
-      {String? errorMessage, double? retryMaxPrice}) {
+      {String? errorMessage, double? retryMaxPrice, String? failureCode}) {
     final current = state;
     if (current == null) return;
     state = current.copyWith(
       status: status,
       errorMessage: errorMessage,
       retryMaxPrice: retryMaxPrice,
+      failureCode: failureCode,
       // A new placement starts at the first step again.
       stage: status == PendingBetStatus.placing
           ? PendingBetStage.submitting
@@ -299,6 +309,7 @@ class PendingPolymarketBetNotifier extends Notifier<PendingBetIntent?> {
         status: current.status,
         errorMessage: current.errorMessage,
         retryMaxPrice: current.retryMaxPrice,
+        failureCode: current.failureCode,
         fundQuoteRef: quoteRef);
   }
 
@@ -307,7 +318,8 @@ class PendingPolymarketBetNotifier extends Notifier<PendingBetIntent?> {
     final current = state;
     if (current == null || current.stage == stage) return;
     state = current.copyWith(status: current.status, stage: stage,
-        errorMessage: current.errorMessage);
+        errorMessage: current.errorMessage,
+        failureCode: current.failureCode);
   }
 
   /// What the venue reports the order got, once it has matched: shares
@@ -340,6 +352,7 @@ class PendingPolymarketBetNotifier extends Notifier<PendingBetIntent?> {
       marketCategory: current.marketCategory,
       status: current.status,
       errorMessage: current.errorMessage,
+      failureCode: current.failureCode,
       isLimit: current.isLimit,
       limitPrice: current.limitPrice,
       negRisk: current.negRisk,

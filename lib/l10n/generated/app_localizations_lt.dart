@@ -10814,6 +10814,23 @@ class AppLocalizationsLt extends AppLocalizations {
       'Pridėti į Investments nepavyko. Jūsų bitcoin grįžta.';
 
   @override
+  String get slipFundingPriceMoved => 'Kaina pasikeitė per greitai.';
+
+  @override
+  String get slipFundingRoundClosed =>
+      'Šis raundas užsidarė prieš atkeliaujant jūsų pinigams.';
+
+  @override
+  String slipFundingInPredictions(String amount) {
+    return 'Jūsų $amount yra Prognozėse. Bakstelėkite, kad bandytumėte dar kartą.';
+  }
+
+  @override
+  String slipFundingInInvesting(String amount) {
+    return 'Jūsų $amount yra Investavime. Bakstelėkite, kad bandytumėte dar kartą.';
+  }
+
+  @override
   String oneBalancePlacingBet(String amount, String side, String market) {
     return 'Statoma $amount už $side · $market';
   }

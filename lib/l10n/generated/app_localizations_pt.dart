@@ -10821,6 +10821,23 @@ class AppLocalizationsPt extends AppLocalizations {
       'A adição aos Investments não foi concluída. A sua bitcoin está a voltar.';
 
   @override
+  String get slipFundingPriceMoved => 'O preço mudou depressa demais.';
+
+  @override
+  String get slipFundingRoundClosed =>
+      'Esta ronda fechou antes de o seu dinheiro chegar.';
+
+  @override
+  String slipFundingInPredictions(String amount) {
+    return 'Os seus $amount estão nas Previsões. Toque para tentar de novo.';
+  }
+
+  @override
+  String slipFundingInInvesting(String amount) {
+    return 'Os seus $amount estão em Investir. Toque para tentar de novo.';
+  }
+
+  @override
   String oneBalancePlacingBet(String amount, String side, String market) {
     return 'A colocar $amount em $side · $market';
   }

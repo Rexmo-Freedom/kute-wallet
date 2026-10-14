@@ -21,6 +21,7 @@ import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
 import 'package:kute/screens/shared/animated_balance.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_motion.dart';
+import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/screens/shared/side_tint_palette.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -258,10 +259,30 @@ class PolySlipCta extends StatelessWidget {
     required this.label,
     this.busyLabel,
     this.neutral = false,
+    this.band = true,
+    this.bandOutcome,
+    this.bandProgress,
+    this.bandExpected = const Duration(seconds: 4),
   });
 
   final Color color;
   final bool isBusy;
+
+  /// The placement's rubber band ([RubberBandBusy]): while [isBusy] the
+  /// button is drawn up with growing tension, and lets go when it ends.
+  /// False where an outer band already carries it (a funded order's
+  /// steps).
+  final bool band;
+
+  /// How the busy run ended, read once [isBusy] is false:
+  /// [RubberBandOutcome.success] snaps back with a light haptic; null or
+  /// failure releases softly.
+  final RubberBandOutcome? bandOutcome;
+
+  /// The run's known progress (0..1), or null to ease by time over
+  /// [bandExpected].
+  final double? bandProgress;
+  final Duration bandExpected;
   final bool enabled;
   final VoidCallback onTap;
   final String label;
@@ -384,7 +405,14 @@ class PolySlipCta extends StatelessWidget {
       opacity: faded ? 0.35 : 1,
       duration:
           reduceMotion ? Duration.zero : const Duration(milliseconds: 140),
-      child: button,
+      child: RubberBandBusy(
+        enabled: band,
+        busy: isBusy,
+        outcome: bandOutcome,
+        progress: bandProgress,
+        expected: bandExpected,
+        child: button,
+      ),
     );
   }
 }

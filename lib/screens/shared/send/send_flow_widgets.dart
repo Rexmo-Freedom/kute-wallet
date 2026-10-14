@@ -16,6 +16,7 @@
 // Presentation only: no provider, no route table and no money call.
 
 import 'dart:io' show Platform;
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -26,6 +27,7 @@ import 'package:kute/screens/shared/amount_keypad_panel.dart'
     show groupTypedAmount;
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/message_display.dart';
+import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/theme/app_theme.dart';
 
 /// The send stepper's body under the app bar: the screen gradient, the
@@ -1200,6 +1202,190 @@ class SendReviewAction extends StatelessWidget {
       ],
     );
   }
+}
+
+/// The phase a [SendRubberBand] reads from the screen's own flags.
+enum _SendBandPhase { idle, preparing, approving, finishing }
+
+/// The rubber band the Review step's [SendReviewAction] wears from the
+/// Send tap until the send is out or has stopped ([RubberBandProgress]).
+///
+/// It reads the flags the send screens already keep, nothing else:
+///   * [busy] up (the tap's readiness wait, the quote, the SDK prepare):
+///     the band eases toward [preparingProgress] over [expected];
+///   * [authorising] up (the face scan or PIN): it holds at least
+///     [approvalProgress];
+///   * [authorising] down again while still [busy] (broadcasting and
+///     waiting for the SDK's answer): it eases on from
+///     [afterApprovalProgress] toward [ceiling] over [expected], so the
+///     pull grows the closer the money is to leaving;
+///   * [succeeded]: the spring snap and light tap; [busy] down without
+///     it (a failure, a declined scan, a stop for re-review): the soft
+///     release.
+///
+/// Presentation only: it never decides anything about the send.
+/// Reduce Motion: no easing runs and the block sits still.
+class SendRubberBand extends StatefulWidget {
+  const SendRubberBand({
+    super.key,
+    required this.busy,
+    required this.child,
+    this.authorising = false,
+    this.succeeded = false,
+    this.expected = const Duration(seconds: 4),
+  });
+
+  /// The send is under way (from the tap until it is out or stopped).
+  final bool busy;
+
+  /// The approval prompt is up.
+  final bool authorising;
+
+  /// The send went out. Read only once a wait has begun.
+  final bool succeeded;
+
+  /// How long each eased stretch (before and after approval) usually
+  /// takes.
+  final Duration expected;
+
+  final Widget child;
+
+  /// Where the wait before approval eases to.
+  static const double preparingProgress = 0.45;
+
+  /// The least the band holds while the person approves.
+  static const double approvalProgress = 0.5;
+
+  /// Where the wait after approval starts from, at least.
+  static const double afterApprovalProgress = 0.55;
+
+  /// Where the waits ease to; the answer does the rest.
+  static const double ceiling = 0.85;
+
+  @override
+  State<SendRubberBand> createState() => SendRubberBandState();
+}
+
+/// Public so tests can read the eased [progress] and whether the easing
+/// is [easing].
+class SendRubberBandState extends State<SendRubberBand>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ease = AnimationController(vsync: this)
+    ..addListener(_onEase);
+
+  _SendBandPhase _phase = _SendBandPhase.idle;
+  RubberBandOutcome _outcome = RubberBandOutcome.none;
+  double _progress = 0;
+  double _from = 0;
+  double _to = 0;
+
+  /// The progress the band is given now.
+  @visibleForTesting
+  double get progress => _progress;
+
+  /// The band's outcome now.
+  @visibleForTesting
+  RubberBandOutcome get outcome => _outcome;
+
+  /// Whether the eased progress is ticking.
+  @visibleForTesting
+  bool get easing => _ease.isAnimating;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_reduce && _ease.isAnimating) {
+      _ease.stop();
+      _progress = _to;
+    }
+    _sync();
+  }
+
+  @override
+  void didUpdateWidget(SendRubberBand oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.busy != widget.busy ||
+        oldWidget.authorising != widget.authorising ||
+        oldWidget.succeeded != widget.succeeded) {
+      _sync();
+    }
+  }
+
+  bool get _reduce => MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+
+  void _sync() {
+    if (_phase == _SendBandPhase.idle) {
+      // A finished send stays at rest; only a fresh wait engages it.
+      if (!widget.busy || widget.succeeded) return;
+      _outcome = RubberBandOutcome.none;
+      _phase = _SendBandPhase.preparing;
+      _run(0, SendRubberBand.preparingProgress);
+    }
+    if (widget.succeeded) {
+      _finish(RubberBandOutcome.success);
+      return;
+    }
+    if (!widget.busy) {
+      _finish(RubberBandOutcome.failure);
+      return;
+    }
+    if (widget.authorising) {
+      if (_phase != _SendBandPhase.approving) {
+        _phase = _SendBandPhase.approving;
+        _ease.stop();
+        _progress = math.max(_progress, SendRubberBand.approvalProgress);
+        _to = _progress;
+      }
+      return;
+    }
+    if (_phase == _SendBandPhase.approving) {
+      _phase = _SendBandPhase.finishing;
+      _run(math.max(_progress, SendRubberBand.afterApprovalProgress),
+          SendRubberBand.ceiling);
+    }
+  }
+
+  void _run(double from, double to) {
+    _from = from;
+    _to = to;
+    _progress = from;
+    if (_reduce) {
+      // Nothing moves under Reduce Motion, so nothing needs to tick.
+      _ease.stop();
+      return;
+    }
+    _ease
+      ..duration = widget.expected
+      ..forward(from: 0);
+  }
+
+  void _finish(RubberBandOutcome outcome) {
+    _ease.stop();
+    _phase = _SendBandPhase.idle;
+    _outcome = outcome;
+  }
+
+  void _onEase() {
+    final p = _from + (_to - _from) * Curves.easeOut.transform(_ease.value);
+    // A step at a time: the band's spring smooths between them, and the
+    // block is not rebuilt every frame.
+    if ((p - _progress).abs() >= 0.01 || !_ease.isAnimating) {
+      setState(() => _progress = p);
+    }
+  }
+
+  @override
+  void dispose() {
+    _ease.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => RubberBandProgress(
+        progress: _progress,
+        outcome: _outcome,
+        child: widget.child,
+      );
 }
 
 /// Shortened destination for a one-line row: the first ten and last

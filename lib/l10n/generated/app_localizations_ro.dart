@@ -10830,6 +10830,23 @@ class AppLocalizationsRo extends AppLocalizations {
       'Adăugarea în Investments nu a reușit. Bitcoinul tău se întoarce.';
 
   @override
+  String get slipFundingPriceMoved => 'Prețul s-a mișcat prea repede.';
+
+  @override
+  String get slipFundingRoundClosed =>
+      'Această rundă s-a închis înainte să ajungă banii tăi.';
+
+  @override
+  String slipFundingInPredictions(String amount) {
+    return 'Cei $amount ai tăi sunt în Predicții. Atinge pentru a încerca din nou.';
+  }
+
+  @override
+  String slipFundingInInvesting(String amount) {
+    return 'Cei $amount ai tăi sunt în Investiții. Atinge pentru a încerca din nou.';
+  }
+
+  @override
   String oneBalancePlacingBet(String amount, String side, String market) {
     return 'Se plasează $amount pe $side · $market';
   }

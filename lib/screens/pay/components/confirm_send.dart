@@ -8041,30 +8041,42 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
         // Hardware / watch-only — primary action says "Continue"
         // and advances to the Sign step. Hot wallets dispatch
         // straight away, so the button reads "Send".
-        SendReviewAction(
-          // Hardware → "Continue" builds the PSBT and advances to the
-          // Sign step (handled inside `_handleSend` →
-          // `_handleHardwareSigning`). Hot wallets dispatch directly.
-          label: (isProcessing || _sendAwaitingReady)
-              ? (isExternalSigner
-                  ? context.l10n.sendBuildingUnsignedTransaction
-                  : context.l10n.sendSendingEllipsis)
-              : (isExternalSigner
-                  ? context.l10n.continueLabel
-                  : context.l10n.send),
-          // Spins for the whole send, as the dollar send's button does —
-          // not only for the post-tap readiness wait. A send in flight
-          // used to read as a greyed-out button with nothing moving.
-          loading: isProcessing || _sendAwaitingReady,
-          onPressed: canTapSend ? () => _sendPressed(context, ref) : null,
-          // While the draft is still resolving the footnote says the
-          // fee is being worked out rather than promising an instant
-          // debit the tap cannot yet honour.
-          footnote: !sendReadyNow
-              ? context.l10n.sendWaitForFee
-              : isExternalSigner
-                  ? context.l10n.sendApproveOnYourDeviceNext
-                  : context.l10n.sendFundsLeaveYourWalletImmediately,
+        //
+        // From the Send tap until the money is out, the block under the
+        // thumb wears the rubber band: it eases up while the send is
+        // readied, holds through the face scan, pulls harder while the
+        // SDK broadcasts, then snaps back on success or lets go softly
+        // on a failure or a declined scan. A hardware "Continue" only
+        // builds the PSBT, so it never pulls.
+        SendRubberBand(
+          busy: !isExternalSigner && (isProcessing || _sendAwaitingReady),
+          authorising: _paymentAuthInFlight,
+          succeeded: _sendCompleted,
+          child: SendReviewAction(
+            // Hardware → "Continue" builds the PSBT and advances to the
+            // Sign step (handled inside `_handleSend` →
+            // `_handleHardwareSigning`). Hot wallets dispatch directly.
+            label: (isProcessing || _sendAwaitingReady)
+                ? (isExternalSigner
+                    ? context.l10n.sendBuildingUnsignedTransaction
+                    : context.l10n.sendSendingEllipsis)
+                : (isExternalSigner
+                    ? context.l10n.continueLabel
+                    : context.l10n.send),
+            // Spins for the whole send, as the dollar send's button does —
+            // not only for the post-tap readiness wait. A send in flight
+            // used to read as a greyed-out button with nothing moving.
+            loading: isProcessing || _sendAwaitingReady,
+            onPressed: canTapSend ? () => _sendPressed(context, ref) : null,
+            // While the draft is still resolving the footnote says the
+            // fee is being worked out rather than promising an instant
+            // debit the tap cannot yet honour.
+            footnote: !sendReadyNow
+                ? context.l10n.sendWaitForFee
+                : isExternalSigner
+                    ? context.l10n.sendApproveOnYourDeviceNext
+                    : context.l10n.sendFundsLeaveYourWalletImmediately,
+          ),
         ),
       ],
     );

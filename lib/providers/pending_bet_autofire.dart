@@ -63,6 +63,8 @@ import 'package:kute/services/polymarket/market_buy_quote.dart'
     show PolymarketOrderPlan, PolymarketThinBook;
 import 'package:kute/services/polymarket/order_refusal.dart'
     show isPolymarketPriceRefusal, polymarketRefusalParams;
+import 'package:kute/services/polymarket/polymarket_slippage_defaults.dart'
+    show isPolymarketFastRound;
 import 'package:kute/services/polymarket_backend_service.dart'
     show PolymarketOrderNotAcceptedException;
 import 'package:kute/services/tracking_service.dart';
@@ -102,6 +104,20 @@ const Duration kFundsTimeout = Duration(minutes: 12);
   final resized = fits + 0.01 <= amount;
   if (isLimit && resized) return null;
   return (usd: fits, resized: resized);
+}
+
+/// Whether [intent]'s market is a short round (5 or 15 minutes) whose end
+/// has passed at [now]: its book is shut, so a bet still waiting on its
+/// money, or about to be placed, stops with "This round closed before
+/// your money arrived" instead of a generic refusal or a 12-minute wait.
+@visibleForTesting
+bool autofireRoundClosed(PendingBetIntent intent, {DateTime? now}) {
+  final end = intent.marketEndAt;
+  if (end == null) return false;
+  final at = now ?? DateTime.now();
+  if (at.isBefore(end)) return false;
+  return isPolymarketFastRound(
+      question: intent.marketQuestion, endAt: end, now: at);
 }
 
 /// The autofire grant slot for the one pending Polymarket bet (D-10). The
@@ -252,9 +268,10 @@ class PendingBetAutoFire {
     if (placementId != null) {
       ref.read(placingPolymarketBetProvider.notifier).markFailed(placementId, msg);
     }
-    ref
-        .read(pendingPolymarketBetProvider.notifier)
-        .updateStatus(PendingBetStatus.failed, errorMessage: msg);
+    ref.read(pendingPolymarketBetProvider.notifier).updateStatus(
+        PendingBetStatus.failed,
+        errorMessage: msg,
+        failureCode: drift ? 'approval_drift' : 'approval_expired');
     if (!drift) {
       TrackingService.track('pending_intent_expired', params: {'venue': venue});
     }
@@ -352,6 +369,14 @@ class PendingBetAutoFire {
       _cancelForReconfirm();
       return;
     }
+    // A short round that closed while its money was on the way: its book
+    // is shut. Stopped now (the money lands, or has landed, as
+    // Predictions cash), never left waiting for the 12-minute timeout.
+    if (autofireRoundClosed(intent)) {
+      _stopAwaitPolling();
+      _failRoundClosed(intent);
+      return;
+    }
     // Nothing signs behind the lock; the next trading tick after unlock
     // fires.
     if (!ref.read(sessionUnlockedProvider)) return;
@@ -427,9 +452,10 @@ class PendingBetAutoFire {
         }
         final msg = l10nForLanguage(ref.read(settingsProvider).language)
             .betAutofireFundsTimeout;
-        ref
-            .read(pendingPolymarketBetProvider.notifier)
-            .updateStatus(PendingBetStatus.failed, errorMessage: msg);
+        ref.read(pendingPolymarketBetProvider.notifier).updateStatus(
+            PendingBetStatus.failed,
+            errorMessage: msg,
+            failureCode: 'funds_timeout');
         return;
       }
       // Force a fresh on-chain read (bypassing the 30s balance cache), THEN
@@ -476,6 +502,27 @@ class PendingBetAutoFire {
         if (!intent.isLimit)
           'slippage_bps': VenueAnalytics.bps(intent.slippagePct),
       };
+
+  /// [intent]'s round closed before its money arrived (or before it could
+  /// be placed): nothing is signed, the money stays as Predictions cash.
+  void _failRoundClosed(PendingBetIntent intent, {String? placementId}) {
+    _trackFailed(intent, 'market_closed');
+    if (intent.funded) {
+      OrderFundingJourney.instance.failed(OneBalanceVenue.predictions,
+          OrderFundingStage.order, 'market_closed');
+    }
+    PredictionFundingLedger.instance
+        .release(intent.fundQuoteRef, reason: 'failed');
+    final msg = l10nForLanguage(ref.read(settingsProvider).language)
+        .slipFundingRoundClosed;
+    if (placementId != null) {
+      ref.read(placingPolymarketBetProvider.notifier).markFailed(placementId, msg);
+    }
+    ref.read(pendingPolymarketBetProvider.notifier).updateStatus(
+        PendingBetStatus.failed,
+        errorMessage: msg,
+        failureCode: 'market_closed');
+  }
 
   void _trackFailed(PendingBetIntent intent, String reason,
       {StackTrace? stackTrace, bool retried = false, Object? error}) {
@@ -559,7 +606,8 @@ class PendingBetAutoFire {
           pendingNotifier.updateStatus(PendingBetStatus.failed,
               errorMessage:
                   l10nForLanguage(ref.read(settingsProvider).language)
-                      .betAddFundsToPredict);
+                      .betAddFundsToPredict,
+              failureCode: 'insufficient_usdc');
           PredictionFundingLedger.instance
               .release(intent.fundQuoteRef, reason: 'failed');
           return;
@@ -642,8 +690,14 @@ class PendingBetAutoFire {
               TrackingService.errorCategory(e));
         }
         pendingNotifier.updateStatus(PendingBetStatus.failed,
-            errorMessage: _friendlyError(e));
+            errorMessage: _friendlyError(e), failureCode: _stopCode(e));
       }
+      return;
+    }
+
+    // A short round already over: its book is shut, nothing is signed.
+    if (autofireRoundClosed(intent)) {
+      _failRoundClosed(intent);
       return;
     }
 
@@ -718,7 +772,7 @@ class PendingBetAutoFire {
           final msg = l10nForLanguage(ref.read(settingsProvider).language)
               .betAutofireBookUnavailable;
           pendingNotifier.updateStatus(PendingBetStatus.failed,
-              errorMessage: msg);
+              errorMessage: msg, failureCode: 'book_unavailable');
           placingNotifier.markFailed(placementId, msg);
           return;
         }
@@ -749,7 +803,7 @@ class PendingBetAutoFire {
           final msg = l10nForLanguage(ref.read(settingsProvider).language)
               .betAddFundsToPredict;
           pendingNotifier.updateStatus(PendingBetStatus.failed,
-              errorMessage: msg);
+              errorMessage: msg, failureCode: 'insufficient_usdc');
           placingNotifier.markFailed(placementId, msg);
           return;
         }
@@ -920,6 +974,11 @@ class PendingBetAutoFire {
         placingNotifier.clear(placementId);
         return;
       }
+      // Refused because the round closed in the meantime: said as such.
+      if (autofireRoundClosed(intent)) {
+        _failRoundClosed(intent, placementId: placementId);
+        return;
+      }
       _trackFailed(intent, _failureCode(e),
           stackTrace: st, retried: retried, error: e);
       if (funded) {
@@ -931,7 +990,9 @@ class PendingBetAutoFire {
       ledger.release(fundingKey, reason: 'failed');
       final msg = _friendlyError(e);
       pendingNotifier.updateStatus(PendingBetStatus.failed,
-          errorMessage: msg, retryMaxPrice: polymarketRetryPrice(e));
+          errorMessage: msg,
+          retryMaxPrice: polymarketRetryPrice(e),
+          failureCode: _stopCode(e));
       placingNotifier.markFailed(placementId, msg);
     }
   }
@@ -961,6 +1022,17 @@ class PendingBetAutoFire {
       return 'price_moved';
     }
     return TrackingService.errorCategory(e);
+  }
+
+  /// What the slip's steps say about a stop ([PendingBetIntent.
+  /// failureCode]): a book past the approved maximum is the price moving
+  /// ("Price moved too fast"), not the depth. Analytics keep
+  /// [_failureCode].
+  static String _stopCode(Object e) {
+    if (e is PolymarketThinBook && polymarketRetryPrice(e) != null) {
+      return 'price_moved';
+    }
+    return _failureCode(e);
   }
 
   /// Map raw CLOB / token-plumbing exception text to something the

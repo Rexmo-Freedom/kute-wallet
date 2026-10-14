@@ -725,28 +725,49 @@ class SlipDepositFailedNote extends StatelessWidget {
 /// button, a check once done, the small working sign the "Deposit
 /// incoming" note uses while active, the rest waiting in a quieter tone.
 /// No new chrome: the note's own type, colours and spinner.
+///
+/// A funding that stopped ([failed]) marks the step it stopped at with
+/// the slips' error sign (the notice's `error_outline`) and says, in
+/// [note], what happened and where the money is now.
 class SlipFundingSteps extends StatelessWidget {
   const SlipFundingSteps({
     super.key,
     required this.steps,
     required this.active,
     this.slow = false,
+    this.failed = false,
+    this.note,
   });
 
   /// The steps, in order.
   final List<String> steps;
 
-  /// The step running now; the ones before it are done.
+  /// The step running now (or the one that failed); the ones before it
+  /// are done. [steps]'s length: every step done.
   final int active;
 
   /// The first step is taking longer than usual.
   final bool slow;
+
+  /// The [active] step failed: nothing after it runs.
+  final bool failed;
+
+  /// One plain line under the steps: what happened and where the money
+  /// is ("Price moved too fast. Your $5 is in Predictions. Tap to try
+  /// again.").
+  final String? note;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     final still = kuteReduceMotion(context);
     Widget lead(int i) {
+      if (failed && i == active) {
+        return Icon(Icons.error_outline_rounded,
+            key: ValueKey('slip-funding-step-failed-$i'),
+            size: 14.r,
+            color: c.textPrimary);
+      }
       if (i < active) {
         return Icon(Icons.check_rounded,
             key: ValueKey('slip-funding-step-done-$i'),
@@ -790,7 +811,11 @@ class SlipFundingSteps extends StatelessWidget {
                     child: Text(
                       steps[i],
                       style: TextStyle(
-                        color: i <= active ? c.textSecondary : c.textTertiary,
+                        color: failed && i == active
+                            ? c.textPrimary
+                            : i <= active
+                                ? c.textSecondary
+                                : c.textTertiary,
                         fontSize: 13.sp,
                         height: 1.35,
                         fontWeight:
@@ -801,7 +826,7 @@ class SlipFundingSteps extends StatelessWidget {
                 ],
               ),
             ),
-          if (slow)
+          if (slow && !failed)
             Padding(
               padding: EdgeInsets.only(top: 4.h, left: 22.w),
               child: Text(
@@ -811,10 +836,53 @@ class SlipFundingSteps extends StatelessWidget {
                     color: c.textTertiary, fontSize: 12.sp, height: 1.35),
               ),
             ),
+          if (note case final line?)
+            Padding(
+              padding: EdgeInsets.only(top: 6.h),
+              child: Text(
+                line,
+                key: const ValueKey('slip-funding-note'),
+                style: TextStyle(
+                    color: c.textSecondary, fontSize: 13.sp, height: 1.35),
+              ),
+            ),
         ],
       ),
     );
   }
+}
+
+/// What a slip says under a stopped funded order's steps: what happened,
+/// then where the money is now, in [money]'s format. Funds that reached
+/// the venue stay there as its cash (available); funds still in Dollars
+/// are in Investments.
+String fundedStopLine(
+    AppLocalizations l10n, FundedOrderRecord r, String Function(double) money) {
+  final venue = r.label.venue;
+  // The rail's or the venue's own words already say it all.
+  switch (r.reason) {
+    case 'refunded':
+    case 'maybe_sent':
+    case 'not_sent':
+      return r.message ?? l10n.betActionNotCompleted;
+    case 'funds_timeout' || 'book_unavailable'
+        when venue == OneBalanceVenue.predictions && r.message != null:
+      return r.message!;
+  }
+  final what = switch (r.reason) {
+    'price_moved' => l10n.slipFundingPriceMoved,
+    'market_closed' => l10n.slipFundingRoundClosed,
+    _ => r.message,
+  };
+  final where = switch (r.moneyAt) {
+    FundedMoneyAt.venue => venue == OneBalanceVenue.predictions
+        ? l10n.slipFundingInPredictions(money(r.label.orderUsd))
+        : l10n.slipFundingInInvesting(money(r.label.orderUsd)),
+    FundedMoneyAt.investments => l10n.slipFundingReadyToPlace(
+        money(r.fromBitcoin && r.addUsd > 0 ? r.addUsd : r.label.orderUsd)),
+    FundedMoneyAt.bitcoin || null => null,
+  };
+  return [if (what != null) what, if (where != null) where].join(' ');
 }
 
 /// The plain line above a slip's button when its funding stopped with the

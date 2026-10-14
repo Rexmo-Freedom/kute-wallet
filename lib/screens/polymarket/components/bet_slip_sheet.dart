@@ -95,6 +95,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/screens/shared/slip_shortfall.dart';
+import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/services/funding/venue_shortfall.dart';
 import 'package:kute/providers/pending_bet_autofire.dart'
     show
@@ -1248,27 +1249,44 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   bool _disposing = false;
 
   /// Whether this market can take a funded bet in time (audit P1-5): it
-  /// takes orders, by the CLOB's own word, and does not end before the
-  /// move could land. [requireRead]: an unread market blocks too.
+  /// takes orders, by the CLOB's own word, and does not end before a move
+  /// of [fundUsd] could land from where the money is (Dollars, the
+  /// Investing cash, or bitcoin: [predictionsLandingFor]). [requireRead]:
+  /// an unread market blocks too.
   Future<PredictionsFundingBlock?> _fundingWindow(
-      {required bool requireRead}) async {
-    final conditionId = widget.outcomes[_selectedIndex].conditionId;
-    PolymarketMarketWindow? market;
-    if (conditionId != null && conditionId.isNotEmpty) {
-      try {
-        market = await _marketWindowReader(conditionId);
-      } catch (_) {}
-    }
-    return predictionsFundingBlock(
-      market: market,
-      endAt: widget.marketEndAt,
-      fastRound: isPolymarketFastRound(
-          slug: widget.marketSlug,
-          question: widget.marketQuestion,
-          endAt: widget.marketEndAt),
-      requireRead: requireRead,
-    );
+      {required bool requireRead, double fundUsd = 0}) async {
+    final landing = predictionsLandingFor(
+        fundUsd: fundUsd,
+        dollarsUsd: _dollarsUsd(),
+        reachUsd: _fundingReachUsd());
+    return _fundingBlockFor(await _readMarketWindow(),
+        requireRead: requireRead, landing: landing);
   }
+
+  /// The CLOB's word on this slip's market, or null when unread.
+  Future<PolymarketMarketWindow?> _readMarketWindow() async {
+    final conditionId = widget.outcomes[_selectedIndex].conditionId;
+    if (conditionId == null || conditionId.isEmpty) return null;
+    try {
+      return await _marketWindowReader(conditionId);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  PredictionsFundingBlock? _fundingBlockFor(PolymarketMarketWindow? market,
+          {required bool requireRead,
+          Duration landing = kPredictionsFundingP95}) =>
+      predictionsFundingBlock(
+        market: market,
+        endAt: widget.marketEndAt,
+        fastRound: isPolymarketFastRound(
+            slug: widget.marketSlug,
+            question: widget.marketQuestion,
+            endAt: widget.marketEndAt),
+        requireRead: requireRead,
+        landing: landing,
+      );
 
   /// Says why nothing was funded: the market is over, or closes before a
   /// move could land.
@@ -1313,6 +1331,13 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         // it already has), under the approval already given.
         _pendingNotifier.setIntent(intent);
         PolymarketPlacementTimeline.mark('funded');
+        if (fundUsd > 0) {
+          // Money moved for it: its steps from here to the end, named on
+          // the header by the moves' rows.
+          final runner = ref.read(bitcoinFundedOrderRunnerProvider);
+          final id = runner.beginFunded(_fundedLabel(intent, outcomeLabel));
+          runner.followFunded(id, rowIds: prefund.rowIds);
+        }
         if (!mounted) return true;
         _swapNeeded = fundUsd > 0;
         TrackingService.track('bet_slip_place', params: {
@@ -1341,6 +1366,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         _showFundingBlock(block);
         return true;
       case PrefundFundingFailed(:final outcome):
+        final armed = ref.read(pendingPolymarketBetProvider);
         _pendingNotifier.dropArmed();
         _stopped('funding_refused',
             error: outcome is OrderFundingRefused ? outcome.error : null);
@@ -1354,13 +1380,19 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
             return true;
           }
           if (outcome.reason == 'user_cancelled') return true;
-          showMessageSnackBar(
-              context: context,
-              message: (error == null
-                      ? null
-                      : HotSettlement.messageFor(error, context.l10n)) ??
-                  context.l10n.betActionNotCompleted,
-              error: true);
+          // The move step failed: said in the steps, with the money in
+          // Investments.
+          final label = armed ?? _slipIntent();
+          if (label != null) {
+            final runner = ref.read(bitcoinFundedOrderRunnerProvider);
+            final id = runner.beginFunded(_fundedLabel(label, outcomeLabel));
+            runner.stopFunded(id,
+                reason: 'venue_refused',
+                message: (error == null
+                        ? null
+                        : HotSettlement.messageFor(error, context.l10n)) ??
+                    context.l10n.betActionNotCompleted);
+          }
         } else if (outcome is OrderFundingNeedsDollars) {
           final terms = ref
                   .read(polymarketFeeTermsProvider(
@@ -2382,6 +2414,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
 
   Future<void> _handleBuyInner() async {
     PolymarketPlacementTimeline.begin();
+    // A new try: an earlier funded bet's stop gives way to it.
+    _clearFundedStop();
     _loadLiveDelay(widget.outcomes[_selectedIndex].conditionId);
     TrackingService.track('prediction_place_cta_tapped', params: {
       'amount_bucket': TrackingService.usdBucket(_amount),
@@ -3185,11 +3219,11 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     final incoming = ready - spendable;
     // Nothing moves for a market that cannot take the bet by the time the
     // money lands (audit P1-5). Read alongside the move's estimate.
-    final window = _fundingWindow(requireRead: false);
+    final marketRead = _readMarketWindow();
     OrderFundingPlan plan;
     try {
       plan = await _fundingPlanFor(required: required, ready: ready);
-      final block = await window;
+      final block = _fundingBlockFor(await marketRead, requireRead: false);
       if (block != null && block != PredictionsFundingBlock.unread) {
         dropQueued();
         _showFundingBlock(block);
@@ -3225,6 +3259,20 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       } catch (_) {}
       if (!mounted) return;
       pullFirst = reach + 1e-9 >= plan.fundUsd;
+      // Dollars short: the money comes from Investing (its pull first) or
+      // from bitcoin (its leg first), both slower than Dollars. A short
+      // round that ends before that could land is said now, before any
+      // money moves, never found out once it sits in a closed round.
+      final landing = predictionsLandingFor(
+          fundUsd: plan.fundUsd, dollarsUsd: _dollarsUsd(), reachUsd: reach);
+      final late = _fundingBlockFor(await marketRead,
+          requireRead: false, landing: landing);
+      if (!mounted) return;
+      if (late != null && late != PredictionsFundingBlock.unread) {
+        dropQueued();
+        _showFundingBlock(late);
+        return;
+      }
     }
     if (_dollarsUsd() + 1e-9 < plan.fundUsd && !pullFirst) {
       // The whole Investments balance is short of the move, whichever
@@ -3273,6 +3321,10 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       dropQueued();
       return;
     }
+    // Approved: the bet's steps show from now, on this slip and (named)
+    // on the Investments header, whatever happens to the slip.
+    final runner = ref.read(bitcoinFundedOrderRunnerProvider);
+    final fundedId = runner.beginFunded(_fundedLabel(pending, outcomeLabel));
     // What the Dollars move is sized on: the approved figure, less what
     // Investing cash already sent straight to Predictions (below).
     double? queueFundUsd;
@@ -3304,6 +3356,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       }
       if (!mounted) {
         grant.revoke();
+        runner.stopFunded(fundedId, reason: 'interrupted');
         return;
       }
       if (pulled != null && pulled.dollarsCover) {
@@ -3323,14 +3376,15 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         _stopped('insufficient_balance');
         PolymarketPlacementTimeline.finish('declined',
             reason: 'venue_cash_pending');
-        _updateState(() => _isPlacing = false);
-        showMessageSnackBar(
-            context: context,
+        // The steps keep it: the move step failed, what happened and that
+        // the money is in Investments.
+        runner.stopFunded(fundedId,
+            reason: 'venue_cash_pending',
             message: (pulled == null
                     ? null
                     : venueCashStoppedText(context.l10n, pulled)) ??
-                context.l10n.betActionNotCompleted,
-            error: pulled == null || !pulled.anyPulled);
+                context.l10n.betActionNotCompleted);
+        _updateState(() => _isPlacing = false);
         return;
       }
     }
@@ -3378,16 +3432,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         PolymarketPlacementTimeline.mark('funded');
         final quoteRef = TrackingService.orderRef(move.quoteId);
         PredictionFundingLedger.instance.sent(quoteRef, usd: move.sentUsd);
-        // The header names this bet while its money is on the way.
-        ref.read(bitcoinFundedOrderRunnerProvider).followDollarsFunded(
-            FundedOrderLabel(
-              venue: OneBalanceVenue.predictions,
-              orderUsd: pending.amount,
-              side: outcomeLabel,
-              market: FundedOrderLabel.shortName(widget.marketQuestion),
-              marketKey: pending.tokenId,
-            ),
-            move);
+        // The move's rows name this bet; its steps follow the autofire.
+        runner.followFunded(fundedId, move: move);
         // The Dollars move is the last leg of its multi-source move.
         MultiSourceMoveStore.attachFinal(
             _moveId, move.operationId ?? move.quoteId);
@@ -3417,6 +3463,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           fundArrivingUsd: arriving > 0 ? arriving : null,
           queuedAt: DateTime.now(),
         ));
+        runner.followFunded(fundedId);
       case OrderFundingRefused(:final reason, :final error):
         // Nothing left Dollars: the queued bet goes, the slip is back.
         grant.revoke();
@@ -3424,6 +3471,20 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         _swapNeeded = false;
         _stopped('funding_refused', error: error);
         PolymarketPlacementTimeline.finish('failed', reason: 'funding_$reason');
+        if (error is AuthGrantException || reason == 'user_cancelled') {
+          // Declined at the rail's own prompt: nothing to show in steps.
+          runner.dropFunded(fundedId);
+        } else {
+          // The move step failed; the money is in Investments.
+          runner.stopFunded(fundedId,
+              reason: 'venue_refused',
+              message: mounted
+                  ? (error == null
+                          ? null
+                          : HotSettlement.messageFor(error, context.l10n)) ??
+                      context.l10n.betActionNotCompleted
+                  : null);
+        }
         if (!mounted) return;
         _updateState(() => _isPlacing = false);
         if (error is AuthGrantException) {
@@ -3431,16 +3492,9 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
               action: SensitiveAction.pmBet);
           return;
         }
-        if (reason == 'user_cancelled') return;
-        showMessageSnackBar(
-            context: context,
-            message: (error == null
-                    ? null
-                    : HotSettlement.messageFor(error, context.l10n)) ??
-                context.l10n.betActionNotCompleted,
-            error: true);
       case OrderFundingNeedsDollars():
         // Dollars fell short since the slip looked: the Dollars door.
+        runner.dropFunded(fundedId);
         grant.revoke();
         pendingNotifier.clear();
         _swapNeeded = false;
@@ -3796,19 +3850,10 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         reason: 'funding_bitcoin_${end.name}');
     _swapNeeded = false;
     _orderPlaced = false;
+    // The steps keep the stop: the failed step and one line saying what
+    // happened and where the money is (the refund, the unknown transfer,
+    // "Your $X is in Investments"); the button is the bet again.
     _updateState(() => _isPlacing = false);
-    final l10n = context.l10n;
-    final message = switch (end) {
-      // The "Tap to place" note says it; the button is the bet again.
-      BitcoinFundedEnd.ready => null,
-      BitcoinFundedEnd.refunded => l10n.slipFundingBitcoinBack,
-      BitcoinFundedEnd.maybeSent => l10n.settlementFundingUnknownBody,
-      _ => (error == null ? null : HotSettlement.messageFor(error, l10n)) ??
-          l10n.betActionNotCompleted,
-    };
-    if (message != null) {
-      showMessageSnackBar(context: context, message: message, error: true);
-    }
   }
 
   /// Whether this slip's "Add" may be funded from the person's own
@@ -3850,24 +3895,50 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     });
   }
 
-  /// The step lines of a Bitcoin-funded bet on this slip.
-  List<String> _bitcoinSteps(FundedOrderRecord record) => [
-        context.l10n
-            .slipStepAddingToInvestments(_fiatCompanion(record.addUsd)),
+  /// The step lines of a funded bet on this slip: the Bitcoin leg (only
+  /// with one), the move into Predictions, the bet.
+  List<String> _fundingSteps(FundedOrderRecord record) => [
+        if (record.fromBitcoin)
+          context.l10n
+              .slipStepAddingToInvestments(_fiatCompanion(record.addUsd)),
         context.l10n.slipStepPreparingPrediction,
         context.l10n.slipStepPlacingBet(
             _fiatCompanion(record.label.orderUsd), record.label.side),
       ];
 
-  /// The Bitcoin-funded bet for the market on this slip, while its money
-  /// is on the way (this slip's, or one started before it was reopened).
-  FundedOrderRecord? _bitcoinRecord(List<FundedOrderRecord> records) {
+  /// The funded bet for the market on this slip (this slip's, or one
+  /// started before it was reopened): on its way, just placed, or stopped
+  /// and not yet tried again.
+  FundedProgress? _fundedProgress(List<FundedOrderRecord> records) {
     if (_isLedger) return null;
-    final run =
-        FundedOrdersNotifier.activeOf(records, OneBalanceVenue.predictions);
-    if (run == null || !run.fromBitcoin) return null;
-    return run.label.marketKey == (_selectedTokenId ?? '') ? run : null;
+    final progress = FundedOrdersNotifier.progressOn(records,
+        OneBalanceVenue.predictions, _selectedTokenId ?? '', DateTime.now());
+    // A placed bet's finished steps show only while this slip is still
+    // on its placement, never on a reopen.
+    if (progress != null && progress.done && !_isPlacing) return null;
+    return progress;
   }
+
+  /// A new try on this market: an earlier stop's steps give way to it.
+  void _clearFundedStop() {
+    if (_isLedger) return;
+    final notifier = ref.read(fundedOrdersProvider.notifier);
+    final progress = FundedOrdersNotifier.progressOn(ref.read(fundedOrdersProvider),
+        OneBalanceVenue.predictions, _selectedTokenId ?? '', DateTime.now());
+    if (progress != null && progress.failed) {
+      notifier.clearStop(progress.record.id);
+    }
+  }
+
+  /// The label the funded record names this bet by.
+  FundedOrderLabel _fundedLabel(PendingBetIntent pending, String side) =>
+      FundedOrderLabel(
+        venue: OneBalanceVenue.predictions,
+        orderUsd: pending.amount,
+        side: side,
+        market: FundedOrderLabel.shortName(widget.marketQuestion),
+        marketKey: pending.tokenId,
+      );
 
   /// "Add more" under "Deposit incoming": the rest of the shortfall.
   Future<void> _addMoreDeposit(double shortfallUsd, double incomingUsd) async {
@@ -4102,6 +4173,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     // A retry is a new placement, so it asks for a fresh approval
     // (Phase 1b.4).
     if (_buyInFlight) return;
+    _clearFundedStop();
     _updateState(() => _buyInFlight = true);
     AuthGrant? grant;
     try {
@@ -4648,7 +4720,11 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       // A placement that did not go through says so on the ticket the
       // person is still looking at, and the CTA underneath becomes the
       // retry the locked panel used to carry.
-      final failureNotice = placementFailed
+      // A funded bet's stop is told in its steps (the failed step, what
+      // happened, where the money is): never twice.
+      final fundedStop = placementFailed &&
+          (_fundedProgress(ref.watch(fundedOrdersProvider))?.failed ?? false);
+      final failureNotice = placementFailed && !fundedStop
           ? PolySlipNotice(
               title: context.l10n.betCouldNotPlacePrediction,
               message: ref.watch(pendingPolymarketBetProvider
@@ -5233,36 +5309,74 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       AppColorsExtension c, Color selectedColor, PolymarketOutcome selected,
       {required bool busy, required bool failed, required String busyLabel}) {
     if (_isLedger) return _buildLedgerPrimaryAction(c, selectedColor);
-    // A Bitcoin-funded bet on its way: the steps under one busy button.
+    // A bet whose money is being moved (from Bitcoin, Dollars, Investing
+    // or any mix): its steps under one busy button, from the moment it
+    // was approved, through the placement, to the end. A stop keeps them,
+    // the failed step marked and one line saying where the money is,
+    // with the button the try again.
     final records = ref.watch(fundedOrdersProvider);
-    final record = _bitcoinRecord(records);
-    final stepIndex = switch (record?.stage) {
-      FundedOrderStage.adding => 0,
-      FundedOrderStage.preparing => 1,
-      FundedOrderStage.placing => 2,
-      _ => null,
-    };
-    if (record != null && stepIndex != null) {
-      final steps = _bitcoinSteps(record);
-      return Column(
-        key: const ValueKey('bet-slip-bitcoin-funding'),
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          PolySlipCta(
-            color: selectedColor,
-            isBusy: true,
-            busyLabel: steps[stepIndex],
-            enabled: false,
-            onTap: () {},
-            label: steps[stepIndex],
-          ),
-          SlipFundingSteps(
-              steps: steps, active: stepIndex, slow: record.slow),
-        ],
+    final progress = _fundedProgress(records);
+    if (progress != null) {
+      final steps = _fundingSteps(progress.record);
+      final running = !progress.failed && !progress.done;
+      final Widget button;
+      if (running || progress.done) {
+        final label = steps[progress.active.clamp(0, steps.length - 1)];
+        button = PolySlipCta(
+          color: selectedColor,
+          isBusy: true,
+          busyLabel: label,
+          enabled: false,
+          onTap: () {},
+          label: label,
+          band: false,
+        );
+      } else {
+        button = _buildPrimaryActionInner(c, selectedColor, selected,
+            busy: busy, failed: failed, busyLabel: busyLabel, band: false);
+      }
+      return RubberBandProgress(
+        key: const ValueKey('bet-slip-funded-progress'),
+        progress: progress.progress,
+        outcome: progress.done
+            ? RubberBandOutcome.success
+            : progress.failed
+                ? RubberBandOutcome.failure
+                : RubberBandOutcome.none,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            button,
+            SlipFundingSteps(
+              steps: steps,
+              active: progress.active,
+              slow: progress.record.slow,
+              failed: progress.failed,
+              note: progress.failed
+                  ? fundedStopLine(
+                      context.l10n, progress.record, _fiatCompanion)
+                  : null,
+            ),
+          ],
+        ),
       );
     }
     final action = _buildPrimaryActionInner(c, selectedColor, selected,
         busy: busy, failed: failed, busyLabel: busyLabel);
+    // A fast market's money got ready before Confirm and still moving:
+    // its step under the bet (Confirm queues it behind the money).
+    final prefund = _draft.prefund;
+    if (prefund != null && prefund.moving && !busy && !_isPlacing) {
+      final steps = [
+        context.l10n.slipStepPreparingPrediction,
+        context.l10n.slipStepPlacingBet(_fiatCompanion(_amount), _outcomeSide),
+      ];
+      return Column(
+        key: const ValueKey('bet-slip-prefund-progress'),
+        mainAxisSize: MainAxisSize.min,
+        children: [action, SlipFundingSteps(steps: steps, active: 0)],
+      );
+    }
     // Stopped with the money in Investments: one line over the button,
     // which is the bet again.
     final ready = busy || _isPlacing || failed
@@ -5282,7 +5396,13 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
 
   Widget _buildPrimaryActionInner(
       AppColorsExtension c, Color selectedColor, PolymarketOutcome selected,
-      {required bool busy, required bool failed, required String busyLabel}) {
+      {required bool busy,
+      required bool failed,
+      required String busyLabel,
+      bool band = true}) {
+    // The placement's band: pulled while it places, snapped back once it
+    // placed, let go softly when it did not.
+    final bandOutcome = _placedSuccess ? RubberBandOutcome.success : null;
     final trading = ref.watch(polymarketTradingProvider);
     // Nothing to bet with, or not enough for this bet once the venue's
     // fees are counted: the button is the deposit door, never a dead
@@ -5314,6 +5434,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     if (failed) {
       return PolySlipCta(
         key: const ValueKey('bet-slip-retry'),
+        band: band,
         color: selectedColor,
         isBusy: _buyInFlight || busy,
         busyLabel: context.l10n.loading,
@@ -5448,6 +5569,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     // and a tap fills it, so the disabled bet never sits there unexplained.
     if (_belowMinimumStake) {
       return PolySlipCta(
+        band: band,
+        bandOutcome: bandOutcome,
         color: selectedColor,
         isBusy: busy || _buyInFlight,
         busyLabel: busyLabel,
@@ -5464,7 +5587,11 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     // and a tap places exactly that.
     final placeMinimum = _emptyStake;
     return PolySlipCta(
+      band: band,
+      bandOutcome: bandOutcome,
       color: selectedColor,
+      // A placement runs a few seconds: signing, the venue, its answer.
+      bandExpected: const Duration(seconds: 3),
       isBusy: busy || _buyInFlight,
       busyLabel: busyLabel,
       enabled: (placeMinimum || _amount >= _effectiveMinBetUsd) &&

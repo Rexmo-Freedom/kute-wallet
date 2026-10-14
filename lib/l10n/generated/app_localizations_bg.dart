@@ -10790,6 +10790,23 @@ class AppLocalizationsBg extends AppLocalizations {
       'Добавянето към Investments не мина. Биткойнът ти се връща.';
 
   @override
+  String get slipFundingPriceMoved => 'Цената се промени твърде бързо.';
+
+  @override
+  String get slipFundingRoundClosed =>
+      'Този рунд приключи, преди парите ти да пристигнат.';
+
+  @override
+  String slipFundingInPredictions(String amount) {
+    return 'Твоите $amount са в Прогнози. Докосни, за да опиташ пак.';
+  }
+
+  @override
+  String slipFundingInInvesting(String amount) {
+    return 'Твоите $amount са в Инвестиране. Докосни, за да опиташ пак.';
+  }
+
+  @override
   String oneBalancePlacingBet(String amount, String side, String market) {
     return 'Залагане на $amount за $side · $market';
   }

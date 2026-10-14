@@ -51,6 +51,20 @@ enum FundedOrderStage {
       this == adding || this == preparing || this == placing;
 }
 
+/// Where a funded order's money is once it stopped without placing.
+enum FundedMoneyAt {
+  /// Still in, or back in, Dollars (the venue move never left, or the
+  /// Bitcoin leg landed and stopped there): "Your $X is in Investments".
+  investments,
+
+  /// It reached the venue and stays there as its cash (available, swept
+  /// home when idle): "Your $X is in Predictions" / "in Investing".
+  venue,
+
+  /// It never left, or is coming back to, Bitcoin.
+  bitcoin,
+}
+
 /// What a funded record is for: an order (or bet) a slip places, or
 /// margin the margin sheet adds to an isolated Investing position. Both
 /// run the same funding chain; the screens name them differently.
@@ -136,6 +150,10 @@ class FundedOrderRecord {
     this.venueRowIds = const {},
     this.slow = false,
     this.reason,
+    this.stoppedAt,
+    this.moneyAt,
+    this.message,
+    this.cleared = false,
   });
 
   final String id;
@@ -157,8 +175,26 @@ class FundedOrderRecord {
   final bool slow;
 
   /// Why it stopped (a fixed code, never shown): refunded, timeout,
-  /// not_sent, maybe_sent, venue_refused, placement, interrupted.
+  /// not_sent, maybe_sent, venue_refused, placement, interrupted, and for
+  /// a placement the venue refused, the autofire's own code (price_moved,
+  /// market_closed, funds_timeout, book_unavailable, ...).
   final String? reason;
+
+  /// The step it stopped at ([FundedOrderStage.adding], `preparing` or
+  /// `placing`): the slip marks that step failed. Null for a record that
+  /// stopped with nothing to show (replaced by a newer one).
+  final FundedOrderStage? stoppedAt;
+
+  /// Where the money is now that it stopped.
+  final FundedMoneyAt? moneyAt;
+
+  /// What the venue or the rail said, in the person's language, when it
+  /// stopped (shown on the slip, never tracked).
+  final String? message;
+
+  /// The person acted on the stop (a new try on the market): the slip no
+  /// longer shows it.
+  final bool cleared;
 
   bool get fromBitcoin => addUsd > 0 || btcRowIds.isNotEmpty;
 
@@ -183,6 +219,10 @@ class FundedOrderRecord {
     Set<String>? venueRowIds,
     bool? slow,
     String? reason,
+    FundedOrderStage? stoppedAt,
+    FundedMoneyAt? moneyAt,
+    String? message,
+    bool? cleared,
   }) =>
       FundedOrderRecord(
         id: id,
@@ -195,6 +235,10 @@ class FundedOrderRecord {
         venueRowIds: venueRowIds ?? this.venueRowIds,
         slow: slow ?? this.slow,
         reason: reason ?? this.reason,
+        stoppedAt: stoppedAt ?? this.stoppedAt,
+        moneyAt: moneyAt ?? this.moneyAt,
+        message: message ?? this.message,
+        cleared: cleared ?? this.cleared,
       );
 
   Map<String, Object?> toJson() => {
@@ -208,6 +252,10 @@ class FundedOrderRecord {
         'venueRowIds': venueRowIds.toList(),
         'slow': slow,
         if (reason != null) 'reason': reason,
+        if (stoppedAt != null) 'stoppedAt': stoppedAt!.name,
+        if (moneyAt != null) 'moneyAt': moneyAt!.name,
+        if (message != null) 'message': message,
+        if (cleared) 'cleared': true,
       };
 
   static FundedOrderRecord? fromJson(Object? v) {
@@ -235,6 +283,13 @@ class FundedOrderRecord {
       venueRowIds: ids(v['venueRowIds']),
       slow: v['slow'] == true,
       reason: v['reason'] is String ? v['reason'] as String : null,
+      stoppedAt: FundedOrderStage.values
+          .where((e) => e.name == v['stoppedAt'])
+          .firstOrNull,
+      moneyAt:
+          FundedMoneyAt.values.where((e) => e.name == v['moneyAt']).firstOrNull,
+      message: v['message'] is String ? v['message'] as String : null,
+      cleared: v['cleared'] == true,
     );
   }
 }
@@ -288,7 +343,11 @@ class FundedOrdersNotifier extends Notifier<List<FundedOrderRecord>> {
                 stage: FundedOrderStage.ready,
                 reason: 'interrupted',
                 updatedAt: now,
-                slow: false)
+                slow: false,
+                // The slip shows the step it was on and that the money is
+                // (or lands) in Investments.
+                stoppedAt: r.stage,
+                moneyAt: FundedMoneyAt.investments)
             : r,
     ], now);
   }
@@ -333,7 +392,15 @@ class FundedOrdersNotifier extends Notifier<List<FundedOrderRecord>> {
             r.stage == FundedOrderStage.ready &&
             r.label.marketKey == label.marketKey &&
             r.label.kind == label.kind)
-          r.copyWith(stage: FundedOrderStage.done, updatedAt: now)
+          r.copyWith(
+              stage: FundedOrderStage.done, updatedAt: now, cleared: true)
+        else if (r.label.venue == label.venue &&
+            r.stage == FundedOrderStage.failed &&
+            !r.cleared &&
+            r.label.marketKey == label.marketKey &&
+            r.label.kind == label.kind)
+          // A new try on the market: the earlier stop is acted on.
+          r.copyWith(cleared: true, updatedAt: now)
         else
           r,
     ];
@@ -378,6 +445,33 @@ class FundedOrdersNotifier extends Notifier<List<FundedOrderRecord>> {
   void setStage(String id, FundedOrderStage stage, {String? reason}) =>
       update(id, (r) => r.copyWith(stage: stage, reason: reason));
 
+  /// [id] stopped without placing: [stage] (failed, or ready when the
+  /// money waits in Dollars for a tap), the step it stopped at (the one
+  /// it was on), where the money is and what was said. A record already
+  /// ended keeps its end.
+  void stop(
+    String id, {
+    required FundedOrderStage stage,
+    required String reason,
+    FundedMoneyAt? moneyAt,
+    String? message,
+  }) =>
+      update(id, (r) {
+        if (!r.stage.active) return r;
+        return r.copyWith(
+          stage: stage,
+          reason: reason,
+          slow: false,
+          stoppedAt: r.stage,
+          moneyAt: moneyAt,
+          message: message,
+        );
+      });
+
+  /// The person acted on [id]'s stop (tried again, or it no longer
+  /// applies): the slip stops showing it.
+  void clearStop(String id) => update(id, (r) => r.copyWith(cleared: true));
+
   void addBtcRow(String id, String rowId) {
     if (rowId.isEmpty) return;
     update(id, (r) => r.copyWith(btcRowIds: {...r.btcRowIds, rowId}));
@@ -415,11 +509,46 @@ class FundedOrdersNotifier extends Notifier<List<FundedOrderRecord>> {
       if (r.label.venue == venue &&
           r.stage == FundedOrderStage.ready &&
           r.fromBitcoin &&
+          !r.cleared &&
           r.label.kind == kind &&
           r.label.marketKey == marketKey &&
           now.difference(r.updatedAt) <= readyNoteFor) {
         return r;
       }
+    }
+    return null;
+  }
+
+  /// How long a placed record still shows its finished steps.
+  static const Duration doneStepsFor = Duration(seconds: 4);
+
+  /// How long a stopped record still shows its failed step on the slip.
+  static const Duration stopStepsFor = Duration(minutes: 30);
+
+  /// The staged progress a slip shows for the market [marketKey] on
+  /// [venue] ([kind]: an order's, or margin's): the newest record for it,
+  /// while its money is on a rail, just after it placed, or once it
+  /// stopped (until the person tries again). Null when there is nothing
+  /// to show.
+  static FundedProgress? progressOn(List<FundedOrderRecord> records,
+      OneBalanceVenue venue, String marketKey, DateTime now,
+      {FundedOrderKind kind = FundedOrderKind.order}) {
+    for (final r in records) {
+      if (r.label.venue != venue ||
+          r.label.kind != kind ||
+          r.label.marketKey != marketKey) {
+        continue;
+      }
+      final age = now.difference(r.updatedAt);
+      if (r.stage.active) return FundedProgress(r);
+      if (r.cleared) return null;
+      if (r.stage == FundedOrderStage.done) {
+        return age <= doneStepsFor ? FundedProgress(r) : null;
+      }
+      if (r.stoppedAt != null && age <= stopStepsFor) {
+        return FundedProgress(r);
+      }
+      return null;
     }
     return null;
   }
@@ -443,6 +572,54 @@ class FundedOrdersNotifier extends Notifier<List<FundedOrderRecord>> {
       if (r.btcRowIds.contains(rowId)) return r.label.venue;
     }
     return null;
+  }
+}
+
+/// A funded record as a slip's steps: the Bitcoin leg ("Adding $X to
+/// Investments", only with one), the move ("Getting your prediction
+/// ready"), the placement ("Placing $Y on Yes"), and where it is.
+@immutable
+class FundedProgress {
+  const FundedProgress(this.record);
+
+  final FundedOrderRecord record;
+
+  bool get withBitcoin => record.fromBitcoin;
+
+  /// How many steps the slip lists: three with a Bitcoin leg, else two.
+  int get stepCount => withBitcoin ? 3 : 2;
+
+  int _indexOf(FundedOrderStage stage) {
+    final offset = withBitcoin ? 0 : 1;
+    final i = switch (stage) {
+      FundedOrderStage.adding => 0,
+      FundedOrderStage.preparing => 1,
+      FundedOrderStage.placing => 2,
+      _ => 3,
+    };
+    return (i - offset).clamp(0, stepCount);
+  }
+
+  /// Placed: every step done.
+  bool get done => record.stage == FundedOrderStage.done;
+
+  /// Stopped without placing: the [active] step failed.
+  bool get failed =>
+      !record.stage.active && !done && record.stoppedAt != null;
+
+  /// The step running now (or the one that failed); [stepCount] once
+  /// every step is done.
+  int get active {
+    if (failed) return _indexOf(record.stoppedAt!).clamp(0, stepCount - 1);
+    if (done) return stepCount;
+    return _indexOf(record.stage);
+  }
+
+  /// How far along it is, 0..1, for the slip's tension: each step a
+  /// share, the last step reaching 0.9 (1 is the placement itself).
+  double get progress {
+    if (done) return 1;
+    return 0.9 * (active + 1) / stepCount;
   }
 }
 
