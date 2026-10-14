@@ -7,6 +7,7 @@
 import 'dart:async';
 
 import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart' as breez;
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/models/breez/sdk_instance.dart';
@@ -392,5 +393,67 @@ void main() {
         .thenAnswer((_) => Completer<breez.SyncWalletResponse>().future);
     expect(await usdDrainBaseUnits(sdk), BigInt.from(7250000));
     verifyNever(() => sdk.syncWallet(request: any(named: 'request')));
+  });
+
+  test(
+      'a dollar transfer that arrives through a sync shows at the Synced '
+      'event, not 1.2 s later', () {
+    fakeAsync((async) {
+      registerFallbackValue(const breez.GetInfoRequest());
+      final sdk = _Sdk();
+      final wrapper = _Wrapper();
+      final synced = StreamController<void>.broadcast();
+      addTearDown(synced.close);
+      var units = 5000000;
+      var reads = 0;
+      when(() => wrapper.instance).thenReturn(sdk);
+      when(() => wrapper.walletInfoStream)
+          .thenAnswer((_) => const Stream.empty());
+      when(() => wrapper.syncedStream).thenAnswer((_) => synced.stream);
+      when(() => sdk.getInfo(request: any(named: 'request')))
+          .thenAnswer((_) async {
+        reads++;
+        return _info({usdbTokenIdentifier: ('USDB', units)});
+      });
+      final settings = Settings(
+        currency: 'USD',
+        language: 'en',
+        btcFormat: 'sats',
+        backup: false,
+        biometricsEnabled: false,
+        bitcoinElectrumNode: '',
+        nodeType: 'Blockstream',
+        reviewDone: true,
+        activeWalletId: 'spending',
+        wallets: [WalletConfig(id: 'spending', name: 'Spending')],
+      );
+      final container = ProviderContainer(overrides: [
+        settingsProvider.overrideWith((_) => SettingsModel(settings)),
+        breezSDKProvider.overrideWith((_) async => wrapper),
+        walletTransactionCacheProvider.overrideWith((_) => _Cache({})),
+      ]);
+      addTearDown(container.dispose);
+      container.listen(usdBalanceProvider, (_, __) {});
+      async.flushMicrotasks();
+      expect(container.read(usdBalanceProvider), 5);
+      final seeded = reads;
+
+      // The sync wrote the new token balance, then raised Synced.
+      units = 15000000;
+      synced.add(null);
+      async.flushMicrotasks();
+      expect(container.read(usdBalanceProvider), 15,
+          reason: 'read at the event itself');
+      expect(async.elapsed, Duration.zero);
+
+      // A burst of Synced events costs two reads in all, not one each.
+      synced
+        ..add(null)
+        ..add(null);
+      async.elapse(kSyncedRereadSettle);
+      expect(reads, seeded + 2);
+      async.elapse(const Duration(seconds: 2));
+      expect(reads, seeded + 2);
+    });
   });
 }

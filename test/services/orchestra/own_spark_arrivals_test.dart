@@ -46,15 +46,18 @@ SwapOrder _row(
 
 void main() {
   late List<ArrivalAsset> refreshes;
+  late List<DateTime> sinces;
   late List<Completer<void>> runs;
 
   setUp(() {
     OwnSparkArrivals.reset();
     OwnSparkArrivals.clock = () => _now;
     refreshes = [];
+    sinces = [];
     runs = [];
-    OwnSparkArrivals.refresh = (asset) {
-      refreshes.add(asset);
+    OwnSparkArrivals.refresh = (arrival) {
+      refreshes.add(arrival.asset);
+      sinces.add(arrival.since);
       final c = Completer<void>();
       runs.add(c);
       return c.future;
@@ -122,6 +125,11 @@ void main() {
         _row('ord_usd', from: 'USDC', to: 'USDB', status: 'success'),
       ]);
       expect(refreshes, [ArrivalAsset.bitcoin, ArrivalAsset.dollars]);
+      // Measured from before the order's money moved: a balance the SDK
+      // event already raised still counts as this arrival.
+      final created =
+          _now.subtract(const Duration(minutes: 1)).millisecondsSinceEpoch;
+      expect(sinces.map((d) => d.millisecondsSinceEpoch), [created, created]);
       expect(OwnSparkArrivals.awaitingCredit('ord_btc'), isTrue);
       expect(OwnSparkArrivals.awaitingCredit('ord_usd'), isTrue);
 

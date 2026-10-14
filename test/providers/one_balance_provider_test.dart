@@ -1,9 +1,11 @@
 // The one-balance header state: what each input turns into.
 
+import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart' as breez;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/models/swap_order_model.dart';
+import 'package:kute/models/transactions_model.dart';
 import 'package:kute/providers/hyperliquid_account_provider.dart'
     show hyperliquidFreeUsdcProvider;
 import 'package:kute/providers/hyperliquid_trading_provider.dart';
@@ -98,6 +100,23 @@ SwapOrder _row({
       walletId: walletId,
     );
 
+UsdbTokenTransaction _dollarReceive(String id,
+        {required double usd, required DateTime at}) =>
+    UsdbTokenTransaction(
+      id: id,
+      timestamp: at,
+      isConfirmed: true,
+      details: breez.Payment(
+        id: id,
+        paymentType: breez.PaymentType.receive,
+        status: breez.PaymentStatus.completed,
+        amount: BigInt.from((usd * 1e6).round()),
+        fees: BigInt.zero,
+        timestamp: BigInt.from(at.millisecondsSinceEpoch ~/ 1000),
+        method: breez.PaymentMethod.token,
+      ),
+    );
+
 Position _position(double value) => Position(
       proxyWallet: '0xproxy',
       asset: '1',
@@ -165,6 +184,87 @@ void main() {
       ], walletId: 'mine', nowMs: nowMs);
       expect(moves, isEmpty);
     });
+
+    group('no double count while Orchestra catches up', () {
+      final sweep = _row(
+          id: 'sweep',
+          coinFrom: 'USDC.e',
+          networkFrom: 'POLYGON',
+          coinTo: 'USDB',
+          networkTo: 'SPARK',
+          withdrawalAmount: '12.4',
+          at: _now.subtract(const Duration(seconds: 20)));
+      final buy = _row(
+          id: 'buy',
+          coinFrom: 'BTC',
+          networkFrom: 'SPARK',
+          coinTo: 'USDB',
+          networkTo: 'SPARK',
+          withdrawalAmount: '20',
+          at: _now.subtract(const Duration(seconds: 15)));
+
+      test('a row leaves in flight the moment its receive is in the balance',
+          () {
+        expect(inFlightMovesFrom([sweep, buy], walletId: null, nowMs: nowMs),
+            const [
+              InFlightMove(
+                  kind: InFlightKind.fromVenue,
+                  venue: OneBalanceVenue.predictions,
+                  usd: 12.4),
+              InFlightMove(kind: InFlightKind.incomingDollars, usd: 20),
+            ]);
+        // The sweep's dollars landed (the SDK raised the payment) while
+        // Orchestra still says the order is under way.
+        final receives = <DollarReceive>[
+          (at: _now.subtract(const Duration(seconds: 2)), usd: 12.38),
+        ];
+        final moves = inFlightMovesFrom([sweep, buy],
+            walletId: null, nowMs: nowMs, dollarReceives: receives);
+        expect(moves, const [
+          InFlightMove(kind: InFlightKind.incomingDollars, usd: 20),
+        ]);
+        // Dollars before: 0. The header counts the 12.38 once.
+        expect(
+            OneBalanceState(dollarsUsd: 12.38, inFlight: moves).totalUsd,
+            closeTo(32.38, 1e-9));
+      });
+
+      test('a receive from before the row, or of another amount, is not its',
+          () {
+        final moves = inFlightMovesFrom([sweep, buy],
+            walletId: null,
+            nowMs: nowMs,
+            dollarReceives: [
+              (at: _now.subtract(const Duration(minutes: 1)), usd: 12.4),
+              (at: _now.subtract(const Duration(seconds: 1)), usd: 3),
+            ]);
+        expect(moves, hasLength(2));
+      });
+
+      test('the receive of an order that just finished stays with it', () {
+        final done = _row(
+            id: 'done',
+            coinFrom: 'USDC.e',
+            networkFrom: 'POLYGON',
+            coinTo: 'USDB',
+            networkTo: 'SPARK',
+            withdrawalAmount: '12.4',
+            status: 'success',
+            at: _now.subtract(const Duration(seconds: 30)));
+        final moves = inFlightMovesFrom([done, sweep],
+            walletId: null,
+            nowMs: nowMs,
+            dollarReceives: [
+              (at: _now.subtract(const Duration(seconds: 10)), usd: 12.4),
+            ]);
+        expect(moves, const [
+          InFlightMove(
+              kind: InFlightKind.fromVenue,
+              venue: OneBalanceVenue.predictions,
+              usd: 12.4),
+        ]);
+      });
+    });
   });
 
   group('oneBalanceProvider', () {
@@ -175,6 +275,7 @@ void main() {
       double dollars = 0,
       double hlFreeUsdc = 0,
       bool spending = true,
+      List<UsdbTokenTransaction> dollarLedger = const [],
     }) =>
         ProviderContainer(overrides: [
           hyperliquidFreeUsdcProvider.overrideWith((_) => hlFreeUsdc),
@@ -185,6 +286,7 @@ void main() {
           swapOrdersProvider.overrideWith((_) => FakeSwapOrders(rows)),
           venueSweeperProvider.overrideWith(() => _FixedSweeper(sweeper)),
           usdBalanceProvider.overrideWith((_) => dollars),
+          usdSettledTransfersProvider.overrideWith((_) => dollarLedger),
         ]);
 
     test('unknown venues count as zero and say so', () async {
@@ -262,6 +364,35 @@ void main() {
       ]);
       expect(s.waiting, {OneBalanceVenue.investing: 0.6});
       expect(s.totalUsd, closeTo(75.6, 1e-9));
+    });
+
+    test('dollars the balance already counts are not in flight too',
+        () async {
+      // The $20 from Bitcoin landed: the SDK raised the receive and the
+      // balance shows 70, while Orchestra still reports the order under
+      // way for a few more seconds.
+      final c = container(
+        dollars: 70,
+        pm: const PolymarketTradingState(
+            isAuthenticated: true, balanceKnown: true, usdcBalance: 0),
+        rows: [
+          _row(id: 'a', coinFrom: 'USDB', networkFrom: 'SPARK', coinTo: 'USDC', networkTo: 'POLYGON', depositAmount: '5'),
+          _row(id: 'b', coinFrom: 'BTC', networkFrom: 'SPARK', coinTo: 'USDB', networkTo: 'SPARK', withdrawalAmount: '20', at: _now.subtract(const Duration(seconds: 30))),
+        ],
+        dollarLedger: [_dollarReceive('rx', usd: 19.98, at: _now)],
+        hlFreeUsdc: 0.6,
+        sweeper: const VenueSweeperState(
+            waiting: {OneBalanceVenue.investing: 0.6},
+            sweeping: {OneBalanceVenue.investing}),
+      );
+      addTearDown(c.dispose);
+      await c.read(polymarketTradingProvider.future);
+      final s = c.read(oneBalanceProvider);
+      expect(s.inFlight, const [
+        InFlightMove(kind: InFlightKind.toVenue, venue: OneBalanceVenue.predictions, usd: 5),
+      ]);
+      expect(s.totalUsd, closeTo(75.6, 1e-9),
+          reason: 'the same total as while it was in flight, never 95.6');
     });
 
     test('dust is Available venue cash, never invested, never waiting',

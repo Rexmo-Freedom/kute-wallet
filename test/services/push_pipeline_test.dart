@@ -275,8 +275,9 @@ void main() {
   spark.GetInfoResponse infoWith(int sats) => spark.GetInfoResponse(
       identityPubkey: 'id', balanceSats: BigInt.from(sats), tokenBalances: {});
 
-  test('each SDK sync re-reads the bitcoin balance, once per burst',
-      () async {
+  test(
+      'each SDK sync re-reads the bitcoin balance at once, and once more '
+      'after the burst', () async {
     final events = StreamController<spark.SdkEvent>.broadcast();
     addTearDown(events.close);
     final sdk = sdkWith(events.stream, const []);
@@ -294,11 +295,13 @@ void main() {
       ..add(const spark.SdkEvent.synced())
       ..add(const spark.SdkEvent.synced());
     await flush();
-    expect(cache.shownSparkSats('spending'), 1);
-    await Future<void>.delayed(const Duration(milliseconds: 1100));
+    expect(cache.shownSparkSats('spending'), 25000,
+        reason: 'read at the first event, no debounce first');
+    await Future<void>.delayed(
+        kSyncedRereadSettle + const Duration(milliseconds: 100));
     await flush();
     expect(cache.shownSparkSats('spending'), 25000);
-    verify(() => sdk.getInfo(request: any(named: 'request'))).called(1);
+    verify(() => sdk.getInfo(request: any(named: 'request'))).called(2);
   });
 
   test('a sync re-read due after the pipeline stopped writes nothing',
@@ -313,14 +316,16 @@ void main() {
         .thenAnswer((_) async => infoWith(25000));
     events.add(const spark.SdkEvent.synced());
     await flush();
+    final cache = harness.container.read(walletBalanceCacheProvider.notifier);
+    expect(cache.shownSparkSats('spending'), 25000);
     harness.pipeline.stop();
-    await Future<void>.delayed(const Duration(milliseconds: 1100));
+    when(() => sdk.getInfo(request: any(named: 'request')))
+        .thenAnswer((_) async => infoWith(40000));
+    await Future<void>.delayed(
+        kSyncedRereadSettle + const Duration(milliseconds: 100));
     await flush();
-    expect(
-        harness.container
-            .read(walletBalanceCacheProvider.notifier)
-            .shownSparkSats('spending'),
-        1);
+    expect(cache.shownSparkSats('spending'), 25000,
+        reason: 'the second read never ran');
   });
 
   test('a listed receive the cached balance missed is caught up by a sync',

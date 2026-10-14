@@ -6,10 +6,12 @@
 // CCTP move adopted by its watcher, a standing deposit found in history.
 // Every one of them is a swap order row reaching `success` with Spark as
 // its destination, so the swap order store reports each transition here
-// ([OwnSparkArrivals.rowsChanged]) and the wallet refreshes at once: the
-// SDK's cached balance is polled, then synced if it has not risen, and
-// the reading is published to the streams the balances follow
-// (`BreezSdkSpark.syncAndRefresh`).
+// ([OwnSparkArrivals.rowsChanged]) and the wallet refreshes at once,
+// measured from the balance before the order's money moved: money the
+// SDK's own payment event already counted ends the refresh on its first
+// reading; otherwise the SDK's cached balance is polled, then synced if it
+// has not risen, and the reading is published to the streams the balances
+// follow (`BreezSdkSpark.syncAndRefresh`).
 //
 // Until that refresh has run, the row's money is not yet in the balance:
 // [OwnSparkArrivals.awaitingCredit] keeps the Activity rows that stand for
@@ -23,6 +25,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/models/breez/sdk_instance.dart';
 import 'package:kute/models/swap_order_model.dart';
 
+/// One delivery to refresh for: the balance it lands in and when its
+/// money could first have moved (the order's creation).
+typedef OwnSparkArrival = ({ArrivalAsset asset, DateTime since});
+
 abstract final class OwnSparkArrivals {
   /// Bumped whenever a row starts or stops awaiting its credit.
   static final ValueNotifier<int> revision = ValueNotifier<int>(0);
@@ -32,9 +38,12 @@ abstract final class OwnSparkArrivals {
   /// standing deposit's order); older ones are history being loaded.
   static const Duration recentWindow = Duration(hours: 6);
 
-  /// Refreshes the wallet for an arrival of [asset]. Test seam.
-  static Future<void> Function(ArrivalAsset asset) refresh =
-      (asset) => BreezSdkSpark().syncAndRefresh(asset: asset);
+  /// Refreshes the wallet for [arrival]. Test seam.
+  static Future<void> Function(OwnSparkArrival arrival) refresh =
+      _refreshWallet;
+
+  static Future<void> _refreshWallet(OwnSparkArrival arrival) => BreezSdkSpark()
+      .syncAndRefresh(asset: arrival.asset, since: arrival.since);
 
   /// Test seam: the clock [recentWindow] is measured with.
   static DateTime Function() clock = DateTime.now;
@@ -91,7 +100,10 @@ abstract final class OwnSparkArrivals {
         : ArrivalAsset.dollars;
     Future<void> run;
     try {
-      run = refresh(asset);
+      run = refresh((
+        asset: asset,
+        since: DateTime.fromMillisecondsSinceEpoch(row.timestamp),
+      ));
     } catch (_) {
       run = Future<void>.value();
     }
@@ -103,7 +115,7 @@ abstract final class OwnSparkArrivals {
   @visibleForTesting
   static void reset() {
     _awaiting.clear();
-    refresh = (asset) => BreezSdkSpark().syncAndRefresh(asset: asset);
+    refresh = _refreshWallet;
     clock = DateTime.now;
     revision.value++;
   }

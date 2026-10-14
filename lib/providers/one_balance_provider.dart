@@ -17,7 +17,10 @@
 //               (an order being funded), venue → Dollars (a sweep or a
 //               withdrawal), and dollars arriving from anywhere else
 //               (Bitcoin → Dollars, a receive, Cash App) — all under the
-//               same 30-minute age cap as the pending pool rows;
+//               same 30-minute age cap as the pending pool rows. A row
+//               bound for Dollars leaves in flight as soon as a settled
+//               receive shows its money (dollarRowsAlreadyCounted): the
+//               balance counts it from then on;
 //   waiting   = what the sweeper still owes back, from its own state;
 //   venue cash = the venues' unreserved cash the sweeper is not moving:
 //               cash a venue keeps by design (Investing until it sits
@@ -39,6 +42,7 @@
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/models/swap_order_model.dart';
+import 'package:kute/models/transactions_model.dart' show TransactionType;
 import 'package:kute/providers/one_balance_live_provider.dart';
 import 'package:kute/providers/pending_pool_deposits_provider.dart'
     show isPendingDollarsIncoming;
@@ -51,7 +55,7 @@ import 'package:kute/screens/portfolio/open_investments_screen.dart'
     show InvestmentsProduct;
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/one_balance/sweep_rules.dart'
-    show kSweepDustUsd, pendingVenueMoveOf;
+    show kSweepDustUsd, kVenueMoveMaxAge, pendingVenueMoveOf;
 
 /// The venue a [OneBalanceVenue] reads its balances as.
 InvestmentsProduct investmentsProductOf(OneBalanceVenue venue) =>
@@ -65,15 +69,92 @@ double _parse(String raw) {
   return v != null && v.isFinite && v > 0 ? v : 0;
 }
 
+/// A settled dollar receive on the spending account: when it landed and
+/// how many dollars.
+typedef DollarReceive = ({DateTime at, double usd});
+
+/// How far a dollar receive may stray from what a row's quote said would
+/// arrive and still be that row's money.
+const double kDollarArrivalMatchTolerance = 0.10;
+
+/// A receive may carry a timestamp this much before its row's own (the
+/// SDK stamps payments to the second).
+const Duration kDollarArrivalClockSkew = Duration(seconds: 10);
+
+bool _landsInDollars(SwapOrder row) =>
+    row.isOrchestra &&
+    row.coinTo.toUpperCase() == 'USDB' &&
+    row.networkTo.toUpperCase() == 'SPARK';
+
+/// Ids of the pending rows delivering dollars to the spending account whose
+/// money a settled receive in [receives] already shows, so the dollar
+/// balance counts it. Orchestra reports such an order done seconds after
+/// the wallet counted the transfer (the SDK raises the payment the moment
+/// the operators report it); until then the row would count the same
+/// dollars a second time, in flight.
+///
+/// Rows take receives oldest first, one receive each: a receive within
+/// [kDollarArrivalMatchTolerance] of the row's quoted amount, stamped no
+/// earlier than the row was created. Rows already done take theirs too,
+/// so the receive of an order that just finished is never taken for a
+/// newer pending one. Pure for the tests.
+Set<String> dollarRowsAlreadyCounted(
+  Iterable<SwapOrder> rows,
+  Iterable<DollarReceive> receives, {
+  required String? walletId,
+  required int nowMs,
+}) {
+  final open = [
+    for (final r in receives)
+      if (r.usd > 0) r,
+  ]..sort((a, b) => a.at.compareTo(b.at));
+  if (open.isEmpty) return const <String>{};
+  final candidates = [
+    for (final row in rows)
+      if (_landsInDollars(row) &&
+          (walletId == null ||
+              row.walletId == null ||
+              row.walletId == walletId) &&
+          (row.isPending || row.isComplete) &&
+          nowMs - row.timestamp <= kVenueMoveMaxAge.inMilliseconds)
+        row,
+  ]..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+  final counted = <String>{};
+  for (final row in candidates) {
+    final quoted = _parse(row.withdrawalAmount);
+    if (quoted <= 0) continue;
+    final earliest = DateTime.fromMillisecondsSinceEpoch(row.timestamp)
+        .subtract(kDollarArrivalClockSkew);
+    for (var i = 0; i < open.length; i++) {
+      final r = open[i];
+      if (r.at.isBefore(earliest)) continue;
+      if ((r.usd - quoted).abs() > quoted * kDollarArrivalMatchTolerance) {
+        continue;
+      }
+      open.removeAt(i);
+      if (row.isPending) counted.add(row.id);
+      break;
+    }
+    if (open.isEmpty) break;
+  }
+  return counted;
+}
+
 /// The in-flight rows from the exchange rows, one row per kind and venue
-/// (the header reads one figure per direction). Pure for the tests.
+/// (the header reads one figure per direction). A row whose dollars a
+/// receive in [dollarReceives] already shows is not in flight (see
+/// [dollarRowsAlreadyCounted]). Pure for the tests.
 List<InFlightMove> inFlightMovesFrom(
   Iterable<SwapOrder> rows, {
   required String? walletId,
   required int nowMs,
+  Iterable<DollarReceive> dollarReceives = const [],
 }) {
+  final counted = dollarRowsAlreadyCounted(rows, dollarReceives,
+      walletId: walletId, nowMs: nowMs);
   final sums = <(InFlightKind, OneBalanceVenue?), double>{};
   for (final row in rows) {
+    if (counted.contains(row.id)) continue;
     final move = pendingVenueMoveOf(row, walletId: walletId, nowMs: nowMs);
     if (move != null) {
       final (venue, kind) = move;
@@ -208,6 +289,13 @@ final oneBalanceProvider = Provider<OneBalanceState>((ref) {
     ref.watch(swapOrdersProvider),
     walletId: walletId,
     nowMs: DateTime.now().millisecondsSinceEpoch,
+    // A row whose dollars already reached the balance leaves in flight
+    // with that receive, not seconds later with Orchestra's status.
+    dollarReceives: [
+      for (final tx in ref.watch(usdSettledTransfersProvider))
+        if (tx.type == TransactionType.received)
+          (at: tx.timestamp, usd: tx.amount.toInt() / 1e6),
+    ],
   );
   return oneBalanceStateFrom(
     dollarsUsd: dollars,

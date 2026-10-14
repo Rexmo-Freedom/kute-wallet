@@ -44,6 +44,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/models/balance_history.dart';
 import 'package:kute/models/transactions_model.dart';
 import 'package:kute/providers/breez_config_provider.dart';
+import 'package:kute/models/breez/sdk_instance.dart' show SyncedReread;
 import 'package:kute/models/breez/shared_sync.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/transactions_provider.dart'
@@ -257,8 +258,9 @@ String usdLedgerSignature(Iterable<UsdbTokenTransaction> settled) =>
 /// The live dollar balance as the SDK reports it. Seeded with a direct
 /// `getInfo` read so the tab has a number immediately, then follows
 /// three feeds: the wallet-info stream (re-emitted after payment events
-/// the SDK raises), each Synced event (debounced re-read: an incoming
-/// transfer can arrive through a sync, which raises only Synced), and
+/// the SDK raises, an incoming dollar transfer among them), each Synced
+/// event (a read at once and one more shortly after, see [SyncedReread]:
+/// a transfer that arrives through a sync raises only Synced), and
 /// the settled dollar ledger through [UsdLedgerCatchUp], which covers a
 /// transfer that settled without either event reaching the app.
 ///
@@ -293,27 +295,24 @@ final usdSdkBalanceProvider = StreamProvider<double?>((ref) async* {
   } catch (_) {
     // Non-fatal: the feeds below carry the next reading.
   }
-  Timer? debounce;
   final infoSub = wrapper.walletInfoStream
       .listen((info) => publish(usdDollarsFromNodeInfo(info)));
-  final syncedSub = wrapper.syncedStream.listen((_) {
-    debounce?.cancel();
-    debounce = Timer(const Duration(milliseconds: 1200), () async {
-      try {
-        final info = await sdk.getInfo(request: const GetInfoRequest());
-        _debugLogUsdReading('synced', info);
-        publish(usdDollarsFromNodeInfo(info));
-      } catch (_) {
-        // The next sync, payment event or ledger change reads again.
-      }
-    });
+  final syncedReread = SyncedReread(() async {
+    try {
+      final info = await sdk.getInfo(request: const GetInfoRequest());
+      _debugLogUsdReading('synced', info);
+      publish(usdDollarsFromNodeInfo(info));
+    } catch (_) {
+      // The next sync, payment event or ledger change reads again.
+    }
   });
+  final syncedSub = wrapper.syncedStream.listen((_) => syncedReread.onSynced());
   // Money landed in Dollars: one haptic per new settled receive of this
   // session. The ledger as first read, and any history a sync or a
   // restore streams in later, is older than the session and stays quiet.
   final arrivals = IncomingPaymentGate(startedAt: DateTime.now());
   ref.listen<List<UsdbTokenTransaction>>(
-    _usdSettledTransfersProvider,
+    usdSettledTransfersProvider,
     (_, settled) {
       catchUp.onLedger(usdLedgerSignature(settled));
       if (arrivals.observe([
@@ -327,7 +326,7 @@ final usdSdkBalanceProvider = StreamProvider<double?>((ref) async* {
     fireImmediately: true,
   );
   ref.onDispose(() {
-    debounce?.cancel();
+    syncedReread.dispose();
     catchUp.dispose();
     infoSub.cancel();
     syncedSub.cancel();
@@ -337,8 +336,7 @@ final usdSdkBalanceProvider = StreamProvider<double?>((ref) async* {
 });
 
 /// Settled dollar transfers on the spending account, newest last.
-final _usdSettledTransfersProvider =
-    Provider<List<UsdbTokenTransaction>>((ref) {
+final usdSettledTransfersProvider = Provider<List<UsdbTokenTransaction>>((ref) {
   final walletId = pickSpendingWallet(ref.watch(settingsProvider))?.id;
   if (walletId == null) return const <UsdbTokenTransaction>[];
   final rows = ref
@@ -357,7 +355,7 @@ final _usdSettledTransfersProvider =
 /// answer carries no dollar entry.
 final _usdLedgerBalanceProvider = Provider<double>((ref) {
   var net = 0;
-  for (final tx in ref.watch(_usdSettledTransfersProvider)) {
+  for (final tx in ref.watch(usdSettledTransfersProvider)) {
     final units = tx.amount.toInt();
     net += tx.type == TransactionType.sent ? -units : units;
   }
@@ -381,7 +379,7 @@ final usdBalanceProvider = Provider<double>((ref) {
 /// no entry — the chart forward-fills from the previous one.
 final usdBalanceHistoryProvider = Provider<Map<DateTime, double>>((ref) {
   final current = ref.watch(usdBalanceProvider);
-  final transfers = ref.watch(_usdSettledTransfersProvider);
+  final transfers = ref.watch(usdSettledTransfersProvider);
 
   final now = DateTime.now();
   final today = DateTime(now.year, now.month, now.day);
@@ -417,7 +415,7 @@ final usdBalanceHistoryProvider = Provider<Map<DateTime, double>>((ref) {
 /// deposit an hour ago is drawn an hour ago.
 final usdBalanceStepsProvider = Provider<BalanceHistory>((ref) {
   final current = ref.watch(usdBalanceProvider);
-  final transfers = ref.watch(_usdSettledTransfersProvider);
+  final transfers = ref.watch(usdSettledTransfersProvider);
   // Newest first, `running` is the balance right after the transfer
   // being visited; undoing it gives the balance before.
   var running = current;

@@ -34,6 +34,10 @@ class BackgroundSyncService {
 
   Timer? _timer;
   bool _isSyncing = false;
+
+  /// Set when [syncNow] is asked for while a sync runs: one more runs as
+  /// soon as it ends.
+  bool _syncNowPending = false;
   ProviderContainer? _container;
 
   int _generation = 0;
@@ -182,9 +186,16 @@ class BackgroundSyncService {
     _startForCurrentWallet();
   }
 
-  /// Force an immediate sync (e.g. after a payment succeeds).
-  /// Skips if a sync is already running.
+  /// Force an immediate sync (e.g. after a payment succeeds or an order
+  /// is placed). When a sync is already running, one more runs as soon as
+  /// it ends instead of waiting for the loop's next tick: the running one
+  /// may have read the order's status before it moved. Requests made
+  /// meanwhile share that one run.
   void syncNow() {
+    if (_isSyncing) {
+      _syncNowPending = true;
+      return;
+    }
     _runSync();
   }
 
@@ -688,6 +699,7 @@ class BackgroundSyncService {
     _polymarketPipeline.stop();
     _stopExternalAddressSync();
     _isSyncing = false;
+    _syncNowPending = false;
     _lastRestSync = null;
   }
 
@@ -787,6 +799,10 @@ class BackgroundSyncService {
     } finally {
       if (_generation == gen) {
         _isSyncing = false;
+        if (_syncNowPending) {
+          _syncNowPending = false;
+          unawaited(_runSync());
+        }
       }
     }
   }

@@ -39,6 +39,7 @@ import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/models/transactions_model.dart';
 import 'package:kute/models/breez/deposit_update.dart';
+import 'package:kute/models/breez/sdk_instance.dart' show SyncedReread;
 import 'package:kute/models/breez/shared_sync.dart';
 import 'package:kute/providers/address_provider.dart';
 import 'package:kute/providers/balance_provider.dart';
@@ -209,14 +210,12 @@ class PushPipeline implements SyncPipeline {
   int _depositRevision = 0;
   Timer? _retryTimer;
   Timer? _syncDebounce;
-  Timer? _syncedBalanceRead;
+  SyncedReread? _syncedBalanceRead;
   int _retryAttempt = 0;
   int _generation = 0;
 
   static const Duration _syncDebounceWindow = Duration(milliseconds: 500);
 
-  /// Coalesces a burst of SDK `synced` events into one balance read.
-  static const Duration _syncedReadDebounce = Duration(seconds: 1);
   static const int _maxBackoffShift = 5; // 1, 2, 4, 8, 16, 32 s ceiling
 
   /// Hashed deposit references ([TrackingService.orderRef] of
@@ -253,7 +252,7 @@ class PushPipeline implements SyncPipeline {
     _receivesSubscription = null;
     _receivesCatchUp?.dispose();
     _receivesCatchUp = null;
-    _syncedBalanceRead?.cancel();
+    _syncedBalanceRead?.dispose();
     _syncedBalanceRead = null;
     _retryTimer?.cancel();
     _retryTimer = null;
@@ -289,7 +288,7 @@ class PushPipeline implements SyncPipeline {
     _receivesSubscription = null;
     _receivesCatchUp?.dispose();
     _receivesCatchUp = null;
-    _syncedBalanceRead?.cancel();
+    _syncedBalanceRead?.dispose();
     _syncedBalanceRead = null;
     _retryTimer?.cancel();
     _retryTimer = null;
@@ -426,9 +425,9 @@ class PushPipeline implements SyncPipeline {
       // event the app re-reads on: before this, only payment events and
       // the 2 s poll (which runs on the sync routes only) re-read it, so
       // a receive that arrived through a sync stayed off the balance on
-      // any other screen. Debounced so a burst of syncs is one read;
-      // applied as a poll read, so the stream-freshness and zero guards
-      // still apply.
+      // any other screen. Read at once and once more shortly after the
+      // burst (SyncedReread), applied as a poll read, so the
+      // stream-freshness and zero guards still apply.
       Future<void> readBalanceAfterSync() async {
         try {
           final info = await sdk.getInfo(
@@ -442,14 +441,15 @@ class PushPipeline implements SyncPipeline {
         }
       }
 
+      final syncedBalanceRead = SyncedReread(() {
+        if (isCurrent()) unawaited(readBalanceAfterSync());
+      });
+      _syncedBalanceRead = syncedBalanceRead;
       _syncedSubscription = sdkWrapper.syncedStream.listen(
         (_) {
           if (!followsSdk()) return;
           unawaited(hydrateDeposits());
-          _syncedBalanceRead?.cancel();
-          _syncedBalanceRead = Timer(_syncedReadDebounce, () {
-            if (isCurrent()) unawaited(readBalanceAfterSync());
-          });
+          syncedBalanceRead.onSynced();
         },
         onError: (_) {},
       );

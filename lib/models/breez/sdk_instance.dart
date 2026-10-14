@@ -55,6 +55,7 @@ class BreezSdkSpark {
     final generation = ++_generation;
     final previous = _instance;
     _instance = null;
+    _forgetWalletReadings();
     final cancelled = _unsubscribeFromSdkStreams();
     final result = _lifecycle.then((_) async {
       await cancelled;
@@ -113,6 +114,7 @@ class BreezSdkSpark {
     ++_generation;
     final previous = _instance;
     _instance = null;
+    _forgetWalletReadings();
     final cancelled = _unsubscribeFromSdkStreams();
     // Riverpod disposal is synchronous. Queue native teardown so a subsequent
     // connect cannot overlap the old Rust runtime's asynchronous disconnect.
@@ -122,6 +124,13 @@ class BreezSdkSpark {
     });
     _lifecycle =
         result.then<void>((_) {}, onError: (Object _, StackTrace __) {});
+  }
+
+  /// The wallet is going away: its balance readings and the arrivals
+  /// waiting on it mean nothing for the next one.
+  void _forgetWalletReadings() {
+    _balanceLog.clear();
+    _arrivals.cancelAll();
   }
 
   Future<void> _retireSdk(spark.BreezSdk sdk) async {
@@ -216,58 +225,83 @@ class BreezSdkSpark {
     if (identical(_instance, sdk)) await _fetchWalletData(sdk);
   }
 
-  late final ArrivalRefreshQueue _arrivalRefreshes =
-      ArrivalRefreshQueue(_refreshForArrival);
+  /// What the app read of the connected wallet's balances, for the
+  /// baseline of an arrival (see [syncAndRefresh]).
+  final ArrivalBalanceLog _balanceLog = ArrivalBalanceLog();
+
+  late final ArrivalRefresher _arrivals = ArrivalRefresher(
+    readBalances: () async {
+      final sdk = _instance;
+      if (sdk == null) throw StateError('No SDK');
+      final info = await sdk.getInfo(request: const spark.GetInfoRequest());
+      // Another wallet connected meanwhile: not this wallet's reading.
+      if (!identical(_instance, sdk)) throw StateError('SDK replaced');
+      final balances = balancesOf(info);
+      _balanceLog.record(balances, DateTime.now());
+      return balances;
+    },
+    sync: () async {
+      final sdk = _instance;
+      if (sdk == null) return;
+      try {
+        await sharedSyncWallet(sdk).timeout(const Duration(seconds: 20));
+      } catch (_) {
+        // Read what the cache holds anyway.
+      }
+    },
+    publish: () async {
+      final sdk = _instance;
+      if (sdk != null) await _fetchWalletData(sdk);
+    },
+  );
 
   /// Re-reads the connected wallet's balance and payments for money known
   /// to have just landed (an Orchestra order delivering to this wallet
-  /// completed). The operator stream normally updates the SDK's cached
-  /// balance within a second or so of the transfer, so the cache is polled
-  /// first (see [syncUntilBalanceRises]); only when [asset]'s balance has
-  /// not risen does one shared wallet sync run. A sync blocks the SDK's
-  /// runtime loop, so syncing first would hold back the very stream update
-  /// being waited for. The final reading publishes to the wallet-info and
-  /// payments streams the balance providers follow.
+  /// completed), and publishes the reading to the wallet-info and payments
+  /// streams the balance providers follow once [asset]'s balance shows it.
   ///
-  /// One run at a time; an arrival reported while one runs gets a run of
-  /// its own right after it (see [ArrivalRefreshQueue]), so a bitcoin
-  /// arrival never ends on a dollar one that landed first, nor on a run
-  /// whose starting balance predates it. Never throws.
-  Future<void> syncAndRefresh({ArrivalAsset asset = ArrivalAsset.any}) {
+  /// [since] is when the money could first have moved (the order's
+  /// creation). The arrival is measured from the lowest balance read since
+  /// then (at most [kArrivalLookback] back, see [ArrivalBalanceLog]), so
+  /// money the SDK's own payment event already counted (it usually lands
+  /// before Orchestra reports the order done) ends the refresh on its
+  /// first reading: no polling, no sync. Otherwise the cached balance is
+  /// polled (the operator stream normally lands the transfer within a
+  /// second or so) and only when it has not risen does one shared wallet
+  /// sync run; a sync blocks the SDK's runtime loop, so syncing first
+  /// would hold back the very stream update being waited for.
+  ///
+  /// Concurrent arrivals share one poll ([ArrivalRefresher]), each with
+  /// its own baseline and asset, so a bitcoin arrival never ends on a
+  /// dollar one, and a second arrival never waits for the first one's
+  /// run to finish. Never throws.
+  Future<void> syncAndRefresh({
+    ArrivalAsset asset = ArrivalAsset.any,
+    DateTime? since,
+  }) {
     if (_instance == null) return Future<void>.value();
-    return _arrivalRefreshes.request(asset);
-  }
-
-  Future<void> _refreshForArrival(ArrivalAsset asset) async {
-    final sdk = _instance;
-    if (sdk == null) return;
-    try {
-      await syncUntilBalanceRises(
-        asset: asset,
-        readBalances: () async {
-          // Another wallet connected meanwhile: stop.
-          if (!identical(_instance, sdk)) throw StateError('SDK replaced');
-          return balancesOf(
-              await sdk.getInfo(request: const spark.GetInfoRequest()));
-        },
-        sync: () async {
-          if (!identical(_instance, sdk)) throw StateError('SDK replaced');
-          try {
-            await sharedSyncWallet(sdk).timeout(const Duration(seconds: 20));
-          } catch (_) {
-            // Read what the cache holds anyway.
-          }
-        },
-      );
-    } catch (_) {}
-    if (identical(_instance, sdk)) await _fetchWalletData(sdk);
+    Map<String, BigInt>? baseline;
+    if (since != null) {
+      final now = DateTime.now();
+      final floor = now.subtract(kArrivalLookback);
+      final from = since.isBefore(floor)
+          ? floor
+          : since.isAfter(now)
+              ? now
+              : since;
+      baseline = _balanceLog.baselineSince(from);
+    }
+    return _arrivals.request(asset: asset, baseline: baseline);
   }
 
   Future<spark.GetInfoResponse> _getInfo(spark.BreezSdk sdk) async {
     // Spark requires a request object for getInfo
     const req = spark.GetInfoRequest();
     final walletInfo = await sdk.getInfo(request: req);
-    if (identical(_instance, sdk)) _walletInfoController.add(walletInfo);
+    if (identical(_instance, sdk)) {
+      _balanceLog.record(balancesOf(walletInfo), DateTime.now());
+      _walletInfoController.add(walletInfo);
+    }
     return walletInfo;
   }
 
@@ -364,9 +398,17 @@ class BreezSdkSpark {
           // internal SDK settlement, surfacing wildly inconsistent
           // balance values. Only payment-class events get an active
           // refresh here; `synced` only logs and signals listeners
-          // (PushPipeline re-reads deposits and, debounced, the
-          // bitcoin balance), and the periodic 2 s poll covers
-          // anything else.
+          // (PushPipeline re-reads deposits and the bitcoin balance,
+          // the Dollars balance re-reads too, see SyncedReread), and
+          // the periodic 2 s poll covers anything else.
+          //
+          // Incoming dollars (USDB token transfers) are payment-class
+          // too: in breez 0.26 the operator stream's TokenTransaction
+          // event is turned into a Payment, the SDK refreshes its cached
+          // sats and token balances, then raises `paymentSucceeded`
+          // (or `paymentPending`). The re-read below therefore already
+          // carries the new Dollars balance to `usdSdkBalanceProvider`
+          // through the wallet-info stream.
           synced: (_) {
             _syncedSdk = sdk;
             _logStreamController.add(const spark.LogEntry(
@@ -495,6 +537,37 @@ const Duration kArrivalPollInterval = Duration(milliseconds: 300);
 /// asks for a wallet sync.
 const Duration kArrivalPollWindow = Duration(seconds: 3);
 
+/// How long after the last `synced` event of a burst [SyncedReread] reads
+/// the balance a second time.
+const Duration kSyncedRereadSettle = Duration(milliseconds: 300);
+
+/// Re-reads a balance after the SDK's `synced` events: at once on the
+/// first event of a burst (the SDK writes its cached balances before it
+/// raises `synced`, so that reading already shows what the sync found),
+/// and once more [settle] after the last one, in case a write landed just
+/// after. Two reads per burst, however many events it has.
+class SyncedReread {
+  SyncedReread(this._read, {this.settle = kSyncedRereadSettle});
+
+  final void Function() _read;
+  final Duration settle;
+  Timer? _trailing;
+
+  void onSynced() {
+    if (_trailing == null) _read();
+    _trailing?.cancel();
+    _trailing = Timer(settle, () {
+      _trailing = null;
+      _read();
+    });
+  }
+
+  void dispose() {
+    _trailing?.cancel();
+    _trailing = null;
+  }
+}
+
 /// The SDK tracing filter for debug builds: warnings, plus the wallet sync
 /// steps and the per-operator query failures.
 const String kSdkSyncDebugLogFilter =
@@ -534,84 +607,293 @@ enum ArrivalAsset {
   ArrivalAsset merge(ArrivalAsset other) => this == other ? this : any;
 }
 
-/// Runs arrival refreshes one at a time. A request made while one runs
-/// does not share that run (its starting balance may predate the new
-/// arrival, and it may be waiting on another asset): one more run follows
-/// it, for every request made meanwhile, and their futures complete once
-/// that run has. Errors of a run are swallowed.
-class ArrivalRefreshQueue {
-  ArrivalRefreshQueue(this._run);
+/// How far back [BreezSdkSpark.syncAndRefresh] looks for the balance an
+/// arrival is measured from (see [ArrivalBalanceLog.baselineSince]). An
+/// Orchestra row reports success seconds after the wallet counted the
+/// transfer; this leaves room for a status poll that ran late (the app
+/// was in the background) while keeping unrelated receives of the same
+/// asset out of the comparison.
+const Duration kArrivalLookback = Duration(minutes: 10);
 
-  final Future<void> Function(ArrivalAsset asset) _run;
-  Future<void>? _current;
-  ArrivalAsset? _next;
+/// The balances the app read from the connected SDK, as they changed:
+/// one entry per reading that differed from the one before it. The
+/// balance at a moment is the last entry at or before it.
+///
+/// [baselineSince] gives an arrival the balance from before its money
+/// moved, so a refresh asked for after the SDK's own event already
+/// counted the transfer sees the rise at once instead of starting from a
+/// reading that includes it.
+class ArrivalBalanceLog {
+  ArrivalBalanceLog(
+      {this.keep = const Duration(hours: 6), this.maxEntries = 256});
 
-  Future<void> request(ArrivalAsset asset) {
-    final current = _current;
-    if (current != null) {
-      _next = _next?.merge(asset) ?? asset;
-      return current;
+  /// Entries older than this are dropped (the one in effect at the cutoff
+  /// is kept).
+  final Duration keep;
+  final int maxEntries;
+
+  final List<({DateTime at, Map<String, BigInt> balances})> _entries = [];
+
+  /// Records a reading of every balance ([balancesOf]) taken at [at].
+  void record(Map<String, BigInt> balances, DateTime at) {
+    if (_entries.isNotEmpty && mapEquals(_entries.last.balances, balances)) {
+      return;
     }
-    return _current = _drain(asset).whenComplete(() => _current = null);
+    _entries.add((at: at, balances: Map.unmodifiable(balances)));
+    final cutoff = at.subtract(keep);
+    // Keep the newest entry at or before the cutoff: it is the balance in
+    // effect there.
+    while (_entries.length > 1 &&
+        (_entries.length > maxEntries || !_entries[1].at.isAfter(cutoff))) {
+      _entries.removeAt(0);
+    }
   }
 
-  Future<void> _drain(ArrivalAsset first) async {
-    ArrivalAsset? asset = first;
-    while (asset != null) {
+  /// The lowest balance, key by key, in effect at any moment from [since]
+  /// until now: the reading in effect at [since] and every later one. A
+  /// spend after [since] lowers it; an arrival after [since] does not
+  /// raise it. Null when nothing has been read yet.
+  Map<String, BigInt>? baselineSince(DateTime since) {
+    if (_entries.isEmpty) return null;
+    var first = 0;
+    for (var i = 0; i < _entries.length; i++) {
+      if (_entries[i].at.isAfter(since)) break;
+      first = i;
+    }
+    final low = <String, BigInt>{};
+    final keys = <String>{
+      for (var i = first; i < _entries.length; i++)
+        ..._entries[i].balances.keys,
+    };
+    for (final key in keys) {
+      BigInt? min;
+      for (var i = first; i < _entries.length; i++) {
+        // A balance missing from a reading is zero.
+        final v = _entries[i].balances[key] ?? BigInt.zero;
+        if (min == null || v < min) min = v;
+      }
+      low[key] = min!;
+    }
+    return low;
+  }
+
+  void clear() => _entries.clear();
+}
+
+class _ArrivalWaiter {
+  _ArrivalWaiter(this.asset, this.baseline, this.pollsLeft);
+
+  final ArrivalAsset asset;
+  Map<String, BigInt>? baseline;
+  int pollsLeft;
+  final Completer<bool> done = Completer<bool>();
+
+  bool roseIn(Map<String, BigInt> balances) {
+    final base = baseline;
+    if (base == null) return false;
+    return balances.entries.any(
+        (e) => asset.counts(e.key) && e.value > (base[e.key] ?? BigInt.zero));
+  }
+}
+
+/// Waits for expected arrivals in the wallet's cached balance, every
+/// request sharing one poll.
+///
+/// A request waits for some balance of its [ArrivalAsset] to rise above
+/// its baseline: the one its caller passes (the balance from before the
+/// money moved, see [ArrivalBalanceLog]), else the latest reading of the
+/// running poll, else the poll's next reading. While any request waits,
+/// the cache is read every [pollInterval]; one reading settles every
+/// request it shows a rise for, at once, so a request whose money is
+/// already counted ends on the first reading, with no wait and no sync.
+/// A request that has seen no rise after [pollWindow] of polls (or had
+/// nothing to compare against) asks for one [sync], shared by every
+/// request due at that moment, and ends on the reading after it.
+///
+/// A request made while the poll runs joins it (no queue behind the
+/// running one) with its own baseline and its own window. Whenever
+/// requests end, [publish] runs once before their futures complete, so
+/// the reading reaches the UI first. Never throws.
+class ArrivalRefresher {
+  ArrivalRefresher({
+    required this.readBalances,
+    required this.sync,
+    Future<void> Function()? publish,
+    this.pollInterval = kArrivalPollInterval,
+    this.pollWindow = kArrivalPollWindow,
+    Future<void> Function(Duration delay) sleep = _sleepFor,
+  })  : _publish = publish,
+        _sleep = sleep;
+
+  final Future<Map<String, BigInt>> Function() readBalances;
+  final Future<void> Function() sync;
+  final Future<void> Function()? _publish;
+  final Duration pollInterval;
+  final Duration pollWindow;
+  final Future<void> Function(Duration delay) _sleep;
+
+  final List<_ArrivalWaiter> _waiters = [];
+  int _generation = 0;
+  int? _loopGeneration;
+  Map<String, BigInt>? _lastReading;
+
+  int get _pollsPerWindow => pollInterval > Duration.zero
+      ? pollWindow.inMicroseconds ~/ pollInterval.inMicroseconds
+      : 0;
+
+  /// Requests waiting now.
+  @visibleForTesting
+  int get waiting => _waiters.length;
+
+  /// Waits for an arrival of [asset] above [baseline]. Completes with
+  /// whether one rose.
+  Future<bool> request({
+    ArrivalAsset asset = ArrivalAsset.any,
+    Map<String, BigInt>? baseline,
+  }) {
+    final running = _loopGeneration == _generation;
+    final waiter = _ArrivalWaiter(
+        asset, baseline ?? (running ? _lastReading : null), _pollsPerWindow);
+    _waiters.add(waiter);
+    if (!running) {
+      _loopGeneration = _generation;
+      unawaited(_loop(_generation));
+    } else if (waiter.baseline != null) {
+      unawaited(_probe(waiter, _generation));
+    }
+    return waiter.done.future;
+  }
+
+  /// Ends every request with false (the wallet they wait on is gone).
+  void cancelAll() {
+    _generation++;
+    _lastReading = null;
+    final dropped = List.of(_waiters);
+    _waiters.clear();
+    for (final w in dropped) {
+      w.done.complete(false);
+    }
+  }
+
+  Future<Map<String, BigInt>?> _read(int gen) async {
+    try {
+      final balances = await readBalances();
+      if (gen == _generation) _lastReading = balances;
+      return balances;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Ends the requests [balances] shows a rise for, and [giveUp] (their
+  /// sync is done), after one [_publish]. Gives the others that still have
+  /// no baseline this reading.
+  Future<void> _settle(
+    Map<String, BigInt>? balances,
+    int gen, {
+    List<_ArrivalWaiter> giveUp = const [],
+  }) async {
+    final ended = <(_ArrivalWaiter, bool)>[];
+    for (final w in _waiters) {
+      if (balances != null && w.roseIn(balances)) {
+        ended.add((w, true));
+      } else if (giveUp.contains(w)) {
+        ended.add((w, false));
+      } else if (w.baseline == null && balances != null) {
+        w.baseline = balances;
+      }
+    }
+    await _end(ended);
+  }
+
+  /// Ends [ended], after one [_publish] when there are any.
+  Future<void> _end(List<(_ArrivalWaiter, bool)> ended) async {
+    if (ended.isEmpty) return;
+    for (final (w, _) in ended) {
+      _waiters.remove(w);
+    }
+    final publish = _publish;
+    if (publish != null) {
       try {
-        await _run(asset);
+        await publish();
       } catch (_) {}
-      asset = _next;
-      _next = null;
+    }
+    for (final (w, rose) in ended) {
+      if (!w.done.isCompleted) w.done.complete(rose);
+    }
+  }
+
+  /// One reading at once for [w], a request that joined the running poll
+  /// with a baseline: its money may be counted already, and the poll may
+  /// be sleeping or syncing.
+  Future<void> _probe(_ArrivalWaiter w, int gen) async {
+    final reading = await _read(gen);
+    if (gen != _generation || reading == null) return;
+    if (!_waiters.contains(w) || !w.roseIn(reading)) return;
+    await _end([(w, true)]);
+  }
+
+  Future<void> _loop(int gen) async {
+    bool live() => gen == _generation;
+    try {
+      while (live() && _waiters.isNotEmpty) {
+        final reading = await _read(gen);
+        if (!live()) break;
+        await _settle(reading, gen);
+        if (!live() || _waiters.isEmpty) break;
+        final due = [
+          for (final w in _waiters)
+            if (w.baseline == null || w.pollsLeft <= 0) w,
+        ];
+        if (due.isNotEmpty) {
+          try {
+            await sync();
+          } catch (_) {
+            // Read what the cache holds anyway.
+          }
+          if (!live()) break;
+          final after = await _read(gen);
+          if (!live()) break;
+          await _settle(after, gen, giveUp: due);
+          if (!live() || _waiters.isEmpty) break;
+        }
+        final polled = List.of(_waiters);
+        await _sleep(pollInterval);
+        for (final w in polled) {
+          w.pollsLeft--;
+        }
+      }
+    } finally {
+      if (_loopGeneration == gen) {
+        _loopGeneration = null;
+        _lastReading = null;
+      }
     }
   }
 }
 
-/// Waits for some balance [readBalances] reports to rise above the one it
-/// reported first ([asset] says which balances count). Polls every [pollInterval] for up to [pollWindow] (the
-/// operator stream usually lands an incoming transfer in the SDK's cache
-/// within that); only when nothing has risen by then runs [sync] once and
-/// reads again. Returns whether one rose. A failed read counts as not risen
-/// yet; when even the first read fails there is nothing to compare, so it
-/// syncs once and returns false.
+/// Waits for some balance [readBalances] reports to rise above [baseline]
+/// (else the first reading); [asset] says which balances count. One
+/// request of an [ArrivalRefresher]: polls every [pollInterval] for up to
+/// [pollWindow], then runs [sync] once and reads again. Returns whether
+/// one rose. A failed read counts as not risen yet; when even the first
+/// read fails and there is no [baseline], there is nothing to compare, so
+/// it syncs once and returns false.
 Future<bool> syncUntilBalanceRises({
   required Future<Map<String, BigInt>> Function() readBalances,
   ArrivalAsset asset = ArrivalAsset.any,
+  Map<String, BigInt>? baseline,
   required Future<void> Function() sync,
   Duration pollInterval = kArrivalPollInterval,
   Duration pollWindow = kArrivalPollWindow,
   Future<void> Function(Duration delay) sleep = _sleepFor,
-}) async {
-  Map<String, BigInt>? before;
-  try {
-    before = await readBalances();
-  } catch (_) {
-    before = null;
-  }
-  final baseline = before;
-  if (baseline == null) {
-    await sync();
-    return false;
-  }
-  Future<bool> rose() async {
-    try {
-      final after = await readBalances();
-      return after.entries.any((e) =>
-          asset.counts(e.key) && e.value > (baseline[e.key] ?? BigInt.zero));
-    } catch (_) {
-      return false;
-    }
-  }
-
-  final polls = pollInterval > Duration.zero
-      ? pollWindow.inMicroseconds ~/ pollInterval.inMicroseconds
-      : 0;
-  for (var i = 0; i < polls; i++) {
-    await sleep(pollInterval);
-    if (await rose()) return true;
-  }
-  await sync();
-  return rose();
-}
+}) =>
+    ArrivalRefresher(
+      readBalances: readBalances,
+      sync: sync,
+      pollInterval: pollInterval,
+      pollWindow: pollWindow,
+      sleep: sleep,
+    ).request(asset: asset, baseline: baseline);
 
 Future<void> _sleepFor(Duration d) => Future<void>.delayed(d);
