@@ -48,7 +48,7 @@ import 'package:kute/providers/balance_provider.dart'
 import 'package:kute/providers/breez_config_provider.dart'
     show breezSDKProvider;
 import 'package:kute/providers/currency_conversions_provider.dart'
-    show selectedCurrencyProvider;
+    show currencyProvider, selectedCurrencyProvider;
 import 'package:kute/providers/pending_hyperliquid_order_provider.dart'
     show
         PendingHlOrderIntent,
@@ -609,74 +609,270 @@ final bitcoinFundedOrderRunnerProvider = Provider<BitcoinFundedOrderRunner>(
 @visibleForTesting
 Future<double?> Function(int sats)? debugBitcoinLegEstimate;
 
-/// The spending wallet's bitcoin and price, and the leg [dollarsShortUsd]
-/// needs, sized on the route's own estimate when it answers within a few
-/// seconds. A read: nothing is quoted or moved.
-Future<BitcoinLegSizing> sizeBitcoinLegFor(
-  T Function<T>(ProviderListenable<T> provider) read, {
-  required double dollarsShortUsd,
-}) async {
+/// Test seam: stands in for the fresh read of the spending wallet's
+/// bitcoin (the SDK's `getInfo`) and the bitcoin price (a rates refresh).
+/// Null from it means nothing could be read.
+@visibleForTesting
+Future<SpendingBitcoin?> Function()? debugFreshSpendingBitcoin;
+
+/// The spending wallet's Spark bitcoin, in sats, and the app's bitcoin
+/// price in dollars. A read, never sent anywhere.
+typedef SpendingBitcoin = ({int sats, double usdPerBtc});
+
+/// A bitcoin price a leg can be sized on. The rates read before their BTC
+/// entry is known value 1 BTC at about $1 (`CurrencyState.convert`),
+/// which is no price at all.
+bool isUsableUsdPerBtc(double usdPerBtc) =>
+    usdPerBtc.isFinite && usdPerBtc > 1000 && usdPerBtc < 10000000;
+
+/// The spending wallet's bitcoin and price as the app holds them now (the
+/// balance cache, send holds applied; the rates). Zero when unknown.
+SpendingBitcoin cachedSpendingBitcoin(
+    T Function<T>(ProviderListenable<T> provider) read) {
   var rate = 0.0;
   var sats = 0;
   try {
     rate = read(selectedCurrencyProvider('USD')).toDouble();
+  } catch (_) {}
+  try {
     final spending = pickSpendingWallet(read(settingsProvider));
     sats = spending == null
         ? 0
         : read(walletBalanceCacheProvider)[spending.id]?.sparkBitcoinbalance ??
             0;
   } catch (_) {}
-  final first = BitcoinLegRules.size(
-      dollarsShortUsd: dollarsShortUsd, usdPerBtc: rate, availableSats: sats);
-  final plan = first.plan;
-  if (plan == null) return first;
-  double? estimatedOut;
+  return (sats: sats, usdPerBtc: isUsableUsdPerBtc(rate) ? rate : 0.0);
+}
+
+/// The spending wallet's bitcoin read fresh, for a tap whose cached
+/// figures do not cover the leg (the balance not synced yet on a cold
+/// start, the price not loaded): the SDK's own `getInfo`, written through
+/// the balance cache so its send holds still apply, and a rates refresh
+/// when there is no usable price. Null when there is no spending wallet.
+/// Never throws.
+Future<SpendingBitcoin?> freshSpendingBitcoin(
+    T Function<T>(ProviderListenable<T> provider) read) async {
+  final seam = debugFreshSpendingBitcoin;
+  if (seam != null) return seam();
+  String? walletId;
+  try {
+    walletId = pickSpendingWallet(read(settingsProvider))?.id;
+  } catch (_) {}
+  if (walletId == null || walletId.isEmpty) return null;
+  final spendingId = walletId;
+  final cached = cachedSpendingBitcoin(read);
+  Future<void> refreshPrice() async {
+    try {
+      await read(currencyProvider.notifier)
+          .updateRates()
+          .timeout(const Duration(seconds: 6));
+    } catch (_) {}
+  }
+
+  Future<void> refreshSats() async {
+    try {
+      final wrapper = await read(breezSDKProvider.future)
+          .timeout(const Duration(seconds: 8));
+      final sdk = wrapper.instance;
+      if (sdk == null) return;
+      final info = await sdk
+          .getInfo(request: const GetInfoRequest())
+          .timeout(const Duration(seconds: 4));
+      // Only the wallet that was asked about.
+      if (pickSpendingWallet(read(settingsProvider))?.id != spendingId) return;
+      read(walletBalanceCacheProvider.notifier)
+          .updateSparkBitcoinbalance(spendingId, info.balanceSats.toInt());
+    } catch (_) {}
+  }
+
+  await Future.wait<void>([
+    if (!isUsableUsdPerBtc(cached.usdPerBtc)) refreshPrice(),
+    refreshSats(),
+  ]);
+  return cachedSpendingBitcoin(read);
+}
+
+/// The route's estimate of what [sats] of spending bitcoin land in
+/// Dollars, or null when it does not answer within a few seconds.
+Future<double?> _bitcoinLegEstimate(int sats) async {
   try {
     final seam = debugBitcoinLegEstimate;
-    if (seam != null) {
-      estimatedOut = await seam(plan.sats);
-    } else {
-      final result = await OrchestraService.getEstimate(
-        sourceChain: 'spark',
-        sourceAsset: 'BTC',
-        destinationChain: kOrchestraUsdChain,
-        destinationAsset: kOrchestraUsdAssetCode,
-        amount: plan.sats.toString(),
-      ).timeout(const Duration(seconds: 4));
-      final OrchestraEstimate? est = result.data;
-      if (est != null) {
-        estimatedOut = orchestraAmountToDouble(
-            est.estimatedOut, kOrchestraUsdAssetCode,
-            chain: kOrchestraUsdChain);
-      }
-    }
+    if (seam != null) return await seam(sats);
+    final result = await OrchestraService.getEstimate(
+      sourceChain: 'spark',
+      sourceAsset: 'BTC',
+      destinationChain: kOrchestraUsdChain,
+      destinationAsset: kOrchestraUsdAssetCode,
+      amount: sats.toString(),
+    ).timeout(const Duration(seconds: 4));
+    final OrchestraEstimate? est = result.data;
+    if (est == null) return null;
+    return orchestraAmountToDouble(est.estimatedOut, kOrchestraUsdAssetCode,
+        chain: kOrchestraUsdChain);
   } catch (_) {
-    estimatedOut = null;
+    return null;
   }
-  if (estimatedOut == null || estimatedOut <= 0) return first;
+}
+
+/// The leg [dollarsShortUsd] needs from [wallet]: sized on the route's own
+/// estimate for that leg (its real spread, with the arrival buffer), or on
+/// [BitcoinLegRules.fallbackSpread] only when the estimate does not
+/// answer. The estimate is asked whether or not the fallback would fit,
+/// so bitcoin that covers the leg at the route's real price is never
+/// refused for a margin.
+Future<BitcoinLegSizing> _sizeOn(
+    SpendingBitcoin wallet, double dollarsShortUsd) async {
+  if (wallet.sats <= 0) {
+    return const BitcoinLegSizing.refused(
+        BitcoinLegRefusal.insufficientBitcoin);
+  }
+  final rate = wallet.usdPerBtc;
+  if (!isUsableUsdPerBtc(rate)) {
+    return const BitcoinLegSizing.refused(BitcoinLegRefusal.noPrice);
+  }
+  final target = BitcoinLegRules.targetUsd(dollarsShortUsd);
+  if (target <= 0) {
+    return const BitcoinLegSizing.refused(
+        BitcoinLegRefusal.insufficientBitcoin);
+  }
+  // Asked at what the fallback would send: an estimate is a read and
+  // never needs the sats to be there.
+  final probe = BitcoinLegRules.probeSats(target, usdPerBtc: rate);
+  final estimatedOut = await _bitcoinLegEstimate(probe);
   return BitcoinLegRules.size(
     dollarsShortUsd: dollarsShortUsd,
     usdPerBtc: rate,
-    availableSats: sats,
-    estimate: (sats: plan.sats, estimatedOutUsd: estimatedOut),
+    availableSats: wallet.sats,
+    estimate: estimatedOut == null ||
+            !estimatedOut.isFinite ||
+            estimatedOut <= 0
+        ? null
+        : (sats: probe, estimatedOutUsd: estimatedOut),
   );
 }
 
-/// The spending wallet's bitcoin, in dollars, as shown. A read.
-double spendingBitcoinUsd(T Function<T>(ProviderListenable<T> provider) read) {
-  try {
-    final rate = read(selectedCurrencyProvider('USD')).toDouble();
-    final spending = pickSpendingWallet(read(settingsProvider));
-    final sats = spending == null
-        ? 0
-        : read(walletBalanceCacheProvider)[spending.id]?.sparkBitcoinbalance ??
-            0;
-    return rate > 0 ? sats / 1e8 * rate : 0;
-  } catch (_) {
-    return 0;
-  }
+/// The spending wallet's bitcoin and price, and the leg [dollarsShortUsd]
+/// needs, sized on the route's own estimate when it answers within a few
+/// seconds. When the figures the app holds do not cover it (or there is
+/// no usable price), they are read fresh ([freshSpendingBitcoin]) and the
+/// leg is sized again: a refusal always stands on the wallet's own
+/// answer. A read: nothing is quoted or moved.
+Future<BitcoinLegSizing> sizeBitcoinLegFor(
+  T Function<T>(ProviderListenable<T> provider) read, {
+  required double dollarsShortUsd,
+}) async {
+  final cached = cachedSpendingBitcoin(read);
+  final first = await _sizeOn(cached, dollarsShortUsd);
+  if (first.plan != null) return first;
+  final fresh = await freshSpendingBitcoin(read);
+  if (fresh == null || fresh == cached) return first;
+  return _sizeOn(fresh, dollarsShortUsd);
 }
 
+// ── The slip's decision ────────────────────────────────────────────────
+
+/// Where a hot slip's tap goes when the whole Investments balance lacks X
+/// for the order's move. One decision for the Predictions and the
+/// Investing slip ([decideSlipFunding]).
+enum SlipFundingRoute {
+  /// The spending bitcoin covers X: one approval, then Bitcoin → Dollars →
+  /// venue → order ([BitcoinFundedOrderRunner]).
+  bitcoin,
+
+  /// The bitcoin genuinely does not cover X (none, or too little once the
+  /// route's spread is counted): money has to come from outside, so the
+  /// slip opens the Investments Receive sheet, never the Bitcoin Move
+  /// sheet.
+  insufficient,
+
+  /// Nothing could tell (no bitcoin price, even read fresh): no sheet
+  /// opens and nothing moves; the slip says it did not go through.
+  unavailable,
+}
+
+/// [SlipFundingRoute] for an X of [addUsd], with the sized leg when the
+/// bitcoin covers it.
+@immutable
+class SlipFundingDecision {
+  const SlipFundingDecision.bitcoin(BitcoinLegPlan this.plan, this.addUsd)
+      : route = SlipFundingRoute.bitcoin;
+  const SlipFundingDecision.insufficient(this.addUsd)
+      : route = SlipFundingRoute.insufficient,
+        plan = null;
+  const SlipFundingDecision.unavailable(this.addUsd)
+      : route = SlipFundingRoute.unavailable,
+        plan = null;
+
+  final SlipFundingRoute route;
+
+  /// X: what the order's move lacks, exactly as the button names it.
+  final double addUsd;
+
+  /// The Bitcoin leg for X ([SlipFundingRoute.bitcoin] only).
+  final BitcoinLegPlan? plan;
+
+  @override
+  String toString() => 'SlipFundingDecision(${route.name}, $addUsd)';
+}
+
+/// Test seam: stands in for the chain a slip's "Add" starts once
+/// [decideSlipFunding] says bitcoin (the slip's confirm, its one approval
+/// and the runner).
+@visibleForTesting
+Future<void> Function(OneBalanceVenue venue, SlipFundingDecision decision)?
+    debugStartSlipBitcoinChain;
+
+/// Runs [debugStartSlipBitcoinChain] instead of the slip's chain when a
+/// test set it; true when it did. Always false in the app.
+Future<bool> slipBitcoinChainStoodIn(
+    OneBalanceVenue venue, SlipFundingDecision decision) async {
+  final seam = debugStartSlipBitcoinChain;
+  if (seam == null) return false;
+  await seam(venue, decision);
+  return true;
+}
+
+/// Both slips' one decision for an X of [addUsd]: the Bitcoin leg sized on
+/// the spending wallet's bitcoin, read fresh when the app's figures do not
+/// cover it yet ([sizeBitcoinLegFor]). Bitcoin whenever it covers X;
+/// insufficient only when it genuinely does not; unavailable when no
+/// price could be read. Never throws, never moves anything.
+Future<SlipFundingDecision> decideSlipFunding(
+  T Function<T>(ProviderListenable<T> provider) read, {
+  required double addUsd,
+}) async {
+  if (!addUsd.isFinite || addUsd <= 0) {
+    return SlipFundingDecision.insufficient(addUsd.isFinite ? addUsd : 0);
+  }
+  BitcoinLegSizing sizing;
+  try {
+    sizing = await sizeBitcoinLegFor(read, dollarsShortUsd: addUsd);
+  } catch (_) {
+    return SlipFundingDecision.unavailable(addUsd);
+  }
+  final plan = sizing.plan;
+  if (plan != null) return SlipFundingDecision.bitcoin(plan, addUsd);
+  return sizing.refusal == BitcoinLegRefusal.noPrice
+      ? SlipFundingDecision.unavailable(addUsd)
+      : SlipFundingDecision.insufficient(addUsd);
+}
+
+/// The wallet's own Spark address for a Bitcoin leg, waited on while the
+/// SDK connects (a cold start takes seconds): null only when it cannot be
+/// read within [timeout]. A slip holds the provider from when its "Add"
+/// shows, so the tap normally finds it ready.
+Future<String?> ownSparkForBitcoinLeg(
+  T Function<T>(ProviderListenable<T> provider) read, {
+  Duration timeout = const Duration(seconds: 20),
+}) async {
+  try {
+    final address =
+        await read(sparkSelfAddressProvider.future).timeout(timeout);
+    return address.isEmpty ? null : address;
+  } catch (_) {
+    return null;
+  }
+}
 // ── The rest of the order: the one-balance planner ─────────────────────
 
 /// What the rest of an order funded from bitcoin takes from the other

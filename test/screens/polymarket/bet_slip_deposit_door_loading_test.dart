@@ -3,9 +3,11 @@
 // Dollars door working out its prefill ("Calculating…").
 //
 // One balance: a bet short of venue cash funds itself from Dollars at the
-// tap. Only when Dollars cannot cover that move either is the button the
-// Dollars door, "Add $X to Investments", which opens the Dollars deposit
-// door prefilled with what is missing and queues nothing.
+// tap. Only when the whole Investments balance cannot cover that move is
+// the button "Add $X to Investments", whose tap decides on the spending
+// bitcoin read at the tap: the Bitcoin-funded chain when it covers X, the
+// Investments Receive sheet (never the Bitcoin Move sheet) when it does
+// not. "Available" is the whole spendable Investments.
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -37,6 +39,14 @@ import 'package:kute/screens/shared/amount_keypad_panel.dart';
 import 'package:kute/screens/shared/side_tint_palette.dart'
     show slipCtaLabelColor;
 import 'package:kute/screens/shared/slip_shortfall.dart';
+import 'package:kute/services/one_balance/bitcoin_funded_order.dart'
+    show
+        SlipFundingDecision,
+        SlipFundingRoute,
+        SpendingBitcoin,
+        debugBitcoinLegEstimate,
+        debugFreshSpendingBitcoin,
+        debugStartSlipBitcoinChain;
 import 'package:kute/services/one_balance/predictions_venue_funder.dart';
 import 'package:kute/services/one_balance/funded_orders.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart'
@@ -312,10 +322,11 @@ void main() {
     });
   });
 
-  group('the Dollars door while it works out the prefill', () {
+  group('the "Add" door with no bitcoin to cover X', () {
     late RuntimeCapabilitiesService policy;
     late List<String> events;
     late List<double?> sheets;
+    late List<double> receives;
     Completer<void>? sheet;
 
     setUp(() async {
@@ -329,10 +340,20 @@ void main() {
         sheets.add(target);
         return sheet!.future;
       };
+      // No spending bitcoin in these tests: X is never covered, so the
+      // tap opens the Investments Receive sheet, never the Move sheet.
+      receives = [];
+      debugShowSlipReceiveSheet = (venue, addUsd) {
+        expect(venue, SlipVenue.predictions);
+        receives.add(addUsd);
+        return sheet!.future;
+      };
     });
 
     tearDown(() {
+      expect(sheets, isEmpty);
       debugShowSlipTopUpSheet = null;
+      debugShowSlipReceiveSheet = null;
       TrackingService.debugTrackObserver = null;
       RuntimeCapabilitiesService.debugInstance = null;
       AffiliateService.debugSessionToken = null;
@@ -344,7 +365,7 @@ void main() {
     }
 
     testWidgets(
-        'opens the Dollars door once, prefilled with what is missing, and '
+        'opens the Investments Receive sheet once for what is missing, and '
         'queues nothing', (tester) async {
       sheet = Completer<void>();
       expect(await policy.refresh(), isTrue);
@@ -360,9 +381,10 @@ void main() {
 
       await tester.tap(_door);
       await _frames(tester, 3);
-      // One door, prefilled with the $3.70 missing from Dollars, nothing
-      // queued behind it: the person places the bet themselves after.
-      expect(sheets, [3.70]);
+      // One Receive sheet for the $3.70 missing, never the Bitcoin Move
+      // sheet, nothing queued behind it: the person places the bet
+      // themselves after.
+      expect(receives, [3.70]);
       expect(_queued(tester), isNull);
       expect(events, isNot(contains('prediction_place_cta_tapped')));
       expect(events, isNot(contains('bet_slip_deposit_to_trade_tapped')));
@@ -372,7 +394,7 @@ void main() {
       expect(_cta(tester).enabled, isFalse);
       await tester.tap(_door);
       await _frames(tester, 2);
-      expect(sheets.length, 1);
+      expect(receives.length, 1);
 
       // The slip is frozen while the door is open: the side and the
       // amount stay what was tapped.
@@ -392,7 +414,7 @@ void main() {
       await release(tester);
     });
 
-    testWidgets('the prefill counts the route fee the move will pay',
+    testWidgets('X counts the route fee the move will pay',
         (tester) async {
       sheet = Completer<void>();
       // A route keeping 1%: the $10 move must send more so $10 lands.
@@ -405,9 +427,9 @@ void main() {
       expect(_cta(tester).label, startsWith(r'Add $'));
       await tester.tap(_door);
       await _frames(tester, 3);
-      expect(sheets, hasLength(1));
+      expect(receives, hasLength(1));
       // $10 plus the venue's fee ceiling, grossed up by 1%: over $10.10.
-      expect(sheets.single, greaterThan(10.1));
+      expect(receives.single, greaterThan(10.1));
       expect(_queued(tester), isNull);
       sheet!.complete();
       await _frames(tester, 3);
@@ -434,12 +456,12 @@ void main() {
       expect(find.textContaining('to Investments'), findsOneWidget);
       final label = _cta(tester).label;
 
-      // The tap opens the Dollars door for that amount, queues nothing,
+      // The tap opens the Receive sheet for that amount, queues nothing,
       // and the button keeps saying the same thing.
       await tester.tap(_door);
       await _frames(tester, 3);
-      expect(sheets, hasLength(1));
-      expect(sheets.single,
+      expect(receives, hasLength(1));
+      expect(receives.single,
           closeTo(double.parse(label.split(' ')[1].substring(1)), 0.011));
       expect(_queued(tester), isNull);
       expect(events, isNot(contains('prediction_place_cta_tapped')));
@@ -588,6 +610,147 @@ void main() {
       expect(_cta(tester).label, r'Place $10.00 on Yes');
       expect(_cta(tester).enabled, isTrue);
       await release(tester);
+    });
+  });
+
+  group('the "Add" door decides on the spending bitcoin at the tap', () {
+    // The same decision and states as the order slip
+    // (order_slip_funding_test): parity.
+    late RuntimeCapabilitiesService policy;
+    late List<SlipFundingDecision> chains;
+    late List<double> receives;
+    late List<double?> sheets;
+
+    setUp(() async {
+      AffiliateService.debugSessionToken = 'test-session';
+      policy = runtimePolicyFixture();
+      RuntimeCapabilitiesService.debugInstance = policy;
+      chains = [];
+      receives = [];
+      sheets = [];
+      debugStartSlipBitcoinChain = (venue, decision) async {
+        expect(venue, OneBalanceVenue.predictions);
+        chains.add(decision);
+      };
+      debugShowSlipReceiveSheet = (venue, addUsd) async {
+        receives.add(addUsd);
+      };
+      debugShowSlipTopUpSheet = (venue, target) async {
+        sheets.add(target);
+      };
+      // The route keeps 0.5%.
+      debugBitcoinLegEstimate = (sats) async => sats / 1e8 * 60000 * 0.995;
+    });
+
+    tearDown(() {
+      debugStartSlipBitcoinChain = null;
+      debugShowSlipReceiveSheet = null;
+      debugShowSlipTopUpSheet = null;
+      debugBitcoinLegEstimate = null;
+      debugFreshSpendingBitcoin = null;
+      RuntimeCapabilitiesService.debugInstance = null;
+      AffiliateService.debugSessionToken = null;
+    });
+
+    Future<void> release(WidgetTester tester) async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      policy.dispose();
+    }
+
+    testWidgets(
+        'a first tap while the bitcoin is still loading waits, busy, then '
+        'runs the chain once it is read: no sheet', (tester) async {
+      final fresh = Completer<SpendingBitcoin?>();
+      debugFreshSpendingBitcoin = () => fresh.future;
+      expect(await policy.refresh(), isTrue);
+      await _pumpSlip(tester,
+          Future.value(const PolymarketTradingState(usdcBalance: 5)),
+          dollars: 2);
+      await _frames(tester);
+      expect(_cta(tester).label, r'Add $3.70 to Investments');
+
+      await tester.tap(_door);
+      await _frames(tester, 3);
+      // The balance is still being read: the door's own busy state, never
+      // a sheet.
+      expect(_cta(tester).isBusy, isTrue);
+      expect(_cta(tester).busyLabel, 'Calculating…');
+      expect(_cta(tester).enabled, isFalse);
+      expect(chains, isEmpty);
+      expect(receives, isEmpty);
+      expect(sheets, isEmpty);
+
+      fresh.complete((sats: 100000, usdPerBtc: 60000.0));
+      await _frames(tester, 3);
+      expect(chains, hasLength(1));
+      expect(chains.single.route, SlipFundingRoute.bitcoin);
+      expect(chains.single.addUsd, 3.70);
+      expect(chains.single.plan!.targetUsd, 3.70);
+      expect(chains.single.plan!.maxSats, lessThanOrEqualTo(100000));
+      expect(receives, isEmpty);
+      expect(sheets, isEmpty);
+      await release(tester);
+    });
+
+    testWidgets(
+        "bitcoin short of X once the route's spread is counted: the "
+        'Investments Receive sheet for X, never the chain or the Move sheet',
+        (tester) async {
+      // $3.70 of bitcoin for an X of $3.70: the route keeps 0.5%.
+      debugFreshSpendingBitcoin = () async =>
+          (sats: (3.70 / 60000 * 1e8).round(), usdPerBtc: 60000.0);
+      expect(await policy.refresh(), isTrue);
+      await _pumpSlip(tester,
+          Future.value(const PolymarketTradingState(usdcBalance: 5)),
+          dollars: 2);
+      await _frames(tester);
+      await tester.tap(_door);
+      await _frames(tester, 3);
+      expect(receives, [3.70]);
+      expect(chains, isEmpty);
+      expect(sheets, isEmpty);
+      expect(_queued(tester), isNull);
+      await release(tester);
+    });
+  });
+
+  group('Available is the whole spendable Investments', () {
+    late RuntimeCapabilitiesService policy;
+    setUp(() async {
+      AffiliateService.debugSessionToken = 'test-session';
+      policy = runtimePolicyFixture();
+      RuntimeCapabilitiesService.debugInstance = policy;
+    });
+    tearDown(() {
+      RuntimeCapabilitiesService.debugInstance = null;
+      AffiliateService.debugSessionToken = null;
+    });
+
+    testWidgets(
+        "the venue's cash plus Dollars, and Max fills a bet the slip funds "
+        'itself', (tester) async {
+      expect(await policy.refresh(), isTrue);
+      // $0.49 of Predictions cash and $8.10 in Dollars.
+      await _pumpSlip(tester,
+          Future.value(const PolymarketTradingState(usdcBalance: 0.49)),
+          dollars: 8.10,
+          initialAmountUsd: null);
+      await _frames(tester);
+      expect(find.textContaining(r'Available $8.59'), findsOneWidget);
+      expect(find.textContaining(r'Available $0.49'), findsNothing);
+
+      await tester.tap(find.text('Max'));
+      await _frames(tester);
+      // A stake past the $0.49 here, that the move from Dollars covers:
+      // the button is the bet, never "Add".
+      final label = _cta(tester).label;
+      expect(label, startsWith('Place '));
+      final stake = double.parse(label.split(' ')[1].substring(1));
+      expect(stake, greaterThan(5));
+      expect(stake, lessThan(8.59));
+      expect(_door, findsNothing);
+      await tester.pumpWidget(const SizedBox.shrink());
+      policy.dispose();
     });
   });
 }

@@ -1,7 +1,8 @@
 // The order slip's one button while it cannot know yet what it should be:
 // the Investing account not read yet ("Loading your account..."); and, once
-// read empty with no Dollars to fund the order, the Dollar deposit door
-// ("Add $X to Investments"), one sheet at a time.
+// read empty with no Dollars to fund the order, the "Add $X to Investments"
+// door, which with no bitcoin to cover X opens the Investments Receive
+// sheet, one sheet at a time.
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -26,6 +27,8 @@ import 'package:kute/screens/home/components/deposit_sheet.dart'
 import 'package:kute/screens/hyperliquid/components/order_slip_sheet.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart';
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/slip_shortfall.dart'
+    show SlipVenue, debugShowSlipReceiveSheet;
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -212,9 +215,10 @@ void main() {
     });
   });
 
-  group('the Dollar deposit door', () {
+  group('the "Add" door with no bitcoin to cover X', () {
     late List<String> events;
     late List<(MoveLockedSide, double?)> sheets;
+    late List<double> receives;
     late Completer<void> sheet;
 
     setUp(() {
@@ -225,16 +229,25 @@ void main() {
         sheets.add((side, target));
         return sheet.future;
       };
+      receives = [];
+      debugShowSlipReceiveSheet = (venue, addUsd) {
+        expect(venue, SlipVenue.investing);
+        receives.add(addUsd);
+        return sheet.future;
+      };
     });
 
     tearDown(() {
+      // Never the Bitcoin Move sheet with no bitcoin to move.
+      expect(sheets, isEmpty);
       debugShowHlDollarsDeposit = null;
+      debugShowSlipReceiveSheet = null;
       TrackingService.debugTrackObserver = null;
     });
 
     testWidgets(
-        'opens once, locked to Dollars with what the order lacks, and ignores repeat taps',
-        (tester) async {
+        'opens the Investments Receive sheet once for what the order lacks, '
+        'and ignores repeat taps', (tester) async {
       sheet = Completer<void>();
       await _pumpSlip(tester, Future.value(_snapshot(0)));
       await _typeOnKeypad(tester, '20');
@@ -242,10 +255,9 @@ void main() {
 
       await tester.tap(find.byType(AppButton));
       await _frames(tester, 3);
-      expect(sheets, hasLength(1));
-      expect(sheets.single.$1, MoveLockedSide.depositToUsd);
+      expect(receives, hasLength(1));
       // The $20 order needs $20.24 at the venue, grossed up for the route.
-      expect(sheets.single.$2, greaterThanOrEqualTo(20.24));
+      expect(receives.single, greaterThanOrEqualTo(20.24));
       expect(events.where((e) => e == 'hl_order_step').length, 1);
       expect(events.where((e) => e == 'slip_top_up_opened').length, 1);
       // The sheet is open: shut, not calculating.
@@ -255,9 +267,9 @@ void main() {
       // Repeat taps while it is open: nothing more opens.
       await tester.tap(find.byType(AppButton), warnIfMissed: false);
       await _frames(tester, 3);
-      expect(sheets, hasLength(1));
+      expect(receives, hasLength(1));
 
-      // The sheet closes without a deposit: the door again, same prefill.
+      // The sheet closes without a deposit: the door again, same X.
       sheet.complete();
       await _frames(tester, 3);
       expect(_button(tester).text, startsWith('Add \$'));
@@ -265,7 +277,7 @@ void main() {
       sheet = Completer<void>()..complete();
       await tester.tap(find.byType(AppButton));
       await _frames(tester, 3);
-      expect(sheets.map((s) => s.$2), [sheets.first.$2, sheets.first.$2]);
+      expect(receives, [receives.first, receives.first]);
       await tester.pumpWidget(const SizedBox.shrink());
     });
   });

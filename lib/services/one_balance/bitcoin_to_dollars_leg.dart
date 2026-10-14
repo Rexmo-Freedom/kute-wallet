@@ -396,6 +396,15 @@ abstract final class BitcoinLegRules {
     return targetUsd(((missing * 100) - 1e-9).ceilToDouble() / 100);
   }
 
+  /// The sats a leg landing [targetUsd] at [usdPerBtc] sends on
+  /// [fallbackSpread]: what the route's estimate is asked about, before it
+  /// gives its own spread. Zero without a price or a target.
+  static int probeSats(double targetUsd, {required double usdPerBtc}) {
+    if (!usdPerBtc.isFinite || usdPerBtc <= 0) return 0;
+    if (!targetUsd.isFinite || targetUsd <= 0) return 0;
+    return (targetUsd / usdPerBtc * 1e8 / (1 - fallbackSpread)).ceil();
+  }
+
   /// The leg for [dollarsShortUsd] at [usdPerBtc] with [availableSats] of
   /// spending bitcoin. [estimate], when given, is the route's estimate of
   /// what a send of the asked sats lands (the sats are then scaled from
@@ -417,7 +426,7 @@ abstract final class BitcoinLegRules {
       return const BitcoinLegSizing.refused(
           BitcoinLegRefusal.insufficientBitcoin);
     }
-    var sats = (target / usdPerBtc * 1e8 / (1 - fallbackSpread)).ceil();
+    var sats = probeSats(target, usdPerBtc: usdPerBtc);
     if (estimate != null &&
         estimate.sats > 0 &&
         estimate.estimatedOutUsd.isFinite &&

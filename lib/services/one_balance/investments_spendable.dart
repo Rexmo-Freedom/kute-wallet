@@ -190,3 +190,28 @@ final investmentsSpendableProvider =
       : ref.watch(venueCashSeedProvider);
   return investmentsSpendable(dollarsUsd: dollars, sources: sources);
 });
+
+/// What Investments can spend for an order on [venue] beyond that venue's
+/// own cash: Dollars plus the OTHER venues' reachable cash, net of their
+/// pull costs (the same last-known values and rules as
+/// [investmentsSpendableProvider]). The order slips add their own venue's
+/// free cash to it, so their "Available" is the whole spendable
+/// Investments, the figure the one-balance planner draws on, never the
+/// venue's cash alone. Synchronous, never loading.
+final investmentsSpendableExcludingProvider = Provider.autoDispose
+    .family<InvestmentsSpendable, OneBalanceVenue>((ref, venue) {
+  final dollars = ref.watch(usdBalanceProvider);
+  final walletId = ref.watch(
+      settingsProvider.select((s) => pickSpendingWallet(s)?.id));
+  final last = ref.watch(venueCashLastReadProvider);
+  final sources = last != null && last.walletId == walletId
+      ? last.candidates
+      : ref.watch(venueCashSeedProvider);
+  return investmentsSpendable(
+    dollarsUsd: dollars,
+    sources: [
+      for (final s in sources)
+        if (s.venue != venue) s,
+    ],
+  );
+});

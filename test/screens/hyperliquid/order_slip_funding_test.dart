@@ -1,8 +1,9 @@
 // A hot Investing ticket short of venue cash funds the order from Dollars:
 // the button is the order when Dollars cover the move (with the Move fee
-// in the fee rows), "Add $X to Investments" (the Dollar deposit door,
-// prefilled with what is missing) when they do not, and a Ledger ticket
-// is not touched by any of it.
+// in the fee rows), "Add $X to Investments" when they do not (its tap
+// funds X from the spending bitcoin when it covers it, else opens the
+// Investments Receive sheet), and a Ledger ticket is not touched by any of
+// it. "Available" is the whole spendable Investments.
 
 import 'dart:async';
 
@@ -32,13 +33,21 @@ import 'package:kute/screens/shared/hyperliquid_fee_summary.dart';
 import 'package:kute/screens/shared/money_fee_summary.dart';
 import 'package:kute/screens/shared/side_tint_palette.dart'
     show slipCtaLabelColor;
+import 'package:kute/services/one_balance/bitcoin_funded_order.dart'
+    show
+        SlipFundingDecision,
+        SlipFundingRoute,
+        SpendingBitcoin,
+        debugBitcoinLegEstimate,
+        debugFreshSpendingBitcoin,
+        debugStartSlipBitcoinChain;
 import 'package:kute/services/one_balance/hyperliquid_move_rail.dart';
 import 'package:kute/services/one_balance/venue_funder.dart';
 import 'package:kute/services/one_balance/funded_orders.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart'
     show OneBalanceVenue;
 import 'package:kute/screens/shared/slip_shortfall.dart'
-    show SlipFundingSteps;
+    show SlipFundingSteps, SlipVenue, debugShowSlipReceiveSheet;
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -292,14 +301,22 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets('Dollars short of the move: "Add X to Investments" opens the Dollar door',
+  testWidgets(
+      'Investments short of the move and no bitcoin: "Add X to Investments" '
+      'opens the Investments Receive sheet, never the Move sheet',
       (tester) async {
     final doors = <(MoveLockedSide, double?)>[];
+    final receives = <(SlipVenue, double)>[];
     final sheet = Completer<void>();
     debugShowHlDollarsDeposit = (side, target) {
       doors.add((side, target));
       return sheet.future;
     };
+    debugShowSlipReceiveSheet = (venue, addUsd) {
+      receives.add((venue, addUsd));
+      return sheet.future;
+    };
+    addTearDown(() => debugShowSlipReceiveSheet = null);
     await _pumpSlip(tester, venueUsd: 0, dollarsUsd: 5, rail: rail);
     await _typeOnKeypad(tester, '20');
     final button = _button(tester);
@@ -313,22 +330,22 @@ void main() {
 
     await tester.tap(find.byType(AppButton));
     await _frames(tester, 3);
-    expect(doors, [(MoveLockedSide.depositToUsd, 16.68)]);
+    expect(receives, [(SlipVenue.investing, 16.68)]);
+    expect(doors, isEmpty);
     expect(events.where((e) => e.$1 == 'slip_top_up_opened').length, 1);
-    expect(events.singleWhere((e) => e.$1 == 'slip_top_up_opened').$2!['suggested_source'],
-        'dollars');
-    // Exact amounts beside the legacy buckets: the $20.24 the venue lacks
-    // and the $16.68 the door asks of Dollars.
     final topUp = events.singleWhere((e) => e.$1 == 'slip_top_up_opened').$2!;
+    expect(topUp['suggested_source'], 'receive');
+    // Exact amounts beside the legacy buckets: the $20.24 the venue lacks
+    // and the $16.68 Investments lack.
     expect(topUp['shortfall_usd'], 20.24);
     expect(topUp['top_up_usd'], 16.68);
     expect(topUp['shortfall_bucket'], '10-100');
     expect(topUp['top_up_bucket'], '10-100');
-    // Repeat taps while the door is open open nothing more.
+    // Repeat taps while the sheet is up open nothing more.
     expect(_button(tester).onPressed, isNull);
     await tester.tap(find.byType(AppButton), warnIfMissed: false);
     await _frames(tester, 3);
-    expect(doors, hasLength(1));
+    expect(receives, hasLength(1));
     sheet.complete();
     await _frames(tester, 3);
     expect(_button(tester).onPressed, isNotNull);
@@ -497,5 +514,117 @@ void main() {
           funded: [_btcRecord(FundedOrderStage.adding, marketKey: 'ETH')]);
       expect(find.byType(SlipFundingSteps), findsNothing);
     });
+  });
+
+  group('the "Add" door decides on the spending bitcoin at the tap', () {
+    // The same decision and states as the bet slip
+    // (bet_slip_deposit_door_loading_test): parity.
+    late List<SlipFundingDecision> chains;
+    late List<double> receives;
+    late List<double?> doors;
+
+    setUp(() {
+      chains = [];
+      receives = [];
+      doors = [];
+      debugStartSlipBitcoinChain = (venue, decision) async {
+        expect(venue, OneBalanceVenue.investing);
+        chains.add(decision);
+      };
+      debugShowSlipReceiveSheet = (venue, addUsd) async {
+        receives.add(addUsd);
+      };
+      debugShowHlDollarsDeposit = (side, target) async {
+        doors.add(target);
+      };
+      // The route keeps 0.5%.
+      debugBitcoinLegEstimate = (sats) async => sats / 1e8 * 60000 * 0.995;
+    });
+
+    tearDown(() {
+      debugStartSlipBitcoinChain = null;
+      debugShowSlipReceiveSheet = null;
+      debugBitcoinLegEstimate = null;
+      debugFreshSpendingBitcoin = null;
+    });
+
+    testWidgets(
+        'a first tap while the bitcoin is still loading waits, busy, then '
+        'runs the chain once it is read: no sheet', (tester) async {
+      final fresh = Completer<SpendingBitcoin?>();
+      debugFreshSpendingBitcoin = () => fresh.future;
+      await _pumpSlip(tester, venueUsd: 0, dollarsUsd: 5, rail: rail);
+      await _typeOnKeypad(tester, '20');
+      expect(_button(tester).text, 'Add \$16.68 to Investments');
+
+      await tester.tap(find.byType(AppButton));
+      await _frames(tester, 3);
+      // The balance is still being read: the door's own busy state, never
+      // a sheet.
+      expect(_button(tester).isLoading, isTrue);
+      expect(_button(tester).loadingLabel, 'Calculating…');
+      expect(_button(tester).onPressed, isNull);
+      expect(chains, isEmpty);
+      expect(receives, isEmpty);
+      expect(doors, isEmpty);
+
+      fresh.complete((sats: 100000, usdPerBtc: 60000.0));
+      await _frames(tester, 3);
+      expect(chains, hasLength(1));
+      expect(chains.single.route, SlipFundingRoute.bitcoin);
+      expect(chains.single.addUsd, 16.68);
+      expect(chains.single.plan!.targetUsd, 16.68);
+      expect(chains.single.plan!.maxSats, lessThanOrEqualTo(100000));
+      expect(receives, isEmpty);
+      expect(doors, isEmpty);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+
+    testWidgets(
+        "bitcoin short of X once the route's spread is counted: the "
+        'Investments Receive sheet for X, never the chain or the Move sheet',
+        (tester) async {
+      // $16.68 of bitcoin for an X of $16.68: the route keeps 0.5%.
+      debugFreshSpendingBitcoin = () async =>
+          (sats: (16.68 / 60000 * 1e8).round(), usdPerBtc: 60000.0);
+      await _pumpSlip(tester, venueUsd: 0, dollarsUsd: 5, rail: rail);
+      await _typeOnKeypad(tester, '20');
+      await tester.tap(find.byType(AppButton));
+      await _frames(tester, 3);
+      expect(receives, [16.68]);
+      expect(chains, isEmpty);
+      expect(doors, isEmpty);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  });
+
+  testWidgets(
+      'Available is the whole spendable Investments, and Max fills an order '
+      'the ticket funds itself', (tester) async {
+    // $0.49 of Investing cash and $8.10 in Dollars (the founder's case:
+    // the ticket read "Available $0.49").
+    await _pumpSlip(tester, venueUsd: 0.49, dollarsUsd: 8.10, rail: rail);
+    expect(find.textContaining(r'Available $8.59'), findsOneWidget);
+    expect(find.textContaining(r'Available $0.49'), findsNothing);
+    // The minimum stays on the line.
+    expect(find.textContaining('Minimum'), findsWidgets);
+    await tester.pumpWidget(const SizedBox.shrink());
+
+    // Enough in Dollars to clear the venue minimum: Max is an order past
+    // the $0.49 here that the move from Dollars covers, so the button is
+    // the order, never "Add".
+    await _pumpSlip(tester, venueUsd: 0.49, dollarsUsd: 30, rail: rail);
+    expect(find.textContaining(r'Available $30.49'), findsOneWidget);
+    await tester.tap(find.text('Max'));
+    await _frames(tester, 15);
+    final button = _button(tester);
+    expect(button.text, startsWith('Go Long BTC'));
+    expect(button.onPressed, isNotNull);
+    expect(find.textContaining('to Investments'), findsNothing);
+    // Most of the $30.49, less the move's and the order's costs.
+    final margin = double.parse(button.text.split(r'$').last);
+    expect(margin, greaterThan(25));
+    expect(margin, lessThan(30.49));
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 }

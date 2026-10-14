@@ -125,6 +125,8 @@ import 'package:kute/services/funding/venue_shortfall.dart';
 import 'package:kute/services/one_balance/hyperliquid_venue_funder.dart';
 import 'package:kute/services/one_balance/order_funding.dart';
 import 'package:kute/services/one_balance/bitcoin_funded_order.dart';
+import 'package:kute/services/one_balance/investments_spendable.dart'
+    show investmentsSpendableExcludingProvider, venueCashRefreshProvider;
 import 'package:kute/services/one_balance/bitcoin_to_dollars_leg.dart'
     show BitcoinLegPlan, BitcoinLegRules;
 import 'package:kute/services/one_balance/funded_orders.dart';
@@ -516,9 +518,24 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   /// ([_confirmFundedFromBitcoin]) where Dollars fall short.
   bool _bitcoinArmed = false;
 
-  /// The bitcoin could not cover it after all: the tap opens the Dollars
-  /// door as before.
+  /// The bitcoin genuinely could not cover it at the tap: the Dollars door
+  /// opens, prefilled with [_bitcoinFallbackUsd].
   bool _bitcoinFellBack = false;
+
+  /// What the Dollars door is prefilled with when [_bitcoinFellBack]: the
+  /// X the tap found missing.
+  double? _bitcoinFallbackUsd;
+
+  /// The leg [decideSlipFunding] sized at the "Add" tap, reused by the
+  /// confirm it runs when it is for the same X.
+  BitcoinLegPlan? _bitcoinTapPlan;
+
+  /// Holds the wallet's own Spark address from when "Add" first shows, so
+  /// a tap never waits on the SDK for it (see [_warmBitcoinLeg]).
+  ProviderSubscription<AsyncValue<String>>? _ownSparkWarm;
+
+  /// Whether [_warmBitcoinLeg] already ran for this ticket.
+  bool _ownSparkWarmed = false;
 
   /// The Bitcoin-funded run this ticket started, if any.
   String? _bitcoinRunId;
@@ -938,6 +955,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       } catch (_) {}
     }
     _pendingSub?.close();
+    _ownSparkWarm?.close();
+    _ownSparkWarm = null;
     _fundPlanTimer?.cancel();
     TrackingService.clearFlowContext('hl_order');
     VenueAnalytics.unstage('hl', market.coin);
@@ -2218,9 +2237,13 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           ).route ==
           OrderFundingRoute.move;
     }
-    if (dollars + 1e-9 < fundUsd && !pullFirst && _bitcoinArmed) {
-      // "Add $X to Investments" tapped: the person's own bitcoin tops
-      // Dollars up first, under this order's one approval.
+    if (dollars + 1e-9 < fundUsd && !pullFirst) {
+      // The whole Investments balance is short of the move, whichever
+      // button was tapped ("Add $X", or the order whose figures moved
+      // since the ticket drew it): the person's own bitcoin tops Dollars
+      // up first, under this order's one approval, whenever it covers X.
+      // Only when it genuinely does not is it the Dollars door, prefilled
+      // with X. The bet slip makes the same decision.
       await _confirmFundedFromBitcoin(
         walletId: walletId,
         cloid: cloid,
@@ -2237,17 +2260,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         dollars: dollars,
         investmentsUsd: reach,
       );
-      return;
-    }
-    if (dollars + 1e-9 < fundUsd && !pullFirst) {
-      // Not enough Dollars for the move: the button becomes the Dollar
-      // deposit door for exactly what is missing. Nothing moved.
-      _trackFundingFailed('quote', null, category: 'insufficient_funds');
-      _stopped('insufficient_balance');
-      _updateDraft(() {
-        _fundingStage = null;
-        _fundPlan = plan;
-      });
       return;
     }
 
@@ -2504,15 +2516,21 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     }
   }
 
-  /// "Add $X to Investments" on a hot ticket whose whole Investments
-  /// balance is short (founder decision 14 October 2026): ONE approval for
-  /// the order, the Dollars move AND a Bitcoin → Dollars leg (at most the
-  /// sized sats, `spark:BTC → spark:USDB`, to the wallet's own Spark
-  /// address), then the chain runs headless ([BitcoinFundedOrderRunner]):
-  /// Bitcoin → Dollars, Dollars → Investing, the order at a fresh price.
-  /// Everything was validated by the normal confirm before this point;
-  /// the leg is sized and checked against the wallet's bitcoin here,
-  /// before the prompt. Declining moves nothing.
+  /// A hot ticket whose whole Investments balance is short of the order's
+  /// move (founder decision 14 October 2026), whichever button was
+  /// tapped: ONE approval for the order, the Dollars move AND a Bitcoin →
+  /// Dollars leg (at most the sized sats, `spark:BTC → spark:USDB`, to the
+  /// wallet's own Spark address), then the chain runs headless
+  /// ([BitcoinFundedOrderRunner]): Bitcoin → Dollars, Dollars → Investing,
+  /// the order at a fresh price. Everything was validated by the normal
+  /// confirm before this point; the leg is sized and checked against the
+  /// wallet's bitcoin here ([decideSlipFunding], the bet slip's same
+  /// decision), before the prompt. Declining moves nothing.
+  ///
+  /// When the bitcoin genuinely does not cover X, nothing is approved: an
+  /// "Add" tap opens the Dollars door itself once this returns
+  /// ([_bitcoinFellBack]); a tap on the order opens it here. Both prefill
+  /// X.
   Future<void> _confirmFundedFromBitcoin({
     required String walletId,
     required String cloid,
@@ -2531,6 +2549,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   }) async {
     final container = ProviderScope.containerOf(context, listen: false);
     final planFundUsd = plan.fundUsd;
+    final fromAdd = _bitcoinArmed;
     // One funded order per venue at a time.
     if (FundedOrdersNotifier.activeOf(
             ref.read(fundedOrdersProvider), OneBalanceVenue.investing) !=
@@ -2544,12 +2563,12 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       return;
     }
     // X: what the WHOLE Investments balance lacks for the move, rounded as
-    // the button rounds it. The leg converts exactly the X the button
+    // the button rounds it. An "Add" tap converts exactly the X the button
     // showed; if the order now needs more than that, nothing moves and the
     // button names the new figure.
     var addUsd = BitcoinLegRules.addUsd(
         fundUsd: planFundUsd, investmentsUsd: investmentsUsd);
-    final shown = _bitcoinTapAddUsd;
+    final shown = fromAdd ? _bitcoinTapAddUsd : null;
     if (shown != null && shown > 0) {
       if (addUsd > shown + 0.005) {
         _trackBlocked('add_amount_changed');
@@ -2562,47 +2581,90 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       addUsd = shown;
     }
     final puller = ref.read(venueCashPullerProvider);
-    final BitcoinLegPlan? leg = addUsd > 0
-        ? (await sizeBitcoinLegFor(container.read, dollarsShortUsd: addUsd))
-            .plan
-        : null;
-    String? ownSpark;
-    OtherVenuePlan? other;
-    if (leg != null) {
-      try {
-        ownSpark = await ref
-            .read(sparkSelfAddressProvider.future)
-            .timeout(const Duration(seconds: 6));
-      } catch (_) {
-        ownSpark = null;
-      }
-      // The rest of the order from the other venue (Dollars first, then
-      // its cash), planned before the one approval, which binds the legs
-      // that go straight into the account.
-      try {
-        other = await planOtherVenueCash(puller,
-                venue: OneBalanceVenue.investing,
-                fundUsd: planFundUsd,
-                addUsd: leg.targetUsd,
-                dollarsUsd: dollars)
-            .timeout(const Duration(seconds: 8));
-      } catch (_) {
-        other = null;
-      }
-    }
-    if (!mounted) return;
-    if (leg == null ||
-        ownSpark == null ||
-        ownSpark.isEmpty ||
-        other == null ||
-        !other.covers) {
-      // The bitcoin (or the rest of Investments) does not cover it: the
-      // Dollars door, as before.
+
+    /// The bitcoin (or the rest of Investments) genuinely does not cover
+    /// it: the money has to come from outside, so the Investments Receive
+    /// sheet, for what is missing.
+    Future<void> toReceive(double missingUsd) async {
       _bitcoinFellBack = true;
+      _bitcoinFallbackUsd = missingUsd > 0 ? missingUsd : null;
+      _trackFundingFailed('quote', null, category: 'insufficient_funds');
+      _stopped('insufficient_balance');
       _updateDraft(() {
         _fundingStage = null;
         _fundPlan = plan;
       });
+      if (fromAdd || !mounted) return;
+      await _openInvestmentsReceive(missingUsd);
+    }
+
+    /// Nothing could be worked out in time (no price, the wallet's own
+    /// Spark address or the other venue's plan unread): nothing moves and
+    /// no door opens; the ticket says the order did not go through.
+    void unavailable(String reason) {
+      _trackFundingFailed('quote', null, category: reason);
+      _stopped('funding_quote');
+      if (!mounted) return;
+      _updateDraft(() {
+        _fundingStage = null;
+        _errorCause = null;
+        _errorText = _strings.errorCopyGeneric;
+      });
+    }
+
+    if (addUsd <= 0) {
+      await toReceive(_dollarsShortUsd(planFundUsd, haveUsd: dollars));
+      return;
+    }
+    // The "Add" tap already sized the leg for this X: no second read.
+    final tapPlan = fromAdd ? _bitcoinTapPlan : null;
+    final decision = tapPlan != null &&
+            (tapPlan.targetUsd - BitcoinLegRules.targetUsd(addUsd)).abs() <
+                0.005
+        ? SlipFundingDecision.bitcoin(tapPlan, addUsd)
+        : await decideSlipFunding(container.read, addUsd: addUsd);
+    if (!mounted) return;
+    switch (decision.route) {
+      case SlipFundingRoute.insufficient:
+        await toReceive(addUsd);
+        return;
+      case SlipFundingRoute.unavailable:
+        unavailable('bitcoin_price_unread');
+        return;
+      case SlipFundingRoute.bitcoin:
+        break;
+    }
+    final leg = decision.plan!;
+    // Held from when "Add" showed: normally ready. A cold SDK is waited
+    // on (the button stays busy), never taken for a lack of bitcoin.
+    final ownSpark = await ownSparkForBitcoinLeg(container.read);
+    // The rest of the order from the other venue (Dollars first, then its
+    // cash), planned before the one approval, which binds the legs that go
+    // straight into the account.
+    OtherVenuePlan? other;
+    try {
+      other = await planOtherVenueCash(puller,
+              venue: OneBalanceVenue.investing,
+              fundUsd: planFundUsd,
+              addUsd: leg.targetUsd,
+              dollarsUsd: dollars)
+          .timeout(const Duration(seconds: 8));
+    } catch (_) {
+      other = null;
+    }
+    if (!mounted) return;
+    if (ownSpark == null) {
+      unavailable('own_spark_unread');
+      return;
+    }
+    if (other == null) {
+      unavailable('venue_cash_unread');
+      return;
+    }
+    if (!other.covers) {
+      // The other venue's cash cannot bring the rest: what Dollars lack
+      // with nothing from it.
+      await toReceive(_dollarsShortUsd(planFundUsd, haveUsd: dollars));
       return;
     }
     final rest = other;
@@ -2814,31 +2876,40 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     });
   }
 
-  /// Whether this ticket's "Add" can be funded from the person's own
-  /// bitcoin: an order is typed, nothing funded is on its way here, and
-  /// the spending bitcoin plainly covers what Dollars lack. The exact leg
-  /// is sized at the tap.
-  bool _bitcoinMayCover() =>
-      (_bitcoinShownAddUsd ?? 0) > 0 && !_isLedger && _marginUsd > 0;
+  /// Whether this ticket's "Add" may be funded from the person's own
+  /// bitcoin: a hot ticket with an order typed. Whether the bitcoin covers
+  /// it is decided at the tap ([decideSlipFunding]) on the wallet's own
+  /// figures, never on a snapshot the ticket drew before they were in.
+  bool get _bitcoinEligible => !_isLedger && _marginUsd > 0;
 
-  /// The X the button shows when the person's bitcoin covers it, or null.
-  /// Set by the build; the tap converts exactly this.
-  double? _bitcoinShownAddUsd;
+  /// The X "Add $X to Investments" names on a hot ticket with an order
+  /// ([BitcoinLegRules.addUsd]): what the tap converts from bitcoin, or
+  /// prefills the Dollars door with when the bitcoin does not cover it.
+  /// Set by the build.
+  double? _shownAddUsd;
 
-  /// [_bitcoinShownAddUsd] as it was at the Add tap: what the leg converts.
+  /// [_shownAddUsd] as it was at the Add tap: what the leg converts.
   double? _bitcoinTapAddUsd;
 
-  /// Whether the spending bitcoin plainly covers a leg landing [addUsd]
-  /// (the exact leg is sized at the tap). [read] is the build's watch.
-  bool _bitcoinCovers(
-      double addUsd, T Function<T>(ProviderListenable<T> provider) read) {
-    if (_isLedger || _marginUsd <= 0 || addUsd <= 0) return false;
-    if (FundedOrdersNotifier.activeOf(
-            ref.read(fundedOrdersProvider), OneBalanceVenue.investing) !=
-        null) {
-      return false;
-    }
-    return spendingBitcoinUsd(read) >= addUsd * 1.04;
+  /// From the first time "Add" shows, holds the wallet's own Spark
+  /// address (the Bitcoin leg's pinned recipient) so the tap finds it
+  /// ready instead of waiting on a cold SDK. Once per ticket; a failed
+  /// read is let go and the tap reads again.
+  void _warmBitcoinLeg() {
+    if (_ownSparkWarmed || _isLedger) return;
+    _ownSparkWarmed = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _ownSparkWarm != null) return;
+      try {
+        if (pickSpendingWallet(ref.read(settingsProvider)) == null) return;
+        _ownSparkWarm = ref.listenManual(sparkSelfAddressProvider, (_, next) {
+          if (next.hasError) {
+            _ownSparkWarm?.close();
+            _ownSparkWarm = null;
+          }
+        });
+      } catch (_) {}
+    });
   }
 
   /// The step lines of a Bitcoin-funded order on this ticket.
@@ -3119,8 +3190,19 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     );
   }
 
-  /// The one funding door, locked to Trading with this ticket's margin
-  /// already filled in. A Ledger ticket pins both legs to its account.
+  /// The one funding door. A Ledger ticket opens the Move sheet locked to
+  /// its own Investing account with the margin filled in. A hot ticket's
+  /// "Add $X to Investments" first asks [decideSlipFunding], the same
+  /// decision the bet slip makes, on the spending bitcoin read fresh when
+  /// the app's figures are not in yet ("Calculating…" meanwhile):
+  ///  * the bitcoin covers X and an order is typed: the tap is the order
+  ///    itself, funded Bitcoin → Dollars → Investing under its one
+  ///    approval, with the steps on this ticket;
+  ///  * the bitcoin covers X and nothing is typed: the Bitcoin → Dollars
+  ///    Move sheet, prefilled with X (no order is placed unasked);
+  ///  * the bitcoin does not cover X: the Investments Receive sheet, since
+  ///    the money has to come from outside;
+  ///  * nothing could be read: a message, no sheet.
   /// One tap at a time: a tap while one runs is ignored, events included.
   Future<void> _openDepositDoor() async {
     if (_depositDoorBusy) return;
@@ -3132,20 +3214,100 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         null) {
       return;
     }
-    // The person's own bitcoin covers what is missing: the tap is the
-    // order itself, funded Bitcoin → Dollars → Investing under its one
-    // approval, with the steps on this ticket.
-    if (_bitcoinMayCover()) {
-      _bitcoinArmed = true;
-      _bitcoinFellBack = false;
-      _bitcoinTapAddUsd = _bitcoinShownAddUsd;
-      try {
-        await _handleConfirm();
-      } finally {
-        _bitcoinArmed = false;
-      }
-      if (!mounted || !_bitcoinFellBack) return;
+    final shown = _shownAddUsd;
+    if (_isLedger || shown == null || shown <= 0) {
+      await _openDollarsDoor();
+      return;
     }
+    final read = ProviderScope.containerOf(context, listen: false).read;
+    setState(() {
+      _depositDoorBusy = true;
+      _depositCalculating = true;
+    });
+    SlipFundingDecision decision;
+    try {
+      decision = await decideSlipFunding(read, addUsd: shown);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _depositDoorBusy = false;
+          _depositCalculating = false;
+        });
+      }
+    }
+    if (!mounted) return;
+    switch (decision.route) {
+      case SlipFundingRoute.bitcoin:
+        if (!_bitcoinEligible) {
+          await _openDollarsDoor(prefillUsd: shown);
+          return;
+        }
+        if (await slipBitcoinChainStoodIn(
+                OneBalanceVenue.investing, decision) ||
+            !mounted) {
+          return;
+        }
+        _bitcoinArmed = true;
+        _bitcoinFellBack = false;
+        _bitcoinFallbackUsd = null;
+        _bitcoinTapAddUsd = shown;
+        _bitcoinTapPlan = decision.plan;
+        try {
+          await _handleConfirm();
+        } finally {
+          _bitcoinArmed = false;
+          _bitcoinTapPlan = null;
+        }
+        if (!mounted || !_bitcoinFellBack) return;
+        await _openInvestmentsReceive(_bitcoinFallbackUsd ?? shown);
+      case SlipFundingRoute.insufficient:
+        await _openInvestmentsReceive(shown);
+      case SlipFundingRoute.unavailable:
+        _stopped('funding_quote');
+        showMessageSnackBar(
+            context: context,
+            message: context.l10n.errorCopyGeneric,
+            error: true);
+    }
+  }
+
+  /// The Investments Receive sheet for an X the bitcoin cannot cover
+  /// ([openSlipReceive]); the ticket stays open underneath, its door shut
+  /// while the sheet is up.
+  Future<void> _openInvestmentsReceive(double addUsd) async {
+    if (!mounted) return;
+    _stopped('insufficient_balance');
+    _trackStep('deposit');
+    final shortfall = _slipShortfallUsd;
+    TrackingService.track('slip_top_up_opened', params: {
+      'venue': 'hyperliquid',
+      'shortfall_bucket': TrackingService.usdBucket(shortfall),
+      ...TrackingService.exactUsd('shortfall_usd', shortfall),
+      'top_up_bucket': TrackingService.usdBucket(addUsd),
+      ...TrackingService.exactUsd('top_up_usd', addUsd),
+      'prefill_rule': 'investments_shortfall',
+      'suggested_source': 'receive',
+    });
+    setState(() => _depositDoorBusy = true);
+    try {
+      await openSlipReceive(context,
+          venue: SlipVenue.investing, addUsd: addUsd);
+    } catch (_) {
+      if (mounted) {
+        showMessageSnackBar(
+            context: context,
+            message: context.l10n.errorCopyGeneric,
+            error: true);
+      }
+    } finally {
+      if (mounted) setState(() => _depositDoorBusy = false);
+    }
+  }
+
+  /// The Move sheet: a Ledger ticket's, locked to its own Investing
+  /// account; a hot ticket's Bitcoin → Dollars door, prefilled with
+  /// [prefillUsd] (or what Investments lack for this order's move).
+  Future<void> _openDollarsDoor({double? prefillUsd}) async {
     _stopped('insufficient_balance');
     _trackStep('deposit');
     setState(() => _depositDoorBusy = true);
@@ -3162,12 +3324,14 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       }
       // Hot ticket: money only reaches Investing through an order funded
       // from Dollars, so the door is the Dollar deposit, prefilled with
-      // what Dollars lack for this order's move. The ticket stays open
+      // what Investments lack for this order's move. The ticket stays open
       // underneath with the same coin, side, size, leverage and order
       // type; once the Dollars are there the button is the order again.
       final shortfall = _slipShortfallUsd;
       final fundUsd = _fundPlanFor(shortfall).fundUsd;
-      final target = _dollarsShortUsd(fundUsd, haveUsd: _slipInvestmentsUsd);
+      final target = prefillUsd != null && prefillUsd > 0
+          ? prefillUsd
+          : _dollarsShortUsd(fundUsd, haveUsd: _slipInvestmentsUsd);
       TrackingService.track('slip_top_up_opened', params: {
         'venue': 'hyperliquid',
         'shortfall_bucket': TrackingService.usdBucket(shortfall),
@@ -3212,7 +3376,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       }
     }
   }
-
   /// "Add more" under "Deposit incoming": the rest of the shortfall.
   void _addMoreDeposit(double shortfallUsd, double incomingUsd) {
     if (ref
@@ -3811,6 +3974,23 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     } else {
       available = withdrawable + (_isLedger ? 0 : spotUsdc);
     }
+    // What the hot ticket's "Available" and Max stand for: the whole
+    // spendable Investments (this account's cash plus Dollars and the
+    // other venue's reachable cash), the figure the one-balance planner
+    // draws on, never the Investing cash alone. A Ledger, and a spot sell
+    // (what is held), keep their own figure.
+    final buysFromInvestments = !_isLedger && !(isSpot && !_isLong);
+    final otherSpendableUsd = buysFromInvestments
+        ? ref
+            .watch(investmentsSpendableExcludingProvider(
+                OneBalanceVenue.investing))
+            .maxUsd
+        : 0.0;
+    if (buysFromInvestments) ref.watch(venueCashRefreshProvider);
+    final shownAvailable = buysFromInvestments
+        ? slipAvailableUsd(
+            venueUsd: available, otherSpendableUsd: otherSpendableUsd)
+        : available;
 
     // Spread guard from the order book (market orders only).
     final spreadPct = ref
@@ -4090,21 +4270,67 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         openBlock == null &&
         investmentsUsd + 1e-9 >= fundPlan.fundUsd;
     _canFundFromDollars = canFundFromDollars;
+    // Max on the same whole figure: the largest order this ticket's own
+    // funding check passes (the Investing cash, else a move the rest of
+    // Investments covers, the move's cost counted), so Max never turns the
+    // button into "Add".
+    double? fundedMaxUsd;
+    if (buysFromInvestments &&
+        otherSpendableUsd > 0 &&
+        canDeposit &&
+        depositBlock == null) {
+      final reach = math.min(
+          otherSpendableUsd,
+          ref
+                  .watch(venueCashReachExcludingProvider(
+                      OneBalanceVenue.investing))
+                  .valueOrNull ??
+              dollarsUsd);
+      final held = _fundPlan;
+      fundedMaxUsd = slipMaxFundableUsd(
+        upperUsd: hypercoreMaxOrderUsd(
+          availableUsd: shownAvailable,
+          leverage: isSpot ? 1 : _leverage,
+          slippagePct: _mode == _OrderMode.market ? _slippagePct : 0,
+        ),
+        fits: (margin) {
+          final short = _shortfallNow(marginUsd: margin);
+          if (short <= 0) return true;
+          // The route's cost is near flat: the last estimate's cost stands
+          // for any size, never under the fallback share.
+          final plan = _fundPlanFor(short);
+          final heldCost = held == null
+              ? 0.0
+              : math.max(0.0, held.fundUsd - held.arrivingUsd);
+          final fund = math.max(plan.fundUsd,
+              OrderFundingEngine.targetUsd(shortfallUsd: short) + heldCost);
+          return fund * (1 + kSlipMaxMoveHeadroom) <= reach + 1e-9;
+        },
+      );
+    }
     _slipInvestmentsUsd = investmentsUsd;
     var dollarsShort = fundPlan == null
         ? 0.0
         : _dollarsShortUsd(fundPlan.fundUsd, haveUsd: investmentsUsd);
-    // The person's own bitcoin covers it: the button names exactly what
-    // the Bitcoin leg will add (the same rounding, the route minimum), and
-    // the tap converts that and nothing more.
+    // With an order typed the button names exactly what the Bitcoin leg
+    // would add (the same rounding, the route minimum): the tap converts
+    // that and nothing more when the bitcoin covers it, else opens the
+    // Investments Receive sheet. Whether it covers is decided at the tap
+    // on the wallet's own figures, so a balance or price still loading
+    // here never decides where the tap goes. The bet slip does the same.
     final bitcoinAdd = fundPlan == null
         ? 0.0
         : BitcoinLegRules.addUsd(
             fundUsd: fundPlan.fundUsd, investmentsUsd: investmentsUsd);
-    _bitcoinShownAddUsd = dollarsShort > 0 && _bitcoinCovers(bitcoinAdd, ref.watch)
-        ? bitcoinAdd
-        : null;
-    if (_bitcoinShownAddUsd != null) dollarsShort = _bitcoinShownAddUsd!;
+    _shownAddUsd = dollarsShort <= 0 || _isLedger
+        ? null
+        : _bitcoinEligible && bitcoinAdd > 0
+            ? bitcoinAdd
+            : dollarsShort;
+    if (_shownAddUsd != null) {
+      dollarsShort = _shownAddUsd!;
+      _warmBitcoinLeg();
+    }
     final gatesOpen = advancedBlock == null &&
         openBlock == null &&
         (!insufficient || canFundFromDollars) &&
@@ -4162,6 +4388,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
             SizedBox(height: 16.h),
           ],
           _buildAmountField(c, available,
+              shownAvailableUsd: shownAvailable,
+              maxUsdOverride: fundedMaxUsd,
               keypad: !advanced,
               // Against a held position only a flip has a minimum.
               minAmountUsd: _reduceOnly ||
@@ -5383,15 +5611,22 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     );
   }
 
+  /// [available] is this account's own figure (what a spot sell holds);
+  /// [shownAvailableUsd] what "Available" reads for a buy (the whole
+  /// spendable Investments on a hot ticket) and [maxUsdOverride] the Max
+  /// worked out on it.
   Widget _buildAmountField(AppColorsExtension c, double available,
-      {bool keypad = false,
+      {double? shownAvailableUsd,
+      double? maxUsdOverride,
+      bool keypad = false,
       double? minAmountUsd,
       bool belowMinimum = false,
       String? positionNote}) {
+    final shown = shownAvailableUsd ?? available;
     final availLabel = isSpot && !_isLong
         ? context.l10n.slipHeld(
             '${formatHlSize(available > 0 ? available / (_midNow() > 0 ? _midNow() : 1) : 0)} ${market.coin}')
-        : context.l10n.ledgerAvailableAmount(formatHlUsd(available));
+        : context.l10n.ledgerAvailableAmount(formatHlUsd(shown));
     // Simple ticket: the shared hero + the app's own keypad (pinned by the
     // ticket below the form), so the OS keyboard never covers the sheet.
     if (keypad) {
@@ -5399,11 +5634,12 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       // it on the same line.
       final compactAvailLabel = isSpot && !_isLong
           ? availLabel
-          : context.l10n.betSlipAvailableAmount(formatHlUsd(available));
+          : context.l10n.betSlipAvailableAmount(formatHlUsd(shown));
       // Everything, floored to a cent: a spot sell of the whole holding
       // as is, a buy or a perp margin with its slippage and fees reserved
-      // out of the same cash so the order can be funded.
-      final maxUsd = available <= 0
+      // out of the same cash so the order can be funded (on a hot ticket,
+      // the whole spendable Investments, [maxUsdOverride]).
+      final venueMaxUsd = available <= 0
           ? 0.0
           : isSpot && !_isLong
               ? (available * 100).floorToDouble() / 100
@@ -5412,6 +5648,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                   leverage: isSpot ? 1 : _leverage,
                   slippagePct: _mode == _OrderMode.market ? _slippagePct : 0,
                 );
+      final maxUsd = math.max(venueMaxUsd, maxUsdOverride ?? 0);
       // One small Max chip beside the figure, and under it one quiet line
       // with the balance and the venue minimum. An empty account has
       // nothing to fill and goes straight to the deposit door.
