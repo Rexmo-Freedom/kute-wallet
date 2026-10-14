@@ -2,9 +2,9 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/screens/shared/rubber_band_progress.dart';
+import 'package:kute/services/continuous_haptics.dart';
 
 Widget _host(double progress,
     {RubberBandOutcome outcome = RubberBandOutcome.none,
@@ -79,14 +79,16 @@ Future<void> _settle(WidgetTester tester) async {
   }
 }
 
-/// Two seconds of 60 fps frames, as a phone draws them.
-Future<void> _frames60(WidgetTester tester) async {
-  for (var i = 0; i < 120; i++) {
-    await tester.pump(const Duration(milliseconds: 16));
-  }
-}
-
 void main() {
+  // Every haptic the band asks for, through the bridge's test seam.
+  late List<ContinuousHapticsCall> log;
+  setUp(() {
+    ContinuousHaptics.debugReset();
+    log = ContinuousHaptics.debugLog = [];
+  });
+  tearDown(() => ContinuousHaptics.debugLog = null);
+  int snaps() => log.where((c) => c.method == 'snap').length;
+
   test('the tension is monotonic, and full tension is 12–14% of the block', () {
     final values = [for (var i = 0; i <= 10; i++) rubberBandStretchFor(i / 10)];
     for (var i = 1; i < values.length; i++) {
@@ -148,12 +150,6 @@ void main() {
 
   testWidgets('success snaps past rest, settles, and stops ticking',
       (tester) async {
-    final calls = <MethodCall>[];
-    tester.binding.defaultBinaryMessenger
-        .setMockMethodCallHandler(SystemChannels.platform, (call) async {
-      calls.add(call);
-      return null;
-    });
     var released = 0;
     await tester.pumpWidget(_host(0.85, onReleased: () => released++));
     await _settle(tester);
@@ -170,11 +166,7 @@ void main() {
     expect(_state(tester).stretch, 0);
     expect(_state(tester).ticking, isFalse);
     expect(released, 1);
-    expect(
-        calls.where((c) =>
-            c.method == 'HapticFeedback.vibrate' &&
-            c.arguments == 'HapticFeedbackType.heavyImpact'),
-        hasLength(1));
+    expect(snaps(), 1);
   });
 
   testWidgets('failure releases softly with no overshoot', (tester) async {
@@ -322,12 +314,6 @@ void main() {
 
     testWidgets('success snaps while still busy, and settles within the wait',
         (tester) async {
-      final calls = <MethodCall>[];
-      tester.binding.defaultBinaryMessenger
-          .setMockMethodCallHandler(SystemChannels.platform, (call) async {
-        calls.add(call);
-        return null;
-      });
       await tester.pumpWidget(_busyHost(true));
       await _record(tester, 1500);
       final pulled = _state(tester).stretch;
@@ -343,22 +329,14 @@ void main() {
       // By the end of the wait it has all but settled: under a pixel on
       // a 56 px button.
       expect(frames.last.abs() * 56, lessThan(1));
-      expect(
-          calls.where((c) =>
-              c.method == 'HapticFeedback.vibrate' &&
-              c.arguments == 'HapticFeedbackType.heavyImpact'),
-          hasLength(1));
+      expect(snaps(), 1);
       // Then the caller lets go of busy: nothing more happens.
       await tester
           .pumpWidget(_busyHost(false, outcome: RubberBandOutcome.success));
       await tester.pump(const Duration(seconds: 1));
       expect(_state(tester).stretch, 0);
       expect(_busyTicking(tester), isFalse);
-      expect(
-          calls.where((c) =>
-              c.method == 'HapticFeedback.vibrate' &&
-              c.arguments == 'HapticFeedbackType.heavyImpact'),
-          hasLength(1));
+      expect(snaps(), 1);
     });
 
     testWidgets('failure releases softly: never past rest', (tester) async {
@@ -452,56 +430,182 @@ void main() {
     });
   });
 
-  testWidgets(
-      'the pull is felt as a continuous stream of taps that grows stronger '
-      'as it tightens, goes quiet while it holds, and ends in one heavy '
-      'thud', (tester) async {
-    final calls = <MethodCall>[];
-    tester.binding.defaultBinaryMessenger
-        .setMockMethodCallHandler(SystemChannels.platform, (call) async {
-      calls.add(call);
-      return null;
-    });
-    addTearDown(() => tester.binding.defaultBinaryMessenger
-        .setMockMethodCallHandler(SystemChannels.platform, null));
-    List<String> taps() => [
-          for (final c in calls)
-            if (c.method == 'HapticFeedback.vibrate') c.arguments as String,
+  group('the felt pull (continuous haptic)', () {
+    List<String> methods() => [for (final c in log) c.method];
+    List<double> updates() => [
+          for (final c in log)
+            if (c.method == 'update') c.intensity!,
         ];
-    const rank = {
-      'HapticFeedbackType.selectionClick': 0,
-      'HapticFeedbackType.lightImpact': 1,
-      'HapticFeedbackType.mediumImpact': 2,
-    };
+    int count(String method, [int from = 0]) =>
+        log.skip(from).where((c) => c.method == method).length;
 
-    await tester.pumpWidget(_host(0.3));
-    await _frames60(tester);
-    final early = taps().length;
-    expect(early, greaterThan(3), reason: 'a stream, not a single tap');
-    expect(
-        taps().every((t) => t == 'HapticFeedbackType.selectionClick'), isTrue,
-        reason: 'low tension: the lightest taps');
-
-    await tester.pumpWidget(_host(0.95));
-    await _frames60(tester);
-    final all = taps();
-    expect(all.length, greaterThan(early + 5));
-    // Never weaker than the tap before it.
-    for (var i = 1; i < all.length; i++) {
-      expect(rank[all[i]]!, greaterThanOrEqualTo(rank[all[i - 1]]!));
+    Future<void> frames(WidgetTester tester, Duration total,
+        {Duration frame = const Duration(milliseconds: 16)}) async {
+      for (var t = Duration.zero; t < total; t += frame) {
+        await tester.pump(frame);
+      }
     }
-    expect(all.last, 'HapticFeedbackType.mediumImpact',
-        reason: 'near full tension: the strongest pull taps');
 
-    // Holding: quiet.
-    final held = taps().length;
-    await tester.pump(const Duration(seconds: 2));
-    expect(taps().length, held);
+    testWidgets(
+        'starts low but felt the moment the action starts, rises with the '
+        'band, keeps going while it holds, and ends in one stop and the '
+        'snap', (tester) async {
+      await tester.pumpWidget(_busyHost(false));
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(log, isEmpty, reason: 'nothing before the tap');
 
-    // Success: one heavy thud and nothing else.
-    await tester.pumpWidget(_host(0.95, outcome: RubberBandOutcome.success));
-    await _frames60(tester);
-    final after = taps().sublist(held);
-    expect(after, ['HapticFeedbackType.heavyImpact']);
+      await tester.pumpWidget(_busyHost(true));
+      expect(log.first.method, 'start');
+      expect(log.first.intensity,
+          closeTo(RubberBandHaptics.startIntensity, 0.02));
+      expect(log[1].method, 'tick', reason: 'the tap clicks at once');
+      expect(_state(tester).feeling, isTrue);
+
+      await frames(tester, const Duration(seconds: 3));
+      final up = updates();
+      expect(up.length, greaterThan(60), reason: 'live, about 30 a second');
+      expect(up.length, lessThanOrEqualTo(3 * 31), reason: 'never above ~30 Hz');
+      for (var i = 1; i < up.length; i++) {
+        expect(up[i], greaterThanOrEqualTo(up[i - 1]), reason: 'never softer');
+      }
+      expect(up.last, greaterThan(up.first + 0.2));
+      expect(count('stop'), 0, reason: 'continuous while it runs');
+
+      // It worked: the rumble stops, then the whoosh and the snap, once.
+      final before = log.length;
+      await tester
+          .pumpWidget(_busyHost(true, outcome: RubberBandOutcome.success));
+      await frames(tester, const Duration(seconds: 1));
+      expect(methods().sublist(before), ['stop', 'snap']);
+      expect(_state(tester).feeling, isFalse);
+      await tester
+          .pumpWidget(_busyHost(false, outcome: RubberBandOutcome.success));
+      await frames(tester, const Duration(seconds: 1));
+      expect(methods().sublist(before), ['stop', 'snap']);
+      expect(_busyTicking(tester), isFalse, reason: 'no ticker at rest');
+    });
+
+    testWidgets('the rumble follows the steps up, and the ratchet tightens',
+        (tester) async {
+      await tester.pumpWidget(_host(0.3));
+      await frames(tester, const Duration(seconds: 2));
+      final low = log.length;
+      await frames(tester, const Duration(seconds: 2));
+      final lowTicks = count('tick', low);
+      final lowLevel = updates().last;
+
+      await tester.pumpWidget(_host(0.95));
+      await frames(tester, const Duration(seconds: 2));
+      final high = log.length;
+      await frames(tester, const Duration(seconds: 2));
+      final highTicks = count('tick', high);
+      final highLevel = updates().last;
+
+      expect(lowLevel, closeTo(RubberBandHaptics.intensityFor(0.3), 0.03));
+      expect(highLevel, closeTo(RubberBandHaptics.intensityFor(0.95), 0.03));
+      expect(highLevel, greaterThan(0.9), reason: 'about full near placement');
+      expect(highTicks, greaterThan(lowTicks * 2),
+          reason: 'the ratchet clicks faster as it tightens');
+      final up = updates();
+      for (var i = 1; i < up.length; i++) {
+        expect(up[i], greaterThanOrEqualTo(up[i - 1]));
+      }
+      final sharp = [
+        for (final c in log)
+          if (c.method == 'update') c.sharpness!,
+      ];
+      expect(sharp.last, greaterThan(sharp.first), reason: 'sharper too');
+      // Holding at one step: still felt, never stopped.
+      expect(count('stop'), 0);
+      expect(count('update', high), greaterThan(30));
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+
+    testWidgets(
+        'a long wait drops to a heartbeat after 20 s, and the next step '
+        'brings the rumble back; a failure stops it with a soft tap',
+        (tester) async {
+      const frame = Duration(milliseconds: 50);
+      await tester.pumpWidget(_host(0.3));
+      await frames(tester, const Duration(seconds: 19), frame: frame);
+      expect(count('stop'), 0);
+      expect(_state(tester).heartbeat, isFalse);
+
+      await frames(tester, const Duration(seconds: 2), frame: frame);
+      expect(_state(tester).heartbeat, isTrue);
+      final stopAt = methods().indexOf('stop');
+      expect(stopAt, greaterThan(0));
+
+      await frames(tester, const Duration(seconds: 5), frame: frame);
+      final after = log.sublist(stopAt + 1);
+      expect(after.map((c) => c.method).toSet(), {'pulse'},
+          reason: 'no rumble, no ratchet: only the heartbeat');
+      expect(after.length, inInclusiveRange(5, 7), reason: 'one a second');
+      expect(after.first.intensity,
+          closeTo(RubberBandHaptics.intensityFor(0.3), 0.03),
+          reason: 'at the current level');
+
+      // The next step: the rumble and the ratchet come back.
+      final next = log.length;
+      await tester.pumpWidget(_host(0.6));
+      await frames(tester, const Duration(seconds: 1));
+      expect(methods()[next], 'start');
+      expect(_state(tester).heartbeat, isFalse);
+      expect(count('update', next), greaterThan(10));
+      expect(count('tick', next), greaterThan(3));
+      expect(count('pulse', next), 0);
+      // And the long wait counts again from that step.
+      await frames(tester, const Duration(seconds: 15), frame: frame);
+      expect(_state(tester).heartbeat, isFalse);
+      expect(count('stop', next), 0);
+
+      // It failed: the rumble stops, one soft tap.
+      final end = log.length;
+      await tester.pumpWidget(_host(0.6, outcome: RubberBandOutcome.failure));
+      await frames(tester, const Duration(seconds: 1));
+      expect(methods().sublist(end), ['stop', 'softTap']);
+      expect(_state(tester).ticking, isFalse);
+    });
+
+    testWidgets('Reduce Motion: no haptic at all', (tester) async {
+      await tester.pumpWidget(_busyHost(true, reduceMotion: true));
+      await frames(tester, const Duration(seconds: 1));
+      await tester.pumpWidget(_busyHost(true,
+          reduceMotion: true, outcome: RubberBandOutcome.success));
+      await frames(tester, const Duration(milliseconds: 500));
+      expect(log, isEmpty);
+    });
+
+    testWidgets('covered by a route or in the background: stopped at once',
+        (tester) async {
+      await tester.pumpWidget(TickerMode(enabled: true, child: _host(0.5)));
+      await frames(tester, const Duration(milliseconds: 500));
+      expect(_state(tester).feeling, isTrue);
+
+      await tester.pumpWidget(TickerMode(enabled: false, child: _host(0.5)));
+      expect(log.last.method, 'stop');
+      expect(_state(tester).feeling, isFalse);
+      final covered = log.length;
+      await tester.pump(const Duration(seconds: 1));
+      expect(log.length, covered, reason: 'nothing while covered');
+
+      await tester.pumpWidget(TickerMode(enabled: true, child: _host(0.5)));
+      expect(log[covered].method, 'start');
+      await frames(tester, const Duration(milliseconds: 300));
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      expect(log.last.method, 'stop');
+      expect(_state(tester).feeling, isFalse);
+      final paused = log.length;
+      await tester.pump(const Duration(seconds: 1));
+      expect(log.length, paused);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+      expect(log[paused].method, 'start');
+
+      // Gone: stopped.
+      await tester.pumpWidget(const SizedBox.shrink());
+      expect(log.last.method, 'stop');
+    });
   });
 }

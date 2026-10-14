@@ -10,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/l10n/generated/app_localizations.dart';
 import 'package:kute/screens/polymarket/components/slip_chrome.dart';
 import 'package:kute/screens/shared/rubber_band_progress.dart';
+import 'package:kute/services/continuous_haptics.dart';
 import 'package:kute/theme/app_theme.dart';
 
 Widget _host(
@@ -58,15 +59,17 @@ void main() {
   late List<MethodCall> calls;
   setUp(() {
     calls = [];
+    ContinuousHaptics.debugReset();
+    ContinuousHaptics.debugLog = [];
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(SystemChannels.platform, (call) async {
       calls.add(call);
       return null;
     });
   });
-  Iterable<MethodCall> snapTaps() => calls.where((c) =>
-      c.method == 'HapticFeedback.vibrate' &&
-      c.arguments == 'HapticFeedbackType.heavyImpact');
+  // The whoosh and the snap, through the haptics bridge's test seam.
+  Iterable<ContinuousHapticsCall> snapTaps() =>
+      ContinuousHaptics.debugLog!.where((c) => c.method == 'snap');
 
   testWidgets('an unfunded bet: pulled while it places, building with time',
       (tester) async {

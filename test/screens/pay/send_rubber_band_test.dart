@@ -19,6 +19,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/screens/pay/components/confirm_send.dart'
     show runSendTapBusy;
 import 'package:kute/screens/shared/rubber_band_progress.dart';
+import 'package:kute/services/continuous_haptics.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -141,6 +142,9 @@ Future<void> _wait(WidgetTester tester, Duration total) async {
 
 /// Records the light taps the band gives.
 List<MethodCall> _hapticLog(WidgetTester tester) {
+  ContinuousHaptics.debugReset();
+  ContinuousHaptics.debugLog = [];
+  addTearDown(() => ContinuousHaptics.debugLog = null);
   final calls = <MethodCall>[];
   tester.binding.defaultBinaryMessenger
       .setMockMethodCallHandler(SystemChannels.platform, (call) async {
@@ -152,11 +156,10 @@ List<MethodCall> _hapticLog(WidgetTester tester) {
   return calls;
 }
 
-int _snapImpacts(List<MethodCall> calls) => calls
-    .where((c) =>
-        c.method == 'HapticFeedback.vibrate' &&
-        c.arguments == 'HapticFeedbackType.heavyImpact')
-    .length;
+/// The whoosh and the snap, through the haptics bridge's test seam (the
+/// pull before a release never snaps).
+int _snapImpacts(List<MethodCall> calls) =>
+    ContinuousHaptics.debugLog!.where((c) => c.method == 'snap').length;
 
 /// Taps Send and walks the route to the broadcast wait, checking the
 /// pull grows with each phase on the way.

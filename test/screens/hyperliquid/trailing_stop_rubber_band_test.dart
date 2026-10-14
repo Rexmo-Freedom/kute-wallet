@@ -29,6 +29,7 @@ import 'package:kute/screens/hyperliquid/components/trailing_stop_sheet.dart';
 import 'package:kute/screens/polymarket/components/slip_chrome.dart';
 import 'package:kute/screens/shared/pin_gate_sheet.dart';
 import 'package:kute/screens/shared/rubber_band_progress.dart';
+import 'package:kute/services/continuous_haptics.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart';
 import 'package:kute/services/hyperliquid/trailing_stop.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
@@ -171,6 +172,9 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     platform = [];
+    ContinuousHaptics.debugReset();
+    ContinuousHaptics.debugLog = [];
+    addTearDown(() => ContinuousHaptics.debugLog = null);
     tester.binding.defaultBinaryMessenger
         .setMockMethodCallHandler(SystemChannels.platform, (call) async {
       platform.add(call);
@@ -257,11 +261,9 @@ void main() {
     expect(tester.widget<PolySlipCta>(find.byType(PolySlipCta)).isBusy, isTrue);
   }
 
-  int snapTaps() => platform
-      .where((c) =>
-          c.method == 'HapticFeedback.vibrate' &&
-          c.arguments == 'HapticFeedbackType.heavyImpact')
-      .length;
+  // The whoosh and the snap, through the haptics bridge's test seam.
+  int snapTaps() =>
+      ContinuousHaptics.debugLog!.where((c) => c.method == 'snap').length;
 
   testWidgets(
       'placing pulls the CTA up; placed, it snaps back past rest with a '

@@ -34,6 +34,7 @@ import 'package:kute/screens/polymarket/components/slip_chrome.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/pin_gate_sheet.dart';
 import 'package:kute/screens/shared/rubber_band_progress.dart';
+import 'package:kute/services/continuous_haptics.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/secure/flutter_secret_store.dart';
@@ -197,6 +198,9 @@ void main() {
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
     platform = [];
+    ContinuousHaptics.debugReset();
+    ContinuousHaptics.debugLog = [];
+    addTearDown(() => ContinuousHaptics.debugLog = null);
     tester.binding.defaultBinaryMessenger
         .setMockMethodCallHandler(SystemChannels.platform, (call) async {
       platform.add(call);
@@ -271,11 +275,9 @@ void main() {
     expect(tester.widget<PolySlipCta>(_cta).isBusy, isTrue);
   }
 
-  int snapTaps() => platform
-      .where((c) =>
-          c.method == 'HapticFeedback.vibrate' &&
-          c.arguments == 'HapticFeedbackType.heavyImpact')
-      .length;
+  // The whoosh and the snap, through the haptics bridge's test seam.
+  int snapTaps() =>
+      ContinuousHaptics.debugLog!.where((c) => c.method == 'snap').length;
 
   testWidgets(
       'closing pulls the CTA up; closed, it snaps back with a light tap, '

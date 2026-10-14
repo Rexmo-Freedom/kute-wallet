@@ -26,20 +26,23 @@
 //   * Reduce Motion: nothing moves, the block sits at rest;
 //   * nothing ticks while its tickers are off (covered by a route), while
 //     the app is in the background, or at rest;
-//   * the app's springs ([SpringSimulation]) and haptics (the system
-//     impacts, or the `vibration` package's amplitude on Android, which
-//     the app already uses), no new package.
+//   * felt the whole time it runs: a continuous rumble with a ratchet
+//     over it that rise with the band, until it is placed or fails, then
+//     a whoosh and a snap (or a soft tap); after 20 s of one waiting step
+//     it drops to a soft heartbeat ([RubberBandHaptics], the long-wait
+//     rule). The rumble stops at once when the band is covered, the app
+//     leaves the foreground, under Reduce Motion and on dispose;
+//   * the app's springs ([SpringSimulation]) and its own haptics bridge
+//     ([ContinuousHaptics]: Core Haptics, Android's Vibrator), no new
+//     package.
 
 import 'dart:async';
-import 'dart:io' show Platform;
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
-import 'package:flutter/scheduler.dart' show SchedulerBinding;
-import 'package:flutter/services.dart' show HapticFeedback;
-import 'package:vibration/vibration.dart';
+import 'package:flutter/scheduler.dart' show Ticker;
+import 'package:kute/services/continuous_haptics.dart';
 
 /// How a [RubberBandProgress]'s action ended.
 enum RubberBandOutcome {
@@ -82,63 +85,82 @@ double rubberBandEasedProgress(
   return from + (ceiling - from) * share;
 }
 
-/// What a call site waits on before it moves past a band's ending.
-/// The pull's haptic: a continuous stream of taps that follows the band,
-/// Instagram's vanish-mode pull. A tap each time the tension rises another
-/// [step] of the full stretch (never closer than [minGap]), each one
-/// stronger than the last as the band tightens; silent while it holds
-/// still; one heavy thud on the snap. On Android each tap's strength
-/// ramps smoothly ([Vibration] amplitude); elsewhere it climbs the system
-/// impacts (selection, light, medium).
+/// The pull's haptic, modelled on Instagram's vanish-mode pull (its
+/// "sprocket"): a continuous rumble ([ContinuousHaptics]) that starts low
+/// but felt the moment the action starts and rises with the band toward
+/// full strength near placement, a ratchet of clicks over it that comes
+/// faster and harder as the band tightens, and on success a whoosh then a
+/// snap ([ContinuousHaptics.snap]); a soft tap on a release without. It
+/// plays the whole time the action runs, holds included, until it is
+/// placed or fails.
+///
+/// The long-wait rule: a funded bet or order can wait 1-5 minutes for its
+/// money to land, and a minutes-long rumble would be unbearable and drain
+/// the battery. So after [longWait] of rumble in one waiting step it drops
+/// to a heartbeat: one soft [ContinuousHaptics.pulse] every
+/// [heartbeatPeriod] at the current level, no rumble, no ratchet. The next
+/// step (a rise of at least [stepJump] in the band's progress at once)
+/// brings the rumble and the ratchet back, through the final placing step.
 abstract final class RubberBandHaptics {
-  /// How far the tension rises between two taps, as a share of the full
-  /// stretch: about 40 taps from rest to full.
+  /// The rumble's strength at rest and at full tension.
+  static const double startIntensity = 0.3;
+  static const double fullIntensity = 1.0;
+
+  /// The rumble's sharpness at rest and at full tension: a low, soft
+  /// rumble that gets edgier as it tightens.
+  static const double startSharpness = 0.1;
+  static const double fullSharpness = 0.5;
+
+  /// The ratchet's gap between two clicks at rest and at full tension:
+  /// 5 clicks a second at the tap, about 16 at full.
+  static const Duration ratchetSlow = Duration(milliseconds: 200);
+  static const Duration ratchetFast = Duration(milliseconds: 60);
+
+  /// A click's strength and sharpness at rest (both reach 1 at full).
+  static const double tickStartIntensity = 0.35;
+  static const double tickStartSharpness = 0.55;
+
+  /// How long one waiting step keeps the rumble before the heartbeat.
+  static const Duration longWait = Duration(seconds: 20);
+
+  /// The heartbeat's beat, once the rumble has given way.
+  static const Duration heartbeatPeriod = Duration(seconds: 1);
+
+  /// A rise in the band's progress at least this big, at once, is a new
+  /// step (a phase arriving), not the time build creeping on.
+  static const double stepJump = 0.05;
+
+  /// Kept for callers of the earlier stream of taps.
   static const double step = 0.025;
-
-  /// The closest two taps ever come.
   static const Duration minGap = Duration(milliseconds: 28);
-
-  /// Shares of the full stretch where the system impact steps up.
   static const double lightFrom = 0.35;
   static const double mediumFrom = 0.7;
 
-  /// Whether this phone shapes a tap's strength (Android with amplitude
-  /// control): asked once, in the background; until it answers, and on
-  /// every other platform, the system impacts play.
-  static bool? _amplitude;
-  static bool _asking = false;
+  static double _lerp(double a, double b, double t) =>
+      a + (b - a) * t.clamp(0.0, 1.0);
 
-  static bool get _android => !kIsWeb && Platform.isAndroid;
+  /// The rumble's strength at [share] of the full stretch.
+  static double intensityFor(double share) =>
+      _lerp(startIntensity, fullIntensity, share);
 
-  static void _askAmplitude() {
-    if (_asking || _amplitude != null) return;
-    _asking = true;
-    Vibration.hasAmplitudeControl()
-        .then((v) => _amplitude = v, onError: (Object _) => _amplitude = false);
-  }
+  /// The rumble's sharpness at [share] of the full stretch.
+  static double sharpnessFor(double share) =>
+      _lerp(startSharpness, fullSharpness, share);
 
-  /// One tap at [share] of the full stretch.
-  static void tick(double share) {
-    final s = share.clamp(0.0, 1.0).toDouble();
-    if (_android) {
-      _askAmplitude();
-      if (_amplitude == true) {
-        Vibration.vibrate(
-                duration: 10, amplitude: (30 + 225 * s).round().clamp(1, 255))
-            .catchError((Object _) {});
-        return;
-      }
-    }
-    if (s >= mediumFrom) {
-      HapticFeedback.mediumImpact();
-    } else if (s >= lightFrom) {
-      HapticFeedback.lightImpact();
-    } else {
-      HapticFeedback.selectionClick();
-    }
-  }
+  /// The ratchet's gap at [share] of the full stretch.
+  static Duration ratchetGapFor(double share) => Duration(
+      microseconds: _lerp(ratchetSlow.inMicroseconds.toDouble(),
+              ratchetFast.inMicroseconds.toDouble(), share)
+          .round());
+
+  /// One ratchet click at [share] of the full stretch ([owner]'s: only
+  /// the strongest band ratchets when several pull at once).
+  static void tick(double share, {Object? owner}) => ContinuousHaptics.tick(
+      _lerp(tickStartIntensity, 1, share), _lerp(tickStartSharpness, 1, share),
+      owner: owner);
 }
 
+/// What a call site waits on before it moves past a band's ending.
 class RubberBand {
   RubberBand._();
 
@@ -235,9 +257,10 @@ class RubberBandProgress extends StatefulWidget {
   /// The share of the block's height at full tension (about 12–14%).
   final double maxStretch;
 
-  /// The pull's continuous haptic as it rises ([RubberBandHaptics]), a
-  /// heavy thud as it snaps on success and a soft tap on a release
-  /// without.
+  /// The pull's continuous haptic while the action runs
+  /// ([RubberBandHaptics]: a rumble and a ratchet rising with the band, a
+  /// heartbeat on a long wait), a whoosh and a snap on success and a soft
+  /// tap on a release without.
   final bool haptic;
 
   /// Called once the band has come to rest after an outcome.
@@ -267,15 +290,34 @@ class RubberBandProgressState extends State<RubberBandProgress>
   bool _foreground = true;
   bool _released = false;
 
-  /// Where the last pull tap was felt (share of the full stretch) and
-  /// when: the next comes one [RubberBandHaptics.step] higher.
-  double _tapShare = 0;
-  Duration? _tapAt;
+  /// The haptic's clock: runs only while the pull is felt (the action
+  /// running, the band in view, the app in front, motion allowed).
+  late final Ticker _feel = createTicker(_onFeel);
 
-  /// The release has been felt: no more pull taps for this action.
-  bool _tapsDone = false;
+  /// The haptic's clock now, and when the current step started on it.
+  Duration _feelNow = Duration.zero;
+  Duration _stepAt = Duration.zero;
+
+  /// The last ratchet click and the last heartbeat beat.
+  Duration? _clickAt;
+  Duration? _beatAt;
+
+  /// The long-wait rule has given the rumble way to the heartbeat.
+  bool _heartbeat = false;
+
+  /// The share of the full stretch the haptic follows: the band's, never
+  /// going back while the action runs (the pull spring's give does not
+  /// soften it).
+  double _feltShare = 0;
 
   bool get _halted => _reduce || _tickerOff || !_foreground;
+
+  /// Whether the pull is felt now.
+  bool get _feels =>
+      widget.haptic &&
+      !_halted &&
+      widget.outcome == RubberBandOutcome.none &&
+      _target > 0;
 
   /// The band's offset now, as a share of the block's height (positive
   /// pulls up).
@@ -292,7 +334,15 @@ class RubberBandProgressState extends State<RubberBandProgress>
 
   /// Whether anything is ticking.
   @visibleForTesting
-  bool get ticking => _level.isAnimating || _breath.isAnimating;
+  bool get ticking =>
+      _level.isAnimating || _breath.isAnimating || _feel.isActive;
+
+  /// Whether the pull's haptic is on (the rumble, or the heartbeat after
+  /// a long wait) and which.
+  @visibleForTesting
+  bool get feeling => _feel.isActive;
+  @visibleForTesting
+  bool get heartbeat => _feel.isActive && _heartbeat;
 
   /// Breathing grows with the tension, never past the step it rides on.
   double get _breathScale =>
@@ -309,7 +359,6 @@ class RubberBandProgressState extends State<RubberBandProgress>
     _foreground = lifecycle == null || lifecycle == AppLifecycleState.resumed;
     WidgetsBinding.instance.addObserver(this);
     _level.addStatusListener(_onLevelStatus);
-    _level.addListener(_onLevel);
     // Built already ended (a slip reopened on a finished order): at rest,
     // nothing to let go of.
     _released = widget.outcome != RubberBandOutcome.none;
@@ -330,9 +379,15 @@ class RubberBandProgressState extends State<RubberBandProgress>
     if (outcomeChanged && widget.outcome == RubberBandOutcome.none) {
       // A new action on the same block.
       _released = false;
-      _tapShare = 0;
-      _tapAt = null;
-      _tapsDone = false;
+      _feltShare = 0;
+    }
+    if (!outcomeChanged &&
+        widget.outcome == RubberBandOutcome.none &&
+        widget.progress - oldWidget.progress >= RubberBandHaptics.stepJump &&
+        _feel.isActive) {
+      // A new step: the rumble comes back from a heartbeat, and the long
+      // wait counts again from here.
+      _newStep();
     }
     if (outcomeChanged ||
         oldWidget.progress != widget.progress ||
@@ -347,22 +402,92 @@ class RubberBandProgressState extends State<RubberBandProgress>
     _sync(fromOutcome: false);
   }
 
-  /// The pull's continuous haptic ([RubberBandHaptics]): a tap each time
-  /// the tension climbs another step, stronger as it climbs; none while
-  /// it holds or eases back, none once released.
-  void _onLevel() {
-    if (!widget.haptic || _halted || _tapsDone) return;
-    if (widget.outcome != RubberBandOutcome.none) return;
-    if (widget.maxStretch <= 0) return;
-    final share = _level.value / widget.maxStretch;
-    if (share < _tapShare + RubberBandHaptics.step) return;
-    // Frame time, the clock the band itself moves on.
-    final now = SchedulerBinding.instance.currentFrameTimeStamp;
-    final last = _tapAt;
-    if (last != null && now - last < RubberBandHaptics.minGap) return;
-    _tapShare = share;
-    _tapAt = now;
-    RubberBandHaptics.tick(share);
+  /// The share of the full stretch the band holds now, for the haptic.
+  double get _bandShare {
+    if (widget.maxStretch <= 0) return 0;
+    final v = _level.value / widget.maxStretch;
+    return v.isFinite ? v.clamp(0.0, 1.0).toDouble() : 0.0;
+  }
+
+  /// Turns the pull's haptic on or off to match the band
+  /// ([RubberBandHaptics]): on from the moment the action starts, off at
+  /// once when it ends, when the band is covered, the app leaves the
+  /// foreground or motion is reduced.
+  void _syncFeel() {
+    if (_feels) {
+      if (_feel.isActive) return;
+      _feelNow = Duration.zero;
+      _stepAt = Duration.zero;
+      _clickAt = null;
+      _beatAt = null;
+      _heartbeat = false;
+      _feltShare = math.max(_feltShare, _bandShare);
+      _rumble();
+      _feel.start();
+    } else {
+      _stopFeel();
+    }
+  }
+
+  /// Starts the rumble at the felt level, with a first click: the tap is
+  /// felt at once.
+  void _rumble() {
+    ContinuousHaptics.start(RubberBandHaptics.intensityFor(_feltShare),
+        RubberBandHaptics.sharpnessFor(_feltShare),
+        owner: this);
+    RubberBandHaptics.tick(_feltShare, owner: this);
+    _clickAt = _feelNow;
+  }
+
+  void _stopFeel() {
+    if (_feel.isActive) _feel.stop();
+    _heartbeat = false;
+    ContinuousHaptics.stop(owner: this);
+  }
+
+  void _newStep() {
+    _stepAt = _feelNow;
+    if (_heartbeat) {
+      _heartbeat = false;
+      _beatAt = null;
+      _rumble();
+    }
+  }
+
+  /// One frame of the pull's haptic: the rumble follows the band (about
+  /// 30 updates a second, [ContinuousHaptics.updateGap]) and the ratchet
+  /// clicks closer together as it tightens; after
+  /// [RubberBandHaptics.longWait] in one step, a heartbeat instead.
+  void _onFeel(Duration elapsed) {
+    _feelNow = elapsed;
+    _feltShare = math.max(_feltShare, _bandShare);
+    final share = _feltShare;
+    if (!_heartbeat && elapsed - _stepAt >= RubberBandHaptics.longWait) {
+      // The long-wait rule: the rumble gives way to a soft heartbeat
+      // until the next step.
+      _heartbeat = true;
+      _beatAt = elapsed;
+      ContinuousHaptics.stop(owner: this);
+    }
+    if (_heartbeat) {
+      final beat = _beatAt;
+      if (beat == null ||
+          elapsed - beat >= RubberBandHaptics.heartbeatPeriod) {
+        _beatAt = elapsed;
+        ContinuousHaptics.pulse(RubberBandHaptics.intensityFor(share),
+            at: elapsed);
+      }
+      return;
+    }
+    ContinuousHaptics.update(RubberBandHaptics.intensityFor(share),
+        RubberBandHaptics.sharpnessFor(share),
+        owner: this, at: elapsed);
+    final click = _clickAt;
+    if (click == null ||
+        elapsed - click >= RubberBandHaptics.ratchetGapFor(share)) {
+      _clickAt = elapsed;
+      RubberBandHaptics.tick(share, owner: this);
+    }
   }
 
   void _onLevelStatus(AnimationStatus status) {
@@ -374,8 +499,13 @@ class RubberBandProgressState extends State<RubberBandProgress>
     }
   }
 
-  /// Runs the band toward what the widget asks for.
+  /// Runs the band (and its haptic) toward what the widget asks for.
   void _sync({required bool fromOutcome}) {
+    _syncBand(fromOutcome: fromOutcome);
+    _syncFeel();
+  }
+
+  void _syncBand({required bool fromOutcome}) {
     if (_halted) {
       // Still: at rest, nothing ticking. An ending still reports itself.
       if (_level.isAnimating) _level.stop();
@@ -416,15 +546,16 @@ class RubberBandProgressState extends State<RubberBandProgress>
         if (!fromOutcome && _level.isAnimating) return;
         final success = widget.outcome == RubberBandOutcome.success;
         if (widget.haptic && fromOutcome) {
-          // The release is felt: a firm snap when it went through, one
-          // soft tap when it let go without.
+          // The release is felt: the rumble stops, then a whoosh and a
+          // snap when it went through, one soft tap when it let go
+          // without.
+          _stopFeel();
           if (success) {
-            HapticFeedback.heavyImpact();
+            ContinuousHaptics.snap(owner: this);
           } else if (_level.value > 1e-3) {
-            HapticFeedback.lightImpact();
+            ContinuousHaptics.softTap(owner: this);
           }
         }
-        _tapsDone = true;
         final from = _level.value;
         if (from.abs() < 1e-4 && !success) {
           // Nothing to let go of.
@@ -453,7 +584,8 @@ class RubberBandProgressState extends State<RubberBandProgress>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _level.removeListener(_onLevel);
+    _stopFeel();
+    _feel.dispose();
     _level.dispose();
     _breath.dispose();
     super.dispose();

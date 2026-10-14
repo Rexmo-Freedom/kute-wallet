@@ -9,7 +9,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -42,6 +41,7 @@ import 'package:kute/screens/portfolio/portfolio_balance_breakdown.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show RollingFigure;
 import 'package:kute/screens/shared/rubber_band_progress.dart';
+import 'package:kute/services/continuous_haptics.dart';
 import 'package:kute/screens/shared/stale_shimmer.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/one_balance/sweep_rules.dart'
@@ -879,10 +879,11 @@ void main() {
     });
 
     testWidgets(
-        'each column snaps on its own as its row lands, one heavy thud per '
-        'venue; the pull is felt for the first 1.5 s only; Dollars catch '
-        'each arrival; nothing ticks once both are home', (tester) async {
-      final calls = _haptics(tester);
+        'each column snaps on its own as its row lands, one snap per '
+        'venue; the pull is felt as one rumble until the long wait drops '
+        'to a heartbeat; Dollars catch each arrival; nothing ticks once '
+        'both are home', (tester) async {
+      final log = _feel();
       final c = await _pump(tester, home: _breakdown);
       c.read(_sweeperState.notifier).state = both;
       await tester.pumpAndSettle();
@@ -890,14 +891,16 @@ void main() {
       final rows = c.read(swapOrdersProvider.notifier) as FakeSwapOrders;
 
       await tester.tap(_rebalance);
-      final tapAt = calls.length;
       await tester.pump();
-      // The start is felt: both bands' pull haptic is on.
+      // The start is felt: both bands pull with the haptic on, as one
+      // rumble.
       expect(_bandWidget(tester, 'investing').haptic, isTrue);
       expect(_bandWidget(tester, 'predictions').haptic, isTrue);
+      expect(log.where((c) => c.method == 'start'), isNotEmpty);
       await _pumpFor(tester, const Duration(milliseconds: 1400));
-      expect(calls.length, greaterThan(tapAt + 1), reason: 'the pull is felt');
-      expect(_bandWidget(tester, 'predictions').haptic, isTrue);
+      expect(log.where((c) => c.method == 'update').length, greaterThan(10),
+          reason: 'the pull is felt');
+      expect(log.where((c) => c.method == 'stop'), isEmpty);
 
       // Both rows listed: on their way.
       rows.set([
@@ -909,14 +912,19 @@ void main() {
       await _pumpFor(tester, const Duration(milliseconds: 300));
       expect(_bandWidget(tester, 'investing').progress,
           greaterThanOrEqualTo(RebalanceBandPhase.onItsWay.floor));
-      // Past 1.5 s: quiet while they hold, though the tension still builds.
-      expect(_bandWidget(tester, 'investing').haptic, isFalse);
-      expect(_bandWidget(tester, 'predictions').haptic, isFalse);
-      final quietFrom = calls.length;
+      // Still felt while they hold, the tension building; a long move
+      // drops to the heartbeat (the 20 s rule).
       final held = _band(tester, 'predictions').stretch;
-      await _pumpFor(tester, const Duration(seconds: 20));
+      await _pumpFor(tester, const Duration(seconds: 25));
       expect(_band(tester, 'predictions').stretch, greaterThan(held + 0.005));
-      expect(calls.length, quietFrom, reason: 'no pull haptics after 1.5 s');
+      expect(_band(tester, 'predictions').heartbeat, isTrue);
+      expect(_band(tester, 'investing').heartbeat, isTrue);
+      final beatFrom = log.length;
+      await _pumpFor(tester, const Duration(seconds: 3));
+      expect(log.skip(beatFrom).map((c) => c.method).toSet(), {'pulse'},
+          reason: 'only the heartbeat while they wait');
+      expect(log.skip(beatFrom).length, inInclusiveRange(2, 4),
+          reason: 'one beat a second, the two bands as one');
 
       // Predictions lands: it snaps, Investing keeps pulling.
       rows.set([
@@ -929,7 +937,7 @@ void main() {
       expect(_bandWidget(tester, 'predictions').outcome,
           RubberBandOutcome.success);
       expect(_bandWidget(tester, 'investing').outcome, RubberBandOutcome.none);
-      expect(_heavy(calls), 1);
+      expect(_snaps(log), 1);
       await tester.pump(const Duration(milliseconds: 50));
       expect(_dollarsDip(tester), greaterThan(0.01), reason: 'Dollars catch');
       await _pumpFor(tester, const Duration(milliseconds: 1000));
@@ -954,10 +962,10 @@ void main() {
       await tester.pump();
       expect(
           _bandWidget(tester, 'investing').outcome, RubberBandOutcome.success);
-      expect(_heavy(calls), 2);
+      expect(_snaps(log), 2);
       // Home: everything comes to rest and nothing ticks.
       await tester.pumpAndSettle();
-      expect(_heavy(calls), 2);
+      expect(_snaps(log), 2);
       expect(_band(tester, 'investing').ticking, isFalse);
       expect(_band(tester, 'investing').stretch, 0);
       expect(
@@ -969,8 +977,8 @@ void main() {
 
     testWidgets(
         'left and opened again mid-move: the band shows the tension reached, '
-        'no haptics replayed', (tester) async {
-      final calls = _haptics(tester);
+        'felt again while the move runs, no snap replayed', (tester) async {
+      final log = _feel();
       _Toggle.shown.value = true;
       addTearDown(() => _Toggle.shown.value = true);
       final c = await _pump(tester, home: const _Toggle());
@@ -1001,7 +1009,7 @@ void main() {
               pulling: s.pulling,
               pendingAtTap: s.pendingAtTap,
               knownAtTap: s.knownAtTap);
-      final before = calls.length;
+      final before = log.length;
       _Toggle.shown.value = true;
       await tester.pump();
       final progress = _bandWidget(tester, 'predictions').progress;
@@ -1013,11 +1021,20 @@ void main() {
                   expected: const Duration(minutes: 1)),
               epsilon: 0.02));
       expect(progress, greaterThan(RebalanceBandPhase.onItsWay.floor));
-      expect(_bandWidget(tester, 'predictions').haptic, isFalse);
+      // Still on its way: the pull is felt again, from the tension reached.
+      expect(_bandWidget(tester, 'predictions').haptic, isTrue);
       await _pumpFor(tester, const Duration(milliseconds: 500));
       expect(_band(tester, 'predictions').stretch,
           moreOrLessEquals(rubberBandStretchFor(progress), epsilon: 0.01));
-      expect(calls.length, before, reason: 'nothing replayed');
+      final again = log.skip(before).toList();
+      expect(again.first.method, 'start');
+      expect(
+          again.lastWhere((c) => c.method == 'update').intensity,
+          moreOrLessEquals(RubberBandHaptics.intensityFor(progress),
+              epsilon: 0.05),
+          reason: 'at the tension reached, as the band is');
+      expect(again.where((c) => c.method == 'snap'), isEmpty,
+          reason: 'no snap replayed');
     });
 
     testWidgets('covered by a route: still, and nothing ticks', (tester) async {
@@ -1226,20 +1243,17 @@ double _dollarsDip(WidgetTester tester) => tester
     .translation
     .dy;
 
-List<MethodCall> _haptics(WidgetTester tester) {
-  final calls = <MethodCall>[];
-  tester.binding.defaultBinaryMessenger
-      .setMockMethodCallHandler(SystemChannels.platform, (call) async {
-    if (call.method == 'HapticFeedback.vibrate') calls.add(call);
-    return null;
-  });
-  addTearDown(() => tester.binding.defaultBinaryMessenger
-      .setMockMethodCallHandler(SystemChannels.platform, null));
-  return calls;
+/// The bands' haptics, through the bridge's test seam.
+List<ContinuousHapticsCall> _feel() {
+  ContinuousHaptics.debugReset();
+  final log = ContinuousHaptics.debugLog = <ContinuousHapticsCall>[];
+  addTearDown(() => ContinuousHaptics.debugLog = null);
+  return log;
 }
 
-int _heavy(List<MethodCall> calls) =>
-    calls.where((c) => c.arguments == 'HapticFeedbackType.heavyImpact').length;
+/// The whoosh and the snap, one per landing.
+int _snaps(List<ContinuousHapticsCall> log) =>
+    log.where((c) => c.method == 'snap').length;
 
 /// A move home from a venue ([network] 'POLYGON' or 'HYPERCORE').
 SwapOrder _homeRow(String id, String network,

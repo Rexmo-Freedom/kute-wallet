@@ -24,6 +24,7 @@ import 'package:kute/providers/usd_account_provider.dart'
 import 'package:kute/screens/hyperliquid/components/hl_adjust_margin_sheet.dart';
 import 'package:kute/screens/polymarket/components/slip_chrome.dart';
 import 'package:kute/screens/shared/rubber_band_progress.dart';
+import 'package:kute/services/continuous_haptics.dart';
 import 'package:kute/screens/shared/slip_shortfall.dart';
 import 'package:kute/services/one_balance/funded_orders.dart';
 import 'package:kute/services/one_balance/hyperliquid_venue_funder.dart';
@@ -170,6 +171,9 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     platform = [];
+    ContinuousHaptics.debugReset();
+    ContinuousHaptics.debugLog = [];
+    addTearDown(() => ContinuousHaptics.debugLog = null);
     tester.binding.defaultBinaryMessenger
         .setMockMethodCallHandler(SystemChannels.platform, (call) async {
       platform.add(call);
@@ -235,11 +239,9 @@ void main() {
     return notifier;
   }
 
-  int snapTaps() => platform
-      .where((c) =>
-          c.method == 'HapticFeedback.vibrate' &&
-          c.arguments == 'HapticFeedbackType.heavyImpact')
-      .length;
+  // The whoosh and the snap, through the haptics bridge's test seam.
+  int snapTaps() =>
+      ContinuousHaptics.debugLog!.where((c) => c.method == 'snap').length;
 
   testWidgets(
       'the steps pull one band, harder as they advance; the button inside '

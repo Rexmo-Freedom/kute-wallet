@@ -36,6 +36,7 @@
 		AF7003000000000000000001 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = AF7003000000000000000002 /* PrivacyInfo.xcprivacy */; };
 		BD1000000000000000000001 /* NativeBdkPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD1000000000000000000002 /* NativeBdkPlugin.swift */; };
 		BD1000000000000000000003 /* BitcoinDevKit in Frameworks */ = {isa = PBXBuildFile; productRef = BD1000000000000000000004 /* BitcoinDevKit */; };
+		C0A7B1E52FD0000100A1B2C3 /* ContinuousHapticsPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A7B1E42FD0000100A1B2C3 /* ContinuousHapticsPlugin.swift */; };
 		CE5FB5C9372455EEA5EF696C /* TaskProtocol.swift in Resources */ = {isa = PBXBuildFile; fileRef = FBF8D9F665EDD1183BDB2A48 /* TaskProtocol.swift */; settings = {ASSET_TAGS = (BreezSDKLiquid, ); }; };
 /* End PBXBuildFile section */
 
@@ -101,6 +102,7 @@
 		AF7003000000000000000002 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		B410E3C9E4BF1E28380D373C /* SDKNotificationService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SDKNotificationService.swift; path = ../.symlinks/plugins/flutter_breez_liquid/ios/Sources/BreezSDKLiquid/SDKNotificationService.swift; sourceTree = "<group>"; };
 		BD1000000000000000000002 /* NativeBdkPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeBdkPlugin.swift; sourceTree = "<group>"; };
+		C0A7B1E42FD0000100A1B2C3 /* ContinuousHapticsPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ContinuousHapticsPlugin.swift; path = Runner/ContinuousHapticsPlugin.swift; sourceTree = "<group>"; };
 		CF68AAFB9D7935216A015BAD /* LnurlPayVerify.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LnurlPayVerify.swift; path = ../.symlinks/plugins/flutter_breez_liquid/ios/Sources/BreezSDKLiquid/Task/LnurlPayVerify.swift; sourceTree = "<group>"; };
 		EDE8FBDDC84587232CDA70B0 /* Pods-RunnerTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.release.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.release.xcconfig"; sourceTree = "<group>"; };
 		EEFDD1AF569379E4F1D83736 /* LnurlPayInvoice.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LnurlPayInvoice.swift; path = ../.symlinks/plugins/flutter_breez_liquid/ios/Sources/BreezSDKLiquid/Task/LnurlPayInvoice.swift; sourceTree = "<group>"; };
@@ -214,6 +216,7 @@
 			children = (
 				535159CC2FB61A9C002D6773 /* PasskeyPrfPlugin.swift */,
 				5E0C0A012FC0000100A1B2C3 /* SecurityNativePlugin.swift */,
+				C0A7B1E42FD0000100A1B2C3 /* ContinuousHapticsPlugin.swift */,
 				9740EEB11CF90186004384FC /* Flutter */,
 				97C146F01CF9000F007C117D /* Runner */,
 				97C146EF1CF9000F007C117D /* Products */,
@@ -416,13 +419,9 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
-			inputPaths = (
-			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-frameworks-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -508,13 +507,9 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-resources-${CONFIGURATION}-input-files.xcfilelist",
 			);
-			inputPaths = (
-			);
 			name = "[CP] Copy Pods Resources";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-resources-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -562,6 +557,7 @@
 				74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */,
 				535159CD2FB61A9C002D6773 /* PasskeyPrfPlugin.swift in Sources */,
 				5E0C0A022FC0000100A1B2C3 /* SecurityNativePlugin.swift in Sources */,
+				C0A7B1E52FD0000100A1B2C3 /* ContinuousHapticsPlugin.swift in Sources */,
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

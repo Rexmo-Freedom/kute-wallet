@@ -57,12 +57,14 @@
 // never pulls: it keeps its one-line reason. Rebalance itself wears the
 // busy band while the pass is being sent.
 //
-// The pull is felt only for its first [kRebalancePullFeltFor] (both
-// venues pulling together), then the bands hold quietly until they land.
-// The band's start is kept outside the widget ([rebalanceBandSessionProvider])
-// so leaving the Portfolio and coming back shows the tension the move has
-// reached, without replaying the haptics. Nothing ticks at rest, under
-// Reduce Motion, while covered or in the background.
+// The pull is felt the way every band's is ([RubberBandHaptics]): one
+// rumble and ratchet for the venues pulling together (the strongest
+// band's), and a long move home drops to the soft heartbeat after 20 s of
+// one step, until it lands with the whoosh and the snap. The band's start
+// is kept outside the widget ([rebalanceBandSessionProvider]) so leaving
+// the Portfolio and coming back shows the tension the move has reached.
+// Nothing ticks at rest, under Reduce Motion, while covered or in the
+// background.
 
 import 'dart:async';
 
@@ -186,11 +188,6 @@ String? rebalanceNote(
     _ => null,
   };
 }
-
-/// How long a Rebalance's pull is felt after the tap: the start of it,
-/// both venues pulling together. The bands then hold quietly (a move to
-/// USDB can take minutes) and are felt again as each one lands.
-const Duration kRebalancePullFeltFor = Duration(milliseconds: 1500);
 
 /// How long a venue's move home usually takes, what its band builds over:
 /// Predictions about a minute; Investing, whose route can be CCTP, a few
@@ -690,9 +687,9 @@ const Duration kRebalanceSendExpected = Duration(seconds: 2);
 /// A venue's column in its Rebalance band: [RubberBandProgress] at the
 /// tension [phase] holds, built with the time since the tap ([startedAt],
 /// wall clock, so a band built again picks up where the move is) on this
-/// widget's own ticker while it pulls. The pull is felt for the first
-/// [kRebalancePullFeltFor] after the tap only (none for a band built
-/// again later); the landing's thud is always felt.
+/// widget's own ticker while it pulls. The pull is felt as every band's
+/// is ([RubberBandHaptics]: the rumble and the ratchet, the heartbeat on
+/// a long wait), and the landing with the whoosh and the snap.
 class _VenueBand extends StatefulWidget {
   const _VenueBand({
     super.key,
@@ -721,16 +718,10 @@ class _VenueBandState extends State<_VenueBand>
   /// The ticker's time since then.
   Duration _ticked = Duration.zero;
 
-  /// What was left of [kRebalancePullFeltFor] when this pull was first
-  /// built here.
-  Duration _felt = Duration.zero;
-
   /// The tension last drawn: the band is rebuilt a step at a time.
   double _drawn = 0;
 
   bool _reduce = false;
-
-  bool get _haptic => !widget.phase.pulling || _ticked < _felt;
 
   double get _progress => rebalanceBandProgress(widget.phase, _base + _ticked,
       expected: widget.expected);
@@ -758,15 +749,12 @@ class _VenueBandState extends State<_VenueBand>
     _syncTicker();
   }
 
-  /// A pull starts here: how far along its move already is, and how much
-  /// of the felt start is left.
+  /// A pull starts here: how far along its move already is.
   void _latch() {
     final at = widget.startedAt;
     final since = at == null ? Duration.zero : DateTime.now().difference(at);
     _base = since.isNegative ? Duration.zero : since;
     _ticked = Duration.zero;
-    final left = kRebalancePullFeltFor - _base;
-    _felt = left.isNegative ? Duration.zero : left;
     if (_ticker.isActive) _ticker.stop();
   }
 
@@ -782,9 +770,8 @@ class _VenueBandState extends State<_VenueBand>
   }
 
   void _onTick(Duration elapsed) {
-    final felt = _haptic;
     _ticked = elapsed;
-    if (_progress - _drawn >= 0.01 || felt != _haptic) setState(() {});
+    if (_progress - _drawn >= 0.01) setState(() {});
   }
 
   @override
@@ -799,7 +786,7 @@ class _VenueBandState extends State<_VenueBand>
     return RubberBandProgress(
       progress: _drawn,
       outcome: widget.phase.outcome,
-      haptic: _haptic,
+      haptic: true,
       child: widget.child,
     );
   }
