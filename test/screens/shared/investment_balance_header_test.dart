@@ -367,16 +367,12 @@ void main() {
     });
 
     testWidgets(
-        'the whole block is one tap, the total and Invested alike, with a '
-        'rising portfolio arrow right after the total', (tester) async {
+        'the whole block is one tap, the total and Invested alike, with the '
+        'portfolio glyph right after the total', (tester) async {
       var taps = 0;
       await pumpOne(tester, known, onTap: () => taps++);
       expect(chevron, findsOneWidget);
       expect(tester.widget(chevron), isA<PortfolioArrowGlyph>());
-      expect(
-          find.descendant(
-              of: chevron, matching: find.byIcon(Icons.trending_up_rounded)),
-          findsOneWidget);
       expect(find.byIcon(Icons.chevron_right_rounded), findsNothing);
       // The arrow sits right after the big total, on its line.
       final total = find.byType(RollingNumberText).first;

@@ -72,7 +72,8 @@ class InvestmentDiscoveryNotice extends ConsumerWidget {
 ///   * ONE BALANCE ([oneBalance]): the Investments tab's hero, reading
 ///     [oneBalanceProvider]. No title over it (owner decision October
 ///     2026): the total stands alone, Dollars plus the open positions of
-///     every venue, a rising portfolio arrow right after it
+///     every venue, the portfolio glyph (an arrow with a pie badge, built
+///     like the hub's + gear) right after it
 ///     ([PortfolioArrowGlyph]); under it "Invested $Y" alone (positions,
 ///     reserved order cash and pending fills; Available is not shown,
 ///     founder decision October 2026). While anything is on a rail that
@@ -255,7 +256,7 @@ class InvestmentBalanceHeader extends ConsumerWidget {
       _OneBalanceHero(onTap: onTap);
 }
 
-/// The one-balance hero: the total with the rising portfolio arrow after
+/// The one-balance hero: the total with the portfolio glyph after
 /// it and "Invested $Y" under it, or the in-flight lines in that line's
 /// place. Stateful only to ping the arrow's quick play on each press.
 class _OneBalanceHero extends ConsumerStatefulWidget {
@@ -285,11 +286,12 @@ class _OneBalanceHeroState extends ConsumerState<_OneBalanceHero> {
     final lines = InvestmentBalanceHeader.inFlightLines(context, state, amount);
     final figure = InvestmentBalanceHeader.oneBalanceFigure(ref);
     final tap = widget.onTap;
-    // The tap affordance: a rising arrow right after the big total (it
-    // opens the Portfolio; founder decision), sized to sit with the 48 sp
-    // number, and animated like the hub's "+ gear" glyph.
+    // The tap affordance: an arrow to the right with the Portfolio's pie
+    // as its badge, right after the big total (it opens the Portfolio;
+    // founder decision), sized to sit with the 48 sp number and moving
+    // like the hub's "+ gear" glyph in the top bar.
     final arrowGap = 6.w;
-    final arrowSize = 28.sp;
+    final arrowSize = 30.sp;
     final arrow = tap == null
         ? null
         : Padding(
