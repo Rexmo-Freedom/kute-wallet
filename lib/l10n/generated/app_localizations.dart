@@ -18031,12 +18031,6 @@ abstract class AppLocalizations {
   /// **'Incoming {amount}'**
   String oneBalanceIncoming(String amount);
 
-  /// Progress line on an order slip while the shortfall is funded from the spending account. {amount} is a formatted dollar amount, {venue} the venue's display name.
-  ///
-  /// In en, this message translates to:
-  /// **'Moving {amount} to {venue}'**
-  String slipMovingToVenue(String amount, String venue);
-
   /// Button on an order slip that moves the shortfall into the venue before placing the order. {amount} is a formatted dollar amount.
   ///
   /// In en, this message translates to:

@@ -2987,7 +2987,6 @@
   "oneBalanceComingBack": "{amount} coming back from {venue}",
   "oneBalanceWaitingToWithdraw": "{amount} unavailable until balancing completes",
   "oneBalanceIncoming": "Incoming {amount}",
-  "slipMovingToVenue": "Moving {amount} to {venue}",
   "slipAddToInvestments": "Add {amount} to Investments",
   "slipMoveFee": "Move fee",
   "addMoneyToInvestments": "Přidat peníze do Investments",

@@ -443,6 +443,44 @@ void main() {
     ]);
   });
 
+  test(
+      'Face ID declined at the Add tap: nothing quoted, sent or funded, '
+      'nothing recorded', () async {
+    final env = _Env();
+    final c = containerFor(env);
+    var asked = 0;
+    final run = await c.read(bitcoinFundedOrderRunnerProvider).startApproved(
+      approve: () async {
+        asked++;
+        return null; // the fake requireFreshAuth: declined
+      },
+      build: (grant) => request(grant).request,
+    );
+    expect(asked, 1);
+    expect(run, isNull);
+    // The send seam quotes and pays the leg: never reached.
+    expect(env.sends, 0);
+    expect(env.paid, 0);
+    expect(env.watcher.watched, 0);
+    // The venue funder (the Dollars move): never reached.
+    expect(funder.sent, isEmpty);
+    expect(c.read(fundedOrdersProvider), isEmpty);
+    expect(events.where((e) => e.$1 == 'order_funding_started'), isEmpty);
+  });
+
+  test('approved through the same door, the chain starts once', () async {
+    final env = _Env();
+    final c = containerFor(env);
+    final grant = _grant();
+    final run = await c.read(bitcoinFundedOrderRunnerProvider).startApproved(
+          approve: () async => grant,
+          build: (g) => request(g).request,
+        );
+    expect(run, isNotNull);
+    expect(await run!.ended, BitcoinFundedEnd.placed);
+    expect(env.sends, 1);
+  });
+
   test('a second funded order on the venue is seen while one runs', () async {
     final gate = Completer<DollarsLandingOutcome>();
     final env = _Env();
@@ -585,12 +623,12 @@ void main() {
   });
 
   group('sizing', () {
-    test('covers the shortfall plus a buffer, rounded up, within the bitcoin',
+    test('lands exactly the shortfall the button names, within the bitcoin',
         () {
       final s = BitcoinLegRules.size(
           dollarsShortUsd: 4.2, usdPerBtc: 60000, availableSats: 1000000);
       final plan = s.plan!;
-      expect(plan.targetUsd, 4.3); // 4.2 + max(1%, $0.10)
+      expect(plan.targetUsd, 4.2); // no hidden buffer on top
       expect(plan.sats * 60000 / 1e8, greaterThan(plan.targetUsd));
       expect(plan.maxSats, greaterThan(plan.sats));
     });

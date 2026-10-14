@@ -6495,18 +6495,6 @@
       }
     }
   },
-  "slipMovingToVenue": "Moving {amount} to {venue}",
-  "@slipMovingToVenue": {
-    "description": "Progress line on an order slip while the shortfall is funded from the spending account. {amount} is a formatted dollar amount, {venue} the venue's display name.",
-    "placeholders": {
-      "amount": {
-        "type": "String"
-      },
-      "venue": {
-        "type": "String"
-      }
-    }
-  },
   "slipAddToInvestments": "Add {amount} to Investments",
   "@slipAddToInvestments": {
     "description": "Button on an order slip that moves the shortfall into the venue before placing the order. {amount} is a formatted dollar amount.",

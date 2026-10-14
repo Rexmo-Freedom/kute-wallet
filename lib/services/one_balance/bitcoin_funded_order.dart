@@ -70,8 +70,10 @@ import 'package:kute/services/one_balance/bitcoin_to_dollars_leg.dart';
 import 'package:kute/services/one_balance/funded_orders.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/one_balance/order_funding.dart';
+import 'package:kute/services/one_balance/venue_cash_source.dart'
+    show VenueCashFor, VenueCashPullOutcome, VenueCashPuller;
 import 'package:kute/services/one_balance/venue_funder.dart'
-    show VenueMoveResult;
+    show VenueCashDestination, VenueMoveResult;
 import 'package:kute/services/orchestra_routes.dart'
     show kOrchestraUsdAssetCode, kOrchestraUsdChain;
 import 'package:kute/helpers/orchestra_router.dart'
@@ -325,6 +327,24 @@ class BitcoinFundedOrderRunner {
 
   /// Starts the chain for [r] and returns at once: the record is written
   /// now, the chain runs on whatever happens to the slip.
+  /// The slip's Add tap, past its validation and sizing: [approve] asks
+  /// for the ONE approval (the order with its funding and Bitcoin legs);
+  /// only a grant starts the chain ([build] turns it into the request).
+  /// Declined, nothing is quoted, sent or funded, and nothing recorded.
+  Future<BitcoinFundedRun?> startApproved({
+    required Future<AuthGrant?> Function() approve,
+    required BitcoinFundedOrderRequest? Function(AuthGrant grant) build,
+  }) async {
+    final grant = await approve();
+    if (grant == null) return null;
+    final request = build(grant);
+    if (request == null) {
+      grant.revoke();
+      return null;
+    }
+    return start(request);
+  }
+
   BitcoinFundedRun start(BitcoinFundedOrderRequest r) {
     final orders = _ref.read(fundedOrdersProvider.notifier);
     final id = orders.start(r.label,
@@ -420,7 +440,8 @@ class BitcoinFundedOrderRunner {
           baselineUsd: baseline,
           // At least what the quote said lands, less a cent of rounding.
           minRiseUsd: math.max(0.01, ticket.minOutUsd - 0.01),
-          enoughUsd: r.fundUsd,
+          // The leg's own target landed: what the button named.
+          enoughUsd: baseline + r.plan.targetUsd - 0.01,
           onSlow: () => orders.update(id, (rec) => rec.copyWith(slow: true)),
         );
     switch (landing) {
@@ -654,4 +675,118 @@ double spendingBitcoinUsd(T Function<T>(ProviderListenable<T> provider) read) {
   } catch (_) {
     return 0;
   }
+}
+
+// ── The rest of the order: the one-balance planner ─────────────────────
+
+/// What the rest of an order funded from bitcoin takes from the other
+/// venue, worked out BEFORE the one approval: the Bitcoin leg lands
+/// [addUsd] in Dollars, Dollars cover what they can, and the other
+/// venue's cash covers the rest of [fundUsd] (the move into [venue]). The
+/// legs that can go straight into [venue] are bound into the approval
+/// ([directLegs], `VenueLimit.directLegs`); the others come home to
+/// Dollars under the automatic authorization. Moves nothing.
+class OtherVenuePlan {
+  const OtherVenuePlan({
+    required this.otherUsd,
+    required this.covers,
+    this.directLegs,
+  });
+
+  /// What the other venue gives. Zero when Dollars and the leg cover it.
+  final double otherUsd;
+
+  /// Dollars, the Bitcoin leg and the other venue together cover the move.
+  final bool covers;
+
+  /// What the one approval binds for the legs straight into the venue.
+  final Map<String, Object?>? directLegs;
+}
+
+/// The destination a move into [venue] has.
+VenueCashDestination venueCashDestinationOf(OneBalanceVenue venue) =>
+    switch (venue) {
+      OneBalanceVenue.investing => VenueCashDestination.investing,
+      OneBalanceVenue.predictions => VenueCashDestination.predictions,
+    };
+
+/// The `for` value of a move into [venue].
+String venueCashForOf(OneBalanceVenue venue) => switch (venue) {
+      OneBalanceVenue.investing => VenueCashFor.investing,
+      OneBalanceVenue.predictions => VenueCashFor.predictions,
+    };
+
+/// See [OtherVenuePlan]. [dollarsUsd] is what Dollars hold now (before the
+/// leg lands).
+Future<OtherVenuePlan> planOtherVenueCash(
+  VenueCashPuller puller, {
+  required OneBalanceVenue venue,
+  required double fundUsd,
+  required double addUsd,
+  required double dollarsUsd,
+}) async {
+  final other = fundUsd - addUsd - dollarsUsd;
+  if (other <= 0.005) {
+    return const OtherVenuePlan(otherUsd: 0, covers: true);
+  }
+  final destination = venueCashDestinationOf(venue);
+  // The puller counts Dollars itself: what it is asked for is the move
+  // less what the leg lands.
+  final plan = await puller.plan(
+    neededUsd: fundUsd - addUsd,
+    exclude: venue,
+    destination: destination,
+  );
+  return OtherVenuePlan(
+    otherUsd: ((other * 100) - 1e-9).ceilToDouble() / 100,
+    covers: plan.covers,
+    directLegs: puller.directLegLimit(plan, destination),
+  );
+}
+
+/// After the Bitcoin leg's dollars landed: the other venue's cash for the
+/// rest of [fundUsd] (the one-balance puller, under the order's same
+/// [grant]: legs straight into [venue] within what it binds, the others
+/// home to Dollars), then [queue] the venue move from Dollars for what the
+/// direct legs do not bring. When Dollars still do not cover it, nothing
+/// more moves and the order is not queued: the money stays in Investments.
+Future<OrderFundingOutcome> fundRestThenMove({
+  required VenueCashPuller puller,
+  required OneBalanceVenue venue,
+  required double fundUsd,
+  required double readyUsd,
+  required bool needsOtherVenue,
+  required AuthGrant grant,
+  required Future<OrderFundingOutcome> Function({
+    required double fundUsd,
+    required double readyUsd,
+    required double directArrivingUsd,
+    String? moveId,
+  }) queue,
+}) async {
+  if (!needsOtherVenue) {
+    return queue(fundUsd: fundUsd, readyUsd: readyUsd, directArrivingUsd: 0);
+  }
+  VenueCashPullOutcome? pulled;
+  try {
+    pulled = await puller.pullShortfall(
+      neededUsd: fundUsd,
+      forAction: venueCashForOf(venue),
+      destination: venueCashDestinationOf(venue),
+      exclude: venue,
+      approval: grant,
+    );
+  } catch (e) {
+    return OrderFundingRefused('venue_cash', error: e);
+  }
+  if (!pulled.dollarsCover) {
+    return const OrderFundingRefused('venue_cash_pending');
+  }
+  final direct = pulled.directArrivingUsd + pulled.alreadyDeliveredUsd;
+  return queue(
+    fundUsd: direct > 0 ? math.max(0.0, pulled.dollarsNeededUsd) : fundUsd,
+    readyUsd: readyUsd + direct,
+    directArrivingUsd: pulled.directArrivingUsd,
+    moveId: pulled.moveId,
+  );
 }

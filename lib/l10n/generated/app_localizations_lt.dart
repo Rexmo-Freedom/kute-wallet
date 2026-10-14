@@ -10694,11 +10694,6 @@ class AppLocalizationsLt extends AppLocalizations {
   }
 
   @override
-  String slipMovingToVenue(String amount, String venue) {
-    return 'Moving $amount to $venue';
-  }
-
-  @override
   String slipAddToInvestments(String amount) {
     return 'Add $amount to Investments';
   }

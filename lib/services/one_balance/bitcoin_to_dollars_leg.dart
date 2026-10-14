@@ -314,12 +314,13 @@ class BitcoinLegPlan {
     required this.usdPerBtc,
   });
 
-  /// What Dollars lack for the order's move.
+  /// What the whole Investments balance lacks for the order's move, to
+  /// the cent, as the slip's button rounds it.
   final double dollarsShortUsd;
 
-  /// What must land in Dollars: the shortfall plus the buffer, never under
-  /// the route's minimum, rounded up to the cent. "Add $X to Investments"
-  /// names this figure.
+  /// What must land in Dollars: [dollarsShortUsd], never under the route's
+  /// minimum. Exactly the X of "Add $X to Investments" (see
+  /// [BitcoinLegRules.addUsd]); nothing is added on top.
   final double targetUsd;
 
   /// The sats the first quote asks for.
@@ -348,13 +349,8 @@ class BitcoinLegSizing {
 
 /// The Bitcoin leg's sizing rules. Pure.
 abstract final class BitcoinLegRules {
-  /// The share of the shortfall added on top, so the order's move from
-  /// Dollars is covered even when the quote lands a little under its
-  /// estimate.
-  static const double bufferShare = 0.01;
-
-  /// The smallest buffer, in dollars.
-  static const double bufferMinUsd = 0.10;
+  /// The leg's route minimum, the app's $1 floor for a USD leg.
+  static const double routeMinimumUsd = 1.0;
 
   /// The route's spread assumed when no estimate could be read (Orchestra's
   /// real spread on this leg is 1-3%).
@@ -367,16 +363,37 @@ abstract final class BitcoinLegRules {
   static double _ceilCents(double usd) =>
       ((usd * 100) - 1e-9).ceilToDouble() / 100;
 
-  /// What must land for [dollarsShortUsd]: plus the buffer, never under
-  /// [routeMinimumUsd], rounded up to the cent. Zero for no shortfall.
+  /// What must land for [dollarsShortUsd]: that figure rounded up to the
+  /// cent, never under [routeMinimumUsd]. No buffer: the order's move
+  /// already carries the funding engine's, and the rest of the order comes
+  /// from Dollars and the other venue's cash. Zero for no shortfall.
   static double targetUsd(double dollarsShortUsd,
-      {double routeMinimumUsd = 1.0}) {
+      {double routeMinimumUsd = BitcoinLegRules.routeMinimumUsd}) {
     if (!dollarsShortUsd.isFinite || dollarsShortUsd <= 1e-6) return 0;
-    final buffer = math.max(dollarsShortUsd * bufferShare, bufferMinUsd);
     final min = routeMinimumUsd.isFinite && routeMinimumUsd > 0
         ? routeMinimumUsd
         : 0.0;
-    return _ceilCents(math.max(dollarsShortUsd + buffer, min));
+    return _ceilCents(math.max(_ceilCents(dollarsShortUsd), min));
+  }
+
+  /// The X of "Add $X to Investments" when the person's bitcoin pays for
+  /// it: what the TOTAL Investments balance ([investmentsUsd]: Dollars plus
+  /// the other venue's reachable cash) lacks for the order's move
+  /// ([fundUsd]), rounded up to the cent exactly as the button rounds it
+  /// (`slipDollarsShortfallUsd`), never under the route minimum. Zero when
+  /// Investments cover it. The slip shows this figure and the leg lands
+  /// exactly it ([BitcoinLegPlan.targetUsd]).
+  static double addUsd({
+    required double fundUsd,
+    required double investmentsUsd,
+  }) {
+    if (!fundUsd.isFinite || fundUsd <= 0) return 0;
+    final held = investmentsUsd.isFinite && investmentsUsd > 0
+        ? investmentsUsd
+        : 0.0;
+    final missing = fundUsd - held;
+    if (missing <= 1e-6) return 0;
+    return targetUsd(((missing * 100) - 1e-9).ceilToDouble() / 100);
   }
 
   /// The leg for [dollarsShortUsd] at [usdPerBtc] with [availableSats] of

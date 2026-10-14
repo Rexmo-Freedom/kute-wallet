@@ -166,7 +166,8 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
   Object? _errorCause;
 
   /// While a Dollars move for the change is on its way: the button's
-  /// wait says so ("Moving $X to …").
+  /// wait says so, around the action ("Preparing your order"), never as
+  /// money moving into Investments (it is already there).
   String? _movingLabel;
 
   HlMarket get _market => widget.market;
@@ -361,8 +362,7 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
       try {
         var signWith = grant;
         if (funding != null) {
-          setState(() => _movingLabel = l10n.slipMovingToVenue(
-              formatHlUsd(funding!.fundUsd), l10n.trading));
+          setState(() => _movingLabel = l10n.slipStepPreparingOrder);
           final landed = await fundMarginShortfall(
             ref,
             grant: grant,
