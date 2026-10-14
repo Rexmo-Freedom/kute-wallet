@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_ce/hive.dart';
 
@@ -29,10 +30,25 @@ class PolyWatchlistNotifier extends Notifier<List<String>> {
   /// A list read in one Gamma call; more than this is not offered.
   static const maxEntries = 100;
 
+  /// The stored list's first read (done at once when the box is open).
+  Future<void> _loaded = Future<void>.value();
+
+  /// The saves, one after another in the order they were asked: a later
+  /// toggle's list never lands before an earlier one's.
+  Future<void> _saving = Future<void>.value();
+
+  /// Completes once the stored list has been read into the state.
+  @visibleForTesting
+  Future<void> get loaded => _loaded;
+
+  /// Completes once every toggle so far is on disk.
+  @visibleForTesting
+  Future<void> get saved => _saving;
+
   @override
   List<String> build() {
     if (Hive.isBoxOpen(boxName)) return _read(Hive.box<String>(boxName));
-    unawaited(Hive.openBox<String>(boxName).then((box) {
+    _loaded = Hive.openBox<String>(boxName).then((box) {
       final stored = _read(box);
       if (stored.isNotEmpty) {
         state = [
@@ -41,7 +57,7 @@ class PolyWatchlistNotifier extends Notifier<List<String>> {
             if (!state.contains(s)) s
         ];
       }
-    }).catchError((_) {}));
+    }).catchError((_) {});
     return const [];
   }
 
@@ -73,7 +89,7 @@ class PolyWatchlistNotifier extends Notifier<List<String>> {
               if (s != key) s
           ];
     state = next;
-    unawaited(_save(next));
+    _saving = _saving.then((_) => _save(next));
     return added;
   }
 
