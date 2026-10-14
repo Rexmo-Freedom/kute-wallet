@@ -235,10 +235,10 @@ void main() {
     return notifier;
   }
 
-  int lightTaps() => platform
+  int snapTaps() => platform
       .where((c) =>
           c.method == 'HapticFeedback.vibrate' &&
-          c.arguments == 'HapticFeedbackType.lightImpact')
+          c.arguments == 'HapticFeedbackType.heavyImpact')
       .length;
 
   testWidgets(
@@ -273,7 +273,7 @@ void main() {
         await pump(tester, funded: [_record(FundedOrderStage.placing)]);
     await _frames(tester, 20);
     expect(_band(tester).stretch, greaterThan(0));
-    final tapsBefore = lightTaps();
+    final tapsBefore = snapTaps();
 
     funded.move([_record(FundedOrderStage.done)]);
     var min = double.infinity;
@@ -283,7 +283,7 @@ void main() {
       if (s < min) min = s;
     }
     expect(min, lessThan(0), reason: 'the snap overshoots past rest');
-    expect(lightTaps() - tapsBefore, 1);
+    expect(snapTaps() - tapsBefore, 1);
     await _frames(tester, 40);
     expect(_band(tester).stretch, 0);
     expect(_band(tester).ticking, isFalse);
@@ -296,7 +296,7 @@ void main() {
         await pump(tester, funded: [_record(FundedOrderStage.placing)]);
     await _frames(tester, 20);
     expect(_band(tester).stretch, greaterThan(0));
-    final tapsBefore = lightTaps();
+    final tapsBefore = snapTaps();
 
     funded.move([_record(FundedOrderStage.ready)]);
     for (var i = 0; i < 120; i++) {
@@ -307,7 +307,7 @@ void main() {
     await _frames(tester, 20);
     expect(_band(tester).stretch, 0);
     expect(_band(tester).ticking, isFalse);
-    expect(lightTaps(), tapsBefore);
+    expect(snapTaps(), tapsBefore);
     expect(tester.takeException(), isNull);
   });
 

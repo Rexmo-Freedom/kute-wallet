@@ -64,9 +64,9 @@ void main() {
       return null;
     });
   });
-  Iterable<MethodCall> lightTaps() => calls.where((c) =>
+  Iterable<MethodCall> snapTaps() => calls.where((c) =>
       c.method == 'HapticFeedback.vibrate' &&
-      c.arguments == 'HapticFeedbackType.lightImpact');
+      c.arguments == 'HapticFeedbackType.heavyImpact');
 
   testWidgets('an unfunded bet: pulled while it places, building with time',
       (tester) async {
@@ -113,13 +113,13 @@ void main() {
       if (s < min) min = s;
     }
     expect(min, lessThan(0), reason: 'the snap overshoots');
-    expect(lightTaps(), hasLength(1));
+    expect(snapTaps(), hasLength(1));
     await tester.pumpWidget(
         _host(busy: false, outcome: RubberBandOutcome.success));
     await _frames(tester);
     expect(_band(tester).stretch, 0);
     expect(_band(tester).ticking, isFalse);
-    expect(lightTaps(), hasLength(1), reason: 'one snap, one tap');
+    expect(snapTaps(), hasLength(1), reason: 'one snap, one tap');
   });
 
   testWidgets('placed: a spring snap back to rest and one light tap',
@@ -138,7 +138,7 @@ void main() {
     await _frames(tester);
     expect(_band(tester).stretch, 0);
     expect(_band(tester).ticking, isFalse);
-    expect(lightTaps(), hasLength(1));
+    expect(snapTaps(), hasLength(1));
   });
 
   testWidgets('not placed: let go softly, never past rest, no tap',
@@ -152,7 +152,7 @@ void main() {
     }
     expect(_band(tester).stretch, 0);
     expect(_band(tester).ticking, isFalse);
-    expect(lightTaps(), isEmpty);
+    expect(snapTaps(), isEmpty);
   });
 
   testWidgets('Reduce Motion: the button never moves', (tester) async {

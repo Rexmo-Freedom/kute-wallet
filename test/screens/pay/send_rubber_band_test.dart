@@ -152,10 +152,10 @@ List<MethodCall> _hapticLog(WidgetTester tester) {
   return calls;
 }
 
-int _lightImpacts(List<MethodCall> calls) => calls
+int _snapImpacts(List<MethodCall> calls) => calls
     .where((c) =>
         c.method == 'HapticFeedback.vibrate' &&
-        c.arguments == 'HapticFeedbackType.lightImpact')
+        c.arguments == 'HapticFeedbackType.heavyImpact')
     .length;
 
 /// Taps Send and walks the route to the broadcast wait, checking the
@@ -235,7 +235,7 @@ void main() {
     expect(_band(tester).stretch, 0);
     expect(_band(tester).ticking, isFalse);
     expect(_send(tester).easing, isFalse);
-    expect(_lightImpacts(calls), 1);
+    expect(_snapImpacts(calls), 1);
     expect(find.text('Send'), findsOneWidget);
   });
 
@@ -264,7 +264,7 @@ void main() {
     await _wait(tester, const Duration(seconds: 1));
     expect(_band(tester).stretch, 0);
     expect(_band(tester).ticking, isFalse);
-    expect(_lightImpacts(calls), 0, reason: 'no success tap on a failure');
+    expect(_snapImpacts(calls), 0, reason: 'no success tap on a failure');
     expect(find.text('Send'), findsOneWidget);
   });
 
@@ -429,7 +429,7 @@ void main() {
       if (s < min) min = s;
     }
     expect(min, lessThan(0), reason: 'the snap overshoots past rest');
-    expect(_lightImpacts(calls), 1);
+    expect(_snapImpacts(calls), 1);
     await _wait(tester, const Duration(seconds: 1));
     expect(_band(tester).stretch, 0);
     expect(_band(tester).ticking, isFalse);

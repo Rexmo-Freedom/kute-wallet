@@ -79,9 +79,15 @@ Future<void> _settle(WidgetTester tester) async {
   }
 }
 
+/// Two seconds of 60 fps frames, as a phone draws them.
+Future<void> _frames60(WidgetTester tester) async {
+  for (var i = 0; i < 120; i++) {
+    await tester.pump(const Duration(milliseconds: 16));
+  }
+}
+
 void main() {
-  test('the tension is monotonic, and full tension is 12–14% of the block',
-      () {
+  test('the tension is monotonic, and full tension is 12–14% of the block', () {
     final values = [for (var i = 0; i <= 10; i++) rubberBandStretchFor(i / 10)];
     for (var i = 1; i < values.length; i++) {
       expect(values[i], greaterThan(values[i - 1]));
@@ -167,7 +173,7 @@ void main() {
     expect(
         calls.where((c) =>
             c.method == 'HapticFeedback.vibrate' &&
-            c.arguments == 'HapticFeedbackType.lightImpact'),
+            c.arguments == 'HapticFeedbackType.heavyImpact'),
         hasLength(1));
   });
 
@@ -268,8 +274,8 @@ void main() {
       // And already most of the first pull by 250 ms.
       expect(
           frames[(250 / 16).floor() - 1],
-          greaterThan(0.8 *
-              rubberBandStretchFor(RubberBandProgress.firstPull)));
+          greaterThan(
+              0.8 * rubberBandStretchFor(RubberBandProgress.firstPull)));
       await tester.pumpWidget(const SizedBox.shrink());
     });
 
@@ -327,11 +333,11 @@ void main() {
       final pulled = _state(tester).stretch;
       expect(pulled, greaterThan(0.06));
       // The caller sets the outcome and keeps busy up while it waits.
-      await tester.pumpWidget(
-          _busyHost(true, outcome: RubberBandOutcome.success));
+      await tester
+          .pumpWidget(_busyHost(true, outcome: RubberBandOutcome.success));
       expect(_busyState(tester).easing, isFalse);
-      final frames = await _record(
-          tester, RubberBand.snapSettle.inMilliseconds);
+      final frames =
+          await _record(tester, RubberBand.snapSettle.inMilliseconds);
       final min = frames.reduce(math.min);
       expect(min, lessThan(-0.01), reason: 'a felt bounce past rest');
       // By the end of the wait it has all but settled: under a pixel on
@@ -340,16 +346,18 @@ void main() {
       expect(
           calls.where((c) =>
               c.method == 'HapticFeedback.vibrate' &&
-              c.arguments == 'HapticFeedbackType.lightImpact'),
+              c.arguments == 'HapticFeedbackType.heavyImpact'),
           hasLength(1));
       // Then the caller lets go of busy: nothing more happens.
-      await tester.pumpWidget(
-          _busyHost(false, outcome: RubberBandOutcome.success));
+      await tester
+          .pumpWidget(_busyHost(false, outcome: RubberBandOutcome.success));
       await tester.pump(const Duration(seconds: 1));
       expect(_state(tester).stretch, 0);
       expect(_busyTicking(tester), isFalse);
       expect(
-          calls.where((c) => c.method == 'HapticFeedback.vibrate'),
+          calls.where((c) =>
+              c.method == 'HapticFeedback.vibrate' &&
+              c.arguments == 'HapticFeedbackType.heavyImpact'),
           hasLength(1));
     });
 
@@ -442,5 +450,58 @@ void main() {
           tester, TickerMode(enabled: false, child: _busyHost(false)));
       expect(waited, lessThanOrEqualTo(const Duration(milliseconds: 10)));
     });
+  });
+
+  testWidgets(
+      'the pull is felt as a continuous stream of taps that grows stronger '
+      'as it tightens, goes quiet while it holds, and ends in one heavy '
+      'thud', (tester) async {
+    final calls = <MethodCall>[];
+    tester.binding.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      calls.add(call);
+      return null;
+    });
+    addTearDown(() => tester.binding.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, null));
+    List<String> taps() => [
+          for (final c in calls)
+            if (c.method == 'HapticFeedback.vibrate') c.arguments as String,
+        ];
+    const rank = {
+      'HapticFeedbackType.selectionClick': 0,
+      'HapticFeedbackType.lightImpact': 1,
+      'HapticFeedbackType.mediumImpact': 2,
+    };
+
+    await tester.pumpWidget(_host(0.3));
+    await _frames60(tester);
+    final early = taps().length;
+    expect(early, greaterThan(3), reason: 'a stream, not a single tap');
+    expect(
+        taps().every((t) => t == 'HapticFeedbackType.selectionClick'), isTrue,
+        reason: 'low tension: the lightest taps');
+
+    await tester.pumpWidget(_host(0.95));
+    await _frames60(tester);
+    final all = taps();
+    expect(all.length, greaterThan(early + 5));
+    // Never weaker than the tap before it.
+    for (var i = 1; i < all.length; i++) {
+      expect(rank[all[i]]!, greaterThanOrEqualTo(rank[all[i - 1]]!));
+    }
+    expect(all.last, 'HapticFeedbackType.mediumImpact',
+        reason: 'near full tension: the strongest pull taps');
+
+    // Holding: quiet.
+    final held = taps().length;
+    await tester.pump(const Duration(seconds: 2));
+    expect(taps().length, held);
+
+    // Success: one heavy thud and nothing else.
+    await tester.pumpWidget(_host(0.95, outcome: RubberBandOutcome.success));
+    await _frames60(tester);
+    final after = taps().sublist(held);
+    expect(after, ['HapticFeedbackType.heavyImpact']);
   });
 }

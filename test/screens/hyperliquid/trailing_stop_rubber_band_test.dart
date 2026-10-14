@@ -257,10 +257,10 @@ void main() {
     expect(tester.widget<PolySlipCta>(find.byType(PolySlipCta)).isBusy, isTrue);
   }
 
-  int lightTaps() => platform
+  int snapTaps() => platform
       .where((c) =>
           c.method == 'HapticFeedback.vibrate' &&
-          c.arguments == 'HapticFeedbackType.lightImpact')
+          c.arguments == 'HapticFeedbackType.heavyImpact')
       .length;
 
   testWidgets(
@@ -277,7 +277,7 @@ void main() {
           lessThanOrEqualTo(RubberBandProgress.defaultMaxStretch +
               RubberBandProgress.breath));
       expect(_band(tester).ticking, isTrue);
-      final tapsBefore = lightTaps();
+      final tapsBefore = snapTaps();
 
       trading.answer
           .complete(const HlOrderResult(kind: HlOrderResultKind.resting));
@@ -292,7 +292,7 @@ void main() {
       expect(tester.widget<PolySlipCta>(find.byType(PolySlipCta)).isBusy,
           isTrue);
       expect(min, lessThan(0), reason: 'the snap overshoots past rest');
-      expect(lightTaps() - tapsBefore, 1);
+      expect(snapTaps() - tapsBefore, 1);
       // Bounded: handed on once the snap's moment is over.
       await tester.pump(RubberBand.snapSettle);
       await tester.pump();
@@ -310,7 +310,7 @@ void main() {
       final (trading, results) = await pump(tester);
       await placeAndApprove(tester, trading);
       expect(_band(tester).stretch, greaterThan(0));
-      final tapsBefore = lightTaps();
+      final tapsBefore = snapTaps();
 
       trading.answer.completeError(StateError('Order rejected'));
       for (var i = 0; i < 120; i++) {
@@ -321,7 +321,7 @@ void main() {
       await _frames(tester, 20);
       expect(_band(tester).stretch, 0);
       expect(_band(tester).ticking, isFalse);
-      expect(lightTaps(), tapsBefore, reason: 'no snap tap on a refusal');
+      expect(snapTaps(), tapsBefore, reason: 'no snap tap on a refusal');
       expect(results, isEmpty);
       expect(
           tester.widget<PolySlipCta>(find.byType(PolySlipCta)).isBusy, isFalse);
