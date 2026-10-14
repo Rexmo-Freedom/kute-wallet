@@ -2552,6 +2552,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
               },
         'custom_fee': customFee != null,
         'coin_control': utxos > 0,
+        if (utxos > 0) 'utxo_count': utxos,
         if (utxos > 0) 'utxo_count_bucket': _utxoCountBucket(utxos),
       };
       _lastSendInputs = inputs;

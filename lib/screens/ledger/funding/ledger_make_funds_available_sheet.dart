@@ -82,8 +82,9 @@ class _LedgerMakeFundsAvailableSheetState
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }
 
-  static String _bucket(BigInt usdce) =>
-      TrackingService.usdBucket(usdce.toDouble() / 1e6);
+  static double _usd(BigInt usdce) => usdce.toDouble() / 1e6;
+
+  static String _bucket(BigInt usdce) => TrackingService.usdBucket(_usd(usdce));
 
   Future<void> _load() async {
     if (!mounted) return;
@@ -171,12 +172,14 @@ class _LedgerMakeFundsAvailableSheetState
     TrackingService.ledgerPmMakeAvailableResult(
       outcome: outcome.kind.name,
       amountBucket: _bucket(plan.amount),
+      amountUsd: _usd(plan.amount),
     );
     switch (outcome.kind) {
       case LedgerApprovalOutcomeKind.success:
         TrackingService.ledgerActionSubmitted(
           action: 'pm_make_funds_available',
           amountBucket: _bucket(plan.amount),
+          amountUsd: _usd(plan.amount),
         );
         ref.invalidate(ledgerPmAccountProvider(walletId));
         Navigator.of(context).pop();

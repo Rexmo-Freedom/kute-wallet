@@ -4724,6 +4724,7 @@ class PolymarketTradingNotifier
     );
     TrackingService.track('polymarket_native_usdc_converted', params: {
       'amount_bucket': TrackingService.usdBucket(usdcBal.toDouble() / 1e6),
+      ...TrackingService.exactUsd('amount_usd', usdcBal.toDouble() / 1e6),
     });
 
     // The breakdown provider re-reads on trading-state ticks; nudge a

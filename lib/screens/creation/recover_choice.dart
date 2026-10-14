@@ -86,6 +86,7 @@ class RestoreFlowAnalytics {
     TrackingService.track('restore_abandoned', params: {
       'step': _step,
       if (_method != null) 'method': _method!,
+      'time_in_flow_ms': DateTime.now().difference(started).inMilliseconds,
       'time_in_flow_bucket': _timeBucket(DateTime.now().difference(started)),
       if (_lastErrorCategory != null)
         'last_error_category': _lastErrorCategory!,

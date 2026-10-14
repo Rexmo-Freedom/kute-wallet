@@ -32,9 +32,10 @@
 // first when the caller passes an eligible [FastBetRequest]; a prompt
 // that approves such an order opens a fresh window.
 //
-// Privacy: events carry the action type, method, reason class and a
-// bucketed USD value only. Never the digest, the bound intent, the
-// canonical JSON, amounts or addresses.
+// Privacy: events carry the action type, method, reason class and the
+// USD value (exact `amount_usd`, with the legacy `amount_bucket` beside
+// it). Never the digest, the bound intent, the canonical JSON or
+// addresses.
 
 import 'dart:async';
 import 'dart:io' show Platform;
@@ -98,8 +99,8 @@ class _RiverpodStepUpSession implements StepUpSessionState {
 
 /// Step-up v2. Returns a grant bound to [intent], or null when the user
 /// declined. [reason] names the action (the `stepUpReason*` copy) and is
-/// shown in the OS prompt and as the PIN sheet title. [amountUsd] is only
-/// ever bucketed for events.
+/// shown in the OS prompt and as the PIN sheet title. [amountUsd] goes to
+/// events exact, beside the legacy bucket.
 ///
 /// Seed reveal intents get the screen-scoped reusable grant
 /// (`AuthGrantRegistry.issueSeedReveal`); the owning screen revokes it on
@@ -149,7 +150,11 @@ Future<AuthGrant?> requireFreshAuthGrant(
         'action_type': actionType,
         'amount_bucket':
             TrackingService.usdBucket(smallAction.amountUsdCents / 100),
+        ...TrackingService.exactUsd(
+            'amount_usd', smallAction.amountUsdCents / 100),
         'session_bucket': TrackingService.usdBucket(
+            SmallActionAllowance.instance.sessionSpentCents / 100),
+        ...TrackingService.exactUsd('session_usd',
             SmallActionAllowance.instance.sessionSpentCents / 100),
       });
       return allowed;
@@ -592,6 +597,7 @@ void _trackAuth(
     if (actionType != null) 'action_type': actionType,
     if (amountUsd != null)
       'amount_bucket': TrackingService.usdBucket(amountUsd),
+    ...TrackingService.exactUsd('amount_usd', amountUsd),
   });
 }
 

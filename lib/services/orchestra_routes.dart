@@ -776,5 +776,6 @@ void reportCashAppPaymentWindowEnded(SwapOrder exchange) {
     'provider_status':
         exchange.status == 'unfulfilled' ? 'unfulfilled' : 'expired_locally',
     if (usd != null && usd.isFinite) 'amount_bucket': TrackingService.usdBucket(usd),
+    ...TrackingService.exactUsd('amount_usd', usd),
   });
 }

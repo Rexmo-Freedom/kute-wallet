@@ -243,11 +243,12 @@ void main() {
       expect(p['rss_mb'], '512-1024');
       expect(p['in_foreground'], isTrue);
 
-      // The older low_memory record: bucketed rss, no snapshot.
+      // The older low_memory record: exact rss beside the legacy bucket, no
+      // snapshot.
       final older = events['app_previous_exit_abnormal']!;
       expect(older['crash_type'], 'oom');
       expect(older['rss_mb'], '256-512');
-      expect(older.containsKey('rss_kb'), isFalse);
+      expect(older['rss_kb'], 300 * 1024);
       expect(older['last_flow'], 'none');
       expect(older['snapshot_available'], isFalse);
 

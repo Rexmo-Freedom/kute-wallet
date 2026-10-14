@@ -1585,6 +1585,7 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
       'chain': destination.chain,
       'network': destination.chain,
       'amount_bucket': TrackingService.usdBucket(usdForDisplay),
+      ...TrackingService.exactUsd('amount_usd', usdForDisplay),
       'provider': 'orchestra',
     });
     TrackingService.swapInitiated(
@@ -1733,6 +1734,7 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
         'chain': destination.chain,
         'network': destination.chain,
         'amount_bucket': TrackingService.usdBucket(sentUsd),
+        ...TrackingService.exactUsd('amount_usd', sentUsd),
         'order_id': orderId,
         'provider': 'orchestra',
       });

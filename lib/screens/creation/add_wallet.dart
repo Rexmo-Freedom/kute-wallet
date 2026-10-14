@@ -71,6 +71,7 @@ class _AddWalletState extends ConsumerState<AddWallet> {
     if (!_optionPicked && !_completed) {
       TrackingService.track('wallet_add_abandoned', params: {
         'step': 'choose_type',
+        'time_in_flow_ms': _flowClock.elapsed.inMilliseconds,
         'time_in_flow_bucket': _timeInFlowBucket(_flowClock.elapsed),
         'reason': _lastErrorCategory != null ? 'error' : 'user_closed',
         if (_lastErrorCategory != null)

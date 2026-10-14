@@ -187,6 +187,7 @@ class _ShareCodeScreenState extends ConsumerState<ShareCodeScreen> {
     if (!_readyTracked) {
       _readyTracked = true;
       TrackingService.track('onboarding_share_code_ready', params: {
+        'wait_ms': _waitedMs,
         'wait_bucket': _waitedMs == 0
             ? 'instant'
             : _waitedMs < 10000

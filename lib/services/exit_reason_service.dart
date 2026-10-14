@@ -70,7 +70,15 @@ class ExitReasonService {
     }
   }
 
-  /// Coarse RSS bucket in MB ('<128' .. '2048+'); never the raw value.
+  /// The exact resident memory in KB, or null when the record has none.
+  @visibleForTesting
+  static int? rssKbExact(Object? rssKb) {
+    final kb = rssKb is num ? rssKb.toInt() : int.tryParse('$rssKb');
+    return kb == null || kb <= 0 ? null : kb;
+  }
+
+  /// RSS bucket in MB ('<128' .. '2048+'), the legacy `rss_mb` beside the
+  /// exact `rss_kb`.
   @visibleForTesting
   static String rssMbBucket(Object? rssKb) {
     final kb = rssKb is num ? rssKb.toInt() : int.tryParse('$rssKb');
@@ -149,6 +157,7 @@ class ExitReasonService {
         'importance': '${importance ?? ''}',
         'in_foreground': inForeground,
         'rss_mb': rssMb,
+        if (rssKbExact(entry['rssKb']) case final kb?) 'rss_kb': kb,
         'snapshot_available': snap != null,
       });
 

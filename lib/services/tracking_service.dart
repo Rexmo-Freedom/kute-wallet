@@ -591,6 +591,13 @@ class TrackingService {
   /// 1-10, 10-100, 100-1k, 1k-10k, 10k+`.
   static String usdBucket(double usd) => _usdBucket(usd);
 
+  /// The exact USD figure that goes beside a legacy `*_bucket`, as
+  /// `{key: usd}` to the cent (sign kept), or nothing when [usd] is null or
+  /// not finite. PostHog gets exact values; the bucket stays only for the
+  /// dashboards already built on it.
+  static Map<String, Object> exactUsd(String key, double? usd) =>
+      usd != null && usd.isFinite ? {key: _round(usd, 2)} : const {};
+
   /// Public wrapper around [_safeReason] so ad-hoc `track()` call sites
   /// outside this file can scrub freeform error/reason strings (raw
   /// `e.toString()` can inline addresses, invoices, amounts) before they
@@ -1900,6 +1907,7 @@ class TrackingService {
   /// could not be read.
   static void changePinBlocked({required int walletCount}) {
     track('change_pin_blocked', params: {
+      'wallet_count': walletCount,
       'wallet_count_bucket': walletCount <= 1
           ? '1'
           : walletCount <= 3
@@ -2138,7 +2146,7 @@ class TrackingService {
   // -- Cash App bitcoin purchase (Flashnet Lightning onramp) --
 
   /// A Cash App onramp order was created (invoice minted, handoff shown).
-  /// Amount is BUCKETED, matching the move/deposit funnels. Completion
+  /// Exact `amount_usd`, with the legacy `amount_bucket` beside it. Completion
   /// analytics stay with background sync's Orchestra pending→terminal
   /// transition — this is the intent step.
   /// [destination] distinguishes where the purchased bitcoin lands:
@@ -2149,6 +2157,7 @@ class TrackingService {
       {required double amountUsd, String destination = 'spending'}) {
     track('cashapp_purchase_created', params: {
       'amount_bucket': usdBucket(amountUsd),
+      ...exactUsd('amount_usd', amountUsd),
       'destination': destination,
     });
   }
@@ -2553,6 +2562,7 @@ class TrackingService {
         'to_coin': toCoin,
         'provider': provider,
         if (amountUsd != null) 'amount_bucket': _usdBucket(amountUsd),
+        ...exactUsd('amount_usd', amountUsd),
       });
     }
     // Referee conversion signal — only fires the first time after the
@@ -2711,6 +2721,8 @@ class TrackingService {
       if (category != null && category.isNotEmpty)
         'category': category.toLowerCase(),
       if (liquidityUsd != null) 'liquidity_bucket': _usdBucket(liquidityUsd),
+      ...exactUsd('liquidity_usd', liquidityUsd),
+      if (outcomeCount != null) 'outcome_count': outcomeCount,
       if (outcomeCount != null)
         'outcome_count_bucket': outcomeCount <= 2
             ? 'binary'
@@ -2992,6 +3004,7 @@ class TrackingService {
     track('polymarket_funding_action', params: {
       'action': action,
       if (amountUsd != null) 'amount_bucket': _usdBucket(amountUsd),
+      ...exactUsd('amount_usd', amountUsd),
     });
   }
 
@@ -3015,6 +3028,7 @@ class TrackingService {
     track('sell_initiated', params: {
       'currency': currency,
       'amount_bucket': _usdBucket(amount),
+      ...exactUsd('amount_fiat', amount),
       if (provider != null) 'provider': provider,
     });
   }
@@ -3029,6 +3043,7 @@ class TrackingService {
     track('sell_completed', params: {
       'currency': currency,
       'amount_bucket': _usdBucket(fiatAmount),
+      ...exactUsd('amount_fiat', fiatAmount),
       if (provider != null) 'provider': provider,
     });
   }
@@ -3059,6 +3074,7 @@ class TrackingService {
       'destination_asset': destinationAsset,
       if (quoteId != null) 'quote_id': quoteId,
       if (amountUsd != null) 'amount_bucket': _usdBucket(amountUsd),
+      ...exactUsd('amount_usd', amountUsd),
     });
   }
 
@@ -3175,8 +3191,10 @@ class TrackingService {
   // -- Cash App Buy --
 
   static void cashAppBuyInitiated({required double amountUsd}) {
-    track('cashapp_buy_initiated',
-        params: {'amount_bucket': _usdBucket(amountUsd)});
+    track('cashapp_buy_initiated', params: {
+      'amount_bucket': _usdBucket(amountUsd),
+      ...exactUsd('amount_usd', amountUsd),
+    });
   }
 
   static void cashAppBuyCompleted({
@@ -3221,8 +3239,10 @@ class TrackingService {
   }
 
   static void cashAppLimitReached({required double remaining}) {
-    track('cashapp_limit_reached',
-        params: {'remaining_bucket': _usdBucket(remaining)});
+    track('cashapp_limit_reached', params: {
+      'remaining_bucket': _usdBucket(remaining),
+      ...exactUsd('remaining_usd', remaining),
+    });
   }
 
   // The USDB External Deposit and Flashnet USDB Earn screen event
@@ -3233,6 +3253,7 @@ class TrackingService {
   static void paymentLinkCreated({double? amountUsd}) {
     track('payment_link_created', params: {
       if (amountUsd != null) 'amount_bucket': _usdBucket(amountUsd),
+      ...exactUsd('amount_usd', amountUsd),
     });
   }
 
@@ -3306,8 +3327,8 @@ class TrackingService {
   /// sheet's watch saw it land), 'open' (Predictions opened or the account
   /// started), 'resume' (the app came back), 'order' (a buy needed it
   /// before signing) or 'refusal' (the order book refused a buy for it).
-  /// A coarse bucket only: the figure is the wallet's USDC.e at that
-  /// moment.
+  /// `amount_usd` is the wallet's USDC.e at that moment (with the legacy
+  /// `amount_bucket` beside it).
   static void polymarketDepositConverted({
     required double amountUsd,
     required String trigger,
@@ -3316,6 +3337,7 @@ class TrackingService {
         'venue': 'polymarket',
         'trigger': trigger,
         'amount_bucket': _usdBucket(amountUsd),
+        ...exactUsd('amount_usd', amountUsd),
       });
 
   /// Withdraw handed to Orchestra; see [polymarketDepositSubmitted].
@@ -3333,8 +3355,11 @@ class TrackingService {
       });
 
   static void polymarketWithdrawInitiated({required double amountUsdc}) {
-    track('polymarket_withdraw_initiated',
-        params: {'amount_bucket': _usdBucket(amountUsdc), 'venue': 'polymarket'});
+    track('polymarket_withdraw_initiated', params: {
+      'amount_bucket': _usdBucket(amountUsdc),
+      ...exactUsd('amount_usd', amountUsdc),
+      'venue': 'polymarket',
+    });
   }
 
   static void polymarketWithdrawCompleted({
@@ -3873,10 +3898,10 @@ class TrackingService {
       track('ledger_approval_result',
           params: {'action': action, 'outcome': outcome});
 
-  /// Plan B10: `ledger_action_submitted{action, amount_bucket}`. Pass
-  /// [amountUsd] (bucketed here) or an already bucketed [amountBucket];
-  /// never an exact amount. Funding [action]s: `btc_to_hypercore`,
-  /// `hypercore_to_btc`.
+  /// Plan B10: `ledger_action_submitted{action, amount_usd, amount_bucket}`.
+  /// Pass [amountUsd] (sent exact, and bucketed for the legacy property);
+  /// [amountBucket] is only for a caller with no USD figure. Funding
+  /// [action]s: `btc_to_hypercore`, `hypercore_to_btc`.
   static void ledgerActionSubmitted({
     required String action,
     double? amountUsd,
@@ -3888,6 +3913,7 @@ class TrackingService {
           'amount_bucket': usdBucket(amountUsd)
         else if (amountBucket != null)
           'amount_bucket': amountBucket,
+        ...exactUsd('amount_usd', amountUsd),
       });
 
   /// A Ledger action sheet opened: pm_sell, pm_claim, pm_withdraw,
@@ -3970,14 +3996,15 @@ class TrackingService {
 
   static void appBackgrounded() => track('app_backgrounded');
 
-  /// Coarse foreground-session-length bucket emitted when the app goes
-  /// to background. Pairs with `app_backgrounded` to chart how long
-  /// users actually stay in a session without shipping a raw
-  /// fingerprintable duration. Buckets: '<10s' | '10-30s' | '30s-2m' |
-  /// '2-10m' | '10m+'.
+  /// Foreground-session length emitted when the app goes to background:
+  /// exact `duration_seconds`, plus the legacy `duration_bucket` ('<10s' |
+  /// '10-30s' | '30s-2m' | '2-10m' | '10m+'). Pairs with
+  /// `app_backgrounded`.
   static void appSession({required int durationSeconds}) {
-    track('app_session',
-        params: {'duration_bucket': _sessionBucket(durationSeconds)});
+    track('app_session', params: {
+      'duration_seconds': durationSeconds,
+      'duration_bucket': _sessionBucket(durationSeconds),
+    });
   }
 
   static String _sessionBucket(int seconds) {
@@ -4229,6 +4256,7 @@ class TrackingService {
   static void paymentLinkPaid({double? amountUsd}) {
     track('payment_link_paid', params: {
       if (amountUsd != null) 'amount_bucket': _usdBucket(amountUsd),
+      ...exactUsd('amount_usd', amountUsd),
     });
   }
 
@@ -4346,6 +4374,7 @@ class TrackingService {
     track('affiliate_referee_converted', params: {
       'provider': provider,
       if (amountUsd != null) 'amount_bucket': _usdBucket(amountUsd),
+      ...exactUsd('amount_usd', amountUsd),
     });
   }
 
@@ -4378,9 +4407,8 @@ class TrackingService {
   }
 
   /// Browse-depth engagement on the Predictions list. [depthPct] is the
-  /// scroll progress 0-100; we bucket it to a coarse [depth_bucket]
-  /// ('25' | '50' | '75' | '100') so a raw pixel/percent offset tied to
-  /// the pseudonymous id never leaves the device. Callers fire once per
+  /// scroll progress 0-100, sent exact as `depth_pct` beside the legacy
+  /// `depth_bucket` ('25' | '50' | '75' | '100'). Callers fire once per
   /// threshold crossed.
   static void polymarketListScrolled({required int depthPct}) {
     final String bucket = depthPct >= 100
@@ -4390,7 +4418,8 @@ class TrackingService {
             : depthPct >= 50
                 ? '50'
                 : '25';
-    track('polymarket_list_scrolled', params: {'depth_bucket': bucket});
+    track('polymarket_list_scrolled',
+        params: {'depth_pct': depthPct, 'depth_bucket': bucket});
   }
 
   static void polymarketOutcomeChipTapped({
@@ -4413,6 +4442,7 @@ class TrackingService {
     track('polymarket_bet_confirmation_shown', params: {
       'market_id': marketId,
       'amount_bucket': _usdBucket(amountUsdc),
+      ...exactUsd('amount_usd', amountUsdc),
     });
   }
 
@@ -4515,10 +4545,10 @@ class TrackingService {
 
   static void polymarketFirstProfitableRedeem({required double pnl}) {
     if (OnceFlagsService.claimOnce('polymarket_first_profitable_redeem')) {
-      // Bucket the P&L — an exact profit value tied to the pseudonymous
-      // distinct_id builds a financial profile. Mirrors the
-      // polymarketPositionSold pattern (pnl_bucket + pnl_direction).
+      // Exact P&L (signed) beside the legacy bucket and direction, as on
+      // polymarket_position_sold.
       track('polymarket_first_profitable_redeem', params: {
+        ...exactUsd('pnl_usd', pnl),
         'pnl_bucket': _usdBucket(pnl.abs()),
         'pnl_direction': pnl >= 0 ? 'profit' : 'loss',
       });
@@ -4530,11 +4560,11 @@ class TrackingService {
     required double pnl,
     required String outcome,
   }) {
-    // Bucket the P&L rather than sending the exact profit/loss value
-    // alongside market_id (no-exact-amount rule). `outcome` already
-    // carries the win/loss direction.
+    // Exact P&L (signed) beside the legacy bucket; `outcome` carries the
+    // win/loss direction.
     track('polymarket_position_win_loss', params: {
       'market_id': marketId,
+      ...exactUsd('pnl_usd', pnl),
       'pnl_bucket': _usdBucket(pnl.abs()),
       'outcome': outcome,
     });
@@ -5266,10 +5296,12 @@ class TrackingService {
 
   /// Cold-start latency from the first line of `main()` to the first
   /// home render. Fired once per process from the first home route push.
-  /// Only the coarse [_latencyBucket] is emitted — never the raw ms.
+  /// Exact `latency_ms`, with the legacy [_latencyBucket] beside it.
   static void appColdStart({required int latencyMs}) {
-    track('app_cold_start',
-        params: {'latency_bucket': _latencyBucket(latencyMs)});
+    track('app_cold_start', params: {
+      'latency_ms': latencyMs,
+      'latency_bucket': _latencyBucket(latencyMs),
+    });
   }
 
   /// Spark SDK (`BreezSdkSparkLib.init`) connect outcome + latency. The
@@ -5280,6 +5312,7 @@ class TrackingService {
       {required String result, required int latencyMs}) {
     track('spark_sdk_connect', params: {
       'result': result,
+      'latency_ms': latencyMs,
       'latency_bucket': _latencyBucket(latencyMs),
     });
   }
@@ -5294,6 +5327,7 @@ class TrackingService {
   }) {
     track('bdk_scan', params: {
       'result': result,
+      'latency_ms': latencyMs,
       'latency_bucket': _latencyBucket(latencyMs),
       'source': source,
     });
@@ -5780,7 +5814,8 @@ class TrackingService {
 
   // ─── Sal (AI advisor) ───────────────────────────────────────────
   //
-  // Never the question or answer text: lengths and counts are bucketed.
+  // Never the question or answer text: only its length and counts (exact,
+  // with the legacy buckets beside them).
   // The backend separately emits ai_question_accepted / ai_daily_limit_reached
   // (server truth for quota); these are the product funnel.
 
@@ -5848,7 +5883,9 @@ class TrackingService {
       track('sal_question_asked', params: {
         'input': input,
         if (surface != null) 'surface': surface,
+        'query_length': queryLength,
         'query_length_bucket': _lengthBucket(queryLength),
+        'turn_index': turnIndex,
         'turn': turnIndex == 0 ? '1' : (turnIndex < 3 ? '2-3' : '4+'),
         if (venue != null) 'venue': venue,
         if (input == 'suggested' && kSalChipTemplates.contains(template))
@@ -5869,6 +5906,7 @@ class TrackingService {
         if (surface != null) 'surface': surface,
         'block_count': blockCount,
         'market_cards': marketCards,
+        'latency_ms': latencyMs,
         'latency_bucket': _llmLatencyBucket(latencyMs),
       });
 
@@ -5883,6 +5921,7 @@ class TrackingService {
       track('sal_answer_failed', params: {
         if (surface != null) 'surface': surface,
         'error_category': category,
+        if (latencyMs != null) 'latency_ms': latencyMs,
         if (latencyMs != null) 'latency_bucket': _llmLatencyBucket(latencyMs),
       });
 
@@ -5965,8 +6004,8 @@ class TrackingService {
   }
 
   // ─── Settlement operations (Phase 5 plan B15) ───
-  // Flow, route and stage labels plus buckets only. Never ids, addresses,
-  // txids or exact amounts.
+  // Flow, route and stage labels, exact amounts, counts and durations (with
+  // the legacy buckets beside them). Never ids, addresses or txids.
 
   @visibleForTesting
   static String settlementAttemptBucket(int attempts) {
@@ -5995,6 +6034,7 @@ class TrackingService {
         'flow': flow,
         'route_version': routeVersion ?? 'none',
         if (amountUsd != null) 'amount_bucket': _usdBucket(amountUsd),
+        ...exactUsd('amount_usd', amountUsd),
       };
 
   static void settlementOperationStarted({
@@ -6085,6 +6125,7 @@ class TrackingService {
   }) =>
       {
         'flow': flow,
+        'attempts': attempts,
         'attempt_bucket': settlementAttemptBucket(attempts),
         'outcome': outcome,
       };
@@ -6124,6 +6165,7 @@ class TrackingService {
       {
         'route': route,
         'outcome': outcome,
+        'duration_ms': duration.inMilliseconds,
         'duration_bucket': settlementDurationBucket(duration),
       };
 
@@ -6156,7 +6198,8 @@ class TrackingService {
   }
 
   // ─── Phase 5b: hot signing guard, compromise tools, pause switches ───
-  // Fixed labels and buckets only. Never ids, addresses or amounts.
+  // Fixed labels, counts (exact, with the legacy buckets beside them).
+  // Never ids, addresses or amounts.
 
   /// A hot signing or seed entry point was refused inside a Ledger
   /// operation (plan B12). [action] is a fixed label.
@@ -6208,6 +6251,7 @@ class TrackingService {
   static void compromiseAddressesRetired(int? count) {
     track('compromise_addresses_retired', params: {
       'outcome': count == null ? 'failed' : 'success',
+      if (count != null) 'count': count,
       if (count != null) 'count_bucket': compromiseCountBucket(count),
     });
   }
@@ -6307,8 +6351,8 @@ class TrackingService {
 
   // ---------------------------------------------------------------------------
   // Phase 4b: Ledger funding routes (P4.10 HyperCore, P4.11 Polymarket).
-  // No addresses, txids, quote ids or exact amounts: amounts only as
-  // `amount_bucket` via [usdBucket].
+  // No addresses, txids or quote ids. Amounts go exact as `amount_usd`
+  // ([amountUsd]) with the legacy `amount_bucket` beside them.
   // ---------------------------------------------------------------------------
 
   /// A Ledger funding route started. [route] is a route version id, e.g.
@@ -6327,10 +6371,12 @@ class TrackingService {
   static void ledgerFundingBroadcast({
     required String route,
     required String amountBucket,
+    double? amountUsd,
   }) {
     track('ledger_funding_broadcast', params: {
       'route': route,
       'amount_bucket': amountBucket,
+      ...exactUsd('amount_usd', amountUsd),
     });
   }
 
@@ -6342,11 +6388,13 @@ class TrackingService {
     required String route,
     required String outcome,
     String? amountBucket,
+    double? amountUsd,
   }) {
     track('ledger_funding_result', params: {
       'route': route,
       'outcome': outcome,
       if (amountBucket != null) 'amount_bucket': amountBucket,
+      ...exactUsd('amount_usd', amountUsd),
     });
   }
 
@@ -6371,15 +6419,21 @@ class TrackingService {
   }
 
   /// The "make funds available" batch (approve plus wrap) was accepted.
-  static void ledgerPmFundsMadeAvailable({required String amountBucket}) {
-    track('ledger_pm_funds_made_available',
-        params: {'amount_bucket': amountBucket});
+  static void ledgerPmFundsMadeAvailable(
+      {required String amountBucket, double? amountUsd}) {
+    track('ledger_pm_funds_made_available', params: {
+      'amount_bucket': amountBucket,
+      ...exactUsd('amount_usd', amountUsd),
+    });
   }
 
   /// pUSD was unwrapped to USDC.e before a withdrawal.
-  static void ledgerPmCollateralUnwrapped({required String amountBucket}) {
-    track('ledger_pm_collateral_unwrapped',
-        params: {'amount_bucket': amountBucket});
+  static void ledgerPmCollateralUnwrapped(
+      {required String amountBucket, double? amountUsd}) {
+    track('ledger_pm_collateral_unwrapped', params: {
+      'amount_bucket': amountBucket,
+      ...exactUsd('amount_usd', amountUsd),
+    });
   }
 
   /// The Polymarket funding explainer opened. [direction]: to_predictions |
@@ -6418,14 +6472,17 @@ class TrackingService {
   }
 
   /// Result of a "Make funds available" attempt. [outcome]: submitted,
-  /// pending, cancelled, failed or a refusal name. Amounts only bucketed.
+  /// pending, cancelled, failed or a refusal name. Exact `amount_usd`
+  /// ([amountUsd]) beside the legacy `amount_bucket`.
   static void ledgerPmMakeAvailableResult({
     required String outcome,
     String? amountBucket,
+    double? amountUsd,
   }) {
     track('ledger_pm_make_available_result', params: {
       'outcome': outcome,
       if (amountBucket != null) 'amount_bucket': amountBucket,
+      ...exactUsd('amount_usd', amountUsd),
     });
   }
 
@@ -6597,6 +6654,7 @@ class TrackingService {
     track(event, params: {
       'step': step,
       'reason': reason ?? abandonReasonFor(lastError),
+      'time_in_flow_ms': DateTime.now().difference(started).inMilliseconds,
       'time_in_flow_bucket':
           timeInFlowBucket(DateTime.now().difference(started)),
       if (lastError != null) 'last_error_category': lastError,

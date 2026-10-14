@@ -825,13 +825,14 @@ class _PortfolioBuilderScreenState
       runApproval.close();
     }
 
-    // Aggregate outcome event. Amounts leave the device bucketed only.
+    // Aggregate outcome event: exact total_usd beside the legacy bucket.
     TrackingService.track('builder_placed', params: {
       'pool': _poolParam,
       'legs': _total,
       'placed': _done,
       'failed': _failed,
       'total_bucket': TrackingService.usdBucket(_runTotal),
+      ...TrackingService.exactUsd('total_usd', _runTotal),
       // Exact fee shown on the review (Kute's fee across the legs, plus the
       // venue's taker estimate when the account's rate was known).
       if (runFee?.kute != null)
@@ -993,6 +994,7 @@ class _PortfolioBuilderScreenState
           'placed': _done,
           'paused': _paused,
           'total_bucket': TrackingService.usdBucket(_runTotal),
+          ...TrackingService.exactUsd('total_usd', _runTotal),
         });
       }
     }

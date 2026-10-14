@@ -1282,9 +1282,11 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         _fundingUsd = fundUsd > 0 ? fundUsd : null;
         TrackingService.track('bet_slip_place', params: {
           'amount_bucket': TrackingService.usdBucket(_amount),
+          ...TrackingService.exactUsd('amount_usd', _amount),
           'mode': mode,
           'swap_needed': _swapNeeded ? 1 : 0,
           'balance_bucket': TrackingService.usdBucket(balance),
+          ...TrackingService.exactUsd('balance_usd', balance),
           'market': _truncMarket(widget.marketQuestion),
           'outcome': outcomeLabel,
         });
@@ -1546,6 +1548,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     TrackingService.track('polymarket_bet_submitted', params: {
       ..._kindParams(),
       ...inputs,
+      'time_in_flow_ms':
+          DateTime.now().difference(_draft.openedAt).inMilliseconds,
       'time_in_flow_bucket': VenueAnalytics.timeInFlowBucket(
           DateTime.now().difference(_draft.openedAt)),
     });
@@ -1622,6 +1626,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
             'reason': _draft.stopReason ?? 'user_closed',
             if (_draft.lastErrorCategory != null)
               'last_error_category': _draft.lastErrorCategory!,
+            'time_in_flow_ms':
+                DateTime.now().difference(_draft.openedAt).inMilliseconds,
             'time_in_flow_bucket': VenueAnalytics.timeInFlowBucket(
                 DateTime.now().difference(_draft.openedAt)),
           },
@@ -1866,6 +1872,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       'ledger_prediction_review_opened',
       params: {
         'amount_bucket': TrackingService.usdBucket(amount),
+        ...TrackingService.exactUsd('amount_usd', amount),
         'order_type': isLimit ? 'limit' : 'market',
       },
     );
@@ -1966,6 +1973,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       TrackingService.track('polymarket_limit_order_placed', params: {
         'wallet_kind': 'ledger',
         'amount_bucket': TrackingService.usdBucket(amount),
+        ...TrackingService.exactUsd('amount_usd', amount),
         if (widget.marketCategory != null)
           'category': widget.marketCategory!.toLowerCase(),
       });
@@ -2008,6 +2016,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       TrackingService.track('polymarket_limit_order_placed', params: {
         'wallet_kind': 'ledger',
         'amount_bucket': TrackingService.usdBucket(amount),
+        ...TrackingService.exactUsd('amount_usd', amount),
         'confirmed_via': 'status_check',
         if (bet['category'] is String)
           'category': (bet['category'] as String).toLowerCase(),
@@ -2339,6 +2348,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     _loadLiveDelay(widget.outcomes[_selectedIndex].conditionId);
     TrackingService.track('prediction_place_cta_tapped', params: {
       'amount_bucket': TrackingService.usdBucket(_amount),
+      ...TrackingService.exactUsd('amount_usd', _amount),
       'denomination': 'fiat',
     });
     // Regional gate at place time. The slip is already gated on open, but
@@ -2417,10 +2427,12 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     if (!mounted) return;
     final outcomeLabel = _outcomeLabel;
     TrackingService.track('bet_slip_open_picker', params: {
-      // Never send raw amounts or balances — bucket them. The market
+      // Exact amount and balance beside the legacy buckets. The market
       // question is truncated to keep the param bounded.
       'amount_bucket': TrackingService.usdBucket(_amount),
+      ...TrackingService.exactUsd('amount_usd', _amount),
       'balance_bucket': TrackingService.usdBucket(balance),
+      ...TrackingService.exactUsd('balance_usd', balance),
       'sufficient': (_amount <= balance) ? 1 : 0,
       'market': _truncMarket(widget.marketQuestion),
       'outcome': outcomeLabel,
@@ -2521,9 +2533,11 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     // adoption, source mix, and how often a swap leg is involved.
     TrackingService.track('bet_slip_place', params: {
       'amount_bucket': TrackingService.usdBucket(_amount),
+      ...TrackingService.exactUsd('amount_usd', _amount),
       'mode': mode,
       'swap_needed': _swapNeeded ? 1 : 0,
       'balance_bucket': TrackingService.usdBucket(balance),
+      ...TrackingService.exactUsd('balance_usd', balance),
       'market': _truncMarket(widget.marketQuestion),
       'outcome': outcomeLabel,
     });
@@ -3155,9 +3169,11 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     _fundingUsd = plan.fundUsd;
     TrackingService.track('bet_slip_place', params: {
       'amount_bucket': TrackingService.usdBucket(_amount),
+      ...TrackingService.exactUsd('amount_usd', _amount),
       'mode': mode,
       'swap_needed': 1,
       'balance_bucket': TrackingService.usdBucket(balance),
+      ...TrackingService.exactUsd('balance_usd', balance),
       'market': _truncMarket(widget.marketQuestion),
       'outcome': outcomeLabel,
     });
@@ -4526,7 +4542,10 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                   TrackingService.track('bet_slip_slippage_changed',
                       params: {'slippage_pct': opt});
                   TrackingService.track('prediction_slippage_adjusted',
-                      params: {'slippage_pct_bucket': opt.toStringAsFixed(0)});
+                      params: {
+                        'slippage_pct': opt,
+                        'slippage_pct_bucket': opt.toStringAsFixed(0),
+                      });
                 },
               ),
           ],

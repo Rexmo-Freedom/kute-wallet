@@ -710,6 +710,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       // What the order does to the position held here (perps only):
       // open | add | reduce | close | flip.
       if (_positionEffectName != null) 'position_effect': _positionEffectName!,
+      'time_in_flow_ms': DateTime.now().difference(_openedAt).inMilliseconds,
       'time_in_flow_bucket':
           VenueAnalytics.timeInFlowBucket(DateTime.now().difference(_openedAt)),
     });
@@ -899,6 +900,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           'reason': _stopReason ?? 'user_closed',
           if (_lastErrorCategory != null)
             'last_error_category': _lastErrorCategory!,
+          'time_in_flow_ms':
+              DateTime.now().difference(_openedAt).inMilliseconds,
           'time_in_flow_bucket': VenueAnalytics.timeInFlowBucket(
               DateTime.now().difference(_openedAt)),
         });
@@ -2589,6 +2592,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     final marginUsd = _marginUsd;
     TrackingService.track('ledger_investing_review_opened', params: {
       'amount_bucket': TrackingService.usdBucket(marginUsd),
+      ...TrackingService.exactUsd('amount_usd', marginUsd),
       'kind': isSpot ? 'spot' : 'perp',
     });
     _trackStep('review');
@@ -2751,7 +2755,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       TrackingService.track('slip_top_up_opened', params: {
         'venue': 'hyperliquid',
         'shortfall_bucket': TrackingService.usdBucket(shortfall),
+        ...TrackingService.exactUsd('shortfall_usd', shortfall),
         'top_up_bucket': TrackingService.usdBucket(target),
+        ...TrackingService.exactUsd('top_up_usd', target),
         'prefill_rule': 'dollars_shortfall',
         'suggested_source': 'dollars',
       });
@@ -2769,6 +2775,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           TrackingService.track('slip_top_up_returned', params: {
             'venue': 'hyperliquid',
             'top_up_bucket': TrackingService.usdBucket(target),
+            ...TrackingService.exactUsd('top_up_usd', target),
           });
           slipTopUpReturned();
         },

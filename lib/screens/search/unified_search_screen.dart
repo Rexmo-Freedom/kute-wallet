@@ -306,6 +306,7 @@ void _reportSearchClosed(ProviderContainer container) {
                 : 'no_query',
     'results_tapped': stats.resultsTapped,
     'queries': stats.settledQueries,
+    'time_in_flow_ms': stats.watch.elapsed.inMilliseconds,
     'time_in_flow_bucket': _searchTimeBucket(stats.watch.elapsed),
   });
 }
@@ -479,7 +480,9 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
       _searchStats?.settledQueries++;
       TrackingService.track('search_results_settled', params: {
         'category': category,
+        'query_length': query.length,
         'query_length_bucket': _searchLengthBucket(query.length),
+        'result_count': _visibleResults,
         'result_count_bucket': _searchCountBucket(_visibleResults),
         'has_results': _visibleResults > 0,
         'result_types': _visibleTypes.join(','),
@@ -499,9 +502,10 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
     final aiEnabled = ref.read(aiEnabledProvider).valueOrNull ?? true;
     if (!mounted) return;
     if (!aiEnabled) {
-      // Length bucket only; the query text never leaves the device.
+      // Its length only; the query text never leaves the device.
       _searchStats?.submitted = true;
       TrackingService.track('search_submitted', params: {
+        'query_length': q.length,
         'query_length_bucket': _searchLengthBucket(q.length),
         'category': ref.read(selectedSearchCategoryProvider).name,
         'ai_enabled': false,

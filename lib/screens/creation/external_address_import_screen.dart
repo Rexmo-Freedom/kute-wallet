@@ -55,6 +55,7 @@ class _ExternalAddressImportScreenState
         'wallet_kind': 'external_address',
         if (_captureMethod != null) 'method': _captureMethod!,
         'has_address': _addressController.text.trim().isNotEmpty,
+        'time_in_flow_ms': _flowClock.elapsed.inMilliseconds,
         'time_in_flow_bucket': _timeInFlowBucket(_flowClock.elapsed),
         'reason': _lastErrorCategory != null ? 'error' : 'user_closed',
         if (_lastErrorCategory != null)

@@ -182,8 +182,10 @@ class _LedgerFundPredictionsSheetState
 
   double _usdPerBtc() => ref.read(selectedCurrencyProvider('USD')).toDouble();
 
+  double _amountUsd(BigInt sats) => sats.toDouble() / 1e8 * _usdPerBtc();
+
   String _amountBucket(BigInt sats) =>
-      TrackingService.usdBucket(sats.toDouble() / 1e8 * _usdPerBtc());
+      TrackingService.usdBucket(_amountUsd(sats));
 
   void _setStep(_PmFundStep step) {
     if (!mounted) return;
@@ -214,6 +216,7 @@ class _LedgerFundPredictionsSheetState
       route: _route,
       outcome: ledgerFundingOutcomeCode(error),
       amountBucket: sats == null ? null : _amountBucket(sats),
+      amountUsd: sats == null ? null : _amountUsd(sats),
     );
   }
 
@@ -336,6 +339,7 @@ class _LedgerFundPredictionsSheetState
     TrackingService.ledgerActionSubmitted(
       action: 'btc_to_predictions',
       amountBucket: _amountBucket(quote.amountSats),
+      amountUsd: _amountUsd(quote.amountSats),
     );
     widget.onSubmitted?.call();
     final navigator = Navigator.of(context, rootNavigator: true);

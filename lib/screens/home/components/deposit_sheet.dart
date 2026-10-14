@@ -2614,10 +2614,10 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
 
     TrackingService.track('convert_tapped', params: {
       'direction': dollars ? 'usd_to_dollars' : 'usd_to_btc',
-      // Coarse bucket only — a raw user_id-tied amount is ledger-rebuild
-      // telemetry (2026-05 audit). The paired swapInitiated below already
-      // carries the same bucket.
+      // Exact amount_usd beside the legacy bucket, as on the paired
+      // swapInitiated below.
       'amount_bucket': TrackingService.usdBucket(usd),
+      ...TrackingService.exactUsd('amount_usd', usd),
       'provider': 'orchestra',
     });
     _trackMoveSubmitted();
@@ -2889,8 +2889,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         // Submit-time (dashboards key off it); settlement is swap_completed.
         TrackingService.track('convert_success', params: {
           'direction': dollars ? 'usd_to_dollars' : 'usd_to_btc',
-          // Coarse bucket only — no raw user_id-tied amount (2026-05 audit).
+          // Exact amount_usd beside the legacy bucket.
           'amount_bucket': TrackingService.usdBucket(sentUsd),
+          ...TrackingService.exactUsd('amount_usd', sentUsd),
           'order_id': orderId,
           'provider': 'orchestra',
         });
@@ -3140,6 +3141,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       'source_asset': 'btc',
       'dest_asset': 'predictions',
       'amount_bucket': TrackingService.usdBucket(approxUsd2),
+      ...TrackingService.exactUsd('amount_usd', approxUsd2),
       'provider': 'orchestra',
     });
     _trackMoveSubmitted();
@@ -3461,6 +3463,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       'source_asset': 'btc',
       'dest_asset': 'usd',
       'amount_bucket': TrackingService.usdBucket(approxUsd),
+      ...TrackingService.exactUsd('amount_usd', approxUsd),
       'provider': 'orchestra',
     });
     _trackMoveSubmitted();
@@ -3627,6 +3630,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         TrackingService.track('convert_success', params: {
           'direction': 'btc_to_dollars',
           'amount_bucket': TrackingService.usdBucket(estOut),
+          ...TrackingService.exactUsd('amount_usd', estOut),
           'order_id': orderId,
           'provider': 'orchestra',
         });
@@ -3924,6 +3928,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       'source_asset': 'usd',
       'dest_asset': 'btc',
       'amount_bucket': TrackingService.usdBucket(usd),
+      ...TrackingService.exactUsd('amount_usd', usd),
       'provider': 'orchestra',
     });
     _trackMoveSubmitted();
@@ -4131,6 +4136,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         TrackingService.track('convert_success', params: {
           'direction': 'dollars_to_btc',
           'amount_bucket': TrackingService.usdBucket(sentUsd),
+          ...TrackingService.exactUsd('amount_usd', sentUsd),
           'order_id': orderId,
           'provider': 'orchestra',
         });
@@ -4214,6 +4220,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       'source_asset': 'usd',
       'dest_asset': 'predictions',
       'amount_bucket': TrackingService.usdBucket(usd),
+      ...TrackingService.exactUsd('amount_usd', usd),
       'provider': 'orchestra',
     });
     _trackMoveSubmitted();
@@ -4480,6 +4487,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       'source_asset': 'usd',
       'dest_asset': 'trading',
       'amount_bucket': TrackingService.usdBucket(usd),
+      ...TrackingService.exactUsd('amount_usd', usd),
       'provider': 'orchestra',
     });
     _trackMoveSubmitted();
@@ -4581,6 +4589,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       'source_asset': 'btc',
       'dest_asset': 'trading',
       'amount_bucket': TrackingService.usdBucket(approxUsd),
+      ...TrackingService.exactUsd('amount_usd', approxUsd),
       'provider': 'orchestra',
     });
     _trackMoveSubmitted();
@@ -5421,6 +5430,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
           'stage': 'ledger_address_check',
           'wallet_kind': 'ledger',
           'amount_bucket': TrackingService.usdBucket(usd),
+          ...TrackingService.exactUsd('amount_usd', usd),
         });
         TrackingService.moneyFlowError('buy', 'user_cancelled');
         _trackMoveFailed('user_cancelled', stage: 'address_check');

@@ -120,6 +120,7 @@ class _XPubImportScreenState extends ConsumerState<XPubImportScreen> {
         'vendor': _vendor,
         'wallet_kind': _walletKind,
         if (_lastMethod != null) 'method': _lastMethod!,
+        'time_in_flow_ms': _flowClock.elapsed.inMilliseconds,
         'time_in_flow_bucket': _timeInFlowBucket(_flowClock.elapsed),
         'reason': _blockedAtEntry
             ? 'blocked'

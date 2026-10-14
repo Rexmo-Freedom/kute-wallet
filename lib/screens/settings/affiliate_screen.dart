@@ -92,6 +92,7 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
       TrackingService.track('affiliate_late_entry_abandoned', params: {
         'step': _lateEntryAttempts > 0 ? 'submitted' : 'code_entry',
         'attempts': _lateEntryAttempts,
+        'time_in_flow_ms': _lateEntryWatch.elapsed.inMilliseconds,
         'time_in_flow_bucket': _flowTimeBucket(_lateEntryWatch.elapsed),
         if (_lateEntryLastResult != null)
           'last_error_category': _lateEntryLastResult!,
@@ -203,6 +204,7 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
       'has_paid_out': _d(_me?['paid_usd']) > 0,
       'has_payments': payments.isNotEmpty,
       'has_history': _history.isNotEmpty,
+      'referees': bound,
       'referees_bucket': bound == 0
           ? '0'
           : bound < 5
@@ -984,6 +986,7 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
       _lateEntryDone = true;
       TrackingService.track('affiliate_late_entry_completed', params: {
         'attempts': _lateEntryAttempts,
+        'time_in_flow_ms': _lateEntryWatch.elapsed.inMilliseconds,
         'time_in_flow_bucket': _flowTimeBucket(_lateEntryWatch.elapsed),
       });
       TrackingService.clearFlowContext('affiliate_late_entry');

@@ -273,6 +273,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     TrackingService.track('polymarket_sell_submitted', params: {
       ..._kindParams(),
       ...inputs,
+      'time_in_flow_ms': DateTime.now().difference(_openedAt).inMilliseconds,
       'time_in_flow_bucket': VenueAnalytics.timeInFlowBucket(
           DateTime.now().difference(_openedAt)),
     });
@@ -416,6 +417,8 @@ class _SellSheetState extends ConsumerState<SellSheet> {
           'reason': _stopReason ?? 'user_closed',
           if (_lastErrorCategory != null)
             'last_error_category': _lastErrorCategory!,
+          'time_in_flow_ms':
+              DateTime.now().difference(_openedAt).inMilliseconds,
           'time_in_flow_bucket': VenueAnalytics.timeInFlowBucket(
               DateTime.now().difference(_openedAt)),
         });
@@ -478,6 +481,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     final l10n = context.l10n;
     TrackingService.track('prediction_sell_cta_tapped', params: {
       'amount_bucket': TrackingService.usdBucket(_amountUsdc),
+      ...TrackingService.exactUsd('amount_usd', _amountUsdc),
       'denomination': 'fiat',
     });
     if (_sharesToSell <= 0 || _sharesToSell > pos.size) {

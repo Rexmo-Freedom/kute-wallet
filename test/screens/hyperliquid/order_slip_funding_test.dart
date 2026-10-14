@@ -283,6 +283,13 @@ void main() {
     expect(events.where((e) => e.$1 == 'slip_top_up_opened').length, 1);
     expect(events.singleWhere((e) => e.$1 == 'slip_top_up_opened').$2!['suggested_source'],
         'dollars');
+    // Exact amounts beside the legacy buckets: the $20.24 the venue lacks
+    // and the $16.68 the door asks of Dollars.
+    final topUp = events.singleWhere((e) => e.$1 == 'slip_top_up_opened').$2!;
+    expect(topUp['shortfall_usd'], 20.24);
+    expect(topUp['top_up_usd'], 16.68);
+    expect(topUp['shortfall_bucket'], '10-100');
+    expect(topUp['top_up_bucket'], '10-100');
     // Repeat taps while the door is open open nothing more.
     expect(_button(tester).onPressed, isNull);
     await tester.tap(find.byType(AppButton), warnIfMissed: false);

@@ -316,6 +316,7 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
     });
     TrackingService.track('hyperliquid_close_submitted', params: {
       ...inputs,
+      'time_in_flow_ms': DateTime.now().difference(_openedAt).inMilliseconds,
       'time_in_flow_bucket': VenueAnalytics.timeInFlowBucket(
           DateTime.now().difference(_openedAt)),
     });
@@ -356,6 +357,8 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
             'reason': _stopReason ?? 'user_closed',
             if (_lastErrorCategory != null)
               'last_error_category': _lastErrorCategory!,
+            'time_in_flow_ms':
+                DateTime.now().difference(_openedAt).inMilliseconds,
             'time_in_flow_bucket': VenueAnalytics.timeInFlowBucket(
                 DateTime.now().difference(_openedAt)),
           });
