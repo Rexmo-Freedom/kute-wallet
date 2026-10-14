@@ -143,6 +143,8 @@ import 'package:kute/services/one_balance/venue_cash_source.dart'
         venueCashPullerProvider;
 import 'package:kute/services/one_balance/investments_spendable.dart'
     show investmentsSpendableProvider, venueCashRefreshProvider;
+import 'package:kute/services/one_balance/bitcoin_to_dollars_leg.dart'
+    show BitcoinToDollarsLeg;
 import 'package:kute/services/one_balance/multi_source_move.dart'
     show MultiSourceMoveStore, trackMultiSourceMoveRetry;
 import 'package:kute/screens/shared/venue_cash_pull_copy.dart';
@@ -3496,21 +3498,17 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       ConvTiming.mark('_dispatchBtcToUsd sparkSelfAddressProvider read start');
       final sparkAddress = await ref.read(sparkSelfAddressProvider.future);
       ConvTiming.mark('_dispatchBtcToUsd sparkSelfAddressProvider read end');
-      ConvTiming.mark('_dispatchBtcToUsd HotSettlement.runner() start');
-      final runner = await HotSettlement.runner();
-      ConvTiming.mark('_dispatchBtcToUsd HotSettlement.runner() end');
-      ConvTiming.mark('_dispatchBtcToUsd runner.run call');
-      final settled = await runner.run(HotSettlement.plan(
+      // 2. The shared Bitcoin → Dollars leg (the slips run the same one
+      // under an order's approval): quote, this sheet's own approval,
+      // the sats to the quote's deposit address, the Activity row, the
+      // registration in the background, the fee and convert analytics.
+      ConvTiming.mark('_dispatchBtcToUsd BitcoinToDollarsLeg.send call');
+      final sent = await BitcoinToDollarsLeg.send(
         ref.read,
-        flow: SettlementFlow.moveBtcToUsdc,
-        route: RouteKey(
-            fromChain: 'spark',
-            fromAsset: 'BTC',
-            toChain: kOrchestraUsdChain,
-            toAsset: kOrchestraUsdAssetCode),
-        source: SettlementAccountKind.sparkHot,
-        destination: SettlementAccountKind.sparkHot,
-        amountUsd: approxUsd,
+        appRead: appRead,
+        sparkAddress: sparkAddress,
+        approxUsd: approxUsd,
+        usdPerBtc: usdPerBtcTap,
         stepUp: _settlementStepUp(
           action: SensitiveAction.moveTransfer,
           asset: 'BTC',
@@ -3533,108 +3531,12 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
           );
           return fetched;
         },
-        prepareFunding: (verifiedQuote, _) =>
-            HotSettlement.prepareSpark(ref.read, verifiedQuote),
-        // The spinner ends once the sats left and the proof is on disk;
-        // the deposit is registered behind the overlay.
-        registerInBackground: true,
-        fund: (verifiedQuote, prepared) async {
-          // 2. Send the sats to the quote's deposit address. Tag the
-          // outbound leg so the Activity feed tells the story once, on
-          // the exchange row, instead of twice.
-          btcSent = true;
-          ConvTiming.mark('_dispatchBtcToUsd sendSpark start');
-          final paymentId = await HotSettlement.sendSpark(ref.read, prepared);
-          ConvTiming.mark('_dispatchBtcToUsd sendSpark end');
-          PolymarketSparkTxsService.tag(paymentId);
-          return SettlementFundingProof.spark(paymentId);
-        },
-      ));
-      ConvTiming.mark('_dispatchBtcToUsd runner.run returned');
-      final orchQuote = settled.quote.quote;
-      sats = settled.quote.amountIn.toInt();
-      final orderId = settled.orderId ?? orchQuote.quoteId;
-      final estOut = orchestraAmountToDouble(
-          orchQuote.estimatedOut, kOrchestraUsdAssetCode,
-          chain: kOrchestraUsdChain);
-
-      // 3. Record the exchange so the purchase is trackable while it
-      // settles.
-      final exchange = SwapOrder(
-        id: orderId,
-        coinFrom: 'BTC',
-        networkFrom: 'SPARK',
-        coinTo: kOrchestraUsdAssetCode,
-        networkTo: 'SPARK',
-        depositAddress: orchQuote.depositAddress,
-        depositAmount: (sats / 1e8).toStringAsFixed(8),
-        withdrawalAmount: estOut.toStringAsFixed(2),
-        status: 'exchanging',
-        timestamp: DateTime.now().millisecondsSinceEpoch,
-        withdrawalAddress: sparkAddress,
-        depositMin: '0',
-        depositMax: '0',
-        rate: '0',
-        refundAddress: sparkAddress,
-        provider: 'Orchestra',
-        walletId: ref.read(settingsProvider).activeWalletId,
-        operationId: settled.operation.operationId,
+        onSending: () => btcSent = true,
       );
-      ConvTiming.mark('_dispatchBtcToUsd addExchange(exchange) start');
-      await ref.read(swapOrdersProvider.notifier).addExchange(exchange);
-      ConvTiming.mark('_dispatchBtcToUsd addExchange(exchange) end');
-      // The background submit moves the row to the order id it returns.
-      ConvTiming.mark('_dispatchBtcToUsd followSettlementRegistration');
-      followSettlementRegistration(appRead, settled);
-      // Backend attribution for the REAL order only — a quote id (q_…)
-      // would create a row the completion can never reconcile with.
-      if (orderId.startsWith('ord_')) {
-        // ignore: unawaited_futures
-        AffiliateService.logProviderEvent(
-          provider: 'orchestra',
-          providerOrderId: orderId,
-          status: 'pending',
-          sourceAsset: 'BTC',
-          sourceAmount: sats / 1e8,
-          destinationAsset: kOrchestraUsdAssetCode,
-          destinationAmount: estOut,
-        );
-      }
-      ref
-          .read(walletTransactionCacheProvider.notifier)
-          .mergeSwapOrder(exchange);
-      BackgroundSyncService().syncNow();
-
-      // Reported under the order id once the registration returns it.
-      final feeWalletId = ref.read(settingsProvider).activeWalletId;
-      final sentSats = sats;
-      withSettlementOrderId(settled, (orderId) {
-        // Orchestra's spread on the leg, against the live BTC price.
-        try {
-          final fairUsd = (sentSats / 1e8) * usdPerBtcTap;
-          final spreadUsd = fairUsd - estOut;
-          if (usdPerBtcTap > 0 && spreadUsd > 0) {
-            FeeHistoryService.log(
-              id: 'orch-$orderId',
-              kind: FeeKind.orchestraSpread,
-              microUsd: (spreadUsd * 1000000).round(),
-              nativeAmount: spreadUsd.toStringAsFixed(6),
-              nativeUnit: 'usd',
-              source: 'Orchestra',
-              txId: orderId,
-              walletId: feeWalletId,
-            );
-          }
-        } catch (_) {}
-
-        TrackingService.track('convert_success', params: {
-          'direction': 'btc_to_dollars',
-          'amount_bucket': TrackingService.usdBucket(estOut),
-          ...TrackingService.exactUsd('amount_usd', estOut),
-          'order_id': orderId,
-          'provider': 'orchestra',
-        });
-      });
+      ConvTiming.mark('_dispatchBtcToUsd BitcoinToDollarsLeg.send returned');
+      final settled = sent.settled;
+      sats = sent.sats;
+      final estOut = sent.estimatedOutUsd;
 
       if (!mounted) {
         return;
