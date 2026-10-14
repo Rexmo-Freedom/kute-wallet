@@ -1857,6 +1857,8 @@ void main() {
       }
       expect(rects[0].right, lessThan(rects[1].left));
       expect(rects[1].right, lessThan(rects[2].left));
+      // Low: one card of caption-over-figure columns, never tall tiles.
+      expect(tester.getSize(figures).height, lessThanOrEqualTo(84));
       // Every figure, the open P&L still in the up colour.
       expect(figure(tester, 'Open P&L'), startsWith('+'));
       final pnl = tester.widget<Text>(find.descendant(

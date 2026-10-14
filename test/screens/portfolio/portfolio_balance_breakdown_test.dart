@@ -36,7 +36,6 @@ import 'package:kute/providers/unified_balances_provider.dart';
 import 'package:kute/providers/venue_sweeper_provider.dart';
 import 'package:kute/screens/portfolio/open_investments_screen.dart';
 import 'package:kute/screens/portfolio/portfolio_balance_breakdown.dart';
-import 'package:kute/screens/portfolio/portfolio_figure_tiles.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show RollingFigure;
 import 'package:kute/screens/shared/stale_shimmer.dart';
@@ -163,6 +162,29 @@ class _SlowPoly extends PolymarketTradingNotifier {
   }
 }
 
+/// Predictions with a resting BUY reserving 10 x 0.40 = \$4.00.
+class _PolyWithOrders extends PolymarketTradingNotifier {
+  @override
+  Future<PolymarketTradingState> build() async => PolymarketTradingState(
+          isAuthenticated: true,
+          usdcBalance: 10,
+          openOrders: [
+            Order(
+                id: 'o',
+                market: 'm',
+                assetId: 'a',
+                owner: 'k',
+                side: 'BUY',
+                price: '0.40',
+                originalSize: '10',
+                sizeMatched: '0',
+                outcome: 'Yes'),
+          ]);
+
+  @override
+  Future<void> refresh() async {}
+}
+
 Future<ProviderContainer> _pump(
   WidgetTester tester, {
   required Widget home,
@@ -236,14 +258,18 @@ Finder get _row => find.byKey(const ValueKey('portfolio-balance-row'));
 Rect _tile(WidgetTester tester, String venue) =>
     tester.getRect(find.byKey(ValueKey('portfolio-balance-$venue')));
 
-/// The figure under [label] in [venue]'s tile.
+/// [venue]'s figure: its Available cash (the column's figure) or its
+/// Positions (the small line under it).
 String _figureUnder(WidgetTester tester, String venue, String label) {
-  final stat = find.ancestor(
-      of: _inCard(venue, find.text(label)),
-      matching: find.byType(PortfolioTileStat));
+  final part = switch (label) {
+    'Available' => 'available',
+    'Positions' => 'positions',
+    _ => throw ArgumentError(label),
+  };
   return tester
-      .widget<RollingFigure>(
-          find.descendant(of: stat, matching: find.byType(RollingFigure)))
+      .widget<RollingFigure>(find.descendant(
+          of: find.byKey(ValueKey('portfolio-balance-$venue-$part')),
+          matching: find.byType(RollingFigure)))
       .text;
 }
 
@@ -279,8 +305,12 @@ void main() {
       expect(_inCard('dollars', find.text('Dollars')), findsOneWidget);
       expect(_inCard('dollars', find.byType(SvgPicture)), findsOneWidget);
       expect(_figureUnder(tester, 'dollars', 'Available'), r'$42.50');
-      // Dollars hold no positions.
+      // Dollars hold no positions: the line under the figure says what it
+      // is.
       expect(_inCard('dollars', find.text('Positions')), findsNothing);
+      expect(_inCard('dollars', find.text('Available')), findsOneWidget);
+      expect(_inCard('investing', find.text('Positions')), findsOneWidget);
+      expect(_inCard('predictions', find.text('Positions')), findsOneWidget);
       expect(_inCard('investing', find.text('Investing')), findsOneWidget);
       expect(_inCard('investing', find.byType(SvgPicture)), findsOneWidget);
       expect(_figureUnder(tester, 'investing', 'Available'), r'$6.54');
@@ -311,6 +341,31 @@ void main() {
       expect(_inCard('dollars', _figure(r'$49.04')), findsOneWidget);
       expect(_figureUnder(tester, 'investing', 'Available'), r'$0.00');
       expect(_figureUnder(tester, 'predictions', 'Positions'), r'$0.00');
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+        'compact: at 390 pt and 100 % text the row is one low card, its '
+        'figures at the secondary size, Rebalance under it', (tester) async {
+      final c =
+          await _pump(tester, home: _breakdown, size: const Size(390, 844));
+      c.read(_sweeperState.notifier).state =
+          const VenueSweeperState(movable: {OneBalanceVenue.predictions: 3});
+      await tester.pumpAndSettle();
+      final row = tester.getRect(_row);
+      expect(row.height, lessThanOrEqualTo(84));
+      // Each column: mark and name, figure, one small line.
+      for (final venue in ['dollars', 'investing', 'predictions']) {
+        expect(_tile(tester, venue).height, lessThanOrEqualTo(84));
+        final figure = tester.widget<RollingFigure>(find.descendant(
+            of: find.byKey(ValueKey('portfolio-balance-$venue-available')),
+            matching: find.byType(RollingFigure)));
+        expect(figure.style.fontSize, lessThanOrEqualTo(17));
+        expect(figure.style.fontFeatures,
+            contains(const FontFeature.tabularFigures()));
+      }
+      final button = tester.getRect(_rebalance);
+      expect(button.top, greaterThan(row.bottom));
       expect(tester.takeException(), isNull);
     });
 
@@ -558,8 +613,8 @@ void main() {
     });
 
     testWidgets(
-        'cash below the route minimum: Rebalance stays, disabled, and the '
-        'venue says why', (tester) async {
+        'cash below the route minimum: Rebalance stays, disabled, with why '
+        'on one line under it', (tester) async {
       final c = await _pump(tester, home: _breakdown);
       c.read(_sweeperState.notifier).state = const VenueSweeperState(
           belowMinimum: {OneBalanceVenue.predictions: 2.77});
@@ -567,8 +622,13 @@ void main() {
       expect(_rebalance, findsOneWidget);
       expect(tester.widget<AppButton>(_rebalance).onPressed, isNull);
       expect(tester.widget<AppButton>(_rebalance).isLoading, isFalse);
-      expect(_inCard('predictions', find.text('Below the minimum to move')),
-          findsOneWidget);
+      final reason = find.byKey(const ValueKey('portfolio-rebalance-reason'));
+      expect(tester.widget<Text>(reason).data, 'Below the minimum to move');
+      expect(find.text('Below the minimum to move'), findsOneWidget);
+      // Under the button, never stretching the row.
+      expect(tester.getRect(reason).top,
+          greaterThanOrEqualTo(tester.getRect(_rebalance).bottom));
+      expect(tester.getRect(_row).height, lessThanOrEqualTo(84));
       // A tap does nothing.
       await tester.tap(_rebalance, warnIfMissed: false);
       await tester.pump();
@@ -617,6 +677,24 @@ void main() {
       expect(p.right, lessThanOrEqualTo(375));
       expect(_figureUnder(tester, 'investing', 'Positions'), r'$987,654.32');
       expect(find.text('Below the minimum to move'), findsOneWidget);
+    });
+    testWidgets(
+        'what open orders reserve: one line under Predictions, its amount '
+        'never wrapped, at 375 pt and 130 % text', (tester) async {
+      await _pump(tester,
+          home: _breakdown,
+          size: const Size(375, 812),
+          textScale: 1.3,
+          overrides: [
+            polymarketTradingProvider.overrideWith(_PolyWithOrders.new)
+          ]);
+      final line = _inCard('predictions', find.text(r'$4.00 in open orders'));
+      expect(line, findsOneWidget);
+      // One line: as tall as the one-line caption under Dollars.
+      final available = _inCard('dollars', find.text('Available'));
+      expect(tester.getSize(line).height,
+          moreOrLessEquals(tester.getSize(available).height, epsilon: 0.5));
+      expect(tester.takeException(), isNull);
     });
   });
 

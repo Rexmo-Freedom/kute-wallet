@@ -1452,11 +1452,11 @@ _TradingParts _tradingFigures(WidgetRef ref, String? walletId) {
   );
 }
 
-/// The figures in ONE row of equal tiles (founder request, October
-/// 2026), each a caption label over its figure, as on the position cards
-/// and the balance breakdown (portfolio_figure_tiles.dart): each tile on
-/// the card surface ([boxed], the Portfolio), or side by side inside the
-/// card that holds them (a Ledger's Statistics).
+/// The figures in ONE low row (founder requests, October 2026), each a
+/// caption over its figure, in the balance breakdown's columns
+/// (portfolio_figure_tiles.dart): in a card of their own ([boxed], the
+/// Portfolio), or as columns inside the card that holds them (a Ledger's
+/// Statistics).
 class _StatTiles extends StatelessWidget {
   const _StatTiles({super.key, required this.tiles, this.boxed = false});
 
@@ -1467,10 +1467,9 @@ class _StatTiles extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final row = PortfolioTileRow(children: [
+    final row = PortfolioTileRow(boxed: boxed, children: [
       for (final (label, figure, color) in tiles)
         PortfolioTile(
-          boxed: boxed,
           children: [
             PortfolioTileStat(
                 label: label,

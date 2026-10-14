@@ -12,8 +12,13 @@
 //     (open positions at their value, combos, and the cash open BUY
 //     orders reserve, named under it: "$4.00 in open orders").
 //
-// One row of three equal tiles (portfolio_figure_tiles.dart), the same
-// tiles as the statistics row under the chart. The figures are the
+// One low row of three equal columns in one card
+// (portfolio_figure_tiles.dart), the same row as the statistics under the
+// chart. Each column is the venue's mark and name, its Available cash at
+// the secondary figure size, and one small line under it: "Available"
+// for Dollars (all of it is), the venue's Positions for the venues. Notes
+// ("$4.00 in open orders", a Rebalance's outcome) add a line only when
+// there is something to say. The figures are the
 // one-balance state's (`oneBalanceProvider`): Dollars plus every
 // Available and every Positions figure is the header's total less what is
 // on a rail, and the Positions figures add up to its Invested.
@@ -32,8 +37,8 @@
 // the venue sweeper). It is enabled while a venue has cash a Rebalance can
 // move (the sweeper's `movable`, at or above the route minimum) and busy
 // while its pass runs. When the only cash at the venues is below the
-// route minimum it stays on screen, disabled, and that venue's tile says
-// "Below the minimum to move"; with nothing to move at all there is no
+// route minimum it stays on screen, disabled, with "Below the minimum to
+// move" under it; with nothing to move at all there is no
 // button. After a tap each venue's tile says in one line what is
 // happening to its cash: on its way to USDB (Investing's route takes
 // minutes), or why it stayed.
@@ -66,8 +71,6 @@ import 'package:kute/screens/portfolio/open_investments_screen.dart'
 import 'package:kute/screens/portfolio/portfolio_figure_tiles.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show RollingFigure;
-import 'package:kute/screens/shared/portfolio_position_card.dart'
-    show portfolioCardCaptionStyle;
 import 'package:kute/screens/shared/stale_shimmer.dart';
 import 'package:kute/screens/shared/venue_deposit_button.dart'
     show venueMarkAsset;
@@ -278,14 +281,21 @@ class _PortfolioBalanceBreakdownState
         breakdownVenueCash(balance, OneBalanceVenue.predictions);
     final below = rebalanceBelowMinimumVenues(sweeper);
 
-    String? note(OneBalanceVenue venue) =>
-        rebalanceNote(l10n,
-            venue: venue,
-            balance: balance,
-            sweeper: sweeper,
-            rebalance: rebalance,
-            now: now) ??
-        (below.contains(venue) ? l10n.portfolioRebalanceBelowMinimum : null);
+    // Cash below the route minimum and nothing else to move: the reason
+    // sits under the disabled Rebalance, one line, not in the venue's
+    // column (where it wrapped and stretched the row).
+    final belowReason = below.isNotEmpty && !rebalance.running;
+    String? note(OneBalanceVenue venue) {
+      final line = rebalanceNote(l10n,
+          venue: venue,
+          balance: balance,
+          sweeper: sweeper,
+          rebalance: rebalance,
+          now: now);
+      return belowReason && line == l10n.portfolioRebalanceBelowMinimum
+          ? null
+          : line;
+    }
 
     final canMove = sweeper.movable.values.any((usd) => usd >= kSweepDustUsd);
     final button = canMove || rebalance.running || below.isNotEmpty
@@ -323,28 +333,22 @@ class _PortfolioBalanceBreakdownState
           children: [
             _BalanceTile(
               key: const ValueKey('portfolio-balance-dollars'),
+              id: 'dollars',
               asset: kUsdMarkAsset,
               name: l10n.portfolioBalanceDollars,
-              figures: [(l10n.available, _Figure(amount(dollars)))],
+              available: _Figure(amount(dollars)),
             ),
             if (widget.trading)
               _BalanceTile(
                 key: const ValueKey('portfolio-balance-investing'),
+                id: 'investing',
                 asset: venueMarkAsset(InvestmentsProduct.trading),
                 name: l10n.trading,
-                figures: [
-                  (
-                    l10n.available,
-                    venueFigure(investing, known: balance.investingKnown)
-                  ),
-                  (
-                    l10n.ledgerPositionsTitle,
-                    venueFigure(
-                        breakdownVenuePositions(
-                            balance, OneBalanceVenue.investing),
-                        known: balance.investingKnown)
-                  ),
-                ],
+                available:
+                    venueFigure(investing, known: balance.investingKnown),
+                positions: venueFigure(
+                    breakdownVenuePositions(balance, OneBalanceVenue.investing),
+                    known: balance.investingKnown),
                 footer: [
                   if (note(OneBalanceVenue.investing) case final line?) line,
                 ],
@@ -352,25 +356,19 @@ class _PortfolioBalanceBreakdownState
             if (widget.predictions)
               _BalanceTile(
                 key: const ValueKey('portfolio-balance-predictions'),
+                id: 'predictions',
                 asset: venueMarkAsset(InvestmentsProduct.predictions),
                 name: l10n.predictions,
-                figures: [
-                  (
-                    l10n.available,
-                    venueFigure(predictionsCash,
-                        known: balance.predictionsKnown)
-                  ),
-                  (
-                    l10n.ledgerPositionsTitle,
-                    venueFigure(
-                        breakdownVenuePositions(
-                            balance, OneBalanceVenue.predictions),
-                        known: balance.predictionsKnown)
-                  ),
-                ],
+                available: venueFigure(predictionsCash,
+                    known: balance.predictionsKnown),
+                positions: venueFigure(
+                    breakdownVenuePositions(
+                        balance, OneBalanceVenue.predictions),
+                    known: balance.predictionsKnown),
+                reserved: reserved >= kSweepDustUsd
+                    ? l10n.investingInOpenOrders(amount(reserved))
+                    : null,
                 footer: [
-                  if (reserved >= kSweepDustUsd)
-                    l10n.investingInOpenOrders(amount(reserved)),
                   if (note(OneBalanceVenue.predictions) case final line?) line,
                 ],
               ),
@@ -379,6 +377,15 @@ class _PortfolioBalanceBreakdownState
         if (button != null) ...[
           SizedBox(height: 12.h),
           button,
+          if (belowReason) ...[
+            SizedBox(height: 6.h),
+            Text(
+              l10n.portfolioRebalanceBelowMinimum,
+              key: const ValueKey('portfolio-rebalance-reason'),
+              textAlign: TextAlign.center,
+              style: portfolioTileCaptionStyle(context.colors),
+            ),
+          ],
         ],
         SizedBox(height: 12.h),
       ],
@@ -395,63 +402,106 @@ class _Figure {
   final bool stale;
 }
 
-/// One part of the balance: its mark and name, then each figure under its
-/// label, then one quiet line per thing there is to say.
+/// One part of the balance: its mark and name, its Available cash, then
+/// one small line ("Available" for Dollars, the venue's Positions), then
+/// one quiet line per thing there is to say.
 class _BalanceTile extends StatelessWidget {
   const _BalanceTile({
     super.key,
+    required this.id,
     required this.asset,
     required this.name,
-    required this.figures,
+    required this.available,
+    this.positions,
+    this.reserved,
     this.footer = const [],
   });
 
+  /// The part's name in the figures' keys ("dollars", "investing").
+  final String id;
   final String asset;
   final String name;
-  final List<(String, _Figure)> figures;
+  final _Figure available;
+
+  /// The venue's positions; null for Dollars, which hold none.
+  final _Figure? positions;
+
+  /// What open BUY orders reserve ("$4.00 in open orders"): an amount,
+  /// so one line scaled to the column, never wrapped.
+  final String? reserved;
+
+  /// Notes about a Rebalance: words only, so they wrap.
   final List<String> footer;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final caption = portfolioCardCaptionStyle(c);
+    final l10n = context.l10n;
+    final caption = portfolioTileCaptionStyle(c);
+
+    // Live: a new figure rolls the digits that changed; while the venue
+    // refreshes it is dimmed with the skeleton's sweep.
+    Widget live(_Figure figure, TextStyle style) => StaleShimmer(
+          stale: figure.stale,
+          child: RollingFigure(
+              text: figure.text,
+              style: figure.stale
+                  ? style.copyWith(color: c.textSecondary)
+                  : style),
+        );
+
     return PortfolioTile(children: [
       Row(
         children: [
-          SvgPicture.asset(asset, width: 18.w, height: 18.w),
+          SvgPicture.asset(asset, width: 16.w, height: 16.w),
           SizedBox(width: 6.w),
           Flexible(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
+            child: PortfolioTileFit(
               child: Text(name,
+                  maxLines: 1,
+                  softWrap: false,
                   style: caption.copyWith(
-                      color: c.textPrimary, fontWeight: FontWeight.w600)),
+                      color: c.textSecondary,
+                      fontSize: 13.sp,
+                      fontWeight: FontWeight.w600)),
             ),
           ),
         ],
       ),
-      for (final (label, figure) in figures) ...[
-        SizedBox(height: 10.h),
-        PortfolioTileStat(
-          label: label,
-          figure: PortfolioTileFigure(
-            figure.text,
-            // Live: a new figure rolls the digits that changed; while the
-            // venue refreshes it is dimmed with the skeleton's sweep.
-            child: StaleShimmer(
-              stale: figure.stale,
-              child: RollingFigure(
-                  text: figure.text,
-                  style: PortfolioTileFigure.styleOf(
-                      context, figure.stale ? c.textSecondary : null)),
-            ),
-          ),
+      SizedBox(height: 6.h),
+      Semantics(
+        label: l10n.available,
+        child: PortfolioTileFigure(
+          available.text,
+          key: ValueKey('portfolio-balance-$id-available'),
+          child: live(available, PortfolioTileFigure.styleOf(context)),
         ),
+      ),
+      SizedBox(height: 2.h),
+      if (positions case final held?)
+        PortfolioTileFit(
+          key: ValueKey('portfolio-balance-$id-positions'),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(l10n.ledgerPositionsTitle, style: caption),
+              SizedBox(width: 4.w),
+              live(
+                  held,
+                  caption.copyWith(
+                      color: c.textSecondary, fontWeight: FontWeight.w600)),
+            ],
+          ),
+        )
+      else
+        PortfolioTileLabel(l10n.available),
+      if (reserved case final line?) ...[
+        SizedBox(height: 2.h),
+        PortfolioTileLabel(line),
       ],
       for (final line in footer) ...[
-        SizedBox(height: 6.h),
-        Text(line, style: caption.copyWith(fontSize: 12.sp)),
+        SizedBox(height: 4.h),
+        Text(line, style: caption),
       ],
     ]);
   }
