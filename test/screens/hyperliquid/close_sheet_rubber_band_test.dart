@@ -1,8 +1,9 @@
 // The placement's rubber band on the Investing close ticket (founder, 14
 // October 2026): while the close is placing the CTA is drawn up; closed,
-// it lets go with the spring snap and a light tap as the confirmation
-// fades in over it; refused, it releases softly with no overshoot and
-// the reason shows; under Reduce Motion it never moves.
+// it lets go with the spring snap and a light tap, and the confirmation
+// comes once the snap has played (a bounded wait); refused, it releases
+// softly with no overshoot and the reason shows; under Reduce Motion it
+// never moves and nothing waits.
 //
 // Driven end to end on the hot path: the approval is the Kute PIN
 // (biometrics off), and the exchange call is held by the test.
@@ -277,33 +278,42 @@ void main() {
       .length;
 
   testWidgets(
-      'closing pulls the CTA up; closed, it snaps back with a light tap as '
-      'the confirmation shows', (tester) async {
+      'closing pulls the CTA up; closed, it snaps back with a light tap, '
+      'then the confirmation shows', (tester) async {
     final trading = await pump(tester);
     await closeAndApprove(tester, trading);
-    // Approved and sent: the band holds the sent step's tension.
+    // Approved and sent: at least the sent step's tension, built on by
+    // time, never past full tension.
     expect(_band(tester).stretch,
-        closeTo(rubberBandStretchFor(0.55), RubberBandProgress.breath));
+        greaterThan(rubberBandStretchFor(0.65) - 0.005));
+    expect(
+        _band(tester).stretch,
+        lessThanOrEqualTo(
+            RubberBandProgress.defaultMaxStretch + RubberBandProgress.breath));
     expect(_band(tester).ticking, isTrue);
     final tapsBefore = lightTaps();
 
     trading.answer.complete(const HlOrderResult(
         kind: HlOrderResultKind.filled, filledSz: 0.5, avgPx: 66000));
     await tester.pump();
-    // The CTA lets go with the success outcome in the same frame the
-    // confirmation is pushed.
+    // The CTA snaps while the ticket still holds the close: no
+    // confirmation yet.
     final cta = tester.widget<PolySlipCta>(_cta);
-    expect(cta.isBusy, isFalse);
+    expect(cta.isBusy, isTrue);
     expect(cta.bandOutcome, RubberBandOutcome.success);
     var min = double.infinity;
-    for (var i = 0; i < 40; i++) {
+    for (var i = 0; i < 18; i++) {
       await tester.pump(const Duration(milliseconds: 16));
       final s = _band(tester).stretch;
       if (s < min) min = s;
+      expect(find.byType(KuteConfirmation), findsNothing,
+          reason: 'not before the snap has played');
     }
     expect(min, lessThan(0), reason: 'the snap overshoots past rest');
     expect(lightTaps() - tapsBefore, 1);
-    // Straight into the confirmation, fading in over the ticket.
+    // Bounded: the confirmation follows once the snap's moment is over.
+    await tester.pump(RubberBand.snapSettle);
+    await tester.pump();
     expect(find.byType(KuteConfirmation), findsOneWidget);
     await _frames(tester, 40);
     expect(_band(tester).stretch, 0);
@@ -346,6 +356,10 @@ void main() {
     expect(_band(tester).ticking, isFalse);
     trading.answer.complete(const HlOrderResult(
         kind: HlOrderResultKind.filled, filledSz: 0.5, avgPx: 66000));
+    // Nothing waits for a snap that is not drawn.
+    await tester.pump();
+    await tester.pump();
+    expect(find.byType(KuteConfirmation), findsOneWidget);
     for (var i = 0; i < 20; i++) {
       await tester.pump(const Duration(milliseconds: 50));
       expect(_band(tester).stretch, 0);

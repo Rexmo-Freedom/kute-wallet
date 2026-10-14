@@ -1212,15 +1212,19 @@ enum _SendBandPhase { idle, preparing, approving, finishing }
 ///
 /// It reads the flags the send screens already keep, nothing else:
 ///   * [busy] up (the tap's readiness wait, the quote, the SDK prepare):
-///     the band eases toward [preparingProgress] over [expected];
+///     the band takes the first pull at once
+///     ([RubberBandProgress.firstPull]) and eases on toward
+///     [preparingProgress] over [expected];
 ///   * [authorising] up (the face scan or PIN): it holds at least
 ///     [approvalProgress];
 ///   * [authorising] down again while still [busy] (broadcasting and
 ///     waiting for the SDK's answer): it eases on from
 ///     [afterApprovalProgress] toward [ceiling] over [expected], so the
 ///     pull grows the closer the money is to leaving;
-///   * [succeeded]: the spring snap and light tap; [busy] down without
-///     it (a failure, a declined scan, a stop for re-review): the soft
+///   * [succeeded]: the spring snap and light tap, even while [busy] is
+///     still up, so the screen can let it play ([RubberBand.settle])
+///     before the success screen covers it; [busy] down without it (a
+///     failure, a declined scan, a stop for re-review): the soft
 ///     release.
 ///
 /// Presentation only: it never decides anything about the send.
@@ -1251,13 +1255,13 @@ class SendRubberBand extends StatefulWidget {
   final Widget child;
 
   /// Where the wait before approval eases to.
-  static const double preparingProgress = 0.45;
+  static const double preparingProgress = 0.6;
 
   /// The least the band holds while the person approves.
-  static const double approvalProgress = 0.5;
+  static const double approvalProgress = 0.62;
 
   /// Where the wait after approval starts from, at least.
-  static const double afterApprovalProgress = 0.55;
+  static const double afterApprovalProgress = 0.68;
 
   /// Where the waits ease to; the answer does the rest.
   static const double ceiling = 0.85;
@@ -1319,7 +1323,7 @@ class SendRubberBandState extends State<SendRubberBand>
       if (!widget.busy || widget.succeeded) return;
       _outcome = RubberBandOutcome.none;
       _phase = _SendBandPhase.preparing;
-      _run(0, SendRubberBand.preparingProgress);
+      _run(RubberBandProgress.firstPull, SendRubberBand.preparingProgress);
     }
     if (widget.succeeded) {
       _finish(RubberBandOutcome.success);

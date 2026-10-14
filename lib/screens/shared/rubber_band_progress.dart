@@ -13,8 +13,15 @@
 // Bitcoin send after Send.
 //
 // Rules it keeps:
-//   * subtle: the most it ever moves is [RubberBandProgress.maxStretch]
-//     of the block's own height (8%), building fastest near the end;
+//   * felt, still tasteful: the tap takes a first pull at once
+//     ([RubberBandProgress.firstPull] of full tension, eased in about
+//     250 ms), then it keeps building with time toward
+//     [RubberBandBusy.ceiling] over the action's expected duration, and
+//     jumps forward when a real phase arrives. Full tension is
+//     [RubberBandProgress.defaultMaxStretch] (13%) of the block's height;
+//   * the snap is seen: a caller that leaves on success (closing a sheet,
+//     pushing a receipt) waits on [RubberBand.settle] first, a bounded
+//     [RubberBand.snapSettle] (none under Reduce Motion);
 //   * the text stays crisp: the block is translated, never scaled;
 //   * Reduce Motion: nothing moves, the block sits at rest;
 //   * nothing ticks while its tickers are off (covered by a route), while
@@ -43,12 +50,74 @@ enum RubberBandOutcome {
 }
 
 /// The tension the band holds at [progress] (0..1), as a fraction of the
-/// block's height: monotonic, and steepest at the end, so the last step
-/// pulls hardest. Public so the slips' tests can read the curve.
+/// block's height: [progress] is the share of full tension, so it is
+/// monotonic and the first pull reads as what it says. The build's
+/// easing (with time, toward the ceiling) lives in [RubberBandBusy] and
+/// the send's band. Public so the slips' tests can read the curve.
 double rubberBandStretchFor(double progress,
     {double maxStretch = RubberBandProgress.defaultMaxStretch}) {
   final p = progress.isFinite ? progress.clamp(0.0, 1.0).toDouble() : 0.0;
-  return maxStretch * math.pow(p, 1.6).toDouble();
+  return maxStretch * p;
+}
+
+/// The tension a busy band holds [elapsed] after it last moved to [from]:
+/// it eases from [from] toward [ceiling] (two thirds of the way by
+/// [expected]) and never reaches it, so it keeps building. A [from] at or
+/// past [ceiling] holds.
+double rubberBandEasedProgress(
+  double from,
+  Duration elapsed, {
+  required Duration expected,
+  double ceiling = RubberBandBusy.defaultCeiling,
+}) {
+  if (from >= ceiling) return from;
+  final tau = math.max(1, expected.inMilliseconds) / 1.1;
+  final share = 1 - math.exp(-(math.max(0, elapsed.inMilliseconds) / tau));
+  return from + (ceiling - from) * share;
+}
+
+/// What a call site waits on before it moves past a band's ending.
+class RubberBand {
+  RubberBand._();
+
+  /// How long the success snap is given before the sheet closes or the
+  /// confirmation covers it: the spring has come back, bounced past rest
+  /// and nearly settled (what is left is under a pixel).
+  static const Duration snapSettle = Duration(milliseconds: 360);
+
+  /// How long the soft release is given on a failure, for a caller that
+  /// leaves on one.
+  static const Duration softSettle = Duration(milliseconds: 320);
+
+  /// Lets the band at [context] play its ending before the caller moves
+  /// on: completes after [snapSettle] for a success ([softSettle]
+  /// otherwise), and at once when nothing would be seen (Reduce Motion,
+  /// tickers off because a route covers it, the app in the background,
+  /// an unmounted context). Bounded: it never waits on the animation
+  /// itself.
+  ///
+  /// Set the band's outcome first (in the same frame), then:
+  ///
+  /// ```dart
+  /// setState(() => _bandOutcome = RubberBandOutcome.success);
+  /// await RubberBand.settle(context);
+  /// if (!mounted) return;
+  /// _close();
+  /// ```
+  static Future<void> settle(BuildContext context,
+      {RubberBandOutcome outcome = RubberBandOutcome.success}) {
+    if (!context.mounted || !animates(context)) return Future.value();
+    return Future.delayed(
+        outcome == RubberBandOutcome.success ? snapSettle : softSettle);
+  }
+
+  /// Whether a band at [context] moves at all.
+  static bool animates(BuildContext context) {
+    if (MediaQuery.maybeDisableAnimationsOf(context) ?? false) return false;
+    if (!TickerMode.valuesOf(context).enabled) return false;
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    return lifecycle == null || lifecycle == AppLifecycleState.resumed;
+  }
 }
 
 /// Pulls [child] upward with an elastic tension that grows with
@@ -66,28 +135,33 @@ class RubberBandProgress extends StatefulWidget {
 
   /// The share of the block's height the band may pull it at full
   /// tension.
-  static const double defaultMaxStretch = 0.08;
+  static const double defaultMaxStretch = 0.13;
+
+  /// The share of full tension the tap takes at once (the [pullSpring]
+  /// eases it in, most of the way by about 250 ms).
+  static const double firstPull = 0.38;
 
   /// The breathing a waiting band keeps, as a share of the block's height.
-  static const double breath = 0.006;
+  static const double breath = 0.008;
 
   /// One breath, in and out.
   static const Duration breathPeriod = Duration(milliseconds: 1600);
 
-  /// The tension toward the next step: a stiff, slightly underdamped
-  /// spring, so it gives a little as it settles.
+  /// The tension toward the next step: stiff and just under critical
+  /// damping, so a first pull lands in about 250 ms and gives a little as
+  /// it settles.
   static const SpringDescription pullSpring =
-      SpringDescription(mass: 1, stiffness: 180, damping: 20);
+      SpringDescription(mass: 1, stiffness: 260, damping: 27);
 
   /// The snap on success: underdamped, so it overshoots past rest and
-  /// settles.
+  /// settles within [RubberBand.snapSettle].
   static const SpringDescription snapSpring =
-      SpringDescription(mass: 1, stiffness: 420, damping: 14);
+      SpringDescription(mass: 1, stiffness: 600, damping: 22);
 
   /// The release on failure: critically damped (2·√(k·m)), so it comes
   /// back to rest without passing it.
   static final SpringDescription softSpring =
-      SpringDescription(mass: 1, stiffness: 120, damping: 2 * math.sqrt(120.0));
+      SpringDescription(mass: 1, stiffness: 150, damping: 2 * math.sqrt(150.0));
 
   /// How far along the action is, 0 (just tapped) to 1 (about to finish).
   final double progress;
@@ -96,7 +170,7 @@ class RubberBandProgress extends StatefulWidget {
   /// go and stays at rest.
   final RubberBandOutcome outcome;
 
-  /// The share of the block's height at full tension (about 6–10%).
+  /// The share of the block's height at full tension (about 12–14%).
   final double maxStretch;
 
   /// A light haptic as the band snaps on success.
@@ -299,15 +373,23 @@ class RubberBandProgressState extends State<RubberBandProgress>
 }
 
 /// A [RubberBandProgress] for a wait whose phases cannot all be seen (a
-/// placement: signing, submitting, the venue's answer): while [busy] the
-/// tension eases from a first pull toward [ceiling] over [expected]
-/// (never reaching it, so it keeps building), or follows [progress] when
-/// the caller knows it. When [busy] ends the band lets go with [outcome]:
-/// [RubberBandOutcome.success] snaps with the light haptic; anything else
-/// (an end the caller does not name) releases softly, with no overshoot.
+/// placement: signing, submitting, the venue's answer).
 ///
-/// Nothing ticks while idle: the easing reads the clock on a slow timer
-/// that runs only while [busy], and the band itself rests.
+/// While [busy] the band takes the first pull at once
+/// ([RubberBandProgress.firstPull]) and keeps building with time toward
+/// [ceiling] over [expected] (never reaching it). A phase the caller does
+/// see ([progress]) jumps it forward, and the build goes on from there:
+/// the tension never goes back while the action runs.
+///
+/// [outcome] [RubberBandOutcome.success] snaps it with the light haptic,
+/// even while [busy] is still up, so a caller can keep its in-flight
+/// guards armed while the snap plays ([RubberBand.settle]) and close
+/// after. When [busy] ends without a success the band releases softly,
+/// with no overshoot.
+///
+/// Nothing ticks while idle: the build's clock runs only while [busy]
+/// (and never under Reduce Motion), on this widget's own ticker, so a
+/// covering route or the background stops it too.
 class RubberBandBusy extends StatefulWidget {
   const RubberBandBusy({
     super.key,
@@ -316,24 +398,29 @@ class RubberBandBusy extends StatefulWidget {
     this.progress,
     this.outcome,
     this.expected = const Duration(seconds: 4),
-    this.ceiling = 0.85,
+    this.ceiling = defaultCeiling,
     this.enabled = true,
   });
+
+  /// What the time build approaches.
+  static const double defaultCeiling = 0.85;
 
   /// The action is running.
   final bool busy;
 
-  /// The known progress (0..1), or null to ease by time.
+  /// The last phase the caller saw (0..1), or null for time alone. The
+  /// band holds at least this much.
   final double? progress;
 
-  /// How the action ended, read once [busy] is false. Null releases
+  /// How the action ended. [RubberBandOutcome.success] snaps (even while
+  /// [busy]); anything else is read once [busy] is false, and releases
   /// softly.
   final RubberBandOutcome? outcome;
 
   /// How long the action usually takes.
   final Duration expected;
 
-  /// What the eased tension approaches.
+  /// What the time build approaches.
   final double ceiling;
 
   /// False draws [child] alone (an outer band already carries it).
@@ -342,70 +429,136 @@ class RubberBandBusy extends StatefulWidget {
   final Widget child;
 
   @override
-  State<RubberBandBusy> createState() => _RubberBandBusyState();
+  State<RubberBandBusy> createState() => RubberBandBusyState();
 }
 
-class _RubberBandBusyState extends State<RubberBandBusy> {
-  Timer? _clock;
-  DateTime? _since;
+/// Public so tests can read the built [progress] and whether the build's
+/// clock is [easing].
+class RubberBandBusyState extends State<RubberBandBusy>
+    with SingleTickerProviderStateMixin {
+  /// The build's clock: 0..1 over [_span], since the band last moved to
+  /// [_from].
+  late final AnimationController _clock = AnimationController(vsync: this)
+    ..addListener(_onClock);
+
+  /// Where the current build started from.
+  double _from = 0;
+
+  /// The tension the band is given now (share of full tension).
   double _eased = 0;
 
   /// Whether this band ever pulled: an idle button never "releases".
   bool _pulled = false;
 
-  static const Duration _step = Duration(milliseconds: 250);
+  /// A success arrived while still busy: the band has let go.
+  bool _snapped = false;
+
+  bool _reduce = false;
+
+  /// The built progress now.
+  @visibleForTesting
+  double get progress => _eased;
+
+  /// Whether the build's clock is ticking.
+  @visibleForTesting
+  bool get easing => _clock.isAnimating;
+
+  /// Long enough that the build has all but reached the ceiling.
+  Duration get _span => widget.expected * 4;
 
   @override
-  void initState() {
-    super.initState();
-    _sync();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _reduce = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    _sync(starting: false);
   }
 
   @override
   void didUpdateWidget(RubberBandBusy oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.busy != widget.busy || oldWidget.progress != widget.progress)
-      _sync();
-  }
-
-  void _sync() {
-    if (widget.busy) {
-      _pulled = true;
-      if (widget.progress == null) {
-        _since ??= DateTime.now();
-        _eased = _easedAt(Duration.zero);
-        _clock ??= Timer.periodic(_step, (_) {
-          if (!mounted) return;
-          final since = _since;
-          if (since == null) return;
-          setState(() => _eased = _easedAt(DateTime.now().difference(since)));
-        });
-      } else {
-        _stopClock();
-      }
-    } else {
-      _stopClock();
+    final starting = widget.busy && !oldWidget.busy;
+    if (starting) _snapped = false;
+    if (widget.busy &&
+        !starting &&
+        widget.outcome == RubberBandOutcome.success &&
+        oldWidget.outcome != RubberBandOutcome.success) {
+      // It worked; the caller keeps busy up while the snap plays.
+      _snapped = true;
+    }
+    if (oldWidget.busy != widget.busy ||
+        oldWidget.enabled != widget.enabled ||
+        oldWidget.progress != widget.progress ||
+        oldWidget.outcome != widget.outcome ||
+        oldWidget.expected != widget.expected) {
+      _sync(starting: starting);
     }
   }
 
-  /// A first pull, then toward [RubberBandBusy.ceiling], two thirds of the
-  /// way by [RubberBandBusy.expected].
-  double _easedAt(Duration t) {
-    final tau = widget.expected.inMilliseconds / 1.1;
-    final share = 1 - math.exp(-(t.inMilliseconds / (tau <= 0 ? 1 : tau)));
-    const first = 0.2;
-    return first + (widget.ceiling - first) * share;
+  void _sync({required bool starting}) {
+    if (!widget.enabled) {
+      // An outer band carries this wait: nothing pulls here, so nothing
+      // here lets go either.
+      _stop();
+      _pulled = false;
+      return;
+    }
+    if (!widget.busy || _snapped) {
+      _stop();
+      return;
+    }
+    final phase = widget.progress ?? 0;
+    if (!_pulled || starting) {
+      // The tap: the first pull at once, and the build from there.
+      _pulled = true;
+      _restart(math.max(RubberBandProgress.firstPull, phase));
+      return;
+    }
+    if (phase > _eased + 1e-6) {
+      // A phase ahead of the clock: jump to it and build on from there.
+      _restart(phase);
+      return;
+    }
+    if (_reduce) {
+      _stop();
+    } else if (!_clock.isAnimating && _clock.value < 1) {
+      // Reduce Motion turned off mid-wait: the build picks up again.
+      _clock
+        ..duration = _span
+        ..forward();
+    }
   }
 
-  void _stopClock() {
-    _clock?.cancel();
-    _clock = null;
-    _since = null;
+  void _restart(double from) {
+    _from = from;
+    _eased = from;
+    if (_reduce) {
+      // Nothing moves under Reduce Motion, so nothing needs to tick.
+      _stop();
+      return;
+    }
+    _clock
+      ..duration = _span
+      ..forward(from: 0);
+  }
+
+  void _stop() {
+    if (_clock.isAnimating) _clock.stop();
+  }
+
+  void _onClock() {
+    final elapsed = _span * _clock.value;
+    final next = rubberBandEasedProgress(_from, elapsed,
+        expected: widget.expected, ceiling: math.max(widget.ceiling, _from));
+    // A step at a time: the band's spring smooths between them, and the
+    // block is not rebuilt every frame.
+    if (next - _eased >= 0.01 || (!_clock.isAnimating && next > _eased)) {
+      setState(() => _eased = next);
+    }
   }
 
   @override
   void dispose() {
-    _stopClock();
+    _clock.dispose();
     super.dispose();
   }
 
@@ -414,9 +567,9 @@ class _RubberBandBusyState extends State<RubberBandBusy> {
     if (!widget.enabled) return widget.child;
     final RubberBandOutcome outcome;
     final double progress;
-    if (widget.busy) {
+    if (widget.busy && !_snapped) {
       outcome = RubberBandOutcome.none;
-      progress = widget.progress ?? _eased;
+      progress = _eased;
     } else if (_pulled) {
       outcome = widget.outcome == RubberBandOutcome.success
           ? RubberBandOutcome.success

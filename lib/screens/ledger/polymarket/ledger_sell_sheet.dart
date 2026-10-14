@@ -266,7 +266,9 @@ class _LedgerSellSheetState extends ConsumerState<LedgerSellSheet> {
     final l10n = context.l10n;
     setState(() {
       _preparing = true;
-      _bandProgress = 0.15;
+      // The tap takes the band's first pull; time and the phases below
+      // build it from there.
+      _bandProgress = null;
       _bandOutcome = null;
       _retryPrice = null;
     });
@@ -400,13 +402,26 @@ class _LedgerSellSheetState extends ConsumerState<LedgerSellSheet> {
       );
     }
     if (!mounted) return;
+    if (outcome.kind == LedgerApprovalOutcomeKind.success) {
+      // Sold (or sent): the band snaps, and is seen doing it, while the
+      // CTA still holds the sale; then the confirmation.
+      setState(() => _bandOutcome = RubberBandOutcome.success);
+      await RubberBand.settle(context);
+      if (!mounted) {
+        // Torn down during the snap: the sale stands, and says so.
+        showLedgerConfirmation(navigator,
+            message: outcome.result?.status?.toLowerCase() == 'matched'
+                ? l10n.ledgerSold
+                : l10n.ledgerPendingStatus);
+        return;
+      }
+    }
     setState(() {
       _preparing = false;
-      // Sold (or sent): the band snaps into the confirmation; anything
-      // else lets go softly.
-      _bandOutcome = outcome.kind == LedgerApprovalOutcomeKind.success
-          ? RubberBandOutcome.success
-          : null;
+      // Anything but a sale lets go softly.
+      if (outcome.kind != LedgerApprovalOutcomeKind.success) {
+        _bandOutcome = null;
+      }
     });
 
     switch (outcome.kind) {

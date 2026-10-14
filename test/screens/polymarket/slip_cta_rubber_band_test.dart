@@ -86,6 +86,42 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
+  testWidgets('the tap is felt at once: at least 4% within 300 ms',
+      (tester) async {
+    await tester.pumpWidget(_host(busy: false));
+    await _frames(tester, 2);
+    await tester.pumpWidget(_host(busy: true));
+    for (var i = 0; i < 18; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(_band(tester).stretch, greaterThanOrEqualTo(0.04));
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('placed while still busy: the snap plays before it lets go',
+      (tester) async {
+    await tester.pumpWidget(_host(busy: true));
+    await _frames(tester, 30);
+    // A sheet sets the outcome and keeps busy up (its in-flight guard)
+    // while RubberBand.settle runs.
+    await tester
+        .pumpWidget(_host(busy: true, outcome: RubberBandOutcome.success));
+    var min = double.infinity;
+    for (var i = 0; i < 22; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+      final s = _band(tester).stretch;
+      if (s < min) min = s;
+    }
+    expect(min, lessThan(0), reason: 'the snap overshoots');
+    expect(lightTaps(), hasLength(1));
+    await tester.pumpWidget(
+        _host(busy: false, outcome: RubberBandOutcome.success));
+    await _frames(tester);
+    expect(_band(tester).stretch, 0);
+    expect(_band(tester).ticking, isFalse);
+    expect(lightTaps(), hasLength(1), reason: 'one snap, one tap');
+  });
+
   testWidgets('placed: a spring snap back to rest and one light tap',
       (tester) async {
     await tester.pumpWidget(_host(busy: true));

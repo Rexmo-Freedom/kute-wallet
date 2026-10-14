@@ -110,7 +110,9 @@ class _TrailingStopState extends ConsumerState<HlTrailingStopSheet> {
     if (_busy || _pending) return;
     setState(() {
       _busy = true;
-      _bandProgress = 0.15;
+      // The tap takes the band's first pull; time and the phases below
+      // build it from there.
+      _bandProgress = null;
       _bandOutcome = null;
       _error = null;
     });
@@ -134,7 +136,7 @@ class _TrailingStopState extends ConsumerState<HlTrailingStopSheet> {
           market: widget.market, isBuy: widget.isBuy, referencePrice: price);
       if (!mounted) return;
       HlOrderResult? result;
-      _bandTo(0.3);
+      _bandTo(0.45);
       if (widget.ledger) {
         result = await runLedgerHlTrailingStop(context, ref,
             walletId: widget.walletId,
@@ -171,7 +173,7 @@ class _TrailingStopState extends ConsumerState<HlTrailingStopSheet> {
             reason: context.l10n.stepUpReasonOrder(widget.market.coin),
             amountUsd: widget.size * price / widget.leverage);
         if (grant == null || !mounted) return;
-        _bandTo(0.55);
+        _bandTo(0.65);
         result = await ref
             .read(hyperliquidTradingProvider.notifier)
             .placeTrailingStop(
@@ -213,11 +215,12 @@ class _TrailingStopState extends ConsumerState<HlTrailingStopSheet> {
         );
       }
       if (mounted && result != null) {
-        setState(() {
-          _busy = false;
-          // Placed: the band snaps straight into the confirmation.
-          _bandOutcome = RubberBandOutcome.success;
-        });
+        // Placed: the band snaps, and is seen doing it, while the CTA
+        // still holds the order; then the sheet hands the result on.
+        setState(() => _bandOutcome = RubberBandOutcome.success);
+        await RubberBand.settle(context);
+        if (!mounted) return;
+        setState(() => _busy = false);
         if (widget.embedded) {
           widget.onResult?.call(result);
         } else {
@@ -340,6 +343,7 @@ class _TrailingStopState extends ConsumerState<HlTrailingStopSheet> {
         isBusy: _busy,
         bandProgress: _bandProgress,
         bandOutcome: _bandOutcome,
+        bandExpected: const Duration(seconds: 2),
         enabled: !_busy && !_pending,
         onTap: _submit,
         label: context.l10n.trailingPlace,

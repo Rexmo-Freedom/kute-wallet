@@ -461,7 +461,9 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     if (_isSelling) return;
     setState(() {
       _isSelling = true;
-      _bandProgress = 0.15;
+      // The tap takes the band's first pull; time and the phases below
+      // build it from there.
+      _bandProgress = null;
       _bandOutcome = null;
       _progressLabel = null;
       _venueDelayed = false;
@@ -559,7 +561,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
           return;
         }
         _trackSubmitted(tokenId);
-        _bandTo(0.4);
+        _bandTo(0.55);
         final placed =
             await ref.read(polymarketTradingProvider.notifier).placeOrder(
                   tokenId: tokenId,
@@ -576,7 +578,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
                   marketOutcome: pos.outcome,
                 );
         ref.invalidate(polymarketOpenOrdersProvider);
-        _bandTo(0.65);
+        _bandTo(0.7);
         // What the order did on arrival: rests whole, sold part of it
         // against bids already at the price (the rest still for sale), or
         // sold it all. One read of the order says which.
@@ -686,7 +688,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
       return;
     }
     _trackSubmitted(tokenId);
-    _bandTo(0.4);
+    _bandTo(0.55);
     // One approval for the whole ladder: each rung gets a child grant bound
     // to exactly that rung.
     final ladder = PmLadderGrant(approval);
@@ -823,7 +825,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
       // then its trades on chain), and the Portfolio card says "Selling…"
       // until there is an answer.
       notifier.markPositionSelling(tokenId);
-      _bandTo(0.6);
+      _bandTo(0.7);
       final PmSellSettlement settlement;
       try {
         settlement = await _watchSale(response,
@@ -935,7 +937,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
             final next = _matched
                 ? 0.88
                 : _venueDelayed
-                    ? 0.72
+                    ? 0.78
                     : null;
             if (next != null && next > (_bandProgress ?? 0)) {
               _bandProgress = next;
@@ -986,7 +988,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     switch (s.result) {
       case PmSellResult.unknown:
         if (limit) {
-          _showLimitPlaced(limitPrice ?? 0, s.offeredShares, l10n);
+          await _showLimitPlaced(limitPrice ?? 0, s.offeredShares, l10n);
           return;
         }
         // Accepted, and the venue did not say in time what became of it.
@@ -997,7 +999,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
         await _resolveBlockedSale(probe: false);
         return;
       case PmSellResult.resting:
-        _showLimitPlaced(limitPrice ?? 0, s.offeredShares, l10n);
+        await _showLimitPlaced(limitPrice ?? 0, s.offeredShares, l10n);
         return;
       case PmSellResult.notFilled:
       case PmSellResult.failed:
@@ -1165,16 +1167,23 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     final image = positionCrestImage(ref, pos, listen: false);
     final question = pos.marketQuestion;
     final outcome = pos.outcome;
+    // The band snaps (a light tap) and is seen doing it: the sale stays
+    // busy, the CTA still spinning and the ticket still trapped, for the
+    // bounded moment the snap takes.
+    setState(() => _bandOutcome = RubberBandOutcome.success);
+    await RubberBand.settle(context);
     // Release the sale FIRST. The ticket traps itself while an order is
     // in flight, and this flag is what arms that trap, so leaving it set
     // refused the hand-off. A direct pop, not maybePop, because this is
     // the flow closing itself rather than the person leaving mid-order.
-    setState(() {
-      _isSelling = false;
-      _bandOutcome = RubberBandOutcome.success;
-      _progressLabel = null;
-    });
-    _closeTicket();
+    // (Torn down during the snap anyway: the receipt still shows.)
+    if (mounted) {
+      setState(() {
+        _isSelling = false;
+        _progressLabel = null;
+      });
+      _closeTicket();
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!rootNavigator.mounted) return;
       if (partialLimit) {
@@ -1222,14 +1231,19 @@ class _SellSheetState extends ConsumerState<SellSheet> {
   }
 
   /// The resting limit sell's confirmation, as it always was.
-  void _showLimitPlaced(double price, double shares, AppLocalizations l10n) {
+  Future<void> _showLimitPlaced(
+      double price, double shares, AppLocalizations l10n) async {
     if (!mounted) return;
     final navigator = Navigator.of(context, rootNavigator: true);
-    setState(() {
-      _isSelling = false;
-      _bandOutcome = RubberBandOutcome.success;
-    });
-    _closeTicket();
+    // The snap plays while the ticket still holds the sale (see the sold
+    // path), then the ticket lets go and closes.
+    setState(() => _bandOutcome = RubberBandOutcome.success);
+    await RubberBand.settle(context);
+    if (mounted) {
+      setState(() => _isSelling = false);
+      _closeTicket();
+    }
+    if (!navigator.mounted) return;
     pushKuteSuccessOverlay(
         navigator: navigator,
         overlay: KuteConfirmation(
@@ -1738,6 +1752,8 @@ class _SellSheetState extends ConsumerState<SellSheet> {
                         // a snap into the receipt when it sold.
                         bandProgress: _bandProgress,
                         bandOutcome: _bandOutcome,
+                        // A market sell is answered in a second or two.
+                        bandExpected: const Duration(milliseconds: 1500),
                         enabled:
                             canSell && !_isSelling && _advancedBlock == null,
                         onTap: _sellFailed ? _retrySell : _handleSell,

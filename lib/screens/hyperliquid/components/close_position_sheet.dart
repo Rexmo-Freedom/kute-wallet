@@ -191,12 +191,14 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
     setState(() => _bandProgress = progress);
   }
 
-  /// The close worked: the band snaps (a light tap) as the CTA lets go,
-  /// straight into the confirmation. Set in the same frame the busy flag
-  /// drops.
-  void _bandSucceeded() {
+  /// The close worked: the band snaps (a light tap) while the ticket
+  /// still holds the close, and the caller waits the bounded moment the
+  /// snap takes ([RubberBand.settle]) before it lets go into the
+  /// confirmation.
+  Future<void> _bandSucceeded() async {
     if (!mounted) return;
     setState(() => _bandOutcome = RubberBandOutcome.success);
+    await RubberBand.settle(context);
   }
 
   String? _errorText;
@@ -578,7 +580,9 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
     _closeInFlight = true;
     setState(() {
       _isClosing = true;
-      _bandProgress = 0.15;
+      // The tap takes the band's first pull; time and the phases below
+      // build it from there.
+      _bandProgress = null;
       _bandOutcome = null;
       _errorText = null;
       _errorDetails = null;
@@ -644,7 +648,7 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
         final notionalUsd = closeSize * _markNow();
         final isMarketClose = _isMarketClose;
         _trackSubmitted();
-        _bandTo(0.4);
+        _bandTo(0.5);
         final outcome = await runLedgerHlClose(context, ref,
             walletId: widget.ledgerWalletId!,
             position: pos,
@@ -671,20 +675,23 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
           );
         }
         if (!mounted) return;
-        setState(() => _isClosing = false);
         final nav = Navigator.of(context, rootNavigator: true);
         final result = outcome?.result;
         if (outcome?.isSuccess == true && result != null) {
+          // Still holding the close: the band snaps first, then the
+          // ticket lets go into the confirmation (_popToHost).
           if (result.filledSz > 0 || _isMarketClose) {
-            _showClosedResult(nav, result, checkOpenOrders: _isLimitClose);
+            await _showClosedResult(nav, result,
+                checkOpenOrders: _isLimitClose);
           } else {
-            _showCloseAccepted(nav);
+            await _showCloseAccepted(nav);
           }
         } else if (outcome?.isPending == true) {
           // An ambiguous submission is not a confirmed close: leave its
           // reconciliation to the pending action without a success haptic.
           _popToHost(nav);
         } else {
+          setState(() => _isClosing = false);
           _stopped('signing_declined');
         }
       } catch (e, st) {
@@ -739,7 +746,7 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
     }
     if (!mounted) return;
     _trackStep('approval');
-    _bandTo(0.3);
+    _bandTo(0.45);
     final grant = await requireFreshAuthGrant(
       context,
       ref,
@@ -757,7 +764,7 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
     setState(() {
       _isClosing = true;
       // Approved and sent: waiting on the exchange's answer.
-      _bandProgress = 0.55;
+      _bandProgress = 0.65;
       _errorText = null;
     });
     // Capture the root navigator BEFORE any pops — `context` dies with
@@ -965,13 +972,13 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
     final result = await order.place(grant);
 
     if (!mounted) return;
-    _showClosedResult(nav, result);
+    await _showClosedResult(nav, result);
   }
 
-  void _showClosedResult(NavigatorState nav, HlOrderResult result,
-      {bool checkOpenOrders = false}) {
+  Future<void> _showClosedResult(NavigatorState nav, HlOrderResult result,
+      {bool checkOpenOrders = false}) async {
     final l10n = context.l10n;
-    if (result.filledSz > 0) _bandSucceeded();
+    if (result.filledSz > 0) await _bandSucceeded();
     _popToHost(nav);
 
     // Actual fill figures — never the requested size (IOC can
@@ -1027,15 +1034,18 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
 
     if (!mounted) return;
     if (result.filledSz > 0) {
-      _showClosedResult(nav, result, checkOpenOrders: true);
+      await _showClosedResult(nav, result, checkOpenOrders: true);
       return;
     }
-    _showCloseAccepted(nav);
+    await _showCloseAccepted(nav);
   }
 
-  void _showCloseAccepted(NavigatorState nav) {
+  /// [snap] false when the band that worked was another sheet's (the
+  /// trailing stop's, which snapped before it closed).
+  Future<void> _showCloseAccepted(NavigatorState nav,
+      {bool snap = true}) async {
     final amount = '${formatHlSize(_closeSize)} $_displayCoin';
-    _bandSucceeded();
+    if (snap) await _bandSucceeded();
     _popToHost(nav);
     pushKuteSuccessOverlay(
       navigator: nav,
@@ -1181,6 +1191,7 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
                 isBusy: _isClosing,
                 bandProgress: _bandProgress,
                 bandOutcome: _bandOutcome,
+                bandExpected: const Duration(seconds: 2),
                 enabled: canConfirm && !_isClosing && _advancedBlock == null,
                 onTap: _handleClose,
                 label: failed ? context.l10n.retry : _ctaLabel(),
@@ -1372,6 +1383,7 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
                     isBusy: _isClosing,
                     bandProgress: _bandProgress,
                     bandOutcome: _bandOutcome,
+                    bandExpected: const Duration(seconds: 2),
                     busyLabel: context.l10n.loading,
                     color: AppColors.marketDown,
                   ),
@@ -1498,7 +1510,8 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
       ledger: widget.ledgerWalletId != null,
     );
     if (!mounted || result == null) return;
-    _showCloseAccepted(Navigator.of(context, rootNavigator: true));
+    await _showCloseAccepted(Navigator.of(context, rootNavigator: true),
+        snap: false);
   }
 
   Future<void> _openMoreCloseTypes() async {

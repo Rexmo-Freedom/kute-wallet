@@ -98,6 +98,7 @@ import 'package:kute/screens/shared/asset_network_picker.dart';
 import 'package:kute/screens/shared/coin_asset_grid.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
+import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart';
 import 'package:kute/screens/shared/send/send_sheet.dart';
 import 'package:kute/screens/shared/stepper/stepper_widgets.dart';
@@ -218,6 +219,10 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
   /// The send's step-up prompt is up. Presentation only: Review's
   /// rubber band holds through it and pulls harder once it is answered.
   bool _approving = false;
+
+  /// The send went out: Review's rubber band snaps (a light tap) before
+  /// the sheet closes. Presentation only.
+  bool _sent = false;
 
   /// While venue cash is coming home for this send: one line per leg,
   /// shown where Review's footnote is.
@@ -1423,10 +1428,12 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
         // The bitcoin send's rubber band, on the same block: it eases up
         // while venue cash comes home and the quote is made, holds through
         // the step-up, pulls harder while the dollars go out, and lets go
-        // softly on a stop. A send that goes out closes this sheet at once.
+        // softly on a stop. A send that goes out snaps it, and the sheet
+        // closes once the snap has played.
         SendRubberBand(
           busy: _processing,
           authorising: _approving,
+          succeeded: _sent,
           expected: const Duration(seconds: 6),
           child: SendReviewAction(
             label: _processing
@@ -1611,6 +1618,7 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
     var sendDone = false;
     setState(() {
       _processing = true;
+      _sent = false;
       _error = null;
     });
 
@@ -1782,10 +1790,15 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
       TrackingService.moneyFlowFinished('usd_send');
 
       if (!mounted) return;
-      _showSent(destination,
-          detail: settled.registered
-              ? context.l10n.moveConversionOngoing
-              : context.l10n.settlementRegistering);
+      final detail = settled.registered
+          ? context.l10n.moveConversionOngoing
+          : context.l10n.settlementRegistering;
+      // The band snaps, and is seen doing it, while the button still
+      // spins; then the sheet closes into the confirmation.
+      setState(() => _sent = true);
+      await RubberBand.settle(context);
+      if (!mounted) return;
+      _showSent(destination, detail: detail);
     } catch (e) {
       // NOTHING IS RETRIED HERE, on any rail. A declined step-up is
       // silent (the user said no); everything else shows why and leaves

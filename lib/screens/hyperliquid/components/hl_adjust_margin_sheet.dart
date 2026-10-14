@@ -594,7 +594,7 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
     TrackingService.track('hyperliquid_margin_adjust_completed',
         params: params);
     if (!mounted) return;
-    _showDone(rootNav, amount, pos, preview);
+    await _showDone(rootNav, amount, pos, preview);
   }
 
   /// More than the Investing cash: the order slip's funding, decided here
@@ -646,7 +646,7 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
     setState(() {
       _busy = true;
       _bandOutcome = null;
-      _fundBand = 0.15;
+      _fundBand = RubberBandProgress.firstPull;
       _fundOutcome = RubberBandOutcome.none;
       _errorText = null;
       _errorCause = null;
@@ -801,9 +801,11 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
     if (end == MarginFundedEnd.signed) {
       setState(() {
         _runId = null;
+        // Held while the steps band snaps; _showDone lets go.
+        _busy = true;
         _fundBandEnded(worked: true);
       });
-      _showDone(rootNav, amount, pos, preview);
+      unawaited(_showDone(rootNav, amount, pos, preview));
       return;
     }
     String? message(Object? e) => e == null || e is String
@@ -829,16 +831,17 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
     });
   }
 
-  void _showDone(NavigatorState rootNav, double amount, HlPerpPosition pos,
-      _Figures preview) {
+  Future<void> _showDone(NavigatorState rootNav, double amount,
+      HlPerpPosition pos, _Figures preview) async {
     final l10n = context.l10n;
+    // The band snaps (a light tap) while the ticket still holds the
+    // change, and is seen doing it before the ticket closes.
+    setState(() => _bandOutcome = RubberBandOutcome.success);
+    await RubberBand.settle(context);
+    if (!mounted) return;
     // Released first: the ticket holds itself while busy, and a held
-    // ticket would refuse its own hand-off to the confirmation. The band
-    // snaps as it lets go.
-    setState(() {
-      _busy = false;
-      _bandOutcome = RubberBandOutcome.success;
-    });
+    // ticket would refuse its own hand-off to the confirmation.
+    setState(() => _busy = false);
     Navigator.of(context).pop();
     pushKuteSuccessOverlay(
       navigator: rootNav,

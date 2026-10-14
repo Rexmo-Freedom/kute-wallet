@@ -90,6 +90,7 @@ import 'package:kute/screens/shared/btc_amount_text.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/screens/shared/powered_by_badge.dart';
+import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart';
 import 'package:kute/screens/shared/send/send_sheet.dart';
 import 'package:kute/screens/shared/stepper/stepper_widgets.dart';
@@ -2123,6 +2124,17 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     return _formatFeeError(preview.error!);
   }
 
+  /// The send went out ([_sendCompleted] is set): the Send block's
+  /// rubber band snaps (a light tap) and the success screen waits the
+  /// bounded moment the snap takes ([RubberBand.settle]) before it
+  /// covers the block. Nothing waits under Reduce Motion or when the
+  /// block is not on screen.
+  Future<void> _letSendBandSnap(BuildContext context) async {
+    if (!mounted || !context.mounted) return;
+    setState(() {});
+    await RubberBand.settle(context);
+  }
+
   /// Send tap. The button is live as soon as the Review step itself
   /// is valid, so this is where the waiting happens: dispatch at once
   /// when the draft is ready, otherwise spin, poll, and dispatch the
@@ -3611,7 +3623,8 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
       // (background_sync_provider.dart) — same rule as move_sheet's
       // convert path. Firing here too double-counted every send.
 
-      if (mounted) {
+      if (context.mounted) await _letSendBandSnap(context);
+      if (mounted && context.mounted) {
         showFullscreenTransactionSendModal(
           context: context,
           asset: 'BTC → ${asset.code}',
@@ -4677,7 +4690,8 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
       );
       TrackingService.moneyFlowFinished('send');
 
-      if (mounted) {
+      if (context.mounted) await _letSendBandSnap(context);
+      if (mounted && context.mounted) {
         SoundService.playSend();
         BackgroundSyncService().syncNow();
         // Asset label reflects the *resolved* rail (bip21 → lightning
@@ -4928,6 +4942,8 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
           .scanBdkScope(source: 'bitcoin_send')
           .catchError((_) {}));
       if (!context.mounted) return;
+      await _letSendBandSnap(context);
+      if (!mounted || !context.mounted) return;
       final btcFormat = ref.read(settingsProvider).btcFormat;
       showFullscreenTransactionSendModal(
         context: context,

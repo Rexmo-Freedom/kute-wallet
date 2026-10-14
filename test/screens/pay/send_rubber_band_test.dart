@@ -3,7 +3,9 @@
 // step's own wiring: `runSendTapBusy` around a route that raises and
 // clears the same flags the bitcoin send keeps (`isProcessing`,
 // `_paymentAuthInFlight`, `_sendCompleted`), with `SendRubberBand`
-// around `SendReviewAction` exactly as `confirm_send.dart` renders it.
+// around `SendReviewAction` exactly as `confirm_send.dart` renders it,
+// and the success screen held until the snap has played
+// (`_letSendBandSnap`).
 //
 // The button spins and a waiting band breathes, so nothing here settles:
 // time is pumped in fixed steps instead of `pumpAndSettle`.
@@ -29,6 +31,9 @@ class _Route {
   final broadcast = Completer<void>();
   Object? failureShown;
 
+  /// `showFullscreenTransactionSendModal` was reached.
+  bool successShown = false;
+
   Future<void> call(_ReviewState s) async {
     await prepared.future;
     s.update(() => s.paymentAuthInFlight = true);
@@ -41,9 +46,11 @@ class _Route {
     if (!ok) return; // a declined scan
     try {
       await broadcast.future;
-      // Set without a rebuild, as the real routes do; busy coming down
-      // is what rebuilds.
+      // Set, then the band is let snap before the success screen
+      // (`_letSendBandSnap`), as the real routes do.
       s.sendCompleted = true;
+      await s.letBandSnap();
+      successShown = true;
     } catch (e) {
       failureShown = e; // `_showSendFailed`
     }
@@ -66,6 +73,13 @@ class _ReviewState extends State<_Review> {
 
   void update(VoidCallback f) {
     if (mounted) setState(f);
+  }
+
+  /// `_letSendBandSnap`.
+  Future<void> letBandSnap() async {
+    if (!mounted) return;
+    setState(() {});
+    await RubberBand.settle(context);
   }
 
   Future<void> _handleSend() async {
@@ -152,6 +166,12 @@ Future<void> _toBroadcast(WidgetTester tester, _Route route) async {
 
   await tester.tap(find.text('Send'));
   await tester.pump();
+  // The tap's first pull is felt at once: at least 4% of the block
+  // within 300 ms.
+  for (var i = 0; i < 18; i++) {
+    await tester.pump(const Duration(milliseconds: 16));
+  }
+  expect(_band(tester).stretch, greaterThanOrEqualTo(0.04));
   // Readying the send: eased up, not yet at the approval hold.
   await _wait(tester, const Duration(seconds: 1));
   final preparing = _send(tester).progress;
@@ -183,8 +203,9 @@ Future<void> _toBroadcast(WidgetTester tester, _Route route) async {
 }
 
 void main() {
-  testWidgets('sent: the band snaps back past rest, settles, one light tap',
-      (tester) async {
+  testWidgets(
+      'sent: the band snaps back past rest with one light tap, and the '
+      'success screen waits for it', (tester) async {
     final calls = _hapticLog(tester);
     final route = _Route();
     await _pump(tester, route);
@@ -195,12 +216,21 @@ void main() {
     await tester.pump();
     expect(_send(tester).outcome, RubberBandOutcome.success);
     var min = double.infinity;
-    for (var i = 0; i < 80; i++) {
+    for (var i = 0; i < 18; i++) {
       await tester.pump(const Duration(milliseconds: 16));
       final s = _band(tester).stretch;
       if (s < min) min = s;
+      expect(route.successShown, isFalse,
+          reason: 'not before the snap has played');
     }
+    // Still the send's button, spinning, while it snaps.
+    expect(tester.state<_ReviewState>(find.byType(_Review)).isProcessing,
+        isTrue);
     expect(min, lessThan(0), reason: 'the snap overshoots past rest');
+    // Bounded: the success screen follows once the snap's moment is over.
+    await tester.pump(RubberBand.snapSettle);
+    await tester.pump();
+    expect(route.successShown, isTrue);
     await _wait(tester, const Duration(seconds: 2));
     expect(_band(tester).stretch, 0);
     expect(_band(tester).ticking, isFalse);
@@ -311,14 +341,15 @@ void main() {
     route.broadcast.complete();
     await tester.pump();
     expect(_send(tester).outcome, RubberBandOutcome.success);
+    // Nothing waits for a snap that is not drawn.
+    await tester.pump();
+    expect(route.successShown, isTrue);
     await still();
   });
 
-  testWidgets(
-      'dollars: no success flag (the sheet closes), a stop releases softly',
-      (tester) async {
-    // The dollar send passes `busy: _processing` and `authorising:
-    // _approving` only; a send that goes out pops the sheet.
+  testWidgets('dollars: a stop releases softly', (tester) async {
+    // The dollar send passes `busy: _processing`, `authorising:
+    // _approving` and `succeeded: _sent`.
     var busy = true;
     var approving = false;
     late StateSetter set;
@@ -360,6 +391,47 @@ void main() {
       expect(s, lessThanOrEqualTo(previous + 1e-9));
       previous = s;
     }
+    expect(_band(tester).ticking, isFalse);
+  });
+
+  testWidgets('dollars: sent snaps while the button still spins',
+      (tester) async {
+    final calls = _hapticLog(tester);
+    var sent = false;
+    late StateSetter set;
+    await tester.pumpWidget(ScreenUtilInit(
+      designSize: const Size(430, 932),
+      builder: (_, __) => MaterialApp(
+        theme: ThemeData(extensions: [AppColorsExtension.light()]),
+        home: StatefulBuilder(builder: (context, setState) {
+          set = setState;
+          return Scaffold(
+            body: SendRubberBand(
+              busy: true,
+              succeeded: sent,
+              expected: const Duration(seconds: 6),
+              child: const SizedBox(height: 80, child: Text('Send')),
+            ),
+          );
+        }),
+      ),
+    ));
+    await _wait(tester, const Duration(seconds: 2));
+    expect(_band(tester).stretch, greaterThan(0.06));
+    calls.clear();
+    set(() => sent = true);
+    await tester.pump();
+    expect(_send(tester).outcome, RubberBandOutcome.success);
+    var min = double.infinity;
+    for (var i = 0; i < 40; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+      final s = _band(tester).stretch;
+      if (s < min) min = s;
+    }
+    expect(min, lessThan(0), reason: 'the snap overshoots past rest');
+    expect(_lightImpacts(calls), 1);
+    await _wait(tester, const Duration(seconds: 1));
+    expect(_band(tester).stretch, 0);
     expect(_band(tester).ticking, isFalse);
   });
 }

@@ -1,9 +1,9 @@
 // The placement's rubber band on the trailing-stop ticket (founder, 14
 // October 2026: "also on placing stocks or predictions while it is
 // placing"): while the order is placing the CTA is drawn up; placed, it
-// snaps (overshoot, a light tap) back to rest straight into the result;
-// refused, it lets go softly with no overshoot; under Reduce Motion it
-// never moves.
+// snaps (overshoot, a light tap) back to rest, and the result is handed
+// on once the snap has played (bounded); refused, it lets go softly with
+// no overshoot; under Reduce Motion it never moves and nothing waits.
 //
 // Driven end to end on the hot path: the approval is the Kute PIN
 // (biometrics off), and the venue call is held by the test so the wait
@@ -265,28 +265,38 @@ void main() {
 
   testWidgets(
       'placing pulls the CTA up; placed, it snaps back past rest with a '
-      'light tap and settles still', (tester) async {
+      'light tap, then hands the result on', (tester) async {
     await _withoutListTileNote(() async {
       final (trading, results) = await pump(tester);
       await placeAndApprove(tester, trading);
-      // Approved and sent: the band holds the sent step's tension.
-      expect(_band(tester).stretch, greaterThan(0));
+      // Approved and sent: at least the sent step's tension, built on by
+      // time, never past full tension.
       expect(_band(tester).stretch,
-          closeTo(rubberBandStretchFor(0.55), RubberBandProgress.breath));
+          greaterThan(rubberBandStretchFor(0.65) - 0.005));
+      expect(_band(tester).stretch,
+          lessThanOrEqualTo(RubberBandProgress.defaultMaxStretch +
+              RubberBandProgress.breath));
       expect(_band(tester).ticking, isTrue);
       final tapsBefore = lightTaps();
 
       trading.answer
           .complete(const HlOrderResult(kind: HlOrderResultKind.resting));
       var min = double.infinity;
-      for (var i = 0; i < 40; i++) {
+      // The snap plays first: the result waits, the CTA still holds it.
+      for (var i = 0; i < 18; i++) {
         await tester.pump(const Duration(milliseconds: 16));
         final s = _band(tester).stretch;
         if (s < min) min = s;
+        expect(results, isEmpty, reason: 'not before the snap has played');
       }
-      expect(results, hasLength(1), reason: 'the result is handed on at once');
+      expect(tester.widget<PolySlipCta>(find.byType(PolySlipCta)).isBusy,
+          isTrue);
       expect(min, lessThan(0), reason: 'the snap overshoots past rest');
       expect(lightTaps() - tapsBefore, 1);
+      // Bounded: handed on once the snap's moment is over.
+      await tester.pump(RubberBand.snapSettle);
+      await tester.pump();
+      expect(results, hasLength(1));
       await _frames(tester, 40);
       expect(_band(tester).stretch, 0);
       expect(_band(tester).ticking, isFalse);
@@ -331,11 +341,14 @@ void main() {
       expect(_band(tester).ticking, isFalse);
       trading.answer
           .complete(const HlOrderResult(kind: HlOrderResultKind.resting));
+      // Nothing waits for a snap that is not drawn.
+      await tester.pump();
+      await tester.pump();
+      expect(results, hasLength(1));
       for (var i = 0; i < 20; i++) {
         await tester.pump(const Duration(milliseconds: 50));
         expect(_band(tester).stretch, 0);
       }
-      expect(results, hasLength(1));
       expect(tester.takeException(), isNull);
     });
   });
