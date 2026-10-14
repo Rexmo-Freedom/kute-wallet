@@ -9,6 +9,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -17,6 +18,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/models/settings_model.dart';
+import 'package:kute/models/swap_order_model.dart';
 import 'package:kute/providers/hyperliquid_live_prices_provider.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart'
     show
@@ -32,12 +34,14 @@ import 'package:kute/providers/polymarket_order_metadata_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/portfolio_rebalance_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/providers/swap_orders_provider.dart';
 import 'package:kute/providers/unified_balances_provider.dart';
 import 'package:kute/providers/venue_sweeper_provider.dart';
 import 'package:kute/screens/portfolio/open_investments_screen.dart';
 import 'package:kute/screens/portfolio/portfolio_balance_breakdown.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show RollingFigure;
+import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/screens/shared/stale_shimmer.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/one_balance/sweep_rules.dart'
@@ -46,6 +50,7 @@ import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:polybrainz_polymarket/polybrainz_polymarket.dart' show Order;
 
+import '../../helpers/fake_swap_orders.dart';
 import '../../helpers/portfolio_overrides.dart';
 
 final _balance = StateProvider<OneBalanceState>((_) => const OneBalanceState(
@@ -273,6 +278,16 @@ String _figureUnder(WidgetTester tester, String venue, String label) {
       .text;
 }
 
+/// Frames for [d]: a band keeps pulling while its move runs, so a pull
+/// never "settles".
+Future<void> _pumpFor(WidgetTester tester,
+    [Duration d = const Duration(seconds: 1)]) async {
+  const step = Duration(milliseconds: 50);
+  for (var t = Duration.zero; t < d; t += step) {
+    await tester.pump(step);
+  }
+}
+
 double _usd(String text) =>
     double.parse(text.replaceAll(RegExp(r'[^0-9.]'), ''));
 
@@ -469,7 +484,8 @@ void main() {
           findsOneWidget);
 
       _FakeSweeper.gate!.complete();
-      await tester.pumpAndSettle();
+      // Investing's band pulls while its move runs: frames, never settled.
+      await _pumpFor(tester);
       expect(_FakeSweeper.calls, 1);
       // Submitted: on its way (Investing's route takes minutes); the
       // other venue says why its cash stayed.
@@ -481,7 +497,7 @@ void main() {
           findsOneWidget);
       // Nothing movable is left: the button goes.
       c.read(_sweeperState.notifier).state = const VenueSweeperState();
-      await tester.pumpAndSettle();
+      await _pumpFor(tester);
       expect(_rebalance, findsNothing);
       expect(tester.takeException(), isNull);
     });
@@ -777,7 +793,8 @@ void main() {
       };
       await tester.pumpAndSettle();
       await tester.tap(_rebalance);
-      await tester.pumpAndSettle();
+      // Investing's band pulls while its move runs: frames, never settled.
+      await _pumpFor(tester);
       expect(find.text('Moving to USDB… takes a few minutes'), findsOneWidget);
       expect(find.text('Held by open orders'), findsOneWidget);
       expect(tester.takeException(), isNull);
@@ -785,9 +802,480 @@ void main() {
       for (var i = 0; i < 8; i++) {
         await tester.drag(
             find.byType(CustomScrollView).first, const Offset(0, -300));
-        await tester.pumpAndSettle();
+        await _pumpFor(tester);
         expect(tester.takeException(), isNull);
       }
     });
   });
+
+  group('the Rebalance bands', () {
+    const both = VenueSweeperState(movable: {
+      OneBalanceVenue.investing: 6.54,
+      OneBalanceVenue.predictions: 3,
+    });
+    const bothMoving = {
+      OneBalanceVenue.investing:
+          RebalanceOutcome(RebalanceOutcomeKind.moving, usd: 6.54),
+      OneBalanceVenue.predictions:
+          RebalanceOutcome(RebalanceOutcomeKind.moving, usd: 3),
+    };
+
+    testWidgets(
+        'one tap pulls BOTH moving columns at once, Dollars stays still, the '
+        'button wears the busy band while the pass is sent', (tester) async {
+      final c = await _pump(tester, home: _breakdown);
+      c.read(_sweeperState.notifier).state = both;
+      await tester.pumpAndSettle();
+      _FakeSweeper.gate = Completer<void>();
+      _FakeSweeper.outcomes = bothMoving;
+
+      await tester.tap(_rebalance);
+      await tester.pump();
+      // The same frame: both bands asked for the first pull.
+      expect(_bandWidget(tester, 'investing').progress,
+          moreOrLessEquals(RubberBandProgress.firstPull, epsilon: 0.005));
+      expect(_bandWidget(tester, 'predictions').progress,
+          moreOrLessEquals(RubberBandProgress.firstPull, epsilon: 0.005));
+      await tester.pump(const Duration(milliseconds: 250));
+      final i = _band(tester, 'investing').stretch;
+      final p = _band(tester, 'predictions').stretch;
+      expect(i, greaterThan(0.04));
+      expect(p, moreOrLessEquals(i, epsilon: 1e-4), reason: 'pulled together');
+      expect(_dollarsDip(tester), 0);
+      expect(_buttonBand(tester).stretch, greaterThan(0));
+
+      // Sent: the button lets go, the venues keep pulling, a step up.
+      _FakeSweeper.gate!.complete();
+      await _pumpFor(tester);
+      expect(_buttonBand(tester).stretch, 0);
+      expect(_bandWidget(tester, 'investing').progress,
+          greaterThanOrEqualTo(RebalanceBandPhase.submitted.floor));
+      expect(_band(tester, 'investing').stretch, greaterThan(i));
+      expect(_band(tester, 'predictions').stretch, greaterThan(p));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a held venue never pulls and keeps its one-line reason',
+        (tester) async {
+      final c = await _pump(tester, home: _breakdown);
+      c.read(_sweeperState.notifier).state =
+          const VenueSweeperState(movable: {OneBalanceVenue.investing: 6.54});
+      await tester.pumpAndSettle();
+      _FakeSweeper.outcomes = const {
+        OneBalanceVenue.investing:
+            RebalanceOutcome(RebalanceOutcomeKind.moving, usd: 6.54),
+        OneBalanceVenue.predictions: RebalanceOutcome(RebalanceOutcomeKind.held,
+            usd: 3, reason: SweepSkipReason.openOrders),
+      };
+      await tester.tap(_rebalance);
+      for (var f = 0; f < 30; f++) {
+        await tester.pump(const Duration(milliseconds: 50));
+        expect(_band(tester, 'predictions').stretch, 0);
+        expect(_bandWidget(tester, 'predictions').progress, 0);
+      }
+      expect(_band(tester, 'investing').stretch, greaterThan(0.04));
+      expect(_inCard('predictions', find.text('Held by open orders')),
+          findsOneWidget);
+    });
+
+    testWidgets(
+        'each column snaps on its own as its row lands, one heavy thud per '
+        'venue; the pull is felt for the first 1.5 s only; Dollars catch '
+        'each arrival; nothing ticks once both are home', (tester) async {
+      final calls = _haptics(tester);
+      final c = await _pump(tester, home: _breakdown);
+      c.read(_sweeperState.notifier).state = both;
+      await tester.pumpAndSettle();
+      _FakeSweeper.outcomes = bothMoving;
+      final rows = c.read(swapOrdersProvider.notifier) as FakeSwapOrders;
+
+      await tester.tap(_rebalance);
+      final tapAt = calls.length;
+      await tester.pump();
+      // The start is felt: both bands' pull haptic is on.
+      expect(_bandWidget(tester, 'investing').haptic, isTrue);
+      expect(_bandWidget(tester, 'predictions').haptic, isTrue);
+      await _pumpFor(tester, const Duration(milliseconds: 1400));
+      expect(calls.length, greaterThan(tapAt + 1), reason: 'the pull is felt');
+      expect(_bandWidget(tester, 'predictions').haptic, isTrue);
+
+      // Both rows listed: on their way.
+      rows.set([
+        _homeRow('p', 'POLYGON'),
+        _homeRow('i', 'HYPERCORE'),
+      ]);
+      c.read(_balance.notifier).state = _homeward(
+          {OneBalanceVenue.investing: 6.54, OneBalanceVenue.predictions: 3});
+      await _pumpFor(tester, const Duration(milliseconds: 300));
+      expect(_bandWidget(tester, 'investing').progress,
+          greaterThanOrEqualTo(RebalanceBandPhase.onItsWay.floor));
+      // Past 1.5 s: quiet while they hold, though the tension still builds.
+      expect(_bandWidget(tester, 'investing').haptic, isFalse);
+      expect(_bandWidget(tester, 'predictions').haptic, isFalse);
+      final quietFrom = calls.length;
+      final held = _band(tester, 'predictions').stretch;
+      await _pumpFor(tester, const Duration(seconds: 20));
+      expect(_band(tester, 'predictions').stretch, greaterThan(held + 0.005));
+      expect(calls.length, quietFrom, reason: 'no pull haptics after 1.5 s');
+
+      // Predictions lands: it snaps, Investing keeps pulling.
+      rows.set([
+        _homeRow('p', 'POLYGON', status: 'success'),
+        _homeRow('i', 'HYPERCORE'),
+      ]);
+      c.read(_balance.notifier).state =
+          _homeward({OneBalanceVenue.investing: 6.54});
+      await tester.pump();
+      expect(_bandWidget(tester, 'predictions').outcome,
+          RubberBandOutcome.success);
+      expect(_bandWidget(tester, 'investing').outcome, RubberBandOutcome.none);
+      expect(_heavy(calls), 1);
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(_dollarsDip(tester), greaterThan(0.01), reason: 'Dollars catch');
+      await _pumpFor(tester, const Duration(milliseconds: 1000));
+      expect(_band(tester, 'predictions').stretch,
+          moreOrLessEquals(0, epsilon: 1e-4));
+      expect(_band(tester, 'predictions').ticking, isFalse);
+      expect(_dollarsDip(tester), 0);
+      expect(_band(tester, 'investing').stretch, greaterThan(0.06));
+      expect(
+          _inCard('predictions', find.text('Moving to USDB…')), findsNothing);
+      expect(
+          _inCard(
+              'investing', find.text('Moving to USDB… takes a few minutes')),
+          findsOneWidget);
+
+      // Investing lands: its own snap, the second thud.
+      rows.set([
+        _homeRow('p', 'POLYGON', status: 'success'),
+        _homeRow('i', 'HYPERCORE', status: 'success'),
+      ]);
+      c.read(_balance.notifier).state = _homeward(const {});
+      await tester.pump();
+      expect(
+          _bandWidget(tester, 'investing').outcome, RubberBandOutcome.success);
+      expect(_heavy(calls), 2);
+      // Home: everything comes to rest and nothing ticks.
+      await tester.pumpAndSettle();
+      expect(_heavy(calls), 2);
+      expect(_band(tester, 'investing').ticking, isFalse);
+      expect(_band(tester, 'investing').stretch, 0);
+      expect(
+          _inCard(
+              'investing', find.text('Moving to USDB… takes a few minutes')),
+          findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+        'left and opened again mid-move: the band shows the tension reached, '
+        'no haptics replayed', (tester) async {
+      final calls = _haptics(tester);
+      _Toggle.shown.value = true;
+      addTearDown(() => _Toggle.shown.value = true);
+      final c = await _pump(tester, home: const _Toggle());
+      c.read(_sweeperState.notifier).state =
+          const VenueSweeperState(movable: {OneBalanceVenue.predictions: 3});
+      await tester.pumpAndSettle();
+      _FakeSweeper.outcomes = const {
+        OneBalanceVenue.predictions:
+            RebalanceOutcome(RebalanceOutcomeKind.moving, usd: 3),
+      };
+      await tester.tap(_rebalance);
+      await tester.pump();
+      (c.read(swapOrdersProvider.notifier) as FakeSwapOrders)
+          .set([_homeRow('p', 'POLYGON')]);
+      c.read(_balance.notifier).state =
+          _homeward({OneBalanceVenue.predictions: 3});
+      await _pumpFor(tester, const Duration(milliseconds: 500));
+
+      // Leave the Portfolio; come back 40 s after the tap.
+      _Toggle.shown.value = false;
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('portfolio-band-predictions')),
+          findsNothing);
+      final s = c.read(rebalanceBandSessionProvider)!;
+      c.read(rebalanceBandSessionProvider.notifier).state =
+          RebalanceBandSession(
+              startedAt: s.startedAt.subtract(const Duration(seconds: 40)),
+              pulling: s.pulling,
+              pendingAtTap: s.pendingAtTap,
+              knownAtTap: s.knownAtTap);
+      final before = calls.length;
+      _Toggle.shown.value = true;
+      await tester.pump();
+      final progress = _bandWidget(tester, 'predictions').progress;
+      expect(
+          progress,
+          moreOrLessEquals(
+              rebalanceBandProgress(
+                  RebalanceBandPhase.onItsWay, const Duration(seconds: 40),
+                  expected: const Duration(minutes: 1)),
+              epsilon: 0.02));
+      expect(progress, greaterThan(RebalanceBandPhase.onItsWay.floor));
+      expect(_bandWidget(tester, 'predictions').haptic, isFalse);
+      await _pumpFor(tester, const Duration(milliseconds: 500));
+      expect(_band(tester, 'predictions').stretch,
+          moreOrLessEquals(rubberBandStretchFor(progress), epsilon: 0.01));
+      expect(calls.length, before, reason: 'nothing replayed');
+    });
+
+    testWidgets('covered by a route: still, and nothing ticks', (tester) async {
+      final c = await _pump(tester, home: _breakdown);
+      c.read(_sweeperState.notifier).state = both;
+      await tester.pumpAndSettle();
+      _FakeSweeper.outcomes = bothMoving;
+      await tester.tap(_rebalance);
+      await _pumpFor(tester);
+      expect(_band(tester, 'investing').stretch, greaterThan(0));
+      final nav = tester.state<NavigatorState>(find.byType(Navigator));
+      unawaited(nav.push(MaterialPageRoute<void>(
+          builder: (_) => const Scaffold(body: SizedBox()))));
+      await _pumpFor(tester);
+      final state = tester.state<RubberBandProgressState>(find.descendant(
+          of: find.byKey(const ValueKey('portfolio-band-investing'),
+              skipOffstage: false),
+          matching: find.byType(RubberBandProgress, skipOffstage: false),
+          skipOffstage: false));
+      expect(state.stretch, 0);
+      expect(state.ticking, isFalse);
+      expect(tester.binding.transientCallbackCount, 0);
+      nav.pop();
+      await _pumpFor(tester);
+      expect(_band(tester, 'investing').stretch, greaterThan(0));
+    });
+
+    testWidgets('Reduce Motion: no column moves, nothing ticks',
+        (tester) async {
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(
+          tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+      final c = await _pump(tester, home: _breakdown);
+      c.read(_sweeperState.notifier).state = both;
+      await tester.pumpAndSettle();
+      _FakeSweeper.outcomes = bothMoving;
+      await tester.tap(_rebalance);
+      for (var f = 0; f < 20; f++) {
+        await tester.pump(const Duration(milliseconds: 50));
+        expect(_band(tester, 'investing').stretch, 0);
+        expect(_band(tester, 'predictions').stretch, 0);
+      }
+      expect(_band(tester, 'investing').ticking, isFalse);
+      expect(_band(tester, 'predictions').ticking, isFalse);
+      expect(tester.binding.transientCallbackCount, 0);
+      expect(
+          _inCard(
+              'investing', find.text('Moving to USDB… takes a few minutes')),
+          findsOneWidget);
+    });
+
+    testWidgets('at rest nothing ticks', (tester) async {
+      final c = await _pump(tester, home: _breakdown);
+      c.read(_sweeperState.notifier).state = both;
+      await tester.pumpAndSettle();
+      expect(_band(tester, 'investing').ticking, isFalse);
+      expect(_band(tester, 'predictions').ticking, isFalse);
+      expect(_bandWidget(tester, 'investing').progress, 0);
+      expect(tester.binding.transientCallbackCount, 0);
+      expect(tester.binding.hasScheduledFrame, isFalse);
+    });
+
+    testWidgets('375 pt at 130 % text, both pulling: no overflow',
+        (tester) async {
+      final c = await _pump(tester,
+          home: _breakdown, size: const Size(375, 812), textScale: 1.3);
+      c.read(_sweeperState.notifier).state = both;
+      await tester.pumpAndSettle();
+      _FakeSweeper.outcomes = bothMoving;
+      await tester.tap(_rebalance);
+      await _pumpFor(tester);
+      expect(_band(tester, 'investing').stretch, greaterThan(0));
+      expect(_band(tester, 'predictions').stretch, greaterThan(0));
+      expect(tester.takeException(), isNull);
+      expect(_tile(tester, 'predictions').right, lessThanOrEqualTo(375));
+      expect(find.text('Moving to USDB… takes a few minutes'), findsOneWidget);
+      expect(find.text('Moving to USDB…'), findsOneWidget);
+    });
+
+    test('the phase follows the move: the tap, its row, its landing', () {
+      final tap = DateTime(2026, 10, 14, 12);
+      final session = RebalanceBandSession(
+          startedAt: tap,
+          pulling: const {OneBalanceVenue.predictions},
+          knownAtTap: const {'old'});
+      RebalanceBandPhase phase(
+              {PortfolioRebalanceState rebalance =
+                  const PortfolioRebalanceState(running: true),
+              List<SwapOrder> rows = const [],
+              OneBalanceState balance = const OneBalanceState(),
+              OneBalanceVenue venue = OneBalanceVenue.predictions,
+              Duration after = const Duration(seconds: 5)}) =>
+          rebalanceBandPhase(
+              venue: venue,
+              session: session,
+              rebalance: rebalance,
+              balance: balance,
+              sweeper: const VenueSweeperState(),
+              rows: rows,
+              walletId: null,
+              now: tap.add(after));
+      final done = PortfolioRebalanceState(
+          outcomes: bothMoving, at: tap.add(const Duration(seconds: 2)));
+      expect(phase(), RebalanceBandPhase.sending);
+      expect(phase(venue: OneBalanceVenue.investing), RebalanceBandPhase.rest);
+      // An earlier move home, done before the tap, is not this one.
+      expect(
+          phase(
+              rebalance: done,
+              rows: [_homeRow('old', 'POLYGON', status: 'success', at: tap)]),
+          RebalanceBandPhase.submitted);
+      final pending = _homeRow('new', 'POLYGON', at: tap);
+      expect(
+          phase(
+              rebalance: done,
+              rows: [pending],
+              balance: _homeward({OneBalanceVenue.predictions: 3})),
+          RebalanceBandPhase.onItsWay);
+      // Pending, but its dollars already counted in Dollars: home.
+      expect(
+          phase(rebalance: done, rows: [pending]), RebalanceBandPhase.landed);
+      expect(
+          phase(
+              rebalance: done,
+              rows: [_homeRow('new', 'POLYGON', status: 'success', at: tap)]),
+          RebalanceBandPhase.landed);
+      // Never listed, past the grace: let go softly.
+      expect(phase(rebalance: done, after: const Duration(minutes: 3)),
+          RebalanceBandPhase.released);
+      // Held after all: let go softly.
+      expect(
+          phase(
+              rebalance: PortfolioRebalanceState(outcomes: const {
+            OneBalanceVenue.predictions: RebalanceOutcome(
+                RebalanceOutcomeKind.held,
+                usd: 3,
+                reason: SweepSkipReason.openOrders),
+          }, at: tap)),
+          RebalanceBandPhase.released);
+    });
+
+    test('the tension builds with time toward the ceiling, never past it', () {
+      const minute = Duration(minutes: 1);
+      expect(
+          rebalanceBandProgress(RebalanceBandPhase.sending, Duration.zero,
+              expected: minute),
+          RubberBandProgress.firstPull);
+      expect(
+          rebalanceBandProgress(RebalanceBandPhase.submitted, minute,
+              expected: minute),
+          greaterThan(0.6));
+      expect(
+          rebalanceBandProgress(
+              RebalanceBandPhase.onItsWay, const Duration(hours: 1),
+              expected: minute),
+          lessThan(RubberBandBusy.defaultCeiling + 1e-9));
+      expect(
+          rebalanceBandProgress(RebalanceBandPhase.landed, minute,
+              expected: minute),
+          0);
+      // Investing builds slower than Predictions.
+      expect(
+          rebalanceBandProgress(RebalanceBandPhase.sending, minute,
+              expected: rebalanceBandExpected(OneBalanceVenue.investing)),
+          lessThan(rebalanceBandProgress(RebalanceBandPhase.sending, minute,
+              expected: rebalanceBandExpected(OneBalanceVenue.predictions))));
+    });
+  });
 }
+
+/// The breakdown that can be left and opened again ([shown]).
+class _Toggle extends StatelessWidget {
+  const _Toggle();
+
+  static final shown = ValueNotifier<bool>(true);
+
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder<bool>(
+      valueListenable: shown,
+      builder: (_, on, __) => on ? _breakdown : const Scaffold());
+}
+
+RubberBandProgressState _band(WidgetTester tester, String venue) =>
+    tester.state<RubberBandProgressState>(find.descendant(
+        of: find.byKey(ValueKey('portfolio-band-$venue')),
+        matching: find.byType(RubberBandProgress)));
+
+RubberBandProgress _bandWidget(WidgetTester tester, String venue) =>
+    tester.widget<RubberBandProgress>(find.descendant(
+        of: find.byKey(ValueKey('portfolio-band-$venue')),
+        matching: find.byType(RubberBandProgress)));
+
+RubberBandProgressState _buttonBand(WidgetTester tester) =>
+    tester.state<RubberBandProgressState>(find.ancestor(
+        of: _rebalance, matching: find.byType(RubberBandProgress)));
+
+/// The Dollars column's catch, as a share of its height (down is
+/// positive).
+double _dollarsDip(WidgetTester tester) => tester
+    .widget<FractionalTranslation>(find
+        .descendant(
+            of: find.byKey(const ValueKey('portfolio-band-dollars')),
+            matching: find.byType(FractionalTranslation))
+        .first)
+    .translation
+    .dy;
+
+List<MethodCall> _haptics(WidgetTester tester) {
+  final calls = <MethodCall>[];
+  tester.binding.defaultBinaryMessenger
+      .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+    if (call.method == 'HapticFeedback.vibrate') calls.add(call);
+    return null;
+  });
+  addTearDown(() => tester.binding.defaultBinaryMessenger
+      .setMockMethodCallHandler(SystemChannels.platform, null));
+  return calls;
+}
+
+int _heavy(List<MethodCall> calls) =>
+    calls.where((c) => c.arguments == 'HapticFeedbackType.heavyImpact').length;
+
+/// A move home from a venue ([network] 'POLYGON' or 'HYPERCORE').
+SwapOrder _homeRow(String id, String network,
+        {String status = 'exchanging', DateTime? at}) =>
+    SwapOrder(
+      id: id,
+      coinFrom: 'USDC',
+      networkFrom: network,
+      coinTo: 'USDB',
+      networkTo: 'SPARK',
+      depositAddress: 'deposit',
+      depositAmount: '3.00',
+      withdrawalAmount: '3.00',
+      status: status,
+      timestamp: (at ?? DateTime.now()).millisecondsSinceEpoch,
+      withdrawalAddress: 'spark',
+      depositMin: '0',
+      depositMax: '0',
+      rate: '0',
+      refundAddress: 'refund',
+      provider: 'Orchestra',
+    );
+
+/// The test balance with [usd] on its way home from each venue.
+OneBalanceState _homeward(Map<OneBalanceVenue, double> usd) => OneBalanceState(
+      dollarsUsd: 42.5,
+      investedUsd: 605,
+      investedByVenue: const {
+        OneBalanceVenue.investing: 600,
+        OneBalanceVenue.predictions: 5,
+      },
+      investingKnown: true,
+      predictionsKnown: true,
+      inFlight: [
+        for (final e in usd.entries)
+          InFlightMove(
+              kind: InFlightKind.fromVenue, venue: e.key, usd: e.value),
+      ],
+    );

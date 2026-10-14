@@ -42,16 +42,40 @@
 // button. After a tap each venue's tile says in one line what is
 // happening to its cash: on its way to USDB (Investing's route takes
 // minutes), or why it stayed.
+//
+// The tap is felt (founder request, 14 October 2026: "rebalancing should
+// also have rubber band ... both polymarket and hyperliquid ... at the
+// same time"). Every venue whose cash is actually moving wears its own
+// rubber band ([RubberBandProgress], the slips' band), all of them pulled
+// in the same frame as the tap: the first pull at once, a step up when
+// the pass has submitted the move, another when its Orchestra/CCTP row is
+// listed, and in between a build with time toward the ceiling over the
+// route's usual time (Predictions about a minute, Investing a few
+// minutes). Each one snaps on its own, with the heavy thud, the moment
+// its row lands in USDB; the Dollars column gives one small catch as the
+// money arrives. A venue a never-sweep rule holds, or below the minimum,
+// never pulls: it keeps its one-line reason. Rebalance itself wears the
+// busy band while the pass is being sent.
+//
+// The pull is felt only for its first [kRebalancePullFeltFor] (both
+// venues pulling together), then the bands hold quietly until they land.
+// The band's start is kept outside the widget ([rebalanceBandSessionProvider])
+// so leaving the Portfolio and coming back shows the tension the move has
+// reached, without replaying the haptics. Nothing ticks at rest, under
+// Reduce Motion, while covered or in the background.
 
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/physics.dart' show SpringSimulation, Tolerance;
+import 'package:flutter/scheduler.dart' show Ticker;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/models/swap_order_model.dart';
 import 'package:kute/providers/asset_icon_provider.dart' show kUsdMarkAsset;
 import 'package:kute/providers/auth_provider.dart' show sessionUnlockedProvider;
 import 'package:kute/providers/hyperliquid_trading_provider.dart'
@@ -71,12 +95,13 @@ import 'package:kute/screens/portfolio/open_investments_screen.dart'
 import 'package:kute/screens/portfolio/portfolio_figure_tiles.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show RollingFigure;
+import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/screens/shared/stale_shimmer.dart';
 import 'package:kute/screens/shared/venue_deposit_button.dart'
     show venueMarkAsset;
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/one_balance/sweep_rules.dart'
-    show SweepSkipReason, kSweepDustUsd;
+    show SweepSkipReason, kSweepDustUsd, kVenueMoveMaxAge, venueWithdrawalRowOf;
 import 'package:kute/theme/app_theme.dart';
 
 /// A venue's cash as the breakdown counts it: its unreserved cash, the
@@ -162,6 +187,193 @@ String? rebalanceNote(
   };
 }
 
+/// How long a Rebalance's pull is felt after the tap: the start of it,
+/// both venues pulling together. The bands then hold quietly (a move to
+/// USDB can take minutes) and are felt again as each one lands.
+const Duration kRebalancePullFeltFor = Duration(milliseconds: 1500);
+
+/// How long a venue's move home usually takes, what its band builds over:
+/// Predictions about a minute; Investing, whose route can be CCTP, a few
+/// minutes ("Moving to USDB… takes a few minutes").
+Duration rebalanceBandExpected(OneBalanceVenue venue) => switch (venue) {
+      OneBalanceVenue.predictions => const Duration(minutes: 1),
+      OneBalanceVenue.investing => const Duration(minutes: 4),
+    };
+
+/// Where a venue's rubber band is in a Rebalance.
+enum RebalanceBandPhase {
+  /// No Rebalance moved it: no pull.
+  rest(0),
+
+  /// The tap: the pass is being sent.
+  sending(RubberBandProgress.firstPull),
+
+  /// The pass submitted the move; its row is not listed yet.
+  submitted(0.5),
+
+  /// Its Orchestra/CCTP row is listed and pending: on its way.
+  onItsWay(0.62),
+
+  /// The row landed in USDB: the snap.
+  landed(0),
+
+  /// It did not move after all (held, not now, the row failed): a soft
+  /// release.
+  released(0);
+
+  const RebalanceBandPhase(this.floor);
+
+  /// The least tension the band holds in this phase (share of full).
+  final double floor;
+
+  /// The band is pulling (the move is running).
+  bool get pulling => this == sending || this == submitted || this == onItsWay;
+
+  RubberBandOutcome get outcome => switch (this) {
+        landed => RubberBandOutcome.success,
+        released => RubberBandOutcome.failure,
+        _ => RubberBandOutcome.none,
+      };
+}
+
+/// The last Rebalance tap as its bands need it, kept outside the
+/// Portfolio's widgets so a band built again (the Portfolio left and
+/// opened again) shows the tension its move has reached.
+@immutable
+class RebalanceBandSession {
+  const RebalanceBandSession({
+    required this.startedAt,
+    this.pulling = const <OneBalanceVenue>{},
+    this.pendingAtTap = const <OneBalanceVenue, Set<String>>{},
+    this.knownAtTap = const <String>{},
+  });
+
+  /// The tap.
+  final DateTime startedAt;
+
+  /// The venues pulled on the tap: cash a Rebalance can move, or a move
+  /// home already on its way.
+  final Set<OneBalanceVenue> pulling;
+
+  /// The venue moves home already pending at the tap (their row ids):
+  /// part of this Rebalance ("already moving").
+  final Map<OneBalanceVenue, Set<String>> pendingAtTap;
+
+  /// Every other venue move home listed at the tap: earlier moves, never
+  /// this Rebalance's.
+  final Set<String> knownAtTap;
+
+  /// The session for a tap at [now] on [rows] and what the sweeper
+  /// says it can move.
+  factory RebalanceBandSession.tap({
+    required DateTime now,
+    required VenueSweeperState sweeper,
+    required OneBalanceState balance,
+    required List<SwapOrder> rows,
+    required String? walletId,
+  }) {
+    final pending = <OneBalanceVenue, Set<String>>{};
+    final known = <String>{};
+    for (final row in rows) {
+      final venue = venueWithdrawalRowOf(row, walletId: walletId);
+      if (venue == null) continue;
+      if (row.isPending && _fresh(row, now)) {
+        (pending[venue] ??= <String>{}).add(row.id);
+      } else {
+        known.add(row.id);
+      }
+    }
+    return RebalanceBandSession(
+      startedAt: now,
+      pulling: {
+        for (final e in sweeper.movable.entries)
+          if (e.value >= kSweepDustUsd) e.key,
+        for (final venue in pending.keys)
+          if (_homeward(balance, venue)) venue,
+      },
+      pendingAtTap: pending,
+      knownAtTap: known,
+    );
+  }
+}
+
+/// The last Rebalance tap's bands ([RebalanceBandSession]), null before
+/// any.
+final rebalanceBandSessionProvider =
+    StateProvider<RebalanceBandSession?>((_) => null);
+
+bool _fresh(SwapOrder row, DateTime now) =>
+    now.millisecondsSinceEpoch - row.timestamp <=
+    kVenueMoveMaxAge.inMilliseconds;
+
+bool _homeward(OneBalanceState balance, OneBalanceVenue venue) =>
+    balance.inFlight.any((m) =>
+        m.kind == InFlightKind.fromVenue &&
+        m.venue == venue &&
+        m.order == null);
+
+/// Where [venue]'s band is: on the tap while the pass is sent, then the
+/// move's own row (listed and pending, then landed), else why it let go.
+/// Pure for the tests.
+RebalanceBandPhase rebalanceBandPhase({
+  required OneBalanceVenue venue,
+  required RebalanceBandSession? session,
+  required PortfolioRebalanceState rebalance,
+  required OneBalanceState balance,
+  required VenueSweeperState sweeper,
+  required List<SwapOrder> rows,
+  required String? walletId,
+  required DateTime now,
+}) {
+  if (session == null) return RebalanceBandPhase.rest;
+  final kind = rebalance.outcomes[venue]?.kind;
+  final moved = kind == RebalanceOutcomeKind.moving ||
+      kind == RebalanceOutcomeKind.alreadyMoving;
+  if (!session.pulling.contains(venue) && (rebalance.running || !moved)) {
+    // Held, below the minimum, not now, nothing: never pulled.
+    return RebalanceBandPhase.rest;
+  }
+  final latest =
+      session.startedAt.add(kRebalanceNoteFor).millisecondsSinceEpoch;
+  final mine = [
+    for (final row in rows)
+      if (venueWithdrawalRowOf(row, walletId: walletId) == venue &&
+          ((session.pendingAtTap[venue]?.contains(row.id) ?? false) ||
+              (!session.knownAtTap.contains(row.id) &&
+                  row.timestamp <= latest)))
+        row,
+  ];
+  final pending = mine.where((r) => r.isPending && _fresh(r, now));
+  if (pending.isNotEmpty && _homeward(balance, venue)) {
+    return RebalanceBandPhase.onItsWay;
+  }
+  // Settled, or still pending but its dollars already counted in Dollars
+  // (no longer in flight): the money is home.
+  if (mine.any((r) => r.isComplete) || pending.isNotEmpty) {
+    return RebalanceBandPhase.landed;
+  }
+  if (rebalance.running) return RebalanceBandPhase.sending;
+  if (sweeper.sweeping.contains(venue)) return RebalanceBandPhase.submitted;
+  final at = rebalance.at;
+  if (kind == RebalanceOutcomeKind.moving &&
+      at != null &&
+      now.difference(at) < kRebalanceMovingGrace) {
+    return RebalanceBandPhase.submitted;
+  }
+  return RebalanceBandPhase.released;
+}
+
+/// The tension [phase] holds [elapsed] after the tap (share of full): from
+/// the phase's floor, built with the time since the tap toward
+/// [RubberBandBusy.defaultCeiling] (two thirds of the way by [expected],
+/// never reaching it). Rising with time and with every phase, so it never
+/// goes back while the move runs. Pure for the tests.
+double rebalanceBandProgress(RebalanceBandPhase phase, Duration elapsed,
+    {required Duration expected}) {
+  if (!phase.pulling) return 0;
+  return rubberBandEasedProgress(phase.floor, elapsed, expected: expected);
+}
+
 /// The breakdown: Dollars, then the venues on the account ([trading],
 /// [predictions]: the venues the shell draws a tab for).
 class PortfolioBalanceBreakdown extends ConsumerStatefulWidget {
@@ -184,6 +396,15 @@ class _PortfolioBalanceBreakdownState
   /// The venues' refresh on open is running: their figures shimmer.
   bool _refreshing = false;
   Timer? _previewSoon;
+
+  /// How many venues of the current Rebalance had landed at the last
+  /// build, and for which tap (null before the first build: a landing
+  /// from before the Portfolio opened is never replayed).
+  int? _landed;
+  DateTime? _landedFor;
+
+  /// The money arrivals the Dollars column has caught.
+  int _arrivals = 0;
 
   @override
   void initState() {
@@ -281,6 +502,37 @@ class _PortfolioBalanceBreakdownState
         breakdownVenueCash(balance, OneBalanceVenue.predictions);
     final below = rebalanceBelowMinimumVenues(sweeper);
 
+    // The rubber bands: each venue's move home is its own band.
+    final session = ref.watch(rebalanceBandSessionProvider);
+    final rows = ref.watch(swapOrdersProvider);
+    final walletId =
+        ref.watch(settingsProvider.select((s) => s.activeWalletId));
+    RebalanceBandPhase phaseOf(OneBalanceVenue venue) => rebalanceBandPhase(
+        venue: venue,
+        session: session,
+        rebalance: rebalance,
+        balance: balance,
+        sweeper: sweeper,
+        rows: rows,
+        walletId: walletId,
+        now: now);
+    final phases = {
+      if (widget.trading)
+        OneBalanceVenue.investing: phaseOf(OneBalanceVenue.investing),
+      if (widget.predictions)
+        OneBalanceVenue.predictions: phaseOf(OneBalanceVenue.predictions),
+    };
+    // Dollars catch each landing once, as it happens.
+    final landed =
+        phases.values.where((p) => p == RebalanceBandPhase.landed).length;
+    if (_landed != null &&
+        _landedFor == session?.startedAt &&
+        landed > _landed!) {
+      _arrivals++;
+    }
+    _landed = landed;
+    _landedFor = session?.startedAt;
+
     // Cash below the route minimum and nothing else to move: the reason
     // sits under the disabled Rebalance, one line, not in the venue's
     // column (where it wrapped and stretched the row).
@@ -292,31 +544,58 @@ class _PortfolioBalanceBreakdownState
           sweeper: sweeper,
           rebalance: rebalance,
           now: now);
-      return belowReason && line == l10n.portfolioRebalanceBelowMinimum
-          ? null
-          : line;
+      if (belowReason && line == l10n.portfolioRebalanceBelowMinimum) {
+        return null;
+      }
+      // Its row landed: home, nothing on its way any more.
+      if (phases[venue] == RebalanceBandPhase.landed &&
+          (line == l10n.portfolioRebalanceMoving ||
+              line == l10n.portfolioRebalanceMovingMinutes)) {
+        return null;
+      }
+      return line;
     }
 
     final canMove = sweeper.movable.values.any((usd) => usd >= kSweepDustUsd);
     final button = canMove || rebalance.running || below.isNotEmpty
-        ? AppButton(
-            key: const ValueKey('portfolio-rebalance'),
-            text: l10n.portfolioRebalance,
-            variant: AppButtonVariant.secondary,
-            compact: true,
-            isLoading: rebalance.running,
-            onPressed: rebalance.running || !canMove
-                ? null
-                : () {
-                    HapticFeedback.lightImpact();
-                    ref.read(portfolioRebalanceProvider.notifier).rebalance(
-                          dollarsUsd: dollars,
-                          investingUsd: investing,
-                          predictionsUsd: predictionsCash,
-                        );
-                  },
+        ? RubberBandBusy(
+            busy: rebalance.running,
+            expected: kRebalanceSendExpected,
+            child: AppButton(
+              key: const ValueKey('portfolio-rebalance'),
+              text: l10n.portfolioRebalance,
+              variant: AppButtonVariant.secondary,
+              compact: true,
+              isLoading: rebalance.running,
+              onPressed: rebalance.running || !canMove
+                  ? null
+                  : () {
+                      HapticFeedback.lightImpact();
+                      // Every venue that moves pulls from this frame.
+                      ref.read(rebalanceBandSessionProvider.notifier).state =
+                          RebalanceBandSession.tap(
+                              now: DateTime.now(),
+                              sweeper: sweeper,
+                              balance: balance,
+                              rows: rows,
+                              walletId: walletId);
+                      ref.read(portfolioRebalanceProvider.notifier).rebalance(
+                            dollarsUsd: dollars,
+                            investingUsd: investing,
+                            predictionsUsd: predictionsCash,
+                          );
+                    },
+            ),
           )
         : null;
+
+    Widget band(OneBalanceVenue venue, Widget tile) => _VenueBand(
+          key: ValueKey('portfolio-band-${venue.name}'),
+          phase: phases[venue] ?? RebalanceBandPhase.rest,
+          startedAt: session?.startedAt,
+          expected: rebalanceBandExpected(venue),
+          child: tile,
+        );
 
     _Figure venueFigure(double usd, {required bool known}) => known
         ? _Figure(amount(usd), stale: _refreshing)
@@ -331,47 +610,58 @@ class _PortfolioBalanceBreakdownState
         PortfolioTileRow(
           key: const ValueKey('portfolio-balance-row'),
           children: [
-            _BalanceTile(
-              key: const ValueKey('portfolio-balance-dollars'),
-              id: 'dollars',
-              asset: kUsdMarkAsset,
-              name: l10n.portfolioBalanceDollars,
-              available: _Figure(amount(dollars)),
+            _ArrivalCatch(
+              key: const ValueKey('portfolio-band-dollars'),
+              arrivals: _arrivals,
+              child: _BalanceTile(
+                key: const ValueKey('portfolio-balance-dollars'),
+                id: 'dollars',
+                asset: kUsdMarkAsset,
+                name: l10n.portfolioBalanceDollars,
+                available: _Figure(amount(dollars)),
+              ),
             ),
             if (widget.trading)
-              _BalanceTile(
-                key: const ValueKey('portfolio-balance-investing'),
-                id: 'investing',
-                asset: venueMarkAsset(InvestmentsProduct.trading),
-                name: l10n.trading,
-                available:
-                    venueFigure(investing, known: balance.investingKnown),
-                positions: venueFigure(
-                    breakdownVenuePositions(balance, OneBalanceVenue.investing),
-                    known: balance.investingKnown),
-                footer: [
-                  if (note(OneBalanceVenue.investing) case final line?) line,
-                ],
-              ),
+              band(
+                  OneBalanceVenue.investing,
+                  _BalanceTile(
+                    key: const ValueKey('portfolio-balance-investing'),
+                    id: 'investing',
+                    asset: venueMarkAsset(InvestmentsProduct.trading),
+                    name: l10n.trading,
+                    available:
+                        venueFigure(investing, known: balance.investingKnown),
+                    positions: venueFigure(
+                        breakdownVenuePositions(
+                            balance, OneBalanceVenue.investing),
+                        known: balance.investingKnown),
+                    footer: [
+                      if (note(OneBalanceVenue.investing) case final line?)
+                        line,
+                    ],
+                  )),
             if (widget.predictions)
-              _BalanceTile(
-                key: const ValueKey('portfolio-balance-predictions'),
-                id: 'predictions',
-                asset: venueMarkAsset(InvestmentsProduct.predictions),
-                name: l10n.predictions,
-                available: venueFigure(predictionsCash,
-                    known: balance.predictionsKnown),
-                positions: venueFigure(
-                    breakdownVenuePositions(
-                        balance, OneBalanceVenue.predictions),
-                    known: balance.predictionsKnown),
-                reserved: reserved >= kSweepDustUsd
-                    ? l10n.investingInOpenOrders(amount(reserved))
-                    : null,
-                footer: [
-                  if (note(OneBalanceVenue.predictions) case final line?) line,
-                ],
-              ),
+              band(
+                  OneBalanceVenue.predictions,
+                  _BalanceTile(
+                    key: const ValueKey('portfolio-balance-predictions'),
+                    id: 'predictions',
+                    asset: venueMarkAsset(InvestmentsProduct.predictions),
+                    name: l10n.predictions,
+                    available: venueFigure(predictionsCash,
+                        known: balance.predictionsKnown),
+                    positions: venueFigure(
+                        breakdownVenuePositions(
+                            balance, OneBalanceVenue.predictions),
+                        known: balance.predictionsKnown),
+                    reserved: reserved >= kSweepDustUsd
+                        ? l10n.investingInOpenOrders(amount(reserved))
+                        : null,
+                    footer: [
+                      if (note(OneBalanceVenue.predictions) case final line?)
+                        line,
+                    ],
+                  )),
           ],
         ),
         if (button != null) ...[
@@ -391,6 +681,183 @@ class _PortfolioBalanceBreakdownState
       ],
     );
   }
+}
+
+/// How long a Rebalance's pass usually takes to send: the button's busy
+/// band builds over it.
+const Duration kRebalanceSendExpected = Duration(seconds: 2);
+
+/// A venue's column in its Rebalance band: [RubberBandProgress] at the
+/// tension [phase] holds, built with the time since the tap ([startedAt],
+/// wall clock, so a band built again picks up where the move is) on this
+/// widget's own ticker while it pulls. The pull is felt for the first
+/// [kRebalancePullFeltFor] after the tap only (none for a band built
+/// again later); the landing's thud is always felt.
+class _VenueBand extends StatefulWidget {
+  const _VenueBand({
+    super.key,
+    required this.phase,
+    required this.startedAt,
+    required this.expected,
+    required this.child,
+  });
+
+  final RebalanceBandPhase phase;
+  final DateTime? startedAt;
+  final Duration expected;
+  final Widget child;
+
+  @override
+  State<_VenueBand> createState() => _VenueBandState();
+}
+
+class _VenueBandState extends State<_VenueBand>
+    with SingleTickerProviderStateMixin {
+  late final Ticker _ticker = createTicker(_onTick);
+
+  /// The time since the tap when this pull was first built here.
+  Duration _base = Duration.zero;
+
+  /// The ticker's time since then.
+  Duration _ticked = Duration.zero;
+
+  /// What was left of [kRebalancePullFeltFor] when this pull was first
+  /// built here.
+  Duration _felt = Duration.zero;
+
+  /// The tension last drawn: the band is rebuilt a step at a time.
+  double _drawn = 0;
+
+  bool _reduce = false;
+
+  bool get _haptic => !widget.phase.pulling || _ticked < _felt;
+
+  double get _progress => rebalanceBandProgress(widget.phase, _base + _ticked,
+      expected: widget.expected);
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.phase.pulling) _latch();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _reduce = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    _syncTicker();
+  }
+
+  @override
+  void didUpdateWidget(_VenueBand oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.phase.pulling &&
+        (!oldWidget.phase.pulling || oldWidget.startedAt != widget.startedAt)) {
+      _latch();
+    }
+    _syncTicker();
+  }
+
+  /// A pull starts here: how far along its move already is, and how much
+  /// of the felt start is left.
+  void _latch() {
+    final at = widget.startedAt;
+    final since = at == null ? Duration.zero : DateTime.now().difference(at);
+    _base = since.isNegative ? Duration.zero : since;
+    _ticked = Duration.zero;
+    final left = kRebalancePullFeltFor - _base;
+    _felt = left.isNegative ? Duration.zero : left;
+    if (_ticker.isActive) _ticker.stop();
+  }
+
+  /// The build's clock runs only while the band pulls, never under
+  /// Reduce Motion; the ticker is muted while covered.
+  void _syncTicker() {
+    final run = widget.phase.pulling && !_reduce;
+    if (run && !_ticker.isActive) {
+      _ticker.start();
+    } else if (!run && _ticker.isActive) {
+      _ticker.stop();
+    }
+  }
+
+  void _onTick(Duration elapsed) {
+    final felt = _haptic;
+    _ticked = elapsed;
+    if (_progress - _drawn >= 0.01 || felt != _haptic) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _ticker.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    _drawn = _progress;
+    return RubberBandProgress(
+      progress: _drawn,
+      outcome: widget.phase.outcome,
+      haptic: _haptic,
+      child: widget.child,
+    );
+  }
+}
+
+/// The Dollars column catching money as it lands: one small spring dip and
+/// back ([RubberBandProgress.snapSpring]) each time [arrivals] grows.
+/// Silent (the landing venue's thud is the one felt); still under Reduce
+/// Motion, covered or in the background; nothing ticks at rest.
+class _ArrivalCatch extends StatefulWidget {
+  const _ArrivalCatch({super.key, required this.arrivals, required this.child});
+
+  final int arrivals;
+  final Widget child;
+
+  /// The catch's kick, in column heights per second: a dip of about 2.5%
+  /// of the column.
+  static const double kick = 1.1;
+
+  @override
+  State<_ArrivalCatch> createState() => _ArrivalCatchState();
+}
+
+class _ArrivalCatchState extends State<_ArrivalCatch>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _dip =
+      AnimationController.unbounded(vsync: this)
+        ..addStatusListener((status) {
+          // Settled: exactly at rest, no sub-pixel offset left behind.
+          if (status == AnimationStatus.completed) _dip.value = 0;
+        });
+
+  @override
+  void didUpdateWidget(_ArrivalCatch oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.arrivals > oldWidget.arrivals && RubberBand.animates(context)) {
+      _dip.animateWith(SpringSimulation(
+          RubberBandProgress.snapSpring, _dip.value, 0, _ArrivalCatch.kick,
+          tolerance: const Tolerance(distance: 1e-4, velocity: 1e-3)));
+    }
+  }
+
+  @override
+  void dispose() {
+    _dip.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+        animation: _dip,
+        child: widget.child,
+        // Translated, never scaled: the figures stay crisp.
+        builder: (context, child) => FractionalTranslation(
+          translation: Offset(0, _dip.value),
+          child: child,
+        ),
+      );
 }
 
 /// A figure as a tile shows it: the text, and whether it is still being
