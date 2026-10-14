@@ -355,7 +355,11 @@ void main() {
 
   test('cancellation closes HTTP while waiting for headers', () async {
     final pending = Completer<http.StreamedResponse>();
-    final client = _StreamingClient((_) => pending.future, onClose: () {
+    final sent = Completer<void>();
+    final client = _StreamingClient((_) {
+      sent.complete();
+      return pending.future;
+    }, onClose: () {
       if (!pending.isCompleted) {
         pending.completeError(const AdvisorUnavailableException());
       }
@@ -372,7 +376,10 @@ void main() {
         .toList();
     final expectation =
         expectLater(stream, throwsA(isA<AdvisorUnavailableException>()));
-    await Future<void>.delayed(const Duration(milliseconds: 10));
+    // Cancel only once the request is out and waiting for headers. A fixed
+    // delay could land before send (still reading the device headers),
+    // where the stream rightly ends quietly instead.
+    await sent.future;
     cancellation.cancel();
     await expectation;
     expect(client.closed, isTrue);
