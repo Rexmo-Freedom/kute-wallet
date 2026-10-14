@@ -4047,12 +4047,18 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   }
 
   /// Accepted is distinct from filled; show a receipt without inventing a fill.
-  void _onRestingAccepted() {
+  Future<void> _onRestingAccepted() async {
     if (_completed || !mounted) return;
     _completed = true;
     _fillSub?.cancel();
     final amount = formatPolyAmount(ref, _marginUsd);
     final nav = Navigator.of(context, rootNavigator: true);
+    // The rebuild flips the band to its success snap; the sheet closes
+    // once the snap has been seen (RubberBand.settle returns at once under
+    // Reduce Motion, covered or in the background).
+    setState(() {});
+    await RubberBand.settle(context);
+    if (!nav.mounted) return;
     HlOrderSlipSheet.popAllSheetsDownToHost(nav);
     pushKuteSuccessOverlay(
       navigator: nav,
@@ -4078,11 +4084,11 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     return mine();
   }
 
-  void _onFilled({
+  Future<void> _onFilled({
     required double sizeFilled,
     required double avgPx,
     Iterable<HlFill> fills = const [],
-  }) {
+  }) async {
     if (_completed || !mounted) return;
     _completed = true;
     _fillSub?.cancel();
@@ -4093,6 +4099,10 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         : hlFilledPlan(_sentPlan,
             sizeFilled: sizeFilled, szDecimals: market.szDecimals);
     final nav = Navigator.of(context, rootNavigator: true);
+    // Let the band's success snap play before the sheet goes.
+    setState(() {});
+    await RubberBand.settle(context);
+    if (!nav.mounted) return;
     HlOrderSlipSheet.popAllSheetsDownToHost(nav);
     pushHlOrderPlacedOverlay(
       navigator: nav,

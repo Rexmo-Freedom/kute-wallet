@@ -4488,7 +4488,12 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
             // rest was not bought.
             final partial = _partialFill(intent);
             final l10n = context.l10n;
-            WidgetsBinding.instance.addPostFrameCallback((_) {
+            WidgetsBinding.instance.addPostFrameCallback((_) async {
+              if (!mounted) return;
+              // The band snaps on _placedSuccess; the confirmation comes
+              // once the snap has been seen (at once under Reduce Motion,
+              // covered or in the background).
+              await RubberBand.settle(context);
               if (!mounted) return;
               final nav = Navigator.of(context, rootNavigator: true);
               ref.read(pendingPolymarketBetProvider.notifier).clear();
@@ -4524,7 +4529,12 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
             _updateState(() => _placedSuccess = true);
             final partial = _partialFill(limitIntent);
             final l10n = context.l10n;
-            WidgetsBinding.instance.addPostFrameCallback((_) {
+            WidgetsBinding.instance.addPostFrameCallback((_) async {
+              if (!mounted) return;
+              // The band snaps on _placedSuccess; the confirmation comes
+              // once the snap has been seen (at once under Reduce Motion,
+              // covered or in the background).
+              await RubberBand.settle(context);
               if (!mounted) return;
               final nav = Navigator.of(context, rootNavigator: true);
               ref.read(pendingPolymarketBetProvider.notifier).clear();

@@ -15,6 +15,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/helpers/auth_grant_registry.dart';
 import 'package:kute/helpers/venue_intents.dart';
@@ -494,6 +495,8 @@ void main() {
     expect(record.stage, FundedOrderStage.done);
     expect(record.label.orderUsd, order.orderUsd);
     expect(approvals, hasLength(1), reason: 'never a second prompt');
+    // The confirmation follows the band's snap.
+    await tester.pump(RubberBand.snapSettle + const Duration(milliseconds: 50));
     await release(tester);
   });
 
