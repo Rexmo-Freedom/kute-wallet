@@ -1,6 +1,8 @@
 // The sweeper's state machine against a fake host and a fake clock: what
 // moves, what waits, what backs off, and what each pass reports.
 
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/models/orchestra_route_limits.dart';
 import 'package:kute/models/swap_order_model.dart';
@@ -22,7 +24,8 @@ class _FakeHost extends VenueSweeperHost {
   bool unlocked = true;
   String? wallet = 'spend';
   final Map<OneBalanceVenue, VenueSnapshot?> venues = {
-    OneBalanceVenue.predictions: const VenueSnapshot(idleUsd: 0, sweepableUsd: 0),
+    OneBalanceVenue.predictions:
+        const VenueSnapshot(idleUsd: 0, sweepableUsd: 0),
     OneBalanceVenue.investing: const VenueSnapshot(idleUsd: 0, sweepableUsd: 0),
   };
   final Map<OneBalanceVenue, double> minimums = {
@@ -147,7 +150,8 @@ void main() {
 
   test('a close sweeps the venue at once and reports each stage', () async {
     host.idle(OneBalanceVenue.predictions, 12);
-    await sweeper.trigger('position_closed', venue: OneBalanceVenue.predictions);
+    await sweeper.trigger('position_closed',
+        venue: OneBalanceVenue.predictions);
     expect(host.sent.single.venue, OneBalanceVenue.predictions);
     expect(host.sent.single.usd, 12);
     expect(host.sent.single.purpose, 'sweep');
@@ -171,7 +175,8 @@ void main() {
 
   test('the order reaching success completes the sweep once', () async {
     host.idle(OneBalanceVenue.predictions, 12);
-    await sweeper.trigger('position_closed', venue: OneBalanceVenue.predictions);
+    await sweeper.trigger('position_closed',
+        venue: OneBalanceVenue.predictions);
     host.clock = host.clock.add(const Duration(seconds: 40));
     sweeper.noteOrders([_orderRow('ord_1', 'exchanging')]);
     expect(host.eventsNamed('venue_sweep_completed'), isEmpty);
@@ -198,8 +203,8 @@ void main() {
 
   test('a pending deposit, an intent or a claim leave the venue alone',
       () async {
-    host.venues[OneBalanceVenue.predictions] =
-        const VenueSnapshot(idleUsd: 12, sweepableUsd: 12, hasPendingMove: true);
+    host.venues[OneBalanceVenue.predictions] = const VenueSnapshot(
+        idleUsd: 12, sweepableUsd: 12, hasPendingMove: true);
     await sweeper.trigger('resume');
     expect(host.sent, isEmpty);
     expect(host.lastEvent('venue_sweep_skipped')['reason'], 'pending_deposit');
@@ -207,8 +212,8 @@ void main() {
     await sweeper.trigger('resume');
     expect(host.eventsNamed('venue_sweep_skipped').length, 1);
 
-    host.venues[OneBalanceVenue.predictions] =
-        const VenueSnapshot(idleUsd: 12, sweepableUsd: 12, hasPendingIntent: true);
+    host.venues[OneBalanceVenue.predictions] = const VenueSnapshot(
+        idleUsd: 12, sweepableUsd: 12, hasPendingIntent: true);
     await sweeper.trigger('resume');
     expect(host.lastEvent('venue_sweep_skipped')['reason'], 'open_orders');
 
@@ -245,7 +250,8 @@ void main() {
       () async {
     host.minimums[OneBalanceVenue.predictions] = 1;
     host.idle(OneBalanceVenue.predictions, 0.6);
-    await sweeper.trigger('market_resolved', venue: OneBalanceVenue.predictions);
+    await sweeper.trigger('market_resolved',
+        venue: OneBalanceVenue.predictions);
     expect(host.sent, isEmpty);
     expect(sweeper.state.waiting, isEmpty);
     expect(sweeper.state.dust, {OneBalanceVenue.predictions: 0.6});
@@ -260,7 +266,8 @@ void main() {
     expect(host.eventsNamed('venue_cash_waiting_shown'), isEmpty);
     // More cash: crosses the minimum and the \$5 batch size.
     host.idle(OneBalanceVenue.predictions, 6);
-    await sweeper.trigger('market_resolved', venue: OneBalanceVenue.predictions);
+    await sweeper.trigger('market_resolved',
+        venue: OneBalanceVenue.predictions);
     expect(host.sent.single.usd, 6);
     expect(sweeper.state.waiting, isEmpty);
     expect(sweeper.state.dust, isEmpty);
@@ -293,14 +300,14 @@ void main() {
     host.sendResult = (usd) => usd - 0.06;
     await sweeper.trigger('position_closed', venue: OneBalanceVenue.investing);
     expect(sweeper.state.waiting, isEmpty);
-    expect(sweeper.state.dust[OneBalanceVenue.investing],
-        closeTo(0.06, 1e-9));
+    expect(sweeper.state.dust[OneBalanceVenue.investing], closeTo(0.06, 1e-9));
   });
 
   test('dust is not shown while the venue backs off', () async {
     host.idle(OneBalanceVenue.predictions, 20);
     host.sendError[OneBalanceVenue.predictions] = () => StateError('boom');
-    await sweeper.trigger('position_closed', venue: OneBalanceVenue.predictions);
+    await sweeper.trigger('position_closed',
+        venue: OneBalanceVenue.predictions);
     expect(sweeper.state.waiting, {OneBalanceVenue.predictions: 20});
     // Most of it left another way; the cents left are dust, not waiting.
     host.idle(OneBalanceVenue.predictions, 0.4);
@@ -309,8 +316,7 @@ void main() {
     expect(sweeper.state.dust, {OneBalanceVenue.predictions: 0.4});
   });
 
-  test('the CCTP floor refusing the amount is dust, with no backoff',
-      () async {
+  test('the CCTP floor refusing the amount is dust, with no backoff', () async {
     host.idle(OneBalanceVenue.investing, 1.02);
     host.sendError[OneBalanceVenue.investing] =
         () => const RouteUnavailable('cctp_below_minimum');
@@ -333,7 +339,8 @@ void main() {
   test('between the minimum and \$5 the cash waits, then goes after 10 min',
       () async {
     host.idle(OneBalanceVenue.predictions, 3);
-    await sweeper.trigger('order_cancelled', venue: OneBalanceVenue.predictions);
+    await sweeper.trigger('order_cancelled',
+        venue: OneBalanceVenue.predictions);
     expect(host.sent, isEmpty);
     expect(sweeper.state.waiting, {OneBalanceVenue.predictions: 3});
     expect(host.eventsNamed('venue_cash_waiting_shown'), isEmpty);
@@ -365,7 +372,8 @@ void main() {
     await sweeper.trigger('timer');
     expect(host.sent.length, 1, reason: 'rate-limited heartbeat');
     expect(sweeper.state.waiting[OneBalanceVenue.predictions], 40);
-    await sweeper.trigger('position_closed', venue: OneBalanceVenue.predictions);
+    await sweeper.trigger('position_closed',
+        venue: OneBalanceVenue.predictions);
     expect(host.sent.length, 2, reason: 'event-driven');
     expect(host.sent.last.usd, 40);
   });
@@ -474,7 +482,8 @@ void main() {
     expect(sweeper.nextDueIn(), const Duration(minutes: 4));
   });
 
-  test('the legacy rail reporting nothing withdrawable shows waiting', () async {
+  test('the legacy rail reporting nothing withdrawable shows waiting',
+      () async {
     host.venues[OneBalanceVenue.investing] =
         const VenueSnapshot(idleUsd: 15, sweepableUsd: 0);
     await sweeper.trigger('resume');
@@ -488,7 +497,8 @@ void main() {
     host.idle(OneBalanceVenue.predictions, 6);
     host.sendError[OneBalanceVenue.predictions] =
         () => const RouteQuoteError(RouteQuoteErrorCode.amountTooSmall);
-    await sweeper.trigger('position_closed', venue: OneBalanceVenue.predictions);
+    await sweeper.trigger('position_closed',
+        venue: OneBalanceVenue.predictions);
     expect(host.tooSmall, [(OneBalanceVenue.predictions, 6.0)]);
     expect(sweeper.state.waiting, isEmpty);
     expect(sweeper.state.dust, {OneBalanceVenue.predictions: 6});
@@ -506,7 +516,8 @@ void main() {
   test('a locked session or a non-owner wallet never sends', () async {
     host.idle(OneBalanceVenue.predictions, 50);
     host.unlocked = false;
-    await sweeper.trigger('position_closed', venue: OneBalanceVenue.predictions);
+    await sweeper.trigger('position_closed',
+        venue: OneBalanceVenue.predictions);
     expect(host.sent, isEmpty);
     expect(host.lastEvent('venue_sweep_skipped')['reason'], 'locked');
     host.unlocked = true;
@@ -537,7 +548,8 @@ void main() {
             venue: OneBalanceVenue.predictions);
       }
     };
-    await sweeper.trigger('position_closed', venue: OneBalanceVenue.predictions);
+    await sweeper.trigger('position_closed',
+        venue: OneBalanceVenue.predictions);
     // The first send is in flight when the second trigger arrives; the
     // rerun finds the amount discounted and sends nothing more.
     expect(host.sent.length, 1);
@@ -561,7 +573,8 @@ void main() {
       await sweeper.trigger('resume');
       expect(host.sent.map((s) => s.venue),
           [OneBalanceVenue.investing, OneBalanceVenue.predictions]);
-      expect(host.sent.map((s) => s.purpose), ['rollout_sweep', 'rollout_sweep']);
+      expect(
+          host.sent.map((s) => s.purpose), ['rollout_sweep', 'rollout_sweep']);
       expect(host.prepared.first, OneBalanceVenue.investing);
       expect(host.eventsNamed('venue_sweep_started').length, 2);
       expect(host.lastEvent('venue_sweep_started')['trigger'], 'rollout');
@@ -573,8 +586,7 @@ void main() {
       expect(host.sent.last.purpose, 'sweep');
     });
 
-    test('below the minimum at rollout is dust and still marks done',
-        () async {
+    test('below the minimum at rollout is dust and still marks done', () async {
       host.idle(OneBalanceVenue.predictions, 0.5);
       await sweeper.trigger('resume');
       expect(host.sent, isEmpty);
@@ -615,11 +627,12 @@ void main() {
     expect(VenueSweeper.normalizeTrigger('reduce_fill'), 'close');
   });
 
-  test('a venue in use keeps its cash as Available (held), never dust or '
+  test(
+      'a venue in use keeps its cash as Available (held), never dust or '
       'waiting, and wakes when its idle window ends', () async {
     final usedAt = host.clock.subtract(const Duration(hours: 23));
-    host.venues[OneBalanceVenue.investing] = VenueSnapshot(
-        idleUsd: 12, sweepableUsd: 12, lastActivityAt: usedAt);
+    host.venues[OneBalanceVenue.investing] =
+        VenueSnapshot(idleUsd: 12, sweepableUsd: 12, lastActivityAt: usedAt);
     await sweeper.trigger('close', venue: OneBalanceVenue.investing);
     expect(host.sent, isEmpty);
     expect(sweeper.state.held, {OneBalanceVenue.investing: 12});
@@ -633,8 +646,8 @@ void main() {
     host.clock = host.clock.add(const Duration(hours: 1, minutes: 1));
     await sweeper.trigger('timer');
     expect(host.sent.single.usd, 12);
-    expect(host.lastEvent('venue_sweep_started')['trigger'],
-        'investing_idle_24h');
+    expect(
+        host.lastEvent('venue_sweep_started')['trigger'], 'investing_idle_24h');
     expect(sweeper.state.held, isEmpty);
   });
 
@@ -663,10 +676,7 @@ void main() {
     expect(sweeper.state.waiting, isEmpty);
     // What a resting order holds is not Available.
     host.venues[OneBalanceVenue.predictions] = const VenueSnapshot(
-        idleUsd: 12,
-        sweepableUsd: 7,
-        hasReservations: true,
-        isClaiming: true);
+        idleUsd: 12, sweepableUsd: 7, hasReservations: true, isClaiming: true);
     await sweeper.trigger('timer');
     expect(sweeper.state.held, {OneBalanceVenue.predictions: 7});
     // A move pending keeps what the last pass counted (a sweep the read
@@ -676,4 +686,205 @@ void main() {
     await sweeper.trigger('timer');
     expect(sweeper.state.held, {OneBalanceVenue.predictions: 7});
   });
+
+  group('the Portfolio\'s Rebalance (sweepNow)', () {
+    /// A venue used a minute ago: the idle rule keeps its cash.
+    VenueSnapshot inUse(double usd,
+            {double? sweepable,
+            bool reservations = false,
+            bool cross = false,
+            bool resting = false}) =>
+        VenueSnapshot(
+          idleUsd: usd,
+          sweepableUsd: sweepable ?? usd,
+          hasReservations: reservations,
+          hasCrossPosition: cross,
+          hasUnreservedRestingOrders: resting,
+          lastActivityAt: host.clock.subtract(const Duration(minutes: 1)),
+        );
+
+    test(
+        'sends each venue\'s cash home once, the idle wait set aside, under '
+        'the same rail and events, trigger manual_rebalance', () async {
+      host.venues[OneBalanceVenue.investing] = inUse(6.54);
+      host.venues[OneBalanceVenue.predictions] = inUse(3);
+      // A pass of its own leaves the cash where it is (the idle rule) but
+      // says what a Rebalance would move.
+      await sweeper.trigger('timer');
+      expect(host.sent, isEmpty);
+      expect(sweeper.state.movable,
+          {OneBalanceVenue.investing: 6.54, OneBalanceVenue.predictions: 3});
+
+      final out = await sweeper.sweepNow();
+      expect(host.sent.map((s) => (s.venue, s.usd, s.purpose)), [
+        (OneBalanceVenue.investing, 6.54, 'sweep'),
+        (OneBalanceVenue.predictions, 3.0, 'sweep'),
+      ]);
+      expect(out[OneBalanceVenue.investing],
+          const RebalanceOutcome(RebalanceOutcomeKind.moving, usd: 6.54));
+      expect(out[OneBalanceVenue.predictions],
+          const RebalanceOutcome(RebalanceOutcomeKind.moving, usd: 3));
+      final started =
+          host.events.where((e) => e.$1 == 'venue_sweep_started').toList();
+      expect(started.map((e) => e.$2['trigger']),
+          ['manual_rebalance', 'manual_rebalance']);
+      expect(host.eventsNamed('venue_sweep_submitted').length, 2);
+      // Nothing movable is left once they went.
+      expect(sweeper.state.movable, isEmpty);
+    });
+
+    test(
+        'never a cross position\'s margin, an order\'s cash at Investing, '
+        'cash open orders reserve, or dust; each reported with the trigger',
+        () async {
+      host.venues[OneBalanceVenue.investing] = inUse(20, cross: true);
+      host.venues[OneBalanceVenue.predictions] =
+          inUse(8, sweepable: 0, reservations: true);
+      await sweeper.trigger('timer');
+      expect(sweeper.state.movable, isEmpty);
+      var out = await sweeper.sweepNow();
+      expect(host.sent, isEmpty);
+      expect(out[OneBalanceVenue.investing]!.reason,
+          SweepSkipReason.crossPosition);
+      expect(
+          out[OneBalanceVenue.predictions]!.reason, SweepSkipReason.openOrders);
+      final skipped =
+          host.events.where((e) => e.$1 == 'venue_sweep_skipped').toList();
+      expect(
+          skipped.map((e) => (e.$2['venue'], e.$2['reason'], e.$2['trigger'])),
+          containsAll([
+            ('hyperliquid', 'cross_position', 'manual_rebalance'),
+            ('polymarket', 'open_orders', 'manual_rebalance'),
+          ]));
+
+      // An order resting at Investing (no cash reserved for it there).
+      host.venues[OneBalanceVenue.investing] = inUse(20, resting: true);
+      // Predictions dust: below the route minimum.
+      host.venues[OneBalanceVenue.predictions] = inUse(0.4);
+      out = await sweeper.sweepNow();
+      expect(host.sent, isEmpty);
+      expect(
+          out[OneBalanceVenue.investing],
+          const RebalanceOutcome(RebalanceOutcomeKind.held,
+              usd: 20, reason: SweepSkipReason.openOrders));
+      expect(out[OneBalanceVenue.predictions],
+          const RebalanceOutcome(RebalanceOutcomeKind.belowMinimum, usd: 0.4));
+      // A tap reports each time, not once per episode.
+      expect(
+          host.events.where((e) =>
+              e.$1 == 'venue_sweep_skipped' &&
+              e.$2['trigger'] == 'manual_rebalance'),
+          hasLength(4));
+    });
+
+    test('only the unreserved part of Predictions cash moves', () async {
+      host.venues[OneBalanceVenue.predictions] =
+          inUse(10, sweepable: 6, reservations: true);
+      await sweeper.sweepNow();
+      expect(host.sent.single.venue, OneBalanceVenue.predictions);
+      expect(host.sent.single.usd, 6);
+    });
+
+    test('a bet queued since the read keeps the cash (re-read before send)',
+        () async {
+      // The second read (right before the move) sees a bet queued.
+      final queued = _QueuedBetHost(host, inUse(10));
+      final out = await VenueSweeper(queued).sweepNow();
+      expect(host.sent, isEmpty);
+      expect(
+          out[OneBalanceVenue.predictions],
+          const RebalanceOutcome(RebalanceOutcomeKind.held,
+              usd: 10, reason: SweepSkipReason.openOrders));
+    });
+
+    test(
+        'no double sweep: a Rebalance during an automatic pass waits for it, '
+        'and the cash that pass sent is not sent again', () async {
+      host.idle(OneBalanceVenue.predictions, 20);
+      final gate = Completer<void>();
+      host.beforeSend = () => gate.future;
+      final auto = sweeper.trigger('position_closed',
+          venue: OneBalanceVenue.predictions);
+      await Future<void>.delayed(Duration.zero);
+      expect(sweeper.state.sweeping, {OneBalanceVenue.predictions});
+      final manual = sweeper.sweepNow();
+      final second = sweeper.sweepNow();
+      await Future<void>.delayed(Duration.zero);
+      gate.complete();
+      await auto;
+      final out = await manual;
+      await second;
+      expect(host.sent.length, 1);
+      expect(out[OneBalanceVenue.predictions]!.kind,
+          isNot(RebalanceOutcomeKind.moving));
+    });
+
+    test('a locked session never sends', () async {
+      host.venues[OneBalanceVenue.investing] = inUse(20);
+      host.unlocked = false;
+      final out = await sweeper.sweepNow();
+      expect(host.sent, isEmpty);
+      expect(out[OneBalanceVenue.investing]!.reason, SweepSkipReason.locked);
+      expect(sweeper.state.movable, isEmpty);
+    });
+  });
+}
+
+/// [inner] with a bet queued on Predictions from the second read on.
+class _QueuedBetHost extends VenueSweeperHost {
+  _QueuedBetHost(this.inner, this.snapshot);
+
+  final _FakeHost inner;
+  final VenueSnapshot snapshot;
+  int _reads = 0;
+
+  @override
+  DateTime now() => inner.now();
+
+  @override
+  bool get sessionUnlocked => inner.sessionUnlocked;
+
+  @override
+  String? get spendingWalletId => inner.spendingWalletId;
+
+  @override
+  Future<VenueSnapshot?> readVenue(OneBalanceVenue venue) async {
+    if (venue != OneBalanceVenue.predictions) return inner.readVenue(venue);
+    _reads++;
+    if (_reads < 2) return snapshot;
+    return VenueSnapshot(
+        idleUsd: snapshot.idleUsd,
+        sweepableUsd: snapshot.sweepableUsd,
+        hasPendingIntent: true,
+        lastActivityAt: snapshot.lastActivityAt);
+  }
+
+  @override
+  Future<double> minimumUsd(OneBalanceVenue venue) => inner.minimumUsd(venue);
+
+  @override
+  void noteAmountTooSmall(OneBalanceVenue venue, double usd) =>
+      inner.noteAmountTooSmall(venue, usd);
+
+  @override
+  Future<void> prepare(OneBalanceVenue venue) => inner.prepare(venue);
+
+  @override
+  Future<VenueMoveResult> send(OneBalanceVenue venue,
+          {required double usd, required String purpose}) =>
+      inner.send(venue, usd: usd, purpose: purpose);
+
+  @override
+  bool rolloutDone(String walletId) => inner.rolloutDone(walletId);
+
+  @override
+  void markRolloutDone(String walletId) => inner.markRolloutDone(walletId);
+
+  @override
+  bool claimTerminal(String orderId, {required bool success}) =>
+      inner.claimTerminal(orderId, success: success);
+
+  @override
+  void track(String event, Map<String, Object> params) =>
+      inner.track(event, params);
 }

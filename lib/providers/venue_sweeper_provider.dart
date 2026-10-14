@@ -65,7 +65,11 @@ import 'package:kute/services/orchestra_routes.dart'
 import 'package:kute/services/tracking_service.dart';
 
 export 'package:kute/services/one_balance/venue_sweeper.dart'
-    show VenueSweeperState;
+    show
+        VenueSweeperState,
+        RebalanceOutcome,
+        RebalanceOutcomeKind,
+        kManualRebalanceTrigger;
 
 /// The Predictions funder the sweeper sends through: the venue's
 /// `PredictionsVenueFunder`, whose `sweepToDollars` is the Predictions
@@ -112,15 +116,15 @@ bool settlementHoldsVenueCash(SettlementStage stage, DateTime updatedAt,
     SettlementStage.submitted,
     SettlementStage.processing,
   };
-  return moving.contains(stage) &&
-      now.difference(updatedAt) < kVenueMoveMaxAge;
+  return moving.contains(stage) && now.difference(updatedAt) < kVenueMoveMaxAge;
 }
 
 /// When Predictions was last used, for the idle rule: now while it has
 /// open orders, else the last order, sale, claim, cancel or funded bet
 /// ([VenueActivity]); the epoch when nothing is known (cash from before
 /// the rule is long idle).
-DateTime predictionsLastActivity({required bool openOrders, required DateTime now}) {
+DateTime predictionsLastActivity(
+    {required bool openOrders, required DateTime now}) {
   if (openOrders) return now;
   return VenueActivity.last(OneBalanceVenue.predictions) ??
       DateTime.fromMillisecondsSinceEpoch(0);
@@ -212,7 +216,17 @@ class _RiverpodSweeperHost extends VenueSweeperHost {
   }
 
   @override
-  Future<VenueSnapshot?> readVenue(OneBalanceVenue venue) async {
+  Future<VenueSnapshot?> readVenue(OneBalanceVenue venue) => _read(venue);
+
+  /// A Rebalance sets the idle wait aside, so an Investing order resting
+  /// at the venue that the held state does not know about is read from
+  /// the venue whatever the idle window says (unreadable holds).
+  @override
+  Future<VenueSnapshot?> readVenueForRebalance(OneBalanceVenue venue) =>
+      _read(venue, resolveResting: true);
+
+  Future<VenueSnapshot?> _read(OneBalanceVenue venue,
+      {bool resolveResting = false}) async {
     final wallet = spendingWalletId;
     final nowMs = now().millisecondsSinceEpoch;
     final pendingRows = _ref.read(swapOrdersProvider).any((row) =>
@@ -261,6 +275,7 @@ class _RiverpodSweeperHost extends VenueSweeperHost {
         var twap = false;
         var closing = false;
         var positions = false;
+        var cross = false;
         bool? resting;
         final hl = _ref.exists(hyperliquidTradingProvider)
             ? _ref.read(hyperliquidTradingProvider).valueOrNull
@@ -274,6 +289,7 @@ class _RiverpodSweeperHost extends VenueSweeperHost {
           twap = hl.runningTwaps.any((t) => !t.expired);
           closing = hl.pendingCloseCoins.isNotEmpty;
           positions = hl.positions.isNotEmpty;
+          cross = hl.positions.any((p) => p.isCross);
           resting = hl.openOrders.isNotEmpty;
         } else if (!_ref.read(hyperliquidProvisionedProvider)) {
           // Never provisioned: nothing there, and known to be nothing.
@@ -281,8 +297,10 @@ class _RiverpodSweeperHost extends VenueSweeperHost {
           resting = false;
         } else {
           idle = _ref.read(hyperliquidFreeUsdcProvider);
-          reservations = _ref.read(hyperliquidHeldPositionsProvider).isNotEmpty;
+          final held = _ref.read(hyperliquidHeldPositionsProvider);
+          reservations = held.isNotEmpty;
           positions = reservations;
+          cross = held.any((p) => p.isCross);
         }
         // Investing cash stays, Available, until the account has sat idle
         // a day with nothing open (investing_sweep_rules.dart).
@@ -292,10 +310,14 @@ class _RiverpodSweeperHost extends VenueSweeperHost {
             now: now());
         if (resting == null &&
             idle >= kSweepDustUsd &&
-            !venueKeepsCash(activeAt, now()) &&
-            await _restingOrdersAtVenue()) {
-          activeAt = investingLastActivity(
-              hasOpenPositions: positions, hasRestingOrders: true, now: now());
+            (resolveResting || !venueKeepsCash(activeAt, now()))) {
+          resting = await _restingOrdersAtVenue();
+          if (resting) {
+            activeAt = investingLastActivity(
+                hasOpenPositions: positions,
+                hasRestingOrders: true,
+                now: now());
+          }
         }
         double withdrawable = 0;
         if (idle >= kSweepDustUsd) {
@@ -316,11 +338,15 @@ class _RiverpodSweeperHost extends VenueSweeperHost {
           // the cash; a finished one never does.
           hasPendingIntent: PendingHyperliquidOrderNotifier.isActive(
               _ref.read(pendingHyperliquidOrderProvider)),
-          isPlacing: placing ||
-              _ref.read(placingHyperliquidOrderProvider).isNotEmpty,
+          isPlacing:
+              placing || _ref.read(placingHyperliquidOrderProvider).isNotEmpty,
           hasOpenTwap: twap,
           isClaiming: closing,
           lastActivityAt: activeAt,
+          // What the idle rule stood guard over, for a Rebalance: never
+          // cross collateral, never money a resting order fills against.
+          hasCrossPosition: cross,
+          hasUnreservedRestingOrders: resting ?? false,
         );
     }
   }
@@ -549,6 +575,17 @@ class VenueSweeperNotifier extends Notifier<VenueSweeperState> {
   Future<void> trigger(String reason, {OneBalanceVenue? venue}) async {
     await _sweeper.trigger(reason, venue: venue);
     _armDueTimer();
+  }
+
+  /// The Portfolio's Rebalance: every venue's movable cash home now
+  /// ([VenueSweeper.sweepNow], trigger `manual_rebalance`), the idle wait
+  /// set aside and every other rule kept. Same rails, same automatic
+  /// authorization, same events and Activity rows as any sweep; never a
+  /// second move while one is running.
+  Future<Map<OneBalanceVenue, RebalanceOutcome>> rebalance() async {
+    final out = await _sweeper.sweepNow(trigger: kManualRebalanceTrigger);
+    _armDueTimer();
+    return out;
   }
 }
 

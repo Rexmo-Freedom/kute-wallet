@@ -306,4 +306,81 @@ void main() {
       expect(pendingVenueMoveOf(stale, walletId: 'w1', nowMs: nowMs), isNull);
     });
   });
+
+  group('a Rebalance (ignoreIdle)', () {
+    SweepContext manual({DateTime? backoffUntil}) => SweepContext(
+        now: _now,
+        minimumUsd: 1,
+        backoffUntil: backoffUntil,
+        eventDriven: true,
+        flushHeld: true,
+        ignoreIdle: true);
+    final usedNow = _now.subtract(const Duration(minutes: 1));
+
+    test('the idle wait is set aside: a venue in use sends now', () {
+      final s =
+          VenueSnapshot(idleUsd: 3, sweepableUsd: 3, lastActivityAt: usedNow);
+      expect(_skip(decideSweep(s, _ctx())), SweepSkipReason.active);
+      expect((decideSweep(s, manual()) as SweepNow).usd, 3);
+    });
+
+    test('a cross position\'s margin and a resting Investing order hold it',
+        () {
+      expect(
+          _skip(decideSweep(
+              VenueSnapshot(
+                  idleUsd: 20,
+                  sweepableUsd: 20,
+                  hasReservations: true,
+                  hasCrossPosition: true,
+                  lastActivityAt: usedNow),
+              manual())),
+          SweepSkipReason.crossPosition);
+      expect(
+          _skip(decideSweep(
+              VenueSnapshot(
+                  idleUsd: 20,
+                  sweepableUsd: 20,
+                  hasUnreservedRestingOrders: true,
+                  lastActivityAt: usedNow),
+              manual())),
+          SweepSkipReason.openOrders);
+    });
+
+    test('every other rule still holds', () {
+      expect(
+          decideSweep(
+              const VenueSnapshot(idleUsd: 0.5, sweepableUsd: 0.5), manual()),
+          isA<SweepDust>());
+      expect(
+          _skip(decideSweep(
+              const VenueSnapshot(
+                  idleUsd: 9, sweepableUsd: 9, hasPendingMove: true),
+              manual())),
+          SweepSkipReason.pendingDeposit);
+      expect(
+          _skip(decideSweep(
+              const VenueSnapshot(idleUsd: 9, sweepableUsd: 9, isClaiming: true),
+              manual())),
+          SweepSkipReason.claiming);
+      expect(
+          _skip(decideSweep(
+              const VenueSnapshot(
+                  idleUsd: 9, sweepableUsd: 0, hasReservations: true),
+              manual())),
+          SweepSkipReason.openOrders);
+      expect(
+          _skip(decideSweep(const VenueSnapshot(idleUsd: 9, sweepableUsd: 9),
+              manual(backoffUntil: _now.add(const Duration(minutes: 1))))),
+          SweepSkipReason.backoff);
+      expect(
+          _skip(decideSweep(const VenueSnapshot(idleUsd: 9, sweepableUsd: 9),
+              SweepContext(
+                  now: _now,
+                  minimumUsd: 1,
+                  sessionUnlocked: false,
+                  ignoreIdle: true))),
+          SweepSkipReason.locked);
+    });
+  });
 }

@@ -272,6 +272,39 @@ void main() {
     expect(b.rail.calls, isEmpty);
   });
 
+  test(
+      'Rebalance brings Investing cash home now, the idle wait set aside, '
+      'through the same rail under the automatic authorization', () async {
+    final events = <(String, Map<String, Object>?)>[];
+    TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+    addTearDown(() => TrackingService.debugTrackObserver = null);
+    final b = bind(const PolymarketTradingState());
+    b.c.read(venueSweeperProvider);
+    await Future<void>.delayed(Duration.zero);
+    await b.c.read(venueSweeperProvider.notifier).trigger('resume');
+    // In use: a pass of its own keeps the cash, and says it could move.
+    expect(b.rail.calls, isEmpty);
+    expect(b.c.read(venueSweeperProvider).movable,
+        {OneBalanceVenue.investing: 6.54});
+
+    final out = await b.c.read(venueSweeperProvider.notifier).rebalance();
+    expect(b.rail.calls, ['sweep:6.54']);
+    expect(out[OneBalanceVenue.investing]!.kind, RebalanceOutcomeKind.moving);
+    final started =
+        events.lastWhere((e) => e.$1 == 'venue_sweep_started').$2!;
+    expect(started['trigger'], 'manual_rebalance');
+  });
+
+  test('Rebalance leaves Investing cash an order resting there fills against',
+      () async {
+    final b = bind(const PolymarketTradingState(), restingAtVenue: true);
+    b.c.read(venueSweeperProvider);
+    await Future<void>.delayed(Duration.zero);
+    final out = await b.c.read(venueSweeperProvider.notifier).rebalance();
+    expect(b.rail.calls, isEmpty);
+    expect(out[OneBalanceVenue.investing]!.kind, RebalanceOutcomeKind.held);
+  });
+
   test('a day idle but an order resting at the venue: the cash stays',
       () async {
     investingIdleForADay();

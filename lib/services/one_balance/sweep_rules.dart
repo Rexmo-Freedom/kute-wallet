@@ -117,7 +117,13 @@ enum SweepSkipReason {
 
   /// The venue was used within [kVenueIdleSweepAfter] (or has open
   /// orders): its cash stays there, available, until it has been idle.
-  active('venue_active');
+  active('venue_active'),
+
+  /// A cross-margin position is open at Investing: its free cash is that
+  /// position's margin buffer. Only a pass that sets aside the idle rule
+  /// ([SweepContext.ignoreIdle]) reports it; the idle rule already keeps
+  /// such an account's cash.
+  crossPosition('cross_position');
 
   const SweepSkipReason(this.label);
 
@@ -153,6 +159,8 @@ class VenueSnapshot {
     this.hasOpenTwap = false,
     this.isClaiming = false,
     this.lastActivityAt,
+    this.hasCrossPosition = false,
+    this.hasUnreservedRestingOrders = false,
   });
 
   /// Venue cash not in a position: what the header would otherwise hide.
@@ -196,6 +204,16 @@ class VenueSnapshot {
   /// order, a sale, a claim, a cancel, a funded bet; now, while orders
   /// are open). Null leaves the venue under the plain rules.
   final DateTime? lastActivityAt;
+
+  /// A cross-margin position is open (Investing): its free cash is margin.
+  final bool hasCrossPosition;
+
+  /// Orders rest at the venue that reserve no cash for themselves
+  /// (Investing: Hyperliquid checks margin only at the fill and cancels
+  /// the order, `marginCanceled`, when the account no longer covers it).
+  /// Predictions reserves a BUY's cash, so its orders are
+  /// [hasReservations] instead and only the unreserved part may move.
+  final bool hasUnreservedRestingOrders;
 }
 
 /// A venue under the idle rule ([VenueSnapshot.lastActivityAt]) keeps its
@@ -212,7 +230,8 @@ const bool kVenueIdleSweepEnabled = true;
 /// keeps its cash at [now].
 bool venueKeepsCash(DateTime? activeAt, DateTime now) =>
     activeAt != null &&
-    (!kVenueIdleSweepEnabled || now.difference(activeAt) < kVenueIdleSweepAfter);
+    (!kVenueIdleSweepEnabled ||
+        now.difference(activeAt) < kVenueIdleSweepAfter);
 
 /// The session facts a pass adds to the snapshot.
 @immutable
@@ -227,6 +246,7 @@ class SweepContext {
     this.heldSince,
     this.eventDriven = false,
     this.flushHeld = false,
+    this.ignoreIdle = false,
   });
 
   final DateTime now;
@@ -256,6 +276,12 @@ class SweepContext {
   /// The app is leaving the foreground: held cash sweeps now rather
   /// than waiting for more.
   final bool flushHeld;
+
+  /// The person asked for the cash now (the Portfolio's Rebalance): the
+  /// idle wait ([kVenueIdleSweepAfter]) does not apply, every other rule
+  /// does, and the two things the idle rule stood guard over for Investing
+  /// hold the cash instead: a cross position, an order resting there.
+  final bool ignoreIdle;
 }
 
 sealed class SweepDecision {
@@ -322,7 +348,17 @@ SweepDecision decideSweep(VenueSnapshot venue, SweepContext ctx) {
     return SweepSkip(SweepSkipReason.locked, idleUsd: idle);
   }
 
-  if (venueKeepsCash(venue.lastActivityAt, ctx.now)) {
+  if (ctx.ignoreIdle) {
+    final unreserved = venue.hasReservations
+        ? math.min(_clean(venue.sweepableUsd), idle)
+        : idle;
+    if (venue.hasCrossPosition) {
+      return SweepSkip(SweepSkipReason.crossPosition, idleUsd: unreserved);
+    }
+    if (venue.hasUnreservedRestingOrders) {
+      return SweepSkip(SweepSkipReason.openOrders, idleUsd: unreserved);
+    }
+  } else if (venueKeepsCash(venue.lastActivityAt, ctx.now)) {
     // The unreserved cash (what resting orders hold is already counted as
     // invested): the venue's money, counted in the total meanwhile.
     return SweepSkip(SweepSkipReason.active,
