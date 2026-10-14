@@ -228,7 +228,6 @@ void main() {
         tester.widget<Text>(another).style);
 
     // No address, no auto pick, no sheet.
-    expect(find.text(_l10n.usdReceiveShareStep), findsNothing);
     expect(find.text(_l10n.usdReceiveCreating), findsNothing);
     expect(names(), isNot(contains('usd_receive_coin_selected')));
     expect(names(), isNot(contains('usd_receive_coin_picker_opened')));
@@ -345,21 +344,30 @@ void main() {
     await tester.tap(_tile('USDT'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
-    expect(find.text(_l10n.usdReceiveShareStep), findsOneWidget);
     expect(find.text(_l10n.usdReceiveCreating), findsOneWidget);
     expect(find.byKey(_bitcoinRow), findsNothing);
     // The address step is the same sheet, not a pushed screen.
     expect(
-        ModalRoute.of(tester.element(find.text(_l10n.usdReceiveShareStep))),
+        ModalRoute.of(tester.element(find.text(_l10n.usdReceiveCreating))),
         same(sheet));
-    // The QR plate is as large as fits: at least 240pt on a 390pt phone.
+    // The QR plate is the Bitcoin receive's size: as large as the sheet
+    // allows, at least 330pt on a 390pt phone, never over 380.
     final plate = tester.getSize(find
         .descendant(
             of: find.byType(ReceiveQrPlate), matching: find.byType(Container))
         .first);
     expect(plate.height, plate.width);
-    expect(plate.width, greaterThanOrEqualTo(240));
-    expect(plate.width, lessThanOrEqualTo(320));
+    expect(plate.width, greaterThanOrEqualTo(330));
+    expect(plate.width, lessThanOrEqualTo(380));
+    // No title and no step bar on the address step either: the back in
+    // the header, then the code.
+    expect(find.text(_l10n.usdReceiveTitle), findsNothing);
+    expect(find.text(_l10n.usdReceiveShareStep), findsNothing);
+    expect(find.byType(StepperProgress), findsNothing);
+    expect(
+        tester.getTopLeft(find.byType(ReceiveQrPlate)).dy -
+            tester.getBottomLeft(find.byType(KuteCircleBackButton)).dy,
+        lessThan(24));
     final selected =
         events.where((e) => e.$1 == 'usd_receive_coin_selected').single.$2;
     expect(selected, {
@@ -372,7 +380,7 @@ void main() {
 
     await tester.tap(find.byType(KuteCircleBackButton));
     await tester.pump(const Duration(milliseconds: 400));
-    expect(find.text(_l10n.usdReceiveShareStep), findsNothing);
+    expect(find.text(_l10n.usdReceiveCreating), findsNothing);
     expect(find.byKey(_bitcoinRow), findsOneWidget);
     expect(find.text(_l10n.usdReceiveFromAnotherWallet), findsOneWidget);
     expect(ModalRoute.of(tester.element(find.byKey(_bitcoinRow))), same(sheet));
@@ -398,8 +406,17 @@ void main() {
     expect(frame.height, greaterThan(844 * 0.8));
     expect(frame.height, lessThanOrEqualTo(844 * 0.9 + 0.5));
 
+    // The sheet has no visible title and no step bar: the close, then
+    // the step. A screen reader still hears what the sheet is.
+    expect(find.text(_l10n.usdReceiveTitle), findsNothing);
+    expect(find.byType(StepperProgress), findsNothing);
+    final handle = tester.ensureSemantics();
+    await tester.pump();
+    expect(find.bySemanticsLabel(_l10n.usdReceiveTitle), findsOneWidget);
+    handle.dispose();
+
     await tester.fling(
-        find.byType(StepperProgress), const Offset(0, 600), 2000);
+        find.byType(KuteCloseButton), const Offset(0, 600), 2000);
     await tester.pumpAndSettle();
     expect(find.byType(UsdReceiveScreen), findsNothing);
     expect(find.text(_underneath), findsOneWidget);
@@ -425,7 +442,7 @@ void main() {
         (w) => w is PickerRow && w.title.toLowerCase().contains('solana')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
-    expect(find.text(_l10n.usdReceiveShareStep), findsOneWidget);
+    expect(find.text(_l10n.usdReceiveCreating), findsOneWidget);
     final selected =
         events.where((e) => e.$1 == 'usd_receive_coin_selected').single.$2!;
     expect(selected['chain'], 'solana');
@@ -440,7 +457,7 @@ void main() {
     expect(find.byKey(_bitcoinRow), findsOneWidget);
     expect(find.text(_l10n.usdReceiveCoinsUnavailable), findsOneWidget);
     expect(find.byType(CoinAssetGrid), findsNothing);
-    expect(find.text(_l10n.usdReceiveShareStep), findsNothing);
+    expect(find.text(_l10n.usdReceiveCreating), findsNothing);
     expect(names(), isNot(contains('usd_receive_coin_selected')));
     await _unmount(tester);
   });

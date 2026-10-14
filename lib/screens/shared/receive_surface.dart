@@ -40,20 +40,31 @@ const double kReceiveSheetMaxHeight = 0.9;
 /// container and drag handle, then the header row the full-screen
 /// receives had in their app bar ([leading] on the left, [title] centred),
 /// then the body filling the rest. Swipe down closes it like every sheet.
+///
+/// The sheet itself says "receive", so a receive passes no visible
+/// [title] unless the slot carries something to act on (the bitcoin
+/// receive's "Receive into" pill). Without one, [semanticTitle] still
+/// names the sheet to a screen reader, as a header, from the same slot.
 class ReceiveSheetFrame extends StatelessWidget {
   const ReceiveSheetFrame({
     super.key,
     required this.leading,
-    required this.title,
+    this.title,
+    this.semanticTitle,
     required this.child,
   });
 
   final Widget leading;
-  final Widget title;
+  final Widget? title;
+
+  /// What a screen reader calls the sheet when [title] is null.
+  final String? semanticTitle;
+
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
+    final visibleTitle = title;
     return AppBottomSheetContainer(
       maxHeight: kReceiveSheetMaxHeight,
       child: Column(
@@ -68,7 +79,16 @@ class ReceiveSheetFrame extends StatelessWidget {
             child: Row(
               children: [
                 SizedBox(width: 44.w, child: Center(child: leading)),
-                Expanded(child: Center(child: title)),
+                Expanded(
+                  child: visibleTitle != null
+                      ? Center(child: visibleTitle)
+                      : Semantics(
+                          container: true,
+                          header: true,
+                          label: semanticTitle,
+                          child: SizedBox(height: 44.w),
+                        ),
+                ),
                 SizedBox(width: 44.w),
               ],
             ),
@@ -99,11 +119,14 @@ abstract final class ReceiveGaps {
   static double get tail => 16.h;
 }
 
-/// The QR plate's side: as large as the receive sheet allows, about
-/// three quarters of its width, never under 240 nor over 320 points. The
-/// sheet spans the screen, so the screen's width is the sheet's.
+/// The QR plate's side: as large as the receive sheet allows, 87% of
+/// its width, never under 260 nor over 380 points. The sheet spans the
+/// screen, so the screen's width is the sheet's. At 390pt that is about
+/// 339pt, which still leaves the address and the Copy/Share row above
+/// the fold on a 390x844 phone, and still fits inside both screens'
+/// side padding.
 double receiveQrSide(BuildContext context) =>
-    (MediaQuery.sizeOf(context).width * 0.74).clamp(240.0, 320.0);
+    (MediaQuery.sizeOf(context).width * 0.87).clamp(260.0, 380.0);
 
 /// The white plate the QR sits on. A square [receiveQrSide] wide,
 /// generous radius, and a small inner padding so the code dominates the
@@ -426,60 +449,52 @@ class ReceiveAddressIconButton extends StatelessWidget {
   }
 }
 
-/// Share and Copy, side by side, directly under the address.
+/// Copy and Share, side by side, directly under the address: two
+/// equal-width buttons, Copy the neutral one and Share the filled one,
+/// the row every modern wallet puts under its code.
 ///
 /// They sit in the page rather than pinned to the floor because they
 /// act on the thing above them: the exact payload the QR encodes. A
 /// pinned pair reads as "finish the flow", which is the wrong promise
 /// on a screen where the job is done the moment the code is on screen.
 ///
-/// [trailing] takes a third pill (the bitcoin screen's request-amount
-/// control). With one present the row is tight, so the labels lose
-/// their icons and drop a point.
+/// Anything else the receive can do with that code (the bitcoin
+/// screen's request amount) sits under this row as a quiet text
+/// action, never as a third button in it.
 class ReceiveActionPills extends StatelessWidget {
   const ReceiveActionPills({
     super.key,
     required this.onShare,
     required this.onCopy,
-    this.trailing,
   });
 
   final VoidCallback? onShare;
   final VoidCallback? onCopy;
-  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
-    final extra = trailing;
-    final dense = extra != null;
     return Row(
       children: [
         Expanded(
-          flex: 3,
-          child: AppButton(
-            onPressed: onShare,
-            text: context.l10n.share,
-            icon: dense ? null : Icons.ios_share_rounded,
-            compact: true,
-            fontSize: dense ? 14.sp : 15.sp,
-          ),
-        ),
-        SizedBox(width: 8.w),
-        Expanded(
-          flex: 3,
           child: AppButton(
             onPressed: onCopy,
             text: context.l10n.copy,
-            icon: dense ? null : Icons.copy_rounded,
+            icon: Icons.copy_rounded,
             variant: AppButtonVariant.secondary,
             compact: true,
-            fontSize: dense ? 14.sp : 15.sp,
+            fontSize: 15.sp,
           ),
         ),
-        if (extra != null) ...[
-          SizedBox(width: 8.w),
-          Expanded(flex: 4, child: extra),
-        ],
+        SizedBox(width: 10.w),
+        Expanded(
+          child: AppButton(
+            onPressed: onShare,
+            text: context.l10n.share,
+            icon: Icons.ios_share_rounded,
+            compact: true,
+            fontSize: 15.sp,
+          ),
+        ),
       ],
     );
   }

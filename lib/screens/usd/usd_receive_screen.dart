@@ -40,7 +40,6 @@ import 'package:kute/screens/shared/qr_code.dart';
 import 'package:kute/screens/shared/receive_surface.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart'
     show SendToListCard, SendToListRow, SendToSectionHeader;
-import 'package:kute/screens/shared/stepper/stepper_widgets.dart';
 import 'package:kute/screens/usd/flow/usd_flow_widgets.dart';
 import 'package:kute/services/accumulation_address_cache.dart';
 import 'package:kute/services/orchestra/orchestra_capability_requirements.dart';
@@ -287,9 +286,7 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
     ref.listen(breezSDKProvider, (old, next) {
       if (_sameSdk != null && !_sameSdk!()) _clearWalletAddress();
     });
-    final c = context.colors;
     final l10n = context.l10n;
-    final option = _option;
     // Opens as a sheet over the current screen (receive_sheet.dart), and
     // both steps happen inside it: the header's close becomes a back
     // once a coin is picked, and back returns to the coin step.
@@ -297,53 +294,24 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
       leading: _step == _Step.coin
           ? KuteCloseButton(onPressed: _onBack)
           : KuteCircleBackButton(onPressed: _onBack),
-      title: Text(
-        l10n.usdReceiveTitle,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          color: c.textPrimary,
-          fontWeight: FontWeight.w800,
-          fontSize: 17.sp,
-          letterSpacing: -0.3,
-        ),
-      ),
+      // No visible title and no step bar: the sheet already says what it
+      // is, and the close/back in the header says where you are. The
+      // name stays for screen readers.
+      semanticTitle: l10n.usdReceiveTitle,
       child: Padding(
         padding: EdgeInsets.fromLTRB(20.w, 6.h, 20.w, 0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            StepperProgress(
-              totalSteps: 2,
-              currentStep: _step == _Step.coin ? 0 : 1,
-              completedSteps: _step == _Step.coin ? const {} : const {0},
-              colors: c,
-            ),
-            Expanded(
-              child: !_spendingIsActive
-                  ? UsdFlowNote(lines: [l10n.receiveOtherCoinsSpendingOnly])
-                  : switch (_step) {
-                      _Step.coin => _buildCoinStep(context),
-                      // Not `tight`: the bitcoin receive gives its share
-                      // step the full heading, and a dollar receive that
-                      // shrank its own was one of the things that made
-                      // the two look unrelated.
-                      _Step.address => StepPageWrapper(
-                          title: l10n.usdReceiveShareStep,
-                          subtitle: option == null ||
-                                  _display == null ||
-                                  !_reusableRouteSupported
-                              ? ''
-                              : l10n.usdReceiveShareSubtitle(
-                                  option.displaySymbol,
-                                  option.chainDisplayName),
-                          colors: c,
-                          child: _buildAddressStep(context),
-                        ),
-                    },
-            ),
-          ],
-        ),
+        child: !_spendingIsActive
+            ? UsdFlowNote(lines: [l10n.receiveOtherCoinsSpendingOnly])
+            : switch (_step) {
+                _Step.coin => _buildCoinStep(context),
+                // The address step opens on the code, as the bitcoin
+                // receive does: the coin and network it takes are in the
+                // plate under the actions.
+                _Step.address => Padding(
+                    padding: EdgeInsets.only(top: 6.h),
+                    child: _buildAddressStep(context),
+                  ),
+              },
       ),
     );
   }
@@ -548,6 +516,14 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
           ReceiveAddressLine(
             address: payload,
             onCopy: () => _copy(payload),
+          ),
+          // Which coin on which network, said once under the address it
+          // belongs to (it was the step's subtitle before the sheet lost
+          // its titles).
+          SizedBox(height: 8.h),
+          ReceiveCaption(
+            text: l10n.usdReceiveShareSubtitle(
+                option.displaySymbol, option.chainDisplayName),
           ),
           ReceiveKuteFeeCaption(
             bps: _displayFee?.address == payload ? _displayFee!.bps : null,

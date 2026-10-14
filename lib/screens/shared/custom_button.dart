@@ -333,35 +333,47 @@ class AppTextButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final Color? textColor;
 
+  /// Optional leading glyph, tinted like the label.
+  final IconData? icon;
+
   const AppTextButton({
     super.key,
     required this.text,
     this.onPressed,
     this.textColor,
+    this.icon,
   });
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final style = TextButton.styleFrom(
+      foregroundColor: textColor ?? c.textSecondary,
+      shape: RoundedRectangleBorder(
+        borderRadius: AppRadius.buttonBorder,
+      ),
+    );
+    final label = Text(
+      text,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        fontSize: 16.sp,
+        fontWeight: FontWeight.w500,
+      ),
+    );
+    final glyph = icon;
     return SizedBox(
       width: double.infinity,
       height: 44.h,
-      child: TextButton(
-        onPressed: onPressed,
-        style: TextButton.styleFrom(
-          foregroundColor: textColor ?? c.textSecondary,
-          shape: RoundedRectangleBorder(
-            borderRadius: AppRadius.buttonBorder,
-          ),
-        ),
-        child: Text(
-          text,
-          style: TextStyle(
-            fontSize: 16.sp,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ),
+      child: glyph == null
+          ? TextButton(onPressed: onPressed, style: style, child: label)
+          : TextButton.icon(
+              onPressed: onPressed,
+              style: style,
+              icon: Icon(glyph, size: 18.sp),
+              label: label,
+            ),
     );
   }
 }

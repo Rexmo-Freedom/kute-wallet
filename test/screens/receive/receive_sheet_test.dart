@@ -123,23 +123,24 @@ void main() {
     expect(router.routerDelegate.currentConfiguration.uri.path, '/');
   });
 
-  testWidgets('the QR plate is as large as fits, between 240 and 320pt',
+  testWidgets('the QR plate is as large as fits, between 260 and 380pt',
       (tester) async {
     final router = await _pump(tester);
     router.go('/receive');
     await tester.pumpAndSettle();
-    // About three quarters of a 390pt-wide sheet.
+    // 87% of a 390pt-wide sheet: at least 330pt, never over 380.
     final side = _plate(tester);
     expect(side.width, side.height);
-    expect(side.width, greaterThanOrEqualTo(240));
-    expect(side.width, closeTo(390 * 0.74, 0.5));
+    expect(side.width, closeTo(390 * 0.87, 0.5));
+    expect(side.width, greaterThanOrEqualTo(330));
+    expect(side.width, lessThanOrEqualTo(380));
 
-    // A small phone keeps the 240 floor, a large one stops at 320.
-    tester.view.physicalSize = const Size(320, 640);
+    // A small phone keeps the 260 floor, a large one stops at 380.
+    tester.view.physicalSize = const Size(280, 640);
     await tester.pumpAndSettle();
-    expect(_plate(tester).width, 240);
+    expect(_plate(tester).width, 260);
     tester.view.physicalSize = const Size(600, 900);
     await tester.pumpAndSettle();
-    expect(_plate(tester).width, 320);
+    expect(_plate(tester).width, 380);
   });
 }

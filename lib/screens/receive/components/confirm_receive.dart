@@ -836,11 +836,12 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
       child: Column(
         children: [
           // A single receive surface for the account shown in the header.
+          // No title over it: the sheet already says "receive", and the
+          // header row (close + "Receive into") is the top, so the code
+          // gets the room.
           Expanded(
-            child: StepPageWrapper(
-              title: context.l10n.receive,
-              subtitle: context.l10n.receiveScanOrShareSubtitle,
-              colors: c,
+            child: Padding(
+              padding: EdgeInsets.only(top: 12.h),
               child: _sharePage(c),
             ),
           ),
@@ -1218,12 +1219,12 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
                   ],
                 ],
 
-                // 2a. Share / Copy pills. The subtitle promises "scan or
-                // share this code", so the share lives right under the
+                // 2a. Copy / Share row. It lives right under the
                 // address and hands out the exact payload the QR
                 // encodes (unified BIP21, invoice, address or swap
-                // deposit address). Hidden while the plate shimmers or
-                // shows an error: nothing verified to share yet.
+                // deposit address), with request amount as a quiet
+                // text action under it. Hidden while the plate shimmers
+                // or shows an error: nothing verified to share yet.
                 if (qrPayload != null) ...[
                   SizedBox(height: ReceiveGaps.addressToActions),
                   _buildActionPills(
@@ -1438,10 +1439,11 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
     return 'bitcoin:$bitcoinAddress';
   }
 
-  /// Solid Share pill and neutral Copy pill side by side under the
-  /// address. Both act on [payload], the exact string the QR encodes.
-  /// With [showRequestAmount] a third pill opens the amount sheet; once
-  /// a request is live it shows the requested sats and a tap clears it.
+  /// Copy and Share side by side under the address, both acting on
+  /// [payload], the exact string the QR encodes. With
+  /// [showRequestAmount] a quiet text action under the row opens the
+  /// amount sheet; once a request is live it shows the requested amount
+  /// and a tap clears it.
   Widget _buildActionPills({
     required String payload,
     required bool showRequestAmount,
@@ -1450,33 +1452,33 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
     final orchestraId = _activeExchange?.providerName == 'Orchestra'
         ? _activeExchange?.id : null;
     final btcFormat = ref.watch(settingsProvider.select((s) => s.btcFormat));
-    // Three pills share the row, so labels drop to 14sp and lose the
-    // leading icon; the request pill gets more room for its longer copy.
-    return ReceiveActionPills(
-      onShare: () => _sharePayload(payload, orchestraId: orchestraId),
-      onCopy: () => _copyPayload(payload, orchestraId: orchestraId),
-      trailing: !showRequestAmount
-          ? null
-          : requested == null
-              ? AppButton(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ReceiveActionPills(
+          onShare: () => _sharePayload(payload, orchestraId: orchestraId),
+          onCopy: () => _copyPayload(payload, orchestraId: orchestraId),
+        ),
+        if (showRequestAmount) ...[
+          SizedBox(height: 4.h),
+          requested == null
+              ? AppTextButton(
+                  key: const ValueKey('receive-request-amount'),
                   onPressed: _isInvoiceLoading ? null : _requestAmount,
                   text: context.l10n.receiveRequestAmount,
-                  variant: AppButtonVariant.secondary,
-                  compact: true,
-                  fontSize: 14.sp,
-                  isLoading: _isInvoiceLoading,
+                  icon: Icons.add_rounded,
                 )
-              : AppButton(
+              : AppTextButton(
+                  key: const ValueKey('receive-request-amount'),
                   onPressed: () {
                     HapticFeedback.lightImpact();
                     setState(_clearAmountRequest);
                   },
                   text: '₿${requested.toFormattedString(btcFormat)}',
                   icon: Icons.close_rounded,
-                  variant: AppButtonVariant.secondary,
-                  compact: true,
-                  fontSize: 14.sp,
                 ),
+        ],
+      ],
     );
   }
 
