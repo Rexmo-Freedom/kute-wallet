@@ -36,6 +36,8 @@ import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:kute/helpers/auth_grant.dart';
+import 'package:kute/helpers/formatters/polymarket_side_labels.dart'
+    show polymarketMarketType;
 import 'package:kute/helpers/auth_grant_registry.dart';
 import 'package:kute/helpers/require_fresh_auth.dart';
 import 'package:kute/helpers/venue_intents.dart';
@@ -63,6 +65,7 @@ import 'package:kute/services/polymarket/market_buy_quote.dart'
     show PolymarketOrderPlan, PolymarketThinBook;
 import 'package:kute/services/polymarket/order_refusal.dart'
     show isPolymarketPriceRefusal, polymarketRefusalParams;
+import 'package:kute/services/polymarket/sell_settlement.dart';
 import 'package:kute/services/polymarket/polymarket_slippage_defaults.dart'
     show isPolymarketFastRound;
 import 'package:kute/services/polymarket_backend_service.dart'
@@ -184,6 +187,35 @@ final autofireBookReaderProvider =
       await PolymarketBetController.restBook(tokenId,
           timeout: const Duration(seconds: 5)),
 );
+
+/// Follows an order the venue took without a fill in its answer to its
+/// end ([PmSellSettlementWatcher], read-only): matched, killed, or not
+/// said in time. [onStage] hears the in-play hold and the match.
+typedef AutofireSettle = Future<PmSellSettlement> Function(
+  Map<String, dynamic> response, {
+  required String tokenId,
+  required double orderedShares,
+  void Function(PmSellStage stage, double shares)? onStage,
+});
+
+/// The venue's own reads of an accepted order and its trades.
+final autofireSettlementProvider = Provider<AutofireSettle>((ref) => (response,
+        {required tokenId, required orderedShares, onStage}) {
+      final backend =
+          ref.read(polymarketTradingProvider.notifier).backendService;
+      return PmSellSettlementWatcher(
+        readOrder: (id) async =>
+            backend == null ? null : await backend.getOrderById(id),
+        readTrade: backend?.getTradeById,
+      ).watch(
+        response: response,
+        tokenId: tokenId,
+        offeredShares: orderedShares,
+        resting: false,
+        buy: true,
+        onStage: onStage,
+      );
+    });
 
 final pendingBetAutoFireProvider = Provider<PendingBetAutoFire>((ref) {
   final svc = PendingBetAutoFire(ref);
@@ -525,7 +557,10 @@ class PendingBetAutoFire {
   }
 
   void _trackFailed(PendingBetIntent intent, String reason,
-      {StackTrace? stackTrace, bool retried = false, Object? error}) {
+      {StackTrace? stackTrace,
+      bool retried = false,
+      Object? error,
+      Map<String, Object> settlement = const {}}) {
     final refusal =
         error is PolymarketOrderNotAcceptedException ? error.reason : null;
     TrackingService.polymarketBetFailed(
@@ -543,6 +578,7 @@ class PendingBetAutoFire {
         // refused for its price.
         'retried': retried,
         if (refusal != null) ...polymarketRefusalParams(refusal),
+        ...settlement,
       },
     );
   }
@@ -759,6 +795,7 @@ class PendingBetAutoFire {
       AuthGrant? approval;
       Map<String, dynamic>? response;
       var resized = false;
+      var orderedShares = 0.0;
       for (var attempt = 0; attempt < 2; attempt++) {
         retried = attempt > 0;
         final book = await _freshBook(intent.tokenId);
@@ -828,6 +865,7 @@ class PendingBetAutoFire {
             minShares * fill.orderPrice <= intent.amount + 0.02) {
           shares = (minShares * 100).ceilToDouble() / 100;
         }
+        orderedShares = shares;
         final actual = withFunding(PmIntents.order(
           walletId: tradingNotifier.signingWalletId ?? '',
           tokenId: intent.tokenId,
@@ -932,6 +970,20 @@ class PendingBetAutoFire {
 
       pendingNotifier.recordFill(placed);
       unawaited(tradingNotifier.refresh().catchError((_) {}));
+      // Taken without a fill in the answer: a game in play holds the order
+      // for its in-play delay, then matches or kills it. Followed to that
+      // end here, so the slip shows the receipt once it matched and says
+      // the price moved once it was killed, instead of ending on "check
+      // your positions" while the order was still going through.
+      if (!verifiedFill &&
+          placed['status']?.toString().toLowerCase() == 'delayed' &&
+          await _followHeldOrder(intent, placed,
+              orderedShares: orderedShares,
+              placementId: placementId,
+              retried: retried,
+              resized: resized)) {
+        return;
+      }
       if (funded) {
         journey.completed(OneBalanceVenue.predictions,
             resized: resized, amountUsd: verifiedFill ? paidUsdc : null);
@@ -994,6 +1046,164 @@ class PendingBetAutoFire {
           retryMaxPrice: polymarketRetryPrice(e),
           failureCode: _stopCode(e));
       placingNotifier.markFailed(placementId, msg);
+    }
+  }
+
+  /// Follows [placed], an order the venue took without a fill in its
+  /// answer (a game in play holds it for its in-play delay, `delayed`).
+  /// True when it ended here: matched (the bet is placed, the receipt
+  /// shows) or ended with nothing bought (the price moved during the
+  /// hold: the slip says so and the money stays as Predictions cash).
+  /// False when the venue did not say in time: the bet then waits for its
+  /// confirmation, never "failed" before anything is known.
+  Future<bool> _followHeldOrder(
+    PendingBetIntent intent,
+    Map<String, dynamic> placed, {
+    required double orderedShares,
+    required String placementId,
+    required bool retried,
+    required bool resized,
+  }) async {
+    final pendingNotifier = ref.read(pendingPolymarketBetProvider.notifier);
+    final placingNotifier = ref.read(placingPolymarketBetProvider.notifier);
+    final tradingNotifier = ref.read(polymarketTradingProvider.notifier);
+    final journey = OrderFundingJourney.instance;
+    final ledger = PredictionFundingLedger.instance;
+    final funded = intent.funded;
+    final l10n = l10nForLanguage(ref.read(settingsProvider).language);
+    if (orderedShares <= 0) return false;
+    final matched = Completer<double>();
+    final settling = ref
+        .read(autofireSettlementProvider)(placed,
+            tokenId: intent.tokenId,
+            orderedShares: orderedShares, onStage: (stage, shares) {
+          if (stage == PmSellStage.matched) {
+            if (!matched.isCompleted) matched.complete(shares);
+          } else {
+            // Held for the game's in-play delay: the slip says why.
+            pendingNotifier.setStage(PendingBetStage.delayed);
+          }
+        })
+        .catchError((Object _) => PmSellSettlement(
+            result: PmSellResult.unknown,
+            offeredShares: orderedShares,
+            soldShares: 0,
+            firstStatus: '${placed['status'] ?? ''}'.toLowerCase(),
+            confirmedBy: 'none',
+            timeToMatch: Duration.zero));
+    final first = await Future.any<Object>([matched.future, settling]);
+    if (first is PmSellSettlement && first.soldShares <= 0) {
+      switch (first.result) {
+        case PmSellResult.notFilled:
+        case PmSellResult.failed:
+          // Nothing was bought: killed when the hold ended (the price had
+          // moved past the order's), or the match failed on chain.
+          final onChain = first.result == PmSellResult.failed;
+          final code = onChain ? 'failed_onchain' : 'price_moved';
+          _trackFailed(intent, onChain ? 'failed_onchain' : 'not_filled',
+              retried: retried, settlement: first.analyticsParams());
+          if (funded) {
+            journey.failed(
+                OneBalanceVenue.predictions, OrderFundingStage.order, code);
+          }
+          ledger.release(intent.fundQuoteRef, reason: 'failed');
+          final msg =
+              onChain ? l10n.betBuyFailedOnChain : l10n.betBuyNotMatched;
+          pendingNotifier.updateStatus(PendingBetStatus.failed,
+              errorMessage: msg, failureCode: code);
+          placingNotifier.markFailed(placementId, msg);
+          ref.invalidate(polymarketOpenOrdersProvider);
+          return true;
+        case PmSellResult.filled:
+        case PmSellResult.partial:
+        case PmSellResult.resting:
+        case PmSellResult.unknown:
+          return false;
+      }
+    }
+    final settlementNow = first is PmSellSettlement ? first : null;
+    final shares = settlementNow?.soldShares ?? first as double;
+    final cost = settlementNow?.proceeds;
+    pendingNotifier.recordSettlement(
+        filledShares: shares, filledCost: cost, orderedShares: orderedShares);
+    final orderId = PmSellSettlementWatcher.orderIdOf(placed);
+    if (orderId != null && orderId.isNotEmpty) {
+      tradingNotifier.notePendingFill(
+        key: orderId,
+        tokenId: intent.tokenId,
+        shares: shares,
+        costUsd: cost ?? shares * intent.expectedPrice,
+      );
+    }
+    unawaited(tradingNotifier.refresh().catchError((_) {}));
+    if (funded) {
+      journey.completed(OneBalanceVenue.predictions,
+          resized: resized, amountUsd: cost);
+    }
+    ledger.release(intent.fundQuoteRef, reason: 'placed');
+    pendingNotifier.updateStatus(PendingBetStatus.done);
+    placingNotifier.markSucceeded(placementId, holdUntilPositionArrives: true);
+    Future.delayed(const Duration(milliseconds: 600), () {
+      try {
+        pendingNotifier.clear();
+      } catch (_) {}
+    });
+    // The rest of the settlement behind the receipt: the venue's own cost
+    // for the funnel, revenue and the cost basis (the answer echoed none).
+    unawaited(settling.then((s) => _afterHeldFill(intent, placed, s,
+        placementId: placementId, retried: retried)));
+    return true;
+  }
+
+  /// A held order that matched: its fill reported from the venue's own
+  /// figures (never estimated), or its on-chain failure said. Never
+  /// throws.
+  void _afterHeldFill(PendingBetIntent intent, Map<String, dynamic> placed,
+      PmSellSettlement s,
+      {required String placementId, required bool retried}) {
+    try {
+      if (s.result == PmSellResult.failed) {
+        _trackFailed(intent, 'failed_onchain',
+            retried: retried, settlement: s.analyticsParams());
+        ref.read(placingPolymarketBetProvider.notifier).markFailed(
+            placementId,
+            l10nForLanguage(ref.read(settingsProvider).language)
+                .betBuyFailedOnChain);
+        return;
+      }
+      final cost = s.proceeds;
+      if (s.soldShares <= 0 || cost == null || cost <= 0) return;
+      unawaited(ref
+          .read(polymarketCostBasisProvider.notifier)
+          .addCost(intent.tokenId, cost)
+          .catchError((_) {}));
+      TrackingService.polymarketBetPlaced(
+        side: 'buy',
+        orderType: 'market',
+        marketOutcome: intent.outcomeName,
+        walletKind: 'hot',
+        entrySource: 'autofire',
+        marketId: intent.tokenId,
+        outcome: 'buy',
+        amount: cost,
+        price: cost / s.soldShares,
+        shares: s.soldShares.round(),
+        providerOrderId: PmSellSettlementWatcher.orderIdOf(placed),
+        category: intent.marketCategory,
+        marketTitle: intent.marketQuestion,
+        source: intent.funded ? 'usdc_pool' : 'btc_pool',
+        betType: polymarketMarketType(intent.marketQuestion,
+            outcome: intent.outcomeName),
+        walletCategory: 'spending',
+        extra: {
+          ..._analytics(intent),
+          ...s.analyticsParams(),
+          'retried': retried,
+          'approval': 'biometric',
+        },
+      );
+    } catch (_) {
+      // The app went on without it: nothing left to update.
     }
   }
 

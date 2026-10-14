@@ -375,6 +375,33 @@ void main() {
       expect(abandoned.single.$2!['stage'], 'fund');
     });
 
+    test('a game in play\'s funded bet reads apart on every event', () {
+      final j = OrderFundingJourney.instance;
+      j.start(OneBalanceVenue.predictions,
+          orderUsd: 3.33,
+          fundUsd: 2.6,
+          readyUsd: 0.8,
+          dollarsUsd: 12.66,
+          marketKind: 'live');
+      j.step(OneBalanceVenue.predictions, OrderFundingStage.fund);
+      j.failed(OneBalanceVenue.predictions, OrderFundingStage.order,
+          'price_moved');
+      final kinds = {
+        for (final e in events.where((e) => e.$1.startsWith('order_funding_')))
+          e.$1: e.$2!['market_kind']
+      };
+      expect(kinds, {
+        'order_funding_started': 'live',
+        'order_funding_step': 'live',
+        'order_funding_failed': 'live',
+      });
+      // Exact amounts, as given.
+      expect(
+          events.firstWhere((e) => e.$1 == 'order_funding_started').$2![
+              'order_usd'],
+          3.33);
+    });
+
     test('failed and abandoned need an open run', () {
       final j = OrderFundingJourney.instance;
       j.failed(OneBalanceVenue.investing, OrderFundingStage.order, 'x');

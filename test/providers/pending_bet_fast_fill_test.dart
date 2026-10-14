@@ -20,12 +20,20 @@ import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/auth_provider.dart' show sessionUnlockedProvider;
 import 'package:kute/providers/pending_bet_autofire.dart';
 import 'package:kute/providers/pending_polymarket_bet_provider.dart';
+import 'package:kute/providers/polymarket_cost_basis_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/venue_sweeper_provider.dart'
     show pendingBetHoldsCash;
 import 'package:kute/services/one_balance/prediction_funding_ledger.dart';
 import 'package:kute/services/polymarket/market_buy_quote.dart';
+import 'package:kute/services/polymarket/sell_settlement.dart';
+import 'package:kute/screens/shared/slip_shortfall.dart' show fundedStopLine;
+import 'package:kute/services/one_balance/bitcoin_funded_order.dart'
+    show bitcoinFundedOrderRunnerProvider;
+import 'package:kute/services/one_balance/funded_orders.dart';
+import 'package:kute/services/one_balance/one_balance_state.dart'
+    show OneBalanceVenue;
 import 'package:kute/services/polymarket_backend_service.dart'
     show PolymarketOrderNotAcceptedException;
 import 'package:kute/services/tracking_service.dart';
@@ -48,6 +56,13 @@ class _Trading extends PolymarketTradingNotifier {
 
   /// Thrown by the next orders, in turn; then the venue accepts.
   final List<Object> refusals;
+
+  /// The venue's answer once it accepts (no verified fill by default).
+  Map<String, dynamic> accepted = {
+    'success': true,
+    'status': 'live',
+    'orderID': '0xorder'
+  };
   final orders = <_Order>[];
   var readies = 0;
 
@@ -123,7 +138,7 @@ class _Trading extends PolymarketTradingNotifier {
     orders.add(_Order(price, size, analytics));
     if (refusals.isNotEmpty) throw refusals.removeAt(0);
     // Accepted; the match is confirmed later (no verified fill here).
-    return {'success': true, 'status': 'live', 'orderID': '0xorder'};
+    return accepted;
   }
 }
 
@@ -169,6 +184,21 @@ PendingBetIntent _queued() => PendingBetIntent(
       queuedAt: DateTime.now(),
     );
 
+/// The slip's record for the queued bet, followed to its end as the slip
+/// does at Confirm.
+String _follow(ProviderContainer c) {
+  final runner = c.read(bitcoinFundedOrderRunnerProvider);
+  final id = runner.beginFunded(const FundedOrderLabel(
+    venue: OneBalanceVenue.predictions,
+    orderUsd: 10,
+    side: 'Up',
+    market: 'Bitcoin Up or Down',
+    marketKey: _token,
+  ));
+  runner.followFunded(id, rowIds: {'q1'});
+  return id;
+}
+
 void main() {
   late Directory hiveDir;
 
@@ -185,6 +215,7 @@ void main() {
   late List<(String, Map<String, Object>?)> events;
 
   setUp(() {
+    FundedOrdersNotifier.persist = false;
     PredictionFundingLedger.reset();
     events = [];
     TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
@@ -199,8 +230,13 @@ void main() {
   /// lets the autofire run. [books] are read in turn (the last repeats).
   Future<({ProviderContainer c, _Trading trading, int reads})> run(
       List<String> books,
-      {List<Object> refusals = const []}) async {
+      {List<Object> refusals = const [],
+      Map<String, dynamic>? accepted,
+      AutofireSettle? settle,
+      void Function(ProviderContainer c)? onReady,
+      void Function(ProviderContainer c)? onQueued}) async {
     final trading = _Trading([...refusals]);
+    if (accepted != null) trading.accepted = accepted;
     var reads = 0;
     var landed = false;
     var readBeforeLanding = false;
@@ -214,8 +250,10 @@ void main() {
         reads++;
         return _book(ask);
       }),
+      if (settle != null) autofireSettlementProvider.overrideWithValue(settle),
     ]);
     addTearDown(c.dispose);
+    onReady?.call(c);
     c.listen(polymarketTradingProvider, (_, __) {});
     await c.read(polymarketTradingProvider.future);
     c.read(pendingBetAutoFireProvider);
@@ -243,6 +281,7 @@ void main() {
 
     PredictionFundingLedger.instance.sent('ref_move', usd: 10);
     c.read(pendingPolymarketBetProvider.notifier).setIntent(intent);
+    onQueued?.call(c);
     await Future<void>.delayed(const Duration(milliseconds: 20));
     // Nothing is read or placed while the money is on its way.
     expect(trading.orders, isEmpty);
@@ -375,6 +414,120 @@ void main() {
           throwsA(isA<ReauthRequired>()));
       expect(() => autofireRetryGrant(approval, order(0.50, 11)),
           throwsA(isA<ReauthRequired>()));
+    });
+  });
+
+  group('a game in play holds the order for its delay', () {
+    // Founder, 14 October 2026 (LASK Linz vs Liverpool, live): the venue
+    // answers `delayed` for a game in play and matches (or kills) the
+    // order a second later. The autofire ended the bet on "check your
+    // positions" at once; the slip never showed the receipt, and a killed
+    // order never said so.
+    const delayed = {
+      'success': true,
+      'status': 'delayed',
+      'orderID': '0xorder'
+    };
+
+    PmSellSettlement settled(PmSellResult result,
+            {double shares = 0, double? proceeds}) =>
+        PmSellSettlement(
+          result: result,
+          offeredShares: 20,
+          soldShares: shares,
+          proceeds: proceeds,
+          firstStatus: 'delayed',
+          confirmedBy: shares > 0 ? 'mined' : 'none',
+          timeToMatch: const Duration(seconds: 1),
+          delayed: true,
+        );
+
+    test('matched after the hold: placed, the receipt\'s figures, the fill '
+        'reported from the venue\'s own cost', () async {
+      final stages = <PendingBetStage>[];
+      final statuses = <PendingBetStatus>[];
+      String? funded;
+      final r = await run(['0.48'],
+          accepted: delayed,
+          onQueued: (c) => funded = _follow(c),
+          onReady: (c) {
+            // Loaded up front: the fill's cost is added to it.
+            c.read(polymarketCostBasisProvider);
+            c.listen<PendingBetIntent?>(pendingPolymarketBetProvider,
+                (_, next) {
+              if (next == null) return;
+              stages.add(next.stage);
+              statuses.add(next.status);
+            });
+          },
+          settle: (response,
+              {required tokenId, required orderedShares, onStage}) async {
+            expect(response['status'], 'delayed');
+            onStage?.call(PmSellStage.delayed, 0);
+            await Future<void>.delayed(const Duration(milliseconds: 5));
+            onStage?.call(PmSellStage.matched, 20);
+            return settled(PmSellResult.filled, shares: 20, proceeds: 9.6);
+          });
+      // Held, then placed: never "awaiting confirmation", never failed.
+      expect(stages, contains(PendingBetStage.delayed));
+      expect(statuses, contains(PendingBetStatus.done));
+      expect(statuses, isNot(contains(PendingBetStatus.awaitingConfirmation)));
+      expect(statuses, isNot(contains(PendingBetStatus.failed)));
+      expect(PredictionFundingLedger.instance.record('ref_move')!.releaseReason,
+          'placed');
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      final placed =
+          events.where((e) => e.$1 == 'polymarket_bet_placed').toList();
+      expect(placed, hasLength(1));
+      expect(placed.single.$2!['live_delay'], true);
+      expect(placed.single.$2!['entry_source'], 'autofire');
+      expect(events.where((e) => e.$1 == 'polymarket_bet_failed'), isEmpty);
+      // The slip's steps follow the real outcome: placed, never a stop.
+      final record = r.c.read(fundedOrdersProvider.notifier).byId(funded!)!;
+      expect(record.stage, FundedOrderStage.done);
+      expect(record.stoppedAt, isNull);
+    });
+
+    test('killed when the hold ended: says the price moved, nothing bought, '
+        'the cash stays as Predictions cash', () async {
+      String? funded;
+      final r = await run(['0.48'],
+          accepted: delayed,
+          onQueued: (c) => funded = _follow(c),
+          settle: (response,
+                  {required tokenId, required orderedShares, onStage}) async =>
+              settled(PmSellResult.notFilled));
+      final pending = r.c.read(pendingPolymarketBetProvider)!;
+      expect(pending.status, PendingBetStatus.failed);
+      expect(pending.failureCode, 'price_moved');
+      expect(pending.errorMessage, l10nForLanguage('en').betBuyNotMatched);
+      expect(PredictionFundingLedger.instance.record('ref_move')!.releaseReason,
+          'failed');
+      final failed =
+          events.lastWhere((e) => e.$1 == 'polymarket_bet_failed').$2!;
+      expect(failed['reason'], 'not_filled');
+      expect(failed['live_delay'], true);
+      // The steps say the real reason, with the 90c2b0950 stop line.
+      final record = r.c.read(fundedOrdersProvider.notifier).byId(funded!)!;
+      expect(record.stage, FundedOrderStage.failed);
+      expect(record.stoppedAt, FundedOrderStage.placing);
+      expect(
+          fundedStopLine(l10nForLanguage('en'), record,
+              (usd) => '\$${usd.toStringAsFixed(2)}'),
+          r'Price moved too fast. Your $10.00 is in Predictions. '
+          'Tap to try again.');
+    });
+
+    test('not said in time: waits for its confirmation, never failed yet',
+        () async {
+      final r = await run(['0.48'],
+          accepted: delayed,
+          settle: (response,
+                  {required tokenId, required orderedShares, onStage}) async =>
+              settled(PmSellResult.unknown));
+      final pending = r.c.read(pendingPolymarketBetProvider)!;
+      expect(pending.status, PendingBetStatus.awaitingConfirmation);
+      expect(events.where((e) => e.$1 == 'polymarket_bet_failed'), isEmpty);
     });
   });
 

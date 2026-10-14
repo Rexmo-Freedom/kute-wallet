@@ -80,6 +80,7 @@ class _Controller implements OrderFundingController {
     String purpose = 'order_funding',
     bool keepUnconfirmed = false,
     bool continueJourney = false,
+    String? marketKind,
   }) {
     expect(venue, OneBalanceVenue.investing);
     fundUsds.add(fundUsd);

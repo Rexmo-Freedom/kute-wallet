@@ -703,12 +703,33 @@ void main() {
 
     testWidgets('from Dollars: the move, then the bet, one busy button',
         (tester) async {
+      final semantics = tester.ensureSemantics();
       await pumpWith(tester, [_fundedBet(FundedOrderStage.preparing)]);
       expect(find.byKey(const ValueKey('bet-slip-funded-progress')),
           findsOneWidget);
       expect(_cta(tester).isBusy, isTrue);
       expect(_cta(tester).enabled, isFalse);
       expect(_cta(tester).busyLabel, 'Getting your prediction ready');
+      // Said once, in the steps: the busy button only spins (and pulls),
+      // and a screen reader still hears the step on it.
+      expect(find.text('Getting your prediction ready'), findsOneWidget);
+      expect(
+          find.descendant(
+              of: find.byType(PolySlipCta),
+              matching: find.text('Getting your prediction ready')),
+          findsNothing);
+      expect(
+          find.descendant(
+              of: find.byType(PolySlipCta),
+              matching: find.byKey(const ValueKey('poly-slip-cta-busy-quiet'))),
+          findsOneWidget);
+      final quiet = tester.widget<Semantics>(
+          find.byKey(const ValueKey('poly-slip-cta-busy-quiet')));
+      expect(quiet.properties.label, 'Getting your prediction ready');
+      expect(quiet.properties.liveRegion, isTrue);
+      expect(find.bySemanticsLabel(RegExp('Getting your prediction ready')),
+          findsWidgets);
+      semantics.dispose();
       expect(find.byKey(const ValueKey('slip-funding-step-active-0')),
           findsOneWidget);
       expect(find.text(r'Placing $10.00 on Yes'), findsOneWidget);
@@ -724,6 +745,7 @@ void main() {
       final records = [_fundedBet(FundedOrderStage.placing)];
       await pumpWith(tester, records);
       expect(_cta(tester).busyLabel, r'Placing $10.00 on Yes');
+      expect(find.text(r'Placing $10.00 on Yes'), findsOneWidget);
       expect(find.byKey(const ValueKey('slip-funding-step-done-0')),
           findsOneWidget);
       expect(find.byKey(const ValueKey('slip-funding-step-active-1')),

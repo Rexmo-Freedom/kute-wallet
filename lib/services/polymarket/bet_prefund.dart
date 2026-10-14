@@ -18,6 +18,9 @@
 // - A larger amount tops up under the same approval only while it stays
 //   inside the stake and funding caps approved; past them it asks again.
 //   A smaller one just leaves the rest on Predictions.
+// - A price already past the worst price approved (a game in play can
+//   move that far between the amount and the tap) asks the bet's own
+//   prompt at Confirm, at today's price: never an order the book refuses.
 // - Closing the slip leaves the moved cash on Predictions (one balance);
 //   nothing comes back and the approval is dropped.
 // - Declining the prompt never asks again on this slip: Confirm funds the
@@ -221,6 +224,7 @@ class PrefundSnapshot {
     required this.dollarsUsd,
     required this.allowed,
     this.busy = false,
+    this.priceNow,
   });
 
   /// Null on a market that is not fast.
@@ -251,6 +255,13 @@ class PrefundSnapshot {
   /// A placement running, another funded bet queued, Predictions cash
   /// being swept: nothing starts.
   final bool busy;
+
+  /// The price the slip shows for the side now (null when unknown). At
+  /// Confirm a price already past the worst price the held approval
+  /// covers asks the bet's own prompt instead of queuing an order the
+  /// book would refuse: a game in play can move that far between the
+  /// amount and the tap.
+  final double? priceNow;
 }
 
 /// What the approval is asked for.
@@ -278,16 +289,19 @@ enum PrefundApprovalResult { approved, declined, unavailable }
 /// The step-up's answer: the grant and the prepared bet it binds, or why
 /// there is none ([PrefundApprovalResult.declined]: the person said no).
 class PrefundApproval {
-  const PrefundApproval.approved(AuthGrant this.grant, PendingBetIntent this.intent)
+  const PrefundApproval.approved(AuthGrant this.grant, PendingBetIntent this.intent,
+      {this.worstPrice})
       : result = PrefundApprovalResult.approved;
   const PrefundApproval.declined()
       : result = PrefundApprovalResult.declined,
         grant = null,
-        intent = null;
+        intent = null,
+        worstPrice = null;
   const PrefundApproval.unavailable()
       : result = PrefundApprovalResult.unavailable,
         grant = null,
-        intent = null;
+        intent = null,
+        worstPrice = null;
 
   final PrefundApprovalResult result;
   final AuthGrant? grant;
@@ -295,6 +309,10 @@ class PrefundApproval {
   /// The prepared bet (executable quote, fee terms) the grant binds, its
   /// `fundUsd` the approved funding cap.
   final PendingBetIntent? intent;
+
+  /// The worst price per share the grant covers (the autofire's own
+  /// bound, `polymarketFundedWorstPrice`), when known.
+  final double? worstPrice;
 }
 
 typedef PrefundApprove = Future<PrefundApproval> Function(
@@ -340,6 +358,7 @@ class _Arm {
     required this.selection,
     required this.maxStakeUsd,
     required this.fundingCapUsd,
+    this.worstPrice,
   });
 
   final AuthGrant grant;
@@ -347,6 +366,7 @@ class _Arm {
   final PrefundSelection selection;
   final double maxStakeUsd;
   final double fundingCapUsd;
+  final double? worstPrice;
 
   /// Moved under this approval so far.
   double fundedUsd = 0;
@@ -595,6 +615,15 @@ class BetPrefund {
     await _move(next, plan.fundUsd, s, ready);
   }
 
+  /// The price now is still one the held approval can buy at: past its
+  /// worst price the fresh book would refuse the order, so Confirm asks
+  /// the bet's own prompt at today's price instead.
+  static bool _priceCovered(_Arm arm, double? priceNow) {
+    final worst = arm.worstPrice;
+    if (worst == null || priceNow == null || !priceNow.isFinite) return true;
+    return priceNow <= worst + 1e-9;
+  }
+
   bool _withinCaps(_Arm arm, double amountUsd, double extraUsd) =>
       amountUsd <= arm.maxStakeUsd + 1e-9 &&
       arm.fundedUsd + extraUsd <= arm.fundingCapUsd + 1e-9;
@@ -607,6 +636,7 @@ class BetPrefund {
       selection: s.selection,
       maxStakeUsd: intent.amount,
       fundingCapUsd: capUsd,
+      worstPrice: approval.worstPrice,
     );
   }
 
@@ -680,7 +710,8 @@ class BetPrefund {
     var arm = _arm;
     final covered = arm != null &&
         armed &&
-        _withinCaps(arm, s.amountUsd, moves ? plan.fundUsd : 0);
+        _withinCaps(arm, s.amountUsd, moves ? plan.fundUsd : 0) &&
+        _priceCovered(arm, s.priceNow);
     if (!covered) {
       // Past what was approved (or the approval went) with money on its
       // way: the bet's own one prompt, covering only what still moves.
@@ -727,6 +758,7 @@ class BetPrefund {
       final started = _firstStartedAt ?? now;
       TrackingService.track('prediction_prefund_used', params: {
         'amount_usd': s.amountUsd,
+        if (s.kind != null) 'market_kind': s.kind!.name,
         'seconds_to_confirm':
             (now.difference(started).inMilliseconds / 1000).round(),
       });

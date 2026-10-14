@@ -601,13 +601,23 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   /// CLOB so the button can say why a live game's order takes a moment.
   final Map<String, int> _liveDelays = {};
 
+  /// When each market's delay was last asked for. A "no delay" answer (a
+  /// game not started yet, or a read that failed) is asked again after
+  /// [_kLiveDelayReread]: kept for the slip's life, a game that kicked off
+  /// while it was open was never seen as live, so it was never prefunded.
+  final Map<String, DateTime> _liveDelayReadAt = {};
+  static const Duration _kLiveDelayReread = Duration(seconds: 20);
+
   void _loadLiveDelay(String? conditionId) {
-    if (conditionId == null ||
-        conditionId.isEmpty ||
-        _liveDelays.containsKey(conditionId)) {
+    if (conditionId == null || conditionId.isEmpty) return;
+    final readAt = _liveDelayReadAt[conditionId];
+    if (readAt != null &&
+        ((_liveDelays[conditionId] ?? 0) > 0 ||
+            DateTime.now().difference(readAt) < _kLiveDelayReread)) {
       return;
     }
-    _liveDelays[conditionId] = 0;
+    _liveDelayReadAt[conditionId] = DateTime.now();
+    _liveDelays.putIfAbsent(conditionId, () => 0);
     unawaited(pmLiveOrderDelaySeconds(conditionId).then((seconds) {
       if (!mounted || seconds <= 0) return;
       _updateState(() => _liveDelays[conditionId] = seconds);
@@ -1018,6 +1028,9 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   void _maybeScheduleHold() {
     final prefund = _draft.prefund;
     if (!_ownsDraft || prefund == null || !mounted) return;
+    // The outcome picked now may be another market of the game (each
+    // team's own): its in-play delay is read here, not only at open.
+    _loadLiveDelay(widget.outcomes[_selectedIndex].conditionId);
     final key =
         (_selectedTokenId, _amount, _isLimitMode, _slippagePct, _prefundKind);
     if (key == _prefundKey) return;
@@ -1044,6 +1057,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         .contains(OneBalanceVenue.predictions);
     return PrefundSnapshot(
       kind: _prefundKind,
+      priceNow: _isLimitMode ? null : _slipIntent()?.expectedPrice,
       selection: PrefundSelection(
           tokenId: token ?? '',
           isLimit: _isLimitMode,
@@ -1120,7 +1134,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     }
     final armed = pending.copyWith(fundUsd: request.fundingCapUsd);
     _pendingNotifier.setIntent(armed);
-    return PrefundApproval.approved(grant, armed);
+    return PrefundApproval.approved(grant, armed,
+        worstPrice: polymarketFundedWorstPrice(armed));
   }
 
   /// A pre-funding move under the armed approval, through the shared
@@ -1164,6 +1179,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       auth: UserGrantAuthorization(grant),
       fundUsd: direct > 0 ? max(0.0, pulled!.dollarsNeededUsd) : fundUsd,
       entrySource: widget.source,
+      marketKind: _prefundKind?.name,
     );
     if (direct <= 0) return outcome;
     final legs = _directLegsMove(pulled!)!;
@@ -3420,6 +3436,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       auth: UserGrantAuthorization(grant),
       fundUsd: queueFundUsd ?? plan.fundUsd,
       entrySource: widget.source,
+      marketKind: _prefundKind?.name,
       onStage: (_) {
         if (mounted) _updateState(() {});
       },
@@ -5326,6 +5343,9 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           color: selectedColor,
           isBusy: true,
           busyLabel: label,
+          // The steps right under it name the step: the button only
+          // spins (a screen reader still hears the step).
+          busyLabelInSteps: true,
           enabled: false,
           onTap: () {},
           label: label,

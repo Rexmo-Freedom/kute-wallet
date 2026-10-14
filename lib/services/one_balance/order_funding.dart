@@ -443,6 +443,7 @@ class OrderFundingController {
     String purpose = 'order_funding',
     bool keepUnconfirmed = false,
     bool continueJourney = false,
+    String? marketKind,
   }) {
     final funder = _funderFor(venue);
     return _run(
@@ -458,6 +459,7 @@ class OrderFundingController {
       purpose: purpose,
       keepUnconfirmed: keepUnconfirmed,
       continueJourney: continueJourney,
+      marketKind: marketKind,
     );
   }
 
@@ -474,6 +476,7 @@ class OrderFundingController {
     required String purpose,
     bool keepUnconfirmed = false,
     bool continueJourney = false,
+    String? marketKind,
   }) async {
     final shortfall =
         ShortfallRules.shortfallUsd(requiredUsd: requiredUsd, readyUsd: readyUsd);
@@ -486,7 +489,8 @@ class OrderFundingController {
           fundUsd: fundUsd ?? 0,
           readyUsd: readyUsd,
           dollarsUsd: dollars,
-          entrySource: entrySource);
+          entrySource: entrySource,
+          marketKind: marketKind);
     }
 
     // Quote: the amount to move, from the venue's estimate unless the slip
@@ -623,6 +627,10 @@ class _FundingRun {
   /// `bitcoin` for an order funded from the person's own bitcoin.
   String? fundingSource;
 
+  /// `live` for a game in play, `short` for a 5- or 15-minute round
+  /// (`PrefundMarketKind`), so their funded orders read apart.
+  String? marketKind;
+
   /// The Bitcoin leg's sats left, and its dollars landed.
   DateTime? bitcoinSentAt;
   DateTime? bitcoinLandedAt;
@@ -661,12 +669,14 @@ class OrderFundingJourney {
     required double dollarsUsd,
     String? entrySource,
     String? fundingSource,
+    String? marketKind,
     Map<String, Object> extra = const {},
   }) {
     if (_runs.containsKey(venue)) abandoned(venue);
     _runs[venue] =
         _FundingRun(startedAt: clock(), orderUsd: orderUsd, fundUsd: fundUsd)
-          ..fundingSource = fundingSource;
+          ..fundingSource = fundingSource
+          ..marketKind = marketKind;
     TrackingService.track('order_funding_started', params: {
       'venue': orderFundingVenueCode(venue),
       'order_usd': orderUsd,
@@ -676,6 +686,7 @@ class OrderFundingJourney {
       'entry_source': entrySource ?? 'unknown',
       'wallet_kind': 'hot',
       if (fundingSource != null) 'funding_source': fundingSource,
+      if (marketKind != null) 'market_kind': marketKind,
       ...extra,
     });
   }
@@ -717,6 +728,7 @@ class OrderFundingJourney {
       'venue': orderFundingVenueCode(venue),
       'step': stage.name,
       if (run.fundingSource != null) 'funding_source': run.fundingSource!,
+      if (run.marketKind != null) 'market_kind': run.marketKind!,
     });
   }
 
@@ -781,6 +793,7 @@ class OrderFundingJourney {
       'duration_ms': now.difference(run.startedAt).inMilliseconds,
       'resized': resized,
       if (run.fundingSource != null) 'funding_source': run.fundingSource!,
+      if (run.marketKind != null) 'market_kind': run.marketKind!,
       ...bitcoinTimings(
         sentAt: run.bitcoinSentAt,
         landedAt: run.bitcoinLandedAt,
@@ -799,6 +812,7 @@ class OrderFundingJourney {
       'error_category': TrackingService.errorCategory(category),
       'duration_ms': clock().difference(run.startedAt).inMilliseconds,
       if (run.fundingSource != null) 'funding_source': run.fundingSource!,
+      if (run.marketKind != null) 'market_kind': run.marketKind!,
     });
   }
 
@@ -809,6 +823,7 @@ class OrderFundingJourney {
       'venue': orderFundingVenueCode(venue),
       'stage': (stage ?? run.stage).name,
       if (run.fundingSource != null) 'funding_source': run.fundingSource!,
+      if (run.marketKind != null) 'market_kind': run.marketKind!,
     });
   }
 

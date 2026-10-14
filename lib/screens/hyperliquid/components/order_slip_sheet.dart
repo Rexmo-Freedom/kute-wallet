@@ -4793,7 +4793,12 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                       ]
                     : null,
               ),
-              child: AppButton(
+              // The steps under the button name the step it is on: the
+              // busy button only spins, and a screen reader hears it.
+              child: Semantics(
+                label: bitcoinStep,
+                liveRegion: bitcoinStep != null,
+                child: AppButton(
                 text: primaryLabel,
                 onPressed: primaryAction,
                 isLoading: _ledgerBusy ||
@@ -4806,8 +4811,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                     ? context.l10n.loadingAccount
                     : _depositCalculating && primaryKind == 'deposit'
                         ? context.l10n.feeUiCalculating
-                        : bitcoinStep ??
-                            (_isPlacing &&
+                        : bitcoinStep != null
+                            ? null
+                            : (_isPlacing &&
                                     _fundingStage != null &&
                                     _fundingStage != OrderFundingStage.order
                                 // Phrased around the order, never as money
@@ -4821,6 +4827,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                     side: sideColor,
                     neutral: primaryNeutral),
                 fontWeight: FontWeight.w800,
+              ),
               ),
             ),
           ),

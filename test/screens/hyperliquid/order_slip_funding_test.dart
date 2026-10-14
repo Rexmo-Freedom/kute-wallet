@@ -487,6 +487,7 @@ void main() {
       await pumpAt(tester, FundedOrderStage.adding);
       final button = _button(tester);
       expect(button.text, r'Adding $6.00 to Investments');
+      expect(find.text(r'Adding $6.00 to Investments'), findsOneWidget);
       expect(button.isLoading, isTrue);
       expect(button.onPressed, isNull);
       expect(find.byType(SlipFundingSteps), findsOneWidget);
@@ -567,6 +568,15 @@ void main() {
       expect(button.text, 'Preparing your order');
       expect(button.isLoading, isTrue);
       expect(button.onPressed, isNull);
+      // Said once, in the steps: the busy button only spins, and a screen
+      // reader still hears the step on it.
+      expect(button.loadingLabel, isNull);
+      expect(find.text('Preparing your order'), findsOneWidget);
+      final said = tester.widget<Semantics>(find
+          .ancestor(of: find.byType(AppButton), matching: find.byType(Semantics))
+          .first);
+      expect(said.properties.label, 'Preparing your order');
+      expect(said.properties.liveRegion, isTrue);
       expect(find.byKey(const ValueKey('slip-funding-step-active-0')),
           findsOneWidget);
       expect(find.text(r'Opening $20.00 Long BTC'), findsOneWidget);

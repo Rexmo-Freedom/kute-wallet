@@ -32,6 +32,7 @@ PrefundSnapshot _slip({
   double dollars = 100,
   bool allowed = true,
   bool busy = false,
+  double? priceNow,
 }) =>
     PrefundSnapshot(
       kind: kind,
@@ -44,6 +45,7 @@ PrefundSnapshot _slip({
       dollarsUsd: dollars,
       allowed: allowed,
       busy: busy,
+      priceNow: priceNow,
     );
 
 /// The fakes behind one slip's pre-funding.
@@ -51,6 +53,7 @@ class _Rig {
   _Rig({
     this.answer = PrefundApprovalResult.approved,
     this.block,
+    this.worstPrice,
   }) {
     prefund = BetPrefund(
       approve: (r) async {
@@ -83,7 +86,8 @@ class _Rig {
                   outcomeName: 'Up',
                   expectedPrice: 0.5,
                   fundUsd: r.fundingCapUsd,
-                ));
+                ),
+                worstPrice: worstPrice);
         }
       },
       fund: (usd, grant, {required requiredUsd, required readyUsd}) async {
@@ -108,6 +112,7 @@ class _Rig {
   }
 
   late final BetPrefund prefund;
+  final double? worstPrice;
   PrefundApprovalResult answer;
   PredictionsFundingBlock? block;
   bool notNeeded = false;
@@ -270,6 +275,81 @@ void main() {
           .confirm(_slip(ready: 5 + arriving, balance: 5 + arriving));
       expect(result, isA<PrefundQueued>());
       expect(rig.requests, hasLength(1));
+    });
+  });
+
+  group('a game in play (founder, LASK Linz vs Liverpool)', () {
+    // A live game short of Predictions cash: the move starts at amount
+    // entry under the one approval, and Place hits the book at once.
+    PrefundSnapshot live({double ready = 0.8, double balance = 0.8,
+            double? priceNow}) =>
+        _slip(
+            kind: PrefundMarketKind.live,
+            amount: 3.33,
+            required: 3.4,
+            ready: ready,
+            balance: balance,
+            dollars: 12.66,
+            priceNow: priceNow);
+
+    test('the amount held: one approval and the move starts; Place queues '
+        'with no prompt and fires at once', () {
+      fakeAsync((async) {
+        final rig = _Rig(worstPrice: 0.88);
+        rig.prefund.scheduleHold(() => live(priceNow: 0.8));
+        async.elapse(const Duration(seconds: 1));
+        async.flushMicrotasks();
+        expect(rig.requests, hasLength(1));
+        expect(rig.requests.single.kind, PrefundMarketKind.live);
+        expect(rig.requests.single.atConfirm, isFalse);
+        expect(rig.funded, hasLength(1));
+        expect(rig.prefund.moving, isTrue);
+        // The money lands while the person is still on the ticket.
+        final landed = 0.8 + rig.prefund.moves.single.arrivingUsd;
+        rig.prefund.observeBalance(landed);
+        PrefundConfirm? result;
+        rig.prefund
+            .confirm(live(ready: landed, balance: landed, priceNow: 0.81))
+            .then((r) => result = r);
+        async.flushMicrotasks();
+        expect(result, isA<PrefundQueued>());
+        // No second prompt, no second move, nothing left to wait for.
+        expect(rig.requests, hasLength(1));
+        expect(rig.funded, hasLength(1));
+        final queued = (result! as PrefundQueued).intent;
+        expect(landed, greaterThanOrEqualTo(autofireFireAt(queued)));
+        expect(
+            events.firstWhere((e) => e.$1 == 'prediction_prefund_used').$2,
+            containsPair('market_kind', 'live'));
+      });
+    });
+
+    test('leaving without betting keeps the money in Predictions', () async {
+      final rig = _Rig();
+      await rig.prefund.holdFired(live);
+      final ref = rig.prefund.moves.single.ref;
+      rig.prefund.close();
+      expect(rig.funded, hasLength(1), reason: 'nothing moves back');
+      expect(rig.grants.single.revoked, isTrue);
+      final record = PredictionFundingLedger.instance.record(ref)!;
+      expect(record.stage, PredictionFundingStage.released);
+      expect(record.releaseReason, 'abandoned');
+    });
+
+    test('the game moved past the approved worst price: Place asks the '
+        'bet\'s own prompt at today\'s price, never a certain refusal',
+        () async {
+      final rig = _Rig(worstPrice: 0.88);
+      await rig.prefund.holdFired(() => live(priceNow: 0.8));
+      final landed = 0.8 + rig.prefund.moves.single.arrivingUsd;
+      rig.prefund.observeBalance(landed);
+      final result = await rig.prefund
+          .confirm(live(ready: landed, balance: landed, priceNow: 0.91));
+      expect(result, isA<PrefundQueued>());
+      expect(rig.requests, hasLength(2));
+      expect(rig.requests.last.atConfirm, isTrue);
+      // Nothing moves again: the money is already there.
+      expect(rig.funded, hasLength(1));
     });
   });
 

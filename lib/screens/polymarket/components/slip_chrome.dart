@@ -258,6 +258,7 @@ class PolySlipCta extends StatelessWidget {
     required this.onTap,
     required this.label,
     this.busyLabel,
+    this.busyLabelInSteps = false,
     this.neutral = false,
     this.band = true,
     this.bandOutcome,
@@ -295,6 +296,11 @@ class PolySlipCta extends StatelessWidget {
   /// Shown beside the spinner while [isBusy]. Defaults to the buy slip's
   /// "Placing order…".
   final String? busyLabel;
+
+  /// The step list under the button already names [busyLabel]: while
+  /// busy the button shows only its spinner (and band), never the same
+  /// words twice, and [busyLabel] is what a screen reader hears.
+  final bool busyLabelInSteps;
 
   @override
   Widget build(BuildContext context) {
@@ -361,7 +367,17 @@ class PolySlipCta extends StatelessWidget {
               state: isBusy,
               alignment: Alignment.center,
               animateSize: false,
-              child: isBusy
+              child: isBusy && busyLabelInSteps
+                  ? Semantics(
+                      key: const ValueKey('poly-slip-cta-busy-quiet'),
+                      label: busyLabel ?? context.l10n.betPlacingOrderEllipsis,
+                      liveRegion: true,
+                      child: LoadingAnimationWidget.staggeredDotsWave(
+                        color: fg,
+                        size: 22.sp,
+                      ),
+                    )
+                  : isBusy
                   ? Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
