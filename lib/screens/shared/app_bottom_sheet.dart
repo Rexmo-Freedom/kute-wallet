@@ -64,11 +64,17 @@ class AppBottomSheetContainer extends StatelessWidget {
   /// keyboard's.
   final bool followKeyboard;
 
+  /// Overrides the sheet surface colour (the receive sheet goes pure white
+  /// in light mode so the QR plate has no visible edge). Null: the theme's
+  /// sheet surface.
+  final Color? color;
+
   const AppBottomSheetContainer({
     super.key,
     required this.child,
     this.maxHeight,
     this.followKeyboard = false,
+    this.color,
   });
 
   @override
@@ -113,7 +119,9 @@ class AppBottomSheetContainer extends StatelessWidget {
       constraints: resolvedMaxHeight != null
           ? BoxConstraints(maxHeight: resolvedMaxHeight)
           : null,
-      decoration: AppDecorations.bottomSheet(context),
+      decoration: color == null
+          ? AppDecorations.bottomSheet(context)
+          : AppDecorations.bottomSheet(context).copyWith(color: color),
       // Following the keyboard: the inset as it is, every frame, with no
       // easing of its own (the platform's keyboard curve is the one lift).
       child: followKeyboard

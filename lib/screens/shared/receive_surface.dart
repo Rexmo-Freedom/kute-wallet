@@ -67,6 +67,10 @@ class ReceiveSheetFrame extends StatelessWidget {
     final visibleTitle = title;
     return AppBottomSheetContainer(
       maxHeight: kReceiveSheetMaxHeight,
+      // Pure white in light mode, the same white as the QR plate, so the
+      // plate has no visible edge on the sheet (founder decision). Dark
+      // mode keeps the theme's sheet surface.
+      color: context.isDark ? null : Colors.white,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
