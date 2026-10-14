@@ -513,6 +513,175 @@ void main() {
         isNull);
   });
 
+  group('the Move sheet carries the order (founder, 14 October 2026)', () {
+    // "open the btc sheet and then go back and start automatically the
+    // investment if user adds": the sheet's leg, the slip's chain, ONE
+    // approval.
+
+    /// The Move sheet's own send: the same hook check the settlement
+    /// runner makes before paying, against [quote].
+    ({BitcoinLegSend send, List<int> paid}) sheetLeg(
+        {VerifiedOrchestraQuote? quote}) {
+      final paid = <int>[];
+      Future<BitcoinLegTicket> send({
+        required String sparkAddress,
+        required BitcoinLegPlan plan,
+        required SettlementStepUpHook stepUp,
+        required void Function() onSending,
+      }) async {
+        final q = quote ?? _quote();
+        final ok = await stepUp(SettlementAuthorizationIntent(
+          flow: SettlementFlow.moveBtcToUsdc,
+          walletId: 'w',
+          destination: '${q.request.recipientAddress}|',
+          routeLabel: BitcoinLegGrants.route,
+          amountIn: q.amountIn,
+          minReceive: BigInt.zero,
+          maxFeeBps: 0,
+          reviewedQuote: q,
+        ));
+        if (!ok) throw const SettlementStopped(SettlementStopReason.declined);
+        onSending();
+        paid.add(q.amountIn.toInt());
+        return const BitcoinLegTicket(
+            quoteId: 'q_sheet', sats: 100000, estimatedOutUsd: 6, minOutUsd: 6);
+      }
+
+      return (send: send, paid: paid);
+    }
+
+    BitcoinFundedOrderRequest withSheetLeg(
+            BitcoinFundedOrderRequest r, BitcoinLegSend send) =>
+        BitcoinFundedOrderRequest(
+          venue: r.venue,
+          grant: r.grant,
+          plan: r.plan,
+          label: r.label,
+          fundUsd: r.fundUsd,
+          readyUsd: r.readyUsd,
+          entrySource: r.entrySource,
+          fundVenue: r.fundVenue,
+          dropOrder: r.dropOrder,
+          awaitPlacement: r.awaitPlacement,
+          sendLeg: send,
+          door: kMoveSheetDoor,
+        );
+
+    test(
+        "the sheet's leg is paid under the order's one grant, the runner's "
+        'own never runs; the steps, then the order', () async {
+      final env = _Env();
+      final c = containerFor(env);
+      final grant = _grant();
+      final leg = sheetLeg();
+      final stages = <FundedOrderStage>[];
+      c.listen<List<FundedOrderRecord>>(fundedOrdersProvider, (_, next) {
+        if (next.isEmpty) return;
+        final s = next.first.stage;
+        if (stages.isEmpty || stages.last != s) stages.add(s);
+      }, fireImmediately: true);
+      var approvals = 0;
+      final r = request(grant);
+      final run = await c.read(bitcoinFundedOrderRunnerProvider).startApproved(
+            approve: () async {
+              approvals++;
+              return grant;
+            },
+            build: (g) => withSheetLeg(r.request, leg.send),
+          );
+      expect(await run!.ended, BitcoinFundedEnd.placed);
+      expect(approvals, 1);
+      // The sheet's leg went, once, under the order's grant; the runner's
+      // own send was never asked.
+      expect(leg.paid, [100000]);
+      expect(env.sends, 0);
+      expect(BitcoinLegGrants.takenBy(grant), isTrue);
+      expect(funder.sent, [5.3]);
+      expect(r.calls, ['fund', 'await']);
+      expect(stages, [
+        FundedOrderStage.adding,
+        FundedOrderStage.preparing,
+        FundedOrderStage.placing,
+        FundedOrderStage.done,
+      ]);
+      expect(c.read(fundedOrdersProvider).single.btcRowIds, contains('q_sheet'));
+      // The same journey, tagged bitcoin, from the Move sheet's door.
+      final started =
+          events.where((e) => e.$1 == 'order_funding_started').single.$2!;
+      expect(started['funding_source'], 'bitcoin');
+      expect(started['door'], 'move_sheet');
+      expect(started['add_usd'], 5.1);
+    });
+
+    test(
+        'a sheet quote paying someone else, or past the approved sats, is '
+        'refused: nothing moves, no order', () async {
+      for (final quote in [
+        _quote(recipient: _foreignSpark),
+        _quote(sats: 130000),
+      ]) {
+        final env = _Env();
+        final c = containerFor(env);
+        final leg = sheetLeg(quote: quote);
+        final r = request(_grant());
+        final run = c
+            .read(bitcoinFundedOrderRunnerProvider)
+            .start(withSheetLeg(r.request, leg.send));
+        expect(await run.ended, BitcoinFundedEnd.notSent);
+        expect(leg.paid, isEmpty);
+        expect(env.sends, 0);
+        expect(funder.sent, isEmpty);
+        expect(r.calls, ['drop']);
+      }
+    });
+
+    test('Face ID declined on the sheet: nothing sent, nothing recorded',
+        () async {
+      final env = _Env();
+      final c = containerFor(env);
+      final leg = sheetLeg();
+      final run = await c.read(bitcoinFundedOrderRunnerProvider).startApproved(
+            approve: () async => null,
+            build: (g) => withSheetLeg(request(g).request, leg.send),
+          );
+      expect(run, isNull);
+      expect(leg.paid, isEmpty);
+      expect(env.sends, 0);
+      expect(funder.sent, isEmpty);
+      expect(c.read(fundedOrdersProvider), isEmpty);
+    });
+
+    test(
+        'an add too small for the order: no order, and the slip says the '
+        'money is in Investments', () {
+      final c = containerFor(_Env());
+      c.read(bitcoinFundedOrderRunnerProvider).readyWithoutOrder(_label, 3);
+      final ready = FundedOrdersNotifier.readyOn(c.read(fundedOrdersProvider),
+          OneBalanceVenue.predictions, 'tok', DateTime.now());
+      expect(ready, isNotNull);
+      expect(ready!.addUsd, 3);
+      expect(funder.sent, isEmpty);
+      expect(
+          FundedOrdersNotifier.activeOf(
+              c.read(fundedOrdersProvider), OneBalanceVenue.predictions),
+          isNull);
+    });
+
+    test('covers: X or more, to the cent', () {
+      final order = MoveSheetOrder(
+        venue: OneBalanceVenue.predictions,
+        addUsd: 3.70,
+        orderUsd: 1,
+        followOn: 'Then places \$1.00 on Yes',
+        start: (_) async => const MoveSheetOrderStart.declined(),
+      );
+      expect(order.coveredBy(3.70), isTrue);
+      expect(order.coveredBy(10), isTrue);
+      expect(order.coveredBy(3.69), isFalse);
+      expect(order.coveredBy(double.nan), isFalse);
+    });
+  });
+
   group('DollarsLandingWatcher', () {
     test('the status says delivered first: landed once the fresh balance '
         'shows it, the sync kicked and never awaited', () {

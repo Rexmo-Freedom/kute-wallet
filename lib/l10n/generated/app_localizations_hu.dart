@@ -10784,6 +10784,16 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
+  String moveSheetThenPlacesBet(String amount, String side) {
+    return 'Utána $amount feltétele erre: $side';
+  }
+
+  @override
+  String moveSheetThenOpensOrder(String amount, String side, String market) {
+    return 'Utána $amount $side $market nyitása';
+  }
+
+  @override
   String get slipStepTakingLonger => 'A szokásosnál tovább tart';
 
   @override

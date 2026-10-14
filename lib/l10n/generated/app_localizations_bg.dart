@@ -10778,6 +10778,16 @@ class AppLocalizationsBg extends AppLocalizations {
   }
 
   @override
+  String moveSheetThenPlacesBet(String amount, String side) {
+    return 'След това залага $amount за $side';
+  }
+
+  @override
+  String moveSheetThenOpensOrder(String amount, String side, String market) {
+    return 'След това отваря $amount $side $market';
+  }
+
+  @override
   String get slipStepTakingLonger => 'Отнема повече време от обикновено';
 
   @override

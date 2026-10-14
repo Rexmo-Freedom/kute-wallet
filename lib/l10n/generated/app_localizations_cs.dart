@@ -10750,6 +10750,16 @@ class AppLocalizationsCs extends AppLocalizations {
   }
 
   @override
+  String moveSheetThenPlacesBet(String amount, String side) {
+    return 'Poté vsadí $amount na $side';
+  }
+
+  @override
+  String moveSheetThenOpensOrder(String amount, String side, String market) {
+    return 'Poté otevře $amount $side $market';
+  }
+
+  @override
   String get slipStepTakingLonger => 'Trvá to déle než obvykle';
 
   @override

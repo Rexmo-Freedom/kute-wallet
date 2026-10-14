@@ -10764,6 +10764,16 @@ class AppLocalizationsSk extends AppLocalizations {
   }
 
   @override
+  String moveSheetThenPlacesBet(String amount, String side) {
+    return 'Potom vsadí $amount na $side';
+  }
+
+  @override
+  String moveSheetThenOpensOrder(String amount, String side, String market) {
+    return 'Potom otvorí $amount $side $market';
+  }
+
+  @override
   String get slipStepTakingLonger => 'Trvá to dlhšie ako zvyčajne';
 
   @override

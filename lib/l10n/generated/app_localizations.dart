@@ -18199,6 +18199,18 @@ abstract class AppLocalizations {
   /// **'Opening {amount} {side} {market}'**
   String slipStepOpeningOrder(String amount, String side, String market);
 
+  /// One line on the Bitcoin to Investments Move sheet opened from a prediction slip with nothing typed: once the add lands, the slip places this bet by itself (one approval covers both). {amount} is the stake, {side} the outcome (Yes, No, a team).
+  ///
+  /// In en, this message translates to:
+  /// **'Then places {amount} on {side}'**
+  String moveSheetThenPlacesBet(String amount, String side);
+
+  /// One line on the Bitcoin to Investments Move sheet opened from an Investing order slip with nothing typed: once the add lands, the slip opens this order by itself (one approval covers both). {amount} is the margin, {side} Long/Short/Buy, {market} the market's short name (e.g. Then opens $5 Long BTC).
+  ///
+  /// In en, this message translates to:
+  /// **'Then opens {amount} {side} {market}'**
+  String moveSheetThenOpensOrder(String amount, String side, String market);
+
   /// Small line under the funding steps when adding to Investments has taken more than two minutes. The money is safe; nothing to do.
   ///
   /// In en, this message translates to:

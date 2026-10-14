@@ -10771,6 +10771,16 @@ class AppLocalizationsFi extends AppLocalizations {
   }
 
   @override
+  String moveSheetThenPlacesBet(String amount, String side) {
+    return 'Sitten asettaa $amount vaihtoehdolle $side';
+  }
+
+  @override
+  String moveSheetThenOpensOrder(String amount, String side, String market) {
+    return 'Sitten avaa $amount $side $market';
+  }
+
+  @override
   String get slipStepTakingLonger => 'Kestää tavallista kauemmin';
 
   @override

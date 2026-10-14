@@ -3015,6 +3015,8 @@
   "slipStepPreparingOrder": "Préparation de votre ordre",
   "slipStepPlacingBet": "Mise de {amount} sur {side}",
   "slipStepOpeningOrder": "Ouverture de {amount} {side} {market}",
+  "moveSheetThenPlacesBet": "Puis mise {amount} sur {side}",
+  "moveSheetThenOpensOrder": "Puis ouvre {amount} {side} {market}",
   "slipStepTakingLonger": "Cela prend plus de temps que d'habitude",
   "slipFundingReadyToPlace": "Vos {amount} sont dans Investments. Touchez pour placer.",
   "slipFundingBitcoinBack": "L'ajout à Investments n'a pas abouti. Vos bitcoins vous reviennent.",

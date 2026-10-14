@@ -3015,6 +3015,8 @@
   "slipStepPreparingOrder": "Pripremamo tvoj nalog",
   "slipStepPlacingBet": "Ulaganje {amount} na {side}",
   "slipStepOpeningOrder": "Otvaranje {amount} {side} {market}",
+  "moveSheetThenPlacesBet": "Zatim ulaže {amount} na {side}",
+  "moveSheetThenOpensOrder": "Zatim otvara {amount} {side} {market}",
   "slipStepTakingLonger": "Traje dulje nego inače",
   "slipFundingReadyToPlace": "Tvojih {amount} je u Investments. Dodirni za postavljanje.",
   "slipFundingBitcoinBack": "Dodavanje u Investments nije uspjelo. Tvoj bitcoin se vraća.",

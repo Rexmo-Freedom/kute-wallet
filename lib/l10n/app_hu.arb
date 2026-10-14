@@ -3015,6 +3015,8 @@
   "slipStepPreparingOrder": "Előkészítjük a megbízásodat",
   "slipStepPlacingBet": "{amount} feltétele erre: {side}",
   "slipStepOpeningOrder": "{amount} {side} {market} nyitása",
+  "moveSheetThenPlacesBet": "Utána {amount} feltétele erre: {side}",
+  "moveSheetThenOpensOrder": "Utána {amount} {side} {market} nyitása",
   "slipStepTakingLonger": "A szokásosnál tovább tart",
   "slipFundingReadyToPlace": "A(z) {amount} az Investmentsben van. Koppints a megadáshoz.",
   "slipFundingBitcoinBack": "Az Investmentshez adás nem sikerült. A bitcoinod visszaérkezik.",

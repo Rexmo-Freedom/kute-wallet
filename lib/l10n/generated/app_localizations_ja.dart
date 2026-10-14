@@ -10338,6 +10338,16 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String moveSheetThenPlacesBet(String amount, String side) {
+    return '続けて$sideに$amountを予測';
+  }
+
+  @override
+  String moveSheetThenOpensOrder(String amount, String side, String market) {
+    return '続けて$amountの$market $sideを開始';
+  }
+
+  @override
   String get slipStepTakingLonger => '通常より時間がかかっています';
 
   @override

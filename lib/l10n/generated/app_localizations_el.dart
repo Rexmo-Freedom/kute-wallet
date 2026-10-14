@@ -10837,6 +10837,16 @@ class AppLocalizationsEl extends AppLocalizations {
   }
 
   @override
+  String moveSheetThenPlacesBet(String amount, String side) {
+    return 'Μετά τοποθετεί $amount στο $side';
+  }
+
+  @override
+  String moveSheetThenOpensOrder(String amount, String side, String market) {
+    return 'Μετά ανοίγει $amount $side $market';
+  }
+
+  @override
   String get slipStepTakingLonger => 'Αργεί περισσότερο από το συνηθισμένο';
 
   @override

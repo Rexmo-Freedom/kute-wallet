@@ -3015,6 +3015,8 @@
   "slipStepPreparingOrder": "Pripravujeme tvoj príkaz",
   "slipStepPlacingBet": "Stávka {amount} na {side}",
   "slipStepOpeningOrder": "Otvárame {amount} {side} {market}",
+  "moveSheetThenPlacesBet": "Potom vsadí {amount} na {side}",
+  "moveSheetThenOpensOrder": "Potom otvorí {amount} {side} {market}",
   "slipStepTakingLonger": "Trvá to dlhšie ako zvyčajne",
   "slipFundingReadyToPlace": "Tvojich {amount} je v Investments. Ťuknutím zadáš.",
   "slipFundingBitcoinBack": "Pridanie do Investments sa nepodarilo. Tvoj bitcoin sa vracia.",

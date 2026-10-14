@@ -10808,6 +10808,16 @@ class AppLocalizationsIt extends AppLocalizations {
   }
 
   @override
+  String moveSheetThenPlacesBet(String amount, String side) {
+    return 'Poi punta $amount su $side';
+  }
+
+  @override
+  String moveSheetThenOpensOrder(String amount, String side, String market) {
+    return 'Poi apre $amount $side $market';
+  }
+
+  @override
   String get slipStepTakingLonger => 'Ci vuole più del solito';
 
   @override

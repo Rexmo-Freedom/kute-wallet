@@ -144,7 +144,14 @@ import 'package:kute/services/one_balance/venue_cash_source.dart'
 import 'package:kute/services/one_balance/investments_spendable.dart'
     show investmentsSpendableProvider, venueCashRefreshProvider;
 import 'package:kute/services/one_balance/bitcoin_to_dollars_leg.dart'
-    show BitcoinToDollarsLeg;
+    show BitcoinLegPlan, BitcoinLegSent, BitcoinToDollarsLeg;
+import 'package:kute/services/one_balance/bitcoin_funded_order.dart'
+    show
+        BitcoinFundedEnd,
+        BitcoinLegTicket,
+        MoveSheetLeg,
+        MoveSheetOrder,
+        MoveSheetOrderStatus;
 import 'package:kute/services/one_balance/multi_source_move.dart'
     show MultiSourceMoveStore, trackMultiSourceMoveRetry;
 import 'package:kute/screens/shared/venue_cash_pull_copy.dart';
@@ -420,6 +427,13 @@ Future<void> showDepositSheet(
   /// Cash App purchase paid), after the sheet closed. A slip that opened
   /// the sheet to top up uses it to know the person is back on it.
   VoidCallback? onCompleted,
+
+  /// The order a slip attaches to the spending wallet's Bitcoin → Dollars
+  /// door ([MoveLockedSide.depositToUsd]) it opened with nothing typed: an
+  /// add that covers it hands the leg to the slip, which places the order
+  /// under the sheet's one approval ([MoveSheetOrder]). Ignored anywhere
+  /// else.
+  MoveSheetOrder? attachedOrder,
 }) async {
   // New money into a Ledger's own Predictions or Investing account answers
   // to Ledger Predictions / Ledger Investing first, whichever door opened
@@ -458,6 +472,10 @@ Future<void> showDepositSheet(
         initialTargetUsd: initialTargetUsd,
         cashAppSource: cashAppSource,
         onCompleted: onCompleted,
+        attachedOrder: side == MoveLockedSide.depositToUsd &&
+                (ledgerWalletId ?? venueWalletId) == null
+            ? attachedOrder
+            : null,
       ),
     ),
   );
@@ -516,6 +534,9 @@ class DepositSheet extends ConsumerStatefulWidget {
   /// See [showDepositSheet].
   final VoidCallback? onCompleted;
 
+  /// See [showDepositSheet].
+  final MoveSheetOrder? attachedOrder;
+
   const DepositSheet({
     super.key,
     this.initialSourceAsset,
@@ -526,6 +547,7 @@ class DepositSheet extends ConsumerStatefulWidget {
     this.initialTargetUsd,
     this.cashAppSource = false,
     this.onCompleted,
+    this.attachedOrder,
   });
 
   @override
@@ -1060,8 +1082,21 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       'funding_source': fundingSource,
       if (sourceKind != null) 'wallet_kind': sourceKind,
       if (destKind != null) 'dest_wallet_kind': destKind,
+      // The slip's order this add was opened for, exact.
+      ...TrackingService.exactUsd(
+          'attached_order_usd', widget.attachedOrder?.orderUsd),
     };
   }
+
+  /// The slip's order attached to this door ([showDepositSheet]), while
+  /// the move is the spending wallet's bitcoin into Dollars.
+  MoveSheetOrder? get _attachedOrder => _destUsd &&
+          _fromBtc &&
+          _sourceWalletId == null &&
+          !_isFiatMode &&
+          !_isLedgerMove
+      ? widget.attachedOrder
+      : null;
 
   /// Route plus what the user has entered so far (exact amounts).
   Map<String, Object> _moveFlowInputs() {
@@ -3467,6 +3502,8 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       'amount_bucket': TrackingService.usdBucket(approxUsd),
       ...TrackingService.exactUsd('amount_usd', approxUsd),
       'provider': 'orchestra',
+      ...TrackingService.exactUsd(
+          'attached_order_usd', _attachedOrder?.orderUsd),
     });
     _trackMoveSubmitted();
     TrackingService.swapInitiated(
@@ -3498,6 +3535,27 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       ConvTiming.mark('_dispatchBtcToUsd sparkSelfAddressProvider read start');
       final sparkAddress = await ref.read(sparkSelfAddressProvider.future);
       ConvTiming.mark('_dispatchBtcToUsd sparkSelfAddressProvider read end');
+      // The slip's order rides on this add when the add covers it: the
+      // leg goes to the slip's chain under the order's ONE approval, and
+      // the person is back on the slip, which places the order once the
+      // dollars land. Smaller, it is this sheet's own move below.
+      final order = _attachedOrder;
+      final targetUsd = !drain ? _typedAmountValue : null;
+      if (order != null && order.coveredBy(targetUsd ?? approxUsd)) {
+        final forOrder = await _sendForOrder(order,
+            sats: sats,
+            drain: drain,
+            approxUsd: approxUsd,
+            usdPerBtc: usdPerBtcTap,
+            targetUsd: targetUsd,
+            markSent: () => btcSent = true);
+        if (forOrder != null) {
+          if (!mounted) return;
+          Navigator.of(context).pop();
+          _trackMoveCompleted();
+          return;
+        }
+      }
       // 2. The shared Bitcoin → Dollars leg (the slips run the same one
       // under an order's approval): quote, this sheet's own approval,
       // the sats to the quote's deposit address, the Activity row, the
@@ -3537,6 +3595,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       final settled = sent.settled;
       sats = sent.sats;
       final estOut = sent.estimatedOutUsd;
+      // Too little for the slip's order: nothing is placed, the slip says
+      // the money is in Investments.
+      if (order != null) order.addedOnly?.call(estOut);
 
       if (!mounted) {
         return;
@@ -3586,6 +3647,130 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         _error = message;
       });
     }
+  }
+
+  /// An add that covers the slip's [order]: this sheet's Bitcoin leg (its
+  /// own quote for the typed figure, [BitcoinToDollarsLeg.send]) goes to
+  /// the slip, which validates the order and asks the ONE approval that
+  /// binds the order and this leg (`BitcoinLegGrants.limit`: at most the
+  /// sats below, to the wallet's own Spark address). The leg is then paid
+  /// under that approval only (`BitcoinLegGrants.stepUp`); this sheet asks
+  /// nothing of its own. Returns what the leg sent once its bitcoin left,
+  /// or null when the order no longer fits this add (this sheet's own move
+  /// goes instead). Throws a declined stop when the approval was declined
+  /// (nothing moved), the order's refusal, or the leg's own error.
+  Future<BitcoinLegSent?> _sendForOrder(
+    MoveSheetOrder order, {
+    required int sats,
+    required bool drain,
+    required double approxUsd,
+    required double usdPerBtc,
+    required double? targetUsd,
+    required void Function() markSent,
+  }) async {
+    final appRead = _appReader;
+    // The most sats the approval lets leave: the typed figure's own
+    // gross-up room (two scalings at most, `grossUpSatsForTarget`), never
+    // above the wallet. A drain sends exactly what it resolved.
+    final wallet = _maxConvertibleSatsOf(_liveAvailableSats);
+    final room = drain
+        ? sats
+        : (sats * kArrivalTargetMaxScale * kArrivalTargetMaxScale).ceil();
+    final maxSats = math.max(sats, math.min(room, wallet));
+    final plan = BitcoinLegPlan(
+      dollarsShortUsd: order.addUsd,
+      targetUsd: targetUsd ?? approxUsd,
+      sats: sats,
+      maxSats: maxSats,
+      usdPerBtc: usdPerBtc,
+    );
+    BitcoinLegSent? sent;
+    Object? legError;
+    final legDone = Completer<void>();
+    final start = await order.start(MoveSheetLeg(
+      plan: plan,
+      send: ({
+        required String sparkAddress,
+        required BitcoinLegPlan plan,
+        required SettlementStepUpHook stepUp,
+        required void Function() onSending,
+      }) async {
+        try {
+          if (!mounted) throw StateError('The Move sheet closed.');
+          final s = await BitcoinToDollarsLeg.send(
+            ref.read,
+            appRead: appRead,
+            sparkAddress: sparkAddress,
+            approxUsd: approxUsd,
+            usdPerBtc: usdPerBtc,
+            // The order's approval, never a prompt of this sheet's.
+            stepUp: stepUp,
+            requestQuote: (key) async {
+              final (_, fetched) = await _quoteWithArrivalTarget(
+                sats: sats,
+                targetUsd: targetUsd,
+                destinationChain: kOrchestraUsdChain,
+                destinationAsset: kOrchestraUsdAssetCode,
+                recipient: sparkAddress,
+                recipientKind: RecipientKind.ownSpark,
+                refundAddress: sparkAddress,
+                flow: 'move_buy_dollars',
+                idempotencyKey: key,
+              );
+              return fetched;
+            },
+            onSending: () {
+              markSent();
+              onSending();
+            },
+          );
+          sent = s;
+          return BitcoinLegTicket(
+            quoteId: s.quoteId,
+            orderId: s.orderId,
+            registration: s.registration,
+            sats: s.sats,
+            estimatedOutUsd: s.estimatedOutUsd,
+            minOutUsd: s.minOutUsd,
+          );
+        } catch (e) {
+          legError = e;
+          rethrow;
+        } finally {
+          if (!legDone.isCompleted) legDone.complete();
+        }
+      },
+    ));
+    switch (start.status) {
+      case MoveSheetOrderStatus.notCovered:
+        return null;
+      case MoveSheetOrderStatus.declined:
+        throw const SettlementStopped(SettlementStopReason.declined);
+      case MoveSheetOrderStatus.refused:
+        throw LocalizedError(
+            start.message ?? (mounted ? context.l10n.moveFailure : ''),
+            english: 'The order could not be placed.');
+      case MoveSheetOrderStatus.started:
+        break;
+    }
+    // The bitcoin leaves (or the chain stopped before it could).
+    BitcoinFundedEnd? ended;
+    await Future.any<void>([
+      legDone.future,
+      start.run!.ended.then((end) => ended = end),
+    ]);
+    final done = sent;
+    if (done != null) return done;
+    final error = legError;
+    // A leg the approval did not cover is a failure, never a quiet
+    // decline: the person did approve.
+    if (error != null &&
+        !(error is SettlementStopped &&
+            error.reason == SettlementStopReason.declined)) {
+      throw error;
+    }
+    throw StateError('The add stopped before the bitcoin left '
+        '(${ended?.name ?? 'refused'}).');
   }
 
   /// Dollar base units for [usd]. Six decimals, rounded to the cent by
@@ -6773,6 +6958,26 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
                               _error!,
                               style: TextStyle(
                                 color: AppColors.marketDown,
+                                fontSize: 12.sp,
+                                fontWeight: FontWeight.w500,
+                                height: 1.35,
+                              ),
+                            ),
+                          ),
+                        // The slip's order this add carries on to, on the
+                        // same quiet line: "Then places $5 on Yes". Only
+                        // while the amount covers it; a smaller add is
+                        // the move alone.
+                        if (_error == null &&
+                            (_attachedOrder?.coveredBy(_typedAmountValue) ??
+                                false))
+                          Padding(
+                            padding: EdgeInsets.only(top: 10.h),
+                            child: Text(
+                              _attachedOrder!.followOn,
+                              key: const ValueKey('move-sheet-follow-on'),
+                              style: TextStyle(
+                                color: c.textSecondary,
                                 fontSize: 12.sp,
                                 fontWeight: FontWeight.w500,
                                 height: 1.35,

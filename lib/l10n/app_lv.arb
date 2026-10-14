@@ -3015,6 +3015,8 @@
   "slipStepPreparingOrder": "Gatavojam tavu rīkojumu",
   "slipStepPlacingBet": "Liek {amount} uz {side}",
   "slipStepOpeningOrder": "Atver {amount} {side} {market}",
+  "moveSheetThenPlacesBet": "Pēc tam liek {amount} uz {side}",
+  "moveSheetThenOpensOrder": "Pēc tam atver {amount} {side} {market}",
   "slipStepTakingLonger": "Aizņem ilgāk nekā parasti",
   "slipFundingReadyToPlace": "Tavi {amount} ir kontā Investments. Pieskaries, lai iesniegtu.",
   "slipFundingBitcoinBack": "Pievienošana kontam Investments neizdevās. Tavs bitcoin atgriežas.",

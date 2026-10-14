@@ -10802,6 +10802,16 @@ class AppLocalizationsLt extends AppLocalizations {
   }
 
   @override
+  String moveSheetThenPlacesBet(String amount, String side) {
+    return 'Tada statys $amount už $side';
+  }
+
+  @override
+  String moveSheetThenOpensOrder(String amount, String side, String market) {
+    return 'Tada atidarys $amount $side $market';
+  }
+
+  @override
   String get slipStepTakingLonger => 'Užtrunka ilgiau nei įprastai';
 
   @override

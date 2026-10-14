@@ -3015,6 +3015,8 @@
   "slipStepPreparingOrder": "Gör din order klar",
   "slipStepPlacingBet": "Lägger {amount} på {side}",
   "slipStepOpeningOrder": "Öppnar {amount} {side} {market}",
+  "moveSheetThenPlacesBet": "Lägger sedan {amount} på {side}",
+  "moveSheetThenOpensOrder": "Öppnar sedan {amount} {side} {market}",
   "slipStepTakingLonger": "Det tar längre tid än vanligt",
   "slipFundingReadyToPlace": "Dina {amount} finns i Investments. Tryck för att lägga.",
   "slipFundingBitcoinBack": "Det gick inte att lägga till i Investments. Din bitcoin kommer tillbaka.",
