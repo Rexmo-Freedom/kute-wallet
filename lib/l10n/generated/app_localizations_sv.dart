@@ -6475,6 +6475,34 @@ class AppLocalizationsSv extends AppLocalizations {
   String get portfolioTabStatistics => 'Statistik';
 
   @override
+  String get portfolioBalanceDollars => 'Dollar';
+
+  @override
+  String get portfolioRebalance => 'Balansera om';
+
+  @override
+  String get portfolioRebalanceMoving => 'Flyttas till USDB…';
+
+  @override
+  String get portfolioRebalanceMovingMinutes =>
+      'Flyttas till USDB… tar några minuter';
+
+  @override
+  String get portfolioRebalanceHeldOrders => 'Hålls av öppna order';
+
+  @override
+  String get portfolioRebalanceHeldMargin =>
+      'Behålls som marginal för öppna positioner';
+
+  @override
+  String get portfolioRebalanceBelowMinimum =>
+      'Under minimibeloppet för att flytta';
+
+  @override
+  String get portfolioRebalanceNotNow =>
+      'Kunde inte flyttas nu, försöker igen automatiskt';
+
+  @override
   String get sendMoreThanAvailable => 'Det är mer än du har tillgängligt.';
 
   @override

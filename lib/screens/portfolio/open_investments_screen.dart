@@ -16,14 +16,17 @@
 //   * THE PORTFOLIO ([OpenInvestmentsScreen]), full screen, opened from
 //     the Investments balance (and Home's Predictions card, a venue
 //     browser's dock, a link to the old Activity or Statistics tab): the
-//     app bar with its back over one scrolling page — the one P&L chart
-//     with its All · Investing · Predictions toggle, the Active |
-//     Historic pair over one allocation donut by category with both
-//     venues merged, the figures for the pair
-//     (PortfolioStatisticsOverview), then the Activity, the one merged
-//     list (portfolio_activity.dart). No balance header and no deposit or
-//     withdrawal buttons. Never traded and nothing in the Activity: the
-//     one Sal empty state.
+//     app bar with its back over one scrolling page — the balance
+//     breakdown with its Rebalance (portfolio_balance_breakdown.dart:
+//     Dollars, Investing and Predictions cash), the one P&L chart with its
+//     All · Investing · Predictions toggle, the Active | Historic pair
+//     over one allocation donut by category with both venues merged, the
+//     figures for the pair (PortfolioStatisticsOverview), then Positions
+//     (the Positions pill's rows, when anything is held or resting), then
+//     the Activity, the one merged list (portfolio_activity.dart). No
+//     balance header and no deposit or withdrawal buttons. Never traded
+//     and nothing in the Activity: the breakdown over the one Sal empty
+//     state.
 //
 // The Portfolio's old Open / Orders / Activity / Statistics tabs are
 // gone: Open and Orders are Positions, Activity and Statistics the
@@ -75,6 +78,7 @@ import 'package:kute/screens/polymarket/components/position_detail_sheet.dart';
 import 'package:kute/screens/portfolio/poly_position_events.dart'
     show polyPortfolioEventsPrefetchProvider;
 import 'package:kute/screens/portfolio/portfolio_activity.dart';
+import 'package:kute/screens/portfolio/portfolio_balance_breakdown.dart';
 import 'package:kute/screens/portfolio/portfolio_empty_state.dart';
 import 'package:kute/screens/portfolio/portfolio_filters.dart';
 import 'package:kute/screens/portfolio/portfolio_orders.dart';
@@ -116,7 +120,8 @@ class _OpenInvestmentsScreenState extends ConsumerState<OpenInvestmentsScreen> {
   void initState() {
     super.initState();
     // Once per mount.
-    TrackingService.track('portfolio_opened', params: {'source': widget.source});
+    TrackingService.track('portfolio_opened',
+        params: {'source': widget.source});
   }
 
   @override
@@ -165,6 +170,8 @@ class _PortfolioPage extends ConsumerWidget {
     final venues = ref.watch(portfolioVenuesProvider);
     final activity = watchPortfolioActivity(ref);
     final footer = <Widget>[
+      // What is held now, the Positions pill's rows, above the Activity.
+      ...portfolioPositionsSlivers(context, ref, venues),
       if (activity.entries.isNotEmpty || activity.failed) ...[
         SliverPadding(
           padding: EdgeInsets.symmetric(horizontal: 16.w),
@@ -195,6 +202,9 @@ class _PortfolioPage extends ConsumerWidget {
       key: const ValueKey('statistics-overview'),
       trading: venues.trading,
       predictions: venues.predictions,
+      // The balance's cash, part by part, with Rebalance, above the chart.
+      header: PortfolioBalanceBreakdown(
+          trading: venues.trading, predictions: venues.predictions),
       footer: footer,
       footerEmpty: footer.isEmpty,
     );
@@ -215,7 +225,55 @@ class PortfolioPositions extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     final venues = ref.watch(portfolioVenuesProvider);
+    final book = _PositionsBook.watch(context, ref, venues);
+    final orders = book.orders;
 
+    if (book.held.isEmpty &&
+        !book.loading &&
+        !book.tradingFailed &&
+        orders.isEmpty) {
+      if (orders.loading) return const PortfolioOrdersSkeleton();
+      return PortfolioEmptyState(l10n.ledgerNoPositionsYet);
+    }
+
+    return ListView(
+      padding: EdgeInsets.fromLTRB(
+          16.w, 4.h, 16.w, 32.h + kuteDockScrollClearance(context)),
+      children: [
+        ...book.held,
+        if (book.loading) const _LoadingCard(),
+        if (book.tradingFailed) _QuietLine(l10n.openInvestPositionsUnavailable),
+        ...book.orderItems(context, ref),
+      ],
+    );
+  }
+}
+
+/// Everything Positions lists, in its order: wins to claim and bets on
+/// their way lead, then every open position at both venues together,
+/// largest first (ties keep their venue order) ([held]); then the resting
+/// orders under their Orders heading ([orderItems]). Shared by the
+/// Positions pill and the Portfolio's Positions section, so both list the
+/// same rows with the same taps.
+class _PositionsBook {
+  const _PositionsBook({
+    required this.held,
+    required this.loading,
+    required this.tradingFailed,
+    required this.orders,
+  });
+
+  final List<Widget> held;
+
+  /// A venue still reading with nothing listed yet.
+  final bool loading;
+
+  /// The Investing read failed with nothing listed.
+  final bool tradingFailed;
+  final PortfolioOrdersBook orders;
+
+  static _PositionsBook watch(
+      BuildContext context, WidgetRef ref, PortfolioVenues venues) {
     var trading = const <(double, Widget)>[];
     var tradingLoading = false;
     var tradingFailed = false;
@@ -230,8 +288,6 @@ class PortfolioPositions extends ConsumerWidget {
         book.isEmpty &&
         ref.watch(polymarketTradingProvider).isLoading;
 
-    // Wins to claim and bets on their way lead; then every open position,
-    // both venues together, largest first (ties keep their venue order).
     final leading = book?.leading(context, ref) ?? const <Widget>[];
     final open = [...trading, ...?book?.openCards()];
     final ranked = [for (var i = 0; i < open.length; i++) (i, open[i])]
@@ -239,33 +295,51 @@ class PortfolioPositions extends ConsumerWidget {
         final byValue = b.$2.$1.compareTo(a.$2.$1);
         return byValue != 0 ? byValue : a.$1.compareTo(b.$1);
       });
-    final orders = PortfolioOrdersBook.watch(ref, venues);
-    final loading = tradingLoading || predictionsLoading;
-
-    if (leading.isEmpty &&
-        open.isEmpty &&
-        !loading &&
-        !tradingFailed &&
-        orders.isEmpty) {
-      if (orders.loading) return const PortfolioOrdersSkeleton();
-      return PortfolioEmptyState(l10n.ledgerNoPositionsYet);
-    }
-
-    return ListView(
-      padding: EdgeInsets.fromLTRB(
-          16.w, 4.h, 16.w, 32.h + kuteDockScrollClearance(context)),
-      children: [
-        ...leading,
-        for (final (_, (_, card)) in ranked) card,
-        if (loading) const _LoadingCard(),
-        if (tradingFailed) _QuietLine(l10n.openInvestPositionsUnavailable),
-        ...orders.items(context, ref,
-            header: (trailing) => _SectionHeader(l10n.portfolioTabOrders,
-                key: const ValueKey('portfolio-orders-heading'),
-                trailing: trailing)),
-      ],
+    return _PositionsBook(
+      held: [...leading, for (final (_, (_, card)) in ranked) card],
+      loading: tradingLoading || predictionsLoading,
+      tradingFailed: tradingFailed,
+      orders: PortfolioOrdersBook.watch(ref, venues),
     );
   }
+
+  /// Nothing held and nothing resting.
+  bool get isEmpty => held.isEmpty && orders.isEmpty;
+
+  /// The resting orders under their heading, with the count and one
+  /// Cancel all (portfolio_orders.dart).
+  List<Widget> orderItems(BuildContext context, WidgetRef ref) =>
+      orders.items(context, ref,
+          header: (trailing) => _SectionHeader(context.l10n.portfolioTabOrders,
+              key: const ValueKey('portfolio-orders-heading'),
+              trailing: trailing));
+}
+
+/// The Portfolio's Positions section, above its Activity (founder
+/// request, October 2026): the Positions pill's rows, the same cards and
+/// order rows with the same taps and sheets, under a Positions heading in
+/// the Activity heading's style. Nothing held and nothing resting (or
+/// still reading): no section at all.
+List<Widget> portfolioPositionsSlivers(
+    BuildContext context, WidgetRef ref, PortfolioVenues venues) {
+  if (!venues.any) return const [];
+  final book = _PositionsBook.watch(context, ref, venues);
+  if (book.isEmpty) return const [];
+  return [
+    SliverPadding(
+      padding: EdgeInsets.symmetric(horizontal: 16.w),
+      sliver: SliverList(
+        delegate: SliverChildListDelegate([
+          if (book.held.isNotEmpty) ...[
+            _SectionHeader(context.l10n.ledgerPositionsTitle,
+                key: const ValueKey('portfolio-positions-heading')),
+            ...book.held,
+          ],
+          ...book.orderItems(context, ref),
+        ]),
+      ),
+    ),
+  ];
 }
 
 // ───────────────────────────── predictions ─────────────────────────────
@@ -542,7 +616,6 @@ class _SectionHeader extends StatelessWidget {
     );
   }
 }
-
 
 /// A spot holding as the portfolio's card: logo, name over "TICKER ·
 /// Spot", its value at the live mid with the profit or loss against what

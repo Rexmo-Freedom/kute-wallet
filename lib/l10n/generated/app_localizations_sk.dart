@@ -6486,6 +6486,33 @@ class AppLocalizationsSk extends AppLocalizations {
   String get portfolioTabStatistics => 'Štatistiky';
 
   @override
+  String get portfolioBalanceDollars => 'Doláre';
+
+  @override
+  String get portfolioRebalance => 'Vyvážiť';
+
+  @override
+  String get portfolioRebalanceMoving => 'Presúva sa do USDB…';
+
+  @override
+  String get portfolioRebalanceMovingMinutes =>
+      'Presúva sa do USDB… trvá to pár minút';
+
+  @override
+  String get portfolioRebalanceHeldOrders => 'Držané otvorenými príkazmi';
+
+  @override
+  String get portfolioRebalanceHeldMargin =>
+      'Ponechané ako marža pre otvorené pozície';
+
+  @override
+  String get portfolioRebalanceBelowMinimum => 'Pod minimom na presun';
+
+  @override
+  String get portfolioRebalanceNotNow =>
+      'Teraz sa nedá presunúť, skúsi sa to znova automaticky';
+
+  @override
   String get sendMoreThanAvailable => 'Je to viac, ako máš k dispozícii.';
 
   @override

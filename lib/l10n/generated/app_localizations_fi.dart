@@ -6481,6 +6481,33 @@ class AppLocalizationsFi extends AppLocalizations {
   String get portfolioTabStatistics => 'Tilastot';
 
   @override
+  String get portfolioBalanceDollars => 'Dollarit';
+
+  @override
+  String get portfolioRebalance => 'Tasapainota';
+
+  @override
+  String get portfolioRebalanceMoving => 'Siirretään USDB:hen…';
+
+  @override
+  String get portfolioRebalanceMovingMinutes =>
+      'Siirretään USDB:hen… kestää muutaman minuutin';
+
+  @override
+  String get portfolioRebalanceHeldOrders => 'Avoimien toimeksiantojen varaama';
+
+  @override
+  String get portfolioRebalanceHeldMargin =>
+      'Pidetään avoimien positioiden marginaalina';
+
+  @override
+  String get portfolioRebalanceBelowMinimum => 'Alle siirron vähimmäismäärän';
+
+  @override
+  String get portfolioRebalanceNotNow =>
+      'Siirto ei onnistunut nyt, yritetään automaattisesti uudelleen';
+
+  @override
   String get sendMoreThanAvailable =>
       'Tämä on enemmän kuin sinulla on käytettävissä.';
 

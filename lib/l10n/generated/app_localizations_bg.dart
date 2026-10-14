@@ -6492,6 +6492,33 @@ class AppLocalizationsBg extends AppLocalizations {
   String get portfolioTabStatistics => 'Статистика';
 
   @override
+  String get portfolioBalanceDollars => 'Долари';
+
+  @override
+  String get portfolioRebalance => 'Ребалансиране';
+
+  @override
+  String get portfolioRebalanceMoving => 'Прехвърля се в USDB…';
+
+  @override
+  String get portfolioRebalanceMovingMinutes =>
+      'Прехвърля се в USDB… отнема няколко минути';
+
+  @override
+  String get portfolioRebalanceHeldOrders => 'Задържано от отворени поръчки';
+
+  @override
+  String get portfolioRebalanceHeldMargin =>
+      'Запазено като маржин за отворени позиции';
+
+  @override
+  String get portfolioRebalanceBelowMinimum => 'Под минимума за прехвърляне';
+
+  @override
+  String get portfolioRebalanceNotNow =>
+      'Не може да се прехвърли сега, ще опита отново автоматично';
+
+  @override
   String get sendMoreThanAvailable => 'Това е повече от наличното ти.';
 
   @override

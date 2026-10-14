@@ -6480,6 +6480,33 @@ class AppLocalizationsCs extends AppLocalizations {
   String get portfolioTabStatistics => 'Statistiky';
 
   @override
+  String get portfolioBalanceDollars => 'Dolary';
+
+  @override
+  String get portfolioRebalance => 'Vyvážit';
+
+  @override
+  String get portfolioRebalanceMoving => 'Přesouvá se do USDB…';
+
+  @override
+  String get portfolioRebalanceMovingMinutes =>
+      'Přesouvá se do USDB… trvá to pár minut';
+
+  @override
+  String get portfolioRebalanceHeldOrders => 'Drženo otevřenými příkazy';
+
+  @override
+  String get portfolioRebalanceHeldMargin =>
+      'Ponecháno jako marže pro otevřené pozice';
+
+  @override
+  String get portfolioRebalanceBelowMinimum => 'Pod minimem pro přesun';
+
+  @override
+  String get portfolioRebalanceNotNow =>
+      'Teď se přesunout nedá, zkusí se to znovu samo';
+
+  @override
   String get sendMoreThanAvailable => 'To je víc, než máš k dispozici.';
 
   @override

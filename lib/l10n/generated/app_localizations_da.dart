@@ -6484,6 +6484,33 @@ class AppLocalizationsDa extends AppLocalizations {
   String get portfolioTabStatistics => 'Statistik';
 
   @override
+  String get portfolioBalanceDollars => 'Dollars';
+
+  @override
+  String get portfolioRebalance => 'Rebalancér';
+
+  @override
+  String get portfolioRebalanceMoving => 'Flytter til USDB…';
+
+  @override
+  String get portfolioRebalanceMovingMinutes =>
+      'Flytter til USDB… tager et par minutter';
+
+  @override
+  String get portfolioRebalanceHeldOrders => 'Holdt af åbne ordrer';
+
+  @override
+  String get portfolioRebalanceHeldMargin =>
+      'Beholdt som margin til åbne positioner';
+
+  @override
+  String get portfolioRebalanceBelowMinimum => 'Under minimum for at flytte';
+
+  @override
+  String get portfolioRebalanceNotNow =>
+      'Kunne ikke flytte nu, prøver igen automatisk';
+
+  @override
   String get sendMoreThanAvailable => 'Det er mere, end du har til rådighed.';
 
   @override

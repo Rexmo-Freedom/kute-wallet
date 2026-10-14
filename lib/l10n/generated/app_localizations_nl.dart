@@ -6503,6 +6503,34 @@ class AppLocalizationsNl extends AppLocalizations {
   String get portfolioTabStatistics => 'Statistieken';
 
   @override
+  String get portfolioBalanceDollars => 'Dollars';
+
+  @override
+  String get portfolioRebalance => 'Herbalanceren';
+
+  @override
+  String get portfolioRebalanceMoving => 'Naar USDB onderweg…';
+
+  @override
+  String get portfolioRebalanceMovingMinutes =>
+      'Naar USDB onderweg… duurt een paar minuten';
+
+  @override
+  String get portfolioRebalanceHeldOrders => 'Vastgehouden door open orders';
+
+  @override
+  String get portfolioRebalanceHeldMargin =>
+      'Aangehouden als marge voor open posities';
+
+  @override
+  String get portfolioRebalanceBelowMinimum =>
+      'Onder het minimum om te verplaatsen';
+
+  @override
+  String get portfolioRebalanceNotNow =>
+      'Kon nu niet verplaatsen, probeert het vanzelf opnieuw';
+
+  @override
   String get sendMoreThanAvailable => 'Dat is meer dan je beschikbaar hebt.';
 
   @override

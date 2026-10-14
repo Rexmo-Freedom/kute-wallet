@@ -191,11 +191,17 @@ class PortfolioStatisticsOverview extends ConsumerStatefulWidget {
     required this.predictions,
     this.footer = const [],
     this.footerEmpty = true,
+    this.header,
   });
 
   /// The venues on the account (portfolio_filters.dart).
   final bool trading;
   final bool predictions;
+
+  /// Over the chart, on the lists' gutter, whatever the figures say (the
+  /// Portfolio screen's balance breakdown). A never-traded account shows
+  /// it over the one empty state, which fills the rest of the page.
+  final Widget? header;
 
   /// Slivers under the figures (the Portfolio screen's Activity).
   final List<Widget> footer;
@@ -263,18 +269,38 @@ class _PortfolioStatisticsOverviewState
 
   /// [top] on the lists' 16 gutter, then the footer, the last row clear
   /// of the home indicator or the dock.
-  Widget _page(List<Widget> top) => CustomScrollView(
-        slivers: [
-          if (top.isNotEmpty)
-            SliverPadding(
-              padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 0),
-              sliver: SliverList(delegate: SliverChildListDelegate(top)),
-            ),
-          ...widget.footer,
-          SliverToBoxAdapter(
-              child: SizedBox(height: 32.h + kuteDockScrollClearance(context))),
-        ],
-      );
+  Widget _page(List<Widget> top) {
+    final header = widget.header;
+    final all = [if (header != null) header, ...top];
+    return CustomScrollView(
+      slivers: [
+        if (all.isNotEmpty)
+          SliverPadding(
+            padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 0),
+            sliver: SliverList(delegate: SliverChildListDelegate(all)),
+          ),
+        ...widget.footer,
+        SliverToBoxAdapter(
+            child: SizedBox(height: 32.h + kuteDockScrollClearance(context))),
+      ],
+    );
+  }
+
+  /// The one empty state ([empty]) filling the page, under the header
+  /// when there is one.
+  Widget _emptyPage(Widget empty) {
+    final header = widget.header;
+    if (header == null) return empty;
+    return CustomScrollView(
+      slivers: [
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 0),
+          sliver: SliverToBoxAdapter(child: header),
+        ),
+        SliverFillRemaining(child: empty),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -287,7 +313,8 @@ class _PortfolioStatisticsOverviewState
         v: ref.watch(
             portfolioPerformanceProvider(PortfolioPerformanceRequest(venue: v)))
     };
-    final footer = !widget.footerEmpty;
+    // A header keeps the page a scrolling list whatever the figures say.
+    final footer = !widget.footerEmpty || widget.header != null;
     // As the venue's own tab: a reload keeps the last figures up.
     if (results.values.any((r) => !r.hasValue && !r.hasError)) {
       const spinner = Center(child: CircularProgressIndicator.adaptive());
@@ -333,6 +360,7 @@ class _PortfolioStatisticsOverviewState
       onChart: _chart,
       footerEmpty: widget.footerEmpty,
       page: _page,
+      emptyPage: _emptyPage,
     );
   }
 }
@@ -348,7 +376,11 @@ class _OverviewBody extends ConsumerWidget {
     required this.onChart,
     required this.footerEmpty,
     required this.page,
+    required this.emptyPage,
   });
+
+  /// The one empty state as the page: alone, or under the header.
+  final Widget Function(Widget empty) emptyPage;
 
   /// The venues read (a venue whose read failed is left out).
   final List<PortfolioPerformanceVenue> venues;
@@ -397,12 +429,11 @@ class _OverviewBody extends ConsumerWidget {
     if (!combined.hasMovement &&
         _Figures.quiet(figures) &&
         _Figures.quiet(figuresOn(_otherScope(scope)))) {
-      return footerEmpty
-          ? _PageEmpty(
-              text: single == PortfolioPerformanceVenue.predictions
-                  ? l10n.betHistoryEmpty
-                  : l10n.hlNoHistoryYet)
-          : page(const []);
+      final text = single == PortfolioPerformanceVenue.predictions
+          ? l10n.betHistoryEmpty
+          : l10n.hlNoHistoryYet;
+      if (!footerEmpty) return page(const []);
+      return emptyPage(_PageEmpty(text: text));
     }
 
     final tiles = [
@@ -578,11 +609,9 @@ class _AllocationCard extends ConsumerWidget {
     final stakeCategories = book == null
         ? null
         : ref.watch(predictionCategoriesProvider(request)).valueOrNull;
-    Map<String, Object> params(CategorySlice slice) => categoryDrillParams(
-        slice,
-        venue: CategoryVenue.all,
-        walletKind: 'hot',
-        scope: scopeName);
+    Map<String, Object> params(CategorySlice slice) =>
+        categoryDrillParams(slice,
+            venue: CategoryVenue.all, walletKind: 'hot', scope: scopeName);
 
     Widget card({
       required Map<String, double> values,
@@ -1027,8 +1056,8 @@ class _PerformanceBody extends ConsumerWidget {
     final l10n = context.l10n;
     final predictions = venue == PortfolioPerformanceVenue.predictions;
     final trading = predictions ? null : _tradingFigures(ref, walletId);
-    bool quietOn(StatisticsScope on) => _Figures.quiet(_venueFigures(
-        venue: venue, data: data, scope: on, trading: trading));
+    bool quietOn(StatisticsScope on) => _Figures.quiet(
+        _venueFigures(venue: venue, data: data, scope: on, trading: trading));
 
     // The chart leads, whatever sub-tab is picked: the account's P&L
     // over time, realised and open together. Nothing published yet, or a
@@ -1153,8 +1182,8 @@ class _PageEmpty extends StatelessWidget {
   final String text;
 
   @override
-  Widget build(BuildContext context) => PortfolioEmptyState(text,
-      key: const ValueKey('statistics-chart-empty'));
+  Widget build(BuildContext context) =>
+      PortfolioEmptyState(text, key: const ValueKey('statistics-chart-empty'));
 }
 
 /// Nothing on a sub-tab: the same empty state, compact, under the pills.

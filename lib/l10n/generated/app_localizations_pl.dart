@@ -6502,6 +6502,35 @@ class AppLocalizationsPl extends AppLocalizations {
   String get portfolioTabStatistics => 'Statystyki';
 
   @override
+  String get portfolioBalanceDollars => 'Dolary';
+
+  @override
+  String get portfolioRebalance => 'Zrównoważ';
+
+  @override
+  String get portfolioRebalanceMoving => 'Przenoszenie do USDB…';
+
+  @override
+  String get portfolioRebalanceMovingMinutes =>
+      'Przenoszenie do USDB… potrwa kilka minut';
+
+  @override
+  String get portfolioRebalanceHeldOrders =>
+      'Zablokowane przez otwarte zlecenia';
+
+  @override
+  String get portfolioRebalanceHeldMargin =>
+      'Zatrzymane jako depozyt dla otwartych pozycji';
+
+  @override
+  String get portfolioRebalanceBelowMinimum =>
+      'Poniżej minimum do przeniesienia';
+
+  @override
+  String get portfolioRebalanceNotNow =>
+      'Nie udało się teraz przenieść, ponowi próbę automatycznie';
+
+  @override
   String get sendMoreThanAvailable => 'To więcej, niż masz dostępne.';
 
   @override

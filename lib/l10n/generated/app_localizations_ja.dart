@@ -6234,6 +6234,30 @@ class AppLocalizationsJa extends AppLocalizations {
   String get portfolioTabStatistics => '統計';
 
   @override
+  String get portfolioBalanceDollars => 'ドル';
+
+  @override
+  String get portfolioRebalance => 'リバランス';
+
+  @override
+  String get portfolioRebalanceMoving => 'USDBに移動中…';
+
+  @override
+  String get portfolioRebalanceMovingMinutes => 'USDBに移動中…数分かかります';
+
+  @override
+  String get portfolioRebalanceHeldOrders => '未約定の注文で保留中';
+
+  @override
+  String get portfolioRebalanceHeldMargin => '保有ポジションの証拠金として保持';
+
+  @override
+  String get portfolioRebalanceBelowMinimum => '移動できる最低額未満';
+
+  @override
+  String get portfolioRebalanceNotNow => '今は移動できません。自動で再試行します';
+
+  @override
   String get sendMoreThanAvailable => '利用可能額を超えています。';
 
   @override

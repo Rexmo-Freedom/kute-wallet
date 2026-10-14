@@ -6517,6 +6517,33 @@ class AppLocalizationsRo extends AppLocalizations {
   String get portfolioTabStatistics => 'Statistici';
 
   @override
+  String get portfolioBalanceDollars => 'Dolari';
+
+  @override
+  String get portfolioRebalance => 'Reechilibrează';
+
+  @override
+  String get portfolioRebalanceMoving => 'Se mută în USDB…';
+
+  @override
+  String get portfolioRebalanceMovingMinutes =>
+      'Se mută în USDB… durează câteva minute';
+
+  @override
+  String get portfolioRebalanceHeldOrders => 'Reținut de ordine deschise';
+
+  @override
+  String get portfolioRebalanceHeldMargin =>
+      'Păstrat ca marjă pentru pozițiile deschise';
+
+  @override
+  String get portfolioRebalanceBelowMinimum => 'Sub minimul pentru mutare';
+
+  @override
+  String get portfolioRebalanceNotNow =>
+      'Nu se poate muta acum, se va reîncerca automat';
+
+  @override
   String get sendMoreThanAvailable => 'Depășește suma disponibilă.';
 
   @override

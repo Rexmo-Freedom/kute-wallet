@@ -6464,6 +6464,33 @@ class AppLocalizationsLv extends AppLocalizations {
   String get portfolioTabStatistics => 'Statistika';
 
   @override
+  String get portfolioBalanceDollars => 'Dolāri';
+
+  @override
+  String get portfolioRebalance => 'Līdzsvarot';
+
+  @override
+  String get portfolioRebalanceMoving => 'Pārvieto uz USDB…';
+
+  @override
+  String get portfolioRebalanceMovingMinutes =>
+      'Pārvieto uz USDB… aizņem dažas minūtes';
+
+  @override
+  String get portfolioRebalanceHeldOrders => 'Aizturēts atvērtajos rīkojumos';
+
+  @override
+  String get portfolioRebalanceHeldMargin =>
+      'Paturēts kā nodrošinājums atvērtajām pozīcijām';
+
+  @override
+  String get portfolioRebalanceBelowMinimum => 'Zem pārvietošanas minimuma';
+
+  @override
+  String get portfolioRebalanceNotNow =>
+      'Pašlaik nevar pārvietot, mēģinās vēlreiz automātiski';
+
+  @override
   String get sendMoreThanAvailable => 'Tas ir vairāk, nekā tev ir pieejams.';
 
   @override

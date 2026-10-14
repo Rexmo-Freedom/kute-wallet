@@ -11332,6 +11332,54 @@ abstract class AppLocalizations {
   /// **'Statistics'**
   String get portfolioTabStatistics;
 
+  /// Title of the Dollars (USDB) row in the Portfolio's balance breakdown, above the Investing (Hyperliquid) and Predictions (Polymarket) rows.
+  ///
+  /// In en, this message translates to:
+  /// **'Dollars'**
+  String get portfolioBalanceDollars;
+
+  /// Button on the Portfolio's balance breakdown that moves all movable Investing and Predictions cash home to Dollars (USDB) now.
+  ///
+  /// In en, this message translates to:
+  /// **'Rebalance'**
+  String get portfolioRebalance;
+
+  /// Line under a venue row in the Portfolio's balance breakdown while its cash is on its way to Dollars (USDB).
+  ///
+  /// In en, this message translates to:
+  /// **'Moving to USDB…'**
+  String get portfolioRebalanceMoving;
+
+  /// Line under the Investing row while its cash is on its way to Dollars (USDB); this route takes a few minutes.
+  ///
+  /// In en, this message translates to:
+  /// **'Moving to USDB… takes a few minutes'**
+  String get portfolioRebalanceMovingMinutes;
+
+  /// Line under a venue row after Rebalance: its cash stayed because open orders hold it.
+  ///
+  /// In en, this message translates to:
+  /// **'Held by open orders'**
+  String get portfolioRebalanceHeldOrders;
+
+  /// Line under the Investing row after Rebalance: its cash stayed because it is margin for open (cross) positions.
+  ///
+  /// In en, this message translates to:
+  /// **'Kept as margin for open positions'**
+  String get portfolioRebalanceHeldMargin;
+
+  /// Line under a venue row after Rebalance: its cash stayed because it is below the smallest amount that can be moved.
+  ///
+  /// In en, this message translates to:
+  /// **'Below the minimum to move'**
+  String get portfolioRebalanceBelowMinimum;
+
+  /// Line under a venue row after Rebalance: the cash could not move right now (a trade or claim settling, the route busy); the app retries by itself.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t move now, will retry on its own'**
+  String get portfolioRebalanceNotNow;
+
   /// No description provided for @sendMoreThanAvailable.
   ///
   /// In en, this message translates to:

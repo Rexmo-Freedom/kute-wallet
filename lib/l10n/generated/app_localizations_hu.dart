@@ -6496,6 +6496,34 @@ class AppLocalizationsHu extends AppLocalizations {
   String get portfolioTabStatistics => 'Statisztika';
 
   @override
+  String get portfolioBalanceDollars => 'Dollár';
+
+  @override
+  String get portfolioRebalance => 'Újraegyensúlyozás';
+
+  @override
+  String get portfolioRebalanceMoving => 'Áthelyezés USDB-be…';
+
+  @override
+  String get portfolioRebalanceMovingMinutes =>
+      'Áthelyezés USDB-be… néhány percet vesz igénybe';
+
+  @override
+  String get portfolioRebalanceHeldOrders =>
+      'Nyitott megbízások tartják vissza';
+
+  @override
+  String get portfolioRebalanceHeldMargin =>
+      'Fedezetként megtartva a nyitott pozíciókhoz';
+
+  @override
+  String get portfolioRebalanceBelowMinimum => 'Az áthelyezési minimum alatt';
+
+  @override
+  String get portfolioRebalanceNotNow =>
+      'Most nem sikerült, automatikusan újrapróbálja';
+
+  @override
   String get sendMoreThanAvailable => 'Ez több, mint amennyi elérhető.';
 
   @override

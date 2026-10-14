@@ -6467,6 +6467,33 @@ class AppLocalizationsEt extends AppLocalizations {
   String get portfolioTabStatistics => 'Statistika';
 
   @override
+  String get portfolioBalanceDollars => 'Dollarid';
+
+  @override
+  String get portfolioRebalance => 'Tasakaalusta';
+
+  @override
+  String get portfolioRebalanceMoving => 'Liigub USDB-sse…';
+
+  @override
+  String get portfolioRebalanceMovingMinutes =>
+      'Liigub USDB-sse… võtab paar minutit';
+
+  @override
+  String get portfolioRebalanceHeldOrders => 'Avatud orderite poolt hoitud';
+
+  @override
+  String get portfolioRebalanceHeldMargin =>
+      'Hoitakse avatud positsioonide tagatisena';
+
+  @override
+  String get portfolioRebalanceBelowMinimum => 'Alla liigutamise miinimumi';
+
+  @override
+  String get portfolioRebalanceNotNow =>
+      'Praegu ei saanud liigutada, proovitakse ise uuesti';
+
+  @override
   String get sendMoreThanAvailable => 'See on rohkem, kui sul saadaval on.';
 
   @override

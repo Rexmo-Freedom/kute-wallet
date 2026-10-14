@@ -6513,6 +6513,34 @@ class AppLocalizationsLt extends AppLocalizations {
   String get portfolioTabStatistics => 'Statistika';
 
   @override
+  String get portfolioBalanceDollars => 'Doleriai';
+
+  @override
+  String get portfolioRebalance => 'Perbalansuoti';
+
+  @override
+  String get portfolioRebalanceMoving => 'Perkeliama į USDB…';
+
+  @override
+  String get portfolioRebalanceMovingMinutes =>
+      'Perkeliama į USDB… užtruks kelias minutes';
+
+  @override
+  String get portfolioRebalanceHeldOrders => 'Laikoma atvirų pavedimų';
+
+  @override
+  String get portfolioRebalanceHeldMargin =>
+      'Paliekama kaip marža atviroms pozicijoms';
+
+  @override
+  String get portfolioRebalanceBelowMinimum =>
+      'Mažiau nei minimali perkėlimo suma';
+
+  @override
+  String get portfolioRebalanceNotNow =>
+      'Dabar nepavyko perkelti, bus bandoma iš naujo automatiškai';
+
+  @override
   String get sendMoreThanAvailable => 'Tai daugiau, nei turite prieinama.';
 
   @override

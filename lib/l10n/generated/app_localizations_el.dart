@@ -6529,6 +6529,34 @@ class AppLocalizationsEl extends AppLocalizations {
   String get portfolioTabStatistics => 'Στατιστικά';
 
   @override
+  String get portfolioBalanceDollars => 'Δολάρια';
+
+  @override
+  String get portfolioRebalance => 'Εξισορρόπηση';
+
+  @override
+  String get portfolioRebalanceMoving => 'Μεταφέρεται σε USDB…';
+
+  @override
+  String get portfolioRebalanceMovingMinutes =>
+      'Μεταφέρεται σε USDB… διαρκεί λίγα λεπτά';
+
+  @override
+  String get portfolioRebalanceHeldOrders => 'Δεσμευμένο από ανοιχτές εντολές';
+
+  @override
+  String get portfolioRebalanceHeldMargin =>
+      'Διατηρείται ως περιθώριο για ανοιχτές θέσεις';
+
+  @override
+  String get portfolioRebalanceBelowMinimum =>
+      'Κάτω από το ελάχιστο για μεταφορά';
+
+  @override
+  String get portfolioRebalanceNotNow =>
+      'Δεν μεταφέρθηκε τώρα, θα ξαναδοκιμάσει αυτόματα';
+
+  @override
   String get sendMoreThanAvailable =>
       'Αυτό είναι περισσότερο από όσα έχεις διαθέσιμα.';
 
