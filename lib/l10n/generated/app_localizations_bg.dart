@@ -10705,9 +10705,6 @@ class AppLocalizationsBg extends AppLocalizations {
   String get portfolioStatOpenPnl => 'Отворена печалба / загуба';
 
   @override
-  String get usdReceiveFromYourBitcoin => 'От вашия биткойн';
-
-  @override
   String stepUpReasonBetReady(String amount) {
     return 'Подготви прогноза за $amount';
   }
@@ -10730,4 +10727,10 @@ class AppLocalizationsBg extends AppLocalizations {
   String multiMoveDeliveredRemaining(String delivered, String remaining) {
     return '$delivered доставени · $remaining остават';
   }
+
+  @override
+  String get usdReceiveFromYourWallet => 'От твоя портфейл';
+
+  @override
+  String get usdReceiveFromAnotherWallet => 'От друг портфейл или борса';
 }

@@ -2996,10 +2996,11 @@
   "depositFromAnotherWallet": "Toinen lompakko tai pörssi",
   "depositFromAnotherWalletSubtitle": "Hae osoite, johon lähettää dollareita",
   "portfolioStatOpenPnl": "Avoin voitto / tappio",
-  "usdReceiveFromYourBitcoin": "Omasta bitcoinistasi",
   "stepUpReasonBetReady": "Valmistele {amount} ennuste",
   "betMarketClosingNoFunding": "Tämä markkina sulkeutuu ennen kuin rahat ehtisivät perille. Mitään ei siirretty.",
   "multiMoveSendTitle": "Lähetä {amount}",
   "multiMoveTitle": "Siirrä {amount} kohteeseen {destination}",
-  "multiMoveDeliveredRemaining": "{delivered} perillä · {remaining} jäljellä"
+  "multiMoveDeliveredRemaining": "{delivered} perillä · {remaining} jäljellä",
+  "usdReceiveFromYourWallet": "Lompakostasi",
+  "usdReceiveFromAnotherWallet": "Toisesta lompakosta tai pörssistä"
 }

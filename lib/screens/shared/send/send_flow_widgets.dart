@@ -545,6 +545,10 @@ class SendToListRow extends StatelessWidget {
   final String? subtitle;
   final String? trailingTitle;
   final String? trailingSubtitle;
+
+  /// An explicit action at the row's end (a compact button), drawn in
+  /// place of the chevron.
+  final Widget? trailing;
   final AppColorsExtension colors;
   final VoidCallback onTap;
 
@@ -557,6 +561,7 @@ class SendToListRow extends StatelessWidget {
     this.subtitle,
     this.trailingTitle,
     this.trailingSubtitle,
+    this.trailing,
   });
 
   @override
@@ -653,9 +658,14 @@ class SendToListRow extends StatelessWidget {
                 ),
               ),
             ],
-            SizedBox(width: 6.w),
-            Icon(Icons.chevron_right_rounded,
-                size: 20.sp, color: c.textTertiary),
+            if (trailing != null) ...[
+              SizedBox(width: 10.w),
+              trailing!,
+            ] else ...[
+              SizedBox(width: 6.w),
+              Icon(Icons.chevron_right_rounded,
+                  size: 20.sp, color: c.textTertiary),
+            ],
           ],
         ),
       ),

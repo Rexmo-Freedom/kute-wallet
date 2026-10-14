@@ -2996,10 +2996,11 @@
   "depositFromAnotherWallet": "Jiná peněženka nebo burza",
   "depositFromAnotherWalletSubtitle": "Získejte adresu, na kterou pošlete dolary",
   "portfolioStatOpenPnl": "Otevřený zisk / ztráta",
-  "usdReceiveFromYourBitcoin": "Z vašeho bitcoinu",
   "stepUpReasonBetReady": "Připrav predikci {amount}",
   "betMarketClosingNoFunding": "Tento trh se uzavře dřív, než by peníze dorazily. Nic nebylo přesunuto.",
   "multiMoveSendTitle": "Odeslat {amount}",
   "multiMoveTitle": "Přesunout {amount} do {destination}",
-  "multiMoveDeliveredRemaining": "{delivered} doručeno · {remaining} zbývá"
+  "multiMoveDeliveredRemaining": "{delivered} doručeno · {remaining} zbývá",
+  "usdReceiveFromYourWallet": "Z tvé peněženky",
+  "usdReceiveFromAnotherWallet": "Z jiné peněženky nebo burzy"
 }

@@ -2996,10 +2996,11 @@
   "depositFromAnotherWallet": "Cits maks vai birža",
   "depositFromAnotherWalletSubtitle": "Iegūstiet adresi, uz kuru sūtīt dolārus",
   "portfolioStatOpenPnl": "Atvērtā peļņa / zaudējumi",
-  "usdReceiveFromYourBitcoin": "No jūsu bitcoin",
   "stepUpReasonBetReady": "Sagatavo prognozi {amount} apmērā",
   "betMarketClosingNoFunding": "Šis tirgus slēgsies, pirms nauda varētu pienākt. Nekas netika pārvietots.",
   "multiMoveSendTitle": "Sūtīt {amount}",
   "multiMoveTitle": "Pārvietot {amount} uz {destination}",
-  "multiMoveDeliveredRemaining": "{delivered} piegādāti · {remaining} atlikuši"
+  "multiMoveDeliveredRemaining": "{delivered} piegādāti · {remaining} atlikuši",
+  "usdReceiveFromYourWallet": "No tava maka",
+  "usdReceiveFromAnotherWallet": "No cita maka vai biržas"
 }

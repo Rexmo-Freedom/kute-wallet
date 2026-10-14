@@ -2996,10 +2996,11 @@
   "depositFromAnotherWallet": "Inny portfel lub giełda",
   "depositFromAnotherWalletSubtitle": "Uzyskaj adres, na który wyślesz dolary",
   "portfolioStatOpenPnl": "Otwarty zysk / strata",
-  "usdReceiveFromYourBitcoin": "Z Twojego bitcoina",
   "stepUpReasonBetReady": "Przygotuj prognozę {amount}",
   "betMarketClosingNoFunding": "Ten rynek zamyka się, zanim pieniądze zdążą dotrzeć. Nic nie zostało przeniesione.",
   "multiMoveSendTitle": "Wyślij {amount}",
   "multiMoveTitle": "Przenieś {amount} do {destination}",
-  "multiMoveDeliveredRemaining": "{delivered} dostarczono · {remaining} pozostało"
+  "multiMoveDeliveredRemaining": "{delivered} dostarczono · {remaining} pozostało",
+  "usdReceiveFromYourWallet": "Z twojego portfela",
+  "usdReceiveFromAnotherWallet": "Z innego portfela lub giełdy"
 }

@@ -2996,10 +2996,11 @@
   "depositFromAnotherWallet": "別のウォレットまたは取引所",
   "depositFromAnotherWalletSubtitle": "ドルを送るアドレスを取得",
   "portfolioStatOpenPnl": "含み損益",
-  "usdReceiveFromYourBitcoin": "あなたのビットコインから",
   "stepUpReasonBetReady": "{amount}の予測を準備",
   "betMarketClosingNoFunding": "この市場は資金が届く前に終了します。何も移動していません。",
   "multiMoveSendTitle": "{amount}を送金",
   "multiMoveTitle": "{amount}を{destination}へ移動",
-  "multiMoveDeliveredRemaining": "{delivered} 着金 · 残り {remaining}"
+  "multiMoveDeliveredRemaining": "{delivered} 着金 · 残り {remaining}",
+  "usdReceiveFromYourWallet": "あなたのウォレットから",
+  "usdReceiveFromAnotherWallet": "別のウォレットまたは取引所から"
 }

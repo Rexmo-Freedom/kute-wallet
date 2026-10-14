@@ -10677,9 +10677,6 @@ class AppLocalizationsCs extends AppLocalizations {
   String get portfolioStatOpenPnl => 'Otevřený zisk / ztráta';
 
   @override
-  String get usdReceiveFromYourBitcoin => 'Z vašeho bitcoinu';
-
-  @override
   String stepUpReasonBetReady(String amount) {
     return 'Připrav predikci $amount';
   }
@@ -10702,4 +10699,10 @@ class AppLocalizationsCs extends AppLocalizations {
   String multiMoveDeliveredRemaining(String delivered, String remaining) {
     return '$delivered doručeno · $remaining zbývá';
   }
+
+  @override
+  String get usdReceiveFromYourWallet => 'Z tvé peněženky';
+
+  @override
+  String get usdReceiveFromAnotherWallet => 'Z jiné peněženky nebo burzy';
 }

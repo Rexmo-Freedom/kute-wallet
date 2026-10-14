@@ -2996,10 +2996,11 @@
   "depositFromAnotherWallet": "Kita piniginė ar birža",
   "depositFromAnotherWalletSubtitle": "Gaukite adresą, kuriuo siųsti dolerius",
   "portfolioStatOpenPnl": "Atviras pelnas / nuostolis",
-  "usdReceiveFromYourBitcoin": "Iš jūsų bitkoino",
   "stepUpReasonBetReady": "Paruoškite {amount} prognozę",
   "betMarketClosingNoFunding": "Ši rinka užsidaro anksčiau, nei pinigai spėtų atkeliauti. Niekas nebuvo perkelta.",
   "multiMoveSendTitle": "Siųsti {amount}",
   "multiMoveTitle": "Perkelti {amount} į {destination}",
-  "multiMoveDeliveredRemaining": "{delivered} pristatyta · {remaining} liko"
+  "multiMoveDeliveredRemaining": "{delivered} pristatyta · {remaining} liko",
+  "usdReceiveFromYourWallet": "Iš jūsų piniginės",
+  "usdReceiveFromAnotherWallet": "Iš kitos piniginės ar biržos"
 }

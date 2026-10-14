@@ -18085,12 +18085,6 @@ abstract class AppLocalizations {
   /// **'Open P&L'**
   String get portfolioStatOpenPnl;
 
-  /// Row title at the top of the Investments receive screen that opens the move from the spending bitcoin into Investments.
-  ///
-  /// In en, this message translates to:
-  /// **'From your Bitcoin'**
-  String get usdReceiveFromYourBitcoin;
-
   /// Step-up prompt reason when a fast prediction (a 5- or 15-minute round or a game in play) is got ready before Confirm: the one approval moves the money into Predictions now and also approves the bet itself.
   ///
   /// In en, this message translates to:
@@ -18120,6 +18114,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{delivered} delivered · {remaining} remaining'**
   String multiMoveDeliveredRemaining(String delivered, String remaining);
+
+  /// Section label on the first step of the Investments (dollars) receive sheet, above the card that moves money in from the person's own spending bitcoin.
+  ///
+  /// In en, this message translates to:
+  /// **'From your wallet'**
+  String get usdReceiveFromYourWallet;
+
+  /// Section label on the first step of the Investments (dollars) receive sheet, above the grid of coins that can be sent in from another wallet or an exchange.
+  ///
+  /// In en, this message translates to:
+  /// **'From another wallet or exchange'**
+  String get usdReceiveFromAnotherWallet;
 }
 
 class _AppLocalizationsDelegate

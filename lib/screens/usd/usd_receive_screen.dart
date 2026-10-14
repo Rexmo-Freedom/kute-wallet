@@ -60,8 +60,8 @@ import 'package:kute/theme/app_theme.dart';
 
 enum _Step { coin, address }
 
-/// The Move sheet's `entry_source` when the "From your Bitcoin" row at the
-/// top of this screen opens it.
+/// The Move sheet's `entry_source` when the Bitcoin card ("From your
+/// wallet") at the top of this screen opens it.
 const String kUsdReceiveBitcoinRowSource = 'usd_receive_bitcoin_row';
 
 /// The `chain:asset` id the coin sheet selects by.
@@ -72,13 +72,14 @@ String usdReceiveCoinId(OrchestraReceiveOption o) =>
 /// (`showUsdReceiveSheet`, or the `receiveDollars` route's sheet page).
 ///
 /// Every way in (the Investments dock's Receive included) opens on the
-/// coin step: "From your Bitcoin" first, the Move sheet's way in from the
-/// spending bitcoin, then "Also accepts" over the coin grid. Picking a
-/// coin shows its address; nothing is ever picked for the person.
+/// coin step, two labelled choices: "From your wallet" over the Bitcoin
+/// card (the Move sheet's way in from the spending bitcoin), then "From
+/// another wallet or exchange" over the coin grid. Picking a coin shows
+/// its address; nothing is ever picked for the person.
 class UsdReceiveScreen extends ConsumerStatefulWidget {
   const UsdReceiveScreen({super.key});
 
-  /// Test seam: what the "From your Bitcoin" row opens. Null opens the
+  /// Test seam: what the Bitcoin card opens. Null opens the
   /// real Move sheet ([showDepositSheet]).
   @visibleForTesting
   static Future<void> Function(BuildContext context,
@@ -133,7 +134,7 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
     );
     // The offering is live-catalogue only, so nudge it rather than
     // waiting for the 6 h cadence. The coin step holds the grid itself,
-    // under "From your Bitcoin", so no sheet opens over it.
+    // under the Bitcoin card, so no sheet opens over it.
     // ignore: discarded_futures
     ref.read(orchestraSupportedRoutesProvider.notifier).refresh();
   }
@@ -156,7 +157,7 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
     }
   }
 
-  /// "From your Bitcoin": the Investments deposit from the spending
+  /// The Bitcoin card: the Investments deposit from the spending
   /// bitcoin, the Move sheet the dock's old Deposit opened.
   void _openFromBitcoin() {
     TrackingService.markEntrySource('move', kUsdReceiveBitcoinRowSource);
@@ -164,28 +165,72 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
     unawaited(open(context, lockedSide: MoveLockedSide.depositToUsd));
   }
 
-  /// The coin step's first and primary row, in the Send-to step's list
-  /// card: the Bitcoin mark, "From your Bitcoin" over the spending
-  /// wallet's dollar balance, and a chevron.
+  /// The coin step's first choice, under its "From your wallet" label, in
+  /// the Send-to step's list card: the Bitcoin mark, "Bitcoin" over the
+  /// spending wallet's dollar balance, and a compact Add button. The
+  /// whole card and the button both open the Move sheet, and the pair
+  /// reads to assistive tech as one button.
   Widget _bitcoinRow(BuildContext context) {
     final c = context.colors;
     final l10n = context.l10n;
     final balance = _spendingBitcoinUsd();
-    return SendToListCard(
-      colors: c,
-      rows: [
-        SendToListRow(
-          key: const ValueKey('usd-receive-from-bitcoin'),
-          leading: SvgPicture.asset('lib/assets/bitcoin-icon.svg',
-              width: 40.sp, height: 40.sp),
-          title: l10n.usdReceiveFromYourBitcoin,
-          subtitle: balance != null
-              ? l10n.depositFromSpendingWalletWithBalance(balance)
-              : l10n.depositFromSpendingWallet,
+    return MergeSemantics(
+      child: Semantics(
+        button: true,
+        child: SendToListCard(
           colors: c,
-          onTap: _openFromBitcoin,
+          rows: [
+            SendToListRow(
+              key: const ValueKey('usd-receive-from-bitcoin'),
+              leading: SvgPicture.asset('lib/assets/bitcoin-icon.svg',
+                  width: 40.sp, height: 40.sp),
+              title: l10n.bitcoin,
+              subtitle: balance != null
+                  ? l10n.depositFromSpendingWalletWithBalance(balance)
+                  : l10n.depositFromSpendingWallet,
+              trailing: _bitcoinRowButton(context),
+              colors: c,
+              onTap: _openFromBitcoin,
+            ),
+          ],
         ),
-      ],
+      ),
+    );
+  }
+
+  /// The Bitcoin card's explicit action: the app's compact filled
+  /// button (as a claim row draws it), sized to its label at the
+  /// current text scale and capped so the title keeps its room.
+  Widget _bitcoinRowButton(BuildContext context) {
+    final label = context.l10n.moveAdd;
+    final fontSize = 14.sp;
+    final painter = TextPainter(
+      text: TextSpan(
+        text: label,
+        style: DefaultTextStyle.of(context).style.merge(TextStyle(
+              fontSize: fontSize,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.2,
+            )),
+      ),
+      maxLines: 1,
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout();
+    final labelWidth = painter.width;
+    painter.dispose();
+    final maxWidth = MediaQuery.sizeOf(context).width * 0.34;
+    final width = (labelWidth + 32.w).clamp(72.w, maxWidth).toDouble();
+    return SizedBox(
+      key: const ValueKey('usd-receive-from-bitcoin-button'),
+      width: width,
+      child: AppButton(
+        text: label,
+        compact: true,
+        height: 36.h,
+        fontSize: fontSize,
+        onPressed: _openFromBitcoin,
+      ),
     );
   }
 
@@ -318,8 +363,9 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
         depositAddress: true,
       ).groups;
 
-  /// Step 1, top to bottom: "From your Bitcoin" (the Move sheet from the
-  /// spending bitcoin), then "Also accepts" over the coin grid, asked
+  /// Step 1, top to bottom: "From your wallet" over the Bitcoin card (the
+  /// Move sheet from the spending bitcoin), then "From another wallet or
+  /// exchange" over the coin grid, asked
   /// ASSET FIRST as every money screen asks it: a coin on one network
   /// goes straight to its address, a coin on several opens the sheet on
   /// its networks.
@@ -335,6 +381,7 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          SendToSectionHeader(title: l10n.usdReceiveFromYourWallet),
           _bitcoinRow(context),
           SizedBox(height: 24.h),
           if (groups.isEmpty)
@@ -344,7 +391,7 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
                   : l10n.usdReceiveCoinsUnavailable,
             ])
           else ...[
-            SendToSectionHeader(title: l10n.receiveAlsoAccepts),
+            SendToSectionHeader(title: l10n.usdReceiveFromAnotherWallet),
             Expanded(
               child: CoinAssetGrid(
                 groups: groups,

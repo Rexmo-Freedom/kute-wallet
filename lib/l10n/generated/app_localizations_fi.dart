@@ -10698,9 +10698,6 @@ class AppLocalizationsFi extends AppLocalizations {
   String get portfolioStatOpenPnl => 'Avoin voitto / tappio';
 
   @override
-  String get usdReceiveFromYourBitcoin => 'Omasta bitcoinistasi';
-
-  @override
   String stepUpReasonBetReady(String amount) {
     return 'Valmistele $amount ennuste';
   }
@@ -10723,4 +10720,10 @@ class AppLocalizationsFi extends AppLocalizations {
   String multiMoveDeliveredRemaining(String delivered, String remaining) {
     return '$delivered perillä · $remaining jäljellä';
   }
+
+  @override
+  String get usdReceiveFromYourWallet => 'Lompakostasi';
+
+  @override
+  String get usdReceiveFromAnotherWallet => 'Toisesta lompakosta tai pörssistä';
 }

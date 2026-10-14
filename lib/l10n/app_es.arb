@@ -2996,10 +2996,11 @@
   "depositFromAnotherWallet": "Otra billetera o exchange",
   "depositFromAnotherWalletSubtitle": "Obtén una dirección para enviar dólares",
   "portfolioStatOpenPnl": "Beneficio / pérdida abierto",
-  "usdReceiveFromYourBitcoin": "Desde tu Bitcoin",
   "stepUpReasonBetReady": "Prepara una predicción de {amount}",
   "betMarketClosingNoFunding": "Este mercado cierra antes de que el dinero pueda llegar. No se movió nada.",
   "multiMoveSendTitle": "Enviar {amount}",
   "multiMoveTitle": "Mover {amount} a {destination}",
-  "multiMoveDeliveredRemaining": "{delivered} entregados · {remaining} pendientes"
+  "multiMoveDeliveredRemaining": "{delivered} entregados · {remaining} pendientes",
+  "usdReceiveFromYourWallet": "Desde tu billetera",
+  "usdReceiveFromAnotherWallet": "Desde otra billetera o exchange"
 }

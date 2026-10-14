@@ -10710,9 +10710,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String get portfolioStatOpenPnl => 'Nyitott nyereség / veszteség';
 
   @override
-  String get usdReceiveFromYourBitcoin => 'A bitcoinodból';
-
-  @override
   String stepUpReasonBetReady(String amount) {
     return '$amount előrejelzés előkészítése';
   }
@@ -10735,4 +10732,10 @@ class AppLocalizationsHu extends AppLocalizations {
   String multiMoveDeliveredRemaining(String delivered, String remaining) {
     return '$delivered megérkezett · $remaining hátravan';
   }
+
+  @override
+  String get usdReceiveFromYourWallet => 'A tárcádból';
+
+  @override
+  String get usdReceiveFromAnotherWallet => 'Másik tárcából vagy tőzsdéről';
 }

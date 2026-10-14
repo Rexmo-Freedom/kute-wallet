@@ -2996,10 +2996,11 @@
   "depositFromAnotherWallet": "Druga denarnica ali borza",
   "depositFromAnotherWalletSubtitle": "Pridobite naslov, na katerega pošljete dolarje",
   "portfolioStatOpenPnl": "Odprt dobiček / izguba",
-  "usdReceiveFromYourBitcoin": "Iz vašega bitcoina",
   "stepUpReasonBetReady": "Pripravite napoved {amount}",
   "betMarketClosingNoFunding": "Ta trg se zapre, preden bi denar lahko prispel. Nič ni bilo premaknjeno.",
   "multiMoveSendTitle": "Pošlji {amount}",
   "multiMoveTitle": "Premakni {amount} v {destination}",
-  "multiMoveDeliveredRemaining": "{delivered} dostavljeno · {remaining} preostane"
+  "multiMoveDeliveredRemaining": "{delivered} dostavljeno · {remaining} preostane",
+  "usdReceiveFromYourWallet": "Iz vaše denarnice",
+  "usdReceiveFromAnotherWallet": "Iz druge denarnice ali borze"
 }

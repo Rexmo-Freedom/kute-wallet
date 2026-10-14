@@ -2996,10 +2996,11 @@
   "depositFromAnotherWallet": "En annan plånbok eller börs",
   "depositFromAnotherWalletSubtitle": "Få en adress att skicka dollar till",
   "portfolioStatOpenPnl": "Öppen vinst/förlust",
-  "usdReceiveFromYourBitcoin": "Från din bitcoin",
   "stepUpReasonBetReady": "Gör en prognos på {amount} redo",
   "betMarketClosingNoFunding": "Den här marknaden stänger innan pengarna hinner fram. Inget flyttades.",
   "multiMoveSendTitle": "Skicka {amount}",
   "multiMoveTitle": "Flytta {amount} till {destination}",
-  "multiMoveDeliveredRemaining": "{delivered} levererat · {remaining} kvar"
+  "multiMoveDeliveredRemaining": "{delivered} levererat · {remaining} kvar",
+  "usdReceiveFromYourWallet": "Från din plånbok",
+  "usdReceiveFromAnotherWallet": "Från en annan plånbok eller börs"
 }

@@ -6530,8 +6530,6 @@
   "@portfolioStatOpenPnl": {
     "description": "Statistics tile on Active: the profit or loss of the positions still open (Predictions at live prices, Investing perps unrealised)."
   },
-  "usdReceiveFromYourBitcoin": "From your Bitcoin",
-  "@usdReceiveFromYourBitcoin": {"description": "Row title at the top of the Investments receive screen that opens the move from the spending bitcoin into Investments."},
   "stepUpReasonBetReady": "Get your {amount} prediction ready",
   "@stepUpReasonBetReady": {"description": "Step-up prompt reason when a fast prediction (a 5- or 15-minute round or a game in play) is got ready before Confirm: the one approval moves the money into Predictions now and also approves the bet itself.", "placeholders": {"amount": {"type": "String"}}},
   "betMarketClosingNoFunding": "This market closes before money could arrive. Nothing was moved.",
@@ -6541,5 +6539,9 @@
   "multiMoveTitle": "Move {amount} to {destination}",
   "@multiMoveTitle": {"description": "Activity row title of one action that moved money from more than one place (Dollars plus Predictions or Investing cash) to one destination: one row for the whole move, its parts listed in the detail sheet. {amount} is the formatted dollar amount, {destination} the destination's display name (Bitcoin, Predictions, Trading).", "placeholders": {"amount": {"type": "String"}, "destination": {"type": "String"}}},
   "multiMoveDeliveredRemaining": "{delivered} delivered · {remaining} remaining",
-  "@multiMoveDeliveredRemaining": {"description": "Detail sheet line of a move that took money from more than one place when one part failed: what reached the destination and what is still where it was. Both are formatted dollar amounts.", "placeholders": {"delivered": {"type": "String"}, "remaining": {"type": "String"}}}
+  "@multiMoveDeliveredRemaining": {"description": "Detail sheet line of a move that took money from more than one place when one part failed: what reached the destination and what is still where it was. Both are formatted dollar amounts.", "placeholders": {"delivered": {"type": "String"}, "remaining": {"type": "String"}}},
+  "usdReceiveFromYourWallet": "From your wallet",
+  "@usdReceiveFromYourWallet": {"description": "Section label on the first step of the Investments (dollars) receive sheet, above the card that moves money in from the person's own spending bitcoin."},
+  "usdReceiveFromAnotherWallet": "From another wallet or exchange",
+  "@usdReceiveFromAnotherWallet": {"description": "Section label on the first step of the Investments (dollars) receive sheet, above the grid of coins that can be sent in from another wallet or an exchange."}
 }

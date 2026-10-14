@@ -10728,9 +10728,6 @@ class AppLocalizationsLt extends AppLocalizations {
   String get portfolioStatOpenPnl => 'Atviras pelnas / nuostolis';
 
   @override
-  String get usdReceiveFromYourBitcoin => 'Iš jūsų bitkoino';
-
-  @override
   String stepUpReasonBetReady(String amount) {
     return 'Paruoškite $amount prognozę';
   }
@@ -10753,4 +10750,10 @@ class AppLocalizationsLt extends AppLocalizations {
   String multiMoveDeliveredRemaining(String delivered, String remaining) {
     return '$delivered pristatyta · $remaining liko';
   }
+
+  @override
+  String get usdReceiveFromYourWallet => 'Iš jūsų piniginės';
+
+  @override
+  String get usdReceiveFromAnotherWallet => 'Iš kitos piniginės ar biržos';
 }

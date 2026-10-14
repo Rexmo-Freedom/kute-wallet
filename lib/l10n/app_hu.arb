@@ -2996,10 +2996,11 @@
   "depositFromAnotherWallet": "Másik tárca vagy tőzsde",
   "depositFromAnotherWalletSubtitle": "Kérj egy címet, ahová dollárt küldhetsz",
   "portfolioStatOpenPnl": "Nyitott nyereség / veszteség",
-  "usdReceiveFromYourBitcoin": "A bitcoinodból",
   "stepUpReasonBetReady": "{amount} előrejelzés előkészítése",
   "betMarketClosingNoFunding": "Ez a piac bezár, mielőtt a pénz megérkezhetne. Semmi sem lett áthelyezve.",
   "multiMoveSendTitle": "{amount} küldése",
   "multiMoveTitle": "{amount} mozgatása ide: {destination}",
-  "multiMoveDeliveredRemaining": "{delivered} megérkezett · {remaining} hátravan"
+  "multiMoveDeliveredRemaining": "{delivered} megérkezett · {remaining} hátravan",
+  "usdReceiveFromYourWallet": "A tárcádból",
+  "usdReceiveFromAnotherWallet": "Másik tárcából vagy tőzsdéről"
 }

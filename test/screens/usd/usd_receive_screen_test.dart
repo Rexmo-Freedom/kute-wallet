@@ -1,7 +1,8 @@
 // The Investments receive: every way in (the dock's Receive included)
-// opens on the coin step, "From your Bitcoin" first, which opens the
-// Investments deposit from the spending bitcoin, then "Also accepts" over
-// the coin grid. Nothing is picked for the person: a coin they tap shows
+// opens on the coin step, two labelled choices: "From your wallet" over
+// the Bitcoin card (its Add button and the card itself open the
+// Investments deposit from the spending bitcoin), then "From another
+// wallet or exchange" over the coin grid. Nothing is picked for the person: a coin they tap shows
 // its address. Nothing here reaches a money call: the wallet never
 // answers, so the address step stays on its loading shape.
 
@@ -29,6 +30,8 @@ import 'package:kute/screens/home/components/deposit_sheet.dart'
     show MoveLockedSide;
 import 'package:kute/screens/shared/asset_network_picker.dart' show PickerRow;
 import 'package:kute/screens/shared/coin_asset_grid.dart';
+import 'package:kute/screens/shared/custom_button.dart'
+    show AppButton, AppButtonVariant;
 import 'package:kute/screens/receive/receive_sheet.dart'
     show showUsdReceiveSheet;
 import 'package:kute/screens/shared/kute_back_button.dart';
@@ -95,14 +98,22 @@ class _Routes extends OrchestraSupportedRoutesNotifier {
 final _l10n = AppLocalizationsEn();
 
 const _bitcoinRow = ValueKey('usd-receive-from-bitcoin');
+const _bitcoinButton = ValueKey('usd-receive-from-bitcoin-button');
 
 /// Opens the receive the way the dock does: a sheet over a screen, at a
-/// 390pt-wide phone.
+/// 390pt-wide phone unless [size] says otherwise.
 Future<void> _pump(WidgetTester tester,
-    {bool stables = true, int? spendingSats}) async {
-  tester.view.physicalSize = const Size(390, 844);
+    {bool stables = true,
+    int? spendingSats,
+    Size size = const Size(390, 844),
+    double? textScale}) async {
+  tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
+  if (textScale != null) {
+    tester.platformDispatcher.textScaleFactorTestValue = textScale;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+  }
   await tester.pumpWidget(ProviderScope(
     overrides: [
       settingsProvider.overrideWith((_) => SettingsModel(Settings(
@@ -191,21 +202,30 @@ void main() {
   Iterable<String> names() => events.map((e) => e.$1);
 
   testWidgets(
-      'opens on the coin step: "From your Bitcoin" first, "Also accepts" '
-      'and the coin grid below, nothing picked and no sheet over it',
-      (tester) async {
+      'opens on the coin step: "From your wallet" over the Bitcoin card, '
+      'then "From another wallet or exchange" over the coin grid, nothing '
+      'picked and no sheet over it', (tester) async {
     await _pump(tester);
+    final yours = find.text(_l10n.usdReceiveFromYourWallet);
+    expect(yours, findsOneWidget);
     final row = find.byKey(_bitcoinRow);
     expect(row, findsOneWidget);
-    final accepts = find.text(_l10n.receiveAlsoAccepts);
-    expect(accepts, findsOneWidget);
+    final another = find.text(_l10n.usdReceiveFromAnotherWallet);
+    expect(another, findsOneWidget);
+    expect(find.text(_l10n.receiveAlsoAccepts), findsNothing);
     expect(find.byType(CoinAssetGrid), findsOneWidget);
     expect(_tile('USDC'), findsOneWidget);
     expect(_tile('USDT'), findsOneWidget);
-    // Top to bottom: the Bitcoin row, the heading, the grid.
-    expect(tester.getTopLeft(row).dy, lessThan(tester.getTopLeft(accepts).dy));
-    expect(tester.getTopLeft(accepts).dy,
+    // Top to bottom: the first label, the Bitcoin card, the second
+    // label, the grid. Both labels share one style.
+    expect(tester.getTopLeft(yours).dy, lessThan(tester.getTopLeft(row).dy));
+    expect(tester.getBottomLeft(row).dy,
+        lessThan(tester.getTopLeft(another).dy));
+    expect(tester.getTopLeft(another).dy,
         lessThan(tester.getTopLeft(find.byType(CoinAssetGrid)).dy));
+    expect(tester.getTopLeft(yours).dx, tester.getTopLeft(another).dx);
+    expect(tester.widget<Text>(yours).style,
+        tester.widget<Text>(another).style);
 
     // No address, no auto pick, no sheet.
     expect(find.text(_l10n.usdReceiveShareStep), findsNothing);
@@ -219,23 +239,90 @@ void main() {
   });
 
   testWidgets(
-      '"From your Bitcoin" is a full list row with the spending balance and '
-      'opens the Investments deposit from the spending bitcoin',
+      'the Bitcoin choice is one button under its label: "Bitcoin" over the '
+      'spending balance and a filled Add button, no chevron',
       (tester) async {
-    final opened = <MoveLockedSide>[];
-    UsdReceiveScreen.debugDepositSheetOpener =
-        (_, {required lockedSide}) async => opened.add(lockedSide);
+    final semantics = tester.ensureSemantics();
     await _pump(tester, spendingSats: 100000);
     final row = tester.widget<SendToListRow>(find.byKey(_bitcoinRow));
-    expect(row.title, _l10n.usdReceiveFromYourBitcoin);
+    expect(row.title, _l10n.bitcoin);
     // The spending bitcoin in dollars, as the Move sheet's row reads it.
     expect(row.subtitle, 'Your spending wallet · \$60.00');
-    expect(find.byIcon(Icons.chevron_right_rounded), findsOneWidget);
+    expect(
+        find.descendant(
+            of: find.byKey(_bitcoinRow),
+            matching: find.byIcon(Icons.chevron_right_rounded)),
+        findsNothing);
+    final button = find.descendant(
+        of: find.byKey(_bitcoinButton), matching: find.byType(AppButton));
+    expect(button, findsOneWidget);
+    final app = tester.widget<AppButton>(button);
+    expect(app.text, _l10n.moveAdd);
+    expect(app.variant, AppButtonVariant.primary);
+    expect(app.compact, isTrue);
+    // The button sits at the card's trailing edge, inside it.
+    final card = tester.getRect(find.byKey(_bitcoinRow));
+    final pill = tester.getRect(find.byKey(_bitcoinButton));
+    expect(card.contains(pill.center), isTrue);
+    expect(pill.right, greaterThan(card.center.dx));
 
-    await tester.tap(find.byKey(_bitcoinRow));
-    await tester.pump();
-    expect(opened, [MoveLockedSide.depositToUsd]);
-    expect(TrackingService.takeEntrySource('move'), 'usd_receive_bitcoin_row');
+    // One button for assistive tech, named by the card and its action.
+    final node = tester.getSemantics(find.byKey(_bitcoinRow));
+    expect(node, isSemantics(isButton: true, hasTapAction: true));
+    final label = node.getSemanticsData().label;
+    expect(label, contains(_l10n.bitcoin));
+    expect(label, contains('Your spending wallet · \$60.00'));
+    expect(label, contains(_l10n.moveAdd));
+    // The label above is plain text, not a button.
+    expect(
+        tester.getSemantics(find.text(_l10n.usdReceiveFromYourWallet)),
+        isNot(isSemantics(isButton: true)));
+    semantics.dispose();
+    await _unmount(tester);
+  });
+
+  for (final target in ['card', 'button']) {
+    testWidgets(
+        'tapping the Bitcoin $target opens the Investments deposit from the '
+        'spending bitcoin', (tester) async {
+      final opened = <MoveLockedSide>[];
+      UsdReceiveScreen.debugDepositSheetOpener =
+          (_, {required lockedSide}) async => opened.add(lockedSide);
+      await _pump(tester, spendingSats: 100000);
+      await tester.tap(target == 'card'
+          ? find.descendant(
+              of: find.byKey(_bitcoinRow), matching: find.text(_l10n.bitcoin))
+          : find.byKey(_bitcoinButton));
+      await tester.pump();
+      expect(opened, [MoveLockedSide.depositToUsd]);
+      expect(
+          TrackingService.takeEntrySource('move'), 'usd_receive_bitcoin_row');
+      await _unmount(tester);
+    });
+  }
+
+  testWidgets(
+      'at 375pt and text x1.3 both choices fit inside the sheet without '
+      'overflow', (tester) async {
+    await _pump(tester,
+        spendingSats: 123456789,
+        size: const Size(375, 812),
+        textScale: 1.3);
+    expect(tester.takeException(), isNull);
+    final card = tester.getRect(find.byKey(_bitcoinRow));
+    final pill = tester.getRect(find.byKey(_bitcoinButton));
+    expect(card.left, greaterThanOrEqualTo(0));
+    expect(card.right, lessThanOrEqualTo(375));
+    expect(pill.right, lessThanOrEqualTo(card.right));
+    expect(pill.height, lessThan(card.height));
+    // The label is not clipped out of the button.
+    final label = tester.getRect(find.descendant(
+        of: find.byKey(_bitcoinButton), matching: find.text(_l10n.moveAdd)));
+    expect(label.left, greaterThanOrEqualTo(pill.left));
+    expect(label.right, lessThanOrEqualTo(pill.right));
+    expect(find.text(_l10n.usdReceiveFromYourWallet), findsOneWidget);
+    expect(find.text(_l10n.usdReceiveFromAnotherWallet), findsOneWidget);
+    expect(find.byType(CoinAssetGrid), findsOneWidget);
     await _unmount(tester);
   });
 
@@ -287,7 +374,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.text(_l10n.usdReceiveShareStep), findsNothing);
     expect(find.byKey(_bitcoinRow), findsOneWidget);
-    expect(find.text(_l10n.receiveAlsoAccepts), findsOneWidget);
+    expect(find.text(_l10n.usdReceiveFromAnotherWallet), findsOneWidget);
     expect(ModalRoute.of(tester.element(find.byKey(_bitcoinRow))), same(sheet));
 
     // On the coin step the header's close closes the sheet.

@@ -3300,10 +3300,11 @@
   "depositFromAnotherWallet": "Outra carteira ou exchange",
   "depositFromAnotherWalletSubtitle": "Obtenha um endereço para enviar dólares",
   "portfolioStatOpenPnl": "Lucro / prejuízo em aberto",
-  "usdReceiveFromYourBitcoin": "Da sua bitcoin",
   "stepUpReasonBetReady": "Preparar uma previsão de {amount}",
   "betMarketClosingNoFunding": "Este mercado fecha antes de o dinheiro poder chegar. Nada foi movido.",
   "multiMoveSendTitle": "Enviar {amount}",
   "multiMoveTitle": "Mover {amount} para {destination}",
-  "multiMoveDeliveredRemaining": "{delivered} entregues · {remaining} em falta"
+  "multiMoveDeliveredRemaining": "{delivered} entregues · {remaining} em falta",
+  "usdReceiveFromYourWallet": "Da sua carteira",
+  "usdReceiveFromAnotherWallet": "De outra carteira ou exchange"
 }

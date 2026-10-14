@@ -2996,10 +2996,11 @@
   "depositFromAnotherWallet": "Άλλο πορτοφόλι ή ανταλλακτήριο",
   "depositFromAnotherWalletSubtitle": "Λάβετε μια διεύθυνση για να στείλετε δολάρια",
   "portfolioStatOpenPnl": "Ανοιχτό κέρδος / ζημιά",
-  "usdReceiveFromYourBitcoin": "Από το Bitcoin σας",
   "stepUpReasonBetReady": "Ετοίμασε πρόβλεψη {amount}",
   "betMarketClosingNoFunding": "Αυτή η αγορά κλείνει πριν φτάσουν τα χρήματα. Δεν μεταφέρθηκε τίποτα.",
   "multiMoveSendTitle": "Αποστολή {amount}",
   "multiMoveTitle": "Μετακίνηση {amount} σε {destination}",
-  "multiMoveDeliveredRemaining": "{delivered} παραδόθηκαν · {remaining} απομένουν"
+  "multiMoveDeliveredRemaining": "{delivered} παραδόθηκαν · {remaining} απομένουν",
+  "usdReceiveFromYourWallet": "Από το πορτοφόλι σου",
+  "usdReceiveFromAnotherWallet": "Από άλλο πορτοφόλι ή ανταλλακτήριο"
 }

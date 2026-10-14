@@ -2996,10 +2996,11 @@
   "depositFromAnotherWallet": "Andere wallet of exchange",
   "depositFromAnotherWalletSubtitle": "Krijg een adres om dollars naartoe te sturen",
   "portfolioStatOpenPnl": "Open winst / verlies",
-  "usdReceiveFromYourBitcoin": "Vanuit je bitcoin",
   "stepUpReasonBetReady": "Zet een voorspelling van {amount} klaar",
   "betMarketClosingNoFunding": "Deze markt sluit voordat het geld kan aankomen. Er is niets verplaatst.",
   "multiMoveSendTitle": "{amount} versturen",
   "multiMoveTitle": "{amount} naar {destination} verplaatsen",
-  "multiMoveDeliveredRemaining": "{delivered} aangekomen · {remaining} resterend"
+  "multiMoveDeliveredRemaining": "{delivered} aangekomen · {remaining} resterend",
+  "usdReceiveFromYourWallet": "Vanuit je wallet",
+  "usdReceiveFromAnotherWallet": "Vanuit een andere wallet of exchange"
 }

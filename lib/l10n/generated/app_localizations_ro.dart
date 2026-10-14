@@ -10745,9 +10745,6 @@ class AppLocalizationsRo extends AppLocalizations {
   String get portfolioStatOpenPnl => 'Profit / pierdere deschis';
 
   @override
-  String get usdReceiveFromYourBitcoin => 'Din Bitcoin-ul tău';
-
-  @override
   String stepUpReasonBetReady(String amount) {
     return 'Pregătește o predicție de $amount';
   }
@@ -10770,4 +10767,10 @@ class AppLocalizationsRo extends AppLocalizations {
   String multiMoveDeliveredRemaining(String delivered, String remaining) {
     return '$delivered livrați · $remaining rămași';
   }
+
+  @override
+  String get usdReceiveFromYourWallet => 'Din portofelul tău';
+
+  @override
+  String get usdReceiveFromAnotherWallet => 'Din alt portofel sau exchange';
 }

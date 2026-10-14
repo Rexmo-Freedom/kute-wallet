@@ -2996,10 +2996,11 @@
   "depositFromAnotherWallet": "Alt portofel sau exchange",
   "depositFromAnotherWalletSubtitle": "Obține o adresă la care să trimiți dolari",
   "portfolioStatOpenPnl": "Profit / pierdere deschis",
-  "usdReceiveFromYourBitcoin": "Din Bitcoin-ul tău",
   "stepUpReasonBetReady": "Pregătește o predicție de {amount}",
   "betMarketClosingNoFunding": "Această piață se închide înainte ca banii să poată ajunge. Nu s-a mutat nimic.",
   "multiMoveSendTitle": "Trimite {amount}",
   "multiMoveTitle": "Mută {amount} în {destination}",
-  "multiMoveDeliveredRemaining": "{delivered} livrați · {remaining} rămași"
+  "multiMoveDeliveredRemaining": "{delivered} livrați · {remaining} rămași",
+  "usdReceiveFromYourWallet": "Din portofelul tău",
+  "usdReceiveFromAnotherWallet": "Din alt portofel sau exchange"
 }
