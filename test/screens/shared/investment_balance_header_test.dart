@@ -23,6 +23,7 @@ import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/investment_balance_header.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart';
 import 'package:kute/screens/shared/pool_balance_header.dart';
+import 'package:kute/screens/shared/portfolio_arrow_glyph.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/screens/shared/venue_deposit_button.dart';
 import 'package:kute/services/venue_total_cache_service.dart';
@@ -225,20 +226,18 @@ void main() {
     final chevron = find.byKey(const ValueKey('investments-balance-chevron'));
 
     testWidgets(
-        'no title: the total alone over "Available · Invested", no deposit '
-        'door', (tester) async {
+        'no title: the total alone over "Invested", no Available, no '
+        'deposit door', (tester) async {
       await pumpOne(tester, known);
       expect(header(tester).amountText, r'$100.00');
       expect(header(tester).totalLabel, isNull);
       expect(find.text('Investments total'), findsNothing);
-      expect(header(tester).availableFirst, isTrue);
-      expect(tester.getTopLeft(find.text('Available ')).dx,
-          lessThan(tester.getTopLeft(find.text('Invested ')).dx));
-      // Not tappable without a door: no chevron, no press feedback.
+      expect(find.text('Available '), findsNothing);
+      expect(find.textContaining('Available'), findsNothing);
+      // Not tappable without a door: no arrow, no press feedback.
       expect(chevron, findsNothing);
       expect(find.byKey(const ValueKey('investments-balance')), findsNothing);
-      expect(header(tester).availableLabel, 'Available');
-      expect(header(tester).availableText, r'$42.50');
+      expect(header(tester).availableText, isNull);
       expect(header(tester).investedLabel, 'Invested');
       expect(header(tester).investedText, r'$57.50');
       expect(header(tester).stale, isFalse);
@@ -301,10 +300,11 @@ void main() {
     });
 
     testWidgets(
-        'dust left on a venue shows as the normal split, never as an '
-        'unavailable line', (tester) async {
+        'dust left on a venue is part of the total, never an unavailable '
+        'line', (tester) async {
       // The provider folds the sweeper's dust (the $0.06 CCTP reserve)
-      // into the venue cash: Available, like any venue cash; nothing waits.
+      // into the venue cash: in the total, like any venue cash; nothing
+      // waits.
       await pumpOne(
           tester,
           known.copyWith(
@@ -312,7 +312,7 @@ void main() {
               investedUsd: 0,
               venueCash: const {OneBalanceVenue.investing: 0.06}));
       expect(header(tester).amountText, r'$6.26');
-      expect(header(tester).availableText, r'$6.26');
+      expect(header(tester).availableText, isNull);
       expect(header(tester).investedText, r'$0.00');
       expect(header(tester).investedChild, isNull);
       expect(find.textContaining('unavailable'), findsNothing);
@@ -367,18 +367,27 @@ void main() {
     });
 
     testWidgets(
-        'the whole block is one tap, the total and the split alike, with a '
-        'chevron closing the split', (tester) async {
+        'the whole block is one tap, the total and Invested alike, with a '
+        'rising portfolio arrow right after the total', (tester) async {
       var taps = 0;
       await pumpOne(tester, known, onTap: () => taps++);
       expect(chevron, findsOneWidget);
-      // The chevron ends the line, after Invested.
+      expect(tester.widget(chevron), isA<PortfolioArrowGlyph>());
+      expect(
+          find.descendant(
+              of: chevron, matching: find.byIcon(Icons.trending_up_rounded)),
+          findsOneWidget);
+      expect(find.byIcon(Icons.chevron_right_rounded), findsNothing);
+      // The arrow sits right after the big total, on its line.
+      final total = find.byType(RollingNumberText).first;
       expect(tester.getTopLeft(chevron).dx,
-          greaterThan(tester.getTopLeft(find.text('Invested ')).dx));
-      await tester.tap(find.byType(RollingNumberText).first);
+          greaterThanOrEqualTo(tester.getTopRight(total).dx));
+      expect(tester.getCenter(chevron).dy,
+          lessThan(tester.getBottomLeft(total).dy));
+      await tester.tap(total);
       await tester.pumpAndSettle();
       expect(taps, 1);
-      await tester.tap(find.text('Available '));
+      await tester.tap(find.text('Invested '));
       await tester.pumpAndSettle();
       expect(taps, 2);
       await tester.tap(chevron);

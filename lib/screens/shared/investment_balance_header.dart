@@ -17,6 +17,7 @@ import 'package:kute/screens/portfolio/open_investments_screen.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show KutePressScale;
 import 'package:kute/screens/shared/pending_deposit_line.dart';
 import 'package:kute/screens/shared/pool_balance_header.dart';
+import 'package:kute/screens/shared/portfolio_arrow_glyph.dart';
 import 'package:kute/screens/shared/portfolio_builder/builder_legs_provider.dart';
 import 'package:kute/screens/shared/portfolio_builder/portfolio_builder_screen.dart';
 import 'package:kute/screens/shared/investment_funding.dart';
@@ -71,17 +72,16 @@ class InvestmentDiscoveryNotice extends ConsumerWidget {
 ///   * ONE BALANCE ([oneBalance]): the Investments tab's hero, reading
 ///     [oneBalanceProvider]. No title over it (owner decision October
 ///     2026): the total stands alone, Dollars plus the open positions of
-///     every venue, a chevron right after it; under it "Available $X ·
-///     Invested $Y" (Available:
-///     Dollars plus the venues' unreserved cash, what an order can draw
-///     on right now; Invested: positions, reserved order cash and pending
-///     fills). While anything is on a rail that split
-///     gives way to the in-flight lines, in order: moving to a venue,
+///     every venue, a rising portfolio arrow right after it
+///     ([PortfolioArrowGlyph]); under it "Invested $Y" alone (positions,
+///     reserved order cash and pending fills; Available is not shown,
+///     founder decision October 2026). While anything is on a rail that
+///     line gives way to the in-flight lines, in order: moving to a venue,
 ///     coming back from one, incoming from outside, unavailable until
 ///     balancing completes (venue cash the sweeper still owes back). Money
 ///     in flight is never hidden. Venue dust
-///     below every route minimum is no line at all: it is part of
-///     Available like the rest of the venues' cash. No Deposit button:
+///     below every route minimum is no line at all: it is part of the
+///     total like the rest of the venues' cash. No Deposit button:
 ///     money only reaches a venue through an order. The whole block, the
 ///     total and the line under it, is one tap ([onTap]: the Portfolio),
 ///     with the cards' press feedback ([KutePressScale]).
@@ -251,37 +251,65 @@ class InvestmentBalanceHeader extends ConsumerWidget {
     );
   }
 
-  Widget _buildOneBalance(BuildContext context, WidgetRef ref) {
+  Widget _buildOneBalance(BuildContext context, WidgetRef ref) =>
+      _OneBalanceHero(onTap: onTap);
+}
+
+/// The one-balance hero: the total with the rising portfolio arrow after
+/// it and "Invested $Y" under it, or the in-flight lines in that line's
+/// place. Stateful only to ping the arrow's quick play on each press.
+class _OneBalanceHero extends ConsumerStatefulWidget {
+  const _OneBalanceHero({this.onTap});
+
+  final VoidCallback? onTap;
+
+  @override
+  ConsumerState<_OneBalanceHero> createState() => _OneBalanceHeroState();
+}
+
+class _OneBalanceHeroState extends ConsumerState<_OneBalanceHero> {
+  final _pressed = _Ping();
+
+  @override
+  void dispose() {
+    _pressed.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(oneBalanceProvider);
     final visible = ref.watch(settingsProvider.select((s) => s.balanceVisible));
     String amount(double value) =>
         visible ? formatPolyFiatForced(ref, value) : '••••••';
-    final lines = inFlightLines(context, state, amount);
-    final figure = oneBalanceFigure(ref);
-    final tap = onTap;
-    // The tap affordance: the list rows' disclosure chevron, right after
-    // the big total (founder decision), sized to sit with the 48 sp number.
-    final chevronGap = 4.w;
-    final chevronSize = 30.sp;
-    final chevron = tap == null
+    final lines = InvestmentBalanceHeader.inFlightLines(context, state, amount);
+    final figure = InvestmentBalanceHeader.oneBalanceFigure(ref);
+    final tap = widget.onTap;
+    // The tap affordance: a rising arrow right after the big total (it
+    // opens the Portfolio; founder decision), sized to sit with the 48 sp
+    // number, and animated like the hub's "+ gear" glyph.
+    final arrowGap = 6.w;
+    final arrowSize = 28.sp;
+    final arrow = tap == null
         ? null
         : Padding(
-            padding: EdgeInsets.only(left: chevronGap),
-            child: Icon(Icons.chevron_right_rounded,
+            padding: EdgeInsets.only(left: arrowGap),
+            child: PortfolioArrowGlyph(
                 key: const ValueKey('investments-balance-chevron'),
                 color: context.colors.textTertiary,
-                size: chevronSize),
+                size: arrowSize,
+                pressed: _pressed),
           );
     final header = PoolBalanceHeader(
       amountText: figure.text,
       stale: figure.stale,
       availableLabel: context.l10n.available,
       investedLabel: context.l10n.betInvested,
-      availableFirst: true,
-      amountTrailing: chevron,
-      amountTrailingWidth: chevron == null ? 0 : chevronGap + chevronSize,
-      // The split, or the in-flight lines in its place.
-      availableText: lines.isEmpty ? amount(state.availableUsd) : null,
+      amountTrailing: arrow,
+      amountTrailingWidth: arrow == null ? 0 : arrowGap + arrowSize,
+      // "Invested $Y" alone under the total (founder decision October
+      // 2026: Available is no longer shown; the total is what the account
+      // can use), or the in-flight lines in its place.
       investedText: lines.isEmpty ? amount(state.investedUsd) : null,
       showActionRow: false,
       investedChild: lines.isEmpty
@@ -304,11 +332,18 @@ class InvestmentBalanceHeader extends ConsumerWidget {
     if (tap == null) return header;
     return Semantics(
       button: true,
-      child: KutePressScale(
-        key: const ValueKey('investments-balance'),
-        onTap: tap,
-        child: header,
+      child: Listener(
+        onPointerDown: (_) => _pressed.ping(),
+        child: KutePressScale(
+          key: const ValueKey('investments-balance'),
+          onTap: tap,
+          child: header,
+        ),
       ),
     );
   }
+}
+
+class _Ping extends ChangeNotifier {
+  void ping() => notifyListeners();
 }

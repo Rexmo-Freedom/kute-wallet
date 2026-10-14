@@ -122,25 +122,24 @@ void main() {
     expect(find.byType(PortfolioPositions, skipOffstage: false), findsNothing);
 
     // The one-balance hero, once, above the pills: no title, the total
-    // alone over "Available $X · Invested $Y" and the chevron.
+    // with the portfolio arrow after it, over "Invested $Y" alone.
     final header =
         tester.widget<PoolBalanceHeader>(find.byType(PoolBalanceHeader));
     expect(header.totalLabel, isNull);
     expect(find.text(l10n.investmentsTotal), findsNothing);
     expect(header.amountText, r'$25.00');
-    expect(header.availableFirst, isTrue);
+    expect(header.availableText, isNull);
+    expect(find.text('${l10n.available} '), findsNothing);
+    expect(find.text('${l10n.betInvested} '), findsOneWidget);
     expect(find.byKey(const ValueKey('investments-balance-chevron')),
         findsOneWidget);
+    // The arrow sits above Invested's line, beside the total.
     expect(
         tester
-            .getTopLeft(find.text('${l10n.available} '))
-            .dx,
-        lessThan(tester.getTopLeft(find.text('${l10n.betInvested} ')).dx));
-    expect(
-        tester
-            .getTopLeft(find.byKey(const ValueKey('investments-balance-chevron')))
-            .dx,
-        greaterThan(tester.getTopLeft(find.text('${l10n.betInvested} ')).dx));
+            .getBottomLeft(
+                find.byKey(const ValueKey('investments-balance-chevron')))
+            .dy,
+        lessThan(tester.getTopLeft(find.text('${l10n.betInvested} ')).dy));
     expect(find.byType(InvestmentBalanceHeader), findsOneWidget);
     expect(tester.getTopLeft(find.byType(PoolBalanceHeader)).dy,
         lessThan(tester.getTopLeft(find.byType(KutePillTabs).first).dy));
