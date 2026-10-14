@@ -264,3 +264,27 @@ UsdSendDestination? usdSendDefaultDestination(
         .where(
             (d) => d.chain == 'arbitrum' && d.assetCode.toUpperCase() == 'USDC')
         .firstOrNull;
+
+/// The destination a payment request pins on its own, or null.
+///
+/// Only a request with an address scheme can name a network: an
+/// `ethereum:…@chainId` request names its chain, a `tron:` or `solana:`
+/// one names its own. A bare address never pins one (the person picks
+/// the coin first), nor does an `ethereum:` request with no chain id
+/// (an EVM address is valid on every EVM chain). What the request
+/// matches must sit on one chain, and that chain's dollar coin is the
+/// pick ([UsdRecipientMatch.autoPick]: USDC, else USDT).
+UsdSendDestination? usdSendPaymentRequestDestination(
+  String raw,
+  List<UsdSendDestination> offered,
+) {
+  final input = raw.trim();
+  final colon = input.indexOf(':');
+  if (colon <= 0 || bareRecipientAddress(input) == input) return null;
+  final scheme = input.substring(0, colon).toLowerCase();
+  if (scheme == 'ethereum' && evmPaymentChainId(input) == null) return null;
+  final match = matchUsdRecipient(input, offered);
+  if (match.candidates.isEmpty) return null;
+  if ({for (final d in match.candidates) d.chain}.length != 1) return null;
+  return match.autoPick;
+}

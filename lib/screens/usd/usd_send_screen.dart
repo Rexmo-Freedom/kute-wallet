@@ -37,13 +37,19 @@
 //      recipient picks among those; nothing it pastes can open another
 //      route. Spark recipients are not offered for now.
 //
-// The recipient field recognises what is pasted or scanned the way the
-// bitcoin send does: a payment request is reduced to its bare address and
-// the address picks the destination. The send starts on USDC · Arbitrum,
-// so a bare EVM address lands there; an `ethereum:…@chainId` request
-// picks the chain it names; a Tron or Solana address picks its own
-// route; and an address several routes share with no default asks which
-// network once it is in.
+// THE COIN COMES FIRST (founder decision, 14 October 2026). Send to opens
+// on the coin grid — what the recipient gets, asset first and network
+// second, the same set the coin sheet offers — and nothing else is there
+// until one is picked: no address field, no Paste, no Scan, no recents.
+// The pick then stays on every step as one chip (coin · network) that
+// reopens the picker. The address is checked against THAT network only:
+// a pasted or scanned address for another one is refused with the
+// existing invalid-address words, never used to move the destination.
+// Changing the coin keeps an address the new network still accepts and
+// clears one it does not. A payment request handed over on open
+// ([UsdSendScreen.initialRecipient]) that names its own network
+// (`ethereum:…@chainId`, `tron:…`, `solana:…`) preselects that coin and
+// fills the field; one that names none waits for the pick.
 //
 // The user never sees the token's internal spelling: every label here
 // says Dollars, USD or $.
@@ -72,7 +78,7 @@ import 'package:kute/models/settlement_operation.dart'
     show SettlementAccountKind, SettlementFlow;
 import 'package:kute/models/swap_order_model.dart';
 import 'package:kute/providers/asset_icon_provider.dart'
-    show kInvestmentsIcon, kUsdMarkAsset;
+    show AssetIcon, kInvestmentsIcon, kUsdMarkAsset;
 import 'package:kute/providers/breez_config_provider.dart'
     show breezSDKProvider;
 import 'package:kute/providers/orchestra_supported_routes_provider.dart';
@@ -84,8 +90,6 @@ import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceProvider, usdDrainBaseUnits;
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
-import 'package:kute/screens/home/components/deposit_sheet.dart'
-    show MoveLockedSide, showDepositSheet;
 import 'package:kute/screens/shared/account_switcher_pill.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart'
     show AmountKeypad, AmountPercentChips;
@@ -93,8 +97,6 @@ import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/ask_sal_chip.dart';
 import 'package:kute/screens/shared/asset_network_picker.dart';
 import 'package:kute/screens/shared/coin_asset_grid.dart';
-import 'package:kute/screens/shared/custom_button.dart'
-    show AppButton, AppButtonVariant;
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart';
@@ -144,43 +146,20 @@ const int _kSendToStep = 0;
 const int _kAmountStep = 1;
 const int _kReviewStep = 2;
 
-/// The Move sheet's `entry_source` when a send short of dollars opens it.
-const String kUsdSendShortfallSource = 'usd_send_shortfall';
-
-/// What a send typed over the dollar balance is missing, in dollars,
-/// rounded UP to the cent so the top-up covers it: [typedUnits] less
-/// [availableUnits], both in the token's six-decimal base units. Zero
-/// when the balance covers it. Pure.
-double usdSendShortfallUsd(BigInt typedUnits, BigInt availableUnits) {
-  final missing = typedUnits - availableUnits;
-  if (missing <= BigInt.zero) return 0;
-  final cent = BigInt.from(10000);
-  final cents = (missing + cent - BigInt.one) ~/ cent;
-  return cents.toInt() / 100;
-}
-
 /// The dollar send. Open it with `showSendSheet` (send_sheet.dart): it
 /// reports to the sheet what height it needs and when it may close.
 ///
-/// Typed over the balance, the amount step's "not enough" line carries
-/// one button, the slips' "Add $X to Investments": the Investments
-/// deposit (spending bitcoin into Dollars) prefilled with exactly what is
-/// missing. Nothing moves until the person confirms it there; no bitcoin
-/// is ever pulled and no position sold on their behalf. Once that deposit
-/// went through they are back here with the amount kept, and the send
-/// carries on to Review as soon as the dollars cover it.
+/// Typed over what can be sent, the amount step says "more than
+/// available" and Continue stays dead; nothing is offered to top it up.
 class UsdSendScreen extends ConsumerStatefulWidget {
-  const UsdSendScreen({super.key});
+  const UsdSendScreen({super.key, this.initialRecipient});
 
-  /// Test seam: what the shortfall button opens. Null opens the real Move
-  /// sheet ([showDepositSheet]).
-  @visibleForTesting
-  static Future<void> Function(
-    BuildContext context, {
-    required MoveLockedSide lockedSide,
-    double? initialTargetUsd,
-    VoidCallback? onCompleted,
-  })? debugDepositSheetOpener;
+  /// A recipient handed over on open (a deep link or a scanner
+  /// hand-off), raw. A payment request that names its own network
+  /// preselects that coin and fills the field; anything else waits for
+  /// the coin to be picked and fills the field only if that coin's
+  /// network accepts it.
+  final String? initialRecipient;
 
   @override
   ConsumerState<UsdSendScreen> createState() => _UsdSendScreenState();
@@ -208,13 +187,13 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
   bool _resolvingDrain = false;
   String? _drainError;
 
-  /// The picked destination. Null until the recipient settles one or the
-  /// person picks one, and the send cannot dispatch without it.
+  /// The picked coin and network. Null until the person picks one (or a
+  /// payment request handed over on open names it); until then Send to
+  /// shows only the coin grid, and the send cannot dispatch without it.
   UsdSendDestination? _destination;
 
-  /// True when the destination was chosen in the sheet rather than read
-  /// from the address.
-  bool _destinationChosen = false;
+  /// [UsdSendScreen.initialRecipient] while it still waits for a coin.
+  String? _pendingRecipient;
 
   /// The EIP-155 chain id the committed payment request named, if any.
   int? _chainId;
@@ -252,10 +231,6 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
   /// Retry for the remainder until the slip changes.
   bool _retryPull = false;
 
-  /// A top-up from the shortfall button went through: the send moves on
-  /// to its recipient once the dollars cover the amount still typed.
-  bool _awaitingTopUp = false;
-
   @override
   void initState() {
     super.initState();
@@ -276,12 +251,13 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
         'presentation': SendSheetScope.presented(context) ? 'sheet' : 'screen',
       },
     );
-    // Send to is the first step: start it on USDC · Arbitrum and offer a
-    // recipient already sitting in the clipboard, as arriving on it does.
+    // Send to opens on the coin grid with nothing picked. A recipient
+    // handed over on open may pick it, once the catalog can say which.
+    final initial = widget.initialRecipient?.trim() ?? '';
+    if (initial.isNotEmpty) _pendingRecipient = initial;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || _step != _kSendToStep) return;
-      _applyDefaultDestination();
-      unawaited(_checkClipboard());
+      _applyInitialRecipient();
     });
     // A dollar send is a money decision on a live route, so nudge the
     // catalog rather than waiting for its 6 h cadence. Fire and forget:
@@ -389,43 +365,6 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
     return !_drain && units != null && units > _reachBaseUnits;
   }
 
-  /// What the typed amount is missing from the balance, to the cent.
-  double get _shortfallUsd {
-    final units = _typedBaseUnits;
-    if (_drain || units == null) return 0;
-    return usdSendShortfallUsd(units, _reachBaseUnits);
-  }
-
-  /// The shortfall button: the Investments deposit from the spending
-  /// bitcoin, prefilled with what is missing (the slips' top-up pattern).
-  void _openTopUp() {
-    final shortfall = _shortfallUsd;
-    if (shortfall <= 0 || _processing) return;
-    HapticFeedback.selectionClick();
-    TrackingService.track('usd_send_top_up_opened',
-        params: {'shortfall_usd': shortfall});
-    TrackingService.markEntrySource('move', kUsdSendShortfallSource);
-    final open = UsdSendScreen.debugDepositSheetOpener ?? showDepositSheet;
-    unawaited(open(
-      context,
-      lockedSide: MoveLockedSide.depositToUsd,
-      initialTargetUsd: shortfall,
-      onCompleted: () {
-        if (!mounted) return;
-        _awaitingTopUp = true;
-        _continueAfterTopUp();
-      },
-    ));
-  }
-
-  /// Back from a top-up: on to Review once the dollars cover the amount,
-  /// which is kept exactly as typed.
-  void _continueAfterTopUp() {
-    if (!_awaitingTopUp || _step != _kAmountStep || !_amountStepValid) return;
-    _awaitingTopUp = false;
-    _confirmAmount();
-  }
-
   bool get _amountBelowMinimum {
     final units = _typedBaseUnits;
     return units != null && units > BigInt.zero && units < _minBaseUnits;
@@ -505,40 +444,97 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
     return matchUsdRecipient(raw, offered);
   }
 
-  /// Settles the destination from the field's text: the current one
-  /// stays while the address still fits it; a recognised address that
-  /// does not fit moves to the default (USDC · Arbitrum) when it fits
-  /// that, else to what the address itself decides.
-  void _settleDestination({String selection = 'address'}) {
-    final catalog = ref.read(orchestraSupportedRoutesProvider);
-    final offered = _offeredDestinations(catalog).offered;
-    final match = _match(_address.text.trim(), offered: offered);
-    final current = _destination;
-    if (current != null && match.accepts(current)) return;
-    if (!match.recognised) return;
-    final fallback = usdSendDefaultDestination(offered);
-    final next =
-        fallback != null && match.accepts(fallback) ? fallback : match.autoPick;
-    if (next?.id == current?.id) return;
-    _destination = next;
-    _destinationChosen = false;
-    _estimateOut = null;
-    _estimateError = null;
-    if (next != null) _trackDestination(next, selection);
+  /// The offered destination a picker row stands for, matched by
+  /// `chain:assetCode`.
+  UsdSendDestination? _destinationFor(OrchestraReceiveOption row) {
+    final offered =
+        _offeredDestinations(ref.read(orchestraSupportedRoutesProvider))
+            .offered;
+    return offered
+        .where((d) => d.id == '${row.chain}:${row.assetCode}')
+        .firstOrNull;
+  }
+
+  /// A recipient handed over on open: a payment request that names its
+  /// own network picks that coin and fills the field; one that names
+  /// none waits for the pick ([_selectDestination] fills it then, if the
+  /// picked network accepts it). Retried when the catalog lands.
+  void _applyInitialRecipient() {
+    final raw = _pendingRecipient;
+    if (raw == null || _destination != null) return;
+    final offered =
+        _offeredDestinations(ref.read(orchestraSupportedRoutesProvider))
+            .offered;
+    if (offered.isEmpty) return;
+    final pinned = usdSendPaymentRequestDestination(raw, offered);
+    if (pinned == null) return;
+    _pendingRecipient = null;
+    _selectDestination(pinned, selection: 'deep_link', preselected: true);
+    _commitRecipient(raw, method: 'deep_link');
+  }
+
+  /// The coin and network are picked (the grid, the sheet, or a payment
+  /// request on open). An address already in stays only while the new
+  /// network accepts it; otherwise it is cleared and the send goes back
+  /// to Send to for a new one. On Review the estimate is asked again for
+  /// the new destination.
+  void _selectDestination(UsdSendDestination d,
+      {required String selection, bool preselected = false}) {
+    final firstPick = _destination == null;
+    final address = _address.text.trim();
+    final keepsAddress = address.isEmpty ||
+        usdSendDestinationAccepts(d, address, chainId: _chainId);
+    setState(() {
+      _destination = d;
+      _estimateOut = null;
+      _estimateError = null;
+      _error = null;
+      if (!keepsAddress) {
+        _address.clear();
+        _chainId = null;
+        _addressMethod = null;
+        _reviewToExpanded = false;
+        _completedSteps.removeAll({_kSendToStep, _kAmountStep});
+      }
+    });
+    TrackingService.track('usd_send_coin_selected', params: {
+      'asset': d.assetCode,
+      'network': d.chain,
+      'preselected': preselected,
+    });
+    _trackDestination(d, selection);
+    if (!keepsAddress && _step != _kSendToStep) {
+      _animateTo(_kSendToStep);
+    } else if (_step == _kReviewStep && !_resolvingDrain) {
+      unawaited(_fetchEstimate());
+    }
+    // A recipient handed over on open that named no network of its own
+    // lands now, if this network takes it.
+    final pending = _pendingRecipient;
+    if (pending != null) {
+      _pendingRecipient = null;
+      if (_address.text.trim().isEmpty &&
+          usdSendDestinationAccepts(d, bareRecipientAddress(pending),
+              chainId: evmPaymentChainId(pending))) {
+        _commitRecipient(pending, method: 'deep_link');
+      }
+    }
+    if (firstPick || !keepsAddress) unawaited(_checkClipboard());
   }
 
   void _trackDestination(UsdSendDestination d, String selection) {
     TrackingService.track('usd_send_destination_selected', params: {
       'asset': d.assetCode,
       'chain': d.chain,
+      'network': d.chain,
       'selection': selection,
     });
   }
 
   /// Paste, Scan, the clipboard nudge and a recent row all land here: a
   /// payment request is reduced to its bare address (an `ethereum:`
-  /// request keeps the chain id it named), and the address decides the
-  /// destination.
+  /// request keeps the chain id it named). The picked destination never
+  /// moves: an address for another network is refused by the field.
   void _commitRecipient(String raw, {required String method}) {
     final address = bareRecipientAddress(raw);
     if (address.isEmpty) return;
@@ -551,7 +547,6 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
         selection: TextSelection.collapsed(offset: address.length),
       );
       _error = null;
-      _settleDestination(selection: method == 'recent' ? 'recent' : 'address');
     });
     _addressMethod = method;
   }
@@ -566,7 +561,6 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
     setState(() {
       _chainId = null;
       _error = null;
-      _settleDestination();
     });
     if (value.isNotEmpty) _addressMethod ??= 'typed';
   }
@@ -590,36 +584,42 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
     _commitRecipient(scanned, method: 'scanned');
   }
 
-  /// Read the clipboard on arriving at Send to and keep it as a nudge
-  /// when it holds a recipient this send can pay.
+  /// Read the clipboard on arriving at Send to with a coin picked and
+  /// keep it as a nudge when it holds a recipient the picked network
+  /// accepts.
   Future<void> _checkClipboard() async {
-    if (_address.text.isNotEmpty) return;
+    if (_address.text.isNotEmpty || _destination == null) return;
     try {
       if (!await Clipboard.hasStrings()) return;
       final data = await Clipboard.getData(Clipboard.kTextPlain);
       final raw = data?.text?.trim() ?? '';
       if (!mounted || raw.isEmpty || raw.length > 2048) return;
       if (raw == _clipboardDismissed || raw == _clipboardCandidate) return;
-      final catalog = ref.read(orchestraSupportedRoutesProvider);
-      final match =
-          matchUsdRecipient(raw, _offeredDestinations(catalog).offered);
-      if (match.candidates.isEmpty) return;
+      final d = _destination;
+      if (d == null || _address.text.isNotEmpty) return;
+      if (!usdSendDestinationAccepts(d, bareRecipientAddress(raw),
+          chainId: evmPaymentChainId(raw))) {
+        return;
+      }
       setState(() => _clipboardCandidate = raw);
     } catch (_) {
       // No clipboard access is the same as an empty clipboard.
     }
   }
 
-  /// Last few recipients this wallet sent dollars to, newest first, from
-  /// the dollar send's own activity rows. Only rows whose destination is
-  /// still offered are shown, so a tap always lands on a live route.
+  /// Last few recipients this wallet sent dollars to as [only] (the
+  /// picked coin on its network), newest first, from the dollar send's
+  /// own activity rows. Only rows whose destination is still offered are
+  /// shown, so a tap always lands on a live route.
   List<
-      ({
-        String address,
-        UsdSendDestination destination,
-        String amount,
-        DateTime when
-      })> _recentRecipients(List<UsdSendDestination> offered) {
+          ({
+            String address,
+            UsdSendDestination destination,
+            String amount,
+            DateTime when
+          })>
+      _recentRecipients(
+          List<UsdSendDestination> offered, UsdSendDestination only) {
     final walletId = pickSpendingWallet(ref.watch(settingsProvider))?.id;
     final orders = ref.watch(swapOrdersProvider);
     final rows = orders
@@ -645,7 +645,7 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
               d.chain == chain &&
               d.assetCode.toUpperCase() == o.coinTo.toUpperCase())
           .firstOrNull;
-      if (destination == null) continue;
+      if (destination == null || destination.id != only.id) continue;
       final address = o.withdrawalAddress.trim();
       if (!usdSendDestinationAccepts(destination, address)) continue;
       if (!seen.add('${destination.id}|${address.toLowerCase()}')) continue;
@@ -666,12 +666,11 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
   Widget build(BuildContext context) {
     final c = context.colors;
     final spending = pickSpendingWallet(ref.watch(settingsProvider));
-    // A catalog that lands after the sheet opened still gets the default.
+    // A catalog that lands after the sheet opened can still place a
+    // recipient handed over on open.
     ref.listen(orchestraSupportedRoutesProvider, (_, __) {
-      if (_step == _kSendToStep) _applyDefaultDestination();
+      if (_step == _kSendToStep) _applyInitialRecipient();
     });
-    // Dollars landing from a top-up carry the send on.
-    ref.listen(usdBalanceProvider, (_, __) => _continueAfterTopUp());
     // The send sheet: medium on Send to until a recipient is in, full
     // from there on. A drag or a scrim tap may close it only on Send to
     // and never while the send (or a venue pull for it) is running.
@@ -725,26 +724,22 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
               setState(() => _step = i);
               if (i == _kSendToStep) unawaited(_checkClipboard());
             },
+            // No visible step headings (founder decision, 14 October
+            // 2026): each page is announced by name to screen readers.
             pages: [
-              StepPageWrapper(
+              SendStepPage(
                 title: context.l10n.sendTo,
-                subtitle: context.l10n.sendWhereShouldItLand,
-                colors: c,
                 child: _sendToPage(c),
               ),
-              StepPageWrapper(
+              SendStepPage(
                 title: context.l10n.amount,
-                subtitle: context.l10n.usdSendAmountSubtitle,
-                colors: c,
                 child: _amountPage(c),
               ),
-              StepPageWrapper(
+              SendStepPage(
                 title: context.l10n.sendReview,
-                subtitle: context.l10n.sendConfirmTheDetails,
                 trailing: const AskSalChip(
                   advisorContext: AdvisorContext(surface: 'send_review'),
                 ),
-                colors: c,
                 child: _reviewPage(c),
               ),
             ],
@@ -787,6 +782,11 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // What the recipient gets, changeable from here.
+                if (_destination != null) ...[
+                  _destinationChip(_destination!),
+                  SizedBox(height: 14.h),
+                ],
                 Row(
                   children: [
                     Expanded(
@@ -834,17 +834,6 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
                     ),
                   ),
                 ],
-                if (overBalance && _shortfallUsd > 0) ...[
-                  SizedBox(height: 10.h),
-                  AppButton(
-                    key: const ValueKey('usd-send-top-up'),
-                    text: context.l10n.slipAddToInvestments(
-                        '\$${_shortfallUsd.toStringAsFixed(2)}'),
-                    variant: AppButtonVariant.secondary,
-                    compact: true,
-                    onPressed: _processing ? null : _openTopUp,
-                  ),
-                ],
                 SizedBox(height: 10.h),
                 Text(
                   context.l10n.hlYieldAvailableLine(
@@ -874,7 +863,6 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
             maxDecimals: 2,
             enabled: !_processing,
             onChanged: (v) {
-              _awaitingTopUp = false;
               setState(() {
                 _amountMethod = 'keypad';
                 _drain = false;
@@ -911,7 +899,6 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
     // Cents, floored: the keypad types two decimals, so the percentage
     // lands on one too rather than on a sub-cent amount it cannot show.
     final cents = (reach * ratio * 100).floor();
-    _awaitingTopUp = false;
     setState(() {
       _error = null;
       _drain = drain;
@@ -937,22 +924,6 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
 
   // ─── Step 1: Send to ──────────────────────────────────────────────
 
-  /// Starts the send on USDC · Arbitrum when nothing is chosen yet and
-  /// that route is offered; otherwise leaves the destination to the
-  /// address, as before.
-  void _applyDefaultDestination() {
-    if (_destination != null || _address.text.trim().isNotEmpty) return;
-    final catalog = ref.read(orchestraSupportedRoutesProvider);
-    final fallback =
-        usdSendDefaultDestination(_offeredDestinations(catalog).offered);
-    if (fallback == null) return;
-    setState(() {
-      _destination = fallback;
-      _destinationChosen = false;
-    });
-    _trackDestination(fallback, 'default');
-  }
-
   /// Whether the recipient and destination can be sent to. Continue is
   /// dead until they are.
   bool get _recipientReady {
@@ -965,34 +936,35 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
     return true;
   }
 
+  /// Send to: the coin grid until a coin is picked, then the picked coin
+  /// as a chip over the recipient field, its Paste and Scan, and the
+  /// recents for that coin.
   Widget _sendToPage(AppColorsExtension c) {
-    final l10n = context.l10n;
     final catalog = ref.watch(orchestraSupportedRoutesProvider);
     final offered = _offeredDestinations(catalog);
+    final destination = _destination;
+    if (destination == null) return _coinStep(offered.offered);
+
+    final l10n = context.l10n;
     final addr = _address.text.trim();
     final match = _match(addr, offered: offered.offered);
-    final destination = _destination;
+    final accepted = addr.isNotEmpty &&
+        usdSendDestinationAccepts(destination, addr, chainId: _chainId);
 
-    // What the field says about itself, in the bitcoin send's words.
+    // What the field says about itself, in the bitcoin send's words. The
+    // picked network is the only one it is checked against.
     String? error;
-    if (addr.isNotEmpty) {
-      if (destination != null &&
-          !usdSendDestinationAccepts(destination, addr, chainId: _chainId)) {
-        error = match.recognised && match.candidates.isEmpty
-            ? (offered.hiddenReason ?? l10n.usdSendAddressUnsupported)
-            : l10n.usdSendAddressWrongNetwork(destination.chainDisplayName);
-      } else if (destination == null && !match.recognised) {
+    if (addr.isNotEmpty && !accepted) {
+      if (!match.recognised) {
         error = l10n.sendAddressNotIdentified;
-      } else if (destination == null && match.candidates.isEmpty) {
+      } else if (match.candidates.isEmpty) {
         error = offered.hiddenReason ?? l10n.usdSendAddressUnsupported;
+      } else {
+        error = l10n.usdSendAddressWrongNetwork(destination.chainDisplayName);
       }
     }
-    final hint = destination != null && _destinationChosen
-        ? l10n.sendAssetOnNetworkAddressHint(
-            destination.displaySymbol, destination.chainDisplayName)
-        : l10n.usdSendAddressHint;
     final recents = addr.isEmpty
-        ? _recentRecipients(offered.offered)
+        ? _recentRecipients(offered.offered, destination)
         : const <({
             String address,
             UsdSendDestination destination,
@@ -1005,11 +977,17 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: _destinationChip(destination),
+          ),
+          SizedBox(height: 16.h),
           SendRecipientField(
             controller: _address,
             colors: c,
-            hintText: hint,
-            isValid: addr.isNotEmpty && error == null && match.recognised,
+            hintText: l10n.sendAssetOnNetworkAddressHint(
+                destination.displaySymbol, destination.chainDisplayName),
+            isValid: accepted,
             onPaste: _paste,
             onScan: _scan,
             onChanged: _onAddressTyped,
@@ -1017,7 +995,7 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
           if (error != null) ...[
             SizedBox(height: 10.h),
             SendRecipientError(message: error),
-          ] else if (addr.isNotEmpty && match.recognised) ...[
+          ] else if (accepted && match.recognised) ...[
             SizedBox(height: 10.h),
             SendDetectedBadge(
               label: _familyLabel(match.family),
@@ -1054,17 +1032,71 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
                     trailingSubtitle: DateFormat.MMMd(
                             Localizations.localeOf(context).toString())
                         .format(r.when),
-                    onTap: () => _pickRecent(r.address, r.destination),
+                    onTap: () => _commitRecipient(r.address, method: 'recent'),
                   ),
               ],
             ),
           ],
-          SizedBox(height: 24.h),
-          _destinationCard(c, offered.offered, match),
         ],
       ),
     );
   }
+
+  /// The first thing on Send to: the coins dollars can be sent as, one
+  /// tile per coin (the receive step's grid, the coin sheet's set). A
+  /// coin on one network is picked at once; a coin on several opens the
+  /// sheet on its networks.
+  Widget _coinStep(List<UsdSendDestination> offered) {
+    final l10n = context.l10n;
+    // Still fetching is not the same as nothing to offer.
+    final loading = ref.watch(orchestraRoutesReadyProvider).isLoading;
+    final groups = coinGroupsOfferedUnderPolicy(
+      groupCoinsByAsset([for (final d in offered) _asOption(d)]),
+      otherLegAsset: kOrchestraUsdAssetCode,
+    ).groups;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SendToSectionHeader(title: l10n.usdFlowStepCoin),
+        Expanded(
+          child: CoinAssetGrid(
+            key: const ValueKey('usd-send-coin-grid'),
+            groups: groups,
+            emptyLabel: loading
+                ? l10n.usdSendRoutesUnavailable
+                : l10n.usdSendDestinationsUnavailable,
+            markBuilder: (g, size) =>
+                AssetIcon(assetCode: g.assetCode, size: size),
+            onPick: _pickGroup,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// A coin tapped on the Send to grid.
+  void _pickGroup(CoinAssetGroup group) {
+    TrackingService.track('coin_picker_coin_picked', params: {
+      'flow': 'usd_send',
+      'asset': group.assetCode,
+      'networks': group.options.length,
+    });
+    if (group.isSingleNetwork) {
+      final d = _destinationFor(group.options.first);
+      if (d != null) _selectDestination(d, selection: 'grid');
+      return;
+    }
+    _openDestinationPicker(initialGroupKey: group.key);
+  }
+
+  /// The picked coin and network, on every step: tapping it reopens the
+  /// picker.
+  Widget _destinationChip(UsdSendDestination destination) => SendAmountUnitPill(
+        key: const ValueKey('usd-send-coin-chip'),
+        code: '${destination.displaySymbol} · ${destination.chainDisplayName}',
+        icon: _destinationMark(destination, size: 22),
+        onTap: _processing ? null : _openDestinationPicker,
+      );
 
   /// Plain words for the badge under the field, shared with the bitcoin
   /// send's copy.
@@ -1087,86 +1119,23 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
         _ => Icons.account_balance_wallet_outlined,
       };
 
-  void _pickRecent(String address, UsdSendDestination destination) {
-    _commitRecipient(address, method: 'recent');
-    if (_destination?.id != destination.id) {
-      setState(() {
-        _destination = destination;
-        _destinationChosen = false;
-      });
-      _trackDestination(destination, 'recent');
-    }
-  }
-
-  /// What the money arrives as, in one card: at rest a statement of the
-  /// coins dollars can be sent as (tap to pick first, as on the bitcoin
-  /// send); once an address needs a network, the question; once a
-  /// destination is settled, that destination, still tappable.
-  Widget _destinationCard(AppColorsExtension c,
-      List<UsdSendDestination> offered, UsdRecipientMatch match) {
-    final l10n = context.l10n;
-    final addr = match.address;
-    final destination = _destination;
-    final needsPick =
-        addr.isNotEmpty && destination == null && match.candidates.length > 1;
-    // The sheet offers what the address can take, or everything while
-    // the field is empty or unrecognised.
-    final choices = addr.isNotEmpty && match.candidates.isNotEmpty
-        ? match.candidates
-        : offered;
-    void open() => _openDestinationPicker(choices);
-
-    if (destination == null && !needsPick) {
-      final groups = groupCoinsByAsset([for (final d in choices) _asOption(d)]);
-      if (groups.isEmpty) return const SizedBox.shrink();
-      return SendToListCard(
-        colors: c,
-        rows: [
-          CoinMarksLine(
-            label: l10n.sendAlsoSendsTo,
-            groups: groups,
-            moreLabel: l10n.receiveAlsoAcceptsMore,
-            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
-            onTap: open,
-          ),
-        ],
-      );
-    }
-    return SendToListCard(
-      colors: c,
-      // Attention reads through the border weight and copy: while a
-      // network is still needed this card is the only way forward.
-      emphasized: needsPick,
-      rows: [
-        SendToListRow(
-          colors: c,
-          leading: destination != null
-              ? _destinationMark(destination, size: 32)
-              : Icon(Icons.swap_horiz_rounded,
-                  color: c.textSecondary, size: 20.sp),
-          title: destination != null
-              ? '${destination.displaySymbol} · ${destination.chainDisplayName}'
-              : l10n.sendWhichNetworkIsThisAddressOn,
-          subtitle: destination == null
-              ? l10n.sendTapToChoose
-              : l10n.usdSendConvertedFromDollars,
-          onTap: open,
-        ),
-      ],
-    );
-  }
-
   /// The coin sheet every money screen opens, asset first and network
-  /// second, over [choices]. The picked row is matched back by
-  /// `chain:assetCode`, the id the dollar table keys on.
-  void _openDestinationPicker(List<UsdSendDestination> choices) {
+  /// second, over every destination the dollars can be sent to; open on
+  /// [initialGroupKey]'s networks when a multi-network coin was tapped on
+  /// the grid. The picked row is matched back by `chain:assetCode`, the
+  /// id the dollar table keys on.
+  void _openDestinationPicker({String? initialGroupKey}) {
     TrackingService.track('usd_send_coin_picker_opened');
     final closed = showAppBottomSheet<void>(
       context: context,
       builder: (sheetCtx) => Consumer(
         builder: (ctx, sheetRef, _) {
+          // Watch so the offering re-folds the moment the live catalog
+          // lands.
+          final catalog = sheetRef.watch(orchestraSupportedRoutesProvider);
           final loading =
               sheetRef.watch(orchestraRoutesReadyProvider).isLoading;
+          final choices = _offeredDestinations(catalog).offered;
           return CoinAssetPickerSheet(
             otherLegAsset: kOrchestraUsdAssetCode,
             groups: groupCoinsByAsset([for (final d in choices) _asOption(d)]),
@@ -1176,6 +1145,7 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
                 ? ctx.l10n.usdSendRoutesUnavailable
                 : ctx.l10n.usdSendDestinationsUnavailable,
             flow: 'usd_send',
+            initialAssetCode: initialGroupKey,
             selectedOptionId: _destination?.id,
             onPicked: (row) {
               final picked = choices
@@ -1183,14 +1153,7 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
                   .firstOrNull;
               if (picked == null) return;
               Navigator.of(sheetCtx).pop();
-              setState(() {
-                _destination = picked;
-                _destinationChosen = true;
-                _estimateOut = null;
-                _estimateError = null;
-                _error = null;
-              });
-              _trackDestination(picked, 'picker');
+              _selectDestination(picked, selection: 'picker');
             },
           );
         },
@@ -1372,6 +1335,11 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
                         style: sendHeroAmountStyle(c.textPrimary)),
                   ),
                 ),
+                // What the recipient gets, changeable up to the last tap.
+                if (destination != null) ...[
+                  SizedBox(height: 4.h),
+                  Center(child: _destinationChip(destination)),
+                ],
                 SizedBox(height: 20.h),
                 // ─── From → To card ───
                 SendReviewCard(
@@ -1587,6 +1555,7 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
         props: {
           'asset': destination.assetCode,
           'chain': destination.chain,
+          'network': destination.chain,
           ..._flowInputs(),
         });
 
@@ -1614,6 +1583,7 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
     TrackingService.track('usd_send_initiated', params: {
       'asset': destination.assetCode,
       'chain': destination.chain,
+      'network': destination.chain,
       'amount_bucket': TrackingService.usdBucket(usdForDisplay),
       'provider': 'orchestra',
     });
@@ -1761,6 +1731,7 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
       TrackingService.track('usd_send_completed', params: {
         'asset': destination.assetCode,
         'chain': destination.chain,
+        'network': destination.chain,
         'amount_bucket': TrackingService.usdBucket(sentUsd),
         'order_id': orderId,
         'provider': 'orchestra',

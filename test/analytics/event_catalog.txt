@@ -662,13 +662,13 @@ usd_receive_opened
 usd_receive_step
 usd_send_abandoned
 usd_send_coin_picker_opened
+usd_send_coin_selected
 usd_send_completed
 usd_send_confirmed
 usd_send_destination_selected
 usd_send_initiated
 usd_send_opened
 usd_send_step
-usd_send_top_up_opened
 usd_tab_opened
 venue_account_link_result
 venue_sweep_completed

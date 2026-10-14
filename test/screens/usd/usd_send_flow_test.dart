@@ -1,9 +1,11 @@
-// Send dollars runs the bitcoin send's flow: a recipient field that
-// decides the destination from what is pasted first, then the amount on
-// the keypad, then Review. It opens as the send sheet: medium on the
-// recipient, full from there on, and it cannot be swiped away once the
-// send is past its first step or running. Nothing here reaches a money
-// call: every case stops at a gate or on Review.
+// Send dollars runs the bitcoin send's flow with the coin first: Send to
+// opens on the coin grid and only a picked coin brings the recipient
+// field (checked against that network alone), then the amount on the
+// keypad, then Review, with the picked coin as a chip on every step. It
+// opens as the send sheet: medium on Send to, full once a recipient is
+// in, and it cannot be swiped away once the send is past its first step
+// or running. The steps have no visible headings. Nothing here reaches a
+// money call: every case stops at a gate or on Review.
 
 import 'dart:async';
 import 'dart:io';
@@ -26,9 +28,11 @@ import 'package:kute/providers/orchestra_supported_routes_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/spark_address_provider.dart';
 import 'package:kute/providers/usd_account_provider.dart';
-import 'package:kute/screens/home/components/deposit_sheet.dart'
-    show MoveLockedSide;
+import 'package:kute/screens/shared/coin_asset_grid.dart'
+    show CoinAssetPickerSheet;
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/send/send_flow_widgets.dart'
+    show SendAmountUnitPill;
 import 'package:kute/screens/shared/send/send_sheet.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart'
     show UsdAccountActionBar;
@@ -143,7 +147,10 @@ class _Launcher extends StatelessWidget {
 /// [home] replaces the bare screen (a launcher, the dock); [router]
 /// mounts the app under a GoRouter instead (the scanner route).
 Future<void> _pump(WidgetTester tester,
-    {bool arbitrumUsdc = true, Widget? home, GoRouter? router}) async {
+    {bool arbitrumUsdc = true,
+    Widget? home,
+    GoRouter? router,
+    String? initialRecipient}) async {
   final theme = ThemeData(
       splashFactory: NoSplash.splashFactory,
       fontFamily: 'Inter',
@@ -189,7 +196,7 @@ Future<void> _pump(WidgetTester tester,
               theme: theme,
               localizationsDelegates: AppLocalizations.localizationsDelegates,
               supportedLocales: AppLocalizations.supportedLocales,
-              home: home ?? const UsdSendScreen(),
+              home: home ?? UsdSendScreen(initialRecipient: initialRecipient),
             ),
     ),
   ));
@@ -205,6 +212,55 @@ bool _continueEnabled(WidgetTester tester) =>
 String _field(WidgetTester tester) =>
     tester.widget<TextField>(find.byType(TextField)).controller!.text;
 
+/// The step on screen, by the header its page announces (the steps have
+/// no visible heading).
+Finder _step(String title) => find.byWidgetPredicate((w) =>
+    w is Semantics &&
+    w.properties.header == true &&
+    w.properties.label == title);
+
+Finder get _grid => find.byKey(const ValueKey('usd-send-coin-grid'));
+Finder get _chip => find.byKey(const ValueKey('usd-send-coin-chip'));
+
+String _chipLabel(WidgetTester tester) =>
+    tester.widget<SendAmountUnitPill>(_chip).code;
+
+UsdSendDestination _dest(String chain, String asset) =>
+    usdSendDestinations(_catalog())
+        .firstWhere((d) => d.chain == chain && d.assetCode == asset);
+
+String label(String chain, String asset) {
+  final d = _dest(chain, asset);
+  return '${d.displaySymbol} · ${d.chainDisplayName}';
+}
+
+/// Taps [asset]'s tile in [within] and, for a coin on several networks,
+/// [chain]'s row in the sheet that opens.
+Future<void> _tapCoin(
+    WidgetTester tester, Finder within, String chain, String asset) async {
+  final d = _dest(chain, asset);
+  await tester
+      .tap(find.descendant(of: within, matching: find.text(d.displaySymbol)));
+  await tester.pumpAndSettle();
+  final sheet = find.byType(CoinAssetPickerSheet);
+  if (sheet.evaluate().isEmpty) return;
+  await tester
+      .tap(find.descendant(of: sheet, matching: find.text(d.chainDisplayName)));
+  await tester.pumpAndSettle();
+}
+
+/// Picks the coin on the Send to grid.
+Future<void> _pickCoin(WidgetTester tester, String chain, String asset) =>
+    _tapCoin(tester, _grid, chain, asset);
+
+/// Changes the coin from its chip, on any step.
+Future<void> _changeCoin(
+    WidgetTester tester, String chain, String asset) async {
+  await tester.tap(_chip);
+  await tester.pumpAndSettle();
+  await _tapCoin(tester, find.byType(CoinAssetPickerSheet), chain, asset);
+}
+
 Future<void> _type(WidgetTester tester, String digits) async {
   for (final d in digits.split('')) {
     await tester.tap(find.text(d).last);
@@ -218,14 +274,15 @@ Future<void> _paste(WidgetTester tester, String value) async {
   await tester.pumpAndSettle();
 }
 
-/// Send to → Amount with [address] pasted.
+/// Send to → Amount: USDC · Arbitrum picked and [address] pasted.
 Future<void> _toAmount(WidgetTester tester, {String address = _evm}) async {
-  expect(find.text(_l10n.sendWhereShouldItLand), findsOneWidget);
+  expect(_step(_l10n.sendTo), findsOneWidget);
+  await _pickCoin(tester, 'arbitrum', 'USDC');
   await _paste(tester, address);
   expect(_continueEnabled(tester), isTrue);
   await tester.tap(find.text(_l10n.continueLabel));
   await tester.pumpAndSettle();
-  expect(find.text(_l10n.usdSendAmountSubtitle), findsOneWidget);
+  expect(_step(_l10n.amount), findsOneWidget);
 }
 
 /// A 375 x 812 phone (an iPhone mini / X class screen).
@@ -308,18 +365,65 @@ void main() {
   }
 
   testWidgets(
-      'the recipient comes first; the amount follows, in dollars, with '
-      'the percent chips', (tester) async {
+      'Send to opens on the coin grid: no address field, Paste, Scan or '
+      'Continue until a coin is picked', (tester) async {
     await withClipboard(tester);
+    _clipboard = _evm;
     await _pump(tester);
 
-    expect(find.text(_l10n.sendTo), findsOneWidget);
-    expect(find.text(_l10n.usdSendAmountSubtitle), findsNothing);
+    expect(_step(_l10n.sendTo), findsOneWidget);
+    expect(_grid, findsOneWidget);
+    expect(find.text(_l10n.usdFlowStepCoin), findsOneWidget);
+    expect(find.byType(TextField), findsNothing);
+    expect(find.byTooltip(_l10n.paste), findsNothing);
+    expect(find.byTooltip(_l10n.scan), findsNothing);
+    // Nothing is picked for the person, and the clipboard waits.
+    expect(_chip, findsNothing);
+    expect(find.text(_l10n.sendClipboardAddressFound), findsNothing);
+    expect(_continueEnabled(tester), isFalse);
+    // No visible step heading; the step is announced by name only.
+    expect(find.text(_l10n.sendTo), findsNothing);
+    expect(find.text(_l10n.sendWhereShouldItLand), findsNothing);
+  });
+
+  testWidgets(
+      'picking a coin shows its chip over the field; the recipient, then '
+      'the amount in dollars with the percent chips, and the chip stays on '
+      'Amount and Review', (tester) async {
+    final events = <(String, Map<String, Object>?)>[];
+    TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+    addTearDown(() => TrackingService.debugTrackObserver = null);
+    await withClipboard(tester);
+    _clipboard = 'ethereum:$_evm?value=0';
+    await _pump(tester);
+
+    await _pickCoin(tester, 'arbitrum', 'USDC');
+    expect(_grid, findsNothing);
+    expect(_chipLabel(tester), label('arbitrum', 'USDC'));
+    expect(find.byType(TextField), findsOneWidget);
+    expect(find.byTooltip(_l10n.paste), findsOneWidget);
+    expect(find.byTooltip(_l10n.scan), findsOneWidget);
+    expect(events.where((e) => e.$1 == 'usd_send_coin_selected').single.$2,
+        {'asset': 'USDC', 'network': 'arbitrum', 'preselected': false});
     expect(_continueEnabled(tester), isFalse);
 
-    await _toAmount(tester);
-    expect(find.text(_l10n.amount), findsOneWidget);
-    expect(find.text('USD'), findsOneWidget);
+    // The clipboard nudge, now that the network can take it.
+    expect(find.text(_l10n.sendClipboardAddressFound), findsOneWidget);
+    await tester.tap(find.text(_l10n.useIt));
+    await tester.pumpAndSettle();
+    expect(_field(tester), _evm);
+    expect(_continueEnabled(tester), isTrue);
+
+    await tester.tap(find.text(_l10n.continueLabel));
+    await tester.pumpAndSettle();
+    expect(_step(_l10n.amount), findsOneWidget);
+    expect(find.text(_l10n.amount), findsNothing);
+    expect(_chipLabel(tester), label('arbitrum', 'USDC'));
+    expect(
+        tester
+            .widgetList<SendAmountUnitPill>(find.byType(SendAmountUnitPill))
+            .map((p) => p.code),
+        contains('USD'));
     expect(find.text('100%'), findsOneWidget);
     expect(_continueEnabled(tester), isFalse);
 
@@ -333,143 +437,158 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('100.00'), findsOneWidget);
     expect(_continueEnabled(tester), isTrue);
+
+    await tester.tap(find.text(_l10n.continueLabel));
+    await tester.pumpAndSettle();
+    expect(_step(_l10n.sendReview), findsOneWidget);
+    expect(find.text(_l10n.sendReview), findsNothing);
+    expect(find.text(_l10n.assetDollars), findsOneWidget);
+    expect(_chipLabel(tester), label('arbitrum', 'USDC'));
+    // Route params name the coin and its network; never the address.
+    final step = events.lastWhere((e) => e.$1 == 'usd_send_step').$2!;
+    expect(step, containsPair('to_asset', 'usdc'));
+    expect(step, containsPair('to_network', 'arbitrum'));
+    expect(events.expand<Object>((e) => e.$2?.values ?? const <Object>[]),
+        isNot(contains(_evm)));
   });
 
-  test('the shortfall is what the balance misses, up to the cent', () {
-    BigInt u(String usd) => BigInt.from((double.parse(usd) * 1e6).round());
-    expect(usdSendShortfallUsd(u('150'), u('100')), 50.0);
-    expect(usdSendShortfallUsd(u('100.01'), u('100.004')), 0.01);
-    expect(usdSendShortfallUsd(u('100'), u('100')), 0);
-    expect(usdSendShortfallUsd(u('5'), u('100')), 0);
+  test('the shared helper: a payment request pins its own network only', () {
+    final offered = usdSendDestinations(_catalog());
+    expect(usdSendPaymentRequestDestination('ethereum:$_evm@8453', offered)?.id,
+        'base:USDC');
+    expect(usdSendPaymentRequestDestination('tron:$_tron', offered)?.id,
+        'tron:USDT');
+    // A bare address, or an EVM request with no chain, pins nothing.
+    expect(usdSendPaymentRequestDestination(_evm, offered), isNull);
+    expect(usdSendPaymentRequestDestination(_tron, offered), isNull);
+    expect(usdSendPaymentRequestDestination('ethereum:$_evm', offered), isNull);
+    expect(usdSendPaymentRequestDestination('ethereum:$_evm@424242', offered),
+        isNull);
   });
 
   testWidgets(
-      'over the balance, one button opens the Investments deposit with the '
-      'shortfall; back with the dollars, the send carries on to Review '
-      'with the amount kept', (tester) async {
+      'a payment request handed over on open with its chain preselects that '
+      'coin and fills the field', (tester) async {
     final events = <(String, Map<String, Object>?)>[];
     TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
     addTearDown(() => TrackingService.debugTrackObserver = null);
-    final opened = <(MoveLockedSide, double?)>[];
-    VoidCallback? completed;
-    UsdSendScreen.debugDepositSheetOpener =
-        (_, {required lockedSide, initialTargetUsd, onCompleted}) async {
-      opened.add((lockedSide, initialTargetUsd));
-      completed = onCompleted;
-    };
-    addTearDown(() => UsdSendScreen.debugDepositSheetOpener = null);
-    // A phone-sized screen, so the hero has the room it has on a phone.
-    tester.view.physicalSize = const Size(1290, 2796);
-    tester.view.devicePixelRatio = 3;
-    addTearDown(tester.view.reset);
     await withClipboard(tester);
-    await _pump(tester);
-    await _toAmount(tester);
+    await _pump(tester, initialRecipient: 'ethereum:$_evm@8453');
 
-    final button = find.byKey(const ValueKey('usd-send-top-up'));
-    expect(button, findsNothing);
-    await _type(tester, '150');
-    expect(find.text(_l10n.sendMoreThanAvailable), findsOneWidget);
-    expect(_continueEnabled(tester), isFalse);
-    expect(button, findsOneWidget);
-    expect(find.text(_l10n.slipAddToInvestments('\$50.00')), findsOneWidget);
-
-    await tester.tap(button);
-    await tester.pump();
-    expect(opened, [(MoveLockedSide.depositToUsd, 50.0)]);
-    expect(events.where((e) => e.$1 == 'usd_send_top_up_opened').single.$2,
-        {'shortfall_usd': 50.0});
-    expect(TrackingService.takeEntrySource('move'), 'usd_send_shortfall');
-
-    // The deposit went through but the dollars are not in yet: still on
-    // Amount, the figure kept.
-    completed!();
-    await tester.pumpAndSettle();
-    expect(find.text(_l10n.usdSendAmountSubtitle), findsOneWidget);
-    expect(find.text('150'), findsOneWidget);
-
-    // They land: on to Review, where the person still decides.
-    ProviderScope.containerOf(tester.element(find.byType(UsdSendScreen)))
-        .read(_balance.notifier)
-        .state = 160;
-    await tester.pumpAndSettle();
-    expect(find.text(_l10n.sendConfirmTheDetails), findsOneWidget);
-    expect(find.text('\$150.00'), findsWidgets);
+    expect(_grid, findsNothing);
+    expect(_chipLabel(tester), label('base', 'USDC'));
+    expect(_field(tester), _evm);
+    expect(_continueEnabled(tester), isTrue);
+    expect(events.where((e) => e.$1 == 'usd_send_coin_selected').single.$2,
+        {'asset': 'USDC', 'network': 'base', 'preselected': true});
   });
-
-  String label(String chain, String asset) {
-    final d = usdSendDestinations(_catalog())
-        .firstWhere((d) => d.chain == chain && d.assetCode == asset);
-    return '${d.displaySymbol} · ${d.chainDisplayName}';
-  }
 
   testWidgets(
-      'Send to starts on USDC · Arbitrum; an EVM address from the '
-      'clipboard goes there and, with an amount, reaches Review',
-      (tester) async {
+      'a bare address handed over on open waits for the coin, then fills '
+      'the field when that network takes it', (tester) async {
     await withClipboard(tester);
-    _clipboard = 'ethereum:$_evm?value=0';
-    await _pump(tester);
+    await _pump(tester, initialRecipient: _evm);
 
-    // Preselected before any address.
-    expect(find.text(label('arbitrum', 'USDC')), findsOneWidget);
-    expect(_continueEnabled(tester), isFalse);
-
-    // The clipboard nudge, as on the bitcoin send, on opening.
-    expect(find.text(_l10n.sendClipboardAddressFound), findsOneWidget);
-    await tester.tap(find.text(_l10n.useIt));
-    await tester.pumpAndSettle();
-
+    expect(_grid, findsOneWidget);
+    expect(find.byType(TextField), findsNothing);
+    await _pickCoin(tester, 'arbitrum', 'USDT');
     expect(_field(tester), _evm);
-    expect(find.text(label('arbitrum', 'USDC')), findsOneWidget);
-    expect(find.text(_l10n.sendWhichNetworkIsThisAddressOn), findsNothing);
     expect(_continueEnabled(tester), isTrue);
-
-    await tester.tap(find.text(_l10n.continueLabel));
-    await tester.pumpAndSettle();
-    expect(find.text(_l10n.usdSendAmountSubtitle), findsOneWidget);
-    await _type(tester, '5');
-    await tester.tap(find.text(_l10n.continueLabel));
-    await tester.pumpAndSettle();
-    expect(find.text(_l10n.sendConfirmTheDetails), findsOneWidget);
-    expect(find.text('\$5.00'), findsWidgets);
-    expect(find.text(_l10n.assetDollars), findsOneWidget);
-    expect(find.text(label('arbitrum', 'USDC')), findsOneWidget);
   });
 
-  testWidgets('a chain id picks its chain; Tron picks its route',
+  testWidgets(
+      'the address is checked against the picked network only: another '
+      'network\'s address is refused and the coin does not move',
       (tester) async {
     await withClipboard(tester);
     await _pump(tester);
+    await _pickCoin(tester, 'arbitrum', 'USDC');
 
     await _paste(tester, 'ethereum:$_evm@8453');
     expect(_field(tester), _evm);
-    expect(find.text(label('base', 'USDC')), findsOneWidget);
-    expect(find.text(_l10n.usdSendConvertedFromDollars), findsOneWidget);
-    expect(_continueEnabled(tester), isTrue);
+    expect(
+        find.text(_l10n.usdSendAddressWrongNetwork(
+            _dest('arbitrum', 'USDC').chainDisplayName)),
+        findsOneWidget);
+    expect(_chipLabel(tester), label('arbitrum', 'USDC'));
+    expect(_continueEnabled(tester), isFalse);
 
     await tester.tap(find.byTooltip(_l10n.close));
     await tester.pumpAndSettle();
     await _paste(tester, _tron);
-    expect(find.text(label('tron', 'USDT')), findsOneWidget);
-    expect(_continueEnabled(tester), isTrue);
+    expect(
+        find.text(_l10n.usdSendAddressWrongNetwork(
+            _dest('arbitrum', 'USDC').chainDisplayName)),
+        findsOneWidget);
+    expect(_chipLabel(tester), label('arbitrum', 'USDC'));
+    expect(_continueEnabled(tester), isFalse);
   });
 
-  testWidgets('without the Arbitrum USDC route an EVM address asks',
+  testWidgets(
+      'changing the coin keeps an address the new network takes and clears '
+      'one it does not', (tester) async {
+    await withClipboard(tester);
+    await _pump(tester);
+    await _pickCoin(tester, 'arbitrum', 'USDC');
+    await _paste(tester, _evm);
+
+    // Same network family: the address stays.
+    await _changeCoin(tester, 'arbitrum', 'USDT');
+    expect(_chipLabel(tester), label('arbitrum', 'USDT'));
+    expect(_field(tester), _evm);
+    expect(_continueEnabled(tester), isTrue);
+
+    // Tron cannot take an EVM address: cleared, Continue dead.
+    await _changeCoin(tester, 'tron', 'USDT');
+    expect(_chipLabel(tester), label('tron', 'USDT'));
+    expect(_field(tester), isEmpty);
+    expect(_continueEnabled(tester), isFalse);
+  });
+
+  testWidgets(
+      'from Amount, a coin the address still fits stays on Amount; one it '
+      'does not goes back to Send to with the field cleared', (tester) async {
+    await withClipboard(tester);
+    await _pump(tester);
+    await _toAmount(tester);
+
+    await _changeCoin(tester, 'base', 'USDC');
+    expect(_step(_l10n.amount), findsOneWidget);
+    expect(_chipLabel(tester), label('base', 'USDC'));
+
+    await _changeCoin(tester, 'tron', 'USDT');
+    expect(_step(_l10n.sendTo), findsOneWidget);
+    expect(_chipLabel(tester), label('tron', 'USDT'));
+    expect(_field(tester), isEmpty);
+    expect(_continueEnabled(tester), isFalse);
+  });
+
+  testWidgets('without the Arbitrum USDC route the sheet does not offer it',
       (tester) async {
     await withClipboard(tester);
     await _pump(tester, arbitrumUsdc: false);
 
-    await _paste(tester, _evm);
-    expect(_field(tester), _evm);
-    expect(find.text(_l10n.sendWhichNetworkIsThisAddressOn), findsOneWidget);
-    expect(_continueEnabled(tester), isFalse);
+    await tester.tap(find.descendant(of: _grid, matching: find.text('USDC')));
+    await tester.pumpAndSettle();
+    final sheet = find.byType(CoinAssetPickerSheet);
+    expect(sheet, findsOneWidget);
+    expect(
+        find.descendant(
+            of: sheet,
+            matching: find.text(_dest('base', 'USDC').chainDisplayName)),
+        findsOneWidget);
+    expect(
+        find.descendant(
+            of: sheet,
+            matching: find.text(_dest('arbitrum', 'USDT').chainDisplayName)),
+        findsNothing);
   });
 
   testWidgets('Spark, Lightning and unknown chains keep Continue dead',
       (tester) async {
     await withClipboard(tester);
     await _pump(tester);
+    await _pickCoin(tester, 'arbitrum', 'USDC');
 
     await _paste(tester, 'spark:$_spark');
     expect(_field(tester), _spark);
@@ -490,9 +609,24 @@ void main() {
   });
 
   testWidgets(
+      'over what can be sent: only "more than available", no top-up '
+      'button, Continue dead', (tester) async {
+    tester.view.physicalSize = const Size(1290, 2796);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    await withClipboard(tester);
+    await _pump(tester);
+    await _toAmount(tester);
+
+    await _type(tester, '150');
+    expect(find.text(_l10n.sendMoreThanAvailable), findsOneWidget);
+    expect(find.text(_l10n.slipAddToInvestments('\$50.00')), findsNothing);
+    expect(_continueEnabled(tester), isFalse);
+  });
+
+  testWidgets(
       'over Dollars but within venue cash: no "not enough", the available '
-      'line is the Max the plan covers, and Continue goes on',
-      (tester) async {
+      'line is the Max the plan covers, and Continue goes on', (tester) async {
     // $100 of Dollars and $80 of Predictions cash: $178.40 can be sent
     // once the move's planned cost ($80 x 2%) is out, and that is shown.
     _puller = VenueCashPuller(
@@ -511,15 +645,13 @@ void main() {
     expect(find.text(_l10n.hlYieldAvailableLine('\$180.00')), findsNothing);
     await _type(tester, '150');
     expect(find.text(_l10n.sendMoreThanAvailable), findsNothing);
-    expect(find.byKey(const ValueKey('usd-send-top-up')), findsNothing);
     expect(_continueEnabled(tester), isTrue);
 
-    // Past the reach it is "more than available" again, with the top-up
-    // for what the reach misses.
+    // Past the reach it is "more than available" again, and nothing else.
     await tester.tap(find.text('0'));
     await tester.pump();
     expect(find.text(_l10n.sendMoreThanAvailable), findsOneWidget);
-    expect(find.text(_l10n.slipAddToInvestments('\$1321.60')), findsOneWidget);
+    expect(find.text(_l10n.slipAddToInvestments('\$1321.60')), findsNothing);
     expect(_continueEnabled(tester), isFalse);
 
     // Max: the most the engine's plan covers.
@@ -610,7 +742,7 @@ void main() {
     await _type(tester, '150');
     await tester.tap(find.text(_l10n.continueLabel));
     await tester.pumpAndSettle();
-    expect(find.text(_l10n.sendConfirmTheDetails), findsOneWidget);
+    expect(_step(_l10n.sendReview), findsOneWidget);
 
     await tester.tap(find.text(_l10n.send));
     await tester.pumpAndSettle();
@@ -638,13 +770,14 @@ void main() {
     await withClipboard(tester);
     await _pump(tester,
         home: const Scaffold(
-            body: SizedBox.expand(), bottomNavigationBar: UsdAccountActionBar()));
+            body: SizedBox.expand(),
+            bottomNavigationBar: UsdAccountActionBar()));
 
     await tester.tap(find.text(_l10n.send));
     await tester.pumpAndSettle();
 
     expect(find.byType(UsdSendScreen), findsOneWidget);
-    expect(find.text(_l10n.sendWhereShouldItLand), findsOneWidget);
+    expect(_step(_l10n.sendTo), findsOneWidget);
     expect(_sheetHeight(tester), moreOrLessEquals(_medium(tester)));
     // The screen it came from stays behind the scrim.
     expect(find.byType(UsdAccountActionBar), findsOneWidget);
@@ -655,8 +788,7 @@ void main() {
 
   testWidgets(
       'a recipient expands the sheet; past Send to neither a drag nor the '
-      'scrim closes it, and system back steps back inside it',
-      (tester) async {
+      'scrim closes it, and system back steps back inside it', (tester) async {
     _phone(tester);
     await withClipboard(tester);
     await _pump(tester, home: const _Launcher());
@@ -664,12 +796,15 @@ void main() {
     await tester.pumpAndSettle();
     expect(_sheetHeight(tester), moreOrLessEquals(_medium(tester)));
 
+    // A coin alone keeps it medium; the recipient expands it.
+    await _pickCoin(tester, 'arbitrum', 'USDC');
+    expect(_sheetHeight(tester), moreOrLessEquals(_medium(tester)));
     await _paste(tester, _evm);
     expect(_sheetHeight(tester), moreOrLessEquals(_full(tester)));
 
     await tester.tap(find.text(_l10n.continueLabel));
     await tester.pumpAndSettle();
-    expect(find.text(_l10n.usdSendAmountSubtitle), findsOneWidget);
+    expect(_step(_l10n.amount), findsOneWidget);
 
     // A long, fast drag down rubber-bands and comes back.
     await _dragSheetDown(tester, 600);
@@ -684,7 +819,7 @@ void main() {
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(find.byType(UsdSendScreen), findsOneWidget);
-    expect(find.text(_l10n.sendWhereShouldItLand), findsOneWidget);
+    expect(_step(_l10n.sendTo), findsOneWidget);
     expect(_field(tester), _evm);
     // It stays full: the sheet never shrinks under the person.
     expect(_sheetHeight(tester), moreOrLessEquals(_full(tester)));
@@ -749,7 +884,7 @@ void main() {
     await tester.binding.handlePopRoute();
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.byType(UsdSendScreen), findsOneWidget);
-    expect(find.text(_l10n.sendConfirmTheDetails), findsOneWidget,
+    expect(_step(_l10n.sendReview), findsOneWidget,
         reason: 'not even a step back while it runs');
 
     venue.gate!.complete();
@@ -783,6 +918,7 @@ void main() {
     await _pump(tester, router: router);
     await tester.tap(find.text('Open send'));
     await tester.pumpAndSettle();
+    await _pickCoin(tester, 'tron', 'USDT');
 
     await tester.tap(find.byTooltip(_l10n.scan));
     await tester.pumpAndSettle();
@@ -794,7 +930,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(UsdSendScreen), findsOneWidget);
     expect(_field(tester), _tron);
-    expect(find.text(label('tron', 'USDT')), findsOneWidget);
+    expect(_chipLabel(tester), label('tron', 'USDT'));
     expect(_sheetHeight(tester), moreOrLessEquals(_full(tester)));
   });
 
@@ -811,6 +947,8 @@ void main() {
     await tester.tap(find.text('Open send'));
     await tester.pumpAndSettle();
     expect(_sheetHeight(tester), moreOrLessEquals(_medium(tester)));
+    await _pickCoin(tester, 'arbitrum', 'USDC');
+    expect(tester.takeException(), isNull);
 
     await tester.tap(find.byType(TextField));
     await tester.enterText(find.byType(TextField), _evm);
@@ -832,7 +970,7 @@ void main() {
     expect(_continueEnabled(tester), isTrue);
 
     // Outside the field: keyboard away, sheet kept.
-    await tester.tap(find.text(_l10n.sendWhereShouldItLand));
+    await tester.tap(find.text(_l10n.sendDetectedEthereumStyleAddress));
     await tester.pump();
     expect(FocusManager.instance.primaryFocus?.context?.widget,
         isNot(isA<EditableText>()));
@@ -840,7 +978,7 @@ void main() {
 
     await tester.tap(cta);
     await tester.pumpAndSettle();
-    expect(find.text(_l10n.usdSendAmountSubtitle), findsOneWidget);
+    expect(_step(_l10n.amount), findsOneWidget);
     tester.view.resetViewInsets();
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
@@ -854,13 +992,14 @@ void main() {
     _phone(tester);
     tester.platformDispatcher.accessibilityFeaturesTestValue =
         const FakeAccessibilityFeatures(disableAnimations: true);
-    addTearDown(
-        tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
     await withClipboard(tester);
     await _pump(tester, home: const _Launcher());
     await tester.tap(find.text('Open send'));
     await tester.pump();
     await tester.pump();
+    expect(_sheetHeight(tester), moreOrLessEquals(_medium(tester)));
+    await _pickCoin(tester, 'arbitrum', 'USDC');
     expect(_sheetHeight(tester), moreOrLessEquals(_medium(tester)));
 
     _clipboard = _evm;

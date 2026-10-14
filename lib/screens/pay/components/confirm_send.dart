@@ -5293,28 +5293,23 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
         // or invoice already sitting in the clipboard.
         if (i == _kSendToPage) _checkClipboardForAddress();
       },
+      // No visible step headings (founder decision, 14 October 2026):
+      // each page is announced to screen readers by name and its content
+      // starts right under the progress bar.
       pages: [
-        StepPageWrapper(
+        SendStepPage(
           title: context.l10n.sendTo,
-          subtitle: context.l10n.sendWhereShouldItLand,
-          colors: c,
           child: _sendToPage(c),
         ),
-        StepPageWrapper(
+        SendStepPage(
           title: context.l10n.amount,
-          subtitle: _hasSource
-              ? context.l10n.sendHowMuchBitcoin
-              : context.l10n.sendHowMuch,
-          colors: c,
           child: _amountPage(c, currentInputCurrency, btcFormat, btcSats),
         ),
-        StepPageWrapper(
+        SendStepPage(
           title: context.l10n.sendReview,
-          subtitle: context.l10n.sendConfirmTheDetails,
           trailing: const AskSalChip(
             advisorContext: AdvisorContext(surface: 'send_review'),
           ),
-          colors: c,
           child: _reviewPage(c, btcFormat),
         ),
         // Step 3 (Sign) — only meaningful for hardware /
@@ -5333,18 +5328,26 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
               : settings.activeWallet;
           return w != null && (w.isHardware || w.isWatchOnly);
         })())
-          StepPageWrapper(
+          SendStepPage(
             title: context.l10n.sendSign,
-            subtitle: context.l10n.sendSignTheTransactionOnYourDevice,
-            colors: c,
-            // Keep the same display typography as the
-            // earlier steps so the user doesn't jump from
-            // 32sp titles on Amount / Send to / Review
-            // into a noticeably smaller Sign step. The
-            // padding inside `_SignPageContainer` is
-            // already trimmed enough to fit the device
-            // picker without making the title small.
-            child: _signPage(c, btcFormat),
+            // The one line a hardware signer needs before the device
+            // picker, kept as plain text now that the heading is gone.
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  context.l10n.sendSignTheTransactionOnYourDevice,
+                  style: TextStyle(
+                    color: c.textTertiary,
+                    fontSize: 15.sp,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: -0.1,
+                  ),
+                ),
+                SizedBox(height: 16.h),
+                Expanded(child: _signPage(c, btcFormat)),
+              ],
+            ),
           ),
       ],
       // Shared bottom CTA — single Continue button on Send to

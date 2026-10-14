@@ -136,6 +136,13 @@ Future<(ProviderContainer, GoRouter)> _pump(WidgetTester tester,
 
 Finder get _sheet => find.byKey(const ValueKey('send-sheet'));
 
+/// The step on screen, by the header its page announces (the steps have
+/// no visible heading).
+Finder _step(String title) => find.byWidgetPredicate((w) =>
+    w is Semantics &&
+    w.properties.header == true &&
+    w.properties.label == title);
+
 void main() {
   late Directory hiveDir;
 
@@ -160,7 +167,7 @@ void main() {
     await tester.tap(find.text('Open send'));
     await tester.pumpAndSettle();
     expect(find.byType(ConfirmSend), findsOneWidget);
-    expect(find.text(_l10n.sendWhereShouldItLand), findsOneWidget);
+    expect(_step(_l10n.sendTo), findsOneWidget);
     expect(tester.getSize(_sheet).height,
         moreOrLessEquals(812 * kSendSheetMediumFraction));
   });
@@ -177,8 +184,8 @@ void main() {
     router.pushNamed('pay_send');
     await tester.pumpAndSettle();
     expect(find.byType(ConfirmSend), findsOneWidget);
-    expect(find.text(_l10n.amount), findsOneWidget);
-    expect(find.text(_l10n.sendWhereShouldItLand), findsNothing);
+    expect(_step(_l10n.amount), findsOneWidget);
+    expect(_step(_l10n.sendTo), findsNothing);
     expect(tester.getSize(_sheet).height, moreOrLessEquals(812 - 8));
   });
 
@@ -201,7 +208,7 @@ void main() {
     expect(tester.getSize(_sheet).height, moreOrLessEquals(_full));
     await tester.tap(find.text(_l10n.continueLabel));
     await tester.pumpAndSettle();
-    expect(find.text(_l10n.amount), findsOneWidget);
+    expect(_step(_l10n.amount), findsOneWidget);
     expect(
         events.where((e) => e.$1 == 'send_step').map((e) => e.$2?['step']),
         contains('amount'));
@@ -213,7 +220,7 @@ void main() {
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(find.byType(ConfirmSend), findsOneWidget);
-    expect(find.text(_l10n.sendWhereShouldItLand), findsOneWidget);
+    expect(_step(_l10n.sendTo), findsOneWidget);
 
     // On Send to it closes.
     await _dragDown(tester);
@@ -272,6 +279,6 @@ void main() {
     tester.view.resetViewInsets();
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
-    expect(find.text(_l10n.amount), findsOneWidget);
+    expect(_step(_l10n.amount), findsOneWidget);
   });
 }

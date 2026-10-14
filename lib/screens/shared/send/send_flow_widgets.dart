@@ -134,6 +134,48 @@ class _SendStepperFrameState extends State<SendStepperFrame> {
   }
 }
 
+/// One step of a send sheet, with no visible heading (founder decision,
+/// 14 October 2026): the sheet's own header (close or back, the wallet
+/// pill) is all the chrome a step gets, and its content starts right
+/// under the progress bar. The step's name is still announced to screen
+/// readers as a header. [trailing] (Review's Ask Sal chip) sits on its
+/// own short row, right-aligned, above the content.
+class SendStepPage extends StatelessWidget {
+  const SendStepPage({
+    super.key,
+    required this.title,
+    required this.child,
+    this.trailing,
+  });
+
+  /// Read out as the step's header; never drawn.
+  final String title;
+  final Widget child;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(top: 4.h),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Semantics(
+            header: true,
+            label: title,
+            child: const SizedBox(height: 1),
+          ),
+          if (trailing != null) ...[
+            Align(alignment: Alignment.centerRight, child: trailing),
+            SizedBox(height: 8.h),
+          ],
+          Expanded(child: child),
+        ],
+      ),
+    );
+  }
+}
+
 /// The hero figure's type: the one big number on the amount and review
 /// steps.
 TextStyle sendHeroAmountStyle(Color color) => TextStyle(
@@ -214,12 +256,18 @@ class SendAmountUnitPill extends StatelessWidget {
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             icon,
             SizedBox(width: 8.w),
-            Text(code,
-                style: TextStyle(
-                    color: c.textPrimary,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16.sp,
-                    letterSpacing: -0.2)),
+            // A longer label (the dollar send's coin · network) gives way
+            // with an ellipsis rather than overflowing at large text.
+            Flexible(
+              child: Text(code,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      color: c.textPrimary,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16.sp,
+                      letterSpacing: -0.2)),
+            ),
             if (onTap != null) ...[
               SizedBox(width: 6.w),
               Icon(Icons.expand_more_rounded,
