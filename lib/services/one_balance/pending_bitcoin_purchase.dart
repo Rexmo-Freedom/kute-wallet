@@ -113,7 +113,8 @@ class PendingBitcoinPurchase {
 
 /// The records, in memory and (best effort) in the settings box.
 abstract final class PendingBitcoinPurchaseStore {
-  static const String key = 'pending_btc_purchases_v1';
+  static const String key =
+      'pending_btc_purchases_v1'; // gitleaks:allow (Hive key name)
 
   /// How many records are kept.
   static const int keep = 20;
