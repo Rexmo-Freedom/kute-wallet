@@ -149,6 +149,9 @@ class AdvisorSessionNotifier extends Notifier<AdvisorSessionState> {
   var _disposed = false;
   // Analytics-only surface for a context-less conversation; see [ask].
   String? _analyticsSurface;
+  // Analytics-only: the door this conversation was opened from; see
+  // [setEntrySource].
+  String? _entrySource;
   _TurnTelemetry? _telemetry;
   AdvisorCancellation? _cancellation;
   StreamSubscription<AdvisorStreamEvent>? _subscription;
@@ -178,6 +181,12 @@ class AdvisorSessionNotifier extends Notifier<AdvisorSessionState> {
   /// it never reaches the request, and [clear] drops it.
   void setAnalyticsSurface(String surface) => _analyticsSurface = surface;
 
+  /// Names the door this conversation was opened from (`sal_opened`'s
+  /// entry: market_why_moving, search, chip, ...), carried as
+  /// `sal_question_asked`'s `entry_source`. Analytics only: it never
+  /// reaches the request, and [clear] drops it.
+  void setEntrySource(String entry) => _entrySource = entry;
+
   /// [input] is the analytics origin of the question:
   /// 'typed' | 'suggested'; the request carries it as the prompt source
   /// (a 'suggested' chip is source 'chip', anything else 'typed'). [template] and
@@ -192,7 +201,10 @@ class AdvisorSessionNotifier extends Notifier<AdvisorSessionState> {
     final q = query.trim();
     if (q.isEmpty || _disposed || ref.read(appLockedProvider)) return;
     if (context != null && state.turns.isNotEmpty && context != state.context) {
+      // A new market starts a new conversation from the same door.
+      final entrySource = _entrySource;
       clear();
+      _entrySource = entrySource;
     }
     // Asked while an answer is still streaming: that answer is stopped
     // (kept as far as it got, marked stopped, `cancelled` reported) and
@@ -241,6 +253,7 @@ class AdvisorSessionNotifier extends Notifier<AdvisorSessionState> {
       template: template,
       chipIndex: chipIndex,
       interrupted: interrupted,
+      entrySource: _entrySource,
     );
     final prompt = AdvisorPrompt.fromInput(input, template: template);
     final requestLocale = locale ??
@@ -427,6 +440,7 @@ class AdvisorSessionNotifier extends Notifier<AdvisorSessionState> {
   void clear() {
     _stopRequest();
     _analyticsSurface = null;
+    _entrySource = null;
     if (!_disposed) state = const AdvisorSessionState();
   }
 

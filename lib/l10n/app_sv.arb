@@ -3027,5 +3027,10 @@
   "oneBalancePlacingBet": "Lägger {amount} på {side} · {market}",
   "oneBalanceOpeningOrder": "Öppnar order på {amount} för {market}",
   "hlMarginStepAdding": "Lägger till {amount} marginal på {coin}",
-  "hlMarginFundingReady": "Dina {amount} finns i Investments. Tryck för att lägga till marginal."
+  "hlMarginFundingReady": "Dina {amount} finns i Investments. Tryck för att lägga till marginal.",
+  "salWhyMoving": "Varför rör den sig?",
+  "positionProtectIt": "Skydda den",
+  "hlRiskLiquidationLong": "Om {market} faller till {price} stängs positionen och du förlorar {amount}.",
+  "hlRiskLiquidationShort": "Om {market} stiger till {price} stängs positionen och du förlorar {amount}.",
+  "polyRiskOutcome": "Om {outcome} förlorar, förlorar du {cost}; om det vinner får du {payout}."
 }

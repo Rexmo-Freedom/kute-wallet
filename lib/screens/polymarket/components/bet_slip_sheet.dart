@@ -63,7 +63,6 @@ import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/trade_receipt.dart';
 import 'package:kute/services/polymarket/sell_settlement.dart'
     show pmLiveOrderDelaySeconds;
-import 'package:kute/screens/shared/ask_sal_chip.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/sticky_action_bar.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
@@ -6047,25 +6046,11 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   // ── Header ─────────────────────────────────────────────────────────────
 
   Widget _buildHeader(AppColorsExtension c, Color accentColor) {
-    // The shared ticket header (market thumb + question + close X), with
-    // the Ask Sal chip in the trailing cluster. Sal opens prefilled to
-    // explain THIS bet in plain words — market names and public prices
-    // only, the user's amount as a coarse bucket.
+    // The shared ticket header (market thumb + question + close X). No
+    // Sal here: the slip is the moment of decision.
     return PolySlipHeader(
       marketQuestion: widget.marketQuestion,
       marketImage: widget.marketImage,
-      trailing: SideTintInverted(
-        side: accentColor,
-        child: AskSalChip(
-          advisorContext: AdvisorContext(
-            surface: 'bet_slip',
-            marketVenue: 'polymarket',
-            marketId: widget.marketSlug,
-            submarketId: widget.outcomes[_selectedIndex].gammaMarketId,
-          ),
-          chipSignals: SalChipSignals(closesAt: widget.marketEndAt),
-        ),
-      ),
     );
   }
 

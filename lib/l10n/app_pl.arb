@@ -3027,5 +3027,10 @@
   "oneBalancePlacingBet": "Stawianie {amount} na {side} · {market}",
   "oneBalanceOpeningOrder": "Otwieranie zlecenia {amount} na {market}",
   "hlMarginStepAdding": "Dodawanie {amount} depozytu do {coin}",
-  "hlMarginFundingReady": "Twoje {amount} jest w Investments. Stuknij, aby dodać depozyt."
+  "hlMarginFundingReady": "Twoje {amount} jest w Investments. Stuknij, aby dodać depozyt.",
+  "salWhyMoving": "Dlaczego się rusza?",
+  "positionProtectIt": "Zabezpiecz",
+  "hlRiskLiquidationLong": "Jeśli {market} spadnie do {price}, ta pozycja zostanie zamknięta i stracisz {amount}.",
+  "hlRiskLiquidationShort": "Jeśli {market} wzrośnie do {price}, ta pozycja zostanie zamknięta i stracisz {amount}.",
+  "polyRiskOutcome": "Jeśli {outcome} przegra, stracisz {cost}; jeśli wygra, dostaniesz {payout}."
 }

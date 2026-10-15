@@ -10841,4 +10841,25 @@ class AppLocalizationsHu extends AppLocalizations {
   String hlMarginFundingReady(String amount) {
     return 'A(z) $amount az Investmentsben van. Koppints a fedezet hozzáadásához.';
   }
+
+  @override
+  String get salWhyMoving => 'Miért mozog?';
+
+  @override
+  String get positionProtectIt => 'Védd meg';
+
+  @override
+  String hlRiskLiquidationLong(String market, String price, String amount) {
+    return 'Ha a(z) $market $price szintre esik, ez a pozíció lezárul, és $amount a veszteséged.';
+  }
+
+  @override
+  String hlRiskLiquidationShort(String market, String price, String amount) {
+    return 'Ha a(z) $market $price szintre emelkedik, ez a pozíció lezárul, és $amount a veszteséged.';
+  }
+
+  @override
+  String polyRiskOutcome(String outcome, String cost, String payout) {
+    return 'Ha a(z) $outcome veszít, $cost a veszteséged; ha nyer, $payout összeget kapsz.';
+  }
 }

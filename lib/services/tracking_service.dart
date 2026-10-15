@@ -5835,15 +5835,17 @@ class TrackingService {
               ? '61-200'
               : '200+';
 
-  /// Sal sheet/chat opened. [entry]: chip (the round dog button) |
-  /// header_button (the round dog widening into a capsule; no screen
-  /// sends it any more, see Legacy) | market_capsule (the question capsule
-  /// under a market screen's headline figure, Predictions and Investing,
-  /// asking it on open) | position_capsule (the same capsule under an
-  /// open-position screen's value, Predictions and Investing, asking the
-  /// position's market its top question on open) | full_chat | search |
-  /// bottom_bar.
-  /// Legacy, no longer sent: insight_row (the market question row the
+  /// Sal sheet/chat opened. [entry]: chip (the round dog button on send
+  /// review, transaction details and backup) | market_why_moving (the
+  /// "Why is it moving?" row under a market screen's chart, Predictions
+  /// and Investing, shown only on a big move or a live game and asking
+  /// the why-moving question on open) | full_chat | search | bottom_bar.
+  /// Legacy, no longer sent: market_capsule (the question capsule under a
+  /// market screen's headline figure) and position_capsule (the same
+  /// capsule on an open-position screen), replaced by market_why_moving
+  /// and by the position's risk line and "Protect it" row; chip from the
+  /// order and bet slips, whose Sal button was removed (October 2026);
+  /// header_button (the round dog widening into a capsule); insight_row (the market question row the
   /// header button replaced, October 2026); market_row (the Investing
   /// market screen's question row above About) and header_button from
   /// either market screen, both replaced by market_capsule, and
@@ -5870,6 +5872,8 @@ class TrackingService {
   /// [interrupted] is sent (true) only when this question stopped an
   /// answer that was still streaming; that answer reports
   /// `sal_answer_failed` `cancelled` as any stop does.
+  /// [entrySource] is the door the conversation was opened from, the
+  /// `sal_opened` entry (market_why_moving, search, chip, full_chat, ...).
   static void salQuestionAsked({
     required String input,
     String? surface,
@@ -5879,6 +5883,7 @@ class TrackingService {
     String? template,
     int? chipIndex,
     bool interrupted = false,
+    String? entrySource,
   }) =>
       track('sal_question_asked', params: {
         'input': input,
@@ -5893,6 +5898,7 @@ class TrackingService {
         if (input == 'suggested' && chipIndex != null && chipIndex >= 0)
           'chip_index': chipIndex,
         if (interrupted) 'interrupted': true,
+        if (entrySource != null) 'entry_source': entrySource,
       });
 
   /// Exactly one per answered turn (never per stream chunk).

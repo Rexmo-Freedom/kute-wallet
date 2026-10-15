@@ -10394,4 +10394,25 @@ class AppLocalizationsJa extends AppLocalizations {
   String hlMarginFundingReady(String amount) {
     return '$amountはInvestmentsにあります。タップして証拠金を追加してください。';
   }
+
+  @override
+  String get salWhyMoving => 'なぜ動いているのですか？';
+
+  @override
+  String get positionProtectIt => '保護する';
+
+  @override
+  String hlRiskLiquidationLong(String market, String price, String amount) {
+    return '$marketが$priceまで下がると、このポジションは決済され、$amountを失います。';
+  }
+
+  @override
+  String hlRiskLiquidationShort(String market, String price, String amount) {
+    return '$marketが$priceまで上がると、このポジションは決済され、$amountを失います。';
+  }
+
+  @override
+  String polyRiskOutcome(String outcome, String cost, String payout) {
+    return '$outcomeが負けると$costを失い、勝つと$payoutを受け取ります。';
+  }
 }

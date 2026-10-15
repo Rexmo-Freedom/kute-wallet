@@ -19,7 +19,6 @@ import 'package:kute/providers/ledger/ledger_hyperliquid_activity_provider.dart'
 import 'package:kute/providers/ledger/ledger_hyperliquid_account_provider.dart';
 import 'package:kute/providers/ledger/ledger_identity_provider.dart';
 import 'package:kute/screens/shared/ask_sal_chip.dart';
-import 'package:kute/providers/advisor_provider.dart' show aiEnabledProvider;
 import 'package:kute/models/polymarket_model.dart' show PolymarketEvent;
 import 'package:kute/providers/hyperliquid_insights_provider.dart';
 import 'package:kute/screens/hyperliquid/components/hl_pressure_strip.dart';
@@ -438,7 +437,7 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                         ),
                       ),
                       // The watchlist star. Sal's one door on this screen
-                      // is the question capsule under this header.
+                      // is the "Why is it moving?" row under the chart.
                       HlWatchStar(market: m, size: 22, source: 'detail'),
                     ],
                   ),
@@ -470,15 +469,8 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                     );
                   }
                   final target = 540.h;
-                  // Sal's question sits above the chart: leave it its
-                  // room so the pills still land on screen.
-                  final salRoom =
-                      ref.watch(aiEnabledProvider).asData?.value == false
-                          ? 0.0
-                          : 72.h;
-                  final chartHeight = math.min(
-                          target, bodyCons.maxHeight * 0.78 - salRoom) /
-                      1.h;
+                  final chartHeight =
+                      math.min(target, bodyCons.maxHeight * 0.78) / 1.h;
                   return SingleChildScrollView(
                     // Drawing on the chart must not scroll the sheet, so
                     // Advanced mode pins the body until it is switched off.
@@ -501,13 +493,6 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Sal's question for this market, right under the
-                        // header's price: the one Sal door on this screen.
-                        SalQuestionCapsule(
-                          advisorContext: _salContext(m),
-                          chipSignals: salSignalsForHlMarket(m),
-                          padding: EdgeInsets.only(bottom: 14.h),
-                        ),
                         // Bounded chart (see chartHeight above); Advanced
                         // mode expands it (animated inside the chart).
                         HlCandleChart(
@@ -522,6 +507,20 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                               setState(() => _advancedChart = on),
                         ),
                         SizedBox(height: 20.h),
+                        // Sal's one quiet door on this screen, under the
+                        // chart and its intervals: "Why is it moving?",
+                        // only on a big move today (calm, nothing).
+                        if (!_advancedChart)
+                          SalWhyMovingRow(
+                            advisorContext: _salContext(m),
+                            question: salWhyMovingHl(context.l10n,
+                                label: m.coin,
+                                dayChangePct: m.prevDayPx > 0
+                                    ? m.dayChangeAt(price)
+                                    : null),
+                            chipSignals: salSignalsForHlMarket(m),
+                            padding: EdgeInsets.only(bottom: 16.h),
+                          ),
                         // The user's own exposure stays ABOVE the Details
                         // expander — it's the one thing worth surfacing at a
                         // glance. Its money amounts (PnL / holding value) honour

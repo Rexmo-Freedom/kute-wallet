@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -388,7 +389,7 @@ void main() {
 
   testWidgets('the round dog button opens Sal idle with the question rows',
       (tester) async {
-    const slip = AdvisorContext(surface: 'hl_order_slip');
+    const slip = AdvisorContext(surface: 'send_review');
     final en = lookupAppLocalizations(const Locale('en'));
     final chips = SalChipCatalogue.select(slip, en);
     final events = observeEvents();
@@ -404,10 +405,12 @@ void main() {
     expect(find.byType(KuteDogGlance), findsOneWidget);
     expect(find.text('Ask Sal'), findsNothing);
     expect(find.bySemanticsLabel('Ask Sal'), findsOneWidget);
-    // Inside Sal's AI mark, which paints only: the circle keeps its size.
-    expect(find.byType(SalAiRing), findsOneWidget);
-    expect(tester.getSize(find.byType(SalAiRing)),
-        tester.getSize(find.byType(KuteCircleButton)));
+    // One colour, the circle's own icon colour: the multicolour AI ring
+    // is the Sal sheet's alone.
+    expect(find.byType(SalAiRing), findsNothing);
+    final context = tester.element(find.byType(KuteCircleButton));
+    expect(tester.widget<KuteDogGlance>(find.byType(KuteDogGlance)).color,
+        context.colors.textSecondary);
 
     await tester.tap(find.byType(KuteCircleButton));
     await tester.pumpAndSettle();
@@ -416,9 +419,23 @@ void main() {
     expect(find.byType(KuteComposer), findsOneWidget);
     final opened = events.firstWhere((e) => e.$1 == 'sal_opened').$2!;
     expect(opened['entry'], 'chip');
-    expect(opened['surface'], 'hl_order_slip');
+    expect(opened['surface'], 'send_review');
     semantics.dispose();
     await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  test('the multicolour AI ring is the Sal sheet\'s alone: no other screen '
+      'draws it', () {
+    final users = <String>[];
+    for (final f in Directory('lib').listSync(recursive: true)) {
+      if (f is! File || !f.path.endsWith('.dart')) continue;
+      if (f.path.endsWith('kute_dog_scenes.dart') ||
+          f.path.endsWith('ask_sal_sheet.dart')) {
+        continue;
+      }
+      if (f.readAsStringSync().contains('SalAiRing(')) users.add(f.path);
+    }
+    expect(users, isEmpty);
   });
 
   /// The idle sheet from a button, on a phone with a status bar.
@@ -509,7 +526,7 @@ void main() {
                 onPressed: () => showAskSalSheet(context,
                     advisorContext: btc,
                     initialQuestion: top,
-                    entry: 'header_button'),
+                    entry: 'market_why_moving'),
                 child: const Text('Open Sal'))),
         overrides: answering(requests, prompts)));
     await tester.tap(find.text('Open Sal'));
@@ -521,6 +538,8 @@ void main() {
     final asked = events.firstWhere((e) => e.$1 == 'sal_question_asked').$2!;
     expect(asked['input'], 'suggested');
     expect(asked['chip_index'], 0);
+    // The door it was opened from rides on the question.
+    expect(asked['entry_source'], 'market_why_moving');
     expect(find.text(top.text), findsOneWidget);
     expect(find.byType(SalSuggestionButton), findsNothing);
     expect(find.byType(KuteComposer), findsOneWidget);

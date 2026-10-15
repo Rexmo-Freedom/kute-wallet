@@ -10894,4 +10894,25 @@ class AppLocalizationsEl extends AppLocalizations {
   String hlMarginFundingReady(String amount) {
     return 'Τα $amount σου είναι στα Investments. Πάτησε για προσθήκη περιθωρίου.';
   }
+
+  @override
+  String get salWhyMoving => 'Γιατί κινείται;';
+
+  @override
+  String get positionProtectIt => 'Προστάτεψέ τη';
+
+  @override
+  String hlRiskLiquidationLong(String market, String price, String amount) {
+    return 'Αν το $market πέσει στα $price, αυτή η θέση κλείνει και χάνεις $amount.';
+  }
+
+  @override
+  String hlRiskLiquidationShort(String market, String price, String amount) {
+    return 'Αν το $market ανέβει στα $price, αυτή η θέση κλείνει και χάνεις $amount.';
+  }
+
+  @override
+  String polyRiskOutcome(String outcome, String cost, String payout) {
+    return 'Αν το $outcome χάσει, χάνεις $cost· αν κερδίσει, παίρνεις $payout.';
+  }
 }

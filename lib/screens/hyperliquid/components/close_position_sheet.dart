@@ -163,6 +163,54 @@ class HlClosePositionSheet extends ConsumerStatefulWidget {
     )));
   }
 
+  /// The position screen's "Protect it": the close ticket's own Advanced
+  /// page (stop / take profit types and the trailing stop), opened
+  /// straight away on a stop-market close of the whole position, its
+  /// trigger left for the user to set. A Ledger position has no stop
+  /// types on that page (its signer reviews Market and Limit), so it opens
+  /// on the page as it is, the trailing stop on it. Withheld Advanced
+  /// opens nothing; the shared sheet says why.
+  static void showProtect(
+    BuildContext context,
+    WidgetRef ref, {
+    required HlPerpPosition position,
+    required HlMarket market,
+    String? ledgerWalletId,
+  }) {
+    if (OpenOnce.isOpen(routeName)) return;
+    if (!advancedTradingOffered(
+        context, ref.read(runtimeCapabilitiesProvider))) {
+      return;
+    }
+    var size = position.szi.abs().toStringAsFixed(6);
+    if (size.contains('.')) {
+      size = size
+          .replaceFirst(RegExp(r'0+$'), '')
+          .replaceFirst(RegExp(r'\.$'), '');
+    }
+    final draft = _CloseDraft(
+        size,
+        ledgerWalletId == null ? _CloseType.stopMarket : _CloseType.market,
+        1.0,
+        '',
+        '',
+        '30',
+        false);
+    final navigator = Navigator.of(context, rootNavigator: true);
+    unawaited(OpenOnce.run(
+        routeName,
+        () => navigator.push<_CloseDraft>(MaterialPageRoute(
+              settings: const RouteSettings(name: routeName),
+              fullscreenDialog: true,
+              builder: (_) => HlClosePositionSheet._advanced(
+                position: position,
+                market: market,
+                ledgerWalletId: ledgerWalletId,
+                draft: draft,
+              ),
+            ))));
+  }
+
   @override
   ConsumerState<HlClosePositionSheet> createState() =>
       _HlClosePositionSheetState();
@@ -1454,10 +1502,16 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
           if (_market != null) ...[
             _buildTypePicker(c),
             _buildPriceInputs(c),
-            ListTile(contentPadding: EdgeInsets.zero,
-              title: Text(context.l10n.investingTrailingStop),
-              trailing: const Icon(Icons.chevron_right_rounded),
-              onTap: _openTrailingStop),
+            // Its own Material: the section's fill would hide the
+            // tile's ink.
+            Material(
+              type: MaterialType.transparency,
+              child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(context.l10n.investingTrailingStop),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: _openTrailingStop),
+            ),
           ],
           if (_isMarketClose) ...[
             SizedBox(height: 16.h),

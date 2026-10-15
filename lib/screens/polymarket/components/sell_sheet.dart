@@ -79,8 +79,15 @@ class SellSheet extends ConsumerStatefulWidget {
   /// Surface the sheet was opened from (analytics only).
   final String source;
 
+  /// Open straight on a limit sell ("sell at" a price), its Advanced page
+  /// showing: the position screen's "Protect it".
+  final bool startWithLimit;
+
   const SellSheet(
-      {super.key, required this.position, this.source = 'position_detail'});
+      {super.key,
+      required this.position,
+      this.source = 'position_detail',
+      this.startWithLimit = false});
 
   /// Route name used to identify the sell route when popping back after a
   /// sell succeeds — mirrors BetSlipSheet.routeName.
@@ -88,7 +95,8 @@ class SellSheet extends ConsumerStatefulWidget {
 
   static void show(BuildContext context,
       {required PolymarketPosition position,
-      String source = 'position_detail'}) {
+      String source = 'position_detail',
+      bool startWithLimit = false}) {
     // A resolved market cannot be sold (the CLOB rejects it as "market
     // does not exist"): it is claimed in one tap where it is shown
     // (PolyClaimButton on the card and the position screen), never here.
@@ -119,7 +127,10 @@ class SellSheet extends ConsumerStatefulWidget {
       routeSettings: const RouteSettings(name: routeName),
       builder: (_) => FastBetScope(
         active: polyIsFastBetRound(position.eventSlug),
-        child: SellSheet(position: position, source: source),
+        child: SellSheet(
+            position: position,
+            source: source,
+            startWithLimit: startWithLimit),
       ),
     );
   }
@@ -335,6 +346,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     // move fast on small markets.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      if (widget.startWithLimit) _openLimit();
       _refreshBid();
       _bidRefreshTimer = Timer.periodic(
         const Duration(seconds: 20),
@@ -1519,6 +1531,21 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     } finally {
       _openingAdvanced = false;
     }
+  }
+
+  /// Switches to a limit sell at the live price and opens the Advanced
+  /// page where its price is set (the position screen's "Protect it").
+  void _openLimit() {
+    final lp = pos.tokenId != null
+        ? ref.read(livePriceProvider).prices[pos.tokenId]
+        : null;
+    setState(() {
+      _isLimitMode = true;
+      if (_limitPrice <= 0) {
+        _limitPrice = (lp ?? pos.currentPrice).clamp(0.01, 0.99).toDouble();
+      }
+    });
+    unawaited(_openAdvanced());
   }
 
   /// Re-run the sell after a failure. Drops the notice, so the ticket is

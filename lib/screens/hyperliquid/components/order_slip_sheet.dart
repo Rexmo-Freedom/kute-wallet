@@ -105,7 +105,6 @@ import 'package:kute/screens/ledger/ledger_action_ui.dart'
     show showLedgerConfirmation;
 import 'package:kute/screens/shared/amount_keypad_panel.dart';
 import 'package:kute/screens/shared/decimal_input_formatter.dart';
-import 'package:kute/screens/shared/ask_sal_chip.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/sticky_action_bar.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
@@ -1349,29 +1348,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       }
       _trailDistanceController.text = '1';
     });
-  }
-
-  // The sheet asks for confirmation before calling this. Recheck the origin
-  // after dismissal; no amount, side or leverage is supplied by Sal.
-  bool _applySalAction(String actionId) {
-    if (!mounted ||
-        _isPlacing ||
-        _orderInFlight ||
-        ModalRoute.of(context)?.isCurrent != true) {
-      return false;
-    }
-    if (actionId == 'switch_to_limit') {
-      final keepReduceOnly = _reduceOnly;
-      _onSelectMode(_OrderMode.limit);
-      _updateDraft(() => _reduceOnly = keepReduceOnly);
-      unawaited(_openAdvanced());
-      return true;
-    }
-    if (actionId == 'open_leverage_settings' && !isSpot) {
-      unawaited(_openAdvanced());
-      return true;
-    }
-    return false;
   }
 
   void _onSelectMode(_OrderMode m) {
@@ -6721,30 +6697,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
               ],
             ),
           ),
-          SizedBox(width: 8.w),
-          // The chip paints from `context.colors`, so leaving it on the
-          // sheet's injected palette is what makes it turn with the fill
-          // instead of staying a grey card on green / red. Sal's own
-          // sheet captures the theme it opens from, so it inherits the
-          // tint too.
-          SideTintInverted(
-            side: _isLong ? greenColor : redColor,
-            child: AskSalChip(
-              advisorContext: AdvisorContext(
-                surface: 'hl_order_slip',
-                marketVenue: 'hyperliquid',
-                marketId: market.wireCoin,
-                marketDisplayName: market.coin,
-                orderType: _salOrderTypeLabel,
-              ),
-              chipSignals: salSignalsForHlMarket(market),
-              onLocalAction: _applySalAction,
-              localActions: {
-                'switch_to_limit',
-                if (!isSpot) 'open_leverage_settings',
-              },
-            ),
-          ),
+          // No Sal here: the slip is the moment of decision.
           SizedBox(width: 8.w),
           const KuteCloseButton(),
         ],

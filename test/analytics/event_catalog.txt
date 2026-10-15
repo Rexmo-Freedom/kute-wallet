@@ -446,6 +446,7 @@ portfolio_performance_retry_tapped
 portfolio_rebalance_tapped
 portfolio_statistics_venue_toggled
 portfolio_tab_changed
+position_protect_tapped
 predict_hero_viewed
 prediction_claim_tapped
 prediction_match_markets_opened

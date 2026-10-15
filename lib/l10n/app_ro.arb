@@ -3027,5 +3027,10 @@
   "oneBalancePlacingBet": "Se plasează {amount} pe {side} · {market}",
   "oneBalanceOpeningOrder": "Se deschide ordinul de {amount} pe {market}",
   "hlMarginStepAdding": "Se adaugă marjă de {amount} la {coin}",
-  "hlMarginFundingReady": "Cei {amount} ai tăi sunt în Investments. Atinge pentru a adăuga marjă."
+  "hlMarginFundingReady": "Cei {amount} ai tăi sunt în Investments. Atinge pentru a adăuga marjă.",
+  "salWhyMoving": "De ce se mișcă?",
+  "positionProtectIt": "Protejeaz-o",
+  "hlRiskLiquidationLong": "Dacă {market} scade la {price}, această poziție se închide și pierzi {amount}.",
+  "hlRiskLiquidationShort": "Dacă {market} crește la {price}, această poziție se închide și pierzi {amount}.",
+  "polyRiskOutcome": "Dacă {outcome} pierde, pierzi {cost}; dacă câștigă, primești {payout}."
 }

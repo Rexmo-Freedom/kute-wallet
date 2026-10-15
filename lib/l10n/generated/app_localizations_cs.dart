@@ -10807,4 +10807,25 @@ class AppLocalizationsCs extends AppLocalizations {
   String hlMarginFundingReady(String amount) {
     return 'Tvých $amount je v Investments. Klepnutím přidáš marži.';
   }
+
+  @override
+  String get salWhyMoving => 'Proč se to hýbe?';
+
+  @override
+  String get positionProtectIt => 'Ochránit';
+
+  @override
+  String hlRiskLiquidationLong(String market, String price, String amount) {
+    return 'Pokud $market klesne na $price, tato pozice se uzavře a přijdeš o $amount.';
+  }
+
+  @override
+  String hlRiskLiquidationShort(String market, String price, String amount) {
+    return 'Pokud $market stoupne na $price, tato pozice se uzavře a přijdeš o $amount.';
+  }
+
+  @override
+  String polyRiskOutcome(String outcome, String cost, String payout) {
+    return 'Pokud $outcome prohraje, přijdeš o $cost; pokud vyhraje, dostaneš $payout.';
+  }
 }

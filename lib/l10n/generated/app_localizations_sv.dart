@@ -10812,4 +10812,25 @@ class AppLocalizationsSv extends AppLocalizations {
   String hlMarginFundingReady(String amount) {
     return 'Dina $amount finns i Investments. Tryck för att lägga till marginal.';
   }
+
+  @override
+  String get salWhyMoving => 'Varför rör den sig?';
+
+  @override
+  String get positionProtectIt => 'Skydda den';
+
+  @override
+  String hlRiskLiquidationLong(String market, String price, String amount) {
+    return 'Om $market faller till $price stängs positionen och du förlorar $amount.';
+  }
+
+  @override
+  String hlRiskLiquidationShort(String market, String price, String amount) {
+    return 'Om $market stiger till $price stängs positionen och du förlorar $amount.';
+  }
+
+  @override
+  String polyRiskOutcome(String outcome, String cost, String payout) {
+    return 'Om $outcome förlorar, förlorar du $cost; om det vinner får du $payout.';
+  }
 }

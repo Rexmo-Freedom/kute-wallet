@@ -3027,5 +3027,10 @@
   "oneBalancePlacingBet": "Puntata di {amount} su {side} · {market}",
   "oneBalanceOpeningOrder": "Apertura ordine da {amount} su {market}",
   "hlMarginStepAdding": "Aggiunta di {amount} di margine a {coin}",
-  "hlMarginFundingReady": "I tuoi {amount} sono in Investments. Tocca per aggiungere margine."
+  "hlMarginFundingReady": "I tuoi {amount} sono in Investments. Tocca per aggiungere margine.",
+  "salWhyMoving": "Perché si muove?",
+  "positionProtectIt": "Proteggila",
+  "hlRiskLiquidationLong": "Se {market} scende a {price}, questa posizione si chiude e perdi {amount}.",
+  "hlRiskLiquidationShort": "Se {market} sale a {price}, questa posizione si chiude e perdi {amount}.",
+  "polyRiskOutcome": "Se {outcome} perde, perdi {cost}; se vince, ricevi {payout}."
 }

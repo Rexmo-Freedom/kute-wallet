@@ -21,6 +21,37 @@ const kSalOddsMoveThreshold = 0.05;
 /// A prediction market closing within this window counts as closing soon.
 const kSalClosingSoon = Duration(hours: 24);
 
+/// One-day odds move (probability points as a fraction) from which a
+/// prediction market's sheet shows its "Why is it moving?" row: a move
+/// big enough to be worth explaining, above the softer
+/// [kSalOddsMoveThreshold] that only ranks the opening questions.
+const kSalWhyMovingOddsThreshold = 0.08;
+
+/// The "Why is it moving?" question for an Investing market, or null when
+/// it is calm: its 24 h change (a fraction) is at least
+/// [kSalMoveThreshold] either way. The question is the catalogue's own
+/// `hl.moving_today` template.
+SalChip? salWhyMovingHl(AppLocalizations l10n,
+        {required String label, required double? dayChangePct}) =>
+    dayChangePct != null &&
+            dayChangePct.isFinite &&
+            dayChangePct.abs() >= kSalMoveThreshold
+        ? SalChip('hl.moving_today', l10n.salChipHlMovingToday(label))
+        : null;
+
+/// The "Why is it moving?" question for a Predictions market, or null when
+/// it is calm: a game in play asks the catalogue's `pm.live_game`, a one-day
+/// odds move of at least [kSalWhyMovingOddsThreshold] asks `pm.odds_moving`.
+SalChip? salWhyMovingPm(AppLocalizations l10n,
+    {required double? oddsChange1d, required bool liveGame}) {
+  if (liveGame) return SalChip('pm.live_game', l10n.salChipPmLiveGame);
+  final move = oddsChange1d;
+  if (move != null && move.isFinite && move.abs() >= kSalWhyMovingOddsThreshold) {
+    return SalChip('pm.odds_moving', l10n.salChipPmOddsMoving);
+  }
+  return null;
+}
+
 /// One opening question. [template] is the allowlisted id the request and
 /// analytics carry; null for a fixed help question with no template.
 /// [context] is set when the chip asks about a market other than the

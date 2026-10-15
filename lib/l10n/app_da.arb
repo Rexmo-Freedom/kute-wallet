@@ -3027,5 +3027,10 @@
   "oneBalancePlacingBet": "Placerer {amount} på {side} · {market}",
   "oneBalanceOpeningOrder": "Åbner {amount} {market}-ordre",
   "hlMarginStepAdding": "Tilføjer {amount} margin til {coin}",
-  "hlMarginFundingReady": "Dine {amount} er i Investments. Tryk for at tilføje margin."
+  "hlMarginFundingReady": "Dine {amount} er i Investments. Tryk for at tilføje margin.",
+  "salWhyMoving": "Hvorfor bevæger den sig?",
+  "positionProtectIt": "Beskyt den",
+  "hlRiskLiquidationLong": "Hvis {market} falder til {price}, lukkes positionen, og du taber {amount}.",
+  "hlRiskLiquidationShort": "Hvis {market} stiger til {price}, lukkes positionen, og du taber {amount}.",
+  "polyRiskOutcome": "Hvis {outcome} taber, mister du {cost}; hvis det vinder, får du {payout}."
 }

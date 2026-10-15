@@ -10866,4 +10866,25 @@ class AppLocalizationsPt extends AppLocalizations {
   String hlMarginFundingReady(String amount) {
     return 'Os seus $amount estão nos Investments. Toque para adicionar margem.';
   }
+
+  @override
+  String get salWhyMoving => 'Porque está a mexer?';
+
+  @override
+  String get positionProtectIt => 'Protegê-la';
+
+  @override
+  String hlRiskLiquidationLong(String market, String price, String amount) {
+    return 'Se $market descer para $price, esta posição fecha e perde $amount.';
+  }
+
+  @override
+  String hlRiskLiquidationShort(String market, String price, String amount) {
+    return 'Se $market subir para $price, esta posição fecha e perde $amount.';
+  }
+
+  @override
+  String polyRiskOutcome(String outcome, String cost, String payout) {
+    return 'Se $outcome perder, perde $cost; se ganhar, recebe $payout.';
+  }
 }

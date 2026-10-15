@@ -566,6 +566,25 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
                                     ),
                                   );
                                 }),
+                              // Sal's one quiet door on this screen, under
+                              // the chart and its window: "Why is it
+                              // moving?", only for a game in play or a big
+                              // move in the odds (calm, nothing). Rules and
+                              // resolution keep their own row below. Own
+                              // Consumer: the live score feed is read for
+                              // this alone.
+                              Consumer(
+                                builder: (context, salRef, _) =>
+                                    SalWhyMovingRow(
+                                  advisorContext: _salContext,
+                                  question: salWhyMovingPm(context.l10n,
+                                      oddsChange1d: event.oneDayPriceChange,
+                                      liveGame: _isGameLive(
+                                          _liveMatchUpdate(salRef))),
+                                  chipSignals: salSignalsForPolyEvent(event),
+                                  padding: EdgeInsets.only(bottom: 8.h),
+                                ),
+                              ),
                               // Count markets: the running tally, refreshed
                               // while open.
                               if (event.tweetCount != null)
@@ -625,7 +644,8 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
               : null);
 
   /// Close, the event's image and title (up to two lines), and the
-  /// watchlist star. Sal's door is the question capsule under the hero.
+  /// watchlist star. Sal's door is the "Why is it moving?" row under the
+  /// chart, when there is a move worth explaining.
   Widget _buildHeader(AppColorsExtension c) {
     return Padding(
       padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 4.h),
@@ -1442,12 +1462,6 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
               builder: (context, heroRef, _) => _buildHeroHeadline(heroRef, c),
             ),
           ],
-          // Sal's question for this market, right under the figure.
-          SalQuestionCapsule(
-            advisorContext: _salContext,
-            chipSignals: salSignalsForPolyEvent(event),
-            padding: EdgeInsets.only(top: 16.h),
-          ),
         ],
       ),
     );

@@ -3027,5 +3027,10 @@
   "oneBalancePlacingBet": "Ulaganje {amount} na {side} · {market}",
   "oneBalanceOpeningOrder": "Otvaranje naloga od {amount} za {market}",
   "hlMarginStepAdding": "Dodavanje margine od {amount} na {coin}",
-  "hlMarginFundingReady": "Tvojih {amount} je u Investments. Dodirni za dodavanje margine."
+  "hlMarginFundingReady": "Tvojih {amount} je u Investments. Dodirni za dodavanje margine.",
+  "salWhyMoving": "Zašto se kreće?",
+  "positionProtectIt": "Zaštiti je",
+  "hlRiskLiquidationLong": "Ako {market} padne na {price}, ova se pozicija zatvara i gubiš {amount}.",
+  "hlRiskLiquidationShort": "Ako {market} poraste na {price}, ova se pozicija zatvara i gubiš {amount}.",
+  "polyRiskOutcome": "Ako {outcome} izgubi, gubiš {cost}; ako pobijedi, dobivaš {payout}."
 }

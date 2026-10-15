@@ -10835,4 +10835,25 @@ class AppLocalizationsBg extends AppLocalizations {
   String hlMarginFundingReady(String amount) {
     return 'Твоите $amount са в Investments. Докосни, за да добавиш маржин.';
   }
+
+  @override
+  String get salWhyMoving => 'Защо се движи?';
+
+  @override
+  String get positionProtectIt => 'Защити я';
+
+  @override
+  String hlRiskLiquidationLong(String market, String price, String amount) {
+    return 'Ако $market падне до $price, тази позиция се затваря и губиш $amount.';
+  }
+
+  @override
+  String hlRiskLiquidationShort(String market, String price, String amount) {
+    return 'Ако $market се покачи до $price, тази позиция се затваря и губиш $amount.';
+  }
+
+  @override
+  String polyRiskOutcome(String outcome, String cost, String payout) {
+    return 'Ако $outcome загуби, губиш $cost; ако спечели, получаваш $payout.';
+  }
 }

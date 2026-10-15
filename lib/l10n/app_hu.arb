@@ -3027,5 +3027,10 @@
   "oneBalancePlacingBet": "{amount} feltétele erre: {side} · {market}",
   "oneBalanceOpeningOrder": "{amount} értékű {market} megbízás nyitása",
   "hlMarginStepAdding": "{amount} fedezet hozzáadása: {coin}",
-  "hlMarginFundingReady": "A(z) {amount} az Investmentsben van. Koppints a fedezet hozzáadásához."
+  "hlMarginFundingReady": "A(z) {amount} az Investmentsben van. Koppints a fedezet hozzáadásához.",
+  "salWhyMoving": "Miért mozog?",
+  "positionProtectIt": "Védd meg",
+  "hlRiskLiquidationLong": "Ha a(z) {market} {price} szintre esik, ez a pozíció lezárul, és {amount} a veszteséged.",
+  "hlRiskLiquidationShort": "Ha a(z) {market} {price} szintre emelkedik, ez a pozíció lezárul, és {amount} a veszteséged.",
+  "polyRiskOutcome": "Ha a(z) {outcome} veszít, {cost} a veszteséged; ha nyer, {payout} összeget kapsz."
 }

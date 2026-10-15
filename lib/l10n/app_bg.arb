@@ -3027,5 +3027,10 @@
   "oneBalancePlacingBet": "Залагане на {amount} за {side} · {market}",
   "oneBalanceOpeningOrder": "Отваряне на поръчка за {amount} {market}",
   "hlMarginStepAdding": "Добавяне на {amount} маржин към {coin}",
-  "hlMarginFundingReady": "Твоите {amount} са в Investments. Докосни, за да добавиш маржин."
+  "hlMarginFundingReady": "Твоите {amount} са в Investments. Докосни, за да добавиш маржин.",
+  "salWhyMoving": "Защо се движи?",
+  "positionProtectIt": "Защити я",
+  "hlRiskLiquidationLong": "Ако {market} падне до {price}, тази позиция се затваря и губиш {amount}.",
+  "hlRiskLiquidationShort": "Ако {market} се покачи до {price}, тази позиция се затваря и губиш {amount}.",
+  "polyRiskOutcome": "Ако {outcome} загуби, губиш {cost}; ако спечели, получаваш {payout}."
 }

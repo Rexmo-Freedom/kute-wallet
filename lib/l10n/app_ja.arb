@@ -3027,5 +3027,10 @@
   "oneBalancePlacingBet": "{side}に{amount}を予測中 · {market}",
   "oneBalanceOpeningOrder": "{amount}の{market}注文を発注中",
   "hlMarginStepAdding": "{coin}に証拠金{amount}を追加中",
-  "hlMarginFundingReady": "{amount}はInvestmentsにあります。タップして証拠金を追加してください。"
+  "hlMarginFundingReady": "{amount}はInvestmentsにあります。タップして証拠金を追加してください。",
+  "salWhyMoving": "なぜ動いているのですか？",
+  "positionProtectIt": "保護する",
+  "hlRiskLiquidationLong": "{market}が{price}まで下がると、このポジションは決済され、{amount}を失います。",
+  "hlRiskLiquidationShort": "{market}が{price}まで上がると、このポジションは決済され、{amount}を失います。",
+  "polyRiskOutcome": "{outcome}が負けると{cost}を失い、勝つと{payout}を受け取ります。"
 }

@@ -3027,5 +3027,10 @@
   "oneBalancePlacingBet": "Sázka {amount} na {side} · {market}",
   "oneBalanceOpeningOrder": "Otevírání příkazu {amount} {market}",
   "hlMarginStepAdding": "Přidávání marže {amount} do {coin}",
-  "hlMarginFundingReady": "Tvých {amount} je v Investments. Klepnutím přidáš marži."
+  "hlMarginFundingReady": "Tvých {amount} je v Investments. Klepnutím přidáš marži.",
+  "salWhyMoving": "Proč se to hýbe?",
+  "positionProtectIt": "Ochránit",
+  "hlRiskLiquidationLong": "Pokud {market} klesne na {price}, tato pozice se uzavře a přijdeš o {amount}.",
+  "hlRiskLiquidationShort": "Pokud {market} stoupne na {price}, tato pozice se uzavře a přijdeš o {amount}.",
+  "polyRiskOutcome": "Pokud {outcome} prohraje, přijdeš o {cost}; pokud vyhraje, dostaneš {payout}."
 }

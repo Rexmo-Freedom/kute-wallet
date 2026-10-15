@@ -5,7 +5,6 @@ import 'package:kute/screens/shared/kute_blur.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show KuteStillWhenCovered;
 import 'package:kute/providers/ledger/ledger_hyperliquid_account_provider.dart';
 import 'package:kute/providers/ledger/ledger_identity_provider.dart';
-import 'package:kute/screens/shared/ask_sal_chip.dart';
 // lib/screens/hyperliquid/components/hl_position_detail_sheet.dart
 //
 // The open-position screen of an Investing position. It reads like the
@@ -55,6 +54,7 @@ import 'package:kute/screens/shared/market_pair_button.dart';
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/services/tracking_service.dart';
+import 'package:kute/services/venue_analytics.dart';
 import 'package:kute/theme/app_theme.dart';
 
 // ───────────────────────────── sheet ─────────────────────────────
@@ -231,6 +231,8 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
     final positive = pnl >= 0;
     final accent = positive ? greenColor : redColor;
     final liquidation = current != null ? hlLiquidationPrice(pos) : null;
+    final lossAtLiquidation =
+        liquidation != null ? hlLossAtLiquidation(pos) : null;
     // Isolated margin can be topped up or taken out (spending wallet
     // only: the Ledger signer has no reviewed path for
     // updateIsolatedMargin), on the very market the position is held on.
@@ -259,8 +261,8 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                       // The market sheet's header: logo, ticker, the live
                       // price in the primary colour (a tick flashes and
                       // fades) and the 24h change of that same price in
-                      // the up / down colour. Sal's door is the question
-                      // capsule under the position's figures.
+                      // the up / down colour. No Sal on a position: its
+                      // rows say what is at risk and how to protect it.
                       HlCoinIcon(
                           coin: m?.coin ?? pos.coin,
                           wireCoin: m?.wireCoin ?? pos.coin,
@@ -377,23 +379,6 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                                     fontFeatures: const [
                                       FontFeature.tabularFigures()
                                     ])),
-                            // Sal's question for this position's public
-                            // market, under its figures; that a position is
-                            // held only ranks the questions, on the device.
-                            SalQuestionCapsule(
-                              entry: 'position_capsule',
-                              advisorContext: AdvisorContext(
-                                surface: 'hyperliquid_position_detail',
-                                marketVenue: 'hyperliquid',
-                                marketId: m?.wireCoin ?? pos.coin,
-                                marketDisplayName: m?.coin,
-                              ),
-                              chipSignals: (m == null
-                                      ? const SalChipSignals()
-                                      : salSignalsForHlMarket(m))
-                                  .withLocal(holdsPosition: true),
-                              padding: EdgeInsets.only(top: 16.h),
-                            ),
                             SizedBox(height: 20.h),
                             // The market sheet's chart, so both screens read the
                             // same: candle sizes, styles, zoom, history, the
@@ -450,6 +435,55 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                                           add: true,
                                           source: HlMarginSource.liquidationRow)
                                       : null,
+                                ),
+                              // What is at risk, in one plain sentence, only
+                              // with the venue's liquidation price and a
+                              // real loss to name.
+                              if (current != null && lossAtLiquidation != null)
+                                PositionRow.note(
+                                  key: const ValueKey('hl-position-risk-line'),
+                                  (pos.isLong
+                                      ? context.l10n.hlRiskLiquidationLong
+                                      : context.l10n.hlRiskLiquidationShort)(
+                                    m?.coin ?? pos.coin,
+                                    formatHlPrice(liquidation!,
+                                        decimalCap: m?.pxDecimalCap),
+                                    formatPolyAmount(ref, lossAtLiquidation),
+                                  ),
+                                ),
+                              // The ticket's own protective orders (stop /
+                              // take profit, the trailing stop), one tap
+                              // away. Needs the market to place them.
+                              if (current != null && m != null && !m.isSpot)
+                                PositionRow(
+                                  context.l10n.positionProtectIt,
+                                  ledgerId == null
+                                      ? context.l10n.hlStopLoss
+                                      : context.l10n.investingTrailingStop,
+                                  key: const ValueKey('hl-position-protect'),
+                                  onTap: () {
+                                    TrackingService.track(
+                                        'position_protect_tapped',
+                                        params: {
+                                          'venue': 'hyperliquid',
+                                          'coin': pos.coin,
+                                          ...VenueAnalytics.hlAssetParams(
+                                              pos.coin),
+                                          'side':
+                                              pos.isLong ? 'long' : 'short',
+                                          'wallet_kind': ledgerId != null
+                                              ? 'ledger'
+                                              : 'hot',
+                                          'target': ledgerId == null
+                                              ? 'stop_loss'
+                                              : 'trailing_stop',
+                                        });
+                                    HlClosePositionSheet.showProtect(
+                                        context, ref,
+                                        position: pos,
+                                        market: m,
+                                        ledgerWalletId: ledgerId);
+                                  },
                                 ),
                             ]),
                             SizedBox(height: 16.h),

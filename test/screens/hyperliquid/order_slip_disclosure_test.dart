@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kute/screens/shared/ask_sal_chip.dart' show AskSalChip;
+import 'package:kute/screens/shared/kute_dog_scenes.dart' show KuteDogGlance;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/currency_conversions.dart';
@@ -128,7 +130,8 @@ Future<void> _pumpSlip(WidgetTester tester,
     Set<String> blocked = const {},
     HlMarket market = _market,
     List<HlPerpPosition>? positions,
-    FakeSwapOrders? swaps}) async {
+    FakeSwapOrders? swaps,
+    bool ai = false}) async {
   tester.view.physicalSize = Size(width, height);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -154,7 +157,7 @@ Future<void> _pumpSlip(WidgetTester tester,
       hyperliquidAddressProvider.overrideWith((_) async => null),
       hyperliquidOrderbookProvider
           .overrideWith((_, __) => Stream.value(const HlOrderBookState())),
-      aiEnabledProvider.overrideWith((_) async => false),
+      aiEnabledProvider.overrideWith((_) async => ai),
       currencyProvider.overrideWith((_) => _Currency()),
       runtimeCapabilitiesProvider
           .overrideWithValue(_AllowedCapabilities(blocked)),
@@ -223,6 +226,17 @@ void main() {
     GoogleFonts.config.allowRuntimeFetching = false;
     _LivePrices.acquired = 0;
     _LivePrices.released = 0;
+  });
+
+  testWidgets('the slip is the moment of decision: no Sal button, even with '
+      'Sal on', (tester) async {
+    await _pumpSlip(tester, ai: true);
+    expect(find.text('Long BTC'), findsOneWidget);
+    expect(find.byType(AskSalChip), findsNothing);
+    expect(find.byType(KuteDogGlance), findsNothing);
+    expect(find.bySemanticsLabel('Ask Sal'), findsNothing);
+    expect(find.byType(KuteCloseButton), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets(

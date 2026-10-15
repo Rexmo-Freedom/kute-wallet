@@ -10804,4 +10804,25 @@ class AppLocalizationsEt extends AppLocalizations {
   String hlMarginFundingReady(String amount) {
     return 'Sinu $amount on kontol Investments. Puuduta, et lisada marginaali.';
   }
+
+  @override
+  String get salWhyMoving => 'Miks see liigub?';
+
+  @override
+  String get positionProtectIt => 'Kaitse seda';
+
+  @override
+  String hlRiskLiquidationLong(String market, String price, String amount) {
+    return 'Kui $market langeb tasemele $price, see positsioon suletakse ja kaotad $amount.';
+  }
+
+  @override
+  String hlRiskLiquidationShort(String market, String price, String amount) {
+    return 'Kui $market tõuseb tasemele $price, see positsioon suletakse ja kaotad $amount.';
+  }
+
+  @override
+  String polyRiskOutcome(String outcome, String cost, String payout) {
+    return 'Kui $outcome kaotab, kaotad $cost; kui see võidab, saad $payout.';
+  }
 }

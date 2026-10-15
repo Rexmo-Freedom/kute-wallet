@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kute/screens/shared/ask_sal_chip.dart' show AskSalChip;
+import 'package:kute/screens/shared/kute_dog_scenes.dart' show KuteDogGlance;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/affiliate_model.dart';
@@ -229,6 +231,18 @@ void main() {
     PredictionsVenueFunder.debugRouteShare = (_) async => 0;
   });
   tearDown(() => PredictionsVenueFunder.debugRouteShare = null);
+
+  testWidgets('the slip is the moment of decision: no Sal button, even with '
+      'Sal on', (tester) async {
+    await _pumpSlip(tester, extraOverrides: [
+      aiEnabledProvider.overrideWith((ref) async => true),
+    ]);
+    expect(find.text('Will it rain?'), findsWidgets);
+    expect(find.byType(AskSalChip), findsNothing);
+    expect(find.byType(KuteDogGlance), findsNothing);
+    expect(find.bySemanticsLabel('Ask Sal'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('simple slip keeps selection, amount, payout and fees visible',
       (tester) async {

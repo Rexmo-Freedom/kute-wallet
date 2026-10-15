@@ -3027,5 +3027,10 @@
   "oneBalancePlacingBet": "Panustame {amount} valikule {side} · {market}",
   "oneBalanceOpeningOrder": "Avame {amount} {market} tehingu",
   "hlMarginStepAdding": "Lisame {coin} positsioonile {amount} marginaali",
-  "hlMarginFundingReady": "Sinu {amount} on kontol Investments. Puuduta, et lisada marginaali."
+  "hlMarginFundingReady": "Sinu {amount} on kontol Investments. Puuduta, et lisada marginaali.",
+  "salWhyMoving": "Miks see liigub?",
+  "positionProtectIt": "Kaitse seda",
+  "hlRiskLiquidationLong": "Kui {market} langeb tasemele {price}, see positsioon suletakse ja kaotad {amount}.",
+  "hlRiskLiquidationShort": "Kui {market} tõuseb tasemele {price}, see positsioon suletakse ja kaotad {amount}.",
+  "polyRiskOutcome": "Kui {outcome} kaotab, kaotad {cost}; kui see võidab, saad {payout}."
 }

@@ -1,9 +1,11 @@
 // What a position is made of, as plain rows on the app's card: a quiet
 // label on the left, its figure right-aligned. Shared by the open
 // Predictions position screen and the open Investing position screen so
-// the two read as one product.
+// the two read as one product. A row can also be one plain sentence (the
+// position's risk line) or open something (the position's "Protect it").
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:kute/theme/app_theme.dart';
@@ -26,8 +28,28 @@ class PositionRow {
   /// row centres on it.
   final Widget? action;
 
+  /// Opens what the row names (the position's "Protect it"): the whole
+  /// row is the tap target and a chevron follows the figure.
+  final VoidCallback? onTap;
+
+  /// A plain sentence across the whole row in the label's style, in place
+  /// of the label and figure (the position's risk line).
+  final bool note;
+
+  final Key? key;
+
   const PositionRow(this.label, this.value,
-      {this.valueColor, this.child, this.action});
+      {this.valueColor, this.child, this.action, this.onTap, this.key})
+      : note = false;
+
+  /// One sentence across the row, in the labels' quiet style.
+  const PositionRow.note(this.label, {this.key})
+      : value = '',
+        valueColor = null,
+        child = null,
+        action = null,
+        onTap = null,
+        note = true;
 }
 
 class PositionRowsCard extends StatelessWidget {
@@ -46,41 +68,71 @@ class PositionRowsCard extends StatelessWidget {
         children: [
           for (var i = 0; i < rows.length; i++) ...[
             if (i > 0) SizedBox(height: 12.h),
-            Row(
-              crossAxisAlignment: rows[i].action == null
-                  ? CrossAxisAlignment.start
-                  : CrossAxisAlignment.center,
-              children: [
-                Text(
-                  rows[i].label,
-                  style: TextStyle(
-                    color: c.textSecondary,
-                    fontSize: 14.sp,
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: -0.1,
-                  ),
-                ),
-                SizedBox(width: 16.w),
-                // The figure takes the rest of the line and wraps under
-                // itself when it is long (a team's name as the outcome).
-                Expanded(
-                  child: rows[i].action == null
-                      ? _figure(c, rows[i])
-                      // The button beside the figure while both fit on
-                      // the line; under it, right-aligned, when they do
-                      // not (a narrow phone, large text, a long word).
-                      : Wrap(
-                          alignment: WrapAlignment.end,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          spacing: 10.w,
-                          runSpacing: 6.h,
-                          children: [_figure(c, rows[i]), rows[i].action!],
-                        ),
-                ),
-              ],
-            ),
+            _row(c, rows[i]),
           ],
         ],
+      ),
+    );
+  }
+
+  static TextStyle _labelStyle(AppColorsExtension c) => TextStyle(
+        color: c.textSecondary,
+        fontSize: 14.sp,
+        fontWeight: FontWeight.w500,
+        letterSpacing: -0.1,
+      );
+
+  Widget _row(AppColorsExtension c, PositionRow row) {
+    if (row.note) {
+      return SizedBox(
+        key: row.key,
+        width: double.infinity,
+        child: Text(row.label,
+            style: _labelStyle(c).copyWith(height: 1.35)),
+      );
+    }
+    final line = Row(
+      key: row.onTap == null ? row.key : null,
+      crossAxisAlignment: row.action == null && row.onTap == null
+          ? CrossAxisAlignment.start
+          : CrossAxisAlignment.center,
+      children: [
+        Text(row.label, style: _labelStyle(c)),
+        SizedBox(width: 16.w),
+        // The figure takes the rest of the line and wraps under
+        // itself when it is long (a team's name as the outcome).
+        Expanded(
+          child: row.action == null
+              ? _figure(c, row)
+              // The button beside the figure while both fit on
+              // the line; under it, right-aligned, when they do
+              // not (a narrow phone, large text, a long word).
+              : Wrap(
+                  alignment: WrapAlignment.end,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 10.w,
+                  runSpacing: 6.h,
+                  children: [_figure(c, row), row.action!],
+                ),
+        ),
+        if (row.onTap != null) ...[
+          SizedBox(width: 4.w),
+          Icon(Icons.chevron_right_rounded,
+              color: c.textTertiary, size: 22.sp),
+        ],
+      ],
+    );
+    final onTap = row.onTap;
+    if (onTap == null) return line;
+    return Semantics(
+      button: true,
+      child: InkWell(
+        key: row.key,
+        onTap: () {
+          HapticFeedback.selectionClick();
+          onTap();
+        },
+        child: line,
       ),
     );
   }

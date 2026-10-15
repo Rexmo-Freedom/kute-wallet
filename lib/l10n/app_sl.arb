@@ -3027,5 +3027,10 @@
   "oneBalancePlacingBet": "Stava {amount} na {side} · {market}",
   "oneBalanceOpeningOrder": "Odpiranje naročila {amount} za {market}",
   "hlMarginStepAdding": "Dodajanje kritja {amount} za {coin}",
-  "hlMarginFundingReady": "Vaših {amount} je v Investments. Tapnite za dodajanje kritja."
+  "hlMarginFundingReady": "Vaših {amount} je v Investments. Tapnite za dodajanje kritja.",
+  "salWhyMoving": "Zakaj se premika?",
+  "positionProtectIt": "Zaščiti jo",
+  "hlRiskLiquidationLong": "Če {market} pade na {price}, se ta pozicija zapre in izgubiš {amount}.",
+  "hlRiskLiquidationShort": "Če {market} zraste na {price}, se ta pozicija zapre in izgubiš {amount}.",
+  "polyRiskOutcome": "Če {outcome} izgubi, izgubiš {cost}; če zmaga, dobiš {payout}."
 }

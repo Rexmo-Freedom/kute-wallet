@@ -10784,4 +10784,25 @@ class AppLocalizationsLv extends AppLocalizations {
   String hlMarginFundingReady(String amount) {
     return 'Tavi $amount ir kontā Investments. Pieskaries, lai pievienotu maržu.';
   }
+
+  @override
+  String get salWhyMoving => 'Kāpēc tas kustas?';
+
+  @override
+  String get positionProtectIt => 'Aizsargā to';
+
+  @override
+  String hlRiskLiquidationLong(String market, String price, String amount) {
+    return 'Ja $market nokritīsies līdz $price, šī pozīcija tiks slēgta un tu zaudēsi $amount.';
+  }
+
+  @override
+  String hlRiskLiquidationShort(String market, String price, String amount) {
+    return 'Ja $market pakāpsies līdz $price, šī pozīcija tiks slēgta un tu zaudēsi $amount.';
+  }
+
+  @override
+  String polyRiskOutcome(String outcome, String cost, String payout) {
+    return 'Ja $outcome zaudēs, tu zaudēsi $cost; ja uzvarēs, saņemsi $payout.';
+  }
 }

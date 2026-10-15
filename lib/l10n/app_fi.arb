@@ -3027,5 +3027,10 @@
   "oneBalancePlacingBet": "Asetetaan {amount} vaihtoehdolle {side} · {market}",
   "oneBalanceOpeningOrder": "Avataan {amount} {market} -toimeksianto",
   "hlMarginStepAdding": "Lisätään {amount} marginaalia kohteeseen {coin}",
-  "hlMarginFundingReady": "{amount} on tililläsi Investments. Napauta lisätäksesi marginaalia."
+  "hlMarginFundingReady": "{amount} on tililläsi Investments. Napauta lisätäksesi marginaalia.",
+  "salWhyMoving": "Miksi se liikkuu?",
+  "positionProtectIt": "Suojaa se",
+  "hlRiskLiquidationLong": "Jos {market} laskee hintaan {price}, tämä positio suljetaan ja menetät {amount}.",
+  "hlRiskLiquidationShort": "Jos {market} nousee hintaan {price}, tämä positio suljetaan ja menetät {amount}.",
+  "polyRiskOutcome": "Jos {outcome} häviää, menetät {cost}; jos se voittaa, saat {payout}."
 }

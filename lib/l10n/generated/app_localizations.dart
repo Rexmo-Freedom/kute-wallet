@@ -18276,6 +18276,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Your {amount} is in Investments. Tap to add margin.'**
   String hlMarginFundingReady(String amount);
+
+  /// A market screen's row under the chart, shown only on a big move or a live game; opens Sal (the AI helper) explaining the move.
+  ///
+  /// In en, this message translates to:
+  /// **'Why is it moving?'**
+  String get salWhyMoving;
+
+  /// Label of an open position's row that opens its protective orders (stop loss, trailing stop, or a sell-at-a-price order).
+  ///
+  /// In en, this message translates to:
+  /// **'Protect it'**
+  String get positionProtectIt;
+
+  /// Risk line on an open long Investing position. {market} is the ticker (e.g. NVDA), {price} its liquidation price, {amount} the money lost when the position is liquidated there.
+  ///
+  /// In en, this message translates to:
+  /// **'If {market} falls to {price}, this position closes and you lose {amount}.'**
+  String hlRiskLiquidationLong(String market, String price, String amount);
+
+  /// Risk line on an open short Investing position. {market} is the ticker (e.g. NVDA), {price} its liquidation price (above the current price), {amount} the money lost when the position is liquidated there.
+  ///
+  /// In en, this message translates to:
+  /// **'If {market} rises to {price}, this position closes and you lose {amount}.'**
+  String hlRiskLiquidationShort(String market, String price, String amount);
+
+  /// Risk line on an open prediction. {outcome} is the held outcome (e.g. Yes, a team), {cost} what was paid (lost if it loses), {payout} what the shares pay if it wins.
+  ///
+  /// In en, this message translates to:
+  /// **'If {outcome} loses, you lose {cost}; if it wins, you get {payout}.'**
+  String polyRiskOutcome(String outcome, String cost, String payout);
 }
 
 class _AppLocalizationsDelegate

@@ -10828,4 +10828,25 @@ class AppLocalizationsFi extends AppLocalizations {
   String hlMarginFundingReady(String amount) {
     return '$amount on tililläsi Investments. Napauta lisätäksesi marginaalia.';
   }
+
+  @override
+  String get salWhyMoving => 'Miksi se liikkuu?';
+
+  @override
+  String get positionProtectIt => 'Suojaa se';
+
+  @override
+  String hlRiskLiquidationLong(String market, String price, String amount) {
+    return 'Jos $market laskee hintaan $price, tämä positio suljetaan ja menetät $amount.';
+  }
+
+  @override
+  String hlRiskLiquidationShort(String market, String price, String amount) {
+    return 'Jos $market nousee hintaan $price, tämä positio suljetaan ja menetät $amount.';
+  }
+
+  @override
+  String polyRiskOutcome(String outcome, String cost, String payout) {
+    return 'Jos $outcome häviää, menetät $cost; jos se voittaa, saat $payout.';
+  }
 }

@@ -10840,4 +10840,25 @@ class AppLocalizationsHr extends AppLocalizations {
   String hlMarginFundingReady(String amount) {
     return 'Tvojih $amount je u Investments. Dodirni za dodavanje margine.';
   }
+
+  @override
+  String get salWhyMoving => 'Zašto se kreće?';
+
+  @override
+  String get positionProtectIt => 'Zaštiti je';
+
+  @override
+  String hlRiskLiquidationLong(String market, String price, String amount) {
+    return 'Ako $market padne na $price, ova se pozicija zatvara i gubiš $amount.';
+  }
+
+  @override
+  String hlRiskLiquidationShort(String market, String price, String amount) {
+    return 'Ako $market poraste na $price, ova se pozicija zatvara i gubiš $amount.';
+  }
+
+  @override
+  String polyRiskOutcome(String outcome, String cost, String payout) {
+    return 'Ako $outcome izgubi, gubiš $cost; ako pobijedi, dobivaš $payout.';
+  }
 }

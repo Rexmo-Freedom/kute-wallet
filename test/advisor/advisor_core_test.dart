@@ -563,6 +563,43 @@ void main() {
       }
     });
 
+    test('each question names the door Sal was opened from, until the '
+        'session is cleared', () async {
+      final events = <(String, Map<String, Object>?)>[];
+      TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+      addTearDown(() => TrackingService.debugTrackObserver = null);
+      final notifier = container.read(advisorSessionProvider.notifier);
+      Future<void> answer(Future<void> pending) async {
+        await _until(
+            () => streams.length == prompts.length && streams.isNotEmpty);
+        streams.last.add(const AdvisorStreamEvent.done(_response));
+        await streams.last.close();
+        await pending;
+      }
+
+      // Search names its door; a market chip there starts a new
+      // conversation from the same door.
+      notifier.setAnalyticsSurface('search');
+      notifier.setEntrySource('search');
+      await answer(notifier.ask('What moved today?'));
+      await answer(notifier.ask('Why is BTC moving today?',
+          context: _context,
+          input: 'suggested',
+          template: 'hl.moving_today',
+          chipIndex: 0));
+      // A cleared session forgets it.
+      notifier.clear();
+      await answer(notifier.ask('Explain funding'));
+      final asked = [
+        for (final (name, params) in events)
+          if (name == 'sal_question_asked') params!
+      ];
+      expect(asked, hasLength(3));
+      expect(asked[0]['entry_source'], 'search');
+      expect(asked[1]['entry_source'], 'search');
+      expect(asked[2].keys, isNot(contains('entry_source')));
+    });
+
     test('a template outside the allowlist never reaches analytics', () async {
       final events = <(String, Map<String, Object>?)>[];
       TrackingService.debugTrackObserver = (e, p) => events.add((e, p));

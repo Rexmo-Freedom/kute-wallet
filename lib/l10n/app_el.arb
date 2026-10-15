@@ -3027,5 +3027,10 @@
   "oneBalancePlacingBet": "Τοποθέτηση {amount} στο {side} · {market}",
   "oneBalanceOpeningOrder": "Άνοιγμα εντολής {amount} {market}",
   "hlMarginStepAdding": "Προσθήκη περιθωρίου {amount} στο {coin}",
-  "hlMarginFundingReady": "Τα {amount} σου είναι στα Investments. Πάτησε για προσθήκη περιθωρίου."
+  "hlMarginFundingReady": "Τα {amount} σου είναι στα Investments. Πάτησε για προσθήκη περιθωρίου.",
+  "salWhyMoving": "Γιατί κινείται;",
+  "positionProtectIt": "Προστάτεψέ τη",
+  "hlRiskLiquidationLong": "Αν το {market} πέσει στα {price}, αυτή η θέση κλείνει και χάνεις {amount}.",
+  "hlRiskLiquidationShort": "Αν το {market} ανέβει στα {price}, αυτή η θέση κλείνει και χάνεις {amount}.",
+  "polyRiskOutcome": "Αν το {outcome} χάσει, χάνεις {cost}· αν κερδίσει, παίρνεις {payout}."
 }

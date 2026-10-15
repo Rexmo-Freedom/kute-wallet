@@ -10875,4 +10875,25 @@ class AppLocalizationsRo extends AppLocalizations {
   String hlMarginFundingReady(String amount) {
     return 'Cei $amount ai tăi sunt în Investments. Atinge pentru a adăuga marjă.';
   }
+
+  @override
+  String get salWhyMoving => 'De ce se mișcă?';
+
+  @override
+  String get positionProtectIt => 'Protejeaz-o';
+
+  @override
+  String hlRiskLiquidationLong(String market, String price, String amount) {
+    return 'Dacă $market scade la $price, această poziție se închide și pierzi $amount.';
+  }
+
+  @override
+  String hlRiskLiquidationShort(String market, String price, String amount) {
+    return 'Dacă $market crește la $price, această poziție se închide și pierzi $amount.';
+  }
+
+  @override
+  String polyRiskOutcome(String outcome, String cost, String payout) {
+    return 'Dacă $outcome pierde, pierzi $cost; dacă câștigă, primești $payout.';
+  }
 }

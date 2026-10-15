@@ -3027,5 +3027,10 @@
   "oneBalancePlacingBet": "Liek {amount} uz {side} · {market}",
   "oneBalanceOpeningOrder": "Atver {amount} {market} rīkojumu",
   "hlMarginStepAdding": "Pievieno {amount} maržu pozīcijai {coin}",
-  "hlMarginFundingReady": "Tavi {amount} ir kontā Investments. Pieskaries, lai pievienotu maržu."
+  "hlMarginFundingReady": "Tavi {amount} ir kontā Investments. Pieskaries, lai pievienotu maržu.",
+  "salWhyMoving": "Kāpēc tas kustas?",
+  "positionProtectIt": "Aizsargā to",
+  "hlRiskLiquidationLong": "Ja {market} nokritīsies līdz {price}, šī pozīcija tiks slēgta un tu zaudēsi {amount}.",
+  "hlRiskLiquidationShort": "Ja {market} pakāpsies līdz {price}, šī pozīcija tiks slēgta un tu zaudēsi {amount}.",
+  "polyRiskOutcome": "Ja {outcome} zaudēs, tu zaudēsi {cost}; ja uzvarēs, saņemsi {payout}."
 }

@@ -3027,5 +3027,10 @@
   "oneBalancePlacingBet": "Statoma {amount} už {side} · {market}",
   "oneBalanceOpeningOrder": "Atidaromas {amount} {market} pavedimas",
   "hlMarginStepAdding": "Pridedama {amount} maržos prie {coin}",
-  "hlMarginFundingReady": "Jūsų {amount} yra Investments. Bakstelėkite, kad pridėtumėte maržos."
+  "hlMarginFundingReady": "Jūsų {amount} yra Investments. Bakstelėkite, kad pridėtumėte maržos.",
+  "salWhyMoving": "Kodėl juda?",
+  "positionProtectIt": "Apsaugok",
+  "hlRiskLiquidationLong": "Jei {market} nukris iki {price}, ši pozicija užsidarys ir prarasi {amount}.",
+  "hlRiskLiquidationShort": "Jei {market} pakils iki {price}, ši pozicija užsidarys ir prarasi {amount}.",
+  "polyRiskOutcome": "Jei {outcome} pralaimės, prarasi {cost}; jei laimės, gausi {payout}."
 }

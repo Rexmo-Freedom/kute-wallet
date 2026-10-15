@@ -3027,5 +3027,10 @@
   "oneBalancePlacingBet": "{amount} inzetten op {side} · {market}",
   "oneBalanceOpeningOrder": "Order van {amount} op {market} openen",
   "hlMarginStepAdding": "{amount} marge toevoegen aan {coin}",
-  "hlMarginFundingReady": "Je {amount} staat in Investments. Tik om marge toe te voegen."
+  "hlMarginFundingReady": "Je {amount} staat in Investments. Tik om marge toe te voegen.",
+  "salWhyMoving": "Waarom beweegt het?",
+  "positionProtectIt": "Beschermen",
+  "hlRiskLiquidationLong": "Als {market} daalt naar {price}, wordt deze positie gesloten en verlies je {amount}.",
+  "hlRiskLiquidationShort": "Als {market} stijgt naar {price}, wordt deze positie gesloten en verlies je {amount}.",
+  "polyRiskOutcome": "Als {outcome} verliest, verlies je {cost}; als het wint, krijg je {payout}."
 }

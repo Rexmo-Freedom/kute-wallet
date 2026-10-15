@@ -526,6 +526,7 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
       TrackingService.salOpened(entry: 'search', surface: 'search');
     }
     session.setAnalyticsSurface('search');
+    session.setEntrySource('search');
     session.ask(q,
         input: 'typed', locale: Localizations.localeOf(context).languageCode);
     _controller.clear();
@@ -562,6 +563,7 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
       TrackingService.salOpened(entry: 'search', surface: 'search');
     }
     session.setAnalyticsSurface('search');
+    session.setEntrySource('search');
     session.ask(chip.text,
         context: chip.context,
         input: 'suggested',
