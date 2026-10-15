@@ -23,7 +23,8 @@
 //     over one allocation donut by category with both venues merged, the
 //     figures for the pair (PortfolioStatisticsOverview), then Positions
 //     (the Positions pill's rows, when anything is held or resting), then
-//     the Activity, the one merged list (portfolio_activity.dart). No
+//     the Activity, the one merged list (portfolio_activity.dart), its
+//     newest five with Home's "See all" to the whole list. No
 //     balance header and no deposit or withdrawal buttons. Never traded
 //     and nothing in the Activity: the breakdown over the one Sal empty
 //     state.
@@ -62,6 +63,8 @@ import 'package:kute/providers/polymarket_combos_provider.dart';
 import 'package:kute/providers/polymarket_live_prices_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart'
     show polymarketTradingProvider;
+import 'package:kute/screens/activity/activity_history_screen.dart'
+    show showActivityHistory;
 import 'package:kute/screens/home/components/kute_dock_host.dart'
     show kuteDockScrollClearance;
 import 'package:kute/screens/hyperliquid/components/hl_format.dart';
@@ -86,6 +89,8 @@ import 'package:kute/screens/portfolio/portfolio_statistics.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart';
 import 'package:kute/screens/shared/portfolio_position_card.dart';
+import 'package:kute/screens/shared/transactions_builder.dart'
+    show kActivityPreviewRows;
 import 'package:kute/services/polymarket/combos/combo_models.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -180,8 +185,15 @@ class _PortfolioPage extends ConsumerWidget {
                 key: const ValueKey('portfolio-activity-heading')),
           ),
         ),
+        // The newest few, as Home previews its own; "See all" opens the
+        // Activity screen on the whole list.
         PortfolioActivitySliver(
-            entries: activity.entries, failed: activity.failed),
+          entries: activity.entries,
+          failed: activity.failed,
+          limit: kActivityPreviewRows,
+          onSeeAll: () => showActivityHistory(context,
+              investments: true, source: 'portfolio'),
+        ),
       ] else if (activity.loading)
         SliverToBoxAdapter(
           child: Padding(

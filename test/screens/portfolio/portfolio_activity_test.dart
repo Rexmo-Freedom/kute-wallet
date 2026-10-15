@@ -19,10 +19,13 @@ import 'package:kute/models/settings_model.dart';
 import 'package:kute/models/swap_order_model.dart';
 import 'package:kute/models/transactions_model.dart';
 import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/screens/activity/activity_history_screen.dart';
 import 'package:kute/screens/portfolio/open_investments_screen.dart';
 import 'package:kute/screens/portfolio/portfolio_activity.dart';
+import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:kute/screens/shared/transactions_builder.dart'
-    show ActivityDaySection, assembleActivityRows;
+    show ActivityDaySection, assembleActivityRows, kActivityPreviewRows;
+import 'package:kute/services/tracking_service.dart';
 import 'package:kute/services/orchestra_routes.dart'
     show kOrchestraUsdAssetCode;
 import 'package:kute/screens/shared/no_activity_state.dart';
@@ -157,8 +160,8 @@ void main() {
 
   group('mergePortfolioActivity', () {
     test('one list, newest first, every kind of row', () {
-      final deposit = _dollars('dep',
-          usd: 20, type: breez.PaymentType.receive, at: _t0);
+      final deposit =
+          _dollars('dep', usd: 20, type: breez.PaymentType.receive, at: _t0);
       final move = _fundingMove(
           'move', 'HYPERCORE', _t0.add(const Duration(minutes: 1)));
       final bet = _bet('bet', _t0.add(const Duration(minutes: 2)));
@@ -186,16 +189,14 @@ void main() {
       expect(entries, hasLength(1));
     });
 
-    test('a venue move the dollar ledger does not carry is still listed',
-        () {
+    test('a venue move the dollar ledger does not carry is still listed', () {
       final old = _bitcoinMove('old', _t0);
       final entries = mergePortfolioActivity(
           dollarRows: [], swaps: [old], bets: [], fills: []);
       expect(entries.single.tx?.id, 'old');
     });
 
-    test('a conversion that is no venue move is the dollar ledger\'s call',
-        () {
+    test('a conversion that is no venue move is the dollar ledger\'s call', () {
       // Bitcoin into dollars: on the ledger, listed; not on it, not.
       final buy = _swap('buy',
           coinFrom: 'BTC',
@@ -256,8 +257,11 @@ void main() {
   });
 
   group('the Portfolio screen\'s Activity', () {
-    Future<void> pump(WidgetTester tester, {Transaction? history}) async {
-      tester.view.physicalSize = const Size(400, 1000);
+    Future<void> pump(WidgetTester tester,
+        {Transaction? history,
+        Size size = const Size(400, 1000),
+        double textScale = 1}) async {
+      tester.view.physicalSize = size;
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
@@ -286,6 +290,10 @@ void main() {
                   extensions: [AppColorsExtension.light()]),
               localizationsDelegates: AppLocalizations.localizationsDelegates,
               supportedLocales: AppLocalizations.supportedLocales,
+              builder: (context, child) => MediaQuery(
+                  data: MediaQuery.of(context)
+                      .copyWith(textScaler: TextScaler.linear(textScale)),
+                  child: child!),
               home: const OpenInvestmentsScreen(source: 'test'),
             ),
           )));
@@ -318,8 +326,8 @@ void main() {
       // Under its heading; never traded, so nothing above it.
       expect(find.byKey(const ValueKey('portfolio-activity-heading')),
           findsOneWidget);
-      expect(find.byKey(const ValueKey('statistics-chart-empty')),
-          findsNothing);
+      expect(
+          find.byKey(const ValueKey('statistics-chart-empty')), findsNothing);
       expect(find.byKey(const ValueKey('portfolio-activity-trading')),
           findsNothing);
       expect(find.byKey(const ValueKey('portfolio-activity-predictions')),
@@ -345,6 +353,92 @@ void main() {
       expect(find.text('No history yet'), findsOneWidget);
       expect(find.byType(NoActivityState), findsOneWidget);
       expect(find.byType(ActivityDaySection), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    // `count` predictions, one a minute, all on one day card.
+    Transaction bets(int count) => Transaction(
+          bitcoinTransactions: const [],
+          sparkTransactions: const [],
+          sparkUnclaimedDeposits: const [],
+          usdbTokenTransactions: const [],
+          swapOrderTransactions: const [],
+          polymarketTransactions: [
+            for (var i = 0; i < count; i++)
+              _bet('bet$i', _t0.add(Duration(minutes: i))),
+          ],
+        );
+    const seeAll = ValueKey('portfolio-activity-see-all');
+    // Tall enough that every row a list builds is on screen (a lazy list
+    // would hide rows it built below the fold otherwise).
+    const tall = Size(400, 3000);
+
+    testWidgets(
+        'more than five: only the newest five are built, with Home\'s '
+        '"See all" pill under them', (tester) async {
+      await pump(tester, history: bets(8), size: tall);
+      expect(find.text('Prediction · Yes', skipOffstage: false),
+          findsNWidgets(kActivityPreviewRows));
+      expect(kActivityPreviewRows, 5);
+      expect(find.byKey(seeAll), findsOneWidget);
+      // The same widget Home's selected Activity pill is.
+      final pill = tester.widget<KutePill>(find.byKey(seeAll));
+      expect(pill.label, 'See all');
+      expect(pill.icon, Icons.arrow_forward_rounded);
+      expect(pill.selected, isTrue);
+      expect(pill.size, KutePillSize.regular);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('five or fewer: every row, and no "See all"', (tester) async {
+      await pump(tester, history: bets(5), size: tall);
+      expect(
+          find.text('Prediction · Yes', skipOffstage: false), findsNWidgets(5));
+      expect(find.byKey(seeAll), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+        '"See all" opens the Activity screen on the Investments list and '
+        'reports activity_history_opened from the Portfolio', (tester) async {
+      final events = <(String, Map<String, Object>?)>[];
+      TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+      addTearDown(() => TrackingService.debugTrackObserver = null);
+      await pump(tester, history: bets(8), size: tall);
+
+      await tester.tap(find.byKey(seeAll));
+      for (var i = 0; i < 8; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+
+      final screen = tester
+          .widget<ActivityHistoryScreen>(find.byType(ActivityHistoryScreen));
+      expect(screen.investments, isTrue);
+      expect(find.byType(PortfolioActivityList), findsOneWidget);
+      // The whole list: all eight, not the preview's five.
+      expect(
+          find.descendant(
+              of: find.byType(PortfolioActivityList),
+              matching: find.text('Prediction · Yes')),
+          findsNWidgets(8));
+      final opened =
+          events.where((e) => e.$1 == 'activity_history_opened').toList();
+      expect(opened, hasLength(1));
+      expect(opened.single.$2?['entry_source'], 'portfolio');
+      expect(opened.single.$2?['scope'], 'investments');
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('no overflow at 375 pt with text at 130%', (tester) async {
+      await pump(tester,
+          history: bets(8), size: const Size(375, 3000), textScale: 1.3);
+      expect(find.byKey(seeAll), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.tap(find.byKey(seeAll));
+      for (var i = 0; i < 8; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(find.byType(PortfolioActivityList), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   });
