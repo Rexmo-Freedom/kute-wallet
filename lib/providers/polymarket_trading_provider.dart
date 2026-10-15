@@ -867,8 +867,12 @@ class PolymarketTradingNotifier
         return;
       }
       final settled = _settlePendingFills(wallet, rawCashUsd: cash);
+      // A read that succeeded: the balance is known (a failed one throws
+      // and leaves the state as it was).
       _setData(latest.copyWith(
-          usdcBalance: settled.$1 ?? cash, pendingFills: settled.$2));
+          usdcBalance: settled.$1 ?? cash,
+          balanceKnown: true,
+          pendingFills: settled.$2));
     } catch (_) {}
   }
 
@@ -4864,8 +4868,11 @@ class PolymarketTradingNotifier
     // The receipt isolates this claim even when other wallet operations ran
     // concurrently. Refresh absolute cash instead of adding proceeds twice.
     final credited = onboarding.confirmedClaimCredit(txHash, proxyWallet);
-    final refreshedCash =
-        await _publicModel?.getOnChainUsdcBalance(proxyWallet);
+    // A read that failed keeps the balance shown (null below).
+    double? refreshedCash;
+    try {
+      refreshedCash = await _publicModel?.getOnChainUsdcBalance(proxyWallet);
+    } catch (_) {}
     final latestState = state.valueOrNull;
     final payoutUsdc = credited ?? 0.0;
     String outcome = 'unknown';
@@ -6296,7 +6303,11 @@ final polymarketBalanceProvider = Provider.autoDispose<double>((ref) {
   // Lazy-hydrate the in-memory mirror from disk on first access.
   _lastKnownPolymarketUsdc ??= PolymarketUsdcCacheService.read();
   final state = ref.watch(polymarketTradingProvider);
-  final fresh = state.valueOrNull?.usdcBalance;
+  // Only a balance that was actually read: an unread one is 0 in the
+  // state (`balanceKnown` false), and taking it here showed $0.00 and
+  // wrote that 0 over the last known figure on disk.
+  final value = state.valueOrNull;
+  final fresh = value != null && value.balanceKnown ? value.usdcBalance : null;
   if (fresh != null) {
     // Fresh value — even if it's 0, that's a real read. Trust it,
     // update the in-memory mirror, and write through to Hive so the
@@ -6307,7 +6318,12 @@ final polymarketBalanceProvider = Provider.autoDispose<double>((ref) {
     }
     return fresh;
   }
-  // Loading or error — return the last value we successfully read.
+  // A placeholder with no account behind it (no spending wallet, locked,
+  // the phrase unreadable): nothing to show and nothing to keep; the
+  // figure on disk is left alone.
+  if (value != null && value.walletAddress == null) return 0;
+  // Loading, error, or this account's cash read failed — return the last
+  // value we successfully read.
   // Better to show a slightly stale balance than to flash 0 mid-swap
   // or while polymarketTradingProvider is hydrating after a wallet
   // switch.

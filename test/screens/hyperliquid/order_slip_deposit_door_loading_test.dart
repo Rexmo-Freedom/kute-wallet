@@ -200,6 +200,20 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     });
 
+    testWidgets(
+        'an account not read yet is not added into Available as \$0.00: '
+        'the line says it is updating', (tester) async {
+      final account = Completer<HlAccountSnapshot>();
+      await _pumpSlip(tester, account.future);
+      expect(find.textContaining('Updating balance'), findsOneWidget);
+      expect(find.textContaining(r'Available $0'), findsNothing);
+      account.complete(_snapshot(500));
+      await _frames(tester);
+      expect(find.textContaining('Updating balance'), findsNothing);
+      expect(find.textContaining('Available'), findsWidgets);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+
     testWidgets('an empty account, once read, is the Dollar deposit door',
         (tester) async {
       final account = Completer<HlAccountSnapshot>();

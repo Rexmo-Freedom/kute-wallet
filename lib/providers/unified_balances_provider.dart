@@ -130,10 +130,15 @@ final unifiedVenueBalancesProvider = Provider<UnifiedVenueBalances>((ref) {
     if (b.available != null) {
       pmReady = _clean(b.available);
       pmInvested = _clean(b.portfolio);
-    } else {
+    } else if (pm.balanceKnown) {
       // An order the arithmetic could not read: count all cash as ready and
       // the positions as invested, so nothing is counted twice.
       pmReady = _clean(pm.usdcBalance);
+      pmInvested = _clean(b.positions);
+    } else {
+      // The cash read failed: it is unknown, not $0.00. Ready keeps the
+      // last balance read (polymarketBalanceProvider's mirror) and the
+      // venue reads as not known, so the total keeps its stale shimmer.
       pmInvested = _clean(b.positions);
     }
   }

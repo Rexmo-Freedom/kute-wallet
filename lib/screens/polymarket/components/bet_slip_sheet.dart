@@ -2506,6 +2506,20 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       return;
     }
 
+    // A balance that was not read is unknown, not $0.00: never decide a
+    // shortfall (and a funding move from Dollars) on it. The button waits
+    // in that state; this covers a tap that raced a failed read.
+    if (!(tradingState.valueOrNull?.balanceKnown ?? false)) {
+      _stopped('balance_unknown');
+      if (mounted) {
+        showMessageSnackBar(
+          context: context,
+          message: context.l10n.loadingAccount,
+          error: false,
+        );
+      }
+      return;
+    }
     final balance = tradingState.valueOrNull?.usdcBalance ?? 0;
 
     if (_amount <= 0) {
@@ -4763,7 +4777,12 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     } else {
       final trading = ref.watch(polymarketTradingProvider);
       final orders = ref.watch(polymarketOpenOrdersProvider);
-      cash = trading.valueOrNull?.usdcBalance;
+      // A cash read that failed is unknown, not $0.00: "Updating balance…"
+      // until a read lands, never an Available built on a 0.
+      final account = trading.valueOrNull;
+      cash = account != null && account.balanceKnown
+          ? account.usdcBalance
+          : null;
       if (!trading.hasError &&
           !orders.hasError &&
           cash != null &&

@@ -90,7 +90,10 @@ InvestmentBalances polymarketInvestmentBalances({
   bool hasCombos = false,
 }) {
   var reserved = 0.0;
-  var complete = orders != null && state.usdcBalance.isFinite;
+  // A cash read that failed is unknown, not $0.00: no Available and no
+  // total from it (the header shows the last known total, dimmed).
+  final cashKnown = state.balanceKnown && state.usdcBalance.isFinite;
+  var complete = orders != null && cashKnown;
   for (final order in orders ?? const <Order>[]) {
     if (order.side.toUpperCase() != 'BUY') continue;
     final original = double.tryParse(order.originalSize);
@@ -137,7 +140,7 @@ InvestmentBalances polymarketInvestmentBalances({
   return InvestmentBalances(
     available: complete ? cash - heldCash : null,
     portfolio: complete ? positions + heldCash : null,
-    total: state.usdcBalance.isFinite && positionsComplete && positions.isFinite
+    total: cashKnown && positionsComplete && positions.isFinite
         ? cash + positions
         : null,
     positions: positionsComplete && positions.isFinite ? positions : null,

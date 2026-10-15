@@ -466,12 +466,16 @@ class HyperliquidTradingNotifier
     _address = address;
 
     var snap = HlAccountSnapshot.empty;
+    var accountRead = false;
     try {
       snap = await ref.read(hyperliquidAccountProvider.future);
+      accountRead = true;
     } catch (_) {
-      // Account fetch failed — the poll loop in the account provider
-      // self-heals; start with an empty snapshot rather than erroring
-      // the whole trading surface.
+      // Account fetch failed. The account is UNKNOWN, not empty: the state
+      // stays uninitialized (no $0.00 counted as the venue's answer, the
+      // Investments total keeps its stale shimmer) until the account
+      // provider's retry tick, or the next refresh, lands a snapshot;
+      // [_applySnapshot] initializes it then.
     }
 
     _checkReferrerOnce(snap);
@@ -502,7 +506,7 @@ class HyperliquidTradingNotifier
     );
 
     return HyperliquidTradingState(
-      isInitialized: true,
+      isInitialized: accountRead,
       walletAddress: address,
       perpEquity: snap.accountValue,
       totalMarginUsed: snap.totalMarginUsed,
@@ -684,6 +688,9 @@ class HyperliquidTradingNotifier
       positions: snap.positions,
       spotBalances: snap.spotBalances,
       pendingCloseCoins: pending,
+      // A real snapshot: the figures are the venue's answer now (a build
+      // whose first read failed starts uninitialized).
+      isInitialized: true,
     );
     if (next == current) return;
     _setData(next);

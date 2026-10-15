@@ -4623,6 +4623,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           ],
           _buildAmountField(c, available,
               shownAvailableUsd: shownAvailable,
+              balanceKnown: balanceKnown,
               maxUsdOverride: fundedMaxUsd,
               keypad: !advanced,
               // Against a held position only a flip has a minimum.
@@ -5869,16 +5870,21 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   /// worked out on it.
   Widget _buildAmountField(AppColorsExtension c, double available,
       {double? shownAvailableUsd,
+      bool balanceKnown = true,
       double? maxUsdOverride,
       bool keypad = false,
       double? minAmountUsd,
       bool belowMinimum = false,
       String? positionNote}) {
     final shown = shownAvailableUsd ?? available;
+    // Until the account was read its cash is unknown, not $0.00: the line
+    // says the balance is updating rather than adding a 0 into Available.
     final availLabel = isSpot && !_isLong
         ? context.l10n.slipHeld(
             '${formatHlSize(available > 0 ? available / (_midNow() > 0 ? _midNow() : 1) : 0)} ${market.coin}')
-        : context.l10n.ledgerAvailableAmount(formatHlUsd(shown));
+        : !balanceKnown
+            ? context.l10n.betSlipBalanceUpdating
+            : context.l10n.ledgerAvailableAmount(formatHlUsd(shown));
     // Simple ticket: the shared hero + the app's own keypad (pinned by the
     // ticket below the form), so the OS keyboard never covers the sheet.
     if (keypad) {
@@ -5886,7 +5892,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       // it on the same line.
       final compactAvailLabel = isSpot && !_isLong
           ? availLabel
-          : context.l10n.betSlipAvailableAmount(formatHlUsd(shown));
+          : !balanceKnown
+              ? context.l10n.betSlipBalanceUpdating
+              : context.l10n.betSlipAvailableAmount(formatHlUsd(shown));
       // Everything, floored to a cent: a spot sell of the whole holding
       // as is, a buy or a perp margin with its slippage and fees reserved
       // out of the same cash so the order can be funded (on a hot ticket,

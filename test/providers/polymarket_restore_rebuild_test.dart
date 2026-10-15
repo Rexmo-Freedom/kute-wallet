@@ -667,4 +667,58 @@ void main() {
       }
     });
   });
+
+  // A Predictions balance that could not be read is unknown, never a
+  // known $0.00: no server answering made the model hand back its cache
+  // (0 on a fresh model), which the account showed and saved as $0.00.
+  group('a balance no server could read', () {
+    test(
+        'with nothing cached: unknown, nothing saved, the last figure on '
+        'disk kept', () async {
+      FlutterSecureStorage.setMockInitialValues({
+        'v2:wallet:spend.mnemonic': _phrase,
+        // An earlier start confirmed the deposit address.
+        'pm_proxy_wallet_spend': _beacon,
+      });
+      final mirror = await Hive.openBox<double>('polymarket_usdc_cache');
+      await mirror.put('usdc_balance', 9.75);
+      final net = _Net()..polygonDown = true;
+      final (c, _) = container([_wallet('spend')]);
+      final first =
+          await _with(net, () => c.read(polymarketTradingProvider.future));
+      await _settle(net, 1500);
+      final live = c.read(polymarketTradingProvider).valueOrNull!;
+      expect(first.proxyWalletAddress?.toLowerCase(), _beacon);
+      expect(live.balanceKnown, isFalse, reason: 'unknown, not \$0.00');
+      expect(PolymarketAccountCache.read('spend'), isNull,
+          reason: 'an unread balance is never saved');
+      expect(named('polymarket_balance_loaded'), isEmpty);
+      // The balance shown is the last one read, and the disk keeps it.
+      expect(c.read(polymarketBalanceProvider), 9.75);
+      expect(mirror.get('usdc_balance'), 9.75);
+      await mirror.close();
+    });
+
+    test('with a cached balance: the cached figure stays, never replaced by 0',
+        () async {
+      await PolymarketAccountCache.write(
+          'spend',
+          PolymarketAccountSnapshot(
+            depositAddress: _beacon,
+            legacyWallet: false,
+            usdcBalance: 42,
+            updatedAt: DateTime.utc(2026, 10, 1),
+          ));
+      final net = _Net()..polygonDown = true;
+      final (c, _) = container([_wallet('spend')]);
+      await _with(net, () => c.read(polymarketTradingProvider.future));
+      final notifier = c.read(polymarketTradingProvider.notifier);
+      await _settle(net, 1500);
+      await _with(net, notifier.refresh);
+      final live = c.read(polymarketTradingProvider).valueOrNull!;
+      expect(live.balanceKnown, isTrue);
+      expect(live.usdcBalance, 42);
+      expect(PolymarketAccountCache.read('spend')?.usdcBalance, 42);
+    });
+  });
 }

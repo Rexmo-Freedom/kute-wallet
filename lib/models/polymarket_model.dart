@@ -898,6 +898,14 @@ class StablesBreakdown {
   double get total => usdcE + pusd + usdc;
 }
 
+/// No Polygon server answered a balance read: the balance is unknown (the
+/// caller keeps the last one it knows), not zero.
+class PolymarketBalanceUnavailable implements Exception {
+  const PolymarketBalanceUnavailable();
+  @override
+  String toString() => 'PolymarketBalanceUnavailable';
+}
+
 class PolymarketModel {
   bool _disposed = false;
   http.Client? _searchClient;
@@ -1604,9 +1612,18 @@ class PolymarketModel {
         continue;
       }
     }
-    return _cachedBreakdown ?? const StablesBreakdown(usdcE: 0, pusd: 0, usdc: 0);
+    // Every server failed: the last read if there was one, never a made-up
+    // zero (a failed read is unknown).
+    final cached = _cachedBreakdown;
+    if (cached != null) return cached;
+    throw const PolymarketBalanceUnavailable();
   }
 
+  /// The deposit wallet's summed stablecoin balance (pUSD + USDC.e + native
+  /// USDC), cached 30 s while above 0. Throws [PolymarketBalanceUnavailable]
+  /// when every Polygon server failed: a failed read is unknown, never
+  /// $0.00 (a fresh model's cache is 0, and the caller would show and save
+  /// that as the account's balance).
   Future<double> getOnChainUsdcBalance(String walletAddress) async {
     // Return cached value if fresh (< 30s old)
     if (_lastBalanceFetch != null &&
@@ -1637,7 +1654,7 @@ class PolymarketModel {
         continue;
       }
     }
-    return _cachedUsdcBalance; // Return last known value instead of 0
+    throw const PolymarketBalanceUnavailable();
   }
 
   Future<List<Activity>> getUserActivity(String walletAddress) async {

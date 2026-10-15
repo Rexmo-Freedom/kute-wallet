@@ -992,5 +992,27 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
       policy.dispose();
     });
+
+    testWidgets(
+        'a Predictions balance that could not be read is not added as 0: '
+        'the line says it is updating', (tester) async {
+      expect(await policy.refresh(), isTrue);
+      // The cash read failed (0 in the state, not known); $8.10 in Dollars.
+      await _pumpSlip(
+          tester,
+          Future.value(const PolymarketTradingState(
+              isAuthenticated: true, balanceKnown: false)),
+          dollars: 8.10,
+          initialAmountUsd: null);
+      await _frames(tester);
+      expect(find.textContaining('Updating balance'), findsOneWidget);
+      expect(find.textContaining(r'Available $8.10'), findsNothing);
+      // The button waits rather than deciding a shortfall on the 0.
+      expect(find.byKey(const ValueKey('bet-slip-loading-account')),
+          findsOneWidget);
+      expect(_door, findsNothing);
+      await tester.pumpWidget(const SizedBox.shrink());
+      policy.dispose();
+    });
   });
 }
