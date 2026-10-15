@@ -41,7 +41,6 @@ import 'package:kute/providers/transactions_provider.dart'
 import 'package:kute/services/api/orchestra_api.dart' show OrchestraService;
 import 'package:kute/services/background_sync_service.dart';
 import 'package:kute/services/fee_history_service.dart';
-import 'package:kute/services/funding/conv_timing.dart';
 import 'package:kute/services/funding/hot_settlement.dart';
 import 'package:kute/services/funding/owned_address_resolver.dart'
     show ProviderReader;
@@ -121,7 +120,6 @@ abstract final class BitcoinToDollarsLeg {
         requestQuote,
     void Function()? onSending,
   }) async {
-    ConvTiming.mark('BitcoinToDollarsLeg.send runner start');
     final runner = await HotSettlement.runner();
     final settled = await runner.run(HotSettlement.plan(
       read,
@@ -142,9 +140,7 @@ abstract final class BitcoinToDollarsLeg {
         // leg so the Activity feed tells the story once, on the exchange
         // row, instead of twice.
         onSending?.call();
-        ConvTiming.mark('BitcoinToDollarsLeg.send sendSpark start');
         final paymentId = await HotSettlement.sendSpark(read, prepared);
-        ConvTiming.mark('BitcoinToDollarsLeg.send sendSpark end');
         PolymarketSparkTxsService.tag(paymentId);
         return SettlementFundingProof.spark(paymentId);
       },

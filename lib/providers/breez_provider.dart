@@ -14,7 +14,6 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/services/hardware/ledger/ledger_operation_scope.dart';
-import 'package:kute/services/funding/conv_timing.dart';
 import 'package:kute/models/breez/shared_sync.dart';
 
 enum AnalyzedPaymentType { lightning, bitcoin, spark, lnurl, bip21, unknown }
@@ -305,13 +304,10 @@ int lnurlDrainAmountSats(int balanceSats, BigInt maxSendableMsat) {
 final prepareGenericPaymentProvider = FutureProvider.autoDispose.family<PrepareSendPaymentResponse,
     ({String destination, int amountSats, bool isDraining})>((ref, params) async {
   try {
-    ConvTiming.mark('prepareGeneric sdkBinding start');
     final binding = await _paymentSdkBinding(ref);
     final sdk = binding.sdk;
 
-    ConvTiming.mark('prepareGeneric sdk.parse start');
     final parsedInput = await sdk.parse(input: params.destination);
-    ConvTiming.mark('prepareGeneric sdk.parse end');
 
     if (parsedInput is! InputType_BitcoinAddress &&
         parsedInput is! InputType_SparkAddress &&
@@ -353,9 +349,7 @@ final prepareGenericPaymentProvider = FutureProvider.autoDispose.family<PrepareS
       feePolicy: feePolicy,
     );
 
-    ConvTiming.mark('prepareGeneric prepareSendPayment start');
     final prepared = await sdk.prepareSendPayment(request: req);
-    ConvTiming.mark('prepareGeneric prepareSendPayment end');
     binding.check(ref);
     _preparedPaymentBindings[prepared] = binding;
     return prepared;
@@ -388,21 +382,17 @@ final prepareSparkTokenPaymentProvider = FutureProvider.autoDispose.family<
     if (params.amountBaseUnits <= BigInt.zero) {
       throw Exception('Enter an amount to send.');
     }
-    ConvTiming.mark('prepareToken sdkBinding start');
     final binding = await _paymentSdkBinding(ref);
     final sdk = binding.sdk;
 
     // Tokens live on Spark only. A Bitcoin address here would silently
     // mean a different rail, so it is refused rather than reinterpreted.
-    ConvTiming.mark('prepareToken sdk.parse start');
     final parsedInput = await sdk.parse(input: params.destination);
-    ConvTiming.mark('prepareToken sdk.parse end');
     if (parsedInput is! InputType_SparkAddress &&
         parsedInput is! InputType_SparkInvoice) {
       throw Exception('Invalid address type. Expected a Spark address.');
     }
 
-    ConvTiming.mark('prepareToken prepareSendPayment start');
     final prepared = await sdk.prepareSendPayment(
       request: PrepareSendPaymentRequest(
         paymentRequest: PaymentRequest.input(input: params.destination),
@@ -410,7 +400,6 @@ final prepareSparkTokenPaymentProvider = FutureProvider.autoDispose.family<
         tokenIdentifier: params.tokenIdentifier,
       ),
     );
-    ConvTiming.mark('prepareToken prepareSendPayment end');
     binding.check(ref);
     _preparedPaymentBindings[prepared] = binding;
     return prepared;

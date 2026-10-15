@@ -7,7 +7,6 @@
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -33,7 +32,6 @@ import 'package:kute/theme/app_theme.dart';
 import 'package:money2/money2.dart';
 
 import '../../helpers/fake_network.dart';
-import '../../helpers/source_scan.dart';
 
 const _venue = '0x2222222222222222222222222222222222222222';
 const _other = '0x3333333333333333333333333333333333333333';
@@ -216,17 +214,6 @@ void main() {
       expect(feeEstimateKey(_route, recipient: ' $_venue'),
           feeEstimateKey(_route, recipient: _venue));
       expect(feeEstimateKey(_route, recipient: ''), feeEstimateKey(_route));
-    });
-
-    test('timing marks never name the recipient', () {
-      final source = stripComments(
-          File('lib/screens/shared/orchestra_fee_summary.dart')
-              .readAsStringSync());
-      for (final line in source.split('\n')) {
-        if (line.contains('convLabel =') || line.contains('ConvTiming.mark')) {
-          expect(line, isNot(contains('recipient')), reason: line);
-        }
-      }
     });
   });
 

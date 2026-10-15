@@ -32,7 +32,6 @@ import 'package:kute/models/settlement_operation.dart';
 import 'package:kute/models/orchestra_model.dart' show OrchestraSubmitResponse;
 import 'package:kute/handlers/response_handlers.dart' show Result;
 import 'package:kute/services/api/orchestra_api.dart';
-import 'package:kute/services/funding/conv_timing.dart';
 import 'package:kute/services/funding/owned_address_resolver.dart';
 import 'package:kute/services/funding/settlement_funding_outcome.dart';
 import 'package:kute/services/funding/settlement_http.dart';
@@ -607,9 +606,7 @@ class SettlementRunner {
   /// Runs [plan] start to end. For flows whose review happens across a
   /// later tap, use [prepare] and [confirm] instead.
   Future<SettlementRunResult> run(SettlementPlan plan) async {
-    ConvTiming.mark('runner.run start');
     final prepared = await prepare(plan);
-    ConvTiming.mark('runner.run prepare done');
     var current = prepared;
     var refreshed = false;
     for (var i = 0; i <= kSettlementMaxSilentRefreshes; i++) {
@@ -624,17 +621,14 @@ class SettlementRunner {
           TrackingService.settlementRereviewConfirmed(plan.flow.code);
         }
       }
-      ConvTiming.mark('runner.run confirm start');
       final confirmed = await confirm(
         plan,
         operationId: current.operationId,
         reviewedQuoteId: current.quote.quoteId,
         amountBaseUnits: current.quote.amountIn,
       );
-      ConvTiming.mark('runner.run confirm done');
       final result = confirmed.result;
       if (result != null) {
-        ConvTiming.mark('runner.run returns');
         return result;
       }
       final replaced = confirmed.rereview!;
@@ -664,9 +658,7 @@ class SettlementRunner {
       // The confirm tap after a return to review (user action).
       TrackingService.settlementRereviewConfirmed(plan.flow.code);
     }
-    ConvTiming.mark('prepare checkAvailability start');
     final availability = await plan.checkAvailability?.call();
-    ConvTiming.mark('prepare checkAvailability end');
     if (availability != null && !availability.isAvailable) {
       TrackingService.settlementRouteUnavailable(
           route: plan.route.label, reason: availability.reason!.code);
@@ -675,12 +667,9 @@ class SettlementRunner {
     }
 
     // Ownership before any quote (B4): a failure never requests one.
-    ConvTiming.mark('prepare resolveOwnership start');
     final ownership = await plan.resolveOwnership();
-    ConvTiming.mark('prepare resolveOwnership end');
 
     final now = _clock();
-    ConvTiming.mark('prepare store.create start');
     final created = await store.create(SettlementOperation(
       operationId: _generateId(),
       walletId: plan.walletId,
@@ -695,7 +684,6 @@ class SettlementRunner {
       createdAt: now,
       updatedAt: now,
     ));
-    ConvTiming.mark('prepare store.create end');
     if (!reReview) {
       TrackingService.settlementOperationStarted(
         flow: plan.flow.code,
@@ -741,9 +729,7 @@ class SettlementRunner {
     // Set when the lease passes to a background submit, which releases it.
     var leaseHandedOff = false;
     try {
-      ConvTiming.mark('confirm store.get start');
       final loaded = await store.get(operationId);
-      ConvTiming.mark('confirm store.get end');
       if (loaded == null ||
           !loaded.stage.isBeforeBroadcasting ||
           loaded.everBroadcast ||
@@ -771,17 +757,13 @@ class SettlementRunner {
         return SettlementConfirmResult.rereview(fresh);
       }
 
-      ConvTiming.mark('confirm resolveOwnership start');
       final ownership = await plan.resolveOwnership();
-      ConvTiming.mark('confirm resolveOwnership end');
       _checkOwnership(plan, ownership, verified);
 
       if (op.stage != SettlementStage.reviewed) {
-        ConvTiming.mark('confirm transition reviewed start');
         final write = await store.transition(
             operationId, SettlementStage.reviewed,
             from: op.stage, expectedVersion: op.version);
-        ConvTiming.mark('confirm transition reviewed end');
         if (!write.applied) {
           throw const SettlementStopped(SettlementStopReason.blockedPending);
         }
@@ -790,25 +772,20 @@ class SettlementRunner {
 
       final stepUp = plan.stepUp;
       if (stepUp != null) {
-        ConvTiming.mark('confirm transition authorizing start');
         final write = await store.transition(
             operationId, SettlementStage.authorizing,
             from: op.stage, expectedVersion: op.version);
-        ConvTiming.mark('confirm transition authorizing end');
         if (!write.applied) {
           throw const SettlementStopped(SettlementStopReason.blockedPending);
         }
         op = write.operation!;
-        ConvTiming.mark('confirm stepUp start');
         final ok = await stepUp(_intentFor(plan, op, verified));
-        ConvTiming.mark('confirm stepUp returned ok=$ok');
         if (!ok) {
           await abandon(operationId);
           throw const SettlementStopped(SettlementStopReason.declined);
         }
       }
 
-      ConvTiming.mark('confirm margin check start');
       final payable = amountBaseUnits == verified.amountIn &&
           SettlementQuotePolicy.hasMargin(
             expiresAt: verified.expiresAt,
@@ -817,25 +794,20 @@ class SettlementRunner {
             moment: SettlementMoment.beforeSend,
             payer: plan.payer,
           );
-      ConvTiming.mark('confirm margin check end payable=$payable');
       if (!payable) {
         return SettlementConfirmResult.rereview(
             await _refreshAfterReview(plan, op, ownership, verified));
       }
 
-      ConvTiming.mark('confirm prepareFunding start');
       final prepared = await plan.prepareFunding?.call(verified, operationId);
-      ConvTiming.mark('confirm prepareFunding end');
 
       // Approval and preparation can wait on UI, providers or a device. Refuse
       // a wallet/address change during those waits before recording a send.
       _checkOwnership(plan, await plan.resolveOwnership(), verified);
-      ConvTiming.mark('confirm resolveOwnership#2 end');
 
       // Immediately before the call that moves funds: the Phase 2 gate's
       // amount and expiry check, then `broadcasting` on disk (I1).
       final latest = await store.get(operationId);
-      ConvTiming.mark('confirm store.get#2 end');
       if (latest == null ||
           latest.version != op.version ||
           latest.stage != op.stage) {
@@ -851,7 +823,6 @@ class SettlementRunner {
       // The funding kind is on disk before the call that moves funds, so
       // after a kill or a throw the reconciler runs the Spark payment
       // lookup for this operation (B7).
-      ConvTiming.mark('confirm transition broadcasting start');
       final broadcasting = await store.transition(
         operationId,
         SettlementStage.broadcasting,
@@ -864,7 +835,6 @@ class SettlementRunner {
                 )
             : null,
       );
-      ConvTiming.mark('confirm transition broadcasting end');
       if (!broadcasting.applied) {
         throw const SettlementStopped(SettlementStopReason.blockedPending);
       }
@@ -872,9 +842,7 @@ class SettlementRunner {
 
       final SettlementFundingProof proof;
       try {
-        ConvTiming.mark('confirm fund start');
         proof = await plan.fund(verified, prepared);
-        ConvTiming.mark('confirm fund end');
         SettlementFaults.afterFund(); // debug fault panel only
       } catch (e) {
         // A funding call that refused BEFORE submitting sent nothing, so
@@ -906,7 +874,6 @@ class SettlementRunner {
 
       final fundedAt = _clock();
       final skew = _skews[verified.quoteId] ?? Duration.zero;
-      ConvTiming.mark('confirm transition funded start');
       final funded = await store.transition(
         operationId,
         SettlementStage.funded,
@@ -924,7 +891,6 @@ class SettlementRunner {
           ),
         ),
       );
-      ConvTiming.mark('confirm transition funded end (funded persisted)');
       op = funded.operation ?? op;
       TrackingService.settlementFundingRecorded(
           flow: plan.flow.code, fundingKind: proof.kind.name);
@@ -955,9 +921,7 @@ class SettlementRunner {
 
       String? orderId;
       try {
-        ConvTiming.mark('confirm foreground submit start');
         final submitted = await _submitDeposit(op);
-        ConvTiming.mark('confirm foreground submit end');
         op = submitted.op;
         orderId = submitted.orderId;
       } catch (_) {
@@ -999,12 +963,9 @@ class SettlementRunner {
     try {
       // Let the caller's frame finish before the first request.
       await Future<void>.delayed(Duration.zero);
-      ConvTiming.mark('background submit start');
       final submitted = await _submitDeposit(op);
-      ConvTiming.mark('background submit end orderId=${submitted.orderId != null}');
       return submitted.orderId;
     } catch (_) {
-      ConvTiming.mark('background submit threw');
       // Stays `funded`; the reconciler retries with the persisted key.
       return null;
     } finally {
@@ -1072,14 +1033,11 @@ class SettlementRunner {
   }) async {
     var current = op;
     for (var attempt = 0;; attempt++) {
-      ConvTiming.mark('quoteAndPersist canQuote start (attempt $attempt)');
       if (!await store.canQuote(current.operationId)) {
         throw const SettlementStopped(SettlementStopReason.blockedPending);
       }
       final key = _generateId();
-      ConvTiming.mark('quoteAndPersist requestQuote start');
       final fetched = await plan.requestQuote(key);
-      ConvTiming.mark('quoteAndPersist requestQuote end');
       final verified = fetched.quote;
       _checkOwnership(plan, ownership, verified);
       final hasMargin = SettlementQuotePolicy.hasMargin(
@@ -1091,7 +1049,6 @@ class SettlementRunner {
       );
       if (!hasMargin) {
         // The user has not seen these terms: re-quote silently.
-        ConvTiming.mark('quoteAndPersist no margin, re-quoting');
         if (attempt >= kSettlementMaxSilentRefreshes) {
           throw const SettlementStopped(SettlementStopReason.quoteExpired);
         }
@@ -1107,7 +1064,6 @@ class SettlementRunner {
       _verifiedById[verified.quoteId] = verified;
       final now = _clock();
       final previous = current.quote;
-      ConvTiming.mark('quoteAndPersist transition quoted start');
       final write = await store.transition(
         current.operationId,
         SettlementStage.quoted,
@@ -1135,7 +1091,6 @@ class SettlementRunner {
           ),
         ),
       );
-      ConvTiming.mark('quoteAndPersist transition quoted end');
       if (!write.applied) {
         throw const SettlementStopped(SettlementStopReason.blockedPending);
       }

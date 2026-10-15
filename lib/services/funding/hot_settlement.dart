@@ -35,7 +35,6 @@ import 'package:kute/providers/orchestra_supported_routes_provider.dart'
 import 'package:kute/providers/settings_provider.dart' show settingsProvider;
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
-import 'package:kute/services/funding/conv_timing.dart';
 import 'package:kute/services/funding/owned_address_resolver.dart';
 import 'package:kute/services/funding/settlement_quote_policy.dart';
 import 'package:kute/services/funding/settlement_runner.dart';
@@ -90,13 +89,11 @@ class HotSettlement {
   /// catalog forces one refresh when the catalog is older than 15 min.
   static Future<RouteAvailability> availability(
       ProviderReader read, RouteKey route) async {
-    ConvTiming.mark('availability start');
     final req = routeRequirementFor(route, ledgerWallet: false);
     final catalog = req == RouteRequirement.live
         ? await read(orchestraSupportedRoutesProvider.notifier)
             .refreshIfOlderThan(kMoneyCatalogMaxAge)
         : read(orchestraSupportedRoutesProvider);
-    ConvTiming.mark('availability catalog ready (${req.name})');
     return catalog.availability(route, req: req, now: DateTime.now());
   }
 
@@ -108,7 +105,6 @@ class HotSettlement {
     required String flow,
     required String idempotencyKey,
   }) async {
-    ConvTiming.mark('HotSettlement.quote start ($flow)');
     final fetched = await OrchestraQuoteGate.fetchVerifiedWithSkew(
       request,
       OrchestraQuoteGate.boundsFor(request,
@@ -116,7 +112,6 @@ class HotSettlement {
       flow: flow,
       idempotencyKey: idempotencyKey,
     );
-    ConvTiming.mark('HotSettlement.quote end ($flow)');
     return SettlementQuoteResult(fetched.quote, skew: fetched.skew);
   }
 
@@ -191,10 +186,8 @@ class HotSettlement {
   /// never retries on the other.
   static Future<Object?> prepareSpark(
       ProviderReader read, VerifiedOrchestraQuote quote) async {
-    ConvTiming.mark('prepareSpark start');
     final walletId = spendingWalletId(read);
     final wrapper = await read(breezSDKProvider.future);
-    ConvTiming.mark('prepareSpark breezSDKProvider ready');
     final sdk = wrapper.instance;
     if (sdk == null || spendingWalletId(read) != walletId) {
       throw const WalletGuardException(WalletGuardReason.ownAddressUnavailable,
@@ -241,7 +234,6 @@ class HotSettlement {
       throw const WalletGuardException(WalletGuardReason.echoMismatch,
           field: 'token_identifier');
     }
-    ConvTiming.mark('prepareSpark end');
     return _PreparedSparkSettlement(walletId, wrapper, sdk, response);
   }
 
@@ -269,10 +261,8 @@ class HotSettlement {
       } catch (_) {
         cache = null;
       }
-      ConvTiming.mark('sendPayment start');
       final response = await prepared.sdk.sendPayment(
           request: SendPaymentRequest(prepareResponse: prepared.response));
-      ConvTiming.mark('sendPayment end');
       // A bitcoin send shows in the balance at once (a dollar send holds
       // nothing: `sparkSendDebit` is null for a token transfer).
       if (cache != null) {

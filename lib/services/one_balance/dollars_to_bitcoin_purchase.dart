@@ -35,7 +35,6 @@ import 'package:kute/providers/transactions_provider.dart'
     show walletTransactionCacheProvider;
 import 'package:kute/services/background_sync_service.dart';
 import 'package:kute/services/fee_history_service.dart';
-import 'package:kute/services/funding/conv_timing.dart';
 import 'package:kute/services/funding/hot_settlement.dart';
 import 'package:kute/services/funding/owned_address_resolver.dart'
     show ProviderReader;
@@ -124,12 +123,9 @@ Future<DollarsToBitcoinSent> buyBitcoinFromDollars(
   // Both legs settle on the wallet's own Spark address, and a failed
   // swap refunds to that same address. Resolution failure throws BEFORE
   // anything moves.
-  ConvTiming.mark('buyBitcoinFromDollars sparkSelfAddressProvider read start');
   final sparkAddress = await read(sparkSelfAddressProvider.future);
   final ownSpark = await read(sparkSelfAddressProvider.future);
-  ConvTiming.mark('buyBitcoinFromDollars HotSettlement.runner() start');
   final runner = await HotSettlement.runner();
-  ConvTiming.mark('buyBitcoinFromDollars runner.run call');
   final settled = await runner.run(HotSettlement.plan(
     read,
     flow: SettlementFlow.moveDollarsToBtc,
@@ -167,14 +163,11 @@ Future<DollarsToBitcoinSent> buyBitcoinFromDollars(
     registerInBackground: true,
     fund: (verifiedQuote, prepared) async {
       onFunding?.call();
-      ConvTiming.mark('buyBitcoinFromDollars sendSpark start');
       final paymentId = await HotSettlement.sendSpark(read, prepared);
-      ConvTiming.mark('buyBitcoinFromDollars sendSpark end');
       PolymarketSparkTxsService.tag(paymentId);
       return SettlementFundingProof.spark(paymentId);
     },
   ));
-  ConvTiming.mark('buyBitcoinFromDollars runner.run returned');
   final orchQuote = settled.quote.quote;
   final sentUsd = settled.quote.amountIn.toDouble() / 1e6;
   final orderId = settled.orderId ?? orchQuote.quoteId;

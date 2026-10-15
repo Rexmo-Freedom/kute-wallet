@@ -5,7 +5,6 @@ import 'dart:math' as math;
 import 'package:crypto/crypto.dart';
 import 'package:kute/handlers/response_handlers.dart';
 import 'package:kute/services/api/orchestra_api.dart';
-import 'package:kute/services/funding/conv_timing.dart';
 
 /// How an Orchestra call that carries an idempotency key ended.
 enum SettlementHttpOutcome {
@@ -201,8 +200,6 @@ Future<IdempotentCallResult<T>> callWithIdempotencyKey<T>({
         wait = reset;
       }
     }
-    ConvTiming.mark(
-        'idempotent retry ${attempt + 1} after ${outcome.name}, wait ${wait.inMilliseconds}ms');
     await sleep(wait);
   }
 }

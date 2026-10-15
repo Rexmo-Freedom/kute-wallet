@@ -17,7 +17,6 @@ import 'package:kute/models/orchestra_route_limits.dart';
 import 'package:kute/models/orchestra_routes_model.dart' show RouteKey;
 import 'package:kute/handlers/response_handlers.dart';
 import 'package:kute/services/debug/settlement_fault_registry.dart';
-import 'package:kute/services/funding/conv_timing.dart';
 
 /// Flashnet Orchestra onramp fiat band, as documented by the venue
 /// (docs.flashnet.xyz/orchestra — orchestration limits: $1.00 minimum,
@@ -113,19 +112,15 @@ class OrchestraService {
   /// than fetched again (see [RuntimeCapabilitiesService.ensureAllAllowed]).
   static Future<void> _ensureCapabilities(Iterable<String> capabilities,
       {Duration maxAge = Duration.zero}) async {
-    ConvTiming.mark('ensureCapabilities.ensureSession start');
     final convSession = await AffiliateService.ensureSession();
-    ConvTiming.mark('ensureCapabilities.ensureSession end');
     if (convSession == null) {
       TrackingService.walletSessionAuth(
           route: 'orchestra', outcome: 'unavailable');
       throw WalletSessionUnavailable(
           AffiliateService.sessionUnavailableMessage());
     }
-    ConvTiming.mark('ensureCapabilities.ensureAllAllowed start');
     await RuntimeCapabilitiesService.instance
         .ensureAllAllowed(capabilities, maxAge: maxAge);
-    ConvTiming.mark('ensureCapabilities.ensureAllAllowed end');
   }
 
   /// How old a policy a quote may read instead of fetching it again. The
@@ -732,7 +727,6 @@ class OrchestraService {
       return Result(error: 'Failed to get quote');
     }
     try {
-      ConvTiming.mark('createQuote ensureCapabilities start');
       await _ensureCapabilities(
           orchestraCapabilityRequirements(
               sourceChain: sourceChain,
@@ -740,7 +734,6 @@ class OrchestraService {
               destinationChain: destinationChain,
               destinationAsset: destinationAsset),
           maxAge: _quotePolicyMaxAge);
-      ConvTiming.mark('createQuote ensureCapabilities end');
       final body = <String, dynamic>{
         'sourceChain': sourceChain,
         'sourceAsset': sourceAsset,
@@ -758,7 +751,6 @@ class OrchestraService {
       if (tag != null) body['tag'] = tag;
 
       roundtrip.start();
-      ConvTiming.mark('createQuote http send');
       final res = await _send(
         (h) => http
             .post(
@@ -769,7 +761,6 @@ class OrchestraService {
             .timeout(const Duration(seconds: 15)),
         extra: _idempotency(idempotencyKey),
       );
-      ConvTiming.mark('createQuote http response ${res.statusCode}');
 
       if (res.statusCode >= 200 && res.statusCode < 300) {
         final quote = OrchestraQuote.fromJson(
@@ -823,7 +814,6 @@ class OrchestraService {
       if (bitcoinTxid != null) body['bitcoinTxid'] = bitcoinTxid;
       if (bitcoinVout != null) body['bitcoinVout'] = bitcoinVout;
 
-      ConvTiming.mark('submitDeposit http send');
       final res = await _send(
         (h) => http
             .post(
@@ -834,7 +824,6 @@ class OrchestraService {
             .timeout(timeout),
         extra: _idempotency(idempotencyKey),
       );
-      ConvTiming.mark('submitDeposit http response ${res.statusCode}');
 
       if (res.statusCode >= 200 && res.statusCode < 300) {
         final submitted =

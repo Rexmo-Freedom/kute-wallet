@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/orchestra_model.dart';
 import 'package:kute/services/api/orchestra_api.dart';
-import 'package:kute/services/funding/conv_timing.dart';
 import 'package:kute/screens/shared/fee_copy.dart';
 import 'package:kute/screens/shared/money_fee_summary.dart';
 import 'package:kute/services/orchestra/orchestra_fee_amount.dart';
@@ -51,18 +50,12 @@ final orchestraOnrampFeeEstimateProvider = FutureProvider.autoDispose
 Future<OrchestraEstimate> _loadFeeEstimate(Ref ref, FeeEstimateKey key,
     {required bool onramp}) async {
   final route = key.route;
-  // Timing marks name the route and amount only, never the recipient.
-  final convLabel =
-      '${route.fromAsset}->${route.toAsset} amount=${route.amount}';
-  ConvTiming.mark('estimate triggered (amount changed) $convLabel');
   var active = true;
   ref.onDispose(() => active = false);
   await Future<void>.delayed(const Duration(milliseconds: 350));
   if (!active) {
-    ConvTiming.mark('estimate superseded after debounce $convLabel');
     throw StateError('Amount changed');
   }
-  ConvTiming.mark('estimate fetch start $convLabel');
   final timer = Timer(const Duration(seconds: 30), ref.invalidateSelf);
   ref.onDispose(timer.cancel);
   final result = await OrchestraService.getEstimate(
@@ -74,8 +67,6 @@ Future<OrchestraEstimate> _loadFeeEstimate(Ref ref, FeeEstimateKey key,
           onramp: onramp,
           recipientAddress: key.recipient)
       .timeout(const Duration(seconds: 10));
-  ConvTiming.mark(
-      'estimate returned ok=${result.data != null} $convLabel');
   if (result.data == null) {
     throw StateError('Fee unavailable');
   }
