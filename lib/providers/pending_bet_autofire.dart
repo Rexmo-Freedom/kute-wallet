@@ -28,6 +28,17 @@
 // (down to the venue's minimum), a limit bet that landed short fails,
 // and a bet queued more than 30 minutes ago never fires. The journey's
 // `order_funding_*` outcome is reported from here.
+//
+// Landed is not usable (founder, 15 October 2026: "$3.68 on Yes" funded
+// from Dollars failed with "This action did not complete"): the deposit
+// arrives as USDC.e, which the order book does not count, and once
+// converted the book still counts the old pUSD until it re-reads. The
+// summed cash the landed check reads counts both. So after it, the bet
+// waits (read every second) until the pUSD on chain covers it and the
+// book counts it ([autofireReadiness]); only then does it move to
+// `placing`. A venue refusal that still says only "not usable yet"
+// ([autofireNotReadyYet]) waits for that again and is sent again under
+// the same approval, a few times at most ([kAutofireNotReadyRetries]).
 
 import 'dart:async';
 import 'dart:math';
@@ -64,12 +75,20 @@ import 'package:kute/services/polymarket/hot_order_guard.dart';
 import 'package:kute/services/polymarket/market_buy_quote.dart'
     show PolymarketOrderPlan, PolymarketThinBook;
 import 'package:kute/services/polymarket/order_refusal.dart'
-    show isPolymarketPriceRefusal, polymarketRefusalParams;
+    show
+        PolymarketBalanceRefused,
+        PolymarketRefusalOutlivedApproval,
+        isPolymarketPriceRefusal,
+        polymarketRefusalParams;
+import 'package:kute/services/polymarket/placement_waits.dart'
+    show PolymarketFundsConverting, PolymarketSetupIncomplete;
+import 'package:kute/services/polymarket/venue_collateral.dart'
+    show PolyVenueCount, polyBuySpenders;
 import 'package:kute/services/polymarket/sell_settlement.dart';
 import 'package:kute/services/polymarket/polymarket_slippage_defaults.dart'
     show isPolymarketFastRound;
 import 'package:kute/services/polymarket_backend_service.dart'
-    show PolymarketOrderNotAcceptedException;
+    show PolymarketOrderNotAcceptedException, isPolymarketBalanceRefusal;
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/services/venue_analytics.dart';
 import 'package:polybrainz_polymarket/polybrainz_polymarket.dart'
@@ -107,6 +126,72 @@ const Duration kFundsTimeout = Duration(minutes: 12);
   final resized = fits + 0.01 <= amount;
   if (isLimit && resized) return null;
   return (usd: fits, resized: resized);
+}
+
+/// How many times a bet is sent again after the venue refused it only
+/// because the money was not usable yet ([autofireNotReadyYet]).
+const int kAutofireNotReadyRetries = 5;
+
+/// Below one cent of USDC.e there is nothing to convert.
+final BigInt _kUsdceDustMicros = BigInt.from(10000);
+
+/// Where a queued bet's landed money is, from the deposit wallet's [pusd]
+/// and [usdce] read on chain, what the order book counts ([venue], null
+/// when it could not be read) and whether the account's setup is done,
+/// for a buy costing [costMicros] (fees included) drawn by [spenders]:
+///  - converting: pUSD is short and USDC.e is there (the book counts only
+///    pUSD);
+///  - waitingFunds: nothing usable on chain yet;
+///  - approving: the account's setup is still running, or the book
+///    reports an exchange allowance short;
+///  - confirming: the book does not count the pUSD yet;
+///  - ready.
+/// A bet whose deposit landed short needs only what is there in pUSD: a
+/// market bet is placed for what landed.
+@visibleForTesting
+PredictionsReadiness autofireReadiness({
+  required BigInt pusd,
+  required BigInt usdce,
+  required BigInt costMicros,
+  required PolyVenueCount? venue,
+  required List<String> spenders,
+  required bool setupDone,
+}) {
+  if (pusd < costMicros && usdce >= _kUsdceDustMicros) {
+    return PredictionsReadiness.converting;
+  }
+  final need = pusd < costMicros ? pusd : costMicros;
+  if (need <= BigInt.zero) return PredictionsReadiness.waitingFunds;
+  if (!setupDone) return PredictionsReadiness.approving;
+  // A book that cannot be read is not waited on: the order's own check
+  // and refusal path decide, as before.
+  if (venue == null) return PredictionsReadiness.ready;
+  if (venue.shortSpenders(spenders, need).isNotEmpty) {
+    return PredictionsReadiness.approving;
+  }
+  if (venue.balance < need) return PredictionsReadiness.confirming;
+  return PredictionsReadiness.ready;
+}
+
+/// A refusal that says only that the money is not usable yet: the venue
+/// does not count the balance or allowance, the conversion or the
+/// account's setup is still running. Nothing was accepted. Never one that
+/// outlived its approval.
+@visibleForTesting
+bool autofireNotReadyYet(Object e) {
+  if (e is PolymarketRefusalOutlivedApproval) return false;
+  if (e is PolymarketFundsConverting || e is PolymarketSetupIncomplete) {
+    return true;
+  }
+  return e is PolymarketBalanceRefused ||
+      e is PolymarketOrderNotAcceptedException &&
+          isPolymarketBalanceRefusal(e.reason);
+}
+
+/// The approval behind a bet that waited for its money ran out (or the
+/// bet outlived its queued age): it asks to be confirmed again.
+class _ApprovalLapsed implements Exception {
+  const _ApprovalLapsed();
 }
 
 /// Whether [intent]'s market is a short round (5 or 15 minutes) whose end
@@ -226,6 +311,11 @@ final pendingBetAutoFireProvider = Provider<PendingBetAutoFire>((ref) {
 class PendingBetAutoFire {
   final Ref ref;
   bool _firing = false;
+
+  /// How often a landed bet's readiness is read while it waits.
+  @visibleForTesting
+  static Duration readyPollInterval = const Duration(seconds: 1);
+  Timer? _readyPoll;
   late final ProviderSubscription<dynamic> _sub;
   StreamSubscription<void>? _depositSettled;
 
@@ -310,16 +400,12 @@ class PendingBetAutoFire {
   }
 
   /// Consumes the confirm-time grant against [actual], the exact order about
-  /// to be placed, and returns the single-use grant `placeOrder` takes. Null
-  /// when the bet must not fire now: locked (it waits for the unlock), or no
-  /// live grant or drift (cancelled, the user confirms again).
-  AuthGrant? _autofireGrant(SensitiveIntent actual, {String? placementId}) {
-    final approval = _autofireApproval(actual, placementId: placementId);
-    return approval == null ? null : GrantGuard.chain(approval, actual);
-  }
-
-  /// [_autofireGrant]'s consumed confirm-time grant itself, which a market
-  /// bet keeps for its one re-priced order ([autofireRetryGrant]).
+  /// to be placed, and returns it; the order's single-use grant is chained
+  /// from it (`GrantGuard.chain`), and a bet keeps it for its one
+  /// re-priced order or a send again after "not usable yet"
+  /// ([autofireRetryGrant]). Null when the bet must not fire now: locked
+  /// (it waits for the unlock), or no live grant or drift (cancelled, the
+  /// user confirms again).
   AuthGrant? _autofireApproval(SensitiveIntent actual, {String? placementId}) {
     final intent = ref.read(pendingPolymarketBetProvider);
     try {
@@ -432,16 +518,36 @@ class PendingBetAutoFire {
       // user has navigated away — left the bet stuck on "Contacting
       // Polymarket" forever, even though the USDC was already at the Safe.
       // A restart only "fixed" it because re-init forced a fresh read.
+      _setReadiness(PredictionsReadiness.waitingFunds);
       _startAwaitPolling();
       return;
     }
 
-    _stopAwaitPolling();
-    // The move behind this bet is here.
-    PredictionFundingLedger.instance.landed(intent.fundQuoteRef);
+    // Landed is not usable yet: wait (every second) until the order book
+    // can take the order, so `placing` (the slip's "ready" step) means it.
+    // Held from the first read to the order, so no second check starts
+    // in between.
     _firing = true;
     try {
-      await _placeOrder(intent);
+      final ready = await _venueReady(intent);
+      final now = ref.read(pendingPolymarketBetProvider);
+      if (now == null ||
+          now.status != PendingBetStatus.awaitingBalance ||
+          now.tokenId != intent.tokenId ||
+          now.queuedAt != intent.queuedAt) {
+        return;
+      }
+      if (!ready) {
+        _startAwaitPolling();
+        _startReadyPolling();
+        return;
+      }
+
+      _stopAwaitPolling();
+      // The move behind this bet is here.
+      PredictionFundingLedger.instance.landed(now.fundQuoteRef);
+      _setReadiness(PredictionsReadiness.ready);
+      await _placeOrder(ref.read(pendingPolymarketBetProvider) ?? now);
     } catch (_) {
       // _placeOrder owns its own error reporting via providers; swallow
       // here so a thrown cancellation doesn't block subsequent attempts.
@@ -508,7 +614,104 @@ class PendingBetAutoFire {
     });
   }
 
+  /// Reads [intent]'s readiness every [readyPollInterval] once its money
+  /// landed. Idempotent.
+  void _startReadyPolling() {
+    if (_readyPoll != null) return;
+    _readyPoll = Timer.periodic(readyPollInterval, (_) {
+      if (!_firing) unawaited(_maybeFire());
+    });
+  }
+
+  void _setReadiness(PredictionsReadiness readiness,
+          {bool convertSeen = false, bool approveSeen = false}) =>
+      ref.read(pendingPolymarketBetProvider.notifier).setReadiness(readiness,
+          convertSeen: convertSeen, approveSeen: approveSeen);
+
+  /// What [intent]'s order may cost at most, fees included, in micro-pUSD.
+  static BigInt _costMicros(PendingBetIntent intent) {
+    final fees = intent.feeTerms ?? PolymarketFeeTerms.worstCase;
+    final price = intent.isLimit
+        ? intent.limitPrice.clamp(0.01, 0.99).toDouble()
+        : polymarketFundedWorstPrice(intent);
+    return BigInt.from((fees.allInCost(intent.amount, price) * 1e6).ceil());
+  }
+
+  /// Whether the order book can take [intent]'s order now
+  /// ([autofireReadiness]), recorded on the bet. A deposit still USDC.e
+  /// gets its conversion going; a book not counting the pUSD is asked to
+  /// re-read on the next look. A missing exchange allowance on a set-up
+  /// account does not wait: the order sets it under its own approval
+  /// (venue_collateral.dart). Nothing to read (no account key yet, the
+  /// wallet unreadable) leaves it to the order's own check, as before.
+  Future<bool> _venueReady(PendingBetIntent intent) async {
+    final trading = ref.read(polymarketTradingProvider.notifier);
+    PolyBuyReads? reads;
+    try {
+      reads = await trading.readBuyReadiness(
+          refreshVenue: intent.readiness == PredictionsReadiness.confirming ||
+              intent.readiness == PredictionsReadiness.approving);
+    } catch (_) {}
+    if (reads == null) return true;
+    final phase = autofireReadiness(
+      pusd: reads.pusd,
+      usdce: reads.usdce,
+      costMicros: _costMicros(intent),
+      venue: reads.venue,
+      spenders: polyBuySpenders(intent.tokenId,
+          negRisk: intent.marketQuote?.tokenId == intent.tokenId
+              ? intent.marketQuote!.negRisk
+              : intent.negRisk),
+      setupDone: reads.setupDone,
+    );
+    if (phase == PredictionsReadiness.converting) trading.nudgeConversion();
+    _setReadiness(phase,
+        convertSeen: phase == PredictionsReadiness.converting,
+        approveSeen: phase == PredictionsReadiness.approving);
+    return phase == PredictionsReadiness.ready ||
+        phase == PredictionsReadiness.approving && reads.setupDone;
+  }
+
+  /// After [e], a refusal that says only that the money is not usable yet
+  /// ([autofireNotReadyYet]; at most [kAutofireNotReadyRetries] times):
+  /// waits, the bet still `placing`, until the book can take the order,
+  /// and says to send it again under the same [approval]. False leaves
+  /// [e] to the failure path (the bet was cleared, its round closed, the
+  /// wait ran out). An approval that ran out meanwhile throws
+  /// [_ApprovalLapsed]: the bet asks to be confirmed again.
+  Future<bool> _waitAfterNotReady(Object e, PendingBetIntent intent,
+      AuthGrant? approval, int attempt) async {
+    if (!autofireNotReadyYet(e) || attempt >= kAutofireNotReadyRetries) {
+      return false;
+    }
+    bool lapsed() =>
+        approval == null ||
+        approval.revoked ||
+        approval.isExpiredAt(AuthGrants.clock()) ||
+        intent.isStale();
+    final until = DateTime.now().add(kFundsTimeout);
+    while (true) {
+      await Future<void>.delayed(readyPollInterval);
+      if (lapsed()) throw const _ApprovalLapsed();
+      final now = ref.read(pendingPolymarketBetProvider);
+      if (now == null ||
+          now.status != PendingBetStatus.placing ||
+          autofireRoundClosed(intent) ||
+          DateTime.now().isAfter(until)) {
+        return false;
+      }
+      // Nothing signs behind the lock: the wait goes on.
+      if (!ref.read(sessionUnlockedProvider)) continue;
+      if (await _venueReady(now)) {
+        _setReadiness(PredictionsReadiness.ready);
+        return true;
+      }
+    }
+  }
+
   void _stopAwaitPolling() {
+    _readyPoll?.cancel();
+    _readyPoll = null;
     if (_awaitPoll != null) {
       try {
         ref
@@ -616,87 +819,114 @@ class PendingBetAutoFire {
     // order at the user's chosen price. No placing tile (it isn't a filled
     // position yet) and no slippage ladder; it sits on the book.
     if (intent.isLimit) {
+      // The consumed approval, kept for a send again after a refusal that
+      // said only "not usable yet" ([_waitAfterNotReady]).
+      AuthGrant? limitApproval;
+      var notReady = 0;
       try {
         final price = intent.limitPrice.clamp(0.01, 0.99).toDouble();
-        // Cap by the USDC actually at the Safe — the swap can land slightly
-        // under intent.amount (the fire gate only requires 99% of it), and
-        // the CLOB rejects any order whose cost exceeds the balance. Without
-        // the cap the rejection strands the swapped USDC with no order
-        // placed. Same 99% cap as the market path below.
-        final balance =
-            ref.read(polymarketTradingProvider).valueOrNull?.usdcBalance ?? 0;
-        // A funded limit bet whose deposit landed short is not placed
-        // for less at the person's price: it fails, the cash stays as
-        // venue cash for the sweeper.
-        if (funded &&
-            landedStakeFor(
-                    amount: intent.amount,
-                    balance: balance,
-                    feeTerms: intent.feeTerms ?? PolymarketFeeTerms.worstCase,
-                    price: price,
-                    isLimit: true) ==
-                null) {
-          _trackFailed(intent, 'insufficient_usdc');
-          journey.failed(OneBalanceVenue.predictions, OrderFundingStage.order,
-              'insufficient_funds');
-          pendingNotifier.updateStatus(PendingBetStatus.failed,
-              errorMessage:
-                  l10nForLanguage(ref.read(settingsProvider).language)
-                      .betAddFundsToPredict,
-              failureCode: 'insufficient_usdc');
-          PredictionFundingLedger.instance
-              .release(intent.fundQuoteRef, reason: 'failed');
-          return;
+        var placedShares = 0.0;
+        while (true) {
+          // Cap by the USDC actually at the Safe — the swap can land slightly
+          // under intent.amount (the fire gate only requires 99% of it), and
+          // the CLOB rejects any order whose cost exceeds the balance. Without
+          // the cap the rejection strands the swapped USDC with no order
+          // placed. Same 99% cap as the market path below.
+          final balance =
+              ref.read(polymarketTradingProvider).valueOrNull?.usdcBalance ?? 0;
+          // A funded limit bet whose deposit landed short is not placed
+          // for less at the person's price: it fails, the cash stays as
+          // venue cash for the sweeper.
+          if (funded &&
+              landedStakeFor(
+                      amount: intent.amount,
+                      balance: balance,
+                      feeTerms: intent.feeTerms ?? PolymarketFeeTerms.worstCase,
+                      price: price,
+                      isLimit: true) ==
+                  null) {
+            _trackFailed(intent, 'insufficient_usdc');
+            journey.failed(OneBalanceVenue.predictions, OrderFundingStage.order,
+                'insufficient_funds');
+            pendingNotifier.updateStatus(PendingBetStatus.failed,
+                errorMessage:
+                    l10nForLanguage(ref.read(settingsProvider).language)
+                        .betAddFundsToPredict,
+                failureCode: 'insufficient_usdc');
+            PredictionFundingLedger.instance
+                .release(intent.fundQuoteRef, reason: 'failed');
+            return;
+          }
+          final effectiveAmount = min(intent.amount, balance * 0.99);
+          double shares =
+              ((effectiveAmount / price) * 100).floorToDouble() / 100;
+          // The CLOB rejects orders under $1 — bump to the minimum when the
+          // intent covers it, mirroring the market path. The overshoot is
+          // bounded by one share-tick (≤ 1¢), which the 99% cap absorbs.
+          if (shares * price < 1.0 && effectiveAmount >= 1.0) {
+            shares = (1.0 / price * 100).ceilToDouble() / 100;
+          }
+          if (shares <= 0) {
+            throw Exception('Amount too small for this limit price.');
+          }
+          final actual = withFunding(PmIntents.order(
+            walletId: tradingNotifier.signingWalletId ?? '',
+            tokenId: intent.tokenId,
+            isBuy: true,
+            amountMax: PmGrants.buyCostMicros(shares, price),
+            limitPrice: price,
+            orderType: OrderType.gtc.name,
+          ));
+          final AuthGrant grant;
+          final parent = limitApproval;
+          if (parent == null) {
+            final consumed = _autofireApproval(actual);
+            if (consumed == null) {
+              if (funded) journey.abandoned(OneBalanceVenue.predictions);
+              PredictionFundingLedger.instance
+                  .release(intent.fundQuoteRef, reason: 'abandoned');
+              return;
+            }
+            limitApproval = consumed;
+            grant = GrantGuard.chain(consumed, actual);
+          } else {
+            // Sent again after "not usable yet": inside the same approval.
+            grant = autofireRetryGrant(parent, actual);
+          }
+          PredictionFundingLedger.instance.reserve(intent.fundQuoteRef);
+          try {
+            await tradingNotifier.placeOrder(
+              tokenId: intent.tokenId,
+              side: OrderSide.buy,
+              size: shares,
+              negRisk: intent.negRisk,
+              price: price,
+              orderType: OrderType.gtc,
+              marketTitle: intent.marketQuestion,
+              marketImage: intent.marketImage,
+              marketOutcome: intent.outcomeName,
+              marketCategory: intent.marketCategory,
+              // Funded from Dollars (one balance) or after a BTC→USDC swap.
+              source: funded ? 'usdc_pool' : 'btc_pool',
+              entrySource: 'autofire',
+              analytics: _analytics(intent),
+              grant: grant,
+            );
+            placedShares = shares;
+            break;
+          } catch (e) {
+            if (await _waitAfterNotReady(
+                e, intent, limitApproval, notReady++)) {
+              continue;
+            }
+            rethrow;
+          }
         }
-        final effectiveAmount = min(intent.amount, balance * 0.99);
-        double shares =
-            ((effectiveAmount / price) * 100).floorToDouble() / 100;
-        // The CLOB rejects orders under $1 — bump to the minimum when the
-        // intent covers it, mirroring the market path. The overshoot is
-        // bounded by one share-tick (≤ 1¢), which the 99% cap absorbs.
-        if (shares * price < 1.0 && effectiveAmount >= 1.0) {
-          shares = (1.0 / price * 100).ceilToDouble() / 100;
-        }
-        if (shares <= 0) {
-          throw Exception('Amount too small for this limit price.');
-        }
-        final grant = _autofireGrant(withFunding(PmIntents.order(
-          walletId: tradingNotifier.signingWalletId ?? '',
-          tokenId: intent.tokenId,
-          isBuy: true,
-          amountMax: PmGrants.buyCostMicros(shares, price),
-          limitPrice: price,
-          orderType: OrderType.gtc.name,
-        )));
-        if (grant == null) {
-          if (funded) journey.abandoned(OneBalanceVenue.predictions);
-          PredictionFundingLedger.instance
-              .release(intent.fundQuoteRef, reason: 'abandoned');
-          return;
-        }
-        PredictionFundingLedger.instance.reserve(intent.fundQuoteRef);
-        await tradingNotifier.placeOrder(
-          tokenId: intent.tokenId,
-          side: OrderSide.buy,
-          size: shares,
-          negRisk: intent.negRisk,
-          price: price,
-          orderType: OrderType.gtc,
-          marketTitle: intent.marketQuestion,
-          marketImage: intent.marketImage,
-          marketOutcome: intent.outcomeName,
-          marketCategory: intent.marketCategory,
-          // Funded from Dollars (one balance) or after a BTC→USDC swap.
-          source: funded ? 'usdc_pool' : 'btc_pool',
-          entrySource: 'autofire',
-          analytics: _analytics(intent),
-          grant: grant,
-        );
         unawaited(tradingNotifier.refresh().catchError((_) {}));
         ref.invalidate(polymarketOpenOrdersProvider);
         if (funded) {
           journey.completed(OneBalanceVenue.predictions,
-              resized: false, amountUsd: shares * price);
+              resized: false, amountUsd: placedShares * price);
         }
         // The resting order holds its own cash on the book (the venue's
         // open orders); the rest of the move is idle from now.
@@ -716,6 +946,12 @@ class PendingBetAutoFire {
           PredictionFundingLedger.instance
               .release(intent.fundQuoteRef, reason: 'placed');
           pendingNotifier.updateStatus(PendingBetStatus.awaitingConfirmation);
+          return;
+        }
+        if (e is _ApprovalLapsed) {
+          _trackFailed(intent, 'approval_expired');
+          if (funded) journey.abandoned(OneBalanceVenue.predictions);
+          _cancelForReconfirm();
           return;
         }
         PredictionFundingLedger.instance
@@ -796,8 +1032,10 @@ class PendingBetAutoFire {
       Map<String, dynamic>? response;
       var resized = false;
       var orderedShares = 0.0;
-      for (var attempt = 0; attempt < 2; attempt++) {
-        retried = attempt > 0;
+      var priceRetried = false;
+      var notReady = 0;
+      while (true) {
+        retried = priceRetried;
         final book = await _freshBook(intent.tokenId);
         if (book == null) {
           _trackFailed(intent, 'book_unavailable', retried: retried);
@@ -888,8 +1126,9 @@ class PendingBetAutoFire {
           approval = consumed;
           grant = GrantGuard.chain(consumed, actual);
         } else {
-          // The one re-priced order: inside the same approval's bounds
-          // (amount, worst price, slippage, funding cap), never wider.
+          // The one re-priced order, or one sent again after "not usable
+          // yet": inside the same approval's bounds (amount, worst price,
+          // slippage, funding cap), never wider.
           grant = autofireRetryGrant(parent, actual);
         }
 
@@ -927,15 +1166,22 @@ class PendingBetAutoFire {
           // Refused for its price (the book moved between the read and
           // the match): one more read and one re-priced order, from the
           // money already there. Nothing is funded again.
-          if (attempt == 0 &&
+          if (!priceRetried &&
               e is PolymarketOrderNotAcceptedException &&
               isPolymarketPriceRefusal(e.reason)) {
+            priceRetried = true;
+            continue;
+          }
+          // Refused only because the money is not usable yet (still
+          // converting, not counted by the book): wait until it is and
+          // send again from the same money, never funded again.
+          if (await _waitAfterNotReady(e, intent, approval, notReady++)) {
             continue;
           }
           rethrow;
         }
       }
-      final placed = response!;
+      final placed = response;
 
       // Record actual USDC moved on the BUY so the position detail
       // sheet's "Invested" reflects wallet truth, not the API's
@@ -1024,6 +1270,14 @@ class PendingBetAutoFire {
         ledger.release(fundingKey, reason: 'placed');
         pendingNotifier.updateStatus(PendingBetStatus.awaitingConfirmation);
         placingNotifier.clear(placementId);
+        return;
+      }
+      // Its approval ran out while the money became usable: nothing was
+      // placed, the person confirms it again.
+      if (e is _ApprovalLapsed) {
+        _trackFailed(intent, 'approval_expired', retried: retried);
+        if (funded) journey.abandoned(OneBalanceVenue.predictions);
+        _cancelForReconfirm(placementId: placementId);
         return;
       }
       // Refused because the round closed in the meantime: said as such.

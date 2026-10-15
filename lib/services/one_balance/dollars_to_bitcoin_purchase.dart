@@ -41,7 +41,8 @@ import 'package:kute/services/funding/owned_address_resolver.dart'
 import 'package:kute/services/funding/settlement_registration.dart'
     show followSettlementRegistration, withSettlementOrderId;
 import 'package:kute/services/funding/settlement_runner.dart'
-    show SettlementFundingProof, SettlementStepUpHook;
+    show SettlementFundingProof, SettlementRunResult, SettlementStepUpHook;
+import 'package:kute/services/one_balance/buy_bitcoin_steps.dart';
 import 'package:kute/services/one_balance/multi_source_move.dart'
     show MultiSourceMoveStore;
 import 'package:kute/services/orchestra/orchestra_quote_guard.dart'
@@ -126,48 +127,65 @@ Future<DollarsToBitcoinSent> buyBitcoinFromDollars(
   final sparkAddress = await read(sparkSelfAddressProvider.future);
   final ownSpark = await read(sparkSelfAddressProvider.future);
   final runner = await HotSettlement.runner();
-  final settled = await runner.run(HotSettlement.plan(
-    read,
-    flow: SettlementFlow.moveDollarsToBtc,
-    route: kDollarsToBtcRoute,
-    source: SettlementAccountKind.sparkHot,
-    destination: SettlementAccountKind.sparkHot,
-    amountUsd: usd,
-    stepUp: stepUp,
-    requestQuote: (key) {
-      onQuoting?.call();
-      return HotSettlement.quote(
-        read,
-        OrchestraQuoteRequest(
-          sourceChain: kOrchestraUsdChain,
-          sourceAsset: kOrchestraUsdAssetCode,
-          destinationChain: 'spark',
-          destinationAsset: 'BTC',
-          amountBaseUnits: amountBaseUnits,
-          recipientAddress: sparkAddress,
-          refundAddress: sparkAddress,
-          recipientKind: RecipientKind.ownSpark,
-          ownAddress: ownSpark,
-          tag: kManualMoveQuoteTag,
-        ),
-        flow: 'move_buy_bitcoin_dollars',
-        idempotencyKey: key,
-      );
-    },
-    // The token echo lives in `prepareSpark`: it funds from the dollar
-    // balance because the VERIFIED quote's source asset says so, and
-    // refuses outright if the SDK echoes anything else. A failure here
-    // never retries on satoshis.
-    prepareFunding: (verifiedQuote, _) =>
-        HotSettlement.prepareSpark(read, verifiedQuote),
-    registerInBackground: true,
-    fund: (verifiedQuote, prepared) async {
-      onFunding?.call();
-      final paymentId = await HotSettlement.sendSpark(read, prepared);
-      PolymarketSparkTxsService.tag(paymentId);
-      return SettlementFundingProof.spark(paymentId);
-    },
-  ));
+  // The move's purchase step follows the purchase: running from the
+  // quote, sent with its operation, stopped when nothing left Dollars.
+  var funded = false;
+  final SettlementRunResult settled;
+  try {
+    settled = await runner.run(HotSettlement.plan(
+      read,
+      flow: SettlementFlow.moveDollarsToBtc,
+      route: kDollarsToBtcRoute,
+      source: SettlementAccountKind.sparkHot,
+      destination: SettlementAccountKind.sparkHot,
+      amountUsd: usd,
+      stepUp: stepUp,
+      requestQuote: (key) {
+        onQuoting?.call();
+        BuyBitcoinSteps.record(
+            moveId, (g) => BuyBitcoinSteps.buyStarted(g, at: DateTime.now()));
+        return HotSettlement.quote(
+          read,
+          OrchestraQuoteRequest(
+            sourceChain: kOrchestraUsdChain,
+            sourceAsset: kOrchestraUsdAssetCode,
+            destinationChain: 'spark',
+            destinationAsset: 'BTC',
+            amountBaseUnits: amountBaseUnits,
+            recipientAddress: sparkAddress,
+            refundAddress: sparkAddress,
+            recipientKind: RecipientKind.ownSpark,
+            ownAddress: ownSpark,
+            tag: kManualMoveQuoteTag,
+          ),
+          flow: 'move_buy_bitcoin_dollars',
+          idempotencyKey: key,
+        );
+      },
+      // The token echo lives in `prepareSpark`: it funds from the dollar
+      // balance because the VERIFIED quote's source asset says so, and
+      // refuses outright if the SDK echoes anything else. A failure here
+      // never retries on satoshis.
+      prepareFunding: (verifiedQuote, _) =>
+          HotSettlement.prepareSpark(read, verifiedQuote),
+      registerInBackground: true,
+      fund: (verifiedQuote, prepared) async {
+        funded = true;
+        onFunding?.call();
+        final paymentId = await HotSettlement.sendSpark(read, prepared);
+        PolymarketSparkTxsService.tag(paymentId);
+        return SettlementFundingProof.spark(paymentId);
+      },
+    ));
+  } catch (e) {
+    if (!funded) {
+      BuyBitcoinSteps.record(
+          moveId,
+          (g) => BuyBitcoinSteps.buyStopped(g, TrackingService.errorCategory(e),
+              at: DateTime.now()));
+    }
+    rethrow;
+  }
   final orchQuote = settled.quote.quote;
   final sentUsd = settled.quote.amountIn.toDouble() / 1e6;
   final orderId = settled.orderId ?? orchQuote.quoteId;
@@ -199,6 +217,10 @@ Future<DollarsToBitcoinSent> buyBitcoinFromDollars(
   );
   // The purchase is the last leg of its multi-source move: one row.
   MultiSourceMoveStore.attachFinal(moveId, settled.operation.operationId);
+  BuyBitcoinSteps.record(
+      moveId,
+      (g) => BuyBitcoinSteps.buySent(g, settled.operation.operationId,
+          at: DateTime.now()));
   await read(swapOrdersProvider.notifier).addExchange(exchange);
   followSettlementRegistration(read, settled);
   // Backend attribution for the REAL order only — a quote id (q_…) would

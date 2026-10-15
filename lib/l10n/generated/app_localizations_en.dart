@@ -10807,4 +10807,76 @@ class AppLocalizationsEn extends AppLocalizations {
   String polyRiskOutcome(String outcome, String cost, String payout) {
     return 'If $outcome loses, you lose $cost; if it wins, you get $payout.';
   }
+
+  @override
+  String moneyStepMovingFrom(String amount, String source) {
+    return 'Moving $amount from $source';
+  }
+
+  @override
+  String moneyStepMovedFrom(String amount, String source) {
+    return 'Moved $amount from $source';
+  }
+
+  @override
+  String moneyStepMovingFromTo(
+      String amount, String source, String destination) {
+    return 'Moving $amount from $source → $destination';
+  }
+
+  @override
+  String moneyStepMovedFromTo(
+      String amount, String source, String destination) {
+    return 'Moved $amount from $source → $destination';
+  }
+
+  @override
+  String moneyStepMoveFailed(String amount, String source) {
+    return '$amount from $source didn\'t move';
+  }
+
+  @override
+  String moneyStepFellBack(String source, String via) {
+    return '$source route busy, going via $via';
+  }
+
+  @override
+  String get moneyStepConverting => 'Converting to pUSD';
+
+  @override
+  String get moneyStepConverted => 'Converted to pUSD';
+
+  @override
+  String get moneyStepApproving => 'Approving spend';
+
+  @override
+  String get moneyStepApproved => 'Spend approved';
+
+  @override
+  String get moneyStepConfirming => 'Confirming balance';
+
+  @override
+  String get moneyStepConfirmed => 'Balance confirmed';
+
+  @override
+  String get moneyStepCrediting => 'Crediting to trading balance';
+
+  @override
+  String get moneyStepCredited => 'Credited to trading balance';
+
+  @override
+  String moneyStepBuying(String amount) {
+    return 'Buying $amount of Bitcoin';
+  }
+
+  @override
+  String moneyStepBought(String amount) {
+    return 'Bought $amount of Bitcoin';
+  }
+
+  @override
+  String get moneyStepArriving => 'Arriving in Bitcoin';
+
+  @override
+  String get moneyStepArrived => 'Arrived in Bitcoin';
 }

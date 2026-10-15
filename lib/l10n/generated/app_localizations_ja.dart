@@ -10425,4 +10425,76 @@ class AppLocalizationsJa extends AppLocalizations {
   String polyRiskOutcome(String outcome, String cost, String payout) {
     return '$outcomeが負けると$costを失い、勝つと$payoutを受け取ります。';
   }
+
+  @override
+  String moneyStepMovingFrom(String amount, String source) {
+    return '$sourceから$amountを移動中';
+  }
+
+  @override
+  String moneyStepMovedFrom(String amount, String source) {
+    return '$sourceから$amountを移動しました';
+  }
+
+  @override
+  String moneyStepMovingFromTo(
+      String amount, String source, String destination) {
+    return '$amountを移動中：$source → $destination';
+  }
+
+  @override
+  String moneyStepMovedFromTo(
+      String amount, String source, String destination) {
+    return '$amountを移動しました：$source → $destination';
+  }
+
+  @override
+  String moneyStepMoveFailed(String amount, String source) {
+    return '$sourceからの$amountは移動されませんでした';
+  }
+
+  @override
+  String moneyStepFellBack(String source, String via) {
+    return '$source経由のルートが混雑中のため、$via経由で移動します';
+  }
+
+  @override
+  String get moneyStepConverting => 'pUSDに変換中';
+
+  @override
+  String get moneyStepConverted => 'pUSDに変換しました';
+
+  @override
+  String get moneyStepApproving => '利用を承認中';
+
+  @override
+  String get moneyStepApproved => '利用を承認しました';
+
+  @override
+  String get moneyStepConfirming => '残高を確認中';
+
+  @override
+  String get moneyStepConfirmed => '残高を確認しました';
+
+  @override
+  String get moneyStepCrediting => '取引残高に入金中';
+
+  @override
+  String get moneyStepCredited => '取引残高に入金しました';
+
+  @override
+  String moneyStepBuying(String amount) {
+    return 'ビットコインを$amount分購入中';
+  }
+
+  @override
+  String moneyStepBought(String amount) {
+    return 'ビットコインを$amount分購入しました';
+  }
+
+  @override
+  String get moneyStepArriving => 'ビットコインに着金中';
+
+  @override
+  String get moneyStepArrived => 'ビットコインに着金しました';
 }

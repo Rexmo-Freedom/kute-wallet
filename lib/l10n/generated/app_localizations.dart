@@ -18318,6 +18318,115 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'If {outcome} loses, you lose {cost}; if it wins, you get {payout}.'**
   String polyRiskOutcome(String outcome, String cost, String payout);
+
+  /// A money step running: {amount} (formatted dollars) leaving the balance {source} (Bitcoin, Dollars, Predictions, Investing) for an order or a move. Shown with a small spinner under the slip or sheet button.
+  ///
+  /// In en, this message translates to:
+  /// **'Moving {amount} from {source}'**
+  String moneyStepMovingFrom(String amount, String source);
+
+  /// The same money step once it landed (shown with a check). {amount} formatted dollars, {source} the balance it came from.
+  ///
+  /// In en, this message translates to:
+  /// **'Moved {amount} from {source}'**
+  String moneyStepMovedFrom(String amount, String source);
+
+  /// A money step running between two named balances, e.g. Moving $12.00 from Investing → Bitcoin. {amount} formatted dollars, {source} and {destination} balance names.
+  ///
+  /// In en, this message translates to:
+  /// **'Moving {amount} from {source} → {destination}'**
+  String moneyStepMovingFromTo(
+      String amount, String source, String destination);
+
+  /// The same step once it landed (shown with a check). {amount} formatted dollars, {source} and {destination} balance names.
+  ///
+  /// In en, this message translates to:
+  /// **'Moved {amount} from {source} → {destination}'**
+  String moneyStepMovedFromTo(String amount, String source, String destination);
+
+  /// A money step that failed (shown with the error sign). {amount} formatted dollars, {source} the balance name. The line under the steps says where the money is.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} from {source} didn\'t move'**
+  String moneyStepMoveFailed(String amount, String source);
+
+  /// A direct route was refused before any money left, so the money takes the longer way through another balance, e.g. Bitcoin route busy, going via Dollars. {source} and {via} are balance names.
+  ///
+  /// In en, this message translates to:
+  /// **'{source} route busy, going via {via}'**
+  String moneyStepFellBack(String source, String via);
+
+  /// Predictions readiness sub-step: the dollars that arrived (USDC.e) are converted to pUSD, the token predictions are placed with. Running.
+  ///
+  /// In en, this message translates to:
+  /// **'Converting to pUSD'**
+  String get moneyStepConverting;
+
+  /// The same sub-step once done (shown with a check).
+  ///
+  /// In en, this message translates to:
+  /// **'Converted to pUSD'**
+  String get moneyStepConverted;
+
+  /// Predictions readiness sub-step, only when needed: the prediction venue is allowed to spend the account's pUSD. Running.
+  ///
+  /// In en, this message translates to:
+  /// **'Approving spend'**
+  String get moneyStepApproving;
+
+  /// The same sub-step once done (shown with a check).
+  ///
+  /// In en, this message translates to:
+  /// **'Spend approved'**
+  String get moneyStepApproved;
+
+  /// Predictions readiness sub-step: waiting until the prediction venue itself shows the balance that covers the bet. Running.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirming balance'**
+  String get moneyStepConfirming;
+
+  /// The same sub-step once done (shown with a check).
+  ///
+  /// In en, this message translates to:
+  /// **'Balance confirmed'**
+  String get moneyStepConfirmed;
+
+  /// Investing readiness sub-step: the dollars that arrived are being credited where the order draws from. Running.
+  ///
+  /// In en, this message translates to:
+  /// **'Crediting to trading balance'**
+  String get moneyStepCrediting;
+
+  /// The same sub-step once done (shown with a check).
+  ///
+  /// In en, this message translates to:
+  /// **'Credited to trading balance'**
+  String get moneyStepCredited;
+
+  /// A Buy bitcoin step running: Dollars buying bitcoin. {amount} formatted dollars.
+  ///
+  /// In en, this message translates to:
+  /// **'Buying {amount} of Bitcoin'**
+  String moneyStepBuying(String amount);
+
+  /// The same step once done (shown with a check). {amount} formatted dollars.
+  ///
+  /// In en, this message translates to:
+  /// **'Bought {amount} of Bitcoin'**
+  String moneyStepBought(String amount);
+
+  /// The last step of a move to Bitcoin: the bitcoin landing in the wallet. Running.
+  ///
+  /// In en, this message translates to:
+  /// **'Arriving in Bitcoin'**
+  String get moneyStepArriving;
+
+  /// The same step once the bitcoin is in the wallet (shown with a check).
+  ///
+  /// In en, this message translates to:
+  /// **'Arrived in Bitcoin'**
+  String get moneyStepArrived;
 }
 
 class _AppLocalizationsDelegate

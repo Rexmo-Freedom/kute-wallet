@@ -10875,4 +10875,76 @@ class AppLocalizationsSl extends AppLocalizations {
   String polyRiskOutcome(String outcome, String cost, String payout) {
     return 'Če $outcome izgubi, izgubiš $cost; če zmaga, dobiš $payout.';
   }
+
+  @override
+  String moneyStepMovingFrom(String amount, String source) {
+    return 'Prenašanje $amount s stanja $source';
+  }
+
+  @override
+  String moneyStepMovedFrom(String amount, String source) {
+    return 'Preneseno $amount s stanja $source';
+  }
+
+  @override
+  String moneyStepMovingFromTo(
+      String amount, String source, String destination) {
+    return 'Prenašanje $amount: $source → $destination';
+  }
+
+  @override
+  String moneyStepMovedFromTo(
+      String amount, String source, String destination) {
+    return 'Preneseno $amount: $source → $destination';
+  }
+
+  @override
+  String moneyStepMoveFailed(String amount, String source) {
+    return '$amount s stanja $source ni bilo preneseno';
+  }
+
+  @override
+  String moneyStepFellBack(String source, String via) {
+    return 'Pot $source je zasedena, gremo prek stanja $via';
+  }
+
+  @override
+  String get moneyStepConverting => 'Pretvarjanje v pUSD';
+
+  @override
+  String get moneyStepConverted => 'Pretvorjeno v pUSD';
+
+  @override
+  String get moneyStepApproving => 'Odobritev porabe';
+
+  @override
+  String get moneyStepApproved => 'Poraba odobrena';
+
+  @override
+  String get moneyStepConfirming => 'Potrjevanje stanja';
+
+  @override
+  String get moneyStepConfirmed => 'Stanje potrjeno';
+
+  @override
+  String get moneyStepCrediting => 'Knjiženje na stanje za trgovanje';
+
+  @override
+  String get moneyStepCredited => 'Knjiženo na stanje za trgovanje';
+
+  @override
+  String moneyStepBuying(String amount) {
+    return 'Nakup Bitcoina za $amount';
+  }
+
+  @override
+  String moneyStepBought(String amount) {
+    return 'Kupljen Bitcoin za $amount';
+  }
+
+  @override
+  String get moneyStepArriving => 'Prihaja na stanje Bitcoin';
+
+  @override
+  String get moneyStepArrived => 'Prispelo na stanje Bitcoin';
 }

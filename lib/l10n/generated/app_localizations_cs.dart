@@ -10838,4 +10838,76 @@ class AppLocalizationsCs extends AppLocalizations {
   String polyRiskOutcome(String outcome, String cost, String payout) {
     return 'Pokud $outcome prohraje, přijdeš o $cost; pokud vyhraje, dostaneš $payout.';
   }
+
+  @override
+  String moneyStepMovingFrom(String amount, String source) {
+    return 'Přesouváme $amount ze zůstatku $source';
+  }
+
+  @override
+  String moneyStepMovedFrom(String amount, String source) {
+    return 'Přesunuto $amount ze zůstatku $source';
+  }
+
+  @override
+  String moneyStepMovingFromTo(
+      String amount, String source, String destination) {
+    return 'Přesouváme $amount: $source → $destination';
+  }
+
+  @override
+  String moneyStepMovedFromTo(
+      String amount, String source, String destination) {
+    return 'Přesunuto $amount: $source → $destination';
+  }
+
+  @override
+  String moneyStepMoveFailed(String amount, String source) {
+    return '$amount ze zůstatku $source se nepřesunulo';
+  }
+
+  @override
+  String moneyStepFellBack(String source, String via) {
+    return 'Trasa $source je vytížená, jdeme přes zůstatek $via';
+  }
+
+  @override
+  String get moneyStepConverting => 'Převod na pUSD';
+
+  @override
+  String get moneyStepConverted => 'Převedeno na pUSD';
+
+  @override
+  String get moneyStepApproving => 'Povolujeme útratu';
+
+  @override
+  String get moneyStepApproved => 'Útrata povolena';
+
+  @override
+  String get moneyStepConfirming => 'Ověřujeme zůstatek';
+
+  @override
+  String get moneyStepConfirmed => 'Zůstatek ověřen';
+
+  @override
+  String get moneyStepCrediting => 'Připisujeme na obchodní zůstatek';
+
+  @override
+  String get moneyStepCredited => 'Připsáno na obchodní zůstatek';
+
+  @override
+  String moneyStepBuying(String amount) {
+    return 'Kupujeme Bitcoin za $amount';
+  }
+
+  @override
+  String moneyStepBought(String amount) {
+    return 'Koupen Bitcoin za $amount';
+  }
+
+  @override
+  String get moneyStepArriving => 'Přichází na zůstatek Bitcoin';
+
+  @override
+  String get moneyStepArrived => 'Připsáno na zůstatek Bitcoin';
 }

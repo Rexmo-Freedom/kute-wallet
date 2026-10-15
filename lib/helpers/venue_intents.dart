@@ -1407,6 +1407,182 @@ abstract final class BitcoinLegGrants {
     required String ownSpark,
   }) =>
       (settlement) async => take(grant, settlement, ownSpark: ownSpark);
+
+  // ── The direct leg: Bitcoin straight into the venue ─────────────────
+  //
+  // Founder decision 15 October 2026: an order that needs Bitcoin sends
+  // it in ONE Orchestra order from `spark:BTC` straight to the wallet's
+  // own venue deposit. The same one approval binds it ([directLimit],
+  // under `direct` in [VenueLimit.fundBtc]) next to the via-Dollars leg
+  // it falls back to; either way ONE Bitcoin leg runs per grant ([take]
+  // and [takeDirect] share the single use). A direct leg is covered only
+  // when ALL of these hold:
+  //   * the grant is live, an order or bet approval, the settlement's own
+  //     wallet, no Bitcoin leg ran under it yet;
+  //   * it binds the direct route of that venue, to exactly the wallet's
+  //     own venue deposit (the Predictions deposit wallet, the Investing
+  //     account), which is also the address the caller resolved now;
+  //   * the settlement is that route, its recipient that own deposit, and
+  //     the verified quote asks for exactly that: Bitcoin on Spark in, the
+  //     venue's token out, recipient the own deposit (own Predictions
+  //     wallet / own EVM account), refund the wallet's own Spark address;
+  //   * the sats are positive, equal the verified quote's, and at most the
+  //     direct cap.
+
+  /// `spark:BTC → polygon:USDC.e`, into Predictions.
+  static const String directPredictionsRoute = 'spark_btc>polygon_usdc.e';
+
+  /// `spark:BTC → hypercore:USDC`, into Investing.
+  static const String directInvestingRoute = 'spark_btc>hypercore_usdc';
+
+  /// The direct route into [venue] (`predictions` / `investing`).
+  static String? directRouteOf(String venue) => switch (venue) {
+        'predictions' => directPredictionsRoute,
+        'investing' => directInvestingRoute,
+        _ => null,
+      };
+
+  /// [limit] with the direct leg bound too: at most [directMaxSats]
+  /// straight to [ownVenue], the wallet's own deposit on [venue]
+  /// (`predictions` / `investing`). Without an own deposit address it is
+  /// [limit] alone (the order goes via Dollars).
+  static Map<String, Object?> limitWithDirect({
+    required int maxSats,
+    required String ownSpark,
+    required String venue,
+    required String? ownVenue,
+    required int directMaxSats,
+  }) {
+    final base = limit(maxSats: maxSats, ownSpark: ownSpark);
+    final route = directRouteOf(venue);
+    final to = ownVenue?.trim() ?? '';
+    if (route == null || to.isEmpty || directMaxSats <= 0) return base;
+    return {
+      ...base,
+      'direct': {
+        'route': route,
+        'to': to,
+        'maxSats': directMaxSats.toString(),
+      },
+    };
+  }
+
+  static ({BigInt maxSats, String to, String route})? _boundDirect(
+      AuthGrant grant) {
+    final bound = grant.boundIntent.limits[VenueLimit.fundBtc];
+    if (bound is! Map) return null;
+    final direct = bound['direct'];
+    if (direct is! Map) return null;
+    final route = direct['route'];
+    if (route != directPredictionsRoute && route != directInvestingRoute) {
+      return null;
+    }
+    final raw = direct['maxSats'];
+    final max = switch (raw) {
+      BigInt b => b,
+      int i => BigInt.from(i),
+      String s => BigInt.tryParse(s),
+      _ => null,
+    };
+    final to = direct['to'];
+    if (max == null || max <= BigInt.zero) return null;
+    if (to is! String || to.trim().isEmpty) return null;
+    return (maxSats: max, to: to.trim(), route: route as String);
+  }
+
+  /// The own venue deposit [grant] lets a direct Bitcoin leg pay, or null
+  /// when it binds none.
+  static String? directTo(AuthGrant? grant) =>
+      grant == null ? null : _boundDirect(grant)?.to;
+
+  /// The most sats [grant] lets a direct leg send, or null.
+  static BigInt? directMaxSatsOf(AuthGrant grant) =>
+      _boundDirect(grant)?.maxSats;
+
+  static bool _sameEvm(String a, String b) =>
+      a.trim().isNotEmpty && a.trim().toLowerCase() == b.trim().toLowerCase();
+
+  /// Whether [grant] covers the direct leg [settlement] is about to pay.
+  /// [ownVenue] is the wallet's own deposit on the venue and [ownSpark]
+  /// its own Spark address (the refund), both as the caller resolved them
+  /// from the wallet now. Takes nothing; pure.
+  static bool coversDirect(
+    AuthGrant? grant,
+    SettlementAuthorizationIntent settlement, {
+    required String ownVenue,
+    required String ownSpark,
+    DateTime? now,
+  }) {
+    if (grant == null) return false;
+    if (!actions.contains(grant.action)) return false;
+    if (grant.revoked || grant.consumed) return false;
+    if (grant.isExpiredAt(now ?? AuthGrants.clock())) return false;
+    if (takenBy(grant)) return false;
+    if (grant.walletId != settlement.walletId) return false;
+    final bound = _boundDirect(grant);
+    if (bound == null) return false;
+    if (!_sameEvm(bound.to, ownVenue)) return false;
+    if (settlement.routeLabel != bound.route) return false;
+    if (!_sameEvm(_recipientOf(settlement), ownVenue)) return false;
+    final quote = settlement.reviewedQuote;
+    if (quote == null) return false;
+    final req = quote.request;
+    final predictions = bound.route == directPredictionsRoute;
+    if (req.sourceChain.trim().toLowerCase() != 'spark' ||
+        req.sourceAsset.trim().toUpperCase() != 'BTC') {
+      return false;
+    }
+    if (predictions
+        ? (req.destinationChain.trim().toLowerCase() != 'polygon' ||
+            req.destinationAsset.trim().toUpperCase() != 'USDC.E' ||
+            req.recipientKind != RecipientKind.ownPmWallet)
+        : (req.destinationChain.trim().toLowerCase() != 'hypercore' ||
+            req.destinationAsset.trim().toUpperCase() != 'USDC' ||
+            req.recipientKind != RecipientKind.ownEvm)) {
+      return false;
+    }
+    if (!_sameEvm(req.recipientAddress, ownVenue)) return false;
+    final own = ownSpark.trim();
+    if (own.isEmpty || !sameSparkAddress(req.refundAddress, own)) {
+      return false;
+    }
+    final sats = settlement.amountIn;
+    if (sats <= BigInt.zero) return false;
+    if (quote.amountIn != sats) return false;
+    return sats <= bound.maxSats;
+  }
+
+  /// [coversDirect], then marks the grant's one Bitcoin leg as taken.
+  static bool takeDirect(
+    AuthGrant? grant,
+    SettlementAuthorizationIntent settlement, {
+    required String ownVenue,
+    required String ownSpark,
+    DateTime? now,
+  }) {
+    if (!coversDirect(grant, settlement,
+        ownVenue: ownVenue, ownSpark: ownSpark, now: now)) {
+      return false;
+    }
+    _taken[grant!] = true;
+    return true;
+  }
+
+  /// The step-up hook for a direct leg under [grant]: no prompt, only
+  /// [takeDirect]. [onCovered] runs once the verified quote was accepted,
+  /// right before the sats may leave (the other legs start from there).
+  static Future<bool> Function(SettlementAuthorizationIntent) stepUpDirect(
+    AuthGrant grant, {
+    required String ownVenue,
+    required String ownSpark,
+    void Function()? onCovered,
+  }) =>
+      (settlement) async {
+        final ok = takeDirect(grant, settlement,
+            ownVenue: ownVenue, ownSpark: ownSpark);
+        if (ok) onCovered?.call();
+        return ok;
+      };
 }
 
 // ── Orchestra ───────────────────────────────────────────────────────

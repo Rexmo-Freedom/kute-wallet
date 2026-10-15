@@ -1368,6 +1368,8 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
                               steps: runSteps,
                               active: runStep,
                               slow: run!.slow,
+                              graph: run.steps,
+                              money: formatHlUsd,
                             ),
                         ],
                       ),

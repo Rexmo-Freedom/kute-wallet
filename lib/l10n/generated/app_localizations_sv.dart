@@ -10843,4 +10843,76 @@ class AppLocalizationsSv extends AppLocalizations {
   String polyRiskOutcome(String outcome, String cost, String payout) {
     return 'Om $outcome förlorar, förlorar du $cost; om det vinner får du $payout.';
   }
+
+  @override
+  String moneyStepMovingFrom(String amount, String source) {
+    return 'Flyttar $amount från $source';
+  }
+
+  @override
+  String moneyStepMovedFrom(String amount, String source) {
+    return 'Flyttade $amount från $source';
+  }
+
+  @override
+  String moneyStepMovingFromTo(
+      String amount, String source, String destination) {
+    return 'Flyttar $amount från $source → $destination';
+  }
+
+  @override
+  String moneyStepMovedFromTo(
+      String amount, String source, String destination) {
+    return 'Flyttade $amount från $source → $destination';
+  }
+
+  @override
+  String moneyStepMoveFailed(String amount, String source) {
+    return '$amount från $source flyttades inte';
+  }
+
+  @override
+  String moneyStepFellBack(String source, String via) {
+    return '$source-rutten är upptagen, går via $via';
+  }
+
+  @override
+  String get moneyStepConverting => 'Konverterar till pUSD';
+
+  @override
+  String get moneyStepConverted => 'Konverterat till pUSD';
+
+  @override
+  String get moneyStepApproving => 'Godkänner utgift';
+
+  @override
+  String get moneyStepApproved => 'Utgift godkänd';
+
+  @override
+  String get moneyStepConfirming => 'Bekräftar saldo';
+
+  @override
+  String get moneyStepConfirmed => 'Saldo bekräftat';
+
+  @override
+  String get moneyStepCrediting => 'Krediterar handelssaldot';
+
+  @override
+  String get moneyStepCredited => 'Krediterat till handelssaldot';
+
+  @override
+  String moneyStepBuying(String amount) {
+    return 'Köper Bitcoin för $amount';
+  }
+
+  @override
+  String moneyStepBought(String amount) {
+    return 'Köpte Bitcoin för $amount';
+  }
+
+  @override
+  String get moneyStepArriving => 'Anländer i Bitcoin';
+
+  @override
+  String get moneyStepArrived => 'Anlände i Bitcoin';
 }

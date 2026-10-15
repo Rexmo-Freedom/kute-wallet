@@ -12,6 +12,9 @@
 //    id while there is no operation.
 //  * The action's own step (the send, the purchase, the order's funding)
 //    is linked the same way once it went ([MultiSourceMoveStore.attachFinal]).
+//  * A Buy bitcoin keeps its step graph on the record ([MultiSourceMove.steps],
+//    buy_bitcoin_steps.dart): what each leg, the purchase and the arrival
+//    are doing. Records written before it had none and still read.
 //  * Records live in the settings box (best effort; this session keeps
 //    them in memory either way), newest first, the last
 //    [MultiSourceMoveStore.keep] only. No address, no key: venue names,
@@ -23,6 +26,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart' show ValueNotifier, visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_ce/hive.dart';
+import 'package:kute/services/one_balance/money_steps.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/one_balance/venue_funder.dart'
     show VenueCashDestination;
@@ -126,6 +130,7 @@ class MultiSourceMove {
     this.walletId,
     this.legs = const [],
     this.finalOperationId,
+    this.steps = MoneyStepGraph.empty,
   });
 
   final String id;
@@ -145,6 +150,10 @@ class MultiSourceMove {
 
   /// The action's own step (the send, the purchase), once it went.
   final String? finalOperationId;
+
+  /// The move as steps (a Buy bitcoin's legs, purchase and arrival), as
+  /// the money code recorded them; empty on a record made before them.
+  final MoneyStepGraph steps;
 
   List<MultiSourceMoveLeg> get okLegs => [
         for (final l in legs)
@@ -198,6 +207,7 @@ class MultiSourceMove {
   MultiSourceMove copyWith({
     List<MultiSourceMoveLeg>? legs,
     String? finalOperationId,
+    MoneyStepGraph? steps,
   }) =>
       MultiSourceMove(
         id: id,
@@ -209,6 +219,7 @@ class MultiSourceMove {
         createdAt: createdAt,
         legs: legs ?? this.legs,
         finalOperationId: finalOperationId ?? this.finalOperationId,
+        steps: steps ?? this.steps,
       );
 
   Map<String, dynamic> toJson() => {
@@ -221,6 +232,7 @@ class MultiSourceMove {
         'createdAt': createdAt.millisecondsSinceEpoch,
         'legs': [for (final l in legs) l.toJson()],
         if (finalOperationId != null) 'finalOperationId': finalOperationId,
+        if (!steps.isEmpty) 'steps': steps.toJson(),
       };
 
   static MultiSourceMove? fromJson(Object? raw) {
@@ -254,6 +266,7 @@ class MultiSourceMove {
             if (MultiSourceMoveLeg.fromJson(l) case final leg?) leg,
       ],
       finalOperationId: raw['finalOperationId'] as String?,
+      steps: MoneyStepGraph.fromJson(raw['steps']),
     );
   }
 
@@ -362,6 +375,25 @@ abstract final class MultiSourceMoveStore {
     final move = all[id];
     if (move == null) return;
     all[id] = move.copyWith(finalOperationId: operationId);
+    _save();
+  }
+
+  /// Replaces move [id]'s step graph with what [change] makes of the
+  /// record (null: unchanged). Saved only when it changed.
+  static void updateSteps(
+      String id, MoneyStepGraph? Function(MultiSourceMove move) change) {
+    final all = _all();
+    final move = all[id];
+    if (move == null) return;
+    MoneyStepGraph? next;
+    try {
+      next = change(move);
+    } catch (_) {
+      return; // the steps never stop the money
+    }
+    if (next == null) return;
+    if (jsonEncode(next.toJson()) == jsonEncode(move.steps.toJson())) return;
+    all[id] = move.copyWith(steps: next);
     _save();
   }
 

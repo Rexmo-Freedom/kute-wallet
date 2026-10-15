@@ -1,5 +1,7 @@
 import 'package:kute/screens/shared/orchestra_swap_refund_action.dart';
 import 'package:kute/screens/shared/multi_source_move_activity.dart';
+import 'package:kute/screens/shared/buy_bitcoin_steps_view.dart'
+    show BuyBitcoinStepsSection;
 import 'package:kute/screens/shared/venue_cash_pull_copy.dart';
 import 'package:kute/screens/shared/pending_bitcoin_purchase_continue.dart'
     show continuePendingBitcoinPurchase;
@@ -5999,6 +6001,8 @@ class _MultiSourceMoveDetailSheetState
                   c, l10n.date, activitySheetDate(context, tx.timestamp)),
               _sheetDetailRow(c, l10n.status, status.text,
                   valueColor: status.color),
+              // A Buy bitcoin's steps, live, then the record once done.
+              BuyBitcoinStepsSection(move: move, rows: rows),
               for (final leg in move.legs)
                 _MultiSourceLegSection(
                   title:

@@ -10872,4 +10872,76 @@ class AppLocalizationsHu extends AppLocalizations {
   String polyRiskOutcome(String outcome, String cost, String payout) {
     return 'Ha a(z) $outcome veszít, $cost a veszteséged; ha nyer, $payout összeget kapsz.';
   }
+
+  @override
+  String moneyStepMovingFrom(String amount, String source) {
+    return '$amount áthelyezése innen: $source';
+  }
+
+  @override
+  String moneyStepMovedFrom(String amount, String source) {
+    return '$amount áthelyezve innen: $source';
+  }
+
+  @override
+  String moneyStepMovingFromTo(
+      String amount, String source, String destination) {
+    return '$amount áthelyezése: $source → $destination';
+  }
+
+  @override
+  String moneyStepMovedFromTo(
+      String amount, String source, String destination) {
+    return '$amount áthelyezve: $source → $destination';
+  }
+
+  @override
+  String moneyStepMoveFailed(String amount, String source) {
+    return '$amount nem mozdult innen: $source';
+  }
+
+  @override
+  String moneyStepFellBack(String source, String via) {
+    return 'Foglalt az útvonal ($source), kerülő ezen át: $via';
+  }
+
+  @override
+  String get moneyStepConverting => 'Átváltás pUSD-re';
+
+  @override
+  String get moneyStepConverted => 'Átváltva pUSD-re';
+
+  @override
+  String get moneyStepApproving => 'Költés jóváhagyása';
+
+  @override
+  String get moneyStepApproved => 'Költés jóváhagyva';
+
+  @override
+  String get moneyStepConfirming => 'Egyenleg megerősítése';
+
+  @override
+  String get moneyStepConfirmed => 'Egyenleg megerősítve';
+
+  @override
+  String get moneyStepCrediting => 'Jóváírás a kereskedési egyenlegre';
+
+  @override
+  String get moneyStepCredited => 'Jóváírva a kereskedési egyenlegre';
+
+  @override
+  String moneyStepBuying(String amount) {
+    return '$amount értékű Bitcoin vásárlása';
+  }
+
+  @override
+  String moneyStepBought(String amount) {
+    return '$amount értékű Bitcoin megvéve';
+  }
+
+  @override
+  String get moneyStepArriving => 'Érkezik ide: Bitcoin';
+
+  @override
+  String get moneyStepArrived => 'Megérkezett ide: Bitcoin';
 }

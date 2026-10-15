@@ -893,13 +893,18 @@ void main() {
       expect(find.textContaining('remaining'), findsNothing);
 
       await tester.tap(find.text('Withdraw'));
-      await tester.pumpAndSettle();
+      // The move's running step shows a spinner that never settles: pump.
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
       expect(find.text('Retry'), findsOneWidget);
       expect(find.textContaining('\$20.20 remaining'), findsOneWidget);
 
       hl.gate = Completer<void>();
       await tester.ensureVisible(find.text('Retry'));
-      await tester.pumpAndSettle();
+      for (var i = 0; i < 5; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
       await tester.tap(find.text('Retry'));
       await tester.pump();
       // A second tap while it runs pulls nothing more.

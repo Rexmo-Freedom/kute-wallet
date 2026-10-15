@@ -23,6 +23,9 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart' show immutable, visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_ce/hive.dart';
+import 'package:kute/services/one_balance/bitcoin_to_dollars_leg.dart'
+    show orchestraLegStatus;
+import 'package:kute/services/one_balance/money_steps.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
 
 /// Where a funded order is.
@@ -47,8 +50,7 @@ enum FundedOrderStage {
   failed;
 
   /// Money is on a rail for the order right now.
-  bool get active =>
-      this == adding || this == preparing || this == placing;
+  bool get active => this == adding || this == preparing || this == placing;
 }
 
 /// Where a funded order's money is once it stopped without placing.
@@ -117,9 +119,8 @@ class FundedOrderLabel {
 
   static FundedOrderLabel? fromJson(Object? v) {
     if (v is! Map) return null;
-    final venue = OneBalanceVenue.values
-        .where((e) => e.name == v['venue'])
-        .firstOrNull;
+    final venue =
+        OneBalanceVenue.values.where((e) => e.name == v['venue']).firstOrNull;
     final usd = v['orderUsd'];
     if (venue == null || usd is! num) return null;
     return FundedOrderLabel(
@@ -154,6 +155,8 @@ class FundedOrderRecord {
     this.moneyAt,
     this.message,
     this.cleared = false,
+    this.steps = MoneyStepGraph.empty,
+    this.route,
   });
 
   final String id;
@@ -196,7 +199,19 @@ class FundedOrderRecord {
   /// longer shows it.
   final bool cleared;
 
-  bool get fromBitcoin => addUsd > 0 || btcRowIds.isNotEmpty;
+  /// The order's step graph: every leg, the venue's readiness and the
+  /// order itself, each with its own state (`money_steps.dart`). Empty for
+  /// a record written before the graph (it shows its stage steps).
+  final MoneyStepGraph steps;
+
+  /// The Bitcoin leg's route: `direct` (straight into the venue) or
+  /// `via_dollars`. Null without a Bitcoin leg.
+  final String? route;
+
+  bool get fromBitcoin =>
+      addUsd > 0 ||
+      btcRowIds.isNotEmpty ||
+      steps.legs.any((s) => s.from == MoneyPlace.bitcoin);
 
   bool ownsRow(String rowId) =>
       btcRowIds.contains(rowId) || venueRowIds.contains(rowId);
@@ -223,6 +238,8 @@ class FundedOrderRecord {
     FundedMoneyAt? moneyAt,
     String? message,
     bool? cleared,
+    MoneyStepGraph? steps,
+    String? route,
   }) =>
       FundedOrderRecord(
         id: id,
@@ -239,6 +256,8 @@ class FundedOrderRecord {
         moneyAt: moneyAt ?? this.moneyAt,
         message: message ?? this.message,
         cleared: cleared ?? this.cleared,
+        steps: steps ?? this.steps,
+        route: route ?? this.route,
       );
 
   Map<String, Object?> toJson() => {
@@ -256,21 +275,26 @@ class FundedOrderRecord {
         if (moneyAt != null) 'moneyAt': moneyAt!.name,
         if (message != null) 'message': message,
         if (cleared) 'cleared': true,
+        if (!steps.isEmpty) 'steps': steps.toJson(),
+        if (route != null) 'route': route,
       };
 
   static FundedOrderRecord? fromJson(Object? v) {
     if (v is! Map) return null;
     final id = v['id'];
     final label = FundedOrderLabel.fromJson(v['label']);
-    final stage = FundedOrderStage.values
-        .where((e) => e.name == v['stage'])
-        .firstOrNull;
+    final stage =
+        FundedOrderStage.values.where((e) => e.name == v['stage']).firstOrNull;
     final created = v['createdAt'];
     final updated = v['updatedAt'];
     if (id is! String || label == null || stage == null) return null;
     if (created is! int || updated is! int) return null;
-    Set<String> ids(Object? raw) =>
-        raw is List ? {for (final e in raw) if (e is String) e} : const {};
+    Set<String> ids(Object? raw) => raw is List
+        ? {
+            for (final e in raw)
+              if (e is String) e
+          }
+        : const {};
     final add = v['addUsd'];
     return FundedOrderRecord(
       id: id,
@@ -290,6 +314,8 @@ class FundedOrderRecord {
           FundedMoneyAt.values.where((e) => e.name == v['moneyAt']).firstOrNull,
       message: v['message'] is String ? v['message'] as String : null,
       cleared: v['cleared'] == true,
+      steps: MoneyStepGraph.fromJson(v['steps']),
+      route: v['route'] is String ? v['route'] as String : null,
     );
   }
 }
@@ -336,7 +362,7 @@ class FundedOrdersNotifier extends Notifier<List<FundedOrderRecord>> {
     final now = clock();
     // A record a previous process left running never resumes: its
     // approval was memory only. Its money is (or lands) in Dollars.
-    return _pruned([
+    final records = _pruned([
       for (final r in loaded)
         r.stage.active
             ? r.copyWith(
@@ -347,10 +373,102 @@ class FundedOrdersNotifier extends Notifier<List<FundedOrderRecord>> {
                 // The slip shows the step it was on and that the money is
                 // (or lands) in Investments.
                 stoppedAt: r.stage,
-                moneyAt: FundedMoneyAt.investments)
+                // A direct Bitcoin leg lands in the venue itself.
+                moneyAt: r.route == 'direct'
+                    ? FundedMoneyAt.venue
+                    : FundedMoneyAt.investments,
+                steps: interruptedSteps(r.steps))
             : r,
     ], now);
+    // Legs a previous process left on their way are followed to their end.
+    if (records.any((r) => r.steps.legs
+        .any((s) => s.status == MoneyStepStatus.running && s.ref != null))) {
+      final statusOf = legStatus ?? orchestraLegStatus;
+      Future<void>.microtask(() => resumeLegs(statusOf: statusOf));
+    }
+    return records;
   }
+
+  /// A graph a previous process left running: its legs keep running
+  /// (their money is on Orchestra's rails and lands on its own;
+  /// [resumeLegs] follows them), the steps that needed this process (the
+  /// readiness watch, the order under an approval that lived in memory)
+  /// stop where they were: the order was not placed.
+  static MoneyStepGraph interruptedSteps(MoneyStepGraph g) => MoneyStepGraph([
+        for (final s in g.steps)
+          s.kind != MoneyStepKind.leg && !s.status.ended
+              ? s.copyWith(
+                  status: s.status == MoneyStepStatus.running
+                      ? MoneyStepStatus.failed
+                      : MoneyStepStatus.waiting,
+                  reason: 'interrupted')
+              : s,
+      ]);
+
+  /// Test seam: the Orchestra status read [resumeLegs] uses.
+  static Future<String?> Function(String id)? legStatus;
+
+  /// Follows, after a restart, every leg a stopped record still shows as
+  /// running: its Orchestra order's status marks it done or failed, so
+  /// the slip and the Investments header show where each source's money
+  /// is. A read only; nothing moves. Never throws.
+  Future<void> resumeLegs({
+    required Future<String?> Function(String id) statusOf,
+    Duration pollEvery = const Duration(seconds: 5),
+    Duration maxWait = const Duration(minutes: 15),
+  }) async {
+    final started = clock();
+    while (clock().difference(started) < maxWait) {
+      final open = [
+        for (final r in state)
+          for (final s in r.steps.legs)
+            if (s.status == MoneyStepStatus.running && s.ref != null)
+              (record: r.id, step: s),
+      ];
+      if (open.isEmpty) return;
+      for (final o in open) {
+        String? status;
+        try {
+          status = await statusOf(o.step.ref!);
+        } catch (_) {
+          status = null;
+        }
+        if (status == null) continue;
+        final delivered = const {
+          'completed',
+          'complete',
+          'success',
+          'settled',
+          'done'
+        }.contains(status);
+        final failed = const {
+          'failed',
+          'refunded',
+          'refund',
+          'expired',
+          'cancelled',
+          'canceled'
+        }.contains(status);
+        if (!delivered && !failed) continue;
+        update(
+            o.record,
+            (r) => r.copyWith(
+                steps: r.steps.update(
+                    o.step.id,
+                    (s) => s.copyWith(
+                        status: delivered
+                            ? MoneyStepStatus.done
+                            : MoneyStepStatus.failed,
+                        endedAt: clock(),
+                        reason: delivered ? null : status))));
+      }
+      await Future<void>.delayed(pollEvery);
+    }
+  }
+
+  /// [id]'s step graph is now [graph].
+  void setSteps(String id, MoneyStepGraph graph, {String? route}) =>
+      update(id, (r) => r.copyWith(steps: graph, route: route));
 
   static List<FundedOrderRecord> _pruned(
       List<FundedOrderRecord> records, DateTime now) {
@@ -385,9 +503,7 @@ class FundedOrdersNotifier extends Notifier<List<FundedOrderRecord>> {
       for (final r in state)
         if (r.label.venue == label.venue && r.stage.active)
           r.copyWith(
-              stage: FundedOrderStage.ready,
-              reason: 'replaced',
-              updatedAt: now)
+              stage: FundedOrderStage.ready, reason: 'replaced', updatedAt: now)
         else if (r.label.venue == label.venue &&
             r.stage == FundedOrderStage.ready &&
             r.label.marketKey == label.marketKey &&
@@ -426,8 +542,8 @@ class FundedOrdersNotifier extends Notifier<List<FundedOrderRecord>> {
     return null;
   }
 
-  void update(String id,
-      FundedOrderRecord Function(FundedOrderRecord current) change) {
+  void update(
+      String id, FundedOrderRecord Function(FundedOrderRecord current) change) {
     var hit = false;
     final next = [
       for (final r in state)
@@ -489,8 +605,7 @@ class FundedOrdersNotifier extends Notifier<List<FundedOrderRecord>> {
       ]);
 
   /// The live funded order on [venue], if any.
-  FundedOrderRecord? activeOn(OneBalanceVenue venue) =>
-      activeOf(state, venue);
+  FundedOrderRecord? activeOn(OneBalanceVenue venue) => activeOf(state, venue);
 
   static FundedOrderRecord? activeOf(
       List<FundedOrderRecord> records, OneBalanceVenue venue) {
@@ -604,8 +719,7 @@ class FundedProgress {
   bool get done => record.stage == FundedOrderStage.done;
 
   /// Stopped without placing: the [active] step failed.
-  bool get failed =>
-      !record.stage.active && !done && record.stoppedAt != null;
+  bool get failed => !record.stage.active && !done && record.stoppedAt != null;
 
   /// The step running now (or the one that failed); [stepCount] once
   /// every step is done.

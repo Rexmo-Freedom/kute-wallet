@@ -10852,4 +10852,76 @@ class AppLocalizationsSk extends AppLocalizations {
   String polyRiskOutcome(String outcome, String cost, String payout) {
     return 'Ak $outcome prehrá, prídeš o $cost; ak vyhrá, dostaneš $payout.';
   }
+
+  @override
+  String moneyStepMovingFrom(String amount, String source) {
+    return 'Presúvame $amount zo zostatku $source';
+  }
+
+  @override
+  String moneyStepMovedFrom(String amount, String source) {
+    return 'Presunuté $amount zo zostatku $source';
+  }
+
+  @override
+  String moneyStepMovingFromTo(
+      String amount, String source, String destination) {
+    return 'Presúvame $amount: $source → $destination';
+  }
+
+  @override
+  String moneyStepMovedFromTo(
+      String amount, String source, String destination) {
+    return 'Presunuté $amount: $source → $destination';
+  }
+
+  @override
+  String moneyStepMoveFailed(String amount, String source) {
+    return '$amount zo zostatku $source sa nepresunulo';
+  }
+
+  @override
+  String moneyStepFellBack(String source, String via) {
+    return 'Trasa $source je vyťažená, ideme cez zostatok $via';
+  }
+
+  @override
+  String get moneyStepConverting => 'Prevod na pUSD';
+
+  @override
+  String get moneyStepConverted => 'Prevedené na pUSD';
+
+  @override
+  String get moneyStepApproving => 'Povoľujeme útratu';
+
+  @override
+  String get moneyStepApproved => 'Útrata povolená';
+
+  @override
+  String get moneyStepConfirming => 'Overujeme zostatok';
+
+  @override
+  String get moneyStepConfirmed => 'Zostatok overený';
+
+  @override
+  String get moneyStepCrediting => 'Pripisujeme na obchodný zostatok';
+
+  @override
+  String get moneyStepCredited => 'Pripísané na obchodný zostatok';
+
+  @override
+  String moneyStepBuying(String amount) {
+    return 'Kupujeme Bitcoin za $amount';
+  }
+
+  @override
+  String moneyStepBought(String amount) {
+    return 'Kúpený Bitcoin za $amount';
+  }
+
+  @override
+  String get moneyStepArriving => 'Prichádza na zostatok Bitcoin';
+
+  @override
+  String get moneyStepArrived => 'Pripísané na zostatok Bitcoin';
 }

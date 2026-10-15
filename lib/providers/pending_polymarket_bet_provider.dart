@@ -41,6 +41,13 @@ enum PendingBetStatus {
 /// held for a live game's delay, or matched and being confirmed on chain.
 enum PendingBetStage { submitting, settingUp, approving, delayed, confirming }
 
+/// How far a queued bet's money is from usable, as the autofire checks it
+/// before placing (pending_bet_autofire.dart): the deposit has not landed,
+/// it landed as USDC.e and is being converted to pUSD, the account's
+/// setup or an exchange allowance is still being set, or the order book
+/// has not counted the pUSD yet. `ready` is set right before `placing`.
+enum PredictionsReadiness { waitingFunds, converting, approving, confirming, ready }
+
 class PendingBetIntent {
   final PolymarketMarketBuyQuote? marketQuote;
 
@@ -150,6 +157,15 @@ class PendingBetIntent {
   /// than [maxQueuedAge] never fires.
   final DateTime? queuedAt;
 
+  /// Where the money behind a queued bet is (see [PredictionsReadiness]);
+  /// null before the autofire checked it.
+  final PredictionsReadiness? readiness;
+
+  /// A conversion to pUSD, or an allowance or setup step, was needed for
+  /// this bet at some point: the slip shows those steps only then.
+  final bool convertSeen;
+  final bool approveSeen;
+
   /// Longest a queued bet may wait before it is dropped unplaced: the
   /// approval's own life (the 30 min autofire grant).
   static const Duration maxQueuedAge = Duration(minutes: 30);
@@ -187,6 +203,9 @@ class PendingBetIntent {
     this.fundReadyUsd,
     this.fundArrivingUsd,
     this.queuedAt,
+    this.readiness,
+    this.convertSeen = false,
+    this.approveSeen = false,
   });
 
   /// Whether this bet is (or was) funded from Dollars for the order.
@@ -230,6 +249,9 @@ class PendingBetIntent {
     double? fundReadyUsd,
     double? fundArrivingUsd,
     DateTime? queuedAt,
+    PredictionsReadiness? readiness,
+    bool? convertSeen,
+    bool? approveSeen,
   }) {
     return PendingBetIntent(
       marketQuote: marketQuote ?? this.marketQuote,
@@ -268,6 +290,9 @@ class PendingBetIntent {
       fundReadyUsd: fundReadyUsd ?? this.fundReadyUsd,
       fundArrivingUsd: fundArrivingUsd ?? this.fundArrivingUsd,
       queuedAt: queuedAt ?? this.queuedAt,
+      readiness: readiness ?? this.readiness,
+      convertSeen: convertSeen ?? this.convertSeen,
+      approveSeen: approveSeen ?? this.approveSeen,
     );
   }
 }
@@ -322,6 +347,30 @@ class PendingPolymarketBetNotifier extends Notifier<PendingBetIntent?> {
         failureCode: current.failureCode);
   }
 
+  /// The autofire's latest look at the bet's money (see
+  /// [PredictionsReadiness]); [convertSeen] / [approveSeen] only ever turn
+  /// on. Status, message and stage are kept.
+  void setReadiness(PredictionsReadiness readiness,
+      {bool convertSeen = false, bool approveSeen = false}) {
+    final current = state;
+    if (current == null) return;
+    final convert = current.convertSeen || convertSeen;
+    final approve = current.approveSeen || approveSeen;
+    if (current.readiness == readiness &&
+        current.convertSeen == convert &&
+        current.approveSeen == approve) {
+      return;
+    }
+    state = current.copyWith(
+        status: current.status,
+        errorMessage: current.errorMessage,
+        retryMaxPrice: current.retryMaxPrice,
+        failureCode: current.failureCode,
+        readiness: readiness,
+        convertSeen: convert,
+        approveSeen: approve);
+  }
+
   /// What the venue reports the order got, once it has matched: shares
   /// and their cost (null when the venue gave no cost), against the
   /// shares it asked for.
@@ -365,6 +414,9 @@ class PendingPolymarketBetNotifier extends Notifier<PendingBetIntent?> {
       fundReadyUsd: current.fundReadyUsd,
       fundArrivingUsd: current.fundArrivingUsd,
       queuedAt: current.queuedAt,
+      readiness: current.readiness,
+      convertSeen: current.convertSeen,
+      approveSeen: current.approveSeen,
     );
   }
 

@@ -54,6 +54,8 @@ import 'package:kute/providers/usd_account_provider.dart'
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
 import 'package:kute/screens/shared/kute_motion.dart' show kuteReduceMotion;
+import 'package:kute/screens/shared/money_steps_view.dart'
+    show MoneyStepsView, moneyStepLines;
 import 'package:kute/screens/home/components/deposit_sheet.dart'
     show showDepositSheet, MoveLockedSide;
 import 'package:kute/screens/receive/receive_sheet.dart'
@@ -63,6 +65,7 @@ import 'package:kute/services/funding/venue_shortfall.dart';
 import 'package:kute/services/one_balance/bitcoin_funded_order.dart'
     show MoveSheetOrder;
 import 'package:kute/services/one_balance/funded_orders.dart';
+import 'package:kute/services/one_balance/money_steps.dart' show MoneyStepGraph;
 import 'package:kute/services/one_balance/one_balance_state.dart'
     show OneBalanceVenue;
 import 'package:kute/services/orchestra_routes.dart'
@@ -770,10 +773,20 @@ class SlipFundingSteps extends StatelessWidget {
     this.slow = false,
     this.failed = false,
     this.note,
+    this.graph,
+    this.money,
   });
 
   /// The steps, in order.
   final List<String> steps;
+
+  /// The order's step graph (`FundedOrderRecord.steps`): when it has
+  /// steps, every leg shows on its own line with its own state, the
+  /// readiness sub-steps indented under [steps]' second-to-last line, and
+  /// [steps]' last line is the order (`MoneyStepsView`). [money] formats
+  /// the legs' dollars the slip's way.
+  final MoneyStepGraph? graph;
+  final String Function(double usd)? money;
 
   /// The step running now (or the one that failed); the ones before it
   /// are done. [steps]'s length: every step done.
@@ -792,6 +805,16 @@ class SlipFundingSteps extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final g = graph;
+    final format = money;
+    if (g != null && !g.isEmpty && format != null && steps.length >= 2) {
+      return MoneyStepsView(
+        lines: moneyStepLines(context.l10n, g, format,
+            readyLabel: steps[steps.length - 2], placeLine: steps.last),
+        slow: slow,
+        note: note,
+      );
+    }
     final c = context.colors;
     final still = kuteReduceMotion(context);
     Widget lead(int i) {

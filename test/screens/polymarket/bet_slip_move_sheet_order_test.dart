@@ -477,11 +477,15 @@ void main() {
     expect(_cta(tester).isBusy, isTrue);
     expect(_cta(tester).busyLabel, 'Getting your prediction ready');
     final money = '\$${order.orderUsd.toStringAsFixed(2)}';
+    // Each source on its own line (the step graph): the sheet's leg went
+    // via Dollars (no direct route here), landed, and the move from
+    // Dollars is on its way.
     expect(
-        find.text('Adding \$${(x + 2).toStringAsFixed(2)} to Investments'),
+        find.text(
+            'Moved \$${(x + 2).toStringAsFixed(2)} from Bitcoin → Dollars'),
         findsOneWidget);
-    expect(find.byKey(const ValueKey('slip-funding-step-done-0')),
-        findsOneWidget);
+    expect(find.byKey(const ValueKey('money-step-done-0')), findsOneWidget);
+    expect(find.text('Getting your prediction ready'), findsWidgets);
     expect(find.text('Placing $money on Yes'), findsOneWidget);
 
     // The venue credits it and the autofire places it.

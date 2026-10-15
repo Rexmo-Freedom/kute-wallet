@@ -10925,4 +10925,76 @@ class AppLocalizationsEl extends AppLocalizations {
   String polyRiskOutcome(String outcome, String cost, String payout) {
     return 'Αν το $outcome χάσει, χάνεις $cost· αν κερδίσει, παίρνεις $payout.';
   }
+
+  @override
+  String moneyStepMovingFrom(String amount, String source) {
+    return 'Μεταφορά $amount από $source';
+  }
+
+  @override
+  String moneyStepMovedFrom(String amount, String source) {
+    return 'Μεταφέρθηκαν $amount από $source';
+  }
+
+  @override
+  String moneyStepMovingFromTo(
+      String amount, String source, String destination) {
+    return 'Μεταφορά $amount από $source → $destination';
+  }
+
+  @override
+  String moneyStepMovedFromTo(
+      String amount, String source, String destination) {
+    return 'Μεταφέρθηκαν $amount από $source → $destination';
+  }
+
+  @override
+  String moneyStepMoveFailed(String amount, String source) {
+    return 'Τα $amount από $source δεν μεταφέρθηκαν';
+  }
+
+  @override
+  String moneyStepFellBack(String source, String via) {
+    return 'Η διαδρομή $source είναι απασχολημένη, πάμε μέσω $via';
+  }
+
+  @override
+  String get moneyStepConverting => 'Μετατροπή σε pUSD';
+
+  @override
+  String get moneyStepConverted => 'Μετατράπηκε σε pUSD';
+
+  @override
+  String get moneyStepApproving => 'Έγκριση δαπάνης';
+
+  @override
+  String get moneyStepApproved => 'Η δαπάνη εγκρίθηκε';
+
+  @override
+  String get moneyStepConfirming => 'Επιβεβαίωση υπολοίπου';
+
+  @override
+  String get moneyStepConfirmed => 'Το υπόλοιπο επιβεβαιώθηκε';
+
+  @override
+  String get moneyStepCrediting => 'Πίστωση στο υπόλοιπο συναλλαγών';
+
+  @override
+  String get moneyStepCredited => 'Πιστώθηκε στο υπόλοιπο συναλλαγών';
+
+  @override
+  String moneyStepBuying(String amount) {
+    return 'Αγορά Bitcoin αξίας $amount';
+  }
+
+  @override
+  String moneyStepBought(String amount) {
+    return 'Αγοράστηκε Bitcoin αξίας $amount';
+  }
+
+  @override
+  String get moneyStepArriving => 'Άφιξη στο Bitcoin';
+
+  @override
+  String get moneyStepArrived => 'Έφτασε στο Bitcoin';
 }

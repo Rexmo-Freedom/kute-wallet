@@ -2724,6 +2724,11 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       return;
     }
     final rest = other;
+    // The Bitcoin leg the approval binds: via Dollars to the own Spark
+    // address, or straight to the own Investing account.
+    final btcLeg = await bitcoinLegLimitFor(container.read,
+        venue: OneBalanceVenue.investing, leg: leg, ownSpark: ownSpark);
+    if (!mounted) return;
     final pending = PendingHlOrderIntent(
       coin: market.coin,
       kind: market.kind,
@@ -2745,7 +2750,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       ),
       fundUsd: planFundUsd,
       directLegs: rest.directLegs,
-      btcLeg: BitcoinLegGrants.limit(maxSats: leg.maxSats, ownSpark: ownSpark),
+      btcLeg: btcLeg,
       requiredUsd: required,
       readyAtQueueUsd: ready,
       arrivingUsd: plan.arrivingUsd,
@@ -2834,9 +2839,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           // Runs whatever happens to this ticket: reads only the
           // container. The rest from the other venue under the same
           // grant, then the move from Dollars.
-          fundVenue: (controller,
-                  {required bitcoinSentAt, required bitcoinLandedAt}) =>
-              fundRestThenMove(
+          fundVenue: (controller, legs) => fundRestThenMove(
+            legs: legs,
             puller: container.read(venueCashPullerProvider),
             venue: OneBalanceVenue.investing,
             fundUsd: planFundUsd,
@@ -2853,8 +2857,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                   .read(pendingHyperliquidOrderProvider.notifier)
                   .fundAndQueue(
                     pending.copyWith(
-                        bitcoinSentAt: bitcoinSentAt,
-                        bitcoinLandedAt: bitcoinLandedAt),
+                        bitcoinSentAt: legs.bitcoinSentAt,
+                        bitcoinLandedAt: legs.bitcoinLandedAt),
                     grant: grant,
                     controller: controller,
                     orderUsd: marginUsd,
@@ -4995,6 +4999,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
               active: funded.active,
               slow: funded.record.slow,
               failed: funded.failed,
+              graph: funded.record.steps,
+              money: formatHlUsd,
               note: funded.failed
                   ? fundedStopLine(_strings, funded.record, formatHlUsd)
                   : null,

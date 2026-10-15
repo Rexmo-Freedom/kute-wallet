@@ -238,6 +238,8 @@ void main() {
     void Function()? onCredit,
   }) {
     final calls = <String>[];
+    // The venue credits the order only once its move went out.
+    final funded = Completer<void>();
     return (
       calls: calls,
       request: BitcoinFundedOrderRequest(
@@ -248,22 +250,30 @@ void main() {
         fundUsd: 5.3,
         readyUsd: 0,
         entrySource: 'market',
-        fundVenue: (controller,
-            {required bitcoinSentAt, required bitcoinLandedAt}) async {
+        fundVenue: (controller, legs) async {
           calls.add('fund');
-          if (fundVenue != null) return fundVenue(controller);
-          return controller.fundAndQueue(
-            venue: OneBalanceVenue.predictions,
-            orderUsd: 5,
-            requiredUsd: 5.3,
-            readyUsd: 0,
-            auth: UserGrantAuthorization(grant),
-            fundUsd: 5.3,
-            continueJourney: true,
-          );
+          final outcome = fundVenue != null
+              ? await fundVenue(controller)
+              : await controller.fundAndQueue(
+                  venue: OneBalanceVenue.predictions,
+                  orderUsd: 5,
+                  requiredUsd: 5.3,
+                  readyUsd: 0,
+                  auth: UserGrantAuthorization(grant),
+                  fundUsd: 5.3,
+                  continueJourney: true,
+                );
+          // Only a move that went (or was not needed) is ever credited.
+          if (outcome is OrderFundingFunded ||
+              outcome is OrderFundingNotNeeded ||
+              outcome is OrderFundingUnconfirmed) {
+            if (!funded.isCompleted) funded.complete();
+          }
+          return outcome;
         },
         dropOrder: () => calls.add('drop'),
         awaitPlacement: ({required onCredited}) async {
+          await funded.future;
           calls.add('await');
           onCredited();
           onCredit?.call();

@@ -10815,4 +10815,76 @@ class AppLocalizationsLv extends AppLocalizations {
   String polyRiskOutcome(String outcome, String cost, String payout) {
     return 'Ja $outcome zaudēs, tu zaudēsi $cost; ja uzvarēs, saņemsi $payout.';
   }
+
+  @override
+  String moneyStepMovingFrom(String amount, String source) {
+    return 'Pārvieto $amount no konta $source';
+  }
+
+  @override
+  String moneyStepMovedFrom(String amount, String source) {
+    return 'Pārvietoti $amount no konta $source';
+  }
+
+  @override
+  String moneyStepMovingFromTo(
+      String amount, String source, String destination) {
+    return 'Pārvieto $amount: $source → $destination';
+  }
+
+  @override
+  String moneyStepMovedFromTo(
+      String amount, String source, String destination) {
+    return 'Pārvietoti $amount: $source → $destination';
+  }
+
+  @override
+  String moneyStepMoveFailed(String amount, String source) {
+    return '$amount no konta $source netika pārvietoti';
+  }
+
+  @override
+  String moneyStepFellBack(String source, String via) {
+    return 'Konta $source maršruts aizņemts, ejam caur kontu $via';
+  }
+
+  @override
+  String get moneyStepConverting => 'Konvertē uz pUSD';
+
+  @override
+  String get moneyStepConverted => 'Konvertēts uz pUSD';
+
+  @override
+  String get moneyStepApproving => 'Apstiprina tēriņu';
+
+  @override
+  String get moneyStepApproved => 'Tēriņš apstiprināts';
+
+  @override
+  String get moneyStepConfirming => 'Apstiprina atlikumu';
+
+  @override
+  String get moneyStepConfirmed => 'Atlikums apstiprināts';
+
+  @override
+  String get moneyStepCrediting => 'Ieskaita tirdzniecības atlikumā';
+
+  @override
+  String get moneyStepCredited => 'Ieskaitīts tirdzniecības atlikumā';
+
+  @override
+  String moneyStepBuying(String amount) {
+    return 'Pērk Bitcoin par $amount';
+  }
+
+  @override
+  String moneyStepBought(String amount) {
+    return 'Nopirkts Bitcoin par $amount';
+  }
+
+  @override
+  String get moneyStepArriving => 'Ienāk kontā Bitcoin';
+
+  @override
+  String get moneyStepArrived => 'Ienācis kontā Bitcoin';
 }

@@ -10930,4 +10930,76 @@ class AppLocalizationsDe extends AppLocalizations {
   String polyRiskOutcome(String outcome, String cost, String payout) {
     return 'Verliert $outcome, verlierst du $cost; gewinnt es, bekommst du $payout.';
   }
+
+  @override
+  String moneyStepMovingFrom(String amount, String source) {
+    return '$amount von $source werden verschoben';
+  }
+
+  @override
+  String moneyStepMovedFrom(String amount, String source) {
+    return '$amount von $source verschoben';
+  }
+
+  @override
+  String moneyStepMovingFromTo(
+      String amount, String source, String destination) {
+    return '$amount werden verschoben: $source → $destination';
+  }
+
+  @override
+  String moneyStepMovedFromTo(
+      String amount, String source, String destination) {
+    return '$amount verschoben: $source → $destination';
+  }
+
+  @override
+  String moneyStepMoveFailed(String amount, String source) {
+    return '$amount von $source wurden nicht verschoben';
+  }
+
+  @override
+  String moneyStepFellBack(String source, String via) {
+    return 'Route über $source ausgelastet, es geht über $via';
+  }
+
+  @override
+  String get moneyStepConverting => 'Umwandlung in pUSD';
+
+  @override
+  String get moneyStepConverted => 'In pUSD umgewandelt';
+
+  @override
+  String get moneyStepApproving => 'Ausgabe wird freigegeben';
+
+  @override
+  String get moneyStepApproved => 'Ausgabe freigegeben';
+
+  @override
+  String get moneyStepConfirming => 'Guthaben wird bestätigt';
+
+  @override
+  String get moneyStepConfirmed => 'Guthaben bestätigt';
+
+  @override
+  String get moneyStepCrediting => 'Gutschrift aufs Handelsguthaben';
+
+  @override
+  String get moneyStepCredited => 'Dem Handelsguthaben gutgeschrieben';
+
+  @override
+  String moneyStepBuying(String amount) {
+    return 'Bitcoin für $amount wird gekauft';
+  }
+
+  @override
+  String moneyStepBought(String amount) {
+    return 'Bitcoin für $amount gekauft';
+  }
+
+  @override
+  String get moneyStepArriving => 'Kommt in Bitcoin an';
+
+  @override
+  String get moneyStepArrived => 'In Bitcoin angekommen';
 }

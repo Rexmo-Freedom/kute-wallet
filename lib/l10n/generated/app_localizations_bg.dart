@@ -10866,4 +10866,76 @@ class AppLocalizationsBg extends AppLocalizations {
   String polyRiskOutcome(String outcome, String cost, String payout) {
     return 'Ако $outcome загуби, губиш $cost; ако спечели, получаваш $payout.';
   }
+
+  @override
+  String moneyStepMovingFrom(String amount, String source) {
+    return 'Прехвърляне на $amount от $source';
+  }
+
+  @override
+  String moneyStepMovedFrom(String amount, String source) {
+    return '$amount прехвърлени от $source';
+  }
+
+  @override
+  String moneyStepMovingFromTo(
+      String amount, String source, String destination) {
+    return 'Прехвърляне на $amount от $source → $destination';
+  }
+
+  @override
+  String moneyStepMovedFromTo(
+      String amount, String source, String destination) {
+    return '$amount прехвърлени от $source → $destination';
+  }
+
+  @override
+  String moneyStepMoveFailed(String amount, String source) {
+    return '$amount от $source не бяха прехвърлени';
+  }
+
+  @override
+  String moneyStepFellBack(String source, String via) {
+    return 'Маршрутът през $source е зает, минаваме през $via';
+  }
+
+  @override
+  String get moneyStepConverting => 'Конвертиране в pUSD';
+
+  @override
+  String get moneyStepConverted => 'Конвертирано в pUSD';
+
+  @override
+  String get moneyStepApproving => 'Одобряване на разхода';
+
+  @override
+  String get moneyStepApproved => 'Разходът е одобрен';
+
+  @override
+  String get moneyStepConfirming => 'Потвърждаване на баланса';
+
+  @override
+  String get moneyStepConfirmed => 'Балансът е потвърден';
+
+  @override
+  String get moneyStepCrediting => 'Кредитиране към баланса за търговия';
+
+  @override
+  String get moneyStepCredited => 'Кредитирано към баланса за търговия';
+
+  @override
+  String moneyStepBuying(String amount) {
+    return 'Купуване на Bitcoin за $amount';
+  }
+
+  @override
+  String moneyStepBought(String amount) {
+    return 'Купен Bitcoin за $amount';
+  }
+
+  @override
+  String get moneyStepArriving => 'Пристига в Bitcoin';
+
+  @override
+  String get moneyStepArrived => 'Пристигна в Bitcoin';
 }

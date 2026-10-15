@@ -10871,4 +10871,76 @@ class AppLocalizationsHr extends AppLocalizations {
   String polyRiskOutcome(String outcome, String cost, String payout) {
     return 'Ako $outcome izgubi, gubiš $cost; ako pobijedi, dobivaš $payout.';
   }
+
+  @override
+  String moneyStepMovingFrom(String amount, String source) {
+    return 'Prebacujemo $amount sa salda $source';
+  }
+
+  @override
+  String moneyStepMovedFrom(String amount, String source) {
+    return 'Prebačeno $amount sa salda $source';
+  }
+
+  @override
+  String moneyStepMovingFromTo(
+      String amount, String source, String destination) {
+    return 'Prebacujemo $amount: $source → $destination';
+  }
+
+  @override
+  String moneyStepMovedFromTo(
+      String amount, String source, String destination) {
+    return 'Prebačeno $amount: $source → $destination';
+  }
+
+  @override
+  String moneyStepMoveFailed(String amount, String source) {
+    return '$amount sa salda $source nije prebačeno';
+  }
+
+  @override
+  String moneyStepFellBack(String source, String via) {
+    return 'Ruta $source je zauzeta, idemo preko salda $via';
+  }
+
+  @override
+  String get moneyStepConverting => 'Pretvaranje u pUSD';
+
+  @override
+  String get moneyStepConverted => 'Pretvoreno u pUSD';
+
+  @override
+  String get moneyStepApproving => 'Odobravanje potrošnje';
+
+  @override
+  String get moneyStepApproved => 'Potrošnja odobrena';
+
+  @override
+  String get moneyStepConfirming => 'Potvrđivanje salda';
+
+  @override
+  String get moneyStepConfirmed => 'Saldo potvrđen';
+
+  @override
+  String get moneyStepCrediting => 'Knjiženje na saldo za trgovanje';
+
+  @override
+  String get moneyStepCredited => 'Knjiženo na saldo za trgovanje';
+
+  @override
+  String moneyStepBuying(String amount) {
+    return 'Kupnja Bitcoina za $amount';
+  }
+
+  @override
+  String moneyStepBought(String amount) {
+    return 'Kupljen Bitcoin za $amount';
+  }
+
+  @override
+  String get moneyStepArriving => 'Stiže na saldo Bitcoin';
+
+  @override
+  String get moneyStepArrived => 'Stiglo na saldo Bitcoin';
 }

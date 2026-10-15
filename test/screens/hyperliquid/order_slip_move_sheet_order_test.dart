@@ -482,7 +482,11 @@ void main() {
 
     // The steps under one busy button.
     final money = '\$${order.orderUsd.toStringAsFixed(2)}';
-    expect(find.text('Adding \$${(x + 1).toStringAsFixed(2)} to Investments'),
+    // Each source on its own line (the step graph): the sheet's leg went
+    // via Dollars (no direct route here) and landed.
+    expect(
+        find.text(
+            'Moved \$${(x + 1).toStringAsFixed(2)} from Bitcoin → Dollars'),
         findsOneWidget);
     expect(find.text('Opening $money Long BTC'), findsOneWidget);
     expect(_button(tester).isLoading, isTrue);

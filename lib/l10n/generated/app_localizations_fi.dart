@@ -10859,4 +10859,76 @@ class AppLocalizationsFi extends AppLocalizations {
   String polyRiskOutcome(String outcome, String cost, String payout) {
     return 'Jos $outcome häviää, menetät $cost; jos se voittaa, saat $payout.';
   }
+
+  @override
+  String moneyStepMovingFrom(String amount, String source) {
+    return 'Siirretään $amount tililtä $source';
+  }
+
+  @override
+  String moneyStepMovedFrom(String amount, String source) {
+    return 'Siirretty $amount tililtä $source';
+  }
+
+  @override
+  String moneyStepMovingFromTo(
+      String amount, String source, String destination) {
+    return 'Siirretään $amount: $source → $destination';
+  }
+
+  @override
+  String moneyStepMovedFromTo(
+      String amount, String source, String destination) {
+    return 'Siirretty $amount: $source → $destination';
+  }
+
+  @override
+  String moneyStepMoveFailed(String amount, String source) {
+    return '$amount tililtä $source ei siirtynyt';
+  }
+
+  @override
+  String moneyStepFellBack(String source, String via) {
+    return 'Tilin $source reitti on varattu, kuljetaan tilin $via kautta';
+  }
+
+  @override
+  String get moneyStepConverting => 'Muunnetaan pUSD:ksi';
+
+  @override
+  String get moneyStepConverted => 'Muunnettu pUSD:ksi';
+
+  @override
+  String get moneyStepApproving => 'Hyväksytään käyttö';
+
+  @override
+  String get moneyStepApproved => 'Käyttö hyväksytty';
+
+  @override
+  String get moneyStepConfirming => 'Vahvistetaan saldoa';
+
+  @override
+  String get moneyStepConfirmed => 'Saldo vahvistettu';
+
+  @override
+  String get moneyStepCrediting => 'Hyvitetään kaupankäyntisaldoon';
+
+  @override
+  String get moneyStepCredited => 'Hyvitetty kaupankäyntisaldoon';
+
+  @override
+  String moneyStepBuying(String amount) {
+    return 'Ostetaan Bitcoinia $amount arvosta';
+  }
+
+  @override
+  String moneyStepBought(String amount) {
+    return 'Ostettu Bitcoinia $amount arvosta';
+  }
+
+  @override
+  String get moneyStepArriving => 'Saapuu tilille Bitcoin';
+
+  @override
+  String get moneyStepArrived => 'Saapui tilille Bitcoin';
 }

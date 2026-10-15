@@ -10890,4 +10890,76 @@ class AppLocalizationsLt extends AppLocalizations {
   String polyRiskOutcome(String outcome, String cost, String payout) {
     return 'Jei $outcome pralaimės, prarasi $cost; jei laimės, gausi $payout.';
   }
+
+  @override
+  String moneyStepMovingFrom(String amount, String source) {
+    return 'Perkeliama $amount iš likučio $source';
+  }
+
+  @override
+  String moneyStepMovedFrom(String amount, String source) {
+    return 'Perkelta $amount iš likučio $source';
+  }
+
+  @override
+  String moneyStepMovingFromTo(
+      String amount, String source, String destination) {
+    return 'Perkeliama $amount: $source → $destination';
+  }
+
+  @override
+  String moneyStepMovedFromTo(
+      String amount, String source, String destination) {
+    return 'Perkelta $amount: $source → $destination';
+  }
+
+  @override
+  String moneyStepMoveFailed(String amount, String source) {
+    return '$amount iš likučio $source nebuvo perkelta';
+  }
+
+  @override
+  String moneyStepFellBack(String source, String via) {
+    return 'Maršrutas $source užimtas, keliaujame per likutį $via';
+  }
+
+  @override
+  String get moneyStepConverting => 'Konvertuojama į pUSD';
+
+  @override
+  String get moneyStepConverted => 'Konvertuota į pUSD';
+
+  @override
+  String get moneyStepApproving => 'Tvirtinamas išlaidų leidimas';
+
+  @override
+  String get moneyStepApproved => 'Išlaidų leidimas patvirtintas';
+
+  @override
+  String get moneyStepConfirming => 'Tikrinamas likutis';
+
+  @override
+  String get moneyStepConfirmed => 'Likutis patvirtintas';
+
+  @override
+  String get moneyStepCrediting => 'Įskaitoma į prekybos likutį';
+
+  @override
+  String get moneyStepCredited => 'Įskaityta į prekybos likutį';
+
+  @override
+  String moneyStepBuying(String amount) {
+    return 'Perkama Bitcoin už $amount';
+  }
+
+  @override
+  String moneyStepBought(String amount) {
+    return 'Nupirkta Bitcoin už $amount';
+  }
+
+  @override
+  String get moneyStepArriving => 'Atkeliauja į likutį Bitcoin';
+
+  @override
+  String get moneyStepArrived => 'Atkeliavo į likutį Bitcoin';
 }

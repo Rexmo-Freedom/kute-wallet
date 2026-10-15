@@ -10882,4 +10882,76 @@ class AppLocalizationsPl extends AppLocalizations {
   String polyRiskOutcome(String outcome, String cost, String payout) {
     return 'Jeśli $outcome przegra, stracisz $cost; jeśli wygra, dostaniesz $payout.';
   }
+
+  @override
+  String moneyStepMovingFrom(String amount, String source) {
+    return 'Przenoszenie $amount z salda $source';
+  }
+
+  @override
+  String moneyStepMovedFrom(String amount, String source) {
+    return 'Przeniesiono $amount z salda $source';
+  }
+
+  @override
+  String moneyStepMovingFromTo(
+      String amount, String source, String destination) {
+    return 'Przenoszenie $amount: $source → $destination';
+  }
+
+  @override
+  String moneyStepMovedFromTo(
+      String amount, String source, String destination) {
+    return 'Przeniesiono $amount: $source → $destination';
+  }
+
+  @override
+  String moneyStepMoveFailed(String amount, String source) {
+    return 'Nie przeniesiono $amount z salda $source';
+  }
+
+  @override
+  String moneyStepFellBack(String source, String via) {
+    return 'Trasa $source zajęta, idziemy przez saldo $via';
+  }
+
+  @override
+  String get moneyStepConverting => 'Zamiana na pUSD';
+
+  @override
+  String get moneyStepConverted => 'Zamieniono na pUSD';
+
+  @override
+  String get moneyStepApproving => 'Zatwierdzanie wydatków';
+
+  @override
+  String get moneyStepApproved => 'Wydatki zatwierdzone';
+
+  @override
+  String get moneyStepConfirming => 'Potwierdzanie salda';
+
+  @override
+  String get moneyStepConfirmed => 'Saldo potwierdzone';
+
+  @override
+  String get moneyStepCrediting => 'Zasilanie salda handlowego';
+
+  @override
+  String get moneyStepCredited => 'Zasilono saldo handlowe';
+
+  @override
+  String moneyStepBuying(String amount) {
+    return 'Kupowanie Bitcoin za $amount';
+  }
+
+  @override
+  String moneyStepBought(String amount) {
+    return 'Kupiono Bitcoin za $amount';
+  }
+
+  @override
+  String get moneyStepArriving => 'Wpływa na saldo Bitcoin';
+
+  @override
+  String get moneyStepArrived => 'Wpłynęło na saldo Bitcoin';
 }

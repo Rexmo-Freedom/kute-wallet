@@ -44,6 +44,8 @@ import 'package:kute/services/hyperliquid/hypercore_cash.dart'
     show hypercoreAvailableUsdc;
 import 'package:kute/services/one_balance/bitcoin_funded_order.dart';
 import 'package:kute/services/one_balance/bitcoin_to_dollars_leg.dart';
+import 'package:kute/services/one_balance/bitcoin_to_venue_leg.dart'
+    show directMaxSatsFor;
 import 'package:kute/services/one_balance/funded_orders.dart';
 import 'package:kute/services/one_balance/hyperliquid_venue_funder.dart';
 import 'package:kute/services/one_balance/multi_source_move.dart'
@@ -111,6 +113,7 @@ class MarginFundingPlan {
     this.directLegs,
     this.bitcoin,
     this.ownSpark,
+    this.ownInvesting,
   });
 
   /// The margin added.
@@ -142,6 +145,10 @@ class MarginFundingPlan {
   /// The wallet's own Spark address the Bitcoin leg is pinned to.
   final String? ownSpark;
 
+  /// The wallet's own Investing account a direct Bitcoin leg is pinned
+  /// to (`spark:BTC → hypercore:USDC`). Null: the leg goes via Dollars.
+  final String? ownInvesting;
+
   /// The Investing cash the change uses.
   double get investingUsd => _cents(math.min(readyUsd, amountUsd));
 
@@ -168,8 +175,12 @@ class MarginFundingPlan {
         kFundVenueLimit: kFundVenueInvesting,
         if (directLegs != null) VenueLimit.directLegs: directLegs,
         if (bitcoin != null && ownSpark != null)
-          VenueLimit.fundBtc: BitcoinLegGrants.limit(
-              maxSats: bitcoin!.maxSats, ownSpark: ownSpark!),
+          VenueLimit.fundBtc: BitcoinLegGrants.limitWithDirect(
+              maxSats: bitcoin!.maxSats,
+              ownSpark: ownSpark!,
+              venue: OneBalanceVenue.investing.name,
+              ownVenue: ownInvesting,
+              directMaxSats: directMaxSatsFor(bitcoin!)),
       };
 
   /// `funding_source` (the sources used, comma-separated, in order) and
@@ -271,6 +282,7 @@ Future<MarginFundingDecision> decideMarginFunding(
     Map<String, Object?>? directLegs,
     BitcoinLegPlan? bitcoin,
     String? ownSpark,
+    String? ownInvesting,
   }) =>
       MarginFundingPlan(
         amountUsd: amountUsd,
@@ -282,6 +294,7 @@ Future<MarginFundingDecision> decideMarginFunding(
         directLegs: directLegs,
         bitcoin: bitcoin,
         ownSpark: ownSpark,
+        ownInvesting: ownInvesting,
       );
 
   // 1. Dollars cover the move.
@@ -349,6 +362,9 @@ Future<MarginFundingDecision> decideMarginFunding(
   }
   final leg = decision.plan!;
   final ownSpark = await ownSparkForBitcoinLeg(read);
+  // The own Investing account a direct Bitcoin leg is pinned to.
+  final ownInvesting =
+      await ownVenueDepositFor(read, OneBalanceVenue.investing);
   OtherVenuePlan? other;
   try {
     other = await planOtherVenueCash(puller,
@@ -372,6 +388,7 @@ Future<MarginFundingDecision> decideMarginFunding(
   return MarginFundingPlanned(plan(
     bitcoin: leg,
     ownSpark: ownSpark,
+    ownInvesting: ownInvesting,
     directLegs: other.directLegs,
     needsOtherVenue: other.otherUsd > 0,
     predictionsUsd: other.otherUsd,
@@ -692,9 +709,8 @@ class MarginFundingRunner {
                   fundUsd: plan.fundUsd,
                   readyUsd: plan.readyUsd,
                   entrySource: kMarginEntrySource,
-                  fundVenue: (controller,
-                          {required bitcoinSentAt, required bitcoinLandedAt}) =>
-                      _fundRest(controller, grant, plan),
+                  fundVenue: (controller, legs) =>
+                      _fundRest(controller, grant, plan, legs: legs),
                   dropOrder: grant.revoke,
                   // The step after the venue move: the margin change.
                   awaitPlacement: ({required onCredited}) =>
@@ -836,8 +852,10 @@ class MarginFundingRunner {
   /// the Dollars move for what the direct legs do not bring. The slips'
   /// own path ([fundRestThenMove]).
   Future<OrderFundingOutcome> _fundRest(OrderFundingController controller,
-          AuthGrant grant, MarginFundingPlan plan) =>
+          AuthGrant grant, MarginFundingPlan plan,
+          {FundingLegContext legs = const FundingLegContext()}) =>
       fundRestThenMove(
+        legs: legs,
         puller: _ref.read(venueCashPullerProvider),
         venue: OneBalanceVenue.investing,
         fundUsd: plan.fundUsd,

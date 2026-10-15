@@ -638,6 +638,15 @@ class _FundingRun {
   DateTime? fundedAt;
   DateTime? creditedAt;
   double? arrivingUsd;
+
+  /// An order that needs Bitcoin: `direct` (straight into the venue) or
+  /// `via_dollars`, and the fixed reason the chain was taken.
+  String? route;
+  String? routeReason;
+
+  /// Each leg's milliseconds from its start to its money landing, by
+  /// source (`ms_leg_bitcoin`, `ms_leg_dollars`, ...).
+  final Map<String, int> legMs = {};
 }
 
 /// Follows one funded order per venue from the slip's tap to its one
@@ -714,6 +723,31 @@ class OrderFundingJourney {
         ? null
         : run.bitcoinLandedAt!.difference(sent).inMilliseconds;
   }
+
+  /// The route an order that needs Bitcoin took (`direct` or
+  /// `via_dollars`) and, for the chain, why ([reason], a fixed code).
+  void setRoute(OneBalanceVenue venue, String route, {String? reason}) {
+    final run = _runs[venue];
+    if (run == null) return;
+    run.route = route;
+    run.routeReason = reason;
+  }
+
+  /// One leg's money landed [ms] after it started. [source] is the
+  /// balance it came from (`bitcoin`, `dollars`, `predictions`,
+  /// `investing`).
+  void legLanded(OneBalanceVenue venue, String source, int ms) {
+    final run = _runs[venue];
+    if (run == null || ms < 0) return;
+    run.legMs['ms_leg_$source'] = ms;
+  }
+
+  /// The route and per-leg timings for the funnel's end events.
+  static Map<String, Object> _legParams(_FundingRun run) => {
+        if (run.route != null) 'route': run.route!,
+        if (run.routeReason != null) 'route_reason': run.routeReason!,
+        ...run.legMs,
+      };
 
   void setFundUsd(OneBalanceVenue venue, double fundUsd) {
     _runs[venue]?.fundUsd = fundUsd;
@@ -800,6 +834,7 @@ class OrderFundingJourney {
         creditedAt: run.creditedAt,
         placedAt: now,
       ),
+      ..._legParams(run),
     });
   }
 
@@ -813,6 +848,7 @@ class OrderFundingJourney {
       'duration_ms': clock().difference(run.startedAt).inMilliseconds,
       if (run.fundingSource != null) 'funding_source': run.fundingSource!,
       if (run.marketKind != null) 'market_kind': run.marketKind!,
+      ..._legParams(run),
     });
   }
 

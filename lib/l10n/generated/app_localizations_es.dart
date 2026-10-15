@@ -10908,4 +10908,76 @@ class AppLocalizationsEs extends AppLocalizations {
   String polyRiskOutcome(String outcome, String cost, String payout) {
     return 'Si $outcome pierde, pierdes $cost; si gana, recibes $payout.';
   }
+
+  @override
+  String moneyStepMovingFrom(String amount, String source) {
+    return 'Moviendo $amount desde $source';
+  }
+
+  @override
+  String moneyStepMovedFrom(String amount, String source) {
+    return '$amount movidos desde $source';
+  }
+
+  @override
+  String moneyStepMovingFromTo(
+      String amount, String source, String destination) {
+    return 'Moviendo $amount desde $source → $destination';
+  }
+
+  @override
+  String moneyStepMovedFromTo(
+      String amount, String source, String destination) {
+    return '$amount movidos desde $source → $destination';
+  }
+
+  @override
+  String moneyStepMoveFailed(String amount, String source) {
+    return '$amount desde $source no se movieron';
+  }
+
+  @override
+  String moneyStepFellBack(String source, String via) {
+    return 'Ruta de $source ocupada, vamos por $via';
+  }
+
+  @override
+  String get moneyStepConverting => 'Convirtiendo a pUSD';
+
+  @override
+  String get moneyStepConverted => 'Convertido a pUSD';
+
+  @override
+  String get moneyStepApproving => 'Aprobando el gasto';
+
+  @override
+  String get moneyStepApproved => 'Gasto aprobado';
+
+  @override
+  String get moneyStepConfirming => 'Confirmando el saldo';
+
+  @override
+  String get moneyStepConfirmed => 'Saldo confirmado';
+
+  @override
+  String get moneyStepCrediting => 'Abonando al saldo de trading';
+
+  @override
+  String get moneyStepCredited => 'Abonado al saldo de trading';
+
+  @override
+  String moneyStepBuying(String amount) {
+    return 'Comprando $amount de Bitcoin';
+  }
+
+  @override
+  String moneyStepBought(String amount) {
+    return 'Comprados $amount de Bitcoin';
+  }
+
+  @override
+  String get moneyStepArriving => 'Llegando a Bitcoin';
+
+  @override
+  String get moneyStepArrived => 'Llegó a Bitcoin';
 }

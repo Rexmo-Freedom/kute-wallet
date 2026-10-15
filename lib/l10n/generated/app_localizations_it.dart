@@ -10896,4 +10896,76 @@ class AppLocalizationsIt extends AppLocalizations {
   String polyRiskOutcome(String outcome, String cost, String payout) {
     return 'Se $outcome perde, perdi $cost; se vince, ricevi $payout.';
   }
+
+  @override
+  String moneyStepMovingFrom(String amount, String source) {
+    return 'Spostamento di $amount da $source';
+  }
+
+  @override
+  String moneyStepMovedFrom(String amount, String source) {
+    return '$amount spostati da $source';
+  }
+
+  @override
+  String moneyStepMovingFromTo(
+      String amount, String source, String destination) {
+    return 'Spostamento di $amount da $source → $destination';
+  }
+
+  @override
+  String moneyStepMovedFromTo(
+      String amount, String source, String destination) {
+    return '$amount spostati da $source → $destination';
+  }
+
+  @override
+  String moneyStepMoveFailed(String amount, String source) {
+    return '$amount da $source non sono stati spostati';
+  }
+
+  @override
+  String moneyStepFellBack(String source, String via) {
+    return 'Percorso $source occupato, passiamo da $via';
+  }
+
+  @override
+  String get moneyStepConverting => 'Conversione in pUSD';
+
+  @override
+  String get moneyStepConverted => 'Convertito in pUSD';
+
+  @override
+  String get moneyStepApproving => 'Approvazione della spesa';
+
+  @override
+  String get moneyStepApproved => 'Spesa approvata';
+
+  @override
+  String get moneyStepConfirming => 'Conferma del saldo';
+
+  @override
+  String get moneyStepConfirmed => 'Saldo confermato';
+
+  @override
+  String get moneyStepCrediting => 'Accredito sul saldo di trading';
+
+  @override
+  String get moneyStepCredited => 'Accreditato sul saldo di trading';
+
+  @override
+  String moneyStepBuying(String amount) {
+    return 'Acquisto di $amount di Bitcoin';
+  }
+
+  @override
+  String moneyStepBought(String amount) {
+    return 'Acquistati $amount di Bitcoin';
+  }
+
+  @override
+  String get moneyStepArriving => 'In arrivo su Bitcoin';
+
+  @override
+  String get moneyStepArrived => 'Arrivato su Bitcoin';
 }

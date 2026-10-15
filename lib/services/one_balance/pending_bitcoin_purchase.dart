@@ -37,6 +37,7 @@ import 'package:kute/providers/usd_account_provider.dart'
 import 'package:kute/services/background_sync_service.dart';
 import 'package:kute/services/funding/settlement_runner.dart'
     show SettlementStepUpHook;
+import 'package:kute/services/one_balance/buy_bitcoin_steps.dart';
 import 'package:kute/services/one_balance/dollars_to_bitcoin_purchase.dart';
 import 'package:kute/services/tracking_service.dart';
 
@@ -327,6 +328,9 @@ class BitcoinPurchaseFinisher {
     PendingPurchaseEnd waitOnPerson(String reason) {
       PendingBitcoinPurchaseStore.stage(
           moveId, PendingPurchaseStage.needsApproval);
+      // The move's purchase step waits on the person's tap.
+      BuyBitcoinSteps.record(moveId,
+          (g) => BuyBitcoinSteps.buyStopped(g, 'needs_approval', at: _clock()));
       track('needs_approval', reason: reason);
       return PendingPurchaseEnd.needsApproval;
     }
@@ -345,9 +349,14 @@ class BitcoinPurchaseFinisher {
         }
         await _sleep(pollEvery);
       }
+      // What came home landed: its legs are done.
+      BuyBitcoinSteps.record(
+          moveId, (g) => BuyBitcoinSteps.dollarsLanded(g, at: _clock()));
       if (!_live(grant)) return waitOnPerson('approval_expired');
       // 2. The purchase, under the same approval (no second prompt).
       PendingBitcoinPurchaseStore.stage(moveId, PendingPurchaseStage.buying);
+      BuyBitcoinSteps.record(
+          moveId, (g) => BuyBitcoinSteps.buyStarted(g, at: _clock()));
       await _buy(usd, approvedPurchaseStepUp(grant), moveId: moveId,
           onFunding: () {
         funded = true;

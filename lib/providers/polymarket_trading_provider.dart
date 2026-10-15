@@ -96,6 +96,14 @@ void _devLog(Object? msg) {
   if (kDebugMode) debugPrint(msg?.toString());
 }
 
+/// [PolymarketTradingNotifier.readBuyReadiness]'s reads, in micro-units.
+typedef PolyBuyReads = ({
+  BigInt pusd,
+  BigInt usdce,
+  PolyVenueCount? venue,
+  bool setupDone,
+});
+
 class PolymarketTradingState {
   final bool isAuthenticated;
 
@@ -5717,6 +5725,56 @@ class PolymarketTradingNotifier
       ensureCurrent: ensureCurrent,
       onStep: onStep,
     );
+  }
+
+  /// What a queued buy waits on before it is placed (the autofire's
+  /// readiness, pending_bet_autofire.dart): the deposit wallet's pUSD and
+  /// USDC.e read on chain now, what the order book counts for it (asked to
+  /// re-read first when [refreshVenue]; null when it cannot be read) and
+  /// whether the account's one-time setup is done. A delivered deposit is
+  /// USDC.e, which the book does not count, and a converted one is still
+  /// counted as the old pUSD until the book re-reads: the summed cash
+  /// ([PolymarketTradingState.usdcBalance]) says neither. Null when there
+  /// is no account to read yet or the wallet could not be read.
+  Future<PolyBuyReads?> readBuyReadiness({bool refreshVenue = false}) async {
+    final wallet = state.valueOrNull?.proxyWalletAddress;
+    if (_disposed || wallet == null || wallet.isEmpty || _privateKey == null) {
+      return null;
+    }
+    final split = await _readCollateralSplit(wallet);
+    if (split == null || _disposed) return null;
+    final backend = _backendService;
+    PolyVenueCount? venue;
+    if (backend != null) {
+      if (refreshVenue) {
+        try {
+          await backend
+              .updateBalanceAllowance(assetType: 'COLLATERAL', signatureType: 3)
+              .timeout(const Duration(seconds: 5));
+        } catch (_) {
+          // The read below decides.
+        }
+      }
+      try {
+        venue =
+            await _readVenueCount(backend).timeout(const Duration(seconds: 5));
+      } catch (_) {}
+    }
+    return (
+      pusd: split.pusd,
+      usdce: split.usdce,
+      venue: venue,
+      setupDone: tradingReady,
+    );
+  }
+
+  /// A queued buy found its deposit still USDC.e: makes sure a conversion
+  /// is running (it joins the arrival watch, never starts a second one).
+  /// Before the account's setup is done nothing can convert yet; the
+  /// delivery path converts once it is.
+  void nudgeConversion() {
+    if (_disposed || !tradingReady) return;
+    wrapIncomingUsdcEToPusd();
   }
 
   /// Converts held USDC.e to pUSD when pUSD alone is short of a buy

@@ -151,8 +151,13 @@ import 'package:kute/services/one_balance/bitcoin_funded_order.dart'
         MoveSheetOrder,
         MoveSheetOrderStatus;
 import 'package:kute/services/one_balance/multi_source_move.dart'
-    show MultiSourceMoveStore, trackMultiSourceMoveRetry;
+    show
+        MultiSourceMoveStore,
+        multiSourceMovesProvider,
+        trackMultiSourceMoveRetry;
 import 'package:kute/screens/shared/venue_cash_pull_copy.dart';
+import 'package:kute/screens/shared/buy_bitcoin_steps_view.dart'
+    show BuyBitcoinStepsSection;
 import 'package:kute/services/funding/hot_settlement.dart';
 import 'package:kute/screens/ledger/ledger_investment_gate.dart'
     show
@@ -776,6 +781,10 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// While venue cash is coming home for a purchase: one line per leg,
   /// on the sheet's quiet caption line.
   String? _pullProgress;
+
+  /// The Buy bitcoin whose steps (each leg, the purchase, the arrival)
+  /// show on that line while it runs, once its record is written.
+  String? _stepsMoveId;
 
   /// The multi-source move a purchase's venue cash went under, and the
   /// amount it was for: Retry of the same amount continues it (money
@@ -3844,6 +3853,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     if (_moveUsd != usd) _moveId = null;
     _purchaseGrant?.revoke();
     _purchaseGrant = null;
+    _stepsMoveId = null;
     VenueCashPullOutcome? outcome;
     AuthGrant? grant;
     try {
@@ -3874,6 +3884,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
               setState(() {
                 _processing = false;
                 _pullProgress = null;
+                _stepsMoveId = null;
                 _error = null;
               });
             }
@@ -3904,6 +3915,11 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
                 destination: VenueCashDestination.bitcoin,
                 direct: puller.directVenues(
                     plan, VenueCashDestination.bitcoin)));
+          },
+          // The move's steps take the line from here (its record holds
+          // them, live as each leg and the purchase move on).
+          onStarted: (id) {
+            if (mounted) setState(() => _stepsMoveId = id);
           },
           onLeg: (leg) {
             // Each leg submitted pulls the band a step further.
@@ -3952,6 +3968,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     setState(() {
       _processing = false;
       _pullProgress = null;
+      _stepsMoveId = null;
       _error = (outcome == null
               ? null
               : venueCashStoppedText(context.l10n, outcome)) ??
@@ -6841,9 +6858,22 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
                               ),
                             );
                           }),
+                        // A Buy bitcoin with venue cash: its steps, each
+                        // leg on its own line, the purchase, the arrival.
+                        if (_stepsMoveId != null && _error == null)
+                          Consumer(builder: (context, ref, _) {
+                            final move = ref
+                                .watch(multiSourceMovesProvider)
+                                .where((m) => m.id == _stepsMoveId)
+                                .firstOrNull;
+                            return move == null
+                                ? const SizedBox.shrink()
+                                : BuyBitcoinStepsSection(
+                                    move: move, followRows: false);
+                          })
                         // Venue cash on its way home for a purchase,
                         // on the same quiet caption line.
-                        if (_pullProgress != null && _error == null)
+                        else if (_pullProgress != null && _error == null)
                           Padding(
                             padding: EdgeInsets.only(top: 10.h),
                             child: Text(

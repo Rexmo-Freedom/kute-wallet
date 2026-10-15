@@ -10906,4 +10906,76 @@ class AppLocalizationsRo extends AppLocalizations {
   String polyRiskOutcome(String outcome, String cost, String payout) {
     return 'Dacă $outcome pierde, pierzi $cost; dacă câștigă, primești $payout.';
   }
+
+  @override
+  String moneyStepMovingFrom(String amount, String source) {
+    return 'Se mută $amount din $source';
+  }
+
+  @override
+  String moneyStepMovedFrom(String amount, String source) {
+    return 'Mutat $amount din $source';
+  }
+
+  @override
+  String moneyStepMovingFromTo(
+      String amount, String source, String destination) {
+    return 'Se mută $amount din $source → $destination';
+  }
+
+  @override
+  String moneyStepMovedFromTo(
+      String amount, String source, String destination) {
+    return 'Mutat $amount din $source → $destination';
+  }
+
+  @override
+  String moneyStepMoveFailed(String amount, String source) {
+    return '$amount din $source nu s-au mutat';
+  }
+
+  @override
+  String moneyStepFellBack(String source, String via) {
+    return 'Ruta $source e ocupată, trecem prin $via';
+  }
+
+  @override
+  String get moneyStepConverting => 'Se convertește în pUSD';
+
+  @override
+  String get moneyStepConverted => 'Convertit în pUSD';
+
+  @override
+  String get moneyStepApproving => 'Se aprobă cheltuirea';
+
+  @override
+  String get moneyStepApproved => 'Cheltuire aprobată';
+
+  @override
+  String get moneyStepConfirming => 'Se confirmă soldul';
+
+  @override
+  String get moneyStepConfirmed => 'Sold confirmat';
+
+  @override
+  String get moneyStepCrediting => 'Se creditează soldul de tranzacționare';
+
+  @override
+  String get moneyStepCredited => 'Sold de tranzacționare creditat';
+
+  @override
+  String moneyStepBuying(String amount) {
+    return 'Se cumpără Bitcoin de $amount';
+  }
+
+  @override
+  String moneyStepBought(String amount) {
+    return 'Cumpărat Bitcoin de $amount';
+  }
+
+  @override
+  String get moneyStepArriving => 'Ajunge în Bitcoin';
+
+  @override
+  String get moneyStepArrived => 'A ajuns în Bitcoin';
 }

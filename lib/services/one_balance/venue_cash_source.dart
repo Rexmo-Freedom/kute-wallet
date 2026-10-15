@@ -89,7 +89,10 @@ import 'package:kute/services/funding/owned_address_resolver.dart'
     show ProviderReader;
 import 'package:kute/services/hyperliquid/cctp_withdrawal.dart'
     show kCctpCoreFeeReserve;
+import 'package:kute/services/one_balance/buy_bitcoin_steps.dart';
 import 'package:kute/services/one_balance/hyperliquid_move_rail.dart';
+import 'package:kute/services/one_balance/money_steps.dart'
+    show MoneyStepGraph;
 import 'package:kute/services/one_balance/multi_source_move.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/one_balance/predictions_venue_funder.dart'
@@ -483,6 +486,24 @@ abstract final class DirectRouteRefusals {
 
   static void refuse(OneBalanceVenue venue, VenueCashDestination d) =>
       _refused[_key(venue, d)] = clock();
+
+  /// The direct Bitcoin route into [venue] (`spark:BTC` straight to the
+  /// venue's own deposit, an order's Bitcoin leg): same rules, its own key.
+  static String _bitcoinKey(OneBalanceVenue venue) => 'bitcoin>${venue.name}';
+
+  static bool isBitcoinRefused(OneBalanceVenue venue) {
+    final key = _bitcoinKey(venue);
+    final at = _refused[key];
+    if (at == null) return false;
+    if (clock().difference(at) >= ttl) {
+      _refused.remove(key);
+      return false;
+    }
+    return true;
+  }
+
+  static void refuseBitcoin(OneBalanceVenue venue) =>
+      _refused[_bitcoinKey(venue)] = clock();
 
   @visibleForTesting
   static void reset() {
@@ -1001,7 +1022,9 @@ class VenueCashPuller {
   /// ([DirectVenueCashSource]); a refusal before anything moved brings it
   /// home to Dollars instead (and that route is not asked again this
   /// session). [onPlanned] hears the plan before any leg starts, for the
-  /// progress lines, and [onLeg] each leg as it is sent (or fails). The call then reads Dollars every [pollEvery] until
+  /// progress lines, [onStarted] the move's record id once it is written
+  /// (before any leg goes; its steps follow the move there), and [onLeg]
+  /// each leg as it is sent (or fails). The call then reads Dollars every [pollEvery] until
   /// they hold what the action takes from them
   /// ([VenueCashPullOutcome.onwardUsd]) or the wait runs out; the outcome
   /// says which. [waitFor] null waits [venueCashWaitFor] the plan's ETA;
@@ -1030,6 +1053,7 @@ class VenueCashPuller {
     AuthGrant? approval,
     void Function(VenueCashPlan plan)? onPlanned,
     void Function(VenueCashLegOutcome leg)? onLeg,
+    void Function(String moveId)? onStarted,
   }) {
     final run = _tail.then((_) => _pullShortfall(
           neededUsd: neededUsd,
@@ -1041,6 +1065,7 @@ class VenueCashPuller {
           approval: approval,
           onPlanned: onPlanned,
           onLeg: onLeg,
+          onStarted: onStarted,
         ));
     _tail = run.then((_) {}, onError: (_) {});
     return run;
@@ -1092,6 +1117,7 @@ class VenueCashPuller {
     AuthGrant? approval,
     void Function(VenueCashPlan plan)? onPlanned,
     void Function(VenueCashLegOutcome leg)? onLeg,
+    void Function(String moveId)? onStarted,
   }) async {
     final excluded = exclude ?? venueOfDestination(destination);
     // A Retry of the whole action: what earlier legs already sent
@@ -1139,7 +1165,17 @@ class VenueCashPuller {
         totalUsd: _cents(neededUsd),
         dollarsUsd: _cents(plan.dollarsUsd),
         createdAt: _clock(),
+        // A Buy bitcoin as its steps (buy_bitcoin_steps.dart): every leg
+        // as it is about to go, the purchase, the arrival. A Retry keeps
+        // the move's own graph (start() keeps the record).
+        steps: forAction == VenueCashFor.buyBitcoin &&
+                destination == VenueCashDestination.bitcoin
+            ? _plannedSteps(plan, destination, approval, neededUsd)
+            : MoneyStepGraph.empty,
       ));
+      try {
+        onStarted?.call(id);
+      } catch (_) {/* a listener never stops the move */}
       TrackingService.track('multi_source_move_started', params: {
         'legs': plan.pulls.length + (plan.dollarsUsd > 0 ? 1 : 0),
         'total_usd': plan.neededUsd,
@@ -1165,6 +1201,10 @@ class VenueCashPuller {
     final onward = destination == VenueCashDestination.dollars
         ? plan.neededUsd
         : (remainderOnly ? 0.0 : _cents(math.max(0, plan.neededUsd - direct)));
+    // Every leg went: what the purchase takes from Dollars.
+    if (!remainderOnly && plan.pulls.isNotEmpty) {
+      BuyBitcoinSteps.record(id, (g) => BuyBitcoinSteps.onward(g, onward));
+    }
     var cover = remainderOnly || _readDollars() + 0.000001 >= onward;
     final wait = waitFor ?? venueCashWaitFor(plan.eta);
     if (!cover && failed == 0 && wait > Duration.zero) {
@@ -1287,19 +1327,21 @@ class VenueCashPuller {
 
   VenueCashLegOutcome _recorded(String moveId, VenueCashLegOutcome leg) {
     final result = leg.result;
-    MultiSourceMoveStore.addLeg(
-        moveId,
-        MultiSourceMoveLeg(
-          venue: leg.venue,
-          usd: leg.ok ? _cents(leg.sentUsd) : leg.pull.usd,
-          arrivingUsd: leg.ok ? _cents(leg.arrivingUsd) : leg.pull.arrivingUsd,
-          route: leg.route,
-          ok: leg.ok,
-          at: _clock(),
-          operationId: result?.operationId,
-          quoteId: result?.quoteId,
-          error: leg.ok ? null : TrackingService.errorCategory(leg.error),
-        ));
+    final recorded = MultiSourceMoveLeg(
+      venue: leg.venue,
+      usd: leg.ok ? _cents(leg.sentUsd) : leg.pull.usd,
+      arrivingUsd: leg.ok ? _cents(leg.arrivingUsd) : leg.pull.arrivingUsd,
+      route: leg.route,
+      ok: leg.ok,
+      at: _clock(),
+      operationId: result?.operationId,
+      quoteId: result?.quoteId,
+      error: leg.ok ? null : TrackingService.errorCategory(leg.error),
+    );
+    MultiSourceMoveStore.addLeg(moveId, recorded);
+    // Its step: on its way, failed, or through Dollars instead.
+    BuyBitcoinSteps.record(
+        moveId, (g) => BuyBitcoinSteps.legRecorded(g, recorded));
     return leg;
   }
 
@@ -1321,6 +1363,40 @@ class VenueCashPuller {
   }
 
   static double _cents(double usd) => (usd * 100).round() / 100;
+
+  /// A Buy bitcoin's steps for [plan] as its legs are about to go: each
+  /// leg straight to [destination] exactly when [_runLeg] would send it
+  /// there (the approval covers it), home to Dollars otherwise; the
+  /// purchase of what the direct legs do not bring. Moves nothing.
+  MoneyStepGraph _plannedSteps(VenueCashPlan plan,
+      VenueCashDestination destination, AuthGrant? approval, double totalUsd) {
+    bool direct(VenueCashPull p) {
+      final source = _sourceFor(p.venue);
+      return approval != null &&
+          source is DirectVenueCashSource &&
+          (source as DirectVenueCashSource).canPullTo(destination) &&
+          !DirectRouteRefusals.isRefused(p.venue, destination) &&
+          DirectLegGrants.covers(approval,
+              venue: p.venue.name,
+              destination: destination.code,
+              amount: IntentUnits.usd(p.usd));
+    }
+
+    final legs = [
+      for (final p in plan.pulls)
+        (venue: p.venue, usd: p.usd, direct: direct(p)),
+    ];
+    var directUsd = 0.0;
+    for (var i = 0; i < legs.length; i++) {
+      if (legs[i].direct) directUsd += plan.pulls[i].arrivingUsd;
+    }
+    return BuyBitcoinSteps.planned(
+      legs: legs,
+      onwardUsd: _cents(math.max(0, plan.neededUsd - directUsd)),
+      totalUsd: _cents(totalUsd),
+      at: _clock(),
+    );
+  }
 
   /// `venue_cash_direct_refused`: a leg's direct route was refused before
   /// anything moved, with the rail's fixed reason code (never an error

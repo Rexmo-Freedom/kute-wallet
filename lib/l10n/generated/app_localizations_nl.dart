@@ -10882,4 +10882,76 @@ class AppLocalizationsNl extends AppLocalizations {
   String polyRiskOutcome(String outcome, String cost, String payout) {
     return 'Als $outcome verliest, verlies je $cost; als het wint, krijg je $payout.';
   }
+
+  @override
+  String moneyStepMovingFrom(String amount, String source) {
+    return '$amount verplaatsen van $source';
+  }
+
+  @override
+  String moneyStepMovedFrom(String amount, String source) {
+    return '$amount verplaatst van $source';
+  }
+
+  @override
+  String moneyStepMovingFromTo(
+      String amount, String source, String destination) {
+    return '$amount verplaatsen van $source → $destination';
+  }
+
+  @override
+  String moneyStepMovedFromTo(
+      String amount, String source, String destination) {
+    return '$amount verplaatst van $source → $destination';
+  }
+
+  @override
+  String moneyStepMoveFailed(String amount, String source) {
+    return '$amount van $source is niet verplaatst';
+  }
+
+  @override
+  String moneyStepFellBack(String source, String via) {
+    return 'Route via $source bezet, we gaan via $via';
+  }
+
+  @override
+  String get moneyStepConverting => 'Omzetten naar pUSD';
+
+  @override
+  String get moneyStepConverted => 'Omgezet naar pUSD';
+
+  @override
+  String get moneyStepApproving => 'Uitgave goedkeuren';
+
+  @override
+  String get moneyStepApproved => 'Uitgave goedgekeurd';
+
+  @override
+  String get moneyStepConfirming => 'Saldo bevestigen';
+
+  @override
+  String get moneyStepConfirmed => 'Saldo bevestigd';
+
+  @override
+  String get moneyStepCrediting => 'Bijschrijven op handelssaldo';
+
+  @override
+  String get moneyStepCredited => 'Bijgeschreven op handelssaldo';
+
+  @override
+  String moneyStepBuying(String amount) {
+    return '$amount aan Bitcoin kopen';
+  }
+
+  @override
+  String moneyStepBought(String amount) {
+    return '$amount aan Bitcoin gekocht';
+  }
+
+  @override
+  String get moneyStepArriving => 'Komt binnen in Bitcoin';
+
+  @override
+  String get moneyStepArrived => 'Binnen in Bitcoin';
 }

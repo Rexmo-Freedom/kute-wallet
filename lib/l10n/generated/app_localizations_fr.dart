@@ -10931,4 +10931,76 @@ class AppLocalizationsFr extends AppLocalizations {
   String polyRiskOutcome(String outcome, String cost, String payout) {
     return 'Si $outcome perd, vous perdez $cost ; s\'il gagne, vous recevez $payout.';
   }
+
+  @override
+  String moneyStepMovingFrom(String amount, String source) {
+    return 'Transfert de $amount depuis $source';
+  }
+
+  @override
+  String moneyStepMovedFrom(String amount, String source) {
+    return '$amount transférés depuis $source';
+  }
+
+  @override
+  String moneyStepMovingFromTo(
+      String amount, String source, String destination) {
+    return 'Transfert de $amount depuis $source → $destination';
+  }
+
+  @override
+  String moneyStepMovedFromTo(
+      String amount, String source, String destination) {
+    return '$amount transférés depuis $source → $destination';
+  }
+
+  @override
+  String moneyStepMoveFailed(String amount, String source) {
+    return '$amount depuis $source n\'ont pas été transférés';
+  }
+
+  @override
+  String moneyStepFellBack(String source, String via) {
+    return 'Route $source saturée, passage par $via';
+  }
+
+  @override
+  String get moneyStepConverting => 'Conversion en pUSD';
+
+  @override
+  String get moneyStepConverted => 'Converti en pUSD';
+
+  @override
+  String get moneyStepApproving => 'Autorisation de dépense';
+
+  @override
+  String get moneyStepApproved => 'Dépense autorisée';
+
+  @override
+  String get moneyStepConfirming => 'Confirmation du solde';
+
+  @override
+  String get moneyStepConfirmed => 'Solde confirmé';
+
+  @override
+  String get moneyStepCrediting => 'Crédit sur le solde de trading';
+
+  @override
+  String get moneyStepCredited => 'Crédité sur le solde de trading';
+
+  @override
+  String moneyStepBuying(String amount) {
+    return 'Achat de $amount de Bitcoin';
+  }
+
+  @override
+  String moneyStepBought(String amount) {
+    return '$amount de Bitcoin achetés';
+  }
+
+  @override
+  String get moneyStepArriving => 'Arrivée dans Bitcoin';
+
+  @override
+  String get moneyStepArrived => 'Arrivé dans Bitcoin';
 }

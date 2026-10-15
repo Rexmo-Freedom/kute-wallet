@@ -10835,4 +10835,76 @@ class AppLocalizationsEt extends AppLocalizations {
   String polyRiskOutcome(String outcome, String cost, String payout) {
     return 'Kui $outcome kaotab, kaotad $cost; kui see võidab, saad $payout.';
   }
+
+  @override
+  String moneyStepMovingFrom(String amount, String source) {
+    return 'Liigutame $amount kontolt $source';
+  }
+
+  @override
+  String moneyStepMovedFrom(String amount, String source) {
+    return '$amount liigutatud kontolt $source';
+  }
+
+  @override
+  String moneyStepMovingFromTo(
+      String amount, String source, String destination) {
+    return 'Liigutame $amount: $source → $destination';
+  }
+
+  @override
+  String moneyStepMovedFromTo(
+      String amount, String source, String destination) {
+    return '$amount liigutatud: $source → $destination';
+  }
+
+  @override
+  String moneyStepMoveFailed(String amount, String source) {
+    return '$amount kontolt $source ei liikunud';
+  }
+
+  @override
+  String moneyStepFellBack(String source, String via) {
+    return 'Konto $source marsruut on hõivatud, läheme läbi konto $via';
+  }
+
+  @override
+  String get moneyStepConverting => 'Teisendame pUSD-ks';
+
+  @override
+  String get moneyStepConverted => 'Teisendatud pUSD-ks';
+
+  @override
+  String get moneyStepApproving => 'Kinnitame kulutusõiguse';
+
+  @override
+  String get moneyStepApproved => 'Kulutusõigus kinnitatud';
+
+  @override
+  String get moneyStepConfirming => 'Kontrollime saldot';
+
+  @override
+  String get moneyStepConfirmed => 'Saldo kinnitatud';
+
+  @override
+  String get moneyStepCrediting => 'Kanname kauplemissaldole';
+
+  @override
+  String get moneyStepCredited => 'Kantud kauplemissaldole';
+
+  @override
+  String moneyStepBuying(String amount) {
+    return 'Ostame Bitcoini $amount eest';
+  }
+
+  @override
+  String moneyStepBought(String amount) {
+    return 'Ostetud Bitcoini $amount eest';
+  }
+
+  @override
+  String get moneyStepArriving => 'Jõuab kontole Bitcoin';
+
+  @override
+  String get moneyStepArrived => 'Jõudis kontole Bitcoin';
 }

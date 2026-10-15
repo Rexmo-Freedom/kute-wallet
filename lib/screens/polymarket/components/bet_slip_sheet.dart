@@ -3846,8 +3846,11 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       return;
     }
     final rest = other;
-    final btcLeg =
-        BitcoinLegGrants.limit(maxSats: leg.maxSats, ownSpark: ownSpark);
+    // The Bitcoin leg the approval binds: via Dollars to the own Spark
+    // address, or straight to the own Predictions deposit.
+    final btcLeg = await bitcoinLegLimitFor(container.read,
+        venue: OneBalanceVenue.predictions, leg: leg, ownSpark: ownSpark);
+    if (!mounted) return;
     // The ONE approval: the bet, the Dollars it may take, the other
     // venue's legs straight into Predictions, the bitcoin leg. Held as the
     // bet's autofire grant. Declined: nothing is quoted or moved.
@@ -3919,8 +3922,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           // Runs whatever happens to this slip: reads only the container.
           // The rest from the other venue under the same grant, then the
           // move from Dollars.
-          fundVenue: (controller,
-              {required bitcoinSentAt, required bitcoinLandedAt}) async {
+          fundVenue: (controller, legs) async {
             final current = container.read(pendingPolymarketBetProvider);
             if (current == null ||
                 current.tokenId != pending.tokenId ||
@@ -3933,6 +3935,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                     ?.usdcBalance ??
                 balance;
             return fundRestThenMove(
+              legs: legs,
               puller: container.read(venueCashPullerProvider),
               venue: OneBalanceVenue.predictions,
               fundUsd: plan.fundUsd,
@@ -5564,6 +5567,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
               active: progress.active,
               slow: progress.record.slow,
               failed: progress.failed,
+              graph: progress.record.steps,
+              money: _fiatCompanion,
               note: progress.failed
                   ? fundedStopLine(
                       context.l10n, progress.record, _fiatCompanion)
