@@ -73,6 +73,11 @@ class MainActivity: FlutterFragmentActivity() {
         if (!flutterEngine.plugins.has(ContinuousHapticsPlugin::class.java)) {
             flutterEngine.plugins.add(ContinuousHapticsPlugin())
         }
+        // Network changes (`kute/network_path`): a VPN or network switch
+        // re-asks every region answer.
+        if (!flutterEngine.plugins.has(NetworkPathPlugin::class.java)) {
+            flutterEngine.plugins.add(NetworkPathPlugin())
+        }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
             .setMethodCallHandler { call, result ->
                 when (call.method) {

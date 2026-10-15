@@ -316,6 +316,7 @@ void main() {
     const slot = RuntimePolicySlot.session;
     final disk = MemoryRuntimePolicySnapshotStore();
     final denied = policy(trade: false);
+    (denied['capabilities'] as Map)['hyperliquid.trade']['reason'] = 'disabled';
     disk.write(
         slot,
         StoredRuntimePolicy(
@@ -324,11 +325,35 @@ void main() {
     setup((_) => http.Response('', 503), store: disk);
     service.restore();
     expect(service.allows('hyperliquid.trade'), isFalse);
-    expect(service.decision('hyperliquid.trade').reason, 'country_blocked');
+    expect(service.decision('hyperliquid.trade').reason, 'disabled');
     await expectLater(
         service.ensureAllowed('hyperliquid.trade'),
         throwsA(isA<CapabilityUnavailableException>()
-            .having((e) => e.decision.reason, 'reason', 'country_blocked')));
+            .having((e) => e.decision.reason, 'reason', 'disabled')));
+    service.dispose();
+
+    // A restored region denial was asked before this launch, maybe from
+    // another country: it waits for the launch fetch. Unanswered, it is an
+    // unknown location, which never blocks...
+    disk.write(
+        slot,
+        StoredRuntimePolicy(
+            owner: 'wallet-a', fetchedAt: origin, policy: policy(trade: false)));
+    setup((_) => http.Response('', 503), store: disk);
+    service.restore();
+    expect(service.allows('hyperliquid.trade'), isTrue);
+    expect(service.decision('hyperliquid.trade').reason, 'country_unknown');
+    await service.ensureAllowed('hyperliquid.trade');
+    service.dispose();
+
+    // ...and once the launch fetch confirms it, it blocks again.
+    setup((_) => http.Response(jsonEncode(policy(trade: false)), 200),
+        store: disk);
+    service.restore();
+    expect(service.allows('hyperliquid.trade'), isTrue);
+    expect(await service.refresh(), isTrue);
+    expect(service.allows('hyperliquid.trade'), isFalse);
+    expect(service.decision('hyperliquid.trade').reason, 'country_blocked');
     service.dispose();
 
     disk.write(
@@ -484,8 +509,9 @@ void main() {
     expect(service.publicSnapshot, isNull);
     expect(service.allows('polymarket.trade'), isTrue);
     expect(service.decision('polymarket.trade').reason, 'offline_grace');
-    expect(service.allows('hyperliquid.stocks'), isFalse);
-    expect(service.decision('hyperliquid.stocks').reason, 'country_blocked');
+    // The saved region denial came from an earlier network: unknown now.
+    expect(service.allows('hyperliquid.stocks'), isTrue);
+    expect(service.decision('hyperliquid.stocks').reason, 'offline_grace');
     expect(service.allows('trading.advanced'), isFalse);
     expect(service.decision('trading.advanced').reason, 'policy_unavailable');
     expect(service.polymarketBuilderCode, 'kute-builder');
@@ -700,6 +726,91 @@ void main() {
             reason: '$id +$at');
       }
     }
+  });
+
+  test('on the same network a region denial stands through an outage, and a '
+      'fresh allow lifts it at once', () async {
+    var online = true;
+    var blocked = true;
+    setup((_) => http.Response(
+        online ? jsonEncode(policy(trade: !blocked)) : '', online ? 200 : 503));
+    await service.refresh();
+    online = false;
+    // Hours later, still on the same network, backend unreachable.
+    now = now.add(const Duration(hours: 5));
+    expect(service.allows('hyperliquid.trade'), isFalse);
+    await expectLater(
+        service.ensureAllowed('hyperliquid.trade'),
+        throwsA(isA<CapabilityUnavailableException>()
+            .having((e) => e.decision.reason, 'reason', 'country_blocked')));
+    online = true;
+    blocked = false;
+    await service.ensureAllowed('hyperliquid.trade');
+    expect(service.allows('hyperliquid.trade'), isTrue);
+  });
+
+  test('a network change stops trusting a region denial and asks again',
+      () async {
+    var blocked = true;
+    var requests = 0;
+    setup((_) {
+      requests++;
+      return http.Response(jsonEncode(policy(trade: !blocked)), 200);
+    });
+    var notified = 0;
+    service.addListener(() => notified++);
+    expect(await service.refresh(), isTrue);
+    expect(service.decision('hyperliquid.trade').reason, 'country_blocked');
+    // The VPN switches country: the next fetch answers allowed.
+    blocked = false;
+    final landed = service.networkChanged();
+    // The old answer stays on screen while the new network answers, so a
+    // re-check never flickers...
+    expect(service.allows('hyperliquid.trade'), isFalse);
+    expect(await landed, isTrue);
+    // ...and the new answer replaces it, heard by every listener.
+    expect(requests, 2);
+    expect(service.allows('hyperliquid.trade'), isTrue);
+    expect(notified, greaterThanOrEqualTo(2));
+  });
+
+  test('a network change with the backend unreachable never shows the old '
+      'region block', () async {
+    var online = true;
+    setup((_) => http.Response(
+        online ? jsonEncode(policy(trade: false)) : '', online ? 200 : 503));
+    expect(await service.refresh(), isTrue);
+    expect(service.allows('hyperliquid.trade'), isFalse);
+    online = false;
+    expect(await service.networkChanged(), isFalse);
+    // The fresh policy was asked on another network: unknown location.
+    expect(service.allows('hyperliquid.trade'), isTrue);
+    expect(service.decision('hyperliquid.trade').reason, 'country_unknown');
+    await service.ensureAllowed('hyperliquid.trade');
+  });
+
+  test('a tap asks again before showing a refusal', () async {
+    var blocked = true;
+    var requests = 0;
+    setup((_) {
+      requests++;
+      return http.Response(jsonEncode(policy(trade: !blocked)), 200);
+    });
+    expect(await service.refresh(), isTrue);
+    expect(await service.confirmDecision('hyperliquid.close'),
+        isA<CapabilityDecision>().having((d) => d.allowed, 'allowed', isTrue));
+    expect(requests, 1, reason: 'an allowed door answers at once');
+    blocked = false;
+    final decision = await confirmCapability(service, 'hyperliquid.trade');
+    expect(requests, 2);
+    expect(decision.allowed, isTrue);
+    // A refusal is never read from a reused policy either.
+    blocked = true;
+    await service.refresh();
+    blocked = false;
+    await service.ensureAllAllowed(['hyperliquid.trade'],
+        maxAge: const Duration(minutes: 1));
+    expect(requests, 4);
   });
 
   for (final reason in ['country_blocked', 'disabled', 'app_update_required']) {

@@ -64,9 +64,12 @@ import 'package:kute/providers/pending_polymarket_bet_provider.dart';
 ///
 /// While the policy withholds `polymarket.deposit` the door opens nothing
 /// and says why instead, in the shared unavailable sheet.
-void _openPredictionsDeposit(BuildContext context, WidgetRef ref) {
-  final decision =
-      ref.read(runtimeCapabilitiesProvider).decision('polymarket.deposit');
+///
+/// A refusal is asked again before it is shown ([confirmCapability]).
+Future<void> _openPredictionsDeposit(BuildContext context, WidgetRef ref) async {
+  final decision = await confirmCapability(
+      ref.read(runtimeCapabilitiesProvider), 'polymarket.deposit');
+  if (!context.mounted) return;
   if (!decision.allowed || decision.comingSoon) {
     showCapabilityDecisionSheet(context, decision);
     return;

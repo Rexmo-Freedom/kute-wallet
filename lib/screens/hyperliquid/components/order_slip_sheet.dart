@@ -151,6 +151,7 @@ import 'package:kute/services/one_balance/venue_funder.dart'
 import 'package:kute/providers/venue_sweeper_provider.dart'
     show venueSweeperProvider;
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
+import 'package:kute/services/region_freshness.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/screens/shared/capability_block_note.dart';
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
@@ -700,11 +701,26 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       regionBlocked =
           error.availability.status == ProviderAvailabilityStatus.restricted;
     } catch (_) {
-      // Unanswered: confirm asks again and says why there.
+      // Unanswered: confirm asks again and says why there. An unanswered
+      // check never shows a refusal, so one shown earlier goes too.
     }
-    if (message == null || !mounted) return;
-    if (regionBlocked) TrackingService.hyperliquidGeoblockedShown();
+    if (!mounted || _isPlacing || _orderInFlight) return;
+    if (message == null) {
+      // Allowed now: a refusal shown earlier (asked again after a network
+      // change or resume) goes away.
+      if (_openGateMessage != null) _updateDraft(() => _openGateMessage = null);
+      return;
+    }
+    // Counted once per refusal shown, not again for each re-check.
+    if (regionBlocked && _openGateMessage == null) {
+      TrackingService.hyperliquidGeoblockedShown();
+    }
     _updateDraft(() => _openGateMessage = message);
+  }
+
+  void _onRegionAnswers() {
+    if (!mounted || _openGateMessage == null) return;
+    unawaited(_resolveOpenGate());
   }
 
   void _stopped(String reason, {Object? error}) {
@@ -912,7 +928,13 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     _livePrices = ref.read(hyperliquidLivePricesProvider.notifier);
     _livePrices!.acquire();
 
-    if (!_isLedger) unawaited(_resolveOpenGate());
+    if (!_isLedger) {
+      unawaited(_resolveOpenGate());
+      // A refusal worked out at open belongs to the network it was asked
+      // on: after a resume, a network or VPN change, or a venue answer
+      // that flipped, the gate asks again and lifts it when it is gone.
+      RegionFreshness.answers.addListener(_onRegionAnswers);
+    }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -924,6 +946,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
 
   @override
   void dispose() {
+    if (!_isLedger) RegionFreshness.answers.removeListener(_onRegionAnswers);
     if (!_submitted) {
       try {
         TrackingService.track('hyperliquid_order_slip_abandoned', params: {

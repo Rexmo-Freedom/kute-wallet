@@ -4510,6 +4510,27 @@ class TrackingService {
   static void polymarketGeoblockedShown() =>
       track('polymarket_geoblocked_shown');
 
+  /// One live venue location check (Polymarket's geoblock, Hyperliquid's
+  /// legal check; cache hits are not sent). `trigger`: resume |
+  /// network_change | tap | startup | timer. `changed`: the answer differs
+  /// from this venue's previous live answer this session. `result`:
+  /// allowed | restricted | unknown. No address, IP or country is sent.
+  static void regionChecked({
+    required String venue,
+    required String trigger,
+    required bool changed,
+    required String result,
+  }) =>
+      track(
+          venue == 'hyperliquid'
+              ? 'investments_region_checked'
+              : 'predictions_region_checked',
+          params: {
+            'trigger': trigger,
+            'changed': changed,
+            'result': result,
+          });
+
   static void polymarketSellInitiated({
     required String marketId,
     String? category,

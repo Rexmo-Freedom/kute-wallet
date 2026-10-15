@@ -57,6 +57,7 @@ import 'package:kute/screens/shared/kute_dog_scenes.dart';
 import 'package:kute/services/investment_provider_availability.dart'
     show ProviderAvailabilityException, ProviderAvailabilityStatus;
 import 'package:kute/services/polymarket/polymarket_category_gate.dart';
+import 'package:kute/services/region_freshness.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
@@ -214,9 +215,18 @@ class _PortfolioBuilderScreenState
     super.initState();
     if (_isPredictions) {
       unawaited(_resolveOpenGate());
+      // A refusal worked out at open belongs to the network it was asked
+      // on: after a resume, a network or VPN change, or a venue answer
+      // that flipped, the gate asks again and lifts it when it is gone.
+      RegionFreshness.answers.addListener(_onRegionAnswers);
     } else {
       _gateAnswered = true;
     }
+  }
+
+  void _onRegionAnswers() {
+    if (!mounted || _gateMessage == null || _runOnScreen) return;
+    unawaited(_resolveOpenGate());
   }
 
   Future<void> _resolveOpenGate() async {
@@ -317,6 +327,9 @@ class _PortfolioBuilderScreenState
 
   @override
   void dispose() {
+    if (_isPredictions) {
+      RegionFreshness.answers.removeListener(_onRegionAnswers);
+    }
     _searchCtrl.dispose();
     super.dispose();
   }
@@ -410,11 +423,13 @@ class _PortfolioBuilderScreenState
   String? get _depositBlock =>
       ref.watch(runtimeCapabilitiesProvider).blockReason(_depositCapability);
 
-  void _deposit() {
+  Future<void> _deposit() async {
     // A withheld deposit capability opens nothing: the door is already
-    // disabled, and a tap racing the policy change must not slip through.
-    final policy = ref.read(runtimeCapabilitiesProvider);
-    if (policy.blockReason(_depositCapability) != null) return;
+    // disabled, and a tap racing the policy change must not slip through
+    // (a refusal is asked again first, [confirmCapability]).
+    final decision = await confirmCapability(
+        ref.read(runtimeCapabilitiesProvider), _depositCapability);
+    if (!mounted || !decision.allowed || decision.comingSoon) return;
     showDepositSheet(context,
         ledgerWalletId: widget.ledgerWalletId,
         lockedSide: _isPredictions

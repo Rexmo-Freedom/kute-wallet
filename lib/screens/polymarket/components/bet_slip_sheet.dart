@@ -78,9 +78,11 @@ import 'package:kute/screens/ledger/ledger_investment_gate.dart'
         ledgerPredictionsCapability,
         ledgerInvestmentAllowed,
         showLedgerInvestmentUnavailable;
+import 'package:kute/services/region_freshness.dart';
 import 'package:kute/services/runtime_capabilities_service.dart'
     show
         CapabilityUnavailableException,
+        confirmCapability,
         RuntimeCapabilitiesService,
         runtimeCapabilitiesProvider;
 import 'package:kute/theme/app_theme.dart';
@@ -944,7 +946,21 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     // Resolve the regional / capability gate behind the first frame.
     // Only the root slip runs it — Advanced is pushed from an already
     // resolved slip and shares its draft.
-    if (!widget._advanced) unawaited(_resolveCapabilityGate());
+    if (!widget._advanced) {
+      unawaited(_resolveCapabilityGate());
+      // A refusal worked out at open belongs to the network it was asked
+      // on: after a resume, a network or VPN change, or a venue answer
+      // that flipped, the gate asks again and lifts it when it is gone.
+      RegionFreshness.answers.addListener(_onRegionAnswers);
+    }
+  }
+
+  void _onRegionAnswers() {
+    if (!mounted || _isPlacing || _buyInFlight) return;
+    if (_draft.openBlockMessage == null && _draft.openOfflineNote == null) {
+      return;
+    }
+    unawaited(_resolveCapabilityGate());
   }
 
   /// Ask the policy whether this user may place a prediction at all.
@@ -979,17 +995,31 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     }
     if (!mounted || _isPlacing || _buyInFlight) return;
     if (message == null) {
-      // Allowed. When that is the last check standing in for a policy
-      // that cannot be reached (offline grace), say so above the button,
-      // which stays enabled.
+      // Allowed. A refusal shown earlier (a stale region answer, asked
+      // again after a network change or resume) goes away. When that is
+      // the last check standing in for a policy that cannot be reached
+      // (offline grace), say so above the button, which stays enabled.
       var offlineGrace = false;
+      String? offlineNote;
       for (final id in _betCapabilities()) {
         final decision = RuntimeCapabilitiesService.instance.decision(id);
         if (decision.offline) {
           offlineGrace = true;
-          _updateState(() => _draft.openOfflineNote = decision.message);
+          offlineNote = decision.message;
           break;
         }
+      }
+      if (_draft.openBlockMessage != null) {
+        // The refusal no longer stands, so it is not why the slip stops.
+        _draft.stopReason = null;
+        _draft.lastErrorCategory = null;
+      }
+      if (_draft.openBlockMessage != null ||
+          _draft.openOfflineNote != offlineNote) {
+        _updateState(() {
+          _draft.openBlockMessage = null;
+          _draft.openOfflineNote = offlineNote;
+        });
       }
       // Only a policy that answered lets the slip get a bet ready early.
       if (!offlineGrace) {
@@ -1006,7 +1036,11 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       _updateState(() => _draft.openOfflineNote = message);
       return;
     }
-    if (regionBlocked) TrackingService.polymarketGeoblockedShown();
+    // Counted once per refusal shown, not again for each re-check that
+    // confirms it.
+    if (regionBlocked && _draft.openBlockMessage == null) {
+      TrackingService.polymarketGeoblockedShown();
+    }
     _stopped(regionBlocked ? 'geoblocked' : reason);
     _draft.lastErrorCategory = reason;
     _updateState(() => _draft.openBlockMessage = message);
@@ -1336,7 +1370,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       {required double balance,
       required String mode,
       required String outcomeLabel}) async {
-    if (_refuseBlockedDeposit() != null) {
+    if (await _refuseBlockedDeposit() != null) {
       _stopped('insufficient_balance');
       PolymarketPlacementDiagnostics.declined('deposit_blocked');
       PolymarketPlacementTimeline.finish('declined',
@@ -1694,6 +1728,9 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
 
   @override
   void dispose() {
+    if (!widget._advanced) {
+      RegionFreshness.answers.removeListener(_onRegionAnswers);
+    }
     // Abandonment funnel signal — fires only when the user dismissed
     // the slip without proceeding to place an order. We pass the
     // market question as `market_id` (truncated to 80 chars by the
@@ -1827,19 +1864,14 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   }
 
   /// Null when a deposit into Predictions may start; otherwise the reason,
-  /// already shown to the user. Read at tap time, not watched.
-  String? _refuseBlockedDeposit() {
-    final block = ref
-        .read(runtimeCapabilitiesProvider)
-        .blockReason('polymarket.deposit');
-    if (block != null && mounted) {
-      unawaited(showCapabilityDecisionSheet(
-          context,
-          ref
-              .read(runtimeCapabilitiesProvider)
-              .decision('polymarket.deposit')));
-    }
-    return block;
+  /// already shown to the user. Read at tap time, not watched: a refusal
+  /// is asked again before it is shown ([confirmCapability]).
+  Future<String?> _refuseBlockedDeposit() async {
+    final decision = await confirmCapability(
+        ref.read(runtimeCapabilitiesProvider), 'polymarket.deposit');
+    if (decision.allowed && !decision.comingSoon) return null;
+    if (mounted) unawaited(showCapabilityDecisionSheet(context, decision));
+    return decision.message;
   }
 
   /// The price cap shown before the book is read: the quote's own rule
@@ -2349,7 +2381,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
 
   Future<void> _depositLedger() async {
     if (_draft.ledgerBusy || _draft.ledgerPending) return;
-    if (_refuseBlockedDeposit() != null) return;
+    if (await _refuseBlockedDeposit() != null || !mounted) return;
     final walletId = widget.ledgerWalletId!;
     FocusManager.instance.primaryFocus?.unfocus();
     _updateState(() => _draft.ledgerBusy = true);
@@ -3326,7 +3358,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
 
     // A withheld `polymarket.deposit` shuts every door into Predictions,
     // this one included: the bet stays unplaced and the slip says why.
-    if (_refuseBlockedDeposit() != null) {
+    if (await _refuseBlockedDeposit() != null) {
       _stopped('insufficient_balance');
       PolymarketPlacementDiagnostics.declined('deposit_blocked');
       PolymarketPlacementTimeline.finish('declined',
@@ -4109,7 +4141,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
 
   /// "Add more" under "Deposit incoming": the rest of the shortfall.
   Future<void> _addMoreDeposit(double shortfallUsd, double incomingUsd) async {
-    if (_refuseBlockedDeposit() != null) return;
+    if (await _refuseBlockedDeposit() != null || !mounted) return;
     await openSlipTopUp(
       context,
       ref,

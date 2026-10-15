@@ -16,7 +16,11 @@ import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/hyperliquid_fee_summary.dart';
 import 'package:kute/screens/shared/portfolio_builder/builder_legs_provider.dart';
 import 'package:kute/screens/shared/portfolio_builder/portfolio_builder_screen.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:kute/services/investment_provider_availability.dart';
+import 'package:kute/services/network_change_signal.dart';
+import 'package:kute/services/region_freshness.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -401,6 +405,27 @@ void main() {
           findsOneWidget);
       expect(find.widgetWithText(AppButton, 'Close'), findsOneWidget);
       expectNoBuilder();
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+        'a region block lifts by itself once the network changes and the '
+        'venue allows', (tester) async {
+      final policy = _Policy()..venueRestricted = true;
+      await _pump(tester, policy: policy);
+      expect(find.text('Not available in your region'), findsOneWidget);
+      // Landed where predictions are allowed (or the VPN switched): the
+      // network-change round asks again and the screen hears it.
+      policy.venueRestricted = false;
+      await tester.runAsync(() => RegionFreshness.recheck(
+          RegionRecheckTrigger.networkChange,
+          providers: InvestmentProviderAvailability(
+              client: MockClient((_) async => http.Response('{}', 200))),
+          policy: policy));
+      await tester.pumpAndSettle();
+      expect(policy.checks, hasLength(2));
+      expect(find.text('Not available in your region'), findsNothing);
+      expect(find.text(_event.title), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 

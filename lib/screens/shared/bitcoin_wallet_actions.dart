@@ -118,14 +118,15 @@ class BitcoinWalletPrimaryActions extends ConsumerWidget {
                 // same control pointed at two balances.
                 text: context.l10n.purchaseBitcoin,
                 svgAsset: kBitcoinMarkAsset,
-                onPressed: () {
+                onPressed: () async {
                   TrackingService.quickAction('purchase', source: source);
                   if (!wallet.isSparkWallet &&
-                      !anyOnrampVisible(
+                      !await confirmAnyOnrampVisible(
                           ref.read(runtimeCapabilitiesProvider))) {
-                    showBuyUnavailableSheet(context);
+                    if (context.mounted) showBuyUnavailableSheet(context);
                     return;
                   }
+                  if (!context.mounted) return;
                   if (!_pinBitcoinWallet(context, ref, wallet)) return;
                   showDepositSheet(
                     context,

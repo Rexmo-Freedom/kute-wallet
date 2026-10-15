@@ -1,3 +1,4 @@
+import 'package:kute/services/region_freshness.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'dart:async';
 import 'package:kute/app_widget.dart';
@@ -279,6 +280,10 @@ Future<void> _initializeApp() async {
   // yet; a wallet without a stored session keeps the public policy until
   // the background registration mints one.
   final publicPolicyFetched = RuntimeCapabilitiesService.instance.start();
+  // Region answers follow the network: the venue checks and the policy's
+  // region denials are asked again on resume and on a network or VPN
+  // change (native path listener), so a stale "restricted" never sticks.
+  RegionFreshness.start();
   final sessionRestored = AffiliateService.restore().catchError((_) {});
   final sessionPolicyFetched = sessionRestored
       .then((_) => RuntimeCapabilitiesService.instance.refreshAfterCurrent());

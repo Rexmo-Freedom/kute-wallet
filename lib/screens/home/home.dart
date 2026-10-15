@@ -1278,7 +1278,7 @@ class _HomeActions extends ConsumerWidget {
             activeWallet.isWatchOnly ||
             activeWallet.isExternalAddress);
     final isUsdc = !isCold && selectedAsset == WalletCardType.usdc;
-    void fundPredictions(bool deposit) {
+    Future<void> fundPredictions(bool deposit) async {
       if (activeWallet == null ||
           ref.read(settingsProvider).activeWalletId != activeWallet.id) {
         showMessageSnackBar(
@@ -1287,9 +1287,12 @@ class _HomeActions extends ConsumerWidget {
             error: true);
         return;
       }
-      final decision = ref
-          .read(runtimeCapabilitiesProvider)
-          .decision('polymarket.${deposit ? 'deposit' : 'withdraw'}');
+      // A refusal is asked again before it is shown (a stale region
+      // answer from another network never shuts the door).
+      final decision = await confirmCapability(
+          ref.read(runtimeCapabilitiesProvider),
+          'polymarket.${deposit ? 'deposit' : 'withdraw'}');
+      if (!context.mounted) return;
       if (!decision.allowed) {
         TrackingService.track('feature_unavailable_shown', params: {
           'feature': deposit ? 'predictions_deposit' : 'predictions_withdraw',

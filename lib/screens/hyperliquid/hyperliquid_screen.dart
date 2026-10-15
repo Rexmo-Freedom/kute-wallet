@@ -295,9 +295,11 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
 
   /// Deposit into the Hyperliquid trading account. Routes through the
   /// shared Move sheet locked to native HyperCore funding. Gated by remote config.
-  void _showDeposit() {
-    final decision =
-        ref.read(runtimeCapabilitiesProvider).decision('hyperliquid.deposit');
+  /// A refusal is asked again before it is shown ([confirmCapability]).
+  Future<void> _showDeposit() async {
+    final decision = await confirmCapability(
+        ref.read(runtimeCapabilitiesProvider), 'hyperliquid.deposit');
+    if (!mounted) return;
     if (!decision.allowed || decision.comingSoon) {
       TrackingService.track('hyperliquid_funding_blocked',
           params: {'direction': 'deposit', 'reason': 'flag_off'});
@@ -310,17 +312,19 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
   /// Withdraw spendable USDC out of the trading account back to Bitcoin via
   /// the Move sheet locked to the Trading-withdraw side. Gated by remote
   /// config.
-  void _showWithdraw() {
-    // An exit: only `hyperliquid.withdraw` itself can shut it.
+  Future<void> _showWithdraw() async {
+    // An exit: only `hyperliquid.withdraw` itself can shut it, and a
+    // refusal is asked again before it is shown ([confirmCapability]).
     if (!ref.read(hyperliquidWithdrawalsEnabledProvider)) {
-      TrackingService.track('hyperliquid_funding_blocked',
-          params: {'direction': 'withdraw', 'reason': 'flag_off'});
-      showCapabilityDecisionSheet(
-          context,
-          ref
-              .read(runtimeCapabilitiesProvider)
-              .decision('hyperliquid.withdraw'));
-      return;
+      final decision = await confirmCapability(
+          ref.read(runtimeCapabilitiesProvider), 'hyperliquid.withdraw');
+      if (!mounted) return;
+      if (!decision.allowed || decision.comingSoon) {
+        TrackingService.track('hyperliquid_funding_blocked',
+            params: {'direction': 'withdraw', 'reason': 'flag_off'});
+        showCapabilityDecisionSheet(context, decision);
+        return;
+      }
     }
     showDepositSheet(context,
         lockedSide: MoveLockedSide.withdrawFromHyperliquid);

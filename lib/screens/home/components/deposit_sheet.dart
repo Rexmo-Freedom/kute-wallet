@@ -4983,12 +4983,15 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// funds from the spending wallet only), so the BTC lands in spending
   /// and they deposit onward from there. With no rail on offer it opens
   /// the "Buy unavailable" sheet instead and the move stays as it was.
-  void _depositMore() {
+  Future<void> _depositMore() async {
     HapticFeedback.selectionClick();
-    if (!_anyOnrampVisible) {
-      showBuyUnavailableSheet(context);
+    // A refusal is asked again before "Buy unavailable" is shown.
+    if (!_anyOnrampVisible &&
+        !await confirmAnyOnrampVisible(ref.read(runtimeCapabilitiesProvider))) {
+      if (mounted) showBuyUnavailableSheet(context);
       return;
     }
+    if (!mounted) return;
     TrackingService.track('move_deposit_more_tapped', params: {
       'dest': _destPredictions
           ? 'predictions'

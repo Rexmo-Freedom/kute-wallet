@@ -370,6 +370,20 @@ class RuntimeCapabilitiesService extends ChangeNotifier
   /// The public policy, fresh or not, and when it was fetched.
   RuntimeCapabilities? _public;
   DateTime? _publicFetchedAt;
+
+  /// Bumped by [networkChanged]. Each policy remembers the epoch its fetch
+  /// started in; a region denial from an older network is not trusted
+  /// (see [_regionTrusted]). Policies restored from disk carry
+  /// [_restoredEpoch]: they were asked before this launch.
+  int _networkEpoch = 0;
+  static const _restoredEpoch = -1;
+  int _snapshotEpoch = _restoredEpoch;
+  int _publicEpoch = _restoredEpoch;
+
+  /// False only while [confirmDecision] answers a tap whose fresh policy
+  /// did not arrive in time: then a refresh still in flight does not keep
+  /// a region denial from another network standing.
+  bool _trustWhileRefreshing = true;
   Future<bool>? _refresh;
   Timer? _expiryTimer;
   Timer? _publicExpiryTimer;
@@ -473,7 +487,9 @@ class RuntimeCapabilitiesService extends ChangeNotifier
     final current = snapshot;
     if (current != null) {
       final value = current.capabilities[id];
-      if (value != null) return _locationDecision(id, value);
+      if (value != null) {
+        return _regional(_locationDecision(id, value), _snapshotEpoch);
+      }
       return const CapabilityDecision(
           allowed: false, reason: 'unknown_capability');
     }
@@ -481,7 +497,7 @@ class RuntimeCapabilitiesService extends ChangeNotifier
     if (public != null) {
       final value = public.capabilities[id];
       if (value != null && !_isAccountUnknown(value)) {
-        return _locationDecision(id, value);
+        return _regional(_locationDecision(id, value), _publicEpoch);
       }
       // An account rule the public route cannot evaluate, or an id it does
       // not name: the last session policy decides, else the offline table.
@@ -498,19 +514,70 @@ class RuntimeCapabilitiesService extends ChangeNotifier
     return value;
   }
 
+  /// [value] as it may be shown now: a region denial that is no longer
+  /// trusted ([_regionTrusted]) reads as an unknown location, allowed,
+  /// the same answer a loaded policy gives when it cannot place the
+  /// caller. Every other decision is returned as it is.
+  CapabilityDecision _regional(CapabilityDecision value, int epoch) {
+    if (value.allowed || value.comingSoon || !value.regionRestricted) {
+      return value;
+    }
+    if (_regionTrusted(epoch)) return value;
+    return const CapabilityDecision(allowed: true, reason: 'country_unknown');
+  }
+
+  /// Whether a region denial (`country_blocked`, `country_not_allowed`)
+  /// fetched in network [epoch] is believed. The backend places the caller
+  /// by the connection, so the answer belongs to the network it was asked
+  /// on:
+  ///   * same network, no change since: believed, through an outage too,
+  ///     for as long as the policy itself is (the offline grace); a fresh
+  ///     allow replaces it at once;
+  ///   * asked before a network change: believed only while the refetch
+  ///     on the new network is answering (so a re-check never flickers;
+  ///     a tap always waits for that answer). If the refetch fails it is
+  ///     an unknown location: a denial from another network says nothing
+  ///     about where the person is now;
+  ///   * restored from disk at launch: never, until this launch's fetch
+  ///     answers. Everything else in a restored policy still applies.
+  bool _regionTrusted(int epoch) {
+    if (epoch == _networkEpoch) return true;
+    if (epoch == _restoredEpoch) return false;
+    return _refresh != null && _trustWhileRefreshing;
+  }
+
+  /// The network may have changed (lib/services/region_freshness.dart):
+  /// region denials fetched before now stop being trusted, and the
+  /// policies are fetched again on the new network. Screens hear both.
+  /// Resolves with that fetch's outcome.
+  Future<bool> networkChanged() {
+    _networkEpoch++;
+    if (!_disposed) notifyListeners();
+    return refreshAfterCurrent();
+  }
+
   /// The decision with no fresh policy: what the policies last fetched said.
   CapabilityDecision _unavailableDecision(String id) {
     // The last decisions on hand for [id], session policy first. Account
     // rules the public route could not evaluate say nothing.
     final previous = <(CapabilityDecision, DateTime?)>[
       if (_held?.capabilities[id] case final value?)
-        (_locationDecision(id, value), _snapshotFetchedAt),
+        (
+          _regional(_locationDecision(id, value), _snapshotEpoch),
+          _snapshotFetchedAt
+        ),
       if (_public?.capabilities[id] case final value?
           when !_isAccountUnknown(value))
-        (_locationDecision(id, value), _publicFetchedAt),
+        (
+          _regional(_locationDecision(id, value), _publicEpoch),
+          _publicFetchedAt
+        ),
     ];
     // A failed refresh must not turn a previously observed admin disablement,
-    // version requirement or explicit country block into permission...
+    // version requirement or explicit country block into permission. A
+    // country block asked from another network (before a network change,
+    // or before this launch) was already read as an unknown location
+    // above ([_regionTrusted])...
     for (final (decision, _) in previous) {
       if (!decision.allowed || decision.comingSoon) return decision;
     }
@@ -609,6 +676,7 @@ class RuntimeCapabilitiesService extends ChangeNotifier
         _snapshot = stored.$1;
         _snapshotOwner = stored.$2.owner;
         _snapshotFetchedAt = stored.$2.fetchedAt;
+        _snapshotEpoch = _restoredEpoch;
         adopted = true;
       }
     }
@@ -617,6 +685,7 @@ class RuntimeCapabilitiesService extends ChangeNotifier
       if (stored != null && stored.$2.owner == kPublicPolicyOwner) {
         _public = stored.$1;
         _publicFetchedAt = stored.$2.fetchedAt;
+        _publicEpoch = _restoredEpoch;
         adopted = true;
       }
     }
@@ -653,6 +722,11 @@ class RuntimeCapabilitiesService extends ChangeNotifier
     _refresh = future;
     return future.whenComplete(() {
       if (identical(_refresh, future)) _refresh = null;
+    }).then((landed) {
+      // Nothing new landed: a region denial that was only shown while
+      // this refresh answered may no longer be trusted. Screens re-read.
+      if (!landed && !_disposed) notifyListeners();
+      return landed;
     });
   }
 
@@ -670,6 +744,7 @@ class RuntimeCapabilitiesService extends ChangeNotifier
   /// policy; with a fresh session policy, the session policy only. True
   /// when either landed fresh.
   Future<bool> _fetch() async {
+    final epoch = _networkEpoch;
     final backend = _baseUrl().replaceFirst(RegExp(r'/$'), '');
     if (backend.isEmpty) return false;
     final context = await requestContextHeaders();
@@ -677,9 +752,9 @@ class RuntimeCapabilitiesService extends ChangeNotifier
     if (version == null) return false;
     final query = {'platform': _platform, 'appVersion': version};
     final publicFetch = snapshot == null
-        ? _fetchPublic(backend, context, query)
+        ? _fetchPublic(backend, context, query, epoch)
         : Future<bool>.value(false);
-    final sessionLanded = await _fetchSession(backend, context, query);
+    final sessionLanded = await _fetchSession(backend, context, query, epoch);
     final publicLanded = await publicFetch;
     return sessionLanded || publicLanded;
   }
@@ -710,7 +785,7 @@ class RuntimeCapabilitiesService extends ChangeNotifier
   }
 
   Future<bool> _fetchSession(String backend, Map<String, String> context,
-      Map<String, String> query) async {
+      Map<String, String> query, int epoch) async {
     try {
       var token = await _ensureSession();
       if (token == null || token.isEmpty) return false;
@@ -739,6 +814,7 @@ class RuntimeCapabilitiesService extends ChangeNotifier
       _snapshot = value;
       _snapshotOwner = owner;
       _snapshotFetchedAt = now;
+      _snapshotEpoch = epoch;
       _store.write(RuntimePolicySlot.session,
           StoredRuntimePolicy(owner: owner, fetchedAt: now, policy: body));
       _expiryTimer?.cancel();
@@ -753,7 +829,7 @@ class RuntimeCapabilitiesService extends ChangeNotifier
   /// The public policy. A backend without the route answers 404: then the
   /// session policy alone decides, exactly as before the route existed.
   Future<bool> _fetchPublic(String backend, Map<String, String> context,
-      Map<String, String> query) async {
+      Map<String, String> query, int epoch) async {
     try {
       final uri = Uri.parse('$backend/api/v1/config/policy')
           .replace(queryParameters: query);
@@ -766,6 +842,7 @@ class RuntimeCapabilitiesService extends ChangeNotifier
       if (_public != null && value.revision < _public!.revision) return false;
       _public = value;
       _publicFetchedAt = now;
+      _publicEpoch = epoch;
       _store.write(
           RuntimePolicySlot.public,
           StoredRuntimePolicy(
@@ -801,6 +878,36 @@ class RuntimeCapabilitiesService extends ChangeNotifier
     return now.difference(fetchedAt) <= maxAge && held.expiresAt.isAfter(now);
   }
 
+  /// How long a tap waits for [confirmDecision]'s fresh policy before it
+  /// answers with what it has.
+  static const confirmTimeout = Duration(seconds: 4);
+
+  /// The decision for a door the person just tapped. An allowed decision
+  /// answers at once; a refusal is asked again (a fresh policy, at most
+  /// [confirmTimeout]) before it is shown, so a refusal from another
+  /// network or an earlier policy never shuts a door that is open now.
+  /// Never throws.
+  Future<CapabilityDecision> confirmDecision(String id) async {
+    final held = decision(id);
+    if (held.allowed && !held.comingSoon) return held;
+    bool fresh;
+    try {
+      fresh = await refresh().timeout(confirmTimeout, onTimeout: () => false);
+    } catch (_) {
+      fresh = false;
+    }
+    if (fresh) return decision(id);
+    // No fresh answer in time: what the last policies said, where a region
+    // denial from another network never counts just because a slow
+    // refresh is still on its way.
+    _trustWhileRefreshing = false;
+    try {
+      return _unavailableDecision(id);
+    } finally {
+      _trustWhileRefreshing = true;
+    }
+  }
+
   /// Shared setup can support either a new operation or an allowed exit.
   Future<void> ensureAnyAllowed(List<String> ids) async {
     assert(ids.isNotEmpty);
@@ -820,7 +927,11 @@ class RuntimeCapabilitiesService extends ChangeNotifier
     // A caller re-checking moments after a fresh check may read the policy
     // it just fetched ([maxAge]) instead of fetching it again.
     await _ensureProviderAvailability(requested);
-    final fresh = _reusable(maxAge) ? true : await refresh();
+    // A refusal is never read from a reused policy: it is asked again.
+    final reuse = _reusable(maxAge) &&
+        requested
+            .every((id) => decision(id).allowed && !decision(id).comingSoon);
+    final fresh = reuse ? true : await refresh();
     for (final id in requested) {
       final value = fresh ? decision(id) : _unavailableDecision(id);
       if (!value.allowed || value.comingSoon) {
@@ -838,6 +949,23 @@ class RuntimeCapabilitiesService extends ChangeNotifier
     _refreshTimer?.cancel();
     _client.close();
     super.dispose();
+  }
+}
+
+/// [policy]'s decision for a door the person just tapped: at once when it
+/// allows; a refusal is asked again first
+/// ([RuntimeCapabilitiesService.confirmDecision]), so a stale "unavailable"
+/// never shuts a door that is open now. A policy that cannot ask again (a
+/// test double answering [RuntimeCapabilitiesService.decision] only)
+/// keeps its answer. Never throws.
+Future<CapabilityDecision> confirmCapability(
+    RuntimeCapabilitiesService policy, String id) async {
+  final held = policy.decision(id);
+  if (held.allowed && !held.comingSoon) return held;
+  try {
+    return await policy.confirmDecision(id);
+  } catch (_) {
+    return held;
   }
 }
 

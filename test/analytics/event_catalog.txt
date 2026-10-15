@@ -235,6 +235,7 @@ investing_close_available_tapped
 investing_position_details_opened
 investment_category_opened
 investments_balance_tapped
+investments_region_checked
 ledger_account_viewed
 ledger_action_sheet_opened
 ledger_action_submitted
@@ -462,6 +463,7 @@ prediction_sell_cta_tapped
 prediction_slippage_adjusted
 predictions_cash_pulled
 predictions_position_detail_viewed
+predictions_region_checked
 pull_to_refresh_executed
 purchase_row_reattributed
 push_notification_opened

@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:kute/services/investment_provider_availability.dart';
+import 'package:kute/services/network_change_signal.dart';
 
 void main() {
   for (final restriction in ['n', 'o', 'u', 'a', 'unknown']) {
@@ -151,5 +152,151 @@ void main() {
           isA<ProviderAvailabilityException>().having(
               (error) => error.toString(), 'message', contains('Polymarket')),
         ));
+  });
+
+  group('freshness', () {
+    late DateTime now;
+    late bool blocked;
+    late bool offline;
+    late int requests;
+    late List<Map<String, Object>> reports;
+
+    InvestmentProviderAvailability service() => InvestmentProviderAvailability(
+          clock: () => now,
+          client: MockClient((request) async {
+            requests++;
+            if (offline) throw http.ClientException('offline');
+            return request.url.host == 'polymarket.com'
+                ? http.Response(jsonEncode({'blocked': blocked}), 200)
+                : http.Response(
+                    jsonEncode({
+                      'acceptedTerms': true,
+                      'userAllowed': true,
+                      'restrictions': blocked ? 'a' : 'n',
+                    }),
+                    200);
+          }),
+          report: ({
+            required String venue,
+            required String trigger,
+            required bool changed,
+            required String result,
+          }) =>
+              reports.add({
+                'venue': venue,
+                'trigger': trigger,
+                'changed': changed,
+                'result': result,
+              }),
+        );
+
+    setUp(() {
+      now = DateTime.utc(2026, 10, 15, 12);
+      blocked = true;
+      offline = false;
+      requests = 0;
+      reports = [];
+    });
+
+    test('a blocked answer followed by a network change becomes allowed',
+        () async {
+      final venues = service();
+      var notified = 0;
+      venues.addListener(() => notified++);
+      expect((await venues.polymarket()).status,
+          ProviderAvailabilityStatus.restricted);
+      // Landed somewhere predictions are allowed, or the VPN switched.
+      blocked = false;
+      await venues.recheck(RegionRecheckTrigger.networkChange);
+      expect(venues.cached(InvestmentProvider.polymarket)?.status,
+          ProviderAvailabilityStatus.allowed);
+      expect(notified, 1, reason: 'screens holding the refusal hear it');
+      await venues.ensureNewExposure(['polymarket.trade']);
+      expect(requests, 2, reason: 'the allowed answer is reused');
+      expect(reports.last, {
+        'venue': 'polymarket',
+        'trigger': 'network_change',
+        'changed': true,
+        'result': 'allowed',
+      });
+    });
+
+    test('a network change asks Hyperliquid again too, once it was asked',
+        () async {
+      final venues = service();
+      expect((await venues.hyperliquid()).status,
+          ProviderAvailabilityStatus.restricted);
+      blocked = false;
+      await venues.recheck(RegionRecheckTrigger.networkChange);
+      expect(venues.cached(InvestmentProvider.hyperliquid)?.status,
+          ProviderAvailabilityStatus.allowed);
+      expect(venues.cached(InvestmentProvider.polymarket), isNull,
+          reason: 'a venue never asked is not asked on its behalf');
+      expect(reports.last['venue'], 'hyperliquid');
+      expect(reports.last['changed'], isTrue);
+    });
+
+    test('a blocked cache is ignored at tap time when the live check allows',
+        () async {
+      final venues = service();
+      expect((await venues.polymarket()).status,
+          ProviderAvailabilityStatus.restricted);
+      now = now.add(const Duration(seconds: 10));
+      blocked = false;
+      // Still within the refusal's minute, but the tap asks live first.
+      await venues.ensureNewExposure(['polymarket.trade']);
+      expect(requests, 2);
+      expect(reports.last['trigger'], 'tap');
+      expect(reports.last['changed'], isTrue);
+    });
+
+    test('a refusal fetched moments ago is not asked again at the tap',
+        () async {
+      final venues = service();
+      await venues.polymarket();
+      await expectLater(venues.ensureNewExposure(['polymarket.trade']),
+          throwsA(isA<ProviderAvailabilityException>()));
+      expect(requests, 1);
+    });
+
+    test('a restricted answer lives a minute, an allowed one five', () async {
+      final venues = service();
+      await venues.polymarket();
+      now = now.add(const Duration(seconds: 61));
+      expect(venues.cached(InvestmentProvider.polymarket), isNull);
+      blocked = false;
+      await venues.polymarket();
+      now = now.add(const Duration(minutes: 4));
+      expect(venues.cached(InvestmentProvider.polymarket)?.status,
+          ProviderAvailabilityStatus.allowed);
+    });
+
+    test('a failed check never shows restricted', () async {
+      final venues = service();
+      await venues.polymarket();
+      now = now.add(const Duration(seconds: 10));
+      offline = true;
+      // The live re-ask at the tap fails: unknown, so the bet goes on.
+      await venues.ensureNewExposure(['polymarket.trade']);
+      // And the old refusal is gone, not held for the rest of its minute.
+      expect(venues.cached(InvestmentProvider.polymarket), isNull);
+      await venues.ensureNewExposure(['polymarket.trade']);
+      expect(reports.last['result'], 'unknown');
+      // A network change with nothing reachable: still never restricted.
+      await venues.recheck(RegionRecheckTrigger.networkChange);
+      await venues.ensureNewExposure(['polymarket.trade']);
+    });
+
+    test('resume drops a refusal and asks again; an allowed answer stays',
+        () async {
+      final venues = service();
+      await venues.polymarket();
+      blocked = false;
+      await venues.recheck(RegionRecheckTrigger.resume);
+      expect(requests, 2);
+      expect(reports.last['trigger'], 'resume');
+      expect(venues.cached(InvestmentProvider.polymarket)?.status,
+          ProviderAvailabilityStatus.allowed);
+    });
   });
 }
