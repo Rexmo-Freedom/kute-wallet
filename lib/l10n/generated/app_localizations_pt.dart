@@ -6531,7 +6531,7 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get portfolioRebalanceNotNow =>
-      'Não foi possível mover agora, tentará de novo sozinho';
+      'Não foi possível mover agora. Toque em Reequilibrar para tentar de novo.';
 
   @override
   String get sendMoreThanAvailable => 'Isso é mais do que tem disponível.';

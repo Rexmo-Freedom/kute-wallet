@@ -6521,7 +6521,7 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get portfolioRebalanceNotNow =>
-      'Most nem sikerült, automatikusan újrapróbálja';
+      'Most nem sikerült. Koppints az Újraegyensúlyozás gombra az újrapróbáláshoz.';
 
   @override
   String get sendMoreThanAvailable => 'Ez több, mint amennyi elérhető.';

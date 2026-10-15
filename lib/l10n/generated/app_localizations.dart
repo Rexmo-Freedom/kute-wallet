@@ -11377,7 +11377,7 @@ abstract class AppLocalizations {
   /// Line under a venue row after Rebalance: the cash could not move right now (a trade or claim settling, the route busy); the app retries by itself.
   ///
   /// In en, this message translates to:
-  /// **'Couldn\'t move now, will retry on its own'**
+  /// **'Couldn\'t move now. Tap Rebalance to try again.'**
   String get portfolioRebalanceNotNow;
 
   /// No description provided for @sendMoreThanAvailable.

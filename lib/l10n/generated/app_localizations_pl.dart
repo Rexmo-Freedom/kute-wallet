@@ -6528,7 +6528,7 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get portfolioRebalanceNotNow =>
-      'Nie udało się teraz przenieść, ponowi próbę automatycznie';
+      'Nie udało się teraz przenieść. Stuknij Zrównoważ, aby spróbować ponownie.';
 
   @override
   String get sendMoreThanAvailable => 'To więcej, niż masz dostępne.';

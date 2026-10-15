@@ -1879,7 +1879,7 @@
   "portfolioRebalanceHeldOrders": "Nyitott megbízások tartják vissza",
   "portfolioRebalanceHeldMargin": "Fedezetként megtartva a nyitott pozíciókhoz",
   "portfolioRebalanceBelowMinimum": "Az áthelyezési minimum alatt",
-  "portfolioRebalanceNotNow": "Most nem sikerült, automatikusan újrapróbálja",
+  "portfolioRebalanceNotNow": "Most nem sikerült. Koppints az Újraegyensúlyozás gombra az újrapróbáláshoz.",
   "sendMoreThanAvailable": "Ez több, mint amennyi elérhető.",
   "receiveRequestAmount": "Összeg kérése",
   "receiveBackToBitcoin": "Vissza a Bitcoinhoz",

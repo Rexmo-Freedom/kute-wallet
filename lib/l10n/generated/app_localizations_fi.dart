@@ -6505,7 +6505,7 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get portfolioRebalanceNotNow =>
-      'Siirto ei onnistunut nyt, yritetään automaattisesti uudelleen';
+      'Siirto ei onnistunut nyt. Yritä uudelleen napauttamalla Tasapainota.';
 
   @override
   String get sendMoreThanAvailable =>

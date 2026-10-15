@@ -1879,7 +1879,7 @@
   "portfolioRebalanceHeldOrders": "Hålls av öppna order",
   "portfolioRebalanceHeldMargin": "Behålls som marginal för öppna positioner",
   "portfolioRebalanceBelowMinimum": "Under minimibeloppet för att flytta",
-  "portfolioRebalanceNotNow": "Kunde inte flyttas nu, försöker igen automatiskt",
+  "portfolioRebalanceNotNow": "Kunde inte flyttas nu. Tryck på Balansera om för att försöka igen.",
   "sendMoreThanAvailable": "Det är mer än du har tillgängligt.",
   "receiveRequestAmount": "Begär belopp",
   "receiveBackToBitcoin": "Tillbaka till Bitcoin",

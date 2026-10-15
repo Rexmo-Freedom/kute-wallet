@@ -6528,7 +6528,7 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get portfolioRebalanceNotNow =>
-      'Kon nu niet verplaatsen, probeert het vanzelf opnieuw';
+      'Kon nu niet verplaatsen. Tik op Herbalanceren om het opnieuw te proberen.';
 
   @override
   String get sendMoreThanAvailable => 'Dat is meer dan je beschikbaar hebt.';

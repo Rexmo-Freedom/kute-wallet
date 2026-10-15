@@ -6488,7 +6488,7 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get portfolioRebalanceNotNow =>
-      'Pašlaik nevar pārvietot, mēģinās vēlreiz automātiski';
+      'Pašlaik nevar pārvietot. Pieskarieties Līdzsvarot, lai mēģinātu vēlreiz.';
 
   @override
   String get sendMoreThanAvailable => 'Tas ir vairāk, nekā tev ir pieejams.';

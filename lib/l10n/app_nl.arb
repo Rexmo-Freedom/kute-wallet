@@ -1879,7 +1879,7 @@
   "portfolioRebalanceHeldOrders": "Vastgehouden door open orders",
   "portfolioRebalanceHeldMargin": "Aangehouden als marge voor open posities",
   "portfolioRebalanceBelowMinimum": "Onder het minimum om te verplaatsen",
-  "portfolioRebalanceNotNow": "Kon nu niet verplaatsen, probeert het vanzelf opnieuw",
+  "portfolioRebalanceNotNow": "Kon nu niet verplaatsen. Tik op Herbalanceren om het opnieuw te proberen.",
   "sendMoreThanAvailable": "Dat is meer dan je beschikbaar hebt.",
   "receiveRequestAmount": "Bedrag vragen",
   "receiveBackToBitcoin": "Terug naar Bitcoin",

@@ -6519,7 +6519,7 @@ class AppLocalizationsSl extends AppLocalizations {
 
   @override
   String get portfolioRebalanceNotNow =>
-      'Zdaj ni mogoče prenesti, samodejno bo poskusilo znova';
+      'Zdaj ni mogoče prenesti. Za ponovni poskus tapnite Uravnoteži.';
 
   @override
   String get sendMoreThanAvailable => 'To je več, kot imate na voljo.';

@@ -1879,7 +1879,7 @@
   "portfolioRebalanceHeldOrders": "Zablokowane przez otwarte zlecenia",
   "portfolioRebalanceHeldMargin": "Zatrzymane jako depozyt dla otwartych pozycji",
   "portfolioRebalanceBelowMinimum": "Poniżej minimum do przeniesienia",
-  "portfolioRebalanceNotNow": "Nie udało się teraz przenieść, ponowi próbę automatycznie",
+  "portfolioRebalanceNotNow": "Nie udało się teraz przenieść. Stuknij Zrównoważ, aby spróbować ponownie.",
   "sendMoreThanAvailable": "To więcej, niż masz dostępne.",
   "receiveRequestAmount": "Poproś o kwotę",
   "receiveBackToBitcoin": "Wróć do Bitcoin",

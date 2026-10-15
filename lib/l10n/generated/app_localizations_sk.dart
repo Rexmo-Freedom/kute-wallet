@@ -6510,7 +6510,7 @@ class AppLocalizationsSk extends AppLocalizations {
 
   @override
   String get portfolioRebalanceNotNow =>
-      'Teraz sa nedá presunúť, skúsi sa to znova automaticky';
+      'Teraz sa nedá presunúť. Skúste to znova cez Vyvážiť.';
 
   @override
   String get sendMoreThanAvailable => 'Je to viac, ako máš k dispozícii.';

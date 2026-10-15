@@ -6554,7 +6554,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get portfolioRebalanceNotNow =>
-      'Gerade nicht möglich, wird automatisch erneut versucht';
+      'Gerade nicht möglich. Tippe auf Ausgleichen, um es erneut zu versuchen.';
 
   @override
   String get sendMoreThanAvailable => 'Das ist mehr, als du verfügbar hast.';

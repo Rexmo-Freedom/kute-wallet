@@ -1879,7 +1879,7 @@
   "portfolioRebalanceHeldOrders": "Avoimien toimeksiantojen varaama",
   "portfolioRebalanceHeldMargin": "Pidetään avoimien positioiden marginaalina",
   "portfolioRebalanceBelowMinimum": "Alle siirron vähimmäismäärän",
-  "portfolioRebalanceNotNow": "Siirto ei onnistunut nyt, yritetään automaattisesti uudelleen",
+  "portfolioRebalanceNotNow": "Siirto ei onnistunut nyt. Yritä uudelleen napauttamalla Tasapainota.",
   "sendMoreThanAvailable": "Tämä on enemmän kuin sinulla on käytettävissä.",
   "receiveRequestAmount": "Pyydä summaa",
   "receiveBackToBitcoin": "Takaisin Bitcoiniin",

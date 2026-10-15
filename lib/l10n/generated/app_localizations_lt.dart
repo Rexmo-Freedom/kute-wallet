@@ -6538,7 +6538,7 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get portfolioRebalanceNotNow =>
-      'Dabar nepavyko perkelti, bus bandoma iš naujo automatiškai';
+      'Dabar nepavyko perkelti. Bakstelėkite Perbalansuoti ir bandykite dar kartą.';
 
   @override
   String get sendMoreThanAvailable => 'Tai daugiau, nei turite prieinama.';

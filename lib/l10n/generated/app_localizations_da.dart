@@ -6508,7 +6508,7 @@ class AppLocalizationsDa extends AppLocalizations {
 
   @override
   String get portfolioRebalanceNotNow =>
-      'Kunne ikke flytte nu, prøver igen automatisk';
+      'Kunne ikke flytte nu. Tryk på Rebalancér for at prøve igen.';
 
   @override
   String get sendMoreThanAvailable => 'Det er mere, end du har til rådighed.';

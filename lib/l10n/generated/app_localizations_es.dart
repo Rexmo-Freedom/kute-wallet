@@ -6539,7 +6539,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get portfolioRebalanceNotNow =>
-      'No se pudo mover ahora, se reintentará solo';
+      'No se pudo mover ahora. Toca Reequilibrar para intentarlo de nuevo.';
 
   @override
   String get sendMoreThanAvailable => 'Es más de lo que tienes disponible.';

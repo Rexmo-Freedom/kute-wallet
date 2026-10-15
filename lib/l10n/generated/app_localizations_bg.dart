@@ -6516,7 +6516,7 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get portfolioRebalanceNotNow =>
-      'Не може да се прехвърли сега, ще опита отново автоматично';
+      'Не може да се прехвърли сега. Натиснете Ребалансиране, за да опитате отново.';
 
   @override
   String get sendMoreThanAvailable => 'Това е повече от наличното ти.';

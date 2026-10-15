@@ -6541,7 +6541,7 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get portfolioRebalanceNotNow =>
-      'Nu se poate muta acum, se va reîncerca automat';
+      'Nu se poate muta acum. Atinge Reechilibrează pentru a încerca din nou.';
 
   @override
   String get sendMoreThanAvailable => 'Depășește suma disponibilă.';

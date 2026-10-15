@@ -6554,7 +6554,7 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get portfolioRebalanceNotNow =>
-      'Δεν μεταφέρθηκε τώρα, θα ξαναδοκιμάσει αυτόματα';
+      'Δεν μεταφέρθηκε τώρα. Πατήστε Εξισορρόπηση για να δοκιμάσετε ξανά.';
 
   @override
   String get sendMoreThanAvailable =>

@@ -6491,7 +6491,7 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get portfolioRebalanceNotNow =>
-      'Praegu ei saanud liigutada, proovitakse ise uuesti';
+      'Praegu ei saanud liigutada. Proovi uuesti nupuga Tasakaalusta.';
 
   @override
   String get sendMoreThanAvailable => 'See on rohkem, kui sul saadaval on.';

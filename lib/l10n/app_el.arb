@@ -1879,7 +1879,7 @@
   "portfolioRebalanceHeldOrders": "Δεσμευμένο από ανοιχτές εντολές",
   "portfolioRebalanceHeldMargin": "Διατηρείται ως περιθώριο για ανοιχτές θέσεις",
   "portfolioRebalanceBelowMinimum": "Κάτω από το ελάχιστο για μεταφορά",
-  "portfolioRebalanceNotNow": "Δεν μεταφέρθηκε τώρα, θα ξαναδοκιμάσει αυτόματα",
+  "portfolioRebalanceNotNow": "Δεν μεταφέρθηκε τώρα. Πατήστε Εξισορρόπηση για να δοκιμάσετε ξανά.",
   "sendMoreThanAvailable": "Αυτό είναι περισσότερο από όσα έχεις διαθέσιμα.",
   "receiveRequestAmount": "Ποσό αιτήματος",
   "receiveBackToBitcoin": "Πίσω στο Bitcoin",

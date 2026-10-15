@@ -6518,7 +6518,7 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String get portfolioRebalanceNotNow =>
-      'Sada se ne može prebaciti, ponovit će se automatski';
+      'Sada se ne može prebaciti. Dodirnite Uravnoteži za ponovni pokušaj.';
 
   @override
   String get sendMoreThanAvailable =>

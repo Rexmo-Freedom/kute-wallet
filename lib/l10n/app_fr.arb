@@ -1879,7 +1879,7 @@
   "portfolioRebalanceHeldOrders": "Bloqué par des ordres ouverts",
   "portfolioRebalanceHeldMargin": "Conservé comme marge pour les positions ouvertes",
   "portfolioRebalanceBelowMinimum": "Sous le minimum de transfert",
-  "portfolioRebalanceNotNow": "Transfert impossible pour l'instant, nouvel essai automatique",
+  "portfolioRebalanceNotNow": "Transfert impossible pour l'instant. Touchez Rééquilibrer pour réessayer.",
   "sendMoreThanAvailable": "C'est plus que ce dont vous disposez.",
   "receiveRequestAmount": "Demander un montant",
   "receiveBackToBitcoin": "Retour à Bitcoin",

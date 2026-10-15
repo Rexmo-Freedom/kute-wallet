@@ -6255,7 +6255,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get portfolioRebalanceBelowMinimum => '移動できる最低額未満';
 
   @override
-  String get portfolioRebalanceNotNow => '今は移動できません。自動で再試行します';
+  String get portfolioRebalanceNotNow => '今は移動できません。リバランスをタップして再試行してください';
 
   @override
   String get sendMoreThanAvailable => '利用可能額を超えています。';

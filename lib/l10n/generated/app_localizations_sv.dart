@@ -6500,7 +6500,7 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String get portfolioRebalanceNotNow =>
-      'Kunde inte flyttas nu, försöker igen automatiskt';
+      'Kunde inte flyttas nu. Tryck på Balansera om för att försöka igen.';
 
   @override
   String get sendMoreThanAvailable => 'Det är mer än du har tillgängligt.';

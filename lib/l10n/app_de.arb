@@ -1879,7 +1879,7 @@
   "portfolioRebalanceHeldOrders": "Durch offene Orders gebunden",
   "portfolioRebalanceHeldMargin": "Als Margin für offene Positionen behalten",
   "portfolioRebalanceBelowMinimum": "Unter dem Mindestbetrag zum Verschieben",
-  "portfolioRebalanceNotNow": "Gerade nicht möglich, wird automatisch erneut versucht",
+  "portfolioRebalanceNotNow": "Gerade nicht möglich. Tippe auf Ausgleichen, um es erneut zu versuchen.",
   "sendMoreThanAvailable": "Das ist mehr, als du verfügbar hast.",
   "receiveRequestAmount": "Betrag anfordern",
   "receiveBackToBitcoin": "Zurück zu Bitcoin",

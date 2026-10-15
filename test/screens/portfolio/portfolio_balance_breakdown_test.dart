@@ -530,7 +530,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(
           _inCard('investing',
-              find.text("Couldn't move now, will retry on its own")),
+              find.text("Couldn't move now. Tap Rebalance to try again.")),
           findsOneWidget);
       expect(_inCard('predictions', find.text('Below the minimum to move')),
           findsNothing);

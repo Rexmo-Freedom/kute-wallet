@@ -1879,7 +1879,7 @@
   "portfolioRebalanceHeldOrders": "Drženo otevřenými příkazy",
   "portfolioRebalanceHeldMargin": "Ponecháno jako marže pro otevřené pozice",
   "portfolioRebalanceBelowMinimum": "Pod minimem pro přesun",
-  "portfolioRebalanceNotNow": "Teď se přesunout nedá, zkusí se to znovu samo",
+  "portfolioRebalanceNotNow": "Teď se přesunout nedá. Zkuste to znovu přes Vyvážit.",
   "sendMoreThanAvailable": "To je víc, než máš k dispozici.",
   "receiveRequestAmount": "Požadovaná částka",
   "receiveBackToBitcoin": "Zpět na Bitcoin",

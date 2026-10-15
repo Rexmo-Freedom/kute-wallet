@@ -1879,7 +1879,7 @@
   "portfolioRebalanceHeldOrders": "Aizturēts atvērtajos rīkojumos",
   "portfolioRebalanceHeldMargin": "Paturēts kā nodrošinājums atvērtajām pozīcijām",
   "portfolioRebalanceBelowMinimum": "Zem pārvietošanas minimuma",
-  "portfolioRebalanceNotNow": "Pašlaik nevar pārvietot, mēģinās vēlreiz automātiski",
+  "portfolioRebalanceNotNow": "Pašlaik nevar pārvietot. Pieskarieties Līdzsvarot, lai mēģinātu vēlreiz.",
   "sendMoreThanAvailable": "Tas ir vairāk, nekā tev ir pieejams.",
   "receiveRequestAmount": "Pieprasīt summu",
   "receiveBackToBitcoin": "Atpakaļ uz Bitcoin",

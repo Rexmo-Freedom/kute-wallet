@@ -1879,7 +1879,7 @@
   "portfolioRebalanceHeldOrders": "Laikoma atvirų pavedimų",
   "portfolioRebalanceHeldMargin": "Paliekama kaip marža atviroms pozicijoms",
   "portfolioRebalanceBelowMinimum": "Mažiau nei minimali perkėlimo suma",
-  "portfolioRebalanceNotNow": "Dabar nepavyko perkelti, bus bandoma iš naujo automatiškai",
+  "portfolioRebalanceNotNow": "Dabar nepavyko perkelti. Bakstelėkite Perbalansuoti ir bandykite dar kartą.",
   "sendMoreThanAvailable": "Tai daugiau, nei turite prieinama.",
   "receiveRequestAmount": "Prašoma suma",
   "receiveBackToBitcoin": "Atgal į Bitcoin",

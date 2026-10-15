@@ -1879,7 +1879,7 @@
   "portfolioRebalanceHeldOrders": "Zadržano otvorenim nalozima",
   "portfolioRebalanceHeldMargin": "Zadržano kao marža za otvorene pozicije",
   "portfolioRebalanceBelowMinimum": "Ispod minimuma za prijenos",
-  "portfolioRebalanceNotNow": "Sada se ne može prebaciti, ponovit će se automatski",
+  "portfolioRebalanceNotNow": "Sada se ne može prebaciti. Dodirnite Uravnoteži za ponovni pokušaj.",
   "sendMoreThanAvailable": "To je više nego što imaš na raspolaganju.",
   "receiveRequestAmount": "Zatraži iznos",
   "receiveBackToBitcoin": "Natrag na Bitcoin",

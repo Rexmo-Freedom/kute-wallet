@@ -6504,7 +6504,7 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get portfolioRebalanceNotNow =>
-      'Teď se přesunout nedá, zkusí se to znovu samo';
+      'Teď se přesunout nedá. Zkuste to znovu přes Vyvážit.';
 
   @override
   String get sendMoreThanAvailable => 'To je víc, než máš k dispozici.';

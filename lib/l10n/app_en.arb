@@ -3421,7 +3421,7 @@
   "@portfolioRebalanceHeldMargin": {"description": "Line under the Investing row after Rebalance: its cash stayed because it is margin for open (cross) positions."},
   "portfolioRebalanceBelowMinimum": "Below the minimum to move",
   "@portfolioRebalanceBelowMinimum": {"description": "Line under a venue row after Rebalance: its cash stayed because it is below the smallest amount that can be moved."},
-  "portfolioRebalanceNotNow": "Couldn't move now, will retry on its own",
+  "portfolioRebalanceNotNow": "Couldn't move now. Tap Rebalance to try again.",
   "@portfolioRebalanceNotNow": {"description": "Line under a venue row after Rebalance: the cash could not move right now (a trade or claim settling, the route busy); the app retries by itself."},
   "sendMoreThanAvailable": "That is more than you have available.",
   "receiveRequestAmount": "Request amount",

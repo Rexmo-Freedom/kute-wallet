@@ -6551,7 +6551,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get portfolioRebalanceNotNow =>
-      'Transfert impossible pour l\'instant, nouvel essai automatique';
+      'Transfert impossible pour l\'instant. Touchez Rééquilibrer pour réessayer.';
 
   @override
   String get sendMoreThanAvailable => 'C\'est plus que ce dont vous disposez.';

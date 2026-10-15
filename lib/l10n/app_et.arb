@@ -1879,7 +1879,7 @@
   "portfolioRebalanceHeldOrders": "Avatud orderite poolt hoitud",
   "portfolioRebalanceHeldMargin": "Hoitakse avatud positsioonide tagatisena",
   "portfolioRebalanceBelowMinimum": "Alla liigutamise miinimumi",
-  "portfolioRebalanceNotNow": "Praegu ei saanud liigutada, proovitakse ise uuesti",
+  "portfolioRebalanceNotNow": "Praegu ei saanud liigutada. Proovi uuesti nupuga Tasakaalusta.",
   "sendMoreThanAvailable": "See on rohkem, kui sul saadaval on.",
   "receiveRequestAmount": "Taotle summat",
   "receiveBackToBitcoin": "Tagasi Bitcoini juurde",

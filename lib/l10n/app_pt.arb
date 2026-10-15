@@ -2115,7 +2115,7 @@
   "portfolioRebalanceHeldOrders": "Retido por ordens abertas",
   "portfolioRebalanceHeldMargin": "Mantido como margem para posições abertas",
   "portfolioRebalanceBelowMinimum": "Abaixo do mínimo para mover",
-  "portfolioRebalanceNotNow": "Não foi possível mover agora, tentará de novo sozinho",
+  "portfolioRebalanceNotNow": "Não foi possível mover agora. Toque em Reequilibrar para tentar de novo.",
   "sendMoreThanAvailable": "Isso é mais do que tem disponível.",
   "receiveRequestAmount": "Pedir um valor",
   "receiveBackToBitcoin": "Voltar a Bitcoin",

@@ -6525,7 +6525,7 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get portfolioRebalanceNotNow =>
-      'Non trasferibile ora, riproverà da solo';
+      'Non trasferibile ora. Tocca Ribilancia per riprovare.';
 
   @override
   String get sendMoreThanAvailable => 'È più di quanto hai disponibile.';
