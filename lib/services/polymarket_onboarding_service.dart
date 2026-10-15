@@ -42,6 +42,7 @@ import 'package:kute/constants/polymarket_constants.dart';
 import 'package:kute/models/affiliate_model.dart' show AffiliateService;
 import 'package:kute/services/hardware/ledger/ledger_failure.dart';
 import 'package:kute/services/hardware/signing_clarity.dart';
+import 'package:kute/services/polymarket/relayer_wallet_queue.dart';
 import 'package:kute/services/polymarket/deposit_wallet_batch_signer.dart';
 import 'package:kute/services/polymarket/order_refusal.dart';
 import 'package:pointycastle/digests/keccak.dart';
@@ -1148,12 +1149,16 @@ class PolymarketOnboardingService {
       await waitForIdleBatch(walletAddress);
       ensureCurrent?.call();
       try {
-        await _setMissingApprovalsOnce(
-          eoaAddress: eoaAddress,
-          privateKey: privateKey,
-          walletAddress: walletAddress,
-          ensureCurrent: ensureCurrent,
-        );
+        // In the wallet's queue: read after the action before it is
+        // confirmed, released once this one is (relayer_wallet_queue.dart).
+        await RelayerWalletQueue.run(
+            walletAddress,
+            () => _setMissingApprovalsOnce(
+                  eoaAddress: eoaAddress,
+                  privateKey: privateKey,
+                  walletAddress: walletAddress,
+                  ensureCurrent: ensureCurrent,
+                ));
         return;
       } on LedgerFailure catch (e) {
         if (e.code != LedgerFailureCode.busy || pass >= 2) rethrow;
@@ -1264,6 +1269,8 @@ class PolymarketOnboardingService {
       calls: calls,
       deadline: deadline,
       ensureCurrent: ensureCurrent,
+      // The wallet's next action reads after this one is confirmed.
+      requireConfirmed: true,
     );
   }
 
@@ -1347,64 +1354,69 @@ class PolymarketOnboardingService {
     required String spender,
     void Function()? ensureCurrent,
   }) async {
-    final address = spender.toLowerCase();
-    final approvals = polymarketPinnedSpenderApprovals[address];
-    if (approvals == null || !polymarketPinnedSpenders.containsKey(address)) {
-      throw ArgumentError('Not a pinned Polymarket contract');
-    }
-    ensureCurrent?.call();
-    await waitForIdleBatch(walletAddress);
-    ensureCurrent?.call();
-    final calls = <({String target, BigInt value, String data})>[];
-    if (approvals.contains(PolymarketSpenderApproval.pusd)) {
-      final allowance = await readApprovalOrThrow(
-          token: PolymarketConstants.pusdAddress,
-          owner: walletAddress,
-          spender: address);
-      if (allowance == BigInt.zero) {
-        calls.add((
-          target: PolymarketConstants.pusdAddress,
-          value: BigInt.zero,
-          data: '0x${_encodeApprove(address)}',
-        ));
+    // In the wallet's queue: the allowance is read after any action before
+    // it is confirmed (relayer_wallet_queue.dart).
+    return RelayerWalletQueue.run(walletAddress, () async {
+      final address = spender.toLowerCase();
+      final approvals = polymarketPinnedSpenderApprovals[address];
+      if (approvals == null || !polymarketPinnedSpenders.containsKey(address)) {
+        throw ArgumentError('Not a pinned Polymarket contract');
       }
-    }
-    for (final (kind, ledger) in const [
-      (PolymarketSpenderApproval.ctfOperator, _kCtfAddress),
-      (
-        PolymarketSpenderApproval.positionOperator,
-        PolymarketConstants.comboPositionManagerAddress
-      ),
-    ]) {
-      if (!approvals.contains(kind)) continue;
-      final approved = await readApprovalOrThrow(
-          token: ledger,
-          owner: walletAddress,
-          spender: address,
-          operatorApproval: true);
-      if (approved != BigInt.one) {
-        calls.add((
-          target: ledger,
-          value: BigInt.zero,
-          data: '0x${_encodeSetApprovalForAll(address)}',
-        ));
+      ensureCurrent?.call();
+      await waitForIdleBatch(walletAddress);
+      ensureCurrent?.call();
+      final calls = <({String target, BigInt value, String data})>[];
+      if (approvals.contains(PolymarketSpenderApproval.pusd)) {
+        final allowance = await readApprovalOrThrow(
+            token: PolymarketConstants.pusdAddress,
+            owner: walletAddress,
+            spender: address);
+        if (allowance == BigInt.zero) {
+          calls.add((
+            target: PolymarketConstants.pusdAddress,
+            value: BigInt.zero,
+            data: '0x${_encodeApprove(address)}',
+          ));
+        }
       }
-    }
-    ensureCurrent?.call();
-    if (calls.isEmpty) return false;
-    final deadline = DateTime.now()
-            .add(const Duration(minutes: 10))
-            .millisecondsSinceEpoch ~/
-        1000;
-    await executeDepositWalletBatch(
-      eoaAddress: eoaAddress,
-      signer: CredentialsDepositWalletBatchSigner(privateKey),
-      walletAddress: walletAddress,
-      calls: calls,
-      deadline: deadline,
-      ensureCurrent: ensureCurrent,
-    );
-    return true;
+      for (final (kind, ledger) in const [
+        (PolymarketSpenderApproval.ctfOperator, _kCtfAddress),
+        (
+          PolymarketSpenderApproval.positionOperator,
+          PolymarketConstants.comboPositionManagerAddress
+        ),
+      ]) {
+        if (!approvals.contains(kind)) continue;
+        final approved = await readApprovalOrThrow(
+            token: ledger,
+            owner: walletAddress,
+            spender: address,
+            operatorApproval: true);
+        if (approved != BigInt.one) {
+          calls.add((
+            target: ledger,
+            value: BigInt.zero,
+            data: '0x${_encodeSetApprovalForAll(address)}',
+          ));
+        }
+      }
+      ensureCurrent?.call();
+      if (calls.isEmpty) return false;
+      final deadline = DateTime.now()
+              .add(const Duration(minutes: 10))
+              .millisecondsSinceEpoch ~/
+          1000;
+      await executeDepositWalletBatch(
+        eoaAddress: eoaAddress,
+        signer: CredentialsDepositWalletBatchSigner(privateKey),
+        walletAddress: walletAddress,
+        calls: calls,
+        deadline: deadline,
+        ensureCurrent: ensureCurrent,
+        requireConfirmed: true,
+      );
+      return true;
+    });
   }
 
   /// Combo shares [owner] holds of [positionId] (decimal), in base units:
@@ -1693,17 +1705,34 @@ class PolymarketOnboardingService {
       throw const LedgerFailure(LedgerFailureCode.busy);
     }
     try {
-      return await _executeDepositWalletBatchInner(
-        eoaAddress: eoaAddress,
-        signer: signer,
-        walletAddress: walletAddress,
-        calls: calls,
-        deadline: deadline,
-        beforeSubmit: beforeSubmit,
-        onSubmitted: onSubmitted,
-        requireConfirmed: requireConfirmed,
-        ensureCurrent: ensureCurrent,
-      );
+      Future<String> send() => _executeDepositWalletBatchInner(
+            eoaAddress: eoaAddress,
+            signer: signer,
+            walletAddress: walletAddress,
+            calls: calls,
+            deadline: deadline,
+            beforeSubmit: beforeSubmit,
+            onSubmitted: onSubmitted,
+            requireConfirmed: requireConfirmed,
+            ensureCurrent: ensureCurrent,
+          );
+      // A hot batch the relayer refused only because it was still busy or
+      // the nonce moved (nothing accepted) is signed again on a fresh
+      // nonce and sent again, a few times. A tracked (Ledger) submission
+      // keeps its own handling.
+      if (signer is! CredentialsDepositWalletBatchSigner ||
+          beforeSubmit != null ||
+          onSubmitted != null) {
+        return await send();
+      }
+      return await withTransientRelayerRetry((_) => send(),
+          onRetry: (attempt, e) {
+        if (kDebugMode) {
+          // ignore: avoid_print
+          print('[poly-relayer] WALLET batch refused as busy ($e); '
+              'reading the nonce again (retry ${attempt + 1})');
+        }
+      });
     } finally {
       _inFlightBatches.remove(lockKey);
     }
@@ -1903,28 +1932,44 @@ class PolymarketOnboardingService {
     required String walletAddress,
     void Function()? ensureCurrent,
   }) async {
-    ensureCurrent?.call();
-    final usdce = await readErc20Balance(
-      token: _kUsdcEAddress,
-      owner: walletAddress,
+    // One conversion per delivered amount: in the wallet's queue, after
+    // any action before it is confirmed, and never again for a read that
+    // still shows the amount the last confirmed one took
+    // (relayer_wallet_queue.dart).
+    return convertHeldUsdceOnce(
+      wallet: walletAddress,
+      readUsdce: () async {
+        ensureCurrent?.call();
+        final usdce = await readErc20Balance(
+          token: _kUsdcEAddress,
+          owner: walletAddress,
+        );
+        ensureCurrent?.call();
+        return usdce;
+      },
+      wrap: (usdce) async {
+        if (kDebugMode) {
+          // ignore: avoid_print
+          print('[poly-relayer] WRAP $usdce micro USDC.e → pUSD '
+              'in deposit wallet $walletAddress');
+        }
+        await submitDepositWalletCall(
+          eoaAddress: eoaAddress,
+          privateKey: privateKey,
+          walletAddress: walletAddress,
+          to: _kCollateralOnrampAddress,
+          data: _encodeWrap(_kUsdcEAddress, walletAddress, usdce),
+          ensureCurrent: ensureCurrent,
+          requireConfirmed: true,
+        );
+      },
+      log: kDebugMode
+          ? (line) {
+              // ignore: avoid_print
+              print(line);
+            }
+          : null,
     );
-    ensureCurrent?.call();
-    if (usdce <= BigInt.zero) return BigInt.zero;
-
-    if (kDebugMode) {
-      // ignore: avoid_print
-      print('[poly-relayer] WRAP $usdce micro USDC.e → pUSD '
-          'in deposit wallet $walletAddress');
-    }
-    await submitDepositWalletCall(
-      eoaAddress: eoaAddress,
-      privateKey: privateKey,
-      walletAddress: walletAddress,
-      to: _kCollateralOnrampAddress,
-      data: _encodeWrap(_kUsdcEAddress, walletAddress, usdce),
-      ensureCurrent: ensureCurrent,
-    );
-    return usdce;
   }
 
   /// Convenience wrapper around [executeDepositWalletBatch] for a single
@@ -1938,6 +1983,7 @@ class PolymarketOnboardingService {
     required String to,
     required String data, // hex with or without 0x prefix
     void Function()? ensureCurrent,
+    bool requireConfirmed = false,
   }) async {
     ensureCurrent?.call();
     final deadline = DateTime.now()
@@ -1957,6 +2003,7 @@ class PolymarketOnboardingService {
       ],
       deadline: deadline,
       ensureCurrent: ensureCurrent,
+      requireConfirmed: requireConfirmed,
     );
   }
 

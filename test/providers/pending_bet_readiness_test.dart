@@ -9,6 +9,7 @@
 
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_ce/hive.dart';
@@ -28,7 +29,7 @@ import 'package:kute/services/polymarket/market_buy_quote.dart';
 import 'package:kute/services/polymarket/order_refusal.dart'
     show PolymarketBalanceRefused;
 import 'package:kute/services/polymarket/placement_waits.dart'
-    show PolymarketFundsConverting;
+    show PolymarketFundsConverting, PolymarketSetupIncomplete;
 import 'package:kute/services/polymarket/venue_collateral.dart';
 import 'package:kute/services/polymarket_backend_service.dart'
     show PolymarketOrderNotAcceptedException;
@@ -280,6 +281,16 @@ void main() {
               const PolymarketOrderNotAcceptedException(_noMatch)),
           isFalse);
       expect(autofireNotReadyYet(StateError('x')), isFalse);
+      // The relayer still busy with another action, or its nonce moved:
+      // nothing was accepted.
+      expect(
+          autofireNotReadyYet(Exception('Relayer submit failed: 400 '
+              '{"error":"wallet busy: active action exists"}')),
+          isTrue);
+      expect(
+          autofireNotReadyYet(Exception('400 {"error":"batch nonce 16 does '
+              'not match on-chain nonce 17"}')),
+          isTrue);
     });
   });
 
@@ -414,6 +425,46 @@ void main() {
     expect(events.where((e) => e.$1 == 'polymarket_bet_failed'), isEmpty);
     expect(PredictionFundingLedger.instance.record('ref_move')!.releaseReason,
         'placed');
+  });
+
+  test('the order\'s setup met the deposit wallet busy (a conversion still '
+      'confirming): waited out, then the bet is placed', () async {
+    const busy = 'Relayer submit failed: 400 '
+        '{"error":"wallet busy: active action exists"}';
+    final r = await start(refusals: [
+      PolymarketSetupIncomplete(cause: Exception(busy)),
+      // Raw, as a setup that does not wrap it would throw.
+      Exception('Relayer submit failed: 400 {"error":"batch nonce 16 does '
+          'not match on-chain nonce 17"}'),
+    ]);
+    r.trading.reads = _reads(pusd: 10.4, counted: 10.4);
+    r.trading.land(10.4);
+    await settle(r.c);
+    expect(r.trading.orders, hasLength(3));
+    final pending = r.c.read(pendingPolymarketBetProvider)!;
+    expect(pending.status, PendingBetStatus.awaitingConfirmation);
+    expect(events.where((e) => e.$1 == 'polymarket_bet_failed'), isEmpty);
+  });
+
+  test('a real failure still shows, and the debug log names its cause',
+      () async {
+    final logged = <String>[];
+    final previous = debugPrint;
+    debugPrint = (String? m, {int? wrapWidth}) => logged.add(m ?? '');
+    addTearDown(() => debugPrint = previous);
+    final r = await start(refusals: [StateError('the venue said no')]);
+    r.trading.reads = _reads(pusd: 10.4, counted: 10.4);
+    r.trading.land(10.4);
+    await settle(r.c);
+    final pending = r.c.read(pendingPolymarketBetProvider)!;
+    expect(pending.status, PendingBetStatus.failed);
+    expect(pending.errorMessage, l10nForLanguage('en').betActionNotCompleted);
+    expect(
+        logged.any((l) =>
+            l.startsWith('[pm-autofire] failed: Bad state: the venue said no')),
+        isTrue);
+    expect(logged.any((l) => l.contains('[pm-autofire] generic failure copy')),
+        isTrue);
   });
 
   test('bounded: after five sends again the failure shows', () async {

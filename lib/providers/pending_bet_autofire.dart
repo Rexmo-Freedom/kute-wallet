@@ -43,7 +43,8 @@
 import 'dart:async';
 import 'dart:math';
 
-import 'package:flutter/foundation.dart' show visibleForTesting;
+import 'package:flutter/foundation.dart'
+    show debugPrint, kDebugMode, visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:kute/helpers/auth_grant.dart';
@@ -58,6 +59,8 @@ import 'package:kute/providers/auth_provider.dart' show sessionUnlockedProvider;
 import 'package:kute/providers/pending_polymarket_bet_provider.dart';
 import 'package:kute/providers/polymarket_bet_controller.dart'
     show PolymarketBetController, polymarketRetryPrice, polymarketThinBookMessage;
+import 'package:kute/services/polymarket/relayer_wallet_queue.dart'
+    show isTransientRelayerRefusal;
 import 'package:kute/services/polymarket/polymarket_fee_terms.dart';
 import 'package:kute/providers/placing_polymarket_bet_provider.dart';
 import 'package:kute/providers/polymarket_open_orders_provider.dart';
@@ -183,6 +186,9 @@ bool autofireNotReadyYet(Object e) {
   if (e is PolymarketFundsConverting || e is PolymarketSetupIncomplete) {
     return true;
   }
+  // The deposit wallet's relayer still busy with another action (a
+  // conversion confirming) or its nonce moved: nothing was accepted.
+  if (isTransientRelayerRefusal(e)) return true;
   return e is PolymarketBalanceRefused ||
       e is PolymarketOrderNotAcceptedException &&
           isPolymarketBalanceRefusal(e.reason);
@@ -1261,6 +1267,7 @@ class PendingBetAutoFire {
         } catch (_) {}
       });
     } catch (e, st) {
+      if (kDebugMode) debugPrint('[pm-autofire] failed: $e\n$st');
       if (e is PendingPolymarketOrder) {
         if (funded) {
           journey.completed(OneBalanceVenue.predictions, resized: false);
@@ -1513,6 +1520,11 @@ class PendingBetAutoFire {
     if (e is PolymarketOrderNotAcceptedException &&
         isPolymarketPriceRefusal(e.reason)) {
       return l10n.betBuyLiquidityUnavailable;
+    }
+    // The generic words: the cause is always in the debug log.
+    if (kDebugMode) {
+      debugPrint('[pm-autofire] generic failure copy for: '
+          '${e.runtimeType}: $e');
     }
     return l10n.betActionNotCompleted;
   }

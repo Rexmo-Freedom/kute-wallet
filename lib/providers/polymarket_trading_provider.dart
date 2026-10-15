@@ -1,3 +1,7 @@
+import 'package:kute/services/hardware/ledger/ledger_failure.dart'
+    show LedgerFailure, LedgerFailureCode;
+import 'package:kute/services/polymarket/relayer_wallet_queue.dart'
+    show isTransientRelayerRefusal;
 import 'package:kute/services/polymarket/market_buy_quote.dart';
 import 'package:kute/services/polymarket/market_terms_store.dart';
 import 'package:kute/services/polymarket/placement_diagnostics.dart';
@@ -3253,8 +3257,18 @@ class PolymarketTradingNotifier
 
     // The derived deposit address alone does not mean the contract or its
     // approvals exist. Share the same setup already started by account boot
-    // and deposits before signing an order against it.
-    await enableTrading();
+    // and deposits before signing an order against it. A setup that only
+    // met a busy relayer or a moved nonce (another action on the wallet
+    // still confirming) is "not ready yet": the queued bet waits for it
+    // and sends again under its approval, never a final failure.
+    try {
+      await enableTrading();
+    } catch (e) {
+      if (polySetupFailureIsTransient(e)) {
+        throw PolymarketSetupIncomplete(cause: e);
+      }
+      rethrow;
+    }
     PolymarketPlacementTimeline.trace('account_ready');
     checkAccount();
     PmGrants.checkRetry(grant, executedOrder());
@@ -6398,3 +6412,12 @@ EthPrivateKey _hotPolymarketCredentials(String privateKey) {
       HotSigningAction.polymarketHotCredentials);
   return EthPrivateKey.fromHex(privateKey);
 }
+
+/// Whether a setup failure before an order only met the deposit wallet
+/// busy with another action (the relayer refusing it busy or on a moved
+/// nonce, this app's own batch still running) or a network hiccup:
+/// nothing was signed for the order, so it may wait and go again.
+bool polySetupFailureIsTransient(Object e) =>
+    isTransientRelayerRefusal(e) ||
+    (e is LedgerFailure && e.code == LedgerFailureCode.busy) ||
+    e is TimeoutException;
