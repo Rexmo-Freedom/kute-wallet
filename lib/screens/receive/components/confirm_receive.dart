@@ -67,6 +67,8 @@ import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/jade_service.dart';
 import 'package:kute/services/ledger_service.dart';
 import 'package:kute/services/sound_service.dart';
+import 'package:kute/services/success_feedback.dart'
+    show moneyFailureFeedback;
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -1756,6 +1758,8 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
     } catch (e) {
       TrackingService.moneyFlowError('receive', e);
       if (!mounted) return;
+      // The invoice the person asked for could not be made.
+      unawaited(moneyFailureFeedback());
       showMessageSnackBar(
         context: context,
         message: railSafeErrorCopy(context, e,
@@ -2042,6 +2046,8 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
         _creatingOrder = false;
         _rateError = message;
       });
+      // The address the person picked a coin for could not be made.
+      unawaited(moneyFailureFeedback());
       showMessageSnackBar(message: message, error: true, context: context);
     }
   }

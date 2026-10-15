@@ -1225,7 +1225,10 @@ enum _SendBandPhase { idle, preparing, approving, finishing }
 ///     still up, so the screen can let it play ([RubberBand.settle])
 ///     before the success screen covers it; [busy] down without it (a
 ///     failure, a declined scan, a stop for re-review): the soft
-///     release.
+///     release, with no tap of its own. The band cannot tell a failure
+///     from the person's own stop, so the screen plays the failure tap
+///     where the send really failed (`moneyFailureFeedbackAfterBand`),
+///     and a declined scan stays quiet.
 ///
 /// Presentation only: it never decides anything about the send.
 /// Reduce Motion: no easing runs and the block sits still.
@@ -1388,6 +1391,8 @@ class SendRubberBandState extends State<SendRubberBand>
   Widget build(BuildContext context) => RubberBandProgress(
         progress: _progress,
         outcome: _outcome,
+        // A stop may be the person's own: the screen taps on a failure.
+        failureTap: false,
         child: widget.child,
       );
 }

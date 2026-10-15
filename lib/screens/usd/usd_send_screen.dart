@@ -128,6 +128,8 @@ import 'package:kute/services/one_balance/investments_spendable.dart'
 import 'package:kute/screens/shared/venue_cash_pull_copy.dart';
 import 'package:kute/services/polymarket_spark_txs_service.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
+import 'package:kute/services/success_feedback.dart'
+    show moneyFailureFeedbackAfterBand;
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -1563,6 +1565,7 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
             ? context.l10n.usdSendNotEnough
             : context.l10n.usdSendMinimum('\$${_kMinUsd.toStringAsFixed(2)}');
       });
+      _sendFailedFeedback();
       return;
     }
     final recipient = _address.text.trim();
@@ -1859,8 +1862,16 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
         _error = HotSettlement.messageFor(e, context.l10n) ??
             context.l10n.usdSendFailed;
       });
+      _sendFailedFeedback();
     }
   }
+
+  /// The send failed (an error is shown): the soft release every money
+  /// action ends with, played once the Send block's band has let go
+  /// ([moneyFailureFeedbackAfterBand]; the band itself stays quiet, as its
+  /// stop may be a declined step-up). Never for a declined step-up.
+  void _sendFailedFeedback() =>
+      moneyFailureFeedbackAfterBand(() => mounted && _processing);
 
   /// Brings the shortfall of [usd] home from venue cash and waits,
   /// bounded, for Dollars to hold it. True to go on with the send; false
@@ -1913,6 +1924,7 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
               ? context.l10n.usdSendNotEnough
               : context.l10n.usdSendFailed);
     });
+    _sendFailedFeedback();
     return false;
   }
 

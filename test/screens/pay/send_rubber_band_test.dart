@@ -20,6 +20,8 @@ import 'package:kute/screens/pay/components/confirm_send.dart'
     show runSendTapBusy;
 import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/services/continuous_haptics.dart';
+import 'package:kute/services/kute_haptics.dart';
+import 'package:kute/services/success_feedback.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -53,7 +55,10 @@ class _Route {
       await s.letBandSnap();
       successShown = true;
     } catch (e) {
-      failureShown = e; // `_showSendFailed`
+      // `_showSendFailed`, whose `_sendFailedFeedback` taps once the band
+      // has let go.
+      failureShown = e;
+      moneyFailureFeedbackAfterBand(() => s.mounted && s.isProcessing);
     }
   }
 }
@@ -143,8 +148,12 @@ Future<void> _wait(WidgetTester tester, Duration total) async {
 /// Records the light taps the band gives.
 List<MethodCall> _hapticLog(WidgetTester tester) {
   ContinuousHaptics.debugReset();
+  KuteHaptics.debugReset();
   ContinuousHaptics.debugLog = [];
-  addTearDown(() => ContinuousHaptics.debugLog = null);
+  addTearDown(() {
+    ContinuousHaptics.debugLog = null;
+    KuteHaptics.debugReset();
+  });
   final calls = <MethodCall>[];
   tester.binding.defaultBinaryMessenger
       .setMockMethodCallHandler(SystemChannels.platform, (call) async {
@@ -160,6 +169,11 @@ List<MethodCall> _hapticLog(WidgetTester tester) {
 /// pull before a release never snaps).
 int _snapImpacts(List<MethodCall> calls) =>
     ContinuousHaptics.debugLog!.where((c) => c.method == 'snap').length;
+
+/// The failure soft taps: the band's own (never, on the send's band) and
+/// the screen's (`moneyFailureFeedbackAfterBand`).
+int _softTaps() =>
+    ContinuousHaptics.debugLog!.where((c) => c.method == 'softTap').length;
 
 /// Taps Send and walks the route to the broadcast wait, checking the
 /// pull grows with each phase on the way.
@@ -268,10 +282,16 @@ void main() {
     expect(_band(tester).stretch, 0);
     expect(_band(tester).ticking, isFalse);
     expect(_snapImpacts(calls), 0, reason: 'no success tap on a failure');
+    expect(_softTaps(), 1, reason: 'one failure tap, not two');
+    final methods = ContinuousHaptics.debugLog!.map((c) => c.method).toList();
+    expect(methods.lastIndexOf('stop'), lessThan(methods.indexOf('softTap')),
+        reason: 'after the band let go and its rumble stopped');
     expect(find.text('Send'), findsOneWidget);
   });
 
-  testWidgets('a declined face scan lets go softly too', (tester) async {
+  testWidgets('a declined face scan lets go softly too, with no tap',
+      (tester) async {
+    _hapticLog(tester);
     final route = _Route();
     await _pump(tester, route);
     await tester.tap(find.text('Send'));
@@ -293,6 +313,8 @@ void main() {
     }
     expect(_band(tester).stretch, 0);
     expect(_band(tester).ticking, isFalse);
+    await _wait(tester, const Duration(seconds: 1));
+    expect(_softTaps(), 0, reason: 'the person said no: not a failure');
   });
 
   testWidgets('a second send after a failure pulls again from rest',
@@ -350,7 +372,9 @@ void main() {
     await still();
   });
 
-  testWidgets('dollars: a stop releases softly', (tester) async {
+  testWidgets('dollars: a stop releases softly, with no tap of its own',
+      (tester) async {
+    _hapticLog(tester);
     // The dollar send passes `busy: _processing`, `authorising:
     // _approving` and `succeeded: _sent`.
     var busy = true;
@@ -395,6 +419,42 @@ void main() {
       previous = s;
     }
     expect(_band(tester).ticking, isFalse);
+    // A declined step-up drops busy the same way: the band stays quiet,
+    // and only `_sendFailedFeedback` (a shown error) taps.
+    expect(_softTaps(), 0);
+  });
+
+  testWidgets(
+      'dollars: a failed send taps once, after the band let go, while the '
+      'button still spun when the error was known', (tester) async {
+    _hapticLog(tester);
+    var busy = true;
+    late StateSetter set;
+    await tester.pumpWidget(ScreenUtilInit(
+      designSize: const Size(430, 932),
+      builder: (_, __) => MaterialApp(
+        theme: ThemeData(extensions: [AppColorsExtension.light()]),
+        home: StatefulBuilder(builder: (context, setState) {
+          set = setState;
+          return Scaffold(
+            body: SendRubberBand(
+              busy: busy,
+              expected: const Duration(seconds: 6),
+              child: const SizedBox(height: 80, child: Text('Send')),
+            ),
+          );
+        }),
+      ),
+    ));
+    await _wait(tester, const Duration(seconds: 2));
+    // `_send`'s catch: busy comes down with the error, then
+    // `_sendFailedFeedback`.
+    set(() => busy = false);
+    moneyFailureFeedbackAfterBand(() => busy);
+    await _wait(tester, const Duration(seconds: 1));
+    expect(_softTaps(), 1);
+    final methods = ContinuousHaptics.debugLog!.map((c) => c.method).toList();
+    expect(methods.lastIndexOf('stop'), lessThan(methods.indexOf('softTap')));
   });
 
   testWidgets('dollars: sent snaps while the button still spins',

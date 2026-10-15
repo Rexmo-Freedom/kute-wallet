@@ -25,7 +25,11 @@
 //   * money arriving and the money-success beat are one moment: whichever
 //     plays first, the other stays quiet for a few seconds; a rubber
 //     band's success release is that beat too ([noteSuccessRelease]), so
-//     an overlay right after it does not play it again.
+//     an overlay right after it does not play it again;
+//   * the failure soft tap is one moment too: a rubber band's release
+//     without ([noteFailureRelease]) or a failure tap
+//     ([claimFailureRelease], `moneyFailureFeedback`) keeps a second one
+//     for the same failure quiet.
 //
 // This is feedback, not an action: no analytics event fires here.
 
@@ -148,9 +152,15 @@ abstract final class KuteHaptics {
   /// confirmation within [RubberBand.snapSettle] and a frame or two).
   static const Duration successAfterRelease = Duration(seconds: 2);
 
+  /// How long the failure soft tap stays quiet after it played (a rubber
+  /// band's release without, or `moneyFailureFeedback`): one failure, one
+  /// tap, however many paths report it.
+  static const Duration failureAfterRelease = Duration(seconds: 1);
+
   static final Map<KuteHaptic, DateTime> _lastPlayed = {};
   static DateTime? _lastMoneySuccess;
   static DateTime? _lastRelease;
+  static DateTime? _lastFailureRelease;
   static bool _running = false;
 
   @visibleForTesting
@@ -161,6 +171,7 @@ abstract final class KuteHaptics {
     _lastPlayed.clear();
     _lastMoneySuccess = null;
     _lastRelease = null;
+    _lastFailureRelease = null;
     _running = false;
   }
 
@@ -198,6 +209,24 @@ abstract final class KuteHaptics {
     final now = _now();
     _lastRelease = now;
     _lastMoneySuccess = now;
+  }
+
+  /// A rubber band's release without just played the soft tap
+  /// ([HapticPatterns.softRelease]): a failure tap for the same failure
+  /// right after it stays quiet.
+  static void noteFailureRelease() => _lastFailureRelease = _now();
+
+  /// Asked by `moneyFailureFeedback` before it plays: false when the soft
+  /// tap already played for this failure (a band's release, or another
+  /// path reporting the same failure).
+  static bool claimFailureRelease() {
+    final now = _now();
+    final last = _lastFailureRelease;
+    if (last != null && now.difference(last) < failureAfterRelease) {
+      return false;
+    }
+    _lastFailureRelease = now;
+    return true;
   }
 
   /// Plays [pattern] unless a rule says no. Returns whether it played.

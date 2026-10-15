@@ -28,6 +28,8 @@ import 'package:kute/providers/bitcoin_software_send_provider.dart';
 import 'package:kute/models/onchain_types.dart' as onchain;
 import 'package:flutter/foundation.dart' show listEquals, visibleForTesting;
 import 'package:kute/services/sound_service.dart';
+import 'package:kute/services/success_feedback.dart'
+    show moneyFailureFeedbackAfterBand;
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/helpers/extension.dart';
 import 'package:kute/helpers/scanned_address.dart';
@@ -2135,6 +2137,14 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     await RubberBand.settle(context);
   }
 
+  /// The send failed (an error is shown): the soft release every money
+  /// action ends with, played once the Send block's band has let go
+  /// ([moneyFailureFeedbackAfterBand]; the band itself stays quiet, as
+  /// its stop may be the person's own). Never called for a declined
+  /// scan, a cancel or a stop for re-review.
+  void _sendFailedFeedback() => moneyFailureFeedbackAfterBand(
+      () => mounted && (isProcessing || _sendAwaitingReady));
+
   /// Send tap. The button is live as soon as the Review step itself
   /// is valid, so this is where the waiting happens: dispatch at once
   /// when the draft is ready, otherwise spin, poll, and dispatch the
@@ -2188,6 +2198,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
         'reason': failure == null ? 'timeout' : 'dead_end',
       });
       if (!context.mounted) return;
+      _sendFailedFeedback();
       showMessageSnackBar(
         message: failure ?? context.l10n.sendWaitForFee,
         error: true,
@@ -2888,6 +2899,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     final amount = ref.read(sendTxProvider).amount;
 
     if (withdrawalAddress.isEmpty) {
+      _sendFailedFeedback();
       showMessageSnackBar(
           message: context.l10n.enterAAssetCodeAddress(asset.code),
           error: true,
@@ -2906,6 +2918,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
         !_isSparkHotWalletSource() ||
         _swapQuote?.provider != 'Orchestra' ||
         orchestraSendChainFor(asset.code, network.network) == null) {
+      _sendFailedFeedback();
       showMessageSnackBar(
         message: context.l10n.swapRouteTemporarilyUnavailable,
         error: true,
@@ -3136,6 +3149,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
           _signPageError = _humanizeSignError(e);
           _signPageErrorDetail = errorDetailText(e);
         });
+        _sendFailedFeedback();
         // Still animate the user onto the Sign page so the error is
         // visible alongside the inline retry CTA — staying on Review
         // would just dump a snackbar on a screen with no visible
@@ -3230,6 +3244,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
   /// retried from here; the user re-reviews and taps Send again.
   void _showSendFailed(Object error, {String? message}) {
     if (!mounted) return;
+    _sendFailedFeedback();
     final known = message == null ? _knownSendErrorCopy(error) : null;
     final copy = message ??
         known ??
@@ -3317,6 +3332,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     if (chain == null) {
       // Shouldn't happen — the dispatch gate checks the table — but a
       // missing route must never dead-end a send silently.
+      _sendFailedFeedback();
       showMessageSnackBar(
         message: context.l10n.swapRouteTemporarilyUnavailable,
         error: true,
@@ -3446,6 +3462,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
       failOrchestraSend('quote_rejected', 'quote');
       if (!mounted || !context.mounted) return;
       setState(() => isProcessing = false);
+      _sendFailedFeedback();
       showMessageSnackBar(
         message: e.messageFor(context.l10n),
         error: true,
@@ -3469,6 +3486,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
         failOrchestraSend('settlement_blocked_pending', 'quote');
         if (!mounted || !context.mounted) return;
         setState(() => isProcessing = false);
+        _sendFailedFeedback();
         showMessageSnackBar(
           message: context.l10n.settlementBlockedPending,
           error: true,
@@ -3502,6 +3520,8 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
       // moved, so bailing is safe.
       if (!mounted || !context.mounted) return;
       setState(() => isProcessing = false);
+      // A declined prompt is the person's own stop: no failure tap.
+      if (quoteError != 'settlement_declined') _sendFailedFeedback();
       showMessageSnackBar(
         message: context.l10n.swapRouteTemporarilyUnavailable,
         error: true,
@@ -4178,6 +4198,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     // read the context across an async gap.
     final confirmedWallet = _resolveSourceWallet();
     if (confirmedWallet == null) {
+      _sendFailedFeedback();
       showMessageSnackBar(
           message: context.l10n.sendChooseAccountFirst,
           error: true,
@@ -4191,6 +4212,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     final confirmedDestination = _selectedDestNetwork;
 
     if (address.isEmpty || amount <= 0) {
+      _sendFailedFeedback();
       showMessageSnackBar(
           message: context.l10n.invalidAddressOrAmount,
           error: true,
@@ -4251,6 +4273,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
       if (hwInputType == AnalyzedPaymentType.lightning ||
           hwInputType == AnalyzedPaymentType.lnurl) {
         if (mounted) {
+          _sendFailedFeedback();
           showMessageSnackBar(
             message: context.l10n.sendWalletCantSignLightningDestinationPicker,
             error: true,
@@ -4813,6 +4836,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     if (_selectedDestAsset != null ||
         _selectedDestNetwork != null ||
         _detectAddressType(address).label != 'Bitcoin on-chain') {
+      _sendFailedFeedback();
       showMessageSnackBar(
         message: context.l10n.sendThisWalletCanOnlySendBitcoin,
         error: true,
@@ -4828,6 +4852,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
         : previewState.valueOrNull;
     final feeRate = ref.read(getCustomFeeRateProvider).valueOrNull;
     if (!_softwareReviewReady(reviewedPsbt, amount) || feeRate == null) {
+      _sendFailedFeedback();
       showMessageSnackBar(
           message: context.l10n.sendWaitForFee, error: true, context: context);
       return;

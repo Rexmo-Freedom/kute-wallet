@@ -215,6 +215,7 @@ class RubberBandProgress extends StatefulWidget {
     this.outcome = RubberBandOutcome.none,
     this.maxStretch = defaultMaxStretch,
     this.haptic = true,
+    this.failureTap = true,
     this.onReleased,
   });
 
@@ -263,6 +264,12 @@ class RubberBandProgress extends StatefulWidget {
   /// heartbeat on a long wait), a whoosh and a double snap on success and a soft
   /// tap on a release without.
   final bool haptic;
+
+  /// Whether a release without plays its soft tap. False for a band whose
+  /// stop may be the person's own (the send's: a declined face scan, a
+  /// stop for re-review), whose screen plays the failure tap itself when
+  /// the send really failed (`moneyFailureFeedbackAfterBand`).
+  final bool failureTap;
 
   /// Called once the band has come to rest after an outcome.
   final VoidCallback? onReleased;
@@ -556,7 +563,10 @@ class RubberBandProgressState extends State<RubberBandProgress>
           if (success) {
             KuteHaptics.noteSuccessRelease();
             ContinuousHaptics.snap(owner: this);
-          } else if (_level.value > 1e-3) {
+          } else if (_level.value > 1e-3 && widget.failureTap) {
+            // The failure moment: a failure tap asked for right after it
+            // (`moneyFailureFeedback`) does not play it again.
+            KuteHaptics.noteFailureRelease();
             ContinuousHaptics.softTap(owner: this);
           }
         }

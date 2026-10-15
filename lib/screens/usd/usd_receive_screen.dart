@@ -55,6 +55,8 @@ import 'package:kute/services/orchestra_routes.dart'
 import 'package:kute/services/security/wallet_guard_exception.dart'
     show WalletGuardException;
 import 'package:kute/services/runtime_capabilities_service.dart';
+import 'package:kute/services/success_feedback.dart'
+    show moneyFailureFeedback;
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -832,6 +834,8 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
       setState(() {
         _error = _errorCopy(e);
       });
+      // The address the person picked a coin for could not be made.
+      unawaited(moneyFailureFeedback());
     }
   }
 

@@ -188,6 +188,8 @@ import 'package:kute/services/background_sync_service.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart';
 import 'package:kute/services/api/orchestra_api.dart';
 import 'package:kute/services/polymarket_spark_txs_service.dart';
+import 'package:kute/services/success_feedback.dart'
+    show moneyFailureFeedback;
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -1221,13 +1223,29 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
 
   void _trackMoveFailed(Object e, {String? stage}) {
     final category = _moveFailReason(e);
-    _moveOutcome.failed(category,
-        stage: stage ??
-            switch (category) {
-              'user_cancelled' => 'approval',
-              'quote_rejected' || 'expired' => 'quote',
-              _ => 'dispatch',
-            });
+    final resolvedStage = stage ??
+        switch (category) {
+          'user_cancelled' => 'approval',
+          'quote_rejected' || 'expired' => 'quote',
+          _ => 'dispatch',
+        };
+    _moveOutcome.failed(category, stage: resolvedStage);
+    // A declined or lapsed approval and a cancel are the person's own
+    // stop, not a failure: the sheet resets quietly.
+    if (!_isApprovalStop(e) &&
+        e != 'user_cancelled' &&
+        category != 'user_cancelled' &&
+        resolvedStage != 'approval') {
+      _moveFailedFeedback();
+    }
+  }
+
+  /// The move or convert failed (`move_failed`, or an error shown): the
+  /// soft release every money action ends with ([moneyFailureFeedback],
+  /// once per failure however many paths report it). Never for a
+  /// declined approval or a cancel.
+  void _moveFailedFeedback() {
+    if (mounted) unawaited(moneyFailureFeedback());
   }
 
 
@@ -2639,6 +2657,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     // nothing is sent if a stale state ever does.
     if (_destWalletId != null) {
       setState(() => _error = context.l10n.routeUnavailableNothingSent);
+      _moveFailedFeedback();
       return;
     }
 
@@ -3169,6 +3188,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     if (evm == null || evm.isEmpty) {
       setState(() =>
           _error = context.l10n.homeNavPredictionsWalletNotReadyYet);
+      _moveFailedFeedback();
       return;
     }
 
@@ -3888,6 +3908,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     _moveOutcome.failed(
         covered ? 'venue_cash_pending' : 'insufficient_funds',
         stage: 'dispatch');
+    _moveFailedFeedback();
     TrackingService.moneyFlowError(
         'move', covered ? 'venue_cash_pending' : 'insufficient_funds');
     setState(() {
@@ -4297,6 +4318,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     if (evm == null || evm.isEmpty) {
       setState(() =>
           _error = context.l10n.homeNavPredictionsWalletNotReadyYet);
+      _moveFailedFeedback();
       return;
     }
     var amountBaseUnits = _usdBaseUnits(usd);
@@ -6138,6 +6160,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
             account.isReadOnly) {
           TrackingService.moneyFlowError('move', 'no_route');
           setState(() => _error = context.l10n.ledgerFundRouteUnavailable);
+          _moveFailedFeedback();
           return;
         }
         final decision = await showLedgerPolymarketFundingExplainerSheet(
@@ -6173,6 +6196,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       _moveOutcome.clearHandoff();
       TrackingService.moneyFlowError('move', e);
       if (mounted) setState(() => _error = context.l10n.ledgerErrorUnknown);
+      _moveFailedFeedback();
     } finally {
       if (mounted) {
         setState(() {
@@ -6322,6 +6346,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     // route: it stops here with nothing sent. The sheet never moves money
     // to or from a savings wallet.
     setState(() => _error = context.l10n.routeUnavailableNothingSent);
+    _moveFailedFeedback();
   }
 
   @override
