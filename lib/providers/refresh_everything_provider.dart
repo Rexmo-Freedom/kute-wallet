@@ -65,7 +65,10 @@ import 'package:kute/providers/polymarket_combos_provider.dart';
 import 'package:kute/providers/polymarket_open_orders_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/portfolio_performance_provider.dart';
+import 'package:kute/services/network_change_signal.dart'
+    show RegionRecheckTrigger;
 import 'package:kute/services/portfolio/portfolio_categories.dart';
+import 'package:kute/services/region_freshness.dart';
 import 'package:kute/services/tracking_service.dart';
 
 /// The surface a pull came from, as `pull_to_refresh_executed` reports it.
@@ -161,9 +164,6 @@ class RefreshEverything {
     try {
       _ref.read(balanceNotifierProvider.notifier).invalidateStreamFreshness();
     } catch (_) {}
-    // TODO(coordinator): availability recheck — re-fetch the
-    // capability/availability answers here (the shared "network may have
-    // changed" signal); left for the coordinator to wire.
     await Future.wait([
       for (final step in steps.values) _bounded(step),
     ]);
@@ -185,6 +185,9 @@ class RefreshEverything {
   }
 
   Map<String, RefreshStep> get _steps => {
+        // Every "available in your region" answer asked again beside
+        // the data: a pull never leaves a stale refusal on screen.
+        'region': () => RegionFreshness.recheck(RegionRecheckTrigger.pull),
         'bitcoin': _bitcoin,
         'sync': _sync,
         'predictions': _predictions,

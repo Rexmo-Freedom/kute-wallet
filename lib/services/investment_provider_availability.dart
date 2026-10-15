@@ -196,7 +196,8 @@ class InvestmentProviderAvailability extends ChangeNotifier {
       {Iterable<InvestmentProvider>? providers}) async {
     if (trigger == RegionRecheckTrigger.networkChange) {
       invalidate();
-    } else if (trigger == RegionRecheckTrigger.resume) {
+    } else if (trigger == RegionRecheckTrigger.resume ||
+        trigger == RegionRecheckTrigger.pull) {
       dropRestricted();
     }
     final targets = providers?.toSet() ?? _asked.toSet();

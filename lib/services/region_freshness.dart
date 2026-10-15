@@ -83,6 +83,8 @@ abstract final class RegionFreshness {
         venues.recheck(trigger),
         if (trigger == RegionRecheckTrigger.networkChange)
           capabilities.networkChanged().then<void>((_) {}),
+        if (trigger == RegionRecheckTrigger.pull)
+          capabilities.refresh().then<void>((_) {}),
       ]);
     } catch (_) {
       // A round that could not finish leaves the tap-time re-check.

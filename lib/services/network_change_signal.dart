@@ -39,7 +39,11 @@ enum RegionRecheckTrigger {
   networkChange('network_change'),
   tap('tap'),
   startup('startup'),
-  timer('timer');
+  timer('timer'),
+
+  /// Pull-to-refresh: refusals dropped and asked again, the policy
+  /// fetched again.
+  pull('pull');
 
   const RegionRecheckTrigger(this.id);
 

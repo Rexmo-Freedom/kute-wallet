@@ -140,6 +140,22 @@ void main() {
     await venues.ensureNewExposure(['polymarket.trade']);
   });
 
+  test('a pull asks the venues and the policy again on the same network',
+      () async {
+    await startFreshness();
+    expect(await policy.refresh(), isTrue);
+    expect(policy.allows('polymarket.trade'), isFalse);
+    final requestsBefore = policyRequests;
+    blocked = false;
+    await RegionFreshness.recheck(RegionRecheckTrigger.pull,
+        providers: venues, policy: policy);
+    expect(triggers, ['startup', 'pull']);
+    expect(policyRequests, requestsBefore + 1);
+    expect(venues.cached(InvestmentProvider.polymarket)?.status,
+        ProviderAvailabilityStatus.allowed);
+    expect(policy.allows('polymarket.trade'), isTrue);
+  });
+
   test('no bridge on this platform: the signal stays quiet and never throws',
       () async {
     final quiet = NetworkChangeSignal(
