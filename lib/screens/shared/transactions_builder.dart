@@ -2,18 +2,11 @@ import 'package:kute/screens/shared/orchestra_swap_refund_action.dart';
 import 'package:kute/screens/shared/multi_source_move_activity.dart';
 import 'package:kute/screens/shared/venue_cash_pull_copy.dart';
 import 'package:kute/screens/shared/pending_bitcoin_purchase_continue.dart'
-    show
-        continuePendingBitcoinPurchase,
-        legacyPurchaseUsd,
-        pendingPurchaseWaitingUsd;
+    show continuePendingBitcoinPurchase;
 import 'package:kute/providers/usd_account_provider.dart'
-    show usdBalanceProvider;
+    show usdBalanceReadingProvider;
 import 'package:kute/services/one_balance/pending_bitcoin_purchase.dart'
-    show
-        PendingBitcoinPurchaseStore,
-        PendingPurchaseStage,
-        bitcoinPurchaseFinisherProvider,
-        pendingBitcoinPurchasesProvider;
+    show bitcoinPurchaseFinisherProvider, pendingBitcoinPurchasesProvider;
 import 'package:kute/services/one_balance/multi_source_move.dart';
 import 'package:kute/services/orchestra/own_spark_arrivals.dart';
 import 'package:kute/services/one_balance/venue_cash_source.dart'
@@ -319,6 +312,8 @@ class _TransactionListState extends ConsumerState<TransactionList> {
       onlyUsdb: widget.onlyUsdb,
       moves: moves,
       walletId: override ?? ref.read(settingsProvider).activeWalletId,
+      // A move over with nothing delivered has no row; its legs show.
+      dissolved: moves.isEmpty ? null : watchMultiSourceMovesDissolved(ref),
     );
 
     final recentTransactions = widget.showAll
@@ -1214,6 +1209,10 @@ bool dollarSendDeliveredKnown(SwapOrder order) {
 /// the Predictions row is in dollars on the venue's side).
 ///
 /// [classify] reads a conversion's intent; tests pass their own.
+///
+/// [dissolved] tells which of [moves] are over with nothing delivered
+/// ([watchMultiSourceMovesDissolved]): those have no row and their legs
+/// are listed as their own.
 List<BaseTransaction> assembleActivityRows(
   List<BaseTransaction> sorted, {
   required Set<String> ownAddresses,
@@ -1223,6 +1222,7 @@ List<BaseTransaction> assembleActivityRows(
   SwapActivityKind Function(SwapOrder order) classify = swapActivityFor,
   List<MultiSourceMove> moves = const [],
   String? walletId,
+  MultiSourceMoveDissolved? dissolved,
 }) {
   // Home activity is bitcoin-anchored (user decision): pool deposits
   // and withdrawals stay (they move wallet funds), but pool-internal
@@ -1334,7 +1334,10 @@ List<BaseTransaction> assembleActivityRows(
   // its legs fold into it (multi_source_move_activity.dart).
   if (moves.isEmpty || isHardwareOrWatchOnly) return collapsed;
   return collapseMultiSourceMoves(collapsed, moves,
-      onlyUsdb: onlyUsdb, walletId: walletId, everyRow: sorted);
+      onlyUsdb: onlyUsdb,
+      walletId: walletId,
+      everyRow: sorted,
+      dissolved: dissolved);
 }
 
 /// ─── Polymarket / Orchestra flow collapse ────────────────────────────
@@ -5699,82 +5702,37 @@ _RowStatus? _multiSourceMoveStatus(
   return null;
 }
 
-/// Where a move stands when its legs are home but its own step (the
-/// purchase of Bitcoin, the send) did not go: the money is in Dollars and
-/// waits on the person ([usd], what one tap finishes), or it was spent
-/// since and the move is over with its money left in Investments
-/// ([stayed]).
-class _MoveFinish {
-  const _MoveFinish.waiting(double this.usd, {required this.legacy})
-      : stayed = false;
-  const _MoveFinish.stayed()
-      : usd = null,
-        legacy = false,
-        stayed = true;
-
-  final double? usd;
-
-  /// The move has no purchase record (an older build tied the purchase
-  /// to the open sheet): the tap makes one from the move.
-  final bool legacy;
-  final bool stayed;
-}
-
-/// [tx]'s [_MoveFinish], or null when the move is on its normal course
-/// (its own step went or is still going, a leg is on its way, or a leg
-/// failed and Retry is offered).
-///
-///  * A purchase record that waits on the person: the one-tap continue
-///    for what Dollars can buy ([pendingPurchaseWaitingUsd]).
-///  * A purchase the finisher is running, or one handed to the send:
-///    still Pending.
-///  * Every leg landed, the step never went, and its time to go on its
-///    own is over ([multiSourceMoveFinalStepMissing]): the money is in
-///    Dollars while they hold all of it (one tap buys it; a send says it
-///    did not go), else it stayed.
-_MoveFinish? _multiSourceMoveFinish(
-    WidgetRef ref, MultiSourceMoveTransaction tx) {
-  final move = tx.move;
-  if (move.finalOperationId != null || move.partial) return null;
-  if (!multiSourceMoveHasFinalStep(move)) return null;
-  final dollars = ref.watch(usdBalanceProvider);
+/// [multiSourceMoveFinish] over what it decides from, watched so whatever
+/// reads it follows them: the Dollars balance as known (null until the
+/// SDK has answered: a balance that has not loaded never dissolves a
+/// move), the purchase records and the finisher.
+MultiSourceMoveFinish? Function(MultiSourceMove, List<SwapOrderTransaction>)
+    _watchMultiSourceMoveFinish(WidgetRef ref) {
+  final dollars = ref.watch(usdBalanceReadingProvider);
+  ref.watch(pendingBitcoinPurchasesProvider);
+  final finisher = ref.read(bitcoinPurchaseFinisherProvider);
   final now = DateTime.now();
-  if (move.destination == VenueCashDestination.bitcoin) {
-    ref.watch(pendingBitcoinPurchasesProvider);
-    final finisher = ref.read(bitcoinPurchaseFinisherProvider);
-    if (finisher.running(move.id)) return null;
-    final record = PendingBitcoinPurchaseStore.get(move.id);
-    final waiting = pendingPurchaseWaitingUsd(finisher, move.id, dollars);
-    if (waiting != null) {
-      return _MoveFinish.waiting(waiting, legacy: record?.legacy ?? false);
-    }
-    if (record != null) {
-      // The record owns the step until it waits on the person with its
-      // money gone.
-      if (record.stage == PendingPurchaseStage.funding) return null;
-      final over =
-          !now.isBefore(move.createdAt.add(kMultiSourceMoveFinishWindow));
-      return over && multiSourceMoveLegsLanded(move, tx.legRows)
-          ? const _MoveFinish.stayed()
-          : null;
-    }
-  }
-  if (!multiSourceMoveFinalStepMissing(move, tx.legRows, now: now)) {
-    return null;
-  }
-  final usd = legacyPurchaseUsd(
-      multiSourceMoveMissingStepUsd(move, tx.legRows), dollars);
-  return usd != null
-      ? _MoveFinish.waiting(usd, legacy: true)
-      : const _MoveFinish.stayed();
+  return (move, legRows) => multiSourceMoveFinish(move, legRows,
+      finisher: finisher, dollars: dollars, now: now);
 }
 
-/// The line a [_MoveFinish] reads: "Your $X is in Investments. Tap to buy
-/// Bitcoin", the send's own version, or that the money stayed.
+/// Which moves are over with nothing delivered, for the lists that fold
+/// moves ([assembleActivityRows], [multiSourceMoveLegIds]): the decision
+/// the move's row and detail read ([multiSourceMoveFinish]).
+MultiSourceMoveDissolved watchMultiSourceMovesDissolved(WidgetRef ref) {
+  final finish = _watchMultiSourceMoveFinish(ref);
+  return (move, legRows) => finish(move, legRows)?.dissolved ?? false;
+}
+
+/// [tx]'s [MultiSourceMoveFinish] (see [multiSourceMoveFinish]).
+MultiSourceMoveFinish? _multiSourceMoveFinish(
+        WidgetRef ref, MultiSourceMoveTransaction tx) =>
+    _watchMultiSourceMoveFinish(ref)(tx.move, tx.legRows);
+
+/// The line a move waiting on the person reads ([usd]): "Your $X is in
+/// Investments. Tap to buy Bitcoin", or the send's own version.
 String _multiSourceMoveFinishText(
-    AppLocalizations l10n, MultiSourceMove move, _MoveFinish finish) {
-  final usd = finish.usd;
-  if (usd == null) return l10n.multiMoveMoneyStayed(l10n.assetDollars);
+    AppLocalizations l10n, MultiSourceMove move, double usd) {
   final amount = '\$${usd.toStringAsFixed(2)}';
   return move.destination == VenueCashDestination.bitcoin
       ? l10n.multiMovePurchaseWaiting(amount, l10n.assetDollars)
@@ -5784,7 +5742,7 @@ String _multiSourceMoveFinishText(
 /// One tap on a move whose purchase waits on the person: a fresh approval,
 /// then the purchase.
 void _continueMovePurchase(BuildContext context, WidgetRef ref,
-        MultiSourceMove move, _MoveFinish finish) =>
+        MultiSourceMove move, MultiSourceMoveFinish finish) =>
     continuePendingBitcoinPurchase(context, ref, move.id,
         legacyUsd: finish.legacy ? finish.usd : null,
         moveWalletId: move.walletId);
@@ -5801,11 +5759,14 @@ Widget _buildMultiSourceMoveItem(
   // Its legs are home but its own step did not go (the approval ran out,
   // the app restarted, or an older build tied it to the open sheet): it
   // says where the money is, and for a purchase one tap asks a fresh
-  // approval and buys. Never Pending forever.
+  // approval and buys. Never Pending forever. Once that money was spent
+  // the move is over with nothing delivered: the lists list its legs
+  // instead (collapseMultiSourceMoves), so it draws nothing.
   final finish = _multiSourceMoveFinish(ref, tx);
-  if (finish != null) {
-    final buys = finish.usd != null &&
-        move.destination == VenueCashDestination.bitcoin;
+  final waitingUsd = finish?.usd;
+  if (finish != null && waitingUsd == null) return const SizedBox.shrink();
+  if (finish != null && waitingUsd != null) {
+    final buys = move.destination == VenueCashDestination.bitcoin;
     return _TransactionRow(
       onTap: buys
           ? () => _continueMovePurchase(context, ref, move, finish)
@@ -5815,11 +5776,9 @@ Widget _buildMultiSourceMoveItem(
           ? l10n.multiMoveSendTitle('\$${move.totalUsd.toStringAsFixed(2)}')
           : multiSourceMoveTitle(l10n, move)),
       subtitle: _withTime(
-          _multiSourceMoveFinishText(l10n, move, finish), tx.timestamp),
-      status: finish.usd != null
-          ? _RowStatus(
-              text: l10n.activityNeedsAttention, color: AppColors.marketDown)
-          : null,
+          _multiSourceMoveFinishText(l10n, move, waitingUsd), tx.timestamp),
+      status: _RowStatus(
+          text: l10n.activityNeedsAttention, color: AppColors.marketDown),
       flow: ActivityFlow.neutral,
       amount: formatPolyAmount(ref, move.totalUsd),
       fiatAmount: '',
@@ -5960,6 +5919,25 @@ class _MultiSourceMoveDetailSheetState
     );
   }
 
+  bool _closing = false;
+
+  /// Closes this sheet once, after the frame (its own route, wherever it
+  /// sits in the stack).
+  void _closeDissolved() {
+    if (_closing) return;
+    _closing = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final route = ModalRoute.of(context);
+      if (route == null || !route.isActive) return;
+      if (route.isCurrent) {
+        Navigator.of(context).pop();
+      } else {
+        Navigator.of(context).removeRoute(route);
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
@@ -5975,11 +5953,19 @@ class _MultiSourceMoveDetailSheetState
     final tx = MultiSourceMoveTransaction(move: move, legRows: rows);
     final retrying = MultiSourceMoveStore.retrying(move.id);
     // Legs home, own step never went: needing the person while the money
-    // is in Dollars, else over (it stayed in Investments). Never Pending.
+    // is in Dollars. Never Pending.
     final finish = _multiSourceMoveFinish(ref, tx);
-    final status = tx.partial || finish?.usd != null
+    final waitingUsd = finish?.usd;
+    if (finish != null && waitingUsd == null) {
+      // That money was spent since: the move is over with nothing
+      // delivered and has no row any more (its legs are listed as their
+      // own), so its detail closes.
+      _closeDissolved();
+      return const SizedBox.shrink();
+    }
+    final status = tx.partial || waitingUsd != null
         ? (text: l10n.activityNeedsAttention, color: AppColors.marketDown)
-        : tx.complete || finish != null
+        : tx.complete
             ? (text: l10n.completed, color: AppColors.success)
             : (text: l10n.pending, color: c.warning);
     // The Dollars balance by its own name, as the Portfolio breakdown
@@ -6046,24 +6032,20 @@ class _MultiSourceMoveDetailSheetState
                   row: null,
                   // Waiting for the action's own step; after a failed leg
                   // it waits for Retry instead, and once that step is
-                  // known not to have gone, for nothing.
+                  // known not to have gone, for the person.
                   waiting: !move.partial && finish == null,
                 ),
-              if (finish != null) ...[
+              if (finish != null && waitingUsd != null) ...[
                 SizedBox(height: 12.h),
                 // Where the money is, and for a purchase the one tap that
                 // finishes it (a fresh approval, then the purchase).
                 Text(
-                  _multiSourceMoveFinishText(l10n, move, finish),
+                  _multiSourceMoveFinishText(l10n, move, waitingUsd),
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                      fontSize: 14.sp,
-                      color: finish.usd != null
-                          ? AppColors.marketDown
-                          : c.textSecondary),
+                      fontSize: 14.sp, color: AppColors.marketDown),
                 ),
-                if (finish.usd != null &&
-                    move.destination == VenueCashDestination.bitcoin) ...[
+                if (move.destination == VenueCashDestination.bitcoin) ...[
                   SizedBox(height: 12.h),
                   SizedBox(
                     width: double.infinity,

@@ -10710,11 +10710,6 @@ class AppLocalizationsLv extends AppLocalizations {
   }
 
   @override
-  String multiMoveMoneyStayed(String balance) {
-    return 'Nauda palika $balance';
-  }
-
-  @override
   String get usdReceiveFromYourWallet => 'No tava maka';
 
   @override

@@ -3010,7 +3010,6 @@
   "multiMoveDeliveredRemaining": "{delivered} perillä · {remaining} jäljellä",
   "multiMovePurchaseWaiting": "{amount} on kohteessa {balance}. Osta Bitcoinia napauttamalla",
   "multiMoveSendWaiting": "{amount} on kohteessa {balance}. Lähetys ei mennyt läpi",
-  "multiMoveMoneyStayed": "Rahat jäivät kohteeseen {balance}",
   "usdReceiveFromYourWallet": "Lompakostasi",
   "usdReceiveFromAnotherWallet": "Toisesta lompakosta tai pörssistä",
   "slipStepAddingToInvestments": "Lisätään {amount} tilille Investments",

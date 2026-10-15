@@ -10730,11 +10730,6 @@ class AppLocalizationsEt extends AppLocalizations {
   }
 
   @override
-  String multiMoveMoneyStayed(String balance) {
-    return 'Raha jäi kontole $balance';
-  }
-
-  @override
   String get usdReceiveFromYourWallet => 'Sinu rahakotist';
 
   @override

@@ -3010,7 +3010,6 @@
   "multiMoveDeliveredRemaining": "{delivered} levererat · {remaining} kvar",
   "multiMovePurchaseWaiting": "Dina {amount} finns i {balance}. Tryck för att köpa Bitcoin",
   "multiMoveSendWaiting": "Dina {amount} finns i {balance}. Betalningen skickades inte",
-  "multiMoveMoneyStayed": "Pengarna stannade i {balance}",
   "usdReceiveFromYourWallet": "Från din plånbok",
   "usdReceiveFromAnotherWallet": "Från en annan plånbok eller börs",
   "slipStepAddingToInvestments": "Lägger till {amount} i Investments",

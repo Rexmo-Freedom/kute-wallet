@@ -10733,11 +10733,6 @@ class AppLocalizationsCs extends AppLocalizations {
   }
 
   @override
-  String multiMoveMoneyStayed(String balance) {
-    return 'Peníze zůstaly v $balance';
-  }
-
-  @override
   String get usdReceiveFromYourWallet => 'Z tvé peněženky';
 
   @override

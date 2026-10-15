@@ -10767,11 +10767,6 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
-  String multiMoveMoneyStayed(String balance) {
-    return 'A pénz a(z) $balance egyenlegeden maradt';
-  }
-
-  @override
   String get usdReceiveFromYourWallet => 'A tárcádból';
 
   @override

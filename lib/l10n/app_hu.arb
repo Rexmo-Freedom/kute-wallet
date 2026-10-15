@@ -3010,7 +3010,6 @@
   "multiMoveDeliveredRemaining": "{delivered} megérkezett · {remaining} hátravan",
   "multiMovePurchaseWaiting": "{amount} a(z) {balance} egyenlegeden van. Koppints a Bitcoin vásárlásához",
   "multiMoveSendWaiting": "{amount} a(z) {balance} egyenlegeden van. A küldés nem ment végbe",
-  "multiMoveMoneyStayed": "A pénz a(z) {balance} egyenlegeden maradt",
   "usdReceiveFromYourWallet": "A tárcádból",
   "usdReceiveFromAnotherWallet": "Másik tárcából vagy tőzsdéről",
   "slipStepAddingToInvestments": "{amount} hozzáadása az Investmentshez",

@@ -13,8 +13,14 @@
 // own rows (the venue cash-outs, the CCTP moves, the action's own step)
 // are not listed beside it. A move whose legs all landed in Dollars but
 // whose own step (the purchase, the send) never went is not left Pending
-// ([multiSourceMoveFinalStepMissing]): its row says where the money is.
-// Pure, so the lists can be tested without a widget tree.
+// ([multiSourceMoveFinalStepMissing]): while Dollars hold the money its
+// row says so (one tap finishes it); once that money was spent the move
+// is dissolved ([multiSourceMoveFinish]): nothing reached where it was
+// going, so it has no row anywhere and its legs show as their own rows on
+// the surfaces that list them (owner decision October 2026, after "Move
+// $20.23 to Bitcoin · Completed · The money stayed in Investments"). The
+// record stays in its store. Pure, so the lists can be tested without a
+// widget tree.
 
 import 'dart:math' as math;
 
@@ -26,7 +32,14 @@ import 'package:kute/services/one_balance/venue_cash_source.dart'
     show VenueCashFor;
 import 'package:kute/services/orchestra_routes.dart'
     show kOrchestraUsdAssetCode;
+import 'package:kute/screens/shared/pending_bitcoin_purchase_continue.dart'
+    show legacyPurchaseUsd, pendingPurchaseWaitingUsd;
 import 'package:kute/services/one_balance/multi_source_move.dart';
+import 'package:kute/services/one_balance/pending_bitcoin_purchase.dart'
+    show
+        BitcoinPurchaseFinisher,
+        PendingBitcoinPurchaseStore,
+        PendingPurchaseStage;
 import 'package:kute/services/orchestra/own_spark_arrivals.dart';
 import 'package:kute/services/one_balance/venue_funder.dart'
     show VenueCashDestination;
@@ -335,6 +348,87 @@ double multiSourceMoveMissingStepUsd(
     math.min(multiSourceMoveLandedInDollarsUsd(move, rows),
         multiSourceMoveOnwardUsd(move));
 
+/// Where a move stands when its legs are home but its own step (the
+/// purchase of Bitcoin, the send) did not go: its money is in Dollars and
+/// waits on the person ([usd], what one tap finishes), or that money was
+/// spent since and the move is [dissolved]: nothing reached where it was
+/// going, so the move has no row and its legs are listed as their own.
+class MultiSourceMoveFinish {
+  const MultiSourceMoveFinish.waiting(double this.usd, {required this.legacy});
+  const MultiSourceMoveFinish.dissolved()
+      : usd = null,
+        legacy = false;
+
+  /// What one tap finishes; null when [dissolved].
+  final double? usd;
+
+  /// The move has no purchase record (an older build tied the purchase
+  /// to the open sheet): the tap makes one from the move.
+  final bool legacy;
+
+  bool get dissolved => usd == null;
+}
+
+/// [move]'s [MultiSourceMoveFinish], or null when the move is on its
+/// normal course (its own step went or is still going, a leg is on its
+/// way, or a leg failed and Retry is offered). The one decision the row,
+/// the detail and the lists ([collapseMultiSourceMoves],
+/// [multiSourceMoveLegIds]) read, so they never disagree.
+///
+///  * A purchase record that waits on the person: the one-tap continue
+///    for what Dollars can buy ([pendingPurchaseWaitingUsd]).
+///  * A purchase [finisher] is running, or one handed to the send: still
+///    Pending.
+///  * Every leg landed, the step never went, and its time to go on its
+///    own is over ([multiSourceMoveFinalStepMissing]): waiting while
+///    Dollars hold all of it (one tap buys it; a send says it did not
+///    go), else dissolved.
+///
+/// [dollars] is the Dollars balance, null while it is not known yet
+/// (`usdBalanceReadingProvider`): Dollars are then taken to hold the
+/// money, so a balance that has not loaded never dissolves a move.
+MultiSourceMoveFinish? multiSourceMoveFinish(
+  MultiSourceMove move,
+  List<SwapOrderTransaction> legRows, {
+  required BitcoinPurchaseFinisher finisher,
+  required double? dollars,
+  required DateTime now,
+}) {
+  if (move.finalOperationId != null || move.partial) return null;
+  if (!multiSourceMoveHasFinalStep(move)) return null;
+  if (move.destination == VenueCashDestination.bitcoin) {
+    if (finisher.running(move.id)) return null;
+    final record = PendingBitcoinPurchaseStore.get(move.id);
+    final waiting = pendingPurchaseWaitingUsd(
+        finisher, move.id, dollars ?? record?.usd ?? 0);
+    if (waiting != null) {
+      return MultiSourceMoveFinish.waiting(waiting,
+          legacy: record?.legacy ?? false);
+    }
+    if (record != null) {
+      // The record owns the step until it waits on the person with its
+      // money gone.
+      if (record.stage == PendingPurchaseStage.funding) return null;
+      final over =
+          !now.isBefore(move.createdAt.add(kMultiSourceMoveFinishWindow));
+      return over && multiSourceMoveLegsLanded(move, legRows)
+          ? const MultiSourceMoveFinish.dissolved()
+          : null;
+    }
+  }
+  if (!multiSourceMoveFinalStepMissing(move, legRows, now: now)) return null;
+  final missing = multiSourceMoveMissingStepUsd(move, legRows);
+  final usd = legacyPurchaseUsd(missing, dollars ?? missing);
+  return usd != null
+      ? MultiSourceMoveFinish.waiting(usd, legacy: true)
+      : const MultiSourceMoveFinish.dissolved();
+}
+
+/// Whether a move is dissolved ([MultiSourceMoveFinish.dissolved]), given
+/// the rows of its legs the list knows.
+typedef MultiSourceMoveDissolved = bool Function(
+    MultiSourceMove move, List<SwapOrderTransaction> legRows);
+
 double _floorCents(num usd) =>
     usd.isFinite && usd > 0 ? ((usd * 100) + 1e-6).floor() / 100 : 0;
 
@@ -360,35 +454,44 @@ bool multiSourceMoveShows(MultiSourceMove move, {required bool onlyUsdb}) {
 /// ([walletId]) are left out. [everyRow] is the wallet's whole history
 /// (default: [rows]): a move's row reads its legs from it, so it settles
 /// on the legs a surface does not list too (a direct leg to Bitcoin on
-/// the Dollars activity).
+/// the Dollars activity). A move [dissolved] says is over with nothing
+/// delivered has no row, and its legs stay in [rows] as their own.
 List<BaseTransaction> collapseMultiSourceMoves(
   List<BaseTransaction> rows,
   List<MultiSourceMove> moves, {
   required bool onlyUsdb,
   String? walletId,
   List<BaseTransaction>? everyRow,
+  MultiSourceMoveDissolved? dissolved,
 }) {
-  final shown = [
+  final candidates = [
     for (final m in moves)
       if ((m.walletId == null || walletId == null || m.walletId == walletId) &&
           multiSourceMoveShows(m, onlyUsdb: onlyUsdb))
         m,
   ];
-  if (shown.isEmpty) return rows;
-  MultiSourceMove? ownerOf(SwapOrderTransaction row) =>
-      shown.where((m) => isMultiSourceMoveLeg(row, m)).firstOrNull;
-  final legsOf = {for (final m in shown) m.id: <SwapOrderTransaction>[]};
-  final out = <BaseTransaction>[];
-  for (final row in rows) {
-    if (row is SwapOrderTransaction && ownerOf(row) != null) continue;
-    out.add(row);
-  }
+  if (candidates.isEmpty) return rows;
+  final legsOf = {
+    for (final m in candidates) m.id: <SwapOrderTransaction>[],
+  };
   final seen = <String>{};
   for (final row in [...?everyRow, ...rows]) {
     if (row is! SwapOrderTransaction || !seen.add(row.id)) continue;
-    final owner = ownerOf(row);
+    final owner =
+        candidates.where((m) => isMultiSourceMoveLeg(row, m)).firstOrNull;
     if (owner != null) legsOf[owner.id]!.add(row);
   }
+  final shown = [
+    for (final m in candidates)
+      if (dissolved == null || !dissolved(m, legsOf[m.id]!)) m,
+  ];
+  if (shown.isEmpty) return rows;
+  final out = <BaseTransaction>[
+    for (final row in rows)
+      if (row is! SwapOrderTransaction ||
+          !shown.any((m) => isMultiSourceMoveLeg(row, m)))
+        row,
+  ];
   for (final m in shown) {
     // In time order, the rows already there keeping theirs.
     var at = out.indexWhere((r) => r.timestamp.isBefore(m.createdAt));
@@ -399,15 +502,21 @@ List<BaseTransaction> collapseMultiSourceMoves(
 }
 
 /// The Activity row ids of every leg of [moves] among [rows], for a list
-/// that adds rows from elsewhere (the Portfolio's venue moves).
+/// that adds rows from elsewhere (the Portfolio's venue moves). The legs
+/// of a move [dissolved] says is over with nothing delivered are left
+/// out: they are listed as their own rows.
 Set<String> multiSourceMoveLegIds(
-    Iterable<SwapOrderTransaction> rows, List<MultiSourceMove> moves) {
+    Iterable<SwapOrderTransaction> rows, List<MultiSourceMove> moves,
+    {MultiSourceMoveDissolved? dissolved}) {
   final ids = <String>{};
   for (final m in moves) {
     if (m.okLegs.isEmpty && m.finalOperationId == null) continue;
-    for (final r in rows) {
-      if (isMultiSourceMoveLeg(r, m)) ids.add(r.id);
-    }
+    final legs = [
+      for (final r in rows)
+        if (isMultiSourceMoveLeg(r, m)) r,
+    ];
+    if (dissolved != null && dissolved(m, legs)) continue;
+    ids.addAll(legs.map((r) => r.id));
   }
   return ids;
 }

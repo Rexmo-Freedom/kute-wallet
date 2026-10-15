@@ -10776,11 +10776,6 @@ class AppLocalizationsNl extends AppLocalizations {
   }
 
   @override
-  String multiMoveMoneyStayed(String balance) {
-    return 'Het geld is in $balance gebleven';
-  }
-
-  @override
   String get usdReceiveFromYourWallet => 'Vanuit je wallet';
 
   @override

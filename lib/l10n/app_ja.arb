@@ -3010,7 +3010,6 @@
   "multiMoveDeliveredRemaining": "{delivered} 着金 · 残り {remaining}",
   "multiMovePurchaseWaiting": "{amount}は{balance}にあります。タップしてビットコインを購入",
   "multiMoveSendWaiting": "{amount}は{balance}にあります。送金は完了していません",
-  "multiMoveMoneyStayed": "お金は{balance}に残っています",
   "usdReceiveFromYourWallet": "あなたのウォレットから",
   "usdReceiveFromAnotherWallet": "別のウォレットまたは取引所から",
   "slipStepAddingToInvestments": "Investmentsに{amount}を追加中",

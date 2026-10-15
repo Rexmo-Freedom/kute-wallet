@@ -10321,11 +10321,6 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String multiMoveMoneyStayed(String balance) {
-    return 'お金は$balanceに残っています';
-  }
-
-  @override
   String get usdReceiveFromYourWallet => 'あなたのウォレットから';
 
   @override

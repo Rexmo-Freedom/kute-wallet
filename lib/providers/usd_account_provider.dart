@@ -359,6 +359,17 @@ final usdBalanceProvider = Provider<double>((ref) {
   return dollars < 0 ? 0 : dollars;
 });
 
+/// [usdBalanceProvider] once the SDK has answered with a dollar reading,
+/// else null: not known yet. [usdBalanceProvider] cannot tell those apart
+/// (before the SDK's first answer it is the ledger sum, `0` while the
+/// wallet's history has not loaded), so a decision that must not take an
+/// unloaded balance for spent money (a move whose money stayed in Dollars,
+/// multi_source_move_activity.dart) reads this one.
+final usdBalanceReadingProvider = Provider<double?>((ref) {
+  if (ref.watch(usdSdkBalanceProvider).valueOrNull == null) return null;
+  return ref.watch(usdBalanceProvider);
+});
+
 /// The dollar balance by day, for the Dollars tab's Balance chart.
 ///
 /// Reconstructed the same way the USDC series is: anchor on today's

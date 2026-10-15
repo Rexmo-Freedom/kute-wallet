@@ -22,7 +22,7 @@ import 'package:kute/providers/spark_address_provider.dart';
 import 'package:kute/providers/swap_orders_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/usd_account_provider.dart'
-    show usdBalanceProvider;
+    show usdBalanceProvider, usdBalanceReadingProvider;
 import 'package:kute/screens/shared/pending_bitcoin_purchase_continue.dart';
 import 'package:kute/services/funding/settlement_runner.dart'
     show SettlementStepUpHook;
@@ -44,6 +44,9 @@ import 'package:kute/theme/app_theme.dart';
 import '../../helpers/fake_swap_orders.dart';
 
 final _t0 = DateTime.utc(2026, 10, 13, 12);
+
+/// Whether the SDK has answered with the Dollars balance yet.
+final _dollarsKnown = StateProvider<bool>((_) => true);
 
 SwapOrderTransaction _row(String id,
         {required String from,
@@ -930,6 +933,7 @@ void main() {
     late List<(String, Map<String, Object>?)> events;
     late BitcoinPurchaseFinisher finisher;
     late double dollars;
+    late bool dollarsKnown;
     Completer<void>? waitGate;
     late BuildContext lastContext;
     late WidgetRef lastRef;
@@ -943,6 +947,7 @@ void main() {
       prompts = [];
       events = [];
       dollars = 25.71;
+      dollarsKnown = true;
       waitGate = null;
       TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
       debugPendingPurchaseApproval = (intent) async {
@@ -1012,8 +1017,34 @@ void main() {
           finalOperationId: finalOp,
         );
 
+    /// The rows an Activity surface lists for [move] and its leg [rows],
+    /// folded as the app folds them ([watchMultiSourceMovesDissolved]),
+    /// kept in [listed]; a move's row is drawn.
+    List<BaseTransaction> listed = const [];
+    Widget surface(BuildContext context, WidgetRef ref,
+        {required bool onlyUsdb,
+        required MultiSourceMove move,
+        required List<SwapOrderTransaction> rows}) {
+      listed = assembleActivityRows(
+        rows,
+        ownAddresses: const {'sp1self'},
+        isHardwareOrWatchOnly: false,
+        onlyUsdb: onlyUsdb,
+        classify: _classify,
+        moves: [move],
+        walletId: 'spending',
+        dissolved: watchMultiSourceMovesDissolved(ref),
+      );
+      return Column(children: [
+        for (final r in listed)
+          if (r is MultiSourceMoveTransaction)
+            buildUnifiedTransactionItem(r, context, ref),
+      ]);
+    }
+
     Future<void> pump(WidgetTester tester, MultiSourceMoveTransaction tx,
-        {List<SwapOrder> orders = const []}) async {
+        {List<SwapOrder> orders = const [],
+        Widget Function(BuildContext context, WidgetRef ref)? body}) async {
       tester.view.physicalSize = const Size(1290, 2796);
       tester.view.devicePixelRatio = 3;
       addTearDown(tester.view.reset);
@@ -1035,6 +1066,9 @@ void main() {
                 activeWalletId: 'spending',
               ))),
           usdBalanceProvider.overrideWith((_) => dollars),
+          usdBalanceReadingProvider.overrideWith(
+              (ref) => ref.watch(_dollarsKnown) ? dollars : null),
+          _dollarsKnown.overrideWith((_) => dollarsKnown),
           bitcoinPurchaseFinisherProvider.overrideWithValue(finisher),
           sparkSelfAddressProvider.overrideWith((_) async => 'spark1self'),
           swapOrdersProvider.overrideWith((_) => FakeSwapOrders(orders)),
@@ -1049,7 +1083,8 @@ void main() {
               body: Consumer(builder: (context, ref, _) {
                 lastContext = context;
                 lastRef = ref;
-                return buildUnifiedTransactionItem(tx, context, ref);
+                return body?.call(context, ref) ??
+                    buildUnifiedTransactionItem(tx, context, ref);
               }),
             ),
           ),
@@ -1089,6 +1124,18 @@ void main() {
           isTrue);
       expect(multiSourceMoveLandedInDollarsUsd(move, tx.legRows), 20.69);
       expect(multiSourceMoveMissingStepUsd(move, tx.legRows), 20.23);
+      // Dollars hold it: the move keeps its one row, its leg inside it.
+      final kept = collapseMultiSourceMoves(tx.legRows, [move],
+          onlyUsdb: true,
+          walletId: 'spending',
+          dissolved: (m, rows) =>
+              multiSourceMoveFinish(m, rows,
+                      finisher: finisher,
+                      dollars: dollars,
+                      now: DateTime.now())
+                  ?.dissolved ??
+              false);
+      expect(kept.single, isA<MultiSourceMoveTransaction>());
 
       await pump(tester, tx);
       expect(text('Needs attention'), findsOneWidget);
@@ -1160,31 +1207,129 @@ void main() {
     });
 
     testWidgets(
-        'Dollars spent since: no purchase is offered, the move is over and '
-        'says its money stayed', (tester) async {
+        'Dollars spent since: the move has no row on either surface; its '
+        'leg is its own row on Dollars and absent from Bitcoin',
+        (tester) async {
       dollars = 5;
       final move = founderMove();
       MultiSourceMoveStore.start(move);
-      final tx = MultiSourceMoveTransaction(
-          move: move, legRows: [rowOf(hlHome())]);
+      final leg = rowOf(hlHome());
+      final tx = MultiSourceMoveTransaction(move: move, legRows: [leg]);
+      final finish = multiSourceMoveFinish(move, [leg],
+          finisher: finisher, dollars: 5, now: DateTime.now());
+      expect(finish?.dissolved, isTrue);
+
+      // Its own row, were it ever handed one, draws nothing.
       await pump(tester, tx, orders: [hlHome()]);
-      expect(text('The money stayed in Investments'), findsOneWidget);
-      expect(text('Needs attention'), findsNothing);
-      expect(text('Tap to buy Bitcoin'), findsNothing);
-      expect(text('Pending'), findsNothing);
-      await tester.tap(row());
-      await frames(tester);
+      expect(find.byWidgetPredicate(
+              (w) => w.runtimeType.toString() == '_TransactionRow'),
+          findsNothing);
+      expect(text('stayed'), findsNothing);
+      expect(text('Completed'), findsNothing);
+
+      // Dollars: the Investing → Dollars order is its own row, as it would
+      // be with no move.
+      await pump(tester, tx,
+          orders: [hlHome()],
+          body: (context, ref) =>
+              surface(context, ref, onlyUsdb: true, move: move, rows: [leg]));
+      expect(listed.map((r) => r.id), ['ord_hl']);
+      expect(listed.single, isA<SwapOrderTransaction>());
+      final details = (listed.single as SwapOrderTransaction).details;
+      expect(details.depositAmount, '20.95');
+      expect(details.withdrawalAmount, '20.69');
+      expect(text(r'$20.23'), findsNothing);
+
+      // Bitcoin: nothing (a leg landing in Dollars never shows there).
+      await pump(tester, tx,
+          orders: [hlHome()],
+          body: (context, ref) =>
+              surface(context, ref, onlyUsdb: false, move: move, rows: [leg]));
+      expect(listed, isEmpty);
+
+      // The Portfolio's Activity lists the leg once, as its own row.
+      bool dissolved(MultiSourceMove m, List<SwapOrderTransaction> rows) =>
+          multiSourceMoveFinish(m, rows,
+                  finisher: finisher, dollars: 5, now: DateTime.now())
+              ?.dissolved ??
+          false;
+      final entries = mergePortfolioActivity(
+        dollarRows: collapseMultiSourceMoves([leg], [move],
+            onlyUsdb: true, walletId: 'spending', dissolved: dissolved),
+        swaps: [leg],
+        bets: const [],
+        fills: const [],
+        movedLegIds:
+            multiSourceMoveLegIds([leg], [move], dissolved: dissolved),
+      );
+      expect(entries.map((e) => e.tx!.id), ['ord_hl']);
+      // The record stays in its store.
+      expect(MultiSourceMoveStore.get('msm_f'), isNotNull);
       expect(prompts, isEmpty);
       expect(bought, isEmpty);
-      // The tap opened the detail: Completed, no purchase.
-      expect(find.text('Completed'), findsWidgets);
-      expect(find.text('Buy bitcoin'), findsNothing);
+    });
+
+    testWidgets(
+        'while the Dollars balance is not known yet the move is never '
+        'dissolved: it keeps its Needs attention row', (tester) async {
+      dollars = 0;
+      dollarsKnown = false;
+      final move = founderMove();
+      MultiSourceMoveStore.start(move);
+      final leg = rowOf(hlHome());
+      final tx = MultiSourceMoveTransaction(move: move, legRows: [leg]);
+      expect(
+          multiSourceMoveFinish(move, [leg],
+                  finisher: finisher, dollars: null, now: DateTime.now())
+              ?.usd,
+          20.23);
+      await pump(tester, tx,
+          orders: [hlHome()],
+          body: (context, ref) =>
+              surface(context, ref, onlyUsdb: true, move: move, rows: [leg]));
+      expect(listed.single, isA<MultiSourceMoveTransaction>());
+      expect(text('Needs attention'), findsOneWidget);
+      expect(text(r'Your $20.23 is in Investments. Tap to buy Bitcoin'),
+          findsOneWidget);
+      await pump(tester, tx,
+          orders: [hlHome()],
+          body: (context, ref) =>
+              surface(context, ref, onlyUsdb: false, move: move, rows: [leg]));
+      expect(listed.single, isA<MultiSourceMoveTransaction>());
+
+      // The balance arrives and Dollars no longer hold it: the move goes,
+      // and its open detail closes with it.
+      await pump(tester, tx, orders: [hlHome()]);
+      await openDetail(tester, tx);
       expect(find.text('Investing → Dollars'), findsOneWidget);
+      lastRef.read(_dollarsKnown.notifier).state = true;
+      await frames(tester);
+      expect(find.text('Investing → Dollars'), findsNothing);
+      expect(text('Needs attention'), findsNothing);
+      expect(text('Completed'), findsNothing);
+    });
+
+    test('a recorded purchase whose money was spent is dissolved too', () {
+      PendingBitcoinPurchaseStore.put(PendingBitcoinPurchase(
+          moveId: 'msm_f',
+          usd: 20.23,
+          createdAt: _t0,
+          stage: PendingPurchaseStage.needsApproval));
+      final move = founderMove();
+      final legs = [rowOf(hlHome())];
+      MultiSourceMoveFinish? at(double? dollars) => multiSourceMoveFinish(
+          move, legs,
+          finisher: finisher, dollars: dollars, now: DateTime.now());
+      expect(at(0.5)?.dissolved, isTrue);
+      expect(at(null)?.usd, 20.23, reason: 'unknown is not spent');
+      expect(at(5)?.usd, 5, reason: 'what Dollars hold is still offered');
+      expect(at(25.71)?.usd, 20.23);
+      PendingBitcoinPurchaseStore.reload();
     });
 
     testWidgets(
         'a send whose money came home but whose send never went: Needs '
-        'attention while Dollars hold it, else its money stayed',
+        'attention while Dollars hold it, else no row and its leg is its own',
         (tester) async {
       final send = founderMove(
           forAction: VenueCashFor.send,
@@ -1208,9 +1353,13 @@ void main() {
       expect(find.text('Needs attention'), findsWidgets);
 
       dollars = 5;
-      await pump(tester, tx, orders: [hlHome()]);
+      await pump(tester, tx,
+          orders: [hlHome()],
+          body: (context, ref) => surface(context, ref,
+              onlyUsdb: true, move: send, rows: [rowOf(hlHome())]));
       await frames(tester);
-      expect(text('The money stayed in Investments'), findsOneWidget);
+      expect(listed.map((r) => r.id), ['ord_hl']);
+      expect(text(r'Send $20.23'), findsNothing);
       expect(text('Needs attention'), findsNothing);
     });
 

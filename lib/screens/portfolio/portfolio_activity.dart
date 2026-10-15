@@ -127,6 +127,9 @@ PortfolioActivity watchPortfolioActivity(WidgetRef ref) {
   // A delivery to Spark the balance does not show yet keeps its row
   // pending: rebuild when that changes.
   ref.watch(ownSparkArrivalsProvider);
+  // A move over with nothing delivered has no row; its legs are listed.
+  final dissolved =
+      moves.isEmpty ? null : watchMultiSourceMovesDissolved(ref);
   final dollarRows = assembleActivityRows(
     txs.allTransactionsSorted,
     ownAddresses: activityOwnSettleAddresses(ref),
@@ -134,6 +137,7 @@ PortfolioActivity watchPortfolioActivity(WidgetRef ref) {
     onlyUsdb: true,
     moves: moves,
     walletId: walletId,
+    dissolved: dissolved,
   );
   final bets = <PolymarketTransaction>[
     ...txs.polymarketTransactions.where((t) =>
@@ -152,7 +156,8 @@ PortfolioActivity watchPortfolioActivity(WidgetRef ref) {
       swaps: txs.swapOrderTransactions,
       bets: bets,
       fills: fills,
-      movedLegIds: multiSourceMoveLegIds(txs.swapOrderTransactions, moves),
+      movedLegIds: multiSourceMoveLegIds(txs.swapOrderTransactions, moves,
+          dissolved: dissolved),
     ),
     loading: history.isLoading,
     failed: history.hasError,

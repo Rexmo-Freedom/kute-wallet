@@ -10765,11 +10765,6 @@ class AppLocalizationsHr extends AppLocalizations {
   }
 
   @override
-  String multiMoveMoneyStayed(String balance) {
-    return 'Novac je ostao u $balance';
-  }
-
-  @override
   String get usdReceiveFromYourWallet => 'Iz tvog novčanika';
 
   @override

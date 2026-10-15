@@ -10754,11 +10754,6 @@ class AppLocalizationsFi extends AppLocalizations {
   }
 
   @override
-  String multiMoveMoneyStayed(String balance) {
-    return 'Rahat jäivät kohteeseen $balance';
-  }
-
-  @override
   String get usdReceiveFromYourWallet => 'Lompakostasi';
 
   @override

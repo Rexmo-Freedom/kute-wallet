@@ -10702,11 +10702,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String multiMoveMoneyStayed(String balance) {
-    return 'The money stayed in $balance';
-  }
-
-  @override
   String get usdReceiveFromYourWallet => 'From your wallet';
 
   @override

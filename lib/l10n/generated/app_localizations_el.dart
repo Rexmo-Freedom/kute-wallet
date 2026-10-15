@@ -10819,11 +10819,6 @@ class AppLocalizationsEl extends AppLocalizations {
   }
 
   @override
-  String multiMoveMoneyStayed(String balance) {
-    return 'Τα χρήματα έμειναν στο $balance';
-  }
-
-  @override
   String get usdReceiveFromYourWallet => 'Από το πορτοφόλι σου';
 
   @override

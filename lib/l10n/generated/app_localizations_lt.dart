@@ -10785,11 +10785,6 @@ class AppLocalizationsLt extends AppLocalizations {
   }
 
   @override
-  String multiMoveMoneyStayed(String balance) {
-    return 'Pinigai liko $balance';
-  }
-
-  @override
   String get usdReceiveFromYourWallet => 'Iš jūsų piniginės';
 
   @override
