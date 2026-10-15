@@ -3017,8 +3017,6 @@
   "slipStepPreparingOrder": "Îți pregătim ordinul",
   "slipStepPlacingBet": "Se plasează {amount} pe {side}",
   "slipStepOpeningOrder": "Se deschide {amount} {side} {market}",
-  "moveSheetThenPlacesBet": "Apoi plasează {amount} pe {side}",
-  "moveSheetThenOpensOrder": "Apoi deschide {amount} {side} {market}",
   "slipStepTakingLonger": "Durează mai mult decât de obicei",
   "slipFundingReadyToPlace": "Cei {amount} ai tăi sunt în Investments. Atinge pentru a plasa.",
   "slipFundingBitcoinBack": "Adăugarea în Investments nu a reușit. Bitcoinul tău se întoarce.",

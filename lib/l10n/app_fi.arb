@@ -3017,8 +3017,6 @@
   "slipStepPreparingOrder": "Valmistellaan toimeksiantoasi",
   "slipStepPlacingBet": "Asetetaan {amount} vaihtoehdolle {side}",
   "slipStepOpeningOrder": "Avataan {amount} {side} {market}",
-  "moveSheetThenPlacesBet": "Sitten asettaa {amount} vaihtoehdolle {side}",
-  "moveSheetThenOpensOrder": "Sitten avaa {amount} {side} {market}",
   "slipStepTakingLonger": "Kestää tavallista kauemmin",
   "slipFundingReadyToPlace": "{amount} on tililläsi Investments. Napauta asettaaksesi.",
   "slipFundingBitcoinBack": "Lisäys tilille Investments ei onnistunut. Bitcoinisi palaavat.",

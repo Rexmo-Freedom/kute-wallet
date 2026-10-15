@@ -3017,8 +3017,6 @@
   "slipStepPreparingOrder": "Ετοιμάζουμε την εντολή σου",
   "slipStepPlacingBet": "Τοποθέτηση {amount} στο {side}",
   "slipStepOpeningOrder": "Άνοιγμα {amount} {side} {market}",
-  "moveSheetThenPlacesBet": "Μετά τοποθετεί {amount} στο {side}",
-  "moveSheetThenOpensOrder": "Μετά ανοίγει {amount} {side} {market}",
   "slipStepTakingLonger": "Αργεί περισσότερο από το συνηθισμένο",
   "slipFundingReadyToPlace": "Τα {amount} σου είναι στα Investments. Πάτησε για τοποθέτηση.",
   "slipFundingBitcoinBack": "Η προσθήκη στα Investments δεν ολοκληρώθηκε. Τα bitcoin σου επιστρέφουν.",

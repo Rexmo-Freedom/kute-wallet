@@ -3017,8 +3017,6 @@
   "slipStepPreparingOrder": "注文を準備しています",
   "slipStepPlacingBet": "{side}に{amount}を予測中",
   "slipStepOpeningOrder": "{amount}の{market} {side}を開始中",
-  "moveSheetThenPlacesBet": "続けて{side}に{amount}を予測",
-  "moveSheetThenOpensOrder": "続けて{amount}の{market} {side}を開始",
   "slipStepTakingLonger": "通常より時間がかかっています",
   "slipFundingReadyToPlace": "{amount}はInvestmentsにあります。タップして注文してください。",
   "slipFundingBitcoinBack": "Investmentsへの追加は完了しませんでした。ビットコインは返金されます。",

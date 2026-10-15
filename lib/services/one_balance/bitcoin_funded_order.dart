@@ -489,8 +489,6 @@ class BitcoinFundedOrderRequest {
     required this.dropOrder,
     this.entrySource,
     this.awaitPlacement,
-    this.sendLeg,
-    this.door,
   });
 
   final OneBalanceVenue venue;
@@ -523,18 +521,6 @@ class BitcoinFundedOrderRequest {
   /// lands (`MarginFundingRunner`); tests stand in for it too. Null
   /// follows the venue's autofire, which places the slip's queued order.
   final BitcoinPlacementWait? awaitPlacement;
-
-  /// The Bitcoin leg when it is not the runner's own: the Move sheet's,
-  /// when the person confirmed an add the slip attached its order to
-  /// ([MoveSheetOrder]). The same leg ([BitcoinToDollarsLeg.send]) with
-  /// the sheet's own quote, paid under [grant] only
-  /// ([BitcoinLegGrants.stepUp], pinned to the wallet's own Spark address
-  /// read here). Null: the runner's.
-  final BitcoinLegSend? sendLeg;
-
-  /// The door the chain started from when it is not the slip's own
-  /// button ([kMoveSheetDoor]), sent on `order_funding_started`.
-  final String? door;
 }
 
 /// A run the slip follows: its record and its end.
@@ -749,20 +735,6 @@ class BitcoinFundedOrderRunner {
           reason: reason,
           moneyAt: moneyAt,
           message: message);
-    } catch (_) {}
-  }
-
-  /// The Move sheet a slip attached its order to added [addUsd] from
-  /// bitcoin, too little for the order: nothing is placed, and the slip
-  /// says "Your $X is in Investments. Tap to place." for [label]'s market
-  /// (the ready record a chain that stopped in Dollars leaves). Never
-  /// throws.
-  void readyWithoutOrder(FundedOrderLabel label, double addUsd) {
-    if (!addUsd.isFinite || addUsd <= 0) return;
-    try {
-      _ref
-          .read(fundedOrdersProvider.notifier)
-          .start(label, stage: FundedOrderStage.ready, addUsd: addUsd);
     } catch (_) {}
   }
 
@@ -1120,112 +1092,6 @@ Future<String?> ownSparkForBitcoinLeg(
   } catch (_) {
     return null;
   }
-}
-// ── The Move sheet with an order attached ──────────────────────────────
-
-/// The `door` an order funded through the Move sheet reports.
-const String kMoveSheetDoor = 'move_sheet';
-
-/// The order a slip attaches to the Bitcoin → Dollars Move sheet it opens
-/// with nothing typed (founder decision 14 October 2026: "open the btc
-/// sheet and then go back and start automatically the investment if user
-/// adds"). The sheet stays the person's to review and change; its confirm
-/// is the go-ahead for the whole action, under its ONE approval:
-///
-///  * an add of at least [addUsd]: the sheet hands its Bitcoin leg to the
-///    slip ([start]), which validates the order (the minimum it was sized
-///    for), asks the order's one approval (its autofire grant with the
-///    Bitcoin leg bound in, `BitcoinLegGrants.limit`) and runs the chain
-///    ([BitcoinFundedOrderRunner]) with the sheet's leg. No second prompt
-///    and no second tap;
-///  * a smaller add: the sheet's own move under its own approval, as it
-///    always was. Nothing is placed and the slip says the money is in
-///    Investments ([addedOnly]).
-@immutable
-class MoveSheetOrder {
-  const MoveSheetOrder({
-    required this.venue,
-    required this.addUsd,
-    required this.orderUsd,
-    required this.followOn,
-    required this.start,
-    this.addedOnly,
-  });
-
-  final OneBalanceVenue venue;
-
-  /// X: what Investments lack for the order, the least the add must land.
-  final double addUsd;
-
-  /// Y: the order the slip's button was sized for (the market minimum).
-  final double orderUsd;
-
-  /// The one line the sheet's review names the order by ("Then places $5
-  /// on Yes").
-  final String followOn;
-
-  /// The person confirmed an add of at least [addUsd] (see the class).
-  /// Returns once the approval was answered, or the order was refused
-  /// before it; the chain then runs on its own.
-  final Future<MoveSheetOrderStart> Function(MoveSheetLeg leg) start;
-
-  /// The person added [usd], under [addUsd], and its bitcoin left: no
-  /// order.
-  final void Function(double usd)? addedOnly;
-
-  /// Whether an add landing [usd] covers the order.
-  bool coveredBy(double usd) => usd.isFinite && usd + 0.005 >= addUsd;
-}
-
-/// The Move sheet's Bitcoin leg for an attached order: what it lands
-/// ([plan]: the typed figure, its sats and the most the approval lets
-/// leave) and the sheet's own send ([BitcoinToDollarsLeg.send] with the
-/// sheet's quote).
-@immutable
-class MoveSheetLeg {
-  const MoveSheetLeg({required this.plan, required this.send});
-  final BitcoinLegPlan plan;
-  final BitcoinLegSend send;
-}
-
-/// How the slip answered [MoveSheetOrder.start].
-enum MoveSheetOrderStatus {
-  /// Approved: the chain runs ([MoveSheetOrderStart.run]).
-  started,
-
-  /// The approval was declined: nothing moved.
-  declined,
-
-  /// The add no longer covers the order (it needs more since): the
-  /// sheet's own move instead, no order.
-  notCovered,
-
-  /// The order cannot go (the market, the account): nothing moved;
-  /// [MoveSheetOrderStart.message] says why.
-  refused,
-}
-
-/// The slip's answer to [MoveSheetOrder.start].
-@immutable
-class MoveSheetOrderStart {
-  const MoveSheetOrderStart.started(BitcoinFundedRun this.run)
-      : status = MoveSheetOrderStatus.started,
-        message = null;
-  const MoveSheetOrderStart.declined()
-      : status = MoveSheetOrderStatus.declined,
-        run = null,
-        message = null;
-  const MoveSheetOrderStart.notCovered()
-      : status = MoveSheetOrderStatus.notCovered,
-        run = null,
-        message = null;
-  const MoveSheetOrderStart.refused([this.message])
-      : status = MoveSheetOrderStatus.refused,
-        run = null;
-
-  final MoveSheetOrderStatus status;
-  final BitcoinFundedRun? run;
-  final String? message;
 }
 
 // ── The rest of the order: the one-balance planner ─────────────────────
@@ -1612,7 +1478,6 @@ class _FundedChain {
       extra: {
         'add_usd': r.plan.targetUsd,
         'add_sats': r.plan.sats,
-        if (r.door case final door?) 'door': door,
       },
     );
 
@@ -1976,7 +1841,7 @@ class _FundedChain {
     DateTime? sentAt;
     BitcoinLegTicket ticket;
     try {
-      ticket = await (r.sendLeg ?? env.send)(
+      ticket = await env.send(
         sparkAddress: _ownSpark,
         plan: r.plan,
         stepUp: BitcoinLegGrants.stepUp(r.grant, ownSpark: _ownSpark),

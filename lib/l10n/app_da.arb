@@ -3017,8 +3017,6 @@
   "slipStepPreparingOrder": "Gør din ordre klar",
   "slipStepPlacingBet": "Placerer {amount} på {side}",
   "slipStepOpeningOrder": "Åbner {amount} {side} {market}",
-  "moveSheetThenPlacesBet": "Placerer derefter {amount} på {side}",
-  "moveSheetThenOpensOrder": "Åbner derefter {amount} {side} {market}",
   "slipStepTakingLonger": "Det tager længere tid end normalt",
   "slipFundingReadyToPlace": "Dine {amount} er i Investments. Tryk for at placere.",
   "slipFundingBitcoinBack": "Tilføjelsen til Investments gik ikke igennem. Din bitcoin er på vej tilbage.",

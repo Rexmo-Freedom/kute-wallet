@@ -3017,8 +3017,6 @@
   "slipStepPreparingOrder": "Je order wordt klaargezet",
   "slipStepPlacingBet": "{amount} inzetten op {side}",
   "slipStepOpeningOrder": "{amount} {side} {market} openen",
-  "moveSheetThenPlacesBet": "Zet daarna {amount} in op {side}",
-  "moveSheetThenOpensOrder": "Opent daarna {amount} {side} {market}",
   "slipStepTakingLonger": "Dit duurt langer dan normaal",
   "slipFundingReadyToPlace": "Je {amount} staat in Investments. Tik om te plaatsen.",
   "slipFundingBitcoinBack": "Toevoegen aan Investments is niet gelukt. Je bitcoin komt terug.",

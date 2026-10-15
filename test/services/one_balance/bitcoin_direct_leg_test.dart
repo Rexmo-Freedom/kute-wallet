@@ -784,27 +784,6 @@ void main() {
       expect(h.record.moneyAt, FundedMoneyAt.venue);
       expect(h.record.reason, 'venue_refused');
     });
-
-    test(
-        'the Move sheet\'s attached order goes direct too: the sheet\'s '
-        'Bitcoin → Dollars send never runs', () async {
-      h = _Harness(
-        plan: const DirectBitcoinPlan.direct(
-          targetUsd: 15.01,
-          sats: 100000,
-          dollarsUsd: 0,
-          bitcoinShareUsd: 15.1,
-          otherUsd: 0,
-          directCostUsd: 15.0,
-          viaCostUsd: 15.3,
-        ),
-        sheetLeg: true,
-      );
-      final run = h.start();
-      expect(await run.ended, BitcoinFundedEnd.placed);
-      expect(h.sheetSends, 0);
-      expect(h.directSends, 1);
-    });
   });
 }
 
@@ -819,7 +798,6 @@ class _Harness {
     this.refuseVenueMove = false,
     this.bitcoinStatus = 'completed',
     this.ownVenue = _pmWallet,
-    this.sheetLeg = false,
   });
 
   final DirectBitcoinPlan plan;
@@ -829,12 +807,10 @@ class _Harness {
   final bool refuseVenueMove;
   final String bitcoinStatus;
   final String ownVenue;
-  final bool sheetLeg;
 
   var directSends = 0;
   var directPaid = 0;
   var viaSends = 0;
-  var sheetSends = 0;
   var dropped = 0;
   final fundCalls = <FundingLegContext>[];
   final _bitcoinHeld = Completer<void>();
@@ -941,17 +917,6 @@ class _Harness {
             fundUsd: 15.1,
             readyUsd: 0,
             entrySource: 'market',
-            sendLeg: sheetLeg
-                ? ({
-                    required String sparkAddress,
-                    required BitcoinLegPlan plan,
-                    required SettlementStepUpHook stepUp,
-                    required void Function() onSending,
-                  }) async {
-                    sheetSends++;
-                    throw StateError('the sheet leg ran');
-                  }
-                : null,
             fundVenue: (controller, legs) async {
               fundCalls.add(legs);
               if (refuseVenueMove) {

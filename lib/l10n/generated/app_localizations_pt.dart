@@ -10819,16 +10819,6 @@ class AppLocalizationsPt extends AppLocalizations {
   }
 
   @override
-  String moveSheetThenPlacesBet(String amount, String side) {
-    return 'Depois coloca $amount em $side';
-  }
-
-  @override
-  String moveSheetThenOpensOrder(String amount, String side, String market) {
-    return 'Depois abre $amount $side $market';
-  }
-
-  @override
   String get slipStepTakingLonger => 'Está a demorar mais do que o habitual';
 
   @override

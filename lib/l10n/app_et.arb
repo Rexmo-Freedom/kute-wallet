@@ -3017,8 +3017,6 @@
   "slipStepPreparingOrder": "Valmistame sinu tehingut ette",
   "slipStepPlacingBet": "Panustame {amount} valikule {side}",
   "slipStepOpeningOrder": "Avame {amount} {side} {market}",
-  "moveSheetThenPlacesBet": "Seejärel panustab {amount} valikule {side}",
-  "moveSheetThenOpensOrder": "Seejärel avab {amount} {side} {market}",
   "slipStepTakingLonger": "Võtab tavapärasest kauem aega",
   "slipFundingReadyToPlace": "Sinu {amount} on kontol Investments. Puuduta, et esitada.",
   "slipFundingBitcoinBack": "Lisamine kontole Investments ei õnnestunud. Sinu bitcoin tuleb tagasi.",

@@ -1691,12 +1691,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     // The venue cannot cover the order yet: fund the difference from
     // Dollars on this same tap, then place it once the money lands.
     final shortfall = _shortfallNow();
-    if (_sheetLeg != null && shortfall <= 0) {
-      // The Investing cash covers the order since the sheet opened: the
-      // add is the sheet's own move, and the order waits for a tap.
-      _sheetStart = const MoveSheetOrderStart.notCovered();
-      return;
-    }
     if (shortfall > 0) {
       await _confirmFunded(
         walletId: walletId,
@@ -2221,7 +2215,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       'order_kind': orderKind,
       if (_positionEffectName != null) 'position_effect': _positionEffectName!,
       if (_bitcoinArmed) 'funding_source': 'bitcoin',
-      if (_sheetLeg != null) 'door': kMoveSheetDoor,
     });
     // The funding engine: Dollars first, then the other venue's cash
     // (pulled home inside this same Confirm, after the one approval).
@@ -2245,15 +2238,13 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           ).route ==
           OrderFundingRoute.move;
     }
-    if ((dollars + 1e-9 < fundUsd && !pullFirst) || _sheetLeg != null) {
+    if (dollars + 1e-9 < fundUsd && !pullFirst) {
       // The whole Investments balance is short of the move, whichever
       // button was tapped ("Add $X", or the order whose figures moved
-      // since the ticket drew it): the person's own bitcoin tops Dollars
-      // up first, under this order's one approval, whenever it covers X.
-      // Only when it genuinely does not is it the Dollars door, prefilled
-      // with X. The bet slip makes the same decision. The Move sheet's
-      // confirmed add always funds this way: its leg is the one the order
-      // waits for.
+      // since the ticket drew it): the person's own bitcoin funds it,
+      // under this order's one approval, whenever it covers X. Only when
+      // it genuinely does not is it the Investments Receive sheet. The bet
+      // slip makes the same decision.
       await _confirmFundedFromBitcoin(
         walletId: walletId,
         cloid: cloid,
@@ -2586,8 +2577,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     final container = ProviderScope.containerOf(context, listen: false);
     final planFundUsd = plan.fundUsd;
     final fromAdd = _bitcoinArmed;
-    // The Move sheet's confirmed add, when it is the sheet that runs this.
-    final sheetLeg = _sheetLeg;
     // One funded order per venue at a time.
     if (FundedOrdersNotifier.activeOf(
             ref.read(fundedOrdersProvider), OneBalanceVenue.investing) !=
@@ -2606,22 +2595,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     // button names the new figure.
     var addUsd = BitcoinLegRules.addUsd(
         fundUsd: planFundUsd, investmentsUsd: investmentsUsd);
-    final shown = fromAdd && sheetLeg == null ? _bitcoinTapAddUsd : null;
-    if (sheetLeg != null) {
-      // The Move sheet lands what the person confirmed there (X or more):
-      // it must still cover what the order lacks now. Short of it, nothing
-      // of the order goes and the add is the sheet's own move.
-      if (addUsd > sheetLeg.plan.targetUsd + 0.005) {
-        _sheetStart = const MoveSheetOrderStart.notCovered();
-        _trackBlocked('add_amount_changed');
-        _updateDraft(() {
-          _fundingStage = null;
-          _fundPlan = plan;
-        });
-        return;
-      }
-      addUsd = sheetLeg.plan.targetUsd;
-    } else if (shown != null && shown > 0) {
+    final shown = fromAdd ? _bitcoinTapAddUsd : null;
+    if (shown != null && shown > 0) {
       if (addUsd > shown + 0.005) {
         _trackBlocked('add_amount_changed');
         _updateDraft(() {
@@ -2668,17 +2643,13 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       await toReceive(_dollarsShortUsd(planFundUsd, haveUsd: dollars));
       return;
     }
-    // The "Add" tap already sized the leg for this X: no second read. The
-    // Move sheet's leg is the one the person confirmed there.
+    // The "Add" tap already sized the leg for this X: no second read.
     final tapPlan = fromAdd ? _bitcoinTapPlan : null;
-    final decision = sheetLeg != null
-        ? SlipFundingDecision.bitcoin(sheetLeg.plan, addUsd)
-        : tapPlan != null &&
-                (tapPlan.targetUsd - BitcoinLegRules.targetUsd(addUsd))
-                        .abs() <
-                    0.005
-            ? SlipFundingDecision.bitcoin(tapPlan, addUsd)
-            : await decideSlipFunding(container.read, addUsd: addUsd);
+    final decision = tapPlan != null &&
+            (tapPlan.targetUsd - BitcoinLegRules.targetUsd(addUsd)).abs() <
+                0.005
+        ? SlipFundingDecision.bitcoin(tapPlan, addUsd)
+        : await decideSlipFunding(container.read, addUsd: addUsd);
     if (!mounted) return;
     switch (decision.route) {
       case SlipFundingRoute.insufficient:
@@ -2832,10 +2803,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           fundUsd: planFundUsd,
           readyUsd: ready,
           entrySource: _entrySource,
-          // The Move sheet's own leg when its confirm started this: its
-          // quote and send, paid under this grant only.
-          sendLeg: sheetLeg?.send,
-          door: sheetLeg != null ? kMoveSheetDoor : null,
           // Runs whatever happens to this ticket: reads only the
           // container. The rest from the other venue under the same
           // grant, then the move from Dollars.
@@ -2891,13 +2858,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       },
     );
     if (run == null) {
-      if (sheetLeg != null) {
-        // Declined at the one prompt: nothing moved, the sheet stays.
-        _sheetStart = declined
-            ? const MoveSheetOrderStart.declined()
-            : MoveSheetOrderStart.refused(
-                mounted ? _strings.errorCopyGeneric : null);
-      }
       if (declined) {
         _stopped('signing_declined');
         TrackingService.track('order_funding_abandoned', params: {
@@ -2909,7 +2869,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       if (mounted) _updateDraft(() => _fundingStage = null);
       return;
     }
-    if (sheetLeg != null) _sheetStart = MoveSheetOrderStart.started(run);
     _bitcoinRunId = run.id;
     unawaited(run.ended.then((end) {
       if (mounted) _onBitcoinRunEnded(run.id, end);
@@ -2943,16 +2902,11 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     });
   }
 
-  /// Whether this ticket's "Add" may be funded from the person's own
-  /// bitcoin: a hot ticket with an order typed. Whether the bitcoin covers
-  /// it is decided at the tap ([decideSlipFunding]) on the wallet's own
-  /// figures, never on a snapshot the ticket drew before they were in.
-  bool get _bitcoinEligible => !_isLedger && _marginUsd > 0;
-
-  /// The X "Add $X to Investments" names on a hot ticket with an order
-  /// ([BitcoinLegRules.addUsd]): what the tap converts from bitcoin, or
-  /// prefills the Dollars door with when the bitcoin does not cover it.
-  /// Set by the build.
+  /// The X "Add $X to Investments" names on a hot ticket
+  /// ([BitcoinLegRules.addUsd], on the order typed or, with nothing typed,
+  /// the market's minimum): what the tap converts from bitcoin. Whether
+  /// the bitcoin covers it is decided at the tap ([decideSlipFunding]) on
+  /// the wallet's own figures. Set by the build.
   double? _shownAddUsd;
 
   /// [_shownAddUsd] as it was at the Add tap: what the leg converts.
@@ -2961,79 +2915,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   /// The order an empty hot ticket's button stands for (the market's
   /// minimum), while nothing is typed. Set by the build.
   double? _emptyMinimumUsd;
-
-  /// The Move sheet's leg while its confirm runs this ticket's order
-  /// ([_startFromMoveSheet]); null otherwise.
-  MoveSheetLeg? _sheetLeg;
-
-  /// How the order the Move sheet's confirm started ended up, for the
-  /// sheet.
-  MoveSheetOrderStart? _sheetStart;
-
-  /// The order an empty ticket's "Add $X to Investments" was sized for
-  /// ([minimumUsd], on the side shown), attached to the Move sheet that tap
-  /// opens with [addUsd] (X) prefilled ([MoveSheetOrder]).
-  MoveSheetOrder _moveSheetOrder(double addUsd, double minimumUsd) {
-    final container = ProviderScope.containerOf(context, listen: false);
-    final label = FundedOrderLabel(
-      venue: OneBalanceVenue.investing,
-      orderUsd: minimumUsd,
-      side: _sideWord(),
-      market: FundedOrderLabel.shortName(market.coin),
-      marketKey: market.coin,
-    );
-    return MoveSheetOrder(
-      venue: OneBalanceVenue.investing,
-      addUsd: addUsd,
-      orderUsd: minimumUsd,
-      followOn: _strings.moveSheetThenOpensOrder(formatHlUsd(minimumUsd),
-          _sideWord(), market.annotatedName ?? market.coin),
-      start: (leg) => _startFromMoveSheet(leg, minimumUsd),
-      // Too little for the order: it is not opened, and the ticket (now,
-      // or reopened) says the money is in Investments.
-      addedOnly: (usd) => container
-          .read(bitcoinFundedOrderRunnerProvider)
-          .readyWithoutOrder(label, usd),
-    );
-  }
-
-  /// The person confirmed, on the Move sheet this empty ticket opened, an
-  /// add that covers its order: the confirm is the go-ahead for the whole
-  /// action. The ticket takes the order it was sized for ([minimumUsd]),
-  /// runs it through the normal confirm (every check before money moves),
-  /// asks the ONE approval that binds the order, its move and the sheet's
-  /// Bitcoin leg, and starts the chain with that leg. No second tap and no
-  /// second prompt. Returns once the approval was answered.
-  Future<MoveSheetOrderStart> _startFromMoveSheet(
-      MoveSheetLeg leg, double minimumUsd) async {
-    if (!mounted || _isLedger || _isPlacing || _orderInFlight) {
-      return const MoveSheetOrderStart.refused();
-    }
-    // The order the button was sized for, drawn before the confirm reads
-    // the ticket.
-    if (_marginUsd <= 0) _fillAmountChip(minimumUsd, 'min_direct');
-    await WidgetsBinding.instance.endOfFrame;
-    if (!mounted) return const MoveSheetOrderStart.refused();
-    _sheetLeg = leg;
-    _sheetStart = null;
-    _bitcoinArmed = true;
-    _bitcoinFellBack = false;
-    _bitcoinFallbackUsd = null;
-    _bitcoinTapPlan = null;
-    try {
-      await _handleConfirm();
-    } finally {
-      _bitcoinArmed = false;
-      _sheetLeg = null;
-    }
-    final start = _sheetStart ??
-        (_bitcoinFellBack
-            ? const MoveSheetOrderStart.notCovered()
-            : MoveSheetOrderStart.refused(
-                mounted ? _errorText ?? _strings.errorCopyGeneric : null));
-    _sheetStart = null;
-    return start;
-  }
 
   /// From the first time "Add" shows, holds the wallet's own Spark
   /// address (the Bitcoin leg's pinned recipient) so the tap finds it
@@ -3398,11 +3279,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   ///  * the bitcoin covers X and an order is typed: the tap is the order
   ///    itself, funded Bitcoin → Dollars → Investing under its one
   ///    approval, with the steps on this ticket;
-  ///  * the bitcoin covers X and nothing is typed: the Bitcoin → Dollars
-  ///    Move sheet, prefilled with X and carrying the order at the
-  ///    market's minimum: an add there that covers it is the go-ahead, and
-  ///    the order opens under the sheet's one approval
-  ///    ([_startFromMoveSheet]);
   ///  * the bitcoin does not cover X: the Investments Receive sheet, since
   ///    the money has to come from outside;
   ///  * nothing could be read: a message, no sheet.
@@ -3441,14 +3317,14 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     if (!mounted) return;
     switch (decision.route) {
       case SlipFundingRoute.bitcoin:
-        if (!_bitcoinEligible) {
-          // Nothing typed: the Move sheet, prefilled with X, carrying the
-          // order at the market's minimum. An add that covers it brings
-          // the person back here and opens it under the sheet's one
-          // approval.
-          await _openDollarsDoor(
-              prefillUsd: shown, attachMinimumUsd: _emptyMinimumUsd);
-          return;
+        // Nothing typed: the order the button was sized for (the market's
+        // minimum), drawn before the confirm reads the ticket, then funded
+        // in place like a typed one.
+        final minimum = _emptyMinimumUsd;
+        if (_marginUsd <= 0 && minimum != null) {
+          _fillAmountChip(minimum, 'min_direct');
+          await WidgetsBinding.instance.endOfFrame;
+          if (!mounted) return;
         }
         if (await slipBitcoinChainStoodIn(
                 OneBalanceVenue.investing, decision) ||
@@ -3506,10 +3382,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   }
 
   /// The Move sheet: a Ledger ticket's, locked to its own Investing
-  /// account; a hot ticket's Bitcoin → Dollars door, prefilled with
-  /// [prefillUsd] (or what Investments lack for this order's move).
-  Future<void> _openDollarsDoor(
-      {double? prefillUsd, double? attachMinimumUsd}) async {
+  /// account; a hot ticket's Bitcoin → Dollars door, prefilled with what
+  /// Investments lack for this order's move.
+  Future<void> _openDollarsDoor() async {
     _stopped('insufficient_balance');
     _trackStep('deposit');
     setState(() => _depositDoorBusy = true);
@@ -3531,15 +3406,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       // type; once the Dollars are there the button is the order again.
       final shortfall = _slipShortfallUsd;
       final fundUsd = _fundPlanFor(shortfall).fundUsd;
-      final attach = attachMinimumUsd != null &&
-          attachMinimumUsd > 0 &&
-          prefillUsd != null &&
-          prefillUsd > 0;
-      final target = prefillUsd != null && prefillUsd > 0
-          // With the order attached: X as the Bitcoin leg lands it (never
-          // under the route's minimum), what the order needs.
-          ? (attach ? BitcoinLegRules.targetUsd(prefillUsd) : prefillUsd)
-          : _dollarsShortUsd(fundUsd, haveUsd: _slipInvestmentsUsd);
+      final target = _dollarsShortUsd(fundUsd, haveUsd: _slipInvestmentsUsd);
       TrackingService.track('slip_top_up_opened', params: {
         'venue': 'hyperliquid',
         'shortfall_bucket': TrackingService.usdBucket(shortfall),
@@ -3549,16 +3416,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         'prefill_rule': 'dollars_shortfall',
         'suggested_source': 'dollars',
       });
-      // The order an empty ticket was sized for rides on the sheet.
-      final order = attach && target > 0
-          ? _moveSheetOrder(target, attachMinimumUsd)
-          : null;
-      if (order != null &&
-          await slipMoveSheetWithOrderStoodIn(
-              SlipVenue.investing, target, order)) {
-        return;
-      }
-      if (!mounted) return;
       final seam = debugShowHlDollarsDeposit;
       if (seam != null) {
         await seam(MoveLockedSide.depositToUsd, target > 0 ? target : null);
@@ -3568,7 +3425,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         context,
         lockedSide: MoveLockedSide.depositToUsd,
         initialTargetUsd: target > 0 ? target : null,
-        attachedOrder: order,
         onCompleted: () {
           if (!mounted) return;
           TrackingService.track('slip_top_up_returned', params: {
@@ -4550,10 +4406,11 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     var dollarsShort = fundPlan == null
         ? 0.0
         : _dollarsShortUsd(fundPlan.fundUsd, haveUsd: investmentsUsd);
-    // With an order typed the button names exactly what the Bitcoin leg
-    // would add (the same rounding, the route minimum): the tap converts
-    // that and nothing more when the bitcoin covers it, else opens the
-    // Investments Receive sheet. Whether it covers is decided at the tap
+    // The button names exactly what the Bitcoin leg would add for the
+    // order (typed, or the minimum an empty ticket opens; the same
+    // rounding, the route minimum): the tap converts that and nothing more
+    // when the bitcoin covers it, else opens the Investments Receive
+    // sheet. Whether it covers is decided at the tap
     // on the wallet's own figures, so a balance or price still loading
     // here never decides where the tap goes. The bet slip does the same.
     final bitcoinAdd = fundPlan == null
@@ -4562,7 +4419,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
             fundUsd: fundPlan.fundUsd, investmentsUsd: investmentsUsd);
     _shownAddUsd = dollarsShort <= 0 || _isLedger
         ? null
-        : _bitcoinEligible && bitcoinAdd > 0
+        : bitcoinAdd > 0
             ? bitcoinAdd
             : dollarsShort;
     if (_shownAddUsd != null) {

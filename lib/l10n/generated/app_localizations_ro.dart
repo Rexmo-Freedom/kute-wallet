@@ -10828,16 +10828,6 @@ class AppLocalizationsRo extends AppLocalizations {
   }
 
   @override
-  String moveSheetThenPlacesBet(String amount, String side) {
-    return 'Apoi plasează $amount pe $side';
-  }
-
-  @override
-  String moveSheetThenOpensOrder(String amount, String side, String market) {
-    return 'Apoi deschide $amount $side $market';
-  }
-
-  @override
   String get slipStepTakingLonger => 'Durează mai mult decât de obicei';
 
   @override

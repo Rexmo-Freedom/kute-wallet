@@ -6,17 +6,17 @@
 // balance cannot cover the move either, the slip's button reads "Add $X
 // to Investments" and its tap decides on the spending bitcoin
 // (`decideSlipFunding`, the same for both slips): the Bitcoin-funded chain
-// when it covers X; otherwise [openSlipReceive], the Investments Receive
-// sheet, since the money has to come from outside. [openSlipTopUp] (the
-// Dollars deposit door, prefilled with exactly what is missing: the
-// order's top-up, [ShortfallRules.topUp], the route's fee counted, less
-// the Dollars already held) stays for "Add more" and for an empty slip
-// whose bitcoin covers X; that one carries the order the slip was sized
-// for (`MoveSheetOrder`), which an add covering it places under the
-// sheet's one approval. The slip stays open underneath with everything
-// the person typed. A hot slip's "Available" ([slipAvailableUsd]) is the
-// whole spendable Investments, and its Max ([slipMaxFundableUsd]) the
-// largest order its own funding check passes on it.
+// when it covers X, run in place on the slip whether or not anything was
+// typed (an empty slip takes the market's minimum first, never a sheet);
+// otherwise [openSlipReceive], the Investments Receive sheet, since the
+// money has to come from outside. [openSlipTopUp] (the Dollars deposit
+// door, prefilled with exactly what is missing: the order's top-up,
+// [ShortfallRules.topUp], the route's fee counted, less the Dollars
+// already held) stays for "Add more". The slip stays open underneath with
+// everything the person typed. A hot slip's "Available"
+// ([slipAvailableUsd]) is the whole spendable Investments, and its Max
+// ([slipMaxFundableUsd]) the largest order its own funding check passes
+// on it.
 //
 // While a deposit into that venue is on its way (an order's funding leg
 // that has left Dollars, read from the persisted Orchestra rows the pool
@@ -62,8 +62,6 @@ import 'package:kute/screens/receive/receive_sheet.dart'
     show showUsdReceiveSheet;
 import 'package:kute/services/api/orchestra_api.dart' show OrchestraService;
 import 'package:kute/services/funding/venue_shortfall.dart';
-import 'package:kute/services/one_balance/bitcoin_funded_order.dart'
-    show MoveSheetOrder;
 import 'package:kute/services/one_balance/funded_orders.dart';
 import 'package:kute/services/one_balance/money_steps.dart' show MoneyStepGraph;
 import 'package:kute/services/one_balance/one_balance_state.dart'
@@ -175,25 +173,6 @@ Future<SlipRouteFee> Function(
 Future<void> Function(SlipVenue venue, double? initialTargetUsd)?
     debugShowSlipTopUpSheet;
 
-/// Test seam: stands in for the Bitcoin → Dollars Move sheet a slip opens
-/// with nothing typed, carrying the order it was sized for ([order]: the
-/// test plays the sheet's confirm through [MoveSheetOrder.start]). Both
-/// slips use it.
-@visibleForTesting
-Future<void> Function(
-        SlipVenue venue, double? initialTargetUsd, MoveSheetOrder order)?
-    debugShowSlipMoveSheetWithOrder;
-
-/// Runs [debugShowSlipMoveSheetWithOrder] instead of the Move sheet when a
-/// test set it; true when it did. Always false in the app.
-Future<bool> slipMoveSheetWithOrderStoodIn(
-    SlipVenue venue, double? initialTargetUsd, MoveSheetOrder order) async {
-  final seam = debugShowSlipMoveSheetWithOrder;
-  if (seam == null) return false;
-  await seam(venue, initialTargetUsd, order);
-  return true;
-}
-
 /// The share of a deposit of [amountUsd] the route from [source] into
 /// [venue] keeps, Kute's fee included, from Orchestra's current estimate
 /// for that amount. Falls back to the last estimate, then to
@@ -299,17 +278,12 @@ double slipDollarsShortfallUsd({
 /// the top-up is the rest of [shortfallUsd] instead. Both count the
 /// Dollars route's own fee and the Kute fee the move's quote takes.
 /// [topUpUsd] passes a top-up already worked out (the slip's funding
-/// plan) so nothing is read again. [prefillUsd] is the prefill itself when
-/// the slip already worked out what is missing (the X its button named
-/// and the bitcoin could not cover); nothing is read then. Without an
-/// order (nothing typed yet) it keeps [fallbackTargetUsd], as the door
-/// always did. [onReturned]
+/// plan) so nothing is read again. Without an order (nothing typed yet)
+/// it keeps [fallbackTargetUsd], as the door always did. [onReturned]
 /// runs once the deposit went through and the person is back on the
 /// still-open slip. [onSheetOpening] runs once the prefill is worked
 /// out, right before the door opens: the slip's button stops showing its
-/// calculation there. [attachedOrder] is the order an empty slip was sized
-/// for: an add that covers it places it under the sheet's one approval
-/// ([MoveSheetOrder]).
+/// calculation there.
 ///
 /// No events of its own: the Dollars door and the order's funding report
 /// themselves.
@@ -323,39 +297,28 @@ Future<void> openSlipTopUp(
   double readyUsd = 0,
   double? incomingUsd,
   double? topUpUsd,
-  double? prefillUsd,
   double? fallbackTargetUsd,
   required VoidCallback onReturned,
   VoidCallback? onSheetOpening,
-  MoveSheetOrder? attachedOrder,
 }) async {
   if (_topUpOpening) return;
   _topUpOpening = true;
   double amount;
   try {
-    amount = prefillUsd != null && prefillUsd.isFinite && prefillUsd > 0
-        // What the slip worked out is missing: exactly that, to the cent.
-        ? ((prefillUsd * 100) - 1e-9).ceilToDouble() / 100
-        : await _dollarsDoorPrefill(ref,
-            venue: venue,
-            shortfallUsd: shortfallUsd,
-            orderUsd: orderUsd,
-            requiredUsd: requiredUsd,
-            readyUsd: readyUsd,
-            incomingUsd: incomingUsd,
-            topUpUsd: topUpUsd,
-            fallbackTargetUsd: fallbackTargetUsd);
+    amount = await _dollarsDoorPrefill(ref,
+        venue: venue,
+        shortfallUsd: shortfallUsd,
+        orderUsd: orderUsd,
+        requiredUsd: requiredUsd,
+        readyUsd: readyUsd,
+        incomingUsd: incomingUsd,
+        topUpUsd: topUpUsd,
+        fallbackTargetUsd: fallbackTargetUsd);
   } finally {
     _topUpOpening = false;
   }
   if (!context.mounted) return;
   onSheetOpening?.call();
-  if (attachedOrder != null &&
-      await slipMoveSheetWithOrderStoodIn(
-          venue, amount > 0 ? amount : null, attachedOrder)) {
-    return;
-  }
-  if (!context.mounted) return;
   final sheetSeam = debugShowSlipTopUpSheet;
   if (sheetSeam != null) {
     await sheetSeam(venue, amount > 0 ? amount : null);
@@ -365,7 +328,6 @@ Future<void> openSlipTopUp(
     context,
     lockedSide: MoveLockedSide.depositToUsd,
     initialTargetUsd: amount > 0 ? amount : null,
-    attachedOrder: attachedOrder,
     onCompleted: () {
       if (!context.mounted) return;
       onReturned();
@@ -373,8 +335,8 @@ Future<void> openSlipTopUp(
   );
 }
 
-/// [openSlipTopUp]'s prefill when the slip did not pass one: the order's
-/// top-up (or [topUpUsd]) less the Dollars held.
+/// [openSlipTopUp]'s prefill: the order's top-up (or [topUpUsd]) less
+/// the Dollars held.
 Future<double> _dollarsDoorPrefill(
   WidgetRef ref, {
   required SlipVenue venue,
