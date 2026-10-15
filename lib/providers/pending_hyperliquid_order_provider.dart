@@ -56,6 +56,7 @@ import 'package:kute/services/hyperliquid/hl_failure_analytics.dart';
 import 'package:kute/services/hyperliquid/hypercore_cash.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_onboarding_service.dart';
 
+import 'package:flutter/foundation.dart' show immutable, visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:kute/helpers/auth_grant.dart';
@@ -64,6 +65,7 @@ import 'package:kute/helpers/require_fresh_auth.dart';
 import 'package:kute/helpers/venue_intents.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart';
+import 'package:kute/models/hyperliquid_model.dart' show HyperliquidModel;
 import 'package:kute/providers/auth_provider.dart' show sessionUnlockedProvider;
 import 'package:kute/providers/hyperliquid_account_provider.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
@@ -73,7 +75,10 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
 import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart'
-    show HlOrderResult, HyperliquidInsufficientMarginException;
+    show
+        HlOrderResult,
+        HlOrderResultKind,
+        HyperliquidInsufficientMarginException;
 import 'package:kute/services/one_balance/hyperliquid_move_rail.dart';
 import 'package:kute/services/one_balance/hyperliquid_venue_funder.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
@@ -282,8 +287,7 @@ class PendingHlOrderIntent {
   }) : createdAt = createdAt ?? DateTime.now();
 
   /// Whether the auto-fire may shrink this order to what arrived.
-  bool get resizable =>
-      placement?.resizable ?? (orderKind == 'market');
+  bool get resizable => placement?.resizable ?? (orderKind == 'market');
 
   PendingHlOrderIntent copyWith({
     PendingHlOrderStatus? status,
@@ -472,7 +476,9 @@ class PendingHyperliquidOrderNotifier extends Notifier<PendingHlOrderIntent?> {
           if (registration != null && move.orderId == null) {
             unawaited(registration.then((id) {
               final s = state;
-              if (id != null && s != null && identical(s.placement, intent.placement)) {
+              if (id != null &&
+                  s != null &&
+                  identical(s.placement, intent.placement)) {
                 state = s.copyWith(fundOrderId: id);
               }
             }));
@@ -551,6 +557,106 @@ final hlBuilderApprovalAfterFundingProvider =
 /// How many times a market order is sent again after the venue refused
 /// it for margin right after its money was credited.
 const int kHlNotReadyRetries = 5;
+
+/// The client order ids one queued order went out under: the first (the
+/// slip's own), then a FRESH one for every send again. A cloid is never
+/// reused, so a late answer to an earlier send can never be taken for the
+/// new one. The slip's fill listener and its placement read through here.
+abstract final class HlResendCloids {
+  static final Map<String, List<String>> _next = {};
+
+  /// The cloid the next send of the order first sent as [first] uses.
+  static String current(String first) => _next[first]?.last ?? first;
+
+  /// A fresh cloid for the next send of [first]'s order.
+  static String renew(String first) {
+    final next = newHlCloid();
+    (_next[first] ??= []).add(next);
+    return next;
+  }
+
+  /// Every cloid [first]'s order went out under.
+  static List<String> all(String first) => [first, ...?_next[first]];
+
+  /// Whether [cloid] is one of [first]'s order's.
+  static bool owns(String first, String? cloid) =>
+      cloid != null && all(first).contains(cloid);
+
+  @visibleForTesting
+  static void reset() => _next.clear();
+}
+
+/// What became of an order already sent: still resting on the book, or
+/// filled ([found]); nowhere ([known] and no [found]); or it could not be
+/// read ([known] false).
+@immutable
+class HlSentOrderTrace {
+  const HlSentOrderTrace.none()
+      : known = true,
+        found = null;
+  const HlSentOrderTrace.found(HlOrderResult this.found) : known = true;
+  const HlSentOrderTrace.unknown()
+      : known = false,
+        found = null;
+
+  final bool known;
+  final HlOrderResult? found;
+}
+
+/// Looks [cloids] up on [market]: the account's open orders and its fills.
+/// Overridden in tests.
+final hlSentOrderTraceProvider = Provider<
+    Future<HlSentOrderTrace> Function(List<String> cloids, HlMarket market)>(
+  (ref) => (cloids, market) async {
+    try {
+      final address = await ref
+          .read(hyperliquidAddressProvider.future)
+          .timeout(const Duration(seconds: 8));
+      if (address == null || address.isEmpty) {
+        return const HlSentOrderTrace.unknown();
+      }
+      final model = HyperliquidModel();
+      final reads = await Future.wait<Object>([
+        model.getOpenOrders(address,
+            dexes: [if (market.dex.isNotEmpty) market.dex]),
+        model.getUserFills(address),
+      ]).timeout(const Duration(seconds: 10));
+      return hlTraceOf(cloids,
+          open: reads[0] as List<HlOpenOrder>, fills: reads[1] as List<HlFill>);
+    } catch (_) {
+      return const HlSentOrderTrace.unknown();
+    }
+  },
+);
+
+/// [cloids]' order in the account's [open] orders and [fills]: filled
+/// (what filled, at its average price) before resting, else nowhere.
+HlSentOrderTrace hlTraceOf(List<String> cloids,
+    {required List<HlOpenOrder> open, required List<HlFill> fills}) {
+  final ids = {for (final c in cloids) c.toLowerCase()};
+  bool mine(String? cloid) =>
+      cloid != null && ids.contains(cloid.toLowerCase());
+  final filled = fills.where((f) => mine(f.cloid)).toList();
+  if (filled.isNotEmpty) {
+    final size = filled.fold<double>(0, (a, f) => a + f.sz);
+    final notional = filled.fold<double>(0, (a, f) => a + f.sz * f.px);
+    return HlSentOrderTrace.found(HlOrderResult(
+      kind: HlOrderResultKind.filled,
+      oid: filled.first.oid,
+      cloid: filled.first.cloid,
+      filledSz: size,
+      avgPx: size > 0 ? notional / size : 0,
+    ));
+  }
+  final resting = open.where((o) => mine(o.cloid)).toList();
+  if (resting.isNotEmpty) {
+    return HlSentOrderTrace.found(HlOrderResult(
+        kind: HlOrderResultKind.resting,
+        oid: resting.first.oid,
+        cloid: resting.first.cloid));
+  }
+  return const HlSentOrderTrace.none();
+}
 
 /// The approval behind an order that waited for its money ran out (or the
 /// order outlived its age): it asks to be confirmed again.
@@ -736,9 +842,12 @@ class PendingHlOrderAutoFire {
     final l10n = l10nForLanguage(ref.read(settingsProvider).language);
     final msg = drift ? l10n.stepUpDetailsChanged : l10n.pendingIntentExpired;
     if (placementId != null) {
-      ref.read(placingHyperliquidOrderProvider.notifier).markFailed(placementId, msg);
+      ref
+          .read(placingHyperliquidOrderProvider.notifier)
+          .markFailed(placementId, msg);
     }
-    _trackFundingFailed(intent, stage: 'order', reason: drift ? 'drift' : 'expired');
+    _trackFundingFailed(intent,
+        stage: 'order', reason: drift ? 'drift' : 'expired');
     ref
         .read(pendingHyperliquidOrderProvider.notifier)
         .updateStatus(PendingHlOrderStatus.failed, errorMessage: msg);
@@ -790,7 +899,8 @@ class PendingHlOrderAutoFire {
   /// covers what the order needs; for a resizable market order whose
   /// funding has visibly landed, what the account can fund instead, as
   /// long as its notional still meets the venue minimum.
-  static double? placeableMargin(PendingHlOrderIntent intent, double withdrawable) {
+  static double? placeableMargin(
+      PendingHlOrderIntent intent, double withdrawable) {
     if (withdrawable + 1e-6 >= requiredFor(intent)) return intent.marginUsd;
     if (!intent.resizable) return null;
     final arrived = intent.arrivingUsd > 0 &&
@@ -836,7 +946,8 @@ class PendingHlOrderAutoFire {
     double withdrawable = 0;
     try {
       final snap = await ref.read(hyperliquidAccountProvider.future);
-      withdrawable = hypercoreAvailableUsdc(snap.withdrawable, snap.spotBalances);
+      withdrawable =
+          hypercoreAvailableUsdc(snap.withdrawable, snap.spotBalances);
     } catch (_) {
       // Transient read failure — the poll below retries.
     }
@@ -916,7 +1027,8 @@ class PendingHlOrderAutoFire {
         // First order on a new account: the approval the slip could not
         // sign before the money landed. A failure is not final here: the
         // order path asks once more and names the obstacle if it stays.
-        final approved = await ref.read(hlBuilderApprovalAfterFundingProvider)();
+        final approved =
+            await ref.read(hlBuilderApprovalAfterFundingProvider)();
         TrackingService.track('hl_builder_fee_after_funding',
             params: {'approved': approved});
       }
@@ -926,6 +1038,10 @@ class PendingHlOrderAutoFire {
       AuthGrant? approval;
       var notReady = 0;
       late HlOrderResult result;
+      // The first send's cloid: the slip's own, or one of ours for the
+      // plain market order. Every send again takes a fresh one.
+      final firstCloid = intent.placement?.cloid ??
+          (intent.placement == null ? newHlCloid() : null);
       while (true) {
         final approved = pendingHlOrderAutofireIntent(intent, market,
             walletId: walletId, marginUsd: margin);
@@ -952,13 +1068,30 @@ class PendingHlOrderAutoFire {
           grant = hlAutofireRetryGrant(parent, approved, placed);
         }
         try {
-          result = await _send(intent, market, grant, margin);
+          result = await _send(intent, market, grant, margin,
+              cloid: firstCloid == null
+                  ? null
+                  : HlResendCloids.current(firstCloid));
           break;
         } catch (e) {
+          // Without a cloid of its own the order cannot be told apart
+          // from a send again: never sent twice.
+          if (firstCloid == null) rethrow;
           final next =
               await _waitAfterNotReady(e, intent, approval, notReady++);
           if (next == null) rethrow;
+          // Never twice: an earlier send that rested or filled after all
+          // is followed instead; one that cannot be read is not resent.
+          final trace = await _traceSent(firstCloid, market);
+          final found = trace.found;
+          if (found != null) {
+            result = found;
+            break;
+          }
+          if (!trace.known) rethrow;
           margin = next;
+          final fresh = HlResendCloids.renew(firstCloid);
+          placing.attachCloid(placementId, fresh);
         }
       }
       placing.markSucceeded(placementId);
@@ -1005,9 +1138,11 @@ class PendingHlOrderAutoFire {
   }
 
   /// Places [intent]'s order at [margin] under [grant]: the slip's own
-  /// call, else the plain market order.
+  /// call (which reads its current cloid through [HlResendCloids]), else
+  /// the plain market order under [cloid].
   Future<HlOrderResult> _send(PendingHlOrderIntent intent, HlMarket market,
-      AuthGrant grant, double margin) {
+      AuthGrant grant, double margin,
+      {String? cloid}) {
     final placement = intent.placement;
     if (placement != null) return placement.placeAt(grant, margin);
     final trading = ref.read(hyperliquidTradingProvider.notifier);
@@ -1018,6 +1153,7 @@ class PendingHlOrderAutoFire {
         usd: margin,
         slippagePct: intent.slippagePct,
         source: 'autofire',
+        cloid: cloid,
         grant: grant,
       );
     }
@@ -1028,8 +1164,23 @@ class PendingHlOrderAutoFire {
       leverage: intent.leverage,
       slippagePct: intent.slippagePct,
       source: 'autofire',
+      cloid: cloid,
       grant: grant,
     );
+  }
+
+  /// Every earlier send of the order first sent as [firstCloid], looked up
+  /// (three reads at most, a second apart, before giving up as unknown).
+  Future<HlSentOrderTrace> _traceSent(
+      String firstCloid, HlMarket market) async {
+    final lookup = ref.read(hlSentOrderTraceProvider);
+    var trace = const HlSentOrderTrace.unknown();
+    for (var i = 0; i < 3; i++) {
+      trace = await lookup(HlResendCloids.all(firstCloid), market);
+      if (trace.known) return trace;
+      await Future<void>.delayed(kAwaitFastInterval);
+    }
+    return trace;
   }
 
   /// After [e]: a market order the venue refused for margin right after
@@ -1072,7 +1223,8 @@ class PendingHlOrderAutoFire {
       double available;
       try {
         final snap = await ref.read(hyperliquidAccountProvider.future);
-        available = hypercoreAvailableUsdc(snap.withdrawable, snap.spotBalances);
+        available =
+            hypercoreAvailableUsdc(snap.withdrawable, snap.spotBalances);
       } catch (_) {
         continue;
       }
@@ -1091,8 +1243,7 @@ class PendingHlOrderAutoFire {
       'reason': reason,
       'kind': intent.kind.name,
       'coin': intent.coin,
-      if (error != null)
-        'error_category': TrackingService.errorCategory(error),
+      if (error != null) 'error_category': TrackingService.errorCategory(error),
     });
   }
 
@@ -1121,8 +1272,7 @@ class PendingHlOrderAutoFire {
       'order_kind': intent.orderKind,
       if (intent.positionEffect != null)
         'position_effect': intent.positionEffect!,
-      if (intent.fundingSource != null)
-        'funding_source': intent.fundingSource!,
+      if (intent.fundingSource != null) 'funding_source': intent.fundingSource!,
       ...OrderFundingJourney.bitcoinTimings(
         sentAt: intent.bitcoinSentAt,
         landedAt: intent.bitcoinLandedAt,
@@ -1140,13 +1290,10 @@ class PendingHlOrderAutoFire {
     TrackingService.track('order_funding_failed', params: {
       'venue': 'hyperliquid',
       'stage': stage,
-      'error_category':
-          reason ?? TrackingService.errorCategory(error),
-      'duration_ms':
-          DateTime.now().difference(intent.createdAt).inMilliseconds,
+      'error_category': reason ?? TrackingService.errorCategory(error),
+      'duration_ms': DateTime.now().difference(intent.createdAt).inMilliseconds,
       'order_kind': intent.orderKind,
-      if (intent.fundingSource != null)
-        'funding_source': intent.fundingSource!,
+      if (intent.fundingSource != null) 'funding_source': intent.fundingSource!,
     });
   }
 

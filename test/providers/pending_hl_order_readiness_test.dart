@@ -73,7 +73,10 @@ class _Controller implements OrderFundingController {
     String? marketKind,
   }) async =>
       const OrderFundingFunded(VenueMoveResult(
-          quoteId: 'q1', orderId: 'o1', sentUsd: 20.03, arrivingUsdEstimate: 20));
+          quoteId: 'q1',
+          orderId: 'o1',
+          sentUsd: 20.03,
+          arrivingUsdEstimate: 20));
 
   @override
   OrderFundingController withDollars(double Function() dollarsUsd) => this;
@@ -99,6 +102,9 @@ class _Placement {
   final List<Object> refusals;
   final placed = <double>[];
 
+  /// The cloid each send went out under, as the slip's call reads it.
+  final cloids = <String>[];
+
   SensitiveIntent intentAt(double margin) => HlIntents.openPosition(
         walletId: 'w1',
         market: _market,
@@ -115,6 +121,7 @@ class _Placement {
           GrantGuard.consume(g, intentAt(margin),
               allowed: const {SensitiveAction.hlOrder});
           placed.add(margin);
+          cloids.add(HlResendCloids.current('c1'));
           if (refusals.isNotEmpty) throw refusals.removeAt(0);
           return HlOrderResult(
               kind: HlOrderResultKind.filled,
@@ -168,6 +175,7 @@ void main() {
     events = [];
     TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
     AuthGrantRegistry.instance.cancelAutofire(kPendingHlOrderAutofireId);
+    HlResendCloids.reset();
   });
 
   tearDown(() {
@@ -177,8 +185,14 @@ void main() {
   });
 
   /// Queues [placement]'s order behind its funding, with its approval.
-  ProviderContainer queue(_Placement placement, {String orderKind = 'market'}) {
+  ProviderContainer queue(_Placement placement,
+      {String orderKind = 'market',
+      HlSentOrderTrace Function(List<String> cloids)? trace}) {
     final c = ProviderContainer(overrides: [
+      // The earlier sends looked up before any send again: nowhere, unless
+      // the test says otherwise.
+      hlSentOrderTraceProvider.overrideWithValue((cloids, market) async =>
+          trace?.call(cloids) ?? const HlSentOrderTrace.none()),
       settingsProvider.overrideWith((_) => SettingsModel(_settings())),
       sessionUnlockedProvider.overrideWith((_) => true),
       hyperliquidAccountProvider
@@ -204,7 +218,8 @@ void main() {
     return c;
   }
 
-  test('credited by the rail but not showing in the account: waits '
+  test(
+      'credited by the rail but not showing in the account: waits '
       '(crediting), then places once the account covers it', () {
     fakeAsync((async) {
       final placement = _Placement(resizable: true);
@@ -225,14 +240,15 @@ void main() {
       async.elapse(const Duration(seconds: 1));
       async.flushMicrotasks();
       expect(placement.placed, [20]);
-      final placing = history.firstWhere(
-          (s) => s?.status == PendingHlOrderStatus.placing)!;
+      final placing =
+          history.firstWhere((s) => s?.status == PendingHlOrderStatus.placing)!;
       expect(placing.readiness, HlReadiness.ready);
       expect(terminal().status, PendingHlOrderStatus.done);
     });
   });
 
-  test('cash credited to spot for a perp order is usable: the order moves '
+  test(
+      'cash credited to spot for a perp order is usable: the order moves '
       'it under its own grant', () {
     fakeAsync((async) {
       final placement = _Placement(resizable: true);
@@ -246,7 +262,8 @@ void main() {
     });
   });
 
-  test('refused for margin right after the credit: waits for the account, '
+  test(
+      'refused for margin right after the credit: waits for the account, '
       'then the send again goes through under the same approval', () {
     fakeAsync((async) {
       final placement = _Placement(resizable: true, refusals: [_margin]);
@@ -266,8 +283,8 @@ void main() {
       expect(placement.placed, [20, 20]);
       expect(terminal().status, PendingHlOrderStatus.done);
       expect(events.where((e) => e.$1 == 'order_funding_failed'), isEmpty);
-      expect(events.where((e) => e.$1 == 'hyperliquid_autofire_failed'),
-          isEmpty);
+      expect(
+          events.where((e) => e.$1 == 'hyperliquid_autofire_failed'), isEmpty);
     });
   });
 
@@ -285,7 +302,8 @@ void main() {
     });
   });
 
-  test('a limit order refused for margin is a real failure: never sent '
+  test(
+      'a limit order refused for margin is a real failure: never sent '
       'twice', () {
     fakeAsync((async) {
       final placement = _Placement(resizable: false, refusals: [_margin]);
@@ -312,5 +330,87 @@ void main() {
       expect(placement.placed, [20]);
       expect(terminal().status, PendingHlOrderStatus.failed);
     });
+  });
+
+  test(
+      'a send again goes under a FRESH cloid, never the first one twice; '
+      'the earlier one is looked up first', () {
+    fakeAsync((async) {
+      final looked = <List<String>>[];
+      final placement = _Placement(resizable: true, refusals: [_margin]);
+      queue(placement, trace: (cloids) {
+        looked.add(cloids);
+        return const HlSentOrderTrace.none();
+      });
+      async.flushMicrotasks();
+      perp = 20.5;
+      async.elapse(const Duration(seconds: 3));
+      async.flushMicrotasks();
+      expect(placement.cloids, hasLength(2));
+      expect(placement.cloids.first, 'c1');
+      expect(placement.cloids.last, isNot('c1'));
+      expect(HlResendCloids.owns('c1', placement.cloids.last), isTrue);
+      expect(looked.single, ['c1']);
+      expect(terminal().status, PendingHlOrderStatus.done);
+    });
+  });
+
+  test(
+      'the first order rested or filled after all: it is followed, never '
+      'sent again', () {
+    fakeAsync((async) {
+      final placement = _Placement(resizable: true, refusals: [_margin]);
+      queue(placement,
+          trace: (_) => const HlSentOrderTrace.found(HlOrderResult(
+              kind: HlOrderResultKind.filled,
+              oid: 9,
+              cloid: 'c1',
+              filledSz: 0.0003,
+              avgPx: 60000)));
+      async.flushMicrotasks();
+      perp = 20.5;
+      async.elapse(const Duration(seconds: 3));
+      async.flushMicrotasks();
+      expect(placement.placed, [20]);
+      final done = terminal();
+      expect(done.status, PendingHlOrderStatus.done);
+      expect(done.result!.oid, 9);
+    });
+  });
+
+  test(
+      'the earlier send cannot be read: never sent again, the failure '
+      'shows', () {
+    fakeAsync((async) {
+      final placement = _Placement(resizable: true, refusals: [_margin]);
+      queue(placement, trace: (_) => const HlSentOrderTrace.unknown());
+      async.flushMicrotasks();
+      perp = 20.5;
+      async.elapse(const Duration(seconds: 6));
+      async.flushMicrotasks();
+      expect(placement.placed, [20]);
+      expect(terminal().status, PendingHlOrderStatus.failed);
+    });
+  });
+
+  test(
+      'the lookup reads open orders and fills by every cloid the order '
+      'went under', () {
+    HlOpenOrder open(String cloid) => HlOpenOrder.fromJson({
+          'coin': 'BTC',
+          'oid': 3,
+          'side': 'B',
+          'limitPx': '60000',
+          'sz': '0.001',
+          'origSz': '0.001',
+          'timestamp': 1,
+          'cloid': cloid,
+        });
+    expect(
+        hlTraceOf(['0xa'], open: [open('0xb')], fills: const []).found, isNull);
+    final resting =
+        hlTraceOf(['0xa', '0xB'], open: [open('0xb')], fills: const []).found!;
+    expect(resting.kind, HlOrderResultKind.resting);
+    expect(resting.oid, 3);
   });
 }

@@ -1757,7 +1757,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     _fillSub =
         ref.read(hyperliquidUserEventsProvider.notifier).fills.listen((f) {
       if (f.coin != market.coin) return;
-      if (f.cloid != null && f.cloid != cloid) return;
+      if (f.cloid != null && !HlResendCloids.owns(cloid, f.cloid)) return;
       _orderFills.add(f);
       // With a trailing stop attached the result path places it first,
       // then closes the ticket; a stream fill must not close it early.
@@ -1956,7 +1956,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       _fillSub =
           ref.read(hyperliquidUserEventsProvider.notifier).fills.listen((f) {
         if (f.coin != market.coin) return;
-        if (f.cloid != null && f.cloid != cloid) return;
+        if (f.cloid != null && !HlResendCloids.owns(cloid, f.cloid)) return;
         if (f.cloid == null) return; // only our own cloid-tagged fills
         _onFilled(sizeFilled: f.sz, avgPx: f.px);
       });
@@ -2441,7 +2441,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     _fillSub =
         ref.read(hyperliquidUserEventsProvider.notifier).fills.listen((f) {
       if (f.coin != market.coin) return;
-      if (f.cloid != null && f.cloid != cloid) return;
+      if (f.cloid != null && !HlResendCloids.owns(cloid, f.cloid)) return;
       _orderFills.add(f);
       if (_attachTrailing) return;
       if (_sentPlan != null) return;
@@ -2802,7 +2802,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         _fillSub =
             ref.read(hyperliquidUserEventsProvider.notifier).fills.listen((f) {
           if (f.coin != market.coin) return;
-          if (f.cloid != null && f.cloid != cloid) return;
+          if (f.cloid != null && !HlResendCloids.owns(cloid, f.cloid)) return;
           _orderFills.add(f);
           if (_attachTrailing) return;
           if (_sentPlan != null) return;
@@ -3850,7 +3850,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
               usd: margin,
               slippagePct: slippagePct,
               source: source,
-              cloid: cloid,
+              // A send again after a margin refusal goes under a fresh
+              // cloid (HlResendCloids), never this one twice.
+              cloid: HlResendCloids.current(cloid),
               grant: grant,
             ),
           )
@@ -3876,7 +3878,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
               takeProfitPx: takeProfitPx,
               stopLossPx: stopLossPx,
               source: source,
-              cloid: cloid,
+              // A send again after a margin refusal goes under a fresh
+              // cloid (HlResendCloids), never this one twice.
+              cloid: HlResendCloids.current(cloid),
               changeOpenPosition: changeOpenPosition,
               grant: grant,
             ),
