@@ -19,6 +19,7 @@ import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/providers/hyperliquid_watchlist_provider.dart';
 import 'package:kute/providers/one_balance_provider.dart';
 import 'package:kute/providers/polymarket_watchlist_provider.dart';
+import 'package:kute/providers/refresh_everything_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/usd_account_provider.dart';
 import 'package:kute/providers/usd_rewards_provider.dart';
@@ -31,6 +32,24 @@ import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
 import '../../helpers/portfolio_overrides.dart';
+
+/// The shared pull-to-refresh with its work recorded instead of run: the
+/// pull is reported and the spinner resolves as in the app.
+class RecordingRefresh extends RefreshEverything {
+  RecordingRefresh(super.ref);
+
+  final triggers = <RefreshTrigger>[];
+  var runs = 0;
+
+  @override
+  Future<void> call(RefreshTrigger trigger) {
+    triggers.add(trigger);
+    return super.call(trigger);
+  }
+
+  @override
+  Future<void> run() async => runs++;
+}
 
 /// Records every rewards read so a test can prove none happened.
 class RecordingRewardsApi implements UsdRewardsApi {
@@ -183,6 +202,8 @@ Future<RecordingRewardsApi> pumpInvestments(
       hyperliquidAddressProvider.overrideWith((_) async => null),
       // The Predictions browser: no stars.
       polyWatchlistProvider.overrideWith(_NoPolyStars.new),
+      // The shared pull-to-refresh: recorded, nothing read.
+      refreshEverythingProvider.overrideWith(RecordingRefresh.new),
       ...overrides,
     ],
     child: ScreenUtilInit(

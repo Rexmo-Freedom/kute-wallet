@@ -15,8 +15,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:kute/models/hyperliquid_market.dart';
+import 'package:kute/providers/refresh_everything_provider.dart';
 import 'package:kute/providers/hyperliquid_watchlist_provider.dart';
-import 'package:kute/providers/hyperliquid_account_provider.dart';
 import 'package:kute/providers/hyperliquid_config_provider.dart';
 import 'package:kute/providers/hyperliquid_live_prices_provider.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
@@ -57,17 +57,16 @@ class HyperliquidScreen extends ConsumerStatefulWidget {
     this.embedded = false,
   });
 
-  /// A pull-to-refresh: the markets and the account read again. The
-  /// screen's own indicator and the Investments page's (which hosts the
-  /// embedded browser) both run this.
-  static Future<void> refresh(
-      void Function(ProviderOrFamily provider) invalidate) async {
+  /// A pull-to-refresh's part of its own: the market lists read again.
+  /// The account and everything else are the shared refresh
+  /// (`refresh_everything_provider.dart`), run beside it by the screen's
+  /// own indicator and the Investments page's (which hosts the embedded
+  /// browser).
+  static void refreshMarkets(
+      void Function(ProviderOrFamily provider) invalidate) {
     invalidate(hyperliquidPerpMarketsProvider);
     invalidate(hyperliquidPerpCoreMarketsProvider);
     invalidate(hyperliquidSpotMarketsProvider);
-    invalidate(hyperliquidAccountProvider);
-    // Wait a moment for providers to start refetching.
-    await Future.delayed(const Duration(milliseconds: 500));
   }
 
   @override
@@ -327,7 +326,11 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
         lockedSide: MoveLockedSide.withdrawFromHyperliquid);
   }
 
-  Future<void> _onRefresh() => HyperliquidScreen.refresh(ref.invalidate);
+  Future<void> _onRefresh() {
+    HyperliquidScreen.refreshMarkets(ref.invalidate);
+    return ref.read(refreshEverythingProvider)(
+        const RefreshTrigger('hyperliquid'));
+  }
 
   /// The category pills on offer, hiding any whose list is empty. While
   /// the builder-dex markets are still to be read ([awaitingBuilder]) the

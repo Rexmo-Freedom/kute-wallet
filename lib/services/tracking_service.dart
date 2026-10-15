@@ -5282,8 +5282,12 @@ class TrackingService {
         'granted': status == 'granted' || status == 'provisional' ? 1 : 0,
       });
 
-  static void pullToRefreshExecuted({required String screen}) =>
-      track('pull_to_refresh_executed', params: {'screen': screen});
+  /// A pull-to-refresh on [screen] (`home`, `usd` for Investments,
+  /// `hyperliquid`, `polymarket`, `affiliate`), with the Investments pill on
+  /// screen as [tab].
+  static void pullToRefreshExecuted({required String screen, String? tab}) =>
+      track('pull_to_refresh_executed',
+          params: {'screen': screen, if (tab != null) 'tab': tab});
 
   static void homeActivityRowTapped({required String activityType}) =>
       track('home_activity_row_tapped',

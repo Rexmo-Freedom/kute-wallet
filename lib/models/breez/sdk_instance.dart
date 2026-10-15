@@ -235,6 +235,16 @@ class BreezSdkSpark {
     if (identical(_instance, sdk)) await _fetchWalletData(sdk);
   }
 
+  /// A pull-to-refresh: one shared wallet sync (joining one already
+  /// running), then the balances (`getInfo`, Bitcoin and dollars) and the
+  /// payments read again and published to the streams the balance
+  /// providers follow. Nothing to do without a connected wallet. Never
+  /// throws.
+  Future<void> syncAndReread() async {
+    final sdk = _instance;
+    if (sdk != null) await _syncThenFetchWalletData(sdk);
+  }
+
   /// What the app read of the connected wallet's balances, for the
   /// baseline of an arrival (see [syncAndRefresh]).
   final ArrivalBalanceLog _balanceLog = ArrivalBalanceLog();

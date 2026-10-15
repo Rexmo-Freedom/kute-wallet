@@ -564,4 +564,107 @@ void main() {
       expect(outcome?['stage'], 'evm_format');
     });
   });
+
+  // A pull-to-refresh is "update everything" (refresh_everything_provider):
+  // it gets an account out of the states a poll never could, the ones only
+  // a restart used to fix, and never blanks what is on screen.
+  group('pull to refresh', () {
+    test(
+        'a failed start a poll will not rebuild for 30 s (repro: only a '
+        'restart showed it) is built again by a pull', () async {
+      FlutterSecureStorage.setMockInitialValues({});
+      final net = _Net();
+      final (c, _) = container([_wallet('spend')]);
+      final first =
+          await _with(net, () => c.read(polymarketTradingProvider.future));
+      final notifier = c.read(polymarketTradingProvider.notifier);
+      expect(first.error, isNotNull, reason: 'the phrase could not be read');
+      // A poll spends the self-rebuild while the phrase is still unreadable.
+      await _with(net, notifier.refresh);
+      final again =
+          await _with(net, () => c.read(polymarketTradingProvider.future));
+      expect(again.error, isNotNull);
+
+      // The phrase is readable now (the keystore answered).
+      FlutterSecureStorage.setMockInitialValues(
+          {'v2:wallet:spend.mnemonic': _phrase});
+      // The reproduction: a poll inside the 30 s spacing changes nothing,
+      // Predictions keeps reading "—" ...
+      await _with(net, notifier.refresh);
+      final stuck =
+          await _with(net, () => c.read(polymarketTradingProvider.future));
+      expect(stuck.walletAddress, isNull);
+      expect(stuck.balanceKnown, isFalse);
+      // ... while a restart (a new process) shows the account at once.
+      final (restart, _) = container([_wallet('spend')]);
+      final cold = await _with(
+          net, () => restart.read(polymarketTradingProvider.future));
+      expect(cold.walletAddress, isNotNull);
+      expect(cold.balanceKnown, isTrue);
+
+      // The pull does what the restart did.
+      await _with(net, notifier.pullRefresh);
+      final pulled =
+          await _with(net, () => c.read(polymarketTradingProvider.future));
+      expect(pulled.walletAddress, cold.walletAddress);
+      expect(pulled.proxyWalletAddress?.toLowerCase(), _beacon);
+      expect(pulled.balanceKnown, isTrue);
+      expect(pulled.usdcBalance, 12.5);
+      expect(pulled.error, isNull);
+    });
+
+    test(
+        'credentials that failed in the start are asked for again by a '
+        'pull, never by a poll', () async {
+      final net = _Net();
+      final (c, _) = container([_wallet('spend')]);
+      await _with(net, () => c.read(polymarketTradingProvider.future));
+      final notifier = c.read(polymarketTradingProvider.notifier);
+      await _settle(net, 1500);
+      final live = c.read(polymarketTradingProvider).valueOrNull!;
+      expect(live.proxyWalletAddress?.toLowerCase(), _beacon);
+      expect(notifier.backendService, isNull,
+          reason: 'the CLOB refused: no credentials, open orders unknown');
+      int auth() => net.calls.where((x) => x.startsWith('clob:/auth')).length;
+      final asked = auth();
+      expect(asked, greaterThan(0));
+
+      await _with(net, notifier.refresh);
+      await _settle(net, 200);
+      expect(auth(), asked, reason: 'a poll never asks again (the gap)');
+
+      await _with(net, notifier.pullRefresh);
+      await _settle(net, 600);
+      expect(auth(), greaterThan(asked),
+          reason: 'the pull ran the rest of the account start again');
+    });
+
+    test('a pull on a working account blanks nothing while it reads',
+        () async {
+      final net = _Net();
+      final (c, _) = container([_wallet('spend')]);
+      await _with(net, () => c.read(polymarketTradingProvider.future));
+      final notifier = c.read(polymarketTradingProvider.notifier);
+      await _settle(net, 1500);
+      final seen = <AsyncValue<PolymarketTradingState>>[];
+      c.listen(polymarketTradingProvider, (_, next) => seen.add(next),
+          fireImmediately: true);
+      net.gate = Completer<void>();
+      final pull = _with(net, notifier.pullRefresh);
+      await _settle(net, 100);
+      net.gate!.complete();
+      net.gate = null;
+      await pull;
+      await _settle(net, 600);
+      expect(seen, isNotEmpty);
+      for (final s in seen) {
+        final v = s.valueOrNull;
+        expect(v, isNotNull, reason: 'never without figures');
+        expect(v!.balanceKnown, isTrue, reason: 'never "—"');
+        expect(v.usdcBalance, 12.5);
+        expect(v.proxyWalletAddress?.toLowerCase(), _beacon);
+        expect(v.isAuthenticated, isTrue);
+      }
+    });
+  });
 }

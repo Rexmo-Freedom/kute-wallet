@@ -1020,6 +1020,14 @@ class PolymarketTradingNotifier
   /// The account start (or a resumed one) is running for this generation.
   bool _accountStartRunning = false;
 
+  /// When the running account start began, for [pullRefresh]'s stuck check.
+  DateTime? _accountStartBeganAt;
+
+  /// An account start still running this long after it began, with no
+  /// deposit address found, is taken as stuck by a pull-to-refresh.
+  @visibleForTesting
+  static Duration accountStartStuckAfter = const Duration(seconds: 45);
+
   /// This generation's account start left the one-time setup for later
   /// because the wallet's EVM format check was pending.
   bool _setupDeferred = false;
@@ -1236,6 +1244,7 @@ class PolymarketTradingNotifier
     _firstState = Completer<void>();
     _resumeAccountStart = null;
     _accountStartRunning = false;
+    _accountStartBeganAt = null;
     _setupDeferred = false;
     _healInFlight = false;
     _nextHealAt = null;
@@ -1525,6 +1534,7 @@ class PolymarketTradingNotifier
         );
       };
       _accountStartRunning = true;
+      _accountStartBeganAt = DateTime.now();
       Future<void>(() => _runAccountStart(
             generation: generation,
             eoa: eoa,
@@ -1609,6 +1619,7 @@ class PolymarketTradingNotifier
   }) async {
     if (_disposed || generation != _accountGeneration) return;
     _accountStartRunning = true;
+    _accountStartBeganAt = DateTime.now();
     try {
       await _finishAccountStart(
         generation: generation,
@@ -2984,6 +2995,90 @@ class PolymarketTradingNotifier
     _lastSelfRebuildAt = now;
     _selfRebuilds++;
     // The same stuck episode: its event was sent by the build that failed.
+    _stuckTrackedCarry = true;
+    ref.invalidateSelf();
+  }
+
+  /// A pull-to-refresh ("update everything", see
+  /// `refresh_everything_provider.dart`): what a cold start would do for
+  /// this account, without asking for anything again.
+  ///
+  /// [refresh] alone could not get an account out of the states only a
+  /// restart used to fix: a failed placeholder build is rebuilt at most
+  /// every 30 s and ten times a process ([_rebuildFailedStart]); the
+  /// address self-heal backs off and does nothing while an account start
+  /// is still marked running; and CLOB credentials that failed in the
+  /// start are never asked for again (open orders, and with them
+  /// Available, stay unknown). So:
+  ///
+  /// * a placeholder build (no phrase readable, setup threw) builds again
+  ///   now, while a spending wallet exists and the session is unlocked;
+  /// * no deposit address yet: it is looked up again now, past the
+  ///   backoff, and an account start running for [accountStartStuckAfter]
+  ///   without one starts over;
+  /// * an account that ended its start without credentials (and is not
+  ///   waiting on its EVM format check) runs the rest of the start again
+  ///   with its known address: figures, credentials, open orders, setup;
+  /// * otherwise one full read ([refresh]), past the model's 30 s balance
+  ///   cache.
+  ///
+  /// Never clears what is on screen: reads merge into the live state, and
+  /// a rebuild keeps the last figures until it publishes. A rebuild is
+  /// left to the caller to await (`polymarketTradingProvider.future`).
+  Future<void> pullRefresh() async {
+    if (_disposed) return;
+    final current = state.valueOrNull;
+    if (current == null) {
+      // The first build is still running: it is the cold start.
+      if (state.isLoading) return;
+      _rebuildForPull(current);
+      return;
+    }
+    if (current.walletAddress == null || _publicModel == null) {
+      _rebuildForPull(current);
+      return;
+    }
+    if ((current.proxyWalletAddress ?? '').isEmpty) {
+      if (_accountStartRunning) {
+        final began = _accountStartBeganAt;
+        if (began != null &&
+            DateTime.now().difference(began) >= accountStartStuckAfter) {
+          _rebuildForPull(current);
+        }
+        return;
+      }
+      _nextHealAt = null;
+      await _healAddress();
+      return;
+    }
+    // The model answers a balance read inside 30 s from its cache: a pull
+    // reads the chain.
+    _publicModel?.invalidateBalanceCache();
+    final resume = _resumeAccountStart;
+    if (_backendService == null &&
+        resume != null &&
+        !_accountStartRunning &&
+        !_setupDeferred &&
+        !current.isPlacingOrder) {
+      _accountStartRunning = true;
+      await resume(current.proxyWalletAddress);
+      return;
+    }
+    await refresh();
+  }
+
+  /// [pullRefresh]'s rebuild: the account starts over, as on a cold start.
+  void _rebuildForPull(PolymarketTradingState? current) {
+    if (current?.isPlacingOrder ?? false) return;
+    try {
+      if (pickSpendingWallet(ref.read(settingsProvider)) == null ||
+          !ref.read(sessionUnlockedProvider)) {
+        return;
+      }
+    } catch (_) {
+      return;
+    }
+    // The same stuck episode: its event was sent by the start that failed.
     _stuckTrackedCarry = true;
     ref.invalidateSelf();
   }

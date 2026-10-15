@@ -20,6 +20,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/providers/nav_bar_visibility_provider.dart';
+import 'package:kute/providers/refresh_everything_provider.dart';
 import 'package:kute/providers/unified_search_provider.dart'
     show SearchCategory;
 import 'package:kute/screens/home/components/kute_bottom_action_bar.dart';
@@ -517,6 +518,16 @@ void main() {
               e.$2?['screen'] == 'usd' &&
               e.$2?['tab'] == tab.key),
           hasLength(1));
+      // Every pill runs the one shared "update everything" refresh, the
+      // function Home's pull runs too.
+      final refresh =
+          container.read(refreshEverythingProvider) as RecordingRefresh;
+      // (A short pill's list can already pull while scrolled back to the
+      // top by hand above: every pull is the same call.)
+      expect(refresh.triggers, isNotEmpty);
+      expect(refresh.triggers.map((t) => (t.screen, t.tab)),
+          everyElement(('usd', tab.key)));
+      expect(refresh.runs, refresh.triggers.length);
       expect(tester.takeException(), isNull);
       await unmountInvestments(tester);
     });

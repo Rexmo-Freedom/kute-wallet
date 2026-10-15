@@ -7,6 +7,7 @@ import 'package:kute/services/runtime_capabilities_service.dart';
 
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/polymarket_model.dart';
+import 'package:kute/providers/refresh_everything_provider.dart';
 import 'package:kute/providers/polymarket_provider.dart';
 import 'package:kute/services/polymarket/polymarket_price_source.dart'
     show CryptoPriceFeed;
@@ -106,12 +107,12 @@ class PolymarketScreen extends ConsumerStatefulWidget {
       this.autoShowWithdraw = false,
       this.embedded = false});
 
-  /// A pull-to-refresh: the balance, the account and the list on screen
-  /// read again. The screen's own indicator and the Investments page's
-  /// (which hosts the embedded browser) both run this.
-  static Future<void> refresh(WidgetRef ref) async {
-    ref.invalidate(polymarketBalanceProvider);
-    ref.invalidate(polymarketTradingProvider);
+  /// A pull-to-refresh's part of its own: the list on screen read again.
+  /// The account and everything else are the shared refresh
+  /// (`refresh_everything_provider.dart`), run beside it by the screen's
+  /// own indicator and the Investments page's (which hosts the embedded
+  /// browser).
+  static void refreshBrowse(WidgetRef ref) {
     final selection = ref.read(polyBrowseSelectionProvider);
     final pill = selection.pill;
     final canBrowse =
@@ -129,8 +130,6 @@ class PolymarketScreen extends ConsumerStatefulWidget {
       pill: pill,
       invalidate: ref.invalidate,
     );
-    // Wait a moment for providers to start refetching
-    await Future.delayed(const Duration(milliseconds: 500));
   }
 
   @override
@@ -980,7 +979,11 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
     return slivers;
   }
 
-  Future<void> _onRefresh() => PolymarketScreen.refresh(ref);
+  Future<void> _onRefresh() {
+    PolymarketScreen.refreshBrowse(ref);
+    return ref.read(refreshEverythingProvider)(
+        const RefreshTrigger('polymarket'));
+  }
 
   void _showWithdrawSheet(BuildContext context, WidgetRef ref) {
     TrackingService.polymarketFundingAction('withdraw');

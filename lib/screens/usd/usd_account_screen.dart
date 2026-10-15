@@ -110,15 +110,10 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/providers/refresh_everything_provider.dart';
 import 'package:kute/providers/active_shell_tab_provider.dart';
-import 'package:kute/providers/hyperliquid_account_provider.dart'
-    show hyperliquidAccountProvider;
-import 'package:kute/providers/hyperliquid_sats_pnl_provider.dart'
-    show hyperliquidUserFillsProvider;
 import 'package:kute/providers/nav_bar_visibility_provider.dart';
 import 'package:kute/providers/one_balance_provider.dart';
-import 'package:kute/providers/polymarket_trading_provider.dart'
-    show polymarketTradingProvider;
 import 'package:kute/providers/unified_search_provider.dart'
     show SearchCategory;
 import 'package:kute/screens/home/components/kute_bottom_action_bar.dart';
@@ -465,25 +460,23 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
     return false;
   }
 
-  /// Pull-to-refresh: the pill on screen reads again, exactly what its
-  /// own indicator used to do.
-  Future<void> _refresh() async {
+  /// Pull-to-refresh is "update everything", on every pill: the shared
+  /// refresh Home runs too (`refresh_everything_provider.dart`), with the
+  /// pill's own market lists read beside it. Reported as
+  /// `pull_to_refresh_executed` with screen `usd` (the Dollars screen's
+  /// name before one balance) and the pill as `tab`.
+  Future<void> _refresh() {
     final tab = ref.read(investmentsTabProvider);
-    // Same event the Dollars screen sent before one balance (screen kept
-    // as 'usd' for continuity), now with the pill that was refreshed.
-    TrackingService.track('pull_to_refresh_executed',
-        params: {'screen': 'usd', 'tab': tab.key});
     switch (tab) {
       case InvestmentsTab.investing:
-        await HyperliquidScreen.refresh(ref.invalidate);
+        HyperliquidScreen.refreshMarkets(ref.invalidate);
       case InvestmentsTab.predictions:
-        await PolymarketScreen.refresh(ref);
+        PolymarketScreen.refreshBrowse(ref);
       case InvestmentsTab.positions:
-        ref.invalidate(hyperliquidAccountProvider);
-        ref.invalidate(hyperliquidUserFillsProvider);
-        ref.invalidate(polymarketTradingProvider);
-        await Future.delayed(const Duration(milliseconds: 500));
+        break;
     }
+    return ref.read(refreshEverythingProvider)(
+        RefreshTrigger(kUsdSurfaceSource, tab: tab.key));
   }
 
   @override

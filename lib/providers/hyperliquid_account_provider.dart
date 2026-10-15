@@ -398,6 +398,11 @@ class HlOpenPositionsCountNotifier extends Notifier<int> {
     return 0;
   }
 
+  /// One tick now, for a pull-to-refresh (`refresh_everything_provider`):
+  /// the once-flag, the free USDC and the held positions read again
+  /// without waiting for the 60 s poll.
+  Future<void> refreshNow() => _tick();
+
   Future<void> _tick() async {
     if (_fetching) return;
     _fetching = true;

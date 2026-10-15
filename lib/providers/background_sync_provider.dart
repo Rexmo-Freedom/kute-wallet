@@ -2303,6 +2303,31 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
   /// only from the wallet-detail screen now (see `scanBdkScope`).
   Future<void> performFullUpdate({bool force = true}) async {
     if (ref.read(backgroundSyncInProgressProvider)) return;
+    await _fullUpdate(refreshPredictions: true);
+  }
+
+  /// How long a pull-to-refresh waits for a background sync already
+  /// running before it runs its own anyway.
+  @visibleForTesting
+  static Duration userRefreshWaitLimit = const Duration(seconds: 20);
+
+  /// A pull-to-refresh's full update (`refresh_everything_provider.dart`).
+  /// [performFullUpdate] returns at once while another sync is running,
+  /// so a pull that landed during the 2 s loop's sync did nothing at all,
+  /// not even its Predictions refresh. This one waits for that sync to
+  /// end (at most [userRefreshWaitLimit]) and then runs a fresh one, so
+  /// everything it reads was read after the pull. Predictions are left to
+  /// the caller, which refreshes them beside this.
+  Future<void> performUserRefresh() async {
+    final deadline = DateTime.now().add(userRefreshWaitLimit);
+    while (ref.read(backgroundSyncInProgressProvider) &&
+        DateTime.now().isBefore(deadline)) {
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+    }
+    await _fullUpdate(refreshPredictions: false);
+  }
+
+  Future<void> _fullUpdate({required bool refreshPredictions}) async {
     await holdForBoot();
     try {
       setBackgroundSyncInProgress(true);
@@ -2317,6 +2342,7 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
     } catch (e) {
       // ignore
     }
+    if (!refreshPredictions) return;
     try {
       final pmNotifier = ref.read(polymarketTradingProvider.notifier);
       await pmNotifier.refresh();

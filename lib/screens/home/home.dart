@@ -26,7 +26,7 @@ import 'package:kute/providers/polymarket_browse_provider.dart';
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/home_view_scope_provider.dart';
-import 'package:kute/providers/kute_state_provider.dart';
+import 'package:kute/providers/refresh_everything_provider.dart';
 import 'package:kute/providers/viewed_wallet_provider.dart';
 import 'package:kute/helpers/formatters/currency_formatter.dart';
 import 'package:kute/providers/nav_bar_visibility_provider.dart';
@@ -47,7 +47,6 @@ import 'package:kute/screens/home/components/wallet_cards.dart';
 import 'package:kute/screens/home/home_wallet_switcher.dart';
 import 'package:kute/screens/activity/activity_history_screen.dart';
 import 'package:kute/screens/shared/transactions_builder.dart';
-import 'package:kute/providers/background_sync_provider.dart';
 import 'package:kute/providers/breez_config_provider.dart'
     show breezSDKProvider;
 import 'package:kute/screens/shared/kute_skeleton.dart';
@@ -401,51 +400,13 @@ class _HomeState extends ConsumerState<Home> with TickerProviderStateMixin {
     return false;
   }
 
-  Future<void> _handleRefresh() async {
-    // Pull-to-refresh: clear the stream-fresh guard so the next poll's
-    // balance write is accepted, then run a full sync. Users hit this
-    // when their balance looks wrong and they want a forced re-fetch.
-    // Drive the mascot into `refreshing` while the sync is in flight.
-    TrackingService.pullToRefreshExecuted(screen: 'home');
-    ref.read(kuteStateProvider.notifier).setRefreshing(true);
-    try {
-      ref.read(balanceNotifierProvider.notifier).invalidateStreamFreshness();
-    } catch (_) {}
-    // Drop the cached predictions feed so the markets list re-fetches
-    // alongside the balance/positions. `polymarketTradingProvider.refresh()`
-    // (called by performFullUpdate) only re-pulls positions + USDC
-    // balance — the events family lives on a separate fetch path.
-    try {
-      ref.invalidate(polymarketEventsProvider);
-    } catch (_) {}
-    // Fire the heavy sync but cap how long the spinner stays up. The
-    // RefreshIndicator hides the moment THIS future resolves. We were
-    // awaiting `performFullUpdate` directly — if any of its 8 inner
-    // fetches silently hung (Breez SDK in a bad state, an external
-    // API stuck), the spinner stuck with it. Capping at 4 s gives the
-    // user a "we tried" affordance; the sync continues running in the
-    // background and the cache notifier updates the UI when it lands.
-    final syncFuture = () async {
-      try {
-        await ref
-            .read(backgroundSyncNotifierProvider.notifier)
-            .performFullUpdate();
-      } catch (_) {}
-    }();
-    try {
-      await syncFuture.timeout(const Duration(seconds: 4));
-    } catch (_) {
-      // Timeout — sync is still running, just stop blocking the
-      // spinner. Provider notifications will update the UI when
-      // results arrive.
-    }
-    // The user can pull-to-refresh then immediately navigate away (or the
-    // wallet can switch) during the up-to-4s await above, disposing this
-    // widget. Touching `ref` after that throws
-    // `StateError: Cannot use "ref" after the widget was disposed`.
-    if (!mounted) return;
-    ref.read(kuteStateProvider.notifier).setRefreshing(false);
-  }
+  /// Pull-to-refresh is "update everything", the same function every
+  /// Investments pull runs ([RefreshEverything.home]): balances and one
+  /// Breez sync, the full background sync, Predictions, Investing and the
+  /// Portfolio, in parallel, with the spinner capped at 4 s while the rest
+  /// lands, and the mascot in `refreshing` meanwhile. It runs on the
+  /// provider's ref, so leaving Home mid-pull is safe.
+  Future<void> _handleRefresh() => ref.read(refreshEverythingProvider).home();
 
   @override
   Widget build(BuildContext context) {
