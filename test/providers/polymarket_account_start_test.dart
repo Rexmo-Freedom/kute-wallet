@@ -28,6 +28,7 @@ import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/auth_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/services/evm_wallet_derivation.dart';
 import 'package:kute/services/http/shared_http_client.dart';
 import 'package:kute/services/polymarket_onboarding_service.dart';
 import 'package:kute/services/polymarket_usdc_cache_service.dart';
@@ -250,6 +251,29 @@ void main() {
     expect(first.usdcBalance, 0);
     expect(first.refreshing, isTrue);
     expect(event('polymarket_balance_loaded')?['source'], 'new_wallet');
+  });
+
+  test(
+      'a stored UUPS address is dropped but the wallet is never "new" '
+      '(the re-check keeps the legacy lookup)', () async {
+    // An upgrader from 2.1.1: no account cache yet, no loadable
+    // credentials, only the UUPS address 2.1.1 kept in secure storage.
+    final wallet = await EvmWalletDerivation.deriveWalletAsync(
+        mnemonic: _phrase,
+        version: EvmDerivationVersion.legacySha256,
+        index: 0);
+    final uups =
+        PolymarketOnboardingService().deriveDepositWalletAddress(wallet.address);
+    FlutterSecureStorage.setMockInitialValues({
+      'v2:wallet:spend.mnemonic': _phrase,
+      'pm_proxy_wallet_spend': uups,
+    });
+    final net = _Net(hangEverything: true);
+    final c = container(restored: false);
+    final first = await _with(
+        net, () => c.read(polymarketTradingProvider.future));
+    expect(event('polymarket_balance_loaded')?['source'], isNot('new_wallet'));
+    expect(first.balanceKnown && first.usdcBalance == 0, isFalse);
   });
 
   test('a wallet the device has seen shows its last figures first', () async {

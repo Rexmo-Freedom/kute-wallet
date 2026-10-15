@@ -1376,12 +1376,17 @@ class PolymarketTradingNotifier
       final onboarding = PolymarketOnboardingService();
       final uups = onboarding.deriveDepositWalletAddress(eoa);
       String? knownAddress = cached?.depositAddress;
+      // Any stored address, even a dropped UUPS one, means this device has
+      // seen a Predictions account: never "new", so the re-check keeps the
+      // legacy (UUPS) lookup and cannot settle on the newer-style address.
+      var hadStoredAddress = false;
       if (knownAddress == null) {
         // Older builds stored the never-used UUPS guess on a failed
         // resolve, so a cached UUPS address is dropped rather than trusted
         // (a real UUPS trader is confirmed again by the resolve).
         try {
           final stored = await _storage.read(key: _proxyKey(walletId));
+          hadStoredAddress = stored != null && stored.isNotEmpty;
           if (stored != null &&
               stored.isNotEmpty &&
               stored.toLowerCase() != uups.toLowerCase()) {
@@ -1407,6 +1412,7 @@ class PolymarketTradingNotifier
       final isNewWallet = !spending.isRestore &&
           cached == null &&
           knownAddress == null &&
+          !hadStoredAddress &&
           !hasCredentials;
       final bootKind = cached == null ? 'first' : 'later';
 
