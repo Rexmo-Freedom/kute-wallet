@@ -248,39 +248,113 @@ double _hlMapPrice(double v, bool log) => log ? kuteLogPrice(v) : v;
 
 // ───────────────────────────── fill markers ─────────────────────────────
 
-/// One of the user's own fills resolved to a marker position on the plot:
-/// the fill, the bar whose time bucket holds it, and the centre of the
-/// small ▲/▼ glyph in canvas px. Produced by [hlResolveFillMarkers] for
-/// both the data painter (drawing) and the host (tap hit-testing) so the
-/// two can never disagree about where a marker sits.
+/// One of the user's own fills resolved to its place on the plot: the
+/// fill, the bar whose time bucket holds it, the exact point it traded at
+/// ([dot]) and the badge that names it ([center], [badgeHalfWidth]).
+/// Fills whose badges would pile up (same side, same or adjacent bars)
+/// share one badge: every member carries the same [cluster], [center] and
+/// [count], and only the [lead] paints the badge and its stem. Produced
+/// by [hlResolveFillMarkers] for both the data painter (drawing) and the
+/// host (tap hit-testing) so the two can never disagree about where a
+/// marker sits.
 class HlFillMarker {
   final HlFill fill;
   final int barIndex;
+
+  /// Centre of the badge, shared by every fill on it.
   final Offset center;
 
-  const HlFillMarker({
+  /// The fill's own time+price point on the plot.
+  final Offset dot;
+
+  /// Half the badge's width: [hlFillMarkerRadius] for one fill, wider for
+  /// a merged badge that also writes its count.
+  final double badgeHalfWidth;
+
+  /// Index of the badge this fill rides; -1 = a badge of its own.
+  final int cluster;
+
+  /// How many fills share the badge.
+  final int count;
+
+  /// Whether this fill paints the shared badge and its stem.
+  final bool lead;
+
+  HlFillMarker({
     required this.fill,
     required this.barIndex,
     required this.center,
-  });
+    Offset? dot,
+    this.badgeHalfWidth = hlFillMarkerRadius,
+    this.cluster = -1,
+    this.count = 1,
+    this.lead = true,
+  }) : dot = dot ?? center;
+
+  /// The badge's bounds: a disc for one fill, a pill for several.
+  Rect get badge => Rect.fromCenter(
+      center: center,
+      width: badgeHalfWidth * 2,
+      height: hlFillMarkerRadius * 2);
+
+  /// Whether the badge sits above its price point.
+  bool get badgeAbove => center.dy < dot.dy;
 }
 
-/// Half-size of the fill marker glyph, in px. Deliberately small: the
-/// marker only says "something happened here"; the tooltip carries the
-/// detail.
-const double hlFillMarkerRadius = 4.0;
+/// Radius of the fill badge, in px: a 17px disc, the size trading apps
+/// give their own buy/sell marks, readable over the line or the candles
+/// at a glance. The tooltip still carries the detail.
+const double hlFillMarkerRadius = 8.5;
+
+/// Radius of the dot at the fill's exact price.
+const double hlFillMarkerDotRadius = 3.0;
+
+/// Price dot → badge centre, in px. The gap between the two carries a
+/// short stem, so the exact point is never ambiguous.
+const double hlFillMarkerOffset = 19.0;
 
 /// Touch radius (px) inside which a tap on the plot picks a fill marker.
-const double hlFillMarkerHitRadius = 18.0;
+const double hlFillMarkerHitRadius = 22.0;
+
+/// Same-side fills closer than this (px) to the first fill of a badge
+/// join that badge instead of drawing one of their own.
+const double hlFillMarkerMergeSpan = hlFillMarkerRadius * 2 + 4;
+
+/// A merged badge grows by this much per count character, plus the gap
+/// between its glyph and the count.
+const double _hlFillCountCharW = 6.5;
+const double _hlFillCountGap = 2.5;
+const double _hlFillGlyphW = 9.0;
+const double _hlFillGlyphH = 7.5;
+const double _hlFillCountSize = 10.5;
+
+/// Gap kept between two badges when one has to step past another.
+const double _hlFillBadgeGap = 1.5;
+
+String _hlFillCountText(int count) => count > 99 ? '99+' : '$count';
+
+double _hlFillBadgeHalfWidth(int count) => count <= 1
+    ? hlFillMarkerRadius
+    : hlFillMarkerRadius +
+        (_hlFillCountGap +
+                _hlFillCountText(count).length * _hlFillCountCharW +
+                2) /
+            2;
 
 /// Maps the user's fills onto the plotted tape. The x position is found by
 /// locating the BAR whose bucket contains the fill's timestamp — never by
 /// linear time→index arithmetic, which is wrong the moment the tape has
 /// gaps (thin markets return only traded buckets, so bar i does NOT sit at
 /// firstT + i×bucket). Fills outside the tape or with no price are
-/// skipped. Buys sit just below the execution price and sells just above
-/// it, so an entry and an exit sharing a candle at nearly the same price
-/// both stay visible. Returns an empty list for a tape under two bars.
+/// skipped.
+///
+/// Each fill gets a dot at its exact price. Its badge sits below that
+/// point for a buy and above it for a sell, so an entry and an exit
+/// sharing a candle at nearly the same price both stay visible; a badge
+/// that would leave the price area flips to the other side, and one that
+/// would touch a badge already placed steps further out. Same-side fills
+/// on the same or adjacent bars share one badge with a count. Returns the
+/// markers in [fills] order, or an empty list for a tape under two bars.
 List<HlFillMarker> hlResolveFillMarkers({
   required List<HyperliquidCandle> candles,
   required List<HlFill> fills,
@@ -315,10 +389,12 @@ List<HlFillMarker> hlResolveFillMarkers({
     bucketMs = lastT - candles[n - 2].openTime.millisecondsSinceEpoch;
   }
   if (bucketMs <= 0) bucketMs = 1;
-  // The marker keeps its whole glyph inside the price area.
-  final minY = hlFillMarkerRadius + 1;
-  final maxY = math.max(minY, priceH - hlFillMarkerRadius - 1);
-  final out = <HlFillMarker>[];
+
+  // ── Each fill's own point, kept inside the price area.
+  const r = hlFillMarkerRadius;
+  const dotMin = hlFillMarkerDotRadius + 1;
+  final dotMax = math.max(dotMin, priceH - hlFillMarkerDotRadius - 1);
+  final raw = <({HlFill fill, int bar, Offset dot})>[];
   for (final f in fills) {
     if (f.px <= 0 || !f.px.isFinite) continue;
     if (f.time < firstT || f.time > lastT + bucketMs) continue;
@@ -332,17 +408,133 @@ List<HlFillMarker> hlResolveFillMarkers({
         hi = mid - 1;
       }
     }
-    final mx = (lo + 0.5) * slot;
-    final my = (toY(f.px) + (f.isBuy ? 8.0 : -8.0)).clamp(minY, maxY);
-    out.add(HlFillMarker(fill: f, barIndex: lo, center: Offset(mx, my)));
+    final y = toY(f.px);
+    raw.add((
+      fill: f,
+      bar: lo,
+      dot: Offset(
+          (lo + 0.5) * slot, y.isFinite ? y.clamp(dotMin, dotMax) : dotMax),
+    ));
   }
-  return out;
+  if (raw.isEmpty) return const [];
+
+  // ── Badges: per side, in x order, a fill joins the open badge while it
+  // sits within [hlFillMarkerMergeSpan] of that badge's first fill.
+  final clusterOf = List<int>.filled(raw.length, -1);
+  final clusters = <List<int>>[];
+  for (final buy in const [true, false]) {
+    final idx = [
+      for (var i = 0; i < raw.length; i++)
+        if (raw[i].fill.isBuy == buy) i
+    ]..sort((a, b) {
+        final c = raw[a].dot.dx.compareTo(raw[b].dot.dx);
+        return c != 0 ? c : raw[a].fill.time.compareTo(raw[b].fill.time);
+      });
+    List<int>? open;
+    var openX = 0.0;
+    for (final i in idx) {
+      if (open == null || raw[i].dot.dx - openX > hlFillMarkerMergeSpan) {
+        open = [i];
+        openX = raw[i].dot.dx;
+        clusters.add(open);
+      } else {
+        open.add(i);
+      }
+      clusterOf[i] = clusters.length - 1;
+    }
+  }
+
+  // ── Place each badge, left to right.
+  const minC = r + 1;
+  final maxC = math.max(minC, priceH - r - 1);
+  final centers = List<Offset>.filled(clusters.length, Offset.zero);
+  final halfW = List<double>.filled(clusters.length, r);
+  final leads = List<int>.filled(clusters.length, 0);
+  final order = List<int>.generate(clusters.length, (i) => i)
+    ..sort((a, b) => raw[clusters[a].first]
+        .dot
+        .dx
+        .compareTo(raw[clusters[b].first].dot.dx));
+  final placed = <Rect>[];
+  for (final c in order) {
+    final members = clusters[c];
+    final buy = raw[members.first].fill.isBuy;
+    // The stem joins the member nearest the badge's side (the lowest buy,
+    // the highest sell), so a badge never covers its own fills' dots.
+    var lead = members.first;
+    for (final i in members) {
+      final dy = raw[i].dot.dy, best = raw[lead].dot.dy;
+      if (buy ? dy > best : dy < best) lead = i;
+    }
+    leads[c] = lead;
+    final d = raw[lead].dot;
+    final hw = _hlFillBadgeHalfWidth(members.length);
+    halfW[c] = hw;
+    final cx =
+        d.dx.clamp(hw + 1, math.max(hw + 1, size.width - hw - 1)).toDouble();
+    // Its own side first (buys below, sells above); past an edge, or with
+    // no room to step clear of a neighbour, the other side.
+    double? place(bool above) {
+      var cy = above ? d.dy - hlFillMarkerOffset : d.dy + hlFillMarkerOffset;
+      for (var guard = 0; guard < 8; guard++) {
+        if (cy < minC || cy > maxC) return null;
+        final rect = Rect.fromCenter(
+                center: Offset(cx, cy), width: hw * 2, height: r * 2)
+            .inflate(_hlFillBadgeGap);
+        Rect? hit;
+        for (final p in placed) {
+          if (p.overlaps(rect)) {
+            hit = p;
+            break;
+          }
+        }
+        if (hit == null) return cy;
+        cy = above
+            ? hit.top - _hlFillBadgeGap - r
+            : hit.bottom + _hlFillBadgeGap + r;
+      }
+      return null;
+    }
+
+    final prefer = !buy;
+    final cy = place(prefer) ??
+        place(!prefer) ??
+        (prefer ? d.dy - hlFillMarkerOffset : d.dy + hlFillMarkerOffset)
+            .clamp(minC, maxC)
+            .toDouble();
+    centers[c] = Offset(cx, cy);
+    placed.add(
+        Rect.fromCenter(center: centers[c], width: hw * 2, height: r * 2));
+  }
+
+  return [
+    for (var i = 0; i < raw.length; i++)
+      HlFillMarker(
+        fill: raw[i].fill,
+        barIndex: raw[i].bar,
+        center: centers[clusterOf[i]],
+        dot: raw[i].dot,
+        badgeHalfWidth: halfW[clusterOf[i]],
+        cluster: clusterOf[i],
+        count: clusters[clusterOf[i]].length,
+        lead: leads[clusterOf[i]] == i,
+      ),
+  ];
+}
+
+/// How far [p] is from [m]: to the nearer of its badge (a pill measures
+/// to its centre line) and its price dot.
+double _hlFillMarkerDistance(HlFillMarker m, Offset p) {
+  final dx = (p.dx - m.center.dx).abs() -
+      (m.badgeHalfWidth - hlFillMarkerRadius);
+  final badge = Offset(dx > 0 ? dx : 0, p.dy - m.center.dy).distance;
+  return math.min(badge, (p - m.dot).distance);
 }
 
 /// The marker nearest to [position] within [hlFillMarkerHitRadius], plus
-/// every other marker on the same bar (an entry and an exit inside one
-/// candle read as one event with two lines). Ordered by fill time. Empty
-/// when nothing is close enough.
+/// every fill sharing its badge and every other fill on those bars (an
+/// entry and an exit inside one candle read as one event with two
+/// lines). Ordered by fill time. Empty when nothing is close enough.
 List<HlFillMarker> hlHitTestFillMarkers(
   List<HlFillMarker> markers,
   Offset position,
@@ -350,16 +542,23 @@ List<HlFillMarker> hlHitTestFillMarkers(
   HlFillMarker? nearest;
   var best = hlFillMarkerHitRadius;
   for (final m in markers) {
-    final d = (m.center - position).distance;
+    final d = _hlFillMarkerDistance(m, position);
     if (d <= best) {
       best = d;
       nearest = m;
     }
   }
   if (nearest == null) return const [];
+  final hit = nearest;
+  bool sameBadge(HlFillMarker m) =>
+      identical(m, hit) || (m.cluster >= 0 && m.cluster == hit.cluster);
+  final bars = {
+    for (final m in markers)
+      if (sameBadge(m)) m.barIndex
+  };
   final group = [
     for (final m in markers)
-      if (m.barIndex == nearest.barIndex) m
+      if (sameBadge(m) || bars.contains(m.barIndex)) m
   ]..sort((a, b) => a.fill.time.compareTo(b.fill.time));
   return group;
 }
@@ -370,31 +569,116 @@ List<HlFillMarker> hlHitTestFillMarkers(
 Object hlFillIdentity(HlFill f) =>
     f.tradeId ?? (f.time, f.px, f.side, f.sz);
 
-/// A small filled triangle (▲ buy / ▼ sell) with a background-coloured
-/// halo so it stays legible over the line/candles in either theme.
-void hlPaintFillMarker(Canvas canvas, Offset o, bool buy, Color col,
-    Color halo) {
+final Map<(int, int), Color> _hlFillGlyphColors = {};
+
+/// White or [background], whichever reads better on [fill]. Cached per
+/// colour pair so a paint pass never recomputes luminance.
+Color hlFillGlyphColor(Color fill, Color background) =>
+    _hlFillGlyphColors.putIfAbsent((fill.toARGB32(), background.toARGB32()),
+        () {
+      double contrast(Color a, Color b) {
+        final la = a.computeLuminance(), lb = b.computeLuminance();
+        return (math.max(la, lb) + 0.05) / (math.min(la, lb) + 0.05);
+      }
+
+      return contrast(Colors.white, fill) >= contrast(background, fill)
+          ? Colors.white
+          : background;
+    });
+
+/// Paints the user's fill markers: a short stem from each badge to its
+/// fill's price, a small dot at every fill's exact price, then the badges
+/// on top, all over one shared background-coloured halo. A badge is a disc in the side colour with ▲
+/// (buy) or ▼ (sell) inside, ringed in [halo] (the chart background) so it
+/// lifts off the line or the candles; several fills on one badge make it
+/// a pill that also writes the count. The count comes from the painter's
+/// TextPainter cache, so nothing is laid out per frame.
+void hlPaintFillMarkers(
+  Canvas canvas,
+  List<HlFillMarker> markers, {
+  required Color up,
+  required Color down,
+  required Color halo,
+}) {
+  if (markers.isEmpty) return;
   const r = hlFillMarkerRadius;
-  final path = Path();
-  if (buy) {
-    path.moveTo(o.dx, o.dy - r);
-    path.lineTo(o.dx - r, o.dy + r);
-    path.lineTo(o.dx + r, o.dy + r);
-  } else {
-    path.moveTo(o.dx, o.dy + r);
-    path.lineTo(o.dx - r, o.dy - r);
-    path.lineTo(o.dx + r, o.dy - r);
+  final haloLine = Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 4.0
+    ..strokeCap = StrokeCap.round
+    ..color = halo;
+  final stem = Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 1.5
+    ..strokeCap = StrokeCap.round;
+  final haloFill = Paint()..color = halo;
+  final fill = Paint();
+  final glyphEdge = Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 1.2
+    ..strokeJoin = StrokeJoin.round;
+
+  // 0 · Every halo first, so a stem runs unbroken into its dot and badge.
+  for (final m in markers) {
+    if (m.lead) canvas.drawLine(m.dot, m.center, haloLine);
+    canvas.drawCircle(m.dot, hlFillMarkerDotRadius + 1.5, haloFill);
   }
-  path.close();
-  canvas.drawPath(
-    path,
-    Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.0
-      ..strokeJoin = StrokeJoin.round
-      ..color = halo,
-  );
-  canvas.drawPath(path, Paint()..color = col);
+  for (final m in markers) {
+    if (!m.lead) continue;
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(
+            m.badge.inflate(2.0), const Radius.circular(r + 2.0)),
+        haloFill);
+  }
+  // 1 · Stems, badge → price dot.
+  for (final m in markers) {
+    if (!m.lead) continue;
+    canvas.drawLine(m.dot, m.center, stem..color = m.fill.isBuy ? up : down);
+  }
+  // 2 · A dot at every fill's exact price.
+  for (final m in markers) {
+    canvas.drawCircle(
+        m.dot, hlFillMarkerDotRadius, fill..color = m.fill.isBuy ? up : down);
+  }
+  // 3 · Badges.
+  for (final m in markers) {
+    if (!m.lead) continue;
+    final buy = m.fill.isBuy;
+    final col = buy ? up : down;
+    final glyphCol = hlFillGlyphColor(col, halo);
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(m.badge, const Radius.circular(r)),
+        fill..color = col);
+
+    var gx = m.center.dx;
+    TextPainter? countTp;
+    if (m.count > 1) {
+      countTp = _HlCandlePainter._cachedTp(_hlFillCountText(m.count),
+          glyphCol, _hlFillCountSize, FontWeight.w800);
+      final contentW = _hlFillGlyphW + _hlFillCountGap + countTp.width;
+      gx = m.center.dx - contentW / 2 + _hlFillGlyphW / 2;
+    }
+    const hw = _hlFillGlyphW / 2, hh = _hlFillGlyphH / 2;
+    final cy = m.center.dy;
+    final tri = Path();
+    if (buy) {
+      tri
+        ..moveTo(gx, cy - hh)
+        ..lineTo(gx + hw, cy + hh)
+        ..lineTo(gx - hw, cy + hh);
+    } else {
+      tri
+        ..moveTo(gx, cy + hh)
+        ..lineTo(gx + hw, cy - hh)
+        ..lineTo(gx - hw, cy - hh);
+    }
+    tri.close();
+    canvas.drawPath(tri, fill..color = glyphCol);
+    // A thin same-colour edge rounds the glyph's corners.
+    canvas.drawPath(tri, glyphEdge..color = glyphCol);
+    countTp?.paint(canvas,
+        Offset(gx + hw + _hlFillCountGap, cy - countTp.height / 2));
+  }
 }
 
 /// 4-6 "nice" price levels inside [lo, hi] (both in real price space).
@@ -3842,10 +4126,11 @@ class _HlCandlePainter extends CustomPainter {
     }
 
     // ── The user's own fill markers (buys ▲ / sells ▼) ───────────────
-    // Small glyphs at each fill's time+price (see hlResolveFillMarkers for
-    // the mapping); the detail lives in the tap tooltip. Painted BEFORE
-    // the last-price tag so the tag always stays on top of them, and
-    // skipped mid-morph because the morph line's x space is resampled.
+    // A dot at each fill's time+price and a ▲/▼ badge on a short stem
+    // (see hlResolveFillMarkers for the mapping and hlPaintFillMarkers for
+    // the look); the detail lives in the tap tooltip. Painted BEFORE the
+    // last-price tag so the tag always stays on top of them, and skipped
+    // mid-morph because the morph line's x space is resampled.
     if (fills.isNotEmpty && n >= 2 && morphSeries == null) {
       final markers = hlResolveFillMarkers(
         candles: candles,
@@ -3857,11 +4142,8 @@ class _HlCandlePainter extends CustomPainter {
         leadingClose: leadingClose,
         domain: domain,
       );
-      for (final m in markers) {
-        final buy = m.fill.isBuy;
-        hlPaintFillMarker(
-            canvas, m.center, buy, buy ? upColor : downColor, labelBg);
-      }
+      hlPaintFillMarkers(canvas, markers,
+          up: upColor, down: downColor, halo: labelBg);
     }
 
     // ── Last-price line + its tag in the column ──────────────────────
@@ -4079,10 +4361,13 @@ class HlFillTooltipPainter extends CustomPainter {
       anchorX = 0;
       topY = double.infinity;
       lowY = double.negativeInfinity;
+      // The card clears both the badge and the price dot it points at.
       for (final m in markers) {
         anchorX += m.center.dx;
-        topY = math.min(topY, m.center.dy - hlFillMarkerRadius);
-        lowY = math.max(lowY, m.center.dy + hlFillMarkerRadius);
+        topY = math.min(topY,
+            math.min(m.badge.top, m.dot.dy - hlFillMarkerDotRadius));
+        lowY = math.max(lowY,
+            math.max(m.badge.bottom, m.dot.dy + hlFillMarkerDotRadius));
       }
       anchorX /= markers.length;
     }
@@ -4106,17 +4391,22 @@ class HlFillTooltipPainter extends CustomPainter {
     final markers = frame.markers;
     final core = isDark ? Colors.black : Colors.white;
 
-    // Rings on the selected markers, so the card visibly belongs to them.
+    // A ring on each selected badge (once per shared badge), so the card
+    // visibly belongs to them.
+    final ringed = <Offset>{};
     for (final m in markers) {
+      if (!ringed.add(m.center)) continue;
       final ring = _entryColor(m, entries.first.color);
-      canvas.drawCircle(
-        m.center,
-        hlFillMarkerRadius + 4.5,
+      final rrect = RRect.fromRectAndRadius(
+        m.badge.inflate(4.5),
+        const Radius.circular(hlFillMarkerRadius + 4.5),
+      );
+      canvas.drawRRect(
+        rrect,
         Paint()..color = ring.withValues(alpha: 0.16),
       );
-      canvas.drawCircle(
-        m.center,
-        hlFillMarkerRadius + 4.5,
+      canvas.drawRRect(
+        rrect,
         Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1.5
