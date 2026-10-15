@@ -55,8 +55,8 @@
 // A refusal before anything moved (the standing terms, the route, the
 // quote, a shut gate, the Polymarket wallet not linked yet) brings that
 // leg home to Dollars instead (`via_dollars`) and the action takes it on
-// from there; the refusal is remembered for the session
-// ([DirectRouteRefusals]). Every action with legs is one move
+// from there; a transient refusal is asked once more first, and only a
+// definitive one keeps the route off for a while ([DirectRouteRefusals]). Every action with legs is one move
 // (multi_source_move.dart): one Activity row, the legs inside it, and
 // Retry for a failed remainder.
 
@@ -424,23 +424,71 @@ class VenueLegApprovalRequired implements Exception {
   String toString() => 'VenueLegApprovalRequired';
 }
 
-/// Direct routes refused this session, per venue and destination: a
-/// refusal (the standing terms, the route, a gate) is not asked again
-/// until the app restarts; those legs go through Dollars.
+/// Direct routes refused lately, per venue and destination: a definitive
+/// refusal (the route is not offered, its gate is shut: [sticky]) is not
+/// asked again for [ttl]; those legs go through Dollars. A refusal that
+/// says nothing about the route itself (a read or the network failed, an
+/// address or the destination's terms could not be had this time, an
+/// earlier CCTP move still on its way, an amount under the minimum) never
+/// keeps the route off: the next action asks again, and a [retryable]
+/// one is asked once more at once before the leg goes through Dollars.
 abstract final class DirectRouteRefusals {
-  static final Set<String> _refused = {};
+  /// How long a definitive refusal keeps the route off.
+  static const Duration ttl = Duration(minutes: 15);
+
+  /// The clock refusals are stamped and read with (a test seam).
+  static DateTime Function() clock = DateTime.now;
+
+  static final Map<String, DateTime> _refused = {};
 
   static String _key(OneBalanceVenue venue, VenueCashDestination d) =>
       '${venue.name}>${d.name}';
 
-  static bool isRefused(OneBalanceVenue venue, VenueCashDestination d) =>
-      _refused.contains(_key(venue, d));
+  /// Whether [reason] (a [DirectRouteRefused] reason) says the route
+  /// itself is off: no direct route, a shut gate, a pause, a route the
+  /// provider does not offer.
+  static bool sticky(String? reason) {
+    final r = (reason ?? '').toLowerCase();
+    return r == 'no_direct_route' ||
+        r == 'cctp_paused' ||
+        r == 'cctp_capability' ||
+        r.contains('route_unavailable') ||
+        r.contains('routeunavailable') ||
+        r.contains('capability');
+  }
+
+  /// Whether [reason] is worth asking once more at once: not the route
+  /// itself ([sticky]), not the person's own stop, not an amount or an
+  /// earlier move that a second ask cannot change.
+  static bool retryable(String? reason) {
+    final r = (reason ?? '').toLowerCase();
+    if (sticky(r)) return false;
+    return !(r == 'user_cancelled' ||
+        r.startsWith('settlement_') ||
+        r == 'cctp_in_flight' ||
+        r == 'cctp_below_minimum' ||
+        r.contains('minimum'));
+  }
+
+  static bool isRefused(OneBalanceVenue venue, VenueCashDestination d) {
+    final key = _key(venue, d);
+    final at = _refused[key];
+    if (at == null) return false;
+    if (clock().difference(at) >= ttl) {
+      _refused.remove(key);
+      return false;
+    }
+    return true;
+  }
 
   static void refuse(OneBalanceVenue venue, VenueCashDestination d) =>
-      _refused.add(_key(venue, d));
+      _refused[_key(venue, d)] = clock();
 
   @visibleForTesting
-  static void reset() => _refused.clear();
+  static void reset() {
+    _refused.clear();
+    clock = DateTime.now;
+  }
 }
 
 /// The venue a destination is, if it is one: its own cash is never
@@ -901,6 +949,19 @@ class VenueCashPuller {
         destination: destination.code, capsUsd: caps);
   }
 
+  /// The venues of [plan] whose legs would go straight to [destination]
+  /// under an approval that binds them ([directLegLimit]): the rest come
+  /// home to Dollars. Empty for a Dollars destination. Moves nothing.
+  Set<OneBalanceVenue> directVenues(
+      VenueCashPlan plan, VenueCashDestination destination) {
+    final legs = directLegLimit(plan, destination)?['legs'];
+    if (legs is! Map) return const {};
+    return {
+      for (final p in plan.pulls)
+        if (legs.containsKey(p.venue.name)) p.venue,
+    };
+  }
+
   /// The plan a Retry of [moveId] would run: the failed remainder from
   /// the venues alone, for the approval a Retry to a destination other
   /// than Dollars asks first. Null when there is nothing to retry.
@@ -940,7 +1001,7 @@ class VenueCashPuller {
   /// ([DirectVenueCashSource]); a refusal before anything moved brings it
   /// home to Dollars instead (and that route is not asked again this
   /// session). [onPlanned] hears the plan before any leg starts, for the
-  /// progress lines. The call then reads Dollars every [pollEvery] until
+  /// progress lines, and [onLeg] each leg as it is sent (or fails). The call then reads Dollars every [pollEvery] until
   /// they hold what the action takes from them
   /// ([VenueCashPullOutcome.onwardUsd]) or the wait runs out; the outcome
   /// says which. [waitFor] null waits [venueCashWaitFor] the plan's ETA;
@@ -968,6 +1029,7 @@ class VenueCashPuller {
     String? moveId,
     AuthGrant? approval,
     void Function(VenueCashPlan plan)? onPlanned,
+    void Function(VenueCashLegOutcome leg)? onLeg,
   }) {
     final run = _tail.then((_) => _pullShortfall(
           neededUsd: neededUsd,
@@ -978,6 +1040,7 @@ class VenueCashPuller {
           moveId: moveId,
           approval: approval,
           onPlanned: onPlanned,
+          onLeg: onLeg,
         ));
     _tail = run.then((_) {}, onError: (_) {});
     return run;
@@ -1028,6 +1091,7 @@ class VenueCashPuller {
     bool remainderOnly = false,
     AuthGrant? approval,
     void Function(VenueCashPlan plan)? onPlanned,
+    void Function(VenueCashLegOutcome leg)? onLeg,
   }) async {
     final excluded = exclude ?? venueOfDestination(destination);
     // A Retry of the whole action: what earlier legs already sent
@@ -1084,7 +1148,12 @@ class VenueCashPuller {
       final moveKey = id;
       legs.addAll(await Future.wait([
         for (final p in plan.pulls)
-          _runLeg(p, forAction, destination, moveKey, approval),
+          _runLeg(p, forAction, destination, moveKey, approval).then((leg) {
+            try {
+              onLeg?.call(leg);
+            } catch (_) {/* a listener never fails a leg */}
+            return leg;
+          }),
       ]));
     }
     final failed = legs.where((l) => !l.ok).length;
@@ -1152,18 +1221,36 @@ class VenueCashPuller {
               destination: destination.code,
               amount: IntentUnits.usd(p.usd))) {
         route = VenueCashRoute.direct;
+        final direct = source as DirectVenueCashSource;
+        Future<VenueMoveResult> go() => direct.pullTo(destination, p.usd,
+            purpose: kVenueCashPullPurpose,
+            auth: ApprovedLegAuthorization(approval));
         try {
-          result = await (source as DirectVenueCashSource).pullTo(
-              destination, p.usd,
-              purpose: kVenueCashPullPurpose,
-              auth: ApprovedLegAuthorization(approval));
+          try {
+            result = await go();
+          } on DirectRouteRefused catch (e) {
+            // A refusal that says nothing about the route (a read, the
+            // network, the terms this time) is asked once more, while the
+            // approval still covers the leg; anything else goes on below.
+            if (!DirectRouteRefusals.retryable(e.reason) ||
+                !DirectLegGrants.covers(approval,
+                    venue: p.venue.name,
+                    destination: destination.code,
+                    amount: IntentUnits.usd(p.usd))) {
+              rethrow;
+            }
+            _trackDirectRefused(p, destination, e, retrying: true);
+            result = await go();
+          }
         } on DirectRouteRefused catch (e) {
-          // Refused before anything moved: through Dollars instead, and
-          // not asked again this session, unless it was this approval
-          // that did not cover the leg (the next action brings its own).
-          if (!_approvalRefusal(e)) {
+          // Refused before anything moved: through Dollars instead. Only a
+          // refusal of the route itself keeps it off for a while; never
+          // this approval not covering the leg (the next action brings its
+          // own) nor a transient stop.
+          if (!_approvalRefusal(e) && DirectRouteRefusals.sticky(e.reason)) {
             DirectRouteRefusals.refuse(p.venue, destination);
           }
+          _trackDirectRefused(p, destination, e, retrying: false);
           route = VenueCashRoute.viaDollars;
         }
       }
@@ -1234,6 +1321,26 @@ class VenueCashPuller {
   }
 
   static double _cents(double usd) => (usd * 100).round() / 100;
+
+  /// `venue_cash_direct_refused`: a leg's direct route was refused before
+  /// anything moved, with the rail's fixed reason code (never an error
+  /// text), whether it is asked once more ([retrying]) or goes through
+  /// Dollars, and whether the refusal keeps the route off for a while.
+  static void _trackDirectRefused(VenueCashPull p,
+          VenueCashDestination destination, DirectRouteRefused e,
+          {required bool retrying}) =>
+      TrackingService.track('venue_cash_direct_refused', params: {
+        'venue': p.venue.name,
+        'destination': destination.code,
+        // The rails' reasons are fixed codes (`cctp_in_flight`, an error
+        // category); anything else is classified, never sent as text.
+        'reason': RegExp(r'^[a-z_]{1,48}$').hasMatch(e.reason ?? '')
+            ? e.reason!
+            : TrackingService.errorCategory(e.reason ?? 'unknown'),
+        'retrying': retrying,
+        'sticky': DirectRouteRefusals.sticky(e.reason),
+        'amount_usd': _cents(p.usd),
+      });
 
   /// A direct leg the rail's approval check refused (the approval lapsed
   /// or did not cover it), not the route itself.

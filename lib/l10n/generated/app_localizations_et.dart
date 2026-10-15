@@ -10720,6 +10720,11 @@ class AppLocalizationsEt extends AppLocalizations {
   }
 
   @override
+  String multiMovePurchaseWaiting(String amount, String balance) {
+    return 'Sinu $amount on kontol $balance. Puuduta, et osta Bitcoini';
+  }
+
+  @override
   String get usdReceiveFromYourWallet => 'Sinu rahakotist';
 
   @override

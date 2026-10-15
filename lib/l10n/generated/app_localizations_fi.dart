@@ -10744,6 +10744,11 @@ class AppLocalizationsFi extends AppLocalizations {
   }
 
   @override
+  String multiMovePurchaseWaiting(String amount, String balance) {
+    return '$amount on kohteessa $balance. Osta Bitcoinia napauttamalla';
+  }
+
+  @override
   String get usdReceiveFromYourWallet => 'Lompakostasi';
 
   @override

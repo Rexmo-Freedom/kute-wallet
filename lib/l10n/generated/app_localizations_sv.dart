@@ -10728,6 +10728,11 @@ class AppLocalizationsSv extends AppLocalizations {
   }
 
   @override
+  String multiMovePurchaseWaiting(String amount, String balance) {
+    return 'Dina $amount finns i $balance. Tryck för att köpa Bitcoin';
+  }
+
+  @override
   String get usdReceiveFromYourWallet => 'Från din plånbok';
 
   @override

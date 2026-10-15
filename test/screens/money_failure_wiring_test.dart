@@ -177,6 +177,41 @@ void main() {
       // Every dispatch catch that shows an error reports move_failed.
       expect(_count(src, '_trackMoveFailed(e'), greaterThanOrEqualTo(12));
     });
+
+    test(
+        'the confirm\'s band lets go quietly; the one soft tap plays after '
+        'it, as busy as the band is', () {
+      final feedback = _body(src, 'void _moveFailedFeedback(');
+      expect(feedback,
+          contains('moneyFailureFeedbackAfterBand(() => mounted && _processing)'));
+      final band = src.substring(src.indexOf('RubberBandBusy('),
+          src.indexOf('child: _ConvertButton(', src.indexOf('RubberBandBusy(')));
+      expect(band, contains('busy: _processing && _bandOn'));
+      expect(band, contains('failureTap: false'));
+    });
+
+    test('every hot move snaps the band before the sheet closes', () {
+      for (final dispatcher in [
+        'Future<void> _convertUsdToBtc()',
+        'Future<void> _dispatchBtcToPredictions(',
+        'Future<void> _dispatchBtcToUsd(',
+        'Future<void> _dispatchUsdToBtc(',
+        'Future<void> _dispatchUsdToPredictions(',
+        'Future<void> _dispatchUsdToHyperliquid(',
+        'Future<void> _dispatchBtcToHyperliquid(',
+        'Future<void> _dispatchHyperliquidToBtc(',
+        'Future<void> _finishVenuePurchase(',
+      ]) {
+        final body = _body(src, dispatcher);
+        final pop = body.contains('navigator.pop()')
+            ? body.indexOf('navigator.pop()')
+            : body.indexOf('.pop()');
+        expect(pop, greaterThan(0), reason: dispatcher);
+        expect(body.indexOf('await _snapBeforeLeaving();'),
+            allOf(greaterThan(0), lessThan(pop)),
+            reason: dispatcher);
+      }
+    });
   });
 
   group('receive requests', () {

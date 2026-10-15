@@ -21,11 +21,20 @@ String venueCashVenueName(AppLocalizations l10n, OneBalanceVenue venue) =>
 
 String _usd(double usd) => '\$${usd.toStringAsFixed(2)}';
 
-/// One line per leg of [plan], fastest first.
-String venueCashProgressText(AppLocalizations l10n, VenueCashPlan plan) => [
+/// One line per leg of [plan], fastest first: "$X moving to Bitcoin" for
+/// a leg going straight to [destination] (its venue is in [direct]),
+/// "$X coming back from Investing" for one that comes home to Dollars.
+String venueCashProgressText(AppLocalizations l10n, VenueCashPlan plan,
+        {VenueCashDestination destination = VenueCashDestination.dollars,
+        Set<OneBalanceVenue> direct = const {}}) =>
+    [
       for (final p in plan.pulls)
-        l10n.oneBalanceComingBack(
-            _usd(p.usd), venueCashVenueName(l10n, p.venue)),
+        destination != VenueCashDestination.dollars &&
+                direct.contains(p.venue)
+            ? l10n.oneBalanceMovingTo(
+                _usd(p.usd), venueCashDestinationName(l10n, destination))
+            : l10n.oneBalanceComingBack(
+                _usd(p.usd), venueCashVenueName(l10n, p.venue)),
     ].join('\n');
 
 /// Why the action stopped after a pull, or null when nothing was pulled

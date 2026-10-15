@@ -648,10 +648,18 @@ class RubberBandBusy extends StatefulWidget {
     this.expected = const Duration(seconds: 4),
     this.ceiling = defaultCeiling,
     this.enabled = true,
+    this.failureTap = true,
   });
 
   /// What the time build approaches.
   static const double defaultCeiling = 0.85;
+
+  /// Whether a release without plays its soft tap
+  /// ([RubberBandProgress.failureTap]). False for an action whose stop may
+  /// be the person's own (a declined approval), whose screen plays the
+  /// failure tap itself once the band has let go
+  /// (`moneyFailureFeedbackAfterBand`).
+  final bool failureTap;
 
   /// The action is running.
   final bool busy;
@@ -830,6 +838,7 @@ class RubberBandBusyState extends State<RubberBandBusy>
     return RubberBandProgress(
       progress: progress,
       outcome: outcome,
+      failureTap: widget.failureTap,
       child: widget.child,
     );
   }

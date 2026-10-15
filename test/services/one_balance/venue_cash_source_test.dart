@@ -156,6 +156,11 @@ class _DirectSource extends _Source implements DirectVenueCashSource {
 
   final Set<VenueCashDestination> to;
   bool refuse = false;
+
+  /// The reason a refusal carries; [refusals] refusals at most, then the
+  /// door goes (null: every attempt is refused).
+  String refuseReason = 'cctp_fee_terms_unavailable';
+  int? refusals;
   Object? directError;
   final directs = <({VenueCashDestination to, double usd})>[];
   final auths = <MoveAuthorization>[];
@@ -170,7 +175,13 @@ class _DirectSource extends _Source implements DirectVenueCashSource {
     auths.add(auth);
     final g = gate;
     if (g != null) await g.future;
-    if (refuse) throw const DirectRouteRefused('cctp_fee_terms_unavailable');
+    if (refuse) {
+      final left = refusals;
+      if (left == null || left > 0) {
+        if (left != null) refusals = left - 1;
+        throw DirectRouteRefused(refuseReason);
+      }
+    }
     final e = directError;
     if (e != null) throw e;
     available -= usd;
@@ -738,19 +749,21 @@ void main() {
       expect(move.legs.single.operationId, 'op-direct-investing-1');
     });
 
-    test('a refused direct route goes through Dollars, and is not asked again',
-        () async {
+    test(
+        'a route refused outright goes through Dollars and stays off for a '
+        'while, then is asked again', () async {
       final i = _DirectSource(_i, 500, to: {VenueCashDestination.bitcoin})
-        ..refuse = true;
+        ..refuse = true
+        ..refuseReason = 'cctp_capability';
+      DirectRouteRefusals.clock = () => now;
       final pull = puller([i]);
-      final first = pull.pullShortfall(
+      final outcome = await pull.pullShortfall(
           neededUsd: 20,
           forAction: VenueCashFor.buyBitcoin,
           destination: VenueCashDestination.bitcoin,
           approval: _approval(to: VenueCashDestination.bitcoin),
           waitFor: Duration.zero);
-      final outcome = await first;
-      expect(i.directs, hasLength(1));
+      expect(i.directs, hasLength(1), reason: 'a shut gate is not retried');
       expect(i.pulls, hasLength(1), reason: 'home to Dollars instead');
       expect(outcome.legs.single.route, VenueCashRoute.viaDollars);
       expect(outcome.legs.single.landsIn, VenueCashDestination.dollars);
@@ -758,10 +771,18 @@ void main() {
       expect(outcome.onwardUsd, 20);
       expect(event('investing_cash_pulled')!['route'], 'via_dollars');
       expect(event('investing_cash_pulled')!['destination'], 'bitcoin');
+      expect(event('venue_cash_direct_refused'), {
+        'venue': 'investing',
+        'destination': 'bitcoin',
+        'reason': 'cctp_capability',
+        'retrying': false,
+        'sticky': true,
+        'amount_usd': i.pulls.single.usd,
+      });
       expect(DirectRouteRefusals.isRefused(_i, VenueCashDestination.bitcoin),
           isTrue);
 
-      // Next time this session: straight through Dollars.
+      // Within the while: straight through Dollars.
       dollars = 100;
       MultiSourceMoveStore.reset();
       await puller([i]).pullShortfall(
@@ -770,8 +791,134 @@ void main() {
           destination: VenueCashDestination.bitcoin,
           approval: _approval(to: VenueCashDestination.bitcoin),
           waitFor: Duration.zero);
-      expect(i.directs, hasLength(1), reason: 'the refusal is cached');
+      expect(i.directs, hasLength(1), reason: 'the refusal is remembered');
       expect(i.pulls, hasLength(2));
+
+      // After it, the route is asked again.
+      now = now.add(DirectRouteRefusals.ttl);
+      expect(DirectRouteRefusals.isRefused(_i, VenueCashDestination.bitcoin),
+          isFalse);
+    });
+
+    test(
+        'a transient refusal (the terms, a read) is asked once more at once '
+        'and never keeps the route off', () async {
+      // Refused once, then the door goes: the leg is direct after all.
+      final i = _DirectSource(_i, 500, to: {VenueCashDestination.bitcoin})
+        ..refuse = true
+        ..refusals = 1;
+      final outcome = await puller([i]).pullShortfall(
+          neededUsd: 20,
+          forAction: VenueCashFor.buyBitcoin,
+          destination: VenueCashDestination.bitcoin,
+          approval: _approval(to: VenueCashDestination.bitcoin),
+          waitFor: Duration.zero);
+      expect(i.directs, hasLength(2), reason: 'asked once more');
+      expect(i.pulls, isEmpty, reason: 'never home first');
+      expect(outcome.legs.single.route, VenueCashRoute.direct);
+      expect(event('venue_cash_direct_refused')!['retrying'], isTrue);
+      expect(event('investing_cash_pulled')!['route'], 'direct');
+      expect(DirectRouteRefusals.isRefused(_i, VenueCashDestination.bitcoin),
+          isFalse);
+
+      // Refused both times: through Dollars this once, never remembered.
+      events.clear();
+      MultiSourceMoveStore.reset();
+      final j = _DirectSource(_i, 500, to: {VenueCashDestination.bitcoin})
+        ..refuse = true;
+      final twice = await puller([j]).pullShortfall(
+          neededUsd: 20,
+          forAction: VenueCashFor.buyBitcoin,
+          destination: VenueCashDestination.bitcoin,
+          approval: _approval(to: VenueCashDestination.bitcoin),
+          waitFor: Duration.zero);
+      expect(j.directs, hasLength(2));
+      expect(j.pulls, hasLength(1));
+      expect(twice.legs.single.route, VenueCashRoute.viaDollars);
+      expect(event('investing_cash_pulled')!['route'], 'via_dollars');
+      expect(DirectRouteRefusals.isRefused(_i, VenueCashDestination.bitcoin),
+          isFalse,
+          reason: 'the next action asks the direct route again');
+
+      // An earlier CCTP move still on its way: not retried at once, not
+      // remembered either.
+      MultiSourceMoveStore.reset();
+      final k = _DirectSource(_i, 500, to: {VenueCashDestination.bitcoin})
+        ..refuse = true
+        ..refuseReason = 'cctp_in_flight';
+      await puller([k]).pullShortfall(
+          neededUsd: 20,
+          forAction: VenueCashFor.buyBitcoin,
+          destination: VenueCashDestination.bitcoin,
+          approval: _approval(to: VenueCashDestination.bitcoin),
+          waitFor: Duration.zero);
+      expect(k.directs, hasLength(1));
+      expect(DirectRouteRefusals.isRefused(_i, VenueCashDestination.bitcoin),
+          isFalse);
+    });
+
+    test(
+        'Max from Dollars, Predictions and Investing: both venue legs go at '
+        'once, straight to Bitcoin under the one approval, none via Dollars',
+        () async {
+      dollars = 10;
+      final p = _DirectSource(_p, 30, to: {VenueCashDestination.bitcoin})
+        ..gate = Completer<void>();
+      final i = _DirectSource(_i, 40, to: {VenueCashDestination.bitcoin})
+        ..gate = Completer<void>();
+      final pull = puller([p, i]);
+      // Max: Dollars plus every venue net of its cost.
+      final max = await pull.reachUsd();
+      final plan =
+          await pull.plan(neededUsd: max, destination: VenueCashDestination.bitcoin);
+      expect(plan.covers, isTrue);
+      expect(plan.pulls.map((l) => l.venue), [_p, _i]);
+      // The one approval binds both legs, each at its full amount.
+      final limit = pull.directLegLimit(plan, VenueCashDestination.bitcoin)!;
+      expect(limit['legs'], {
+        'predictions': IntentUnits.usd(plan.pullFrom(_p)!.usd).toString(),
+        'investing': IntentUnits.usd(plan.pullFrom(_i)!.usd).toString(),
+      });
+      expect(pull.directVenues(plan, VenueCashDestination.bitcoin), {_p, _i});
+      final grant = AuthGrants.issue(
+        DirectLegGrants.buyBitcoin(
+          walletId: 'w1',
+          ownSpark: 'spark1self',
+          route: 'spark:USDB>spark:BTC',
+          asset: 'USDB',
+          totalUsd: max,
+          directLegs: limit,
+          ttl: AuthGrants.autofireTtl,
+        ),
+        method: AuthGrantMethod.biometric,
+      );
+      final sent = <OneBalanceVenue>[];
+      final run = pull.pullShortfall(
+          neededUsd: max,
+          forAction: VenueCashFor.buyBitcoin,
+          destination: VenueCashDestination.bitcoin,
+          approval: grant,
+          waitFor: Duration.zero,
+          onLeg: (leg) => sent.add(leg.venue));
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+      // Both legs started before either was answered: in parallel.
+      expect(p.directs, hasLength(1));
+      expect(i.directs, hasLength(1));
+      i.gate!.complete();
+      p.gate!.complete();
+      final outcome = await run;
+      expect(outcome.legs.every((l) => l.route == VenueCashRoute.direct),
+          isTrue);
+      expect(p.pulls, isEmpty);
+      expect(i.pulls, isEmpty);
+      expect(sent.toSet(), {_p, _i}, reason: 'each leg reported as sent');
+      // Dollars take the rest on: what they already hold, at once.
+      expect(outcome.onwardUsd, closeTo(10, 0.02));
+      expect(outcome.dollarsCover, isTrue);
+      expect(DirectLegGrants.takenBy(grant), BigInt.zero,
+          reason: 'the fakes take nothing; the rails take within the caps');
+      expect(events.where((e) => e.$1 == 'venue_cash_direct_refused'), isEmpty);
     });
 
     test('a direct leg failing after it started never falls back', () async {

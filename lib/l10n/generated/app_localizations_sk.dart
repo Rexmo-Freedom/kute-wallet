@@ -10737,6 +10737,11 @@ class AppLocalizationsSk extends AppLocalizations {
   }
 
   @override
+  String multiMovePurchaseWaiting(String amount, String balance) {
+    return 'Vašich $amount je v $balance. Ťuknutím kúpite Bitcoin';
+  }
+
+  @override
   String get usdReceiveFromYourWallet => 'Z tvojej peňaženky';
 
   @override

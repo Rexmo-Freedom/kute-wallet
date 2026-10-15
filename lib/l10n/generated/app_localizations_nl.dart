@@ -10766,6 +10766,11 @@ class AppLocalizationsNl extends AppLocalizations {
   }
 
   @override
+  String multiMovePurchaseWaiting(String amount, String balance) {
+    return 'Je $amount staat in $balance. Tik om Bitcoin te kopen';
+  }
+
+  @override
   String get usdReceiveFromYourWallet => 'Vanuit je wallet';
 
   @override

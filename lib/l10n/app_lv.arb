@@ -3008,6 +3008,7 @@
   "multiMoveSendTitle": "Sūtīt {amount}",
   "multiMoveTitle": "Pārvietot {amount} uz {destination}",
   "multiMoveDeliveredRemaining": "{delivered} piegādāti · {remaining} atlikuši",
+  "multiMovePurchaseWaiting": "Jūsu {amount} ir {balance}. Pieskarieties, lai pirktu Bitcoin",
   "usdReceiveFromYourWallet": "No tava maka",
   "usdReceiveFromAnotherWallet": "No cita maka vai biržas",
   "slipStepAddingToInvestments": "Pievieno {amount} kontam Investments",

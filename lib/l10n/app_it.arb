@@ -3008,6 +3008,7 @@
   "multiMoveSendTitle": "Invia {amount}",
   "multiMoveTitle": "Sposta {amount} su {destination}",
   "multiMoveDeliveredRemaining": "{delivered} consegnati · {remaining} rimanenti",
+  "multiMovePurchaseWaiting": "I tuoi {amount} sono in {balance}. Tocca per comprare Bitcoin",
   "usdReceiveFromYourWallet": "Dal tuo wallet",
   "usdReceiveFromAnotherWallet": "Da un altro wallet o exchange",
   "slipStepAddingToInvestments": "Aggiunta di {amount} a Investments",

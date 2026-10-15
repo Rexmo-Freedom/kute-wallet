@@ -1,6 +1,12 @@
 import 'package:kute/screens/shared/orchestra_swap_refund_action.dart';
 import 'package:kute/screens/shared/multi_source_move_activity.dart';
 import 'package:kute/screens/shared/venue_cash_pull_copy.dart';
+import 'package:kute/screens/shared/pending_bitcoin_purchase_continue.dart'
+    show continuePendingBitcoinPurchase, pendingPurchaseWaitingUsd;
+import 'package:kute/providers/usd_account_provider.dart'
+    show usdBalanceProvider;
+import 'package:kute/services/one_balance/pending_bitcoin_purchase.dart'
+    show bitcoinPurchaseFinisherProvider, pendingBitcoinPurchasesProvider;
 import 'package:kute/services/one_balance/multi_source_move.dart';
 import 'package:kute/services/orchestra/own_spark_arrivals.dart';
 import 'package:kute/services/one_balance/venue_cash_source.dart'
@@ -5694,6 +5700,32 @@ Widget _buildMultiSourceMoveItem(
     MultiSourceMoveTransaction tx, BuildContext context, WidgetRef ref) {
   final move = tx.move;
   final l10n = context.l10n;
+  // A Buy bitcoin whose purchase waits on the person (its approval ran
+  // out, or the app restarted while the money came home): it says so
+  // plainly, and one tap asks a fresh approval and buys.
+  if (move.destination == VenueCashDestination.bitcoin) {
+    ref.watch(pendingBitcoinPurchasesProvider);
+    final waiting = pendingPurchaseWaitingUsd(
+        ref.read(bitcoinPurchaseFinisherProvider),
+        move.id,
+        ref.watch(usdBalanceProvider));
+    if (waiting != null) {
+      return _TransactionRow(
+        onTap: () => continuePendingBitcoinPurchase(context, ref, move.id),
+        leading: _multiSourceMoveIcon(move),
+        title: _RowTitle(multiSourceMoveTitle(l10n, move)),
+        subtitle: _withTime(
+            l10n.multiMovePurchaseWaiting(
+                '\$${waiting.toStringAsFixed(2)}', l10n.assetDollars),
+            tx.timestamp),
+        status: _RowStatus(
+            text: l10n.activityNeedsAttention, color: AppColors.marketDown),
+        flow: ActivityFlow.neutral,
+        amount: formatPolyAmount(ref, move.totalUsd),
+        fiatAmount: '',
+      );
+    }
+  }
   void open() => _showMultiSourceMoveDetails(context, ref, tx);
   final standard = multiSourceMoveStandardRow(tx);
   if (standard != null) {

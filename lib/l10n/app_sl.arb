@@ -3008,6 +3008,7 @@
   "multiMoveSendTitle": "Pošlji {amount}",
   "multiMoveTitle": "Premakni {amount} v {destination}",
   "multiMoveDeliveredRemaining": "{delivered} dostavljeno · {remaining} preostane",
+  "multiMovePurchaseWaiting": "Vaših {amount} je v {balance}. Tapnite za nakup Bitcoina",
   "usdReceiveFromYourWallet": "Iz vaše denarnice",
   "usdReceiveFromAnotherWallet": "Iz druge denarnice ali borze",
   "slipStepAddingToInvestments": "Dodajanje {amount} v Investments",

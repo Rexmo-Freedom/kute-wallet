@@ -3008,6 +3008,7 @@
   "multiMoveSendTitle": "Lähetä {amount}",
   "multiMoveTitle": "Siirrä {amount} kohteeseen {destination}",
   "multiMoveDeliveredRemaining": "{delivered} perillä · {remaining} jäljellä",
+  "multiMovePurchaseWaiting": "{amount} on kohteessa {balance}. Osta Bitcoinia napauttamalla",
   "usdReceiveFromYourWallet": "Lompakostasi",
   "usdReceiveFromAnotherWallet": "Toisesta lompakosta tai pörssistä",
   "slipStepAddingToInvestments": "Lisätään {amount} tilille Investments",

@@ -6544,6 +6544,8 @@
   "@multiMoveTitle": {"description": "Activity row title of one action that moved money from more than one place (Dollars plus Predictions or Investing cash) to one destination: one row for the whole move, its parts listed in the detail sheet. {amount} is the formatted dollar amount, {destination} the destination's display name (Bitcoin, Predictions, Trading).", "placeholders": {"amount": {"type": "String"}, "destination": {"type": "String"}}},
   "multiMoveDeliveredRemaining": "{delivered} delivered · {remaining} remaining",
   "@multiMoveDeliveredRemaining": {"description": "Detail sheet line of a move that took money from more than one place when one part failed: what reached the destination and what is still where it was. Both are formatted dollar amounts.", "placeholders": {"delivered": {"type": "String"}, "remaining": {"type": "String"}}},
+  "multiMovePurchaseWaiting": "Your {amount} is in {balance}. Tap to buy Bitcoin",
+  "@multiMovePurchaseWaiting": {"description": "Activity row of a Buy bitcoin whose money came home first and whose purchase now waits on the person (the approval ran out or the app restarted): the money is in the spending dollar balance and one tap buys the bitcoin. {amount} is a formatted dollar amount, {balance} the dollar balance's display name.", "placeholders": {"amount": {"type": "String"}, "balance": {"type": "String"}}},
   "usdReceiveFromYourWallet": "From your wallet",
   "@usdReceiveFromYourWallet": {"description": "Section label on the first step of the Investments (dollars) receive sheet, above the card that moves money in from the person's own spending bitcoin."},
   "usdReceiveFromAnotherWallet": "From another wallet or exchange",

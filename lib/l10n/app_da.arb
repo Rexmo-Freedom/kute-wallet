@@ -3008,6 +3008,7 @@
   "multiMoveSendTitle": "Send {amount}",
   "multiMoveTitle": "Flyt {amount} til {destination}",
   "multiMoveDeliveredRemaining": "{delivered} leveret · {remaining} tilbage",
+  "multiMovePurchaseWaiting": "Dine {amount} er i {balance}. Tryk for at købe Bitcoin",
   "usdReceiveFromYourWallet": "Fra din wallet",
   "usdReceiveFromAnotherWallet": "Fra en anden wallet eller børs",
   "slipStepAddingToInvestments": "Tilføjer {amount} til Investments",

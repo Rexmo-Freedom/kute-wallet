@@ -10809,6 +10809,11 @@ class AppLocalizationsEl extends AppLocalizations {
   }
 
   @override
+  String multiMovePurchaseWaiting(String amount, String balance) {
+    return 'Τα $amount σας είναι στο $balance. Πατήστε για να αγοράσετε Bitcoin';
+  }
+
+  @override
   String get usdReceiveFromYourWallet => 'Από το πορτοφόλι σου';
 
   @override

@@ -18157,6 +18157,12 @@ abstract class AppLocalizations {
   /// **'{delivered} delivered · {remaining} remaining'**
   String multiMoveDeliveredRemaining(String delivered, String remaining);
 
+  /// Activity row of a Buy bitcoin whose money came home first and whose purchase now waits on the person (the approval ran out or the app restarted): the money is in the spending dollar balance and one tap buys the bitcoin. {amount} is a formatted dollar amount, {balance} the dollar balance's display name.
+  ///
+  /// In en, this message translates to:
+  /// **'Your {amount} is in {balance}. Tap to buy Bitcoin'**
+  String multiMovePurchaseWaiting(String amount, String balance);
+
   /// Section label on the first step of the Investments (dollars) receive sheet, above the card that moves money in from the person's own spending bitcoin.
   ///
   /// In en, this message translates to:

@@ -10775,6 +10775,11 @@ class AppLocalizationsLt extends AppLocalizations {
   }
 
   @override
+  String multiMovePurchaseWaiting(String amount, String balance) {
+    return 'Jūsų $amount yra $balance. Bakstelėkite, kad pirktumėte Bitcoin';
+  }
+
+  @override
   String get usdReceiveFromYourWallet => 'Iš jūsų piniginės';
 
   @override

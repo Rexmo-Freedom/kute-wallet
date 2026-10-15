@@ -10700,6 +10700,11 @@ class AppLocalizationsLv extends AppLocalizations {
   }
 
   @override
+  String multiMovePurchaseWaiting(String amount, String balance) {
+    return 'Jūsu $amount ir $balance. Pieskarieties, lai pirktu Bitcoin';
+  }
+
+  @override
   String get usdReceiveFromYourWallet => 'No tava maka';
 
   @override

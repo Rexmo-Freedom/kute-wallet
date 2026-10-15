@@ -10755,6 +10755,11 @@ class AppLocalizationsHr extends AppLocalizations {
   }
 
   @override
+  String multiMovePurchaseWaiting(String amount, String balance) {
+    return 'Vaših $amount je u $balance. Dodirnite za kupnju Bitcoina';
+  }
+
+  @override
   String get usdReceiveFromYourWallet => 'Iz tvog novčanika';
 
   @override

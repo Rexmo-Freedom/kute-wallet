@@ -3008,6 +3008,7 @@
   "multiMoveSendTitle": "{amount} versturen",
   "multiMoveTitle": "{amount} naar {destination} verplaatsen",
   "multiMoveDeliveredRemaining": "{delivered} aangekomen · {remaining} resterend",
+  "multiMovePurchaseWaiting": "Je {amount} staat in {balance}. Tik om Bitcoin te kopen",
   "usdReceiveFromYourWallet": "Vanuit je wallet",
   "usdReceiveFromAnotherWallet": "Vanuit een andere wallet of exchange",
   "slipStepAddingToInvestments": "{amount} toevoegen aan Investments",

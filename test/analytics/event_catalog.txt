@@ -301,6 +301,8 @@ move_ledger_direction_changed
 move_ledger_funding_source_selected
 move_ledger_review_opened
 move_ledger_source_switched
+move_purchase_continue_tapped
+move_purchase_finished
 move_quote_result
 move_quote_retry_tapped
 move_sheet_abandoned
@@ -673,6 +675,7 @@ usd_send_opened
 usd_send_step
 usd_tab_opened
 venue_account_link_result
+venue_cash_direct_refused
 venue_sweep_completed
 venue_sweep_failed
 venue_sweep_skipped

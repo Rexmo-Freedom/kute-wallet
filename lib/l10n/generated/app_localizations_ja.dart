@@ -10311,6 +10311,11 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String multiMovePurchaseWaiting(String amount, String balance) {
+    return '$amountは$balanceにあります。タップしてビットコインを購入';
+  }
+
+  @override
   String get usdReceiveFromYourWallet => 'あなたのウォレットから';
 
   @override

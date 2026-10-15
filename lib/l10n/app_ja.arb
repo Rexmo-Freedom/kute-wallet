@@ -3008,6 +3008,7 @@
   "multiMoveSendTitle": "{amount}を送金",
   "multiMoveTitle": "{amount}を{destination}へ移動",
   "multiMoveDeliveredRemaining": "{delivered} 着金 · 残り {remaining}",
+  "multiMovePurchaseWaiting": "{amount}は{balance}にあります。タップしてビットコインを購入",
   "usdReceiveFromYourWallet": "あなたのウォレットから",
   "usdReceiveFromAnotherWallet": "別のウォレットまたは取引所から",
   "slipStepAddingToInvestments": "Investmentsに{amount}を追加中",

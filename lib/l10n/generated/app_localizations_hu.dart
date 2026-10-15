@@ -10757,6 +10757,11 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
+  String multiMovePurchaseWaiting(String amount, String balance) {
+    return '$amount a(z) $balance egyenlegeden van. Koppints a Bitcoin vásárlásához';
+  }
+
+  @override
   String get usdReceiveFromYourWallet => 'A tárcádból';
 
   @override

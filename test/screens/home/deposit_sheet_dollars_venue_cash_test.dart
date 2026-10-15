@@ -47,7 +47,13 @@ import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceProvider;
 import 'package:kute/services/one_balance/investments_spendable.dart';
+import 'package:kute/services/continuous_haptics.dart';
+import 'package:kute/services/funding/settlement_runner.dart'
+    show SettlementStepUpHook;
+import 'package:kute/services/kute_haptics.dart';
 import 'package:kute/services/one_balance/multi_source_move.dart';
+import 'package:kute/services/one_balance/pending_bitcoin_purchase.dart';
+import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/one_balance/venue_cash_source.dart';
 import 'package:kute/services/one_balance/venue_funder.dart';
@@ -135,7 +141,9 @@ Future<ProviderContainer> _open(WidgetTester tester, MoveLockedSide side,
     Completer<BreezSdkSpark>? sdk,
     bool cachedRate = false,
     VenueCashLastRead? lastRead,
-    bool settle = true}) async {
+    bool settle = true,
+    bool routed = false,
+    bool reduceMotion = false}) async {
   tester.view.physicalSize = const Size(430, 932);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -156,6 +164,7 @@ Future<ProviderContainer> _open(WidgetTester tester, MoveLockedSide side,
     usdBalanceProvider.overrideWith((_) => _dollars),
     sparkSelfAddressProvider.overrideWith((_) async => _ownSpark),
     venueCashPullerProvider.overrideWith((_) => _puller!),
+    bitcoinPurchaseFinisherProvider.overrideWith((_) => _finisher),
   ]);
   _setBalance(container, _balanceSats);
   if (lastRead != null) {
@@ -175,12 +184,27 @@ Future<ProviderContainer> _open(WidgetTester tester, MoveLockedSide side,
               buildLightTheme().copyWith(splashFactory: NoSplash.splashFactory),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
-          home: DepositSheet(lockedSide: side),
+          navigatorKey: _nav,
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(disableAnimations: reduceMotion),
+            child: child!,
+          ),
+          home: routed
+              ? const Scaffold(body: Text(_behind))
+              : DepositSheet(lockedSide: side),
         ),
       ),
     )),
     orchestra,
   );
+  if (routed) {
+    // The sheet over the screen it was opened from, as the app shows it.
+    unawaited(_nav.currentState!.push(MaterialPageRoute<void>(
+        builder: (_) => DepositSheet(lockedSide: side))));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+  }
   if (!settle) return container;
   // The price sample lands.
   for (var i = 0; i < 10; i++) {
@@ -196,6 +220,59 @@ void _setBalance(ProviderContainer container, int sats) =>
 double _dollars = 10;
 const String _ownSpark = 'spark1self';
 VenueCashPuller? _puller;
+const String _behind = 'The screen behind the sheet';
+final GlobalKey<NavigatorState> _nav = GlobalKey<NavigatorState>();
+
+/// The background purchase, as the test answers it.
+class _Buy {
+  final calls = <double>[];
+  final moves = <String>[];
+
+  Future<void> call(double usd, SettlementStepUpHook stepUp,
+      {required String moveId, required void Function() onFunding}) async {
+    calls.add(usd);
+    moves.add(moveId);
+    onFunding();
+  }
+}
+
+_Buy _buy = _Buy();
+bool _finisherStopped = false;
+
+/// The app's finisher over the test's Dollars, polling on the test clock;
+/// stopped when the test closes the screen.
+BitcoinPurchaseFinisher _finisher = _newFinisher();
+BitcoinPurchaseFinisher _newFinisher() => BitcoinPurchaseFinisher(
+      readDollars: () => _dollars,
+      buy: (usd, stepUp, {required moveId, required onFunding}) =>
+          _buy.call(usd, stepUp, moveId: moveId, onFunding: onFunding),
+      sleep: (_) async {
+        if (_finisherStopped) throw StateError('test over');
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+      },
+    );
+
+/// The success snap and the failure soft taps, through the haptics
+/// bridge's test seam.
+int _haptics(String method) =>
+    ContinuousHaptics.debugLog!.where((c) => c.method == method).length;
+
+/// A venue whose pull waits on [gate] (the leg still being submitted),
+/// or fails with [error] (the leg was not sent).
+class _GatedVenue extends _Venue {
+  _GatedVenue(super.available);
+
+  final gate = Completer<void>();
+  Object? error;
+
+  @override
+  Future<VenueMoveResult> pull(double usd, {required String purpose}) async {
+    await gate.future;
+    final e = error;
+    if (e != null) throw e;
+    return super.pull(usd, purpose: purpose);
+  }
+}
 
 /// The one approval, as the person answers it: every prompt is recorded
 /// with what had moved by then; [approve] false declines.
@@ -227,6 +304,9 @@ class _DirectVenue extends _Venue implements DirectVenueCashSource {
 
   final directs = <({double usd, MoveAuthorization auth})>[];
 
+  /// Refuses the direct door before anything moves, with this reason.
+  String? refuse;
+
   @override
   bool canPullTo(VenueCashDestination destination) =>
       destination == VenueCashDestination.bitcoin;
@@ -235,6 +315,8 @@ class _DirectVenue extends _Venue implements DirectVenueCashSource {
   Future<VenueMoveResult> pullTo(VenueCashDestination destination, double usd,
       {required String purpose, required MoveAuthorization auth}) async {
     directs.add((usd: usd, auth: auth));
+    final r = refuse;
+    if (r != null) throw DirectRouteRefused(r);
     return VenueMoveResult(
         quoteId: 'q-direct',
         operationId: 'op-direct',
@@ -309,6 +391,7 @@ class _Venue implements VenueCashSource {
 }
 
 Future<void> _close(WidgetTester tester, ProviderContainer container) async {
+  _finisherStopped = true;
   await tester.pump(const Duration(seconds: 1));
   await tester.pumpWidget(const SizedBox());
   container.dispose();
@@ -328,6 +411,13 @@ void main() {
     _dollars = 10;
     MultiSourceMoveStore.reset();
     DirectRouteRefusals.reset();
+    PendingBitcoinPurchaseStore.reset();
+    _buy = _Buy();
+    _finisherStopped = false;
+    _finisher = _newFinisher();
+    ContinuousHaptics.debugReset();
+    KuteHaptics.debugReset();
+    ContinuousHaptics.debugLog = [];
   });
   tearDown(() {
     debugBuyBitcoinApproval = null;
@@ -337,14 +427,17 @@ void main() {
     SharedHttpClient.debugOverride = null;
     TrackingService.debugTrackObserver = null;
     _puller = null;
+    ContinuousHaptics.debugLog = null;
+    KuteHaptics.debugReset();
   });
 
   testWidgets(
-      'Dollars → Bitcoin past Dollars: venue cash is in reach, the '
-      'shortfall is pulled first, and a pull still on its way stops the '
-      'purchase honestly', (tester) async {
-    final events = <String>[];
-    TrackingService.debugTrackObserver = (e, _) => events.add(e);
+      'Dollars → Bitcoin past Dollars (the founder case): the leg comes home '
+      'to Dollars, the sheet closes as soon as it is submitted without '
+      'waiting for it to land, and the purchase still runs once it lands',
+      (tester) async {
+    final events = <(String, Map<String, Object>?)>[];
+    TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
     final venue = _Venue(100);
     final approvals = _Approvals(() => venue.pulls.length);
     debugBuyBitcoinApproval = approvals.call;
@@ -356,7 +449,8 @@ void main() {
       clock: () => now,
       sleep: (d) async => now = now.add(d),
     );
-    final container = await _open(tester, MoveLockedSide.depositFromFiat);
+    final container =
+        await _open(tester, MoveLockedSide.depositFromFiat, routed: true);
     // $30 against $10 of Dollars and $60 of reach.
     for (final key in ['3', '0']) {
       await tester.tap(find.text(key).last);
@@ -369,25 +463,147 @@ void main() {
     for (var i = 0; i < 10; i++) {
       await tester.pump(const Duration(milliseconds: 50));
     }
-    // One approval, asked before anything moved, for the whole purchase.
+    // One approval, asked before anything moved, for the whole purchase,
+    // living as long as the purchase may wait on the leg (30 min).
     expect(approvals.prompts, hasLength(1));
     expect(approvals.movedAtPrompt, [0]);
     expect(approvals.prompts.single.action, SensitiveAction.moveTransfer);
     expect(approvals.prompts.single.destination, _ownSpark);
+    expect(approvals.prompts.single.ttl, AuthGrants.autofireTtl);
     // No leg of this venue can go straight to Bitcoin: none is bound.
     expect(approvals.prompts.single.limits[VenueLimit.directLegs], isNull);
     // 20 missing: 20 / 0.98 → $20.41 from Predictions, once.
     expect(venue.pulls, [20.41]);
-    // Stopped before the purchase: its approval goes with it.
-    expect(approvals.grants.single.revoked, isTrue);
-    final l10n = lookupAppLocalizations(const Locale('en'));
-    expect(
-        find.text('${l10n.oneBalanceComingBack(r'$20.41', l10n.predictions)}'
-            '\n${l10n.activityBitcoinAddedPending}'),
-        findsOneWidget);
-    expect(events, contains('predictions_cash_pulled'));
-    expect(events, isNot(contains('convert_success')));
+    // Submitted: the band snapped and the sheet is gone (its route out),
+    // though nothing has landed in Dollars yet.
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(find.byType(DepositSheet), findsNothing);
+    expect(find.text(_behind, skipOffstage: false), findsOneWidget);
+    expect(_haptics('snap'), 1);
+    expect(_haptics('softTap'), 0);
+    final completed =
+        events.where((e) => e.$1 == 'move_completed').single.$2!;
+    expect(completed['outcome'], 'purchase_queued');
+    expect(events.map((e) => e.$1), contains('predictions_cash_pulled'));
+    // The purchase waits in the background under the same approval.
+    final moveId = MultiSourceMoveStore.all().single.id;
+    expect(_finisher.running(moveId), isTrue);
+    expect(approvals.grants.single.revoked, isFalse);
+    expect(_buy.calls, isEmpty, reason: 'nothing bought before it lands');
+
+    // The leg lands: the bitcoin is bought, the whole $30 from Dollars,
+    // as the move's last step.
+    _dollars = 39.2;
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(_buy.calls, [30]);
+    expect(_buy.moves, [moveId]);
+    expect(_finisher.running(moveId), isFalse);
+    expect(events.map((e) => e.$1), contains('move_purchase_finished'));
+    await _close(tester, container);
+  });
+
+  testWidgets(
+      'the confirm wears the rubber band: it pulls from the tap, steps on '
+      'each phase, and lets go quietly with one soft tap when a leg fails',
+      (tester) async {
+    final venue = _GatedVenue(100);
+    final approvals = _Approvals(() => venue.pulls.length);
+    debugBuyBitcoinApproval = approvals.call;
+    var now = DateTime(2026, 10, 13, 12);
+    _puller = VenueCashPuller(
+      sources: [venue],
+      readDollars: () => _dollars,
+      minimumUsd: (_) async => 1,
+      clock: () => now,
+      sleep: (d) async => now = now.add(d),
+    );
+    final container =
+        await _open(tester, MoveLockedSide.depositFromFiat, routed: true);
+    RubberBandProgressState band() =>
+        tester.state<RubberBandProgressState>(find.byType(RubberBandProgress));
+    RubberBandBusyState busy() =>
+        tester.state<RubberBandBusyState>(find.byType(RubberBandBusy));
+    expect(band().stretch, 0, reason: 'at rest before the tap');
+    for (final key in ['3', '0']) {
+      await tester.tap(find.text(key).last);
+      await tester.pump();
+    }
+    await tester.tap(_cta);
+    for (var i = 0; i < 6; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    // Approved, the leg is being submitted: the band pulls past the first
+    // pull, the continuous rumble plays.
+    expect(busy().progress, greaterThanOrEqualTo(0.6));
+    expect(band().stretch, greaterThan(0));
+    expect(band().feeling, isTrue);
+    expect(find.byType(DepositSheet), findsOneWidget);
+
+    // The leg is not sent: the sheet stays, says so, offers Retry.
+    venue.error = StateError('relayer down');
+    venue.gate.complete();
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(find.byType(DepositSheet), findsOneWidget);
     expect(tester.widget<AppButton>(_cta).isLoading, isFalse);
+    expect(tester.widget<AppButton>(_cta).text, 'Retry');
+    expect(_buy.calls, isEmpty);
+    expect(approvals.grants.single.revoked, isTrue);
+    // One soft tap, after the band let go (its own release is quiet), no
+    // snap.
+    expect(_haptics('softTap'), 1, reason: 'one failure tap, not two');
+    expect(_haptics('snap'), 0);
+    final methods =
+        ContinuousHaptics.debugLog!.map((c) => c.method).toList();
+    expect(methods.lastIndexOf('stop'), lessThan(methods.indexOf('softTap')));
+    await _close(tester, container);
+  });
+
+  testWidgets(
+      'Reduce Motion: nothing moves, and the sheet still closes the moment '
+      'the legs are submitted', (tester) async {
+    final venue = _Venue(100);
+    final approvals = _Approvals(() => venue.pulls.length);
+    debugBuyBitcoinApproval = approvals.call;
+    var now = DateTime(2026, 10, 13, 12);
+    _puller = VenueCashPuller(
+      sources: [venue],
+      readDollars: () => _dollars,
+      minimumUsd: (_) async => 1,
+      clock: () => now,
+      sleep: (d) async => now = now.add(d),
+    );
+    final container = await _open(tester, MoveLockedSide.depositFromFiat,
+        routed: true, reduceMotion: true);
+    for (final key in ['3', '0']) {
+      await tester.tap(find.text(key).last);
+      await tester.pump();
+    }
+    await tester.tap(_cta);
+    await tester.pump();
+    expect(
+        tester
+            .state<RubberBandProgressState>(find.byType(RubberBandProgress))
+            .stretch,
+        0);
+    expect(
+        tester.state<RubberBandBusyState>(find.byType(RubberBandBusy)).easing,
+        isFalse);
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 20));
+    }
+    // No snap to wait for: the sheet is already on its way out (its
+    // route's own exit is all that is left).
+    final sheet = find.byType(DepositSheet);
+    if (sheet.evaluate().isNotEmpty) {
+      expect(ModalRoute.of(tester.element(sheet))!.isActive, isFalse);
+    }
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(find.byType(DepositSheet), findsNothing);
+    expect(venue.pulls, [20.41]);
     await _close(tester, container);
   });
 
@@ -445,6 +661,46 @@ void main() {
     await _close(tester, container);
   });
 
+  testWidgets(
+      'a direct leg refused before anything moved comes home to Dollars '
+      'instead; the sheet still exits on submit and the purchase finishes '
+      'in the background', (tester) async {
+    _dollars = 0.5;
+    final venue = _DirectVenue(100)..refuse = 'cctp_fee_terms_unavailable';
+    final approvals =
+        _Approvals(() => venue.pulls.length + venue.directs.length);
+    debugBuyBitcoinApproval = approvals.call;
+    var now = DateTime(2026, 10, 13, 12);
+    _puller = VenueCashPuller(
+      sources: [venue],
+      readDollars: () => _dollars,
+      minimumUsd: (_) async => 1,
+      clock: () => now,
+      sleep: (d) async => now = now.add(d),
+    );
+    final container =
+        await _open(tester, MoveLockedSide.depositFromFiat, routed: true);
+    for (final key in ['3', '0']) {
+      await tester.tap(find.text(key).last);
+      await tester.pump();
+    }
+    await tester.tap(_cta);
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    // Asked straight to Bitcoin twice (a transient refusal is asked once
+    // more), then home to Dollars.
+    expect(venue.directs, hasLength(2));
+    expect(venue.pulls, hasLength(1));
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(find.byType(DepositSheet), findsNothing);
+    _dollars = 31;
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(_buy.calls, [30]);
+    await _close(tester, container);
+  });
+
   testWidgets('declining the one prompt moves nothing at all',
       (tester) async {
     final events = <String>[];
@@ -477,9 +733,11 @@ void main() {
     expect(MultiSourceMoveStore.all(), isEmpty);
     expect(events.where((e) => e.endsWith('_cash_pulled')), isEmpty);
     expect(events, isNot(contains('multi_source_move_started')));
-    // Back to the amount, quietly: no error, no spinner.
+    // Back to the amount, quietly: no error, no spinner, no failure tap.
     expect(tester.widget<AppButton>(_cta).isLoading, isFalse);
     expect(find.text(_insufficient), findsNothing);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(_haptics('softTap'), 0, reason: 'the person said no');
     await _close(tester, container);
   });
 

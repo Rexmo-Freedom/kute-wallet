@@ -139,7 +139,6 @@ import 'package:kute/services/one_balance/venue_cash_source.dart'
         VenueCashFor,
         VenueCashPlan,
         VenueCashPullOutcome,
-        kVenueCashMaxWait,
         venueCashPullerProvider;
 import 'package:kute/services/one_balance/investments_spendable.dart'
     show investmentsSpendableProvider, venueCashRefreshProvider;
@@ -189,7 +188,15 @@ import 'package:kute/screens/shared/amount_keypad_panel.dart';
 import 'package:kute/services/api/orchestra_api.dart';
 import 'package:kute/services/polymarket_spark_txs_service.dart';
 import 'package:kute/services/success_feedback.dart'
-    show moneyFailureFeedback;
+    show moneyFailureFeedback, moneyFailureFeedbackAfterBand;
+import 'package:kute/screens/shared/rubber_band_progress.dart'
+    show RubberBand, RubberBandBusy, RubberBandOutcome;
+import 'package:kute/services/one_balance/dollars_to_bitcoin_purchase.dart'
+    show approvedPurchaseStepUp, buyBitcoinFromDollars, kDollarsToBtcRoute;
+import 'package:kute/services/one_balance/pending_bitcoin_purchase.dart'
+    show bitcoinPurchaseFinisherProvider;
+import 'package:kute/services/funding/owned_address_resolver.dart'
+    show ProviderReader;
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -638,6 +645,11 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   bool _loadingRate = true;
   int _rateRequest = 0;
   bool _processing = false;
+
+  /// The confirm's rubber band: the last phase the move reached (0..1,
+  /// null for time alone) and how it ended ([RubberBandBusy]).
+  double? _bandProgress;
+  RubberBandOutcome? _bandOutcome;
   bool _fromBtc = true; // source-side asset: always BTC under always-BTC
   /// Destination-side asset. Always-BTC architecture: only BTC moves
   /// between wallets. USDC is no longer a user-pickable destination.
@@ -1245,7 +1257,41 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// once per failure however many paths report it). Never for a
   /// declined approval or a cancel.
   void _moveFailedFeedback() {
-    if (mounted) unawaited(moneyFailureFeedback());
+    if (!mounted) return;
+    if (_bandOn) {
+      // The confirm's band lets go quietly; the one soft tap plays once
+      // it has (the rumble stopped first), never twice.
+      moneyFailureFeedbackAfterBand(() => mounted && _processing);
+    } else {
+      unawaited(moneyFailureFeedback());
+    }
+  }
+
+  /// Whether the confirm wears the rubber band: every hot move from this
+  /// sheet. The Ledger's device flows and the fiat screens keep their own.
+  bool get _bandOn => !_isLedgerMove && !_isFiatMode;
+
+  /// The move reached a phase [progress] of the way to submitted (the
+  /// approval, the quote, a leg sent): the band jumps to it.
+  void _bandStep(double progress) {
+    if (!mounted || !_processing) return;
+    final now = _bandProgress ?? 0;
+    if (progress <= now) return;
+    setState(() => _bandProgress = progress);
+  }
+
+  /// Every leg of the move is submitted: the band snaps (the money-success
+  /// haptic) and is seen doing it before the sheet closes
+  /// ([RubberBand.settle]: at once under Reduce Motion). The caller
+  /// checks `mounted` again before it closes the sheet.
+  Future<void> _snapBeforeLeaving() async {
+    if (!mounted || !_bandOn) return;
+    // The band has to have been seen pulling before it can snap: a move
+    // that went through within one frame of the tap gets that frame.
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) return;
+    setState(() => _bandOutcome = RubberBandOutcome.success);
+    await RubberBand.settle(context);
   }
 
 
@@ -2591,6 +2637,8 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       if (grant == null) {
         return false;
       }
+      // Approved: the band takes the step.
+      _bandStep(0.55);
       try {
         AuthGrants.consume(grant, intent);
         return true;
@@ -2693,7 +2741,6 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       _processing = true;
       _error = null;
     });
-    HapticFeedback.mediumImpact();
 
     // Whether the relayer withdrawal was attempted, for the failure stage.
     var usdcSent = false;
@@ -2960,6 +3007,11 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       if (!mounted) {
         return;
       }
+      await _snapBeforeLeaving();
+      if (!mounted) {
+        _trackMoveCompleted();
+        return;
+      }
       final rootNav = Navigator.of(context, rootNavigator: true);
       final btcFormat = ref.read(settingsProvider).btcFormat;
       final outSats = (estOut * 1e8).round();
@@ -3224,7 +3276,6 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       _processing = true;
       _error = null;
     });
-    HapticFeedback.mediumImpact();
 
     // Tracks how far the money got, so the catch below can tell "nothing
     // moved" (clean up the pre-persisted row, plain error) apart from
@@ -3428,6 +3479,11 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       if (!mounted) {
         return;
       }
+      await _snapBeforeLeaving();
+      if (!mounted) {
+        _trackMoveCompleted();
+        return;
+      }
       final btcFormat = ref.read(settingsProvider).btcFormat;
       final navigator = Navigator.of(context);
       final settings = ref.read(settingsProvider);
@@ -3541,7 +3597,6 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       _processing = true;
       _error = null;
     });
-    HapticFeedback.mediumImpact();
 
     // Whether the sats were handed to the send, for failure analytics.
     var btcSent = false;
@@ -3571,6 +3626,11 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
             markSent: () => btcSent = true);
         if (forOrder != null) {
           if (!mounted) return;
+          await _snapBeforeLeaving();
+          if (!mounted) {
+            _trackMoveCompleted();
+            return;
+          }
           Navigator.of(context).pop();
           _trackMoveCompleted();
           return;
@@ -3620,6 +3680,11 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       if (order != null) order.addedOnly?.call(estOut);
 
       if (!mounted) {
+        return;
+      }
+      await _snapBeforeLeaving();
+      if (!mounted) {
+        _trackMoveCompleted();
         return;
       }
       final navigator = Navigator.of(context);
@@ -3821,15 +3886,26 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// legs at once, then the purchase. Dollars first, then each venue leg
   /// straight to the wallet's own Bitcoin where the venue's rail offers
   /// it (only under that approval, within its caps), home to Dollars
-  /// otherwise; waits, bounded, for Dollars to hold what the purchase
-  /// still takes from them. That amount (0 when the legs bought it all)
-  /// to go on with the purchase, which then pays under [_purchaseGrant];
-  /// null when it stopped (declined: nothing moved, quietly; otherwise
-  /// the reason is on the caption line, whatever moved stays where it
-  /// went, and the purchase never goes twice: Retry continues the same
-  /// move).
-  Future<double?> _pullVenueCashForPurchase(double usd) async {
+  /// otherwise.
+  ///
+  /// It never waits for money to land (founder decision 15 October 2026:
+  /// "once the order is placed, we should just exit"): it returns once
+  /// every leg is SUBMITTED.
+  ///  * Dollars already hold what the purchase still takes from them (0
+  ///    when the legs bought it all): that amount, for the purchase to go
+  ///    on at once under [_purchaseGrant].
+  ///  * A leg came home to Dollars and has not landed yet: the purchase
+  ///    is handed to the background ([BitcoinPurchaseFinisher], under the
+  ///    same approval) and the result says [_VenuePull.queued].
+  ///  * Null when it stopped (declined: nothing moved, quietly; otherwise
+  ///    the reason is on the caption line, whatever moved stays where it
+  ///    went, and the purchase never goes twice: Retry continues the same
+  ///    move).
+  Future<_VenuePull?> _pullVenueCashForPurchase(double usd) async {
     final puller = ref.read(venueCashPullerProvider);
+    // Read while mounted: the purchase may be handed on after the sheet
+    // has gone.
+    final appRead = _appReader;
     if (_moveUsd != usd) _moveId = null;
     _purchaseGrant?.revoke();
     _purchaseGrant = null;
@@ -3868,21 +3944,37 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
             }
             return null;
           }
+          // Approved: the band takes the step.
+          _bandStep(0.5);
         }
         if (!mounted) {
           grant?.revoke();
           return null;
         }
+        var sent = 0;
         outcome = await puller.pullShortfall(
           neededUsd: usd,
           forAction: VenueCashFor.buyBitcoin,
           destination: VenueCashDestination.bitcoin,
           moveId: _moveId,
           approval: grant,
+          // Back once every leg is submitted: what comes home to Dollars
+          // lands while the purchase waits in the background.
+          waitFor: Duration.zero,
           onPlanned: (plan) {
             if (!mounted || plan.pulls.isEmpty) return;
-            setState(() =>
-                _pullProgress = venueCashProgressText(context.l10n, plan));
+            _bandStep(0.6);
+            setState(() => _pullProgress = venueCashProgressText(
+                context.l10n, plan,
+                destination: VenueCashDestination.bitcoin,
+                direct: puller.directVenues(
+                    plan, VenueCashDestination.bitcoin)));
+          },
+          onLeg: (leg) {
+            // Each leg submitted pulls the band a step further.
+            sent++;
+            final legs = math.max(1, plan.pulls.length);
+            _bandStep(0.6 + 0.2 * math.min(sent, legs) / legs);
           },
         );
       }
@@ -3894,13 +3986,24 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       _moveUsd = usd;
     }
     if (!mounted) {
-      grant?.revoke();
+      // The sheet was closed under the move. Legs that came home to
+      // Dollars still finish as Bitcoin, in the background under the
+      // same approval; anything else ends here.
+      if (outcome != null && grant != null && _queuesPurchase(outcome)) {
+        _queuePurchase(appRead, outcome, grant);
+      } else {
+        grant?.revoke();
+      }
       return null;
     }
     if (outcome != null && outcome.dollarsCover) {
       setState(() => _pullProgress = null);
       _purchaseGrant = grant;
-      return outcome.dollarsNeededUsd;
+      return _VenuePull(outcome.dollarsNeededUsd);
+    }
+    if (outcome != null && grant != null && _queuesPurchase(outcome)) {
+      _queuePurchase(appRead, outcome, grant);
+      return _VenuePull(outcome.dollarsNeededUsd, queued: true);
     }
     grant?.revoke();
     final covered = outcome != null && outcome.plan.covers;
@@ -3924,17 +4027,35 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     return null;
   }
 
-  /// The route a purchase from Dollars takes.
-  static final RouteKey _dollarsToBtcRoute = RouteKey(
-      fromChain: kOrchestraUsdChain,
-      fromAsset: kOrchestraUsdAssetCode,
-      toChain: 'spark',
-      toAsset: 'BTC');
+  /// Whether [outcome] is a move whose every leg was submitted and whose
+  /// purchase from Dollars only waits on what came home landing: the
+  /// purchase can finish in the background.
+  static bool _queuesPurchase(VenueCashPullOutcome outcome) =>
+      outcome.plan.covers &&
+      outcome.legs.isNotEmpty &&
+      outcome.failedLegs.isEmpty &&
+      outcome.moveId != null &&
+      outcome.dollarsNeededUsd >= 0.01;
+
+  /// Hands the purchase that finishes [outcome]'s move to the background
+  /// under [grant] (the Buy's one approval): it buys once Dollars hold
+  /// what came home, whether or not this sheet is still up.
+  static void _queuePurchase(ProviderReader appRead,
+      VenueCashPullOutcome outcome, AuthGrant grant) {
+    final finisher = appRead(bitcoinPurchaseFinisherProvider);
+    unawaited(finisher.start(
+      moveId: outcome.moveId!,
+      usd: outcome.dollarsNeededUsd,
+      grant: grant,
+      walletId: appRead(settingsProvider).activeWalletId,
+    ));
+  }
 
   /// The purchase's one prompt when [plan] takes venue cash: the Move
   /// approval for the whole [usd] to the wallet's own Bitcoin, binding
-  /// the legs that go straight there (a cap per venue, the total), long
-  /// enough to cover the wait for the legs. Null when declined.
+  /// the legs that go straight there (a cap per venue, the total). It
+  /// lives as long as the background purchase may wait on the legs that
+  /// come home ([AuthGrants.autofireTtl], 30 min). Null when declined.
   Future<AuthGrant?> _approvePurchaseWithLegs(
       double usd, VenueCashPlan plan) async {
     final walletId = pickSpendingWallet(ref.read(settingsProvider))?.id;
@@ -3947,11 +4068,11 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     final intent = DirectLegGrants.buyBitcoin(
       walletId: walletId,
       ownSpark: ownSpark,
-      route: _dollarsToBtcRoute.label,
+      route: kDollarsToBtcRoute.label,
       asset: kOrchestraUsdAssetCode,
       totalUsd: usd,
       directLegs: legs,
-      ttl: kVenueCashMaxWait + const Duration(minutes: 2),
+      ttl: AuthGrants.autofireTtl,
     );
     final seam = debugBuyBitcoinApproval;
     if (seam != null) return seam(intent);
@@ -3959,43 +4080,26 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         amountLabel: _usdApprovalLabel(usd), amountUsd: usd);
   }
 
-  /// The purchase's step-up under the approval it already has ([grant],
-  /// from [_approvePurchaseWithLegs]): no second prompt. Accepted only for
-  /// the own Spark address and the route it binds and no more than
-  /// approved; consumed right before the runner pays.
-  SettlementStepUpHook _approvedPurchaseStepUp(AuthGrant grant) =>
-      (auth) async {
-        final sep = auth.destination.lastIndexOf('|');
-        final recipient =
-            sep < 0 ? auth.destination : auth.destination.substring(0, sep);
-        if (!DirectLegGrants.coversPurchase(grant,
-            walletId: auth.walletId,
-            recipient: recipient,
-            routeLabel: auth.routeLabel,
-            amountIn: auth.amountIn)) {
-          return false;
-        }
-        try {
-          AuthGrants.consume(
-              grant, GrantGuard.derive(grant, amountMax: auth.amountIn));
-          return true;
-        } on AuthGrantException {
-          return false;
-        }
-      };
-
-  /// A purchase every venue leg delivered straight to Bitcoin: nothing
-  /// was bought from Dollars, the move's one row tells the rest.
-  void _finishDirectPurchase(double usd) {
+  /// The purchase is submitted (or nothing was left to buy from Dollars,
+  /// or what came home finishes it in the background): the band snaps,
+  /// the sheet closes, and the move's one row tells the rest.
+  Future<void> _finishVenuePurchase(double usd, {required bool queued}) async {
     _moveId = null;
-    _purchaseGrant?.revoke();
+    if (!queued) _purchaseGrant?.revoke();
     _purchaseGrant = null;
-    if (!mounted) return;
+    await _snapBeforeLeaving();
+    if (!mounted) {
+      _trackMoveCompleted(outcome: queued ? 'purchase_queued' : 'submitted');
+      return;
+    }
     final navigator = Navigator.of(context);
     final settings = ref.read(settingsProvider);
     final l10n = context.l10n;
     navigator.pop();
-    _trackMoveCompleted();
+    // `move_completed`: every leg was submitted. `purchase_queued`: the
+    // purchase from Dollars finishes in the background once what came
+    // home lands (`move_purchase_finished` reports it).
+    _trackMoveCompleted(outcome: queued ? 'purchase_queued' : 'submitted');
     pushMoveSentOverlay(
       navigator: navigator,
       amount: '\$${usd.toStringAsFixed(2)}',
@@ -4021,10 +4125,13 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// Predictions winnings in flight; a purchase is not a claim, so the
   /// delivery lands as an ordinary receive beside the exchange row, the
   /// same way the bitcoin → dollars leg does.
+  ///
+  /// The sheet closes once the purchase is SENT ([buyBitcoinFromDollars]
+  /// returns before the bitcoin lands); with venue cash, once every leg
+  /// is submitted ([_pullVenueCashForPurchase]).
   Future<void> _dispatchUsdToBtc(double usd) async {
     ConvTiming.mark('_dispatchUsdToBtc entry');
     if (_processing) return;
-    final appRead = _appReader;
     var amountBaseUnits = _usdBaseUnits(usd);
     // 100% of Dollars is the exact drain; an amount past Dollars (venue
     // cash in reach) is sent exactly as chosen.
@@ -4056,7 +4163,6 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       _processing = true;
       _error = null;
     });
-    HapticFeedback.mediumImpact();
 
     // Whether the dollars were handed to the send, for failure analytics.
     var usdSent = false;
@@ -4077,49 +4183,32 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       _purchaseGrant = null;
       if (!pullsVenueCash && _moveUsd != usd) _moveId = null;
       if (pullsVenueCash) {
-        final onward = await _pullVenueCashForPurchase(usd);
-        if (onward == null) return;
-        if (onward < 0.01) {
-          // Every leg went straight to Bitcoin: nothing left to buy from
-          // Dollars, no second approval.
-          _finishDirectPurchase(usd);
+        final pulled = await _pullVenueCashForPurchase(usd);
+        if (pulled == null) return;
+        if (pulled.queued || pulled.onwardUsd < 0.01) {
+          // Every leg is submitted. Either every one went straight to
+          // Bitcoin (nothing left to buy from Dollars, no second
+          // approval), or what came home finishes as Bitcoin in the
+          // background under the same approval.
+          await _finishVenuePurchase(usd, queued: pulled.queued);
           return;
         }
         // The purchase takes from Dollars only what the direct legs did
         // not bring.
-        if (onward + 0.005 < usd) {
-          usd = onward;
-          amountBaseUnits = _usdBaseUnits(onward);
+        if (pulled.onwardUsd + 0.005 < usd) {
+          usd = pulled.onwardUsd;
+          amountBaseUnits = _usdBaseUnits(pulled.onwardUsd);
         }
       }
-      // Both legs settle on the wallet's own Spark address, and a failed
-      // swap refunds to that same address. Resolution failure throws
-      // BEFORE anything moves.
-      ConvTiming.mark('_dispatchUsdToBtc sparkSelfAddressProvider read start');
-      final sparkAddress = await ref.read(sparkSelfAddressProvider.future);
-      ConvTiming.mark('_dispatchUsdToBtc sparkSelfAddressProvider read end');
-      ConvTiming.mark('_dispatchUsdToBtc _ownAddressFor(ownSpark) start');
-      final ownSpark = await _ownAddressFor(RecipientKind.ownSpark);
-      ConvTiming.mark('_dispatchUsdToBtc _ownAddressFor(ownSpark) end');
-      ConvTiming.mark('_dispatchUsdToBtc HotSettlement.runner() start');
-      final runner = await HotSettlement.runner();
-      ConvTiming.mark('_dispatchUsdToBtc HotSettlement.runner() end');
-      ConvTiming.mark('_dispatchUsdToBtc runner.run call');
-      final settled = await runner.run(HotSettlement.plan(
-        ref.read,
-        flow: SettlementFlow.moveDollarsToBtc,
-        route: RouteKey(
-            fromChain: kOrchestraUsdChain,
-            fromAsset: kOrchestraUsdAssetCode,
-            toChain: 'spark',
-            toAsset: 'BTC'),
-        source: SettlementAccountKind.sparkHot,
-        destination: SettlementAccountKind.sparkHot,
-        amountUsd: usd,
+      ConvTiming.mark('_dispatchUsdToBtc buyBitcoinFromDollars call');
+      final sent = await buyBitcoinFromDollars(
+        _appReader,
+        amountBaseUnits: amountBaseUnits,
+        usd: usd,
         // Venue cash in the purchase: its one approval was asked before
         // the legs moved and covers this step too.
         stepUp: _purchaseGrant != null
-            ? _approvedPurchaseStepUp(_purchaseGrant!)
+            ? approvedPurchaseStepUp(_purchaseGrant!)
             : _settlementStepUp(
                 action: SensitiveAction.moveTransfer,
                 asset: kOrchestraUsdAssetCode,
@@ -4127,130 +4216,22 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
                     _usdApprovalLabel(auth.amountIn.toDouble() / 1e6),
                 amountUsd: usd,
               ),
-        requestQuote: (key) => HotSettlement.quote(
-          ref.read,
-          OrchestraQuoteRequest(
-            sourceChain: kOrchestraUsdChain,
-            sourceAsset: kOrchestraUsdAssetCode,
-            destinationChain: 'spark',
-            destinationAsset: 'BTC',
-            amountBaseUnits: amountBaseUnits,
-            recipientAddress: sparkAddress,
-            refundAddress: sparkAddress,
-            recipientKind: RecipientKind.ownSpark,
-            ownAddress: ownSpark,
-            tag: kManualMoveQuoteTag,
-          ),
-          flow: 'move_buy_bitcoin_dollars',
-          idempotencyKey: key,
-        ),
-        // The token echo lives in `prepareSpark`: it funds from the
-        // dollar balance because the VERIFIED quote's source asset says
-        // so, and refuses outright if the SDK echoes anything else. A
-        // failure here never retries on satoshis.
-        prepareFunding: (verifiedQuote, _) =>
-            HotSettlement.prepareSpark(ref.read, verifiedQuote),
-        registerInBackground: true,
-        fund: (verifiedQuote, prepared) async {
+        moveId: _moveId,
+        onQuoting: () => _bandStep(0.85),
+        onFunding: () {
           usdSent = true;
-          ConvTiming.mark('_dispatchUsdToBtc sendSpark start');
-          final paymentId = await HotSettlement.sendSpark(ref.read, prepared);
-          ConvTiming.mark('_dispatchUsdToBtc sendSpark end');
-          PolymarketSparkTxsService.tag(paymentId);
-          return SettlementFundingProof.spark(paymentId);
+          _bandStep(0.92);
         },
-      ));
-      ConvTiming.mark('_dispatchUsdToBtc runner.run returned');
-      final orchQuote = settled.quote.quote;
-      final sentUsd = settled.quote.amountIn.toDouble() / 1e6;
-      final orderId = settled.orderId ?? orchQuote.quoteId;
-      final estOut = orchestraAmountToDouble(orchQuote.estimatedOut, 'BTC',
-          chain: 'spark');
-
-      // The deposit leg is written in DOLLARS (two decimals) — writing
-      // it with the bitcoin divisor is the bug the dollar rows exist to
-      // make impossible.
-      final exchange = SwapOrder(
-        id: orderId,
-        coinFrom: kOrchestraUsdAssetCode,
-        networkFrom: 'SPARK',
-        coinTo: 'BTC',
-        networkTo: 'SPARK',
-        depositAddress: orchQuote.depositAddress,
-        depositAmount: sentUsd.toStringAsFixed(2),
-        withdrawalAmount: estOut.toStringAsFixed(8),
-        status: 'exchanging',
-        timestamp: DateTime.now().millisecondsSinceEpoch,
-        withdrawalAddress: sparkAddress,
-        depositMin: '0',
-        depositMax: '0',
-        rate: '0',
-        refundAddress: sparkAddress,
-        provider: 'Orchestra',
-        walletId: ref.read(settingsProvider).activeWalletId,
-        operationId: settled.operation.operationId,
       );
-      // The purchase is the last leg of its multi-source move: one row.
-      MultiSourceMoveStore.attachFinal(_moveId, settled.operation.operationId);
+      ConvTiming.mark('_dispatchUsdToBtc buyBitcoinFromDollars returned');
       _moveId = null;
-      ConvTiming.mark('_dispatchUsdToBtc addExchange(exchange) start');
-      await ref.read(swapOrdersProvider.notifier).addExchange(exchange);
-      ConvTiming.mark('_dispatchUsdToBtc addExchange(exchange) end');
-      ConvTiming.mark('_dispatchUsdToBtc followSettlementRegistration');
-      followSettlementRegistration(appRead, settled);
-      // Backend attribution for the REAL order only — a quote id (q_…)
-      // would create a row the completion can never reconcile with.
-      if (orderId.startsWith('ord_')) {
-        // ignore: unawaited_futures
-        AffiliateService.logProviderEvent(
-          provider: 'orchestra',
-          providerOrderId: orderId,
-          status: 'pending',
-          sourceAsset: kOrchestraUsdAssetCode,
-          sourceAmount: sentUsd,
-          destinationAsset: 'BTC',
-          destinationAmount: estOut,
-        );
-      }
-      ref
-          .read(walletTransactionCacheProvider.notifier)
-          .mergeSwapOrder(exchange);
-      BackgroundSyncService().syncNow();
-
-      final feeWalletId = ref.read(settingsProvider).activeWalletId;
-      final usdPerBtc = ref.read(selectedCurrencyProvider('usd')).toDouble();
-      withSettlementOrderId(settled, (orderId) {
-        // Orchestra's spread on the leg, against the live BTC price. The
-        // dollars that left are the reference, so the fair bitcoin is
-        // `sentUsd / price` and anything short of it is the spread.
-        try {
-          if (usdPerBtc > 0 && usdPerBtc.isFinite) {
-            final spreadUsd = sentUsd - (estOut * usdPerBtc);
-            if (spreadUsd > 0) {
-              FeeHistoryService.log(
-                id: 'orch-$orderId',
-                kind: FeeKind.orchestraSpread,
-                microUsd: (spreadUsd * 1000000).round(),
-                nativeAmount: spreadUsd.toStringAsFixed(6),
-                nativeUnit: 'usd',
-                source: 'Orchestra',
-                txId: orderId,
-                walletId: feeWalletId,
-              );
-            }
-          }
-        } catch (_) {}
-
-        TrackingService.track('convert_success', params: {
-          'direction': 'dollars_to_btc',
-          'amount_bucket': TrackingService.usdBucket(sentUsd),
-          ...TrackingService.exactUsd('amount_usd', sentUsd),
-          'order_id': orderId,
-          'provider': 'orchestra',
-        });
-      });
 
       if (!mounted) return;
+      await _snapBeforeLeaving();
+      if (!mounted) {
+        _trackMoveCompleted();
+        return;
+      }
       final navigator = Navigator.of(context);
       final settings = ref.read(settingsProvider);
       final l10n = context.l10n;
@@ -4260,11 +4241,11 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       ConvTiming.mark('_dispatchUsdToBtc overlay push');
       pushMoveSentOverlay(
         navigator: navigator,
-        amount: '\$${sentUsd.toStringAsFixed(2)}',
+        amount: '\$${sent.sentUsd.toStringAsFixed(2)}',
         fromWalletName: l10n.assetDollars,
         toWalletName: settings.activeWallet?.name ?? l10n.spending,
         assetIconAsset: 'lib/assets/bitcoin-icon.svg',
-        note: settled.registered
+        note: sent.registered
             ? l10n.moveConversionOngoing
             : l10n.settlementRegistering,
       );
@@ -4355,7 +4336,6 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       _processing = true;
       _error = null;
     });
-    HapticFeedback.mediumImpact();
 
     var dollarsSent = false;
     String? pendingQuoteRowId;
@@ -4491,6 +4471,11 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
               ));
 
       if (!mounted) return;
+      await _snapBeforeLeaving();
+      if (!mounted) {
+        _trackMoveCompleted();
+        return;
+      }
       final navigator = Navigator.of(context);
       final l10n = context.l10n;
       ConvTiming.mark('_dispatchUsdToPredictions sheet pop');
@@ -4643,6 +4628,11 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
           .read(hyperliquidTradingProvider.notifier)
           .approveBuilderAfterFunding();
       if (!mounted) return;
+      await _snapBeforeLeaving();
+      if (!mounted) {
+        _trackMoveCompleted();
+        return;
+      }
       final navigator = Navigator.of(context);
       final l10n = context.l10n;
       ConvTiming.mark('_dispatchUsdToHyperliquid sheet pop');
@@ -4740,6 +4730,11 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
           .read(hyperliquidTradingProvider.notifier)
           .approveBuilderAfterFunding();
       if (!mounted) return;
+      await _snapBeforeLeaving();
+      if (!mounted) {
+        _trackMoveCompleted();
+        return;
+      }
       final navigator = Navigator.of(context);
       final settings = ref.read(settingsProvider);
       final l10n = context.l10n;
@@ -4870,6 +4865,11 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         purpose: 'manual_move',
       );
       if (!mounted) return;
+      await _snapBeforeLeaving();
+      if (!mounted) {
+        _trackMoveCompleted();
+        return;
+      }
       final navigator = Navigator.of(context);
       final l10n = context.l10n;
       final name =
@@ -6210,6 +6210,11 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
 
   Future<void> _convert() async {
     ConvTiming.start('tap _convert');
+    // A fresh tap pulls a fresh band (a Retry after a stop included).
+    if (!_processing) {
+      _bandProgress = null;
+      _bandOutcome = null;
+    }
     // A Ledger context never reaches any hot-wallet or legacy dispatcher.
     if (_isLedgerMove) {
       // A Cash App source funds the Ledger's venue account through the
@@ -7168,76 +7173,91 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
                 },
               ),
               SizedBox(height: 12.h),
-              _ConvertButton(
-                // Source-aware enable check. The slider's "amount picked"
-                // depends on which asset is on the From side; the getters
-                // already gate on the per-asset minimum (`_kMinSats` /
-                // `_kMinUsdc`), so we just check that the source-side
-                // amount > 0.
-                //   - BTC source → _selectedSats
-                //   - USDC source → _selectedUsdcFromRatio
-                // Cash App source is the live fiat leg: Continue enables
-                // inside the Flashnet band and creates the onramp. Bank
-                // fiat NEVER enables — bank transfers are coming soon;
-                // the keypad stays interactive but the CTA holds its
-                // disabled style regardless of the typed amount.
-                enabled: _sourceCashApp
-                    ? (!_processing && _cashAppAmountValid)
-                    : _isFiatMode
-                        ? false
-                        : _needsFunding ||
-                            (!_insufficientTyped &&
-                                _isSupportedSwap &&
-                                !_processing &&
-                                !_loadingRate &&
-                                (!_isLedgerMove ||
-                                    _sourceBalanceState == null) &&
-                                (() {
-                                  if (_fromBtc) {
-                                    return _selectedSats >= _kMinSats;
+              // The rubber band (founder request, 15 October 2026): the
+              // confirm is pulled from the tap until every leg of the move
+              // is submitted, jumping forward as each phase arrives
+              // (approval, quote, each leg sent), then snaps as the sheet
+              // closes. It lets go quietly on a stop: a real failure's
+              // soft tap is played once it has ([_moveFailedFeedback]),
+              // and a declined approval plays none.
+              RubberBandBusy(
+                busy: _processing && _bandOn,
+                enabled: _bandOn,
+                progress: _bandProgress,
+                outcome: _bandOutcome,
+                expected: const Duration(seconds: 6),
+                failureTap: false,
+                child: _ConvertButton(
+                  // Source-aware enable check. The slider's "amount picked"
+                  // depends on which asset is on the From side; the getters
+                  // already gate on the per-asset minimum (`_kMinSats` /
+                  // `_kMinUsdc`), so we just check that the source-side
+                  // amount > 0.
+                  //   - BTC source → _selectedSats
+                  //   - USDC source → _selectedUsdcFromRatio
+                  // Cash App source is the live fiat leg: Continue enables
+                  // inside the Flashnet band and creates the onramp. Bank
+                  // fiat NEVER enables — bank transfers are coming soon;
+                  // the keypad stays interactive but the CTA holds its
+                  // disabled style regardless of the typed amount.
+                  enabled: _sourceCashApp
+                      ? (!_processing && _cashAppAmountValid)
+                      : _isFiatMode
+                          ? false
+                          : _needsFunding ||
+                              (!_insufficientTyped &&
+                                  _isSupportedSwap &&
+                                  !_processing &&
+                                  !_loadingRate &&
+                                  (!_isLedgerMove ||
+                                      _sourceBalanceState == null) &&
+                                  (() {
+                                    if (_fromBtc) {
+                                      return _selectedSats >= _kMinSats;
+                                    }
+                                    return _selectedUsdcFromRatio >= _kMinUsdc;
+                                  }())),
+                  processing: _processing,
+                  // Fiat mode keeps the familiar 'Continue' label in its
+                  // permanently disabled state; the quiet line above the
+                  // keypad explains why.
+                  label: _isFiatMode
+                      ? context.l10n.continueLabel
+                      : !_isSupportedSwap
+                          ? context.l10n.comingSoon2
+                          : _retryPull && _error != null
+                              ? context.l10n.retry
+                          : _needsFunding
+                              ? context.l10n.moveAddFunds
+                              : (() {
+                                  // The label states the action and the
+                                  // source-side amount in USD ("Add $50"), so
+                                  // the user reads the same "I'm moving $X"
+                                  // across every direction.
+                                  // Trading source (withdraw): the FROM amount,
+                                  // the perp withdrawable is USDC.
+                                  if (_fromHyperliquid &&
+                                      _selectedUsdcFromRatio > 0) {
+                                    return context.l10n.moveActionWithAmount(
+                                        _actionVerb,
+                                        moveButtonUsd(_selectedUsdcFromRatio));
                                   }
-                                  return _selectedUsdcFromRatio >= _kMinUsdc;
-                                }())),
-                processing: _processing,
-                // Fiat mode keeps the familiar 'Continue' label in its
-                // permanently disabled state; the quiet line above the
-                // keypad explains why.
-                label: _isFiatMode
-                    ? context.l10n.continueLabel
-                    : !_isSupportedSwap
-                        ? context.l10n.comingSoon2
-                        : _retryPull && _error != null
-                            ? context.l10n.retry
-                        : _needsFunding
-                            ? context.l10n.moveAddFunds
-                            : (() {
-                                // The label states the action and the
-                                // source-side amount in USD ("Add $50"), so
-                                // the user reads the same "I'm moving $X"
-                                // across every direction.
-                                // Trading source (withdraw): the FROM amount,
-                                // the perp withdrawable is USDC.
-                                if (_fromHyperliquid &&
-                                    _selectedUsdcFromRatio > 0) {
-                                  return context.l10n.moveActionWithAmount(
-                                      _actionVerb,
-                                      moveButtonUsd(_selectedUsdcFromRatio));
-                                }
-                                if (_fromBtc && _selectedUsdOutput > 0) {
-                                  return context.l10n.moveActionWithAmount(
-                                      _actionVerb,
-                                      moveButtonUsd(_selectedUsdOutput));
-                                }
-                                if (!_fromBtc && _selectedUsdcFromRatio > 0) {
-                                  // Source is Predictions/USDC: the FROM
-                                  // amount, whatever the destination.
-                                  return context.l10n.moveActionWithAmount(
-                                      _actionVerb,
-                                      moveButtonUsd(_selectedUsdcFromRatio));
-                                }
-                                return _actionVerb;
-                              }()),
-                onTap: _needsFunding ? _depositMore : _convert,
+                                  if (_fromBtc && _selectedUsdOutput > 0) {
+                                    return context.l10n.moveActionWithAmount(
+                                        _actionVerb,
+                                        moveButtonUsd(_selectedUsdOutput));
+                                  }
+                                  if (!_fromBtc && _selectedUsdcFromRatio > 0) {
+                                    // Source is Predictions/USDC: the FROM
+                                    // amount, whatever the destination.
+                                    return context.l10n.moveActionWithAmount(
+                                        _actionVerb,
+                                        moveButtonUsd(_selectedUsdcFromRatio));
+                                  }
+                                  return _actionVerb;
+                                }()),
+                  onTap: _needsFunding ? _depositMore : _convert,
+                ),
               ),
               SizedBox(height: 4.h),
             ],
@@ -7246,6 +7266,17 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       ),
     );
   }
+}
+
+/// What a purchase's venue pull decided ([_DepositSheetState._pullVenueCashForPurchase]).
+class _VenuePull {
+  const _VenuePull(this.onwardUsd, {this.queued = false});
+
+  /// What the purchase still takes from Dollars.
+  final double onwardUsd;
+
+  /// The purchase finishes in the background once what came home lands.
+  final bool queued;
 }
 
 class _ConvertButton extends StatelessWidget {

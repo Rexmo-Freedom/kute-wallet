@@ -10767,6 +10767,11 @@ class AppLocalizationsPl extends AppLocalizations {
   }
 
   @override
+  String multiMovePurchaseWaiting(String amount, String balance) {
+    return 'Twoje $amount jest w $balance. Dotknij, aby kupić Bitcoin';
+  }
+
+  @override
   String get usdReceiveFromYourWallet => 'Z twojego portfela';
 
   @override

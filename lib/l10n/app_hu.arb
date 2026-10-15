@@ -3008,6 +3008,7 @@
   "multiMoveSendTitle": "{amount} küldése",
   "multiMoveTitle": "{amount} mozgatása ide: {destination}",
   "multiMoveDeliveredRemaining": "{delivered} megérkezett · {remaining} hátravan",
+  "multiMovePurchaseWaiting": "{amount} a(z) {balance} egyenlegeden van. Koppints a Bitcoin vásárlásához",
   "usdReceiveFromYourWallet": "A tárcádból",
   "usdReceiveFromAnotherWallet": "Másik tárcából vagy tőzsdéről",
   "slipStepAddingToInvestments": "{amount} hozzáadása az Investmentshez",

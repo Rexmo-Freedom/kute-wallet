@@ -10791,6 +10791,11 @@ class AppLocalizationsRo extends AppLocalizations {
   }
 
   @override
+  String multiMovePurchaseWaiting(String amount, String balance) {
+    return 'Cei $amount sunt în $balance. Atinge pentru a cumpăra Bitcoin';
+  }
+
+  @override
   String get usdReceiveFromYourWallet => 'Din portofelul tău';
 
   @override
