@@ -13,6 +13,12 @@
 // Investing surface runs, else the always-on coarse free-USDC figure,
 // the Orchestra rows background sync maintains) — no new endpoints.
 //
+// Automatic sweeping is off ([kVenueAutoSweepEnabled], founder decision
+// 2026-10-15): the triggers below (heartbeat, venue cash and order
+// changes, resume, unlock, backoff and batch timers) then only re-read
+// and classify the venues for the header; only the Portfolio's Rebalance
+// ([VenueSweeperNotifier.rebalance]) sends anything.
+//
 // Spending (hot) wallet only: a Ledger cannot sign automatically and
 // keeps today's flow. Every send goes out under
 // `SweepAuthorization.automatic`, which the rails accept only for the
@@ -76,6 +82,11 @@ export 'package:kute/services/one_balance/venue_sweeper.dart'
 /// cash-out pointed at the wallet's own Spark address.
 final predictionsSweepFunderProvider = Provider<SweepableVenueFunder?>(
     (ref) => ref.watch(predictionsVenueFunderProvider));
+
+/// Whether the sweeper moves venue cash home on its own
+/// ([kVenueAutoSweepEnabled]: off, founder decision 2026-10-15).
+/// Overridden in tests that drive the automatic machinery.
+final venueAutoSweepProvider = Provider<bool>((_) => kVenueAutoSweepEnabled);
 
 /// The foreground heartbeat between event-driven passes.
 const Duration kVenueSweepHeartbeat = Duration(minutes: 3);
@@ -456,7 +467,8 @@ class VenueSweeperNotifier extends Notifier<VenueSweeperState> {
   @override
   VenueSweeperState build() {
     _host = _RiverpodSweeperHost(ref);
-    _sweeper = VenueSweeper(_host, onState: (s) {
+    _sweeper = VenueSweeper(_host,
+        autoSweep: ref.read(venueAutoSweepProvider), onState: (s) {
       state = s;
       _armDueTimer();
     });

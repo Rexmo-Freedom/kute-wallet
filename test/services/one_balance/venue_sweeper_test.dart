@@ -114,8 +114,14 @@ class _FakeHost extends VenueSweeperHost {
     );
   }
 
+  /// How many times the rollout flag was read.
+  int rolloutReads = 0;
+
   @override
-  bool rolloutDone(String walletId) => rolloutFlags.contains(walletId);
+  bool rolloutDone(String walletId) {
+    rolloutReads++;
+    return rolloutFlags.contains(walletId);
+  }
 
   @override
   void markRolloutDone(String walletId) => rolloutFlags.add(walletId);
@@ -156,7 +162,15 @@ void main() {
   setUp(() {
     host = _FakeHost()..rolloutFlags.add('spend');
     states.clear();
-    sweeper = VenueSweeper(host, onState: states.add);
+    // The automatic machinery, kept behind kVenueAutoSweepEnabled (off
+    // in the app since 2026-10-15); the group at the end drives the
+    // sweeper as the app builds it.
+    sweeper = VenueSweeper(host, onState: states.add, autoSweep: true);
+  });
+
+  test('automatic sweeping is off in the app', () {
+    expect(kVenueAutoSweepEnabled, isFalse);
+    expect(VenueSweeper(host).autoSweep, isFalse);
   });
 
   test('a close sweeps the venue at once and reports each stage', () async {
@@ -1038,6 +1052,117 @@ void main() {
       expect(host.sent.length, 1);
     });
   });
+
+  group('automatic sweeping off (founder decision 2026-10-15)', () {
+    late VenueSweeper app;
+
+    setUp(() {
+      // As the app builds it: no automatic passes, and a wallet that never
+      // ran the first-boot rollout.
+      host.rolloutFlags.clear();
+      app = VenueSweeper(host);
+    });
+
+    Iterable<String> sweepEvents() => host.events
+        .map((e) => e.$1)
+        .where((e) => e.startsWith('venue_sweep_'));
+
+    test(
+        'no pass on the heartbeat, a resume, an event, a retry, an idle '
+        'window ending, leaving the foreground or first boot', () async {
+      // Long idle at both venues: every automatic rule would send it.
+      host.venues[OneBalanceVenue.predictions] = VenueSnapshot(
+          idleUsd: 12,
+          sweepableUsd: 12,
+          lastActivityAt: DateTime.fromMillisecondsSinceEpoch(0));
+      host.idle(OneBalanceVenue.investing, 30);
+
+      await app.trigger('resume'); // first unlocked run: no rollout
+      await app.trigger('timer'); // the heartbeat
+      await app.trigger('position_closed', venue: OneBalanceVenue.investing);
+      await app.trigger('market_resolved', venue: OneBalanceVenue.predictions);
+      await app.trigger('retry');
+      await app.onAppPaused();
+      host.clock = host.clock.add(const Duration(hours: 25));
+      expect(app.nextDueIn(), isNull, reason: 'nothing comes due on its own');
+      await app.trigger('timer');
+
+      expect(host.sent, isEmpty);
+      expect(host.prepared, isEmpty);
+      expect(sweepEvents(), isEmpty, reason: 'venue_sweep_* is manual only');
+      expect(host.rolloutReads, 0, reason: 'the rollout flag is never needed');
+      expect(host.rolloutFlags, isEmpty);
+      expect(app.nextDueIn(), isNull);
+      // The venues' cash is read and counted, as Available, never waiting.
+      expect(app.state.waiting, isEmpty);
+      expect(app.state.held,
+          {OneBalanceVenue.predictions: 12, OneBalanceVenue.investing: 30});
+      // And what a Rebalance would move is known.
+      expect(app.state.movable,
+          {OneBalanceVenue.predictions: 12, OneBalanceVenue.investing: 30});
+    });
+
+    test('a manual Rebalance still sends, reports and is watched to the end',
+        () async {
+      host.idle(OneBalanceVenue.predictions, 12);
+      host.idle(OneBalanceVenue.investing, 30);
+      final out = await app.sweepNow();
+      expect(host.sent.map((s) => (s.venue, s.usd, s.purpose)).toSet(), {
+        (OneBalanceVenue.investing, 30.0, 'sweep'),
+        (OneBalanceVenue.predictions, 12.0, 'sweep'),
+      });
+      expect(out.values.map((o) => o.kind).toSet(),
+          {RebalanceOutcomeKind.moving});
+      expect(host.rolloutReads, 0);
+      expect(
+          host.events
+              .where((e) => e.$1 == 'venue_sweep_started')
+              .map((e) => e.$2['trigger']),
+          ['manual_rebalance', 'manual_rebalance']);
+      // Its rows landing still complete it.
+      app.noteOrders(
+          [_orderRow('ord_1', 'success'), _orderRow('ord_2', 'success')]);
+      expect(host.eventsNamed('venue_sweep_completed').length, 2);
+      expect(app.openSweepCount, 0);
+    });
+
+    test(
+        'a Rebalance the rail refuses leaves the cash Available: never '
+        'waiting, no retry scheduled', () async {
+      host.idle(OneBalanceVenue.investing, 30);
+      host.sendError[OneBalanceVenue.investing] =
+          () => const RouteUnavailable('cctp_fee_terms_unavailable');
+      final out = await app.sweepNow();
+      expect(
+          out[OneBalanceVenue.investing]!.kind, RebalanceOutcomeKind.notNow);
+      expect(app.state.waiting, isEmpty);
+      expect(app.state.held, {OneBalanceVenue.investing: 30});
+      expect(app.nextDueIn(), isNull);
+      // Ten minutes on, the heartbeat still sends nothing.
+      host.sendError.remove(OneBalanceVenue.investing);
+      host.clock = host.clock.add(const Duration(minutes: 10));
+      await app.trigger('timer');
+      expect(host.sent, isEmpty);
+      expect(app.state.waiting, isEmpty);
+      // The next tap does (its backoff lifted, as before).
+      await app.sweepNow();
+      expect(host.sent.single.venue, OneBalanceVenue.investing);
+    });
+
+    test(
+        'preview still says what a Rebalance would move, and counts the '
+        'rest as Available', () async {
+      host.idle(OneBalanceVenue.predictions, 2.77);
+      host.idle(OneBalanceVenue.investing, 0.4);
+      await app.preview();
+      expect(host.sent, isEmpty);
+      expect(app.state.movable, {OneBalanceVenue.predictions: 2.77});
+      expect(app.state.waiting, isEmpty);
+      expect(app.state.held, {OneBalanceVenue.predictions: 2.77});
+      expect(app.state.dust, {OneBalanceVenue.investing: 0.4});
+    });
+  });
+
 }
 
 /// [inner] with a bet queued on Predictions from the second read on.

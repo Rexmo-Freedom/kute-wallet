@@ -28,6 +28,12 @@
 //   manual_rebalance        — the Portfolio's Rebalance ([VenueSweeper.sweepNow]):
 //                             every venue now, the idle wait set aside,
 //                             every other rule kept.
+//
+// Automatic sweeping is OFF ([kVenueAutoSweepEnabled]; founder decision,
+// 2026-10-15): venue cash stays where it is until the person taps
+// Rebalance. Every trigger above but `manual_rebalance` then only reads
+// and classifies the venues ([VenueSweeper.preview]), so the header and
+// the Portfolio stay current; nothing is sent, nothing is reported.
 
 import 'dart:async';
 import 'dart:math' as math;
@@ -49,6 +55,19 @@ import 'package:kute/services/one_balance/route_minimums.dart'
 import 'package:kute/services/one_balance/sweep_rules.dart';
 import 'package:kute/services/one_balance/venue_funder.dart';
 import 'package:kute/services/tracking_service.dart';
+
+/// Whether the sweeper moves venue cash home on its own: the 24 h idle
+/// sweep, the heartbeat, event and resume passes, backoff retries and the
+/// first-boot rollout pass.
+///
+/// Off by founder decision (2026-10-15): "maybe we should not run this
+/// 24 h sweep. just leave it, leave it manual i think. do not do it on
+/// first boot also". Venue cash stays at the venue, Available, until the
+/// person taps Rebalance ([VenueSweeper.sweepNow], which works as before).
+/// With it off a trigger only reads and classifies the venues
+/// ([VenueSweeper.preview]); nothing is ever shown as waiting for a pass
+/// that will not run. The machinery stays: true brings it all back.
+const bool kVenueAutoSweepEnabled = false;
 
 /// What the sweeper shows: `waiting` is what each venue still owes back
 /// (batching, backing off, a rail not ready), `dust` the venue cash below
@@ -154,8 +173,9 @@ enum RebalanceOutcomeKind {
   /// A never-sweep rule holds it ([RebalanceOutcome.reason]).
   held,
 
-  /// The rail could not take it now, or the move failed: the sweeper
-  /// retries on its own (its backoff); nothing for the person to do.
+  /// The rail could not take it now, or the move failed. With automatic
+  /// sweeping on the sweeper retries on its own (its backoff); off, the
+  /// cash stays Available at the venue until the next Rebalance.
   notNow,
 
   /// The venue has not answered yet.
@@ -310,11 +330,18 @@ class _OpenSweep {
 }
 
 class VenueSweeper {
-  VenueSweeper(this._host, {void Function(VenueSweeperState)? onState})
-      : _onState = onState;
+  VenueSweeper(
+    this._host, {
+    void Function(VenueSweeperState)? onState,
+    this.autoSweep = kVenueAutoSweepEnabled,
+  }) : _onState = onState;
 
   final VenueSweeperHost _host;
   final void Function(VenueSweeperState)? _onState;
+
+  /// Whether venue cash goes home on its own ([kVenueAutoSweepEnabled];
+  /// a parameter so the tests can still drive the automatic machinery).
+  final bool autoSweep;
 
   final Map<OneBalanceVenue, _VenueMemory> _memory = {
     for (final v in OneBalanceVenue.values) v: _VenueMemory(),
@@ -361,6 +388,14 @@ class VenueSweeper {
   Future<void> trigger(String reason,
       {OneBalanceVenue? venue, bool flushHeld = false}) async {
     if (_disposed) return;
+    if (!autoSweep) {
+      // No pass of its own (founder decision, 2026-10-15): the venues
+      // are read and classified, as the Portfolio's preview does, so the
+      // header follows them. Nothing is sent or reported, no backoff is
+      // lifted, the rollout never runs.
+      await preview();
+      return;
+    }
     final trigger = normalizeTrigger(reason);
     if (_passing) {
       // One pass at a time; remember the strongest ask for the rerun.
@@ -448,8 +483,12 @@ class VenueSweeper {
     }
   }
 
-  /// The app is leaving the foreground: held batches sweep now.
-  Future<void> onAppPaused() => trigger('timer', flushHeld: true);
+  /// The app is leaving the foreground: held batches sweep now (nothing
+  /// while automatic sweeping is off: there are no held batches to flush).
+  Future<void> onAppPaused() async {
+    if (!autoSweep) return;
+    await trigger('timer', flushHeld: true);
+  }
 
   /// The venues as they are now, read and classified without a pass, for
   /// the Portfolio: it calls this as it opens and whenever a venue's
@@ -564,6 +603,8 @@ class VenueSweeper {
   /// When the next pass is due on its own (a backoff ending, a held batch
   /// coming due), or null when nothing is scheduled.
   Duration? nextDueIn() {
+    // Nothing comes due on its own while automatic sweeping is off.
+    if (!autoSweep) return null;
     final now = _host.now();
     Duration? best;
     void consider(DateTime? at) {
@@ -1026,9 +1067,13 @@ class VenueSweeper {
       e.reason?.endsWith('below_minimum') ?? false;
 
   /// Shows [usd] of [venue] as waiting (null clears it); the venue is no
-  /// longer dust.
-  void _setWaiting(OneBalanceVenue venue, double? usd) =>
-      _setCash(venue, waiting: usd);
+  /// longer dust. With automatic sweeping off no pass will move it, so it
+  /// is simply the venue's Available cash (held), never "waiting" or
+  /// "unavailable until balancing completes": only what a Rebalance
+  /// submitted is on its way, and that shows as in flight.
+  void _setWaiting(OneBalanceVenue venue, double? usd) => autoSweep
+      ? _setCash(venue, waiting: usd)
+      : _setCash(venue, held: usd);
 
   /// Records [usd] of [venue] as dust; the venue no longer waits.
   void _setDust(OneBalanceVenue venue, double usd) =>

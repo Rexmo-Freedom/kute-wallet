@@ -19,6 +19,8 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/swap_orders_provider.dart';
 import 'package:kute/providers/usd_account_provider.dart';
 import 'package:kute/providers/venue_sweeper_provider.dart';
+import 'package:kute/screens/shared/investment_balance_header.dart'
+    show InvestmentBalanceHeader;
 import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/services/one_balance/hyperliquid_move_rail.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
@@ -216,7 +218,8 @@ void main() {
 
   ({ProviderContainer c, _Rail rail, _PmFunder pm}) bind(
       PolymarketTradingState pmState,
-      {bool restingAtVenue = false}) {
+      {bool restingAtVenue = false,
+      bool autoSweep = false}) {
     final rail = _Rail();
     final pm = _PmFunder();
     final c = ProviderContainer(overrides: [
@@ -234,6 +237,9 @@ void main() {
       predictionsSweepFunderProvider.overrideWithValue(pm),
       investingRestingOrdersReaderProvider
           .overrideWithValue(() async => restingAtVenue),
+      // Off in the app (founder decision, 2026-10-15); on only where a
+      // test drives the automatic machinery.
+      venueAutoSweepProvider.overrideWithValue(autoSweep),
     ]);
     addTearDown(c.dispose);
     return (c: c, rail: rail, pm: pm);
@@ -317,13 +323,48 @@ void main() {
         {OneBalanceVenue.investing: 6.54});
   });
 
+  test(
+      'automatic sweeping off: Investing cash a day idle stays, Available, '
+      'with no waiting line and nothing sent until Rebalance', () async {
+    investingIdleForADay();
+    final events = <(String, Map<String, Object>?)>[];
+    TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+    addTearDown(() => TrackingService.debugTrackObserver = null);
+    final b = bind(const PolymarketTradingState());
+    b.c.read(venueSweeperProvider);
+    await Future<void>.delayed(Duration.zero);
+    final notifier = b.c.read(venueSweeperProvider.notifier);
+    await notifier.trigger('resume');
+    await notifier.trigger('timer');
+    VenueCashReleased.emit(OneBalanceVenue.investing, 'position_closed');
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    expect(b.rail.calls, isEmpty);
+    expect(events.where((e) => e.$1.startsWith('venue_sweep_')), isEmpty);
+    final sweeper = b.c.read(venueSweeperProvider);
+    expect(sweeper.waiting, isEmpty);
+    expect(sweeper.held, {OneBalanceVenue.investing: 6.54});
+    final state = b.c.read(oneBalanceProvider);
+    expect(state.waiting, isEmpty);
+    expect(state.availableUsd, closeTo(6.54, 1e-9));
+    expect(state.totalUsd, closeTo(6.54, 1e-9));
+    expect(InvestmentBalanceHeader.showsInFlight(state), isFalse,
+        reason: 'no "unavailable until balancing completes" line');
+
+    // The tap still sends it.
+    await notifier.rebalance();
+    expect(b.rail.calls, ['sweep:6.54']);
+    expect(
+        events.lastWhere((e) => e.$1 == 'venue_sweep_started').$2!['trigger'],
+        'manual_rebalance');
+  });
+
   test('Investing cash comes home after a day idle, no surface ever opened',
       () async {
     investingIdleForADay();
     final events = <(String, Map<String, Object>?)>[];
     TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
     addTearDown(() => TrackingService.debugTrackObserver = null);
-    final b = bind(const PolymarketTradingState());
+    final b = bind(const PolymarketTradingState(), autoSweep: true);
     b.c.read(venueSweeperProvider);
     // The sweeper keeps the badge poll alive: it is what knows the cash.
     expect(b.c.exists(hyperliquidOpenPositionsCountProvider), isTrue);
@@ -343,7 +384,7 @@ void main() {
   test('cash the rail cannot carry yet stays in the header total and line',
       () async {
     investingIdleForADay();
-    final b = bind(const PolymarketTradingState());
+    final b = bind(const PolymarketTradingState(), autoSweep: true);
     b.c.read(venueSweeperProvider);
     await Future<void>.delayed(Duration.zero);
     b.rail.error = const RouteUnavailable('cctp_fee_terms_unavailable');
@@ -356,12 +397,14 @@ void main() {
 
   test('Predictions: positions stay counted and idle cash comes home',
       () async {
-    final b = bind(PolymarketTradingState(
-      isAuthenticated: true,
-      balanceKnown: true,
-      usdcBalance: 7.5,
-      openPositions: [_position(30)],
-    ));
+    final b = bind(
+        PolymarketTradingState(
+          isAuthenticated: true,
+          balanceKnown: true,
+          usdcBalance: 7.5,
+          openPositions: [_position(30)],
+        ),
+        autoSweep: true);
     b.c.read(venueSweeperProvider);
     await b.c.read(polymarketTradingProvider.future);
     await Future<void>.delayed(Duration.zero);
@@ -385,9 +428,12 @@ void main() {
           fundQuoteRef: 'ref_move',
         );
 
-    Future<({ProviderContainer c, _PmFunder pm})> landed() async {
-      final b = bind(const PolymarketTradingState(
-          isAuthenticated: true, balanceKnown: true, usdcBalance: 10.4));
+    Future<({ProviderContainer c, _PmFunder pm})> landed(
+        {bool autoSweep = false}) async {
+      final b = bind(
+          const PolymarketTradingState(
+              isAuthenticated: true, balanceKnown: true, usdcBalance: 10.4),
+          autoSweep: autoSweep);
       b.c.read(venueSweeperProvider);
       await b.c.read(polymarketTradingProvider.future);
       await Future<void>.delayed(Duration.zero);
@@ -431,7 +477,7 @@ void main() {
       ledger.landed('ref_move');
       ledger.release('ref_move', reason: 'failed');
       VenueActivity.clock = DateTime.now;
-      final b = await landed();
+      final b = await landed(autoSweep: true);
       // Before: any intent on the provider held every sweep for good.
       b.c.read(pendingPolymarketBetProvider.notifier).setIntent(failedBet());
       await b.c.read(venueSweeperProvider.notifier).trigger('timer');
