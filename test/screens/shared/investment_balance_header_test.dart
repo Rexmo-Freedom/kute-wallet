@@ -27,6 +27,7 @@ import 'package:kute/screens/shared/portfolio_arrow_glyph.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/screens/shared/stale_shimmer.dart';
 import 'package:kute/screens/shared/venue_deposit_button.dart';
+import 'package:kute/services/one_balance/money_steps.dart';
 import 'package:kute/services/venue_total_cache_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -431,6 +432,50 @@ void main() {
             InFlightMove(kind: InFlightKind.incomingDollars, usd: 20),
           ]));
       expect(find.text(r'Incoming $20.00'), findsOneWidget);
+    });
+
+    testWidgets(
+        'with the slip closed, each source of the order shows its own '
+        'state under the order', (tester) async {
+      await pumpOne(
+          tester,
+          known.copyWith(inFlight: const [
+            InFlightMove(
+                kind: InFlightKind.toVenue,
+                venue: OneBalanceVenue.predictions,
+                usd: 8,
+                order: InFlightOrder(
+                    id: 'fo_legs',
+                    venue: OneBalanceVenue.predictions,
+                    orderUsd: 15,
+                    side: 'Yes',
+                    market: 'Lakers',
+                    legs: [
+                      MoneyStep(
+                          id: 'leg:bitcoin',
+                          kind: MoneyStepKind.leg,
+                          from: MoneyPlace.bitcoin,
+                          usd: 8,
+                          status: MoneyStepStatus.running),
+                      MoneyStep(
+                          id: 'leg:dollars',
+                          kind: MoneyStepKind.leg,
+                          from: MoneyPlace.dollars,
+                          usd: 5,
+                          status: MoneyStepStatus.done),
+                      MoneyStep(
+                          id: 'leg:investing',
+                          kind: MoneyStepKind.leg,
+                          from: MoneyPlace.investing,
+                          usd: 2,
+                          status: MoneyStepStatus.failed),
+                    ])),
+          ]));
+      expect(find.text(r'Placing $15.00 on Yes · Lakers'), findsOneWidget);
+      expect(find.text(r'Moving $8.00 from Bitcoin'), findsOneWidget);
+      expect(find.text(r'Moved $5.00 from Dollars'), findsOneWidget);
+      expect(find.text("\$2.00 from Investing didn't move"), findsOneWidget);
+      expect(find.byType(PendingDepositLine), findsNWidgets(4));
     });
 
     testWidgets('the lines are in the app language', (tester) async {

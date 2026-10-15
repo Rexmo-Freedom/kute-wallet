@@ -10962,4 +10962,19 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get moneyStepArrived => 'Atkeliavo į likutį Bitcoin';
+
+  @override
+  String moneyStepSending(String amount) {
+    return 'Siunčiama $amount';
+  }
+
+  @override
+  String moneyStepSent(String amount) {
+    return 'Išsiųsta $amount';
+  }
+
+  @override
+  String moneyStepCompact(String source, String destination, String amount) {
+    return '$source → $destination · $amount';
+  }
 }

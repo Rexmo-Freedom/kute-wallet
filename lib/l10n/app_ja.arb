@@ -3052,5 +3052,8 @@
   "moneyStepBuying": "ビットコインを{amount}分購入中",
   "moneyStepBought": "ビットコインを{amount}分購入しました",
   "moneyStepArriving": "ビットコインに着金中",
-  "moneyStepArrived": "ビットコインに着金しました"
+  "moneyStepArrived": "ビットコインに着金しました",
+  "moneyStepSending": "{amount}を送金中",
+  "moneyStepSent": "{amount}を送金しました",
+  "moneyStepCompact": "{source} → {destination} · {amount}"
 }

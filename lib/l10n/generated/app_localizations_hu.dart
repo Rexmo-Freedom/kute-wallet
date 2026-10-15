@@ -10944,4 +10944,19 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get moneyStepArrived => 'Megérkezett ide: Bitcoin';
+
+  @override
+  String moneyStepSending(String amount) {
+    return '$amount küldése';
+  }
+
+  @override
+  String moneyStepSent(String amount) {
+    return '$amount elküldve';
+  }
+
+  @override
+  String moneyStepCompact(String source, String destination, String amount) {
+    return '$source → $destination · $amount';
+  }
 }

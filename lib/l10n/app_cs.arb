@@ -3052,5 +3052,8 @@
   "moneyStepBuying": "Kupujeme Bitcoin za {amount}",
   "moneyStepBought": "Koupen Bitcoin za {amount}",
   "moneyStepArriving": "Přichází na zůstatek Bitcoin",
-  "moneyStepArrived": "Připsáno na zůstatek Bitcoin"
+  "moneyStepArrived": "Připsáno na zůstatek Bitcoin",
+  "moneyStepSending": "Odesíláme {amount}",
+  "moneyStepSent": "Odesláno {amount}",
+  "moneyStepCompact": "{source} → {destination} · {amount}"
 }

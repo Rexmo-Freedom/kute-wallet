@@ -258,6 +258,12 @@ Finder _inCard(String venue, Finder finder) => find.descendant(
 
 Finder get _rebalance => find.byKey(const ValueKey('portfolio-rebalance'));
 
+/// [finder] among the Rebalance's steps under its button: one line per
+/// venue going home (move_steps: the same lines as every move).
+Finder _inSteps(Finder finder) => find.descendant(
+    of: find.byKey(const ValueKey('portfolio-rebalance-steps')),
+    matching: finder);
+
 Finder get _row => find.byKey(const ValueKey('portfolio-balance-row'));
 
 Rect _tile(WidgetTester tester, String venue) =>
@@ -474,25 +480,27 @@ void main() {
           events.where((e) => e.$1 == 'portfolio_rebalance_tapped').single.$2,
           {'dollars_usd': 42.5, 'investing_usd': 6.54, 'predictions_usd': 3.0});
 
-      // The move is running at Investing.
+      // The move is running at Investing: its step under the button, one
+      // line, never the tile's note too.
       c.read(_sweeperState.notifier).state =
           const VenueSweeperState(sweeping: {OneBalanceVenue.investing});
       await tester.pump();
+      expect(_inSteps(find.text(r'Moving $6.54 from Investing → Dollars')),
+          findsOneWidget);
       expect(
           _inCard(
               'investing', find.text('Moving to USDB… takes a few minutes')),
-          findsOneWidget);
+          findsNothing);
 
       _FakeSweeper.gate!.complete();
       // Investing's band pulls while its move runs: frames, never settled.
       await _pumpFor(tester);
       expect(_FakeSweeper.calls, 1);
-      // Submitted: on its way (Investing's route takes minutes); the
-      // other venue says why its cash stayed.
-      expect(
-          _inCard(
-              'investing', find.text('Moving to USDB… takes a few minutes')),
+      // Submitted: on its way; the other venue says why its cash stayed
+      // (held: no step of its own).
+      expect(_inSteps(find.text(r'Moving $6.54 from Investing → Dollars')),
           findsOneWidget);
+      expect(_inSteps(find.textContaining('Predictions')), findsNothing);
       expect(_inCard('predictions', find.text('Held by open orders')),
           findsOneWidget);
       // Nothing movable is left: the button goes.
@@ -948,9 +956,11 @@ void main() {
       expect(_band(tester, 'investing').stretch, greaterThan(0.06));
       expect(
           _inCard('predictions', find.text('Moving to USDB…')), findsNothing);
-      expect(
-          _inCard(
-              'investing', find.text('Moving to USDB… takes a few minutes')),
+      // Each step completes on its own: Predictions is home, Investing
+      // still on its way.
+      expect(_inSteps(find.text(r'Moved $3.00 from Predictions → Dollars')),
+          findsOneWidget);
+      expect(_inSteps(find.text(r'Moving $6.54 from Investing → Dollars')),
           findsOneWidget);
 
       // Investing lands: its own snap, the second thud.
@@ -972,6 +982,10 @@ void main() {
           _inCard(
               'investing', find.text('Moving to USDB… takes a few minutes')),
           findsNothing);
+      expect(_inSteps(find.text(r'Moved $6.54 from Investing → Dollars')),
+          findsOneWidget);
+      expect(_inSteps(find.text(r'Moved $3.00 from Predictions → Dollars')),
+          findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
@@ -1081,9 +1095,7 @@ void main() {
       expect(_band(tester, 'investing').ticking, isFalse);
       expect(_band(tester, 'predictions').ticking, isFalse);
       expect(tester.binding.transientCallbackCount, 0);
-      expect(
-          _inCard(
-              'investing', find.text('Moving to USDB… takes a few minutes')),
+      expect(_inSteps(find.text(r'Moving $6.54 from Investing → Dollars')),
           findsOneWidget);
     });
 
@@ -1111,8 +1123,10 @@ void main() {
       expect(_band(tester, 'predictions').stretch, greaterThan(0));
       expect(tester.takeException(), isNull);
       expect(_tile(tester, 'predictions').right, lessThanOrEqualTo(375));
-      expect(find.text('Moving to USDB… takes a few minutes'), findsOneWidget);
-      expect(find.text('Moving to USDB…'), findsOneWidget);
+      expect(_inSteps(find.text(r'Moving $6.54 from Investing → Dollars')),
+          findsOneWidget);
+      expect(_inSteps(find.text(r'Moving $3.00 from Predictions → Dollars')),
+          findsOneWidget);
     });
 
     test('the phase follows the move: the tap, its row, its landing', () {

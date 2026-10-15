@@ -89,10 +89,10 @@ import 'package:kute/services/funding/owned_address_resolver.dart'
     show ProviderReader;
 import 'package:kute/services/hyperliquid/cctp_withdrawal.dart'
     show kCctpCoreFeeReserve;
-import 'package:kute/services/one_balance/buy_bitcoin_steps.dart';
 import 'package:kute/services/one_balance/hyperliquid_move_rail.dart';
 import 'package:kute/services/one_balance/money_steps.dart'
     show MoneyStepGraph;
+import 'package:kute/services/one_balance/move_steps.dart';
 import 'package:kute/services/one_balance/multi_source_move.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/one_balance/predictions_venue_funder.dart'
@@ -1165,13 +1165,11 @@ class VenueCashPuller {
         totalUsd: _cents(neededUsd),
         dollarsUsd: _cents(plan.dollarsUsd),
         createdAt: _clock(),
-        // A Buy bitcoin as its steps (buy_bitcoin_steps.dart): every leg
-        // as it is about to go, the purchase, the arrival. A Retry keeps
-        // the move's own graph (start() keeps the record).
-        steps: forAction == VenueCashFor.buyBitcoin &&
-                destination == VenueCashDestination.bitcoin
-            ? _plannedSteps(plan, destination, approval, neededUsd)
-            : MoneyStepGraph.empty,
+        // Every move as its steps (move_steps.dart): every leg as it is
+        // about to go, then the action's own step (the purchase and the
+        // arrival, the send, Dollars going on into the venue). A Retry
+        // keeps the move's own graph (start() keeps the record).
+        steps: _plannedSteps(plan, destination, approval, neededUsd, forAction),
       ));
       try {
         onStarted?.call(id);
@@ -1201,14 +1199,21 @@ class VenueCashPuller {
     final onward = destination == VenueCashDestination.dollars
         ? plan.neededUsd
         : (remainderOnly ? 0.0 : _cents(math.max(0, plan.neededUsd - direct)));
-    // Every leg went: what the purchase takes from Dollars.
+    // Every leg went: what the action's own step takes from Dollars.
     if (!remainderOnly && plan.pulls.isNotEmpty) {
-      BuyBitcoinSteps.record(id, (g) => BuyBitcoinSteps.onward(g, onward));
+      MoveSteps.record(
+          id,
+          (g) => MoveSteps.onward(g, onward,
+              destination: destination, forAction: forAction));
     }
     var cover = remainderOnly || _readDollars() + 0.000001 >= onward;
     final wait = waitFor ?? venueCashWaitFor(plan.eta);
     if (!cover && failed == 0 && wait > Duration.zero) {
       cover = await _waitForDollars(onward, wait);
+      // What came home landed: its legs are done.
+      if (cover) {
+        MoveSteps.record(id, (g) => MoveSteps.dollarsLanded(g, at: _clock()));
+      }
     }
     if (cover && !remainderOnly) _pending.clear();
     if (plan.pulls.isNotEmpty) {
@@ -1338,10 +1343,9 @@ class VenueCashPuller {
       quoteId: result?.quoteId,
       error: leg.ok ? null : TrackingService.errorCategory(leg.error),
     );
+    // The leg and its step (on its way, failed, or through Dollars
+    // instead: MultiSourceMoveStore.addLeg records both).
     MultiSourceMoveStore.addLeg(moveId, recorded);
-    // Its step: on its way, failed, or through Dollars instead.
-    BuyBitcoinSteps.record(
-        moveId, (g) => BuyBitcoinSteps.legRecorded(g, recorded));
     return leg;
   }
 
@@ -1364,15 +1368,22 @@ class VenueCashPuller {
 
   static double _cents(double usd) => (usd * 100).round() / 100;
 
-  /// A Buy bitcoin's steps for [plan] as its legs are about to go: each
-  /// leg straight to [destination] exactly when [_runLeg] would send it
-  /// there (the approval covers it), home to Dollars otherwise; the
-  /// purchase of what the direct legs do not bring. Moves nothing.
-  MoneyStepGraph _plannedSteps(VenueCashPlan plan,
-      VenueCashDestination destination, AuthGrant? approval, double totalUsd) {
+  /// A move's steps for [plan] as its legs are about to go: each leg
+  /// straight to [destination] exactly when [_runLeg] would send it there
+  /// (the approval covers it), home to Dollars otherwise; then the
+  /// action's own step for what the direct legs do not bring (the
+  /// purchase, Dollars going on into the venue), or the whole amount for
+  /// a send. Moves nothing.
+  MoneyStepGraph _plannedSteps(
+      VenueCashPlan plan,
+      VenueCashDestination destination,
+      AuthGrant? approval,
+      double totalUsd,
+      String forAction) {
     bool direct(VenueCashPull p) {
       final source = _sourceFor(p.venue);
-      return approval != null &&
+      return destination != VenueCashDestination.dollars &&
+          approval != null &&
           source is DirectVenueCashSource &&
           (source as DirectVenueCashSource).canPullTo(destination) &&
           !DirectRouteRefusals.isRefused(p.venue, destination) &&
@@ -1390,9 +1401,13 @@ class VenueCashPuller {
     for (var i = 0; i < legs.length; i++) {
       if (legs[i].direct) directUsd += plan.pulls[i].arrivingUsd;
     }
-    return BuyBitcoinSteps.planned(
+    return MoveSteps.planned(
+      destination: destination,
+      forAction: forAction,
       legs: legs,
-      onwardUsd: _cents(math.max(0, plan.neededUsd - directUsd)),
+      onwardUsd: destination == VenueCashDestination.dollars
+          ? plan.neededUsd
+          : _cents(math.max(0, plan.neededUsd - directUsd)),
       totalUsd: _cents(totalUsd),
       at: _clock(),
     );

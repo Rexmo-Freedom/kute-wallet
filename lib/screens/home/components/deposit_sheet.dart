@@ -156,8 +156,8 @@ import 'package:kute/services/one_balance/multi_source_move.dart'
         multiSourceMovesProvider,
         trackMultiSourceMoveRetry;
 import 'package:kute/screens/shared/venue_cash_pull_copy.dart';
-import 'package:kute/screens/shared/buy_bitcoin_steps_view.dart'
-    show BuyBitcoinStepsSection;
+import 'package:kute/screens/shared/move_steps_view.dart'
+    show MoveStepsSection;
 import 'package:kute/services/funding/hot_settlement.dart';
 import 'package:kute/screens/ledger/ledger_investment_gate.dart'
     show
@@ -6868,7 +6868,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
                                 .firstOrNull;
                             return move == null
                                 ? const SizedBox.shrink()
-                                : BuyBitcoinStepsSection(
+                                : MoveStepsSection(
                                     move: move, followRows: false);
                           })
                         // Venue cash on its way home for a purchase,

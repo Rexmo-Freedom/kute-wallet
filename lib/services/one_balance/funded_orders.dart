@@ -224,6 +224,10 @@ class FundedOrderRecord {
         side: label.side,
         market: label.market,
         margin: label.kind == FundedOrderKind.margin,
+        legs: [
+          for (final l in steps.legs)
+            if (l.status != MoneyStepStatus.skipped) l,
+        ],
       );
 
   FundedOrderRecord copyWith({
@@ -497,6 +501,22 @@ class FundedOrdersNotifier extends Notifier<List<FundedOrderRecord>> {
       Set<String> venueRowIds = const {}}) {
     final now = clock();
     final id = 'fo_${now.microsecondsSinceEpoch}_${_seq++}';
+    // A new try after a stop on the same market restarts only what failed:
+    // the legs that already landed stay landed (their money is now the
+    // venue's cash, which the new try counts as ready), shown done, and
+    // only the rest runs again.
+    final retried = [
+      for (final r in state)
+        if (r.label.venue == label.venue &&
+            r.label.marketKey == label.marketKey &&
+            r.label.kind == label.kind &&
+            !r.cleared &&
+            (r.stage == FundedOrderStage.ready ||
+                r.stage == FundedOrderStage.failed))
+          r,
+    ].firstOrNull;
+    final carried =
+        retried == null ? const <MoneyStep>[] : landedLegsOf(retried.steps);
     // One live record per venue: an older one still marked live is over.
     // A "Tap to place" note for the same market and kind has been acted on.
     final older = [
@@ -529,11 +549,32 @@ class FundedOrdersNotifier extends Notifier<List<FundedOrderRecord>> {
         updatedAt: now,
         addUsd: addUsd,
         venueRowIds: venueRowIds,
+        steps: MoneyStepGraph(carried),
       ),
       ...older,
     ]);
     return id;
   }
+
+  /// The legs of [graph] whose money already landed, kept for a new try
+  /// (ids prefixed `prev:`, no dependencies, done): the runner never runs
+  /// them again.
+  static List<MoneyStep> landedLegsOf(MoneyStepGraph graph) => [
+        for (final l in graph.legs)
+          if (l.status == MoneyStepStatus.done)
+            MoneyStep(
+              id: l.id.startsWith('prev:') ? l.id : 'prev:${l.id}',
+              kind: l.kind,
+              from: l.from,
+              to: l.to,
+              usd: l.usd,
+              route: l.route,
+              status: MoneyStepStatus.done,
+              startedAt: l.startedAt,
+              endedAt: l.endedAt,
+              ref: l.ref,
+            ),
+      ];
 
   FundedOrderRecord? byId(String id) {
     for (final r in state) {

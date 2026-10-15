@@ -3052,5 +3052,8 @@
   "moneyStepBuying": "Köper Bitcoin för {amount}",
   "moneyStepBought": "Köpte Bitcoin för {amount}",
   "moneyStepArriving": "Anländer i Bitcoin",
-  "moneyStepArrived": "Anlände i Bitcoin"
+  "moneyStepArrived": "Anlände i Bitcoin",
+  "moneyStepSending": "Skickar {amount}",
+  "moneyStepSent": "Skickade {amount}",
+  "moneyStepCompact": "{source} → {destination} · {amount}"
 }

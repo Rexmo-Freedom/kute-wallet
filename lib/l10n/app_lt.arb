@@ -3052,5 +3052,8 @@
   "moneyStepBuying": "Perkama Bitcoin už {amount}",
   "moneyStepBought": "Nupirkta Bitcoin už {amount}",
   "moneyStepArriving": "Atkeliauja į likutį Bitcoin",
-  "moneyStepArrived": "Atkeliavo į likutį Bitcoin"
+  "moneyStepArrived": "Atkeliavo į likutį Bitcoin",
+  "moneyStepSending": "Siunčiama {amount}",
+  "moneyStepSent": "Išsiųsta {amount}",
+  "moneyStepCompact": "{source} → {destination} · {amount}"
 }

@@ -10915,4 +10915,19 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String get moneyStepArrived => 'Anlände i Bitcoin';
+
+  @override
+  String moneyStepSending(String amount) {
+    return 'Skickar $amount';
+  }
+
+  @override
+  String moneyStepSent(String amount) {
+    return 'Skickade $amount';
+  }
+
+  @override
+  String moneyStepCompact(String source, String destination, String amount) {
+    return '$source → $destination · $amount';
+  }
 }

@@ -3052,5 +3052,8 @@
   "moneyStepBuying": "{amount} értékű Bitcoin vásárlása",
   "moneyStepBought": "{amount} értékű Bitcoin megvéve",
   "moneyStepArriving": "Érkezik ide: Bitcoin",
-  "moneyStepArrived": "Megérkezett ide: Bitcoin"
+  "moneyStepArrived": "Megérkezett ide: Bitcoin",
+  "moneyStepSending": "{amount} küldése",
+  "moneyStepSent": "{amount} elküldve",
+  "moneyStepCompact": "{source} → {destination} · {amount}"
 }

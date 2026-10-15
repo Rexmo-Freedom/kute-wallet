@@ -260,23 +260,23 @@ void main() {
         (tester) async {
       final store = await openSheet(tester, _move(), [_hl(), _pm()]);
       expect(find.byType(BuyBitcoinStepsSection), findsOneWidget);
-      expect(
-          find.text('Moving \$12.00 from Investing → Bitcoin'), findsOneWidget);
-      expect(find.text('Moving \$5.00 from Predictions → Dollars'),
-          findsOneWidget);
-      expect(find.text('Buying \$8.00 of Bitcoin'), findsOneWidget);
+      // The detail's compact lines: path, amount, state.
+      expect(find.text('Investing → Bitcoin · \$12.00'), findsOneWidget);
+      expect(find.text('Predictions → Dollars · \$5.00'), findsOneWidget);
+      expect(find.text('Dollars → Bitcoin · \$8.00'), findsOneWidget);
       expect(find.text('Arriving in Bitcoin'), findsOneWidget);
+      expect(find.byKey(const ValueKey('money-step-running-0')), findsOneWidget);
+      expect(find.byKey(const ValueKey('money-step-running-1')), findsOneWidget);
 
-      // Predictions lands first: only its line completes.
+      // Predictions lands first: only its line completes, with what landed.
       store.set([_hl(), _pm(status: 'success')]);
       for (var i = 0; i < 5; i++) {
         await tester.pump(const Duration(milliseconds: 100));
       }
-      expect(
-          find.text('Moved \$5.00 from Predictions → Dollars'), findsOneWidget);
-      expect(
-          find.text('Moving \$12.00 from Investing → Bitcoin'), findsOneWidget);
-      expect(find.text('Buying \$8.00 of Bitcoin'), findsOneWidget);
+      expect(find.text('Predictions → Dollars · \$4.95'), findsOneWidget);
+      expect(find.byKey(const ValueKey('money-step-done-1')), findsOneWidget);
+      expect(find.byKey(const ValueKey('money-step-running-0')), findsOneWidget);
+      expect(find.text('Dollars → Bitcoin · \$8.00'), findsOneWidget);
     });
 
     testWidgets('a finished move keeps its steps as the record',
@@ -286,11 +286,12 @@ void main() {
         _pm(status: 'success'),
         _buy(status: 'success'),
       ]);
-      expect(
-          find.text('Moved \$12.00 from Investing → Bitcoin'), findsOneWidget);
-      expect(
-          find.text('Moved \$5.00 from Predictions → Dollars'), findsOneWidget);
-      expect(find.text('Bought \$8.00 of Bitcoin'), findsOneWidget);
+      expect(find.text('Investing → Bitcoin · \$12.00'), findsOneWidget);
+      expect(find.text('Predictions → Dollars · \$4.95'), findsOneWidget);
+      expect(find.text('Dollars → Bitcoin · \$8.00'), findsOneWidget);
+      for (var i = 0; i < 4; i++) {
+        expect(find.byKey(ValueKey('money-step-done-$i')), findsOneWidget);
+      }
       expect(find.text('Arrived in Bitcoin'), findsOneWidget);
     });
   });

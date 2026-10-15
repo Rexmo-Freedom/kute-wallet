@@ -12,9 +12,12 @@
 //    id while there is no operation.
 //  * The action's own step (the send, the purchase, the order's funding)
 //    is linked the same way once it went ([MultiSourceMoveStore.attachFinal]).
-//  * A Buy bitcoin keeps its step graph on the record ([MultiSourceMove.steps],
-//    buy_bitcoin_steps.dart): what each leg, the purchase and the arrival
-//    are doing. Records written before it had none and still read.
+//  * Every move keeps its step graph on the record ([MultiSourceMove.steps],
+//    move_steps.dart): what each leg and the action's own step (the
+//    purchase and the arrival, the send, Dollars going on into a venue)
+//    are doing. A leg recorded and the own step attached update it here,
+//    for every move. Records written before it had none and still read
+//    (mapped from their legs).
 //  * Records live in the settings box (best effort; this session keeps
 //    them in memory either way), newest first, the last
 //    [MultiSourceMoveStore.keep] only. No address, no key: venue names,
@@ -27,6 +30,7 @@ import 'package:flutter/foundation.dart' show ValueNotifier, visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:kute/services/one_balance/money_steps.dart';
+import 'package:kute/services/one_balance/move_steps.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/one_balance/venue_funder.dart'
     show VenueCashDestination;
@@ -151,8 +155,9 @@ class MultiSourceMove {
   /// The action's own step (the send, the purchase), once it went.
   final String? finalOperationId;
 
-  /// The move as steps (a Buy bitcoin's legs, purchase and arrival), as
-  /// the money code recorded them; empty on a record made before them.
+  /// The move as steps (its legs, its own step, the arrival), as the
+  /// money code recorded them (move_steps.dart); empty on a record made
+  /// before them.
   final MoneyStepGraph steps;
 
   List<MultiSourceMoveLeg> get okLegs => [
@@ -358,24 +363,49 @@ abstract final class MultiSourceMoveStore {
     return move;
   }
 
-  /// Adds [leg] to move [id].
+  /// Adds [leg] to move [id], and its step: on its way, failed, or
+  /// through Dollars instead ([MoveSteps.legRecorded]).
   static void addLeg(String id, MultiSourceMoveLeg leg) {
     final all = _all();
     final move = all[id];
     if (move == null) return;
-    all[id] = move.copyWith(legs: [...move.legs, leg]);
+    final next = move.copyWith(legs: [...move.legs, leg]);
+    all[id] = next.copyWith(
+        steps: _stepsOr(
+            next,
+            () => MoveSteps.legRecorded(
+                // The graph before this leg (a record without steps maps
+                // from its earlier legs), then this leg.
+                MoveSteps.of(move),
+                leg,
+                destination: next.destination,
+                forAction: next.forAction)));
     _save();
   }
 
   /// The action's own step went: its settlement operation is part of the
-  /// move's one row.
+  /// move's one row, and its step is on its way ([MoveSteps.finalSent]).
   static void attachFinal(String? id, String? operationId) {
     if (id == null || operationId == null || operationId.isEmpty) return;
     final all = _all();
     final move = all[id];
     if (move == null) return;
-    all[id] = move.copyWith(finalOperationId: operationId);
+    final next = move.copyWith(finalOperationId: operationId);
+    all[id] = next.copyWith(
+        steps: _stepsOr(next,
+            () => MoveSteps.finalSent(MoveSteps.of(next), operationId)));
     _save();
+  }
+
+  /// [make]'s graph, reconciled with [move]; [move]'s own graph when it
+  /// throws (the steps never stop the money).
+  static MoneyStepGraph _stepsOr(
+      MultiSourceMove move, MoneyStepGraph Function() make) {
+    try {
+      return MoveSteps.reconcile(move, make());
+    } catch (_) {
+      return move.steps;
+    }
   }
 
   /// Replaces move [id]'s step graph with what [change] makes of the

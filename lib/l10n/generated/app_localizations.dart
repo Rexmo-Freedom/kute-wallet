@@ -18427,6 +18427,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Arrived in Bitcoin'**
   String get moneyStepArrived;
+
+  /// The last step of a send from Investments, running: the dollars leaving Dollars for the recipient once the money that came home from the venues landed. {amount} formatted dollars. Shown with a small spinner.
+  ///
+  /// In en, this message translates to:
+  /// **'Sending {amount}'**
+  String moneyStepSending(String amount);
+
+  /// The same step once the send settled (shown with a check). {amount} formatted dollars.
+  ///
+  /// In en, this message translates to:
+  /// **'Sent {amount}'**
+  String moneyStepSent(String amount);
+
+  /// One step of a money move in its Activity detail, compact: where the money went and how much, e.g. Investing → Dollars · $20.69. The line's icon says whether it is running, done or failed. {source} and {destination} are balance names (or where a send went), {amount} formatted dollars.
+  ///
+  /// In en, this message translates to:
+  /// **'{source} → {destination} · {amount}'**
+  String moneyStepCompact(String source, String destination, String amount);
 }
 
 class _AppLocalizationsDelegate

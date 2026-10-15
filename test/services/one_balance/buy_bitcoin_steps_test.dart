@@ -414,10 +414,15 @@ void main() {
       expect(g.byId('buy')!.usd, outcome.dollarsNeededUsd);
     });
 
-    test('a move that is not a Buy bitcoin keeps no steps', () async {
+    test('a move that is not a Buy bitcoin keeps its own graph', () async {
+      // Every move has its steps now (move_steps.dart): a send's legs come
+      // home to Dollars, then the send.
       final outcome = await puller([_Source(_p)], 0).pullShortfall(
           neededUsd: 20, forAction: VenueCashFor.send, waitFor: Duration.zero);
-      expect(MultiSourceMoveStore.get(outcome.moveId!)!.steps.isEmpty, isTrue);
+      final g = MultiSourceMoveStore.get(outcome.moveId!)!.steps;
+      expect([for (final s in g.steps) s.id], ['leg:predictions', 'send']);
+      expect(g.byId('send')!.after, ['leg:predictions']);
+      expect(g.byId('buy'), isNull);
     });
   });
 }

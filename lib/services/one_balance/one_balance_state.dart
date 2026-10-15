@@ -10,6 +10,7 @@
 // Pure value types, no Riverpod: the provider that fills them lives in
 // `lib/providers/one_balance_provider.dart`.
 
+import 'package:kute/services/one_balance/money_steps.dart' show MoneyStep;
 import 'package:flutter/foundation.dart' show immutable, listEquals, mapEquals;
 
 /// Where invested money can live. The spending account is not a venue:
@@ -51,6 +52,7 @@ class InFlightOrder {
     required this.side,
     required this.market,
     this.margin = false,
+    this.legs = const [],
   });
 
   /// The funded order's local id (one line per order).
@@ -70,6 +72,14 @@ class InFlightOrder {
   /// margin), not an order.
   final bool margin;
 
+  /// The order's legs from its step graph (`FundedOrderRecord.steps`),
+  /// each with its own state: the header names each source under the
+  /// order while the slip is closed. Empty for a record without a graph.
+  final List<MoneyStep> legs;
+
+  String get _legsKey =>
+      [for (final l in legs) '${l.id}:${l.status.name}:${l.usd}'].join('|');
+
   @override
   bool operator ==(Object other) =>
       other is InFlightOrder &&
@@ -78,10 +88,12 @@ class InFlightOrder {
       other.orderUsd == orderUsd &&
       other.side == side &&
       other.market == market &&
-      other.margin == margin;
+      other.margin == margin &&
+      other._legsKey == _legsKey;
 
   @override
-  int get hashCode => Object.hash(id, venue, orderUsd, side, market, margin);
+  int get hashCode =>
+      Object.hash(id, venue, orderUsd, side, market, margin, _legsKey);
 }
 
 /// One sum of money on a rail. Rows with the same kind and venue are not

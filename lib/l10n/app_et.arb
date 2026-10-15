@@ -3052,5 +3052,8 @@
   "moneyStepBuying": "Ostame Bitcoini {amount} eest",
   "moneyStepBought": "Ostetud Bitcoini {amount} eest",
   "moneyStepArriving": "Jõuab kontole Bitcoin",
-  "moneyStepArrived": "Jõudis kontole Bitcoin"
+  "moneyStepArrived": "Jõudis kontole Bitcoin",
+  "moneyStepSending": "Saadame {amount}",
+  "moneyStepSent": "Saadetud {amount}",
+  "moneyStepCompact": "{source} → {destination} · {amount}"
 }

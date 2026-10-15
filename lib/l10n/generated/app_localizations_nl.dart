@@ -10954,4 +10954,19 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get moneyStepArrived => 'Binnen in Bitcoin';
+
+  @override
+  String moneyStepSending(String amount) {
+    return '$amount versturen';
+  }
+
+  @override
+  String moneyStepSent(String amount) {
+    return '$amount verstuurd';
+  }
+
+  @override
+  String moneyStepCompact(String source, String destination, String amount) {
+    return '$source → $destination · $amount';
+  }
 }

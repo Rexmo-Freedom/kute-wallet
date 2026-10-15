@@ -11,12 +11,21 @@
 //
 // This notifier holds what the Portfolio shows about the tap: the busy
 // state while the pass runs, then what each venue did, for the one-line
-// notes under the venue rows.
+// notes under the venue rows, and the tap as its steps
+// (rebalance_steps.dart): one line per venue whose cash goes home, all at
+// once, each completing on its own. The steps are kept with the last tap
+// (`portfolio_rebalance_steps_v1`), so they read again after a restart.
+
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart' show immutable, mapEquals;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/providers/venue_sweeper_provider.dart';
+import 'package:kute/services/one_balance/money_steps.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
+import 'package:kute/services/one_balance/rebalance_steps.dart';
+import 'package:kute/services/one_balance/sweep_rules.dart'
+    show kSweepDustUsd;
 import 'package:kute/services/tracking_service.dart';
 
 /// How long the notes a Rebalance left under the venue rows stay up.
@@ -32,6 +41,8 @@ class PortfolioRebalanceState {
     this.running = false,
     this.outcomes = const <OneBalanceVenue, RebalanceOutcome>{},
     this.at,
+    this.steps = MoneyStepGraph.empty,
+    this.stepsAt,
   });
 
   /// The pass is running (the button's busy state).
@@ -42,6 +53,14 @@ class PortfolioRebalanceState {
 
   /// When the last tap's pass finished.
   final DateTime? at;
+
+  /// The last tap as its steps (rebalance_steps.dart): one leg per venue
+  /// whose cash goes home, as recorded (the rows bring it up to date
+  /// where it is shown).
+  final MoneyStepGraph steps;
+
+  /// When the last tap was made (the steps' start).
+  final DateTime? stepsAt;
 
   /// The last tap's outcome for [venue] while its note is still up.
   RebalanceOutcome? outcomeAt(OneBalanceVenue venue, DateTime now) {
@@ -55,16 +74,25 @@ class PortfolioRebalanceState {
       other is PortfolioRebalanceState &&
       other.running == running &&
       other.at == at &&
-      mapEquals(other.outcomes, outcomes);
+      other.stepsAt == stepsAt &&
+      mapEquals(other.outcomes, outcomes) &&
+      jsonEncode(other.steps.toJson()) == jsonEncode(steps.toJson());
 
   @override
-  int get hashCode => Object.hash(running, at,
+  int get hashCode => Object.hash(running, at, stepsAt,
       Object.hashAll(outcomes.entries.map((e) => Object.hash(e.key, e.value))));
 }
 
 class PortfolioRebalanceNotifier extends Notifier<PortfolioRebalanceState> {
   @override
-  PortfolioRebalanceState build() => const PortfolioRebalanceState();
+  PortfolioRebalanceState build() {
+    // The last tap's steps, kept across a restart: the Portfolio follows
+    // their rows from there.
+    final kept = RebalanceStepsStore.load(DateTime.now());
+    return kept == null
+        ? const PortfolioRebalanceState()
+        : PortfolioRebalanceState(steps: kept.steps, stepsAt: kept.at);
+  }
 
   /// One tap: the amounts are the rows' figures as the person saw them
   /// (`portfolio_rebalance_tapped`, exact). A second tap while the pass
@@ -75,7 +103,17 @@ class PortfolioRebalanceNotifier extends Notifier<PortfolioRebalanceState> {
     required double predictionsUsd,
   }) async {
     if (state.running) return;
-    state = const PortfolioRebalanceState(running: true);
+    // Every venue with cash a Rebalance can move is on its way home from
+    // the tap, all at once.
+    final tappedAt = DateTime.now();
+    var steps = MoneyStepGraph.empty;
+    try {
+      steps = RebalanceSteps.planned(ref.read(venueSweeperProvider).movable,
+          minUsd: kSweepDustUsd, at: tappedAt);
+    } catch (_) {/* the steps never stop the money */}
+    RebalanceStepsStore.save(tappedAt, steps);
+    state = PortfolioRebalanceState(
+        running: true, steps: steps, stepsAt: tappedAt);
     TrackingService.track('portfolio_rebalance_tapped', params: {
       ...TrackingService.exactUsd('dollars_usd', dollarsUsd),
       ...TrackingService.exactUsd('investing_usd', investingUsd),
@@ -88,7 +126,13 @@ class PortfolioRebalanceNotifier extends Notifier<PortfolioRebalanceState> {
       // The sweeper reports its own failures (`venue_sweep_failed`) and
       // retries on its backoff; the rows show what stayed.
     } finally {
-      state = PortfolioRebalanceState(outcomes: outcomes, at: DateTime.now());
+      final at = DateTime.now();
+      try {
+        steps = RebalanceSteps.outcomes(steps, outcomes, at: at);
+      } catch (_) {}
+      RebalanceStepsStore.save(tappedAt, steps);
+      state = PortfolioRebalanceState(
+          outcomes: outcomes, at: at, steps: steps, stepsAt: tappedAt);
     }
   }
 }

@@ -10980,4 +10980,19 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get moneyStepArrived => 'Llegó a Bitcoin';
+
+  @override
+  String moneyStepSending(String amount) {
+    return 'Enviando $amount';
+  }
+
+  @override
+  String moneyStepSent(String amount) {
+    return 'Enviados $amount';
+  }
+
+  @override
+  String moneyStepCompact(String source, String destination, String amount) {
+    return '$source → $destination · $amount';
+  }
 }

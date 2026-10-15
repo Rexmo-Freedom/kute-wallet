@@ -1,3 +1,5 @@
+import 'package:kute/screens/shared/money_steps_view.dart'
+    show moneyStepLine;
 import 'package:kute/screens/shared/kute_dog_scenes.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:flutter/material.dart';
@@ -214,7 +216,10 @@ class InvestmentBalanceHeader extends ConsumerWidget {
   /// (founder decision 14 October 2026):
   ///   * money on a rail for an order (its Bitcoin leg or its move into
   ///     the venue): the order itself, once ("Placing $5 on Yes · Lakers",
-  ///     "Opening $5 NVDA order", "Adding $5 margin to BTC");
+  ///     "Opening $5 NVDA order", "Adding $5 margin to BTC"), then each of
+  ///     its sources in its own state, from the order's step graph
+  ///     ("Moving $8.00 from Bitcoin", "Moved $5.00 from Dollars"), so the
+  ///     person sees every source land with the slip closed;
   ///   * dollars arriving from outside: "Incoming $X";
   ///   * venue cash the sweeper still owes back: "unavailable until
   ///     balancing completes".
@@ -227,7 +232,7 @@ class InvestmentBalanceHeader extends ConsumerWidget {
     final named = <String>{};
     return [
       for (final move in state.inFlight)
-        if (move.order case final order? when named.add(order.id))
+        if (move.order case final order? when named.add(order.id)) ...[
           switch (order.venue) {
             OneBalanceVenue.predictions => l10n.oneBalancePlacingBet(
                 amount(order.orderUsd), order.side, order.market),
@@ -236,6 +241,8 @@ class InvestmentBalanceHeader extends ConsumerWidget {
                 : l10n.oneBalanceOpeningOrder(
                     amount(order.orderUsd), order.market),
           },
+          for (final leg in order.legs) moneyStepLine(l10n, leg, amount),
+        ],
       for (final move in state.inFlight)
         if (move.order == null && move.kind == InFlightKind.incomingDollars)
           l10n.oneBalanceIncoming(amount(move.usd)),

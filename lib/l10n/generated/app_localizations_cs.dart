@@ -10910,4 +10910,19 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get moneyStepArrived => 'Připsáno na zůstatek Bitcoin';
+
+  @override
+  String moneyStepSending(String amount) {
+    return 'Odesíláme $amount';
+  }
+
+  @override
+  String moneyStepSent(String amount) {
+    return 'Odesláno $amount';
+  }
+
+  @override
+  String moneyStepCompact(String source, String destination, String amount) {
+    return '$source → $destination · $amount';
+  }
 }

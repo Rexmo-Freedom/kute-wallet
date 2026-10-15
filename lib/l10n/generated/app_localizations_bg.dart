@@ -10938,4 +10938,19 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get moneyStepArrived => 'Пристигна в Bitcoin';
+
+  @override
+  String moneyStepSending(String amount) {
+    return 'Изпращане на $amount';
+  }
+
+  @override
+  String moneyStepSent(String amount) {
+    return 'Изпратени $amount';
+  }
+
+  @override
+  String moneyStepCompact(String source, String destination, String amount) {
+    return '$source → $destination · $amount';
+  }
 }

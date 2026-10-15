@@ -3052,5 +3052,8 @@
   "moneyStepBuying": "Acquisto di {amount} di Bitcoin",
   "moneyStepBought": "Acquistati {amount} di Bitcoin",
   "moneyStepArriving": "In arrivo su Bitcoin",
-  "moneyStepArrived": "Arrivato su Bitcoin"
+  "moneyStepArrived": "Arrivato su Bitcoin",
+  "moneyStepSending": "Invio di {amount}",
+  "moneyStepSent": "Inviati {amount}",
+  "moneyStepCompact": "{source} → {destination} · {amount}"
 }

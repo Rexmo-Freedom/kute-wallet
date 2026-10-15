@@ -3052,5 +3052,8 @@
   "moneyStepBuying": "Ostetaan Bitcoinia {amount} arvosta",
   "moneyStepBought": "Ostettu Bitcoinia {amount} arvosta",
   "moneyStepArriving": "Saapuu tilille Bitcoin",
-  "moneyStepArrived": "Saapui tilille Bitcoin"
+  "moneyStepArrived": "Saapui tilille Bitcoin",
+  "moneyStepSending": "Lähetetään {amount}",
+  "moneyStepSent": "Lähetetty {amount}",
+  "moneyStepCompact": "{source} → {destination} · {amount}"
 }

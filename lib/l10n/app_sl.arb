@@ -3052,5 +3052,8 @@
   "moneyStepBuying": "Nakup Bitcoina za {amount}",
   "moneyStepBought": "Kupljen Bitcoin za {amount}",
   "moneyStepArriving": "Prihaja na stanje Bitcoin",
-  "moneyStepArrived": "Prispelo na stanje Bitcoin"
+  "moneyStepArrived": "Prispelo na stanje Bitcoin",
+  "moneyStepSending": "Pošiljanje {amount}",
+  "moneyStepSent": "Poslano {amount}",
+  "moneyStepCompact": "{source} → {destination} · {amount}"
 }

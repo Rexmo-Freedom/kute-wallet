@@ -121,7 +121,9 @@ import 'package:kute/services/orchestra_routes.dart'
         orchestraChainDisplayName;
 import 'package:kute/services/orchestra_usd_send_routes.dart';
 import 'package:kute/services/one_balance/multi_source_move.dart'
-    show MultiSourceMoveStore, trackMultiSourceMoveRetry;
+    show MultiSourceMoveStore, multiSourceMovesProvider, trackMultiSourceMoveRetry;
+import 'package:kute/screens/shared/move_steps_view.dart'
+    show MoveStepsSection;
 import 'package:kute/services/one_balance/venue_cash_source.dart';
 import 'package:kute/services/one_balance/investments_spendable.dart'
     show investmentsSpendableProvider, venueCashRefreshProvider;
@@ -229,6 +231,11 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
   /// While venue cash is coming home for this send: one line per leg,
   /// shown where Review's footnote is.
   String? _pullProgress;
+
+  /// The send whose steps (each leg home to Dollars, then the send) show
+  /// under Review's button while the venue cash comes home, once its
+  /// record is written.
+  String? _stepsMoveId;
 
   /// The multi-source move this send's venue cash went under, and the
   /// amount it was for: a Retry of the same amount continues it (the money
@@ -1445,12 +1452,24 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
                     : l10n.send,
             loading: _processing,
             onPressed: canSend ? _confirmSend : null,
-            footnote: _pullProgress ??
+            footnote: (_stepsMoveId == null ? _pullProgress : null) ??
                 (waiting
                     ? l10n.sendWaitForFee
                     : l10n.sendFundsLeaveYourWalletImmediately),
           ),
         ),
+        // Venue cash coming home for the send: its steps, each leg on its
+        // own line, then the send.
+        if (_stepsMoveId != null && _processing && _error == null)
+          Consumer(builder: (context, ref, _) {
+            final move = ref
+                .watch(multiSourceMovesProvider)
+                .where((m) => m.id == _stepsMoveId)
+                .firstOrNull;
+            return move == null
+                ? const SizedBox.shrink()
+                : MoveStepsSection(move: move);
+          }),
       ],
     );
   }
@@ -1881,6 +1900,7 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
     setState(() {
       _processing = true;
       _error = null;
+      _stepsMoveId = null;
     });
     VenueCashPullOutcome? outcome;
     try {
@@ -1893,6 +1913,11 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
               if (!mounted || plan.pulls.isEmpty) return;
               setState(() =>
                   _pullProgress = venueCashProgressText(context.l10n, plan));
+            },
+            // The move's steps take the line from here (its record holds
+            // them, live as each leg lands and the send goes).
+            onStarted: (id) {
+              if (mounted) setState(() => _stepsMoveId = id);
             },
           );
     } catch (_) {
@@ -1917,6 +1942,7 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
     setState(() {
       _processing = false;
       _pullProgress = null;
+      _stepsMoveId = null;
       _error = (outcome == null
               ? null
               : venueCashStoppedText(context.l10n, outcome)) ??

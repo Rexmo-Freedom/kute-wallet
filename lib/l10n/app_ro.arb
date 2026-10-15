@@ -3052,5 +3052,8 @@
   "moneyStepBuying": "Se cumpără Bitcoin de {amount}",
   "moneyStepBought": "Cumpărat Bitcoin de {amount}",
   "moneyStepArriving": "Ajunge în Bitcoin",
-  "moneyStepArrived": "A ajuns în Bitcoin"
+  "moneyStepArrived": "A ajuns în Bitcoin",
+  "moneyStepSending": "Se trimit {amount}",
+  "moneyStepSent": "Trimis {amount}",
+  "moneyStepCompact": "{source} → {destination} · {amount}"
 }

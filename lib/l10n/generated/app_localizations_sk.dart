@@ -10924,4 +10924,19 @@ class AppLocalizationsSk extends AppLocalizations {
 
   @override
   String get moneyStepArrived => 'Pripísané na zostatok Bitcoin';
+
+  @override
+  String moneyStepSending(String amount) {
+    return 'Odosielame $amount';
+  }
+
+  @override
+  String moneyStepSent(String amount) {
+    return 'Odoslané $amount';
+  }
+
+  @override
+  String moneyStepCompact(String source, String destination, String amount) {
+    return '$source → $destination · $amount';
+  }
 }

@@ -39,9 +39,12 @@
 // while its pass runs. When the only cash at the venues is below the
 // route minimum it stays on screen, disabled, with "Below the minimum to
 // move" under it; with nothing to move at all there is no
-// button. After a tap each venue's tile says in one line what is
-// happening to its cash: on its way to USDB (Investing's route takes
-// minutes), or why it stayed.
+// button. After a tap the move is its steps under the button, the same
+// lines as every move (rebalance_steps.dart, [MoneyStepsView]): one per
+// venue whose cash goes home ("Moving $5.00 from Predictions → Dollars"),
+// all at once, each completing on its own as its row lands. A venue whose
+// cash stayed says why in one line on its tile; a move home that is not
+// one of those lines (already on its way) says so there too.
 //
 // The tap is felt (founder request, 14 October 2026: "rebalancing should
 // also have rubber band ... both polymarket and hyperliquid ... at the
@@ -97,11 +100,16 @@ import 'package:kute/screens/portfolio/open_investments_screen.dart'
 import 'package:kute/screens/portfolio/portfolio_figure_tiles.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show RollingFigure;
+import 'package:kute/screens/shared/money_steps_view.dart'
+    show MoneyStepsView, moneyStepLines;
 import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/screens/shared/stale_shimmer.dart';
 import 'package:kute/screens/shared/venue_deposit_button.dart'
     show venueMarkAsset;
+import 'package:kute/services/one_balance/money_steps.dart';
+import 'package:kute/services/one_balance/move_steps.dart' show MoveSteps;
 import 'package:kute/services/one_balance/one_balance_state.dart';
+import 'package:kute/services/one_balance/rebalance_steps.dart';
 import 'package:kute/services/one_balance/sweep_rules.dart'
     show SweepSkipReason, kSweepDustUsd, kVenueMoveMaxAge, venueWithdrawalRowOf;
 import 'package:kute/theme/app_theme.dart';
@@ -360,6 +368,31 @@ RebalanceBandPhase rebalanceBandPhase({
   return RebalanceBandPhase.released;
 }
 
+/// The last Rebalance's steps as they stand ([RebalanceSteps.live]: each
+/// venue's leg done once its row settled or its money landed, [phases]),
+/// or empty once there is nothing to show: no tap, or the tap's notes are
+/// down ([kRebalanceNoteFor]) and nothing is still on its way. Pure for
+/// the tests.
+MoneyStepGraph rebalanceStepsShown({
+  required PortfolioRebalanceState rebalance,
+  required List<SwapOrder> rows,
+  required Map<OneBalanceVenue, RebalanceBandPhase> phases,
+  required DateTime now,
+}) {
+  if (rebalance.steps.isEmpty) return MoneyStepGraph.empty;
+  final live = RebalanceSteps.live(rebalance.steps, rows, landed: {
+    for (final e in phases.entries)
+      if (e.value == RebalanceBandPhase.landed) e.key,
+  });
+  final at = rebalance.stepsAt;
+  final recent = at != null && now.difference(at) < kRebalanceNoteFor;
+  // Still on its way, while its row can still be (a row pending longer is
+  // a stuck order for Activity).
+  final running = live.steps.any((s) => s.status == MoneyStepStatus.running) &&
+      (at == null || now.difference(at) < RebalanceStepsStore.keepFor);
+  return rebalance.running || running || recent ? live : MoneyStepGraph.empty;
+}
+
 /// The tension [phase] holds [elapsed] after the tap (share of full): from
 /// the phase's floor, built with the time since the tap toward
 /// [RubberBandBusy.defaultCeiling] (two thirds of the way by [expected],
@@ -530,6 +563,13 @@ class _PortfolioBalanceBreakdownState
     _landed = landed;
     _landedFor = session?.startedAt;
 
+    // The tap's steps under the button: one line per venue going home.
+    final steps = rebalanceStepsShown(
+        rebalance: rebalance, rows: rows, phases: phases, now: now);
+    final stepLines = moneyStepLines(l10n, steps, amount);
+    bool hasLine(OneBalanceVenue venue) => steps.steps.any((s) =>
+        s.id == MoveSteps.legId(venue) && s.status != MoneyStepStatus.skipped);
+
     // Cash below the route minimum and nothing else to move: the reason
     // sits under the disabled Rebalance, one line, not in the venue's
     // column (where it wrapped and stretched the row).
@@ -544,10 +584,12 @@ class _PortfolioBalanceBreakdownState
       if (belowReason && line == l10n.portfolioRebalanceBelowMinimum) {
         return null;
       }
-      // Its row landed: home, nothing on its way any more.
-      if (phases[venue] == RebalanceBandPhase.landed &&
-          (line == l10n.portfolioRebalanceMoving ||
-              line == l10n.portfolioRebalanceMovingMinutes)) {
+      final moving = line == l10n.portfolioRebalanceMoving ||
+          line == l10n.portfolioRebalanceMovingMinutes;
+      // Its row landed: home, nothing on its way any more. Or its step
+      // under the button says it: never twice.
+      if (moving &&
+          (phases[venue] == RebalanceBandPhase.landed || hasLine(venue))) {
         return null;
       }
       return line;
@@ -674,6 +716,12 @@ class _PortfolioBalanceBreakdownState
             ),
           ],
         ],
+        if (stepLines.isNotEmpty)
+          Align(
+            key: const ValueKey('portfolio-rebalance-steps'),
+            alignment: Alignment.centerLeft,
+            child: MoneyStepsView(lines: stepLines),
+          ),
         SizedBox(height: 12.h),
       ],
     );

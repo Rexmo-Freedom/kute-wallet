@@ -3052,5 +3052,8 @@
   "moneyStepBuying": "Pērk Bitcoin par {amount}",
   "moneyStepBought": "Nopirkts Bitcoin par {amount}",
   "moneyStepArriving": "Ienāk kontā Bitcoin",
-  "moneyStepArrived": "Ienācis kontā Bitcoin"
+  "moneyStepArrived": "Ienācis kontā Bitcoin",
+  "moneyStepSending": "Sūta {amount}",
+  "moneyStepSent": "Nosūtīts {amount}",
+  "moneyStepCompact": "{source} → {destination} · {amount}"
 }

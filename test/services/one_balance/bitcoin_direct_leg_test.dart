@@ -22,6 +22,7 @@ import 'package:kute/services/funding/settlement_runner.dart'
         SettlementStepUpHook,
         SettlementStopReason,
         SettlementStopped;
+import 'package:kute/providers/pending_polymarket_bet_provider.dart';
 import 'package:kute/services/one_balance/bitcoin_funded_order.dart';
 import 'package:kute/services/one_balance/bitcoin_to_dollars_leg.dart';
 import 'package:kute/services/one_balance/bitcoin_to_venue_leg.dart';
@@ -420,6 +421,118 @@ void main() {
         pollEvery: const Duration(milliseconds: 1));
     final leg = c.read(fundedOrdersProvider).single.steps.byId('leg:bitcoin')!;
     expect(leg.status, MoneyStepStatus.done);
+  });
+
+  test('a new try after a stop restarts only what failed: the legs that '
+      'landed stay done and are never run again', () async {
+    FundedOrdersNotifier.persist = false;
+    addTearDown(() => FundedOrdersNotifier.persist = true);
+    final c = ProviderContainer();
+    addTearDown(c.dispose);
+    final orders = c.read(fundedOrdersProvider.notifier);
+    final first = orders.start(_label, stage: FundedOrderStage.preparing);
+    orders.setSteps(
+        first,
+        const MoneyStepGraph([
+          MoneyStep(
+              id: 'leg:dollars',
+              kind: MoneyStepKind.leg,
+              from: MoneyPlace.dollars,
+              usd: 5,
+              status: MoneyStepStatus.done),
+          MoneyStep(
+              id: 'leg:investing',
+              kind: MoneyStepKind.leg,
+              from: MoneyPlace.investing,
+              usd: 2,
+              status: MoneyStepStatus.failed),
+          MoneyStep(id: 'place', kind: MoneyStepKind.place),
+        ]));
+    orders.stop(first,
+        stage: FundedOrderStage.failed,
+        reason: 'venue_cash_pending',
+        moneyAt: FundedMoneyAt.investments);
+    final retry = orders.start(_label, stage: FundedOrderStage.preparing);
+    final carried = orders.byId(retry)!.steps;
+    expect([for (final s in carried.steps) s.id], ['prev:leg:dollars']);
+    expect(carried.steps.single.status, MoneyStepStatus.done);
+    // The runner over the new graph runs the new branch only.
+    final ran = <String>[];
+    final graph = MoneyStepGraph([
+      ...carried.steps,
+      const MoneyStep(
+          id: 'leg:investing',
+          kind: MoneyStepKind.leg,
+          from: MoneyPlace.investing,
+          usd: 2),
+      const MoneyStep(
+          id: 'place', kind: MoneyStepKind.place, after: ['leg:investing']),
+    ]);
+    final end = await MoneyStepRunner(
+      graph: graph,
+      actionFor: (s) => (step, _) async {
+        ran.add(step.id);
+        return const MoneyStepDone();
+      },
+    ).run();
+    expect(ran, ['leg:investing', 'place']);
+    expect(end.allDone, isTrue);
+  });
+
+  test('an order funded from Dollars alone shows the same graph: its Dollars '
+      'leg lands on its own, then the order', () async {
+    FundedOrdersNotifier.persist = false;
+    addTearDown(() => FundedOrdersNotifier.persist = true);
+    final statuses = <String>['processing', 'completed'];
+    final c = ProviderContainer(overrides: [
+      bitcoinLegEnvProvider.overrideWithValue(BitcoinLegEnv(
+        ownSpark: () async => _ownSpark,
+        send: ({
+          required String sparkAddress,
+          required BitcoinLegPlan plan,
+          required SettlementStepUpHook stepUp,
+          required void Function() onSending,
+        }) =>
+            throw StateError('no bitcoin here'),
+        watcher: ({required DateTime since}) => _Landed(),
+        dollarsNow: () => 20,
+        freshDollars: () async => 20,
+        legStatus: (id) async =>
+            statuses.length > 1 ? statuses.removeAt(0) : statuses.first,
+        legPollEvery: const Duration(milliseconds: 1),
+      )),
+    ]);
+    addTearDown(c.dispose);
+    final pending = c.read(pendingPolymarketBetProvider.notifier);
+    pending.setIntent(const PendingBetIntent(
+      tokenId: 'tok',
+      amount: 15,
+      slippagePct: 2,
+      marketQuestion: 'Lakers vs Celtics',
+      outcomeName: 'Yes',
+      expectedPrice: 0.5,
+      fundUsd: 15.1,
+      status: PendingBetStatus.awaitingBalance,
+    ));
+    final runner = c.read(bitcoinFundedOrderRunnerProvider);
+    final id = runner.beginFunded(_label);
+    runner.followFunded(id,
+        move: const VenueMoveResult(
+            quoteId: 'q_d', orderId: 'ord_d', sentUsd: 15.1, arrivingUsdEstimate: 15));
+    FundedOrderRecord rec() => c.read(fundedOrdersProvider.notifier).byId(id)!;
+    expect([for (final l in rec().steps.legs) l.id], ['leg:dollars']);
+    expect(rec().steps.byId('leg:dollars')!.usd, 15.1);
+    for (var i = 0; i < 100 &&
+            rec().steps.byId('leg:dollars')!.status != MoneyStepStatus.done;
+        i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 2));
+    }
+    expect(rec().steps.byId('leg:dollars')!.status, MoneyStepStatus.done);
+    pending.updateStatus(PendingBetStatus.placing);
+    pending.updateStatus(PendingBetStatus.done);
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(rec().stage, FundedOrderStage.done);
+    expect(rec().steps.byId('place')!.status, MoneyStepStatus.done);
   });
 
   // ── The chain ───────────────────────────────────────────────────────

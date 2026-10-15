@@ -424,6 +424,117 @@ MultiSourceMoveFinish? multiSourceMoveFinish(
       : const MultiSourceMoveFinish.dissolved();
 }
 
+/// What a move's Activity detail states once for the whole move, from its
+/// rows ([multiSourceMoveTotals]).
+class MultiSourceMoveTotals {
+  const MultiSourceMoveTotals({
+    required this.sentUsd,
+    this.receivedUsd = 0,
+    this.receivedBtc = 0,
+    this.arrivingUsd = 0,
+    this.arrivingBtc = 0,
+    this.feesUsd = 0,
+  });
+
+  /// What the move spent ([MultiSourceMove.spentUsd]).
+  final double sentUsd;
+
+  /// What landed where the money went, in dollars and in bitcoin.
+  final double receivedUsd;
+  final double receivedBtc;
+
+  /// What is still on its way there (estimates until each row lands).
+  final double arrivingUsd;
+  final double arrivingBtc;
+
+  /// Every leg's and the own step's fee that is known in dollars (both
+  /// sides dollars, settled): what left less what landed.
+  final double feesUsd;
+
+  bool get anyReceived => receivedUsd >= 0.01 || receivedBtc > 0;
+  bool get anyArriving => arrivingUsd >= 0.01 || arrivingBtc > 0;
+
+  /// Sent is worth its own line: what arrived is bitcoin, nothing arrived
+  /// yet, or it is not what arrived plus the fees.
+  bool get showSent =>
+      receivedBtc > 0 ||
+      arrivingBtc > 0 ||
+      !anyReceived ||
+      (sentUsd - receivedUsd - feesUsd).abs() >= 0.01;
+}
+
+/// [move]'s totals from [rows] (the wallet's rows for the move): what
+/// landed where it went (the legs straight there, the own step's row, and
+/// for a move home to Dollars every leg), what is still on its way, and
+/// the fees known in dollars across every row. Pure.
+MultiSourceMoveTotals multiSourceMoveTotals(
+    MultiSourceMove move, List<SwapOrderTransaction> rows) {
+  double amount(SwapOrder d, String raw, String coin) =>
+      d.isOrchestra ? orchestraRowAmount(raw, coin) : double.tryParse(raw) ?? 0;
+  var receivedUsd = 0.0, receivedBtc = 0.0, arrivingUsd = 0.0;
+  var arrivingBtc = 0.0, fees = 0.0;
+  final homeIsDestination = move.destination == VenueCashDestination.dollars &&
+      move.forAction != VenueCashFor.send;
+  void count(SwapOrder d, {required bool atDestination}) {
+    final landed = d.isComplete && !OwnSparkArrivals.awaitingCredit(d.id);
+    final got = amount(d, d.withdrawalAmount, d.coinTo);
+    if (landed && _dollarCoin(d.coinFrom) && _dollarCoin(d.coinTo)) {
+      final fee = amount(d, d.depositAmount, d.coinFrom) - got;
+      if (fee >= 0.005) fees += fee;
+    }
+    if (!atDestination || got <= 0) return;
+    final btc = d.coinTo.toUpperCase() == 'BTC';
+    if (!btc && !_dollarCoin(d.coinTo)) return;
+    if (landed) {
+      btc ? receivedBtc += got : receivedUsd += got;
+    } else if (!OwnSparkArrivals.failedStatuses.contains(d.status)) {
+      btc ? arrivingBtc += got : arrivingUsd += got;
+    }
+  }
+
+  for (final leg in move.okLegs) {
+    final row = multiSourceMoveLegRow(leg, rows);
+    if (row != null) {
+      count(row.details, atDestination: leg.direct || homeIsDestination);
+    }
+  }
+  final fin = multiSourceMoveFinalRow(move, rows);
+  if (fin != null) count(fin.details, atDestination: true);
+  double cents(double v) => (v * 100).round() / 100;
+  return MultiSourceMoveTotals(
+    sentUsd: move.spentUsd,
+    receivedUsd: cents(receivedUsd),
+    receivedBtc: receivedBtc,
+    arrivingUsd: cents(arrivingUsd),
+    arrivingBtc: arrivingBtc,
+    feesUsd: cents(fees),
+  );
+}
+
+/// The Orchestra orders of [move] among [rows], legs first then its own
+/// step: what a "Track this exchange" can open (never a CCTP move not yet
+/// an order).
+List<SwapOrder> multiSourceMoveOrders(
+    MultiSourceMove move, List<SwapOrderTransaction> rows) {
+  final out = <SwapOrder>[];
+  bool trackable(SwapOrder d) =>
+      d.isOrchestra &&
+      d.id.isNotEmpty &&
+      !d.id.startsWith('cctp-') &&
+      !d.isStuckStandingDeposit;
+  for (final leg in move.okLegs) {
+    final d = multiSourceMoveLegRow(leg, rows)?.details;
+    if (d != null && trackable(d) && !out.any((o) => o.id == d.id)) {
+      out.add(d);
+    }
+  }
+  final fin = multiSourceMoveFinalRow(move, rows)?.details;
+  if (fin != null && trackable(fin) && !out.any((o) => o.id == fin.id)) {
+    out.add(fin);
+  }
+  return out;
+}
+
 /// Whether a move is dissolved ([MultiSourceMoveFinish.dissolved]), given
 /// the rows of its legs the list knows.
 typedef MultiSourceMoveDissolved = bool Function(

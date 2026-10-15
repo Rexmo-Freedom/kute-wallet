@@ -596,9 +596,9 @@ void main() {
           _leg(OneBalanceVenue.investing, ok: false, usd: 5, direct: false),
         ]);
 
-    Future<FakeSwapOrders> openSheet(
+    Future<FakeSwapOrders> openTx(
       WidgetTester tester,
-      MultiSourceMove move, {
+      BaseTransaction tx, {
       List<SwapOrder> orders = const [],
       Size size = const Size(430, 932),
       double textScale = 1,
@@ -606,10 +606,7 @@ void main() {
       tester.view.physicalSize = size * 3;
       tester.view.devicePixelRatio = 3;
       addTearDown(tester.view.reset);
-      MultiSourceMoveStore.start(move);
       final store = FakeSwapOrders(orders);
-      // The surface hands the sheet no rows: they come from the store.
-      final tx = MultiSourceMoveTransaction(move: move, legRows: const []);
       await tester.pumpWidget(ProviderScope(
         overrides: [
           settingsProvider.overrideWith((ref) => SettingsModel(Settings(
@@ -657,122 +654,167 @@ void main() {
       return store;
     }
 
-    /// The section titled [title] on the sheet.
-    Finder section(String title) => find
-        .ancestor(of: find.text(title), matching: find.byType(Column))
-        .first;
-    Finder inSection(String title, String text) =>
-        find.descendant(of: section(title), matching: find.text(text));
+    Future<FakeSwapOrders> openSheet(
+      WidgetTester tester,
+      MultiSourceMove move, {
+      List<SwapOrder> orders = const [],
+      Size size = const Size(430, 932),
+      double textScale = 1,
+    }) async {
+      MultiSourceMoveStore.start(move);
+      // The surface hands the sheet no rows: they come from the store.
+      return openTx(
+          tester, MultiSourceMoveTransaction(move: move, legRows: const []),
+          orders: orders, size: size, textScale: textScale);
+    }
 
-    testWidgets('every leg shows its rows, under the intent', (tester) async {
-      await openSheet(tester, threeLegs(), orders: [hlLanded(), pmRow()]);
-      // Header: the intent, then the move's own Date and Status.
-      expect(find.text('from Investments to Bitcoin'), findsOneWidget);
-      expect(find.text('Needs attention'), findsOneWidget);
-      // One section per part, each with its own rows.
-      expect(find.text('Investing → Bitcoin'), findsOneWidget);
-      expect(find.text('Predictions → Dollars'), findsOneWidget);
-      expect(find.text('Investing → Dollars'), findsOneWidget);
-      expect(find.text('Dollars → Bitcoin'), findsOneWidget);
+    Future<FakeSwapOrders> openSwapSheet(WidgetTester tester, SwapOrder row) =>
+        openTx(
+            tester,
+            SwapOrderTransaction(
+                id: row.id,
+                timestamp: DateTime.fromMillisecondsSinceEpoch(row.timestamp),
+                isConfirmed: row.isComplete,
+                details: row),
+            orders: [row]);
 
-      // Landed straight to Bitcoin: what left, what arrived, its order.
-      expect(inSection('Investing → Bitcoin', 'Completed'), findsOneWidget);
-      expect(inSection('Investing → Bitcoin', 'Sent'), findsOneWidget);
-      expect(inSection('Investing → Bitcoin', '\$20.00'), findsOneWidget);
-      expect(inSection('Investing → Bitcoin', 'Received'), findsOneWidget);
-      expect(
-          find.descendant(
-              of: section('Investing → Bitcoin'),
-              matching: find.textContaining('30,000')),
-          findsOneWidget);
-      expect(inSection('Investing → Bitcoin', 'Nerd data'), findsOneWidget);
-      expect(inSection('Investing → Bitcoin', 'Track this exchange'),
-          findsOneWidget);
+    /// The value on the detail row labelled [label] (Date, Status,
+    /// Received, Fees, Sent): the text beside it in its own Row.
+    Finder rowValue(String label, Finder value) => find.descendant(
+        of: find
+            .ancestor(of: find.text(label), matching: find.byType(Row))
+            .first,
+        matching: value);
 
-      // On its way home to Dollars.
-      expect(
-          inSection('Predictions → Dollars', 'Processing'), findsOneWidget);
-      expect(inSection('Predictions → Dollars', '\$15.00'), findsOneWidget);
-      expect(
-          inSection('Predictions → Dollars', 'Arriving'), findsOneWidget);
-      expect(inSection('Predictions → Dollars', '\$14.85'), findsOneWidget);
+    /// [text] inside the Nerd data group of the order [orderId].
+    Finder inLeg(String orderId, Finder finder) => find.descendant(
+        of: find.byKey(ValueKey('move-leg-$orderId')), matching: finder);
 
-      // Dollars' own part.
-      expect(inSection('Dollars → Bitcoin', '\$10.00'), findsOneWidget);
-
-      // The Nerd data are the swap order sheet's own rows.
-      await tester.ensureVisible(inSection('Investing → Bitcoin', 'Nerd data'));
-      await tester.tap(inSection('Investing → Bitcoin', 'Nerd data'));
+    Future<void> openNerd(WidgetTester tester) async {
+      await tester.ensureVisible(find.text('Nerd data'));
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.tap(find.text('Nerd data'));
       await tester.pump(const Duration(milliseconds: 400));
-      expect(inSection('Investing → Bitcoin', 'Provider'), findsOneWidget);
-      expect(inSection('Investing → Bitcoin', 'Orchestra'), findsOneWidget);
-      expect(inSection('Investing → Bitcoin', 'Exchange ID'), findsOneWidget);
+    }
+
+    testWidgets(
+        'Date and Status once, the totals across legs, one compact line per '
+        'step, no block per leg', (tester) async {
+      await openSheet(tester, threeLegs(),
+          orders: [hlLanded(), pmRow(status: 'success', got: '14.80')]);
+      // Header: the intent, then the move's own rows, once.
+      expect(find.text('from Investments to Bitcoin'), findsOneWidget);
+      expect(find.text('Date'), findsOneWidget);
+      expect(find.text('Status'), findsOneWidget);
+      expect(rowValue('Status', find.text('Needs attention')), findsOneWidget);
+      // Received: what reached Bitcoin (the direct leg's bitcoin).
       expect(
-          inSection('Investing → Bitcoin', 'Deposit Network'), findsOneWidget);
-      expect(
-          inSection('Investing → Bitcoin', 'Receive Network'), findsOneWidget);
+          rowValue('Received', find.textContaining('30,000')), findsOneWidget);
+      // Fees: every leg's known dollar fee ($15.00 → $14.80).
+      expect(rowValue('Fees', find.text(r'$0.20')), findsOneWidget);
+      // Sent: bitcoin arrived, so what left is its own line ($10 Dollars +
+      // $20 + $15; the failed $5 stayed).
+      expect(rowValue('Sent', find.text(r'$45.00')), findsOneWidget);
+      // One compact line per step, each with its amount and its state.
+      expect(find.text(r'Investing → Bitcoin · $20.00'), findsOneWidget);
+      expect(find.text(r'Predictions → Dollars · $14.80'), findsOneWidget);
+      expect(find.text(r'Investing → Dollars · $5.00'), findsOneWidget);
+      expect(find.text(r'Dollars → Bitcoin · $30.20'), findsOneWidget);
+      expect(find.byKey(const ValueKey('money-step-done-1')), findsOneWidget);
+      expect(find.byKey(const ValueKey('money-step-failed-2')), findsOneWidget);
+      // No per-leg Date, Status, Fee or Arriving blocks.
+      expect(find.text('Fee'), findsNothing);
+      expect(find.text('Arriving'), findsNothing);
+      expect(find.text('Processing'), findsNothing);
+      // One Nerd data; a Retry is the bottom action, so each order's link
+      // is inside it.
+      expect(find.text('Nerd data'), findsOneWidget);
+      expect(find.text('Track this exchange'), findsNothing);
+      expect(find.text(r'$44.65 delivered · $5.35 remaining'), findsOneWidget);
+      expect(find.text('Retry'), findsOneWidget);
+      for (final dash in ['—', '-', '–', r'$0.00']) {
+        expect(find.text(dash), findsNothing, reason: dash);
+      }
     });
 
-    testWidgets('a leg moves from Arriving to Received live as it lands',
+    testWidgets('Nerd data is grouped per leg, each with its own order',
+        (tester) async {
+      await openSheet(tester, threeLegs(),
+          orders: [hlLanded(), pmRow(status: 'success', got: '14.80')]);
+      await openNerd(tester);
+      // One group per order that went, titled with its path; the failed
+      // leg has no order and no group.
+      expect(inLeg('ord_hl', find.text('Investing → Bitcoin')), findsOneWidget);
+      expect(
+          inLeg('ord_pm', find.text('Predictions → Dollars')), findsOneWidget);
+      expect(find.text('Investing → Dollars'), findsNothing);
+      for (final id in ['ord_hl', 'ord_pm']) {
+        expect(inLeg(id, find.text('Sent')), findsOneWidget, reason: id);
+        expect(inLeg(id, find.text('Received')), findsOneWidget, reason: id);
+        expect(inLeg(id, find.text('Provider')), findsOneWidget, reason: id);
+        expect(inLeg(id, find.text('Exchange ID')), findsOneWidget, reason: id);
+        expect(inLeg(id, find.text('Track this exchange')), findsOneWidget,
+            reason: id);
+      }
+      // The fee is the leg's own, both sides in dollars.
+      expect(inLeg('ord_pm', find.text('Fee')), findsOneWidget);
+      expect(inLeg('ord_pm', find.text(r'$0.20')), findsOneWidget);
+      expect(inLeg('ord_hl', find.text('Fee')), findsNothing);
+      // Still once for the move.
+      expect(find.text('Date'), findsOneWidget);
+      expect(find.text('Status'), findsOneWidget);
+    });
+
+    testWidgets('a leg completes on its own, live, and the totals follow',
         (tester) async {
       final store =
           await openSheet(tester, threeLegs(), orders: [hlLanded(), pmRow()]);
-      expect(
-          inSection('Predictions → Dollars', 'Arriving'), findsOneWidget);
-      expect(inSection('Predictions → Dollars', 'Received'), findsNothing);
-      expect(inSection('Predictions → Dollars', 'Fee'), findsNothing);
+      expect(find.text(r'Predictions → Dollars · $15.00'), findsOneWidget);
+      expect(find.text('Fees'), findsNothing);
 
       store.set([hlLanded(), pmRow(status: 'success', got: '14.80')]);
       await tester.pump(const Duration(milliseconds: 100));
       await tester.pump(const Duration(milliseconds: 100));
-      expect(
-          inSection('Predictions → Dollars', 'Completed'), findsOneWidget);
-      expect(inSection('Predictions → Dollars', 'Arriving'), findsNothing);
-      expect(
-          inSection('Predictions → Dollars', 'Received'), findsOneWidget);
-      expect(inSection('Predictions → Dollars', '\$14.80'), findsOneWidget);
-      // Both sides in dollars and known: the fee, exactly.
-      expect(inSection('Predictions → Dollars', 'Fee'), findsOneWidget);
-      expect(inSection('Predictions → Dollars', '\$0.20'), findsOneWidget);
+      expect(find.text(r'Predictions → Dollars · $14.80'), findsOneWidget);
+      expect(rowValue('Fees', find.text(r'$0.20')), findsOneWidget);
     });
 
-    testWidgets('a failed leg says so, a refunded one too, with Retry',
+    testWidgets('one order and nothing owed: Track this exchange at the bottom',
         (tester) async {
-      await openSheet(tester, threeLegs(),
-          orders: [hlLanded(), pmRow(status: 'refunded')]);
-      // The failed $5 stayed on Investing: its Failed status and what was
-      // asked of it, nothing arriving and no order.
-      const failed = 'Investing → Dollars';
-      expect(inSection(failed, 'Failed'), findsOneWidget);
-      expect(inSection(failed, '\$5.00'), findsOneWidget);
-      expect(inSection(failed, 'Arriving'), findsNothing);
-      expect(inSection(failed, 'Received'), findsNothing);
-      expect(inSection(failed, 'Nerd data'), findsNothing);
-      // The refunded leg reads as the swap order sheet reads it.
-      expect(
-          inSection('Predictions → Dollars', 'Refunded'), findsOneWidget);
-      // What was delivered and what is left, and Retry for the rest.
-      expect(find.text('\$44.65 delivered · \$5.35 remaining'), findsOneWidget);
-      expect(find.text('Retry'), findsOneWidget);
+      await openSheet(
+          tester, _move(legs: [_leg(OneBalanceVenue.investing, op: 'op-hl')]),
+          orders: [hlLanded()]);
+      expect(find.text('Track this exchange'), findsOneWidget);
+      expect(find.text('Retry'), findsNothing);
+      expect(find.text('Buy bitcoin'), findsNothing);
+      await openNerd(tester);
+      // Not repeated inside.
+      expect(find.text('Track this exchange'), findsOneWidget);
     });
 
-    testWidgets('a value not known is left out, never a dash', (tester) async {
-      // No row yet for the Predictions leg; the Investing leg landed in
-      // bitcoin (no dollar fee to state); Dollars' part waits for Retry.
-      await openSheet(tester, threeLegs(), orders: [hlLanded()]);
-      expect(inSection('Predictions → Dollars', 'Pending'), findsOneWidget);
-      expect(
-          inSection('Predictions → Dollars', 'Arriving'), findsOneWidget);
-      expect(inSection('Predictions → Dollars', 'Received'), findsNothing);
-      expect(inSection('Predictions → Dollars', 'Nerd data'), findsNothing);
-      expect(inSection('Predictions → Dollars', 'Track this exchange'),
-          findsNothing);
-      expect(inSection('Investing → Bitcoin', 'Fee'), findsNothing);
-      expect(inSection('Dollars → Bitcoin', 'Status'), findsNothing);
-      expect(inSection('Dollars → Bitcoin', 'Date'), findsNothing);
-      for (final dash in ['—', '-', '–', '\$0.00']) {
-        expect(find.text(dash), findsNothing, reason: dash);
-      }
+    testWidgets('several orders: each link inside Nerd data, none below',
+        (tester) async {
+      final buy = _row('ord_buy',
+              from: kOrchestraUsdAssetCode,
+              fromNet: 'SPARK',
+              to: 'BTC',
+              toNet: 'SPARK',
+              operationId: 'op-buy',
+              status: 'success')
+          .details
+          .copyWith(withdrawalAmount: '0.00050000');
+      await openSheet(
+          tester,
+          _move(legs: [
+            _leg(OneBalanceVenue.investing, op: 'op-hl'),
+            _leg(OneBalanceVenue.predictions,
+                op: 'op-pm', usd: 15, direct: false),
+          ], finalOp: 'op-buy'),
+          orders: [hlLanded(), pmRow(status: 'success'), buy]);
+      expect(find.text('Track this exchange'), findsNothing);
+      await openNerd(tester);
+      expect(find.text('Track this exchange'), findsNWidgets(3));
+      expect(inLeg('ord_buy', find.text('Dollars → Bitcoin')), findsOneWidget);
     });
 
     testWidgets('a CCTP move with no order yet has no explorer button',
@@ -788,26 +830,76 @@ void main() {
       await openSheet(
           tester, _move(legs: [_leg(OneBalanceVenue.investing, op: 'op-hl')]),
           orders: [cctp]);
-      expect(inSection('Investing → Bitcoin', 'Processing'), findsOneWidget);
-      expect(inSection('Investing → Bitcoin', 'Arriving'), findsOneWidget);
+      expect(find.text(r'Investing → Bitcoin · $20.00'), findsOneWidget);
+      expect(find.text('Track this exchange'), findsNothing);
+      await openNerd(tester);
       expect(find.text('Track this exchange'), findsNothing);
     });
 
-    testWidgets('fits 375pt at text scale 1.3 with every Nerd data open',
+    testWidgets('a single-leg move reads exactly as the swap detail',
+        (tester) async {
+      final single = MultiSourceMove(
+        id: 'msm_single',
+        walletId: 'w1',
+        forAction: VenueCashFor.buyBitcoin,
+        destination: VenueCashDestination.bitcoin,
+        // What its one leg lands: nothing left to buy from Dollars.
+        totalUsd: 19.8,
+        dollarsUsd: 0,
+        createdAt: _t0.add(const Duration(seconds: 1)),
+        legs: [_leg(OneBalanceVenue.investing, op: 'op-hl')],
+      );
+      await openSheet(tester, single, orders: [hlLanded()]);
+      // Every line under the header (whose row is the move's own:
+      // "Withdraw", where the order's own row reads its own title).
+      const labels = [
+        'Date',
+        'Status',
+        'Fees',
+        'Sent',
+        'Fee',
+        'Nerd data',
+        'Track this exchange',
+        'Arrived in Bitcoin',
+      ];
+      Map<String, int> seen() => {
+            for (final l in labels)
+              l: find
+                  .descendant(
+                      of: find.byType(BottomSheet), matching: find.text(l))
+                  .evaluate()
+                  .length,
+          };
+      final move = seen();
+      // No totals for one leg: the header says what moved.
+      expect(
+          find.descendant(
+              of: find.byType(BottomSheet), matching: find.text('Received')),
+          findsNothing);
+      expect(find.textContaining('Investing → Bitcoin · '), findsOneWidget);
+
+      // The leg's own row, opened as any swap is.
+      await tester.pumpWidget(const SizedBox());
+      await openSwapSheet(tester, hlLanded());
+      expect(seen(), move);
+      expect(move['Date'], 1);
+      expect(move['Status'], 1);
+      expect(move['Fees'], 0);
+      expect(move['Nerd data'], 1);
+      expect(move['Track this exchange'], 1);
+      expect(move['Arrived in Bitcoin'], 1);
+      expect(find.textContaining('Investing → Bitcoin · '), findsOneWidget);
+    });
+
+    testWidgets('fits 375pt at text scale 1.3 with the Nerd data open',
         (tester) async {
       await openSheet(tester, threeLegs(),
           orders: [hlLanded(), pmRow()],
           size: const Size(375, 812),
           textScale: 1.3);
       expect(tester.takeException(), isNull);
-      for (var i = 0; i < 2; i++) {
-        final nerd = find.text('Nerd data').at(i);
-        await tester.ensureVisible(nerd);
-        await tester.pump(const Duration(milliseconds: 100));
-        await tester.tap(nerd);
-        await tester.pump(const Duration(milliseconds: 400));
-        expect(tester.takeException(), isNull);
-      }
+      await openNerd(tester);
+      expect(tester.takeException(), isNull);
       await tester.ensureVisible(find.text('Retry'));
       await tester.pump(const Duration(milliseconds: 100));
       expect(tester.takeException(), isNull);
@@ -989,10 +1081,7 @@ void main() {
         .details
         .copyWith(depositAmount: '20.95', withdrawalAmount: '20.69');
     SwapOrderTransaction rowOf(SwapOrder o) => SwapOrderTransaction(
-        id: o.id,
-        timestamp: _t0,
-        isConfirmed: o.isComplete,
-        details: o);
+        id: o.id, timestamp: _t0, isConfirmed: o.isComplete, details: o);
     MultiSourceMove founderMove({
       String id = 'msm_f',
       String forAction = VenueCashFor.buyBitcoin,
@@ -1071,8 +1160,8 @@ void main() {
                 activeWalletId: 'spending',
               ))),
           usdBalanceProvider.overrideWith((_) => dollars),
-          usdBalanceReadingProvider.overrideWith(
-              (ref) => ref.watch(_dollarsKnown) ? dollars : null),
+          usdBalanceReadingProvider
+              .overrideWith((ref) => ref.watch(_dollarsKnown) ? dollars : null),
           _dollarsKnown.overrideWith((_) => dollarsKnown),
           bitcoinPurchaseFinisherProvider.overrideWithValue(finisher),
           sparkSelfAddressProvider.overrideWith((_) async => 'spark1self'),
@@ -1118,10 +1207,10 @@ void main() {
         'one tap with a fresh approval buys what landed, capped at the move',
         (tester) async {
       final move = founderMove();
-      final tx = MultiSourceMoveTransaction(
-          move: move, legRows: [rowOf(hlHome())]);
-      expect(multiSourceMoveFinalStepMissing(move, tx.legRows, now: _t0),
-          isFalse,
+      final tx =
+          MultiSourceMoveTransaction(move: move, legRows: [rowOf(hlHome())]);
+      expect(
+          multiSourceMoveFinalStepMissing(move, tx.legRows, now: _t0), isFalse,
           reason: 'inside its approval time it may still finish on its own');
       expect(
           multiSourceMoveFinalStepMissing(move, tx.legRows,
@@ -1135,9 +1224,7 @@ void main() {
           walletId: 'spending',
           dissolved: (m, rows) =>
               multiSourceMoveFinish(m, rows,
-                      finisher: finisher,
-                      dollars: dollars,
-                      now: DateTime.now())
+                      finisher: finisher, dollars: dollars, now: DateTime.now())
                   ?.dissolved ??
               false);
       expect(kept.single, isA<MultiSourceMoveTransaction>());
@@ -1158,8 +1245,8 @@ void main() {
       expect(prompts.single.amountMax, BigInt.from(20230000));
       expect(bought, [20.23]);
       expect(PendingBitcoinPurchaseStore.get('msm_f'), isNull);
-      final tapped = events.firstWhere(
-          (e) => e.$1 == 'move_purchase_continue_tapped');
+      final tapped =
+          events.firstWhere((e) => e.$1 == 'move_purchase_continue_tapped');
       expect(tapped.$2?['legacy'], true);
       expect(tapped.$2?['amount_usd'], 20.23);
       final finished =
@@ -1173,12 +1260,12 @@ void main() {
         'the purchase', (tester) async {
       final move = founderMove();
       MultiSourceMoveStore.start(move);
-      final tx = MultiSourceMoveTransaction(
-          move: move, legRows: [rowOf(hlHome())]);
+      final tx =
+          MultiSourceMoveTransaction(move: move, legRows: [rowOf(hlHome())]);
       await pump(tester, tx, orders: [hlHome()]);
       await openDetail(tester, tx);
-      expect(find.text('Investing → Dollars'), findsOneWidget);
-      expect(find.text('Investing → Investments'), findsNothing);
+      expect(find.text(r'Investing → Dollars · $20.69'), findsOneWidget);
+      expect(find.textContaining('Investing → Investments'), findsNothing);
       expect(find.text('Needs attention'), findsOneWidget);
       expect(find.text('Pending'), findsNothing);
       expect(find.text(r'Your $20.23 is in Investments. Tap to buy Bitcoin'),
@@ -1226,7 +1313,8 @@ void main() {
 
       // Its own row, were it ever handed one, draws nothing.
       await pump(tester, tx, orders: [hlHome()]);
-      expect(find.byWidgetPredicate(
+      expect(
+          find.byWidgetPredicate(
               (w) => w.runtimeType.toString() == '_TransactionRow'),
           findsNothing);
       expect(text('stayed'), findsNothing);
@@ -1264,8 +1352,7 @@ void main() {
         swaps: [leg],
         bets: const [],
         fills: const [],
-        movedLegIds:
-            multiSourceMoveLegIds([leg], [move], dissolved: dissolved),
+        movedLegIds: multiSourceMoveLegIds([leg], [move], dissolved: dissolved),
       );
       expect(entries.map((e) => e.tx!.id), ['ord_hl']);
       // The record stays in its store.
@@ -1306,10 +1393,10 @@ void main() {
       // and its open detail closes with it.
       await pump(tester, tx, orders: [hlHome()]);
       await openDetail(tester, tx);
-      expect(find.text('Investing → Dollars'), findsOneWidget);
+      expect(find.text(r'Investing → Dollars · $20.69'), findsOneWidget);
       lastRef.read(_dollarsKnown.notifier).state = true;
       await frames(tester);
-      expect(find.text('Investing → Dollars'), findsNothing);
+      expect(find.textContaining('Investing → Dollars'), findsNothing);
       expect(text('Needs attention'), findsNothing);
       expect(text('Completed'), findsNothing);
     });
@@ -1322,9 +1409,9 @@ void main() {
           stage: PendingPurchaseStage.needsApproval));
       final move = founderMove();
       final legs = [rowOf(hlHome())];
-      MultiSourceMoveFinish? at(double? dollars) => multiSourceMoveFinish(
-          move, legs,
-          finisher: finisher, dollars: dollars, now: DateTime.now());
+      MultiSourceMoveFinish? at(double? dollars) =>
+          multiSourceMoveFinish(move, legs,
+              finisher: finisher, dollars: dollars, now: DateTime.now());
       expect(at(0.5)?.dissolved, isTrue);
       expect(at(null)?.usd, 20.23, reason: 'unknown is not spent');
       expect(at(5)?.usd, 5, reason: 'what Dollars hold is still offered');
@@ -1346,14 +1433,13 @@ void main() {
       await pump(tester, tx, orders: [hlHome()]);
       expect(text(r'Send $20.23'), findsOneWidget);
       expect(text('Needs attention'), findsOneWidget);
-      expect(
-          text(r"Your $20.23 is in Investments. The send didn't go through"),
+      expect(text(r"Your $20.23 is in Investments. The send didn't go through"),
           findsOneWidget);
       await tester.tap(row());
       await frames(tester);
       // No purchase for a send: the tap opens the detail.
       expect(prompts, isEmpty);
-      expect(find.text('Investing → Dollars'), findsOneWidget);
+      expect(find.text(r'Investing → Dollars · $20.69'), findsOneWidget);
       expect(find.text('Buy bitcoin'), findsNothing);
       expect(find.text('Needs attention'), findsWidgets);
 

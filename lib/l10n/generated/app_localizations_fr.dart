@@ -11003,4 +11003,19 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get moneyStepArrived => 'Arrivé dans Bitcoin';
+
+  @override
+  String moneyStepSending(String amount) {
+    return 'Envoi de $amount';
+  }
+
+  @override
+  String moneyStepSent(String amount) {
+    return '$amount envoyés';
+  }
+
+  @override
+  String moneyStepCompact(String source, String destination, String amount) {
+    return '$source → $destination · $amount';
+  }
 }

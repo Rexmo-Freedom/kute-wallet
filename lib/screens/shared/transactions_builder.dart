@@ -1,7 +1,7 @@
 import 'package:kute/screens/shared/orchestra_swap_refund_action.dart';
 import 'package:kute/screens/shared/multi_source_move_activity.dart';
-import 'package:kute/screens/shared/buy_bitcoin_steps_view.dart'
-    show BuyBitcoinStepsSection;
+import 'package:kute/screens/shared/move_steps_view.dart'
+    show MoveStepsSection, SwapRowStepsSection;
 import 'package:kute/screens/shared/venue_cash_pull_copy.dart';
 import 'package:kute/screens/shared/pending_bitcoin_purchase_continue.dart'
     show continuePendingBitcoinPurchase;
@@ -10,6 +10,7 @@ import 'package:kute/providers/usd_account_provider.dart'
 import 'package:kute/services/one_balance/pending_bitcoin_purchase.dart'
     show bitcoinPurchaseFinisherProvider, pendingBitcoinPurchasesProvider;
 import 'package:kute/services/one_balance/multi_source_move.dart';
+import 'package:kute/services/one_balance/move_steps.dart' show MoveSteps;
 import 'package:kute/services/orchestra/own_spark_arrivals.dart';
 import 'package:kute/services/one_balance/venue_cash_source.dart'
     show
@@ -3372,6 +3373,11 @@ class _SwapOrderDetailSheetState extends ConsumerState<_SwapOrderDetailSheet> {
                     context.l10n.status,
                     statusText,
                     valueColor: statusColor),
+                // A move between the person's own balances (Add to
+                // Investments from Bitcoin, a purchase paid by Dollars, a
+                // venue's cash going home): its steps, live, then the
+                // record once done.
+                if (!isCashAppPurchase) SwapRowStepsSection(row: details),
                 // What moved is the header: the row's amount (what arrived)
                 // and the figure under it (what was paid, "from ₿3,964").
                 // Only a stuck deposit, which converted into nothing and so
@@ -3393,6 +3399,13 @@ class _SwapOrderDetailSheetState extends ConsumerState<_SwapOrderDetailSheet> {
                 // or "Predictions → Your wallet" (withdraw); generic swaps show the
                 // human leg names.
                 () {
+                  // A move between the person's own balances names its
+                  // path on its step line already ("Bitcoin → Dollars ·
+                  // $9.87"): never twice.
+                  if (!isCashAppPurchase &&
+                      !MoveSteps.ofRow(details).isEmpty) {
+                    return const SizedBox.shrink();
+                  }
                   final isPolymarketRow = activity.isPredictions;
                   String legName(String code, String network) {
                     if (code == 'BTC' && network == 'LIGHTNING') {
@@ -5975,6 +5988,39 @@ class _MultiSourceMoveDetailSheetState
     final dollarsName = l10n.portfolioBalanceDollars;
     final destination = venueCashDestinationName(l10n, move.destination);
     final finalRow = multiSourceMoveFinalRow(move, rows);
+    final sendTo = move.forAction == VenueCashFor.send && finalRow != null
+        ? _swapSheetLegLabel(
+            context, finalRow.details.coinTo, finalRow.details.networkTo)
+        : null;
+    final totals = multiSourceMoveTotals(move, rows);
+    final orders = multiSourceMoveOrders(move, rows);
+    final legRows = [
+      for (final leg in move.okLegs)
+        if (multiSourceMoveLegRow(leg, rows) case final row?) (leg, row),
+    ];
+    // What needs the person comes first at the bottom: the purchase that
+    // waits on a tap, a Retry for a failed leg. Otherwise one order is
+    // tracked from the bottom; several, each from its own Nerd data.
+    final buyAction = finish != null &&
+        waitingUsd != null &&
+        move.destination == VenueCashDestination.bitcoin;
+    final primary = buyAction || move.partial;
+    final trackBelow = !primary && orders.length == 1;
+    // One leg, one order, nothing else: it reads exactly as that order's
+    // own swap detail does.
+    final single = move.legs.length == 1 &&
+        legRows.length == 1 &&
+        finalRow == null &&
+        move.dollarsUsd < 0.01 &&
+        !primary &&
+        finish == null;
+
+    String btc(double v) =>
+        ref.watch(conversionProvider((v * 100000000).round()));
+    String both(double usd, double coins) => [
+          if (usd >= 0.01) formatPolyAmount(ref, usd),
+          if (coins > 0) btc(coins),
+        ].join(' + ');
 
     return AppBottomSheetContainer(
       maxHeight: 0.9,
@@ -5997,48 +6043,60 @@ class _MultiSourceMoveDetailSheetState
                   _ => l10n.activityRowFrom(l10n.assetDollars),
                 },
               ),
+              // Once for the whole move.
               _sheetDetailRow(
                   c, l10n.date, activitySheetDate(context, tx.timestamp)),
               _sheetDetailRow(c, l10n.status, status.text,
                   valueColor: status.color),
-              // A Buy bitcoin's steps, live, then the record once done.
-              BuyBitcoinStepsSection(move: move, rows: rows),
-              for (final leg in move.legs)
-                _MultiSourceLegSection(
-                  title:
-                      '${venueCashVenueName(l10n, leg.venue)} → ${leg.direct ? destination : dollarsName}',
-                  at: leg.at,
-                  sentUsd: leg.usd,
-                  failed: !leg.ok,
-                  arrivingUsd: leg.arrivingUsd,
-                  row: leg.ok ? multiSourceMoveLegRow(leg, rows) : null,
-                ),
-              // The action's own step, which Dollars' part (and every leg
-              // that came home first) went on with.
-              if (finalRow != null)
-                _MultiSourceLegSection(
-                  title:
-                      '$dollarsName → ${move.forAction == VenueCashFor.send ? _swapSheetLegLabel(context, finalRow.details.coinTo, finalRow.details.networkTo) : destination}',
-                  at: finalRow.timestamp,
-                  sentUsd: null,
-                  failed: false,
-                  arrivingUsd: null,
-                  row: finalRow,
-                )
-              else if (move.dollarsUsd > 0 &&
-                  move.destination != VenueCashDestination.dollars)
-                _MultiSourceLegSection(
-                  title: '$dollarsName → $destination',
-                  at: null,
-                  sentUsd: move.dollarsUsd,
-                  failed: false,
-                  arrivingUsd: null,
-                  row: null,
-                  // Waiting for the action's own step; after a failed leg
-                  // it waits for Retry instead, and once that step is
-                  // known not to have gone, for the person.
-                  waiting: !move.partial && finish == null,
-                ),
+              if (!single) ...[
+                if (totals.anyReceived)
+                  _sheetDetailRow(c, l10n.received,
+                      both(totals.receivedUsd, totals.receivedBtc))
+                else if (totals.anyArriving)
+                  _sheetDetailRow(c, l10n.activityArriving,
+                      both(totals.arrivingUsd, totals.arrivingBtc)),
+                if (totals.feesUsd >= 0.01)
+                  _sheetDetailRow(
+                      c, l10n.fees, formatPolyAmount(ref, totals.feesUsd)),
+                if (totals.showSent && totals.sentUsd >= 0.01)
+                  _sheetDetailRow(
+                      c, l10n.sent, formatPolyAmount(ref, totals.sentUsd)),
+              ],
+              // The move's steps, one compact line each (each leg, its own
+              // step: the purchase and the arrival, the send, Dollars going
+              // on into the venue), live, then the record once done.
+              MoveStepsSection(
+                  move: move, rows: rows, compact: true, sendTo: sendTo),
+              // Every order's own detail, only under Nerd data: grouped per
+              // leg for a move of several, the order's own rows for one.
+              if (single)
+                _NerdDataSection(
+                    children: _swapOrderNerdRows(
+                        context, c, legRows.single.$2.details,
+                        formatAmount: (raw, coin) =>
+                            _legCoinAmount(ref, legRows.single.$2.details, raw,
+                                coin)))
+              else if (legRows.isNotEmpty || finalRow != null)
+                _NerdDataSection(children: [
+                  for (final (leg, row) in legRows)
+                    _MultiSourceLegNerd(
+                      title:
+                          '${venueCashVenueName(l10n, leg.venue)} → ${leg.direct ? destination : dollarsName}',
+                      sentUsd: leg.usd,
+                      row: row,
+                      track: !trackBelow,
+                    ),
+                  if (finalRow != null)
+                    _MultiSourceLegNerd(
+                      title:
+                          '$dollarsName → ${sendTo ?? destination}',
+                      sentUsd: null,
+                      row: finalRow,
+                      track: !trackBelow,
+                    ),
+                ]),
+              // An order that can be refunded says so, whatever the layout.
+              for (final order in orders) OrchestraSwapRefundAction(order: order),
               if (finish != null && waitingUsd != null) ...[
                 SizedBox(height: 12.h),
                 // Where the money is, and for a purchase the one tap that
@@ -6049,7 +6107,7 @@ class _MultiSourceMoveDetailSheetState
                   style: TextStyle(
                       fontSize: 14.sp, color: AppColors.marketDown),
                 ),
-                if (move.destination == VenueCashDestination.bitcoin) ...[
+                if (buyAction) ...[
                   SizedBox(height: 12.h),
                   SizedBox(
                     width: double.infinity,
@@ -6108,6 +6166,7 @@ class _MultiSourceMoveDetailSheetState
                   ),
                 ),
               ],
+              if (trackBelow) ..._orchestraTrackExchange(context, c, orders.single),
               SizedBox(height: 10.h),
             ],
           ),
@@ -6117,153 +6176,98 @@ class _MultiSourceMoveDetailSheetState
   }
 }
 
-/// One part of a multi-source move on its detail sheet, in the swap
-/// order sheet's own rows and order: where it went ("Investing →
-/// Bitcoin"), Date, Status, what it sent and what arrives (what arrived,
-/// once landed), the fee once both sides are known in dollars, the
-/// order's Nerd data, its refund and its explorer. A value not known is
-/// left out, never shown as a dash.
-class _MultiSourceLegSection extends ConsumerWidget {
-  const _MultiSourceLegSection({
+bool _isDollarCoin(String coin) {
+  final upper = coin.toUpperCase();
+  return upper == 'USDC' ||
+      upper == 'USDC.E' ||
+      upper == 'USDT' ||
+      upper == 'PUSD' ||
+      upper == kOrchestraUsdAssetCode;
+}
+
+/// An order's amount in its own coin, as its Activity row reads it.
+String _legCoinAmount(WidgetRef ref, SwapOrder d, String raw, String coin) {
+  final v = d.isOrchestra ? orchestraRowAmount(raw, coin) : double.tryParse(raw) ?? 0;
+  return coin.toUpperCase() == 'BTC'
+      ? ref.watch(conversionProvider((v * 100000000).round()))
+      : _isDollarCoin(coin)
+          ? formatPolyAmount(ref, v)
+          : '$v ${_assetDisplayName(coin)}';
+}
+
+/// One order of a multi-source move inside its detail's Nerd data: where
+/// it went ("Investing → Dollars"), what it sent and what arrives (what
+/// arrived, once landed), its fee once both sides are known in dollars,
+/// the order's own rows, and its explorer link when the sheet has more
+/// than one order ([track]). A value not known is left out, never a dash.
+class _MultiSourceLegNerd extends ConsumerWidget {
+  const _MultiSourceLegNerd({
     required this.title,
-    required this.at,
     required this.sentUsd,
-    required this.failed,
-    required this.arrivingUsd,
     required this.row,
-    this.waiting = false,
+    required this.track,
   });
 
   final String title;
 
-  /// When the part started; the row's own time when it has one.
-  final DateTime? at;
-
-  /// What left (what was asked of the venue, for a failed leg); the row's
-  /// own amount when null.
+  /// What left (the row's own amount when null).
   final double? sentUsd;
-
-  /// The leg stayed on its venue.
-  final bool failed;
-
-  /// What the leg is expected to land, until its row says what landed.
-  final double? arrivingUsd;
-
-  /// The part's Activity row, once the wallet holds it.
-  final SwapOrderTransaction? row;
-
-  /// No row yet and none can be known before the action's own step goes.
-  final bool waiting;
-
-  static bool _isDollar(String coin) {
-    final upper = coin.toUpperCase();
-    return upper == 'USDC' ||
-        upper == 'USDC.E' ||
-        upper == 'USDT' ||
-        upper == 'PUSD' ||
-        upper == kOrchestraUsdAssetCode;
-  }
+  final SwapOrderTransaction row;
+  final bool track;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
     final l10n = context.l10n;
-    final details = row?.details;
-
-    // The order's amount in its own coin, as its Activity row reads it.
-    double value(String raw, String coin) => details?.isOrchestra == true
-        ? orchestraRowAmount(raw, coin)
-        : double.tryParse(raw) ?? 0;
-    String coinAmount(double v, String coin) => coin.toUpperCase() == 'BTC'
-        ? ref.watch(conversionProvider((v * 100000000).round()))
-        : _isDollar(coin)
-            ? formatPolyAmount(ref, v)
-            : '$v ${_assetDisplayName(coin)}';
-
-    final landed = details != null &&
-        details.isComplete &&
-        !OwnSparkArrivals.awaitingCredit(details.id);
-    final ({String text, Color color})? status = failed
-        ? (text: l10n.failed, color: AppColors.marketDown)
-        : details != null
-            ? (OwnSparkArrivals.awaitingCredit(details.id)
-                ? (text: l10n.pending, color: c.accent)
-                : _swapOrderSheetStatus(context, details))
-            : waiting || (sentUsd != null && arrivingUsd != null)
-                ? (text: l10n.pending, color: c.accent)
-                : null;
-
-    final sent = sentUsd ??
-        (details == null
-            ? null
-            : value(details.depositAmount, details.coinFrom));
+    final d = row.details;
+    double value(String raw, String coin) =>
+        d.isOrchestra ? orchestraRowAmount(raw, coin) : double.tryParse(raw) ?? 0;
+    final landed = d.isComplete && !OwnSparkArrivals.awaitingCredit(d.id);
+    final sent = sentUsd ?? value(d.depositAmount, d.coinFrom);
     final sentText = sentUsd != null
         ? formatPolyAmount(ref, sentUsd!)
-        : details != null && sent! > 0
-            ? coinAmount(sent, details.coinFrom)
+        : sent > 0
+            ? _legCoinAmount(ref, d, d.depositAmount, d.coinFrom)
             : null;
-
-    String? arrivedText;
-    double? feeUsd;
-    if (!failed && landed) {
-      final got = value(details.withdrawalAmount, details.coinTo);
-      if (got > 0) {
-        arrivedText = coinAmount(got, details.coinTo);
-        final paid = sentUsd ?? (_isDollar(details.coinFrom) ? sent : null);
-        if (paid != null && _isDollar(details.coinTo)) {
-          final fee = ((paid - got) * 100).round() / 100;
-          if (fee >= 0.01) feeUsd = fee;
-        }
+    final got = value(d.withdrawalAmount, d.coinTo);
+    String? feeText;
+    if (landed && got > 0 && _isDollarCoin(d.coinTo)) {
+      final paid = sentUsd ?? (_isDollarCoin(d.coinFrom) ? sent : null);
+      if (paid != null) {
+        final fee = ((paid - got) * 100).round() / 100;
+        if (fee >= 0.01) feeText = formatPolyAmount(ref, fee);
       }
     }
-    String? arrivingText;
-    if (!failed && !landed) {
-      if (arrivingUsd != null && arrivingUsd! > 0) {
-        arrivingText = formatPolyAmount(ref, arrivingUsd!);
-      } else if (details != null) {
-        final est = value(details.withdrawalAmount, details.coinTo);
-        if (est > 0) arrivingText = coinAmount(est, details.coinTo);
-      }
-    }
-    final when = row?.timestamp ?? at;
-
     return Column(
+      key: ValueKey('move-leg-${d.id}'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
         Padding(
-          padding: EdgeInsets.only(top: 18.h, bottom: 2.h),
+          padding: EdgeInsets.only(top: 12.h, bottom: 2.h),
           child: Text(
             title,
             style: TextStyle(
               color: c.textPrimary,
-              fontSize: 15.sp,
+              fontSize: 14.sp,
               fontWeight: FontWeight.w700,
               letterSpacing: -0.2,
             ),
           ),
         ),
-        if (when != null)
-          _sheetDetailRow(c, l10n.date, activitySheetDate(context, when)),
-        if (status != null)
-          _sheetDetailRow(c, l10n.status, status.text,
-              valueColor: status.color),
         if (sentText != null) _sheetDetailRow(c, l10n.sent, sentText),
-        if (arrivingText != null)
-          _sheetDetailRow(c, l10n.activityArriving, arrivingText),
-        if (arrivedText != null) _sheetDetailRow(c, l10n.received, arrivedText),
-        if (feeUsd != null)
-          _sheetDetailRow(c, l10n.fee, formatPolyAmount(ref, feeUsd)),
-        if (details != null) ...[
-          _NerdDataSection(
-              children: _swapOrderNerdRows(context, c, details,
-                  formatAmount: (raw, coin) =>
-                      coinAmount(value(raw, coin), coin),
-                  showReceive: false)),
-          if (details.isOrchestra) OrchestraSwapRefundAction(order: details),
-          ..._orchestraTrackExchange(context, c, details),
-        ],
+        if (got > 0)
+          _sheetDetailRow(
+              c,
+              landed ? l10n.received : l10n.activityArriving,
+              _legCoinAmount(ref, d, d.withdrawalAmount, d.coinTo)),
+        if (feeText != null) _sheetDetailRow(c, l10n.fee, feeText),
+        ..._swapOrderNerdRows(context, c, d,
+            formatAmount: (raw, coin) => _legCoinAmount(ref, d, raw, coin),
+            showReceive: false),
+        if (track) ..._orchestraTrackExchange(context, c, d),
       ],
     );
   }
 }
+

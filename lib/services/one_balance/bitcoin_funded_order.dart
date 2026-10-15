@@ -632,12 +632,16 @@ class BitcoinFundedOrderRunner {
       }
       String? failedText;
       String? failedCode;
-      unawaited(_placementWait(record.label.venue, onFailed: (message, code) {
+      final venue = record.label.venue;
+      final credited = Completer<void>();
+      final placement = _placementWait(venue, onFailed: (message, code) {
         failedText = message;
         failedCode = code;
       })(onCredited: () {
+        if (!credited.isCompleted) credited.complete();
         orders.setStage(id, FundedOrderStage.placing);
-      }).then((placed) {
+      }).catchError((Object _) => false);
+      unawaited(placement.then((placed) {
         if (placed) {
           orders.setStage(id, FundedOrderStage.done);
           return;
@@ -648,6 +652,88 @@ class BitcoinFundedOrderRunner {
             moneyAt: FundedMoneyAt.venue,
             message: failedText);
       }));
+      // The same step graph as an order funded from Bitcoin: the Dollars
+      // leg (when one left) landing on its own, the venue's readiness, the
+      // order. Legs a stopped earlier try already landed stay done.
+      final env = _ref.read(bitcoinLegEnvProvider);
+      var legId = move == null ? null : (move.orderId ?? move.quoteId);
+      if (reg != null) {
+        unawaited(reg.then((orderId) {
+          if (orderId != null && orderId.isNotEmpty) legId = orderId;
+        }).catchError((Object _) {}));
+      }
+      final graph = MoneyStepGraph([
+        for (final s in record.steps.steps)
+          if (s.id.startsWith('prev:')) s,
+        ...fundedOrderGraph(
+          venue: venue,
+          orderUsd: record.label.orderUsd,
+          legs: [
+            if (move != null)
+              MoneyStep(
+                  id: FundedStepId.dollars,
+                  kind: MoneyStepKind.leg,
+                  from: MoneyPlace.dollars,
+                  usd: (move.sentUsd * 100).roundToDouble() / 100,
+                  ref: legId),
+          ],
+        ).steps,
+      ]);
+      orders.setSteps(id, graph);
+      final statusOf = env.legStatus;
+      unawaited(MoneyStepRunner(
+        graph: graph,
+        onChange: (g) => orders.setSteps(id, g),
+        clock: clock,
+        actionFor: (step) => switch (step.id) {
+          FundedStepId.dollars => (s, update) async {
+              final LegDelivery d;
+              if (statusOf == null || legId == null) {
+                d = await Future.any<LegDelivery>([
+                  credited.future.then((_) => LegDelivery.delivered),
+                  placement.then(
+                      (p) => p ? LegDelivery.delivered : LegDelivery.timedOut),
+                ]);
+              } else {
+                d = await watchLegDelivery(
+                    id: () => legId!,
+                    statusOf: statusOf,
+                    pollEvery: env.legPollEvery);
+              }
+              return switch (d) {
+                LegDelivery.delivered => MoneyStepDone(ref: legId),
+                LegDelivery.failed => const MoneyStepFailed('refunded'),
+                LegDelivery.timedOut => const MoneyStepFailed('timeout'),
+              };
+            },
+          FundedStepId.convert => (s, update) => readinessPhaseStep(
+              'converting', update,
+              optional: true,
+              phases: env.readiness?.call(venue),
+              credited: credited.future,
+              placement: placement,
+              failedCode: () => failedCode),
+          FundedStepId.approve => (s, update) => readinessPhaseStep(
+              'approving', update,
+              optional: true,
+              phases: env.readiness?.call(venue),
+              credited: credited.future,
+              placement: placement,
+              failedCode: () => failedCode),
+          FundedStepId.confirm || FundedStepId.credit => (s, update) =>
+              readinessPhaseStep(
+                  step.id == FundedStepId.confirm ? 'confirming' : 'crediting',
+                  update,
+                  phases: env.readiness?.call(venue),
+                  credited: credited.future,
+                  placement: placement,
+                  failedCode: () => failedCode),
+          FundedStepId.place => (s, update) async => await placement
+              ? const MoneyStepDone()
+              : MoneyStepFailed(failedCode ?? 'placement'),
+          _ => null,
+        },
+      ).run());
     } catch (_) {}
   }
 
@@ -1351,6 +1437,58 @@ const List<String> kReadinessPhases = [
   'ready',
 ];
 
+/// One readiness phase as a step (see the file header): done once the
+/// venue moved past [phase] in [phases], or credited the order, or placed
+/// it; skipped when an [optional] phase was never needed; failed when the
+/// order stopped (or was not placed) before it.
+Future<MoneyStepOutcome> readinessPhaseStep(
+  String phase,
+  void Function(MoneyStep Function(MoneyStep)) update, {
+  bool optional = false,
+  Stream<String>? phases,
+  required Future<void> credited,
+  required Future<bool> placement,
+  Future<void>? stopped,
+  String? Function()? failedCode,
+}) {
+  final done = Completer<MoneyStepOutcome>();
+  var seen = false;
+  MoneyStepOutcome passed() =>
+      seen || !optional ? const MoneyStepDone() : const MoneyStepSkipped();
+  void finish(MoneyStepOutcome o) {
+    if (!done.isCompleted) done.complete(o);
+  }
+
+  final at = kReadinessPhases.indexOf(phase);
+  StreamSubscription<String>? sub;
+  try {
+    sub = phases?.listen((p) {
+      final i = kReadinessPhases.indexOf(p);
+      if (p == phase) {
+        if (!seen) {
+          seen = true;
+          update((s) => s.copyWith(ref: 'seen'));
+        }
+      } else if (i > at) {
+        finish(passed());
+      }
+    }, onError: (Object _) {});
+  } catch (_) {}
+  unawaited(credited.then((_) => finish(passed())));
+  unawaited(placement.then((placed) {
+    if (placed) return finish(passed());
+    finish(optional && !seen
+        ? const MoneyStepSkipped()
+        : MoneyStepFailed(failedCode?.call() ?? 'not_ready'));
+  }));
+  if (stopped != null) {
+    unawaited(stopped.then((_) => finish(optional && !seen
+        ? const MoneyStepSkipped()
+        : const MoneyStepFailed('stopped'))));
+  }
+  return done.future.whenComplete(() => sub?.cancel());
+}
+
 class _FundedChain {
   _FundedChain(this.runner, this.id, this.r);
 
@@ -1521,8 +1659,15 @@ class _FundedChain {
                   usd: _cents(other)),
           ]
         : _viaLegs(otherVenue, other);
-    final graph =
+    // A new try keeps the legs that landed before (done, never run
+    // again); only the new legs and what depends on them run.
+    final carried = [
+      for (final s in orders.byId(id)?.steps.steps ?? const <MoneyStep>[])
+        if (s.id.startsWith('prev:')) s,
+    ];
+    final planned =
         fundedOrderGraph(venue: venue, legs: legs, orderUsd: r.label.orderUsd);
+    final graph = MoneyStepGraph([...carried, ...planned.steps]);
     orders.setSteps(id, graph, route: _route);
     if (plan.direct) orders.setStage(id, FundedOrderStage.preparing);
 
@@ -2044,43 +2189,18 @@ class _FundedChain {
   /// moved past it (or placed), skipped when an [optional] phase was never
   /// needed, failed when the order stopped before it.
   Future<MoneyStepOutcome> _phase(
-      String phase, void Function(MoneyStep Function(MoneyStep)) update,
-      {bool optional = false}) {
-    final done = Completer<MoneyStepOutcome>();
-    var seen = false;
-    MoneyStepOutcome passed() =>
-        seen || !optional ? const MoneyStepDone() : const MoneyStepSkipped();
-    void finish(MoneyStepOutcome o) {
-      if (!done.isCompleted) done.complete(o);
-    }
-
-    final at = kReadinessPhases.indexOf(phase);
-    StreamSubscription<String>? sub;
-    try {
-      sub = env.readiness?.call(venue).listen((p) {
-        final i = kReadinessPhases.indexOf(p);
-        if (p == phase) {
-          if (!seen) {
-            seen = true;
-            update((s) => s.copyWith(ref: 'seen'));
-          }
-        } else if (i > at) {
-          finish(passed());
-        }
-      }, onError: (Object _) {});
-    } catch (_) {}
-    unawaited(_credited.future.then((_) => finish(passed())));
-    unawaited(_placement.then((placed) {
-      if (placed) return finish(passed());
-      finish(optional && !seen
-          ? const MoneyStepSkipped()
-          : MoneyStepFailed(_failedCode ?? 'not_ready'));
-    }));
-    unawaited(_stopped.future.then((_) => finish(optional && !seen
-        ? const MoneyStepSkipped()
-        : const MoneyStepFailed('stopped'))));
-    return done.future.whenComplete(() => sub?.cancel());
-  }
+          String phase, void Function(MoneyStep Function(MoneyStep)) update,
+          {bool optional = false}) =>
+      readinessPhaseStep(
+        phase,
+        update,
+        optional: optional,
+        phases: env.readiness?.call(venue),
+        credited: _credited.future,
+        placement: _placement,
+        stopped: _stopped.future,
+        failedCode: () => _failedCode,
+      );
 
   Future<MoneyStepOutcome> _place(MoneyStep step,
       void Function(MoneyStep Function(MoneyStep)) update) async {

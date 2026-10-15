@@ -3052,5 +3052,8 @@
   "moneyStepBuying": "Αγορά Bitcoin αξίας {amount}",
   "moneyStepBought": "Αγοράστηκε Bitcoin αξίας {amount}",
   "moneyStepArriving": "Άφιξη στο Bitcoin",
-  "moneyStepArrived": "Έφτασε στο Bitcoin"
+  "moneyStepArrived": "Έφτασε στο Bitcoin",
+  "moneyStepSending": "Αποστολή {amount}",
+  "moneyStepSent": "Στάλθηκαν {amount}",
+  "moneyStepCompact": "{source} → {destination} · {amount}"
 }

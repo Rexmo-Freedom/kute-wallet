@@ -185,7 +185,7 @@ enum RebalanceOutcomeKind {
 /// One venue's [RebalanceOutcomeKind], with the amount sent or left.
 @immutable
 class RebalanceOutcome {
-  const RebalanceOutcome(this.kind, {this.usd = 0, this.reason});
+  const RebalanceOutcome(this.kind, {this.usd = 0, this.reason, this.ref});
 
   final RebalanceOutcomeKind kind;
 
@@ -194,6 +194,12 @@ class RebalanceOutcome {
 
   /// Why it stayed, for [RebalanceOutcomeKind.held].
   final SweepSkipReason? reason;
+
+  /// The move's settlement operation (else its quote), which its Activity
+  /// row carries, for a [RebalanceOutcomeKind.moving]: the Portfolio's
+  /// step for the venue follows that row. Local only, never tracked; not
+  /// part of the outcome's identity.
+  final String? ref;
 
   @override
   bool operator ==(Object other) =>
@@ -934,7 +940,8 @@ class VenueSweeper {
             trigger: trigger,
             startedAt: startedAt);
       }
-      return RebalanceOutcome(RebalanceOutcomeKind.moving, usd: result.sentUsd);
+      return RebalanceOutcome(RebalanceOutcomeKind.moving,
+          usd: result.sentUsd, ref: result.operationId ?? result.quoteId);
     } on RouteQuoteError catch (e) {
       if (e.code == RouteQuoteErrorCode.amountTooSmall) {
         // The route's real floor is above what we tried: the cash is

@@ -10497,4 +10497,19 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get moneyStepArrived => 'ビットコインに着金しました';
+
+  @override
+  String moneyStepSending(String amount) {
+    return '$amountを送金中';
+  }
+
+  @override
+  String moneyStepSent(String amount) {
+    return '$amountを送金しました';
+  }
+
+  @override
+  String moneyStepCompact(String source, String destination, String amount) {
+    return '$source → $destination · $amount';
+  }
 }

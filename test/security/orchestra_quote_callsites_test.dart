@@ -122,6 +122,18 @@ void main() {
       // what the order's one approval bound.
       ('lib/services/one_balance/bitcoin_to_dollars_leg.dart',
           'sparkAddress'): 1,
+      // The direct Bitcoin → Predictions leg of an order funded from bitcoin
+      // (BitcoinToVenueLeg._toPredictions): `evm` is the wallet's own
+      // Predictions deposit wallet, read from the trading provider (or its
+      // depositAddress()) by ownVenueDeposit, the same source the
+      // Predictions funder's Dollars leg uses. It is pinned into the
+      // order's one approval and read fresh again before paying; the leg
+      // runs under HotSettlement.plan with a pmHot destination, whose
+      // resolveOwnership re-derives it, and its step-up
+      // (BitcoinLegGrants.takeDirect) refuses any quote whose route,
+      // recipient (own Predictions wallet), refund (own Spark address) or
+      // sats are not what the approval bound.
+      ('lib/services/one_balance/bitcoin_to_venue_leg.dart', 'evm'): 1,
     };
     final recipientArg = RegExp(r'recipientAddress:\s*([^,\n]+),');
     final ownArg = RegExp(r'ownAddress:\s*([^,]+),');

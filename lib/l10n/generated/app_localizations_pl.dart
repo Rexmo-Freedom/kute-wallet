@@ -10954,4 +10954,19 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get moneyStepArrived => 'Wpłynęło na saldo Bitcoin';
+
+  @override
+  String moneyStepSending(String amount) {
+    return 'Wysyłanie $amount';
+  }
+
+  @override
+  String moneyStepSent(String amount) {
+    return 'Wysłano $amount';
+  }
+
+  @override
+  String moneyStepCompact(String source, String destination, String amount) {
+    return '$source → $destination · $amount';
+  }
 }
