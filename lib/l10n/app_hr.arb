@@ -3009,6 +3009,8 @@
   "multiMoveTitle": "Premjesti {amount} u {destination}",
   "multiMoveDeliveredRemaining": "{delivered} isporučeno · {remaining} preostalo",
   "multiMovePurchaseWaiting": "Vaših {amount} je u {balance}. Dodirnite za kupnju Bitcoina",
+  "multiMoveSendWaiting": "Vaših {amount} je u {balance}. Slanje nije uspjelo",
+  "multiMoveMoneyStayed": "Novac je ostao u {balance}",
   "usdReceiveFromYourWallet": "Iz tvog novčanika",
   "usdReceiveFromAnotherWallet": "Iz drugog novčanika ili mjenjačnice",
   "slipStepAddingToInvestments": "Dodavanje {amount} u Investments",

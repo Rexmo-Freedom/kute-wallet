@@ -10725,6 +10725,16 @@ class AppLocalizationsEt extends AppLocalizations {
   }
 
   @override
+  String multiMoveSendWaiting(String amount, String balance) {
+    return 'Sinu $amount on kontol $balance. Saatmine ei läinud läbi';
+  }
+
+  @override
+  String multiMoveMoneyStayed(String balance) {
+    return 'Raha jäi kontole $balance';
+  }
+
+  @override
   String get usdReceiveFromYourWallet => 'Sinu rahakotist';
 
   @override

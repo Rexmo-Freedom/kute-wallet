@@ -10787,6 +10787,16 @@ class AppLocalizationsPt extends AppLocalizations {
   }
 
   @override
+  String multiMoveSendWaiting(String amount, String balance) {
+    return 'Os seus $amount estão em $balance. O envio não foi feito';
+  }
+
+  @override
+  String multiMoveMoneyStayed(String balance) {
+    return 'O dinheiro ficou em $balance';
+  }
+
+  @override
   String get usdReceiveFromYourWallet => 'Da sua carteira';
 
   @override

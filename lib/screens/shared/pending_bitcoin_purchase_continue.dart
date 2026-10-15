@@ -6,6 +6,12 @@
 // move's Activity row says "Your $X is in Investments. Tap to buy
 // Bitcoin" ([pendingPurchaseWaitingUsd]); the tap asks ONE fresh approval
 // for exactly that purchase and hands it back to the finisher.
+//
+// A move with no record (an older build tied the purchase to the open
+// sheet, so its money landed in Dollars and nothing bought) gets the same
+// row and the same tap ([legacyPurchaseUsd]): the tap records the purchase
+// from the move, for what landed, never more than the move's own amount,
+// and only while Dollars hold all of it.
 
 import 'dart:async';
 import 'dart:math' as math;
@@ -50,25 +56,60 @@ double? pendingPurchaseWaitingUsd(
     BitcoinPurchaseFinisher finisher, String moveId, double dollarsUsd) {
   final p = finisher.waitingOnApproval(moveId);
   if (p == null) return null;
+  // A purchase made from a record-less move is all or nothing: its money
+  // still in Dollars, or it is not offered.
+  if (p.legacy) return legacyPurchaseUsd(p.usd, dollarsUsd);
   final usd = math.min(p.usd, _floorCents(dollarsUsd));
   return usd >= kVenueCashOnwardMinimumUsd ? usd : null;
+}
+
+/// What a record-less move's missing purchase ([usd]: what landed in
+/// Dollars for it, capped at its own amount) would buy now: all of it
+/// while Dollars hold it, else null (the money was spent since; nothing
+/// the balance cannot cover is offered).
+double? legacyPurchaseUsd(double usd, double dollarsUsd) {
+  final amount = _floorCents(usd);
+  if (amount < kVenueCashOnwardMinimumUsd) return null;
+  return dollarsUsd + 0.005 >= amount ? amount : null;
 }
 
 /// Asks one fresh approval for move [moveId]'s waiting purchase and hands
 /// it to the finisher, which buys at once (the money is in Dollars).
 /// Declined: nothing moves, the row keeps saying so.
+///
+/// [legacyUsd]: the move has no record (its purchase never went and no
+/// finisher ever owned it); what landed in Dollars for it, capped at its
+/// own amount. The tap records the purchase from the move first, so it
+/// follows the same path from here on.
 Future<void> continuePendingBitcoinPurchase(
-    BuildContext context, WidgetRef ref, String moveId) async {
+    BuildContext context, WidgetRef ref, String moveId,
+    {double? legacyUsd, String? moveWalletId}) async {
   final finisher = ref.read(bitcoinPurchaseFinisherProvider);
-  final usd =
-      pendingPurchaseWaitingUsd(finisher, moveId, ref.read(usdBalanceProvider));
+  if (finisher.running(moveId)) return;
+  final dollars = ref.read(usdBalanceProvider);
+  if (PendingBitcoinPurchaseStore.get(moveId) == null) {
+    if (legacyUsd == null) return;
+    final usd = legacyPurchaseUsd(legacyUsd, dollars);
+    if (usd == null) return;
+    PendingBitcoinPurchaseStore.put(PendingBitcoinPurchase(
+      moveId: moveId,
+      walletId: moveWalletId,
+      usd: usd,
+      createdAt: DateTime.now(),
+      stage: PendingPurchaseStage.needsApproval,
+      legacy: true,
+    ));
+  }
+  final usd = pendingPurchaseWaitingUsd(finisher, moveId, dollars);
   if (usd == null) return;
+  final legacy = PendingBitcoinPurchaseStore.get(moveId)?.legacy ?? false;
   final walletId = pickSpendingWallet(ref.read(settingsProvider))?.id;
   if (walletId == null || walletId.isEmpty) return;
   final String ownSpark = await ref.read(sparkSelfAddressProvider.future);
   if (ownSpark.isEmpty || !context.mounted) return;
   TrackingService.track('move_purchase_continue_tapped', params: {
     'amount_usd': usd,
+    if (legacy) 'legacy': true,
   });
   final intent = DirectLegGrants.buyBitcoin(
     walletId: walletId,
@@ -96,5 +137,6 @@ Future<void> continuePendingBitcoinPurchase(
       usd: usd,
       grant: grant,
       walletId: walletId,
-      resumed: true));
+      resumed: true,
+      legacy: legacy));
 }

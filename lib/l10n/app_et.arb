@@ -3009,6 +3009,8 @@
   "multiMoveTitle": "Liiguta {amount} sihtkohta {destination}",
   "multiMoveDeliveredRemaining": "{delivered} kohale jõudnud · {remaining} jäänud",
   "multiMovePurchaseWaiting": "Sinu {amount} on kontol {balance}. Puuduta, et osta Bitcoini",
+  "multiMoveSendWaiting": "Sinu {amount} on kontol {balance}. Saatmine ei läinud läbi",
+  "multiMoveMoneyStayed": "Raha jäi kontole {balance}",
   "usdReceiveFromYourWallet": "Sinu rahakotist",
   "usdReceiveFromAnotherWallet": "Teisest rahakotist või börsilt",
   "slipStepAddingToInvestments": "Lisame {amount} kontole Investments",

@@ -10756,6 +10756,16 @@ class AppLocalizationsBg extends AppLocalizations {
   }
 
   @override
+  String multiMoveSendWaiting(String amount, String balance) {
+    return 'Вашите $amount са в $balance. Изпращането не беше извършено';
+  }
+
+  @override
+  String multiMoveMoneyStayed(String balance) {
+    return 'Парите останаха в $balance';
+  }
+
+  @override
   String get usdReceiveFromYourWallet => 'От твоя портфейл';
 
   @override

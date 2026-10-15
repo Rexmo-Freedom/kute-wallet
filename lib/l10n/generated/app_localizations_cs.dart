@@ -10728,6 +10728,16 @@ class AppLocalizationsCs extends AppLocalizations {
   }
 
   @override
+  String multiMoveSendWaiting(String amount, String balance) {
+    return 'Vašich $amount je v $balance. Odeslání neproběhlo';
+  }
+
+  @override
+  String multiMoveMoneyStayed(String balance) {
+    return 'Peníze zůstaly v $balance';
+  }
+
+  @override
   String get usdReceiveFromYourWallet => 'Z tvé peněženky';
 
   @override

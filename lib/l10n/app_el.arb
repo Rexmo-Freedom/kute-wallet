@@ -3009,6 +3009,8 @@
   "multiMoveTitle": "Μετακίνηση {amount} σε {destination}",
   "multiMoveDeliveredRemaining": "{delivered} παραδόθηκαν · {remaining} απομένουν",
   "multiMovePurchaseWaiting": "Τα {amount} σας είναι στο {balance}. Πατήστε για να αγοράσετε Bitcoin",
+  "multiMoveSendWaiting": "Τα {amount} σας είναι στο {balance}. Η αποστολή δεν ολοκληρώθηκε",
+  "multiMoveMoneyStayed": "Τα χρήματα έμειναν στο {balance}",
   "usdReceiveFromYourWallet": "Από το πορτοφόλι σου",
   "usdReceiveFromAnotherWallet": "Από άλλο πορτοφόλι ή ανταλλακτήριο",
   "slipStepAddingToInvestments": "Προσθήκη {amount} στα Investments",

@@ -10749,6 +10749,16 @@ class AppLocalizationsFi extends AppLocalizations {
   }
 
   @override
+  String multiMoveSendWaiting(String amount, String balance) {
+    return '$amount on kohteessa $balance. Lähetys ei mennyt läpi';
+  }
+
+  @override
+  String multiMoveMoneyStayed(String balance) {
+    return 'Rahat jäivät kohteeseen $balance';
+  }
+
+  @override
   String get usdReceiveFromYourWallet => 'Lompakostasi';
 
   @override

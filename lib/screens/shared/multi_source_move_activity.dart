@@ -11,9 +11,14 @@
 // which lists the dollar ledger) for every move, and the Bitcoin activity
 // when Bitcoin is the destination. Wherever the row shows, the legs'
 // own rows (the venue cash-outs, the CCTP moves, the action's own step)
-// are not listed beside it. Pure, so the lists can be tested without a
-// widget tree.
+// are not listed beside it. A move whose legs all landed in Dollars but
+// whose own step (the purchase, the send) never went is not left Pending
+// ([multiSourceMoveFinalStepMissing]): its row says where the money is.
+// Pure, so the lists can be tested without a widget tree.
 
+import 'dart:math' as math;
+
+import 'package:kute/helpers/auth_grant.dart' show AuthGrants;
 import 'package:kute/helpers/orchestra_router.dart' show orchestraRowAmount;
 import 'package:kute/models/swap_order_model.dart';
 import 'package:kute/models/transactions_model.dart';
@@ -252,6 +257,94 @@ bool multiSourceMoveSettled(
     return false;
   }
   return true;
+}
+
+/// How long after a move started its own step (the purchase, the send)
+/// may still go without the person: the one approval the action was given
+/// lives this long ([AuthGrants.autofireTtl]), so past it nothing buys or
+/// sends for the move unless the person asks again.
+const Duration kMultiSourceMoveFinishWindow = AuthGrants.autofireTtl;
+
+/// Whether [move]'s action has a step of its own after the legs: a send,
+/// or the purchase of Bitcoin with what came home to Dollars.
+bool multiSourceMoveHasFinalStep(MultiSourceMove move) =>
+    move.forAction == VenueCashFor.send ||
+    (move.destination == VenueCashDestination.bitcoin &&
+        move.okLegs.any((l) => !l.direct));
+
+/// Whether every leg of [move] went and has landed: each has its row, the
+/// row has settled and its delivery is counted. False when a leg failed
+/// (that move needs its Retry) or when no leg went.
+bool multiSourceMoveLegsLanded(
+    MultiSourceMove move, List<SwapOrderTransaction> rows) {
+  if (move.okLegs.isEmpty || move.failedLegs.isNotEmpty) return false;
+  for (final leg in move.okLegs) {
+    final row = multiSourceMoveLegRow(leg, rows);
+    if (row == null ||
+        !row.isComplete ||
+        OwnSparkArrivals.awaitingCredit(row.id)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/// What the action's own step takes from Dollars: the person's amount,
+/// less what went straight to the destination.
+double multiSourceMoveOnwardUsd(MultiSourceMove move) =>
+    _floorCents(math.max(0, move.totalUsd - move.directDeliveredUsd));
+
+/// What is in Dollars for [move]'s own step: Dollars' own part plus what
+/// each leg that came home landed (its row's received dollars, else what
+/// it was expected to land).
+double multiSourceMoveLandedInDollarsUsd(
+    MultiSourceMove move, List<SwapOrderTransaction> rows) {
+  var usd = move.dollarsUsd;
+  for (final leg in move.okLegs) {
+    if (leg.direct) continue;
+    final d = multiSourceMoveLegRow(leg, rows)?.details;
+    var got = 0.0;
+    if (d != null && d.isComplete && _dollarCoin(d.coinTo)) {
+      got = d.isOrchestra
+          ? orchestraRowAmount(d.withdrawalAmount, d.coinTo)
+          : double.tryParse(d.withdrawalAmount) ?? 0;
+    }
+    usd += got > 0 ? got : leg.arrivingUsd;
+  }
+  return _floorCents(usd);
+}
+
+/// Whether [move]'s own step never happened although its money is home:
+/// it has one ([multiSourceMoveHasFinalStep]), every leg landed in Dollars
+/// ([multiSourceMoveLegsLanded]), nothing went for the step, and the time
+/// it could still go on its own is over ([kMultiSourceMoveFinishWindow]
+/// from [now]). A move an older build made, whose purchase was tied to
+/// the open sheet, and a purchase the background finisher gave up on.
+bool multiSourceMoveFinalStepMissing(
+        MultiSourceMove move, List<SwapOrderTransaction> rows,
+        {required DateTime now}) =>
+    move.finalOperationId == null &&
+    multiSourceMoveHasFinalStep(move) &&
+    !now.isBefore(move.createdAt.add(kMultiSourceMoveFinishWindow)) &&
+    multiSourceMoveLegsLanded(move, rows);
+
+/// What finishing [move]'s missing step moves: what landed in Dollars for
+/// it, never more than the step's own amount.
+double multiSourceMoveMissingStepUsd(
+        MultiSourceMove move, List<SwapOrderTransaction> rows) =>
+    math.min(multiSourceMoveLandedInDollarsUsd(move, rows),
+        multiSourceMoveOnwardUsd(move));
+
+double _floorCents(num usd) =>
+    usd.isFinite && usd > 0 ? ((usd * 100) + 1e-6).floor() / 100 : 0;
+
+bool _dollarCoin(String coin) {
+  final upper = coin.toUpperCase();
+  return upper == 'USDC' ||
+      upper == 'USDC.E' ||
+      upper == 'USDT' ||
+      upper == 'PUSD' ||
+      upper == kOrchestraUsdAssetCode;
 }
 
 /// Whether [move] has a row on a surface: something moved for it (a leg

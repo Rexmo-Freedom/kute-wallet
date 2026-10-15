@@ -3009,6 +3009,8 @@
   "multiMoveTitle": "Perkelti {amount} į {destination}",
   "multiMoveDeliveredRemaining": "{delivered} pristatyta · {remaining} liko",
   "multiMovePurchaseWaiting": "Jūsų {amount} yra {balance}. Bakstelėkite, kad pirktumėte Bitcoin",
+  "multiMoveSendWaiting": "Jūsų {amount} yra {balance}. Siuntimas neįvyko",
+  "multiMoveMoneyStayed": "Pinigai liko {balance}",
   "usdReceiveFromYourWallet": "Iš jūsų piniginės",
   "usdReceiveFromAnotherWallet": "Iš kitos piniginės ar biržos",
   "slipStepAddingToInvestments": "Pridedama {amount} į Investments",

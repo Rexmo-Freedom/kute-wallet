@@ -10733,6 +10733,16 @@ class AppLocalizationsSv extends AppLocalizations {
   }
 
   @override
+  String multiMoveSendWaiting(String amount, String balance) {
+    return 'Dina $amount finns i $balance. Betalningen skickades inte';
+  }
+
+  @override
+  String multiMoveMoneyStayed(String balance) {
+    return 'Pengarna stannade i $balance';
+  }
+
+  @override
   String get usdReceiveFromYourWallet => 'Från din plånbok';
 
   @override

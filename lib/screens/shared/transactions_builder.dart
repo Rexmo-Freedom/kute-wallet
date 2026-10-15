@@ -2,11 +2,18 @@ import 'package:kute/screens/shared/orchestra_swap_refund_action.dart';
 import 'package:kute/screens/shared/multi_source_move_activity.dart';
 import 'package:kute/screens/shared/venue_cash_pull_copy.dart';
 import 'package:kute/screens/shared/pending_bitcoin_purchase_continue.dart'
-    show continuePendingBitcoinPurchase, pendingPurchaseWaitingUsd;
+    show
+        continuePendingBitcoinPurchase,
+        legacyPurchaseUsd,
+        pendingPurchaseWaitingUsd;
 import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceProvider;
 import 'package:kute/services/one_balance/pending_bitcoin_purchase.dart'
-    show bitcoinPurchaseFinisherProvider, pendingBitcoinPurchasesProvider;
+    show
+        PendingBitcoinPurchaseStore,
+        PendingPurchaseStage,
+        bitcoinPurchaseFinisherProvider,
+        pendingBitcoinPurchasesProvider;
 import 'package:kute/services/one_balance/multi_source_move.dart';
 import 'package:kute/services/orchestra/own_spark_arrivals.dart';
 import 'package:kute/services/one_balance/venue_cash_source.dart'
@@ -5692,6 +5699,96 @@ _RowStatus? _multiSourceMoveStatus(
   return null;
 }
 
+/// Where a move stands when its legs are home but its own step (the
+/// purchase of Bitcoin, the send) did not go: the money is in Dollars and
+/// waits on the person ([usd], what one tap finishes), or it was spent
+/// since and the move is over with its money left in Investments
+/// ([stayed]).
+class _MoveFinish {
+  const _MoveFinish.waiting(double this.usd, {required this.legacy})
+      : stayed = false;
+  const _MoveFinish.stayed()
+      : usd = null,
+        legacy = false,
+        stayed = true;
+
+  final double? usd;
+
+  /// The move has no purchase record (an older build tied the purchase
+  /// to the open sheet): the tap makes one from the move.
+  final bool legacy;
+  final bool stayed;
+}
+
+/// [tx]'s [_MoveFinish], or null when the move is on its normal course
+/// (its own step went or is still going, a leg is on its way, or a leg
+/// failed and Retry is offered).
+///
+///  * A purchase record that waits on the person: the one-tap continue
+///    for what Dollars can buy ([pendingPurchaseWaitingUsd]).
+///  * A purchase the finisher is running, or one handed to the send:
+///    still Pending.
+///  * Every leg landed, the step never went, and its time to go on its
+///    own is over ([multiSourceMoveFinalStepMissing]): the money is in
+///    Dollars while they hold all of it (one tap buys it; a send says it
+///    did not go), else it stayed.
+_MoveFinish? _multiSourceMoveFinish(
+    WidgetRef ref, MultiSourceMoveTransaction tx) {
+  final move = tx.move;
+  if (move.finalOperationId != null || move.partial) return null;
+  if (!multiSourceMoveHasFinalStep(move)) return null;
+  final dollars = ref.watch(usdBalanceProvider);
+  final now = DateTime.now();
+  if (move.destination == VenueCashDestination.bitcoin) {
+    ref.watch(pendingBitcoinPurchasesProvider);
+    final finisher = ref.read(bitcoinPurchaseFinisherProvider);
+    if (finisher.running(move.id)) return null;
+    final record = PendingBitcoinPurchaseStore.get(move.id);
+    final waiting = pendingPurchaseWaitingUsd(finisher, move.id, dollars);
+    if (waiting != null) {
+      return _MoveFinish.waiting(waiting, legacy: record?.legacy ?? false);
+    }
+    if (record != null) {
+      // The record owns the step until it waits on the person with its
+      // money gone.
+      if (record.stage == PendingPurchaseStage.funding) return null;
+      final over =
+          !now.isBefore(move.createdAt.add(kMultiSourceMoveFinishWindow));
+      return over && multiSourceMoveLegsLanded(move, tx.legRows)
+          ? const _MoveFinish.stayed()
+          : null;
+    }
+  }
+  if (!multiSourceMoveFinalStepMissing(move, tx.legRows, now: now)) {
+    return null;
+  }
+  final usd = legacyPurchaseUsd(
+      multiSourceMoveMissingStepUsd(move, tx.legRows), dollars);
+  return usd != null
+      ? _MoveFinish.waiting(usd, legacy: true)
+      : const _MoveFinish.stayed();
+}
+
+/// The line a [_MoveFinish] reads: "Your $X is in Investments. Tap to buy
+/// Bitcoin", the send's own version, or that the money stayed.
+String _multiSourceMoveFinishText(
+    AppLocalizations l10n, MultiSourceMove move, _MoveFinish finish) {
+  final usd = finish.usd;
+  if (usd == null) return l10n.multiMoveMoneyStayed(l10n.assetDollars);
+  final amount = '\$${usd.toStringAsFixed(2)}';
+  return move.destination == VenueCashDestination.bitcoin
+      ? l10n.multiMovePurchaseWaiting(amount, l10n.assetDollars)
+      : l10n.multiMoveSendWaiting(amount, l10n.assetDollars);
+}
+
+/// One tap on a move whose purchase waits on the person: a fresh approval,
+/// then the purchase.
+void _continueMovePurchase(BuildContext context, WidgetRef ref,
+        MultiSourceMove move, _MoveFinish finish) =>
+    continuePendingBitcoinPurchase(context, ref, move.id,
+        legacyUsd: finish.legacy ? finish.usd : null,
+        moveWalletId: move.walletId);
+
 /// A move's one row. A move to Bitcoin and a send read as the rows those
 /// actions already have (multiSourceMoveStandardRow: the Investments
 /// withdrawal to Bitcoin, the Dollars send), opening the move's detail
@@ -5700,33 +5797,34 @@ Widget _buildMultiSourceMoveItem(
     MultiSourceMoveTransaction tx, BuildContext context, WidgetRef ref) {
   final move = tx.move;
   final l10n = context.l10n;
-  // A Buy bitcoin whose purchase waits on the person (its approval ran
-  // out, or the app restarted while the money came home): it says so
-  // plainly, and one tap asks a fresh approval and buys.
-  if (move.destination == VenueCashDestination.bitcoin) {
-    ref.watch(pendingBitcoinPurchasesProvider);
-    final waiting = pendingPurchaseWaitingUsd(
-        ref.read(bitcoinPurchaseFinisherProvider),
-        move.id,
-        ref.watch(usdBalanceProvider));
-    if (waiting != null) {
-      return _TransactionRow(
-        onTap: () => continuePendingBitcoinPurchase(context, ref, move.id),
-        leading: _multiSourceMoveIcon(move),
-        title: _RowTitle(multiSourceMoveTitle(l10n, move)),
-        subtitle: _withTime(
-            l10n.multiMovePurchaseWaiting(
-                '\$${waiting.toStringAsFixed(2)}', l10n.assetDollars),
-            tx.timestamp),
-        status: _RowStatus(
-            text: l10n.activityNeedsAttention, color: AppColors.marketDown),
-        flow: ActivityFlow.neutral,
-        amount: formatPolyAmount(ref, move.totalUsd),
-        fiatAmount: '',
-      );
-    }
-  }
   void open() => _showMultiSourceMoveDetails(context, ref, tx);
+  // Its legs are home but its own step did not go (the approval ran out,
+  // the app restarted, or an older build tied it to the open sheet): it
+  // says where the money is, and for a purchase one tap asks a fresh
+  // approval and buys. Never Pending forever.
+  final finish = _multiSourceMoveFinish(ref, tx);
+  if (finish != null) {
+    final buys = finish.usd != null &&
+        move.destination == VenueCashDestination.bitcoin;
+    return _TransactionRow(
+      onTap: buys
+          ? () => _continueMovePurchase(context, ref, move, finish)
+          : open,
+      leading: _multiSourceMoveIcon(move),
+      title: _RowTitle(move.forAction == VenueCashFor.send
+          ? l10n.multiMoveSendTitle('\$${move.totalUsd.toStringAsFixed(2)}')
+          : multiSourceMoveTitle(l10n, move)),
+      subtitle: _withTime(
+          _multiSourceMoveFinishText(l10n, move, finish), tx.timestamp),
+      status: finish.usd != null
+          ? _RowStatus(
+              text: l10n.activityNeedsAttention, color: AppColors.marketDown)
+          : null,
+      flow: ActivityFlow.neutral,
+      amount: formatPolyAmount(ref, move.totalUsd),
+      fiatAmount: '',
+    );
+  }
   final standard = multiSourceMoveStandardRow(tx);
   if (standard != null) {
     // A move to Bitcoin whose bitcoin no order has reported yet reads in
@@ -5876,11 +5974,17 @@ class _MultiSourceMoveDetailSheetState
         move, widget.tx.legRows, ref.watch(swapOrdersProvider));
     final tx = MultiSourceMoveTransaction(move: move, legRows: rows);
     final retrying = MultiSourceMoveStore.retrying(move.id);
-    final status = tx.partial
+    // Legs home, own step never went: needing the person while the money
+    // is in Dollars, else over (it stayed in Investments). Never Pending.
+    final finish = _multiSourceMoveFinish(ref, tx);
+    final status = tx.partial || finish?.usd != null
         ? (text: l10n.activityNeedsAttention, color: AppColors.marketDown)
-        : tx.complete
+        : tx.complete || finish != null
             ? (text: l10n.completed, color: AppColors.success)
             : (text: l10n.pending, color: c.warning);
+    // The Dollars balance by its own name, as the Portfolio breakdown
+    // names it: "Investing → Dollars", never "Investing → Investments".
+    final dollarsName = l10n.portfolioBalanceDollars;
     final destination = venueCashDestinationName(l10n, move.destination);
     final finalRow = multiSourceMoveFinalRow(move, rows);
 
@@ -5912,7 +6016,7 @@ class _MultiSourceMoveDetailSheetState
               for (final leg in move.legs)
                 _MultiSourceLegSection(
                   title:
-                      '${venueCashVenueName(l10n, leg.venue)} → ${leg.direct ? destination : l10n.assetDollars}',
+                      '${venueCashVenueName(l10n, leg.venue)} → ${leg.direct ? destination : dollarsName}',
                   at: leg.at,
                   sentUsd: leg.usd,
                   failed: !leg.ok,
@@ -5924,7 +6028,7 @@ class _MultiSourceMoveDetailSheetState
               if (finalRow != null)
                 _MultiSourceLegSection(
                   title:
-                      '${l10n.assetDollars} → ${move.forAction == VenueCashFor.send ? _swapSheetLegLabel(context, finalRow.details.coinTo, finalRow.details.networkTo) : destination}',
+                      '$dollarsName → ${move.forAction == VenueCashFor.send ? _swapSheetLegLabel(context, finalRow.details.coinTo, finalRow.details.networkTo) : destination}',
                   at: finalRow.timestamp,
                   sentUsd: null,
                   failed: false,
@@ -5934,16 +6038,54 @@ class _MultiSourceMoveDetailSheetState
               else if (move.dollarsUsd > 0 &&
                   move.destination != VenueCashDestination.dollars)
                 _MultiSourceLegSection(
-                  title: '${l10n.assetDollars} → $destination',
+                  title: '$dollarsName → $destination',
                   at: null,
                   sentUsd: move.dollarsUsd,
                   failed: false,
                   arrivingUsd: null,
                   row: null,
                   // Waiting for the action's own step; after a failed leg
-                  // it waits for Retry instead.
-                  waiting: !move.partial,
+                  // it waits for Retry instead, and once that step is
+                  // known not to have gone, for nothing.
+                  waiting: !move.partial && finish == null,
                 ),
+              if (finish != null) ...[
+                SizedBox(height: 12.h),
+                // Where the money is, and for a purchase the one tap that
+                // finishes it (a fresh approval, then the purchase).
+                Text(
+                  _multiSourceMoveFinishText(l10n, move, finish),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      fontSize: 14.sp,
+                      color: finish.usd != null
+                          ? AppColors.marketDown
+                          : c.textSecondary),
+                ),
+                if (finish.usd != null &&
+                    move.destination == VenueCashDestination.bitcoin) ...[
+                  SizedBox(height: 12.h),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48.h,
+                    child: OutlinedButton(
+                      onPressed: () =>
+                          _continueMovePurchase(context, ref, move, finish),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: c.textPrimary,
+                        side: BorderSide(color: c.border),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: AppRadius.buttonBorder),
+                      ),
+                      child: Text(
+                        l10n.moveBuyBitcoin,
+                        style: TextStyle(
+                            fontSize: 16.sp, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
               if (move.partial) ...[
                 SizedBox(height: 12.h),
                 // What was delivered and what is left: the row reads as

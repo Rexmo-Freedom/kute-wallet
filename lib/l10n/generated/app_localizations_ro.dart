@@ -10796,6 +10796,16 @@ class AppLocalizationsRo extends AppLocalizations {
   }
 
   @override
+  String multiMoveSendWaiting(String amount, String balance) {
+    return 'Cei $amount sunt în $balance. Trimiterea nu a avut loc';
+  }
+
+  @override
+  String multiMoveMoneyStayed(String balance) {
+    return 'Banii au rămas în $balance';
+  }
+
+  @override
   String get usdReceiveFromYourWallet => 'Din portofelul tău';
 
   @override

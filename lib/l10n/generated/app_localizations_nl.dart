@@ -10771,6 +10771,16 @@ class AppLocalizationsNl extends AppLocalizations {
   }
 
   @override
+  String multiMoveSendWaiting(String amount, String balance) {
+    return 'Je $amount staat in $balance. Het versturen is niet gelukt';
+  }
+
+  @override
+  String multiMoveMoneyStayed(String balance) {
+    return 'Het geld is in $balance gebleven';
+  }
+
+  @override
   String get usdReceiveFromYourWallet => 'Vanuit je wallet';
 
   @override

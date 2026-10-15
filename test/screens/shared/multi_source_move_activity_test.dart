@@ -17,8 +17,16 @@ import 'package:kute/l10n/generated/app_localizations.dart';
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/models/swap_order_model.dart';
 import 'package:kute/models/transactions_model.dart';
+import 'package:kute/helpers/venue_intents.dart' show DirectLegGrants;
+import 'package:kute/providers/spark_address_provider.dart';
 import 'package:kute/providers/swap_orders_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/providers/usd_account_provider.dart'
+    show usdBalanceProvider;
+import 'package:kute/screens/shared/pending_bitcoin_purchase_continue.dart';
+import 'package:kute/services/funding/settlement_runner.dart'
+    show SettlementStepUpHook;
+import 'package:kute/services/one_balance/pending_bitcoin_purchase.dart';
 import 'package:kute/screens/portfolio/portfolio_activity.dart';
 import 'package:kute/screens/shared/multi_source_move_activity.dart';
 import 'package:kute/screens/shared/transactions_builder.dart';
@@ -660,9 +668,9 @@ void main() {
       expect(find.text('Needs attention'), findsOneWidget);
       // One section per part, each with its own rows.
       expect(find.text('Investing → Bitcoin'), findsOneWidget);
-      expect(find.text('Predictions → Investments'), findsOneWidget);
-      expect(find.text('Investing → Investments'), findsOneWidget);
-      expect(find.text('Investments → Bitcoin'), findsOneWidget);
+      expect(find.text('Predictions → Dollars'), findsOneWidget);
+      expect(find.text('Investing → Dollars'), findsOneWidget);
+      expect(find.text('Dollars → Bitcoin'), findsOneWidget);
 
       // Landed straight to Bitcoin: what left, what arrived, its order.
       expect(inSection('Investing → Bitcoin', 'Completed'), findsOneWidget);
@@ -680,14 +688,14 @@ void main() {
 
       // On its way home to Dollars.
       expect(
-          inSection('Predictions → Investments', 'Processing'), findsOneWidget);
-      expect(inSection('Predictions → Investments', '\$15.00'), findsOneWidget);
+          inSection('Predictions → Dollars', 'Processing'), findsOneWidget);
+      expect(inSection('Predictions → Dollars', '\$15.00'), findsOneWidget);
       expect(
-          inSection('Predictions → Investments', 'Arriving'), findsOneWidget);
-      expect(inSection('Predictions → Investments', '\$14.85'), findsOneWidget);
+          inSection('Predictions → Dollars', 'Arriving'), findsOneWidget);
+      expect(inSection('Predictions → Dollars', '\$14.85'), findsOneWidget);
 
       // Dollars' own part.
-      expect(inSection('Investments → Bitcoin', '\$10.00'), findsOneWidget);
+      expect(inSection('Dollars → Bitcoin', '\$10.00'), findsOneWidget);
 
       // The Nerd data are the swap order sheet's own rows.
       await tester.ensureVisible(inSection('Investing → Bitcoin', 'Nerd data'));
@@ -707,22 +715,22 @@ void main() {
       final store =
           await openSheet(tester, threeLegs(), orders: [hlLanded(), pmRow()]);
       expect(
-          inSection('Predictions → Investments', 'Arriving'), findsOneWidget);
-      expect(inSection('Predictions → Investments', 'Received'), findsNothing);
-      expect(inSection('Predictions → Investments', 'Fee'), findsNothing);
+          inSection('Predictions → Dollars', 'Arriving'), findsOneWidget);
+      expect(inSection('Predictions → Dollars', 'Received'), findsNothing);
+      expect(inSection('Predictions → Dollars', 'Fee'), findsNothing);
 
       store.set([hlLanded(), pmRow(status: 'success', got: '14.80')]);
       await tester.pump(const Duration(milliseconds: 100));
       await tester.pump(const Duration(milliseconds: 100));
       expect(
-          inSection('Predictions → Investments', 'Completed'), findsOneWidget);
-      expect(inSection('Predictions → Investments', 'Arriving'), findsNothing);
+          inSection('Predictions → Dollars', 'Completed'), findsOneWidget);
+      expect(inSection('Predictions → Dollars', 'Arriving'), findsNothing);
       expect(
-          inSection('Predictions → Investments', 'Received'), findsOneWidget);
-      expect(inSection('Predictions → Investments', '\$14.80'), findsOneWidget);
+          inSection('Predictions → Dollars', 'Received'), findsOneWidget);
+      expect(inSection('Predictions → Dollars', '\$14.80'), findsOneWidget);
       // Both sides in dollars and known: the fee, exactly.
-      expect(inSection('Predictions → Investments', 'Fee'), findsOneWidget);
-      expect(inSection('Predictions → Investments', '\$0.20'), findsOneWidget);
+      expect(inSection('Predictions → Dollars', 'Fee'), findsOneWidget);
+      expect(inSection('Predictions → Dollars', '\$0.20'), findsOneWidget);
     });
 
     testWidgets('a failed leg says so, a refunded one too, with Retry',
@@ -731,7 +739,7 @@ void main() {
           orders: [hlLanded(), pmRow(status: 'refunded')]);
       // The failed $5 stayed on Investing: its Failed status and what was
       // asked of it, nothing arriving and no order.
-      const failed = 'Investing → Investments';
+      const failed = 'Investing → Dollars';
       expect(inSection(failed, 'Failed'), findsOneWidget);
       expect(inSection(failed, '\$5.00'), findsOneWidget);
       expect(inSection(failed, 'Arriving'), findsNothing);
@@ -739,7 +747,7 @@ void main() {
       expect(inSection(failed, 'Nerd data'), findsNothing);
       // The refunded leg reads as the swap order sheet reads it.
       expect(
-          inSection('Predictions → Investments', 'Refunded'), findsOneWidget);
+          inSection('Predictions → Dollars', 'Refunded'), findsOneWidget);
       // What was delivered and what is left, and Retry for the rest.
       expect(find.text('\$44.65 delivered · \$5.35 remaining'), findsOneWidget);
       expect(find.text('Retry'), findsOneWidget);
@@ -749,16 +757,16 @@ void main() {
       // No row yet for the Predictions leg; the Investing leg landed in
       // bitcoin (no dollar fee to state); Dollars' part waits for Retry.
       await openSheet(tester, threeLegs(), orders: [hlLanded()]);
-      expect(inSection('Predictions → Investments', 'Pending'), findsOneWidget);
+      expect(inSection('Predictions → Dollars', 'Pending'), findsOneWidget);
       expect(
-          inSection('Predictions → Investments', 'Arriving'), findsOneWidget);
-      expect(inSection('Predictions → Investments', 'Received'), findsNothing);
-      expect(inSection('Predictions → Investments', 'Nerd data'), findsNothing);
-      expect(inSection('Predictions → Investments', 'Track this exchange'),
+          inSection('Predictions → Dollars', 'Arriving'), findsOneWidget);
+      expect(inSection('Predictions → Dollars', 'Received'), findsNothing);
+      expect(inSection('Predictions → Dollars', 'Nerd data'), findsNothing);
+      expect(inSection('Predictions → Dollars', 'Track this exchange'),
           findsNothing);
       expect(inSection('Investing → Bitcoin', 'Fee'), findsNothing);
-      expect(inSection('Investments → Bitcoin', 'Status'), findsNothing);
-      expect(inSection('Investments → Bitcoin', 'Date'), findsNothing);
+      expect(inSection('Dollars → Bitcoin', 'Status'), findsNothing);
+      expect(inSection('Dollars → Bitcoin', 'Date'), findsNothing);
       for (final dash in ['—', '-', '–', '\$0.00']) {
         expect(find.text(dash), findsNothing, reason: dash);
       }
@@ -908,6 +916,378 @@ void main() {
       expect(events, contains('multi_source_move_retry_tapped'));
       expect(MultiSourceMoveStore.get('msm_1')!.partial, isFalse);
       expect(find.text('Retry'), findsNothing);
+    });
+  });
+
+  // The founder's move of 15 October, made with an older build: $20.23 to
+  // Bitcoin from Investments, one Investing leg home to Dollars ($20.95
+  // sent, $20.69 landed), and the purchase from Dollars never ran (it was
+  // tied to the open sheet), with no pending record. It must never read
+  // Pending forever.
+  group('a move whose own step never went', () {
+    late List<double> bought;
+    late List<SensitiveIntent> prompts;
+    late List<(String, Map<String, Object>?)> events;
+    late BitcoinPurchaseFinisher finisher;
+    late double dollars;
+    Completer<void>? waitGate;
+    late BuildContext lastContext;
+    late WidgetRef lastRef;
+
+    setUp(() {
+      Intl.defaultLocale = 'en_US';
+      OwnSparkArrivals.reset();
+      MultiSourceMoveStore.reset();
+      PendingBitcoinPurchaseStore.reset();
+      bought = [];
+      prompts = [];
+      events = [];
+      dollars = 25.71;
+      waitGate = null;
+      TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+      debugPendingPurchaseApproval = (intent) async {
+        prompts.add(intent);
+        return AuthGrants.issue(intent, method: AuthGrantMethod.biometric);
+      };
+      finisher = BitcoinPurchaseFinisher(
+        readDollars: () => dollars,
+        buy: (double usd, SettlementStepUpHook stepUp,
+            {required String moveId,
+            required void Function() onFunding}) async {
+          bought.add(usd);
+          onFunding();
+        },
+        sleep: (_) =>
+            waitGate?.future ??
+            Future<void>.delayed(const Duration(milliseconds: 10)),
+      );
+    });
+    tearDown(() {
+      Intl.defaultLocale = null;
+      OwnSparkArrivals.reset();
+      TrackingService.debugTrackObserver = null;
+      debugPendingPurchaseApproval = null;
+    });
+
+    SwapOrder hlHome({String status = 'success'}) => _row('ord_hl',
+            from: 'USDC',
+            fromNet: 'HYPERCORE',
+            to: kOrchestraUsdAssetCode,
+            toNet: 'SPARK',
+            operationId: 'op-hl',
+            status: status)
+        .details
+        .copyWith(depositAmount: '20.95', withdrawalAmount: '20.69');
+    SwapOrderTransaction rowOf(SwapOrder o) => SwapOrderTransaction(
+        id: o.id,
+        timestamp: _t0,
+        isConfirmed: o.isComplete,
+        details: o);
+    MultiSourceMove founderMove({
+      String id = 'msm_f',
+      String forAction = VenueCashFor.buyBitcoin,
+      VenueCashDestination destination = VenueCashDestination.bitcoin,
+      DateTime? createdAt,
+      String? finalOp,
+    }) =>
+        MultiSourceMove(
+          id: id,
+          walletId: 'spending',
+          forAction: forAction,
+          destination: destination,
+          totalUsd: 20.23,
+          dollarsUsd: 0,
+          createdAt: createdAt ?? _t0.add(const Duration(seconds: 1)),
+          legs: [
+            MultiSourceMoveLeg(
+              venue: OneBalanceVenue.investing,
+              usd: 20.95,
+              arrivingUsd: 20.69,
+              route: VenueCashRoute.viaDollars,
+              ok: true,
+              at: _t0,
+              operationId: 'op-hl',
+            ),
+          ],
+          finalOperationId: finalOp,
+        );
+
+    Future<void> pump(WidgetTester tester, MultiSourceMoveTransaction tx,
+        {List<SwapOrder> orders = const []}) async {
+      tester.view.physicalSize = const Size(1290, 2796);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+      // A fresh scope each time, so the balance override is read anew.
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpWidget(ProviderScope(
+        overrides: [
+          settingsProvider.overrideWith((ref) => SettingsModel(Settings(
+                currency: 'USD',
+                language: 'en',
+                btcFormat: 'sats',
+                backup: false,
+                balancePrivacy: 0,
+                biometricsEnabled: false,
+                bitcoinElectrumNode: 'localhost',
+                nodeType: 'Blockstream',
+                reviewDone: false,
+                wallets: [WalletConfig(id: 'spending', name: 'Spending')],
+                activeWalletId: 'spending',
+              ))),
+          usdBalanceProvider.overrideWith((_) => dollars),
+          bitcoinPurchaseFinisherProvider.overrideWithValue(finisher),
+          sparkSelfAddressProvider.overrideWith((_) async => 'spark1self'),
+          swapOrdersProvider.overrideWith((_) => FakeSwapOrders(orders)),
+        ],
+        child: ScreenUtilInit(
+          designSize: const Size(430, 932),
+          builder: (_, __) => MaterialApp(
+            theme: buildLightTheme(),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Scaffold(
+              body: Consumer(builder: (context, ref, _) {
+                lastContext = context;
+                lastRef = ref;
+                return buildUnifiedTransactionItem(tx, context, ref);
+              }),
+            ),
+          ),
+        ),
+      ));
+    }
+
+    Future<void> frames(WidgetTester tester) async {
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+    }
+
+    Finder text(String s) => find.textContaining(s, findRichText: true);
+    Finder row() => find
+        .byWidgetPredicate((w) => w.runtimeType.toString() == '_TransactionRow')
+        .first;
+    Future<void> openDetail(
+        WidgetTester tester, MultiSourceMoveTransaction tx) async {
+      await openTransactionDetails(lastContext, lastRef, tx);
+      await frames(tester);
+    }
+
+    testWidgets(
+        'every leg landed, no record, Dollars hold it: Needs attention and '
+        'one tap with a fresh approval buys what landed, capped at the move',
+        (tester) async {
+      final move = founderMove();
+      final tx = MultiSourceMoveTransaction(
+          move: move, legRows: [rowOf(hlHome())]);
+      expect(multiSourceMoveFinalStepMissing(move, tx.legRows, now: _t0),
+          isFalse,
+          reason: 'inside its approval time it may still finish on its own');
+      expect(
+          multiSourceMoveFinalStepMissing(move, tx.legRows,
+              now: _t0.add(const Duration(minutes: 31))),
+          isTrue);
+      expect(multiSourceMoveLandedInDollarsUsd(move, tx.legRows), 20.69);
+      expect(multiSourceMoveMissingStepUsd(move, tx.legRows), 20.23);
+
+      await pump(tester, tx);
+      expect(text('Needs attention'), findsOneWidget);
+      expect(text(r'Your $20.23 is in Investments. Tap to buy Bitcoin'),
+          findsOneWidget);
+      expect(text('Pending'), findsNothing);
+
+      await tester.tap(row());
+      await frames(tester);
+      // ONE prompt, for this purchase alone: the own Spark address, at
+      // most the amount.
+      expect(prompts, hasLength(1));
+      expect(prompts.single.action, SensitiveAction.moveTransfer);
+      expect(prompts.single.destination, 'spark1self');
+      expect(prompts.single.amountMax, BigInt.from(20230000));
+      expect(bought, [20.23]);
+      expect(PendingBitcoinPurchaseStore.get('msm_f'), isNull);
+      final tapped = events.firstWhere(
+          (e) => e.$1 == 'move_purchase_continue_tapped');
+      expect(tapped.$2?['legacy'], true);
+      expect(tapped.$2?['amount_usd'], 20.23);
+      final finished =
+          events.firstWhere((e) => e.$1 == 'move_purchase_finished');
+      expect(finished.$2?['legacy'], true);
+      expect(finished.$2?['outcome'], 'bought');
+    });
+
+    testWidgets(
+        'the detail names Dollars plainly, says Needs attention and offers '
+        'the purchase', (tester) async {
+      final move = founderMove();
+      MultiSourceMoveStore.start(move);
+      final tx = MultiSourceMoveTransaction(
+          move: move, legRows: [rowOf(hlHome())]);
+      await pump(tester, tx, orders: [hlHome()]);
+      await openDetail(tester, tx);
+      expect(find.text('Investing → Dollars'), findsOneWidget);
+      expect(find.text('Investing → Investments'), findsNothing);
+      expect(find.text('Needs attention'), findsOneWidget);
+      expect(find.text('Pending'), findsNothing);
+      expect(find.text(r'Your $20.23 is in Investments. Tap to buy Bitcoin'),
+          findsOneWidget);
+      // The leg's cost reads as the swap sheets' plain Fee, never a Kute
+      // fee.
+      expect(find.textContaining('Kute'), findsNothing);
+      await tester.ensureVisible(find.text('Buy bitcoin'));
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.tap(find.text('Buy bitcoin'));
+      await frames(tester);
+      expect(prompts, hasLength(1));
+      expect(bought, [20.23]);
+    });
+
+    testWidgets('declined: nothing moves and the row keeps offering it',
+        (tester) async {
+      debugPendingPurchaseApproval = (intent) async {
+        prompts.add(intent);
+        return null;
+      };
+      final tx = MultiSourceMoveTransaction(
+          move: founderMove(), legRows: [rowOf(hlHome())]);
+      await pump(tester, tx);
+      await tester.tap(row());
+      await frames(tester);
+      expect(prompts, hasLength(1));
+      expect(bought, isEmpty);
+      expect(text('Needs attention'), findsOneWidget);
+      expect(text(r'Your $20.23 is in Investments'), findsOneWidget);
+    });
+
+    testWidgets(
+        'Dollars spent since: no purchase is offered, the move is over and '
+        'says its money stayed', (tester) async {
+      dollars = 5;
+      final move = founderMove();
+      MultiSourceMoveStore.start(move);
+      final tx = MultiSourceMoveTransaction(
+          move: move, legRows: [rowOf(hlHome())]);
+      await pump(tester, tx, orders: [hlHome()]);
+      expect(text('The money stayed in Investments'), findsOneWidget);
+      expect(text('Needs attention'), findsNothing);
+      expect(text('Tap to buy Bitcoin'), findsNothing);
+      expect(text('Pending'), findsNothing);
+      await tester.tap(row());
+      await frames(tester);
+      expect(prompts, isEmpty);
+      expect(bought, isEmpty);
+      // The tap opened the detail: Completed, no purchase.
+      expect(find.text('Completed'), findsWidgets);
+      expect(find.text('Buy bitcoin'), findsNothing);
+      expect(find.text('Investing → Dollars'), findsOneWidget);
+    });
+
+    testWidgets(
+        'a send whose money came home but whose send never went: Needs '
+        'attention while Dollars hold it, else its money stayed',
+        (tester) async {
+      final send = founderMove(
+          forAction: VenueCashFor.send,
+          destination: VenueCashDestination.dollars);
+      MultiSourceMoveStore.start(send);
+      final tx =
+          MultiSourceMoveTransaction(move: send, legRows: [rowOf(hlHome())]);
+      expect(tx.complete, isTrue, reason: 'every leg settled');
+      await pump(tester, tx, orders: [hlHome()]);
+      expect(text(r'Send $20.23'), findsOneWidget);
+      expect(text('Needs attention'), findsOneWidget);
+      expect(
+          text(r"Your $20.23 is in Investments. The send didn't go through"),
+          findsOneWidget);
+      await tester.tap(row());
+      await frames(tester);
+      // No purchase for a send: the tap opens the detail.
+      expect(prompts, isEmpty);
+      expect(find.text('Investing → Dollars'), findsOneWidget);
+      expect(find.text('Buy bitcoin'), findsNothing);
+      expect(find.text('Needs attention'), findsWidgets);
+
+      dollars = 5;
+      await pump(tester, tx, orders: [hlHome()]);
+      await frames(tester);
+      expect(text('The money stayed in Investments'), findsOneWidget);
+      expect(text('Needs attention'), findsNothing);
+    });
+
+    testWidgets('a normal completed move is unchanged', (tester) async {
+      final purchase = _row('ord_buy',
+              from: kOrchestraUsdAssetCode,
+              fromNet: 'SPARK',
+              to: 'BTC',
+              toNet: 'SPARK',
+              operationId: 'op-buy',
+              status: 'success')
+          .details
+          .copyWith(depositAmount: '20.23', withdrawalAmount: '0.00020000');
+      final move = founderMove(finalOp: 'op-buy');
+      final tx = MultiSourceMoveTransaction(
+          move: move, legRows: [rowOf(hlHome()), rowOf(purchase)]);
+      expect(tx.complete, isTrue);
+      await pump(tester, tx);
+      expect(find.text('Withdraw'), findsOneWidget);
+      expect(text('Needs attention'), findsNothing);
+      expect(text('Pending'), findsNothing);
+      expect(text('Your '), findsNothing);
+      expect(text('stayed'), findsNothing);
+    });
+
+    testWidgets(
+        'a purchase still running with a live record stays Pending, and so '
+        'does a fresh move inside its approval time', (tester) async {
+      // The finisher holds the purchase, waiting for Dollars.
+      dollars = 0;
+      waitGate = Completer<void>();
+      final intent = DirectLegGrants.buyBitcoin(
+        walletId: 'spending',
+        ownSpark: 'spark1self',
+        route: 'spark:USDB>spark:BTC',
+        asset: kOrchestraUsdAssetCode,
+        totalUsd: 20.23,
+        directLegs: null,
+        ttl: AuthGrants.autofireTtl,
+      );
+      unawaited(finisher.start(
+          moveId: 'msm_f',
+          usd: 20.23,
+          grant: AuthGrants.issue(intent, method: AuthGrantMethod.biometric)));
+      expect(finisher.running('msm_f'), isTrue);
+      final tx = MultiSourceMoveTransaction(
+          move: founderMove(), legRows: [rowOf(hlHome())]);
+      await pump(tester, tx);
+      expect(text('Pending'), findsOneWidget);
+      expect(text('Needs attention'), findsNothing);
+      expect(text('Your '), findsNothing);
+      expect(text('stayed'), findsNothing);
+
+      // No record, but the move is minutes old: its own step may still
+      // go (the sheet's own purchase under the same approval).
+      dollars = 25.71;
+      final fresh = MultiSourceMoveTransaction(
+          move: founderMove(id: 'msm_fresh', createdAt: DateTime.now()),
+          legRows: [rowOf(hlHome())]);
+      await pump(tester, fresh);
+      expect(text('Needs attention'), findsNothing);
+      expect(text('Your '), findsNothing);
+    });
+
+    test('a record made from a record-less move is all or nothing', () {
+      PendingBitcoinPurchaseStore.put(PendingBitcoinPurchase(
+          moveId: 'msm_f',
+          usd: 20.23,
+          createdAt: _t0,
+          stage: PendingPurchaseStage.needsApproval,
+          legacy: true));
+      expect(pendingPurchaseWaitingUsd(finisher, 'msm_f', 25.71), 20.23);
+      expect(pendingPurchaseWaitingUsd(finisher, 'msm_f', 19.5), isNull);
+      expect(legacyPurchaseUsd(20.23, 20.23), 20.23);
+      expect(legacyPurchaseUsd(20.23, 20.0), isNull);
+      expect(legacyPurchaseUsd(0.5, 25), isNull);
+      PendingBitcoinPurchaseStore.reload();
     });
   });
 }

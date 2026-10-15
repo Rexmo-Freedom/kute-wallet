@@ -10780,6 +10780,16 @@ class AppLocalizationsLt extends AppLocalizations {
   }
 
   @override
+  String multiMoveSendWaiting(String amount, String balance) {
+    return 'Jūsų $amount yra $balance. Siuntimas neįvyko';
+  }
+
+  @override
+  String multiMoveMoneyStayed(String balance) {
+    return 'Pinigai liko $balance';
+  }
+
+  @override
   String get usdReceiveFromYourWallet => 'Iš jūsų piniginės';
 
   @override

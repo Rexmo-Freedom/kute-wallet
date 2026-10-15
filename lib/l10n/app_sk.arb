@@ -3009,6 +3009,8 @@
   "multiMoveTitle": "Presunúť {amount} do {destination}",
   "multiMoveDeliveredRemaining": "{delivered} doručené · {remaining} zostáva",
   "multiMovePurchaseWaiting": "Vašich {amount} je v {balance}. Ťuknutím kúpite Bitcoin",
+  "multiMoveSendWaiting": "Vašich {amount} je v {balance}. Odoslanie neprebehlo",
+  "multiMoveMoneyStayed": "Peniaze zostali v {balance}",
   "usdReceiveFromYourWallet": "Z tvojej peňaženky",
   "usdReceiveFromAnotherWallet": "Z inej peňaženky alebo burzy",
   "slipStepAddingToInvestments": "Pridávame {amount} do Investments",

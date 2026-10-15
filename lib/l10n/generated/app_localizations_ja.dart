@@ -10316,6 +10316,16 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String multiMoveSendWaiting(String amount, String balance) {
+    return '$amountは$balanceにあります。送金は完了していません';
+  }
+
+  @override
+  String multiMoveMoneyStayed(String balance) {
+    return 'お金は$balanceに残っています';
+  }
+
+  @override
   String get usdReceiveFromYourWallet => 'あなたのウォレットから';
 
   @override

@@ -3009,6 +3009,8 @@
   "multiMoveTitle": "Прехвърли {amount} към {destination}",
   "multiMoveDeliveredRemaining": "{delivered} доставени · {remaining} остават",
   "multiMovePurchaseWaiting": "Вашите {amount} са в {balance}. Докоснете, за да купите Bitcoin",
+  "multiMoveSendWaiting": "Вашите {amount} са в {balance}. Изпращането не беше извършено",
+  "multiMoveMoneyStayed": "Парите останаха в {balance}",
   "usdReceiveFromYourWallet": "От твоя портфейл",
   "usdReceiveFromAnotherWallet": "От друг портфейл или борса",
   "slipStepAddingToInvestments": "Добавяне на {amount} към Investments",

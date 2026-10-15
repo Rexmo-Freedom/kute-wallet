@@ -3009,6 +3009,8 @@
   "multiMoveTitle": "Mută {amount} în {destination}",
   "multiMoveDeliveredRemaining": "{delivered} livrați · {remaining} rămași",
   "multiMovePurchaseWaiting": "Cei {amount} sunt în {balance}. Atinge pentru a cumpăra Bitcoin",
+  "multiMoveSendWaiting": "Cei {amount} sunt în {balance}. Trimiterea nu a avut loc",
+  "multiMoveMoneyStayed": "Banii au rămas în {balance}",
   "usdReceiveFromYourWallet": "Din portofelul tău",
   "usdReceiveFromAnotherWallet": "Din alt portofel sau exchange",
   "slipStepAddingToInvestments": "Se adaugă {amount} în Investments",

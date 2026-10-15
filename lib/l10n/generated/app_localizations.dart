@@ -18163,6 +18163,18 @@ abstract class AppLocalizations {
   /// **'Your {amount} is in {balance}. Tap to buy Bitcoin'**
   String multiMovePurchaseWaiting(String amount, String balance);
 
+  /// Activity row and detail of a send that took money from more than one place whose money came home to the spending dollar balance but whose send never went: the money is in that balance. {amount} is a formatted dollar amount, {balance} the dollar balance's display name.
+  ///
+  /// In en, this message translates to:
+  /// **'Your {amount} is in {balance}. The send didn\'t go through'**
+  String multiMoveSendWaiting(String amount, String balance);
+
+  /// Activity row and detail of a move whose money came home to the spending dollar balance, whose last step (buying Bitcoin or the send) never went, and whose money has since been spent: the move is over and its money stayed in that balance. {balance} is the dollar balance's display name.
+  ///
+  /// In en, this message translates to:
+  /// **'The money stayed in {balance}'**
+  String multiMoveMoneyStayed(String balance);
+
   /// Section label on the first step of the Investments (dollars) receive sheet, above the card that moves money in from the person's own spending bitcoin.
   ///
   /// In en, this message translates to:

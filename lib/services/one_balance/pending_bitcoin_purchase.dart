@@ -64,6 +64,7 @@ class PendingBitcoinPurchase {
     required this.createdAt,
     this.walletId,
     this.stage = PendingPurchaseStage.waiting,
+    this.legacy = false,
   });
 
   /// The Buy's move (`MultiSourceMove.id`): the purchase is its last step.
@@ -75,6 +76,11 @@ class PendingBitcoinPurchase {
   final DateTime createdAt;
   final PendingPurchaseStage stage;
 
+  /// Made from a move that had no record (an older build tied the
+  /// purchase to the open sheet): it is offered only while Dollars hold
+  /// all of it.
+  final bool legacy;
+
   PendingBitcoinPurchase copyWith({PendingPurchaseStage? stage, double? usd}) =>
       PendingBitcoinPurchase(
         moveId: moveId,
@@ -82,6 +88,7 @@ class PendingBitcoinPurchase {
         usd: usd ?? this.usd,
         createdAt: createdAt,
         stage: stage ?? this.stage,
+        legacy: legacy,
       );
 
   Map<String, dynamic> toJson() => {
@@ -90,6 +97,7 @@ class PendingBitcoinPurchase {
         'usd': usd,
         'createdAt': createdAt.millisecondsSinceEpoch,
         'stage': stage.name,
+        if (legacy) 'legacy': true,
       };
 
   static PendingBitcoinPurchase? fromJson(Object? raw) {
@@ -107,6 +115,7 @@ class PendingBitcoinPurchase {
               .where((s) => s.name == raw['stage'])
               .firstOrNull ??
           PendingPurchaseStage.needsApproval,
+      legacy: raw['legacy'] == true,
     );
   }
 }
@@ -263,7 +272,8 @@ class BitcoinPurchaseFinisher {
 
   /// Buys [usd] of bitcoin from Dollars as the last step of move [moveId],
   /// under [grant] (the Buy's one approval, or the fresh one a tap on the
-  /// Activity row asked: [resumed]). Waits for Dollars to hold [usd] while
+  /// Activity row asked: [resumed]; [legacy] when that move had no record
+  /// of its own). Waits for Dollars to hold [usd] while
   /// the approval lives, then buys. The record is written first, so a
   /// restart finds it. A second call for a purchase already running joins
   /// it (its [grant] is revoked).
@@ -273,6 +283,7 @@ class BitcoinPurchaseFinisher {
     required AuthGrant grant,
     String? walletId,
     bool resumed = false,
+    bool legacy = false,
   }) {
     final already = _running[moveId];
     if (already != null) {
@@ -280,13 +291,15 @@ class BitcoinPurchaseFinisher {
       return already;
     }
     final existing = PendingBitcoinPurchaseStore.get(moveId);
+    final isLegacy = legacy || (existing?.legacy ?? false);
     PendingBitcoinPurchaseStore.put(PendingBitcoinPurchase(
       moveId: moveId,
       walletId: walletId ?? existing?.walletId,
       usd: usd,
       createdAt: existing?.createdAt ?? _clock(),
+      legacy: isLegacy,
     ));
-    final run = _run(moveId, usd, grant, resumed: resumed);
+    final run = _run(moveId, usd, grant, resumed: resumed, legacy: isLegacy);
     _running[moveId] = run;
     PendingBitcoinPurchaseStore.revision.value++;
     return run.whenComplete(() {
@@ -299,7 +312,7 @@ class BitcoinPurchaseFinisher {
       !grant.revoked && !grant.consumed && !grant.isExpiredAt(_clock());
 
   Future<PendingPurchaseEnd> _run(String moveId, double usd, AuthGrant grant,
-      {required bool resumed}) async {
+      {required bool resumed, required bool legacy}) async {
     final started = _clock();
     var funded = false;
     void track(String outcome, {String? reason}) =>
@@ -309,6 +322,7 @@ class BitcoinPurchaseFinisher {
           'amount_usd': (usd * 100).round() / 100,
           'waited_ms': _clock().difference(started).inMilliseconds,
           'resumed': resumed,
+          if (legacy) 'legacy': true,
         });
     PendingPurchaseEnd waitOnPerson(String reason) {
       PendingBitcoinPurchaseStore.stage(

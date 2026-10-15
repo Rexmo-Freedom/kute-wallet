@@ -3009,6 +3009,8 @@
   "multiMoveTitle": "Transférer {amount} vers {destination}",
   "multiMoveDeliveredRemaining": "{delivered} livrés · {remaining} restants",
   "multiMovePurchaseWaiting": "Vos {amount} sont dans {balance}. Touchez pour acheter du Bitcoin",
+  "multiMoveSendWaiting": "Vos {amount} sont dans {balance}. L’envoi n’a pas abouti",
+  "multiMoveMoneyStayed": "L’argent est resté dans {balance}",
   "usdReceiveFromYourWallet": "Depuis votre portefeuille",
   "usdReceiveFromAnotherWallet": "Depuis un autre portefeuille ou une plateforme",
   "slipStepAddingToInvestments": "Ajout de {amount} à Investments",

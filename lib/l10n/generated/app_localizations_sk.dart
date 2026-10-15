@@ -10742,6 +10742,16 @@ class AppLocalizationsSk extends AppLocalizations {
   }
 
   @override
+  String multiMoveSendWaiting(String amount, String balance) {
+    return 'Vašich $amount je v $balance. Odoslanie neprebehlo';
+  }
+
+  @override
+  String multiMoveMoneyStayed(String balance) {
+    return 'Peniaze zostali v $balance';
+  }
+
+  @override
   String get usdReceiveFromYourWallet => 'Z tvojej peňaženky';
 
   @override
