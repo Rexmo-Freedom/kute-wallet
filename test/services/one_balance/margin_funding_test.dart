@@ -430,6 +430,45 @@ void main() {
           BitcoinLegRules.addUsd(fundUsd: fund, investmentsUsd: 2));
     });
 
+    test(
+        'Dollars short, bitcoin and Predictions cash: Bitcoin brings what '
+        'Dollars lack, the slow Predictions leg is not used', () async {
+      debugFreshSpendingBitcoin =
+          () async => (sats: 100000000, usdPerBtc: _usdPerBtc);
+      final predictions = _Predictions(20);
+      final c = container(
+          dollars: () => 2, sources: [predictions], account: _Account());
+      final d = await decideMarginFunding(c.read,
+          amountUsd: 30, readyUsd: 20, dollarsUsd: 2);
+      final fund = (await sizeMarginFunding(funder, shortfallUsd: 10)).fundUsd;
+      final plan = (d as MarginFundingPlanned).plan;
+      expect(plan.bitcoin!.targetUsd,
+          BitcoinLegRules.addUsd(fundUsd: fund, investmentsUsd: 2));
+      expect(plan.needsOtherVenue, isFalse);
+      expect(plan.predictionsUsd, 0);
+      expect(plan.directLegs, isNull);
+      expect(plan.sources, ['investing', 'dollars', 'bitcoin']);
+    });
+
+    test('a little bitcoin: all of it goes, Predictions only for the rest',
+        () async {
+      // About $3 of bitcoin for a move of about $11.50 with $2 of Dollars.
+      debugFreshSpendingBitcoin = () async =>
+          (sats: (3 / _usdPerBtc * 1e8).round(), usdPerBtc: _usdPerBtc);
+      final c = container(
+          dollars: () => 2, sources: [_Predictions(20)], account: _Account());
+      final d = await decideMarginFunding(c.read,
+          amountUsd: 30, readyUsd: 20, dollarsUsd: 2);
+      final fund = (await sizeMarginFunding(funder, shortfallUsd: 10)).fundUsd;
+      final plan = (d as MarginFundingPlanned).plan;
+      final btc = plan.bitcoin!.targetUsd;
+      expect(btc, inInclusiveRange(2.5, 3.0));
+      expect(plan.needsOtherVenue, isTrue);
+      // Only the rest: never more than Dollars and Bitcoin leave short.
+      expect(plan.predictionsUsd, closeTo(fund - 2 - btc, 0.011));
+      expect(plan.sources, ['investing', 'dollars', 'predictions', 'bitcoin']);
+    });
+
     test(r'an "Add $X" tap whose X grew moves nothing', () async {
       final c = container(dollars: () => 2, sources: [], account: _Account());
       final d = await decideMarginFunding(c.read,
@@ -439,13 +478,15 @@ void main() {
   });
 
   test(
-      'a shortfall Predictions covers moves straight into Investing under '
-      'the one approval, no bitcoin, then signs the change once', () async {
+      'no bitcoin: a shortfall Predictions covers moves straight into '
+      'Investing under the one approval, then signs the change once', () async {
     var dollars = 2.0;
     final predictions = _Predictions(20);
     final account = _Account(cashUsd: 30);
     final bitcoin = _Bitcoin();
-    debugFreshSpendingBitcoin = () async => fail('bitcoin was read');
+    // No bitcoin to take first (founder, 15 October 2026: the other venue
+    // only when there is no other balance).
+    debugFreshSpendingBitcoin = () async => (sats: 0, usdPerBtc: _usdPerBtc);
     final c = container(
         dollars: () => dollars,
         sources: [predictions],

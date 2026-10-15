@@ -490,7 +490,8 @@ class OrderFundingController {
           readyUsd: readyUsd,
           dollarsUsd: dollars,
           entrySource: entrySource,
-          marketKind: marketKind);
+          marketKind: marketKind,
+          otherVenueUsed: false);
     }
 
     // Quote: the amount to move, from the venue's estimate unless the slip
@@ -610,6 +611,94 @@ final orderFundingControllerProvider = Provider<OrderFundingController>(
   ),
 );
 
+/// Which balances a funded order's move draws on, and how much from
+/// each ([planOrderSources]).
+@immutable
+class OrderSourceSplit {
+  const OrderSourceSplit({
+    required this.dollarsUsd,
+    required this.bitcoinUsd,
+    required this.otherVenueUsd,
+    required this.covers,
+  });
+
+  /// What Dollars give (all they hold, up to the move).
+  final double dollarsUsd;
+
+  /// What a Bitcoin leg lands (its target; 0 for no leg).
+  final double bitcoinUsd;
+
+  /// What the other venue's cash gives: only what Dollars and Bitcoin
+  /// cannot.
+  final double otherVenueUsd;
+
+  /// Dollars, Bitcoin and the other venue together cover the move.
+  final bool covers;
+
+  bool get otherVenueUsed => otherVenueUsd > 0;
+
+  @override
+  String toString() => 'OrderSourceSplit(dollars: $dollarsUsd, bitcoin: '
+      '$bitcoinUsd, other: $otherVenueUsd, covers: $covers)';
+}
+
+/// The order of sources for a funded order's move (founder decision, 15
+/// October 2026: "We should always prioritize bitcoin balances and usdb
+/// balance to fund whatever. Only move from polymarket and hyperliquid and
+/// between them when there really isn't any balance left ... because those
+/// swaps are slower"). Pure.
+///
+///  1. The venue's own cash is already counted: [fundUsd] is only what it
+///     lacks.
+///  2. Dollars give all they hold, then Bitcoin the rest ([bitcoinMaxUsd]:
+///     the most a Bitcoin leg can land, after the route's spread). A rest
+///     under the Bitcoin route's minimum is raised to it (Bitcoin gives a
+///     little more) rather than adding a slow venue leg.
+///  3. Only what Dollars and Bitcoin together cannot cover comes from the
+///     other venue's cash ([otherVenueUsd]), and only that remainder. A
+///     Bitcoin share under its minimum is not taken at all.
+///
+/// Never the other venue to save a Bitcoin conversion or a fee: speed
+/// wins (venue to venue rides CCTP or HyperCore and takes minutes).
+OrderSourceSplit planOrderSources({
+  required double fundUsd,
+  required double dollarsUsd,
+  required double bitcoinMaxUsd,
+  required double otherVenueUsd,
+  double bitcoinMinimumUsd = 1.0,
+}) {
+  double clean(double v) => v.isFinite && v > 0 ? v : 0;
+  double floorCents(double v) => ((v * 100) + 1e-9).floorToDouble() / 100;
+  final fund = clean(fundUsd);
+  final held = clean(dollarsUsd);
+  final dollars = math.min(held, fund);
+  final short = OrderFundingPlan._ceilCents(fund - dollars);
+  if (short <= 0) {
+    return OrderSourceSplit(
+        dollarsUsd: dollars, bitcoinUsd: 0, otherVenueUsd: 0, covers: true);
+  }
+  final minimum = clean(bitcoinMinimumUsd);
+  final target = OrderFundingPlan._ceilCents(math.max(short, minimum));
+  final bitcoinMax = clean(bitcoinMaxUsd);
+  if (bitcoinMax + 1e-9 >= target) {
+    return OrderSourceSplit(
+        dollarsUsd: dollars,
+        bitcoinUsd: target,
+        otherVenueUsd: 0,
+        covers: true);
+  }
+  final bitcoin = bitcoinMax + 1e-9 >= minimum && bitcoinMax > 0
+      ? floorCents(bitcoinMax)
+      : 0.0;
+  final other = OrderFundingPlan._ceilCents(short - bitcoin);
+  return OrderSourceSplit(
+    dollarsUsd: dollars,
+    bitcoinUsd: bitcoin,
+    otherVenueUsd: other,
+    covers: other <= clean(otherVenueUsd) + 1e-9,
+  );
+}
+
 // ── Journey ────────────────────────────────────────────────────────
 
 class _FundingRun {
@@ -643,6 +732,10 @@ class _FundingRun {
   /// `via_dollars`, and the fixed reason the chain was taken.
   String? route;
   String? routeReason;
+
+  /// Whether the other venue's cash funds part of the order (it is only
+  /// the last source: [planOrderSources]); null when not known.
+  bool? otherVenueUsed;
 
   /// Each leg's milliseconds from its start to its money landing, by
   /// source (`ms_leg_bitcoin`, `ms_leg_dollars`, ...).
@@ -679,13 +772,15 @@ class OrderFundingJourney {
     String? entrySource,
     String? fundingSource,
     String? marketKind,
+    bool? otherVenueUsed,
     Map<String, Object> extra = const {},
   }) {
     if (_runs.containsKey(venue)) abandoned(venue);
     _runs[venue] =
         _FundingRun(startedAt: clock(), orderUsd: orderUsd, fundUsd: fundUsd)
           ..fundingSource = fundingSource
-          ..marketKind = marketKind;
+          ..marketKind = marketKind
+          ..otherVenueUsed = otherVenueUsed;
     TrackingService.track('order_funding_started', params: {
       'venue': orderFundingVenueCode(venue),
       'order_usd': orderUsd,
@@ -696,6 +791,7 @@ class OrderFundingJourney {
       'wallet_kind': 'hot',
       if (fundingSource != null) 'funding_source': fundingSource,
       if (marketKind != null) 'market_kind': marketKind,
+      if (otherVenueUsed != null) 'other_venue_used': otherVenueUsed,
       ...extra,
     });
   }
@@ -746,6 +842,8 @@ class OrderFundingJourney {
   static Map<String, Object> _legParams(_FundingRun run) => {
         if (run.route != null) 'route': run.route!,
         if (run.routeReason != null) 'route_reason': run.routeReason!,
+        if (run.otherVenueUsed != null)
+          'other_venue_used': run.otherVenueUsed!,
         ...run.legMs,
       };
 

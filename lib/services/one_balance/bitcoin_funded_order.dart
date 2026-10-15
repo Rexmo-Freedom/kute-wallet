@@ -110,6 +110,8 @@ import 'package:kute/services/one_balance/venue_cash_source.dart'
         VenueCashPuller;
 import 'package:kute/services/one_balance/venue_funder.dart'
     show VenueCashDestination, VenueMoveResult;
+import 'package:kute/services/orchestra/arrival_target.dart'
+    show kArrivalTargetBuffer;
 import 'package:kute/services/orchestra_routes.dart'
     show kOrchestraUsdAssetCode, kOrchestraUsdChain;
 import 'package:kute/helpers/orchestra_router.dart'
@@ -495,9 +497,14 @@ class BitcoinFundedOrderRequest {
     required this.dropOrder,
     this.entrySource,
     this.awaitPlacement,
+    this.otherVenueUsed = false,
   });
 
   final OneBalanceVenue venue;
+
+  /// Whether the other venue's cash brings part of the move (only what
+  /// Dollars and the Bitcoin leg cannot: [decideOrderSources]).
+  final bool otherVenueUsed;
 
   /// The order's one approval (its autofire grant), binding the order,
   /// the funding move and the Bitcoin leg.
@@ -1096,6 +1103,185 @@ Future<SlipFundingDecision> decideSlipFunding(
       : SlipFundingDecision.insufficient(addUsd);
 }
 
+// ── The order of sources ────────────────────────────────────────────────
+
+/// Where a funded order's move comes from once Dollars fall short
+/// ([decideOrderSources]).
+enum OrderSourceRoute {
+  /// Dollars cover the move.
+  dollars,
+
+  /// Dollars and a Bitcoin leg, and the other venue's cash only for what
+  /// they cannot cover ([OrderSources.otherVenueUsd]).
+  bitcoin,
+
+  /// No Bitcoin leg can help (none, under the route's minimum, or no
+  /// price): Dollars and the other venue's cash cover it.
+  otherVenue,
+
+  /// Investments and Bitcoin together are short: money from outside
+  /// ([OrderSources.missingUsd], what Investments lack).
+  insufficient,
+
+  /// No bitcoin price could be read and the rest of Investments is short:
+  /// nothing moves.
+  unavailable,
+
+  /// The "Add $X" tap's X no longer covers what Investments lack.
+  addChanged,
+}
+
+/// [decideOrderSources]' answer.
+@immutable
+class OrderSources {
+  const OrderSources(
+    this.route, {
+    this.bitcoinUsd = 0,
+    this.otherVenueUsd = 0,
+    this.missingUsd = 0,
+    this.plan,
+  });
+
+  final OrderSourceRoute route;
+
+  /// What the Bitcoin leg lands ([OrderSourceRoute.bitcoin]): the X the
+  /// chain converts.
+  final double bitcoinUsd;
+
+  /// What the other venue's cash gives (0: not used).
+  final double otherVenueUsd;
+
+  /// What Investments lack as a whole (insufficient, addChanged).
+  final double missingUsd;
+
+  /// The sized Bitcoin leg ([OrderSourceRoute.bitcoin]).
+  final BitcoinLegPlan? plan;
+
+  bool get otherVenueUsed => otherVenueUsd > 0;
+
+  @override
+  String toString() => 'OrderSources(${route.name}, bitcoin: $bitcoinUsd, '
+      'other: $otherVenueUsd, missing: $missingUsd)';
+}
+
+/// The most a Bitcoin leg from [wallet] lands, in dollars: its sats at the
+/// price less the route's assumed spread and the arrival buffer, to the
+/// cent below. Zero without bitcoin or a usable price.
+double bitcoinMaxLandingUsd(SpendingBitcoin wallet) {
+  if (wallet.sats <= 0 || !isUsableUsdPerBtc(wallet.usdPerBtc)) return 0;
+  final usd = wallet.sats /
+      1e8 *
+      wallet.usdPerBtc *
+      (1 - BitcoinLegRules.fallbackSpread) /
+      kArrivalTargetBuffer;
+  return usd.isFinite && usd > 0 ? (usd * 100).floorToDouble() / 100 : 0;
+}
+
+/// Every funded order's sources once Dollars ([dollarsUsd]) fall short of
+/// the move ([fundUsd]), in the founder's order ([planOrderSources]):
+/// Dollars, then Bitcoin, and the other venue's cash ([otherVenueUsd])
+/// only for what those two cannot cover. The Bitcoin leg is sized on the
+/// wallet's own figures (read fresh when the app's do not cover it). An
+/// "Add $X" tap passes the X it showed ([shownAddUsd]: what Investments
+/// lacked) and the leg it sized for it ([sized]), reused when the leg is
+/// the same. [investmentsCover]: the slip's own word on whether Dollars
+/// and the other venue's cash cover the move (its funding engine's
+/// buffer), else read off the figures. Never throws, never moves
+/// anything.
+Future<OrderSources> decideOrderSources(
+  T Function<T>(ProviderListenable<T> provider) read, {
+  required double fundUsd,
+  required double dollarsUsd,
+  required double otherVenueUsd,
+  double? shownAddUsd,
+  BitcoinLegPlan? sized,
+  bool? investmentsCover,
+}) async {
+  double clean(double v) => v.isFinite && v > 0 ? v : 0;
+  final fund = clean(fundUsd);
+  final dollars = clean(dollarsUsd);
+  final other = clean(otherVenueUsd);
+  if (dollars + 1e-9 >= fund) {
+    return const OrderSources(OrderSourceRoute.dollars);
+  }
+  // What Investments lack as a whole: the X an "Add" tap showed.
+  final missing =
+      BitcoinLegRules.addUsd(fundUsd: fund, investmentsUsd: dollars + other);
+  if (shownAddUsd != null &&
+      shownAddUsd > 0 &&
+      missing > shownAddUsd + 0.005) {
+    return OrderSources(OrderSourceRoute.addChanged, missingUsd: missing);
+  }
+  final otherCovers = investmentsCover ?? missing <= 0;
+
+  Future<SlipFundingDecision> size(double x) async {
+    final leg = sized;
+    if (leg != null &&
+        (leg.targetUsd - BitcoinLegRules.targetUsd(x)).abs() < 0.005) {
+      return SlipFundingDecision.bitcoin(leg, x);
+    }
+    return decideSlipFunding(read, addUsd: x);
+  }
+
+  // Bitcoin for all Dollars lack (a rest under its minimum raised to it).
+  final all = BitcoinLegRules.addUsd(fundUsd: fund, investmentsUsd: dollars);
+  final first = await size(all);
+  switch (first.route) {
+    case SlipFundingRoute.bitcoin:
+      return OrderSources(OrderSourceRoute.bitcoin,
+          bitcoinUsd: all, plan: first.plan);
+    case SlipFundingRoute.unavailable:
+      return otherCovers
+          ? OrderSources(OrderSourceRoute.otherVenue,
+              otherVenueUsd: _ceilSourceCents(fund - dollars))
+          : OrderSources(OrderSourceRoute.unavailable, missingUsd: missing);
+    case SlipFundingRoute.insufficient:
+      break;
+  }
+  // Bitcoin short of it: as much as it lands, the other venue the rest,
+  // on the wallet's own figures.
+  var wallet = cachedSpendingBitcoin(read);
+  final fresh = await freshSpendingBitcoin(read);
+  if (fresh != null && fresh.sats >= wallet.sats) wallet = fresh;
+  var max = bitcoinMaxLandingUsd(wallet);
+  if (max > 0) {
+    // The route's own price for all of it, when it answers (its real
+    // spread, usually well under the assumed one).
+    final out = await _bitcoinLegEstimate(wallet.sats);
+    if (out != null && out.isFinite && out > 0) {
+      max = ((out / kArrivalTargetBuffer) * 100 - 1e-9).floorToDouble() / 100;
+    }
+  }
+  for (var i = 0; i < 2; i++) {
+    final split = planOrderSources(
+      fundUsd: fund,
+      dollarsUsd: dollars,
+      bitcoinMaxUsd: max,
+      otherVenueUsd: other,
+      bitcoinMinimumUsd: BitcoinLegRules.routeMinimumUsd,
+    );
+    if (!split.covers || split.bitcoinUsd <= 0) break;
+    final leg = await size(split.bitcoinUsd);
+    if (leg.route == SlipFundingRoute.bitcoin) {
+      return OrderSources(OrderSourceRoute.bitcoin,
+          bitcoinUsd: split.bitcoinUsd,
+          otherVenueUsd: split.otherVenueUsd,
+          plan: leg.plan);
+    }
+    if (leg.route == SlipFundingRoute.unavailable) break;
+    // The route's own spread is wider than assumed: a little less.
+    max = (split.bitcoinUsd * 0.95 * 100).floorToDouble() / 100;
+  }
+  if (otherCovers) {
+    return OrderSources(OrderSourceRoute.otherVenue,
+        otherVenueUsd: _ceilSourceCents(fund - dollars));
+  }
+  return OrderSources(OrderSourceRoute.insufficient, missingUsd: missing);
+}
+
+double _ceilSourceCents(double usd) =>
+    ((usd * 100) - 1e-9).ceilToDouble() / 100;
+
 /// The wallet's own Spark address for a Bitcoin leg, waited on while the
 /// SDK connects (a cold start takes seconds): null only when it cannot be
 /// read within [timeout]. A slip holds the provider from when its "Add"
@@ -1494,6 +1680,7 @@ class _FundedChain {
       dollarsUsd: baseline,
       entrySource: r.entrySource,
       fundingSource: 'bitcoin',
+      otherVenueUsed: r.otherVenueUsed,
       extra: {
         'add_usd': r.plan.targetUsd,
         'add_sats': r.plan.sats,

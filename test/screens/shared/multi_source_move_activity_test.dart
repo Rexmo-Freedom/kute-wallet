@@ -346,6 +346,46 @@ void main() {
       expect(multiSourceMoveOnwardOwed(allDirect), isFalse);
     });
 
+    test(
+        'a bet\'s move into Predictions: never Completed while Dollars → '
+        'Predictions waits; Needs attention once it stopped', () {
+      // The bet slip on the same runner: Investing → Dollars landed (by
+      // CCTP), "Dollars → Predictions" is still owed.
+      final move = _move(
+        forAction: VenueCashFor.predictions,
+        destination: VenueCashDestination.predictions,
+        legs: [_leg(OneBalanceVenue.investing, op: 'op-hl', direct: false)],
+      );
+      final home = _row('ord_hl',
+          from: 'USDC',
+          fromNet: 'ARBITRUM',
+          to: 'USDB',
+          toNet: 'SPARK',
+          operationId: 'op-hl',
+          status: 'success');
+      expect(multiSourceMoveOnwardOwed(move), isTrue);
+      final waiting = MultiSourceMoveTransaction(move: move, legRows: [home]);
+      expect(waiting.complete, isFalse);
+      expect(waiting.stepFailed, isFalse);
+      final stopped = move.copyWith(
+          steps: MoveSteps.finalStopped(MoveSteps.of(move), 'timeout'));
+      final tx = MultiSourceMoveTransaction(move: stopped, legRows: [home]);
+      expect(tx.complete, isFalse);
+      expect(tx.stepFailed, isTrue);
+      final onward = _row('ord_on',
+          from: 'USDB',
+          fromNet: 'SPARK',
+          to: 'USDC.e',
+          toNet: 'POLYGON',
+          operationId: 'op-on',
+          status: 'success');
+      expect(
+          MultiSourceMoveTransaction(
+              move: move.copyWith(finalOperationId: 'op-on'),
+              legRows: [home, onward]).complete,
+          isTrue);
+    });
+
     test('a surface that does not list a leg still reads it', () {
       // The Dollars activity never lists a USDC → BTC leg; the move's row
       // settles on it all the same.

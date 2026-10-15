@@ -2263,14 +2263,16 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       if (_positionEffectName != null) 'position_effect': _positionEffectName!,
       if (_bitcoinArmed) 'funding_source': 'bitcoin',
     });
-    // The funding engine: Dollars first, then the other venue's cash
-    // (pulled home inside this same Confirm, after the one approval).
-    // Only when even that falls short is the button the "Add" door.
+    // The funding engine: Dollars first, then Bitcoin, and the other
+    // venue's cash only for what those cannot cover (founder decision, 15
+    // October 2026: venue to venue is the slow way; [decideOrderSources]).
+    // Only when even that falls short is it the Receive sheet.
     var pullFirst = false;
-    // Dollars plus the other venue's reachable cash: the whole Investments
-    // balance this move can draw on.
-    var reach = dollars;
+    OrderSources? sources;
     if (dollars + 1e-9 < fundUsd) {
+      // Dollars plus the other venue's reachable cash: the whole
+      // Investments balance this move can draw on.
+      var reach = dollars;
       try {
         reach = await ref
             .read(venueCashPullerProvider)
@@ -2278,20 +2280,30 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
             .timeout(const Duration(seconds: 8));
       } catch (_) {}
       if (!mounted) return;
-      pullFirst = OrderFundingEngine.decide(
-            needUsd: fundUsd,
-            haveHereUsd: dollars,
-            investmentsUsd: reach - dollars,
-          ).route ==
-          OrderFundingRoute.move;
+      final fromAdd = _bitcoinArmed;
+      sources = await decideOrderSources(
+        ProviderScope.containerOf(context, listen: false).read,
+        fundUsd: fundUsd,
+        dollarsUsd: dollars,
+        otherVenueUsd: reach - dollars,
+        shownAddUsd: fromAdd ? _bitcoinTapAddUsd : null,
+        sized: fromAdd ? _bitcoinTapPlan : null,
+        investmentsCover: OrderFundingEngine.decide(
+              needUsd: fundUsd,
+              haveHereUsd: dollars,
+              investmentsUsd: reach - dollars,
+            ).route ==
+            OrderFundingRoute.move,
+      );
+      if (!mounted) return;
+      pullFirst = sources.route == OrderSourceRoute.otherVenue;
     }
-    if (dollars + 1e-9 < fundUsd && !pullFirst) {
-      // The whole Investments balance is short of the move, whichever
-      // button was tapped ("Add $X", or the order whose figures moved
-      // since the ticket drew it): the person's own bitcoin funds it,
-      // under this order's one approval, whenever it covers X. Only when
-      // it genuinely does not is it the Investments Receive sheet. The bet
-      // slip makes the same decision.
+    if (sources != null && !pullFirst) {
+      // Dollars short, whichever button was tapped ("Add $X", or the
+      // order): the person's own bitcoin funds the rest under this
+      // order's one approval, the other venue only what Bitcoin cannot.
+      // Only when nothing covers it is it the Investments Receive sheet.
+      // The bet slip makes the same decision.
       await _confirmFundedFromBitcoin(
         walletId: walletId,
         cloid: cloid,
@@ -2306,7 +2318,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         marginUsd: marginUsd,
         lev: lev,
         dollars: dollars,
-        investmentsUsd: reach,
+        sources: sources,
       );
       return;
     }
@@ -2689,7 +2701,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     required double marginUsd,
     required int lev,
     required double dollars,
-    required double investmentsUsd,
+    required OrderSources sources,
   }) async {
     final container = ProviderScope.containerOf(context, listen: false);
     final planFundUsd = plan.fundUsd;
@@ -2706,23 +2718,15 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       });
       return;
     }
-    // X: what the WHOLE Investments balance lacks for the move, rounded as
-    // the button rounds it. An "Add" tap converts exactly the X the button
-    // showed; if the order now needs more than that, nothing moves and the
-    // button names the new figure.
-    var addUsd = BitcoinLegRules.addUsd(
-        fundUsd: planFundUsd, investmentsUsd: investmentsUsd);
-    final shown = fromAdd ? _bitcoinTapAddUsd : null;
-    if (shown != null && shown > 0) {
-      if (addUsd > shown + 0.005) {
-        _trackBlocked('add_amount_changed');
-        _updateDraft(() {
-          _fundingStage = null;
-          _fundPlan = plan;
-        });
-        return;
-      }
-      addUsd = shown;
+    // An "Add" tap whose X no longer covers what Investments lack: nothing
+    // moves and the button names the new figure.
+    if (sources.route == OrderSourceRoute.addChanged) {
+      _trackBlocked('add_amount_changed');
+      _updateDraft(() {
+        _fundingStage = null;
+        _fundPlan = plan;
+      });
+      return;
     }
     final puller = ref.read(venueCashPullerProvider);
 
@@ -2756,29 +2760,23 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       });
     }
 
-    if (addUsd <= 0) {
-      await toReceive(_dollarsShortUsd(planFundUsd, haveUsd: dollars));
-      return;
-    }
-    // The "Add" tap already sized the leg for this X: no second read.
-    final tapPlan = fromAdd ? _bitcoinTapPlan : null;
-    final decision = tapPlan != null &&
-            (tapPlan.targetUsd - BitcoinLegRules.targetUsd(addUsd)).abs() <
-                0.005
-        ? SlipFundingDecision.bitcoin(tapPlan, addUsd)
-        : await decideSlipFunding(container.read, addUsd: addUsd);
-    if (!mounted) return;
-    switch (decision.route) {
-      case SlipFundingRoute.insufficient:
-        await toReceive(addUsd);
+    switch (sources.route) {
+      case OrderSourceRoute.insufficient:
+        await toReceive(sources.missingUsd > 0
+            ? sources.missingUsd
+            : _dollarsShortUsd(planFundUsd, haveUsd: dollars));
         return;
-      case SlipFundingRoute.unavailable:
+      case OrderSourceRoute.unavailable:
         unavailable('bitcoin_price_unread');
         return;
-      case SlipFundingRoute.bitcoin:
+      case OrderSourceRoute.bitcoin:
         break;
+      case OrderSourceRoute.dollars:
+      case OrderSourceRoute.otherVenue:
+      case OrderSourceRoute.addChanged:
+        return;
     }
-    final leg = decision.plan!;
+    final leg = sources.plan!;
     // Held from when "Add" showed: normally ready. A cold SDK is waited
     // on (the button stays busy), never taken for a lack of bitcoin.
     final ownSpark = await ownSparkForBitcoinLeg(container.read);
@@ -2908,6 +2906,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         });
         return BitcoinFundedOrderRequest(
           venue: OneBalanceVenue.investing,
+          otherVenueUsed: rest.otherUsd > 0,
           grant: grant,
           plan: leg,
           label: FundedOrderLabel(

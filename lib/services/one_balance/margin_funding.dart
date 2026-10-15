@@ -249,14 +249,15 @@ double _dollarsShortUsd(double fundUsd, double haveUsd) {
 }
 
 /// The order slip's funding decision, for adding [amountUsd] of margin
-/// with [readyUsd] of Investing cash and [dollarsUsd] in Dollars: Dollars
-/// when they cover the move; else the other venue's cash when Dollars and
-/// it cover the move; else the spending bitcoin for X ([decideSlipFunding],
-/// the rest from the other venue); else the Investments Receive sheet.
+/// with [readyUsd] of Investing cash and [dollarsUsd] in Dollars, in the
+/// founder's order ([decideOrderSources]): Dollars when they cover the
+/// move; else the spending bitcoin for what Dollars lack, and the other
+/// venue's cash only for what Bitcoin cannot bring; else the other venue's
+/// cash when no Bitcoin can help; else the Investments Receive sheet.
 ///
-/// [shownAddUsd] is the X an "Add $X to Investments" tap showed (that X
-/// is converted, never more); [tapLeg] the leg it sized. A read: nothing
-/// is quoted to pay, approved or moved.
+/// [shownAddUsd] is the X an "Add $X to Investments" tap showed (what
+/// Investments lacked; a larger X now moves nothing); [tapLeg] the leg it
+/// sized. A read: nothing is quoted to pay, approved or moved.
 Future<MarginFundingDecision> decideMarginFunding(
   T Function<T>(ProviderListenable<T> provider) read, {
   required double amountUsd,
@@ -300,8 +301,9 @@ Future<MarginFundingDecision> decideMarginFunding(
   // 1. Dollars cover the move.
   if (dollars + 1e-9 >= fund) return MarginFundingPlanned(plan());
 
-  // 2. Dollars plus the other venue's cash (the whole Investments balance
-  // this move can draw on).
+  // 2. Dollars short: Bitcoin for the rest, and the other venue's cash
+  // only for what Dollars and Bitcoin cannot cover (founder decision, 15
+  // October 2026: venue to venue is the slow way; [decideOrderSources]).
   final puller = read(venueCashPullerProvider);
   var reach = dollars;
   try {
@@ -309,13 +311,37 @@ Future<MarginFundingDecision> decideMarginFunding(
         .reachUsd(exclude: OneBalanceVenue.investing)
         .timeout(const Duration(seconds: 8));
   } catch (_) {}
-  final pullFirst = OrderFundingEngine.decide(
-        needUsd: fund,
-        haveHereUsd: dollars,
-        investmentsUsd: reach - dollars,
-      ).route ==
-      OrderFundingRoute.move;
-  if (pullFirst) {
+  final sources = await decideOrderSources(
+    read,
+    fundUsd: fund,
+    dollarsUsd: dollars,
+    otherVenueUsd: reach - dollars,
+    shownAddUsd: shownAddUsd,
+    sized: tapLeg,
+    investmentsCover: OrderFundingEngine.decide(
+          needUsd: fund,
+          haveHereUsd: dollars,
+          investmentsUsd: reach - dollars,
+        ).route ==
+        OrderFundingRoute.move,
+  );
+  switch (sources.route) {
+    case OrderSourceRoute.dollars:
+      return MarginFundingPlanned(plan());
+    case OrderSourceRoute.addChanged:
+      return MarginFundingAddChanged(sources.missingUsd);
+    case OrderSourceRoute.insufficient:
+      return MarginFundingNeedsReceive(sources.missingUsd > 0
+          ? sources.missingUsd
+          : _dollarsShortUsd(fund, dollars));
+    case OrderSourceRoute.unavailable:
+      return const MarginFundingUnavailable('bitcoin_price_unread');
+    case OrderSourceRoute.otherVenue:
+    case OrderSourceRoute.bitcoin:
+      break;
+  }
+  if (sources.route == OrderSourceRoute.otherVenue) {
+    // No Bitcoin leg can help: Dollars and the other venue's cash.
     // The legs are planned before the approval, which binds the ones
     // that go straight into the Investing account.
     Map<String, Object?>? legs;
@@ -338,29 +364,8 @@ Future<MarginFundingDecision> decideMarginFunding(
         predictionsUsd: predictions, needsOtherVenue: true, directLegs: legs));
   }
 
-  // 3. The whole Investments balance is short: the spending bitcoin, for
-  // exactly X, whenever it covers it.
-  var addUsd = BitcoinLegRules.addUsd(fundUsd: fund, investmentsUsd: reach);
-  if (shownAddUsd != null && shownAddUsd > 0) {
-    if (addUsd > shownAddUsd + 0.005) return MarginFundingAddChanged(addUsd);
-    addUsd = shownAddUsd;
-  }
-  if (addUsd <= 0) {
-    return MarginFundingNeedsReceive(_dollarsShortUsd(fund, dollars));
-  }
-  final decision = tapLeg != null &&
-          (tapLeg.targetUsd - BitcoinLegRules.targetUsd(addUsd)).abs() < 0.005
-      ? SlipFundingDecision.bitcoin(tapLeg, addUsd)
-      : await decideSlipFunding(read, addUsd: addUsd);
-  switch (decision.route) {
-    case SlipFundingRoute.insufficient:
-      return MarginFundingNeedsReceive(addUsd);
-    case SlipFundingRoute.unavailable:
-      return const MarginFundingUnavailable('bitcoin_price_unread');
-    case SlipFundingRoute.bitcoin:
-      break;
-  }
-  final leg = decision.plan!;
+  // 3. Dollars and the Bitcoin leg (the other venue only for the rest).
+  final leg = sources.plan!;
   final ownSpark = await ownSparkForBitcoinLeg(read);
   // The own Investing account a direct Bitcoin leg is pinned to.
   final ownInvesting =
@@ -709,6 +714,7 @@ class MarginFundingRunner {
                   fundUsd: plan.fundUsd,
                   readyUsd: plan.readyUsd,
                   entrySource: kMarginEntrySource,
+                  otherVenueUsed: plan.needsOtherVenue,
                   fundVenue: (controller, legs) =>
                       _fundRest(controller, grant, plan, legs: legs),
                   dropOrder: grant.revoke,
@@ -771,6 +777,7 @@ class MarginFundingRunner {
       dollarsUsd: plan.dollarsUsd,
       entrySource: kMarginEntrySource,
       fundingSource: plan.sources.join(','),
+      otherVenueUsed: plan.needsOtherVenue,
     );
     Future<MarginFundedEnd> run() async {
       OrderFundingOutcome outcome;

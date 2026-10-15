@@ -74,11 +74,14 @@ Duration predictionsLandingFor({
   required double fundUsd,
   required double dollarsUsd,
   double? reachUsd,
+  bool? otherVenue,
 }) {
   if (!fundUsd.isFinite || fundUsd <= dollarsUsd + 1e-9) {
     return kPredictionsFundingP95;
   }
-  if (reachUsd != null && fundUsd <= reachUsd + 1e-9) {
+  // [otherVenue]: the move's decided sources say whether the Investing
+  // cash is in it ([decideOrderSources]); else read off [reachUsd].
+  if (otherVenue ?? (reachUsd != null && fundUsd <= reachUsd + 1e-9)) {
     return kPredictionsFundingP95 + kVenuePullEta[OneBalanceVenue.investing]!;
   }
   return kPredictionsFundingP95 + kBitcoinLegLanding;

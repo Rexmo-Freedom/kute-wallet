@@ -129,20 +129,21 @@ import 'package:kute/services/one_balance/bet_funding_plan.dart';
 import 'package:kute/services/one_balance/venue_cash_source.dart'
     show
         VenueCashDestination,
-        VenueCashFor,
-        VenueCashPullOutcome,
+        VenueCashPlan,
         VenueCashPuller,
         venueCashPullerProvider,
         venueCashReachExcludingProvider;
 import 'package:kute/services/one_balance/multi_source_move.dart'
     show MultiSourceMoveStore;
-import 'package:kute/screens/shared/venue_cash_pull_copy.dart'
-    show venueCashStoppedText;
+import 'package:kute/services/one_balance/venue_cash_funded_order.dart'
+    show venueCashFundedOrderRunnerProvider;
+import 'package:kute/services/one_balance/predictions_venue_cash_order.dart'
+    show predictionsVenueCashRequest;
 import 'package:kute/services/one_balance/order_funding.dart';
 import 'package:kute/services/one_balance/predictions_venue_funder.dart'
     show predictionsVenueFunderProvider;
 import 'package:kute/services/one_balance/venue_funder.dart'
-    show UserGrantAuthorization, VenueMoveResult;
+    show UserGrantAuthorization;
 import 'package:kute/services/polymarket/polymarket_category_gate.dart';
 import 'package:kute/services/polymarket/bet_prefund.dart';
 import 'package:kute/services/venue_analytics.dart';
@@ -1148,7 +1149,10 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       requiredUsd: _predictionsRequired(terms),
       readyUsd: _predictionsReady(cash),
       balanceUsd: cash,
-      dollarsUsd: _fundingReachUsd(),
+      // Dollars alone: a move that needs Bitcoin or the Investing cash is
+      // Confirm's, which takes them in the founder's order
+      // ([decideOrderSources]), never got ready ahead.
+      dollarsUsd: _dollarsUsd(),
       allowed: !_isLedger &&
           token != null &&
           token.isNotEmpty &&
@@ -1178,15 +1182,6 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     if (!mounted) return const PrefundApproval.unavailable();
     final intent = _slipIntent();
     if (intent == null) return const PrefundApproval.unavailable();
-    // Investing cash for what Dollars lack is planned first (nothing
-    // moves): its legs straight into Predictions are bound into this one
-    // approval and run only under it.
-    Map<String, Object?>? directLegs;
-    if (request.fundingCapUsd > 0 &&
-        _dollarsUsd() + 1e-9 < request.fundingCapUsd) {
-      directLegs = await _planDirectLegs(request.fundingCapUsd);
-      if (!mounted) return const PrefundApproval.unavailable();
-    }
     _pendingNotifier.setIntent(intent);
     final grant = await _approveBet(
         funding: OrderFundingPlan(
@@ -1194,8 +1189,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
             arrivingUsd: 0,
             rule: ShortfallRules.ruleRemaining,
             minUsd: 0),
-        prefund: !request.atConfirm,
-        directLegs: directLegs);
+        prefund: !request.atConfirm);
     if (grant == null) {
       final declined = _lastDeclineReason == 'approval_not_granted';
       if (mounted &&
@@ -1219,99 +1213,41 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         worstPrice: polymarketFundedWorstPrice(armed));
   }
 
-  /// A pre-funding move under the armed approval, through the shared
-  /// funding engine: Dollars first; what Dollars lack is Investing cash,
-  /// straight into Predictions by CCTP under this same approval (within
-  /// the leg caps it binds) or home to Dollars under the automatic
-  /// home-only authorization, so the approval stays the only prompt. The
-  /// Dollars move is only what the direct legs do not bring, and the
-  /// outcome counts the direct legs as part of the move (on their way, so
-  /// they are never moved a second time).
+  /// A pre-funding move under the armed approval, from Dollars alone: a
+  /// move Dollars cannot cover is Confirm's, which takes Bitcoin and then
+  /// the Investing cash in the founder's order ([decideOrderSources]).
   Future<OrderFundingOutcome> _prefundFund(double fundUsd, AuthGrant grant,
       {required double requiredUsd, required double readyUsd}) async {
     final dollars = _dollarsUsd();
-    VenueCashPullOutcome? pulled;
     if (dollars + 1e-9 < fundUsd) {
-      try {
-        pulled = await _venueCashPuller.pullShortfall(
-          neededUsd: fundUsd,
-          forAction: VenueCashFor.predictions,
-          destination: VenueCashDestination.predictions,
-          exclude: OneBalanceVenue.predictions,
-          approval: grant,
-        );
-      } catch (_) {
-        pulled = null;
-      }
-      if (pulled == null || !pulled.dollarsCover) {
-        // Investing cash already sent straight here is on its way all
-        // the same: counted as moved, never sent again.
-        final directOnly = pulled == null ? null : _directLegsMove(pulled);
-        if (directOnly != null) return OrderFundingFunded(directOnly);
-        return OrderFundingNeedsDollars(fundUsd - dollars);
-      }
+      return OrderFundingNeedsDollars(fundUsd - dollars);
     }
-    final direct = pulled?.directArrivingUsd ?? 0;
-    final outcome = await _orderFunding.fundAndQueue(
+    return _orderFunding.fundAndQueue(
       venue: OneBalanceVenue.predictions,
       orderUsd: _draft.amount,
       requiredUsd: requiredUsd,
-      readyUsd: readyUsd + direct,
+      readyUsd: readyUsd,
       auth: UserGrantAuthorization(grant),
-      fundUsd: direct > 0 ? max(0.0, pulled!.dollarsNeededUsd) : fundUsd,
+      fundUsd: fundUsd,
       entrySource: widget.source,
       marketKind: _prefundKind?.name,
     );
-    if (direct <= 0) return outcome;
-    final legs = _directLegsMove(pulled!)!;
-    return switch (outcome) {
-      OrderFundingFunded(:final move) => OrderFundingFunded(VenueMoveResult(
-          quoteId: move.quoteId,
-          orderId: move.orderId,
-          registration: move.registration,
-          operationId: move.operationId,
-          sentUsd: move.sentUsd + legs.sentUsd,
-          arrivingUsdEstimate:
-              move.arrivingUsdEstimate + legs.arrivingUsdEstimate,
-        )),
-      // The direct legs moved whatever the Dollars move did.
-      _ => OrderFundingFunded(legs),
-    };
   }
 
-  /// What [pulled]'s legs sent straight to Predictions, as one move (its
-  /// reference is the multi-source move), or null when none went.
-  static VenueMoveResult? _directLegsMove(VenueCashPullOutcome pulled) {
-    final legs = [
-      for (final l in pulled.legs)
-        if (l.ok && l.direct) l
-    ];
-    if (legs.isEmpty) return null;
-    return VenueMoveResult(
-      quoteId: pulled.moveId ?? legs.first.result!.quoteId,
-      operationId: legs.first.result!.operationId,
-      sentUsd: legs.fold(0.0, (sum, l) => sum + l.sentUsd),
-      arrivingUsdEstimate: legs.fold(0.0, (sum, l) => sum + l.arrivingUsd),
-    );
-  }
-
-  /// The legs a funding of [fundUsd] would take from Investing straight
-  /// into Predictions, as the one approval binds them
-  /// (`VenueLimit.directLegs`). Moves nothing; null when no leg would go
-  /// straight there (or the plan cannot be read: they come home instead).
-  Future<Map<String, Object?>?> _planDirectLegs(double fundUsd,
+  /// The legs a funding of [fundUsd] takes (Dollars first, then the
+  /// Investing cash), less what an earlier try of [moveId] already sent
+  /// straight here. Moves nothing; null when it cannot be read.
+  Future<VenueCashPlan?> _planVenueCashLegs(double fundUsd,
       {String? moveId}) async {
     try {
       final earlier = moveId == null ? null : MultiSourceMoveStore.get(moveId);
-      final plan = await _venueCashPuller
+      return await _venueCashPuller
           .plan(
             neededUsd: max(0.0, fundUsd - (earlier?.directDeliveredUsd ?? 0)),
             exclude: OneBalanceVenue.predictions,
             destination: VenueCashDestination.predictions,
           )
           .timeout(const Duration(seconds: 8));
-      return _venueCashPuller.directLegLimit(
-          plan, VenueCashDestination.predictions);
     } catch (_) {
       return null;
     }
@@ -3350,14 +3286,17 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     }
     if (!mounted) return;
     PolymarketPlacementTimeline.mark('funding_plan');
-    // The shared funding engine: Dollars first, then Investing cash pulled
-    // home inside this same Confirm (after the one approval). Only when
-    // even that falls short is it the Dollars door, nothing queued.
+    // The shared funding engine: Dollars first, then Bitcoin, and the
+    // Investing cash only for what those cannot cover (founder decision,
+    // 15 October 2026: venue to venue is the slow way;
+    // [decideOrderSources]). Only when even that falls short is it the
+    // Receive sheet, nothing queued.
     var pullFirst = false;
-    // Dollars plus the other venue's reachable cash: the whole Investments
-    // balance this move can draw on.
-    var reach = _dollarsUsd();
+    OrderSources? sources;
     if (_dollarsUsd() + 1e-9 < plan.fundUsd) {
+      // Dollars plus the other venue's reachable cash: the whole
+      // Investments balance this move can draw on.
+      var reach = _dollarsUsd();
       try {
         reach = await ref
             .read(venueCashPullerProvider)
@@ -3365,13 +3304,26 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
             .timeout(const Duration(seconds: 8));
       } catch (_) {}
       if (!mounted) return;
-      pullFirst = reach + 1e-9 >= plan.fundUsd;
-      // Dollars short: the money comes from Investing (its pull first) or
-      // from bitcoin (its leg first), both slower than Dollars. A short
-      // round that ends before that could land is said now, before any
-      // money moves, never found out once it sits in a closed round.
+      final fromAdd = _bitcoinArmed;
+      sources = await decideOrderSources(
+        ProviderScope.containerOf(context, listen: false).read,
+        fundUsd: plan.fundUsd,
+        dollarsUsd: _dollarsUsd(),
+        otherVenueUsd: reach - _dollarsUsd(),
+        shownAddUsd: fromAdd ? _bitcoinTapAddUsd : null,
+        sized: fromAdd ? _bitcoinTapPlan : null,
+        investmentsCover: reach + 1e-9 >= plan.fundUsd,
+      );
+      if (!mounted) return;
+      pullFirst = sources.route == OrderSourceRoute.otherVenue;
+      // Dollars short: the money comes from bitcoin (its leg first) or
+      // Investing (its pull), both slower than Dollars. A short round
+      // that ends before that could land is said now, before any money
+      // moves, never found out once it sits in a closed round.
       final landing = predictionsLandingFor(
-          fundUsd: plan.fundUsd, dollarsUsd: _dollarsUsd(), reachUsd: reach);
+          fundUsd: plan.fundUsd,
+          dollarsUsd: _dollarsUsd(),
+          otherVenue: pullFirst || sources.otherVenueUsed);
       final late = _fundingBlockFor(await marketRead,
           requireRead: false, landing: landing);
       if (!mounted) return;
@@ -3381,12 +3333,11 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         return;
       }
     }
-    if (_dollarsUsd() + 1e-9 < plan.fundUsd && !pullFirst) {
-      // The whole Investments balance is short of the move, whichever
-      // button was tapped ("Add $X", or the bet whose figures moved since
-      // the slip drew it): the person's own bitcoin funds it, under this
-      // bet's one approval, whenever it covers X. Only when it genuinely
-      // does not is it the Investments Receive sheet.
+    if (sources != null && !pullFirst) {
+      // Dollars short, whichever button was tapped ("Add $X", or the
+      // bet): the person's own bitcoin funds the rest under this bet's
+      // one approval, the Investing cash only what Bitcoin cannot. Only
+      // when nothing covers it is it the Investments Receive sheet.
       await _fundAndPlaceFromBitcoin(
         balance: balance,
         plan: plan,
@@ -3395,18 +3346,33 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         mode: mode,
         outcomeLabel: outcomeLabel,
         dropQueued: dropQueued,
-        investmentsUsd: reach,
+        sources: sources,
       );
       return;
     }
     // Investing cash for what Dollars lack is planned before the one
     // approval (nothing moves): its legs straight into Predictions are
-    // bound into it and run only under it.
+    // bound into it and run only under it, exactly as planned.
+    VenueCashPlan? legPlan;
     Map<String, Object?>? directLegs;
     if (pullFirst) {
       if (_moveUsd != plan.fundUsd) _moveId = null;
-      directLegs = await _planDirectLegs(plan.fundUsd, moveId: _moveId);
+      legPlan = await _planVenueCashLegs(plan.fundUsd, moveId: _moveId);
       if (!mounted) return;
+      if (legPlan == null || !legPlan.covers) {
+        // The legs could not be planned: nothing is approved or moved.
+        _stopped('funding_refused');
+        PolymarketPlacementTimeline.finish('declined',
+            reason: 'venue_cash_unread');
+        dropQueued();
+        showMessageSnackBar(
+            context: context,
+            message: context.l10n.betActionNotCompleted,
+            error: true);
+        return;
+      }
+      directLegs = _venueCashPuller.directLegLimit(
+          legPlan, VenueCashDestination.predictions);
     }
     // One approval, bound to the whole placement, the funding leg and the
     // legs straight into Predictions.
@@ -3428,73 +3394,27 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       dropQueued();
       return;
     }
+    if (legPlan != null) {
+      // Dollars and the Investing cash, every source at once, on the
+      // bet's step graph from this approval (venue_cash_funded_order.dart).
+      _runVenueCashFunded(
+        grant: grant,
+        pending: pending,
+        legPlan: legPlan,
+        plan: plan,
+        required: required,
+        ready: ready,
+        balance: balance,
+        incoming: incoming,
+        mode: mode,
+        outcomeLabel: outcomeLabel,
+      );
+      return;
+    }
     // Approved: the bet's steps show from now, on this slip and (named)
     // on the Investments header, whatever happens to the slip.
     final runner = ref.read(bitcoinFundedOrderRunnerProvider);
     final fundedId = runner.beginFunded(_fundedLabel(pending, outcomeLabel));
-    // What the Dollars move is sized on: the approved figure, less what
-    // Investing cash already sent straight to Predictions (below).
-    double? queueFundUsd;
-    var queueReadyUsd = ready;
-    var directPendingUsd = 0.0;
-    if (pullFirst) {
-      // Investing cash for what Dollars lack goes straight into
-      // Predictions by CCTP under THIS approval (within the leg caps it
-      // binds), or home to Dollars under the automatic home-only
-      // authorization; this approval stays the only prompt. Nothing is
-      // queued or funded until Dollars cover what is left.
-      _updateState(() => _isPlacing = true);
-      VenueCashPullOutcome? pulled;
-      try {
-        pulled = await ref.read(venueCashPullerProvider).pullShortfall(
-              neededUsd: plan.fundUsd,
-              forAction: VenueCashFor.predictions,
-              destination: VenueCashDestination.predictions,
-              exclude: OneBalanceVenue.predictions,
-              moveId: _moveId,
-              approval: grant,
-            );
-      } catch (_) {
-        pulled = null;
-      }
-      if (pulled?.moveId != null) {
-        _moveId = pulled!.moveId;
-        _moveUsd = plan.fundUsd;
-      }
-      if (!mounted) {
-        grant.revoke();
-        runner.stopFunded(fundedId, reason: 'interrupted');
-        return;
-      }
-      if (pulled != null && pulled.dollarsCover) {
-        // What went straight to Predictions is already on its way there:
-        // the move from Dollars is only the rest, and the queued bet
-        // waits for both.
-        final direct = pulled.directArrivingUsd + pulled.alreadyDeliveredUsd;
-        if (direct > 0) {
-          queueFundUsd = max(0.0, pulled.dollarsNeededUsd);
-          queueReadyUsd = ready + direct;
-          directPendingUsd = pulled.directArrivingUsd;
-        }
-      }
-      if (pulled == null || !pulled.dollarsCover) {
-        grant.revoke();
-        dropQueued();
-        _stopped('insufficient_balance');
-        PolymarketPlacementTimeline.finish('declined',
-            reason: 'venue_cash_pending');
-        // The steps keep it: the move step failed, what happened and that
-        // the money is in Investments.
-        runner.stopFunded(fundedId,
-            reason: 'venue_cash_pending',
-            message: (pulled == null
-                    ? null
-                    : venueCashStoppedText(context.l10n, pulled)) ??
-                context.l10n.betActionNotCompleted);
-        _updateState(() => _isPlacing = false);
-        return;
-      }
-    }
     _swapNeeded = true;
     TrackingService.track('bet_slip_place', params: {
       'amount_bucket': TrackingService.usdBucket(_amount),
@@ -3523,9 +3443,9 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       venue: OneBalanceVenue.predictions,
       orderUsd: pending.amount,
       requiredUsd: required,
-      readyUsd: queueReadyUsd,
+      readyUsd: ready,
       auth: UserGrantAuthorization(grant),
-      fundUsd: queueFundUsd ?? plan.fundUsd,
+      fundUsd: plan.fundUsd,
       entrySource: widget.source,
       marketKind: _prefundKind?.name,
       onStage: (_) {
@@ -3542,7 +3462,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         PredictionFundingLedger.instance.sent(quoteRef, usd: move.sentUsd);
         // The move's rows name this bet; its steps follow the autofire.
         runner.followFunded(fundedId, move: move);
-        // The Dollars move is the last leg of its multi-source move.
+        // An earlier try's legs home to Dollars: this move is their last
+        // leg.
         MultiSourceMoveStore.attachFinal(
             _moveId, move.operationId ?? move.quoteId);
         _moveId = null;
@@ -3552,19 +3473,18 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           fundUsd: plan.fundUsd,
           fundQuoteRef: quoteRef,
           // Earlier moves still on their way count as held before this
-          // one, so the bet fires once both have landed; Investing cash
-          // sent straight here is on its way with this one.
+          // one, so the bet fires once both have landed.
           fundReadyUsd: balance + incoming,
-          fundArrivingUsd: move.arrivingUsdEstimate + directPendingUsd,
+          fundArrivingUsd: move.arrivingUsdEstimate,
           queuedAt: DateTime.now(),
         ));
       case OrderFundingNotNeeded():
-        // The venue covers it after all (or with the pre-funded money, or
-        // Investing cash sent straight here, on its way): the queued bet
-        // fires on the balance tick that shows it landed.
+        // The venue covers it after all (or with the pre-funded money on
+        // its way): the queued bet fires on the balance tick that shows it
+        // landed.
         _moveId = null;
         final current = ref.read(pendingPolymarketBetProvider) ?? pending;
-        final arriving = incoming + directPendingUsd;
+        final arriving = incoming;
         pendingNotifier.setIntent(current.copyWith(
           status: PendingBetStatus.awaitingBalance,
           fundReadyUsd: arriving > 0 ? balance : null,
@@ -3619,6 +3539,80 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     }
   }
 
+  /// The bet funded from Dollars and the Investing cash, approved: every
+  /// source starts at once on the bet's step graph ("Moving $6.00 from
+  /// Investing", "Moving $5.00 from Dollars", Predictions' readiness, the
+  /// bet), headless, whatever happens to this slip
+  /// ([VenueCashFundedOrderRunner]). The approved plan runs exactly; the
+  /// bet is queued with Dollars' own share (at once when there is none)
+  /// and the autofire places it once Predictions hold enough. A leg home
+  /// to Dollars lands by its order's status and goes on under the same
+  /// approval; every wait is bounded and a stop says where the money is.
+  void _runVenueCashFunded({
+    required AuthGrant grant,
+    required PendingBetIntent pending,
+    required VenueCashPlan legPlan,
+    required OrderFundingPlan plan,
+    required double required,
+    required double ready,
+    required double balance,
+    required double incoming,
+    required String mode,
+    required String outcomeLabel,
+  }) {
+    final container = ProviderScope.containerOf(context, listen: false);
+    final source = widget.source;
+    final marketKind = _prefundKind?.name;
+    _swapNeeded = true;
+    TrackingService.track('bet_slip_place', params: {
+      'amount_bucket': TrackingService.usdBucket(_amount),
+      ...TrackingService.exactUsd('amount_usd', _amount),
+      'mode': mode,
+      'swap_needed': 1,
+      'balance_bucket': TrackingService.usdBucket(balance),
+      ...TrackingService.exactUsd('balance_usd', balance),
+      'market': _truncMarket(widget.marketQuestion),
+      'outcome': outcomeLabel,
+      'funding_source': 'venue_cash',
+    });
+    _orderPlaced = true;
+    _trackSubmitted();
+    _updateState(() {
+      _isPlacing = true;
+      _placedSuccess = false;
+    });
+    // Held, never fired, until the chain queues it (awaitingBalance).
+    ref
+        .read(pendingPolymarketBetProvider.notifier)
+        .setIntent(pending.copyWith(fundUsd: plan.fundUsd));
+    ref.read(pendingBetAutoFireProvider);
+    PolymarketPlacementTimeline.mark('funding_venue_cash');
+    _moveId ??= MultiSourceMoveStore.newId();
+    _moveUsd = plan.fundUsd;
+    final run = container.read(venueCashFundedOrderRunnerProvider).start(
+          predictionsVenueCashRequest(
+            container,
+            grant: grant,
+            pending: pending,
+            label: _fundedLabel(pending, outcomeLabel),
+            legPlan: legPlan,
+            fundUsd: plan.fundUsd,
+            requiredUsd: required,
+            readyUsd: ready,
+            balanceUsd: balance,
+            incomingUsd: incoming,
+            moveId: _moveId,
+            entrySource: source,
+            marketKind: marketKind,
+          ),
+        );
+    _bitcoinRunId = run.id;
+    unawaited(run.ended.then((end) {
+      if (end == BitcoinFundedEnd.placed) _moveId = null;
+      if (mounted) _onBitcoinRunEnded(run.id, end, source: 'venue_cash');
+    }));
+  }
+
   /// A hot slip whose whole Investments balance is short of the bet's move
   /// (founder decision 14 October 2026), whichever button was tapped: ONE
   /// approval for the bet, the Dollars move AND a Bitcoin → Dollars leg
@@ -3641,7 +3635,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     required String mode,
     required String outcomeLabel,
     required void Function() dropQueued,
-    required double investmentsUsd,
+    required OrderSources sources,
   }) async {
     final container = ProviderScope.containerOf(context, listen: false);
     final source = widget.source;
@@ -3657,25 +3651,17 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           context: context, message: context.l10n.ledgerBetPending, error: true);
       return;
     }
-    // X: what the WHOLE Investments balance lacks for the move, rounded as
-    // the button rounds it. An "Add" tap converts exactly the X the button
-    // showed; if the bet now needs more than that, nothing moves and the
-    // button names the new figure.
-    var addUsd = BitcoinLegRules.addUsd(
-        fundUsd: plan.fundUsd, investmentsUsd: investmentsUsd);
-    final shown = fromAdd ? _bitcoinTapAddUsd : null;
-    if (shown != null && shown > 0) {
-      if (addUsd > shown + 0.005) {
-        _stopped('add_amount_changed');
-        PolymarketPlacementTimeline.finish('declined',
-            reason: 'add_amount_changed');
-        dropQueued();
-        _fundingPlan = plan;
-        _fundingPlanAmount = _amount;
-        _updateState(() {});
-        return;
-      }
-      addUsd = shown;
+    // An "Add" tap whose X no longer covers what Investments lack: nothing
+    // moves and the button names the new figure.
+    if (sources.route == OrderSourceRoute.addChanged) {
+      _stopped('add_amount_changed');
+      PolymarketPlacementTimeline.finish('declined',
+          reason: 'add_amount_changed');
+      dropQueued();
+      _fundingPlan = plan;
+      _fundingPlanAmount = _amount;
+      _updateState(() {});
+      return;
     }
     final dollars = _dollarsUsd();
 
@@ -3712,30 +3698,24 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           error: true);
     }
 
-    if (addUsd <= 0) {
-      await toReceive(slipDollarsShortfallUsd(
-          topUpUsd: plan.fundUsd, dollarsUsd: dollars));
-      return;
-    }
-    // The "Add" tap already sized the leg for this X: no second read.
-    final tapPlan = fromAdd ? _bitcoinTapPlan : null;
-    final decision = tapPlan != null &&
-            (tapPlan.targetUsd - BitcoinLegRules.targetUsd(addUsd)).abs() <
-                0.005
-        ? SlipFundingDecision.bitcoin(tapPlan, addUsd)
-        : await decideSlipFunding(container.read, addUsd: addUsd);
-    if (!mounted) return;
-    switch (decision.route) {
-      case SlipFundingRoute.insufficient:
-        await toReceive(addUsd);
+    switch (sources.route) {
+      case OrderSourceRoute.insufficient:
+        await toReceive(sources.missingUsd > 0
+            ? sources.missingUsd
+            : slipDollarsShortfallUsd(
+                topUpUsd: plan.fundUsd, dollarsUsd: dollars));
         return;
-      case SlipFundingRoute.unavailable:
+      case OrderSourceRoute.unavailable:
         unavailable('bitcoin_price_unread');
         return;
-      case SlipFundingRoute.bitcoin:
+      case OrderSourceRoute.bitcoin:
         break;
+      case OrderSourceRoute.dollars:
+      case OrderSourceRoute.otherVenue:
+      case OrderSourceRoute.addChanged:
+        return;
     }
-    final leg = decision.plan!;
+    final leg = sources.plan!;
     // Held from when "Add" showed: normally ready. A cold SDK is waited
     // on (the button stays busy), never taken for a lack of bitcoin.
     final ownSpark = await ownSparkForBitcoinLeg(container.read);
@@ -3829,6 +3809,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           venue: OneBalanceVenue.predictions,
           grant: grant,
           plan: leg,
+          otherVenueUsed: rest.otherUsd > 0,
           label: FundedOrderLabel(
             venue: OneBalanceVenue.predictions,
             orderUsd: pending.amount,
@@ -3948,7 +3929,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   /// The slip's Bitcoin-funded run ended. A placed bet or a venue refusal
   /// is the placing panel's (the confirmation, or Retry); a chain that
   /// stopped before the bet says so here, with the money where it is.
-  void _onBitcoinRunEnded(String id, BitcoinFundedEnd end) {
+  void _onBitcoinRunEnded(String id, BitcoinFundedEnd end,
+      {String source = 'bitcoin'}) {
     if (_bitcoinRunId != id) return;
     _bitcoinRunId = null;
     if (end == BitcoinFundedEnd.placed ||
@@ -3958,7 +3940,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     final error = ref.read(bitcoinFundedOrderRunnerProvider).errorOf(id);
     _stopped('funding_refused', error: error);
     PolymarketPlacementTimeline.finish('failed',
-        reason: 'funding_bitcoin_${end.name}');
+        reason: 'funding_${source}_${end.name}');
     _swapNeeded = false;
     _orderPlaced = false;
     // The steps keep the stop: the failed step and one line saying what

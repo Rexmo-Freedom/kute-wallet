@@ -6,7 +6,7 @@
 // steps we have to do, besides it is stuck at preparing order"). The same
 // step graph as an order funded from Bitcoin (`bitcoin_funded_order.dart`,
 // `fundedOrderGraph`), one line per source, every source started at once
-// after the ONE approval:
+// after the ONE approval. An Investing order:
 //
 //   leg:predictions   Moving $4.20 from Predictions    straight into the
 //                                                      venue when the
@@ -17,6 +17,19 @@
 //                                                      landing
 //   place             Opening $10.76 Long BTC          once the venue holds
 //                                                      enough (its autofire)
+//
+// A bet (the bet slip, the same runner): the Investing cash goes straight
+// into Predictions by Circle CCTP under the approval (Flashnet offers no
+// HyperCore-source route; `HyperCoreMoveRail.withdrawDirect`), the
+// readiness is Predictions' own:
+//
+//   leg:investing     Moving $6.00 from Investing      straight in (CCTP)
+//   leg:dollars       Moving $5.00 from Dollars        at once
+//   ready:convert     Converting to pUSD               once some money
+//   ready:approve     Approving spend                  landed, each only
+//   ready:confirm     Confirming balance               when the venue needs it
+//   place             Placing $10.00 on Yes            the autofire, once
+//                                                      Predictions hold enough
 //
 // A leg planned straight in that the rail refused before anything moved
 // falls back with its real reason ([MoneyFallBack]): Predictions → Dollars,
@@ -331,6 +344,7 @@ class _VenueCashChain {
       dollarsUsd: share,
       entrySource: r.entrySource,
       fundingSource: 'venue_cash',
+      otherVenueUsed: plan.pulls.isNotEmpty,
       extra: {'legs': plan.pulls.length + (share >= 0.01 ? 1 : 0)},
     );
     journey.setRoute(venue, _route,
@@ -444,6 +458,15 @@ class _VenueCashChain {
       }
     }
     switch (step.id) {
+      // Predictions: the conversion to pUSD and the spend allowance only
+      // when the venue needs them, then its own balance confirmed.
+      case FundedStepId.convert:
+        return (s, u) => _phase('converting', u, optional: true);
+      case FundedStepId.approve:
+        return (s, u) => _phase('approving', u, optional: true);
+      case FundedStepId.confirm:
+        return (s, u) => _phase('confirming', u);
+      // Investing: the credit where the order draws from.
       case FundedStepId.credit:
         return (s, u) => _phase('crediting', u);
       case FundedStepId.place:
@@ -809,10 +832,12 @@ class _VenueCashChain {
   }
 
   Future<MoneyStepOutcome> _phase(
-          String phase, void Function(MoneyStep Function(MoneyStep)) update) =>
+          String phase, void Function(MoneyStep Function(MoneyStep)) update,
+          {bool optional = false}) =>
       readinessPhaseStep(
         phase,
         update,
+        optional: optional,
         phases: env.readiness?.call(venue),
         credited: _credited.future,
         placement: _placement,
