@@ -7179,6 +7179,9 @@ class AppLocalizationsEl extends AppLocalizations {
   String get capabilityRegionTitle => 'Μη διαθέσιμο στην περιοχή σου';
 
   @override
+  String get checkConnection => 'Έλεγχος σύνδεσης';
+
+  @override
   String get gateUnavailableTitle => 'Μη διαθέσιμο';
 
   @override

@@ -7151,6 +7151,9 @@ class AppLocalizationsNl extends AppLocalizations {
   String get capabilityRegionTitle => 'Niet beschikbaar in je regio';
 
   @override
+  String get checkConnection => 'Verbinding controleren';
+
+  @override
   String get gateUnavailableTitle => 'Niet beschikbaar';
 
   @override

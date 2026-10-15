@@ -2048,6 +2048,7 @@
   "gatePredictionsUnavailable": "Predpovede nie sú dostupné",
   "gateInvestingUnavailable": "Investovanie nie je dostupné",
   "capabilityRegionTitle": "Vo tvojom regióne nie je dostupné",
+  "checkConnection": "Skontrolovať pripojenie",
   "gateUnavailableTitle": "Nedostupné",
   "ledgerInvestingUnavailable": "Investovanie s Ledgerom je momentálne nedostupné.",
   "ledgerPredictionsUnavailable": "Predpovede s Ledgerom sú momentálne nedostupné.",

@@ -7108,6 +7108,9 @@ class AppLocalizationsLv extends AppLocalizations {
   String get capabilityRegionTitle => 'Nav pieejams tavā reģionā';
 
   @override
+  String get checkConnection => 'Pārbaudīt savienojumu';
+
+  @override
   String get gateUnavailableTitle => 'Nav pieejams';
 
   @override

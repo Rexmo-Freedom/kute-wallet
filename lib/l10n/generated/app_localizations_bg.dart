@@ -7138,6 +7138,9 @@ class AppLocalizationsBg extends AppLocalizations {
   String get capabilityRegionTitle => 'Не е достъпно в твоя регион';
 
   @override
+  String get checkConnection => 'Провери връзката';
+
+  @override
   String get gateUnavailableTitle => 'Не е достъпно';
 
   @override

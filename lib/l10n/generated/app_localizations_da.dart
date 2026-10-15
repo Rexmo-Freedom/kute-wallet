@@ -7128,6 +7128,9 @@ class AppLocalizationsDa extends AppLocalizations {
   String get capabilityRegionTitle => 'Ikke tilgængelig i din region';
 
   @override
+  String get checkConnection => 'Tjek forbindelsen';
+
+  @override
   String get gateUnavailableTitle => 'Ikke tilgængelig';
 
   @override

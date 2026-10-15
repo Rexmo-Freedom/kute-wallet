@@ -7155,6 +7155,9 @@ class AppLocalizationsPt extends AppLocalizations {
   String get capabilityRegionTitle => 'Indisponível na sua região';
 
   @override
+  String get checkConnection => 'Verificar ligação';
+
+  @override
   String get gateUnavailableTitle => 'Indisponível';
 
   @override

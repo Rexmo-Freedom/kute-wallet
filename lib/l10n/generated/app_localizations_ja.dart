@@ -6838,6 +6838,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get capabilityRegionTitle => 'お住まいの地域では利用できません';
 
   @override
+  String get checkConnection => '接続を確認';
+
+  @override
   String get gateUnavailableTitle => '利用できません';
 
   @override

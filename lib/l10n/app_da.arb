@@ -2048,6 +2048,7 @@
   "gatePredictionsUnavailable": "Forudsigelser er ikke tilgængelige",
   "gateInvestingUnavailable": "Investering er ikke tilgængelig",
   "capabilityRegionTitle": "Ikke tilgængelig i din region",
+  "checkConnection": "Tjek forbindelsen",
   "gateUnavailableTitle": "Ikke tilgængelig",
   "ledgerInvestingUnavailable": "Investering med Ledger er i øjeblikket ikke tilgængelig.",
   "ledgerPredictionsUnavailable": "Forudsigelser med Ledger er i øjeblikket ikke tilgængelige.",

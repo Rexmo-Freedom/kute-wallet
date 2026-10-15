@@ -7141,6 +7141,9 @@ class AppLocalizationsSl extends AppLocalizations {
   String get capabilityRegionTitle => 'Ni na voljo v vaši regiji';
 
   @override
+  String get checkConnection => 'Preveri povezavo';
+
+  @override
   String get gateUnavailableTitle => 'Ni na voljo';
 
   @override

@@ -151,6 +151,8 @@ import 'package:kute/providers/venue_sweeper_provider.dart'
     show venueSweeperProvider;
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/services/region_freshness.dart';
+import 'package:kute/services/success_feedback.dart'
+    show moneyFailureFeedbackAfterBand;
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/screens/shared/capability_block_note.dart';
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
@@ -200,6 +202,7 @@ Future<bool> checkHyperliquidGeoblock(BuildContext context, WidgetRef ref,
     message: message,
     regionRestricted: regionBlocked,
     title: l10n.gateInvestingUnavailable,
+    capabilities: capabilities ?? [capability],
   ));
   return true;
 }
@@ -677,6 +680,13 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   /// Only a hot ticket asks; a Ledger ticket keeps its own gates.
   String? _openGateMessage;
 
+  /// [_openGateMessage] is a region refusal: the one button is "Check
+  /// connection" ([_checkConnection]).
+  bool _openGateRegion = false;
+
+  /// "Check connection" is asking the venues and the policy again.
+  bool _checkingConnection = false;
+
   /// The order on the ticket only reduces or closes, so it answers to
   /// `hyperliquid.close` and never to the open gate (the same split
   /// `_confirmInner` makes).
@@ -707,14 +717,52 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     if (message == null) {
       // Allowed now: a refusal shown earlier (asked again after a network
       // change or resume) goes away.
-      if (_openGateMessage != null) _updateDraft(() => _openGateMessage = null);
+      if (_openGateMessage != null) {
+        _updateDraft(() {
+          _openGateMessage = null;
+          _openGateRegion = false;
+        });
+      }
       return;
     }
     // Counted once per refusal shown, not again for each re-check.
     if (regionBlocked && _openGateMessage == null) {
       TrackingService.hyperliquidGeoblockedShown();
     }
-    _updateDraft(() => _openGateMessage = message);
+    _updateDraft(() {
+      _openGateMessage = message;
+      _openGateRegion = regionBlocked;
+    });
+  }
+
+  /// "Check connection" on a region refusal (founder decision, October
+  /// 2026): the person says their connection changed, so the venues and
+  /// Kute's policy are asked again ([RegionFreshness.checkConnection]).
+  /// Allowed now: the refusal goes and the button is the order again,
+  /// ready to place (a Ledger ticket follows the policy it watches).
+  /// Still restricted: the refusal stays, with the soft failure tap, and
+  /// the button can be tapped again. A check that could not be made never
+  /// shows restricted.
+  Future<void> _checkConnection() async {
+    if (_checkingConnection) return;
+    setState(() => _checkingConnection = true);
+    await RegionFreshness.checkConnection();
+    if (!mounted) return;
+    final capabilities = _isLedger
+        ? const ['hyperliquid.browse']
+        : hlOpenCapabilities(market);
+    if (!RegionFreshness.regionRefused(capabilities: capabilities)) {
+      _updateDraft(() {
+        _checkingConnection = false;
+        _openGateMessage = null;
+        _openGateRegion = false;
+      });
+      // The rest of the open gate, as when the ticket opened.
+      if (!_isLedger) unawaited(_resolveOpenGate());
+      return;
+    }
+    setState(() => _checkingConnection = false);
+    moneyFailureFeedbackAfterBand(() => mounted && _checkingConnection);
   }
 
   void _onRegionAnswers() {
@@ -3047,7 +3095,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     }
     return RubberBandBusy(
       key: const ValueKey('order-slip-placement-band'),
-      busy: !_isLedger && (_isPlacing || _preparing) && !_completed,
+      busy: _checkingConnection ||
+          (!_isLedger && (_isPlacing || _preparing) && !_completed),
       outcome: _completed ? RubberBandOutcome.success : null,
       expected: const Duration(seconds: 3),
       child: child,
@@ -4112,6 +4161,16 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         !_isLedger || ref.watch(hyperliquidTradingEnabledProvider);
     final ledgerBlocked =
         _isLedger && (!opaqueActions || !geoAllowed || !ledgerTradingEnabled);
+    // Shut only by the region: "Check connection", never Close.
+    final ledgerRegionBlocked = _isLedger &&
+        opaqueActions &&
+        ledgerTradingEnabled &&
+        !geoAllowed &&
+        !_ledgerPending &&
+        ref
+            .watch(runtimeCapabilitiesProvider)
+            .decision('hyperliquid.browse')
+            .regionRestricted;
 
     final lev = isSpot ? 1 : _leverage;
     final entry = _entryPx(mid);
@@ -4702,6 +4761,17 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       primaryLabel = bitcoinStep;
       primaryAction = null;
       primaryNeutral = false;
+    } else if ((openBlock != null &&
+            _openGateRegion &&
+            !_isPlacing &&
+            !_preparing) ||
+        ledgerRegionBlocked) {
+      // A region refusal: the one button asks again, never a dead one.
+      primaryKind = 'check';
+      primaryLabel = context.l10n.checkConnection;
+      primaryAction =
+          _checkingConnection || _ledgerBusy ? null : _checkConnection;
+      primaryNeutral = true;
     } else if (ledgerBlocked || _ledgerPending) {
       primaryKind = 'close';
       primaryLabel = context.l10n.ledgerApprovalClose;
@@ -4895,6 +4965,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                 text: primaryLabel,
                 onPressed: primaryAction,
                 isLoading: _ledgerBusy ||
+                    _checkingConnection ||
                     bitcoinStep != null ||
                     _isPlacing ||
                     _preparing ||
@@ -4902,7 +4973,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                     primaryKind == 'loading',
                 loadingLabel: primaryKind == 'loading'
                     ? context.l10n.loadingAccount
-                    : _depositCalculating && primaryKind == 'deposit'
+                    : primaryKind == 'check'
+                        ? context.l10n.checkConnection
+                        : _depositCalculating && primaryKind == 'deposit'
                         ? context.l10n.feeUiCalculating
                         : bitcoinStep != null
                             ? null

@@ -2048,6 +2048,7 @@
   "gatePredictionsUnavailable": "Prognozės negalimos",
   "gateInvestingUnavailable": "Investavimas negalimas",
   "capabilityRegionTitle": "Jūsų regione negalima",
+  "checkConnection": "Patikrinti ryšį",
   "gateUnavailableTitle": "Negalima",
   "ledgerInvestingUnavailable": "Investavimas su Ledger šiuo metu negalimas.",
   "ledgerPredictionsUnavailable": "Prognozės su Ledger šiuo metu negalimos.",

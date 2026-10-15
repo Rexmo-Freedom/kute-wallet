@@ -18,7 +18,9 @@ import 'package:kute/screens/shared/portfolio_builder/builder_legs_provider.dart
 import 'package:kute/screens/shared/portfolio_builder/portfolio_builder_screen.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:kute/services/continuous_haptics.dart';
 import 'package:kute/services/investment_provider_availability.dart';
+import 'package:kute/services/kute_haptics.dart';
 import 'package:kute/services/network_change_signal.dart';
 import 'package:kute/services/region_freshness.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
@@ -403,9 +405,63 @@ void main() {
       expect(
           find.textContaining('Polymarket is restricted in the region'),
           findsOneWidget);
-      expect(find.widgetWithText(AppButton, 'Close'), findsOneWidget);
+      // Its one button asks again; the back button still leaves.
+      expect(find.widgetWithText(AppButton, 'Check connection'),
+          findsOneWidget);
+      expect(find.widgetWithText(AppButton, 'Close'), findsNothing);
       expectNoBuilder();
       expect(tester.takeException(), isNull);
+    });
+
+    group('"Check connection"', () {
+      late List<ContinuousHapticsCall> haptics;
+      setUp(() {
+        haptics = ContinuousHaptics.debugLog = [];
+        KuteHaptics.debugReset();
+        KuteHaptics.debugForeground = () => true;
+        RegionFreshness.debugVenues = InvestmentProviderAvailability(
+            client: MockClient((_) async => http.Response('{}', 200)));
+      });
+      tearDown(() {
+        RegionFreshness.debugVenues = null;
+        ContinuousHaptics.debugLog = null;
+        ContinuousHaptics.debugReset();
+        KuteHaptics.debugReset();
+      });
+
+      Future<void> tapCheck(WidgetTester tester) async {
+        await tester.tap(find.widgetWithText(AppButton, 'Check connection'));
+        for (var i = 0; i < 20; i++) {
+          await tester.pump(const Duration(milliseconds: 50));
+        }
+        await tester.pumpAndSettle();
+      }
+
+      testWidgets('now allowed: the block lifts and the Builder opens',
+          (tester) async {
+        final policy = _Policy()..denied['polymarket.trade'] = _countryBlocked;
+        await _pump(tester, policy: policy);
+        expect(find.text('Not available in your region'), findsOneWidget);
+        policy.denied.remove('polymarket.trade');
+        await tapCheck(tester);
+        expect(find.text('Not available in your region'), findsNothing);
+        expect(find.text(_event.title), findsOneWidget);
+        expect(haptics.where((c) => c.method == 'softTap'), isEmpty);
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets('still restricted: the block stays, with a failure tap',
+          (tester) async {
+        final policy = _Policy()..denied['polymarket.trade'] = _countryBlocked;
+        await _pump(tester, policy: policy);
+        await tapCheck(tester);
+        expect(find.text('Not available in your region'), findsOneWidget);
+        expect(find.widgetWithText(AppButton, 'Check connection'),
+            findsOneWidget);
+        expect(haptics.where((c) => c.method == 'softTap'), hasLength(1));
+        expectNoBuilder();
+        expect(tester.takeException(), isNull);
+      });
     });
 
     testWidgets(
@@ -486,7 +542,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(policy.checks.single, contains('polymarket.trade'));
       expect(find.text('Not available in your region'), findsOneWidget);
-      expect(find.text('Got it'), findsOneWidget);
+      expect(find.text('Check connection'), findsOneWidget);
       // Nothing ran: the leg is still a draft and no run started.
       expect(scope.read(builderPredictionLegsProvider), hasLength(1));
       expect(find.text('Portfolio submissions'), findsNothing);

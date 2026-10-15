@@ -190,11 +190,13 @@ class InvestmentProviderAvailability extends ChangeNotifier {
   }
 
   /// Asks again, live, for [trigger]: [providers], or every provider this
-  /// session has asked about. A network change drops every answer first;
-  /// a resume drops the refusals. Never throws.
+  /// session has asked about. A network change (or a "Check connection"
+  /// tap, which is one the person reports) drops every answer first; a
+  /// resume drops the refusals. Never throws.
   Future<void> recheck(RegionRecheckTrigger trigger,
       {Iterable<InvestmentProvider>? providers}) async {
-    if (trigger == RegionRecheckTrigger.networkChange) {
+    if (trigger == RegionRecheckTrigger.networkChange ||
+        trigger == RegionRecheckTrigger.manual) {
       invalidate();
     } else if (trigger == RegionRecheckTrigger.resume ||
         trigger == RegionRecheckTrigger.pull) {
@@ -378,21 +380,30 @@ class InvestmentProviderAvailability extends ChangeNotifier {
   /// [defaultTapReuse] is asked again first, with the short tap timeout,
   /// and only a live "restricted" throws.
   Future<void> ensureNewExposure(Iterable<String> capabilities) async {
-    final requested = capabilities.toSet();
-    if (requested.any(const {
-      'hyperliquid.trade',
-      'hyperliquid.deposit',
-    }.contains)) {
+    final venues = providersFor(capabilities);
+    if (venues.contains(InvestmentProvider.hyperliquid)) {
       (await _refusalOnlyIfLive(InvestmentProvider.hyperliquid))
           .ensureAllowed();
     }
-    if (requested.any(const {
-      'polymarket.trade',
-      'polymarket.deposit',
-    }.contains)) {
+    if (venues.contains(InvestmentProvider.polymarket)) {
       (await _refusalOnlyIfLive(InvestmentProvider.polymarket))
           .ensureAllowed();
     }
+  }
+
+  /// The venues whose own location answer gates [capabilities]: new
+  /// exposure only (a trade or a deposit), never a read, a close or a
+  /// withdrawal.
+  static Set<InvestmentProvider> providersFor(Iterable<String> capabilities) {
+    final requested = capabilities.toSet();
+    return {
+      if (requested.any(const {'hyperliquid.trade', 'hyperliquid.deposit'}
+          .contains))
+        InvestmentProvider.hyperliquid,
+      if (requested.any(const {'polymarket.trade', 'polymarket.deposit'}
+          .contains))
+        InvestmentProvider.polymarket,
+    };
   }
 
   Future<ProviderAvailability> _refusalOnlyIfLive(InvestmentProvider provider) {

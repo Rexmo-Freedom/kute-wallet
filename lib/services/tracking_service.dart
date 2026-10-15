@@ -4512,7 +4512,8 @@ class TrackingService {
 
   /// One live venue location check (Polymarket's geoblock, Hyperliquid's
   /// legal check; cache hits are not sent). `trigger`: resume |
-  /// network_change | tap | startup | timer. `changed`: the answer differs
+  /// network_change | tap | startup | timer | pull | manual ("Check
+  /// connection" on a region restriction). `changed`: the answer differs
   /// from this venue's previous live answer this session. `result`:
   /// allowed | restricted | unknown. No address, IP or country is sent.
   static void regionChecked({

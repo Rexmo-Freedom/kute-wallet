@@ -2048,6 +2048,7 @@
   "gatePredictionsUnavailable": "予測は利用できません",
   "gateInvestingUnavailable": "投資は利用できません",
   "capabilityRegionTitle": "お住まいの地域では利用できません",
+  "checkConnection": "接続を確認",
   "gateUnavailableTitle": "利用できません",
   "ledgerInvestingUnavailable": "Ledgerでの投資は現在利用できません。",
   "ledgerPredictionsUnavailable": "Ledgerでの予測は現在利用できません。",

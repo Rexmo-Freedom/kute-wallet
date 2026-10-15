@@ -2048,6 +2048,7 @@
   "gatePredictionsUnavailable": "Prognoser är inte tillgängligt",
   "gateInvestingUnavailable": "Investera är inte tillgängligt",
   "capabilityRegionTitle": "Inte tillgängligt i din region",
+  "checkConnection": "Kontrollera anslutningen",
   "gateUnavailableTitle": "Inte tillgängligt",
   "ledgerInvestingUnavailable": "Investera med Ledger är inte tillgängligt just nu.",
   "ledgerPredictionsUnavailable": "Prognoser med Ledger är inte tillgängligt just nu.",

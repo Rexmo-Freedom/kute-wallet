@@ -7178,6 +7178,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get capabilityRegionTitle => 'In deiner Region nicht verfügbar';
 
   @override
+  String get checkConnection => 'Verbindung prüfen';
+
+  @override
   String get gateUnavailableTitle => 'Nicht verfügbar';
 
   @override

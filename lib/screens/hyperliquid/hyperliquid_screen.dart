@@ -303,8 +303,13 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
     if (!decision.allowed || decision.comingSoon) {
       TrackingService.track('hyperliquid_funding_blocked',
           params: {'direction': 'deposit', 'reason': 'flag_off'});
-      showCapabilityDecisionSheet(context, decision);
-      return;
+      // A region refusal's "Check connection" that finds the door open
+      // goes on into the deposit.
+      if (!await showCapabilityDecisionSheet(context, decision,
+              capability: 'hyperliquid.deposit') ||
+          !mounted) {
+        return;
+      }
     }
     showDepositSheet(context, lockedSide: MoveLockedSide.depositToHyperliquid);
   }
@@ -322,8 +327,11 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
       if (!decision.allowed || decision.comingSoon) {
         TrackingService.track('hyperliquid_funding_blocked',
             params: {'direction': 'withdraw', 'reason': 'flag_off'});
-        showCapabilityDecisionSheet(context, decision);
-        return;
+        if (!await showCapabilityDecisionSheet(context, decision,
+                capability: 'hyperliquid.withdraw') ||
+            !mounted) {
+          return;
+        }
       }
     }
     showDepositSheet(context,

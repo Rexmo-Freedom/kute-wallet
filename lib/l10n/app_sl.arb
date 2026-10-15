@@ -2048,6 +2048,7 @@
   "gatePredictionsUnavailable": "Napovedi niso na voljo",
   "gateInvestingUnavailable": "Investiranje ni na voljo",
   "capabilityRegionTitle": "Ni na voljo v vaši regiji",
+  "checkConnection": "Preveri povezavo",
   "gateUnavailableTitle": "Ni na voljo",
   "ledgerInvestingUnavailable": "Investiranje z Ledgerjem trenutno ni na voljo.",
   "ledgerPredictionsUnavailable": "Napovedi z Ledgerjem trenutno niso na voljo.",

@@ -2048,6 +2048,7 @@
   "gatePredictionsUnavailable": "Ennusteet ei saatavilla",
   "gateInvestingUnavailable": "Sijoita ei saatavilla",
   "capabilityRegionTitle": "Ei saatavilla alueellasi",
+  "checkConnection": "Tarkista yhteys",
   "gateUnavailableTitle": "Ei saatavilla",
   "ledgerInvestingUnavailable": "Sijoittaminen Ledgerillä ei ole tällä hetkellä käytettävissä.",
   "ledgerPredictionsUnavailable": "Ennusteet Ledgerillä eivät ole tällä hetkellä käytettävissä.",

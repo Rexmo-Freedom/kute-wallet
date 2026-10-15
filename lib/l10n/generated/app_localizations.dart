@@ -12390,6 +12390,12 @@ abstract class AppLocalizations {
   /// **'Not available in your region'**
   String get capabilityRegionTitle;
 
+  /// The button on a region restriction (slip, ticket, Builder, unavailable sheet): asks the venues and Kute's policy again, as after a network or VPN change.
+  ///
+  /// In en, this message translates to:
+  /// **'Check connection'**
+  String get checkConnection;
+
   /// No description provided for @gateUnavailableTitle.
   ///
   /// In en, this message translates to:

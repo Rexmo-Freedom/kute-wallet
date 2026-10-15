@@ -7131,6 +7131,9 @@ class AppLocalizationsSk extends AppLocalizations {
   String get capabilityRegionTitle => 'Vo tvojom regióne nie je dostupné';
 
   @override
+  String get checkConnection => 'Skontrolovať pripojenie';
+
+  @override
   String get gateUnavailableTitle => 'Nedostupné';
 
   @override

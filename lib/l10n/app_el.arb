@@ -2048,6 +2048,7 @@
   "gatePredictionsUnavailable": "Οι Προβλέψεις δεν είναι διαθέσιμες",
   "gateInvestingUnavailable": "Οι Επενδύσεις δεν είναι διαθέσιμες",
   "capabilityRegionTitle": "Μη διαθέσιμο στην περιοχή σου",
+  "checkConnection": "Έλεγχος σύνδεσης",
   "gateUnavailableTitle": "Μη διαθέσιμο",
   "ledgerInvestingUnavailable": "Οι Επενδύσεις με Ledger δεν είναι διαθέσιμες αυτή τη στιγμή.",
   "ledgerPredictionsUnavailable": "Οι Προβλέψεις με Ledger δεν είναι διαθέσιμες αυτή τη στιγμή.",

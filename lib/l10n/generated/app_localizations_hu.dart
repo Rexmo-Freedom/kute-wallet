@@ -7145,6 +7145,9 @@ class AppLocalizationsHu extends AppLocalizations {
   String get capabilityRegionTitle => 'A régiódban nem érhető el';
 
   @override
+  String get checkConnection => 'Kapcsolat ellenőrzése';
+
+  @override
   String get gateUnavailableTitle => 'Nem érhető el';
 
   @override

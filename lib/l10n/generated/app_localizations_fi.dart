@@ -7127,6 +7127,9 @@ class AppLocalizationsFi extends AppLocalizations {
   String get capabilityRegionTitle => 'Ei saatavilla alueellasi';
 
   @override
+  String get checkConnection => 'Tarkista yhteys';
+
+  @override
   String get gateUnavailableTitle => 'Ei saatavilla';
 
   @override

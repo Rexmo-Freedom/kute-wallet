@@ -43,7 +43,15 @@ enum RegionRecheckTrigger {
 
   /// Pull-to-refresh: refusals dropped and asked again, the policy
   /// fetched again.
-  pull('pull');
+  pull('pull'),
+
+  /// The person tapped "Check connection" on a region restriction: they
+  /// are telling us their connection changed (on iOS, switching servers
+  /// inside one VPN app may not change the path). Handled as a network
+  /// change: every venue answer dropped and both venues asked live, Kute's
+  /// region denials from before it distrusted and the policy fetched
+  /// again.
+  manual('manual');
 
   const RegionRecheckTrigger(this.id);
 

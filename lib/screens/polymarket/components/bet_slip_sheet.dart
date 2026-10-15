@@ -79,6 +79,8 @@ import 'package:kute/screens/ledger/ledger_investment_gate.dart'
         ledgerInvestmentAllowed,
         showLedgerInvestmentUnavailable;
 import 'package:kute/services/region_freshness.dart';
+import 'package:kute/services/success_feedback.dart'
+    show moneyFailureFeedbackAfterBand;
 import 'package:kute/services/runtime_capabilities_service.dart'
     show
         CapabilityUnavailableException,
@@ -243,6 +245,10 @@ class _BetSlipDraft extends ChangeNotifier {
   /// The open gate's refusal, shared with the Advanced page: see
   /// `_BetSlipSheetState._capabilityBlockMessage`.
   String? openBlockMessage;
+
+  /// [openBlockMessage] is a region refusal: the slip's one button is
+  /// "Check connection" (`_BetSlipSheetState._checkConnection`).
+  bool openBlockRegion = false;
 
   /// The policy answered and allows this bet (not on offline grace): a
   /// fast market's slip may get the bet ready before Confirm.
@@ -659,6 +665,9 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   /// two BTC swaps). Set before the first await, cleared in finally.
   bool _buyInFlight = false;
 
+  /// "Check connection" is asking the venues and the policy again.
+  bool _checkingConnection = false;
+
   /// From a Deposit door tap until the Move sheet opens (or the tap ends
   /// without one): the top-up is being worked out, and the door says so.
   /// The form is already frozen by [_buyInFlight] for the same span, so
@@ -1018,6 +1027,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           _draft.openOfflineNote != offlineNote) {
         _updateState(() {
           _draft.openBlockMessage = null;
+          _draft.openBlockRegion = false;
           _draft.openOfflineNote = offlineNote;
         });
       }
@@ -1043,7 +1053,39 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     }
     _stopped(regionBlocked ? 'geoblocked' : reason);
     _draft.lastErrorCategory = reason;
-    _updateState(() => _draft.openBlockMessage = message);
+    _updateState(() {
+      _draft.openBlockMessage = message;
+      _draft.openBlockRegion = regionBlocked;
+    });
+  }
+
+  /// "Check connection" on a region refusal (founder decision, October
+  /// 2026): the person says their connection changed, so the venues and
+  /// Kute's policy are asked again ([RegionFreshness.checkConnection]).
+  /// Allowed now: the refusal goes and the button is the bet again,
+  /// ready to place. Still restricted: the refusal stays, with the soft
+  /// failure tap, and the button can be tapped again. A check that could
+  /// not be made never shows restricted.
+  Future<void> _checkConnection() async {
+    if (_checkingConnection) return;
+    setState(() => _checkingConnection = true);
+    await RegionFreshness.checkConnection();
+    if (!mounted) return;
+    if (!RegionFreshness.regionRefused(capabilities: _betCapabilities())) {
+      _draft.stopReason = null;
+      _draft.lastErrorCategory = null;
+      _updateState(() {
+        _checkingConnection = false;
+        _draft.openBlockMessage = null;
+        _draft.openBlockRegion = false;
+      });
+      // The rest of the open gate (an offline note, a bet got ready
+      // early), as when the slip opened.
+      if (!widget._advanced) unawaited(_resolveCapabilityGate());
+      return;
+    }
+    setState(() => _checkingConnection = false);
+    moneyFailureFeedbackAfterBand(() => mounted && _checkingConnection);
   }
 
   void _onDraftChanged() {
@@ -5387,6 +5429,20 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   Widget _buildPrimaryAction(
       AppColorsExtension c, Color selectedColor, PolymarketOutcome selected,
       {required bool busy, required bool failed, required String busyLabel}) {
+    // A region refusal: the one button asks again, never a dead one.
+    if (_draft.openBlockRegion && _tradeBlock != null && !busy) {
+      return PolySlipCta(
+        key: const ValueKey('bet-slip-check-connection'),
+        color: context.ctaFill,
+        neutral: true,
+        isBusy: _checkingConnection,
+        busyLabel: context.l10n.checkConnection,
+        bandExpected: const Duration(seconds: 2),
+        enabled: !_checkingConnection,
+        onTap: _checkConnection,
+        label: context.l10n.checkConnection,
+      );
+    }
     if (_isLedger) return _buildLedgerPrimaryAction(c, selectedColor);
     // A bet whose money is being moved (from Bitcoin, Dollars, Investing
     // or any mix): its steps under one busy button, from the moment it

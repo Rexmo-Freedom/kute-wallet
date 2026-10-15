@@ -2048,6 +2048,7 @@
   "gatePredictionsUnavailable": "Voorspellingen niet beschikbaar",
   "gateInvestingUnavailable": "Beleggen niet beschikbaar",
   "capabilityRegionTitle": "Niet beschikbaar in je regio",
+  "checkConnection": "Verbinding controleren",
   "gateUnavailableTitle": "Niet beschikbaar",
   "ledgerInvestingUnavailable": "Beleggen met Ledger is momenteel niet beschikbaar.",
   "ledgerPredictionsUnavailable": "Voorspellingen met Ledger is momenteel niet beschikbaar.",

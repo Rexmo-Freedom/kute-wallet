@@ -7124,6 +7124,9 @@ class AppLocalizationsCs extends AppLocalizations {
   String get capabilityRegionTitle => 'Ve tvém regionu nedostupné';
 
   @override
+  String get checkConnection => 'Zkontrolovat připojení';
+
+  @override
   String get gateUnavailableTitle => 'Nedostupné';
 
   @override

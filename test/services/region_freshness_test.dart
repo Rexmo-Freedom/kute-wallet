@@ -156,6 +156,129 @@ void main() {
     expect(policy.allows('polymarket.trade'), isTrue);
   });
 
+  group('"Check connection" (manual)', () {
+    test('distrusts the old region denial at once, refetches the policy and '
+        'asks both venues live, reported as trigger manual', () async {
+      final reports = <Map<String, Object>>[];
+      final venuesSeen = InvestmentProviderAvailability(
+        client: MockClient((request) async => request.url.host ==
+                'api.hyperliquid.xyz'
+            ? http.Response(
+                jsonEncode({
+                  'acceptedTerms': true,
+                  'userAllowed': true,
+                  'restrictions': 'n',
+                }),
+                200)
+            : http.Response(jsonEncode({'blocked': blocked}), 200)),
+        report: ({
+          required String venue,
+          required String trigger,
+          required bool changed,
+          required String result,
+        }) =>
+            reports.add({
+              'venue': venue,
+              'trigger': trigger,
+              'changed': changed,
+              'result': result,
+            }),
+      );
+      addTearDown(venuesSeen.dispose);
+      // Polymarket refused earlier this session.
+      await venuesSeen.check(InvestmentProvider.polymarket);
+      expect(await policy.refresh(), isTrue);
+      expect(policy.allows('polymarket.trade'), isFalse);
+      expect(
+          RegionFreshness.regionRefused(
+              capabilities: ['polymarket.trade'],
+              providers: venuesSeen,
+              policy: policy),
+          isTrue);
+
+      // The person switched VPN servers (no path change) and taps.
+      blocked = false;
+      final requestsBefore = policyRequests;
+      await RegionFreshness.checkConnection(
+          providers: venuesSeen, policy: policy);
+      expect(policyRequests, requestsBefore + 1);
+      expect(policy.allows('polymarket.trade'), isTrue);
+      expect(
+          RegionFreshness.regionRefused(
+              capabilities: ['polymarket.trade'],
+              providers: venuesSeen,
+              policy: policy),
+          isFalse);
+      final manual = reports.where((r) => r['trigger'] == 'manual').toList();
+      // Both venues, asked live, whether or not this session asked them.
+      expect(manual.map((r) => r['venue']).toSet(),
+          {'polymarket', 'hyperliquid'});
+      expect(
+          manual.firstWhere((r) => r['venue'] == 'polymarket'),
+          {
+            'venue': 'polymarket',
+            'trigger': 'manual',
+            'changed': true,
+            'result': 'allowed',
+          });
+      expect(RegionRecheckTrigger.manual.id, 'manual');
+    });
+
+    test('still restricted: a fresh denial from this network stands',
+        () async {
+      expect(await policy.refresh(), isTrue);
+      await RegionFreshness.checkConnection(
+          providers: venues, policy: policy);
+      expect(policy.allows('polymarket.trade'), isFalse);
+      expect(
+          RegionFreshness.regionRefused(
+              capabilities: ['polymarket.trade'],
+              providers: venues,
+              policy: policy),
+          isTrue);
+      expect(triggers, contains('manual'));
+    });
+
+    test('a round that runs out of time never shows restricted', () async {
+      expect(await policy.refresh(), isTrue);
+      final hold = Completer<http.Response>();
+      var holding = false;
+      final slow = RuntimeCapabilitiesService.forTesting(
+        client: MockClient((_) => holding
+            ? hold.future
+            : Future.value(http.Response(jsonEncode(policyBody()), 200))),
+        baseUrl: () => 'https://backend.test',
+        sessionToken: () => 'wallet-a',
+        store: MemoryRuntimePolicySnapshotStore(),
+      );
+      addTearDown(slow.dispose);
+      expect(await slow.refresh(), isTrue);
+      expect(slow.allows('polymarket.trade'), isFalse);
+      holding = true;
+      // The venues cannot be reached either.
+      final unreachable = InvestmentProviderAvailability(
+          client: MockClient((_) async => http.Response('', 503)));
+      addTearDown(unreachable.dispose);
+      await RegionFreshness.checkConnection(
+          providers: unreachable,
+          policy: slow,
+          timeout: const Duration(milliseconds: 50));
+      // The refetch is still out: the denial from before the tap is not
+      // believed meanwhile.
+      expect(slow.allows('polymarket.trade'), isTrue);
+      expect(
+          RegionFreshness.regionRefused(
+              capabilities: ['polymarket.trade'],
+              providers: unreachable,
+              policy: slow),
+          isFalse);
+      // It lands, still blocked on this network: the denial stands again.
+      hold.complete(http.Response(jsonEncode(policyBody()), 200));
+      await Future<void>.delayed(settle);
+      expect(slow.allows('polymarket.trade'), isFalse);
+    });
+  });
+
   test('no bridge on this platform: the signal stays quiet and never throws',
       () async {
     final quiet = NetworkChangeSignal(

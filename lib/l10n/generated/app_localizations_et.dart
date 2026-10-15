@@ -7112,6 +7112,9 @@ class AppLocalizationsEt extends AppLocalizations {
   String get capabilityRegionTitle => 'Sinu piirkonnas pole saadaval';
 
   @override
+  String get checkConnection => 'Kontrolli ühendust';
+
+  @override
   String get gateUnavailableTitle => 'Pole saadaval';
 
   @override

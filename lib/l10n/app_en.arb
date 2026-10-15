@@ -3940,6 +3940,10 @@
   "gatePredictionsUnavailable": "Predictions unavailable",
   "gateInvestingUnavailable": "Investing unavailable",
   "capabilityRegionTitle": "Not available in your region",
+  "checkConnection": "Check connection",
+  "@checkConnection": {
+    "description": "The button on a region restriction (slip, ticket, Builder, unavailable sheet): asks the venues and Kute's policy again, as after a network or VPN change."
+  },
   "gateUnavailableTitle": "Unavailable",
   "ledgerInvestingUnavailable": "Investing with Ledger is currently unavailable.",
   "ledgerPredictionsUnavailable": "Predictions with Ledger is currently unavailable.",

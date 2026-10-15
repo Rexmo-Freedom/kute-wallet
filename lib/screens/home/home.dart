@@ -1289,9 +1289,9 @@ class _HomeActions extends ConsumerWidget {
       }
       // A refusal is asked again before it is shown (a stale region
       // answer from another network never shuts the door).
+      final capability = 'polymarket.${deposit ? 'deposit' : 'withdraw'}';
       final decision = await confirmCapability(
-          ref.read(runtimeCapabilitiesProvider),
-          'polymarket.${deposit ? 'deposit' : 'withdraw'}');
+          ref.read(runtimeCapabilitiesProvider), capability);
       if (!context.mounted) return;
       if (!decision.allowed) {
         TrackingService.track('feature_unavailable_shown', params: {
@@ -1301,8 +1301,13 @@ class _HomeActions extends ConsumerWidget {
               : 'capability_disabled',
           'surface': 'home_dock',
         });
-        showCapabilityDecisionSheet(context, decision);
-        return;
+        // A region refusal's "Check connection" that finds the door open
+        // goes on into the Move.
+        if (!await showCapabilityDecisionSheet(context, decision,
+                capability: capability) ||
+            !context.mounted) {
+          return;
+        }
       }
       showDepositSheet(context,
           lockedSide: deposit

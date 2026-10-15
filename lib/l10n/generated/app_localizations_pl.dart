@@ -7152,6 +7152,9 @@ class AppLocalizationsPl extends AppLocalizations {
   String get capabilityRegionTitle => 'Niedostępne w twoim regionie';
 
   @override
+  String get checkConnection => 'Sprawdź połączenie';
+
+  @override
   String get gateUnavailableTitle => 'Niedostępne';
 
   @override

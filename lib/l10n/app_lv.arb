@@ -2048,6 +2048,7 @@
   "gatePredictionsUnavailable": "Prognozes nav pieejamas",
   "gateInvestingUnavailable": "Investēšana nav pieejama",
   "capabilityRegionTitle": "Nav pieejams tavā reģionā",
+  "checkConnection": "Pārbaudīt savienojumu",
   "gateUnavailableTitle": "Nav pieejams",
   "ledgerInvestingUnavailable": "Investēšana ar Ledger pašlaik nav pieejama.",
   "ledgerPredictionsUnavailable": "Prognozes ar Ledger pašlaik nav pieejamas.",

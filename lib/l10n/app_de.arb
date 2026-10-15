@@ -2048,6 +2048,7 @@
   "gatePredictionsUnavailable": "Prognosen nicht verfügbar",
   "gateInvestingUnavailable": "Investieren nicht verfügbar",
   "capabilityRegionTitle": "In deiner Region nicht verfügbar",
+  "checkConnection": "Verbindung prüfen",
   "gateUnavailableTitle": "Nicht verfügbar",
   "ledgerInvestingUnavailable": "Investieren mit Ledger ist derzeit nicht verfügbar.",
   "ledgerPredictionsUnavailable": "Prognosen mit Ledger sind derzeit nicht verfügbar.",

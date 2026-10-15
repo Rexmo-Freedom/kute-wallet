@@ -2048,6 +2048,7 @@
   "gatePredictionsUnavailable": "Ennustused pole saadaval",
   "gateInvestingUnavailable": "Investeerimine pole saadaval",
   "capabilityRegionTitle": "Sinu piirkonnas pole saadaval",
+  "checkConnection": "Kontrolli ühendust",
   "gateUnavailableTitle": "Pole saadaval",
   "ledgerInvestingUnavailable": "Ledgeriga investeerimine pole praegu saadaval.",
   "ledgerPredictionsUnavailable": "Ledgeriga Ennustused pole praegu saadaval.",

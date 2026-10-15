@@ -7141,6 +7141,9 @@ class AppLocalizationsHr extends AppLocalizations {
   String get capabilityRegionTitle => 'Nije dostupno u tvojoj regiji';
 
   @override
+  String get checkConnection => 'Provjeri vezu';
+
+  @override
   String get gateUnavailableTitle => 'Nije dostupno';
 
   @override

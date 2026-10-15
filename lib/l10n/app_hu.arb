@@ -2048,6 +2048,7 @@
   "gatePredictionsUnavailable": "Az Előrejelzések nem érhetők el",
   "gateInvestingUnavailable": "A Befektetés nem érhető el",
   "capabilityRegionTitle": "A régiódban nem érhető el",
+  "checkConnection": "Kapcsolat ellenőrzése",
   "gateUnavailableTitle": "Nem érhető el",
   "ledgerInvestingUnavailable": "A Ledgerrel való befektetés jelenleg nem érhető el.",
   "ledgerPredictionsUnavailable": "Az Előrejelzések Ledgerrel jelenleg nem érhetők el.",

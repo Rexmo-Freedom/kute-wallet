@@ -2048,6 +2048,7 @@
   "gatePredictionsUnavailable": "Прогнозите не са достъпни",
   "gateInvestingUnavailable": "Инвестиране не е достъпно",
   "capabilityRegionTitle": "Не е достъпно в твоя регион",
+  "checkConnection": "Провери връзката",
   "gateUnavailableTitle": "Не е достъпно",
   "ledgerInvestingUnavailable": "Инвестирането с Ledger в момента не е достъпно.",
   "ledgerPredictionsUnavailable": "Прогнозите с Ledger в момента не са достъпни.",

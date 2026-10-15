@@ -7156,6 +7156,9 @@ class AppLocalizationsLt extends AppLocalizations {
   String get capabilityRegionTitle => 'Jūsų regione negalima';
 
   @override
+  String get checkConnection => 'Patikrinti ryšį';
+
+  @override
   String get gateUnavailableTitle => 'Negalima';
 
   @override

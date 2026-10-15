@@ -7165,6 +7165,9 @@ class AppLocalizationsRo extends AppLocalizations {
   String get capabilityRegionTitle => 'Indisponibil în regiunea ta';
 
   @override
+  String get checkConnection => 'Verifică conexiunea';
+
+  @override
   String get gateUnavailableTitle => 'Indisponibil';
 
   @override

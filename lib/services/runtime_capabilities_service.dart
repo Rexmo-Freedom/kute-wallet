@@ -543,7 +543,25 @@ class RuntimeCapabilitiesService extends ChangeNotifier
   bool _regionTrusted(int epoch) {
     if (epoch == _networkEpoch) return true;
     if (epoch == _restoredEpoch) return false;
-    return _refresh != null && _trustWhileRefreshing;
+    return _refresh != null &&
+        _trustWhileRefreshing &&
+        _impatientEpoch != _networkEpoch;
+  }
+
+  /// The network epoch whose refetch a "Check connection" tap stopped
+  /// waiting for ([connectionCheckTimedOut]).
+  int _impatientEpoch = _restoredEpoch;
+
+  /// A "Check connection" tap (lib/services/region_freshness.dart) asked
+  /// the policy again ([networkChanged]) and the refetch did not answer in
+  /// time: a region denial from before the tap stops counting now rather
+  /// than when that refetch gives up, since a check that could not be
+  /// made never shows restricted. The refetch still lands: a fresh denial
+  /// from this network stands again then. Screens hear it.
+  void connectionCheckTimedOut() {
+    if (_impatientEpoch == _networkEpoch) return;
+    _impatientEpoch = _networkEpoch;
+    if (!_disposed) notifyListeners();
   }
 
   /// The network may have changed (lib/services/region_freshness.dart):

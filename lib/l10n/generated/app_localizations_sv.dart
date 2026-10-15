@@ -7120,6 +7120,9 @@ class AppLocalizationsSv extends AppLocalizations {
   String get capabilityRegionTitle => 'Inte tillgängligt i din region';
 
   @override
+  String get checkConnection => 'Kontrollera anslutningen';
+
+  @override
   String get gateUnavailableTitle => 'Inte tillgängligt';
 
   @override
