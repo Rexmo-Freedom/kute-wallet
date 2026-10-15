@@ -137,6 +137,10 @@ class _AddWalletState extends ConsumerState<AddWallet> {
 
       await ref.read(settingsProvider.notifier).addWallet(newWallet);
       await ref.read(settingsProvider.notifier).setActiveWallet(newWallet.id);
+      // Predictions builds again for the spending wallet as it is now.
+      ref
+        ..invalidate(polymarketTradingProvider)
+        ..invalidate(polymarketBalanceProvider);
 
       // Set up Polymarket account in background (Safe deploy + credentials)
       provisionPolymarketAccount(mnemonic: mnemonic, walletId: walletId, evmDerivationVersion: EvmDerivationVersion.standardBip39);

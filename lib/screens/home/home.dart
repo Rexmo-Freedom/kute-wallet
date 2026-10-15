@@ -249,7 +249,8 @@ class _HomeState extends ConsumerState<Home> with TickerProviderStateMixin {
       await provisionPolymarketAccount(
           mnemonic: mnemonic,
           walletId: wallet.id,
-          evmDerivationVersion: wallet.evmDerivationVersion);
+          evmDerivationVersion: wallet.evmDerivationVersion,
+          evmFormatPending: wallet.evmFormatCheckPending);
     } catch (_) {
       // Silent — will be retried when user opens Polymarket screen
     }

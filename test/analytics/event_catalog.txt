@@ -386,6 +386,7 @@ pin_set
 pin_set_failed
 pin_sheet_lockout
 polymarket_account_ready
+polymarket_account_start_unauthenticated
 polymarket_balance_loaded
 polymarket_bet_amount_entered
 polymarket_bet_confirmation_shown

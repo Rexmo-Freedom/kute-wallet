@@ -28,6 +28,10 @@ import 'package:kute/providers/transactions_provider.dart';
 import 'package:kute/providers/viewed_wallet_provider.dart';
 import 'package:kute/providers/home_view_scope_provider.dart';
 import 'package:kute/providers/pending_ledger_settlement_provider.dart';
+import 'package:kute/providers/polymarket_trading_provider.dart'
+    show polymarketBalanceProvider, polymarketTradingProvider;
+import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
+    show pickSpendingWallet;
 import 'package:kute/providers/wallet_scope_provider.dart';
 import 'package:kute/screens/home/components/kute_dock_host.dart';
 import 'package:kute/screens/home/home_wallet_switcher.dart';
@@ -659,7 +663,17 @@ class WalletMenuButton extends ConsumerWidget {
     // key off activeWalletId don't briefly point at a wallet that no
     // longer exists.
     await onRestoreActive();
+    final wasSpending =
+        pickSpendingWallet(ref.read(settingsProvider))?.id == wallet.id;
     await ref.read(settingsProvider.notifier).removeWallet(wallet.id);
+    // Removing the spending wallet: Predictions builds again for the one
+    // that remains (or none), dropping the removed wallet's account and
+    // key.
+    if (wasSpending) {
+      ref
+        ..invalidate(polymarketTradingProvider)
+        ..invalidate(polymarketBalanceProvider);
+    }
     ref.read(walletBalanceCacheProvider.notifier).deleteWallet(wallet.id);
     ref.read(walletTransactionCacheProvider.notifier).deleteWallet(wallet.id);
     await ref.read(swapOrdersProvider.notifier).deleteAllForWallet(wallet.id);

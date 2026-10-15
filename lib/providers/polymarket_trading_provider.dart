@@ -16,6 +16,7 @@ import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/trade_notification_store.dart';
 import 'dart:async';
 import 'package:kute/helpers/polymarket_account_readiness.dart';
+import 'package:kute/helpers/evm_format_settle.dart';
 import 'package:kute/helpers/formatters/polymarket_side_labels.dart';
 import 'dart:convert';
 import 'dart:math';
@@ -287,6 +288,68 @@ Future<void> forgetPolymarketAccountCache(String walletId) async {
   await PolymarketAccountCache.forget(walletId);
 }
 
+/// The spending wallet and its EVM format: what selects the Predictions
+/// account. The trading notifier rebuilds when it changes (a wallet
+/// created, restored, switched or removed, or a recovered wallet's format
+/// settling), the same identity Hyperliquid's address provider watches.
+(String?, EvmDerivationVersion?) _predictionsSpendingIdentity(Settings s) {
+  final wallet = pickSpendingWallet(s);
+  return (wallet?.id, wallet?.evmDerivationVersion);
+}
+
+/// Whether [walletId]'s EVM format check, from a phrase recovery, has not
+/// settled yet. Nothing is deployed or approved on its account until it
+/// has: the account may still move to the legacy format.
+bool polymarketEvmFormatPending(Settings settings, String walletId) =>
+    settings.wallets
+        .where((w) => w.id == walletId)
+        .firstOrNull
+        ?.evmFormatCheckPending ??
+    false;
+
+/// Setup refused because the wallet's EVM format check has not settled.
+/// Predictions waits; the account is set up once the check settles.
+class PolymarketEvmFormatPendingException implements Exception {
+  const PolymarketEvmFormatPendingException();
+
+  @override
+  String toString() => 'The wallet\'s account format is still being checked.';
+}
+
+/// Folds one refresh read into the live state, or null when the read must
+/// be dropped. A refresh captures the account before a read that can take
+/// seconds; meanwhile the account start may have found the deposit address
+/// and authenticated. The read never takes those back:
+///
+/// * a read for another owner (the account changed) is dropped;
+/// * a read made without the deposit address, or for another one, while
+///   the live state knows it, is dropped (its figures are for no account);
+/// * [PolymarketTradingState.isAuthenticated], the order in flight and the
+///   refreshing mark are always the live ones (a refresh never decides
+///   them);
+/// * a known address is never replaced with null, and a balance that could
+///   not be read keeps the last one that was.
+@visibleForTesting
+PolymarketTradingState? mergePolymarketRefresh({
+  required PolymarketTradingState live,
+  required PolymarketTradingState read,
+}) {
+  String? norm(String? a) => a == null || a.isEmpty ? null : a.toLowerCase();
+  if (norm(read.walletAddress) != norm(live.walletAddress)) return null;
+  final liveProxy = norm(live.proxyWalletAddress);
+  final readProxy = norm(read.proxyWalletAddress);
+  if (liveProxy != null && readProxy != liveProxy) return null;
+  final keepBalance = !read.balanceKnown && live.balanceKnown;
+  return read.copyWith(
+    isAuthenticated: live.isAuthenticated,
+    isPlacingOrder: live.isPlacingOrder,
+    refreshing: live.refreshing,
+    proxyWalletAddress: read.proxyWalletAddress ?? live.proxyWalletAddress,
+    usdcBalance: keepBalance ? live.usdcBalance : null,
+    balanceKnown: keepBalance ? true : null,
+  );
+}
+
 /// The hot wallet's Polymarket deposit wallet, for display in Settings.
 /// Prefers the live trading state when the notifier is already built for
 /// [walletId], else the address the notifier cached on its last build
@@ -393,15 +456,27 @@ Future<void> provisionPolymarketCredentials({
 /// (`polymarket_provisioning_outcome`, no ids), and a failure is retried by
 /// the next app start and the next Predictions visit, which call this or
 /// `enableTrading` again.
+///
+/// [evmFormatPending]: the wallet was recovered and its EVM format check
+/// has not settled ([WalletConfig.evmFormatCheckPending]). Nothing is set
+/// up then (outcome `deferred`, stage `evm_format`): the account may still
+/// move to the legacy format, and the trading notifier sets it up once the
+/// check settles.
 Future<void> provisionPolymarketAccount({
   required String mnemonic,
   required String walletId,
   required EvmDerivationVersion evmDerivationVersion,
+  bool evmFormatPending = false,
 }) async {
   const storage = secureStorage;
   final clock = Stopwatch()..start();
   var stage = 'derive';
   var path = 'provider';
+  if (evmFormatPending) {
+    _trackProvisioningOutcome('deferred', clock.elapsed,
+        stage: 'evm_format', path: path);
+    return;
+  }
   try {
     final wallet = await EvmWalletDerivation.deriveWalletAsync(
         mnemonic: mnemonic, version: evmDerivationVersion, index: 0);
@@ -436,6 +511,9 @@ Future<void> provisionPolymarketAccount({
     }
     _trackProvisioningOutcome('completed', clock.elapsed,
         stage: stage, path: path);
+  } on PolymarketEvmFormatPendingException {
+    _trackProvisioningOutcome('deferred', clock.elapsed,
+        stage: 'evm_format', path: path);
   } catch (e) {
     _trackProvisioningOutcome('failed', clock.elapsed,
         stage: stage, path: path, error: e);
@@ -927,7 +1005,52 @@ class PolymarketTradingNotifier
   /// The Predictions account's one-time setup (wallet deployment and
   /// approvals) is done and nothing is setting it up now.
   bool get tradingReady => _accountReadiness.isReady;
+
+  /// Bumped by every build: a wallet created, restored, switched or
+  /// removed, a lock to unlock, an explicit invalidation. Every refresh and
+  /// every step of the account start carries the generation it began in
+  /// and drops its result once it no longer matches.
   int _accountGeneration = 0;
+
+  /// Runs the rest of this generation's account start again with a deposit
+  /// address found later (the self-heal) or once a pending EVM format check
+  /// settles. Null on the placeholder builds.
+  Future<void> Function(String? address)? _resumeAccountStart;
+
+  /// The account start (or a resumed one) is running for this generation.
+  bool _accountStartRunning = false;
+
+  /// This generation's account start left the one-time setup for later
+  /// because the wallet's EVM format check was pending.
+  bool _setupDeferred = false;
+
+  /// The deposit address lookup may skip the legacy (UUPS) checks.
+  bool _skipLegacyChecks = false;
+
+  /// The EVM format this generation's account was derived with.
+  EvmDerivationVersion? _builtEvmVersion;
+
+  /// The self-heal's address lookup: one at a time, backing off on failure.
+  bool _healInFlight = false;
+  DateTime? _nextHealAt;
+  int _healFailures = 0;
+
+  /// The self-heal's first wait after a failed lookup; it doubles per
+  /// failure up to a minute.
+  @visibleForTesting
+  static Duration healBackoffUnit = const Duration(seconds: 5);
+
+  /// Rebuilds a refresh asked for after a placeholder build that failed
+  /// (no phrase readable, setup threw), bounded and spaced out.
+  DateTime? _lastSelfRebuildAt;
+  int _selfRebuilds = 0;
+  static const _selfRebuildSpacing = Duration(seconds: 30);
+  static const _maxSelfRebuilds = 10;
+
+  /// `polymarket_account_start_unauthenticated` is sent once per
+  /// generation, and not again by a rebuild a refresh asked for.
+  bool _stuckTracked = false;
+  bool _stuckTrackedCarry = false;
 
   /// Whether the deposit wallet is a legacy (UUPS) one, once known. False
   /// is final for the owner (see resolveDepositWallet).
@@ -1096,10 +1219,29 @@ class PolymarketTradingNotifier
 
   @override
   Future<PolymarketTradingState> build() async {
+    // Rebuild on the spending wallet's identity (id + EVM format) and on
+    // the session starting or ending, before any early return below: the
+    // placeholder states (no spending wallet yet, locked, no phrase) must
+    // not stick for the rest of the process under keepAlive. A restore, a
+    // created or removed wallet, a switch and a settled format check all
+    // land here. Only the presence of a session is watched: a PIN gate
+    // mid-flow writes a new SessionAuth and must not restart the account
+    // under an order. Lock → unlock is `watchSessionUnlock` below.
+    ref.watch(settingsProvider.select(_predictionsSpendingIdentity));
+    ref.watch(sessionAuthProvider.select((s) => s != null));
+
     final generation = ++_accountGeneration;
     _disposed = false;
     _addressReady = Completer<String?>();
     _firstState = Completer<void>();
+    _resumeAccountStart = null;
+    _accountStartRunning = false;
+    _setupDeferred = false;
+    _healInFlight = false;
+    _nextHealAt = null;
+    _healFailures = 0;
+    _stuckTracked = _stuckTrackedCarry;
+    _stuckTrackedCarry = false;
     final boot = _AccountBoot();
     unawaited(VenueAnalytics.warmUp());
     // keepAlive prevents the autoDispose tear-down when the only
@@ -1117,10 +1259,14 @@ class PolymarketTradingNotifier
       _completeAddress(null);
       _publishFirstState();
       _refreshTimer?.cancel();
+      _refreshTimer = null;
       _client?.close();
       _publicModel?.dispose();
-      _resolvedController.close();
-      _depositSettledController.close();
+      _publicModel = null;
+      // The resolved-position and deposit-settled streams stay open: this
+      // runs on every rebuild too (the notifier instance outlives it), and
+      // closing them cut the sweeper's and the autofire's one subscription
+      // for the rest of the process.
     });
 
     // Hydrate "recently sold/redeemed" suppression from disk so positions
@@ -1140,6 +1286,7 @@ class PolymarketTradingNotifier
     final spending = pickSpendingWallet(settings);
 
     if (spending == null) {
+      _forgetAccountKeys();
       _completeAddress(null);
       _publishFirstState();
       return const PolymarketTradingState(balanceKnown: false);
@@ -1149,9 +1296,26 @@ class PolymarketTradingNotifier
     // builds again once the session unlocks, so the USDC balance and
     // proxy address fill in right after unlock.
     if (!watchSessionUnlock(ref)) {
+      _forgetAccountKeys();
       _completeAddress(null);
       _publishFirstState();
       return const PolymarketTradingState(balanceKnown: false);
+    }
+    // A recovered wallet whose EVM format check has not settled: settle it
+    // in this session (bounded retries, while unlocked and online) rather
+    // than on the next PIN unlock. Its account is read meanwhile but not
+    // set up; when the check keeps the standard format the setup resumes
+    // here, and when it moves to legacy the identity changes and this
+    // provider builds again for the legacy account.
+    if (spending.evmFormatCheckPending) {
+      EvmFormatSettle.schedule(ref.container);
+      final pendingWalletId = spending.id;
+      ref.listen<bool>(
+          settingsProvider
+              .select((s) => polymarketEvmFormatPending(s, pendingWalletId)),
+          (previous, next) {
+        if (previous == true && !next) _resumeDeferredSetup(generation);
+      });
     }
 
     try {
@@ -1164,9 +1328,17 @@ class PolymarketTradingNotifier
           () => resolveBip39MnemonicFor(spending,
               access: SeedAccess.automatic,
               session: ref.read(seedSessionProvider)));
+      if (generation != _accountGeneration) {
+        throw StateError('Predictions account changed');
+      }
       if (mnemonic == null) {
+        _forgetAccountKeys();
         _completeAddress(null);
         _publishFirstState();
+        _trackAccountStartUnauthenticated(
+            stage: 'mnemonic',
+            reason: 'unreadable',
+            restore: spending.isRestore);
         return const PolymarketTradingState(
           balanceKnown: false,
           error: 'Could not decrypt spending wallet mnemonic',
@@ -1174,6 +1346,7 @@ class PolymarketTradingNotifier
       }
       final walletId = spending.id;
       _spendingWalletId = walletId;
+      _builtEvmVersion = spending.evmDerivationVersion;
       _registerLive(walletId);
 
       // Preserve the wallet’s seed format at m/44'/60'/0'/0/0.
@@ -1302,7 +1475,11 @@ class PolymarketTradingNotifier
       }
 
       // Auto-refresh every 5s by default so open positions feel live;
-      // _adjustRefreshRate drops this to 3s for near-expiry markets.
+      // _adjustRefreshRate drops this to 3s for near-expiry markets. Every
+      // build starts on 5 s: an earlier account's "no polling" (0) would
+      // make this timer fire continuously.
+      _currentRefreshInterval = 5;
+      _refreshTimer?.cancel();
       _refreshTimer = Timer.periodic(
         Duration(seconds: _currentRefreshInterval),
         (_) => _silentRefresh(),
@@ -1321,7 +1498,28 @@ class PolymarketTradingNotifier
       // address re-check, fresh cash and positions, then Stage B
       // (credentials, open orders, the allowance refresh, the one-time
       // setup). Use the event queue so build's state is published first.
-      Future<void>(() => _finishAccountStart(
+      _skipLegacyChecks = isNewWallet || _legacyWallet == false;
+      _resumeAccountStart = (address) async {
+        final stored = await _loadCredentials(walletId,
+            ownerAddress: eoa,
+            version: spending.evmDerivationVersion,
+            depositWallet: address);
+        await _runAccountStart(
+          generation: generation,
+          eoa: eoa,
+          walletId: walletId,
+          spending: spending,
+          privateKey: wallet.privateKey,
+          knownAddress: address,
+          addressResolved: address != null,
+          skipLegacyChecks: _skipLegacyChecks,
+          credentials: stored,
+          boot: boot,
+          bootKind: bootKind,
+        );
+      };
+      _accountStartRunning = true;
+      Future<void>(() => _runAccountStart(
             generation: generation,
             eoa: eoa,
             walletId: walletId,
@@ -1329,19 +1527,202 @@ class PolymarketTradingNotifier
             privateKey: wallet.privateKey,
             knownAddress: resolvedAddress ?? knownAddress,
             addressResolved: addressResolved,
-            skipLegacyChecks: isNewWallet || _legacyWallet == false,
+            skipLegacyChecks: _skipLegacyChecks,
             credentials: credsWithNonce,
             boot: boot,
             bootKind: bootKind,
           ));
 
+      _selfRebuilds = 0;
       _publishFirstState();
       return first;
     } catch (e) {
       _completeAddress(null);
       _publishFirstState();
+      if (generation == _accountGeneration) {
+        _forgetAccountKeys();
+        _trackAccountStartUnauthenticated(
+            stage: 'build',
+            reason: TrackingService.errorCategory(e),
+            offline: _isOfflineError(e),
+            restore: spending.isRestore);
+      }
       return PolymarketTradingState(
           balanceKnown: false, error: 'Authentication failed: $e');
+    }
+  }
+
+  /// A placeholder build holds no key of an earlier account: a removed or
+  /// switched-away wallet's signing key is dropped with its account.
+  void _forgetAccountKeys() {
+    _privateKey = null;
+    _spendingWalletId = null;
+    _builtEvmVersion = null;
+    _backendService = null;
+    _legacyWallet = null;
+    _apiKeyBoundAddress = null;
+  }
+
+  /// `polymarket_account_start_unauthenticated`: an account start that
+  /// ended without authentication, so Predictions would read "—" until it
+  /// heals. Categorical fields only, never ids, addresses or keys. Once per
+  /// generation.
+  void _trackAccountStartUnauthenticated({
+    required String stage,
+    required String reason,
+    required bool restore,
+    bool? offline,
+    String? bootKind,
+  }) {
+    if (_stuckTracked) return;
+    _stuckTracked = true;
+    TrackingService.track('polymarket_account_start_unauthenticated',
+        params: {
+          'stage': stage,
+          'reason': reason,
+          'restore': restore,
+          if (offline != null) 'offline': offline,
+          if (bootKind != null) 'boot': bootKind,
+        });
+  }
+
+  /// [_finishAccountStart], marked as running for [generation]; then the
+  /// one-time setup, if the format check settled while it ran.
+  Future<void> _runAccountStart({
+    required int generation,
+    required String eoa,
+    required String walletId,
+    required dynamic spending,
+    required String privateKey,
+    required String? knownAddress,
+    required bool addressResolved,
+    required bool skipLegacyChecks,
+    required _CredentialsWithNonce? credentials,
+    required _AccountBoot boot,
+    required String bootKind,
+  }) async {
+    if (_disposed || generation != _accountGeneration) return;
+    _accountStartRunning = true;
+    try {
+      await _finishAccountStart(
+        generation: generation,
+        eoa: eoa,
+        walletId: walletId,
+        spending: spending,
+        privateKey: privateKey,
+        knownAddress: knownAddress,
+        addressResolved: addressResolved,
+        skipLegacyChecks: skipLegacyChecks,
+        credentials: credentials,
+        boot: boot,
+        bootKind: bootKind,
+      );
+    } catch (_) {
+      // Every step guards itself; nothing here may surface.
+    } finally {
+      if (generation == _accountGeneration) _accountStartRunning = false;
+    }
+    if (_disposed || generation != _accountGeneration) return;
+    // The format check settled while the start ran past its setup step.
+    if (_setupDeferred && !_formatPending(walletId)) {
+      _resumeDeferredSetup(generation);
+    }
+  }
+
+  bool _formatPending(String walletId) =>
+      polymarketEvmFormatPending(ref.read(settingsProvider), walletId);
+
+  /// The account start holds its setup: the format check is pending, or
+  /// the spending wallet's identity already moved on (a format settling on
+  /// legacy) and this provider is about to build again for it.
+  bool _setupHeld(String walletId) {
+    final settings = ref.read(settingsProvider);
+    final wallet = pickSpendingWallet(settings);
+    return polymarketEvmFormatPending(settings, walletId) ||
+        wallet?.id != walletId ||
+        wallet?.evmDerivationVersion != _builtEvmVersion;
+  }
+
+  /// The EVM format check settled on the standard format: the account start
+  /// that left its setup for later runs it now (credentials, the one-time
+  /// setup, the idle USDC.e conversion).
+  void _resumeDeferredSetup(int generation) {
+    if (_disposed || generation != _accountGeneration) return;
+    if (_accountStartRunning || !_setupDeferred) return;
+    // The check moved the wallet to legacy: the identity changed and this
+    // provider builds again for the legacy account; nothing resumes on the
+    // standard one (its rebuild is only scheduled when this runs).
+    final wallet = pickSpendingWallet(ref.read(settingsProvider));
+    if (wallet == null ||
+        wallet.id != _spendingWalletId ||
+        wallet.evmDerivationVersion != _builtEvmVersion ||
+        wallet.evmFormatCheckPending) {
+      return;
+    }
+    final resume = _resumeAccountStart;
+    if (resume == null) return;
+    _setupDeferred = false;
+    final address = state.valueOrNull?.proxyWalletAddress;
+    _accountStartRunning = true;
+    unawaited(resume(address != null && address.isNotEmpty ? address : null));
+  }
+
+  /// The self-heal: the account start ended without a deposit address
+  /// (Polygon gave no answer on a restore with nothing cached). Looks it up
+  /// again, spaced out on failure, and on an answer finishes the account
+  /// start with it: cash, positions, credentials, setup. True when an
+  /// address was found.
+  Future<bool> _healAddress() async {
+    final resume = _resumeAccountStart;
+    final walletId = _spendingWalletId;
+    final eoa = state.valueOrNull?.walletAddress;
+    if (resume == null ||
+        walletId == null ||
+        eoa == null ||
+        _accountStartRunning ||
+        _healInFlight) {
+      return false;
+    }
+    final next = _nextHealAt;
+    if (next != null && DateTime.now().isBefore(next)) return false;
+    final generation = _accountGeneration;
+    bool current() =>
+        !_disposed &&
+        generation == _accountGeneration &&
+        state.valueOrNull?.walletAddress?.toLowerCase() == eoa.toLowerCase();
+    _healInFlight = true;
+    try {
+      final resolved = await PolymarketOnboardingService()
+          .resolveDepositWallet(eoa, skipLegacyChecks: _skipLegacyChecks);
+      if (!current()) return false;
+      final address = resolved.address;
+      _legacyWallet = resolved.legacy;
+      _healFailures = 0;
+      _nextHealAt = null;
+      try {
+        await _storage.write(key: _proxyKey(walletId), value: address);
+      } catch (_) {}
+      if (!current()) return false;
+      _completeAddress(address);
+      final live = state.valueOrNull;
+      if (live != null && (live.proxyWalletAddress ?? '').isEmpty) {
+        // A known deposit address is what authenticates the account start.
+        _setData(
+            live.copyWith(proxyWalletAddress: address, isAuthenticated: true));
+      }
+      _accountStartRunning = true;
+      unawaited(resume(address));
+      return true;
+    } catch (_) {
+      if (generation == _accountGeneration) {
+        _healFailures++;
+        const cap = Duration(minutes: 1);
+        final wait = healBackoffUnit * (1 << min(_healFailures - 1, 4));
+        _nextHealAt = DateTime.now().add(wait > cap ? cap : wait);
+      }
+      return false;
+    } finally {
+      if (generation == _accountGeneration) _healInFlight = false;
     }
   }
 
@@ -1367,6 +1748,7 @@ class PolymarketTradingNotifier
     if (!current()) return;
     final onboarding = PolymarketOnboardingService();
     String? address = knownAddress;
+    Object? addressError;
 
     // 1. The deposit address: the known one is already on screen; confirm
     //    it (or find it for a new wallet) without holding anything up.
@@ -1386,18 +1768,25 @@ class PolymarketTradingNotifier
             live.proxyWalletAddress?.toLowerCase() != address.toLowerCase()) {
           _setData(live.copyWith(proxyWalletAddress: address));
         }
-      } catch (_) {
+      } catch (e) {
         // Polygon gave no answer. The known address (if any) stands; a
-        // new wallet keeps its $0.00 and the next refresh resolves again.
+        // new wallet keeps its $0.00 and the next refresh resolves again
+        // (the self-heal in `refresh`).
+        addressError = e;
       }
     }
     _completeAddress(address);
     if (!current()) return;
 
+    // A recovered wallet whose EVM format check has not settled is read,
+    // never set up: no owner link, no new credentials, no deployment or
+    // approvals until the check settles (it may move to legacy).
+    final formatPending = _setupHeld(walletId);
+
     // Prove, once per account, that this hot wallet owns its Polymarket
     // signer and trading wallet so builder-fee trades are credited to the
     // user (VenueOwnerLinkService). Silent, never blocks, hot only.
-    if (!(spending.isHardware as bool)) {
+    if (!(spending.isHardware as bool) && !formatPending) {
       try {
         unawaited(VenueOwnerLinkService.ensureLinked(
           venue: VenueOwnerLinkService.polymarket,
@@ -1443,7 +1832,10 @@ class PolymarketTradingNotifier
     //    balance.
     var credsWithNonce = credentials;
     var credentialsSource = credsWithNonce != null ? 'stored' : 'none';
-    if (credsWithNonce == null) {
+    if (credsWithNonce == null && formatPending) {
+      credentialsSource = 'deferred';
+      _setupDeferred = true;
+    } else if (credsWithNonce == null) {
       try {
         credsWithNonce = await boot.time('credentials',
             () => _deriveOrCreateApiKey(funder: address, isCurrent: current));
@@ -1497,10 +1889,29 @@ class PolymarketTradingNotifier
         );
       }
     }
-    final isAuth = creds != null || (address != null && address.isNotEmpty);
     final live = state.valueOrNull;
+    // Never taken back: a setup that ran meanwhile (the first bet, a
+    // deposit) may have authenticated the account already.
+    final isAuth = creds != null ||
+        (address != null && address.isNotEmpty) ||
+        (live?.isAuthenticated ?? false);
     if (live != null) _setData(live.copyWith(isAuthenticated: isAuth));
-    boot.accountReady(credentials: credentialsSource, bootKind: bootKind);
+    if (isAuth) {
+      boot.accountReady(credentials: credentialsSource, bootKind: bootKind);
+    } else {
+      // Stuck: no deposit address and no credentials. Predictions reads
+      // "—" until the self-heal in `refresh` finds the address; the
+      // account-ready event follows then, from the resumed start.
+      _trackAccountStartUnauthenticated(
+        stage: 'account_start',
+        reason: addressError != null
+            ? TrackingService.errorCategory(addressError)
+            : 'no_address',
+        offline: addressError != null ? _isOfflineError(addressError) : null,
+        restore: spending.isRestore as bool,
+        bootKind: bootKind,
+      );
+    }
 
     // 4. Open orders, settled positions and the rest of the figures.
     if (address != null) {
@@ -1510,7 +1921,7 @@ class PolymarketTradingNotifier
         final now = state.valueOrNull;
         final keepBalance = !data.balanceKnown && (now?.balanceKnown ?? false);
         _setData(data.copyWith(
-          isAuthenticated: isAuth,
+          isAuthenticated: isAuth || (now?.isAuthenticated ?? false),
           isPlacingOrder: now?.isPlacingOrder ?? false,
           usdcBalance: keepBalance ? now!.usdcBalance : null,
           balanceKnown: keepBalance ? true : null,
@@ -1531,6 +1942,12 @@ class PolymarketTradingNotifier
     //    verify deployment and approvals once per account session; the
     //    onboarding service skips operations already complete on-chain.
     //    Creation's provisioning and the first bet join this same work.
+    //    Not while the wallet's EVM format check is pending: the setup
+    //    resumes once it settles (`_resumeDeferredSetup`).
+    if (_setupHeld(walletId)) {
+      _setupDeferred = true;
+      return;
+    }
     try {
       await enableTrading();
     } catch (_) {
@@ -2019,6 +2436,13 @@ class PolymarketTradingNotifier
         _publicModel == null) {
       return;
     }
+    // No deposit address yet (the account start's lookup failed): a read
+    // without it has nothing to show. Look the address up again instead.
+    if ((current.proxyWalletAddress ?? '').isEmpty) {
+      unawaited(_healAddress());
+      return;
+    }
+    final generation = _accountGeneration;
     _refreshInFlight = true;
     _tick++;
     try {
@@ -2037,6 +2461,15 @@ class PolymarketTradingNotifier
         proxyWallet: proxy,
         scope: polymarketRefreshScopeForTick(_tick),
       );
+
+      // The account changed or moved on while the read ran: merge into the
+      // live state, never over it (mergePolymarketRefresh).
+      final live = state.valueOrNull;
+      if (_disposed || generation != _accountGeneration || live == null) {
+        return;
+      }
+      final merged = mergePolymarketRefresh(live: live, read: data);
+      if (merged == null) return;
 
       // Detect newly resolved positions (was not redeemable, now is).
       final prevIds = current.openPositions
@@ -2065,15 +2498,8 @@ class PolymarketTradingNotifier
 
       // A refresh whose balance read failed keeps the last balance that
       // was read, rather than reading as 0 until the next tick.
-      final keepBalance = !data.balanceKnown && current.balanceKnown;
-      _setData(data.copyWith(
-        isAuthenticated: current.isAuthenticated,
-        isPlacingOrder: current.isPlacingOrder,
-        usdcBalance: keepBalance ? current.usdcBalance : null,
-        balanceKnown: keepBalance ? true : null,
-        refreshing: current.refreshing,
-      ));
-      _persistSnapshot(state.valueOrNull ?? data);
+      _setData(merged);
+      _persistSnapshot(state.valueOrNull ?? merged);
 
       // Record USDC balance snapshot for analytics charts
       if (data.usdcBalance > 0) {
@@ -2497,24 +2923,63 @@ class PolymarketTradingNotifier
     if (current == null ||
         current.walletAddress == null ||
         _publicModel == null) {
+      _rebuildFailedStart(current);
       return;
     }
+    // No deposit address yet: look it up again (the self-heal) rather than
+    // read nothing on every poll. On an answer the account start finishes
+    // with it and reads the figures itself.
+    if ((current.proxyWalletAddress ?? '').isEmpty) {
+      await _healAddress();
+      return;
+    }
+    final generation = _accountGeneration;
     try {
       final data = await _fetchAllData(
         current.walletAddress!,
         proxyWallet: current.proxyWalletAddress,
       );
 
-      _setData(data.copyWith(
-        isAuthenticated: current.isAuthenticated,
-        refreshing: current.refreshing,
-      ));
-      _persistSnapshot(state.valueOrNull ?? data);
+      final live = state.valueOrNull;
+      if (_disposed || generation != _accountGeneration || live == null) {
+        return;
+      }
+      final merged = mergePolymarketRefresh(live: live, read: data);
+      if (merged == null) return;
+      _setData(merged);
+      _persistSnapshot(state.valueOrNull ?? merged);
 
       // Auto-claim is OFF — claims are user-initiated only.
     } catch (e) {
-      _setData(current.copyWith(error: 'Refresh failed: $e'));
+      if (_disposed || generation != _accountGeneration) return;
+      final live = state.valueOrNull ?? current;
+      _setData(live.copyWith(error: 'Refresh failed: $e'));
     }
+  }
+
+  /// A refresh after a placeholder build that failed (the phrase could not
+  /// be read, setup threw) while a spending wallet exists and the session
+  /// is unlocked: builds the account again, at most every 30 s and ten
+  /// times a process, instead of staying on "—" until a restart.
+  void _rebuildFailedStart(PolymarketTradingState? current) {
+    if (current == null || current.error == null) return;
+    if (_selfRebuilds >= _maxSelfRebuilds) return;
+    final last = _lastSelfRebuildAt;
+    final now = DateTime.now();
+    if (last != null && now.difference(last) < _selfRebuildSpacing) return;
+    try {
+      if (pickSpendingWallet(ref.read(settingsProvider)) == null ||
+          !ref.read(sessionUnlockedProvider)) {
+        return;
+      }
+    } catch (_) {
+      return;
+    }
+    _lastSelfRebuildAt = now;
+    _selfRebuilds++;
+    // The same stuck episode: its event was sent by the build that failed.
+    _stuckTrackedCarry = true;
+    ref.invalidateSelf();
   }
 
   /// Resolves only the recorded order. This never signs or submits an order.
@@ -5052,7 +5517,10 @@ class PolymarketTradingNotifier
               // Stale read — RPC hasn't seen the transfer. Ignore so we
               // don't unwind the optimistic deduction.
               if ((data.usdcBalance - preSendBalance).abs() < 0.000001) return;
-              _setData(data.copyWith(isAuthenticated: latest.isAuthenticated));
+              final live = state.valueOrNull;
+              if (_disposed || live == null) return;
+              final merged = mergePolymarketRefresh(live: live, read: data);
+              if (merged != null) _setData(merged);
             } catch (_) {}
           });
         }
@@ -5358,6 +5826,11 @@ class PolymarketTradingNotifier
     if (walletId == null) {
       return Future.error(StateError('No spending wallet'));
     }
+    // Nothing is deployed or approved on an account whose EVM format may
+    // still move to legacy.
+    if (_formatPending(walletId)) {
+      return Future.error(const PolymarketEvmFormatPendingException());
+    }
     final eoa = current.walletAddress!;
     final generation = _accountGeneration;
     final session = ref.read(sessionAuthProvider);
@@ -5404,6 +5877,9 @@ class PolymarketTradingNotifier
     final spending = pickSpendingWallet(settings);
     if (spending == null) {
       throw Exception('No spending wallet');
+    }
+    if (spending.evmFormatCheckPending) {
+      throw const PolymarketEvmFormatPendingException();
     }
     final session = ref.read(seedSessionProvider);
     if (!session.unlocked) {
@@ -5522,7 +5998,8 @@ class PolymarketTradingNotifier
     final ready = state.valueOrNull;
     if (ready != null) {
       _setData(ready.copyWith(
-        isAuthenticated: _client?.clob.auth?.credentials != null,
+        isAuthenticated:
+            ready.isAuthenticated || _client?.clob.auth?.credentials != null,
       ));
     }
     unawaited(() async {
@@ -5531,7 +6008,8 @@ class PolymarketTradingNotifier
         if (!isCurrent()) return;
         final live = state.valueOrNull;
         _setData(data.copyWith(
-          isAuthenticated: _client?.clob.auth?.credentials != null,
+          isAuthenticated: (live?.isAuthenticated ?? false) ||
+              _client?.clob.auth?.credentials != null,
           isPlacingOrder: live?.isPlacingOrder ?? false,
         ));
       } catch (_) {

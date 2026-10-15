@@ -754,11 +754,11 @@ void main() {
       expect(results(), ['incomplete']);
     });
 
-    test('runs once per launch', () async {
+    test('a bounded number of attempts per launch', () async {
       final wallet = pendingWallet();
       final settings = SettingsModel(_settings([wallet]));
       var reads = 0;
-      for (var i = 0; i < 2; i++) {
+      for (var i = 0; i < RecoveryEvmFormat.maxAttemptsPerLaunch + 3; i++) {
         await RecoveryEvmFormat.retryPending(
           settings: settings,
           wallets: [wallet],
@@ -770,7 +770,125 @@ void main() {
           derive: _derive,
         );
       }
+      expect(reads, RecoveryEvmFormat.maxAttemptsPerLaunch);
+    });
+
+    test('one attempt at a time', () async {
+      final wallet = pendingWallet();
+      final settings = SettingsModel(_settings([wallet]));
+      var reads = 0;
+      final gate = Completer<void>();
+      Future<void> attempt() => RecoveryEvmFormat.retryPending(
+            settings: settings,
+            wallets: [wallet],
+            readMnemonic: (_) async {
+              reads++;
+              await gate.future;
+              return phrase;
+            },
+            probe: _probe({legacyEoa: _unknown}),
+            derive: _derive,
+          );
+      final first = attempt();
+      final second = attempt();
+      gate.complete();
+      await Future.wait([first, second]);
       expect(reads, 1);
+    });
+  });
+
+  group('settlePending (same session)', () {
+    late Directory hiveDir;
+    late List<(String, Map<String, Object>?)> events;
+
+    setUp(() async {
+      RecoveryEvmFormat.resetForTest();
+      hiveDir = await Directory.systemTemp.createTemp('evm_settle');
+      Hive.init(hiveDir.path);
+      events = [];
+      TrackingService.debugTrackObserver =
+          (event, params) => events.add((event, params));
+    });
+
+    tearDown(() async {
+      TrackingService.debugTrackObserver = null;
+      await Hive.close();
+      await hiveDir.delete(recursive: true);
+    });
+
+    WalletConfig pendingWallet() => WalletConfig(
+          id: 'w1',
+          name: 'Spending',
+          isRestore: true,
+          evmDerivationVersion: EvmDerivationVersion.standardBip39,
+          evmFormatCheckPending: true,
+          recoveryCheckAddress: standardEoa,
+        );
+
+    test('retries after an unfinished check and settles in the same session',
+        () async {
+      final settings = SettingsModel(_settings([pendingWallet()]));
+      var legacyReads = 0;
+      final waits = <Duration>[];
+      await RecoveryEvmFormat.settlePending(
+        settings: settings,
+        wallets: () => [settings.walletById('w1')!],
+        readMnemonic: (_) async => phrase,
+        canRun: () => true,
+        // The legacy account cannot be read on the first attempt, then
+        // answers with nothing.
+        probe: (eoa) async {
+          if (eoa != legacyEoa) return _empty;
+          legacyReads++;
+          return legacyReads == 1 ? _unknown : _empty;
+        },
+        derive: _derive,
+        wait: (d) async => waits.add(d),
+      );
+      expect(settings.walletById('w1')!.evmFormatCheckPending, isFalse);
+      expect(legacyReads, 2);
+      // Stopped as soon as nothing was pending.
+      expect(waits.length, 3);
+      expect([
+        for (final e in events)
+          if (e.$1 == 'recovery_evm_format_rechecked') e.$2?['result'],
+      ], ['incomplete', 'kept_standard']);
+    });
+
+    test('waits while locked or offline: no read is made', () async {
+      final settings = SettingsModel(_settings([pendingWallet()]));
+      var reads = 0;
+      await RecoveryEvmFormat.settlePending(
+        settings: settings,
+        wallets: () => [settings.walletById('w1')!],
+        readMnemonic: (_) async {
+          reads++;
+          return phrase;
+        },
+        canRun: () => false,
+        probe: _probe({}),
+        derive: _derive,
+        wait: (_) async {},
+      );
+      expect(reads, 0);
+      expect(settings.walletById('w1')!.evmFormatCheckPending, isTrue);
+    });
+
+    test('bounded: an account that never answers stops after the schedule',
+        () async {
+      final settings = SettingsModel(_settings([pendingWallet()]));
+      var waits = 0;
+      await RecoveryEvmFormat.settlePending(
+        settings: settings,
+        wallets: () => [settings.walletById('w1')!],
+        readMnemonic: (_) async => phrase,
+        canRun: () => true,
+        probe: _probe({legacyEoa: _unknown}),
+        derive: _derive,
+        wait: (_) async => waits++,
+      );
+      expect(waits, RecoveryEvmFormat.settleBackoff.length);
+      expect(settings.walletById('w1')!.evmFormatCheckPending, isTrue);
     });
   });
 

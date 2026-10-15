@@ -15,6 +15,8 @@ import 'package:kute/helpers/formatters/currency_formatter.dart';
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/auth_provider.dart';
 import 'package:kute/providers/bitcoin_config_provider.dart';
+import 'package:kute/providers/polymarket_trading_provider.dart'
+    show polymarketBalanceProvider, polymarketTradingProvider;
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/restart_widget.dart';
 import 'package:kute/screens/creation/set_pin.dart' show recoveryModeProvider;
@@ -185,6 +187,11 @@ class _RestoreSecretsScreenState extends ConsumerState<RestoreSecretsScreen> {
 
   void _markRestored(String walletId) {
     if (!mounted) return;
+    // The phrase is readable again: a Predictions build that ended without
+    // it (same wallet, same identity) builds again now.
+    ref
+      ..invalidate(polymarketTradingProvider)
+      ..invalidate(polymarketBalanceProvider);
     setState(() {
       final row = _rows[walletId];
       if (row == null) return;

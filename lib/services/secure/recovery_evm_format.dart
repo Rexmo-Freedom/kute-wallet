@@ -315,7 +315,8 @@ class RecoveryEvmChoice {
   final EvmDerivationVersion version;
 
   /// False when the venue check did not finish; the wallet then gets
-  /// [WalletConfig.evmFormatCheckPending] and the next unlock retries.
+  /// [WalletConfig.evmFormatCheckPending] and the check is retried in the
+  /// same session ([RecoveryEvmFormat.settlePending]) and on later unlocks.
   final bool checked;
 
   /// The chosen account has Hyperliquid funds or history.
@@ -393,19 +394,41 @@ abstract final class RecoveryEvmFormat {
     }
   }
 
-  static bool _retriedThisLaunch = false;
+  /// Retries one launch may make, all callers together (the cold-start
+  /// unlock and the same-session schedule, [settlePending]).
+  static const maxAttemptsPerLaunch = 6;
+
+  /// The same-session schedule: the wait before each attempt. About four
+  /// minutes in all, so a restore whose check timed out settles while the
+  /// person is still in the app, not on the next PIN unlock.
+  static const settleBackoff = [
+    Duration(seconds: 2),
+    Duration(seconds: 8),
+    Duration(seconds: 20),
+    Duration(seconds: 45),
+    Duration(seconds: 90),
+    Duration(seconds: 120),
+  ];
+
+  static int _attemptsThisLaunch = 0;
+  static bool _retrying = false;
 
   @visibleForTesting
-  static void resetForTest() => _retriedThisLaunch = false;
+  static void resetForTest() {
+    _attemptsThisLaunch = 0;
+    _retrying = false;
+  }
 
   /// Retries the venue check for wallets whose recovery check did not
-  /// finish. Runs at most once per launch, after an unlock; [readMnemonic]
-  /// reads a wallet's phrase with that session (automatic access only).
+  /// finish. One attempt at a time, at most [maxAttemptsPerLaunch] a
+  /// launch; [readMnemonic] reads a wallet's phrase with that session
+  /// (automatic access only).
   /// A wallet moves to the legacy format only when its standard account
   /// still has no funds, history or sent transactions (every signal
   /// answered) and its legacy account has some; an account with activity
-  /// is never switched away from. A retry that does
-  /// not finish leaves the flag for the next launch.
+  /// is never switched away from. A retry that does not finish leaves the
+  /// flag for the next attempt (this launch's schedule, else the next
+  /// launch).
   ///
   /// [onAdopted] runs after a switch so the caller can drop per-wallet
   /// venue caches and rebuild what derived the old account.
@@ -422,8 +445,78 @@ abstract final class RecoveryEvmFormat {
     final pending = wallets
         .where((w) => w.evmFormatCheckPending && RecoveryCheck.holdsStoredSeed(w))
         .toList();
-    if (pending.isEmpty || _retriedThisLaunch) return;
-    _retriedThisLaunch = true;
+    if (pending.isEmpty ||
+        _retrying ||
+        _attemptsThisLaunch >= maxAttemptsPerLaunch) {
+      return;
+    }
+    _retrying = true;
+    _attemptsThisLaunch++;
+    try {
+      await _retryOnce(
+        settings: settings,
+        pending: pending,
+        readMnemonic: readMnemonic,
+        probe: probe,
+        derive: derive,
+        onAdopted: onAdopted,
+      );
+    } finally {
+      _retrying = false;
+    }
+  }
+
+  /// Settles pending checks in this session: waits each step of [backoff]
+  /// and retries ([retryPending]) while a wallet is still pending and
+  /// [canRun] says the app is unlocked and online. Stops once nothing is
+  /// pending or the launch's attempts are spent. Never throws.
+  static Future<void> settlePending({
+    required SettingsModel settings,
+    required List<WalletConfig> Function() wallets,
+    required Future<String?> Function(String walletId) readMnemonic,
+    required bool Function() canRun,
+    EvmVenueProbe? probe,
+    Future<EvmRecoveryAccounts> Function(String mnemonic)? derive,
+    Future<void> Function(String walletId, String mnemonic,
+            {required bool hyperliquidActive})?
+        onAdopted,
+    List<Duration> backoff = settleBackoff,
+    Future<void> Function(Duration delay)? wait,
+  }) async {
+    final sleep = wait ?? (Duration d) => Future<void>.delayed(d);
+    for (final delay in backoff) {
+      await sleep(delay);
+      try {
+        bool pending(WalletConfig w) =>
+            w.evmFormatCheckPending && RecoveryCheck.holdsStoredSeed(w);
+        final now = wallets();
+        if (!now.any(pending)) return;
+        if (_attemptsThisLaunch >= maxAttemptsPerLaunch) return;
+        if (!canRun()) continue;
+        await retryPending(
+          settings: settings,
+          wallets: now,
+          readMnemonic: readMnemonic,
+          probe: probe,
+          derive: derive,
+          onAdopted: onAdopted,
+        );
+      } catch (_) {
+        // Best effort; the next step (or launch) tries again.
+      }
+    }
+  }
+
+  static Future<void> _retryOnce({
+    required SettingsModel settings,
+    required List<WalletConfig> pending,
+    required Future<String?> Function(String walletId) readMnemonic,
+    EvmVenueProbe? probe,
+    Future<EvmRecoveryAccounts> Function(String mnemonic)? derive,
+    Future<void> Function(String walletId, String mnemonic,
+            {required bool hyperliquidActive})?
+        onAdopted,
+  }) async {
     final read = probe ?? _defaultProbe;
     for (final wallet in pending) {
       try {

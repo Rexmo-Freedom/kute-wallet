@@ -15,6 +15,7 @@ import 'package:go_router/go_router.dart';
 import 'package:kute/services/secure/legacy_keychain_rescue.dart';
 import 'package:kute/services/secure/recovery_check.dart';
 import 'package:kute/services/secure/recovery_evm_format.dart';
+import 'package:kute/helpers/evm_format_settle.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/helpers/formatters/currency_formatter.dart';
 import 'package:kute/models/settings_model.dart';
@@ -138,6 +139,16 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
       (defaultTargetPlatform == TargetPlatform.iOS
           ? LegacyKeychainRescue()
           : null);
+
+  /// Predictions builds again for the restored spending wallet. Its
+  /// identity watch does too; this also covers a build that ended on a
+  /// placeholder (no phrase yet) for the same identity.
+  void _rebuildPredictions() {
+    if (!mounted) return;
+    ref
+      ..invalidate(polymarketTradingProvider)
+      ..invalidate(polymarketBalanceProvider);
+  }
 
   @override
   void initState() {
@@ -551,6 +562,7 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
     final evmChoice =
         await (widget.chooseEvmFormat ?? RecoveryEvmFormat.choose)(mnemonic);
     if (!mounted) return;
+    final container = ProviderScope.containerOf(context, listen: false);
     final authModel = ref.read(authModelProvider);
     final walletId =
         '${DateTime.now().millisecondsSinceEpoch}-${Random().nextInt(1000)}';
@@ -571,10 +583,15 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
     if (evmChoice.hyperliquidActive) {
       unawaited(HyperliquidOnboardingService.markEnabled(walletId));
     }
+    _rebuildPredictions();
+    // A format check that could not finish is retried in this session;
+    // Predictions is set up once it settles, not before.
+    if (config.evmFormatCheckPending) EvmFormatSettle.schedule(container);
     provisionPolymarketAccount(
         mnemonic: mnemonic,
         walletId: walletId,
-        evmDerivationVersion: config.evmDerivationVersion);
+        evmDerivationVersion: config.evmDerivationVersion,
+        evmFormatPending: config.evmFormatCheckPending);
 
     TrackingService.recoverySeedEntered(
         evmFormat: evmChoice.analyticsValue,
@@ -643,6 +660,7 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
           evmDerivationVersion: passkeyEvmDerivationVersion(label),
         );
         await ref.read(settingsProvider.notifier).addWallet(config);
+        _rebuildPredictions();
         TrackingService.walletAdded(
           walletKind: 'hot',
           importMethod: 'passkey',
@@ -891,6 +909,7 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
         passkeyProvider: null,
       );
       await ref.read(settingsProvider.notifier).addWallet(config);
+      _rebuildPredictions();
       TrackingService.walletAdded(
         walletKind: 'hot',
         importMethod: 'passkey',
