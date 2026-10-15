@@ -72,6 +72,8 @@ import 'package:kute/services/orchestra/orchestra_quote_guard.dart';
 import 'package:kute/services/orchestra_routes.dart'
     show kOrchestraUsdAssetCode, kOrchestraUsdChain;
 import 'package:kute/services/polymarket_spark_txs_service.dart';
+import 'package:kute/services/security/wallet_guard_exception.dart'
+    show WalletGuardException;
 import 'package:kute/services/tracking_service.dart';
 
 /// Orchestra quote `flow` strings the backend tags rows by.
@@ -773,7 +775,7 @@ class PredictionsVenueFunder
         // Nothing left Predictions: the route, the quote or the approval
         // refused it. The caller goes through Dollars.
         if (!usdcSent && e is! SettlementFundingUnknown) {
-          throw DirectRouteRefused(_failReason(e));
+          throw DirectRouteRefused(_directRefusalReason(e));
         }
         rethrow;
       }
@@ -925,6 +927,14 @@ class PredictionsVenueFunder
       return false;
     }
   }
+
+  /// Why a direct leg was refused before any USDC.e left, as a fixed code:
+  /// the wallet's own guard by its rule (`wallet_guard_recipient_not_own`:
+  /// a definitive refusal, never "busy"), the route's stop by its reason,
+  /// anything else by its category.
+  static String _directRefusalReason(Object e) => e is WalletGuardException
+      ? 'wallet_guard_${e.reason.code}'
+      : _failReason(e);
 
   static String _failReason(Object e) =>
       (e is SettlementStopped && e.reason == SettlementStopReason.declined)

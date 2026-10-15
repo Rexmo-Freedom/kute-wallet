@@ -10896,6 +10896,26 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
+  String moneyStepViaDollars(String source, String via) {
+    return 'Kerülő ezen át: $via ($source)';
+  }
+
+  @override
+  String moneyStepRouteUnavailable(String source, String via) {
+    return 'Az útvonal nem érhető el ($source), kerülő ezen át: $via';
+  }
+
+  @override
+  String moneyStepTooSmallDirect(String source, String via) {
+    return 'Túl kis összeg a közvetlen úthoz ($source), kerülő ezen át: $via';
+  }
+
+  @override
+  String multiMoveOrderWaiting(String amount, String balance) {
+    return '$amount a(z) $balance egyenlegeden van. A megbízás nem ment végbe';
+  }
+
+  @override
   String get moneyStepConverting => 'Átváltás pUSD-re';
 
   @override

@@ -89,6 +89,56 @@ void main() {
     );
   });
 
+  test(
+      'Predictions cash straight into the Investing account resolves both '
+      'own accounts; the reverse and the wrong chains stay refused', () async {
+    final pmToHl = RouteKey(
+        fromChain: 'polygon',
+        fromAsset: 'USDC.e',
+        toChain: 'hypercore',
+        toAsset: 'USDC');
+    // Refused here before (founder report 15 October 2026: the direct leg
+    // went via Dollars every time, before any quote).
+    final ownership = await OwnedAddressResolver(_Sources()).resolve(
+      walletId: 'hot-1',
+      route: pmToHl,
+      source: SettlementAccountKind.pmHot,
+      destination: SettlementAccountKind.hlHot,
+    );
+    expect(ownership.refund.address, _evm);
+    expect(ownership.recipient.address, _evm);
+    expect(
+      () => verifySettlementOwnership(
+        route: pmToHl,
+        ownership: ownership,
+        refundAddress: _evm,
+        recipientAddress: _other,
+      ),
+      throwsA(isA<WalletGuardException>().having(
+          (e) => e.reason, 'reason', WalletGuardReason.recipientNotOwn)),
+    );
+    expect(
+      () => checkSettlementAccountPair(
+          route: RouteKey(
+              fromChain: 'hypercore',
+              fromAsset: 'USDC',
+              toChain: 'polygon',
+              toAsset: 'USDC.e'),
+          source: SettlementAccountKind.hlHot,
+          destination: SettlementAccountKind.pmHot),
+      throwsA(isA<WalletGuardException>()
+          .having((e) => e.field, 'field', 'cross_account')),
+    );
+    expect(
+      () => checkSettlementAccountPair(
+          route: hotRoute,
+          source: SettlementAccountKind.pmHot,
+          destination: SettlementAccountKind.hlHot),
+      throwsA(isA<WalletGuardException>()
+          .having((e) => e.field, 'field', 'source_chain')),
+    );
+  });
+
   SettlementOwnership resolveLedger(String proofWallet) =>
       resolveLedgerSettlementOwnership(
         walletId: 'ledger-1',

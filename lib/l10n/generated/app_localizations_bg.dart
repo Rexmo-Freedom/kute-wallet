@@ -10890,6 +10890,26 @@ class AppLocalizationsBg extends AppLocalizations {
   }
 
   @override
+  String moneyStepViaDollars(String source, String via) {
+    return 'От $source минаваме през $via';
+  }
+
+  @override
+  String moneyStepRouteUnavailable(String source, String via) {
+    return 'Маршрутът през $source не е наличен, минаваме през $via';
+  }
+
+  @override
+  String moneyStepTooSmallDirect(String source, String via) {
+    return 'Сумата е твърде малка за директен път от $source, минаваме през $via';
+  }
+
+  @override
+  String multiMoveOrderWaiting(String amount, String balance) {
+    return 'Вашите $amount са в $balance. Поръчката не беше изпълнена';
+  }
+
+  @override
   String get moneyStepConverting => 'Конвертиране в pUSD';
 
   @override

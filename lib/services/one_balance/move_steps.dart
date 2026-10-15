@@ -318,7 +318,7 @@ abstract final class MoveSteps {
       // Dollars.
       final replacement = fresh(_freshId('${active.id}:via_dollars', used));
       var next = g.fallBack(active.id, [replacement],
-          reason: 'direct_refused', at: leg.at);
+          reason: leg.fellBack ?? 'direct_refused', at: leg.at);
       final fin = finalIdFor(destination, forAction);
       if (fin != null && finalOf(next) == null) {
         // Everything was to go straight there: now Dollars carry this

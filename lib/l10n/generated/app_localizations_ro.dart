@@ -10930,6 +10930,26 @@ class AppLocalizationsRo extends AppLocalizations {
   }
 
   @override
+  String moneyStepViaDollars(String source, String via) {
+    return 'Din $source trecem prin $via';
+  }
+
+  @override
+  String moneyStepRouteUnavailable(String source, String via) {
+    return 'Ruta $source nu e disponibilă, trecem prin $via';
+  }
+
+  @override
+  String moneyStepTooSmallDirect(String source, String via) {
+    return 'Suma e prea mică pentru drumul direct din $source, trecem prin $via';
+  }
+
+  @override
+  String multiMoveOrderWaiting(String amount, String balance) {
+    return 'Cei $amount sunt în $balance. Ordinul nu a avut loc';
+  }
+
+  @override
   String get moneyStepConverting => 'Se convertește în pUSD';
 
   @override

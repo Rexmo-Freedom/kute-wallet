@@ -157,9 +157,55 @@ void main() {
           status: MoneyStepStatus.running),
     ]);
     final lines = moneyStepLines(l10n, g, _usd);
-    expect(lines[0].text, 'Bitcoin route busy, going via Dollars');
+    // No reason recorded (an older record): neutral, never "busy".
+    expect(lines[0].text, 'Bitcoin going via Dollars');
     expect(lines[0].status, MoneyStepStatus.fellBack);
     expect(lines[1].text, 'Moving \$8.00 from Bitcoin → Dollars');
+  });
+
+  test('a fallen-back line says the real reason', () async {
+    final l10n = await _l10n();
+    String line(String? reason) => moneyStepLines(
+            l10n,
+            _bet().fallBack(
+                'leg:bitcoin',
+                const [
+                  MoneyStep(
+                      id: 'leg:bitcoin>dollars',
+                      kind: MoneyStepKind.leg,
+                      from: MoneyPlace.bitcoin,
+                      to: MoneyPlace.dollars,
+                      usd: 8),
+                ],
+                reason: reason),
+            _usd)
+        .first
+        .text;
+    // Transient: the only "busy".
+    expect(line('network'), 'Bitcoin route busy, going via Dollars');
+    expect(line('timeout'), 'Bitcoin route busy, going via Dollars');
+    // The route itself is off.
+    expect(line('route_unavailable'),
+        'Bitcoin route unavailable, going via Dollars');
+    expect(line('settlement_routeUnavailable'),
+        'Bitcoin route unavailable, going via Dollars');
+    expect(line('refused_recently'),
+        'Bitcoin route unavailable, going via Dollars');
+    // Under the direct route's minimum.
+    expect(line('below the Predictions minimum'),
+        'Too small to go straight from Bitcoin, going via Dollars');
+    // Nothing to act on: the wallet's own guard (the founder's case on 15
+    // October 2026), an account read, the approval, an unknown code.
+    for (final r in [
+      'wallet_guard_recipient_not_own',
+      'account_unavailable',
+      'settlement_declined',
+      'unknown',
+      'direct_refused',
+      null,
+    ]) {
+      expect(line(r), 'Bitcoin going via Dollars', reason: '$r');
+    }
   });
 
   testWidgets(

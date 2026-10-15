@@ -10862,6 +10862,26 @@ class AppLocalizationsCs extends AppLocalizations {
   }
 
   @override
+  String moneyStepViaDollars(String source, String via) {
+    return 'Ze zůstatku $source jdeme přes zůstatek $via';
+  }
+
+  @override
+  String moneyStepRouteUnavailable(String source, String via) {
+    return 'Trasa $source není dostupná, jdeme přes zůstatek $via';
+  }
+
+  @override
+  String moneyStepTooSmallDirect(String source, String via) {
+    return 'Částka je na přímou cestu ze zůstatku $source příliš malá, jdeme přes zůstatek $via';
+  }
+
+  @override
+  String multiMoveOrderWaiting(String amount, String balance) {
+    return 'Vašich $amount je v $balance. Pokyn neproběhl';
+  }
+
+  @override
   String get moneyStepConverting => 'Převod na pUSD';
 
   @override

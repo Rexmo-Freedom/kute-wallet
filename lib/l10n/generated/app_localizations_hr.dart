@@ -10895,6 +10895,26 @@ class AppLocalizationsHr extends AppLocalizations {
   }
 
   @override
+  String moneyStepViaDollars(String source, String via) {
+    return 'Iz salda $source idemo preko salda $via';
+  }
+
+  @override
+  String moneyStepRouteUnavailable(String source, String via) {
+    return 'Ruta $source nije dostupna, idemo preko salda $via';
+  }
+
+  @override
+  String moneyStepTooSmallDirect(String source, String via) {
+    return 'Iznos je premalen za izravan put iz salda $source, idemo preko salda $via';
+  }
+
+  @override
+  String multiMoveOrderWaiting(String amount, String balance) {
+    return 'Vaših $amount je u $balance. Nalog nije izvršen';
+  }
+
+  @override
   String get moneyStepConverting => 'Pretvaranje u pUSD';
 
   @override

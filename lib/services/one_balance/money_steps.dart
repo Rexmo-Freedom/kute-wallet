@@ -91,6 +91,52 @@ abstract final class MoneyRoute {
   static const String viaDollars = 'via_dollars';
 }
 
+/// Why a direct leg went the longer way, as the person reads it.
+enum MoneyFallBack {
+  /// A refusal that says nothing about the route: the network, a read,
+  /// an earlier move still on its way ("route busy").
+  busy,
+
+  /// The route itself is off: not offered, paused, refused recently.
+  unavailable,
+
+  /// The amount is under what the direct route takes.
+  tooSmall,
+
+  /// Nothing the person can act on (the approval, an account read, the
+  /// wallet's own guard): "going via Dollars", no reason given.
+  neutral;
+
+  /// [reason] (the fixed code a fallen-back step keeps) as one of these.
+  /// Only a transient refusal ever reads as busy.
+  static MoneyFallBack of(String? reason) {
+    final r = (reason ?? '').toLowerCase();
+    if (r.contains('minimum') ||
+        r.contains('too_small') ||
+        r.startsWith('below')) {
+      return tooSmall;
+    }
+    if (r == 'no_direct_route' ||
+        r == 'no_route' ||
+        r == 'refused_recently' ||
+        r == 'cctp_paused' ||
+        r.contains('route_unavailable') ||
+        r.contains('routeunavailable') ||
+        r.contains('capability') ||
+        r.contains('pair_missing') ||
+        r == 'unsupported_source') {
+      return unavailable;
+    }
+    if (r == 'network' ||
+        r == 'timeout' ||
+        r == 'rate_limited' ||
+        r == 'cctp_in_flight') {
+      return busy;
+    }
+    return neutral;
+  }
+}
+
 /// One step.
 @immutable
 class MoneyStep {

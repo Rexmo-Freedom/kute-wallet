@@ -10859,6 +10859,26 @@ class AppLocalizationsEt extends AppLocalizations {
   }
 
   @override
+  String moneyStepViaDollars(String source, String via) {
+    return 'Kontolt $source läheme läbi konto $via';
+  }
+
+  @override
+  String moneyStepRouteUnavailable(String source, String via) {
+    return 'Konto $source marsruut pole saadaval, läheme läbi konto $via';
+  }
+
+  @override
+  String moneyStepTooSmallDirect(String source, String via) {
+    return 'Summa on otse kontolt $source minekuks liiga väike, läheme läbi konto $via';
+  }
+
+  @override
+  String multiMoveOrderWaiting(String amount, String balance) {
+    return 'Sinu $amount on kontol $balance. Tehing ei läinud läbi';
+  }
+
+  @override
   String get moneyStepConverting => 'Teisendame pUSD-ks';
 
   @override

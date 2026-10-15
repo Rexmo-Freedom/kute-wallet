@@ -18344,6 +18344,30 @@ abstract class AppLocalizations {
   /// **'{source} route busy, going via {via}'**
   String moneyStepFellBack(String source, String via);
 
+  /// A direct route was not taken before any money left, for a reason the person cannot act on, so the money takes the longer way through another balance, e.g. Predictions going via Dollars. {source} and {via} are balance names.
+  ///
+  /// In en, this message translates to:
+  /// **'{source} going via {via}'**
+  String moneyStepViaDollars(String source, String via);
+
+  /// A direct route is not offered right now (not available, paused or refused recently), so before any money left it takes the longer way through another balance, e.g. Predictions route unavailable, going via Dollars. {source} and {via} are balance names.
+  ///
+  /// In en, this message translates to:
+  /// **'{source} route unavailable, going via {via}'**
+  String moneyStepRouteUnavailable(String source, String via);
+
+  /// The amount is under what the direct route takes, so the money takes the longer way through another balance, e.g. Too small to go straight from Predictions, going via Dollars. {source} and {via} are balance names.
+  ///
+  /// In en, this message translates to:
+  /// **'Too small to go straight from {source}, going via {via}'**
+  String moneyStepTooSmallDirect(String source, String via);
+
+  /// Activity row and detail of a move whose money was for an order (Investing or Predictions): the money came home to the spending dollar balance but the order and its move into the venue never went, so the money is in that balance. {amount} is a formatted dollar amount, {balance} the dollar balance's display name.
+  ///
+  /// In en, this message translates to:
+  /// **'Your {amount} is in {balance}. The order didn\'t go through'**
+  String multiMoveOrderWaiting(String amount, String balance);
+
   /// Predictions readiness sub-step: the dollars that arrived (USDC.e) are converted to pUSD, the token predictions are placed with. Running.
   ///
   /// In en, this message translates to:

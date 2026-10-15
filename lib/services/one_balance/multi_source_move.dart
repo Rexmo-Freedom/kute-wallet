@@ -58,6 +58,7 @@ class MultiSourceMoveLeg {
     this.operationId,
     this.quoteId,
     this.error,
+    this.fellBack,
   });
 
   final OneBalanceVenue venue;
@@ -81,6 +82,10 @@ class MultiSourceMoveLeg {
   /// A fixed code for a failed leg, never an error text.
   final String? error;
 
+  /// Why a leg planned straight to the destination came home to Dollars
+  /// instead (the rail's fixed refusal code); null otherwise.
+  final String? fellBack;
+
   bool get direct => route == VenueCashRoute.direct;
 
   Map<String, dynamic> toJson() => {
@@ -93,6 +98,7 @@ class MultiSourceMoveLeg {
         if (operationId != null) 'operationId': operationId,
         if (quoteId != null) 'quoteId': quoteId,
         if (error != null) 'error': error,
+        if (fellBack != null) 'fellBack': fellBack,
       };
 
   static MultiSourceMoveLeg? fromJson(Object? raw) {
@@ -118,6 +124,7 @@ class MultiSourceMoveLeg {
       operationId: raw['operationId'] as String?,
       quoteId: raw['quoteId'] as String?,
       error: raw['error'] as String?,
+      fellBack: raw['fellBack'] as String?,
     );
   }
 }

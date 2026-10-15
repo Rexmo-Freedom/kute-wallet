@@ -34,6 +34,9 @@ import 'package:kute/services/orchestra_routes.dart'
     show kOrchestraUsdAssetCode;
 import 'package:kute/screens/shared/pending_bitcoin_purchase_continue.dart'
     show legacyPurchaseUsd, pendingPurchaseWaitingUsd;
+import 'package:kute/services/one_balance/money_steps.dart'
+    show MoneyStepStatus;
+import 'package:kute/services/one_balance/move_steps.dart' show MoveSteps;
 import 'package:kute/services/one_balance/multi_source_move.dart';
 import 'package:kute/services/one_balance/pending_bitcoin_purchase.dart'
     show
@@ -67,6 +70,10 @@ class MultiSourceMoveTransaction extends BaseTransaction {
 
   /// Every leg row the surface knows has settled.
   bool get complete => isConfirmed && !partial;
+
+  /// A step of the move stopped ([multiSourceMoveStepFailed]): it needs
+  /// the person, never Completed.
+  bool get stepFailed => multiSourceMoveStepFailed(move);
 
   @override
   TransactionType get type => move.forAction == 'send'
@@ -111,7 +118,7 @@ class MultiSourceMoveTransaction extends BaseTransaction {
 SwapOrderTransaction? multiSourceMoveStandardRow(
     MultiSourceMoveTransaction tx) {
   final move = tx.move;
-  final status = tx.partial
+  final status = tx.partial || tx.stepFailed
       ? 'failed'
       : tx.complete
           ? 'success'
@@ -268,9 +275,34 @@ bool multiSourceMoveSettled(
       move.okLegs.any((l) => !l.direct)) {
     // Its dollars are home; the purchase has not gone yet.
     return false;
+  } else if (multiSourceMoveOnwardOwed(move)) {
+    // Its legs landed, but Dollars never went on into the venue: the move
+    // is not where it was going (founder, 15 October 2026: "Completed"
+    // with "Dollars → Investing" still waiting).
+    return false;
   }
   return true;
 }
+
+/// Whether [move] is into a venue and its own step (Dollars going on into
+/// it) is owed: its graph has one that is not skipped and nothing went
+/// for it.
+bool multiSourceMoveOnwardOwed(MultiSourceMove move) {
+  if (move.finalOperationId != null) return false;
+  if (move.destination != VenueCashDestination.investing &&
+      move.destination != VenueCashDestination.predictions) {
+    return false;
+  }
+  final fin = MoveSteps.finalOf(MoveSteps.of(move));
+  return fin != null && fin.status != MoneyStepStatus.skipped;
+}
+
+/// Whether a step of [move] stopped: a failed step that no Retry replaced
+/// (a failed leg, the move's own step stopped with its order).
+bool multiSourceMoveStepFailed(MultiSourceMove move) =>
+    MoveSteps.of(move).steps.any((s) =>
+        s.status == MoneyStepStatus.failed &&
+        s.reason != MoveSteps.replacedReason);
 
 /// How long after a move started its own step (the purchase, the send)
 /// may still go without the person: the one approval the action was given
@@ -279,11 +311,16 @@ bool multiSourceMoveSettled(
 const Duration kMultiSourceMoveFinishWindow = AuthGrants.autofireTtl;
 
 /// Whether [move]'s action has a step of its own after the legs: a send,
-/// or the purchase of Bitcoin with what came home to Dollars.
+/// the purchase of Bitcoin with what came home to Dollars, or Dollars
+/// going on into a venue for an order.
 bool multiSourceMoveHasFinalStep(MultiSourceMove move) =>
     move.forAction == VenueCashFor.send ||
     (move.destination == VenueCashDestination.bitcoin &&
-        move.okLegs.any((l) => !l.direct));
+        move.okLegs.any((l) => !l.direct)) ||
+    // Into a venue for an order: Dollars going on into it.
+    (move.finalOperationId == null &&
+        move.okLegs.isNotEmpty &&
+        multiSourceMoveOnwardOwed(move));
 
 /// Whether every leg of [move] went and has landed: each has its row, the
 /// row has settled and its delivery is counted. False when a leg failed

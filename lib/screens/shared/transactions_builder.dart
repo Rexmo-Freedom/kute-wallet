@@ -740,6 +740,15 @@ class _RowIconTile extends StatelessWidget {
   }
 }
 
+/// Whether a swap row's [rate] means anything: a positive number, or a
+/// non-numeric label a provider gave.
+bool _rateShown(String rate) {
+  final t = rate.trim();
+  if (t.isEmpty) return false;
+  final v = double.tryParse(t);
+  return v == null || (v.isFinite && v > 0);
+}
+
 String _formatRate(String rate) {
   final v = double.tryParse(rate);
   if (v == null) {
@@ -3578,7 +3587,9 @@ List<Widget> _swapOrderNerdRows(
     if (details.networkTo.isNotEmpty)
       _sheetDetailRow(c, context.l10n.activityReceiveNetwork,
           orchestraChainDisplayName(details.networkTo)),
-    if (!isCashAppPurchase)
+    // A rate only where there is one: a dollar-to-dollar move (USDC.e →
+    // USDB) records none ("0"), and "Rate 0.0000000" says nothing.
+    if (!isCashAppPurchase && _rateShown(details.rate))
       _sheetDetailRow(c, context.l10n.rate, _formatRate(details.rate)),
     if (details.status.isNotEmpty)
       _sheetDetailRow(c, context.l10n.activityStatusCode, details.status),
@@ -5705,7 +5716,7 @@ Widget _multiSourceMoveIcon(MultiSourceMove move) =>
 /// or the legs still on their way. Null once every leg has settled.
 _RowStatus? _multiSourceMoveStatus(
     BuildContext context, MultiSourceMoveTransaction tx) {
-  if (tx.partial) {
+  if (tx.partial || tx.stepFailed) {
     return _RowStatus(
         text: context.l10n.activityNeedsAttention,
         color: AppColors.marketDown);
@@ -5749,9 +5760,15 @@ MultiSourceMoveFinish? _multiSourceMoveFinish(
 String _multiSourceMoveFinishText(
     AppLocalizations l10n, MultiSourceMove move, double usd) {
   final amount = '\$${usd.toStringAsFixed(2)}';
-  return move.destination == VenueCashDestination.bitcoin
-      ? l10n.multiMovePurchaseWaiting(amount, l10n.assetDollars)
-      : l10n.multiMoveSendWaiting(amount, l10n.assetDollars);
+  return switch (move.destination) {
+    VenueCashDestination.bitcoin =>
+      l10n.multiMovePurchaseWaiting(amount, l10n.assetDollars),
+    VenueCashDestination.investing ||
+    VenueCashDestination.predictions =>
+      l10n.multiMoveOrderWaiting(amount, l10n.assetDollars),
+    VenueCashDestination.dollars =>
+      l10n.multiMoveSendWaiting(amount, l10n.assetDollars),
+  };
 }
 
 /// One tap on a move whose purchase waits on the person: a fresh approval,
@@ -5813,7 +5830,9 @@ Widget _buildMultiSourceMoveItem(
   final sent = move.forAction == VenueCashFor.send &&
       move.finalOperationId != null;
   var icon = _multiSourceMoveIcon(move);
-  if (!tx.complete && !tx.partial) icon = _PendingIconWrapper(child: icon);
+  if (!tx.complete && !tx.partial && !tx.stepFailed) {
+    icon = _PendingIconWrapper(child: icon);
+  }
   return _TransactionRow(
     onTap: open,
     leading: icon,
@@ -5978,7 +5997,9 @@ class _MultiSourceMoveDetailSheetState
       _closeDissolved();
       return const SizedBox.shrink();
     }
-    final status = tx.partial || waitingUsd != null
+    // From the steps: Needs attention once one stopped, Completed only
+    // once every one is done, Pending while any waits or runs.
+    final status = tx.partial || tx.stepFailed || waitingUsd != null
         ? (text: l10n.activityNeedsAttention, color: AppColors.marketDown)
         : tx.complete
             ? (text: l10n.completed, color: AppColors.success)

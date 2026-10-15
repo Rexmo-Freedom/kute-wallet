@@ -10449,6 +10449,26 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String moneyStepViaDollars(String source, String via) {
+    return '$sourceから$via経由で移動します';
+  }
+
+  @override
+  String moneyStepRouteUnavailable(String source, String via) {
+    return '$source経由のルートが利用できないため、$via経由で移動します';
+  }
+
+  @override
+  String moneyStepTooSmallDirect(String source, String via) {
+    return '$sourceから直接送るには金額が少ないため、$via経由で移動します';
+  }
+
+  @override
+  String multiMoveOrderWaiting(String amount, String balance) {
+    return '$amountは$balanceにあります。注文は完了していません';
+  }
+
+  @override
   String get moneyStepConverting => 'pUSDに変換中';
 
   @override

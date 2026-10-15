@@ -10955,6 +10955,26 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String moneyStepViaDollars(String source, String via) {
+    return '$source passe par $via';
+  }
+
+  @override
+  String moneyStepRouteUnavailable(String source, String via) {
+    return 'Route $source indisponible, passage par $via';
+  }
+
+  @override
+  String moneyStepTooSmallDirect(String source, String via) {
+    return 'Montant trop faible pour passer directement depuis $source, passage par $via';
+  }
+
+  @override
+  String multiMoveOrderWaiting(String amount, String balance) {
+    return 'Vos $amount sont dans $balance. L’ordre n’a pas abouti';
+  }
+
+  @override
   String get moneyStepConverting => 'Conversion en pUSD';
 
   @override

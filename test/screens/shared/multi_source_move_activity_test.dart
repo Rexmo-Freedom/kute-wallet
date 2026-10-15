@@ -31,6 +31,7 @@ import 'package:kute/screens/portfolio/portfolio_activity.dart';
 import 'package:kute/screens/shared/multi_source_move_activity.dart';
 import 'package:kute/screens/shared/transactions_builder.dart';
 import 'package:kute/screens/shared/venue_cash_pull_copy.dart';
+import 'package:kute/services/one_balance/move_steps.dart' show MoveSteps;
 import 'package:kute/services/one_balance/multi_source_move.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/one_balance/venue_cash_source.dart';
@@ -288,6 +289,61 @@ void main() {
               move: viaDollars.copyWith(finalOperationId: 'op-buy'),
               legRows: [home, bought]).complete,
           isTrue);
+    });
+
+    test(
+        'an order\'s move into Investing: never Completed while Dollars → '
+        'Investing waits; Needs attention once it stopped', () {
+      // The founder's move (15 October 2026): Predictions → Dollars
+      // landed, "Dollars → Investing" never went, the row read Completed.
+      final move = _move(
+        forAction: VenueCashFor.investing,
+        destination: VenueCashDestination.investing,
+        legs: [_leg(OneBalanceVenue.predictions, op: 'op-pm', direct: false)],
+      );
+      final home = _row('ord_pm',
+          from: 'USDC',
+          fromNet: 'POLYGON',
+          to: 'USDB',
+          toNet: 'SPARK',
+          operationId: 'op-pm',
+          status: 'success');
+      expect(multiSourceMoveOnwardOwed(move), isTrue);
+      final waiting = MultiSourceMoveTransaction(move: move, legRows: [home]);
+      expect(waiting.complete, isFalse);
+      expect(waiting.stepFailed, isFalse);
+      // The order stopped before anything left Dollars: its own step says
+      // so, and the row needs attention.
+      final stopped = move.copyWith(
+          steps: MoveSteps.finalStopped(MoveSteps.of(move), 'timeout'));
+      final tx = MultiSourceMoveTransaction(move: stopped, legRows: [home]);
+      expect(tx.complete, isFalse);
+      expect(tx.stepFailed, isTrue);
+      // Dollars went on: settled once that move's row is.
+      final onward = _row('ord_on',
+          from: 'USDB',
+          fromNet: 'SPARK',
+          to: 'USDC',
+          toNet: 'HYPERCORE',
+          operationId: 'op-on',
+          status: 'success');
+      expect(
+          MultiSourceMoveTransaction(
+              move: move.copyWith(finalOperationId: 'op-on'),
+              legRows: [home, onward]).complete,
+          isTrue);
+      // Every leg straight in and no Dollars: nothing is owed.
+      final allDirect = MultiSourceMove(
+        id: 'msm_d',
+        walletId: 'w1',
+        forAction: VenueCashFor.investing,
+        destination: VenueCashDestination.investing,
+        totalUsd: 19.8,
+        dollarsUsd: 0,
+        createdAt: _t0,
+        legs: [_leg(OneBalanceVenue.predictions, op: 'op-pm')],
+      );
+      expect(multiSourceMoveOnwardOwed(allDirect), isFalse);
     });
 
     test('a surface that does not list a leg still reads it', () {
@@ -760,6 +816,10 @@ void main() {
       expect(inLeg('ord_pm', find.text('Fee')), findsOneWidget);
       expect(inLeg('ord_pm', find.text(r'$0.20')), findsOneWidget);
       expect(inLeg('ord_hl', find.text('Fee')), findsNothing);
+      // A dollar-to-dollar order records no rate ("0"): no "Rate
+      // 0.0000000" row in any leg.
+      expect(inLeg('ord_pm', find.text('Rate')), findsNothing);
+      expect(find.textContaining('0.0000000'), findsNothing);
       // Still once for the move.
       expect(find.text('Date'), findsOneWidget);
       expect(find.text('Status'), findsOneWidget);

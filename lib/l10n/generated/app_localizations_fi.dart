@@ -10883,6 +10883,26 @@ class AppLocalizationsFi extends AppLocalizations {
   }
 
   @override
+  String moneyStepViaDollars(String source, String via) {
+    return 'Tililtä $source kuljetaan tilin $via kautta';
+  }
+
+  @override
+  String moneyStepRouteUnavailable(String source, String via) {
+    return 'Tilin $source reitti ei ole käytettävissä, kuljetaan tilin $via kautta';
+  }
+
+  @override
+  String moneyStepTooSmallDirect(String source, String via) {
+    return 'Liian pieni summa suoraan tililtä $source, kuljetaan tilin $via kautta';
+  }
+
+  @override
+  String multiMoveOrderWaiting(String amount, String balance) {
+    return '$amount on kohteessa $balance. Toimeksianto ei mennyt läpi';
+  }
+
+  @override
   String get moneyStepConverting => 'Muunnetaan pUSD:ksi';
 
   @override

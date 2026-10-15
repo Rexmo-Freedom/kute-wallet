@@ -10914,6 +10914,26 @@ class AppLocalizationsLt extends AppLocalizations {
   }
 
   @override
+  String moneyStepViaDollars(String source, String via) {
+    return 'Iš $source keliaujame per likutį $via';
+  }
+
+  @override
+  String moneyStepRouteUnavailable(String source, String via) {
+    return 'Maršrutas $source nepasiekiamas, keliaujame per likutį $via';
+  }
+
+  @override
+  String moneyStepTooSmallDirect(String source, String via) {
+    return 'Suma per maža tiesioginiam keliui iš $source, keliaujame per likutį $via';
+  }
+
+  @override
+  String multiMoveOrderWaiting(String amount, String balance) {
+    return 'Jūsų $amount yra $balance. Pavedimas neįvyko';
+  }
+
+  @override
   String get moneyStepConverting => 'Konvertuojama į pUSD';
 
   @override

@@ -10839,6 +10839,26 @@ class AppLocalizationsLv extends AppLocalizations {
   }
 
   @override
+  String moneyStepViaDollars(String source, String via) {
+    return 'No konta $source ejam caur kontu $via';
+  }
+
+  @override
+  String moneyStepRouteUnavailable(String source, String via) {
+    return 'Konta $source maršruts nav pieejams, ejam caur kontu $via';
+  }
+
+  @override
+  String moneyStepTooSmallDirect(String source, String via) {
+    return 'Summa ir par mazu tiešam ceļam no konta $source, ejam caur kontu $via';
+  }
+
+  @override
+  String multiMoveOrderWaiting(String amount, String balance) {
+    return 'Jūsu $amount ir $balance. Rīkojums neizdevās';
+  }
+
+  @override
   String get moneyStepConverting => 'Konvertē uz pUSD';
 
   @override

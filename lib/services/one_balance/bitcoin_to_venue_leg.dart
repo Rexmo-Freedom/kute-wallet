@@ -647,7 +647,10 @@ Future<LegDelivery> watchLegDelivery({
 }) async {
   var waited = Duration.zero;
   var slow = false;
-  while (waited < maxWait) {
+  // Bounded by the wall clock too: a status read that hangs to its own
+  // timeout every time never stretches the wait past [maxWait].
+  final clock = Stopwatch()..start();
+  while (waited < maxWait && clock.elapsed < maxWait) {
     final status = await statusOf(id());
     if (status != null) {
       if (kOrchestraDeliveredStatuses.contains(status)) {

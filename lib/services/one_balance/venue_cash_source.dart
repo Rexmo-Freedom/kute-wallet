@@ -468,6 +468,9 @@ abstract final class DirectRouteRefusals {
     if (sticky(r)) return false;
     return !(r == 'user_cancelled' ||
         r.startsWith('settlement_') ||
+        // The wallet's own guard refused the route's terms (an account
+        // pair, a recipient, a fee cap): a second ask gets the same answer.
+        r.startsWith('wallet_guard') ||
         r == 'cctp_in_flight' ||
         r == 'cctp_below_minimum' ||
         r.contains('minimum'));
@@ -726,9 +729,15 @@ class VenueCashLegOutcome {
     this.error,
     this.route = VenueCashRoute.viaDollars,
     this.landsIn = VenueCashDestination.dollars,
+    this.fellBackReason,
   });
 
   final VenueCashPull pull;
+
+  /// Why a leg that was to go straight to the destination came home to
+  /// Dollars instead (the rail's fixed refusal code); null when it went
+  /// the way it was planned.
+  final String? fellBackReason;
 
   /// The rail's answer when the leg was sent.
   final VenueMoveResult? result;
@@ -1051,6 +1060,7 @@ class VenueCashPuller {
     Duration? waitFor,
     String? moveId,
     AuthGrant? approval,
+    VenueCashPlan? plan,
     void Function(VenueCashPlan plan)? onPlanned,
     void Function(VenueCashLegOutcome leg)? onLeg,
     void Function(String moveId)? onStarted,
@@ -1063,6 +1073,7 @@ class VenueCashPuller {
           waitFor: waitFor,
           moveId: moveId,
           approval: approval,
+          fixedPlan: plan,
           onPlanned: onPlanned,
           onLeg: onLeg,
           onStarted: onStarted,
@@ -1115,6 +1126,7 @@ class VenueCashPuller {
     bool useDollars = true,
     bool remainderOnly = false,
     AuthGrant? approval,
+    VenueCashPlan? fixedPlan,
     void Function(VenueCashPlan plan)? onPlanned,
     void Function(VenueCashLegOutcome leg)? onLeg,
     void Function(String moveId)? onStarted,
@@ -1126,11 +1138,15 @@ class VenueCashPuller {
     final alreadyDirect =
         remainderOnly ? 0.0 : (earlier?.directDeliveredUsd ?? 0.0);
     final needed = math.max(0.0, neededUsd - alreadyDirect);
-    final plan = await this.plan(
-        neededUsd: needed,
-        exclude: excluded,
-        destination: destination,
-        useDollars: useDollars);
+    // The plan the action's approval bound, when it hands one: its legs
+    // run exactly as approved (a fresh plan a cent apart would no longer
+    // fit the leg caps and go through Dollars without a word).
+    final plan = fixedPlan ??
+        await this.plan(
+            neededUsd: needed,
+            exclude: excluded,
+            destination: destination,
+            useDollars: useDollars);
     if (!plan.covers) {
       return VenueCashPullOutcome(
           plan: plan,
@@ -1251,6 +1267,7 @@ class VenueCashPuller {
               pull: p, error: const RouteUnavailable('no_source')));
     }
     var route = VenueCashRoute.viaDollars;
+    String? fellBack;
     try {
       VenueMoveResult? result;
       // Straight to the destination only under the action's approval,
@@ -1297,6 +1314,7 @@ class VenueCashPuller {
           }
           _trackDirectRefused(p, destination, e, retrying: false);
           route = VenueCashRoute.viaDollars;
+          fellBack = directRefusalCode(e);
         }
       }
       result ??= await source.pull(p.usd, purpose: kVenueCashPullPurpose);
@@ -1307,6 +1325,7 @@ class VenueCashPuller {
         landsIn: route == VenueCashRoute.direct
             ? destination
             : VenueCashDestination.dollars,
+        fellBackReason: fellBack,
       );
       if (route == VenueCashRoute.viaDollars) {
         _pending.add((usd: outcome.arrivingUsd, at: _clock()));
@@ -1342,11 +1361,29 @@ class VenueCashPuller {
       operationId: result?.operationId,
       quoteId: result?.quoteId,
       error: leg.ok ? null : TrackingService.errorCategory(leg.error),
+      fellBack: leg.fellBackReason,
     );
     // The leg and its step (on its way, failed, or through Dollars
     // instead: MultiSourceMoveStore.addLeg records both).
     MultiSourceMoveStore.addLeg(moveId, recorded);
     return leg;
+  }
+
+  /// A leg that came home to Dollars has landed ([usd]: what it was
+  /// counted as on its way): Dollars show it now, so it no longer counts
+  /// as on its way (it would be counted twice, or after it moved on).
+  void landedHome(double usd) {
+    if (!usd.isFinite || usd <= 0) return;
+    final i = _pending.indexWhere((p) => (p.usd - usd).abs() < 0.005);
+    if (i >= 0) _pending.removeAt(i);
+  }
+
+  /// [e]'s fixed code, as the leg's step and the event carry it.
+  static String directRefusalCode(DirectRouteRefused e) {
+    final r = e.reason ?? '';
+    return RegExp(r'^[a-z_]{1,48}$').hasMatch(r)
+        ? r
+        : TrackingService.errorCategory(r.isEmpty ? 'unknown' : r);
   }
 
   Future<bool> _waitForDollars(double neededUsd, Duration waitFor) async {
@@ -1425,9 +1462,7 @@ class VenueCashPuller {
         'destination': destination.code,
         // The rails' reasons are fixed codes (`cctp_in_flight`, an error
         // category); anything else is classified, never sent as text.
-        'reason': RegExp(r'^[a-z_]{1,48}$').hasMatch(e.reason ?? '')
-            ? e.reason!
-            : TrackingService.errorCategory(e.reason ?? 'unknown'),
+        'reason': directRefusalCode(e),
         'retrying': retrying,
         'sticky': DirectRouteRefusals.sticky(e.reason),
         'amount_usd': _cents(p.usd),

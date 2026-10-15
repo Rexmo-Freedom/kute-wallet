@@ -92,7 +92,7 @@ import 'package:kute/providers/settings_provider.dart' show settingsProvider;
 import 'package:kute/providers/spark_address_provider.dart'
     show sparkSelfAddressProvider;
 import 'package:kute/providers/usd_account_provider.dart'
-    show usdBalanceProvider, usdDollarsFromNodeInfo;
+    show usdBalanceCheckProvider, usdBalanceProvider, usdDollarsFromNodeInfo;
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
 import 'package:kute/services/api/orchestra_api.dart' show OrchestraService;
@@ -162,6 +162,7 @@ class BitcoinLegEnv {
     this.legStatus,
     this.legPollEvery = const Duration(seconds: 1),
     this.readiness,
+    this.checkDollars,
   });
 
   /// The wallet's own Spark address, from the Spark SDK.
@@ -203,6 +204,10 @@ class BitcoinLegEnv {
   /// (`waiting`, `converting`, `approving`, `confirming`, `crediting`,
   /// `ready`). Null: the readiness steps follow the placement alone.
   final Stream<String> Function(OneBalanceVenue venue)? readiness;
+
+  /// Asks the Dollars reading to catch up with the wallet now (a leg's
+  /// dollars were delivered: `usdBalanceCheckProvider`). Never awaited.
+  final void Function()? checkDollars;
 
   /// The live wallet.
   factory BitcoinLegEnv.live(Ref ref) {
@@ -339,6 +344,7 @@ class BitcoinLegEnv {
       sendDirect: BitcoinToVenueLeg.live(ref.read),
       legStatus: orchestraLegStatus,
       readiness: (venue) => venueReadinessPhases(ref, venue),
+      checkDollars: () => ref.read(usdBalanceCheckProvider).request('order_leg'),
     );
   }
 }
@@ -543,6 +549,19 @@ class BitcoinFundedOrderRunner {
 
   /// The error the last refused leg threw, by record, for the slip's copy.
   final Map<String, Object> _errors = {};
+
+  /// [_errors]' entry for [recordId], for a chain outside this file
+  /// (venue_cash_funded_order.dart).
+  void recordError(String recordId, Object e) => _errors[recordId] = e;
+
+  /// The venue's own placement of the queued order, followed (see
+  /// [_placementWait]), for a chain outside this file.
+  BitcoinPlacementWait placementWaitFor(OneBalanceVenue venue,
+          {void Function(String? message, String? code)? onFailed}) =>
+      _placementWait(venue, onFailed: onFailed);
+
+  /// The words for a leg refused before anything left, if any.
+  String? errorTextFor(Object e) => _errorText(e);
 
   /// What stopped [recordId]'s leg before anything moved, if anything.
   Object? errorOf(String recordId) => _errors[recordId];

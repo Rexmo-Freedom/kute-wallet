@@ -135,19 +135,18 @@ import 'package:kute/providers/spark_address_provider.dart'
 import 'package:kute/services/one_balance/venue_cash_source.dart'
     show
         VenueCashDestination,
-        VenueCashFor,
-        VenueCashPullOutcome,
+        VenueCashPlan,
         venueCashPullerProvider,
         venueCashReachExcludingProvider;
 import 'package:kute/services/one_balance/multi_source_move.dart'
     show MultiSourceMoveStore;
-import 'package:kute/screens/shared/venue_cash_pull_copy.dart'
-    show venueCashStoppedText;
 import 'package:kute/helpers/auth_grant_registry.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart'
     show OneBalanceVenue;
 import 'package:kute/services/one_balance/venue_funder.dart'
-    show RouteUnavailable;
+    show RouteUnavailable, UserGrantAuthorization;
+import 'package:kute/services/one_balance/venue_cash_funded_order.dart'
+    show VenueCashFundedRequest, venueCashFundedOrderRunnerProvider;
 import 'package:kute/providers/venue_sweeper_provider.dart'
     show venueSweeperProvider;
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
@@ -2268,13 +2267,14 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     // moves): a leg straight into the Investing account runs only under
     // that approval, which binds its cap.
     Map<String, Object?>? directLegs;
+    VenueCashPlan? legPlan;
     if (pullFirst) {
       if (_moveUsd != fundUsd) _moveId = null;
       try {
         final puller = ref.read(venueCashPullerProvider);
         final earlier =
             _moveId == null ? null : MultiSourceMoveStore.get(_moveId!);
-        final legPlan = await puller
+        legPlan = await puller
             .plan(
               neededUsd:
                   math.max(0.0, fundUsd - (earlier?.directDeliveredUsd ?? 0)),
@@ -2285,10 +2285,21 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         directLegs =
             puller.directLegLimit(legPlan, VenueCashDestination.investing);
       } catch (_) {
-        // No plan read: every leg comes home to Dollars instead.
-        directLegs = null;
+        legPlan = null;
       }
       if (!mounted) return;
+      if (legPlan == null || !legPlan.covers) {
+        // The legs could not be planned: nothing is approved or moved.
+        _trackFundingFailed('quote', null, category: 'venue_cash_unread');
+        _stopped('funding_quote');
+        _updateDraft(() {
+          _preparing = false;
+          _fundingStage = null;
+          _errorCause = null;
+          _errorText = _strings.errorCopyGeneric;
+        });
+        return;
+      }
     }
 
     // One approval for the order AND the dollars that leave for it. The
@@ -2350,6 +2361,21 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       if (mounted) _updateDraft(() => _fundingStage = null);
       return;
     }
+    if (legPlan != null) {
+      // Dollars and the other venue's cash, every source at once, on the
+      // order's step graph (venue_cash_funded_order.dart).
+      _runVenueCashFunded(
+          grant: grant,
+          pending: pending,
+          legPlan: legPlan,
+          plan: plan,
+          cloid: cloid,
+          marginUsd: marginUsd,
+          required: required,
+          ready: ready,
+          fundUsd: fundUsd);
+      return;
+    }
     // Approved: the order's steps show from now, on this ticket and
     // (named) on the Investments header, whatever happens to the ticket.
     final runner = ref.read(bitcoinFundedOrderRunnerProvider);
@@ -2360,70 +2386,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       market: FundedOrderLabel.shortName(market.coin),
       marketKey: market.coin,
     ));
-
-    // What the Dollars move is sized on: the approved figure, less what
-    // other venue cash already sent straight to the account (below).
-    double? queueFundUsd;
-    var queueReadyUsd = ready;
-    if (pullFirst) {
-      // Dollars short of the move: the rest comes from the other venue
-      // (fastest leg first, never Investing's own cash), straight into
-      // the account under THIS approval (within the leg caps it binds),
-      // or home to Dollars under the automatic home-only authorization;
-      // this approval stays the only prompt. Nothing is queued until
-      // Dollars cover what is left.
-      _updateDraft(() {
-        _isPlacing = true;
-        _preparing = false;
-        _fundPlan = plan;
-      });
-      _trackFundingStep(OrderFundingStage.fund);
-      VenueCashPullOutcome? pulled;
-      try {
-        pulled = await ref.read(venueCashPullerProvider).pullShortfall(
-              neededUsd: fundUsd,
-              forAction: VenueCashFor.investing,
-              // Predictions cash goes straight into the Investing account
-              // where Orchestra routes it; home to Dollars otherwise.
-              destination: VenueCashDestination.investing,
-              exclude: OneBalanceVenue.investing,
-              moveId: _moveId,
-              approval: grant,
-            );
-      } catch (_) {
-        pulled = null;
-      }
-      if (pulled?.moveId != null) {
-        _moveId = pulled!.moveId;
-        _moveUsd = fundUsd;
-      }
-      if (!mounted) {
-        runner.stopFunded(fundedId, reason: 'interrupted');
-        return;
-      }
-      if (pulled != null && pulled.dollarsCover) {
-        // What went straight to the account is already on its way there:
-        // the move from Dollars is only the rest.
-        final direct = pulled.directArrivingUsd + pulled.alreadyDeliveredUsd;
-        if (direct > 0) {
-          queueFundUsd = math.max(0, pulled.dollarsNeededUsd);
-          queueReadyUsd = ready + direct;
-        }
-      }
-      if (pulled == null || !pulled.dollarsCover) {
-        AuthGrantRegistry.instance.cancelAutofire(kPendingHlOrderAutofireId);
-        final message =
-            (pulled == null ? null : venueCashStoppedText(_strings, pulled)) ??
-                _strings.errorCopyGeneric;
-        // The move step failed; the steps say it and that the money is in
-        // Investments.
-        runner.stopFunded(fundedId,
-            reason: 'venue_cash_pending', message: message);
-        _fundingFailedBeforeMove('pull', 'insufficient_funds', message,
-            inSteps: true);
-        return;
-      }
-    }
 
     // Listen for the order's fill BEFORE anything moves, so a fast fill
     // cannot slip between the placement and the subscription.
@@ -2460,8 +2422,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         controller: ref.read(orderFundingControllerProvider),
         orderUsd: marginUsd,
         requiredUsd: required,
-        readyUsd: queueReadyUsd,
-        fundUsd: queueFundUsd,
+        readyUsd: ready,
         onStage: (stage) {
           if (stage == OrderFundingStage.quote ||
               stage == OrderFundingStage.fund) {
@@ -2541,6 +2502,114 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
               arrivingUsd: plan.arrivingUsd);
         });
     }
+  }
+
+  /// The order funded from Dollars and the other venue's cash, approved:
+  /// every source starts at once on the order's step graph (one line per
+  /// source, the credit, the order), headless, whatever happens to this
+  /// ticket ([VenueCashFundedOrderRunner]). The order is queued with
+  /// Dollars' own share; the venue's autofire places it once the account
+  /// holds enough.
+  void _runVenueCashFunded({
+    required AuthGrant grant,
+    required PendingHlOrderIntent pending,
+    required VenueCashPlan legPlan,
+    required _FundPlan plan,
+    required String cloid,
+    required double marginUsd,
+    required double required,
+    required double ready,
+    required double fundUsd,
+  }) {
+    final container = ProviderScope.containerOf(context, listen: false);
+    // Held, never fired, until the chain queues it (awaitingBalance).
+    ref.read(pendingHyperliquidOrderProvider.notifier).setIntent(pending);
+    ref.read(pendingHlOrderAutoFireProvider);
+    // Listen for the order's fill BEFORE anything moves.
+    _orderFills.clear();
+    _fillSub?.cancel();
+    _fillSub =
+        ref.read(hyperliquidUserEventsProvider.notifier).fills.listen((f) {
+      if (f.coin != market.coin) return;
+      if (f.cloid != null && !HlResendCloids.owns(cloid, f.cloid)) return;
+      _orderFills.add(f);
+      if (_attachTrailing) return;
+      if (_sentPlan != null) return;
+      _onFilled(sizeFilled: f.sz, avgPx: f.px);
+    });
+    _listenPending();
+    _submitted = true;
+    _updateDraft(() {
+      _isPlacing = true;
+      _preparing = false;
+      _fundPlan = plan;
+      _errorText = null;
+      _errorCause = null;
+      _fundingStage = OrderFundingStage.fund;
+    });
+    _moveId ??= MultiSourceMoveStore.newId();
+    _moveUsd = fundUsd;
+    final run = container.read(venueCashFundedOrderRunnerProvider).start(
+          VenueCashFundedRequest(
+            venue: OneBalanceVenue.investing,
+            grant: grant,
+            label: FundedOrderLabel(
+              venue: OneBalanceVenue.investing,
+              orderUsd: marginUsd,
+              side: _sideWord(),
+              market: FundedOrderLabel.shortName(market.coin),
+              marketKey: market.coin,
+            ),
+            fundUsd: fundUsd,
+            readyUsd: ready,
+            plan: legPlan,
+            moveId: _moveId,
+            entrySource: _entrySource,
+            queue: ({required double fundUsd, required double readyUsd}) =>
+                container
+                    .read(pendingHyperliquidOrderProvider.notifier)
+                    .fundAndQueue(
+                      pending,
+                      grant: grant,
+                      controller: container.read(orderFundingControllerProvider),
+                      orderUsd: marginUsd,
+                      requiredUsd: required,
+                      // Nothing from Dollars: queued only, nothing moves.
+                      readyUsd: fundUsd > 0 ? readyUsd : required,
+                      fundUsd: fundUsd,
+                      continueJourney: true,
+                    ),
+            fundMore: (controller, usd) => controller.fundAndQueue(
+              venue: OneBalanceVenue.investing,
+              orderUsd: marginUsd,
+              requiredUsd: required,
+              // The order is queued already: this only moves what came
+              // home, within what the approval binds.
+              readyUsd: 0,
+              auth: UserGrantAuthorization(grant),
+              fundUsd: usd,
+              keepUnconfirmed: true,
+              continueJourney: true,
+            ),
+            dropOrder: () {
+              final current = container.read(pendingHyperliquidOrderProvider);
+              if (current != null &&
+                  identical(current.placement, pending.placement) &&
+                  current.status != PendingHlOrderStatus.placing &&
+                  current.status != PendingHlOrderStatus.done) {
+                container.read(pendingHyperliquidOrderProvider.notifier).clear();
+              }
+              AuthGrantRegistry.instance
+                  .cancelAutofire(kPendingHlOrderAutofireId);
+              grant.revoke();
+            },
+          ),
+        );
+    _bitcoinRunId = run.id;
+    unawaited(run.ended.then((end) {
+      if (end == BitcoinFundedEnd.placed) _moveId = null;
+      if (mounted) _onBitcoinRunEnded(run.id, end);
+    }));
   }
 
   /// A hot ticket whose whole Investments balance is short of the order's

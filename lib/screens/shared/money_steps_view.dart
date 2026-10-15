@@ -41,7 +41,15 @@ String moneyStepLine(
     case MoneyStepKind.leg:
       final from = moneyPlaceName(l10n, s.from ?? MoneyPlace.dollars);
       if (s.status == MoneyStepStatus.fellBack) {
-        return l10n.moneyStepFellBack(from, l10n.portfolioBalanceDollars);
+        // The real reason, never "busy" unless the refusal was transient.
+        final via = l10n.portfolioBalanceDollars;
+        return switch (MoneyFallBack.of(s.reason)) {
+          MoneyFallBack.busy => l10n.moneyStepFellBack(from, via),
+          MoneyFallBack.unavailable =>
+            l10n.moneyStepRouteUnavailable(from, via),
+          MoneyFallBack.tooSmall => l10n.moneyStepTooSmallDirect(from, via),
+          MoneyFallBack.neutral => l10n.moneyStepViaDollars(from, via),
+        };
       }
       if (s.status == MoneyStepStatus.failed) {
         return l10n.moneyStepMoveFailed(money(s.usd), from);

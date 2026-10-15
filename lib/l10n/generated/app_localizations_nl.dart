@@ -10906,6 +10906,26 @@ class AppLocalizationsNl extends AppLocalizations {
   }
 
   @override
+  String moneyStepViaDollars(String source, String via) {
+    return '$source gaat via $via';
+  }
+
+  @override
+  String moneyStepRouteUnavailable(String source, String via) {
+    return 'Route via $source niet beschikbaar, we gaan via $via';
+  }
+
+  @override
+  String moneyStepTooSmallDirect(String source, String via) {
+    return 'Te weinig om direct vanuit $source te gaan, we gaan via $via';
+  }
+
+  @override
+  String multiMoveOrderWaiting(String amount, String balance) {
+    return 'Je $amount staat in $balance. De order is niet gelukt';
+  }
+
+  @override
   String get moneyStepConverting => 'Omzetten naar pUSD';
 
   @override
