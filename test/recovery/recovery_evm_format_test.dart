@@ -567,6 +567,11 @@ void main() {
     });
 
     test('derives both EOAs off the UI isolate', () async {
+      // The expected addresses are lazy top-level finals derived on this
+      // isolate on first read: read them before the counter is reset, so
+      // the test holds whether or not an earlier test touched them.
+      expect(legacyEoa, isNotEmpty);
+      expect(standardEoa, isNotEmpty);
       EvmWalletDerivation.clearMemoForTest();
       addTearDown(EvmWalletDerivation.clearMemoForTest);
       final accounts = await RecoveryEvmFormat.deriveAccounts(phrase);
@@ -577,6 +582,9 @@ void main() {
 
     test('the chosen account is ready for provisioning without stretching '
         'the seed again on the UI isolate', () async {
+      // As above: the expected addresses are derived on first read.
+      expect(legacyEoa, isNotEmpty);
+      expect(standardEoa, isNotEmpty);
       EvmWalletDerivation.clearMemoForTest();
       addTearDown(EvmWalletDerivation.clearMemoForTest);
       final choice = await RecoveryEvmFormat.choose(phrase,
