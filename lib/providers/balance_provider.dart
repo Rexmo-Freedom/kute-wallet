@@ -16,10 +16,15 @@
 // races impossible.
 import 'dart:async';
 
+import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart' as spark
+    show GetInfoResponse;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/models/balance_model.dart';
+import 'package:kute/models/breez/sdk_instance.dart' show BreezSdkSpark;
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/viewed_wallet_provider.dart';
+import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
+    show pickSpendingWallet;
 import 'package:kute/services/wallet_balance_cache_service.dart';
 
 /// Source of a balance update. The Breez wallet-info stream is
@@ -33,14 +38,56 @@ enum BalanceSource { stream, poll }
 
 final balanceChangeProvider = StateProvider<BalanceChange?>((ref) => null);
 
+/// The spending wallet's balance readings as the Breez SDK wrapper
+/// publishes them: one after every SDK event that can change a balance
+/// (a payment succeeded or pending, a claimed deposit, a sync), after
+/// every arrival refresh and re-read, newest answer only (see
+/// `BreezSdkSpark._getInfo`). The wrapper is a singleton whose stream
+/// outlives SDK reconnects. Overridden in tests.
+final sparkWalletInfoFeedProvider = Provider<Stream<spark.GetInfoResponse>>(
+    (ref) => BreezSdkSpark().walletInfoStream);
+
 /// In-memory cache of every wallet's balance, hydrated from Hive on
 /// boot and written-through on every update. Drives the wallet
 /// picker, home carousel, analytics, and (transitively) the
 /// active-wallet `balanceNotifierProvider`.
+///
+/// It is the ONE source of truth for the spending wallet's bitcoin, and
+/// it follows the SDK by itself: every reading on
+/// [sparkWalletInfoFeedProvider] is written to the spending wallet's
+/// slot here, for as long as the cache exists (the whole session). That
+/// write used to live in the background sync's push pipeline, which is
+/// torn down and re-attached on every wallet switch, resume and SDK
+/// reconnect, attached only while the ACTIVE wallet is a Spark wallet,
+/// and drops the reading that reveals a reconnect while it re-attaches
+/// (1 to 32 s later): a reading published in one of those windows never
+/// reached the Bitcoin hero, and nothing read it again. The Dollars
+/// balance always followed the wrapper's stream directly, which is why
+/// only bitcoin stayed stale.
 final walletBalanceCacheProvider =
     StateNotifierProvider<WalletBalanceCacheNotifier, Map<String, WalletBalance>>(
         (ref) {
-  return WalletBalanceCacheNotifier();
+  final notifier = WalletBalanceCacheNotifier();
+  final readings = ref.read(sparkWalletInfoFeedProvider).listen(
+    (info) {
+      if (!notifier.mounted) return;
+      final String? spendingId;
+      try {
+        spendingId = pickSpendingWallet(ref.read(settingsProvider))?.id;
+      } catch (_) {
+        return;
+      }
+      if (spendingId == null || spendingId.isEmpty) return;
+      // The SDK's own figure, so it is authoritative (stream): send holds
+      // still cap what is shown until the SDK shows the send.
+      notifier.updateSparkBitcoinbalance(
+          spendingId, info.balanceSats.toInt(),
+          source: BalanceSource.stream);
+    },
+    onError: (Object _) {},
+  );
+  ref.onDispose(readings.cancel);
+  return notifier;
 });
 
 /// Active-wallet view of the balance cache. Equivalent to

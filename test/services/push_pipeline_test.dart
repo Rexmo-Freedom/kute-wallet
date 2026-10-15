@@ -82,6 +82,7 @@ void main() {
     final container = ProviderContainer(overrides: [
       settingsProvider.overrideWith((ref) => _Settings()),
       breezSDKProvider.overrideWith((ref) async => wrapper),
+      sparkWalletInfoFeedProvider.overrideWithValue(wrapper.walletInfoStream),
     ]);
     container.read(walletTransactionCacheProvider.notifier).setForWallet(
         'spending',
@@ -304,7 +305,7 @@ void main() {
     verify(() => sdk.getInfo(request: any(named: 'request'))).called(2);
   });
 
-  test('a sync re-read due after the pipeline stopped writes nothing',
+  test('a sync re-read due after the wallet disconnected writes nothing',
       () async {
     final events = StreamController<spark.SdkEvent>.broadcast();
     addTearDown(events.close);
@@ -318,7 +319,7 @@ void main() {
     await flush();
     final cache = harness.container.read(walletBalanceCacheProvider.notifier);
     expect(cache.shownSparkSats('spending'), 25000);
-    harness.pipeline.stop();
+    wrapper.disconnect();
     when(() => sdk.getInfo(request: any(named: 'request')))
         .thenAnswer((_) async => infoWith(40000));
     await Future<void>.delayed(

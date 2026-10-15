@@ -304,15 +304,41 @@ class BreezSdkSpark {
     return _arrivals.request(asset: asset, baseline: baseline);
   }
 
+  /// Sequence numbers of the wallet-info reads: the last one asked for and
+  /// the newest one published. Reads overlap (a payment event, an arrival
+  /// refresh and a `synced` re-read can all be in flight) and the native
+  /// calls can answer out of order, so a read is published only when no
+  /// read asked for after it has been published already: an older answer
+  /// (the figure from before a transfer landed) never overwrites a newer
+  /// one on screen.
+  int _infoAsked = 0;
+  int _infoPublished = 0;
+  int _paymentsAsked = 0;
+  int _paymentsPublished = 0;
+
   Future<spark.GetInfoResponse> _getInfo(spark.BreezSdk sdk) async {
     // Spark requires a request object for getInfo
     const req = spark.GetInfoRequest();
+    final asked = ++_infoAsked;
     final walletInfo = await sdk.getInfo(request: req);
-    if (identical(_instance, sdk)) {
+    if (identical(_instance, sdk) && asked > _infoPublished) {
+      _infoPublished = asked;
       _balanceLog.record(balancesOf(walletInfo), DateTime.now());
       _walletInfoController.add(walletInfo);
     }
     return walletInfo;
+  }
+
+  /// Reads the connected wallet's balances once and publishes them to
+  /// [walletInfoStream]: the balance half of [_fetchWalletData], for events
+  /// that change a balance but no payment row (a sync, a claimed deposit).
+  /// Never throws.
+  Future<void> _publishWalletInfo(spark.BreezSdk sdk) async {
+    try {
+      await _getInfo(sdk);
+    } catch (_) {
+      // The next event or read publishes again.
+    }
   }
 
   Future<List<spark.Payment>> _listPayments({
@@ -320,8 +346,12 @@ class BreezSdkSpark {
   }) async {
     // Spark requires a request object for listPayments
     const req = spark.ListPaymentsRequest();
+    final asked = ++_paymentsAsked;
     final response = await sdk.listPayments(request: req);
-    if (identical(_instance, sdk)) _paymentsController.add(response.payments);
+    if (identical(_instance, sdk) && asked > _paymentsPublished) {
+      _paymentsPublished = asked;
+      _paymentsController.add(response.payments);
+    }
     return response.payments;
   }
 
@@ -395,30 +425,52 @@ class BreezSdkSpark {
   final _logStreamController = StreamController<spark.LogEntry>.broadcast();
   Stream<spark.LogEntry> get logStream => _logStreamController.stream;
 
+  /// Re-publishes the balances after the current SDK's `synced` events
+  /// (see [SyncedReread]). One per SDK handle.
+  SyncedReread? _syncedInfoReread;
+
   /// Subscribes to SdkEvent's stream
   void _subscribeToEventsStream(spark.BreezSdk sdk) {
+    _syncedInfoReread?.dispose();
+    final syncedInfoReread = SyncedReread(() {
+      if (identical(_instance, sdk)) unawaited(_publishWalletInfo(sdk));
+    });
+    _syncedInfoReread = syncedInfoReread;
     _breezEventsSubscription = _breezEventsStream?.listen(
       (event) async {
         if (!identical(_instance, sdk)) return;
         // Map Spark Events to Logic
+        //
+        // The one rule for balances: every SDK event that can change a
+        // balance of this wallet is followed by a `getInfo` published to
+        // [walletInfoStream], and both balances (bitcoin through
+        // `walletBalanceCacheProvider`, Dollars through
+        // `usdSdkBalanceProvider`) follow that stream. What the SDK (0.26,
+        // client runtime) guarantees:
+        //
+        //  * `paymentSucceeded`: the cached balance is refreshed BEFORE
+        //    the event reaches the app (its BalanceWatcher is an internal
+        //    listener the emitter awaits first, and an incoming Spark
+        //    transfer or token transaction also refreshes it in
+        //    `insert_payment_with_metadata`), so the read below already
+        //    shows the money;
+        //  * `paymentPending`: nothing is refreshed (an incoming transfer
+        //    raises it when its claim starts); the same payment is raised
+        //    again as succeeded once claimed, and read again then;
+        //  * `claimedDeposits`: the balance is refreshed before it; its
+        //    payment also follows as `paymentSucceeded`;
+        //  * `synced`: the sync wrote the cached balance before raising
+        //    it. A payment event is raised only when the stored status
+        //    advances, so a transfer a sync recorded as completed first
+        //    raises none when its claim lands (nor does any completed
+        //    payment found before the first full sync): the balances are
+        //    read here too, at once and once more after the burst
+        //    ([SyncedReread]).
+        //
+        // Overlapping reads are safe: [_getInfo] publishes only the
+        // newest answer, so a read that started before a transfer landed
+        // never overwrites one that started after.
         event.map(
-          // Reverted to the original wiring. Trying to fan out every
-          // SDK event to a `_fetchWalletData` call produced multiple
-          // overlapping `getInfo` reads at different stages of
-          // internal SDK settlement, surfacing wildly inconsistent
-          // balance values. Only payment-class events get an active
-          // refresh here; `synced` only logs and signals listeners
-          // (PushPipeline re-reads deposits and the bitcoin balance,
-          // the Dollars balance re-reads too, see SyncedReread), and
-          // the periodic 2 s poll covers anything else.
-          //
-          // Incoming dollars (USDB token transfers) are payment-class
-          // too: in breez 0.26 the operator stream's TokenTransaction
-          // event is turned into a Payment, the SDK refreshes its cached
-          // sats and token balances, then raises `paymentSucceeded`
-          // (or `paymentPending`). The re-read below therefore already
-          // carries the new Dollars balance to `usdSdkBalanceProvider`
-          // through the wallet-info stream.
           synced: (_) {
             _syncedSdk = sdk;
             _logStreamController.add(const spark.LogEntry(
@@ -428,6 +480,7 @@ class BreezSdkSpark {
               LatencyTracker.stop(LatencyKeys.sparkSync);
             }
             _syncedController.add(null);
+            syncedInfoReread.onSynced();
           },
           autoOptimization: (_) {
             _fetchWalletData(sdk);
@@ -450,6 +503,8 @@ class BreezSdkSpark {
             }
             _depositsController.add(SparkDepositUpdate(
                 SparkDepositUpdateKind.claimed, e.claimedDeposits));
+            // The SDK refreshed its cached balance before raising this.
+            unawaited(_publishWalletInfo(sdk));
           },
           newDeposits: (e) {
             if (kDebugMode) {
@@ -520,6 +575,8 @@ class BreezSdkSpark {
   Future<void> _unsubscribeFromSdkStreams() async {
     final events = _breezEventsSubscription;
     final logs = _breezLogSubscription;
+    _syncedInfoReread?.dispose();
+    _syncedInfoReread = null;
     _breezEventsSubscription = null;
     _breezLogSubscription = null;
     _breezEventsStream = null;

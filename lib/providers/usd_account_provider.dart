@@ -44,7 +44,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/models/balance_history.dart';
 import 'package:kute/models/transactions_model.dart';
 import 'package:kute/providers/breez_config_provider.dart';
-import 'package:kute/models/breez/sdk_instance.dart' show SyncedReread;
 import 'package:kute/models/breez/shared_sync.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/transactions_provider.dart'
@@ -256,13 +255,14 @@ String usdLedgerSignature(Iterable<UsdbTokenTransaction> settled) =>
     (settled.map((tx) => tx.id).toList()..sort()).join(',');
 
 /// The live dollar balance as the SDK reports it. Seeded with a direct
-/// `getInfo` read so the tab has a number immediately, then follows
-/// three feeds: the wallet-info stream (re-emitted after payment events
-/// the SDK raises, an incoming dollar transfer among them), each Synced
-/// event (a read at once and one more shortly after, see [SyncedReread]:
-/// a transfer that arrives through a sync raises only Synced), and
-/// the settled dollar ledger through [UsdLedgerCatchUp], which covers a
-/// transfer that settled without either event reaching the app.
+/// `getInfo` read so the tab has a number immediately, then follows two
+/// feeds: the wallet-info stream, which the SDK wrapper publishes after
+/// every event that can change a balance (payment events, an incoming
+/// dollar transfer among them, claimed deposits, and each Synced burst:
+/// a transfer that arrives through a sync raises only Synced), exactly as
+/// the bitcoin balance does (`walletBalanceCacheProvider`), and the
+/// settled dollar ledger through [UsdLedgerCatchUp], which covers a
+/// transfer that settled without any of those reaching the app.
 ///
 /// Emits null when the SDK's answer has no dollar entry (see
 /// [usdDollarsFromNodeInfo]); [usdBalanceProvider] then reads the ledger.
@@ -297,16 +297,6 @@ final usdSdkBalanceProvider = StreamProvider<double?>((ref) async* {
   }
   final infoSub = wrapper.walletInfoStream
       .listen((info) => publish(usdDollarsFromNodeInfo(info)));
-  final syncedReread = SyncedReread(() async {
-    try {
-      final info = await sdk.getInfo(request: const GetInfoRequest());
-      _debugLogUsdReading('synced', info);
-      publish(usdDollarsFromNodeInfo(info));
-    } catch (_) {
-      // The next sync, payment event or ledger change reads again.
-    }
-  });
-  final syncedSub = wrapper.syncedStream.listen((_) => syncedReread.onSynced());
   // Money landed in Dollars: one haptic per new settled receive of this
   // session. The ledger as first read, and any history a sync or a
   // restore streams in later, is older than the session and stays quiet.
@@ -326,10 +316,8 @@ final usdSdkBalanceProvider = StreamProvider<double?>((ref) async* {
     fireImmediately: true,
   );
   ref.onDispose(() {
-    syncedReread.dispose();
     catchUp.dispose();
     infoSub.cancel();
-    syncedSub.cancel();
     readings.close();
   });
   yield* readings.stream;

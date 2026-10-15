@@ -570,11 +570,12 @@ class BackgroundSyncService {
   /// gate while there's something pending and fall back to it once
   /// everything has settled.
   ///
-  /// Spark `walletInfoStream` and `paymentsStream` stay subscribed
-  /// regardless (push-based, debounced) so an incoming Lightning
-  /// payment still updates the cache immediately. Send/Receive/etc.
-  /// pull a one-shot fresh balance on screen entry where they need
-  /// to.
+  /// The spending wallet's bitcoin balance never depends on this loop
+  /// or on the push pipeline: `walletBalanceCacheProvider` follows the
+  /// SDK wrapper's `walletInfoStream` itself, so an incoming payment
+  /// updates it immediately on any screen, whichever wallet is active.
+  /// The push pipeline's `paymentsStream` keeps the Activity rows
+  /// current.
   void _startContinuousSync() {
     final gen = _generation;
     Future<void> loop() async {

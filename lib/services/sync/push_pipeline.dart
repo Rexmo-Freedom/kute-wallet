@@ -11,10 +11,12 @@
 //      attach time (e.g. session not yet unlocked, connect() still
 //      in flight). Without retry, an unlock-time race would leave
 //      the wallet "offline" forever.
-//   3. Push cache writes — the Spark BTC balance — that fire
-//      unconditionally on every event. These are what make incoming
-//      Lightning feel instant on the home tile, regardless of the
-//      user's current screen.
+//   3. Nothing on the live balance path. The spending wallet's
+//      bitcoin follows the SDK wrapper's readings inside
+//      `walletBalanceCacheProvider` itself, for the whole session, so
+//      this pipeline's restarts (wallet switch, resume, reconnect)
+//      never leave a reading undelivered. What stays here is the
+//      receive catch-up below and the one-shot read on attach.
 //   4. A debounced "the tx list might have changed" trigger that
 //      is delegated back to the orchestrator (currently
 //      [BackgroundSyncService]) via a callback. Debounce coalesces
@@ -39,7 +41,6 @@ import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/models/transactions_model.dart';
 import 'package:kute/models/breez/deposit_update.dart';
-import 'package:kute/models/breez/sdk_instance.dart' show SyncedReread;
 import 'package:kute/models/breez/shared_sync.dart';
 import 'package:kute/providers/address_provider.dart';
 import 'package:kute/providers/balance_provider.dart';
@@ -210,7 +211,6 @@ class PushPipeline implements SyncPipeline {
   int _depositRevision = 0;
   Timer? _retryTimer;
   Timer? _syncDebounce;
-  SyncedReread? _syncedBalanceRead;
   int _retryAttempt = 0;
   int _generation = 0;
 
@@ -252,8 +252,6 @@ class PushPipeline implements SyncPipeline {
     _receivesSubscription = null;
     _receivesCatchUp?.dispose();
     _receivesCatchUp = null;
-    _syncedBalanceRead?.dispose();
-    _syncedBalanceRead = null;
     _retryTimer?.cancel();
     _retryTimer = null;
     _syncDebounce?.cancel();
@@ -288,8 +286,6 @@ class PushPipeline implements SyncPipeline {
     _receivesSubscription = null;
     _receivesCatchUp?.dispose();
     _receivesCatchUp = null;
-    _syncedBalanceRead?.dispose();
-    _syncedBalanceRead = null;
     _retryTimer?.cancel();
     _retryTimer = null;
 
@@ -420,36 +416,13 @@ class PushPipeline implements SyncPipeline {
 
       final cacheNotifier = container.read(walletBalanceCacheProvider.notifier);
 
-      // After each SDK sync, re-read the bitcoin balance too. The sync
-      // rewrites the SDK's cached figure from its leaves, but raises no
-      // event the app re-reads on: before this, only payment events and
-      // the 2 s poll (which runs on the sync routes only) re-read it, so
-      // a receive that arrived through a sync stayed off the balance on
-      // any other screen. Read at once and once more shortly after the
-      // burst (SyncedReread), applied as a poll read, so the
-      // stream-freshness and zero guards still apply.
-      Future<void> readBalanceAfterSync() async {
-        try {
-          final info = await sdk.getInfo(
-              request: const breez.GetInfoRequest(ensureSynced: false));
-          if (!isCurrent()) return;
-          cacheNotifier.updateSparkBitcoinbalance(
-              walletId, info.balanceSats.toInt(),
-              source: BalanceSource.poll);
-        } catch (_) {
-          // The next sync, payment event or poll reads again.
-        }
-      }
-
-      final syncedBalanceRead = SyncedReread(() {
-        if (isCurrent()) unawaited(readBalanceAfterSync());
-      });
-      _syncedBalanceRead = syncedBalanceRead;
+      // The bitcoin balance after each SDK sync is read and published by
+      // the SDK wrapper itself (every subscriber follows it); the pending
+      // deposits are re-read here.
       _syncedSubscription = sdkWrapper.syncedStream.listen(
         (_) {
           if (!followsSdk()) return;
           unawaited(hydrateDeposits());
-          syncedBalanceRead.onSynced();
         },
         onError: (_) {},
       );
@@ -729,21 +702,12 @@ class PushPipeline implements SyncPipeline {
     } catch (_) {}
   }
 
+  /// A balance reading was published: the transaction list may have
+  /// changed too. The reading itself reaches the balance cache without
+  /// this pipeline (see `walletBalanceCacheProvider`).
   void _onEvent(breez.GetInfoResponse info, int gen) {
     final container = _container;
     if (container == null || _generation != gen) return;
-    try {
-      final spending = pickSpendingWallet(container.read(settingsProvider));
-      if (spending == null) return;
-      final spendingId = spending.id;
-      final cacheNotifier = container.read(walletBalanceCacheProvider.notifier);
-      cacheNotifier.updateSparkBitcoinbalance(
-        spendingId,
-        info.balanceSats.toInt(),
-        source: BalanceSource.stream,
-      );
-    } catch (_) {}
-
     _syncDebounce?.cancel();
     _syncDebounce = Timer(_syncDebounceWindow, () {
       if (_container == null || _generation != gen) return;

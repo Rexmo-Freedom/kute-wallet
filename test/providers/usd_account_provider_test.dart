@@ -95,6 +95,8 @@ class _Sdk extends Mock implements breez.BreezSdk {}
 
 class _Wrapper extends Mock implements BreezSdkSpark {}
 
+class _Request extends Fake implements breez.ConnectRequest {}
+
 ProviderContainer _container({
   required double? sdkReading,
   List<breez.Payment> ledger = const [],
@@ -397,24 +399,27 @@ void main() {
 
   test(
       'a dollar transfer that arrives through a sync shows at the Synced '
-      'event, not 1.2 s later', () {
+      'event: the SDK wrapper publishes it, two reads per burst', () {
     fakeAsync((async) {
       registerFallbackValue(const breez.GetInfoRequest());
+      registerFallbackValue(const breez.ListPaymentsRequest());
       final sdk = _Sdk();
-      final wrapper = _Wrapper();
-      final synced = StreamController<void>.broadcast();
-      addTearDown(synced.close);
+      final events = StreamController<breez.SdkEvent>.broadcast();
+      addTearDown(events.close);
       var units = 5000000;
       var reads = 0;
-      when(() => wrapper.instance).thenReturn(sdk);
-      when(() => wrapper.walletInfoStream)
-          .thenAnswer((_) => const Stream.empty());
-      when(() => wrapper.syncedStream).thenAnswer((_) => synced.stream);
+      when(() => sdk.addEventListener()).thenAnswer((_) => events.stream);
+      when(() => sdk.disconnect()).thenAnswer((_) async {});
+      when(() => sdk.listPayments(request: any(named: 'request')))
+          .thenAnswer((_) async => const breez.ListPaymentsResponse(payments: []));
       when(() => sdk.getInfo(request: any(named: 'request')))
           .thenAnswer((_) async {
         reads++;
         return _info({usdbTokenIdentifier: ('USDB', units)});
       });
+      final wrapper = BreezSdkSpark.forTesting(connectSdk: (_) async => sdk);
+      wrapper.connect(req: _Request());
+      async.flushMicrotasks();
       final settings = Settings(
         currency: 'USD',
         language: 'en',
@@ -440,20 +445,72 @@ void main() {
 
       // The sync wrote the new token balance, then raised Synced.
       units = 15000000;
-      synced.add(null);
+      events.add(const breez.SdkEvent.synced());
       async.flushMicrotasks();
       expect(container.read(usdBalanceProvider), 15,
           reason: 'read at the event itself');
       expect(async.elapsed, Duration.zero);
 
-      // A burst of Synced events costs two reads in all, not one each.
-      synced
-        ..add(null)
-        ..add(null);
+      // A burst of Synced events costs two reads in all, not one each,
+      // and the Dollars balance adds none of its own.
+      events
+        ..add(const breez.SdkEvent.synced())
+        ..add(const breez.SdkEvent.synced());
       async.elapse(kSyncedRereadSettle);
       expect(reads, seeded + 2);
       async.elapse(const Duration(seconds: 2));
       expect(reads, seeded + 2);
+      wrapper.disconnect();
+      async.flushMicrotasks();
+    });
+  });
+
+  test('an incoming dollar payment event updates the balance at once', () {
+    fakeAsync((async) {
+      registerFallbackValue(const breez.GetInfoRequest());
+      registerFallbackValue(const breez.ListPaymentsRequest());
+      final sdk = _Sdk();
+      final events = StreamController<breez.SdkEvent>.broadcast();
+      addTearDown(events.close);
+      var units = 5000000;
+      when(() => sdk.addEventListener()).thenAnswer((_) => events.stream);
+      when(() => sdk.disconnect()).thenAnswer((_) async {});
+      when(() => sdk.listPayments(request: any(named: 'request')))
+          .thenAnswer((_) async => const breez.ListPaymentsResponse(payments: []));
+      when(() => sdk.getInfo(request: any(named: 'request'))).thenAnswer(
+          (_) async => _info({usdbTokenIdentifier: ('USDB', units)}));
+      final wrapper = BreezSdkSpark.forTesting(connectSdk: (_) async => sdk);
+      wrapper.connect(req: _Request());
+      async.flushMicrotasks();
+      final container = ProviderContainer(overrides: [
+        settingsProvider.overrideWith((_) => SettingsModel(Settings(
+              currency: 'USD',
+              language: 'en',
+              btcFormat: 'sats',
+              backup: false,
+              biometricsEnabled: false,
+              bitcoinElectrumNode: '',
+              nodeType: 'Blockstream',
+              reviewDone: true,
+              activeWalletId: 'spending',
+              wallets: [WalletConfig(id: 'spending', name: 'Spending')],
+            ))),
+        breezSDKProvider.overrideWith((_) async => wrapper),
+        walletTransactionCacheProvider.overrideWith((_) => _Cache({})),
+      ]);
+      addTearDown(container.dispose);
+      container.listen(usdBalanceProvider, (_, __) {});
+      async.flushMicrotasks();
+      expect(container.read(usdBalanceProvider), 5);
+
+      units = 11000000;
+      events.add(breez.SdkEvent.paymentSucceeded(
+          payment: _tokenPayment('rx', units: 6000000)));
+      async.flushMicrotasks();
+      expect(container.read(usdBalanceProvider), 11);
+      expect(async.elapsed, Duration.zero);
+      wrapper.disconnect();
+      async.flushMicrotasks();
     });
   });
 }
