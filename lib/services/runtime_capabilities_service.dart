@@ -723,11 +723,37 @@ class RuntimeCapabilitiesService extends ChangeNotifier
     return future.whenComplete(() {
       if (identical(_refresh, future)) _refresh = null;
     }).then((landed) {
-      // Nothing new landed: a region denial that was only shown while
-      // this refresh answered may no longer be trusted. Screens re-read.
-      if (!landed && !_disposed) notifyListeners();
+      // Nothing new landed after a network change: a region denial from
+      // the old network was shown only while this refresh answered, and
+      // now reads as unknown. Screens re-read, once per network change.
+      // Never on every failed refresh: a listener that refreshes when the
+      // policy notifies (aiEnabledProvider) would loop for as long as the
+      // backend is unreachable.
+      if (!landed &&
+          !_disposed &&
+          _failureNotifiedEpoch != _networkEpoch &&
+          _holdsRegionDenialFromEarlierNetwork) {
+        _failureNotifiedEpoch = _networkEpoch;
+        notifyListeners();
+      }
       return landed;
     });
+  }
+
+  /// The network epoch whose failed refetch has already been announced.
+  int _failureNotifiedEpoch = _restoredEpoch;
+
+  /// A held policy carries a region denial fetched before the latest
+  /// network change (not restored from disk: those are never trusted, so
+  /// a failed refresh changes nothing about them).
+  bool get _holdsRegionDenialFromEarlierNetwork {
+    bool stale(RuntimeCapabilities? policy, int epoch) =>
+        policy != null &&
+        epoch != _networkEpoch &&
+        epoch != _restoredEpoch &&
+        policy.capabilities.values
+            .any((d) => !d.allowed && !d.comingSoon && d.regionRestricted);
+    return stale(_snapshot, _snapshotEpoch) || stale(_public, _publicEpoch);
   }
 
   /// A refresh that starts after the one in flight, for a caller that has

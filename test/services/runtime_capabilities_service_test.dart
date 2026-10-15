@@ -789,6 +789,33 @@ void main() {
     await service.ensureAllowed('hyperliquid.trade');
   });
 
+  test('a failed refresh never notifies on its own, so a listener that '
+      'refreshes on every change cannot loop', () async {
+    var online = true;
+    setup((_) => http.Response(
+        online ? jsonEncode(policy(trade: false)) : '', online ? 200 : 503));
+    expect(await service.refresh(), isTrue);
+    online = false;
+    var notified = 0;
+    service.addListener(() => notified++);
+    // Like aiEnabledProvider: refresh again whenever the policy notifies.
+    service.addListener(() => unawaited(service.refresh()));
+    for (var i = 0; i < 3; i++) {
+      expect(await service.refresh(), isFalse);
+    }
+    await pumpEventQueue();
+    expect(notified, 0);
+    // After a network change the failed refetch is announced once: the
+    // old network's region denial now reads as unknown.
+    await service.networkChanged();
+    await pumpEventQueue();
+    expect(notified, 2, reason: 'the change itself, then its failed refetch');
+    expect(service.allows('hyperliquid.trade'), isTrue);
+    expect(await service.refresh(), isFalse);
+    await pumpEventQueue();
+    expect(notified, 2);
+  });
+
   test('a tap asks again before showing a refusal', () async {
     var blocked = true;
     var requests = 0;
