@@ -421,20 +421,26 @@ class VenueSweeper {
     _passing = true;
     try {
       _liftBackoffsOnResume();
-      final out = <OneBalanceVenue, RebalanceOutcome>{};
-      // Investing first: its CCTP leg is the slow one.
-      for (final v in const [
-        OneBalanceVenue.investing,
-        OneBalanceVenue.predictions,
-      ]) {
-        if (_disposed) break;
-        out[v] = await _sweepVenue(v,
-            trigger: trigger,
-            eventDriven: true,
-            flushHeld: flushHeld,
-            ignoreIdle: ignoreIdle,
-            manual: true);
-      }
+      // Both venues at once: Investing's move (its CCTP leg can take
+      // minutes) no longer holds Predictions' back. Nothing the two share
+      // needs a lock: each venue's pass reads and writes only its own
+      // entries (its memory, its in-flight mark, its send count, its
+      // buckets), the host's reads and rails are per venue, and the one
+      // pass at a time rule above still keeps every other pass out until
+      // both are done.
+      const venues = [OneBalanceVenue.investing, OneBalanceVenue.predictions];
+      final results = await Future.wait([
+        for (final v in venues)
+          _sweepVenue(v,
+              trigger: trigger,
+              eventDriven: true,
+              flushHeld: flushHeld,
+              ignoreIdle: ignoreIdle,
+              manual: true),
+      ]);
+      final out = <OneBalanceVenue, RebalanceOutcome>{
+        for (var i = 0; i < venues.length; i++) venues[i]: results[i],
+      };
       await _runReruns();
       return out;
     } finally {
@@ -614,16 +620,15 @@ class VenueSweeper {
       await _rolloutPass(wallet);
       return;
     }
-    final order = venue == null
-        ? OneBalanceVenue.values
-        : [venue, ...OneBalanceVenue.values.where((v) => v != venue)];
-    for (final v in order) {
-      if (_disposed) return;
-      await _sweepVenue(v,
-          trigger: trigger,
-          eventDriven: kSweepEventTriggers.contains(trigger) && v == venue,
-          flushHeld: flushHeld);
-    }
+    if (_disposed) return;
+    // Every venue at once, as a Rebalance: their passes share nothing.
+    await Future.wait([
+      for (final v in OneBalanceVenue.values)
+        _sweepVenue(v,
+            trigger: trigger,
+            eventDriven: kSweepEventTriggers.contains(trigger) && v == venue,
+            flushHeld: flushHeld),
+    ]);
   }
 
   /// Back in the foreground: a venue backing off after a failure at least
@@ -645,16 +650,21 @@ class VenueSweeper {
   /// only once both venues have answered, so a restart mid-way runs it
   /// again and a second run finds nothing idle.
   Future<void> _rolloutPass(String walletId) async {
-    var allKnown = true;
-    for (final v in [OneBalanceVenue.investing, OneBalanceVenue.predictions]) {
-      if (_disposed) return;
-      final outcome = await _sweepVenue(v,
-          trigger: 'rollout',
-          eventDriven: true,
-          flushHeld: true,
-          rollout: true);
-      allKnown = allKnown && outcome.kind != RebalanceOutcomeKind.unknown;
-    }
+    if (_disposed) return;
+    // Both venues at once, as a Rebalance: their passes share nothing.
+    final outcomes = await Future.wait([
+      for (final v in const [
+        OneBalanceVenue.investing,
+        OneBalanceVenue.predictions,
+      ])
+        _sweepVenue(v,
+            trigger: 'rollout',
+            eventDriven: true,
+            flushHeld: true,
+            rollout: true),
+    ]);
+    final allKnown =
+        outcomes.every((o) => o.kind != RebalanceOutcomeKind.unknown);
     if (allKnown && !_disposed) _host.markRolloutDone(walletId);
   }
 

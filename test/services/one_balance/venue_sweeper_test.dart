@@ -46,6 +46,9 @@ class _FakeHost extends VenueSweeperHost {
   /// it). The CCTP fallback keeps a HyperCore reserve back.
   double Function(double usd)? sendResult;
   Future<void> Function()? beforeSend;
+
+  /// Runs as [send] starts for a venue, before [beforeSend].
+  Future<void> Function(OneBalanceVenue venue)? beforeSendTo;
   Future<void> Function()? onPrepare;
 
   void idle(OneBalanceVenue venue, double usd, {double? sweepable}) {
@@ -94,6 +97,7 @@ class _FakeHost extends VenueSweeperHost {
   @override
   Future<VenueMoveResult> send(OneBalanceVenue venue,
       {required double usd, required String purpose}) async {
+    await beforeSendTo?.call(venue);
     await beforeSend?.call();
     final error = sendError[venue];
     if (error != null) throw error();
@@ -824,6 +828,94 @@ void main() {
       expect(host.sent.length, 1);
       expect(out[OneBalanceVenue.predictions]!.kind,
           isNot(RebalanceOutcomeKind.moving));
+    });
+
+    test(
+        'submits both venues at once: both sends start before either '
+        'completes, and each venue keeps its own outcome', () async {
+      host.venues[OneBalanceVenue.investing] = inUse(6);
+      host.venues[OneBalanceVenue.predictions] = inUse(3);
+      final started = <OneBalanceVenue>[];
+      final gates = {
+        for (final v in OneBalanceVenue.values) v: Completer<void>(),
+      };
+      host.beforeSendTo = (venue) {
+        started.add(venue);
+        return gates[venue]!.future;
+      };
+      // Investing's rail refuses once its gate opens; Predictions' sends.
+      host.sendError[OneBalanceVenue.investing] =
+          () => StateError('rail down');
+
+      final tap = sweeper.sweepNow();
+      for (var i = 0; i < 20; i++) {
+        await Future<void>.delayed(Duration.zero);
+      }
+      expect(started.toSet(), OneBalanceVenue.values.toSet(),
+          reason: 'both sends are out before either answers');
+      expect(sweeper.state.sweeping, OneBalanceVenue.values.toSet());
+      expect(host.sent, isEmpty);
+
+      // Predictions answers first, Investing after: no waiting on order.
+      gates[OneBalanceVenue.predictions]!.complete();
+      for (var i = 0; i < 20; i++) {
+        await Future<void>.delayed(Duration.zero);
+      }
+      expect(host.sent.single.venue, OneBalanceVenue.predictions);
+      expect(sweeper.state.sweeping, {OneBalanceVenue.investing});
+      gates[OneBalanceVenue.investing]!.complete();
+      final out = await tap;
+
+      expect(out.keys, [OneBalanceVenue.investing, OneBalanceVenue.predictions]);
+      expect(out[OneBalanceVenue.predictions],
+          const RebalanceOutcome(RebalanceOutcomeKind.moving, usd: 3));
+      expect(out[OneBalanceVenue.investing],
+          const RebalanceOutcome(RebalanceOutcomeKind.notNow, usd: 6));
+      expect(sweeper.state.sweeping, isEmpty);
+      // The events stay per venue: two starts, one submit, one failure.
+      expect(
+          host.events
+              .where((e) => e.$1 == 'venue_sweep_started')
+              .map((e) => e.$2['venue'])
+              .toSet(),
+          {'hyperliquid', 'polymarket'});
+      expect(host.lastEvent('venue_sweep_submitted')['venue'], 'polymarket');
+      expect(host.lastEvent('venue_sweep_failed')['venue'], 'hyperliquid');
+      // Only the failed venue backs off: an automatic pass a minute later
+      // leaves Investing alone.
+      host.sendError.remove(OneBalanceVenue.investing);
+      host.beforeSendTo = null;
+      host.venues[OneBalanceVenue.investing] =
+          const VenueSnapshot(idleUsd: 6, sweepableUsd: 6);
+      host.clock = host.clock.add(const Duration(seconds: 30));
+      await sweeper.trigger('position_closed',
+          venue: OneBalanceVenue.investing);
+      expect(host.sent.length, 1);
+      expect(host.lastEvent('venue_sweep_skipped')['reason'], 'backoff');
+    });
+
+    test('no double sweep: a second tap while both venues move sends nothing',
+        () async {
+      host.venues[OneBalanceVenue.investing] = inUse(6);
+      host.venues[OneBalanceVenue.predictions] = inUse(3);
+      final gate = Completer<void>();
+      host.beforeSend = () => gate.future;
+      final first = sweeper.sweepNow();
+      await Future<void>.delayed(Duration.zero);
+      final second = sweeper.sweepNow();
+      for (var i = 0; i < 20; i++) {
+        await Future<void>.delayed(Duration.zero);
+      }
+      gate.complete();
+      final a = await first;
+      final b = await second;
+      expect(host.sent.map((s) => s.venue).toSet(),
+          OneBalanceVenue.values.toSet());
+      expect(host.sent.length, 2, reason: 'one move per venue');
+      expect(a.values.map((o) => o.kind).toSet(),
+          {RebalanceOutcomeKind.moving});
+      expect(b.values.map((o) => o.kind),
+          everyElement(isNot(RebalanceOutcomeKind.moving)));
     });
 
     test('a locked session never sends', () async {
