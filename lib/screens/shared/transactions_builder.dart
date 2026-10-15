@@ -3095,8 +3095,6 @@ class _SwapOrderDetailSheetState extends ConsumerState<_SwapOrderDetailSheet> {
   CashAppPurchaseSession? _cashAppSession;
   Timer? _cashAppPoll;
 
-  bool get _isBitcoinVN => widget.tx.details.providerName == 'BitcoinVN';
-
   String _formatShiftAmount(String rawAmount, String coin) {
     if (coin == 'BTC') {
       final sats = (double.tryParse(rawAmount) ?? 0) * 100000000;
@@ -3298,54 +3296,8 @@ class _SwapOrderDetailSheetState extends ConsumerState<_SwapOrderDetailSheet> {
 
     // Vendor states collapse into a few plain words; the raw status code
     // stays readable under Nerd data.
-    Color statusColor;
-    String statusText;
-    switch (details.status) {
-      case 'success':
-      case 'settled':
-        statusText = context.l10n.completed;
-        statusColor = AppColors.success;
-        break;
-      case 'overdue':
-      case 'expired':
-        statusText = context.l10n.expired;
-        statusColor = AppColors.error;
-        break;
-      case 'unfulfilled':
-      case 'failed':
-      case 'settle_data_error':
-      case 'emergency':
-        statusText = context.l10n.activityNeedsAttention;
-        statusColor = AppColors.error;
-        break;
-      case 'refunded':
-        statusText = context.l10n.refunded;
-        statusColor = AppColors.error;
-        break;
-      case 'held':
-        statusText = context.l10n.activityNeedsReturn;
-        statusColor = AppColors.error;
-        break;
-      case 'refund_requested':
-        statusText = context.l10n.activityReturnRequested;
-        statusColor = context.colors.warning;
-        break;
-      case 'processing':
-      case 'exchanging':
-      case 'settling':
-      case 'review':
-        statusText = context.l10n.processing;
-        statusColor = context.colors.accent;
-        break;
-      default:
-        statusText = context.l10n.pending;
-        statusColor = context.colors.accent;
-    }
-
-    if (details.isUntrackedLegacyOrder) {
-      statusText = context.l10n.activityNoLongerTracked;
-      statusColor = context.colors.textSecondary;
-    }
+    var (text: statusText, color: statusColor) =
+        _swapOrderSheetStatus(context, details);
 
     if (details.isCashAppPurchase) {
       statusText = cashAppStatusLabel(details, context.l10n);
@@ -3365,7 +3317,6 @@ class _SwapOrderDetailSheetState extends ConsumerState<_SwapOrderDetailSheet> {
     final isCashAppPurchase = details.isCashAppPurchase;
 
     final activity = swapActivityFor(details);
-    final isPolymarketRow = activity.isPredictions || activity.isInvesting;
 
     return KeyboardDismissOnTap(
       child: AppBottomSheetContainer(
@@ -3475,75 +3426,9 @@ class _SwapOrderDetailSheetState extends ConsumerState<_SwapOrderDetailSheet> {
                 }(),
                 // Provider, chains, rate, raw status, addresses, exchange
                 // ID and refund address are nerd data — collapsed.
-                _NerdDataSection(children: [
-                  _sheetDetailRow(
-                      c, context.l10n.provider, details.providerName),
-                  if (!isCashAppPurchase && details.networkFrom.isNotEmpty)
-                    _sheetDetailRow(c, context.l10n.activityDepositNetwork,
-                        orchestraChainDisplayName(details.networkFrom)),
-                  if (isPolymarketRow)
-                    _sheetDetailRow(
-                        c,
-                        context.l10n.receive,
-                        _formatShiftAmount(
-                            details.withdrawalAmount, details.coinTo)),
-                  if (details.networkTo.isNotEmpty)
-                    _sheetDetailRow(c, context.l10n.activityReceiveNetwork,
-                        orchestraChainDisplayName(details.networkTo)),
-                  if (!isCashAppPurchase)
-                    _sheetDetailRow(
-                        c, context.l10n.rate, _formatRate(details.rate)),
-                  if (details.status.isNotEmpty)
-                    _sheetDetailRow(
-                        c, context.l10n.activityStatusCode, details.status),
-                  // A Cash App purchase "deposit address" is the Lightning
-                  // invoice Orchestra issued for Cash App to pay. The user's
-                  // wallet never created it, so name it for what it is and
-                  // call the settle address the delivery address. Only an
-                  // invoice a payment followed reads as paid, and a closed,
-                  // failed or cancelled one can no longer be copied to pay.
-                  _sheetDetailRow(
-                      c,
-                      isCashAppPurchase
-                          ? kCashAppPaidStatuses.contains(details.status)
-                              ? context.l10n.activityInvoicePaidByCashApp
-                              : context.l10n.cashAppInvoice
-                          : context.l10n.depositAddress,
-                      details.depositAddress,
-                      copiable: !isCashAppPurchase ||
-                          !(details.cashAppPaymentWindowClosed ||
-                              details.isExpired),
-                      isAddress: true,
-                      ctx: context),
-                  _sheetDetailRow(
-                      c,
-                      isCashAppPurchase
-                          ? context.l10n.activityDeliveredTo
-                          : context.l10n.activityWithdrawalAddress,
-                      details.withdrawalAddress,
-                      copiable: true,
-                      isAddress: true,
-                      ctx: context),
-                  _sheetDetailRow(
-                      c,
-                      isCashAppPurchase
-                          ? context.l10n.orderId
-                          : context.l10n.activityExchangeId,
-                      details.id,
-                      copiable: true,
-                      isAddress: true,
-                      ctx: context),
-                  if (_isBitcoinVN &&
-                      details.providerToken != null &&
-                      details.providerToken!.isNotEmpty)
-                    _sheetDetailRow(
-                        c, context.l10n.orderId, details.providerToken!,
-                        copiable: true, ctx: context),
-                  if (details.refundAddress.isNotEmpty)
-                    _sheetDetailRow(c, context.l10n.activityRefundAddress,
-                        details.refundAddress,
-                        copiable: true, isAddress: true, ctx: context),
-                ]),
+                _NerdDataSection(
+                    children: _swapOrderNerdRows(context, c, details,
+                        formatAmount: _formatShiftAmount)),
                 // An unpaid purchase can be dropped. Nothing is owed on an
                 // invoice nobody paid; the row goes and the invoice simply
                 // lapses. A paid or settling purchase has money in flight
@@ -3589,57 +3474,7 @@ class _SwapOrderDetailSheetState extends ConsumerState<_SwapOrderDetailSheet> {
 
                 if (isOrchestra) OrchestraSwapRefundAction(order: details),
 
-                // External-explorer button — same visual shape across
-                // providers (matches the "View on Polygonscan" button
-                // used for Polymarket transactions). Orchestra orders
-                // do have a public explorer: orchestra.flashnet.xyz/
-                // explorer/<id>. The id we hand to the explorer:
-                //   - `ord_…` → pass straight through
-                //   - bare uuid → prepend `ord_` (legacy records)
-                //   - `q_…`    → pass straight through (NOT double-
-                //     prefixed; `ord_q_…` is what the explorer was
-                //     rejecting with "id must be an order id"). On
-                //     in-flight rows whose quote hasn't been swapped
-                //     for an order id yet, the explorer's quote view
-                //     still loads given the bare quote prefix.
-                // A stuck-deposit row has no order for the explorer to show.
-                if (details.id.isNotEmpty &&
-                    !details.isStuckStandingDeposit &&
-                    details.isOrchestra) ...[
-                  SizedBox(height: 20.h),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48.h,
-                    child: OutlinedButton.icon(
-                      onPressed: () async {
-                        final orchId = details.id.startsWith('ord_') ||
-                                details.id.startsWith('q_')
-                            ? details.id
-                            : 'ord_${details.id}';
-                        final uri = Uri.parse(
-                            'https://orchestra.flashnet.xyz/explorer/$orchId');
-                        if (!await launchUrl(uri,
-                            mode: LaunchMode.inAppBrowserView)) {
-                          await launchUrl(uri,
-                              mode: LaunchMode.externalApplication);
-                        }
-                      },
-                      icon: Icon(Icons.open_in_new_rounded, size: 18.sp),
-                      label: Text(
-                        context.l10n.activityTrackExchange,
-                        style: TextStyle(
-                            fontSize: 16.sp, fontWeight: FontWeight.w600),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: c.textPrimary,
-                        side: BorderSide(color: c.border),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: AppRadius.buttonBorder),
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: 10.h),
-                ],
+                ..._orchestraTrackExchange(context, c, details),
               ],
             ),
           ),
@@ -3647,6 +3482,175 @@ class _SwapOrderDetailSheetState extends ConsumerState<_SwapOrderDetailSheet> {
       ),
     );
   }
+}
+
+/// The status a swap order's detail sheet shows: vendor states collapse
+/// into a few plain words (the raw code stays under Nerd data). A Cash
+/// App purchase's own wording is the sheet's.
+({String text, Color color}) _swapOrderSheetStatus(
+    BuildContext context, SwapOrder details) {
+  if (details.isUntrackedLegacyOrder) {
+    return (
+      text: context.l10n.activityNoLongerTracked,
+      color: context.colors.textSecondary
+    );
+  }
+  return switch (details.status) {
+    'success' || 'settled' => (
+        text: context.l10n.completed,
+        color: AppColors.success
+      ),
+    'overdue' || 'expired' => (
+        text: context.l10n.expired,
+        color: AppColors.error
+      ),
+    'unfulfilled' || 'failed' || 'settle_data_error' || 'emergency' => (
+        text: context.l10n.activityNeedsAttention,
+        color: AppColors.error
+      ),
+    'refunded' => (text: context.l10n.refunded, color: AppColors.error),
+    'held' => (text: context.l10n.activityNeedsReturn, color: AppColors.error),
+    'refund_requested' => (
+        text: context.l10n.activityReturnRequested,
+        color: context.colors.warning
+      ),
+    'processing' || 'exchanging' || 'settling' || 'review' => (
+        text: context.l10n.processing,
+        color: context.colors.accent
+      ),
+    _ => (text: context.l10n.pending, color: context.colors.accent),
+  };
+}
+
+/// A swap order's Nerd data: provider, chains, rate, raw status,
+/// addresses, exchange id and refund address. [formatAmount] renders the
+/// venue rows' Receive amount; [showReceive] false where the sheet
+/// already names what was received.
+List<Widget> _swapOrderNerdRows(
+  BuildContext context,
+  AppColorsExtension c,
+  SwapOrder details, {
+  required String Function(String rawAmount, String coin) formatAmount,
+  bool showReceive = true,
+}) {
+  final isCashAppPurchase = details.isCashAppPurchase;
+  final activity = swapActivityFor(details);
+  final isPolymarketRow = activity.isPredictions || activity.isInvesting;
+  return [
+    _sheetDetailRow(c, context.l10n.provider, details.providerName),
+    if (!isCashAppPurchase && details.networkFrom.isNotEmpty)
+      _sheetDetailRow(c, context.l10n.activityDepositNetwork,
+          orchestraChainDisplayName(details.networkFrom)),
+    if (isPolymarketRow && showReceive)
+      _sheetDetailRow(c, context.l10n.receive,
+          formatAmount(details.withdrawalAmount, details.coinTo)),
+    if (details.networkTo.isNotEmpty)
+      _sheetDetailRow(c, context.l10n.activityReceiveNetwork,
+          orchestraChainDisplayName(details.networkTo)),
+    if (!isCashAppPurchase)
+      _sheetDetailRow(c, context.l10n.rate, _formatRate(details.rate)),
+    if (details.status.isNotEmpty)
+      _sheetDetailRow(c, context.l10n.activityStatusCode, details.status),
+    // A Cash App purchase "deposit address" is the Lightning
+    // invoice Orchestra issued for Cash App to pay. The user's
+    // wallet never created it, so name it for what it is and
+    // call the settle address the delivery address. Only an
+    // invoice a payment followed reads as paid, and a closed,
+    // failed or cancelled one can no longer be copied to pay.
+    _sheetDetailRow(
+        c,
+        isCashAppPurchase
+            ? kCashAppPaidStatuses.contains(details.status)
+                ? context.l10n.activityInvoicePaidByCashApp
+                : context.l10n.cashAppInvoice
+            : context.l10n.depositAddress,
+        details.depositAddress,
+        copiable: !isCashAppPurchase ||
+            !(details.cashAppPaymentWindowClosed || details.isExpired),
+        isAddress: true,
+        ctx: context),
+    _sheetDetailRow(
+        c,
+        isCashAppPurchase
+            ? context.l10n.activityDeliveredTo
+            : context.l10n.activityWithdrawalAddress,
+        details.withdrawalAddress,
+        copiable: true,
+        isAddress: true,
+        ctx: context),
+    _sheetDetailRow(
+        c,
+        isCashAppPurchase
+            ? context.l10n.orderId
+            : context.l10n.activityExchangeId,
+        details.id,
+        copiable: true,
+        isAddress: true,
+        ctx: context),
+    if (details.providerName == 'BitcoinVN' &&
+        details.providerToken != null &&
+        details.providerToken!.isNotEmpty)
+      _sheetDetailRow(c, context.l10n.orderId, details.providerToken!,
+          copiable: true, ctx: context),
+    if (details.refundAddress.isNotEmpty)
+      _sheetDetailRow(
+          c, context.l10n.activityRefundAddress, details.refundAddress,
+          copiable: true, isAddress: true, ctx: context),
+  ];
+}
+
+/// The "Track exchange" button of an Orchestra order: its public explorer,
+/// `orchestra.flashnet.xyz/explorer/<id>`. Same visual shape across
+/// providers (matches the "View on Polygonscan" button used for
+/// Polymarket transactions). The id handed to the explorer:
+///   - `ord_…` → passed straight through
+///   - bare uuid → `ord_` prepended (legacy records)
+///   - `q_…`    → passed straight through (NOT double-prefixed;
+///     `ord_q_…` is what the explorer was rejecting with "id must be an
+///     order id"). On in-flight rows whose quote hasn't been swapped for
+///     an order id yet, the explorer's quote view still loads given the
+///     bare quote prefix.
+/// A stuck-deposit row, and a CCTP move not yet turned into an order
+/// (`cctp-…`), have no order for the explorer to show.
+List<Widget> _orchestraTrackExchange(
+    BuildContext context, AppColorsExtension c, SwapOrder details) {
+  if (details.id.isEmpty ||
+      details.isStuckStandingDeposit ||
+      !details.isOrchestra ||
+      details.id.startsWith('cctp-')) {
+    return const [];
+  }
+  return [
+    SizedBox(height: 20.h),
+    SizedBox(
+      width: double.infinity,
+      height: 48.h,
+      child: OutlinedButton.icon(
+        onPressed: () async {
+          final orchId =
+              details.id.startsWith('ord_') || details.id.startsWith('q_')
+                  ? details.id
+                  : 'ord_${details.id}';
+          final uri =
+              Uri.parse('https://orchestra.flashnet.xyz/explorer/$orchId');
+          if (!await launchUrl(uri, mode: LaunchMode.inAppBrowserView)) {
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+          }
+        },
+        icon: Icon(Icons.open_in_new_rounded, size: 18.sp),
+        label: Text(
+          context.l10n.activityTrackExchange,
+          style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600),
+        ),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: c.textPrimary,
+          side: BorderSide(color: c.border),
+          shape: RoundedRectangleBorder(borderRadius: AppRadius.buttonBorder),
+        ),
+      ),
+    ),
+    SizedBox(height: 10.h),
+  ];
 }
 
 /// Computes realized P&L for a SELL trade row from the average cost of
@@ -5830,50 +5834,83 @@ class _MultiSourceMoveDetailSheetState
   Widget build(BuildContext context) {
     final c = context.colors;
     final l10n = context.l10n;
-    // The record as it stands now (a Retry adds legs while the sheet is up).
+    // The record as it stands now (a Retry adds legs while the sheet is up),
+    // and its rows as the store holds them now: each leg's values follow it
+    // from pending to landed while the sheet is open.
     final moves = ref.watch(multiSourceMovesProvider);
-    final move =
-        moves.where((m) => m.id == widget.tx.move.id).firstOrNull ??
-            widget.tx.move;
-    final tx =
-        MultiSourceMoveTransaction(move: move, legRows: widget.tx.legRows);
+    final move = moves.where((m) => m.id == widget.tx.move.id).firstOrNull ??
+        widget.tx.move;
+    final rows = multiSourceMoveLiveRows(
+        move, widget.tx.legRows, ref.watch(swapOrdersProvider));
+    final tx = MultiSourceMoveTransaction(move: move, legRows: rows);
     final retrying = MultiSourceMoveStore.retrying(move.id);
-    String legStatus(MultiSourceMoveLeg leg) {
-      if (!leg.ok) return l10n.failed;
-      final row = tx.legRows
-          .where((r) =>
-              r.details.operationId != null &&
-              r.details.operationId == leg.operationId)
-          .firstOrNull;
-      return row != null &&
-              row.isComplete &&
-              !OwnSparkArrivals.awaitingCredit(row.id)
-          ? l10n.completed
-          : l10n.pending;
-    }
+    final status = tx.partial
+        ? (text: l10n.activityNeedsAttention, color: AppColors.marketDown)
+        : tx.complete
+            ? (text: l10n.completed, color: AppColors.success)
+            : (text: l10n.pending, color: c.warning);
+    final destination = venueCashDestinationName(l10n, move.destination);
+    final finalRow = multiSourceMoveFinalRow(move, rows);
 
     return AppBottomSheetContainer(
       maxHeight: 0.9,
       child: Padding(
         padding: EdgeInsets.symmetric(horizontal: 24.w),
         child: SheetScrollView(
+          padding: EdgeInsets.only(bottom: 16.h),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // What was sent and what arrives are the header's figures;
+              // the line under them says where from and where to ("from
+              // Investments to Bitcoin") where the title does not.
               TransactionDetailHeader(
                 row: _buildMultiSourceMoveItem(tx, context, ref),
+                note: switch (move.destination) {
+                  VenueCashDestination.dollars => null,
+                  VenueCashDestination.bitcoin =>
+                    '${l10n.activityRowFrom(l10n.assetDollars)} ${l10n.activityRowTo(destination)}',
+                  _ => l10n.activityRowFrom(l10n.assetDollars),
+                },
               ),
               _sheetDetailRow(
                   c, l10n.date, activitySheetDate(context, tx.timestamp)),
-              if (move.dollarsUsd > 0)
-                _sheetDetailRow(c, l10n.assetDollars,
-                    '\$${move.dollarsUsd.toStringAsFixed(2)}'),
+              _sheetDetailRow(c, l10n.status, status.text,
+                  valueColor: status.color),
               for (final leg in move.legs)
-                _sheetDetailRow(
-                  c,
-                  venueCashVenueName(l10n, leg.venue),
-                  '\$${leg.usd.toStringAsFixed(2)} · ${legStatus(leg)}',
-                  valueColor: leg.ok ? null : AppColors.marketDown,
+                _MultiSourceLegSection(
+                  title:
+                      '${venueCashVenueName(l10n, leg.venue)} → ${leg.direct ? destination : l10n.assetDollars}',
+                  at: leg.at,
+                  sentUsd: leg.usd,
+                  failed: !leg.ok,
+                  arrivingUsd: leg.arrivingUsd,
+                  row: leg.ok ? multiSourceMoveLegRow(leg, rows) : null,
+                ),
+              // The action's own step, which Dollars' part (and every leg
+              // that came home first) went on with.
+              if (finalRow != null)
+                _MultiSourceLegSection(
+                  title:
+                      '${l10n.assetDollars} → ${move.forAction == VenueCashFor.send ? _swapSheetLegLabel(context, finalRow.details.coinTo, finalRow.details.networkTo) : destination}',
+                  at: finalRow.timestamp,
+                  sentUsd: null,
+                  failed: false,
+                  arrivingUsd: null,
+                  row: finalRow,
+                )
+              else if (move.dollarsUsd > 0 &&
+                  move.destination != VenueCashDestination.dollars)
+                _MultiSourceLegSection(
+                  title: '${l10n.assetDollars} → $destination',
+                  at: null,
+                  sentUsd: move.dollarsUsd,
+                  failed: false,
+                  arrivingUsd: null,
+                  row: null,
+                  // Waiting for the action's own step; after a failed leg
+                  // it waits for Retry instead.
+                  waiting: !move.partial,
                 ),
               if (move.partial) ...[
                 SizedBox(height: 12.h),
@@ -5882,8 +5919,8 @@ class _MultiSourceMoveDetailSheetState
                 Text(
                   multiSourceMoveProgress(l10n, move) ?? '',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                      fontSize: 14.sp, color: AppColors.marketDown),
+                  style:
+                      TextStyle(fontSize: 14.sp, color: AppColors.marketDown),
                 ),
                 SizedBox(height: 12.h),
                 SizedBox(
@@ -5916,6 +5953,157 @@ class _MultiSourceMoveDetailSheetState
           ),
         ),
       ),
+    );
+  }
+}
+
+/// One part of a multi-source move on its detail sheet, in the swap
+/// order sheet's own rows and order: where it went ("Investing →
+/// Bitcoin"), Date, Status, what it sent and what arrives (what arrived,
+/// once landed), the fee once both sides are known in dollars, the
+/// order's Nerd data, its refund and its explorer. A value not known is
+/// left out, never shown as a dash.
+class _MultiSourceLegSection extends ConsumerWidget {
+  const _MultiSourceLegSection({
+    required this.title,
+    required this.at,
+    required this.sentUsd,
+    required this.failed,
+    required this.arrivingUsd,
+    required this.row,
+    this.waiting = false,
+  });
+
+  final String title;
+
+  /// When the part started; the row's own time when it has one.
+  final DateTime? at;
+
+  /// What left (what was asked of the venue, for a failed leg); the row's
+  /// own amount when null.
+  final double? sentUsd;
+
+  /// The leg stayed on its venue.
+  final bool failed;
+
+  /// What the leg is expected to land, until its row says what landed.
+  final double? arrivingUsd;
+
+  /// The part's Activity row, once the wallet holds it.
+  final SwapOrderTransaction? row;
+
+  /// No row yet and none can be known before the action's own step goes.
+  final bool waiting;
+
+  static bool _isDollar(String coin) {
+    final upper = coin.toUpperCase();
+    return upper == 'USDC' ||
+        upper == 'USDC.E' ||
+        upper == 'USDT' ||
+        upper == 'PUSD' ||
+        upper == kOrchestraUsdAssetCode;
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
+    final l10n = context.l10n;
+    final details = row?.details;
+
+    // The order's amount in its own coin, as its Activity row reads it.
+    double value(String raw, String coin) => details?.isOrchestra == true
+        ? orchestraRowAmount(raw, coin)
+        : double.tryParse(raw) ?? 0;
+    String coinAmount(double v, String coin) => coin.toUpperCase() == 'BTC'
+        ? ref.watch(conversionProvider((v * 100000000).round()))
+        : _isDollar(coin)
+            ? formatPolyAmount(ref, v)
+            : '$v ${_assetDisplayName(coin)}';
+
+    final landed = details != null &&
+        details.isComplete &&
+        !OwnSparkArrivals.awaitingCredit(details.id);
+    final ({String text, Color color})? status = failed
+        ? (text: l10n.failed, color: AppColors.marketDown)
+        : details != null
+            ? (OwnSparkArrivals.awaitingCredit(details.id)
+                ? (text: l10n.pending, color: c.accent)
+                : _swapOrderSheetStatus(context, details))
+            : waiting || (sentUsd != null && arrivingUsd != null)
+                ? (text: l10n.pending, color: c.accent)
+                : null;
+
+    final sent = sentUsd ??
+        (details == null
+            ? null
+            : value(details.depositAmount, details.coinFrom));
+    final sentText = sentUsd != null
+        ? formatPolyAmount(ref, sentUsd!)
+        : details != null && sent! > 0
+            ? coinAmount(sent, details.coinFrom)
+            : null;
+
+    String? arrivedText;
+    double? feeUsd;
+    if (!failed && landed) {
+      final got = value(details.withdrawalAmount, details.coinTo);
+      if (got > 0) {
+        arrivedText = coinAmount(got, details.coinTo);
+        final paid = sentUsd ?? (_isDollar(details.coinFrom) ? sent : null);
+        if (paid != null && _isDollar(details.coinTo)) {
+          final fee = ((paid - got) * 100).round() / 100;
+          if (fee >= 0.01) feeUsd = fee;
+        }
+      }
+    }
+    String? arrivingText;
+    if (!failed && !landed) {
+      if (arrivingUsd != null && arrivingUsd! > 0) {
+        arrivingText = formatPolyAmount(ref, arrivingUsd!);
+      } else if (details != null) {
+        final est = value(details.withdrawalAmount, details.coinTo);
+        if (est > 0) arrivingText = coinAmount(est, details.coinTo);
+      }
+    }
+    final when = row?.timestamp ?? at;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Padding(
+          padding: EdgeInsets.only(top: 18.h, bottom: 2.h),
+          child: Text(
+            title,
+            style: TextStyle(
+              color: c.textPrimary,
+              fontSize: 15.sp,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.2,
+            ),
+          ),
+        ),
+        if (when != null)
+          _sheetDetailRow(c, l10n.date, activitySheetDate(context, when)),
+        if (status != null)
+          _sheetDetailRow(c, l10n.status, status.text,
+              valueColor: status.color),
+        if (sentText != null) _sheetDetailRow(c, l10n.sent, sentText),
+        if (arrivingText != null)
+          _sheetDetailRow(c, l10n.activityArriving, arrivingText),
+        if (arrivedText != null) _sheetDetailRow(c, l10n.received, arrivedText),
+        if (feeUsd != null)
+          _sheetDetailRow(c, l10n.fee, formatPolyAmount(ref, feeUsd)),
+        if (details != null) ...[
+          _NerdDataSection(
+              children: _swapOrderNerdRows(context, c, details,
+                  formatAmount: (raw, coin) =>
+                      coinAmount(value(raw, coin), coin),
+                  showReceive: false)),
+          if (details.isOrchestra) OrchestraSwapRefundAction(order: details),
+          ..._orchestraTrackExchange(context, c, details),
+        ],
+      ],
     );
   }
 }

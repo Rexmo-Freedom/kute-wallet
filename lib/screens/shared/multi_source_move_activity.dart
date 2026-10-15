@@ -166,6 +166,57 @@ bool isMultiSourceMoveLeg(SwapOrderTransaction row, MultiSourceMove move) {
   return ids.contains(row.id) || (op != null && ids.contains(op));
 }
 
+/// The Activity row standing for [leg] among [rows] (the row its
+/// settlement operation or quote wrote), or null while none is known.
+/// When the leg has both its CCTP row and the Orchestra order the
+/// standing address turned it into, the order; else the newest.
+SwapOrderTransaction? multiSourceMoveLegRow(
+        MultiSourceMoveLeg leg, List<SwapOrderTransaction> rows) =>
+    _bestRow([
+      for (final r in rows)
+        if (_rowOf(r, leg.operationId, leg.quoteId)) r,
+    ]);
+
+/// The row of [move]'s own step (the send, the purchase) among [rows],
+/// or null before it went.
+SwapOrderTransaction? multiSourceMoveFinalRow(
+        MultiSourceMove move, List<SwapOrderTransaction> rows) =>
+    _bestRow([
+      for (final r in rows)
+        if (_rowOf(r, move.finalOperationId, null)) r,
+    ]);
+
+SwapOrderTransaction? _bestRow(List<SwapOrderTransaction> rows) {
+  if (rows.isEmpty) return null;
+  int rank(SwapOrderTransaction r) => r.id.startsWith('cctp-') ? 1 : 0;
+  rows.sort((a, b) {
+    final byKind = rank(a).compareTo(rank(b));
+    return byKind != 0 ? byKind : b.timestamp.compareTo(a.timestamp);
+  });
+  return rows.first;
+}
+
+/// [snapshot] (the rows a surface handed the move) brought up to date
+/// from [orders] (the wallet's swap orders as they stand now): a row the
+/// store holds replaces its snapshot, and a row of the move the snapshot
+/// did not have yet (an order a CCTP move just became) joins it.
+List<SwapOrderTransaction> multiSourceMoveLiveRows(MultiSourceMove move,
+    List<SwapOrderTransaction> snapshot, List<SwapOrder> orders) {
+  final byId = {for (final r in snapshot) r.id: r};
+  for (final o in orders) {
+    final row = SwapOrderTransaction(
+      id: o.id,
+      timestamp: DateTime.fromMillisecondsSinceEpoch(o.timestamp),
+      isConfirmed: o.isComplete,
+      details: o,
+    );
+    if (byId.containsKey(o.id) || isMultiSourceMoveLeg(row, move)) {
+      byId[o.id] = row;
+    }
+  }
+  return byId.values.toList();
+}
+
 bool _rowOf(SwapOrderTransaction row, String? operationId, String? quoteId) =>
     (operationId != null &&
         (row.details.operationId == operationId ||
