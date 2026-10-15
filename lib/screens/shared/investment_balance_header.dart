@@ -11,6 +11,8 @@ import 'package:kute/providers/investment_balances_provider.dart';
 import 'package:kute/providers/one_balance_provider.dart';
 import 'package:kute/providers/pending_pool_deposits_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/providers/usd_account_provider.dart'
+    show usdBalanceUnknownProvider;
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
 import 'package:kute/services/one_balance/one_balance_state.dart';
@@ -261,13 +263,17 @@ class InvestmentBalanceHeader extends ConsumerWidget {
   /// it reads dimmed — for a small copy of it elsewhere (the Investments
   /// tab's collapsed bar). A venue still to answer counts as zero: the
   /// figure reads dimmed until both have, never as a dash or a skeleton
-  /// over the dollars the account already knows.
+  /// over the dollars the account already knows. Dollars the SDK has not
+  /// confirmed yet (its answer has no dollar entry while the ledger holds
+  /// dollars, [usdBalanceUnknownProvider]) dim it the same way.
   static ({String text, bool stale}) oneBalanceFigure(WidgetRef ref) {
     final state = ref.watch(oneBalanceProvider);
     final visible = ref.watch(settingsProvider.select((s) => s.balanceVisible));
+    final dollarsUnknown = ref.watch(usdBalanceUnknownProvider);
     return (
       text: visible ? formatPolyFiatForced(ref, state.totalUsd) : '••••••',
-      stale: !state.investingKnown || !state.predictionsKnown,
+      stale:
+          !state.investingKnown || !state.predictionsKnown || dollarsUnknown,
     );
   }
 

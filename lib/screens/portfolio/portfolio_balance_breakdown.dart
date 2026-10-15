@@ -94,6 +94,8 @@ import 'package:kute/providers/portfolio_rebalance_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/swap_orders_provider.dart';
 import 'package:kute/providers/unified_balances_provider.dart';
+import 'package:kute/providers/usd_account_provider.dart'
+    show usdBalanceUnknownProvider;
 import 'package:kute/providers/venue_sweeper_provider.dart';
 import 'package:kute/screens/portfolio/open_investments_screen.dart'
     show InvestmentsProduct;
@@ -657,7 +659,11 @@ class _PortfolioBalanceBreakdownState
                 id: 'dollars',
                 asset: kUsdMarkAsset,
                 name: l10n.portfolioBalanceDollars,
-                available: _Figure(amount(dollars)),
+                // Not confirmed by the SDK yet (its answer has no dollar
+                // entry while the ledger holds dollars): the ledger's
+                // figure, dimmed and sweeping, never a confident number.
+                available: _Figure(amount(dollars),
+                    stale: ref.watch(usdBalanceUnknownProvider)),
               ),
             ),
             if (widget.trading)

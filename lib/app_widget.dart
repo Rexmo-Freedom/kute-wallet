@@ -8,6 +8,8 @@ import 'package:kute/providers/polymarket_trading_provider.dart'
     show polymarketTradingProvider;
 import 'package:kute/providers/venue_sweeper_provider.dart'
     show venueSweeperProvider;
+import 'package:kute/providers/usd_account_provider.dart'
+    show usdBalanceCheckProvider;
 import 'package:kute/models/settings_model.dart' show Settings;
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/wallet_backup_provider.dart'
@@ -408,6 +410,10 @@ class _AppWidgetState extends ConsumerState<AppWidget>
           BackgroundSyncService().start(context);
           // ignore: unawaited_futures
           BackgroundSyncService().forceRefreshAll();
+          // Dollars: the SDK's cached token figure read again; one with
+          // no dollar entry while the ledger holds dollars syncs and
+          // polls until it lands (usdBalanceCheckProvider).
+          ref.read(usdBalanceCheckProvider).request('resume');
           // A Predictions deposit that landed while the app was away is
           // still USDC.e: convert it now (the account's own guards apply).
           if (ref.exists(polymarketTradingProvider)) {

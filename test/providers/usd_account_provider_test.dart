@@ -15,6 +15,8 @@ import 'package:kute/providers/breez_config_provider.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/models/transactions_model.dart';
+import 'package:kute/providers/auth_provider.dart' show sessionUnlockedProvider;
+import 'package:kute/providers/refresh_everything_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/transactions_provider.dart';
 import 'package:kute/providers/usd_account_provider.dart';
@@ -96,6 +98,13 @@ class _Sdk extends Mock implements breez.BreezSdk {}
 class _Wrapper extends Mock implements BreezSdkSpark {}
 
 class _Request extends Fake implements breez.ConnectRequest {}
+
+class _Checks extends UsdBalanceCheck {
+  final requests = <String>[];
+
+  @override
+  void request(String source) => requests.add(source);
+}
 
 ProviderContainer _container({
   required double? sdkReading,
@@ -226,13 +235,13 @@ void main() {
       syncs = 0;
       published = [];
       catchUp = UsdLedgerCatchUp(
-        readInfo: () async {
+        readInfo: (_) async {
           final i = reads < answers.length ? reads : answers.length - 1;
           reads++;
           return answers[i];
         },
         syncWallet: () async => syncs++,
-        publish: published.add,
+        publish: (reading, _) => published.add(reading),
         debounce: Duration.zero,
       );
       addTearDown(catchUp.dispose);
@@ -295,9 +304,9 @@ void main() {
 
     test('a failed sync still publishes what the cache holds', () async {
       final failing = UsdLedgerCatchUp(
-        readInfo: () async => _info({usdbTokenIdentifier: ('USDB', 5000000)}),
+        readInfo: (_) async => _info({usdbTokenIdentifier: ('USDB', 5000000)}),
         syncWallet: () => Future<void>.error(TimeoutException('offline')),
-        publish: published.add,
+        publish: (reading, _) => published.add(reading),
         debounce: Duration.zero,
       );
       addTearDown(failing.dispose);
@@ -319,6 +328,272 @@ void main() {
       expect(reads, 0);
       expect(published, isEmpty);
     });
+  });
+
+  // The device log behind these (hot restarts on iOS): a session's first
+  // `getInfo` had no dollar entry (`tokens=0`) while the wallet held
+  // dollars, and the figure arrived only ~20 s later, when the catch-up's
+  // sync timed out and it read again. The SDK writes its cached row in
+  // the sync's WalletState step, long before the sync answers or raises
+  // Synced, so the row is read every second while the sync runs.
+  group('a token map that is behind', () {
+    late breez.GetInfoResponse info;
+    late List<(double?, String)> published;
+    late int syncs;
+
+    UsdLedgerCatchUp catchUp({
+      required Future<void> Function() sync,
+      List<Duration> retryDelays = kUsdCatchUpRetryDelays,
+    }) {
+      final c = UsdLedgerCatchUp(
+        readInfo: (_) async => info,
+        syncWallet: () {
+          syncs++;
+          return sync();
+        },
+        publish: (reading, source) => published.add((reading, source)),
+        debounce: Duration.zero,
+        retryDelays: retryDelays,
+      );
+      addTearDown(c.dispose);
+      return c;
+    }
+
+    setUp(() {
+      info = _info({});
+      published = [];
+      syncs = 0;
+    });
+
+    test(
+        'no dollar entry at first, still none while the sync runs: the poll '
+        'publishes the figure the moment the row has it, before the sync '
+        'answers', () {
+      fakeAsync((async) {
+        final syncDone = Completer<void>();
+        final c = catchUp(sync: () => syncDone.future);
+        c.onLedger('a', holdsDollars: true);
+        c.check('seed');
+        async.flushMicrotasks();
+        expect(published, [(null, 'seed')], reason: 'the seed: unknown');
+        expect(syncs, 1);
+
+        async.elapse(const Duration(seconds: 3));
+        expect(published, hasLength(1), reason: 'still behind, still polling');
+
+        // The sync's WalletState step writes the row.
+        info = _info({usdbTokenIdentifier: ('USDB', 12000000)});
+        async.elapse(const Duration(seconds: 1));
+        expect(published.last, (12.0, 'seed-poll'));
+        expect(syncDone.isCompleted, isFalse);
+        expect(c.retryPending, isFalse);
+        syncDone.complete();
+        async.flushMicrotasks();
+      });
+    });
+
+    test(
+        'still no entry after the sync answers: tried again on the backoff, '
+        'and the figure publishes when a retry finds it', () {
+      fakeAsync((async) {
+        final c = catchUp(sync: () async {});
+        c.onLedger('a', holdsDollars: true);
+        c.check('seed');
+        async.flushMicrotasks();
+        expect(syncs, 1);
+        expect(published.last, (null, 'seed-sync'));
+        expect(c.retryPending, isTrue);
+
+        async.elapse(kUsdCatchUpRetryDelays[0]);
+        expect(syncs, 2, reason: 'the first retry syncs again');
+        expect(c.retryPending, isTrue);
+
+        info = _info({usdbTokenIdentifier: ('USDB', 7000000)});
+        async.elapse(kUsdCatchUpRetryDelays[1]);
+        expect(published.last, (7.0, 'retry'));
+        expect(syncs, 2, reason: 'an entry needs no sync');
+        expect(c.retryPending, isFalse);
+      });
+    });
+
+    test(
+        'the retries are bounded, and a new trigger (resume, a pull) starts '
+        'them again', () {
+      fakeAsync((async) {
+        final c = catchUp(
+            sync: () async {},
+            retryDelays: const [Duration(seconds: 1), Duration(seconds: 2)]);
+        c.onLedger('a', holdsDollars: true);
+        c.check('seed');
+        async.elapse(const Duration(minutes: 5));
+        expect(syncs, 3, reason: 'the seed and two retries, then it stops');
+        expect(c.retryPending, isFalse);
+
+        c.check('resume');
+        async.flushMicrotasks();
+        expect(syncs, 4);
+        expect(c.retryPending, isTrue);
+      });
+    });
+
+    test('a feed reading with the entry (a Synced re-read) ends the retries',
+        () {
+      fakeAsync((async) {
+        final c = catchUp(sync: () async {});
+        c.onLedger('a', holdsDollars: true);
+        c.check('seed');
+        async.flushMicrotasks();
+        expect(c.retryPending, isTrue);
+        c.recordReading(12);
+        expect(c.retryPending, isFalse);
+        async.elapse(const Duration(minutes: 5));
+        expect(syncs, 1);
+      });
+    });
+
+    test('no entry while the ledger holds no dollars is a known zero: no sync',
+        () {
+      fakeAsync((async) {
+        final c = catchUp(sync: () async {});
+        c.onLedger('', holdsDollars: false);
+        c.check('seed');
+        async.elapse(const Duration(minutes: 5));
+        expect(published, [(null, 'seed')]);
+        expect(syncs, 0);
+        expect(c.retryPending, isFalse);
+      });
+    });
+
+    test('overlapping triggers share one run, then one more', () {
+      fakeAsync((async) {
+        final syncDone = Completer<void>();
+        final c = catchUp(sync: () => syncDone.future);
+        c.onLedger('a', holdsDollars: true);
+        c.check('seed');
+        c.check('resume');
+        c.check('refresh');
+        async.flushMicrotasks();
+        expect(syncs, 1);
+        info = _info({usdbTokenIdentifier: ('USDB', 3000000)});
+        async.elapse(const Duration(seconds: 1));
+        expect(published.last, (3.0, 'seed-poll'));
+        // The queued check reads once; the figure is unchanged and there,
+        // so it neither publishes nor syncs.
+        expect(published, hasLength(2));
+        expect(syncs, 1);
+        syncDone.complete();
+        async.flushMicrotasks();
+      });
+    });
+  });
+
+  group('usdBalanceUnknownProvider', () {
+    test('no SDK entry while the settled ledger holds dollars: unknown',
+        () async {
+      final container = _container(
+          sdkReading: null, ledger: [_tokenPayment('in', units: 12000000)]);
+      await container.read(usdSdkBalanceProvider.future);
+      expect(container.read(usdBalanceUnknownProvider), isTrue);
+      expect(container.read(usdBalanceProvider), 12,
+          reason: 'the ledger figure, shown dimmed');
+    });
+
+    test('an SDK entry, zero included, is known', () async {
+      final container = _container(
+          sdkReading: 0, ledger: [_tokenPayment('in', units: 12000000)]);
+      await container.read(usdSdkBalanceProvider.future);
+      expect(container.read(usdBalanceUnknownProvider), isFalse);
+    });
+
+    test('no SDK entry and no dollars in the ledger agree: a known zero',
+        () async {
+      final container = _container(sdkReading: null, ledger: [
+        _tokenPayment('in', units: 5000000),
+        _tokenPayment('out', units: 5000000, type: breez.PaymentType.send),
+      ]);
+      await container.read(usdSdkBalanceProvider.future);
+      expect(container.read(usdBalanceUnknownProvider), isFalse);
+    });
+  });
+
+  test(
+      'a session whose first getInfo has no dollar entry: unknown at once, '
+      'and the SDK figure lands from the poll while the sync still runs', () {
+    fakeAsync((async) {
+      registerFallbackValue(const breez.SyncWalletRequest());
+      registerFallbackValue(const breez.GetInfoRequest());
+      final sdk = _Sdk();
+      final wrapper = _Wrapper();
+      var tokens = <String, (String, int)>{};
+      var syncs = 0;
+      when(() => wrapper.instance).thenReturn(sdk);
+      when(() => wrapper.walletInfoStream)
+          .thenAnswer((_) => const Stream.empty());
+      when(() => sdk.getInfo(request: any(named: 'request')))
+          .thenAnswer((_) async => _info(tokens));
+      // A sync that has not answered yet (its deposits step is slow).
+      when(() => sdk.syncWallet(request: any(named: 'request')))
+          .thenAnswer((_) {
+        syncs++;
+        return Completer<breez.SyncWalletResponse>().future;
+      });
+      final cache = _Cache({});
+      cache.setLedger([_tokenPayment('a', units: 12000000)]);
+      final container = ProviderContainer(overrides: [
+        settingsProvider.overrideWith((_) => SettingsModel(Settings(
+              currency: 'USD',
+              language: 'en',
+              btcFormat: 'sats',
+              backup: false,
+              biometricsEnabled: false,
+              bitcoinElectrumNode: '',
+              nodeType: 'Blockstream',
+              reviewDone: true,
+              activeWalletId: 'spending',
+              wallets: [WalletConfig(id: 'spending', name: 'Spending')],
+            ))),
+        breezSDKProvider.overrideWith((_) async => wrapper),
+        walletTransactionCacheProvider.overrideWith((_) => cache),
+      ]);
+      addTearDown(container.dispose);
+      container.listen(usdBalanceProvider, (_, __) {});
+      container.listen(usdBalanceUnknownProvider, (_, __) {});
+      async.flushMicrotasks();
+      expect(container.read(usdBalanceUnknownProvider), isTrue);
+      expect(container.read(usdBalanceProvider), 12);
+      expect(syncs, 1);
+
+      // The sync's WalletState step writes the row: $15 by the SDK.
+      tokens = {usdbTokenIdentifier: ('USDB', 15000000)};
+      async.elapse(const Duration(seconds: 1));
+      expect(container.read(usdBalanceUnknownProvider), isFalse);
+      expect(container.read(usdBalanceProvider), 15);
+      expect(syncs, 1);
+    });
+  });
+
+  test(
+      'pull-to-refresh asks the Dollars reading to check itself beside the '
+      'shared sync', () async {
+    final sdk = _Sdk();
+    final wrapper = _Wrapper();
+    when(() => wrapper.instance).thenReturn(sdk);
+    when(() => wrapper.syncAndReread()).thenAnswer((_) async {});
+    final checks = _Checks();
+    final container = ProviderContainer(overrides: [
+      sessionUnlockedProvider.overrideWith((_) => true),
+      breezSDKProvider.overrideWith((_) async => wrapper),
+      usdBalanceCheckProvider.overrideWithValue(checks),
+    ]);
+    addTearDown(container.dispose);
+    await container.read(breezSDKProvider.future);
+    await container.read(refreshEverythingProvider).steps['bitcoin']!();
+    expect(checks.requests, ['refresh']);
+    verify(() => wrapper.syncAndReread()).called(1);
+  });
+
+  test('a check with no live Dollars reading is a no-op', () {
+    expect(() => UsdBalanceCheck().request('resume'), returnsNormally);
   });
 
   test('usdLedgerSignature ignores order', () {

@@ -13,6 +13,8 @@ import 'package:kute/providers/investment_balances_provider.dart';
 import 'package:kute/providers/one_balance_provider.dart';
 import 'package:kute/providers/pending_pool_deposits_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/providers/usd_account_provider.dart'
+    show usdBalanceUnknownProvider;
 import 'package:kute/screens/shared/pending_deposit_line.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -290,6 +292,27 @@ void main() {
       expect(shimmer.stale, isTrue);
       expect(find.text('4'), findsWidgets);
       expect(tester.binding.hasScheduledFrame, isTrue);
+    });
+
+    testWidgets(
+        'Dollars the SDK has not confirmed yet dim the figure: the ledger '
+        'sum, sweeping, never a confident number', (tester) async {
+      await _pump(
+          tester,
+          const InvestmentBalanceHeader(
+              product: InvestmentsProduct.trading, oneBalance: true),
+          settle: false,
+          overrides: [
+            oneBalanceProvider.overrideWithValue(known),
+            usdBalanceUnknownProvider.overrideWithValue(true),
+          ]);
+      expect(header(tester).amountText, r'$100.00');
+      expect(header(tester).stale, isTrue);
+      expect(header(tester).loading, isFalse);
+      final shimmer = tester.widget<StaleShimmer>(find.descendant(
+          of: find.byType(PoolBalanceHeader),
+          matching: find.byType(StaleShimmer)));
+      expect(shimmer.stale, isTrue);
     });
 
     testWidgets(

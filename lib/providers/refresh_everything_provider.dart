@@ -11,7 +11,9 @@
 //   * Bitcoin and dollars: the balance stream's freshness guard cleared,
 //     the SDK connected again when its connect failed, one Breez SDK
 //     wallet sync (the shared one) and a `getInfo` + `listPayments` read
-//     published to the balance streams;
+//     published to the balance streams; the Dollars reading checks
+//     itself too (usdBalanceCheckProvider), polling the cached token
+//     figure through that sync while it has no dollar entry;
 //   * the full background sync (`performUserRefresh`): Spark, dollar and
 //     on-chain history, the Predictions activity, the Orchestra order
 //     statuses and the currency rates (read again: they were read once a
@@ -65,6 +67,8 @@ import 'package:kute/providers/polymarket_combos_provider.dart';
 import 'package:kute/providers/polymarket_open_orders_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/portfolio_performance_provider.dart';
+import 'package:kute/providers/usd_account_provider.dart'
+    show usdBalanceCheckProvider;
 import 'package:kute/services/network_change_signal.dart'
     show RegionRecheckTrigger;
 import 'package:kute/services/portfolio/portfolio_categories.dart';
@@ -212,6 +216,11 @@ class RefreshEverything {
     } catch (_) {
       return;
     }
+    // Dollars: the cached token figure read again, and while it has no
+    // dollar entry (the SDK's row is behind) read every second through
+    // the sync below, so it lands when the sync writes it rather than
+    // when the sync answers. It joins the same shared sync.
+    _ref.read(usdBalanceCheckProvider).request('refresh');
     await sdk.syncAndReread();
   }
 
