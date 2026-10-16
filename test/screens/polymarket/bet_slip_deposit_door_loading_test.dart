@@ -649,7 +649,7 @@ void main() {
       await release(tester);
     });
 
-    testWidgets('stopped with the money in Investments: tap to place',
+    testWidgets('an old ready record adds no message above the bet button',
         (tester) async {
       expect(await policy.refresh(), isTrue);
       await _pumpSlip(
@@ -657,7 +657,8 @@ void main() {
           dollars: 100, funded: [_btcBet(FundedOrderStage.ready)]);
       await _frames(tester);
       expect(find.text(r'Your $6.00 is in Investments. Tap to place.'),
-          findsOneWidget);
+          findsNothing);
+      expect(find.byKey(const ValueKey('slip-funding-ready')), findsNothing);
       expect(_cta(tester).label, r'Place $10.00 on Yes');
       expect(_cta(tester).enabled, isTrue);
       await release(tester);
