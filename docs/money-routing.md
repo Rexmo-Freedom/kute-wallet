@@ -267,3 +267,41 @@ Existing graph and rendering: [money_steps.dart](../lib/services/one_balance/mon
 [move_steps.dart](../lib/services/one_balance/move_steps.dart).
 No new chrome is required. Measurements must use exact values and exclude keys,
 addresses, payment/order identifiers and whole-wallet balances from analytics.
+
+## What PostHog can prove
+
+Documentation and event definitions describe instrumentation. They do not prove
+that this candidate emitted it on a device. Debug builds remain muted by
+default, as requested; user opt-out still applies. The latest production-shaped
+receipt has to be checked after a permitted run with analytics enabled.
+
+| Instrumentation | What it records |
+| --- | --- |
+| `order_funding_requested` | Hyperliquid's initial funding request before approval, distinct from the approved journey's single `order_funding_started`. |
+| `order_funding_route_selected` | A route/reason change immediately, with exact `duration_ms`; identical route/reason selections are deduplicated. Optional `route_reason`, `funding_source`, `other_venue_used` and already-known `ms_leg_*` accompany the route. |
+| Funding step, submitted and terminal events | Known `route`, `route_reason`, `other_venue_used` and per-source `ms_leg_bitcoin`, `ms_leg_dollars`, `ms_leg_predictions`, `ms_leg_investing`. Missing timings stay absent. The existing Hyperliquid emitter consumes its journey once, preventing duplicate outcomes and false later abandonment. |
+| HIP-3 credit timing | `ms_dex_credit` spans the actual transfer start to target clearinghouse readiness; absent when there was no transfer. Failure can carry the elapsed wait. `ms_credit` ends and `ms_order` starts at actual collateral readiness. Pending credit is a fixed `dex_credit_pending` failure at the credit stage. |
+| `usd_balance_catchup` | One terminal behind-run result, fixed reason, exact duration and retry index. Never one event per poll. |
+| `usd_balance_sync` | One terminal shared-sync wait result/duration. Its timeout means the app stopped waiting, not that native sync was cancelled. |
+| `usd_token_recovery` | One recovery owner/guard result, fixed reason, attempted flag and duration; concurrent joined callers do not duplicate it. No balances, amounts or raw errors. |
+
+Sources: [order_funding.dart](../lib/services/one_balance/order_funding.dart),
+[pending_hyperliquid_order_provider.dart](../lib/providers/pending_hyperliquid_order_provider.dart),
+[SDK balance telemetry](../lib/models/breez/sdk_balance_telemetry.dart), and
+[tracking_service.dart](../lib/services/tracking_service.dart).
+The later telemetry batch passed 163 funding/HIP-3 tests across 12 suites and
+62 USD tests; the core 7,873-test full-suite result predates that telemetry.
+Final CI must validate the complete candidate.
+
+Live receipt audit on 16 October found 176 historical app-version 2.1.2 events
+in 30 days, latest 15 October at 09:55:46.865 UTC, and zero funding-journey or
+region-check events for that version. Those older events do not verify today's
+candidate. Check a new receipt for the chosen route, a single approved start
+and terminal outcome, real per-leg timings, and the applicable recovery/credit
+result before claiming end-to-end coverage. Zero events from a default debug
+run are expected and do not establish a broken analytics pipeline.
+
+Remaining visibility limit: dedicated fresh-connection policy/venue checks
+bypass the shared HTTP client's latency reporter. Their region-result events
+do not provide a breakdown of DNS, TCP/TLS and request time. Detailed receipt
+validation and that timing gap remain separate from updating definitions.
