@@ -31,7 +31,8 @@ void main() {
   void stub(_Sdk sdk, Stream<spark.SdkEvent> events, String identity) {
     when(() => sdk.addEventListener()).thenAnswer((_) => events);
     when(() => sdk.disconnect()).thenAnswer((_) async {});
-    when(() => sdk.getInfo(request: const spark.GetInfoRequest()))
+    when(() => sdk.getInfo(
+            request: const spark.GetInfoRequest(ensureSynced: false)))
         .thenAnswer((_) async => info(identity));
     when(() => sdk.listPayments(request: const spark.ListPaymentsRequest()))
         .thenAnswer(
@@ -265,7 +266,8 @@ void main() {
     stub(second, const Stream.empty(), 'second');
     stub(third, const Stream.empty(), 'third');
     final delayed = Completer<spark.GetInfoResponse>();
-    when(() => second.getInfo(request: const spark.GetInfoRequest()))
+    when(() => second.getInfo(
+            request: const spark.GetInfoRequest(ensureSynced: false)))
         .thenAnswer((_) => delayed.future);
     final queue = [first, second, third];
     final wrapper =

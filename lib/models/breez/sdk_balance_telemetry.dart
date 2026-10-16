@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
+
 import 'package:kute/services/tracking_service.dart';
 
 typedef SdkBalanceReporter = void Function(
@@ -64,6 +66,10 @@ class SdkBalanceTelemetry {
   final SdkBalanceReporter reporter;
 
   void _emit(String event, Map<String, Object> properties) {
+    // Debug PostHog is intentionally muted. Keep the bounded, typed outcome
+    // locally visible so a stalled sync or deferred recovery can be diagnosed
+    // on a device without logging balances, identifiers or native errors.
+    if (kDebugMode) debugPrint('[sdk-balance] $event $properties');
     try {
       reporter(event, properties);
     } catch (_) {

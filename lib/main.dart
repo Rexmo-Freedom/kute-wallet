@@ -358,7 +358,12 @@ Future<void> _initializeApp() async {
       try {
         BreezSdkSpark().initializeLogStream(
             logFilter: kSdkSyncDebugLogFilter, printSyncSteps: true);
-      } catch (_) {}
+      } catch (_) {
+        // Rust's process-global logger can still target the previous Dart
+        // isolate after a hot restart. Do not silently lose device diagnosis.
+        debugPrint('[sdk-sync] logging_unavailable: fully stop and relaunch '
+            'the app to restore native sync diagnostics.');
+      }
     }
   } catch (e) {
     sparkSw.stop();

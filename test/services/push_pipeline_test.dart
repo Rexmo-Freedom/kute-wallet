@@ -35,8 +35,7 @@ class _Settings extends StateNotifier<Settings> implements SettingsModel {
         ));
 
   @override
-  dynamic noSuchMethod(Invocation invocation) =>
-      super.noSuchMethod(invocation);
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 void main() {
@@ -276,6 +275,46 @@ void main() {
   spark.GetInfoResponse infoWith(int sats) => spark.GetInfoResponse(
       identityPubkey: 'id', balanceSats: BigInt.from(sats), tokenBalances: {});
 
+  test('attach publishes recorded payments while its balance read is blocked',
+      () async {
+    final events = StreamController<spark.SdkEvent>.broadcast();
+    addTearDown(events.close);
+    final sdk = sdkWith(events.stream, const []);
+    final wrapper = BreezSdkSpark.forTesting(connectSdk: (_) async => sdk);
+    await wrapper.connect(req: _Request());
+    await flush();
+    // The receipt is already in SDK storage before the pipeline attaches.
+    // A blocked balance read must not hide it until another SDK event.
+    final blockedInfo = Completer<spark.GetInfoResponse>();
+    when(() => sdk.getInfo(request: any(named: 'request')))
+        .thenAnswer((_) => blockedInfo.future);
+    final payment = spark.Payment(
+      id: 'received-before-attach',
+      paymentType: spark.PaymentType.receive,
+      status: spark.PaymentStatus.completed,
+      amount: BigInt.from(4000),
+      fees: BigInt.zero,
+      timestamp: BigInt.from(1),
+      method: spark.PaymentMethod.spark,
+    );
+    when(() => sdk.listPayments(request: any(named: 'request'))).thenAnswer(
+        (_) async => spark.ListPaymentsResponse(payments: [payment]));
+    final harness = await attach(wrapper);
+    expect(
+        harness.container
+            .read(walletTransactionCacheProvider)['spending']!
+            .sparkTransactions
+            .map((tx) => tx.id),
+        ['received-before-attach']);
+    blockedInfo.complete(infoWith(4000));
+    await flush();
+    expect(
+        harness.container
+            .read(walletBalanceCacheProvider.notifier)
+            .shownSparkSats('spending'),
+        4000);
+  });
+
   test(
       'each SDK sync re-reads the bitcoin balance at once, and once more '
       'after the burst', () async {
@@ -447,8 +486,7 @@ void main() {
       expect(published, [3000]);
     });
 
-    test('a failed sync still publishes what the cache holds, once',
-        () async {
+    test('a failed sync still publishes what the cache holds, once', () async {
       final failing = SparkBalanceCatchUp(
         readSats: () async {
           reads++;

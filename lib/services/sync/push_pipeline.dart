@@ -306,7 +306,8 @@ class PushPipeline implements SyncPipeline {
         return;
       }
       if (walletId == null ||
-          walletId != pickSpendingWallet(container.read(settingsProvider))?.id) {
+          walletId !=
+              pickSpendingWallet(container.read(settingsProvider))?.id) {
         _scheduleRetry(gen);
         return;
       }
@@ -315,8 +316,7 @@ class PushPipeline implements SyncPipeline {
           _container != null &&
           _generation == gen &&
           identical(sdkWrapper.instance, sdk) &&
-          walletId ==
-              pickSpendingWallet(container.read(settingsProvider))?.id;
+          walletId == pickSpendingWallet(container.read(settingsProvider))?.id;
       // The wrapper streams outlive a reconnect this pipeline did not start.
       // Events from a replaced handle trigger exactly one re-attach.
       var reattachScheduled = false;
@@ -476,28 +476,32 @@ class PushPipeline implements SyncPipeline {
       // transient reconnect 0 (or a mid-reconcile dip) can never lower a
       // good value here. Genuine decreases / drains-to-0 still arrive
       // authoritatively through the stream.
-      try {
-        final info = await sdk.getInfo(request: const breez.GetInfoRequest());
-        if (isCurrent()) {
-          final spending = pickSpendingWallet(container.read(settingsProvider));
-          if (spending == null) return;
-          final cache = container.read(walletBalanceCacheProvider);
-          final cacheNotifier =
-              container.read(walletBalanceCacheProvider.notifier);
-          final freshSpark = info.balanceSats.toInt();
-          if (freshSpark > (cache[spending.id]?.sparkBitcoinbalance ?? 0)) {
-            cacheNotifier.updateSparkBitcoinbalance(
-              spending.id,
-              freshSpark,
-              source: BalanceSource.poll,
-            );
+      Future<void> readBalance() async {
+        try {
+          final info = await sdk.getInfo(
+              request: const breez.GetInfoRequest(ensureSynced: false));
+          if (isCurrent()) {
+            final spending =
+                pickSpendingWallet(container.read(settingsProvider));
+            if (spending == null) return;
+            final cache = container.read(walletBalanceCacheProvider);
+            final cacheNotifier =
+                container.read(walletBalanceCacheProvider.notifier);
+            final freshSpark = info.balanceSats.toInt();
+            if (freshSpark > (cache[spending.id]?.sparkBitcoinbalance ?? 0)) {
+              cacheNotifier.updateSparkBitcoinbalance(
+                spending.id,
+                freshSpark,
+                source: BalanceSource.poll,
+              );
+            }
+            // The USDB balance push died with the Flashnet Earn product.
+            // Token PAYMENTS still route into UsdbTokenTransaction below
+            // via the PaymentMethod.token guard, never the BTC bucket.
           }
-          // The USDB balance push died with the Flashnet Earn product.
-          // Token PAYMENTS still route into UsdbTokenTransaction below
-          // via the PaymentMethod.token guard, never the BTC bucket.
+        } catch (_) {
+          // A balance failure must not stop the payment list below.
         }
-      } catch (_) {
-        // Non-fatal: the stream or the next sync tick will catch up.
       }
 
       // One-shot payments read, for the SAME reason as the balance one:
@@ -506,15 +510,21 @@ class PushPipeline implements SyncPipeline {
       // never populates the tx cache — the balance ticks up (fixed above) but
       // the matching "Received" row doesn't appear until a manual refresh.
       // Pull the current list and feed the SAME handler the stream uses.
-      try {
-        final resp =
-            await sdk.listPayments(request: const breez.ListPaymentsRequest());
-        if (isCurrent()) {
-          _onPaymentsEvent(resp.payments.toList(), gen);
+      Future<void> readPayments() async {
+        try {
+          final resp = await sdk.listPayments(
+              request: const breez.ListPaymentsRequest());
+          if (isCurrent()) {
+            _onPaymentsEvent(resp.payments.toList(), gen);
+          }
+        } catch (_) {
+          // A payment-list failure must not stop the balance read.
         }
-      } catch (_) {
-        // Non-fatal: the stream or the next sync tick will catch up.
       }
+
+      // Independent cached reads: a slow or failed getInfo must not leave
+      // already-recorded receipts hidden on attach/resume/reconnect.
+      await Future.wait([readBalance(), readPayments()]);
     } catch (e) {
       status.markFailure(debugName, e.toString());
       _scheduleRetry(gen);
