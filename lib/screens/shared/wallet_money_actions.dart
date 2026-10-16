@@ -1,5 +1,4 @@
 import 'package:kute/helpers/require_fresh_auth.dart';
-import 'package:kute/screens/shared/trade_results_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -21,16 +20,13 @@ import 'package:kute/screens/home/shell_venue_tabs.dart'
     show shellShowsPredictionsTab, shellShowsTradingTab;
 import 'package:kute/screens/shared/wallet_icon.dart';
 import 'package:kute/services/tracking_service.dart';
+import 'package:kute/services/support_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
-/// The Financial hub: the wallet list, switch wallet (with its step-up) and
-/// Add wallet, and Settings (a labelled pill) and Notifications (the
-/// round bell) side by side in its header. No Portfolio row: the
-/// Portfolio lives inside Investments (one balance, October 2026). It opens from the + at the top right of the shell's top bar (the
-/// only door on the shell; it replaced the Settings gear) and from the
-/// wallet's name on a pushed wallet screen, which has no +. The dock's
-/// square button is search everywhere (owner decision: give each job one
-/// home). No Ask Sal here: Sal has its own doors.
+/// The Financial hub: wallet switching, Add wallet, Support and Referral
+/// program, with a labelled Settings pill in its compact header. Portfolio
+/// lives inside Investments. The hub opens from the shell's top-right +
+/// or a pushed wallet screen's name.
 ///
 /// [source] is the categorical door for `wallet_actions_opened`:
 /// home_plus | usd_plus | trading_plus | predictions_plus | bank_plus (the
@@ -74,19 +70,8 @@ class _WalletMoneyActionsSheet extends StatelessWidget {
           children: [
             AppBottomSheetHeader(
               title: context.l10n.walletActionsTitle,
-              // Settings and Notifications side by side in the header:
-              // Settings a labelled pill in the circled chassis of the
-              // sheets' header buttons, Notifications the round bell with
-              // its unread badge.
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _HubSettingsButton(callerContext: callerContext),
-                  SizedBox(width: 8.w),
-                  const TradeResultsButton(
-                      compact: true, entrySource: 'financial_hub'),
-                ],
-              ),
+              compact: true,
+              trailing: _HubSettingsButton(callerContext: callerContext),
             ),
             _WalletsSection(
               sheetContext: context,
@@ -100,11 +85,8 @@ class _WalletMoneyActionsSheet extends StatelessWidget {
   }
 }
 
-/// Settings in the hub's header, next to Notifications: the gear and the
-/// word "Settings" in a pill of the header buttons' chassis (owner
-/// decision October 2026: a labelled button beside the bell, not a row
-/// below Add account). Closes the hub and opens /settings from the screen
-/// the hub was opened on, as Add wallet does.
+/// Settings in the hub's header. Closes the hub and opens /settings
+/// from the screen the hub was opened on, as Add wallet does.
 class _HubSettingsButton extends StatelessWidget {
   const _HubSettingsButton({required this.callerContext});
 
@@ -115,6 +97,7 @@ class _HubSettingsButton extends StatelessWidget {
     return KuteCirclePillButton(
       icon: Icons.settings_rounded,
       label: context.l10n.settings,
+      size: 40,
       onPressed: () {
         // `source` kept for the existing settings_opened breakdowns;
         // the playbook's entry_source carries the same door.
@@ -261,6 +244,42 @@ class _WalletsSection extends ConsumerWidget {
               ],
             ),
           ),
+          SizedBox(height: 8.h),
+          Container(
+            decoration: BoxDecoration(
+              color: c.surfaceLight,
+              borderRadius: BorderRadius.circular(20.r),
+              border: Border.all(color: c.borderSubtle, width: 0.5),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Column(children: [
+              _WalletRow(
+                label: context.l10n.support,
+                leading: Icon(Icons.support_agent_rounded,
+                    size: 20.sp, color: c.textPrimary),
+                isActive: false,
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  TrackingService.supportOpened(source: 'financial_hub');
+                  Navigator.of(sheetContext).pop();
+                  openSupportChat();
+                },
+              ),
+              Divider(height: 0.5, thickness: 0.5, color: c.borderSubtle),
+              _WalletRow(
+                label: context.l10n.settingsReferralProgram,
+                leading: Icon(Icons.group_rounded,
+                    size: 20.sp, color: c.textPrimary),
+                isActive: false,
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  Navigator.of(sheetContext).pop();
+                  if (!callerContext.mounted) return;
+                  callerContext.push('/affiliate');
+                },
+              ),
+            ]),
+          ),
         ],
       ),
     );
@@ -299,12 +318,12 @@ class _WalletRow extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+          padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
           child: Row(
             children: [
               SizedBox(
-                width: 36.w,
-                height: 36.w,
+                width: 32.w,
+                height: 32.w,
                 child: Center(child: leading),
               ),
               SizedBox(width: 12.w),

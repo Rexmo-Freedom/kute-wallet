@@ -150,6 +150,9 @@ class AppBottomSheetHeader extends StatelessWidget {
   final String? svgAsset;
   final Widget? trailing;
 
+  /// A smaller heading and tighter spacing for compact action menus.
+  final bool compact;
+
   const AppBottomSheetHeader({
     super.key,
     required this.title,
@@ -158,6 +161,7 @@ class AppBottomSheetHeader extends StatelessWidget {
     this.iconColor,
     this.svgAsset,
     this.trailing,
+    this.compact = false,
   });
 
   @override
@@ -179,9 +183,11 @@ class AppBottomSheetHeader extends StatelessWidget {
         // the trailing slot for scan-spinner / refresh buttons that
         // some sheets attach.
         Padding(
-          padding: EdgeInsets.fromLTRB(20.w, 20.h, 20.w, 18.h),
+          padding: EdgeInsets.fromLTRB(
+              20.w, compact ? 12.h : 20.h, 20.w, compact ? 12.h : 18.h),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment:
+                compact ? CrossAxisAlignment.center : CrossAxisAlignment.start,
             children: [
               Expanded(
                 child: Column(
@@ -191,7 +197,7 @@ class AppBottomSheetHeader extends StatelessWidget {
                       title,
                       style: TextStyle(
                         color: c.textPrimary,
-                        fontSize: 28.sp,
+                        fontSize: compact ? 22.sp : 28.sp,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.6,
                         height: 1.05,
