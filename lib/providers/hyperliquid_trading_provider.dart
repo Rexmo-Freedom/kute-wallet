@@ -2774,3 +2774,24 @@ final hyperliquidTradingProvider = AsyncNotifierProvider.autoDispose<
     HyperliquidTradingNotifier, HyperliquidTradingState>(
   HyperliquidTradingNotifier.new,
 );
+
+/// Display-only fallback. Never use this provider to size, authorize or send
+/// an order/move: [hyperliquidTradingProvider] remains the live execution state.
+final hyperliquidDisplayTradingProvider =
+    Provider.autoDispose<AsyncValue<HyperliquidTradingState>>((ref) {
+  final display = ref.watch(hyperliquidDisplayAccountProvider);
+  final actual = ref.watch(hyperliquidTradingProvider);
+  if (!actual.isLoading &&
+      !actual.hasError &&
+      actual.valueOrNull?.isInitialized == true) {
+    return actual;
+  }
+  return display.whenData((snapshot) => HyperliquidTradingState(
+            isInitialized: true,
+            perpEquity: snapshot.accountValue,
+            totalMarginUsed: snapshot.totalMarginUsed,
+            withdrawable: snapshot.withdrawable,
+            positions: snapshot.positions,
+            spotBalances: snapshot.spotBalances,
+          ));
+});

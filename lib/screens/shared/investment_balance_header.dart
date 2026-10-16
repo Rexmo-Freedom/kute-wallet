@@ -260,20 +260,30 @@ class InvestmentBalanceHeader extends ConsumerWidget {
       state.inFlight.any((move) => move.hasLine) ||
       state.waiting.values.any((usd) => usd > 0);
 
-  /// The one-balance total as the hero prints it — the text and whether
-  /// it reads dimmed — for a small copy of it elsewhere (the Investments
-  /// tab's collapsed bar). A venue still to answer counts as zero: the
-  /// figure reads dimmed until both have, never as a dash or a skeleton
-  /// over the dollars the account already knows. Dollars the SDK has not
-  /// confirmed yet (its answer has no dollar entry while the ledger holds
-  /// dollars, [usdBalanceUnknownProvider]) dim it the same way.
-  static ({String text, bool stale}) oneBalanceFigure(WidgetRef ref) {
+  /// Display-only snapshot shared by the expanded hero and compact bar. Keep
+  /// the last complete wallet total while any input refreshes or reconnects.
+  static ({double total, double invested, bool stale}) _oneBalanceDisplay(
+      WidgetRef ref) {
     final state = ref.watch(oneBalanceProvider);
+    return resolveInvestmentsDisplay(
+      walletId:
+          ref.watch(settingsProvider.select((s) => pickSpendingWallet(s)?.id)),
+      total: state.totalUsd,
+      invested: state.investedUsd,
+      known: state.dollarsKnown &&
+          state.investingKnown &&
+          state.predictionsKnown &&
+          !ref.watch(usdBalanceUnknownProvider),
+    );
+  }
+
+  /// The hero's displayed total, also used by the collapsed Investments bar.
+  static ({String text, bool stale}) oneBalanceFigure(WidgetRef ref) {
+    final display = _oneBalanceDisplay(ref);
     final visible = ref.watch(settingsProvider.select((s) => s.balanceVisible));
-    final dollarsUnknown = ref.watch(usdBalanceUnknownProvider);
     return (
-      text: visible ? formatPolyFiatForced(ref, state.totalUsd) : '••••••',
-      stale: !state.investingKnown || !state.predictionsKnown || dollarsUnknown,
+      text: visible ? formatPolyFiatForced(ref, display.total) : '••••••',
+      stale: display.stale,
     );
   }
 
@@ -309,6 +319,7 @@ class _OneBalanceHeroState extends ConsumerState<_OneBalanceHero> {
     String amount(double value) =>
         visible ? formatPolyFiatForced(ref, value) : '••••••';
     final lines = InvestmentBalanceHeader.inFlightLines(context, state, amount);
+    final display = InvestmentBalanceHeader._oneBalanceDisplay(ref);
     final figure = InvestmentBalanceHeader.oneBalanceFigure(ref);
     final tap = widget.onTap;
     // The tap affordance: an arrow to the right with the Portfolio's pie
@@ -337,7 +348,7 @@ class _OneBalanceHeroState extends ConsumerState<_OneBalanceHero> {
       // "Invested $Y" alone under the total (founder decision October
       // 2026: Available is no longer shown; the total is what the account
       // can use), or the in-flight lines in its place.
-      investedText: lines.isEmpty ? amount(state.investedUsd) : null,
+      investedText: lines.isEmpty ? amount(display.invested) : null,
       showActionRow: false,
       investedChild: lines.isEmpty
           ? null

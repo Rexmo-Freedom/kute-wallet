@@ -348,6 +348,8 @@ Future<void> _pump(WidgetTester tester,
         hyperliquidActivityFillsProvider.overrideWithValue(_tradingFills()),
         hyperliquidAccountProvider
             .overrideWith(() => _Account(flat ? _flat() : _positions())),
+        hyperliquidDisplayAccountProvider.overrideWith(
+            (ref) => ref.watch(hyperliquidAccountProvider)),
         hyperliquidPerpMarketsProvider.overrideWith((_) async => const []),
         hyperliquidSpotMarketsProvider.overrideWith((_) async => const []),
         // Gamma's tags for the three markets the predictions were on.

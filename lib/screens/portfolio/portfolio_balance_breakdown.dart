@@ -84,9 +84,9 @@ import 'package:kute/models/swap_order_model.dart';
 import 'package:kute/providers/asset_icon_provider.dart' show kUsdMarkAsset;
 import 'package:kute/providers/auth_provider.dart' show sessionUnlockedProvider;
 import 'package:kute/providers/hyperliquid_trading_provider.dart'
-    show hyperliquidTradingProvider;
+    show hyperliquidTradingProvider, hyperliquidDisplayTradingProvider;
 import 'package:kute/providers/investment_balances_provider.dart'
-    show polymarketInvestmentBalances;
+    show polymarketInvestmentBalances, hyperliquidInvestmentBalances;
 import 'package:kute/providers/one_balance_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart'
     show polymarketTradingProvider;
@@ -114,6 +114,7 @@ import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/one_balance/rebalance_steps.dart';
 import 'package:kute/services/one_balance/sweep_rules.dart'
     show SweepSkipReason, kSweepDustUsd, kVenueMoveMaxAge, venueWithdrawalRowOf;
+import 'package:kute/services/venue_total_cache_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
 /// A venue's cash as the breakdown counts it: its unreserved cash, the
@@ -638,10 +639,23 @@ class _PortfolioBalanceBreakdownState
           child: tile,
         );
 
-    _Figure venueFigure(double usd, {required bool known}) => known
-        ? _Figure(amount(usd), stale: _refreshing)
-        // Never read at all: a dash, never a guess.
-        : const _Figure('—');
+    final displayHl = widget.trading && !balance.investingKnown
+        ? ref.watch(hyperliquidDisplayTradingProvider).valueOrNull
+        : null;
+    final cachedHl = displayHl == null
+        ? null
+        : hyperliquidInvestmentBalances(state: displayHl, spotPrices: const {});
+    _Figure venueFigure(String part, double usd,
+        {required bool known, double? fallback, bool refresh = true}) {
+      final figure = resolveVenueTotal(
+          walletId: walletId,
+          venue: 'portfolio_$part',
+          fresh: known ? usd : null);
+      final value = figure.value ?? fallback;
+      return value == null
+          ? const _Figure('—')
+          : _Figure(amount(value), stale: (refresh && _refreshing) || !known);
+    }
 
     return Column(
       key: const ValueKey('portfolio-balance-breakdown'),
@@ -662,8 +676,10 @@ class _PortfolioBalanceBreakdownState
                 // Not confirmed by the SDK yet (its answer has no dollar
                 // entry while the ledger holds dollars): the ledger's
                 // figure, dimmed and sweeping, never a confident number.
-                available: _Figure(amount(dollars),
-                    stale: ref.watch(usdBalanceUnknownProvider)),
+                available: venueFigure('dollars', dollars,
+                    refresh: false,
+                    known: balance.dollarsKnown &&
+                        !ref.watch(usdBalanceUnknownProvider)),
               ),
             ),
             if (widget.trading)
@@ -674,12 +690,15 @@ class _PortfolioBalanceBreakdownState
                     id: 'investing',
                     asset: venueMarkAsset(InvestmentsProduct.trading),
                     name: l10n.trading,
-                    available:
-                        venueFigure(investing, known: balance.investingKnown),
+                    available: venueFigure('investing_cash', investing,
+                        known: balance.investingKnown,
+                        fallback: cachedHl?.available),
                     positions: venueFigure(
+                        'investing_positions',
                         breakdownVenuePositions(
                             balance, OneBalanceVenue.investing),
-                        known: balance.investingKnown),
+                        known: balance.investingKnown,
+                        fallback: cachedHl?.portfolio),
                     footer: [
                       if (note(OneBalanceVenue.investing) case final line?)
                         line,
@@ -693,9 +712,10 @@ class _PortfolioBalanceBreakdownState
                     id: 'predictions',
                     asset: venueMarkAsset(InvestmentsProduct.predictions),
                     name: l10n.predictions,
-                    available: venueFigure(predictionsCash,
+                    available: venueFigure('predictions_cash', predictionsCash,
                         known: balance.predictionsKnown),
                     positions: venueFigure(
+                        'predictions_positions',
                         breakdownVenuePositions(
                             balance, OneBalanceVenue.predictions),
                         known: balance.predictionsKnown),

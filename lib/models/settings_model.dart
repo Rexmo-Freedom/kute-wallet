@@ -13,6 +13,7 @@ import 'package:kute/services/hardware/ledger/ledger_venue_descriptor_store.dart
     show wipeLedgerWalletLocalData;
 import 'package:hive_ce/hive.dart';
 import 'package:kute/services/venue_total_cache_service.dart';
+import 'package:kute/services/hyperliquid/hyperliquid_account_cache.dart';
 import 'package:path_provider/path_provider.dart';
 
 class WalletConfig {
@@ -679,6 +680,7 @@ class SettingsModel extends StateNotifier<Settings> {
     // `venue_total_cache` box — the wallet's last Predictions and
     // Investing totals; a deleted wallet's must not outlive it.
     await VenueTotalCacheService.deleteWallet(walletId);
+    await HyperliquidAccountCache.deleteWallet(walletId);
 
     // `wallet_transaction_cache` box — per-wallet `Transaction`
     // snapshot used by the activity feed. Same rehydrate-on-boot

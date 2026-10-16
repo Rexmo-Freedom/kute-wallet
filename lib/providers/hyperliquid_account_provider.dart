@@ -34,6 +34,7 @@ import 'package:flutter/foundation.dart' show setEquals, visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:kute/models/hyperliquid_market.dart';
+import 'package:kute/services/hyperliquid/hyperliquid_account_cache.dart';
 import 'package:kute/providers/auth_provider.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/providers/pending_pool_deposits_provider.dart';
@@ -352,6 +353,48 @@ final hyperliquidAccountProvider =
   HlAccountNotifier.new,
 );
 
+/// Separate from execution: cached account figures may only feed display.
+final hyperliquidDisplayCacheKeyProvider = Provider<String?>((ref) {
+  final identity = ref.watch(settingsProvider.select(_spendingEvmIdentity));
+  if (identity.$1 == null) return null;
+  return '${identity.$1}:${identity.$2?.storageValue}';
+});
+
+/// Retains known balances and positions across refreshes and app runs.
+/// A failed read never replaces the cache; a successful empty response does.
+final hyperliquidDisplayAccountProvider =
+    Provider.autoDispose<AsyncValue<HlAccountSnapshot>>((ref) {
+  final key = ref.watch(hyperliquidDisplayCacheKeyProvider);
+  if (key == null) return const AsyncLoading();
+  return ref.watch(hyperliquidDisplayAccountSnapshotProvider(key));
+});
+
+/// A family keeps Riverpod's previous-data retention inside this wallet's
+/// identity; switching wallets must never expose the previous wallet's rows.
+final hyperliquidDisplayAccountSnapshotProvider = FutureProvider.autoDispose
+    .family<HlAccountSnapshot, String>((ref, key) async {
+  final fresh = ref.watch(hyperliquidAccountProvider);
+  final resolved = ref.watch(hyperliquidAddressProvider);
+  final address = resolved.valueOrNull;
+  if (!fresh.isLoading &&
+      !fresh.hasError &&
+      !resolved.isLoading &&
+      address != null &&
+      fresh.hasValue) {
+    final snapshot = fresh.requireValue;
+    unawaited(HyperliquidAccountCache.write(
+        key, HlCachedAccount(address: address, snapshot: snapshot)));
+    return snapshot;
+  }
+  final cached = await HyperliquidAccountCache.open(key);
+  if (cached != null &&
+      (address == null ||
+          cached.address.toLowerCase() == address.toLowerCase())) {
+    return cached.snapshot;
+  }
+  return ref.watch(hyperliquidAccountProvider.future);
+});
+
 // ───────────────────────── derived views ─────────────────────────
 
 /// Open perp positions (empty while loading / on error / flat account).
@@ -441,6 +484,10 @@ class HlOpenPositionsCountNotifier extends Notifier<int> {
 
       final model = ref.read(hyperliquidTradingModelProvider);
       final snap = await model.getPortfolioSnapshot(address);
+      unawaited(HyperliquidAccountCache.write(
+        '${spending.id}:${spending.evmDerivationVersion.storageValue}',
+        HlCachedAccount(address: address, snapshot: snap),
+      ));
       final spotHoldings = snap.spotBalances
           .where((b) => b.coin != 'USDC' && b.total > 0)
           .length;

@@ -269,6 +269,7 @@ double? _liveIdleCash(UnifiedVenueBalances venues, OneBalanceVenue venue) =>
 /// cash and positions are in `venues.investedUsd`.
 OneBalanceState oneBalanceStateFrom({
   required double dollarsUsd,
+  bool dollarsKnown = true,
   required UnifiedVenueBalances venues,
   required List<InFlightMove> inFlight,
   required VenueSweeperState sweeper,
@@ -292,6 +293,7 @@ OneBalanceState oneBalanceStateFrom({
   };
   return OneBalanceState(
     dollarsUsd: _clean(dollarsUsd),
+    dollarsKnown: dollarsKnown,
     investedUsd: investedByVenue.values.fold(0.0, (sum, usd) => sum + usd),
     investedByVenue: investedByVenue,
     inFlight: inFlight,
@@ -305,6 +307,7 @@ OneBalanceState oneBalanceStateFrom({
 /// The one-balance picture, recomputed whenever any input moves.
 final oneBalanceProvider = Provider<OneBalanceState>((ref) {
   final dollars = ref.watch(usdBalanceProvider);
+  final usdReading = ref.watch(usdSdkBalanceProvider);
   final venues = ref.watch(unifiedVenueBalancesProvider);
   final walletId = ref.watch(settingsProvider.select((s) => s.activeWalletId));
   final funded = ref.watch(fundedOrdersProvider);
@@ -325,6 +328,9 @@ final oneBalanceProvider = Provider<OneBalanceState>((ref) {
   );
   return oneBalanceStateFrom(
     dollarsUsd: dollars,
+    dollarsKnown: !usdReading.isLoading &&
+        !usdReading.hasError &&
+        !ref.watch(usdBalanceUnknownProvider),
     venues: venues,
     inFlight: inFlight,
     // Waiting, and the cash a venue keeps or cannot move (dust), both

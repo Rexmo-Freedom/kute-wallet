@@ -723,6 +723,83 @@ void main() {
       });
     }
 
+    testWidgets('main Investments retains total and invested through refresh',
+        (tester) async {
+      final state = StateProvider((_) => const OneBalanceState(
+          dollarsUsd: 42,
+          investedUsd: 58,
+          investingKnown: true,
+          predictionsKnown: true));
+      await _pump(
+          tester,
+          const InvestmentBalanceHeader(
+              product: InvestmentsProduct.trading, oneBalance: true),
+          wallets: [
+            spending
+          ],
+          overrides: [
+            oneBalanceProvider.overrideWith((ref) => ref.watch(state)),
+            usdBalanceUnknownProvider.overrideWithValue(false),
+          ]);
+      expect(header(tester).amountText, r'$100.00');
+      expect(header(tester).investedText, r'$58.00');
+      final container = ProviderScope.containerOf(
+          tester.element(find.byType(InvestmentBalanceHeader)));
+      container.read(state.notifier).state = const OneBalanceState(
+          dollarsUsd: 0,
+          investedUsd: 0,
+          dollarsKnown: false,
+          investingKnown: false,
+          predictionsKnown: false);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(header(tester).amountText, r'$100.00');
+      expect(header(tester).investedText, r'$58.00');
+      expect(header(tester).stale, isTrue);
+      // A completed, genuinely empty read must replace the saved figure.
+      container.read(state.notifier).state =
+          const OneBalanceState(investingKnown: true, predictionsKnown: true);
+      await tester.pumpAndSettle();
+      expect(header(tester).amountText, r'$0.00');
+      expect(header(tester).investedText, r'$0.00');
+      expect(header(tester).stale, isFalse);
+    });
+
+    test('main display snapshot is stored and scoped per wallet', () async {
+      resolveInvestmentsDisplay(
+          walletId: 'w1', total: 100, invested: 58, known: true);
+      resolveInvestmentsDisplay(
+          walletId: 'w2', total: 23, invested: 7, known: true);
+      final saved = resolveInvestmentsDisplay(
+          walletId: 'w1', total: 0, invested: 0, known: false);
+      expect(saved, (total: 100.0, invested: 58.0, stale: true));
+      expect(
+          resolveInvestmentsDisplay(
+              walletId: 'w2', total: 0, invested: 0, known: false),
+          (total: 23.0, invested: 7.0, stale: true));
+      expect(
+          resolveInvestmentsDisplay(
+                  walletId: 'new', total: 0, invested: 0, known: false)
+              .total,
+          0);
+      expect(
+          resolveInvestmentsDisplay(
+                  walletId: null, total: 0, invested: 0, known: false)
+              .total,
+          0);
+      await VenueTotalCacheService.deleteWallet('w1');
+      expect(
+          resolveInvestmentsDisplay(
+                  walletId: 'w1', total: 0, invested: 0, known: false)
+              .total,
+          0);
+      expect(
+          resolveInvestmentsDisplay(
+                  walletId: 'w2', total: 0, invested: 0, known: false)
+              .total,
+          23);
+    });
+
     testWidgets("another wallet's total never stands in", (tester) async {
       VenueTotalCacheService.write('w2', 'predictions', 55);
       await _pump(

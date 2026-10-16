@@ -170,6 +170,7 @@ class InFlightMove {
 class OneBalanceState {
   const OneBalanceState({
     this.dollarsUsd = 0,
+    this.dollarsKnown = true,
     this.investedUsd = 0,
     this.inFlight = const <InFlightMove>[],
     this.waiting = const <OneBalanceVenue, double>{},
@@ -202,6 +203,9 @@ class OneBalanceState {
 
   /// Spendable now, on the spending account.
   final double dollarsUsd;
+
+  /// Display freshness only; never authorizes a payment or replaces a reading.
+  final bool dollarsKnown;
 
   /// Held by the venues: positions, equity, cash reserved for open orders
   /// and fills the positions read has not listed yet, across every venue
@@ -258,6 +262,7 @@ class OneBalanceState {
     double? investedUsd,
     List<InFlightMove>? inFlight,
     Map<OneBalanceVenue, double>? waiting,
+    bool? dollarsKnown,
     bool? investingKnown,
     bool? predictionsKnown,
     Map<OneBalanceVenue, double>? venueCash,
@@ -267,6 +272,7 @@ class OneBalanceState {
         venueCash: venueCash ?? this.venueCash,
         investedByVenue: investedByVenue ?? this.investedByVenue,
         dollarsUsd: dollarsUsd ?? this.dollarsUsd,
+        dollarsKnown: dollarsKnown ?? this.dollarsKnown,
         investedUsd: investedUsd ?? this.investedUsd,
         inFlight: inFlight ?? this.inFlight,
         waiting: waiting ?? this.waiting,
@@ -278,6 +284,7 @@ class OneBalanceState {
   bool operator ==(Object other) =>
       other is OneBalanceState &&
       other.dollarsUsd == dollarsUsd &&
+      other.dollarsKnown == dollarsKnown &&
       other.investedUsd == investedUsd &&
       listEquals(other.inFlight, inFlight) &&
       mapEquals(other.waiting, waiting) &&
@@ -289,6 +296,7 @@ class OneBalanceState {
   @override
   int get hashCode => Object.hash(
         dollarsUsd,
+        dollarsKnown,
         investedUsd,
         Object.hashAll(inFlight),
         Object.hashAll(waiting.entries.map((e) => Object.hash(e.key, e.value))),

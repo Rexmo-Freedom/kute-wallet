@@ -290,7 +290,7 @@ class _PositionsBook {
     var tradingLoading = false;
     var tradingFailed = false;
     if (venues.trading) {
-      final hlAsync = ref.watch(hyperliquidTradingProvider);
+      final hlAsync = ref.watch(hyperliquidDisplayTradingProvider);
       trading = _tradingCards(ref, hlAsync.valueOrNull);
       tradingLoading = trading.isEmpty && hlAsync.isLoading;
       tradingFailed = trading.isEmpty && !hlAsync.isLoading && hlAsync.hasError;

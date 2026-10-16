@@ -106,7 +106,7 @@ class _PortfolioStatisticsState extends ConsumerState<PortfolioStatistics> {
     final walletId = widget.walletId;
     final request =
         PortfolioPerformanceRequest(venue: venue, walletId: walletId);
-    final performance = ref.watch(portfolioPerformanceProvider(request));
+    final performance = ref.watch(portfolioPerformanceDisplayProvider(request));
     // The tab runs under the dock (the Portfolio's KuteDockHost): the
     // centred states keep clear of it, the list keeps its last row
     // clear.
@@ -312,7 +312,7 @@ class _PortfolioStatisticsOverviewState
     final results = {
       for (final v in venues)
         v: ref.watch(
-            portfolioPerformanceProvider(PortfolioPerformanceRequest(venue: v)))
+            portfolioPerformanceDisplayProvider(PortfolioPerformanceRequest(venue: v)))
     };
     // A header keeps the page a scrolling list whatever the figures say.
     final footer = !widget.footerEmpty || widget.header != null;
@@ -1428,7 +1428,7 @@ _TradingParts _tradingFigures(WidgetRef ref, String? walletId) {
           fills: ref.watch(hyperliquidActivityFillsProvider),
           complete: history.length < kHyperliquidUserFillsCap);
     }
-    final snapshot = ref.watch(hyperliquidAccountProvider).valueOrNull;
+    final snapshot = ref.watch(hyperliquidDisplayAccountProvider).valueOrNull;
     positions = snapshot?.positions;
     balances = snapshot?.spotBalances;
   } else {

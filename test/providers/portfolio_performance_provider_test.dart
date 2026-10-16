@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/providers/hyperliquid_account_provider.dart';
@@ -19,16 +21,17 @@ const empty = PortfolioPerformance(
 
 class _Service extends PortfolioPerformanceService {
   final requests = <String>[];
+  Future<PortfolioPerformance>? response;
   @override
   Future<PortfolioPerformance> hyperliquid(String address) async {
     requests.add('hl:$address');
-    return empty;
+    return response == null ? empty : await response!;
   }
 
   @override
   Future<PortfolioPerformance> polymarket(String address) async {
     requests.add('pm:$address');
-    return empty;
+    return response == null ? empty : await response!;
   }
 }
 
@@ -41,6 +44,161 @@ class _Trading extends PolymarketTradingNotifier {
 }
 
 void main() {
+  test('reopening retains account history while refreshing, then accepts empty',
+      () async {
+    final service = _Service();
+    final previous = PortfolioPerformance(
+        points: [PortfolioPnlPoint(timestamp: DateTime.utc(2026), pnlUsd: 12)],
+        sourceLabel: 'Test',
+        basisLabel: 'PnL',
+        coverageLabel: 'All time');
+    service.response = Future.value(previous);
+    final scope = ProviderContainer(overrides: [
+      portfolioPerformanceServiceProvider.overrideWithValue(service),
+      hyperliquidAddressProvider.overrideWith((_) async => spending),
+    ]);
+    addTearDown(scope.dispose);
+    addTearDown(service.close);
+    final provider = portfolioPerformanceProvider(
+        const PortfolioPerformanceRequest(
+            venue: PortfolioPerformanceVenue.trading));
+    final first = scope.listen(provider, (_, __) {});
+    expect(await scope.read(provider.future), same(previous));
+    first.close();
+    await scope.pump();
+    final fresh = Completer<PortfolioPerformance>();
+    service.response = fresh.future;
+    final reopened = scope.listen(provider, (_, __) {});
+    addTearDown(reopened.close);
+    await Future<void>.delayed(Duration.zero);
+    expect(scope.read(provider).valueOrNull, same(previous));
+    expect(scope.read(provider).isLoading, isTrue);
+    fresh.complete(empty);
+    await Future<void>.delayed(Duration.zero);
+    expect(scope.read(provider).valueOrNull!.points, isEmpty);
+  });
+
+  test('a failed refresh retains only that resolved account snapshot',
+      () async {
+    final service = _Service();
+    final scope = ProviderContainer(overrides: [
+      portfolioPerformanceServiceProvider.overrideWithValue(service),
+      hyperliquidAddressProvider.overrideWith((_) async => spending),
+    ]);
+    addTearDown(scope.dispose);
+    addTearDown(service.close);
+    final provider = portfolioPerformanceProvider(
+        const PortfolioPerformanceRequest(
+            venue: PortfolioPerformanceVenue.trading));
+    final subscription = scope.listen(provider, (_, __) {});
+    addTearDown(subscription.close);
+    await scope.read(provider.future);
+    final fresh = Completer<PortfolioPerformance>();
+    service.response = fresh.future;
+    scope.invalidate(provider);
+    final refreshed = scope.read(provider.future);
+    await Future<void>.delayed(Duration.zero);
+    fresh.completeError(StateError('offline'));
+    expect(await refreshed, same(empty));
+  });
+
+  test(
+      'wallet switch clears display history while the new identity is unresolved',
+      () async {
+    final selected = StateProvider<Future<String?>>((_) async => spending);
+    final service = _Service();
+    final scope = ProviderContainer(overrides: [
+      portfolioPerformanceServiceProvider.overrideWithValue(service),
+      hyperliquidAddressProvider.overrideWith((ref) => ref.watch(selected)),
+    ]);
+    addTearDown(scope.dispose);
+    addTearDown(service.close);
+    final provider = portfolioPerformanceProvider(
+        const PortfolioPerformanceRequest(
+            venue: PortfolioPerformanceVenue.trading));
+    final subscription = scope.listen(provider, (_, __) {});
+    addTearDown(subscription.close);
+    final display = portfolioPerformanceDisplayProvider(
+        const PortfolioPerformanceRequest(
+            venue: PortfolioPerformanceVenue.trading));
+    final displaySubscription = scope.listen(display, (_, __) {});
+    addTearDown(displaySubscription.close);
+    await scope.read(provider.future);
+    expect(scope.read(display).hasValue, isTrue);
+    final address = Completer<String?>();
+    scope.read(selected.notifier).state = address.future;
+    await scope.pump();
+    expect(
+        scope
+            .read(portfolioPerformanceDisplayProvider(
+                const PortfolioPerformanceRequest(
+                    venue: PortfolioPerformanceVenue.trading)))
+            .valueOrNull,
+        isNull);
+    address.complete(ledger);
+    await scope.read(provider.future);
+    expect(service.requests, ['hl:$spending', 'hl:$ledger']);
+  });
+
+  test('display masks old Predictions proxy while new account resolves',
+      () async {
+    final service = _Service();
+    final scope = ProviderContainer(overrides: [
+      portfolioPerformanceServiceProvider.overrideWithValue(service),
+      hyperliquidAddressProvider.overrideWith((_) async => spending),
+      polymarketTradingProvider.overrideWith(() => _Trading(spending)),
+    ]);
+    addTearDown(scope.dispose);
+    addTearDown(service.close);
+    const request = PortfolioPerformanceRequest(
+        venue: PortfolioPerformanceVenue.predictions);
+    final display = portfolioPerformanceDisplayProvider(request);
+    final sub = scope.listen(display, (_, __) {});
+    addTearDown(sub.close);
+    await scope.read(portfolioPerformanceProvider(request).future);
+    await scope.pump();
+    expect(scope.read(display).hasValue, isTrue);
+    final trading = scope.read(polymarketTradingProvider.notifier);
+    // ignore: invalid_use_of_protected_member
+    trading.state = const AsyncLoading<PolymarketTradingState>()
+        .copyWithPrevious(const AsyncData(PolymarketTradingState(
+            walletAddress: spending, proxyWalletAddress: proxy)));
+    await scope.pump();
+    expect(scope.read(display).valueOrNull, isNull);
+    final pending = Completer<PortfolioPerformance>();
+    service.response = pending.future;
+    // ignore: invalid_use_of_protected_member
+    trading.state = const AsyncData(PolymarketTradingState(
+        walletAddress: spending, proxyWalletAddress: ledger));
+    await scope.pump();
+    expect(scope.read(display).valueOrNull, isNull);
+    final next = PortfolioPerformance(points: [
+      PortfolioPnlPoint(timestamp: DateTime.utc(2026), pnlUsd: 9),
+    ], sourceLabel: 'New proxy', basisLabel: 'PnL', coverageLabel: 'All time');
+    pending.complete(next);
+    await scope.read(portfolioPerformanceProvider(request).future);
+    await scope.pump();
+    expect(scope.read(display).valueOrNull, same(next));
+    expect(service.requests, ['pm:$proxy', 'pm:$ledger']);
+  });
+
+  test('display preserves simple public FutureProvider overrides', () async {
+    const request =
+        PortfolioPerformanceRequest(venue: PortfolioPerformanceVenue.trading);
+    final scope = ProviderContainer(overrides: [
+      portfolioPerformanceProvider(request).overrideWith((_) async => empty),
+      hyperliquidAddressProvider.overrideWith(
+          (_) => throw StateError('No real account in display fixture')),
+    ]);
+    addTearDown(scope.dispose);
+    final display = portfolioPerformanceDisplayProvider(request);
+    final sub = scope.listen(display, (_, __) {});
+    addTearDown(sub.close);
+    await scope.read(portfolioPerformanceProvider(request).future);
+    await scope.pump();
+    expect(scope.read(display).requireValue, same(empty));
+  });
+
   for (final venue in PortfolioPerformanceVenue.values) {
     test('Ledger $venue never reads the spending address', () async {
       final service = _Service();
