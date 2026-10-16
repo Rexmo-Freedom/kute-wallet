@@ -11,6 +11,7 @@ import 'package:kute/models/orchestra_model.dart';
 import 'package:kute/models/orchestra_routes_model.dart';
 import 'package:kute/handlers/response_handlers.dart';
 import 'package:kute/services/accumulation_address_cache.dart';
+import 'package:kute/services/orchestra/receive_route_availability.dart';
 import 'package:kute/services/orchestra_routes.dart';
 import 'package:kute/services/security/address_history.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -139,9 +140,11 @@ void main() {
     dotenv.loadFromString(envString: 'BACKEND=https://backend.test');
     events.clear();
     TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+    await ReceiveRouteAvailability.clear();
   });
 
   tearDown(() async {
+    await ReceiveRouteAvailability.clear();
     RuntimeCapabilitiesService.debugInstance?.dispose();
     RuntimeCapabilitiesService.debugInstance = null;
     AffiliateService.debugSessionToken = null;
@@ -948,5 +951,50 @@ void main() {
     expect(result.data, isNull);
     expect(box.get(sparkKey), isNull);
     expect(box.keys.where((k) => '$k'.startsWith('retired:')), isNotEmpty);
+  });
+
+  test('the sweep keeps watching retired entries and ignores HyperCore ones',
+      () async {
+    final box = Hive.box<String>('accumulation_addresses');
+    await box.put(key('tron', 'USDT', 'BTC', _spark),
+        entry(chain: 'tron', asset: 'USDT', deposit: _tron));
+    // Retired because its route fell off the catalog: the address was
+    // handed out, so a late deposit must still be discovered.
+    await box.put('retired:${key('ethereum', 'ETH', 'BTC', _spark)}',
+        entry(chain: 'ethereum', asset: 'ETH'));
+    // A HyperCore source cannot be verified by the provider ("existing
+    // addresses require reconciliation"), so history polling cannot
+    // credit it: left to the provider, never swept.
+    await box.put(key('hypercore', 'USDC', 'BTC', _spark),
+        entry(chain: 'hypercore', asset: 'USDC', deposit: _evm2));
+
+    expect(AccumulationAddressCache.getAll().map((a) => a.sourceChain),
+        unorderedEquals(['tron', 'ethereum', 'hypercore']));
+    expect(AccumulationAddressCache.sweepTargets().map((a) => a.sourceChain),
+        unorderedEquals(['tron', 'ethereum']));
+  });
+
+  test('a pair the rails refused at runtime is retired, not served', () async {
+    final box = Hive.box<String>('accumulation_addresses');
+    final usdtKey = key('tron', 'USDT', 'BTC', _spark);
+    await box.put(usdtKey, entry(chain: 'tron', asset: 'USDT', deposit: _tron));
+    await ReceiveRouteAvailability.markUnavailable(
+        sourceChain: 'tron', sourceAsset: 'USDT', destinationAsset: 'BTC');
+
+    final result =
+        await withNoNetwork(() => AccumulationAddressCache.getOrCreate(
+              sourceChain: 'tron',
+              sourceAsset: 'USDT',
+              destinationAsset: 'BTC',
+              recipientSparkAddress: _spark,
+            ));
+    expect(result.error, kRouteNoLongerAvailableError);
+    expect(box.get(usdtKey), isNull);
+    expect(box.get('retired:$usdtKey'), isNotNull);
+    // Still watched by the sweep.
+    expect(
+        AccumulationAddressCache.sweepTargets().single.depositAddress, _tron);
+    expect(
+        events.map((e) => e.$1), contains('reusable_deposit_address_retired'));
   });
 }

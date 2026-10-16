@@ -306,6 +306,7 @@ void _reportSearchClosed(ProviderContainer container) {
                 : 'no_query',
     'results_tapped': stats.resultsTapped,
     'queries': stats.settledQueries,
+    'time_in_flow_ms': stats.watch.elapsed.inMilliseconds,
     'time_in_flow_bucket': _searchTimeBucket(stats.watch.elapsed),
   });
 }
@@ -479,7 +480,9 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
       _searchStats?.settledQueries++;
       TrackingService.track('search_results_settled', params: {
         'category': category,
+        'query_length': query.length,
         'query_length_bucket': _searchLengthBucket(query.length),
+        'result_count': _visibleResults,
         'result_count_bucket': _searchCountBucket(_visibleResults),
         'has_results': _visibleResults > 0,
         'result_types': _visibleTypes.join(','),
@@ -499,9 +502,10 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
     final aiEnabled = ref.read(aiEnabledProvider).valueOrNull ?? true;
     if (!mounted) return;
     if (!aiEnabled) {
-      // Length bucket only; the query text never leaves the device.
+      // Its length only; the query text never leaves the device.
       _searchStats?.submitted = true;
       TrackingService.track('search_submitted', params: {
+        'query_length': q.length,
         'query_length_bucket': _searchLengthBucket(q.length),
         'category': ref.read(selectedSearchCategoryProvider).name,
         'ai_enabled': false,
@@ -522,6 +526,7 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
       TrackingService.salOpened(entry: 'search', surface: 'search');
     }
     session.setAnalyticsSurface('search');
+    session.setEntrySource('search');
     session.ask(q,
         input: 'typed', locale: Localizations.localeOf(context).languageCode);
     _controller.clear();
@@ -558,6 +563,7 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
       TrackingService.salOpened(entry: 'search', surface: 'search');
     }
     session.setAnalyticsSurface('search');
+    session.setEntrySource('search');
     session.ask(chip.text,
         context: chip.context,
         input: 'suggested',
@@ -632,15 +638,15 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
     // a single-type filter only one group shows, whole and unlabelled (the
     // pill already names it).
     //
-    // Within a group the market the person named leads (exact ticker or
-    // name, then prefixes, then the rest; search_result_order.dart). When
+    // Within Investing the market the person named leads (exact ticker or
+    // name, then prefixes, then the rest); within Predictions a game in
+    // play leads, then the most traded (search_result_order.dart). When
     // the query names a market, Investing and Predictions sit above
     // Transactions; that is decided once per query from what is on the
     // device, so a group never jumps when the remote results land.
     final sportsLive = ref.read(sportsLiveProvider);
     final rankedHl = rankInvestingResults(query, hlResults);
     final rankedGlobal = rankPredictionResults(
-      query,
       globalResults,
       (r) => r.event,
       isLive: (r) =>
@@ -1213,7 +1219,9 @@ class _HlMarketRow extends ConsumerWidget {
     // Resolve THIS row's instrument: the wire id pins the exact market, so
     // a row badged Own never opens the leveraged contract behind the same
     // ticker (and vice versa).
-    final market = ref.read(hyperliquidAccountMarketProvider(result.wireCoin));
+    final market = ref.read(hyperliquidExactMarketProvider(
+            '${result.kind.name}:${result.wireCoin}')) ??
+        result.market;
     final ledgerWalletId = ref.read(searchLedgerWalletIdProvider);
     if (ledgerWalletId != null) {
       // Ledger account search: the Ledger order sheet is the only target

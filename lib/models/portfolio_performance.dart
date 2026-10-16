@@ -206,8 +206,7 @@ class PortfolioPerformance {
 
   /// The same performance carrying [book] (and the series' non-position
   /// P&L, [other]).
-  PortfolioPerformance withPredictions(PredictionsBook book,
-          {double? other}) =>
+  PortfolioPerformance withPredictions(PredictionsBook book, {double? other}) =>
       PortfolioPerformance(
           points: points,
           sourceLabel: sourceLabel,
@@ -219,6 +218,82 @@ class PortfolioPerformance {
           asOf: asOf,
           otherPnlUsd: other ?? otherPnlUsd,
           predictions: book);
+
+  /// The venues' P&L as one account (the spending account's Statistics
+  /// tab): every moment either series published, each venue carried at
+  /// its last observation at or before it (zero before its first: both
+  /// series start with the account), the figures added. A venue with no
+  /// observations adds nothing, so one with a series alone is that
+  /// series. A realised or open figure a venue does not publish leaves
+  /// the sum's unknown. Nothing is interpolated.
+  static PortfolioPerformance combine(List<PortfolioPerformance> parts) {
+    final drawn = [
+      for (final p in parts)
+        if (p.points.isNotEmpty) p
+    ];
+    final times = <DateTime>{
+      for (final p in drawn)
+        for (final o in p.points) o.timestamp.toUtc()
+    }.toList()
+      ..sort();
+    final cursor = List<int>.filled(drawn.length, -1);
+    final points = <PortfolioPnlPoint>[];
+    for (final t in times) {
+      var pnl = 0.0;
+      double? realized = 0;
+      double? open = 0;
+      for (var i = 0; i < drawn.length; i++) {
+        final series = drawn[i].points;
+        while (cursor[i] + 1 < series.length &&
+            !series[cursor[i] + 1].timestamp.isAfter(t)) {
+          cursor[i]++;
+        }
+        if (cursor[i] < 0) continue;
+        final o = series[cursor[i]];
+        pnl += o.pnlUsd;
+        realized = realized == null || o.realizedPnlUsd == null
+            ? null
+            : realized + o.realizedPnlUsd!;
+        open =
+            open == null || o.openPnlUsd == null ? null : open + o.openPnlUsd!;
+      }
+      points.add(PortfolioPnlPoint(
+          timestamp: t,
+          pnlUsd: pnl,
+          realizedPnlUsd: realized,
+          openPnlUsd: open));
+    }
+    double? sum(double? Function(PortfolioPerformance p) of) {
+      if (drawn.isEmpty) return null;
+      var total = 0.0;
+      for (final p in drawn) {
+        final v = of(p);
+        if (v == null) return null;
+        total += v;
+      }
+      return total;
+    }
+
+    DateTime? asOf;
+    for (final p in drawn) {
+      final at = p.asOf ?? p.points.last.timestamp;
+      if (asOf == null || at.isAfter(asOf)) asOf = at;
+    }
+    return PortfolioPerformance(
+        points: List.unmodifiable(points),
+        sourceLabel: [for (final p in drawn) p.sourceLabel].join(' + '),
+        basisLabel: {for (final p in drawn) p.basisLabel}.join(' + '),
+        coverageLabel: {for (final p in drawn) p.coverageLabel}.join(' + '),
+        totalPnlUsd: sum((p) => p.totalPnlUsd ?? p.points.last.pnlUsd),
+        realizedPnlUsd: sum((p) => p.realizedPnlUsd),
+        openPnlUsd: sum((p) => p.openPnlUsd),
+        asOf: asOf);
+  }
+
+  /// Whether there is any P&L to draw: a series that is zero all the way
+  /// (or none) draws no line, the empty state stands in its place (the
+  /// Earn chart's rule: never a flat line at zero).
+  bool get hasMovement => points.any((p) => p.pnlUsd != 0);
 }
 
 /// What [PortfolioPerformance.rangeView] draws: the line from the range's

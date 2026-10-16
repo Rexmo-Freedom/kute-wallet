@@ -23,6 +23,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import 'package:kute/constants/hyperliquid_constants.dart';
+import 'package:kute/services/http/shared_http_client.dart';
 import 'package:kute/services/hardware/evm_signing_request.dart';
 import 'package:kute/services/hardware/ledger/ledger_action_intent.dart';
 import 'package:kute/services/hardware/ledger/ledger_evm_signer.dart'
@@ -843,13 +844,12 @@ class LedgerHyperliquidExecutor {
   Future<Object?> _info(Map<String, Object?> request) async {
     const headers = {'content-type': 'application/json'};
     final body = jsonEncode(request);
-    final client = _httpClient;
-    final resp = await (client != null
-            ? client.post(HyperliquidConstants.infoUri,
-                headers: headers, body: body)
-            : http.post(HyperliquidConstants.infoUri,
-                headers: headers, body: body))
-        .timeout(const Duration(seconds: 15));
+    final resp = await SharedHttpClient.post(HyperliquidConstants.infoUri,
+        headers: headers,
+        body: body,
+        kind: HttpCallKind.userAction,
+        timeout: const Duration(seconds: 15),
+        client: _httpClient);
     if (resp.statusCode != 200) {
       throw http.ClientException('info ${request['type']} failed');
     }

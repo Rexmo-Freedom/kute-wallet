@@ -19,3 +19,7 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      # Must equal the version breez_sdk_spark_flutter compiles against
+      # (see android/app/build.gradle); a newer runtime breaks passkeys.
+      - dependency-name: "androidx.credentials:*"

@@ -11,14 +11,14 @@ import 'package:kute/screens/creation/passkey_choice.dart';
 import 'package:kute/screens/creation/confirm_pin.dart';
 import 'package:kute/screens/pay/components/confirm_send.dart';
 import 'package:kute/screens/shared/bitcoin_transactions_details_screen.dart';
+import 'package:kute/screens/shared/send/send_sheet.dart';
 import 'package:kute/screens/spash/splash.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kute/screens/home/main_screen.dart';
 import 'package:kute/screens/creation/start.dart';
 import 'package:kute/screens/settings/components/seed_words.dart';
 import 'package:kute/screens/settings/settings.dart';
-import 'package:kute/screens/receive/receive.dart';
-import 'package:kute/screens/usd/usd_receive_screen.dart';
+import 'package:kute/screens/receive/receive_sheet.dart';
 import 'package:kute/screens/creation/set_pin.dart';
 import 'package:kute/screens/login/open_pin.dart';
 import 'package:kute/screens/creation/recover_choice.dart';
@@ -429,9 +429,14 @@ class AppRouter {
                           path: 'confirm_send',
                           name: 'pay_send',
                           parentNavigatorKey: _rootNavigatorKey,
-                          pageBuilder: (context, state) => _buildFadeScalePage(
+                          // The send sheet (send_sheet.dart): every way
+                          // in (the dock, the scanner hand-off, payment
+                          // links) opens it over the screen it came
+                          // from; a preset recipient opens it full.
+                          pageBuilder: (context, state) => SendSheetPage<void>(
+                            key: state.pageKey,
+                            name: state.name,
                             child: const ConfirmSend(),
-                            state: state,
                           ),
                         ),
                         // Legacy aliases — keep `pay_bitcoin` and
@@ -452,29 +457,37 @@ class AppRouter {
                         ),
                       ],
                     ),
+                    // The Bitcoin receive. The dock opens it as a sheet
+                    // (receive_sheet.dart); this route stays for deep
+                    // links and opens that same sheet over the current
+                    // screen.
                     GoRoute(
                       path: '/receive',
-                      name: 'receive',
+                      name: kBitcoinReceiveRouteName,
                       parentNavigatorKey: _rootNavigatorKey,
-                      pageBuilder: (context, state) => _buildFadeScalePage(
-                        child: const Receive(),
-                        state: state,
+                      pageBuilder: (context, state) => ReceiveSheetPage(
+                        key: state.pageKey,
+                        name: state.name,
+                        usd: false,
                       ),
                     ),
-                    // The Dollars tab's own Receive. Its OWN screen
+                    // The Dollars tab's own Receive
                     // (usd_receive_screen.dart), the twin of the dollar
                     // send: the coin the user picks is converted on the
-                    // way in, and it is the dollars that land. Its own
-                    // route so the destination is carried by the URL
-                    // rather than by a one-shot provider a deep link
-                    // could miss.
+                    // way in, and it is the dollars that land. Like the
+                    // Bitcoin one it opens as a sheet; this route stays
+                    // for deep links (and the Investments deposit's
+                    // Receive row) and opens that same sheet. Every way
+                    // in opens its coin step; an old `?coin=auto` link
+                    // is accepted and ignored.
                     GoRoute(
                       path: '/receive_dollars',
-                      name: 'receiveDollars',
+                      name: kUsdReceiveRouteName,
                       parentNavigatorKey: _rootNavigatorKey,
-                      pageBuilder: (context, state) => _buildFadeScalePage(
-                        child: const UsdReceiveScreen(),
-                        state: state,
+                      pageBuilder: (context, state) => ReceiveSheetPage(
+                        key: state.pageKey,
+                        name: state.name,
+                        usd: true,
                       ),
                     ),
                     GoRoute(
@@ -564,10 +577,25 @@ class AppRouter {
                 GoRoute(
                   path: '/usd',
                   name: 'usd',
-                  pageBuilder: (context, state) => NoTransitionPage<void>(
-                    key: state.pageKey,
-                    child: const UsdAccountScreen(),
-                  ),
+                  // `?tab=investing|predictions|positions` (what the venue
+                  // routes redirect to) or `extra: {'tab': …}` picks the
+                  // Investments pill (an old `earn` link opens the default
+                  // pill: Earn is shown nowhere; the old Portfolio tabs map
+                  // to Positions or open the Portfolio screen, see
+                  // investmentsLinkOpensPortfolio); nothing keeps the pill
+                  // where it was. The page updates in place on a new
+                  // link (same pageKey), and the screen applies it then.
+                  pageBuilder: (context, state) {
+                    final extra = state.extra;
+                    final tab = state.uri.queryParameters['tab'] ??
+                        (extra is Map ? extra['tab'] as String? : null);
+                    return NoTransitionPage<void>(
+                      key: state.pageKey,
+                      child: UsdAccountScreen(
+                          initialTab: InvestmentsTab.fromKey(tab),
+                          openPortfolio: investmentsLinkOpensPortfolio(tab)),
+                    );
+                  },
                 ),
               ],
             ),
@@ -578,18 +606,18 @@ class AppRouter {
                 GoRoute(
                   path: '/hyperliquid',
                   name: 'hyperliquid',
-                  // Bottom-nav tab destination. `extra` (deep link /
-                  // context.go('/hyperliquid', extra:'deposit')) still reaches
-                  // the branch's initial screen and auto-opens the sheet.
+                  // For the spending account Investing is a pill of the
+                  // Investments tab: the link lands on /usd with that
+                  // pill (one balance; no venue deposit exists, so the
+                  // old `extra: 'deposit'` auto-open is gone). A Ledger
+                  // owner keeps its own branch.
+                  redirect: (context, _) =>
+                      spendingVenueRedirect(context, InvestmentsTab.investing),
                   pageBuilder: (context, state) => NoTransitionPage<void>(
                     key: state.pageKey,
-                    // Wallet-aware: the spending account's Hyperliquid
-                    // screen, or the Ledger's own Hyperliquid tab when a
-                    // Ledger wallet owns the first tab.
-                    child: ShellTradingTab(
-                      autoShowDeposit: state.extra == 'deposit',
-                      autoShowWithdraw: state.extra == 'withdraw',
-                    ),
+                    // The Ledger's own Hyperliquid tab when a Ledger
+                    // wallet owns the first tab; empty otherwise.
+                    child: const ShellTradingTab(),
                   ),
                 ),
               ],
@@ -601,18 +629,15 @@ class AppRouter {
                 GoRoute(
                   path: '/polymarket',
                   name: 'polymarket',
-                  // Bottom-nav tab destination. `extra` (deep link
-                  // context.go('/polymarket', extra:'deposit')) still reaches
-                  // the branch's initial screen and auto-opens the sheet.
+                  // See /hyperliquid: the spending account's Predictions
+                  // is a pill of the Investments tab.
+                  redirect: (context, _) => spendingVenueRedirect(
+                      context, InvestmentsTab.predictions),
                   pageBuilder: (context, state) => NoTransitionPage<void>(
                     key: state.pageKey,
-                    // Wallet-aware: the spending account's Polymarket
-                    // screen, or the Ledger's own Polymarket tab when a
-                    // Ledger wallet owns the first tab.
-                    child: ShellPredictionsTab(
-                      autoShowDeposit: state.extra == 'deposit',
-                      autoShowWithdraw: state.extra == 'withdraw',
-                    ),
+                    // The Ledger's own Polymarket tab when a Ledger
+                    // wallet owns the first tab; empty otherwise.
+                    child: const ShellPredictionsTab(),
                   ),
                 ),
               ],

@@ -21,6 +21,7 @@ import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
 import 'package:kute/screens/shared/animated_balance.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_motion.dart';
+import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/screens/shared/side_tint_palette.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -243,7 +244,11 @@ class PolySlipFigureRow extends StatelessWidget {
 ///
 /// On a side-tinted sheet the CTA inverts: the sheet's ink becomes the
 /// fill and the side colour becomes the label, so the one action still
-/// reads as the one action. A red button on a red sheet does not.
+/// reads as the one action. A red button on a red sheet does not. A
+/// [neutral] action (the deposit door, a wait) keeps a label that
+/// contrasts with that fill instead, so the funding door never wears the
+/// trade's direction. Same rule, and the same faded disabled state, as
+/// the order slip's `AppButton` ([slipCtaLabelColor]).
 class PolySlipCta extends StatelessWidget {
   const PolySlipCta({
     super.key,
@@ -253,17 +258,49 @@ class PolySlipCta extends StatelessWidget {
     required this.onTap,
     required this.label,
     this.busyLabel,
+    this.busyLabelInSteps = false,
+    this.neutral = false,
+    this.band = true,
+    this.bandOutcome,
+    this.bandProgress,
+    this.bandExpected = const Duration(seconds: 4),
   });
 
   final Color color;
   final bool isBusy;
+
+  /// The placement's rubber band ([RubberBandBusy]): while [isBusy] the
+  /// button is drawn up with growing tension, and lets go when it ends.
+  /// False where an outer band already carries it (a funded order's
+  /// steps).
+  final bool band;
+
+  /// How the busy run ended, read once [isBusy] is false:
+  /// [RubberBandOutcome.success] snaps back with a light haptic; null or
+  /// failure releases softly.
+  final RubberBandOutcome? bandOutcome;
+
+  /// The run's known progress (0..1), or null to ease by time over
+  /// [bandExpected].
+  final double? bandProgress;
+  final Duration bandExpected;
   final bool enabled;
   final VoidCallback onTap;
   final String label;
 
+  /// Not the trade itself (the deposit door, a wait, a status check): on
+  /// a tinted sheet its label contrasts with the fill rather than wearing
+  /// the side colour.
+  final bool neutral;
+
   /// Shown beside the spinner while [isBusy]. Defaults to the buy slip's
   /// "Placing order…".
   final String? busyLabel;
+
+  /// The step list under the button already names [busyLabel]: while
+  /// busy the button shows only its spinner (and band), never the same
+  /// words twice, and [busyLabel] is what a screen reader hears.
+  final bool busyLabelInSteps;
 
   @override
   Widget build(BuildContext context) {
@@ -271,16 +308,18 @@ class PolySlipCta extends StatelessWidget {
     // Reduce-motion: the enabled/colour fill tween is decorative.
     final reduceMotion = MediaQuery.of(context).disableAnimations;
     final tint = SheetTint.maybeOf(context);
-    final bg = tint == null
-        ? (enabled ? color : color.withValues(alpha: 0.40))
-        : tint.on.withValues(alpha: enabled ? 1 : 0.22);
+    final bg = tint == null ? color : tint.on;
     // Label contrast follows the fill (the deposit branch runs the dark
     // primary fill, which is WHITE in dark mode — white text there was
-    // the old invisible-label bug class).
+    // the old invisible-label bug class). On the tint, the order slip's
+    // rule: the trade wears its side colour, a neutral action contrasts.
     final fg = tint == null
         ? contrastingOnColor(color)
-        : (enabled ? tint.side : tint.on.withValues(alpha: 0.65));
-    return SizedBox(
+        : slipCtaLabelColor(fill: tint.on, side: tint.side, neutral: neutral);
+    // Disabled the way `AppButton` is: the whole button, fill and label
+    // together, fades to 0.35. A busy button stays at full strength.
+    final faded = !enabled && !isBusy;
+    final button = SizedBox(
       width: double.infinity,
       height: 56.h,
       child: Material(
@@ -328,7 +367,17 @@ class PolySlipCta extends StatelessWidget {
               state: isBusy,
               alignment: Alignment.center,
               animateSize: false,
-              child: isBusy
+              child: isBusy && busyLabelInSteps
+                  ? Semantics(
+                      key: const ValueKey('poly-slip-cta-busy-quiet'),
+                      label: busyLabel ?? context.l10n.betPlacingOrderEllipsis,
+                      liveRegion: true,
+                      child: LoadingAnimationWidget.staggeredDotsWave(
+                        color: fg,
+                        size: 22.sp,
+                      ),
+                    )
+                  : isBusy
                   ? Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -366,6 +415,19 @@ class PolySlipCta extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+    return AnimatedOpacity(
+      opacity: faded ? 0.35 : 1,
+      duration:
+          reduceMotion ? Duration.zero : const Duration(milliseconds: 140),
+      child: RubberBandBusy(
+        enabled: band,
+        busy: isBusy,
+        outcome: bandOutcome,
+        progress: bandProgress,
+        expected: bandExpected,
+        child: button,
       ),
     );
   }
@@ -564,11 +626,16 @@ class PolySlipDetailRow extends StatelessWidget {
             child: Text(label,
                 style: TextStyle(fontSize: 14.sp, color: c.textSecondary))),
         SizedBox(width: 12.w),
-        Text(value,
-            style: TextStyle(
-                fontSize: 14.sp,
-                fontWeight: FontWeight.w600,
-                color: c.textPrimary)),
+        // A long figure ("$200.00 → $10,199.00" at a large text size)
+        // wraps instead of running off the sheet.
+        Flexible(
+          child: Text(value,
+              textAlign: TextAlign.end,
+              style: TextStyle(
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w600,
+                  color: c.textPrimary)),
+        ),
       ],
     );
   }

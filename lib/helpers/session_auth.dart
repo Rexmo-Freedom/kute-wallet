@@ -39,7 +39,8 @@ final class BiometricUnlockRefused extends BiometricUnlockCheck {
 /// biometrics alone unlock and `biometric_pin` is never read. With one, the
 /// stored PIN must exist and still match `pin_hash`; a stale copy (a PIN
 /// change interrupted between its writes) is never used, and the typed PIN
-/// stores it again.
+/// stores it again. A verified stored PIN runs the same legacy copy rescue
+/// a typed PIN does (`AuthModel.checkPin`), reported as `biometric`.
 Future<BiometricUnlockCheck> checkBiometricUnlock(
     AuthModel auth, V1Dependency dependency) async {
   if (!dependency.exists) return const BiometricUnlockAllowed(null);
@@ -47,7 +48,8 @@ Future<BiometricUnlockCheck> checkBiometricUnlock(
   if (storedPin == null) {
     return const BiometricUnlockRefused('stored_pin_null');
   }
-  if (await auth.checkPin(storedPin) != PinCheck.match) {
+  if (await auth.checkPin(storedPin, rescueSource: 'biometric') !=
+      PinCheck.match) {
     return const BiometricUnlockRefused('stored_pin_stale');
   }
   return BiometricUnlockAllowed(storedPin);

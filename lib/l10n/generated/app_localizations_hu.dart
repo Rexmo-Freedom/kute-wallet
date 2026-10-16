@@ -1193,34 +1193,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String get totalFee => 'Teljes díj';
 
   @override
-  String get usdEarnTitle => 'Hozam';
-
-  @override
-  String get usdEarnRate => 'Legutóbbi éves ráta';
-
-  @override
-  String get usdEarnNextPayment => 'Következő kifizetés';
-
-  @override
-  String get usdEarnNextPaymentIn => 'Kifizetésig';
-
-  @override
-  String get usdEarnRatePending => 'Betöltés';
-
-  @override
-  String get usdEarnRateUnavailable => 'Most nem érhető el';
-
-  @override
-  String get usdEarnPaidToDate => 'Eddig kifizetve neked';
-
-  @override
-  String get usdEarnActivityEmpty => 'Még nincs kifizetés';
-
-  @override
-  String get usdEarnActivityUnavailable =>
-      'A kifizetési előzmények most nem érhetők el';
-
-  @override
   String hlYieldAvailableLine(String amount) {
     return '$amount elérhető';
   }
@@ -2070,6 +2042,20 @@ class AppLocalizationsHu extends AppLocalizations {
       'Beállítás megszakítva. Semmi sem jött létre.';
 
   @override
+  String get passkeyBackupSyncing => 'Biztonsági mentés szinkronizálása…';
+
+  @override
+  String get passkeyCreateNewTitle => 'Nem található passkey';
+
+  @override
+  String passkeyCreateNewBody(String method) {
+    return 'Semmi sem jött létre. Hozzunk létre inkább új passkey-t ehhez a tárcához $method használatával?';
+  }
+
+  @override
+  String get passkeyCreateNewAction => 'Új passkey létrehozása';
+
+  @override
   String passkeyChoiceFallbackWords(String method) {
     return 'Nem sikerült beállítani ezt: $method. A tárcád helyreállítási szavakkal jött létre.';
   }
@@ -2688,9 +2674,6 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String get walletsEnterFriendCodeDescriptionNoDiscount =>
       'Ha egy barátod meghívott, add meg a kódját.';
-
-  @override
-  String get accountEarn => 'Hozam';
 
   @override
   String get accountInviteFriendsEarnShare =>
@@ -3685,7 +3668,7 @@ class AppLocalizationsHu extends AppLocalizations {
   String get activityProcessingEllipsis => 'Feldolgozás…';
 
   @override
-  String get usdAccountTab => 'Dollár';
+  String get usdAccountTab => 'Investments';
 
   @override
   String activityFromAmount(String amount) {
@@ -5956,9 +5939,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String get portfolioStatRealized => 'Realizált nyereség / veszteség';
 
   @override
-  String get portfolioStatOpen => 'Nyitott nyereség / veszteség';
-
-  @override
   String get portfolioStatAmountPredicted => 'Előrejelzések összege';
 
   @override
@@ -6067,7 +6047,7 @@ class AppLocalizationsHu extends AppLocalizations {
   String get moveBuyBitcoin => 'Bitcoin vétele';
 
   @override
-  String get dollarDeposit => 'Dollár befizetés';
+  String get dollarDeposit => 'Investments deposit';
 
   @override
   String get dollarWithdrawal => 'Dollár kivétel';
@@ -6516,6 +6496,34 @@ class AppLocalizationsHu extends AppLocalizations {
   String get portfolioTabStatistics => 'Statisztika';
 
   @override
+  String get portfolioBalanceDollars => 'Dollár';
+
+  @override
+  String get portfolioRebalance => 'Újraegyensúlyozás';
+
+  @override
+  String get portfolioRebalanceMoving => 'Áthelyezés USDB-be…';
+
+  @override
+  String get portfolioRebalanceMovingMinutes =>
+      'Áthelyezés USDB-be… néhány percet vesz igénybe';
+
+  @override
+  String get portfolioRebalanceHeldOrders =>
+      'Nyitott megbízások tartják vissza';
+
+  @override
+  String get portfolioRebalanceHeldMargin =>
+      'Fedezetként megtartva a nyitott pozíciókhoz';
+
+  @override
+  String get portfolioRebalanceBelowMinimum => 'Az áthelyezési minimum alatt';
+
+  @override
+  String get portfolioRebalanceNotNow =>
+      'Most nem sikerült. Koppints az Újraegyensúlyozás gombra az újrapróbáláshoz.';
+
+  @override
   String get sendMoreThanAvailable => 'Ez több, mint amennyi elérhető.';
 
   @override
@@ -6569,10 +6577,10 @@ class AppLocalizationsHu extends AppLocalizations {
   String get searchPredictionsHint => 'Keresés az előrejelzésekben';
 
   @override
-  String get assetDollars => 'Dollár';
+  String get assetDollars => 'Investments';
 
   @override
-  String get moveSourceDollarsSubtitle => 'Fizetés a dollár egyenlegedből';
+  String get moveSourceDollarsSubtitle => 'Pay with your Investments balance';
 
   @override
   String get sendDollarAccountAddressHint => 'Dollár fiók címe';
@@ -6826,23 +6834,11 @@ class AppLocalizationsHu extends AppLocalizations {
   String get betAdvancedSaleSellingAll => 'A teljes pozíciód eladása';
 
   @override
-  String get usdEarnProjectionNote =>
-      'A szaggatott vonal a mai rátán alapuló becslés, nem kapott pénz.';
-
-  @override
-  String usdEarnBelowMinimum(String amount) {
-    return 'A jutalmak akkor indulnak, ha legalább $amount van nálad. Naponta, bitcoinban fizetjük őket.';
-  }
-
-  @override
-  String get usdEarnProjectedLabel => 'Becslés a mai rátán';
-
-  @override
   String get moveWithdrawDestinationHint =>
       'Válaszd ki, mi érkezzen a költési fiókodba.';
 
   @override
-  String get moveDestDollarsSubtitle => 'A dollár egyenlegedbe';
+  String get moveDestDollarsSubtitle => 'Into your Investments balance';
 
   @override
   String get moveConversionOngoing => 'Átváltás folyamatban';
@@ -7109,6 +7105,10 @@ class AppLocalizationsHu extends AppLocalizations {
       'A Kute nem tudta ellenőrizni az elérhetőséget. Próbáld újra.';
 
   @override
+  String get capabilityOfflineGrace =>
+      'A Kute jelenleg nem érhető el. Ez a legutóbbi ellenőrzésed alapján továbbra is elérhető.';
+
+  @override
   String get capabilityUnavailable =>
       'Ez a funkció jelenleg nem érhető el a Kute-ban.';
 
@@ -7143,6 +7143,9 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get capabilityRegionTitle => 'A régiódban nem érhető el';
+
+  @override
+  String get checkConnection => 'Kapcsolat ellenőrzése';
 
   @override
   String get gateUnavailableTitle => 'Nem érhető el';
@@ -7435,7 +7438,7 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get shareCodeTimedOut =>
-      'A kódod most készül. Bármikor megtalálod a Beállítások → Hozam menüben.';
+      'A kódod most készül. Bármikor megtalálod a Beállítások → Ajánlói program menüben.';
 
   @override
   String get referrerCaptureInvalid =>
@@ -7462,7 +7465,7 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get referrerAddLater =>
-      'Később is megadhatod a Beállítások → Hozam menüben (7 napon belül).';
+      'Később is megadhatod a Beállítások → Ajánlói program menüben (7 napon belül).';
 
   @override
   String get referrerSkip => 'Kihagyom, nincs kódom';
@@ -7491,6 +7494,35 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String get recoverFoundOnDevice =>
       'Ezen az eszközön található. Visszaállítás előtt ellenőrizd, hogy az egyenleg stimmel.';
+
+  @override
+  String get recoverOlderVersionSection =>
+      'Egy régebbi verzióból ezen a telefonon';
+
+  @override
+  String get recoverOlderVersionWallet => 'Tárca egy régebbi verzióból';
+
+  @override
+  String get recoverOlderVersionNeedsPin =>
+      'Az adott verzió PIN-kódjával nyílik meg';
+
+  @override
+  String get recoverOlderVersionIcloud => 'Az iCloud kulcskarikán mentve';
+
+  @override
+  String get recoverOlderVersionEnterPin =>
+      'Add meg az adott verzió PIN-kódját';
+
+  @override
+  String get recoverOlderVersionFailed =>
+      'Ezt a másolatot nem sikerült visszaállítani.';
+
+  @override
+  String get restoreRescueOfferBody =>
+      'A Kute egy régebbi verziójából származó tárcamásolatok még ezen a telefonon vannak. Ezeket használod inkább az újrakezdés helyett?';
+
+  @override
+  String get restoreRescueOfferConfirm => 'Mentett másolatok használata';
 
   @override
   String recoverConfirmWallet(String wallet) {
@@ -8115,6 +8147,9 @@ class AppLocalizationsHu extends AppLocalizations {
   String predictTargetPrice(String price) {
     return 'Cél: $price';
   }
+
+  @override
+  String get predictPastRounds => 'Korábbi körök';
 
   @override
   String get predictNoOpenMarketsCategory =>
@@ -10496,6 +10531,9 @@ class AppLocalizationsHu extends AppLocalizations {
   String get portfolioStatAtStake => 'Lekötött összeg';
 
   @override
+  String get portfolioProfitLoss => 'Nyereség és veszteség';
+
+  @override
   String slipCtaAddTo(String side, String amount) {
     String _temp0 = intl.Intl.selectLogic(
       side,
@@ -10643,5 +10681,295 @@ class AppLocalizationsHu extends AppLocalizations {
       },
     );
     return '$_temp0';
+  }
+
+  @override
+  String get investmentsTotal => 'Investments total';
+
+  @override
+  String oneBalanceMovingTo(String amount, String venue) {
+    return '$amount úton ide: $venue';
+  }
+
+  @override
+  String oneBalanceComingBack(String amount, String venue) {
+    return '$amount coming back from $venue';
+  }
+
+  @override
+  String oneBalanceWaitingToWithdraw(String amount) {
+    return '$amount unavailable until balancing completes';
+  }
+
+  @override
+  String oneBalanceIncoming(String amount) {
+    return 'Incoming $amount';
+  }
+
+  @override
+  String slipAddToInvestments(String amount) {
+    return 'Add $amount to Investments';
+  }
+
+  @override
+  String get slipMoveFee => 'Move fee';
+
+  @override
+  String get addMoneyToInvestments => 'Pénz hozzáadása az Investmentshez';
+
+  @override
+  String get depositFromSpendingWallet => 'A költési tárcád';
+
+  @override
+  String depositFromSpendingWalletWithBalance(String amount) {
+    return 'A költési tárcád · $amount';
+  }
+
+  @override
+  String get depositFromAnotherWallet => 'Másik tárca vagy tőzsde';
+
+  @override
+  String get depositFromAnotherWalletSubtitle =>
+      'Kérj egy címet, ahová dollárt küldhetsz';
+
+  @override
+  String get portfolioStatOpenPnl => 'Nyitott nyereség / veszteség';
+
+  @override
+  String stepUpReasonBetReady(String amount) {
+    return '$amount előrejelzés előkészítése';
+  }
+
+  @override
+  String get betMarketClosingNoFunding =>
+      'Ez a piac bezár, mielőtt a pénz megérkezhetne. Semmi sem lett áthelyezve.';
+
+  @override
+  String multiMoveSendTitle(String amount) {
+    return '$amount küldése';
+  }
+
+  @override
+  String multiMoveTitle(String amount, String destination) {
+    return '$amount mozgatása ide: $destination';
+  }
+
+  @override
+  String multiMoveDeliveredRemaining(String delivered, String remaining) {
+    return '$delivered megérkezett · $remaining hátravan';
+  }
+
+  @override
+  String multiMovePurchaseWaiting(String amount, String balance) {
+    return '$amount a(z) $balance egyenlegeden van. Koppints a Bitcoin vásárlásához';
+  }
+
+  @override
+  String multiMoveSendWaiting(String amount, String balance) {
+    return '$amount a(z) $balance egyenlegeden van. A küldés nem ment végbe';
+  }
+
+  @override
+  String get usdReceiveFromYourWallet => 'A tárcádból';
+
+  @override
+  String get usdReceiveFromAnotherWallet => 'Másik tárcából vagy tőzsdéről';
+
+  @override
+  String slipStepAddingToInvestments(String amount) {
+    return '$amount hozzáadása az Investmentshez';
+  }
+
+  @override
+  String get slipStepPreparingPrediction => 'Előkészítjük a tippedet';
+
+  @override
+  String get slipStepPreparingOrder => 'Előkészítjük a megbízásodat';
+
+  @override
+  String slipStepPlacingBet(String amount, String side) {
+    return '$amount feltétele erre: $side';
+  }
+
+  @override
+  String slipStepOpeningOrder(String amount, String side, String market) {
+    return '$amount $side $market nyitása';
+  }
+
+  @override
+  String get slipStepTakingLonger => 'A szokásosnál tovább tart';
+
+  @override
+  String slipFundingReadyToPlace(String amount) {
+    return 'A(z) $amount az Investmentsben van. Koppints a megadáshoz.';
+  }
+
+  @override
+  String get slipFundingBitcoinBack =>
+      'Az Investmentshez adás nem sikerült. A bitcoinod visszaérkezik.';
+
+  @override
+  String get slipFundingPriceMoved => 'Az ár túl gyorsan mozdult.';
+
+  @override
+  String get slipFundingRoundClosed =>
+      'Ez a kör lezárult, mielőtt a pénzed megérkezett.';
+
+  @override
+  String slipFundingInPredictions(String amount) {
+    return 'A(z) $amount az Előrejelzésekben van. Koppints az újrapróbáláshoz.';
+  }
+
+  @override
+  String slipFundingInInvesting(String amount) {
+    return 'A(z) $amount a Befektetésben van. Koppints az újrapróbáláshoz.';
+  }
+
+  @override
+  String oneBalancePlacingBet(String amount, String side, String market) {
+    return '$amount feltétele erre: $side · $market';
+  }
+
+  @override
+  String oneBalanceOpeningOrder(String amount, String market) {
+    return '$amount értékű $market megbízás nyitása';
+  }
+
+  @override
+  String hlMarginStepAdding(String amount, String coin) {
+    return '$amount fedezet hozzáadása: $coin';
+  }
+
+  @override
+  String hlMarginFundingReady(String amount) {
+    return 'A(z) $amount az Investmentsben van. Koppints a fedezet hozzáadásához.';
+  }
+
+  @override
+  String get salWhyMoving => 'Miért mozog?';
+
+  @override
+  String get positionProtectIt => 'Védd meg';
+
+  @override
+  String hlRiskLiquidationLong(String market, String price, String amount) {
+    return 'Ha a(z) $market $price szintre esik, ez a pozíció lezárul, és $amount a veszteséged.';
+  }
+
+  @override
+  String hlRiskLiquidationShort(String market, String price, String amount) {
+    return 'Ha a(z) $market $price szintre emelkedik, ez a pozíció lezárul, és $amount a veszteséged.';
+  }
+
+  @override
+  String polyRiskOutcome(String outcome, String cost, String payout) {
+    return 'Ha a(z) $outcome veszít, $cost a veszteséged; ha nyer, $payout összeget kapsz.';
+  }
+
+  @override
+  String moneyStepMovingFrom(String amount, String source) {
+    return '$amount áthelyezése innen: $source';
+  }
+
+  @override
+  String moneyStepMovedFrom(String amount, String source) {
+    return '$amount áthelyezve innen: $source';
+  }
+
+  @override
+  String moneyStepMovingFromTo(
+      String amount, String source, String destination) {
+    return '$amount áthelyezése: $source → $destination';
+  }
+
+  @override
+  String moneyStepMovedFromTo(
+      String amount, String source, String destination) {
+    return '$amount áthelyezve: $source → $destination';
+  }
+
+  @override
+  String moneyStepMoveFailed(String amount, String source) {
+    return '$amount nem mozdult innen: $source';
+  }
+
+  @override
+  String moneyStepFellBack(String source, String via) {
+    return 'Foglalt az útvonal ($source), kerülő ezen át: $via';
+  }
+
+  @override
+  String moneyStepViaDollars(String source, String via) {
+    return 'Kerülő ezen át: $via ($source)';
+  }
+
+  @override
+  String moneyStepRouteUnavailable(String source, String via) {
+    return 'Az útvonal nem érhető el ($source), kerülő ezen át: $via';
+  }
+
+  @override
+  String moneyStepTooSmallDirect(String source, String via) {
+    return 'Túl kis összeg a közvetlen úthoz ($source), kerülő ezen át: $via';
+  }
+
+  @override
+  String multiMoveOrderWaiting(String amount, String balance) {
+    return '$amount a(z) $balance egyenlegeden van. A megbízás nem ment végbe';
+  }
+
+  @override
+  String get moneyStepConverting => 'Átváltás pUSD-re';
+
+  @override
+  String get moneyStepConverted => 'Átváltva pUSD-re';
+
+  @override
+  String get moneyStepApproving => 'Költés jóváhagyása';
+
+  @override
+  String get moneyStepApproved => 'Költés jóváhagyva';
+
+  @override
+  String get moneyStepConfirming => 'Egyenleg megerősítése';
+
+  @override
+  String get moneyStepConfirmed => 'Egyenleg megerősítve';
+
+  @override
+  String get moneyStepCrediting => 'Jóváírás a kereskedési egyenlegre';
+
+  @override
+  String get moneyStepCredited => 'Jóváírva a kereskedési egyenlegre';
+
+  @override
+  String moneyStepBuying(String amount) {
+    return '$amount értékű Bitcoin vásárlása';
+  }
+
+  @override
+  String moneyStepBought(String amount) {
+    return '$amount értékű Bitcoin megvéve';
+  }
+
+  @override
+  String get moneyStepArriving => 'Érkezik ide: Bitcoin';
+
+  @override
+  String get moneyStepArrived => 'Megérkezett ide: Bitcoin';
+
+  @override
+  String moneyStepSending(String amount) {
+    return '$amount küldése';
+  }
+
+  @override
+  String moneyStepSent(String amount) {
+    return '$amount elküldve';
+  }
+
+  @override
+  String moneyStepCompact(String source, String destination, String amount) {
+    return '$source → $destination · $amount';
   }
 }

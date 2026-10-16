@@ -13,6 +13,7 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/shared/hyperliquid_fee_summary.dart';
 import 'package:kute/screens/shared/money_fee_summary.dart';
 import 'package:kute/screens/shared/polymarket_fee_summary.dart';
+import 'package:kute/services/polymarket/polymarket_fee_terms.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:money2/money2.dart';
 
@@ -95,7 +96,8 @@ void main() {
         overrides: [
           currencyProvider.overrideWith((ref) => _CurrencyNotifier(
               {'BTC': Fixed.parse('0.00001', decimalDigits: 8)})),
-          orchestraFeeEstimateProvider(route).overrideWith((_) async => quote),
+          orchestraFeeEstimateProvider(feeEstimateKey(route))
+              .overrideWith((_) async => quote),
         ]));
     await tester.pumpAndSettle();
     // The headline is what does not arrive, not the declared fees.
@@ -138,7 +140,8 @@ void main() {
     await tester.pumpWidget(_host(
         const OrchestraFeeSummary(route: route, bitcoinFirst: false),
         overrides: [
-          orchestraFeeEstimateProvider(route).overrideWith((_) async => quote),
+          orchestraFeeEstimateProvider(feeEstimateKey(route))
+              .overrideWith((_) async => quote),
         ]));
     await tester.pumpAndSettle();
     expect(find.text('Shown before you confirm'), findsOneWidget);
@@ -217,6 +220,83 @@ void main() {
     expect(find.text('Add funds to continue'), findsNWidgets(2));
     expect(find.text('Enter an amount'), findsNothing);
     expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a move fee is folded into the venue fee row, one detail',
+      (tester) async {
+    const terms = PolymarketFeeTerms(
+        rate: 0.03, exponent: 1, builderTakerBps: 20, builderMakerBps: 0);
+    await tester.pumpWidget(_host(
+        const Column(mainAxisSize: MainAxisSize.min, children: [
+          // 40 shares at 50c: $0.30 to Polymarket, $0.04 to Kute, plus
+          // the $1.03 move = $1.37 in the one row.
+          PolymarketFeeSummary(
+              tokenId: 'yes',
+              shares: 40,
+              price: 0.5,
+              bitcoinFirst: false,
+              showNote: false,
+              moveFeeUsd: 1.03),
+          // No Kute fee on this one and no account to price the exchange
+          // fee: the move is the whole figure.
+          HyperliquidFeeSummary(
+              notional: 20,
+              spot: false,
+              buy: true,
+              builder: false,
+              useHotAccount: false,
+              moveFeeUsd: 1.03),
+        ]),
+        overrides: [
+          polymarketFeeTermsProvider.overrideWith((ref, _) async => terms),
+        ]));
+    await tester.pumpAndSettle();
+    expect(find.text('Estimated fee'), findsNWidgets(2));
+    expect(find.text(r'$1.37'), findsOneWidget);
+    expect(find.text(r'$1.03'), findsOneWidget);
+    expect(find.text('Move fee'), findsNothing);
+    await tester.tap(find.text(r'$1.37'));
+    await tester.tap(find.text(r'$1.03'));
+    await tester.pumpAndSettle();
+    expect(find.text('Move fee'), findsNWidgets(2));
+    expect(find.text('Polymarket fee'), findsOneWidget);
+    expect(find.text('Exchange fee estimate'), findsOneWidget);
+    expect(find.text(r'$1.03'), findsNWidgets(3));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a move whose cost is still being read holds the fee row',
+      (tester) async {
+    const terms = PolymarketFeeTerms(
+        rate: 0.03, exponent: 1, builderTakerBps: 20, builderMakerBps: 0);
+    await tester.pumpWidget(_host(
+        const Column(mainAxisSize: MainAxisSize.min, children: [
+          PolymarketFeeSummary(
+              tokenId: 'yes',
+              shares: 40,
+              price: 0.5,
+              bitcoinFirst: false,
+              showNote: false,
+              moveFeePending: true),
+          HyperliquidFeeSummary(
+              notional: 20,
+              spot: false,
+              buy: true,
+              builder: false,
+              useHotAccount: false,
+              moveFeePending: true),
+        ]),
+        overrides: [
+          polymarketFeeTermsProvider.overrideWith((ref, _) async => terms),
+        ]));
+    // "Calculating…" spins, so settle by hand: the terms arrive on the
+    // next frame.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.text('Calculating…'), findsNWidgets(2));
+    expect(find.text(r'$0.34'), findsNothing);
+    expect(find.text(r'$0.00'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 

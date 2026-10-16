@@ -14,6 +14,10 @@ enum SecretErrorClass {
   noSecureLock,
   keyInvalidated,
   decode,
+
+  /// iOS `errSecDuplicateItem` (-25299): an add found an item the query
+  /// could not see, typically one stored with another accessibility.
+  duplicateItem,
   unknown;
 
   bool get isDefinitive =>
@@ -39,7 +43,18 @@ SecretErrorClass classifySecretError(Object error, {TargetPlatform? platform}) {
   }
 }
 
+/// iOS `errSecDuplicateItem` (-25299, "The specified item already exists in
+/// the keychain"), whatever platform the test or process reports.
+bool isDuplicateItemError(Object error) {
+  if (error is! PlatformException) return false;
+  final details = error.details;
+  final status = details is int ? details : int.tryParse('$details');
+  return status == -25299 ||
+      (error.message ?? '').toLowerCase().contains('already exists');
+}
+
 SecretErrorClass _classifyDarwin(PlatformException error) {
+  if (isDuplicateItemError(error)) return SecretErrorClass.duplicateItem;
   final details = error.details;
   final status = details is int ? details : int.tryParse('$details');
   switch (status) {

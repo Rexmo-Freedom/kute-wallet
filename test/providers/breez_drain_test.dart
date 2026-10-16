@@ -131,7 +131,6 @@ void main() {
     late _Sdk sdk;
     late _Wrapper wrapper;
     late ProviderContainer container;
-    var syncFails = false;
 
     setUpAll(() {
       registerFallbackValue(PrepareSendPaymentRequest(
@@ -145,13 +144,9 @@ void main() {
     setUp(() {
       sdk = _Sdk();
       wrapper = _Wrapper();
-      syncFails = false;
       when(() => wrapper.instance).thenAnswer((_) => sdk);
       when(() => sdk.syncWallet(request: any(named: 'request')))
-          .thenAnswer((_) async {
-        if (syncFails) throw Exception('offline');
-        return const SyncWalletResponse();
-      });
+          .thenAnswer((_) async => const SyncWalletResponse());
       when(() => sdk.getInfo(request: any(named: 'request'))).thenAnswer(
           (_) async => GetInfoResponse(
               identityPubkey: 'pk',
@@ -164,35 +159,32 @@ void main() {
     });
     tearDown(() => container.dispose());
 
-    for (final syncFailure in [false, true]) {
-      test(
-          'on-chain 100% sends the synced balance with fees included; '
-          'sync failure=$syncFailure', () async {
-        syncFails = syncFailure;
-        when(() => sdk.parse(input: any(named: 'input'))).thenAnswer(
-            (_) async => InputType.bitcoinAddress(_BitcoinAddress()));
-        when(() => sdk.prepareSendPayment(request: any(named: 'request')))
-            .thenAnswer((_) async => _onchain(100000, FeePolicy.feesIncluded));
+    test(
+        'on-chain 100% sends the cached balance with fees included, '
+        'without waiting for a sync', () async {
+      when(() => sdk.parse(input: any(named: 'input'))).thenAnswer(
+          (_) async => InputType.bitcoinAddress(_BitcoinAddress()));
+      when(() => sdk.prepareSendPayment(request: any(named: 'request')))
+          .thenAnswer((_) async => _onchain(100000, FeePolicy.feesIncluded));
 
-        final prepared = await container.read(prepareGenericPaymentProvider((
-          destination: 'bc1qtest',
-          // The placeholder the chip wrote; a drain ignores it.
-          amountSats: 0,
-          isDraining: true,
-        )).future);
+      final prepared = await container.read(prepareGenericPaymentProvider((
+        destination: 'bc1qtest',
+        // The placeholder the chip wrote; a drain ignores it.
+        amountSats: 0,
+        isDraining: true,
+      )).future);
 
-        verify(() => sdk.syncWallet(request: any(named: 'request'))).called(1);
-        final request = verify(() =>
-                sdk.prepareSendPayment(request: captureAny(named: 'request')))
-            .captured
-            .single as PrepareSendPaymentRequest;
-        expect(request.amount, BigInt.from(100000));
-        expect(request.feePolicy, FeePolicy.feesIncluded);
-        expect(
-            sparkPreparedRecipientSats(prepared, OnchainConfirmationSpeed.slow),
-            99600);
-      });
-    }
+      verifyNever(() => sdk.syncWallet(request: any(named: 'request')));
+      final request = verify(() =>
+              sdk.prepareSendPayment(request: captureAny(named: 'request')))
+          .captured
+          .single as PrepareSendPaymentRequest;
+      expect(request.amount, BigInt.from(100000));
+      expect(request.feePolicy, FeePolicy.feesIncluded);
+      expect(
+          sparkPreparedRecipientSats(prepared, OnchainConfirmationSpeed.slow),
+          99600);
+    });
 
     test('a typed on-chain amount is sent as typed, fees on top', () async {
       when(() => sdk.parse(input: any(named: 'input'))).thenAnswer(
@@ -266,7 +258,7 @@ void main() {
       expect(request.feePolicy, FeePolicy.feesIncluded);
     });
 
-    test('amountless invoice 100% sends the synced balance, fees included',
+    test('amountless invoice 100% sends the cached balance, fees included',
         () async {
       final invoice = _Invoice();
       when(() => invoice.amountMsat).thenReturn(null);
@@ -287,7 +279,7 @@ void main() {
         comment: null,
         isDraining: true,
       )).future);
-      verify(() => sdk.syncWallet(request: any(named: 'request'))).called(1);
+      verifyNever(() => sdk.syncWallet(request: any(named: 'request')));
       final request = verify(() =>
               sdk.prepareSendPayment(request: captureAny(named: 'request')))
           .captured

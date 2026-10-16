@@ -2,6 +2,7 @@ import 'package:kute/services/secure/storage_bootstrap.dart';
 import 'package:kute/helpers/session_auth.dart';
 import 'package:kute/providers/auth_provider.dart';
 import 'package:kute/services/secure/biometric_pin_policy.dart';
+import 'package:kute/services/secure/secret_error_class.dart';
 import 'package:kute/providers/words_provider.dart';
 import 'package:kute/screens/creation/set_pin.dart'; // Contains pinProvider & PinProgressIndicator
 import 'package:kute/screens/recovery/restore_secrets_screen.dart';
@@ -25,7 +26,7 @@ class ConfirmPin extends ConsumerStatefulWidget {
   const ConfirmPin({super.key});
 
   @override
-  _ConfirmPinState createState() => _ConfirmPinState();
+  ConsumerState<ConfirmPin> createState() => _ConfirmPinState();
 }
 
 class _ConfirmPinState extends ConsumerState<ConfirmPin>
@@ -123,8 +124,12 @@ class _ConfirmPinState extends ConsumerState<ConfirmPin>
       }
     } catch (e, st) {
       final category = TrackingService.errorCategory(e);
+      // `error_category` has no keychain vocabulary (it reads `unknown`
+      // for every storage failure); `error_class` names the OSStatus /
+      // Keystore class so a duplicate-item collision is tellable apart.
       TrackingService.track('pin_set_failed', params: {
         'error_category': category,
+        'error_class': classifySecretError(e).name,
         'path': _path,
       });
       TrackingService.recordHandled(category, e, st,

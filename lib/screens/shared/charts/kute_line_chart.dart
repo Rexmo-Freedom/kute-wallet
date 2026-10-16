@@ -45,7 +45,10 @@
 //     height, never the chart's;
 //   * an optional one-time zoom nudge ([KuteLineChart.zoomHint],
 //     kute_chart_zoom_hint.dart): the first zoomable chart a person ever
-//     sees zooms in a little and back out, once.
+//     sees zooms in a little and back out, once;
+//   * an optional overlay over the line ([KuteLineChart.plotOverlay]),
+//     built for the window on screen, so a mark on the chart's scale
+//     follows every pan and pinch.
 //
 // Painters here never read Theme — the widget resolves colors once per
 // build and hands them down.
@@ -199,6 +202,11 @@ class KuteLineChart extends StatefulWidget {
   /// chart zooms and has enough points.
   final bool zoomHint;
 
+  /// Drawn over the line (under the scrub crosshair, never taking touches)
+  /// for the window on screen, so a mark on the chart's scale (the P&L
+  /// chart's dashed baseline) follows every pan, pinch and the nudge.
+  final Widget Function(KuteIndexWindow window)? plotOverlay;
+
   const KuteLineChart({
     super.key,
     required this.values,
@@ -227,6 +235,7 @@ class KuteLineChart extends StatefulWidget {
     this.viewResetKey,
     this.timeAxis,
     this.zoomHint = false,
+    this.plotOverlay,
   });
 
   bool get interactive => onScrub != null || valueTextBuilder != null;
@@ -553,6 +562,10 @@ class _KuteLineChartState extends State<KuteLineChart>
                 ),
               ),
             ),
+            if (widget.plotOverlay != null)
+              Positioned.fill(
+                child: IgnorePointer(child: widget.plotOverlay!(window)),
+              ),
             if (widget.interactive)
               Positioned.fill(
                 child: KuteChartCrosshair(

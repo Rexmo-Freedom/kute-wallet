@@ -133,13 +133,19 @@ void main() {
       );
       expect(
         RegExp(
-          r"if \(cashAppOffered\(policy\)\)\s*_PickerRow\(\s*"
+          r"if \(cashAppOffered\(policy\)\)\s*MovePickerRow\(\s*"
           r"asset: 'lib/assets/cashapp-logo\.svg',",
         ).hasMatch(source),
         isTrue,
       );
-      expect(source,
-          contains('hint: (policy) => pickerHint(cashAppOffered(policy))'));
+      // The hint follows the same answer (the Investments deposit draws
+      // no hint at all).
+      expect(
+        RegExp(r"hint: \(policy\) =>\s*investmentsDeposit \? '' : "
+                r'pickerHint\(cashAppOffered\(policy\)\)')
+            .hasMatch(source),
+        isTrue,
+      );
       // The one answer is the policy helper: no bank row, and no other
       // condition can list a withheld Cash App.
       expect(

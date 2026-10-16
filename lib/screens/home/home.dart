@@ -12,7 +12,9 @@ import 'dart:ui';
 import 'package:kute/providers/auth_provider.dart';
 import 'package:kute/services/passkey_service.dart';
 import 'package:kute/providers/balance_provider.dart';
+import 'package:kute/providers/balance_snapshot_provider.dart';
 import 'package:kute/providers/claim_auto_fire.dart';
+import 'package:kute/providers/venue_sweeper_provider.dart';
 import 'package:kute/providers/pending_bet_autofire.dart';
 import 'package:kute/providers/placing_polymarket_bet_provider.dart';
 import 'package:kute/screens/home/components/deposit_sheet.dart'
@@ -24,7 +26,7 @@ import 'package:kute/providers/polymarket_browse_provider.dart';
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/home_view_scope_provider.dart';
-import 'package:kute/providers/kute_state_provider.dart';
+import 'package:kute/providers/refresh_everything_provider.dart';
 import 'package:kute/providers/viewed_wallet_provider.dart';
 import 'package:kute/helpers/formatters/currency_formatter.dart';
 import 'package:kute/providers/nav_bar_visibility_provider.dart';
@@ -45,7 +47,6 @@ import 'package:kute/screens/home/components/wallet_cards.dart';
 import 'package:kute/screens/home/home_wallet_switcher.dart';
 import 'package:kute/screens/activity/activity_history_screen.dart';
 import 'package:kute/screens/shared/transactions_builder.dart';
-import 'package:kute/providers/background_sync_provider.dart';
 import 'package:kute/providers/breez_config_provider.dart'
     show breezSDKProvider;
 import 'package:kute/screens/shared/kute_skeleton.dart';
@@ -247,7 +248,8 @@ class _HomeState extends ConsumerState<Home> with TickerProviderStateMixin {
       await provisionPolymarketAccount(
           mnemonic: mnemonic,
           walletId: wallet.id,
-          evmDerivationVersion: wallet.evmDerivationVersion);
+          evmDerivationVersion: wallet.evmDerivationVersion,
+          evmFormatPending: wallet.evmFormatCheckPending);
     } catch (_) {
       // Silent — will be retried when user opens Polymarket screen
     }
@@ -398,51 +400,13 @@ class _HomeState extends ConsumerState<Home> with TickerProviderStateMixin {
     return false;
   }
 
-  Future<void> _handleRefresh() async {
-    // Pull-to-refresh: clear the stream-fresh guard so the next poll's
-    // balance write is accepted, then run a full sync. Users hit this
-    // when their balance looks wrong and they want a forced re-fetch.
-    // Drive the mascot into `refreshing` while the sync is in flight.
-    TrackingService.pullToRefreshExecuted(screen: 'home');
-    ref.read(kuteStateProvider.notifier).setRefreshing(true);
-    try {
-      ref.read(balanceNotifierProvider.notifier).invalidateStreamFreshness();
-    } catch (_) {}
-    // Drop the cached predictions feed so the markets list re-fetches
-    // alongside the balance/positions. `polymarketTradingProvider.refresh()`
-    // (called by performFullUpdate) only re-pulls positions + USDC
-    // balance — the events family lives on a separate fetch path.
-    try {
-      ref.invalidate(polymarketEventsProvider);
-    } catch (_) {}
-    // Fire the heavy sync but cap how long the spinner stays up. The
-    // RefreshIndicator hides the moment THIS future resolves. We were
-    // awaiting `performFullUpdate` directly — if any of its 8 inner
-    // fetches silently hung (Breez SDK in a bad state, an external
-    // API stuck), the spinner stuck with it. Capping at 4 s gives the
-    // user a "we tried" affordance; the sync continues running in the
-    // background and the cache notifier updates the UI when it lands.
-    final syncFuture = () async {
-      try {
-        await ref
-            .read(backgroundSyncNotifierProvider.notifier)
-            .performFullUpdate();
-      } catch (_) {}
-    }();
-    try {
-      await syncFuture.timeout(const Duration(seconds: 4));
-    } catch (_) {
-      // Timeout — sync is still running, just stop blocking the
-      // spinner. Provider notifications will update the UI when
-      // results arrive.
-    }
-    // The user can pull-to-refresh then immediately navigate away (or the
-    // wallet can switch) during the up-to-4s await above, disposing this
-    // widget. Touching `ref` after that throws
-    // `StateError: Cannot use "ref" after the widget was disposed`.
-    if (!mounted) return;
-    ref.read(kuteStateProvider.notifier).setRefreshing(false);
-  }
+  /// Pull-to-refresh is "update everything", the same function every
+  /// Investments pull runs ([RefreshEverything.home]): balances and one
+  /// Breez sync, the full background sync, Predictions, Investing and the
+  /// Portfolio, in parallel, with the spinner capped at 4 s while the rest
+  /// lands, and the mascot in `refreshing` meanwhile. It runs on the
+  /// provider's ref, so leaving Home mid-pull is safe.
+  Future<void> _handleRefresh() => ref.read(refreshEverythingProvider).home();
 
   @override
   Widget build(BuildContext context) {
@@ -462,6 +426,11 @@ class _HomeState extends ConsumerState<Home> with TickerProviderStateMixin {
     // soon as they turn redeemable (user decision: auto-claim is back,
     // the Claim tap is no longer required).
     ref.read(claimAutoFireProvider);
+    // The swap-back sweeper — brings idle venue cash home to Dollars on
+    // every close, claim, cancel, resume and heartbeat, under the
+    // never-sweep rules; and the once-per-session balance snapshot.
+    ref.read(venueSweeperProvider);
+    ref.read(balanceSnapshotReporterProvider);
 
     final (activeWallet, country) =
         ref.watch(settingsProvider.select((s) => (s.activeWallet, s.country)));
@@ -896,6 +865,20 @@ class _ActivitySection extends ConsumerWidget {
   }
 }
 
+/// Whether the hero balance shows the loading shimmer instead of a figure:
+/// only while the Breez SDK is still connecting, nothing is cached for
+/// the wallet and the wallet was not created fresh on this device. A
+/// cached balance (a cached 0 included) and a brand-new wallet (known
+/// to be 0) render the figure at once; a wallet that may hold a balance
+/// but has no cache yet waits for the SDK.
+bool heroBalanceShowsSkeleton({
+  required bool breezWaking,
+  required int btcSats,
+  required bool hasCachedBalance,
+  required bool createdEmpty,
+}) =>
+    breezWaking && btcSats == 0 && !hasCachedBalance && !createdEmpty;
+
 /// Shimmer placeholder for the hero balance while the Breez SDK is
 /// still connecting and no cached balance exists. Mirrors the Receive
 /// screen's QR shimmer palette so "loading" reads the same everywhere.
@@ -1088,22 +1071,38 @@ class _BitcoinAccountFrontState extends ConsumerState<_BitcoinAccountFront>
     final btcSats =
         balanceState.sparkBitcoinbalance + balanceState.onChainBtcBalance;
     // Wallet still waking up: while the Breez SDK is connecting AND we
-    // have nothing cached to show (a genuinely-zero fresh wallet or a
-    // cold boot before the balance cache hydrates), render a shimmer
-    // skeleton instead of a blank/0 hero. Same treatment as the QR
-    // placeholder on Receive, adapted to the balance (user decision).
-    // Once the SDK resolves, a real 0 renders as a real 0. Watching is
-    // subscribe-only here: `completeUnlock` primes the connect on every
-    // unlock path, so this never initiates it.
+    // have nothing to show, render a shimmer skeleton instead of a
+    // blank/0 hero. Same treatment as the QR placeholder on Receive,
+    // adapted to the balance (user decision). A cached 0 and a wallet
+    // created fresh on this device (its balance is known to be 0) are
+    // something to show: they render as a real 0 at once; only a wallet
+    // that may hold a balance but has no cache yet (a restore, a cold
+    // boot before the cache hydrates) waits. Watching is subscribe-only
+    // here: `completeUnlock` (and creation) primes the connect, so this
+    // never initiates it.
     final breezWaking = ref.watch(breezSDKProvider).isLoading;
-    if (breezWaking && btcSats == 0) {
+    final activeId =
+        ref.watch(settingsProvider.select((s) => s.activeWalletId));
+    final createdEmpty = ref.watch(
+        settingsProvider.select((s) => s.activeWallet?.createdEmpty ?? false));
+    final hasCachedBalance = ref.watch(walletBalanceCacheProvider
+        .select((cache) => activeId != null && cache.containsKey(activeId)));
+    if (heroBalanceShowsSkeleton(
+      breezWaking: breezWaking,
+      btcSats: btcSats,
+      hasCachedBalance: hasCachedBalance,
+      createdEmpty: createdEmpty,
+    )) {
       return const _HeroBalanceSkeleton();
     }
     // First real balance of this process (once; the key is consumed).
-    // `source` says whether the cached balance or the live SDK got the
-    // number on screen. Deferred to after paint; no amount is sent.
+    // `source` says whether the cached balance, the live SDK or the
+    // known-empty new wallet got the number on screen. Deferred to after
+    // paint; no amount is sent.
     if (LatencyTracker.isRunning(LatencyKeys.balanceLoaded)) {
-      final source = breezWaking ? 'cache' : 'sdk';
+      final source = !breezWaking
+          ? 'sdk'
+          : (hasCachedBalance ? 'cache' : 'new_wallet');
       WidgetsBinding.instance.addPostFrameCallback((_) {
         LatencyTracker.stop(LatencyKeys.balanceLoaded,
             params: {'source': source});
@@ -1279,7 +1278,7 @@ class _HomeActions extends ConsumerWidget {
             activeWallet.isWatchOnly ||
             activeWallet.isExternalAddress);
     final isUsdc = !isCold && selectedAsset == WalletCardType.usdc;
-    void fundPredictions(bool deposit) {
+    Future<void> fundPredictions(bool deposit) async {
       if (activeWallet == null ||
           ref.read(settingsProvider).activeWalletId != activeWallet.id) {
         showMessageSnackBar(
@@ -1288,9 +1287,12 @@ class _HomeActions extends ConsumerWidget {
             error: true);
         return;
       }
-      final decision = ref
-          .read(runtimeCapabilitiesProvider)
-          .decision('polymarket.${deposit ? 'deposit' : 'withdraw'}');
+      // A refusal is asked again before it is shown (a stale region
+      // answer from another network never shuts the door).
+      final capability = 'polymarket.${deposit ? 'deposit' : 'withdraw'}';
+      final decision = await confirmCapability(
+          ref.read(runtimeCapabilitiesProvider), capability);
+      if (!context.mounted) return;
       if (!decision.allowed) {
         TrackingService.track('feature_unavailable_shown', params: {
           'feature': deposit ? 'predictions_deposit' : 'predictions_withdraw',
@@ -1299,8 +1301,13 @@ class _HomeActions extends ConsumerWidget {
               : 'capability_disabled',
           'surface': 'home_dock',
         });
-        showCapabilityDecisionSheet(context, decision);
-        return;
+        // A region refusal's "Check connection" that finds the door open
+        // goes on into the Move.
+        if (!await showCapabilityDecisionSheet(context, decision,
+                capability: capability) ||
+            !context.mounted) {
+          return;
+        }
       }
       showDepositSheet(context,
           lockedSide: deposit
@@ -1329,7 +1336,7 @@ class _HomeActions extends ConsumerWidget {
                         onTap: () => Navigator.of(context, rootNavigator: true)
                             .push(MaterialPageRoute(
                                 builder: (_) => const OpenInvestmentsScreen(
-                                    product: InvestmentsProduct.predictions)))),
+                                    source: 'home')))),
                     KuteDockAction(
                         icon: Icons.north_east_rounded,
                         label: context.l10n.withdraw,

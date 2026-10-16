@@ -135,12 +135,14 @@ void main() {
       expect(tester.getSize(find.byType(MarketChart)).height, 200);
       expect(tester.getSize(find.byType(KuteTimeAxis)).height,
           kKuteTimeAxisHeight);
-      // At the plot's two edges.
+      // At the plot's left edge and where the line ends, before the tag
+      // column (as far past the line's end as the old right margin, 12).
       final chart = tester.getRect(find.byType(MarketChart));
       final s = tester.getRect(find.byKey(const ValueKey('kute-time-axis-start')));
       final e = tester.getRect(find.byKey(const ValueKey('kute-time-axis-end')));
+      final gutter = polyChartTagStyle([''], chart.width).gutter;
       expect(s.left, closeTo(chart.left, 0.5));
-      expect(e.right, closeTo(chart.right, 0.5));
+      expect(e.right, closeTo(chart.right - gutter + 12, 0.5));
       expect(tester.takeException(), isNull);
     });
 
@@ -180,6 +182,10 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
       expect(_end(tester), isNot('Now'));
       expect(_end(tester), matches(RegExp(r'^\d{2}:\d{2}$')));
+      // Away from the live edge there is no tag, so no tag column: the
+      // axis ends at the plot's right edge, as the lines do.
+      final e = tester.getRect(find.byKey(const ValueKey('kute-time-axis-end')));
+      expect(e.right, closeTo(rect.right, 0.5));
       expect(tester.takeException(), isNull);
     });
 

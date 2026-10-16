@@ -39,6 +39,8 @@ import 'package:kute/services/funding/settlement_store.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/services/orchestra_routes.dart'
     show claimOrderTerminalAnalytics, isOrchestraUsdLikeCoin;
+import 'package:kute/services/hyperliquid/cctp_withdrawal.dart'
+    show hypercoreCctpWithdrawalProvider;
 import 'package:kute/services/hyperliquid/hypercore_transfer_proof.dart';
 
 /// A completed full Spark SDK sync the payment lookup can count.
@@ -210,6 +212,7 @@ final settlementReconcilerProvider =
     sessionUnlocked: () => ref.read(sessionUnlockedProvider),
     sparkPayments: sparkPayments,
     activityRows: _SwapOrderActivityRows(ref),
+    cctp: (op) => ref.read(hypercoreCctpWithdrawalProvider).reconcile(op),
   );
   final synced =
       BreezSdkSpark().syncedStream.listen((_) => sparkPayments.onSynced());
@@ -246,7 +249,9 @@ class SettlementReconcilerDriver {
     Future<SettlementStore> Function() store = SettlementStore.shared,
     BitcoinChainReader? bitcoinChain,
     RelayerTransactionReader? relayerState,
+    Future<void> Function(SettlementOperation op)? cctp,
   })  : _sessionUnlocked = sessionUnlocked,
+        _cctp = cctp,
         _sparkPayments = sparkPayments,
         _activityRows = activityRows,
         _clock = clock,
@@ -274,6 +279,11 @@ class SettlementReconcilerDriver {
   final SettlementActivityRows? _activityRows;
   final DateTime Function() _clock;
   final Future<SettlementStore> Function() _store;
+
+  /// One pass of the Investing → Dollars CCTP watcher for an operation of
+  /// that flow. Those operations have no quote and no submit, so the
+  /// Orchestra ladder below never sees them.
+  final Future<void> Function(SettlementOperation op)? _cctp;
   DateTime _foregroundedAt;
   Future<void>? _inFlight;
 
@@ -300,6 +310,10 @@ class SettlementReconcilerDriver {
     }
     for (final op in pending) {
       try {
+        if (op.flow.isInvestingCctp) {
+          await _cctp?.call(op);
+          continue;
+        }
         await _reconcile(store, op, visible: visible);
       } catch (_) {
         // One operation's failure never stops the others.
@@ -431,7 +445,7 @@ class SettlementReconcilerDriver {
             walletKind: walletKind,
             amountUsd: amountUsd,
           );
-          _reportVenueTerminal(op, result.stage, walletKind, amountUsd);
+          reportVenueTerminal(op, result.stage, walletKind, amountUsd);
         case SettlementReconcileSignal.regressionIgnored:
           break;
       }
@@ -453,9 +467,13 @@ class SettlementReconcilerDriver {
   };
 
   /// The real Investing (HyperCore) funding outcome, on the operation's
-  /// terminal signal. The Move sheet only reports initiated/submitted.
-  /// Claimed once per operation so overlapping reconciles cannot double it.
-  void _reportVenueTerminal(SettlementOperation op, SettlementStage stage,
+  /// terminal signal. The Move sheet and the sweeper only report
+  /// initiated/submitted. Every flow here is the direct route, so both
+  /// withdraw outcomes carry `route: direct` (the CCTP watcher reports its
+  /// own with `route: cctp`). Claimed once per operation so overlapping
+  /// reconciles cannot double it.
+  @visibleForTesting
+  void reportVenueTerminal(SettlementOperation op, SettlementStage stage,
       String walletKind, double? amountUsd) {
     final deposit = _investingDepositFlows.contains(op.flow);
     final withdraw = _investingWithdrawFlows.contains(op.flow);
@@ -501,6 +519,7 @@ class SettlementReconcilerDriver {
     } else {
       TrackingService.hyperliquidWithdrawFailed(
         reason: stage.name,
+        route: 'direct',
         amountUsd: amountUsd,
         destination: destination,
         walletKind: walletKind,

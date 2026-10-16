@@ -56,7 +56,8 @@ class _Trading extends PolymarketTradingNotifier {
 class _ThinBookController extends PolymarketBetController {
   _ThinBookController(super.ref);
   @override
-  Future<PendingBetIntent> prepareIntent(PendingBetIntent intent) async {
+  Future<PendingBetIntent> prepareIntent(PendingBetIntent intent,
+      {bool requireFreshCollateral = false}) async {
     final book = parsePolymarketOrderBook({
       'market': 'm',
       'asset_id': intent.tokenId,
@@ -79,7 +80,8 @@ class _ThinBookController extends PolymarketBetController {
   Future<AuthGrantException?> place(String mode,
       {required AuthGrant grant,
       bool successHaptic = true,
-      String? entrySource}) {
+      String? entrySource,
+      bool requireFreshCollateral = false}) {
     throw StateError('a stake the book cannot fill must not be placed');
   }
 }
@@ -88,7 +90,8 @@ class _CaptureController extends PolymarketBetController {
   _CaptureController(super.ref);
   final tokens = <String>[];
   @override
-  Future<PendingBetIntent> prepareIntent(PendingBetIntent intent) async {
+  Future<PendingBetIntent> prepareIntent(PendingBetIntent intent,
+      {bool requireFreshCollateral = false}) async {
     tokens.add(intent.tokenId);
     throw StateError('captured');
   }

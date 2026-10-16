@@ -57,6 +57,10 @@ import 'package:kute/screens/shared/kute_dog_scenes.dart';
 import 'package:kute/services/investment_provider_availability.dart'
     show ProviderAvailabilityException, ProviderAvailabilityStatus;
 import 'package:kute/services/polymarket/polymarket_category_gate.dart';
+import 'package:kute/screens/shared/rubber_band_progress.dart';
+import 'package:kute/services/region_freshness.dart';
+import 'package:kute/services/success_feedback.dart'
+    show moneyFailureFeedbackAfterBand;
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
@@ -209,14 +213,26 @@ class _PortfolioBuilderScreenState
   /// The blocked state was counted once.
   bool _blockTracked = false;
 
+  /// "Check connection" is asking the venues and the policy again.
+  bool _checkingConnection = false;
+
   @override
   void initState() {
     super.initState();
     if (_isPredictions) {
       unawaited(_resolveOpenGate());
+      // A refusal worked out at open belongs to the network it was asked
+      // on: after a resume, a network or VPN change, or a venue answer
+      // that flipped, the gate asks again and lifts it when it is gone.
+      RegionFreshness.answers.addListener(_onRegionAnswers);
     } else {
       _gateAnswered = true;
     }
+  }
+
+  void _onRegionAnswers() {
+    if (!mounted || _gateMessage == null || _runOnScreen) return;
+    unawaited(_resolveOpenGate());
   }
 
   Future<void> _resolveOpenGate() async {
@@ -248,6 +264,32 @@ class _PortfolioBuilderScreenState
       _gateRegion = region;
       _gateCapability = capability;
     });
+  }
+
+  /// "Check connection" on a region block (founder decision, October
+  /// 2026): the person says their connection changed, so the venues and
+  /// Kute's policy are asked again ([RegionFreshness.checkConnection]).
+  /// Allowed now: the block goes and the Builder opens where it would
+  /// have. Still restricted: it stays, with the soft failure tap, and the
+  /// button can be tapped again. A check that could not be made never
+  /// shows restricted.
+  Future<void> _checkConnection() async {
+    if (_checkingConnection) return;
+    setState(() => _checkingConnection = true);
+    await RegionFreshness.checkConnection();
+    if (!mounted) return;
+    if (!RegionFreshness.regionRefused(capabilities: _kOpenCapabilities)) {
+      setState(() {
+        _checkingConnection = false;
+        _gateMessage = null;
+        _gateRegion = false;
+      });
+      // The rest of the opening gate, as when the Builder opened.
+      unawaited(_resolveOpenGate());
+      return;
+    }
+    setState(() => _checkingConnection = false);
+    moneyFailureFeedbackAfterBand(() => mounted && _checkingConnection);
   }
 
   /// A run that passed its own place-time gate is on screen: its state
@@ -317,6 +359,9 @@ class _PortfolioBuilderScreenState
 
   @override
   void dispose() {
+    if (_isPredictions) {
+      RegionFreshness.answers.removeListener(_onRegionAnswers);
+    }
     _searchCtrl.dispose();
     super.dispose();
   }
@@ -410,11 +455,13 @@ class _PortfolioBuilderScreenState
   String? get _depositBlock =>
       ref.watch(runtimeCapabilitiesProvider).blockReason(_depositCapability);
 
-  void _deposit() {
+  Future<void> _deposit() async {
     // A withheld deposit capability opens nothing: the door is already
-    // disabled, and a tap racing the policy change must not slip through.
-    final policy = ref.read(runtimeCapabilitiesProvider);
-    if (policy.blockReason(_depositCapability) != null) return;
+    // disabled, and a tap racing the policy change must not slip through
+    // (a refusal is asked again first, [confirmCapability]).
+    final decision = await confirmCapability(
+        ref.read(runtimeCapabilitiesProvider), _depositCapability);
+    if (!mounted || !decision.allowed || decision.comingSoon) return;
     showDepositSheet(context,
         ledgerWalletId: widget.ledgerWalletId,
         lockedSide: _isPredictions
@@ -825,13 +872,14 @@ class _PortfolioBuilderScreenState
       runApproval.close();
     }
 
-    // Aggregate outcome event. Amounts leave the device bucketed only.
+    // Aggregate outcome event: exact total_usd beside the legacy bucket.
     TrackingService.track('builder_placed', params: {
       'pool': _poolParam,
       'legs': _total,
       'placed': _done,
       'failed': _failed,
       'total_bucket': TrackingService.usdBucket(_runTotal),
+      ...TrackingService.exactUsd('total_usd', _runTotal),
       // Exact fee shown on the review (Kute's fee across the legs, plus the
       // venue's taker estimate when the account's rate was known).
       if (runFee?.kute != null)
@@ -993,6 +1041,7 @@ class _PortfolioBuilderScreenState
           'placed': _done,
           'paused': _paused,
           'total_bucket': TrackingService.usdBucket(_runTotal),
+          ...TrackingService.exactUsd('total_usd', _runTotal),
         });
       }
     }
@@ -1214,10 +1263,23 @@ class _PortfolioBuilderScreenState
         ),
         _bottomArea(
           c,
-          child: AppButton(
-            text: l10n.close,
-            onPressed: () => Navigator.of(context).maybePop(),
-          ),
+          // A region block's one button asks again, never a dead one; the
+          // back button still leaves.
+          child: region
+              ? RubberBandBusy(
+                  busy: _checkingConnection,
+                  expected: const Duration(seconds: 2),
+                  child: AppButton(
+                    key: const ValueKey('builder-check-connection'),
+                    text: l10n.checkConnection,
+                    isLoading: _checkingConnection,
+                    onPressed: _checkingConnection ? null : _checkConnection,
+                  ),
+                )
+              : AppButton(
+                  text: l10n.close,
+                  onPressed: () => Navigator.of(context).maybePop(),
+                ),
         ),
       ],
     );

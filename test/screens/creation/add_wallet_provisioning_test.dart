@@ -16,6 +16,9 @@ const _hotCreationFiles = {
   'lib/screens/creation/passkey_choice.dart',
   'lib/screens/login/open_pin.dart',
   'lib/screens/home/home.dart',
+  // A phrase recovery settling on its legacy EVM account (moved here from
+  // open_pin so the restore's own session runs it too).
+  'lib/helpers/evm_format_settle.dart',
 };
 
 void main() {

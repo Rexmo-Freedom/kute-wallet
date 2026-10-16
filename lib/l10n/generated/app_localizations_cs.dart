@@ -1191,34 +1191,6 @@ class AppLocalizationsCs extends AppLocalizations {
   String get totalFee => 'Celkový poplatek';
 
   @override
-  String get usdEarnTitle => 'Výnos';
-
-  @override
-  String get usdEarnRate => 'Nedávná roční sazba';
-
-  @override
-  String get usdEarnNextPayment => 'Další platba';
-
-  @override
-  String get usdEarnNextPaymentIn => 'Vyplatí se za';
-
-  @override
-  String get usdEarnRatePending => 'Načítání';
-
-  @override
-  String get usdEarnRateUnavailable => 'Teď nedostupné';
-
-  @override
-  String get usdEarnPaidToDate => 'Zatím ti vyplaceno';
-
-  @override
-  String get usdEarnActivityEmpty => 'Zatím žádné platby';
-
-  @override
-  String get usdEarnActivityUnavailable =>
-      'Historie plateb teď není k dispozici';
-
-  @override
   String hlYieldAvailableLine(String amount) {
     return '$amount k dispozici';
   }
@@ -2064,6 +2036,20 @@ class AppLocalizationsCs extends AppLocalizations {
       'Nastavení zrušeno. Nic nebylo vytvořeno.';
 
   @override
+  String get passkeyBackupSyncing => 'Synchronizace zálohy…';
+
+  @override
+  String get passkeyCreateNewTitle => 'Nebyl nalezen žádný passkey';
+
+  @override
+  String passkeyCreateNewBody(String method) {
+    return 'Nic nebylo vytvořeno. Chcete místo toho vytvořit nový passkey pro tuto peněženku pomocí $method?';
+  }
+
+  @override
+  String get passkeyCreateNewAction => 'Vytvořit nový passkey';
+
+  @override
   String passkeyChoiceFallbackWords(String method) {
     return '$method se nepodařilo nastavit. Tvá peněženka byla místo toho vytvořena s obnovovacími slovy.';
   }
@@ -2680,9 +2666,6 @@ class AppLocalizationsCs extends AppLocalizations {
   @override
   String get walletsEnterFriendCodeDescriptionNoDiscount =>
       'Pokud tě pozval kamarád, zadej jeho kód.';
-
-  @override
-  String get accountEarn => 'Výdělky';
 
   @override
   String get accountInviteFriendsEarnShare =>
@@ -3677,7 +3660,7 @@ class AppLocalizationsCs extends AppLocalizations {
   String get activityProcessingEllipsis => 'Zpracovává se…';
 
   @override
-  String get usdAccountTab => 'Dolary';
+  String get usdAccountTab => 'Investments';
 
   @override
   String activityFromAmount(String amount) {
@@ -5938,9 +5921,6 @@ class AppLocalizationsCs extends AppLocalizations {
   String get portfolioStatRealized => 'Realizovaný zisk / ztráta';
 
   @override
-  String get portfolioStatOpen => 'Otevřený zisk / ztráta';
-
-  @override
   String get portfolioStatAmountPredicted => 'Částka v predikcích';
 
   @override
@@ -6049,7 +6029,7 @@ class AppLocalizationsCs extends AppLocalizations {
   String get moveBuyBitcoin => 'Koupit bitcoin';
 
   @override
-  String get dollarDeposit => 'Vklad dolarů';
+  String get dollarDeposit => 'Investments deposit';
 
   @override
   String get dollarWithdrawal => 'Výběr dolarů';
@@ -6500,6 +6480,33 @@ class AppLocalizationsCs extends AppLocalizations {
   String get portfolioTabStatistics => 'Statistiky';
 
   @override
+  String get portfolioBalanceDollars => 'Dolary';
+
+  @override
+  String get portfolioRebalance => 'Vyvážit';
+
+  @override
+  String get portfolioRebalanceMoving => 'Přesouvá se do USDB…';
+
+  @override
+  String get portfolioRebalanceMovingMinutes =>
+      'Přesouvá se do USDB… trvá to pár minut';
+
+  @override
+  String get portfolioRebalanceHeldOrders => 'Drženo otevřenými příkazy';
+
+  @override
+  String get portfolioRebalanceHeldMargin =>
+      'Ponecháno jako marže pro otevřené pozice';
+
+  @override
+  String get portfolioRebalanceBelowMinimum => 'Pod minimem pro přesun';
+
+  @override
+  String get portfolioRebalanceNotNow =>
+      'Teď se přesunout nedá. Zkuste to znovu přes Vyvážit.';
+
+  @override
   String get sendMoreThanAvailable => 'To je víc, než máš k dispozici.';
 
   @override
@@ -6551,10 +6558,10 @@ class AppLocalizationsCs extends AppLocalizations {
   String get searchPredictionsHint => 'Hledat predikce';
 
   @override
-  String get assetDollars => 'Dolary';
+  String get assetDollars => 'Investments';
 
   @override
-  String get moveSourceDollarsSubtitle => 'Zaplať z dolarového zůstatku';
+  String get moveSourceDollarsSubtitle => 'Pay with your Investments balance';
 
   @override
   String get sendDollarAccountAddressHint => 'Adresa dolarového účtu';
@@ -6807,23 +6814,11 @@ class AppLocalizationsCs extends AppLocalizations {
   String get betAdvancedSaleSellingAll => 'Prodáváš celou pozici';
 
   @override
-  String get usdEarnProjectionNote =>
-      'Přerušovaná čára je odhad při dnešní sazbě, ne přijaté peníze.';
-
-  @override
-  String usdEarnBelowMinimum(String amount) {
-    return 'Odměny začínají, jakmile držíš $amount. Vyplácejí se denně v bitcoinu.';
-  }
-
-  @override
-  String get usdEarnProjectedLabel => 'Odhad při dnešní sazbě';
-
-  @override
   String get moveWithdrawDestinationHint =>
       'Vyber, co dorazí na tvůj výdajový účet.';
 
   @override
-  String get moveDestDollarsSubtitle => 'Do tvého dolarového zůstatku';
+  String get moveDestDollarsSubtitle => 'Into your Investments balance';
 
   @override
   String get moveConversionOngoing => 'Probíhá převod';
@@ -7090,6 +7085,10 @@ class AppLocalizationsCs extends AppLocalizations {
       'Dostupnost se nepodařilo u Kute ověřit. Zkus to znovu.';
 
   @override
+  String get capabilityOfflineGrace =>
+      'Kute je momentálně nedostupný. Toto je stále k dispozici podle vaší poslední kontroly.';
+
+  @override
   String get capabilityUnavailable =>
       'Tato funkce je v Kute momentálně nedostupná.';
 
@@ -7123,6 +7122,9 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get capabilityRegionTitle => 'Ve tvém regionu nedostupné';
+
+  @override
+  String get checkConnection => 'Zkontrolovat připojení';
 
   @override
   String get gateUnavailableTitle => 'Nedostupné';
@@ -7414,7 +7416,7 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get shareCodeTimedOut =>
-      'Tvůj kód se vytváří. Kdykoli ho najdeš v Nastavení → Výdělky.';
+      'Tvůj kód se vytváří. Kdykoli ho najdeš v Nastavení → Doporučovací program.';
 
   @override
   String get referrerCaptureInvalid =>
@@ -7441,7 +7443,7 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get referrerAddLater =>
-      'Můžeš ho přidat i později v Nastavení → Výdělky (do 7 dní).';
+      'Můžeš ho přidat i později v Nastavení → Doporučovací program (do 7 dní).';
 
   @override
   String get referrerSkip => 'Přeskočit, nemám kód';
@@ -7470,6 +7472,33 @@ class AppLocalizationsCs extends AppLocalizations {
   @override
   String get recoverFoundOnDevice =>
       'Nalezeno v tomto zařízení. Před obnovením zkontroluj, že zůstatek odpovídá.';
+
+  @override
+  String get recoverOlderVersionSection => 'Ze starší verze v tomto telefonu';
+
+  @override
+  String get recoverOlderVersionWallet => 'Peněženka ze starší verze';
+
+  @override
+  String get recoverOlderVersionNeedsPin =>
+      'Otevře se PINem, který ta verze používala';
+
+  @override
+  String get recoverOlderVersionIcloud => 'Uloženo v iCloud Keychain';
+
+  @override
+  String get recoverOlderVersionEnterPin =>
+      'Zadejte PIN, který ta verze používala';
+
+  @override
+  String get recoverOlderVersionFailed => 'Tuto kopii se nepodařilo obnovit.';
+
+  @override
+  String get restoreRescueOfferBody =>
+      'Kopie vašich peněženek ze starší verze Kute jsou stále v tomto telefonu. Použít je místo začínání znovu?';
+
+  @override
+  String get restoreRescueOfferConfirm => 'Použít uložené kopie';
 
   @override
   String recoverConfirmWallet(String wallet) {
@@ -8092,6 +8121,9 @@ class AppLocalizationsCs extends AppLocalizations {
   String predictTargetPrice(String price) {
     return 'Cíl $price';
   }
+
+  @override
+  String get predictPastRounds => 'Předchozí kola';
 
   @override
   String get predictNoOpenMarketsCategory =>
@@ -10462,6 +10494,9 @@ class AppLocalizationsCs extends AppLocalizations {
   String get portfolioStatAtStake => 'Vložená částka';
 
   @override
+  String get portfolioProfitLoss => 'Zisk a ztráta';
+
+  @override
   String slipCtaAddTo(String side, String amount) {
     String _temp0 = intl.Intl.selectLogic(
       side,
@@ -10612,5 +10647,295 @@ class AppLocalizationsCs extends AppLocalizations {
       },
     );
     return '$_temp0';
+  }
+
+  @override
+  String get investmentsTotal => 'Investments total';
+
+  @override
+  String oneBalanceMovingTo(String amount, String venue) {
+    return '$amount se přesouvá do $venue';
+  }
+
+  @override
+  String oneBalanceComingBack(String amount, String venue) {
+    return '$amount coming back from $venue';
+  }
+
+  @override
+  String oneBalanceWaitingToWithdraw(String amount) {
+    return '$amount unavailable until balancing completes';
+  }
+
+  @override
+  String oneBalanceIncoming(String amount) {
+    return 'Incoming $amount';
+  }
+
+  @override
+  String slipAddToInvestments(String amount) {
+    return 'Add $amount to Investments';
+  }
+
+  @override
+  String get slipMoveFee => 'Move fee';
+
+  @override
+  String get addMoneyToInvestments => 'Přidat peníze do Investments';
+
+  @override
+  String get depositFromSpendingWallet => 'Vaše peněženka na útratu';
+
+  @override
+  String depositFromSpendingWalletWithBalance(String amount) {
+    return 'Vaše peněženka na útratu · $amount';
+  }
+
+  @override
+  String get depositFromAnotherWallet => 'Jiná peněženka nebo burza';
+
+  @override
+  String get depositFromAnotherWalletSubtitle =>
+      'Získejte adresu, na kterou pošlete dolary';
+
+  @override
+  String get portfolioStatOpenPnl => 'Otevřený zisk / ztráta';
+
+  @override
+  String stepUpReasonBetReady(String amount) {
+    return 'Připrav predikci $amount';
+  }
+
+  @override
+  String get betMarketClosingNoFunding =>
+      'Tento trh se uzavře dřív, než by peníze dorazily. Nic nebylo přesunuto.';
+
+  @override
+  String multiMoveSendTitle(String amount) {
+    return 'Odeslat $amount';
+  }
+
+  @override
+  String multiMoveTitle(String amount, String destination) {
+    return 'Přesunout $amount do $destination';
+  }
+
+  @override
+  String multiMoveDeliveredRemaining(String delivered, String remaining) {
+    return '$delivered doručeno · $remaining zbývá';
+  }
+
+  @override
+  String multiMovePurchaseWaiting(String amount, String balance) {
+    return 'Vašich $amount je v $balance. Klepnutím koupíte Bitcoin';
+  }
+
+  @override
+  String multiMoveSendWaiting(String amount, String balance) {
+    return 'Vašich $amount je v $balance. Odeslání neproběhlo';
+  }
+
+  @override
+  String get usdReceiveFromYourWallet => 'Z tvé peněženky';
+
+  @override
+  String get usdReceiveFromAnotherWallet => 'Z jiné peněženky nebo burzy';
+
+  @override
+  String slipStepAddingToInvestments(String amount) {
+    return 'Přidávání $amount do Investments';
+  }
+
+  @override
+  String get slipStepPreparingPrediction => 'Připravujeme tvou predikci';
+
+  @override
+  String get slipStepPreparingOrder => 'Připravujeme tvůj příkaz';
+
+  @override
+  String slipStepPlacingBet(String amount, String side) {
+    return 'Sázka $amount na $side';
+  }
+
+  @override
+  String slipStepOpeningOrder(String amount, String side, String market) {
+    return 'Otevírání $amount $side $market';
+  }
+
+  @override
+  String get slipStepTakingLonger => 'Trvá to déle než obvykle';
+
+  @override
+  String slipFundingReadyToPlace(String amount) {
+    return 'Tvých $amount je v Investments. Klepnutím zadáš.';
+  }
+
+  @override
+  String get slipFundingBitcoinBack =>
+      'Přidání do Investments neproběhlo. Tvůj bitcoin se vrací.';
+
+  @override
+  String get slipFundingPriceMoved => 'Cena se pohnula příliš rychle.';
+
+  @override
+  String get slipFundingRoundClosed =>
+      'Toto kolo skončilo dřív, než tvoje peníze dorazily.';
+
+  @override
+  String slipFundingInPredictions(String amount) {
+    return 'Tvých $amount je v Predikcích. Klepnutím to zkusíš znovu.';
+  }
+
+  @override
+  String slipFundingInInvesting(String amount) {
+    return 'Tvých $amount je v Investování. Klepnutím to zkusíš znovu.';
+  }
+
+  @override
+  String oneBalancePlacingBet(String amount, String side, String market) {
+    return 'Sázka $amount na $side · $market';
+  }
+
+  @override
+  String oneBalanceOpeningOrder(String amount, String market) {
+    return 'Otevírání příkazu $amount $market';
+  }
+
+  @override
+  String hlMarginStepAdding(String amount, String coin) {
+    return 'Přidávání marže $amount do $coin';
+  }
+
+  @override
+  String hlMarginFundingReady(String amount) {
+    return 'Tvých $amount je v Investments. Klepnutím přidáš marži.';
+  }
+
+  @override
+  String get salWhyMoving => 'Proč se to hýbe?';
+
+  @override
+  String get positionProtectIt => 'Ochránit';
+
+  @override
+  String hlRiskLiquidationLong(String market, String price, String amount) {
+    return 'Pokud $market klesne na $price, tato pozice se uzavře a přijdeš o $amount.';
+  }
+
+  @override
+  String hlRiskLiquidationShort(String market, String price, String amount) {
+    return 'Pokud $market stoupne na $price, tato pozice se uzavře a přijdeš o $amount.';
+  }
+
+  @override
+  String polyRiskOutcome(String outcome, String cost, String payout) {
+    return 'Pokud $outcome prohraje, přijdeš o $cost; pokud vyhraje, dostaneš $payout.';
+  }
+
+  @override
+  String moneyStepMovingFrom(String amount, String source) {
+    return 'Přesouváme $amount ze zůstatku $source';
+  }
+
+  @override
+  String moneyStepMovedFrom(String amount, String source) {
+    return 'Přesunuto $amount ze zůstatku $source';
+  }
+
+  @override
+  String moneyStepMovingFromTo(
+      String amount, String source, String destination) {
+    return 'Přesouváme $amount: $source → $destination';
+  }
+
+  @override
+  String moneyStepMovedFromTo(
+      String amount, String source, String destination) {
+    return 'Přesunuto $amount: $source → $destination';
+  }
+
+  @override
+  String moneyStepMoveFailed(String amount, String source) {
+    return '$amount ze zůstatku $source se nepřesunulo';
+  }
+
+  @override
+  String moneyStepFellBack(String source, String via) {
+    return 'Trasa $source je vytížená, jdeme přes zůstatek $via';
+  }
+
+  @override
+  String moneyStepViaDollars(String source, String via) {
+    return 'Ze zůstatku $source jdeme přes zůstatek $via';
+  }
+
+  @override
+  String moneyStepRouteUnavailable(String source, String via) {
+    return 'Trasa $source není dostupná, jdeme přes zůstatek $via';
+  }
+
+  @override
+  String moneyStepTooSmallDirect(String source, String via) {
+    return 'Částka je na přímou cestu ze zůstatku $source příliš malá, jdeme přes zůstatek $via';
+  }
+
+  @override
+  String multiMoveOrderWaiting(String amount, String balance) {
+    return 'Vašich $amount je v $balance. Pokyn neproběhl';
+  }
+
+  @override
+  String get moneyStepConverting => 'Převod na pUSD';
+
+  @override
+  String get moneyStepConverted => 'Převedeno na pUSD';
+
+  @override
+  String get moneyStepApproving => 'Povolujeme útratu';
+
+  @override
+  String get moneyStepApproved => 'Útrata povolena';
+
+  @override
+  String get moneyStepConfirming => 'Ověřujeme zůstatek';
+
+  @override
+  String get moneyStepConfirmed => 'Zůstatek ověřen';
+
+  @override
+  String get moneyStepCrediting => 'Připisujeme na obchodní zůstatek';
+
+  @override
+  String get moneyStepCredited => 'Připsáno na obchodní zůstatek';
+
+  @override
+  String moneyStepBuying(String amount) {
+    return 'Kupujeme Bitcoin za $amount';
+  }
+
+  @override
+  String moneyStepBought(String amount) {
+    return 'Koupen Bitcoin za $amount';
+  }
+
+  @override
+  String get moneyStepArriving => 'Přichází na zůstatek Bitcoin';
+
+  @override
+  String get moneyStepArrived => 'Připsáno na zůstatek Bitcoin';
+
+  @override
+  String moneyStepSending(String amount) {
+    return 'Odesíláme $amount';
+  }
+
+  @override
+  String moneyStepSent(String amount) {
+    return 'Odesláno $amount';
+  }
+
+  @override
+  String moneyStepCompact(String source, String destination, String amount) {
+    return '$source → $destination · $amount';
   }
 }

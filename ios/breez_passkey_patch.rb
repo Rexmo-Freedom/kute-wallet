@@ -2,7 +2,7 @@ require 'digest'
 require 'fileutils'
 require 'pathname'
 
-# Scoped to breez-sdk-spark-flutter v0.26.0, commit b64789f0904f634e440e0cd7038e0cc5998342d5
+# Scoped to breez-sdk-spark-flutter v0.26.1, commit f5755c42bb3df15f9d26b557ccfdb957f34e9896
 # (both sources unchanged since v0.23.0, 5943a3e7; re-reviewed on the bump).
 # Sources are read-only: CocoaPods compiles generated copies inside Pods instead
 # of modifying Flutter's shared package cache. An SDK change needs a new review.

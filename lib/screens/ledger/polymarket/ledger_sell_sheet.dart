@@ -50,6 +50,7 @@ import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/screens/shared/polymarket_fee_summary.dart';
+import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/screens/shared/side_tint_palette.dart';
 import 'package:kute/services/hardware/ledger/ledger_polymarket_executor.dart';
 import 'package:kute/services/polymarket/market_buy_quote.dart'
@@ -102,6 +103,18 @@ class _LedgerSellSheetState extends ConsumerState<LedgerSellSheet> {
   bool _loadingBook = true;
   bool _preparing = false;
   bool _submittedPending = false;
+
+  /// The sale's rubber band on the CTA: how far along it is (share
+  /// approvals, the bid, the device's approval, sending), and how it
+  /// ended. Presentation only.
+  double? _bandProgress;
+  RubberBandOutcome? _bandOutcome;
+
+  /// Moves the band to the sale's next phase while it runs.
+  void _bandTo(double progress) {
+    if (!mounted) return;
+    setState(() => _bandProgress = progress);
+  }
 
   /// True while the Advanced route is being pushed, so a double tap on
   /// the row cannot stack two copies of the screen. Mirrors the spending
@@ -253,6 +266,10 @@ class _LedgerSellSheetState extends ConsumerState<LedgerSellSheet> {
     final l10n = context.l10n;
     setState(() {
       _preparing = true;
+      // The tap takes the band's first pull; time and the phases below
+      // build it from there.
+      _bandProgress = null;
+      _bandOutcome = null;
       _retryPrice = null;
     });
     // The exchanges must be allowed to move the shares: the first sale
@@ -265,6 +282,7 @@ class _LedgerSellSheetState extends ConsumerState<LedgerSellSheet> {
       setState(() => _preparing = false);
       return;
     }
+    _bandTo(0.3);
     // The bid as it is now, not when the sheet opened: the floor the
     // device signs is computed from it (polymarketSellFloor).
     final latest = await _readBid();
@@ -287,7 +305,10 @@ class _LedgerSellSheetState extends ConsumerState<LedgerSellSheet> {
       return;
     }
 
-    setState(() => _preparing = true);
+    setState(() {
+      _preparing = true;
+      _bandProgress = 0.4;
+    });
     // The backend's code, or the zero builder when it has none to give:
     // attribution never stands between the person and a sale.
     final builderCode = await PolymarketBackendService.getBuilderCode();
@@ -320,6 +341,7 @@ class _LedgerSellSheetState extends ConsumerState<LedgerSellSheet> {
     final factory = ref.read(ledgerPmExecutorFactoryProvider);
     final navigator = Navigator.of(context, rootNavigator: true);
     PolymarketSellPriceMoved? moved;
+    _bandTo(0.5);
     final outcome = await showLedgerApprovalSheet<LedgerPmSellResult>(
       context,
       walletId: walletId,
@@ -332,6 +354,7 @@ class _LedgerSellSheetState extends ConsumerState<LedgerSellSheet> {
           signer: signing.signer,
           account: account,
         ).sell(intent, revalidate: () async {
+          _bandTo(0.75);
           // Signed; before it is sent the bid must still be at or above
           // the signed floor, or nothing goes out.
           final fresh = await _readBid();
@@ -379,7 +402,27 @@ class _LedgerSellSheetState extends ConsumerState<LedgerSellSheet> {
       );
     }
     if (!mounted) return;
-    setState(() => _preparing = false);
+    if (outcome.kind == LedgerApprovalOutcomeKind.success) {
+      // Sold (or sent): the band snaps, and is seen doing it, while the
+      // CTA still holds the sale; then the confirmation.
+      setState(() => _bandOutcome = RubberBandOutcome.success);
+      await RubberBand.settle(context);
+      if (!mounted) {
+        // Torn down during the snap: the sale stands, and says so.
+        showLedgerConfirmation(navigator,
+            message: outcome.result?.status?.toLowerCase() == 'matched'
+                ? l10n.ledgerSold
+                : l10n.ledgerPendingStatus);
+        return;
+      }
+    }
+    setState(() {
+      _preparing = false;
+      // Anything but a sale lets go softly.
+      if (outcome.kind != LedgerApprovalOutcomeKind.success) {
+        _bandOutcome = null;
+      }
+    });
 
     switch (outcome.kind) {
       case LedgerApprovalOutcomeKind.success:
@@ -599,6 +642,8 @@ class _LedgerSellSheetState extends ConsumerState<LedgerSellSheet> {
                     : PolySlipCta(
                         color: sideColor,
                         isBusy: _preparing,
+                        bandProgress: _bandProgress,
+                        bandOutcome: _bandOutcome,
                         enabled: canSell && !_preparing,
                         onTap: () => _sell(account!),
                         busyLabel: l10n.betSellingEllipsis,

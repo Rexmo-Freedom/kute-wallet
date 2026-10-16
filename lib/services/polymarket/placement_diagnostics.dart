@@ -8,6 +8,7 @@
 // signatures, addresses or order bodies.
 
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -20,7 +21,22 @@ class PolymarketPlacementDiagnostics {
 
   static Future<void>? _probe;
 
-  /// Records a failed step. [elapsed] is how long the step ran.
+  /// Whether the order being placed now was signed with Kute's builder
+  /// code (set by PolymarketBackendService.signingBuilderCode just before
+  /// signing). Carried on the order's outcome as `builder_code` so orders
+  /// signed without one can be counted.
+  static bool? _lastOrderAttributed;
+
+  static void orderSignedWithBuilderCode(bool attributed) {
+    _lastOrderAttributed = attributed;
+    if (!attributed) {
+      TrackingService.track('polymarket_order_signed_without_builder_code');
+    }
+  }
+
+  /// Records a failed step. [elapsed] is how long the step ran. The
+  /// network the phone is on (wifi / cellular / none / unknown) and the
+  /// step's latency go with it so a slow link reads as one.
   static void stepFailed(String step, Object error, Duration elapsed) {
     final type = error.runtimeType.toString();
     TrackingService.track('polymarket_placement_step_failed', params: {
@@ -28,16 +44,20 @@ class PolymarketPlacementDiagnostics {
       'stage': switch (step) {
         'setup' => 'setup',
         'order_book' => 'book',
-        'fee_terms' || 'builder_code' => 'quote',
+        'fee_terms' => 'quote',
+        'builder_code' => 'builder_code',
         _ => step,
       },
       'error_category': TrackingService.errorCategory(error),
       if (error is TimeoutException) 'timed_out': true,
       'error_type': type,
       'ms': elapsed.inMilliseconds,
+      'latency_ms': elapsed.inMilliseconds,
       // Coarse bucket beside the raw ms (kept for existing dashboards).
       'latency_bucket': TrackingService.latencyBucket(elapsed.inMilliseconds),
+      'network_type': NetworkTypeHint.current,
     });
+    NetworkTypeHint.refresh();
     if (!kDebugMode) return;
     debugPrint('[pm] $step failed after ${elapsed.inMilliseconds}ms: '
         '$type: ${_brief(error)}');
@@ -85,6 +105,7 @@ class PolymarketPlacementDiagnostics {
       ...?context,
       'reason': reason,
       'stage': stage ?? declineStage(reason),
+      'network_type': NetworkTypeHint.current,
       if (error != null) 'error_type': error.runtimeType.toString(),
       if (error != null)
         'error_category': TrackingService.errorCategory(error),
@@ -131,6 +152,7 @@ class PolymarketPlacementDiagnostics {
         : response?['success'] == false && response?['errorMsg'] is String
             ? response!['errorMsg'] as String
             : null;
+    final attributed = _lastOrderAttributed;
     TrackingService.track('polymarket_order_outcome', params: {
       'rung': rung,
       'type': orderType,
@@ -138,6 +160,8 @@ class PolymarketPlacementDiagnostics {
       if (response?['status'] != null) 'status': '${response!['status']}',
       if (failureCode != null) 'failure': failureCode,
       if (stage != null) 'stage': stage,
+      if (attributed != null) 'builder_code': attributed ? 'kute' : 'none',
+      if (error != null) 'network_type': NetworkTypeHint.current,
       'price': price,
       'shares': shares,
       if (negRisk != null) 'venue_market_type': negRisk ? 'neg_risk' : 'standard',
@@ -205,5 +229,95 @@ class PolymarketPlacementDiagnostics {
             '${clock.elapsedMilliseconds}ms');
       }
     }
+  }
+}
+
+/// The kind of link the phone is on, from the network interfaces it has up
+/// (no plugin): `wifi`, `cellular`, `none` or `unknown`. Read as a cached
+/// word so an event never waits on it; [refresh] re-reads in the
+/// background. Interface names only; never an address.
+abstract final class NetworkTypeHint {
+  static String _current = 'unknown';
+  static DateTime? _readAt;
+  static Future<void>? _reading;
+  static DateTime? _readingSince;
+
+  /// How long one interface scan keeps the next [refresh] waiting. The
+  /// scan is a plain `dart:io` read that nothing awaits, so a wedged one
+  /// is simply abandoned by the next refresh instead of raced against a
+  /// timer: the 2 s `.timeout` this replaced left a pending Timer behind
+  /// every placement event, which the widget tests report as a leak.
+  static const _kReadStale = Duration(seconds: 2);
+
+  /// Test seam: a fixed answer instead of the interface scan.
+  @visibleForTesting
+  static String? debugOverride;
+
+  static String get current {
+    final override = debugOverride;
+    if (override != null) return override;
+    final readAt = _readAt;
+    if (readAt == null ||
+        DateTime.now().difference(readAt) > const Duration(seconds: 30)) {
+      refresh();
+    }
+    return _current;
+  }
+
+  static void refresh() {
+    if (debugOverride != null) return;
+    final since = _readingSince;
+    if (_reading != null &&
+        since != null &&
+        DateTime.now().difference(since) < _kReadStale) {
+      return;
+    }
+    late final Future<void> read;
+    _readingSince = DateTime.now();
+    read = _reading = () async {
+      try {
+        final interfaces = await NetworkInterface.list(
+            includeLoopback: false, includeLinkLocal: false);
+        _current = classify(interfaces.map((i) => i.name));
+      } catch (_) {
+        _current = 'unknown';
+      } finally {
+        _readAt = DateTime.now();
+        // A stale read a later refresh replaced must not clear the newer
+        // one.
+        if (identical(_reading, read)) {
+          _reading = null;
+          _readingSince = null;
+        }
+      }
+    }();
+  }
+
+  /// `wifi` beats `cellular` when both are up (the phone routes over
+  /// Wi-Fi); no interface at all is `none`.
+  @visibleForTesting
+  static String classify(Iterable<String> interfaceNames) {
+    var wifi = false;
+    var cellular = false;
+    var other = false;
+    for (final raw in interfaceNames) {
+      final name = raw.toLowerCase();
+      if (name.startsWith('wlan') || name == 'en0' || name.startsWith('ap')) {
+        wifi = true;
+      } else if (name.startsWith('rmnet') ||
+          name.startsWith('ccmni') ||
+          name.startsWith('pdp_ip') ||
+          name.startsWith('wwan') ||
+          name.startsWith('v4-rmnet') ||
+          name.startsWith('clat')) {
+        cellular = true;
+      } else {
+        other = true;
+      }
+    }
+    if (wifi) return 'wifi';
+    if (cellular) return 'cellular';
+    if (other) return 'unknown';
+    return 'none';
   }
 }

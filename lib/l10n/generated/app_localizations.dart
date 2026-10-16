@@ -2426,60 +2426,6 @@ abstract class AppLocalizations {
   /// **'Total Fee'**
   String get totalFee;
 
-  /// No description provided for @usdEarnTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Earn'**
-  String get usdEarnTitle;
-
-  /// No description provided for @usdEarnRate.
-  ///
-  /// In en, this message translates to:
-  /// **'Recent yearly rate'**
-  String get usdEarnRate;
-
-  /// Label above the amount the rewards programme pays at the next daily cut.
-  ///
-  /// In en, this message translates to:
-  /// **'Next payment'**
-  String get usdEarnNextPayment;
-
-  /// Label above the countdown to the next payout, which is cut at 00:00 UTC.
-  ///
-  /// In en, this message translates to:
-  /// **'Pays in'**
-  String get usdEarnNextPaymentIn;
-
-  /// No description provided for @usdEarnRatePending.
-  ///
-  /// In en, this message translates to:
-  /// **'Loading'**
-  String get usdEarnRatePending;
-
-  /// No description provided for @usdEarnRateUnavailable.
-  ///
-  /// In en, this message translates to:
-  /// **'Unavailable right now'**
-  String get usdEarnRateUnavailable;
-
-  /// No description provided for @usdEarnPaidToDate.
-  ///
-  /// In en, this message translates to:
-  /// **'Paid to you so far'**
-  String get usdEarnPaidToDate;
-
-  /// No description provided for @usdEarnActivityEmpty.
-  ///
-  /// In en, this message translates to:
-  /// **'No payments yet'**
-  String get usdEarnActivityEmpty;
-
-  /// No description provided for @usdEarnActivityUnavailable.
-  ///
-  /// In en, this message translates to:
-  /// **'Payment history is unavailable right now'**
-  String get usdEarnActivityUnavailable;
-
   /// No description provided for @hlYieldAvailableLine.
   ///
   /// In en, this message translates to:
@@ -3938,6 +3884,30 @@ abstract class AppLocalizations {
   /// **'Setup cancelled. Nothing was created.'**
   String get passkeyChoiceCancelled;
 
+  /// Quiet note on the onboarding screens after a passkey wallet was created, while its backup label is still being published in the background.
+  ///
+  /// In en, this message translates to:
+  /// **'Syncing your backup…'**
+  String get passkeyBackupSyncing;
+
+  /// No description provided for @passkeyCreateNewTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No passkey found'**
+  String get passkeyCreateNewTitle;
+
+  /// Offered when the user dismissed the sign-in sheet on a device that holds no passkey.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing was created. Create a new passkey for this wallet with {method} instead?'**
+  String passkeyCreateNewBody(String method);
+
+  /// No description provided for @passkeyCreateNewAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a new passkey'**
+  String get passkeyCreateNewAction;
+
   /// No description provided for @passkeyChoiceFallbackWords.
   ///
   /// In en, this message translates to:
@@ -4969,12 +4939,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'If a friend invited you, enter their code.'**
   String get walletsEnterFriendCodeDescriptionNoDiscount;
-
-  /// No description provided for @accountEarn.
-  ///
-  /// In en, this message translates to:
-  /// **'Earn'**
-  String get accountEarn;
 
   /// No description provided for @accountInviteFriendsEarnShare.
   ///
@@ -6612,7 +6576,7 @@ abstract class AppLocalizations {
   /// No description provided for @usdAccountTab.
   ///
   /// In en, this message translates to:
-  /// **'Dollars'**
+  /// **'Investments'**
   String get usdAccountTab;
 
   /// No description provided for @activityFromAmount.
@@ -10426,12 +10390,6 @@ abstract class AppLocalizations {
   /// **'Realized P&L'**
   String get portfolioStatRealized;
 
-  /// Predictions statistics tile: unrealized profit or loss of the open predictions now, at live prices.
-  ///
-  /// In en, this message translates to:
-  /// **'Open P&L'**
-  String get portfolioStatOpen;
-
   /// Predictions statistics tile: total amount put on the predictions made in the selected range.
   ///
   /// In en, this message translates to:
@@ -10630,10 +10588,10 @@ abstract class AppLocalizations {
   /// **'Buy bitcoin'**
   String get moveBuyBitcoin;
 
-  /// The ONE label for the door that funds the dollar balance: the button on the Dollars screen, the Move sheet title, and the payment method's second line. Always shown beside the shared dollar mark.
+  /// The ONE label for the door that funds the dollar balance (the Investments balance): the button on the Investments screen, the Move sheet title, and the payment method's second line. Shown beside the Investments arrow, the Home deposit button's icon.
   ///
   /// In en, this message translates to:
-  /// **'Dollar deposit'**
+  /// **'Investments deposit'**
   String get dollarDeposit;
 
   /// The other side of dollarDeposit: money leaving the dollar balance. Same mark.
@@ -11374,6 +11332,54 @@ abstract class AppLocalizations {
   /// **'Statistics'**
   String get portfolioTabStatistics;
 
+  /// Title of the Dollars (USDB) row in the Portfolio's balance breakdown, above the Investing (Hyperliquid) and Predictions (Polymarket) rows.
+  ///
+  /// In en, this message translates to:
+  /// **'Dollars'**
+  String get portfolioBalanceDollars;
+
+  /// Button on the Portfolio's balance breakdown that moves all movable Investing and Predictions cash home to Dollars (USDB) now.
+  ///
+  /// In en, this message translates to:
+  /// **'Rebalance'**
+  String get portfolioRebalance;
+
+  /// Line under a venue row in the Portfolio's balance breakdown while its cash is on its way to Dollars (USDB).
+  ///
+  /// In en, this message translates to:
+  /// **'Moving to USDB…'**
+  String get portfolioRebalanceMoving;
+
+  /// Line under the Investing row while its cash is on its way to Dollars (USDB); this route takes a few minutes.
+  ///
+  /// In en, this message translates to:
+  /// **'Moving to USDB… takes a few minutes'**
+  String get portfolioRebalanceMovingMinutes;
+
+  /// Line under a venue row after Rebalance: its cash stayed because open orders hold it.
+  ///
+  /// In en, this message translates to:
+  /// **'Held by open orders'**
+  String get portfolioRebalanceHeldOrders;
+
+  /// Line under the Investing row after Rebalance: its cash stayed because it is margin for open (cross) positions.
+  ///
+  /// In en, this message translates to:
+  /// **'Kept as margin for open positions'**
+  String get portfolioRebalanceHeldMargin;
+
+  /// Line under a venue row after Rebalance: its cash stayed because it is below the smallest amount that can be moved.
+  ///
+  /// In en, this message translates to:
+  /// **'Below the minimum to move'**
+  String get portfolioRebalanceBelowMinimum;
+
+  /// Line under a venue row after Rebalance: the cash could not move right now (a trade or claim settling, the route busy); the app retries by itself.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t move now. Tap Rebalance to try again.'**
+  String get portfolioRebalanceNotNow;
+
   /// No description provided for @sendMoreThanAvailable.
   ///
   /// In en, this message translates to:
@@ -11470,16 +11476,16 @@ abstract class AppLocalizations {
   /// **'Search predictions'**
   String get searchPredictionsHint;
 
-  /// Name of the dollar balance as an asset row in the cross asset pickers.
+  /// Name of the dollar balance (Investments) as a source or destination row: the cross asset pickers, the Move route card, the move overlays. Its row wears the Investments arrow, never the USDB coin.
   ///
   /// In en, this message translates to:
-  /// **'Dollars'**
+  /// **'Investments'**
   String get assetDollars;
 
-  /// Second line on the Dollars row in the move sheet source picker, where the dollar balance funds a venue deposit.
+  /// Second line on the Investments row in the move sheet source picker, where the dollar balance funds a venue deposit or a bitcoin buy.
   ///
   /// In en, this message translates to:
-  /// **'Pay with your dollar balance'**
+  /// **'Pay with your Investments balance'**
   String get moveSourceDollarsSubtitle;
 
   /// Placeholder for the recipient field when the send destination is a dollar balance.
@@ -11897,34 +11903,16 @@ abstract class AppLocalizations {
   /// **'Selling your whole position'**
   String get betAdvancedSaleSellingAll;
 
-  /// Line under the Earn chart explaining that the dashed tail is an extrapolation of today's rate, not a payment.
-  ///
-  /// In en, this message translates to:
-  /// **'The dashed line is an estimate at today\'s rate, not money received.'**
-  String get usdEarnProjectionNote;
-
-  /// Shown on the Earn tab only while the dollar balance is under the programme minimum. {amount} is that minimum, formatted as money.
-  ///
-  /// In en, this message translates to:
-  /// **'Rewards start once you hold {amount}. They are paid daily in bitcoin.'**
-  String usdEarnBelowMinimum(String amount);
-
-  /// Headline label on the Earn chart while the scrub sits on a projected day instead of a paid one.
-  ///
-  /// In en, this message translates to:
-  /// **'Projected at today\'s rate'**
-  String get usdEarnProjectedLabel;
-
   /// Hint under the title of the two-entry picker that chooses what a venue withdrawal delivers: bitcoin or dollars.
   ///
   /// In en, this message translates to:
   /// **'Pick what lands in your spending account.'**
   String get moveWithdrawDestinationHint;
 
-  /// Second line on the Dollars row of the withdrawal destination picker.
+  /// Second line on the Investments row of the withdrawal destination picker.
   ///
   /// In en, this message translates to:
-  /// **'Into your dollar balance'**
+  /// **'Into your Investments balance'**
   String get moveDestDollarsSubtitle;
 
   /// Note on the confirmation overlay after a transfer that has to convert. Deliberately states no arrival time, because the app is not told one.
@@ -12342,6 +12330,12 @@ abstract class AppLocalizations {
   /// **'Unable to check availability with Kute. Please try again.'**
   String get capabilityPolicyUnavailable;
 
+  /// No description provided for @capabilityOfflineGrace.
+  ///
+  /// In en, this message translates to:
+  /// **'Kute can\'t be reached right now. This is still available from your last check.'**
+  String get capabilityOfflineGrace;
+
   /// No description provided for @capabilityUnavailable.
   ///
   /// In en, this message translates to:
@@ -12395,6 +12389,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Not available in your region'**
   String get capabilityRegionTitle;
+
+  /// The button on a region restriction (slip, ticket, Builder, unavailable sheet): asks the venues and Kute's policy again, as after a network or VPN change.
+  ///
+  /// In en, this message translates to:
+  /// **'Check connection'**
+  String get checkConnection;
 
   /// No description provided for @gateUnavailableTitle.
   ///
@@ -12879,7 +12879,7 @@ abstract class AppLocalizations {
   /// No description provided for @shareCodeTimedOut.
   ///
   /// In en, this message translates to:
-  /// **'Your code is being created. You can find it any time in Settings → Earn.'**
+  /// **'Your code is being created. You can find it any time in Settings → Referral program.'**
   String get shareCodeTimedOut;
 
   /// No description provided for @referrerCaptureInvalid.
@@ -12921,7 +12921,7 @@ abstract class AppLocalizations {
   /// No description provided for @referrerAddLater.
   ///
   /// In en, this message translates to:
-  /// **'You can also add it later from Settings → Earn (within 7 days).'**
+  /// **'You can also add it later from Settings → Referral program (within 7 days).'**
   String get referrerAddLater;
 
   /// No description provided for @referrerSkip.
@@ -12965,6 +12965,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Found on this device. Check the balance looks right before you restore.'**
   String get recoverFoundOnDevice;
+
+  /// Heading in the restore picker above wallets whose copies an older version of the app left on this phone.
+  ///
+  /// In en, this message translates to:
+  /// **'From an older version on this phone'**
+  String get recoverOlderVersionSection;
+
+  /// Row title for an old wallet copy whose wallet record no longer exists on the phone.
+  ///
+  /// In en, this message translates to:
+  /// **'Wallet from an older version'**
+  String get recoverOlderVersionWallet;
+
+  /// Row subtitle for an old copy that is encrypted with the PIN that version used.
+  ///
+  /// In en, this message translates to:
+  /// **'Opens with the PIN that version used'**
+  String get recoverOlderVersionNeedsPin;
+
+  /// Row subtitle for an old copy that lives in iCloud Keychain.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved in iCloud Keychain'**
+  String get recoverOlderVersionIcloud;
+
+  /// Title of the PIN sheet that opens an old PIN-encrypted copy.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the PIN that version used'**
+  String get recoverOlderVersionEnterPin;
+
+  /// Error shown when an old copy could not be read or saved.
+  ///
+  /// In en, this message translates to:
+  /// **'This copy couldn\'t be restored.'**
+  String get recoverOlderVersionFailed;
+
+  /// Body of the sheet shown instead of Start over when old copies were found on the phone.
+  ///
+  /// In en, this message translates to:
+  /// **'Copies of your wallets from an older version of Kute are still on this phone. Use them instead of starting over?'**
+  String get restoreRescueOfferBody;
+
+  /// Confirm button of that sheet: re-saves the old copies.
+  ///
+  /// In en, this message translates to:
+  /// **'Use the saved copies'**
+  String get restoreRescueOfferConfirm;
 
   /// Shown on the recover screen while the passkey prompt confirms the chosen wallet.
   ///
@@ -13821,13 +13869,13 @@ abstract class AppLocalizations {
   /// No description provided for @betAutofireFundsTimeout.
   ///
   /// In en, this message translates to:
-  /// **'Your funds are safe in your Polymarket balance, but the prediction couldn\'t be placed automatically. Open Predictions and tap to place it again. It should be instant.'**
+  /// **'The prediction couldn\'t be placed automatically. Your money stays available in Investments, and placing it again uses it first. It should be instant.'**
   String get betAutofireFundsTimeout;
 
   /// No description provided for @betAutofireBookUnavailable.
   ///
   /// In en, this message translates to:
-  /// **'Could not reach Polymarket to place the prediction. Your funds are safe in your Polymarket balance. Try again.'**
+  /// **'Could not reach Polymarket to place the prediction. Your money stays available in Investments, and trying again uses it first.'**
   String get betAutofireBookUnavailable;
 
   /// No description provided for @moveInvestingDepositsUnavailable.
@@ -14015,6 +14063,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Target {price}'**
   String predictTargetPrice(String price);
+
+  /// Label before the up/down marks showing how the last few windows of a crypto Up or Down market ended.
+  ///
+  /// In en, this message translates to:
+  /// **'Past rounds'**
+  String get predictPastRounds;
 
   /// No description provided for @predictNoOpenMarketsCategory.
   ///
@@ -17921,6 +17975,12 @@ abstract class AppLocalizations {
   /// **'Amount at stake'**
   String get portfolioStatAtStake;
 
+  /// Statistics tab: caption over the P&L chart's headline figure (the account's profit and loss, realised plus open).
+  ///
+  /// In en, this message translates to:
+  /// **'Profit and loss'**
+  String get portfolioProfitLoss;
+
   /// The Investing order button when the person already holds a perp position on this side: the order adds to it. {side} is 'long' or 'short' (select), {amount} is formatted money.
   ///
   /// In en, this message translates to:
@@ -17994,6 +18054,415 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{side, select, long{Flipped to long · {size} {coin}} other{Flipped to short · {size} {coin}}}'**
   String hlReceiptFlipped(String side, String size, String coin);
+
+  /// Label of the total of every venue's holdings on the one-balance home.
+  ///
+  /// In en, this message translates to:
+  /// **'Investments total'**
+  String get investmentsTotal;
+
+  /// In-flight line on the one-balance home for dollars leaving the spending account for a venue. {amount} is a formatted dollar amount, {venue} the venue's display name.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} moving to {venue}'**
+  String oneBalanceMovingTo(String amount, String venue);
+
+  /// In-flight line on the one-balance home for dollars leaving a venue for the spending account. {amount} is a formatted dollar amount, {venue} the venue's display name.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} coming back from {venue}'**
+  String oneBalanceComingBack(String amount, String venue);
+
+  /// Line on the one-balance home for idle venue cash the sweeper has not brought home yet. {amount} is a formatted dollar amount.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} unavailable until balancing completes'**
+  String oneBalanceWaitingToWithdraw(String amount);
+
+  /// Line on the one-balance home for a receive still confirming. {amount} is a formatted dollar amount.
+  ///
+  /// In en, this message translates to:
+  /// **'Incoming {amount}'**
+  String oneBalanceIncoming(String amount);
+
+  /// Button on an order slip that moves the shortfall into the venue before placing the order. {amount} is a formatted dollar amount.
+  ///
+  /// In en, this message translates to:
+  /// **'Add {amount} to Investments'**
+  String slipAddToInvestments(String amount);
+
+  /// Row label on an order slip for the cost of moving the shortfall into the venue.
+  ///
+  /// In en, this message translates to:
+  /// **'Move fee'**
+  String get slipMoveFee;
+
+  /// No description provided for @addMoneyToInvestments.
+  ///
+  /// In en, this message translates to:
+  /// **'Add money to Investments'**
+  String get addMoneyToInvestments;
+
+  /// No description provided for @depositFromSpendingWallet.
+  ///
+  /// In en, this message translates to:
+  /// **'Your spending wallet'**
+  String get depositFromSpendingWallet;
+
+  /// No description provided for @depositFromSpendingWalletWithBalance.
+  ///
+  /// In en, this message translates to:
+  /// **'Your spending wallet · {amount}'**
+  String depositFromSpendingWalletWithBalance(String amount);
+
+  /// No description provided for @depositFromAnotherWallet.
+  ///
+  /// In en, this message translates to:
+  /// **'Another wallet or exchange'**
+  String get depositFromAnotherWallet;
+
+  /// No description provided for @depositFromAnotherWalletSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Get an address to send dollars to'**
+  String get depositFromAnotherWalletSubtitle;
+
+  /// Statistics tile on Active: the profit or loss of the positions still open (Predictions at live prices, Investing perps unrealised).
+  ///
+  /// In en, this message translates to:
+  /// **'Open P&L'**
+  String get portfolioStatOpenPnl;
+
+  /// Step-up prompt reason when a fast prediction (a 5- or 15-minute round or a game in play) is got ready before Confirm: the one approval moves the money into Predictions now and also approves the bet itself.
+  ///
+  /// In en, this message translates to:
+  /// **'Get your {amount} prediction ready'**
+  String stepUpReasonBetReady(String amount);
+
+  /// Prediction slip notice when a bet would need money moved into Predictions but the market ends before the move could land. Nothing was moved.
+  ///
+  /// In en, this message translates to:
+  /// **'This market closes before money could arrive. Nothing was moved.'**
+  String get betMarketClosingNoFunding;
+
+  /// Activity row title of a send that took its dollars from more than one place (Dollars plus cash brought back from Predictions or Investing): one row for the whole send. {amount} is the formatted dollar amount.
+  ///
+  /// In en, this message translates to:
+  /// **'Send {amount}'**
+  String multiMoveSendTitle(String amount);
+
+  /// Activity row title of one action that moved money from more than one place (Dollars plus Predictions or Investing cash) to one destination: one row for the whole move, its parts listed in the detail sheet. {amount} is the formatted dollar amount, {destination} the destination's display name (Bitcoin, Predictions, Trading).
+  ///
+  /// In en, this message translates to:
+  /// **'Move {amount} to {destination}'**
+  String multiMoveTitle(String amount, String destination);
+
+  /// Detail sheet line of a move that took money from more than one place when one part failed: what reached the destination and what is still where it was. Both are formatted dollar amounts.
+  ///
+  /// In en, this message translates to:
+  /// **'{delivered} delivered · {remaining} remaining'**
+  String multiMoveDeliveredRemaining(String delivered, String remaining);
+
+  /// Activity row of a Buy bitcoin whose money came home first and whose purchase now waits on the person (the approval ran out or the app restarted): the money is in the spending dollar balance and one tap buys the bitcoin. {amount} is a formatted dollar amount, {balance} the dollar balance's display name.
+  ///
+  /// In en, this message translates to:
+  /// **'Your {amount} is in {balance}. Tap to buy Bitcoin'**
+  String multiMovePurchaseWaiting(String amount, String balance);
+
+  /// Activity row and detail of a send that took money from more than one place whose money came home to the spending dollar balance but whose send never went: the money is in that balance. {amount} is a formatted dollar amount, {balance} the dollar balance's display name.
+  ///
+  /// In en, this message translates to:
+  /// **'Your {amount} is in {balance}. The send didn\'t go through'**
+  String multiMoveSendWaiting(String amount, String balance);
+
+  /// Section label on the first step of the Investments (dollars) receive sheet, above the card that moves money in from the person's own spending bitcoin.
+  ///
+  /// In en, this message translates to:
+  /// **'From your wallet'**
+  String get usdReceiveFromYourWallet;
+
+  /// Section label on the first step of the Investments (dollars) receive sheet, above the grid of coins that can be sent in from another wallet or an exchange.
+  ///
+  /// In en, this message translates to:
+  /// **'From another wallet or exchange'**
+  String get usdReceiveFromAnotherWallet;
+
+  /// Step 1 of a slip funded from bitcoin: the person's own bitcoin becoming Investments dollars. {amount} is a formatted dollar amount.
+  ///
+  /// In en, this message translates to:
+  /// **'Adding {amount} to Investments'**
+  String slipStepAddingToInvestments(String amount);
+
+  /// Step 2 of a prediction slip funded from Investments: the money moving into the prediction venue, phrased around the bet, never as a move into Investments.
+  ///
+  /// In en, this message translates to:
+  /// **'Getting your prediction ready'**
+  String get slipStepPreparingPrediction;
+
+  /// Step 2 of an Investing order slip funded from Investments: the money moving into the trading venue, phrased around the order.
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing your order'**
+  String get slipStepPreparingOrder;
+
+  /// Step 3 of a funded prediction slip: the bet being placed at a fresh price. {amount} is the stake, {side} the outcome (Yes, No, a team).
+  ///
+  /// In en, this message translates to:
+  /// **'Placing {amount} on {side}'**
+  String slipStepPlacingBet(String amount, String side);
+
+  /// Step 3 of a funded Investing order slip: the order being placed. {amount} is the margin, {side} Long/Short/Buy, {market} the market's short name (e.g. Opening $5 Long NVIDIA).
+  ///
+  /// In en, this message translates to:
+  /// **'Opening {amount} {side} {market}'**
+  String slipStepOpeningOrder(String amount, String side, String market);
+
+  /// Small line under the funding steps when adding to Investments has taken more than two minutes. The money is safe; nothing to do.
+  ///
+  /// In en, this message translates to:
+  /// **'Taking longer than usual'**
+  String get slipStepTakingLonger;
+
+  /// Line above a slip's button when its funding stopped with the money in Investments and the order not placed: one tap places it. {amount} is a formatted dollar amount.
+  ///
+  /// In en, this message translates to:
+  /// **'Your {amount} is in Investments. Tap to place.'**
+  String slipFundingReadyToPlace(String amount);
+
+  /// Slip message when the bitcoin to Investments conversion failed and the provider refunds the bitcoin to the person's wallet.
+  ///
+  /// In en, this message translates to:
+  /// **'Adding to Investments didn\'t go through. Your bitcoin is coming back.'**
+  String get slipFundingBitcoinBack;
+
+  /// Slip funding steps, the line under a failed placement step: the order was refused because the price moved past the approved maximum while the money was on its way. Followed by where the money is.
+  ///
+  /// In en, this message translates to:
+  /// **'Price moved too fast.'**
+  String get slipFundingPriceMoved;
+
+  /// Slip funding steps, the line under a failed step: a short (5 or 15 minute) prediction round closed before the money moved for the bet arrived. Followed by where the money is.
+  ///
+  /// In en, this message translates to:
+  /// **'This round closed before your money arrived.'**
+  String get slipFundingRoundClosed;
+
+  /// Slip funding steps: after a funded prediction did not place, where its money is now (as Predictions cash, available). {amount} is a formatted dollar amount.
+  ///
+  /// In en, this message translates to:
+  /// **'Your {amount} is in Predictions. Tap to try again.'**
+  String slipFundingInPredictions(String amount);
+
+  /// Slip funding steps: after a funded Investing order did not place, where its money is now (as Investing cash, available). {amount} is a formatted dollar amount.
+  ///
+  /// In en, this message translates to:
+  /// **'Your {amount} is in Investing. Tap to try again.'**
+  String slipFundingInInvesting(String amount);
+
+  /// In-flight line on the Investments header while money moves to place a specific prediction. {amount} is the stake, {side} the outcome, {market} the market's short name.
+  ///
+  /// In en, this message translates to:
+  /// **'Placing {amount} on {side} · {market}'**
+  String oneBalancePlacingBet(String amount, String side, String market);
+
+  /// In-flight line on the Investments header while money moves to open a specific Investing order. {amount} is the margin, {market} the market's short name (e.g. Opening $5 NVDA order).
+  ///
+  /// In en, this message translates to:
+  /// **'Opening {amount} {market} order'**
+  String oneBalanceOpeningOrder(String amount, String market);
+
+  /// The margin sheet's last funding step, and the Investments header's in-flight line, while money moves to add margin to an isolated Investing position. {amount} is the margin added, {coin} the market (e.g. Adding $5 margin to BTC).
+  ///
+  /// In en, this message translates to:
+  /// **'Adding {amount} margin to {coin}'**
+  String hlMarginStepAdding(String amount, String coin);
+
+  /// Line above the margin sheet's button when adding margin funded from bitcoin stopped with the money in Investments and the margin not added. {amount} is what the bitcoin added.
+  ///
+  /// In en, this message translates to:
+  /// **'Your {amount} is in Investments. Tap to add margin.'**
+  String hlMarginFundingReady(String amount);
+
+  /// A market screen's row under the chart, shown only on a big move or a live game; opens Sal (the AI helper) explaining the move.
+  ///
+  /// In en, this message translates to:
+  /// **'Why is it moving?'**
+  String get salWhyMoving;
+
+  /// Label of an open position's row that opens its protective orders (stop loss, trailing stop, or a sell-at-a-price order).
+  ///
+  /// In en, this message translates to:
+  /// **'Protect it'**
+  String get positionProtectIt;
+
+  /// Risk line on an open long Investing position. {market} is the ticker (e.g. NVDA), {price} its liquidation price, {amount} the money lost when the position is liquidated there.
+  ///
+  /// In en, this message translates to:
+  /// **'If {market} falls to {price}, this position closes and you lose {amount}.'**
+  String hlRiskLiquidationLong(String market, String price, String amount);
+
+  /// Risk line on an open short Investing position. {market} is the ticker (e.g. NVDA), {price} its liquidation price (above the current price), {amount} the money lost when the position is liquidated there.
+  ///
+  /// In en, this message translates to:
+  /// **'If {market} rises to {price}, this position closes and you lose {amount}.'**
+  String hlRiskLiquidationShort(String market, String price, String amount);
+
+  /// Risk line on an open prediction. {outcome} is the held outcome (e.g. Yes, a team), {cost} what was paid (lost if it loses), {payout} what the shares pay if it wins.
+  ///
+  /// In en, this message translates to:
+  /// **'If {outcome} loses, you lose {cost}; if it wins, you get {payout}.'**
+  String polyRiskOutcome(String outcome, String cost, String payout);
+
+  /// A money step running: {amount} (formatted dollars) leaving the balance {source} (Bitcoin, Dollars, Predictions, Investing) for an order or a move. Shown with a small spinner under the slip or sheet button.
+  ///
+  /// In en, this message translates to:
+  /// **'Moving {amount} from {source}'**
+  String moneyStepMovingFrom(String amount, String source);
+
+  /// The same money step once it landed (shown with a check). {amount} formatted dollars, {source} the balance it came from.
+  ///
+  /// In en, this message translates to:
+  /// **'Moved {amount} from {source}'**
+  String moneyStepMovedFrom(String amount, String source);
+
+  /// A money step running between two named balances, e.g. Moving $12.00 from Investing → Bitcoin. {amount} formatted dollars, {source} and {destination} balance names.
+  ///
+  /// In en, this message translates to:
+  /// **'Moving {amount} from {source} → {destination}'**
+  String moneyStepMovingFromTo(
+      String amount, String source, String destination);
+
+  /// The same step once it landed (shown with a check). {amount} formatted dollars, {source} and {destination} balance names.
+  ///
+  /// In en, this message translates to:
+  /// **'Moved {amount} from {source} → {destination}'**
+  String moneyStepMovedFromTo(String amount, String source, String destination);
+
+  /// A money step that failed (shown with the error sign). {amount} formatted dollars, {source} the balance name. The line under the steps says where the money is.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} from {source} didn\'t move'**
+  String moneyStepMoveFailed(String amount, String source);
+
+  /// A direct route was refused before any money left, so the money takes the longer way through another balance, e.g. Bitcoin route busy, going via Dollars. {source} and {via} are balance names.
+  ///
+  /// In en, this message translates to:
+  /// **'{source} route busy, going via {via}'**
+  String moneyStepFellBack(String source, String via);
+
+  /// A direct route was not taken before any money left, for a reason the person cannot act on, so the money takes the longer way through another balance, e.g. Predictions going via Dollars. {source} and {via} are balance names.
+  ///
+  /// In en, this message translates to:
+  /// **'{source} going via {via}'**
+  String moneyStepViaDollars(String source, String via);
+
+  /// A direct route is not offered right now (not available, paused or refused recently), so before any money left it takes the longer way through another balance, e.g. Predictions route unavailable, going via Dollars. {source} and {via} are balance names.
+  ///
+  /// In en, this message translates to:
+  /// **'{source} route unavailable, going via {via}'**
+  String moneyStepRouteUnavailable(String source, String via);
+
+  /// The amount is under what the direct route takes, so the money takes the longer way through another balance, e.g. Too small to go straight from Predictions, going via Dollars. {source} and {via} are balance names.
+  ///
+  /// In en, this message translates to:
+  /// **'Too small to go straight from {source}, going via {via}'**
+  String moneyStepTooSmallDirect(String source, String via);
+
+  /// Activity row and detail of a move whose money was for an order (Investing or Predictions): the money came home to the spending dollar balance but the order and its move into the venue never went, so the money is in that balance. {amount} is a formatted dollar amount, {balance} the dollar balance's display name.
+  ///
+  /// In en, this message translates to:
+  /// **'Your {amount} is in {balance}. The order didn\'t go through'**
+  String multiMoveOrderWaiting(String amount, String balance);
+
+  /// Predictions readiness sub-step: the dollars that arrived (USDC.e) are converted to pUSD, the token predictions are placed with. Running.
+  ///
+  /// In en, this message translates to:
+  /// **'Converting to pUSD'**
+  String get moneyStepConverting;
+
+  /// The same sub-step once done (shown with a check).
+  ///
+  /// In en, this message translates to:
+  /// **'Converted to pUSD'**
+  String get moneyStepConverted;
+
+  /// Predictions readiness sub-step, only when needed: the prediction venue is allowed to spend the account's pUSD. Running.
+  ///
+  /// In en, this message translates to:
+  /// **'Approving spend'**
+  String get moneyStepApproving;
+
+  /// The same sub-step once done (shown with a check).
+  ///
+  /// In en, this message translates to:
+  /// **'Spend approved'**
+  String get moneyStepApproved;
+
+  /// Predictions readiness sub-step: waiting until the prediction venue itself shows the balance that covers the bet. Running.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirming balance'**
+  String get moneyStepConfirming;
+
+  /// The same sub-step once done (shown with a check).
+  ///
+  /// In en, this message translates to:
+  /// **'Balance confirmed'**
+  String get moneyStepConfirmed;
+
+  /// Investing readiness sub-step: the dollars that arrived are being credited where the order draws from. Running.
+  ///
+  /// In en, this message translates to:
+  /// **'Crediting to trading balance'**
+  String get moneyStepCrediting;
+
+  /// The same sub-step once done (shown with a check).
+  ///
+  /// In en, this message translates to:
+  /// **'Credited to trading balance'**
+  String get moneyStepCredited;
+
+  /// A Buy bitcoin step running: Dollars buying bitcoin. {amount} formatted dollars.
+  ///
+  /// In en, this message translates to:
+  /// **'Buying {amount} of Bitcoin'**
+  String moneyStepBuying(String amount);
+
+  /// The same step once done (shown with a check). {amount} formatted dollars.
+  ///
+  /// In en, this message translates to:
+  /// **'Bought {amount} of Bitcoin'**
+  String moneyStepBought(String amount);
+
+  /// The last step of a move to Bitcoin: the bitcoin landing in the wallet. Running.
+  ///
+  /// In en, this message translates to:
+  /// **'Arriving in Bitcoin'**
+  String get moneyStepArriving;
+
+  /// The same step once the bitcoin is in the wallet (shown with a check).
+  ///
+  /// In en, this message translates to:
+  /// **'Arrived in Bitcoin'**
+  String get moneyStepArrived;
+
+  /// The last step of a send from Investments, running: the dollars leaving Dollars for the recipient once the money that came home from the venues landed. {amount} formatted dollars. Shown with a small spinner.
+  ///
+  /// In en, this message translates to:
+  /// **'Sending {amount}'**
+  String moneyStepSending(String amount);
+
+  /// The same step once the send settled (shown with a check). {amount} formatted dollars.
+  ///
+  /// In en, this message translates to:
+  /// **'Sent {amount}'**
+  String moneyStepSent(String amount);
+
+  /// One step of a money move in its Activity detail, compact: where the money went and how much, e.g. Investing → Dollars · $20.69. The line's icon says whether it is running, done or failed. {source} and {destination} are balance names (or where a send went), {amount} formatted dollars.
+  ///
+  /// In en, this message translates to:
+  /// **'{source} → {destination} · {amount}'**
+  String moneyStepCompact(String source, String destination, String amount);
 }
 
 class _AppLocalizationsDelegate

@@ -42,12 +42,13 @@ void main() {
     expect(notifier.toggle(_event('fed-decision', id: '1-No change')),
         isFalse);
     expect(container.read(polyWatchlistProvider), ['nfl-ind-was']);
-    await Future<void>.delayed(const Duration(milliseconds: 50));
+    // Every toggle on disk, in order, before the "restart".
+    await notifier.saved;
     container.dispose();
 
     final again = ProviderContainer();
     again.read(polyWatchlistProvider);
-    await Future<void>.delayed(const Duration(milliseconds: 50));
+    await again.read(polyWatchlistProvider.notifier).loaded;
     expect(again.read(polyWatchlistProvider), ['nfl-ind-was']);
     again.dispose();
   });

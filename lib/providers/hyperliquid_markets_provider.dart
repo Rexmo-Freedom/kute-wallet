@@ -645,7 +645,9 @@ final Expando<bool> _hlShortPerpLists = Expando<bool>();
 /// markets, and when the categories could not be read a builder market
 /// keeps the category, name and keywords it last had. Prices on a kept
 /// row are old until the live feed overwrites them. A whole answer is
-/// returned as it is: a dex missing from it has really gone.
+/// returned as it is: a dex missing from it has really gone. A dex the
+/// answer read and found settling in another stablecoin than USDC
+/// ([HlPerpCatalogue.nonUsdcDexes]) is left out on purpose, never put back.
 List<HlMarket> hlKeepLastKnownBuilderMarkets(
     HlPerpCatalogue catalogue, List<HlMarket>? lastKnown) {
   final fresh = catalogue.markets;
@@ -656,7 +658,7 @@ List<HlMarket> hlKeepLastKnownBuilderMarkets(
   }
   final knownByWire = {
     for (final m in lastKnown)
-      if (m.isHip3) m.wireCoin: m
+      if (m.isHip3 && !catalogue.nonUsdcDexes.contains(m.dex)) m.wireCoin: m
   };
   final out = <HlMarket>[];
   final dexes = <String>{};

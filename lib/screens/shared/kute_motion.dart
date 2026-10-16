@@ -17,6 +17,8 @@
 //   * [KuteStillWhenCovered]: a live screen with a slip open over it draws
 //     its end states at once, as under Reduce Motion, until it is on top
 //     again.
+//   * [KutePressScale]: something tappable that is not a card or a button
+//     (the Investments balance) gives the cards' press feedback.
 //
 // Every one of them honours Reduce Motion: with it on, the end state is
 // drawn at once.
@@ -24,6 +26,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'package:kute/screens/shared/rolling_number_text.dart';
 
@@ -357,6 +360,49 @@ class KuteStillWhenCovered extends StatelessWidget {
     return MediaQuery(
       data: media.copyWith(disableAnimations: media.disableAnimations || covered),
       child: child,
+    );
+  }
+}
+
+/// The app's press feedback (AppCard's): the child eases to 97% while a
+/// finger is down, a light haptic on the tap. Under Reduce Motion the
+/// child never scales. Read in build, never in initState.
+class KutePressScale extends StatefulWidget {
+  final Widget child;
+  final VoidCallback onTap;
+
+  const KutePressScale({super.key, required this.child, required this.onTap});
+
+  @override
+  State<KutePressScale> createState() => _KutePressScaleState();
+}
+
+class _KutePressScaleState extends State<KutePressScale> {
+  bool _pressed = false;
+
+  void _press(bool value) {
+    if (_pressed != value) setState(() => _pressed = value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reduceMotion = kuteReduceMotion(context);
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapDown: reduceMotion ? null : (_) => _press(true),
+      onTapUp: reduceMotion ? null : (_) => _press(false),
+      onTapCancel: reduceMotion ? null : () => _press(false),
+      onTap: () {
+        HapticFeedback.lightImpact();
+        widget.onTap();
+      },
+      child: AnimatedScale(
+        scale: _pressed && !reduceMotion ? 0.97 : 1.0,
+        duration:
+            reduceMotion ? Duration.zero : const Duration(milliseconds: 110),
+        curve: Curves.easeOut,
+        child: widget.child,
+      ),
     );
   }
 }

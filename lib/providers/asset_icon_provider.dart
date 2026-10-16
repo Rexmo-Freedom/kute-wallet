@@ -19,6 +19,14 @@ import 'package:cached_network_image/cached_network_image.dart';
 /// dollar disc, and the only word beside it is ever "USD".
 const String kUsdMarkAsset = 'lib/assets/usdb-logo.svg';
 
+/// The Investments arrow: the dock's Receive/deposit arrow on Home
+/// ([bitcoinWalletDockActions]), reused wherever the dollar balance is
+/// a source or destination row (the Move sheet pickers and route card,
+/// the send and receive confirmations, the Financial hub's spending
+/// row). Those rows never wear the USDB coin; [kUsdMarkAsset] stays for
+/// the Activity coin rows and the USD surfaces themselves.
+const IconData kInvestmentsIcon = Icons.south_west_rounded;
+
 /// The same for bitcoin: the purchase door on the Bitcoin screen and
 /// the bitcoin leg of a Move wear this one mark, the way the dollar
 /// balance wears [kUsdMarkAsset].
@@ -196,6 +204,15 @@ class SafeSvgNetwork extends StatefulWidget {
   final double width;
   final double height;
   final Widget fallback;
+
+  /// Tests answer the icon fetch here; production uses a fresh client.
+  @visibleForTesting
+  static http.Client? debugClient;
+
+  /// Forgets every fetched and failed body, so tests start clean.
+  @visibleForTesting
+  static void resetCacheForTest() => _SafeSvgNetworkState._cache.clear();
+
   const SafeSvgNetwork({
     super.key,
     required this.url,
@@ -267,8 +284,9 @@ class _SafeSvgNetworkState extends State<SafeSvgNetwork> {
       return '';
     }
     try {
-      final response =
-          await http.get(Uri.parse(url)).timeout(const Duration(seconds: 10));
+      final client = SafeSvgNetwork.debugClient;
+      final response = await (client != null ? client.get(uri) : http.get(uri))
+          .timeout(const Duration(seconds: 10));
       // Decode the bytes ourselves: `response.body` falls back to
       // latin1 when the content-type carries no charset (image/svg+xml
       // never does), which mangles any non-ASCII glyph in the markup.
@@ -281,7 +299,12 @@ class _SafeSvgNetworkState extends State<SafeSvgNetwork> {
         // block as CSS classes, which flutter_svg does not apply, so
         // every path fell back to black and the coin drew as a dark
         // blob. The crop frames go for the same reason they did there.
-        return dropBoundingBoxClipPaths(inlineSvgClassStyles(body));
+        final repaired = dropBoundingBoxClipPaths(inlineSvgClassStyles(body));
+        // Proven to parse before SvgPicture ever sees it: the parser
+        // throws (an `hsl(285de…)` fill, a `transform="none"`) from the
+        // picture's isolate, past errorBuilder. An empty body is cached
+        // as a known failure, so the fallback shows without a refetch.
+        return await _svgParses(repaired) ? repaired : '';
       }
       if (kDebugMode) {
         debugPrint('SafeSvgNetwork: $url -> HTTP ${response.statusCode} '
@@ -291,6 +314,18 @@ class _SafeSvgNetworkState extends State<SafeSvgNetwork> {
     } catch (e) {
       if (kDebugMode) debugPrint('SafeSvgNetwork: $url -> $e');
       return '';
+    }
+  }
+
+  /// True when flutter_svg can parse [svg].
+  static Future<bool> _svgParses(String svg) async {
+    try {
+      final info = await vg.loadPicture(
+          SvgBytesLoader(Uint8List.fromList(utf8.encode(svg))), null);
+      info.picture.dispose();
+      return true;
+    } catch (_) {
+      return false;
     }
   }
 

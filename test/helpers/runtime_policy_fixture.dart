@@ -4,8 +4,13 @@ import 'package:http/testing.dart';
 import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 
+/// [also] names capabilities the answer carries beyond the default set
+/// (e.g. the venues' `….browse`), each allowed unless [blocked] names it.
 RuntimeCapabilitiesService runtimePolicyFixture(
-        {Set<String> blocked = const {}, int revision = 1, int? maxLeverage}) =>
+        {Set<String> blocked = const {},
+        Set<String> also = const {},
+        int revision = 1,
+        int? maxLeverage}) =>
     RuntimeCapabilitiesService.forTesting(
       client: MockClient((request) async {
         final now = DateTime.now().toUtc();
@@ -37,6 +42,7 @@ RuntimeCapabilitiesService runtimePolicyFixture(
                   'polymarket.politics',
                   'polymarket.withdraw',
                   'trading.advanced',
+                  ...also,
                 ])
                   id: {
                     'allowed': !blocked.contains(id),

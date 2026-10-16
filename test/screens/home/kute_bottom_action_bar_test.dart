@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/settings_model.dart';
@@ -22,6 +23,7 @@ import 'package:kute/screens/home/components/kute_bottom_action_bar.dart';
 import 'package:kute/screens/home/home.dart' show HomeDock;
 import 'package:kute/screens/portfolio/open_investments_screen.dart'
     show InvestmentsProduct;
+import 'package:kute/screens/receive/receive_sheet.dart' show ReceiveSheets;
 import 'package:kute/screens/search/unified_search_screen.dart';
 import 'package:kute/screens/shared/ask_sal_sheet.dart'
     show SalSuggestionButton;
@@ -31,6 +33,7 @@ import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart';
 import 'package:kute/services/trade_notification_store.dart'
     show TradeNotification;
+import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
 class _Sports extends SportsLiveNotifier {
@@ -53,8 +56,10 @@ Settings _settings() => Settings(
       activeWalletId: 'spending',
     );
 
+/// [routes] mounts the dock under a real router (at `/`) beside them, so
+/// a test can see where a dock action navigates.
 Future<ProviderContainer> _pump(WidgetTester tester, Widget dock,
-    {bool aiEnabled = true, bool dark = false}) async {
+    {bool aiEnabled = true, bool dark = false, List<GoRoute>? routes}) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
@@ -72,24 +77,38 @@ Future<ProviderContainer> _pump(WidgetTester tester, Widget dock,
     hyperliquidAllMarketsProvider.overrideWith((_) => []),
   ]);
   addTearDown(container.dispose);
+  final theme = ThemeData(
+    brightness: dark ? Brightness.dark : Brightness.light,
+    splashFactory: NoSplash.splashFactory,
+    fontFamily: 'Inter',
+    extensions: [dark ? AppColorsExtension.dark() : AppColorsExtension.light()],
+  );
+  final home =
+      Scaffold(body: const SizedBox.shrink(), bottomNavigationBar: dock);
+  final router = routes == null
+      ? null
+      : GoRouter(routes: [
+          GoRoute(path: '/', builder: (_, __) => home),
+          ...routes,
+        ]);
+  if (router != null) addTearDown(router.dispose);
   await tester.pumpWidget(UncontrolledProviderScope(
     container: container,
     child: ScreenUtilInit(
       designSize: const Size(430, 932),
-      builder: (_, __) => MaterialApp(
-        theme: ThemeData(
-          brightness: dark ? Brightness.dark : Brightness.light,
-          splashFactory: NoSplash.splashFactory,
-          fontFamily: 'Inter',
-          extensions: [
-            dark ? AppColorsExtension.dark() : AppColorsExtension.light()
-          ],
-        ),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: Scaffold(
-            body: const SizedBox.shrink(), bottomNavigationBar: dock),
-      ),
+      builder: (_, __) => router != null
+          ? MaterialApp.router(
+              routerConfig: router,
+              theme: theme,
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+            )
+          : MaterialApp(
+              theme: theme,
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              home: home,
+            ),
     ),
   ));
   await tester.pumpAndSettle();
@@ -290,10 +309,100 @@ void main() {
     expect(find.byIcon(Icons.add_rounded), findsNothing);
   });
 
+  testWidgets(
+      'the Investments dock is Receive, Send and search; Receive opens the '
+      'Dollars receive screen from the dock', (tester) async {
+    final events = <(String, Map<String, Object>?)>[];
+    TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+    addTearDown(() => TrackingService.debugTrackObserver = null);
+    var receiveOpened = 0;
+    UsdAccountActionBar.debugReceiveOpener = (_) => receiveOpened++;
+    addTearDown(() => UsdAccountActionBar.debugReceiveOpener = null);
+    await _pump(tester, const UsdAccountActionBar());
+    final bar =
+        tester.widget<KuteBottomActionBar>(find.byType(KuteBottomActionBar));
+    // Money in on the left, Send on the right, exactly the Bitcoin dock's
+    // Receive (label, arrow, action key); no Deposit.
+    expect(bar.actions.map((a) => a.label), ['Receive', 'Send']);
+    expect(bar.actions.map((a) => a.trackingId), ['receive', 'send']);
+    expect(bar.actions.map((a) => a.icon),
+        [Icons.south_west_rounded, Icons.north_east_rounded]);
+    expect(bar.actions.map((a) => a.onTap), everyElement(isNotNull));
+    expect(bar.source, 'usd');
+    expect(find.text('Deposit'), findsNothing);
+    expect(find.byType(KuteDogMagnifier), findsOneWidget);
+
+    await tester.tap(find.text('Receive'));
+    await tester.pump();
+    expect(receiveOpened, 1);
+    expect(events.where((e) => e.$1 == 'quick_action_tapped').single.$2,
+        {'action': 'receive', 'source': 'usd'});
+    expect(TrackingService.takeEntrySource('usd_receive'), 'usd_dock');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'the Investments dock\'s Receive opens the Dollars receive as a '
+      'bottom sheet over the screen, not a route push', (tester) async {
+    ReceiveSheets.debugUsdBody = (_) => const Text('usd receive body');
+    addTearDown(() => ReceiveSheets.debugUsdBody = null);
+    final pushed = <Uri>[];
+    await _pump(tester, const UsdAccountActionBar(), routes: [
+      GoRoute(
+        path: '/receive_dollars',
+        name: 'receiveDollars',
+        builder: (_, state) {
+          pushed.add(state.uri);
+          return const Scaffold(body: SizedBox.expand());
+        },
+      ),
+    ]);
+    await tester.tap(find.text('Receive'));
+    await tester.pumpAndSettle();
+    expect(pushed, isEmpty);
+    expect(find.text('usd receive body'), findsOneWidget);
+    final route = ModalRoute.of(tester.element(find.text('usd receive body')));
+    expect(route, isA<ModalBottomSheetRoute<void>>());
+    expect(route!.settings.name, 'receiveDollars');
+    // The dock is still underneath.
+    expect(find.byType(KuteBottomActionBar), findsOneWidget);
+    expect(TrackingService.takeEntrySource('usd_receive'), 'usd_dock');
+  });
+
+  testWidgets(
+      'the Bitcoin dock\'s Receive opens the Bitcoin receive as a bottom '
+      'sheet over the screen, not a route push', (tester) async {
+    ReceiveSheets.debugBitcoinBody = (_) => const Text('btc receive body');
+    addTearDown(() => ReceiveSheets.debugBitcoinBody = null);
+    final pushed = <Uri>[];
+    await _pump(tester, const HomeDock(), routes: [
+      GoRoute(
+        path: '/receive',
+        name: 'receive',
+        builder: (_, state) {
+          pushed.add(state.uri);
+          return const Scaffold(body: SizedBox.expand());
+        },
+      ),
+    ]);
+    await tester.tap(find.text('Receive'));
+    await tester.pumpAndSettle();
+    expect(pushed, isEmpty);
+    expect(find.text('btc receive body'), findsOneWidget);
+    final route = ModalRoute.of(tester.element(find.text('btc receive body')));
+    expect(route, isA<ModalBottomSheetRoute<void>>());
+    expect(route!.settings.name, 'receive');
+    expect(find.byType(KuteBottomActionBar), findsOneWidget);
+  });
+
   testWidgets('the Dollars dock searches the spending account\'s activity',
       (tester) async {
     final container =
         await _pump(tester, const UsdAccountActionBar());
+    // The Positions pill's square searches the activity; a venue pill's
+    // searches that venue's markets.
+    container.read(investmentsTabProvider.notifier).state =
+        InvestmentsTab.positions;
     expect(find.byType(KuteDogMagnifier), findsOneWidget);
     expect(find.byIcon(Icons.add_rounded), findsNothing);
     await tester.tap(find.byType(KuteDogMagnifier));
@@ -385,9 +494,9 @@ void main() {
       await _pump(tester, InvestmentActionBar(product: product));
       final bar = tester
           .widget<KuteBottomActionBar>(find.byType(KuteBottomActionBar));
-      expect(bar.actions.map((a) => a.trackingId), ['portfolio', 'withdraw']);
+      expect(bar.actions.map((a) => a.trackingId), ['portfolio']);
       expect(bar.actions.first.icon, Icons.pie_chart_rounded);
-      expect(bar.actions.map((a) => a.solid), [true, false]);
+      expect(bar.actions.map((a) => a.solid), [true]);
       expect(find.byIcon(Icons.account_balance_wallet_rounded), findsNothing);
     }
   });

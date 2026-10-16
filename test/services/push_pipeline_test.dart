@@ -35,8 +35,7 @@ class _Settings extends StateNotifier<Settings> implements SettingsModel {
         ));
 
   @override
-  dynamic noSuchMethod(Invocation invocation) =>
-      super.noSuchMethod(invocation);
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 void main() {
@@ -82,6 +81,7 @@ void main() {
     final container = ProviderContainer(overrides: [
       settingsProvider.overrideWith((ref) => _Settings()),
       breezSDKProvider.overrideWith((ref) async => wrapper),
+      sparkWalletInfoFeedProvider.overrideWithValue(wrapper.walletInfoStream),
     ]);
     container.read(walletTransactionCacheProvider.notifier).setForWallet(
         'spending',
@@ -275,8 +275,49 @@ void main() {
   spark.GetInfoResponse infoWith(int sats) => spark.GetInfoResponse(
       identityPubkey: 'id', balanceSats: BigInt.from(sats), tokenBalances: {});
 
-  test('each SDK sync re-reads the bitcoin balance, once per burst',
+  test('attach publishes recorded payments while its balance read is blocked',
       () async {
+    final events = StreamController<spark.SdkEvent>.broadcast();
+    addTearDown(events.close);
+    final sdk = sdkWith(events.stream, const []);
+    final wrapper = BreezSdkSpark.forTesting(connectSdk: (_) async => sdk);
+    await wrapper.connect(req: _Request());
+    await flush();
+    // The receipt is already in SDK storage before the pipeline attaches.
+    // A blocked balance read must not hide it until another SDK event.
+    final blockedInfo = Completer<spark.GetInfoResponse>();
+    when(() => sdk.getInfo(request: any(named: 'request')))
+        .thenAnswer((_) => blockedInfo.future);
+    final payment = spark.Payment(
+      id: 'received-before-attach',
+      paymentType: spark.PaymentType.receive,
+      status: spark.PaymentStatus.completed,
+      amount: BigInt.from(4000),
+      fees: BigInt.zero,
+      timestamp: BigInt.from(1),
+      method: spark.PaymentMethod.spark,
+    );
+    when(() => sdk.listPayments(request: any(named: 'request'))).thenAnswer(
+        (_) async => spark.ListPaymentsResponse(payments: [payment]));
+    final harness = await attach(wrapper);
+    expect(
+        harness.container
+            .read(walletTransactionCacheProvider)['spending']!
+            .sparkTransactions
+            .map((tx) => tx.id),
+        ['received-before-attach']);
+    blockedInfo.complete(infoWith(4000));
+    await flush();
+    expect(
+        harness.container
+            .read(walletBalanceCacheProvider.notifier)
+            .shownSparkSats('spending'),
+        4000);
+  });
+
+  test(
+      'each SDK sync re-reads the bitcoin balance at once, and once more '
+      'after the burst', () async {
     final events = StreamController<spark.SdkEvent>.broadcast();
     addTearDown(events.close);
     final sdk = sdkWith(events.stream, const []);
@@ -294,14 +335,16 @@ void main() {
       ..add(const spark.SdkEvent.synced())
       ..add(const spark.SdkEvent.synced());
     await flush();
-    expect(cache.shownSparkSats('spending'), 1);
-    await Future<void>.delayed(const Duration(milliseconds: 1100));
+    expect(cache.shownSparkSats('spending'), 25000,
+        reason: 'read at the first event, no debounce first');
+    await Future<void>.delayed(
+        kSyncedRereadSettle + const Duration(milliseconds: 100));
     await flush();
     expect(cache.shownSparkSats('spending'), 25000);
-    verify(() => sdk.getInfo(request: any(named: 'request'))).called(1);
+    verify(() => sdk.getInfo(request: any(named: 'request'))).called(2);
   });
 
-  test('a sync re-read due after the pipeline stopped writes nothing',
+  test('a sync re-read due after the wallet disconnected writes nothing',
       () async {
     final events = StreamController<spark.SdkEvent>.broadcast();
     addTearDown(events.close);
@@ -313,14 +356,16 @@ void main() {
         .thenAnswer((_) async => infoWith(25000));
     events.add(const spark.SdkEvent.synced());
     await flush();
-    harness.pipeline.stop();
-    await Future<void>.delayed(const Duration(milliseconds: 1100));
+    final cache = harness.container.read(walletBalanceCacheProvider.notifier);
+    expect(cache.shownSparkSats('spending'), 25000);
+    wrapper.disconnect();
+    when(() => sdk.getInfo(request: any(named: 'request')))
+        .thenAnswer((_) async => infoWith(40000));
+    await Future<void>.delayed(
+        kSyncedRereadSettle + const Duration(milliseconds: 100));
     await flush();
-    expect(
-        harness.container
-            .read(walletBalanceCacheProvider.notifier)
-            .shownSparkSats('spending'),
-        1);
+    expect(cache.shownSparkSats('spending'), 25000,
+        reason: 'the second read never ran');
   });
 
   test('a listed receive the cached balance missed is caught up by a sync',
@@ -441,8 +486,7 @@ void main() {
       expect(published, [3000]);
     });
 
-    test('a failed sync still publishes what the cache holds, once',
-        () async {
+    test('a failed sync still publishes what the cache holds, once', () async {
       final failing = SparkBalanceCatchUp(
         readSats: () async {
           reads++;

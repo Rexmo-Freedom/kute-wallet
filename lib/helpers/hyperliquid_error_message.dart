@@ -2,6 +2,7 @@ import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/l10n/generated/app_localizations.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart';
+import 'package:kute/services/hyperliquid/hypercore_dex_cash.dart';
 import 'package:kute/services/hyperliquid/hot_twap_guard.dart';
 
 /// Rejections are authoritative. A transport or unclassified failure is not
@@ -33,6 +34,7 @@ String hlTradeErrorMessage(AppLocalizations l10n, Object error) {
   if (error is HyperliquidInsufficientMarginException) {
     return l10n.investingInsufficientBalance;
   }
+  if (error is OwnDexCreditPending) return l10n.moneyStepCrediting;
   if (error is AuthGrantException) return l10n.investingApprovalExpired;
   if (error is HyperliquidRejectedException) {
     return hlRejectionCopy(l10n, error.reason) ?? l10n.investingTradeRejected;

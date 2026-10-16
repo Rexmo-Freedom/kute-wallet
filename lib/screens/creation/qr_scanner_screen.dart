@@ -50,6 +50,7 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
     if (!_completed) {
       TrackingService.track('qr_scanner_dismissed', params: {
         'animated_in_progress': _animatedSeen,
+        'progress_pct': (_lastProgress * 100).round(),
         'progress_bucket': _progressBucket(_lastProgress),
       });
     }

@@ -427,7 +427,9 @@ class SettlementStore {
         updatedAt: now,
         terminalAt: to.isTerminal && to != from ? now : current.terminalAt,
         version: current.version + 1,
-        raw: current.raw,
+        // A patch may add fields of its own (a flow's extra record); the
+        // codec still writes every known field over them.
+        raw: patched.raw,
       );
       await _write(next);
       return SettlementWriteResult(SettlementWriteStatus.applied, next);

@@ -4,6 +4,25 @@ import 'package:kute/models/swap_order_model.dart';
 import 'package:kute/services/funding/settlement_codec.dart';
 import 'package:kute/services/funding/settlement_store.dart';
 import 'package:kute/services/polymarket_spark_txs_service.dart';
+import 'package:kute/services/orchestra_routes.dart'
+    show isOrchestraUsdLikeCoin;
+
+/// Asset identity is enough to exclude a dollar-only conversion from the
+/// Bitcoin ledger, even when an older row has lost its venue intent.
+/// Unknown assets are deliberately not guessed to be dollars.
+bool swapTouchesOnlyDollars(SwapOrder order) {
+  bool dollars(String asset) =>
+      isOrchestraUsdLikeCoin(asset.trim()) ||
+      asset.trim().toUpperCase() == 'PUSD';
+  return dollars(order.coinFrom) && dollars(order.coinTo);
+}
+
+bool swapAssetIsBitcoin(String asset) => const {
+      'BTC',
+      'XBT',
+      'SPARKBTC',
+      'LIGHTNING'
+    }.contains(asset.trim().toUpperCase());
 
 enum SwapActivityKind {
   purchase,
@@ -56,6 +75,7 @@ SwapActivityKind classifySwapActivity(SwapOrder order,
     case SettlementFlow.predictionsBtcRoute:
     case SettlementFlow.predictionsToLedgerBtc:
     case SettlementFlow.movePredictionsToDollars:
+    case SettlementFlow.movePredictionsToInvesting:
       return SwapActivityKind.predictionsWithdrawal;
     case SettlementFlow.moveBtcToInvesting:
     case SettlementFlow.ledgerBtcToInvesting:
@@ -66,6 +86,9 @@ SwapActivityKind classifySwapActivity(SwapOrder order,
     case SettlementFlow.investingToLedgerBtc:
     case SettlementFlow.investingToSparkDirect:
     case SettlementFlow.investingToSparkUsdDirect:
+    case SettlementFlow.investingToDollarsCctp:
+    case SettlementFlow.investingToBtcCctp:
+    case SettlementFlow.investingToPredictionsCctp:
       return SwapActivityKind.investingWithdrawal;
     case SettlementFlow.moveDollarsToBtc:
       return SwapActivityKind.dollarWithdrawal;

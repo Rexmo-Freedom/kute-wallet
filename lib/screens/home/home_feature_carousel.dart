@@ -55,6 +55,7 @@ Future<bool> checkPolymarketGeoblock(BuildContext context,
     message: message,
     regionRestricted: regionBlocked,
     title: l10n.gatePredictionsUnavailable,
+    capabilities: capabilities ?? [capability],
   ));
   return true;
 }

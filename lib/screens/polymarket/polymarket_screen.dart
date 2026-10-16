@@ -7,6 +7,7 @@ import 'package:kute/services/runtime_capabilities_service.dart';
 
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/polymarket_model.dart';
+import 'package:kute/providers/refresh_everything_provider.dart';
 import 'package:kute/providers/polymarket_provider.dart';
 import 'package:kute/services/polymarket/polymarket_price_source.dart'
     show CryptoPriceFeed;
@@ -22,6 +23,8 @@ import 'package:kute/providers/polymarket_user_channel_provider.dart';
 import 'package:kute/screens/polymarket/components/live_game.dart';
 import 'package:kute/providers/polymarket_watchlist_provider.dart';
 import 'package:kute/screens/polymarket/components/live_token_scope.dart';
+import 'package:kute/screens/polymarket/components/crypto_odds_scope.dart';
+import 'package:kute/providers/crypto_live_odds_provider.dart';
 import 'package:kute/screens/polymarket/components/market_card.dart';
 import 'package:kute/screens/polymarket/components/poly_category_icons.dart';
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
@@ -32,9 +35,12 @@ import 'package:kute/screens/polymarket/components/price_format.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/screens/polymarket/components/poly_browse_bar.dart';
 import 'package:kute/services/polymarket/crypto_round.dart';
+import 'package:kute/services/polymarket/crypto_window_results.dart';
 import 'package:kute/screens/polymarket/market_detail_sheet.dart';
 import 'package:kute/screens/shared/investment_action_bar.dart';
 import 'package:kute/screens/shared/investment_balance_header.dart';
+import 'package:kute/screens/home/components/kute_dock_host.dart'
+    show kuteDockScrollClearance;
 import 'package:kute/screens/home/components/deposit_sheet.dart'
     show showDepositSheet, MoveLockedSide;
 import 'package:kute/screens/shared/kute_skeleton.dart';
@@ -58,12 +64,20 @@ import 'package:kute/providers/pending_polymarket_bet_provider.dart';
 ///
 /// While the policy withholds `polymarket.deposit` the door opens nothing
 /// and says why instead, in the shared unavailable sheet.
-void _openPredictionsDeposit(BuildContext context, WidgetRef ref) {
-  final decision =
-      ref.read(runtimeCapabilitiesProvider).decision('polymarket.deposit');
+///
+/// A refusal is asked again before it is shown ([confirmCapability]). A
+/// region refusal's "Check connection" that finds the door open goes on
+/// into the deposit.
+Future<void> _openPredictionsDeposit(BuildContext context, WidgetRef ref) async {
+  final decision = await confirmCapability(
+      ref.read(runtimeCapabilitiesProvider), 'polymarket.deposit');
+  if (!context.mounted) return;
   if (!decision.allowed || decision.comingSoon) {
-    showCapabilityDecisionSheet(context, decision);
-    return;
+    if (!await showCapabilityDecisionSheet(context, decision,
+            capability: 'polymarket.deposit') ||
+        !context.mounted) {
+      return;
+    }
   }
   final intent = ref.read(pendingPolymarketBetProvider);
   showDepositSheet(
@@ -86,8 +100,45 @@ typedef _LiveGroup = ({PolySub sub, List<PolymarketEvent> games});
 class PolymarketScreen extends ConsumerStatefulWidget {
   final bool autoShowDeposit;
   final bool autoShowWithdraw;
+
+  /// Mounted inside the Investments tab (one balance): the market
+  /// browser alone, with no room for the top bar, no hero of its own (the
+  /// Investments hero sits above the pills), no dock and no blur band
+  /// (the Investments dock is the host's), and no funding doors at all
+  /// ([autoShowDeposit] / [autoShowWithdraw] are ignored: money reaches
+  /// the venue only through an order).
+  final bool embedded;
+
   const PolymarketScreen(
-      {super.key, this.autoShowDeposit = false, this.autoShowWithdraw = false});
+      {super.key,
+      this.autoShowDeposit = false,
+      this.autoShowWithdraw = false,
+      this.embedded = false});
+
+  /// A pull-to-refresh's part of its own: the list on screen read again.
+  /// The account and everything else are the shared refresh
+  /// (`refresh_everything_provider.dart`), run beside it by the screen's
+  /// own indicator and the Investments page's (which hosts the embedded
+  /// browser).
+  static void refreshBrowse(WidgetRef ref) {
+    final selection = ref.read(polyBrowseSelectionProvider);
+    final pill = selection.pill;
+    final canBrowse =
+        ref.read(runtimeCapabilitiesProvider).allows('polymarket.browse');
+    final fiveMinOnly = pill == PolyPill.crypto && selection.sub == '5m';
+    // The list on screen and its chips; the other lists keep what they
+    // hold. The 5-min hero/grid refresh themselves on a 10s cadence and
+    // roll every 5 minutes, so they're deliberately left out.
+    polyRefreshBrowse(
+      query: !canBrowse || fiveMinOnly
+          ? null
+          : pill == PolyPill.live
+              ? const PolyFeedQuery(pill: PolyPill.live)
+              : selection.query,
+      pill: pill,
+      invalidate: ref.invalidate,
+    );
+  }
 
   @override
   ConsumerState<PolymarketScreen> createState() => _PolymarketScreenState();
@@ -122,7 +173,14 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
   /// nears its end.
   void _onScroll() {
     _updateNavBarHidden();
-    final pos = _scrollController.position;
+    _onScrollMetrics(_scrollController.position);
+  }
+
+  /// The paging and depth rules on [pos], the list's metrics: read off
+  /// the screen's own controller, or, embedded in the Investments page
+  /// (where the list has no controller of its own), off the list's
+  /// scroll notifications ([_onEmbeddedScroll]).
+  void _onScrollMetrics(ScrollMetrics pos) {
     if (!pos.hasContentDimensions || pos.maxScrollExtent <= 0) return;
 
     if (pos.extentAfter < 900) _loadMore();
@@ -134,6 +192,20 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
         TrackingService.polymarketListScrolled(depthPct: t);
       }
     }
+  }
+
+  /// Embedded: every scroll update and every change of the list's size
+  /// runs the paging and depth rules, so a short first page still reads
+  /// on until the list fills the screen (the post-frame check the
+  /// controller used to make).
+  bool _onEmbeddedScroll(Notification notification) {
+    if (notification is ScrollUpdateNotification && notification.depth == 0) {
+      _onScrollMetrics(notification.metrics);
+    } else if (notification is ScrollMetricsNotification &&
+        notification.depth == 0) {
+      _onScrollMetrics(notification.metrics);
+    }
+    return false;
   }
 
   void _loadMore() {
@@ -198,10 +270,25 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
     _container = ProviderScope.containerOf(context, listen: false);
   }
 
+  /// The category whose subcategories the one browse row shows, in place
+  /// of the categories ([PolyDrillRow]); null shows the categories.
+  PolyPill? _drilledInto;
+
+  /// A selection that names a subcategory other than its category's
+  /// default (a deep link, a pick on "More") shows that category's row,
+  /// so the chip that is on screen can be seen.
+  static PolyPill? _drillFor(PolyBrowseSelection s) {
+    final sub = s.subs[s.pill];
+    return sub != null && sub != s.pill.defaultSub ? s.pill : null;
+  }
+
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_onScroll);
+    _drilledInto = _drillFor(ref.read(polyBrowseSelectionProvider));
+    // Embedded, the list scrolls inside the Investments page, which
+    // drives the nav bar itself; paging reads the notifications instead.
+    if (!widget.embedded) _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // The widget can be disposed between initState and this post-frame
       // callback (fast navigation in/out of Predictions). Touching `ref`
@@ -214,7 +301,17 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
       // answered by the time the person places an order.
       unawaited(PolymarketBackendService.prefetchBuilderCode());
       _autoEnableTrading();
-      if (widget.autoShowDeposit || widget.autoShowWithdraw) {
+      if (widget.embedded) {
+        // Inside Investments the CLOB notifier is born while the shell
+        // tab is Investments, not Predictions, so it would start
+        // pause-requested on every recreation and nothing would resume
+        // it until the next tab switch. Held alive from this mount
+        // instead (the screen lives as long as the shell), so the shell
+        // policy's resume on the Predictions pill always finds it.
+        ref.listenManual(livePriceProvider, (_, __) {});
+      }
+      if (!widget.embedded &&
+          (widget.autoShowDeposit || widget.autoShowWithdraw)) {
         Future.delayed(const Duration(milliseconds: 500), () {
           if (!mounted) return;
           if (widget.autoShowDeposit) {
@@ -312,8 +409,11 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
     return null;
   }
 
+  /// A category: its list, and its subcategories in place of the
+  /// categories when it has any (the row stays put when it has none).
   void _onPill(PolyPill pill) {
     HapticFeedback.selectionClick();
+    setState(() => _drilledInto = pill);
     final current = ref.read(polyBrowseSelectionProvider);
     if (pill == current.pill) return;
     TrackingService.track('category_pill_tapped',
@@ -332,6 +432,21 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
     _select(current.copyWith(sub: sub.key));
   }
 
+  /// The back pill: the categories again, the category still on screen
+  /// at its default list (as when it is picked).
+  void _onBack(PolyPill parent) {
+    HapticFeedback.selectionClick();
+    TrackingService.track('category_row_back_tapped', params: {
+      'surface': 'predictions',
+      'parent': parent.key,
+    });
+    setState(() => _drilledInto = null);
+    final current = ref.read(polyBrowseSelectionProvider);
+    if (current.sub != parent.defaultSub) {
+      _select(current.copyWith(sub: parent.defaultSub));
+    }
+  }
+
   /// "More": every category with its subcategories; a row shows its list.
   void _onMore(List<PolyPill> pills) {
     HapticFeedback.selectionClick();
@@ -346,6 +461,7 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
           'section': pill.key,
           'subcategory': sub.route,
         });
+        if (mounted) setState(() => _drilledInto = pill);
         _select(current.copyWith(pill: pill).copyWith(sub: sub.key));
       },
     );
@@ -367,6 +483,13 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
           p
     ];
     var selection = ref.watch(polyBrowseSelectionProvider);
+    ref.listen<PolyBrowseSelection>(polyBrowseSelectionProvider,
+        (prev, next) {
+      final drill = _drillFor(next);
+      if (drill != null && drill != _drilledInto) {
+        setState(() => _drilledInto = drill);
+      }
+    });
     if (!pills.contains(selection.pill)) {
       selection = selection.copyWith(pill: PolyPill.trending);
     }
@@ -409,6 +532,9 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
       }
     }
     final sub = _subFor(selection, subs) ?? PolySub(selection.sub);
+    // The one browse row shows the subcategories of the category drilled
+    // into, while it has a row of them.
+    final drilled = _drilledInto == pill && subs.length > 1;
     // Live always reads the one list of games in play; a league pill
     // narrows it on screen.
     final query = pill == PolyPill.live
@@ -453,7 +579,8 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
     }
 
     // A short first page leaves nothing to scroll: read on until the
-    // list fills the screen or ends.
+    // list fills the screen or ends (embedded, the list's metrics
+    // notifications do this, see [_onEmbeddedScroll]).
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_scrollController.hasClients) return;
       final pos = _scrollController.position;
@@ -477,41 +604,20 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
     // sliver, every section) on every WS price tick, which is what made
     // the whole browse experience stutter.
 
-    return Scaffold(
-      // No AppBar — the custom inline header below reclaims the ~56px
-      // a Material AppBar would eat, so the first market card lands
-      // visibly higher on screen. PlatformSafeArea handles the notch.
-      backgroundColor: context.isDark ? c.gradientBottom : c.background,
-      // Tap anywhere outside the search field to dismiss the keyboard.
-      // opaque hit behavior so taps on empty space still register
-      // even though the Stack's gradient background has no tap targets.
-      body: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => FocusScope.of(context).unfocus(),
-        child: Stack(
-          children: [
-            Container(decoration: AppDecorations.screenGradient(context)),
-            Positioned(
-              top: -100.h,
-              left: 0,
-              right: 0,
-              height: 400.h,
-              child: Container(
-                decoration: AppDecorations.ambientGlow(context),
-              ),
-            ),
-            PlatformSafeArea(
-              child: RefreshIndicator(
-                onRefresh: _onRefresh,
-                color: c.textPrimary,
-                backgroundColor: c.surface,
-                child: CustomScrollView(
-                  controller: _scrollController,
+    // The browser's own scroll view. Embedded in Investments it is the
+    // body of that page's nested scroll: it takes the page's primary
+    // (inner) controller so the hero and pills above it scroll away
+    // first, the page's own indicator refreshes it, and its list runs
+    // under the host's dock.
+    final embedded = widget.embedded;
+    final list = CustomScrollView(
+                  controller: embedded ? null : _scrollController,
                   physics: const AlwaysScrollableScrollPhysics(
                       parent: BouncingScrollPhysics()),
                   slivers: [
                     // Clears the integrated top nav bar (avatar + tabs).
-                    SliverToBoxAdapter(child: SizedBox(height: 64.h)),
+                    if (!embedded)
+                      SliverToBoxAdapter(child: SizedBox(height: 64.h)),
 
                     // Hero balance, like the main screen (user decision:
                     // the balance lives at the top of each pool screen,
@@ -519,10 +625,13 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
                     // Its own ConsumerWidget so balance/position/pending
                     // ticks rebuild ONLY the header, not the whole scroll
                     // view (the old inline Builder used the screen's ref).
-                    const SliverToBoxAdapter(
-                      child: InvestmentBalanceHeader(
-                          product: InvestmentsProduct.predictions),
-                    ),
+                    // Inside Investments the one-balance hero above the
+                    // pills is the hero.
+                    if (!embedded)
+                      const SliverToBoxAdapter(
+                        child: InvestmentBalanceHeader(
+                            product: InvestmentsProduct.predictions),
+                      ),
 
                     if (!canBrowse)
                       const SliverToBoxAdapter(
@@ -530,31 +639,32 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
                             capability: 'polymarket.browse'),
                       )
                     else ...[
-                      // ── Categories: the side-scrolling pill strip under
-                      // the balance, and under it the subcategories of
-                      // the category on screen, in the same pills.
+                      // ── Categories: ONE side-scrolling row of pills
+                      // under the balance. A category with subcategories
+                      // drills in: the row becomes "‹ Category" and its
+                      // subcategories. Both filter the list below in place.
                       SliverToBoxAdapter(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            SizedBox(height: 12.h),
-                            PolyPillRow(
-                              pills: pills,
-                              selected: pill,
-                              onSelect: _onPill,
-                              onMore: () => _onMore(pills),
-                            ),
-                            if (subs.length > 1) ...[
-                              SizedBox(height: 8.h),
-                              PolySubRow(
-                                pill: pill,
-                                subs: subs,
-                                selectedKey: selection.sub,
-                                onSelect: _onSub,
-                              ),
-                            ],
-                          ],
+                        child: Padding(
+                          padding: EdgeInsets.only(top: 4.h),
+                          child: PolyDrillRow(
+                            drilledInto: drilled ? pill : null,
+                            builder: (context, revealOnMount) => drilled
+                                ? PolySubRow(
+                                    pill: pill,
+                                    subs: subs,
+                                    selectedKey: selection.sub,
+                                    onSelect: _onSub,
+                                    onBack: () => _onBack(pill),
+                                    revealOnMount: revealOnMount,
+                                  )
+                                : PolyPillRow(
+                                    pills: pills,
+                                    selected: pill,
+                                    onSelect: _onPill,
+                                    onMore: () => _onMore(pills),
+                                    revealOnMount: revealOnMount,
+                                  ),
+                          ),
                         ),
                       ),
 
@@ -590,13 +700,56 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
                         ],
                       ),
                     ],
-                    // Bottom clearance above the floating action bar.
+                    // Bottom clearance above the floating action bar (the
+                    // host's dock when embedded).
                     SliverToBoxAdapter(
-                        child: SizedBox(height: _bottomDockHeight + 24.h)),
+                        child: SizedBox(
+                            height: embedded
+                                ? kuteDockScrollClearance(context)
+                                : _bottomDockHeight + 24.h)),
                   ],
-                ),
+                );
+    if (embedded) {
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: NotificationListener<Notification>(
+          onNotification: _onEmbeddedScroll,
+          child: list,
+        ),
+      );
+    }
+    final scroll = RefreshIndicator(
+      onRefresh: _onRefresh,
+      color: c.textPrimary,
+      backgroundColor: c.surface,
+      child: list,
+    );
+
+    return Scaffold(
+      // No AppBar — the custom inline header below reclaims the ~56px
+      // a Material AppBar would eat, so the first market card lands
+      // visibly higher on screen. PlatformSafeArea handles the notch.
+      backgroundColor: context.isDark ? c.gradientBottom : c.background,
+      // Tap anywhere outside the search field to dismiss the keyboard.
+      // opaque hit behavior so taps on empty space still register
+      // even though the Stack's gradient background has no tap targets.
+      body: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: Stack(
+          children: [
+            Container(decoration: AppDecorations.screenGradient(context)),
+            Positioned(
+              top: -100.h,
+              left: 0,
+              right: 0,
+              height: 400.h,
+              child: Container(
+                decoration: AppDecorations.ambientGlow(context),
               ),
             ),
+            PlatformSafeArea(child: scroll),
 
             // The integrated top nav bar now lives ONCE in the persistent nav
             // shell (lib/screens/app_shell.dart), mounted above all four tab
@@ -834,19 +987,10 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
     return slivers;
   }
 
-  Future<void> _onRefresh() async {
-    ref.invalidate(polymarketBalanceProvider);
-    ref.invalidate(polymarketTradingProvider);
-    // The list on screen and its chips; the other lists keep what they
-    // hold. The 5-min hero/grid refresh themselves on a 10s cadence and
-    // roll every 5 minutes, so they're deliberately left out.
-    polyRefreshBrowse(
-      query: _feedQuery,
-      pill: ref.read(polyBrowseSelectionProvider).pill,
-      invalidate: ref.invalidate,
-    );
-    // Wait a moment for providers to start refetching
-    await Future.delayed(const Duration(milliseconds: 500));
+  Future<void> _onRefresh() {
+    PolymarketScreen.refreshBrowse(ref);
+    return ref.read(refreshEverythingProvider)(
+        const RefreshTrigger('polymarket'));
   }
 
   void _showWithdrawSheet(BuildContext context, WidgetRef ref) {
@@ -1001,13 +1145,6 @@ class _PolyFeedCard extends ConsumerWidget {
 /// countdown, live CLOB odds on the Up/Down buttons) and reused by
 /// `FiveMinMarketDetailSheet` to surface the same widget in detail-sheet
 /// form when a 5-min market is opened from the grid.
-/// How old a CLOB live odds tick may be before [CryptoPredictBanner]
-/// stops trusting it and falls back to the 10s Gamma poll. Generous
-/// against a thin 5-min book's frame gaps, tight enough that a silently
-/// dead feed (stalled socket, exhausted reconnects) hands over within
-/// one window's opening seconds.
-const _kLiveOddsMaxAge = Duration(seconds: 30);
-
 /// Registers its subtree in [cryptoCardsOnScreenProvider] while
 /// tickers are enabled there. A hidden shell branch turns tickers off
 /// (`Offstage` + `TickerMode`), so a banner counts only while it can be
@@ -1095,6 +1232,15 @@ class CryptoPredictBanner extends ConsumerWidget {
     ];
   }
 
+  /// A price difference in dollars: cents above $1 (polymarket.com prints
+  /// "$309.98"), four decimals below.
+  static String _formatDiff(double diff) {
+    if (diff >= 1) {
+      return '\$${NumberFormat('#,##0.00', 'en_US').format(diff)}';
+    }
+    return '\$${diff.toStringAsFixed(4)}';
+  }
+
   String _formatPrice(double? price) {
     if (price == null) return '—';
     if (price >= 1000) {
@@ -1119,8 +1265,14 @@ class CryptoPredictBanner extends ConsumerWidget {
             epochSeconds: targetWindowEpoch,
           )));
     final predictState = predictAsync.asData?.value;
+    // The window length on screen: the chips' choice for the rolling
+    // card, five minutes for a specific window.
+    final minutes = targetWindowEpoch == null
+        ? ref.watch(cryptoPredictWindowProvider)
+        : 5;
     final upPctPolled = predictState?.upPct ?? 50;
-    final countdown = predictState?.countdownText ?? '05:00';
+    final countdown = predictState?.countdownText ??
+        '${minutes.toString().padLeft(2, '0')}:00';
     final priceStr = _formatPrice(predictState?.currentPrice);
 
     // Don't render if event couldn't be loaded (asset not on Polymarket)
@@ -1157,41 +1309,24 @@ class CryptoPredictBanner extends ConsumerWidget {
     );
 
     // --- LIVE odds wiring ---
-    // The 10s polling cadence in CryptoPredictNotifier is too slow
-    // for the up/down odds bar to feel alive. The [LiveTokenScope]
-    // wrapping this banner (see the return below) subscribes the
-    // event's up/down CLOB token IDs on the order-book WS
-    // (livePriceProvider), re-registers them when the 5-min window
-    // rolls to new tokens, and releases them on unmount.
+    // The [LiveTokenScope] wrapping this banner (see the return below)
+    // keeps the event's up/down CLOB tokens on the order-book socket,
+    // re-registering them when the window rolls to new tokens; the
+    // [CryptoOddsScope] inside it registers the Up token with
+    // [cryptoLiveOddsProvider], which reads the live book raw (midpoint,
+    // or last trade on a book wider than 10¢), with no smoothing window
+    // or band, and the CLOB's REST midpoint every 1.5 s while the socket
+    // has no current book. It drops a chance nobody confirmed for 10 s,
+    // and then the market list's price (Gamma, polled every 10 s) shows.
     final upTokenId = predictState?.event?.upTokenId;
     final downTokenId = predictState?.event?.downTokenId;
-
-    // Watch live prices for just this event's tokens — `.select`
-    // narrows rebuilds so this banner only repaints when *its*
-    // token prices move, not on every WS event for the wider app.
-    // The CLOB price is trusted only while the feed reports live AND
-    // this token ticked within [_kLiveOddsMaxAge]: a stalled feed
-    // (dead socket, exhausted reconnects) otherwise pins the `??`
-    // fallback off forever and the buttons freeze while the price
-    // chart keeps moving — the polled Gamma odds below refresh every
-    // 10s, so they take over within one staleness window. The 1s
-    // countdown rebuild re-evaluates this gate even when no live
-    // frame arrives to trigger it.
-    final nowMs = DateTime.now().millisecondsSinceEpoch;
     final liveUpPriceRaw = ref.watch(
-      livePriceProvider.select((s) {
-        if (upTokenId == null || !s.live) return null;
-        final tickedAt = s.updatedAtMs[upTokenId];
-        if (tickedAt == null ||
-            nowMs - tickedAt > _kLiveOddsMaxAge.inMilliseconds) {
-          return null;
-        }
-        return s.prices[upTokenId];
-      }),
+      cryptoLiveOddsProvider
+          .select((s) => upTokenId == null ? null : s[upTokenId]?.up),
     );
 
     // Resolve "up" probability (0..1):
-    //   1. live order-book mid if it's actually fresh
+    //   1. the live book, raw, else the REST midpoint (1.5 s)
     //   2. polled state from the 10s notifier
     //   3. 0.50 fallback
     final livePctUp = liveUpPriceRaw ?? (upPctPolled / 100.0);
@@ -1209,7 +1344,7 @@ class CryptoPredictBanner extends ConsumerWidget {
       // five minutes is the fallback.
       final end = event!.endDate!.toLocal();
       final start = (event.windowStartTime ??
-              event.endDate!.subtract(const Duration(minutes: 5)))
+              event.endDate!.subtract(Duration(minutes: minutes)))
           .toLocal();
       final dateStr = DateFormat('MMM d').format(start);
       final startTime = DateFormat('h:mm').format(start);
@@ -1220,6 +1355,27 @@ class CryptoPredictBanner extends ConsumerWidget {
     }
     final priceToBeat = predictState?.priceToBeat;
     final priceToBeatStr = _formatPrice(priceToBeat);
+    // How far the live price is from the price to beat, as polymarket.com
+    // prints it beside the current price ("▲ $12.34"), in the market's
+    // up/down colors.
+    final currentPrice = predictState?.currentPrice;
+    final double? diffToBeat = currentPrice != null && priceToBeat != null
+        ? currentPrice - priceToBeat
+        : null;
+    // The windows before this one, for the results strip under the chart.
+    final windowStart = event?.windowStartTime;
+    final resultsKey = windowStart == null
+        ? null
+        : (
+            asset: config.asset,
+            minutes: minutes,
+            currentStart: windowStart.millisecondsSinceEpoch ~/ 1000,
+          );
+    final pastResults = resultsKey == null
+        ? const <CryptoWindowResult>[]
+        : ref.watch(cryptoRecentResultsProvider(resultsKey)).valueOrNull ??
+            carriedCryptoResults(
+                resultsKey.asset, resultsKey.minutes, resultsKey.currentStart);
     final String? feedName = switch (predictState?.feed) {
       CryptoPriceFeed.binance => 'Binance',
       CryptoPriceFeed.coingecko => 'CoinGecko',
@@ -1245,7 +1401,7 @@ class CryptoPredictBanner extends ConsumerWidget {
     // market that resolves before the swap lands. Fall back to the
     // slug-derived window start + 5 min when Gamma omitted endDate.
     final DateTime? marketEndAt = event?.endDate ??
-        event?.windowStartTime?.add(const Duration(minutes: 5));
+        event?.windowStartTime?.add(Duration(minutes: minutes));
 
     // Counts this banner as on screen while its tickers run, so the
     // shared Chainlink feed also streams when it is shown outside the
@@ -1256,6 +1412,8 @@ class CryptoPredictBanner extends ConsumerWidget {
         if (upTokenId != null && upTokenId.isNotEmpty) upTokenId,
         if (downTokenId != null && downTokenId.isNotEmpty) downTokenId,
       ],
+      child: CryptoOddsScope(
+      token: upTokenId,
       child: Container(
         padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 14.h),
         decoration: BoxDecoration(
@@ -1311,7 +1469,7 @@ class CryptoPredictBanner extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        context.l10n.predictUpOrDown(config.asset, 5),
+                        context.l10n.predictUpOrDown(config.asset, minutes),
                         style: TextStyle(
                           color: c.textPrimary,
                           fontSize: 17.sp,
@@ -1417,6 +1575,22 @@ class CryptoPredictBanner extends ConsumerWidget {
                           ),
                         ),
                       ),
+                      if (diffToBeat != null) ...[
+                        SizedBox(width: 8.w),
+                        Text(
+                          '${diffToBeat >= 0 ? '▲' : '▼'} '
+                          '${_formatDiff(diffToBeat.abs())}',
+                          style: TextStyle(
+                            color: diffToBeat >= 0
+                                ? AppColors.marketUp
+                                : AppColors.marketDown,
+                            fontSize: 13.sp,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -0.1,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                      ],
                       if (feedName != null) ...[
                         SizedBox(width: 6.w),
                         Text(
@@ -1470,6 +1644,10 @@ class CryptoPredictBanner extends ConsumerWidget {
                 showHeader: false,
               ),
             SizedBox(height: 10.h),
+            if (pastResults.isNotEmpty) ...[
+              _CryptoPastRounds(results: pastResults),
+              SizedBox(height: 10.h),
+            ],
 
             // De-emphasized probability split below the chart. The Up /
             // Down CTAs now carry the live odds as their labels, so the
@@ -1519,7 +1697,7 @@ class CryptoPredictBanner extends ConsumerWidget {
                       BetSlipSheet.show(context,
                           marketQuestion:
                               event?.title ??
-                                  context.l10n.predictUpOrDown(config.asset, 5),
+                                  context.l10n.predictUpOrDown(config.asset, minutes),
                           marketSlug: event?.slug,
                           marketImage: event?.image,
                           outcomes: outcomes,
@@ -1553,7 +1731,7 @@ class CryptoPredictBanner extends ConsumerWidget {
                       BetSlipSheet.show(context,
                           marketQuestion:
                               event?.title ??
-                                  context.l10n.predictUpOrDown(config.asset, 5),
+                                  context.l10n.predictUpOrDown(config.asset, minutes),
                           marketSlug: event?.slug,
                           marketImage: event?.image,
                           outcomes: outcomes,
@@ -1572,7 +1750,70 @@ class CryptoPredictBanner extends ConsumerWidget {
           ],
         ),
       ),
-    ));
+    )));
+  }
+}
+
+/// How the last few windows ended, oldest first: a quiet label and one
+/// mark per window (an up or down arrow in the market colors, a hairline
+/// circle while a window is still settling), the row polymarket.com shows
+/// beside its "Past" menu.
+class _CryptoPastRounds extends StatelessWidget {
+  const _CryptoPastRounds({required this.results});
+
+  final List<CryptoWindowResult> results;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    Widget mark(bool? up) {
+      final size = 16.sp;
+      if (up == null) {
+        return Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            color: c.surfaceLight,
+            shape: BoxShape.circle,
+            border: Border.all(color: c.borderSubtle, width: 0.5),
+          ),
+        );
+      }
+      final color = up ? AppColors.marketUp : AppColors.marketDown;
+      return Semantics(
+        label: up ? context.l10n.upLabel : context.l10n.downLabel,
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          alignment: Alignment.center,
+          child: Icon(
+            up ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
+            size: 11.sp,
+            color: contrastingOnColor(color),
+          ),
+        ),
+      );
+    }
+
+    return Row(
+      children: [
+        Text(
+          context.l10n.predictPastRounds,
+          style: TextStyle(
+            color: c.textTertiary,
+            fontSize: 12.sp,
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.1,
+          ),
+        ),
+        SizedBox(width: 8.w),
+        for (var i = 0; i < results.length; i++) ...[
+          if (i > 0) SizedBox(width: 4.w),
+          mark(results[i].up),
+        ],
+      ],
+    );
   }
 }
 
@@ -1778,11 +2019,11 @@ class _FiveMinTile extends ConsumerWidget {
 
     final upToken = ev.upTokenId;
     final downToken = ev.downTokenId;
-    // Live CLOB odds via a narrowed select — the tile only repaints when
-    // ITS up-token price moves.
+    // Live odds, raw from the book (see [cryptoLiveOddsProvider]), via a
+    // narrowed select — the tile only repaints when ITS Up chance moves.
     final liveUp = ref.watch(
-      livePriceProvider.select(
-        (s) => upToken != null ? s.prices[upToken] : null,
+      cryptoLiveOddsProvider.select(
+        (s) => upToken != null ? s[upToken]?.up : null,
       ),
     );
     final upFrac = (liveUp ?? ev.upPrice).clamp(0.0, 1.0).toDouble();
@@ -1962,12 +2203,15 @@ class _FiveMinTile extends ConsumerWidget {
           if (upToken != null && upToken.isNotEmpty) upToken,
           if (downToken != null && downToken.isNotEmpty) downToken,
         ],
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () => _openDetail(context, ev, minutes),
-          child: Padding(
-            padding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 4.w),
-            child: body,
+        child: CryptoOddsScope(
+          token: upToken,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => _openDetail(context, ev, minutes),
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 4.w),
+              child: body,
+            ),
           ),
         ),
       );
@@ -2000,8 +2244,11 @@ class _FiveMinTile extends ConsumerWidget {
         if (upToken != null && upToken.isNotEmpty) upToken,
         if (downToken != null && downToken.isNotEmpty) downToken,
       ],
-      child: RepaintBoundary(
-        child: wide ? card : AspectRatio(aspectRatio: 1.15, child: card),
+      child: CryptoOddsScope(
+        token: upToken,
+        child: RepaintBoundary(
+          child: wide ? card : AspectRatio(aspectRatio: 1.15, child: card),
+        ),
       ),
     );
   }

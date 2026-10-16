@@ -56,6 +56,33 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   final en = l10nForLanguage('en');
 
+  group('"Why is it moving?" shows only when there is a move to explain', () {
+    test('Investing: 3% or more either way today asks hl.moving_today', () {
+      expect(salWhyMovingHl(en, label: 'NVDA', dayChangePct: 0.029), isNull);
+      expect(salWhyMovingHl(en, label: 'NVDA', dayChangePct: null), isNull);
+      expect(salWhyMovingHl(en, label: 'NVDA', dayChangePct: double.nan),
+          isNull);
+      for (final move in [0.03, -0.031, 0.12]) {
+        final chip = salWhyMovingHl(en, label: 'NVDA', dayChangePct: move)!;
+        expect(chip.template, 'hl.moving_today');
+        expect(chip.text, 'Why is NVDA moving today?');
+        expect(kSalChipTemplates, contains(chip.template));
+      }
+    });
+
+    test('Predictions: a game in play, or 8 points or more in a day', () {
+      expect(salWhyMovingPm(en, oddsChange1d: 0.079, liveGame: false), isNull);
+      expect(salWhyMovingPm(en, oddsChange1d: null, liveGame: false), isNull);
+      expect(salWhyMovingPm(en, oddsChange1d: -0.08, liveGame: false)!.template,
+          'pm.odds_moving');
+      final live = salWhyMovingPm(en, oddsChange1d: 0, liveGame: true)!;
+      expect(live.template, 'pm.live_game');
+      expect(live.text, en.salChipPmLiveGame);
+      expect(kSalChipTemplates, contains('pm.odds_moving'));
+      expect(kSalChipTemplates, contains('pm.live_game'));
+    });
+  });
+
   List<String?> ids(AdvisorContext c,
           [SalChipSignals s = const SalChipSignals()]) =>
       [

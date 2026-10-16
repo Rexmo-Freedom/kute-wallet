@@ -23,6 +23,7 @@ import 'package:kute/providers/polymarket_browse_provider.dart'
     show PolymarketPosition;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/services/http/shared_http_client.dart';
 import 'package:kute/theme/app_theme.dart';
 
 /// Rules text per conditionId. A resolved market's description never
@@ -50,8 +51,10 @@ Future<String?> fetchPolymarketMarketRules(
     try {
       final uri = Uri.parse('https://gamma-api.polymarket.com/markets/keyset')
           .replace(queryParameters: params);
-      final resp = await (client == null ? http.get(uri) : client.get(uri))
-          .timeout(const Duration(seconds: 8));
+      final resp = await SharedHttpClient.get(uri,
+          kind: HttpCallKind.userAction,
+          timeout: const Duration(seconds: 8),
+          client: client);
       if (resp.statusCode != 200) continue;
       final decoded = jsonDecode(resp.body);
       final body =

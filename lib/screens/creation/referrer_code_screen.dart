@@ -8,6 +8,8 @@ import 'package:go_router/go_router.dart';
 import 'package:kute/helpers/kute_dog_asset.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/affiliate_model.dart';
+import 'package:kute/screens/creation/passkey_choice.dart'
+    show PasskeyBackupSyncingNote;
 import 'package:kute/screens/shared/fee_copy.dart';
 import 'package:kute/services/appsflyer_service.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
@@ -406,6 +408,7 @@ class _ReferrerCodeScreenState extends ConsumerState<ReferrerCodeScreen> {
 
         const Spacer(),
 
+        const PasskeyBackupSyncingNote(),
         AppButton(
           text: context.l10n.continueLabel,
           onPressed: _submitting ? null : _confirmCaptured,
@@ -530,6 +533,7 @@ class _ReferrerCodeScreenState extends ConsumerState<ReferrerCodeScreen> {
 
         const Spacer(),
 
+        const PasskeyBackupSyncingNote(),
         // Apply — routed through AppButton for the same shape /
         // typography / haptic story as every other primary CTA.
         AppButton(

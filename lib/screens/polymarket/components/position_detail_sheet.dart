@@ -35,7 +35,6 @@ import 'package:kute/screens/polymarket/components/position_awaiting.dart';
 import 'package:kute/screens/polymarket/components/position_claim.dart';
 import 'package:kute/screens/polymarket/components/poly_livestream_host.dart';
 import 'package:kute/screens/polymarket/components/price_format.dart';
-import 'package:kute/screens/shared/ask_sal_chip.dart';
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/screens/polymarket/components/sell_sheet.dart';
 import 'package:kute/screens/shared/custom_button.dart';
@@ -49,6 +48,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import 'package:kute/services/tracking_service.dart';
+import 'package:kute/services/venue_analytics.dart';
 import 'package:kute/screens/polymarket/components/fast_bet_scope.dart';
 import 'package:kute/services/polymarket/fast_bet_window.dart';
 
@@ -303,8 +303,9 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                     const KuteCloseButton(),
                     SizedBox(width: 8.w),
                     // The market's icon (crest-first, see above) and its
-                    // title, as on the market sheet's header. Sal's door
-                    // is the question capsule under the position's figures.
+                    // title, as on the market sheet's header. No Sal on a
+                    // position: its rows say what is at risk and how to
+                    // protect it.
                     if (headerImage != null && headerImage.isNotEmpty) ...[
                       // PolyCrestImage (not raw CachedNetworkImage) so SVG
                       // flags / team crests render: Polymarket serves many
@@ -449,25 +450,6 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                           ],
                         ),
                       ),
-                      // Sal's question for this position's public market
-                      // (the event and, when known, its outcome market),
-                      // under its figures; holding it only ranks the
-                      // questions, on the device.
-                      if (pos.eventSlug != null && pos.eventSlug!.isNotEmpty)
-                        SalQuestionCapsule(
-                          entry: 'position_capsule',
-                          advisorContext: AdvisorContext(
-                            surface: 'polymarket_position_detail',
-                            marketVenue: 'polymarket',
-                            marketId: pos.eventSlug,
-                            submarketId: polyPositionSubmarketId(event, pos),
-                          ),
-                          chipSignals: (event == null
-                                  ? const SalChipSignals()
-                                  : salSignalsForPolyEvent(event))
-                              .withLocal(holdsPosition: true),
-                          padding: EdgeInsets.only(top: 16.h),
-                        ),
                       if (hasStream && !watching) ...[
                         SizedBox(height: 20.h),
                         buildMediaToggle(c),
@@ -532,6 +514,46 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                               formatPolyBoughtCents(costBasis / pos.size)),
                         // The entry basis (what the user actually paid).
                         PositionRow(context.l10n.betInvested, investedText),
+                        // What is at risk, in one plain sentence: what was
+                        // paid if the outcome loses, a dollar a share if
+                        // it wins. Only while it is open and both are
+                        // known.
+                        if (!pos.isResolved && pos.size > 0 && costBasis > 0)
+                          PositionRow.note(
+                            key: const ValueKey('poly-position-risk-line'),
+                            context.l10n.polyRiskOutcome(
+                              pos.outcome,
+                              formatPolyAmount(ref, costBasis),
+                              formatPolyAmount(ref, pos.size),
+                            ),
+                          ),
+                        // The closest protective order Predictions has: a
+                        // limit sell, set on the sell ticket's Advanced
+                        // page.
+                        if (!pos.isResolved && pos.size > 0)
+                          PositionRow(
+                            context.l10n.positionProtectIt,
+                            context.l10n.betSellAt,
+                            key: const ValueKey('poly-position-protect'),
+                            onTap: () {
+                              TrackingService.track('position_protect_tapped',
+                                  params: {
+                                    'venue': 'polymarket',
+                                    ...VenueAnalytics.pmKindParams([
+                                      pos.tokenId,
+                                      pos.marketId,
+                                      pos.eventSlug
+                                    ]),
+                                    'wallet_kind': 'hot',
+                                    'target': 'limit_sell',
+                                  });
+                              context.pop();
+                              SellSheet.show(context,
+                                  position: pos,
+                                  source: 'position_protect',
+                                  startWithLimit: true);
+                            },
+                          ),
                       ]),
 
                       if (pos.isResolved ||
@@ -889,25 +911,4 @@ class _PositionExpiryState extends State<_PositionExpiry> {
             fontSize: 13.sp,
             fontWeight: FontWeight.w500));
   }
-}
-
-/// The public Gamma id of the outcome market [pos] holds in [event]: the
-/// outcome with the position's condition id, else the event's only one.
-@visibleForTesting
-String? polyPositionSubmarketId(PolymarketEvent? event, PolymarketPosition pos) =>
-    polyHeldSubmarketId(event, pos.marketId);
-
-/// The outcome market of [event] a position holds, by its [conditionId]
-/// (a Ledger's position names its market that way); the event's only
-/// market when it has one.
-String? polyHeldSubmarketId(PolymarketEvent? event, String? conditionId) {
-  if (event == null) return null;
-  final held = event.outcomes
-      .where((o) => o.conditionId != null && o.conditionId == conditionId)
-      .map((o) => o.gammaMarketId)
-      .whereType<String>()
-      .firstOrNull;
-  if (held != null) return held;
-  final ids = event.outcomes.map((o) => o.gammaMarketId).toSet();
-  return ids.length == 1 ? ids.single : null;
 }

@@ -1194,34 +1194,6 @@ class AppLocalizationsFi extends AppLocalizations {
   String get totalFee => 'Maksu yhteensä';
 
   @override
-  String get usdEarnTitle => 'Tuotto';
-
-  @override
-  String get usdEarnRate => 'Viimeaikainen vuosituotto';
-
-  @override
-  String get usdEarnNextPayment => 'Seuraava maksu';
-
-  @override
-  String get usdEarnNextPaymentIn => 'Maksetaan';
-
-  @override
-  String get usdEarnRatePending => 'Ladataan';
-
-  @override
-  String get usdEarnRateUnavailable => 'Ei saatavilla juuri nyt';
-
-  @override
-  String get usdEarnPaidToDate => 'Sinulle maksettu tähän mennessä';
-
-  @override
-  String get usdEarnActivityEmpty => 'Ei vielä maksuja';
-
-  @override
-  String get usdEarnActivityUnavailable =>
-      'Maksuhistoria ei ole nyt saatavilla';
-
-  @override
   String hlYieldAvailableLine(String amount) {
     return '$amount käytettävissä';
   }
@@ -2065,6 +2037,20 @@ class AppLocalizationsFi extends AppLocalizations {
       'Käyttöönotto peruttiin. Mitään ei luotu.';
 
   @override
+  String get passkeyBackupSyncing => 'Varmuuskopiota synkronoidaan…';
+
+  @override
+  String get passkeyCreateNewTitle => 'Avainkoodia ei löytynyt';
+
+  @override
+  String passkeyCreateNewBody(String method) {
+    return 'Mitään ei luotu. Luodaanko tälle lompakolle uusi avainkoodi $method-tunnistuksella?';
+  }
+
+  @override
+  String get passkeyCreateNewAction => 'Luo uusi avainkoodi';
+
+  @override
   String passkeyChoiceFallbackWords(String method) {
     return 'Menetelmää $method ei voitu ottaa käyttöön. Lompakkosi luotiin sen sijaan palautussanoilla.';
   }
@@ -2679,9 +2665,6 @@ class AppLocalizationsFi extends AppLocalizations {
   @override
   String get walletsEnterFriendCodeDescriptionNoDiscount =>
       'Jos ystävä kutsui sinut, anna hänen koodinsa.';
-
-  @override
-  String get accountEarn => 'Tuotto';
 
   @override
   String get accountInviteFriendsEarnShare =>
@@ -3677,7 +3660,7 @@ class AppLocalizationsFi extends AppLocalizations {
   String get activityProcessingEllipsis => 'Käsitellään…';
 
   @override
-  String get usdAccountTab => 'Dollarit';
+  String get usdAccountTab => 'Investments';
 
   @override
   String activityFromAmount(String amount) {
@@ -5942,9 +5925,6 @@ class AppLocalizationsFi extends AppLocalizations {
   String get portfolioStatRealized => 'Toteutunut voitto / tappio';
 
   @override
-  String get portfolioStatOpen => 'Avoin voitto / tappio';
-
-  @override
   String get portfolioStatAmountPredicted => 'Summa ennusteissa';
 
   @override
@@ -6053,7 +6033,7 @@ class AppLocalizationsFi extends AppLocalizations {
   String get moveBuyBitcoin => 'Osta bitcoinia';
 
   @override
-  String get dollarDeposit => 'Dollaritalletus';
+  String get dollarDeposit => 'Investments deposit';
 
   @override
   String get dollarWithdrawal => 'Dollarinosto';
@@ -6501,6 +6481,33 @@ class AppLocalizationsFi extends AppLocalizations {
   String get portfolioTabStatistics => 'Tilastot';
 
   @override
+  String get portfolioBalanceDollars => 'Dollarit';
+
+  @override
+  String get portfolioRebalance => 'Tasapainota';
+
+  @override
+  String get portfolioRebalanceMoving => 'Siirretään USDB:hen…';
+
+  @override
+  String get portfolioRebalanceMovingMinutes =>
+      'Siirretään USDB:hen… kestää muutaman minuutin';
+
+  @override
+  String get portfolioRebalanceHeldOrders => 'Avoimien toimeksiantojen varaama';
+
+  @override
+  String get portfolioRebalanceHeldMargin =>
+      'Pidetään avoimien positioiden marginaalina';
+
+  @override
+  String get portfolioRebalanceBelowMinimum => 'Alle siirron vähimmäismäärän';
+
+  @override
+  String get portfolioRebalanceNotNow =>
+      'Siirto ei onnistunut nyt. Yritä uudelleen napauttamalla Tasapainota.';
+
+  @override
   String get sendMoreThanAvailable =>
       'Tämä on enemmän kuin sinulla on käytettävissä.';
 
@@ -6553,10 +6560,10 @@ class AppLocalizationsFi extends AppLocalizations {
   String get searchPredictionsHint => 'Hae ennusteita';
 
   @override
-  String get assetDollars => 'Dollarit';
+  String get assetDollars => 'Investments';
 
   @override
-  String get moveSourceDollarsSubtitle => 'Maksa dollarisaldollasi';
+  String get moveSourceDollarsSubtitle => 'Pay with your Investments balance';
 
   @override
   String get sendDollarAccountAddressHint => 'Dollaritilin osoite';
@@ -6810,23 +6817,11 @@ class AppLocalizationsFi extends AppLocalizations {
   String get betAdvancedSaleSellingAll => 'Myydään koko positiosi';
 
   @override
-  String get usdEarnProjectionNote =>
-      'Katkoviiva on arvio tämänpäiväisellä tasolla, ei saatua rahaa.';
-
-  @override
-  String usdEarnBelowMinimum(String amount) {
-    return 'Palkkiot alkavat, kun sinulla on $amount. Ne maksetaan päivittäin bitcoinina.';
-  }
-
-  @override
-  String get usdEarnProjectedLabel => 'Ennuste tämänpäiväisellä tasolla';
-
-  @override
   String get moveWithdrawDestinationHint =>
       'Valitse, mitä käyttötilillesi saapuu.';
 
   @override
-  String get moveDestDollarsSubtitle => 'Dollarisaldoosi';
+  String get moveDestDollarsSubtitle => 'Into your Investments balance';
 
   @override
   String get moveConversionOngoing => 'Muunnos käynnissä';
@@ -7093,6 +7088,10 @@ class AppLocalizationsFi extends AppLocalizations {
       'Saatavuutta ei voitu tarkistaa Kuten kanssa. Yritä uudelleen.';
 
   @override
+  String get capabilityOfflineGrace =>
+      'Kuteen ei saada yhteyttä juuri nyt. Tämä on edelleen käytettävissä viimeisen tarkistuksesi perusteella.';
+
+  @override
   String get capabilityUnavailable =>
       'Tämä ominaisuus ei ole tällä hetkellä käytettävissä Kutessa.';
 
@@ -7126,6 +7125,9 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get capabilityRegionTitle => 'Ei saatavilla alueellasi';
+
+  @override
+  String get checkConnection => 'Tarkista yhteys';
 
   @override
   String get gateUnavailableTitle => 'Ei saatavilla';
@@ -7421,7 +7423,7 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get shareCodeTimedOut =>
-      'Koodiasi luodaan. Löydät sen milloin tahansa kohdasta Asetukset → Tuotto.';
+      'Koodiasi luodaan. Löydät sen milloin tahansa kohdasta Asetukset → Suositteluohjelma.';
 
   @override
   String get referrerCaptureInvalid =>
@@ -7448,7 +7450,7 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get referrerAddLater =>
-      'Voit lisätä sen myös myöhemmin kohdasta Asetukset → Tuotto (7 päivän sisällä).';
+      'Voit lisätä sen myös myöhemmin kohdasta Asetukset → Suositteluohjelma (7 päivän sisällä).';
 
   @override
   String get referrerSkip => 'Ohita, minulla ei ole koodia';
@@ -7477,6 +7479,33 @@ class AppLocalizationsFi extends AppLocalizations {
   @override
   String get recoverFoundOnDevice =>
       'Löytyi tältä laitteelta. Tarkista, että saldo näyttää oikealta, ennen kuin palautat.';
+
+  @override
+  String get recoverOlderVersionSection =>
+      'Tämän puhelimen vanhemmasta versiosta';
+
+  @override
+  String get recoverOlderVersionWallet => 'Lompakko vanhemmasta versiosta';
+
+  @override
+  String get recoverOlderVersionNeedsPin => 'Avautuu sen version PIN-koodilla';
+
+  @override
+  String get recoverOlderVersionIcloud => 'Tallennettu iCloud-avainnippuun';
+
+  @override
+  String get recoverOlderVersionEnterPin =>
+      'Syötä sen version käyttämä PIN-koodi';
+
+  @override
+  String get recoverOlderVersionFailed => 'Tätä kopiota ei voitu palauttaa.';
+
+  @override
+  String get restoreRescueOfferBody =>
+      'Lompakkojesi kopiot Kuten vanhemmasta versiosta ovat yhä tässä puhelimessa. Käytetäänkö niitä sen sijaan, että aloitetaan alusta?';
+
+  @override
+  String get restoreRescueOfferConfirm => 'Käytä tallennettuja kopioita';
 
   @override
   String recoverConfirmWallet(String wallet) {
@@ -8100,6 +8129,9 @@ class AppLocalizationsFi extends AppLocalizations {
   String predictTargetPrice(String price) {
     return 'Tavoite $price';
   }
+
+  @override
+  String get predictPastRounds => 'Aiemmat kierrokset';
 
   @override
   String get predictNoOpenMarketsCategory =>
@@ -10486,6 +10518,9 @@ class AppLocalizationsFi extends AppLocalizations {
   String get portfolioStatAtStake => 'Panoksena oleva summa';
 
   @override
+  String get portfolioProfitLoss => 'Voitto ja tappio';
+
+  @override
   String slipCtaAddTo(String side, String amount) {
     String _temp0 = intl.Intl.selectLogic(
       side,
@@ -10633,5 +10668,295 @@ class AppLocalizationsFi extends AppLocalizations {
       },
     );
     return '$_temp0';
+  }
+
+  @override
+  String get investmentsTotal => 'Investments total';
+
+  @override
+  String oneBalanceMovingTo(String amount, String venue) {
+    return '$amount siirtymässä kohteeseen $venue';
+  }
+
+  @override
+  String oneBalanceComingBack(String amount, String venue) {
+    return '$amount coming back from $venue';
+  }
+
+  @override
+  String oneBalanceWaitingToWithdraw(String amount) {
+    return '$amount unavailable until balancing completes';
+  }
+
+  @override
+  String oneBalanceIncoming(String amount) {
+    return 'Incoming $amount';
+  }
+
+  @override
+  String slipAddToInvestments(String amount) {
+    return 'Add $amount to Investments';
+  }
+
+  @override
+  String get slipMoveFee => 'Move fee';
+
+  @override
+  String get addMoneyToInvestments => 'Lisää rahaa Investmentsiin';
+
+  @override
+  String get depositFromSpendingWallet => 'Käyttölompakkosi';
+
+  @override
+  String depositFromSpendingWalletWithBalance(String amount) {
+    return 'Käyttölompakkosi · $amount';
+  }
+
+  @override
+  String get depositFromAnotherWallet => 'Toinen lompakko tai pörssi';
+
+  @override
+  String get depositFromAnotherWalletSubtitle =>
+      'Hae osoite, johon lähettää dollareita';
+
+  @override
+  String get portfolioStatOpenPnl => 'Avoin voitto / tappio';
+
+  @override
+  String stepUpReasonBetReady(String amount) {
+    return 'Valmistele $amount ennuste';
+  }
+
+  @override
+  String get betMarketClosingNoFunding =>
+      'Tämä markkina sulkeutuu ennen kuin rahat ehtisivät perille. Mitään ei siirretty.';
+
+  @override
+  String multiMoveSendTitle(String amount) {
+    return 'Lähetä $amount';
+  }
+
+  @override
+  String multiMoveTitle(String amount, String destination) {
+    return 'Siirrä $amount kohteeseen $destination';
+  }
+
+  @override
+  String multiMoveDeliveredRemaining(String delivered, String remaining) {
+    return '$delivered perillä · $remaining jäljellä';
+  }
+
+  @override
+  String multiMovePurchaseWaiting(String amount, String balance) {
+    return '$amount on kohteessa $balance. Osta Bitcoinia napauttamalla';
+  }
+
+  @override
+  String multiMoveSendWaiting(String amount, String balance) {
+    return '$amount on kohteessa $balance. Lähetys ei mennyt läpi';
+  }
+
+  @override
+  String get usdReceiveFromYourWallet => 'Lompakostasi';
+
+  @override
+  String get usdReceiveFromAnotherWallet => 'Toisesta lompakosta tai pörssistä';
+
+  @override
+  String slipStepAddingToInvestments(String amount) {
+    return 'Lisätään $amount tilille Investments';
+  }
+
+  @override
+  String get slipStepPreparingPrediction => 'Valmistellaan ennustustasi';
+
+  @override
+  String get slipStepPreparingOrder => 'Valmistellaan toimeksiantoasi';
+
+  @override
+  String slipStepPlacingBet(String amount, String side) {
+    return 'Asetetaan $amount vaihtoehdolle $side';
+  }
+
+  @override
+  String slipStepOpeningOrder(String amount, String side, String market) {
+    return 'Avataan $amount $side $market';
+  }
+
+  @override
+  String get slipStepTakingLonger => 'Kestää tavallista kauemmin';
+
+  @override
+  String slipFundingReadyToPlace(String amount) {
+    return '$amount on tililläsi Investments. Napauta asettaaksesi.';
+  }
+
+  @override
+  String get slipFundingBitcoinBack =>
+      'Lisäys tilille Investments ei onnistunut. Bitcoinisi palaavat.';
+
+  @override
+  String get slipFundingPriceMoved => 'Hinta muuttui liian nopeasti.';
+
+  @override
+  String get slipFundingRoundClosed =>
+      'Tämä kierros sulkeutui ennen kuin rahasi saapuivat.';
+
+  @override
+  String slipFundingInPredictions(String amount) {
+    return '$amount on tililläsi Ennusteet. Napauta yrittääksesi uudelleen.';
+  }
+
+  @override
+  String slipFundingInInvesting(String amount) {
+    return '$amount on tililläsi Sijoita. Napauta yrittääksesi uudelleen.';
+  }
+
+  @override
+  String oneBalancePlacingBet(String amount, String side, String market) {
+    return 'Asetetaan $amount vaihtoehdolle $side · $market';
+  }
+
+  @override
+  String oneBalanceOpeningOrder(String amount, String market) {
+    return 'Avataan $amount $market -toimeksianto';
+  }
+
+  @override
+  String hlMarginStepAdding(String amount, String coin) {
+    return 'Lisätään $amount marginaalia kohteeseen $coin';
+  }
+
+  @override
+  String hlMarginFundingReady(String amount) {
+    return '$amount on tililläsi Investments. Napauta lisätäksesi marginaalia.';
+  }
+
+  @override
+  String get salWhyMoving => 'Miksi se liikkuu?';
+
+  @override
+  String get positionProtectIt => 'Suojaa se';
+
+  @override
+  String hlRiskLiquidationLong(String market, String price, String amount) {
+    return 'Jos $market laskee hintaan $price, tämä positio suljetaan ja menetät $amount.';
+  }
+
+  @override
+  String hlRiskLiquidationShort(String market, String price, String amount) {
+    return 'Jos $market nousee hintaan $price, tämä positio suljetaan ja menetät $amount.';
+  }
+
+  @override
+  String polyRiskOutcome(String outcome, String cost, String payout) {
+    return 'Jos $outcome häviää, menetät $cost; jos se voittaa, saat $payout.';
+  }
+
+  @override
+  String moneyStepMovingFrom(String amount, String source) {
+    return 'Siirretään $amount tililtä $source';
+  }
+
+  @override
+  String moneyStepMovedFrom(String amount, String source) {
+    return 'Siirretty $amount tililtä $source';
+  }
+
+  @override
+  String moneyStepMovingFromTo(
+      String amount, String source, String destination) {
+    return 'Siirretään $amount: $source → $destination';
+  }
+
+  @override
+  String moneyStepMovedFromTo(
+      String amount, String source, String destination) {
+    return 'Siirretty $amount: $source → $destination';
+  }
+
+  @override
+  String moneyStepMoveFailed(String amount, String source) {
+    return '$amount tililtä $source ei siirtynyt';
+  }
+
+  @override
+  String moneyStepFellBack(String source, String via) {
+    return 'Tilin $source reitti on varattu, kuljetaan tilin $via kautta';
+  }
+
+  @override
+  String moneyStepViaDollars(String source, String via) {
+    return 'Tililtä $source kuljetaan tilin $via kautta';
+  }
+
+  @override
+  String moneyStepRouteUnavailable(String source, String via) {
+    return 'Tilin $source reitti ei ole käytettävissä, kuljetaan tilin $via kautta';
+  }
+
+  @override
+  String moneyStepTooSmallDirect(String source, String via) {
+    return 'Liian pieni summa suoraan tililtä $source, kuljetaan tilin $via kautta';
+  }
+
+  @override
+  String multiMoveOrderWaiting(String amount, String balance) {
+    return '$amount on kohteessa $balance. Toimeksianto ei mennyt läpi';
+  }
+
+  @override
+  String get moneyStepConverting => 'Muunnetaan pUSD:ksi';
+
+  @override
+  String get moneyStepConverted => 'Muunnettu pUSD:ksi';
+
+  @override
+  String get moneyStepApproving => 'Hyväksytään käyttö';
+
+  @override
+  String get moneyStepApproved => 'Käyttö hyväksytty';
+
+  @override
+  String get moneyStepConfirming => 'Vahvistetaan saldoa';
+
+  @override
+  String get moneyStepConfirmed => 'Saldo vahvistettu';
+
+  @override
+  String get moneyStepCrediting => 'Hyvitetään kaupankäyntisaldoon';
+
+  @override
+  String get moneyStepCredited => 'Hyvitetty kaupankäyntisaldoon';
+
+  @override
+  String moneyStepBuying(String amount) {
+    return 'Ostetaan Bitcoinia $amount arvosta';
+  }
+
+  @override
+  String moneyStepBought(String amount) {
+    return 'Ostettu Bitcoinia $amount arvosta';
+  }
+
+  @override
+  String get moneyStepArriving => 'Saapuu tilille Bitcoin';
+
+  @override
+  String get moneyStepArrived => 'Saapui tilille Bitcoin';
+
+  @override
+  String moneyStepSending(String amount) {
+    return 'Lähetetään $amount';
+  }
+
+  @override
+  String moneyStepSent(String amount) {
+    return 'Lähetetty $amount';
+  }
+
+  @override
+  String moneyStepCompact(String source, String destination, String amount) {
+    return '$source → $destination · $amount';
   }
 }

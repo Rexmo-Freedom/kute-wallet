@@ -41,6 +41,13 @@ enum PendingBetStatus {
 /// held for a live game's delay, or matched and being confirmed on chain.
 enum PendingBetStage { submitting, settingUp, approving, delayed, confirming }
 
+/// How far a queued bet's money is from usable, as the autofire checks it
+/// before placing (pending_bet_autofire.dart): the deposit has not landed,
+/// it landed as USDC.e and is being converted to pUSD, the account's
+/// setup or an exchange allowance is still being set, or the order book
+/// has not counted the pUSD yet. `ready` is set right before `placing`.
+enum PredictionsReadiness { waitingFunds, converting, approving, confirming, ready }
+
 class PendingBetIntent {
   final PolymarketMarketBuyQuote? marketQuote;
 
@@ -73,6 +80,12 @@ class PendingBetIntent {
   /// approved maximum: the maximum a new approval would name now, so the
   /// slip's retry reads "Retry at 85¢". Cleared like [errorMessage].
   final double? retryMaxPrice;
+
+  /// Why a failed bet stopped, as a fixed code (price_moved,
+  /// market_closed, funds_timeout, book_unavailable, insufficient_usdc,
+  /// approval_expired, ...), for the slip's steps to say what happened
+  /// and where the money is. Cleared like [errorMessage].
+  final String? failureCode;
 
   /// When the market closes (resolves). Used to gate fast-finalising
   /// markets ("5-minute bets" like hourly Bitcoin Up/Down) so they
@@ -111,6 +124,56 @@ class PendingBetIntent {
   /// placement check uses. Null for a typed stake, which is never changed.
   final double? spendAllBudgetUsd;
 
+  /// One balance: the Dollars moved into Predictions for this bet, or
+  /// null for a bet paid from venue cash that was already there. Set
+  /// when the bet is queued behind its own funding leg
+  /// (`OrderFundingController`); the autofire then fires from
+  /// [PendingBetStatus.awaitingBalance] on the deposit's credit, resizes
+  /// a market bet to what landed, and fails a limit bet that landed short.
+  final double? fundUsd;
+
+  /// Investing cash approved to go straight into Predictions for this bet
+  /// (`VenueLimit.directLegs`: a cap per venue and the total), bound into
+  /// the same one approval as [fundUsd]. Null when none.
+  final Map<String, Object?>? directLegs;
+
+  /// The Bitcoin → Dollars leg approved to top Dollars up before the
+  /// funding move (`VenueLimit.fundBtc`), bound into the same one
+  /// approval as [fundUsd]. Null when Dollars already covered it.
+  final Map<String, Object?>? btcLeg;
+
+  /// The funding leg's quote, as the one-way analytics reference
+  /// (`TrackingService.orderRef`), never the raw id.
+  final String? fundQuoteRef;
+
+  /// What the venue already held when the funding leg left, and what the
+  /// leg's quote said would arrive: the queued bet fires once the venue
+  /// holds [fundReadyUsd] plus 99% of [fundArrivingUsd] (the move landed),
+  /// not on the venue cash alone, which could already cover part of it.
+  final double? fundReadyUsd;
+  final double? fundArrivingUsd;
+
+  /// The live funded-order graph belonging to this approval/attempt.
+  /// Local only; an older attempt in the same market cannot certify it.
+  final String? fundedRunId;
+
+  /// When the bet was queued behind its funding leg. A queued bet older
+  /// than [maxQueuedAge] never fires.
+  final DateTime? queuedAt;
+
+  /// Where the money behind a queued bet is (see [PredictionsReadiness]);
+  /// null before the autofire checked it.
+  final PredictionsReadiness? readiness;
+
+  /// A conversion to pUSD, or an allowance or setup step, was needed for
+  /// this bet at some point: the slip shows those steps only then.
+  final bool convertSeen;
+  final bool approveSeen;
+
+  /// Longest a queued bet may wait before it is dropped unplaced: the
+  /// approval's own life (the 30 min autofire grant).
+  static const Duration maxQueuedAge = Duration(minutes: 30);
+
   const PendingBetIntent({
     this.marketQuote,
     this.feeTerms,
@@ -131,12 +194,36 @@ class PendingBetIntent {
     this.status = PendingBetStatus.awaitingDeposit,
     this.errorMessage,
     this.retryMaxPrice,
+    this.failureCode,
     this.isLimit = false,
     this.limitPrice = 0.0,
     this.negRisk = false,
     this.entrySource,
     this.spendAllBudgetUsd,
+    this.fundUsd,
+    this.directLegs,
+    this.btcLeg,
+    this.fundQuoteRef,
+    this.fundReadyUsd,
+    this.fundArrivingUsd,
+    this.fundedRunId,
+    this.queuedAt,
+    this.readiness,
+    this.convertSeen = false,
+    this.approveSeen = false,
   });
+
+  /// Whether this bet is (or was) funded from Dollars for the order.
+  bool get funded => fundUsd != null;
+
+  /// A queued bet past [maxQueuedAge] (counted from [queuedAt]) must not
+  /// fire, whatever the balance says now. Never stale without a
+  /// [queuedAt].
+  bool isStale({DateTime? now}) {
+    final at = queuedAt;
+    if (at == null) return false;
+    return (now ?? DateTime.now()).difference(at) > maxQueuedAge;
+  }
 
   /// True when the market resolves in less than [threshold] (default
   /// 5 min). Used to force USDC-pool funding — a BTC swap roundtrip
@@ -159,6 +246,18 @@ class PendingBetIntent {
     PendingBetStatus? status,
     String? errorMessage,
     double? retryMaxPrice,
+    String? failureCode,
+    double? fundUsd,
+    Object? directLegs = _keep,
+    Object? btcLeg = _keep,
+    String? fundQuoteRef,
+    double? fundReadyUsd,
+    double? fundArrivingUsd,
+    String? fundedRunId,
+    DateTime? queuedAt,
+    PredictionsReadiness? readiness,
+    bool? convertSeen,
+    bool? approveSeen,
   }) {
     return PendingBetIntent(
       marketQuote: marketQuote ?? this.marketQuote,
@@ -180,14 +279,34 @@ class PendingBetIntent {
       status: status ?? this.status,
       errorMessage: errorMessage,
       retryMaxPrice: retryMaxPrice,
+      failureCode: failureCode,
       isLimit: isLimit,
       limitPrice: limitPrice,
       negRisk: negRisk,
       entrySource: entrySource,
       spendAllBudgetUsd: spendAllBudgetUsd,
+      fundUsd: fundUsd ?? this.fundUsd,
+      directLegs: identical(directLegs, _keep)
+          ? this.directLegs
+          : directLegs as Map<String, Object?>?,
+      btcLeg: identical(btcLeg, _keep)
+          ? this.btcLeg
+          : btcLeg as Map<String, Object?>?,
+      fundQuoteRef: fundQuoteRef ?? this.fundQuoteRef,
+      fundReadyUsd: fundReadyUsd ?? this.fundReadyUsd,
+      fundArrivingUsd: fundArrivingUsd ?? this.fundArrivingUsd,
+      fundedRunId: fundedRunId ?? this.fundedRunId,
+      queuedAt: queuedAt ?? this.queuedAt,
+      readiness: readiness ?? this.readiness,
+      convertSeen: convertSeen ?? this.convertSeen,
+      approveSeen: approveSeen ?? this.approveSeen,
     );
   }
 }
+
+/// [PendingBetIntent.copyWith]'s "leave [PendingBetIntent.directLegs] as
+/// it is" (null clears it).
+const Object _keep = Object();
 
 class PendingPolymarketBetNotifier extends Notifier<PendingBetIntent?> {
   @override
@@ -197,14 +316,23 @@ class PendingPolymarketBetNotifier extends Notifier<PendingBetIntent?> {
     state = intent;
   }
 
+  /// Bind before the runner starts any work. A deferred approval cannot
+  /// attach its graph to a newer attempt, even in the same market.
+  bool bindFundingRun(PendingBetIntent expected, String runId) {
+    if (!identical(state, expected)) return false;
+    state = expected.copyWith(fundedRunId: runId);
+    return true;
+  }
+
   void updateStatus(PendingBetStatus status,
-      {String? errorMessage, double? retryMaxPrice}) {
+      {String? errorMessage, double? retryMaxPrice, String? failureCode}) {
     final current = state;
     if (current == null) return;
     state = current.copyWith(
       status: status,
       errorMessage: errorMessage,
       retryMaxPrice: retryMaxPrice,
+      failureCode: failureCode,
       // A new placement starts at the first step again.
       stage: status == PendingBetStatus.placing
           ? PendingBetStage.submitting
@@ -212,12 +340,50 @@ class PendingPolymarketBetNotifier extends Notifier<PendingBetIntent?> {
     );
   }
 
+  /// The funding leg has left Dollars: keep its quote reference on the
+  /// queued bet, whatever status the autofire has moved it to since.
+  void recordFunding({required String quoteRef}) {
+    final current = state;
+    if (current == null) return;
+    state = current.copyWith(
+        status: current.status,
+        errorMessage: current.errorMessage,
+        retryMaxPrice: current.retryMaxPrice,
+        failureCode: current.failureCode,
+        fundQuoteRef: quoteRef);
+  }
+
   /// The submitted placement moved on (see [PendingBetStage]).
   void setStage(PendingBetStage stage) {
     final current = state;
     if (current == null || current.stage == stage) return;
     state = current.copyWith(status: current.status, stage: stage,
-        errorMessage: current.errorMessage);
+        errorMessage: current.errorMessage,
+        failureCode: current.failureCode);
+  }
+
+  /// The autofire's latest look at the bet's money (see
+  /// [PredictionsReadiness]); [convertSeen] / [approveSeen] only ever turn
+  /// on. Status, message and stage are kept.
+  void setReadiness(PredictionsReadiness readiness,
+      {bool convertSeen = false, bool approveSeen = false}) {
+    final current = state;
+    if (current == null) return;
+    final convert = current.convertSeen || convertSeen;
+    final approve = current.approveSeen || approveSeen;
+    if (current.readiness == readiness &&
+        current.convertSeen == convert &&
+        current.approveSeen == approve) {
+      return;
+    }
+    state = current.copyWith(
+        status: current.status,
+        errorMessage: current.errorMessage,
+        retryMaxPrice: current.retryMaxPrice,
+        failureCode: current.failureCode,
+        readiness: readiness,
+        convertSeen: convert,
+        approveSeen: approve);
   }
 
   /// What the venue reports the order got, once it has matched: shares
@@ -250,11 +416,23 @@ class PendingPolymarketBetNotifier extends Notifier<PendingBetIntent?> {
       marketCategory: current.marketCategory,
       status: current.status,
       errorMessage: current.errorMessage,
+      failureCode: current.failureCode,
       isLimit: current.isLimit,
       limitPrice: current.limitPrice,
       negRisk: current.negRisk,
       entrySource: current.entrySource,
       spendAllBudgetUsd: current.spendAllBudgetUsd,
+      fundUsd: current.fundUsd,
+      directLegs: current.directLegs,
+      btcLeg: current.btcLeg,
+      fundQuoteRef: current.fundQuoteRef,
+      fundReadyUsd: current.fundReadyUsd,
+      fundArrivingUsd: current.fundArrivingUsd,
+      fundedRunId: current.fundedRunId,
+      queuedAt: current.queuedAt,
+      readiness: current.readiness,
+      convertSeen: current.convertSeen,
+      approveSeen: current.approveSeen,
     );
   }
 
@@ -279,6 +457,19 @@ class PendingPolymarketBetNotifier extends Notifier<PendingBetIntent?> {
 
   void clear() {
     state = null;
+  }
+
+  /// Drops an armed bet: one got ready on a fast market's slip
+  /// (`BetPrefund`), still waiting for Confirm (`awaitingDeposit` with a
+  /// funding cap). Clearing it drops its approval too (the autofire's
+  /// listener). A queued, placing, failed or finished bet is left alone.
+  void dropArmed() {
+    final current = state;
+    if (current != null &&
+        current.funded &&
+        current.status == PendingBetStatus.awaitingDeposit) {
+      state = null;
+    }
   }
 }
 

@@ -32,6 +32,7 @@ class PolymarketCostBasisNotifier extends StateNotifier<Map<String, double>> {
 
   Future<void> _load() async {
     final box = await Hive.openBox<double>(_kCostBasisBox);
+    if (!mounted) return;
     state = Map<String, double>.from(box.toMap().cast<String, double>());
   }
 
@@ -44,6 +45,7 @@ class PolymarketCostBasisNotifier extends StateNotifier<Map<String, double>> {
     final existing = box.get(tokenId) ?? 0;
     final updated = existing + paidUsdc;
     await box.put(tokenId, updated);
+    if (!mounted) return;
     state = {...state, tokenId: updated};
   }
 

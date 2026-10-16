@@ -1,11 +1,15 @@
 import 'package:kute/services/tracking/latency_tracker.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/services/orchestra/orchestra_capability_requirements.dart';
+import 'package:kute/services/orchestra/receive_route_availability.dart'
+    show ReceiveRouteAvailability;
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'dart:convert';
 import 'dart:math' show Random;
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
+import 'package:kute/services/http/shared_http_client.dart';
 import 'package:kute/models/affiliate_model.dart'
     show AffiliateService, WalletSessionUnavailable;
 import 'package:kute/models/orchestra_model.dart';
@@ -108,7 +112,8 @@ class OrchestraService {
   /// than fetched again (see [RuntimeCapabilitiesService.ensureAllAllowed]).
   static Future<void> _ensureCapabilities(Iterable<String> capabilities,
       {Duration maxAge = Duration.zero}) async {
-    if (await AffiliateService.ensureSession() == null) {
+    final convSession = await AffiliateService.ensureSession();
+    if (convSession == null) {
       TrackingService.walletSessionAuth(
           route: 'orchestra', outcome: 'unavailable');
       throw WalletSessionUnavailable(
@@ -189,13 +194,27 @@ class OrchestraService {
     final response = await _send((auth) {
       if (!current()) throw StateError('Receive wallet changed');
       beforeDispatch?.call();
+      const kind = HttpCallKind.userAction;
+      const timeout = Duration(seconds: 20);
       return switch (method) {
-        'GET' => http.get(uri, headers: auth),
-        'PUT' => http.put(uri, headers: auth, body: jsonEncode(body)),
-        'PATCH' => http.patch(uri, headers: auth, body: jsonEncode(body)),
-        _ => http.post(uri, headers: auth, body: jsonEncode(body)),
-      }
-          .timeout(const Duration(seconds: 20));
+        'GET' => SharedHttpClient.get(uri,
+            headers: auth, kind: kind, timeout: timeout),
+        'PUT' => SharedHttpClient.put(uri,
+            headers: auth,
+            body: jsonEncode(body),
+            kind: kind,
+            timeout: timeout),
+        'PATCH' => SharedHttpClient.patch(uri,
+            headers: auth,
+            body: jsonEncode(body),
+            kind: kind,
+            timeout: timeout),
+        _ => SharedHttpClient.post(uri,
+            headers: auth,
+            body: jsonEncode(body),
+            kind: kind,
+            timeout: timeout),
+      };
     }, extra: headers);
     if (!current()) throw StateError('Receive wallet changed');
     if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -300,8 +319,12 @@ class OrchestraService {
       return null;
     }
 
+    // Route catalog: a background read, retried with backoff.
     Future<http.Response> get(Uri uri, Map<String, String>? headers) =>
-        http.get(uri, headers: headers).timeout(const Duration(seconds: 12));
+        SharedHttpClient.get(uri,
+            headers: headers,
+            kind: HttpCallKind.backgroundRead,
+            timeout: const Duration(seconds: 12));
 
     // Backend proxy gets the wallet-session bearer; the public Flashnet
     // host must NOT see our backend token. Without a session the public
@@ -364,10 +387,11 @@ class OrchestraService {
     Future<OrchestraRouteLimits?> tryGet(Uri uri,
         {Map<String, String>? headers}) async {
       try {
-        final res = await (client == null
-                ? http.get(uri, headers: headers)
-                : client.get(uri, headers: headers))
-            .timeout(const Duration(seconds: 10));
+        final res = await SharedHttpClient.get(uri,
+            headers: headers,
+            kind: HttpCallKind.userAction,
+            timeout: const Duration(seconds: 10),
+            client: client);
         if (res.statusCode >= 200 && res.statusCode < 300) {
           return OrchestraRouteLimits.fromResponse(jsonDecode(res.body), key);
         }
@@ -429,15 +453,47 @@ class OrchestraService {
         if (errorCode != null) 'error_code': errorCode,
       });
 
-  /// One reliability event per deposit submit. No ids.
+  /// One reliability event per deposit submit. No ids. [errorCode] is the
+  /// provider's machine code for a refusal (`invalid_tx_hash`), never a
+  /// message.
   static void _trackSubmitResult({
     required bool ok,
     required String statusClass,
+    String? errorCode,
   }) =>
       TrackingService.track('orchestra_submit_result', params: {
         'outcome': ok ? 'ok' : 'error',
         'status_class': statusClass,
+        if (errorCode != null) 'error_code': errorCode,
       });
+
+  /// The provider's machine-readable error code in an error body
+  /// (`{"error": {"code": ...}}`, `{"error": "<code>"}`, then a top-level
+  /// `code` or `errorCode`),
+  /// or null. Only a short snake-case token is accepted, so a message,
+  /// an id or anything the user typed can never pass through as a code.
+  @visibleForTesting
+  static String? parseErrorCode(String body) {
+    try {
+      final parsed = jsonDecode(body);
+      if (parsed is! Map) return null;
+      final error = parsed['error'];
+      final candidates = <Object?>[
+        if (error is Map) error['code'],
+        if (error is String) error,
+        parsed['code'],
+        parsed['errorCode'],
+      ];
+      for (final c in candidates) {
+        if (c is! String) continue;
+        final code = c.trim().toLowerCase();
+        if (_kErrorCodeShape.hasMatch(code)) return code;
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  static final RegExp _kErrorCodeShape = RegExp(r'^[a-z][a-z0-9_.-]{1,47}$');
 
   // ─── Buy Flow ───────────────────────────────────────────────────
 
@@ -470,8 +526,13 @@ class OrchestraService {
       return null;
     }
 
+    // One attempt per host, as before: the public catalog below is the
+    // fallback, and the buyer is waiting on this read.
     Future<http.Response> get(Uri uri, Map<String, String>? headers) =>
-        http.get(uri, headers: headers).timeout(const Duration(seconds: 10));
+        SharedHttpClient.get(uri,
+            headers: headers,
+            kind: HttpCallKind.userAction,
+            timeout: const Duration(seconds: 10));
 
     final query = {
       'sourceChain': 'lightning',
@@ -548,6 +609,12 @@ class OrchestraService {
     }
   }
 
+  /// [recipientAddress] is where the move delivers: the same address the
+  /// quote that follows names. Orchestra prices the destination as it
+  /// really is from it. Without one, a HyperCore estimate assumes an
+  /// account Hyperliquid has never seen and counts the one-time
+  /// activation (about $1.22) on every deposit. Sent only when known; it
+  /// never reaches analytics or logs, and a failure's text has it removed.
   static Future<Result<OrchestraEstimate>> getEstimate({
     required String sourceChain,
     required String sourceAsset,
@@ -555,7 +622,9 @@ class OrchestraService {
     required String destinationAsset,
     required String amount,
     bool onramp = false,
+    String? recipientAddress,
   }) async {
+    final recipient = estimateRecipient(recipientAddress);
     try {
       final uri = Uri.parse('$_baseUrl/estimate').replace(queryParameters: {
         'sourceChain': sourceChain,
@@ -567,9 +636,12 @@ class OrchestraService {
         // prices at its own rule; the flag asks the estimate for that same
         // rule so the fee shown is the fee charged.
         if (onramp) 'onramp': 'true',
+        if (recipient != null) 'recipientAddress': recipient,
       });
-      final res = await _send((h) =>
-          http.get(uri, headers: h).timeout(const Duration(seconds: 15)));
+      final res = await _send((h) => SharedHttpClient.get(uri,
+          headers: h,
+          kind: HttpCallKind.userAction,
+          timeout: const Duration(seconds: 15)));
 
       if (res.statusCode >= 200 && res.statusCode < 300) {
         return Result(
@@ -578,8 +650,22 @@ class OrchestraService {
       }
       return Result(error: _parseError(res.body));
     } catch (e) {
-      return Result(error: e.toString());
+      // A transport error can quote the request URL, query included.
+      final text = e.toString();
+      return Result(
+          error: recipient == null
+              ? text
+              : text.replaceAll(recipient, '<recipient>'));
     }
+  }
+
+  /// The recipient an estimate is asked for, or null when there is none
+  /// to send: blank means unknown. Estimate cache keys go through this
+  /// too, so a blank and a missing recipient are one estimate and two
+  /// different recipients never are.
+  static String? estimateRecipient(String? address) {
+    final trimmed = address?.trim();
+    return trimmed == null || trimmed.isEmpty ? null : trimmed;
   }
 
   // ─── Quote & Submit (Spark orchestration) ──────────────────────
@@ -602,6 +688,7 @@ class OrchestraService {
     String? deliveryMode,
     int? slippageBps,
     String? idempotencyKey,
+    String? tag,
   }) async {
     // Quote request → response round-trip (durations only; route legs
     // are categorical). Started right before the HTTP send so capability
@@ -658,6 +745,10 @@ class OrchestraService {
       };
       if (deliveryMode != null) body['deliveryMode'] = deliveryMode;
       if (slippageBps != null) body['slippageBps'] = slippageBps;
+      // The provider-side tag the quote is filed under (a one-balance
+      // move's purpose and venue, or the Move sheet's own); absent when
+      // the flow sets none.
+      if (tag != null) body['tag'] = tag;
 
       roundtrip.start();
       final res = await _send(
@@ -708,6 +799,7 @@ class OrchestraService {
     String? bitcoinTxid,
     int? bitcoinVout,
     String? idempotencyKey,
+    Duration timeout = const Duration(seconds: 15),
   }) async {
     try {
       final body = <String, dynamic>{
@@ -729,7 +821,7 @@ class OrchestraService {
               headers: h,
               body: jsonEncode(body),
             )
-            .timeout(const Duration(seconds: 15)),
+            .timeout(timeout),
         extra: _idempotency(idempotencyKey),
       );
 
@@ -743,12 +835,16 @@ class OrchestraService {
           headers: res.headers,
         );
       }
+      final errorCode = parseErrorCode(res.body);
       _trackSubmitResult(
-          ok: false, statusClass: _statusClass(res.statusCode));
+          ok: false,
+          statusClass: _statusClass(res.statusCode),
+          errorCode: errorCode);
       return Result(
         error: _parseError(res.body),
         statusCode: res.statusCode,
         headers: res.headers,
+        errorCode: errorCode,
       );
     } catch (e) {
       _trackSubmitResult(ok: false, statusClass: _thrownStatusClass(e));
@@ -771,8 +867,10 @@ class OrchestraService {
               : 'id'; // fallback
       final uri = Uri.parse('$_baseUrl/status')
           .replace(queryParameters: {paramKey: orderId});
-      final res = await _send((h) =>
-          http.get(uri, headers: h).timeout(const Duration(seconds: 15)));
+      final res = await _send((h) => SharedHttpClient.get(uri,
+          headers: h,
+          kind: HttpCallKind.userAction,
+          timeout: const Duration(seconds: 15)));
 
       if (res.statusCode >= 200 && res.statusCode < 300) {
         // A quote lookup with no order yet still carries the backend's
@@ -795,15 +893,47 @@ class OrchestraService {
     }
   }
 
+  /// [getHistory]'s error code for a recipient the wallet session cannot
+  /// own. Not a failure: the address belongs to another wallet on the
+  /// device (a second wallet, an old one), whose history this session
+  /// may never read. Callers skip it quietly.
+  static const String historyNotSessionRecipient = 'not_session_recipient';
+
+  /// `identity|address` pairs the backend answered 403 for, so a sweep
+  /// never asks again for the same session.
+  static final Set<String> _foreignHistoryRecipients = {};
+
+  /// Tests only.
+  static void debugResetHistoryRecipients() =>
+      _foreignHistoryRecipients.clear();
+
+  static Result<List<OrchestraOrder>> _notSessionRecipient() => Result(
+      error: 'Recipient does not belong to this wallet',
+      statusCode: 403,
+      errorCode: historyNotSessionRecipient);
+
   /// Recipient history is private and uses the owned Spark address, never the
-  /// source-chain deposit address. The backend verifies its wallet identity.
+  /// source-chain deposit address. The backend verifies its wallet identity
+  /// and answers 403 for an address of another wallet; such an address is
+  /// refused here without a request when its key is visibly not the
+  /// session's, and after one 403 otherwise ([historyNotSessionRecipient]).
   static Future<Result<List<OrchestraOrder>>> getHistory(
       String recipientSparkAddress) async {
+    final address = recipientSparkAddress.trim();
+    if (AffiliateService.sessionOwnsSparkAddress(address) == false ||
+        _foreignHistoryRecipients
+            .contains('${AffiliateService.sessionIdentity}|$address')) {
+      return _notSessionRecipient();
+    }
     try {
       final uri = Uri.parse('$_baseUrl/history')
           .replace(queryParameters: {'address': recipientSparkAddress});
-      final res = await _send((h) =>
-          http.get(uri, headers: h).timeout(const Duration(seconds: 15)));
+      // One attempt, as before: a failed read is retried by the caller's
+      // next poll, never by a backoff loop inside one tick.
+      final res = await _send((h) => SharedHttpClient.get(uri,
+          headers: h,
+          kind: HttpCallKind.userAction,
+          timeout: const Duration(seconds: 15)));
 
       if (res.statusCode >= 200 && res.statusCode < 300) {
         final decoded = jsonDecode(res.body);
@@ -821,6 +951,13 @@ class OrchestraService {
         return Result(
             data: list, statusCode: res.statusCode, headers: res.headers);
       }
+      if (res.statusCode == 403) {
+        final identity = AffiliateService.sessionIdentity;
+        if (identity != null) {
+          _foreignHistoryRecipients.add('$identity|$address');
+        }
+        return _notSessionRecipient();
+      }
       return Result(
           error: _parseError(res.body),
           statusCode: res.statusCode,
@@ -830,7 +967,14 @@ class OrchestraService {
     }
   }
 
-  // ─── Accumulation Addresses ─────────────────────────────────────
+  // ─── Accumulation Addresses (LEGACY) ────────────────────────────
+  //
+  // Flashnet marks POST /v1/accumulation-addresses as its legacy address
+  // model ("new integrations use standing deposit addresses"). The app
+  // asks `standingRequest` first (see ReusableDepositAddressService) and
+  // reaches this call only where no standing address exists for the
+  // destination or the source chain. Keep it until spark:BTC is a
+  // standing destination; delete it then.
 
   /// [refundAddresses] maps source-chain slug → a refund address the
   /// user controls on that chain (Flashnet's `refundAddresses` field —
@@ -838,6 +982,10 @@ class OrchestraService {
   /// because receive flows watch for EXTERNAL senders the app holds no
   /// source-chain address for; pass it whenever the depositing wallet
   /// is the user's own (e.g. the Hyperliquid EOA on Arbitrum).
+  ///
+  /// A HyperCore source is refused before any network call: Flashnet
+  /// says "HyperCore source address creation is unavailable until
+  /// independent deposit verification is supported".
   static Future<Result<OrchestraAccumulationAddress>>
       createAccumulationAddress({
     required String sourceChain,
@@ -848,6 +996,11 @@ class OrchestraService {
     Map<String, String>? refundAddresses,
     String? idempotencyKey,
   }) async {
+    if (ReceiveRouteAvailability.isHyperCoreSource(sourceChain)) {
+      return Result(
+          error: 'Unsupported source chain: hypercore',
+          errorCode: 'unsupported_route');
+    }
     try {
       // Exactly the operation guard's list for this endpoint.
       await _ensureCapabilities(orchestraReceiveAddressCapabilities(
@@ -887,10 +1040,29 @@ class OrchestraService {
         }
         return Result(data: address);
       }
-      return Result(error: _parseError(res.body));
+      // Status and code travel with the message so the caller can tell a
+      // refused route (4xx, `unsupported_route`) from a retryable fault.
+      return Result(
+          error: _parseError(res.body),
+          statusCode: res.statusCode,
+          errorCode: _parseErrorCode(res.body));
     } catch (e) {
       return Result(error: e.toString());
     }
+  }
+
+  /// The provider's machine-readable `error.code` (or top-level `code`)
+  /// from a JSON error body, or null.
+  static String? _parseErrorCode(String body) {
+    try {
+      final parsed = jsonDecode(body);
+      if (parsed is Map<String, dynamic>) {
+        final error = parsed['error'];
+        if (error is Map<String, dynamic>) return error['code']?.toString();
+        return parsed['code']?.toString();
+      }
+    } catch (_) {}
+    return null;
   }
 
   static Future<Result<List<OrchestraAccumulationAddress>>>

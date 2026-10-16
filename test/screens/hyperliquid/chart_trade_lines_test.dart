@@ -158,7 +158,10 @@ void main() {
         .single;
     expect(live.top, lessThan(20));
     expect(tp.rect.top, closeTo(live.top + live.height + 2, 0.01));
-    expect(tp.rect.right, closeTo(surface.width, 0.01));
+    // In the tag column, past the end of the candles, and whole.
+    final plotRight = surface.width - painter.tagColumn!;
+    expect(tp.rect.left, greaterThanOrEqualTo(plotRight));
+    expect(tp.rect.right, lessThanOrEqualTo(surface.width + 0.01));
   });
 
   testWidgets('dragging an editable tag reports the dropped price once',

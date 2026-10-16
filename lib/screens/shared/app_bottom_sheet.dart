@@ -26,6 +26,9 @@ Future<T?> showAppBottomSheet<T>({
   // with it. The root navigator sits above the shell — mirror the Polymarket /
   // Hyperliquid sheets, which all use useRootNavigator: true.
   bool useRootNavigator = true,
+  // A name for the sheet's route, for a sheet that stands in for a named
+  // screen (Receive): the route observers keep seeing that name.
+  RouteSettings? routeSettings,
 }) {
   return showModalBottomSheet<T>(
     context: context,
@@ -35,6 +38,7 @@ Future<T?> showAppBottomSheet<T>({
     enableDrag: enableDrag,
     useSafeArea: useSafeArea,
     useRootNavigator: useRootNavigator,
+    routeSettings: routeSettings,
     // Tap anywhere on the sheet outside a focused field to dismiss the
     // keyboard. Child buttons/inputs still win their own taps; only empty
     // space triggers the unfocus. Applies to every sheet opened this way.
@@ -60,11 +64,17 @@ class AppBottomSheetContainer extends StatelessWidget {
   /// keyboard's.
   final bool followKeyboard;
 
+  /// Overrides the sheet surface colour (the receive sheet goes pure white
+  /// in light mode so the QR plate has no visible edge). Null: the theme's
+  /// sheet surface.
+  final Color? color;
+
   const AppBottomSheetContainer({
     super.key,
     required this.child,
     this.maxHeight,
     this.followKeyboard = false,
+    this.color,
   });
 
   @override
@@ -109,7 +119,9 @@ class AppBottomSheetContainer extends StatelessWidget {
       constraints: resolvedMaxHeight != null
           ? BoxConstraints(maxHeight: resolvedMaxHeight)
           : null,
-      decoration: AppDecorations.bottomSheet(context),
+      decoration: color == null
+          ? AppDecorations.bottomSheet(context)
+          : AppDecorations.bottomSheet(context).copyWith(color: color),
       // Following the keyboard: the inset as it is, every frame, with no
       // easing of its own (the platform's keyboard curve is the one lift).
       child: followKeyboard
@@ -138,6 +150,9 @@ class AppBottomSheetHeader extends StatelessWidget {
   final String? svgAsset;
   final Widget? trailing;
 
+  /// A smaller heading and tighter spacing for compact action menus.
+  final bool compact;
+
   const AppBottomSheetHeader({
     super.key,
     required this.title,
@@ -146,6 +161,7 @@ class AppBottomSheetHeader extends StatelessWidget {
     this.iconColor,
     this.svgAsset,
     this.trailing,
+    this.compact = false,
   });
 
   @override
@@ -167,9 +183,11 @@ class AppBottomSheetHeader extends StatelessWidget {
         // the trailing slot for scan-spinner / refresh buttons that
         // some sheets attach.
         Padding(
-          padding: EdgeInsets.fromLTRB(20.w, 20.h, 20.w, 18.h),
+          padding: EdgeInsets.fromLTRB(
+              20.w, compact ? 12.h : 20.h, 20.w, compact ? 12.h : 18.h),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment:
+                compact ? CrossAxisAlignment.center : CrossAxisAlignment.start,
             children: [
               Expanded(
                 child: Column(
@@ -179,7 +197,7 @@ class AppBottomSheetHeader extends StatelessWidget {
                       title,
                       style: TextStyle(
                         color: c.textPrimary,
-                        fontSize: 28.sp,
+                        fontSize: compact ? 22.sp : 28.sp,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.6,
                         height: 1.05,

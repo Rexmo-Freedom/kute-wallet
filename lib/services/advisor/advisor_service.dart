@@ -61,7 +61,9 @@ class AdvisorCancellation {
 
   void attach(void Function() close) {
     if (_cancelled) {
-      close();
+      try {
+        close();
+      } catch (_) {}
     } else {
       _close = close;
     }
@@ -69,8 +71,15 @@ class AdvisorCancellation {
 
   void cancel() {
     _cancelled = true;
-    _close?.call();
+    final close = _close;
     _close = null;
+    // Closing the HTTP client mid-answer tears the response socket down,
+    // and IOClient.close surfaces that as a ClientException ("Connection
+    // closed while receiving data"). The person closed the sheet; there
+    // is nobody left to tell, so the error ends here.
+    try {
+      close?.call();
+    } catch (_) {}
   }
 
   void detach() => _close = null;
@@ -386,21 +395,30 @@ class AdvisorTransport {
         return;
       }
       var completed = false;
-      await for (final event in decodeEvents(response.stream)
-          .timeout(const Duration(seconds: 60))) {
-        if (cancellation.isCancelled) return;
-        yield event;
-        if (event.response != null) {
-          completed = true;
-          break;
+      try {
+        await for (final event in decodeEvents(response.stream)
+            .timeout(const Duration(seconds: 60))) {
+          if (cancellation.isCancelled) return;
+          yield event;
+          if (event.response != null) {
+            completed = true;
+            break;
+          }
         }
+      } catch (_) {
+        // A cancel closed the connection under the stream: the error is
+        // the cancel itself, not an answer anyone is waiting for.
+        if (cancellation.isCancelled) return;
+        rethrow;
       }
       if (!completed && !cancellation.isCancelled) {
         throw const AdvisorUnavailableException();
       }
     } finally {
       cancellation.detach();
-      client.close();
+      try {
+        client.close();
+      } catch (_) {}
     }
   }
 

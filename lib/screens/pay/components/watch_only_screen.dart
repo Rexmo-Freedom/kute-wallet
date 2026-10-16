@@ -26,6 +26,8 @@ import 'package:go_router/go_router.dart';
 import 'package:kute/helpers/psbt_helper.dart';
 import 'package:kute/helpers/extension.dart';
 import 'package:kute/helpers/user_error_copy.dart';
+import 'package:kute/services/success_feedback.dart'
+    show moneyFailureFeedback;
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart';
 import 'package:kute/providers/add_wallet_provider.dart';
@@ -747,6 +749,8 @@ class _WatchOnlySigningScreenState extends ConsumerState<WatchOnlySigningScreen>
     if (!_verifySignedOutputsMatch(_signedTxData!)) {
       _trackSendOutcome(error: 'signed_tx_mismatch', stage: 'sign');
       if (mounted) {
+        // The send failed: the soft release every money action ends with.
+        unawaited(moneyFailureFeedback());
         showMessageSnackBar(
           message: context.l10n.signedTransactionDoesNotMatchOriginalBroadcastAborted,
           error: true,
@@ -859,6 +863,8 @@ class _WatchOnlySigningScreenState extends ConsumerState<WatchOnlySigningScreen>
       }
       if (mounted) {
         setState(() => _isBroadcasting = false);
+        // The send failed: the soft release every money action ends with.
+        unawaited(moneyFailureFeedback());
         // The review guards above throw sentences written for people;
         // everything else reads as "Couldn't send".
         showMessageSnackBar(

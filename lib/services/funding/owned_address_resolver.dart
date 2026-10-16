@@ -130,7 +130,13 @@ void checkSettlementAccountPair({
   final crossAccount = source != destination;
   final sparkWithVenue = (source == SettlementAccountKind.sparkHot) !=
       (destination == SettlementAccountKind.sparkHot);
-  if (crossAccount && !sparkWithVenue) {
+  // Predictions cash straight into the Investing account (an order's
+  // direct leg, `movePredictionsToInvesting`): both ends are the wallet's
+  // own hot accounts, each resolved on its own chain below. The other
+  // venue-to-venue direction has no settlement flow and stays refused.
+  final predictionsToInvesting = source == SettlementAccountKind.pmHot &&
+      destination == SettlementAccountKind.hlHot;
+  if (crossAccount && !sparkWithVenue && !predictionsToInvesting) {
     _reject(WalletGuardReason.recipientNotOwn, 'cross_account');
   }
   final sourceChains = _kHotAccountChains[source] ?? const {};

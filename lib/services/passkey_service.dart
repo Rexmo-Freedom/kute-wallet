@@ -1,10 +1,13 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:kute/services/onchain/native_bitcoin_primitives.dart';
 import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart';
 import 'package:crypto/crypto.dart' show sha256;
-import 'package:flutter/foundation.dart' show visibleForTesting;
+import 'package:flutter/foundation.dart'
+    show ValueListenable, ValueNotifier, visibleForTesting;
+import 'package:kute/services/tracking_service.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:kute/models/auth_model.dart';
@@ -71,11 +74,17 @@ class PasskeyService {
   //     the OS or storage.
   //   • device-local secureStorage (passkey017_seed_v1__…) — persists the
   //     derived seed so a warm device skips the ceremony on cold start too.
+  //     Keyed by (label, credential id); by the label alone when the
+  //     platform surfaced no credential id and the device holds no pin, so
+  //     a restore on such a device still spares the next cold start.
   // The persisted seed sits in the SAME this-device-only tier as the legacy
   // PRF seed and the app's BIP39 seeds; the passkey stays the recovery root.
   static final Map<String, Wallet> _walletSession = {};
   static final Map<String, Future<Wallet>> _walletInFlight = {};
   static const String _seedCacheKeyPrefix = 'passkey017_seed_v1__';
+
+  /// The cache key's credential part when none is known (see above).
+  static final Uint8List _noCredential = Uint8List(0);
 
   /// The discovery sign-in in flight, so a double tap (or the auto lookup
   /// racing a tap) shares ONE ceremony.
@@ -92,6 +101,15 @@ class PasskeyService {
   /// client). [storeLabel] uses it so publishing costs no extra prompt.
   static PasskeyClient? _labelClient;
 
+  /// Hex of the credential whose label-store identity the SDK client
+  /// currently holds, i.e. the credential of the last `signIn` /
+  /// `register` ceremony that ran in THIS process. `labels().store` needs
+  /// that identity; without a ceremony the SDK would derive it with a
+  /// fresh PRF assertion (a surprise biometric prompt), so the pending
+  /// label retry only runs when this is set, and only for labels that
+  /// belong to this credential.
+  static String? _identityCredentialHex;
+
   /// Forget every derived wallet and pending ceremony held in memory.
   /// Storage is untouched. Called by the wipe path.
   static void clearSession() {
@@ -101,6 +119,8 @@ class PasskeyService {
     _discoveryInFlight = null;
     _discovered = null;
     _labelClient = null;
+    _identityCredentialHex = null;
+    _publishing.clear();
   }
 
   // ─────────────────── retired iCloud recovery manifest ───────────────────
@@ -214,10 +234,15 @@ class PasskeyService {
     await _saveCredentialId017(credId, generation);
     _session.check(generation);
     // register() derived this credential's label-store identity on
-    // `registerClient` (and already publishes the label in the background).
-    // Route the caller's follow-up storeLabel through that same client so
-    // it reuses the identity instead of costing a second OS prompt.
+    // `registerClient` (and already publishes the label in the background:
+    // the SDK spawns its own 3-attempt store_label, whose outcome it never
+    // reports). Route the caller's follow-up storeLabel through that same
+    // client so it reuses the identity instead of costing a second OS
+    // prompt, and remember whose identity it is for the pending retry.
     _labelClient = registerClient;
+    _identityCredentialHex =
+        (credId != null && credId.isNotEmpty) ? _hexOf(credId) : null;
+    unawaited(retryPendingLabels());
     // Prime the caches with the freshly minted seed so the very first
     // getWallet after creation (connect / provisioning) reuses it instead of
     // launching a second, redundant ceremony.
@@ -382,11 +407,22 @@ class PasskeyService {
   /// the credential that owns the wallet), and is persisted once the
   /// ceremony succeeds. It must match the stored pin when one exists.
   ///
+  /// [preferImmediatelyAvailable] is forwarded to the OS as
+  /// `preferImmediatelyAvailableCredentials` (Android Credential Manager's
+  /// `setPreferImmediatelyAvailableCredentials`, iOS's
+  /// `.preferImmediatelyAvailableCredentials`): with it a device holding
+  /// no local passkey fails fast with `CredentialNotFound` instead of
+  /// showing a sign-in sheet (the cross-device / QR option included).
+  /// The SDK's native providers already default to `true` when this is
+  /// null; the create flow passes it explicitly so the fast fail does not
+  /// depend on that default. Null keeps the SDK default.
+  ///
   /// [label] defaults to "Default" (discovery) if null.
   static Future<Wallet> getWallet({
     String? label,
     required bool legacy,
     Uint8List? credentialId,
+    bool? preferImmediatelyAvailable,
   }) async {
     if (legacy) {
       throw ArgumentError(
@@ -405,7 +441,8 @@ class PasskeyService {
     // onto a SINGLE ceremony so they can't fight for the OS authorization.
     final pending = _walletInFlight[key];
     if (pending != null) return pending;
-    final future = _resolveWallet(label, generation, credentialId);
+    final future = _resolveWallet(
+        label, generation, credentialId, preferImmediatelyAvailable);
     _walletInFlight[key] = future;
     try {
       final wallet = await future;
@@ -420,8 +457,8 @@ class PasskeyService {
   /// The actual resolve: device-local cache → discovery reuse → pinned
   /// signIn → persist. Kept private so [getWallet] owns the session cache +
   /// in-flight coalescing around it.
-  static Future<Wallet> _resolveWallet(
-      String? label, int generation, Uint8List? discoveredId) async {
+  static Future<Wallet> _resolveWallet(String? label, int generation,
+      Uint8List? discoveredId, bool? preferImmediatelyAvailable) async {
     final storedId = await _loadCredentialId017();
     _session.check(generation);
     final hasStored = storedId != null && storedId.isNotEmpty;
@@ -434,12 +471,11 @@ class PasskeyService {
     // Device-local cache — a warm device skips the ceremony entirely. Keyed
     // by (label, credentialId): a different wallet has a different label, and
     // a rotated credential changes the key, so a stale entry can NEVER be
-    // served for the wrong wallet.
-    if (pin != null) {
-      final cached = await _readCachedWallet(label, pin);
-      _session.check(generation);
-      if (cached != null) return cached;
-    }
+    // served for the wrong wallet. With no pin on this device the entry a
+    // credential-less restore wrote sits under the label alone.
+    final cached = await _readCachedWallet(label, pin ?? _noCredential);
+    _session.check(generation);
+    if (cached != null) return cached;
     final Wallet wallet;
     final Uint8List? credId;
     final discovered = _discovered;
@@ -456,6 +492,7 @@ class PasskeyService {
         request: SignInRequest(
           label: label,
           allowCredentials: pin != null ? [pin] : null,
+          preferImmediatelyAvailableCredentials: preferImmediatelyAvailable,
         ),
       );
       _session.check(generation);
@@ -466,17 +503,29 @@ class PasskeyService {
       // `_client` now holds this credential's label-store identity.
       _labelClient = null;
       wallet = resp.wallet;
-      credId = resp.credential?.credentialId;
+      // A platform that surfaces no credential id answered the pinned
+      // ceremony, so the pin IS the credential: keep it as the resolved id
+      // (a discovered pin gets persisted now, as the comment below says).
+      credId = resp.credential?.credentialId ?? pin;
+      _identityCredentialHex =
+          (credId != null && credId.isNotEmpty) ? _hexOf(credId) : null;
+      // A ceremony just primed the identity: labels still waiting to be
+      // published (a creation on a slow link) can go out now, for free.
+      unawaited(retryPendingLabels());
     }
     // Reconcile: keep the stored id tracking what the OS actually
     // resolved against so the NEXT ceremony pins correctly.
     _session.check(generation);
     await _saveCredentialId017(credId, generation);
     _session.check(generation);
-    // Persist the derived seed device-local, keyed by (label, resolved cred).
-    if (credId != null && credId.isNotEmpty) {
-      await _writeCachedWallet(label, credId, wallet, generation);
-    }
+    // Persist the derived seed device-local, keyed by (label, resolved
+    // cred), or by the label alone when no credential id is known: the next
+    // cold start would otherwise run an OS ceremony again.
+    await _writeCachedWallet(
+        label,
+        (credId != null && credId.isNotEmpty) ? credId : _noCredential,
+        wallet,
+        generation);
     _session.check(generation);
     return wallet;
   }
@@ -508,7 +557,15 @@ class PasskeyService {
         key: _seedCacheKey(label, credId),
         value: jsonEncode({'label': wallet.label, 'seed': _encodeSeed(wallet.seed)}),
       ));
-    } catch (_) {/* non-fatal: the session cache still covers this run */}
+    } catch (e) {
+      // Non-fatal: the session cache still covers this run, but the next
+      // cold start will prompt again. Say so, by kind only: no label, no
+      // credential, no error text.
+      TrackingService.track('passkey_seed_cache_write_failed', params: {
+        'error_category': TrackingService.errorReason(e),
+        'keyed_by': credId.isEmpty ? 'label' : 'credential',
+      });
+    }
   }
 
   /// Serialize a [Seed] for device-local storage. The union is closed
@@ -632,6 +689,9 @@ class PasskeyService {
     final credentialId = (resolved != null && resolved.isNotEmpty)
         ? resolved
         : (hasStored ? storedId : null);
+    _identityCredentialHex =
+        credentialId != null ? _hexOf(credentialId) : null;
+    unawaited(retryPendingLabels());
     _discovered = (credentialId != null && resp.wallet.label.isNotEmpty)
         ? (
             label: resp.wallet.label,
@@ -645,6 +705,129 @@ class PasskeyService {
     );
   }
 
+  /// Whether this device has learned any passkey credential: the current
+  /// stack's pin or the legacy (pre-2.x) pin / registered flag. The create
+  /// flow uses it to tell "no passkey on this device" (a dismissed sign-in
+  /// sheet may be offered a fresh passkey) from "a known passkey exists"
+  /// (never mint a second one). Storage failures read as "known", the
+  /// conservative answer.
+  static Future<bool> hasKnownCredential() async {
+    try {
+      final stored = await _loadCredentialId017();
+      if (stored != null && stored.isNotEmpty) return true;
+      final legacy = await PasskeyPrfService.pinnedCredentialId();
+      if (legacy != null && legacy.isNotEmpty) return true;
+      return await PasskeyPrfService.hasRegisteredCredential();
+    } catch (_) {
+      return true;
+    }
+  }
+
+  // ───────────────────────── label publishing ──────────────────────────
+  //
+  // Publishing a wallet's label to the Nostr label store is what makes the
+  // wallet show up in the recover picker on another device. It is the only
+  // network step around creation, so it never sits on the creation path:
+  // the wallet is saved first, the label is published in the background
+  // with a per-attempt timeout, and a label that did not land stays
+  // "pending" on this device until a later ceremony lets it be retried.
+  //
+  // The SDK's `register()` already publishes the label itself in the
+  // background (3 attempts, outcome never reported back), so after a mint
+  // the app-side publish is a verification + fallback: `store_label` is
+  // idempotent (it reads the relays first and only writes when the label
+  // is missing), so a landed SDK publish makes it a cheap no-op. After a
+  // `signIn` (existing passkey, new label) the SDK publishes nothing, so
+  // the app-side publish is the only one.
+
+  /// Hive `settings` key holding `{label: credentialHex}` for labels whose
+  /// publish has not been confirmed yet. `credentialHex` is '' when the
+  /// platform did not surface the credential.
+  static const String _pendingLabelsKey = 'passkey_pending_labels';
+
+  /// Per-attempt cap on a label publish. The SDK's own relay timeout is
+  /// 30 s per relay batch, so one attempt could otherwise run for minutes
+  /// on a dead link; this keeps every attempt short and lets the retry on
+  /// a later ceremony finish the job.
+  static Duration labelPublishAttemptTimeout = const Duration(seconds: 20);
+
+  /// Base backoff between publish attempts (×1, ×2, …).
+  static Duration labelPublishBackoff = const Duration(milliseconds: 600);
+
+  static final ValueNotifier<Set<String>> _pendingLabels =
+      ValueNotifier<Set<String>>(const <String>{});
+  static bool _pendingLoaded = false;
+
+  /// Labels this device created but has not yet confirmed as published.
+  /// Reactive, so a quiet "syncing your backup" note can follow it.
+  /// Hydrates itself from storage on first use.
+  static ValueListenable<Set<String>> get pendingLabels {
+    if (!_pendingLoaded) {
+      _pendingLoaded = true;
+      unawaited(loadPendingLabels());
+    }
+    return _pendingLabels;
+  }
+
+  /// Publishes in flight in this process, so a retry never runs a second
+  /// loop for a label that is already being published.
+  static final Set<String> _publishing = {};
+
+  static Future<Map<String, String>> _readPending() async {
+    final box = await Hive.openBox('settings');
+    final raw = box.get(_pendingLabelsKey);
+    if (raw is! Map) return {};
+    return {
+      for (final e in raw.entries)
+        if (e.key is String) e.key as String: (e.value as String?) ?? '',
+    };
+  }
+
+  static Future<void> _writePending(Map<String, String> pending) async {
+    // The in-memory set is what the screens show: publish it first, so a
+    // reader that sees the stored flag never finds the set behind it.
+    _pendingLabels.value = Set.unmodifiable(pending.keys);
+    final box = await Hive.openBox('settings');
+    if (pending.isEmpty) {
+      await box.delete(_pendingLabelsKey);
+    } else {
+      await box.put(_pendingLabelsKey, Map<String, String>.from(pending));
+    }
+  }
+
+  /// Load the pending set from storage into [pendingLabels].
+  static Future<void> loadPendingLabels() async {
+    try {
+      _pendingLabels.value = Set.unmodifiable((await _readPending()).keys);
+    } catch (_) {/* storage unavailable: nothing to show */}
+  }
+
+  /// Flag [label] as created-but-not-yet-published. [credentialHex] names
+  /// the credential whose identity must publish it.
+  static Future<void> markLabelPending(String label,
+      {String? credentialHex}) async {
+    final pending = await _readPending();
+    pending[label] = credentialHex ?? pending[label] ?? '';
+    await _writePending(pending);
+  }
+
+  /// Drop [label] from the pending set once its publish is confirmed.
+  static Future<void> clearLabelPending(String label) async {
+    final pending = await _readPending();
+    if (pending.remove(label) != null) await _writePending(pending);
+  }
+
+  static Future<bool> hasPendingLabel(String label) async =>
+      (await _readPending()).containsKey(label);
+
+  @visibleForTesting
+  static void debugResetPendingLabels() {
+    _pendingLoaded = false;
+    _pendingLabels.value = const <String>{};
+    _publishing.clear();
+    _identityCredentialHex = null;
+  }
+
   /// Publish a label to Nostr for later cross-device discovery.
   ///
   /// Retried because a dropped publish means the wallet silently won't
@@ -653,20 +836,84 @@ class PasskeyService {
   /// identity is cached on the client that last derived it (the sign-in or
   /// register that preceded this call), so the retries neither duplicate
   /// nor re-prompt for biometrics. Breez order: sign in with the new label
-  /// first, store the label second — one OS prompt in total. Returns whether it ultimately landed; callers treat
-  /// `false` as non-fatal (the wallet still works locally).
-  static Future<bool> storeLabel(String label) async {
-    for (var attempt = 0; attempt < 3; attempt++) {
+  /// first, store the label second — one OS prompt in total. Every attempt
+  /// is capped at [labelPublishAttemptTimeout]. Returns whether it landed;
+  /// callers treat `false` as non-fatal (the wallet still works locally).
+  static Future<bool> storeLabel(String label, {int attempts = 3}) async =>
+      (await _storeLabel(label, attempts: attempts)).landed;
+
+  static Future<({bool landed, int attempts})> _storeLabel(String label,
+      {required int attempts}) async {
+    for (var attempt = 0; attempt < attempts; attempt++) {
       try {
-        await (_labelClient ?? _getClient()).labels().store(label: label);
-        return true;
+        await (_labelClient ?? _getClient())
+            .labels()
+            .store(label: label)
+            .timeout(labelPublishAttemptTimeout);
+        return (landed: true, attempts: attempt + 1);
       } catch (_) {
-        if (attempt < 2) {
-          await Future.delayed(Duration(milliseconds: 600 * (attempt + 1)));
+        if (attempt < attempts - 1) {
+          await Future.delayed(labelPublishBackoff * (attempt + 1));
         }
       }
     }
-    return false;
+    return (landed: false, attempts: attempts);
+  }
+
+  /// Flag [label] pending, then publish it off the caller's path: the
+  /// returned future completes when the publish loop ends, but creation
+  /// never awaits it. A landed publish clears the flag; a failed one leaves
+  /// it for [retryPendingLabels]. One `passkey_label_published` event per
+  /// loop carries the outcome ([trigger] is `create` or `retry`); the
+  /// label itself is never sent.
+  static Future<bool> publishLabelInBackground(String label,
+      {required String trigger}) async {
+    if (_publishing.contains(label)) return false;
+    _publishing.add(label);
+    final started = Stopwatch()..start();
+    try {
+      try {
+        await markLabelPending(label, credentialHex: _identityCredentialHex);
+      } catch (_) {/* storage hiccup: still try to publish */}
+      final result = await _storeLabel(label, attempts: 3);
+      if (result.landed) {
+        try {
+          await clearLabelPending(label);
+        } catch (_) {/* the next load re-reads storage */}
+      }
+      TrackingService.track('passkey_label_published', params: {
+        'result': result.landed ? 'landed' : 'failed',
+        'attempts': result.attempts,
+        'duration_ms': started.elapsedMilliseconds,
+        'trigger': trigger,
+      });
+      return result.landed;
+    } finally {
+      _publishing.remove(label);
+    }
+  }
+
+  /// Re-publish every pending label that belongs to the credential whose
+  /// identity the SDK client holds right now. A no-op when no ceremony has
+  /// run in this process (publishing would cost a biometric prompt) and
+  /// for labels created under a different credential.
+  static Future<void> retryPendingLabels() async {
+    final primed = _identityCredentialHex;
+    if (primed == null) return;
+    // Fire-and-forget from inside a ceremony: ride on the settings box the
+    // app already holds open rather than opening it here, where a wipe or
+    // a test teardown deleting the Hive directory could race the open.
+    if (!Hive.isBoxOpen('settings')) return;
+    final Map<String, String> pending;
+    try {
+      pending = await _readPending();
+    } catch (_) {
+      return;
+    }
+    for (final entry in pending.entries) {
+      if (entry.value.isNotEmpty && entry.value != primed) continue;
+      unawaited(publishLabelInBackground(entry.key, trigger: 'retry'));
+    }
   }
 
   /// Build a fresh, unique label for a spending wallet. The trailing

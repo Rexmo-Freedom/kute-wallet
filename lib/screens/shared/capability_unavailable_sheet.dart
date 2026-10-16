@@ -16,6 +16,15 @@
 // Title: "Not available in your region" for a region block, whose body is
 // the network / VPN sentence; the caller's title (or the generic
 // "Unavailable") for anything else.
+//
+// A region block's one button is "Check connection" instead of "Got it"
+// (founder decision, October 2026; lib/services/region_freshness.dart):
+// it asks both venues and Kute's policy again, the button busy with the
+// shared rubber band meanwhile. Allowed now: the sheet closes, answering
+// true when what it was opened for is allowed, so a door can go on into
+// its action. Still restricted: it stays, with a soft failure tap, and
+// the button can be tapped again after the VPN changes. The sheet closes
+// by dragging it down or tapping outside, like every sheet.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -23,50 +32,110 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/services/investment_provider_availability.dart';
+import 'package:kute/services/region_freshness.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
+import 'package:kute/services/success_feedback.dart'
+    show moneyFailureFeedbackAfterBand;
 
-class CapabilityUnavailableSheet extends StatelessWidget {
+class CapabilityUnavailableSheet extends StatefulWidget {
   const CapabilityUnavailableSheet({
     super.key,
     required this.message,
     this.regionRestricted = false,
     this.title,
+    this.capabilities,
+    this.venues = const [],
   });
 
   /// The sentence that says why: [CapabilityDecision.messageIn] (or the
   /// provider's own region sentence).
   final String message;
 
-  /// A region block: the title names the region, whatever [title] says.
+  /// A region block: the title names the region, whatever [title] says,
+  /// and the button is "Check connection".
   final bool regionRestricted;
 
   /// Title for a block that is not about the region. Defaults to the
   /// generic "Unavailable".
   final String? title;
 
+  /// What a region block was opened for, read again after "Check
+  /// connection": the policy capabilities (and the venues gating them).
+  /// Null reads every region denial the policy holds.
+  final Iterable<String>? capabilities;
+
+  /// The venues whose own region answer opened the sheet.
+  final Iterable<InvestmentProvider> venues;
+
+  @override
+  State<CapabilityUnavailableSheet> createState() =>
+      _CapabilityUnavailableSheetState();
+}
+
+class _CapabilityUnavailableSheetState
+    extends State<CapabilityUnavailableSheet> {
+  bool _checking = false;
+
+  /// "Check connection": a fresh region round, then what stands. Allowed
+  /// now closes the sheet (true when what it was opened for is allowed);
+  /// still restricted keeps it, with the soft failure tap.
+  Future<void> _checkConnection() async {
+    if (_checking) return;
+    setState(() => _checking = true);
+    await RegionFreshness.checkConnection();
+    if (!mounted) return;
+    if (!RegionFreshness.regionRefused(
+        capabilities: widget.capabilities, venues: widget.venues)) {
+      final policy = RuntimeCapabilitiesService.instance;
+      final allowed = widget.capabilities?.every((id) {
+            final decision = policy.decision(id);
+            return decision.allowed && !decision.comingSoon;
+          }) ??
+          true;
+      Navigator.of(context).pop(allowed);
+      return;
+    }
+    setState(() => _checking = false);
+    moneyFailureFeedbackAfterBand(() => mounted && _checking);
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final region = widget.regionRestricted;
     return AppBottomSheetContainer(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           AppBottomSheetHeader(
-            title: regionRestricted
+            title: region
                 ? l10n.capabilityRegionTitle
-                : (title ?? l10n.gateUnavailableTitle),
-            subtitle: message,
+                : (widget.title ?? l10n.gateUnavailableTitle),
+            subtitle: widget.message,
           ),
           SizedBox(height: 8.h),
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 20.w),
-            child: AppButton(
-              key: const ValueKey('capability-unavailable-got-it'),
-              text: l10n.gotIt,
-              onPressed: () => Navigator.of(context).pop(),
-            ),
+            child: region
+                ? RubberBandBusy(
+                    busy: _checking,
+                    expected: const Duration(seconds: 2),
+                    child: AppButton(
+                      key: const ValueKey(
+                          'capability-unavailable-check-connection'),
+                      text: l10n.checkConnection,
+                      isLoading: _checking,
+                      onPressed: _checking ? null : _checkConnection,
+                    ),
+                  )
+                : AppButton(
+                    key: const ValueKey('capability-unavailable-got-it'),
+                    text: l10n.gotIt,
+                    onPressed: () => Navigator.of(context).pop(false),
+                  ),
           ),
         ],
       ),
@@ -82,18 +151,25 @@ class CapabilityUnavailableSheet extends StatelessWidget {
 BuildContext? _openSheet;
 bool _opening = false;
 
-/// Shows the shared unavailable sheet. Resolves when it is dismissed; does
-/// nothing while one is already showing.
-Future<void> showCapabilityUnavailableSheet(
+/// Shows the shared unavailable sheet. Resolves when it is dismissed:
+/// true only when "Check connection" found [capabilities] allowed now
+/// (a region block; [capabilities] and [venues] as on
+/// [CapabilityUnavailableSheet]), so the caller may go on into the
+/// action. Does nothing (false) while one is already showing.
+Future<bool> showCapabilityUnavailableSheet(
   BuildContext context, {
   required String message,
   bool regionRestricted = false,
   String? title,
+  Iterable<String>? capabilities,
+  Iterable<InvestmentProvider> venues = const [],
 }) async {
-  if (_opening || _openSheet?.mounted == true || !context.mounted) return;
+  if (_opening || _openSheet?.mounted == true || !context.mounted) {
+    return false;
+  }
   _opening = true;
   try {
-    await showAppBottomSheet<void>(
+    final allowed = await showAppBottomSheet<bool>(
       context: context,
       builder: (sheetContext) {
         _openSheet = sheetContext;
@@ -102,9 +178,12 @@ Future<void> showCapabilityUnavailableSheet(
           message: message,
           regionRestricted: regionRestricted,
           title: title,
+          capabilities: capabilities,
+          venues: venues,
         );
       },
     );
+    return allowed ?? false;
   } finally {
     _opening = false;
   }
@@ -120,17 +199,21 @@ Future<void> showBuyUnavailableSheet(BuildContext context) {
   );
 }
 
-/// The shared sheet for a policy [decision] that denies.
-Future<void> showCapabilityDecisionSheet(
+/// The shared sheet for a policy [decision] that denies [capability]
+/// (when the caller knows it: "Check connection" reads it again). True
+/// when "Check connection" found it allowed now.
+Future<bool> showCapabilityDecisionSheet(
   BuildContext context,
   CapabilityDecision decision, {
   String? title,
+  String? capability,
 }) =>
     showCapabilityUnavailableSheet(
       context,
       message: decision.messageIn(context.l10n),
       regionRestricted: decision.regionRestricted,
       title: title,
+      capabilities: capability == null ? null : [capability],
     );
 
 /// The shared sheet for whatever [error] a capability check threw: the
@@ -142,7 +225,8 @@ Future<bool> showCapabilityErrorSheet(
   String? title,
 }) async {
   if (error is CapabilityUnavailableException) {
-    await showCapabilityDecisionSheet(context, error.decision, title: title);
+    await showCapabilityDecisionSheet(context, error.decision,
+        title: title, capability: error.capability);
     return true;
   }
   if (error is ProviderAvailabilityException) {
@@ -152,6 +236,7 @@ Future<bool> showCapabilityErrorSheet(
       regionRestricted:
           error.availability.status == ProviderAvailabilityStatus.restricted,
       title: title,
+      venues: [error.availability.provider],
     );
     return true;
   }
@@ -172,6 +257,7 @@ bool advancedTradingOffered(
     BuildContext context, RuntimeCapabilitiesService policy) {
   final decision = policy.decision(kTradingAdvancedCapability);
   if (decision.allowed && !decision.comingSoon) return true;
-  showCapabilityDecisionSheet(context, decision);
+  showCapabilityDecisionSheet(context, decision,
+      capability: kTradingAdvancedCapability);
   return false;
 }

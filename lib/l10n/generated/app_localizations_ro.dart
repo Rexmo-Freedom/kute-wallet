@@ -1198,34 +1198,6 @@ class AppLocalizationsRo extends AppLocalizations {
   String get totalFee => 'Comision total';
 
   @override
-  String get usdEarnTitle => 'Randament';
-
-  @override
-  String get usdEarnRate => 'Rată anuală recentă';
-
-  @override
-  String get usdEarnNextPayment => 'Următoarea plată';
-
-  @override
-  String get usdEarnNextPaymentIn => 'Plătește în';
-
-  @override
-  String get usdEarnRatePending => 'Se încarcă';
-
-  @override
-  String get usdEarnRateUnavailable => 'Indisponibil momentan';
-
-  @override
-  String get usdEarnPaidToDate => 'Plătit ție până acum';
-
-  @override
-  String get usdEarnActivityEmpty => 'Nicio plată încă';
-
-  @override
-  String get usdEarnActivityUnavailable =>
-      'Istoricul plăților nu e disponibil momentan';
-
-  @override
   String hlYieldAvailableLine(String amount) {
     return '$amount disponibil';
   }
@@ -2073,6 +2045,20 @@ class AppLocalizationsRo extends AppLocalizations {
       'Configurare anulată. Nu s-a creat nimic.';
 
   @override
+  String get passkeyBackupSyncing => 'Se sincronizează copia de rezervă…';
+
+  @override
+  String get passkeyCreateNewTitle => 'Nicio cheie de acces găsită';
+
+  @override
+  String passkeyCreateNewBody(String method) {
+    return 'Nu s-a creat nimic. Creezi o cheie de acces nouă pentru acest portofel cu $method?';
+  }
+
+  @override
+  String get passkeyCreateNewAction => 'Creează o cheie de acces nouă';
+
+  @override
   String passkeyChoiceFallbackWords(String method) {
     return '$method nu a putut fi configurat. Portofelul a fost creat în schimb cu cuvinte de recuperare.';
   }
@@ -2696,9 +2682,6 @@ class AppLocalizationsRo extends AppLocalizations {
   @override
   String get walletsEnterFriendCodeDescriptionNoDiscount =>
       'Dacă te-a invitat un prieten, introdu codul lui.';
-
-  @override
-  String get accountEarn => 'Câștiguri';
 
   @override
   String get accountInviteFriendsEarnShare =>
@@ -3695,7 +3678,7 @@ class AppLocalizationsRo extends AppLocalizations {
   String get activityProcessingEllipsis => 'Se procesează…';
 
   @override
-  String get usdAccountTab => 'Dolari';
+  String get usdAccountTab => 'Investments';
 
   @override
   String activityFromAmount(String amount) {
@@ -5974,9 +5957,6 @@ class AppLocalizationsRo extends AppLocalizations {
   String get portfolioStatRealized => 'Profit / pierdere realizat';
 
   @override
-  String get portfolioStatOpen => 'Profit / pierdere deschis';
-
-  @override
   String get portfolioStatAmountPredicted => 'Suma predicțiilor';
 
   @override
@@ -6085,7 +6065,7 @@ class AppLocalizationsRo extends AppLocalizations {
   String get moveBuyBitcoin => 'Cumpără bitcoin';
 
   @override
-  String get dollarDeposit => 'Depunere în dolari';
+  String get dollarDeposit => 'Investments deposit';
 
   @override
   String get dollarWithdrawal => 'Retragere în dolari';
@@ -6537,6 +6517,33 @@ class AppLocalizationsRo extends AppLocalizations {
   String get portfolioTabStatistics => 'Statistici';
 
   @override
+  String get portfolioBalanceDollars => 'Dolari';
+
+  @override
+  String get portfolioRebalance => 'Reechilibrează';
+
+  @override
+  String get portfolioRebalanceMoving => 'Se mută în USDB…';
+
+  @override
+  String get portfolioRebalanceMovingMinutes =>
+      'Se mută în USDB… durează câteva minute';
+
+  @override
+  String get portfolioRebalanceHeldOrders => 'Reținut de ordine deschise';
+
+  @override
+  String get portfolioRebalanceHeldMargin =>
+      'Păstrat ca marjă pentru pozițiile deschise';
+
+  @override
+  String get portfolioRebalanceBelowMinimum => 'Sub minimul pentru mutare';
+
+  @override
+  String get portfolioRebalanceNotNow =>
+      'Nu se poate muta acum. Atinge Reechilibrează pentru a încerca din nou.';
+
+  @override
   String get sendMoreThanAvailable => 'Depășește suma disponibilă.';
 
   @override
@@ -6590,10 +6597,10 @@ class AppLocalizationsRo extends AppLocalizations {
   String get searchPredictionsHint => 'Caută predicții';
 
   @override
-  String get assetDollars => 'Dolari';
+  String get assetDollars => 'Investments';
 
   @override
-  String get moveSourceDollarsSubtitle => 'Plătește din soldul în dolari';
+  String get moveSourceDollarsSubtitle => 'Pay with your Investments balance';
 
   @override
   String get sendDollarAccountAddressHint => 'Adresa contului în dolari';
@@ -6847,23 +6854,11 @@ class AppLocalizationsRo extends AppLocalizations {
   String get betAdvancedSaleSellingAll => 'Vinzi toată poziția';
 
   @override
-  String get usdEarnProjectionNote =>
-      'Linia punctată este o estimare la rata de azi, nu bani primiți.';
-
-  @override
-  String usdEarnBelowMinimum(String amount) {
-    return 'Recompensele încep când deții $amount. Se plătesc zilnic în bitcoin.';
-  }
-
-  @override
-  String get usdEarnProjectedLabel => 'Proiecție la rata de azi';
-
-  @override
   String get moveWithdrawDestinationHint =>
       'Alege ce ajunge în contul de cheltuieli.';
 
   @override
-  String get moveDestDollarsSubtitle => 'În soldul în dolari';
+  String get moveDestDollarsSubtitle => 'Into your Investments balance';
 
   @override
   String get moveConversionOngoing => 'Conversie în curs';
@@ -7130,6 +7125,10 @@ class AppLocalizationsRo extends AppLocalizations {
       'Kute nu a putut verifica disponibilitatea. Încearcă din nou.';
 
   @override
+  String get capabilityOfflineGrace =>
+      'Kute nu poate fi contactat momentan. Acesta este încă disponibil conform ultimei tale verificări.';
+
+  @override
   String get capabilityUnavailable =>
       'Această funcție nu este disponibilă momentan în Kute.';
 
@@ -7164,6 +7163,9 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get capabilityRegionTitle => 'Indisponibil în regiunea ta';
+
+  @override
+  String get checkConnection => 'Verifică conexiunea';
 
   @override
   String get gateUnavailableTitle => 'Indisponibil';
@@ -7456,7 +7458,7 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get shareCodeTimedOut =>
-      'Codul tău se creează. Îl găsești oricând în Setări → Câștiguri.';
+      'Codul tău se creează. Îl găsești oricând în Setări → Program de recomandare.';
 
   @override
   String get referrerCaptureInvalid =>
@@ -7483,7 +7485,7 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get referrerAddLater =>
-      'Îl poți adăuga și mai târziu din Setări → Câștiguri (în 7 zile).';
+      'Îl poți adăuga și mai târziu din Setări → Program de recomandare (în 7 zile).';
 
   @override
   String get referrerSkip => 'Omite, nu am cod';
@@ -7512,6 +7514,35 @@ class AppLocalizationsRo extends AppLocalizations {
   @override
   String get recoverFoundOnDevice =>
       'Găsit pe acest dispozitiv. Verifică dacă soldul pare corect înainte să restaurezi.';
+
+  @override
+  String get recoverOlderVersionSection =>
+      'Dintr-o versiune mai veche de pe acest telefon';
+
+  @override
+  String get recoverOlderVersionWallet => 'Portofel dintr-o versiune mai veche';
+
+  @override
+  String get recoverOlderVersionNeedsPin =>
+      'Se deschide cu PIN-ul folosit de acea versiune';
+
+  @override
+  String get recoverOlderVersionIcloud => 'Salvat în iCloud Keychain';
+
+  @override
+  String get recoverOlderVersionEnterPin =>
+      'Introdu PIN-ul folosit de acea versiune';
+
+  @override
+  String get recoverOlderVersionFailed =>
+      'Această copie nu a putut fi restaurată.';
+
+  @override
+  String get restoreRescueOfferBody =>
+      'Pe acest telefon există încă copii ale portofelelor tale dintr-o versiune mai veche a Kute. Le folosești în loc să începi de la zero?';
+
+  @override
+  String get restoreRescueOfferConfirm => 'Folosește copiile salvate';
 
   @override
   String recoverConfirmWallet(String wallet) {
@@ -8140,6 +8171,9 @@ class AppLocalizationsRo extends AppLocalizations {
   String predictTargetPrice(String price) {
     return 'Țintă $price';
   }
+
+  @override
+  String get predictPastRounds => 'Runde anterioare';
 
   @override
   String get predictNoOpenMarketsCategory =>
@@ -10531,6 +10565,9 @@ class AppLocalizationsRo extends AppLocalizations {
   String get portfolioStatAtStake => 'Sumă în joc';
 
   @override
+  String get portfolioProfitLoss => 'Profit și pierdere';
+
+  @override
   String slipCtaAddTo(String side, String amount) {
     String _temp0 = intl.Intl.selectLogic(
       side,
@@ -10678,5 +10715,295 @@ class AppLocalizationsRo extends AppLocalizations {
       },
     );
     return '$_temp0';
+  }
+
+  @override
+  String get investmentsTotal => 'Investments total';
+
+  @override
+  String oneBalanceMovingTo(String amount, String venue) {
+    return '$amount în curs de transfer către $venue';
+  }
+
+  @override
+  String oneBalanceComingBack(String amount, String venue) {
+    return '$amount coming back from $venue';
+  }
+
+  @override
+  String oneBalanceWaitingToWithdraw(String amount) {
+    return '$amount unavailable until balancing completes';
+  }
+
+  @override
+  String oneBalanceIncoming(String amount) {
+    return 'Incoming $amount';
+  }
+
+  @override
+  String slipAddToInvestments(String amount) {
+    return 'Add $amount to Investments';
+  }
+
+  @override
+  String get slipMoveFee => 'Move fee';
+
+  @override
+  String get addMoneyToInvestments => 'Adaugă bani în Investments';
+
+  @override
+  String get depositFromSpendingWallet => 'Portofelul tău de cheltuieli';
+
+  @override
+  String depositFromSpendingWalletWithBalance(String amount) {
+    return 'Portofelul tău de cheltuieli · $amount';
+  }
+
+  @override
+  String get depositFromAnotherWallet => 'Alt portofel sau exchange';
+
+  @override
+  String get depositFromAnotherWalletSubtitle =>
+      'Obține o adresă la care să trimiți dolari';
+
+  @override
+  String get portfolioStatOpenPnl => 'Profit / pierdere deschis';
+
+  @override
+  String stepUpReasonBetReady(String amount) {
+    return 'Pregătește o predicție de $amount';
+  }
+
+  @override
+  String get betMarketClosingNoFunding =>
+      'Această piață se închide înainte ca banii să poată ajunge. Nu s-a mutat nimic.';
+
+  @override
+  String multiMoveSendTitle(String amount) {
+    return 'Trimite $amount';
+  }
+
+  @override
+  String multiMoveTitle(String amount, String destination) {
+    return 'Mută $amount în $destination';
+  }
+
+  @override
+  String multiMoveDeliveredRemaining(String delivered, String remaining) {
+    return '$delivered livrați · $remaining rămași';
+  }
+
+  @override
+  String multiMovePurchaseWaiting(String amount, String balance) {
+    return 'Cei $amount sunt în $balance. Atinge pentru a cumpăra Bitcoin';
+  }
+
+  @override
+  String multiMoveSendWaiting(String amount, String balance) {
+    return 'Cei $amount sunt în $balance. Trimiterea nu a avut loc';
+  }
+
+  @override
+  String get usdReceiveFromYourWallet => 'Din portofelul tău';
+
+  @override
+  String get usdReceiveFromAnotherWallet => 'Din alt portofel sau exchange';
+
+  @override
+  String slipStepAddingToInvestments(String amount) {
+    return 'Se adaugă $amount în Investments';
+  }
+
+  @override
+  String get slipStepPreparingPrediction => 'Îți pregătim predicția';
+
+  @override
+  String get slipStepPreparingOrder => 'Îți pregătim ordinul';
+
+  @override
+  String slipStepPlacingBet(String amount, String side) {
+    return 'Se plasează $amount pe $side';
+  }
+
+  @override
+  String slipStepOpeningOrder(String amount, String side, String market) {
+    return 'Se deschide $amount $side $market';
+  }
+
+  @override
+  String get slipStepTakingLonger => 'Durează mai mult decât de obicei';
+
+  @override
+  String slipFundingReadyToPlace(String amount) {
+    return 'Cei $amount ai tăi sunt în Investments. Atinge pentru a plasa.';
+  }
+
+  @override
+  String get slipFundingBitcoinBack =>
+      'Adăugarea în Investments nu a reușit. Bitcoinul tău se întoarce.';
+
+  @override
+  String get slipFundingPriceMoved => 'Prețul s-a mișcat prea repede.';
+
+  @override
+  String get slipFundingRoundClosed =>
+      'Această rundă s-a închis înainte să ajungă banii tăi.';
+
+  @override
+  String slipFundingInPredictions(String amount) {
+    return 'Cei $amount ai tăi sunt în Predicții. Atinge pentru a încerca din nou.';
+  }
+
+  @override
+  String slipFundingInInvesting(String amount) {
+    return 'Cei $amount ai tăi sunt în Investiții. Atinge pentru a încerca din nou.';
+  }
+
+  @override
+  String oneBalancePlacingBet(String amount, String side, String market) {
+    return 'Se plasează $amount pe $side · $market';
+  }
+
+  @override
+  String oneBalanceOpeningOrder(String amount, String market) {
+    return 'Se deschide ordinul de $amount pe $market';
+  }
+
+  @override
+  String hlMarginStepAdding(String amount, String coin) {
+    return 'Se adaugă marjă de $amount la $coin';
+  }
+
+  @override
+  String hlMarginFundingReady(String amount) {
+    return 'Cei $amount ai tăi sunt în Investments. Atinge pentru a adăuga marjă.';
+  }
+
+  @override
+  String get salWhyMoving => 'De ce se mișcă?';
+
+  @override
+  String get positionProtectIt => 'Protejeaz-o';
+
+  @override
+  String hlRiskLiquidationLong(String market, String price, String amount) {
+    return 'Dacă $market scade la $price, această poziție se închide și pierzi $amount.';
+  }
+
+  @override
+  String hlRiskLiquidationShort(String market, String price, String amount) {
+    return 'Dacă $market crește la $price, această poziție se închide și pierzi $amount.';
+  }
+
+  @override
+  String polyRiskOutcome(String outcome, String cost, String payout) {
+    return 'Dacă $outcome pierde, pierzi $cost; dacă câștigă, primești $payout.';
+  }
+
+  @override
+  String moneyStepMovingFrom(String amount, String source) {
+    return 'Se mută $amount din $source';
+  }
+
+  @override
+  String moneyStepMovedFrom(String amount, String source) {
+    return 'Mutat $amount din $source';
+  }
+
+  @override
+  String moneyStepMovingFromTo(
+      String amount, String source, String destination) {
+    return 'Se mută $amount din $source → $destination';
+  }
+
+  @override
+  String moneyStepMovedFromTo(
+      String amount, String source, String destination) {
+    return 'Mutat $amount din $source → $destination';
+  }
+
+  @override
+  String moneyStepMoveFailed(String amount, String source) {
+    return '$amount din $source nu s-au mutat';
+  }
+
+  @override
+  String moneyStepFellBack(String source, String via) {
+    return 'Ruta $source e ocupată, trecem prin $via';
+  }
+
+  @override
+  String moneyStepViaDollars(String source, String via) {
+    return 'Din $source trecem prin $via';
+  }
+
+  @override
+  String moneyStepRouteUnavailable(String source, String via) {
+    return 'Ruta $source nu e disponibilă, trecem prin $via';
+  }
+
+  @override
+  String moneyStepTooSmallDirect(String source, String via) {
+    return 'Suma e prea mică pentru drumul direct din $source, trecem prin $via';
+  }
+
+  @override
+  String multiMoveOrderWaiting(String amount, String balance) {
+    return 'Cei $amount sunt în $balance. Ordinul nu a avut loc';
+  }
+
+  @override
+  String get moneyStepConverting => 'Se convertește în pUSD';
+
+  @override
+  String get moneyStepConverted => 'Convertit în pUSD';
+
+  @override
+  String get moneyStepApproving => 'Se aprobă cheltuirea';
+
+  @override
+  String get moneyStepApproved => 'Cheltuire aprobată';
+
+  @override
+  String get moneyStepConfirming => 'Se confirmă soldul';
+
+  @override
+  String get moneyStepConfirmed => 'Sold confirmat';
+
+  @override
+  String get moneyStepCrediting => 'Se creditează soldul de tranzacționare';
+
+  @override
+  String get moneyStepCredited => 'Sold de tranzacționare creditat';
+
+  @override
+  String moneyStepBuying(String amount) {
+    return 'Se cumpără Bitcoin de $amount';
+  }
+
+  @override
+  String moneyStepBought(String amount) {
+    return 'Cumpărat Bitcoin de $amount';
+  }
+
+  @override
+  String get moneyStepArriving => 'Ajunge în Bitcoin';
+
+  @override
+  String get moneyStepArrived => 'A ajuns în Bitcoin';
+
+  @override
+  String moneyStepSending(String amount) {
+    return 'Se trimit $amount';
+  }
+
+  @override
+  String moneyStepSent(String amount) {
+    return 'Trimis $amount';
+  }
+
+  @override
+  String moneyStepCompact(String source, String destination, String amount) {
+    return '$source → $destination · $amount';
   }
 }

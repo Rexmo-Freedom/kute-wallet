@@ -20,6 +20,7 @@ import 'package:kute/screens/polymarket/components/poly_crest_image.dart'
 import 'package:kute/helpers/user_error_copy.dart';
 import 'package:kute/screens/polymarket/components/polymarket_error_copy.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
+import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/screens/shared/trade_receipt.dart';
 import 'package:kute/services/polymarket_backend_service.dart';
 import 'package:kute/screens/shared/polymarket_fee_summary.dart';
@@ -34,6 +35,7 @@ import 'package:kute/screens/polymarket/components/slip_chrome.dart';
 import 'package:kute/services/polymarket/polymarket_fee_terms.dart'
     show polymarketFeeTermsProvider;
 import 'package:kute/screens/shared/sticky_action_bar.dart';
+import 'package:kute/screens/shared/slip_form_body.dart';
 import 'package:kute/screens/shared/decimal_input_formatter.dart';
 import 'package:kute/screens/shared/side_tint_palette.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
@@ -78,8 +80,15 @@ class SellSheet extends ConsumerStatefulWidget {
   /// Surface the sheet was opened from (analytics only).
   final String source;
 
+  /// Open straight on a limit sell ("sell at" a price), its Advanced page
+  /// showing: the position screen's "Protect it".
+  final bool startWithLimit;
+
   const SellSheet(
-      {super.key, required this.position, this.source = 'position_detail'});
+      {super.key,
+      required this.position,
+      this.source = 'position_detail',
+      this.startWithLimit = false});
 
   /// Route name used to identify the sell route when popping back after a
   /// sell succeeds — mirrors BetSlipSheet.routeName.
@@ -87,7 +96,8 @@ class SellSheet extends ConsumerStatefulWidget {
 
   static void show(BuildContext context,
       {required PolymarketPosition position,
-      String source = 'position_detail'}) {
+      String source = 'position_detail',
+      bool startWithLimit = false}) {
     // A resolved market cannot be sold (the CLOB rejects it as "market
     // does not exist"): it is claimed in one tap where it is shown
     // (PolyClaimButton on the card and the position screen), never here.
@@ -118,7 +128,10 @@ class SellSheet extends ConsumerStatefulWidget {
       routeSettings: const RouteSettings(name: routeName),
       builder: (_) => FastBetScope(
         active: polyIsFastBetRound(position.eventSlug),
-        child: SellSheet(position: position, source: source),
+        child: SellSheet(
+            position: position,
+            source: source,
+            startWithLimit: startWithLimit),
       ),
     );
   }
@@ -146,6 +159,18 @@ class _SellSheetState extends ConsumerState<SellSheet> {
   /// The CTA's label while a sale is in flight once it has moved past
   /// "Selling…" ("Sold · confirming"); null for the plain busy label.
   String? _progressLabel;
+
+  /// The sale's rubber band on the CTA: how far along it is (approval,
+  /// sent, accepted, the venue's answer), and how it ended. Presentation
+  /// only; set beside [_isSelling], never read by the sale itself.
+  double? _bandProgress;
+  RubberBandOutcome? _bandOutcome;
+
+  /// Moves the band to the sale's next phase while it runs.
+  void _bandTo(double progress) {
+    if (!mounted || !_isSelling) return;
+    setState(() => _bandProgress = progress);
+  }
 
   /// The venue held the order for a live game's delay, and the shares have
   /// sold (the trade is on its way on chain). Drive the line over the CTA.
@@ -273,6 +298,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     TrackingService.track('polymarket_sell_submitted', params: {
       ..._kindParams(),
       ...inputs,
+      'time_in_flow_ms': DateTime.now().difference(_openedAt).inMilliseconds,
       'time_in_flow_bucket': VenueAnalytics.timeInFlowBucket(
           DateTime.now().difference(_openedAt)),
     });
@@ -321,6 +347,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     // move fast on small markets.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      if (widget.startWithLimit) _openLimit();
       _refreshBid();
       _bidRefreshTimer = Timer.periodic(
         const Duration(seconds: 20),
@@ -416,6 +443,8 @@ class _SellSheetState extends ConsumerState<SellSheet> {
           'reason': _stopReason ?? 'user_closed',
           if (_lastErrorCategory != null)
             'last_error_category': _lastErrorCategory!,
+          'time_in_flow_ms':
+              DateTime.now().difference(_openedAt).inMilliseconds,
           'time_in_flow_bucket': VenueAnalytics.timeInFlowBucket(
               DateTime.now().difference(_openedAt)),
         });
@@ -445,6 +474,10 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     if (_isSelling) return;
     setState(() {
       _isSelling = true;
+      // The tap takes the band's first pull; time and the phases below
+      // build it from there.
+      _bandProgress = null;
+      _bandOutcome = null;
       _progressLabel = null;
       _venueDelayed = false;
       _matched = false;
@@ -478,6 +511,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     final l10n = context.l10n;
     TrackingService.track('prediction_sell_cta_tapped', params: {
       'amount_bucket': TrackingService.usdBucket(_amountUsdc),
+      ...TrackingService.exactUsd('amount_usd', _amountUsdc),
       'denomination': 'fiat',
     });
     if (_sharesToSell <= 0 || _sharesToSell > pos.size) {
@@ -540,6 +574,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
           return;
         }
         _trackSubmitted(tokenId);
+        _bandTo(0.55);
         final placed =
             await ref.read(polymarketTradingProvider.notifier).placeOrder(
                   tokenId: tokenId,
@@ -556,6 +591,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
                   marketOutcome: pos.outcome,
                 );
         ref.invalidate(polymarketOpenOrdersProvider);
+        _bandTo(0.7);
         // What the order did on arrival: rests whole, sold part of it
         // against bids already at the price (the rest still for sale), or
         // sold it all. One read of the order says which.
@@ -665,6 +701,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
       return;
     }
     _trackSubmitted(tokenId);
+    _bandTo(0.55);
     // One approval for the whole ladder: each rung gets a child grant bound
     // to exactly that rung.
     final ladder = PmLadderGrant(approval);
@@ -801,6 +838,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
       // then its trades on chain), and the Portfolio card says "Selling…"
       // until there is an answer.
       notifier.markPositionSelling(tokenId);
+      _bandTo(0.7);
       final PmSellSettlement settlement;
       try {
         settlement = await _watchSale(response,
@@ -908,6 +946,16 @@ class _SellSheetState extends ConsumerState<SellSheet> {
         setState(() {
           if (stage == PmSellStage.delayed) _venueDelayed = true;
           _matched = stage == PmSellStage.matched;
+          if (_isSelling) {
+            final next = _matched
+                ? 0.88
+                : _venueDelayed
+                    ? 0.78
+                    : null;
+            if (next != null && next > (_bandProgress ?? 0)) {
+              _bandProgress = next;
+            }
+          }
           _progressLabel = _matched ? l10n.betSoldConfirming : null;
         });
       },
@@ -953,7 +1001,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     switch (s.result) {
       case PmSellResult.unknown:
         if (limit) {
-          _showLimitPlaced(limitPrice ?? 0, s.offeredShares, l10n);
+          await _showLimitPlaced(limitPrice ?? 0, s.offeredShares, l10n);
           return;
         }
         // Accepted, and the venue did not say in time what became of it.
@@ -964,7 +1012,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
         await _resolveBlockedSale(probe: false);
         return;
       case PmSellResult.resting:
-        _showLimitPlaced(limitPrice ?? 0, s.offeredShares, l10n);
+        await _showLimitPlaced(limitPrice ?? 0, s.offeredShares, l10n);
         return;
       case PmSellResult.notFilled:
       case PmSellResult.failed:
@@ -1132,15 +1180,23 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     final image = positionCrestImage(ref, pos, listen: false);
     final question = pos.marketQuestion;
     final outcome = pos.outcome;
+    // The band snaps (a light tap) and is seen doing it: the sale stays
+    // busy, the CTA still spinning and the ticket still trapped, for the
+    // bounded moment the snap takes.
+    setState(() => _bandOutcome = RubberBandOutcome.success);
+    await RubberBand.settle(context);
     // Release the sale FIRST. The ticket traps itself while an order is
     // in flight, and this flag is what arms that trap, so leaving it set
     // refused the hand-off. A direct pop, not maybePop, because this is
     // the flow closing itself rather than the person leaving mid-order.
-    setState(() {
-      _isSelling = false;
-      _progressLabel = null;
-    });
-    _closeTicket();
+    // (Torn down during the snap anyway: the receipt still shows.)
+    if (mounted) {
+      setState(() {
+        _isSelling = false;
+        _progressLabel = null;
+      });
+      _closeTicket();
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!rootNavigator.mounted) return;
       if (partialLimit) {
@@ -1188,11 +1244,19 @@ class _SellSheetState extends ConsumerState<SellSheet> {
   }
 
   /// The resting limit sell's confirmation, as it always was.
-  void _showLimitPlaced(double price, double shares, AppLocalizations l10n) {
+  Future<void> _showLimitPlaced(
+      double price, double shares, AppLocalizations l10n) async {
     if (!mounted) return;
     final navigator = Navigator.of(context, rootNavigator: true);
-    setState(() => _isSelling = false);
-    _closeTicket();
+    // The snap plays while the ticket still holds the sale (see the sold
+    // path), then the ticket lets go and closes.
+    setState(() => _bandOutcome = RubberBandOutcome.success);
+    await RubberBand.settle(context);
+    if (mounted) {
+      setState(() => _isSelling = false);
+      _closeTicket();
+    }
+    if (!navigator.mounted) return;
     pushKuteSuccessOverlay(
         navigator: navigator,
         overlay: KuteConfirmation(
@@ -1470,6 +1534,21 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     }
   }
 
+  /// Switches to a limit sell at the live price and opens the Advanced
+  /// page where its price is set (the position screen's "Protect it").
+  void _openLimit() {
+    final lp = pos.tokenId != null
+        ? ref.read(livePriceProvider).prices[pos.tokenId]
+        : null;
+    setState(() {
+      _isLimitMode = true;
+      if (_limitPrice <= 0) {
+        _limitPrice = (lp ?? pos.currentPrice).clamp(0.01, 0.99).toDouble();
+      }
+    });
+    unawaited(_openAdvanced());
+  }
+
   /// Re-run the sell after a failure. Drops the notice, so the ticket is
   /// back to a plain sell before the button starts working again. A new
   /// sale is a new approval and a new order; nothing is re-sent.
@@ -1653,23 +1732,19 @@ class _SellSheetState extends ConsumerState<SellSheet> {
                       marketImage: pos.marketImage,
                     ),
                     Flexible(
-                      child: SingleChildScrollView(
-                        physics: const ClampingScrollPhysics(),
-                        primary: false,
-                        child: IgnorePointer(
+                      child: SlipFormBody(
+                        expandForMessage: _sellFailed,
+                        form: IgnorePointer(
                             ignoring: activelySelling, child: form),
-                      ),
-                    ),
-                    // The sheet's only amount input, pinned under the
-                    // scrolling form so the figure above it never hides
-                    // behind a keyboard.
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8.w),
-                      child: AmountKeypad(
-                        value: _amountController.text,
-                        maxDecimals: 2,
-                        enabled: !_isSelling,
-                        onChanged: (v) => _amountController.text = v,
+                        input: Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 8.w),
+                          child: AmountKeypad(
+                            value: _amountController.text,
+                            maxDecimals: 2,
+                            enabled: !_isSelling,
+                            onChanged: (v) => _amountController.text = v,
+                          ),
+                        ),
                       ),
                     ),
                     // The greater of a comfortable gap and the system
@@ -1697,6 +1772,12 @@ class _SellSheetState extends ConsumerState<SellSheet> {
                       child: PolySlipCta(
                         color: sideColor,
                         isBusy: _isSelling,
+                        // Approval, sent, accepted, the venue's answer;
+                        // a snap into the receipt when it sold.
+                        bandProgress: _bandProgress,
+                        bandOutcome: _bandOutcome,
+                        // A market sell is answered in a second or two.
+                        bandExpected: const Duration(milliseconds: 1500),
                         enabled:
                             canSell && !_isSelling && _advancedBlock == null,
                         onTap: _sellFailed ? _retrySell : _handleSell,

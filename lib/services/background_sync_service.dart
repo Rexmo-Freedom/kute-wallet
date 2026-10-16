@@ -34,6 +34,10 @@ class BackgroundSyncService {
 
   Timer? _timer;
   bool _isSyncing = false;
+
+  /// Set when [syncNow] is asked for while a sync runs: one more runs as
+  /// soon as it ends.
+  bool _syncNowPending = false;
   ProviderContainer? _container;
 
   int _generation = 0;
@@ -182,9 +186,16 @@ class BackgroundSyncService {
     _startForCurrentWallet();
   }
 
-  /// Force an immediate sync (e.g. after a payment succeeds).
-  /// Skips if a sync is already running.
+  /// Force an immediate sync (e.g. after a payment succeeds or an order
+  /// is placed). When a sync is already running, one more runs as soon as
+  /// it ends instead of waiting for the loop's next tick: the running one
+  /// may have read the order's status before it moved. Requests made
+  /// meanwhile share that one run.
   void syncNow() {
+    if (_isSyncing) {
+      _syncNowPending = true;
+      return;
+    }
     _runSync();
   }
 
@@ -559,11 +570,12 @@ class BackgroundSyncService {
   /// gate while there's something pending and fall back to it once
   /// everything has settled.
   ///
-  /// Spark `walletInfoStream` and `paymentsStream` stay subscribed
-  /// regardless (push-based, debounced) so an incoming Lightning
-  /// payment still updates the cache immediately. Send/Receive/etc.
-  /// pull a one-shot fresh balance on screen entry where they need
-  /// to.
+  /// The spending wallet's bitcoin balance never depends on this loop
+  /// or on the push pipeline: `walletBalanceCacheProvider` follows the
+  /// SDK wrapper's `walletInfoStream` itself, so an incoming payment
+  /// updates it immediately on any screen, whichever wallet is active.
+  /// The push pipeline's `paymentsStream` keeps the Activity rows
+  /// current.
   void _startContinuousSync() {
     final gen = _generation;
     Future<void> loop() async {
@@ -688,6 +700,7 @@ class BackgroundSyncService {
     _polymarketPipeline.stop();
     _stopExternalAddressSync();
     _isSyncing = false;
+    _syncNowPending = false;
     _lastRestSync = null;
   }
 
@@ -787,6 +800,10 @@ class BackgroundSyncService {
     } finally {
       if (_generation == gen) {
         _isSyncing = false;
+        if (_syncNowPending) {
+          _syncNowPending = false;
+          unawaited(_runSync());
+        }
       }
     }
   }

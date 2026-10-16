@@ -29,6 +29,8 @@ import 'package:kute/services/funding/owned_address_resolver.dart'
     show ProviderReader;
 import 'package:kute/services/funding/settlement_quote_policy.dart'
     show SettlementPayer, SettlementMoment, SettlementQuotePolicy;
+import 'package:kute/services/funding/settlement_registration.dart'
+    show followSettlementRegistration;
 import 'package:kute/services/funding/settlement_runner.dart';
 import 'package:kute/services/funding/settlement_funding_outcome.dart';
 import 'package:kute/services/orchestra/orchestra_quote_gate.dart'
@@ -281,12 +283,23 @@ class SparkHypercoreFundingService {
   /// [amountBaseUnits] is read in [asset]'s OWN base units: satoshis for
   /// bitcoin, six-decimal base units for dollars. It is never a dollar
   /// figure and never a sat figure for the other asset.
+  ///
+  /// [registerInBackground] returns once the send is recorded and finishes
+  /// the deposit submit afterwards; the Activity row moves to the order id
+  /// when it returns.
+  ///
+  /// [purpose] is what the move is for — the Move sheet's own
+  /// (`manual_move`), or an order's funding leg / a sweep through the
+  /// one-balance rail — and picks the quote's provider tag
+  /// (`kute:manual_move`, `kute:order_funding_investing`, …).
   Future<DirectHypercoreResult> depositFromSpark({
     required SparkFundingAsset asset,
     required BigInt amountBaseUnits,
     double? amountUsd,
     void Function()? onFundingStarted,
     SettlementStepUpHook? stepUp,
+    bool registerInBackground = false,
+    String purpose = 'manual_move',
   }) async {
     if (amountBaseUnits <= BigInt.zero) {
       _unavailable(
@@ -336,6 +349,7 @@ class SparkHypercoreFundingService {
           refundAddress: sparkRefund,
           recipientKind: RecipientKind.ownEvm,
           ownAddress: eoa,
+          tag: oneBalanceQuoteTag(purpose, venue: 'investing'),
         ),
         flow: 'move_hypercore_direct',
         idempotencyKey: key,
@@ -373,6 +387,7 @@ class SparkHypercoreFundingService {
       // Phase 1b: the caller's step-up grant binds here (final recipient
       // plus route, never the deposit address).
       stepUp: stepUp,
+      registerInBackground: registerInBackground,
     );
     final plan = _versioned(base, asset.hypercoreRouteVersion,
         payer: SettlementPayer.sparkHot);
@@ -419,6 +434,7 @@ class SparkHypercoreFundingService {
         destinationAmount: estOut,
       );
     }
+    followSettlementRegistration(_read, run);
     TrackingService.directHypercoreRoute(
         direction: 'deposit', outcome: 'direct');
     return DirectHypercoreResult(
@@ -434,10 +450,14 @@ class SparkHypercoreFundingService {
   /// token. Nothing else about the run changes — same source, same
   /// sender, same step-up, same runner — so a caller that does not ask
   /// for dollars gets byte-for-byte the old withdrawal.
+  ///
+  /// [registerInBackground] and [purpose] as for [depositFromSpark].
   Future<DirectHypercoreResult> withdrawToSpark({
     required double usd,
     SparkFundingAsset destination = SparkFundingAsset.bitcoin,
     required SettlementStepUpHook stepUp,
+    bool registerInBackground = false,
+    String purpose = 'manual_move',
   }) async {
     final blocker = reverseBlocker();
     if (blocker != null) _unavailable('withdraw', blocker);
@@ -493,6 +513,7 @@ class SparkHypercoreFundingService {
                 refundAddress: eoa,
                 recipientKind: RecipientKind.ownSpark,
                 ownAddress: sparkAddress,
+                tag: oneBalanceQuoteTag(purpose, venue: 'investing'),
               ),
               flow: destination.isBitcoin
                   ? 'move_hypercore_direct_withdraw'
@@ -597,6 +618,7 @@ class SparkHypercoreFundingService {
           sourceFeeAsset: fee > BigInt.zero ? 'USDC' : null,
         ));
       },
+      registerInBackground: registerInBackground,
     );
     final plan = _versioned(base, destination.sparkWithdrawRouteVersion,
         payer: SettlementPayer.polygonRelayer);
@@ -631,6 +653,7 @@ class SparkHypercoreFundingService {
       ),
       replacing: quote.quoteId,
     );
+    followSettlementRegistration(_read, run);
     TrackingService.directHypercoreRoute(
         direction: 'withdraw', outcome: 'direct');
     return DirectHypercoreResult(
@@ -696,6 +719,7 @@ class SparkHypercoreFundingService {
         review: base.review,
         prepareFunding: base.prepareFunding,
         stepUp: base.stepUp,
+        registerInBackground: base.registerInBackground,
       );
 
   SwapOrder _depositRow({

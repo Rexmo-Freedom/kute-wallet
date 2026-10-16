@@ -189,6 +189,11 @@ enum RouteQuoteErrorCode {
 
   static RouteQuoteErrorCode? fromCode(String? code) {
     final c = code?.trim().toLowerCase();
+    // Flashnet's answer for a route it does not carry at all (every
+    // HyperCore source today, "HyperCore source routes require independent
+    // deposit verification"): the same refusal as `route_unavailable`,
+    // made before any deposit address exists, so nothing was sent.
+    if (c == 'unsupported_route') return RouteQuoteErrorCode.routeUnavailable;
     for (final value in values) {
       if (value.code == c) return value;
     }

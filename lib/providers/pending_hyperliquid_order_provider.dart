@@ -1,39 +1,63 @@
 import 'package:kute/helpers/hyperliquid_error_message.dart';
 // lib/providers/pending_hyperliquid_order_provider.dart
 //
-// Holds a Hyperliquid order intent while the user tops up USDC — the
-// order slip pre-stores the intent when the user hits Long/Short/Buy
-// with an insufficient perp balance, and the auto-fire watcher below
-// fires the order the moment hyperliquidWithdrawableProvider's
-// underlying balance covers the margin. Mirrors
+// Holds a Hyperliquid order intent while its margin travels from Dollars
+// to Investing — the order slip stores the intent when the user confirms
+// an order the venue cannot cover yet, the one-balance controller moves
+// the shortfall, and the auto-fire watcher below fires the order the
+// moment the account's available cash covers the margin. Mirrors
 // pending_polymarket_bet_provider.dart + pending_bet_autofire.dart,
 // folded into one file (the HL flow has no swap leg — a deposit credits
 // perp USDC directly, so the state machine is smaller).
 //
 // Auto-fire consent rule (same as Polymarket's): only `awaitingBalance`
 // fires — the state the slip sets AFTER the user explicitly confirmed
-// the order and kicked off a deposit. `awaitingDeposit` (picker open)
-// must NEVER auto-fire.
+// the order and the funding was handed to the controller.
+// `awaitingDeposit` (picker open) must NEVER auto-fire.
 //
-// Balance watching is a BOUNDED POLL (4 s tick, 12 min ceiling), not a
-// permanent ref.listen on hyperliquidWithdrawableProvider: the watcher
-// is a non-autoDispose Provider bootstrapped by whatever UI surface
-// reads it, and a build-time listen would pin the whole account stack
-// (address derivation + API polling) alive for every user forever. The
-// poll only runs while an intent is actually awaiting funds, and each
-// tick reads a fresh account snapshot — exactly what PM's
-// `_startAwaitPolling` does for swaps that settle off-screen.
+// Balance watching is a BOUNDED POLL (1 s for the first 30 s, then 4 s,
+// 12 min ceiling) plus the rail's own `credited` stream, not a permanent
+// ref.listen on hyperliquidWithdrawableProvider: the watcher is a
+// non-autoDispose Provider bootstrapped by whatever UI surface reads it,
+// and a build-time listen would pin the whole account stack (address
+// derivation + API polling) alive for every user forever. The poll only
+// runs while an intent is actually awaiting funds, and each tick reads a
+// fresh account snapshot — exactly what PM's `_startAwaitPolling` does
+// for swaps that settle off-screen.
 //
 // Step-up (Wallet Hardening Phase 1b.5, D-10): the order fires on the grant
-// the user gave at confirm time ([confirmPendingHlOrderAutofire]), held 30
-// minutes in memory only and consumed against the exact order only while the
-// session is unlocked. No grant (for example after a restart) or an expired
+// the user gave at confirm time (`requireFreshAuthGrant(autofireIntentId:
+// kPendingHlOrderAutofireId)` on the slip), held 30 minutes in memory only
+// and consumed against the exact order only while the session is
+// unlocked. The same grant, extended with the dollars allowed to leave for
+// the order (`kFundUsdLimit`), is what the rail's step-up hook honours for
+// the funding leg. No grant (for example after a restart) or an expired
 // one cancels the order and asks the user to confirm it again.
+//
+// Sizing: a market order may shrink to what actually arrived
+// (`hypercoreMaxOrderUsd`) as long as its notional still meets the venue
+// minimum; a limit, pro, TP/SL or reduce-only order is placed exactly as
+// approved or not at all, and what arrived stays for the sweeper.
+//
+// Delivered is not usable: the rail's credit says Orchestra delivered,
+// the account read is what the order can draw on. The order fires only
+// once that read covers it (`HlReadiness.crediting` while the credit was
+// said but the account does not show it), and a market order the venue
+// still refuses for margin right after the credit is not final: it waits
+// for the account again and is sent again under the same approval, a few
+// times at most ([kHlNotReadyRetries]). Cash credited to spot for a perp
+// order (or to perps for a spot buy) is usable: the order moves it under
+// its own grant before it is placed (`_fundPerpAction`,
+// `hlSpotBuyPerpTransferUsd`).
 
 import 'dart:async';
+import 'package:kute/constants/hyperliquid_constants.dart';
 import 'package:kute/services/hyperliquid/hl_failure_analytics.dart';
 import 'package:kute/services/hyperliquid/hypercore_cash.dart';
+import 'package:kute/services/hyperliquid/hypercore_dex_cash.dart';
+import 'package:kute/services/hyperliquid/hyperliquid_onboarding_service.dart';
 
+import 'package:flutter/foundation.dart' show immutable, visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:kute/helpers/auth_grant.dart';
@@ -42,6 +66,7 @@ import 'package:kute/helpers/require_fresh_auth.dart';
 import 'package:kute/helpers/venue_intents.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart';
+import 'package:kute/models/hyperliquid_model.dart' show HyperliquidModel;
 import 'package:kute/providers/auth_provider.dart' show sessionUnlockedProvider;
 import 'package:kute/providers/hyperliquid_account_provider.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
@@ -50,6 +75,17 @@ import 'package:kute/providers/placing_hyperliquid_order_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
+import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart'
+    show
+        HlOrderResult,
+        HlOrderResultKind,
+        HyperliquidInsufficientMarginException;
+import 'package:kute/services/one_balance/hyperliquid_move_rail.dart';
+import 'package:kute/services/one_balance/hyperliquid_venue_funder.dart';
+import 'package:kute/services/one_balance/one_balance_state.dart';
+import 'package:kute/services/one_balance/venue_cash_released.dart';
+import 'package:kute/services/one_balance/order_funding.dart';
+import 'package:kute/services/one_balance/venue_funder.dart';
 import 'package:kute/services/venue_analytics.dart';
 import 'package:kute/services/tracking_service.dart';
 
@@ -72,6 +108,34 @@ enum PendingHlOrderStatus {
   /// Submission (or the wait) failed. The overlay shows a retry CTA;
   /// any deposited funds stay on the user's exchange account.
   failed,
+}
+
+/// The exact notifier call the slip built for a queued order, so a funded
+/// limit, pro, TP/SL or reduce-only order is placed exactly as approved.
+/// [intentAt] and [placeAt] take the margin so a [resizable] market order
+/// can shrink to what arrived; the others ignore it.
+/// Where a queued order's money is, as the auto-fire checks it: not
+/// arrived, delivered (the rail said so) but not yet showing in the
+/// account the order draws on, or ready (set right before `placing`).
+enum HlReadiness { waitingFunds, crediting, ready }
+
+class PendingHlOrderPlacement {
+  const PendingHlOrderPlacement({
+    required this.intentAt,
+    required this.placeAt,
+    required this.resizable,
+    this.cloid,
+  });
+
+  final SensitiveIntent Function(double marginUsd) intentAt;
+  final Future<HlOrderResult> Function(AuthGrant grant, double marginUsd)
+      placeAt;
+
+  /// Market orders only: may shrink to what arrived.
+  final bool resizable;
+
+  /// The client order id the slip's fill listener matches on.
+  final String? cloid;
 }
 
 class PendingHlOrderIntent {
@@ -106,6 +170,83 @@ class PendingHlOrderIntent {
   /// days) — stale intents ask for a fresh confirm instead.
   final DateTime createdAt;
 
+  /// The market, when the slip handed it over (saves a list read).
+  final HlMarket? market;
+
+  /// The slip's own call, or null for the plain market order the
+  /// auto-fire builds itself.
+  final PendingHlOrderPlacement? placement;
+
+  /// Dollars approved to leave the spending account for this order (the
+  /// grant's [kFundUsdLimit]). Zero when the venue already held enough.
+  final double fundUsd;
+
+  /// The other venue's cash approved to go straight into the Investing
+  /// account for this order (`VenueLimit.directLegs`: a cap per venue and
+  /// the total), bound into the same one approval. Null when none.
+  final Map<String, Object?>? directLegs;
+
+  /// The Bitcoin → Dollars leg approved to top Dollars up before the
+  /// funding move (`VenueLimit.fundBtc`, [BitcoinLegGrants.limit]), bound
+  /// into the same one approval. Null when Dollars already covered it.
+  final Map<String, Object?>? btcLeg;
+
+  /// What the venue must hold for the order (margin with its headroom
+  /// and fees). Zero means "the margin itself", as before funding.
+  final double requiredUsd;
+
+  /// The venue's available cash when the order was queued, and what the
+  /// funding was sized to deliver: together they say when the money
+  /// visibly arrived, which is when a market order may be resized.
+  final double readyAtQueueUsd;
+  final double arrivingUsd;
+
+  /// market | limit | pro (analytics `order_kind`).
+  final String orderKind;
+
+  /// open | add | reduce | close | flip (perps), analytics only.
+  final String? positionEffect;
+  final String? entrySource;
+
+  /// The funding move, once the controller sent it.
+  final String? fundQuoteId;
+  final String? fundOrderId;
+
+  /// Milliseconds the slip spent quoting and funding, for the one
+  /// `order_funding_completed` the auto-fire emits.
+  final int quoteMs;
+  final int fundMs;
+
+  /// When the funding was handed over (the credit wait starts here).
+  final DateTime? fundedAt;
+
+  /// When the order started placing (the order timing starts here).
+  final DateTime? placingAt;
+
+  /// The margin the order was actually placed with (smaller than
+  /// [marginUsd] when a market order was resized to what arrived).
+  final double? placedMarginUsd;
+
+  /// The venue's answer, once placed.
+  final HlOrderResult? result;
+
+  /// The account could not sign the one-time builder-fee approval before
+  /// its first money landed (an account Hyperliquid has never seen cannot
+  /// post a signed action): the auto-fire signs it once the funds are
+  /// there, retried with backoff, before it places the order.
+  final bool needsBuilderApproval;
+
+  /// `bitcoin` for an order funded from the person's own bitcoin (its
+  /// Dollars topped up by a Bitcoin leg first), else null.
+  final String? fundingSource;
+
+  /// The Bitcoin leg's sats left, and its dollars landed in Dollars.
+  final DateTime? bitcoinSentAt;
+  final DateTime? bitcoinLandedAt;
+
+  /// Where the money behind the order is (see [HlReadiness]); null before
+  /// the auto-fire checked it.
+  final HlReadiness? readiness;
 
   PendingHlOrderIntent({
     required this.coin,
@@ -120,11 +261,50 @@ class PendingHlOrderIntent {
     this.status = PendingHlOrderStatus.awaitingDeposit,
     this.errorMessage,
     DateTime? createdAt,
+    this.market,
+    this.placement,
+    this.fundUsd = 0,
+    this.directLegs,
+    this.btcLeg,
+    this.requiredUsd = 0,
+    this.readyAtQueueUsd = 0,
+    this.arrivingUsd = 0,
+    this.orderKind = 'market',
+    this.positionEffect,
+    this.entrySource,
+    this.fundQuoteId,
+    this.fundOrderId,
+    this.quoteMs = 0,
+    this.fundMs = 0,
+    this.fundedAt,
+    this.placingAt,
+    this.placedMarginUsd,
+    this.result,
+    this.needsBuilderApproval = false,
+    this.fundingSource,
+    this.bitcoinSentAt,
+    this.bitcoinLandedAt,
+    this.readiness,
   }) : createdAt = createdAt ?? DateTime.now();
+
+  /// Whether the auto-fire may shrink this order to what arrived.
+  bool get resizable => placement?.resizable ?? (orderKind == 'market');
 
   PendingHlOrderIntent copyWith({
     PendingHlOrderStatus? status,
     String? errorMessage,
+    String? fundQuoteId,
+    String? fundOrderId,
+    int? quoteMs,
+    int? fundMs,
+    DateTime? fundedAt,
+    DateTime? placingAt,
+    double? placedMarginUsd,
+    HlOrderResult? result,
+    String? fundingSource,
+    DateTime? bitcoinSentAt,
+    DateTime? bitcoinLandedAt,
+    HlReadiness? readiness,
   }) {
     return PendingHlOrderIntent(
       coin: coin,
@@ -139,6 +319,30 @@ class PendingHlOrderIntent {
       status: status ?? this.status,
       errorMessage: errorMessage,
       createdAt: createdAt,
+      market: market,
+      placement: placement,
+      fundUsd: fundUsd,
+      directLegs: directLegs,
+      btcLeg: btcLeg,
+      requiredUsd: requiredUsd,
+      readyAtQueueUsd: readyAtQueueUsd,
+      arrivingUsd: arrivingUsd,
+      orderKind: orderKind,
+      positionEffect: positionEffect,
+      entrySource: entrySource,
+      fundQuoteId: fundQuoteId ?? this.fundQuoteId,
+      fundOrderId: fundOrderId ?? this.fundOrderId,
+      quoteMs: quoteMs ?? this.quoteMs,
+      fundMs: fundMs ?? this.fundMs,
+      fundedAt: fundedAt ?? this.fundedAt,
+      placingAt: placingAt ?? this.placingAt,
+      placedMarginUsd: placedMarginUsd ?? this.placedMarginUsd,
+      result: result ?? this.result,
+      needsBuilderApproval: needsBuilderApproval,
+      fundingSource: fundingSource ?? this.fundingSource,
+      bitcoinSentAt: bitcoinSentAt ?? this.bitcoinSentAt,
+      bitcoinLandedAt: bitcoinLandedAt ?? this.bitcoinLandedAt,
+      readiness: readiness ?? this.readiness,
     );
   }
 }
@@ -149,18 +353,165 @@ class PendingHyperliquidOrderNotifier extends Notifier<PendingHlOrderIntent?> {
 
   void setIntent(PendingHlOrderIntent intent) {
     state = intent;
+    _settleIfTerminal();
   }
 
   void updateStatus(PendingHlOrderStatus status, {String? errorMessage}) {
     final current = state;
     if (current == null) return;
     state = current.copyWith(status: status, errorMessage: errorMessage);
+    _settleIfTerminal();
   }
 
   void clear() {
     state = null;
   }
+
+  /// The auto-fire's latest look at the order's money (see
+  /// [HlReadiness]). Status and message are kept.
+  void setReadiness(HlReadiness readiness) {
+    final current = state;
+    if (current == null || current.readiness == readiness) return;
+    state = current.copyWith(
+        status: current.status,
+        errorMessage: current.errorMessage,
+        readiness: readiness);
+  }
+
+  /// Whether an order is queued behind its money or being placed right
+  /// now: the one state that holds the venue's cash for it. A finished
+  /// order (done or failed) never holds it.
+  static bool isActive(PendingHlOrderIntent? intent) =>
+      intent != null &&
+      (intent.status == PendingHlOrderStatus.awaitingBalance ||
+          intent.status == PendingHlOrderStatus.placing);
+
+  /// A done or failed order is reported to every listener (the slip shows
+  /// its receipt or its message from that change) and then cleared, so
+  /// nothing reads a finished order as one still holding the venue's cash
+  /// (the sweeper, the next slip). A failure leaves whatever landed at the
+  /// venue as its cash, released at once (`order_failed`).
+  void _settleIfTerminal() {
+    final current = state;
+    if (current == null) return;
+    if (current.status != PendingHlOrderStatus.done &&
+        current.status != PendingHlOrderStatus.failed) {
+      return;
+    }
+    final failed = current.status == PendingHlOrderStatus.failed;
+    state = null;
+    if (failed) {
+      VenueCashReleased.emit(OneBalanceVenue.investing, 'order_failed');
+    }
+  }
+
+  /// Queues [intent] behind its funding: the order is marked
+  /// `awaitingBalance` (the one state the auto-fire places from), the
+  /// controller moves exactly the approved [PendingHlOrderIntent.fundUsd]
+  /// from Dollars under [grant] (the confirm-time autofire grant, which
+  /// the rail's step-up hook honours), and the auto-fire places the order
+  /// once the venue holds the money.
+  ///
+  /// A refusal, a Dollars shortfall or an error before any funds left
+  /// clears the intent and the grant: nothing is queued, Dollars are
+  /// untouched. A move the rail could not confirm either way
+  /// ([OrderFundingUnconfirmed]) keeps the order queued and watched: the
+  /// money may be on its way, and a retry must not fund it twice. A
+  /// second order while one is queued or placing is refused
+  /// ([kHlOrderQueuedReason]) with nothing changed. The outcome is
+  /// returned for the slip to show.
+  Future<OrderFundingOutcome> fundAndQueue(
+    PendingHlOrderIntent intent, {
+    required AuthGrant grant,
+    required OrderFundingController controller,
+    required double orderUsd,
+    required double requiredUsd,
+    required double readyUsd,
+    void Function(OrderFundingStage)? onStage,
+    double? fundUsd,
+    bool continueJourney = false,
+  }) async {
+    if (isActive(state)) {
+      // One funded order at a time: the queued one's grant and money are
+      // not this one's to take.
+      return const OrderFundingRefused(kHlOrderQueuedReason);
+    }
+    // The watcher ([pendingHlOrderAutoFireProvider]) must be alive: the
+    // slip reads it before calling, and every state change below reaches
+    // its listener, so the first check runs as soon as the move is sent.
+    state = intent.copyWith(status: PendingHlOrderStatus.awaitingBalance);
+    final startedAt = DateTime.now();
+    OrderFundingOutcome outcome;
+    try {
+      outcome = await controller.fundAndQueue(
+        venue: OneBalanceVenue.investing,
+        orderUsd: orderUsd,
+        requiredUsd: requiredUsd,
+        readyUsd: readyUsd,
+        auth: UserGrantAuthorization(grant),
+        onStage: onStage,
+        // The amount the person approved, never a second sizing: the
+        // grant's funding limit is exactly this figure. [fundUsd] is less
+        // when other venue cash already went straight to the account.
+        fundUsd: fundUsd ?? (intent.fundUsd > 0 ? intent.fundUsd : null),
+        entrySource: intent.entrySource,
+        keepUnconfirmed: true,
+        continueJourney: continueJourney,
+      );
+    } catch (e) {
+      _dropQueued(intent);
+      rethrow;
+    }
+    final fundMs = DateTime.now().difference(startedAt).inMilliseconds;
+    switch (outcome) {
+      case OrderFundingFunded(:final move):
+        final current = state;
+        if (current != null && identical(current.placement, intent.placement)) {
+          state = current.copyWith(
+            fundQuoteId: move.quoteId,
+            fundOrderId: move.orderId,
+            fundMs: fundMs,
+            fundedAt: DateTime.now(),
+          );
+          final registration = move.registration;
+          if (registration != null && move.orderId == null) {
+            unawaited(registration.then((id) {
+              final s = state;
+              if (id != null &&
+                  s != null &&
+                  identical(s.placement, intent.placement)) {
+                state = s.copyWith(fundOrderId: id);
+              }
+            }));
+          }
+        }
+      case OrderFundingNotNeeded():
+      case OrderFundingUnconfirmed():
+        // Unconfirmed: the order stays queued and the auto-fire keeps
+        // watching the venue; the credit wait starts now.
+        final current = state;
+        if (current != null && identical(current.placement, intent.placement)) {
+          state = current.copyWith(fundMs: fundMs, fundedAt: DateTime.now());
+        }
+      case OrderFundingRefused():
+      case OrderFundingNeedsDollars():
+        _dropQueued(intent);
+    }
+    return outcome;
+  }
+
+  /// Clears [intent] if it is still the queued one, with its grant.
+  void _dropQueued(PendingHlOrderIntent intent) {
+    final current = state;
+    if (current != null && identical(current.placement, intent.placement)) {
+      state = null;
+    }
+  }
 }
+
+/// [OrderFundingRefused.reason] for a funded order refused because
+/// another one is still queued or placing.
+const String kHlOrderQueuedReason = 'order_queued';
 
 final pendingHyperliquidOrderProvider =
     NotifierProvider<PendingHyperliquidOrderNotifier, PendingHlOrderIntent?>(
@@ -170,29 +521,219 @@ final pendingHyperliquidOrderProvider =
 /// The autofire grant slot for the one pending Hyperliquid order (D-10).
 const String kPendingHlOrderAutofireId = 'hyperliquid_pending_order';
 
+/// The waits between the auto-fire's builder-fee approval attempts on a
+/// first order: the venue accepts a signed action from a new account a
+/// few seconds after its first money credits, rarely at once.
+const List<Duration> kHlBuilderApprovalBackoff = [
+  Duration(seconds: 2),
+  Duration(seconds: 5),
+  Duration(seconds: 10),
+];
+
+/// Signs the one-time builder-fee approval once the account holds money,
+/// retried on [kHlBuilderApprovalBackoff]. True once approved (or nothing
+/// is published to approve). Never throws. Overridden in tests.
+final hlBuilderApprovalAfterFundingProvider =
+    Provider<Future<bool> Function()>((ref) => () async {
+          for (var attempt = 0;; attempt++) {
+            try {
+              await ref
+                  .read(hyperliquidTradingProvider.notifier)
+                  .approveBuilderAfterFunding();
+              final walletId =
+                  pickSpendingWallet(ref.read(settingsProvider))?.id;
+              if (walletId != null &&
+                  await HyperliquidOnboardingService.hasApprovedBuilderFee(
+                      walletId)) {
+                return true;
+              }
+            } catch (_) {
+              // Retried below.
+            }
+            if (attempt >= kHlBuilderApprovalBackoff.length) return false;
+            await Future<void>.delayed(kHlBuilderApprovalBackoff[attempt]);
+          }
+        });
+
+/// How many times a market order is sent again after the venue refused
+/// it for margin right after its money was credited.
+const int kHlNotReadyRetries = 5;
+
+/// The client order ids one queued order went out under: the first (the
+/// slip's own), then a FRESH one for every send again. A cloid is never
+/// reused, so a late answer to an earlier send can never be taken for the
+/// new one. The slip's fill listener and its placement read through here.
+abstract final class HlResendCloids {
+  static final Map<String, List<String>> _next = {};
+
+  /// The cloid the next send of the order first sent as [first] uses.
+  static String current(String first) => _next[first]?.last ?? first;
+
+  /// A fresh cloid for the next send of [first]'s order.
+  static String renew(String first) {
+    final next = newHlCloid();
+    (_next[first] ??= []).add(next);
+    return next;
+  }
+
+  /// Every cloid [first]'s order went out under.
+  static List<String> all(String first) => [first, ...?_next[first]];
+
+  /// Whether [cloid] is one of [first]'s order's.
+  static bool owns(String first, String? cloid) =>
+      cloid != null && all(first).contains(cloid);
+
+  @visibleForTesting
+  static void reset() => _next.clear();
+}
+
+/// What became of an order already sent: still resting on the book, or
+/// filled ([found]); nowhere ([known] and no [found]); or it could not be
+/// read ([known] false).
+@immutable
+class HlSentOrderTrace {
+  const HlSentOrderTrace.none()
+      : known = true,
+        found = null;
+  const HlSentOrderTrace.found(HlOrderResult this.found) : known = true;
+  const HlSentOrderTrace.unknown()
+      : known = false,
+        found = null;
+
+  final bool known;
+  final HlOrderResult? found;
+}
+
+/// Looks [cloids] up on [market]: the account's open orders and its fills.
+/// Overridden in tests.
+final hlSentOrderTraceProvider = Provider<
+    Future<HlSentOrderTrace> Function(List<String> cloids, HlMarket market)>(
+  (ref) => (cloids, market) async {
+    try {
+      final address = await ref
+          .read(hyperliquidAddressProvider.future)
+          .timeout(const Duration(seconds: 8));
+      if (address == null || address.isEmpty) {
+        return const HlSentOrderTrace.unknown();
+      }
+      final model = HyperliquidModel();
+      final reads = await Future.wait<Object>([
+        model.getOpenOrders(address,
+            dexes: [if (market.dex.isNotEmpty) market.dex]),
+        model.getUserFills(address),
+      ]).timeout(const Duration(seconds: 10));
+      return hlTraceOf(cloids,
+          open: reads[0] as List<HlOpenOrder>, fills: reads[1] as List<HlFill>);
+    } catch (_) {
+      return const HlSentOrderTrace.unknown();
+    }
+  },
+);
+
+/// [cloids]' order in the account's [open] orders and [fills]: filled
+/// (what filled, at its average price) before resting, else nowhere.
+HlSentOrderTrace hlTraceOf(List<String> cloids,
+    {required List<HlOpenOrder> open, required List<HlFill> fills}) {
+  final ids = {for (final c in cloids) c.toLowerCase()};
+  bool mine(String? cloid) =>
+      cloid != null && ids.contains(cloid.toLowerCase());
+  final filled = fills.where((f) => mine(f.cloid)).toList();
+  if (filled.isNotEmpty) {
+    final size = filled.fold<double>(0, (a, f) => a + f.sz);
+    final notional = filled.fold<double>(0, (a, f) => a + f.sz * f.px);
+    return HlSentOrderTrace.found(HlOrderResult(
+      kind: HlOrderResultKind.filled,
+      oid: filled.first.oid,
+      cloid: filled.first.cloid,
+      filledSz: size,
+      avgPx: size > 0 ? notional / size : 0,
+    ));
+  }
+  final resting = open.where((o) => mine(o.cloid)).toList();
+  if (resting.isNotEmpty) {
+    return HlSentOrderTrace.found(HlOrderResult(
+        kind: HlOrderResultKind.resting,
+        oid: resting.first.oid,
+        cloid: resting.first.cloid));
+  }
+  return const HlSentOrderTrace.none();
+}
+
+/// The approval behind an order that waited for its money ran out (or the
+/// order outlived its age): it asks to be confirmed again.
+class _HlApprovalLapsed implements Exception {
+  const _HlApprovalLapsed();
+}
+
+/// The order the auto-fire places for [intent] at [marginUsd]: the slip's
+/// own call when it handed one over, else the plain market order.
+SensitiveIntent pendingHlOrderPlacementIntent(
+  PendingHlOrderIntent intent,
+  HlMarket market, {
+  required String walletId,
+  double? marginUsd,
+}) {
+  final margin = marginUsd ?? intent.marginUsd;
+  final placement = intent.placement;
+  if (placement != null) return placement.intentAt(margin);
+  return intent.kind == HlMarketKind.spot
+      ? HlIntents.spotOrder(
+          walletId: walletId,
+          market: market,
+          isBuy: intent.isLong,
+          usd: margin,
+          slippagePct: intent.slippagePct,
+        )
+      : HlIntents.openPosition(
+          walletId: walletId,
+          market: market,
+          isLong: intent.isLong,
+          marginUsd: margin,
+          leverage: intent.leverage,
+          slippagePct: intent.slippagePct,
+        );
+}
+
+/// The child grant for a queued order sent again after a margin refusal
+/// right after its credit: bound to [placed], and only while [approved]
+/// (the same order with its funding limits) stays inside what [parent]
+/// (the confirm-time grant, consumed by the first send) approved. A
+/// lapsed or revoked approval, or any drift, throws; nothing is signed.
+AuthGrant hlAutofireRetryGrant(
+    AuthGrant parent, SensitiveIntent approved, SensitiveIntent placed) {
+  if (parent.revoked) throw const GrantRevoked();
+  if (parent.isExpiredAt(AuthGrants.clock())) throw const GrantExpired();
+  final drift = AuthGrants.driftBetween(parent.boundIntent, approved);
+  if (drift.isNotEmpty) throw ReauthRequired(drift);
+  return GrantGuard.chain(parent, placed);
+}
+
 /// What a queued order is approved for at confirm time (D-10): exactly the
-/// order the autofire places (market, side, margin, leverage, slippage).
+/// order the autofire places (market, side, margin, leverage, slippage)
+/// plus, when Dollars fund it, the most that may leave the spending
+/// account for it ([kFundUsdLimit]) and where it goes ([kFundVenueLimit]),
+/// and, when Bitcoin tops Dollars up first, that leg ([VenueLimit.fundBtc]).
+/// The rail's step-up hook reads those two; the placement consumes the
+/// grant against this same intent.
 SensitiveIntent pendingHlOrderAutofireIntent(
   PendingHlOrderIntent intent,
   HlMarket market, {
   required String walletId,
-}) =>
-    intent.kind == HlMarketKind.spot
-        ? HlIntents.spotOrder(
-            walletId: walletId,
-            market: market,
-            isBuy: intent.isLong,
-            usd: intent.marginUsd,
-            slippagePct: intent.slippagePct,
-          )
-        : HlIntents.openPosition(
-            walletId: walletId,
-            market: market,
-            isLong: intent.isLong,
-            marginUsd: intent.marginUsd,
-            leverage: intent.leverage,
-            slippagePct: intent.slippagePct,
-          );
+  double? marginUsd,
+}) {
+  final order = pendingHlOrderPlacementIntent(intent, market,
+      walletId: walletId, marginUsd: marginUsd);
+  if (intent.fundUsd <= 0) return order;
+  final legs = intent.directLegs;
+  final btc = intent.btcLeg;
+  return order.copyWith(limits: {
+    ...order.limits,
+    kFundUsdLimit: dollarsBaseUnits(intent.fundUsd),
+    kFundVenueLimit: kFundVenueInvesting,
+    if (legs != null) VenueLimit.directLegs: legs,
+    if (btc != null) VenueLimit.fundBtc: btc,
+  });
+}
 
 // ───────────────────────────── auto-fire ─────────────────────────────
 
@@ -212,12 +753,27 @@ class PendingHlOrderAutoFire {
 
   Timer? _awaitPoll;
   DateTime? _awaitStart;
+  StreamSubscription<void>? _credited;
+
+  /// The rail said the queued order's move was credited: an account that
+  /// does not show it yet is crediting, not still waiting.
+  bool _creditSeen = false;
 
   /// See [PendingHlOrderIntent.createdAt] — intents older than this
   /// never auto-place.
   static const kMaxIntentAge = Duration(minutes: 30);
-  static const Duration _kAwaitPollInterval = Duration(seconds: 4);
-  static const Duration _kAwaitMaxWait = Duration(minutes: 12);
+
+  /// The poll runs every second while the money is expected any moment,
+  /// then settles to every four.
+  static const Duration kAwaitFastInterval = Duration(seconds: 1);
+  static const Duration kAwaitSlowInterval = Duration(seconds: 4);
+  static const Duration kAwaitFastFor = Duration(seconds: 30);
+  static const Duration kAwaitMaxWait = Duration(minutes: 12);
+
+  /// The share of the sized arrival that must show before a market order
+  /// is resized to what arrived: the money visibly landed, not a stale
+  /// snapshot read a moment after the rail said it had.
+  static const double kArrivedShare = 0.9;
 
   PendingHlOrderAutoFire(this.ref) {
     // Re-evaluate whenever the intent itself changes — a fresh setIntent
@@ -228,16 +784,40 @@ class PendingHlOrderAutoFire {
       if (next == null) {
         AuthGrantRegistry.instance.cancelAutofire(kPendingHlOrderAutofireId);
       }
+      if (next == null || !PendingHyperliquidOrderNotifier.isActive(next)) {
+        _creditSeen = false;
+      }
       unawaited(_maybeFire());
     });
     AuthGrantRegistry.instance.addAutofireExpiredListener(_onAutofireExpired);
+    // The rail says a move was credited: read the account at once instead
+    // of waiting for the next tick.
+    try {
+      _credited = ref.read(hyperliquidMoveRailProvider).credited.listen((_) {
+        if (ref.read(pendingHyperliquidOrderProvider)?.status !=
+            PendingHlOrderStatus.awaitingBalance) {
+          return;
+        }
+        _creditSeen = true;
+        ref.invalidate(hyperliquidAccountProvider);
+        unawaited(_maybeFire());
+      });
+    } catch (_) {
+      // No rail bound (a test container): the poll alone watches.
+    }
   }
 
   void dispose() {
     _stopAwaitPolling();
+    _credited?.cancel();
+    _credited = null;
     AuthGrantRegistry.instance
         .removeAutofireExpiredListener(_onAutofireExpired);
   }
+
+  /// Checks the balance now (the slip calls it once the funding was
+  /// handed over). Safe to call at any time.
+  Future<void> checkNow() => _maybeFire();
 
   /// D-10: the confirm-time grant lapsed before the order could fire.
   void _onAutofireExpired(String intentId, String venue) {
@@ -263,8 +843,12 @@ class PendingHlOrderAutoFire {
     final l10n = l10nForLanguage(ref.read(settingsProvider).language);
     final msg = drift ? l10n.stepUpDetailsChanged : l10n.pendingIntentExpired;
     if (placementId != null) {
-      ref.read(placingHyperliquidOrderProvider.notifier).markFailed(placementId, msg);
+      ref
+          .read(placingHyperliquidOrderProvider.notifier)
+          .markFailed(placementId, msg);
     }
+    _trackFundingFailed(intent,
+        stage: 'order', reason: drift ? 'drift' : 'expired');
     ref
         .read(pendingHyperliquidOrderProvider.notifier)
         .updateStatus(PendingHlOrderStatus.failed, errorMessage: msg);
@@ -273,18 +857,21 @@ class PendingHlOrderAutoFire {
     }
   }
 
-  /// Consumes the confirm-time grant against [actual] and returns the
-  /// single-use grant the trading notifier takes. Null when the order must
-  /// not fire now: locked (it waits for the unlock), or no live grant or
-  /// drift (cancelled, the user confirms again).
-  AuthGrant? _autofireGrant(SensitiveIntent actual, {String? placementId}) {
+  /// Consumes the confirm-time grant against [approved] (the order with
+  /// its funding limits) and returns it with the single-use grant the
+  /// trading notifier takes, bound to [placed] (the bare order). Null when the
+  /// order must not fire now: locked (it waits for the unlock), or no
+  /// live grant or drift (cancelled, the user confirms again).
+  ({AuthGrant parent, AuthGrant grant})? _autofireGrant(
+      SensitiveIntent approved, SensitiveIntent placed,
+      {String? placementId}) {
     try {
       final parent = AuthGrantRegistry.instance.consumeAutofire(
         kPendingHlOrderAutofireId,
-        actual,
+        approved,
         session: ref.read(stepUpSessionStateProvider),
       );
-      return GrantGuard.chain(parent, actual);
+      return (parent: parent, grant: GrantGuard.chain(parent, placed));
     } on GrantSessionLocked {
       if (placementId != null) {
         ref.read(placingHyperliquidOrderProvider.notifier).clear(placementId);
@@ -302,6 +889,36 @@ class PendingHlOrderAutoFire {
       _cancelForReconfirm(placementId: placementId, drift: e is ReauthRequired);
       return null;
     }
+  }
+
+  /// The venue cash the order needs before it is placed as approved.
+  static double requiredFor(PendingHlOrderIntent intent) =>
+      intent.requiredUsd > 0 ? intent.requiredUsd : intent.marginUsd * 0.99;
+
+  /// The margin the order goes out with for [withdrawable], or null while
+  /// the money has not arrived: the approved margin once the account
+  /// covers what the order needs; for a resizable market order whose
+  /// funding has visibly landed, what the account can fund instead, as
+  /// long as its notional still meets the venue minimum.
+  static double? placeableMargin(
+      PendingHlOrderIntent intent, double withdrawable) {
+    if (withdrawable + 1e-6 >= requiredFor(intent)) return intent.marginUsd;
+    if (!intent.resizable) return null;
+    final arrived = intent.arrivingUsd > 0 &&
+        withdrawable + 1e-6 >=
+            intent.readyAtQueueUsd + intent.arrivingUsd * kArrivedShare;
+    if (!arrived) return null;
+    final lev = intent.kind == HlMarketKind.spot ? 1 : intent.leverage;
+    final margin = hypercoreMaxOrderUsd(
+      availableUsd: withdrawable,
+      leverage: lev,
+      slippagePct: intent.slippagePct,
+    );
+    if (margin <= 0 || margin >= intent.marginUsd) return null;
+    if (margin * lev + 1e-9 < HyperliquidConstants.minOrderNotionalUsd) {
+      return null;
+    }
+    return margin;
   }
 
   Future<void> _maybeFire() async {
@@ -330,15 +947,19 @@ class PendingHlOrderAutoFire {
     double withdrawable = 0;
     try {
       final snap = await ref.read(hyperliquidAccountProvider.future);
-      withdrawable = hypercoreAvailableUsdc(snap.withdrawable, snap.spotBalances);
+      withdrawable =
+          hypercoreAvailableUsdc(snap.withdrawable, snap.spotBalances);
     } catch (_) {
       // Transient read failure — the poll below retries.
     }
 
-    // Same 99% threshold as the PM overlay: the exchange rejects real
-    // overcommits, and balances are floating-point, so a tiny buffer
-    // prevents an infinite "almost there" race.
-    if (withdrawable < intent.marginUsd * 0.99) {
+    // The account must cover what the order needs (balances are
+    // floating-point, so an epsilon keeps an "almost there" race out);
+    // a market order whose funding landed short goes out smaller.
+    final margin = placeableMargin(intent, withdrawable);
+    if (margin == null) {
+      ref.read(pendingHyperliquidOrderProvider.notifier).setReadiness(
+          _creditSeen ? HlReadiness.crediting : HlReadiness.waitingFunds);
       _startAwaitPolling();
       return;
     }
@@ -351,6 +972,7 @@ class PendingHlOrderAutoFire {
     // intent and tell the user to reconfirm in the slip.
     if (DateTime.now().difference(intent.createdAt) > kMaxIntentAge) {
       _trackAutofireFailed('stale_intent', intent);
+      _trackFundingFailed(intent, stage: 'order', reason: 'stale_intent');
       ref.read(pendingHyperliquidOrderProvider.notifier).updateStatus(
             PendingHlOrderStatus.failed,
             errorMessage: l10nForLanguage(ref.read(settingsProvider).language)
@@ -360,7 +982,7 @@ class PendingHlOrderAutoFire {
     }
     _firing = true;
     try {
-      await _placeOrder(intent);
+      await _placeOrder(intent, margin);
     } catch (_) {
       // _placeOrder owns its error reporting; swallow so a throw doesn't
       // block subsequent attempts.
@@ -369,7 +991,7 @@ class PendingHlOrderAutoFire {
     }
   }
 
-  Future<void> _placeOrder(PendingHlOrderIntent intent) async {
+  Future<void> _placeOrder(PendingHlOrderIntent intent, double margin) async {
     final pending = ref.read(pendingHyperliquidOrderProvider.notifier);
     final placing = ref.read(placingHyperliquidOrderProvider.notifier);
     // D-10: never fire without the confirm-time grant (a restart drops it).
@@ -378,7 +1000,17 @@ class PendingHlOrderAutoFire {
       _cancelForReconfirm();
       return;
     }
-    pending.updateStatus(PendingHlOrderStatus.placing);
+    final placingAt = OrderFundingJourney.clock();
+    DateTime? collateralReadyAt;
+    DateTime? dexCreditStartedAt;
+    pending.setIntent(intent.copyWith(
+      status: PendingHlOrderStatus.placing,
+      placingAt: placingAt,
+      placedMarginUsd: margin,
+      readiness: intent.market?.dex.isNotEmpty == true
+          ? HlReadiness.crediting
+          : HlReadiness.ready,
+    ));
 
     // Re-use the slip's early-registered tile when present (markPlacing
     // is idempotent per coin+side) so the user sees one continuous tile.
@@ -386,62 +1018,131 @@ class PendingHlOrderAutoFire {
       coin: intent.coin,
       marketLabel: intent.marketLabel,
       isLong: intent.isLong,
-      marginUsd: intent.marginUsd,
+      marginUsd: margin,
       leverage: intent.leverage,
       sizeRequested: intent.expectedPx > 0
-          ? intent.marginUsd * intent.leverage / intent.expectedPx
+          ? margin * intent.leverage / intent.expectedPx
           : 0,
+      cloid: intent.placement?.cloid,
     );
 
     try {
-      final market = await _resolveMarket(intent);
-      final grant = _autofireGrant(
-        pendingHlOrderAutofireIntent(
-          intent,
-          market,
-          walletId: pickSpendingWallet(ref.read(settingsProvider))?.id ?? '',
-        ),
-        placementId: placementId,
-      );
-      if (grant == null) return;
-      VenueAnalytics.stage('hl', intent.coin, {
-        'origin': intent.source ?? 'unknown',
-        'entry_source': 'autofire',
-        'funding_source': 'venue_balance',
-        'slippage_bps': VenueAnalytics.bps(intent.slippagePct),
-      });
-      final trading = ref.read(hyperliquidTradingProvider.notifier);
-      if (intent.kind == HlMarketKind.spot) {
-        await trading.placeSpotOrder(
-          market: market,
-          isBuy: intent.isLong,
-          usd: intent.marginUsd,
-          slippagePct: intent.slippagePct,
-          source: 'autofire',
-          grant: grant,
-        );
-      } else {
-        await trading.openPosition(
-          market: market,
-          isLong: intent.isLong,
-          marginUsd: intent.marginUsd,
-          leverage: intent.leverage,
-          slippagePct: intent.slippagePct,
-          source: 'autofire',
-          grant: grant,
-        );
+      final market = intent.market ?? await _resolveMarket(intent);
+      if (market.dex.isEmpty) collateralReadyAt = placingAt;
+      if (intent.needsBuilderApproval) {
+        // First order on a new account: the approval the slip could not
+        // sign before the money landed. A failure is not final here: the
+        // order path asks once more and names the obstacle if it stays.
+        final approved =
+            await ref.read(hlBuilderApprovalAfterFundingProvider)();
+        TrackingService.track('hl_builder_fee_after_funding',
+            params: {'approved': approved});
+      }
+      final walletId = pickSpendingWallet(ref.read(settingsProvider))?.id ?? '';
+      // The consumed approval, kept for a send again after a margin
+      // refusal right after the credit ([_waitAfterNotReady]).
+      AuthGrant? approval;
+      var notReady = 0;
+      late HlOrderResult result;
+      // The first send's cloid: the slip's own, or one of ours for the
+      // plain market order. Every send again takes a fresh one.
+      final firstCloid = intent.placement?.cloid ??
+          (intent.placement == null ? newHlCloid() : null);
+      while (true) {
+        final approved = pendingHlOrderAutofireIntent(intent, market,
+            walletId: walletId, marginUsd: margin);
+        final placed = pendingHlOrderPlacementIntent(intent, market,
+            walletId: walletId, marginUsd: margin);
+        final AuthGrant grant;
+        final parent = approval;
+        if (parent == null) {
+          final granted =
+              _autofireGrant(approved, placed, placementId: placementId);
+          if (granted == null) return;
+          approval = granted.parent;
+          grant = granted.grant;
+          VenueAnalytics.stage('hl', intent.coin, {
+            'origin': intent.source ?? 'unknown',
+            'entry_source': 'autofire',
+            'funding_source': intent.fundingSource ??
+                (intent.fundUsd > 0 ? 'dollars' : 'venue_balance'),
+            'slippage_bps': VenueAnalytics.bps(intent.slippagePct),
+          });
+        } else {
+          // Sent again: inside the same approval (no larger margin, the
+          // same market, side and funding cap), never wider.
+          grant = hlAutofireRetryGrant(parent, approved, placed);
+        }
+        try {
+          result = await OwnDexReadiness.follow(
+              () => _send(intent, market, grant, margin,
+                  cloid: firstCloid == null
+                      ? null
+                      : HlResendCloids.current(firstCloid)), () {
+            collateralReadyAt = OrderFundingJourney.clock();
+            pending.setReadiness(HlReadiness.ready);
+          }, waiting: () {
+            dexCreditStartedAt = OrderFundingJourney.clock();
+          });
+          break;
+        } catch (e) {
+          // Without a cloid of its own the order cannot be told apart
+          // from a send again: never sent twice.
+          if (firstCloid == null) rethrow;
+          final next =
+              await _waitAfterNotReady(e, intent, approval, notReady++);
+          if (next == null) rethrow;
+          // Never twice: an earlier send that rested or filled after all
+          // is followed instead; one that cannot be read is not resent.
+          final trace = await _traceSent(firstCloid, market);
+          final found = trace.found;
+          if (found != null) {
+            result = found;
+            break;
+          }
+          if (!trace.known) rethrow;
+          margin = next;
+          final fresh = HlResendCloids.renew(firstCloid);
+          placing.attachCloid(placementId, fresh);
+        }
       }
       placing.markSucceeded(placementId);
-      pending.updateStatus(PendingHlOrderStatus.done);
+      final current = ref.read(pendingHyperliquidOrderProvider) ?? intent;
+      pending.setIntent(current.copyWith(
+        status: PendingHlOrderStatus.done,
+        result: result,
+      ));
+      _trackFundingCompleted(current,
+          margin: margin,
+          resized: margin < intent.marginUsd - 1e-9,
+          placingAt: placingAt,
+          collateralReadyAt: collateralReadyAt,
+          dexCreditStartedAt: dexCreditStartedAt);
     } catch (e, st) {
+      if (e is _HlApprovalLapsed) {
+        _cancelForReconfirm(placementId: placementId);
+        return;
+      }
       _trackAutofireFailed('error', intent, error: e);
+      _trackFundingFailed(intent,
+          stage: e is OwnDexCreditPending ? 'credit' : 'order',
+          error: e,
+          startedBy: placingAt,
+          reason: e is OwnDexCreditPending ? 'dex_credit_pending' : null,
+          extra: {
+            if (dexCreditStartedAt != null)
+              'ms_dex_credit': OrderFundingJourney.clock()
+                  .difference(dexCreditStartedAt!)
+                  .inMilliseconds
+                  .clamp(0, 1 << 31),
+          });
       TrackingService.hyperliquidOrderFailed(
         coin: intent.coin,
         reason: TrackingService.errorCategory(e),
         action: 'open',
-        orderType: 'market',
+        orderType: intent.orderKind,
         isBuy: intent.isLong,
-        notionalUsd: intent.marginUsd * intent.leverage,
+        notionalUsd: margin * intent.leverage,
         leverage: intent.leverage,
         walletKind: 'hot',
         stackTrace: st,
@@ -461,6 +1162,107 @@ class PendingHlOrderAutoFire {
     }
   }
 
+  /// Places [intent]'s order at [margin] under [grant]: the slip's own
+  /// call (which reads its current cloid through [HlResendCloids]), else
+  /// the plain market order under [cloid].
+  Future<HlOrderResult> _send(PendingHlOrderIntent intent, HlMarket market,
+      AuthGrant grant, double margin,
+      {String? cloid}) {
+    final placement = intent.placement;
+    if (placement != null) return placement.placeAt(grant, margin);
+    final trading = ref.read(hyperliquidTradingProvider.notifier);
+    if (intent.kind == HlMarketKind.spot) {
+      return trading.placeSpotOrder(
+        market: market,
+        isBuy: intent.isLong,
+        usd: margin,
+        slippagePct: intent.slippagePct,
+        source: 'autofire',
+        cloid: cloid,
+        grant: grant,
+      );
+    }
+    return trading.openPosition(
+      market: market,
+      isLong: intent.isLong,
+      marginUsd: margin,
+      leverage: intent.leverage,
+      slippagePct: intent.slippagePct,
+      source: 'autofire',
+      cloid: cloid,
+      grant: grant,
+    );
+  }
+
+  /// Every earlier send of the order first sent as [firstCloid], looked up
+  /// (three reads at most, a second apart, before giving up as unknown).
+  Future<HlSentOrderTrace> _traceSent(
+      String firstCloid, HlMarket market) async {
+    final lookup = ref.read(hlSentOrderTraceProvider);
+    var trace = const HlSentOrderTrace.unknown();
+    for (var i = 0; i < 3; i++) {
+      trace = await lookup(HlResendCloids.all(firstCloid), market);
+      if (trace.known) return trace;
+      await Future<void>.delayed(kAwaitFastInterval);
+    }
+    return trace;
+  }
+
+  /// After [e]: a market order the venue refused for margin right after
+  /// its money was credited (nothing was placed; the account the order
+  /// draws on had not caught up) is not final. Waits, the order still
+  /// `placing`, until a fresh account read covers it again (read every
+  /// [kAwaitFastInterval]), and returns the margin to send it again with
+  /// (never more than approved). At most [kHlNotReadyRetries] times; only
+  /// a resizable (single, plain market) order, so nothing that may have
+  /// partly gone through is ever sent twice. Null leaves [e] to the
+  /// failure path; an approval that ran out meanwhile throws
+  /// [_HlApprovalLapsed].
+  Future<double?> _waitAfterNotReady(Object e, PendingHlOrderIntent intent,
+      AuthGrant? approval, int attempt) async {
+    if (e is! HyperliquidInsufficientMarginException ||
+        !intent.resizable ||
+        approval == null ||
+        attempt >= kHlNotReadyRetries) {
+      return null;
+    }
+    final pending = ref.read(pendingHyperliquidOrderProvider.notifier);
+    pending.setReadiness(HlReadiness.crediting);
+    final until = DateTime.now().add(kAwaitMaxWait);
+    while (true) {
+      await Future<void>.delayed(kAwaitFastInterval);
+      if (approval.revoked ||
+          approval.isExpiredAt(AuthGrants.clock()) ||
+          DateTime.now().difference(intent.createdAt) > kMaxIntentAge) {
+        throw const _HlApprovalLapsed();
+      }
+      final now = ref.read(pendingHyperliquidOrderProvider);
+      if (now == null ||
+          now.status != PendingHlOrderStatus.placing ||
+          DateTime.now().isAfter(until)) {
+        return null;
+      }
+      // Nothing signs behind the lock: the wait goes on.
+      if (!ref.read(sessionUnlockedProvider)) continue;
+      ref.invalidate(hyperliquidAccountProvider);
+      double available;
+      try {
+        final snap = await ref.read(hyperliquidAccountProvider.future);
+        available =
+            hypercoreAvailableUsdc(snap.withdrawable, snap.spotBalances);
+      } catch (_) {
+        continue;
+      }
+      final margin = placeableMargin(intent, available);
+      if (margin != null) {
+        pending.setReadiness(intent.market?.dex.isNotEmpty == true
+            ? HlReadiness.crediting
+            : HlReadiness.ready);
+        return margin;
+      }
+    }
+  }
+
   /// A confirmed pending order that did not fire. No amounts or ids.
   void _trackAutofireFailed(String reason, PendingHlOrderIntent intent,
       {Object? error}) {
@@ -468,8 +1270,82 @@ class PendingHlOrderAutoFire {
       'reason': reason,
       'kind': intent.kind.name,
       'coin': intent.coin,
-      if (error != null)
-        'error_category': TrackingService.errorCategory(error),
+      if (error != null) 'error_category': TrackingService.errorCategory(error),
+    });
+  }
+
+  /// The one `order_funding_completed` for an order Dollars funded: the
+  /// whole journey's timings, and whether it went out smaller.
+  void _trackFundingCompleted(PendingHlOrderIntent intent,
+      {required double margin,
+      required bool resized,
+      required DateTime placingAt,
+      DateTime? collateralReadyAt,
+      DateTime? dexCreditStartedAt}) {
+    final journey = OrderFundingJourney.instance;
+    final journeyFund =
+        journey.fundUsdOf(OneBalanceVenue.investing, startedBy: placingAt);
+    if (intent.fundUsd <= 0 && journeyFund == null) return;
+    final now = OrderFundingJourney.clock();
+    final fundedAt = intent.fundedAt;
+    final readyAt = collateralReadyAt ??
+        (intent.market?.dex.isNotEmpty == true ? null : placingAt);
+    TrackingService.track('order_funding_completed', params: {
+      'venue': 'hyperliquid',
+      'fund_usd': intent.fundUsd > 0 ? intent.fundUsd : journeyFund!,
+      'amount_usd': margin,
+      'ms_quote': intent.quoteMs,
+      'ms_fund': intent.fundMs,
+      if (fundedAt != null && readyAt != null)
+        'ms_credit':
+            readyAt.difference(fundedAt).inMilliseconds.clamp(0, 1 << 31),
+      if (readyAt != null)
+        'ms_order': now.difference(readyAt).inMilliseconds.clamp(0, 1 << 31),
+      if (dexCreditStartedAt != null && readyAt != null)
+        'ms_dex_credit': readyAt
+            .difference(dexCreditStartedAt)
+            .inMilliseconds
+            .clamp(0, 1 << 31),
+      'duration_ms': now.difference(intent.createdAt).inMilliseconds,
+      'resized': resized,
+      'order_kind': intent.orderKind,
+      if (intent.positionEffect != null)
+        'position_effect': intent.positionEffect!,
+      if (intent.fundingSource != null) 'funding_source': intent.fundingSource!,
+      ...OrderFundingJourney.bitcoinTimings(
+        sentAt: intent.bitcoinSentAt,
+        landedAt: intent.bitcoinLandedAt,
+        creditedAt: intent.fundingSource == null ? null : readyAt,
+        placedAt: intent.fundingSource == null ? null : now,
+      ),
+      ...journey.takeOutcomeParams(OneBalanceVenue.investing,
+          startedBy: placingAt),
+    });
+  }
+
+  /// `order_funding_failed` for an order Dollars funded that stopped
+  /// after the money left: at the credit wait or at the placement.
+  void _trackFundingFailed(PendingHlOrderIntent intent,
+      {required String stage,
+      Object? error,
+      String? reason,
+      DateTime? startedBy,
+      Map<String, Object> extra = const {}}) {
+    final journey = OrderFundingJourney.instance;
+    final bound = startedBy ?? intent.placingAt;
+    final journeyFund =
+        journey.fundUsdOf(OneBalanceVenue.investing, startedBy: bound);
+    if (intent.fundUsd <= 0 && journeyFund == null) return;
+    TrackingService.track('order_funding_failed', params: {
+      'venue': 'hyperliquid',
+      'fund_usd': intent.fundUsd > 0 ? intent.fundUsd : journeyFund!,
+      'stage': stage,
+      'error_category': reason ?? TrackingService.errorCategory(error),
+      'duration_ms': DateTime.now().difference(intent.createdAt).inMilliseconds,
+      'order_kind': intent.orderKind,
+      if (intent.fundingSource != null) 'funding_source': intent.fundingSource!,
+      ...journey.takeOutcomeParams(OneBalanceVenue.investing, startedBy: bound),
+      ...extra,
     });
   }
 
@@ -484,35 +1360,50 @@ class PendingHlOrderAutoFire {
   }
 
   /// Begin (or keep) the bounded balance poll while a deposit is in
-  /// flight. Idempotent — repeated _maybeFire calls won't stack timers.
+  /// flight: every second at first, every four seconds after
+  /// [kAwaitFastFor]. Idempotent — repeated _maybeFire calls won't stack
+  /// timers.
   void _startAwaitPolling() {
     if (_awaitPoll != null) return;
     _awaitStart = DateTime.now();
-    _awaitPoll = Timer.periodic(_kAwaitPollInterval, (_) {
-      final intent = ref.read(pendingHyperliquidOrderProvider);
-      if (intent == null ||
-          intent.status != PendingHlOrderStatus.awaitingBalance) {
-        _stopAwaitPolling();
-        return;
-      }
-      // Give up after a sane ceiling so a never-arriving deposit doesn't
-      // poll forever. The funds are safe on the exchange account
-      // regardless; surface an actionable failure so the user can retry
-      // (instant once the USDC is there).
-      final start = _awaitStart;
-      if (start != null &&
-          DateTime.now().difference(start) > _kAwaitMaxWait) {
-        _stopAwaitPolling();
-        _trackAutofireFailed('funds_timeout', intent);
-        ref.read(pendingHyperliquidOrderProvider.notifier).updateStatus(
-              PendingHlOrderStatus.failed,
-              errorMessage: l10nForLanguage(ref.read(settingsProvider).language)
-                  .hlFundsTimeout,
-            );
-        return;
-      }
-      unawaited(_maybeFire());
-    });
+    _scheduleTick();
+  }
+
+  void _scheduleTick() {
+    final start = _awaitStart;
+    if (start == null) return;
+    final elapsed = DateTime.now().difference(start);
+    final interval =
+        elapsed < kAwaitFastFor ? kAwaitFastInterval : kAwaitSlowInterval;
+    _awaitPoll = Timer(interval, _onTick);
+  }
+
+  void _onTick() {
+    _awaitPoll = null;
+    final intent = ref.read(pendingHyperliquidOrderProvider);
+    if (intent == null ||
+        intent.status != PendingHlOrderStatus.awaitingBalance) {
+      _stopAwaitPolling();
+      return;
+    }
+    // Give up after a sane ceiling so a never-arriving deposit doesn't
+    // poll forever. The funds are safe on the exchange account
+    // regardless (the sweeper brings them home); surface an actionable
+    // failure so the user can retry (instant once the USDC is there).
+    final start = _awaitStart;
+    if (start != null && DateTime.now().difference(start) > kAwaitMaxWait) {
+      _stopAwaitPolling();
+      _trackAutofireFailed('funds_timeout', intent);
+      _trackFundingFailed(intent, stage: 'credit', reason: 'timeout');
+      ref.read(pendingHyperliquidOrderProvider.notifier).updateStatus(
+            PendingHlOrderStatus.failed,
+            errorMessage: l10nForLanguage(ref.read(settingsProvider).language)
+                .hlFundsTimeout,
+          );
+      return;
+    }
+    _scheduleTick();
+    unawaited(_maybeFire());
   }
 
   void _stopAwaitPolling() {

@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kute/screens/shared/ask_sal_chip.dart' show AskSalChip;
+import 'package:kute/screens/shared/kute_dog_scenes.dart' show KuteDogGlance;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/affiliate_model.dart';
@@ -21,6 +23,10 @@ import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/services/polymarket/placement_waits.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/swap_orders_provider.dart';
+import 'package:kute/providers/usd_account_provider.dart'
+    show usdBalanceProvider;
+import 'package:kute/services/one_balance/predictions_venue_funder.dart'
+    show PredictionsVenueFunder;
 import 'package:kute/services/polymarket/polymarket_fee_terms.dart';
 import 'package:kute/screens/polymarket/components/bet_slip_sheet.dart';
 import 'package:kute/screens/polymarket/components/slip_chrome.dart';
@@ -62,7 +68,8 @@ class _SetupController extends PolymarketBetController {
   final Object error;
   var prepares = 0;
   @override
-  Future<PendingBetIntent> prepareIntent(PendingBetIntent intent) async {
+  Future<PendingBetIntent> prepareIntent(PendingBetIntent intent,
+      {bool requireFreshCollateral = false}) async {
     prepares++;
     throw error;
   }
@@ -74,7 +81,8 @@ class _RecordingController extends PolymarketBetController {
   _RecordingController(super.ref);
   final amounts = <double>[];
   @override
-  Future<PendingBetIntent> prepareIntent(PendingBetIntent intent) async {
+  Future<PendingBetIntent> prepareIntent(PendingBetIntent intent,
+      {bool requireFreshCollateral = false}) async {
     amounts.add(intent.amount);
     throw StateError('stopped by the test');
   }
@@ -108,6 +116,10 @@ Future<void> _pumpSlip(WidgetTester tester,
     // in; null opens empty like a plain tap does.
     double? initialAmountUsd = 10,
     String? ledgerWalletId,
+    // One balance: the spending account's Dollars. Zero, so a short bet
+    // shows the Dollars door ("Add $X to Investments") like the old
+    // deposit door did; a balance that covers the move shows the bet.
+    double dollars = 0,
     bool settle = true}) async {
   tester.view.physicalSize = Size(width, height);
   tester.view.devicePixelRatio = 1;
@@ -132,11 +144,12 @@ Future<void> _pumpSlip(WidgetTester tester,
       livePriceProvider.overrideWith(_Prices.new),
       polymarketOpenOrdersProvider.overrideWith((ref) => Stream.value(orders)),
       aiEnabledProvider.overrideWith((ref) async => false),
-      if (feeTerms != null) ...[
+      usdBalanceProvider.overrideWithValue(dollars),
+      // A fee figure (the venue's, the move's) formats through the app's
+      // rates, whose real notifier opens Hive.
+      currencyProvider.overrideWith((ref) => _Currency()),
+      if (feeTerms != null)
         polymarketFeeTermsProvider.overrideWith((ref, _) async => feeTerms),
-        // A fee figure formats through the app's rates.
-        currencyProvider.overrideWith((ref) => _Currency()),
-      ],
       ...extraOverrides,
     ],
     child: ScreenUtilInit(
@@ -213,7 +226,26 @@ Future<void> _release(
 }
 
 void main() {
-  setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
+  setUp(() {
+    GoogleFonts.config.allowRuntimeFetching = false;
+    // The short slip reads the venue's estimate for its "Move fee" row:
+    // a route keeping nothing, answered at once, never the network.
+    PredictionsVenueFunder.debugRouteShare = (_) async => 0;
+  });
+  tearDown(() => PredictionsVenueFunder.debugRouteShare = null);
+
+  testWidgets(
+      'the slip is the moment of decision: no Sal button, even with '
+      'Sal on', (tester) async {
+    await _pumpSlip(tester, extraOverrides: [
+      aiEnabledProvider.overrideWith((ref) async => true),
+    ]);
+    expect(find.text('Will it rain?'), findsWidgets);
+    expect(find.byType(AskSalChip), findsNothing);
+    expect(find.byType(KuteDogGlance), findsNothing);
+    expect(find.bySemanticsLabel('Ask Sal'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('simple slip keeps selection, amount, payout and fees visible',
       (tester) async {
@@ -297,14 +329,15 @@ void main() {
   testWidgets('empty Predictions balance offers deposit directly',
       (tester) async {
     await _pumpSlip(tester, balance: 0);
-    expect(find.text('Deposit to predict'), findsOneWidget);
+    expect(find.textContaining('to Investments'), findsOneWidget);
     expect(find.text('Max'), findsNothing);
     expect(find.text('Enter an amount'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
   group('a deposit into Predictions on its way', () {
-    Finder incoming() => find.byKey(const ValueKey('bet-slip-deposit-incoming'));
+    Finder incoming() =>
+        find.byKey(const ValueKey('bet-slip-deposit-incoming'));
     Finder door() => find.byKey(const ValueKey('bet-slip-deposit-door'));
 
     testWidgets('says Deposit incoming instead of offering a second deposit',
@@ -319,7 +352,9 @@ void main() {
       final cta = tester.widget<PolySlipCta>(incoming());
       expect(cta.enabled, isFalse);
       expect(cta.label, r'Deposit incoming · $20.00');
-      expect(find.text('Your money is on its way. This button unlocks when it lands.'),
+      expect(
+          find.text(
+              'Your money is on its way. This button unlocks when it lands.'),
           findsOneWidget);
       expect(find.text('Add more'), findsNothing);
       expect(tester.takeException(), isNull);
@@ -344,8 +379,8 @@ void main() {
       ]);
       await _pumpSlip(tester, balance: 0, swaps: swaps, settle: false);
       expect(incoming(), findsOneWidget);
-      expect(find.byKey(const ValueKey('slip-deposit-add-more')),
-          findsOneWidget);
+      expect(
+          find.byKey(const ValueKey('slip-deposit-add-more')), findsOneWidget);
       await _release(tester, policy);
     });
 
@@ -380,7 +415,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(incoming(), findsNothing);
       expect(door(), findsOneWidget);
-      expect(find.text("Your deposit didn't go through. You can deposit again."),
+      expect(
+          find.text("Your deposit didn't go through. You can deposit again."),
           findsOneWidget);
       expect(tester.takeException(), isNull);
       await _release(tester, policy);
@@ -412,7 +448,7 @@ void main() {
       expect(await policy.refresh(), isTrue);
       // $5 cannot cover the $10 default stake.
       await _pumpSlip(tester, balance: 5);
-      expect(door(tester).label, 'Deposit to predict');
+      expect(door(tester).label, startsWith(r'Add $'));
       expect(door(tester).enabled, isFalse);
       expect(find.text('This feature is currently unavailable in Kute.'),
           findsOneWidget);
@@ -559,8 +595,9 @@ void main() {
       'the minimum red while the stake is under it', (tester) async {
     final policy = await _allowEverything();
     await _pumpSlip(tester, balance: 60);
-    String typed() =>
-        tester.widget<BigAmountDisplay>(find.byType(BigAmountDisplay)).amountText;
+    String typed() => tester
+        .widget<BigAmountDisplay>(find.byType(BigAmountDisplay))
+        .amountText;
     final hero = find.byType(BigAmountDisplay);
     Finder infoLine() =>
         find.descendant(of: hero, matching: find.textContaining('Minimum '));
@@ -569,20 +606,18 @@ void main() {
             .children!
             .cast<TextSpan>()
             .singleWhere((s) => s.text!.startsWith('Minimum '));
-    final errorInk = Theme.of(tester.element(hero))
-        .extension<AppColorsExtension>()!
-        .error;
+    final errorInk =
+        Theme.of(tester.element(hero)).extension<AppColorsExtension>()!.error;
     bool placeEnabled() =>
         tester.widget<PolySlipCta>(find.byType(PolySlipCta)).enabled;
 
     // No Min, no full-width chip row: one Max, on the figure's row.
     expect(find.byType(AmountQuickChips), findsNothing);
     expect(find.text('Min'), findsNothing);
-    final max =
-        find.descendant(of: hero, matching: find.byType(AmountMaxChip));
+    final max = find.descendant(of: hero, matching: find.byType(AmountMaxChip));
     expect(max, findsOneWidget);
-    final figure = tester.getRect(
-        find.descendant(of: hero, matching: find.byType(FittedBox)));
+    final figure = tester
+        .getRect(find.descendant(of: hero, matching: find.byType(FittedBox)));
     expect(tester.getRect(max).center.dy, closeTo(figure.center.dy, 1));
     // One quiet line: the balance, then the market's minimum.
     expect(tester.widget<Text>(infoLine()).textSpan!.toPlainText(),
@@ -617,12 +652,10 @@ void main() {
     // A live read: a 3% curve and Kute's 20 bps taker rate.
     const terms = PolymarketFeeTerms(
         rate: 0.03, exponent: 1, builderTakerBps: 20, builderMakerBps: 0);
-    await _pumpSlip(tester,
-        feeTerms: terms,
-        outcomes: const [
-          PolymarketOutcome(name: 'Yes', price: 0.5, tokenId: 'yes-token'),
-          PolymarketOutcome(name: 'No', price: 0.5, tokenId: 'no-token'),
-        ]);
+    await _pumpSlip(tester, feeTerms: terms, outcomes: const [
+      PolymarketOutcome(name: 'Yes', price: 0.5, tokenId: 'yes-token'),
+      PolymarketOutcome(name: 'No', price: 0.5, tokenId: 'no-token'),
+    ]);
     await _typeOnKeypad(tester, '20');
 
     // $20 at the 50c live price is 40 shares: 40 × 0.03 × 0.5 × 0.5 =
@@ -669,7 +702,7 @@ void main() {
       await tester.pumpAndSettle();
       final scroll =
           find.byKey(const ValueKey('prediction-advanced-form-scroll'));
-      final action = find.text('Deposit to predict');
+      final action = find.textContaining('to Investments');
       final position = tester
           .state<ScrollableState>(find
               .descendant(of: scroll, matching: find.byType(Scrollable))
@@ -706,7 +739,8 @@ void main() {
     expect(position.maxScrollExtent, 0);
     final action = find
         .ancestor(
-            of: find.text('Deposit to predict'), matching: find.byType(InkWell))
+            of: find.textContaining('to Investments'),
+            matching: find.byType(InkWell))
         .first;
     expect(tester.getRect(action).bottom, closeTo(1600 - 16 * 1600 / 932, 1));
     expect(tester.takeException(), isNull);
@@ -853,7 +887,8 @@ void main() {
       expect(polySlipTitle('$same: ${same.toUpperCase()}.'),
           '${same.toUpperCase()}.');
       expect(polySlipTitle('Villena:  villena:   A vs B'), 'villena:   A vs B');
-      expect(polySlipTitle('Maestrelli vs Tarvet: Maestrelli vs Tarvet - Set 1'),
+      expect(
+          polySlipTitle('Maestrelli vs Tarvet: Maestrelli vs Tarvet - Set 1'),
           'Maestrelli vs Tarvet - Set 1');
       // A different question, or an event that is only a word prefix,
       // keeps the joined title.
@@ -907,8 +942,8 @@ void main() {
           name: 'No', price: 0.5, conditionId: 'cond-1', tokenId: '2'),
     ];
     // The CLOB's own floor for this market: 10 shares at 50c is $5.
-    final tenShares = polymarketMinOrderSizeProvider
-        .overrideWith((ref, _) async => 10.0);
+    final tenShares =
+        polymarketMinOrderSizeProvider.overrideWith((ref, _) async => 10.0);
 
     testWidgets('opens at zero and types from there, nothing to delete',
         (tester) async {
@@ -935,7 +970,8 @@ void main() {
       await _release(tester, policy);
     });
 
-    testWidgets('the button names the market\'s minimum and a tap places '
+    testWidgets(
+        'the button names the market\'s minimum and a tap places '
         'exactly it', (tester) async {
       final events = <(String, Map<String, Object?>?)>[];
       TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
@@ -947,8 +983,8 @@ void main() {
           outcomes: outcomes,
           extraOverrides: [
             tenShares,
-            polymarketBetControllerProvider.overrideWith(
-                (ref) => controller = _RecordingController(ref)),
+            polymarketBetControllerProvider
+                .overrideWith((ref) => controller = _RecordingController(ref)),
           ]);
       expect(find.text(r'$0'), findsOneWidget);
       expect(find.text(r'Available $100.00 · Minimum $5.00'), findsOneWidget);
@@ -977,15 +1013,17 @@ void main() {
       expect(cta(tester).label, r'Place $7.00 on Yes');
       expect(cta(tester).enabled, isTrue);
       await _typeOnKeypad(tester, '200');
-      expect(find.byKey(const ValueKey('bet-slip-deposit-door')),
-          findsOneWidget);
+      expect(
+          find.byKey(const ValueKey('bet-slip-deposit-door')), findsOneWidget);
       await _release(tester, policy);
     });
 
     testWidgets('an amount carried in still opens on it', (tester) async {
       final policy = await _allowEverything();
       await _pumpSlip(tester,
-          initialAmountUsd: 12, outcomes: outcomes, extraOverrides: [tenShares]);
+          initialAmountUsd: 12,
+          outcomes: outcomes,
+          extraOverrides: [tenShares]);
       expect(find.text(r'$12'), findsOneWidget);
       expect(cta(tester).label, r'Place $12.00 on Yes');
       await _release(tester, policy);
@@ -1015,8 +1053,9 @@ void main() {
       await _release(tester, policy);
     });
 
-    testWidgets('less available than the minimum still offers the minimum',
-        (tester) async {
+    testWidgets(
+        'less in Investments than the minimum: the one button says '
+        '"Add \$X to Investments", never the bet', (tester) async {
       final policy = await _allowEverything();
       await _pumpSlip(tester,
           balance: 3,
@@ -1024,9 +1063,12 @@ void main() {
           outcomes: outcomes,
           extraOverrides: [tenShares]);
       expect(find.text(r'$0'), findsOneWidget);
-      // The tap runs the placement, which offers the deposit it needs.
-      expect(cta(tester).label, r'Place $5.00 on Yes');
+      // Measured on the $5 minimum the empty slip would place: the $3
+      // there and no Dollars leave $2.48 (fees counted) to add.
+      expect(cta(tester).label, r'Add $2.48 to Investments');
       expect(cta(tester).enabled, isTrue);
+      expect(find.byType(PolySlipCta), findsOneWidget);
+      expect(find.textContaining('Place '), findsNothing);
       await _release(tester, policy);
     });
   });

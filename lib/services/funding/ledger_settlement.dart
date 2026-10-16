@@ -18,6 +18,7 @@
 //    persisted key, status polling, late deposits).
 
 import 'dart:async';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/models/affiliate_model.dart' show AffiliateService;
@@ -134,15 +135,24 @@ class LedgerSettlementRecords {
     DateTime Function()? clock,
     String Function()? newId,
     SettlementSubmitCall submit = sendSettlementSubmit,
+    List<Duration> submitRejectRetryDelays = kSettlementSubmitRejectRetryDelays,
+    Future<void> Function(Duration delay)? sleep,
+    SettlementOrderLookup? findOrder = lookupSettlementOrder,
   })  : _store = store ?? SettlementStore.shared,
         _clock = clock ?? DateTime.now,
         _newId = newId ?? OrchestraService.generateIdempotencyKey,
-        _submit = submit;
+        _submit = submit,
+        _rejectRetryDelays = submitRejectRetryDelays,
+        _sleep = sleep ?? Future<void>.delayed,
+        _findOrder = findOrder;
 
   final Future<SettlementStore> Function() _store;
   final DateTime Function() _clock;
   final String Function() _newId;
   final SettlementSubmitCall _submit;
+  final List<Duration> _rejectRetryDelays;
+  final Future<void> Function(Duration delay) _sleep;
+  final SettlementOrderLookup? _findOrder;
 
   final Map<String, Object> _leases = {};
 
@@ -372,8 +382,22 @@ class LedgerSettlementRecords {
       if (op.stage != SettlementStage.funded) {
         return (accepted: false, orderId: null);
       }
-      final result = await submitSettlementDeposit(store, op,
-          submit: _submit, clock: _clock);
+      if (settlementProofIsEvm(op)) {
+        // A source-chain proof's submit can take most of a minute while
+        // Flashnet verifies it, so it never holds the flow: it runs on in
+        // the background, holding the operation (the flow's own hold passes
+        // to it) so the reconciler does not submit it alongside.
+        TrackingService.settlementFundingRecorded(
+            flow: op.flow.code,
+            fundingKind: op.funding?.kind?.name ?? 'unknown');
+        final token =
+            _leases.remove(operationId) ?? store.acquireLease(operationId);
+        final running = _submitHeld(store, op, token);
+        _background.add(running);
+        unawaited(running.whenComplete(() => _background.remove(running)));
+        return (accepted: false, orderId: null);
+      }
+      final result = await _submitDeposit(store, op);
       final accepted = result.outcome == SubmitAttemptOutcome.accepted;
       TrackingService.settlementFundingRecorded(
           flow: op.flow.code, fundingKind: op.funding?.kind?.name ?? 'unknown');
@@ -382,6 +406,41 @@ class LedgerSettlementRecords {
       return (accepted: false, orderId: null);
     }
   }
+
+  // A refusal is resubmitted quickly with a new key (bounded), the same as
+  // the hot flows; signing is untouched.
+  Future<
+      ({
+        SettlementOperation op,
+        String? orderId,
+        SubmitAttemptOutcome outcome
+      })> _submitDeposit(SettlementStore store, SettlementOperation op) =>
+      submitSettlementDeposit(store, op,
+          submit: _submit,
+          clock: _clock,
+          rejectRetryDelays: _rejectRetryDelays,
+          sleep: _sleep,
+          findOrder: _findOrder);
+
+  /// The background submit of an EVM-sourced [op]; releases [token] (the
+  /// operation's hold) when it ends. Never throws.
+  Future<void> _submitHeld(
+      SettlementStore store, SettlementOperation op, Object? token) async {
+    try {
+      await _submitDeposit(store, op);
+    } catch (_) {
+      // Stays `funded`; the reconciler retries with the persisted key.
+    } finally {
+      if (token != null) store.releaseLease(op.operationId, token);
+    }
+  }
+
+  final Set<Future<void>> _background = {};
+
+  /// Completes when every background submit started so far has ended.
+  @visibleForTesting
+  Future<void> debugBackgroundSubmitsIdle() =>
+      Future.wait(List.of(_background));
 
   /// Ends an operation that never reached `broadcasting`: the signature (if
   /// any) was discarded and nothing was sent. A record that did reach it is

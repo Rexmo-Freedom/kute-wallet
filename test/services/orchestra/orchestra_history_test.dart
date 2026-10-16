@@ -8,6 +8,11 @@ import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/models/orchestra_model.dart';
 import 'package:kute/services/api/orchestra_api.dart';
 import 'package:kute/services/orchestra/orchestra_history.dart';
+import 'package:kute/services/security/address_guard.dart'
+    show sparkIdentityPubkeyHex;
+import 'package:kute/handlers/response_handlers.dart';
+
+import '../../helpers/fake_network.dart';
 
 const _spark =
     'spark1pgss93sy072yrmtad5cy2srwjhq8ekzuw78yhr808jn6htqfh9w8p8h9mfwlv9';
@@ -51,7 +56,7 @@ void main() {
 
   test('queries private recipient history and parses the provider envelope',
       () async {
-    final result = await http.runWithClient(
+    final result = await withFakeNetwork(
       () => OrchestraService.getHistory(_spark),
       () => MockClient((request) async {
         expect(request.url.host, 'backend.test');
@@ -76,7 +81,7 @@ void main() {
       {'orders': <Object>[]},
       <Object>[],
     ]) {
-      final result = await http.runWithClient(
+      final result = await withFakeNetwork(
         () => OrchestraService.getHistory(_spark),
         () => MockClient((_) async => http.Response(jsonEncode(payload), 200)),
       );
@@ -96,7 +101,7 @@ void main() {
       http.Response('{"error":"unavailable"}', 503),
     ]) {
       var calls = 0;
-      final result = await http.runWithClient(
+      final result = await withFakeNetwork(
         () => OrchestraService.getHistory(_spark),
         () => MockClient((request) async {
           calls++;
@@ -108,6 +113,69 @@ void main() {
       expect(result.error, isNotNull);
       expect(calls, 1, reason: 'No public fallback for private history');
     }
+  });
+
+  group('recipient of another wallet', () {
+    // A session token for the wallet that owns [_spark].
+    String sessionFor(String spark) {
+      final key = sparkIdentityPubkeyHex(spark)!;
+      return '${base64Url.encode(utf8.encode('$key|1|4102444800'))}.sig';
+    }
+
+    setUp(OrchestraService.debugResetHistoryRecipients);
+    tearDown(OrchestraService.debugResetHistoryRecipients);
+
+    test('both spellings carry one identity key, another wallet another', () {
+      expect(sparkIdentityPubkeyHex(_spark), hasLength(66));
+      expect(sparkIdentityPubkeyHex(_legacySpark), sparkIdentityPubkeyHex(_spark));
+      expect(sparkIdentityPubkeyHex(_otherSpark),
+          isNot(sparkIdentityPubkeyHex(_spark)));
+      expect(sparkIdentityPubkeyHex('a'), isNull);
+    });
+
+    test('is refused without a request; the own address is still read',
+        () async {
+      AffiliateService.debugSessionToken = sessionFor(_spark);
+      final asked = <String>[];
+      Future<Result<List<OrchestraOrder>>> read(String address) =>
+          withFakeNetwork(
+            () => OrchestraService.getHistory(address),
+            () => MockClient((request) async {
+              asked.add(request.url.queryParameters['address']!);
+              return http.Response('{"orders":[]}', 200);
+            }),
+          );
+
+      final foreign = await read(_otherSpark);
+      expect(foreign.data, isNull);
+      expect(foreign.statusCode, 403);
+      expect(foreign.errorCode, OrchestraService.historyNotSessionRecipient);
+
+      expect((await read(_spark)).data, isEmpty);
+      expect((await read(_legacySpark)).data, isEmpty);
+      expect(asked, [_spark, _legacySpark]);
+    });
+
+    test('a backend 403 is never asked again for the same session', () async {
+      AffiliateService.debugSessionToken = sessionFor(_spark);
+      var calls = 0;
+      Future<Result<List<OrchestraOrder>>> read() => withFakeNetwork(
+            () => OrchestraService.getHistory(_spark),
+            () => MockClient((_) async {
+              calls++;
+              return http.Response(
+                  '{"error":"recipient does not belong to wallet"}', 403);
+            }),
+          );
+
+      for (var i = 0; i < 3; i++) {
+        final result = await read();
+        expect(result.data, isNull);
+        expect(result.statusCode, 403);
+        expect(result.errorCode, OrchestraService.historyNotSessionRecipient);
+      }
+      expect(calls, 1);
+    });
   });
 
   test('accepts the exact deposit route with equivalent address encodings', () {

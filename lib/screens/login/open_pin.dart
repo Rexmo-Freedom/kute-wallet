@@ -2,14 +2,7 @@ import 'dart:async';
 import 'package:kute/services/secure/storage_bootstrap.dart';
 import 'package:kute/screens/recovery/restore_secrets_screen.dart';
 import 'package:kute/services/secure/recovery_check.dart';
-import 'package:kute/services/secure/recovery_evm_format.dart';
-import 'package:kute/models/evm_derivation_version.dart';
-import 'package:kute/providers/hyperliquid_account_provider.dart'
-    show hyperliquidAddressProvider;
-import 'package:kute/providers/hyperliquid_trading_provider.dart'
-    show hyperliquidTradingProvider;
-import 'package:kute/services/hyperliquid/hyperliquid_onboarding_service.dart';
-import 'package:kute/services/venue_total_cache_service.dart';
+import 'package:kute/helpers/evm_format_settle.dart';
 import 'package:kute/helpers/pin_attempt_guard.dart';
 import 'package:kute/helpers/privacy_cover_bridge.dart';
 import 'package:kute/helpers/session_auth.dart';
@@ -192,6 +185,11 @@ class _OpenPinState extends ConsumerState<OpenPin>
 
     try {
       final authModel = AuthModel();
+      // Evaluated before the PIN check: a match re-saves old copies the
+      // store could not read (`checkPin`), and the policy below must still
+      // see the wallet as it was, so a kept `biometric_pin` stays and the
+      // typed PIN refreshes it. The next cold start evaluates afresh.
+      final dependency = await _v1Dependency();
       // Async variant runs PBKDF2 on a background isolate so the UI
       // thread isn't blocked between the 6th digit and the home screen.
       final check = await authModel.checkPin(pin);
@@ -200,7 +198,6 @@ class _OpenPinState extends ConsumerState<OpenPin>
         final typedPin = pin;
         await _guard.recordSuccess();
         await authModel.recoverPendingPinChange(typedPin);
-        final dependency = await _v1Dependency();
         await BiometricPinPolicy()
             .applyAfterUnlock(dependency, typedPin: typedPin);
 
@@ -374,13 +371,15 @@ class _OpenPinState extends ConsumerState<OpenPin>
         }
       }
     } catch (e) {
-      _trackBiometricFailed(
-          e is PlatformException ? e.code : e.runtimeType.toString());
+      // local_auth 3 throws a LocalAuthException for a dismissed prompt
+      // too; the helper files that as a cancel, not a failure. The PIN
+      // screen is already showing either way.
+      TrackingService.biometricPromptThrew(e, surface: 'cold_start');
     }
   }
 
   /// `biometric_failed` with this screen as the surface. [reason] is a
-  /// platform error code or a policy refusal name, scrubbed.
+  /// policy refusal name, scrubbed.
   void _trackBiometricFailed(String reason) {
     TrackingService.track('biometric_failed', params: {
       'reason': TrackingService.safeReason(reason) ?? 'unknown',
@@ -396,22 +395,10 @@ class _OpenPinState extends ConsumerState<OpenPin>
     final settings = container.read(settingsProvider);
     final wallets = settings.wallets;
     // A phrase recovery whose EVM format check could not finish retries it
-    // first, so provisioning below sees the wallet's settled format.
+    // first, on the same bounded schedule a restore uses in its own
+    // session; provisioning below waits while it is still pending.
     if (wallets.any((w) => w.evmFormatCheckPending)) {
-      Future.delayed(const Duration(seconds: 1), () async {
-        try {
-          await RecoveryEvmFormat.retryPending(
-            settings: container.read(settingsProvider.notifier),
-            wallets: wallets,
-            readMnemonic: (walletId) => AuthModel().getMnemonic(walletId,
-                access: SeedAccess.automatic,
-                session: container.read(seedSessionProvider)),
-            onAdopted: (walletId, mnemonic, {required hyperliquidActive}) =>
-                _afterEvmFormatAdopted(container, walletId, mnemonic,
-                    hyperliquidActive: hyperliquidActive),
-          );
-        } catch (_) {}
-      });
+      EvmFormatSettle.schedule(container);
     }
     final active = settings.activeWallet;
     if (active != null) {
@@ -428,7 +415,8 @@ class _OpenPinState extends ConsumerState<OpenPin>
             provisionPolymarketAccount(
                 mnemonic: mnemonic,
                 walletId: wallet.id,
-                evmDerivationVersion: wallet.evmDerivationVersion);
+                evmDerivationVersion: wallet.evmDerivationVersion,
+                evmFormatPending: wallet.evmFormatCheckPending);
           }
         } catch (_) {}
       });
@@ -448,29 +436,6 @@ class _OpenPinState extends ConsumerState<OpenPin>
     }
   }
 
-  /// A recovered wallet just moved to its legacy EVM account: drop the
-  /// venue caches built for the old account, rebuild what derived it, and
-  /// set Predictions up for the new one.
-  static Future<void> _afterEvmFormatAdopted(
-    ProviderContainer container,
-    String walletId,
-    String mnemonic, {
-    required bool hyperliquidActive,
-  }) async {
-    await forgetPolymarketAccountCache(walletId);
-    await VenueTotalCacheService.deleteWallet(walletId);
-    if (hyperliquidActive) {
-      await HyperliquidOnboardingService.markEnabled(walletId);
-    }
-    container
-      ..invalidate(polymarketTradingProvider)
-      ..invalidate(hyperliquidTradingProvider)
-      ..invalidate(hyperliquidAddressProvider);
-    unawaited(provisionPolymarketAccount(
-        mnemonic: mnemonic,
-        walletId: walletId,
-        evmDerivationVersion: EvmDerivationVersion.legacySha256));
-  }
 
   void _unlockApp(BuildContext context, WidgetRef ref,
       {String method = 'pin'}) {

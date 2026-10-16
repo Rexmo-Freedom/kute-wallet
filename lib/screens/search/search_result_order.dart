@@ -1,11 +1,13 @@
 // The order search results are shown in, kept apart from the sheet so it
 // can be tested without a widget tree.
 //
-// Within a section the market the person named comes first: an exact
-// ticker or name ("btc" puts the BTC market on top), then names that start
-// with what was typed, then the rest. Investing keeps the venue order
-// within each step (already by volume); Predictions puts a game in play
-// first and then the most traded. The order only depends on the results
+// Investing puts the market the person named first: an exact ticker or
+// name ("btc" puts the BTC market on top), then names that start with what
+// was typed, then the rest, the venue order (already by volume) kept within
+// each step. Predictions is ordered like polymarket.com: a game in play
+// first, then the most traded (the event's total volume), the venue's
+// relevance order for ties; no title re-ranking, Gamma already matched the
+// titles and the candidate names. The order only depends on the results
 // themselves, so a list never reshuffles while it is on screen.
 
 import 'package:kute/models/polymarket_model.dart';
@@ -55,30 +57,18 @@ List<HlMarketSearchResult> rankInvestingResults(
   return [for (final e in indexed) e.$2];
 }
 
-/// Predictions hits, a market whose title is (or starts with) the query
-/// first; then a game in play ([isLive], the live feed's view; the event's
-/// own in-play flag without it), then the most traded.
-List<T> rankPredictionResults<T>(
-    String query, List<T> results, PolymarketEvent Function(T) eventOf,
+/// Predictions hits: a game in play first ([isLive], the live feed's view;
+/// the event's own in-play flag without it), then the most traded (the
+/// event's total volume), the list's own order for ties.
+List<T> rankPredictionResults<T>(List<T> results,
+    PolymarketEvent Function(T) eventOf,
     {bool Function(T)? isLive}) {
   bool live(T r) => isLive?.call(r) ?? eventOf(r).isInPlay;
-  final q = _norm(query);
-  int tierOf(T r) {
-    final e = eventOf(r);
-    final title = _norm(e.title);
-    if (q.isNotEmpty && title == q) return 0;
-    if (q.isNotEmpty && title.startsWith(q)) return 1;
-    return 2;
-  }
-
   final indexed = results.indexed.toList()
     ..sort((a, b) {
-      final ta = tierOf(a.$2), tb = tierOf(b.$2);
-      if (ta != tb) return ta.compareTo(tb);
       final la = live(a.$2), lb = live(b.$2);
       if (la != lb) return la ? -1 : 1;
-      final ea = eventOf(a.$2), eb = eventOf(b.$2);
-      final v = eb.volume.compareTo(ea.volume);
+      final v = eventOf(b.$2).volume.compareTo(eventOf(a.$2).volume);
       return v != 0 ? v : a.$1.compareTo(b.$1);
     });
   return [for (final e in indexed) e.$2];

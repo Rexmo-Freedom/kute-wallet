@@ -20,15 +20,22 @@
 //   ping        → bare string "ping"
 //
 //   incoming    → JSON object OR JSON array of objects, each with
-//                 `event_type` ∈ {"book","price_change","last_trade_price"}
-//                 Strings "pong" come back from heartbeats.
+//                 `event_type` ∈ {"book","price_change","last_trade_price",
+//                 "tick_size_change"}. Strings "pong" come back from
+//                 heartbeats.
+//
+// Every book and level change also lands in [PolymarketLiveBooks], the
+// latest book per token, which the bet slip quotes and prices from.
 
 import 'dart:async';
 import 'dart:convert';
 import 'dart:isolate';
 
 import 'package:flutter/foundation.dart';
+import 'package:kute/services/polymarket/market_terms_store.dart';
 import 'package:kute/services/tracking_service.dart';
+import 'package:polybrainz_polymarket/polybrainz_polymarket.dart'
+    show OrderBook, OrderSummary;
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 /// Debug-only tap into the market WS. Flip [_kPmWsDebug] off (or just ship
@@ -302,6 +309,207 @@ class PolymarketLastTradePriceMessage extends PolymarketWsMessage {
   }
 }
 
+/// `tick_size_change` event — the market's price increment moved (the
+/// step changes near 0 and 1: 0.01 above 4¢ and under 96¢, 0.001 past
+/// them). The saved increment an order is signed with follows it.
+class PolymarketTickSizeChangeMessage extends PolymarketWsMessage {
+  final String oldTickSize;
+  final String newTickSize;
+
+  const PolymarketTickSizeChangeMessage({
+    required super.assetId,
+    required super.market,
+    required super.timestamp,
+    required this.oldTickSize,
+    required this.newTickSize,
+  });
+
+  factory PolymarketTickSizeChangeMessage.fromJson(Map<String, dynamic> json) {
+    return PolymarketTickSizeChangeMessage(
+      assetId: json['asset_id'] as String?,
+      market: json['market'] as String?,
+      timestamp: _asInt(json['timestamp']),
+      oldTickSize: json['old_tick_size']?.toString() ?? '',
+      newTickSize: json['new_tick_size']?.toString() ?? '',
+    );
+  }
+}
+
+/// The latest order book the market feed delivered for one token, kept
+/// current by the `price_change` level mutations that follow it.
+class PolymarketLiveBook {
+  PolymarketLiveBook._(this.assetId, this._bids, this._asks, this.updatedAt);
+
+  final String assetId;
+
+  /// price → size, every level the venue reports for sale / wanted.
+  final Map<double, double> _bids, _asks;
+
+  /// When the last frame for this token (a book or a level change) arrived.
+  DateTime updatedAt;
+
+  Iterable<PolymarketOrderSummary> get bids => _bids.entries
+      .map((e) => PolymarketOrderSummary(price: e.key, size: e.value));
+  Iterable<PolymarketOrderSummary> get asks => _asks.entries
+      .map((e) => PolymarketOrderSummary(price: e.key, size: e.value));
+
+  double? get bestAsk => _asks.isEmpty
+      ? null
+      : _asks.keys.reduce((a, b) => a < b ? a : b);
+  double? get bestBid => _bids.isEmpty
+      ? null
+      : _bids.keys.reduce((a, b) => a > b ? a : b);
+
+  /// This snapshot as the REST book shape the quote is built from, with
+  /// the market's [tickSize] and [negRisk] (the feed carries neither;
+  /// they come from [PolymarketMarketTermsStore]). Asks cheapest first,
+  /// bids dearest first, as `parsePolymarketOrderBook` orders them.
+  OrderBook toOrderBook({required String tickSize, required bool negRisk}) {
+    List<OrderSummary> levels(Map<double, double> source, {required bool asks}) {
+      final entries = source.entries
+          .where((e) =>
+              e.key.isFinite &&
+              e.key > 0 &&
+              e.key < 1 &&
+              e.value.isFinite &&
+              e.value > 0)
+          .toList()
+        ..sort((a, b) =>
+            asks ? a.key.compareTo(b.key) : b.key.compareTo(a.key));
+      return [
+        for (final e in entries)
+          OrderSummary(price: '${e.key}', size: '${e.value}'),
+      ];
+    }
+
+    return OrderBook(
+      market: '',
+      assetId: assetId,
+      timestamp: '${updatedAt.millisecondsSinceEpoch}',
+      hash: '',
+      bids: levels(_bids, asks: false),
+      asks: levels(_asks, asks: true),
+      minTickSize: tickSize,
+      minOrderSize: null,
+      negRisk: negRisk,
+    );
+  }
+}
+
+/// The market feed's latest book per token, shared by every market
+/// socket in the app, so a quote and the send-time price check read the
+/// book the slip is already streaming instead of asking the REST API.
+///
+/// A snapshot counts as current while frames for its token keep coming,
+/// or while a socket subscribed to the token is alive (any frame or
+/// heartbeat answer within [maxAge]): a quiet market sends nothing, but
+/// its book has not changed either. A socket that closes takes its
+/// tokens' currency with it; the snapshot stays for the next one.
+class PolymarketLiveBooks {
+  PolymarketLiveBooks._() {
+    PolymarketMarketTermsStore.feedIsCurrent = (id) => isCurrent(id);
+  }
+  static PolymarketLiveBooks instance = PolymarketLiveBooks._();
+
+  final Map<String, PolymarketLiveBook> _books = {};
+
+  /// The last trade the feed reported per token: what Polymarket shows for
+  /// a book wider than 10¢ ([lastTrade]).
+  final Map<String, double> _lastTrades = {};
+  final Map<PolymarketClobWebSocket, DateTime> _socketSeenAt = {};
+  DateTime Function() clock = DateTime.now;
+
+  /// The default age past which a snapshot without feed activity is not
+  /// trusted for an order.
+  static const Duration freshFor = Duration(seconds: 5);
+
+  @visibleForTesting
+  void reset() {
+    _books.clear();
+    _lastTrades.clear();
+    _socketSeenAt.clear();
+    clock = DateTime.now;
+    PolymarketMarketTermsStore.feedIsCurrent = (id) => isCurrent(id);
+  }
+
+  /// A frame (any token, or a heartbeat answer) reached [socket].
+  void heartbeat(PolymarketClobWebSocket socket) {
+    if (!socket.isConnected) return;
+    _socketSeenAt[socket] = clock();
+  }
+
+  void forget(PolymarketClobWebSocket socket) => _socketSeenAt.remove(socket);
+
+  /// Records what [msg] says about a token's book or increment.
+  void apply(PolymarketWsMessage msg) {
+    if (msg is PolymarketBookMessage) {
+      final id = msg.assetId;
+      if (id == null || id.isEmpty) return;
+      _books[id] = PolymarketLiveBook._(
+        id,
+        {for (final l in msg.bids) l.price: l.size},
+        {for (final l in msg.asks) l.price: l.size},
+        clock(),
+      );
+    } else if (msg is PolymarketPriceChangeMessage) {
+      for (final change in msg.priceChanges) {
+        final book = _books[change.assetId];
+        if (book == null) continue;
+        final side = change.isBid ? book._bids : book._asks;
+        if (change.size <= 0) {
+          side.remove(change.price);
+        } else {
+          side[change.price] = change.size;
+        }
+        book.updatedAt = clock();
+      }
+    } else if (msg is PolymarketLastTradePriceMessage) {
+      final id = msg.assetId;
+      final p = msg.price;
+      if (id != null && id.isNotEmpty && p.isFinite && p > 0 && p < 1) {
+        _lastTrades[id] = p;
+      }
+    } else if (msg is PolymarketTickSizeChangeMessage) {
+      final id = msg.assetId;
+      if (id != null && id.isNotEmpty && msg.newTickSize.isNotEmpty) {
+        PolymarketMarketTermsStore.saveTickSize(id, msg.newTickSize);
+      }
+    }
+  }
+
+  /// The latest snapshot for [tokenId], current or not.
+  PolymarketLiveBook? latest(String tokenId) => _books[tokenId];
+
+  /// The last trade the feed reported for [tokenId], strictly inside
+  /// (0, 1); null before the first one.
+  double? lastTrade(String tokenId) => _lastTrades[tokenId];
+
+  /// Whether the feed is current for [tokenId]: a frame for it, or any
+  /// frame on a socket subscribed to it, within [maxAge].
+  bool isCurrent(String tokenId, {Duration maxAge = freshFor}) {
+    final book = _books[tokenId];
+    if (book == null) return false;
+    final now = clock();
+    if (now.difference(book.updatedAt) <= maxAge) return true;
+    for (final entry in _socketSeenAt.entries) {
+      if (entry.key.isConnected &&
+          entry.key._subscribed.contains(tokenId) &&
+          now.difference(entry.value) <= maxAge) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// The current snapshot for [tokenId], or null when the feed has none
+  /// young enough (the caller then reads the REST book).
+  PolymarketLiveBook? snapshot(String tokenId, {Duration maxAge = freshFor}) =>
+      isCurrent(tokenId, maxAge: maxAge) ? _books[tokenId] : null;
+
+  @visibleForTesting
+  void debugSeed(PolymarketBookMessage book) => apply(book);
+}
+
 int? _asInt(dynamic v) {
   if (v == null) return null;
   if (v is int) return v;
@@ -388,6 +596,7 @@ class PolymarketClobWebSocket {
       }
       _channel = ch;
       _reconnectAttempts = 0;
+      PolymarketLiveBooks.instance.heartbeat(this);
       _connectionState.add(PolymarketClobWsState.connected);
       _wsLog('connected → $url');
       _startHeartbeat();
@@ -519,6 +728,7 @@ class PolymarketClobWebSocket {
   int _decoding = 0;
 
   void _handleFrame(dynamic data) {
+    PolymarketLiveBooks.instance.heartbeat(this);
     if (data == 'pong') return;
     if (data is! String) return;
     if (_decoding == 0 && data.length < _kOffThreadFrameBytes) {
@@ -539,6 +749,7 @@ class PolymarketClobWebSocket {
   void _emitAll(List<PolymarketWsMessage> messages) {
     for (final msg in messages) {
       if (kDebugMode && _kPmWsDebug) _wsLog('← ${msg.runtimeType}');
+      PolymarketLiveBooks.instance.apply(msg);
       if (!_messages.isClosed) _messages.add(msg);
     }
   }
@@ -588,6 +799,7 @@ class PolymarketClobWebSocket {
   }
 
   Future<void> _cleanup() async {
+    PolymarketLiveBooks.instance.forget(this);
     _heartbeatTimer?.cancel();
     _heartbeatTimer = null;
     _reconnectTimer?.cancel();
@@ -649,6 +861,8 @@ PolymarketWsMessage? _messageOf(Map<String, dynamic> json) {
       return PolymarketOrderWsMessage.fromJson(json);
     case 'trade':
       return PolymarketTradeWsMessage.fromJson(json);
+    case 'tick_size_change':
+      return PolymarketTickSizeChangeMessage.fromJson(json);
   }
   return null;
 }

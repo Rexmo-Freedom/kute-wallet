@@ -9,6 +9,16 @@
 // sits transparent and tonal. Three or fewer selectable pills share
 // the row at equal widths; longer strips (and link rows, which have no
 // selection) side-scroll at natural width with fade edges.
+//
+// Rows are never stacked (owner decision 2026-10-13: "I loved the
+// pills"): a category row whose category has subcategories drills in,
+// the row giving way to a back pill ("‹ Tradfi") and the subcategory
+// pills, all in this one boxed chip (see PolyDrillRow). Every pill is
+// announced as a button with its selection (a link row's never), keeps
+// a 44 pt hit target wherever its row is [kutePillRowHeight] tall, and
+// eases its chrome over 180 ms (at once under Reduce Motion).
+
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -20,8 +30,48 @@ class KutePillItem {
   final String label;
   final IconData? icon;
 
-  const KutePillItem({required this.label, this.icon});
+  /// A small image before the label (a venue's logo), at the label's
+  /// height; see [KutePill.leading].
+  final Widget? leading;
+
+  const KutePillItem({required this.label, this.icon, this.leading});
 }
+
+/// A pill's size: the row's height, the pill's padding, its label and
+/// its glyph, in design units (scaled with ScreenUtil where used).
+/// [regular] is every strip's size; the Investments pills are [large] on
+/// the page and [compact] in its collapsed bar, the same chrome a step
+/// up and a step down. [compact] went up one notch (founder, 2026-10-13:
+/// "just a little bit bigger"): 12 sp labels, 14 glyphs, 32 high, still
+/// under [regular] and [large].
+enum KutePillSize {
+  compact(height: 32, hPad: 11, vPad: 7, font: 12, icon: 14),
+  regular(height: 34, hPad: 14, vPad: 9, font: 13, icon: 15),
+  large(height: 40, hPad: 12, vPad: 11, font: 14, icon: 16);
+
+  const KutePillSize({
+    required this.height,
+    required this.hPad,
+    required this.vPad,
+    required this.font,
+    required this.icon,
+  });
+
+  /// The row's height.
+  final double height;
+
+  /// The pill's horizontal padding: a minimum inset for the equal-width
+  /// pills, the whole inset for a natural-width one.
+  final double hPad;
+  final double vPad;
+  final double font;
+  final double icon;
+}
+
+/// The height of a row that gives each of its pills a 44 pt hit target
+/// (the chip keeps its [KutePillSize] height, centred in it), at every
+/// screen size (scaled up on large screens, never down).
+double kutePillRowHeight() => math.max(44.0, 44.h);
 
 /// A single pill. [selected] picks the card chrome (white/surface fill,
 /// hairline border, bold label) over the quiet tonal treatment; link
@@ -37,6 +87,16 @@ class KutePill extends StatelessWidget {
   final bool fillWidth;
   final VoidCallback onTap;
 
+  final KutePillSize size;
+
+  /// A link (a row with no selection, every pill drawn selected): screen
+  /// readers hear a button, never "selected".
+  final bool link;
+
+  /// What screen readers hear instead of [label] (the back pill: "Back,
+  /// Tradfi"); null reads the label.
+  final String? semanticLabel;
+
   const KutePill({
     super.key,
     required this.label,
@@ -45,6 +105,9 @@ class KutePill extends StatelessWidget {
     this.icon,
     this.leading,
     this.fillWidth = false,
+    this.size = KutePillSize.regular,
+    this.link = false,
+    this.semanticLabel,
   });
 
   @override
@@ -52,72 +115,97 @@ class KutePill extends StatelessWidget {
     final c = context.colors;
     final isLight = Theme.of(context).brightness == Brightness.light;
     final fg = selected ? c.textPrimary : c.textTertiary;
+    final duration = kuteMotion(context, const Duration(milliseconds: 180));
+    // Merged onto the inherited style: AnimatedDefaultTextStyle replaces
+    // it, and would drop the theme's Inter for the platform font.
+    final textStyle = DefaultTextStyle.of(context).style.merge(TextStyle(
+          fontSize: size.font.sp,
+          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+          color: fg,
+          letterSpacing: 0.1,
+          height: 1.0,
+        ));
 
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: kuteMotion(context, const Duration(milliseconds: 180)),
-        curve: Curves.easeOut,
-        padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 9.h),
-        decoration: BoxDecoration(
+    final chip = AnimatedContainer(
+      duration: duration,
+      curve: Curves.easeOut,
+      padding:
+          EdgeInsets.symmetric(horizontal: size.hPad.w, vertical: size.vPad.h),
+      decoration: BoxDecoration(
+        color: selected
+            ? (isLight ? Colors.white : c.surface)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(
           color: selected
-              ? (isLight ? Colors.white : c.surface)
+              ? (isLight ? c.border : c.borderSubtle)
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(12.r),
-          border: Border.all(
-            color: selected
-                ? (isLight ? c.border : c.borderSubtle)
-                : Colors.transparent,
-            width: isLight ? 1.0 : 0.5,
-          ),
-          boxShadow: selected && isLight
-              ? [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
-                    blurRadius: 10,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : null,
+          width: isLight ? 1.0 : 0.5,
         ),
-        child: Row(
-          mainAxisSize: fillWidth ? MainAxisSize.max : MainAxisSize.min,
-          mainAxisAlignment:
-              fillWidth ? MainAxisAlignment.center : MainAxisAlignment.start,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            if (icon != null) ...[
-              Icon(icon, size: 15.sp, color: fg),
-              SizedBox(width: 6.w),
-            ],
-            if (leading != null) ...[
-              leading!,
-              SizedBox(width: 6.w),
-            ],
-            Flexible(
+        boxShadow: selected && isLight
+            ? [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ]
+            : null,
+      ),
+      child: Row(
+        mainAxisSize: fillWidth ? MainAxisSize.max : MainAxisSize.min,
+        mainAxisAlignment:
+            fillWidth ? MainAxisAlignment.center : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: size.icon.sp, color: fg),
+            SizedBox(width: 6.w),
+          ],
+          if (leading != null) ...[
+            leading!,
+            SizedBox(width: 6.w),
+          ],
+          Flexible(
+            child: AnimatedDefaultTextStyle(
+              duration: duration,
+              curve: Curves.easeOut,
+              style: textStyle,
               child: Text(
                 label,
+                semanticsLabel: semanticLabel,
                 maxLines: 1,
                 overflow: TextOverflow.clip,
                 softWrap: false,
-                style: TextStyle(
-                  fontSize: 13.sp,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                  color: fg,
-                  letterSpacing: 0.1,
-                  height: 1.0,
-                ),
               ),
             ),
-          ],
+          ),
+        ],
+      ),
+    );
+
+    return Semantics(
+      button: true,
+      selected: link ? null : selected,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        // The tap reaches 44 pt wherever the row gives it the room
+        // ([kutePillRowHeight]); the chip keeps its own size, centred.
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+          child: Align(
+            widthFactor: fillWidth ? null : 1,
+            heightFactor: 1,
+            child: chip,
+          ),
         ),
       ),
     );
   }
 }
 
-/// A 34.h row of [KutePill]s.
+/// A row of [KutePill]s, 34.h tall at the regular [size].
 ///
 /// With a [selectedIndex] the row behaves as tabs: up to three pills
 /// share the width equally, more side-scroll. With `selectedIndex: null`
@@ -131,12 +219,21 @@ class KutePillTabs extends StatefulWidget {
   /// Horizontal inset of the row's content (also the scroll padding).
   final double horizontalPadding;
 
+  /// The pills' size (see [KutePillSize]).
+  final KutePillSize size;
+
+  /// The row's height when it is not the [size]'s own: a row given
+  /// [kutePillRowHeight] gives each pill a 44 pt hit target.
+  final double? height;
+
   const KutePillTabs({
     super.key,
     required this.items,
     required this.onTap,
     this.selectedIndex,
     this.horizontalPadding = 4,
+    this.size = KutePillSize.regular,
+    this.height,
   });
 
   @override
@@ -185,6 +282,9 @@ class _KutePillTabsState extends State<KutePillTabs> {
     final c = context.colors;
     final items = widget.items;
     final pad = widget.horizontalPadding.w;
+    final link = widget.selectedIndex == null;
+    final gap = 6.w;
+    final height = widget.height ?? widget.size.height.h;
 
     // Tabs with three or fewer entries fit comfortably in one row: give
     // each equal width so they're evenly spaced. Four or more truncated
@@ -192,7 +292,7 @@ class _KutePillTabsState extends State<KutePillTabs> {
     // strips side-scroll at natural width instead.
     if (widget.selectedIndex != null && items.length <= 3) {
       return SizedBox(
-        height: 34.h,
+        height: height,
         child: Padding(
           padding: EdgeInsets.symmetric(horizontal: pad),
           child: Row(
@@ -202,12 +302,14 @@ class _KutePillTabsState extends State<KutePillTabs> {
                   child: KutePill(
                     label: items[i].label,
                     icon: items[i].icon,
+                    leading: items[i].leading,
                     selected: _isSelected(i),
                     fillWidth: true,
+                    size: widget.size,
                     onTap: () => widget.onTap(i),
                   ),
                 ),
-                if (i < items.length - 1) SizedBox(width: 6.w),
+                if (i < items.length - 1) SizedBox(width: gap),
               ],
             ],
           ),
@@ -238,7 +340,7 @@ class _KutePillTabsState extends State<KutePillTabs> {
         );
 
     return SizedBox(
-      height: 34.h,
+      height: height,
       child: Stack(
         children: [
           ListView.separated(
@@ -247,11 +349,14 @@ class _KutePillTabsState extends State<KutePillTabs> {
             physics: const BouncingScrollPhysics(),
             padding: EdgeInsets.symmetric(horizontal: pad),
             itemCount: items.length,
-            separatorBuilder: (_, __) => SizedBox(width: 6.w),
+            separatorBuilder: (_, __) => SizedBox(width: gap),
             itemBuilder: (context, i) => KutePill(
               label: items[i].label,
               icon: items[i].icon,
+              leading: items[i].leading,
               selected: _isSelected(i),
+              size: widget.size,
+              link: link,
               onTap: () => widget.onTap(i),
             ),
           ),

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import 'package:kute/constants/hyperliquid_constants.dart';
+import 'package:kute/services/http/shared_http_client.dart';
 import 'package:kute/services/security/address_guard.dart';
 
 // Orchestra identifies its native HyperCore route with a zero placeholder.
@@ -38,12 +39,12 @@ Future<void> verifyHypercoreUsdcMetadata({http.Client? client}) async {
 Future<Object?> _hypercorePublicPost(Uri uri, Map<String, Object> value,
     {http.Client? client}) async {
   final body = jsonEncode(value);
-  final response = await (client == null
-          ? http.post(uri,
-              headers: {'content-type': 'application/json'}, body: body)
-          : client.post(uri,
-              headers: {'content-type': 'application/json'}, body: body))
-      .timeout(const Duration(seconds: 12));
+  final response = await SharedHttpClient.post(uri,
+      headers: {'content-type': 'application/json'},
+      body: body,
+      kind: HttpCallKind.userAction,
+      timeout: const Duration(seconds: 12),
+      client: client);
   if (response.statusCode != 200) {
     throw StateError('Native transfer lookup unavailable');
   }

@@ -1,44 +1,58 @@
 // lib/screens/polymarket/components/poly_chart_tags.dart
 //
-// The right-edge value tags of a Predictions chart (market_chart.dart):
-// where each sits and what it says. Each line ends in a pill in its own
-// colour reading the outcome's short name and its chance ("Sakatsume
-// 72.5%", "Yes 18%"), so a chart with several lines reads without matching
-// colours to the list under it. The pills keep one column at the plot's
-// right edge (never spread sideways over the lines) and the shared tag
-// rule (kute_chart_tag_layout.dart) keeps them apart.
+// The value tags of a Predictions chart (market_chart.dart): where each
+// sits and what it says. Each line ends in a pill in its own colour
+// reading the outcome's short name and its chance ("Sakatsume 72.5%",
+// "Yes 18%"), so a chart with several lines reads without matching colours
+// to the list under it.
 //
-// Where lines end close together:
-//   * the pills never overlap each other and never sit on another line's
-//     end dot: the dots of lines that end together are one wall, and their
-//     pills stack above and under it, the higher lines' above, each as
-//     close to its own line's end as the others allow, all inside the plot
-//     (a stack near the top or the bottom goes to the side with room);
-//   * three or more pills in one stack would hide the ends of those lines
-//     behind a block of names, so there each pill may be at most a tenth
-//     of the plot wider than its bare chance: the names are cut short, and
-//     when a name would keep fewer than [kPolyTagMinNameChars] letters the
-//     stack writes the chances alone (the list under the chart names
-//     every line in its colour);
+// The pills keep a column of their own at the chart's right, past the
+// end of the lines ([polyTagStyle]): the lines stop short of it, so no
+// pill ever covers a line. The column is there only while the pills are:
+// panned back in time it eases shut and the lines take the chart's full
+// width (market_chart.dart). It is as wide as the widest pill the
+// chart can write (its name and the widest chance, "99.55%"), and never
+// more than [kPolyTagMaxGutterShare] of the chart:
+//   * a name is the outcome's short name ([polyChartShortName]); one that
+//     reads as a market question ("Will Flávio Bolsonaro win the 2026
+//     Brazilian presidential election?") writes the candidate it is about;
+//     two lines whose short names read the same write their whole names,
+//     or the first name as an initial ("F. Bolsonaro", "M. Bolsonaro");
+//   * a name that does not fit drops its leading words ("Inácio Lula da
+//     Silva" -> "Lula da Silva"), then the column's font steps down
+//     ([kPolyTagFontSizes]), and a name that fits at none of them is left
+//     out: that pill writes its chance alone (the list under the chart
+//     names every line in its colour). A pill's text is never cut.
+//
+// Where lines end close together the shared tag rule
+// (kute_chart_tag_layout.dart) keeps the pills apart:
+//   * the pills never overlap each other and never sit level with another
+//     line's end dot: the dots of lines that end together are one wall,
+//     and their pills stack above and under it, the higher lines' above,
+//     each as close to its own line's end as the others allow, all inside
+//     the plot (a stack near the top or the bottom goes to the side with
+//     room);
 //   * when the column cannot hold every tag near its line, the least
 //     likely lines lose theirs first: never a pile of pills.
-// Any one pill is at most [kPolyTagMaxWidthShare] of the plot wide; a
-// longer name ends in an ellipsis.
 
 import 'dart:math' as math;
 
 import 'package:kute/screens/shared/charts/kute_chart_tag_layout.dart';
 
-/// The widest a value tag may be, as a share of the plot's width.
-const double kPolyTagMaxWidthShare = 0.45;
+/// The widest the tag column may be, as a share of the chart's width.
+const double kPolyTagMaxGutterShare = 0.34;
 
-/// How much wider than its bare chance a pill in a stack of three or more
-/// may be, as a share of the plot's width.
-const double kPolyTagStackExtraShare = 0.10;
+/// The font sizes the tags may be written in, largest first: the column
+/// steps down through them before a name is left out.
+const List<double> kPolyTagFontSizes = [10.5, 10.0, 9.5, 9.0];
 
-/// The fewest letters of a name a cut-short pill keeps; with fewer, the
-/// stack writes its chances alone.
-const int kPolyTagMinNameChars = 4;
+/// The room between a line's end (its dot) and its pill.
+const double kPolyTagLead = 8;
+
+/// The widest chance a tag writes (two decimals over 99%: "99.55%"): the
+/// column is sized for it, so a pill never outgrows the column as the
+/// price moves.
+const String kPolyTagPctTemplate = '00.00%';
 
 /// The most tags one chart draws.
 const int kPolyTagMaxTags = 5;
@@ -47,16 +61,127 @@ const int kPolyTagMaxTags = 5;
 /// heights; a tag that would be pushed further reads as another line's.
 const double kPolyTagMaxShift = 2.0;
 
+/// The verbs a "Will (candidate) (verb) …?" market question goes on with
+/// after the candidate's name.
+const Set<String> _kQuestionVerbs = {
+  'advance', 'announce', 'appear', 'attend', 'be', 'beat', 'become',
+  'close', 'come', 'defeat', 'drop', 'end', 'endorse', 'face', 'fall',
+  'finish', 'get', 'go', 'have', 'hit', 'hold', 'join', 'land', 'launch',
+  'lead', 'leave', 'lose', 'make', 'meet', 'move', 'pass', 'place',
+  'qualify', 'reach', 'receive', 'release', 'remain', 'resign', 'return',
+  'rise', 'run', 'say', 'score', 'sign', 'stay', 'top', 'visit', 'win',
+};
+
+/// The outcome a chart line stands for, as a name: [label] itself or,
+/// when it is a market question ("Will Flávio Bolsonaro win the 2026
+/// Brazilian presidential election?"), the candidate it asks about
+/// ("Flávio Bolsonaro"); '' for a question that names none.
+String polyChartOutcomeName(String label) {
+  final trimmed = label.trim();
+  if (!trimmed.endsWith('?')) return trimmed;
+  final words = trimmed.split(RegExp(r'\s+'));
+  if (words.length < 3 || words.first.toLowerCase() != 'will') return '';
+  for (var i = 2; i < words.length && i <= 7; i++) {
+    if (_kQuestionVerbs.contains(words[i].toLowerCase())) {
+      return words.sublist(1, i).join(' ');
+    }
+  }
+  return '';
+}
+
 /// An outcome's name as the chart's own labels write it short: a name of
 /// up to twelve characters as it is ("Draw", "Yes", "Real Madrid"), a
 /// longer one without its first word, which for a person is the surname
 /// ("Himeno Sakatsume" -> "Sakatsume", "Los Angeles Lakers" -> "Angeles
-/// Lakers"). Not cut to a width: the painter does that.
+/// Lakers"). A market question writes the candidate it asks about
+/// ([polyChartOutcomeName]). Not fitted to a width: [polyTagStyle] does
+/// that.
 String polyChartShortName(String label) {
-  final trimmed = label.trim();
+  final trimmed = polyChartOutcomeName(label);
   if (trimmed.length <= 12) return trimmed;
   final words = trimmed.split(RegExp(r'\s+'));
   return words.length > 1 ? words.sublist(1).join(' ') : trimmed;
+}
+
+/// How a chart writes its value tags: the [fontSize] of every pill, the
+/// width of the tag column at the chart's right ([gutter], from the end
+/// of the lines to the chart's edge) and the name each line's pill writes
+/// ([names], in the order of the labels given; '' writes the chance
+/// alone).
+typedef PolyTagStyle = ({double fontSize, double gutter, List<String> names});
+
+/// The tag column for lines labelled [labels] on a chart [width] wide.
+/// [measure] is the width of a text at a font size; [padH] a pill's
+/// padding each side; [minGutter] the least the lines stop short of the
+/// chart's edge. See the file comment.
+PolyTagStyle polyTagStyle({
+  required List<String> labels,
+  required double width,
+  required double Function(String text, double fontSize) measure,
+  double padH = 5,
+  double minGutter = 12,
+}) {
+  final minFont = kPolyTagFontSizes.last;
+  final maxPill = width * kPolyTagMaxGutterShare - kPolyTagLead;
+  double need(String name, double fs) =>
+      measure(name.isEmpty ? kPolyTagPctTemplate : '$name $kPolyTagPctTemplate',
+          fs) +
+      padH * 2;
+
+  // The short names; two that read the same write their whole names.
+  final shorts = [for (final l in labels) polyChartShortName(l)];
+  final count = <String, int>{};
+  for (final n in shorts) {
+    if (n.isEmpty) continue;
+    count.update(n.toLowerCase(), (c) => c + 1, ifAbsent: () => 1);
+  }
+  final names = <String>[
+    for (var i = 0; i < labels.length; i++)
+      (shorts[i].isNotEmpty && count[shorts[i].toLowerCase()]! > 1
+              ? _wholeNames(polyChartOutcomeName(labels[i]))
+              : _shorterNames(shorts[i]))
+          .firstWhere((c) => need(c, minFont) <= maxPill, orElse: () => ''),
+  ];
+
+  final fontSize = kPolyTagFontSizes.firstWhere(
+      (fs) => names.every((n) => need(n, fs) <= maxPill),
+      orElse: () => minFont);
+  var pill = need('', fontSize);
+  for (final n in names) {
+    pill = math.max(pill, need(n, fontSize));
+  }
+  return (
+    fontSize: fontSize,
+    gutter: math.max(minGutter, pill + kPolyTagLead),
+    names: names,
+  );
+}
+
+/// [name], then the same without its leading words, one at a time
+/// ("Inácio Lula da Silva", "Lula da Silva", "Silva"), skipping those that
+/// would start on a lowercase particle ("da Silva").
+List<String> _shorterNames(String name) {
+  if (name.isEmpty) return const [''];
+  final words = name.split(RegExp(r'\s+'));
+  return [
+    name,
+    for (var i = 1; i < words.length; i++)
+      if (words[i].isNotEmpty && words[i][0] != words[i][0].toLowerCase())
+        words.sublist(i).join(' '),
+  ];
+}
+
+/// A whole [name] that must stay told apart from another line's: as it
+/// is, then with its first word as an initial ("Flávio Bolsonaro", "F.
+/// Bolsonaro").
+List<String> _wholeNames(String name) {
+  final words = name.split(RegExp(r'\s+'));
+  if (words.length < 2 || words.first.isEmpty) return [name];
+  return [
+    name,
+    '${String.fromCharCode(words.first.runes.first)}. '
+        '${words.sublist(1).join(' ')}',
+  ];
 }
 
 /// One line's end, as the tag layout reads it: the [y] of its end on the
@@ -74,12 +199,13 @@ typedef PolyTagPlacement = ({
 });
 
 /// The value tags for [lines] (each line whose end is on screen) on a
-/// plot [plotWidth] wide and [drawH] tall, with pills [tagHeight] tall.
-/// [measure] is the width of a pill's text; [padH] the pill's padding
-/// each side; [dotRadius] the end dot's. See the file comment.
+/// plot [drawH] tall, with pills [tagHeight] tall and at most [maxWidth]
+/// wide (the tag column's, [polyTagStyle]). [measure] is the width of a
+/// pill's text; [padH] the pill's padding each side; [dotRadius] the end
+/// dot's. See the file comment.
 List<PolyTagPlacement> polyLayoutValueTags({
   required List<PolyTagLine> lines,
-  required double plotWidth,
+  required double maxWidth,
   required double drawH,
   required double tagHeight,
   required double Function(String text) measure,
@@ -87,7 +213,7 @@ List<PolyTagPlacement> polyLayoutValueTags({
   double dotRadius = 4,
   double gap = 2,
 }) {
-  if (lines.isEmpty || drawH <= tagHeight || plotWidth <= 0) return const [];
+  if (lines.isEmpty || drawH <= tagHeight || maxWidth <= 0) return const [];
   // The more likely lines first; equal ones in the order given.
   final byPrice = [for (var i = 0; i < lines.length; i++) i]
     ..sort((a, b) {
@@ -108,11 +234,9 @@ List<PolyTagPlacement> polyLayoutValueTags({
     return _texts(
       lines: lines,
       tops: tops,
-      plotWidth: plotWidth,
-      h: tagHeight,
+      maxWidth: maxWidth,
       measure: measure,
       padH: padH,
-      gap: gap,
     );
   }
   return const [];
@@ -225,86 +349,31 @@ Map<int, double>? _place({
   return out;
 }
 
-/// What each placed tag writes, and its width. See the file comment.
+/// What each placed tag writes, and its width: its name and chance when
+/// that fits in [maxWidth], its chance alone otherwise. Never cut.
 List<PolyTagPlacement> _texts({
   required List<PolyTagLine> lines,
   required Map<int, double> tops,
-  required double plotWidth,
-  required double h,
+  required double maxWidth,
   required double Function(String text) measure,
   required double padH,
-  required double gap,
 }) {
   final placed = tops.entries.toList()
     ..sort((a, b) => a.value.compareTo(b.value));
-  // Stacks: pills less than a pill's height apart (against each other,
-  // or either side of the dots they were moved off).
-  final runs = <List<int>>[];
-  final touch = h + gap;
-  double? lastBottom;
-  for (final e in placed) {
-    if (lastBottom != null && e.value - lastBottom <= touch) {
-      runs.last.add(e.key);
-    } else {
-      runs.add([e.key]);
-    }
-    lastBottom = e.value + h;
-  }
-
-  final maxW = plotWidth * kPolyTagMaxWidthShare;
   final out = <PolyTagPlacement>[];
-  for (final run in runs) {
-    final stacked = run.length >= 3;
-    final texts = <int, String>{};
-    var bare = false;
-    for (final i in run) {
-      final pct = lines[i].pct;
-      final name = lines[i].name.trim();
-      final pctW = measure(pct) + padH * 2;
-      final cap = stacked
-          ? math.min(maxW, pctW + plotWidth * kPolyTagStackExtraShare)
-          : maxW;
-      final fitted = name.isEmpty ? null : _fit(name, pct, cap - padH * 2, measure);
-      if (name.isNotEmpty && fitted == null) {
-        if (stacked) bare = true;
-        texts[i] = pct;
-      } else {
-        texts[i] = fitted ?? pct;
-      }
-    }
-    for (final i in run) {
-      final text = bare ? lines[i].pct : texts[i]!;
-      out.add((
-        index: i,
-        top: tops[i]!,
-        text: text,
-        width: measure(text) + padH * 2,
-      ));
-    }
+  for (final e in placed) {
+    final line = lines[e.key];
+    final name = line.name.trim();
+    final whole = '$name ${line.pct}';
+    final text = name.isNotEmpty && measure(whole) + padH * 2 <= maxWidth + 0.01
+        ? whole
+        : line.pct;
+    out.add((
+      index: e.key,
+      top: e.value,
+      text: text,
+      width: measure(text) + padH * 2,
+    ));
   }
   return out;
-}
-
-/// "[name] [pct]" within [maxW], the name cut short with an ellipsis when
-/// it must be; null when fewer than [kPolyTagMinNameChars] of its letters
-/// would be left.
-String? _fit(String name, String pct, double maxW,
-    double Function(String text) measure) {
-  final whole = '$name $pct';
-  if (measure(whole) <= maxW) return whole;
-  final chars = name.runes.toList();
-  var lo = kPolyTagMinNameChars, hi = chars.length - 1;
-  String? best;
-  while (lo <= hi) {
-    final mid = (lo + hi) >> 1;
-    final cut = String.fromCharCodes(chars.take(mid)).trimRight();
-    final t = '$cut… $pct';
-    if (measure(t) <= maxW) {
-      best = t;
-      lo = mid + 1;
-    } else {
-      hi = mid - 1;
-    }
-  }
-  return best;
 }

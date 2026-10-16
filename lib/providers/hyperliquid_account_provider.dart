@@ -10,6 +10,10 @@ import 'package:kute/models/settings_model.dart' show Settings;
 // pill.
 //
 // Polling cadence (mirrors PolymarketTradingNotifier._adjustRefreshRate):
+//   - 4 s while a HyperCore deposit is in flight (an Orchestra row still
+//     pending into HYPERCORE for this wallet), so the credit shows within
+//     one short poll of landing; back to the cadence below once the row
+//     settles;
 //   - 5 s while positions are open OR an order placement is in flight —
 //     the position cards animate PnL each tick via RollingNumberText;
 //   - 15 s idle — a flat account only needs a heartbeat.
@@ -26,12 +30,14 @@ import 'package:kute/models/settings_model.dart' show Settings;
 
 import 'dart:async';
 
-import 'package:flutter/foundation.dart' show setEquals;
+import 'package:flutter/foundation.dart' show setEquals, visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:kute/models/hyperliquid_market.dart';
+import 'package:kute/services/hyperliquid/hyperliquid_account_cache.dart';
 import 'package:kute/providers/auth_provider.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
+import 'package:kute/providers/pending_pool_deposits_provider.dart';
 import 'package:kute/providers/placing_hyperliquid_order_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
@@ -172,9 +178,32 @@ final hyperliquidAddressProvider = FutureProvider<String?>((ref) async {
 
 // ───────────────────────── account snapshot ─────────────────────────
 
+/// Poll interval while a HyperCore deposit is pending (spec: 3–5 s).
+const int kHlDepositPendingIntervalSecs = 4;
+
+/// Poll interval with open positions or a placement in flight.
+const int kHlActiveIntervalSecs = 5;
+
+/// Poll interval with spot tokens held (their value moves) or before the
+/// first snapshot has loaded (a failed first read retries on it).
+const int kHlIdleIntervalSecs = 15;
+
+/// The cadence an account holding nothing gets: no periodic read at all
+/// (founder, 2026-10-13: "no open positions on a venue → no polling for
+/// it"). Its cash changes only through events that read it themselves: a
+/// fill (userFills invalidates this provider), a deposit (the pending
+/// cadence above), a funding move or sweep landing and a close (the
+/// one-balance live refresh). The sweeper's free-USDC badge poll is
+/// separate and stays.
+const int kHlNoPollIntervalSecs = 0;
+
 class HlAccountNotifier extends AutoDisposeAsyncNotifier<HlAccountSnapshot> {
   Timer? _timer;
-  int _currentIntervalSecs = 15;
+  int _currentIntervalSecs = kHlIdleIntervalSecs;
+
+  /// Test-only: the cadence currently in force, seconds.
+  @visibleForTesting
+  int get debugIntervalSecs => _currentIntervalSecs;
   bool _disposed = false;
   String? _address;
 
@@ -198,6 +227,16 @@ class HlAccountNotifier extends AutoDisposeAsyncNotifier<HlAccountSnapshot> {
         unawaited(_silentRefresh());
       }
     });
+    // A deposit on its way into HyperCore drops the poll to 4 s until the
+    // Orchestra row settles (the background sync flips it), so the credit
+    // lands on screen within one short poll. A new pending deposit also
+    // forces a tick straight away.
+    ref.listen(pendingTradingDepositUsdProvider, (prev, next) {
+      _applyCadence();
+      if ((prev ?? 0) <= 0 && next > 0) {
+        unawaited(_silentRefresh());
+      }
+    });
 
     final address = await ref.watch(hyperliquidAddressProvider.future);
     _address = address;
@@ -211,29 +250,51 @@ class HlAccountNotifier extends AutoDisposeAsyncNotifier<HlAccountSnapshot> {
     final snap = await model.getPortfolioSnapshot(address);
     _reconcilePlacements(snap);
     _publishPositions(snap);
+    // The first snapshot is in: an account holding nothing stops polling.
+    _applyCadence(snap);
     return snap;
   }
 
   int _targetIntervalSecs(HlAccountSnapshot? snap) {
+    final depositPending = _depositPending();
+    if (depositPending) return kHlDepositPendingIntervalSecs;
     final placing = ref.read(placingHyperliquidOrderProvider).isNotEmpty;
     final hasPositions = (snap?.positions.isNotEmpty ?? false);
-    return (placing || hasPositions) ? 5 : 15;
+    if (placing || hasPositions) return kHlActiveIntervalSecs;
+    // Not loaded yet: keep the retry tick. Spot tokens held: their value
+    // moves, keep the idle read. Nothing held: no poll.
+    if (snap == null) return kHlIdleIntervalSecs;
+    final holdsSpot =
+        snap.spotBalances.any((b) => b.coin != 'USDC' && b.total > 0);
+    return holdsSpot ? kHlIdleIntervalSecs : kHlNoPollIntervalSecs;
   }
 
-  void _applyCadence() {
+  bool _depositPending() {
+    try {
+      return ref.read(pendingTradingDepositUsdProvider) > 0;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  void _applyCadence([HlAccountSnapshot? snap]) {
     if (_disposed) return;
-    final target = _targetIntervalSecs(state.valueOrNull);
-    if (target == _currentIntervalSecs && _timer != null) return;
+    final target = _targetIntervalSecs(snap ?? state.valueOrNull);
+    if (target == _currentIntervalSecs && (_timer != null) == (target > 0)) {
+      return;
+    }
     _currentIntervalSecs = target;
     _startTimer();
   }
 
   void _startTimer() {
     _timer?.cancel();
-    _timer = Timer.periodic(
-      Duration(seconds: _currentIntervalSecs),
-      (_) => _silentRefresh(),
-    );
+    _timer = _currentIntervalSecs <= 0
+        ? null
+        : Timer.periodic(
+            Duration(seconds: _currentIntervalSecs),
+            (_) => _silentRefresh(),
+          );
   }
 
   Future<void> _silentRefresh() async {
@@ -292,6 +353,48 @@ final hyperliquidAccountProvider =
   HlAccountNotifier.new,
 );
 
+/// Separate from execution: cached account figures may only feed display.
+final hyperliquidDisplayCacheKeyProvider = Provider<String?>((ref) {
+  final identity = ref.watch(settingsProvider.select(_spendingEvmIdentity));
+  if (identity.$1 == null) return null;
+  return '${identity.$1}:${identity.$2?.storageValue}';
+});
+
+/// Retains known balances and positions across refreshes and app runs.
+/// A failed read never replaces the cache; a successful empty response does.
+final hyperliquidDisplayAccountProvider =
+    Provider.autoDispose<AsyncValue<HlAccountSnapshot>>((ref) {
+  final key = ref.watch(hyperliquidDisplayCacheKeyProvider);
+  if (key == null) return const AsyncLoading();
+  return ref.watch(hyperliquidDisplayAccountSnapshotProvider(key));
+});
+
+/// A family keeps Riverpod's previous-data retention inside this wallet's
+/// identity; switching wallets must never expose the previous wallet's rows.
+final hyperliquidDisplayAccountSnapshotProvider = FutureProvider.autoDispose
+    .family<HlAccountSnapshot, String>((ref, key) async {
+  final fresh = ref.watch(hyperliquidAccountProvider);
+  final resolved = ref.watch(hyperliquidAddressProvider);
+  final address = resolved.valueOrNull;
+  if (!fresh.isLoading &&
+      !fresh.hasError &&
+      !resolved.isLoading &&
+      address != null &&
+      fresh.hasValue) {
+    final snapshot = fresh.requireValue;
+    unawaited(HyperliquidAccountCache.write(
+        key, HlCachedAccount(address: address, snapshot: snapshot)));
+    return snapshot;
+  }
+  final cached = await HyperliquidAccountCache.open(key);
+  if (cached != null &&
+      (address == null ||
+          cached.address.toLowerCase() == address.toLowerCase())) {
+    return cached.snapshot;
+  }
+  return ref.watch(hyperliquidAccountProvider.future);
+});
+
 // ───────────────────────── derived views ─────────────────────────
 
 /// Open perp positions (empty while loading / on error / flat account).
@@ -338,6 +441,11 @@ class HlOpenPositionsCountNotifier extends Notifier<int> {
     return 0;
   }
 
+  /// One tick now, for a pull-to-refresh (`refresh_everything_provider`):
+  /// the once-flag, the free USDC and the held positions read again
+  /// without waiting for the 60 s poll.
+  Future<void> refreshNow() => _tick();
+
   Future<void> _tick() async {
     if (_fetching) return;
     _fetching = true;
@@ -376,6 +484,10 @@ class HlOpenPositionsCountNotifier extends Notifier<int> {
 
       final model = ref.read(hyperliquidTradingModelProvider);
       final snap = await model.getPortfolioSnapshot(address);
+      unawaited(HyperliquidAccountCache.write(
+        '${spending.id}:${spending.evmDerivationVersion.storageValue}',
+        HlCachedAccount(address: address, snapshot: snap),
+      ));
       final spotHoldings = snap.spotBalances
           .where((b) => b.coin != 'USDC' && b.total > 0)
           .length;
@@ -404,10 +516,12 @@ class HlOpenPositionsCountNotifier extends Notifier<int> {
   }
 }
 
-/// Open perp positions + non-USDC spot holdings, for the home pill's
-/// Trading badge. NOT autoDispose — the pill watches it permanently —
-/// and deliberately independent of [hyperliquidAccountProvider] so
-/// mounting the pill never spins up the full trading stack: its own
+/// Open perp positions + non-USDC spot holdings. NOT autoDispose — the
+/// venue sweeper listens to it for the whole session (it is what fills
+/// [hyperliquidProvisionedProvider] and [hyperliquidFreeUsdcProvider],
+/// whatever browse/trade/deposit the policy allows) — and deliberately
+/// independent of [hyperliquidAccountProvider] so keeping it alive
+/// never spins up the full trading stack: its own
 /// 60 s poll only touches the network for wallets that have actually
 /// provisioned Hyperliquid (see the once-flag gate in [_tick]).
 final hyperliquidOpenPositionsCountProvider =

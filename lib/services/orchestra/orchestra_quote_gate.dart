@@ -130,6 +130,7 @@ class OrchestraQuoteGate {
           deliveryMode: request.deliveryMode,
           slippageBps: slippageBps,
           idempotencyKey: key,
+          tag: request.tag,
         );
 
     final Result<OrchestraQuote> result;

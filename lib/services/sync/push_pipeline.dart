@@ -11,10 +11,12 @@
 //      attach time (e.g. session not yet unlocked, connect() still
 //      in flight). Without retry, an unlock-time race would leave
 //      the wallet "offline" forever.
-//   3. Push cache writes — the Spark BTC balance — that fire
-//      unconditionally on every event. These are what make incoming
-//      Lightning feel instant on the home tile, regardless of the
-//      user's current screen.
+//   3. Nothing on the live balance path. The spending wallet's
+//      bitcoin follows the SDK wrapper's readings inside
+//      `walletBalanceCacheProvider` itself, for the whole session, so
+//      this pipeline's restarts (wallet switch, resume, reconnect)
+//      never leave a reading undelivered. What stays here is the
+//      receive catch-up below and the one-shot read on attach.
 //   4. A debounced "the tx list might have changed" trigger that
 //      is delegated back to the orchestrator (currently
 //      [BackgroundSyncService]) via a callback. Debounce coalesces
@@ -39,6 +41,7 @@ import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/models/transactions_model.dart';
 import 'package:kute/models/breez/deposit_update.dart';
+import 'package:kute/models/breez/shared_sync.dart';
 import 'package:kute/providers/address_provider.dart';
 import 'package:kute/providers/balance_provider.dart';
 import 'package:kute/providers/breez_config_provider.dart';
@@ -208,14 +211,11 @@ class PushPipeline implements SyncPipeline {
   int _depositRevision = 0;
   Timer? _retryTimer;
   Timer? _syncDebounce;
-  Timer? _syncedBalanceRead;
   int _retryAttempt = 0;
   int _generation = 0;
 
   static const Duration _syncDebounceWindow = Duration(milliseconds: 500);
 
-  /// Coalesces a burst of SDK `synced` events into one balance read.
-  static const Duration _syncedReadDebounce = Duration(seconds: 1);
   static const int _maxBackoffShift = 5; // 1, 2, 4, 8, 16, 32 s ceiling
 
   /// Hashed deposit references ([TrackingService.orderRef] of
@@ -252,8 +252,6 @@ class PushPipeline implements SyncPipeline {
     _receivesSubscription = null;
     _receivesCatchUp?.dispose();
     _receivesCatchUp = null;
-    _syncedBalanceRead?.cancel();
-    _syncedBalanceRead = null;
     _retryTimer?.cancel();
     _retryTimer = null;
     _syncDebounce?.cancel();
@@ -288,8 +286,6 @@ class PushPipeline implements SyncPipeline {
     _receivesSubscription = null;
     _receivesCatchUp?.dispose();
     _receivesCatchUp = null;
-    _syncedBalanceRead?.cancel();
-    _syncedBalanceRead = null;
     _retryTimer?.cancel();
     _retryTimer = null;
 
@@ -310,7 +306,8 @@ class PushPipeline implements SyncPipeline {
         return;
       }
       if (walletId == null ||
-          walletId != pickSpendingWallet(container.read(settingsProvider))?.id) {
+          walletId !=
+              pickSpendingWallet(container.read(settingsProvider))?.id) {
         _scheduleRetry(gen);
         return;
       }
@@ -319,8 +316,7 @@ class PushPipeline implements SyncPipeline {
           _container != null &&
           _generation == gen &&
           identical(sdkWrapper.instance, sdk) &&
-          walletId ==
-              pickSpendingWallet(container.read(settingsProvider))?.id;
+          walletId == pickSpendingWallet(container.read(settingsProvider))?.id;
       // The wrapper streams outlive a reconnect this pipeline did not start.
       // Events from a replaced handle trigger exactly one re-attach.
       var reattachScheduled = false;
@@ -420,35 +416,13 @@ class PushPipeline implements SyncPipeline {
 
       final cacheNotifier = container.read(walletBalanceCacheProvider.notifier);
 
-      // After each SDK sync, re-read the bitcoin balance too. The sync
-      // rewrites the SDK's cached figure from its leaves, but raises no
-      // event the app re-reads on: before this, only payment events and
-      // the 2 s poll (which runs on the sync routes only) re-read it, so
-      // a receive that arrived through a sync stayed off the balance on
-      // any other screen. Debounced so a burst of syncs is one read;
-      // applied as a poll read, so the stream-freshness and zero guards
-      // still apply.
-      Future<void> readBalanceAfterSync() async {
-        try {
-          final info = await sdk.getInfo(
-              request: const breez.GetInfoRequest(ensureSynced: false));
-          if (!isCurrent()) return;
-          cacheNotifier.updateSparkBitcoinbalance(
-              walletId, info.balanceSats.toInt(),
-              source: BalanceSource.poll);
-        } catch (_) {
-          // The next sync, payment event or poll reads again.
-        }
-      }
-
+      // The bitcoin balance after each SDK sync is read and published by
+      // the SDK wrapper itself (every subscriber follows it); the pending
+      // deposits are re-read here.
       _syncedSubscription = sdkWrapper.syncedStream.listen(
         (_) {
           if (!followsSdk()) return;
           unawaited(hydrateDeposits());
-          _syncedBalanceRead?.cancel();
-          _syncedBalanceRead = Timer(_syncedReadDebounce, () {
-            if (isCurrent()) unawaited(readBalanceAfterSync());
-          });
         },
         onError: (_) {},
       );
@@ -459,8 +433,7 @@ class PushPipeline implements SyncPipeline {
                 request: const breez.GetInfoRequest(ensureSynced: false)))
             .balanceSats
             .toInt(),
-        syncWallet: () =>
-            sdk.syncWallet(request: const breez.SyncWalletRequest()),
+        syncWallet: () => sharedSyncWallet(sdk),
         currentSats: () => cacheNotifier.sparkSdkSats(walletId),
         raisedAt: () => cacheNotifier.sparkSdkRaisedAt(walletId),
         publish: (sats) {
@@ -503,28 +476,32 @@ class PushPipeline implements SyncPipeline {
       // transient reconnect 0 (or a mid-reconcile dip) can never lower a
       // good value here. Genuine decreases / drains-to-0 still arrive
       // authoritatively through the stream.
-      try {
-        final info = await sdk.getInfo(request: const breez.GetInfoRequest());
-        if (isCurrent()) {
-          final spending = pickSpendingWallet(container.read(settingsProvider));
-          if (spending == null) return;
-          final cache = container.read(walletBalanceCacheProvider);
-          final cacheNotifier =
-              container.read(walletBalanceCacheProvider.notifier);
-          final freshSpark = info.balanceSats.toInt();
-          if (freshSpark > (cache[spending.id]?.sparkBitcoinbalance ?? 0)) {
-            cacheNotifier.updateSparkBitcoinbalance(
-              spending.id,
-              freshSpark,
-              source: BalanceSource.poll,
-            );
+      Future<void> readBalance() async {
+        try {
+          final info = await sdk.getInfo(
+              request: const breez.GetInfoRequest(ensureSynced: false));
+          if (isCurrent()) {
+            final spending =
+                pickSpendingWallet(container.read(settingsProvider));
+            if (spending == null) return;
+            final cache = container.read(walletBalanceCacheProvider);
+            final cacheNotifier =
+                container.read(walletBalanceCacheProvider.notifier);
+            final freshSpark = info.balanceSats.toInt();
+            if (freshSpark > (cache[spending.id]?.sparkBitcoinbalance ?? 0)) {
+              cacheNotifier.updateSparkBitcoinbalance(
+                spending.id,
+                freshSpark,
+                source: BalanceSource.poll,
+              );
+            }
+            // The USDB balance push died with the Flashnet Earn product.
+            // Token PAYMENTS still route into UsdbTokenTransaction below
+            // via the PaymentMethod.token guard, never the BTC bucket.
           }
-          // The USDB balance push died with the Flashnet Earn product.
-          // Token PAYMENTS still route into UsdbTokenTransaction below
-          // via the PaymentMethod.token guard, never the BTC bucket.
+        } catch (_) {
+          // A balance failure must not stop the payment list below.
         }
-      } catch (_) {
-        // Non-fatal: the stream or the next sync tick will catch up.
       }
 
       // One-shot payments read, for the SAME reason as the balance one:
@@ -533,15 +510,21 @@ class PushPipeline implements SyncPipeline {
       // never populates the tx cache — the balance ticks up (fixed above) but
       // the matching "Received" row doesn't appear until a manual refresh.
       // Pull the current list and feed the SAME handler the stream uses.
-      try {
-        final resp =
-            await sdk.listPayments(request: const breez.ListPaymentsRequest());
-        if (isCurrent()) {
-          _onPaymentsEvent(resp.payments.toList(), gen);
+      Future<void> readPayments() async {
+        try {
+          final resp = await sdk.listPayments(
+              request: const breez.ListPaymentsRequest());
+          if (isCurrent()) {
+            _onPaymentsEvent(resp.payments.toList(), gen);
+          }
+        } catch (_) {
+          // A payment-list failure must not stop the balance read.
         }
-      } catch (_) {
-        // Non-fatal: the stream or the next sync tick will catch up.
       }
+
+      // Independent cached reads: a slow or failed getInfo must not leave
+      // already-recorded receipts hidden on attach/resume/reconnect.
+      await Future.wait([readBalance(), readPayments()]);
     } catch (e) {
       status.markFailure(debugName, e.toString());
       _scheduleRetry(gen);
@@ -729,21 +712,12 @@ class PushPipeline implements SyncPipeline {
     } catch (_) {}
   }
 
+  /// A balance reading was published: the transaction list may have
+  /// changed too. The reading itself reaches the balance cache without
+  /// this pipeline (see `walletBalanceCacheProvider`).
   void _onEvent(breez.GetInfoResponse info, int gen) {
     final container = _container;
     if (container == null || _generation != gen) return;
-    try {
-      final spending = pickSpendingWallet(container.read(settingsProvider));
-      if (spending == null) return;
-      final spendingId = spending.id;
-      final cacheNotifier = container.read(walletBalanceCacheProvider.notifier);
-      cacheNotifier.updateSparkBitcoinbalance(
-        spendingId,
-        info.balanceSats.toInt(),
-        source: BalanceSource.stream,
-      );
-    } catch (_) {}
-
     _syncDebounce?.cancel();
     _syncDebounce = Timer(_syncDebounceWindow, () {
       if (_container == null || _generation != gen) return;

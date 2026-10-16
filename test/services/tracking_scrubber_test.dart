@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:posthog_flutter/posthog_flutter.dart';
@@ -155,5 +157,45 @@ void main() {
     expect(TrackingService.errorCategory('rate_limited'), 'rate_limited');
     expect(TrackingService.errorCategory('invalid_destination'),
         'invalid_destination');
+  });
+
+  test('a deposit source the provider refuses is unsupported_source', () {
+    // The three spellings Orchestra's mint has used, none of them an
+    // address problem and none of them unknown.
+    expect(TrackingService.errorCategory('Unsupported deposit source: tron:TRX'),
+        'unsupported_source');
+    expect(TrackingService.errorCategory('Unsupported source: hyperevm:USDE'),
+        'unsupported_source');
+    expect(
+        TrackingService.errorCategory(
+            'invalid_request / Unsupported source chain: bitcoin'),
+        'unsupported_source');
+    expect(TrackingService.errorCategory('unsupported_source'),
+        'unsupported_source');
+    // An address the destination rejects stays what it was.
+    expect(TrackingService.errorCategory('Unsupported address format'),
+        'invalid_destination');
+    // It is our offering bug, so it keeps a Crashlytics issue.
+    expect(TrackingService.handledCrashCategories,
+        contains('unsupported_source'));
+  });
+
+  test('errorReason is the category, else the class name, never the text',
+      () {
+    // A category wins when one matches.
+    expect(TrackingService.errorReason(TimeoutException('slow')), 'timeout');
+    expect(TrackingService.errorReason('Insufficient funds'),
+        'insufficient_funds');
+    // No category: the exception's class, with no message.
+    expect(TrackingService.errorReason(StateError('No wallet address')),
+        'StateError');
+    expect(TrackingService.errorReason(const FormatException('bad')),
+        'FormatException');
+    expect(TrackingService.errorReason(Exception('Trading not enabled')),
+        'exception');
+    // A thrown String never leaks its text; null has no reason.
+    expect(TrackingService.errorReason('relayer said ${_secrets['evm']}'),
+        'string');
+    expect(TrackingService.errorReason(null), 'unknown');
   });
 }

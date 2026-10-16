@@ -186,6 +186,10 @@ void main() {
     expect(StandingDepositStore.supportsSource('tron', 'TRX'), isFalse);
     expect(StandingDepositStore.supportsSource('tron', 'USDT'), isTrue);
   });
+  test('HyperCore is never a standing funding source, EVM family or not', () {
+    expect(StandingDepositStore.supportsSource('hypercore', 'USDC'), isFalse);
+    expect(StandingDepositStore.supportsSource('hyperevm', 'USDC'), isTrue);
+  });
 
   group('one address per coin and network', () {
     const spark =

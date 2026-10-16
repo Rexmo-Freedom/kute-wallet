@@ -29,6 +29,7 @@ import 'package:kute/screens/polymarket/components/position_chance_bar.dart';
 import 'package:kute/screens/polymarket/components/position_detail_sheet.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/ask_sal_chip.dart';
+import 'package:kute/screens/shared/kute_dog_scenes.dart' show KuteDogGlance;
 import 'package:kute/screens/shared/kute_motion.dart' show ScorePulseText;
 import 'package:kute/screens/shared/position_rows_card.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -303,47 +304,76 @@ void main() {
         ];
 
     testWidgets(
-        'no Sal button in the header; Sal\'s question capsule under the '
-        'value, grounded on the held market, never the holding',
-        (tester) async {
+        'no Sal on the position: no button, no question row; the rows say '
+        'what is at risk and offer to protect it', (tester) async {
       await _pump(
         tester,
         const PositionDetailSheet(position: position),
-        overrides: overrides(_game(outcomes: const [
-          PolymarketOutcome(
-              name: '49ers',
-              price: 0.64,
-              tokenId: 'sf',
-              conditionId: 'c1',
-              gammaMarketId: '555'),
-          PolymarketOutcome(
-              name: 'Broncos',
-              price: 0.36,
-              tokenId: 'den',
-              conditionId: 'c9',
-              gammaMarketId: '556'),
-        ]), ai: true),
+        overrides: overrides(_game(), ai: true),
       );
       expect(find.byType(AskSalChip), findsNothing);
-      expect(find.byKey(const ValueKey('ask-sal-pill')), findsNothing);
-      final row =
-          tester.widget<SalQuestionCapsule>(find.byType(SalQuestionCapsule));
-      expect(row.entry, 'position_capsule');
-      expect(row.advisorContext.surface, 'polymarket_position_detail');
-      expect(row.advisorContext.toRequestMarket, {
-        'venue': 'polymarket',
-        'id': 'nfl-sf-den',
-        'submarketId': '555',
-      });
-      // Holding only ranks the questions, on the device; never sent.
-      expect(row.chipSignals.holdsPosition, isTrue);
-      expect(find.byKey(const ValueKey('sal-question-capsule')),
-          findsOneWidget);
+      expect(find.byType(SalWhyMovingRow), findsNothing);
+      expect(find.byType(KuteDogGlance), findsNothing);
+      // 120 shares bought at 42c: $50.40 lost if the 49ers lose, $120 paid
+      // if they win.
+      final risk = find.byKey(const ValueKey('poly-position-risk-line'));
+      expect(risk, findsOneWidget);
       expect(
-          tester
-              .getRect(find.byKey(const ValueKey('sal-question-capsule')))
-              .top,
-          greaterThan(tester.getRect(find.text('Current value')).bottom));
+          find.text(r'If 49ers loses, you lose $50.40; if it wins, you get '
+              r'$120.00.'),
+          findsOneWidget);
+      expect(find.descendant(of: find.byType(PositionRowsCard), matching: risk),
+          findsOneWidget);
+      final protect = find.byKey(const ValueKey('poly-position-protect'));
+      expect(protect, findsOneWidget);
+      expect(find.descendant(of: protect, matching: find.text('Protect it')),
+          findsOneWidget);
+      expect(find.descendant(of: protect, matching: find.text('Sell at')),
+          findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('nothing paid on record: no risk line, never a made-up cost',
+        (tester) async {
+      await _pump(
+        tester,
+        const PositionDetailSheet(
+            position: PolymarketPosition(
+          marketId: 'c1',
+          marketQuestion: '49ers vs. Broncos',
+          outcome: '49ers',
+          size: 120,
+          avgPrice: 0,
+          currentPrice: 0.5,
+          pnl: 0,
+          pnlPercent: 0,
+          isResolved: false,
+          eventSlug: 'nfl-sf-den',
+        )),
+        overrides: overrides(_game()),
+      );
+      expect(find.byKey(const ValueKey('poly-position-risk-line')),
+          findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('at 375 wide with text x1.3 the rows fit', (tester) async {
+      await _pump(
+        tester,
+        Builder(
+          builder: (context) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: const TextScaler.linear(1.3)),
+            child: const PositionDetailSheet(position: position),
+          ),
+        ),
+        overrides: overrides(_game()),
+        width: 375,
+      );
+      final risk = find.byKey(const ValueKey('poly-position-risk-line'));
+      await tester.ensureVisible(risk);
+      await tester.pump();
+      expect(risk, findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 

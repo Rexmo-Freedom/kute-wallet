@@ -85,6 +85,9 @@ class ToastService {
   static bool _isVisible = false;
 
   static void show(BuildContext context, ToastMessage toast) {
+    final overlay = overlayFor(context);
+    // A toast is a courtesy: with nowhere to draw it, nothing happens.
+    if (overlay == null) return;
     if (_isVisible) {
       _removeCurrentToast();
     }
@@ -96,8 +99,19 @@ class ToastService {
       ),
     );
 
-    Overlay.of(context).insert(_overlayEntry!);
+    overlay.insert(_overlayEntry!);
     _isVisible = true;
+  }
+
+  /// The root overlay to draw on from [context], or null when there is
+  /// none: a context whose sheet has already closed, or the root
+  /// navigator's own context (its overlay is a descendant, which
+  /// `Overlay.of` does not find). `Overlay.of` threw on both, which was
+  /// a fatal after cancelling a Cash App purchase from Activity.
+  static OverlayState? overlayFor(BuildContext context) {
+    if (!context.mounted) return null;
+    return Overlay.maybeOf(context, rootOverlay: true) ??
+        Navigator.maybeOf(context, rootNavigator: true)?.overlay;
   }
 
   static void _removeCurrentToast() {

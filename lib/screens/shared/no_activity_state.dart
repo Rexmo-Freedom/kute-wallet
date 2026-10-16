@@ -1,13 +1,15 @@
 // Shared "No activity yet" empty state: Sal, a headline, and a rotating
-// brand-voice tagline. Used on the Home activity feed and on the
-// Wealth/Portfolio screen (shown in place of analytics when the account has
-// no activity at all yet). Kept in one place so both surfaces stay identical.
+// brand-voice tagline. Used on the Home activity feed and on every empty
+// Portfolio view (Open, Orders, Activity, Statistics), each with its own
+// headline. Kept in one place so every surface stays identical.
 //
 // Sal used to be a GIF here, on a loop nobody authored and with a
 // `_dogController` that was started, repeated and disposed without a single
 // widget ever reading it. He is now the painted rig, idling: breathing,
 // wagging, blinking, flicking an ear and glancing around on a ten second
 // cycle, sharp at any size and quiet when Reduce Motion is on.
+
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -23,7 +25,19 @@ class NoActivityState extends StatefulWidget {
   /// for the whole analytics section.
   final EdgeInsetsGeometry? padding;
 
-  const NoActivityState({super.key, this.padding});
+  /// The headline; null is Home's "No activity yet".
+  final String? title;
+
+  /// The smaller Sal, headline and tagline slot (the search sheet's
+  /// compact sizes), for a state that sits under other content.
+  final bool compact;
+
+  /// See [KuteDogLoop.cycles]: null idles forever (Home); a tab a person
+  /// may leave open settles on a calm frame.
+  final int? cycles;
+
+  const NoActivityState(
+      {super.key, this.padding, this.title, this.compact = false, this.cycles});
 
   @override
   State<NoActivityState> createState() => _NoActivityStateState();
@@ -35,6 +49,7 @@ class _NoActivityStateState extends State<NoActivityState>
 
   int _currentIndex = 0;
   bool _reduceMotion = false;
+  Timer? _rotation;
   late final AnimationController _fadeController;
   late final Animation<double> _fadeAnimation;
 
@@ -71,7 +86,9 @@ class _NoActivityStateState extends State<NoActivityState>
   }
 
   void _scheduleRotation() {
-    Future.delayed(const Duration(seconds: 6), () {
+    // A timer the state owns, cancelled on dispose: a delayed future
+    // outlived the widget.
+    _rotation = Timer(const Duration(seconds: 6), () {
       if (!mounted) return;
       if (_reduceMotion) {
         // Swap the (informative) tagline instantly, no cross-fade.
@@ -89,6 +106,7 @@ class _NoActivityStateState extends State<NoActivityState>
 
   @override
   void dispose() {
+    _rotation?.cancel();
     _fadeController.dispose();
     super.dispose();
   }
@@ -96,21 +114,25 @@ class _NoActivityStateState extends State<NoActivityState>
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final compact = widget.compact;
 
     return Padding(
       padding: widget.padding ?? EdgeInsets.fromLTRB(24.w, 20.h, 24.w, 8.h),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           KuteDogIdle(
-            size: 112.sp,
+            size: compact ? 72.sp : 112.sp,
             shadowColor: c.textPrimary.withValues(alpha: 0.10),
+            cycles: widget.cycles,
           ),
-          SizedBox(height: 18.h),
+          SizedBox(height: compact ? 12.h : 18.h),
           Text(
-            'No activity yet',
+            widget.title ?? 'No activity yet',
+            textAlign: TextAlign.center,
             style: TextStyle(
               color: c.textPrimary,
-              fontSize: 22.sp,
+              fontSize: compact ? 17.sp : 22.sp,
               fontWeight: FontWeight.w800,
               letterSpacing: -0.5,
               height: 1.1,
@@ -118,7 +140,7 @@ class _NoActivityStateState extends State<NoActivityState>
           ),
           SizedBox(height: 8.h),
           SizedBox(
-            height: 56.h,
+            height: compact ? 40.h : 56.h,
             child: FadeTransition(
               opacity: _fadeAnimation,
               child: Text(

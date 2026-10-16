@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import 'package:kute/constants/hyperliquid_constants.dart';
+import 'package:kute/services/http/shared_http_client.dart';
 import 'package:kute/services/hyperliquid/hypercore_cash.dart';
 import 'package:kute/services/security/address_guard.dart';
 
@@ -79,12 +80,12 @@ Future<BigInt> readHypercoreActivationFee(String destination,
   }
   try {
     final body = jsonEncode({'type': 'userRole', 'user': destination});
-    final response = await (client == null
-            ? http.post(HyperliquidConstants.infoUri,
-                headers: {'content-type': 'application/json'}, body: body)
-            : client.post(HyperliquidConstants.infoUri,
-                headers: {'content-type': 'application/json'}, body: body))
-        .timeout(const Duration(seconds: 12));
+    final response = await SharedHttpClient.post(HyperliquidConstants.infoUri,
+        headers: {'content-type': 'application/json'},
+        body: body,
+        kind: HttpCallKind.userAction,
+        timeout: const Duration(seconds: 12),
+        client: client);
     if (response.statusCode != 200) {
       throw const HypercoreActivationFeeUnavailable();
     }

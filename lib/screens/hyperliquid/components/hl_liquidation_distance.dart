@@ -23,6 +23,8 @@ import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/providers/hyperliquid_trade_alerts_provider.dart'
     show kHlLiquidationRiskDistance, kHlLiquidationRiskUrgent;
 import 'package:kute/screens/hyperliquid/components/hl_format.dart';
+import 'package:kute/screens/hyperliquid/components/hl_isolated_margin.dart'
+    show hlPositionMargin;
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:kute/screens/shared/portfolio_position_card.dart'
     show portfolioCardCaptionStyle;
@@ -34,6 +36,19 @@ import 'package:kute/theme/app_theme.dart';
 double? hlLiquidationPrice(HlPerpPosition p) {
   final liq = p.liquidationPx;
   return liq != null && liq.isFinite && liq > 0 ? liq : null;
+}
+
+/// What [p] loses if the price reaches its liquidation price and the
+/// position closes there, for the position screen's risk line: an
+/// isolated position's whole margin (what is at stake in it), a cross
+/// position's loss at that price against its entry ((entry − liquidation)
+/// × size, the size signed). Null when the venue reports no liquidation
+/// price or the figure is not a loss: the line is then not written.
+double? hlLossAtLiquidation(HlPerpPosition p) {
+  final liq = hlLiquidationPrice(p);
+  if (liq == null || p.szi == 0 || !(p.entryPx > 0)) return null;
+  final loss = p.isCross ? (p.entryPx - liq) * p.szi : hlPositionMargin(p);
+  return loss.isFinite && loss > 0 ? loss : null;
 }
 
 /// The mark the distance is measured from: the live mid when there is

@@ -10,8 +10,10 @@ import 'package:kute/theme/app_theme.dart';
 /// The one composer search and Sal share: a Liquid Glass field (Apple glass
 /// on iOS, tonal on Android), the Kute dog leading it, and a ctaFill circle
 /// that scales in once there is text and sends. While Sal is answering
-/// ([loading]) the same circle holds a stop square instead. With
-/// [aiEnabled] false it is a plain search field with a clear button.
+/// ([loading]) the same circle holds a stop square until something is
+/// typed: the field stays open for the next question, and with text the
+/// circle is the send arrow again (sending interrupts the running answer).
+/// With [aiEnabled] false it is a plain search field with a clear button.
 ///
 /// Haptics belong to the callers ([onSubmit] / [onStop]), which also run
 /// from the keyboard's action key.
@@ -129,8 +131,10 @@ class KuteComposer extends StatelessWidget {
         ),
       );
     }
-    final stop = loading && onStop != null;
-    final visible = stop || (hasText && enabled && !loading);
+    // Answering with nothing typed: the stop square. Text in the field
+    // always takes the circle back to the send arrow.
+    final stop = loading && onStop != null && !hasText;
+    final visible = stop || (hasText && enabled);
     return Semantics(
       button: true,
       enabled: visible,

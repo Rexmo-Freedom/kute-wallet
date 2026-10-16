@@ -8,11 +8,12 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/services/secure/flutter_secret_store.dart';
-import 'package:kute/services/secure_storage.dart';
+import 'package:kute/services/secure/secret_error_class.dart';
 import 'package:kute/services/hardware/ledger/ledger_venue_descriptor_store.dart'
     show wipeLedgerWalletLocalData;
 import 'package:hive_ce/hive.dart';
 import 'package:kute/services/venue_total_cache_service.dart';
+import 'package:kute/services/hyperliquid/hyperliquid_account_cache.dart';
 import 'package:path_provider/path_provider.dart';
 
 class WalletConfig {
@@ -105,6 +106,14 @@ class WalletConfig {
   /// retries the check (`RecoveryEvmFormat.retryPending`) and clears it.
   final bool evmFormatCheckPending;
 
+  /// True for a wallet created fresh on this device, whose balance is
+  /// known to be 0 before any sync: Home renders $0.00 at once instead
+  /// of the loading skeleton. Restored and imported wallets (a balance
+  /// may exist) and every wallet persisted before this field (absent
+  /// key) are false. Never cleared: once a sync has run the balance
+  /// cache decides, so the flag only matters before the first one.
+  final bool createdEmpty;
+
   WalletConfig({
     required this.id,
     required this.name,
@@ -130,6 +139,7 @@ class WalletConfig {
     this.recoveryCheckAddress,
     this.evmDerivationVersion = EvmDerivationVersion.legacySha256,
     this.evmFormatCheckPending = false,
+    this.createdEmpty = false,
   });
 
   /// The one spending account backed by the Spark SDK.
@@ -183,6 +193,7 @@ class WalletConfig {
       'recoveryCheckAddress': recoveryCheckAddress,
       'evmDerivationVersion': evmDerivationVersion.storageValue,
       'evmFormatCheckPending': evmFormatCheckPending,
+      'createdEmpty': createdEmpty,
     };
   }
 
@@ -228,6 +239,7 @@ class WalletConfig {
       evmDerivationVersion:
           EvmDerivationVersion.fromStorage(map['evmDerivationVersion']),
       evmFormatCheckPending: map['evmFormatCheckPending'] == true,
+      createdEmpty: map['createdEmpty'] == true,
     );
   }
 
@@ -255,6 +267,7 @@ class WalletConfig {
     bool clearEvmIdentity = false,
     String? recoveryCheckAddress,
     bool? evmFormatCheckPending,
+    bool? createdEmpty,
   }) {
     return WalletConfig(
       id: id,
@@ -285,6 +298,7 @@ class WalletConfig {
       evmDerivationVersion: evmDerivationVersion,
       evmFormatCheckPending:
           evmFormatCheckPending ?? this.evmFormatCheckPending,
+      createdEmpty: createdEmpty ?? this.createdEmpty,
     );
   }
 }
@@ -501,7 +515,6 @@ class SettingsModel extends StateNotifier<Settings> {
   WalletConfig? walletById(String id) =>
       state.wallets.where((wallet) => wallet.id == id).firstOrNull;
 
-  final _secureStorage = secureStorage;
 
   Future<void> addWallet(WalletConfig newWallet) async {
     final box = await Hive.openBox('settings');
@@ -667,6 +680,7 @@ class SettingsModel extends StateNotifier<Settings> {
     // `venue_total_cache` box — the wallet's last Predictions and
     // Investing totals; a deleted wallet's must not outlive it.
     await VenueTotalCacheService.deleteWallet(walletId);
+    await HyperliquidAccountCache.deleteWallet(walletId);
 
     // `wallet_transaction_cache` box — per-wallet `Transaction`
     // snapshot used by the activity feed. Same rehydrate-on-boot
@@ -914,12 +928,22 @@ class SettingsModel extends StateNotifier<Settings> {
     state = state.copyWith(signerEnabled: enabled);
   }
 
+  /// A review flag, not a secret: a write that fails never surfaces. On
+  /// iOS a 1.x build may have stored `reviewDone` under another Keychain
+  /// accessibility, which the plugin's add collides with
+  /// (`errSecDuplicateItem`); that case is retried as an in-place
+  /// local-only update, and anything else is left for the next prompt.
   Future<void> setReviewDone(bool hasBeenReviewed) async {
-    await _secureStorage.write(
-      key: 'reviewDone',
-      value: hasBeenReviewed.toString(),
-    );
     state = state.copyWith(reviewDone: hasBeenReviewed);
+    final value = hasBeenReviewed.toString();
+    try {
+      await SecretStores.local.write(key: 'reviewDone', value: value);
+    } catch (error) {
+      if (!isDuplicateItemError(error)) return;
+      try {
+        await SecretStores.local.writeLocalOnly(key: 'reviewDone', value: value);
+      } catch (_) {}
+    }
   }
 
   Future<void> setAffiliateCode(String code) async {

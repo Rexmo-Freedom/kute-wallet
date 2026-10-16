@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io' show Platform;
 
 import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -8,7 +7,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:kute/models/affiliate_model.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
@@ -23,7 +21,7 @@ import 'package:kute/providers/address_provider.dart';
 import 'package:kute/providers/address_receive_provider.dart';
 import 'package:kute/providers/pending_asset_provider.dart';
 import 'package:kute/providers/asset_icon_provider.dart'
-    show SafeSvgNetwork, kUsdMarkAsset;
+    show SafeSvgNetwork, kInvestmentsIcon;
 import 'package:kute/models/account.dart';
 import 'package:kute/providers/accounts_provider.dart';
 import 'package:kute/providers/balance_provider.dart';
@@ -61,11 +59,16 @@ import 'package:kute/providers/orchestra_supported_routes_provider.dart';
 import 'package:kute/services/accumulation_address_cache.dart';
 import 'package:kute/services/background_sync_service.dart';
 import 'package:kute/services/orchestra/orchestra_capability_requirements.dart';
+import 'package:kute/services/orchestra/reusable_deposit_address.dart';
+import 'package:kute/services/orchestra/standing_deposit_store.dart'
+    show StandingDepositStore;
 import 'package:kute/services/orchestra_routes.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/jade_service.dart';
 import 'package:kute/services/ledger_service.dart';
 import 'package:kute/services/sound_service.dart';
+import 'package:kute/services/success_feedback.dart'
+    show moneyFailureFeedback;
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -91,7 +94,12 @@ class _DestAsset {
   final String code;
   final String name;
   final String? iconUrl;
-  final String? svgAsset;
+
+  /// Glyph mark: the Investments arrow on the dollar balance's row,
+  /// drawn the way the Move route card draws its glyph endpoints. The
+  /// catalogue ships no artwork for the dollar balance, and no row of
+  /// this picker wears a local SVG any more.
+  final IconData? icon;
   final Color color;
 
   _DestAsset({
@@ -99,15 +107,23 @@ class _DestAsset {
     required this.name,
     required this.color,
     this.iconUrl,
-    this.svgAsset,
+    this.icon,
   });
 
   Widget iconWidget({required double size}) {
-    if (svgAsset != null) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(size * 0.3),
-        child: SvgPicture.asset(svgAsset!, width: size, height: size),
-      );
+    if (icon != null) {
+      return Builder(builder: (context) {
+        final c = context.colors;
+        return Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            color: c.textPrimary.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(size * 0.3),
+          ),
+          child: Icon(icon, color: c.textPrimary, size: size * 0.56),
+        );
+      });
     }
     if (iconUrl != null) {
       final isSvg = Uri.tryParse(iconUrl!)?.path.endsWith('.svg') ?? false;
@@ -338,7 +354,10 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
       entrySource: TrackingService.takeEntrySource('receive'),
       walletKind: _receiveWalletKind,
       network: selected is UsdcSpendingAccount ? 'polygon' : 'bitcoin',
-      props: {'pool': selected is UsdcSpendingAccount ? 'usdc' : 'btc'},
+      props: {
+        'pool': selected is UsdcSpendingAccount ? 'usdc' : 'btc',
+        'presentation': 'sheet',
+      },
     );
     // Seed the pool + network branch the Share body reads off of.
     // `_selectedPool` is what flips the QR to the Polymarket Safe and
@@ -754,15 +773,13 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
     _closeAndReset();
   }
 
+  /// Closes the receive sheet (the route a deep link opened is the same
+  /// sheet, so popping it is right either way).
   void _closeAndReset() {
     try {
       ref.read(inputAmountProvider.notifier).state = '0.0';
     } catch (_) {}
-    if (context.canPop()) {
-      context.pop();
-    } else {
-      context.go('/home');
-    }
+    Navigator.of(context).maybePop();
   }
 
   // ─── Build ─────────────────────────────────────────────────────
@@ -795,74 +812,54 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
           });
         }
       },
+      // Opens as a sheet over the current screen (receive_sheet.dart):
+      // the close button and the account the money lands in sit in the
+      // sheet's header row, where the app bar had them.
       child: KeyboardDismissOnTap(
-        child: Scaffold(
-          extendBodyBehindAppBar: true,
-          backgroundColor: c.background,
-          resizeToAvoidBottomInset: false,
-          appBar: AppBar(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            surfaceTintColor: Colors.transparent,
-            shadowColor: Colors.transparent,
-            scrolledUnderElevation: 0,
-            centerTitle: true,
-            // The destination stays fixed for the entire receive flow.
-            title: AccountSwitcherPill(
-              pickerTitle: context.l10n.receiveInto,
-              account: _selectedAccount,
-              readOnly: true,
-            ),
-            leading: Center(
-              child: KuteCloseButton(onPressed: _onLeadingTap),
-            ),
+        child: ReceiveSheetFrame(
+          leading: KuteCloseButton(onPressed: _onLeadingTap),
+          // The destination stays fixed for the entire receive flow.
+          title: AccountSwitcherPill(
+            pickerTitle: context.l10n.receiveInto,
+            account: _selectedAccount,
+            readOnly: true,
           ),
-          body: _buildStepperBody(context, c),
+          child: _buildStepperBody(context, c),
         ),
       ),
     );
   }
 
+  /// The sheet's body. The sheet container already keeps it above the
+  /// home indicator and the keyboard.
   Widget _buildStepperBody(BuildContext context, AppColorsExtension c) {
-    final viewInsets = MediaQuery.of(context).viewInsets.bottom;
-    // Android-only system-nav inset (see camera.dart / confirm_send.dart
-    // for rationale — iOS keeps the 20.h baseline so we don't introduce
-    // a "fake bar" under the home indicator).
-    final androidNavInset =
-        Platform.isAndroid ? MediaQuery.of(context).padding.bottom : 0.0;
-    return Container(
-      decoration: AppDecorations.screenGradient(context),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w,
-              20.h + androidNavInset + (viewInsets > 0 ? viewInsets : 0)),
-          child: Column(
-            children: [
-              // A single receive surface for the account shown in the header.
-              Expanded(
-                child: StepPageWrapper(
-                  title: context.l10n.receive,
-                  subtitle: context.l10n.receiveScanOrShareSubtitle,
-                  colors: c,
-                  child: _sharePage(c),
-                ),
-              ),
-              // Share step owns its own primary actions (Generate
-              // invoice / Update QR / Share / verify-on-device), and
-              // Step 0 auto-advances on tile tap, so the shared CTA
-              // never surfaces. Kept here for shape-parity with the
-              // Send stepper in case future steps need a Continue.
-              SharedStepCta(
-                step: _step,
-                colors: c,
-                visibleSteps: const <int>{},
-                enabled: false,
-                onContinue: () {},
-              ),
-            ],
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 20.w),
+      child: Column(
+        children: [
+          // A single receive surface for the account shown in the header.
+          // No title over it: the sheet already says "receive", and the
+          // header row (close + "Receive into") is the top, so the code
+          // gets the room.
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(top: 12.h),
+              child: _sharePage(c),
+            ),
           ),
-        ),
+          // Share step owns its own primary actions (Generate
+          // invoice / Update QR / Share / verify-on-device), and
+          // Step 0 auto-advances on tile tap, so the shared CTA
+          // never surfaces. Kept here for shape-parity with the
+          // Send stepper in case future steps need a Continue.
+          SharedStepCta(
+            step: _step,
+            colors: c,
+            visibleSteps: const <int>{},
+            enabled: false,
+            onContinue: () {},
+          ),
+        ],
       ),
     );
   }
@@ -1224,12 +1221,12 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
                   ],
                 ],
 
-                // 2a. Share / Copy pills. The subtitle promises "scan or
-                // share this code", so the share lives right under the
-                // address and hands out the exact payload the QR
+                // 2a. Share. It lives right under the address (which
+                // copies on tap) and hands out the exact payload the QR
                 // encodes (unified BIP21, invoice, address or swap
-                // deposit address). Hidden while the plate shimmers or
-                // shows an error: nothing verified to share yet.
+                // deposit address), with request amount as a quiet
+                // text action under it. Hidden while the plate shimmers
+                // or shows an error: nothing verified to share yet.
                 if (qrPayload != null) ...[
                   SizedBox(height: ReceiveGaps.addressToActions),
                   _buildActionPills(
@@ -1444,10 +1441,11 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
     return 'bitcoin:$bitcoinAddress';
   }
 
-  /// Solid Share pill and neutral Copy pill side by side under the
-  /// address. Both act on [payload], the exact string the QR encodes.
-  /// With [showRequestAmount] a third pill opens the amount sheet; once
-  /// a request is live it shows the requested sats and a tap clears it.
+  /// Share under the address (copy lives on the address line), acting
+  /// on [payload], the exact string the QR encodes. With
+  /// [showRequestAmount] a quiet text action under it opens the
+  /// amount sheet; once a request is live it shows the requested amount
+  /// and a tap clears it.
   Widget _buildActionPills({
     required String payload,
     required bool showRequestAmount,
@@ -1456,33 +1454,32 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
     final orchestraId = _activeExchange?.providerName == 'Orchestra'
         ? _activeExchange?.id : null;
     final btcFormat = ref.watch(settingsProvider.select((s) => s.btcFormat));
-    // Three pills share the row, so labels drop to 14sp and lose the
-    // leading icon; the request pill gets more room for its longer copy.
-    return ReceiveActionPills(
-      onShare: () => _sharePayload(payload, orchestraId: orchestraId),
-      onCopy: () => _copyPayload(payload, orchestraId: orchestraId),
-      trailing: !showRequestAmount
-          ? null
-          : requested == null
-              ? AppButton(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ReceiveActionPills(
+          onShare: () => _sharePayload(payload, orchestraId: orchestraId),
+        ),
+        if (showRequestAmount) ...[
+          SizedBox(height: 4.h),
+          requested == null
+              ? AppTextButton(
+                  key: const ValueKey('receive-request-amount'),
                   onPressed: _isInvoiceLoading ? null : _requestAmount,
                   text: context.l10n.receiveRequestAmount,
-                  variant: AppButtonVariant.secondary,
-                  compact: true,
-                  fontSize: 14.sp,
-                  isLoading: _isInvoiceLoading,
+                  icon: Icons.add_rounded,
                 )
-              : AppButton(
+              : AppTextButton(
+                  key: const ValueKey('receive-request-amount'),
                   onPressed: () {
                     HapticFeedback.lightImpact();
                     setState(_clearAmountRequest);
                   },
                   text: '₿${requested.toFormattedString(btcFormat)}',
                   icon: Icons.close_rounded,
-                  variant: AppButtonVariant.secondary,
-                  compact: true,
-                  fontSize: 14.sp,
                 ),
+        ],
+      ],
     );
   }
 
@@ -1511,7 +1508,7 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
   }
 
   /// Clipboard copy with the shared snackbar and the copy events. Used
-  /// by the Copy pill and the copy icon on every address row.
+  /// by the address row and its copy icon.
   void _copyPayload(String payload, {String? orchestraId}) {
     if (!_canExportReceivePayload(payload, orchestraId)) return;
     Clipboard.setData(ClipboardData(text: payload));
@@ -1761,6 +1758,8 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
     } catch (e) {
       TrackingService.moneyFlowError('receive', e);
       if (!mounted) return;
+      // The invoice the person asked for could not be made.
+      unawaited(moneyFailureFeedback());
       showMessageSnackBar(
         context: context,
         message: railSafeErrorCopy(context, e,
@@ -2047,6 +2046,8 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
         _creatingOrder = false;
         _rateError = message;
       });
+      // The address the person picked a coin for could not be made.
+      unawaited(moneyFailureFeedback());
       showMessageSnackBar(message: message, error: true, context: context);
     }
   }
@@ -2095,6 +2096,8 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
     TrackingService.moneyFlowStep('receive', 'source_selected',
         props: _receiveFlowInputs());
 
+    // Which model was being asked when a failure happened, for the event.
+    DepositAddressModel? model;
     try {
       final wrapper = await ref.read(breezSDKProvider.future);
       if (!current()) return _mintRefusedWhileGone;
@@ -2111,24 +2114,36 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
       if (!current() || !sameSdk()) return _mintRefusedWhileGone;
       final sparkAddress = received.paymentRequest;
       const destinationAsset = 'BTC';
+      final walletId = _pickedReceiveWalletId;
+      if (walletId == null) throw StateError('Wallet unavailable');
       // Snapshot of already-issued deposit addresses, compared in memory
       // only, so `receive_address_generated` can say whether this is a
       // reuse. The address itself never leaves the device.
-      final priorAddresses = AccumulationAddressCache.getAll()
-          .map((a) => a.depositAddress)
-          .toSet();
-      final result = await AccumulationAddressCache.getOrCreate(
-        sourceChain: sourceChain,
-        sourceAsset: orchestraAssetCodeFor(asset.code),
-        destinationAsset: destinationAsset,
-        recipientSparkAddress: sparkAddress,
-      );
-      final depositAddress = result.data?.depositAddress ?? '';
-      final kuteFeeBps = result.data?.kuteFeeBps;
+      final priorAddresses = <String?>{};
+      try {
+        for (final r in await StandingDepositStore.records(walletId)) {
+          priorAddresses.add(r.addressFor(sourceChain));
+        }
+        for (final a in AccumulationAddressCache.getAll()) {
+          priorAddresses.add(a.depositAddress);
+        }
+      } catch (_) {}
       if (!current() || !sameSdk()) return _mintRefusedWhileGone;
-      if (depositAddress.isEmpty) {
-        throw result.error ?? 'Failed to create deposit address';
-      }
+      // Standing address first; the legacy accumulation address only
+      // while spark:BTC is not a standing destination (see
+      // ReusableDepositAddressService).
+      final resolved = await ReusableDepositAddressService.resolve(
+        walletId: walletId,
+        recipient: sparkAddress,
+        destinationAsset: destinationAsset,
+        sourceChain: sourceChain,
+        sourceAsset: asset.code,
+        wanted: () => current() && sameSdk(),
+        onAttempt: (m) => model = m,
+      );
+      final depositAddress = resolved.address;
+      final kuteFeeBps = resolved.kuteFeeBps;
+      if (!current() || !sameSdk()) return _mintRefusedWhileGone;
 
       // Local display object only — drives the QR, the address row and
       // the reusable-address caption (`providerName == 'Orchestra'` in
@@ -2136,7 +2151,7 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
       // see the doc comment above.
       final display = SwapOrder(
         activityDirection: 'receive',
-        id: result.data!.id,
+        id: resolved.id,
         coinFrom: asset.code,
         networkFrom: network.network,
         coinTo: destinationAsset,
@@ -2165,6 +2180,7 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
         'reused': priorAddresses.contains(depositAddress),
         'destination': 'spark_btc',
         'address_kind': 'reusable_deposit',
+        'model': resolved.model.name,
         if (kuteFeeBps != null) 'kute_fee_bps': kuteFeeBps,
       });
       TrackingService.moneyFlowStep('receive', 'deposit_address_shown',
@@ -2193,6 +2209,7 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
         'network': network.network,
         'provider': 'orchestra',
         'error_category': TrackingService.errorCategory(e),
+        if (model case final m?) 'model': m.name,
       });
       TrackingService.moneyFlowError('receive', e);
       setState(() => _creatingOrder = false);
@@ -2323,9 +2340,10 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
         // rewrote it before handing the option over).
         name: option.displayName,
         color: _getCoinColor(option.displaySymbol.toUpperCase()),
-        // The dollar balance has a local mark; the catalogue ships no
-        // artwork for it.
-        svgAsset: isDollars ? kUsdMarkAsset : null,
+        // The dollar balance as a source wears the Investments arrow,
+        // never the USDB coin; the catalogue ships no artwork for it
+        // either way.
+        icon: isDollars ? kInvestmentsIcon : null,
         iconUrl: isDollars
             ? null
             : (option.assetIconUrl ?? orchestraAssetIconUrl(option.assetCode)),

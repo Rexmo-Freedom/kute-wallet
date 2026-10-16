@@ -468,7 +468,6 @@ class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
                   : l10n.quotedReceiveExpired,
             ]),
           ReceiveActionPills(
-            onCopy: payable ? () => unawaited(_copyAddress()) : null,
             onShare: payable ? () => unawaited(_shareAddress()) : null,
           ),
           SizedBox(height: ReceiveGaps.block),

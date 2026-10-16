@@ -177,9 +177,17 @@ class _RollingDigitState extends State<_RollingDigit>
   /// glyph, and the clip then shaved the right edge off every digit. It
   /// showed up as a balance that looked cut off, worst on small screens,
   /// where a raised text size is most common.
-  Size _measureChar(String char, TextScaler scaler) {
+  ///
+  /// It is also measured in the style the digit paints in: [widget.style]
+  /// over the inherited [DefaultTextStyle], the way `Text` resolves it.
+  /// Measuring [widget.style] alone dropped the theme's font family (the
+  /// figure styles name none), so the cell was sized in the platform's
+  /// fallback font while the digit painted in Inter: wherever the two
+  /// differ, every digit sat in a cell of the wrong width, and the
+  /// figures read letter-spaced ("$4 2 .5 0").
+  Size _measureChar(String char, TextStyle style, TextScaler scaler) {
     final tp = TextPainter(
-      text: TextSpan(text: char, style: widget.style),
+      text: TextSpan(text: char, style: style),
       textDirection: TextDirection.ltr,
       textScaler: scaler,
       textHeightBehavior: const TextHeightBehavior(
@@ -195,8 +203,9 @@ class _RollingDigitState extends State<_RollingDigit>
     // Use the wider of (previous, current) so the digit cell
     // doesn't visibly resize mid-roll on proportional fonts.
     final scaler = MediaQuery.textScalerOf(context);
-    final currentSize = _measureChar(widget.digit, scaler);
-    final previousSize = _measureChar(_previous, scaler);
+    final style = DefaultTextStyle.of(context).style.merge(widget.style);
+    final currentSize = _measureChar(widget.digit, style, scaler);
+    final previousSize = _measureChar(_previous, style, scaler);
     final width = currentSize.width > previousSize.width
         ? currentSize.width
         : previousSize.width;

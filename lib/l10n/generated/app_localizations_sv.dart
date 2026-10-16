@@ -1191,34 +1191,6 @@ class AppLocalizationsSv extends AppLocalizations {
   String get totalFee => 'Total avgift';
 
   @override
-  String get usdEarnTitle => 'Tjäna';
-
-  @override
-  String get usdEarnRate => 'Senaste årsränta';
-
-  @override
-  String get usdEarnNextPayment => 'Nästa utbetalning';
-
-  @override
-  String get usdEarnNextPaymentIn => 'Betalas om';
-
-  @override
-  String get usdEarnRatePending => 'Laddar';
-
-  @override
-  String get usdEarnRateUnavailable => 'Inte tillgänglig just nu';
-
-  @override
-  String get usdEarnPaidToDate => 'Utbetalt till dig hittills';
-
-  @override
-  String get usdEarnActivityEmpty => 'Inga utbetalningar än';
-
-  @override
-  String get usdEarnActivityUnavailable =>
-      'Betalningshistoriken är inte tillgänglig just nu';
-
-  @override
   String hlYieldAvailableLine(String amount) {
     return '$amount tillgängligt';
   }
@@ -2064,6 +2036,20 @@ class AppLocalizationsSv extends AppLocalizations {
       'Konfigurationen avbröts. Inget skapades.';
 
   @override
+  String get passkeyBackupSyncing => 'Synkroniserar din säkerhetskopia…';
+
+  @override
+  String get passkeyCreateNewTitle => 'Ingen nyckel hittades';
+
+  @override
+  String passkeyCreateNewBody(String method) {
+    return 'Inget skapades. Vill du i stället skapa en ny nyckel för den här plånboken med $method?';
+  }
+
+  @override
+  String get passkeyCreateNewAction => 'Skapa en ny nyckel';
+
+  @override
   String passkeyChoiceFallbackWords(String method) {
     return 'Kunde inte konfigurera $method. Din plånbok skapades med återställningsord i stället.';
   }
@@ -2677,9 +2663,6 @@ class AppLocalizationsSv extends AppLocalizations {
   @override
   String get walletsEnterFriendCodeDescriptionNoDiscount =>
       'Om en vän bjöd in dig, ange vännens kod.';
-
-  @override
-  String get accountEarn => 'Tjäna';
 
   @override
   String get accountInviteFriendsEarnShare =>
@@ -3675,7 +3658,7 @@ class AppLocalizationsSv extends AppLocalizations {
   String get activityProcessingEllipsis => 'Bearbetar…';
 
   @override
-  String get usdAccountTab => 'Dollar';
+  String get usdAccountTab => 'Investments';
 
   @override
   String activityFromAmount(String amount) {
@@ -5937,9 +5920,6 @@ class AppLocalizationsSv extends AppLocalizations {
   String get portfolioStatRealized => 'Realiserad vinst/förlust';
 
   @override
-  String get portfolioStatOpen => 'Öppen vinst/förlust';
-
-  @override
   String get portfolioStatAmountPredicted => 'Belopp i prognoser';
 
   @override
@@ -6048,7 +6028,7 @@ class AppLocalizationsSv extends AppLocalizations {
   String get moveBuyBitcoin => 'Köp bitcoin';
 
   @override
-  String get dollarDeposit => 'Dollarinsättning';
+  String get dollarDeposit => 'Investments deposit';
 
   @override
   String get dollarWithdrawal => 'Dollaruttag';
@@ -6495,6 +6475,34 @@ class AppLocalizationsSv extends AppLocalizations {
   String get portfolioTabStatistics => 'Statistik';
 
   @override
+  String get portfolioBalanceDollars => 'Dollar';
+
+  @override
+  String get portfolioRebalance => 'Balansera om';
+
+  @override
+  String get portfolioRebalanceMoving => 'Flyttas till USDB…';
+
+  @override
+  String get portfolioRebalanceMovingMinutes =>
+      'Flyttas till USDB… tar några minuter';
+
+  @override
+  String get portfolioRebalanceHeldOrders => 'Hålls av öppna order';
+
+  @override
+  String get portfolioRebalanceHeldMargin =>
+      'Behålls som marginal för öppna positioner';
+
+  @override
+  String get portfolioRebalanceBelowMinimum =>
+      'Under minimibeloppet för att flytta';
+
+  @override
+  String get portfolioRebalanceNotNow =>
+      'Kunde inte flyttas nu. Tryck på Balansera om för att försöka igen.';
+
+  @override
   String get sendMoreThanAvailable => 'Det är mer än du har tillgängligt.';
 
   @override
@@ -6547,10 +6555,10 @@ class AppLocalizationsSv extends AppLocalizations {
   String get searchPredictionsHint => 'Sök prognoser';
 
   @override
-  String get assetDollars => 'Dollar';
+  String get assetDollars => 'Investments';
 
   @override
-  String get moveSourceDollarsSubtitle => 'Betala med ditt dollarsaldo';
+  String get moveSourceDollarsSubtitle => 'Pay with your Investments balance';
 
   @override
   String get sendDollarAccountAddressHint => 'Dollarkontots adress';
@@ -6802,23 +6810,11 @@ class AppLocalizationsSv extends AppLocalizations {
   String get betAdvancedSaleSellingAll => 'Säljer hela din position';
 
   @override
-  String get usdEarnProjectionNote =>
-      'Den streckade linjen är en uppskattning till dagens ränta, inte mottagna pengar.';
-
-  @override
-  String usdEarnBelowMinimum(String amount) {
-    return 'Belöningar börjar när du har $amount. De betalas ut dagligen i bitcoin.';
-  }
-
-  @override
-  String get usdEarnProjectedLabel => 'Prognos till dagens ränta';
-
-  @override
   String get moveWithdrawDestinationHint =>
       'Välj vad som hamnar på ditt vardagskonto.';
 
   @override
-  String get moveDestDollarsSubtitle => 'Till ditt dollarsaldo';
+  String get moveDestDollarsSubtitle => 'Into your Investments balance';
 
   @override
   String get moveConversionOngoing => 'Växling pågår';
@@ -7084,6 +7080,10 @@ class AppLocalizationsSv extends AppLocalizations {
       'Det gick inte att kontrollera tillgängligheten med Kute. Försök igen.';
 
   @override
+  String get capabilityOfflineGrace =>
+      'Kute kan inte nås just nu. Detta är fortfarande tillgängligt enligt din senaste kontroll.';
+
+  @override
   String get capabilityUnavailable =>
       'Den här funktionen är inte tillgänglig i Kute just nu.';
 
@@ -7118,6 +7118,9 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String get capabilityRegionTitle => 'Inte tillgängligt i din region';
+
+  @override
+  String get checkConnection => 'Kontrollera anslutningen';
 
   @override
   String get gateUnavailableTitle => 'Inte tillgängligt';
@@ -7410,7 +7413,7 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String get shareCodeTimedOut =>
-      'Din kod skapas. Du hittar den när som helst i Inställningar → Tjäna.';
+      'Din kod skapas. Du hittar den när som helst i Inställningar → Värvningsprogram.';
 
   @override
   String get referrerCaptureInvalid =>
@@ -7437,7 +7440,7 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String get referrerAddLater =>
-      'Du kan också lägga till den senare under Inställningar → Tjäna (inom 7 dagar).';
+      'Du kan också lägga till den senare under Inställningar → Värvningsprogram (inom 7 dagar).';
 
   @override
   String get referrerSkip => 'Hoppa över, jag har ingen kod';
@@ -7466,6 +7469,35 @@ class AppLocalizationsSv extends AppLocalizations {
   @override
   String get recoverFoundOnDevice =>
       'Hittades på den här enheten. Kontrollera att saldot ser rätt ut innan du återställer.';
+
+  @override
+  String get recoverOlderVersionSection =>
+      'Från en äldre version på den här telefonen';
+
+  @override
+  String get recoverOlderVersionWallet => 'Plånbok från en äldre version';
+
+  @override
+  String get recoverOlderVersionNeedsPin =>
+      'Öppnas med PIN-koden den versionen använde';
+
+  @override
+  String get recoverOlderVersionIcloud => 'Sparad i iCloud-nyckelring';
+
+  @override
+  String get recoverOlderVersionEnterPin =>
+      'Ange PIN-koden den versionen använde';
+
+  @override
+  String get recoverOlderVersionFailed =>
+      'Den här kopian kunde inte återställas.';
+
+  @override
+  String get restoreRescueOfferBody =>
+      'Kopior av dina plånböcker från en äldre version av Kute finns kvar på den här telefonen. Använda dem i stället för att börja om?';
+
+  @override
+  String get restoreRescueOfferConfirm => 'Använd de sparade kopiorna';
 
   @override
   String recoverConfirmWallet(String wallet) {
@@ -8089,6 +8121,9 @@ class AppLocalizationsSv extends AppLocalizations {
   String predictTargetPrice(String price) {
     return 'Mål $price';
   }
+
+  @override
+  String get predictPastRounds => 'Tidigare omgångar';
 
   @override
   String get predictNoOpenMarketsCategory =>
@@ -10467,6 +10502,9 @@ class AppLocalizationsSv extends AppLocalizations {
   String get portfolioStatAtStake => 'Insatt belopp';
 
   @override
+  String get portfolioProfitLoss => 'Vinst och förlust';
+
+  @override
   String slipCtaAddTo(String side, String amount) {
     String _temp0 = intl.Intl.selectLogic(
       side,
@@ -10614,5 +10652,295 @@ class AppLocalizationsSv extends AppLocalizations {
       },
     );
     return '$_temp0';
+  }
+
+  @override
+  String get investmentsTotal => 'Investments total';
+
+  @override
+  String oneBalanceMovingTo(String amount, String venue) {
+    return '$amount flyttas till $venue';
+  }
+
+  @override
+  String oneBalanceComingBack(String amount, String venue) {
+    return '$amount coming back from $venue';
+  }
+
+  @override
+  String oneBalanceWaitingToWithdraw(String amount) {
+    return '$amount unavailable until balancing completes';
+  }
+
+  @override
+  String oneBalanceIncoming(String amount) {
+    return 'Incoming $amount';
+  }
+
+  @override
+  String slipAddToInvestments(String amount) {
+    return 'Add $amount to Investments';
+  }
+
+  @override
+  String get slipMoveFee => 'Move fee';
+
+  @override
+  String get addMoneyToInvestments => 'Lägg till pengar i Investments';
+
+  @override
+  String get depositFromSpendingWallet => 'Din spendera-plånbok';
+
+  @override
+  String depositFromSpendingWalletWithBalance(String amount) {
+    return 'Din spendera-plånbok · $amount';
+  }
+
+  @override
+  String get depositFromAnotherWallet => 'En annan plånbok eller börs';
+
+  @override
+  String get depositFromAnotherWalletSubtitle =>
+      'Få en adress att skicka dollar till';
+
+  @override
+  String get portfolioStatOpenPnl => 'Öppen vinst/förlust';
+
+  @override
+  String stepUpReasonBetReady(String amount) {
+    return 'Gör en prognos på $amount redo';
+  }
+
+  @override
+  String get betMarketClosingNoFunding =>
+      'Den här marknaden stänger innan pengarna hinner fram. Inget flyttades.';
+
+  @override
+  String multiMoveSendTitle(String amount) {
+    return 'Skicka $amount';
+  }
+
+  @override
+  String multiMoveTitle(String amount, String destination) {
+    return 'Flytta $amount till $destination';
+  }
+
+  @override
+  String multiMoveDeliveredRemaining(String delivered, String remaining) {
+    return '$delivered levererat · $remaining kvar';
+  }
+
+  @override
+  String multiMovePurchaseWaiting(String amount, String balance) {
+    return 'Dina $amount finns i $balance. Tryck för att köpa Bitcoin';
+  }
+
+  @override
+  String multiMoveSendWaiting(String amount, String balance) {
+    return 'Dina $amount finns i $balance. Betalningen skickades inte';
+  }
+
+  @override
+  String get usdReceiveFromYourWallet => 'Från din plånbok';
+
+  @override
+  String get usdReceiveFromAnotherWallet => 'Från en annan plånbok eller börs';
+
+  @override
+  String slipStepAddingToInvestments(String amount) {
+    return 'Lägger till $amount i Investments';
+  }
+
+  @override
+  String get slipStepPreparingPrediction => 'Gör din förutsägelse klar';
+
+  @override
+  String get slipStepPreparingOrder => 'Gör din order klar';
+
+  @override
+  String slipStepPlacingBet(String amount, String side) {
+    return 'Lägger $amount på $side';
+  }
+
+  @override
+  String slipStepOpeningOrder(String amount, String side, String market) {
+    return 'Öppnar $amount $side $market';
+  }
+
+  @override
+  String get slipStepTakingLonger => 'Det tar längre tid än vanligt';
+
+  @override
+  String slipFundingReadyToPlace(String amount) {
+    return 'Dina $amount finns i Investments. Tryck för att lägga.';
+  }
+
+  @override
+  String get slipFundingBitcoinBack =>
+      'Det gick inte att lägga till i Investments. Din bitcoin kommer tillbaka.';
+
+  @override
+  String get slipFundingPriceMoved => 'Priset rörde sig för snabbt.';
+
+  @override
+  String get slipFundingRoundClosed =>
+      'Den här rundan stängde innan dina pengar kom fram.';
+
+  @override
+  String slipFundingInPredictions(String amount) {
+    return 'Dina $amount finns i Prognoser. Tryck för att försöka igen.';
+  }
+
+  @override
+  String slipFundingInInvesting(String amount) {
+    return 'Dina $amount finns i Investera. Tryck för att försöka igen.';
+  }
+
+  @override
+  String oneBalancePlacingBet(String amount, String side, String market) {
+    return 'Lägger $amount på $side · $market';
+  }
+
+  @override
+  String oneBalanceOpeningOrder(String amount, String market) {
+    return 'Öppnar order på $amount för $market';
+  }
+
+  @override
+  String hlMarginStepAdding(String amount, String coin) {
+    return 'Lägger till $amount marginal på $coin';
+  }
+
+  @override
+  String hlMarginFundingReady(String amount) {
+    return 'Dina $amount finns i Investments. Tryck för att lägga till marginal.';
+  }
+
+  @override
+  String get salWhyMoving => 'Varför rör den sig?';
+
+  @override
+  String get positionProtectIt => 'Skydda den';
+
+  @override
+  String hlRiskLiquidationLong(String market, String price, String amount) {
+    return 'Om $market faller till $price stängs positionen och du förlorar $amount.';
+  }
+
+  @override
+  String hlRiskLiquidationShort(String market, String price, String amount) {
+    return 'Om $market stiger till $price stängs positionen och du förlorar $amount.';
+  }
+
+  @override
+  String polyRiskOutcome(String outcome, String cost, String payout) {
+    return 'Om $outcome förlorar, förlorar du $cost; om det vinner får du $payout.';
+  }
+
+  @override
+  String moneyStepMovingFrom(String amount, String source) {
+    return 'Flyttar $amount från $source';
+  }
+
+  @override
+  String moneyStepMovedFrom(String amount, String source) {
+    return 'Flyttade $amount från $source';
+  }
+
+  @override
+  String moneyStepMovingFromTo(
+      String amount, String source, String destination) {
+    return 'Flyttar $amount från $source → $destination';
+  }
+
+  @override
+  String moneyStepMovedFromTo(
+      String amount, String source, String destination) {
+    return 'Flyttade $amount från $source → $destination';
+  }
+
+  @override
+  String moneyStepMoveFailed(String amount, String source) {
+    return '$amount från $source flyttades inte';
+  }
+
+  @override
+  String moneyStepFellBack(String source, String via) {
+    return '$source-rutten är upptagen, går via $via';
+  }
+
+  @override
+  String moneyStepViaDollars(String source, String via) {
+    return '$source går via $via';
+  }
+
+  @override
+  String moneyStepRouteUnavailable(String source, String via) {
+    return '$source-rutten är inte tillgänglig, går via $via';
+  }
+
+  @override
+  String moneyStepTooSmallDirect(String source, String via) {
+    return 'För lite för att gå direkt från $source, går via $via';
+  }
+
+  @override
+  String multiMoveOrderWaiting(String amount, String balance) {
+    return 'Dina $amount finns i $balance. Ordern genomfördes inte';
+  }
+
+  @override
+  String get moneyStepConverting => 'Konverterar till pUSD';
+
+  @override
+  String get moneyStepConverted => 'Konverterat till pUSD';
+
+  @override
+  String get moneyStepApproving => 'Godkänner utgift';
+
+  @override
+  String get moneyStepApproved => 'Utgift godkänd';
+
+  @override
+  String get moneyStepConfirming => 'Bekräftar saldo';
+
+  @override
+  String get moneyStepConfirmed => 'Saldo bekräftat';
+
+  @override
+  String get moneyStepCrediting => 'Krediterar handelssaldot';
+
+  @override
+  String get moneyStepCredited => 'Krediterat till handelssaldot';
+
+  @override
+  String moneyStepBuying(String amount) {
+    return 'Köper Bitcoin för $amount';
+  }
+
+  @override
+  String moneyStepBought(String amount) {
+    return 'Köpte Bitcoin för $amount';
+  }
+
+  @override
+  String get moneyStepArriving => 'Anländer i Bitcoin';
+
+  @override
+  String get moneyStepArrived => 'Anlände i Bitcoin';
+
+  @override
+  String moneyStepSending(String amount) {
+    return 'Skickar $amount';
+  }
+
+  @override
+  String moneyStepSent(String amount) {
+    return 'Skickade $amount';
+  }
+
+  @override
+  String moneyStepCompact(String source, String destination, String amount) {
+    return '$source → $destination · $amount';
   }
 }

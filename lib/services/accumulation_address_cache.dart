@@ -6,6 +6,8 @@ import 'package:kute/models/orchestra_model.dart';
 import 'package:kute/services/api/orchestra_api.dart';
 import 'package:kute/services/orchestra/orchestra_capability_requirements.dart'
     show orchestraReceiveAddressCapabilities;
+import 'package:kute/services/orchestra/receive_route_availability.dart'
+    show ReceiveRouteAvailability;
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/orchestra_routes.dart';
 import 'package:kute/services/security/address_guard.dart';
@@ -321,10 +323,11 @@ class AccumulationAddressCache {
             destinationAsset: destinationAsset,
           );
           if (failure == null) {
-            TrackingService.reusableDepositAddressReused(
-              sourceChain: sourceChain,
-              sourceAsset: sourceAsset,
-            );
+            TrackingService.track('reusable_deposit_address_reused', params: {
+              'source_chain': sourceChain,
+              'source_asset': sourceAsset,
+              'model': 'accumulation',
+            });
             return Result(data: addr);
           }
           await _retire(box, key, cached, AddressRetireReason.reverify);
@@ -395,11 +398,12 @@ class AccumulationAddressCache {
     }
 
     if (result.data != null) {
-      TrackingService.reusableDepositAddressCreated(
-        sourceChain: sourceChain,
-        sourceAsset: sourceAsset,
-        destinationAsset: destinationAsset,
-      );
+      TrackingService.track('reusable_deposit_address_created', params: {
+        'source_chain': sourceChain,
+        'source_asset': sourceAsset,
+        'destination_asset': destinationAsset,
+        'model': 'accumulation',
+      });
       // Cache the result
       final json = {
         'schema': _schemaVersion,
@@ -477,7 +481,7 @@ class AccumulationAddressCache {
   /// offer them again, but the sweep must keep watching addresses that
   /// were already handed out in case a late deposit lands.
   static List<OrchestraAccumulationAddress> getAll() {
-    // Box opens in main.dart via [init]; the guard covers early callers
+    // Box opens at startup (hive_boot.dart); the guard covers early callers
     // racing startup — returning empty just delays the sweep one tick.
     if (!Hive.isBoxOpen(_boxName)) return const [];
     final box = Hive.box<String>(_boxName);
@@ -496,7 +500,23 @@ class AccumulationAddressCache {
     return out;
   }
 
-  /// Initialize the Hive boxes. Call once at app startup.
+  /// The entries background sync's off-screen sweep watches: [getAll]
+  /// (retired entries included, for the late deposits they may still
+  /// take) minus any HyperCore-source entry. Flashnet cannot verify a
+  /// HyperCore deposit independently ("existing addresses require
+  /// reconciliation"), so polling history for one can never credit it;
+  /// the app never minted one, and a stray entry is left to the
+  /// provider's reconciliation rather than queried every tick.
+  static List<OrchestraAccumulationAddress> sweepTargets() => getAll()
+      .where((a) => !ReceiveRouteAvailability.isHyperCoreSource(a.sourceChain))
+      .toList();
+
+  /// Opens the boxes if nothing has yet (tests) and runs the once-per-
+  /// launch sweep. At startup `openStartupHiveBoxes`
+  /// (lib/services/hive_boot.dart) calls this with both boxes already
+  /// open, after the analytics opt-out is applied; the opens are then
+  /// no-ops. [AddressHistory.record] drops a row while its box is
+  /// closed, which is why the history box opens before the sweep.
   static Future<void> init() async {
     if (!Hive.isBoxOpen(_boxName)) {
       await Hive.openBox<String>(_boxName);

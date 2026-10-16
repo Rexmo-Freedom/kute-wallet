@@ -59,7 +59,9 @@ final _ledger = WalletConfig(
 );
 final _spending = WalletConfig(id: 'spending', name: 'Spending');
 
-/// Every Ledger venue surface's answer for [policy].
+/// Every Ledger venue surface's answer for [policy]. A Ledger's venue
+/// exists exactly when the strip draws its tab, so the two predicates
+/// agree for it.
 ({
   bool investingTab,
   bool predictionsTab,
@@ -68,9 +70,11 @@ final _spending = WalletConfig(id: 'spending', name: 'Spending');
   String? setupAfterImport,
 }) _surfaces(RuntimeCapabilitiesService policy) {
   RuntimeCapabilitiesService.debugInstance = policy;
+  expect(shellDrawsTradingTab(_ledger), shellShowsTradingTab(_ledger));
+  expect(shellDrawsPredictionsTab(_ledger), shellShowsPredictionsTab(_ledger));
   return (
-    investingTab: shellShowsTradingTab(_ledger),
-    predictionsTab: shellShowsPredictionsTab(_ledger),
+    investingTab: shellDrawsTradingTab(_ledger),
+    predictionsTab: shellDrawsPredictionsTab(_ledger),
     investingAccountTab: ledgerAccountTabOffered(LedgerAccountTab.investing),
     predictionsAccountTab:
         ledgerAccountTabOffered(LedgerAccountTab.predictions),
@@ -232,10 +236,39 @@ void main() {
     expect(ledgerAnyVenueAllowed(), isFalse);
     // Connecting a Ledger goes straight to Home, no setup step.
     expect(s.setupAfterImport, isNull);
-    // The spending account keeps its venues; Bitcoin stays on a Ledger.
+    // The spending account keeps its venues (the Portfolio and the Move
+    // sheet read these), but as pills of Investments, never as tabs of
+    // the strip; Bitcoin stays on a Ledger.
     expect(shellShowsTradingTab(_spending), isTrue);
     expect(shellShowsPredictionsTab(_spending), isTrue);
+    expect(shellDrawsTradingTab(_spending), isFalse);
+    expect(shellDrawsPredictionsTab(_spending), isFalse);
+    expect(shellDrawsTradingTab(_spending, policy: _allVenues), isFalse);
+    expect(shellDrawsPredictionsTab(_spending, policy: _allVenues), isFalse);
+    expect(shellDrawsTradingTab(null, policy: _allVenues), isFalse);
     expect(ledgerAccountTabOffered(LedgerAccountTab.bitcoin), isTrue);
+  });
+
+  testWidgets(
+      'the spending account: Bitcoin and Dollars tabs only, and both venue '
+      'branches empty', (tester) async {
+    final l10n = await _pumpShell(tester,
+        policy: _allVenues,
+        wallets: [_spending, _ledger],
+        activeWalletId: 'spending',
+        shellWalletId: null);
+    expect(find.byIcon(Icons.currency_bitcoin_rounded), findsOneWidget);
+    expect(find.bySemanticsLabel(l10n.usdAccountTab), findsWidgets);
+    expect(find.byIcon(Icons.trending_up_rounded), findsNothing);
+    expect(find.byIcon(Icons.donut_large_rounded), findsNothing);
+    expect(find.bySemanticsLabel(l10n.trading), findsNothing);
+    expect(find.bySemanticsLabel(l10n.predictions), findsNothing);
+    // The venues live inside Investments: the branches hold nothing.
+    expect(find.byType(HyperliquidScreen), findsNothing);
+    expect(find.byType(PolymarketScreen), findsNothing);
+    expect(find.byType(LedgerHyperliquidTab), findsNothing);
+    expect(find.byType(LedgerPolymarketTab), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 
   test('no readable policy: hidden', () {
@@ -332,8 +365,12 @@ void main() {
         activeWalletId: 'spending',
         shellWalletId: 'ledger-1',
         bodies: false);
-    expect(_venueLogo('hyperliquid'), findsOneWidget);
-    expect(_venueLogo('polymarket'), findsOneWidget);
+    // The tabs carry the generic Investing and Predictions icons, not the
+    // venues' logos.
+    expect(find.byIcon(Icons.trending_up_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.donut_large_rounded), findsOneWidget);
+    expect(find.bySemanticsLabel(l10n.trading), findsWidgets);
+    expect(find.bySemanticsLabel(l10n.predictions), findsWidgets);
     expect(find.bySemanticsLabel(l10n.usdAccountTab), findsNothing);
   });
 

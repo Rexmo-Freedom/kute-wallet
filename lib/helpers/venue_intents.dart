@@ -26,7 +26,8 @@ import 'package:kute/services/hyperliquid/trailing_stop.dart';
 // to the executor).
 //
 // Also here: the Hyperliquid Builder run intents ([HlBuilderIntents]), the
-// Polymarket grant helpers ([PmGrants], [PmLadderGrant]) and the Orchestra
+// Polymarket grant helpers ([PmGrants], [PmLadderGrant]), the Bitcoin leg
+// of an order funded from bitcoin ([BitcoinLegGrants]) and the Orchestra
 // settlement intent ([OrchestraGrants]).
 //
 // Privacy: nothing here is tracked or logged.
@@ -35,6 +36,10 @@ import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/services/funding/settlement_runner.dart'
     show SettlementAuthorizationIntent;
+import 'package:kute/services/orchestra/orchestra_quote_guard.dart'
+    show RecipientKind;
+import 'package:kute/services/security/address_guard.dart'
+    show sameSparkAddress;
 
 /// Venue strings used in intents.
 abstract final class IntentVenue {
@@ -105,6 +110,29 @@ abstract final class VenueLimit {
 
   /// Hyperliquid withdrawals: `own_eoa` or `accumulation`.
   static const destinationKind = 'destinationKind';
+
+  /// An order funded from Dollars (one balance): the most the funding leg
+  /// may move, in the dollar token's six-decimal base units, as a decimal
+  /// string. Bound exactly, so the one approval covers both legs.
+  static const fundingUsd = 'fundingUsd';
+
+  /// The venue the funding leg moves into (`polymarket` | `hyperliquid`).
+  static const fundingVenue = 'fundingVenue';
+
+  /// The venue-cash legs an action sends straight to its destination
+  /// (venue cash to Bitcoin, to the other venue), bound into the action's
+  /// own one approval: `{to, legs: {venue: cap}, total}`, caps in the
+  /// dollar token's six-decimal base units as decimal strings. Bound
+  /// exactly; [DirectLegGrants] reads it.
+  static const directLegs = 'directLegs';
+
+  /// An order funded from the person's own bitcoin (one balance, October
+  /// 2026): the Bitcoin → Dollars leg the order's one approval also
+  /// covers, `{maxSats, route, to}` (the most sats that may leave as a
+  /// decimal string, the route `spark_btc>spark_usdb`, and the wallet's
+  /// own Spark address the dollars land on). Bound exactly;
+  /// [BitcoinLegGrants] reads it.
+  static const fundBtc = 'fundBtc';
 }
 
 /// Hyperliquid intents (`hlOrder`, `venueWithdraw`).
@@ -858,6 +886,99 @@ abstract final class PmGrants {
     if (drift.isNotEmpty) throw ReauthRequired(drift);
   }
 
+  // ── One balance: an order funded from Dollars ─────────────────────
+
+  /// The limits a funded order's review intent carries on top of the bet
+  /// review: the funding leg's cap and venue. The autofire rebuilds the
+  /// same two on the order it places, so the digest covers both legs.
+  ///
+  /// [directLegs] ([DirectLegGrants.limit]) binds the venue-cash legs that
+  /// go straight into the venue for this bet, when there are any.
+  static Map<String, Object?> fundingLimits({
+    required double fundUsd,
+    required String venue,
+    Map<String, Object?>? directLegs,
+    Map<String, Object?>? btcLeg,
+  }) =>
+      {
+        VenueLimit.fundingUsd: IntentUnits.usd(fundUsd).toString(),
+        VenueLimit.fundingVenue: venue,
+        if (directLegs != null) VenueLimit.directLegs: directLegs,
+        if (btcLeg != null) VenueLimit.fundBtc: btcLeg,
+      };
+
+  /// [review] (a bet review intent) extended with [fundingLimits]: the one
+  /// approval a funded bet asks for. [btcLeg] ([BitcoinLegGrants.limit])
+  /// binds the Bitcoin → Dollars leg that tops Dollars up first.
+  static SensitiveIntent fundedBetReview(
+    SensitiveIntent review, {
+    required double fundUsd,
+    required String venue,
+    Map<String, Object?>? directLegs,
+    Map<String, Object?>? btcLeg,
+  }) =>
+      review.copyWith(limits: {
+        ...review.limits,
+        ...fundingLimits(
+            fundUsd: fundUsd,
+            venue: venue,
+            directLegs: directLegs,
+            btcLeg: btcLeg),
+      });
+
+  /// Whether [grant], the one approval of a funded bet, still covers a
+  /// funding leg of [amountIn] base units into [venue]: live (not
+  /// revoked, consumed or expired), a bet approval, bound to this venue,
+  /// and bound to a cap at or above the amount about to leave. Pure;
+  /// [now] defaults to the grant clock.
+  static bool fundingGrantCovers(
+    AuthGrant grant, {
+    required BigInt amountIn,
+    required String venue,
+    DateTime? now,
+  }) {
+    if (grant.revoked || grant.consumed) return false;
+    if (grant.isExpiredAt(now ?? AuthGrants.clock())) return false;
+    if (grant.action != SensitiveAction.pmBet &&
+        grant.action != SensitiveAction.hlOrder) {
+      return false;
+    }
+    final limits = grant.boundIntent.limits;
+    if (limits[VenueLimit.fundingVenue] != venue) return false;
+    final cap = limits[VenueLimit.fundingUsd];
+    final capUnits = cap is String ? BigInt.tryParse(cap) : null;
+    if (capUnits == null || capUnits <= BigInt.zero) return false;
+    return amountIn > BigInt.zero && amountIn <= capUnits;
+  }
+
+  /// The sweep variant of a Predictions withdrawal: no grant, so the
+  /// venue's own rule decides. Money may only ever go to the wallet's own
+  /// accounts: the withdrawal must pay exactly a verified Orchestra quote
+  /// whose recipient is the wallet's own Spark address, or its own
+  /// Investing account when another action pulls the cash straight there
+  /// (rule 7 of the quote gate checked that address against the one the
+  /// wallet derived), to that quote's deposit address, for that quote's
+  /// exact amount, as the bridged token the quote declared. Anything else
+  /// is refused.
+  static bool sweepCoversWithdrawal({
+    required RecipientKind recipientKind,
+    required String quoteDepositAddress,
+    required BigInt quoteAmountIn,
+    required String toAddress,
+    required BigInt? exactMicroUsdc,
+    required bool bridged,
+  }) {
+    if (recipientKind != RecipientKind.ownSpark &&
+        recipientKind != RecipientKind.ownEvm) {
+      return false;
+    }
+    if (!bridged) return false;
+    if (exactMicroUsdc == null || exactMicroUsdc <= BigInt.zero) return false;
+    if (exactMicroUsdc != quoteAmountIn) return false;
+    return toAddress.trim().toLowerCase() ==
+        quoteDepositAddress.trim().toLowerCase();
+  }
+
   /// True when [grant] approved an Orchestra-funded move.
   static bool isOrchestraFunded(AuthGrant grant) {
     final bound = grant.boundIntent;
@@ -933,6 +1054,535 @@ class PmLadderGrant {
   void close() {
     if (!approval.consumed) approval.revoke();
   }
+}
+
+// ── One balance: venue-cash legs under the action's approval ─────────
+
+/// The venue-cash legs an action sends straight to a destination other
+/// than Dollars (venue cash to Bitcoin, Investing to Predictions,
+/// Predictions to Investing) run only under that action's ONE user
+/// approval, never under the automatic no-tap authorization (which only
+/// ever brings money home to the wallet's own Dollars).
+///
+/// The approval binds [VenueLimit.directLegs] ([limit]): the destination,
+/// a cap per venue and the total. A rail asked to move a leg under
+/// `ApprovedLegAuthorization` calls [take], which accepts it only while
+/// the grant is live (not consumed, revoked or expired, so a leg never
+/// runs after the action it was approved for), is one of [actions], binds
+/// legs to that destination, and the leg fits its venue's cap and the
+/// total with what earlier legs under the same grant already took. Pure
+/// apart from the per-grant tally.
+abstract final class DirectLegGrants {
+  /// The approvals a leg may run under: a Move (Buy Bitcoin, a Retry), an
+  /// Investing order, a prediction.
+  static const Set<SensitiveAction> actions = {
+    SensitiveAction.moveTransfer,
+    SensitiveAction.hlOrder,
+    SensitiveAction.pmBet,
+  };
+
+  static final Expando<Map<String, BigInt>> _taken =
+      Expando<Map<String, BigInt>>('directLegsTaken');
+
+  /// The [VenueLimit.directLegs] value for legs to [destination] (a
+  /// `VenueCashDestination` code) capped at [capsUsd] per venue name.
+  /// Null when there is no leg. Each cap is the leg's own amount to the
+  /// micro, rounded up.
+  static Map<String, Object?>? limit({
+    required String destination,
+    required Map<String, double> capsUsd,
+  }) {
+    final legs = <String, String>{};
+    var total = BigInt.zero;
+    capsUsd.forEach((venue, usd) {
+      final units = IntentUnits.usd(usd);
+      if (units <= BigInt.zero) return;
+      legs[venue] = units.toString();
+      total += units;
+    });
+    if (legs.isEmpty) return null;
+    return {
+      'to': destination,
+      'legs': legs,
+      'total': total.toString(),
+    };
+  }
+
+  static BigInt? _units(Object? v) => switch (v) {
+        BigInt b => b,
+        int i => BigInt.from(i),
+        String s => BigInt.tryParse(s),
+        _ => null,
+      };
+
+  /// [grant]'s cap for a leg from [venue] to [destination] and its total,
+  /// or null when it binds no such leg.
+  static ({BigInt cap, BigInt total})? _caps(
+      AuthGrant grant, String venue, String destination) {
+    final bound = grant.boundIntent.limits[VenueLimit.directLegs];
+    if (bound is! Map) return null;
+    if (bound['to'] != destination) return null;
+    final legs = bound['legs'];
+    if (legs is! Map) return null;
+    final cap = _units(legs[venue]);
+    final total = _units(bound['total']);
+    if (cap == null || cap <= BigInt.zero) return null;
+    if (total == null || total <= BigInt.zero) return null;
+    return (cap: cap, total: total);
+  }
+
+  static bool _live(AuthGrant grant, DateTime? now) =>
+      actions.contains(grant.action) &&
+      !grant.revoked &&
+      !grant.consumed &&
+      !grant.isExpiredAt(now ?? AuthGrants.clock());
+
+  /// What legs under [grant] took so far, from [venue] (or in all).
+  static BigInt takenBy(AuthGrant grant, [String? venue]) {
+    final taken = _taken[grant];
+    if (taken == null) return BigInt.zero;
+    if (venue != null) return taken[venue] ?? BigInt.zero;
+    return taken.values.fold(BigInt.zero, (a, b) => a + b);
+  }
+
+  /// Whether [grant] is live and binds a leg from [venue] to
+  /// [destination], whatever is left of its cap: the executor's re-check
+  /// after the rail's step-up already counted the leg ([take]).
+  static bool binds(
+    AuthGrant? grant, {
+    required String venue,
+    required String destination,
+    DateTime? now,
+  }) =>
+      grant != null &&
+      _live(grant, now) &&
+      _caps(grant, venue, destination) != null;
+
+  /// Whether [grant] still covers a leg of [amount] base units from
+  /// [venue] to [destination]. Takes nothing.
+  static bool covers(
+    AuthGrant? grant, {
+    required String venue,
+    required String destination,
+    required BigInt amount,
+    DateTime? now,
+  }) {
+    if (grant == null || !_live(grant, now)) return false;
+    if (amount <= BigInt.zero) return false;
+    final caps = _caps(grant, venue, destination);
+    if (caps == null) return false;
+    return takenBy(grant, venue) + amount <= caps.cap &&
+        takenBy(grant) + amount <= caps.total;
+  }
+
+  /// [covers], then counts the leg against [grant]'s caps. The rail's
+  /// last check before a leg's money moves.
+  static bool take(
+    AuthGrant? grant, {
+    required String venue,
+    required String destination,
+    required BigInt amount,
+    DateTime? now,
+  }) {
+    if (!covers(grant,
+        venue: venue, destination: destination, amount: amount, now: now)) {
+      return false;
+    }
+    final taken = _taken[grant!] ??= <String, BigInt>{};
+    taken[venue] = (taken[venue] ?? BigInt.zero) + amount;
+    return true;
+  }
+
+  /// The Buy Bitcoin approval when venue cash is part of it: ONE Move
+  /// approval for the whole purchase (at most [totalUsd] bought from
+  /// Dollars, to the wallet's own Spark address [ownSpark] by [route]) and
+  /// the legs that go straight to Bitcoin ([directLegs]; null when every
+  /// leg comes home to Dollars). [ttl] covers the wait for the legs.
+  static SensitiveIntent buyBitcoin({
+    required String walletId,
+    required String ownSpark,
+    required String route,
+    required String asset,
+    required double totalUsd,
+    required Map<String, Object?>? directLegs,
+    required Duration ttl,
+  }) =>
+      SensitiveIntent(
+        action: SensitiveAction.moveTransfer,
+        walletId: walletId,
+        venue: IntentVenue.orchestra,
+        destination: ownSpark,
+        asset: asset,
+        amountMax: IntentUnits.usd(totalUsd),
+        limits: {
+          IntentLimit.provider: IntentVenue.orchestra,
+          IntentLimit.route: route,
+          if (directLegs != null) VenueLimit.directLegs: directLegs,
+        },
+        ttl: ttl,
+      );
+
+  /// The approval a Retry of a move's remainder asks for when the
+  /// remainder goes straight to a destination other than Dollars: the
+  /// legs and nothing else.
+  static SensitiveIntent retry({
+    required String walletId,
+    required String destination,
+    required double totalUsd,
+    required Map<String, Object?> directLegs,
+  }) =>
+      SensitiveIntent(
+        action: SensitiveAction.moveTransfer,
+        walletId: walletId,
+        venue: IntentVenue.local,
+        destination: destination,
+        asset: 'USD',
+        amountMax: IntentUnits.usd(totalUsd),
+        limits: {VenueLimit.directLegs: directLegs},
+      );
+
+  /// Whether the Buy Bitcoin approval [grant] ([buyBitcoin]) covers the
+  /// purchase settlement about to be paid: live, the same wallet, the
+  /// own Spark address it was approved for, the approved route, and no
+  /// more than approved. The caller consumes it right after.
+  static bool coversPurchase(
+    AuthGrant grant, {
+    required String walletId,
+    required String recipient,
+    required String routeLabel,
+    required BigInt amountIn,
+    DateTime? now,
+  }) {
+    if (grant.action != SensitiveAction.moveTransfer) return false;
+    if (!_live(grant, now)) return false;
+    final bound = grant.boundIntent;
+    if (bound.walletId != walletId) return false;
+    if ((bound.destination ?? '').trim() != recipient.trim()) return false;
+    if (bound.limits[IntentLimit.route] != routeLabel) return false;
+    return amountIn > BigInt.zero && amountIn <= bound.amountMax;
+  }
+}
+
+// ── One balance: the Bitcoin leg under an order's approval ───────────
+
+/// The Bitcoin → Dollars leg a short slip runs before it funds its order
+/// (founder decision 14 October 2026: one "Add $X to Investments" tap, one
+/// Face ID, then Bitcoin → Dollars → venue → order). The order's own one
+/// approval binds the leg ([VenueLimit.fundBtc], built by [limit]); the
+/// settlement runner's step-up hook ([stepUp]) accepts the leg only when
+/// [take] says the grant covers it. Nothing else may pay a Bitcoin leg
+/// under an order's approval.
+///
+/// A leg is covered only when ALL of these hold:
+///   * the grant is live (not consumed, revoked or expired), an order or
+///     bet approval ([actions]), for the settlement's own wallet, and no
+///     Bitcoin leg ran under it yet (single use);
+///   * the grant binds a Bitcoin leg to [route] and to the wallet's own
+///     Spark address, which is also the address the caller resolved now;
+///   * the settlement is that route (`spark:BTC → spark:USDB`), its
+///     recipient is the wallet's own Spark address, and the verified quote
+///     it pays asks for exactly that: Bitcoin on Spark in, the dollar token
+///     on Spark out, recipient AND refund the wallet's own Spark address;
+///   * the sats about to leave are positive, equal the verified quote's,
+///     and at most the bound `maxSats`.
+abstract final class BitcoinLegGrants {
+  /// The leg's route, as `RouteKey.label` spells it.
+  static const String route = 'spark_btc>spark_usdb';
+
+  /// The approvals a Bitcoin leg may run under.
+  static const Set<SensitiveAction> actions = {
+    SensitiveAction.hlOrder,
+    SensitiveAction.pmBet,
+  };
+
+  static final Expando<bool> _taken = Expando<bool>('btcLegTaken');
+
+  /// The [VenueLimit.fundBtc] value: at most [maxSats] to the wallet's own
+  /// Spark address [ownSpark] by [route].
+  static Map<String, Object?> limit({
+    required int maxSats,
+    required String ownSpark,
+  }) =>
+      {
+        'maxSats': maxSats.toString(),
+        'route': route,
+        'to': ownSpark.trim(),
+      };
+
+  static ({BigInt maxSats, String to})? _bound(AuthGrant grant) {
+    final bound = grant.boundIntent.limits[VenueLimit.fundBtc];
+    if (bound is! Map) return null;
+    if (bound['route'] != route) return null;
+    final raw = bound['maxSats'];
+    final max = switch (raw) {
+      BigInt b => b,
+      int i => BigInt.from(i),
+      String s => BigInt.tryParse(s),
+      _ => null,
+    };
+    final to = bound['to'];
+    if (max == null || max <= BigInt.zero) return null;
+    if (to is! String || to.trim().isEmpty) return null;
+    return (maxSats: max, to: to.trim());
+  }
+
+  /// Whether [grant] binds a Bitcoin leg at all (a funded order whose
+  /// Dollars are topped up from Bitcoin first).
+  static bool binds(AuthGrant? grant) =>
+      grant != null && _bound(grant) != null;
+
+  /// The most sats [grant] lets the Bitcoin leg send, or null.
+  static BigInt? maxSatsOf(AuthGrant grant) => _bound(grant)?.maxSats;
+
+  /// Whether a Bitcoin leg already ran under [grant].
+  static bool takenBy(AuthGrant grant) => _taken[grant] == true;
+
+  static String _recipientOf(SettlementAuthorizationIntent settlement) {
+    final sep = settlement.destination.lastIndexOf('|');
+    return (sep < 0
+            ? settlement.destination
+            : settlement.destination.substring(0, sep))
+        .trim();
+  }
+
+  /// Whether [grant] covers the Bitcoin leg [settlement] is about to pay.
+  /// [ownSpark] is the wallet's own Spark address as the caller resolved
+  /// it from the wallet. Takes nothing; pure.
+  static bool covers(
+    AuthGrant? grant,
+    SettlementAuthorizationIntent settlement, {
+    required String ownSpark,
+    DateTime? now,
+  }) {
+    if (grant == null) return false;
+    if (!actions.contains(grant.action)) return false;
+    if (grant.revoked || grant.consumed) return false;
+    if (grant.isExpiredAt(now ?? AuthGrants.clock())) return false;
+    if (takenBy(grant)) return false;
+    if (grant.walletId != settlement.walletId) return false;
+    final bound = _bound(grant);
+    if (bound == null) return false;
+    final own = ownSpark.trim();
+    if (own.isEmpty) return false;
+    if (!sameSparkAddress(bound.to, own)) return false;
+    if (settlement.routeLabel != route) return false;
+    if (!sameSparkAddress(_recipientOf(settlement), own)) return false;
+    final quote = settlement.reviewedQuote;
+    if (quote == null) return false;
+    final req = quote.request;
+    if (req.sourceChain.trim().toLowerCase() != 'spark' ||
+        req.sourceAsset.trim().toUpperCase() != 'BTC' ||
+        req.destinationChain.trim().toLowerCase() != 'spark' ||
+        req.destinationAsset.trim().toUpperCase() != 'USDB') {
+      return false;
+    }
+    if (req.recipientKind != RecipientKind.ownSpark) return false;
+    if (!sameSparkAddress(req.recipientAddress, own)) return false;
+    if (!sameSparkAddress(req.refundAddress, own)) return false;
+    final sats = settlement.amountIn;
+    if (sats <= BigInt.zero) return false;
+    if (quote.amountIn != sats) return false;
+    return sats <= bound.maxSats;
+  }
+
+  /// [covers], then marks the grant's one Bitcoin leg as taken. The
+  /// runner's last check before the sats leave.
+  static bool take(
+    AuthGrant? grant,
+    SettlementAuthorizationIntent settlement, {
+    required String ownSpark,
+    DateTime? now,
+  }) {
+    if (!covers(grant, settlement, ownSpark: ownSpark, now: now)) {
+      return false;
+    }
+    _taken[grant!] = true;
+    return true;
+  }
+
+  /// The settlement step-up hook for a Bitcoin leg under [grant]: no
+  /// prompt (the order's one approval was the prompt), only [take].
+  static Future<bool> Function(SettlementAuthorizationIntent) stepUp(
+    AuthGrant grant, {
+    required String ownSpark,
+  }) =>
+      (settlement) async => take(grant, settlement, ownSpark: ownSpark);
+
+  // ── The direct leg: Bitcoin straight into the venue ─────────────────
+  //
+  // Founder decision 15 October 2026: an order that needs Bitcoin sends
+  // it in ONE Orchestra order from `spark:BTC` straight to the wallet's
+  // own venue deposit. The same one approval binds it ([directLimit],
+  // under `direct` in [VenueLimit.fundBtc]) next to the via-Dollars leg
+  // it falls back to; either way ONE Bitcoin leg runs per grant ([take]
+  // and [takeDirect] share the single use). A direct leg is covered only
+  // when ALL of these hold:
+  //   * the grant is live, an order or bet approval, the settlement's own
+  //     wallet, no Bitcoin leg ran under it yet;
+  //   * it binds the direct route of that venue, to exactly the wallet's
+  //     own venue deposit (the Predictions deposit wallet, the Investing
+  //     account), which is also the address the caller resolved now;
+  //   * the settlement is that route, its recipient that own deposit, and
+  //     the verified quote asks for exactly that: Bitcoin on Spark in, the
+  //     venue's token out, recipient the own deposit (own Predictions
+  //     wallet / own EVM account), refund the wallet's own Spark address;
+  //   * the sats are positive, equal the verified quote's, and at most the
+  //     direct cap.
+
+  /// `spark:BTC → polygon:USDC.e`, into Predictions.
+  static const String directPredictionsRoute = 'spark_btc>polygon_usdc.e';
+
+  /// `spark:BTC → hypercore:USDC`, into Investing.
+  static const String directInvestingRoute = 'spark_btc>hypercore_usdc';
+
+  /// The direct route into [venue] (`predictions` / `investing`).
+  static String? directRouteOf(String venue) => switch (venue) {
+        'predictions' => directPredictionsRoute,
+        'investing' => directInvestingRoute,
+        _ => null,
+      };
+
+  /// [limit] with the direct leg bound too: at most [directMaxSats]
+  /// straight to [ownVenue], the wallet's own deposit on [venue]
+  /// (`predictions` / `investing`). Without an own deposit address it is
+  /// [limit] alone (the order goes via Dollars).
+  static Map<String, Object?> limitWithDirect({
+    required int maxSats,
+    required String ownSpark,
+    required String venue,
+    required String? ownVenue,
+    required int directMaxSats,
+  }) {
+    final base = limit(maxSats: maxSats, ownSpark: ownSpark);
+    final route = directRouteOf(venue);
+    final to = ownVenue?.trim() ?? '';
+    if (route == null || to.isEmpty || directMaxSats <= 0) return base;
+    return {
+      ...base,
+      'direct': {
+        'route': route,
+        'to': to,
+        'maxSats': directMaxSats.toString(),
+      },
+    };
+  }
+
+  static ({BigInt maxSats, String to, String route})? _boundDirect(
+      AuthGrant grant) {
+    final bound = grant.boundIntent.limits[VenueLimit.fundBtc];
+    if (bound is! Map) return null;
+    final direct = bound['direct'];
+    if (direct is! Map) return null;
+    final route = direct['route'];
+    if (route != directPredictionsRoute && route != directInvestingRoute) {
+      return null;
+    }
+    final raw = direct['maxSats'];
+    final max = switch (raw) {
+      BigInt b => b,
+      int i => BigInt.from(i),
+      String s => BigInt.tryParse(s),
+      _ => null,
+    };
+    final to = direct['to'];
+    if (max == null || max <= BigInt.zero) return null;
+    if (to is! String || to.trim().isEmpty) return null;
+    return (maxSats: max, to: to.trim(), route: route as String);
+  }
+
+  /// The own venue deposit [grant] lets a direct Bitcoin leg pay, or null
+  /// when it binds none.
+  static String? directTo(AuthGrant? grant) =>
+      grant == null ? null : _boundDirect(grant)?.to;
+
+  /// The most sats [grant] lets a direct leg send, or null.
+  static BigInt? directMaxSatsOf(AuthGrant grant) =>
+      _boundDirect(grant)?.maxSats;
+
+  static bool _sameEvm(String a, String b) =>
+      a.trim().isNotEmpty && a.trim().toLowerCase() == b.trim().toLowerCase();
+
+  /// Whether [grant] covers the direct leg [settlement] is about to pay.
+  /// [ownVenue] is the wallet's own deposit on the venue and [ownSpark]
+  /// its own Spark address (the refund), both as the caller resolved them
+  /// from the wallet now. Takes nothing; pure.
+  static bool coversDirect(
+    AuthGrant? grant,
+    SettlementAuthorizationIntent settlement, {
+    required String ownVenue,
+    required String ownSpark,
+    DateTime? now,
+  }) {
+    if (grant == null) return false;
+    if (!actions.contains(grant.action)) return false;
+    if (grant.revoked || grant.consumed) return false;
+    if (grant.isExpiredAt(now ?? AuthGrants.clock())) return false;
+    if (takenBy(grant)) return false;
+    if (grant.walletId != settlement.walletId) return false;
+    final bound = _boundDirect(grant);
+    if (bound == null) return false;
+    if (!_sameEvm(bound.to, ownVenue)) return false;
+    if (settlement.routeLabel != bound.route) return false;
+    if (!_sameEvm(_recipientOf(settlement), ownVenue)) return false;
+    final quote = settlement.reviewedQuote;
+    if (quote == null) return false;
+    final req = quote.request;
+    final predictions = bound.route == directPredictionsRoute;
+    if (req.sourceChain.trim().toLowerCase() != 'spark' ||
+        req.sourceAsset.trim().toUpperCase() != 'BTC') {
+      return false;
+    }
+    if (predictions
+        ? (req.destinationChain.trim().toLowerCase() != 'polygon' ||
+            req.destinationAsset.trim().toUpperCase() != 'USDC.E' ||
+            req.recipientKind != RecipientKind.ownPmWallet)
+        : (req.destinationChain.trim().toLowerCase() != 'hypercore' ||
+            req.destinationAsset.trim().toUpperCase() != 'USDC' ||
+            req.recipientKind != RecipientKind.ownEvm)) {
+      return false;
+    }
+    if (!_sameEvm(req.recipientAddress, ownVenue)) return false;
+    final own = ownSpark.trim();
+    if (own.isEmpty || !sameSparkAddress(req.refundAddress, own)) {
+      return false;
+    }
+    final sats = settlement.amountIn;
+    if (sats <= BigInt.zero) return false;
+    if (quote.amountIn != sats) return false;
+    return sats <= bound.maxSats;
+  }
+
+  /// [coversDirect], then marks the grant's one Bitcoin leg as taken.
+  static bool takeDirect(
+    AuthGrant? grant,
+    SettlementAuthorizationIntent settlement, {
+    required String ownVenue,
+    required String ownSpark,
+    DateTime? now,
+  }) {
+    if (!coversDirect(grant, settlement,
+        ownVenue: ownVenue, ownSpark: ownSpark, now: now)) {
+      return false;
+    }
+    _taken[grant!] = true;
+    return true;
+  }
+
+  /// The step-up hook for a direct leg under [grant]: no prompt, only
+  /// [takeDirect]. [onCovered] runs once the verified quote was accepted,
+  /// right before the sats may leave (the other legs start from there).
+  static Future<bool> Function(SettlementAuthorizationIntent) stepUpDirect(
+    AuthGrant grant, {
+    required String ownVenue,
+    required String ownSpark,
+    void Function()? onCovered,
+  }) =>
+      (settlement) async {
+        final ok = takeDirect(grant, settlement,
+            ownVenue: ownVenue, ownSpark: ownSpark);
+        if (ok) onCovered?.call();
+        return ok;
+      };
 }
 
 // ── Orchestra ───────────────────────────────────────────────────────

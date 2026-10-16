@@ -1191,34 +1191,6 @@ class AppLocalizationsLv extends AppLocalizations {
   String get totalFee => 'Kopējā maksa';
 
   @override
-  String get usdEarnTitle => 'Pelnīt';
-
-  @override
-  String get usdEarnRate => 'Nesenā gada likme';
-
-  @override
-  String get usdEarnNextPayment => 'Nākamais maksājums';
-
-  @override
-  String get usdEarnNextPaymentIn => 'Izmaksa pēc';
-
-  @override
-  String get usdEarnRatePending => 'Ielādē';
-
-  @override
-  String get usdEarnRateUnavailable => 'Šobrīd nav pieejams';
-
-  @override
-  String get usdEarnPaidToDate => 'Līdz šim izmaksāts';
-
-  @override
-  String get usdEarnActivityEmpty => 'Vēl nav maksājumu';
-
-  @override
-  String get usdEarnActivityUnavailable =>
-      'Maksājumu vēsture šobrīd nav pieejama';
-
-  @override
   String hlYieldAvailableLine(String amount) {
     return 'Pieejams: $amount';
   }
@@ -2059,6 +2031,20 @@ class AppLocalizationsLv extends AppLocalizations {
       'Iestatīšana atcelta. Nekas netika izveidots.';
 
   @override
+  String get passkeyBackupSyncing => 'Sinhronizē dublējumu…';
+
+  @override
+  String get passkeyCreateNewTitle => 'Piekļuves atslēga nav atrasta';
+
+  @override
+  String passkeyCreateNewBody(String method) {
+    return 'Nekas netika izveidots. Vai izveidot jaunu piekļuves atslēgu šim makam ar $method?';
+  }
+
+  @override
+  String get passkeyCreateNewAction => 'Izveidot jaunu piekļuves atslēgu';
+
+  @override
   String passkeyChoiceFallbackWords(String method) {
     return 'Neizdevās iestatīt $method. Tavs maciņš tika izveidots ar atkopšanas vārdiem.';
   }
@@ -2671,9 +2657,6 @@ class AppLocalizationsLv extends AppLocalizations {
   @override
   String get walletsEnterFriendCodeDescriptionNoDiscount =>
       'Ja tevi uzaicināja draugs, ievadi viņa kodu.';
-
-  @override
-  String get accountEarn => 'Pelnīt';
 
   @override
   String get accountInviteFriendsEarnShare =>
@@ -3666,7 +3649,7 @@ class AppLocalizationsLv extends AppLocalizations {
   String get activityProcessingEllipsis => 'Apstrādā…';
 
   @override
-  String get usdAccountTab => 'Dolāri';
+  String get usdAccountTab => 'Investments';
 
   @override
   String activityFromAmount(String amount) {
@@ -5924,9 +5907,6 @@ class AppLocalizationsLv extends AppLocalizations {
   String get portfolioStatRealized => 'Realizētā peļņa / zaudējumi';
 
   @override
-  String get portfolioStatOpen => 'Atvērtā peļņa / zaudējumi';
-
-  @override
   String get portfolioStatAmountPredicted => 'Prognožu summa';
 
   @override
@@ -6035,7 +6015,7 @@ class AppLocalizationsLv extends AppLocalizations {
   String get moveBuyBitcoin => 'Pirkt bitcoin';
 
   @override
-  String get dollarDeposit => 'Dolāru iemaksa';
+  String get dollarDeposit => 'Investments deposit';
 
   @override
   String get dollarWithdrawal => 'Dolāru izņemšana';
@@ -6484,6 +6464,33 @@ class AppLocalizationsLv extends AppLocalizations {
   String get portfolioTabStatistics => 'Statistika';
 
   @override
+  String get portfolioBalanceDollars => 'Dolāri';
+
+  @override
+  String get portfolioRebalance => 'Līdzsvarot';
+
+  @override
+  String get portfolioRebalanceMoving => 'Pārvieto uz USDB…';
+
+  @override
+  String get portfolioRebalanceMovingMinutes =>
+      'Pārvieto uz USDB… aizņem dažas minūtes';
+
+  @override
+  String get portfolioRebalanceHeldOrders => 'Aizturēts atvērtajos rīkojumos';
+
+  @override
+  String get portfolioRebalanceHeldMargin =>
+      'Paturēts kā nodrošinājums atvērtajām pozīcijām';
+
+  @override
+  String get portfolioRebalanceBelowMinimum => 'Zem pārvietošanas minimuma';
+
+  @override
+  String get portfolioRebalanceNotNow =>
+      'Pašlaik nevar pārvietot. Pieskarieties Līdzsvarot, lai mēģinātu vēlreiz.';
+
+  @override
   String get sendMoreThanAvailable => 'Tas ir vairāk, nekā tev ir pieejams.';
 
   @override
@@ -6535,10 +6542,10 @@ class AppLocalizationsLv extends AppLocalizations {
   String get searchPredictionsHint => 'Meklēt prognozes';
 
   @override
-  String get assetDollars => 'Dolāri';
+  String get assetDollars => 'Investments';
 
   @override
-  String get moveSourceDollarsSubtitle => 'Maksā ar savu dolāru atlikumu';
+  String get moveSourceDollarsSubtitle => 'Pay with your Investments balance';
 
   @override
   String get sendDollarAccountAddressHint => 'Dolāru konta adrese';
@@ -6792,23 +6799,11 @@ class AppLocalizationsLv extends AppLocalizations {
   String get betAdvancedSaleSellingAll => 'Pārdod visu pozīciju';
 
   @override
-  String get usdEarnProjectionNote =>
-      'Raustītā līnija ir aprēķins pēc šodienas likmes, nevis saņemta nauda.';
-
-  @override
-  String usdEarnBelowMinimum(String amount) {
-    return 'Atlīdzības sākas, kad tev ir $amount. Tās tiek izmaksātas katru dienu bitcoin.';
-  }
-
-  @override
-  String get usdEarnProjectedLabel => 'Prognoze pēc šodienas likmes';
-
-  @override
   String get moveWithdrawDestinationHint =>
       'Izvēlies, kas nonāk tavā tēriņu kontā.';
 
   @override
-  String get moveDestDollarsSubtitle => 'Tavā dolāru atlikumā';
+  String get moveDestDollarsSubtitle => 'Into your Investments balance';
 
   @override
   String get moveConversionOngoing => 'Notiek konvertēšana';
@@ -7075,6 +7070,10 @@ class AppLocalizationsLv extends AppLocalizations {
       'Neizdevās pārbaudīt pieejamību ar Kute. Mēģini vēlreiz.';
 
   @override
+  String get capabilityOfflineGrace =>
+      'Kute šobrīd nav sasniedzams. Saskaņā ar pēdējo pārbaudi tas joprojām ir pieejams.';
+
+  @override
   String get capabilityUnavailable => 'Šī funkcija Kute pašlaik nav pieejama.';
 
   @override
@@ -7107,6 +7106,9 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get capabilityRegionTitle => 'Nav pieejams tavā reģionā';
+
+  @override
+  String get checkConnection => 'Pārbaudīt savienojumu';
 
   @override
   String get gateUnavailableTitle => 'Nav pieejams';
@@ -7394,7 +7396,7 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get shareCodeTimedOut =>
-      'Tavs kods tiek veidots. To vari atrast jebkurā laikā sadaļā Iestatījumi → Pelnīt.';
+      'Tavs kods tiek veidots. To vari atrast jebkurā laikā sadaļā Iestatījumi → Ieteikumu programma.';
 
   @override
   String get referrerCaptureInvalid =>
@@ -7421,7 +7423,7 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get referrerAddLater =>
-      'To vari pievienot arī vēlāk sadaļā Iestatījumi → Pelnīt (7 dienu laikā).';
+      'To vari pievienot arī vēlāk sadaļā Iestatījumi → Ieteikumu programma (7 dienu laikā).';
 
   @override
   String get referrerSkip => 'Izlaist, man nav koda';
@@ -7450,6 +7452,31 @@ class AppLocalizationsLv extends AppLocalizations {
   @override
   String get recoverFoundOnDevice =>
       'Atrasts šajā ierīcē. Pirms atjaunošanas pārbaudi, vai atlikums izskatās pareizs.';
+
+  @override
+  String get recoverOlderVersionSection => 'No vecākas versijas šajā tālrunī';
+
+  @override
+  String get recoverOlderVersionWallet => 'Maciņš no vecākas versijas';
+
+  @override
+  String get recoverOlderVersionNeedsPin => 'Atveras ar tās versijas PIN kodu';
+
+  @override
+  String get recoverOlderVersionIcloud => 'Saglabāts iCloud atslēgu saišķī';
+
+  @override
+  String get recoverOlderVersionEnterPin => 'Ievadiet tās versijas PIN kodu';
+
+  @override
+  String get recoverOlderVersionFailed => 'Šo kopiju neizdevās atjaunot.';
+
+  @override
+  String get restoreRescueOfferBody =>
+      'Jūsu maciņu kopijas no vecākas Kute versijas vēl ir šajā tālrunī. Izmantot tās, nevis sākt no jauna?';
+
+  @override
+  String get restoreRescueOfferConfirm => 'Izmantot saglabātās kopijas';
 
   @override
   String recoverConfirmWallet(String wallet) {
@@ -8070,6 +8097,9 @@ class AppLocalizationsLv extends AppLocalizations {
   String predictTargetPrice(String price) {
     return 'Mērķis $price';
   }
+
+  @override
+  String get predictPastRounds => 'Iepriekšējie raundi';
 
   @override
   String get predictNoOpenMarketsCategory =>
@@ -10444,6 +10474,9 @@ class AppLocalizationsLv extends AppLocalizations {
   String get portfolioStatAtStake => 'Ieguldītā summa';
 
   @override
+  String get portfolioProfitLoss => 'Peļņa un zaudējumi';
+
+  @override
   String slipCtaAddTo(String side, String amount) {
     String _temp0 = intl.Intl.selectLogic(
       side,
@@ -10591,5 +10624,295 @@ class AppLocalizationsLv extends AppLocalizations {
       },
     );
     return '$_temp0';
+  }
+
+  @override
+  String get investmentsTotal => 'Investments total';
+
+  @override
+  String oneBalanceMovingTo(String amount, String venue) {
+    return '$amount tiek pārvietoti uz $venue';
+  }
+
+  @override
+  String oneBalanceComingBack(String amount, String venue) {
+    return '$amount coming back from $venue';
+  }
+
+  @override
+  String oneBalanceWaitingToWithdraw(String amount) {
+    return '$amount unavailable until balancing completes';
+  }
+
+  @override
+  String oneBalanceIncoming(String amount) {
+    return 'Incoming $amount';
+  }
+
+  @override
+  String slipAddToInvestments(String amount) {
+    return 'Add $amount to Investments';
+  }
+
+  @override
+  String get slipMoveFee => 'Move fee';
+
+  @override
+  String get addMoneyToInvestments => 'Pievienot naudu Investments';
+
+  @override
+  String get depositFromSpendingWallet => 'Jūsu tēriņu maks';
+
+  @override
+  String depositFromSpendingWalletWithBalance(String amount) {
+    return 'Jūsu tēriņu maks · $amount';
+  }
+
+  @override
+  String get depositFromAnotherWallet => 'Cits maks vai birža';
+
+  @override
+  String get depositFromAnotherWalletSubtitle =>
+      'Iegūstiet adresi, uz kuru sūtīt dolārus';
+
+  @override
+  String get portfolioStatOpenPnl => 'Atvērtā peļņa / zaudējumi';
+
+  @override
+  String stepUpReasonBetReady(String amount) {
+    return 'Sagatavo prognozi $amount apmērā';
+  }
+
+  @override
+  String get betMarketClosingNoFunding =>
+      'Šis tirgus slēgsies, pirms nauda varētu pienākt. Nekas netika pārvietots.';
+
+  @override
+  String multiMoveSendTitle(String amount) {
+    return 'Sūtīt $amount';
+  }
+
+  @override
+  String multiMoveTitle(String amount, String destination) {
+    return 'Pārvietot $amount uz $destination';
+  }
+
+  @override
+  String multiMoveDeliveredRemaining(String delivered, String remaining) {
+    return '$delivered piegādāti · $remaining atlikuši';
+  }
+
+  @override
+  String multiMovePurchaseWaiting(String amount, String balance) {
+    return 'Jūsu $amount ir $balance. Pieskarieties, lai pirktu Bitcoin';
+  }
+
+  @override
+  String multiMoveSendWaiting(String amount, String balance) {
+    return 'Jūsu $amount ir $balance. Sūtīšana neizdevās';
+  }
+
+  @override
+  String get usdReceiveFromYourWallet => 'No tava maka';
+
+  @override
+  String get usdReceiveFromAnotherWallet => 'No cita maka vai biržas';
+
+  @override
+  String slipStepAddingToInvestments(String amount) {
+    return 'Pievieno $amount kontam Investments';
+  }
+
+  @override
+  String get slipStepPreparingPrediction => 'Gatavojam tavu prognozi';
+
+  @override
+  String get slipStepPreparingOrder => 'Gatavojam tavu rīkojumu';
+
+  @override
+  String slipStepPlacingBet(String amount, String side) {
+    return 'Liek $amount uz $side';
+  }
+
+  @override
+  String slipStepOpeningOrder(String amount, String side, String market) {
+    return 'Atver $amount $side $market';
+  }
+
+  @override
+  String get slipStepTakingLonger => 'Aizņem ilgāk nekā parasti';
+
+  @override
+  String slipFundingReadyToPlace(String amount) {
+    return 'Tavi $amount ir kontā Investments. Pieskaries, lai iesniegtu.';
+  }
+
+  @override
+  String get slipFundingBitcoinBack =>
+      'Pievienošana kontam Investments neizdevās. Tavs bitcoin atgriežas.';
+
+  @override
+  String get slipFundingPriceMoved => 'Cena mainījās pārāk ātri.';
+
+  @override
+  String get slipFundingRoundClosed =>
+      'Šī kārta noslēdzās, pirms tava nauda ieradās.';
+
+  @override
+  String slipFundingInPredictions(String amount) {
+    return 'Tavi $amount ir kontā Prognozes. Pieskaries, lai mēģinātu vēlreiz.';
+  }
+
+  @override
+  String slipFundingInInvesting(String amount) {
+    return 'Tavi $amount ir kontā Investēšana. Pieskaries, lai mēģinātu vēlreiz.';
+  }
+
+  @override
+  String oneBalancePlacingBet(String amount, String side, String market) {
+    return 'Liek $amount uz $side · $market';
+  }
+
+  @override
+  String oneBalanceOpeningOrder(String amount, String market) {
+    return 'Atver $amount $market rīkojumu';
+  }
+
+  @override
+  String hlMarginStepAdding(String amount, String coin) {
+    return 'Pievieno $amount maržu pozīcijai $coin';
+  }
+
+  @override
+  String hlMarginFundingReady(String amount) {
+    return 'Tavi $amount ir kontā Investments. Pieskaries, lai pievienotu maržu.';
+  }
+
+  @override
+  String get salWhyMoving => 'Kāpēc tas kustas?';
+
+  @override
+  String get positionProtectIt => 'Aizsargā to';
+
+  @override
+  String hlRiskLiquidationLong(String market, String price, String amount) {
+    return 'Ja $market nokritīsies līdz $price, šī pozīcija tiks slēgta un tu zaudēsi $amount.';
+  }
+
+  @override
+  String hlRiskLiquidationShort(String market, String price, String amount) {
+    return 'Ja $market pakāpsies līdz $price, šī pozīcija tiks slēgta un tu zaudēsi $amount.';
+  }
+
+  @override
+  String polyRiskOutcome(String outcome, String cost, String payout) {
+    return 'Ja $outcome zaudēs, tu zaudēsi $cost; ja uzvarēs, saņemsi $payout.';
+  }
+
+  @override
+  String moneyStepMovingFrom(String amount, String source) {
+    return 'Pārvieto $amount no konta $source';
+  }
+
+  @override
+  String moneyStepMovedFrom(String amount, String source) {
+    return 'Pārvietoti $amount no konta $source';
+  }
+
+  @override
+  String moneyStepMovingFromTo(
+      String amount, String source, String destination) {
+    return 'Pārvieto $amount: $source → $destination';
+  }
+
+  @override
+  String moneyStepMovedFromTo(
+      String amount, String source, String destination) {
+    return 'Pārvietoti $amount: $source → $destination';
+  }
+
+  @override
+  String moneyStepMoveFailed(String amount, String source) {
+    return '$amount no konta $source netika pārvietoti';
+  }
+
+  @override
+  String moneyStepFellBack(String source, String via) {
+    return 'Konta $source maršruts aizņemts, ejam caur kontu $via';
+  }
+
+  @override
+  String moneyStepViaDollars(String source, String via) {
+    return 'No konta $source ejam caur kontu $via';
+  }
+
+  @override
+  String moneyStepRouteUnavailable(String source, String via) {
+    return 'Konta $source maršruts nav pieejams, ejam caur kontu $via';
+  }
+
+  @override
+  String moneyStepTooSmallDirect(String source, String via) {
+    return 'Summa ir par mazu tiešam ceļam no konta $source, ejam caur kontu $via';
+  }
+
+  @override
+  String multiMoveOrderWaiting(String amount, String balance) {
+    return 'Jūsu $amount ir $balance. Rīkojums neizdevās';
+  }
+
+  @override
+  String get moneyStepConverting => 'Konvertē uz pUSD';
+
+  @override
+  String get moneyStepConverted => 'Konvertēts uz pUSD';
+
+  @override
+  String get moneyStepApproving => 'Apstiprina tēriņu';
+
+  @override
+  String get moneyStepApproved => 'Tēriņš apstiprināts';
+
+  @override
+  String get moneyStepConfirming => 'Apstiprina atlikumu';
+
+  @override
+  String get moneyStepConfirmed => 'Atlikums apstiprināts';
+
+  @override
+  String get moneyStepCrediting => 'Ieskaita tirdzniecības atlikumā';
+
+  @override
+  String get moneyStepCredited => 'Ieskaitīts tirdzniecības atlikumā';
+
+  @override
+  String moneyStepBuying(String amount) {
+    return 'Pērk Bitcoin par $amount';
+  }
+
+  @override
+  String moneyStepBought(String amount) {
+    return 'Nopirkts Bitcoin par $amount';
+  }
+
+  @override
+  String get moneyStepArriving => 'Ienāk kontā Bitcoin';
+
+  @override
+  String get moneyStepArrived => 'Ienācis kontā Bitcoin';
+
+  @override
+  String moneyStepSending(String amount) {
+    return 'Sūta $amount';
+  }
+
+  @override
+  String moneyStepSent(String amount) {
+    return 'Nosūtīts $amount';
+  }
+
+  @override
+  String moneyStepCompact(String source, String destination, String amount) {
+    return '$source → $destination · $amount';
   }
 }

@@ -41,6 +41,7 @@ import 'package:kute/screens/shared/amount_keypad_panel.dart';
 import 'package:kute/screens/polymarket/components/slip_chrome.dart';
 import 'package:kute/screens/shared/side_tint_palette.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
+import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/services/hyperliquid/hl_failure_analytics.dart';
@@ -162,6 +163,54 @@ class HlClosePositionSheet extends ConsumerStatefulWidget {
     )));
   }
 
+  /// The position screen's "Protect it": the close ticket's own Advanced
+  /// page (stop / take profit types and the trailing stop), opened
+  /// straight away on a stop-market close of the whole position, its
+  /// trigger left for the user to set. A Ledger position has no stop
+  /// types on that page (its signer reviews Market and Limit), so it opens
+  /// on the page as it is, the trailing stop on it. Withheld Advanced
+  /// opens nothing; the shared sheet says why.
+  static void showProtect(
+    BuildContext context,
+    WidgetRef ref, {
+    required HlPerpPosition position,
+    required HlMarket market,
+    String? ledgerWalletId,
+  }) {
+    if (OpenOnce.isOpen(routeName)) return;
+    if (!advancedTradingOffered(
+        context, ref.read(runtimeCapabilitiesProvider))) {
+      return;
+    }
+    var size = position.szi.abs().toStringAsFixed(6);
+    if (size.contains('.')) {
+      size = size
+          .replaceFirst(RegExp(r'0+$'), '')
+          .replaceFirst(RegExp(r'\.$'), '');
+    }
+    final draft = _CloseDraft(
+        size,
+        ledgerWalletId == null ? _CloseType.stopMarket : _CloseType.market,
+        1.0,
+        '',
+        '',
+        '30',
+        false);
+    final navigator = Navigator.of(context, rootNavigator: true);
+    unawaited(OpenOnce.run(
+        routeName,
+        () => navigator.push<_CloseDraft>(MaterialPageRoute(
+              settings: const RouteSettings(name: routeName),
+              fullscreenDialog: true,
+              builder: (_) => HlClosePositionSheet._advanced(
+                position: position,
+                market: market,
+                ledgerWalletId: ledgerWalletId,
+                draft: draft,
+              ),
+            ))));
+  }
+
   @override
   ConsumerState<HlClosePositionSheet> createState() =>
       _HlClosePositionSheetState();
@@ -177,6 +226,29 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
   /// Synchronous re-entrancy guard (mirrors the bet slip's
   /// `_buyInFlight`) — `_isClosing` only flips inside setState.
   bool _closeInFlight = false;
+
+  /// The close's rubber band on the CTA: how far along it is (checks,
+  /// approval, sent to the exchange), and how it ended. Presentation
+  /// only; set beside [_isClosing], never read by the close itself.
+  double? _bandProgress;
+  RubberBandOutcome? _bandOutcome;
+
+  /// Moves the band to the close's next phase.
+  void _bandTo(double progress) {
+    if (!mounted) return;
+    setState(() => _bandProgress = progress);
+  }
+
+  /// The close worked: the band snaps (a light tap) while the ticket
+  /// still holds the close, and the caller waits the bounded moment the
+  /// snap takes ([RubberBand.settle]) before it lets go into the
+  /// confirmation.
+  Future<void> _bandSucceeded() async {
+    if (!mounted) return;
+    setState(() => _bandOutcome = RubberBandOutcome.success);
+    await RubberBand.settle(context);
+  }
+
   String? _errorText;
   Object? _errorDetails;
 
@@ -316,6 +388,7 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
     });
     TrackingService.track('hyperliquid_close_submitted', params: {
       ...inputs,
+      'time_in_flow_ms': DateTime.now().difference(_openedAt).inMilliseconds,
       'time_in_flow_bucket': VenueAnalytics.timeInFlowBucket(
           DateTime.now().difference(_openedAt)),
     });
@@ -356,6 +429,8 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
             'reason': _stopReason ?? 'user_closed',
             if (_lastErrorCategory != null)
               'last_error_category': _lastErrorCategory!,
+            'time_in_flow_ms':
+                DateTime.now().difference(_openedAt).inMilliseconds,
             'time_in_flow_bucket': VenueAnalytics.timeInFlowBucket(
                 DateTime.now().difference(_openedAt)),
           });
@@ -553,6 +628,10 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
     _closeInFlight = true;
     setState(() {
       _isClosing = true;
+      // The tap takes the band's first pull; time and the phases below
+      // build it from there.
+      _bandProgress = null;
+      _bandOutcome = null;
       _errorText = null;
       _errorDetails = null;
     });
@@ -617,6 +696,7 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
         final notionalUsd = closeSize * _markNow();
         final isMarketClose = _isMarketClose;
         _trackSubmitted();
+        _bandTo(0.5);
         final outcome = await runLedgerHlClose(context, ref,
             walletId: widget.ledgerWalletId!,
             position: pos,
@@ -643,20 +723,23 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
           );
         }
         if (!mounted) return;
-        setState(() => _isClosing = false);
         final nav = Navigator.of(context, rootNavigator: true);
         final result = outcome?.result;
         if (outcome?.isSuccess == true && result != null) {
+          // Still holding the close: the band snaps first, then the
+          // ticket lets go into the confirmation (_popToHost).
           if (result.filledSz > 0 || _isMarketClose) {
-            _showClosedResult(nav, result, checkOpenOrders: _isLimitClose);
+            await _showClosedResult(nav, result,
+                checkOpenOrders: _isLimitClose);
           } else {
-            _showCloseAccepted(nav);
+            await _showCloseAccepted(nav);
           }
         } else if (outcome?.isPending == true) {
           // An ambiguous submission is not a confirmed close: leave its
           // reconciliation to the pending action without a success haptic.
           _popToHost(nav);
         } else {
+          setState(() => _isClosing = false);
           _stopped('signing_declined');
         }
       } catch (e, st) {
@@ -711,6 +794,7 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
     }
     if (!mounted) return;
     _trackStep('approval');
+    _bandTo(0.45);
     final grant = await requireFreshAuthGrant(
       context,
       ref,
@@ -727,6 +811,8 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
     _trackSubmitted();
     setState(() {
       _isClosing = true;
+      // Approved and sent: waiting on the exchange's answer.
+      _bandProgress = 0.65;
       _errorText = null;
     });
     // Capture the root navigator BEFORE any pops — `context` dies with
@@ -934,12 +1020,13 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
     final result = await order.place(grant);
 
     if (!mounted) return;
-    _showClosedResult(nav, result);
+    await _showClosedResult(nav, result);
   }
 
-  void _showClosedResult(NavigatorState nav, HlOrderResult result,
-      {bool checkOpenOrders = false}) {
+  Future<void> _showClosedResult(NavigatorState nav, HlOrderResult result,
+      {bool checkOpenOrders = false}) async {
     final l10n = context.l10n;
+    if (result.filledSz > 0) await _bandSucceeded();
     _popToHost(nav);
 
     // Actual fill figures — never the requested size (IOC can
@@ -995,14 +1082,18 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
 
     if (!mounted) return;
     if (result.filledSz > 0) {
-      _showClosedResult(nav, result, checkOpenOrders: true);
+      await _showClosedResult(nav, result, checkOpenOrders: true);
       return;
     }
-    _showCloseAccepted(nav);
+    await _showCloseAccepted(nav);
   }
 
-  void _showCloseAccepted(NavigatorState nav) {
+  /// [snap] false when the band that worked was another sheet's (the
+  /// trailing stop's, which snapped before it closed).
+  Future<void> _showCloseAccepted(NavigatorState nav,
+      {bool snap = true}) async {
     final amount = '${formatHlSize(_closeSize)} $_displayCoin';
+    if (snap) await _bandSucceeded();
     _popToHost(nav);
     pushKuteSuccessOverlay(
       navigator: nav,
@@ -1146,6 +1237,9 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
               PolySlipCta(
                 color: AppColors.marketDown,
                 isBusy: _isClosing,
+                bandProgress: _bandProgress,
+                bandOutcome: _bandOutcome,
+                bandExpected: const Duration(seconds: 2),
                 enabled: canConfirm && !_isClosing && _advancedBlock == null,
                 onTap: _handleClose,
                 label: failed ? context.l10n.retry : _ctaLabel(),
@@ -1335,6 +1429,9 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
                     enabled:
                         canConfirm && !_isClosing && _advancedBlock == null,
                     isBusy: _isClosing,
+                    bandProgress: _bandProgress,
+                    bandOutcome: _bandOutcome,
+                    bandExpected: const Duration(seconds: 2),
                     busyLabel: context.l10n.loading,
                     color: AppColors.marketDown,
                   ),
@@ -1405,10 +1502,16 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
           if (_market != null) ...[
             _buildTypePicker(c),
             _buildPriceInputs(c),
-            ListTile(contentPadding: EdgeInsets.zero,
-              title: Text(context.l10n.investingTrailingStop),
-              trailing: const Icon(Icons.chevron_right_rounded),
-              onTap: _openTrailingStop),
+            // Its own Material: the section's fill would hide the
+            // tile's ink.
+            Material(
+              type: MaterialType.transparency,
+              child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(context.l10n.investingTrailingStop),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: _openTrailingStop),
+            ),
           ],
           if (_isMarketClose) ...[
             SizedBox(height: 16.h),
@@ -1461,7 +1564,8 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
       ledger: widget.ledgerWalletId != null,
     );
     if (!mounted || result == null) return;
-    _showCloseAccepted(Navigator.of(context, rootNavigator: true));
+    await _showCloseAccepted(Navigator.of(context, rootNavigator: true),
+        snap: false);
   }
 
   Future<void> _openMoreCloseTypes() async {

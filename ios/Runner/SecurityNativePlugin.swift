@@ -24,6 +24,21 @@ import UniformTypeIdentifiers
 /// iCloud Keychain residue that other devices may still depend on. These
 /// methods never delete or overwrite a synchronizable item.
 ///
+/// Read-only rescue lookups called by `LegacyKeychainLookup`
+/// (`lib/services/secure/legacy_keychain_rescue.dart`):
+///   * `readLegacyItem(service, account, synchronizable)` —
+///     `SecItemCopyMatching` for the one generic-password item with that
+///     service and account, with NO `kSecAttrAccessible` in the query.
+///     Items written by 1.x builds between 2026-03 and 2026-06 carry
+///     `AfterFirstUnlock` (not `...ThisDeviceOnly`); the flutter_secure_storage
+///     Darwin plugin puts the configured accessibility into every read
+///     query, so those items read as absent there. Returns the UTF-8 value
+///     or nil when there is none.
+///   * `listLegacyAccounts(service, prefix, synchronizable)` — attributes
+///     only (`kSecReturnAttributes`, never `kSecReturnData`): the account
+///     names under that service that start with `prefix`.
+/// Neither method writes, updates or deletes anything.
+///
 /// Capture protection methods called by `SecureScreenController`:
 ///   * `setSecureScreen(enabled)` — starts or stops observing
 ///     `UIScreen.capturedDidChangeNotification` and
@@ -116,6 +131,40 @@ class SecurityNativePlugin: NSObject, FlutterPlugin {
                 return
             }
             respond(deleteLocalOnly(service: service, account: nil), result)
+        case "readLegacyItem":
+            guard let service = args["service"] as? String,
+                  let account = args["account"] as? String else {
+                result(FlutterError(
+                    code: "BAD_ARGS",
+                    message: "readLegacyItem requires service and account",
+                    details: nil
+                ))
+                return
+            }
+            let synchronizable = (args["synchronizable"] as? Bool) ?? false
+            switch readLegacyItem(service: service, account: account, synchronizable: synchronizable) {
+            case .success(let value):
+                result(value)
+            case .failure(let error):
+                respond(error.status, result)
+            }
+        case "listLegacyAccounts":
+            guard let service = args["service"] as? String else {
+                result(FlutterError(
+                    code: "BAD_ARGS",
+                    message: "listLegacyAccounts requires service",
+                    details: nil
+                ))
+                return
+            }
+            let prefix = (args["prefix"] as? String) ?? ""
+            let synchronizable = (args["synchronizable"] as? Bool) ?? false
+            switch listLegacyAccounts(service: service, prefix: prefix, synchronizable: synchronizable) {
+            case .success(let accounts):
+                result(accounts)
+            case .failure(let error):
+                respond(error.status, result)
+            }
         case "setSecureScreen":
             setCaptureMonitoring((args["enabled"] as? Bool) ?? false)
             result(nil)
@@ -222,6 +271,57 @@ class SecurityNativePlugin: NSObject, FlutterPlugin {
     private func deleteLocalOnly(service: String, account: String?) -> OSStatus {
         let status = SecItemDelete(localQuery(service: service, account: account) as CFDictionary)
         return status == errSecItemNotFound ? errSecSuccess : status
+    }
+
+    /// The one item for `service` + `account`, whatever accessibility it was
+    /// stored with. `nil` when there is none. Never mutates.
+    private func readLegacyItem(
+        service: String, account: String, synchronizable: Bool
+    ) -> Result<String?, KeychainStatusError> {
+        let query: [CFString: Any] = [
+            kSecClass: kSecClassGenericPassword,
+            kSecAttrService: service,
+            kSecAttrAccount: account,
+            kSecAttrSynchronizable: synchronizable,
+            kSecReturnData: true,
+            kSecMatchLimit: kSecMatchLimitOne,
+        ]
+        var item: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &item)
+        if status == errSecItemNotFound { return .success(nil) }
+        guard status == errSecSuccess else { return .failure(KeychainStatusError(status: status)) }
+        guard let data = item as? Data, let value = String(data: data, encoding: .utf8) else {
+            return .failure(KeychainStatusError(status: errSecDecode))
+        }
+        return .success(value)
+    }
+
+    /// Account names under `service` starting with `prefix`. Attributes
+    /// only: no item data is read. Never mutates.
+    private func listLegacyAccounts(
+        service: String, prefix: String, synchronizable: Bool
+    ) -> Result<[String], KeychainStatusError> {
+        let query: [CFString: Any] = [
+            kSecClass: kSecClassGenericPassword,
+            kSecAttrService: service,
+            kSecAttrSynchronizable: synchronizable,
+            kSecReturnAttributes: true,
+            kSecMatchLimit: kSecMatchLimitAll,
+        ]
+        var items: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &items)
+        if status == errSecItemNotFound { return .success([]) }
+        guard status == errSecSuccess else { return .failure(KeychainStatusError(status: status)) }
+        let attributes = items as? [[CFString: Any]] ?? []
+        let accounts = attributes
+            .compactMap { $0[kSecAttrAccount] as? String }
+            .filter { $0.hasPrefix(prefix) }
+        return .success(accounts)
+    }
+
+    /// A Keychain call that did not succeed, for `Result` plumbing.
+    private struct KeychainStatusError: Error {
+        let status: OSStatus
     }
 
     /// Mirrors flutter_secure_storage's error shape: OSStatus in `details`.
