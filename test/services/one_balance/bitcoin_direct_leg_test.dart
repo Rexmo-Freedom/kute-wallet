@@ -132,6 +132,58 @@ void main() {
 
   // ── The planner ─────────────────────────────────────────────────────
   group('planDirectBitcoinLeg', () {
+    test(
+        'a cold Dollars limit read starts alongside the direct route estimates',
+        () async {
+      final limit = Completer<double>();
+      final reads = <String>[];
+      final pending = planDirectBitcoinLeg(
+        fundUsd: 15.1,
+        addUsd: 14.1,
+        dollarsUsd: 1,
+        via: _via,
+        availableSats: 1000000,
+        directMaxSats: 200000,
+        venueArriving: (usd) async {
+          reads.add('dollars_estimate');
+          return usd * 0.994;
+        },
+        directOutUsd: (sats) async {
+          reads.add('direct_estimate');
+          return sats / 1e8 * 15000 * 0.99;
+        },
+        directMinimumUsd: () async => 1,
+        dollarsMinimumUsd: 1,
+        readDollarsMinimumUsd: () => limit.future,
+      );
+      expect(
+          reads, ['dollars_estimate', 'dollars_estimate', 'direct_estimate']);
+      limit.complete(1);
+      expect((await pending).direct, isTrue);
+    });
+    test(
+        'Bitcoin-only Investing uses the reviewed arrival without a Dollars route read',
+        () async {
+      final p = await planDirectBitcoinLeg(
+        fundUsd: 10.93,
+        addUsd: 10.93,
+        dollarsUsd: 0,
+        via: _via,
+        availableSats: 1000000,
+        directMaxSats: 200000,
+        venueTargetUsd: 10.71,
+        venueArriving: (_) => throw StateError('Dollars endpoint unavailable'),
+        directOutUsd: (sats) async => sats / 1e8 * 15000 * 0.99,
+        directMinimumUsd: () async => 1,
+        dollarsMinimumUsd: 1,
+        readDollarsMinimumUsd: () =>
+            throw StateError('Dollars limit unavailable'),
+      );
+      expect(p.direct, isTrue);
+      expect(p.targetUsd, 10.71);
+      expect(p.dollarsUsd, 0);
+      expect(p.directCostUsd! <= p.viaCostUsd!, isTrue);
+    });
     // Dollars → Predictions keeps 0.6%; Bitcoin → Predictions straight
     // keeps [directSpread] (its spread with Kute's fee).
     Future<DirectBitcoinPlan> plan({

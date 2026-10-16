@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'dart:async';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/models/hyperliquid_model.dart';
 import 'package:kute/services/hyperliquid/hypercore_dex_cash.dart';
@@ -46,6 +47,38 @@ class Transfers implements HyperliquidExchangeService {
 }
 
 void main() {
+  test('HIP-3 transfer waits for its own clearinghouse before placing',
+      () async {
+    var reads = 0;
+    await waitForOwnDexCash(
+      requiredUsd: 10.93,
+      pollEvery: const Duration(milliseconds: 1),
+      availableUsd: () async => ++reads < 3 ? 0 : 10.93,
+    );
+    expect(reads, 3);
+  });
+  test(
+      'an unreadable HIP-3 clearinghouse cannot leave placement waiting forever',
+      () async {
+    await expectLater(
+        waitForOwnDexCash(
+          requiredUsd: 10.93,
+          maxWait: const Duration(milliseconds: 10),
+          availableUsd: () => Completer<double>().future,
+        ),
+        throwsA(isA<OwnDexCreditPending>()));
+  });
+  test('short collateral fails boundedly without submitting another transfer',
+      () async {
+    await expectLater(
+        waitForOwnDexCash(
+          requiredUsd: 10.93,
+          maxWait: const Duration(milliseconds: 10),
+          pollEvery: const Duration(milliseconds: 1),
+          availableUsd: () async => 10.74,
+        ),
+        throwsA(isA<OwnDexCreditPending>()));
+  });
   test('insufficient total cash never triggers a partial collateral move',
       () async {
     final exchange = Transfers();

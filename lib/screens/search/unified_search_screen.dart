@@ -1219,7 +1219,9 @@ class _HlMarketRow extends ConsumerWidget {
     // Resolve THIS row's instrument: the wire id pins the exact market, so
     // a row badged Own never opens the leveraged contract behind the same
     // ticker (and vice versa).
-    final market = ref.read(hyperliquidAccountMarketProvider(result.wireCoin));
+    final market = ref.read(hyperliquidExactMarketProvider(
+            '${result.kind.name}:${result.wireCoin}')) ??
+        result.market;
     final ledgerWalletId = ref.read(searchLedgerWalletIdProvider);
     if (ledgerWalletId != null) {
       // Ledger account search: the Ledger order sheet is the only target

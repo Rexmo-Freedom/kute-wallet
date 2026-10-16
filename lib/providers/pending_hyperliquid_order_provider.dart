@@ -54,6 +54,7 @@ import 'dart:async';
 import 'package:kute/constants/hyperliquid_constants.dart';
 import 'package:kute/services/hyperliquid/hl_failure_analytics.dart';
 import 'package:kute/services/hyperliquid/hypercore_cash.dart';
+import 'package:kute/services/hyperliquid/hypercore_dex_cash.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_onboarding_service.dart';
 
 import 'package:flutter/foundation.dart' show immutable, visibleForTesting;
@@ -1004,7 +1005,9 @@ class PendingHlOrderAutoFire {
       status: PendingHlOrderStatus.placing,
       placingAt: placingAt,
       placedMarginUsd: margin,
-      readiness: HlReadiness.ready,
+      readiness: intent.market?.dex.isNotEmpty == true
+          ? HlReadiness.crediting
+          : HlReadiness.ready,
     ));
 
     // Re-use the slip's early-registered tile when present (markPlacing
@@ -1068,10 +1071,12 @@ class PendingHlOrderAutoFire {
           grant = hlAutofireRetryGrant(parent, approved, placed);
         }
         try {
-          result = await _send(intent, market, grant, margin,
-              cloid: firstCloid == null
-                  ? null
-                  : HlResendCloids.current(firstCloid));
+          result = await OwnDexReadiness.follow(
+              () => _send(intent, market, grant, margin,
+                  cloid: firstCloid == null
+                      ? null
+                      : HlResendCloids.current(firstCloid)),
+              () => pending.setReadiness(HlReadiness.ready));
           break;
         } catch (e) {
           // Without a cloid of its own the order cannot be told apart
@@ -1230,7 +1235,9 @@ class PendingHlOrderAutoFire {
       }
       final margin = placeableMargin(intent, available);
       if (margin != null) {
-        pending.setReadiness(HlReadiness.ready);
+        pending.setReadiness(intent.market?.dex.isNotEmpty == true
+            ? HlReadiness.crediting
+            : HlReadiness.ready);
         return margin;
       }
     }

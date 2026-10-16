@@ -1062,7 +1062,10 @@ class HyperliquidTradingNotifier
     }
     final target = await model.getDexClearinghouse(address, market.dex);
     var shortfall = requiredUsd - target.withdrawable;
-    if (shortfall <= 0) return;
+    if (shortfall <= 0) {
+      OwnDexReadiness.ready();
+      return;
+    }
     final spot = hypercoreAvailableUsdc(0, snapshot.spotBalances);
     if (snapshot.withdrawable + spot + 1e-6 < shortfall) {
       throw const HyperliquidInsufficientMarginException(
@@ -1083,6 +1086,12 @@ class HyperliquidTradingNotifier
       await exchange.moveOwnUsdc(
           sourceDex: 'spot', destinationDex: market.dex, amount: fromSpot);
     }
+    await waitForOwnDexCash(
+      requiredUsd: requiredUsd,
+      availableUsd: () async =>
+          (await model.getDexClearinghouse(address, market.dex)).withdrawable,
+    );
+    OwnDexReadiness.ready();
   }
 
   /// Opens (or adds to) a perp position: adjusts leverage first when it

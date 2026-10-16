@@ -83,6 +83,7 @@ import 'package:kute/providers/currency_conversions_provider.dart'
     show currencyProvider, selectedCurrencyProvider;
 import 'package:kute/providers/pending_hyperliquid_order_provider.dart'
     show
+        HlReadiness,
         PendingHlOrderIntent,
         PendingHlOrderStatus,
         pendingHyperliquidOrderProvider;
@@ -109,7 +110,7 @@ import 'package:kute/services/one_balance/venue_cash_source.dart'
         VenueCashPullOutcome,
         VenueCashPuller;
 import 'package:kute/services/one_balance/venue_funder.dart'
-    show VenueCashDestination, VenueMoveResult;
+    show RouteUnavailable, VenueCashDestination, VenueMoveResult;
 import 'package:kute/services/orchestra/arrival_target.dart'
     show kArrivalTargetBuffer;
 import 'package:kute/services/orchestra_routes.dart'
@@ -274,7 +275,17 @@ class BitcoinLegEnv {
               maxSats: plan.maxSats,
               sparkAddress: sparkAddress,
               idempotencyKey: key,
+              requireFullTarget: true,
             );
+            // A gross-up can hit the approval's sats cap, or the second
+            // quote can move again. Never pay a quote whose output cannot
+            // fund the already-approved onward move.
+            final out = orchestraAmountToDouble(
+                fetched.quote.quote.estimatedOut, kOrchestraUsdAssetCode,
+                chain: kOrchestraUsdChain);
+            if (!out.isFinite || out + 1e-6 < plan.targetUsd) {
+              throw const RouteUnavailable('bitcoin_target_short');
+            }
             return fetched;
           },
           onSending: onSending,
@@ -316,10 +327,17 @@ class BitcoinLegEnv {
             ref.read(predictionsVenueFunderProvider),
           OneBalanceVenue.investing => ref.read(hyperliquidVenueFunderProvider),
         };
-        double dollarsMinimum = kPredictionsMinMoveUsd;
-        try {
-          dollarsMinimum = await funder.minimumUsd();
-        } catch (_) {}
+        // The reviewed Investing plan already priced what its complete
+        // Dollars move lands. Reuse that exact plan rather than making a
+        // Bitcoin-only route depend on the Dollars endpoint answering again.
+        final pending = venue == OneBalanceVenue.investing
+            ? ref.read(pendingHyperliquidOrderProvider)
+            : null;
+        final venueTarget = pending != null &&
+                (pending.fundUsd - fundUsd).abs() < 0.005 &&
+                pending.arrivingUsd > 0
+            ? pending.arrivingUsd
+            : null;
         return planDirectBitcoinLeg(
           fundUsd: fundUsd,
           addUsd: addUsd,
@@ -327,6 +345,7 @@ class BitcoinLegEnv {
           via: via,
           availableSats: cachedSpendingBitcoin(ref.read).sats,
           directMaxSats: directMaxSats,
+          venueTargetUsd: venueTarget,
           venueArriving: (usd) async {
             try {
               final q = await funder
@@ -340,7 +359,19 @@ class BitcoinLegEnv {
           directOutUsd: (sats) =>
               directBitcoinEstimate(venue, sats, ownVenue: ownVenue),
           directMinimumUsd: () => directBitcoinMinimumUsd(venue),
-          dollarsMinimumUsd: dollarsMinimum,
+          dollarsMinimumUsd: kPredictionsMinMoveUsd,
+          // Limits and both route estimates are independent reads. A cold
+          // limits endpoint must not consume the entire direct-plan budget
+          // before any direct estimate is even dispatched.
+          readDollarsMinimumUsd: () async {
+            try {
+              return await funder
+                  .minimumUsd()
+                  .timeout(const Duration(seconds: 3));
+            } catch (_) {
+              return kPredictionsMinMoveUsd;
+            }
+          },
         );
       },
       sendDirect: BitcoinToVenueLeg.live(ref.read),
@@ -804,7 +835,7 @@ class BitcoinFundedOrderRunner {
               if (next == null) return end(false);
               switch (next.status) {
                 case PendingHlOrderStatus.placing:
-                  onCredited();
+                  if (next.readiness != HlReadiness.crediting) onCredited();
                 case PendingHlOrderStatus.done:
                   end(true);
                 case PendingHlOrderStatus.failed:
@@ -2123,6 +2154,18 @@ class _FundedChain {
             id,
             (rec) =>
                 rec.copyWith(stage: FundedOrderStage.preparing, slow: false));
+        // Delivery is authoritative for the first leg, but does not make
+        // a smaller cached reading spendable. Do not start a larger onward
+        // leg and leave it appearing to run while the wallet lacks it.
+        if (!r.otherVenueUsed &&
+            math.max(env.dollarsNow(), freshDollarsUsd) + 1e-6 < r.fundUsd) {
+          _stop(FundedOrderStage.ready, BitcoinFundedEnd.ready,
+              reason: 'dollars_short',
+              category: 'insufficient_funds',
+              journeyStage: OrderFundingStage.fund,
+              moneyAt: FundedMoneyAt.investments);
+          return MoneyStepDone(ref: legId);
+        }
         // The move into the venue under the same grant. The controller's
         // own Dollars check is the guard; it reads the fresh balance.
         final controller = _ref

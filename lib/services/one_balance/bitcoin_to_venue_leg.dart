@@ -192,6 +192,8 @@ Future<DirectBitcoinPlan> planDirectBitcoinLeg({
   required Future<double?> Function(int sats) directOutUsd,
   required Future<double> Function() directMinimumUsd,
   required double dollarsMinimumUsd,
+  Future<double> Function()? readDollarsMinimumUsd,
+  double? venueTargetUsd,
 }) async {
   final price = via.usdPerBtc;
   if (!price.isFinite || price <= 0) {
@@ -206,15 +208,21 @@ Future<DirectBitcoinPlan> planDirectBitcoinLeg({
   // The reads, together.
   final probe = via.sats;
   final reads = await Future.wait<Object?>([
-    venueArriving(fundUsd),
+    venueTargetUsd != null && venueTargetUsd.isFinite && venueTargetUsd > 0
+        ? Future<double>.value(venueTargetUsd)
+        : venueArriving(fundUsd),
     d > 0 ? venueArriving(d) : Future<double?>.value(0),
     directOutUsd(probe),
     directMinimumUsd(),
+    d > 0 && readDollarsMinimumUsd != null
+        ? readDollarsMinimumUsd()
+        : Future<double>.value(dollarsMinimumUsd),
   ]);
   final need = reads[0] as double?;
   var dLands = reads[1] as double?;
   final probeOut = reads[2] as double?;
   final minimum = (reads[3] as double?) ?? 1.0;
+  final dollarsMinimum = reads[4] as double;
   if (need == null ||
       !need.isFinite ||
       need <= 0 ||
@@ -233,7 +241,7 @@ Future<DirectBitcoinPlan> planDirectBitcoinLeg({
     target = _ceilCents(minimum);
     if (d > 0) {
       var nextD = _ceilCents(math.max(0.0, d - raise));
-      if (nextD > 0 && nextD < dollarsMinimumUsd) nextD = 0;
+      if (nextD > 0 && nextD < dollarsMinimum) nextD = 0;
       if (nextD <= 0) {
         // Bitcoin covers the Dollars' share as well.
         d = 0;

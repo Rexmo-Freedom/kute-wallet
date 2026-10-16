@@ -245,6 +245,7 @@ abstract final class BitcoinToDollarsLeg {
     required int maxSats,
     required String sparkAddress,
     required String idempotencyKey,
+    bool requireFullTarget = false,
   }) async {
     Future<SettlementQuoteResult> quoteFor(int amountSats, String key) {
       final request = OrchestraQuoteRequest(
@@ -271,7 +272,9 @@ abstract final class BitcoinToDollarsLeg {
     final estOut = orchestraAmountToDouble(
         fetched.quote.quote.estimatedOut, kOrchestraUsdAssetCode,
         chain: kOrchestraUsdChain);
-    if (arrivalTargetShort(estOut, targetUsd)) {
+    if (requireFullTarget
+        ? estOut + 1e-6 < targetUsd
+        : arrivalTargetShort(estOut, targetUsd)) {
       final scaled = grossUpSatsForTarget(
         sats: sendSats,
         estimatedOut: estOut,

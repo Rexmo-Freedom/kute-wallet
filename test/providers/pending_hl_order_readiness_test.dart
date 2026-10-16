@@ -7,6 +7,7 @@
 // never sent twice. Fakes only: nothing is signed or sent.
 
 import 'package:fake_async/fake_async.dart';
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/helpers/auth_grant.dart';
@@ -19,6 +20,7 @@ import 'package:kute/providers/hyperliquid_account_provider.dart';
 import 'package:kute/providers/pending_hyperliquid_order_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart';
+import 'package:kute/services/hyperliquid/hypercore_dex_cash.dart';
 import 'package:kute/services/one_balance/hyperliquid_move_rail.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/one_balance/order_funding.dart';
@@ -97,9 +99,15 @@ Settings _settings() => Settings(
 
 /// The slip's handover; [refusals] are thrown by the next sends in turn.
 class _Placement {
-  _Placement({required this.resizable, this.refusals = const []});
+  _Placement(
+      {required this.resizable,
+      this.refusals = const [],
+      this.market = _market,
+      this.targetCredit});
   final bool resizable;
   final List<Object> refusals;
+  final HlMarket market;
+  final Future<void>? targetCredit;
   final placed = <double>[];
 
   /// The cloid each send went out under, as the slip's call reads it.
@@ -107,7 +115,7 @@ class _Placement {
 
   SensitiveIntent intentAt(double margin) => HlIntents.openPosition(
         walletId: 'w1',
-        market: _market,
+        market: market,
         isLong: true,
         marginUsd: margin,
         leverage: 1,
@@ -120,6 +128,10 @@ class _Placement {
           // The notifier consumes the grant against the exact order.
           GrantGuard.consume(g, intentAt(margin),
               allowed: const {SensitiveAction.hlOrder});
+          if (targetCredit != null) {
+            await targetCredit;
+            OwnDexReadiness.ready();
+          }
           placed.add(margin);
           cloids.add(HlResendCloids.current('c1'));
           if (refusals.isNotEmpty) throw refusals.removeAt(0);
@@ -137,7 +149,7 @@ class _Placement {
 PendingHlOrderIntent _intent(_Placement placement,
         {String orderKind = 'market'}) =>
     PendingHlOrderIntent(
-      coin: 'BTC',
+      coin: placement.market.coin,
       kind: HlMarketKind.perp,
       isLong: true,
       marginUsd: 20,
@@ -145,7 +157,7 @@ PendingHlOrderIntent _intent(_Placement placement,
       slippagePct: 1,
       expectedPx: 60000,
       marketLabel: 'BTC · Perp',
-      market: _market,
+      market: placement.market,
       placement: placement.placement,
       fundUsd: 20.03,
       requiredUsd: 20 * 1.01 * 1.0019,
@@ -206,7 +218,7 @@ void main() {
     final intent = _intent(placement, orderKind: orderKind);
     final grant = AuthGrantRegistry.instance.issueAutofire(
       kPendingHlOrderAutofireId,
-      pendingHlOrderAutofireIntent(intent, _market, walletId: 'w1'),
+      pendingHlOrderAutofireIntent(intent, placement.market, walletId: 'w1'),
       method: AuthGrantMethod.pin,
     );
     c.read(pendingHyperliquidOrderProvider.notifier).fundAndQueue(intent,
@@ -217,6 +229,44 @@ void main() {
         readyUsd: 0);
     return c;
   }
+
+  test(
+      'HIP-3 credit step stays active until its target clearinghouse is usable',
+      () {
+    fakeAsync((async) {
+      final credited = Completer<void>();
+      final placement = _Placement(
+          resizable: true,
+          market: HlMarket.fromCacheJson({
+            ..._market.toCacheJson(),
+            'coin': 'TSLA',
+            'wireCoin': 'xyz:TSLA',
+            'assetId': 110001,
+            'dex': 'xyz',
+            'isHip3': true,
+          })!,
+          targetCredit: credited.future);
+      final c = queue(placement);
+      async.flushMicrotasks();
+      perp = 20.5;
+      async.elapse(const Duration(seconds: 1));
+      async.flushMicrotasks();
+      final moving = c.read(pendingHyperliquidOrderProvider)!;
+      expect(moving.status, PendingHlOrderStatus.placing);
+      expect(moving.readiness, HlReadiness.crediting);
+      expect(placement.placed, isEmpty);
+      expect(history.where((s) => s?.readiness == HlReadiness.ready), isEmpty);
+      credited.complete();
+      async.flushMicrotasks();
+      expect(placement.placed, [20]);
+      expect(
+          history.any((s) =>
+              s?.status == PendingHlOrderStatus.placing &&
+              s?.readiness == HlReadiness.ready),
+          isTrue);
+      expect(terminal().status, PendingHlOrderStatus.done);
+    });
+  });
 
   test(
       'credited by the rail but not showing in the account: waits '
@@ -244,6 +294,20 @@ void main() {
           history.firstWhere((s) => s?.status == PendingHlOrderStatus.placing)!;
       expect(placing.readiness, HlReadiness.ready);
       expect(terminal().status, PendingHlOrderStatus.done);
+    });
+  });
+
+  test('target collateral credit timeout never retries the funding action', () {
+    fakeAsync((async) {
+      final placement = _Placement(
+          resizable: true, refusals: [const OwnDexCreditPending()]);
+      queue(placement);
+      async.flushMicrotasks();
+      perp = 20.5;
+      async.elapse(const Duration(seconds: 30));
+      async.flushMicrotasks();
+      expect(placement.placed, [20]);
+      expect(terminal().status, PendingHlOrderStatus.failed);
     });
   });
 

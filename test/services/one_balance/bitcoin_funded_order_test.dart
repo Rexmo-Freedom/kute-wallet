@@ -387,6 +387,22 @@ void main() {
   });
 
   test(
+      'a delivered Bitcoin leg short of the onward move stops with Dollars held',
+      () async {
+    final env = _Env(
+        landing: const DollarsLanded(byStatus: true, freshDollarsUsd: 5.1));
+    final c = containerFor(env);
+    final r = request(_grant());
+    final run = c.read(bitcoinFundedOrderRunnerProvider).start(r.request);
+    expect(await run.ended, BitcoinFundedEnd.ready);
+    expect(funder.sent, isEmpty);
+    expect(r.calls, ['drop']);
+    final record = c.read(fundedOrdersProvider).single;
+    expect(record.reason, 'dollars_short');
+    expect(record.moneyAt, FundedMoneyAt.investments);
+  });
+
+  test(
       'dollars too slow: the order goes, the money lands in Dollars, '
       'the slip says tap to place', () async {
     final env = _Env(landing: const DollarsLandingTimedOut(), slow: true);
