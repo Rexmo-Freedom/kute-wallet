@@ -90,8 +90,9 @@ import 'package:kute/services/funding/owned_address_resolver.dart'
 import 'package:kute/services/hyperliquid/cctp_withdrawal.dart'
     show kCctpCoreFeeReserve;
 import 'package:kute/services/one_balance/hyperliquid_move_rail.dart';
-import 'package:kute/services/one_balance/money_steps.dart'
-    show MoneyStepGraph;
+import 'package:kute/services/one_balance/investments_spendable.dart'
+    show venueCashSnapshotProvider;
+import 'package:kute/services/one_balance/money_steps.dart' show MoneyStepGraph;
 import 'package:kute/services/one_balance/move_steps.dart';
 import 'package:kute/services/one_balance/multi_source_move.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
@@ -858,6 +859,8 @@ class VenueCashPuller {
     Future<void> Function(Duration)? sleep,
     void Function()? nudge,
     String? Function()? walletId,
+    double? Function(OneBalanceVenue venue)? cachedAvailableUsd,
+    this.onCashMoved,
     this.pollEvery = const Duration(seconds: 3),
     this.nudgeEvery = const Duration(seconds: 20),
     this.pendingTtl = const Duration(minutes: 20),
@@ -867,7 +870,8 @@ class VenueCashPuller {
         _clock = clock ?? DateTime.now,
         _sleep = sleep ?? ((d) => Future<void>.delayed(d)),
         _nudge = nudge,
-        _walletId = walletId;
+        _walletId = walletId,
+        _cachedAvailableUsd = cachedAvailableUsd;
 
   final List<VenueCashSource> _sources;
   final double Function() _readDollars;
@@ -876,6 +880,13 @@ class VenueCashPuller {
   final Future<void> Function(Duration) _sleep;
   final void Function()? _nudge;
   final String? Function()? _walletId;
+  final double? Function(OneBalanceVenue venue)? _cachedAvailableUsd;
+
+  /// Successful sends only, with the source read used before the leg.
+  /// A listener never changes the money move's outcome.
+  final void Function(VenueCashLegOutcome leg, double? availableBefore)?
+      onCashMoved;
+  final Map<OneBalanceVenue, double> _lastAvailable = {};
 
   /// How often the wait reads Dollars.
   final Duration pollEvery;
@@ -918,6 +929,9 @@ class VenueCashPuller {
             );
           }(),
     ]);
+    for (final read in reads) {
+      _lastAvailable[read.venue] = read.availableUsd;
+    }
     return reads;
   }
 
@@ -975,8 +989,7 @@ class VenueCashPuller {
         caps[p.venue.name] = p.usd;
       }
     }
-    return DirectLegGrants.limit(
-        destination: destination.code, capsUsd: caps);
+    return DirectLegGrants.limit(destination: destination.code, capsUsd: caps);
   }
 
   /// The venues of [plan] whose legs would go straight to [destination]
@@ -1092,8 +1105,7 @@ class VenueCashPuller {
       {Duration waitFor = Duration.zero, AuthGrant? approval}) async {
     final move = MultiSourceMoveStore.get(moveId);
     if (move == null || !move.partial) return null;
-    if (move.destination != VenueCashDestination.dollars &&
-        approval == null) {
+    if (move.destination != VenueCashDestination.dollars && approval == null) {
       throw const VenueLegApprovalRequired();
     }
     if (!MultiSourceMoveStore.beginRetry(moveId)) return null;
@@ -1259,6 +1271,15 @@ class VenueCashPuller {
       VenueCashDestination destination,
       String moveId,
       AuthGrant? approval) async {
+    var availableBefore = _lastAvailable[p.venue];
+    try {
+      final cached = _cachedAvailableUsd?.call(p.venue);
+      if (cached != null &&
+          cached.isFinite &&
+          (availableBefore == null || cached < availableBefore)) {
+        availableBefore = cached;
+      }
+    } catch (_) {/* a missing display snapshot never blocks a leg */}
     final source = _sourceFor(p.venue);
     if (source == null) {
       return _recorded(
@@ -1342,7 +1363,11 @@ class VenueCashPuller {
         case OneBalanceVenue.predictions:
           TrackingService.track('predictions_cash_pulled', params: params);
       }
-      return _recorded(moveId, outcome);
+      final recorded = _recorded(moveId, outcome);
+      try {
+        onCashMoved?.call(recorded, availableBefore);
+      } catch (_) {/* a cache listener never fails a sent leg */}
+      return recorded;
     } catch (e) {
       return _recorded(
           moveId, VenueCashLegOutcome(pull: p, error: e, route: route));
@@ -1487,10 +1512,7 @@ final venueCashSourcesProvider = Provider<List<VenueCashSource>>((ref) {
       readGuard: () => readHyperliquidPullGuard(ref.read),
       direct: rail is HyperCoreMoveRail
           ? (destination, usd, purpose, auth) => rail.withdrawDirect(
-              destination: destination,
-              usd: usd,
-              auth: auth,
-              purpose: purpose)
+              destination: destination, usd: usd, auth: auth, purpose: purpose)
           : null,
     ),
   ];
@@ -1498,6 +1520,7 @@ final venueCashSourcesProvider = Provider<List<VenueCashSource>>((ref) {
 
 /// The app's puller. Not autoDispose: it remembers pulls on their way.
 final venueCashPullerProvider = Provider<VenueCashPuller>((ref) {
+  final snapshot = ref.watch(venueCashSnapshotProvider);
   final minimums = ref.read(routeMinimumsProvider);
   return VenueCashPuller(
     sources: ref.read(venueCashSourcesProvider),
@@ -1505,6 +1528,8 @@ final venueCashPullerProvider = Provider<VenueCashPuller>((ref) {
     minimumUsd: minimums.minimumUsd,
     nudge: () => BackgroundSyncService().syncNow(),
     walletId: () => pickSpendingWallet(ref.read(settingsProvider))?.id,
+    onCashMoved: snapshot.cashMoved,
+    cachedAvailableUsd: snapshot.availableUsd,
   );
 });
 
@@ -1512,9 +1537,8 @@ final venueCashPullerProvider = Provider<VenueCashPuller>((ref) {
 /// Dollars plus the OTHER venues' cash (the target venue's own cash is already counted as
 /// what it holds). What the order slips' funding engine
 /// (`OrderFundingEngine.decide`) reads as "the rest of Investments".
-final venueCashReachExcludingProvider =
-    FutureProvider.autoDispose.family<double, OneBalanceVenue>(
-        (ref, exclude) async {
+final venueCashReachExcludingProvider = FutureProvider.autoDispose
+    .family<double, OneBalanceVenue>((ref, exclude) async {
   final dollars = ref.watch(usdBalanceProvider);
   try {
     return await ref.read(venueCashPullerProvider).reachUsd(exclude: exclude);

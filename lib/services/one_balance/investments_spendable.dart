@@ -35,6 +35,8 @@ import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/one_balance/route_minimums.dart'
     show venueFloorUsd;
 import 'package:kute/services/one_balance/venue_cash_source.dart';
+import 'package:kute/services/funding/owned_address_resolver.dart'
+    show ProviderReader;
 
 /// What Investments can spend, split the way the From row needs it.
 @immutable
@@ -142,6 +144,165 @@ typedef VenueCashLastRead = ({
 final venueCashLastReadProvider =
     StateProvider<VenueCashLastRead?>((_) => null);
 
+/// Pending source debits protect the last-known figure while a move is on
+/// its rail. A read started before a debit or terminal outcome cannot put
+/// the old source cash back next to the destination's newly arrived cash.
+final _venueCashWalletEpochProvider = Provider((ref) {
+  final walletId =
+      ref.watch(settingsProvider.select((s) => pickSpendingWallet(s)?.id));
+  return (walletId: walletId, token: Object());
+});
+
+final venueCashSnapshotProvider = Provider<VenueCashSnapshot>((ref) {
+  final epoch = ref.watch(_venueCashWalletEpochProvider);
+  final snapshot = VenueCashSnapshot(ref, epoch.walletId, epoch.token);
+  ref.onDispose(snapshot.dispose);
+  return snapshot;
+});
+
+class VenueCashSnapshot {
+  VenueCashSnapshot(this._ref, this.walletId, this._epoch);
+
+  final Ref _ref;
+  final String? walletId;
+  final Object _epoch;
+  bool _alive = true;
+  int _revision = 0;
+  final Set<String> _sent = {};
+  final Map<OneBalanceVenue, double> _ceilings = {};
+  final Map<String, ({OneBalanceVenue venue, Set<String> refs})> _pending = {};
+  final Set<String> _settled = {};
+
+  void dispose() => _alive = false;
+
+  bool get _current =>
+      _alive &&
+      identical(_ref.read(_venueCashWalletEpochProvider).token, _epoch);
+
+  List<VenueCashCandidate> _sources() {
+    final last = _ref.read(venueCashLastReadProvider);
+    return last != null && last.walletId == walletId
+        ? last.candidates
+        : _ref.read(venueCashSeedProvider);
+  }
+
+  /// The displayed source balance before a new send starts. Capturing it
+  /// then avoids subtracting again from a read that already saw the send.
+  double? availableUsd(OneBalanceVenue venue) => !_current
+      ? null
+      : _sources().where((s) => s.venue == venue).firstOrNull?.availableUsd;
+
+  /// The rail accepted this source send. Its local operation/quote key
+  /// makes duplicate callbacks harmless; no failed or unknown send debits.
+  void cashMoved(VenueCashLegOutcome leg, double? availableBefore) {
+    if (!_current || !leg.ok) return;
+    final result = leg.result!;
+    final key = '${leg.venue.name}:'
+        '${result.operationId ?? result.orderId ?? result.quoteId}';
+    if (!_sent.add(key)) return;
+    final usd = result.sentUsd > 0 ? result.sentUsd : leg.pull.usd;
+    if (!usd.isFinite || usd <= 0) return;
+    final sources = _sources();
+    final previous = sources.where((s) => s.venue == leg.venue).firstOrNull;
+    final before = availableBefore ?? previous?.availableUsd ?? usd;
+    final priorCeiling = _ceilings[leg.venue] ?? before;
+    // A live read may already reflect the send. Cap it by the pre-send
+    // remainder rather than subtracting the same send from that read too.
+    final ceiling = _floorCents([
+      before - usd,
+      priorCeiling - usd,
+      if (previous != null) previous.availableUsd,
+    ].reduce((a, b) => a < b ? a : b));
+    _ceilings[leg.venue] = ceiling;
+    _pending[key] = (
+      venue: leg.venue,
+      refs: {
+        result.quoteId,
+        if (result.orderId case final id?) id,
+        if (result.operationId case final id?) id,
+      }
+    );
+    _revision++;
+    _publish([
+      for (final s in sources)
+        if (s.venue == leg.venue)
+          (
+            venue: s.venue,
+            availableUsd: ceiling,
+            eta: s.eta,
+            minimumUsd: s.minimumUsd
+          )
+        else
+          s,
+      if (previous == null)
+        (
+          venue: leg.venue,
+          availableUsd: ceiling,
+          eta: kVenuePullEta[leg.venue]!,
+          minimumUsd: venueFloorUsd(leg.venue)
+        ),
+    ]);
+  }
+
+  void _publish(List<VenueCashCandidate> candidates) {
+    _ref.read(venueCashLastReadProvider.notifier).state =
+        (walletId: walletId, candidates: List.unmodifiable(candidates));
+  }
+
+  /// [settledRefs] must be proved delivered or refunded by their own
+  /// leg, never inferred from an unrelated arrival or a generic failure.
+  /// Only a new read requested after that proof can reconcile the debit.
+  Future<void> refresh(ProviderReader read,
+      {Set<String> settledRefs = const {}}) async {
+    if (!_current) return;
+    _settled.addAll([
+      for (final e in _pending.entries)
+        if (e.value.refs.any(settledRefs.contains)) e.key,
+    ]);
+    final settledAtStart = Set<String>.of(_settled);
+    final revision = ++_revision;
+    try {
+      final candidates = await read(venueCashPullerProvider).candidates();
+      if (!_current || revision != _revision) return;
+      for (final key in settledAtStart) {
+        _pending.remove(key);
+        _settled.remove(key);
+      }
+      // Another accepted move may still be settling at this source. A
+      // first leg's proof must never restore the second leg's source cash.
+      _ceilings.removeWhere(
+          (venue, _) => !_pending.values.any((move) => move.venue == venue));
+      _publish([
+        for (final s in candidates)
+          if (_ceilings[s.venue] case final ceiling?)
+            (
+              venue: s.venue,
+              availableUsd: s.availableUsd < ceiling ? s.availableUsd : ceiling,
+              eta: s.eta,
+              minimumUsd: s.minimumUsd
+            )
+          else
+            s,
+      ]);
+    } catch (_) {
+      // Keep the last figure and pending debit. A later requested read
+      // can reconcile a proved terminal leg; nothing polls globally.
+    }
+  }
+}
+
+/// Refresh once after a source's own delivery/refund, for the wallet the
+/// move began on. The scoped snapshot also rejects switch-away-and-back
+/// callbacks held by an older provider generation.
+Future<void> refreshVenueCashAfterMove(ProviderReader read,
+    {required String? walletId,
+    required VenueCashSnapshot scope,
+    required Set<String> settledRefs}) async {
+  final snapshot = read(venueCashSnapshotProvider);
+  if (snapshot.walletId != walletId || !identical(snapshot, scope)) return;
+  await snapshot.refresh(read, settledRefs: settledRefs);
+}
+
 /// Before the engine has read the venues at all: the one-balance
 /// picture's venue cash (the Investments header's Available), each venue
 /// at its fixed route floor. Only while that picture is already up: an
@@ -167,14 +328,7 @@ final venueCashSeedProvider = Provider<List<VenueCashCandidate>>((ref) {
 /// [investmentsSpendableProvider]: the figure is already on screen, this
 /// only updates it. A failed read keeps the last one.
 final venueCashRefreshProvider = FutureProvider.autoDispose<void>((ref) async {
-  final walletId = pickSpendingWallet(ref.read(settingsProvider))?.id;
-  try {
-    final candidates = await ref.read(venueCashPullerProvider).candidates();
-    ref.read(venueCashLastReadProvider.notifier).state =
-        (walletId: walletId, candidates: List.unmodifiable(candidates));
-  } catch (_) {
-    // The last read (or the seed) stays on screen.
-  }
+  await ref.watch(venueCashSnapshotProvider).refresh(ref.read);
 });
 
 /// What Investments can spend right now, from the last known values:
@@ -182,8 +336,8 @@ final venueCashRefreshProvider = FutureProvider.autoDispose<void>((ref) async {
 final investmentsSpendableProvider =
     Provider.autoDispose<InvestmentsSpendable>((ref) {
   final dollars = ref.watch(usdBalanceProvider);
-  final walletId = ref.watch(
-      settingsProvider.select((s) => pickSpendingWallet(s)?.id));
+  final walletId =
+      ref.watch(settingsProvider.select((s) => pickSpendingWallet(s)?.id));
   final last = ref.watch(venueCashLastReadProvider);
   final sources = last != null && last.walletId == walletId
       ? last.candidates
@@ -201,8 +355,8 @@ final investmentsSpendableProvider =
 final investmentsSpendableExcludingProvider = Provider.autoDispose
     .family<InvestmentsSpendable, OneBalanceVenue>((ref, venue) {
   final dollars = ref.watch(usdBalanceProvider);
-  final walletId = ref.watch(
-      settingsProvider.select((s) => pickSpendingWallet(s)?.id));
+  final walletId =
+      ref.watch(settingsProvider.select((s) => pickSpendingWallet(s)?.id));
   final last = ref.watch(venueCashLastReadProvider);
   final sources = last != null && last.walletId == walletId
       ? last.candidates
