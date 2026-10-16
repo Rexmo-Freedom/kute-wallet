@@ -217,13 +217,23 @@ const _outcomes = [
 late _Env _env;
 late _Funder _funder;
 
-Future<void> _pumpSlip(WidgetTester tester, {bool knownEmpty = false}) async {
+class _StoredFunded extends FundedOrdersNotifier {
+  _StoredFunded(this.records);
+  final List<FundedOrderRecord> records;
+  @override
+  List<FundedOrderRecord> build() => records;
+}
+
+Future<void> _pumpSlip(WidgetTester tester,
+    {bool knownEmpty = false, List<FundedOrderRecord>? funded}) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
   await tester.pumpWidget(ProviderScope(
     overrides: [
+      if (funded != null)
+        fundedOrdersProvider.overrideWith(() => _StoredFunded(funded)),
       slipKnownEmptySourcesProvider.overrideWith((_) => () async => knownEmpty),
       settingsProvider.overrideWith((ref) => SettingsModel(Settings(
             currency: 'USD',
@@ -360,6 +370,22 @@ void main() {
     // Past the autofire grant's own 30-minute life.
     await tester.pump(const Duration(minutes: 31));
   }
+
+  testWidgets('an old ready record adds no message above the bet button', (tester) async {
+    expect(await policy.refresh(), isTrue);
+    final now = DateTime.now();
+    await _pumpSlip(tester, funded: [FundedOrderRecord(
+      id: 'old-ready',
+      label: const FundedOrderLabel(venue: OneBalanceVenue.predictions,
+          orderUsd: 5, side: 'Yes', market: 'Will it rain?', marketKey: 'yes-token'),
+      stage: FundedOrderStage.ready, createdAt: now, updatedAt: now, addUsd: 6,
+    )]);
+    expect(find.byType(SlipFundingReadyNote), findsNothing);
+    expect(find.textContaining('Tap to place'), findsNothing);
+    expect(_cta(tester).label, startsWith(r'Add $'));
+    expect(_cta(tester).enabled, isTrue);
+    await release(tester);
+  });
 
   testWidgets(
       'nothing typed, \$0 in Investments, enough bitcoin: "Add" funds the '

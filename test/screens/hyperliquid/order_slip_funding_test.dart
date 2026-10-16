@@ -526,7 +526,7 @@ void main() {
           findsOneWidget);
     });
 
-    testWidgets('stopped with the money in Investments: tap to place',
+    testWidgets('an old ready record adds no message above the order button',
         (tester) async {
       await _pumpSlip(tester,
           venueUsd: 0,
@@ -535,7 +535,8 @@ void main() {
           funded: [_btcRecord(FundedOrderStage.ready)]);
       await _typeOnKeypad(tester, '20');
       expect(find.text(r'Your $6.00 is in Investments. Tap to place.'),
-          findsOneWidget);
+          findsNothing);
+      expect(find.byKey(const ValueKey('slip-funding-ready')), findsNothing);
       expect(_button(tester).text, startsWith('Go Long BTC'));
       expect(_button(tester).onPressed, isNotNull);
       expect(find.byType(SlipFundingSteps), findsNothing);

@@ -4753,12 +4753,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     final bitcoinStep = fundedRunning
         ? fundedSteps![funded.active.clamp(0, fundedSteps.length - 1)]
         : null;
-    // Stopped with the money in Investments: one line, the button is the
-    // order again (a stop shown in the steps says it there).
-    final readyRecord = _isLedger || funded != null || _isPlacing
-        ? null
-        : FundedOrdersNotifier.readyOn(fundedOrders,
-            OneBalanceVenue.investing, market.coin, DateTime.now());
     if (bitcoinStep != null) {
       primaryKind = 'trade';
       primaryLabel = bitcoinStep;
@@ -4904,8 +4898,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
             CapabilityBlockNote(depositBlock),
           if (!incoming && (funding?.failed ?? false))
             const SlipDepositFailedNote(),
-          if (readyRecord != null && bitcoinStep == null)
-            SlipFundingReadyNote(amount: formatHlUsd(readyRecord.addUsd)),
           if (priceStaleBlocks)
             Padding(
               padding: EdgeInsets.only(bottom: 8.h),

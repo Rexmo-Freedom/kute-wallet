@@ -5503,21 +5503,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         children: [action, SlipFundingSteps(steps: steps, active: 0)],
       );
     }
-    // Stopped with the money in Investments: one line over the button,
-    // which is the bet again.
-    final ready = busy || _isPlacing || failed
-        ? null
-        : FundedOrdersNotifier.readyOn(records, OneBalanceVenue.predictions,
-            _selectedTokenId ?? '', DateTime.now());
-    if (ready == null) return action;
-    return Column(
-      key: action.key,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SlipFundingReadyNote(amount: _fiatCompanion(ready.addUsd)),
-        action,
-      ],
-    );
+    return action;
   }
 
   Widget _buildPrimaryActionInner(
