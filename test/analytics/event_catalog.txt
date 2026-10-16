@@ -339,6 +339,8 @@ orchestra_submit_result
 order_funding_abandoned
 order_funding_completed
 order_funding_failed
+order_funding_requested
+order_funding_route_selected
 order_funding_started
 order_funding_step
 order_funding_submitted
@@ -657,6 +659,8 @@ tx_detail_action
 tx_flow_detail_opened
 unhandled_exception_caught
 unlock_failed
+usd_balance_catchup
+usd_balance_sync
 usd_receive_abandoned
 usd_receive_address_copied
 usd_receive_address_shared
@@ -676,6 +680,7 @@ usd_send_initiated
 usd_send_opened
 usd_send_step
 usd_tab_opened
+usd_token_recovery
 venue_account_link_result
 venue_cash_direct_refused
 venue_sweep_completed

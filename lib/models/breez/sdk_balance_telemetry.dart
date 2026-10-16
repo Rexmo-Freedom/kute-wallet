@@ -39,8 +39,21 @@ String _source(String value) => switch (value) {
       _ => 'unknown',
     };
 
-void _track(String event, Map<String, Object> properties) =>
-    TrackingService.track(event, params: properties);
+void _track(String event, Map<String, Object> properties) {
+  // Keep the closed event set explicit at the capture boundary so the
+  // checked-in catalog can be derived from actual production emitters.
+  switch (event) {
+    case 'usd_balance_catchup':
+      TrackingService.track('usd_balance_catchup', params: properties);
+      return;
+    case 'usd_balance_sync':
+      TrackingService.track('usd_balance_sync', params: properties);
+      return;
+    case 'usd_token_recovery':
+      TrackingService.track('usd_token_recovery', params: properties);
+      return;
+  }
+}
 
 /// Bounded outcome events, never per poll. Typed fields prevent balances,
 /// payment identifiers and native error messages entering this reporter.
