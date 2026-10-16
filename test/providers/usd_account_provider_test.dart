@@ -539,6 +539,8 @@ void main() {
     when(() => replacement.instance).thenReturn(second);
     when(() => replacement.walletInfoStream)
         .thenAnswer((_) => const Stream.empty());
+    when(() => replacement.recoveryStream)
+        .thenAnswer((_) => const Stream.empty());
     final cache = _Cache({});
     cache.setLedger([]);
     var providerBuilds = 0;
@@ -555,8 +557,11 @@ void main() {
             activeWalletId: 'spending',
             wallets: [WalletConfig(id: 'spending', name: 'Spending')],
           ))),
-      breezSDKProvider.overrideWith(
-          (_) async => ++providerBuilds == 1 ? wrapper : replacement),
+      breezSDKProvider.overrideWith((ref) async {
+        final current = ++providerBuilds == 1 ? wrapper : replacement;
+        bindSparkRecoveryLifecycle(ref, current);
+        return current;
+      }),
       walletTransactionCacheProvider.overrideWith((_) => cache),
     ]);
     container.listen(usdBalanceProvider, (_, __) {});

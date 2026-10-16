@@ -51,7 +51,6 @@ import 'package:kute/providers/breez_config_provider.dart';
 import 'package:kute/models/breez/shared_sync.dart';
 import 'package:kute/models/breez/sdk_balance_telemetry.dart';
 import 'package:kute/providers/settings_provider.dart';
-import 'package:kute/providers/spark_contacts_provider.dart';
 import 'package:kute/providers/transactions_provider.dart'
     show walletTransactionCacheProvider;
 import 'package:kute/providers/usdb_provider.dart' show isUsdbTokenPayment;
@@ -574,19 +573,7 @@ final usdSdkBalanceProvider = StreamProvider<double?>((ref) async* {
     recoverTokenStore: (source) async {
       final sdk = wrapper.instance;
       if (sdk == null) return false;
-      final recovered =
-          await wrapper.recoverStaleTokenBalance(sdk, source: source);
-      // Contacts is the only persistent notifier which captures the native
-      // handle rather than looking it up for each action. Its Riverpod
-      // rebuild leaves the wrapper/session provider connected.
-      if (live && recovered) ref.invalidate(sparkContactsProvider);
-      if (live && !recovered && wrapper.instance == null) {
-        // A native reconnect failed after closing the old handle. Re-enter
-        // the normal provider lifecycle, which rebuilds dependents and
-        // reports connection errors; never retain a disconnected wrapper.
-        ref.invalidate(breezSDKProvider);
-      }
-      return recovered;
+      return wrapper.recoverStaleTokenBalance(sdk, source: source);
     },
     publish: add,
   );

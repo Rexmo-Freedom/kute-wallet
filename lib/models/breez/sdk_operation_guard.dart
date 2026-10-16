@@ -8,10 +8,24 @@ final _operations = Expando<_SdkOperations>('sparkOperations');
 /// A cached asynchronous read from this handle must no longer publish.
 bool isSparkSdkRetired(BreezSdk sdk) => _operations[sdk]?.retired ?? false;
 
+/// A watchdog can wait for the complete operation's idle event without using
+/// an eligible recovery attempt while the signer is known to be busy.
+bool sparkMutationInFlight(BreezSdk sdk) =>
+    (_operations[sdk]?.active ?? 0) != 0;
+
 class _SdkOperations {
   int active = 0;
   bool recovering = false;
   bool retired = false;
+  final idleObservers = <void Function()>{};
+}
+
+/// A liveness recovery deferred by a native mutation can try once when that
+/// entire operation ends. No timer, payment retry or native sync is started.
+void Function() observeSparkIdle(BreezSdk sdk, void Function() onIdle) {
+  final state = _operations[sdk] ??= _SdkOperations();
+  state.idleObservers.add(onIdle);
+  return () => state.idleObservers.remove(onIdle);
 }
 
 Future<T> runSparkMutation<T>(
@@ -25,6 +39,13 @@ Future<T> runSparkMutation<T>(
     return await operation();
   } finally {
     state.active--;
+    if (state.active == 0 && !state.retired) {
+      for (final observer in List.of(state.idleObservers)) {
+        try {
+          observer();
+        } catch (_) {/* an observer never changes a completed payment */}
+      }
+    }
   }
 }
 

@@ -10,6 +10,10 @@ import 'package:kute/services/tracking/latency_tracker.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/services/wallet_identity_service.dart';
 
+/// Three UI wait windows: a normal slow sync must finish before recovery is
+/// considered. A Dart timeout cannot cancel the native operation.
+const kSparkSyncStallAfter = Duration(minutes: 1);
+
 class BreezSdkSpark {
   static final BreezSdkSpark _singleton = BreezSdkSpark._internal();
 
@@ -17,13 +21,19 @@ class BreezSdkSpark {
 
   BreezSdkSpark._internal()
       : _connectSdk = _nativeConnect,
+        _syncStallAfter = kSparkSyncStallAfter,
+        _syncWaitTimeout = const Duration(seconds: 20),
         _balanceTelemetry = const SdkBalanceTelemetry();
 
   @visibleForTesting
   BreezSdkSpark.forTesting({
     required Future<spark.BreezSdk> Function(spark.ConnectRequest) connectSdk,
+    Duration syncStallAfter = kSparkSyncStallAfter,
+    Duration syncWaitTimeout = const Duration(seconds: 20),
     SdkBalanceTelemetry balanceTelemetry = const SdkBalanceTelemetry(),
   })  : _connectSdk = connectSdk,
+        _syncStallAfter = syncStallAfter,
+        _syncWaitTimeout = syncWaitTimeout,
         _balanceTelemetry = balanceTelemetry;
 
   static Future<spark.BreezSdk> _nativeConnect(spark.ConnectRequest req) {
@@ -33,6 +43,8 @@ class BreezSdkSpark {
 
   final Future<spark.BreezSdk> Function(spark.ConnectRequest) _connectSdk;
   final SdkBalanceTelemetry _balanceTelemetry;
+  final Duration _syncStallAfter;
+  final Duration _syncWaitTimeout;
   Future<void> _lifecycle = Future<void>.value();
   int _generation = 0;
   Object? _teardownFailure;
@@ -41,6 +53,19 @@ class BreezSdkSpark {
   spark.ConnectRequest? _lastConnectRequest;
   Future<bool>? _balanceRecovery;
   bool _optimizationInProgress = false;
+  Timer? _syncStallWatch;
+  Future<void>? _watchedSync;
+  spark.BreezSdk? _watchedSyncSdk;
+  String _watchedSyncSource = 'unknown';
+  int _watchedRecoveryAttempts = 0;
+  void Function()? _stopWatchingSync;
+  void Function()? _stopWatchingIdle;
+
+  /// A guarded recovery either installed a new handle or left no usable
+  /// handle. Provider owners use this to refresh captured SDK consumers or
+  /// re-enter the standard connection lifecycle after a failed replacement.
+  final _recoveryController = StreamController<void>.broadcast();
+  Stream<void> get recoveryStream => _recoveryController.stream;
 
   static void _debugFeed(String detail) {
     if (kDebugMode) debugPrint('[sdk-feed] $detail');
@@ -107,6 +132,10 @@ class BreezSdkSpark {
       TrackingService.setSessionKey('breez_connected', true);
       _initializeEventsStream(sdk);
       _subscribeToSdkStreams(sdk);
+      _stopWatchingSync =
+          observeSharedSync(sdk, (sync) => _watchSync(sdk, sync));
+      _stopWatchingIdle =
+          observeSparkIdle(sdk, () => _recoverWatchedStall(sdk));
       // Fetches may complete after a wallet switch; publication below checks
       // the exact SDK handle. Failures are retried by the sync pipelines.
       unawaited(_fetchWalletData(sdk).catchError((Object _) {}));
@@ -146,6 +175,14 @@ class BreezSdkSpark {
   /// The wallet is going away: its balance readings and the arrivals
   /// waiting on it mean nothing for the next one.
   void _forgetWalletReadings() {
+    _syncStallWatch?.cancel();
+    _syncStallWatch = null;
+    _watchedSync = null;
+    _watchedSyncSdk = null;
+    _stopWatchingSync?.call();
+    _stopWatchingSync = null;
+    _stopWatchingIdle?.call();
+    _stopWatchingIdle = null;
     _balanceLog.clear();
     _publishedBalances = null;
     _publishedPayments = null;
@@ -249,8 +286,10 @@ class BreezSdkSpark {
   ///
   /// Keep the wrapper's broadcast streams alive and attach the replacement
   /// SDK to them, so every existing balance/payment subscriber follows it.
-  /// A native mutation, shared sync or pending outgoing payment defers the
-  /// recovery. The synchronous mutation reservation also blocks a send from
+  /// A native mutation, a sync younger than the stall threshold, or a pending
+  /// outgoing payment defers recovery. An aged sync is interrupted only by a
+  /// successful native disconnect, never by clearing its Dart future. The
+  /// synchronous mutation reservation also blocks a send from
   /// starting while the pending-payment check is in flight. Never throws.
   Future<bool> recoverStaleTokenBalance(spark.BreezSdk expected,
       {String source = 'unknown'}) {
@@ -272,7 +311,7 @@ class BreezSdkSpark {
     if (!identical(_instance, expected)) {
       return defer(UsdRecoveryReason.walletChanged);
     }
-    if (sharedSyncInFlight(expected)) {
+    if (_syncBlocksRecovery(expected)) {
       return defer(UsdRecoveryReason.syncInFlight);
     }
     if (_optimizationInProgress) {
@@ -302,9 +341,9 @@ class BreezSdkSpark {
           reason = UsdRecoveryReason.walletChanged;
           return false;
         }
-        if (sharedSyncInFlight(expected) || _optimizationInProgress) {
+        if (_syncBlocksRecovery(expected) || _optimizationInProgress) {
           outcome = UsdRecoveryResult.deferred;
-          reason = sharedSyncInFlight(expected)
+          reason = _syncBlocksRecovery(expected)
               ? UsdRecoveryReason.syncInFlight
               : UsdRecoveryReason.optimizationInFlight;
           return false;
@@ -337,6 +376,14 @@ class BreezSdkSpark {
         return false;
       } finally {
         reservation.release();
+        // Only a completed, current recovery may rebuild dependent providers.
+        // A healthy but busy/offline handle remains connected as before.
+        if (report &&
+            attempted &&
+            _generation == generation + 1 &&
+            (outcome == UsdRecoveryResult.ok || _instance == null)) {
+          _recoveryController.add(null);
+        }
         if (report) {
           _balanceTelemetry.recovery(
               source: source,
@@ -354,18 +401,101 @@ class BreezSdkSpark {
     return result;
   }
 
+  bool _syncBlocksRecovery(spark.BreezSdk sdk) {
+    final age = sharedSyncAge(sdk);
+    return sharedSyncInFlight(sdk) && (age == null || age < _syncStallAfter);
+  }
+
+  /// One timer per exact native flight, including automatic incoming arrival
+  /// syncs, with at most three attempts after idle/completion events. Its
+  /// future stays registered until native completion; the
+  /// watchdog never pretends a timed-out operation was cancelled. Native
+  /// disconnect must finish before any replacement can connect.
+  Future<void> _syncWithStallWatch(spark.BreezSdk sdk,
+      {required String source}) {
+    final sync = sharedSyncWallet(sdk);
+    _watchSync(sdk, sync, source: source);
+    return sync;
+  }
+
+  void _recoverWatchedStall(spark.BreezSdk sdk) {
+    if (!identical(_instance, sdk) ||
+        !identical(_watchedSyncSdk, sdk) ||
+        _watchedSync == null ||
+        _balanceRecovery != null ||
+        _optimizationInProgress ||
+        sparkMutationInFlight(sdk) ||
+        _watchedRecoveryAttempts >= 3 ||
+        !sharedSyncInFlight(sdk) ||
+        _syncBlocksRecovery(sdk)) {
+      return;
+    }
+    _watchedRecoveryAttempts++;
+    _debugFeed('sync=stalled action=guarded_recovery');
+    unawaited(recoverStaleTokenBalance(sdk, source: _watchedSyncSource));
+  }
+
+  void _watchSync(spark.BreezSdk sdk, Future<void> sync,
+      {String source = 'unknown'}) {
+    if (!identical(_instance, sdk)) return;
+    if (identical(_watchedSync, sync) && identical(_watchedSyncSdk, sdk)) {
+      if (source != 'unknown') _watchedSyncSource = source;
+      return;
+    }
+    _syncStallWatch?.cancel();
+    _watchedSync = sync;
+    _watchedSyncSdk = sdk;
+    _watchedSyncSource = source;
+    _watchedRecoveryAttempts = 0;
+    void arm() {
+      final age = sharedSyncAge(sdk) ?? Duration.zero;
+      final remaining = _syncStallAfter - age;
+      // Timer precision is milliseconds; truncating a fractional remainder
+      // can fire before the monotonic age reaches the safety threshold.
+      final delay = remaining <= Duration.zero
+          ? Duration.zero
+          : Duration(milliseconds: (remaining.inMicroseconds + 999) ~/ 1000);
+      _syncStallWatch = Timer(delay, () {
+        _syncStallWatch = null;
+        if (!identical(_instance, sdk) ||
+            !identical(_watchedSync, sync) ||
+            !sharedSyncInFlight(sdk)) {
+          return;
+        }
+        if (_syncBlocksRecovery(sdk)) {
+          arm();
+          return;
+        }
+        _recoverWatchedStall(sdk);
+      });
+    }
+
+    arm();
+    void release() {
+      if (identical(_watchedSync, sync)) {
+        _syncStallWatch?.cancel();
+        _syncStallWatch = null;
+        _watchedSync = null;
+        _watchedSyncSdk = null;
+      }
+    }
+
+    sync.then((_) => release(), onError: (Object _) => release());
+  }
+
   /// One final cached read per shared native sync, even when its caller
   /// has stopped waiting. SDK sync completion alone does not prove that
   /// every native sync sub-step succeeded.
   final _syncReadbacks =
       Expando<({Future<void> sync, Future<void> readback})>('syncReadbacks');
 
-  Future<void> _syncThenFetchWalletData(spark.BreezSdk sdk) async {
+  Future<void> _syncThenFetchWalletData(spark.BreezSdk sdk,
+      {bool manual = false}) async {
     // Read immediately as well: a native sync can hold its event loop for
     // seconds, while the cached balance/history may already have changed.
     unawaited(_fetchWalletData(sdk));
     _debugFeed('sync=requested joined=${sharedSyncInFlight(sdk)}');
-    final sync = sharedSyncWallet(sdk);
+    final sync = _syncWithStallWatch(sdk, source: 'refresh');
     final existing = _syncReadbacks[sdk];
     final Future<void> readback;
     if (existing != null && identical(existing.sync, sync)) {
@@ -394,9 +524,20 @@ class BreezSdkSpark {
       readback.then((_) => release(), onError: (Object _) => release());
     }
     try {
-      await readback.timeout(const Duration(seconds: 20));
+      await readback.timeout(_syncWaitTimeout);
     } on TimeoutException {
       _debugFeed('sync=ui_wait result=timeout');
+      if (identical(_instance, sdk) &&
+          sharedSyncInFlight(sdk) &&
+          !_syncBlocksRecovery(sdk)) {
+        if (manual) {
+          // One explicit refresh may try again after the automatic budget
+          // was exhausted. Every signer/payment/shutdown guard still applies.
+          unawaited(recoverStaleTokenBalance(sdk, source: 'refresh'));
+        } else {
+          _recoverWatchedStall(sdk);
+        }
+      }
       // Timing out does not cancel the native call or its final readback.
     } catch (_) {
       _debugFeed('sync=ui_wait result=error');
@@ -409,7 +550,7 @@ class BreezSdkSpark {
   /// Nothing to do without a connected wallet. Never throws.
   Future<void> syncAndReread() async {
     final sdk = _instance;
-    if (sdk != null) await _syncThenFetchWalletData(sdk);
+    if (sdk != null) await _syncThenFetchWalletData(sdk, manual: true);
   }
 
   /// What the app read of the connected wallet's balances, for the
@@ -432,7 +573,8 @@ class BreezSdkSpark {
       final sdk = _instance;
       if (sdk == null) return;
       try {
-        await sharedSyncWallet(sdk).timeout(const Duration(seconds: 20));
+        await _syncWithStallWatch(sdk, source: 'order_leg')
+            .timeout(const Duration(seconds: 20));
       } catch (_) {
         // Read what the cache holds anyway.
       }
@@ -715,6 +857,7 @@ class BreezSdkSpark {
               case spark.AutoOptimizationEvent_Skipped():
                 _optimizationInProgress = false;
             }
+            if (!_optimizationInProgress) _recoverWatchedStall(sdk);
             _fetchWalletData(sdk);
           },
           unclaimedDeposits: (e) {
@@ -757,6 +900,7 @@ class BreezSdkSpark {
             );
             _paymentResultStream.add(e.payment);
             _fetchWalletData(sdk);
+            _recoverWatchedStall(sdk);
           },
           paymentPending: (e) {
             _logStreamController.add(

@@ -3,6 +3,7 @@ import 'package:kute/models/breez/sdk_instance.dart';
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/auth_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/providers/spark_contacts_provider.dart';
 import 'package:kute/services/passkey_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -36,23 +37,43 @@ WalletConfig? _pickSpending(Settings settings) {
   return null;
 }
 
+/// Shared by the real connection provider and injected connection owners:
+/// every guarded recovery follows the same captured-handle invalidation.
+void bindSparkRecoveryLifecycle(Ref ref, BreezSdkSpark wrapper) {
+  var live = true;
+  final recoverySub = wrapper.recoveryStream.listen((_) {
+    if (!live) return;
+    if (wrapper.instance == null) {
+      ref.invalidateSelf();
+    } else {
+      ref.invalidate(sparkContactsProvider);
+    }
+  });
+  ref.onDispose(() {
+    live = false;
+    recoverySub.cancel();
+  });
+}
+
 final breezSDKProvider = FutureProvider<BreezSdkSpark>((ref) async {
+  final wrapper = BreezSdkSpark();
+  bindSparkRecoveryLifecycle(ref, wrapper);
   // Watch the SPENDING wallet's id only. `.select` narrows the
   // dependency so unrelated settings churn (currency, btc format,
   // theme) doesn't tear the SDK down, AND so swiping the carousel
   // to a savings wallet doesn't either — the spending wallet's id
   // is invariant across that swipe.
-  final spendingId = ref.watch(
-      settingsProvider.select((s) => _pickSpending(s)?.id));
+  final spendingId =
+      ref.watch(settingsProvider.select((s) => _pickSpending(s)?.id));
   final spendingIsPasskey = ref.watch(
       settingsProvider.select((s) => _pickSpending(s)?.isPasskey ?? false));
   // Passkey VINTAGE + per-wallet label — both are create-time-immutable
   // for a given wallet identity, so watching them adds no extra rebuild
   // pressure beyond the id watch above.
-  final spendingPasskeyVintage = ref.watch(
-      settingsProvider.select((s) => _pickSpending(s)?.passkeyProvider));
-  final spendingPasskeyLabel = ref.watch(
-      settingsProvider.select((s) => _pickSpending(s)?.passkeyLabel));
+  final spendingPasskeyVintage = ref
+      .watch(settingsProvider.select((s) => _pickSpending(s)?.passkeyProvider));
+  final spendingPasskeyLabel =
+      ref.watch(settingsProvider.select((s) => _pickSpending(s)?.passkeyLabel));
 
   // CLEANUP — only fires when this provider is genuinely
   // invalidated (spending wallet changed identity, or app shutdown).
@@ -60,7 +81,7 @@ final breezSDKProvider = FutureProvider<BreezSdkSpark>((ref) async {
   // wallet swap doesn't trigger a disconnect we'll have to reverse
   // a few hundred ms later.
   ref.onDispose(() {
-    BreezSdkSpark().disconnect();
+    wrapper.disconnect();
   });
 
   if (spendingId == null) {
@@ -81,8 +102,7 @@ final breezSDKProvider = FutureProvider<BreezSdkSpark>((ref) async {
     // 'passkey_cached_label' fallback (getCachedLabel). Same order for
     // both vintages so a legacy wallet resolves the exact PRF salt it
     // was created with.
-    final label =
-        spendingPasskeyLabel ?? await PasskeyService.getCachedLabel();
+    final label = spendingPasskeyLabel ?? await PasskeyService.getCachedLabel();
     if (spendingPasskeyVintage == null) {
       // LEGACY (pre-2.x) vintage: reconstruct through the app's own
       // 0.15.1 PRF pipeline (pinned credential + secure-storage cache).
@@ -108,5 +128,5 @@ final breezSDKProvider = FutureProvider<BreezSdkSpark>((ref) async {
     await initializeSDK(mnemonic, spendingId);
   }
 
-  return BreezSdkSpark();
+  return wrapper;
 });

@@ -340,7 +340,9 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
       }
     }
 
-    Future<List<breez.Payment>> getUsdbTokenPayments() async {
+    // Token history has the same unknown-vs-empty contract as Bitcoin:
+    // a failed read must not erase the USD ledger or its arrival baseline.
+    Future<List<breez.Payment>?> getUsdbTokenPayments() async {
       if (!isSpark) return <breez.Payment>[];
       try {
         return await ref
@@ -352,7 +354,7 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
             ).future)
             .timeout(const Duration(seconds: 15));
       } catch (e) {
-        return <breez.Payment>[];
+        return null;
       }
     }
 
@@ -593,7 +595,9 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
     final sparkMixedPayments = transactionFutures[1] as List<breez.Payment>?;
     final unclaimedDepositsRaw =
         transactionFutures[2] as List<breez.DepositInfo>?;
-    final usdbTokenPayments = transactionFutures[3] as List<breez.Payment>;
+    final usdbTokenPaymentsRaw = transactionFutures[3] as List<breez.Payment>?;
+    final usdbPaymentsFetchFailed = usdbTokenPaymentsRaw == null;
+    final usdbTokenPayments = usdbTokenPaymentsRaw ?? const <breez.Payment>[];
     final polymarketActivity = transactionFutures[4] as List<Activity>;
     final sparkPendingDeposits =
         transactionFutures[5] as List<SparkPendingDeposit>;
@@ -654,6 +658,7 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
       polymarketUsdcReceives: polymarketUsdcReceives,
       outlogicOrders: outlogicOrders,
       sparkPaymentsFetchFailed: sparkPaymentsFetchFailed,
+      usdbPaymentsFetchFailed: usdbPaymentsFetchFailed,
       unclaimedDepositsFetchFailed: unclaimedDepositsFetchFailed,
     );
 
