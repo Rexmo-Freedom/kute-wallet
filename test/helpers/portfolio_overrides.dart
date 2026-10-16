@@ -22,6 +22,7 @@ import 'package:kute/providers/spark_address_provider.dart';
 import 'package:kute/providers/swap_orders_provider.dart';
 import 'package:kute/providers/trade_notifications_provider.dart';
 import 'package:kute/providers/transactions_provider.dart';
+import 'package:kute/providers/unified_balances_provider.dart';
 import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceProvider;
 import 'package:kute/screens/portfolio/poly_position_events.dart'
@@ -37,7 +38,8 @@ class PortfolioTestTrading extends HyperliquidTradingNotifier {
   final HyperliquidTradingState initial;
 
   @override
-  Future<HyperliquidTradingState> build() async => initial;
+  Future<HyperliquidTradingState> build() async =>
+      initial.copyWith(isInitialized: true);
 }
 
 class _Poly extends PolymarketTradingNotifier {
@@ -103,6 +105,10 @@ List<Override> portfolioOverrides({
     [
       hyperliquidTradingProvider
           .overrideWith(() => PortfolioTestTrading(trading)),
+      // These tests control a live offline book, including pending/error
+      // overrides. They do not supply a separate persisted display snapshot.
+      hyperliquidDisplayTradingProvider.overrideWith(
+          (ref) => ref.watch(hyperliquidTradingProvider)),
       hyperliquidUserFillsProvider.overrideWith((_) async => []),
       polymarketTradingProvider.overrideWith(_Poly.new),
       // The Orders tab reads both venues: no Predictions orders, and no
@@ -115,6 +121,11 @@ List<Override> portfolioOverrides({
       if (notifications)
         tradeNotificationsProvider.overrideWith((_) => Stream.value([])),
       portfolioVenuesProvider.overrideWithValue(venues),
+      // No spending wallet/auth store is mounted in this navigation fixture.
+      // Its empty balance books are resolved, rather than an unresolved real
+      // account whose cached zero must continue shimmering.
+      unifiedVenueBalancesProvider.overrideWithValue(const UnifiedVenueBalances(
+          investingKnown: true, predictionsKnown: true)),
       usdBalanceProvider.overrideWithValue(dollars),
       // Statistics: nothing charted, an empty account, no conversion store
       // (which would open a Hive box), no network.

@@ -431,7 +431,11 @@ void main() {
 
     testWidgets('a venue not read yet reads a dash, never a guess',
         (tester) async {
-      final c = await _pump(tester, home: _breakdown);
+      final c = await _pump(tester, home: _breakdown, overrides: [
+        // Neither a live book nor a saved account snapshot exists yet.
+        hyperliquidDisplayTradingProvider.overrideWith(
+            (_) => const AsyncLoading<HyperliquidTradingState>()),
+      ]);
       c.read(_balance.notifier).state =
           const OneBalanceState(dollarsUsd: 1, predictionsKnown: true);
       await tester.pumpAndSettle();
