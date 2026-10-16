@@ -116,6 +116,44 @@ unversioned, which remains a freshness limitation. See
 [investments_spendable.dart](../lib/services/one_balance/investments_spendable.dart)
 and [venue_cash_source.dart](../lib/services/one_balance/venue_cash_source.dart).
 
+## Live Bitcoin, Dollars and Activity refresh
+
+Balances and Activity are separate cached SDK snapshots. On a `Synced` burst,
+the wrapper reads and publishes both immediately, then again after the existing
+300 ms settling interval. A payment-metadata event refreshes payment rows
+without inventing another payment outcome. Balance and payment-list reads run
+independently in both the wrapper and pipeline attachment: a failed or stalled
+read must not suppress publication from the other. Retired wallet sessions and
+older overlapping reads cannot publish into a replacement session.
+
+Pull-to-refresh publishes the cached snapshots immediately, joins the shared
+native sync, then reads both again when that sync finishes, including after an
+error. The 20 s foreground wait is a UI ceiling, not native cancellation: a late
+completion still triggers its final readback. These reads explicitly use
+`getInfo(ensureSynced: false)`; they read stored state rather than waiting again
+for initial synchronization. A successful native sync return alone does not
+prove that every native sub-step refreshed its data. See
+[sdk_instance.dart](../lib/models/breez/sdk_instance.dart) and
+[push_pipeline.dart](../lib/services/sync/push_pipeline.dart).
+The official Breez guidance for [balance reads](https://sdk-doc-spark.breez.technology/guide/get_info.html),
+[events](https://sdk-doc-spark.breez.technology/guide/events.html) and
+[payment history](https://sdk-doc-spark.breez.technology/guide/list_payments.html)
+likewise calls for refreshing both snapshots after `Synced`.
+
+This closes app-side publication gaps; it does not establish the cause of the
+reported live-refresh stall or prove device recovery. Acceptance needs incoming
+Bitcoin/Dollars and Activity updates, pull-to-refresh, and a longer open session
+without restarting. Start this check with a full native app stop and relaunch:
+Dart hot restart is insufficient evidence about native runtime or logger
+lifetime. The [Flutter Rust Bridge handler guidance](https://cjycode.com/flutter_rust_bridge/guides/custom/rust/handlers)
+describes isolate-port lifetime hazards across hot restart, without diagnosing
+this incident.
+
+Debug-only diagnostics use fixed event/read/sync labels and changed-state
+booleans. They add no amounts, identifiers or raw
+errors and do not enable PostHog in debug builds. See
+[main.dart](../lib/main.dart) and the SDK/pipeline sources above.
+
 ## Deposit and movement directions
 
 These are directed routes: support for A → B does not imply B → A. Every route
