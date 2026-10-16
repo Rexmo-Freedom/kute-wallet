@@ -79,7 +79,12 @@ class MultiSourceMoveTransaction extends BaseTransaction {
 
   /// A step of the move stopped ([multiSourceMoveStepFailed]): it needs
   /// the person, never Completed.
-  bool get stepFailed => multiSourceMoveStepFailed(move);
+  bool get stepFailed =>
+      multiSourceMoveStepFailed(move) ||
+      (move.isParallelPurchase &&
+          legRows.any((row) =>
+              isMultiSourceMoveLeg(row, move) &&
+              OwnSparkArrivals.failedStatuses.contains(row.details.status)));
 
   @override
   TransactionType get type => move.forAction == 'send'
@@ -98,13 +103,29 @@ class MultiSourceMoveTransaction extends BaseTransaction {
       maybeBaseEquals(other) &&
       other.move.legs.length == move.legs.length &&
       other.move.finalOperationId == move.finalOperationId &&
+      other.move.initialDollarsOperationId == move.initialDollarsOperationId &&
+      other.move.initialDollarsSentUsd == move.initialDollarsSentUsd &&
+      other.move.isParallelPurchase == move.isParallelPurchase &&
+      (!move.isParallelPurchase ||
+          (other.partial == partial &&
+              other.stepFailed == stepFailed &&
+              other.move.remainingUsd == move.remainingUsd)) &&
       other.legRows.length == legRows.length &&
       [for (final r in other.legRows) r.details.status].join() ==
           [for (final r in legRows) r.details.status].join();
 
   @override
   int get hashCode => Object.hash(
-      super.hashCode, move.legs.length, move.finalOperationId, legRows.length);
+      super.hashCode,
+      move.legs.length,
+      move.finalOperationId,
+      move.initialDollarsOperationId,
+      move.initialDollarsSentUsd,
+      move.isParallelPurchase,
+      move.isParallelPurchase ? partial : null,
+      move.isParallelPurchase ? stepFailed : null,
+      move.isParallelPurchase ? move.remainingUsd : null,
+      legRows.length);
 }
 
 /// The existing Activity row [tx] reads as, or null when its kind has
@@ -179,6 +200,10 @@ SwapOrderTransaction? multiSourceMoveStandardRow(
 /// The bitcoin [tx]'s rows delivered to the wallet's own Spark balance
 /// (estimates until each order reports its own), in BTC.
 double multiSourceMoveBitcoin(MultiSourceMoveTransaction tx) {
+  if (tx.move.isParallelPurchase) {
+    final totals = multiSourceMoveTotals(tx.move, tx.legRows);
+    return totals.receivedBtc + totals.arrivingBtc;
+  }
   var btc = 0.0;
   for (final r in tx.legRows) {
     final d = r.details;
@@ -216,6 +241,15 @@ SwapOrderTransaction? multiSourceMoveFinalRow(
     _bestRow([
       for (final r in rows)
         if (_rowOf(r, move.finalOperationId, null)) r,
+    ]);
+
+/// The separately submitted initial Dollars → Bitcoin order. It remains
+/// associated when a later purchase uses Dollars arriving from another leg.
+SwapOrderTransaction? multiSourceMoveInitialDollarsRow(
+        MultiSourceMove move, List<SwapOrderTransaction> rows) =>
+    _bestRow([
+      for (final r in rows)
+        if (_rowOf(r, move.initialDollarsOperationId, null)) r,
     ]);
 
 SwapOrderTransaction? _bestRow(List<SwapOrderTransaction> rows) {
@@ -267,6 +301,19 @@ bool _rowOf(SwapOrderTransaction row, String? operationId, String? quoteId) =>
 bool multiSourceMoveSettled(
     MultiSourceMove move, List<SwapOrderTransaction> legRows) {
   move = bitcoinPurchaseMoveForDisplay(move);
+  if (move.isParallelPurchase) {
+    final latest = {for (final leg in move.legs) leg.venue: leg};
+    if (latest.values.any((leg) => leg.uncertain)) return false;
+    for (final step in MoveSteps.of(move).steps.where(MoveSteps.isVenueLeg)) {
+      // Accepted steps keep running in storage while live rows report their
+      // settlement. A source with no submission proof is still unresolved.
+      if (step.ref == null &&
+          (step.status == MoneyStepStatus.running ||
+              step.status == MoneyStepStatus.waiting)) {
+        return false;
+      }
+    }
+  }
   if (legRows.isEmpty) return false;
   for (final r in legRows) {
     if (!r.isComplete || OwnSparkArrivals.awaitingCredit(r.id)) return false;
@@ -275,6 +322,16 @@ bool multiSourceMoveSettled(
     if (!legRows.any((r) => _rowOf(r, leg.operationId, leg.quoteId))) {
       return false;
     }
+  }
+  final initialOp = move.initialDollarsOperationId;
+  if (initialOp != null && !legRows.any((r) => _rowOf(r, initialOp, null))) {
+    return false;
+  }
+  final initial = MoveSteps.of(move).byId(MoveSteps.initialDollarsId);
+  if (initial != null &&
+      initialOp == null &&
+      initial.status != MoneyStepStatus.skipped) {
+    return false;
   }
   final finalOp = move.finalOperationId;
   if (finalOp != null) {
@@ -364,7 +421,7 @@ double multiSourceMoveOnwardUsd(MultiSourceMove move) =>
 /// it was expected to land).
 double multiSourceMoveLandedInDollarsUsd(
     MultiSourceMove move, List<SwapOrderTransaction> rows) {
-  var usd = move.dollarsUsd;
+  var usd = move.hasParallelDollars ? 0.0 : move.dollarsUsd;
   for (final leg in move.okLegs) {
     if (leg.direct) continue;
     final d = multiSourceMoveLegRow(leg, rows)?.details;
@@ -448,6 +505,13 @@ MultiSourceMoveFinish? multiSourceMoveFinish(
 }) {
   if (move.finalOperationId != null || move.partial) return null;
   if (!multiSourceMoveHasFinalStep(move)) return null;
+  // A parallel leg already sent to Bitcoin is still an actual withdrawal,
+  // even if a later Dollars remainder can no longer be purchased.
+  MultiSourceMoveFinish? missingFunds() => move.isParallelPurchase &&
+          (move.initialDollarsOperationId != null ||
+              move.okLegs.any((leg) => leg.direct))
+      ? null
+      : const MultiSourceMoveFinish.dissolved();
   if (move.destination == VenueCashDestination.bitcoin) {
     if (finisher.running(move.id)) return null;
     final record = PendingBitcoinPurchaseStore.get(move.id);
@@ -464,7 +528,7 @@ MultiSourceMoveFinish? multiSourceMoveFinish(
       final over =
           !now.isBefore(move.createdAt.add(kMultiSourceMoveFinishWindow));
       return over && multiSourceMoveLegsLanded(move, legRows)
-          ? const MultiSourceMoveFinish.dissolved()
+          ? missingFunds()
           : null;
     }
   }
@@ -473,7 +537,7 @@ MultiSourceMoveFinish? multiSourceMoveFinish(
   final usd = legacyPurchaseUsd(missing, dollars ?? missing);
   return usd != null
       ? MultiSourceMoveFinish.waiting(usd, legacy: true)
-      : const MultiSourceMoveFinish.dissolved();
+      : missingFunds();
 }
 
 /// What a move's Activity detail states once for the whole move, from its
@@ -528,7 +592,9 @@ MultiSourceMoveTotals multiSourceMoveTotals(
   var arrivingBtc = 0.0, fees = 0.0;
   final homeIsDestination = move.destination == VenueCashDestination.dollars &&
       move.forAction != VenueCashFor.send;
+  final counted = <String>{};
   void count(SwapOrder d, {required bool atDestination}) {
+    if (!counted.add(d.operationId ?? d.id)) return;
     final landed = d.isComplete && !OwnSparkArrivals.awaitingCredit(d.id);
     final got = amount(d, d.withdrawalAmount, d.coinTo);
     if (landed && _dollarCoin(d.coinFrom) && _dollarCoin(d.coinTo)) {
@@ -551,6 +617,8 @@ MultiSourceMoveTotals multiSourceMoveTotals(
       count(row.details, atDestination: leg.direct || homeIsDestination);
     }
   }
+  final initial = multiSourceMoveInitialDollarsRow(move, rows);
+  if (initial != null) count(initial.details, atDestination: true);
   final fin = multiSourceMoveFinalRow(move, rows);
   if (fin != null) count(fin.details, atDestination: true);
   double cents(double v) => (v * 100).round() / 100;
@@ -581,6 +649,12 @@ List<SwapOrder> multiSourceMoveOrders(
       out.add(d);
     }
   }
+  final initial = multiSourceMoveInitialDollarsRow(move, rows)?.details;
+  if (initial != null &&
+      trackable(initial) &&
+      !out.any((o) => o.id == initial.id)) {
+    out.add(initial);
+  }
   final fin = multiSourceMoveFinalRow(move, rows)?.details;
   if (fin != null && trackable(fin) && !out.any((o) => o.id == fin.id)) {
     out.add(fin);
@@ -609,7 +683,11 @@ bool _dollarCoin(String coin) {
 /// went, or the action's own step did), and the surface is the dollar
 /// ledger ([onlyUsdb]) or Bitcoin is where it went.
 bool multiSourceMoveShows(MultiSourceMove move, {required bool onlyUsdb}) {
-  if (move.okLegs.isEmpty && move.finalOperationId == null) return false;
+  if (move.okLegs.isEmpty &&
+      move.finalOperationId == null &&
+      move.initialDollarsOperationId == null) {
+    return false;
+  }
   return onlyUsdb || move.destination == VenueCashDestination.bitcoin;
 }
 
@@ -674,7 +752,11 @@ Set<String> multiSourceMoveLegIds(
     {MultiSourceMoveDissolved? dissolved}) {
   final ids = <String>{};
   for (final m in moves) {
-    if (m.okLegs.isEmpty && m.finalOperationId == null) continue;
+    if (m.okLegs.isEmpty &&
+        m.finalOperationId == null &&
+        m.initialDollarsOperationId == null) {
+      continue;
+    }
     final legs = [
       for (final r in rows)
         if (isMultiSourceMoveLeg(r, m)) r,

@@ -77,6 +77,7 @@ typedef MovePlannedLeg = ({
 abstract final class MoveSteps {
   /// Dollars buying bitcoin (a move to Bitcoin).
   static const String buyId = 'buy';
+  static const String initialDollarsId = 'leg:dollars';
 
   /// The bitcoin landing in the wallet (a move to Bitcoin).
   static const String arriveId = 'arrive';
@@ -285,10 +286,16 @@ abstract final class MoveSteps {
           to: leg.direct ? placeOfDestination(destination) : MoneyPlace.dollars,
           usd: _cents(leg.usd),
           route: route,
-          status: leg.ok ? MoneyStepStatus.running : MoneyStepStatus.failed,
+          status: leg.ok || leg.uncertain
+              ? MoneyStepStatus.running
+              : MoneyStepStatus.failed,
           startedAt: leg.at,
           endedAt: leg.ok ? null : leg.at,
-          reason: leg.ok ? null : (leg.error ?? 'error'),
+          reason: leg.ok
+              ? null
+              : leg.uncertain
+                  ? 'outcome_unknown'
+                  : (leg.error ?? 'error'),
           ref: ref,
         );
     final used = {for (final s in g.steps) s.id};
@@ -308,10 +315,13 @@ abstract final class MoveSteps {
       return _wire(g.update(
           active.id,
           (s) => s.copyWith(
-              status: MoneyStepStatus.failed,
+              status: leg.uncertain
+                  ? MoneyStepStatus.running
+                  : MoneyStepStatus.failed,
               usd: _cents(leg.usd),
-              endedAt: leg.at,
-              reason: leg.error ?? 'error')));
+              endedAt: leg.uncertain ? null : leg.at,
+              reason:
+                  leg.uncertain ? 'outcome_unknown' : (leg.error ?? 'error'))));
     }
     if (active.route == MoneyRoute.direct && route == MoneyRoute.viaDollars) {
       // Refused straight to the destination before anything moved: via
@@ -357,6 +367,12 @@ abstract final class MoveSteps {
     required VenueCashDestination destination,
     required String forAction,
   }) {
+    // Dollars already have their own independent purchase in a parallel Buy.
+    // A route fallback may carry only the venue cash onward, never buy this
+    // initial allocation for a second time (including a failed/skipped leg).
+    if (destination == VenueCashDestination.bitcoin) {
+      usd = math.max(0, usd - (g.byId(initialDollarsId)?.usd ?? 0));
+    }
     final existing = finalOf(g);
     final id = existing?.id ?? finalIdFor(destination, forAction);
     if (id == null) return g;
@@ -377,6 +393,60 @@ abstract final class MoveSteps {
             status: s.status == MoneyStepStatus.skipped
                 ? MoneyStepStatus.waiting
                 : null));
+  }
+
+  static MoneyStepGraph withInitialDollars(MoneyStepGraph g, double usd) {
+    if (usd <= 0 || g.byId(initialDollarsId) != null) return g;
+    var next = MoneyStepGraph([
+      ...g.steps,
+      MoneyStep(
+          id: initialDollarsId,
+          kind: MoneyStepKind.leg,
+          from: MoneyPlace.dollars,
+          to: MoneyPlace.bitcoin,
+          usd: usd,
+          route: MoneyRoute.direct,
+          status: MoneyStepStatus.running),
+    ]);
+    final buy = finalOf(next);
+    if (buy != null) {
+      final remainder = math.max(0.0, buy.usd - usd);
+      next = next.update(
+          buy.id,
+          (step) => step.copyWith(
+              usd: remainder,
+              status: remainder < .01 ? MoneyStepStatus.skipped : step.status));
+    }
+    return _wire(next);
+  }
+
+  static MoneyStepGraph initialDollarsState(
+      MoneyStepGraph g, MoneyStepStatus status,
+      {String? reason, String? operationId}) {
+    final step = g.byId(initialDollarsId);
+    if (step == null) return g;
+    // Accepted native work belongs to reconciliation, never to a fresh send.
+    if (step.ref != null &&
+        (status == MoneyStepStatus.failed ||
+            status == MoneyStepStatus.skipped)) {
+      return g;
+    }
+    var next = g.update(
+        initialDollarsId,
+        (old) => old.copyWith(
+            status: status,
+            reason: reason,
+            ref: operationId,
+            clearReason: reason == null));
+    if (status == MoneyStepStatus.skipped &&
+        step.status != MoneyStepStatus.skipped &&
+        next.byId(arriveId) != null) {
+      next = next.update(
+          arriveId,
+          (arrival) =>
+              arrival.copyWith(usd: math.max(0, arrival.usd - step.usd)));
+    }
+    return next;
   }
 
   /// The action's own step is asking its quote (nothing has left Dollars
@@ -442,7 +512,7 @@ abstract final class MoveSteps {
   /// it. Kept as failed, for the record. (A move is never partial again
   /// once covered: only a Retry adds legs, and only to a partial move.)
   static MoneyStepGraph reconcile(MultiSourceMove move, MoneyStepGraph g) {
-    if (move.partial) return g;
+    if (move.copyWith(steps: g).partial) return g;
     var changed = false;
     final out = <MoneyStep>[];
     for (final s in g.steps) {

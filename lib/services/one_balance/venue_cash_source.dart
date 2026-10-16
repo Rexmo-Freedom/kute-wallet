@@ -68,7 +68,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:kute/helpers/auth_grant.dart' show AuthGrant;
+import 'package:kute/helpers/auth_grant.dart'
+    show AuthGrant, AuthGrants, AuthGrantException;
 import 'package:kute/helpers/venue_intents.dart'
     show DirectLegGrants, IntentUnits;
 import 'package:kute/models/hyperliquid_market.dart'
@@ -92,7 +93,8 @@ import 'package:kute/services/hyperliquid/cctp_withdrawal.dart'
 import 'package:kute/services/one_balance/hyperliquid_move_rail.dart';
 import 'package:kute/services/one_balance/investments_spendable.dart'
     show venueCashSnapshotProvider;
-import 'package:kute/services/one_balance/money_steps.dart' show MoneyStepGraph;
+import 'package:kute/services/one_balance/money_steps.dart'
+    show MoneyStepGraph, MoneyStepStatus;
 import 'package:kute/services/one_balance/move_steps.dart';
 import 'package:kute/services/one_balance/multi_source_move.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
@@ -105,6 +107,8 @@ import 'package:kute/services/one_balance/venue_sweeper.dart'
 import 'package:kute/services/orchestra/standing_deposit_store.dart'
     show InvestingWithdrawalDestination;
 import 'package:kute/services/tracking_service.dart';
+import 'package:kute/services/funding/settlement_runner.dart'
+    show SettlementFundingUnknown;
 
 // ─── Actions ───────────────────────────────────────────────────────
 
@@ -1011,12 +1015,37 @@ class VenueCashPuller {
   Future<VenueCashPlan?> planRetry(String moveId) async {
     final move = MultiSourceMoveStore.get(moveId);
     if (move == null || !move.partial) return null;
+    if (move.isParallelPurchase) return _parallelRetryPlan(move);
     return plan(
       neededUsd: move.remainingUsd,
       exclude: venueOfDestination(move.destination),
       destination: move.destination,
       useDollars: false,
     );
+  }
+
+  VenueCashPlan? _parallelRetryPlan(MultiSourceMove move) {
+    final pulls = [
+      for (final leg in move.provenUnsentLegs)
+        VenueCashPull(
+            venue: leg.venue,
+            usd: leg.usd,
+            arrivingUsd: leg.arrivingUsd,
+            eta: _sourceFor(leg.venue)?.estimatedArrival ?? Duration.zero)
+    ];
+    if (pulls.isEmpty) return null;
+    final needed =
+        _cents(pulls.fold<double>(0, (sum, leg) => sum + leg.arrivingUsd));
+    return VenueCashPlan(
+        neededUsd: needed,
+        dollarsUsd: 0,
+        pulls: pulls,
+        covers: true,
+        eta: move.legs.isEmpty
+            ? Duration.zero
+            : pulls.fold<Duration>(
+                Duration.zero, (a, b) => a > b.eta ? a : b.eta),
+        uncoveredUsd: 0);
   }
 
   VenueCashSource? _sourceFor(OneBalanceVenue venue) {
@@ -1074,6 +1103,7 @@ class VenueCashPuller {
     String? moveId,
     AuthGrant? approval,
     VenueCashPlan? plan,
+    bool deferFinishEvent = false,
     void Function(VenueCashPlan plan)? onPlanned,
     void Function(VenueCashLegOutcome leg)? onLeg,
     void Function(String moveId)? onStarted,
@@ -1087,6 +1117,7 @@ class VenueCashPuller {
           moveId: moveId,
           approval: approval,
           fixedPlan: plan,
+          deferFinishEvent: deferFinishEvent,
           onPlanned: onPlanned,
           onLeg: onLeg,
           onStarted: onStarted,
@@ -1102,7 +1133,9 @@ class VenueCashPuller {
   /// move to a destination other than Dollars needs [approval] (asked
   /// for [planRetry]'s legs first); without it nothing moves.
   Future<VenueCashPullOutcome?> retryMove(String moveId,
-      {Duration waitFor = Duration.zero, AuthGrant? approval}) async {
+      {Duration waitFor = Duration.zero,
+      AuthGrant? approval,
+      VenueCashPlan? plan}) async {
     final move = MultiSourceMoveStore.get(moveId);
     if (move == null || !move.partial) return null;
     if (move.destination != VenueCashDestination.dollars && approval == null) {
@@ -1110,6 +1143,49 @@ class VenueCashPuller {
     }
     if (!MultiSourceMoveStore.beginRetry(moveId)) return null;
     try {
+      if (move.isParallelPurchase) {
+        final safe = _parallelRetryPlan(move);
+        if (safe == null) return null;
+        final reviewed = plan ?? safe;
+        final allowed = {for (final leg in safe.pulls) leg.venue: leg};
+        if (reviewed.pulls.isEmpty ||
+            reviewed.dollarsUsd != 0 ||
+            reviewed.pulls.map((leg) => leg.venue).toSet().length !=
+                reviewed.pulls.length ||
+            reviewed.pulls.any((leg) => allowed[leg.venue] != leg)) {
+          throw const VenueLegApprovalRequired();
+        }
+        // Persist the loss of no-send proof BEFORE starting native work.
+        // A restart must not turn an unresolved retry into a second send.
+        final selected =
+            reviewed.pulls.map((leg) => MoveSteps.placeOf(leg.venue)).toSet();
+        MultiSourceMoveStore.updateSteps(
+            moveId,
+            (record) => MoneyStepGraph([
+                  for (final step in record.steps.steps)
+                    MoveSteps.isVenueLeg(step) &&
+                            selected.contains(step.from) &&
+                            step.status == MoneyStepStatus.failed &&
+                            step.ref == null
+                        ? step.copyWith(
+                            status: MoneyStepStatus.running,
+                            reason: 'retry_pending')
+                        : step,
+                ]));
+        // Only proven-stopped source calls are selected. They are disjoint
+        // from still-running original legs and need not wait on their tail.
+        return await _pullShortfall(
+            neededUsd: reviewed.neededUsd,
+            forAction: move.forAction,
+            destination: move.destination,
+            exclude: venueOfDestination(move.destination),
+            waitFor: waitFor,
+            moveId: moveId,
+            useDollars: false,
+            remainderOnly: true,
+            approval: approval,
+            fixedPlan: reviewed);
+      }
       final run = _tail.then((_) => _pullShortfall(
             neededUsd: move.remainingUsd,
             forAction: move.forAction,
@@ -1139,6 +1215,7 @@ class VenueCashPuller {
     bool remainderOnly = false,
     AuthGrant? approval,
     VenueCashPlan? fixedPlan,
+    bool deferFinishEvent = false,
     void Function(VenueCashPlan plan)? onPlanned,
     void Function(VenueCashLegOutcome leg)? onLeg,
     void Function(String moveId)? onStarted,
@@ -1244,7 +1321,7 @@ class VenueCashPuller {
       }
     }
     if (cover && !remainderOnly) _pending.clear();
-    if (plan.pulls.isNotEmpty) {
+    if (plan.pulls.isNotEmpty && !deferFinishEvent) {
       final delivered = plan.dollarsUsd +
           legs.fold<double>(0, (sum, l) => sum + l.arrivingUsd);
       TrackingService.track('multi_source_move_finished', params: {
@@ -1291,6 +1368,28 @@ class VenueCashPuller {
     String? fellBack;
     try {
       VenueMoveResult? result;
+      if (destination != VenueCashDestination.dollars && approval != null) {
+        try {
+          AuthGrants.check(approval, approval.boundIntent);
+        } on AuthGrantException {
+          throw const DirectRouteRefused('settlement_declined');
+        }
+      }
+      final supportsDirect = destination != VenueCashDestination.dollars &&
+          source is DirectVenueCashSource &&
+          (source as DirectVenueCashSource).canPullTo(destination) &&
+          !DirectRouteRefusals.isRefused(p.venue, destination);
+      if (supportsDirect &&
+          approval != null &&
+          !DirectLegGrants.covers(approval,
+              venue: p.venue.name,
+              destination: destination.code,
+              amount: IntentUnits.usd(p.usd))) {
+        // A supported route outside the reviewed scope must stop. Sending
+        // home automatically here would hide an expired/mismatched approval.
+        route = VenueCashRoute.direct;
+        throw const DirectRouteRefused('settlement_declined');
+      }
       // Straight to the destination only under the action's approval,
       // and only within the leg caps it binds; otherwise home to Dollars
       // (the automatic authorization's one destination).
@@ -1330,7 +1429,10 @@ class VenueCashPuller {
           // refusal of the route itself keeps it off for a while; never
           // this approval not covering the leg (the next action brings its
           // own) nor a transient stop.
-          if (!_approvalRefusal(e) && DirectRouteRefusals.sticky(e.reason)) {
+          if (_approvalRefusal(e)) {
+            rethrow;
+          }
+          if (DirectRouteRefusals.sticky(e.reason)) {
             DirectRouteRefusals.refuse(p.venue, destination);
           }
           _trackDirectRefused(p, destination, e, retrying: false);
@@ -1376,6 +1478,9 @@ class VenueCashPuller {
 
   VenueCashLegOutcome _recorded(String moveId, VenueCashLegOutcome leg) {
     final result = leg.result;
+    final parallel =
+        MultiSourceMoveStore.get(moveId)?.isParallelPurchase == true;
+    final knownUnsent = leg.error is DirectRouteRefused;
     final recorded = MultiSourceMoveLeg(
       venue: leg.venue,
       usd: leg.ok ? _cents(leg.sentUsd) : leg.pull.usd,
@@ -1383,9 +1488,17 @@ class VenueCashPuller {
       route: leg.route,
       ok: leg.ok,
       at: _clock(),
-      operationId: result?.operationId,
+      operationId: result?.operationId ??
+          (leg.error is SettlementFundingUnknown
+              ? (leg.error as SettlementFundingUnknown).operationId
+              : null),
       quoteId: result?.quoteId,
-      error: leg.ok ? null : TrackingService.errorCategory(leg.error),
+      error: leg.ok
+          ? null
+          : parallel && knownUnsent
+              ? 'not_sent'
+              : TrackingService.errorCategory(leg.error),
+      uncertain: parallel && !leg.ok && !knownUnsent,
       fellBack: leg.fellBackReason,
     );
     // The leg and its step (on its way, failed, or through Dollars

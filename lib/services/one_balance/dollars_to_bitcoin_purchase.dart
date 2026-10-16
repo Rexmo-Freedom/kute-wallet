@@ -41,8 +41,14 @@ import 'package:kute/services/funding/owned_address_resolver.dart'
 import 'package:kute/services/funding/settlement_registration.dart'
     show followSettlementRegistration, withSettlementOrderId;
 import 'package:kute/services/funding/settlement_runner.dart'
-    show SettlementFundingProof, SettlementRunResult, SettlementStepUpHook;
+    show
+        SettlementFundingProof,
+        SettlementRunResult,
+        SettlementStepUpHook,
+        SettlementFundingUnknown;
 import 'package:kute/services/one_balance/buy_bitcoin_steps.dart';
+import 'package:kute/services/one_balance/move_steps.dart';
+import 'package:kute/services/one_balance/money_steps.dart';
 import 'package:kute/services/one_balance/dollars_to_bitcoin_minimum.dart';
 import 'package:kute/models/orchestra_route_limits.dart';
 import 'package:kute/services/one_balance/multi_source_move.dart'
@@ -120,14 +126,31 @@ Future<DollarsToBitcoinSent> buyBitcoinFromDollars(
   required double usd,
   required SettlementStepUpHook stepUp,
   String? moveId,
+  bool initialDollars = false,
   void Function()? onQuoting,
   void Function()? onFunding,
 }) async {
+  void initialStep(MoneyStepStatus status,
+      {String? reason, String? operationId}) {
+    BuyBitcoinSteps.record(
+        moveId,
+        (graph) => MoveSteps.initialDollarsState(graph, status,
+            reason: reason, operationId: operationId));
+  }
+
+  void skipped() {
+    if (initialDollars) {
+      initialStep(MoneyStepStatus.skipped, reason: 'below_minimum');
+    } else {
+      BuyBitcoinSteps.record(moveId,
+          (graph) => BuyBitcoinSteps.buySkipped(graph, at: DateTime.now()));
+    }
+  }
+
   try {
     await read(dollarsToBitcoinMinimumProvider).check(amountBaseUnits);
   } on DollarsToBitcoinBelowMinimum {
-    BuyBitcoinSteps.record(
-        moveId, (g) => BuyBitcoinSteps.buySkipped(g, at: DateTime.now()));
+    skipped();
     rethrow;
   }
   // Both legs settle on the wallet's own Spark address, and a failed
@@ -151,8 +174,12 @@ Future<DollarsToBitcoinSent> buyBitcoinFromDollars(
       stepUp: stepUp,
       requestQuote: (key) {
         onQuoting?.call();
-        BuyBitcoinSteps.record(
-            moveId, (g) => BuyBitcoinSteps.buyStarted(g, at: DateTime.now()));
+        if (initialDollars) {
+          initialStep(MoneyStepStatus.running);
+        } else {
+          BuyBitcoinSteps.record(
+              moveId, (g) => BuyBitcoinSteps.buyStarted(g, at: DateTime.now()));
+        }
         return HotSettlement.quote(
           read,
           OrchestraQuoteRequest(
@@ -190,11 +217,20 @@ Future<DollarsToBitcoinSent> buyBitcoinFromDollars(
     if (!funded &&
         e is RouteQuoteError &&
         e.code == RouteQuoteErrorCode.amountTooSmall) {
-      BuyBitcoinSteps.record(
-          moveId, (g) => BuyBitcoinSteps.buySkipped(g, at: DateTime.now()));
+      skipped();
       throw const DollarsToBitcoinBelowMinimum();
     }
-    if (!funded) {
+    if (initialDollars) {
+      final uncertainOperation =
+          e is SettlementFundingUnknown ? e.operationId : null;
+      if (funded && uncertainOperation != null && moveId != null) {
+        MultiSourceMoveStore.attachInitialDollars(
+            moveId, uncertainOperation, 0);
+      }
+      initialStep(funded ? MoneyStepStatus.running : MoneyStepStatus.failed,
+          reason: funded ? 'outcome_unknown' : 'not_sent',
+          operationId: uncertainOperation);
+    } else if (!funded) {
       BuyBitcoinSteps.record(
           moveId,
           (g) => BuyBitcoinSteps.buyStopped(g, TrackingService.errorCategory(e),
@@ -232,11 +268,18 @@ Future<DollarsToBitcoinSent> buyBitcoinFromDollars(
     operationId: settled.operation.operationId,
   );
   // The purchase is the last leg of its multi-source move: one row.
-  MultiSourceMoveStore.attachFinal(moveId, settled.operation.operationId);
-  BuyBitcoinSteps.record(
-      moveId,
-      (g) => BuyBitcoinSteps.buySent(g, settled.operation.operationId,
-          at: DateTime.now()));
+  if (initialDollars && moveId != null) {
+    MultiSourceMoveStore.attachInitialDollars(
+        moveId, settled.operation.operationId, sentUsd);
+    initialStep(MoneyStepStatus.running,
+        operationId: settled.operation.operationId);
+  } else {
+    MultiSourceMoveStore.attachFinal(moveId, settled.operation.operationId);
+    BuyBitcoinSteps.record(
+        moveId,
+        (g) => BuyBitcoinSteps.buySent(g, settled.operation.operationId,
+            at: DateTime.now()));
+  }
   await read(swapOrdersProvider.notifier).addExchange(exchange);
   followSettlementRegistration(read, settled);
   // Backend attribution for the REAL order only — a quote id (q_…) would

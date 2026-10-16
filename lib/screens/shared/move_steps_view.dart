@@ -23,6 +23,7 @@ import 'package:kute/screens/shared/money_steps_view.dart';
 import 'package:kute/screens/shared/multi_source_move_activity.dart'
     show
         multiSourceMoveFinalRow,
+        multiSourceMoveInitialDollarsRow,
         multiSourceMoveLegRow,
         multiSourceMoveLiveRows;
 import 'package:kute/services/one_balance/money_steps.dart';
@@ -68,10 +69,12 @@ MoneyStepGraph liveMoveSteps(
 
   for (final s in g.steps.where(MoveSteps.isVenueLeg).toList()) {
     if (s.ref == null) continue;
-    final leg = move.okLegs
+    final leg = move.legs
         .where((l) => (l.operationId ?? l.quoteId) == s.ref)
         .lastOrNull;
-    final row = leg == null ? null : multiSourceMoveLegRow(leg, rows);
+    final row = s.id == MoveSteps.initialDollarsId
+        ? multiSourceMoveInitialDollarsRow(move, rows)
+        : leg == null ? null : multiSourceMoveLegRow(leg, rows);
     if (row == null) continue;
     if (s.route == MoneyRoute.direct) delivering.add(row);
     if (s.status != MoneyStepStatus.running) continue;

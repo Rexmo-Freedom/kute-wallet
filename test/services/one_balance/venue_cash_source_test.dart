@@ -622,8 +622,8 @@ void main() {
         VenueCashDestination.investing,
       ]) {
         await expectLater(
-            puller([pm, i]).pullShortfall(
-                neededUsd: 50, forAction: 'x', destination: to),
+            puller([pm, i])
+                .pullShortfall(neededUsd: 50, forAction: 'x', destination: to),
             throwsA(isA<VenueLegApprovalRequired>()));
       }
       expect(i.directs, isEmpty);
@@ -660,7 +660,8 @@ void main() {
       expect(grant.consumed, isFalse, reason: 'the action consumes it');
     });
 
-    test('a leg past its cap, or after the approval lapsed, comes home',
+    test(
+        'a supported direct leg outside approval stops without a Dollars detour',
         () async {
       final i = _DirectSource(_i, 500, to: {VenueCashDestination.bitcoin});
       final small = _approval(caps: {'investing': 5});
@@ -671,8 +672,8 @@ void main() {
           approval: small,
           waitFor: Duration.zero);
       expect(i.directs, isEmpty);
-      expect(i.pulls, hasLength(1));
-      expect(outcome.legs.single.route, VenueCashRoute.viaDollars);
+      expect(i.pulls, isEmpty);
+      expect(outcome.failedLegs, hasLength(1));
       // Not the route's refusal: the next action may go straight.
       expect(DirectRouteRefusals.isRefused(_i, VenueCashDestination.bitcoin),
           isFalse);
@@ -686,7 +687,7 @@ void main() {
           approval: lapsed,
           waitFor: Duration.zero);
       expect(i.directs, isEmpty);
-      expect(i.pulls, hasLength(2));
+      expect(i.pulls, isEmpty);
 
       // An approval bound to another destination covers nothing here.
       MultiSourceMoveStore.reset();
@@ -697,6 +698,22 @@ void main() {
           approval: _approval(to: VenueCashDestination.predictions),
           waitFor: Duration.zero);
       expect(i.directs, isEmpty);
+    });
+
+    test('rail approval refusal cannot silently fall back to Dollars',
+        () async {
+      final source = _DirectSource(_i, 500, to: {VenueCashDestination.bitcoin})
+        ..refuse = true
+        ..refuseReason = 'settlement_declined';
+      final result = await puller([source]).pullShortfall(
+          neededUsd: 20,
+          forAction: VenueCashFor.buyBitcoin,
+          destination: VenueCashDestination.bitcoin,
+          approval: _approval(to: VenueCashDestination.bitcoin),
+          waitFor: Duration.zero);
+      expect(result.failedLegs, hasLength(1));
+      expect(source.directs, hasLength(1));
+      expect(source.pulls, isEmpty);
     });
 
     test('directLegLimit binds only the legs that can go straight there',
@@ -711,8 +728,8 @@ void main() {
       final limit = pull.directLegLimit(plan, VenueCashDestination.bitcoin)!;
       final investing = plan.pullFrom(_i)!.usd;
       expect(limit['to'], 'bitcoin');
-      expect(limit['legs'],
-          {'investing': IntentUnits.usd(investing).toString()});
+      expect(
+          limit['legs'], {'investing': IntentUnits.usd(investing).toString()});
       expect(limit['total'], IntentUnits.usd(investing).toString());
       expect(pull.directLegLimit(plan, VenueCashDestination.dollars), isNull);
       DirectRouteRefusals.refuse(_i, VenueCashDestination.bitcoin);
@@ -869,8 +886,8 @@ void main() {
       final pull = puller([p, i]);
       // Max: Dollars plus every venue net of its cost.
       final max = await pull.reachUsd();
-      final plan =
-          await pull.plan(neededUsd: max, destination: VenueCashDestination.bitcoin);
+      final plan = await pull.plan(
+          neededUsd: max, destination: VenueCashDestination.bitcoin);
       expect(plan.covers, isTrue);
       expect(plan.pulls.map((l) => l.venue), [_p, _i]);
       // The one approval binds both legs, each at its full amount.
@@ -908,8 +925,8 @@ void main() {
       i.gate!.complete();
       p.gate!.complete();
       final outcome = await run;
-      expect(outcome.legs.every((l) => l.route == VenueCashRoute.direct),
-          isTrue);
+      expect(
+          outcome.legs.every((l) => l.route == VenueCashRoute.direct), isTrue);
       expect(p.pulls, isEmpty);
       expect(i.pulls, isEmpty);
       expect(sent.toSet(), {_p, _i}, reason: 'each leg reported as sent');
@@ -993,7 +1010,8 @@ void main() {
       expect(more.onwardUsd, closeTo(5, 0.01));
     });
 
-    test('Investing → Predictions by CCTP when the bet slip asks, only '
+    test(
+        'Investing → Predictions by CCTP when the bet slip asks, only '
         'under the bet\'s own approval', () async {
       final i = _DirectSource(_i, 500, to: {VenueCashDestination.predictions});
       await expectLater(
@@ -1051,8 +1069,7 @@ void main() {
           walletId: () => 'w1',
         );
 
-    test('the legs are one record: delivered, remaining, linked ids',
-        () async {
+    test('the legs are one record: delivered, remaining, linked ids', () async {
       final p = _DirectSource(_p, 20, to: {VenueCashDestination.bitcoin});
       final i = _DirectSource(_i, 500, to: {VenueCashDestination.bitcoin})
         ..directError = const RouteUnavailable('paused');
@@ -1097,8 +1114,7 @@ void main() {
       expect(retry, isNotNull);
       expect(retry!.moveId, id);
       expect(p.directs, hasLength(1), reason: 'Predictions already sent');
-      expect(i.directs.last.usd,
-          greaterThanOrEqualTo(remaining),
+      expect(i.directs.last.usd, greaterThanOrEqualTo(remaining),
           reason: 'only the remainder, grossed up for its cost');
       expect(i.directs.last.usd, lessThan(remaining * 1.05 + 0.31));
       final move = MultiSourceMoveStore.get(id)!;
@@ -1163,9 +1179,7 @@ void main() {
     test('the action\'s own step joins the move', () async {
       final p = _Source(_p, 100);
       final outcome = await puller([p]).pullShortfall(
-          neededUsd: 30,
-          forAction: VenueCashFor.send,
-          waitFor: Duration.zero);
+          neededUsd: 30, forAction: VenueCashFor.send, waitFor: Duration.zero);
       MultiSourceMoveStore.attachFinal(outcome.moveId, 'op-send');
       final move = MultiSourceMoveStore.get(outcome.moveId!)!;
       expect(move.finalOperationId, 'op-send');

@@ -53,6 +53,9 @@ import 'package:kute/services/funding/settlement_runner.dart'
 import 'package:kute/services/kute_haptics.dart';
 import 'package:kute/services/one_balance/multi_source_move.dart';
 import 'package:kute/services/one_balance/pending_bitcoin_purchase.dart';
+import 'package:kute/services/one_balance/buy_bitcoin_fanout.dart';
+import 'package:kute/services/one_balance/dollars_to_bitcoin_purchase.dart';
+import 'package:kute/services/one_balance/dollars_to_bitcoin_minimum.dart';
 import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/one_balance/venue_cash_source.dart';
@@ -165,6 +168,15 @@ Future<ProviderContainer> _open(WidgetTester tester, MoveLockedSide side,
     sparkSelfAddressProvider.overrideWith((_) async => _ownSpark),
     venueCashPullerProvider.overrideWith((_) => _puller!),
     bitcoinPurchaseFinisherProvider.overrideWith((_) => _finisher),
+    bitcoinPurchaseFanoutProvider.overrideWith(
+        (_) => BitcoinPurchaseFanout(buy: (usd, grant, id, onFunding) async {
+              if (usd < 1) throw const DollarsToBitcoinBelowMinimum();
+              _initialBuys.add(usd);
+              onFunding();
+              _dollars -= usd;
+              return DollarsToBitcoinSent(
+                  sentUsd: usd, registered: true, operationId: 'initial_$id');
+            })),
   ]);
   _setBalance(container, _balanceSats);
   if (lastRead != null) {
@@ -237,6 +249,7 @@ class _Buy {
 }
 
 _Buy _buy = _Buy();
+final _initialBuys = <double>[];
 bool _finisherStopped = false;
 
 /// The app's finisher over the test's Dollars, polling on the test clock;
@@ -290,8 +303,7 @@ class _Approvals {
     prompts.add(intent);
     movedAtPrompt.add(moved());
     if (!approve) return null;
-    final grant =
-        AuthGrants.issue(intent, method: AuthGrantMethod.biometric);
+    final grant = AuthGrants.issue(intent, method: AuthGrantMethod.biometric);
     grants.add(grant);
     return grant;
   }
@@ -409,6 +421,7 @@ void main() {
     AffiliateService.debugSessionToken = 'test-session';
     RuntimeCapabilitiesService.debugInstance = runtimePolicyFixture();
     _dollars = 10;
+    _initialBuys.clear();
     MultiSourceMoveStore.reset();
     DirectRouteRefusals.reset();
     PendingBitcoinPurchaseStore.reset();
@@ -443,6 +456,7 @@ void main() {
     debugBuyBitcoinApproval = approvals.call;
     var now = DateTime(2026, 10, 13, 12);
     _puller = VenueCashPuller(
+      walletId: () => 'spending',
       sources: [venue],
       readDollars: () => _dollars,
       minimumUsd: (_) async => 1,
@@ -481,22 +495,23 @@ void main() {
     expect(find.text(_behind, skipOffstage: false), findsOneWidget);
     expect(_haptics('snap'), 1);
     expect(_haptics('softTap'), 0);
-    final completed =
-        events.where((e) => e.$1 == 'move_completed').single.$2!;
+    final completed = events.where((e) => e.$1 == 'move_completed').single.$2!;
     expect(completed['outcome'], 'purchase_queued');
     expect(events.map((e) => e.$1), contains('predictions_cash_pulled'));
     // The purchase waits in the background under the same approval.
     final moveId = MultiSourceMoveStore.all().single.id;
     expect(_finisher.running(moveId), isTrue);
-    expect(approvals.grants.single.revoked, isFalse);
-    expect(_buy.calls, isEmpty, reason: 'nothing bought before it lands');
+    expect(approvals.grants.single.revoked, isTrue);
+    expect(_initialBuys, [10],
+        reason: 'existing Dollars submit without waiting for venue cash');
+    expect(_buy.calls, isEmpty,
+        reason: 'only the venue fallback waits on arrival');
 
-    // The leg lands: the bitcoin is bought, the whole $30 from Dollars,
-    // as the move's last step.
-    _dollars = 39.2;
+    // The venue leg lands: only its remaining $20 is bought from Dollars.
+    _dollars = 20;
     await tester.pump(const Duration(milliseconds: 300));
     await tester.pump(const Duration(milliseconds: 300));
-    expect(_buy.calls, [30]);
+    expect(_buy.calls, [20]);
     expect(_buy.moves, [moveId]);
     expect(_finisher.running(moveId), isFalse);
     expect(events.map((e) => e.$1), contains('move_purchase_finished'));
@@ -512,6 +527,7 @@ void main() {
     debugBuyBitcoinApproval = approvals.call;
     var now = DateTime(2026, 10, 13, 12);
     _puller = VenueCashPuller(
+      walletId: () => 'spending',
       sources: [venue],
       readDollars: () => _dollars,
       minimumUsd: (_) async => 1,
@@ -541,7 +557,7 @@ void main() {
     expect(find.byType(DepositSheet), findsOneWidget);
 
     // The leg is not sent: the sheet stays, says so, offers Retry.
-    venue.error = StateError('relayer down');
+    venue.error = const DirectRouteRefused('settlement_declined');
     venue.gate.complete();
     for (var i = 0; i < 20; i++) {
       await tester.pump(const Duration(milliseconds: 50));
@@ -556,9 +572,49 @@ void main() {
     // snap.
     expect(_haptics('softTap'), 1, reason: 'one failure tap, not two');
     expect(_haptics('snap'), 0);
-    final methods =
-        ContinuousHaptics.debugLog!.map((c) => c.method).toList();
+    final methods = ContinuousHaptics.debugLog!.map((c) => c.method).toList();
     expect(methods.lastIndexOf('stop'), lessThan(methods.indexOf('softTap')));
+    // The same sheet retries just the proven-unsent venue allocation.
+    venue.error = null;
+    await tester.tap(_cta);
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    expect(approvals.prompts, hasLength(2));
+    expect(venue.pulls, [20.41]);
+    expect(_initialBuys, [10], reason: 'accepted Dollars are never bought again');
+    await tester.pump(const Duration(milliseconds: 700));
+    expect(find.byType(DepositSheet), findsNothing);
+    await _close(tester, container);
+  });
+
+  testWidgets('unknown multi-source send cannot resubmit from the same sheet',
+      (tester) async {
+    final venue = _GatedVenue(100);
+    final approvals = _Approvals(() => venue.pulls.length);
+    debugBuyBitcoinApproval = approvals.call;
+    _puller = VenueCashPuller(
+      walletId: () => 'spending',
+      sources: [venue], readDollars: () => _dollars,
+      minimumUsd: (_) async => 1,
+    );
+    final container =
+        await _open(tester, MoveLockedSide.depositFromFiat, routed: true);
+    for (final key in ['3', '0']) {
+      await tester.tap(find.text(key).last);
+      await tester.pump();
+    }
+    await tester.tap(_cta);
+    await tester.pump(const Duration(milliseconds: 200));
+    venue.error = StateError('native outcome unknown');
+    venue.gate.complete();
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    expect(tester.widget<AppButton>(_cta).onPressed, isNull);
+    expect(approvals.prompts, hasLength(1));
+    expect(_initialBuys, [10]);
+    expect(MultiSourceMoveStore.all().single.provenUnsentLegs, isEmpty);
     await _close(tester, container);
   });
 
@@ -570,6 +626,7 @@ void main() {
     debugBuyBitcoinApproval = approvals.call;
     var now = DateTime(2026, 10, 13, 12);
     _puller = VenueCashPuller(
+      walletId: () => 'spending',
       sources: [venue],
       readDollars: () => _dollars,
       minimumUsd: (_) async => 1,
@@ -607,7 +664,8 @@ void main() {
     await _close(tester, container);
   });
 
-  testWidgets('direct venue purchase leaves a sub-minimum Dollars remainder quietly',
+  testWidgets(
+      'direct venue purchase leaves a sub-minimum Dollars remainder quietly',
       (tester) async {
     _dollars = 0.42;
     final venue = _DirectVenue(3.52);
@@ -615,10 +673,13 @@ void main() {
     debugBuyBitcoinApproval = approvals.call;
     final events = <String>[];
     TrackingService.debugTrackObserver = (e, _) => events.add(e);
-    _puller = VenueCashPuller(sources: [venue], readDollars: () => _dollars,
+    _puller = VenueCashPuller(
+      walletId: () => 'spending',
+        sources: [venue],
+        readDollars: () => _dollars,
         minimumUsd: (_) async => 1);
-    final container = await _open(tester, MoveLockedSide.depositFromFiat,
-        routed: true);
+    final container =
+        await _open(tester, MoveLockedSide.depositFromFiat, routed: true);
     for (final key in ['3', '.', '8']) {
       await tester.tap(find.text(key).last);
       await tester.pump();
@@ -629,7 +690,8 @@ void main() {
     }
     expect(venue.directs, hasLength(1));
     expect(venue.pulls, isEmpty);
-    expect(approvals.prompts, hasLength(1), reason: 'only the real venue leg approval');
+    expect(approvals.prompts, hasLength(1),
+        reason: 'only the real venue leg approval');
     expect(_buy.calls, isEmpty, reason: 'no onward quote or native send');
     expect(PendingBitcoinPurchaseStore.all(), isEmpty);
     expect(_dollars, 0.42);
@@ -655,6 +717,7 @@ void main() {
     debugBuyBitcoinApproval = approvals.call;
     var now = DateTime(2026, 10, 13, 12);
     _puller = VenueCashPuller(
+      walletId: () => 'spending',
       sources: [venue],
       readDollars: () => _dollars,
       minimumUsd: (_) async => 1,
@@ -706,6 +769,7 @@ void main() {
     debugBuyBitcoinApproval = approvals.call;
     var now = DateTime(2026, 10, 13, 12);
     _puller = VenueCashPuller(
+      walletId: () => 'spending',
       sources: [venue],
       readDollars: () => _dollars,
       minimumUsd: (_) async => 1,
@@ -735,8 +799,7 @@ void main() {
     await _close(tester, container);
   });
 
-  testWidgets('declining the one prompt moves nothing at all',
-      (tester) async {
+  testWidgets('declining the one prompt moves nothing at all', (tester) async {
     final events = <String>[];
     TrackingService.debugTrackObserver = (e, _) => events.add(e);
     final venue = _DirectVenue(100);
@@ -746,6 +809,7 @@ void main() {
     debugBuyBitcoinApproval = approvals.call;
     var now = DateTime(2026, 10, 13, 12);
     _puller = VenueCashPuller(
+      walletId: () => 'spending',
       sources: [venue],
       readDollars: () => _dollars,
       minimumUsd: (_) async => 1,
@@ -782,6 +846,7 @@ void main() {
       (tester) async {
     final venue = _SlowVenue(70);
     _puller = VenueCashPuller(
+      walletId: () => 'spending',
       sources: [venue],
       readDollars: () => _dollars,
       minimumUsd: (_) async => 1,
@@ -819,12 +884,13 @@ void main() {
       'cash in when the read lands', (tester) async {
     final venue = _SlowVenue(100);
     _puller = VenueCashPuller(
+      walletId: () => 'spending',
       sources: [venue],
       readDollars: () => _dollars,
       minimumUsd: (_) async => 1,
     );
-    final container = await _open(tester, MoveLockedSide.depositFromFiat,
-        settle: false);
+    final container =
+        await _open(tester, MoveLockedSide.depositFromFiat, settle: false);
     expect(_shown('10.00'), findsOneWidget);
     expect(find.text('Updating balance'), findsNothing);
     venue.gate.complete();
@@ -842,6 +908,7 @@ void main() {
       'Investments with what it can spend', (tester) async {
     _dollars = 0;
     _puller = VenueCashPuller(
+      walletId: () => 'spending',
       sources: [_SlowVenue(60)],
       readDollars: () => _dollars,
       minimumUsd: (_) async => 1,
@@ -858,6 +925,7 @@ void main() {
       '"insufficient", a cent above it is', (tester) async {
     final venue = _Venue(100);
     _puller = VenueCashPuller(
+      walletId: () => 'spending',
       sources: [venue],
       readDollars: () => _dollars,
       minimumUsd: (_) async => 1,
@@ -915,6 +983,7 @@ void main() {
     debugBuyBitcoinApproval = approvals.call;
     var now = DateTime(2026, 10, 13, 12);
     _puller = VenueCashPuller(
+      walletId: () => 'spending',
       sources: [venue],
       readDollars: () => _dollars,
       minimumUsd: (_) async => 1,

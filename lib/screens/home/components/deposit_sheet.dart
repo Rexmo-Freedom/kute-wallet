@@ -145,6 +145,7 @@ import 'package:kute/services/one_balance/bitcoin_to_dollars_leg.dart'
     show BitcoinLegSent, BitcoinToDollarsLeg;
 import 'package:kute/services/one_balance/multi_source_move.dart'
     show
+        MultiSourceMove,
         MultiSourceMoveStore,
         multiSourceMovesProvider,
         trackMultiSourceMoveRetry;
@@ -190,6 +191,9 @@ import 'package:kute/screens/shared/rubber_band_progress.dart'
     show RubberBand, RubberBandBusy, RubberBandOutcome;
 import 'package:kute/services/one_balance/dollars_to_bitcoin_minimum.dart';
 import 'package:kute/services/one_balance/buy_bitcoin_steps.dart';
+import 'package:kute/services/one_balance/move_steps.dart' show MoveSteps;
+import 'package:kute/services/one_balance/money_steps.dart' show MoneyStepStatus;
+import 'package:kute/services/one_balance/buy_bitcoin_fanout.dart';
 import 'package:kute/services/one_balance/dollars_to_bitcoin_purchase.dart'
     show approvedPurchaseStepUp, buyBitcoinFromDollars, kDollarsToBtcRoute;
 import 'package:kute/services/one_balance/pending_bitcoin_purchase.dart'
@@ -3681,6 +3685,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     _stepsMoveId = null;
     VenueCashPullOutcome? outcome;
     AuthGrant? grant;
+    var initialDollarsStopped = false;
     try {
       // What earlier legs of the same move already delivered to Bitcoin
       // is not asked again.
@@ -3723,36 +3728,76 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
           return null;
         }
         var sent = 0;
-        outcome = await puller.pullShortfall(
-          neededUsd: usd,
-          forAction: VenueCashFor.buyBitcoin,
-          destination: VenueCashDestination.bitcoin,
-          moveId: _moveId,
-          approval: grant,
-          // Back once every leg is submitted: what comes home to Dollars
-          // lands while the purchase waits in the background.
-          waitFor: Duration.zero,
-          onPlanned: (plan) {
-            if (!mounted || plan.pulls.isEmpty) return;
-            _bandStep(0.6);
-            setState(() => _pullProgress = venueCashProgressText(
-                context.l10n, plan,
-                destination: VenueCashDestination.bitcoin,
-                direct: puller.directVenues(
-                    plan, VenueCashDestination.bitcoin)));
-          },
-          // The move's steps take the line from here (its record holds
-          // them, live as each leg and the purchase move on).
-          onStarted: (id) {
-            if (mounted) setState(() => _stepsMoveId = id);
-          },
-          onLeg: (leg) {
-            // Each leg submitted pulls the band a step further.
-            sent++;
-            final legs = math.max(1, plan.pulls.length);
-            _bandStep(0.6 + 0.2 * math.min(sent, legs) / legs);
-          },
-        );
+        Future<VenueCashPullOutcome> pullNormally() => puller.pullShortfall(
+              neededUsd: usd,
+              forAction: VenueCashFor.buyBitcoin,
+              destination: VenueCashDestination.bitcoin,
+              moveId: _moveId,
+              approval: grant,
+              plan: plan,
+              waitFor: Duration.zero,
+              onPlanned: (plan) {
+                if (!mounted || plan.pulls.isEmpty) return;
+                _bandStep(0.6);
+                setState(() => _pullProgress = venueCashProgressText(
+                    context.l10n, plan,
+                    destination: VenueCashDestination.bitcoin,
+                    direct: puller.directVenues(
+                        plan, VenueCashDestination.bitcoin)));
+              },
+              // The move's steps take the line from here (its record holds
+              // them, live as each leg and the purchase move on).
+              onStarted: (id) {
+                if (mounted) setState(() => _stepsMoveId = id);
+              },
+              onLeg: (leg) {
+                // Each leg submitted pulls the band a step further.
+                sent++;
+                final legs = math.max(1, plan.pulls.length);
+                _bandStep(0.6 + 0.2 * math.min(sent, legs) / legs);
+              },
+            );
+        if (earlier == null &&
+            plan.pulls.length + (plan.dollarsUsd > 0 ? 1 : 0) > 1 &&
+            grant != null) {
+          final ownSpark = grant.boundIntent.destination!;
+          final walletId = grant.walletId;
+          final fanout = await appRead(bitcoinPurchaseFanoutProvider).start(
+            puller: puller,
+            plan: plan,
+            approval: grant,
+            walletId: walletId,
+            ownSpark: ownSpark,
+            onPlanned: (selected) {
+              if (!mounted) return;
+              _bandStep(0.6);
+              setState(() => _pullProgress = venueCashProgressText(
+                  context.l10n, selected,
+                  destination: VenueCashDestination.bitcoin,
+                  direct: puller.directVenues(
+                      selected, VenueCashDestination.bitcoin)));
+            },
+            onStarted: (id) {
+              _moveId = id;
+              _moveUsd = usd;
+              if (mounted) setState(() => _stepsMoveId = id);
+            },
+            onLeg: (leg) {
+              sent++;
+              _bandStep(0.6 +
+                  0.2 *
+                      math.min(sent, plan.pulls.length) /
+                      math.max(1, plan.pulls.length));
+            },
+          );
+          outcome = fanout.pull;
+          grant = fanout.grant;
+          initialDollarsStopped =
+              fanout.dollarsEnd == ParallelDollarsEnd.notSent ||
+                  fanout.dollarsEnd == ParallelDollarsEnd.unknown;
+        } else {
+          outcome = await pullNormally();
+        }
       }
     } catch (_) {
       outcome = null;
@@ -3790,6 +3835,23 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       }
       return null;
     }
+    if (initialDollarsStopped && outcome != null) {
+      // Other sources keep their independently submitted work. A refused
+      // Dollars leg gets an explicit retry; an uncertain native send is held.
+      if (grant != null && _queuesPurchase(outcome)) {
+        _queuePurchase(appRead, outcome, grant);
+      } else {
+        grant?.revoke();
+      }
+      setState(() {
+        _processing = false;
+        _pullProgress = null;
+        _error = context.l10n.usdSendFailed;
+        _retryPull =
+            _parallelPurchase != null && _canRetryParallel(_parallelPurchase!);
+      });
+      return null;
+    }
     if (outcome != null && outcome.dollarsCover) {
       setState(() => _pullProgress = null);
       _purchaseGrant = grant;
@@ -3801,9 +3863,10 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     }
     grant?.revoke();
     final covered = outcome != null && outcome.plan.covers;
-    _retryPull = outcome != null && outcome.failedLegs.isNotEmpty;
-    _moveOutcome.failed(
-        covered ? 'venue_cash_pending' : 'insufficient_funds',
+    _retryPull = _parallelPurchase != null
+        ? _canRetryParallel(_parallelPurchase!)
+        : outcome != null && outcome.failedLegs.isNotEmpty;
+    _moveOutcome.failed(covered ? 'venue_cash_pending' : 'insufficient_funds',
         stage: 'dispatch');
     _moveFailedFeedback();
     TrackingService.moneyFlowError(
@@ -3924,8 +3987,96 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// The sheet closes once the purchase is SENT ([buyBitcoinFromDollars]
   /// returns before the bitcoin lands); with venue cash, once every leg
   /// is submitted ([_pullVenueCashForPurchase]).
+  MultiSourceMove? get _parallelPurchase {
+    final id = _moveId ?? _stepsMoveId;
+    final move = id == null ? null : MultiSourceMoveStore.get(id);
+    return move?.isParallelPurchase == true ? move : null;
+  }
+
+  bool _canRetryParallel(MultiSourceMove move) =>
+      initialDollarsRetryable(move) || move.provenUnsentLegs.isNotEmpty;
+
+  Future<void> _retryParallelPurchase(MultiSourceMove move) async {
+    if (_processing || !_canRetryParallel(move)) return;
+    if (pickSpendingWallet(ref.read(settingsProvider))?.id != move.walletId) {
+      return;
+    }
+    setState(() => _processing = true);
+    AuthGrant? grant;
+    try {
+      final puller = ref.read(venueCashPullerProvider);
+      final initial = initialDollarsRetryable(move);
+      final plan = initial
+          ? VenueCashPlan(
+              neededUsd: move.steps.byId(MoveSteps.initialDollarsId)!.usd,
+              dollarsUsd: move.steps.byId(MoveSteps.initialDollarsId)!.usd,
+              pulls: const [],
+              covers: true,
+              eta: Duration.zero,
+              uncoveredUsd: 0)
+          : await puller.planRetry(move.id);
+      if (!mounted || plan == null || !plan.covers) return;
+      if (initial) {
+        grant = await _approvePurchaseWithLegs(plan.neededUsd, plan);
+      } else {
+        final intent = DirectLegGrants.retry(
+          walletId: move.walletId!,
+          destination: move.destination.code,
+          totalUsd: plan.pulledUsd,
+          directLegs: puller.directLegLimit(plan, move.destination) ?? const {},
+        );
+        final seam = debugBuyBitcoinApproval;
+        grant = seam != null
+            ? await seam(intent)
+            : await _approveMove(intent,
+                amountLabel: _usdApprovalLabel(plan.pulledUsd),
+                amountUsd: plan.pulledUsd);
+      }
+      if (!mounted ||
+          grant == null ||
+          pickSpendingWallet(ref.read(settingsProvider))?.id != move.walletId) {
+        return;
+      }
+      trackMultiSourceMoveRetry(initial ? plan.neededUsd : plan.pulledUsd);
+      if (initial) {
+        await retryInitialDollarsPurchase(_appReader,
+            moveId: move.id, grant: grant);
+      } else {
+        await puller.retryMove(move.id, approval: grant, plan: plan);
+      }
+      final updated = MultiSourceMoveStore.get(move.id);
+      if (!mounted || updated == null) return;
+      final sources = updated.steps.steps.where(MoveSteps.isVenueLeg).toList();
+      final submitted = sources.isNotEmpty && sources.every((step) =>
+          step.status == MoneyStepStatus.skipped ||
+          (step.ref != null && step.reason != 'outcome_unknown' &&
+              step.reason != 'retry_pending' &&
+              step.status != MoneyStepStatus.failed));
+      if (submitted) {
+        setState(() => _error = null);
+        await _finishVenuePurchase(updated.spentUsd, queued: false);
+      }
+    } catch (_) {
+      if (mounted) setState(() => _error = context.l10n.usdSendFailed);
+    } finally {
+      grant?.revoke();
+      if (mounted) {
+        setState(() {
+          _processing = false;
+          _retryPull = _parallelPurchase != null &&
+              _canRetryParallel(_parallelPurchase!);
+        });
+      }
+    }
+  }
+
   Future<void> _dispatchUsdToBtc(double usd) async {
     if (_processing) return;
+    final parallel = _parallelPurchase;
+    if (parallel != null) {
+      await _retryParallelPurchase(parallel);
+      return;
+    }
     var amountBaseUnits = _usdBaseUnits(usd);
     // 100% of Dollars is the exact drain; an amount past Dollars (venue
     // cash in reach) is sent exactly as chosen.
@@ -6113,6 +6264,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     // Which onramps may show ([_cashAppVisible], [_bankRailAllowed])
     // follows the runtime policy live.
     ref.watch(runtimeCapabilitiesProvider);
+    ref.watch(multiSourceMovesProvider);
     // Only the fiat Buy flow wears a colour (user decision); every other
     // move — venue deposits, withdrawals, cash-outs — stays neutral.
     if (!_isBuyFlow) return Builder(builder: _buildSheet);
@@ -6940,23 +7092,27 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
                   // fiat NEVER enables — bank transfers are coming soon;
                   // the keypad stays interactive but the CTA holds its
                   // disabled style regardless of the typed amount.
-                  enabled: _sourceCashApp
-                      ? (!_processing && _cashAppAmountValid)
-                      : _isFiatMode
-                          ? false
-                          : _needsFunding ||
-                              (!_insufficientTyped &&
-                                  _isSupportedSwap &&
-                                  !_processing &&
-                                  !_loadingRate &&
-                                  (!_isLedgerMove ||
-                                      _sourceBalanceState == null) &&
-                                  (() {
-                                    if (_fromBtc) {
-                                      return _selectedSats >= _kMinSats;
-                                    }
-                                    return _selectedUsdcFromRatio >= _kMinUsdc;
-                                  }())),
+                  enabled: _parallelPurchase != null &&
+                          !_canRetryParallel(_parallelPurchase!)
+                      ? false
+                      : _sourceCashApp
+                          ? (!_processing && _cashAppAmountValid)
+                          : _isFiatMode
+                              ? false
+                              : _needsFunding ||
+                                  (!_insufficientTyped &&
+                                      _isSupportedSwap &&
+                                      !_processing &&
+                                      !_loadingRate &&
+                                      (!_isLedgerMove ||
+                                          _sourceBalanceState == null) &&
+                                      (() {
+                                        if (_fromBtc) {
+                                          return _selectedSats >= _kMinSats;
+                                        }
+                                        return _selectedUsdcFromRatio >=
+                                            _kMinUsdc;
+                                      }())),
                   processing: _processing,
                   // Fiat mode keeps the familiar 'Continue' label in its
                   // permanently disabled state; the quiet line above the

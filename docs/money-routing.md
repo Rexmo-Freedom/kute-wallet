@@ -146,6 +146,46 @@ unversioned, which remains a freshness limitation. See
 [investments_spendable.dart](../lib/services/one_balance/investments_spendable.dart)
 and [venue_cash_source.dart](../lib/services/one_balance/venue_cash_source.dart).
 
+### Buying Bitcoin from several balances
+
+A multi-source Buy Bitcoin launches eligible initial Dollars → Bitcoin,
+Investing → Bitcoin and Predictions → Bitcoin work independently under one
+reviewed approval. Initial Dollars do not wait for both venue submissions.
+The same launch rule covers two-venue purchases with no initial Dollars; no
+initial Dollars operation is invented for that absent source.
+The exact reviewed source plan is passed through to execution, and disjoint
+child caps prevent one source from spending another source's allowance or
+extending the original approval. A supported direct route with mismatched or
+expired authorization fails closed. If the direct route is unavailable before
+sending, an approved fallback may go via Dollars. Single-source purchases keep their
+existing path. See
+[buy_bitcoin_fanout.dart](../lib/services/one_balance/buy_bitcoin_fanout.dart) and
+[venue_cash_source.dart](../lib/services/one_balance/venue_cash_source.dart).
+
+The initial Dollars purchase keeps its own operation and actual source amount,
+separate from an optional later purchase of venue money that came via Dollars.
+Already-spent initial Dollars cannot be counted or bought again in that later
+step. The detail's Nerd data and exchange links list every real submitted
+operation, including the initial purchase; a planned, quoted or unsent leg
+creates no pretend swap. Sent/received/arriving totals deduplicate the initial
+and later operations. Received and Arriving can both be shown while independent
+legs settle. The whole move cannot read Completed while a selected source is
+unrecorded, still running, waiting for retry or uncertain, even if the other
+receipts finished. An actual linked failed order shows Needs attention without
+making that accepted send retryable. See [multi_source_move.dart](../lib/services/one_balance/multi_source_move.dart)
+and [multi_source_move_activity.dart](../lib/screens/shared/multi_source_move_activity.dart).
+
+The detail sheet exposes a primary Retry outside Nerd data as soon as safe work
+is available, including while another leg remains pending. It prioritizes an
+initial Dollars failure proved before funding, then a proven-unsent source remainder,
+then a pending purchase requiring renewed approval. Each retry reviews only its
+proven-unsent amount and the exact failed-source allocation. It cannot reallocate
+that remainder to another source still running. An accepted operation or an
+ambiguous native send is never submitted again; missing references alone do not
+prove a safe retry. A completed
+Bitcoin receipt is retained even if a later remainder cannot be purchased. See
+[transactions_builder.dart](../lib/screens/shared/transactions_builder.dart).
+
 For a Bitcoin purchase, an unsent Dollars remainder below the $1 floor or the
 directed USDB → BTC route minimum stays in Dollars. Its purchase step is skipped,
 with no approval, quote or native send for a known sub-floor amount and no
@@ -526,6 +566,7 @@ receipt has to be checked after a permitted run with analytics enabled.
 | `usd_balance_catchup` | One terminal behind-run result, fixed reason, exact duration and retry index. Never one event per poll. |
 | `usd_balance_sync` | One terminal shared-sync wait result/duration. Its timeout means the app stopped waiting, not that native sync was cancelled. |
 | `usd_token_recovery` | One recovery owner/guard result, fixed reason, attempted flag and duration; concurrent joined callers do not duplicate it. No balances, amounts or raw errors. |
+| Multi-source Buy Bitcoin submission outcome | Existing `multi_source_move_finished` fires once after venue and independent initial-Dollars outcomes. `delivered_usd` is the accepted arrival estimate, not SDK spendability; `landed=false`. `dollars_usd` is the accepted initial source amount, zero when no accepted amount is established; `dollars_outcome` is `submitted`, `notSent`, `unknown`, `skipped` or `none`. Unknown does not prove nothing left. Initial retry uses existing `multi_source_move_retry_tapped.remaining_usd`. |
 
 Sources: [order_funding.dart](../lib/services/one_balance/order_funding.dart),
 [pending_hyperliquid_order_provider.dart](../lib/providers/pending_hyperliquid_order_provider.dart),

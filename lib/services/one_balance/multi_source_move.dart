@@ -59,6 +59,7 @@ class MultiSourceMoveLeg {
     this.quoteId,
     this.error,
     this.fellBack,
+    this.uncertain = false,
   });
 
   final OneBalanceVenue venue;
@@ -86,6 +87,9 @@ class MultiSourceMoveLeg {
   /// instead (the rail's fixed refusal code); null otherwise.
   final String? fellBack;
 
+  /// A failed RPC is not proof that no source payment happened.
+  final bool uncertain;
+
   bool get direct => route == VenueCashRoute.direct;
 
   Map<String, dynamic> toJson() => {
@@ -99,6 +103,7 @@ class MultiSourceMoveLeg {
         if (quoteId != null) 'quoteId': quoteId,
         if (error != null) 'error': error,
         if (fellBack != null) 'fellBack': fellBack,
+        if (uncertain) 'uncertain': true,
       };
 
   static MultiSourceMoveLeg? fromJson(Object? raw) {
@@ -124,6 +129,7 @@ class MultiSourceMoveLeg {
       quoteId: raw['quoteId'] as String?,
       error: raw['error'] as String?,
       fellBack: raw['fellBack'] as String?,
+      uncertain: raw['uncertain'] == true,
     );
   }
 }
@@ -140,6 +146,9 @@ class MultiSourceMove {
     this.walletId,
     this.legs = const [],
     this.finalOperationId,
+    this.initialDollarsOperationId,
+    this.initialDollarsSentUsd = 0,
+    this.parallelPurchase = false,
     this.steps = MoneyStepGraph.empty,
   });
 
@@ -161,6 +170,17 @@ class MultiSourceMove {
   /// The action's own step (the send, the purchase), once it went.
   final String? finalOperationId;
 
+  /// Dollars' independent, parallel purchase. The later purchase (if a venue
+  /// had to come home first) remains [finalOperationId].
+  final String? initialDollarsOperationId;
+  final double initialDollarsSentUsd;
+  final bool parallelPurchase;
+  bool get isParallelPurchase => parallelPurchase || hasParallelDollars;
+
+  bool get hasParallelDollars => steps.byId(MoveSteps.initialDollarsId) != null;
+  double get _dollarsContribution =>
+      hasParallelDollars ? initialDollarsSentUsd : dollarsUsd;
+
   /// The move as steps (its legs, its own step, the arrival), as the
   /// money code recorded them (move_steps.dart); empty on a record made
   /// before them.
@@ -178,20 +198,62 @@ class MultiSourceMove {
   /// What reached (or is on its way to) the move's destination: Dollars'
   /// part plus every leg that went, never more than [totalUsd].
   double get deliveredUsd {
-    final sum =
-        dollarsUsd + okLegs.fold<double>(0, (s, l) => s + l.arrivingUsd);
+    final sum = _dollarsContribution +
+        okLegs.fold<double>(0, (s, l) => s + l.arrivingUsd);
     return math.min(totalUsd, _cents(sum));
   }
 
   /// What the legs that went straight to the destination delivered.
-  double get directDeliveredUsd => _cents(okLegs
-      .where((l) => l.direct)
-      .fold<double>(0, (s, l) => s + l.arrivingUsd));
+  double get directDeliveredUsd => _cents(initialDollarsSentUsd +
+      okLegs
+          .where((l) => l.direct)
+          .fold<double>(0, (s, l) => s + l.arrivingUsd));
+
+  List<MultiSourceMoveLeg> get provenUnsentLegs {
+    final latest = <OneBalanceVenue, MultiSourceMoveLeg>{
+      for (final leg in legs) leg.venue: leg,
+    };
+    return latest.values.where((leg) {
+      if (leg.ok ||
+          leg.uncertain ||
+          leg.error != 'not_sent' ||
+          leg.operationId != null ||
+          leg.quoteId != null) {
+        return false;
+      }
+      final proof = steps.steps
+          .where((step) =>
+              MoveSteps.isVenueLeg(step) &&
+              step.from == MoveSteps.placeOf(leg.venue))
+          .lastOrNull;
+      return proof?.status == MoneyStepStatus.failed &&
+          proof?.reason == 'not_sent' &&
+          proof?.ref == null;
+    }).toList();
+  }
 
   /// What is still missing after a failed leg (0 when none failed).
   double get remainingUsd {
+    if (isParallelPurchase) {
+      final initial = steps.byId(MoveSteps.initialDollarsId);
+      final initialMissing = initialDollarsOperationId == null &&
+              initial?.status == MoneyStepStatus.failed &&
+              initial?.reason == 'not_sent' &&
+              initial?.ref == null
+          ? initial!.usd
+          : 0.0;
+      return _cents(initialMissing +
+          provenUnsentLegs.fold<double>(
+              0, (sum, leg) => sum + leg.arrivingUsd));
+    }
+    final dollars = steps.byId(MoveSteps.initialDollarsId);
+    final dollarsFailed =
+        dollars?.status == MoneyStepStatus.failed && dollars?.ref == null;
     // The action's own step went: the whole amount was there for it.
-    if (failedLegs.isEmpty || finalOperationId != null) return 0;
+    if ((failedLegs.isEmpty && !dollarsFailed) ||
+        (!hasParallelDollars && finalOperationId != null)) {
+      return 0;
+    }
     final left = _cents(totalUsd - deliveredUsd);
     return left > 0 ? left : 0;
   }
@@ -202,9 +264,16 @@ class MultiSourceMove {
   /// What the move spent: the person's amount, or after a failed leg
   /// what Dollars gave and the legs that went took.
   double get spentUsd {
+    if (isParallelPurchase) {
+      return _cents(initialDollarsSentUsd +
+          okLegs.fold<double>(0, (sum, leg) => sum + leg.usd));
+    }
     final buy = steps.byId(MoveSteps.buyId);
-    if (finalOperationId == null && buy != null && buy.ref == null &&
-        buy.status == MoneyStepStatus.skipped && buy.reason == 'below_minimum') {
+    if (finalOperationId == null &&
+        buy != null &&
+        buy.ref == null &&
+        buy.status == MoneyStepStatus.skipped &&
+        buy.reason == 'below_minimum') {
       // None of the initial Dollars left. Count actual source sends, including
       // their fees, rather than the requested total or unsent remainder.
       return _cents(okLegs.fold<double>(0, (s, l) => s + l.usd));
@@ -223,11 +292,15 @@ class MultiSourceMove {
           if (l.quoteId != null) l.quoteId!,
         ],
         if (finalOperationId != null) finalOperationId!,
+        if (initialDollarsOperationId != null) initialDollarsOperationId!,
       };
 
   MultiSourceMove copyWith({
     List<MultiSourceMoveLeg>? legs,
     String? finalOperationId,
+    String? initialDollarsOperationId,
+    double? initialDollarsSentUsd,
+    bool? parallelPurchase,
     MoneyStepGraph? steps,
   }) =>
       MultiSourceMove(
@@ -240,6 +313,11 @@ class MultiSourceMove {
         createdAt: createdAt,
         legs: legs ?? this.legs,
         finalOperationId: finalOperationId ?? this.finalOperationId,
+        initialDollarsOperationId:
+            initialDollarsOperationId ?? this.initialDollarsOperationId,
+        initialDollarsSentUsd:
+            initialDollarsSentUsd ?? this.initialDollarsSentUsd,
+        parallelPurchase: parallelPurchase ?? this.parallelPurchase,
         steps: steps ?? this.steps,
       );
 
@@ -253,6 +331,11 @@ class MultiSourceMove {
         'createdAt': createdAt.millisecondsSinceEpoch,
         'legs': [for (final l in legs) l.toJson()],
         if (finalOperationId != null) 'finalOperationId': finalOperationId,
+        if (initialDollarsOperationId != null)
+          'initialDollarsOperationId': initialDollarsOperationId,
+        if (parallelPurchase) 'parallelPurchase': true,
+        if (initialDollarsSentUsd > 0)
+          'initialDollarsSentUsd': initialDollarsSentUsd,
         if (!steps.isEmpty) 'steps': steps.toJson(),
       };
 
@@ -287,6 +370,10 @@ class MultiSourceMove {
             if (MultiSourceMoveLeg.fromJson(l) case final leg?) leg,
       ],
       finalOperationId: raw['finalOperationId'] as String?,
+      initialDollarsOperationId: raw['initialDollarsOperationId'] as String?,
+      parallelPurchase: raw['parallelPurchase'] == true,
+      initialDollarsSentUsd:
+          (raw['initialDollarsSentUsd'] as num?)?.toDouble() ?? 0,
       steps: MoneyStepGraph.fromJson(raw['steps']),
     );
   }
@@ -409,6 +496,22 @@ abstract final class MultiSourceMoveStore {
     all[id] = next.copyWith(
         steps: _stepsOr(
             next, () => MoveSteps.finalSent(MoveSteps.of(next), operationId)));
+    _save();
+  }
+
+  static void markParallelPurchase(String id) {
+    final move = _all()[id];
+    if (move == null || move.parallelPurchase) return;
+    _all()[id] = move.copyWith(parallelPurchase: true);
+    _save();
+  }
+
+  static void attachInitialDollars(
+      String id, String operationId, double sentUsd) {
+    final move = _all()[id];
+    if (move == null || move.initialDollarsOperationId != null) return;
+    _all()[id] = move.copyWith(
+        initialDollarsOperationId: operationId, initialDollarsSentUsd: sentUsd);
     _save();
   }
 

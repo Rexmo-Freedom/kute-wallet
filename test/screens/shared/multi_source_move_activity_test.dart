@@ -17,7 +17,8 @@ import 'package:kute/l10n/generated/app_localizations.dart';
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/models/swap_order_model.dart';
 import 'package:kute/models/transactions_model.dart';
-import 'package:kute/helpers/venue_intents.dart' show DirectLegGrants;
+import 'package:kute/helpers/venue_intents.dart'
+    show DirectLegGrants, IntentUnits;
 import 'package:kute/providers/spark_address_provider.dart';
 import 'package:kute/providers/swap_orders_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
@@ -32,6 +33,7 @@ import 'package:kute/screens/shared/multi_source_move_activity.dart';
 import 'package:kute/screens/shared/transactions_builder.dart';
 import 'package:kute/screens/shared/venue_cash_pull_copy.dart';
 import 'package:kute/services/one_balance/move_steps.dart' show MoveSteps;
+import 'package:kute/services/one_balance/money_steps.dart';
 import 'package:kute/services/one_balance/multi_source_move.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/one_balance/venue_cash_source.dart';
@@ -84,7 +86,11 @@ SwapOrderTransaction _row(String id,
     );
 
 MultiSourceMoveLeg _leg(OneBalanceVenue venue,
-        {bool ok = true, String? op, double usd = 20, bool direct = true}) =>
+        {bool ok = true,
+        String? op,
+        double usd = 20,
+        bool direct = true,
+        String? error}) =>
     MultiSourceMoveLeg(
       venue: venue,
       usd: usd,
@@ -93,7 +99,7 @@ MultiSourceMoveLeg _leg(OneBalanceVenue venue,
       ok: ok,
       at: _t0,
       operationId: op,
-      error: ok ? null : 'route',
+      error: ok ? null : (error ?? 'route'),
     );
 
 MultiSourceMove _move({
@@ -124,6 +130,232 @@ MultiSourceMove _move({
 SwapActivityKind _classify(SwapOrder o) => classifySwapActivity(o);
 
 void main() {
+  group('parallel initial Dollars receipt', () {
+    MultiSourceMove move({String? finalOp}) => MultiSourceMove(
+          id: 'parallel',
+          walletId: 'w1',
+          forAction: VenueCashFor.buyBitcoin,
+          destination: VenueCashDestination.bitcoin,
+          totalUsd: 50,
+          dollarsUsd: 10,
+          createdAt: _t0,
+          initialDollarsOperationId: 'op-initial',
+          initialDollarsSentUsd: 10,
+          finalOperationId: finalOp,
+          legs: [
+            _leg(OneBalanceVenue.investing, op: 'op-hl'),
+            _leg(OneBalanceVenue.predictions, op: 'op-pm')
+          ],
+          steps: MoveSteps.withInitialDollars(MoneyStepGraph.empty, 10),
+        );
+    SwapOrderTransaction bitcoin(String id, String op, String btc,
+        {String status = 'success'}) {
+      final row = _row(id,
+          from: 'USDB',
+          fromNet: 'SPARK',
+          to: 'BTC',
+          toNet: 'SPARK',
+          operationId: op,
+          status: status);
+      return SwapOrderTransaction(
+          id: row.id,
+          timestamp: row.timestamp,
+          isConfirmed: row.isConfirmed,
+          details: row.details.copyWith(withdrawalAmount: btc));
+    }
+
+    test('three actual orders stay linked and counted once', () {
+      final m = move();
+      final rows = [
+        bitcoin('initial', 'op-initial', '0.0001'),
+        bitcoin('hl', 'op-hl', '0.0002'),
+        bitcoin('pm', 'op-pm', '0.0003', status: 'exchanging')
+      ];
+      expect(multiSourceMoveOrders(m, rows).map((o) => o.id),
+          ['hl', 'pm', 'initial']);
+      final live = multiSourceMoveLiveRows(
+          m, const [], rows.map((r) => r.details).toList());
+      expect(live, hasLength(3));
+      final totals = multiSourceMoveTotals(m, live);
+      expect(totals.sentUsd, 50);
+      expect(totals.receivedBtc, closeTo(.0003, 1e-10));
+      expect(totals.arrivingBtc, closeTo(.0003, 1e-10));
+      expect(
+          multiSourceMoveBitcoin(
+              MultiSourceMoveTransaction(move: m, legRows: live)),
+          closeTo(.0006, 1e-10));
+      expect(multiSourceMoveSettled(m, rows.skip(1).toList()), isFalse);
+    });
+    test(
+        'initial and later onward orders are independent; alias is not doubled',
+        () {
+      final rows = [
+        bitcoin('initial', 'op-initial', '.0001'),
+        bitcoin('fallback', 'op-final', '.0002')
+      ];
+      final m = move(finalOp: 'op-final');
+      expect(multiSourceMoveOrders(m, rows), hasLength(2));
+      expect(multiSourceMoveTotals(m, rows).receivedBtc, closeTo(.0003, 1e-10));
+      final alias = move(finalOp: 'op-initial');
+      expect(multiSourceMoveOrders(alias, rows), hasLength(1));
+      expect(multiSourceMoveTotals(alias, rows).receivedBtc,
+          closeTo(.0001, 1e-10));
+      expect(multiSourceMoveLandedInDollarsUsd(m, rows), 0);
+    });
+    test(
+        'a later unaffordable remainder never dissolves an initial Bitcoin receipt',
+        () {
+      final m = move().copyWith(legs: [
+        _leg(OneBalanceVenue.investing, op: 'op-hl'),
+        _leg(OneBalanceVenue.predictions, op: 'op-pm', direct: false),
+      ]);
+      PendingBitcoinPurchaseStore.put(PendingBitcoinPurchase(
+          moveId: m.id,
+          walletId: m.walletId,
+          usd: 10,
+          createdAt: _t0,
+          stage: PendingPurchaseStage.needsApproval));
+      addTearDown(() => PendingBitcoinPurchaseStore.remove(m.id));
+      final finisher = BitcoinPurchaseFinisher(
+          readDollars: () => 0,
+          buy: (_, __, {required moveId, required onFunding}) async {});
+      final rows = [
+        bitcoin('initial', 'op-initial', '.0001'),
+        bitcoin('hl', 'op-hl', '.0002'),
+        _row('pm',
+            from: 'USDC.E',
+            fromNet: 'POLYGON',
+            to: 'USDB',
+            toNet: 'SPARK',
+            operationId: 'op-pm',
+            status: 'success')
+      ];
+      expect(
+          multiSourceMoveFinish(m, rows,
+              finisher: finisher,
+              dollars: 0,
+              now: _t0.add(const Duration(days: 1))),
+          isNull);
+    });
+    test(
+        'new unsent failure changes Activity equality even before any receipt changes',
+        () {
+      final original = _move();
+      final m = original.copyWith(
+          steps: MoveSteps.withInitialDollars(MoveSteps.of(original), 10));
+      final failed = m.copyWith(
+          steps: m.steps.update(
+              MoveSteps.initialDollarsId,
+              (s) => s.copyWith(
+                  status: MoneyStepStatus.failed, reason: 'not_sent')));
+      final unknown = m.copyWith(
+          steps: m.steps.update(
+              MoveSteps.initialDollarsId,
+              (s) => s.copyWith(
+                  status: MoneyStepStatus.running, reason: 'outcome_unknown')));
+      final rows = [bitcoin('hl', 'op-hl', '.0002', status: 'exchanging')];
+      final failedTx = MultiSourceMoveTransaction(move: failed, legRows: rows);
+      final unknownTx =
+          MultiSourceMoveTransaction(move: unknown, legRows: rows);
+      expect(failedTx, isNot(unknownTx));
+      expect(failedTx.partial, isTrue);
+      expect(unknownTx.partial, isFalse);
+    });
+    test(
+        'completed receipts cannot complete a parallel move with an unknown venue send',
+        () {
+      final m = MultiSourceMove(
+          id: 'unknown-source',
+          walletId: 'w1',
+          forAction: VenueCashFor.buyBitcoin,
+          destination: VenueCashDestination.bitcoin,
+          totalUsd: 40,
+          dollarsUsd: 0,
+          createdAt: _t0,
+          parallelPurchase: true,
+          legs: [
+            _leg(OneBalanceVenue.investing, op: 'op-hl'),
+            MultiSourceMoveLeg(
+                venue: OneBalanceVenue.predictions,
+                usd: 20,
+                arrivingUsd: 19.8,
+                route: VenueCashRoute.direct,
+                ok: false,
+                at: _t0,
+                uncertain: true,
+                error: 'native')
+          ]);
+      final tx = MultiSourceMoveTransaction(
+          move: m, legRows: [bitcoin('hl', 'op-hl', '.0002')]);
+      expect(tx.partial, isFalse,
+          reason: 'unknown sends are not retry allocations');
+      expect(tx.isConfirmed, isFalse);
+      expect(tx.complete, isFalse);
+    });
+    test(
+        'a held unrecorded source step blocks completion while accepted running steps use live receipts',
+        () {
+      final graph = MoveSteps.planned(
+          destination: VenueCashDestination.bitcoin,
+          forAction: VenueCashFor.buyBitcoin,
+          onwardUsd: 0,
+          totalUsd: 40,
+          legs: [
+            (venue: OneBalanceVenue.investing, usd: 20, direct: true),
+            (venue: OneBalanceVenue.predictions, usd: 20, direct: true)
+          ]);
+      final hl = _leg(OneBalanceVenue.investing, op: 'op-hl');
+      final pm = _leg(OneBalanceVenue.predictions, op: 'op-pm');
+      final m = MultiSourceMove(
+          id: 'held-source',
+          walletId: 'w1',
+          forAction: VenueCashFor.buyBitcoin,
+          destination: VenueCashDestination.bitcoin,
+          totalUsd: 40,
+          dollarsUsd: 0,
+          createdAt: _t0,
+          parallelPurchase: true,
+          legs: [hl],
+          steps: MoveSteps.legRecorded(graph, hl,
+              destination: VenueCashDestination.bitcoin,
+              forAction: VenueCashFor.buyBitcoin));
+      final rows = [bitcoin('hl', 'op-hl', '.0002')];
+      expect(multiSourceMoveSettled(m, rows), isFalse);
+      final submitted = m.copyWith(
+          legs: [hl, pm],
+          steps: MoveSteps.legRecorded(m.steps, pm,
+              destination: VenueCashDestination.bitcoin,
+              forAction: VenueCashFor.buyBitcoin));
+      expect(
+          submitted.steps
+              .byId(MoveSteps.legId(OneBalanceVenue.predictions))!
+              .status,
+          MoneyStepStatus.running);
+      expect(
+          multiSourceMoveSettled(
+              submitted, [...rows, bitcoin('pm', 'op-pm', '.0003')]),
+          isTrue,
+          reason:
+              'persisted accepted-running state follows completed live rows');
+    });
+    test('unsent planned Dollars does not invent an order or received amount',
+        () {
+      final m = MultiSourceMove(
+          id: 'unsent',
+          walletId: 'w1',
+          forAction: VenueCashFor.buyBitcoin,
+          destination: VenueCashDestination.bitcoin,
+          totalUsd: 10,
+          dollarsUsd: 10,
+          createdAt: _t0,
+          steps: MoveSteps.withInitialDollars(MoneyStepGraph.empty, 10));
+      expect(multiSourceMoveOrders(m, []), isEmpty);
+      expect(multiSourceMoveShows(m, onlyUsdb: true), isFalse);
+      expect(multiSourceMoveTotals(m, []).sentUsd, 0);
+      expect(multiSourceMoveTotals(m, []).receivedBtc, 0);
+    });
+  });
+
   group('collapse', () {
     final pmLeg = _row('ord_pm',
         from: 'USDC',
@@ -685,11 +917,12 @@ void main() {
                 status: status)
             .details
             .copyWith(depositAmount: '15.00', withdrawalAmount: got);
-    MultiSourceMove threeLegs() => _move(legs: [
+    MultiSourceMove threeLegs({String failedError = 'route'}) => _move(legs: [
           _leg(OneBalanceVenue.investing, op: 'op-hl', usd: 20),
           _leg(OneBalanceVenue.predictions,
               op: 'op-pm', usd: 15, direct: false),
-          _leg(OneBalanceVenue.investing, ok: false, usd: 5, direct: false),
+          _leg(OneBalanceVenue.investing,
+              ok: false, usd: 5, direct: false, error: failedError),
         ]);
 
     Future<FakeSwapOrders> openTx(
@@ -698,6 +931,7 @@ void main() {
       List<SwapOrder> orders = const [],
       Size size = const Size(430, 932),
       double textScale = 1,
+      double? dollars,
     }) async {
       tester.view.physicalSize = size * 3;
       tester.view.devicePixelRatio = 3;
@@ -719,6 +953,10 @@ void main() {
                 activeWalletId: 'spending',
               ))),
           swapOrdersProvider.overrideWith((_) => store),
+          sparkSelfAddressProvider.overrideWith((_) async => 'sp1self'),
+          if (dollars != null)
+            usdBalanceReadingProvider.overrideWith((_) => dollars),
+          if (dollars != null) usdBalanceProvider.overrideWith((_) => dollars),
         ],
         child: ScreenUtilInit(
           designSize: const Size(430, 932),
@@ -756,12 +994,13 @@ void main() {
       List<SwapOrder> orders = const [],
       Size size = const Size(430, 932),
       double textScale = 1,
+      double? dollars,
     }) async {
       MultiSourceMoveStore.start(move);
       // The surface hands the sheet no rows: they come from the store.
       return openTx(
           tester, MultiSourceMoveTransaction(move: move, legRows: const []),
-          orders: orders, size: size, textScale: textScale);
+          orders: orders, size: size, textScale: textScale, dollars: dollars);
     }
 
     Future<FakeSwapOrders> openSwapSheet(WidgetTester tester, SwapOrder row) =>
@@ -831,6 +1070,146 @@ void main() {
       for (final dash in ['—', '-', '–', r'$0.00']) {
         expect(find.text(dash), findsNothing, reason: dash);
       }
+    });
+
+    testWidgets(
+        'a failed accepted venue order needs attention without retrying its money',
+        (tester) async {
+      final move = _move().copyWith(parallelPurchase: true);
+      await openSheet(tester, move,
+          orders: [hlLanded().copyWith(status: 'failed'), pmRow()]);
+      expect(rowValue('Status', find.text('Needs attention')), findsOneWidget);
+      expect(find.text('Retry'), findsNothing);
+      await openNerd(tester);
+      expect(find.text('Track this exchange'), findsNWidgets(2));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+        'pending remainder approval is a primary Retry while source orders run',
+        (tester) async {
+      final original = _move(legs: [
+        _leg(OneBalanceVenue.investing, op: 'op-hl'),
+        _leg(OneBalanceVenue.predictions, op: 'op-pm', direct: false),
+      ]);
+      final move = original.copyWith(
+          initialDollarsOperationId: 'op-initial',
+          initialDollarsSentUsd: 10,
+          steps: MoveSteps.withInitialDollars(MoveSteps.of(original), 10));
+      PendingBitcoinPurchaseStore.put(PendingBitcoinPurchase(
+          moveId: move.id,
+          walletId: 'w1',
+          usd: 10,
+          createdAt: _t0,
+          stage: PendingPurchaseStage.needsApproval));
+      addTearDown(() => PendingBitcoinPurchaseStore.remove(move.id));
+      await openSheet(tester, move,
+          dollars: 10,
+          orders: [hlLanded().copyWith(status: 'exchanging'), pmRow()]);
+      expect(find.text('Retry'), findsOneWidget);
+      expect(find.text('Buy bitcoin'), findsNothing);
+      expect(find.text('Exchange ID'), findsNothing);
+    });
+
+    testWidgets(
+        'known unsent Dollars failure offers Retry while both venue orders run',
+        (tester) async {
+      final original = _move();
+      final graph = MoveSteps.withInitialDollars(MoveSteps.of(original), 10)
+          .update(
+              MoveSteps.initialDollarsId,
+              (s) => s.copyWith(
+                  status: MoneyStepStatus.failed, reason: 'not_sent'));
+      await openSheet(tester, original.copyWith(steps: graph),
+          orders: [hlLanded().copyWith(status: 'exchanging'), pmRow()]);
+      expect(find.text('Retry').hitTestable(), findsOneWidget);
+      expect(find.text('Nerd data'), findsOneWidget);
+      expect(find.text('Exchange ID'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+        'initial Retry reviews only its unsent Dollars; declining sends nothing',
+        (tester) async {
+      final original = _move(walletId: 'spending');
+      final graph = MoveSteps.withInitialDollars(MoveSteps.of(original), 10)
+          .update(
+              MoveSteps.initialDollarsId,
+              (s) => s.copyWith(
+                  status: MoneyStepStatus.failed, reason: 'not_sent'));
+      final prompts = <SensitiveIntent>[];
+      final gate = Completer<AuthGrant?>();
+      debugMultiSourceRetryApproval = (intent) {
+        prompts.add(intent);
+        return gate.future;
+      };
+      addTearDown(() => debugMultiSourceRetryApproval = null);
+      await openSheet(tester, original.copyWith(steps: graph),
+          orders: [hlLanded().copyWith(status: 'exchanging'), pmRow()]);
+      await tester.tap(find.text('Retry'));
+      await tester.pump();
+      expect(prompts, hasLength(1));
+      expect(prompts.single.action, SensitiveAction.moveTransfer);
+      expect(prompts.single.amountMax, IntentUnits.usd(10));
+      expect(find.byType(OutlinedButton), findsOneWidget);
+      expect(
+          tester.widget<OutlinedButton>(find.byType(OutlinedButton)).onPressed,
+          isNull,
+          reason: 'one approval at a time');
+      gate.complete(null);
+      await tester.pump();
+      await tester.pump();
+      expect(MultiSourceMoveStore.get(original.id)!.initialDollarsOperationId,
+          isNull);
+      expect(MultiSourceMoveStore.get(original.id)!.initialDollarsSentUsd, 0);
+      expect(find.text('Retry'), findsOneWidget);
+    });
+
+    testWidgets(
+        'unknown Dollars send never offers Retry or invents a third receipt',
+        (tester) async {
+      final original = _move();
+      final graph = MoveSteps.withInitialDollars(MoveSteps.of(original), 10)
+          .update(
+              MoveSteps.initialDollarsId,
+              (s) => s.copyWith(
+                  status: MoneyStepStatus.running, reason: 'outcome_unknown'));
+      await openSheet(tester, original.copyWith(steps: graph),
+          orders: [hlLanded().copyWith(status: 'exchanging'), pmRow()]);
+      expect(find.text('Retry'), findsNothing);
+      await openNerd(tester);
+      expect(find.text('Track this exchange'), findsNWidgets(2));
+      expect(find.byKey(const ValueKey('move-leg-ord_initial')), findsNothing);
+    });
+
+    testWidgets(
+        'parallel Dollars order is the third receipt without replacing venue orders',
+        (tester) async {
+      final original = threeLegs(failedError: 'not_sent');
+      final initial = _row('ord_initial',
+              from: 'USDB',
+              fromNet: 'SPARK',
+              to: 'BTC',
+              toNet: 'SPARK',
+              operationId: 'op-initial',
+              status: 'success')
+          .details
+          .copyWith(withdrawalAmount: '.0001', depositAmount: '10');
+      final move = original.copyWith(
+          initialDollarsOperationId: 'op-initial',
+          initialDollarsSentUsd: 10,
+          steps: MoveSteps.withInitialDollars(MoveSteps.of(original), 10));
+      await openSheet(tester, move, orders: [hlLanded(), pmRow(), initial]);
+      expect(find.text('Retry'), findsOneWidget);
+      expect(find.text('Track this exchange'), findsNothing);
+      await openNerd(tester);
+      expect(find.text('Track this exchange'), findsNWidgets(3));
+      for (final id in ['ord_initial', 'ord_hl', 'ord_pm']) {
+        expect(inLeg(id, find.text('Exchange ID')), findsOneWidget);
+      }
+      expect(
+          inLeg('ord_initial', find.text('Dollars → Bitcoin')), findsOneWidget);
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('Nerd data is grouped per leg, each with its own order',

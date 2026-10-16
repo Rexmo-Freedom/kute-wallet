@@ -4,7 +4,11 @@ import 'package:kute/screens/shared/move_steps_view.dart'
     show MoveStepsSection, SwapRowStepsSection;
 import 'package:kute/screens/shared/venue_cash_pull_copy.dart';
 import 'package:kute/screens/shared/pending_bitcoin_purchase_continue.dart'
-    show continuePendingBitcoinPurchase;
+    show continuePendingBitcoinPurchase, pendingPurchaseWaitingUsd;
+import 'package:kute/services/one_balance/buy_bitcoin_fanout.dart'
+    show initialDollarsRetryable, retryInitialDollarsPurchase;
+import 'package:kute/services/one_balance/dollars_to_bitcoin_purchase.dart'
+    show kDollarsToBtcRoute;
 import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceReadingProvider;
 import 'package:kute/services/one_balance/pending_bitcoin_purchase.dart'
@@ -16,7 +20,7 @@ import 'package:kute/services/one_balance/venue_cash_source.dart'
     show
         VenueCashDestination,
         VenueCashFor,
-        VenueCashPullOutcome,
+        VenueCashPlan,
         venueCashPullerProvider;
 import 'package:kute/screens/shared/activity_row_copy.dart';
 export 'package:kute/screens/shared/activity_row_copy.dart' show ActivityFlow;
@@ -5809,7 +5813,7 @@ Widget _buildMultiSourceMoveItem(
   if (finish != null && waitingUsd != null) {
     final buys = move.destination == VenueCashDestination.bitcoin;
     return _TransactionRow(
-      onTap: buys
+      onTap: buys && !move.isParallelPurchase
           ? () => _continueMovePurchase(context, ref, move, finish)
           : open,
       leading: _multiSourceMoveIcon(move),
@@ -5891,50 +5895,110 @@ class _MultiSourceMoveDetailSheet extends ConsumerStatefulWidget {
 
 class _MultiSourceMoveDetailSheetState
     extends ConsumerState<_MultiSourceMoveDetailSheet> {
+  bool _retryingDollars = false;
+  bool _retryingSources = false;
+
+  Future<void> _retryDollars(MultiSourceMove move) async {
+    if (_retryingDollars || !initialDollarsRetryable(move)) return;
+    setState(() => _retryingDollars = true);
+    AuthGrant? grant;
+    try {
+      final walletId = pickSpendingWallet(ref.read(settingsProvider))?.id;
+      if (walletId == null || walletId != move.walletId) return;
+      final ownSpark = await ref.read(sparkSelfAddressProvider.future);
+      if (!mounted || ownSpark.isEmpty) return;
+      final usd = move.steps.byId(MoveSteps.initialDollarsId)!.usd;
+      final intent = DirectLegGrants.buyBitcoin(
+        walletId: walletId,
+        ownSpark: ownSpark,
+        route: kDollarsToBtcRoute.label,
+        asset: kOrchestraUsdAssetCode,
+        totalUsd: usd,
+        directLegs: null,
+        ttl: AuthGrants.autofireTtl,
+      );
+      final seam = debugMultiSourceRetryApproval;
+      grant = seam != null
+          ? await seam(intent)
+          : await requireFreshAuthGrant(
+              context,
+              ref,
+              intent: intent,
+              reason:
+                  context.l10n.stepUpReasonSend('\$${usd.toStringAsFixed(2)}'),
+              amountUsd: usd,
+            );
+      if (grant == null || !mounted) return;
+      trackMultiSourceMoveRetry(usd);
+      await retryInitialDollarsPurchase(ref.read,
+          moveId: move.id, grant: grant);
+    } catch (_) {
+      if (mounted) {
+        showMessageSnackBar(context: context,
+            message: context.l10n.errorCopyGeneric, error: true);
+      }
+    } finally {
+      grant?.revoke();
+      if (mounted) setState(() => _retryingDollars = false);
+    }
+  }
+
   Future<void> _retry(MultiSourceMove move) async {
-    // One Retry at a time: a second tap neither asks nor pulls.
-    if (MultiSourceMoveStore.retrying(move.id)) return;
-    trackMultiSourceMoveRetry(move.remainingUsd);
-    final puller = ref.read(venueCashPullerProvider);
-    // A remainder going anywhere but Dollars moves only under its own one
-    // approval, asked before any leg (declined: nothing moves).
+    if (_retryingSources || MultiSourceMoveStore.retrying(move.id)) return;
+    setState(() => _retryingSources = true);
     AuthGrant? approval;
-    if (move.destination != VenueCashDestination.dollars) {
-      approval = await _approveRetry(move);
-      if (approval == null || !mounted) {
-        approval?.revoke();
+    try {
+      final puller = ref.read(venueCashPullerProvider);
+      // Review and execute the same failed-source plan. An unresolved send
+      // from the original run is never part of this Retry.
+      final plan = await puller.planRetry(move.id);
+      if (!mounted || plan == null || !plan.covers || plan.pulls.isEmpty) {
         return;
       }
-    }
-    VenueCashPullOutcome? outcome;
-    try {
-      outcome = await puller.retryMove(move.id, approval: approval);
+      if (move.destination != VenueCashDestination.dollars) {
+        approval = await _approveRetry(move, plan);
+        if (approval == null || !mounted) return;
+      }
+      if (move.isParallelPurchase &&
+          pickSpendingWallet(ref.read(settingsProvider))?.id != move.walletId) {
+        return;
+      }
+      trackMultiSourceMoveRetry(move.remainingUsd);
+      final outcome =
+          await puller.retryMove(move.id, approval: approval, plan: plan);
+      if (!mounted) return;
+      if (outcome == null ||
+          outcome.failedLegs.isNotEmpty ||
+          !outcome.plan.covers) {
+        showMessageSnackBar(
+            context: context,
+            message: (outcome == null
+                    ? null
+                    : venueCashStoppedText(context.l10n, outcome)) ??
+                context.l10n.errorCopyGeneric,
+            error: outcome == null || !outcome.anyPulled);
+      }
     } catch (_) {
-      outcome = null;
+      if (mounted) {
+        showMessageSnackBar(context: context,
+            message: context.l10n.errorCopyGeneric, error: true);
+      }
     } finally {
       approval?.revoke();
-    }
-    if (!mounted) return;
-    if (outcome == null || outcome.failedLegs.isNotEmpty || !outcome.plan.covers) {
-      showMessageSnackBar(
-          context: context,
-          message: (outcome == null
-                  ? null
-                  : venueCashStoppedText(context.l10n, outcome)) ??
-              context.l10n.errorCopyGeneric,
-          error: outcome == null || !outcome.anyPulled);
+      if (mounted) setState(() => _retryingSources = false);
     }
   }
 
   /// The one approval a Retry of [move]'s remainder to a destination
   /// other than Dollars asks first: the legs it would run, a cap per venue
   /// and the total. Null when declined or when nothing would move.
-  Future<AuthGrant?> _approveRetry(MultiSourceMove move) async {
+  Future<AuthGrant?> _approveRetry(
+      MultiSourceMove move, VenueCashPlan plan) async {
     final puller = ref.read(venueCashPullerProvider);
     final walletId = pickSpendingWallet(ref.read(settingsProvider))?.id;
-    if (walletId == null || walletId.isEmpty) return null;
-    final plan = await puller.planRetry(move.id);
-    if (plan == null || !plan.covers || plan.pulls.isEmpty || !mounted) {
+    if (walletId == null ||
+        walletId.isEmpty ||
+        (move.isParallelPurchase && walletId != move.walletId)) {
       return null;
     }
     final legs = puller.directLegLimit(plan, move.destination) ??
@@ -6018,6 +6082,7 @@ class _MultiSourceMoveDetailSheetState
     final dollarsName = l10n.portfolioBalanceDollars;
     final destination = venueCashDestinationName(l10n, move.destination);
     final finalRow = multiSourceMoveFinalRow(move, rows);
+    final initialRow = multiSourceMoveInitialDollarsRow(move, rows);
     final sendTo = move.forAction == VenueCashFor.send && finalRow != null
         ? _swapSheetLegLabel(
             context, finalRow.details.coinTo, finalRow.details.networkTo)
@@ -6034,13 +6099,20 @@ class _MultiSourceMoveDetailSheetState
     final buyAction = finish != null &&
         waitingUsd != null &&
         move.destination == VenueCashDestination.bitcoin;
-    final primary = buyAction || move.partial;
+    final retryDollars = initialDollarsRetryable(move);
+    final retryPurchase = move.isParallelPurchase &&
+        pendingPurchaseWaitingUsd(ref.read(bitcoinPurchaseFinisherProvider),
+                move.id, ref.watch(usdBalanceReadingProvider) ?? 0) !=
+            null;
+    final retryable = retryDollars || move.partial || retryPurchase;
+    final primary = buyAction || retryable;
     final trackBelow = !primary && orders.length == 1;
     // One leg, one order, nothing else: it reads exactly as that order's
     // own swap detail does.
     final single = move.legs.length == 1 &&
         legRows.length == 1 &&
         finalRow == null &&
+        initialRow == null &&
         move.dollarsUsd < 0.01 &&
         !primary &&
         finish == null;
@@ -6081,8 +6153,8 @@ class _MultiSourceMoveDetailSheetState
               if (!single) ...[
                 if (totals.anyReceived)
                   _sheetDetailRow(c, l10n.received,
-                      both(totals.receivedUsd, totals.receivedBtc))
-                else if (totals.anyArriving)
+                      both(totals.receivedUsd, totals.receivedBtc)),
+                if (totals.anyArriving)
                   _sheetDetailRow(c, l10n.activityArriving,
                       both(totals.arrivingUsd, totals.arrivingBtc)),
                 if (totals.feesUsd >= 0.01)
@@ -6103,11 +6175,20 @@ class _MultiSourceMoveDetailSheetState
                 _NerdDataSection(
                     children: _swapOrderNerdRows(
                         context, c, legRows.single.$2.details,
-                        formatAmount: (raw, coin) =>
-                            _legCoinAmount(ref, legRows.single.$2.details, raw,
-                                coin)))
-              else if (legRows.isNotEmpty || finalRow != null)
+                        formatAmount: (raw, coin) => _legCoinAmount(
+                            ref, legRows.single.$2.details, raw, coin)))
+              else if (legRows.isNotEmpty ||
+                  finalRow != null ||
+                  initialRow != null)
                 _NerdDataSection(children: [
+                  if (initialRow != null &&
+                      initialRow.details.id != finalRow?.details.id)
+                    _MultiSourceLegNerd(
+                      title: '$dollarsName → $destination',
+                      sentUsd: move.initialDollarsSentUsd,
+                      row: initialRow,
+                      track: !trackBelow,
+                    ),
                   for (final (leg, row) in legRows)
                     _MultiSourceLegNerd(
                       title:
@@ -6118,15 +6199,15 @@ class _MultiSourceMoveDetailSheetState
                     ),
                   if (finalRow != null)
                     _MultiSourceLegNerd(
-                      title:
-                          '$dollarsName → ${sendTo ?? destination}',
+                      title: '$dollarsName → ${sendTo ?? destination}',
                       sentUsd: null,
                       row: finalRow,
                       track: !trackBelow,
                     ),
                 ]),
               // An order that can be refunded says so, whatever the layout.
-              for (final order in orders) OrchestraSwapRefundAction(order: order),
+              for (final order in orders)
+                OrchestraSwapRefundAction(order: order),
               if (finish != null && waitingUsd != null) ...[
                 SizedBox(height: 12.h),
                 // Where the money is, and for a purchase the one tap that
@@ -6134,10 +6215,10 @@ class _MultiSourceMoveDetailSheetState
                 Text(
                   _multiSourceMoveFinishText(l10n, move, waitingUsd),
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                      fontSize: 14.sp, color: AppColors.marketDown),
+                  style:
+                      TextStyle(fontSize: 14.sp, color: AppColors.marketDown),
                 ),
-                if (buyAction) ...[
+                if (buyAction && !retryPurchase) ...[
                   SizedBox(height: 12.h),
                   SizedBox(
                     width: double.infinity,
@@ -6160,29 +6241,42 @@ class _MultiSourceMoveDetailSheetState
                   ),
                 ],
               ],
-              if (move.partial) ...[
+              if (retryable) ...[
                 SizedBox(height: 12.h),
                 // What was delivered and what is left: the row reads as
                 // the action's own, so the detail says it.
-                Text(
-                  multiSourceMoveProgress(l10n, move) ?? '',
-                  textAlign: TextAlign.center,
-                  style:
-                      TextStyle(fontSize: 14.sp, color: AppColors.marketDown),
-                ),
+                if (move.partial)
+                  Text(
+                    multiSourceMoveProgress(l10n, move) ?? '',
+                    textAlign: TextAlign.center,
+                    style:
+                        TextStyle(fontSize: 14.sp, color: AppColors.marketDown),
+                  ),
                 SizedBox(height: 12.h),
                 SizedBox(
                   width: double.infinity,
                   height: 48.h,
                   child: OutlinedButton(
-                    onPressed: retrying ? null : () => _retry(move),
+                    onPressed: retrying || _retryingDollars || _retryingSources
+                        ? null
+                        : () {
+                            if (retryDollars) {
+                              unawaited(_retryDollars(move));
+                            } else if (move.partial) {
+                              unawaited(_retry(move));
+                            } else {
+                              unawaited(continuePendingBitcoinPurchase(
+                                  context, ref, move.id,
+                                  moveWalletId: move.walletId));
+                            }
+                          },
                     style: OutlinedButton.styleFrom(
                       foregroundColor: c.textPrimary,
                       side: BorderSide(color: c.border),
                       shape: RoundedRectangleBorder(
                           borderRadius: AppRadius.buttonBorder),
                     ),
-                    child: retrying
+                    child: retrying || _retryingDollars || _retryingSources
                         ? SizedBox(
                             width: 18.sp,
                             height: 18.sp,
@@ -6196,7 +6290,8 @@ class _MultiSourceMoveDetailSheetState
                   ),
                 ),
               ],
-              if (trackBelow) ..._orchestraTrackExchange(context, c, orders.single),
+              if (trackBelow)
+                ..._orchestraTrackExchange(context, c, orders.single),
               SizedBox(height: 10.h),
             ],
           ),
