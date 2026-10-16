@@ -18463,7 +18463,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{source} → {destination} · {amount}'**
   String moneyStepCompact(String source, String destination, String amount);
-
 }
 
 class _AppLocalizationsDelegate
