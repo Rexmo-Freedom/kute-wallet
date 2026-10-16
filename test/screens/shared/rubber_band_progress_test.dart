@@ -3,13 +3,16 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kute/helpers/privacy_cover_bridge.dart';
 import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/services/continuous_haptics.dart';
 import 'package:kute/services/haptic_patterns.dart';
+import 'package:kute/services/kute_haptics.dart';
 
 Widget _host(double progress,
     {RubberBandOutcome outcome = RubberBandOutcome.none,
     bool reduceMotion = false,
+    bool haptic = true,
     VoidCallback? onReleased}) {
   return MediaQuery(
     data: MediaQueryData(disableAnimations: reduceMotion),
@@ -18,6 +21,7 @@ Widget _host(double progress,
       child: Center(
         child: RubberBandProgress(
           progress: progress,
+          haptic: haptic,
           outcome: outcome,
           onReleased: onReleased,
           child: const SizedBox(width: 200, height: 100, child: Text('Busy')),
@@ -84,10 +88,14 @@ void main() {
   // Every haptic the band asks for, through the bridge's test seam.
   late List<ContinuousHapticsCall> log;
   setUp(() {
+    PrivacyCoverBridge.debugReset();
     ContinuousHaptics.debugReset();
     log = ContinuousHaptics.debugLog = [];
   });
-  tearDown(() => ContinuousHaptics.debugLog = null);
+  tearDown(() {
+    PrivacyCoverBridge.debugReset();
+    ContinuousHaptics.debugLog = null;
+  });
   int snaps() => log.where((c) => c.method == 'snap').length;
 
   test('the tension is monotonic, and full tension is 12–14% of the block', () {
@@ -234,6 +242,104 @@ void main() {
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pump();
     expect(_state(tester).ticking, isTrue);
+  });
+
+  testWidgets('Face ID inactive keeps progress feedback through completion',
+      (tester) async {
+    final scan = Completer<bool>();
+    final prompt = runBiometricPrompt(() => scan.future);
+    await tester.pumpWidget(_host(0.5));
+    await tester.pump(const Duration(milliseconds: 100));
+    final starts = log.where((c) => c.method == 'start').length;
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(_state(tester).feeling, isTrue);
+    expect(KuteHaptics.isForeground, isTrue);
+    expect(ContinuousHaptics.isRunning(_state(tester)), isTrue);
+    expect(log.where((c) => c.method == 'stop'), isEmpty);
+    expect(log.where((c) => c.method == 'start').length, starts);
+
+    await tester.pumpWidget(_host(0.5, outcome: RubberBandOutcome.success));
+    await tester.pump(const Duration(seconds: 1));
+    expect(_state(tester).feeling, isFalse);
+    expect(ContinuousHaptics.isRunning(), isFalse);
+    expect(snaps(), 1);
+
+    scan.complete(true);
+    await prompt;
+    await tester.pump(const Duration(milliseconds: 800));
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    expect(_state(tester).feeling, isFalse);
+    expect(snaps(), 1);
+  });
+
+  testWidgets('cancelled prompt stops inactive feedback after lifecycle settle',
+      (tester) async {
+    final scan = Completer<bool>();
+    final prompt = runBiometricPrompt(() => scan.future);
+    await tester.pumpWidget(_host(0.5));
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    expect(_state(tester).feeling, isTrue);
+    scan.complete(false);
+    await prompt;
+    await tester.pump(const Duration(milliseconds: 800));
+    expect(_state(tester).feeling, isFalse);
+    expect(ContinuousHaptics.isRunning(), isFalse);
+    expect(KuteHaptics.isForeground, isFalse);
+    expect(log.last.method, 'stop');
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    expect(_state(tester).feeling, isTrue);
+  });
+
+  testWidgets('ordinary inactive and real background still stop feedback',
+      (tester) async {
+    await tester.pumpWidget(_host(0.5));
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    expect(_state(tester).feeling, isFalse);
+    expect(KuteHaptics.isForeground, isFalse);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+
+    final scan = Completer<bool>();
+    final prompt = runBiometricPrompt(() => scan.future);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    expect(_state(tester).feeling, isTrue);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    expect(_state(tester).feeling, isFalse);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    expect(ContinuousHaptics.isRunning(), isFalse);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.detached);
+    expect(_state(tester).feeling, isFalse);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    expect(_state(tester).feeling, isFalse,
+        reason: 'backgrounded authentication must really resume first');
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    expect(_state(tester).feeling, isTrue);
+    await tester.pumpWidget(const SizedBox.shrink());
+    expect(ContinuousHaptics.isRunning(), isFalse);
+    scan.complete(false);
+    await prompt;
+    await tester.pump(const Duration(milliseconds: 800));
+  });
+
+  testWidgets('Face ID does not enable disabled or reduced-motion haptics',
+      (tester) async {
+    final scan = Completer<bool>();
+    final prompt = runBiometricPrompt(() => scan.future);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pumpWidget(_host(0.5, haptic: false));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(_state(tester).feeling, isFalse);
+    expect(log, isEmpty);
+    await tester.pumpWidget(_host(0.5, reduceMotion: true));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(_state(tester).feeling, isFalse);
+    expect(log, isEmpty);
+    scan.complete(true);
+    await prompt;
+    await tester.pump(const Duration(milliseconds: 800));
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
   });
 
   testWidgets('the text is translated, never scaled', (tester) async {
@@ -457,15 +563,16 @@ void main() {
 
       await tester.pumpWidget(_busyHost(true));
       expect(log.first.method, 'start');
-      expect(log.first.intensity,
-          closeTo(RubberBandHaptics.startIntensity, 0.02));
+      expect(
+          log.first.intensity, closeTo(RubberBandHaptics.startIntensity, 0.02));
       expect(log[1].method, 'tick', reason: 'the tap clicks at once');
       expect(_state(tester).feeling, isTrue);
 
       await frames(tester, const Duration(seconds: 3));
       final up = updates();
       expect(up.length, greaterThan(60), reason: 'live, about 30 a second');
-      expect(up.length, lessThanOrEqualTo(3 * 31), reason: 'never above ~30 Hz');
+      expect(up.length, lessThanOrEqualTo(3 * 31),
+          reason: 'never above ~30 Hz');
       for (var i = 1; i < up.length; i++) {
         expect(up[i], greaterThanOrEqualTo(up[i - 1]), reason: 'never softer');
       }

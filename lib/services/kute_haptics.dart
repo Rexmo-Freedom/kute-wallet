@@ -37,11 +37,11 @@ import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 import 'package:flutter/services.dart';
-import 'package:flutter/widgets.dart';
 import 'package:vibration/vibration.dart';
 
 import 'package:kute/services/continuous_haptics.dart';
 import 'package:kute/services/haptic_patterns.dart';
+import 'package:kute/services/haptic_lifecycle.dart';
 
 enum KuteHaptic {
   /// Money landed in Bitcoin or in Dollars: a soft rising swell, one
@@ -177,13 +177,12 @@ abstract final class KuteHaptics {
 
   static DateTime _now() => (debugNow ?? DateTime.now)();
 
-  /// True while the app is on screen. An unknown state (before the first
-  /// lifecycle message) counts as on screen, as it does elsewhere.
+  /// True while the app is on screen, including a biometric prompt Kute
+  /// opened. An unknown lifecycle state counts as on screen too.
   static bool get isForeground {
     final seam = debugForeground;
     if (seam != null) return seam();
-    final state = WidgetsBinding.instance.lifecycleState;
-    return state == null || state == AppLifecycleState.resumed;
+    return HapticLifecycle.isForeground;
   }
 
   /// Asked by `moneySuccessFeedback` before it plays. False when money
@@ -277,8 +276,12 @@ abstract final class KuteHaptics {
       } catch (_) {}
       if (custom) {
         await Vibration.vibrate(
-          pattern: [for (final b in beats) ...[b.waitMs, b.ms]],
-          intensities: [for (final b in beats) ...[0, b.amplitude]],
+          pattern: [
+            for (final b in beats) ...[b.waitMs, b.ms]
+          ],
+          intensities: [
+            for (final b in beats) ...[0, b.amplitude]
+          ],
         );
         return;
       }

@@ -32,8 +32,9 @@
 //   * one rumble at a time: each owner (a band) starts and stops its
 //     own, and the phone plays the strongest owner's level and only its
 //     ratchet; another owner's stop does not touch it;
-//   * the rumble stops the moment the app leaves the foreground (here, and
-//     natively). Callers stop it on dispose, when a route covers them and
+//   * the rumble stays through Kute's biometric prompt, but stops when the
+//     app leaves the foreground (here, and natively). Callers stop it on
+//     dispose, when a route covers them and
 //     under Reduce Motion. The system haptics setting applies on its own.
 //
 // This is feedback, not an action: no analytics event fires here.
@@ -41,6 +42,7 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:kute/services/haptic_patterns.dart';
+import 'package:kute/services/haptic_lifecycle.dart';
 
 /// One call into the bridge, as a test sees it. A pattern's [method] is
 /// what asked for it: `snap` and `softTap` (the band's releases) or
@@ -91,7 +93,7 @@ abstract final class ContinuousHaptics {
   /// sent again.
   static bool _unavailable = false;
 
-  static WidgetsBindingObserver? _lifecycle;
+  static bool _watchingLifecycle = false;
   static final Stopwatch _clock = Stopwatch();
 
   /// Whether a rumble is playing (for [owner], when given).
@@ -281,14 +283,17 @@ abstract final class ContinuousHaptics {
   }
 
   static void _watchLifecycle() {
-    if (_lifecycle != null) return;
+    if (_watchingLifecycle) return;
     try {
-      final observer = _LifecycleStop();
-      WidgetsBinding.instance.addObserver(observer);
-      _lifecycle = observer;
+      HapticLifecycle.foreground.addListener(_onForegroundChanged);
+      _watchingLifecycle = true;
     } catch (_) {
       // No binding (a pure Dart test): the callers' own stops apply.
     }
+  }
+
+  static void _onForegroundChanged() {
+    if (!HapticLifecycle.isForeground) stop();
   }
 
   static void _send(String method, [double? intensity, double? sharpness]) {
@@ -318,13 +323,5 @@ abstract final class ContinuousHaptics {
     try {
       fallback().catchError((Object _) {});
     } catch (_) {}
-  }
-}
-
-/// Stops any rumble the moment the app leaves the foreground.
-class _LifecycleStop with WidgetsBindingObserver {
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed) ContinuousHaptics.stop();
   }
 }

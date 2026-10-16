@@ -43,6 +43,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 import 'package:flutter/scheduler.dart' show Ticker;
 import 'package:kute/services/continuous_haptics.dart';
+import 'package:kute/services/haptic_lifecycle.dart';
 import 'package:kute/services/kute_haptics.dart';
 
 /// How a [RubberBandProgress]'s action ended.
@@ -200,8 +201,7 @@ class RubberBand {
   static bool animates(BuildContext context) {
     if (MediaQuery.maybeDisableAnimationsOf(context) ?? false) return false;
     if (!TickerMode.valuesOf(context).enabled) return false;
-    final lifecycle = WidgetsBinding.instance.lifecycleState;
-    return lifecycle == null || lifecycle == AppLifecycleState.resumed;
+    return HapticLifecycle.isForeground;
   }
 }
 
@@ -283,7 +283,7 @@ class RubberBandProgress extends StatefulWidget {
 /// Public so tests can read the band's offset ([stretch]) and whether it
 /// is ticking ([ticking]).
 class RubberBandProgressState extends State<RubberBandProgress>
-    with TickerProviderStateMixin, WidgetsBindingObserver {
+    with TickerProviderStateMixin {
   /// The tension, as a share of the block's height (unbounded: the snap
   /// overshoots below 0).
   late final AnimationController _level =
@@ -363,9 +363,8 @@ class RubberBandProgressState extends State<RubberBandProgress>
   @override
   void initState() {
     super.initState();
-    final lifecycle = WidgetsBinding.instance.lifecycleState;
-    _foreground = lifecycle == null || lifecycle == AppLifecycleState.resumed;
-    WidgetsBinding.instance.addObserver(this);
+    _foreground = HapticLifecycle.isForeground;
+    HapticLifecycle.foreground.addListener(_onForegroundChanged);
     _level.addStatusListener(_onLevelStatus);
     // Built already ended (a slip reopened on a finished order): at rest,
     // nothing to let go of.
@@ -404,9 +403,8 @@ class RubberBandProgressState extends State<RubberBandProgress>
     }
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    _foreground = state == AppLifecycleState.resumed;
+  void _onForegroundChanged() {
+    _foreground = HapticLifecycle.isForeground;
     _sync(fromOutcome: false);
   }
 
@@ -479,8 +477,7 @@ class RubberBandProgressState extends State<RubberBandProgress>
     }
     if (_heartbeat) {
       final beat = _beatAt;
-      if (beat == null ||
-          elapsed - beat >= RubberBandHaptics.heartbeatPeriod) {
+      if (beat == null || elapsed - beat >= RubberBandHaptics.heartbeatPeriod) {
         _beatAt = elapsed;
         ContinuousHaptics.pulse(RubberBandHaptics.intensityFor(share),
             at: elapsed);
@@ -597,7 +594,7 @@ class RubberBandProgressState extends State<RubberBandProgress>
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
+    HapticLifecycle.foreground.removeListener(_onForegroundChanged);
     _stopFeel();
     _feel.dispose();
     _level.dispose();
