@@ -35,6 +35,7 @@ import 'package:kute/screens/polymarket/components/slip_chrome.dart';
 import 'package:kute/services/polymarket/polymarket_fee_terms.dart'
     show polymarketFeeTermsProvider;
 import 'package:kute/screens/shared/sticky_action_bar.dart';
+import 'package:kute/screens/shared/slip_form_body.dart';
 import 'package:kute/screens/shared/decimal_input_formatter.dart';
 import 'package:kute/screens/shared/side_tint_palette.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
@@ -1731,23 +1732,19 @@ class _SellSheetState extends ConsumerState<SellSheet> {
                       marketImage: pos.marketImage,
                     ),
                     Flexible(
-                      child: SingleChildScrollView(
-                        physics: const ClampingScrollPhysics(),
-                        primary: false,
-                        child: IgnorePointer(
+                      child: SlipFormBody(
+                        expandForMessage: _sellFailed,
+                        form: IgnorePointer(
                             ignoring: activelySelling, child: form),
-                      ),
-                    ),
-                    // The sheet's only amount input, pinned under the
-                    // scrolling form so the figure above it never hides
-                    // behind a keyboard.
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8.w),
-                      child: AmountKeypad(
-                        value: _amountController.text,
-                        maxDecimals: 2,
-                        enabled: !_isSelling,
-                        onChanged: (v) => _amountController.text = v,
+                        input: Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 8.w),
+                          child: AmountKeypad(
+                            value: _amountController.text,
+                            maxDecimals: 2,
+                            enabled: !_isSelling,
+                            onChanged: (v) => _amountController.text = v,
+                          ),
+                        ),
                       ),
                     ),
                     // The greater of a comfortable gap and the system

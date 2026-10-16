@@ -104,6 +104,7 @@ import 'package:kute/screens/ledger/hyperliquid/ledger_transfer_sheet.dart';
 import 'package:kute/screens/ledger/ledger_action_ui.dart'
     show showLedgerConfirmation;
 import 'package:kute/screens/shared/amount_keypad_panel.dart';
+import 'package:kute/screens/shared/slip_form_body.dart';
 import 'package:kute/screens/shared/decimal_input_formatter.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/sticky_action_bar.dart';
@@ -5051,23 +5052,20 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
             children: [
               _buildHeader(c),
               Flexible(
-                  child: SingleChildScrollView(
-                physics: const ClampingScrollPhysics(),
-                primary: false,
-                child: IgnorePointer(ignoring: ledgerLocked, child: form),
-              )),
-              // The keypad and the one action are pinned: the form above
-              // scrolls, these two never move out of thumb reach. The
-              // tinted Theme wrapper below hands the keypad the sheet's
-              // palette, so it reads as part of the green / red fill.
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20.w),
-                child: IgnorePointer(
-                  ignoring: ledgerLocked,
-                  child: AmountKeypad(
-                    value: _amountController.text,
-                    maxDecimals: 2,
-                    onChanged: _onKeypadAmount,
+                child: SlipFormBody(
+                  expandForMessage:
+                      _errorText != null || (funded?.failed ?? false),
+                  form: IgnorePointer(ignoring: ledgerLocked, child: form),
+                  input: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 20.w),
+                    child: IgnorePointer(
+                      ignoring: ledgerLocked,
+                      child: AmountKeypad(
+                        value: _amountController.text,
+                        maxDecimals: 2,
+                        onChanged: _onKeypadAmount,
+                      ),
+                    ),
                   ),
                 ),
               ),
