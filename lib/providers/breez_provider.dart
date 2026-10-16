@@ -157,8 +157,11 @@ void reflectAcceptedSparkSend(
 Future<void> _catchUpSparkBalance(WalletBalanceCacheNotifier cache,
     BreezSdk sdk, String walletId, String paymentId) async {
   try {
+    if (isSparkSdkRetired(sdk)) return;
     await sharedSyncWallet(sdk).timeout(const Duration(seconds: 20));
+    if (isSparkSdkRetired(sdk)) return;
     final info = await sdk.getInfo(request: const GetInfoRequest());
+    if (isSparkSdkRetired(sdk)) return;
     cache.settleOutgoingSparkSend(
         walletId, paymentId, info.balanceSats.toInt());
   } catch (_) {

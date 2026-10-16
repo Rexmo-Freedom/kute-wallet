@@ -5,6 +5,9 @@ import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart';
 // cannot start in the gap between a recovery's safety check and disconnect.
 final _operations = Expando<_SdkOperations>('sparkOperations');
 
+/// A cached asynchronous read from this handle must no longer publish.
+bool isSparkSdkRetired(BreezSdk sdk) => _operations[sdk]?.retired ?? false;
+
 class _SdkOperations {
   int active = 0;
   bool recovering = false;

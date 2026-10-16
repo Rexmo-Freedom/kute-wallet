@@ -522,6 +522,9 @@ final usdSdkBalanceProvider = StreamProvider<double?>((ref) async* {
       final sdk = wrapper.instance;
       if (sdk == null) throw StateError('The spending wallet is reconnecting.');
       final info = await sdk.getInfo(request: const GetInfoRequest());
+      if (!live || !identical(wrapper.instance, sdk)) {
+        throw StateError('The spending wallet connection changed.');
+      }
       _debugLogUsdReading(source, info);
       return info;
     },

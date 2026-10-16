@@ -148,6 +148,33 @@ Future<double> _balance(ProviderContainer container) async {
 }
 
 void main() {
+  test('an old SDK read cannot overwrite a replacement stream reading', () async {
+    final first = _Sdk(), second = _Sdk();
+    final wrapper = _Wrapper();
+    breez.BreezSdk current = first;
+    final delayed = Completer<breez.GetInfoResponse>();
+    final readings = StreamController<breez.GetInfoResponse>.broadcast();
+    when(() => wrapper.instance).thenAnswer((_) => current);
+    when(() => wrapper.walletInfoStream).thenAnswer((_) => readings.stream);
+    when(() => first.getInfo(request: const breez.GetInfoRequest()))
+        .thenAnswer((_) => delayed.future);
+    final container = ProviderContainer(overrides: [
+      breezSDKProvider.overrideWith((_) async => wrapper),
+      usdSettledTransfersProvider.overrideWithValue([]),
+    ]);
+    container.listen(usdSdkBalanceProvider, (_, __) {});
+    await pumpEventQueue();
+    current = second;
+    readings.add(_info({usdbTokenIdentifier: ('USDB', 15000000)}));
+    await pumpEventQueue();
+    expect(container.read(usdSdkBalanceProvider).valueOrNull, 15);
+    delayed.complete(_info({usdbTokenIdentifier: ('USDB', 0)}));
+    await pumpEventQueue();
+    expect(container.read(usdSdkBalanceProvider).valueOrNull, 15);
+    container.dispose();
+    await readings.close();
+  });
+
   group('usdDollarsFromNodeInfo', () {
     test('a dollar entry reads as dollars at its decimals', () {
       expect(
