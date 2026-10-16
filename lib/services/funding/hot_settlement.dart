@@ -14,6 +14,7 @@ import 'package:kute/helpers/user_error_copy.dart' show readsAsUserCopy;
 import 'package:kute/l10n/generated/app_localizations.dart';
 import 'package:kute/models/breez/error_handling.dart';
 import 'package:kute/models/breez/sdk_instance.dart';
+import 'package:kute/models/breez/sdk_operation_guard.dart';
 import 'package:kute/models/orchestra_routes_model.dart';
 import 'package:kute/services/polymarket/hot_withdrawal_guard.dart'
     show EarlierPolymarketWithdrawalPending, PendingPolymarketWithdrawal;
@@ -261,8 +262,9 @@ class HotSettlement {
       } catch (_) {
         cache = null;
       }
-      final response = await prepared.sdk.sendPayment(
-          request: SendPaymentRequest(prepareResponse: prepared.response));
+      final response = await runSparkMutation(prepared.sdk,
+          () => prepared.sdk.sendPayment(
+              request: SendPaymentRequest(prepareResponse: prepared.response)));
       // A bitcoin send shows in the balance at once (a dollar send holds
       // nothing: `sparkSendDebit` is null for a token transfer).
       if (cache != null) {

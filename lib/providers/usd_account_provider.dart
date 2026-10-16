@@ -50,6 +50,7 @@ import 'package:kute/models/transactions_model.dart';
 import 'package:kute/providers/breez_config_provider.dart';
 import 'package:kute/models/breez/shared_sync.dart';
 import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/providers/spark_contacts_provider.dart';
 import 'package:kute/providers/transactions_provider.dart'
     show walletTransactionCacheProvider;
 import 'package:kute/providers/usdb_provider.dart' show isUsdbTokenPayment;
@@ -200,12 +201,16 @@ const List<Duration> kUsdCatchUpRetryDelays = [
 ///    (the WalletState write lands well before the sync answers), then
 ///    once more when the sync answers or [syncTimeout] passes;
 ///  * an entry still missing after that is tried again on the bounded
-///    [retryDelays], and on every new trigger ([check]).
+///    [retryDelays], and on every new trigger ([check]). A settled payment
+///    also keeps retrying an unchanged numeric entry (including zero).
+///    Only a current-session ledger delta with an unmet expected reading,
+///    or a missing token entry, may request one guarded SDK reconnect.
 class UsdLedgerCatchUp {
   UsdLedgerCatchUp({
     required this.readInfo,
     required this.syncWallet,
     required this.publish,
+    this.recoverTokenStore,
     this.debounce = const Duration(milliseconds: 800),
     this.syncTimeout = const Duration(seconds: 20),
     this.pollInterval = const Duration(seconds: 1),
@@ -216,6 +221,11 @@ class UsdLedgerCatchUp {
   /// the debug log.
   final Future<GetInfoResponse> Function(String source) readInfo;
   final Future<void> Function() syncWallet;
+
+  /// Guarded reconnect of this wallet's SDK, only if a normal sync left
+  /// its token store unchanged. False means busy; a bounded retry tries
+  /// again. At most one successful recovery per ledger change/check.
+  final Future<bool> Function()? recoverTokenStore;
 
   /// Publishes a reading; [source] names the path that produced it.
   final void Function(double? reading, String source) publish;
@@ -228,6 +238,13 @@ class UsdLedgerCatchUp {
   bool _holdsDollars = false;
   double? _lastReading;
   bool _hasReading = false;
+  bool _pendingLedgerChange = false;
+  double? _ledgerStaleReading;
+  double? _ledgerDollars;
+  double? _readingAtLedger;
+  double? _expectedLedgerReading;
+  bool _recoveryEligible = false;
+  bool _recovered = false;
   Timer? _timer;
   Timer? _retry;
   int _retries = 0;
@@ -240,6 +257,17 @@ class UsdLedgerCatchUp {
   /// The SDK has answered without a dollar entry while the settled ledger
   /// holds dollars: the cached row is behind.
   bool get _missing => _hasReading && _lastReading == null && _holdsDollars;
+  bool get _behind => _missing || _pendingLedgerChange;
+  bool get _provenBehind =>
+      _missing ||
+      (_pendingLedgerChange &&
+          _expectedLedgerReading != null &&
+          _recoveryEligible);
+
+  bool _matchesExpected(double? reading) =>
+      reading != null &&
+      _expectedLedgerReading != null &&
+      (reading - _expectedLedgerReading!).abs() < 0.0000005;
 
   /// Whether a retry is scheduled.
   @visibleForTesting
@@ -251,20 +279,55 @@ class UsdLedgerCatchUp {
   /// after a Synced event, say) schedules a retry; one with an entry ends
   /// them.
   void recordReading(double? reading) {
+    if (_pendingLedgerChange &&
+        reading != null &&
+        (_expectedLedgerReading != null
+            ? _matchesExpected(reading)
+            : reading != _ledgerStaleReading)) {
+      _pendingLedgerChange = false;
+    }
+    // Freeze the baseline until the ledger changes: a fresh SDK reading
+    // may arrive BEFORE its matching payment-list notification.
+    if (!_pendingLedgerChange && _readingAtLedger == null) {
+      _readingAtLedger = reading;
+    }
     _lastReading = reading;
     _hasReading = true;
-    if (!_running) _scheduleRetryIfMissing();
+    if (!_running) _scheduleRetryIfBehind();
   }
 
   /// The settled dollar ledger's identity, and whether it holds dollars
   /// (its settled sum is at least half a cent). The first call is the
   /// baseline; every later change schedules a catch-up.
-  void onLedger(String signature, {bool holdsDollars = false}) {
+  void onLedger(String signature,
+      {bool holdsDollars = false,
+      double? settledDollars,
+      bool recoveryEligible = false}) {
     if (_disposed) return;
     _holdsDollars = holdsDollars;
     final previous = _signature;
+    final previousDollars = _ledgerDollars;
+    _ledgerDollars = settledDollars;
     _signature = signature;
-    if (previous == null || previous == signature) return;
+    if (previous == null) {
+      _readingAtLedger = _lastReading;
+      return;
+    }
+    if (previous == signature) return;
+    _recoveryEligible = recoveryEligible;
+    _expectedLedgerReading = recoveryEligible &&
+            _readingAtLedger != null &&
+            previousDollars != null &&
+            settledDollars != null
+        ? _readingAtLedger! + settledDollars - previousDollars
+        : null;
+    _pendingLedgerChange = !_matchesExpected(_lastReading);
+    _ledgerStaleReading = _lastReading;
+    _readingAtLedger = _expectedLedgerReading ?? _lastReading;
+    _recovered = false;
+    _retries = 0;
+    _retry?.cancel();
+    _retry = null;
     _timer?.cancel();
     _timer = Timer(debounce, () => _start('ledger', ledgerMoved: true));
   }
@@ -275,6 +338,7 @@ class UsdLedgerCatchUp {
   void check(String source) {
     if (_disposed) return;
     _retries = 0;
+    _recovered = false;
     _retry?.cancel();
     _retry = null;
     _start(source);
@@ -305,7 +369,7 @@ class UsdLedgerCatchUp {
     } finally {
       _running = false;
     }
-    _scheduleRetryIfMissing();
+    _scheduleRetryIfBehind();
   }
 
   Future<void> _once(String source, {required bool ledgerMoved}) async {
@@ -322,10 +386,21 @@ class UsdLedgerCatchUp {
     if (changed) _emit(reading, source);
     // No dollar entry while the ledger holds dollars, or the same figure
     // as before the ledger moved: the cached row has not caught up.
-    final behind =
-        (reading == null && _holdsDollars) || (ledgerMoved && !changed);
+    final behind = _behind;
     if (!behind) return;
     await _syncAndPoll(reading, source);
+    if (_disposed || !_provenBehind || _recovered || recoverTokenStore == null) {
+      return;
+    }
+    try {
+      _recovered = await recoverTokenStore!();
+      if (_disposed || !_recovered) return;
+      final recovered =
+          usdDollarsFromNodeInfo(await readInfo('$source-reconnect'));
+      if (!_disposed) _emit(recovered, '$source-reconnect');
+    } catch (_) {
+      // Recovery is display-only. A later trigger retries a busy/offline SDK.
+    }
   }
 
   /// One shared sync, reading the cached row every [pollInterval] while it
@@ -365,9 +440,9 @@ class UsdLedgerCatchUp {
     }
   }
 
-  void _scheduleRetryIfMissing() {
+  void _scheduleRetryIfBehind() {
     if (_disposed) return;
-    if (!_missing) {
+    if (!_behind) {
       _retries = 0;
       _retry?.cancel();
       _retry = null;
@@ -383,8 +458,7 @@ class UsdLedgerCatchUp {
 
   void _emit(double? reading, String source) {
     if (_disposed) return;
-    _lastReading = reading;
-    _hasReading = true;
+    recordReading(reading);
     publish(reading, source);
   }
 
@@ -434,8 +508,8 @@ String usdLedgerSignature(Iterable<UsdbTokenTransaction> settled) =>
 /// `-poll` / `-sync` reads): never an amount.
 final usdSdkBalanceProvider = StreamProvider<double?>((ref) async* {
   final wrapper = await ref.watch(breezSDKProvider.future);
-  final sdk = wrapper.instance;
-  if (sdk == null) return;
+  if (wrapper.instance == null) return;
+  var live = true;
   final readings = StreamController<double?>();
   late final UsdLedgerCatchUp catchUp;
   void add(double? reading, String source) {
@@ -445,11 +519,32 @@ final usdSdkBalanceProvider = StreamProvider<double?>((ref) async* {
 
   catchUp = UsdLedgerCatchUp(
     readInfo: (source) async {
+      final sdk = wrapper.instance;
+      if (sdk == null) throw StateError('The spending wallet is reconnecting.');
       final info = await sdk.getInfo(request: const GetInfoRequest());
       _debugLogUsdReading(source, info);
       return info;
     },
-    syncWallet: () => sharedSyncWallet(sdk),
+    syncWallet: () async {
+      final sdk = wrapper.instance;
+      if (sdk != null) await sharedSyncWallet(sdk);
+    },
+    recoverTokenStore: () async {
+      final sdk = wrapper.instance;
+      if (sdk == null) return false;
+      final recovered = await wrapper.recoverStaleTokenBalance(sdk);
+      // Contacts is the only persistent notifier which captures the native
+      // handle rather than looking it up for each action. Its Riverpod
+      // rebuild leaves the wrapper/session provider connected.
+      if (live && recovered) ref.invalidate(sparkContactsProvider);
+      if (live && !recovered && wrapper.instance == null) {
+        // A native reconnect failed after closing the old handle. Re-enter
+        // the normal provider lifecycle, which rebuilds dependents and
+        // reports connection errors; never retain a disconnected wrapper.
+        ref.invalidate(breezSDKProvider);
+      }
+      return recovered;
+    },
     publish: add,
   );
   final infoSub = wrapper.walletInfoStream.listen((info) {
@@ -462,11 +557,30 @@ final usdSdkBalanceProvider = StreamProvider<double?>((ref) async* {
   // session. The ledger as first read, and any history a sync or a
   // restore streams in later, is older than the session and stays quiet.
   final arrivals = IncomingPaymentGate(startedAt: DateTime.now());
+  // SDK payment timestamps have whole-second precision. Recovery uses
+  // this session's first second, without the haptic gate's clock skew.
+  final recoveryFloor = DateTime.fromMillisecondsSinceEpoch(
+      DateTime.now().millisecondsSinceEpoch ~/ 1000 * 1000);
+  Set<String>? previousSettled;
   ref.listen<List<UsdbTokenTransaction>>(
     usdSettledTransfersProvider,
     (_, settled) {
+      final ids = settled.map((tx) => tx.id).toSet();
+      final previous = previousSettled;
+      final added = previous == null
+          ? <UsdbTokenTransaction>[]
+          : settled.where((tx) => !previous.contains(tx.id)).toList();
+      // History hydration/pruning changes the signature too. Only a new
+      // current-session payment can prove a numeric SDK balance stale.
+      final recoveryEligible = previous != null &&
+          previous.difference(ids).isEmpty &&
+          added.isNotEmpty &&
+          added.every((tx) => !tx.timestamp.isBefore(recoveryFloor));
+      previousSettled = ids;
       catchUp.onLedger(usdLedgerSignature(settled),
-          holdsDollars: usdLedgerSumDollars(settled) >= _kUsdHeldThreshold);
+          holdsDollars: usdLedgerSumDollars(settled) >= _kUsdHeldThreshold,
+          settledDollars: usdLedgerSumDollars(settled),
+          recoveryEligible: recoveryEligible);
       if (arrivals.observe([
         for (final tx in settled)
           if (tx.type == TransactionType.received)
@@ -482,6 +596,7 @@ final usdSdkBalanceProvider = StreamProvider<double?>((ref) async* {
   catchUp.check('seed');
   final check = ref.read(usdBalanceCheckProvider).._catchUp = catchUp;
   ref.onDispose(() {
+    live = false;
     if (identical(check._catchUp, catchUp)) check._catchUp = null;
     catchUp.dispose();
     infoSub.cancel();

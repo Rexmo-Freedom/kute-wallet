@@ -15,6 +15,7 @@ import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/services/hardware/ledger/ledger_operation_scope.dart';
 import 'package:kute/models/breez/shared_sync.dart';
+import 'package:kute/models/breez/sdk_operation_guard.dart';
 
 enum AnalyzedPaymentType { lightning, bitcoin, spark, lnurl, bip21, unknown }
 
@@ -349,7 +350,7 @@ final prepareGenericPaymentProvider = FutureProvider.autoDispose.family<PrepareS
       feePolicy: feePolicy,
     );
 
-    final prepared = await sdk.prepareSendPayment(request: req);
+    final prepared = await runSparkMutation(sdk, () => sdk.prepareSendPayment(request: req));
     binding.check(ref);
     _preparedPaymentBindings[prepared] = binding;
     return prepared;
@@ -393,13 +394,13 @@ final prepareSparkTokenPaymentProvider = FutureProvider.autoDispose.family<
       throw Exception('Invalid address type. Expected a Spark address.');
     }
 
-    final prepared = await sdk.prepareSendPayment(
+    final prepared = await runSparkMutation(sdk, () => sdk.prepareSendPayment(
       request: PrepareSendPaymentRequest(
         paymentRequest: PaymentRequest.input(input: params.destination),
         amount: params.amountBaseUnits,
         tokenIdentifier: params.tokenIdentifier,
       ),
-    );
+    ));
     binding.check(ref);
     _preparedPaymentBindings[prepared] = binding;
     return prepared;
@@ -430,7 +431,7 @@ final executeOnchainTransactionProvider = FutureProvider.autoDispose.family<Send
 
     final cache = ref.read(walletBalanceCacheProvider.notifier);
     final before = cache.shownSparkSats(binding.walletId);
-    final response = await sdk.sendPayment(request: req);
+    final response = await runSparkMutation(sdk, () => sdk.sendPayment(request: req));
     try {
       reflectAcceptedSparkSend(cache, sdk,
           walletId: binding.walletId,
@@ -464,7 +465,7 @@ final executeSparkTransactionProvider = FutureProvider.autoDispose.family<SendPa
 
     final cache = ref.read(walletBalanceCacheProvider.notifier);
     final before = cache.shownSparkSats(binding.walletId);
-    final response = await sdk.sendPayment(request: req);
+    final response = await runSparkMutation(sdk, () => sdk.sendPayment(request: req));
     try {
       reflectAcceptedSparkSend(cache, sdk,
           walletId: binding.walletId,
@@ -490,10 +491,10 @@ final executeLightningPaymentProvider = FutureProvider.autoDispose.family<void, 
 
     String Function() paymentId;
     if (prepareResponse is PrepareSendPaymentResponse) {
-      final response = await sdk.sendPayment(request: SendPaymentRequest(prepareResponse: prepareResponse));
+      final response = await runSparkMutation(sdk, () => sdk.sendPayment(request: SendPaymentRequest(prepareResponse: prepareResponse)));
       paymentId = () => response.payment.id;
     } else if (prepareResponse is PrepareLnurlPayResponse) {
-      final response = await sdk.lnurlPay(request: LnurlPayRequest(prepareResponse: prepareResponse));
+      final response = await runSparkMutation(sdk, () => sdk.lnurlPay(request: LnurlPayRequest(prepareResponse: prepareResponse)));
       paymentId = () => response.payment.id;
     } else {
       throw Exception("Invalid prepare response type for lightning payment");
@@ -557,7 +558,7 @@ final prepareLightningPaymentProvider = FutureProvider.autoDispose.family<Prepar
             : (sendAmount > 0 ? BigInt.from(sendAmount) : null),
         feePolicy: feePolicy,
       );
-      prepareResponse = await sdk.prepareSendPayment(request: req);
+      prepareResponse = await runSparkMutation(sdk, () => sdk.prepareSendPayment(request: req));
     } else if (parsedInput is InputType_Bolt12Offer) {
       final req = PrepareSendPaymentRequest(
         paymentRequest:
@@ -565,7 +566,7 @@ final prepareLightningPaymentProvider = FutureProvider.autoDispose.family<Prepar
         amount: sendAmount > 0 ? BigInt.from(sendAmount) : null,
         feePolicy: feePolicy,
       );
-      prepareResponse = await sdk.prepareSendPayment(request: req);
+      prepareResponse = await runSparkMutation(sdk, () => sdk.prepareSendPayment(request: req));
     } else if (parsedInput is InputType_LightningAddress) {
       final payRequest = parsedInput.field0.payRequest;
       final req = PrepareLnurlPayRequest(
@@ -577,7 +578,7 @@ final prepareLightningPaymentProvider = FutureProvider.autoDispose.family<Prepar
         validateSuccessActionUrl: true,
         feePolicy: feePolicy,
       );
-      prepareResponse = await sdk.prepareLnurlPay(request: req);
+      prepareResponse = await runSparkMutation(sdk, () => sdk.prepareLnurlPay(request: req));
       if (prepareResponse is PrepareLnurlPayResponse) {
         networkFee = prepareResponse.feeSats.toInt();
       }
@@ -591,7 +592,7 @@ final prepareLightningPaymentProvider = FutureProvider.autoDispose.family<Prepar
         validateSuccessActionUrl: true,
         feePolicy: feePolicy,
       );
-      prepareResponse = await sdk.prepareLnurlPay(request: req);
+      prepareResponse = await runSparkMutation(sdk, () => sdk.prepareLnurlPay(request: req));
       if (prepareResponse is PrepareLnurlPayResponse) {
         networkFee = prepareResponse.feeSats.toInt();
       }

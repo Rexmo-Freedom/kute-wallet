@@ -4,8 +4,10 @@ import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart' as spark;
 import 'package:flutter/foundation.dart';
 import 'package:kute/models/breez/deposit_update.dart';
 import 'package:kute/models/breez/shared_sync.dart';
+import 'package:kute/models/breez/sdk_operation_guard.dart';
 import 'package:kute/services/tracking/latency_tracker.dart';
 import 'package:kute/services/tracking_service.dart';
+import 'package:kute/services/wallet_identity_service.dart';
 
 class BreezSdkSpark {
   static final BreezSdkSpark _singleton = BreezSdkSpark._internal();
@@ -30,6 +32,9 @@ class BreezSdkSpark {
   Object? _teardownFailure;
 
   spark.BreezSdk? _instance;
+  spark.ConnectRequest? _lastConnectRequest;
+  Future<bool>? _balanceRecovery;
+  bool _optimizationInProgress = false;
 
   spark.BreezSdk? get instance => _instance;
 
@@ -88,6 +93,7 @@ class BreezSdkSpark {
         throw StateError('Spark connection was superseded.');
       }
       _instance = sdk;
+      _lastConnectRequest = req;
       TrackingService.setSessionKey('breez_connected', true);
       _initializeEventsStream(sdk);
       _subscribeToSdkStreams(sdk);
@@ -114,6 +120,7 @@ class BreezSdkSpark {
     ++_generation;
     final previous = _instance;
     _instance = null;
+    _lastConnectRequest = null;
     _forgetWalletReadings();
     final cancelled = _unsubscribeFromSdkStreams();
     // Riverpod disposal is synchronous. Queue native teardown so a subsequent
@@ -131,6 +138,7 @@ class BreezSdkSpark {
   void _forgetWalletReadings() {
     _balanceLog.clear();
     _arrivals.cancelAll();
+    _optimizationInProgress = false;
   }
 
   Future<void> _retireSdk(spark.BreezSdk sdk) async {
@@ -221,6 +229,66 @@ class BreezSdkSpark {
   Future<void> rereadWalletData() async {
     final sdk = _instance;
     if (sdk != null) await _fetchWalletData(sdk);
+  }
+
+  /// Last resort for the SDK's stale in-memory token store. Spark's normal
+  /// sync returns early on a failed Bitcoin leaf refresh, before refreshing
+  /// tokens; startup refreshes tokens independently, even when leaves fail
+  /// (SparkWallet::sync vs start_event_processing in SDK 2c140a5).
+  ///
+  /// Keep the wrapper's broadcast streams alive and attach the replacement
+  /// SDK to them, so every existing balance/payment subscriber follows it.
+  /// A native mutation, shared sync or pending outgoing payment defers the
+  /// recovery. The synchronous mutation reservation also blocks a send from
+  /// starting while the pending-payment check is in flight. Never throws.
+  Future<bool> recoverStaleTokenBalance(spark.BreezSdk expected) {
+    final running = _balanceRecovery;
+    if (running != null) return running;
+    final req = _lastConnectRequest;
+    if (req == null ||
+        !identical(_instance, expected) ||
+        sharedSyncInFlight(expected) ||
+        _optimizationInProgress) {
+      return Future.value(false);
+    }
+    final reservation = reserveSparkRecovery(expected);
+    if (reservation == null) return Future.value(false);
+    final generation = _generation;
+    final result = () async {
+      try {
+        final payments = await expected
+            .listPayments(request: const spark.ListPaymentsRequest())
+            .timeout(const Duration(seconds: 5));
+        if (payments.payments.any((p) =>
+            p.paymentType == spark.PaymentType.send &&
+            p.status == spark.PaymentStatus.pending)) {
+          return false;
+        }
+        if (_generation != generation ||
+            !identical(_instance, expected) ||
+            sharedSyncInFlight(expected) ||
+            _optimizationInProgress) {
+          return false;
+        }
+        reservation.retire();
+        await connect(req: req);
+        final replacement = _instance;
+        if (replacement != null) {
+          WalletIdentityService.rebindAfterReconnect(expected, replacement);
+        }
+        await rereadWalletData();
+        return true;
+      } catch (_) {
+        return false;
+      } finally {
+        reservation.release();
+      }
+    }();
+    _balanceRecovery = result;
+    result.then((_) {
+      if (identical(_balanceRecovery, result)) _balanceRecovery = null;
+    });
+    return result;
   }
 
   /// Forces an SDK wallet sync (the shared one, see [sharedSyncWallet]),
@@ -492,7 +560,17 @@ class BreezSdkSpark {
             _syncedController.add(null);
             syncedInfoReread.onSynced();
           },
-          autoOptimization: (_) {
+          autoOptimization: (e) {
+            switch (e.optimizationEvent) {
+              case spark.AutoOptimizationEvent_Started():
+              case spark.AutoOptimizationEvent_RoundCompleted():
+                _optimizationInProgress = true;
+              case spark.AutoOptimizationEvent_Completed():
+              case spark.AutoOptimizationEvent_Cancelled():
+              case spark.AutoOptimizationEvent_Failed():
+              case spark.AutoOptimizationEvent_Skipped():
+                _optimizationInProgress = false;
+            }
             _fetchWalletData(sdk);
           },
           unclaimedDeposits: (e) {

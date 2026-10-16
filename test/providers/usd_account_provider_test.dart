@@ -21,6 +21,7 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/transactions_provider.dart';
 import 'package:kute/providers/usd_account_provider.dart';
 import 'package:kute/providers/usdb_provider.dart';
+import 'package:kute/services/kute_haptics.dart';
 
 const _otherToken = 'btkn1othertoken';
 
@@ -55,6 +56,7 @@ breez.Payment _tokenPayment(
   String ticker = 'USDB',
   breez.PaymentType type = breez.PaymentType.receive,
   breez.PaymentStatus status = breez.PaymentStatus.completed,
+  int timestampSeconds = 1700000000,
 }) =>
     breez.Payment(
       id: id,
@@ -62,7 +64,7 @@ breez.Payment _tokenPayment(
       status: status,
       amount: BigInt.from(units),
       fees: BigInt.zero,
-      timestamp: BigInt.from(1700000000),
+      timestamp: BigInt.from(timestampSeconds),
       method: breez.PaymentMethod.token,
       details: breez.PaymentDetails.token(
         metadata: _meta(identifier, ticker),
@@ -73,7 +75,8 @@ breez.Payment _tokenPayment(
 
 UsdbTokenTransaction _row(breez.Payment p) => UsdbTokenTransaction(
       id: p.id,
-      timestamp: DateTime.fromMillisecondsSinceEpoch(1700000000000),
+      timestamp:
+          DateTime.fromMillisecondsSinceEpoch(p.timestamp.toInt() * 1000),
       details: p,
       isConfirmed: p.status == breez.PaymentStatus.completed,
     );
@@ -328,6 +331,220 @@ void main() {
       expect(reads, 0);
       expect(published, isEmpty);
     });
+  });
+
+  group('an existing dollar entry that never catches up', () {
+    test(
+        'historical ledger hydration retries but never reconnects a numeric balance',
+        () {
+      fakeAsync((async) {
+        var syncs = 0, recoveries = 0;
+        final c = UsdLedgerCatchUp(
+          readInfo: (_) async =>
+              _info({usdbTokenIdentifier: ('USDB', 15000000)}),
+          syncWallet: () async {
+            syncs++;
+          },
+          recoverTokenStore: () async {
+            recoveries++;
+            return true;
+          },
+          publish: (_, __) {},
+          debounce: Duration.zero,
+          retryDelays: const [Duration(seconds: 1)],
+        );
+        c.recordReading(15);
+        c.onLedger('recent', holdsDollars: true, settledDollars: 5);
+        c.onLedger('recent,old',
+            holdsDollars: true, settledDollars: 15, recoveryEligible: false);
+        async.elapse(const Duration(minutes: 5));
+        expect(syncs, 2);
+        expect(recoveries, 0);
+        expect(c.retryPending, isFalse);
+        c.dispose();
+      });
+    });
+
+    test(
+        'SDK stream before ledger already proves arrival; no sync or reconnect',
+        () {
+      fakeAsync((async) {
+        var syncs = 0, recoveries = 0;
+        final c = UsdLedgerCatchUp(
+          readInfo: (_) async =>
+              _info({usdbTokenIdentifier: ('USDB', 15000000)}),
+          syncWallet: () async {
+            syncs++;
+          },
+          recoverTokenStore: () async {
+            recoveries++;
+            return true;
+          },
+          publish: (_, __) {},
+          debounce: Duration.zero,
+        );
+        c.recordReading(5);
+        c.onLedger('old', holdsDollars: true, settledDollars: 5);
+        c.recordReading(15); // SDK event wins the race against listPayments.
+        c.onLedger('old,arrival',
+            holdsDollars: true, settledDollars: 15, recoveryEligible: true);
+        async.elapse(const Duration(minutes: 5));
+        expect(syncs, 0);
+        expect(recoveries, 0);
+        expect(c.retryPending, isFalse);
+        c.dispose();
+      });
+    });
+
+    test('stale zero keeps retrying after a failed sync, until the entry moves',
+        () {
+      fakeAsync((async) {
+        var units = 0;
+        var syncs = 0;
+        final readings = <double?>[];
+        final c = UsdLedgerCatchUp(
+          readInfo: (_) async => _info({usdbTokenIdentifier: ('USDB', units)}),
+          syncWallet: () async {
+            syncs++;
+            throw StateError('leaf refresh failed');
+          },
+          publish: (value, _) => readings.add(value),
+          debounce: Duration.zero,
+          retryDelays: const [Duration(seconds: 1), Duration(seconds: 2)],
+        );
+        c.recordReading(0);
+        c.onLedger('old', holdsDollars: true);
+        c.onLedger('old,arrival', holdsDollars: true);
+        async.elapse(Duration.zero);
+        async.flushMicrotasks();
+        expect(syncs, 1);
+        expect(c.retryPending, isTrue,
+            reason: 'an existing zero entry can be stale');
+        async.elapse(const Duration(seconds: 1));
+        expect(syncs, 2);
+        units = 10740000;
+        async.elapse(const Duration(seconds: 2));
+        expect(readings.last, 10.74);
+        expect(c.retryPending, isFalse);
+        c.dispose();
+      });
+    });
+
+    test('unchanged numeric stream readings cannot cancel a pending arrival',
+        () {
+      fakeAsync((async) {
+        final c = UsdLedgerCatchUp(
+          readInfo: (_) async =>
+              _info({usdbTokenIdentifier: ('USDB', 4000000)}),
+          syncWallet: () async {},
+          publish: (_, __) {},
+          debounce: Duration.zero,
+        );
+        c.recordReading(4);
+        c.onLedger('old', holdsDollars: true);
+        c.onLedger('old,arrival', holdsDollars: true);
+        async.elapse(Duration.zero);
+        async.flushMicrotasks();
+        c.recordReading(4);
+        expect(c.retryPending, isTrue);
+        c.recordReading(14);
+        expect(c.retryPending, isFalse);
+        c.dispose();
+      });
+    });
+
+    test('one guarded reconnect per ledger change; busy recovery is retried',
+        () {
+      fakeAsync((async) {
+        var attempts = 0;
+        final c = UsdLedgerCatchUp(
+          readInfo: (_) async => _info({usdbTokenIdentifier: ('USDB', 0)}),
+          syncWallet: () async {},
+          recoverTokenStore: () async => ++attempts > 1,
+          publish: (_, __) {},
+          debounce: Duration.zero,
+          retryDelays: const [Duration(seconds: 1), Duration(seconds: 2)],
+        );
+        c.recordReading(0);
+        c.onLedger('old', holdsDollars: true, settledDollars: 0);
+        c.onLedger('old,arrival',
+            holdsDollars: true, settledDollars: 10, recoveryEligible: true);
+        async.elapse(Duration.zero);
+        async.flushMicrotasks();
+        expect(attempts, 1);
+        async.elapse(const Duration(seconds: 1));
+        expect(attempts, 2);
+        async.elapse(const Duration(minutes: 1));
+        expect(attempts, 2, reason: 'successful recovery is never looped');
+        c.dispose();
+      });
+    });
+  });
+
+  test('a failed native recovery re-enters the provider connection lifecycle',
+      () async {
+    KuteHaptics.debugForeground = () => false;
+    addTearDown(KuteHaptics.debugReset);
+    final first = _Sdk(), second = _Sdk();
+    for (final sdk in [first, second]) {
+      when(() => sdk.addEventListener())
+          .thenAnswer((_) => const Stream.empty());
+      when(() => sdk.disconnect()).thenAnswer((_) async {});
+      when(() => sdk.listPayments(request: const breez.ListPaymentsRequest()))
+          .thenAnswer(
+              (_) async => const breez.ListPaymentsResponse(payments: []));
+    }
+    when(() => first.getInfo(request: const breez.GetInfoRequest()))
+        .thenAnswer((_) async => _info({usdbTokenIdentifier: ('USDB', 0)}));
+    when(() => first.syncWallet(request: const breez.SyncWalletRequest()))
+        .thenThrow(StateError('Bitcoin leaf refresh failed'));
+    when(() => second.getInfo(request: const breez.GetInfoRequest()))
+        .thenAnswer(
+            (_) async => _info({usdbTokenIdentifier: ('USDB', 12000000)}));
+    var nativeConnects = 0;
+    final wrapper = BreezSdkSpark.forTesting(connectSdk: (_) async {
+      if (++nativeConnects > 1) throw StateError('network offline');
+      return first;
+    });
+    await wrapper.connect(req: _Request());
+    final replacement = _Wrapper();
+    when(() => replacement.instance).thenReturn(second);
+    when(() => replacement.walletInfoStream)
+        .thenAnswer((_) => const Stream.empty());
+    final cache = _Cache({});
+    cache.setLedger([]);
+    var providerBuilds = 0;
+    final container = ProviderContainer(overrides: [
+      settingsProvider.overrideWith((_) => SettingsModel(Settings(
+            currency: 'USD',
+            language: 'en',
+            btcFormat: 'sats',
+            backup: false,
+            biometricsEnabled: false,
+            bitcoinElectrumNode: '',
+            nodeType: 'Blockstream',
+            reviewDone: true,
+            activeWalletId: 'spending',
+            wallets: [WalletConfig(id: 'spending', name: 'Spending')],
+          ))),
+      breezSDKProvider.overrideWith(
+          (_) async => ++providerBuilds == 1 ? wrapper : replacement),
+      walletTransactionCacheProvider.overrideWith((_) => cache),
+    ]);
+    container.listen(usdBalanceProvider, (_, __) {});
+    await container.read(usdSdkBalanceProvider.future);
+    expect(container.read(usdBalanceProvider), 0);
+    cache.setLedger([
+      _tokenPayment('arrival',
+          units: 12000000,
+          timestampSeconds: DateTime.now().millisecondsSinceEpoch ~/ 1000)
+    ]);
+    await Future<void>.delayed(const Duration(milliseconds: 1500));
+    expect(nativeConnects, 2);
+    expect(wrapper.instance, isNull);
+    expect(providerBuilds, 2, reason: 'disconnected wrapper was invalidated');
+    expect(container.read(usdBalanceProvider), 12);
+    container.dispose();
   });
 
   // The device log behind these (hot restarts on iOS): a session's first
@@ -685,8 +902,8 @@ void main() {
       var reads = 0;
       when(() => sdk.addEventListener()).thenAnswer((_) => events.stream);
       when(() => sdk.disconnect()).thenAnswer((_) async {});
-      when(() => sdk.listPayments(request: any(named: 'request')))
-          .thenAnswer((_) async => const breez.ListPaymentsResponse(payments: []));
+      when(() => sdk.listPayments(request: any(named: 'request'))).thenAnswer(
+          (_) async => const breez.ListPaymentsResponse(payments: []));
       when(() => sdk.getInfo(request: any(named: 'request')))
           .thenAnswer((_) async {
         reads++;
@@ -750,8 +967,8 @@ void main() {
       var units = 5000000;
       when(() => sdk.addEventListener()).thenAnswer((_) => events.stream);
       when(() => sdk.disconnect()).thenAnswer((_) async {});
-      when(() => sdk.listPayments(request: any(named: 'request')))
-          .thenAnswer((_) async => const breez.ListPaymentsResponse(payments: []));
+      when(() => sdk.listPayments(request: any(named: 'request'))).thenAnswer(
+          (_) async => const breez.ListPaymentsResponse(payments: []));
       when(() => sdk.getInfo(request: any(named: 'request'))).thenAnswer(
           (_) async => _info({usdbTokenIdentifier: ('USDB', units)}));
       final wrapper = BreezSdkSpark.forTesting(connectSdk: (_) async => sdk);
