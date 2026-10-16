@@ -148,7 +148,8 @@ Future<double> _balance(ProviderContainer container) async {
 }
 
 void main() {
-  test('an old SDK read cannot overwrite a replacement stream reading', () async {
+  test('an old SDK read cannot overwrite a replacement stream reading',
+      () async {
     final first = _Sdk(), second = _Sdk();
     final wrapper = _Wrapper();
     breez.BreezSdk current = first;
@@ -372,7 +373,7 @@ void main() {
           syncWallet: () async {
             syncs++;
           },
-          recoverTokenStore: () async {
+          recoverTokenStore: (_) async {
             recoveries++;
             return true;
           },
@@ -403,7 +404,7 @@ void main() {
           syncWallet: () async {
             syncs++;
           },
-          recoverTokenStore: () async {
+          recoverTokenStore: (_) async {
             recoveries++;
             return true;
           },
@@ -487,7 +488,7 @@ void main() {
         final c = UsdLedgerCatchUp(
           readInfo: (_) async => _info({usdbTokenIdentifier: ('USDB', 0)}),
           syncWallet: () async {},
-          recoverTokenStore: () async => ++attempts > 1,
+          recoverTokenStore: (_) async => ++attempts > 1,
           publish: (_, __) {},
           debounce: Duration.zero,
           retryDelays: const [Duration(seconds: 1), Duration(seconds: 2)],

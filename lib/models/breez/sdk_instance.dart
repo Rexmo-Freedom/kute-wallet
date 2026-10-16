@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:kute/models/breez/deposit_update.dart';
 import 'package:kute/models/breez/shared_sync.dart';
 import 'package:kute/models/breez/sdk_operation_guard.dart';
+import 'package:kute/models/breez/sdk_balance_telemetry.dart';
 import 'package:kute/services/tracking/latency_tracker.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/services/wallet_identity_service.dart';
@@ -14,12 +15,16 @@ class BreezSdkSpark {
 
   factory BreezSdkSpark() => _singleton;
 
-  BreezSdkSpark._internal() : _connectSdk = _nativeConnect;
+  BreezSdkSpark._internal()
+      : _connectSdk = _nativeConnect,
+        _balanceTelemetry = const SdkBalanceTelemetry();
 
   @visibleForTesting
   BreezSdkSpark.forTesting({
     required Future<spark.BreezSdk> Function(spark.ConnectRequest) connectSdk,
-  }) : _connectSdk = connectSdk;
+    SdkBalanceTelemetry balanceTelemetry = const SdkBalanceTelemetry(),
+  })  : _connectSdk = connectSdk,
+        _balanceTelemetry = balanceTelemetry;
 
   static Future<spark.BreezSdk> _nativeConnect(spark.ConnectRequest req) {
     // ignore: invalid_use_of_internal_member
@@ -27,6 +32,7 @@ class BreezSdkSpark {
   }
 
   final Future<spark.BreezSdk> Function(spark.ConnectRequest) _connectSdk;
+  final SdkBalanceTelemetry _balanceTelemetry;
   Future<void> _lifecycle = Future<void>.value();
   int _generation = 0;
   Object? _teardownFailure;
@@ -241,20 +247,40 @@ class BreezSdkSpark {
   /// A native mutation, shared sync or pending outgoing payment defers the
   /// recovery. The synchronous mutation reservation also blocks a send from
   /// starting while the pending-payment check is in flight. Never throws.
-  Future<bool> recoverStaleTokenBalance(spark.BreezSdk expected) {
+  Future<bool> recoverStaleTokenBalance(spark.BreezSdk expected,
+      {String source = 'unknown'}) {
     final running = _balanceRecovery;
     if (running != null) return running;
-    final req = _lastConnectRequest;
-    if (req == null ||
-        !identical(_instance, expected) ||
-        sharedSyncInFlight(expected) ||
-        _optimizationInProgress) {
+    final sw = Stopwatch()..start();
+    Future<bool> defer(UsdRecoveryReason reason) {
+      _balanceTelemetry.recovery(
+          source: source,
+          result: UsdRecoveryResult.deferred,
+          reason: reason,
+          attempted: false,
+          durationMs: sw.elapsedMilliseconds);
       return Future.value(false);
     }
+
+    final req = _lastConnectRequest;
+    if (req == null) return defer(UsdRecoveryReason.notConnected);
+    if (!identical(_instance, expected)) {
+      return defer(UsdRecoveryReason.walletChanged);
+    }
+    if (sharedSyncInFlight(expected)) {
+      return defer(UsdRecoveryReason.syncInFlight);
+    }
+    if (_optimizationInProgress) {
+      return defer(UsdRecoveryReason.optimizationInFlight);
+    }
     final reservation = reserveSparkRecovery(expected);
-    if (reservation == null) return Future.value(false);
+    if (reservation == null) return defer(UsdRecoveryReason.mutationInFlight);
     final generation = _generation;
     final result = () async {
+      var outcome = UsdRecoveryResult.failed;
+      var reason = UsdRecoveryReason.lookupFailed;
+      var attempted = false;
+      var report = true;
       try {
         final payments = await expected
             .listPayments(request: const spark.ListPaymentsRequest())
@@ -262,26 +288,58 @@ class BreezSdkSpark {
         if (payments.payments.any((p) =>
             p.paymentType == spark.PaymentType.send &&
             p.status == spark.PaymentStatus.pending)) {
+          outcome = UsdRecoveryResult.deferred;
+          reason = UsdRecoveryReason.pendingSend;
           return false;
         }
-        if (_generation != generation ||
-            !identical(_instance, expected) ||
-            sharedSyncInFlight(expected) ||
-            _optimizationInProgress) {
+        if (_generation != generation || !identical(_instance, expected)) {
+          outcome = UsdRecoveryResult.deferred;
+          reason = UsdRecoveryReason.walletChanged;
+          return false;
+        }
+        if (sharedSyncInFlight(expected) || _optimizationInProgress) {
+          outcome = UsdRecoveryResult.deferred;
+          reason = sharedSyncInFlight(expected)
+              ? UsdRecoveryReason.syncInFlight
+              : UsdRecoveryReason.optimizationInFlight;
           return false;
         }
         reservation.retire();
+        attempted = true;
+        reason = UsdRecoveryReason.connectFailed;
         await connect(req: req);
         final replacement = _instance;
+        final connectedGeneration = _generation;
         if (replacement != null) {
           WalletIdentityService.rebindAfterReconnect(expected, replacement);
         }
         await rereadWalletData();
+        // A later wallet session must never receive an old success event.
+        report = _generation == connectedGeneration &&
+            identical(_instance, replacement);
+        outcome = UsdRecoveryResult.ok;
+        reason = UsdRecoveryReason.reconnected;
         return true;
-      } catch (_) {
+      } catch (error) {
+        if (_generation != generation + (attempted ? 1 : 0)) {
+          outcome = UsdRecoveryResult.deferred;
+          reason = UsdRecoveryReason.walletChanged;
+        } else if (!attempted && error is TimeoutException) {
+          reason = UsdRecoveryReason.lookupTimeout;
+        } else if (attempted && _teardownFailure != null) {
+          reason = UsdRecoveryReason.teardownFailed;
+        }
         return false;
       } finally {
         reservation.release();
+        if (report) {
+          _balanceTelemetry.recovery(
+              source: source,
+              result: outcome,
+              reason: reason,
+              attempted: attempted,
+              durationMs: sw.elapsedMilliseconds);
+        }
       }
     }();
     _balanceRecovery = result;

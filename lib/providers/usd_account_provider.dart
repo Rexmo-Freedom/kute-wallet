@@ -49,6 +49,7 @@ import 'package:kute/models/balance_history.dart';
 import 'package:kute/models/transactions_model.dart';
 import 'package:kute/providers/breez_config_provider.dart';
 import 'package:kute/models/breez/shared_sync.dart';
+import 'package:kute/models/breez/sdk_balance_telemetry.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/spark_contacts_provider.dart';
 import 'package:kute/providers/transactions_provider.dart'
@@ -211,6 +212,7 @@ class UsdLedgerCatchUp {
     required this.syncWallet,
     required this.publish,
     this.recoverTokenStore,
+    this.telemetry = const SdkBalanceTelemetry(),
     this.debounce = const Duration(milliseconds: 800),
     this.syncTimeout = const Duration(seconds: 20),
     this.pollInterval = const Duration(seconds: 1),
@@ -225,7 +227,8 @@ class UsdLedgerCatchUp {
   /// Guarded reconnect of this wallet's SDK, only if a normal sync left
   /// its token store unchanged. False means busy; a bounded retry tries
   /// again. At most one successful recovery per ledger change/check.
-  final Future<bool> Function()? recoverTokenStore;
+  final Future<bool> Function(String source)? recoverTokenStore;
+  final SdkBalanceTelemetry telemetry;
 
   /// Publishes a reading; [source] names the path that produced it.
   final void Function(double? reading, String source) publish;
@@ -373,33 +376,58 @@ class UsdLedgerCatchUp {
   }
 
   Future<void> _once(String source, {required bool ledgerMoved}) async {
-    final hadReading = _hasReading;
-    final before = _lastReading;
-    final double? reading;
+    final sw = Stopwatch()..start();
+    var measured = _behind;
+    var reason = _missing
+        ? UsdCatchUpReason.missingEntry
+        : UsdCatchUpReason.unchangedNumeric;
+    var readFailed = true;
+    final retryIndex = _retries;
     try {
-      reading = usdDollarsFromNodeInfo(await readInfo(source));
-    } catch (_) {
-      return;
-    }
-    if (_disposed) return;
-    final changed = !hadReading || reading != before;
-    if (changed) _emit(reading, source);
-    // No dollar entry while the ledger holds dollars, or the same figure
-    // as before the ledger moved: the cached row has not caught up.
-    final behind = _behind;
-    if (!behind) return;
-    await _syncAndPoll(reading, source);
-    if (_disposed || !_provenBehind || _recovered || recoverTokenStore == null) {
-      return;
-    }
-    try {
-      _recovered = await recoverTokenStore!();
-      if (_disposed || !_recovered) return;
-      final recovered =
-          usdDollarsFromNodeInfo(await readInfo('$source-reconnect'));
-      if (!_disposed) _emit(recovered, '$source-reconnect');
-    } catch (_) {
-      // Recovery is display-only. A later trigger retries a busy/offline SDK.
+      final hadReading = _hasReading;
+      final before = _lastReading;
+      final double? reading;
+      try {
+        reading = usdDollarsFromNodeInfo(await readInfo(source));
+      } catch (_) {
+        return;
+      }
+      if (_disposed) return;
+      readFailed = false;
+      final changed = !hadReading || reading != before;
+      if (changed) _emit(reading, source);
+      measured |= _behind;
+      if (_missing) reason = UsdCatchUpReason.missingEntry;
+      if (!_behind) return;
+      await _syncAndPoll(reading, source);
+      if (_disposed ||
+          !_provenBehind ||
+          _recovered ||
+          recoverTokenStore == null) {
+        return;
+      }
+      try {
+        _recovered = await recoverTokenStore!(source);
+        if (_disposed || !_recovered) return;
+        final recovered =
+            usdDollarsFromNodeInfo(await readInfo('$source-reconnect'));
+        if (!_disposed) _emit(recovered, '$source-reconnect');
+      } catch (_) {
+        // Recovery is display-only. A later trigger retries a busy/offline SDK.
+      }
+    } finally {
+      if (measured && !_disposed) {
+        telemetry.catchUp(
+            source: source,
+            reason: reason,
+            result: readFailed
+                ? UsdCatchUpResult.readFailed
+                : _behind
+                    ? UsdCatchUpResult.stillBehind
+                    : UsdCatchUpResult.caughtUp,
+            durationMs: sw.elapsedMilliseconds,
+            retryIndex: retryIndex);
+      }
     }
   }
 
@@ -409,10 +437,21 @@ class UsdLedgerCatchUp {
   Future<void> _syncAndPoll(double? stale, String source) async {
     var done = false;
     final Future<void> syncing = () async {
+      final sw = Stopwatch()..start();
+      var result = UsdSyncResult.ok;
       try {
         await syncWallet().timeout(syncTimeout);
+      } on TimeoutException {
+        result = UsdSyncResult.timeout;
       } catch (_) {
-        // Read what the cache holds anyway.
+        result = UsdSyncResult.error;
+      } finally {
+        if (!_disposed) {
+          telemetry.sync(
+              source: source,
+              result: result,
+              durationMs: sw.elapsedMilliseconds);
+        }
       }
     }()
         .whenComplete(() => done = true);
@@ -532,10 +571,11 @@ final usdSdkBalanceProvider = StreamProvider<double?>((ref) async* {
       final sdk = wrapper.instance;
       if (sdk != null) await sharedSyncWallet(sdk);
     },
-    recoverTokenStore: () async {
+    recoverTokenStore: (source) async {
       final sdk = wrapper.instance;
       if (sdk == null) return false;
-      final recovered = await wrapper.recoverStaleTokenBalance(sdk);
+      final recovered =
+          await wrapper.recoverStaleTokenBalance(sdk, source: source);
       // Contacts is the only persistent notifier which captures the native
       // handle rather than looking it up for each action. Its Riverpod
       // rebuild leaves the wrapper/session provider connected.

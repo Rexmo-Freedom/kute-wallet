@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/models/breez/sdk_instance.dart';
 import 'package:kute/models/breez/sdk_operation_guard.dart';
 import 'package:kute/models/breez/shared_sync.dart';
+import 'package:kute/services/tracking_service.dart';
 import 'package:mocktail/mocktail.dart';
 
 class _Sdk extends Mock implements spark.BreezSdk {}
@@ -12,6 +13,14 @@ class _Sdk extends Mock implements spark.BreezSdk {}
 class _Request extends Fake implements spark.ConnectRequest {}
 
 void main() {
+  late List<Map<String, Object>> outcomes;
+  setUp(() {
+    outcomes = [];
+    TrackingService.debugTrackObserver = (event, properties) {
+      if (event == 'usd_token_recovery') outcomes.add(properties!);
+    };
+  });
+  tearDown(() => TrackingService.debugTrackObserver = null);
   final request = _Request();
   Future<void> flush() => Future<void>.delayed(Duration.zero);
   spark.GetInfoResponse info(String identity) => spark.GetInfoResponse(
@@ -57,6 +66,9 @@ void main() {
     expect(sent, isFalse);
     checking.complete(const spark.ListPaymentsResponse(payments: []));
     expect(await recovering, isTrue);
+    expect(outcomes, hasLength(1), reason: 'joined callers share one outcome');
+    expect(outcomes.single, containsPair('result', 'ok'));
+    expect(outcomes.single, containsPair('attempted', true));
     expect(wrapper.instance, same(second));
     verify(() => first.disconnect()).called(1);
     verify(() => second.addEventListener()).called(1);
@@ -85,6 +97,7 @@ void main() {
     final sending = Completer<void>();
     final operation = runSparkMutation(sdk, () => sending.future);
     expect(await wrapper.recoverStaleTokenBalance(sdk), isFalse);
+    expect(outcomes.single, containsPair('reason', 'mutation_in_flight'));
     verifyNever(() => sdk.disconnect());
     sending.complete();
     await operation;
@@ -102,6 +115,7 @@ void main() {
     await wrapper.connect(req: request);
     final syncing = sharedSyncWallet(sdk);
     expect(await wrapper.recoverStaleTokenBalance(sdk), isFalse);
+    expect(outcomes.single, containsPair('reason', 'sync_in_flight'));
     verifyNever(() => sdk.disconnect());
     sync.complete(const spark.SyncWalletResponse());
     await syncing;
@@ -129,6 +143,7 @@ void main() {
               )
             ]));
     expect(await wrapper.recoverStaleTokenBalance(sdk), isFalse);
+    expect(outcomes.single, containsPair('reason', 'pending_send'));
     verifyNever(() => sdk.disconnect());
     expect(await runSparkMutation(sdk, () async => true), isTrue);
     wrapper.disconnect();
@@ -152,6 +167,7 @@ void main() {
     await wrapper.connect(req: request);
     checking.complete(const spark.ListPaymentsResponse(payments: []));
     expect(await recovering, isFalse);
+    expect(outcomes.single, containsPair('reason', 'wallet_changed'));
     expect(wrapper.instance, same(second));
     expect(queue, isEmpty);
     wrapper.disconnect();
@@ -168,6 +184,7 @@ void main() {
             spark.AutoOptimizationEvent.started(totalRounds: 1)));
     await flush();
     expect(await wrapper.recoverStaleTokenBalance(sdk), isFalse);
+    expect(outcomes.single, containsPair('reason', 'optimization_in_flight'));
     verifyNever(() => sdk.disconnect());
     wrapper.disconnect();
     await flush();
@@ -185,8 +202,85 @@ void main() {
     when(() => sdk.listPayments(request: const spark.ListPaymentsRequest()))
         .thenThrow(StateError('offline'));
     expect(await wrapper.recoverStaleTokenBalance(sdk), isFalse);
+    expect(outcomes.single, containsPair('reason', 'lookup_failed'));
     expect(await runSparkMutation(sdk, () async => true), isTrue);
     verifyNever(() => sdk.disconnect());
+    wrapper.disconnect();
+  });
+
+  test('reconnect and teardown failures have distinct fixed outcomes',
+      () async {
+    for (final teardownFails in [false, true]) {
+      outcomes.clear();
+      final sdk = _Sdk();
+      stub(sdk, const Stream.empty(), 'wallet');
+      var connects = 0;
+      final wrapper = BreezSdkSpark.forTesting(connectSdk: (_) async {
+        if (++connects > 1) throw StateError('private native error');
+        return sdk;
+      });
+      await wrapper.connect(req: request);
+      await flush();
+      if (teardownFails) {
+        when(() => sdk.disconnect())
+            .thenThrow(StateError('private native error'));
+      }
+      expect(await wrapper.recoverStaleTokenBalance(sdk, source: 'ledger'),
+          isFalse);
+      expect(outcomes.single, containsPair('result', 'failed'));
+      expect(outcomes.single, containsPair('attempted', true));
+      expect(outcomes.single['reason'],
+          teardownFails ? 'teardown_failed' : 'connect_failed');
+      expect(
+          outcomes.single.keys,
+          unorderedEquals(
+              ['source', 'result', 'reason', 'attempted', 'duration_ms']));
+      expect(outcomes.single.toString(), isNot(contains('private')));
+      expect(outcomes.single['duration_ms'], isA<int>());
+      expect(wrapper.instance, isNull);
+    }
+  });
+
+  test(
+      'a native lookup timeout reports its fixed reason without attempting reconnect',
+      () async {
+    final sdk = _Sdk();
+    stub(sdk, const Stream.empty(), 'wallet');
+    final wrapper = BreezSdkSpark.forTesting(connectSdk: (_) async => sdk);
+    await wrapper.connect(req: request);
+    await flush();
+    when(() => sdk.listPayments(request: const spark.ListPaymentsRequest()))
+        .thenThrow(TimeoutException('private native error'));
+    expect(await wrapper.recoverStaleTokenBalance(sdk), isFalse);
+    expect(outcomes.single, containsPair('reason', 'lookup_timeout'));
+    expect(outcomes.single, containsPair('attempted', false));
+    verifyNever(() => sdk.disconnect());
+    wrapper.disconnect();
+  });
+
+  test('a superseded session never receives the old recovery success',
+      () async {
+    final first = _Sdk(), second = _Sdk(), third = _Sdk();
+    stub(first, const Stream.empty(), 'first');
+    stub(second, const Stream.empty(), 'second');
+    stub(third, const Stream.empty(), 'third');
+    final delayed = Completer<spark.GetInfoResponse>();
+    when(() => second.getInfo(request: const spark.GetInfoRequest()))
+        .thenAnswer((_) => delayed.future);
+    final queue = [first, second, third];
+    final wrapper =
+        BreezSdkSpark.forTesting(connectSdk: (_) async => queue.removeAt(0));
+    await wrapper.connect(req: request);
+    await flush();
+    final recovering = wrapper.recoverStaleTokenBalance(first);
+    await pumpEventQueue();
+    expect(wrapper.instance, same(second));
+    wrapper.disconnect();
+    await wrapper.connect(req: request);
+    delayed.complete(info('second'));
+    await recovering;
+    expect(wrapper.instance, same(third));
+    expect(outcomes, isEmpty);
     wrapper.disconnect();
   });
 }
