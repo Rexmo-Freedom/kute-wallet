@@ -504,7 +504,8 @@ class _VenueCashChain {
 
   /// Follows one Orchestra order to delivery. Without a status read (a
   /// test's wallet) it counts as landed once the venue credited the order.
-  Future<LegDelivery> _delivery(String Function() legId) {
+  Future<LegDelivery> _delivery(String Function() legId,
+      {void Function()? onExplicitRefund}) {
     final statusOf = env.legStatus;
     if (statusOf == null) {
       return Future.any<LegDelivery>([
@@ -513,9 +514,17 @@ class _VenueCashChain {
             (placed) => placed ? LegDelivery.delivered : LegDelivery.timedOut),
       ]);
     }
+    var refundNotified = false;
     return watchLegDelivery(
         id: legId,
-        statusOf: statusOf,
+        statusOf: (id) async {
+          final status = await statusOf(id);
+          if (!refundNotified && status?.trim().toLowerCase() == 'refunded') {
+            refundNotified = true;
+            onExplicitRefund?.call();
+          }
+          return status;
+        },
         pollEvery: env.legPollEvery,
         maxWait: VenueCashFundedOrderRunner.legMaxWait,
         onSlow: _slow);
@@ -684,7 +693,11 @@ class _VenueCashChain {
       ]);
     }
     final legId = _follow(leg.result!, update);
-    switch (await _delivery(legId)) {
+    switch (await _delivery(legId, onExplicitRefund: () {
+      unawaited(_cashSnapshot.refresh(_ref.read, settledRefs: {
+        leg.result!.operationId ?? leg.result!.quoteId,
+      }));
+    })) {
       case LegDelivery.delivered:
         _landed(step, source);
         unawaited(_cashSnapshot.refresh(_ref.read, settledRefs: {
@@ -723,7 +736,11 @@ class _VenueCashChain {
     if (leg == null || !leg.ok) return _legRefused(leg);
     final legId = _follow(leg.result!, update);
     final source = step.from?.name ?? 'other';
-    switch (await _delivery(legId)) {
+    switch (await _delivery(legId, onExplicitRefund: () {
+      unawaited(_cashSnapshot.refresh(_ref.read, settledRefs: {
+        leg.result!.operationId ?? leg.result!.quoteId,
+      }));
+    })) {
       case LegDelivery.delivered:
         _landed(step, source);
         unawaited(_cashSnapshot.refresh(_ref.read, settledRefs: {

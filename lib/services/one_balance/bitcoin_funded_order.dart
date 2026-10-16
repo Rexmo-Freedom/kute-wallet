@@ -1642,7 +1642,8 @@ class _FundedChain {
   /// Follows one leg's Orchestra order to delivery. Without a status read
   /// (a test's wallet) a leg counts as landed once the venue credited the
   /// order.
-  Future<LegDelivery> _delivery(String Function() legId) {
+  Future<LegDelivery> _delivery(String Function() legId,
+      {void Function()? onExplicitRefund}) {
     final statusOf = env.legStatus;
     if (statusOf == null) {
       return Future.any<LegDelivery>([
@@ -1651,9 +1652,17 @@ class _FundedChain {
             (placed) => placed ? LegDelivery.delivered : LegDelivery.timedOut),
       ]);
     }
+    var refundNotified = false;
     return watchLegDelivery(
         id: legId,
-        statusOf: statusOf,
+        statusOf: (id) async {
+          final status = await statusOf(id);
+          if (!refundNotified && status?.trim().toLowerCase() == 'refunded') {
+            refundNotified = true;
+            onExplicitRefund?.call();
+          }
+          return status;
+        },
         pollEvery: env.legPollEvery,
         onSlow: _slow);
   }
@@ -2308,7 +2317,7 @@ class _FundedChain {
       return const MoneyStepFailed('venue_cash');
     }
     final watches = <Future<LegDelivery>>[];
-    for (final l in mine.where((l) => l.ok && l.direct)) {
+    for (final l in mine.where((l) => l.ok)) {
       final res = l.result!;
       var legId = res.orderId ?? res.quoteId;
       update((s) => s.copyWith(ref: legId));
@@ -2318,7 +2327,10 @@ class _FundedChain {
           if (orderId != null && orderId.isNotEmpty) legId = orderId;
         }).catchError((Object _) {}));
       }
-      watches.add(_delivery(() => legId));
+      watches.add(_delivery(() => legId, onExplicitRefund: () {
+        unawaited(_cashSnapshot
+            .refresh(_ref.read, settledRefs: {res.operationId ?? res.quoteId}));
+      }));
     }
     final results = await Future.wait(watches);
     if (results.any((d) => d == LegDelivery.failed)) {
@@ -2328,7 +2340,7 @@ class _FundedChain {
       return const MoneyStepFailed('timeout');
     }
     final settledRefs = {
-      for (final leg in mine.where((l) => l.ok && l.direct))
+      for (final leg in mine.where((l) => l.ok))
         leg.result!.operationId ?? leg.result!.quoteId,
     };
     if (settledRefs.isNotEmpty) {

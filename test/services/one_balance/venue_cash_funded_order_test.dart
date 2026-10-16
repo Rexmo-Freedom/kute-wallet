@@ -21,6 +21,7 @@ import 'package:kute/services/funding/settlement_runner.dart'
 import 'package:kute/services/one_balance/bitcoin_funded_order.dart';
 import 'package:kute/services/one_balance/bitcoin_to_dollars_leg.dart';
 import 'package:kute/services/one_balance/funded_orders.dart';
+import 'package:kute/services/one_balance/investments_spendable.dart';
 import 'package:kute/services/one_balance/money_steps.dart';
 import 'package:kute/services/one_balance/move_steps.dart';
 import 'package:kute/services/one_balance/multi_source_move.dart';
@@ -42,6 +43,7 @@ class _Predictions implements VenueCashSource, DirectVenueCashSource {
   final String? refuseWith;
   final direct = <double>[];
   final home = <double>[];
+  var cashReads = 0;
   final hold = Completer<void>();
   bool holding = false;
 
@@ -52,7 +54,10 @@ class _Predictions implements VenueCashSource, DirectVenueCashSource {
   Duration get estimatedArrival => const Duration(minutes: 1);
 
   @override
-  Future<double> availableUsd() async => cash;
+  Future<double> availableUsd() async {
+    cashReads++;
+    return cash;
+  }
 
   @override
   Future<VenueMoveResult> pull(double usd, {required String purpose}) async {
@@ -123,6 +128,7 @@ class _Run {
   late String runId;
   late AuthGrant grant;
   final _delivered = <String>{};
+  void Function()? onSourceStatus;
 
   FundedOrderRecord get record =>
       c.read(fundedOrdersProvider).firstWhere((r) => r.id == runId);
@@ -136,6 +142,7 @@ class _Run {
 
   Future<String?> _status(String id) async {
     final s = statuses[id] ?? 'completed';
+    if (id == 'ord_direct' || id == 'ord_home') onSourceStatus?.call();
     if (s == 'completed') _delivered.add(id);
     return s;
   }
@@ -162,18 +169,36 @@ class _Run {
         },
       );
 
-  Future<BitcoinFundedRun> start() async {
+  Future<BitcoinFundedRun> start({bool trackCash = false}) async {
     puller = VenueCashPuller(
       sources: [predictions],
       readDollars: () => dollars,
       minimumUsd: (_) async => 1,
       sleep: (_) async {},
+      onCashMoved: trackCash
+          ? (leg, before) =>
+              c.read(venueCashSnapshotProvider).cashMoved(leg, before)
+          : null,
     );
     c = ProviderContainer(overrides: [
       bitcoinLegEnvProvider.overrideWithValue(env),
       venueCashPullerProvider.overrideWithValue(puller),
     ]);
     addTearDown(c.dispose);
+    if (trackCash) {
+      final snapshot = c.read(venueCashSnapshotProvider);
+      c.read(venueCashLastReadProvider.notifier).state = (
+        walletId: snapshot.walletId,
+        candidates: [
+          (
+            venue: OneBalanceVenue.predictions,
+            availableUsd: 5,
+            eta: const Duration(minutes: 1),
+            minimumUsd: 1
+          )
+        ],
+      );
+    }
     // The slip's plan before the approval: $9.11 into Investing, $5.00
     // of it from Dollars, the rest from Predictions ($4.20 leaves).
     final plan = await puller.plan(
@@ -302,6 +327,63 @@ void main() {
     VenueCashFundedOrderRunner.dollarsPollEvery =
         const Duration(milliseconds: 500);
     VenueCashFundedOrderRunner.legMaxWait = const Duration(minutes: 12);
+  });
+
+  for (final home in [false, true]) {
+    for (final status in ['refunded', 'failed', 'processing']) {
+      test(
+          '${home ? 'home' : 'direct'} accepted source $status reconciles '
+          'cash only on explicit refund proof', () async {
+        VenueCashFundedOrderRunner.legMaxWait =
+            const Duration(milliseconds: 15);
+        final h = _Run(
+            refuseDirect: home ? 'no_route' : null,
+            statuses: {home ? 'ord_home' : 'ord_direct': status});
+        // The source endpoint may still show its old figure; only explicit
+        // refund proof can release the accepted send's reservation.
+        h.onSourceStatus = () => h.predictions.cash = 5;
+        final run = await h.start(trackCash: true);
+        await run.ended;
+        double available() => h.c
+            .read(venueCashLastReadProvider)!
+            .candidates
+            .singleWhere((s) => s.venue == OneBalanceVenue.predictions)
+            .availableUsd;
+        await h.until(() =>
+            (available() - (status == 'refunded' ? 5 : 0.8)).abs() < 1e-6);
+        expect(available(), closeTo(status == 'refunded' ? 5 : 0.8, 1e-6));
+        expect(h.predictions.cashReads, status == 'refunded' ? 2 : 1,
+            reason: 'only the explicit refund requests one reconciliation');
+      });
+    }
+  }
+
+  test('a refund from a retired snapshot cannot refresh a new generation',
+      () async {
+    final h = _Run(statuses: const {'ord_direct': 'refunded'});
+    var replaced = false;
+    h.onSourceStatus = () {
+      if (replaced) return;
+      replaced = true;
+      h.c.invalidate(venueCashSnapshotProvider);
+      final next = h.c.read(venueCashSnapshotProvider);
+      h.c.read(venueCashLastReadProvider.notifier).state = (
+        walletId: next.walletId,
+        candidates: [
+          (
+            venue: OneBalanceVenue.predictions,
+            availableUsd: 7,
+            eta: const Duration(minutes: 1),
+            minimumUsd: 1
+          )
+        ],
+      );
+    };
+    final run = await h.start(trackCash: true);
+    await run.ended;
+    expect(replaced, isTrue);
+    expect(
+        h.c.read(venueCashLastReadProvider)!.candidates.single.availableUsd, 7);
   });
 
   test(

@@ -27,13 +27,23 @@ import 'package:kute/services/one_balance/bitcoin_funded_order.dart';
 import 'package:kute/services/one_balance/bitcoin_to_dollars_leg.dart';
 import 'package:kute/services/one_balance/bitcoin_to_venue_leg.dart';
 import 'package:kute/services/one_balance/funded_orders.dart';
+import 'package:kute/services/one_balance/investments_spendable.dart';
 import 'package:kute/services/one_balance/margin_funding.dart'
     show MarginFundingPlan;
 import 'package:kute/services/one_balance/money_steps.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/one_balance/order_funding.dart';
 import 'package:kute/services/one_balance/venue_cash_source.dart'
-    show DirectRouteRefusals, venueCashPullerProvider, planDollarsShortfall;
+    show
+        DirectRouteRefusals,
+        venueCashPullerProvider,
+        planDollarsShortfall,
+        VenueCashSource,
+        VenueCashPuller,
+        VenueCashPull,
+        VenueCashLegOutcome,
+        VenueCashPullOutcome,
+        VenueCashPlan;
 import 'package:kute/services/one_balance/venue_funder.dart';
 import 'package:kute/services/one_balance/venue_cash_funded_order.dart';
 import 'package:kute/services/orchestra/orchestra_quote_guard.dart';
@@ -130,6 +140,40 @@ void main() {
     DirectRouteRefusals.reset();
   });
   tearDown(() => AuthGrants.clock = DateTime.now);
+
+  for (final home in [false, true]) {
+    for (final status in ['refunded', 'failed', 'completed']) {
+      test(
+          'Bitcoin mixed source ${home ? 'via Dollars' : 'direct'} $status '
+          'reconciles only its proved outcome', () async {
+        final h = _Harness(
+            sourceStatus: status,
+            sourceHome: home,
+            plan: const DirectBitcoinPlan.direct(
+                targetUsd: 15.01,
+                sats: 100000,
+                dollarsUsd: 0,
+                bitcoinShareUsd: 12.1,
+                otherUsd: 3,
+                directCostUsd: 15,
+                viaCostUsd: 15.3));
+        final run = h.start();
+        await run.ended;
+        double available() => h.c
+            .read(venueCashLastReadProvider)!
+            .candidates
+            .singleWhere((s) => s.venue == OneBalanceVenue.investing)
+            .availableUsd;
+        await h.until(
+            () => (available() - (status == 'refunded' ? 5 : 2)).abs() < 1e-6);
+        expect(available(), closeTo(status == 'refunded' ? 5 : 2, 1e-6));
+        if (status == 'completed') {
+          expect(h.record.steps.byId('leg:investing')!.status,
+              MoneyStepStatus.done);
+        }
+      });
+    }
+  }
 
   test('stale requests never replace a newer live graph before binding',
       () async {
@@ -907,6 +951,8 @@ class _Harness {
     this.refuseVenueMove = false,
     this.bitcoinStatus = 'completed',
     this.ownVenue = _pmWallet,
+    this.sourceStatus,
+    this.sourceHome = false,
   });
 
   final DirectBitcoinPlan plan;
@@ -916,6 +962,9 @@ class _Harness {
   final bool refuseVenueMove;
   final String bitcoinStatus;
   final String ownVenue;
+  final String? sourceStatus;
+  final bool sourceHome;
+  double sourceCash = 5;
 
   var directSends = 0;
   var directPaid = 0;
@@ -943,6 +992,7 @@ class _Harness {
   }
 
   Future<String?> _status(String id) async {
+    if (id == 'ord_other') return sourceStatus;
     if (id == 'ord_direct') {
       if (holdBitcoin && !_bitcoinHeld.isCompleted) return 'processing';
       if (bitcoinStatus == 'completed' && !_bitcoinIn.isCompleted) {
@@ -1014,8 +1064,27 @@ class _Harness {
   BitcoinFundedRun start() {
     c = ProviderContainer(overrides: [
       bitcoinLegEnvProvider.overrideWithValue(env),
+      if (sourceStatus != null)
+        venueCashPullerProvider.overrideWithValue(VenueCashPuller(
+            sources: [_OtherCash(() => sourceCash)],
+            readDollars: () => dollars,
+            minimumUsd: (_) async => 1)),
     ]);
     addTearDown(c.dispose);
+    if (sourceStatus != null) {
+      final snapshot = c.read(venueCashSnapshotProvider);
+      c.read(venueCashLastReadProvider.notifier).state = (
+        walletId: snapshot.walletId,
+        candidates: [
+          (
+            venue: OneBalanceVenue.investing,
+            availableUsd: 5,
+            eta: const Duration(minutes: 1),
+            minimumUsd: 1
+          )
+        ],
+      );
+    }
     final grant = _grant();
     final run = c.read(bitcoinFundedOrderRunnerProvider).start(
           BitcoinFundedOrderRequest(
@@ -1028,6 +1097,40 @@ class _Harness {
             entrySource: 'market',
             fundVenue: (controller, legs) async {
               fundCalls.add(legs);
+              if (sourceStatus != null) {
+                const pull = VenueCashPull(
+                    venue: OneBalanceVenue.investing,
+                    usd: 3,
+                    arrivingUsd: 3,
+                    eta: Duration(minutes: 1));
+                final leg = VenueCashLegOutcome(
+                    pull: pull,
+                    route: sourceHome
+                        ? MoneyRoute.viaDollars
+                        : MoneyRoute.direct,
+                    landsIn: sourceHome
+                        ? VenueCashDestination.dollars
+                        : VenueCashDestination.predictions,
+                    result: const VenueMoveResult(
+                        quoteId: 'q_other',
+                        orderId: 'ord_other',
+                        operationId: 'op_other',
+                        sentUsd: 3,
+                        arrivingUsdEstimate: 3));
+                c.read(venueCashSnapshotProvider).cashMoved(leg, 5);
+                sourceCash = sourceStatus == 'completed' ? 2 : 5;
+                legs.onPulled?.call(VenueCashPullOutcome(
+                    plan: const VenueCashPlan(
+                        neededUsd: 3,
+                        dollarsUsd: 0,
+                        pulls: [pull],
+                        covers: true,
+                        eta: Duration(minutes: 1),
+                        uncoveredUsd: 0),
+                    legs: [leg],
+                    dollarsCover: true,
+                    eta: const Duration(minutes: 1)));
+              }
               if (refuseVenueMove) {
                 return const OrderFundingRefused('no_route');
               }
@@ -1064,6 +1167,20 @@ class _Harness {
     _runId = run.id;
     return run;
   }
+}
+
+class _OtherCash implements VenueCashSource {
+  _OtherCash(this.cash);
+  final double Function() cash;
+  @override
+  OneBalanceVenue get venue => OneBalanceVenue.investing;
+  @override
+  Duration get estimatedArrival => const Duration(minutes: 1);
+  @override
+  Future<double> availableUsd() async => cash();
+  @override
+  Future<VenueMoveResult> pull(double usd, {required String purpose}) =>
+      throw StateError('the accepted source result is injected by the harness');
 }
 
 class _Landed extends DollarsLandingWatcher {
