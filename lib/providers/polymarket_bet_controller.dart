@@ -104,8 +104,40 @@ class PolymarketBetController {
     return (cash - committed).clamp(0.0, double.infinity);
   }
 
-  double _usdcShortfall(double amount) =>
-      (amount - _spendableUsdc).clamp(0.0, double.infinity);
+  // Explicit prefunded bets use the actual pUSD and venue count. The display
+  // aggregate may still show the pre-transfer balance (or unconverted USDC.e).
+  Future<double> _freshSpendableUsdc() async {
+    final notifier = ref.read(polymarketTradingProvider.notifier);
+    final generation = notifier.accountGeneration;
+    final wallet = notifier.signingWalletId;
+    final proxy =
+        ref.read(polymarketTradingProvider).valueOrNull?.proxyWalletAddress;
+    try {
+      final reads = await notifier
+          .readBuyReadiness(refreshVenue: true)
+          .timeout(const Duration(seconds: 15));
+      final current = ref.read(polymarketTradingProvider).valueOrNull;
+      if (!identical(notifier, ref.read(polymarketTradingProvider.notifier)) ||
+          notifier.accountGeneration != generation ||
+          notifier.signingWalletId != wallet ||
+          current?.proxyWalletAddress != proxy) {
+        throw ReauthRequired(const {DriftField.wallet});
+      }
+      if (reads == null ||
+          !reads.setupDone ||
+          reads.venue == null ||
+          current == null) {
+        return 0;
+      }
+      return spendableUsdc(
+          min(reads.pusd.toDouble(), reads.venue!.balance.toDouble()) / 1e6,
+          current.openOrders);
+    } on AuthGrantException {
+      rethrow;
+    } catch (_) {
+      return 0;
+    }
+  }
 
   /// The account must cover the stake AND the venue's fees: platform fee
   /// per share plus Kute's builder fee on notional, both charged in pUSD
@@ -138,7 +170,8 @@ class PolymarketBetController {
   /// Finish one-time setup and read the executable book and the market's
   /// fee terms before approval, so review, balance check and signing all
   /// work from the same numbers.
-  Future<PendingBetIntent> prepareIntent(PendingBetIntent intent) async {
+  Future<PendingBetIntent> prepareIntent(PendingBetIntent intent,
+      {bool requireFreshCollateral = false}) async {
     final notifier = ref.read(polymarketTradingProvider.notifier);
     final walletId = notifier.signingWalletId;
     // A first prediction runs the account's one-time setup here, behind
@@ -199,7 +232,11 @@ class PolymarketBetController {
       // largest stake whose fee ceiling at that ask plus the rounding
       // cent fits the spendable cash, i.e. exactly what `allInMax` and
       // the placement check will ask the balance to cover.
-      final budget = maxStakeBudget(intent.spendAllBudgetUsd, _spendableUsdc);
+      final spendable =
+          requireFreshCollateral && intent.spendAllBudgetUsd != null
+              ? await _freshSpendableUsdc()
+              : _spendableUsdc;
+      final budget = maxStakeBudget(intent.spendAllBudgetUsd, spendable);
       if (budget != null) {
         final fitted = terms.maxNotionalFor(budget, quote.bestAsk,
             reserve: PolymarketMarketBuyQuote.roundingHeadroom);
@@ -596,6 +633,7 @@ class PolymarketBetController {
     required AuthGrant grant,
     bool successHaptic = true,
     String? entrySource,
+    bool requireFreshCollateral = false,
   }) async {
     final intent = ref.read(pendingPolymarketBetProvider);
     if (intent == null) {
@@ -625,7 +663,15 @@ class PolymarketBetController {
     // balance, fees included; anything short fails fast with a deposit
     // prompt. The deposit-then-autofire journey still works: the intent
     // stays stored, and once deposited USDC lands the autofire places it.
-    if (_usdcShortfall(allInMax(intent)) > 0) {
+    final double spendable;
+    try {
+      spendable =
+          requireFreshCollateral ? await _freshSpendableUsdc() : _spendableUsdc;
+    } on AuthGrantException catch (e) {
+      grant.revoke();
+      return _failOnGrant(e, intent: intent, entrySource: entrySource);
+    }
+    if (allInMax(intent) > spendable + 1e-6) {
       _trackBetFailed(intent, 'insufficient_usdc', entrySource: entrySource);
       ref.read(pendingPolymarketBetProvider.notifier).updateStatus(
             PendingBetStatus.failed,
@@ -645,7 +691,9 @@ class PolymarketBetController {
           successHaptic: successHaptic, entrySource: entrySource);
     }
     return _placeOrder(intent, grant,
-        successHaptic: successHaptic, entrySource: entrySource);
+        spendableUsd: spendable,
+        successHaptic: successHaptic,
+        entrySource: entrySource);
   }
 
   /// The one terminal polymarket_bet_failed per placement attempt. The
@@ -884,7 +932,9 @@ class PolymarketBetController {
   /// Direct CLOB placement from funded pUSD, using the prepared book cap.
   Future<AuthGrantException?> _placeOrder(
       PendingBetIntent intent, AuthGrant grant,
-      {bool successHaptic = true, String? entrySource}) async {
+      {required double spendableUsd,
+      bool successHaptic = true,
+      String? entrySource}) async {
     final notifier = ref.read(polymarketTradingProvider.notifier);
     // Phase 1b.4: one approval for the whole ladder. Each rung gets a child
     // grant bound to exactly that rung; a rung past the cap re-auths.
@@ -904,7 +954,7 @@ class PolymarketBetController {
       // fee-free markets and still fell short on low-priced crypto
       // outcomes); the venue's ceiling for THIS quote must fit the
       // balance alongside the stake, or the order is not sent.
-      if (quote.allInMax > _spendableUsdc + 1e-6) {
+      if (quote.allInMax > spendableUsd + 1e-6) {
         throw StateError('Insufficient balance for the stake and fees');
       }
       // The book as it is now, after the approval (read while it was on
@@ -926,7 +976,7 @@ class PolymarketBetController {
         'sendBestAsk': sendQuote.bestAsk,
         'allInMax': quote.allInMax,
         'balance': _usdcBalance,
-        'spendable': _spendableUsdc,
+        'spendable': spendableUsd,
         'negRisk': quote.negRisk,
       });
 

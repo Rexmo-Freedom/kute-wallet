@@ -94,7 +94,8 @@ class _Controller extends PolymarketBetController {
   _Controller(super.ref);
 
   @override
-  Future<PendingBetIntent> prepareIntent(PendingBetIntent intent) async =>
+  Future<PendingBetIntent> prepareIntent(PendingBetIntent intent,
+      {bool requireFreshCollateral = false}) async =>
       intent;
 
   @override

@@ -2072,6 +2072,10 @@ class PolymarketTradingNotifier
   /// (Wallet Hardening Phase 1b.4).
   String? get signingWalletId => _credentialsWalletId();
 
+  /// Changes on account rebuild, including the same wallet's key format
+  /// or signing session. Async readers use it to reject retired results.
+  int get accountGeneration => _accountGeneration;
+
   /// L2 authentication uses the address that provisioned the API key.
   /// New credentials belong to the owner EOA; the deposit wallet remains
   /// the order's maker/signer under the separate POLY_1271 order protocol.

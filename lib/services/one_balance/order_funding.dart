@@ -174,9 +174,8 @@ class OrderFundingPlan {
         routeFee: routeFee);
     final floor = minUsd.isFinite && minUsd > 0 ? minUsd : 0.0;
     final fund = top.usd < floor ? _ceilCents(floor) : top.usd;
-    final keep = routeFee.isFinite && routeFee > 0 && routeFee < 1
-        ? 1 - routeFee
-        : 1.0;
+    final keep =
+        routeFee.isFinite && routeFee > 0 && routeFee < 1 ? 1 - routeFee : 1.0;
     return OrderFundingPlan(
       fundUsd: fund,
       arrivingUsd: fund * keep,
@@ -314,9 +313,8 @@ abstract final class OrderFundingEngine {
   }) {
     if (!shortfallUsd.isFinite || shortfallUsd <= 1e-6) return 0;
     final buffer = math.max(shortfallUsd * bufferShare, bufferMinUsd);
-    final min = routeMinimumUsd.isFinite && routeMinimumUsd > 0
-        ? routeMinimumUsd
-        : 0.0;
+    final min =
+        routeMinimumUsd.isFinite && routeMinimumUsd > 0 ? routeMinimumUsd : 0.0;
     return OrderFundingPlan._ceilCents(
         math.max(math.max(shortfallUsd + buffer, min), floorUsd));
   }
@@ -478,8 +476,8 @@ class OrderFundingController {
     bool continueJourney = false,
     String? marketKind,
   }) async {
-    final shortfall =
-        ShortfallRules.shortfallUsd(requiredUsd: requiredUsd, readyUsd: readyUsd);
+    final shortfall = ShortfallRules.shortfallUsd(
+        requiredUsd: requiredUsd, readyUsd: readyUsd);
     if (shortfall <= 0) return const OrderFundingNotNeeded();
     final journey = OrderFundingJourney.instance;
     final dollars = _dollarsUsd();
@@ -491,6 +489,7 @@ class OrderFundingController {
           dollarsUsd: dollars,
           entrySource: entrySource,
           marketKind: marketKind,
+          purpose: purpose == 'predictions_prefund' ? purpose : 'order',
           otherVenueUsed: false);
     }
 
@@ -592,8 +591,8 @@ class OrderFundingController {
 
 /// Investing's funder: `HyperliquidVenueFunder` over whatever rail
 /// `hyperliquidMoveRailProvider` binds.
-final investingVenueFunderProvider = Provider<VenueFunder>(
-    (ref) => ref.watch(hyperliquidVenueFunderProvider));
+final investingVenueFunderProvider =
+    Provider<VenueFunder>((ref) => ref.watch(hyperliquidVenueFunderProvider));
 
 final orderFundingControllerProvider = Provider<OrderFundingController>(
   (ref) => OrderFundingController(
@@ -715,6 +714,7 @@ class _FundingRun {
 
   /// `bitcoin` for an order funded from the person's own bitcoin.
   String? fundingSource;
+  String purpose = 'order';
 
   /// `live` for a game in play, `short` for a 5- or 15-minute round
   /// (`PrefundMarketKind`), so their funded orders read apart.
@@ -772,12 +772,14 @@ class OrderFundingJourney {
     String? entrySource,
     String? fundingSource,
     String? marketKind,
+    String purpose = 'order',
     bool? otherVenueUsed,
     Map<String, Object> extra = const {},
   }) {
     if (_runs.containsKey(venue)) abandoned(venue);
     _runs[venue] =
         _FundingRun(startedAt: clock(), orderUsd: orderUsd, fundUsd: fundUsd)
+          ..purpose = purpose
           ..fundingSource = fundingSource
           ..marketKind = marketKind
           ..otherVenueUsed = otherVenueUsed;
@@ -789,6 +791,7 @@ class OrderFundingJourney {
       'dollars_usd': dollarsUsd,
       'entry_source': entrySource ?? 'unknown',
       'wallet_kind': 'hot',
+      if (purpose != 'order') 'funding_purpose': purpose,
       if (fundingSource != null) 'funding_source': fundingSource,
       if (marketKind != null) 'market_kind': marketKind,
       if (otherVenueUsed != null) 'other_venue_used': otherVenueUsed,
@@ -797,8 +800,7 @@ class OrderFundingJourney {
   }
 
   /// The run's `funding_source`, when it has one.
-  String? fundingSourceOf(OneBalanceVenue venue) =>
-      _runs[venue]?.fundingSource;
+  String? fundingSourceOf(OneBalanceVenue venue) => _runs[venue]?.fundingSource;
 
   /// An order funded from bitcoin: its Bitcoin leg's sats left now.
   void bitcoinSent(OneBalanceVenue venue) {
@@ -830,7 +832,8 @@ class OrderFundingJourney {
     run.routeReason = reason;
     TrackingService.track('order_funding_route_selected', params: {
       'venue': orderFundingVenueCode(venue),
-      'duration_ms': clock().difference(run.startedAt).inMilliseconds.clamp(0, 1 << 31),
+      'duration_ms':
+          clock().difference(run.startedAt).inMilliseconds.clamp(0, 1 << 31),
       ..._legParams(run),
       if (run.fundingSource != null) 'funding_source': run.fundingSource!,
     });
@@ -867,10 +870,10 @@ class OrderFundingJourney {
 
   /// The route and per-leg timings for the funnel's end events.
   static Map<String, Object> _legParams(_FundingRun run) => {
+        if (run.purpose != 'order') 'funding_purpose': run.purpose,
         if (run.route != null) 'route': run.route!,
         if (run.routeReason != null) 'route_reason': run.routeReason!,
-        if (run.otherVenueUsed != null)
-          'other_venue_used': run.otherVenueUsed!,
+        if (run.otherVenueUsed != null) 'other_venue_used': run.otherVenueUsed!,
         ...run.legMs,
       };
 
@@ -930,6 +933,29 @@ class OrderFundingJourney {
     if (run == null) return;
     run.creditedAt ??= clock();
     step(venue, OrderFundingStage.order);
+  }
+
+  /// Terminal transfer-only credit: no order was submitted or timed.
+  void transferReady(OneBalanceVenue venue) {
+    final run = _runs.remove(venue);
+    if (run == null) return;
+    final now = clock();
+    TrackingService.track('order_funding_completed', params: {
+      'venue': orderFundingVenueCode(venue),
+      'fund_usd': run.fundUsd,
+      'amount_usd': run.orderUsd,
+      'funding_purpose': run.purpose,
+      'outcome': 'funds_ready',
+      'duration_ms': now.difference(run.startedAt).inMilliseconds,
+      'ms_credit': now.difference(run.fundedAt ?? run.startedAt).inMilliseconds,
+      'resized': false,
+      if (run.fundingSource != null) 'funding_source': run.fundingSource!,
+      ...bitcoinTimings(
+          sentAt: run.bitcoinSentAt,
+          landedAt: run.bitcoinLandedAt,
+          creditedAt: now),
+      ..._legParams(run),
+    });
   }
 
   void completed(OneBalanceVenue venue,

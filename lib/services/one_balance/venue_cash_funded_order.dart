@@ -102,6 +102,7 @@ class VenueCashFundedRequest {
     this.moveId,
     this.entrySource,
     this.awaitPlacement,
+    this.transfer,
     this.bindAttempt,
     this.isCurrentAttempt,
   });
@@ -137,6 +138,9 @@ class VenueCashFundedRequest {
   /// The step after the money, in place of the venue's own placement
   /// watch (tests).
   final BitcoinPlacementWait? awaitPlacement;
+
+  /// Explicit transfer-only completion, without any queued order.
+  final FundingTransferCompletion? transfer;
   final bool Function(String runId)? bindAttempt;
   final bool Function()? isCurrentAttempt;
 }
@@ -274,6 +278,7 @@ class _VenueCashChain {
     final already = _end;
     if (already != null) return already;
     _end = end;
+    r.transfer?.cancel?.call();
     orders.stop(id,
         stage: stage, reason: reason, moneyAt: moneyAt, message: message);
     if (category != null) journey.failed(venue, journeyStage, category);
@@ -349,7 +354,11 @@ class _VenueCashChain {
     ];
     final graph = MoneyStepGraph([
       ...carried,
-      ...fundedOrderGraph(venue: venue, legs: legs, orderUsd: r.label.orderUsd)
+      ...fundedOrderGraph(
+              venue: venue,
+              legs: legs,
+              orderUsd: r.label.orderUsd,
+              transferOnly: r.transfer != null)
           .steps,
     ]);
     orders.setSteps(id, graph, route: _route);
@@ -362,6 +371,7 @@ class _VenueCashChain {
       dollarsUsd: share,
       entrySource: r.entrySource,
       fundingSource: 'venue_cash',
+      purpose: r.transfer == null ? 'order' : 'predictions_prefund',
       otherVenueUsed: plan.pulls.isNotEmpty,
       extra: {'legs': plan.pulls.length + (share >= 0.01 ? 1 : 0)},
     );
@@ -370,7 +380,8 @@ class _VenueCashChain {
 
     // The venue's own placement, followed from now on: it fires the
     // moment the venue holds enough, whatever leg is still landing.
-    final wait = r.awaitPlacement ??
+    final wait = r.transfer?.wait ??
+        r.awaitPlacement ??
         runner.placementWaitFor(venue, fundedRunId: id,
             onFailed: (message, code) {
           _failedText = message;
@@ -378,7 +389,11 @@ class _VenueCashChain {
         });
     _placement = wait(onCredited: () {
       if (!_credited.isCompleted) _credited.complete();
-      orders.setStage(id, FundedOrderStage.placing);
+      orders.setStage(
+          id,
+          r.transfer == null
+              ? FundedOrderStage.placing
+              : FundedOrderStage.preparing);
     }).then((placed) {
       _placed = placed;
       return placed;
@@ -435,9 +450,19 @@ class _VenueCashChain {
     settled ??= steps.graph;
     final stopped = _end;
     if (stopped != null) return stopped;
+    if (r.transfer != null && settled.allDone) {
+      orders.setStage(id, FundedOrderStage.done);
+      journey.transferReady(venue);
+      r.grant.revoke();
+      return BitcoinFundedEnd.transferred;
+    }
     if (settled.byId(FundedStepId.place)?.status == MoneyStepStatus.done) {
       orders.setStage(id, FundedOrderStage.done);
       return BitcoinFundedEnd.placed;
+    }
+    if (r.transfer != null) {
+      r.transfer?.cancel?.call();
+      journey.failed(venue, OrderFundingStage.credit, 'timeout');
     }
     // The money reached the venue (or is on its way there): it stays as
     // its cash, available.
@@ -880,7 +905,7 @@ class _VenueCashChain {
         phase,
         update,
         optional: optional,
-        phases: env.readiness?.call(venue),
+        phases: r.transfer?.phases() ?? env.readiness?.call(venue),
         credited: _credited.future,
         placement: _placement,
         stopped: _stopped.future,

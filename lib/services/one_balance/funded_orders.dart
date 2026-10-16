@@ -70,7 +70,7 @@ enum FundedMoneyAt {
 /// What a funded record is for: an order (or bet) a slip places, or
 /// margin the margin sheet adds to an isolated Investing position. Both
 /// run the same funding chain; the screens name them differently.
-enum FundedOrderKind { order, margin }
+enum FundedOrderKind { order, margin, transfer }
 
 /// What the order is, in the words the screens show.
 @immutable
@@ -224,6 +224,7 @@ class FundedOrderRecord {
         side: label.side,
         market: label.market,
         margin: label.kind == FundedOrderKind.margin,
+        transfer: label.kind == FundedOrderKind.transfer,
         legs: [
           for (final l in steps.legs)
             if (l.status != MoneyStepStatus.skipped) l,

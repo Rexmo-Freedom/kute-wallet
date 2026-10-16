@@ -36,11 +36,12 @@ import 'dart:async';
 import 'package:flutter/foundation.dart'
     show debugPrint, kDebugMode, visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:kute/helpers/auth_grant.dart' show AuthGrants, SensitiveAction;
+import 'package:kute/helpers/auth_grant.dart'
+    show AuthGrants, SensitiveAction, IntentLimit;
 import 'package:kute/helpers/orchestra_router.dart'
     show doubleToOrchestraAmount, orchestraAmountToDouble;
 import 'package:kute/helpers/venue_intents.dart'
-    show DirectLegGrants, OrchestraGrants;
+    show DirectLegGrants, OrchestraGrants, PredictionPrefundGrants;
 import 'package:kute/models/orchestra_model.dart' show OrchestraEstimate;
 import 'package:kute/models/orchestra_route_limits.dart'
     show RouteQuoteError, RouteQuoteErrorCode;
@@ -408,6 +409,13 @@ class HyperCoreMoveRail implements HyperliquidMoveRail {
           case SweepAuthorization():
             return false;
           case ApprovedLegAuthorization(:final grant):
+            if (grant.boundIntent.limits[IntentLimit.orderKind] ==
+                    PredictionPrefundGrants.kind &&
+                !PredictionPrefundGrants.matchesAccount(grant,
+                    walletId: intent.walletId,
+                    ownPredictions: recipientOf(intent))) {
+              return false;
+            }
             if (intent.routeLabel != cctpRouteFor(destination).label) {
               return false;
             }

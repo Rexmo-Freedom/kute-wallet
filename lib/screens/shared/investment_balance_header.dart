@@ -1,5 +1,4 @@
-import 'package:kute/screens/shared/money_steps_view.dart'
-    show moneyStepLine;
+import 'package:kute/screens/shared/money_steps_view.dart' show moneyStepLine;
 import 'package:kute/screens/shared/kute_dog_scenes.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:flutter/material.dart';
@@ -236,8 +235,10 @@ class InvestmentBalanceHeader extends ConsumerWidget {
       for (final move in state.inFlight)
         if (move.order case final order? when named.add(order.id)) ...[
           switch (order.venue) {
-            OneBalanceVenue.predictions => l10n.oneBalancePlacingBet(
-                amount(order.orderUsd), order.side, order.market),
+            OneBalanceVenue.predictions => order.transfer
+                ? l10n.slipStepPreparingPrediction
+                : l10n.oneBalancePlacingBet(
+                    amount(order.orderUsd), order.side, order.market),
             OneBalanceVenue.investing => order.margin
                 ? l10n.hlMarginStepAdding(amount(order.orderUsd), order.market)
                 : l10n.oneBalanceOpeningOrder(
@@ -272,8 +273,7 @@ class InvestmentBalanceHeader extends ConsumerWidget {
     final dollarsUnknown = ref.watch(usdBalanceUnknownProvider);
     return (
       text: visible ? formatPolyFiatForced(ref, state.totalUsd) : '••••••',
-      stale:
-          !state.investingKnown || !state.predictionsKnown || dollarsUnknown,
+      stale: !state.investingKnown || !state.predictionsKnown || dollarsUnknown,
     );
   }
 

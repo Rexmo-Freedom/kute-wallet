@@ -34,6 +34,7 @@ import 'package:kute/services/hyperliquid/trailing_stop.dart';
 
 import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/models/hyperliquid_market.dart';
+import 'package:kute/models/settlement_operation.dart' show SettlementFlow;
 import 'package:kute/services/funding/settlement_runner.dart'
     show SettlementAuthorizationIntent;
 import 'package:kute/services/orchestra/orchestra_quote_guard.dart'
@@ -1119,6 +1120,12 @@ abstract final class DirectLegGrants {
   /// or null when it binds no such leg.
   static ({BigInt cap, BigInt total})? _caps(
       AuthGrant grant, String venue, String destination) {
+    if (grant.boundIntent.limits[IntentLimit.orderKind] ==
+            PredictionPrefundGrants.kind &&
+        (!PredictionPrefundGrants.isTransfer(grant) ||
+            destination != 'predictions')) {
+      return null;
+    }
     final bound = grant.boundIntent.limits[VenueLimit.directLegs];
     if (bound is! Map) return null;
     if (bound['to'] != destination) return null;
@@ -1171,6 +1178,10 @@ abstract final class DirectLegGrants {
     if (amount <= BigInt.zero) return false;
     final caps = _caps(grant, venue, destination);
     if (caps == null) return false;
+    if (PredictionPrefundGrants.isTransfer(grant) &&
+        !PredictionPrefundGrants._coversDestination(grant, amount)) {
+      return false;
+    }
     return takenBy(grant, venue) + amount <= caps.cap &&
         takenBy(grant) + amount <= caps.total;
   }
@@ -1188,7 +1199,11 @@ abstract final class DirectLegGrants {
         venue: venue, destination: destination, amount: amount, now: now)) {
       return false;
     }
-    final taken = _taken[grant!] ??= <String, BigInt>{};
+    if (PredictionPrefundGrants.isTransfer(grant!) &&
+        !PredictionPrefundGrants._takeDestination(grant, amount)) {
+      return false;
+    }
+    final taken = _taken[grant] ??= <String, BigInt>{};
     taken[venue] = (taken[venue] ?? BigInt.zero) + amount;
     return true;
   }
@@ -1263,6 +1278,161 @@ abstract final class DirectLegGrants {
   }
 }
 
+/// A transfer into this wallet's Predictions balance, without permission to
+/// submit a bet. Its marker, destination and each source cap are bound by the
+/// normal Move approval. No token, order price or autofire approval is present.
+abstract final class PredictionPrefundGrants {
+  static const String kind = 'predictions_prefund';
+
+  /// [fundUsd] is the gross source budget, including route costs, from the
+  /// immutable approved plan. [dollarsUsd] caps the Dollars route including
+  /// approved fallthrough legs. [bitcoinUsd] is the Bitcoin share of that
+  /// budget: charged when Bitcoin goes direct, or through the actual Dollars
+  /// payment when it goes via Dollars, never both.
+  static SensitiveIntent review({
+    required String walletId,
+    required String ownPredictions,
+    required String ownSpark,
+    required double fundUsd,
+    required double dollarsUsd,
+    double bitcoinUsd = 0,
+    Map<String, Object?>? directLegs,
+    Map<String, Object?>? btcLeg,
+    Duration ttl = AuthGrants.autofireTtl,
+  }) =>
+      SensitiveIntent(
+        action: SensitiveAction.moveTransfer,
+        walletId: walletId,
+        venue: IntentVenue.polymarket,
+        destination: ownPredictions.trim().toLowerCase(),
+        asset: 'USD',
+        amountMax: IntentUnits.usd(fundUsd),
+        limits: {
+          IntentLimit.orderKind: kind,
+          'refundSpark': ownSpark.trim(),
+          'dollarsUsd': IntentUnits.usd(dollarsUsd).toString(),
+          'bitcoinUsd': IntentUnits.usd(bitcoinUsd).toString(),
+          ...PmGrants.fundingLimits(
+              fundUsd: fundUsd,
+              venue: IntentVenue.polymarket,
+              directLegs: directLegs,
+              btcLeg: btcLeg),
+        },
+        ttl: ttl,
+      );
+
+  /// Shape only: executors also check lifetime, wallet and verified route.
+  static bool isTransfer(AuthGrant grant) {
+    final intent = grant.boundIntent;
+    final cap = intent.limits[VenueLimit.fundingUsd];
+    final dollars = _units(intent.limits['dollarsUsd']);
+    final bitcoin = _units(intent.limits['bitcoinUsd']);
+    return grant.action == SensitiveAction.moveTransfer &&
+        intent.venue == IntentVenue.polymarket &&
+        intent.asset == 'USD' &&
+        intent.walletId.isNotEmpty &&
+        (intent.limits['refundSpark'] is String) &&
+        (intent.limits['refundSpark'] as String).trim().isNotEmpty &&
+        RegExp(r'^0x[0-9a-fA-F]{40}$').hasMatch(intent.destination ?? '') &&
+        intent.limits[IntentLimit.orderKind] == kind &&
+        intent.limits[VenueLimit.fundingVenue] == IntentVenue.polymarket &&
+        cap is String &&
+        BigInt.tryParse(cap) == intent.amountMax &&
+        dollars != null &&
+        dollars >= BigInt.zero &&
+        dollars <= intent.amountMax &&
+        bitcoin != null &&
+        bitcoin >= BigInt.zero &&
+        bitcoin <= intent.amountMax &&
+        (intent.limits[VenueLimit.fundBtc] == null || bitcoin > BigInt.zero) &&
+        intent.amountMax > BigInt.zero;
+  }
+
+  static BigInt? _units(Object? value) =>
+      value is String ? BigInt.tryParse(value) : null;
+
+  static final Expando<BigInt> _destinationTaken =
+      Expando<BigInt>('predictionPrefundDestinationTaken');
+
+  static bool _coversDestination(AuthGrant grant, BigInt amount) =>
+      amount > BigInt.zero &&
+      (_destinationTaken[grant] ?? BigInt.zero) + amount <=
+          grant.boundIntent.amountMax;
+
+  static bool _takeDestination(AuthGrant grant, BigInt amount) {
+    if (!_coversDestination(grant, amount)) return false;
+    _destinationTaken[grant] =
+        (_destinationTaken[grant] ?? BigInt.zero) + amount;
+    return true;
+  }
+
+  static bool _sameDestination(AuthGrant grant, String ownPredictions) =>
+      ownPredictions.trim().isNotEmpty &&
+      grant.boundIntent.destination?.toLowerCase() ==
+          ownPredictions.trim().toLowerCase();
+
+  static bool matchesAccount(AuthGrant grant,
+          {required String walletId, required String ownPredictions}) =>
+      isTransfer(grant) &&
+      grant.walletId == walletId &&
+      _sameDestination(grant, ownPredictions);
+
+  static final Expando<BigInt> _dollarsTaken =
+      Expando<BigInt>('predictionPrefundDollarsTaken');
+  static final Expando<Set<String>> _quotesTaken =
+      Expando<Set<String>>('predictionPrefundQuotesTaken');
+
+  /// The verified Dollars leg may spend its bound USD cap cumulatively.
+  /// Once accepted by the settlement step-up it stays reserved, including an
+  /// uncertain send; a repeated callback cannot authorize another payment.
+  static bool takeFunding(
+    AuthGrant grant,
+    SettlementAuthorizationIntent settlement, {
+    required String ownPredictions,
+    DateTime? now,
+  }) {
+    if (!isTransfer(grant) || !_sameDestination(grant, ownPredictions)) {
+      return false;
+    }
+    if (grant.revoked ||
+        grant.consumed ||
+        grant.isExpiredAt(now ?? AuthGrants.clock()) ||
+        grant.walletId != settlement.walletId ||
+        settlement.flow != SettlementFlow.moveUsdToPredictions ||
+        settlement.routeLabel != 'spark_usdb>polygon_usdc.e') {
+      return false;
+    }
+    final quote = settlement.reviewedQuote;
+    if (quote == null || quote.amountIn != settlement.amountIn) return false;
+    final req = quote.request;
+    final recipient = settlement.destination.split('|').first.trim();
+    if (req.sourceChain.toLowerCase() != 'spark' ||
+        req.sourceAsset.toUpperCase() != 'USDB' ||
+        req.destinationChain.toLowerCase() != 'polygon' ||
+        req.destinationAsset.toUpperCase() != 'USDC.E' ||
+        req.recipientKind != RecipientKind.ownPmWallet ||
+        req.recipientAddress.trim().toLowerCase() !=
+            ownPredictions.trim().toLowerCase() ||
+        !sameSparkAddress(req.refundAddress,
+            grant.boundIntent.limits['refundSpark'] as String) ||
+        recipient.toLowerCase() != ownPredictions.trim().toLowerCase()) {
+      return false;
+    }
+    final amount = settlement.amountIn;
+    final taken = _dollarsTaken[grant] ?? BigInt.zero;
+    final quotes = _quotesTaken[grant] ??= <String>{};
+    if (quotes.contains(quote.quoteId) ||
+        amount <= BigInt.zero ||
+        taken + amount > _units(grant.boundIntent.limits['dollarsUsd'])! ||
+        !_takeDestination(grant, amount)) {
+      return false;
+    }
+    _dollarsTaken[grant] = taken + amount;
+    quotes.add(quote.quoteId);
+    return true;
+  }
+}
+
 // ── One balance: the Bitcoin leg under an order's approval ───────────
 
 /// The Bitcoin → Dollars leg a short slip runs before it funds its order
@@ -1328,8 +1498,7 @@ abstract final class BitcoinLegGrants {
 
   /// Whether [grant] binds a Bitcoin leg at all (a funded order whose
   /// Dollars are topped up from Bitcoin first).
-  static bool binds(AuthGrant? grant) =>
-      grant != null && _bound(grant) != null;
+  static bool binds(AuthGrant? grant) => grant != null && _bound(grant) != null;
 
   /// The most sats [grant] lets the Bitcoin leg send, or null.
   static BigInt? maxSatsOf(AuthGrant grant) => _bound(grant)?.maxSats;
@@ -1355,7 +1524,15 @@ abstract final class BitcoinLegGrants {
     DateTime? now,
   }) {
     if (grant == null) return false;
-    if (!actions.contains(grant.action)) return false;
+    if (!actions.contains(grant.action) &&
+        !PredictionPrefundGrants.isTransfer(grant)) {
+      return false;
+    }
+    if (PredictionPrefundGrants.isTransfer(grant) &&
+        !sameSparkAddress(
+            grant.boundIntent.limits['refundSpark'] as String, ownSpark)) {
+      return false;
+    }
     if (grant.revoked || grant.consumed) return false;
     if (grant.isExpiredAt(now ?? AuthGrants.clock())) return false;
     if (takenBy(grant)) return false;
@@ -1514,13 +1691,30 @@ abstract final class BitcoinLegGrants {
     DateTime? now,
   }) {
     if (grant == null) return false;
-    if (!actions.contains(grant.action)) return false;
+    if (!actions.contains(grant.action) &&
+        !PredictionPrefundGrants.isTransfer(grant)) {
+      return false;
+    }
+    if (PredictionPrefundGrants.isTransfer(grant) &&
+        !sameSparkAddress(
+            grant.boundIntent.limits['refundSpark'] as String, ownSpark)) {
+      return false;
+    }
     if (grant.revoked || grant.consumed) return false;
     if (grant.isExpiredAt(now ?? AuthGrants.clock())) return false;
     if (takenBy(grant)) return false;
     if (grant.walletId != settlement.walletId) return false;
     final bound = _boundDirect(grant);
     if (bound == null) return false;
+    if (PredictionPrefundGrants.isTransfer(grant) &&
+        (bound.route != directPredictionsRoute ||
+            !PredictionPrefundGrants._sameDestination(grant, ownVenue) ||
+            !PredictionPrefundGrants._coversDestination(
+                grant,
+                PredictionPrefundGrants._units(
+                    grant.boundIntent.limits['bitcoinUsd'])!))) {
+      return false;
+    }
     if (!_sameEvm(bound.to, ownVenue)) return false;
     if (settlement.routeLabel != bound.route) return false;
     if (!_sameEvm(_recipientOf(settlement), ownVenue)) return false;
@@ -1564,7 +1758,14 @@ abstract final class BitcoinLegGrants {
         ownVenue: ownVenue, ownSpark: ownSpark, now: now)) {
       return false;
     }
-    _taken[grant!] = true;
+    if (PredictionPrefundGrants.isTransfer(grant!) &&
+        !PredictionPrefundGrants._takeDestination(
+            grant,
+            PredictionPrefundGrants._units(
+                grant.boundIntent.limits['bitcoinUsd'])!)) {
+      return false;
+    }
+    _taken[grant] = true;
     return true;
   }
 

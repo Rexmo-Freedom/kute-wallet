@@ -85,6 +85,7 @@ const String kSweepPredictionsFlow = 'sweep_predictions';
 /// order's funding leg or a sweep rather than a Move-sheet move.
 const Map<String, String> kPredictionsQuoteTags = {
   'order_funding': 'kute:order_funding_predictions',
+  'predictions_prefund': kManualMoveQuoteTag,
   'sweep': 'kute:sweep_predictions',
   'rollout_sweep': 'kute:rollout_sweep_predictions',
   'cash_pull': 'kute:cash_pull_predictions',
@@ -406,7 +407,9 @@ class PredictionsVenueFunder
   /// bet grant bound to this venue and to a cap at or above what the
   /// verified quote moves, and the quote's recipient is this wallet's own
   /// Predictions account ([ownAccount]). A sweep authorization never
-  /// funds a deposit. Pure, so it is tested on its own.
+  /// funds a deposit. A separately marked transfer-only Move approval uses
+  /// its own guard and reserves the quote against its cumulative transfer
+  /// budget; it grants no permission to place an order.
   @visibleForTesting
   static bool fundingAuthorized(
     MoveAuthorization auth,
@@ -430,6 +433,10 @@ class PredictionsVenueFunder
     if (reviewed != null &&
         reviewed.request.recipientKind != RecipientKind.ownPmWallet) {
       return false;
+    }
+    if (auth.grant.action == SensitiveAction.moveTransfer) {
+      return PredictionPrefundGrants.takeFunding(auth.grant, intent,
+          ownPredictions: ownAccount, now: now);
     }
     return PmGrants.fundingGrantCovers(auth.grant,
         amountIn: intent.amountIn, venue: IntentVenue.polymarket, now: now);

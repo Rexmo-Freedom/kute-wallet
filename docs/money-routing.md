@@ -60,6 +60,34 @@ See [money_steps.dart](../lib/services/one_balance/money_steps.dart),
 [bitcoin_funded_order.dart](../lib/services/one_balance/bitcoin_funded_order.dart),
 and [venue_cash_funded_order.dart](../lib/services/one_balance/venue_cash_funded_order.dart).
 
+### Bitcoin five-minute Up/Down: transfer, then place
+
+The spending wallet's canonical Bitcoin five-minute Up/Down buy slip has a
+separate funding action. In the same modal, “Transfer to Polymarket” moves the
+selected sources and readies the cash; it never queues a bet or authorizes
+autofire. Once spendable pUSD covers the fee-inclusive requirement and the
+venue's balance/readiness checks, the action becomes “Place bet”. A fresh tap
+reviews the current order and asks its order approval. Funds already ready at
+Polymarket can go straight to this explicit order step. The actual buy and Max
+sizing also use fresh spendable pUSD/CLOB readings, so a stale combined display
+does not reject cash already ready to spend. Native checks before signing still
+apply. Ledger, sells and other market flows keep their existing behavior.
+
+The transfer uses the same source priority and direct routes described above,
+with one scoped transfer approval and per-source/aggregate caps. That approval
+cannot authorize a bet. Conversion and allowance work can ready existing venue
+cash without moving another source. Unknown balances never count as zero; a
+proven empty wallet uses the contextual deposit entry. Closing or expiring the
+round cannot cause a late automatic bet: transferred cash remains venue cash
+for a later explicit order. An uncertain transfer result is checked by reading
+the balance rather than automatically sending it again.
+
+Series detection uses canonical metadata, not title matching. See
+[crypto_round.dart](../lib/services/polymarket/crypto_round.dart),
+[bet_slip_sheet.dart](../lib/screens/polymarket/components/bet_slip_sheet.dart),
+[predictions_prefund_transfer.dart](../lib/services/one_balance/predictions_prefund_transfer.dart)
+and [venue_intents.dart](../lib/helpers/venue_intents.dart).
+
 ## What makes a funded order ready
 
 Every new approved attempt starts its own receipt and step graph. A completed
@@ -406,6 +434,7 @@ receipt has to be checked after a permitted run with analytics enabled.
 | `order_funding_requested` | Hyperliquid's initial funding request before approval, distinct from the approved journey's single `order_funding_started`. |
 | `order_funding_route_selected` | A route/reason change immediately, with exact `duration_ms`; identical route/reason selections are deduplicated. Optional `route_reason`, `funding_source`, `other_venue_used` and already-known `ms_leg_*` accompany the route. |
 | Funding step, submitted and terminal events | Known `route`, `route_reason`, `other_venue_used` and per-source `ms_leg_bitcoin`, `ms_leg_dollars`, `ms_leg_predictions`, `ms_leg_investing`. Missing timings stay absent. The existing Hyperliquid emitter consumes its journey once, preventing duplicate outcomes and false later abandonment. |
+| Bitcoin five-minute transfer-only funding | Existing funding events carry `funding_purpose=predictions_prefund`. A successful transfer ends with `order_funding_completed` / `outcome=funds_ready`, exact total/credit/available leg timings and no order-placement duration. Readying existing USDC.e uses the same started/completed funnel with `fund_usd=0` and the full readiness target as `amount_usd`; timeout is an existing credit-stage failure. This proves funds ready, not a bet placed. The quote uses the existing manual-move tag; analytics purpose is a separate field. |
 | HIP-3 credit timing | `ms_dex_credit` spans the actual transfer start to target clearinghouse readiness; absent when there was no transfer. Failure can carry the elapsed wait. `ms_credit` ends and `ms_order` starts at actual collateral readiness. Pending credit is a fixed `dex_credit_pending` failure at the credit stage. |
 | Predictions final collateral wait | Journey credited is reported only when full usable collateral is proved. An exhausted wait has local reason `balance_confirmation_timeout`, with `order_funding_failed` stage `credit` and existing error category `timeout`. |
 | `usd_balance_catchup` | One terminal behind-run result, fixed reason, exact duration and retry index. Never one event per poll. |

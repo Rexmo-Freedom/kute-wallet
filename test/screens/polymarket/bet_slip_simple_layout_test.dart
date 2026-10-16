@@ -68,7 +68,8 @@ class _SetupController extends PolymarketBetController {
   final Object error;
   var prepares = 0;
   @override
-  Future<PendingBetIntent> prepareIntent(PendingBetIntent intent) async {
+  Future<PendingBetIntent> prepareIntent(PendingBetIntent intent,
+      {bool requireFreshCollateral = false}) async {
     prepares++;
     throw error;
   }
@@ -80,7 +81,8 @@ class _RecordingController extends PolymarketBetController {
   _RecordingController(super.ref);
   final amounts = <double>[];
   @override
-  Future<PendingBetIntent> prepareIntent(PendingBetIntent intent) async {
+  Future<PendingBetIntent> prepareIntent(PendingBetIntent intent,
+      {bool requireFreshCollateral = false}) async {
     amounts.add(intent.amount);
     throw StateError('stopped by the test');
   }

@@ -632,7 +632,8 @@ void main() {
     expect(end.allDone, isTrue);
   });
 
-  test('an order funded from Dollars alone shows the same graph: its Dollars '
+  test(
+      'an order funded from Dollars alone shows the same graph: its Dollars '
       'leg lands on its own, then the order', () async {
     FundedOrdersNotifier.persist = false;
     addTearDown(() => FundedOrdersNotifier.persist = true);
@@ -671,11 +672,15 @@ void main() {
     final id = runner.beginFunded(_label);
     runner.followFunded(id,
         move: const VenueMoveResult(
-            quoteId: 'q_d', orderId: 'ord_d', sentUsd: 15.1, arrivingUsdEstimate: 15));
+            quoteId: 'q_d',
+            orderId: 'ord_d',
+            sentUsd: 15.1,
+            arrivingUsdEstimate: 15));
     FundedOrderRecord rec() => c.read(fundedOrdersProvider.notifier).byId(id)!;
     expect([for (final l in rec().steps.legs) l.id], ['leg:dollars']);
     expect(rec().steps.byId('leg:dollars')!.usd, 15.1);
-    for (var i = 0; i < 100 &&
+    for (var i = 0;
+        i < 100 &&
             rec().steps.byId('leg:dollars')!.status != MoneyStepStatus.done;
         i++) {
       await Future<void>.delayed(const Duration(milliseconds: 2));
@@ -752,6 +757,75 @@ void main() {
     });
 
     late _Harness h;
+
+    for (final direct in [true, false]) {
+      for (final ready in [true, false]) {
+        test(
+            'transfer-only ${direct ? 'direct' : 'via Dollars'} Bitcoin '
+            '${ready ? 'finishes transferred' : 'cannot succeed without readiness'}',
+            () async {
+          final readiness = Completer<bool>();
+          var readinessWaits = 0;
+          h = _Harness(
+              plan: direct
+                  ? const DirectBitcoinPlan.direct(
+                      targetUsd: 15.01,
+                      sats: 100000,
+                      dollarsUsd: 0,
+                      bitcoinShareUsd: 15.1,
+                      otherUsd: 0,
+                      directCostUsd: 15,
+                      viaCostUsd: 15.3)
+                  : const DirectBitcoinPlan.viaDollars(
+                      DirectBitcoinReason.noEstimate));
+          final run = h.start(
+              transfer: FundingTransferCompletion(
+                  phases: () => const Stream<String>.empty(),
+                  wait: ({required onCredited}) async {
+                    readinessWaits++;
+                    final usable = await readiness.future;
+                    if (usable) onCredited();
+                    return usable;
+                  }));
+          await h.until(() =>
+              h.record.steps.legs.isNotEmpty &&
+              h.record.steps.legs.every((s) => s.status.satisfies));
+          expect(h.record.steps.byId(FundedStepId.place), isNull);
+          expect(h.c.read(pendingPolymarketBetProvider), isNull);
+          expect(h.placementWatches, 0);
+          var ended = false;
+          unawaited(run.ended.then((_) => ended = true));
+          await Future<void>.delayed(const Duration(milliseconds: 5));
+          expect(ended, isFalse,
+              reason: 'completed transfers alone do not prove usable pUSD');
+          readiness.complete(ready);
+          final end = await run.ended;
+          expect(
+              end,
+              ready
+                  ? BitcoinFundedEnd.transferred
+                  : BitcoinFundedEnd.placementFailed);
+          expect(end, isNot(BitcoinFundedEnd.placed));
+          expect(h.record.stage,
+              ready ? FundedOrderStage.done : FundedOrderStage.failed);
+          expect(h.record.steps.byId(FundedStepId.place), isNull);
+          expect(h.c.read(pendingPolymarketBetProvider), isNull);
+          expect(h.placementWatches, 0);
+          expect(readinessWaits, 1);
+          expect(h.directPaid, direct ? 1 : 0);
+          expect(h.viaSends, direct ? 0 : 1);
+          final completed =
+              events.where((e) => e.$1 == 'order_funding_completed');
+          if (ready) {
+            expect(completed.single.$2!['outcome'], 'funds_ready');
+            expect(
+                completed.single.$2!['funding_purpose'], 'predictions_prefund');
+          } else {
+            expect(completed, isEmpty);
+          }
+        });
+      }
+    }
 
     test(
         'the founder\'s case: no Dollars, \$15 on Polymarket from Bitcoin: ONE '
@@ -970,6 +1044,7 @@ class _Harness {
   var directPaid = 0;
   var viaSends = 0;
   var dropped = 0;
+  var placementWatches = 0;
   final fundCalls = <FundingLegContext>[];
   final _bitcoinHeld = Completer<void>();
   final _bitcoinIn = Completer<void>();
@@ -1061,7 +1136,7 @@ class _Harness {
         legPollEvery: const Duration(milliseconds: 1),
       );
 
-  BitcoinFundedRun start() {
+  BitcoinFundedRun start({FundingTransferCompletion? transfer}) {
     c = ProviderContainer(overrides: [
       bitcoinLegEnvProvider.overrideWithValue(env),
       if (sourceStatus != null)
@@ -1085,7 +1160,24 @@ class _Harness {
         ],
       );
     }
-    final grant = _grant();
+    final grant = transfer == null
+        ? _grant()
+        : AuthGrants.issue(
+            PredictionPrefundGrants.review(
+                walletId: 'w',
+                ownPredictions: _pmWallet,
+                ownSpark: _ownSpark,
+                fundUsd: 15.1,
+                dollarsUsd: 15.1,
+                bitcoinUsd: 15.1,
+                btcLeg: BitcoinLegGrants.limitWithDirect(
+                    maxSats: 120000,
+                    ownSpark: _ownSpark,
+                    venue: 'predictions',
+                    ownVenue: _pmWallet,
+                    directMaxSats: 120000)),
+            method: AuthGrantMethod.biometric,
+            now: _now);
     final run = c.read(bitcoinFundedOrderRunnerProvider).start(
           BitcoinFundedOrderRequest(
             venue: OneBalanceVenue.predictions,
@@ -1094,6 +1186,7 @@ class _Harness {
             label: _label,
             fundUsd: 15.1,
             readyUsd: 0,
+            transfer: transfer,
             entrySource: 'market',
             fundVenue: (controller, legs) async {
               fundCalls.add(legs);
@@ -1105,9 +1198,8 @@ class _Harness {
                     eta: Duration(minutes: 1));
                 final leg = VenueCashLegOutcome(
                     pull: pull,
-                    route: sourceHome
-                        ? MoneyRoute.viaDollars
-                        : MoneyRoute.direct,
+                    route:
+                        sourceHome ? MoneyRoute.viaDollars : MoneyRoute.direct,
                     landsIn: sourceHome
                         ? VenueCashDestination.dollars
                         : VenueCashDestination.predictions,
@@ -1152,6 +1244,7 @@ class _Harness {
             // The venue credits the order once its money landed, and the
             // autofire reports the funnel's end.
             awaitPlacement: ({required onCredited}) async {
+              placementWatches++;
               await _funded.future;
               if (directSends > 0 && !refuseDirect && ownVenue == _pmWallet) {
                 await _bitcoinIn.future;

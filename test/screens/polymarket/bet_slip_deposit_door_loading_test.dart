@@ -798,10 +798,10 @@ void main() {
       await release(tester);
     });
 
-    testWidgets('a 5-minute round with no Predictions cash shows the steps',
+    testWidgets('a 15-minute round with no Predictions cash shows the funded steps',
         (tester) async {
       await pumpWith(tester, [_fundedBet(FundedOrderStage.preparing)],
-          slug: 'btc-updown-5m-1760443200',
+          slug: 'btc-updown-15m-1760443200',
           endAt: DateTime.now().add(const Duration(minutes: 4)));
       expect(find.byType(SlipFundingSteps), findsOneWidget);
       expect(_cta(tester).busyLabel, 'Getting your prediction ready');
@@ -816,7 +816,7 @@ void main() {
             moneyAt: FundedMoneyAt.venue,
             reason: 'market_closed')
       ],
-          slug: 'btc-updown-5m-1760443200',
+          slug: 'btc-updown-15m-1760443200',
           endAt: DateTime.now().add(const Duration(minutes: 4)));
       expect(find.byKey(const ValueKey('slip-funding-step-failed-0')),
           findsOneWidget);

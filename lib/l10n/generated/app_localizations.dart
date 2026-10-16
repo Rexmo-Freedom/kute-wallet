@@ -18463,6 +18463,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{source} → {destination} · {amount}'**
   String moneyStepCompact(String source, String destination, String amount);
+
+  /// No description provided for @betTransferToPolymarket.
+  ///
+  /// In en, this message translates to:
+  /// **'Transfer to Polymarket'**
+  String get betTransferToPolymarket;
+
+  /// No description provided for @betBitcoinFiveMinutePrefundNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Bitcoin 5-minute bets need funds ready in Polymarket. Transfer first, then place your bet.'**
+  String get betBitcoinFiveMinutePrefundNote;
+
+  /// No description provided for @betTransferCheckBalance.
+  ///
+  /// In en, this message translates to:
+  /// **'Check transfer'**
+  String get betTransferCheckBalance;
+
+  /// No description provided for @betTransferWaitingNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Your transfer is being checked. Your bet has not been placed.'**
+  String get betTransferWaitingNote;
 }
 
 class _AppLocalizationsDelegate

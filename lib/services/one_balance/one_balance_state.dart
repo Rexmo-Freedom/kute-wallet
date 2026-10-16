@@ -52,6 +52,7 @@ class InFlightOrder {
     required this.side,
     required this.market,
     this.margin = false,
+    this.transfer = false,
     this.legs = const [],
   });
 
@@ -72,6 +73,9 @@ class InFlightOrder {
   /// margin), not an order.
   final bool margin;
 
+  /// Cash being transferred into the venue, with no approved order.
+  final bool transfer;
+
   /// The order's legs from its step graph (`FundedOrderRecord.steps`),
   /// each with its own state: the header names each source under the
   /// order while the slip is closed. Empty for a record without a graph.
@@ -89,11 +93,12 @@ class InFlightOrder {
       other.side == side &&
       other.market == market &&
       other.margin == margin &&
+      other.transfer == transfer &&
       other._legsKey == _legsKey;
 
   @override
-  int get hashCode =>
-      Object.hash(id, venue, orderUsd, side, market, margin, _legsKey);
+  int get hashCode => Object.hash(
+      id, venue, orderUsd, side, market, margin, transfer, _legsKey);
 }
 
 /// One sum of money on a rail. Rows with the same kind and venue are not

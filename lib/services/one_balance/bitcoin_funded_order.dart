@@ -113,6 +113,7 @@ import 'package:kute/services/one_balance/venue_cash_source.dart'
     show
         DirectRouteRefusals,
         VenueCashFor,
+        VenueCashPlan,
         VenueCashPullOutcome,
         VenueCashPuller;
 import 'package:kute/services/one_balance/venue_funder.dart'
@@ -383,7 +384,8 @@ class BitcoinLegEnv {
       sendDirect: BitcoinToVenueLeg.live(ref.read),
       legStatus: orchestraLegStatus,
       readiness: (venue) => venueReadinessPhases(ref, venue),
-      checkDollars: () => ref.read(usdBalanceCheckProvider).request('order_leg'),
+      checkDollars: () =>
+          ref.read(usdBalanceCheckProvider).request('order_leg'),
     );
   }
 }
@@ -461,6 +463,9 @@ enum BitcoinFundedEnd {
   /// The order was placed.
   placed,
 
+  /// A transfer-only run finished with spendable destination funds.
+  transferred,
+
   /// The venue did not place it (price moved, refused, the credit never
   /// came): the money stays in Investments, the slip shows the venue's
   /// own message and retry.
@@ -483,6 +488,16 @@ enum BitcoinFundedEnd {
 /// How the venue's autofire ended for the order.
 typedef BitcoinPlacementWait = Future<bool> Function(
     {required void Function() onCredited});
+
+/// Explicit transfer-only completion. It never observes or submits an order.
+/// The caller proves fresh destination collateral and publishes its phases.
+class FundingTransferCompletion {
+  const FundingTransferCompletion(
+      {required this.wait, required this.phases, this.cancel});
+  final Future<bool> Function({required void Function() onCredited}) wait;
+  final Stream<String> Function() phases;
+  final void Function()? cancel;
+}
 
 /// What the runner tells the venue move about the legs running next to
 /// it. With a direct Bitcoin leg, Dollars send [bitcoinShareUsd] less and
@@ -534,6 +549,7 @@ class BitcoinFundedOrderRequest {
     required this.dropOrder,
     this.entrySource,
     this.awaitPlacement,
+    this.transfer,
     this.otherVenueUsed = false,
     this.bindAttempt,
     this.isCurrentAttempt,
@@ -573,6 +589,9 @@ class BitcoinFundedOrderRequest {
   /// lands (`MarginFundingRunner`); tests stand in for it too. Null
   /// follows the venue's autofire, which places the slip's queued order.
   final BitcoinPlacementWait? awaitPlacement;
+
+  /// Transfer-only work: no order step or autofire subscription is created.
+  final FundingTransferCompletion? transfer;
 
   /// Synchronously binds this graph to the approved live attempt before
   /// any funding starts. False means that attempt was replaced meanwhile.
@@ -1269,9 +1288,7 @@ Future<OrderSources> decideOrderSources(
   // What Investments lack as a whole: the X an "Add" tap showed.
   final missing =
       BitcoinLegRules.addUsd(fundUsd: fund, investmentsUsd: dollars + other);
-  if (shownAddUsd != null &&
-      shownAddUsd > 0 &&
-      missing > shownAddUsd + 0.005) {
+  if (shownAddUsd != null && shownAddUsd > 0 && missing > shownAddUsd + 0.005) {
     return OrderSources(OrderSourceRoute.addChanged, missingUsd: missing);
   }
   final otherCovers = investmentsCover ?? missing <= 0;
@@ -1448,6 +1465,7 @@ Future<OrderFundingOutcome> fundRestThenMove({
     String? moveId,
   }) queue,
   FundingLegContext legs = const FundingLegContext(),
+  VenueCashPlan? approvedPlan,
 }) async {
   // A direct Bitcoin leg brings its share straight into the venue: the
   // move from Dollars (and the other venue's share of it) is that much
@@ -1473,6 +1491,7 @@ Future<OrderFundingOutcome> fundRestThenMove({
       destination: venueCashDestinationOf(venue),
       exclude: venue,
       approval: grant,
+      plan: approvedPlan,
     );
   } catch (e) {
     return OrderFundingRefused('venue_cash', error: e);
@@ -1526,6 +1545,7 @@ MoneyStepGraph fundedOrderGraph({
   required OneBalanceVenue venue,
   required List<MoneyStep> legs,
   required double orderUsd,
+  bool transferOnly = false,
 }) {
   final legIds = [for (final l in legs) l.id];
   final ready = switch (venue) {
@@ -1552,11 +1572,12 @@ MoneyStepGraph fundedOrderGraph({
   return MoneyStepGraph([
     ...legs,
     ...ready,
-    MoneyStep(
-        id: FundedStepId.place,
-        kind: MoneyStepKind.place,
-        usd: orderUsd,
-        after: [ready.last.id]),
+    if (!transferOnly)
+      MoneyStep(
+          id: FundedStepId.place,
+          kind: MoneyStepKind.place,
+          usd: orderUsd,
+          after: [ready.last.id]),
   ]);
 }
 
@@ -1725,6 +1746,7 @@ class _FundedChain {
     final already = _end;
     if (already != null) return already;
     _end = end;
+    r.transfer?.cancel?.call();
     orders.stop(id,
         stage: stage, reason: reason, moneyAt: moneyAt, message: message);
     if (category != null) journey.failed(venue, journeyStage, category);
@@ -1753,6 +1775,7 @@ class _FundedChain {
       dollarsUsd: baseline,
       entrySource: r.entrySource,
       fundingSource: 'bitcoin',
+      purpose: r.transfer == null ? 'order' : 'predictions_prefund',
       otherVenueUsed: r.otherVenueUsed,
       extra: {
         'add_usd': r.plan.targetUsd,
@@ -1809,15 +1832,19 @@ class _FundedChain {
       for (final s in orders.byId(id)?.steps.steps ?? const <MoneyStep>[])
         if (s.id.startsWith('prev:')) s,
     ];
-    final planned =
-        fundedOrderGraph(venue: venue, legs: legs, orderUsd: r.label.orderUsd);
+    final planned = fundedOrderGraph(
+        venue: venue,
+        legs: legs,
+        orderUsd: r.label.orderUsd,
+        transferOnly: r.transfer != null);
     final graph = MoneyStepGraph([...carried, ...planned.steps]);
     orders.setSteps(id, graph, route: _route);
     if (plan.direct) orders.setStage(id, FundedOrderStage.preparing);
 
     // The venue's own placement, followed from now on: it fires the
     // moment the venue can take the order, whatever leg is still landing.
-    final wait = r.awaitPlacement ??
+    final wait = r.transfer?.wait ??
+        r.awaitPlacement ??
         runner._placementWait(venue, fundedRunId: id,
             onFailed: (message, code) {
           _failedText = message;
@@ -1825,7 +1852,11 @@ class _FundedChain {
         });
     _placement = wait(onCredited: () {
       if (!_credited.isCompleted) _credited.complete();
-      orders.setStage(id, FundedOrderStage.placing);
+      orders.setStage(
+          id,
+          r.transfer == null
+              ? FundedOrderStage.placing
+              : FundedOrderStage.preparing);
     }).catchError((Object _) => false);
 
     final steps = MoneyStepRunner(
@@ -1841,9 +1872,19 @@ class _FundedChain {
     settled ??= steps.graph;
     final stopped = _end;
     if (stopped != null) return stopped;
+    if (r.transfer != null && settled.allDone) {
+      orders.setStage(id, FundedOrderStage.done);
+      journey.transferReady(venue);
+      r.grant.revoke();
+      return BitcoinFundedEnd.transferred;
+    }
     if (settled.byId(FundedStepId.place)?.status == MoneyStepStatus.done) {
       orders.setStage(id, FundedOrderStage.done);
       return BitcoinFundedEnd.placed;
+    }
+    if (r.transfer != null) {
+      r.transfer?.cancel?.call();
+      journey.failed(venue, OrderFundingStage.credit, 'timeout');
     }
     // The money reached the venue (or is on its way there): it stays as
     // its cash, available.
@@ -2362,7 +2403,7 @@ class _FundedChain {
         phase,
         update,
         optional: optional,
-        phases: env.readiness?.call(venue),
+        phases: r.transfer?.phases() ?? env.readiness?.call(venue),
         credited: _credited.future,
         placement: _placement,
         stopped: _stopped.future,
