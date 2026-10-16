@@ -3058,5 +3058,9 @@
   "moneyStepArrived": "Saapui tilille Bitcoin",
   "moneyStepSending": "Lähetetään {amount}",
   "moneyStepSent": "Lähetetty {amount}",
-  "moneyStepCompact": "{source} → {destination} · {amount}"
+  "moneyStepCompact": "{source} → {destination} · {amount}",
+  "betTransferToPolymarket": "Siirrä Polymarketiin",
+  "betBitcoinFiveMinutePrefundNote": "Bitcoinin 5 minuutin vedot edellyttävät, että varat ovat valmiina Polymarketissa. Siirrä varat ensin ja aseta sitten veto.",
+  "betTransferCheckBalance": "Tarkista siirto",
+  "betTransferWaitingNote": "Siirtoasi tarkistetaan. Vetoasi ei ole asetettu."
 }

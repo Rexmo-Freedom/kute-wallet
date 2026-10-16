@@ -10984,16 +10984,16 @@ class AppLocalizationsNl extends AppLocalizations {
   }
 
   @override
-  String get betTransferToPolymarket => 'Transfer to Polymarket';
+  String get betTransferToPolymarket => 'Overboeken naar Polymarket';
 
   @override
   String get betBitcoinFiveMinutePrefundNote =>
-      'Bitcoin 5-minute bets need funds ready in Polymarket. Transfer first, then place your bet.';
+      'Voor Bitcoin-weddenschappen van 5 minuten moet je geld klaarstaan op Polymarket. Boek eerst geld over en plaats daarna je weddenschap.';
 
   @override
-  String get betTransferCheckBalance => 'Check transfer';
+  String get betTransferCheckBalance => 'Overboeking controleren';
 
   @override
   String get betTransferWaitingNote =>
-      'Your transfer is being checked. Your bet has not been placed.';
+      'Je overboeking wordt gecontroleerd. Je weddenschap is niet geplaatst.';
 }

@@ -3058,5 +3058,9 @@
   "moneyStepArrived": "ビットコインに着金しました",
   "moneyStepSending": "{amount}を送金中",
   "moneyStepSent": "{amount}を送金しました",
-  "moneyStepCompact": "{source} → {destination} · {amount}"
+  "moneyStepCompact": "{source} → {destination} · {amount}",
+  "betTransferToPolymarket": "Polymarketに送金",
+  "betBitcoinFiveMinutePrefundNote": "Bitcoinの5分間ベットには、Polymarketで利用可能な資金が必要です。先に送金してからベットしてください。",
+  "betTransferCheckBalance": "送金を確認",
+  "betTransferWaitingNote": "送金を確認しています。ベットはまだ実行されていません。"
 }

@@ -10968,16 +10968,16 @@ class AppLocalizationsBg extends AppLocalizations {
   }
 
   @override
-  String get betTransferToPolymarket => 'Transfer to Polymarket';
+  String get betTransferToPolymarket => 'Прехвърли към Polymarket';
 
   @override
   String get betBitcoinFiveMinutePrefundNote =>
-      'Bitcoin 5-minute bets need funds ready in Polymarket. Transfer first, then place your bet.';
+      'За 5-минутните залози за Bitcoin трябва да имаш готови средства в Polymarket. Първо ги прехвърли, след това направи залога си.';
 
   @override
-  String get betTransferCheckBalance => 'Check transfer';
+  String get betTransferCheckBalance => 'Провери превода';
 
   @override
   String get betTransferWaitingNote =>
-      'Your transfer is being checked. Your bet has not been placed.';
+      'Преводът ти се проверява. Залогът ти не е направен.';
 }

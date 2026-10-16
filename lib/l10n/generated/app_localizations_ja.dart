@@ -10527,16 +10527,15 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get betTransferToPolymarket => 'Transfer to Polymarket';
+  String get betTransferToPolymarket => 'Polymarketに送金';
 
   @override
   String get betBitcoinFiveMinutePrefundNote =>
-      'Bitcoin 5-minute bets need funds ready in Polymarket. Transfer first, then place your bet.';
+      'Bitcoinの5分間ベットには、Polymarketで利用可能な資金が必要です。先に送金してからベットしてください。';
 
   @override
-  String get betTransferCheckBalance => 'Check transfer';
+  String get betTransferCheckBalance => '送金を確認';
 
   @override
-  String get betTransferWaitingNote =>
-      'Your transfer is being checked. Your bet has not been placed.';
+  String get betTransferWaitingNote => '送金を確認しています。ベットはまだ実行されていません。';
 }

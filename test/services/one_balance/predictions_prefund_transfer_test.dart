@@ -79,9 +79,10 @@ class _Funder implements VenueFunder {
         isTrue);
     expect(purpose, 'predictions_prefund');
     sent.add(usd);
-    if (acceptedUnknown)
+    if (acceptedUnknown) {
       throw const SettlementFundingUnknown(
           'operation_local', 'result_unavailable');
+    }
     trading.reads = _reads(0, usdce: usd);
     return VenueMoveResult(
         quoteId: 'q_dollars',

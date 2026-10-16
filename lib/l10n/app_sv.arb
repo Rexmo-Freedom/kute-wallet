@@ -3058,5 +3058,9 @@
   "moneyStepArrived": "Anlände i Bitcoin",
   "moneyStepSending": "Skickar {amount}",
   "moneyStepSent": "Skickade {amount}",
-  "moneyStepCompact": "{source} → {destination} · {amount}"
+  "moneyStepCompact": "{source} → {destination} · {amount}",
+  "betTransferToPolymarket": "Överför till Polymarket",
+  "betBitcoinFiveMinutePrefundNote": "5-minutersspel på Bitcoin kräver att pengarna är tillgängliga i Polymarket. Överför först och lägg sedan ditt spel.",
+  "betTransferCheckBalance": "Kontrollera överföring",
+  "betTransferWaitingNote": "Din överföring kontrolleras. Ditt spel har inte lagts."
 }

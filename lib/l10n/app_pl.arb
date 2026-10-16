@@ -3058,5 +3058,9 @@
   "moneyStepArrived": "Wpłynęło na saldo Bitcoin",
   "moneyStepSending": "Wysyłanie {amount}",
   "moneyStepSent": "Wysłano {amount}",
-  "moneyStepCompact": "{source} → {destination} · {amount}"
+  "moneyStepCompact": "{source} → {destination} · {amount}",
+  "betTransferToPolymarket": "Przelej do Polymarket",
+  "betBitcoinFiveMinutePrefundNote": "Zakłady na Bitcoina na 5 minut wymagają środków dostępnych w Polymarket. Najpierw przelej środki, a następnie postaw zakład.",
+  "betTransferCheckBalance": "Sprawdź przelew",
+  "betTransferWaitingNote": "Twój przelew jest sprawdzany. Twój zakład nie został postawiony."
 }

@@ -3058,5 +3058,9 @@
   "moneyStepArrived": "Пристигна в Bitcoin",
   "moneyStepSending": "Изпращане на {amount}",
   "moneyStepSent": "Изпратени {amount}",
-  "moneyStepCompact": "{source} → {destination} · {amount}"
+  "moneyStepCompact": "{source} → {destination} · {amount}",
+  "betTransferToPolymarket": "Прехвърли към Polymarket",
+  "betBitcoinFiveMinutePrefundNote": "За 5-минутните залози за Bitcoin трябва да имаш готови средства в Polymarket. Първо ги прехвърли, след това направи залога си.",
+  "betTransferCheckBalance": "Провери превода",
+  "betTransferWaitingNote": "Преводът ти се проверява. Залогът ти не е направен."
 }

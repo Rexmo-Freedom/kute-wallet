@@ -3058,5 +3058,9 @@
   "moneyStepArrived": "Binnen in Bitcoin",
   "moneyStepSending": "{amount} versturen",
   "moneyStepSent": "{amount} verstuurd",
-  "moneyStepCompact": "{source} → {destination} · {amount}"
+  "moneyStepCompact": "{source} → {destination} · {amount}",
+  "betTransferToPolymarket": "Overboeken naar Polymarket",
+  "betBitcoinFiveMinutePrefundNote": "Voor Bitcoin-weddenschappen van 5 minuten moet je geld klaarstaan op Polymarket. Boek eerst geld over en plaats daarna je weddenschap.",
+  "betTransferCheckBalance": "Overboeking controleren",
+  "betTransferWaitingNote": "Je overboeking wordt gecontroleerd. Je weddenschap is niet geplaatst."
 }
