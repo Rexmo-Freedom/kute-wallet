@@ -8,6 +8,8 @@
 // figures, then the Activity. No tabs, no total header, no deposit or
 // withdrawal buttons.
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -52,6 +54,7 @@ import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/screens/shared/investment_action_bar.dart';
 import 'package:kute/screens/shared/investment_balance_header.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
+import 'package:kute/screens/shared/kute_skeleton.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show RollingFigure;
 import 'package:kute/screens/shared/portfolio_tabs.dart';
 import 'package:kute/screens/shared/trade_results_button.dart';
@@ -104,9 +107,8 @@ final _withFill = HyperliquidTradingState(isInitialized: true, recentFills: [
     'tid': '1',
     'oid': 1,
     'hash': 'h1',
-    'time': DateTime.now()
-        .subtract(const Duration(days: 1))
-        .millisecondsSinceEpoch,
+    'time':
+        DateTime.now().subtract(const Duration(days: 1)).millisecondsSinceEpoch,
     'startPosition': '0',
     'sz': '0.1',
     'px': '60000',
@@ -149,6 +151,7 @@ Future<void> _pump(WidgetTester tester,
     List<Order> pmOrders = const [],
     PortfolioVenues venues = kPortfolioBothVenues,
     List<Override> overrides = const [],
+    bool settle = true,
     int balancePrivacy = 0}) async {
   tester.view.physicalSize = const Size(400, 1000);
   tester.view.devicePixelRatio = 1;
@@ -190,7 +193,19 @@ Future<void> _pump(WidgetTester tester,
           home: home,
         ),
       )));
-  await tester.pumpAndSettle();
+  if (settle) {
+    await tester.pumpAndSettle();
+  } else {
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+}
+
+class _PendingTrading extends HyperliquidTradingNotifier {
+  _PendingTrading(this.result);
+  final Future<HyperliquidTradingState> result;
+
+  @override
+  Future<HyperliquidTradingState> build() => result;
 }
 
 /// A card's big figure ([PortfolioCardValue] rolls its digits, so the
@@ -298,11 +313,79 @@ Future<void> _pumpPositions(WidgetTester tester,
         home: const Scaffold(body: PortfolioPositions()));
 
 /// The vertical position of [finder]'s top edge.
-double _top(WidgetTester tester, Finder finder) =>
-    tester.getTopLeft(finder).dy;
+double _top(WidgetTester tester, Finder finder) => tester.getTopLeft(finder).dy;
 
 void main() {
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
+
+  group('Portfolio loading cards', () {
+    const venues = PortfolioVenues(trading: true, predictions: false);
+    for (final fails in [false, true]) {
+      testWidgets('performance shimmer becomes ${fails ? 'retry' : 'empty'}',
+          (tester) async {
+        final result = Completer<PortfolioPerformance>();
+        await _pump(tester,
+            home: const Scaffold(
+                body: PortfolioStatisticsOverview(
+                    trading: true, predictions: false)),
+            venues: venues,
+            settle: false,
+            overrides: [
+              portfolioPerformanceProvider(const PortfolioPerformanceRequest(
+                      venue: PortfolioPerformanceVenue.trading))
+                  .overrideWith((_) => result.future),
+            ]);
+        expect(find.byKey(const ValueKey('portfolio-performance-loading')),
+            findsOneWidget);
+        expect(find.byType(SkeletonBar), findsWidgets);
+        expect(find.byType(CircularProgressIndicator), findsNothing);
+        expect(find.byType(NoActivityState), findsNothing);
+
+        if (fails) {
+          result.completeError(StateError('offline'));
+        } else {
+          result.complete(kPortfolioNoPerformance);
+        }
+        await tester.pumpAndSettle();
+        expect(find.byType(SkeletonCardList), findsNothing);
+        expect(find.byType(NoActivityState),
+            fails ? findsNothing : findsOneWidget);
+        expect(find.text('Retry'), fails ? findsOneWidget : findsNothing);
+        expect(tester.takeException(), isNull);
+      });
+    }
+
+    for (final fullscreen in [false, true]) {
+      testWidgets(
+          '${fullscreen ? 'full portfolio' : 'positions pill'} '
+          'shows shimmer until positions arrive', (tester) async {
+        final result = Completer<HyperliquidTradingState>();
+        await _pump(tester,
+            home: Scaffold(
+                body: fullscreen
+                    ? Consumer(
+                        builder: (context, ref, _) => CustomScrollView(
+                            slivers: portfolioPositionsSlivers(
+                                context, ref, venues)))
+                    : const PortfolioPositions()),
+            venues: venues,
+            settle: false,
+            overrides: [
+              hyperliquidTradingProvider
+                  .overrideWith(() => _PendingTrading(result.future)),
+            ]);
+        expect(find.byType(SkeletonCardList), findsOneWidget);
+        expect(find.byType(SkeletonBar), findsWidgets);
+        expect(find.byType(NoActivityState), findsNothing);
+
+        result.complete(_withPosition);
+        await tester.pumpAndSettle();
+        expect(find.byType(SkeletonCardList), findsNothing);
+        expect(find.byType(HlPortfolioPositionCard), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      });
+    }
+  });
 
   group('Positions (the Investments pill)', () {
     testWidgets(
@@ -314,8 +397,8 @@ void main() {
       expect(find.text('Wallet'), findsNothing);
       expect(find.text('250,000 sats'), findsNothing);
       expect(_figure(r'$42.50'), findsNothing);
-      expect(find.byKey(const ValueKey('portfolio-orders-heading')),
-          findsNothing);
+      expect(
+          find.byKey(const ValueKey('portfolio-orders-heading')), findsNothing);
       expect(find.text('No open investments'), findsNothing);
       expect(find.text('No open predictions'), findsNothing);
       expect(find.textContaining('No resting orders.'), findsNothing);
@@ -378,8 +461,7 @@ void main() {
     testWidgets(
         'wins to claim and bets on their way lead, ahead of larger '
         'positions', (tester) async {
-      await _pumpPositions(tester,
-          state: _withPosition, placing: [_placing]);
+      await _pumpPositions(tester, state: _withPosition, placing: [_placing]);
       expect(find.byType(HlPortfolioPositionCard), findsOneWidget);
       expect(find.text('Will it rain tomorrow?'), findsOneWidget);
       expect(_top(tester, find.text('Will it rain tomorrow?')),
@@ -524,8 +606,8 @@ void main() {
       expect(events.last.$2, {'venue': 'polymarket'});
 
       // The pair switches the donut and the figures, and says so.
-      await tester.ensureVisible(
-          find.byKey(const ValueKey('statistics-historic')));
+      await tester
+          .ensureVisible(find.byKey(const ValueKey('statistics-historic')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('statistics-historic')));
       await tester.pumpAndSettle();
@@ -673,7 +755,8 @@ void main() {
         await tester.tap(find.text('Portfolio'));
         await tester.pumpAndSettle();
         expect(find.byType(OpenInvestmentsScreen), findsOneWidget);
-        expect(container.read(investmentsTabProvider), InvestmentsTab.investing);
+        expect(
+            container.read(investmentsTabProvider), InvestmentsTab.investing);
         expect(events.where((e) => e.$1 == 'portfolio_opened').single.$2, {
           'source': product == InvestmentsProduct.predictions
               ? 'dock_predictions'

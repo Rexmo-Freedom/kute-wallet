@@ -196,10 +196,10 @@ class _PortfolioPage extends ConsumerWidget {
         ),
       ] else if (activity.loading)
         SliverToBoxAdapter(
-          child: Padding(
-            padding: EdgeInsets.symmetric(vertical: 24.h),
-            child: const Center(child: CircularProgressIndicator.adaptive()),
-          ),
+          child: SkeletonRowList(
+              key: const ValueKey('portfolio-activity-loading'),
+              count: 3,
+              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 24.h)),
         ),
     ];
     if (!venues.any) {
@@ -227,7 +227,7 @@ class _PortfolioPage extends ConsumerWidget {
 
 /// Positions, the Investments tab's third pill: everything held now at
 /// both venues in one list, then the resting orders (see the file
-/// header). A venue still loading holds one placeholder card; nothing held
+/// header). A venue still loading shows shimmer cards; nothing held
 /// and nothing resting is the Portfolio empty state
 /// ([PortfolioEmptyState]).
 class PortfolioPositions extends ConsumerWidget {
@@ -330,23 +330,24 @@ class _PositionsBook {
 /// The Portfolio's Positions section, above its Activity (founder
 /// request, October 2026): the Positions pill's rows, the same cards and
 /// order rows with the same taps and sheets, under a Positions heading in
-/// the Activity heading's style. Nothing held and nothing resting (or
-/// still reading): no section at all.
+/// the Activity heading's style. Still reading: shimmer cards. Nothing
+/// held and nothing resting once read: no section at all.
 List<Widget> portfolioPositionsSlivers(
     BuildContext context, WidgetRef ref, PortfolioVenues venues) {
   if (!venues.any) return const [];
   final book = _PositionsBook.watch(context, ref, venues);
-  if (book.isEmpty) return const [];
+  if (book.isEmpty && !book.loading && !book.orders.loading) return const [];
   return [
     SliverPadding(
       padding: EdgeInsets.symmetric(horizontal: 16.w),
       sliver: SliverList(
         delegate: SliverChildListDelegate([
-          if (book.held.isNotEmpty) ...[
+          if (book.held.isNotEmpty || book.loading) ...[
             _SectionHeader(context.l10n.ledgerPositionsTitle,
                 key: const ValueKey('portfolio-positions-heading')),
             ...book.held,
           ],
+          if (book.loading || book.orders.loading) const _LoadingCard(),
           ...book.orderItems(context, ref),
         ]),
       ),
@@ -685,17 +686,13 @@ class _SpotPositionCard extends ConsumerWidget {
   }
 }
 
-/// A venue still loading: one placeholder card.
+/// A venue still loading: the app's shimmer card stack.
 class _LoadingCard extends StatelessWidget {
   const _LoadingCard();
 
   @override
-  Widget build(BuildContext context) => KuteSkeleton(
-        child: Padding(
-          padding: EdgeInsets.only(bottom: 12.h),
-          child: SkeletonCard(height: 116.h),
-        ),
-      );
+  Widget build(BuildContext context) => SkeletonCardList(
+      count: 2, height: 116.h, padding: EdgeInsets.only(bottom: 12.h));
 }
 
 /// One quiet sentence inside a list (a venue that could not be read),

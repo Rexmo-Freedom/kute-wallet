@@ -29,6 +29,7 @@ import 'package:kute/screens/shared/charts/kute_chart_range_pills.dart'
     show KuteRangePill;
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
+import 'package:kute/screens/shared/kute_skeleton.dart';
 import 'package:kute/screens/shared/no_activity_state.dart';
 import 'package:kute/screens/hyperliquid/components/hl_isolated_margin.dart'
     show hlCloseValue, hlPositionMargin;
@@ -117,8 +118,8 @@ class _PortfolioStatisticsState extends ConsumerState<PortfolioStatistics> {
       // reloading"); the last good figures stay up instead.
       skipLoadingOnReload: true,
       skipLoadingOnRefresh: true,
-      loading: () =>
-          clear(const Center(child: CircularProgressIndicator.adaptive())),
+      loading: () => clear(SingleChildScrollView(
+          child: SkeletonCardList(count: 3, height: 164.h))),
       error: (e, __) => clear(_PerformanceError(
         failures: {venue: TrackingService.errorCategory(e)},
         onRetry: () {
@@ -175,7 +176,7 @@ class _PortfolioStatisticsState extends ConsumerState<PortfolioStatistics> {
 ///     app's one empty state ([NoActivityState]), or only the [footer]
 ///     when it has rows ([footerEmpty] false).
 ///   * A venue the account has not, or whose read failed, is left out.
-///     Loading is one spinner until every venue has answered; every venue
+///     Loading shows shimmer cards until every venue has answered; every venue
 ///     failing is the retry state (one `portfolio_performance_error_shown`
 ///     per venue).
 ///   * Analytics: the chart toggle sends `portfolio_statistics_venue_toggled`
@@ -317,10 +318,13 @@ class _PortfolioStatisticsOverviewState
     final footer = !widget.footerEmpty || widget.header != null;
     // As the venue's own tab: a reload keeps the last figures up.
     if (results.values.any((r) => !r.hasValue && !r.hasError)) {
-      const spinner = Center(child: CircularProgressIndicator.adaptive());
-      return footer
-          ? _page([SizedBox(height: 160.h, child: spinner)])
-          : const KuteDockClearance(child: spinner);
+      return _page([
+        SkeletonCardList(
+            key: const ValueKey('portfolio-performance-loading'),
+            count: 3,
+            height: 164.h,
+            padding: EdgeInsets.zero),
+      ]);
     }
     final data = <PortfolioPerformanceVenue, PortfolioPerformance>{};
     final failures = <PortfolioPerformanceVenue, String>{};
