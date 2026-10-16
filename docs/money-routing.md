@@ -214,6 +214,22 @@ replacement. No money send is retried by this watchdog. See
 [sdk_operation_guard.dart](../lib/models/breez/sdk_operation_guard.dart) and
 [breez_config_provider.dart](../lib/providers/breez_config_provider.dart).
 
+Recovery teardown requests Dart subscription cancellation and starts native
+disconnect alongside it; successful teardown waits for both to finish. In the
+pinned Flutter Rust Bridge 2.13 stream sink,
+cancellation can wait for the native stream to close. The previous wrapper
+awaited cancellation before calling native disconnect, which closes those
+listeners: that circular wait prevented recovery from finishing. The ordering
+applies to connect, disconnect and the temporary seed probe. A failure in either
+cancellation or native shutdown persistently blocks replacement, including a
+cancellation error while native disconnect is still pending. Native shutdown
+and cancellation must both succeed before a replacement connects; retired
+sessions reject late publications. This proven recovery-ordering defect
+is separate from the underlying native full-sync deposit-refresh wait, whose
+exact cause remains unknown. See
+[sdk_instance.dart](../lib/models/breez/sdk_instance.dart) and the
+[pinned bridge dependency](../pubspec.lock).
+
 A failed or timed-out token-history query is unknown, not an empty wallet: it
 preserves cached USDB Activity and its arrival baseline. A successful empty
 query remains authoritative. Later successful reads replace the retained rows

@@ -98,8 +98,7 @@ class BreezSdkSpark {
     _forgetWalletReadings();
     final cancelled = _unsubscribeFromSdkStreams();
     final result = _lifecycle.then((_) async {
-      await cancelled;
-      if (previous != null) await _retireSdk(previous);
+      await _finishSessionTeardown(previous, cancelled);
       if (_generation != generation) {
         throw StateError('Spark connection was superseded.');
       }
@@ -116,8 +115,11 @@ class BreezSdkSpark {
       final connectSw = _bootConnectMeasured ? null : (Stopwatch()..start());
       final spark.BreezSdk sdk;
       try {
+        _debugFeed('lifecycle=native_connect_started');
         sdk = await _connectSdk(req);
+        _debugFeed('lifecycle=native_connect_completed');
       } catch (_) {
+        _debugFeed('lifecycle=native_connect_failed');
         _recordBootConnect(connectSw, result: 'error');
         rethrow;
       }
@@ -165,8 +167,7 @@ class BreezSdkSpark {
     // Riverpod disposal is synchronous. Queue native teardown so a subsequent
     // connect cannot overlap the old Rust runtime's asynchronous disconnect.
     final result = _lifecycle.then((_) async {
-      await cancelled;
-      if (previous != null) await _retireSdk(previous);
+      await _finishSessionTeardown(previous, cancelled);
     });
     _lifecycle =
         result.then<void>((_) {}, onError: (Object _, StackTrace __) {});
@@ -190,10 +191,32 @@ class BreezSdkSpark {
     _optimizationInProgress = false;
   }
 
+  Future<void> _finishSessionTeardown(
+      spark.BreezSdk? previous, Future<void> cancelled) async {
+    // FRB cancellation can wait for the native event listener to close.
+    // Disconnect must start without waiting for cancellation, but BOTH must
+    // finish before a replacement owns this wallet. Surface native failures
+    // even if cancellation remains pending; _retireSdk blocks replacement.
+    try {
+      await Future.wait<void>([
+        if (previous != null) _retireSdk(previous),
+        cancelled,
+      ], eagerError: true);
+    } catch (error) {
+      // A cancellation error may arrive while native shutdown is still in
+      // progress. Keep ownership blocked even when this wait exits early.
+      _teardownFailure = error;
+      rethrow;
+    }
+  }
+
   Future<void> _retireSdk(spark.BreezSdk sdk) async {
     try {
+      _debugFeed('lifecycle=native_disconnect_started');
       await sdk.disconnect();
+      _debugFeed('lifecycle=native_disconnect_completed');
     } catch (error) {
+      _debugFeed('lifecycle=native_disconnect_failed');
       // Native ownership is now uncertain. Do not open a second signer/runtime.
       _teardownFailure = error;
       rethrow;
@@ -249,7 +272,7 @@ class BreezSdkSpark {
       }
       return (balanceSats: balance, paymentCount: payments);
     } finally {
-      await sub?.cancel();
+      final cancelled = sub?.cancel() ?? Future<void>.value();
       try {
         // AWAIT the teardown: disconnect() is async on v0.23, and
         // returning while the rust runtime is still flushing lets the
@@ -257,7 +280,7 @@ class BreezSdkSpark {
         // (leaving a stray synced wallet DB behind) and can overlap the
         // probe instance with the real wallet's subsequent connect. An
         // un-awaited failure would also escape this catch entirely.
-        await sdk.disconnect();
+        await _finishSessionTeardown(sdk, cancelled);
       } catch (_) {/* best-effort teardown */}
     }
   }
@@ -957,6 +980,7 @@ class BreezSdkSpark {
 
   /// Unsubscribes from SDK's event & log streams.
   Future<void> _unsubscribeFromSdkStreams() async {
+    _debugFeed('lifecycle=stream_cancellation_started');
     final events = _breezEventsSubscription;
     final logs = _breezLogSubscription;
     _syncedInfoReread?.dispose();
@@ -968,6 +992,7 @@ class BreezSdkSpark {
       if (events != null) events.cancel(),
       if (logs != null) logs.cancel(),
     ]);
+    _debugFeed('lifecycle=stream_cancellation_completed');
   }
 }
 

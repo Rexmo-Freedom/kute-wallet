@@ -448,6 +448,53 @@ void main() {
     wrapper.disconnect();
   });
 
+  for (final explicitDisconnect in [false, true]) {
+    test(
+        'native shutdown releases pending stream cancellation '
+        '(${explicitDisconnect ? 'disconnect then connect' : 'replacement'})',
+        () {
+      fakeAsync((async) {
+        final first = _Sdk(), second = _Sdk();
+        final listenerClosed = Completer<void>();
+        final nativeClosed = Completer<void>();
+        final events = StreamController<spark.SdkEvent>(
+          onCancel: () => listenerClosed.future,
+        );
+        stub(first, events.stream, 'first');
+        stub(second, const Stream.empty(), 'second');
+        var disconnects = 0;
+        when(() => first.disconnect()).thenAnswer((_) {
+          disconnects++;
+          // Native disconnect owns and closes the FRB event listener.
+          listenerClosed.complete();
+          return nativeClosed.future;
+        });
+        var connects = 0;
+        final wrapper = BreezSdkSpark.forTesting(
+            connectSdk: (_) async => ++connects == 1 ? first : second);
+        wrapper.connect(req: request);
+        async.flushMicrotasks();
+        if (explicitDisconnect) wrapper.disconnect();
+        var replaced = false;
+        wrapper.connect(req: request).then((_) => replaced = true);
+        async.flushMicrotasks();
+        expect(disconnects, 1,
+            reason: 'Stream cancellation must not prevent native shutdown');
+        expect(connects, 1);
+        expect(replaced, isFalse);
+        expect(wrapper.instance, isNull);
+        nativeClosed.complete();
+        async.flushMicrotasks();
+        expect(replaced, isTrue);
+        expect(wrapper.instance, same(second));
+        wrapper.disconnect();
+        async.flushMicrotasks();
+        events.close();
+        async.flushMicrotasks();
+      });
+    });
+  }
+
   test('native teardown finishes before next connect starts', () async {
     final first = _Sdk(), second = _Sdk();
     stub(first, const Stream.empty(), 'first');
@@ -469,6 +516,51 @@ void main() {
     wrapper.disconnect();
   });
 
+  test('replacement also waits for Dart stream cancellation', () async {
+    final first = _Sdk(), second = _Sdk();
+    final cancelled = Completer<void>();
+    final events =
+        StreamController<spark.SdkEvent>(onCancel: () => cancelled.future);
+    stub(first, events.stream, 'first');
+    stub(second, const Stream.empty(), 'second');
+    var connects = 0;
+    final wrapper = BreezSdkSpark.forTesting(
+        connectSdk: (_) async => ++connects == 1 ? first : second);
+    await wrapper.connect(req: request);
+    final next = wrapper.connect(req: request);
+    await flush();
+    verify(() => first.disconnect()).called(1);
+    expect(connects, 1);
+    cancelled.complete();
+    await next;
+    expect(wrapper.instance, same(second));
+    wrapper.disconnect();
+    await events.close();
+  });
+
+  test('failed native teardown surfaces despite pending stream cancellation',
+      () async {
+    final sdk = _Sdk();
+    final cancelled = Completer<void>();
+    final events =
+        StreamController<spark.SdkEvent>(onCancel: () => cancelled.future);
+    stub(sdk, events.stream, 'first');
+    when(() => sdk.disconnect())
+        .thenThrow(StateError('native shutdown failed'));
+    var connects = 0;
+    final wrapper = BreezSdkSpark.forTesting(connectSdk: (_) async {
+      connects++;
+      return sdk;
+    });
+    await wrapper.connect(req: request);
+    await expectLater(wrapper.connect(req: request), throwsStateError);
+    await expectLater(wrapper.connect(req: request), throwsStateError);
+    expect(connects, 1);
+    expect(wrapper.instance, isNull);
+    cancelled.complete();
+    await events.close();
+  });
+
   test('failed native teardown blocks another signer session', () async {
     final sdk = _Sdk();
     stub(sdk, const Stream.empty(), 'first');
@@ -484,6 +576,32 @@ void main() {
     await expectLater(wrapper.connect(req: request), throwsStateError);
     expect(connects, 1);
     expect(wrapper.instance, isNull);
+  });
+
+  test('cancellation failure cannot overlap an unfinished native shutdown',
+      () async {
+    final sdk = _Sdk();
+    final cancelled = Completer<void>();
+    final nativeClosed = Completer<void>();
+    final events =
+        StreamController<spark.SdkEvent>(onCancel: () => cancelled.future);
+    stub(sdk, events.stream, 'first');
+    when(() => sdk.disconnect()).thenAnswer((_) => nativeClosed.future);
+    var connects = 0;
+    final wrapper = BreezSdkSpark.forTesting(connectSdk: (_) async {
+      connects++;
+      return sdk;
+    });
+    await wrapper.connect(req: request);
+    final failed = expectLater(wrapper.connect(req: request), throwsStateError);
+    await flush();
+    cancelled.completeError(StateError('stream cancellation failed'));
+    await failed;
+    await expectLater(wrapper.connect(req: request), throwsStateError);
+    expect(connects, 1);
+    expect(wrapper.instance, isNull);
+    nativeClosed.complete();
+    await events.close();
   });
 
   test('late payments read is discarded after replacing the SDK', () async {
