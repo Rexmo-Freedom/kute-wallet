@@ -1362,15 +1362,20 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       case PrefundQueued(:final intent, :final fundUsd):
         // The autofire places it the moment the money lands (at once when
         // it already has), under the approval already given.
-        _pendingNotifier.setIntent(intent);
-        PolymarketPlacementTimeline.mark('funded');
+        String? fundedId;
         if (fundUsd > 0) {
           // Money moved for it: its steps from here to the end, named on
           // the header by the moves' rows.
           final runner = ref.read(bitcoinFundedOrderRunnerProvider);
-          final id = runner.beginFunded(_fundedLabel(intent, outcomeLabel));
-          _pendingNotifier.setIntent(intent.copyWith(fundedRunId: id));
-          runner.followFunded(id, rowIds: prefund.rowIds);
+          fundedId = runner.beginFunded(_fundedLabel(intent, outcomeLabel));
+        }
+        // Publish one fully bound intent: readiness must never start for
+        // an unbound version whose identity changes during its first read.
+        _pendingNotifier.setIntent(intent.copyWith(fundedRunId: fundedId));
+        PolymarketPlacementTimeline.mark('funded');
+        if (fundedId != null) {
+          ref.read(bitcoinFundedOrderRunnerProvider)
+              .followFunded(fundedId, rowIds: prefund.rowIds);
         }
         if (!mounted) return true;
         _swapNeeded = fundUsd > 0;
