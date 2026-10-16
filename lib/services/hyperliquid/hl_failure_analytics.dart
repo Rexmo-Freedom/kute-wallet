@@ -9,6 +9,7 @@ import 'dart:async';
 
 import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart';
+import 'package:kute/services/hyperliquid/hypercore_dex_cash.dart';
 import 'package:kute/services/venue_analytics.dart';
 
 /// A closed class for the exchange's rejection text.
@@ -45,6 +46,7 @@ String hlRefusalClass(String reason) {
 
 /// The step an Investing order failure ended at, as one closed word.
 String hlFailureStage(Object error) {
+  if (error is OwnDexCreditPending) return 'credit';
   if (error is ReauthRequired) return 'reauth';
   if (error is GrantRevoked) return 'user_declined';
   if (error is AuthGrantException) return 'grant_expired';
@@ -59,6 +61,7 @@ String hlFailureStage(Object error) {
 /// The properties an Investing order failure adds for [error].
 Map<String, Object> hlFailureParams(Object error) => {
       'stage': hlFailureStage(error),
+      if (error is OwnDexCreditPending) 'refusal_class': 'collateral_pending',
       if (error is HyperliquidRejectedException) ...{
         'refusal_class': hlRefusalClass(error.reason),
         'venue_refusal': VenueAnalytics.refusalText(error.reason),

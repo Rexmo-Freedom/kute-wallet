@@ -1000,7 +1000,9 @@ class PendingHlOrderAutoFire {
       _cancelForReconfirm();
       return;
     }
-    final placingAt = DateTime.now();
+    final placingAt = OrderFundingJourney.clock();
+    DateTime? collateralReadyAt;
+    DateTime? dexCreditStartedAt;
     pending.setIntent(intent.copyWith(
       status: PendingHlOrderStatus.placing,
       placingAt: placingAt,
@@ -1026,6 +1028,7 @@ class PendingHlOrderAutoFire {
 
     try {
       final market = intent.market ?? await _resolveMarket(intent);
+      if (market.dex.isEmpty) collateralReadyAt = placingAt;
       if (intent.needsBuilderApproval) {
         // First order on a new account: the approval the slip could not
         // sign before the money landed. A failure is not final here: the
@@ -1075,8 +1078,12 @@ class PendingHlOrderAutoFire {
               () => _send(intent, market, grant, margin,
                   cloid: firstCloid == null
                       ? null
-                      : HlResendCloids.current(firstCloid)),
-              () => pending.setReadiness(HlReadiness.ready));
+                      : HlResendCloids.current(firstCloid)), () {
+            collateralReadyAt = OrderFundingJourney.clock();
+            pending.setReadiness(HlReadiness.ready);
+          }, waiting: () {
+            dexCreditStartedAt = OrderFundingJourney.clock();
+          });
           break;
         } catch (e) {
           // Without a cloid of its own the order cannot be told apart
@@ -1108,14 +1115,27 @@ class PendingHlOrderAutoFire {
       _trackFundingCompleted(current,
           margin: margin,
           resized: margin < intent.marginUsd - 1e-9,
-          placingAt: placingAt);
+          placingAt: placingAt,
+          collateralReadyAt: collateralReadyAt,
+          dexCreditStartedAt: dexCreditStartedAt);
     } catch (e, st) {
       if (e is _HlApprovalLapsed) {
         _cancelForReconfirm(placementId: placementId);
         return;
       }
       _trackAutofireFailed('error', intent, error: e);
-      _trackFundingFailed(intent, stage: 'order', error: e);
+      _trackFundingFailed(intent,
+          stage: e is OwnDexCreditPending ? 'credit' : 'order',
+          error: e,
+          startedBy: placingAt,
+          reason: e is OwnDexCreditPending ? 'dex_credit_pending' : null,
+          extra: {
+            if (dexCreditStartedAt != null)
+              'ms_dex_credit': OrderFundingJourney.clock()
+                  .difference(dexCreditStartedAt!)
+                  .inMilliseconds
+                  .clamp(0, 1 << 31),
+          });
       TrackingService.hyperliquidOrderFailed(
         coin: intent.coin,
         reason: TrackingService.errorCategory(e),
@@ -1259,21 +1279,33 @@ class PendingHlOrderAutoFire {
   void _trackFundingCompleted(PendingHlOrderIntent intent,
       {required double margin,
       required bool resized,
-      required DateTime placingAt}) {
-    if (intent.fundUsd <= 0) return;
-    final now = DateTime.now();
+      required DateTime placingAt,
+      DateTime? collateralReadyAt,
+      DateTime? dexCreditStartedAt}) {
+    final journey = OrderFundingJourney.instance;
+    final journeyFund =
+        journey.fundUsdOf(OneBalanceVenue.investing, startedBy: placingAt);
+    if (intent.fundUsd <= 0 && journeyFund == null) return;
+    final now = OrderFundingJourney.clock();
     final fundedAt = intent.fundedAt;
-    final msCredit = fundedAt == null
-        ? 0
-        : placingAt.difference(fundedAt).inMilliseconds.clamp(0, 1 << 31);
+    final readyAt = collateralReadyAt ??
+        (intent.market?.dex.isNotEmpty == true ? null : placingAt);
     TrackingService.track('order_funding_completed', params: {
       'venue': 'hyperliquid',
-      'fund_usd': intent.fundUsd,
+      'fund_usd': intent.fundUsd > 0 ? intent.fundUsd : journeyFund!,
       'amount_usd': margin,
       'ms_quote': intent.quoteMs,
       'ms_fund': intent.fundMs,
-      'ms_credit': msCredit,
-      'ms_order': now.difference(placingAt).inMilliseconds,
+      if (fundedAt != null && readyAt != null)
+        'ms_credit':
+            readyAt.difference(fundedAt).inMilliseconds.clamp(0, 1 << 31),
+      if (readyAt != null)
+        'ms_order': now.difference(readyAt).inMilliseconds.clamp(0, 1 << 31),
+      if (dexCreditStartedAt != null && readyAt != null)
+        'ms_dex_credit': readyAt
+            .difference(dexCreditStartedAt)
+            .inMilliseconds
+            .clamp(0, 1 << 31),
       'duration_ms': now.difference(intent.createdAt).inMilliseconds,
       'resized': resized,
       'order_kind': intent.orderKind,
@@ -1283,24 +1315,37 @@ class PendingHlOrderAutoFire {
       ...OrderFundingJourney.bitcoinTimings(
         sentAt: intent.bitcoinSentAt,
         landedAt: intent.bitcoinLandedAt,
-        creditedAt: intent.fundingSource == null ? null : placingAt,
+        creditedAt: intent.fundingSource == null ? null : readyAt,
         placedAt: intent.fundingSource == null ? null : now,
       ),
+      ...journey.takeOutcomeParams(OneBalanceVenue.investing,
+          startedBy: placingAt),
     });
   }
 
   /// `order_funding_failed` for an order Dollars funded that stopped
   /// after the money left: at the credit wait or at the placement.
   void _trackFundingFailed(PendingHlOrderIntent intent,
-      {required String stage, Object? error, String? reason}) {
-    if (intent.fundUsd <= 0) return;
+      {required String stage,
+      Object? error,
+      String? reason,
+      DateTime? startedBy,
+      Map<String, Object> extra = const {}}) {
+    final journey = OrderFundingJourney.instance;
+    final bound = startedBy ?? intent.placingAt;
+    final journeyFund =
+        journey.fundUsdOf(OneBalanceVenue.investing, startedBy: bound);
+    if (intent.fundUsd <= 0 && journeyFund == null) return;
     TrackingService.track('order_funding_failed', params: {
       'venue': 'hyperliquid',
+      'fund_usd': intent.fundUsd > 0 ? intent.fundUsd : journeyFund!,
       'stage': stage,
       'error_category': reason ?? TrackingService.errorCategory(error),
       'duration_ms': DateTime.now().difference(intent.createdAt).inMilliseconds,
       'order_kind': intent.orderKind,
       if (intent.fundingSource != null) 'funding_source': intent.fundingSource!,
+      ...journey.takeOutcomeParams(OneBalanceVenue.investing, startedBy: bound),
+      ...extra,
     });
   }
 

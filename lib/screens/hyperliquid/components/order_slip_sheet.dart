@@ -2251,7 +2251,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         shortfallUsd: shortfallUsd, fundUsd: fundUsd, arrivingUsd: arrivingUsd);
     _fundPlanKey = shortfallUsd.toStringAsFixed(2);
     final dollars = _dollarsUsd();
-    TrackingService.track('order_funding_started', params: {
+    // This is a request before approval. Only the approved journey emits
+    // order_funding_started, once, regardless of its selected sources.
+    TrackingService.track('order_funding_requested', params: {
       'venue': 'hyperliquid',
       'order_usd': marginUsd,
       'fund_usd': fundUsd,

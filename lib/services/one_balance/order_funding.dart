@@ -825,8 +825,35 @@ class OrderFundingJourney {
   void setRoute(OneBalanceVenue venue, String route, {String? reason}) {
     final run = _runs[venue];
     if (run == null) return;
+    if (run.route == route && run.routeReason == reason) return;
     run.route = route;
     run.routeReason = reason;
+    TrackingService.track('order_funding_route_selected', params: {
+      'venue': orderFundingVenueCode(venue),
+      'duration_ms': clock().difference(run.startedAt).inMilliseconds.clamp(0, 1 << 31),
+      ..._legParams(run),
+      if (run.fundingSource != null) 'funding_source': run.fundingSource!,
+    });
+  }
+
+  /// A placement may only read the journey that had begun before it.
+  /// Its late callback must not consume a newer order's funding context.
+  double? fundUsdOf(OneBalanceVenue venue, {DateTime? startedBy}) {
+    final run = _runs[venue];
+    if (run == null ||
+        (startedBy != null && run.startedAt.isAfter(startedBy))) {
+      return null;
+    }
+    return run.fundUsd;
+  }
+
+  /// Let the venue's existing emitter own the one terminal event, then
+  /// close its journey so it cannot later be reported as abandoned.
+  Map<String, Object> takeOutcomeParams(OneBalanceVenue venue,
+      {DateTime? startedBy}) {
+    if (fundUsdOf(venue, startedBy: startedBy) == null) return const {};
+    final run = _runs.remove(venue);
+    return run == null ? const {} : _legParams(run);
   }
 
   /// One leg's money landed [ms] after it started. [source] is the
@@ -861,6 +888,7 @@ class OrderFundingJourney {
       'step': stage.name,
       if (run.fundingSource != null) 'funding_source': run.fundingSource!,
       if (run.marketKind != null) 'market_kind': run.marketKind!,
+      ..._legParams(run),
     });
   }
 
@@ -881,6 +909,7 @@ class OrderFundingJourney {
         'amount_usd': orderUsd,
         'quote_id': move.quoteId,
         if (orderId != null && orderId.isNotEmpty) 'order_id': orderId,
+        ..._legParams(run),
       });
     }
 
@@ -958,6 +987,7 @@ class OrderFundingJourney {
       'stage': (stage ?? run.stage).name,
       if (run.fundingSource != null) 'funding_source': run.fundingSource!,
       if (run.marketKind != null) 'market_kind': run.marketKind!,
+      ..._legParams(run),
     });
   }
 

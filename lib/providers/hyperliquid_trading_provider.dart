@@ -1076,6 +1076,7 @@ class HyperliquidTradingNotifier
     final fromPerps =
         (math.min(shortfall, snapshot.withdrawable) * 1e6).floorToDouble() /
             1e6;
+    OwnDexReadiness.waiting();
     if (fromPerps > 0) {
       await exchange.moveOwnUsdc(
           sourceDex: '', destinationDex: market.dex, amount: fromPerps);

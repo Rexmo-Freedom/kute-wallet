@@ -8,10 +8,13 @@ import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart';
 /// listener; the callback lives only for this placement attempt.
 abstract final class OwnDexReadiness {
   static final Object _key = Object();
-  static Future<T> follow<T>(
-          Future<T> Function() action, void Function() ready) =>
-      runZoned(action, zoneValues: {_key: ready});
+  static final Object _waitingKey = Object();
+  static Future<T> follow<T>(Future<T> Function() action, void Function() ready,
+          {void Function()? waiting}) =>
+      runZoned(action, zoneValues: {_key: ready, _waitingKey: waiting});
   static void ready() => (Zone.current[_key] as void Function()?)?.call();
+  static void waiting() =>
+      (Zone.current[_waitingKey] as void Function()?)?.call();
 }
 
 /// A transfer was acknowledged but its target cash is not yet readable.

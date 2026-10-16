@@ -74,11 +74,13 @@ class _Controller implements OrderFundingController {
     bool continueJourney = false,
     String? marketKind,
   }) async =>
-      const OrderFundingFunded(VenueMoveResult(
-          quoteId: 'q1',
-          orderId: 'o1',
-          sentUsd: 20.03,
-          arrivingUsdEstimate: 20));
+      fundUsd == 0
+          ? const OrderFundingNotNeeded()
+          : const OrderFundingFunded(VenueMoveResult(
+              quoteId: 'q1',
+              orderId: 'o1',
+              sentUsd: 20.03,
+              arrivingUsdEstimate: 20));
 
   @override
   OrderFundingController withDollars(double Function() dollarsUsd) => this;
@@ -129,6 +131,7 @@ class _Placement {
           GrantGuard.consume(g, intentAt(margin),
               allowed: const {SensitiveAction.hlOrder});
           if (targetCredit != null) {
+            OwnDexReadiness.waiting();
             await targetCredit;
             OwnDexReadiness.ready();
           }
@@ -147,7 +150,7 @@ class _Placement {
 }
 
 PendingHlOrderIntent _intent(_Placement placement,
-        {String orderKind = 'market'}) =>
+        {String orderKind = 'market', double fundUsd = 20.03}) =>
     PendingHlOrderIntent(
       coin: placement.market.coin,
       kind: HlMarketKind.perp,
@@ -159,7 +162,7 @@ PendingHlOrderIntent _intent(_Placement placement,
       marketLabel: 'BTC · Perp',
       market: placement.market,
       placement: placement.placement,
-      fundUsd: 20.03,
+      fundUsd: fundUsd,
       requiredUsd: 20 * 1.01 * 1.0019,
       readyAtQueueUsd: 0,
       arrivingUsd: 20 * 1.01 * 1.0019,
@@ -188,10 +191,13 @@ void main() {
     TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
     AuthGrantRegistry.instance.cancelAutofire(kPendingHlOrderAutofireId);
     HlResendCloids.reset();
+    OrderFundingJourney.reset();
+    OrderFundingJourney.clock = DateTime.now;
   });
 
   tearDown(() {
     TrackingService.debugTrackObserver = null;
+    OrderFundingJourney.clock = DateTime.now;
     AuthGrantRegistry.instance.cancelAutofire(kPendingHlOrderAutofireId);
     rail.creditedController.close();
   });
@@ -199,6 +205,8 @@ void main() {
   /// Queues [placement]'s order behind its funding, with its approval.
   ProviderContainer queue(_Placement placement,
       {String orderKind = 'market',
+      String? route,
+      double pendingFundUsd = 20.03,
       HlSentOrderTrace Function(List<String> cloids)? trace}) {
     final c = ProviderContainer(overrides: [
       // The earlier sends looked up before any send again: nowhere, unless
@@ -215,25 +223,152 @@ void main() {
     c.read(pendingHlOrderAutoFireProvider);
     history = [];
     c.listen(pendingHyperliquidOrderProvider, (_, n) => history.add(n));
-    final intent = _intent(placement, orderKind: orderKind);
+    final intent =
+        _intent(placement, orderKind: orderKind, fundUsd: pendingFundUsd);
     final grant = AuthGrantRegistry.instance.issueAutofire(
       kPendingHlOrderAutofireId,
       pendingHlOrderAutofireIntent(intent, placement.market, walletId: 'w1'),
       method: AuthGrantMethod.pin,
     );
+    if (route != null) {
+      final journey = OrderFundingJourney.instance;
+      journey.start(OneBalanceVenue.investing,
+          orderUsd: 20,
+          fundUsd: 20.03,
+          readyUsd: 0,
+          dollarsUsd: 0,
+          fundingSource: 'bitcoin',
+          otherVenueUsed: false);
+      journey.setRoute(OneBalanceVenue.investing, route,
+          reason: route == 'via_dollars' ? 'costlier' : null);
+      journey.legLanded(OneBalanceVenue.investing, 'bitcoin', 1234);
+      if (pendingFundUsd > 0)
+        journey.funded(
+            OneBalanceVenue.investing,
+            const VenueMoveResult(
+                quoteId: 'q_private_quote',
+                orderId: 'ord_private_order',
+                sentUsd: 20.03,
+                arrivingUsdEstimate: 20.03),
+            orderUsd: 20);
+    }
     c.read(pendingHyperliquidOrderProvider.notifier).fundAndQueue(intent,
         grant: grant,
         controller: _Controller(),
+        fundUsd: pendingFundUsd,
         orderUsd: 20,
         requiredUsd: intent.requiredUsd,
         readyUsd: 0);
     return c;
   }
 
+  for (final route in ['direct', 'via_dollars']) {
+    for (final failed in [false, true]) {
+      test('$route HL terminal outcome carries journey once (failed=$failed)',
+          () {
+        fakeAsync((async) {
+          final placement = _Placement(
+              resizable: true,
+              refusals: failed ? [const OwnDexCreditPending()] : []);
+          queue(placement, route: route);
+          async.flushMicrotasks();
+          OrderFundingJourney.instance.setRoute(
+              OneBalanceVenue.investing, route,
+              reason: route == 'via_dollars' ? 'costlier' : null);
+          final selected = events
+              .singleWhere((e) => e.$1 == 'order_funding_route_selected')
+              .$2!;
+          expect(selected['route'], route);
+          expect(selected['duration_ms'], greaterThanOrEqualTo(0));
+          if (route == 'via_dollars')
+            expect(selected['route_reason'], 'costlier');
+          final submitted =
+              events.singleWhere((e) => e.$1 == 'order_funding_submitted').$2!;
+          expect(submitted['quote_id'],
+              TrackingService.orderRef('q_private_quote'));
+          expect(submitted['order_id'],
+              TrackingService.orderRef('ord_private_order'));
+          perp = 20.5;
+          async.elapse(const Duration(seconds: 1));
+          async.flushMicrotasks();
+          final outcomes = events.where((e) =>
+              e.$1 == 'order_funding_completed' ||
+              e.$1 == 'order_funding_failed');
+          expect(outcomes, hasLength(1));
+          final outcome = outcomes.single;
+          expect(outcome.$1,
+              failed ? 'order_funding_failed' : 'order_funding_completed');
+          expect(outcome.$2!['route'], route);
+          expect(outcome.$2!['ms_leg_bitcoin'], 1234);
+          if (route == 'via_dollars')
+            expect(outcome.$2!['route_reason'], 'costlier');
+          if (failed) {
+            expect(outcome.$2!['stage'], 'credit');
+            expect(outcome.$2!['error_category'], 'dex_credit_pending');
+          }
+          expect(
+              OrderFundingJourney.instance.isRunning(OneBalanceVenue.investing),
+              isFalse);
+          OrderFundingJourney.instance.abandoned(OneBalanceVenue.investing);
+          expect(
+              events.where((e) => e.$1 == 'order_funding_abandoned'), isEmpty);
+        });
+      });
+    }
+  }
+
+  for (final failed in [false, true]) {
+    test(
+        'pure direct Bitcoin with zero Dollars emits one outcome (failed=$failed)',
+        () {
+      fakeAsync((async) {
+        queue(
+            _Placement(
+                resizable: true,
+                refusals: failed ? [const OwnDexCreditPending()] : []),
+            route: 'direct',
+            pendingFundUsd: 0);
+        async.flushMicrotasks();
+        expect(events.where((e) => e.$1 == 'order_funding_submitted'), isEmpty);
+        perp = 20.5;
+        async.elapse(const Duration(seconds: 1));
+        async.flushMicrotasks();
+        final outcomes = events.where((e) =>
+            e.$1 == 'order_funding_completed' ||
+            e.$1 == 'order_funding_failed');
+        expect(outcomes, hasLength(1));
+        final p = outcomes.single.$2!;
+        expect(p['route'], 'direct');
+        expect(p['fund_usd'], 20.03);
+        expect(p['ms_leg_bitcoin'], 1234);
+        expect(
+            OrderFundingJourney.instance.isRunning(OneBalanceVenue.investing),
+            isFalse);
+      });
+    });
+  }
+
+  test('an old placement callback cannot consume a newer journey', () {
+    final old = DateTime.now();
+    OrderFundingJourney.clock = () => old.add(const Duration(seconds: 2));
+    final journey = OrderFundingJourney.instance;
+    journey.start(OneBalanceVenue.investing,
+        orderUsd: 20, fundUsd: 20.03, readyUsd: 0, dollarsUsd: 0);
+    journey.setRoute(OneBalanceVenue.investing, 'direct');
+    expect(journey.takeOutcomeParams(OneBalanceVenue.investing, startedBy: old),
+        isEmpty);
+    expect(journey.isRunning(OneBalanceVenue.investing), isTrue);
+    expect(
+        journey.takeOutcomeParams(OneBalanceVenue.investing,
+            startedBy: old.add(const Duration(seconds: 3)))['route'],
+        'direct');
+  });
+
   test(
       'HIP-3 credit step stays active until its target clearinghouse is usable',
       () {
     fakeAsync((async) {
+      OrderFundingJourney.clock = async.getClock(DateTime.now()).now;
       final credited = Completer<void>();
       final placement = _Placement(
           resizable: true,
@@ -256,6 +391,7 @@ void main() {
       expect(moving.readiness, HlReadiness.crediting);
       expect(placement.placed, isEmpty);
       expect(history.where((s) => s?.readiness == HlReadiness.ready), isEmpty);
+      async.elapse(const Duration(seconds: 3));
       credited.complete();
       async.flushMicrotasks();
       expect(placement.placed, [20]);
@@ -265,6 +401,24 @@ void main() {
               s?.readiness == HlReadiness.ready),
           isTrue);
       expect(terminal().status, PendingHlOrderStatus.done);
+      final completed =
+          events.singleWhere((e) => e.$1 == 'order_funding_completed').$2!;
+      expect(completed['ms_dex_credit'], 3000);
+      expect(completed['ms_order'], 0);
+    });
+  });
+
+  test('abandoned funding retains its selected route and completed leg timings',
+      () {
+    fakeAsync((async) {
+      queue(_Placement(resizable: true), route: 'via_dollars');
+      async.flushMicrotasks();
+      OrderFundingJourney.instance.abandoned(OneBalanceVenue.investing);
+      final abandoned =
+          events.singleWhere((e) => e.$1 == 'order_funding_abandoned').$2!;
+      expect(abandoned['route'], 'via_dollars');
+      expect(abandoned['route_reason'], 'costlier');
+      expect(abandoned['ms_leg_bitcoin'], 1234);
     });
   });
 

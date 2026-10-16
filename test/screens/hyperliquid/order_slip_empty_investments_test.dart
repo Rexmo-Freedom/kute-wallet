@@ -392,6 +392,8 @@ void main() {
     expect(sheets, isEmpty);
     expect(find.byType(DepositSheet), findsNothing);
     expect(events, isNot(contains('slip_top_up_opened')));
+    expect(events.where((e) => e == 'order_funding_requested'), hasLength(1));
+    expect(events.where((e) => e == 'order_funding_started'), hasLength(1));
 
     // ONE approval, binding the order, its move and the Bitcoin leg.
     expect(approvals, hasLength(1));
