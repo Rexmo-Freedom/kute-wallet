@@ -607,6 +607,40 @@ void main() {
     await _close(tester, container);
   });
 
+  testWidgets('direct venue purchase leaves a sub-minimum Dollars remainder quietly',
+      (tester) async {
+    _dollars = 0.42;
+    final venue = _DirectVenue(3.52);
+    final approvals = _Approvals(() => venue.directs.length);
+    debugBuyBitcoinApproval = approvals.call;
+    final events = <String>[];
+    TrackingService.debugTrackObserver = (e, _) => events.add(e);
+    _puller = VenueCashPuller(sources: [venue], readDollars: () => _dollars,
+        minimumUsd: (_) async => 1);
+    final container = await _open(tester, MoveLockedSide.depositFromFiat,
+        routed: true);
+    for (final key in ['3', '.', '8']) {
+      await tester.tap(find.text(key).last);
+      await tester.pump();
+    }
+    await tester.tap(_cta);
+    for (var i = 0; i < 30; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    expect(venue.directs, hasLength(1));
+    expect(venue.pulls, isEmpty);
+    expect(approvals.prompts, hasLength(1), reason: 'only the real venue leg approval');
+    expect(_buy.calls, isEmpty, reason: 'no onward quote or native send');
+    expect(PendingBitcoinPurchaseStore.all(), isEmpty);
+    expect(_dollars, 0.42);
+    expect(events, isNot(contains('move_failed')));
+    expect(find.byType(DepositSheet), findsNothing);
+    final record = MultiSourceMoveStore.all().single;
+    expect(record.steps.byId('buy')!.status.name, 'skipped');
+    expect(record.spentUsd, venue.directs.single.usd);
+    await _close(tester, container);
+  });
+
   testWidgets(
       'Buy Bitcoin with every leg straight to Bitcoin: ONE prompt, before '
       'anything moves, and the legs run under it', (tester) async {

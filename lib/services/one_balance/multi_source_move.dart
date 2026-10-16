@@ -103,9 +103,8 @@ class MultiSourceMoveLeg {
 
   static MultiSourceMoveLeg? fromJson(Object? raw) {
     if (raw is! Map) return null;
-    final venue = OneBalanceVenue.values
-        .where((v) => v.name == raw['venue'])
-        .firstOrNull;
+    final venue =
+        OneBalanceVenue.values.where((v) => v.name == raw['venue']).firstOrNull;
     final usd = raw['usd'];
     final arriving = raw['arrivingUsd'];
     final at = raw['at'];
@@ -179,7 +178,8 @@ class MultiSourceMove {
   /// What reached (or is on its way to) the move's destination: Dollars'
   /// part plus every leg that went, never more than [totalUsd].
   double get deliveredUsd {
-    final sum = dollarsUsd + okLegs.fold<double>(0, (s, l) => s + l.arrivingUsd);
+    final sum =
+        dollarsUsd + okLegs.fold<double>(0, (s, l) => s + l.arrivingUsd);
     return math.min(totalUsd, _cents(sum));
   }
 
@@ -201,10 +201,19 @@ class MultiSourceMove {
 
   /// What the move spent: the person's amount, or after a failed leg
   /// what Dollars gave and the legs that went took.
-  double get spentUsd => partial
-      ? math.min(totalUsd,
-          _cents(dollarsUsd + okLegs.fold<double>(0, (s, l) => s + l.usd)))
-      : totalUsd;
+  double get spentUsd {
+    final buy = steps.byId(MoveSteps.buyId);
+    if (finalOperationId == null && buy != null && buy.ref == null &&
+        buy.status == MoneyStepStatus.skipped && buy.reason == 'below_minimum') {
+      // None of the initial Dollars left. Count actual source sends, including
+      // their fees, rather than the requested total or unsent remainder.
+      return _cents(okLegs.fold<double>(0, (s, l) => s + l.usd));
+    }
+    return partial
+        ? math.min(totalUsd,
+            _cents(dollarsUsd + okLegs.fold<double>(0, (s, l) => s + l.usd)))
+        : totalUsd;
+  }
 
   /// The Activity row ids and operation ids that belong to this move.
   Set<String> get linkedIds => {
@@ -334,8 +343,8 @@ abstract final class MultiSourceMoveStore {
     final moves = all();
     try {
       if (Hive.isBoxOpen('settings')) {
-        Hive.box('settings').put(
-            key, jsonEncode([for (final m in moves) m.toJson()]));
+        Hive.box('settings')
+            .put(key, jsonEncode([for (final m in moves) m.toJson()]));
       }
     } catch (_) {/* best effort: memory still holds them */}
     revision.value++;
@@ -351,8 +360,7 @@ abstract final class MultiSourceMoveStore {
   static MultiSourceMove? get(String id) => _all()[id];
 
   /// A fresh move id (`msm_…`): local only, never sent anywhere.
-  static String newId() =>
-      'msm_${clock().microsecondsSinceEpoch}_${_seq++}';
+  static String newId() => 'msm_${clock().microsecondsSinceEpoch}_${_seq++}';
 
   /// Starts [move], or keeps the one already under its id.
   static MultiSourceMove start(MultiSourceMove move) {
@@ -399,8 +407,8 @@ abstract final class MultiSourceMoveStore {
     if (move == null) return;
     final next = move.copyWith(finalOperationId: operationId);
     all[id] = next.copyWith(
-        steps: _stepsOr(next,
-            () => MoveSteps.finalSent(MoveSteps.of(next), operationId)));
+        steps: _stepsOr(
+            next, () => MoveSteps.finalSent(MoveSteps.of(next), operationId)));
     _save();
   }
 

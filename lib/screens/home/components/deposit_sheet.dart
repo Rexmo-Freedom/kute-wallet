@@ -188,10 +188,12 @@ import 'package:kute/services/success_feedback.dart'
     show moneyFailureFeedback, moneyFailureFeedbackAfterBand;
 import 'package:kute/screens/shared/rubber_band_progress.dart'
     show RubberBand, RubberBandBusy, RubberBandOutcome;
+import 'package:kute/services/one_balance/dollars_to_bitcoin_minimum.dart';
+import 'package:kute/services/one_balance/buy_bitcoin_steps.dart';
 import 'package:kute/services/one_balance/dollars_to_bitcoin_purchase.dart'
     show approvedPurchaseStepUp, buyBitcoinFromDollars, kDollarsToBtcRoute;
 import 'package:kute/services/one_balance/pending_bitcoin_purchase.dart'
-    show bitcoinPurchaseFinisherProvider;
+    show bitcoinPurchaseFinisherProvider, PendingBitcoinPurchaseStore;
 import 'package:kute/services/funding/owned_address_resolver.dart'
     show ProviderReader;
 import 'package:kute/services/tracking_service.dart';
@@ -3759,6 +3761,24 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       _moveId = outcome!.moveId;
       _moveUsd = usd;
     }
+    if (outcome != null && outcome.plan.covers &&
+        outcome.failedLegs.isEmpty && outcome.moveId != null &&
+        outcome.dollarsNeededUsd >= 0.01 &&
+        DollarsToBitcoinMinimum.belowFloor(
+            _usdBaseUnits(outcome.dollarsNeededUsd))) {
+      try {
+        await appRead(dollarsToBitcoinMinimumProvider).check(
+            _usdBaseUnits(outcome.dollarsNeededUsd));
+      } on DollarsToBitcoinBelowMinimum {
+        BuyBitcoinSteps.record(outcome.moveId,
+            (g) => BuyBitcoinSteps.buySkipped(g, at: DateTime.now()));
+        PendingBitcoinPurchaseStore.remove(outcome.moveId!);
+        grant?.revoke();
+        if (!mounted) return null;
+        setState(() => _pullProgress = null);
+        return _VenuePull(0);
+      }
+    }
     if (!mounted) {
       // The sheet was closed under the move. Legs that came home to
       // Dollars still finish as Bitcoin, in the background under the
@@ -3961,7 +3981,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
           // Bitcoin (nothing left to buy from Dollars, no second
           // approval), or what came home finishes as Bitcoin in the
           // background under the same approval.
-          await _finishVenuePurchase(usd, queued: pulled.queued);
+          final sent = pulled.queued ? usd :
+              (_moveId == null ? null : MultiSourceMoveStore.get(_moveId!))?.spentUsd ?? usd;
+          await _finishVenuePurchase(sent, queued: pulled.queued);
           return;
         }
         // The purchase takes from Dollars only what the direct legs did
@@ -4017,6 +4039,12 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
             : l10n.settlementRegistering,
       );
     } catch (e) {
+      if (!usdSent && e is DollarsToBitcoinBelowMinimum && _moveId != null) {
+        final move = MultiSourceMoveStore.get(_moveId!);
+        PendingBitcoinPurchaseStore.remove(_moveId!);
+        await _finishVenuePurchase(move?.spentUsd ?? 0, queued: false);
+        return;
+      }
       // The purchase's approval ends with it (a Retry asks again).
       _purchaseGrant?.revoke();
       _purchaseGrant = null;
@@ -4039,7 +4067,8 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       if (_stoppedByApproval(e, SensitiveAction.moveTransfer) || !mounted) {
         return;
       }
-      final message = _moveFailure(e);
+      final message = e is DollarsToBitcoinBelowMinimum
+          ? context.l10n.routeAmountTooSmallGeneric : _moveFailure(e);
       setState(() {
         _processing = false;
         _error = message;

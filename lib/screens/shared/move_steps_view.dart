@@ -31,6 +31,7 @@ import 'package:kute/services/one_balance/multi_source_move.dart';
 import 'package:kute/services/one_balance/pending_bitcoin_purchase.dart'
     show
         PendingBitcoinPurchase,
+        bitcoinPurchaseMoveForDisplay,
         PendingBitcoinPurchaseStore,
         PendingPurchaseStage,
         bitcoinPurchaseFinisherProvider,
@@ -60,6 +61,7 @@ MoneyStepGraph liveMoveSteps(
   PendingBitcoinPurchase? purchase,
   bool purchaseRunning = false,
 }) {
+  move = bitcoinPurchaseMoveForDisplay(move);
   var g = MoveSteps.of(move);
   if (g.isEmpty) return g;
   final delivering = <SwapOrderTransaction>[];

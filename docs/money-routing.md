@@ -116,6 +116,23 @@ unversioned, which remains a freshness limitation. See
 [investments_spendable.dart](../lib/services/one_balance/investments_spendable.dart)
 and [venue_cash_source.dart](../lib/services/one_balance/venue_cash_source.dart).
 
+For a Bitcoin purchase, an unsent Dollars remainder below the $1 floor or the
+directed USDB → BTC route minimum stays in Dollars. Its purchase step is skipped,
+with no approval, quote or native send for a known sub-floor amount and no
+pending retry or “Needs attention” item for that remainder. Valid venue → Bitcoin
+legs continue independently; the receipt stays pending until their actual rows
+settle and Bitcoin credit is counted. Sent totals include only the source legs
+that actually went, including their source fees, and never claim that retained
+Dollars became Bitcoin. A pre-funding `amount_too_small` quote refusal is also
+safe to skip; a failure after funding begins keeps its real settlement outcome.
+Unknown route limits do not prove a below-minimum amount. The shared directed
+minimum read is single-flight, bounded to 3 s and cached using the existing
+10-minute success / 1-minute unknown retry policy. See
+[dollars_to_bitcoin_minimum.dart](../lib/services/one_balance/dollars_to_bitcoin_minimum.dart),
+[dollars_to_bitcoin_purchase.dart](../lib/services/one_balance/dollars_to_bitcoin_purchase.dart),
+[pending_bitcoin_purchase.dart](../lib/services/one_balance/pending_bitcoin_purchase.dart)
+and [buy_bitcoin_steps.dart](../lib/services/one_balance/buy_bitcoin_steps.dart).
+
 ## Live Bitcoin, Dollars and Activity refresh
 
 Balances and Activity are separate cached SDK snapshots. On a `Synced` burst,

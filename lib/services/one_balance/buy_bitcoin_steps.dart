@@ -79,6 +79,31 @@ abstract final class BuyBitcoinSteps {
           {DateTime? at}) =>
       MoveSteps.finalStopped(g, reason, at: at);
 
+  /// This remainder is below the route minimum; nothing left Dollars.
+  static MoneyStepGraph buySkipped(MoneyStepGraph g, {DateTime? at}) {
+    final buy = g.byId(buyId);
+    if (buy == null || buy.ref != null || buy.status == MoneyStepStatus.skipped) {
+      return g;
+    }
+    var next = g.update(
+        buyId,
+        (s) => s.copyWith(
+            status: MoneyStepStatus.skipped,
+            endedAt: at,
+            reason: 'below_minimum'));
+    final arrival = next.byId(arriveId);
+    if (arrival != null) {
+      final direct = next.steps
+          .any((s) => MoveSteps.isVenueLeg(s) && s.route == MoneyRoute.direct);
+      next = next.update(
+          arriveId,
+          (s) => s.copyWith(
+              usd: (s.usd - buy.usd).clamp(0.0, double.infinity),
+              status: direct ? s.status : MoneyStepStatus.skipped));
+    }
+    return next;
+  }
+
   /// What came home landed: every leg on its way to Dollars is done.
   static MoneyStepGraph dollarsLanded(MoneyStepGraph g, {DateTime? at}) =>
       MoveSteps.dollarsLanded(g, at: at);

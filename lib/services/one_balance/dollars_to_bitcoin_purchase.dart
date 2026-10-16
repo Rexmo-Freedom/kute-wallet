@@ -43,6 +43,8 @@ import 'package:kute/services/funding/settlement_registration.dart'
 import 'package:kute/services/funding/settlement_runner.dart'
     show SettlementFundingProof, SettlementRunResult, SettlementStepUpHook;
 import 'package:kute/services/one_balance/buy_bitcoin_steps.dart';
+import 'package:kute/services/one_balance/dollars_to_bitcoin_minimum.dart';
+import 'package:kute/models/orchestra_route_limits.dart';
 import 'package:kute/services/one_balance/multi_source_move.dart'
     show MultiSourceMoveStore;
 import 'package:kute/services/orchestra/orchestra_quote_guard.dart'
@@ -121,6 +123,13 @@ Future<DollarsToBitcoinSent> buyBitcoinFromDollars(
   void Function()? onQuoting,
   void Function()? onFunding,
 }) async {
+  try {
+    await read(dollarsToBitcoinMinimumProvider).check(amountBaseUnits);
+  } on DollarsToBitcoinBelowMinimum {
+    BuyBitcoinSteps.record(
+        moveId, (g) => BuyBitcoinSteps.buySkipped(g, at: DateTime.now()));
+    rethrow;
+  }
   // Both legs settle on the wallet's own Spark address, and a failed
   // swap refunds to that same address. Resolution failure throws BEFORE
   // anything moves.
@@ -178,6 +187,13 @@ Future<DollarsToBitcoinSent> buyBitcoinFromDollars(
       },
     ));
   } catch (e) {
+    if (!funded &&
+        e is RouteQuoteError &&
+        e.code == RouteQuoteErrorCode.amountTooSmall) {
+      BuyBitcoinSteps.record(
+          moveId, (g) => BuyBitcoinSteps.buySkipped(g, at: DateTime.now()));
+      throw const DollarsToBitcoinBelowMinimum();
+    }
     if (!funded) {
       BuyBitcoinSteps.record(
           moveId,

@@ -38,7 +38,10 @@ import 'package:kute/services/background_sync_service.dart';
 import 'package:kute/services/funding/settlement_runner.dart'
     show SettlementStepUpHook;
 import 'package:kute/services/one_balance/buy_bitcoin_steps.dart';
+import 'package:kute/services/one_balance/multi_source_move.dart';
+import 'package:kute/services/one_balance/money_steps.dart';
 import 'package:kute/services/one_balance/dollars_to_bitcoin_purchase.dart';
+import 'package:kute/services/one_balance/dollars_to_bitcoin_minimum.dart';
 import 'package:kute/services/tracking_service.dart';
 
 /// Where a pending purchase stands.
@@ -225,6 +228,9 @@ enum PendingPurchaseEnd {
   /// Stopped after the dollars were handed to the send: the settlement
   /// pipeline reports the order's outcome.
   handedToSettlement,
+
+  /// Below minimum and never sent: retained in Dollars.
+  skipped,
 }
 
 /// Finishes the purchases a Buy bitcoin left to the background. See the
@@ -234,6 +240,7 @@ class BitcoinPurchaseFinisher {
     required double Function() readDollars,
     required PendingPurchaseBuy buy,
     void Function()? nudge,
+    Future<void> Function(double)? preflight,
     DateTime Function()? clock,
     Future<void> Function(Duration)? sleep,
     this.pollEvery = const Duration(seconds: 3),
@@ -241,12 +248,14 @@ class BitcoinPurchaseFinisher {
   })  : _readDollars = readDollars,
         _buy = buy,
         _nudge = nudge,
+        _preflight = preflight,
         _clock = clock ?? DateTime.now,
         _sleep = sleep ?? ((d) => Future<void>.delayed(d));
 
   final double Function() _readDollars;
   final PendingPurchaseBuy _buy;
   final void Function()? _nudge;
+  final Future<void> Function(double)? _preflight;
   final DateTime Function() _clock;
   final Future<void> Function(Duration) _sleep;
 
@@ -268,6 +277,14 @@ class BitcoinPurchaseFinisher {
     final p = PendingBitcoinPurchaseStore.get(moveId);
     if (p == null || running(moveId)) return null;
     if (p.stage == PendingPurchaseStage.funding) return null;
+    final move = MultiSourceMoveStore.get(moveId);
+    if (move != null &&
+        move.finalOperationId == null &&
+        BuyBitcoinSteps.of(move).byId(BuyBitcoinSteps.buyId)?.ref == null &&
+        DollarsToBitcoinMinimum.belowFloor(
+            BigInt.from((p.usd * 1e6).round()))) {
+      return null;
+    }
     return p;
   }
 
@@ -336,6 +353,12 @@ class BitcoinPurchaseFinisher {
     }
 
     try {
+      if (DollarsToBitcoinMinimum.belowFloor(
+          BigInt.from((usd * 1e6).round()))) {
+        throw const DollarsToBitcoinBelowMinimum();
+      }
+      final preflight = _preflight;
+      if (preflight != null) await preflight(usd);
       // 1. The dollars that came home land, while the approval lives.
       var lastNudge = started;
       while (_readDollars() + 0.005 < usd) {
@@ -373,6 +396,13 @@ class BitcoinPurchaseFinisher {
         track('handed_to_settlement', reason: TrackingService.errorCategory(e));
         return PendingPurchaseEnd.handedToSettlement;
       }
+      if (e is DollarsToBitcoinBelowMinimum) {
+        BuyBitcoinSteps.record(
+            moveId, (g) => BuyBitcoinSteps.buySkipped(g, at: _clock()));
+        PendingBitcoinPurchaseStore.remove(moveId);
+        track('skipped', reason: 'below_minimum');
+        return PendingPurchaseEnd.skipped;
+      }
       // Nothing left Dollars: the person finishes it with one tap.
       return waitOnPerson(TrackingService.errorCategory(e));
     } finally {
@@ -385,6 +415,9 @@ class BitcoinPurchaseFinisher {
 final bitcoinPurchaseFinisherProvider = Provider<BitcoinPurchaseFinisher>(
   (ref) => BitcoinPurchaseFinisher(
     readDollars: () => ref.read(usdBalanceProvider),
+    preflight: (usd) => ref
+        .read(dollarsToBitcoinMinimumProvider)
+        .check(BigInt.from((usd * 1e6).round())),
     buy: (usd, stepUp, {required moveId, required onFunding}) =>
         buyBitcoinFromDollars(
       ref.read,
@@ -413,4 +446,28 @@ class PendingBitcoinPurchasesNotifier extends Notifier<int> {
         () => PendingBitcoinPurchaseStore.revision.removeListener(changed));
     return PendingBitcoinPurchaseStore.revision.value;
   }
+}
+
+/// Older builds wrote an unsent sub-floor remainder as a failed purchase.
+/// Only that exact shape is harmless. Sent/active purchases remain untouched.
+MultiSourceMove bitcoinPurchaseMoveForDisplay(MultiSourceMove move) {
+  if (!BuyBitcoinSteps.describes(move) || move.finalOperationId != null) {
+    return move;
+  }
+  final pending = PendingBitcoinPurchaseStore.get(move.id);
+  if (pending != null && pending.stage != PendingPurchaseStage.needsApproval) {
+    return move;
+  }
+  final graph = BuyBitcoinSteps.of(move);
+  final buy = graph.byId(BuyBitcoinSteps.buyId);
+  if (buy == null ||
+      buy.ref != null ||
+      buy.status != MoneyStepStatus.failed ||
+      !buy.usd.isFinite ||
+      buy.usd <= 0 ||
+      !DollarsToBitcoinMinimum.belowFloor(
+          BigInt.from((buy.usd * 1e6).round()))) {
+    return move;
+  }
+  return move.copyWith(steps: BuyBitcoinSteps.buySkipped(graph));
 }

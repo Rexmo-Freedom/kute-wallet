@@ -41,6 +41,7 @@ import 'package:kute/services/one_balance/multi_source_move.dart';
 import 'package:kute/services/one_balance/pending_bitcoin_purchase.dart'
     show
         BitcoinPurchaseFinisher,
+        bitcoinPurchaseMoveForDisplay,
         PendingBitcoinPurchaseStore,
         PendingPurchaseStage;
 import 'package:kute/services/orchestra/own_spark_arrivals.dart';
@@ -50,10 +51,15 @@ import 'package:kute/services/one_balance/venue_funder.dart'
 /// The row standing for [move]; [legRows] are the Activity rows of its
 /// legs and of the action's own step that the surface knows.
 class MultiSourceMoveTransaction extends BaseTransaction {
-  MultiSourceMoveTransaction({
-    required this.move,
-    required this.legRows,
-  }) : super(
+  factory MultiSourceMoveTransaction({
+    required MultiSourceMove move,
+    required List<SwapOrderTransaction> legRows,
+  }) =>
+      MultiSourceMoveTransaction._(
+          bitcoinPurchaseMoveForDisplay(move), legRows);
+
+  MultiSourceMoveTransaction._(this.move, this.legRows)
+      : super(
           id: move.id,
           timestamp: move.createdAt,
           isConfirmed: multiSourceMoveSettled(move, legRows),
@@ -97,8 +103,8 @@ class MultiSourceMoveTransaction extends BaseTransaction {
           [for (final r in legRows) r.details.status].join();
 
   @override
-  int get hashCode => Object.hash(super.hashCode, move.legs.length,
-      move.finalOperationId, legRows.length);
+  int get hashCode => Object.hash(
+      super.hashCode, move.legs.length, move.finalOperationId, legRows.length);
 }
 
 /// The existing Activity row [tx] reads as, or null when its kind has
@@ -176,7 +182,8 @@ double multiSourceMoveBitcoin(MultiSourceMoveTransaction tx) {
   var btc = 0.0;
   for (final r in tx.legRows) {
     final d = r.details;
-    if (d.coinTo.toUpperCase() != 'BTC' || d.networkTo.toUpperCase() != 'SPARK') {
+    if (d.coinTo.toUpperCase() != 'BTC' ||
+        d.networkTo.toUpperCase() != 'SPARK') {
       continue;
     }
     btc += orchestraRowAmount(d.withdrawalAmount, 'BTC');
@@ -259,6 +266,7 @@ bool _rowOf(SwapOrderTransaction row, String? operationId, String? quoteId) =>
 /// rows the wallet holds for the move.
 bool multiSourceMoveSettled(
     MultiSourceMove move, List<SwapOrderTransaction> legRows) {
+  move = bitcoinPurchaseMoveForDisplay(move);
   if (legRows.isEmpty) return false;
   for (final r in legRows) {
     if (!r.isComplete || OwnSparkArrivals.awaitingCredit(r.id)) return false;
@@ -272,7 +280,8 @@ bool multiSourceMoveSettled(
   if (finalOp != null) {
     if (!legRows.any((r) => _rowOf(r, finalOp, null))) return false;
   } else if (move.destination == VenueCashDestination.bitcoin &&
-      move.okLegs.any((l) => !l.direct)) {
+      move.okLegs.any((l) => !l.direct) &&
+      multiSourceMoveHasFinalStep(move)) {
     // Its dollars are home; the purchase has not gone yet.
     return false;
   } else if (multiSourceMoveOnwardOwed(move)) {
@@ -300,7 +309,7 @@ bool multiSourceMoveOnwardOwed(MultiSourceMove move) {
 /// Whether a step of [move] stopped: a failed step that no Retry replaced
 /// (a failed leg, the move's own step stopped with its order).
 bool multiSourceMoveStepFailed(MultiSourceMove move) =>
-    MoveSteps.of(move).steps.any((s) =>
+    MoveSteps.of(bitcoinPurchaseMoveForDisplay(move)).steps.any((s) =>
         s.status == MoneyStepStatus.failed &&
         s.reason != MoveSteps.replacedReason);
 
@@ -313,14 +322,20 @@ const Duration kMultiSourceMoveFinishWindow = AuthGrants.autofireTtl;
 /// Whether [move]'s action has a step of its own after the legs: a send,
 /// the purchase of Bitcoin with what came home to Dollars, or Dollars
 /// going on into a venue for an order.
-bool multiSourceMoveHasFinalStep(MultiSourceMove move) =>
-    move.forAction == VenueCashFor.send ||
-    (move.destination == VenueCashDestination.bitcoin &&
-        move.okLegs.any((l) => !l.direct)) ||
-    // Into a venue for an order: Dollars going on into it.
-    (move.finalOperationId == null &&
-        move.okLegs.isNotEmpty &&
-        multiSourceMoveOnwardOwed(move));
+bool multiSourceMoveHasFinalStep(MultiSourceMove move) {
+  move = bitcoinPurchaseMoveForDisplay(move);
+  final fin = MoveSteps.finalOf(MoveSteps.of(move));
+  if (move.destination == VenueCashDestination.bitcoin &&
+      fin?.status == MoneyStepStatus.skipped) {
+    return false;
+  }
+  return move.forAction == VenueCashFor.send ||
+      (move.destination == VenueCashDestination.bitcoin &&
+          move.okLegs.any((l) => !l.direct)) ||
+      (move.finalOperationId == null &&
+          move.okLegs.isNotEmpty &&
+          multiSourceMoveOnwardOwed(move));
+}
 
 /// Whether every leg of [move] went and has landed: each has its row, the
 /// row has settled and its delivery is counted. False when a leg failed
@@ -506,6 +521,7 @@ class MultiSourceMoveTotals {
 /// the fees known in dollars across every row. Pure.
 MultiSourceMoveTotals multiSourceMoveTotals(
     MultiSourceMove move, List<SwapOrderTransaction> rows) {
+  move = bitcoinPurchaseMoveForDisplay(move);
   double amount(SwapOrder d, String raw, String coin) =>
       d.isOrchestra ? orchestraRowAmount(raw, coin) : double.tryParse(raw) ?? 0;
   var receivedUsd = 0.0, receivedBtc = 0.0, arrivingUsd = 0.0;
