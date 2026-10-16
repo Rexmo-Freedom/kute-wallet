@@ -817,7 +817,7 @@ class RuntimeCapabilitiesService extends ChangeNotifier
   Future<http.Response> _send(Uri uri, Map<String, String> headers) async {
     Future<http.Response> attempt(Duration timeout) => FreshConnection.send(
           (client) => client.get(uri, headers: headers).timeout(timeout),
-          connect: _client == null ? null : () => BorrowedClient(_client!),
+          connect: _client == null ? null : () => BorrowedClient(_client),
         );
     try {
       return await attempt(const Duration(seconds: 5));

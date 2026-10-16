@@ -329,7 +329,7 @@ class InvestmentProviderAvailability extends ChangeNotifier {
                 }),
               )
               .timeout(timeout),
-          connect: _client == null ? null : () => BorrowedClient(_client!));
+          connect: _client == null ? null : () => BorrowedClient(_client));
       if (response.statusCode != 200) {
         return const ProviderAvailability(
             provider, ProviderAvailabilityStatus.unavailable);
@@ -370,7 +370,7 @@ class InvestmentProviderAvailability extends ChangeNotifier {
           (client) => client
               .get(Uri.parse('https://polymarket.com/api/geoblock'))
               .timeout(timeout),
-          connect: _client == null ? null : () => BorrowedClient(_client!));
+          connect: _client == null ? null : () => BorrowedClient(_client));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data is Map && data['blocked'] is bool) {

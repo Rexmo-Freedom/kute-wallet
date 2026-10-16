@@ -120,7 +120,7 @@ class InvestmentsTestPolicy extends Fake implements RuntimeCapabilitiesService {
   @override
   String? get polymarketBuilderCode => null;
   @override
-  Future<bool> refresh() async => false;
+  Future<bool> refresh({bool fresh = false}) async => false;
 
   @override
   void addListener(VoidCallback listener) {}
