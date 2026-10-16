@@ -185,7 +185,46 @@ The official Breez guidance for [balance reads](https://sdk-doc-spark.breez.tech
 [payment history](https://sdk-doc-spark.breez.technology/guide/list_payments.html)
 likewise calls for refreshing both snapshots after `Synced`.
 
-This closes app-side publication gaps; it does not establish the cause of the
+An outstanding shared native sync used to defer SDK recovery indefinitely,
+even after the foreground wait timed out. The app now observes every shared
+sync flight, including automatic arrival/background callers, and keeps its
+actual elapsed age. SDK-internal background sync alone cannot start this watch;
+an app request must enter the shared-sync path. At 60 s, one watchdog checks whether guarded recovery is
+safe; at most three eligible automatic checks per exact flight can run, including
+later native-idle, payment-completion or optimization-completion signals. Known
+active mutations or token optimization do not consume that automatic budget.
+An explicit user pull through `syncAndReread` can make one fresh guarded check
+after its 20 s foreground wait on an aged flight, even after the automatic
+budget is exhausted. Automatic failed-payment refreshes keep the cap. Ordinary
+slow syncs remain shared, and a timeout never clears the native future or starts
+an overlapping sync. The age only identifies an outstanding call: the native
+wallet-sync or later exit-chain collection stage responsible remains unknown.
+The watch itself starts no extra forced sync or polling loop.
+
+An aged flight permits a recovery check; it does not authorize interrupting a
+payment. Native prepare/send/claim/refund work, token optimization, pending
+outgoing payments, unreadable pending-payment state and a changed wallet still
+prevent replacement. A synchronous recovery reservation closes the gap before
+the pending-payment check, which has a 5 s ceiling. Native disconnect must
+finish before a new handle connects. If teardown fails or never finishes, no
+replacement native handle is started. Old reads cannot publish, streams are
+re-subscribed, and dependent provider/contact/identity bindings follow a current
+replacement. No money send is retried by this watchdog. See
+[shared_sync.dart](../lib/models/breez/shared_sync.dart),
+[sdk_operation_guard.dart](../lib/models/breez/sdk_operation_guard.dart) and
+[breez_config_provider.dart](../lib/providers/breez_config_provider.dart).
+
+A failed or timed-out token-history query is unknown, not an empty wallet: it
+preserves cached USDB Activity and its arrival baseline. A successful empty
+query remains authoritative. Later successful reads replace the retained rows
+normally. See [background_sync_provider.dart](../lib/providers/background_sync_provider.dart)
+and [transactions_provider.dart](../lib/providers/transactions_provider.dart).
+
+The pinned Flutter/native SDK patch is 0.26.1. Its [official release notes](https://github.com/breez/spark-sdk/releases/tag/0.26.1)
+describe mobile binary-size improvements, not an incoming-balance fix. A fresh
+native build and process relaunch are needed to exercise the changed library.
+
+These changes address app-side publication and recovery gaps; they do not establish the cause of the
 reported live-refresh stall or prove device recovery. Acceptance needs incoming
 Bitcoin/Dollars and Activity updates, pull-to-refresh, and a longer open session
 without restarting. Start this check with a full native app stop and relaunch:
@@ -198,6 +237,8 @@ Debug-only diagnostics use fixed event/read/sync labels and changed-state
 booleans. They add no amounts, identifiers or raw
 errors and do not enable PostHog in debug builds. See
 [main.dart](../lib/main.dart) and the SDK/pipeline sources above.
+The existing `usd_token_recovery` event also reports this guarded recovery for
+Bitcoin; its legacy name does not mean the check is limited to dollar tokens.
 
 ## Deposit and movement directions
 
@@ -394,8 +435,10 @@ Implemented path improvements:
 - USDB catch-up keeps retrying a numeric reading that fails to reflect a new
   settled arrival, including an unchanged zero. After normal sync recovery, one
   guarded SDK reconnect can refresh its token store and re-subscribe existing
-  listeners. It is excluded during native mutations, shared sync, pending
-  outgoing payments and observed token optimization.
+  listeners. It is excluded during native mutations, young shared syncs,
+  pending outgoing payments and observed token optimization. An aged shared
+  native flight can now enter the guarded recovery check described above;
+  native teardown still completes before any replacement connects.
   The SDK source supports leaf-refresh failure and token Swap reservations as
   possible causes; the device's exact native cause remains unproven.
 - The Investing and Predictions slips open the contextual deposit only after
