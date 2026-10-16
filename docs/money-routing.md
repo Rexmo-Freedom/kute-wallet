@@ -5,8 +5,9 @@ approved route exists. Dollars is a source, not a compulsory intermediate stop.
 
 This is a readable contract for the routing code and future regression tests.
 The source files linked below execute the policy. This document does not change
-routes, provider availability, fees, or approvals. It describes the 2.1.2 hotfix
-work on 16 October 2026; device acceptance is still required.
+routes, provider availability, fees, or approvals. It describes the 2.1.2
+routing contract. Candidate validation and device acceptance belong in the
+release record.
 
 ## The balances mean different things
 
@@ -58,6 +59,62 @@ does not require finishing the Dollars leg before starting the Bitcoin leg.
 See [money_steps.dart](../lib/services/one_balance/money_steps.dart),
 [bitcoin_funded_order.dart](../lib/services/one_balance/bitcoin_funded_order.dart),
 and [venue_cash_funded_order.dart](../lib/services/one_balance/venue_cash_funded_order.dart).
+
+## What makes a funded order ready
+
+Every new approved attempt starts its own receipt and step graph. A completed
+Bitcoin or venue leg from an older stopped attempt is not copied into the new
+receipt. The old record remains in history. The queued intent is bound to the
+current funded run before money or its record can change; delayed callbacks
+must not update a replacement attempt. See
+[funded_orders.dart](../lib/services/one_balance/funded_orders.dart) and
+[pending_polymarket_bet_provider.dart](../lib/providers/pending_polymarket_bet_provider.dart).
+
+A generic deposit notification is a wake-up signal, not proof that every source
+leg arrived. Aggregate delivery means the current attempt's own source legs
+have completed. Readiness may begin on the first arrival, but a partial arrival
+cannot make the whole order ready. See
+[pending_bet_autofire.dart](../lib/providers/pending_bet_autofire.dart) and
+[predictions_venue_cash_order.dart](../lib/services/one_balance/predictions_venue_cash_order.dart).
+
+For a Predictions buy, the required amount is the executable quote's full
+`allInMax`, including the live best-ask fee calculation and rounding headroom.
+Fresh on-chain pUSD and the venue's balance/allowance readiness must cover that
+whole amount before ready or post. Cached pUSD plus unconverted USDC.e is not
+usable collateral. Conversion, allowance updates and venue recounts happen
+before signing; an unknown or still-short answer keeps the approved order
+waiting within its bounds, never authorizes a post or another funding send.
+Staggered arrivals join one conversion/recheck rather than start overlapping
+ones. See [venue_collateral.dart](../lib/services/polymarket/venue_collateral.dart).
+
+Only after this attempt's own complete delivery is proved can a funded market
+bet resize to a genuinely short arrival. It sizes from confirmed pUSD and a
+fresh book within the existing approval cap. A partial or unrelated deposit
+cannot authorize that resize. If final collateral confirmation exhausts its
+bounded wait, the stop reason is `balance_confirmation_timeout`, reported as
+funding stage `credit` / error category `timeout`; no order was signed or sent.
+The funding journey reaches credited only at the final usable-collateral proof,
+so funding waits are not counted as order-placement or policy work.
+
+## Available money while a move is in progress
+
+A successful fresh Bitcoin read replaces the cached source amount even when
+the new reading is lower or zero. A failed read can retain the last known
+figure, but the verified send still checks actual funds; an unavailable read
+is not proof of zero. See
+[bitcoin_funded_order.dart](../lib/services/one_balance/bitcoin_funded_order.dart).
+
+An accepted venue-cash send debits the matching wallet's cached source once per
+operation. Use the lower raw/published pre-send balance so an already-updated
+source is not debited twice. Pending-operation ceilings keep a late source read
+from restoring moved cash beside the destination arrival. Two transfers from
+the same venue remain independent; only each operation's own delivered/refunded
+proof plus a newly requested source snapshot reconciles it. Generic failure or
+unknown status does not prove a refund. Wallet generations reject late reads
+across a switch away and back. A newly requested provider snapshot is still
+unversioned, which remains a freshness limitation. See
+[investments_spendable.dart](../lib/services/one_balance/investments_spendable.dart)
+and [venue_cash_source.dart](../lib/services/one_balance/venue_cash_source.dart).
 
 ## Deposit and movement directions
 
@@ -171,6 +228,7 @@ lost. The settlement graph distinguishes those steps.
 | Venue-cash runner | Leg wait at most 12 min; after authoritative home-leg delivery, Dollars catch-up at most 30 s with 500 ms checks. | [Venue-cash runner](../lib/services/one_balance/venue_cash_funded_order.dart) |
 | Hyperliquid account credit | Poll every 1 s for 30 s, then every 4 s; at most 12 min awaiting funds. | [Pending order](../lib/providers/pending_hyperliquid_order_provider.dart) |
 | HIP-3 collateral transfer credit | Read every 300 ms, bounded at 8 s; retry reads without resending the transfer. | [DEX cash](../lib/services/hyperliquid/hypercore_dex_cash.dart) |
+| Predictions collateral readiness | Venue recount reads every 1 s within a 10 s pass; account setup and conversion waits each have a 90 s ceiling. Funded confirmation remains bounded by the existing approval and funding wait. Unknown readiness never permits a post. | [Placement waits](../lib/services/polymarket/placement_waits.dart), [queued bet](../lib/providers/pending_bet_autofire.dart) |
 | CCTP immediate watcher | Confirm every 1 s / watch every 4 s, for at most 20 min; persisted reconciliation continues separately. | [CCTP](../lib/services/hyperliquid/cctp_withdrawal.dart) |
 
 These timers belong to different phases and are not a single end-to-end SLA.
@@ -180,17 +238,19 @@ safe to send the same funds again.
 
 ## Fees: direct routing is not a second fee promise
 
-Read-only public backend policy checked on 16 October 2026 at 12:35:30 UTC
-(revision 2). These are Kute's published conversion rates before any verified
-referral discount; a validated quote remains authoritative for a specific move.
+Read-only public backend policy checked on 16 October 2026 (revision 2).
+These are the published purpose rates and conditional own-account rates before
+any verified referral discount; a validated quote remains authoritative for a specific move.
 Provider spread, network costs and exchange fees are separate.
 
-| Direction / operation | Published Kute rate |
+| Direction / operation | Kute rate and qualification |
 | --- | --- |
 | Bitcoin → Dollars, Predictions or Investing | 0 bps (0%) |
-| Dollars → Bitcoin or venue | `usdb_swap_send`: 50 bps (0.50%) |
+| Dollars → own verified Investing or Predictions account | `investments_internal`: 0 bps unless published otherwise; ownership verification is required. |
+| Dollars → Bitcoin, external destination or another chain | `usdb_swap_send`: 50 bps (0.50%) |
 | Predictions → Dollars | `usdb_swap_deposit`: 0 bps |
-| Predictions → own Investing | `venue_deposit`: 0 bps |
+| Predictions → own verified Investing | `investments_internal`: 0 bps unless published otherwise. |
+| Investing → own verified Predictions | `investments_internal`: 0 bps unless published otherwise. |
 | Predictions → Bitcoin | `predictions_send`: 50 bps (0.50%) |
 | Investing → Bitcoin, generic withdrawal rule | `venue_withdrawal`: 50 bps (0.50%) |
 | Other cross-chain crypto deposit / send | 50 bps (0.50%) |
@@ -198,10 +258,13 @@ Provider spread, network costs and exchange fees are separate.
 | Hyperliquid builder fee on orders | Default/listed 10 tenths of a basis point = 1 bp = 0.01% of order notional; exchange fees are extra. |
 | Polymarket builder fee on orders | Current CLOB builder rate: taker 20 bps (0.20%), maker 0; market/platform fees may also apply. |
 
-Classification order matters: a Dollars destination is checked first, then a
-Dollars source, then an Investing destination/source, then a Polygon
-destination/source. Thus Dollars → Investing uses the Dollars-send rate even
-though Bitcoin → Investing has a zero Kute conversion rate.
+The published purpose rates alone do not price every own-account transfer.
+Dollars → own Investing/Predictions and supported own venue-to-venue moves can
+qualify for the internal rate. Looking only at the ordinary Dollars-send rule
+incorrectly labels every Dollars → own Investing move as a 0.50% send. A move
+that does not qualify keeps the applicable ordinary rule. The app cannot choose
+a fee by naming a rule; the verified quote and pinned terms decide the actual
+charge. These mappings are not proof of the fee applied to an individual quote.
 
 The published referral reduction is 20 basis points on a positive Kute
 conversion fee: for an eligible verified referred session, 50 → 30 bps and
@@ -216,43 +279,51 @@ builder revenue from the founder's debug trades. See `_builderFee` in
 [hyperliquid_trading_provider.dart](../lib/providers/hyperliquid_trading_provider.dart).
 Use the quote/provider's net amounts; do not subtract a fee a second time.
 
-CCTP uses verified standing-instruction fee terms. An own-account instruction
-can pin `investments_internal` at 0; a legacy `venue_withdrawal` instruction can
-carry 50 bps. The public global policy does not establish a particular wallet's
-internal instruction, so do not promise every Investing withdrawal is free.
+CCTP uses verified standing-instruction fee terms. A qualifying new own-Dollars
+instruction can pin the internal rate at zero. A legacy `venue_withdrawal` label
+or existing fee pin keeps its original terms; it is not repriced. Bitcoin
+remains an exit. The public global policy does not establish a particular wallet's internal instruction,
+so do not promise every Investing withdrawal is free.
+
+The debug `[quote-guard] feeBps` is provider `feeBps` plus known `appFees`; absent
+app-fee fields count as zero in that diagnostic. It omits other possible costs,
+minimums, affiliate effects and rounding. It is not a charged receipt or proof
+of which Kute fee rule applied.
 
 App enforcement and quote amounts:
 [standing_deposit_store.dart](../lib/services/orchestra/standing_deposit_store.dart),
 [cctp_withdrawal.dart](../lib/services/hyperliquid/cctp_withdrawal.dart), and
 [orchestra_fee_amount.dart](../lib/services/orchestra/orchestra_fee_amount.dart).
-The backend classifier is `internal/proxy/orchestra_runtime.go` in the backend
-repository. This snapshot does not modify its policy.
+This snapshot does not modify backend policy or establish a particular
+wallet's fee qualification.
 
 ## What improves speed
 
-Validated changes in this batch:
+Implemented path improvements:
 
 - Fresh policy and venue checks start after the tap on dedicated connections;
   manual/network changes recycle the shared connection pools. This avoids an
-  old connection or request holding the old VPN result. Targeted tests: 89.
+  old connection or request holding the old VPN result.
 - Search and old saved HIP-3 descriptors retain the target DEX. The readiness
   line waits for that DEX's collateral credit; it never resends a transfer
   merely because indexing is slow. Bitcoin-only Investing plans skip irrelevant
   Dollars-only reads, and a short via-Dollars output stops explicitly.
-  Targeted tests: 108.
 - USDB catch-up keeps retrying a numeric reading that fails to reflect a new
   settled arrival, including an unchanged zero. After normal sync recovery, one
   guarded SDK reconnect can refresh its token store and re-subscribe existing
   listeners. It is excluded during native mutations, shared sync, pending
-  outgoing payments and observed token optimization. Targeted tests: 96 unique.
+  outgoing payments and observed token optimization.
   The SDK source supports leaf-refresh failure and token Swap reservations as
   possible causes; the device's exact native cause remains unproven.
 - The Investing and Predictions slips open the contextual deposit only after
   the sources are proven empty, including fresh synced SDK reads, known venue
   balances, no positive ledger conflict and no pending/waiting money. Loading
-  or conflicting reads retain the ordinary flow. Targeted tests: 38.
+  or conflicting reads retain the ordinary flow.
+- Predictions readiness uses the current attempt's aggregate delivery and
+  full usable collateral. Source snapshots cannot count sent cash again beside
+  its destination, and a new attempt never borrows old completed progress.
 
-These are code/test results, not measured end-to-end latency or device proof.
+These describe implemented behavior, not measured end-to-end latency or device proof.
 The following are proposed follow-ups, not additional changes in this hotfix:
 
 | Improve actual completion | Improve the experience while it completes |
@@ -271,7 +342,7 @@ addresses, payment/order identifiers and whole-wallet balances from analytics.
 ## What PostHog can prove
 
 Documentation and event definitions describe instrumentation. They do not prove
-that this candidate emitted it on a device. Debug builds remain muted by
+that a particular build emitted it on a device. Debug builds remain muted by
 default, as requested; user opt-out still applies. The latest production-shaped
 receipt has to be checked after a permitted run with analytics enabled.
 
@@ -281,6 +352,7 @@ receipt has to be checked after a permitted run with analytics enabled.
 | `order_funding_route_selected` | A route/reason change immediately, with exact `duration_ms`; identical route/reason selections are deduplicated. Optional `route_reason`, `funding_source`, `other_venue_used` and already-known `ms_leg_*` accompany the route. |
 | Funding step, submitted and terminal events | Known `route`, `route_reason`, `other_venue_used` and per-source `ms_leg_bitcoin`, `ms_leg_dollars`, `ms_leg_predictions`, `ms_leg_investing`. Missing timings stay absent. The existing Hyperliquid emitter consumes its journey once, preventing duplicate outcomes and false later abandonment. |
 | HIP-3 credit timing | `ms_dex_credit` spans the actual transfer start to target clearinghouse readiness; absent when there was no transfer. Failure can carry the elapsed wait. `ms_credit` ends and `ms_order` starts at actual collateral readiness. Pending credit is a fixed `dex_credit_pending` failure at the credit stage. |
+| Predictions final collateral wait | Journey credited is reported only when full usable collateral is proved. An exhausted wait has local reason `balance_confirmation_timeout`, with `order_funding_failed` stage `credit` and existing error category `timeout`. |
 | `usd_balance_catchup` | One terminal behind-run result, fixed reason, exact duration and retry index. Never one event per poll. |
 | `usd_balance_sync` | One terminal shared-sync wait result/duration. Its timeout means the app stopped waiting, not that native sync was cancelled. |
 | `usd_token_recovery` | One recovery owner/guard result, fixed reason, attempted flag and duration; concurrent joined callers do not duplicate it. No balances, amounts or raw errors. |
@@ -289,14 +361,9 @@ Sources: [order_funding.dart](../lib/services/one_balance/order_funding.dart),
 [pending_hyperliquid_order_provider.dart](../lib/providers/pending_hyperliquid_order_provider.dart),
 [SDK balance telemetry](../lib/models/breez/sdk_balance_telemetry.dart), and
 [tracking_service.dart](../lib/services/tracking_service.dart).
-The later telemetry batch passed 163 funding/HIP-3 tests across 12 suites and
-62 USD tests; the core 7,873-test full-suite result predates that telemetry.
-Final CI must validate the complete candidate.
-
-Live receipt audit on 16 October found 176 historical app-version 2.1.2 events
-in 30 days, latest 15 October at 09:55:46.865 UTC, and zero funding-journey or
-region-check events for that version. Those older events do not verify today's
-candidate. Check a new receipt for the chosen route, a single approved start
+Release-specific suite results, CI and live receipt checks are recorded in the
+release guide. Older captured events do not verify a newer build. Check a new
+receipt for the chosen route, a single approved start
 and terminal outcome, real per-leg timings, and the applicable recovery/credit
 result before claiming end-to-end coverage. Zero events from a default debug
 run are expected and do not establish a broken analytics pipeline.
