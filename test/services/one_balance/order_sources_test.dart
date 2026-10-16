@@ -12,6 +12,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/models/currency_conversions.dart';
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/currency_conversions_provider.dart';
+import 'package:kute/providers/balance_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/services/one_balance/bitcoin_funded_order.dart';
 import 'package:kute/services/one_balance/order_funding.dart';
@@ -41,8 +42,11 @@ ProviderContainer _container() {
           bitcoinElectrumNode: '',
           nodeType: '',
           reviewDone: true,
+          activeWalletId: 'spending',
+          wallets: [WalletConfig(id: 'spending', name: 'Spending')],
         ))),
     currencyProvider.overrideWith((ref) => _Currency()),
+    sparkWalletInfoFeedProvider.overrideWithValue(const Stream.empty()),
   ]);
   addTearDown(container.dispose);
   return container;
@@ -207,6 +211,27 @@ void main() {
           fundUsd: 10, dollarsUsd: 5, otherVenueUsd: 20);
       expect(s.route, OrderSourceRoute.otherVenue);
       expect(s.otherVenueUsd, 5);
+    });
+
+    test('a fresh zero Bitcoin read overrides a stale funded cache', () async {
+      wallet(0);
+      final c = _container();
+      c
+          .read(walletBalanceCacheProvider.notifier)
+          .updateSparkBitcoinbalance('spending', _satsFor(30));
+      // Supply the cached price too: the old path accepted the stale
+      // balance without ever consulting the now-zero SDK reading.
+      final priced = ProviderContainer(parent: c, overrides: [
+        selectedCurrencyProvider('USD')
+            .overrideWithValue(Money.fromInt(6000000, isoCode: 'USD')),
+      ]);
+      addTearDown(priced.dispose);
+      expect(cachedSpendingBitcoin(priced.read).sats, _satsFor(30));
+      final sources = await decideOrderSources(priced.read,
+          fundUsd: 10, dollarsUsd: 0, otherVenueUsd: 20);
+      expect(sources.route, OrderSourceRoute.otherVenue);
+      expect(sources.bitcoinUsd, 0);
+      expect(sources.otherVenueUsd, 10);
     });
 
     test('nothing covers it: the Receive sheet, for what Investments lack',

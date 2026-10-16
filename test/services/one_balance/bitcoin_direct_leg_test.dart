@@ -33,8 +33,9 @@ import 'package:kute/services/one_balance/money_steps.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/one_balance/order_funding.dart';
 import 'package:kute/services/one_balance/venue_cash_source.dart'
-    show DirectRouteRefusals, venueCashPullerProvider;
+    show DirectRouteRefusals, venueCashPullerProvider, planDollarsShortfall;
 import 'package:kute/services/one_balance/venue_funder.dart';
+import 'package:kute/services/one_balance/venue_cash_funded_order.dart';
 import 'package:kute/services/orchestra/orchestra_quote_guard.dart';
 import 'package:kute/services/tracking_service.dart';
 
@@ -129,6 +130,60 @@ void main() {
     DirectRouteRefusals.reset();
   });
   tearDown(() => AuthGrants.clock = DateTime.now);
+
+  test('stale requests never replace a newer live graph before binding',
+      () async {
+    FundedOrdersNotifier.persist = false;
+    addTearDown(() => FundedOrdersNotifier.persist = true);
+    final c = ProviderContainer();
+    addTearDown(c.dispose);
+    final orders = c.read(fundedOrdersProvider.notifier);
+    final active = orders.start(_label, stage: FundedOrderStage.preparing);
+    final before = orders.byId(active);
+    var binds = 0;
+    final bitcoin = c
+        .read(bitcoinFundedOrderRunnerProvider)
+        .start(BitcoinFundedOrderRequest(
+          venue: OneBalanceVenue.predictions,
+          grant: _grant(),
+          plan: _via,
+          label: _label,
+          fundUsd: 15.1,
+          readyUsd: 0,
+          isCurrentAttempt: () => false,
+          bindAttempt: (_) {
+            binds++;
+            return false;
+          },
+          fundVenue: (_, __) async => throw StateError('must never fund'),
+          dropOrder: () => throw StateError('must not clear new attempt'),
+        ));
+    expect(await bitcoin.ended, BitcoinFundedEnd.notSent);
+    expect(identical(orders.byId(active), before), isTrue);
+    final venue =
+        c.read(venueCashFundedOrderRunnerProvider).start(VenueCashFundedRequest(
+              venue: OneBalanceVenue.predictions,
+              grant: _grant(),
+              label: _label,
+              fundUsd: 15.1,
+              readyUsd: 0,
+              plan: planDollarsShortfall(
+                  neededUsd: 15.1, dollarsUsd: 15.1, sources: []),
+              isCurrentAttempt: () => false,
+              bindAttempt: (_) {
+                binds++;
+                return false;
+              },
+              queue: ({required fundUsd, required readyUsd}) async =>
+                  throw StateError('must never queue'),
+              fundMore: (_, __) async => throw StateError('must never fund'),
+              dropOrder: () => throw StateError('must not clear new attempt'),
+            ));
+    expect(await venue.ended, BitcoinFundedEnd.notSent);
+    expect(identical(orders.byId(active), before), isTrue);
+    expect(c.read(fundedOrdersProvider), hasLength(1));
+    expect(binds, 0);
+  });
 
   // ── The planner ─────────────────────────────────────────────────────
   group('planDirectBitcoinLeg', () {
@@ -475,8 +530,8 @@ void main() {
     expect(leg.status, MoneyStepStatus.done);
   });
 
-  test('a new try after a stop restarts only what failed: the legs that '
-      'landed stay done and are never run again', () async {
+  test('a fresh approved try starts its own receipt without old completed legs',
+      () async {
     FundedOrdersNotifier.persist = false;
     addTearDown(() => FundedOrdersNotifier.persist = true);
     final c = ProviderContainer();
@@ -506,8 +561,10 @@ void main() {
         moneyAt: FundedMoneyAt.investments);
     final retry = orders.start(_label, stage: FundedOrderStage.preparing);
     final carried = orders.byId(retry)!.steps;
-    expect([for (final s in carried.steps) s.id], ['prev:leg:dollars']);
-    expect(carried.steps.single.status, MoneyStepStatus.done);
+    expect(carried.steps, isEmpty);
+    expect(orders.byId(first)!.steps.byId('leg:dollars')!.status,
+        MoneyStepStatus.done,
+        reason: 'the prior receipt retains its history');
     // The runner over the new graph runs the new branch only.
     final ran = <String>[];
     final graph = MoneyStepGraph([

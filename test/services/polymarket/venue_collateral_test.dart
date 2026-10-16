@@ -125,6 +125,7 @@ Future<PolyVenueReadiness> _placeBuy(_Account a, BigInt cost) async {
   final spenders = polyBuySpenders(_v1Token, negRisk: false);
   final readiness = await polyReadyVenueCollateral(
       costMicros: cost, spenders: spenders, ops: a.ops);
+  polyRequireConfirmedCollateral(readiness);
   var balanceRefreshed = false;
   while (true) {
     try {
@@ -137,13 +138,58 @@ Future<PolyVenueReadiness> _placeBuy(_Account a, BigInt cost) async {
           approvalsFixed: false);
       if (heal != PolymarketRefusalHeal.refreshBalance) rethrow;
       balanceRefreshed = true;
-      await polyReadyVenueCollateral(
+      final after = await polyReadyVenueCollateral(
           costMicros: cost, spenders: spenders, ops: a.ops, afterRefusal: true);
+      polyRequireConfirmedCollateral(after);
     }
   }
 }
 
 void main() {
+  test('only confirmed full collateral permits a post', () {
+    for (final readiness in PolyVenueReadiness.values) {
+      if (readiness == PolyVenueReadiness.counted ||
+          readiness == PolyVenueReadiness.refreshed) {
+        expect(
+            () => polyRequireConfirmedCollateral(readiness), returnsNormally);
+      } else {
+        expect(() => polyRequireConfirmedCollateral(readiness),
+            throwsA(isA<PolymarketCollateralPending>()));
+      }
+    }
+  });
+
+  test('a stale high book count cannot certify missing on-chain pUSD',
+      () async {
+    final a = _Account(pusd: _usd(1), counted: _usd(10));
+    final ready = await polyReadyVenueCollateral(
+        costMicros: _usd(5), spenders: [_exchange], ops: a.ops);
+    expect(ready, PolyVenueReadiness.short);
+    expect(() => polyRequireConfirmedCollateral(ready),
+        throwsA(isA<PolymarketCollateralPending>()));
+    expect(a.posts, 0);
+  });
+
+  test('joining a prior conversion cannot synthesize aggregate pUSD proof',
+      () async {
+    final ready = await polyReadyVenueCollateral(
+        costMicros: _usd(10),
+        spenders: [_exchange],
+        ops: PolyVenueCollateralOps(
+          readVenue: () async => PolyVenueCount(balance: _usd(10)),
+          readSplit: ({required fresh}) async =>
+              (pusd: _usd(4), usdce: _usd(6)),
+          // Another delivery's single-flight wrap reports six converted,
+          // but this read still sees only four usable: re-read, never add.
+          wrap: () async => _usd(6),
+          refreshVenue: () async {},
+          approveSpender: (_) async => false,
+          sleep: (_) async {},
+        ));
+    expect(ready, PolyVenueReadiness.short);
+    expect(() => polyRequireConfirmedCollateral(ready),
+        throwsA(isA<PolymarketCollateralPending>()));
+  });
   setUp(() {
     PolymarketPlacementWaits.venueCount = const Duration(seconds: 3);
     PolymarketPlacementWaits.venueCountPoll = const Duration(seconds: 1);
@@ -231,24 +277,24 @@ void main() {
     });
   });
 
-  group('the venue refuses for balance anyway', () {
-    test('one refresh that waits for the count, then the retry fills',
-        () async {
-      // The book lags past the wait before the first post: it goes out,
-      // is refused, and the one refresh waits until the book counts it.
+  group('the book remains behind after the bounded preflight', () {
+    test('no post until a later confirmed check covers the full buy', () async {
       final a = _Account(pusd: _usd(3.55), counted: BigInt.zero, lag: 5);
+      await expectLater(
+          _placeBuy(a, _usd(3)), throwsA(isA<PolymarketCollateralPending>()));
+      expect(a.posts, 0);
       final readiness = await _placeBuy(a, _usd(3));
-      expect(readiness, PolyVenueReadiness.notCounted);
-      expect(a.posts, 2);
+      expect(readiness, PolyVenueReadiness.refreshed);
+      expect(a.posts, 1);
       expect(a.accepted, 1);
     });
 
     test('a second refusal ends the placement, nothing funded twice', () async {
       final a = _Account(pusd: _usd(3.55), counted: BigInt.zero, lag: 100);
       final before = a.held;
-      await expectLater(_placeBuy(a, _usd(3)),
-          throwsA(isA<PolymarketOrderNotAcceptedExceptionForTest>()));
-      expect(a.posts, 2);
+      await expectLater(
+          _placeBuy(a, _usd(3)), throwsA(isA<PolymarketCollateralPending>()));
+      expect(a.posts, 0);
       expect(a.accepted, 0);
       // Only the wallet's own money: nothing came in or left.
       expect(a.held, before);
@@ -263,12 +309,13 @@ void main() {
       final a = _Account(pusd: BigInt.zero);
       final cost = _usd(3);
       final spenders = polyBuySpenders(_v1Token, negRisk: false);
-      // Nothing there yet: the order goes out and is refused.
-      await polyReadyVenueCollateral(
+      // Nothing there yet: preparation is short and no order may post.
+      final before = await polyReadyVenueCollateral(
           costMicros: cost, spenders: spenders, ops: a.ops);
-      await expectLater(a.post(cost),
-          throwsA(isA<PolymarketOrderNotAcceptedExceptionForTest>()));
-      // The funding lands as USDC.e; the refusal's refresh converts it.
+      expect(() => polyRequireConfirmedCollateral(before),
+          throwsA(isA<PolymarketCollateralPending>()));
+      expect(a.posts, 0);
+      // The funding lands as USDC.e; the next check converts it.
       a.usdce = _usd(3.55);
       final after = await polyReadyVenueCollateral(
           costMicros: cost, spenders: spenders, ops: a.ops, afterRefusal: true);

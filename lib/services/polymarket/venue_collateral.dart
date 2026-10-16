@@ -22,9 +22,9 @@
 //     set a pinned exchange allowance the book reports missing,
 //  3. ask the book to re-read and poll it, briefly, until it counts the
 //     buy; then the order is signed and posted.
-// A book that cannot be read, or that still does not count the buy after
-// the wait, does not stop the order: the venue's own refusal and its one
-// refresh-and-retry (which runs the same steps) still decide. Nothing here
+// A book that cannot be read, or still does not count the buy, leaves
+// placement pending. It never authorizes a post; a funded order waits
+// under its existing approval and checks again, bounded. Nothing here
 // moves money into Predictions: the only conversion is the wallet's own
 // USDC.e, so a retry can never fund twice.
 
@@ -107,15 +107,15 @@ enum PolyVenueReadiness {
   refreshed,
 
   /// The wallet holds the money but the book did not count it within the
-  /// wait. The order goes out; its refusal path decides.
+  /// wait. Nothing may be signed yet.
   notCounted,
 
   /// The wallet does not hold enough pUSD for the buy even after the
-  /// conversion: waiting cannot help. The order goes out; the book's own
-  /// refusal says so.
+  /// conversion. Nothing may be signed; a funded market order can be
+  /// resized only after its own complete delivery is proved.
   short,
 
-  /// The book's count could not be read. The order goes out as before.
+  /// The book's count could not be read. Placement remains pending.
   unread,
 }
 
@@ -137,7 +137,7 @@ class PolyVenueCollateralOps {
   final Future<PolyVenueCount?> Function() readVenue;
 
   /// The wallet's pUSD and USDC.e on chain; [fresh] skips a prefetched
-  /// read. Null when it cannot be read.
+  /// read. Every final placement check requests it fresh. Null is unknown.
   final Future<({BigInt pusd, BigInt usdce})?> Function({required bool fresh})
       readSplit;
 
@@ -184,24 +184,18 @@ Future<PolyVenueReadiness> polyReadyVenueCollateral({
   ops.ensureCurrent?.call();
   final reads = await Future.wait<Object?>([
     _safe(ops.readVenue),
-    _safe(() => ops.readSplit(fresh: afterRefusal)),
+    _safe(() => ops.readSplit(fresh: true)),
   ]);
   ops.ensureCurrent?.call();
   final venue = reads[0] as PolyVenueCount?;
   var split = reads[1] as ({BigInt pusd, BigInt usdce})?;
-  if (!afterRefusal && venue != null && venue.covers(costMicros, spenders)) {
+  if (!afterRefusal &&
+      venue != null &&
+      venue.covers(costMicros, spenders) &&
+      split != null &&
+      split.pusd >= costMicros) {
     return PolyVenueReadiness.counted;
   }
-  // The prefetched wallet read can be older than the money: read it again
-  // before deciding there is nothing to convert.
-  if (!afterRefusal &&
-      (split == null ||
-          !polyShouldWrapBeforeBuy(
-              pusd: split.pusd, usdce: split.usdce, costMicros: costMicros))) {
-    split = await _safe(() => ops.readSplit(fresh: true)) ?? split;
-    ops.ensureCurrent?.call();
-  }
-
   var pusd = split?.pusd;
   final usdce = split?.usdce ?? BigInt.zero;
   final convert = split != null &&
@@ -212,9 +206,7 @@ Future<PolyVenueReadiness> polyReadyVenueCollateral({
   if (convert) {
     ops.onStep?.call('approving');
     try {
-      final wrapped =
-          await ops.wrap().timeout(PolymarketPlacementWaits.conversion);
-      if (pusd != null) pusd += wrapped;
+      await ops.wrap().timeout(PolymarketPlacementWaits.conversion);
     } on TimeoutException {
       // The conversion keeps going; nothing has been signed.
       ops.ensureCurrent?.call();
@@ -225,6 +217,12 @@ Future<PolyVenueReadiness> polyReadyVenueCollateral({
       // A failed conversion leaves it to the refusal path.
     }
     ops.ensureCurrent?.call();
+    // A concurrent caller may have joined a conversion sized before a
+    // second deposit arrived. Its reported wrapped amount is not proof of
+    // the current aggregate pUSD balance.
+    split = await _safe(() => ops.readSplit(fresh: true));
+    ops.ensureCurrent?.call();
+    pusd = split?.pusd;
   }
 
   // An exchange the book reports no allowance for: set it (pinned
@@ -247,18 +245,27 @@ Future<PolyVenueReadiness> polyReadyVenueCollateral({
     ops.ensureCurrent?.call();
   }
 
-  // The wallet does not hold the buy in pUSD: no re-read makes the book
-  // count it. Ask once (cheap) and let the order's refusal say so.
-  final holds = pusd == null || pusd >= costMicros;
+  // The wallet does not hold the buy in pUSD: no cached venue count can
+  // certify it. Report the short/unread result without posting an order.
+  final holds = pusd != null && pusd >= costMicros;
   final counted = await polyAwaitVenueCount(
     costMicros: costMicros,
     spenders: spenders,
     ops: ops,
     wait: holds ? PolymarketPlacementWaits.venueCount : Duration.zero,
   );
-  if (counted == null) return PolyVenueReadiness.unread;
-  if (counted) return PolyVenueReadiness.refreshed;
+  if (counted == null || pusd == null) return PolyVenueReadiness.unread;
+  if (counted && holds) return PolyVenueReadiness.refreshed;
   return holds ? PolyVenueReadiness.notCounted : PolyVenueReadiness.short;
+}
+
+/// A pending read never authorizes signing. Kept separate from the
+/// preparation operation so callers can show its fixed readiness result.
+void polyRequireConfirmedCollateral(PolyVenueReadiness readiness) {
+  if (readiness != PolyVenueReadiness.counted &&
+      readiness != PolyVenueReadiness.refreshed) {
+    throw const PolymarketCollateralPending();
+  }
 }
 
 /// Asks the book to re-read the wallet's collateral, then reads its count
@@ -286,7 +293,7 @@ Future<bool?> polyAwaitVenueCount({
       read = true;
       if (count.covers(costMicros, spenders)) return true;
     } else if (!read) {
-      // A book that cannot be read is not waited on: the order goes out.
+      // This bounded read returns unknown; the caller keeps placement pending.
       return null;
     }
     if (waited >= budget) break;

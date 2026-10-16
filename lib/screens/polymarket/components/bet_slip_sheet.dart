@@ -1369,6 +1369,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           // the header by the moves' rows.
           final runner = ref.read(bitcoinFundedOrderRunnerProvider);
           final id = runner.beginFunded(_fundedLabel(intent, outcomeLabel));
+          _pendingNotifier.setIntent(intent.copyWith(fundedRunId: id));
           runner.followFunded(id, rowIds: prefund.rowIds);
         }
         if (!mounted) return true;
@@ -3439,21 +3440,31 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     // (a smaller bet, the approval consumed) and the funding leg was then
     // refused, or both happened. The intent carries the funding cap now
     // (nothing fires before awaitingBalance).
-    pendingNotifier.setIntent(pending.copyWith(fundUsd: plan.fundUsd));
-    final outcome =
-        await ref.read(orderFundingControllerProvider).fundAndQueue(
-      venue: OneBalanceVenue.predictions,
-      orderUsd: pending.amount,
-      requiredUsd: required,
-      readyUsd: ready,
-      auth: UserGrantAuthorization(grant),
-      fundUsd: plan.fundUsd,
-      entrySource: widget.source,
-      marketKind: _prefundKind?.name,
-      onStage: (_) {
-        if (mounted) _updateState(() {});
-      },
-    );
+    pendingNotifier.setIntent(
+        pending.copyWith(fundUsd: plan.fundUsd, fundedRunId: fundedId));
+    final outcome = await ref.read(orderFundingControllerProvider).fundAndQueue(
+          venue: OneBalanceVenue.predictions,
+          orderUsd: pending.amount,
+          requiredUsd: required,
+          readyUsd: ready,
+          auth: UserGrantAuthorization(grant),
+          fundUsd: plan.fundUsd,
+          entrySource: widget.source,
+          marketKind: _prefundKind?.name,
+          onStage: (_) {
+            if (mounted) _updateState(() {});
+          },
+        );
+    if (ref.read(pendingPolymarketBetProvider)?.fundedRunId != fundedId) {
+      // Keep the old transfer recorded without replacing a newer attempt.
+      if (outcome case OrderFundingFunded(:final move)) {
+        runner.followFunded(fundedId, move: move);
+      } else {
+        runner.dropFunded(fundedId);
+      }
+      grant.revoke();
+      return;
+    }
     switch (outcome) {
       case OrderFundingFunded(:final move):
         // Dollars have left. The row is in Activity; the autofire takes
@@ -3802,15 +3813,25 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         });
         // Held, never fired, while the bitcoin leg runs (converting holds
         // the venue's cash from the sweeper and a second bet out).
-        ref.read(pendingPolymarketBetProvider.notifier).setIntent(
-            pending.copyWith(
-                status: PendingBetStatus.converting,
-                fundUsd: plan.fundUsd,
-                btcLeg: btcLeg));
+        final heldAttempt = pending.copyWith(
+            status: PendingBetStatus.converting,
+            fundUsd: plan.fundUsd,
+            btcLeg: btcLeg);
+        ref.read(pendingPolymarketBetProvider.notifier).setIntent(heldAttempt);
+        String? activeRunId;
         ref.read(pendingBetAutoFireProvider);
         PolymarketPlacementTimeline.mark('funding_bitcoin');
         return BitcoinFundedOrderRequest(
           venue: OneBalanceVenue.predictions,
+          bindAttempt: (id) {
+            final bound = container
+                .read(pendingPolymarketBetProvider.notifier)
+                .bindFundingRun(heldAttempt, id);
+            if (bound) activeRunId = id;
+            return bound;
+          },
+          isCurrentAttempt: () => identical(
+              container.read(pendingPolymarketBetProvider), heldAttempt),
           grant: grant,
           plan: leg,
           otherVenueUsed: rest.otherUsd > 0,
@@ -3830,6 +3851,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           fundVenue: (controller, legs) async {
             final current = container.read(pendingPolymarketBetProvider);
             if (current == null ||
+                current.fundedRunId != activeRunId ||
                 current.tokenId != pending.tokenId ||
                 current.status != PendingBetStatus.converting) {
               return const OrderFundingRefused('order_gone');
@@ -3865,6 +3887,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                 );
                 final queued =
                     container.read(pendingPolymarketBetProvider) ?? current;
+                if (queued.fundedRunId != activeRunId) return outcome;
                 final pendingNotifier =
                     container.read(pendingPolymarketBetProvider.notifier);
                 switch (outcome) {
@@ -3905,12 +3928,15 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           dropOrder: () {
             final current = container.read(pendingPolymarketBetProvider);
             if (current != null &&
+                current.fundedRunId == activeRunId &&
                 current.tokenId == pending.tokenId &&
                 (current.status == PendingBetStatus.converting ||
                     current.status == PendingBetStatus.awaitingDeposit)) {
               container.read(pendingPolymarketBetProvider.notifier).clear();
             }
-            AuthGrantRegistry.instance.cancelAutofire(kPendingBetAutofireId);
+            if (current?.fundedRunId == activeRunId) {
+              AuthGrantRegistry.instance.cancelAutofire(kPendingBetAutofireId);
+            }
             grant.revoke();
           },
         );

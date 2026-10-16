@@ -12,6 +12,7 @@ import 'package:kute/models/swap_order_model.dart';
 import 'package:kute/providers/one_balance_provider.dart';
 import 'package:kute/providers/pending_pool_deposits_provider.dart';
 import 'package:kute/services/one_balance/funded_orders.dart';
+import 'package:kute/services/one_balance/money_steps.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
 
 const _bet = FundedOrderLabel(
@@ -61,6 +62,43 @@ void main() {
   tearDown(() async {
     await Hive.close();
     await dir.delete(recursive: true);
+  });
+
+  test(
+      'new same-market venue-funded receipt never claims an earlier Bitcoin leg',
+      () {
+    final c = ProviderContainer();
+    addTearDown(c.dispose);
+    final orders = c.read(fundedOrdersProvider.notifier);
+    final old = orders.start(_bet, stage: FundedOrderStage.preparing);
+    orders.setSteps(
+        old,
+        const MoneyStepGraph([
+          MoneyStep(
+              id: 'leg:bitcoin',
+              kind: MoneyStepKind.leg,
+              from: MoneyPlace.bitcoin,
+              usd: 3.96,
+              status: MoneyStepStatus.done),
+        ]));
+    orders.stop(old,
+        stage: FundedOrderStage.failed,
+        reason: 'placement',
+        moneyAt: FundedMoneyAt.venue);
+    // The new plan has zero Bitcoin: previously funded money is now cash.
+    final next = orders.start(_bet, stage: FundedOrderStage.preparing);
+    expect(orders.byId(next)!.steps.steps, isEmpty);
+    orders.setSteps(
+        next,
+        const MoneyStepGraph([
+          MoneyStep(
+              id: 'leg:investing',
+              kind: MoneyStepKind.leg,
+              from: MoneyPlace.investing,
+              usd: 20.58),
+        ]));
+    expect(orders.byId(next)!.steps.steps.map((s) => s.id), ['leg:investing']);
+    expect(orders.byId(old)!.steps.byId('leg:bitcoin')!.usd, 3.96);
   });
 
   test(

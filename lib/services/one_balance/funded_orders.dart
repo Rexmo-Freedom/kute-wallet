@@ -501,22 +501,9 @@ class FundedOrdersNotifier extends Notifier<List<FundedOrderRecord>> {
       Set<String> venueRowIds = const {}}) {
     final now = clock();
     final id = 'fo_${now.microsecondsSinceEpoch}_${_seq++}';
-    // A new try after a stop on the same market restarts only what failed:
-    // the legs that already landed stay landed (their money is now the
-    // venue's cash, which the new try counts as ready), shown done, and
-    // only the rest runs again.
-    final retried = [
-      for (final r in state)
-        if (r.label.venue == label.venue &&
-            r.label.marketKey == label.marketKey &&
-            r.label.kind == label.kind &&
-            !r.cleared &&
-            (r.stage == FundedOrderStage.ready ||
-                r.stage == FundedOrderStage.failed))
-          r,
-    ].firstOrNull;
-    final carried =
-        retried == null ? const <MoneyStep>[] : landedLegsOf(retried.steps);
+    // A fresh approval starts a fresh receipt. Previously delivered cash is
+    // already part of the venue's ready balance; copying its old steps here
+    // falsely claimed this attempt moved it again (even with zero Bitcoin).
     // One live record per venue: an older one still marked live is over.
     // A "Tap to place" note for the same market and kind has been acted on.
     final older = [
@@ -549,7 +536,7 @@ class FundedOrdersNotifier extends Notifier<List<FundedOrderRecord>> {
         updatedAt: now,
         addUsd: addUsd,
         venueRowIds: venueRowIds,
-        steps: MoneyStepGraph(carried),
+        steps: MoneyStepGraph.empty,
       ),
       ...older,
     ]);

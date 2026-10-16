@@ -62,10 +62,13 @@ VenueCashFundedRequest predictionsVenueCashRequest(
   String? entrySource,
   String? marketKind,
 }) {
+  String? runId;
+
   /// The bet this run queues, while it is still this run's.
   PendingBetIntent? held() {
     final current = container.read(pendingPolymarketBetProvider);
     if (current == null ||
+        (runId != null && current.fundedRunId != runId) ||
         current.tokenId != pending.tokenId ||
         current.status == PendingBetStatus.failed ||
         current.status == PendingBetStatus.done) {
@@ -80,9 +83,22 @@ VenueCashFundedRequest predictionsVenueCashRequest(
   // The queue below is handed what Predictions will hold with the legs
   // straight here counted; the difference is those legs.
   final approvedReadyUsd = readyUsd;
+  final approvedAttempt = container.read(pendingPolymarketBetProvider);
 
   return VenueCashFundedRequest(
     venue: OneBalanceVenue.predictions,
+    isCurrentAttempt: () =>
+        approvedAttempt != null &&
+        identical(
+            container.read(pendingPolymarketBetProvider), approvedAttempt),
+    bindAttempt: (id) {
+      if (approvedAttempt == null ||
+          !notifier().bindFundingRun(approvedAttempt, id)) {
+        return false;
+      }
+      runId = id;
+      return true;
+    },
     grant: grant,
     label: label,
     fundUsd: fundUsd,
@@ -119,6 +135,7 @@ VenueCashFundedRequest predictionsVenueCashRequest(
                 continueJourney: true,
               );
       final queued = held() ?? current;
+      if (held() == null) return outcome;
       switch (outcome) {
         case OrderFundingFunded(:final move):
           // Dollars have left: the autofire places the bet once
@@ -176,12 +193,15 @@ VenueCashFundedRequest predictionsVenueCashRequest(
     dropOrder: () {
       final current = container.read(pendingPolymarketBetProvider);
       if (current != null &&
+          current.fundedRunId == runId &&
           current.tokenId == pending.tokenId &&
           (current.status == PendingBetStatus.awaitingDeposit ||
               current.status == PendingBetStatus.awaitingBalance)) {
         notifier().clear();
       }
-      AuthGrantRegistry.instance.cancelAutofire(kPendingBetAutofireId);
+      if (current?.fundedRunId == runId) {
+        AuthGrantRegistry.instance.cancelAutofire(kPendingBetAutofireId);
+      }
       grant.revoke();
     },
   );

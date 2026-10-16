@@ -34,6 +34,16 @@ class PolymarketFundsConverting implements Exception {
   String toString() => 'The deposit is still being converted for trading.';
 }
 
+/// The wallet or the order book has not confirmed the buy's full all-in
+/// collateral yet. No order was signed or sent; a live approved order may
+/// wait and check again without sending another funding leg.
+class PolymarketCollateralPending implements Exception {
+  const PolymarketCollateralPending();
+
+  @override
+  String toString() => 'The trading balance is still being confirmed.';
+}
+
 class PolymarketPlacementWaits {
   PolymarketPlacementWaits._();
 

@@ -63,6 +63,8 @@ import 'package:kute/services/one_balance/bitcoin_to_venue_leg.dart'
     show LegDelivery, watchLegDelivery;
 import 'package:kute/services/one_balance/funded_orders.dart';
 import 'package:kute/services/one_balance/money_steps.dart';
+import 'package:kute/services/one_balance/investments_spendable.dart'
+    show VenueCashSnapshot, venueCashSnapshotProvider;
 import 'package:kute/services/one_balance/move_steps.dart' show MoveSteps;
 import 'package:kute/services/one_balance/multi_source_move.dart'
     show MultiSourceMoveStore;
@@ -100,6 +102,8 @@ class VenueCashFundedRequest {
     this.moveId,
     this.entrySource,
     this.awaitPlacement,
+    this.bindAttempt,
+    this.isCurrentAttempt,
   });
 
   final OneBalanceVenue venue;
@@ -133,6 +137,8 @@ class VenueCashFundedRequest {
   /// The step after the money, in place of the venue's own placement
   /// watch (tests).
   final BitcoinPlacementWait? awaitPlacement;
+  final bool Function(String runId)? bindAttempt;
+  final bool Function()? isCurrentAttempt;
 }
 
 /// Step ids this chain adds to [FundedStepId]'s.
@@ -169,8 +175,17 @@ class VenueCashFundedOrderRunner {
   /// Records the order (its steps show from now) and starts every leg;
   /// returns at once. The run ends placed, stopped or not placed.
   BitcoinFundedRun start(VenueCashFundedRequest r) {
+    if (r.isCurrentAttempt?.call() == false) {
+      r.grant.revoke();
+      return BitcoinFundedRun('', Future.value(BitcoinFundedEnd.notSent));
+    }
     final orders = _ref.read(fundedOrdersProvider.notifier);
     final id = orders.start(r.label, stage: FundedOrderStage.preparing);
+    if (r.bindAttempt?.call(id) == false) {
+      r.grant.revoke();
+      orders.remove(id);
+      return BitcoinFundedRun(id, Future.value(BitcoinFundedEnd.notSent));
+    }
     return BitcoinFundedRun(id, _VenueCashChain(_ref, id, r).run());
   }
 }
@@ -179,11 +194,14 @@ final venueCashFundedOrderRunnerProvider = Provider<VenueCashFundedOrderRunner>(
     (ref) => VenueCashFundedOrderRunner(ref));
 
 class _VenueCashChain {
-  _VenueCashChain(this._ref, this.id, this.r);
+  _VenueCashChain(Ref ref, this.id, this.r)
+      : _ref = ref,
+        _cashSnapshot = ref.read(venueCashSnapshotProvider);
 
   final Ref _ref;
   final String id;
   final VenueCashFundedRequest r;
+  final VenueCashSnapshot _cashSnapshot;
 
   late final BitcoinLegEnv env = _ref.read(bitcoinLegEnvProvider);
   late final FundedOrdersNotifier orders =
@@ -353,7 +371,8 @@ class _VenueCashChain {
     // The venue's own placement, followed from now on: it fires the
     // moment the venue holds enough, whatever leg is still landing.
     final wait = r.awaitPlacement ??
-        runner.placementWaitFor(venue, onFailed: (message, code) {
+        runner.placementWaitFor(venue, fundedRunId: id,
+            onFailed: (message, code) {
           _failedText = message;
           _failedCode = code;
         });
@@ -668,6 +687,9 @@ class _VenueCashChain {
     switch (await _delivery(legId)) {
       case LegDelivery.delivered:
         _landed(step, source);
+        unawaited(_cashSnapshot.refresh(_ref.read, settledRefs: {
+          leg.result!.operationId ?? leg.result!.quoteId,
+        }));
         return MoneyStepDone(ref: legId());
       case LegDelivery.failed:
         // Refunded: the cash goes back to its venue.
@@ -704,6 +726,9 @@ class _VenueCashChain {
     switch (await _delivery(legId)) {
       case LegDelivery.delivered:
         _landed(step, source);
+        unawaited(_cashSnapshot.refresh(_ref.read, settledRefs: {
+          leg.result!.operationId ?? leg.result!.quoteId,
+        }));
         puller.landedHome(leg.arrivingUsd);
         try {
           env.checkDollars?.call();

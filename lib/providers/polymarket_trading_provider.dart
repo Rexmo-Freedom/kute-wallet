@@ -3340,9 +3340,9 @@ class PolymarketTradingNotifier
     // refused the first prediction after money arrived, and the refusal's
     // immediate retry hit the same stale count. Held USDC.e is converted,
     // a missing exchange allowance set, and the book's count re-read until
-    // it covers this buy, then the order is signed. When the book cannot
-    // be read or does not catch up in time, the order goes out anyway and
-    // the refusal path inside the guard stays the fallback.
+    // it covers this buy, then the order is signed. Unknown or short
+    // collateral leaves the funded order waiting under its existing
+    // approval; nothing is posted without confirmation.
     //
     // This runs before the order guard takes the account, not inside it:
     // the conversion joins one already running for the wallet and can take
@@ -3360,7 +3360,8 @@ class PolymarketTradingNotifier
     final buyCostMicros = side == OrderSide.buy
         ? polyBuyCostMicros(size: size, price: price) +
             BigInt.from(((marketQuote?.tokenId == tokenId
-                        ? marketQuote!.feeCeiling
+                        ? marketQuote!.feeCeiling +
+                            PolymarketMarketBuyQuote.roundingHeadroom
                         : 0.0) *
                     1e6)
                 .ceil())
@@ -3386,6 +3387,8 @@ class PolymarketTradingNotifier
       PolymarketPlacementDiagnostics.note(
           'venue_count', {'readiness': readiness.name});
       ensureCurrent();
+      polyRequireConfirmedCollateral(readiness);
+      onStep?.call('ready');
     }
     return HotPolymarketOrderGuard().run(
       walletId: orderWalletId,
@@ -3562,6 +3565,8 @@ class PolymarketTradingNotifier
                     PolymarketPlacementTimeline.tag(
                         'venue_count_after_refusal', readiness.name);
                     ensureCurrent();
+                    polyRequireConfirmedCollateral(readiness);
+                    onStep?.call('ready');
                     continue;
                   }
                   try {

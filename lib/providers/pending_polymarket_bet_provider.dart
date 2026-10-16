@@ -153,6 +153,10 @@ class PendingBetIntent {
   final double? fundReadyUsd;
   final double? fundArrivingUsd;
 
+  /// The live funded-order graph belonging to this approval/attempt.
+  /// Local only; an older attempt in the same market cannot certify it.
+  final String? fundedRunId;
+
   /// When the bet was queued behind its funding leg. A queued bet older
   /// than [maxQueuedAge] never fires.
   final DateTime? queuedAt;
@@ -202,6 +206,7 @@ class PendingBetIntent {
     this.fundQuoteRef,
     this.fundReadyUsd,
     this.fundArrivingUsd,
+    this.fundedRunId,
     this.queuedAt,
     this.readiness,
     this.convertSeen = false,
@@ -248,6 +253,7 @@ class PendingBetIntent {
     String? fundQuoteRef,
     double? fundReadyUsd,
     double? fundArrivingUsd,
+    String? fundedRunId,
     DateTime? queuedAt,
     PredictionsReadiness? readiness,
     bool? convertSeen,
@@ -289,6 +295,7 @@ class PendingBetIntent {
       fundQuoteRef: fundQuoteRef ?? this.fundQuoteRef,
       fundReadyUsd: fundReadyUsd ?? this.fundReadyUsd,
       fundArrivingUsd: fundArrivingUsd ?? this.fundArrivingUsd,
+      fundedRunId: fundedRunId ?? this.fundedRunId,
       queuedAt: queuedAt ?? this.queuedAt,
       readiness: readiness ?? this.readiness,
       convertSeen: convertSeen ?? this.convertSeen,
@@ -307,6 +314,14 @@ class PendingPolymarketBetNotifier extends Notifier<PendingBetIntent?> {
 
   void setIntent(PendingBetIntent intent) {
     state = intent;
+  }
+
+  /// Bind before the runner starts any work. A deferred approval cannot
+  /// attach its graph to a newer attempt, even in the same market.
+  bool bindFundingRun(PendingBetIntent expected, String runId) {
+    if (!identical(state, expected)) return false;
+    state = expected.copyWith(fundedRunId: runId);
+    return true;
   }
 
   void updateStatus(PendingBetStatus status,
@@ -413,6 +428,7 @@ class PendingPolymarketBetNotifier extends Notifier<PendingBetIntent?> {
       fundQuoteRef: current.fundQuoteRef,
       fundReadyUsd: current.fundReadyUsd,
       fundArrivingUsd: current.fundArrivingUsd,
+      fundedRunId: current.fundedRunId,
       queuedAt: current.queuedAt,
       readiness: current.readiness,
       convertSeen: current.convertSeen,

@@ -21,6 +21,23 @@ void main() {
       );
 
   group('a funded intent', () {
+    test('an old same-market attempt cannot bind its graph to a new intent',
+        () {
+      final c = ProviderContainer();
+      addTearDown(c.dispose);
+      final notifier = c.read(pendingPolymarketBetProvider.notifier);
+      final old = intent().copyWith(fundUsd: 5, queuedAt: DateTime.utc(2026));
+      notifier.setIntent(old);
+      final replacement = old.copyWith(amount: 8);
+      notifier.setIntent(replacement);
+      expect(notifier.bindFundingRun(old, 'old_run'), isFalse);
+      expect(
+          identical(c.read(pendingPolymarketBetProvider), replacement), isTrue);
+      expect(notifier.bindFundingRun(replacement, 'new_run'), isTrue);
+      notifier.recordSettlement(
+          filledShares: 2, filledCost: 1, orderedShares: 2);
+      expect(c.read(pendingPolymarketBetProvider)!.fundedRunId, 'new_run');
+    });
     test('keeps its funding through status changes and settlement', () {
       final container = ProviderContainer();
       addTearDown(container.dispose);

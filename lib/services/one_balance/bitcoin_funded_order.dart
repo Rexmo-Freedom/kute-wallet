@@ -66,6 +66,8 @@ import 'package:kute/services/one_balance/bitcoin_to_venue_leg.dart';
 import 'package:kute/services/one_balance/hyperliquid_venue_funder.dart'
     show hyperliquidVenueFunderProvider;
 import 'package:kute/services/one_balance/money_steps.dart';
+import 'package:kute/services/one_balance/investments_spendable.dart'
+    show VenueCashSnapshot, venueCashSnapshotProvider;
 import 'package:kute/services/one_balance/venue_readiness.dart'
     show readinessPhasesOf;
 import 'package:kute/services/one_balance/predictions_venue_funder.dart'
@@ -88,7 +90,11 @@ import 'package:kute/providers/pending_hyperliquid_order_provider.dart'
         PendingHlOrderStatus,
         pendingHyperliquidOrderProvider;
 import 'package:kute/providers/pending_polymarket_bet_provider.dart'
-    show PendingBetIntent, PendingBetStatus, pendingPolymarketBetProvider;
+    show
+        PendingBetIntent,
+        PendingBetStatus,
+        PredictionsReadiness,
+        pendingPolymarketBetProvider;
 import 'package:kute/providers/settings_provider.dart' show settingsProvider;
 import 'package:kute/providers/spark_address_provider.dart'
     show sparkSelfAddressProvider;
@@ -529,6 +535,8 @@ class BitcoinFundedOrderRequest {
     this.entrySource,
     this.awaitPlacement,
     this.otherVenueUsed = false,
+    this.bindAttempt,
+    this.isCurrentAttempt,
   });
 
   final OneBalanceVenue venue;
@@ -565,6 +573,11 @@ class BitcoinFundedOrderRequest {
   /// lands (`MarginFundingRunner`); tests stand in for it too. Null
   /// follows the venue's autofire, which places the slip's queued order.
   final BitcoinPlacementWait? awaitPlacement;
+
+  /// Synchronously binds this graph to the approved live attempt before
+  /// any funding starts. False means that attempt was replaced meanwhile.
+  final bool Function(String runId)? bindAttempt;
+  final bool Function()? isCurrentAttempt;
 }
 
 /// A run the slip follows: its record and its end.
@@ -595,8 +608,9 @@ class BitcoinFundedOrderRunner {
   /// The venue's own placement of the queued order, followed (see
   /// [_placementWait]), for a chain outside this file.
   BitcoinPlacementWait placementWaitFor(OneBalanceVenue venue,
-          {void Function(String? message, String? code)? onFailed}) =>
-      _placementWait(venue, onFailed: onFailed);
+          {void Function(String? message, String? code)? onFailed,
+          String? fundedRunId}) =>
+      _placementWait(venue, onFailed: onFailed, fundedRunId: fundedRunId);
 
   /// The words for a leg refused before anything left, if any.
   String? errorTextFor(Object e) => _errorText(e);
@@ -617,7 +631,7 @@ class BitcoinFundedOrderRunner {
     final grant = await approve();
     if (grant == null) return null;
     final request = build(grant);
-    if (request == null) {
+    if (request == null || request.isCurrentAttempt?.call() == false) {
       grant.revoke();
       return null;
     }
@@ -625,9 +639,18 @@ class BitcoinFundedOrderRunner {
   }
 
   BitcoinFundedRun start(BitcoinFundedOrderRequest r) {
+    if (r.isCurrentAttempt?.call() == false) {
+      r.grant.revoke();
+      return BitcoinFundedRun('', Future.value(BitcoinFundedEnd.notSent));
+    }
     final orders = _ref.read(fundedOrdersProvider.notifier);
     final id = orders.start(r.label,
         stage: FundedOrderStage.adding, addUsd: r.plan.targetUsd);
+    if (r.bindAttempt?.call(id) == false) {
+      r.grant.revoke();
+      orders.remove(id);
+      return BitcoinFundedRun(id, Future.value(BitcoinFundedEnd.notSent));
+    }
     return BitcoinFundedRun(id, _run(id, r));
   }
 
@@ -677,7 +700,8 @@ class BitcoinFundedOrderRunner {
       String? failedCode;
       final venue = record.label.venue;
       final credited = Completer<void>();
-      final placement = _placementWait(venue, onFailed: (message, code) {
+      final placement =
+          _placementWait(venue, fundedRunId: id, onFailed: (message, code) {
         failedText = message;
         failedCode = code;
       })(onCredited: () {
@@ -820,7 +844,8 @@ class BitcoinFundedOrderRunner {
   /// cleared before either is not. [onFailed] hears the venue's own words
   /// and code when it failed.
   BitcoinPlacementWait _placementWait(OneBalanceVenue venue,
-          {void Function(String? message, String? code)? onFailed}) =>
+          {void Function(String? message, String? code)? onFailed,
+          String? fundedRunId}) =>
       ({required void Function() onCredited}) {
         final done = Completer<bool>();
         void end(bool placed) {
@@ -855,9 +880,17 @@ class BitcoinFundedOrderRunner {
             sub = _ref.listen<PendingBetIntent?>(pendingPolymarketBetProvider,
                 (_, next) {
               if (next == null) return end(false);
+              if (fundedRunId != null &&
+                  next.fundedRunId != null &&
+                  next.fundedRunId != fundedRunId) {
+                return end(false);
+              }
               switch (next.status) {
                 case PendingBetStatus.placing:
-                  onCredited();
+                  if (next.readiness == null ||
+                      next.readiness == PredictionsReadiness.ready) {
+                    onCredited();
+                  }
                 case PendingBetStatus.done:
                 case PendingBetStatus.awaitingConfirmation:
                   end(true);
@@ -958,6 +991,7 @@ Future<SpendingBitcoin?> freshSpendingBitcoin(
           .timeout(const Duration(seconds: 4));
       // Only the wallet that was asked about.
       if (pickSpendingWallet(read(settingsProvider))?.id != spendingId) return;
+      if (!identical(wrapper.instance, sdk)) return;
       read(walletBalanceCacheProvider.notifier)
           .updateSparkBitcoinbalance(spendingId, info.balanceSats.toInt());
     } catch (_) {}
@@ -1030,20 +1064,17 @@ Future<BitcoinLegSizing> _sizeOn(
 
 /// The spending wallet's bitcoin and price, and the leg [dollarsShortUsd]
 /// needs, sized on the route's own estimate when it answers within a few
-/// seconds. When the figures the app holds do not cover it (or there is
-/// no usable price), they are read fresh ([freshSpendingBitcoin]) and the
-/// leg is sized again: a refusal always stands on the wallet's own
-/// answer. A read: nothing is quoted or moved.
+/// seconds. Read fresh before choosing a source: a newly spent or empty
+/// wallet must override a larger cached balance. A failed read retains
+/// the last known figure; the verified send still checks actual funds.
+/// A read: nothing is quoted or moved.
 Future<BitcoinLegSizing> sizeBitcoinLegFor(
   T Function<T>(ProviderListenable<T> provider) read, {
   required double dollarsShortUsd,
 }) async {
   final cached = cachedSpendingBitcoin(read);
-  final first = await _sizeOn(cached, dollarsShortUsd);
-  if (first.plan != null) return first;
   final fresh = await freshSpendingBitcoin(read);
-  if (fresh == null || fresh == cached) return first;
-  return _sizeOn(fresh, dollarsShortUsd);
+  return _sizeOn(fresh ?? cached, dollarsShortUsd);
 }
 
 // ── The slip's decision ────────────────────────────────────────────────
@@ -1273,7 +1304,7 @@ Future<OrderSources> decideOrderSources(
   // on the wallet's own figures.
   var wallet = cachedSpendingBitcoin(read);
   final fresh = await freshSpendingBitcoin(read);
-  if (fresh != null && fresh.sats >= wallet.sats) wallet = fresh;
+  if (fresh != null) wallet = fresh;
   var max = bitcoinMaxLandingUsd(wallet);
   if (max > 0) {
     // The route's own price for all of it, when it answers (its real
@@ -1592,11 +1623,13 @@ Future<MoneyStepOutcome> readinessPhaseStep(
 }
 
 class _FundedChain {
-  _FundedChain(this.runner, this.id, this.r);
+  _FundedChain(this.runner, this.id, this.r)
+      : _cashSnapshot = runner._ref.read(venueCashSnapshotProvider);
 
   final BitcoinFundedOrderRunner runner;
   final String id;
   final BitcoinFundedOrderRequest r;
+  final VenueCashSnapshot _cashSnapshot;
 
   Ref get _ref => runner._ref;
   late final BitcoinLegEnv env = _ref.read(bitcoinLegEnvProvider);
@@ -1776,7 +1809,8 @@ class _FundedChain {
     // The venue's own placement, followed from now on: it fires the
     // moment the venue can take the order, whatever leg is still landing.
     final wait = r.awaitPlacement ??
-        runner._placementWait(venue, onFailed: (message, code) {
+        runner._placementWait(venue, fundedRunId: id,
+            onFailed: (message, code) {
           _failedText = message;
           _failedCode = code;
         });
@@ -2292,6 +2326,13 @@ class _FundedChain {
     }
     if (results.any((d) => d == LegDelivery.timedOut)) {
       return const MoneyStepFailed('timeout');
+    }
+    final settledRefs = {
+      for (final leg in mine.where((l) => l.ok && l.direct))
+        leg.result!.operationId ?? leg.result!.quoteId,
+    };
+    if (settledRefs.isNotEmpty) {
+      unawaited(_cashSnapshot.refresh(_ref.read, settledRefs: settledRefs));
     }
     _landed(step, step.from?.name ?? 'other');
     return const MoneyStepDone();

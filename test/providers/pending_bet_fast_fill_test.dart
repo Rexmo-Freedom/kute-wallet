@@ -27,6 +27,7 @@ import 'package:kute/providers/venue_sweeper_provider.dart'
     show pendingBetHoldsCash;
 import 'package:kute/services/one_balance/prediction_funding_ledger.dart';
 import 'package:kute/services/polymarket/market_buy_quote.dart';
+import 'package:kute/services/polymarket/venue_collateral.dart';
 import 'package:kute/services/polymarket/sell_settlement.dart';
 import 'package:kute/screens/shared/slip_shortfall.dart' show fundedStopLine;
 import 'package:kute/services/one_balance/bitcoin_funded_order.dart'
@@ -80,6 +81,18 @@ class _Trading extends PolymarketTradingNotifier {
   String? get signingWalletId => 'spending';
 
   @override
+  Future<PolyBuyReads?> readBuyReadiness({bool refreshVenue = false}) async {
+    final usd = state.valueOrNull?.usdcBalance ?? 0;
+    final micros = BigInt.from((usd * 1e6).round());
+    return (
+      pusd: micros,
+      usdce: BigInt.zero,
+      venue: PolyVenueCount(balance: micros),
+      setupDone: true
+    );
+  }
+
+  @override
   Future<void> readyCollateralForBuy(double costUsd) async => readies++;
 
   @override
@@ -117,24 +130,24 @@ class _Trading extends PolymarketTradingNotifier {
     AuthGrants.consume(
         grant,
         PmGrants.executedOrder(grant,
-            walletId: 'spending',
-            tokenId: tokenId,
-            isBuy: true,
-            size: size,
-            price: price,
-            orderType: orderType.name)
-          .copyWith(limits: {
-            ...PmGrants.executedOrder(grant,
-                    walletId: 'spending',
-                    tokenId: tokenId,
-                    isBuy: true,
-                    size: size,
-                    price: price,
-                    orderType: orderType.name)
-                .limits,
-            ...PmGrants.fundingLimits(
-                fundUsd: 10, venue: IntentVenue.polymarket),
-          }));
+                walletId: 'spending',
+                tokenId: tokenId,
+                isBuy: true,
+                size: size,
+                price: price,
+                orderType: orderType.name)
+            .copyWith(limits: {
+          ...PmGrants.executedOrder(grant,
+                  walletId: 'spending',
+                  tokenId: tokenId,
+                  isBuy: true,
+                  size: size,
+                  price: price,
+                  orderType: orderType.name)
+              .limits,
+          ...PmGrants.fundingLimits(fundUsd: 10, venue: IntentVenue.polymarket),
+        }));
+    onStep?.call('ready');
     orders.add(_Order(price, size, analytics));
     if (refusals.isNotEmpty) throw refusals.removeAt(0);
     // Accepted; the match is confirmed later (no verified fill here).
@@ -288,7 +301,7 @@ void main() {
     expect(reads, 0);
 
     landed = true;
-    trading.land(10.4);
+    trading.land(10.6);
     for (var i = 0;
         i < 100 &&
             c.read(pendingPolymarketBetProvider)?.status ==
