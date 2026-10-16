@@ -3058,9 +3058,5 @@
   "moneyStepArrived": "Megérkezett ide: Bitcoin",
   "moneyStepSending": "{amount} küldése",
   "moneyStepSent": "{amount} elküldve",
-  "moneyStepCompact": "{source} → {destination} · {amount}",
-  "betTransferToPolymarket": "Átutalás a Polymarketre",
-  "betBitcoinFiveMinutePrefundNote": "Az 5 perces Bitcoin-fogadásokhoz az összegnek már elérhetőnek kell lennie a Polymarketen. Először utald át, majd tedd meg a fogadásodat.",
-  "betTransferCheckBalance": "Átutalás ellenőrzése",
-  "betTransferWaitingNote": "Az átutalásod ellenőrzése folyamatban van. A fogadásod még nem lett megtéve."
+  "moneyStepCompact": "{source} → {destination} · {amount}"
 }

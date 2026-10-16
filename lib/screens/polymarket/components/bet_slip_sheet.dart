@@ -1,5 +1,3 @@
-import 'package:kute/services/one_balance/predictions_prefund_transfer.dart';
-import 'package:kute/services/polymarket/crypto_round.dart';
 import 'package:kute/screens/shared/side_tint_palette.dart';
 import 'package:kute/screens/polymarket/components/outcome_leading.dart'
     show polyOutcomeFill;
@@ -233,7 +231,6 @@ class _BetSlipDraft extends ChangeNotifier {
   bool isLimitMode = false;
   double limitPrice = 0;
   String? limitSideKey;
-
   /// The slippage the person picked; null while the market's own default
   /// applies (polymarketDefaultSlippagePct: wider on a short crypto round).
   double? slippageChoice;
@@ -261,9 +258,6 @@ class _BetSlipDraft extends ChangeNotifier {
   /// Getting a fast market's bet ready before Confirm ([BetPrefund]):
   /// the root slip owns it, the Advanced page confirms through it too.
   BetPrefund? prefund;
-
-  double? transferRequiredUsd;
-  String? transferRequiredKey;
 
   /// The policy could not be reached and the last check still allows a
   /// prediction: the decision's own words, shown above the button without
@@ -295,10 +289,6 @@ class _BetSlipDraft extends ChangeNotifier {
 /// (declined) out.
 @visibleForTesting
 Future<AuthGrant?> Function(SensitiveIntent intent)? debugPmBetFundingApproval;
-
-@visibleForTesting
-Future<AuthGrant?> Function(SensitiveIntent intent)?
-    debugPmPrefundTransferApproval;
 
 class BetSlipSheet extends ConsumerStatefulWidget {
   final String marketQuestion;
@@ -616,7 +606,6 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   /// (Home hot-events feed, AI recommendations) where the shell has the
   /// CLOB stream paused; acquire()/release() keeps it live while up.
   LivePriceNotifier? _livePrices;
-
   /// The controller this slip warmed the placement on (paired release in
   /// dispose, where `ref` is no longer read).
   PolymarketBetController? _warmedSlip;
@@ -758,7 +747,6 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   /// keystroke / rebuild. Reset only on a fresh slip instance.
   bool get _amountEnteredTracked => _draft.amountEnteredTracked;
   set _amountEnteredTracked(bool value) => _draft.amountEnteredTracked = value;
-
   /// The market order's slippage: the person's pick, else the market's
   /// default (10% on a 5- or 15-minute crypto round, 12% in its last
   /// minute, 5% elsewhere), shown as the maximum price before approval.
@@ -869,9 +857,6 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       _selectedIndex < widget.outcomes.length &&
       widget.outcomes[_selectedIndex].hasYesNo;
 
-  bool get _requiresPrefundedBitcoin =>
-      !_isLedger && polyRequiresPrefundedBitcoinFiveMinute(widget.marketSlug);
-
   @override
   void initState() {
     super.initState();
@@ -904,7 +889,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     _orderFunding = ref.read(orderFundingControllerProvider);
     _venueCashPuller = ref.read(venueCashPullerProvider);
     _marketWindowReader = ref.read(polymarketMarketWindowReaderProvider);
-    if (_ownsDraft && !_isLedger && !_requiresPrefundedBitcoin) {
+    if (_ownsDraft && !_isLedger) {
       _draft.prefund = BetPrefund(
         approve: _prefundApprove,
         fund: _prefundFund,
@@ -927,18 +912,6 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           _prefundKey = null;
           _maybeScheduleHold();
         }
-      });
-    }
-
-    if (_requiresPrefundedBitcoin) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          unawaited(ref.read(predictionsPrefundTransferProvider).refresh());
-        }
-      });
-      ref.listenManual(polymarketTradingProvider, (_, __) {
-        final transfer = ref.read(predictionsPrefundTransferProvider);
-        if (!transfer.busy) unawaited(transfer.refresh());
       });
     }
 
@@ -2476,197 +2449,6 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     }
   }
 
-  String get _bitcoinPrefundKey =>
-      '$_selectedTokenId:$_amount:$_isLimitMode:$_limitPrice:$_slippagePct';
-
-  double _bitcoinPrefundRequired() {
-    final token = widget.outcomes[_selectedIndex].tokenId ?? '';
-    final terms = ref.read(polymarketFeeTermsProvider(token)).valueOrNull ??
-        PolymarketFeeTerms.worstCase;
-    final shown = _predictionsRequired(terms,
-        stakeUsd:
-            _emptyStake ? _minimumStakeUsd(_effectiveMinBetUsd) : _amount);
-    return _draft.transferRequiredKey == _bitcoinPrefundKey
-        ? max(shown, _draft.transferRequiredUsd ?? shown)
-        : shown;
-  }
-
-  bool get _bitcoinPrefundRoundClosed {
-    final round = polyCryptoRoundOf(widget.marketSlug ?? '');
-    final end = widget.marketEndAt ?? round?.end;
-    return end != null && !end.isAfter(DateTime.now());
-  }
-
-  Future<bool> _prefundedBetCovered({double? requiredUsd}) async {
-    if (_bitcoinPrefundRoundClosed) {
-      if (mounted) {
-        showMessageSnackBar(
-            context: context,
-            message: context.l10n.builderMarketGone,
-            error: true);
-      }
-      return false;
-    }
-    if (requiredUsd != null) {
-      _draft.transferRequiredKey = _bitcoinPrefundKey;
-      _draft.transferRequiredUsd = requiredUsd;
-    }
-    final required = requiredUsd ?? _bitcoinPrefundRequired();
-    final cash = await ref.read(predictionsPrefundTransferProvider).refresh();
-    if (!mounted) return false;
-    if (cash == null || cash + 1e-6 < required) {
-      _updateState(() {});
-      return false;
-    }
-    return true;
-  }
-
-  Future<void> _transferToPolymarket() async {
-    if (_buyInFlight || _isPlacing) return;
-    final transfer = ref.read(predictionsPrefundTransferProvider);
-    if (transfer.busy) return;
-    _updateState(() => _buyInFlight = true);
-    try {
-      if (await checkPolymarketGeoblock(context,
-          capabilities: const ['polymarket.deposit'],
-          maxAge: Duration.zero)) {
-        return;
-      }
-      if (!mounted || await _refuseBlockedDeposit() != null) return;
-      if (transfer.needsTransferReview) {
-        await transfer.refresh();
-        return;
-      }
-      if (_emptyStake) _placeMinimum(place: false);
-      final draft = _slipIntent();
-      if (draft == null) return;
-      final prepared =
-          await ref.read(polymarketBetControllerProvider).prepareIntent(draft);
-      if (!mounted) return;
-      _draft.transferRequiredKey = _bitcoinPrefundKey;
-      _draft.transferRequiredUsd = prepared.marketQuote?.allInMax ??
-          _predictionsRequired(
-              prepared.feeTerms ?? PolymarketFeeTerms.worstCase);
-      final plan = await transfer.prepare(_bitcoinPrefundRequired());
-      if (!mounted) return;
-      await transfer.start(plan, approve: (intent) async {
-        if (!mounted) return null;
-        final seam = debugPmPrefundTransferApproval;
-        return seam != null
-            ? seam(intent)
-            : requireFreshAuthGrant(context, ref,
-                intent: intent,
-                reason: context.l10n.stepUpReasonDeposit(
-                    _fiatCompanion(intent.amountMax.toDouble() / 1e6)),
-                amountUsd: intent.amountMax.toDouble() / 1e6);
-      });
-    } on PredictionsTransferUnavailable catch (e) {
-      if (!mounted) return;
-      if (e.reason == 'insufficient_funds') {
-        await openSlipReceive(context,
-            venue: SlipVenue.predictions,
-            depositWhenKnownEmpty: true,
-            onDepositCompleted: slipTopUpReturned,
-            addUsd: _bitcoinPrefundRequired(),
-            shortfallUsd: _receiveShortfallUsd());
-      } else {
-        showMessageSnackBar(
-            context: context,
-            message: context.l10n.betActionNotCompleted,
-            error: true);
-      }
-    } catch (_) {
-      if (mounted) {
-        showMessageSnackBar(
-            context: context,
-            message: context.l10n.betActionNotCompleted,
-            error: true);
-      }
-    } finally {
-      if (mounted) _updateState(() => _buyInFlight = false);
-    }
-  }
-
-  Widget? _buildBitcoinPrefundAction(Color color, PolymarketOutcome selected) {
-    final transfer = ref.watch(predictionsPrefundTransferProvider);
-    if (_bitcoinPrefundRoundClosed) {
-      return PolySlipCta(
-          color: color,
-          enabled: false,
-          isBusy: false,
-          onTap: () {},
-          label: context.l10n.builderMarketGone);
-    }
-    if (!transfer.busy &&
-        (transfer.spendableUsd ?? -1) + 1e-6 >= _bitcoinPrefundRequired()) {
-      final minimum = _belowMinimumStake;
-      return PolySlipCta(
-          color: color,
-          isBusy: _buyInFlight,
-          busyLabel: context.l10n.loading,
-          enabled:
-              !_buyInFlight && _tradeBlock == null && _advancedBlock == null,
-          onTap: minimum
-              ? _fillMinimum
-              : _emptyStake
-                  ? _placeMinimum
-                  : _handleBuy,
-          label: minimum
-              ? context.l10n
-                  .amountMinimumInline(_fiatCompanion(_effectiveMinBetUsd))
-              : _betCtaLabel(
-                  selected,
-                  _emptyStake
-                      ? _minimumStakeUsd(_effectiveMinBetUsd)
-                      : _amount));
-    }
-    final record = transfer.runId == null
-        ? null
-        : ref
-            .watch(fundedOrdersProvider)
-            .where((r) => r.id == transfer.runId)
-            .firstOrNull;
-    return Column(
-      key: const ValueKey('bet-slip-bitcoin-five-minute-prefund'),
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Padding(
-            padding: EdgeInsets.only(bottom: 8.h),
-            child: Text(
-                transfer.needsTransferReview
-                    ? context.l10n.betTransferWaitingNote
-                    : context.l10n.betBitcoinFiveMinutePrefundNote,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                    color: context.colors.textSecondary,
-                    fontSize: 12.sp,
-                    height: 1.35))),
-        PolySlipCta(
-          color: color,
-          enabled: !transfer.busy &&
-              !_buyInFlight &&
-              _tradeBlock == null &&
-              _advancedBlock == null,
-          isBusy: transfer.busy || _buyInFlight || transfer.checking,
-          busyLabel: context.l10n.slipStepPreparingPrediction,
-          onTap: _transferToPolymarket,
-          label: transfer.needsTransferReview
-              ? context.l10n.betTransferCheckBalance
-              : context.l10n.betTransferToPolymarket,
-          band: false,
-        ),
-        if (record != null)
-          SlipFundingSteps(
-              steps: const [],
-              active: 0,
-              graph: record.steps,
-              money: _fiatCompanion,
-              failed: transfer.failure != null,
-              slow: record.slow),
-      ],
-    );
-  }
-
   Future<void> _handleBuyInner() async {
     PolymarketPlacementTimeline.begin();
     // A new try: an earlier funded bet's stop gives way to it.
@@ -2693,8 +2475,6 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     }
     PolymarketPlacementTimeline.mark('geoblock');
     if (!mounted) return;
-    if (_requiresPrefundedBitcoin && !await _prefundedBetCovered()) return;
-    if (!mounted) return;
     final tradingState = ref.read(polymarketTradingProvider);
 
     // If the provider is still loading, don't redirect — just wait
@@ -2713,8 +2493,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     // A balance that was not read is unknown, not $0.00: never decide a
     // shortfall (and a funding move from Dollars) on it. The button waits
     // in that state; this covers a tap that raced a failed read.
-    if (!(tradingState.valueOrNull?.balanceKnown ?? false) &&
-        !_requiresPrefundedBitcoin) {
+    if (!(tradingState.valueOrNull?.balanceKnown ?? false)) {
       _stopped('balance_unknown');
       if (mounted) {
         showMessageSnackBar(
@@ -2725,9 +2504,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       }
       return;
     }
-    final balance = _requiresPrefundedBitcoin
-        ? ref.read(predictionsPrefundTransferProvider).spendableUsd!
-        : tradingState.valueOrNull?.usdcBalance ?? 0;
+    final balance = tradingState.valueOrNull?.usdcBalance ?? 0;
 
     if (_amount <= 0) {
       _stopped('no_amount');
@@ -2836,13 +2613,10 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     // Predictions-funded orders require sufficient cash, the venue's fees
     // included (the same figure the button reads). Preserve the draft
     // while Deposit opens; returning still requires a fresh review.
-    final terms = ref
-            .read(polymarketFeeTermsProvider(selected.tokenId ?? ''))
-            .valueOrNull ??
-        PolymarketFeeTerms.worstCase;
-    final shortfall = _requiresPrefundedBitcoin
-        ? max(0.0, _bitcoinPrefundRequired() - balance)
-        : _predictionsShortfall(balance, terms);
+    final terms =
+        ref.read(polymarketFeeTermsProvider(selected.tokenId ?? '')).valueOrNull ??
+            PolymarketFeeTerms.worstCase;
+    final shortfall = _predictionsShortfall(balance, terms);
     if (shortfall > 0) {
       // One balance: the bet funds its shortfall from Dollars and queues
       // behind the credit, under one approval. Money this slip moved
@@ -2963,8 +2737,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     if (pending == null) return decline('no_intent');
     final controller = ref.read(polymarketBetControllerProvider);
     try {
-      pending = await controller.prepareIntent(pending,
-          requireFreshCollateral: _requiresPrefundedBitcoin);
+      pending = await controller.prepareIntent(pending);
       PolymarketPlacementTimeline.mark('quote');
       // The book cannot fill this stake within the price cap: say what
       // does fill now instead of sending it to fill in part (or be
@@ -3007,15 +2780,6 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       return null;
     }
     if (!mounted) return null;
-    if (_requiresPrefundedBitcoin && funding == null) {
-      final required = pending.marketQuote?.allInMax ??
-          _predictionsRequired(
-              pending.feeTerms ?? PolymarketFeeTerms.worstCase);
-      if (!await _prefundedBetCovered(requiredUsd: required)) {
-        if (mounted) _pendingNotifier.clear();
-        return null;
-      }
-    }
     final legs = funding != null ? directLegs : null;
     if (legs != null || pending.directLegs != null) {
       pending = pending.copyWith(
@@ -3167,7 +2931,6 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     }
     final failure = await ref.read(polymarketBetControllerProvider).place(
           mode,
-          requireFreshCollateral: _requiresPrefundedBitcoin,
           grant: grant,
           // Spot bets end on the shared confirmation, which fires the
           // success haptic itself; limit orders keep the controller's.
@@ -3360,7 +3123,6 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       if (mounted) _updateState(() => _buyInFlight = false);
     }
   }
-
   /// The prefill is worked out (or the tap ended): the door stops
   /// calculating.
   void _depositSheetOpening() {
@@ -3478,12 +3240,6 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     required String mode,
     required String outcomeLabel,
   }) async {
-    if (_requiresPrefundedBitcoin) {
-      ref.read(pendingPolymarketBetProvider.notifier).clear();
-      unawaited(ref.read(predictionsPrefundTransferProvider).refresh());
-      _updateState(() {});
-      return;
-    }
     final pendingNotifier = ref.read(pendingPolymarketBetProvider.notifier);
     void dropQueued() {
       if (!mounted) return;
@@ -5705,10 +5461,6 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       );
     }
     if (_isLedger) return _buildLedgerPrimaryAction(c, selectedColor);
-    if (_requiresPrefundedBitcoin && !_isPlacing && !busy) {
-      final transfer = _buildBitcoinPrefundAction(selectedColor, selected);
-      if (transfer != null) return transfer;
-    }
     // A bet whose money is being moved (from Bitcoin, Dollars, Investing
     // or any mix): its steps under one busy button, from the moment it
     // was approved, through the placement, to the end. A stop keeps them,

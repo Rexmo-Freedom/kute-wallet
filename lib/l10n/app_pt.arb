@@ -3362,9 +3362,5 @@
   "moneyStepArrived": "Chegou ao Bitcoin",
   "moneyStepSending": "A enviar {amount}",
   "moneyStepSent": "Enviados {amount}",
-  "moneyStepCompact": "{source} → {destination} · {amount}",
-  "betTransferToPolymarket": "Transferir para a Polymarket",
-  "betBitcoinFiveMinutePrefundNote": "As apostas de Bitcoin de 5 minutos exigem fundos disponíveis na Polymarket. Primeiro transfere os fundos e depois faz a tua aposta.",
-  "betTransferCheckBalance": "Verificar transferência",
-  "betTransferWaitingNote": "A tua transferência está a ser verificada. A tua aposta não foi feita."
+  "moneyStepCompact": "{source} → {destination} · {amount}"
 }

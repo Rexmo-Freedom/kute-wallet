@@ -751,7 +751,6 @@ class MarginFundingRunner {
               case null:
                 return MarginFundedEnd.stopped;
             }
-          case BitcoinFundedEnd.transferred:
           case BitcoinFundedEnd.ready:
             return MarginFundedEnd.ready;
           case BitcoinFundedEnd.refunded:

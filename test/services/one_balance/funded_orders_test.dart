@@ -121,8 +121,7 @@ void main() {
     expect(records.single.reason, 'interrupted');
     // Never live again: no header line claims the bet is being placed.
     expect(FundedOrdersNotifier.liveOwnerOf(records, 'ord_btc'), isNull);
-    expect(
-        FundedOrdersNotifier.activeOf(records, OneBalanceVenue.predictions),
+    expect(FundedOrdersNotifier.activeOf(records, OneBalanceVenue.predictions),
         isNull);
     // Its bitcoin row is still this venue's deposit on its way.
     expect(FundedOrdersNotifier.btcRowVenue(records, 'ord_btc'),
@@ -145,8 +144,7 @@ void main() {
         isNull);
   });
 
-  test('a new funded order for the market closes its tap-to-place note',
-      () {
+  test('a new funded order for the market closes its tap-to-place note', () {
     final c = ProviderContainer();
     addTearDown(c.dispose);
     final orders = c.read(fundedOrdersProvider.notifier);
@@ -194,6 +192,32 @@ void main() {
         isNotNull);
     // An order's label stays as it always was on disk.
     expect(_bet.toJson().containsKey('kind'), isFalse);
+  });
+
+  test('retired transfer records remain history and never resume as bets', () {
+    const oldTransfer = FundedOrderLabel(
+        venue: OneBalanceVenue.predictions,
+        orderUsd: 10,
+        side: '',
+        market: 'Polymarket',
+        marketKey: 'prefund',
+        kind: FundedOrderKind.transfer);
+    final first = ProviderContainer();
+    first
+        .read(fundedOrdersProvider.notifier)
+        .start(oldTransfer, stage: FundedOrderStage.preparing);
+    first.dispose();
+    final reopened = ProviderContainer();
+    addTearDown(reopened.dispose);
+    final records = reopened.read(fundedOrdersProvider);
+    expect(records.single.label.kind, FundedOrderKind.transfer);
+    expect(records.single.stage, FundedOrderStage.ready);
+    expect(FundedOrdersNotifier.activeOf(records, OneBalanceVenue.predictions),
+        isNull);
+    expect(
+        FundedOrdersNotifier.progressOn(
+            records, OneBalanceVenue.predictions, 'prefund', DateTime.now()),
+        isNull);
   });
 
   test('rows carrying a live order are named by it, once per order', () {

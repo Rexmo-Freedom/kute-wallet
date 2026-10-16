@@ -3058,9 +3058,5 @@
   "moneyStepArrived": "Arrivato su Bitcoin",
   "moneyStepSending": "Invio di {amount}",
   "moneyStepSent": "Inviati {amount}",
-  "moneyStepCompact": "{source} → {destination} · {amount}",
-  "betTransferToPolymarket": "Trasferisci a Polymarket",
-  "betBitcoinFiveMinutePrefundNote": "Le scommesse Bitcoin a 5 minuti richiedono fondi disponibili su Polymarket. Prima trasferisci i fondi, poi piazza la scommessa.",
-  "betTransferCheckBalance": "Controlla trasferimento",
-  "betTransferWaitingNote": "Il tuo trasferimento è in fase di verifica. La tua scommessa non è stata piazzata."
+  "moneyStepCompact": "{source} → {destination} · {amount}"
 }

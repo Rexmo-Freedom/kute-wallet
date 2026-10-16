@@ -123,7 +123,6 @@ class _Run {
   final queued = <({double fundUsd, double readyUsd, DateTime at})>[];
   final more = <double>[];
   var dropped = 0;
-  var placementWatches = 0;
   late ProviderContainer c;
   late VenueCashPuller puller;
   late String runId;
@@ -170,8 +169,7 @@ class _Run {
         },
       );
 
-  Future<BitcoinFundedRun> start(
-      {bool trackCash = false, FundingTransferCompletion? transfer}) async {
+  Future<BitcoinFundedRun> start({bool trackCash = false}) async {
     puller = VenueCashPuller(
       sources: [predictions],
       readDollars: () => dollars,
@@ -240,7 +238,6 @@ class _Run {
             ),
             fundUsd: 9.11,
             readyUsd: 2.37,
-            transfer: transfer,
             plan: plan,
             entrySource: 'market',
             queue: ({required double fundUsd, required double readyUsd}) async {
@@ -271,7 +268,6 @@ class _Run {
             // The venue's autofire: it places the order once the account
             // holds enough, i.e. once every move into it was delivered.
             awaitPlacement: ({required onCredited}) async {
-              placementWatches++;
               for (var i = 0; i < 3000; i++) {
                 final needed = refuseDirect == null
                     ? {'ord_dollars', 'ord_direct'}
@@ -332,55 +328,6 @@ void main() {
         const Duration(milliseconds: 500);
     VenueCashFundedOrderRunner.legMaxWait = const Duration(minutes: 12);
   });
-
-  for (final ready in [true, false]) {
-    test(
-        'transfer-only venue cash '
-        '${ready ? 'finishes transferred' : 'cannot succeed without readiness'}',
-        () async {
-      final readiness = Completer<bool>();
-      var readinessWaits = 0;
-      final h = _Run();
-      final run = await h.start(
-          transfer: FundingTransferCompletion(
-              phases: () => const Stream<String>.empty(),
-              wait: ({required onCredited}) async {
-                readinessWaits++;
-                final usable = await readiness.future;
-                if (usable) onCredited();
-                return usable;
-              }));
-      await h.until(() =>
-          h.record.steps.legs.isNotEmpty &&
-          h.record.steps.legs.every((s) => s.status.satisfies));
-      expect(h.placementWatches, 0);
-      expect(h.record.steps.byId(FundedStepId.place), isNull);
-      var ended = false;
-      unawaited(run.ended.then((_) => ended = true));
-      await Future<void>.delayed(const Duration(milliseconds: 5));
-      expect(ended, isFalse);
-      readiness.complete(ready);
-      final end = await run.ended;
-      expect(
-          end,
-          ready
-              ? BitcoinFundedEnd.transferred
-              : BitcoinFundedEnd.placementFailed);
-      expect(end, isNot(BitcoinFundedEnd.placed));
-      expect(h.record.stage,
-          ready ? FundedOrderStage.done : FundedOrderStage.failed);
-      expect(h.record.steps.byId(FundedStepId.place), isNull);
-      expect(h.placementWatches, 0);
-      expect(readinessWaits, 1);
-      final completed = events.where((e) => e.$1 == 'order_funding_completed');
-      if (ready) {
-        expect(completed.single.$2!['outcome'], 'funds_ready');
-        expect(completed.single.$2!['funding_purpose'], 'predictions_prefund');
-      } else {
-        expect(completed, isEmpty);
-      }
-    });
-  }
 
   for (final home in [false, true]) {
     for (final status in ['refunded', 'failed', 'processing']) {

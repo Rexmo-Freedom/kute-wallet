@@ -3058,9 +3058,5 @@
   "moneyStepArrived": "Ankommet i Bitcoin",
   "moneyStepSending": "Sender {amount}",
   "moneyStepSent": "Sendte {amount}",
-  "moneyStepCompact": "{source} → {destination} · {amount}",
-  "betTransferToPolymarket": "Overfør til Polymarket",
-  "betBitcoinFiveMinutePrefundNote": "5-minutters væddemål på Bitcoin kræver, at dine penge er klar i Polymarket. Overfør først, og placér derefter dit væddemål.",
-  "betTransferCheckBalance": "Tjek overførsel",
-  "betTransferWaitingNote": "Din overførsel bliver tjekket. Dit væddemål er ikke blevet placeret."
+  "moneyStepCompact": "{source} → {destination} · {amount}"
 }

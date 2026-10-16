@@ -10915,18 +10915,4 @@ class AppLocalizationsLv extends AppLocalizations {
   String moneyStepCompact(String source, String destination, String amount) {
     return '$source → $destination · $amount';
   }
-
-  @override
-  String get betTransferToPolymarket => 'Pārskaitīt uz Polymarket';
-
-  @override
-  String get betBitcoinFiveMinutePrefundNote =>
-      'Lai veiktu Bitcoin 5 minūšu likmes, līdzekļiem jābūt pieejamiem Polymarket. Vispirms pārskaitiet līdzekļus un pēc tam veiciet likmi.';
-
-  @override
-  String get betTransferCheckBalance => 'Pārbaudīt pārskaitījumu';
-
-  @override
-  String get betTransferWaitingNote =>
-      'Jūsu pārskaitījums tiek pārbaudīts. Jūsu likme nav veikta.';
 }

@@ -3058,9 +3058,5 @@
   "moneyStepArrived": "Stiglo na saldo Bitcoin",
   "moneyStepSending": "Šaljemo {amount}",
   "moneyStepSent": "Poslano {amount}",
-  "moneyStepCompact": "{source} → {destination} · {amount}",
-  "betTransferToPolymarket": "Prenesi na Polymarket",
-  "betBitcoinFiveMinutePrefundNote": "Za 5-minutne oklade na Bitcoin sredstva moraju biti spremna na Polymarketu. Najprije ih prenesi, a zatim postavi okladu.",
-  "betTransferCheckBalance": "Provjeri prijenos",
-  "betTransferWaitingNote": "Tvoj se prijenos provjerava. Tvoja oklada nije postavljena."
+  "moneyStepCompact": "{source} → {destination} · {amount}"
 }

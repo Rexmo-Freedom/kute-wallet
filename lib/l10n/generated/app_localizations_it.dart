@@ -10996,18 +10996,4 @@ class AppLocalizationsIt extends AppLocalizations {
   String moneyStepCompact(String source, String destination, String amount) {
     return '$source → $destination · $amount';
   }
-
-  @override
-  String get betTransferToPolymarket => 'Trasferisci a Polymarket';
-
-  @override
-  String get betBitcoinFiveMinutePrefundNote =>
-      'Le scommesse Bitcoin a 5 minuti richiedono fondi disponibili su Polymarket. Prima trasferisci i fondi, poi piazza la scommessa.';
-
-  @override
-  String get betTransferCheckBalance => 'Controlla trasferimento';
-
-  @override
-  String get betTransferWaitingNote =>
-      'Il tuo trasferimento è in fase di verifica. La tua scommessa non è stata piazzata.';
 }

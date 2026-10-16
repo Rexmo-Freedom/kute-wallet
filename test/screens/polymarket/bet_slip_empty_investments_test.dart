@@ -95,7 +95,7 @@ class _Controller extends PolymarketBetController {
 
   @override
   Future<PendingBetIntent> prepareIntent(PendingBetIntent intent,
-      {bool requireFreshCollateral = false}) async =>
+          {bool requireFreshCollateral = false}) async =>
       intent;
 
   @override
@@ -260,13 +260,10 @@ Future<void> _pumpSlip(WidgetTester tester,
       polymarketFeeTermsProvider
           .overrideWith((ref, _) async => PolymarketFeeTerms.worstCase),
       polymarketBetControllerProvider.overrideWith(_Controller.new),
-      polymarketMarketWindowReaderProvider
-          .overrideWithValue((_) async => null),
+      polymarketMarketWindowReaderProvider.overrideWithValue((_) async => null),
       sparkSelfAddressProvider.overrideWith((_) async => _ownSpark),
       venueCashPullerProvider.overrideWith((_) => VenueCashPuller(
-          sources: const [],
-          readDollars: () => 0,
-          minimumUsd: (_) async => 1)),
+          sources: const [], readDollars: () => 0, minimumUsd: (_) async => 1)),
       bitcoinLegEnvProvider.overrideWith((_) => _env.env),
       orderFundingControllerProvider.overrideWithValue(OrderFundingController(
           funderFor: (_) => _funder, dollarsUsd: () => 0)),
@@ -339,7 +336,8 @@ void main() {
     // Any sheet the slip might open, recorded: none must open.
     debugShowSlipTopUpSheet = (venue, _) async => sheets.add('top_up');
     debugShowSlipReceiveSheet = (venue, _) async => sheets.add('receive');
-    debugShowEmptySlipDepositSheet = (venue, _) async => sheets.add('deposit:$venue');
+    debugShowEmptySlipDepositSheet =
+        (venue, _) async => sheets.add('deposit:$venue');
     // The ONE prompt, approved.
     debugPmBetFundingApproval = (intent) async {
       approvals.add(intent);
@@ -372,15 +370,25 @@ void main() {
     await tester.pump(const Duration(minutes: 31));
   }
 
-  testWidgets('an old ready record adds no message above the bet button', (tester) async {
+  testWidgets('an old ready record adds no message above the bet button',
+      (tester) async {
     expect(await policy.refresh(), isTrue);
     final now = DateTime.now();
-    await _pumpSlip(tester, funded: [FundedOrderRecord(
-      id: 'old-ready',
-      label: const FundedOrderLabel(venue: OneBalanceVenue.predictions,
-          orderUsd: 5, side: 'Yes', market: 'Will it rain?', marketKey: 'yes-token'),
-      stage: FundedOrderStage.ready, createdAt: now, updatedAt: now, addUsd: 6,
-    )]);
+    await _pumpSlip(tester, funded: [
+      FundedOrderRecord(
+        id: 'old-ready',
+        label: const FundedOrderLabel(
+            venue: OneBalanceVenue.predictions,
+            orderUsd: 5,
+            side: 'Yes',
+            market: 'Will it rain?',
+            marketKey: 'yes-token'),
+        stage: FundedOrderStage.ready,
+        createdAt: now,
+        updatedAt: now,
+        addUsd: 6,
+      )
+    ]);
     expect(find.byType(SlipFundingReadyNote), findsNothing);
     expect(find.textContaining('Tap to place'), findsNothing);
     expect(_cta(tester).label, startsWith(r'Add $'));
@@ -423,8 +431,8 @@ void main() {
     expect(pending.status, PendingBetStatus.awaitingBalance);
 
     // The steps, on the slip, under one busy button.
-    expect(find.byKey(const ValueKey('bet-slip-funded-progress')),
-        findsOneWidget);
+    expect(
+        find.byKey(const ValueKey('bet-slip-funded-progress')), findsOneWidget);
     expect(_cta(tester).isBusy, isTrue);
     final money = '\$${pending.amount.toStringAsFixed(2)}';
     expect(find.text('Placing $money on Yes'), findsOneWidget);
@@ -443,7 +451,8 @@ void main() {
     expect(approvals, hasLength(1));
     await release(tester);
   });
-  testWidgets('known zero across all sources opens Predictions deposit and preserves slip',
+  testWidgets(
+      'known zero across all sources opens Predictions deposit and preserves slip',
       (tester) async {
     expect(await policy.refresh(), isTrue);
     debugFreshSpendingBitcoin = () async => (sats: 0, usdPerBtc: 60000.0);

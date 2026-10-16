@@ -3058,9 +3058,5 @@
   "moneyStepArrived": "Atkeliavo į likutį Bitcoin",
   "moneyStepSending": "Siunčiama {amount}",
   "moneyStepSent": "Išsiųsta {amount}",
-  "moneyStepCompact": "{source} → {destination} · {amount}",
-  "betTransferToPolymarket": "Pervesti į Polymarket",
-  "betBitcoinFiveMinutePrefundNote": "5 minučių Bitcoin statymams lėšos turi būti paruoštos Polymarket platformoje. Pirmiausia perveskite lėšas, tada atlikite statymą.",
-  "betTransferCheckBalance": "Patikrinti pervedimą",
-  "betTransferWaitingNote": "Jūsų pervedimas tikrinamas. Jūsų statymas nebuvo atliktas."
+  "moneyStepCompact": "{source} → {destination} · {amount}"
 }

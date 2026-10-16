@@ -3058,9 +3058,5 @@
   "moneyStepArrived": "Έφτασε στο Bitcoin",
   "moneyStepSending": "Αποστολή {amount}",
   "moneyStepSent": "Στάλθηκαν {amount}",
-  "moneyStepCompact": "{source} → {destination} · {amount}",
-  "betTransferToPolymarket": "Μεταφορά στο Polymarket",
-  "betBitcoinFiveMinutePrefundNote": "Για τα στοιχήματα Bitcoin διάρκειας 5 λεπτών, τα χρήματα πρέπει να είναι διαθέσιμα στο Polymarket. Πρώτα μεταφέρετε τα χρήματα και μετά τοποθετήστε το στοίχημά σας.",
-  "betTransferCheckBalance": "Έλεγχος μεταφοράς",
-  "betTransferWaitingNote": "Η μεταφορά σας ελέγχεται. Το στοίχημά σας δεν έχει τοποθετηθεί."
+  "moneyStepCompact": "{source} → {destination} · {amount}"
 }

@@ -83,13 +83,3 @@ final RegExp _kUpDownTitle =
 /// written that way.
 String? polyCryptoRoundAssetName(String title) =>
     _kUpDownTitle.firstMatch(title.trim())?.group(1)?.trim();
-
-/// Bitcoin's five-minute series requires spendable Predictions cash
-/// before an explicit order tap. Only canonical series metadata qualifies.
-bool polyRequiresPrefundedBitcoinFiveMinute(String? slug) {
-  if (slug == null) return false;
-  final round = polyCryptoRoundOf(slug);
-  return round != null &&
-      (round.asset == 'btc' || round.asset == 'bitcoin') &&
-      round.window == const Duration(minutes: 5);
-}

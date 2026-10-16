@@ -3058,9 +3058,5 @@
   "moneyStepArrived": "Jõudis kontole Bitcoin",
   "moneyStepSending": "Saadame {amount}",
   "moneyStepSent": "Saadetud {amount}",
-  "moneyStepCompact": "{source} → {destination} · {amount}",
-  "betTransferToPolymarket": "Kanna Polymarketi",
-  "betBitcoinFiveMinutePrefundNote": "Bitcoini 5-minutilisteks panusteks peavad vahendid olema Polymarketis valmis. Kõigepealt kanna raha üle, seejärel tee panus.",
-  "betTransferCheckBalance": "Kontrolli ülekannet",
-  "betTransferWaitingNote": "Sinu ülekannet kontrollitakse. Sinu panust ei ole tehtud."
+  "moneyStepCompact": "{source} → {destination} · {amount}"
 }

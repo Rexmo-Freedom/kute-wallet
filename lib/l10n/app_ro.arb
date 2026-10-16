@@ -3058,9 +3058,5 @@
   "moneyStepArrived": "A ajuns în Bitcoin",
   "moneyStepSending": "Se trimit {amount}",
   "moneyStepSent": "Trimis {amount}",
-  "moneyStepCompact": "{source} → {destination} · {amount}",
-  "betTransferToPolymarket": "Transferă către Polymarket",
-  "betBitcoinFiveMinutePrefundNote": "Pariurile Bitcoin pe 5 minute necesită fonduri disponibile în Polymarket. Transferă mai întâi fondurile, apoi plasează pariul.",
-  "betTransferCheckBalance": "Verifică transferul",
-  "betTransferWaitingNote": "Transferul tău este în curs de verificare. Pariul tău nu a fost plasat."
+  "moneyStepCompact": "{source} → {destination} · {amount}"
 }

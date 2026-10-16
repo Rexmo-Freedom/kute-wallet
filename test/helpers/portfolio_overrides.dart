@@ -119,6 +119,8 @@ List<Override> portfolioOverrides({
       // Statistics: nothing charted, an empty account, no conversion store
       // (which would open a Hive box), no network.
       hyperliquidAccountProvider.overrideWith(PortfolioTestAccount.new),
+      hyperliquidDisplayAccountProvider.overrideWith(
+          (ref) => ref.watch(hyperliquidAccountProvider)),
       swapOrdersProvider.overrideWith((_) => FakeSwapOrders()),
       for (final venue in PortfolioPerformanceVenue.values)
         portfolioPerformanceProvider(PortfolioPerformanceRequest(venue: venue))

@@ -10959,18 +10959,4 @@ class AppLocalizationsFi extends AppLocalizations {
   String moneyStepCompact(String source, String destination, String amount) {
     return '$source → $destination · $amount';
   }
-
-  @override
-  String get betTransferToPolymarket => 'Siirrä Polymarketiin';
-
-  @override
-  String get betBitcoinFiveMinutePrefundNote =>
-      'Bitcoinin 5 minuutin vedot edellyttävät, että varat ovat valmiina Polymarketissa. Siirrä varat ensin ja aseta sitten veto.';
-
-  @override
-  String get betTransferCheckBalance => 'Tarkista siirto';
-
-  @override
-  String get betTransferWaitingNote =>
-      'Siirtoasi tarkistetaan. Vetoasi ei ole asetettu.';
 }

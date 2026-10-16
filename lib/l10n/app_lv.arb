@@ -3058,9 +3058,5 @@
   "moneyStepArrived": "Ienācis kontā Bitcoin",
   "moneyStepSending": "Sūta {amount}",
   "moneyStepSent": "Nosūtīts {amount}",
-  "moneyStepCompact": "{source} → {destination} · {amount}",
-  "betTransferToPolymarket": "Pārskaitīt uz Polymarket",
-  "betBitcoinFiveMinutePrefundNote": "Lai veiktu Bitcoin 5 minūšu likmes, līdzekļiem jābūt pieejamiem Polymarket. Vispirms pārskaitiet līdzekļus un pēc tam veiciet likmi.",
-  "betTransferCheckBalance": "Pārbaudīt pārskaitījumu",
-  "betTransferWaitingNote": "Jūsu pārskaitījums tiek pārbaudīts. Jūsu likme nav veikta."
+  "moneyStepCompact": "{source} → {destination} · {amount}"
 }

@@ -3058,9 +3058,5 @@
   "moneyStepArrived": "Pripísané na zostatok Bitcoin",
   "moneyStepSending": "Odosielame {amount}",
   "moneyStepSent": "Odoslané {amount}",
-  "moneyStepCompact": "{source} → {destination} · {amount}",
-  "betTransferToPolymarket": "Previesť na Polymarket",
-  "betBitcoinFiveMinutePrefundNote": "Na 5-minútové stávky na Bitcoin musia byť prostriedky pripravené na Polymarkete. Najprv ich preveďte a potom podajte stávku.",
-  "betTransferCheckBalance": "Skontrolovať prevod",
-  "betTransferWaitingNote": "Váš prevod sa kontroluje. Vaša stávka nebola podaná."
+  "moneyStepCompact": "{source} → {destination} · {amount}"
 }

@@ -3058,9 +3058,5 @@
   "moneyStepArrived": "Prispelo na stanje Bitcoin",
   "moneyStepSending": "Pošiljanje {amount}",
   "moneyStepSent": "Poslano {amount}",
-  "moneyStepCompact": "{source} → {destination} · {amount}",
-  "betTransferToPolymarket": "Prenesi na Polymarket",
-  "betBitcoinFiveMinutePrefundNote": "Za 5-minutne stave na Bitcoin morajo biti sredstva pripravljena na Polymarketu. Najprej jih prenesi, nato oddaj stavo.",
-  "betTransferCheckBalance": "Preveri prenos",
-  "betTransferWaitingNote": "Tvoj prenos se preverja. Tvoja stava ni bila oddana."
+  "moneyStepCompact": "{source} → {destination} · {amount}"
 }

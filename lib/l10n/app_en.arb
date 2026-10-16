@@ -6647,9 +6647,5 @@
   "moneyStepSent": "Sent {amount}",
   "@moneyStepSent": {"description": "The same step once the send settled (shown with a check). {amount} formatted dollars.", "placeholders": {"amount": {"type": "String"}}},
   "moneyStepCompact": "{source} → {destination} · {amount}",
-  "@moneyStepCompact": {"description": "One step of a money move in its Activity detail, compact: where the money went and how much, e.g. Investing → Dollars · $20.69. The line's icon says whether it is running, done or failed. {source} and {destination} are balance names (or where a send went), {amount} formatted dollars.", "placeholders": {"source": {"type": "String"}, "destination": {"type": "String"}, "amount": {"type": "String"}}},
-  "betTransferToPolymarket": "Transfer to Polymarket",
-  "betBitcoinFiveMinutePrefundNote": "Bitcoin 5-minute bets need funds ready in Polymarket. Transfer first, then place your bet.",
-  "betTransferCheckBalance": "Check transfer",
-  "betTransferWaitingNote": "Your transfer is being checked. Your bet has not been placed."
+  "@moneyStepCompact": {"description": "One step of a money move in its Activity detail, compact: where the money went and how much, e.g. Investing → Dollars · $20.69. The line's icon says whether it is running, done or failed. {source} and {destination} are balance names (or where a send went), {amount} formatted dollars.", "placeholders": {"source": {"type": "String"}, "destination": {"type": "String"}, "amount": {"type": "String"}}}
 }

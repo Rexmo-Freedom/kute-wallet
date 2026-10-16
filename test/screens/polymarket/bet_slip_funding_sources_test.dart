@@ -52,8 +52,6 @@ import 'package:kute/services/one_balance/predictions_venue_funder.dart';
 import 'package:kute/services/one_balance/venue_cash_source.dart';
 import 'package:kute/services/one_balance/venue_funder.dart';
 import 'package:kute/services/polymarket/polymarket_fee_terms.dart';
-import 'package:kute/services/polymarket/venue_collateral.dart';
-import 'package:kute/services/one_balance/predictions_prefund_transfer.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -77,28 +75,11 @@ class _Prices extends LivePriceNotifier {
   void addTokens(List<String> tokenIds, {bool pin = true}) {}
 }
 
-bool _prefundMode = false;
-PolyBuyReads? _prefundReads;
-int _prefundReviews = 0;
-PolyBuyReads _cash(double amount) => (
-      pusd: BigInt.from((amount * 1e6).round()),
-      usdce: BigInt.zero,
-      setupDone: true,
-      venue: PolyVenueCount(balance: BigInt.from((amount * 1e6).round()))
-    );
-
-/// Predictions hold nothing in the aggregate cache.
+/// Predictions hold nothing.
 class _Trading extends PolymarketTradingNotifier {
   @override
-  Future<PolymarketTradingState> build() async => const PolymarketTradingState(
-      usdcBalance: 0,
-      proxyWalletAddress: _pmDeposit,
-      walletAddress: _pmDeposit);
-  @override
-  String? get signingWalletId => 'w';
-  @override
-  Future<PolyBuyReads?> readBuyReadiness({bool refreshVenue = false}) async =>
-      _prefundReads;
+  Future<PolymarketTradingState> build() async =>
+      const PolymarketTradingState(usdcBalance: 0);
 }
 
 class _Currency extends StateNotifier<CurrencyState>
@@ -114,21 +95,17 @@ class _Controller extends PolymarketBetController {
 
   @override
   Future<PendingBetIntent> prepareIntent(PendingBetIntent intent,
-      {bool requireFreshCollateral = false}) async {
-    if (_prefundMode) _prefundReviews++;
-    return intent;
-  }
+          {bool requireFreshCollateral = false}) async =>
+      intent;
 
   @override
-  SensitiveIntent? reviewIntent(PendingBetIntent intent) => _prefundMode
-      ? null
-      : PmGrants.betReview(
-          walletId: 'w',
-          tokenId: intent.tokenId,
-          maxCostUsd: intent.amount * 1.1,
-          worstPrice: 0.6,
-          orderType: 'fak',
-        );
+  SensitiveIntent? reviewIntent(PendingBetIntent intent) => PmGrants.betReview(
+        walletId: 'w',
+        tokenId: intent.tokenId,
+        maxCostUsd: intent.amount * 1.1,
+        worstPrice: 0.6,
+        orderType: 'fak',
+      );
 
   @override
   void prefetchForSend(PendingBetIntent intent) {}
@@ -143,7 +120,6 @@ class _Funder implements VenueFunder {
       required MoveAuthorization auth,
       String purpose = 'order_funding'}) async {
     sent.add(usd);
-    if (_prefundMode) _prefundReads = _cash(usd);
     return VenueMoveResult(
         quoteId: 'q_venue', sentUsd: usd, arrivingUsdEstimate: usd);
   }
@@ -210,8 +186,6 @@ class _Env {
 
   BitcoinLegEnv get env => BitcoinLegEnv(
         ownSpark: () async => _ownSpark,
-        legStatus: _prefundMode ? (_) async => 'completed' : null,
-        legPollEvery: const Duration(milliseconds: 1),
         send: ({
           required String sparkAddress,
           required BitcoinLegPlan plan,
@@ -281,8 +255,7 @@ late _Env _env;
 late _Funder _funder;
 late _Investing _investing;
 
-Future<void> _pumpSlip(WidgetTester tester,
-    {String? slug, DateTime? endAt}) async {
+Future<void> _pumpSlip(WidgetTester tester, {String? slug}) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -309,7 +282,7 @@ Future<void> _pumpSlip(WidgetTester tester,
       aiEnabledProvider.overrideWith((ref) async => false),
       currencyProvider.overrideWith((ref) => _Currency()),
       // $5 in Dollars.
-      usdBalanceProvider.overrideWithValue(_prefundMode ? 20 : 5),
+      usdBalanceProvider.overrideWithValue(5),
       polymarketFeeTermsProvider
           .overrideWith((ref, _) async => PolymarketFeeTerms.worstCase),
       polymarketBetControllerProvider.overrideWith(_Controller.new),
@@ -318,11 +291,11 @@ Future<void> _pumpSlip(WidgetTester tester,
       // $7 of Investing cash.
       venueCashPullerProvider.overrideWith((_) => VenueCashPuller(
           sources: [_investing],
-          readDollars: () => _prefundMode ? 20 : 5,
+          readDollars: () => 5,
           minimumUsd: (_) async => 1)),
       bitcoinLegEnvProvider.overrideWith((_) => _env.env),
       orderFundingControllerProvider.overrideWithValue(OrderFundingController(
-          funderFor: (_) => _funder, dollarsUsd: () => _prefundMode ? 20 : 5)),
+          funderFor: (_) => _funder, dollarsUsd: () => 5)),
     ],
     child: ScreenUtilInit(
       designSize: const Size(430, 932),
@@ -340,7 +313,6 @@ Future<void> _pumpSlip(WidgetTester tester,
             child: BetSlipSheet(
                 marketQuestion: 'Will it rain?',
                 marketSlug: slug,
-                marketEndAt: endAt,
                 outcomes: _outcomes,
                 initialAmountUsd: 10),
           ),
@@ -379,9 +351,6 @@ void main() {
     DirectRouteRefusals.reset();
     policy = runtimePolicyFixture();
     RuntimeCapabilitiesService.debugInstance = policy;
-    _prefundMode = false;
-    _prefundReads = _cash(0);
-    _prefundReviews = 0;
     _env = _Env();
     _funder = _Funder();
     _investing = _Investing();
@@ -410,7 +379,6 @@ void main() {
     debugShowSlipTopUpSheet = null;
     debugShowSlipReceiveSheet = null;
     debugPmBetFundingApproval = null;
-    debugPmPrefundTransferApproval = null;
     TrackingService.debugTrackObserver = null;
     AuthGrantRegistry.instance.cancelAutofire(kPendingBetAutofireId);
     FundedOrdersNotifier.persist = true;
@@ -434,91 +402,41 @@ void main() {
     await _frames(tester, 3);
   }
 
-  testWidgets(
-      'Bitcoin 5m transfer readies funds and requires a separate bet tap',
-      (tester) async {
-    _prefundMode = true;
-    debugFreshSpendingBitcoin = () async => (sats: 0, usdPerBtc: 60000.0);
-    debugPmPrefundTransferApproval = (intent) async {
-      approvals.add(intent);
-      return AuthGrants.issue(intent, method: AuthGrantMethod.biometric);
-    };
-    await policy.refresh();
-    await _pumpSlip(tester,
-        slug: 'btc-updown-5m-1792152000',
-        endAt: DateTime.now().add(const Duration(minutes: 4)));
-    expect(_cta(tester).label, 'Transfer to Polymarket');
-    expect(find.textContaining('Transfer first, then place your bet.'),
-        findsOneWidget);
-    await tester.tap(find.byType(PolySlipCta));
-    for (var i = 0; i < 100; i++) {
-      await tester.pump(const Duration(milliseconds: 100));
-      final transfer =
-          _container(tester).read(predictionsPrefundTransferProvider);
-      if (_funder.sent.isNotEmpty &&
-          !transfer.busy &&
-          (transfer.spendableUsd ?? 0) >= 10.43) {
-        break;
-      }
-    }
-    await _frames(tester, 3);
-    expect(_funder.sent, hasLength(1));
-    expect(approvals.single.action, SensitiveAction.moveTransfer);
-    expect(_prefundReviews, 1,
-        reason: 'only a local quote, never a queued bet');
-    expect(_container(tester).read(pendingPolymarketBetProvider), isNull);
-    expect(_cta(tester).label, contains('Yes'));
-    expect(_cta(tester).label, isNot('Transfer to Polymarket'));
-    expect(
-        _container(tester)
-            .read(fundedOrdersProvider)
-            .single
-            .steps
-            .byId('place'),
-        isNull);
-    await tester.tap(find.byType(PolySlipCta));
-    await _frames(tester);
-    expect(_prefundReviews, 2,
-        reason: 'fresh bet review begins only on the second tap');
-    expect(_funder.sent, hasLength(1));
-    await release(tester);
-  });
-
-  testWidgets(
-      'Bitcoin 5m fresh destination cash overrides stale aggregate CTA; a fresh shortage cannot auto fund',
-      (tester) async {
-    _prefundMode = true;
-    _prefundReads = _cash(20);
-    await policy.refresh();
-    await _pumpSlip(tester,
-        slug: 'btc-updown-5m-1792152000',
-        endAt: DateTime.now().add(const Duration(minutes: 4)));
-    expect(_cta(tester).label, contains('Yes'));
-    expect(_cta(tester).label, isNot('Transfer to Polymarket'));
-    // Balance changed after paint; the explicit bet tap must stop, not fund+bet.
-    _prefundReads = _cash(2);
-    await tester.tap(find.byType(PolySlipCta));
-    await _frames(tester);
-    expect(_cta(tester).label, 'Transfer to Polymarket');
-    expect(_prefundReviews, 0);
-    expect(_funder.sent, isEmpty);
-    expect(_container(tester).read(pendingPolymarketBetProvider), isNull);
-    await release(tester);
-  });
-
-  testWidgets('expired Bitcoin 5m round cannot transfer or place',
-      (tester) async {
-    _prefundMode = true;
-    _prefundReads = _cash(20);
-    await policy.refresh();
-    await _pumpSlip(tester,
-        slug: 'btc-updown-5m-1792152000',
-        endAt: DateTime.now().subtract(const Duration(seconds: 1)));
-    expect(_cta(tester).enabled, isFalse);
-    expect(_prefundReviews, 0);
-    expect(_funder.sent, isEmpty);
-    await release(tester);
-  });
+  for (final minutes in [5, 15]) {
+    testWidgets(
+        'Bitcoin $minutes-minute bet uses ordinary approval, funding and placement',
+        (tester) async {
+      debugFreshSpendingBitcoin =
+          () async => (sats: 1000000, usdPerBtc: 60000.0);
+      expect(await policy.refresh(), isTrue);
+      final epoch = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      await _pumpSlip(tester, slug: 'btc-updown-${minutes}m-$epoch');
+      expect(_cta(tester).label, isNot('Transfer to Polymarket'));
+      expect(find.textContaining('Transfer first, then place your bet.'),
+          findsNothing);
+      expect(approvals, isEmpty);
+      expect(_funder.sent, isEmpty);
+      expect(_container(tester).read(pendingPolymarketBetProvider), isNull);
+      await tester.tap(find.byType(PolySlipCta));
+      await _frames(tester, 10);
+      expect(approvals, hasLength(1));
+      expect(approvals.single.action, SensitiveAction.pmBet);
+      expect(_env.sends, 1);
+      expect(_funder.sent, hasLength(1));
+      expect(_investing.direct, isEmpty);
+      final intent = _container(tester).read(pendingPolymarketBetProvider);
+      expect(intent, isNotNull);
+      final record = _container(tester).read(fundedOrdersProvider).single;
+      expect(record.label.kind, FundedOrderKind.order);
+      expect(record.steps.byId('place'), isNotNull);
+      await placeAndFinish(tester);
+      expect(_container(tester).read(fundedOrdersProvider).single.stage,
+          FundedOrderStage.done);
+      expect(approvals, hasLength(1),
+          reason: 'one approved bet, no separate transfer action');
+      await release(tester);
+    });
+  }
 
   testWidgets(
       'a \$10 bet, \$5 Dollars, Bitcoin, \$7 Investing: Bitcoin brings the '

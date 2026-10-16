@@ -70,6 +70,8 @@ enum FundedMoneyAt {
 /// What a funded record is for: an order (or bet) a slip places, or
 /// margin the margin sheet adds to an isolated Investing position. Both
 /// run the same funding chain; the screens name them differently.
+// Keep transfer only to decode/display records from the retired separate
+// Bitcoin five-minute prefund flow. New predictions always create order runs.
 enum FundedOrderKind { order, margin, transfer }
 
 /// What the order is, in the words the screens show.

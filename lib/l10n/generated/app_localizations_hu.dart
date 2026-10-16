@@ -10972,18 +10972,4 @@ class AppLocalizationsHu extends AppLocalizations {
   String moneyStepCompact(String source, String destination, String amount) {
     return '$source → $destination · $amount';
   }
-
-  @override
-  String get betTransferToPolymarket => 'Átutalás a Polymarketre';
-
-  @override
-  String get betBitcoinFiveMinutePrefundNote =>
-      'Az 5 perces Bitcoin-fogadásokhoz az összegnek már elérhetőnek kell lennie a Polymarketen. Először utald át, majd tedd meg a fogadásodat.';
-
-  @override
-  String get betTransferCheckBalance => 'Átutalás ellenőrzése';
-
-  @override
-  String get betTransferWaitingNote =>
-      'Az átutalásod ellenőrzése folyamatban van. A fogadásod még nem lett megtéve.';
 }
