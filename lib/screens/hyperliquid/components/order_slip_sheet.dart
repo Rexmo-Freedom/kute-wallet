@@ -3484,6 +3484,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       // `slip_top_up_opened` is sent by openSlipReceive itself.
       await openSlipReceive(context,
           venue: SlipVenue.investing,
+          depositWhenKnownEmpty: true,
+          onDepositCompleted: slipTopUpReturned,
           addUsd: addUsd,
           shortfallUsd: _slipShortfallUsd);
     } catch (_) {

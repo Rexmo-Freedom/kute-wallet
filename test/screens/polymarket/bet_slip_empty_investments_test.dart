@@ -41,6 +41,7 @@ import 'package:kute/screens/shared/slip_shortfall.dart';
 import 'package:kute/services/funding/settlement_runner.dart'
     show SettlementStepUpHook;
 import 'package:kute/services/one_balance/bitcoin_funded_order.dart';
+import 'package:kute/services/one_balance/empty_slip_sources.dart';
 import 'package:kute/services/one_balance/bitcoin_to_dollars_leg.dart';
 import 'package:kute/services/one_balance/bitcoin_to_venue_leg.dart';
 import 'package:kute/services/one_balance/funded_orders.dart';
@@ -216,13 +217,14 @@ const _outcomes = [
 late _Env _env;
 late _Funder _funder;
 
-Future<void> _pumpSlip(WidgetTester tester) async {
+Future<void> _pumpSlip(WidgetTester tester, {bool knownEmpty = false}) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
   await tester.pumpWidget(ProviderScope(
     overrides: [
+      slipKnownEmptySourcesProvider.overrideWith((_) => () async => knownEmpty),
       settingsProvider.overrideWith((ref) => SettingsModel(Settings(
             currency: 'USD',
             language: 'en',
@@ -326,6 +328,7 @@ void main() {
     // Any sheet the slip might open, recorded: none must open.
     debugShowSlipTopUpSheet = (venue, _) async => sheets.add('top_up');
     debugShowSlipReceiveSheet = (venue, _) async => sheets.add('receive');
+    debugShowEmptySlipDepositSheet = (venue, _) async => sheets.add('deposit:$venue');
     // The ONE prompt, approved.
     debugPmBetFundingApproval = (intent) async {
       approvals.add(intent);
@@ -342,6 +345,7 @@ void main() {
     debugOwnVenueDeposit = null;
     debugShowSlipTopUpSheet = null;
     debugShowSlipReceiveSheet = null;
+    debugShowEmptySlipDepositSheet = null;
     debugPmBetFundingApproval = null;
     TrackingService.debugTrackObserver = null;
     AuthGrantRegistry.instance.cancelAutofire(kPendingBetAutofireId);
@@ -410,6 +414,30 @@ void main() {
     expect(record.stage, FundedOrderStage.done);
     expect(record.label.orderUsd, pending.amount);
     expect(approvals, hasLength(1));
+    await release(tester);
+  });
+  testWidgets('known zero across all sources opens Predictions deposit and preserves slip',
+      (tester) async {
+    expect(await policy.refresh(), isTrue);
+    debugFreshSpendingBitcoin = () async => (sats: 0, usdPerBtc: 60000.0);
+    await _pumpSlip(tester, knownEmpty: true);
+    await tester.tap(_door);
+    await _frames(tester, 20);
+    expect(sheets, ['deposit:SlipVenue.predictions']);
+    expect(find.byType(BetSlipSheet), findsOneWidget);
+    expect(approvals, isEmpty);
+    expect(_env.sends, 0);
+    await release(tester);
+  });
+  testWidgets('unknown sources never open Predictions contextual deposit',
+      (tester) async {
+    expect(await policy.refresh(), isTrue);
+    debugFreshSpendingBitcoin = () async => (sats: 0, usdPerBtc: 60000.0);
+    await _pumpSlip(tester);
+    await tester.tap(_door);
+    await _frames(tester, 20);
+    expect(sheets, ['receive']);
+    expect(approvals, isEmpty);
     await release(tester);
   });
 }

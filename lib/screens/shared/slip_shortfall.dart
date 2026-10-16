@@ -9,7 +9,9 @@
 // when it covers X, run in place on the slip whether or not anything was
 // typed (an empty slip takes the market's minimum first, never a sheet);
 // otherwise [openSlipReceive], the Investments Receive sheet, since the
-// money has to come from outside. [openSlipTopUp] (the Dollars deposit
+// money has to come from outside. Order and bet slips opt into a contextual
+// venue deposit instead only when every source is confirmed empty.
+// [openSlipTopUp] (the Dollars deposit
 // door, prefilled with exactly what is missing: the order's top-up,
 // [ShortfallRules.topUp], the route's fee counted, less the Dollars
 // already held) stays for "Add more". The slip stays open underneath with
@@ -63,6 +65,7 @@ import 'package:kute/screens/receive/receive_sheet.dart'
 import 'package:kute/services/api/orchestra_api.dart' show OrchestraService;
 import 'package:kute/services/funding/venue_shortfall.dart';
 import 'package:kute/services/one_balance/funded_orders.dart';
+import 'package:kute/services/one_balance/empty_slip_sources.dart';
 import 'package:kute/services/one_balance/money_steps.dart' show MoneyStepGraph;
 import 'package:kute/services/one_balance/one_balance_state.dart'
     show OneBalanceVenue;
@@ -426,12 +429,19 @@ double slipMaxFundableUsd({
 @visibleForTesting
 Future<void> Function(SlipVenue venue, double addUsd)? debugShowSlipReceiveSheet;
 
+@visibleForTesting
+Future<void> Function(SlipVenue venue, double targetUsd)?
+    debugShowEmptySlipDepositSheet;
+
 /// The "Add $X to Investments" tap whose X the spending bitcoin cannot
 /// cover (none, or too little once the route's spread is counted): the
 /// money has to come from outside, so this is the Investments Receive
 /// sheet, the one the Investments dock's Receive opens, never the Bitcoin
 /// Move sheet. The sheet takes no amount ([addUsd] is for the seam and the
 /// event only); the slip stays open underneath with everything typed.
+/// Order/bet callers may opt into [depositWhenKnownEmpty]: a confirmed empty
+/// wallet opens the existing deposit pinned to this venue and target. It
+/// queues no order; another user approval is required after funding.
 ///
 /// Sends `slip_top_up_opened` once, here, for every caller (the Investing
 /// ticket, the Predictions slip, the margin sheet): [venue]'s code, the
@@ -445,8 +455,34 @@ Future<void> openSlipReceive(
   required double addUsd,
   required double shortfallUsd,
   String? entrySource,
+  bool depositWhenKnownEmpty = false,
+  VoidCallback? onDepositCompleted,
 }) async {
   if (!context.mounted) return;
+  if (depositWhenKnownEmpty) {
+    final empty = await ProviderScope.containerOf(context, listen: false)
+        .read(slipKnownEmptySourcesProvider)();
+    if (!context.mounted) return;
+    if (empty) {
+      TrackingService.track('slip_top_up_opened', params: {
+        'venue': venue.code,
+        ...TrackingService.exactUsd('shortfall_usd', shortfallUsd),
+        ...TrackingService.exactUsd('top_up_usd', addUsd),
+        'prefill_rule': 'empty_wallet',
+        'suggested_source': 'deposit',
+      });
+      final seam = debugShowEmptySlipDepositSheet;
+      if (seam != null) {
+        await seam(venue, addUsd);
+      } else {
+        await showDepositSheet(context,
+            lockedSide: venue.lockedSide,
+            initialTargetUsd: addUsd > 0 ? addUsd : null,
+            onCompleted: onDepositCompleted);
+      }
+      return;
+    }
+  }
   TrackingService.track('slip_top_up_opened', params: {
     'venue': venue.code,
     if (entrySource != null) 'entry_source': entrySource,

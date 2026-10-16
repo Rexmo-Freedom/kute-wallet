@@ -3062,6 +3062,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     try {
       await openSlipReceive(context,
           venue: SlipVenue.predictions,
+          depositWhenKnownEmpty: true,
+          onDepositCompleted: slipTopUpReturned,
           addUsd: addUsd,
           shortfallUsd: _receiveShortfallUsd());
     } catch (_) {
@@ -3680,6 +3682,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       PolymarketPlacementDiagnostics.declined('insufficient_dollars');
       await openSlipReceive(context,
           venue: SlipVenue.predictions,
+          depositWhenKnownEmpty: true,
+          onDepositCompleted: slipTopUpReturned,
           addUsd: missingUsd,
           shortfallUsd: _receiveShortfallUsd());
     }
