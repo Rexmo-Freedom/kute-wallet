@@ -31,7 +31,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:kute/helpers/swap_activity.dart' show swapActivityFor;
+import 'package:kute/helpers/swap_activity.dart'
+    show swapActivityFor, swapTouchesOnlyDollars;
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart' show HlFill;
 import 'package:kute/models/polymarket_model.dart' show ActivityType;
@@ -96,6 +97,7 @@ List<PortfolioActivityEntry> mergePortfolioActivity({
 }
 
 bool _isVenueMove(SwapOrderTransaction tx) {
+  if (swapTouchesOnlyDollars(tx.details)) return true;
   final kind = swapActivityFor(tx.details);
   return kind.isInvesting || kind.isPredictions;
 }

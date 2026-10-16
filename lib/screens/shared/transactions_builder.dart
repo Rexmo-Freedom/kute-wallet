@@ -1037,9 +1037,8 @@ bool orchestraTouchesBitcoin(SwapOrder order) {
   // payment rail, not the person's bitcoin. Only a purchase that delivers
   // bitcoin belongs in the bitcoin ledger; a dollar purchase is dollars
   // arriving and lives on the Dollars screen alone.
-  if (order.isCashAppPurchase) return order.coinTo.toUpperCase() == 'BTC';
-  return order.coinTo.toUpperCase() == 'BTC' ||
-      order.coinFrom.toUpperCase() == 'BTC';
+  if (order.isCashAppPurchase) return swapAssetIsBitcoin(order.coinTo);
+  return swapAssetIsBitcoin(order.coinTo) || swapAssetIsBitcoin(order.coinFrom);
 }
 
 /// Whether [order] is a send to someone else paid from the dollar
@@ -1302,6 +1301,12 @@ List<BaseTransaction> assembleActivityRows(
     rows = rows.where((tx) {
       if (tx is! SwapOrderTransaction) return true;
       final d = tx.details;
+      if (swapTouchesOnlyDollars(d)) {
+        // Both sides are known dollars: no Bitcoin moved, regardless of
+        // provider, status or availability of the settlement-intent record.
+        dollarVenueMoves.add(tx);
+        return false;
+      }
       if (!orchestraTouchesDollars(d)) {
         if (orchestraTouchesBitcoin(d)) return true;
         final kind = classify(d);
@@ -1314,8 +1319,12 @@ List<BaseTransaction> assembleActivityRows(
         return false;
       }
       if (orchestraTouchesBitcoin(d)) return true;
-      if (kind.isPredictions || kind.isInvesting) dollarVenueMoves.add(tx);
-      return false;
+      if (kind.isPredictions || kind.isInvesting) {
+        dollarVenueMoves.add(tx);
+        return false;
+      }
+      // An unfamiliar opposite asset is not proof of a dollar-only move.
+      return true;
     }).toList();
     if (dollarVenueMoves.isNotEmpty) {
       final legs = _settledDollarLegIds(

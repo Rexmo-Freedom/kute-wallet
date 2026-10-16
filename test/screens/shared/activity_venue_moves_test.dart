@@ -49,6 +49,7 @@ SwapOrderTransaction _swap({
   String? operationId,
   String? activityDirection,
   String? withdrawalAddress,
+  String provider = 'Orchestra',
 }) {
   final ts = at ?? _t0;
   return SwapOrderTransaction(
@@ -73,7 +74,7 @@ SwapOrderTransaction _swap({
       depositMax: '0',
       rate: '0',
       refundAddress: '',
-      provider: 'Orchestra',
+      provider: provider,
       walletId: 'spending',
       operationId: operationId,
     ),
@@ -159,8 +160,7 @@ List<BaseTransaction> _surface(
   );
 }
 
-List<String> _ids(List<BaseTransaction> rows) =>
-    [for (final r in rows) r.id];
+List<String> _ids(List<BaseTransaction> rows) => [for (final r in rows) r.id];
 
 void main() {
   group('Predictions cash-out to dollars', () {
@@ -190,17 +190,104 @@ void main() {
     });
 
     test('the USD tab shows the same single row', () {
-      expect(
-          _ids(_surface([cashOut, arrived], kinds: linked, onlyUsdb: true)),
+      expect(_ids(_surface([cashOut, arrived], kinds: linked, onlyUsdb: true)),
           ['ord_pm_usd']);
     });
 
-    test('with no link to the move, the dollar receive stays visible', () {
-      // No settlement record: the conversion reads as a plain dollar
-      // conversion, which Home leaves to the USD tab. The receive is
-      // then the only trace of the money and must show.
-      expect(_ids(_surface([cashOut, arrived], kinds: const {})),
-          ['usd_in']);
+    test('known dollar pair excludes its receive even without intent metadata',
+        () {
+      expect(_ids(_surface([cashOut, arrived], kinds: const {})), isEmpty);
+      expect(
+          _ids(_surface([cashOut, arrived], kinds: const {}, onlyUsdb: true)),
+          ['ord_pm_usd']);
+    });
+  });
+
+  group('asset-based Bitcoin ledger boundary', () {
+    for (final status in ['waiting', 'exchanging', 'success', 'failed']) {
+      test('stable-only $status rows never leak onto Bitcoin without metadata',
+          () {
+        final move = _swap(
+            id: 'stable_$status',
+            coinFrom: 'USDC.e',
+            networkFrom: 'POLYGON',
+            coinTo: 'USDC',
+            networkTo: 'HYPERCORE',
+            depositAmount: '9.91',
+            withdrawalAmount: '9.84',
+            status: status,
+            provider: 'SideShift');
+        expect(_surface([move], kinds: const {}), isEmpty);
+      });
+    }
+
+    for (final asset in [
+      'BTC',
+      'btc',
+      'sparkBTC',
+      'LIGHTNING',
+      'XBT',
+      'NEW',
+      ''
+    ]) {
+      for (final reverse in [false, true]) {
+        test('$asset ${reverse ? 'arrival' : 'departure'} remains visible', () {
+          final move = _swap(
+              id: 'non_stable',
+              coinFrom: reverse ? 'USDB' : asset,
+              networkFrom: 'SPARK',
+              coinTo: reverse ? asset : 'USDB',
+              networkTo: 'SPARK',
+              depositAmount: '10',
+              withdrawalAmount: '9.9',
+              provider: 'SideShift');
+          expect(_ids(_surface([move], kinds: const {})), ['non_stable']);
+        });
+      }
+    }
+
+    test('known stable pair hides only its matching dollar rail twin', () {
+      final move = _swap(
+          id: 'stable_to_usdb',
+          coinFrom: 'USDC.e',
+          networkFrom: 'POLYGON',
+          coinTo: 'USDB',
+          networkTo: 'SPARK',
+          depositAmount: '9.91',
+          withdrawalAmount: '9.84',
+          status: 'success');
+      final arrival = _dollars('matched',
+          usd: 9.84,
+          type: breez.PaymentType.receive,
+          at: _t0.add(const Duration(minutes: 2)));
+      final unrelated = _dollars('unrelated',
+          usd: 5,
+          type: breez.PaymentType.receive,
+          at: _t0.add(const Duration(minutes: 3)));
+      expect(_ids(_surface([move, arrival, unrelated], kinds: const {})),
+          ['unrelated']);
+      expect(_ids(_surface([arrival], kinds: const {})), ['matched']);
+    });
+
+    test('Bitcoin-funded conversion keeps one row after its rail twin arrives',
+        () {
+      final move = _swap(
+          id: 'btc_to_usdb',
+          coinFrom: 'BTC',
+          networkFrom: 'SPARK',
+          coinTo: 'USDB',
+          networkTo: 'SPARK',
+          depositAmount: '0.00013112',
+          withdrawalAmount: '10.74',
+          status: 'success');
+      final sent = _spark('btc_sent',
+          sats: 13112, direction: TransactionType.sent, at: _t0);
+      final arrived = _dollars('usdb_received',
+          usd: 10.74,
+          type: breez.PaymentType.receive,
+          at: _t0.add(const Duration(minutes: 1)));
+      expect(_ids(_surface([move, sent, arrived], kinds: const {})),
+          ['btc_to_usdb']);
     });
   });
 
@@ -221,8 +308,7 @@ void main() {
     const linked = {'ord_pm_btc': SwapActivityKind.predictionsWithdrawal};
 
     test('one row, the receive hidden behind it', () {
-      expect(_ids(_surface([cashOut, arrived], kinds: linked)),
-          ['ord_pm_btc']);
+      expect(_ids(_surface([cashOut, arrived], kinds: linked)), ['ord_pm_btc']);
     });
 
     test('a claim just before it no longer hides the withdrawal', () {
@@ -432,8 +518,8 @@ void main() {
           sats: 30000,
           direction: TransactionType.sent,
           at: _t0.add(const Duration(seconds: 15)));
-      expect(_ids(_surface([send, paid], kinds: const {})),
-          ['ord_btc_to_usdb']);
+      expect(
+          _ids(_surface([send, paid], kinds: const {})), ['ord_btc_to_usdb']);
       expect(_ids(_surface([send, paid], kinds: const {}, onlyUsdb: true)),
           isEmpty);
     });
@@ -863,8 +949,7 @@ void main() {
   });
 
   group('venue withdrawals Orchestra holds past half an hour', () {
-    test('a Predictions sweep to Dollars landing an hour later is one row',
-        () {
+    test('a Predictions sweep to Dollars landing an hour later is one row', () {
       final sweep = _swap(
         id: 'ord_pm_late',
         coinFrom: 'USDC',

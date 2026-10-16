@@ -196,6 +196,25 @@ void main() {
       expect(entries.single.tx?.id, 'old');
     });
 
+    test('stable-only swaps without venue metadata remain once in Investments',
+        () {
+      final move = _swap('stable',
+          coinFrom: 'USDC.e',
+          networkFrom: 'POLYGON',
+          coinTo: 'USDC',
+          networkTo: 'HYPERCORE',
+          at: _t0);
+      expect(classifySwapActivity(move.details), SwapActivityKind.swap);
+      for (final dollarRows in [
+        <BaseTransaction>[],
+        <BaseTransaction>[move]
+      ]) {
+        final entries = mergePortfolioActivity(
+            dollarRows: dollarRows, swaps: [move], bets: [], fills: []);
+        expect(entries.map((e) => e.tx?.id), ['stable']);
+      }
+    });
+
     test('a conversion that is no venue move is the dollar ledger\'s call', () {
       // Bitcoin into dollars: on the ledger, listed; not on it, not.
       final buy = _swap('buy',

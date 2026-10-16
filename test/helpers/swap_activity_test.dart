@@ -42,6 +42,44 @@ SettlementOperation operation(SettlementFlow flow,
         updatedAt: DateTime.utc(2026));
 
 void main() {
+  test('dollar-only proof needs two known assets, independent of provider', () {
+    for (final asset in [
+      'USDC',
+      'USDC.e',
+      'USDT',
+      'DAI',
+      'USD',
+      'USDB',
+      'pUSD'
+    ]) {
+      expect(
+          swapTouchesOnlyDollars(receiveRow().copyWith(
+              coinFrom: ' $asset ', coinTo: 'usdb', provider: 'SideShift')),
+          isTrue,
+          reason: asset);
+    }
+    for (final asset in [
+      'BTC',
+      'btc',
+      'sparkBTC',
+      'LIGHTNING',
+      'XBT',
+      '',
+      'NEW'
+    ]) {
+      expect(
+          swapTouchesOnlyDollars(
+              receiveRow().copyWith(coinFrom: asset, coinTo: 'USDB')),
+          isFalse,
+          reason: asset);
+      expect(
+          swapTouchesOnlyDollars(
+              receiveRow().copyWith(coinFrom: 'USDB', coinTo: asset)),
+          isFalse,
+          reason: 'reverse $asset');
+    }
+  });
+
   test('Polygon USDC received externally is not a Predictions withdrawal', () {
     expect(classifySwapActivity(receiveRow()), SwapActivityKind.receive);
   });
