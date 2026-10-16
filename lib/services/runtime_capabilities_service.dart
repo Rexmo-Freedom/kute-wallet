@@ -7,7 +7,9 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
-import 'package:kute/l10n/l10n.dart' show AppLocalizations, appL10n, l10nForLanguage;
+import 'package:kute/services/http/fresh_connection.dart';
+import 'package:kute/l10n/l10n.dart'
+    show AppLocalizations, appL10n, l10nForLanguage;
 import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/services/investment_provider_availability.dart';
 import 'package:kute/services/runtime_policy_snapshot_store.dart';
@@ -83,6 +85,7 @@ class LeverageCapExceededException implements Exception {
   final int maxLeverage;
   String messageIn(AppLocalizations l10n) =>
       l10n.leverageCapExceeded(maxLeverage);
+
   /// English on purpose: exception text feeds error categories and logs.
   /// Screens show [messageIn] through userErrorCopy.
   @override
@@ -93,6 +96,7 @@ class CapabilityUnavailableException implements Exception {
   const CapabilityUnavailableException(this.capability, this.decision);
   final String capability;
   final CapabilityDecision decision;
+
   /// English on purpose: exception text feeds error categories and logs.
   /// Screens show the decision's [CapabilityDecision.messageIn].
   @override
@@ -297,7 +301,7 @@ const kOfflineAllowedCapabilities = <String>{
 class RuntimeCapabilitiesService extends ChangeNotifier
     with WidgetsBindingObserver {
   RuntimeCapabilitiesService._()
-      : _client = http.Client(),
+      : _client = null,
         _baseUrl =
             (() => dotenv.isInitialized ? dotenv.env['BACKEND'] ?? '' : ''),
         _sessionToken = (() => AffiliateService.sessionToken),
@@ -340,7 +344,8 @@ class RuntimeCapabilitiesService extends ChangeNotifier
   @visibleForTesting
   static RuntimeCapabilitiesService? debugInstance;
   static RuntimeCapabilitiesService get instance => debugInstance ?? _instance;
-  final http.Client _client;
+  final http.Client? _client;
+  int _fetchGeneration = 0;
   final Future<void> Function(Iterable<String>) _ensureProviderAvailability;
   final String Function() _baseUrl;
   final String? Function() _sessionToken;
@@ -571,7 +576,7 @@ class RuntimeCapabilitiesService extends ChangeNotifier
   Future<bool> networkChanged() {
     _networkEpoch++;
     if (!_disposed) notifyListeners();
-    return refreshAfterCurrent();
+    return refresh(fresh: true);
   }
 
   /// The decision with no fresh policy: what the policies last fetched said.
@@ -733,9 +738,11 @@ class RuntimeCapabilitiesService extends ChangeNotifier
     if (state == AppLifecycleState.resumed) unawaited(refresh());
   }
 
-  Future<bool> refresh() {
+  /// [fresh] starts a new fetch even if an earlier request is running.
+  /// Only the most recently started fetch may publish a policy.
+  Future<bool> refresh({bool fresh = false}) {
     final running = _refresh;
-    if (running != null) return running;
+    if (!fresh && running != null) return running;
     final future = _fetch();
     _refresh = future;
     return future.whenComplete(() {
@@ -789,6 +796,7 @@ class RuntimeCapabilitiesService extends ChangeNotifier
   /// when either landed fresh.
   Future<bool> _fetch() async {
     final epoch = _networkEpoch;
+    final generation = ++_fetchGeneration;
     final backend = _baseUrl().replaceFirst(RegExp(r'/$'), '');
     if (backend.isEmpty) return false;
     final context = await requestContextHeaders();
@@ -796,9 +804,10 @@ class RuntimeCapabilitiesService extends ChangeNotifier
     if (version == null) return false;
     final query = {'platform': _platform, 'appVersion': version};
     final publicFetch = snapshot == null
-        ? _fetchPublic(backend, context, query, epoch)
+        ? _fetchPublic(backend, context, query, epoch, generation)
         : Future<bool>.value(false);
-    final sessionLanded = await _fetchSession(backend, context, query, epoch);
+    final sessionLanded =
+        await _fetchSession(backend, context, query, epoch, generation);
     final publicLanded = await publicFetch;
     return sessionLanded || publicLanded;
   }
@@ -806,14 +815,14 @@ class RuntimeCapabilitiesService extends ChangeNotifier
   /// Two attempts: a healthy connection answers well inside the first, and
   /// a slow tunnel gets the time it needs instead of a refusal.
   Future<http.Response> _send(Uri uri, Map<String, String> headers) async {
+    Future<http.Response> attempt(Duration timeout) => FreshConnection.send(
+          (client) => client.get(uri, headers: headers).timeout(timeout),
+          connect: _client == null ? null : () => BorrowedClient(_client!),
+        );
     try {
-      return await _client
-          .get(uri, headers: headers)
-          .timeout(const Duration(seconds: 5));
+      return await attempt(const Duration(seconds: 5));
     } on TimeoutException {
-      return await _client
-          .get(uri, headers: headers)
-          .timeout(const Duration(seconds: 10));
+      return attempt(const Duration(seconds: 10));
     }
   }
 
@@ -829,7 +838,7 @@ class RuntimeCapabilitiesService extends ChangeNotifier
   }
 
   Future<bool> _fetchSession(String backend, Map<String, String> context,
-      Map<String, String> query, int epoch) async {
+      Map<String, String> query, int epoch, int generation) async {
     try {
       var token = await _ensureSession();
       if (token == null || token.isEmpty) return false;
@@ -847,7 +856,10 @@ class RuntimeCapabilitiesService extends ChangeNotifier
       final body = jsonDecode(response.body) as Map<String, dynamic>;
       final now = _clock().toUtc();
       final value = _acceptable(body, now);
-      if (value == null) return false;
+      if (value == null ||
+          epoch != _networkEpoch ||
+          generation != _fetchGeneration ||
+          _disposed) return false;
       final owner = _sessionOwner(token);
       if (owner == null) return false;
       if (_snapshotOwner == owner &&
@@ -873,7 +885,7 @@ class RuntimeCapabilitiesService extends ChangeNotifier
   /// The public policy. A backend without the route answers 404: then the
   /// session policy alone decides, exactly as before the route existed.
   Future<bool> _fetchPublic(String backend, Map<String, String> context,
-      Map<String, String> query, int epoch) async {
+      Map<String, String> query, int epoch, int generation) async {
     try {
       final uri = Uri.parse('$backend/api/v1/config/policy')
           .replace(queryParameters: query);
@@ -882,7 +894,10 @@ class RuntimeCapabilitiesService extends ChangeNotifier
       final body = jsonDecode(response.body) as Map<String, dynamic>;
       final now = _clock().toUtc();
       final value = _acceptable(body, now);
-      if (value == null) return false;
+      if (value == null ||
+          epoch != _networkEpoch ||
+          generation != _fetchGeneration ||
+          _disposed) return false;
       if (_public != null && value.revision < _public!.revision) return false;
       _public = value;
       _publicFetchedAt = now;
@@ -926,17 +941,15 @@ class RuntimeCapabilitiesService extends ChangeNotifier
   /// answers with what it has.
   static const confirmTimeout = Duration(seconds: 4);
 
-  /// The decision for a door the person just tapped. An allowed decision
-  /// answers at once; a refusal is asked again (a fresh policy, at most
-  /// [confirmTimeout]) before it is shown, so a refusal from another
-  /// network or an earlier policy never shuts a door that is open now.
+  /// Each gated tap starts a policy fetch after the tap, on a dedicated
+  /// connection, bounded by [confirmTimeout]. Earlier requests cannot
+  /// overwrite its answer.
   /// Never throws.
   Future<CapabilityDecision> confirmDecision(String id) async {
-    final held = decision(id);
-    if (held.allowed && !held.comingSoon) return held;
     bool fresh;
     try {
-      fresh = await refresh().timeout(confirmTimeout, onTimeout: () => false);
+      fresh = await refresh(fresh: true)
+          .timeout(confirmTimeout, onTimeout: () => false);
     } catch (_) {
       fresh = false;
     }
@@ -955,7 +968,7 @@ class RuntimeCapabilitiesService extends ChangeNotifier
   /// Shared setup can support either a new operation or an allowed exit.
   Future<void> ensureAnyAllowed(List<String> ids) async {
     assert(ids.isNotEmpty);
-    final fresh = await refresh();
+    final fresh = await refresh(fresh: true);
     CapabilityDecision value(String id) =>
         fresh ? decision(id) : _unavailableDecision(id);
     if (ids.any((id) => value(id).allowed && !value(id).comingSoon)) return;
@@ -975,7 +988,7 @@ class RuntimeCapabilitiesService extends ChangeNotifier
     final reuse = _reusable(maxAge) &&
         requested
             .every((id) => decision(id).allowed && !decision(id).comingSoon);
-    final fresh = reuse ? true : await refresh();
+    final fresh = reuse ? true : await refresh(fresh: true);
     for (final id in requested) {
       final value = fresh ? decision(id) : _unavailableDecision(id);
       if (!value.allowed || value.comingSoon) {
@@ -991,7 +1004,7 @@ class RuntimeCapabilitiesService extends ChangeNotifier
     _expiryTimer?.cancel();
     _publicExpiryTimer?.cancel();
     _refreshTimer?.cancel();
-    _client.close();
+    _client?.close();
     super.dispose();
   }
 }

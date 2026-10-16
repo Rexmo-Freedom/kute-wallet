@@ -3,7 +3,9 @@ import 'dart:convert';
 
 import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
-import 'package:kute/l10n/l10n.dart' show AppLocalizations, appL10n, l10nForLanguage;
+import 'package:kute/services/http/fresh_connection.dart';
+import 'package:kute/l10n/l10n.dart'
+    show AppLocalizations, appL10n, l10nForLanguage;
 import 'package:kute/services/network_change_signal.dart';
 import 'package:kute/services/tracking_service.dart';
 
@@ -68,10 +70,9 @@ class ProviderAvailabilityException implements Exception {
 ///     (lib/services/region_freshness.dart);
 ///   * an unavailable check (timeout, error, malformed body) is never
 ///     cached, never reads as restricted, and drops a held refusal;
-///   * before a cached refusal stops an action ([ensureNewExposure]) the
-///     venue is asked again live, with a short timeout, unless that
-///     refusal was itself fetched moments ago ([defaultTapReuse]). A live
-///     "allowed" proceeds; a live failure is unknown, which never blocks.
+///   * every new-exposure gate ([ensureNewExposure]) asks live after the
+///     tap, on a dedicated connection, even if a prior check is running.
+///     A live "allowed" proceeds; a live failure is unknown.
 /// Listeners hear every change of answer, so a screen showing a refusal
 /// lifts it without a restart.
 class InvestmentProviderAvailability extends ChangeNotifier {
@@ -84,17 +85,16 @@ class InvestmentProviderAvailability extends ChangeNotifier {
     Duration tapReuse = defaultTapReuse,
     DateTime Function()? clock,
     RegionCheckReporter? report,
-  })  : _client = client ?? http.Client(),
+  })  : _client = client,
         _timeout = timeout,
         _cacheFor = cacheFor,
         _restrictedCacheFor = restrictedCacheFor,
         _tapTimeout = tapTimeout,
-        _tapReuse = tapReuse,
         _clock = clock ?? DateTime.now,
         _report = report ?? TrackingService.regionChecked;
 
   static final instance = InvestmentProviderAvailability();
-  final http.Client _client;
+  final http.Client? _client;
   final Duration _timeout;
   final DateTime Function() _clock;
   final RegionCheckReporter _report;
@@ -109,14 +109,12 @@ class InvestmentProviderAvailability extends ChangeNotifier {
   /// a stale "restricted" costs at most this much before the bet goes on.
   static const defaultTapTimeout = Duration(seconds: 3);
 
-  /// A refusal fetched this recently was itself a live answer: a tap right
-  /// after it does not ask again.
+  /// Kept for constructor compatibility. Gated taps always check live.
   static const defaultTapReuse = Duration(seconds: 2);
 
   final Duration _cacheFor;
   final Duration _restrictedCacheFor;
   final Duration _tapTimeout;
-  final Duration _tapReuse;
 
   /// Definite answers and when they were fetched.
   final Map<InvestmentProvider, (ProviderAvailability, DateTime)> _cache = {};
@@ -127,8 +125,8 @@ class InvestmentProviderAvailability extends ChangeNotifier {
 
   /// The live ask in flight per provider, with the network epoch it
   /// started in.
-  final Map<InvestmentProvider, (Future<ProviderAvailability>, int)>
-      _inFlight = {};
+  final Map<InvestmentProvider, (Future<ProviderAvailability>, int)> _inFlight =
+      {};
 
   /// Providers asked at least once this session: the ones a resume or a
   /// network change asks again.
@@ -137,6 +135,7 @@ class InvestmentProviderAvailability extends ChangeNotifier {
   /// Bumped by every network change: an answer that lands from an older
   /// network is returned to its caller but not cached.
   int _epoch = 0;
+  final Map<InvestmentProvider, int> _requests = {};
   final Map<InvestmentProvider, Timer> _restrictedTimers = {};
 
   /// Set by RegionFreshness: a restricted answer is asked again once it
@@ -155,8 +154,7 @@ class InvestmentProviderAvailability extends ChangeNotifier {
     final entry = _cache[provider];
     if (entry == null) return null;
     final lifetime = _lifetime(entry.$1.status);
-    if (lifetime <= Duration.zero ||
-        _clock().difference(entry.$2) > lifetime) {
+    if (lifetime <= Duration.zero || _clock().difference(entry.$2) > lifetime) {
       return null;
     }
     return entry;
@@ -211,8 +209,8 @@ class InvestmentProviderAvailability extends ChangeNotifier {
   }
 
   /// [provider]'s answer: the cached one while it is good, else a live
-  /// ask (one at a time per provider and network). [live] skips the
-  /// cache. Never throws: a failed ask is
+  /// ask. [live] skips both the cache and earlier requests. Never throws:
+  /// a failed ask is
   /// [ProviderAvailabilityStatus.unavailable].
   Future<ProviderAvailability> check(InvestmentProvider provider,
       {RegionRecheckTrigger trigger = RegionRecheckTrigger.tap,
@@ -224,10 +222,17 @@ class InvestmentProviderAvailability extends ChangeNotifier {
       if (cached != null) return Future.value(cached);
     }
     final running = _inFlight[provider];
-    if (running != null && running.$2 == _epoch) return running.$1;
+    if (!live && running != null && running.$2 == _epoch) return running.$1;
+    // A live tap starts after the tap, even while an older request runs.
     final epoch = _epoch;
-    final future = _fetch(provider, timeout ?? _timeout)
-        .then((value) => _record(value, trigger, epoch));
+    final request = (_requests[provider] ?? 0) + 1;
+    _requests[provider] = request;
+    final future = _fetch(provider, timeout ?? _timeout).then((value) =>
+        _requests[provider] == request
+            ? _record(value, trigger, epoch)
+            : (cached(provider) ??
+                ProviderAvailability(
+                    provider, ProviderAvailabilityStatus.unavailable)));
     _inFlight[provider] = (future, epoch);
     future.whenComplete(() {
       if (identical(_inFlight[provider]?.$1, future)) {
@@ -239,6 +244,11 @@ class InvestmentProviderAvailability extends ChangeNotifier {
 
   ProviderAvailability _record(
       ProviderAvailability value, RegionRecheckTrigger trigger, int epoch) {
+    if (epoch != _epoch || _disposed) {
+      return cached(value.provider) ??
+          ProviderAvailability(
+              value.provider, ProviderAvailabilityStatus.unavailable);
+    }
     final provider = value.provider;
     final previous = _lastAnswer[provider];
     final changed = previous != null && previous != value.status;
@@ -308,16 +318,18 @@ class InvestmentProviderAvailability extends ChangeNotifier {
   Future<ProviderAvailability> _fetchHyperliquid(Duration timeout) async {
     const provider = InvestmentProvider.hyperliquid;
     try {
-      final response = await _client
-          .post(
-            Uri.parse('https://api.hyperliquid.xyz/info'),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'type': 'legalCheck',
-              'user': hyperliquidLegalCheckAddress,
-            }),
-          )
-          .timeout(timeout);
+      final response = await FreshConnection.send(
+          (client) => client
+              .post(
+                Uri.parse('https://api.hyperliquid.xyz/info'),
+                headers: {'Content-Type': 'application/json'},
+                body: jsonEncode({
+                  'type': 'legalCheck',
+                  'user': hyperliquidLegalCheckAddress,
+                }),
+              )
+              .timeout(timeout),
+          connect: _client == null ? null : () => BorrowedClient(_client!));
       if (response.statusCode != 200) {
         return const ProviderAvailability(
             provider, ProviderAvailabilityStatus.unavailable);
@@ -354,9 +366,11 @@ class InvestmentProviderAvailability extends ChangeNotifier {
   Future<ProviderAvailability> _fetchPolymarket(Duration timeout) async {
     const provider = InvestmentProvider.polymarket;
     try {
-      final response = await _client
-          .get(Uri.parse('https://polymarket.com/api/geoblock'))
-          .timeout(timeout);
+      final response = await FreshConnection.send(
+          (client) => client
+              .get(Uri.parse('https://polymarket.com/api/geoblock'))
+              .timeout(timeout),
+          connect: _client == null ? null : () => BorrowedClient(_client!));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data is Map && data['blocked'] is bool) {
@@ -375,10 +389,8 @@ class InvestmentProviderAvailability extends ChangeNotifier {
         provider, ProviderAvailabilityStatus.unavailable);
   }
 
-  /// The execution-time gate for new exposure. A refusal is only ever
-  /// shown from a live answer: a cached "restricted" older than
-  /// [defaultTapReuse] is asked again first, with the short tap timeout,
-  /// and only a live "restricted" throws.
+  /// The execution-time gate for new exposure. Each tap starts a live
+  /// check on its own connection; only a fresh explicit refusal throws.
   Future<void> ensureNewExposure(Iterable<String> capabilities) async {
     final venues = providersFor(capabilities);
     if (venues.contains(InvestmentProvider.hyperliquid)) {
@@ -386,8 +398,7 @@ class InvestmentProviderAvailability extends ChangeNotifier {
           .ensureAllowed();
     }
     if (venues.contains(InvestmentProvider.polymarket)) {
-      (await _refusalOnlyIfLive(InvestmentProvider.polymarket))
-          .ensureAllowed();
+      (await _refusalOnlyIfLive(InvestmentProvider.polymarket)).ensureAllowed();
     }
   }
 
@@ -397,23 +408,17 @@ class InvestmentProviderAvailability extends ChangeNotifier {
   static Set<InvestmentProvider> providersFor(Iterable<String> capabilities) {
     final requested = capabilities.toSet();
     return {
-      if (requested.any(const {'hyperliquid.trade', 'hyperliquid.deposit'}
-          .contains))
+      if (requested
+          .any(const {'hyperliquid.trade', 'hyperliquid.deposit'}.contains))
         InvestmentProvider.hyperliquid,
-      if (requested.any(const {'polymarket.trade', 'polymarket.deposit'}
-          .contains))
+      if (requested
+          .any(const {'polymarket.trade', 'polymarket.deposit'}.contains))
         InvestmentProvider.polymarket,
     };
   }
 
   Future<ProviderAvailability> _refusalOnlyIfLive(InvestmentProvider provider) {
-    final entry = _entry(provider);
-    if (entry != null &&
-        entry.$1.status == ProviderAvailabilityStatus.restricted &&
-        _clock().difference(entry.$2) > _tapReuse) {
-      return check(provider, live: true, timeout: _tapTimeout);
-    }
-    return check(provider);
+    return check(provider, live: true, timeout: _tapTimeout);
   }
 
   @override

@@ -28,6 +28,14 @@ void main() {
     expect(identical(a, c), isFalse);
   });
 
+  test('network recycling drops each host pool for subsequent requests', () {
+    final before = SharedHttpClient.forHost('api.hyperliquid.xyz');
+    SharedHttpClient.recycle();
+    final after = SharedHttpClient.forHost('api.hyperliquid.xyz');
+    expect(identical(before, after), isFalse);
+    expect(SharedHttpClient.debugRecycles, 1);
+  });
+
   test('background reads retry a 5xx with backoff, then return', () async {
     var calls = 0;
     final client = MockClient((_) async {
@@ -109,7 +117,8 @@ void main() {
 
   test('backoff grows and jitters within bounds', () {
     for (var retry = 1; retry <= 4; retry++) {
-      final base = HttpTimeoutPolicy.backoffBase.inMilliseconds * (1 << (retry - 1));
+      final base =
+          HttpTimeoutPolicy.backoffBase.inMilliseconds * (1 << (retry - 1));
       for (var i = 0; i < 20; i++) {
         final ms = HttpTimeoutPolicy.backoffFor(retry).inMilliseconds;
         expect(ms, inInclusiveRange((base * 0.5).round(), 5000));
@@ -136,7 +145,10 @@ void main() {
     expect(p['attempt'], 1);
     expect(p['duration_ms'], isA<int>());
     expect(p['duration_bucket'], isA<String>());
-    expect(p.values.map((v) => '$v').any((v) => v.contains('/v1') || v.contains('123')),
+    expect(
+        p.values
+            .map((v) => '$v')
+            .any((v) => v.contains('/v1') || v.contains('123')),
         isFalse);
   });
 

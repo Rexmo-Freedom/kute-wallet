@@ -42,6 +42,7 @@
 // that failed or ran out of time never shows restricted.
 
 import 'dart:async';
+import 'package:kute/services/http/shared_http_client.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:kute/services/investment_provider_availability.dart';
@@ -78,13 +79,12 @@ abstract final class RegionFreshness {
     venues.autoRecheck = true;
     try {
       source.start();
-      _subscription = source.changes.listen((trigger) => unawaited(
-          recheck(trigger, providers: venues, policy: policy)));
+      _subscription = source.changes.listen((trigger) =>
+          unawaited(recheck(trigger, providers: venues, policy: policy)));
     } catch (_) {}
-    unawaited(venues
-        .recheck(RegionRecheckTrigger.startup,
-            providers: const [InvestmentProvider.polymarket])
-        .catchError((Object _) {}));
+    unawaited(venues.recheck(RegionRecheckTrigger.startup, providers: const [
+      InvestmentProvider.polymarket
+    ]).catchError((Object _) {}));
   }
 
   /// One round for [trigger]: the venues asked again (a network change
@@ -101,6 +101,9 @@ abstract final class RegionFreshness {
     final venues = providers ?? _venues;
     final capabilities = policy ?? RuntimeCapabilitiesService.instance;
     final manual = trigger == RegionRecheckTrigger.manual;
+    if (manual || trigger == RegionRecheckTrigger.networkChange) {
+      SharedHttpClient.recycle();
+    }
     try {
       await Future.wait([
         venues.recheck(trigger,

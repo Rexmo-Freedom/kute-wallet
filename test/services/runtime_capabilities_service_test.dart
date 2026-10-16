@@ -155,8 +155,7 @@ void main() {
     expect(await service.refresh(), isTrue);
     expect(seen.headers.keys.map((k) => k.toLowerCase()),
         isNot(contains('x-kute-device-id')));
-    expect(
-        seen.headers.keys.where((k) => k.toLowerCase().contains('device')),
+    expect(seen.headers.keys.where((k) => k.toLowerCase().contains('device')),
         isEmpty);
     expect(
         seen.url.queryParameters.keys
@@ -208,7 +207,8 @@ void main() {
     now = origin.add(const Duration(hours: 24, seconds: 1));
     expect(service.allows('hyperliquid.trade'), isFalse);
     expect(service.decision('hyperliquid.trade').reason, 'policy_unavailable');
-    expect(service.blockReason('hyperliquid.trade'), contains('Unable to check'));
+    expect(
+        service.blockReason('hyperliquid.trade'), contains('Unable to check'));
     await expectLater(
         service.ensureAllowed('hyperliquid.trade'),
         throwsA(isA<CapabilityUnavailableException>()
@@ -338,7 +338,9 @@ void main() {
     disk.write(
         slot,
         StoredRuntimePolicy(
-            owner: 'wallet-a', fetchedAt: origin, policy: policy(trade: false)));
+            owner: 'wallet-a',
+            fetchedAt: origin,
+            policy: policy(trade: false)));
     setup((_) => http.Response('', 503), store: disk);
     service.restore();
     expect(service.allows('hyperliquid.trade'), isTrue);
@@ -369,14 +371,13 @@ void main() {
     expect(disk.read(slot), isNull);
   });
 
-  test('the session owner, not the raw token, binds the held policy',
-      () async {
+  test('the session owner, not the raw token, binds the held policy', () async {
     // Tokens renew; the wallet behind them does not. A renewed token keeps
     // the policy (and its grace), a different wallet does not.
     var online = true;
     service = RuntimeCapabilitiesService.forTesting(
-      client: client((_) =>
-          http.Response(online ? jsonEncode(policy()) : '', online ? 200 : 503)),
+      client: client((_) => http.Response(
+          online ? jsonEncode(policy()) : '', online ? 200 : 503)),
       baseUrl: () => 'https://backend.test',
       sessionToken: () => session,
       clock: () => now,
@@ -467,8 +468,12 @@ void main() {
   test('a fresh public deny blocks even while a stale session policy allowed',
       () async {
     var online = true;
-    setup((_) => online ? http.Response(jsonEncode(policy()), 200) : http.Response('', 503),
-        public: (_) => http.Response(jsonEncode(publicPolicy(trade: false)), 200));
+    setup(
+        (_) => online
+            ? http.Response(jsonEncode(policy()), 200)
+            : http.Response('', 503),
+        public: (_) =>
+            http.Response(jsonEncode(publicPolicy(trade: false)), 200));
     expect(await service.refresh(), isTrue);
     expect(service.allows('hyperliquid.trade'), isTrue,
         reason: 'the fresh session policy decides');
@@ -568,10 +573,46 @@ void main() {
     expect(service.snapshot, isNotNull);
   });
 
+  test('a tap starts its own fetch and late older policy cannot restore denial',
+      () async {
+    final old = Completer<http.Response>();
+    var calls = 0;
+    setup((_) {
+      calls++;
+      if (calls == 1) return old.future;
+      return http.Response(jsonEncode(policy()), 200);
+    });
+    final first = service.refresh();
+    await pumpEventQueue();
+    final tapped = await service.confirmDecision('hyperliquid.trade');
+    expect(calls, 2);
+    expect(tapped.allowed, isTrue);
+    old.complete(http.Response(jsonEncode(policy(trade: false)), 200));
+    expect(await first, isFalse);
+    expect(service.decision('hyperliquid.trade').allowed, isTrue);
+  });
+
+  test('a network change does not wait behind the previous connection',
+      () async {
+    final old = Completer<http.Response>();
+    var calls = 0;
+    setup((_) {
+      if (++calls == 1) return old.future;
+      return http.Response(jsonEncode(policy()), 200);
+    });
+    final first = service.refresh();
+    await pumpEventQueue();
+    expect(await service.networkChanged(), isTrue);
+    expect(calls, 2);
+    old.complete(http.Response(jsonEncode(policy(trade: false)), 200));
+    expect(await first, isFalse);
+    expect(service.decision('hyperliquid.trade').allowed, isTrue);
+  });
+
   test('the stored policy record round-trips and rejects other shapes', () {
     setup((_) => http.Response('', 503));
-    final record = StoredRuntimePolicy(
-        owner: '42', fetchedAt: origin, policy: policy());
+    final record =
+        StoredRuntimePolicy(owner: '42', fetchedAt: origin, policy: policy());
     final json = jsonDecode(jsonEncode(record.toJson()));
     final back = StoredRuntimePolicy.fromJson(json)!;
     expect(back.owner, '42');
@@ -579,10 +620,9 @@ void main() {
     expect(back.policy['revision'], 1);
     expect(StoredRuntimePolicy.fromJson(null), isNull);
     expect(StoredRuntimePolicy.fromJson({'v': 2}), isNull);
-    expect(StoredRuntimePolicy.fromJson({...json as Map, 'owner': ''}),
-        isNull);
-    expect(StoredRuntimePolicy.fromJson({...json, 'fetchedAt': 'soon'}),
-        isNull);
+    expect(StoredRuntimePolicy.fromJson({...json as Map, 'owner': ''}), isNull);
+    expect(
+        StoredRuntimePolicy.fromJson({...json, 'fetchedAt': 'soon'}), isNull);
   });
 
   const exits = [
@@ -728,7 +768,8 @@ void main() {
     }
   });
 
-  test('on the same network a region denial stands through an outage, and a '
+  test(
+      'on the same network a region denial stands through an outage, and a '
       'fresh allow lifts it at once', () async {
     var online = true;
     var blocked = true;
@@ -774,7 +815,8 @@ void main() {
     expect(notified, greaterThanOrEqualTo(2));
   });
 
-  test('a network change with the backend unreachable never shows the old '
+  test(
+      'a network change with the backend unreachable never shows the old '
       'region block', () async {
     var online = true;
     setup((_) => http.Response(
@@ -789,7 +831,8 @@ void main() {
     await service.ensureAllowed('hyperliquid.trade');
   });
 
-  test('a failed refresh never notifies on its own, so a listener that '
+  test(
+      'a failed refresh never notifies on its own, so a listener that '
       'refreshes on every change cannot loop', () async {
     var online = true;
     setup((_) => http.Response(
@@ -826,10 +869,10 @@ void main() {
     expect(await service.refresh(), isTrue);
     expect(await service.confirmDecision('hyperliquid.close'),
         isA<CapabilityDecision>().having((d) => d.allowed, 'allowed', isTrue));
-    expect(requests, 1, reason: 'an allowed door answers at once');
+    expect(requests, 2, reason: 'every gated tap checks live');
     blocked = false;
     final decision = await confirmCapability(service, 'hyperliquid.trade');
-    expect(requests, 2);
+    expect(requests, 3);
     expect(decision.allowed, isTrue);
     // A refusal is never read from a reused policy either.
     blocked = true;
@@ -837,7 +880,7 @@ void main() {
     blocked = false;
     await service.ensureAllAllowed(['hyperliquid.trade'],
         maxAge: const Duration(minutes: 1));
-    expect(requests, 4);
+    expect(requests, 5);
   });
 
   for (final reason in ['country_blocked', 'disabled', 'app_update_required']) {
@@ -989,8 +1032,7 @@ void main() {
     expect(service.snapshot, isNull);
   });
 
-  test('no session asks for the public policy only, with no bearer',
-      () async {
+  test('no session asks for the public policy only, with no bearer', () async {
     final publicRequests = <http.Request>[];
     setup((_) => throw StateError('must not fetch the session policy'),
         public: (request) {

@@ -25,6 +25,12 @@
 // still applies, so a test sees the same timeouts and error types as
 // production. Tests that want to intercept every shared request set
 // [debugOverride].
+//
+// A network change recycles every pool ([SharedHttpClient.recycle]): a
+// kept-alive socket keeps the route it was opened on, so after a VPN
+// switch the next request opens a connection on the new one. The checks
+// that decide a region restriction never use these pools at all
+// (lib/services/http/fresh_connection.dart).
 
 import 'dart:async';
 import 'dart:convert' show Encoding;
@@ -38,35 +44,61 @@ import 'package:http/io_client.dart';
 import 'package:kute/services/http/http_timeout_policy.dart';
 import 'package:kute/services/tracking/latency_tracker.dart';
 
-export 'package:kute/services/http/http_timeout_policy.dart'
-    show HttpCallKind;
+export 'package:kute/services/http/http_timeout_policy.dart' show HttpCallKind;
 
 abstract final class SharedHttpClient {
   static final Map<String, http.Client> _byHost = <String, http.Client>{};
+
+  /// The `dart:io` client under each pooled [IOClient], so [recycle] can
+  /// close a pool gently (in-flight requests finish, idle sockets go).
+  static final Map<String, HttpClient> _innerByHost = <String, HttpClient>{};
+
+  /// Pools dropped by [recycle], for tests.
+  @visibleForTesting
+  static int debugRecycles = 0;
 
   /// Test-only: when set, every shared request (one without its own
   /// [client]) goes to this client instead of the pooled one.
   @visibleForTesting
   static http.Client? debugOverride;
 
-  /// The pooled client for [host]. Created on first use, never closed:
-  /// the pool is the point.
+  /// The pooled client for [host]. Created on first use and kept: the
+  /// pool is the point. Only a network change drops it ([recycle]).
   static http.Client forHost(String host) {
     final override = debugOverride;
     if (override != null) return override;
-    return _byHost.putIfAbsent(host.toLowerCase(), _newClient);
+    final key = host.toLowerCase();
+    return _byHost.putIfAbsent(key, () {
+      final inner = HttpClient()
+        ..connectionTimeout =
+            HttpTimeoutPolicy.scaled(HttpTimeoutPolicy.connectTimeout)
+        ..idleTimeout = HttpTimeoutPolicy.idleTimeout
+        ..maxConnectionsPerHost = HttpTimeoutPolicy.maxConnectionsPerHost;
+      _innerByHost[key] = inner;
+      return IOClient(inner);
+    });
   }
 
   /// The pooled client for [uri]'s host.
   static http.Client forUri(Uri uri) => forHost(uri.host);
 
-  static http.Client _newClient() {
-    final inner = HttpClient()
-      ..connectionTimeout = HttpTimeoutPolicy.scaled(
-          HttpTimeoutPolicy.connectTimeout)
-      ..idleTimeout = HttpTimeoutPolicy.idleTimeout
-      ..maxConnectionsPerHost = HttpTimeoutPolicy.maxConnectionsPerHost;
-    return IOClient(inner);
+  /// The network changed (lib/services/region_freshness.dart): drops every
+  /// pool, so the next request to each host opens a connection on the new
+  /// route. A kept-alive socket keeps the route it was opened on (on iOS a
+  /// connection opened before a VPN came up stays outside the tunnel)
+  /// until it idles out, and the servers that place the caller by IP
+  /// would keep seeing the old network. Requests already in flight finish
+  /// on their old connection; idle ones are closed now. Never throws.
+  static void recycle() {
+    final pools = Map<String, HttpClient>.of(_innerByHost);
+    _byHost.clear();
+    _innerByHost.clear();
+    debugRecycles++;
+    for (final inner in pools.values) {
+      try {
+        inner.close();
+      } catch (_) {}
+    }
   }
 
   /// `GET [uri]` under the policy for [kind].
@@ -168,27 +200,26 @@ abstract final class SharedHttpClient {
     Duration? deadline,
     http.Client? client,
   }) async {
-    final c = client ?? forUri(uri);
-    final perAttempt =
-        HttpTimeoutPolicy.scaled(timeout ?? HttpTimeoutPolicy.defaultTimeout(kind));
+    final perAttempt = HttpTimeoutPolicy.scaled(
+        timeout ?? HttpTimeoutPolicy.defaultTimeout(kind));
     final total = deadline ?? HttpTimeoutPolicy.deadline(kind);
     final attempts = HttpTimeoutPolicy.attempts(kind);
     final started = Stopwatch()..start();
 
-    Duration remaining() => total == null
-        ? perAttempt
-        : total - started.elapsed;
+    Duration remaining() =>
+        total == null ? perAttempt : total - started.elapsed;
 
     for (var attempt = 1;; attempt++) {
-      final budget = total == null
-          ? perAttempt
-          : _min(perAttempt, remaining());
+      final budget = total == null ? perAttempt : _min(perAttempt, remaining());
       if (budget <= Duration.zero) {
         throw TimeoutException('deadline exceeded', total);
       }
       final sw = Stopwatch()..start();
       http.Response response;
       try {
+        // Resolved per attempt: a retry after the pools were recycled
+        // (a network change) resolves a new client.
+        final c = client ?? forUri(uri);
         response = await send(c).timeout(budget);
       } catch (e) {
         sw.stop();
@@ -298,6 +329,8 @@ abstract final class SharedHttpClient {
       c.close();
     }
     _byHost.clear();
+    _innerByHost.clear();
+    debugRecycles = 0;
     debugOverride = null;
     debugReportEveryRequest = false;
     _failureWindowStartMs = 0;

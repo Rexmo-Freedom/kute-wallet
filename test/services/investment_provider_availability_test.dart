@@ -12,24 +12,26 @@ void main() {
     test(
         'Hyperliquid maps official restrictions $restriction independently of account setup',
         () async {
-      final service =
-          InvestmentProviderAvailability(cacheFor: Duration.zero, client: MockClient((request) async {
-        expect(request.method, 'POST');
-        expect(request.url.toString(), 'https://api.hyperliquid.xyz/info');
-        expect(jsonDecode(request.body), {
-          'type': 'legalCheck',
-          'user': InvestmentProviderAvailability.hyperliquidLegalCheckAddress,
-        });
-        expect(request.headers.keys.map((key) => key.toLowerCase()),
-            isNot(contains('authorization')));
-        return http.Response(
-            jsonEncode({
-              'acceptedTerms': false,
-              'userAllowed': false,
-              'restrictions': restriction,
-            }),
-            200);
-      }));
+      final service = InvestmentProviderAvailability(
+          cacheFor: Duration.zero,
+          client: MockClient((request) async {
+            expect(request.method, 'POST');
+            expect(request.url.toString(), 'https://api.hyperliquid.xyz/info');
+            expect(jsonDecode(request.body), {
+              'type': 'legalCheck',
+              'user':
+                  InvestmentProviderAvailability.hyperliquidLegalCheckAddress,
+            });
+            expect(request.headers.keys.map((key) => key.toLowerCase()),
+                isNot(contains('authorization')));
+            return http.Response(
+                jsonEncode({
+                  'acceptedTerms': false,
+                  'userAllowed': false,
+                  'restrictions': restriction,
+                }),
+                200);
+          }));
       final result = await service.hyperliquid();
       expect(
           result.status,
@@ -57,12 +59,14 @@ void main() {
 
   for (final blocked in [true, false]) {
     test('Polymarket direct device verdict: blocked=$blocked', () async {
-      final service =
-          InvestmentProviderAvailability(cacheFor: Duration.zero, client: MockClient((request) async {
-        expect(request.method, 'GET');
-        expect(request.url.toString(), 'https://polymarket.com/api/geoblock');
-        return http.Response(jsonEncode({'blocked': blocked}), 200);
-      }));
+      final service = InvestmentProviderAvailability(
+          cacheFor: Duration.zero,
+          client: MockClient((request) async {
+            expect(request.method, 'GET');
+            expect(
+                request.url.toString(), 'https://polymarket.com/api/geoblock');
+            return http.Response(jsonEncode({'blocked': blocked}), 200);
+          }));
       expect(
           (await service.polymarket()).status,
           blocked
@@ -107,15 +111,16 @@ void main() {
       'trade and deposit are gated; exits and reads never reuse new-investment gate',
       () async {
     final hosts = <String>[];
-    final service =
-        InvestmentProviderAvailability(cacheFor: Duration.zero, client: MockClient((request) async {
-      hosts.add(request.url.host);
-      return http.Response(
-          request.url.host == 'api.hyperliquid.xyz'
-              ? '{"acceptedTerms":true,"userAllowed":false,"restrictions":"n"}'
-              : '{"blocked":false}',
-          200);
-    }));
+    final service = InvestmentProviderAvailability(
+        cacheFor: Duration.zero,
+        client: MockClient((request) async {
+          hosts.add(request.url.host);
+          return http.Response(
+              request.url.host == 'api.hyperliquid.xyz'
+                  ? '{"acceptedTerms":true,"userAllowed":false,"restrictions":"n"}'
+                  : '{"blocked":false}',
+              200);
+        }));
     for (final capability in ['hyperliquid.trade', 'hyperliquid.deposit']) {
       await service.ensureNewExposure([capability]);
       expect(hosts.removeLast(), 'api.hyperliquid.xyz');
@@ -183,11 +188,11 @@ void main() {
             required String result,
           }) =>
               reports.add({
-                'venue': venue,
-                'trigger': trigger,
-                'changed': changed,
-                'result': result,
-              }),
+            'venue': venue,
+            'trigger': trigger,
+            'changed': changed,
+            'result': result,
+          }),
         );
 
     setUp(() {
@@ -212,8 +217,8 @@ void main() {
           ProviderAvailabilityStatus.allowed);
       expect(notified, 1, reason: 'screens holding the refusal hear it');
       await venues.ensureNewExposure(['polymarket.trade']);
-      expect(requests, 2, reason: 'the allowed answer is reused');
-      expect(reports.last, {
+      expect(requests, 3, reason: 'every gated tap checks live');
+      expect(reports[1], {
         'venue': 'polymarket',
         'trigger': 'network_change',
         'changed': true,
@@ -250,13 +255,31 @@ void main() {
       expect(reports.last['changed'], isTrue);
     });
 
-    test('a refusal fetched moments ago is not asked again at the tap',
-        () async {
+    test('a refusal fetched moments ago is asked again at the tap', () async {
       final venues = service();
       await venues.polymarket();
       await expectLater(venues.ensureNewExposure(['polymarket.trade']),
           throwsA(isA<ProviderAvailabilityException>()));
-      expect(requests, 1);
+      expect(requests, 2);
+    });
+
+    test('a tap supersedes an earlier check and late denial is discarded',
+        () async {
+      final old = Completer<http.Response>();
+      var calls = 0;
+      final venues = InvestmentProviderAvailability(client: MockClient((_) {
+        if (++calls == 1) return old.future;
+        return Future.value(http.Response('{"blocked":false}', 200));
+      }));
+      addTearDown(venues.dispose);
+      final earlier = venues.polymarket();
+      await pumpEventQueue();
+      await venues.ensureNewExposure(['polymarket.trade']);
+      expect(calls, 2);
+      old.complete(http.Response('{"blocked":true}', 200));
+      await earlier;
+      expect(venues.cached(InvestmentProvider.polymarket)?.status,
+          ProviderAvailabilityStatus.allowed);
     });
 
     test('a restricted answer lives a minute, an allowed one five', () async {
