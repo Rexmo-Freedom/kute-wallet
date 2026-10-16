@@ -637,6 +637,20 @@ void main() {
     });
   });
 
+  test('native sync diagnostics expose only fixed stage labels', () {
+    expect(
+        sdkSyncLogStage(
+            'Fetching response json from https://host/address/private-id'),
+        'chain_address_read_started');
+    expect(
+        sdkSyncLogStage(
+            'Fetching static deposit claim quote for deposit tx private-id and amount: 123'),
+        'deposit_claim_quote_started');
+    expect(sdkSyncLogStage('Failed to query operator private-id: secret error'),
+        'operator_query_failed');
+    expect(sdkSyncLogStage('unrelated secret value'), isNull);
+  });
+
   test('isSdkSyncLogLine picks the SDK sync step lines', () {
     expect(
         isSdkSyncLogLine(

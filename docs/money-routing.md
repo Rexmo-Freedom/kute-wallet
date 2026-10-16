@@ -21,6 +21,33 @@ release record.
 An Investments total is a presentation of several balances. It does not mean
 the money is already in the account that can place a particular order.
 
+## Showing known figures while data refreshes
+
+Display snapshots preserve a known figure through refresh or reconnect. The
+main Investments total and invested subtitle save a complete per-wallet picture;
+a partial read cannot overwrite it. Portfolio tile parts use the same existing
+Hive venue cache. Saved balance figures remain visibly stale/dimmed while fresh
+inputs are incomplete. A successful known zero replaces the old figure.
+
+Hyperliquid account figures and perp/spot positions also have a display-only
+memory/disk snapshot, scoped to the spending wallet and EVM derivation format.
+Once the account address resolves, a mismatched snapshot is rejected. Performance
+history is cached in memory by the resolved venue account, so returning to that
+account can reuse its history; a different or unresolved identity cannot inherit
+the previous account's values. Shimmer is for loading without usable saved data.
+The main header keeps its existing dimmed partial fallback on the first read
+when no complete snapshot has ever been saved.
+
+These caches only change presentation. Actual sends, order sizing, approval caps,
+spendable checks and venue readiness still use authoritative execution providers.
+The cache adds no polling or API requests. See
+[venue_total_cache_service.dart](../lib/services/venue_total_cache_service.dart),
+[investment_balance_header.dart](../lib/screens/shared/investment_balance_header.dart),
+[portfolio_balance_breakdown.dart](../lib/screens/portfolio/portfolio_balance_breakdown.dart),
+[hyperliquid_account_cache.dart](../lib/services/hyperliquid/hyperliquid_account_cache.dart),
+[Hyperliquid display providers](../lib/providers/hyperliquid_account_provider.dart)
+and [portfolio_performance_provider.dart](../lib/providers/portfolio_performance_provider.dart).
+
 ## What happens when someone confirms a bet or order
 
 Use sources in this order: cash already in that venue, then Dollars, then
@@ -184,6 +211,32 @@ The official Breez guidance for [balance reads](https://sdk-doc-spark.breez.tech
 [events](https://sdk-doc-spark.breez.technology/guide/events.html) and
 [payment history](https://sdk-doc-spark.breez.technology/guide/list_payments.html)
 likewise calls for refreshing both snapshots after `Synced`.
+
+A newly confirmed own-wallet Orchestra delivery into Spark BTC or USDB has a
+more specific repair path. It first reads the SDK's stored arrival state, waits
+one bounded 3 s observation interval, then reads again. Individual balance and
+payment reads have 2 s ceilings, so the interval is not a total-delivery promise.
+If the receipt is still not reflected, it can immediately request guarded SDK
+recovery instead of waiting for the generic 60 s watch.
+
+This path requires a recent successful Orchestra order for the connected wallet,
+the matching Spark recipient and a valid BTC/USDB amount. Balance growth is
+checked against the receipt's baseline; without a baseline, a completed matching
+receive and sufficient balance are needed. Bootstrap history, ordinary outgoing
+payments, refunds and external recipients do not grant this exemption. Only the
+young-sync gate is bypassed: native mutations, optimization, pending outgoing
+payments, uncertain pending state, generation checks and single-flight recovery
+still apply. Receipts are deduplicated per wallet/order; deferred checks can
+retry on existing idle/completion signals within their bounded budget. It never
+replays the money movement. See
+[own_spark_arrivals.dart](../lib/services/orchestra/own_spark_arrivals.dart) and
+[sdk_instance.dart](../lib/models/breez/sdk_instance.dart).
+
+Home and Investments pull-to-refresh already use
+[refresh_everything_provider.dart](../lib/providers/refresh_everything_provider.dart)
+to refresh SDK readings and background order statuses. A still-running SDK sync
+is joined; another parallel native sync is not started. The generic 60 s watch
+below remains a fallback when no confirmed own Orchestra receipt is available.
 
 An outstanding shared native sync used to defer SDK recovery indefinitely,
 even after the foreground wait timed out. The app now observes every shared

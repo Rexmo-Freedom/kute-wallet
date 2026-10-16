@@ -70,6 +70,24 @@ void main() {
   });
   tearDown(OwnSparkArrivals.reset);
 
+  test(
+      'settlement fallback follows transitions, excluding repeats and old history',
+      () async {
+    final completed = <String>[];
+    OwnSparkArrivals.settled = (row) async => completed.add(row.id);
+    final pending = _row('new');
+    final landed = _row('new', status: 'success');
+    OwnSparkArrivals.rowsChanged([pending], [landed]);
+    await Future<void>.delayed(Duration.zero);
+    OwnSparkArrivals.rowsChanged([landed], [landed]);
+    OwnSparkArrivals.rowsChanged(
+        [], [_row('old', status: 'success', age: const Duration(days: 2))]);
+    OwnSparkArrivals.rowsChanged([_row('out', toNet: 'POLYGON')],
+        [_row('out', toNet: 'POLYGON', status: 'success')]);
+    await Future<void>.delayed(Duration.zero);
+    expect(completed, ['new']);
+  });
+
   group('landedRows', () {
     List<String> landed(List<SwapOrder> before, List<SwapOrder> after) =>
         OwnSparkArrivals.landedRows(before, after, now: _now)
@@ -81,18 +99,17 @@ void main() {
           ['ord_pm']);
     });
 
-    test('a recent row first seen already done has landed (CCTP adoption, '
+    test(
+        'a recent row first seen already done has landed (CCTP adoption, '
         'quote id moved to its order)', () {
-      expect(
-          landed([_row('cctp-op1')], [_row('ord_hl', status: 'success')]),
+      expect(landed([_row('cctp-op1')], [_row('ord_hl', status: 'success')]),
           ['ord_hl']);
     });
 
     test('history, other destinations, failures and repeats have not', () {
       expect(
           landed([], [
-            _row('ord_old',
-                status: 'success', age: const Duration(days: 2)),
+            _row('ord_old', status: 'success', age: const Duration(days: 2)),
           ]),
           isEmpty,
           reason: 'loaded history is not an arrival');
@@ -108,8 +125,8 @@ void main() {
               [_row('ord_d', status: 'success')]),
           isEmpty,
           reason: 'already reported');
-      expect(landed([_row('ord_s')], [_row('ord_s', status: 'settled')]),
-          isEmpty,
+      expect(
+          landed([_row('ord_s')], [_row('ord_s', status: 'settled')]), isEmpty,
           reason: 'the receive it was matched to is already shown');
     });
   });
@@ -175,8 +192,8 @@ void main() {
 
     test('loaded history is the baseline; a completion refreshes once',
         () async {
-      final done = _row('ord_done',
-          status: 'success', age: const Duration(minutes: 5));
+      final done =
+          _row('ord_done', status: 'success', age: const Duration(minutes: 5));
       await box.put(done.id, done);
       final notifier = SwapOrdersNotifier();
       await pumpEventQueue();
@@ -204,8 +221,8 @@ void main() {
 
   group('every Spark order that ends refreshes its balance', () {
     // A Rebalance's Predictions leg: USDC.e on Polygon home to Dollars.
-    SwapOrder sweep(String id, {String status = 'exchanging'}) => _row(id,
-        from: 'USDC', fromNet: 'POLYGON', to: 'USDB', status: status);
+    SwapOrder sweep(String id, {String status = 'exchanging'}) =>
+        _row(id, from: 'USDC', fromNet: 'POLYGON', to: 'USDB', status: status);
 
     test(
         'a Predictions → Dollars sweep reaching success refreshes Dollars '
@@ -238,8 +255,8 @@ void main() {
           age: const Duration(minutes: 18));
       OwnSparkArrivals.rowsChanged([placeholder], [order]);
       expect(refreshes, [ArrivalAsset.dollars]);
-      expect(sinces.single,
-          DateTime.fromMillisecondsSinceEpoch(order.timestamp),
+      expect(
+          sinces.single, DateTime.fromMillisecondsSinceEpoch(order.timestamp),
           reason: 'measured from before the CCTP move left Investing');
     });
 
@@ -253,7 +270,11 @@ void main() {
           to: 'USDB',
           age: const Duration(minutes: 3));
       final c = _row('ord_c', from: 'USDC', fromNet: 'POLYGON', to: 'BTC');
-      OwnSparkArrivals.rowsChanged([a, b, c], [
+      OwnSparkArrivals.rowsChanged([
+        a,
+        b,
+        c
+      ], [
         sweep('ord_a', status: 'success'),
         _row('ord_b',
             from: 'USDC',
@@ -307,7 +328,9 @@ void main() {
       // Dollars → Predictions, refunded to the wallet's own Spark address.
       final out = _row('ord_out',
           from: 'USDB', fromNet: 'SPARK', to: 'USDC', toNet: 'POLYGON');
-      OwnSparkArrivals.rowsChanged([out], [
+      OwnSparkArrivals.rowsChanged([
+        out
+      ], [
         _row('ord_out',
             from: 'USDB',
             fromNet: 'SPARK',

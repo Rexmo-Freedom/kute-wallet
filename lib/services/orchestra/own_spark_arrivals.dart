@@ -72,6 +72,10 @@ abstract final class OwnSparkArrivals {
   static Future<void> _refreshWallet(OwnSparkArrival arrival) => BreezSdkSpark()
       .syncAndRefresh(asset: arrival.asset, since: arrival.since);
 
+  /// Confirmed deliveries have a separate, once-per-order repair trigger.
+  static Future<void> Function(SwapOrder row) settled =
+      (row) => BreezSdkSpark().refreshCompletedSparkOrder(row);
+
   /// Re-reads the wallet once, no poll, no sync. Test seam.
   static Future<void> Function() reread = _rereadWallet;
 
@@ -167,7 +171,13 @@ abstract final class OwnSparkArrivals {
     final arrivals = <ArrivalAsset, List<SwapOrder>>{};
     for (final row in ended) {
       final asset = arrivalAssetOf(row);
-      if (asset != null) (arrivals[asset] ??= []).add(row);
+      if (asset != null) {
+        (arrivals[asset] ??= []).add(row);
+        if (row.status == 'success' && row.isOrchestra) {
+          unawaited(
+              Future<void>.sync(() => settled(row)).catchError((Object _) {}));
+        }
+      }
     }
     if (arrivals.isEmpty) {
       // An arrival's refresh publishes every balance anyway.
@@ -230,6 +240,7 @@ abstract final class OwnSparkArrivals {
     _rereadTimer?.cancel();
     _rereadTimer = null;
     refresh = _refreshWallet;
+    settled = (row) => BreezSdkSpark().refreshCompletedSparkOrder(row);
     reread = _rereadWallet;
     rereadDelay = const Duration(milliseconds: 300);
     clock = DateTime.now;

@@ -3,6 +3,9 @@ import 'dart:async';
 import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart' as spark;
 import 'package:flutter/foundation.dart';
 import 'package:kute/models/breez/deposit_update.dart';
+import 'package:kute/models/swap_order_model.dart';
+import 'package:kute/services/security/address_guard.dart'
+    show sparkIdentityPubkeyHex;
 import 'package:kute/models/breez/shared_sync.dart';
 import 'package:kute/models/breez/sdk_operation_guard.dart';
 import 'package:kute/models/breez/sdk_balance_telemetry.dart';
@@ -23,6 +26,7 @@ class BreezSdkSpark {
       : _connectSdk = _nativeConnect,
         _syncStallAfter = kSparkSyncStallAfter,
         _syncWaitTimeout = const Duration(seconds: 20),
+        _settlementObservation = kArrivalPollWindow,
         _balanceTelemetry = const SdkBalanceTelemetry();
 
   @visibleForTesting
@@ -31,9 +35,11 @@ class BreezSdkSpark {
     Duration syncStallAfter = kSparkSyncStallAfter,
     Duration syncWaitTimeout = const Duration(seconds: 20),
     SdkBalanceTelemetry balanceTelemetry = const SdkBalanceTelemetry(),
+    Duration settlementObservation = kArrivalPollWindow,
   })  : _connectSdk = connectSdk,
         _syncStallAfter = syncStallAfter,
         _syncWaitTimeout = syncWaitTimeout,
+        _settlementObservation = settlementObservation,
         _balanceTelemetry = balanceTelemetry;
 
   static Future<spark.BreezSdk> _nativeConnect(spark.ConnectRequest req) {
@@ -45,6 +51,10 @@ class BreezSdkSpark {
   final SdkBalanceTelemetry _balanceTelemetry;
   final Duration _syncStallAfter;
   final Duration _syncWaitTimeout;
+  final Duration _settlementObservation;
+  String? _connectedWalletId;
+  final Set<String> _settlementSeen = {};
+  final Map<String, _SettledSparkArrival> _settlementPending = {};
   Future<void> _lifecycle = Future<void>.value();
   int _generation = 0;
   Object? _teardownFailure;
@@ -91,7 +101,12 @@ class BreezSdkSpark {
   /// (`spark_connect_latency`, whatever its outcome), for the same reason.
   bool _bootConnectMeasured = false;
 
-  Future<void> connect({required spark.ConnectRequest req}) {
+  Future<void> connect({required spark.ConnectRequest req, String? walletId}) {
+    if (walletId != _connectedWalletId) {
+      _settlementSeen.clear();
+      _settlementPending.clear();
+    }
+    _connectedWalletId = walletId;
     final generation = ++_generation;
     final previous = _instance;
     _instance = null;
@@ -136,8 +151,7 @@ class BreezSdkSpark {
       _subscribeToSdkStreams(sdk);
       _stopWatchingSync =
           observeSharedSync(sdk, (sync) => _watchSync(sdk, sync));
-      _stopWatchingIdle =
-          observeSparkIdle(sdk, () => _recoverWatchedStall(sdk));
+      _stopWatchingIdle = observeSparkIdle(sdk, () => _onSparkIdle(sdk));
       // Fetches may complete after a wallet switch; publication below checks
       // the exact SDK handle. Failures are retried by the sync pipelines.
       unawaited(_fetchWalletData(sdk).catchError((Object _) {}));
@@ -158,6 +172,9 @@ class BreezSdkSpark {
   }
 
   void disconnect() {
+    _connectedWalletId = null;
+    _settlementSeen.clear();
+    _settlementPending.clear();
     ++_generation;
     final previous = _instance;
     _instance = null;
@@ -315,11 +332,18 @@ class BreezSdkSpark {
   /// synchronous mutation reservation also blocks a send from
   /// starting while the pending-payment check is in flight. Never throws.
   Future<bool> recoverStaleTokenBalance(spark.BreezSdk expected,
-      {String source = 'unknown'}) {
+          {String source = 'unknown'}) =>
+      _recoverTokenBalance(expected, source: source);
+
+  Future<bool> _recoverTokenBalance(spark.BreezSdk expected,
+      {required String source,
+      bool settledArrival = false,
+      void Function(UsdRecoveryReason reason)? onDeferred}) {
     final running = _balanceRecovery;
     if (running != null) return running;
     final sw = Stopwatch()..start();
     Future<bool> defer(UsdRecoveryReason reason) {
+      onDeferred?.call(reason);
       _balanceTelemetry.recovery(
           source: source,
           result: UsdRecoveryResult.deferred,
@@ -334,7 +358,7 @@ class BreezSdkSpark {
     if (!identical(_instance, expected)) {
       return defer(UsdRecoveryReason.walletChanged);
     }
-    if (_syncBlocksRecovery(expected)) {
+    if (!settledArrival && _syncBlocksRecovery(expected)) {
       return defer(UsdRecoveryReason.syncInFlight);
     }
     if (_optimizationInProgress) {
@@ -364,9 +388,10 @@ class BreezSdkSpark {
           reason = UsdRecoveryReason.walletChanged;
           return false;
         }
-        if (_syncBlocksRecovery(expected) || _optimizationInProgress) {
+        if ((!settledArrival && _syncBlocksRecovery(expected)) ||
+            _optimizationInProgress) {
           outcome = UsdRecoveryResult.deferred;
-          reason = _syncBlocksRecovery(expected)
+          reason = !settledArrival && _syncBlocksRecovery(expected)
               ? UsdRecoveryReason.syncInFlight
               : UsdRecoveryReason.optimizationInFlight;
           return false;
@@ -374,7 +399,7 @@ class BreezSdkSpark {
         reservation.retire();
         attempted = true;
         reason = UsdRecoveryReason.connectFailed;
-        await connect(req: req);
+        await connect(req: req, walletId: _connectedWalletId);
         final replacement = _instance;
         final connectedGeneration = _generation;
         if (replacement != null) {
@@ -399,6 +424,7 @@ class BreezSdkSpark {
         return false;
       } finally {
         reservation.release();
+        if (outcome == UsdRecoveryResult.deferred) onDeferred?.call(reason);
         // Only a completed, current recovery may rebuild dependent providers.
         // A healthy but busy/offline handle remains connected as before.
         if (report &&
@@ -419,9 +445,182 @@ class BreezSdkSpark {
     }();
     _balanceRecovery = result;
     result.then((_) {
-      if (identical(_balanceRecovery, result)) _balanceRecovery = null;
+      if (identical(_balanceRecovery, result)) {
+        _balanceRecovery = null;
+        final sdk = _instance;
+        if (sdk != null) _retrySettledArrivals(sdk);
+      }
     });
     return result;
+  }
+
+  /// Only completed, newly observed own-wallet Orchestra deliveries may use
+  /// this entry point. The adapter excludes bootstrap history. One bounded
+  /// observation precedes recovery; no young-sync exemption is public.
+  Future<void> refreshCompletedSparkOrder(SwapOrder row) async {
+    final walletId = _connectedWalletId;
+    final sdk = _instance;
+    final coin = row.coinTo.toUpperCase();
+    if (sdk == null ||
+        walletId == null ||
+        row.walletId != walletId ||
+        !row.isOrchestra ||
+        row.status != 'success' ||
+        row.networkTo.toUpperCase() != 'SPARK' ||
+        (coin != 'BTC' && coin != 'USDB') ||
+        row.id.isEmpty ||
+        DateTime.now().difference(row.createdAt).abs() >
+            const Duration(hours: 6)) {
+      return;
+    }
+    final destination = sparkIdentityPubkeyHex(row.withdrawalAddress);
+    final amount = double.tryParse(row.withdrawalAmount);
+    if (destination == null ||
+        amount == null ||
+        !amount.isFinite ||
+        amount <= 0) {
+      return;
+    }
+    final key = '$walletId|${row.id}';
+    if (_settlementSeen.contains(key) || _settlementPending.containsKey(key)) {
+      return;
+    }
+    final pending = _SettledSparkArrival(
+        row,
+        destination,
+        BigInt.from((amount * (coin == 'BTC' ? 1e8 : 1e6)).round()),
+        _balanceLog.baselineSince(row.createdAt));
+    _settlementPending[key] = pending;
+    await _checkSettledArrival(key, pending, observe: true);
+  }
+
+  void _onSparkIdle(spark.BreezSdk sdk) {
+    _retrySettledArrivals(sdk);
+    _recoverWatchedStall(sdk);
+  }
+
+  void _retrySettledArrivals(spark.BreezSdk sdk) {
+    if (!identical(_instance, sdk)) return;
+    for (final entry in _settlementPending.entries.toList()) {
+      if (!entry.value.running && entry.value.checks < 3) {
+        unawaited(_checkSettledArrival(entry.key, entry.value));
+      }
+    }
+  }
+
+  Future<void> _checkSettledArrival(String key, _SettledSparkArrival pending,
+      {bool observe = false}) async {
+    if (pending.running) return;
+    pending.running = true;
+    final generation = _generation;
+    bool sameWallet() =>
+        _connectedWalletId == pending.row.walletId &&
+        identical(_settlementPending[key], pending);
+    bool live() => sameWallet() && _generation == generation;
+    void done() {
+      _settlementPending.remove(key);
+      _settlementSeen.add(key);
+    }
+
+    try {
+      var sdk = _instance;
+      if (sdk == null || !live()) return;
+      var identityConfirmed = false;
+      Future<bool?> reflected() async {
+        final current = _instance;
+        if (current == null || !live()) return null;
+        try {
+          final info =
+              await _getInfo(current).timeout(const Duration(seconds: 2));
+          if (!live() || !identical(_instance, current)) return null;
+          if (info.identityPubkey.toLowerCase() != pending.destination) {
+            done(); // An external Spark recipient is never a recovery trigger.
+            return true;
+          }
+          identityConfirmed = true;
+          final payments = await current
+              .listPayments(request: const spark.ListPaymentsRequest())
+              .timeout(const Duration(seconds: 2));
+          if (!live() || !identical(_instance, current)) return null;
+          final balances = pending.row.coinTo.toUpperCase() == 'BTC'
+              ? {'sats': info.balanceSats}
+              : {
+                  for (final entry in info.tokenBalances.entries)
+                    if (entry.value.tokenMetadata.ticker.toUpperCase() ==
+                        'USDB')
+                      entry.key: entry.value.balance
+                };
+          final asset = pending.row.coinTo.toUpperCase() == 'BTC'
+              ? ArrivalAsset.bitcoin
+              : ArrivalAsset.dollars;
+          final matching = payments.payments.any((p) =>
+              p.paymentType == spark.PaymentType.receive &&
+              p.status == spark.PaymentStatus.completed &&
+              (p.amount - pending.units).abs() <= BigInt.one &&
+              p.timestamp.toInt() * 1000 >= pending.row.timestamp - 10000 &&
+              (asset == ArrivalAsset.bitcoin
+                  ? p.details is! spark.PaymentDetails_Token
+                  : p.details is spark.PaymentDetails_Token &&
+                      (p.details as spark.PaymentDetails_Token)
+                              .metadata
+                              .ticker
+                              .toUpperCase() ==
+                          'USDB'));
+          for (final entry in balances.entries) {
+            if (!asset.counts(entry.key)) continue;
+            final baseline = pending.baseline?[entry.key] ?? BigInt.zero;
+            if (pending.baseline != null &&
+                entry.value + BigInt.one >= baseline + pending.units) {
+              return true;
+            }
+            if (pending.baseline == null &&
+                matching &&
+                entry.value >= pending.units) {
+              return true;
+            }
+          }
+          return false;
+        } catch (_) {
+          return null;
+        }
+      }
+
+      if (await reflected() == true) {
+        if (live()) done();
+        return;
+      }
+      if (!live()) return;
+      if (observe) {
+        await Future<void>.delayed(_settlementObservation);
+        if (!live()) return;
+        if (await reflected() == true) {
+          if (live()) done();
+          return;
+        }
+      }
+      sdk = _instance;
+      if (!live() ||
+          !identityConfirmed ||
+          sdk == null ||
+          _balanceRecovery != null ||
+          _optimizationInProgress ||
+          sparkMutationInFlight(sdk)) {
+        return;
+      }
+      pending.checks++;
+      _debugFeed('arrival=completed_order action=guarded_recovery');
+      final recovered = await _recoverTokenBalance(sdk,
+          source: 'order_leg', settledArrival: true, onDeferred: (reason) {
+        if (reason == UsdRecoveryReason.pendingSend ||
+            reason == UsdRecoveryReason.mutationInFlight ||
+            reason == UsdRecoveryReason.optimizationInFlight) {
+          pending.checks--;
+        }
+      });
+      if (sameWallet() && (recovered || !identical(_instance, sdk))) done();
+    } finally {
+      pending.running = false;
+    }
   }
 
   bool _syncBlocksRecovery(spark.BreezSdk sdk) {
@@ -745,9 +944,10 @@ class BreezSdkSpark {
     _breezLogStream = stream;
     if (kDebugMode && printSyncSteps) {
       stream.listen((entry) {
-        if (!isSdkSyncLogLine(entry.line)) return;
+        final stage = sdkSyncLogStage(entry.line);
+        if (stage == null) return;
         // ignore: avoid_print
-        print('[sdk-sync] ${entry.level} ${entry.line.trim()}');
+        print('[sdk-sync] $stage');
       }, onError: (Object _) {});
     }
   }
@@ -880,7 +1080,7 @@ class BreezSdkSpark {
               case spark.AutoOptimizationEvent_Skipped():
                 _optimizationInProgress = false;
             }
-            if (!_optimizationInProgress) _recoverWatchedStall(sdk);
+            if (!_optimizationInProgress) _onSparkIdle(sdk);
             _fetchWalletData(sdk);
           },
           unclaimedDeposits: (e) {
@@ -923,7 +1123,7 @@ class BreezSdkSpark {
             );
             _paymentResultStream.add(e.payment);
             _fetchWalletData(sdk);
-            _recoverWatchedStall(sdk);
+            _onSparkIdle(sdk);
           },
           paymentPending: (e) {
             _logStreamController.add(
@@ -1053,8 +1253,50 @@ class SyncedReread {
 
 /// The SDK tracing filter for debug builds: warnings, plus the wallet sync
 /// steps and the per-operator query failures.
-const String kSdkSyncDebugLogFilter =
-    'warn,breez_sdk_spark::sdk::sync=debug,spark::tree::service=error';
+const String kSdkSyncDebugLogFilter = 'warn,breez_sdk_spark::sdk::sync=debug,'
+    'breez_sdk_spark::utils::deposit_chain_syncer=info,'
+    'breez_sdk_spark::chain::rest_client=debug,'
+    'breez_sdk_spark::sdk::init=info,spark::tree::service=error';
+
+/// Only constant stage names leave the native logger. Chain URLs, deposit
+/// identifiers, amounts and raw errors must never be printed by diagnostics.
+String? sdkSyncLogStage(String line) {
+  const stages = {
+    'Starting Wallet sync': 'wallet_started',
+    'Wallet sync completed': 'wallet_completed',
+    'Starting WalletState sync': 'wallet_state_started',
+    'WalletState sync completed': 'wallet_state_completed',
+    'Starting LnurlMetadata sync': 'lnurl_started',
+    'LnurlMetadata sync completed': 'lnurl_completed',
+    'Starting Deposits sync': 'deposits_started',
+    'Deposits sync completed': 'deposits_completed',
+    'Syncing deposit UTXOs via identity': 'deposit_scan_started',
+    'Checking refund of deposit': 'deposit_refund_check',
+    'Fetching static deposit claim quote': 'deposit_claim_quote_started',
+    'Claiming static deposit for utxo': 'deposit_claim_started',
+    'Claimed static deposit for utxo': 'deposit_claim_completed',
+    'background claim completed, unclaimed deposits:': 'deposit_scan_completed',
+    'Spark private mode initialized:': 'private_mode_initialized',
+    'Failed to initialize spark private mode': 'private_mode_failed',
+    'Error refreshing leaves on startup:': 'startup_leaves_failed',
+    'Error refreshing token outputs on startup:': 'startup_tokens_failed',
+    'Failed to check and claim static deposits': 'deposits_failed',
+    'Spark wallet sync failed': 'wallet_failed',
+    'Failed to query operator': 'operator_query_failed',
+  };
+  for (final entry in stages.entries) {
+    if (line.contains(entry.key)) return entry.value;
+  }
+  if (line.contains('Fetching response json from')) {
+    if (line.contains('/address/')) return 'chain_address_read_started';
+    if (line.contains('/outspend/')) return 'chain_outspend_read_started';
+    return 'chain_json_read_started';
+  }
+  if (line.contains('Fetching response text from')) {
+    return 'chain_text_read_started';
+  }
+  return null;
+}
 
 /// Whether [line] from the SDK's log stream is one of its own wallet sync
 /// step lines (timings and failures).
@@ -1469,3 +1711,13 @@ Future<bool> syncUntilBalanceRises({
     ).request(asset: asset, baseline: baseline);
 
 Future<void> _sleepFor(Duration d) => Future<void>.delayed(d);
+
+class _SettledSparkArrival {
+  _SettledSparkArrival(this.row, this.destination, this.units, this.baseline);
+  final SwapOrder row;
+  final String destination;
+  final BigInt units;
+  final Map<String, BigInt>? baseline;
+  bool running = false;
+  int checks = 0;
+}
