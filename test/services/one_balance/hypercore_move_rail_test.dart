@@ -35,6 +35,7 @@ import 'package:kute/services/orchestra/standing_deposit_store.dart'
 import 'package:kute/services/runtime_capabilities_service.dart'
     show CapabilityDecision;
 import 'package:kute/services/tracking_service.dart';
+import 'package:kute/services/security/wallet_guard_exception.dart';
 
 const _eoa = '0x1111111111111111111111111111111111111111';
 const _sparkSelf = 'sprt1qself';
@@ -180,7 +181,7 @@ void main() {
     });
   });
 
-  group('straight to the final destination by CCTP', () {
+  group('straight to the final destination', () {
     SettlementAuthorizationIntent intent(RouteKey route,
             {String recipient = _sparkSelf}) =>
         SettlementAuthorizationIntent(
@@ -209,12 +210,15 @@ void main() {
           method: AuthGrantMethod.biometric,
         );
 
-    test('Bitcoin: CCTP with the own-Spark rule for the BTC route', () async {
+    test(
+        'Bitcoin: unsupported native route uses CCTP with the same own-Spark rule',
+        () async {
       final events = <(String, Map<String, Object?>?)>[];
       TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
       addTearDown(() => TrackingService.debugTrackObserver = null);
       final cctp = _FakeCctp();
-      final rail = HyperCoreMoveRail(container.read, cctp: () => cctp);
+      final native = _ScriptedService(container.read, _refused());
+      final rail = HyperCoreMoveRail(withService(native), cctp: () => cctp);
       final grant = approval();
       final result = await rail.withdrawDirect(
           destination: InvestingWithdrawalDestination.bitcoin,
@@ -239,7 +243,196 @@ void main() {
       expect(submitted.$2?['route'], 'cctp');
     });
 
-    test('the automatic authorization never moves Investing cash anywhere '
+    test(
+        'native Bitcoin success preserves its operation, registration and eight-decimal source amount',
+        () async {
+      final events = <(String, Map<String, Object?>?)>[];
+      TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+      addTearDown(() => TrackingService.debugTrackObserver = null);
+      final native = _ScriptedService(container.read, null);
+      final cctp = _FakeCctp();
+      final rail = HyperCoreMoveRail(withService(native), cctp: () => cctp);
+      final grant = approval(cap: 5);
+      final result = await rail.withdrawDirect(
+          destination: InvestingWithdrawalDestination.bitcoin,
+          usd: 5,
+          auth: ApprovedLegAuthorization(grant),
+          purpose: 'buy_bitcoin');
+      expect(native.calls, ['withdraw:buy_bitcoin:bitcoin:5.0']);
+      expect(cctp.calls, isEmpty);
+      expect(result.operationId, 'op-direct');
+      expect(result.quoteId, _verifiedQuote().quoteId);
+      expect(result.orderId, 'ord_direct');
+      expect(result.sentUsd, 5);
+      expect(result.arrivingUsdEstimate, 4.99);
+      expect(await result.registration, 'ord_direct');
+      final submitted = events
+          .singleWhere((e) => e.$1 == 'hyperliquid_withdraw_submitted')
+          .$2!;
+      expect(submitted['route'], 'direct');
+      expect(submitted['destination'], 'btc');
+      expect(events.where((e) => e.$1 == 'hyperliquid_withdraw_step'), isEmpty);
+      expect(await native.lastStepUp!(intent(kHypercoreToSparkRoute)), isFalse,
+          reason: '12 USD cannot use a 5 USD cap');
+    });
+
+    test(
+        'a missing Bitcoin pair opens CCTP once without spending the native grant',
+        () async {
+      const missing = SettlementStopped(SettlementStopReason.routeUnavailable,
+          routeReason: RouteUnavailableReason.pairMissing);
+      final native = _ScriptedService(container.read, missing);
+      final cctp = _FakeCctp();
+      final rail = HyperCoreMoveRail(withService(native), cctp: () => cctp);
+      final grant = approval();
+      await rail.withdrawDirect(
+          destination: InvestingWithdrawalDestination.bitcoin,
+          usd: 12,
+          auth: ApprovedLegAuthorization(grant));
+      expect(native.calls, hasLength(1));
+      expect(cctp.calls, ['bitcoin:cash_pull:12.0']);
+      expect(DirectLegGrants.takenBy(grant), BigInt.zero);
+      expect(await cctp.lastStepUp!(intent(kHypercoreToSparkRoute)), isTrue);
+      expect(await cctp.lastStepUp!(intent(kHypercoreToSparkRoute)), isFalse);
+    });
+
+    test('Predictions stays CCTP-only', () async {
+      final native =
+          _ScriptedService(container.read, StateError('must not run'));
+      final cctp = _FakeCctp();
+      final rail = HyperCoreMoveRail(withService(native), cctp: () => cctp);
+      await rail.withdrawDirect(
+          destination: InvestingWithdrawalDestination.predictions,
+          usd: 12,
+          auth: ApprovedLegAuthorization(approval(to: 'predictions')));
+      expect(native.calls, isEmpty);
+      expect(cctp.calls, ['predictions:cash_pull:12.0']);
+    });
+
+    test(
+        'native stops and ambiguous outcomes never trigger CCTP or a home detour',
+        () async {
+      for (final error in <Object>[
+        const HypercoreFundingUnavailable(
+            HypercoreFundingUnavailableReason.paused),
+        const HypercoreFundingUnavailable(
+            HypercoreFundingUnavailableReason.flagOff),
+        const HypercoreFundingUnavailable(
+            HypercoreFundingUnavailableReason.accountUnavailable),
+        const HypercoreFundingUnavailable(
+            HypercoreFundingUnavailableReason.reverseNotReady),
+        const SettlementStopped(SettlementStopReason.routeUnavailable,
+            routeReason: RouteUnavailableReason.stale),
+        const SettlementStopped(SettlementStopReason.routeUnavailable,
+            routeReason: RouteUnavailableReason.noLiveData),
+        const SettlementStopped(SettlementStopReason.routeUnavailable,
+            routeReason: RouteUnavailableReason.decimalsMismatch),
+        const SettlementStopped(SettlementStopReason.declined),
+        const SettlementStopped(SettlementStopReason.blockedPending),
+        const SettlementStopped(SettlementStopReason.quoteExpired),
+        const OrchestraQuoteFailure('too small',
+            routeError: RouteQuoteError(RouteQuoteErrorCode.amountTooSmall)),
+        const WalletGuardException(WalletGuardReason.recipientNotOwn),
+        const WalletGuardException(WalletGuardReason.amountMismatch),
+        const SocketException('offline'),
+        SettlementFundingUnknown(
+            'operation', StateError('after native submission')),
+        SettlementFundingUnknown('operation', _refused()),
+        StateError('ambiguous native failure'),
+      ]) {
+        final native = _ScriptedService(container.read, error);
+        final cctp = _FakeCctp();
+        final rail = HyperCoreMoveRail(withService(native), cctp: () => cctp);
+        await expectLater(
+            rail.withdrawDirect(
+                destination: InvestingWithdrawalDestination.bitcoin,
+                usd: 12,
+                auth: ApprovedLegAuthorization(approval())),
+            throwsA(same(error)));
+        expect(native.calls, ['withdraw:cash_pull:bitcoin:12.0']);
+        expect(cctp.calls, isEmpty);
+      }
+    });
+
+    test(
+        'native authorization refusal cannot fall back or consume another source budget',
+        () async {
+      for (final review in [
+        SettlementAuthorizationIntent(
+            flow: SettlementFlow.investingToSparkDirect,
+            walletId: 'other',
+            destination: '$_sparkSelf|$kHypercoreToSparkRouteVersion',
+            routeLabel: kHypercoreToSparkRoute.label,
+            amountIn: BigInt.from(500000000),
+            minReceive: BigInt.one,
+            maxFeeBps: 100),
+        SettlementAuthorizationIntent(
+            flow: SettlementFlow.investingToSparkDirect,
+            walletId: 'w',
+            destination: 'other|$kHypercoreToSparkRouteVersion',
+            routeLabel: kHypercoreToSparkRoute.label,
+            amountIn: BigInt.from(500000000),
+            minReceive: BigInt.one,
+            maxFeeBps: 100),
+        SettlementAuthorizationIntent(
+            flow: SettlementFlow.investingToSparkDirect,
+            walletId: 'w',
+            destination: '$_sparkSelf|$kHypercoreToSparkRouteVersion',
+            routeLabel: kHypercoreToSparkRoute.label,
+            amountIn: BigInt.from(500000001),
+            minReceive: BigInt.one,
+            maxFeeBps: 100),
+      ]) {
+        final native =
+            _ScriptedService(container.read, null, authorization: review);
+        final cctp = _FakeCctp();
+        final rail = HyperCoreMoveRail(withService(native), cctp: () => cctp);
+        final grant = approval(cap: 5);
+        await expectLater(
+            rail.withdrawDirect(
+                destination: InvestingWithdrawalDestination.bitcoin,
+                usd: 5,
+                auth: ApprovedLegAuthorization(grant)),
+            throwsA(isA<SettlementStopped>().having(
+                (e) => e.reason, 'reason', SettlementStopReason.declined)));
+        expect(cctp.calls, isEmpty);
+        expect(DirectLegGrants.takenBy(grant), BigInt.zero);
+      }
+    });
+
+    test('native step-up binds wallet, recipient and all eight source decimals',
+        () async {
+      final hook = rail().stepUpForDirect(ApprovedLegAuthorization(approval()),
+          InvestingWithdrawalDestination.bitcoin);
+      SettlementAuthorizationIntent nativeIntent(
+              {String wallet = 'w',
+              String recipient = _sparkSelf,
+              int atoms = 1200000000,
+              int fee = 0}) =>
+          SettlementAuthorizationIntent(
+              flow: SettlementFlow.investingToSparkDirect,
+              walletId: wallet,
+              destination: '$recipient|$kHypercoreToSparkRouteVersion',
+              routeLabel: kHypercoreToSparkRoute.label,
+              amountIn: BigInt.from(atoms),
+              sourceFeeBaseUnits: BigInt.from(fee),
+              sourceFeeAsset: 'USDC',
+              minReceive: BigInt.one,
+              maxFeeBps: 100);
+      expect(await hook(nativeIntent(wallet: 'other')), isFalse);
+      expect(await hook(nativeIntent(recipient: 'other')), isFalse);
+      expect(await hook(nativeIntent(atoms: 1200000001)), isFalse,
+          reason: 'round up rather than hide a source sub-micro above the cap');
+      expect(await hook(nativeIntent(fee: 1)), isFalse,
+          reason:
+              'usdSend has no separately paid fee; do not approve an unexpected charge');
+      expect(await hook(nativeIntent()), isTrue);
+      expect(await hook(nativeIntent()), isFalse,
+          reason: 'same source allowance cannot pay twice');
+    });
+
+    test(
+        'the automatic authorization never moves Investing cash anywhere '
         'but home to Dollars', () async {
       final rail = HyperCoreMoveRail(container.read);
       final btc = cctpRouteFor(InvestingWithdrawalDestination.bitcoin);
@@ -291,7 +484,9 @@ void main() {
 
     test('a failure after the signature is never a refusal', () async {
       final cctp = _FakeCctp(error: StateError('posted'));
-      final rail = HyperCoreMoveRail(container.read, cctp: () => cctp);
+      final rail = HyperCoreMoveRail(
+          withService(_ScriptedService(container.read, _refused())),
+          cctp: () => cctp);
       await expectLater(
           rail.withdrawDirect(
               destination: InvestingWithdrawalDestination.bitcoin,
@@ -633,10 +828,12 @@ void main() {
 /// stops when the quote is refused: before the step-up and the send. A
 /// null [error] is a route Orchestra accepted.
 class _ScriptedService extends SparkHypercoreFundingService {
-  _ScriptedService(super.read, this.error);
+  _ScriptedService(super.read, this.error, {this.authorization});
 
   final Object? error;
+  final SettlementAuthorizationIntent? authorization;
   final calls = <String>[];
+  SettlementStepUpHook? lastStepUp;
 
   @override
   Future<DirectHypercoreResult> depositFromSpark({
@@ -661,9 +858,14 @@ class _ScriptedService extends SparkHypercoreFundingService {
     String purpose = 'manual_move',
   }) async {
     calls.add('withdraw:$purpose:${destination.name}:$usd');
+    lastStepUp = stepUp;
     expect(registerInBackground, isTrue);
     final failure = error;
     if (failure != null) throw failure;
+    final review = authorization;
+    if (review != null && !await stepUp(review)) {
+      throw const SettlementStopped(SettlementStopReason.declined);
+    }
     return DirectHypercoreResult(
       run: SettlementRunResult(
         operation: SettlementOperation(
@@ -680,6 +882,7 @@ class _ScriptedService extends SparkHypercoreFundingService {
         quote: _verifiedQuote(),
         proof: const SettlementFundingProof.hyperliquid('0xhash'),
         orderId: 'ord_direct',
+        registration: Future.value('ord_direct'),
       ),
       amountIn: BigInt.from(500000000),
       estimatedOut: 4.99,

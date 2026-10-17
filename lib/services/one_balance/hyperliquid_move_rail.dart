@@ -317,18 +317,10 @@ class HyperCoreMoveRail implements HyperliquidMoveRail {
     }
   }
 
-  /// Investing cash straight to [destination] by CCTP: Bitcoin on the
-  /// wallet's own Spark address, or the wallet's own Predictions account
-  /// (Orchestra refuses every HyperCore-source route, so CCTP is the one
-  /// way out). Each destination pays its own standing instruction with
-  /// the destination's fee rule. Throws [DirectRouteRefused] when the
-  /// move was refused before anything was signed (the instruction's
-  /// terms, a shut gate, the pre-flight, an own address that cannot be
-  /// read, the own-address check): the caller then goes through Dollars.
-  /// Anything after the signature is rethrown untouched.
-  ///
-  /// The same withdrawal funnel as [withdrawToDollars], with the
-  /// destination it went to.
+  /// Investing cash straight to its own final destination. Bitcoin first
+  /// uses native HyperCore → Spark; only a confirmed unsupported route
+  /// before funding opens CCTP. Predictions keeps its CCTP route.
+  /// Other native failures never authorize another source send.
   Future<VenueMoveResult> withdrawDirect({
     required InvestingWithdrawalDestination destination,
     required double usd,
@@ -336,13 +328,17 @@ class HyperCoreMoveRail implements HyperliquidMoveRail {
     String purpose = 'cash_pull',
   }) async {
     final analytics = cctpAnalyticsDestination(destination);
+    var route = destination == InvestingWithdrawalDestination.bitcoin
+        ? 'direct'
+        : 'cctp';
+    final clock = Stopwatch()..start();
     TrackingService.hyperliquidWithdrawInitiated(
       amountUsd: usd,
       destination: analytics,
       walletKind: 'hot',
       purpose: purpose,
     );
-    try {
+    Future<VenueMoveResult> byCctp() async {
       final CctpWithdrawalResult result;
       try {
         result = await _cctp.withdrawTo(
@@ -361,13 +357,6 @@ class HyperCoreMoveRail implements HyperliquidMoveRail {
         // Stopped at the approval, before the signature.
         throw DirectRouteRefused('settlement_${e.reason.name}');
       }
-      TrackingService.hyperliquidWithdrawSubmitted(
-        amountUsd: result.sentUsd,
-        route: 'cctp',
-        destination: analytics,
-        walletKind: 'hot',
-        purpose: purpose,
-      );
       return VenueMoveResult(
         quoteId: result.operationId,
         registration: result.registration,
@@ -375,13 +364,53 @@ class HyperCoreMoveRail implements HyperliquidMoveRail {
         arrivingUsdEstimate: result.arrivingUsdEstimate,
         operationId: result.operationId,
       );
+    }
+
+    try {
+      late VenueMoveResult result;
+      if (destination == InvestingWithdrawalDestination.bitcoin) {
+        try {
+          final native = await _service.withdrawToSpark(
+              usd: usd,
+              destination: SparkFundingAsset.bitcoin,
+              stepUp: stepUpForDirect(auth, destination),
+              registerInBackground: true,
+              purpose: purpose);
+          result = VenueMoveResult(
+              quoteId: native.run.quote.quoteId,
+              orderId: native.run.orderId,
+              registration: native.run.registration,
+              sentUsd: native.amountIn.toDouble() / 1e8,
+              arrivingUsdEstimate: native.estimatedOut,
+              operationId: native.run.operation.operationId);
+        } catch (e) {
+          if (!opensCctpFallback(e)) rethrow;
+          route = 'cctp';
+          TrackingService.hyperliquidWithdrawStep(
+              step: 'cctp_fallback',
+              durationMs: clock.elapsedMilliseconds,
+              amountUsd: usd);
+          result = await byCctp();
+        }
+      } else {
+        result = await byCctp();
+      }
+      TrackingService.hyperliquidWithdrawSubmitted(
+        amountUsd: result.sentUsd,
+        route: route,
+        destination: analytics,
+        walletKind: 'hot',
+        purpose: purpose,
+      );
+      return result;
     } catch (e) {
       TrackingService.hyperliquidWithdrawFailed(
         reason: switch (e) {
           RouteUnavailable(:final reason) => reason ?? 'route_unavailable',
+          RouteQuoteError(:final code) => code.code,
           _ => TrackingService.errorCategory(e),
         },
-        route: 'cctp',
+        route: route,
         amountUsd: usd,
         destination: analytics,
         walletKind: 'hot',
@@ -408,7 +437,8 @@ class HyperCoreMoveRail implements HyperliquidMoveRail {
           case SweepAuthorization():
             return false;
           case ApprovedLegAuthorization(:final grant):
-            if (intent.routeLabel != cctpRouteFor(destination).label) {
+            if (intent.walletId != grant.walletId ||
+                intent.routeLabel != cctpRouteFor(destination).label) {
               return false;
             }
             final to = switch (destination) {
@@ -435,11 +465,17 @@ class HyperCoreMoveRail implements HyperliquidMoveRail {
             } catch (_) {
               return false;
             }
+            // Native usdSend has no separately paid source fee. An
+            // unexpected charge requires a separately reviewed policy.
+            if ((intent.sourceFeeBaseUnits ?? BigInt.zero) != BigInt.zero) {
+              return false;
+            }
             // HyperCore USDC carries eight decimals; the caps six.
             return DirectLegGrants.take(grant,
                 venue: 'investing',
                 destination: to.code,
-                amount: intent.amountIn ~/ BigInt.from(100));
+                amount:
+                    (intent.amountIn + BigInt.from(99)) ~/ BigInt.from(100));
         }
       };
 

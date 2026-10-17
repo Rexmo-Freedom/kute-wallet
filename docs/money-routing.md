@@ -343,13 +343,19 @@ it can still involve a provider, source settlement and destination credit.
 | Predictions → Bitcoin | `polygon:USDC.e → spark:BTC` after the necessary pUSD withdrawal conversion. | [Predictions funder](../lib/services/one_balance/predictions_venue_funder.dart) `sweepTo` |
 | Predictions → Investing | `polygon:USDC.e → hypercore:USDC` directly to the same wallet's Investing account, after withdrawal conversion if needed. Ownership permits `pmHot → hlHot` in this direction. | [Predictions funder](../lib/services/one_balance/predictions_venue_funder.dart), [owned account guard](../lib/services/funding/owned_address_resolver.dart) |
 | Investing → Dollars | Try native `hypercore:USDC → spark:USDB`. When refused before sending, the implemented alternative is HyperCore CCTP to the own Arbitrum standing instruction, then `arbitrum:USDC → spark:USDB`. | [Investing rail](../lib/services/one_balance/hyperliquid_move_rail.dart), [CCTP](../lib/services/hyperliquid/cctp_withdrawal.dart) |
-| Investing → Bitcoin | Native `hypercore:USDC → spark:BTC` where supported; implemented CCTP alternative delivers to the own Bitcoin standing instruction. | [Move sheet](../lib/screens/home/components/deposit_sheet.dart) `_dispatchHyperliquidToBtc`, [CCTP](../lib/services/hyperliquid/cctp_withdrawal.dart) |
+| Investing → Bitcoin | The shared/multi-source rail tries native `hypercore:USDC → spark:BTC` first; only a confirmed unsupported pair/route before funding opens CCTP to the own Bitcoin standing instruction. The single-source Move-sheet Bitcoin path remains native-only and gains no CCTP fallback. | [Investing rail](../lib/services/one_balance/hyperliquid_move_rail.dart) `withdrawDirect`, [Spark/HyperCore service](../lib/services/funding/spark_hypercore_funding_service.dart) `withdrawToSpark`, [Move sheet](../lib/screens/home/components/deposit_sheet.dart) `_dispatchHyperliquidToBtc`, [CCTP](../lib/services/hyperliquid/cctp_withdrawal.dart) |
 | Investing → Predictions | CCTP to the own Predictions standing instruction, then pUSD readiness. It avoids an intermediate Dollars balance. | [Cash sources](../lib/services/one_balance/venue_cash_source.dart), [CCTP](../lib/services/hyperliquid/cctp_withdrawal.dart) |
 
-The HyperCore-source native routes were recorded as unavailable in this
-candidate's implementation context, so their CCTP alternative matters. Catalog
-and quote checks establish availability for the actual attempt; this document
-is not a live provider status feed.
+The shared/multi-source Investing → Bitcoin rail uses the same strict
+`opensCctpFallback` test as Investing → Dollars: an explicit unsupported-route
+quote refusal, or a catalog `pairMissing` stop before funding. A stale/unread
+catalog, policy or amount refusal, declined/mismatched approval, network error,
+or accepted/unknown submission does not authorize a CCTP send. Native success
+keeps its real settlement operation and background registration; the CCTP path
+keeps its own standing-instruction checks. Investing → Predictions continues
+to use CCTP because `withdrawToSpark` targets Spark only. Catalog and quote
+checks establish availability for the actual attempt; this document is not a
+live provider status feed.
 
 An explicitly chosen Bitcoin → Investments deposit can target the combined
 balance's Dollars component. That is a different user action from confirming
@@ -567,6 +573,7 @@ receipt has to be checked after a permitted run with analytics enabled.
 | `usd_balance_sync` | One terminal shared-sync wait result/duration. Its timeout means the app stopped waiting, not that native sync was cancelled. |
 | `usd_token_recovery` | One recovery owner/guard result, fixed reason, attempted flag and duration; concurrent joined callers do not duplicate it. No balances, amounts or raw errors. |
 | Multi-source Buy Bitcoin submission outcome | Existing `multi_source_move_finished` fires once after venue and independent initial-Dollars outcomes. `delivered_usd` is the accepted arrival estimate, not SDK spendability; `landed=false`. `dollars_usd` is the accepted initial source amount, zero when no accepted amount is established; `dollars_outcome` is `submitted`, `notSent`, `unknown`, `skipped` or `none`. Unknown does not prove nothing left. Initial retry uses existing `multi_source_move_retry_tapped.remaining_usd`. |
+| Investing withdrawal route | Existing `hyperliquid_withdraw_*` events keep one initiation and at most one submission per attempt. A native Bitcoin leg submits with `route=direct`; an eligible fallback emits `hyperliquid_withdraw_step` with `step=cctp_fallback` and elapsed `duration_ms`, then submits with `route=cctp`. Failure reports the route being attempted. Predictions stays CCTP; the initiation's historical `route=direct` default alone does not prove a native attempt. |
 
 Sources: [order_funding.dart](../lib/services/one_balance/order_funding.dart),
 [pending_hyperliquid_order_provider.dart](../lib/providers/pending_hyperliquid_order_provider.dart),
