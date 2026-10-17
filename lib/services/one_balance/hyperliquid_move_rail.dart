@@ -55,6 +55,8 @@ import 'package:kute/providers/spark_address_provider.dart'
 import 'package:kute/services/api/orchestra_api.dart';
 import 'package:kute/services/funding/owned_address_resolver.dart'
     show ProviderReader;
+import 'package:kute/services/funding/settlement_funding_outcome.dart'
+    show SettlementFundingRefused;
 import 'package:kute/services/funding/settlement_runner.dart'
     show
         SettlementAuthorizationIntent,
@@ -411,6 +413,10 @@ class HyperCoreMoveRail implements HyperliquidMoveRail {
       TrackingService.hyperliquidWithdrawFailed(
         reason: switch (e) {
           RouteUnavailable(:final reason) => reason ?? 'route_unavailable',
+          HypercoreFundingUnavailable(:final reason) => reason.code,
+          SettlementStopped(:final reason) => 'settlement_${reason.name}',
+          OrchestraQuoteFailure(:final routeError) =>
+            routeError?.code.code ?? TrackingService.errorCategory(e),
           RouteQuoteError(:final code) => code.code,
           _ => TrackingService.errorCategory(e),
         },
@@ -420,6 +426,18 @@ class HyperCoreMoveRail implements HyperliquidMoveRail {
         walletKind: 'hot',
         purpose: purpose,
       );
+      // Preserve proof of a pre-send stop without making it a route
+      // refusal: the caller may offer a fresh-approved Retry, never an
+      // automatic CCTP or Dollars send. Earlier unresolved operations stay
+      // uncertain, as do untyped failures and nested funding-unknown causes.
+      if (route == 'direct' &&
+          destination == InvestingWithdrawalDestination.bitcoin &&
+          (e is HypercoreFundingUnavailable ||
+              e is OrchestraQuoteFailure ||
+              (e is SettlementStopped &&
+                  e.reason != SettlementStopReason.blockedPending))) {
+        throw SettlementFundingRefused(e);
+      }
       rethrow;
     }
   }

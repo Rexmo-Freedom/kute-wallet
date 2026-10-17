@@ -14,6 +14,7 @@ import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/helpers/venue_intents.dart';
 import 'package:kute/l10n/generated/app_localizations.dart';
 import 'package:kute/models/orchestra_model.dart';
+import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/models/orchestra_route_limits.dart';
 import 'package:kute/models/orchestra_routes_model.dart';
 import 'package:kute/models/settlement_operation.dart';
@@ -23,6 +24,10 @@ import 'package:kute/services/funding/hot_settlement.dart';
 import 'package:kute/services/funding/owned_address_resolver.dart'
     show ProviderReader;
 import 'package:kute/services/funding/settlement_runner.dart';
+import 'package:kute/services/funding/settlement_funding_outcome.dart';
+import 'package:kute/services/one_balance/venue_cash_source.dart';
+import 'package:kute/services/one_balance/multi_source_move.dart';
+import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/funding/settlement_stage.dart';
 import 'package:kute/services/funding/spark_hypercore_funding_service.dart';
 import 'package:kute/services/hyperliquid/cctp_withdrawal.dart';
@@ -350,7 +355,13 @@ void main() {
                 destination: InvestingWithdrawalDestination.bitcoin,
                 usd: 12,
                 auth: ApprovedLegAuthorization(approval())),
-            throwsA(same(error)));
+            throwsA(error is HypercoreFundingUnavailable ||
+                    error is OrchestraQuoteFailure ||
+                    (error is SettlementStopped &&
+                        error.reason != SettlementStopReason.blockedPending)
+                ? isA<SettlementFundingRefused>()
+                    .having((e) => e.cause, 'cause', same(error))
+                : same(error)));
         expect(native.calls, ['withdraw:cash_pull:bitcoin:12.0']);
         expect(cctp.calls, isEmpty);
       }
@@ -395,11 +406,162 @@ void main() {
                 destination: InvestingWithdrawalDestination.bitcoin,
                 usd: 5,
                 auth: ApprovedLegAuthorization(grant)),
-            throwsA(isA<SettlementStopped>().having(
-                (e) => e.reason, 'reason', SettlementStopReason.declined)));
+            throwsA(isA<SettlementFundingRefused>().having(
+                (e) => e.cause,
+                'cause',
+                isA<SettlementStopped>().having((e) => e.reason, 'reason',
+                    SettlementStopReason.declined))));
         expect(cctp.calls, isEmpty);
         expect(DirectLegGrants.takenBy(grant), BigInt.zero);
       }
+    });
+
+    test(
+        'parallel real rail exposes only proven-unsent native stops for a fresh-approved Retry',
+        () async {
+      final failed = <Map<String, Object?>?>[];
+      TrackingService.debugTrackObserver = (event, params) {
+        if (event == 'hyperliquid_withdraw_failed') failed.add(params);
+      };
+      addTearDown(() => TrackingService.debugTrackObserver = null);
+      for (final (stop, reason) in <(Object, String)>[
+        (
+          const HypercoreFundingUnavailable(
+              HypercoreFundingUnavailableReason.paused),
+          'paused'
+        ),
+        (
+          const SettlementStopped(SettlementStopReason.declined),
+          'settlement_declined'
+        ),
+        (
+          const OrchestraQuoteFailure('below minimum',
+              routeError: RouteQuoteError(RouteQuoteErrorCode.amountTooSmall)),
+          'amount_too_small'
+        ),
+      ]) {
+        MultiSourceMoveStore.reset();
+        DirectRouteRefusals.reset();
+        final native = _ScriptedService(container.read, stop);
+        final cctp = _FakeCctp();
+        final rail = HyperCoreMoveRail(withService(native), cctp: () => cctp);
+        final source = HyperliquidCashSource(rail,
+            readGuard: () async => (positions: const <HlPerpPosition>[], openOrders: const <HlOpenOrder>[]),
+            direct: (destination, usd, purpose, auth) => rail.withdrawDirect(
+                destination: destination,
+                usd: usd,
+                purpose: purpose,
+                auth: auth));
+        final puller = VenueCashPuller(
+            sources: [source],
+            readDollars: () => 5,
+            minimumUsd: (_) async => 1,
+            walletId: () => 'w');
+        const amount = 5.0;
+        final plan = VenueCashPlan(
+            neededUsd: 10,
+            dollarsUsd: 5,
+            pulls: [
+              VenueCashPull(
+                  venue: OneBalanceVenue.investing,
+                  usd: amount,
+                  arrivingUsd: amount,
+                  eta: Duration.zero)
+            ],
+            covers: true,
+            uncoveredUsd: 0,
+            eta: Duration.zero);
+        final original = approval(cap: amount);
+        final outcome = await puller.pullShortfall(
+            neededUsd: plan.neededUsd,
+            forAction: VenueCashFor.buyBitcoin,
+            destination: VenueCashDestination.bitcoin,
+            approval: original,
+            plan: plan,
+            waitFor: Duration.zero,
+            onStarted: MultiSourceMoveStore.markParallelPurchase);
+        final move = MultiSourceMoveStore.get(outcome.moveId!)!;
+        expect(move.provenUnsentLegs.single.venue, OneBalanceVenue.investing);
+        expect(move.legs.single.uncertain, isFalse);
+        expect(move.legs.single.error, 'not_sent');
+        expect(failed.last?['reason'], reason);
+        expect(failed.last?['route'], 'direct');
+        expect(cctp.calls, isEmpty);
+        expect(native.calls, ['withdraw:cash_pull:bitcoin:5.0'],
+            reason: 'no automatic native retry or Dollars detour');
+        final retryPlan = await puller.planRetry(move.id);
+        expect(retryPlan!.pulls.single.usd, amount);
+        original.revoke();
+        native.error = null;
+        final retried = await puller.retryMove(move.id,
+            approval: approval(cap: amount), plan: retryPlan);
+        expect(retried!.failedLegs, isEmpty);
+        expect(native.calls, [
+          'withdraw:cash_pull:bitcoin:5.0',
+          'withdraw:cash_pull:bitcoin:5.0'
+        ]);
+        expect(cctp.calls, isEmpty);
+        expect(MultiSourceMoveStore.get(move.id)!.provenUnsentLegs, isEmpty);
+      }
+      MultiSourceMoveStore.reset();
+      DirectRouteRefusals.reset();
+    });
+
+    test(
+        'parallel real rail keeps unresolved native outcomes held without Retry',
+        () async {
+      for (final stop in <Object>[
+        const SocketException('connection lost'),
+        const SettlementStopped(SettlementStopReason.blockedPending),
+        SettlementFundingUnknown('pending-native', _refused()),
+      ]) {
+        MultiSourceMoveStore.reset();
+        DirectRouteRefusals.reset();
+        final native = _ScriptedService(container.read, stop);
+        final cctp = _FakeCctp();
+        final rail = HyperCoreMoveRail(withService(native), cctp: () => cctp);
+        final source = HyperliquidCashSource(rail,
+            readGuard: () async => (positions: const <HlPerpPosition>[], openOrders: const <HlOpenOrder>[]),
+            direct: (destination, usd, purpose, auth) => rail.withdrawDirect(
+                destination: destination,
+                usd: usd,
+                purpose: purpose,
+                auth: auth));
+        final puller = VenueCashPuller(
+            sources: [source],
+            readDollars: () => 5,
+            minimumUsd: (_) async => 1,
+            walletId: () => 'w');
+        final plan = VenueCashPlan(
+            neededUsd: 10,
+            dollarsUsd: 5,
+            pulls: [
+              VenueCashPull(
+                  venue: OneBalanceVenue.investing,
+                  usd: 5,
+                  arrivingUsd: 5,
+                  eta: Duration.zero)
+            ],
+            covers: true,
+            uncoveredUsd: 0,
+            eta: Duration.zero);
+        final outcome = await puller.pullShortfall(
+            neededUsd: 10,
+            forAction: VenueCashFor.buyBitcoin,
+            destination: VenueCashDestination.bitcoin,
+            approval: approval(cap: 5),
+            plan: plan,
+            waitFor: Duration.zero,
+            onStarted: MultiSourceMoveStore.markParallelPurchase);
+        final move = MultiSourceMoveStore.get(outcome.moveId!)!;
+        expect(move.provenUnsentLegs, isEmpty);
+        expect(move.legs.single.uncertain, isTrue);
+        expect(await puller.planRetry(move.id), isNull);
+        expect(native.calls, ['withdraw:cash_pull:bitcoin:5.0']);
+        expect(cctp.calls, isEmpty);
+      }
+      MultiSourceMoveStore.reset();
+      DirectRouteRefusals.reset();
     });
 
     test('native step-up binds wallet, recipient and all eight source decimals',
@@ -832,7 +994,7 @@ void main() {
 class _ScriptedService extends SparkHypercoreFundingService {
   _ScriptedService(super.read, this.error, {this.authorization});
 
-  final Object? error;
+  Object? error;
   final SettlementAuthorizationIntent? authorization;
   final calls = <String>[];
   SettlementStepUpHook? lastStepUp;
