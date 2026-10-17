@@ -296,6 +296,7 @@ mnemonic_generated
 move_amount_percent_tapped
 move_completed
 move_deposit_more_tapped
+move_direction_changed
 move_failed
 move_initiated
 move_ledger_direction_changed

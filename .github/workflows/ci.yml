@@ -76,7 +76,7 @@ jobs:
         run: flutter gen-l10n
       - name: Run unit, widget, and financial safety regressions
         run: >-
-          flutter test --no-pub
+          flutter test --no-pub --reporter expanded
           --total-shards 8 --shard-index ${{ matrix.shard }}
 
   build-check:

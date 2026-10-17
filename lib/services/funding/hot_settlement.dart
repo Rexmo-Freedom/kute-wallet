@@ -5,6 +5,7 @@
 // payment and Activity row code, and this file supplies the runner, the
 // pinned wallet id, route availability, ownership and error copy.
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:kute/services/hyperliquid/cctp_withdrawal.dart'
     show CctpUnavailable, CctpUnavailableReason;
 import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart'
@@ -71,6 +72,11 @@ class HotSettlement {
       throw e;
     });
   }
+
+  /// Test seam: the runner [runner] hands out, or null for the app's own.
+  @visibleForTesting
+  static set debugRunner(SettlementRunner? runner) =>
+      _runner = runner == null ? null : Future.value(runner);
 
   /// The spending wallet the operation is pinned to.
   static String spendingWalletId(ProviderReader read) {

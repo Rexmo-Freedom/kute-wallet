@@ -1,80 +1,15 @@
-// lib/screens/portfolio/portfolio_balance_breakdown.dart
-//
-// The top of the Portfolio (founder requests, October 2026): the
-// Investments balance part by part, side by side, with one Rebalance
-// under it.
-//
-//   * Dollars — the spending account's USDB (the USDB coin): Available;
-//   * Investing — Hyperliquid (its mark): Available cash, and Positions
-//     (margin and P&L, spot holdings: the venue's share of the header's
-//     Invested);
-//   * Predictions — Polymarket (its mark): Available cash, and Positions
-//     (open positions at their value, combos, and the cash open BUY
-//     orders reserve, named under it: "$4.00 in open orders").
-//
-// One low row of three equal columns in one card
-// (portfolio_figure_tiles.dart), the same row as the statistics under the
-// chart. Each column is the venue's mark and name, its Available cash at
-// the secondary figure size, and one small line under it: "Available"
-// for Dollars (all of it is), the venue's Positions for the venues. Notes
-// ("$4.00 in open orders", a Rebalance's outcome) add a line only when
-// there is something to say. The figures are the
-// one-balance state's (`oneBalanceProvider`): Dollars plus every
-// Available and every Positions figure is the header's total less what is
-// on a rail, and the Positions figures add up to its Invested.
-//
-// Opening the Portfolio draws the tiles at once from what the app holds,
-// refreshes both venues (the calls their pull-to-refresh makes) with the
-// refreshed figures shimmering ([StaleShimmer]) meanwhile, and reads the
-// venues for the sweeper right away ([VenueSweeperNotifier.preview]) and
-// again whenever their figures move: what each venue's cash is and what a
-// Rebalance could move never wait on the sweeper's next pass (it runs
-// every three minutes, so the cash and the button used to take minutes to
-// show).
-//
-// Rebalance, full width under the row, brings every venue's movable cash
-// home to USDB now (portfolio_rebalance_provider.dart: one manual pass of
-// the venue sweeper). It is enabled while a venue has cash a Rebalance can
-// move (the sweeper's `movable`, at or above the route minimum) and busy
-// while its pass runs. When the only cash at the venues is below the
-// route minimum it stays on screen, disabled, with "Below the minimum to
-// move" under it; with nothing to move at all there is no
-// button. After a tap the move is its steps under the button, the same
-// lines as every move (rebalance_steps.dart, [MoneyStepsView]): one per
-// venue whose cash goes home ("Moving $5.00 from Predictions → Dollars"),
-// all at once, each completing on its own as its row lands. A venue whose
-// cash stayed says why in one line on its tile; a move home that is not
-// one of those lines (already on its way) says so there too.
-//
-// The tap is felt (founder request, 14 October 2026: "rebalancing should
-// also have rubber band ... both polymarket and hyperliquid ... at the
-// same time"). Every venue whose cash is actually moving wears its own
-// rubber band ([RubberBandProgress], the slips' band), all of them pulled
-// in the same frame as the tap: the first pull at once, a step up when
-// the pass has submitted the move, another when its Orchestra/CCTP row is
-// listed, and in between a build with time toward the ceiling over the
-// route's usual time (Predictions about a minute, Investing a few
-// minutes). Each one snaps on its own, with the heavy thud, the moment
-// its row lands in USDB; the Dollars column gives one small catch as the
-// money arrives. A venue a never-sweep rule holds, or below the minimum,
-// never pulls: it keeps its one-line reason. Rebalance itself wears the
-// busy band while the pass is being sent.
-//
-// The pull is felt the way every band's is ([RubberBandHaptics]): one
-// rumble and ratchet for the venues pulling together (the strongest
-// band's), and a long move home drops to the soft heartbeat after 20 s of
-// one step, until it lands with the whoosh and the snap. The band's start
-// is kept outside the widget ([rebalanceBandSessionProvider]) so leaving
-// the Portfolio and coming back shows the tension the move has reached.
-// Nothing ticks at rest, under Reduce Motion, while covered or in the
-// background.
+// Portfolio cash and position figures, with a review-only Move money entry.
+// Opening the movement sheet chooses source, destination and amount; it never
+// starts the former whole-balance Rebalance. Existing in-flight Rebalance
+// records keep their per-venue progress and landing presentation below.
+// Unknown same-wallet readings retain their display cache; that cache never
+// authorizes spending.
 
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart' show SpringSimulation, Tolerance;
 import 'package:flutter/scheduler.dart' show Ticker;
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -101,6 +36,8 @@ import 'package:kute/screens/portfolio/open_investments_screen.dart'
     show InvestmentsProduct;
 import 'package:kute/screens/portfolio/portfolio_figure_tiles.dart';
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/money_movement_sheet.dart'
+    show showMoneyMovementSheet;
 import 'package:kute/screens/shared/kute_motion.dart' show RollingFigure;
 import 'package:kute/screens/shared/money_steps_view.dart'
     show MoneyStepsView, moneyStepLines;
@@ -533,7 +470,6 @@ class _PortfolioBalanceBreakdownState
     final investing = breakdownVenueCash(balance, OneBalanceVenue.investing);
     final predictionsCash =
         breakdownVenueCash(balance, OneBalanceVenue.predictions);
-    final below = rebalanceBelowMinimumVenues(sweeper);
 
     // The rubber bands: each venue's move home is its own band.
     final session = ref.watch(rebalanceBandSessionProvider);
@@ -573,10 +509,6 @@ class _PortfolioBalanceBreakdownState
     bool hasLine(OneBalanceVenue venue) => steps.steps.any((s) =>
         s.id == MoveSteps.legId(venue) && s.status != MoneyStepStatus.skipped);
 
-    // Cash below the route minimum and nothing else to move: the reason
-    // sits under the disabled Rebalance, one line, not in the venue's
-    // column (where it wrapped and stretched the row).
-    final belowReason = below.isNotEmpty && !rebalance.running;
     String? note(OneBalanceVenue venue) {
       final line = rebalanceNote(l10n,
           venue: venue,
@@ -584,7 +516,10 @@ class _PortfolioBalanceBreakdownState
           sweeper: sweeper,
           rebalance: rebalance,
           now: now);
-      if (belowReason && line == l10n.portfolioRebalanceBelowMinimum) {
+      // A sweep minimum does not disable choosing another source/route.
+      // Retain that note only as the result of an already-started move.
+      if (line == l10n.portfolioRebalanceBelowMinimum &&
+          !rebalance.outcomes.containsKey(venue)) {
         return null;
       }
       final moving = line == l10n.portfolioRebalanceMoving ||
@@ -598,38 +533,24 @@ class _PortfolioBalanceBreakdownState
       return line;
     }
 
-    final canMove = sweeper.movable.values.any((usd) => usd >= kSweepDustUsd);
-    final button = canMove || rebalance.running || below.isNotEmpty
-        ? RubberBandBusy(
-            busy: rebalance.running,
-            expected: kRebalanceSendExpected,
-            child: AppButton(
-              key: const ValueKey('portfolio-rebalance'),
-              text: l10n.portfolioRebalance,
-              variant: AppButtonVariant.secondary,
-              compact: true,
-              isLoading: rebalance.running,
-              onPressed: rebalance.running || !canMove
-                  ? null
-                  : () {
-                      HapticFeedback.lightImpact();
-                      // Every venue that moves pulls from this frame.
-                      ref.read(rebalanceBandSessionProvider.notifier).state =
-                          RebalanceBandSession.tap(
-                              now: DateTime.now(),
-                              sweeper: sweeper,
-                              balance: balance,
-                              rows: rows,
-                              walletId: walletId);
-                      ref.read(portfolioRebalanceProvider.notifier).rebalance(
-                            dollarsUsd: dollars,
-                            investingUsd: investing,
-                            predictionsUsd: predictionsCash,
-                          );
-                    },
-            ),
-          )
-        : null;
+    // This is a review entry, never the old "move every venue home" action.
+    // Keep existing in-flight presentation, but a new tap only opens choices.
+    final button = RubberBandBusy(
+      busy: rebalance.running,
+      expected: kRebalanceSendExpected,
+      child: AppButton(
+        key: const ValueKey('portfolio-move-money'),
+        text: l10n.moveTransfer,
+        variant: AppButtonVariant.secondary,
+        compact: true,
+        isLoading: rebalance.running,
+        onPressed: rebalance.running
+            ? null
+            : () {
+                unawaited(showMoneyMovementSheet(context));
+              },
+      ),
+    );
 
     Widget band(OneBalanceVenue venue, Widget tile) => _VenueBand(
           key: ValueKey('portfolio-band-${venue.name}'),
@@ -729,19 +650,8 @@ class _PortfolioBalanceBreakdownState
                   )),
           ],
         ),
-        if (button != null) ...[
-          SizedBox(height: 12.h),
-          button,
-          if (belowReason) ...[
-            SizedBox(height: 6.h),
-            Text(
-              l10n.portfolioRebalanceBelowMinimum,
-              key: const ValueKey('portfolio-rebalance-reason'),
-              textAlign: TextAlign.center,
-              style: portfolioTileCaptionStyle(context.colors),
-            ),
-          ],
-        ],
+        SizedBox(height: 12.h),
+        button,
         if (stepLines.isNotEmpty)
           Align(
             key: const ValueKey('portfolio-rebalance-steps'),

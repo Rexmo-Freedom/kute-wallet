@@ -14,9 +14,15 @@ import 'package:kute/screens/shared/orchestra_fee_summary.dart';
 // ([MoveLockedSide]): Add to Predictions / Investing, the two withdrawals,
 // the Dollar deposit, Buy bitcoin (Cash App, the bank rail, the dollar
 // balance), the Ledger venue flows and the slip top-ups. It never moves
-// bitcoin between the spending account and a savings wallet. Internally
-// the typed amount maps onto the historical 0..1 `_ratio` of the
-// max-convertible balance, so the dispatch matrix below is untouched.
+// bitcoin between the spending account and a savings wallet. What a
+// dispatch sends is derived from the typed amount on every read (dollars,
+// or sats at the sheet's price), capped to the source's balance at that
+// moment.
+//
+// Move money (the Portfolio's button, [DepositSheet.movementRoute]) is
+// this sheet with both ends editable: Bitcoin, Dollars, Investing and
+// Predictions, any one to any other (lib/services/one_balance/
+// money_movement_route.dart).
 //
 // The Dollar deposit door (the Investments dock's Deposit) is also the
 // home of Receive: its From picker leads with a Receive row that closes
@@ -163,10 +169,15 @@ import 'package:kute/services/funding/settlement_registration.dart'
     show followSettlementRegistration, withSettlementOrderId;
 import 'package:kute/services/orchestra/arrival_target.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_onboarding_service.dart';
+import 'package:kute/screens/activity/activity_history_screen.dart'
+    show showActivityHistory;
+import 'package:kute/services/funding/settlement_funding_outcome.dart'
+    show SettlementFundingNotStarted;
 import 'package:kute/services/funding/settlement_runner.dart'
     show
         SettlementAuthorizationIntent,
         SettlementFundingProof,
+        SettlementFundingUnknown,
         SettlementQuoteResult,
         SettlementStepUpHook,
         SettlementStopReason,
@@ -174,6 +185,8 @@ import 'package:kute/services/funding/settlement_runner.dart'
 import 'package:kute/services/orchestra/orchestra_quote_guard.dart';
 import 'package:kute/services/hyperliquid/cctp_withdrawal.dart'
     show CctpUnavailable, hypercoreCctpWithdrawalProvider;
+import 'package:kute/services/orchestra/standing_deposit_store.dart'
+    show InvestingWithdrawalDestination;
 import 'package:kute/services/one_balance/hyperliquid_move_rail.dart'
     show HyperCoreMoveRail;
 import 'package:kute/services/orchestra/cash_app_onramp_guard.dart';
@@ -193,6 +206,7 @@ import 'package:kute/services/one_balance/dollars_to_bitcoin_minimum.dart';
 import 'package:kute/services/one_balance/buy_bitcoin_steps.dart';
 import 'package:kute/services/one_balance/move_steps.dart' show MoveSteps;
 import 'package:kute/services/one_balance/money_steps.dart' show MoneyStepStatus;
+import 'package:kute/services/one_balance/money_movement_route.dart';
 import 'package:kute/services/one_balance/buy_bitcoin_fanout.dart';
 import 'package:kute/services/one_balance/dollars_to_bitcoin_purchase.dart'
     show approvedPurchaseStepUp, buyBitcoinFromDollars, kDollarsToBtcRoute;
@@ -525,9 +539,18 @@ Future<BitcoinLegSent> Function(
     {required double approxUsd,
     required void Function() onSending})? debugBitcoinToDollarsSend;
 
+/// Test seam: stands in for the signing prompt every approval of this
+/// sheet asks ([_DepositSheetState._approveMove]). Answers with a grant for
+/// the intent, or null (declined).
+@visibleForTesting
+Future<AuthGrant?> Function(SensitiveIntent intent)? debugMoveApproval;
+
 class DepositSheet extends ConsumerStatefulWidget {
   final String? initialSourceAsset;
   final MoveLockedSide lockedSide;
+
+  /// Explicit movement of one selected cash balance, with both ends editable.
+  final MoneyMovementRoute? movementRoute;
   final String? fiatDepositWalletId;
   final String? venueWalletId;
   final String? ledgerWalletId;
@@ -547,6 +570,7 @@ class DepositSheet extends ConsumerStatefulWidget {
     super.key,
     this.initialSourceAsset,
     required this.lockedSide,
+    this.movementRoute,
     this.fiatDepositWalletId,
     this.venueWalletId,
     this.ledgerWalletId,
@@ -561,6 +585,249 @@ class DepositSheet extends ConsumerStatefulWidget {
 
 class _DepositSheetState extends ConsumerState<DepositSheet> {
   bool get _isLedgerMove => widget.ledgerWalletId != null;
+  bool get _isMoneyMovement => widget.movementRoute != null;
+  late MoneyMovementRoute? _movementRoute = widget.movementRoute;
+
+  /// The spending wallet the movement sheet opened on. Every await of a
+  /// move is followed by a check that it is still the one spending and
+  /// shown ([_ensureMovementPinned]).
+  String? _movementWalletId;
+
+  /// The route a confirmed move is for, pinned at the tap.
+  MoneyMovementRoute? _movementDispatchRoute;
+
+  /// A move was accepted, or its outcome cannot be proven: no second
+  /// submission and no edits; the button opens Activity instead.
+  bool _movementSendLocked = false;
+
+  /// The last move stopped with proof that nothing left: the button reads
+  /// Retry (a fresh approval) until the amount or the route changes.
+  bool _movementRetry = false;
+
+  /// The move in flight reached its funding call (the send, or the
+  /// approval right before a rail's own send). Until then a stop proves
+  /// nothing left ([moneyMovementProvesNothingSent]).
+  bool _movementFundingStarted = false;
+
+  /// Analytics for the move in flight: the rail it went by (a CCTP
+  /// fallback changes it), the fee where the route states one, the time
+  /// since the tap, and whether it was a Retry.
+  String? _movementRail;
+  double? _movementFeeUsd;
+  final Stopwatch _movementClock = Stopwatch();
+  bool _movementRetried = false;
+
+  bool get _movementWalletValid {
+    if (!_isMoneyMovement) return true;
+    if (_isLedgerMove || widget.venueWalletId != null) return false;
+    if (_movementRoute?.valid != true || _movementWalletId == null) {
+      return false;
+    }
+    final settings = ref.read(settingsProvider);
+    return settings.activeWalletId == _movementWalletId &&
+        pickSpendingWallet(settings)?.id == _movementWalletId;
+  }
+
+  /// Throws [MoneyMovementDetailsChanged] (nothing sent) when the spending
+  /// wallet changed, [walletId] (an approval's or a settlement's) is not
+  /// the one the sheet opened on, or the route is no longer the one that
+  /// was confirmed. Called before and after every await of a move, never
+  /// after its money was handed to a send. No-op outside Move money.
+  void _ensureMovementPinned([String? walletId]) {
+    if (!_isMoneyMovement) return;
+    if (!mounted ||
+        !_movementWalletValid ||
+        (walletId != null && walletId != _movementWalletId) ||
+        (_movementDispatchRoute != null &&
+            _movementDispatchRoute != _movementRoute)) {
+      throw const MoneyMovementDetailsChanged();
+    }
+  }
+
+  /// The movement plan for the route on screen.
+  MoneyMovementPlan get _movementPlan => moneyMovementPlanFor(_movementRoute!);
+
+  void _installMovementRoute(MoneyMovementRoute route) {
+    _movementRoute = route;
+    _fromBtc = route.from == MoneyMovementAccount.bitcoin;
+    _fromHyperliquid = route.from == MoneyMovementAccount.investing;
+    _sourceUsd = route.from == MoneyMovementAccount.dollars;
+    _destUsd = route.to == MoneyMovementAccount.dollars;
+    _destHyperliquid = route.to == MoneyMovementAccount.investing;
+    _destPredictions = route.to == MoneyMovementAccount.predictions;
+    _sourceFiat = false;
+    _sourceCashApp = false;
+    _destFiat = false;
+    _sourceWalletId = null;
+    _destWalletId = null;
+    _destAsset = 'btc';
+    _lockedSide = _fromHyperliquid
+        ? MoveLockedSide.withdrawFromHyperliquid
+        : route.from == MoneyMovementAccount.predictions
+            ? MoveLockedSide.withdrawFromPredictions
+            : _destUsd
+                ? MoveLockedSide.depositToUsd
+                : _destPredictions
+                    ? MoveLockedSide.depositToPredictions
+                    : _destHyperliquid
+                        ? MoveLockedSide.depositToHyperliquid
+                        : MoveLockedSide.depositFromFiat;
+  }
+
+  /// Picks a new route. Nothing is quoted or sent: the amount clears and
+  /// the price and fee follow the new route.
+  void _changeMovementRoute(MoneyMovementRoute route, {bool reversed = false}) {
+    if (_processing || _movementSendLocked || !route.valid) return;
+    if (kMoneyMovementDisabledRoutes.containsKey(route)) return;
+    HapticFeedback.selectionClick();
+    setState(() {
+      _installMovementRoute(route);
+      _resetTypedAmount();
+      _error = null;
+      _retryPull = false;
+      _movementRetry = false;
+      _movementDispatchRoute = null;
+      _bandProgress = null;
+      _bandOutcome = null;
+      _availableSatsAtSubmit = null;
+      _availableUsdcAtSubmit = null;
+      _loadingRate = _fromBtc;
+    });
+    TrackingService.track('move_direction_changed', params: {
+      ..._moveRouteParams(),
+      'reversed': reversed,
+    });
+    _refreshSelectedFundingRoute();
+    _warmUpMove();
+  }
+
+  String _movementName(MoneyMovementAccount account) => switch (account) {
+        MoneyMovementAccount.bitcoin => 'Bitcoin',
+        MoneyMovementAccount.dollars => context.l10n.portfolioBalanceDollars,
+        MoneyMovementAccount.investing => context.l10n.trading,
+        MoneyMovementAccount.predictions => context.l10n.predictions,
+      };
+
+  String _movementAsset(MoneyMovementAccount account) => switch (account) {
+        MoneyMovementAccount.bitcoin => 'lib/assets/bitcoin-icon.svg',
+        MoneyMovementAccount.dollars => kUsdMarkAsset,
+        MoneyMovementAccount.investing => 'lib/assets/hyperliquid-logo.svg',
+        MoneyMovementAccount.predictions => 'lib/assets/polymarket-logo.svg',
+      };
+
+  /// What the picker row says under an account's name.
+  String _movementSubtitle(MoneyMovementAccount account,
+          {required bool source}) =>
+      switch (account) {
+        MoneyMovementAccount.bitcoin => context.l10n.spending,
+        MoneyMovementAccount.dollars => source
+            ? context.l10n.moveSourceDollarsSubtitle
+            : context.l10n.moveDestDollarsSubtitle,
+        MoneyMovementAccount.investing => 'Hyperliquid',
+        MoneyMovementAccount.predictions => 'Polymarket',
+      };
+
+  /// One end's picker, in the chrome every picker of this sheet wears.
+  /// The other end is not offered; the account already chosen reads
+  /// SELECTED. Picking only changes the route: nothing is sent.
+  Future<void> _pickMovementAccount({required bool source}) async {
+    if (_processing || _movementSendLocked) return;
+    HapticFeedback.selectionClick();
+    final route = _movementRoute!;
+    final current = source ? route.from : route.to;
+    final selected = await _showMovePickerSheet<MoneyMovementAccount>(
+      context,
+      title: source ? context.l10n.moveMoveFrom : context.l10n.moveMoveTo,
+      hint: (_) => '',
+      rows: (sheetCtx, _) => [
+        for (final account in MoneyMovementAccount.values)
+          if (account != (source ? route.to : route.from))
+            MovePickerRow(
+              key: ValueKey('movement-account-${account.name}'),
+              asset: _movementAsset(account),
+              title: _movementName(account),
+              subtitle: _movementSubtitle(account, source: source),
+              disabled: account == current ||
+                  kMoneyMovementDisabledRoutes.containsKey(MoneyMovementRoute(
+                      source ? account : route.from,
+                      source ? route.to : account)),
+              disabledLabel: account == current
+                  ? context.l10n.moveSelectedBadge
+                  : 'SOON',
+              onTap: () => Navigator.of(sheetCtx).pop(account),
+            ),
+      ],
+    );
+    if (selected == null || selected == current || !mounted) return;
+    if (_processing || _movementSendLocked) return;
+    _changeMovementRoute(MoneyMovementRoute(
+        source ? selected : route.from, source ? route.to : selected));
+  }
+
+  Widget _movementRouteCard({required String? available, String? detail}) {
+    final route = _movementRoute!;
+    final editable = !_processing && !_movementSendLocked;
+    MoveRouteEndpoint endpoint(MoneyMovementAccount account, bool source) =>
+        MoveRouteEndpoint(
+          name: _movementName(account),
+          asset: _movementAsset(account),
+          available: source ? available : null,
+          detail: source ? detail : null,
+          detailIsError: source && _typedExceedsAvailable,
+          onAvailableTap: source && editable && _sourceBalanceState == null
+              ? () => _applyAmountPercent(1)
+              : null,
+          onTap: editable ? () => _pickMovementAccount(source: source) : null,
+        );
+    return MoveRouteCard(
+      key: const ValueKey('money-movement-route'),
+      from: endpoint(route.from, true),
+      to: endpoint(route.to, false),
+      onSwap: editable &&
+              !kMoneyMovementDisabledRoutes.containsKey(route.reversed)
+          ? () => _changeMovementRoute(route.reversed, reversed: true)
+          : null,
+    );
+  }
+
+  /// A move stopped. With proof that nothing left (see
+  /// [moneyMovementProvesNothingSent]) the sheet is ready for a fresh
+  /// Retry; otherwise Move money locks: no second send and no edits, the
+  /// outcome copy shows and the button opens Activity. Outside Move money
+  /// it only resets the sheet with [message], as every door always did.
+  void _endStoppedMove(Object e, {String? message}) {
+    if (!mounted) return;
+    final l10n = context.l10n;
+    if (_isMoneyMovement &&
+        !moneyMovementProvesNothingSent(e,
+            fundingStarted: _movementFundingStarted)) {
+      final copy = e is SettlementFundingUnknown ||
+              (e is SettlementStopped &&
+                  e.reason == SettlementStopReason.blockedPending)
+          ? HotSettlement.messageFor(e, l10n)
+          : null;
+      setState(() {
+        _processing = false;
+        _movementSendLocked = true;
+        _movementRetry = false;
+        _error = copy ?? l10n.settlementFundingUnknownBody;
+      });
+      return;
+    }
+    final msg = message ?? _moveFailure(e);
+    setState(() {
+      _processing = false;
+      _movementRetry = _isMoneyMovement;
+      _error = msg;
+    });
+  }
+
+  /// The locked sheet's one way forward: the transfer in Activity.
+  void _openMovementActivity() {
+    HapticFeedback.selectionClick();
+    unawaited(showActivityHistory(context, source: 'money_movement_lock'));
+  }
+
   LedgerIdentity? _ledgerIdentityAtOpen;
   LedgerMoveMax? _ledgerMaximumAtReview;
 
@@ -618,10 +885,10 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     _destAsset = 'btc';
   }
 
-  /// Selected fraction of the max-convertible balance (0..1). The
-  /// historical slider position — every dispatch getter still derives
-  /// from it, but it's now DRIVEN by [_typedAmount] via
-  /// [_syncRatioFromTyped] instead of a slider.
+  /// The typed amount as a share of the source's balance (0..1), for the
+  /// `balance_share_pct` analytics property only. No dispatch reads it:
+  /// a share kept since the last keypad edit goes stale when the balance
+  /// moves ([_selectedSats], [_selectedSourceUsd]).
   double _ratio = 0;
 
   /// "Send everything" was asked for: the 100% chip or a tap on the
@@ -719,7 +986,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// payment rails only: Cash App and the bank (owner decision).
   bool get _dollarsSourceAllowed =>
       !_isLedgerMove &&
-      (_lockedSide == MoveLockedSide.depositToHyperliquid ||
+      (_isMoneyMovement || _lockedSide == MoveLockedSide.depositToHyperliquid ||
           _lockedSide == MoveLockedSide.depositToPredictions ||
           (_lockedSide == MoveLockedSide.depositFromFiat &&
               widget.fiatDepositWalletId == null));
@@ -746,6 +1013,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// first, the rest pulled home from Predictions and Investing before
   /// the purchase (lib/services/one_balance/venue_cash_source.dart).
   bool get _dollarsReachVenueCash =>
+      !_isMoneyMovement &&
       _dollarsAreSource &&
       !_destPredictions &&
       !_destHyperliquid &&
@@ -944,6 +1212,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// than a flat "Exchange" (user decision): a selected venue or the
   /// dollar balance first, otherwise the lock's own name.
   String get _sheetTitle {
+    if (_isMoneyMovement) return context.l10n.moveTransfer;
     if (_destPredictions) return context.l10n.moveAddPredictions;
     if (_destHyperliquid) return context.l10n.moveAddInvesting;
     if (_buyingDollars) return context.l10n.dollarDeposit;
@@ -969,6 +1238,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   }
 
   String get _actionVerb {
+    if (_isMoneyMovement) return context.l10n.moveTransfer;
     if (_sourceFiat || _sourceCashApp) return context.l10n.moveBuy;
     if (_destFiat) return context.l10n.moveSell;
     // Dollars are bought, not added to a venue. A cash-out that lands
@@ -982,9 +1252,10 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     return context.l10n.moveAdd;
   }
 
-  String _moveFailure(Object error) =>
-      HotSettlement.messageFor(error, context.l10n) ??
-      userErrorCopy(context, error, fallback: context.l10n.moveFailure);
+  String _moveFailure(Object error) => error is MoneyMovementDetailsChanged
+      ? context.l10n.ledgerErrorDetailsChanged
+      : HotSettlement.messageFor(error, context.l10n) ??
+          userErrorCopy(context, error, fallback: context.l10n.moveFailure);
 
   // ─── Move funnel (product analytics) ────────────────────────────
 
@@ -1096,6 +1367,15 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       'funding_source': fundingSource,
       if (sourceKind != null) 'wallet_kind': sourceKind,
       if (destKind != null) 'dest_wallet_kind': destKind,
+      // Move money (Portfolio): which accounts, by which rail, so these
+      // moves stand apart from the slips' and Buy bitcoin's in the shared
+      // move events.
+      if (_isMoneyMovement) ...{
+        'surface': 'money_movement',
+        'from': _movementRoute!.from.name,
+        'to': _movementRoute!.to.name,
+        'route': _movementRail ?? _movementPlan.railCode,
+      },
     };
   }
 
@@ -1118,7 +1398,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         usd = _selectedUsdOutput > 0 ? _selectedUsdOutput : null;
         asset = 'btc';
       } else {
-        final selected = _selectedUsdcFromRatio;
+        final selected = _selectedSourceUsd;
         usd = selected > 0 ? selected : null;
         amount = usd;
         asset = _dollarsAreSource ? 'usd' : 'usdc';
@@ -1128,6 +1408,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         'amount_unit': _isFiatMode ? _fiatCurrency.toLowerCase() : 'usd',
         if (_moveAmountMethod != null) 'amount_method': _moveAmountMethod!,
         if (_ratio > 0) 'balance_share_pct': (_ratio * 100).round(),
+        if (_isMoneyMovement && _movementRetried) 'retried': true,
         'rate_loaded': _usdPerBtc > 0,
         ...TrackingService.moneyParams(
           amountUsd: usd,
@@ -1149,9 +1430,21 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
 
   /// The move left the sheet; settlement reports its own outcome.
   void _trackMoveCompleted({String outcome = 'submitted'}) {
-    _moveOutcome.completed(outcome: outcome);
+    _moveOutcome.completed(outcome: outcome, extra: _movementOutcomeParams());
     widget.onCompleted?.call();
   }
+
+  /// Move money's outcome properties: the rail the move really took, the
+  /// fee where the route stated one (exact, in dollars) and the time from
+  /// the tap. Empty outside Move money.
+  Map<String, Object> _movementOutcomeParams() => !_isMoneyMovement
+      ? const {}
+      : {
+          'route': _movementRail ?? _movementPlan.railCode,
+          if (_movementFeeUsd case final fee? when fee.isFinite && fee >= 0)
+            ...TrackingService.exactUsd('fee_usd', fee),
+          if (_movementClock.isRunning) 'ms': _movementClock.elapsedMilliseconds,
+        };
 
   /// A Ledger device flow opened from this sheet submitted the move.
   void _trackLedgerMoveSubmitted() {
@@ -1228,7 +1521,19 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
           'quote_rejected' || 'expired' => 'quote',
           _ => 'dispatch',
         };
-    _moveOutcome.failed(category, stage: resolvedStage);
+    final unsent = moneyMovementProvesNothingSent(e,
+        fundingStarted: _movementFundingStarted);
+    _moveOutcome.failed(category,
+        stage: resolvedStage,
+        extra: !_isMoneyMovement
+            ? const {}
+            : {
+                ..._movementOutcomeParams(),
+                'reason': moneyMovementFailureReason(e,
+                    fundingStarted: _movementFundingStarted),
+                // The unknown-outcome lock is shown for this one.
+                'locked': !unsent,
+              });
     // A declined or lapsed approval and a cancel are the person's own
     // stop, not a failure: the sheet resets quietly.
     if (!_isApprovalStop(e) &&
@@ -1415,6 +1720,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   // Balance providers expose numeric fallbacks while connecting. Keep those
   // separate from a confirmed zero before suggesting a deposit.
   String? get _sourceBalanceState {
+    if (!_movementWalletValid) return context.l10n.ledgerErrorDetailsChanged;
     if (_isFiatMode) return null;
     if (_isLedgerMove) {
       if (!_ledgerContextValid) return context.l10n.ledgerErrorDetailsChanged;
@@ -1511,7 +1817,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// Every door is wired: spending bitcoin and dollars to and from the
   /// venues through Orchestra, and a Ledger's own device flows. A savings
   /// wallet never pairs with a venue or with the spending account here.
-  bool get _isSupportedSwap => !_isLedgerMove || _ledgerMoveValid;
+  bool get _isSupportedSwap => _movementWalletValid && (!_isLedgerMove || _ledgerMoveValid);
 
   int get _selectedSats {
     if (_isLedgerMove) {
@@ -1520,15 +1826,42 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       final sats = (_typedAmountValue / _usdPerBtc * 1e8).round();
       return sats >= _kMinSats && sats <= _maxConvertibleSats ? sats : 0;
     }
+    // Derived on every read from the typed dollars at the sheet's price
+    // and the source's balance now, never from a ratio kept since the last
+    // keypad edit: a balance that moved between typing and the tap used to
+    // change what was sent while the screen still showed the typed figure.
     final cap = _maxConvertibleSats;
-    if (cap <= 0) {
+    if (cap <= 0 || _usdPerBtc <= 0 || !_usdPerBtc.isFinite) {
       return 0;
     }
-    final sats = (_ratio * cap).round();
+    final usd = _btcSourceTargetUsd;
+    if (usd <= 0) return 0;
+    var sats = (usd / _usdPerBtc * 1e8).round();
+    if (sats > cap) sats = cap;
     return sats < _kMinSats ? 0 : sats;
   }
 
-  double get _selectedUsdcFromRatio {
+  /// The dollars a bitcoin source is sized for: the typed amount, or, for
+  /// a caller's prefilled target nobody has edited, the target with the 2%
+  /// pad that absorbs price drift between the screen and the quote. Move
+  /// money never pads: it sends what was typed.
+  double get _btcSourceTargetUsd {
+    final target = widget.initialTargetUsd;
+    if (!_isMoneyMovement &&
+        target != null &&
+        target > 0 &&
+        _typedAmount == target.toStringAsFixed(2)) {
+      return target * 1.02;
+    }
+    return _typedAmountValue;
+  }
+
+  /// The dollars a dollar-denominated source sends: exactly the typed
+  /// amount, read against the balance now. Over the balance it is never
+  /// clamped down to it for Move money (the tap is refused instead); the
+  /// other doors keep their clamp, which the disabled button already
+  /// stops from being sent.
+  double get _selectedSourceUsd {
     if (_isLedgerMove) {
       final usd = _typedAmountValue;
       return usd >= _kMinUsdc && usd <= _availableUsdc ? usd : 0;
@@ -1537,8 +1870,14 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     if (cap <= 0) {
       return 0;
     }
-    final usdc = _ratio * cap;
-    return usdc < _kMinUsdc ? 0 : usdc;
+    final typed = _typedAmountValue;
+    final double usd;
+    if (_isMoneyMovement) {
+      usd = typed <= cap + 0.005 ? typed : 0;
+    } else {
+      usd = typed > cap ? cap : typed;
+    }
+    return usd < _kMinUsdc ? 0 : usd;
   }
 
   /// The chain the money actually leaves from, for the fee estimate.
@@ -1570,17 +1909,16 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   }
 
   int get _selectedSatsOutput {
-    if (_selectedUsdcFromRatio == 0 || _usdPerBtc == 0) {
+    if (_selectedSourceUsd == 0 || _usdPerBtc == 0) {
       return 0;
     }
-    return ((_selectedUsdcFromRatio / _usdPerBtc) * 1e8).round();
+    return ((_selectedSourceUsd / _usdPerBtc) * 1e8).round();
   }
 
-  // ─── Typed amount → ratio mapping ──────────────────────────────────
+  // ─── Typed amount ──────────────────────────────────────────────────
   //
-  // The keypad types ONE number; everything below maps it onto the
-  // 0..1 `_ratio` the dispatch matrix has always consumed, so no
-  // dispatch path changes.
+  // The keypad types ONE number; what is sent is derived from it on
+  // every read.
 
   // Outside the fiat screens the typed number is always dollars: every
   // door touches a dollar pool (a venue or the Dollars), so there is no
@@ -1601,9 +1939,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// two apart (owner decision).
   bool get _isBuyFlow => _sourceFiat || _sourceCashApp;
 
-  /// Recomputes `_ratio` from the typed amount. Over-typed amounts
-  /// clamp to 1.0 (== Max), so dispatch sends at most the balance; the
-  /// available line turns red via [_typedExceedsAvailable].
+  /// Recomputes the analytics share `_ratio` from the typed amount,
+  /// clamped to 1.0. The available line turns red via
+  /// [_typedExceedsAvailable].
   void _syncRatioFromTyped() {
     double r = 0;
     final usd = _typedAmountValue;
@@ -1644,10 +1982,16 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
 
   /// Keypad edit → typed amount + ratio.
   void _onTypedAmountChanged(String v, {bool drain = false}) {
+    if (_movementSendLocked) return;
     setState(() {
       _typedAmount = v;
       _drainArmed = drain;
       _syncRatioFromTyped();
+      // A new amount is a new move: no Retry of the last one.
+      if (_movementRetry) {
+        _movementRetry = false;
+        _error = null;
+      }
     });
     _moveAmountMethod ??= 'keypad';
     if (v.isNotEmpty) {
@@ -1689,7 +2033,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// A dollar chip: types that figure, exactly as the keypad would.
   void _applyAmountDollars(int usd) {
     HapticFeedback.selectionClick();
-    if (_processing || _isFiatMode) return;
+    if (_processing || _isFiatMode || _movementSendLocked) return;
     _moveAmountMethod = 'chip_$usd';
     TrackingService.track('move_amount_percent_tapped', params: {
       'chip': '$usd',
@@ -1709,7 +2053,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// [chip] only names the chip in analytics (the Max chip sends `max`).
   void _applyAmountPercent(double ratio, {String? chip}) {
     HapticFeedback.selectionClick();
-    if (_processing || _isFiatMode) return;
+    if (_processing || _isFiatMode || _movementSendLocked) return;
     _moveAmountMethod = ratio >= 1 ? 'max' : 'percent_${(ratio * 100).round()}';
     TrackingService.track('move_amount_percent_tapped', params: {
       'percent': (ratio * 100).round(),
@@ -1915,7 +2259,10 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
           ref.read(ledgerIdentityProvider(widget.ledgerWalletId!));
     }
     _lockedSide = widget.lockedSide;
-    if (_lockedSide == MoveLockedSide.depositToPredictions) {
+    if (_isMoneyMovement) {
+      _movementWalletId = pickSpendingWallet(ref.read(settingsProvider))?.id;
+      _installMovementRoute(widget.movementRoute!);
+    } else if (_lockedSide == MoveLockedSide.depositToPredictions) {
       // Deposit → Predictions: pick any BTC source; To locked to Predictions.
       _sourceWalletId = null;
       _fromBtc = true;
@@ -2304,21 +2651,6 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     return account.isLoading && !account.hasValue;
   }
 
-  /// [_resolveEvmAddress] for a dispatch. Read live at the tap, never a
-  /// copy kept from when the sheet opened. The account is normally up by
-  /// now (the sheet starts it waking as it opens); when Continue beat it,
-  /// the sheet shows its processing state while it is awaited, so a
-  /// second tap cannot start a second move.
-  Future<String?> _evmAddressForDispatch() async {
-    final live =
-        ref.read(polymarketTradingProvider).valueOrNull?.proxyWalletAddress;
-    if (live != null && live.isNotEmpty) return live;
-    setState(() => _processing = true);
-    final evm = await _resolveEvmAddress();
-    if (mounted) setState(() => _processing = false);
-    return evm;
-  }
-
   /// Starts, while the person types, the reads Continue would otherwise
   /// make one after another before the signing prompt: the policy, a
   /// fresh route catalogue, the venue's own location answer, the
@@ -2359,6 +2691,18 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
 
   Future<void> _fetchInitialRate() async {
     final request = ++_rateRequest;
+    if (_isMoneyMovement && !_fromBtc) {
+      // Stablecoin inputs are already USD. A BTC price only labels the
+      // optional output estimate; it never gates or sizes this source.
+      if (mounted) {
+        setState(() {
+          _loadingRate = false;
+          _usdPerBtc = _cachedUsdPerBtc() ?? 0;
+          _syncRatioFromTyped();
+        });
+      }
+      return;
+    }
     var showedHeld = false;
     try {
       final investing = _destHyperliquid || _fromHyperliquid;
@@ -2506,9 +2850,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       _syncRatioFromTyped();
       // Prefill (bet-slip handoff and friends): land the requested
       // USD outcome in the TYPED amount so the big number shows it
-      // the moment the rate is up, and aim the ratio at it, clamped
-      // to what the source can cover. A small 2% pad on the ratio
-      // absorbs rate drift between quote and dispatch.
+      // the moment the rate is up. While it stays untouched a bitcoin
+      // source is sized with a small 2% pad that absorbs rate drift
+      // between quote and dispatch ([_btcSourceTargetUsd]).
       final target = widget.initialTargetUsd;
       final landed =
           target != null && _typedAmount == target.toStringAsFixed(2);
@@ -2523,11 +2867,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
           target != null &&
           target > 0 &&
           rate > 0) {
-        final available = _availableSats;
-        if (available > 0) {
-          final neededSats = ((target * 1.02) / rate * 1e8).ceil();
-          _ratio = (neededSats / available).clamp(0.0, 1.0);
+        if (_availableSats > 0) {
           _typedAmount = target.toStringAsFixed(2);
+          _syncRatioFromTyped();
         }
       }
       // Max stays Max on a new price. On a dollar keypad it wrote the
@@ -2567,18 +2909,34 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     if (!mounted) {
       return null;
     }
+    // Move money: only for the spending wallet the sheet opened on, and
+    // still that wallet once the prompt answers.
+    _ensureMovementPinned(intent.walletId);
     final l10n = context.l10n;
-    return requireFreshAuthGrant(
-      context,
-      ref,
-      intent: intent,
-      reason: reasonOverride ?? switch (intent.action) {
-        SensitiveAction.venueDeposit => l10n.stepUpReasonDeposit(amountLabel),
-        SensitiveAction.venueWithdraw => l10n.stepUpReasonWithdraw(amountLabel),
-        _ => l10n.stepUpReasonSend(amountLabel),
-      },
-      amountUsd: amountUsd,
-    );
+    final seam = debugMoveApproval;
+    final grant = seam != null
+        ? await seam(intent)
+        : await requireFreshAuthGrant(
+            context,
+            ref,
+            intent: intent,
+            reason: reasonOverride ??
+                switch (intent.action) {
+                  SensitiveAction.venueDeposit =>
+                    l10n.stepUpReasonDeposit(amountLabel),
+                  SensitiveAction.venueWithdraw =>
+                    l10n.stepUpReasonWithdraw(amountLabel),
+                  _ => l10n.stepUpReasonSend(amountLabel),
+                },
+            amountUsd: amountUsd,
+          );
+    try {
+      _ensureMovementPinned(intent.walletId);
+    } catch (_) {
+      grant?.revoke();
+      rethrow;
+    }
+    return grant;
   }
 
   /// Settlement runner step-up hook for an Orchestra move whose funding call
@@ -2591,6 +2949,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     required String Function(SettlementAuthorizationIntent auth) amountLabel,
     String? account,
     double? amountUsd,
+    void Function()? onApproved,
   }) {
     return (auth) async {
       // No quote review sheet. The person already decided on the amount
@@ -2599,6 +2958,8 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       // decision September 2026). A quote that drifts still stops the
       // send through the runner's own drift check.
       if (!mounted) return false;
+      // Move money: the settlement is for the wallet the sheet opened on.
+      _ensureMovementPinned(auth.walletId);
       final intent = OrchestraGrants.settlement(auth,
           action: action, asset: asset, account: account);
       final sourceFee = auth.sourceFeeBaseUnits;
@@ -2624,10 +2985,13 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       _bandStep(0.55);
       try {
         AuthGrants.consume(grant, intent);
-        return true;
       } on AuthGrantException {
         return false;
       }
+      // A rail whose own send follows the approval with no hook of its
+      // own counts as funding from here ([_movementFundingStarted]).
+      onApproved?.call();
+      return true;
     };
   }
 
@@ -2672,7 +3036,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// refund target, same `withdrawUsdc` funding call, same
   /// [SensitiveAction.venueWithdraw] grant, same runner.
   Future<void> _convertUsdToBtc() async {
-    var usd = _selectedUsdcFromRatio;
+    var usd = _selectedSourceUsd;
     if (usd < _kMinUsdc || _processing) {
       return;
     }
@@ -2695,11 +3059,13 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     // below (route, quote, row, fee, overlay) names the same asset and
     // the bitcoin path keeps its exact literals.
     final dollars = _destUsd;
-    final destChain = dollars ? kOrchestraUsdChain : 'spark';
-    final destAsset = dollars ? kOrchestraUsdAssetCode : 'BTC';
+    final investing = _isMoneyMovement && _destHyperliquid;
+    final destChain = investing ? 'hypercore' : dollars ? kOrchestraUsdChain : 'spark';
+    final destAsset = investing ? 'USDC' : dollars ? kOrchestraUsdAssetCode : 'BTC';
+    final direction = investing ? 'predictions_to_investing' : dollars ? 'usd_to_dollars' : 'usd_to_btc';
 
     TrackingService.track('convert_tapped', params: {
-      'direction': dollars ? 'usd_to_dollars' : 'usd_to_btc',
+      'direction': direction,
       // Exact amount_usd beside the legacy bucket, as on the paired
       // swapInitiated below.
       'amount_bucket': TrackingService.usdBucket(usd),
@@ -2725,9 +3091,19 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
 
     // Whether the relayer withdrawal was attempted, for the failure stage.
     var usdcSent = false;
+    // Copy read before the awaits below.
+    final copy = context.l10n;
     try {
       // 1. Get Spark self address for BTC settlement.
-      final sparkAddress = await ref.read(sparkSelfAddressProvider.future);
+      // Predictions → Investing pays the wallet's own Investing account.
+      final sparkAddress = investing
+          ? await ref.read(hyperliquidAddressProvider.future)
+          : await ref.read(sparkSelfAddressProvider.future);
+      _ensureMovementPinned();
+      if (sparkAddress == null || sparkAddress.isEmpty) {
+        throw const WalletGuardException(
+            WalletGuardReason.ownAddressUnavailable);
+      }
 
       // 2. Create Flashnet quote: polygon native USDC → spark BTC.
       // Refund target = the Polymarket deposit wallet (proxy) the
@@ -2752,19 +3128,33 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
           // Fall through to the message below: the account could not be
           // read, which is the one thing worth saying.
         }
+        _ensureMovementPinned();
       }
       if (refundEvm.isEmpty) {
         // Named, because a refund address on the source chain is exactly
         // what is missing and the person can act on it.
-        throw context.l10n.homeNavPredictionsWalletNotReadyYet;
+        throw copy.homeNavPredictionsWalletNotReadyYet;
       }
       final pm = ref.read(polymarketTradingProvider.notifier);
-      final microUsdc =
-          drain ? await pm.spendableMicroUsdc() : await pm.payableMicroUsdc(usd);
+      final BigInt microUsdc;
+      if (drain) {
+        microUsdc = await pm.spendableMicroUsdc();
+      } else if (_isMoneyMovement) {
+        // Exactly the typed amount or nothing: Move money never clamps a
+        // typed figure down to what the deposit wallet can spend (the
+        // other doors tolerate a cent for a Max computed as a double).
+        final requested = BigInt.from((usd * 1e6).round());
+        final spendable = await pm.spendableMicroUsdc();
+        if (requested > spendable) throw copy.insufficientBalance;
+        microUsdc = requested;
+      } else {
+        microUsdc = await pm.payableMicroUsdc(usd);
+      }
+      _ensureMovementPinned();
       if (drain) {
         usd = microUsdc.toDouble() / 1e6;
         if (usd < _kMinUsdc) {
-          throw context.l10n.insufficientBalance;
+          throw copy.insufficientBalance;
         }
       }
       // The runner persists the settlement record before the relayer call
@@ -2773,9 +3163,12 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       // `withdrawUsdc` in `fund`, which consumes it right before signing.
       AuthGrant? approved;
       final runner = await HotSettlement.runner();
+      _ensureMovementPinned();
       final settled = await runner.run(HotSettlement.plan(
         ref.read,
-        flow: dollars
+        // Move money pins the settlement to the wallet the sheet opened on.
+        walletId: _isMoneyMovement ? _movementWalletId : null,
+        flow: investing ? SettlementFlow.movePredictionsToInvesting : dollars
             ? SettlementFlow.movePredictionsToDollars
             : SettlementFlow.moveUsdToBtc,
         route: RouteKey(
@@ -2784,9 +3177,13 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
             toChain: destChain,
             toAsset: destAsset),
         source: SettlementAccountKind.pmHot,
-        destination: SettlementAccountKind.sparkHot,
+        destination: investing ? SettlementAccountKind.hlHot : SettlementAccountKind.sparkHot,
         amountUsd: usd,
         requestQuote: (key) async {
+          final recipientKind =
+              investing ? RecipientKind.ownEvm : RecipientKind.ownSpark;
+          final own = await _ownAddressFor(recipientKind);
+          _ensureMovementPinned();
           final quoteRequest = OrchestraQuoteRequest(
             sourceChain: 'polygon',
             sourceAsset: 'USDC.e',
@@ -2795,13 +3192,19 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
             amountBaseUnits: microUsdc,
             recipientAddress: sparkAddress,
             refundAddress: refundEvm,
-            recipientKind: RecipientKind.ownSpark,
-            ownAddress: await _ownAddressFor(RecipientKind.ownSpark),
+            recipientKind: recipientKind,
+            ownAddress: own,
             tag: kManualMoveQuoteTag,
           );
-          return HotSettlement.quote(ref.read, quoteRequest,
-              flow: dollars ? 'move_convert_to_dollars' : 'move_convert_to_btc',
+          final quote = await HotSettlement.quote(ref.read, quoteRequest,
+              flow: investing
+                  ? 'move_predictions_to_investing'
+                  : dollars
+                      ? 'move_convert_to_dollars'
+                      : 'move_convert_to_btc',
               idempotencyKey: key);
+          _ensureMovementPinned();
+          return quote;
         },
         fund: (verifiedQuote, _) async {
           // 3. Send USDC.e to Orchestra's deposit address. The quote
@@ -2812,16 +3215,27 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
           if (grant == null) {
             throw StateError('Move not approved');
           }
+          // Last check before the money is handed over; past here nothing
+          // is checked that could stop a send already on its way.
+          _ensureMovementPinned(grant.walletId);
           usdcSent = true;
-          final txHash =
-              await ref.read(polymarketTradingProvider.notifier).withdrawUsdc(
-                    toAddress: verifiedQuote.depositAddress,
-                    amount: usd,
-                    bridged: true,
-                    exactMicroUsdc: verifiedQuote.amountIn,
-                    grant: grant,
-                  );
-          return SettlementFundingProof.relayer(txHash);
+          _movementFundingStarted = true;
+          try {
+            final txHash =
+                await ref.read(polymarketTradingProvider.notifier).withdrawUsdc(
+                      toAddress: verifiedQuote.depositAddress,
+                      amount: usd,
+                      bridged: true,
+                      exactMicroUsdc: verifiedQuote.amountIn,
+                      grant: grant,
+                    );
+            return SettlementFundingProof.relayer(txHash);
+          } on SettlementFundingNotStarted {
+            // The withdrawal said it never submitted.
+            usdcSent = false;
+            _movementFundingStarted = false;
+            rethrow;
+          }
         },
         // The relayer withdrawal is on disk once this returns; the
         // deposit is registered behind the overlay.
@@ -2834,6 +3248,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
           // Straight to the signing prompt; see the note on the other
           // step-up above.
           if (!mounted) return false;
+          _ensureMovementPinned(auth.walletId);
           approved?.revoke();
           approved = null;
           final grant = await _approveMove(
@@ -2859,7 +3274,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       // Bitcoin only: the claim window is matched against an inbound
       // BITCOIN receive, so recording one for a dollar delivery would
       // hide the next unrelated bitcoin that lands instead.
-      if (!dollars) {
+      if (!dollars && !investing) {
         PolymarketSparkTxsService.recordExpectedClaimDelivery(
           microUsd: BigInt.from((usd * 1e6).round()),
         );
@@ -2877,10 +3292,10 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         coinFrom: 'USDC',
         networkFrom: 'POLYGON',
         coinTo: destAsset,
-        networkTo: 'SPARK',
+        networkTo: investing ? 'HYPERCORE' : 'SPARK',
         depositAddress: orchQuote.depositAddress,
         depositAmount: usd.toStringAsFixed(2),
-        withdrawalAmount: estOut.toStringAsFixed(dollars ? 2 : 8),
+        withdrawalAmount: estOut.toStringAsFixed(dollars || investing ? 2 : 8),
         status: 'exchanging',
         timestamp: DateTime.now().millisecondsSinceEpoch,
         withdrawalAddress: sparkAddress,
@@ -2927,6 +3342,12 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       final feeWalletId = ref.read(settingsProvider).activeWalletId;
       final usdPerBtc = ref.read(selectedCurrencyProvider('usd')).toDouble();
       final sentUsd = usd;
+      if (dollars || investing || usdPerBtc > 0) {
+        // The same spread the fee history logs, for Move money's analytics.
+        _movementFeeUsd = dollars || investing
+            ? sentUsd - estOut
+            : (sentUsd / usdPerBtc - estOut) * usdPerBtc;
+      }
       withSettlementOrderId(settled, (orderId) {
         // Phase 9 — Orchestra spread on this conversion. Compute it in
         // USD: the user paid `usd` USDC, the Orchestra quote promised
@@ -2935,8 +3356,8 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         // priced back into dollars; for dollars the leg is at par and the
         // shortfall IS the fee, with no price in it at all.
         try {
-          if (dollars || usdPerBtc > 0) {
-            final spreadUsd = dollars
+          if (dollars || investing || usdPerBtc > 0) {
+            final spreadUsd = dollars || investing
                 ? sentUsd - estOut
                 : (sentUsd / usdPerBtc - estOut) * usdPerBtc;
             if (spreadUsd > 0) {
@@ -2959,11 +3380,11 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         TrackingService.polymarketWithdrawSubmitted(
           orderId: orderId,
           amountUsd: sentUsd,
-          destination: dollars ? 'usd' : 'btc',
+          destination: investing ? 'investing' : dollars ? 'usd' : 'btc',
         );
         // Submit-time (dashboards key off it); settlement is swap_completed.
         TrackingService.track('convert_success', params: {
-          'direction': dollars ? 'usd_to_dollars' : 'usd_to_btc',
+          'direction': direction,
           // Exact amount_usd beside the legacy bucket.
           'amount_bucket': TrackingService.usdBucket(sentUsd),
           ...TrackingService.exactUsd('amount_usd', sentUsd),
@@ -2997,11 +3418,11 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       _trackMoveCompleted();
       pushMoveSentOverlay(
         navigator: rootNav,
-        amount: dollars
+        amount: dollars || investing
             ? '\$${estOut.toStringAsFixed(2)}'
             : '₿${outSats.toFormattedString(btcFormat)}',
         fromWalletName: 'Predictions',
-        toWalletName: dollars ? l10n.assetDollars : spendingName,
+        toWalletName: investing ? l10n.trading : dollars ? l10n.assetDollars : spendingName,
         assetIconAsset: 'lib/assets/polymarket-logo.svg',
         note: l10n.moveConversionOngoing,
       );
@@ -3032,14 +3453,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         stage: usdcSent ? 'post_send' : 'pre_send',
       );
       _trackMoveFailed(e);
-      if (!mounted) {
-        return;
-      }
-      final msg = _moveFailure(e);
-      setState(() {
-        _processing = false;
-        _error = msg;
-      });
+      _endStoppedMove(e);
     }
   }
 
@@ -3112,7 +3526,8 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     required String idempotencyKey,
   }) async {
     final ownAddress = await _ownAddressFor(recipientKind);
-    Future<SettlementQuoteResult> quoteFor(int amountSats, String key) {
+    _ensureMovementPinned();
+    Future<SettlementQuoteResult> quoteFor(int amountSats, String key) async {
       final request = OrchestraQuoteRequest(
         sourceChain: 'spark',
         sourceAsset: 'BTC',
@@ -3125,11 +3540,16 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         ownAddress: ownAddress,
         tag: kManualMoveQuoteTag,
       );
-      return HotSettlement.quote(ref.read, request,
+      final quote = await HotSettlement.quote(ref.read, request,
           flow: flow, idempotencyKey: key);
+      _ensureMovementPinned();
+      return quote;
     }
 
-    final target = targetUsd ?? 0;
+    // Move money sends the bitcoin the typed dollars buy at the sheet's
+    // price, never grossed up past it: the fee comes out of what arrives,
+    // as the fee line says.
+    final target = _isMoneyMovement ? 0.0 : (targetUsd ?? 0.0);
     // The live balance, not the one held for the screen.
     final maxSats = _maxConvertibleSatsOf(_liveAvailableSats);
     var sendSats = sats;
@@ -3188,17 +3608,35 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   }
 
   Future<void> _dispatchBtcToPredictions(int requestedSats) async {
+    if (_processing) return;
     final appRead = _appReader;
     var sats = requestedSats;
     final drain = _drainArmed;
-    final evm = await _evmAddressForDispatch();
-    if (!mounted) return;
-    if (evm == null || evm.isEmpty) {
-      setState(() =>
-          _error = context.l10n.homeNavPredictionsWalletNotReadyYet);
+    // Locked before the first await: while the Predictions account is
+    // read, a second tap, a route edit or the keypad cannot start or
+    // change another move.
+    setState(() {
+      _processing = true;
+      _error = null;
+    });
+    final String? resolved;
+    try {
+      resolved = await _resolveEvmAddress();
+      _ensureMovementPinned();
+    } catch (e) {
+      _endStoppedMove(e);
       _moveFailedFeedback();
       return;
     }
+    if (!mounted) return;
+    if (resolved == null || resolved.isEmpty) {
+      // Nothing was attempted: the account could not be read.
+      _endStoppedMove(StateError('Predictions account unavailable'),
+          message: context.l10n.homeNavPredictionsWalletNotReadyYet);
+      _moveFailedFeedback();
+      return;
+    }
+    final String evm = resolved;
 
     final btcRate2 = ref.read(selectedCurrencyProvider('USD')).toDouble();
     final approxUsd2 = (sats / 1e8) * btcRate2;
@@ -3227,11 +3665,6 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       venue: 'polymarket',
     );
 
-    setState(() {
-      _processing = true;
-      _error = null;
-    });
-
     // Tracks how far the money got, so the catch below can tell "nothing
     // moved" (clean up the pre-persisted row, plain error) apart from
     // "BTC already left" (keep the row, lead with the sent-but framing).
@@ -3239,6 +3672,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     String? pendingQuoteRowId;
     try {
       if (drain) sats = await _sparkDrainSats();
+      _ensureMovementPinned();
       // 1. Orchestra quote: spark BTC → polygon USDC.e (Safe), grossed
       // up so the typed USD target actually arrives post-spread.
       // Spark-source leg → refund target is the user's own Spark
@@ -3247,8 +3681,10 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       // `broadcasting` before the Spark send (Phase 5 plan B6).
       final sparkRefund = await ref.read(sparkSelfAddressProvider.future);
       final runner = await HotSettlement.runner();
+      _ensureMovementPinned();
       final settled = await runner.run(HotSettlement.plan(
         ref.read,
+        walletId: _isMoneyMovement ? _movementWalletId : null,
         flow: SettlementFlow.moveBtcToPredictions,
         route: RouteKey(
             fromChain: 'spark',
@@ -3326,8 +3762,17 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         fund: (verifiedQuote, prepared) async {
           // 2. Send BTC via Spark to the quote's deposit address. From here
           // the BTC may have left, so the row is kept whatever happens.
+          _ensureMovementPinned();
           sparkSent = true;
-          final paymentId = await HotSettlement.sendSpark(ref.read, prepared);
+          _movementFundingStarted = true;
+          final String paymentId;
+          try {
+            paymentId = await HotSettlement.sendSpark(ref.read, prepared);
+          } on SettlementFundingNotStarted {
+            sparkSent = false;
+            _movementFundingStarted = false;
+            rethrow;
+          }
           PolymarketSparkTxsService.tag(paymentId);
           return SettlementFundingProof.spark(paymentId);
         },
@@ -3480,16 +3925,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         stage: sparkSent ? 'post_send' : 'pre_send',
       );
       _trackMoveFailed(e);
-      if (!mounted) {
-        return;
-      }
-      final msg = _moveFailure(e);
-      setState(() {
-        _processing = false;
-        // The sent-but framing must survive whole; only pre-send
-        // errors get trimmed.
-        _error = msg;
-      });
+      // The sent-but framing must survive whole; only pre-send errors get
+      // trimmed.
+      _endStoppedMove(e);
     }
   }
 
@@ -3536,10 +3974,17 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     var btcSent = false;
     try {
       if (drain) sats = await _sparkDrainSats();
+      _ensureMovementPinned();
       // 1. The dollar leg settles on the wallet's own Spark address, and
       // a failed swap refunds to that same address. Resolution failure
       // throws BEFORE anything moves.
       final sparkAddress = await ref.read(sparkSelfAddressProvider.future);
+      _ensureMovementPinned();
+      void sending() {
+        btcSent = true;
+        _movementFundingStarted = true;
+      }
+
       // 2. The shared Bitcoin → Dollars leg (the slips run the same one
       // under an order's approval): quote, this sheet's own approval,
       // the sats to the quote's deposit address, the Activity row, the
@@ -3548,7 +3993,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       // Activity row follows the conversion from there.
       final seam = debugBitcoinToDollarsSend;
       final sent = seam != null
-          ? await seam(approxUsd: approxUsd, onSending: () => btcSent = true)
+          ? await seam(approxUsd: approxUsd, onSending: sending)
           : await BitcoinToDollarsLeg.send(
               ref.read,
               appRead: appRead,
@@ -3577,7 +4022,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
                 );
                 return fetched;
               },
-              onSending: () => btcSent = true,
+              onSending: sending,
             );
       final settled = sent.settled;
       sats = sent.sats;
@@ -3622,15 +4067,14 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
           venue: 'wallet',
         );
         _trackMoveFailed(e);
+      } else if (_isMoneyMovement) {
+        // Move money reports the lock it shows for an unproven send.
+        _trackMoveFailed(e);
       }
       if (_stoppedByApproval(e, SensitiveAction.moveTransfer) || !mounted) {
         return;
       }
-      final message = _moveFailure(e);
-      setState(() {
-        _processing = false;
-        _error = message;
-      });
+      _endStoppedMove(e);
     }
   }
 
@@ -4072,7 +4516,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
 
   Future<void> _dispatchUsdToBtc(double usd) async {
     if (_processing) return;
-    final parallel = _parallelPurchase;
+    // A Buy bitcoin's earlier multi-source purchase is never what Move
+    // money retries.
+    final parallel = _isMoneyMovement ? null : _parallelPurchase;
     if (parallel != null) {
       await _retryParallelPurchase(parallel);
       return;
@@ -4081,6 +4527,13 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     // 100% of Dollars is the exact drain; an amount past Dollars (venue
     // cash in reach) is sent exactly as chosen.
     final pullsVenueCash = usd > _availableUsd + 0.005;
+    // A manual move spends exactly its chosen account, never another
+    // venue when Dollars dropped between rendering and confirmation.
+    if (_isMoneyMovement && pullsVenueCash) {
+      setState(() => _error = context.l10n.insufficientBalance);
+      _moveFailedFeedback();
+      return;
+    }
     final drain = _drainArmed && !pullsVenueCash;
     if (amountBaseUnits <= BigInt.zero) return;
 
@@ -4112,6 +4565,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     var usdSent = false;
     try {
       if (drain) amountBaseUnits = await _usdDrainBaseUnits();
+      _ensureMovementPinned();
       // Dollars first; the shortfall from venue cash. With venue cash the
       // purchase asks its ONE approval before any leg moves, the legs go
       // under it, and the purchase then pays under the same approval.
@@ -4160,9 +4614,13 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
                 amountUsd: usd,
               ),
         moveId: _moveId,
-        onQuoting: () => _bandStep(0.85),
+        onQuoting: () {
+          _ensureMovementPinned();
+          _bandStep(0.85);
+        },
         onFunding: () {
           usdSent = true;
+          _movementFundingStarted = true;
           _bandStep(0.92);
         },
       );
@@ -4214,16 +4672,16 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
           venue: 'wallet',
         );
         _trackMoveFailed(e);
+      } else if (_isMoneyMovement) {
+        _trackMoveFailed(e);
       }
       if (_stoppedByApproval(e, SensitiveAction.moveTransfer) || !mounted) {
         return;
       }
-      final message = e is DollarsToBitcoinBelowMinimum
-          ? context.l10n.routeAmountTooSmallGeneric : _moveFailure(e);
-      setState(() {
-        _processing = false;
-        _error = message;
-      });
+      _endStoppedMove(e,
+          message: e is DollarsToBitcoinBelowMinimum
+              ? context.l10n.routeAmountTooSmallGeneric
+              : null);
     }
   }
 
@@ -4238,17 +4696,34 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   Future<void> _dispatchUsdToPredictions(double usd) async {
     if (_processing) return;
     final appRead = _appReader;
-    final evm = await _evmAddressForDispatch();
-    if (!mounted) return;
-    if (evm == null || evm.isEmpty) {
-      setState(() =>
-          _error = context.l10n.homeNavPredictionsWalletNotReadyYet);
-      _moveFailedFeedback();
-      return;
-    }
     var amountBaseUnits = _usdBaseUnits(usd);
     final drain = _drainArmed;
     if (amountBaseUnits <= BigInt.zero) return;
+    // Locked before the first await: while the Predictions account is
+    // read, a second tap, a route edit or the keypad cannot start or
+    // change another move.
+    setState(() {
+      _processing = true;
+      _error = null;
+    });
+    final String? resolved;
+    try {
+      resolved = await _resolveEvmAddress();
+      _ensureMovementPinned();
+    } catch (e) {
+      _endStoppedMove(e);
+      _moveFailedFeedback();
+      return;
+    }
+    if (!mounted) return;
+    if (resolved == null || resolved.isEmpty) {
+      // Nothing was attempted: the account could not be read.
+      _endStoppedMove(StateError('Predictions account unavailable'),
+          message: context.l10n.homeNavPredictionsWalletNotReadyYet);
+      _moveFailedFeedback();
+      return;
+    }
+    final String evm = resolved;
 
     TrackingService.track('move_initiated', params: {
       'source_asset': 'usd',
@@ -4275,11 +4750,6 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       venue: 'polymarket',
     );
 
-    setState(() {
-      _processing = true;
-      _error = null;
-    });
-
     var dollarsSent = false;
     String? pendingQuoteRowId;
     try {
@@ -4287,8 +4757,10 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       final sparkRefund = await ref.read(sparkSelfAddressProvider.future);
       final ownPm = await _ownAddressFor(RecipientKind.ownPmWallet);
       final runner = await HotSettlement.runner();
+      _ensureMovementPinned();
       final settled = await runner.run(HotSettlement.plan(
         ref.read,
+        walletId: _isMoneyMovement ? _movementWalletId : null,
         flow: SettlementFlow.moveUsdToPredictions,
         route: RouteKey(
             fromChain: kOrchestraUsdChain,
@@ -4305,23 +4777,28 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
               _usdApprovalLabel(auth.amountIn.toDouble() / 1e6),
           amountUsd: usd,
         ),
-        requestQuote: (key) => HotSettlement.quote(
-          ref.read,
-          OrchestraQuoteRequest(
-            sourceChain: kOrchestraUsdChain,
-            sourceAsset: kOrchestraUsdAssetCode,
-            destinationChain: 'polygon',
-            destinationAsset: 'USDC.e',
-            amountBaseUnits: amountBaseUnits,
-            recipientAddress: evm,
-            refundAddress: sparkRefund,
-            recipientKind: RecipientKind.ownPmWallet,
-            ownAddress: ownPm,
-            tag: kManualMoveQuoteTag,
-          ),
-          flow: 'move_predictions_dollars',
-          idempotencyKey: key,
-        ),
+        requestQuote: (key) async {
+          _ensureMovementPinned();
+          final quote = await HotSettlement.quote(
+            ref.read,
+            OrchestraQuoteRequest(
+              sourceChain: kOrchestraUsdChain,
+              sourceAsset: kOrchestraUsdAssetCode,
+              destinationChain: 'polygon',
+              destinationAsset: 'USDC.e',
+              amountBaseUnits: amountBaseUnits,
+              recipientAddress: evm,
+              refundAddress: sparkRefund,
+              recipientKind: RecipientKind.ownPmWallet,
+              ownAddress: ownPm,
+              tag: kManualMoveQuoteTag,
+            ),
+            flow: 'move_predictions_dollars',
+            idempotencyKey: key,
+          );
+          _ensureMovementPinned();
+          return quote;
+        },
         prepareFunding: (verifiedQuote, operationId) async {
           final orchQuote = verifiedQuote.quote;
           final staleRowId = pendingQuoteRowId;
@@ -4344,8 +4821,17 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         },
         registerInBackground: true,
         fund: (verifiedQuote, prepared) async {
+          _ensureMovementPinned();
           dollarsSent = true;
-          final paymentId = await HotSettlement.sendSpark(ref.read, prepared);
+          _movementFundingStarted = true;
+          final String paymentId;
+          try {
+            paymentId = await HotSettlement.sendSpark(ref.read, prepared);
+          } on SettlementFundingNotStarted {
+            dollarsSent = false;
+            _movementFundingStarted = false;
+            rethrow;
+          }
           PolymarketSparkTxsService.tag(paymentId);
           return SettlementFundingProof.spark(paymentId);
         },
@@ -4370,6 +4856,8 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       followSettlementRegistration(appRead, settled);
       final estOut = orchestraAmountToDouble(orchQuote.estimatedOut, 'USDC.e',
           chain: 'polygon');
+      // Dollars in, dollars out: the shortfall is the route's fee.
+      _movementFeeUsd = sentUsd - estOut;
       if (orderId.startsWith('ord_')) {
         // ignore: unawaited_futures
         AffiliateService.logProviderEvent(
@@ -4448,12 +4936,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         stage: dollarsSent ? 'post_send' : 'pre_send',
       );
       _trackMoveFailed(e);
-      if (!mounted) return;
-      final msg = _moveFailure(e);
-      setState(() {
-        _processing = false;
-        _error = msg;
-      });
+      _endStoppedMove(e);
     }
   }
 
@@ -4516,6 +4999,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       if (drain) amountBaseUnits = await _usdDrainBaseUnits();
       final direct = ref.read(sparkHypercoreFundingServiceProvider);
       await direct.ensureAvailable(deposit: true);
+      _ensureMovementPinned();
       TrackingService.hyperliquidDepositInitiated(
         amountUsd: usd,
         sourceAsset: 'usd',
@@ -4527,6 +5011,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         asset: SparkFundingAsset.dollars,
         amountBaseUnits: amountBaseUnits,
         amountUsd: usd,
+        onFundingStarted: () => _movementFundingStarted = true,
         stepUp: _settlementStepUp(
           action: SensitiveAction.venueDeposit,
           asset: kOrchestraUsdAssetCode,
@@ -4535,6 +5020,8 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
           amountUsd: usd,
         ),
       );
+      // Dollars in, dollars out: the shortfall is the route's fee.
+      _movementFeeUsd = result.amountIn.toDouble() / 1e6 - result.estimatedOut;
       // Money has landed at the venue, which is the moment a user-signed
       // builder approval will be accepted. Registering it here, once,
       // is the difference between every later order carrying Kute's fee
@@ -4578,14 +5065,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         walletKind: 'hot',
       );
       _trackMoveFailed(e);
-      if (!mounted) {
-        return;
-      }
-      final message = _moveFailure(e);
-      setState(() {
-        _processing = false;
-        _error = message;
-      });
+      _endStoppedMove(e);
     }
   }
 
@@ -4613,6 +5093,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       final direct = ref.read(sparkHypercoreFundingServiceProvider);
       await direct.ensureAvailable(deposit: true);
       if (drain) sats = await _sparkDrainSats();
+      _ensureMovementPinned();
       TrackingService.hyperliquidDepositInitiated(
         amountUsd: approxUsd,
         sourceAsset: 'btc',
@@ -4624,6 +5105,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         asset: SparkFundingAsset.bitcoin,
         amountBaseUnits: BigInt.from(sats),
         amountUsd: approxUsd,
+        onFundingStarted: () => _movementFundingStarted = true,
         stepUp: _settlementStepUp(
           action: SensitiveAction.venueDeposit,
           asset: 'BTC',
@@ -4670,14 +5152,116 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         walletKind: 'hot',
       );
       _trackMoveFailed(e);
+      _endStoppedMove(e);
+    }
+  }
+
+  /// Investing → Predictions (Move money): Circle CCTP out of HyperCore to
+  /// the wallet's own Predictions account, through the wallet's own
+  /// standing instruction ([HypercoreCctpWithdrawal.withdrawTo]), the route
+  /// every Investing → Predictions leg takes. No Orchestra quote prices it.
+  /// The approval binds the CCTP intent (the own Predictions address and
+  /// the route version); the CCTP move pins the spending wallet across its
+  /// own awaits, refuses before signing when it cannot run, and once
+  /// signed hands back an operation it watches even when the exchange's
+  /// answer was lost.
+  Future<void> _dispatchInvestingToPredictions(double usd) async {
+    if (_processing || usd < _kMinUsdc) return;
+    final drain = _drainArmed;
+    final l10n = context.l10n;
+    _movementRail = 'cctp';
+    setState(() {
+      _processing = true;
+      _error = null;
+    });
+    var initiated = false;
+    try {
+      if (drain) {
+        // 100%: everything the account holds now, read fresh.
+        final fresh = await ref.refresh(hyperliquidAccountProvider.future);
+        usd = hypercoreSendableUsdc(fresh.withdrawable, fresh.spotBalances);
+        if (!usd.isFinite || usd < _kMinUsdc) throw l10n.insufficientBalance;
+        _ensureMovementPinned();
+      }
+      final account = await ref.read(hyperliquidAddressProvider.future);
+      _ensureMovementPinned();
+      TrackingService.hyperliquidWithdrawInitiated(
+        amountUsd: usd,
+        destination: 'predictions',
+        walletKind: 'hot',
+        purpose: 'manual_move',
+      );
+      initiated = true;
+      _trackMoveSubmitted();
+      final result = await ref.read(hypercoreCctpWithdrawalProvider).withdrawTo(
+            destination: InvestingWithdrawalDestination.predictions,
+            usd: usd,
+            purpose: 'manual_move',
+            stepUp: _settlementStepUp(
+              action: SensitiveAction.venueWithdraw,
+              asset: 'USDC',
+              account: account,
+              amountLabel: (_) => _usdApprovalLabel(usd),
+              amountUsd: usd,
+              // The burn follows the approval with no hook of its own.
+              onApproved: () => _movementFundingStarted = true,
+            ),
+          );
+      // Handed to the CCTP watcher; the reconciler reports the outcome.
+      TrackingService.hyperliquidWithdrawSubmitted(
+        amountUsd: result.sentUsd,
+        route: 'cctp',
+        destination: 'predictions',
+        walletKind: 'hot',
+        purpose: 'manual_move',
+      );
+      if (!mounted) return;
+      await _snapBeforeLeaving();
       if (!mounted) {
+        _trackMoveCompleted();
         return;
       }
-      final message = _moveFailure(e);
-      setState(() {
-        _processing = false;
-        _error = message;
-      });
+      final navigator = Navigator.of(context);
+      navigator.pop();
+      _trackMoveCompleted();
+      pushMoveSentOverlay(
+        navigator: navigator,
+        // What left Investing: the burn, which the CCTP move caps at the
+        // cash it can send less HyperCore's gas reserve.
+        amount: '\$${result.sentUsd.toStringAsFixed(2)}',
+        fromWalletName: l10n.trading,
+        toWalletName: l10n.predictions,
+        assetIconAsset: 'lib/assets/polymarket-logo.svg',
+        note: l10n.moveConversionOngoing,
+      );
+    } catch (e) {
+      if (_stoppedByApproval(e, SensitiveAction.venueWithdraw)) return;
+      if (initiated) {
+        // A fixed category, never the error text.
+        TrackingService.hyperliquidWithdrawFailed(
+          reason: e is CctpUnavailable
+              ? e.reason.code
+              : TrackingService.errorCategory(e),
+          route: 'cctp',
+          amountUsd: usd,
+          destination: 'predictions',
+          walletKind: 'hot',
+          purpose: 'manual_move',
+        );
+      }
+      _trackMoveFailed(e);
+      if (!mounted) return;
+      // The policy withholds a capability the route needs: the shared
+      // capability sheet, as the Investing withdraw door shows it.
+      if (e is CctpUnavailable && e.decision != null) {
+        setState(() {
+          _processing = false;
+          _movementRetry = _isMoneyMovement;
+        });
+        unawaited(showCapabilityDecisionSheet(context, e.decision!));
+        return;
+      }
+      _endStoppedMove(e);
     }
   }
 
@@ -4685,7 +5269,10 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// spending account's bitcoin (the default and the untouched path) or
   /// its dollars, picked on the To row. Only the Spark asset the
   /// withdrawal is pointed at changes — same HyperCore source, same
-  /// [SensitiveAction.venueWithdraw] grant, same runner.
+  /// [SensitiveAction.venueWithdraw] grant, same runner. Native HyperCore
+  /// goes first; Circle CCTP only after Orchestra refused the route
+  /// itself before anything was signed ([HyperCoreMoveRail.opensCctpFallback]):
+  /// to Dollars on every door, to Bitcoin on Move money.
   Future<void> _dispatchHyperliquidToBtc(double usd) async {
     if (_processing) return;
     final dollars = _destUsd;
@@ -4693,6 +5280,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     // Every attempt starts on the direct route; `cctp` once it switched
     // to the Circle CCTP fallback. Sent on submitted and failed.
     var route = 'direct';
+    _movementRail = route;
     final attemptClock = Stopwatch();
     setState(() {
       _processing = true;
@@ -4701,6 +5289,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     try {
       final direct = ref.read(sparkHypercoreFundingServiceProvider);
       await direct.ensureAvailable(deposit: false);
+      _ensureMovementPinned();
       if (drain) {
         // 100%: everything the account holds now, read fresh, not the
         // cent-floored snapshot on screen: perpetuals, builder-DEX and
@@ -4715,6 +5304,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         }
       }
       final account = await ref.read(hyperliquidAddressProvider.future);
+      _ensureMovementPinned();
       // Once per attempt: the CCTP fallback below does not send it again.
       TrackingService.hyperliquidWithdrawInitiated(
         amountUsd: usd,
@@ -4730,7 +5320,10 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
             account: account,
             amountLabel: (_) => _usdApprovalLabel(usd),
             amountUsd: usd,
+            // The usdSend follows the approval with no hook of its own.
+            onApproved: () => _movementFundingStarted = true,
           );
+      var sentUsd = usd;
       try {
         await direct.withdrawToSpark(
           registerInBackground: true,
@@ -4744,21 +5337,40 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         // no destination for it, or the quote refuses it; nothing signed):
         // to Dollars, Circle CCTP brings the cash home instead. A Bitcoin
         // withdrawal keeps the refusal ("isn't available right now").
-        if (!dollars || !HyperCoreMoveRail.opensCctpFallback(e)) rethrow;
+        // Move money's Investing → Bitcoin takes the same fallback as the
+        // one-balance rail (HyperCoreMoveRail.withdrawDirect): only this
+        // route refusal opens it, never a policy, amount, approval,
+        // network or unknown outcome.
+        if ((!dollars && !_isMoneyMovement) ||
+            !HyperCoreMoveRail.opensCctpFallback(e)) {
+          rethrow;
+        }
+        // The refusal came before anything was signed.
+        _movementFundingStarted = false;
         route = 'cctp';
+        _movementRail = route;
+        _ensureMovementPinned();
         TrackingService.hyperliquidWithdrawStep(
           step: 'cctp_fallback',
           durationMs: attemptClock.elapsedMilliseconds,
           amountUsd: usd,
         );
-        await ref.read(hypercoreCctpWithdrawalProvider).withdrawToDollars(
-            usd: usd, stepUp: stepUp(), purpose: 'manual_move');
+        final rail = ref.read(hypercoreCctpWithdrawalProvider);
+        final cctp = dollars
+            ? await rail.withdrawToDollars(
+                usd: usd, stepUp: stepUp(), purpose: 'manual_move')
+            : await rail.withdrawTo(
+                destination: InvestingWithdrawalDestination.bitcoin,
+                usd: usd,
+                stepUp: stepUp(),
+                purpose: 'manual_move');
+        sentUsd = cctp.sentUsd;
       }
       // Handed to the runner (or the CCTP watcher); the real outcome is
       // reported by the settlement reconciler
       // (hyperliquid_withdraw_completed/failed).
       TrackingService.hyperliquidWithdrawSubmitted(
-        amountUsd: usd,
+        amountUsd: sentUsd,
         route: route,
         destination: dollars ? 'usd' : 'btc',
         walletKind: 'hot',
@@ -4778,7 +5390,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       _trackMoveCompleted();
       pushMoveSentOverlay(
         navigator: navigator,
-        amount: '\$${usd.toStringAsFixed(2)}',
+        amount: '\$${sentUsd.toStringAsFixed(2)}',
         fromWalletName: l10n.trading,
         toWalletName: dollars ? l10n.assetDollars : name,
         assetIconAsset: 'lib/assets/hyperliquid-logo.svg',
@@ -4807,14 +5419,14 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       // checks it before anything is signed): the shared capability
       // sheet, as the Investing withdraw door shows it.
       if (e is CctpUnavailable && e.decision != null) {
-        setState(() => _processing = false);
+        setState(() {
+          _processing = false;
+          _movementRetry = _isMoneyMovement;
+        });
         unawaited(showCapabilityDecisionSheet(context, e.decision!));
         return;
       }
-      setState(() {
-        _processing = false;
-        _error = _moveFailure(e);
-      });
+      _endStoppedMove(e);
     }
   }
 
@@ -4988,6 +5600,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// drawn whatever the policy says about onramps; with none on offer
   /// the tap opens the "Buy unavailable" sheet ([_depositMore]).
   bool get _needsFunding =>
+      !_isMoneyMovement &&
       !_isLedgerMove &&
       (_insufficientTyped ||
           (!_isFiatMode &&
@@ -6020,7 +6633,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     final decimals = _fromHyperliquid ? kHypercoreUsdcDecimals : 6;
     final units =
         (whole * BigInt.from(100) + cents) * BigInt.from(10).pow(decimals - 2);
-    if (_fromBtc ? sats < _kMinSats : _selectedUsdcFromRatio < _kMinUsdc) {
+    if (_fromBtc ? sats < _kMinSats : _selectedSourceUsd < _kMinUsdc) {
       return;
     }
     setState(() {
@@ -6107,7 +6720,106 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     }
   }
 
+  /// Move money's fee line, priced on the route the move will run
+  /// ([moneyMovementPlanFor]): the Orchestra estimate for that exact route
+  /// and the address its quote names, the native HyperCore estimate where
+  /// the move goes native first. A CCTP move has no quote, so no estimate
+  /// stands in for it: its line says the fees come out of what arrives,
+  /// and the receipt in Activity carries the real ones. Build only.
+  Widget _movementFeeSummary() {
+    final plan = _movementPlan;
+    final route = plan.route;
+    if (plan.rail == MoneyMovementRail.cctp) {
+      return const MoneyFeeSummary(
+          label: 'Fees', state: 'Included in the amount you receive');
+    }
+    final investingNative = plan.rail ==
+            MoneyMovementRail.hypercoreNativeThenCctp ||
+        (route.to == MoneyMovementAccount.investing &&
+            route.from != MoneyMovementAccount.predictions);
+    if (investingNative) {
+      return MoveHyperliquidFees(
+          deposit: route.to == MoneyMovementAccount.investing,
+          fromDollars: route.from == MoneyMovementAccount.dollars,
+          toDollars: route.to == MoneyMovementAccount.dollars,
+          sats: _selectedSats,
+          usd: _selectedSourceUsd,
+          bitcoinFirst: false);
+    }
+    final key = plan.quoteRoute;
+    return OrchestraFeeSummary(
+        bitcoinFirst: false,
+        recipient: _estimateRecipientFor(key.toChain, read: ref.watch),
+        recipientPending: _estimateRecipientPending(key.toChain),
+        route: (
+          fromChain: key.fromChain,
+          fromAsset: key.fromAsset,
+          toChain: key.toChain,
+          toAsset: key.toAsset,
+          amount: plan.sourceInSats
+              ? _selectedSats.toString()
+              : doubleToOrchestraAmount(_selectedSourceUsd, key.fromAsset,
+                  chain: key.fromChain),
+        ));
+  }
+
+  /// Move money's tap: the confirmed route, pinned, to the rail its plan
+  /// names ([moneyMovementPlanFor]), with the amount the typed figure
+  /// gives now: sats at the sheet's price for Bitcoin, the exact dollars
+  /// for every other account. Only the selected account pays.
+  Future<void> _dispatchMovement() async {
+    final route = _movementRoute!;
+    if (kMoneyMovementDisabledRoutes.containsKey(route)) return;
+    _movementDispatchRoute = route;
+    _movementRetried = _movementRetry;
+    _movementRetry = false;
+    _movementFundingStarted = false;
+    _movementFeeUsd = null;
+    _movementRail = null;
+    _movementClock
+      ..reset()
+      ..start();
+    final sats = _selectedSats;
+    final usd = _selectedSourceUsd;
+    final fromBtc = route.from == MoneyMovementAccount.bitcoin;
+    if (fromBtc ? sats < _kMinSats : usd < _kMinUsdc) return;
+    switch ((route.from, route.to)) {
+      case (MoneyMovementAccount.bitcoin, MoneyMovementAccount.dollars):
+        return _dispatchBtcToUsd(sats);
+      case (MoneyMovementAccount.bitcoin, MoneyMovementAccount.investing):
+        return _dispatchBtcToHyperliquid(sats);
+      case (MoneyMovementAccount.bitcoin, MoneyMovementAccount.predictions):
+        return _dispatchBtcToPredictions(sats);
+      case (MoneyMovementAccount.dollars, MoneyMovementAccount.bitcoin):
+        return _dispatchUsdToBtc(usd);
+      case (MoneyMovementAccount.dollars, MoneyMovementAccount.investing):
+        return _dispatchUsdToHyperliquid(usd);
+      case (MoneyMovementAccount.dollars, MoneyMovementAccount.predictions):
+        return _dispatchUsdToPredictions(usd);
+      case (MoneyMovementAccount.investing, MoneyMovementAccount.bitcoin):
+      case (MoneyMovementAccount.investing, MoneyMovementAccount.dollars):
+        return _dispatchHyperliquidToBtc(usd);
+      case (MoneyMovementAccount.investing, MoneyMovementAccount.predictions):
+        return _dispatchInvestingToPredictions(usd);
+      case (MoneyMovementAccount.predictions, _):
+        // Bitcoin, Dollars or Investing: one Orchestra quote from the
+        // deposit wallet ([_convertUsdToBtc] reads the same amount).
+        return _convertUsdToBtc();
+      default:
+        return;
+    }
+  }
+
   Future<void> _convert() async {
+    if (_isMoneyMovement) {
+      // A move that may have left is never sent again from this sheet.
+      if (_movementSendLocked || _processing) return;
+      if (!_movementWalletValid || _sourceBalanceState != null) {
+        setState(() => _error =
+            _sourceBalanceState ?? context.l10n.ledgerErrorDetailsChanged);
+        return;
+      }
+    }
     // A fresh tap pulls a fresh band (a Retry after a stop included).
     if (!_processing) {
       _bandProgress = null;
@@ -6155,13 +6867,15 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       return;
     }
 
+    if (_isMoneyMovement) return _dispatchMovement();
+
     // HyperCore → Bitcoin: send native USDC to Orchestra for Spark delivery.
     // Checked BEFORE the `_convertUsdToBtc` cashout gate below — both are
     // `!_fromBtc` USDC sources, but the HL withdrawable is a different pool
     // from the Predictions balance, so it must not fall through to the
     // Predictions → BTC path.
     if (_fromHyperliquid && _destAsset == 'btc' && _sourceWalletId == null) {
-      final usd = _selectedUsdcFromRatio;
+      final usd = _selectedSourceUsd;
       if (usd < _kMinUsdc) {
         return;
       }
@@ -6175,7 +6889,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     // path: failing to deposit dollars must never spend bitcoin.
     if (_dollarsAreSource) {
       if (_sourceWalletId != null || _destWalletId != null) return;
-      final usd = _selectedUsdcFromRatio;
+      final usd = _selectedSourceUsd;
       if (usd < _kMinUsdc) return;
       if (_destPredictions) return _dispatchUsdToPredictions(usd);
       if (_destHyperliquid) return _dispatchUsdToHyperliquid(usd);
@@ -6264,6 +6978,12 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     // Which onramps may show ([_cashAppVisible], [_bankRailAllowed])
     // follows the runtime policy live.
     ref.watch(runtimeCapabilitiesProvider);
+    // Move money follows the wallet it was opened on: a switch shows at
+    // once and disables the confirm ([_movementWalletValid]).
+    if (_isMoneyMovement) {
+      ref.watch(settingsProvider.select((s) => s.activeWalletId));
+      ref.watch(settingsProvider.select((s) => pickSpendingWallet(s)?.id));
+    }
     ref.watch(multiSourceMovesProvider);
     // Only the fiat Buy flow wears a colour (user decision); every other
     // move — venue deposits, withdrawals, cash-outs — stays neutral.
@@ -6377,7 +7097,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
                         ? 'Insufficient balance'
                         : (_fromBtc
                                 ? _selectedSats <= 0
-                                : _selectedUsdcFromRatio <= 0)
+                                : _selectedSourceUsd <= 0)
                             ? 'Choose a larger amount'
                             : null);
 
@@ -6465,9 +7185,13 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       }
     }
 
+    if (_isMoneyMovement && !_fromBtc && _movementRoute!.to != MoneyMovementAccount.bitcoin) {
+      conversionLabel = null;
+    }
+
     // The route card — where the money comes from (and, on a venue
     // cash-out, what it lands as).
-    final routeCard = _DirectionToggle(
+    final legacyRouteCard = _DirectionToggle(
       // What the source has to move. Fiat has no in-app
       // balance except on the sell leg, where the spending
       // pool is the source.
@@ -6750,6 +7474,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     );
 
     return Scaffold(
+      key: _isMoneyMovement ? const ValueKey('money-movement-sheet') : null,
       backgroundColor: c.background,
       body: SafeArea(
         child: Padding(
@@ -6934,7 +7659,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
                               !_isLedgerMove &&
                               _isSupportedSwap &&
                               feeInputState == null) ...[
-                            if (!_fromHyperliquid && !_destHyperliquid)
+                            if (_isMoneyMovement)
+                              _movementFeeSummary()
+                            else if (!_fromHyperliquid && !_destHyperliquid)
                               OrchestraFeeSummary(
                                   bitcoinFirst: false,
                                   recipient: _estimateRecipientFor(
@@ -6964,11 +7691,12 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
                                     amount: _fromBtc
                                         ? _selectedSats.toString()
                                         : doubleToOrchestraAmount(
-                                            _selectedUsdcFromRatio,
+                                            _selectedSourceUsd,
                                             _sourceFeeAsset,
                                             chain: _sourceFeeChain),
                                   )),
-                            if (_fromHyperliquid || _destHyperliquid)
+                            if (!_isMoneyMovement &&
+                                (_fromHyperliquid || _destHyperliquid))
                               MoveHyperliquidFees(
                                   deposit: _destHyperliquid,
                                   // A dollar-funded Investing deposit pays
@@ -6981,7 +7709,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
                                   // that will run, not the bitcoin one.
                                   toDollars: _destUsd,
                                   sats: _selectedSats,
-                                  usd: _selectedUsdcFromRatio,
+                                  usd: _selectedSourceUsd,
                                   bitcoinFirst: false),
                           ],
                           // A Cash App purchase that lands in dollars (a
@@ -7018,7 +7746,10 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
                         // the destination is the sheet's own subject, so
                         // only the source needs picking. That leaves the
                         // amount and one From row, and a lot of space.
-                        routeCard,
+                        if (_isMoneyMovement)
+                          _movementRouteCard(available: availableValue, detail: sourceState)
+                        else
+                          legacyRouteCard,
                       ],
                     ),
                   ),
@@ -7033,6 +7764,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
                 // fallback, is not a figure to send. Outside money
                 // (Cash App, the bank) has no balance to wait for.
                 enabled: !_processing &&
+                    !_movementSendLocked &&
                     (_isFiatMode || _sourceBalanceState == null),
                 chips: moveQuickAmountChips(
                   // The fiat screens type their own currency and spend
@@ -7054,7 +7786,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
                     : _typedAmount,
                 // Dollars and the fiat screens type cents.
                 maxDecimals: 2,
-                enabled: !_processing,
+                enabled: !_processing && !_movementSendLocked,
                 onChanged: (v) {
                   if (_isFiatMode) {
                     setState(() => _typedFiatAmountController.text = v);
@@ -7086,13 +7818,17 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
                   // `_kMinUsdc`), so we just check that the source-side
                   // amount > 0.
                   //   - BTC source → _selectedSats
-                  //   - USDC source → _selectedUsdcFromRatio
+                  //   - USDC source → _selectedSourceUsd
                   // Cash App source is the live fiat leg: Continue enables
                   // inside the Flashnet band and creates the onramp. Bank
                   // fiat NEVER enables — bank transfers are coming soon;
                   // the keypad stays interactive but the CTA holds its
                   // disabled style regardless of the typed amount.
-                  enabled: _parallelPurchase != null &&
+                  // Move money after a send it cannot prove did not
+                  // happen: the one way forward is Activity.
+                  enabled: _movementSendLocked
+                      ? true
+                      : _parallelPurchase != null &&
                           !_canRetryParallel(_parallelPurchase!)
                       ? false
                       : _sourceCashApp
@@ -7104,24 +7840,30 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
                                       _isSupportedSwap &&
                                       !_processing &&
                                       !_loadingRate &&
-                                      (!_isLedgerMove ||
+                                      ((!_isLedgerMove && !_isMoneyMovement) ||
                                           _sourceBalanceState == null) &&
                                       (() {
                                         if (_fromBtc) {
                                           return _selectedSats >= _kMinSats;
                                         }
-                                        return _selectedUsdcFromRatio >=
+                                        return _selectedSourceUsd >=
                                             _kMinUsdc;
                                       }())),
                   processing: _processing,
                   // Fiat mode keeps the familiar 'Continue' label in its
                   // permanently disabled state; the quiet line above the
                   // keypad explains why.
-                  label: _isFiatMode
+                  label: _movementSendLocked
+                      ? context.l10n.activity
+                      : _isFiatMode
                       ? context.l10n.continueLabel
                       : !_isSupportedSwap
-                          ? context.l10n.comingSoon2
-                          : _retryPull && _error != null
+                          // Move money on a changed wallet is not "coming
+                          // soon": the From row says what changed.
+                          ? (_isMoneyMovement
+                              ? _actionVerb
+                              : context.l10n.comingSoon2)
+                          : (_retryPull || _movementRetry) && _error != null
                               ? context.l10n.retry
                           : _needsFunding
                               ? context.l10n.moveAddFunds
@@ -7133,26 +7875,30 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
                                   // Trading source (withdraw): the FROM amount,
                                   // the perp withdrawable is USDC.
                                   if (_fromHyperliquid &&
-                                      _selectedUsdcFromRatio > 0) {
+                                      _selectedSourceUsd > 0) {
                                     return context.l10n.moveActionWithAmount(
                                         _actionVerb,
-                                        moveButtonUsd(_selectedUsdcFromRatio));
+                                        moveButtonUsd(_selectedSourceUsd));
                                   }
                                   if (_fromBtc && _selectedUsdOutput > 0) {
                                     return context.l10n.moveActionWithAmount(
                                         _actionVerb,
                                         moveButtonUsd(_selectedUsdOutput));
                                   }
-                                  if (!_fromBtc && _selectedUsdcFromRatio > 0) {
+                                  if (!_fromBtc && _selectedSourceUsd > 0) {
                                     // Source is Predictions/USDC: the FROM
                                     // amount, whatever the destination.
                                     return context.l10n.moveActionWithAmount(
                                         _actionVerb,
-                                        moveButtonUsd(_selectedUsdcFromRatio));
+                                        moveButtonUsd(_selectedSourceUsd));
                                   }
                                   return _actionVerb;
                                 }()),
-                  onTap: _needsFunding ? _depositMore : _convert,
+                  onTap: _movementSendLocked
+                      ? _openMovementActivity
+                      : _needsFunding
+                          ? _depositMore
+                          : _convert,
                 ),
               ),
               SizedBox(height: 4.h),
@@ -7572,9 +8318,6 @@ class _DirectionToggle extends ConsumerWidget {
     );
   }
 
-  /// The chrome every picker in this sheet wears: the untinted surface,
-  /// the handle, a [title] with its [hint], then [rows]. Shared so a
-  /// picker with two entries reads exactly like the one with ten.
   void _showPickerSheet(
     BuildContext context, {
     required String title,
@@ -7582,85 +8325,8 @@ class _DirectionToggle extends ConsumerWidget {
     required List<Widget> Function(
             BuildContext sheetCtx, RuntimeCapabilitiesService policy)
         rows,
-  }) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      // The runtime policy is watched here so an open picker follows it
-      // live: an onramp withdrawn while it is open leaves the list.
-      builder: (_) => Consumer(builder: (sheetCtx, sheetRef, _) {
-        final policy = sheetRef.watch(runtimeCapabilitiesProvider);
-        // Every colour in this sheet must come from the UNTINTED palette.
-        // The body was already untinted, but the title, the hint and the
-        // handle were reading `c`, captured from the tinted sheet that
-        // opened this one. On a green sheet that ink is white, so the
-        // title rendered white on the white picker and disappeared.
-        final pc = _untintedColors(sheetCtx);
-        return _untinted(
-          sheetCtx,
-          Container(
-            decoration: BoxDecoration(
-              color: pc.surface,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
-            ),
-            padding: EdgeInsets.fromLTRB(0, 16.h, 0, 16.h),
-            child: SafeArea(
-              top: false,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 40.w,
-                      height: 4.h,
-                      decoration: BoxDecoration(
-                        color: pc.dragHandle,
-                        borderRadius: BorderRadius.circular(2.r),
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: 20.h),
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 20.w),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          style: TextStyle(
-                            color: pc.textPrimary,
-                            fontSize: 28.sp,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.6,
-                          ),
-                        ),
-                        if (hint(policy).isNotEmpty) ...[
-                          SizedBox(height: 6.h),
-                          Text(
-                            hint(policy),
-                            style: TextStyle(
-                              color: pc.textTertiary,
-                              fontSize: 15.sp,
-                              fontWeight: FontWeight.w500,
-                              letterSpacing: -0.1,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  SizedBox(height: 16.h),
-                  ...rows(sheetCtx, policy),
-                  SizedBox(height: 8.h),
-                ],
-              ),
-            ),
-          ),
-        );
-      }),
-    );
-  }
+  }) =>
+      _showMovePickerSheet<void>(context, title: title, hint: hint, rows: rows);
 
   /// Whether [w] is a bitcoin account that can send besides the spending
   /// wallet (hardware, signing watch-only and hot on-chain wallets; never
@@ -7964,4 +8630,94 @@ class MovePickerRow extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The chrome every picker in this sheet wears: the untinted surface,
+/// the handle, a [title] with its [hint], then [rows]. Shared so a
+/// picker with two entries reads exactly like the one with ten.
+Future<T?> _showMovePickerSheet<T>(
+  BuildContext context, {
+  required String title,
+  required String Function(RuntimeCapabilitiesService policy) hint,
+  required List<Widget> Function(
+          BuildContext sheetCtx, RuntimeCapabilitiesService policy)
+      rows,
+}) {
+  return showModalBottomSheet<T>(
+    context: context,
+    backgroundColor: Colors.transparent,
+    isScrollControlled: true,
+    // The runtime policy is watched here so an open picker follows it
+    // live: an onramp withdrawn while it is open leaves the list.
+    builder: (_) => Consumer(builder: (sheetCtx, sheetRef, _) {
+      final policy = sheetRef.watch(runtimeCapabilitiesProvider);
+      // Every colour in this sheet must come from the UNTINTED palette.
+      // The body was already untinted, but the title, the hint and the
+      // handle were reading `c`, captured from the tinted sheet that
+      // opened this one. On a green sheet that ink is white, so the
+      // title rendered white on the white picker and disappeared.
+      final pc = _untintedColors(sheetCtx);
+      return _untinted(
+        sheetCtx,
+        Container(
+          decoration: BoxDecoration(
+            color: pc.surface,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
+          ),
+          padding: EdgeInsets.fromLTRB(0, 16.h, 0, 16.h),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40.w,
+                    height: 4.h,
+                    decoration: BoxDecoration(
+                      color: pc.dragHandle,
+                      borderRadius: BorderRadius.circular(2.r),
+                    ),
+                  ),
+                ),
+                SizedBox(height: 20.h),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 20.w),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          color: pc.textPrimary,
+                          fontSize: 28.sp,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.6,
+                        ),
+                      ),
+                      if (hint(policy).isNotEmpty) ...[
+                        SizedBox(height: 6.h),
+                        Text(
+                          hint(policy),
+                          style: TextStyle(
+                            color: pc.textTertiary,
+                            fontSize: 15.sp,
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: -0.1,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                SizedBox(height: 16.h),
+                ...rows(sheetCtx, policy),
+                SizedBox(height: 8.h),
+              ],
+            ),
+          ),
+        ),
+      );
+    }),
+  );
 }

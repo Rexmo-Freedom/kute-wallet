@@ -1,10 +1,6 @@
-// The top of the Portfolio (founder requests, October 2026): the
-// Investments balance part by part (Dollars, Investing, Predictions) in
-// one row of equal tiles, each venue's Available and Positions, live on
-// the one-balance state and adding up to the header; one Rebalance under
-// the row that runs one manual sweeper pass, shown from the venues as they
-// are when the Portfolio opens (never the sweeper's last pass); and the
-// Positions section (the Positions pill's rows) above the Activity.
+// Portfolio balances remain on screen while Move money opens a route/amount
+// review. That tap never sweeps cash. Historical Rebalance records retain
+// their existing progress and arrival presentation independently.
 
 import 'dart:async';
 
@@ -16,6 +12,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart';
+import 'package:kute/models/currency_conversions.dart';
+import 'package:kute/providers/currency_conversions_provider.dart';
+import 'package:money2/money2.dart';
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/models/swap_order_model.dart';
 import 'package:kute/providers/hyperliquid_live_prices_provider.dart';
@@ -37,6 +36,8 @@ import 'package:kute/providers/swap_orders_provider.dart';
 import 'package:kute/providers/unified_balances_provider.dart';
 import 'package:kute/providers/venue_sweeper_provider.dart';
 import 'package:kute/screens/portfolio/open_investments_screen.dart';
+import 'package:kute/screens/home/components/deposit_sheet.dart'
+    show DepositSheet;
 import 'package:kute/screens/portfolio/portfolio_balance_breakdown.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show RollingFigure;
@@ -68,6 +69,14 @@ final _balance = StateProvider<OneBalanceState>((_) => const OneBalanceState(
 
 final _sweeperState =
     StateProvider<VenueSweeperState>((_) => const VenueSweeperState());
+
+/// A display price for the real movement sheet, without opening Hive.
+class _Currency extends StateNotifier<CurrencyState>
+    implements CurrencyNotifier {
+  _Currency() : super(CurrencyState({'USD': Fixed.fromInt(60000)}));
+  @override
+  Future<void> updateRates() async {}
+}
 
 /// The sweeper as the Portfolio sees it: its state from [_sweeperState],
 /// a Rebalance that waits on [gate] and answers [outcomes], and a preview
@@ -256,7 +265,7 @@ Finder _figure(String text) =>
 Finder _inCard(String venue, Finder finder) => find.descendant(
     of: find.byKey(ValueKey('portfolio-balance-$venue')), matching: finder);
 
-Finder get _rebalance => find.byKey(const ValueKey('portfolio-rebalance'));
+Finder get _rebalance => find.byKey(const ValueKey('portfolio-move-money'));
 
 /// [finder] among the Rebalance's steps under its button: one line per
 /// venue going home (move_steps: the same lines as every move).
@@ -302,6 +311,25 @@ List<(String, Map<String, Object>?)> _events() {
   TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
   addTearDown(() => TrackingService.debugTrackObserver = null);
   return events;
+}
+
+/// Seeds a pass that was already started by an older release. The new
+/// Portfolio button is only a route/amount review and never calls this path.
+Future<void> _startLegacyRebalance(WidgetTester tester) async {
+  final c = ProviderScope.containerOf(
+      tester.element(find.byType(PortfolioBalanceBreakdown)));
+  final balance = c.read(oneBalanceProvider);
+  c.read(rebalanceBandSessionProvider.notifier).state =
+      RebalanceBandSession.tap(
+          now: DateTime.now(),
+          sweeper: c.read(venueSweeperProvider),
+          balance: balance,
+          rows: c.read(swapOrdersProvider),
+          walletId: c.read(settingsProvider).activeWalletId);
+  await c.read(portfolioRebalanceProvider.notifier).rebalance(
+      dollarsUsd: balance.dollarsUsd,
+      investingUsd: breakdownVenueCash(balance, OneBalanceVenue.investing),
+      predictionsUsd: breakdownVenueCash(balance, OneBalanceVenue.predictions));
 }
 
 void main() {
@@ -433,8 +461,8 @@ void main() {
         (tester) async {
       final c = await _pump(tester, home: _breakdown, overrides: [
         // Neither a live book nor a saved account snapshot exists yet.
-        hyperliquidDisplayTradingProvider.overrideWith(
-            (_) => const AsyncLoading<HyperliquidTradingState>()),
+        hyperliquidDisplayTradingProvider
+            .overrideWith((_) => const AsyncLoading<HyperliquidTradingState>()),
       ]);
       c.read(_balance.notifier).state =
           const OneBalanceState(dollarsUsd: 1, predictionsKnown: true);
@@ -444,13 +472,55 @@ void main() {
       expect(_figureUnder(tester, 'predictions', 'Available'), r'$0.00');
     });
 
-    testWidgets('nothing a Rebalance can move: no button', (tester) async {
+    testWidgets(
+        'Move money opens review without sweeping or clearing displayed balances',
+        (tester) async {
+      final events = _events();
+      final c = await _pump(tester, home: _breakdown, overrides: [
+        currencyProvider.overrideWith((_) => _Currency()),
+      ]);
+      c.read(_sweeperState.notifier).state = const VenueSweeperState(movable: {
+        OneBalanceVenue.investing: 6.54,
+        OneBalanceVenue.predictions: 3,
+      });
+      await tester.pumpAndSettle();
+      final before = c.read(oneBalanceProvider);
+      expect(c.read(rebalanceBandSessionProvider), isNull);
+      await tester.tap(_rebalance);
+      for (var i = 0; i < 6; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(find.byType(DepositSheet), findsOneWidget);
+      expect(
+          find.byKey(const ValueKey('money-movement-sheet')), findsOneWidget);
+      expect(
+          find.byKey(const ValueKey('money-movement-route')), findsOneWidget);
+      expect(find.text('From'), findsOneWidget);
+      expect(find.text('To'), findsOneWidget);
+      expect(_FakeSweeper.calls, 0);
+      expect(_FakeSweeper.passes, 0);
+      expect(c.read(oneBalanceProvider), same(before));
+      expect(c.read(portfolioRebalanceProvider).running, isFalse);
+      expect(c.read(portfolioRebalanceProvider).outcomes, isEmpty);
+      expect(c.read(rebalanceBandSessionProvider), isNull);
+      expect(events.where((event) => event.$1 == 'portfolio_rebalance_tapped'),
+          isEmpty);
+      Navigator.of(tester.element(find.byType(DepositSheet))).pop();
+      await _pumpFor(tester);
+      expect(_figureUnder(tester, 'dollars', 'Available'), r'$42.50');
+      expect(_figureUnder(tester, 'investing', 'Available'), r'$6.54');
+      expect(_figureUnder(tester, 'predictions', 'Available'), r'$3.00');
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('Dollars-only Portfolio still offers the movement review',
+        (tester) async {
       await _pump(tester, home: _breakdown);
-      expect(_rebalance, findsNothing);
+      expect(_rebalance, findsOneWidget);
     });
 
     testWidgets(
-        'one tap: one manual pass, the busy state while it runs, no second '
+        'an already-started manual pass keeps its busy state, no second '
         'pass on a second tap, then a line per venue', (tester) async {
       final events = _events();
       final c = await _pump(tester, home: _breakdown);
@@ -458,7 +528,7 @@ void main() {
           const VenueSweeperState(movable: {OneBalanceVenue.investing: 6.54});
       await tester.pumpAndSettle();
       expect(_rebalance, findsOneWidget);
-      expect(find.text('Rebalance'), findsOneWidget);
+      expect(find.text('Move money'), findsOneWidget);
       // Under the row, the row's full width.
       final row = tester.getRect(_row);
       final button = tester.getRect(_rebalance);
@@ -473,7 +543,7 @@ void main() {
         OneBalanceVenue.predictions: RebalanceOutcome(RebalanceOutcomeKind.held,
             usd: 3, reason: SweepSkipReason.openOrders),
       };
-      await tester.tap(_rebalance);
+      unawaited(_startLegacyRebalance(tester));
       await tester.pump();
       expect(tester.widget<AppButton>(_rebalance).isLoading, isTrue);
       expect(tester.widget<AppButton>(_rebalance).onPressed, isNull);
@@ -510,7 +580,7 @@ void main() {
       // Nothing movable is left: the button goes.
       c.read(_sweeperState.notifier).state = const VenueSweeperState();
       await _pumpFor(tester);
-      expect(_rebalance, findsNothing);
+      expect(_rebalance, findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
@@ -526,7 +596,7 @@ void main() {
         OneBalanceVenue.predictions:
             RebalanceOutcome(RebalanceOutcomeKind.belowMinimum, usd: 3),
       };
-      await tester.tap(_rebalance);
+      unawaited(_startLegacyRebalance(tester));
       await tester.pumpAndSettle();
       expect(
           _inCard('investing', find.text('Kept as margin for open positions')),
@@ -538,7 +608,7 @@ void main() {
         OneBalanceVenue.investing:
             RebalanceOutcome(RebalanceOutcomeKind.notNow, usd: 6.54),
       };
-      await tester.tap(_rebalance);
+      unawaited(_startLegacyRebalance(tester));
       await tester.pumpAndSettle();
       expect(
           _inCard('investing',
@@ -640,41 +710,25 @@ void main() {
       await tester.pumpAndSettle();
     });
 
-    testWidgets(
-        'cash below the route minimum: Rebalance stays, disabled, with why '
-        'on one line under it', (tester) async {
+    testWidgets('sweep minimums never disable choosing a movement route',
+        (tester) async {
       final c = await _pump(tester, home: _breakdown);
-      c.read(_sweeperState.notifier).state = const VenueSweeperState(
-          belowMinimum: {OneBalanceVenue.predictions: 2.77});
-      await tester.pumpAndSettle();
-      expect(_rebalance, findsOneWidget);
-      expect(tester.widget<AppButton>(_rebalance).onPressed, isNull);
-      expect(tester.widget<AppButton>(_rebalance).isLoading, isFalse);
-      final reason = find.byKey(const ValueKey('portfolio-rebalance-reason'));
-      expect(tester.widget<Text>(reason).data, 'Below the minimum to move');
-      expect(find.text('Below the minimum to move'), findsOneWidget);
-      // Under the button, never stretching the row.
-      expect(tester.getRect(reason).top,
-          greaterThanOrEqualTo(tester.getRect(_rebalance).bottom));
-      expect(tester.getRect(_row).height, lessThanOrEqualTo(84));
-      // A tap does nothing.
-      await tester.tap(_rebalance, warnIfMissed: false);
-      await tester.pump();
-      expect(_FakeSweeper.calls, 0);
-
-      // Above it: enabled, no line.
-      c.read(_sweeperState.notifier).state =
-          const VenueSweeperState(movable: {OneBalanceVenue.predictions: 2.77});
-      await tester.pumpAndSettle();
-      expect(tester.widget<AppButton>(_rebalance).onPressed, isNotNull);
-      expect(find.text('Below the minimum to move'), findsNothing);
-
-      // The few cents a CCTP move leaves behind are not worth a button.
-      c.read(_sweeperState.notifier).state = const VenueSweeperState(
-          belowMinimum: {OneBalanceVenue.investing: 0.06});
-      await tester.pumpAndSettle();
-      expect(_rebalance, findsNothing);
-      expect(tester.takeException(), isNull);
+      for (final below in [
+        {OneBalanceVenue.predictions: 2.77},
+        {OneBalanceVenue.investing: .06},
+      ]) {
+        c.read(_sweeperState.notifier).state =
+            VenueSweeperState(belowMinimum: below);
+        await tester.pumpAndSettle();
+        expect(_rebalance, findsOneWidget);
+        expect(tester.widget<AppButton>(_rebalance).onPressed, isNotNull);
+        expect(tester.widget<AppButton>(_rebalance).isLoading, isFalse);
+        expect(find.byKey(const ValueKey('portfolio-rebalance-reason')),
+            findsNothing);
+        expect(_FakeSweeper.calls, 0);
+        expect(_FakeSweeper.passes, 0);
+        expect(_figureUnder(tester, 'dollars', 'Available'), r'$42.50');
+      }
     });
 
     testWidgets(
@@ -704,7 +758,7 @@ void main() {
       expect(p.width, moreOrLessEquals(d.width, epsilon: 0.01));
       expect(p.right, lessThanOrEqualTo(375));
       expect(_figureUnder(tester, 'investing', 'Positions'), r'$987,654.32');
-      expect(find.text('Below the minimum to move'), findsOneWidget);
+      expect(find.text('Below the minimum to move'), findsNothing);
     });
     testWidgets(
         'what open orders reserve: one line under Predictions, its amount '
@@ -804,7 +858,7 @@ void main() {
             usd: 3, reason: SweepSkipReason.openOrders),
       };
       await tester.pumpAndSettle();
-      await tester.tap(_rebalance);
+      unawaited(_startLegacyRebalance(tester));
       // Investing's band pulls while its move runs: frames, never settled.
       await _pumpFor(tester);
       expect(find.text('Moving to USDB… takes a few minutes'), findsOneWidget);
@@ -841,7 +895,7 @@ void main() {
       _FakeSweeper.gate = Completer<void>();
       _FakeSweeper.outcomes = bothMoving;
 
-      await tester.tap(_rebalance);
+      unawaited(_startLegacyRebalance(tester));
       await tester.pump();
       // The same frame: both bands asked for the first pull.
       expect(_bandWidget(tester, 'investing').progress,
@@ -879,7 +933,7 @@ void main() {
         OneBalanceVenue.predictions: RebalanceOutcome(RebalanceOutcomeKind.held,
             usd: 3, reason: SweepSkipReason.openOrders),
       };
-      await tester.tap(_rebalance);
+      unawaited(_startLegacyRebalance(tester));
       for (var f = 0; f < 30; f++) {
         await tester.pump(const Duration(milliseconds: 50));
         expect(_band(tester, 'predictions').stretch, 0);
@@ -902,7 +956,7 @@ void main() {
       _FakeSweeper.outcomes = bothMoving;
       final rows = c.read(swapOrdersProvider.notifier) as FakeSwapOrders;
 
-      await tester.tap(_rebalance);
+      unawaited(_startLegacyRebalance(tester));
       await tester.pump();
       // The start is felt: both bands pull with the haptic on, as one
       // rumble.
@@ -1007,7 +1061,7 @@ void main() {
         OneBalanceVenue.predictions:
             RebalanceOutcome(RebalanceOutcomeKind.moving, usd: 3),
       };
-      await tester.tap(_rebalance);
+      unawaited(_startLegacyRebalance(tester));
       await tester.pump();
       (c.read(swapOrdersProvider.notifier) as FakeSwapOrders)
           .set([_homeRow('p', 'POLYGON')]);
@@ -1060,7 +1114,7 @@ void main() {
       c.read(_sweeperState.notifier).state = both;
       await tester.pumpAndSettle();
       _FakeSweeper.outcomes = bothMoving;
-      await tester.tap(_rebalance);
+      unawaited(_startLegacyRebalance(tester));
       await _pumpFor(tester);
       expect(_band(tester, 'investing').stretch, greaterThan(0));
       final nav = tester.state<NavigatorState>(find.byType(Navigator));
@@ -1090,7 +1144,7 @@ void main() {
       c.read(_sweeperState.notifier).state = both;
       await tester.pumpAndSettle();
       _FakeSweeper.outcomes = bothMoving;
-      await tester.tap(_rebalance);
+      unawaited(_startLegacyRebalance(tester));
       for (var f = 0; f < 20; f++) {
         await tester.pump(const Duration(milliseconds: 50));
         expect(_band(tester, 'investing').stretch, 0);
@@ -1121,7 +1175,7 @@ void main() {
       c.read(_sweeperState.notifier).state = both;
       await tester.pumpAndSettle();
       _FakeSweeper.outcomes = bothMoving;
-      await tester.tap(_rebalance);
+      unawaited(_startLegacyRebalance(tester));
       await _pumpFor(tester);
       expect(_band(tester, 'investing').stretch, greaterThan(0));
       expect(_band(tester, 'predictions').stretch, greaterThan(0));
