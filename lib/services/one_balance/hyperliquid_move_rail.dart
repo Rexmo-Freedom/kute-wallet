@@ -381,7 +381,11 @@ class HyperCoreMoveRail implements HyperliquidMoveRail {
               orderId: native.run.orderId,
               registration: native.run.registration,
               sentUsd: native.amountIn.toDouble() / 1e8,
-              arrivingUsdEstimate: native.estimatedOut,
+              // Native output is BTC, while this interface carries USD.
+              // Match the Predictions→BTC quote/source-value convention;
+              // the service's receipt retains the actual BTC output.
+              arrivingUsdEstimate: (native.amountIn.toDouble() / 1e8) *
+                  (1 - native.run.quote.quote.combinedFeeBps / 10000),
               operationId: native.run.operation.operationId);
         } catch (e) {
           if (!opensCctpFallback(e)) rethrow;

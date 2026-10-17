@@ -264,7 +264,9 @@ void main() {
       expect(result.quoteId, _verifiedQuote().quoteId);
       expect(result.orderId, 'ord_direct');
       expect(result.sentUsd, 5);
-      expect(result.arrivingUsdEstimate, 4.99);
+      expect(result.arrivingUsdEstimate, closeTo(4.975, 0.000000001),
+          reason:
+              'USD estimate uses actual source USD less the paid 50 bps, never BTC quantity');
       expect(await result.registration, 'ord_direct');
       final submitted = events
           .singleWhere((e) => e.$1 == 'hyperliquid_withdraw_submitted')
@@ -879,38 +881,51 @@ class _ScriptedService extends SparkHypercoreFundingService {
           createdAt: DateTime.utc(2026, 10, 13),
           updatedAt: DateTime.utc(2026, 10, 13),
         ),
-        quote: _verifiedQuote(),
+        quote: _verifiedQuote(nativeBitcoin: destination.isBitcoin),
         proof: const SettlementFundingProof.hyperliquid('0xhash'),
         orderId: 'ord_direct',
         registration: Future.value('ord_direct'),
       ),
       amountIn: BigInt.from(500000000),
-      estimatedOut: 4.99,
+      estimatedOut: destination.isBitcoin ? 0.00008317 : 4.99,
     );
   }
 }
 
-/// Any verified quote: the rail reads only its id.
-VerifiedOrchestraQuote _verifiedQuote() => verifyOrchestraQuote(
-      OrchestraQuoteRequest(
-        sourceChain: 'polygon',
-        sourceAsset: 'USDC.e',
-        destinationChain: 'spark',
-        destinationAsset: 'BTC',
-        amountBaseUnits: BigInt.from(50000000),
-        recipientAddress: _ownSpark,
-        refundAddress: '0xfB6916095ca1df60bB79Ce92cE3Ea74c37c5d359',
-        recipientKind: RecipientKind.ownSpark,
-        ownAddress: _ownSpark,
-      ),
-      OrchestraQuote.fromJson(jsonDecode(
-          File('test/services/fixtures/orchestra_quote_polygon_to_spark.json')
-              .readAsStringSync()) as Map<String, dynamic>),
-      now: DateTime.utc(2026, 9, 15, 12),
-      bounds: OrchestraQuoteBounds.forSource('polygon',
-          inputValueInOutputUnits: 83333),
-      mainnet: true,
-    );
+/// A verified quote: the rail retains its id and uses its paid fee for the
+/// BTC destination's USD source-value estimate.
+VerifiedOrchestraQuote _verifiedQuote({bool nativeBitcoin = false}) {
+  final json = jsonDecode(
+      File('test/services/fixtures/orchestra_quote_polygon_to_spark.json')
+          .readAsStringSync()) as Map<String, dynamic>;
+  if (nativeBitcoin) {
+    json.addAll({
+      'amountIn': '500000000', // $5 HyperCore USDC (eight decimals).
+      'estimatedOut': '8317', // BTC base units, not a dollar figure.
+      'feeBps': 50,
+      'route': ['hypercore:USDC', 'spark:BTC'],
+    });
+  }
+  final source = nativeBitcoin ? 'hypercore' : 'polygon';
+  return verifyOrchestraQuote(
+    OrchestraQuoteRequest(
+      sourceChain: source,
+      sourceAsset: nativeBitcoin ? 'USDC' : 'USDC.e',
+      destinationChain: 'spark',
+      destinationAsset: 'BTC',
+      amountBaseUnits: BigInt.from(nativeBitcoin ? 500000000 : 50000000),
+      recipientAddress: _ownSpark,
+      refundAddress: '0xfB6916095ca1df60bB79Ce92cE3Ea74c37c5d359',
+      recipientKind: RecipientKind.ownSpark,
+      ownAddress: _ownSpark,
+    ),
+    OrchestraQuote.fromJson(json),
+    now: DateTime.utc(2026, 9, 15, 12),
+    bounds: OrchestraQuoteBounds.forSource(source,
+        inputValueInOutputUnits: nativeBitcoin ? 8359 : 83333),
+    mainnet: true,
+  );
+}
 
 const _ownSpark =
     'spark1pgss93sy072yrmtad5cy2srwjhq8ekzuw78yhr808jn6htqfh9w8p8h9mfwlv9';
