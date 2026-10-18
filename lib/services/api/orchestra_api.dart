@@ -97,6 +97,12 @@ class OrchestraOnrampLimits {
   }
 }
 
+/// A minted legacy address came back under other fee terms than the
+/// policy the app holds (or the app held none): a race with the policy
+/// fetch, retried once by `AccumulationAddressCache.getOrCreate`.
+const String kDepositTermsChangedError =
+    'Deposit terms changed. Please try again.';
+
 class StandingRequestException implements Exception {
   const StandingRequestException(this.status, this.code);
   final int status;
@@ -1036,7 +1042,7 @@ class OrchestraService {
             OrchestraAccumulationAddress.fromJson(jsonDecode(res.body));
         if (reviewedRevision == null ||
             address.feePolicyRevision != reviewedRevision) {
-          return Result(error: 'Deposit terms changed. Please try again.');
+          return Result(error: kDepositTermsChangedError);
         }
         return Result(data: address);
       }

@@ -13,6 +13,8 @@ import 'package:kute/services/api/orchestra_api.dart'
 import 'package:kute/services/orchestra/receive_route_availability.dart';
 import 'package:kute/services/orchestra/reusable_deposit_address.dart';
 import 'package:kute/services/orchestra/standing_deposit_store.dart';
+import 'package:kute/services/orchestra/standing_deposit_sweep.dart'
+    show ReceiveAddressWatch;
 import 'package:kute/services/orchestra_routes.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/security/address_history.dart';
@@ -331,5 +333,24 @@ void main() {
     expect(standingCalls, isEmpty);
     expect(legacyPosts, isEmpty);
     expect(AccumulationAddressCache.getAll(), isEmpty);
+  });
+
+  test('every address shown arms the watch on its deposits, on any screen',
+      () async {
+    ReceiveAddressWatch.reset();
+    addTearDown(ReceiveAddressWatch.reset);
+    // An address that could not be shown arms nothing.
+    standingFailure = const StandingRequestException(429, null);
+    await expectLater(
+        withLegacy(() => resolve()), throwsA(isA<StandingRequestException>()));
+    expect(ReceiveAddressWatch.watching, isFalse);
+
+    standingFailure = null;
+    await withLegacy(() => resolve());
+    expect(ReceiveAddressWatch.watching, isTrue, reason: 'standing');
+
+    ReceiveAddressWatch.reset();
+    await withLegacy(() => resolve(destinationAsset: 'BTC'));
+    expect(ReceiveAddressWatch.watching, isTrue, reason: 'legacy');
   });
 }

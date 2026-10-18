@@ -243,6 +243,49 @@ class AccumulationAddressCache {
     required String recipientSparkAddress,
     Map<String, String>? refundAddresses,
   }) async {
+    final first = await _getOrCreate(
+        sourceChain: sourceChain,
+        sourceAsset: sourceAsset,
+        destinationAsset: destinationAsset,
+        recipientSparkAddress: recipientSparkAddress,
+        refundAddresses: refundAddresses);
+    // The mint's idempotency key carries the revision read before it, and
+    // the backend replays the terms it first pinned on a key; the echo is
+    // checked against the policy fetched just before the POST. On a first
+    // use the two part (no session policy had landed, or the one held was
+    // older), and the person used to see "Deposit terms changed. Please
+    // try again." and get the address on the second tap. The policy is
+    // asked again and the address asked for once more instead. Only this
+    // race is retried; a refusal never is, and neither is a revision the
+    // refresh does not change (its key would replay the same terms).
+    if (first.error != kDepositTermsChangedError) return first;
+    final policy = RuntimeCapabilitiesService.instance;
+    final before = policy.snapshot?.revision;
+    await policy.refresh(fresh: true);
+    final after = policy.snapshot?.revision;
+    if (after == null || after == before) return first;
+    TrackingService.track('reusable_deposit_address_retried', params: {
+      'reason': 'terms_changed',
+      'source_chain': sourceChain,
+      'source_asset': sourceAsset,
+      'destination_asset': destinationAsset,
+      'model': 'accumulation',
+    });
+    return _getOrCreate(
+        sourceChain: sourceChain,
+        sourceAsset: sourceAsset,
+        destinationAsset: destinationAsset,
+        recipientSparkAddress: recipientSparkAddress,
+        refundAddresses: refundAddresses);
+  }
+
+  static Future<Result<OrchestraAccumulationAddress>> _getOrCreate({
+    required String sourceChain,
+    required String sourceAsset,
+    required String destinationAsset,
+    required String recipientSparkAddress,
+    Map<String, String>? refundAddresses,
+  }) async {
     // Destination lock FIRST — before cache reads, before any network.
     // Every receive/move pick must land as spark bitcoin or spark
     // dollars in the user's own spark wallet; anything else is refused
@@ -269,6 +312,12 @@ class AccumulationAddressCache {
     final key =
         _key(sourceChain, sourceAsset, destinationAsset, recipientSparkAddress);
     final box = Hive.box<String>(_boxName);
+    // No session policy on hand (the capability check above may have been
+    // answered by the public policy or an offline grace): ask once, so the
+    // mint's key is not derived from a missing revision.
+    if (RuntimeCapabilitiesService.instance.snapshot == null) {
+      await RuntimeCapabilitiesService.instance.refresh(fresh: true);
+    }
     final revision = RuntimeCapabilitiesService.instance.snapshot?.revision;
 
     // FUND-SAFETY gate: never hand out (or mint) an address for a pair

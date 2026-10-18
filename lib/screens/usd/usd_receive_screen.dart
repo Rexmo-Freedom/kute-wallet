@@ -750,7 +750,15 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
       if (!current() || !sameSdk()) return;
       final spark = received.paymentRequest;
       if (walletId == null) throw StateError('Wallet unavailable');
-      final catalog = ref.read(orchestraSupportedRoutesProvider);
+      // The route is asked of a live catalogue, fetched now when the one
+      // on hand is older than a money decision allows: the screen only
+      // nudges a refresh when it opens, and a coin tapped before that
+      // landed used to fail with "Receive route unavailable" on the first
+      // try and work on the second.
+      final catalog = await ref
+          .read(orchestraSupportedRoutesProvider.notifier)
+          .refreshIfOlderThan(kMoneyCatalogMaxAge);
+      if (!current() || !sameSdk()) return;
       if (!catalog.isFresh(DateTime.now()) ||
           !catalog.supports(RouteKey(
               fromChain: option.chain,

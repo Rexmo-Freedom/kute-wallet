@@ -6,10 +6,13 @@ import 'package:kute/services/runtime_capabilities_service.dart';
 
 /// [also] names capabilities the answer carries beyond the default set
 /// (e.g. the venues' `….browse`), each allowed unless [blocked] names it.
+/// [revisionOf], when given, answers the revision on every fetch (a
+/// backend that publishes a new one meanwhile).
 RuntimeCapabilitiesService runtimePolicyFixture(
         {Set<String> blocked = const {},
         Set<String> also = const {},
         int revision = 1,
+        int Function()? revisionOf,
         int? maxLeverage}) =>
     RuntimeCapabilitiesService.forTesting(
       client: MockClient((request) async {
@@ -17,7 +20,7 @@ RuntimeCapabilitiesService runtimePolicyFixture(
         return http.Response(
             jsonEncode({
               'schemaVersion': 1,
-              'revision': revision,
+              'revision': revisionOf?.call() ?? revision,
               'evaluatedAt': now.toIso8601String(),
               'expiresAt':
                   now.add(const Duration(minutes: 2)).toIso8601String(),

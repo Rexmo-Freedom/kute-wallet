@@ -524,6 +524,7 @@ restore_step
 restore_write_failed
 reusable_deposit_address_created
 reusable_deposit_address_retired
+reusable_deposit_address_retried
 reusable_deposit_address_reused
 review_prompted
 route_paused_shown
@@ -634,6 +635,7 @@ spark_deposit_refunded
 spark_sdk_connect
 spark_sync_latency
 spark_wallet_id_unresolved
+standing_deposit_status
 step_up_auth
 step_up_auth_denied
 step_up_pin_fallback

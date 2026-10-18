@@ -2,17 +2,21 @@ import 'package:kute/helpers/orchestra_router.dart'
     show orchestraAmountToDecimalString;
 import 'package:kute/models/swap_order_model.dart';
 import 'package:kute/services/orchestra/standing_deposit_store.dart';
+import 'package:kute/services/orchestra_routes.dart'
+    show orchestraExchangeStatus;
 
 /// Activity for money that reached a reusable (standing) deposit address.
 ///
-/// A deposit that became an Orchestra order (`ord_…`) already has its own
+/// A deposit that became an Orchestra order (`ord_…`) gets that order's
 /// Activity row, written by background sync's standing sweep, and that
-/// row's details carry the refund. This file covers the other case: a
-/// deposit the provider holds without ever creating an order (below the
-/// minimum, the wrong asset, and the like). It gets a row in the Activity
-/// list of the asset it was meant to land as, and only then: generating
-/// an address never writes a row, and neither does a deposit that is
-/// still on its way to becoming an order.
+/// row's details carry the refund. Until it has one, the deposit has a
+/// row of its own (`sdep_…`) in the Activity list of the asset it was
+/// meant to land as, from the moment the provider lists it: arriving
+/// while it is bridged or converted, held (with the refund in its
+/// details), returned, or failed. Generating an address never writes a
+/// row. On the Investing-withdrawal instruction only a deposit that did
+/// not work gets one ([stuckStandingDepositRow]): the CCTP watcher's own
+/// row shows the move while it runs.
 
 /// Route version on the Activity rows of an Investing → Dollars move that
 /// went out of HyperCore by Circle CCTP and was converted by the
@@ -52,12 +56,46 @@ String hypercoreCctpRouteVersionFor(StandingDepositRecord record) =>
 /// payer; `failed` needs support.
 String? stuckStandingDepositStatus(Map<String, dynamic> deposit) {
   if (deposit['refundTxId'] != null) return 'refunded';
-  return switch (deposit['status']) {
+  // A linked order's status takes precedence in the listing; otherwise
+  // the batch states held, refund_requested and refunded do.
+  final status = deposit['status'];
+  if (status == 'refunded' || deposit['batchState'] == 'refunded') {
+    return 'refunded';
+  }
+  return switch (status) {
     'held' => 'held',
     'refund_requested' => 'refund_requested',
     'failed' => 'failed',
     _ => null,
   };
+}
+
+/// Row statuses a Receive deposit's own row may carry beside the stuck
+/// ones: the progress words the shared Activity rows know, and the
+/// outcomes of an order the row stands in for.
+const Set<String> _depositRowStatuses = {
+  'exchanging',
+  'confirmation',
+  'sending',
+  'success',
+  'refunded',
+  'overdue',
+};
+
+/// The row status of any deposit on a Receive address
+/// ([standingDepositRow]). The provider's statuses are an open set: a
+/// deposit with no order that is neither stuck nor known is on its way
+/// (detected, bridging, materializing…), so it reads as arriving, never
+/// as "waiting for payment", which would expire it on screen. A linked
+/// order's own status reads as that order's row will.
+String standingDepositRowStatus(Map<String, dynamic> deposit) {
+  final linked = standingDepositHasOrder(deposit);
+  final stuck = stuckStandingDepositStatus(deposit);
+  if (stuck != null && !(linked && stuck == 'failed')) return stuck;
+  final mapped = orchestraExchangeStatus('${deposit['status'] ?? ''}');
+  if (_depositRowStatuses.contains(mapped)) return mapped;
+  if (mapped == 'expired') return linked ? 'expired' : 'failed';
+  return 'exchanging';
 }
 
 /// Whether [deposit] became an order whose own row represents it.
@@ -108,7 +146,8 @@ SwapOrder? stuckStandingDepositRow({
   DateTime? seen(Object? value) =>
       value is String ? DateTime.tryParse(value) : null;
   final timestamp = existing?.timestamp ??
-      (seen(deposit['createdAt']) ??
+      (seen(deposit['observedAt']) ??
+              seen(deposit['createdAt']) ??
               seen(deposit['detectedAt']) ??
               seen(deposit['updatedAt']) ??
               now ??
@@ -140,6 +179,96 @@ SwapOrder? stuckStandingDepositRow({
     walletId: walletId,
     purchaseSource: investing ? null : 'crypto_receive',
     routeVersion: investing ? hypercoreCctpRouteVersionFor(record) : null,
+  );
+}
+
+/// The row Activity shows for [deposit] on [record] until the order it
+/// became has a row of its own, or null when there is nothing to show.
+///
+/// On a Receive address every listed deposit has one, from the moment
+/// the provider observes it ([standingDepositRowStatus]). On the
+/// Investing-withdrawal instruction it is [stuckStandingDepositRow].
+/// [existing] is the row already stored for it, whose first-seen time
+/// is kept.
+SwapOrder? standingDepositRow({
+  required Map<String, dynamic> deposit,
+  required StandingDepositRecord record,
+  required String walletId,
+  required String recipient,
+  SwapOrder? existing,
+  DateTime? now,
+}) {
+  final stuck = stuckStandingDepositRow(
+      deposit: deposit,
+      record: record,
+      walletId: walletId,
+      recipient: recipient,
+      existing: existing,
+      now: now);
+  if (stuck != null ||
+      StandingDepositStore.isInvestingWithdrawalLabel(record.label)) {
+    return stuck;
+  }
+  final id = stuckStandingDepositRowId(deposit);
+  final chain = deposit['chain'];
+  final asset = deposit['asset'];
+  if (id == null || chain is! String || asset is! String) return null;
+  return _depositRow(
+      deposit: deposit,
+      record: record,
+      walletId: walletId,
+      recipient: recipient,
+      id: id,
+      chain: chain,
+      asset: asset,
+      status: standingDepositRowStatus(deposit),
+      existing: existing,
+      now: now);
+}
+
+SwapOrder _depositRow({
+  required Map<String, dynamic> deposit,
+  required StandingDepositRecord record,
+  required String walletId,
+  required String recipient,
+  required String id,
+  required String chain,
+  required String asset,
+  required String status,
+  SwapOrder? existing,
+  DateTime? now,
+}) {
+  DateTime? seen(Object? value) =>
+      value is String ? DateTime.tryParse(value) : null;
+  final timestamp = existing?.timestamp ??
+      (seen(deposit['observedAt']) ??
+              seen(deposit['createdAt']) ??
+              seen(deposit['detectedAt']) ??
+              seen(deposit['updatedAt']) ??
+              now ??
+              DateTime.now())
+          .millisecondsSinceEpoch;
+  return SwapOrder(
+    id: id,
+    activityDirection: 'receive',
+    coinFrom: asset,
+    networkFrom: chain,
+    coinTo: record.asset,
+    networkTo: record.chain.toUpperCase(),
+    depositAddress: record.addressFor(chain) ?? '',
+    depositAmount: orchestraAmountToDecimalString('${deposit['amount']}', asset,
+        chain: chain),
+    withdrawalAmount: '0',
+    status: status,
+    timestamp: timestamp,
+    withdrawalAddress: recipient,
+    depositMin: '0',
+    depositMax: '0',
+    rate: '0',
+    refundAddress: '',
+    provider: 'Orchestra',
+    walletId: walletId,
+    purchaseSource: 'crypto_receive',
   );
 }
 

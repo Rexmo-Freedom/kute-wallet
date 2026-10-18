@@ -21,9 +21,14 @@
 //   * the standing registration itself was refused for the route (4xx).
 //
 // A transient standing failure (session, fee-terms conflict, rate limit,
-// outage, network) is NOT a reason to mint a legacy address: the next visit
+// outage, network) is NOT a reason to mint a legacy address (a policy
+// revision race and a 5xx are retried once inside
+// `StandingDepositStore.register` first): the next visit
 // would show a different address, breaking "one address per coin and
 // network", so it surfaces as the retryable error it is.
+//
+// Every address shown arms `ReceiveAddressWatch`, so its deposits are read
+// on every screen for a while (background_sync_service.dart).
 
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:kute/services/accumulation_address_cache.dart';
@@ -31,6 +36,8 @@ import 'package:kute/services/api/orchestra_api.dart'
     show StandingRequestException;
 import 'package:kute/services/orchestra/receive_route_availability.dart';
 import 'package:kute/services/orchestra/standing_deposit_store.dart';
+import 'package:kute/services/orchestra/standing_deposit_sweep.dart'
+    show ReceiveAddressWatch;
 import 'package:kute/services/orchestra_routes.dart' show orchestraAssetCodeFor;
 
 export 'package:kute/services/orchestra/receive_route_availability.dart'
@@ -117,6 +124,7 @@ abstract final class ReusableDepositAddressService {
           sourceAsset: sourceAsset,
           wanted: wanted);
       if (standing != null) {
+        ReceiveAddressWatch.shown();
         return ReusableDepositAddress(
             address: standing.addressFor(sourceChain)!,
             id: standing.response['standingAddressId'] as String,
@@ -150,6 +158,7 @@ abstract final class ReusableDepositAddressService {
       }
       throw result.error ?? 'Failed to create deposit address';
     }
+    ReceiveAddressWatch.shown();
     return ReusableDepositAddress(
         address: address,
         id: minted.id,

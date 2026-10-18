@@ -125,6 +125,25 @@ const String kVenueWithdrawalFeePurpose = 'venue_withdrawal';
 /// (0 bps), Investing → Predictions among them.
 const String kInvestmentsInternalFeePurpose = 'investments_internal';
 
+/// The policy revision a standing registration was labelled with was
+/// missing, or was not the revision Kute's backend pinned on it: a race
+/// with the policy fetch, cleared by fetching the policy again.
+class StandingTermsRace implements Exception {
+  const StandingTermsRace(this.reason, this.message, this.revision);
+
+  /// `terms_unavailable` or `terms_changed`, for analytics.
+  final String reason;
+
+  /// The sentence shown when the race does not clear.
+  final String message;
+
+  /// The revision the label carried, or null when there was none.
+  final int? revision;
+
+  @override
+  String toString() => message;
+}
+
 class StandingDepositScope {
   const StandingDepositScope(
       this.walletId, this.generation, this.walletGeneration);
@@ -560,8 +579,82 @@ abstract final class StandingDepositStore {
       reused();
       return recovered;
     }
+    // The label carries the policy revision the app holds, and the
+    // backend pins its own current revision on the registration. The two
+    // part on a first use: the session policy has not landed yet (null),
+    // or the fetch the capability check just made did not land and the
+    // revision held is an older one. Both clear on a fresh policy, so the
+    // policy is asked again and the registration made once more instead
+    // of showing an error. A refusal (4xx, the policy's own switch) is
+    // never retried; neither is a second failure.
+    var retried = false;
+    while (true) {
+      try {
+        return await _registerNew(
+            walletId: walletId,
+            recipient: recipient,
+            destinationAsset: destinationAsset,
+            sourceChain: sourceChain,
+            sourceAsset: sourceAsset,
+            scope: scope,
+            valid: valid);
+      } on StandingTermsRace catch (race) {
+        if (retried) throw StateError(race.message);
+        retried = true;
+        _trackRetry(race.reason, sourceChain, sourceAsset, destinationAsset);
+        await RuntimeCapabilitiesService.instance.refresh(fresh: true);
+        if (!valid()) throw StateError('Wallet changed');
+        final now = RuntimeCapabilitiesService.instance.snapshot?.revision;
+        // The same revision would replay the same pinned terms: nothing a
+        // second request could change.
+        if (now == null || now == race.revision) {
+          throw StateError(race.message);
+        }
+      } on StandingRequestException catch (e) {
+        // An outage between Kute's backend and the provider (or the
+        // backend's registry write) answers 5xx; the PUT replays upstream
+        // under the same idempotency key, so one more costs nothing.
+        if (retried || !retryableRegisterStatus(e.status)) rethrow;
+        retried = true;
+        _trackRetry('provider_unavailable', sourceChain, sourceAsset,
+            destinationAsset);
+        if (!valid()) throw StateError('Wallet changed');
+      }
+    }
+  }
+
+  /// Statuses a standing registration retries once: the backend or the
+  /// provider was unavailable, never a refusal of the request.
+  static bool retryableRegisterStatus(int status) =>
+      status == 502 || status == 503 || status == 504;
+
+  static void _trackRetry(String reason, String sourceChain,
+          String sourceAsset, String destinationAsset) =>
+      TrackingService.track('reusable_deposit_address_retried', params: {
+        'reason': reason,
+        'source_chain': sourceChain,
+        'source_asset': sourceAsset,
+        'destination_asset': destinationAsset,
+        'model': 'standing',
+      });
+
+  /// One registration of a new instruction under the policy revision the
+  /// app holds now. Throws [StandingTermsRace] when that revision is
+  /// missing or is not the one the backend pinned.
+  static Future<StandingDepositRecord?> _registerNew({
+    required String walletId,
+    required String recipient,
+    required String destinationAsset,
+    required String sourceChain,
+    required String sourceAsset,
+    required StandingDepositScope scope,
+    required bool Function() valid,
+  }) async {
     final revision = RuntimeCapabilitiesService.instance.snapshot?.revision;
-    if (revision == null) throw StateError('Deposit terms unavailable');
+    if (revision == null) {
+      throw const StandingTermsRace(
+          'terms_unavailable', 'Deposit terms unavailable', null);
+    }
     final label = labelFor(recipient, destinationAsset, revision);
     final existing = await records(walletId);
     final record = existing.where((r) => r.label == label).firstOrNull ??
@@ -588,12 +681,15 @@ abstract final class StandingDepositStore {
           'slippageBps': 50
         });
     final policy = response['kuteFeePolicy'];
-    if (policy is! Map ||
-        policy['revision'] != revision ||
-        response['standingAddressId'] is! String ||
+    if (response['standingAddressId'] is! String ||
         response['enabled'] is! bool ||
-        response['addresses'] is! Map) {
+        response['addresses'] is! Map ||
+        policy is! Map) {
       throw StateError('Deposit terms changed');
+    }
+    if (policy['revision'] != revision) {
+      throw StandingTermsRace(
+          'terms_changed', 'Deposit terms changed', revision);
     }
     final updated = record.copy(response: response);
     await saveResponse(record, response, scope);

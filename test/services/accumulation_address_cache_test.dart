@@ -372,6 +372,114 @@ void main() {
     expect(AddressHistory.all().single.reason, AddressRetireReason.policy);
   });
 
+  // The Bitcoin receive of another coin (polygon:USDC → spark:BTC) is
+  // served by this legacy rail while spark:BTC is not a standing
+  // destination. Its first mint answered "Deposit terms changed. Please
+  // try again." and the second tap worked: the key carried the revision
+  // read before the POST, the backend replays the terms it pinned on a
+  // key, and the echo was checked against the policy fetched just before.
+  group('first mint races the policy', () {
+    late int served;
+    late int backendRevision;
+    late List<String?> keys;
+    late int status;
+
+    setUp(() {
+      served = 1;
+      backendRevision = 2;
+      keys = [];
+      status = 201;
+      RuntimeCapabilitiesService.debugInstance?.dispose();
+      RuntimeCapabilitiesService.debugInstance =
+          runtimePolicyFixture(revisionOf: () => served);
+    });
+
+    Future<Result<OrchestraAccumulationAddress>> mint() => http.runWithClient(
+          () => AccumulationAddressCache.getOrCreate(
+              sourceChain: 'tron',
+              sourceAsset: 'USDT',
+              destinationAsset: 'BTC',
+              recipientSparkAddress: _spark),
+          () {
+            final pinned = <String?, int>{};
+            return MockClient((req) async {
+              final key = req.headers['X-Idempotency-Key'];
+              keys.add(key);
+              if (status != 201) {
+                return http.Response(
+                    jsonEncode({'error': 'Unsupported deposit source'}),
+                    status);
+              }
+              // The backend published a new revision meanwhile.
+              final revision = pinned[key] ??= backendRevision;
+              served = backendRevision;
+              final sent = jsonDecode(req.body) as Map<String, dynamic>;
+              return http.Response(
+                  jsonEncode({
+                    'accumulationAddressId': 'acc_minted',
+                    'sourceChain': sent['sourceChain'],
+                    'sourceAsset': sent['sourceAsset'],
+                    'destinationAsset': sent['destinationAsset'],
+                    'recipientSparkAddress': sent['recipientSparkAddress'],
+                    'depositAddress': _tron,
+                    'enabled': true,
+                    'createdAt': '2026-10-18T20:00:00Z',
+                    'kuteFeePolicy': {
+                      'revision': revision,
+                      'appFeeBps': 50,
+                      'providerDefault': false
+                    },
+                  }),
+                  201);
+            });
+          },
+        );
+
+    List<Map<String, Object>?> retried() => [
+          for (final e in events)
+            if (e.$1 == 'reusable_deposit_address_retried') e.$2
+        ];
+
+    test('is refreshed and minted once more instead of failing', () async {
+      final result = await mint();
+      expect(result.error, isNull);
+      expect(result.data?.depositAddress, _tron);
+      expect(result.data?.feePolicyRevision, 2);
+      expect(keys, hasLength(2));
+      expect(keys.toSet(), hasLength(2),
+          reason: 'the retry carries the refreshed revision in its key');
+      expect(retried().single, {
+        'reason': 'terms_changed',
+        'source_chain': 'tron',
+        'source_asset': 'USDT',
+        'destination_asset': 'BTC',
+        'model': 'accumulation',
+      });
+      expect(AccumulationAddressCache.getAll(), hasLength(1));
+    });
+
+    test('a race the refresh does not change is not retried', () async {
+      // The backend keeps answering a revision the policy never serves.
+      backendRevision = 3;
+      RuntimeCapabilitiesService.debugInstance?.dispose();
+      RuntimeCapabilitiesService.debugInstance =
+          runtimePolicyFixture(revision: 1);
+      final result = await mint();
+      expect(result.error, 'Deposit terms changed. Please try again.');
+      expect(keys, hasLength(1),
+          reason: 'the same revision would replay the same pinned terms');
+      expect(retried(), isEmpty);
+    });
+
+    test('a refusal is never retried', () async {
+      status = 400;
+      final result = await mint();
+      expect(result.data, isNull);
+      expect(keys, hasLength(1));
+      expect(retried(), isEmpty);
+    });
+  });
+
   test('the same physical address reissued under new terms is refused',
       () async {
     Future<Result<OrchestraAccumulationAddress>> request() =>
