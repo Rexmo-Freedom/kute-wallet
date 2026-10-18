@@ -44,6 +44,7 @@ import 'package:kute/screens/shared/send/send_flow_widgets.dart'
 import 'package:kute/screens/usd/flow/usd_flow_widgets.dart';
 import 'package:kute/services/accumulation_address_cache.dart';
 import 'package:kute/services/orchestra/orchestra_capability_requirements.dart';
+import 'package:kute/services/orchestra/receive_minimums.dart';
 import 'package:kute/services/orchestra/reusable_deposit_address.dart';
 import 'package:kute/services/orchestra_routes.dart'
     show
@@ -109,6 +110,10 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
   /// address so a later address never inherits it. Null bps shows no
   /// fee line.
   ({String address, int? bps})? _displayFee;
+
+  /// The smallest deposit the shown address takes, keyed by that address
+  /// like [_displayFee]. Null until known: the address never waits for it.
+  ({String address, ReceiveMinimum minimum})? _displayMinimum;
 
   String? _error;
 
@@ -533,6 +538,11 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
             text: l10n.usdReceiveShareSubtitle(
                 option.displaySymbol, option.chainDisplayName),
           ),
+          ReceiveMinimumCaption(
+            amount: _displayMinimum?.address == payload
+                ? _displayMinimum!.minimum.usdText
+                : null,
+          ),
           ReceiveKuteFeeCaption(
             bps: _displayFee?.address == payload ? _displayFee!.bps : null,
           ),
@@ -720,6 +730,14 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
     });
     TrackingService.receiveSourceSelected(
         asset: option.assetCode, network: option.chain, provider: 'orchestra');
+    // The route's minimum is read beside the address, never before it.
+    final route = RouteKey(
+        fromChain: option.chain,
+        fromAsset: option.assetCode,
+        toChain: 'spark',
+        toAsset: kOrchestraUsdAssetCode);
+    final minimums = ref.read(receiveMinimumsProvider);
+    final minimum = minimums.refresh(route);
     // Which model was being asked when a failure happened, for the event.
     DepositAddressModel? model;
     try {
@@ -795,10 +813,7 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
         provider: 'Orchestra',
         walletId: walletId,
       );
-      // No `swap_initiated` here: showing (or re-showing) a reusable
-      // deposit address is not a swap, and counting it inflated the
-      // swap funnel.
-      TrackingService.track('receive_address_generated', params: {
+      final addressEvent = <String, Object>{
         'asset': option.assetCode,
         'network': option.chain,
         'provider': 'orchestra',
@@ -807,14 +822,19 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
         'address_kind': 'reusable_deposit',
         'model': resolved.model.name,
         if (kuteFeeBps != null) 'kute_fee_bps': kuteFeeBps,
-      });
+      };
       TrackingService.moneyFlowStep('usd_receive', 'deposit_address_shown',
           props: _flowInputs());
+      final knownMinimum = minimums.cachedLive(route);
       setState(() {
         _display = display;
         _displayFee = (address: address, bps: kuteFeeBps);
+        _displayMinimum = knownMinimum == null
+            ? null
+            : (address: address, minimum: knownMinimum);
       });
       _startPolling(display);
+      unawaited(_showMinimum(address, minimum, addressEvent));
     } catch (e) {
       TrackingService.swapFailed(
           fromCoin: option.assetCode,
@@ -837,6 +857,19 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
       // The address the person picked a coin for could not be made.
       unawaited(moneyFailureFeedback());
     }
+  }
+
+  /// Puts the route's minimum under [address] once the read settles, and
+  /// records the address with the minimum it showed. No
+  /// `swap_initiated` here: showing (or re-showing) a reusable deposit
+  /// address is not a swap, and counting it inflated the swap funnel.
+  Future<void> _showMinimum(String address, Future<ReceiveMinimum> pending,
+      Map<String, Object> addressEvent) async {
+    final minimum = await pending;
+    TrackingService.track('receive_address_generated',
+        params: {...addressEvent, ...minimum.trackingParams});
+    if (!mounted || _display?.depositAddress != address) return;
+    setState(() => _displayMinimum = (address: address, minimum: minimum));
   }
 
   void _startPolling(SwapOrder display) {

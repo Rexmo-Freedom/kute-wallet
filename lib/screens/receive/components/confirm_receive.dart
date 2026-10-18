@@ -59,6 +59,7 @@ import 'package:kute/providers/orchestra_supported_routes_provider.dart';
 import 'package:kute/services/accumulation_address_cache.dart';
 import 'package:kute/services/background_sync_service.dart';
 import 'package:kute/services/orchestra/orchestra_capability_requirements.dart';
+import 'package:kute/services/orchestra/receive_minimums.dart';
 import 'package:kute/services/orchestra/reusable_deposit_address.dart';
 import 'package:kute/services/orchestra/standing_deposit_store.dart'
     show StandingDepositStore;
@@ -293,6 +294,15 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
   /// by that address so a later address never inherits it. Null bps
   /// shows no fee line.
   ({String address, int? bps})? _activeAddressFee;
+
+  /// The smallest deposit the shown Orchestra address takes, keyed by
+  /// that address like [_activeAddressFee]. Null until known: the
+  /// address never waits for it.
+  ({String address, ReceiveMinimum minimum})? _activeAddressMinimum;
+
+  /// The wallet's own Bitcoin address whose minimum was last recorded,
+  /// so `receive_address_generated` fires once per address shown.
+  String? _onChainMinimumTrackedFor;
 
   /// Stops the deposit poll. A stale one left running would keep
   /// writing to a screen that moved on.
@@ -1099,6 +1109,12 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
                       address: _activeExchange!.depositAddress,
                       copyText: _activeExchange!.depositAddress,
                     ),
+                    ReceiveMinimumCaption(
+                      amount: _activeAddressMinimum?.address ==
+                              _activeExchange!.depositAddress
+                          ? _activeAddressMinimum!.minimum.usdText
+                          : null,
+                    ),
                     ReceiveKuteFeeCaption(
                       bps: _activeAddressFee?.address ==
                               _activeExchange!.depositAddress
@@ -1140,13 +1156,21 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
                   }),
                 ] else ...[
                   if (_expandedFallback == _FallbackAddress.bitcoin &&
-                      displayOnChainAddress.isNotEmpty)
+                      displayOnChainAddress.isNotEmpty) ...[
                     _buildMinimalAddress(
                       icon: Icons.link_rounded,
                       iconColor: c.accent,
                       address: displayOnChainAddress,
                       copyText: displayOnChainAddress,
                     ),
+                    // The Spark wallet's Bitcoin address is a static
+                    // deposit address: a deposit has to pay its own
+                    // claim. Cold wallets receive natively and show none.
+                    if (activeWallet != null && activeWallet.isSparkWallet)
+                      ReceiveMinimumCaption(
+                        amount: _onChainMinimumText(baseOnChainAddress),
+                      ),
+                  ],
                   if (_expandedFallback == _FallbackAddress.unified &&
                       displayOnChainAddress.isNotEmpty) ...[
                     // Unified caption — flipped from "everything behind
@@ -1662,6 +1686,36 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
     );
   }
 
+  /// "2,975 sats · $3.21": the Breez on-chain claim minimum, in sats with
+  /// its dollar value (sats alone while the rate is unknown). Records the
+  /// shown address once, with the minimum it showed.
+  String _onChainMinimumText(String address) {
+    final l10n = context.l10n;
+    double usdPerBtc = 0;
+    try {
+      usdPerBtc = ref.watch(selectedCurrencyProvider('USD')).toDouble();
+    } catch (_) {}
+    final minimum = sparkOnchainReceiveMinimum(usdPerBtc: usdPerBtc);
+    if (address.isNotEmpty && _onChainMinimumTrackedFor != address) {
+      _onChainMinimumTrackedFor = address;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        TrackingService.track('receive_address_generated', params: {
+          'asset': 'btc',
+          'network': 'bitcoin',
+          'provider': 'breez',
+          'destination': 'spark_btc',
+          'address_kind': 'static_deposit',
+          ...minimum.trackingParams,
+        });
+      });
+    }
+    final sats = minimum.sats!.toFormattedString('sats');
+    final usd = minimum.usdText;
+    return usd == null
+        ? l10n.feeAmountSats(sats)
+        : l10n.sendFeeSatsWithFiat(sats, usd);
+  }
+
   // ─── On-chain BIP21 amount embedding ─────────────────────────
 
   /// Request amount pill. Opens the hero amount sheet and turns the
@@ -2091,6 +2145,14 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
 
     TrackingService.receiveSourceSelected(
         asset: asset.code, network: network.network, provider: 'orchestra');
+    // The route's minimum is read beside the address, never before it.
+    final route = RouteKey(
+        fromChain: sourceChain,
+        fromAsset: asset.code,
+        toChain: 'spark',
+        toAsset: 'BTC');
+    final minimums = ref.read(receiveMinimumsProvider);
+    final minimum = minimums.refresh(route);
     _sourceAssetPicked = asset.code;
     _sourceNetworkPicked = network.network;
     TrackingService.moneyFlowStep('receive', 'source_selected',
@@ -2170,10 +2232,7 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
         walletId: _pickedReceiveWalletId,
       );
 
-      // No `swap_initiated` here: showing (or re-showing) a reusable
-      // deposit address is not a swap, and counting it inflated the
-      // swap funnel.
-      TrackingService.track('receive_address_generated', params: {
+      final addressEvent = <String, Object>{
         'asset': asset.code,
         'network': network.network,
         'provider': 'orchestra',
@@ -2182,17 +2241,22 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
         'address_kind': 'reusable_deposit',
         'model': resolved.model.name,
         if (kuteFeeBps != null) 'kute_fee_bps': kuteFeeBps,
-      });
+      };
       TrackingService.moneyFlowStep('receive', 'deposit_address_shown',
           props: _receiveFlowInputs());
       if (mounted) {
+        final knownMinimum = minimums.cachedLive(route);
         setState(() {
           _creatingOrder = false;
           _activeExchange = display;
           _activeAddressFee = (address: depositAddress, bps: kuteFeeBps);
+          _activeAddressMinimum = knownMinimum == null
+              ? null
+              : (address: depositAddress, minimum: knownMinimum);
         });
         _startPolling(display);
       }
+      unawaited(_showAddressMinimum(depositAddress, minimum, addressEvent));
       return null;
     } catch (e) {
       TrackingService.swapFailed(
@@ -2215,6 +2279,20 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
       setState(() => _creatingOrder = false);
       return _mintRefusalCopy(e);
     }
+  }
+
+  /// Puts the route's minimum under [address] once the read settles, and
+  /// records the address with the minimum it showed. No
+  /// `swap_initiated` here: showing (or re-showing) a reusable deposit
+  /// address is not a swap, and counting it inflated the swap funnel.
+  Future<void> _showAddressMinimum(String address,
+      Future<ReceiveMinimum> pending, Map<String, Object> addressEvent) async {
+    final minimum = await pending;
+    TrackingService.track('receive_address_generated',
+        params: {...addressEvent, ...minimum.trackingParams});
+    if (!mounted || _activeExchange?.depositAddress != address) return;
+    setState(
+        () => _activeAddressMinimum = (address: address, minimum: minimum));
   }
 
   /// Stands in for the reason when the screen went away mid-mint. The

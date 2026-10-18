@@ -230,6 +230,27 @@ class ReceiveKuteFeeCaption extends StatelessWidget {
   }
 }
 
+/// The smallest deposit the address above takes ("Minimum $1.00"), in
+/// the caption style. Null [amount] renders nothing. A gap above it is
+/// included so a screen adds the line in one place.
+class ReceiveMinimumCaption extends StatelessWidget {
+  const ReceiveMinimumCaption({super.key, required this.amount});
+
+  /// The formatted minimum ("$1.00", "2,975 sats · $3.21").
+  final String? amount;
+
+  @override
+  Widget build(BuildContext context) {
+    final value = amount;
+    if (value == null || value.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      key: const ValueKey('receive-minimum'),
+      padding: EdgeInsets.only(top: 8.h),
+      child: ReceiveCaption(text: context.l10n.amountMinimumInline(value)),
+    );
+  }
+}
+
 /// The address itself, under the QR.
 ///
 /// No plate and no rail icon: the code above already says which rail

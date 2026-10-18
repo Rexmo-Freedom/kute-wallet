@@ -25,6 +25,7 @@
 // would show a different address, breaking "one address per coin and
 // network", so it surfaces as the retryable error it is.
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:kute/services/accumulation_address_cache.dart';
 import 'package:kute/services/api/orchestra_api.dart'
     show StandingRequestException;
@@ -58,6 +59,14 @@ class ReusableDepositAddress {
 }
 
 abstract final class ReusableDepositAddressService {
+  /// Test seam: answers [resolve] in place of both rails.
+  @visibleForTesting
+  static Future<ReusableDepositAddress> Function({
+    required String sourceChain,
+    required String sourceAsset,
+    required String destinationAsset,
+  })? debugResolver;
+
   /// Resolves the reusable address for [sourceChain]/[sourceAsset] into
   /// [destinationAsset] (BTC or USDB) on the person's own Spark
   /// [recipient], standing first and legacy second.
@@ -76,6 +85,13 @@ abstract final class ReusableDepositAddressService {
     required bool Function() wanted,
     void Function(DepositAddressModel model)? onAttempt,
   }) async {
+    final debug = debugResolver;
+    if (debug != null) {
+      return debug(
+          sourceChain: sourceChain,
+          sourceAsset: sourceAsset,
+          destinationAsset: destinationAsset);
+    }
     Never refuse(DepositAddressModel model, String category) =>
         throw ReceiveRouteUnavailableException(
             sourceChain: sourceChain,
