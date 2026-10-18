@@ -1573,7 +1573,6 @@
   "feeUiEstimateExactFeesShownBeforeYouConfirm": "Uppskattning. De exakta avgifterna visas innan du bekräftar.",
   "feeUiTakenFromTheAmountYouSend": "Dras från beloppet du skickar.",
   "feeUiKuteFeeWithRate": "Kute-avgift ({rate})",
-  "receiveKuteFeeOnArrival": "Kute-avgift {rate} · dras från det som kommer in",
   "feeUiFriendDiscountIncluded": "Inkluderar din vänrabatt på {discount}.",
   "feeUiUnavailable": "Inte tillgänglig",
   "feeUiEnterAnAmount": "Ange ett belopp",

@@ -1573,7 +1573,6 @@
   "feeUiEstimateExactFeesShownBeforeYouConfirm": "Procjena. Točne naknade prikazuju se prije potvrde.",
   "feeUiTakenFromTheAmountYouSend": "Uzima se od iznosa koji šalješ.",
   "feeUiKuteFeeWithRate": "Kute naknada ({rate})",
-  "receiveKuteFeeOnArrival": "Kute naknada {rate} · oduzima se od primljenog iznosa",
   "feeUiFriendDiscountIncluded": "Uključuje tvoj prijateljski popust od {discount}.",
   "feeUiUnavailable": "Nije dostupno",
   "feeUiEnterAnAmount": "Unesi iznos",

@@ -1573,7 +1573,6 @@
   "feeUiEstimateExactFeesShownBeforeYouConfirm": "Arvio. Tarkat maksut näytetään ennen vahvistusta.",
   "feeUiTakenFromTheAmountYouSend": "Vähennetään lähettämästäsi summasta.",
   "feeUiKuteFeeWithRate": "Kuten maksu ({rate})",
-  "receiveKuteFeeOnArrival": "Kuten maksu {rate} · vähennetään saapuvasta summasta",
   "feeUiFriendDiscountIncluded": "Sisältää {discount} ystäväalennuksesi.",
   "feeUiUnavailable": "Ei saatavilla",
   "feeUiEnterAnAmount": "Anna summa",

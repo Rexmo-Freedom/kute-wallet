@@ -1573,7 +1573,6 @@
   "feeUiEstimateExactFeesShownBeforeYouConfirm": "Įvertinimas. Tikslūs mokesčiai rodomi prieš patvirtinant.",
   "feeUiTakenFromTheAmountYouSend": "Atskaitoma iš siunčiamos sumos.",
   "feeUiKuteFeeWithRate": "Kute mokestis ({rate})",
-  "receiveKuteFeeOnArrival": "Kute mokestis {rate} · išskaičiuojamas iš gaunamos sumos",
   "feeUiFriendDiscountIncluded": "Įskaičiuota jūsų {discount} draugo nuolaida.",
   "feeUiUnavailable": "Negalima",
   "feeUiEnterAnAmount": "Įveskite sumą",

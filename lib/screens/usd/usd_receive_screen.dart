@@ -106,13 +106,9 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
   SwapOrder? _display;
   StandingDepositRecord? _standing;
 
-  /// The Kute fee the shown address's own terms charge, keyed by that
-  /// address so a later address never inherits it. Null bps shows no
-  /// fee line.
-  ({String address, int? bps})? _displayFee;
-
   /// The smallest deposit the shown address takes, keyed by that address
-  /// like [_displayFee]. Null until known: the address never waits for it.
+  /// so a later address never inherits it. Null until known: the address
+  /// never waits for it.
   ({String address, ReceiveMinimum minimum})? _displayMinimum;
 
   String? _error;
@@ -543,9 +539,6 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
                 ? _displayMinimum!.minimum.usdText
                 : null,
           ),
-          ReceiveKuteFeeCaption(
-            bps: _displayFee?.address == payload ? _displayFee!.bps : null,
-          ),
           SizedBox(height: ReceiveGaps.addressToActions),
           ReceiveActionPills(
             onShare: () => _share(payload),
@@ -828,7 +821,6 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
       final knownMinimum = minimums.cachedLive(route);
       setState(() {
         _display = display;
-        _displayFee = (address: address, bps: kuteFeeBps);
         _displayMinimum = knownMinimum == null
             ? null
             : (address: address, minimum: knownMinimum);

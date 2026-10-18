@@ -5461,11 +5461,6 @@ class AppLocalizationsCs extends AppLocalizations {
   }
 
   @override
-  String receiveKuteFeeOnArrival(String rate) {
-    return 'Poplatek Kute $rate · strhává se z přijaté částky';
-  }
-
-  @override
   String feeUiFriendDiscountIncluded(String discount) {
     return 'Zahrnuje tvou slevu $discount od kamaráda.';
   }

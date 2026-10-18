@@ -1573,7 +1573,6 @@
   "feeUiEstimateExactFeesShownBeforeYouConfirm": "Estimare. Comisioanele exacte sunt afișate înainte să confirmi.",
   "feeUiTakenFromTheAmountYouSend": "Se scade din suma trimisă.",
   "feeUiKuteFeeWithRate": "Comision Kute ({rate})",
-  "receiveKuteFeeOnArrival": "Comision Kute {rate} · reținut din suma primită",
   "feeUiFriendDiscountIncluded": "Include reducerea de prieten de {discount}.",
   "feeUiUnavailable": "Indisponibil",
   "feeUiEnterAnAmount": "Introdu o sumă",

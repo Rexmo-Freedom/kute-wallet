@@ -1573,7 +1573,6 @@
   "feeUiEstimateExactFeesShownBeforeYouConfirm": "Εκτίμηση. Οι ακριβείς χρεώσεις εμφανίζονται πριν επιβεβαιώσεις.",
   "feeUiTakenFromTheAmountYouSend": "Αφαιρείται από το ποσό που στέλνεις.",
   "feeUiKuteFeeWithRate": "Χρέωση Kute ({rate})",
-  "receiveKuteFeeOnArrival": "Χρέωση Kute {rate} · αφαιρείται από ό,τι φτάνει",
   "feeUiFriendDiscountIncluded": "Περιλαμβάνει την έκπτωση φίλου {discount}.",
   "feeUiUnavailable": "Μη διαθέσιμο",
   "feeUiEnterAnAmount": "Βάλε ένα ποσό",

@@ -5460,11 +5460,6 @@ class AppLocalizationsSv extends AppLocalizations {
   }
 
   @override
-  String receiveKuteFeeOnArrival(String rate) {
-    return 'Kute-avgift $rate · dras från det som kommer in';
-  }
-
-  @override
   String feeUiFriendDiscountIncluded(String discount) {
     return 'Inkluderar din vänrabatt på $discount.';
   }

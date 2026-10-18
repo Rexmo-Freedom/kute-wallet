@@ -1573,7 +1573,6 @@
   "feeUiEstimateExactFeesShownBeforeYouConfirm": "Estimat. De præcise gebyrer vises, før du bekræfter.",
   "feeUiTakenFromTheAmountYouSend": "Trækkes fra det beløb, du sender.",
   "feeUiKuteFeeWithRate": "Kute-gebyr ({rate})",
-  "receiveKuteFeeOnArrival": "Kute-gebyr {rate} · trækkes fra det, der ankommer",
   "feeUiFriendDiscountIncluded": "Inkluderer din vennerabat på {discount}.",
   "feeUiUnavailable": "Ikke tilgængelig",
   "feeUiEnterAnAmount": "Indtast et beløb",

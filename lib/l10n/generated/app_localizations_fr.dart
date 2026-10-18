@@ -5506,11 +5506,6 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
-  String receiveKuteFeeOnArrival(String rate) {
-    return 'Frais Kute $rate · prélevés sur le montant reçu';
-  }
-
-  @override
   String feeUiFriendDiscountIncluded(String discount) {
     return 'Inclut votre réduction ami de $discount.';
   }

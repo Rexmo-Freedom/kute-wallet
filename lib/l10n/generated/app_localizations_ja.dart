@@ -5257,11 +5257,6 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String receiveKuteFeeOnArrival(String rate) {
-    return 'Kute手数料 $rate ・着金額から差し引かれます';
-  }
-
-  @override
   String feeUiFriendDiscountIncluded(String discount) {
     return '友達紹介の割引（$discount）が適用されています。';
   }

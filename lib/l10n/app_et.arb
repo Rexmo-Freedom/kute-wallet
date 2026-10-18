@@ -1573,7 +1573,6 @@
   "feeUiEstimateExactFeesShownBeforeYouConfirm": "Hinnang. Täpsed tasud näidatakse enne kinnitamist.",
   "feeUiTakenFromTheAmountYouSend": "Võetakse summast, mille saadad.",
   "feeUiKuteFeeWithRate": "Kute tasu ({rate})",
-  "receiveKuteFeeOnArrival": "Kute tasu {rate} · arvatakse saabuvast summast maha",
   "feeUiFriendDiscountIncluded": "Sisaldab sinu sõbrasoodustust {discount}.",
   "feeUiUnavailable": "Pole saadaval",
   "feeUiEnterAnAmount": "Sisesta summa",

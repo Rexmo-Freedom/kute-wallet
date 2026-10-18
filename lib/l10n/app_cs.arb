@@ -1573,7 +1573,6 @@
   "feeUiEstimateExactFeesShownBeforeYouConfirm": "Odhad. Přesné poplatky se zobrazí před potvrzením.",
   "feeUiTakenFromTheAmountYouSend": "Strhává se z částky, kterou posíláš.",
   "feeUiKuteFeeWithRate": "Poplatek Kute ({rate})",
-  "receiveKuteFeeOnArrival": "Poplatek Kute {rate} · strhává se z přijaté částky",
   "feeUiFriendDiscountIncluded": "Zahrnuje tvou slevu {discount} od kamaráda.",
   "feeUiUnavailable": "Nedostupné",
   "feeUiEnterAnAmount": "Zadej částku",

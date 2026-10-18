@@ -1573,7 +1573,6 @@
   "feeUiEstimateExactFeesShownBeforeYouConfirm": "Szacunek. Dokładne opłaty zobaczysz przed potwierdzeniem.",
   "feeUiTakenFromTheAmountYouSend": "Pobierana z wysyłanej kwoty.",
   "feeUiKuteFeeWithRate": "Opłata Kute ({rate})",
-  "receiveKuteFeeOnArrival": "Opłata Kute {rate} · potrącana z otrzymanej kwoty",
   "feeUiFriendDiscountIncluded": "Obejmuje twoją zniżkę od znajomego {discount}.",
   "feeUiUnavailable": "Niedostępne",
   "feeUiEnterAnAmount": "Wpisz kwotę",

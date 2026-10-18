@@ -1573,7 +1573,6 @@
   "feeUiEstimateExactFeesShownBeforeYouConfirm": "Estimación. Las comisiones exactas se muestran antes de confirmar.",
   "feeUiTakenFromTheAmountYouSend": "Se descuenta del importe que envías.",
   "feeUiKuteFeeWithRate": "Comisión de Kute ({rate})",
-  "receiveKuteFeeOnArrival": "Comisión de Kute {rate} · se descuenta de lo que llega",
   "feeUiFriendDiscountIncluded": "Incluye tu descuento de amigo del {discount}.",
   "feeUiUnavailable": "No disponible",
   "feeUiEnterAnAmount": "Introduce un importe",

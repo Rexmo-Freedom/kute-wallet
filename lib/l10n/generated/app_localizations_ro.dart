@@ -5492,11 +5492,6 @@ class AppLocalizationsRo extends AppLocalizations {
   }
 
   @override
-  String receiveKuteFeeOnArrival(String rate) {
-    return 'Comision Kute $rate · reținut din suma primită';
-  }
-
-  @override
   String feeUiFriendDiscountIncluded(String discount) {
     return 'Include reducerea de prieten de $discount.';
   }

@@ -30,7 +30,6 @@ import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart'
     show AppBottomSheetContainer;
 import 'package:kute/screens/shared/custom_button.dart';
-import 'package:kute/screens/shared/fee_copy.dart' show feeRateText;
 import 'package:kute/theme/app_theme.dart';
 
 /// How tall the receive sheet stands, as a share of the screen.
@@ -204,28 +203,6 @@ class ReceiveCaption extends StatelessWidget {
           height: 1.4,
         ),
       ),
-    );
-  }
-}
-
-/// The one fee line beside a reusable deposit address: the Kute rate the
-/// address's own terms charge, taken from what arrives. [bps] is the rate
-/// the screen read from those terms; null (unknown or no fee) renders
-/// nothing, never a guess. A gap above it is included so a screen adds
-/// the line in one place.
-class ReceiveKuteFeeCaption extends StatelessWidget {
-  const ReceiveKuteFeeCaption({super.key, required this.bps});
-
-  final int? bps;
-
-  @override
-  Widget build(BuildContext context) {
-    final rate = bps;
-    if (rate == null || rate <= 0) return const SizedBox.shrink();
-    return Padding(
-      padding: EdgeInsets.only(top: ReceiveGaps.block),
-      child: ReceiveCaption(
-          text: context.l10n.receiveKuteFeeOnArrival(feeRateText(rate))),
     );
   }
 }

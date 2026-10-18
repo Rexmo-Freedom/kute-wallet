@@ -1573,7 +1573,6 @@
   "feeUiEstimateExactFeesShownBeforeYouConfirm": "Becslés. A pontos díjakat megerősítés előtt látod.",
   "feeUiTakenFromTheAmountYouSend": "A küldött összegből vonjuk le.",
   "feeUiKuteFeeWithRate": "Kute díj ({rate})",
-  "receiveKuteFeeOnArrival": "Kute díj {rate} · a beérkező összegből vonjuk le",
   "feeUiFriendDiscountIncluded": "Tartalmazza a(z) {discount} baráti kedvezményedet.",
   "feeUiUnavailable": "Nem érhető el",
   "feeUiEnterAnAmount": "Adj meg egy összeget",

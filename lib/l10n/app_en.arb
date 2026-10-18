@@ -2939,15 +2939,6 @@
       }
     }
   },
-  "receiveKuteFeeOnArrival": "Kute fee {rate} · taken from what arrives",
-  "@receiveKuteFeeOnArrival": {
-    "description": "One line beside a reusable deposit address: the Kute fee rate (for example 0.50%) that is taken from what arrives at it.",
-    "placeholders": {
-      "rate": {
-        "type": "String"
-      }
-    }
-  },
   "feeUiFriendDiscountIncluded": "Includes your {discount} friend discount.",
   "@feeUiFriendDiscountIncluded": {
     "placeholders": {

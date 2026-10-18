@@ -5488,11 +5488,6 @@ class AppLocalizationsPt extends AppLocalizations {
   }
 
   @override
-  String receiveKuteFeeOnArrival(String rate) {
-    return 'Taxa Kute $rate · descontada do valor que chega';
-  }
-
-  @override
   String feeUiFriendDiscountIncluded(String discount) {
     return 'Inclui o seu desconto de amigo de $discount.';
   }

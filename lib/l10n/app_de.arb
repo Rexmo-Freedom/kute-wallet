@@ -1573,7 +1573,6 @@
   "feeUiEstimateExactFeesShownBeforeYouConfirm": "Schätzung. Die genauen Gebühren werden vor deiner Bestätigung angezeigt.",
   "feeUiTakenFromTheAmountYouSend": "Wird vom gesendeten Betrag abgezogen.",
   "feeUiKuteFeeWithRate": "Kute-Gebühr ({rate})",
-  "receiveKuteFeeOnArrival": "Kute-Gebühr {rate} · wird vom eingehenden Betrag abgezogen",
   "feeUiFriendDiscountIncluded": "Inklusive deines Freundesrabatts von {discount}.",
   "feeUiUnavailable": "Nicht verfügbar",
   "feeUiEnterAnAmount": "Betrag eingeben",

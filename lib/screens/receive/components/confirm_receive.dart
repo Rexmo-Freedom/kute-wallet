@@ -290,14 +290,9 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
       OrchestraDepositPoller(ref);
   SwapOrder? _activeExchange;
 
-  /// The Kute fee the shown Orchestra address's own terms charge, keyed
-  /// by that address so a later address never inherits it. Null bps
-  /// shows no fee line.
-  ({String address, int? bps})? _activeAddressFee;
-
   /// The smallest deposit the shown Orchestra address takes, keyed by
-  /// that address like [_activeAddressFee]. Null until known: the
-  /// address never waits for it.
+  /// that address so a later address never inherits it. Null until
+  /// known: the address never waits for it.
   ({String address, ReceiveMinimum minimum})? _activeAddressMinimum;
 
   /// The wallet's own Bitcoin address whose minimum was last recorded,
@@ -1113,12 +1108,6 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
                       amount: _activeAddressMinimum?.address ==
                               _activeExchange!.depositAddress
                           ? _activeAddressMinimum!.minimum.usdText
-                          : null,
-                    ),
-                    ReceiveKuteFeeCaption(
-                      bps: _activeAddressFee?.address ==
-                              _activeExchange!.depositAddress
-                          ? _activeAddressFee!.bps
                           : null,
                     ),
                   ],
@@ -1978,7 +1967,6 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
       _selectedSourceNetwork = null;
       _rateError = null;
       _activeExchange = null;
-      _activeAddressFee = null;
       _creatingOrder = false;
     });
   }
@@ -2015,7 +2003,6 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
     _selectedSourceAsset = null;
     _selectedSourceNetwork = null;
     _activeExchange = null;
-    _activeAddressFee = null;
     _rateError = null;
     _creatingOrder = false;
     _stopPolling();
@@ -2236,7 +2223,6 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
         setState(() {
           _creatingOrder = false;
           _activeExchange = display;
-          _activeAddressFee = (address: depositAddress, bps: kuteFeeBps);
           _activeAddressMinimum = knownMinimum == null
               ? null
               : (address: depositAddress, minimum: knownMinimum);

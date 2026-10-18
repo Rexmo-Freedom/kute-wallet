@@ -9537,12 +9537,6 @@ abstract class AppLocalizations {
   /// **'Kute fee ({rate})'**
   String feeUiKuteFeeWithRate(String rate);
 
-  /// One line beside a reusable deposit address: the Kute fee rate (for example 0.50%) that is taken from what arrives at it.
-  ///
-  /// In en, this message translates to:
-  /// **'Kute fee {rate} · taken from what arrives'**
-  String receiveKuteFeeOnArrival(String rate);
-
   /// No description provided for @feeUiFriendDiscountIncluded.
   ///
   /// In en, this message translates to:

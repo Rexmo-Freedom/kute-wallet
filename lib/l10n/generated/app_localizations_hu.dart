@@ -5474,11 +5474,6 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
-  String receiveKuteFeeOnArrival(String rate) {
-    return 'Kute díj $rate · a beérkező összegből vonjuk le';
-  }
-
-  @override
   String feeUiFriendDiscountIncluded(String discount) {
     return 'Tartalmazza a(z) $discount baráti kedvezményedet.';
   }

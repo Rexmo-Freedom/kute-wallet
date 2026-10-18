@@ -5448,11 +5448,6 @@ class AppLocalizationsEt extends AppLocalizations {
   }
 
   @override
-  String receiveKuteFeeOnArrival(String rate) {
-    return 'Kute tasu $rate · arvatakse saabuvast summast maha';
-  }
-
-  @override
   String feeUiFriendDiscountIncluded(String discount) {
     return 'Sisaldab sinu sõbrasoodustust $discount.';
   }

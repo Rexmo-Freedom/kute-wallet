@@ -1573,7 +1573,6 @@
   "feeUiEstimateExactFeesShownBeforeYouConfirm": "Schatting. De exacte kosten worden getoond voordat je bevestigt.",
   "feeUiTakenFromTheAmountYouSend": "Afgetrokken van het bedrag dat je verstuurt.",
   "feeUiKuteFeeWithRate": "Kute-kosten ({rate})",
-  "receiveKuteFeeOnArrival": "Kute-kosten {rate} · gaan af van wat er binnenkomt",
   "feeUiFriendDiscountIncluded": "Inclusief je vriendenkorting van {discount}.",
   "feeUiUnavailable": "Niet beschikbaar",
   "feeUiEnterAnAmount": "Voer een bedrag in",

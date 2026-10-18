@@ -5489,11 +5489,6 @@ class AppLocalizationsLt extends AppLocalizations {
   }
 
   @override
-  String receiveKuteFeeOnArrival(String rate) {
-    return 'Kute mokestis $rate · išskaičiuojamas iš gaunamos sumos';
-  }
-
-  @override
   String feeUiFriendDiscountIncluded(String discount) {
     return 'Įskaičiuota jūsų $discount draugo nuolaida.';
   }

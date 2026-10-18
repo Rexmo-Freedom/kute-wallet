@@ -1573,7 +1573,6 @@
   "feeUiEstimateExactFeesShownBeforeYouConfirm": "Aptuveni. Precīzās maksas redzamas pirms apstiprināšanas.",
   "feeUiTakenFromTheAmountYouSend": "Ieturēta no summas, ko sūti.",
   "feeUiKuteFeeWithRate": "Kute maksa ({rate})",
-  "receiveKuteFeeOnArrival": "Kute maksa {rate} · tiek ieturēta no saņemtās summas",
   "feeUiFriendDiscountIncluded": "Iekļauta tava drauga atlaide {discount}.",
   "feeUiUnavailable": "Nav pieejams",
   "feeUiEnterAnAmount": "Ievadi summu",

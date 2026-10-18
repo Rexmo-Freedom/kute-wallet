@@ -1573,7 +1573,6 @@
   "feeUiEstimateExactFeesShownBeforeYouConfirm": "Ocena. Točne provizije so prikazane pred potrditvijo.",
   "feeUiTakenFromTheAmountYouSend": "Odšteto od zneska, ki ga pošljete.",
   "feeUiKuteFeeWithRate": "Provizija Kute ({rate})",
-  "receiveKuteFeeOnArrival": "Provizija Kute {rate} · odšteje se od prejetega zneska",
   "feeUiFriendDiscountIncluded": "Vključuje vaš popust prijatelja {discount}.",
   "feeUiUnavailable": "Ni na voljo",
   "feeUiEnterAnAmount": "Vnesite znesek",

@@ -5473,11 +5473,6 @@ class AppLocalizationsBg extends AppLocalizations {
   }
 
   @override
-  String receiveKuteFeeOnArrival(String rate) {
-    return 'Такса на Kute $rate · удържа се от полученото';
-  }
-
-  @override
   String feeUiFriendDiscountIncluded(String discount) {
     return 'Включва отстъпката ти от $discount от приятел.';
   }

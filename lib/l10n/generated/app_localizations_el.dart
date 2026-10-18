@@ -5507,11 +5507,6 @@ class AppLocalizationsEl extends AppLocalizations {
   }
 
   @override
-  String receiveKuteFeeOnArrival(String rate) {
-    return 'Χρέωση Kute $rate · αφαιρείται από ό,τι φτάνει';
-  }
-
-  @override
   String feeUiFriendDiscountIncluded(String discount) {
     return 'Περιλαμβάνει την έκπτωση φίλου $discount.';
   }

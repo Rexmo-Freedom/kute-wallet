@@ -1573,7 +1573,6 @@
   "feeUiEstimateExactFeesShownBeforeYouConfirm": "推定値です。正確な手数料は確定前に表示されます。",
   "feeUiTakenFromTheAmountYouSend": "送金額から差し引かれます。",
   "feeUiKuteFeeWithRate": "Kute手数料（{rate}）",
-  "receiveKuteFeeOnArrival": "Kute手数料 {rate} ・着金額から差し引かれます",
   "feeUiFriendDiscountIncluded": "友達紹介の割引（{discount}）が適用されています。",
   "feeUiUnavailable": "取得できません",
   "feeUiEnterAnAmount": "金額を入力",

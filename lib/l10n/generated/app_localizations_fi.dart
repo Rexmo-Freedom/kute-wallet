@@ -5463,11 +5463,6 @@ class AppLocalizationsFi extends AppLocalizations {
   }
 
   @override
-  String receiveKuteFeeOnArrival(String rate) {
-    return 'Kuten maksu $rate · vähennetään saapuvasta summasta';
-  }
-
-  @override
   String feeUiFriendDiscountIncluded(String discount) {
     return 'Sisältää $discount ystäväalennuksesi.';
   }

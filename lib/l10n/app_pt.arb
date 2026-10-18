@@ -1691,7 +1691,6 @@
   "feeUiEstimateExactFeesShownBeforeYouConfirm": "Estimativa. As taxas exatas são apresentadas antes de confirmar.",
   "feeUiTakenFromTheAmountYouSend": "Descontadas do valor que envia.",
   "feeUiKuteFeeWithRate": "Taxa Kute ({rate})",
-  "receiveKuteFeeOnArrival": "Taxa Kute {rate} · descontada do valor que chega",
   "feeUiFriendDiscountIncluded": "Inclui o seu desconto de amigo de {discount}.",
   "feeUiUnavailable": "Indisponível",
   "feeUiEnterAnAmount": "Introduza um valor",

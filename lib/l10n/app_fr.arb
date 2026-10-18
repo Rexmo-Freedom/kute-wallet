@@ -1573,7 +1573,6 @@
   "feeUiEstimateExactFeesShownBeforeYouConfirm": "Estimation. Les frais exacts sont affichés avant confirmation.",
   "feeUiTakenFromTheAmountYouSend": "Prélevés sur le montant envoyé.",
   "feeUiKuteFeeWithRate": "Frais Kute ({rate})",
-  "receiveKuteFeeOnArrival": "Frais Kute {rate} · prélevés sur le montant reçu",
   "feeUiFriendDiscountIncluded": "Inclut votre réduction ami de {discount}.",
   "feeUiUnavailable": "Indisponible",
   "feeUiEnterAnAmount": "Saisissez un montant",

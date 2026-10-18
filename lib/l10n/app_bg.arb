@@ -1573,7 +1573,6 @@
   "feeUiEstimateExactFeesShownBeforeYouConfirm": "Оценка. Точните такси се показват, преди да потвърдиш.",
   "feeUiTakenFromTheAmountYouSend": "Удържа се от сумата, която изпращаш.",
   "feeUiKuteFeeWithRate": "Такса на Kute ({rate})",
-  "receiveKuteFeeOnArrival": "Такса на Kute {rate} · удържа се от полученото",
   "feeUiFriendDiscountIncluded": "Включва отстъпката ти от {discount} от приятел.",
   "feeUiUnavailable": "Не е достъпно",
   "feeUiEnterAnAmount": "Въведи сума",
