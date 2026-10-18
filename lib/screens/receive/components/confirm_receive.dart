@@ -1163,13 +1163,14 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
                       address: displayOnChainAddress,
                       copyText: displayOnChainAddress,
                     ),
-                    // The Spark wallet's Bitcoin address is a static
-                    // deposit address: a deposit has to pay its own
-                    // claim. Cold wallets receive natively and show none.
+                    // The Spark wallet's Bitcoin address has no route
+                    // minimum (Bitcoin itself sets none); only that it
+                    // was shown is recorded.
                     if (activeWallet != null && activeWallet.isSparkWallet)
-                      ReceiveMinimumCaption(
-                        amount: _onChainMinimumText(baseOnChainAddress),
-                      ),
+                      Builder(builder: (_) {
+                        _trackOnChainAddressShown(baseOnChainAddress);
+                        return const SizedBox.shrink();
+                      }),
                   ],
                   if (_expandedFallback == _FallbackAddress.unified &&
                       displayOnChainAddress.isNotEmpty) ...[
@@ -1686,34 +1687,20 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
     );
   }
 
-  /// "2,975 sats · $3.21": the Breez on-chain claim minimum, in sats with
-  /// its dollar value (sats alone while the rate is unknown). Records the
-  /// shown address once, with the minimum it showed.
-  String _onChainMinimumText(String address) {
-    final l10n = context.l10n;
-    double usdPerBtc = 0;
-    try {
-      usdPerBtc = ref.watch(selectedCurrencyProvider('USD')).toDouble();
-    } catch (_) {}
-    final minimum = sparkOnchainReceiveMinimum(usdPerBtc: usdPerBtc);
-    if (address.isNotEmpty && _onChainMinimumTrackedFor != address) {
-      _onChainMinimumTrackedFor = address;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        TrackingService.track('receive_address_generated', params: {
-          'asset': 'btc',
-          'network': 'bitcoin',
-          'provider': 'breez',
-          'destination': 'spark_btc',
-          'address_kind': 'static_deposit',
-          ...minimum.trackingParams,
-        });
+  /// Records the Spark wallet's Bitcoin address as shown, once per
+  /// address. No minimum: the network sets none.
+  void _trackOnChainAddressShown(String address) {
+    if (address.isEmpty || _onChainMinimumTrackedFor == address) return;
+    _onChainMinimumTrackedFor = address;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      TrackingService.track('receive_address_generated', params: {
+        'asset': 'btc',
+        'network': 'bitcoin',
+        'provider': 'breez',
+        'destination': 'spark_btc',
+        'address_kind': 'static_deposit',
       });
-    }
-    final sats = minimum.sats!.toFormattedString('sats');
-    final usd = minimum.usdText;
-    return usd == null
-        ? l10n.feeAmountSats(sats)
-        : l10n.sendFeeSatsWithFiat(sats, usd);
+    });
   }
 
   // ─── On-chain BIP21 amount embedding ─────────────────────────

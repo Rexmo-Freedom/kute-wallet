@@ -22,23 +22,12 @@
 // the address is shown. Nothing here moves money.
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:kute/models/breez/init.dart' show kSparkAutoClaimMaxFeeSats;
 import 'package:kute/models/orchestra_route_limits.dart';
 import 'package:kute/models/orchestra_routes_model.dart' show RouteKey;
 import 'package:kute/services/api/orchestra_api.dart';
 
 /// The app's floor under every Orchestra deposit route, in USD cents.
 const int kReceiveMinimumFloorCents = 100;
-
-/// Spark's dust allowance for a static deposit: Spark documents that
-/// deposits under roughly 500 sats can fail as dust.
-const int kSparkDepositDustSats = 500;
-
-/// The smallest on-chain deposit to the wallet's own Bitcoin address that
-/// the SDK claims by itself: the auto-claim fee ceiling
-/// ([kSparkAutoClaimMaxFeeSats], 2,475 sats) plus [kSparkDepositDustSats].
-const int kSparkOnchainReceiveMinimumSats =
-    kSparkAutoClaimMaxFeeSats + kSparkDepositDustSats;
 
 /// Where a shown minimum came from, as analytics names it.
 enum ReceiveMinimumSource {
@@ -47,29 +36,22 @@ enum ReceiveMinimumSource {
 
   /// No live read: the app's floor.
   floor,
-
-  /// The Breez on-chain claim minimum.
-  breez,
 }
 
 /// The minimum one receive address shows.
 class ReceiveMinimum {
-  const ReceiveMinimum({required this.source, this.usdCents, this.sats});
+  const ReceiveMinimum({required this.source, this.usdCents});
 
   final ReceiveMinimumSource source;
 
-  /// The minimum in USD cents; null only for a sats minimum while the
-  /// bitcoin rate is unknown.
+  /// The minimum in USD cents.
   final int? usdCents;
 
-  /// The minimum in sats, for the Bitcoin address only.
-  final int? sats;
 
   /// The properties `receive_address_generated` carries: the exact
   /// minimum shown and where it came from.
   Map<String, Object> get trackingParams => {
         if (usdCents != null) 'min_deposit_usd': usdCents! / 100,
-        if (sats != null) 'min_deposit_sats': sats!,
         'min_source': source.name,
       };
 
@@ -81,11 +63,10 @@ class ReceiveMinimum {
   bool operator ==(Object other) =>
       other is ReceiveMinimum &&
       other.source == source &&
-      other.usdCents == usdCents &&
-      other.sats == sats;
+      other.usdCents == usdCents;
 
   @override
-  int get hashCode => Object.hash(source, usdCents, sats);
+  int get hashCode => Object.hash(source, usdCents);
 }
 
 /// The floor, for a route whose limits could not be read.
@@ -106,15 +87,6 @@ int? orchestraLiveMinimumCents(OrchestraRouteLimits? limits) {
 
 /// The Breez on-chain minimum, with its dollar value when [usdPerBtc] is
 /// known (rounded up to the cent, so the dollars never undersell it).
-ReceiveMinimum sparkOnchainReceiveMinimum({required double usdPerBtc}) {
-  const sats = kSparkOnchainReceiveMinimumSats;
-  final cents = usdPerBtc.isFinite && usdPerBtc > 0
-      ? (sats * usdPerBtc / 1e6).ceil()
-      : null;
-  return ReceiveMinimum(
-      source: ReceiveMinimumSource.breez, usdCents: cents, sats: sats);
-}
-
 typedef ReceiveLimitsFetcher = Future<OrchestraRouteLimits?> Function(
     RouteKey route);
 

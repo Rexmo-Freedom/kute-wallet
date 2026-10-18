@@ -18,7 +18,6 @@ import 'package:hive_ce/hive.dart';
 import 'package:kute/l10n/generated/app_localizations_en.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/account.dart';
-import 'package:kute/models/breez/init.dart' show kSparkAutoClaimMaxFeeSats;
 import 'package:kute/models/breez/lnurl_model.dart';
 import 'package:kute/models/breez/sdk_instance.dart' show BreezSdkSpark;
 import 'package:kute/models/currency_conversions.dart';
@@ -228,33 +227,17 @@ void main() {
       .map((e) => e.$2)
       .toList();
 
-  test('the on-chain minimum is the auto-claim fee ceiling plus dust', () {
-    expect(kSparkOnchainReceiveMinimumSats,
-        kSparkAutoClaimMaxFeeSats + kSparkDepositDustSats);
-    expect(kSparkOnchainReceiveMinimumSats, 2975);
-    // 2,975 sats at $60,000 is $1.785, shown rounded up.
-    expect(sparkOnchainReceiveMinimum(usdPerBtc: 60000).usdCents, 179);
-    expect(sparkOnchainReceiveMinimum(usdPerBtc: 0).usdCents, isNull);
-  });
-
   testWidgets(
-      'Bitcoin only: the wallet address shows its claim-fee minimum in sats '
-      'with the dollar value, and the event records it once', (tester) async {
+      'Bitcoin only: the wallet address shows no minimum (the network sets '
+      'none), and the event records the address once', (tester) async {
     await _pump(tester);
-    // The unified code (the default) shows the Lightning address: none.
     expect(_minimum, findsNothing);
     expect(addressEvents(), isEmpty);
 
     await _format(tester, _l10n.receiveQrFormatBitcoinOnly);
-    expect(
-        find.text(_l10n.amountMinimumInline(
-            _l10n.sendFeeSatsWithFiat('2,975', '\$1.79'))),
-        findsOneWidget);
-    expect(tester.getTopLeft(_minimum).dy,
-        greaterThan(tester.getBottomLeft(find.byType(ReceiveAddressLine)).dy));
-    expect(
-        find.descendant(of: _minimum, matching: find.byType(ReceiveCaption)),
-        findsOneWidget);
+    expect(find.byType(ReceiveAddressLine), findsWidgets);
+    expect(_minimum, findsNothing);
+    expect(find.textContaining(_l10n.amountMinimumInline('')), findsNothing);
     expect(addressEvents(), [
       {
         'asset': 'btc',
@@ -262,17 +245,12 @@ void main() {
         'provider': 'breez',
         'destination': 'spark_btc',
         'address_kind': 'static_deposit',
-        'min_deposit_usd': 1.79,
-        'min_deposit_sats': 2975,
-        'min_source': 'breez',
       },
     ]);
 
     // Away and back: the same address is not recorded twice.
     await _format(tester, _l10n.receiveQrFormatUnified);
-    expect(_minimum, findsNothing);
     await _format(tester, _l10n.receiveQrFormatBitcoinOnly);
-    expect(_minimum, findsOneWidget);
     expect(addressEvents(), hasLength(1));
     expect(tester.takeException(), isNull);
     await _unmount(tester);

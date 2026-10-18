@@ -236,7 +236,7 @@ class ReceiveKuteFeeCaption extends StatelessWidget {
 class ReceiveMinimumCaption extends StatelessWidget {
   const ReceiveMinimumCaption({super.key, required this.amount});
 
-  /// The formatted minimum ("$1.00", "2,975 sats · $3.21").
+  /// The formatted minimum ("$1.00").
   final String? amount;
 
   @override
