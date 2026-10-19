@@ -186,7 +186,10 @@ class ArrivalSwitcher extends StatelessWidget {
       ),
       child: KeyedSubtree(key: ValueKey<Object>(state), child: child),
     );
-    if (!animateSize) return switcher;
+    // Under Reduce Motion the size snaps with the content: an AnimatedSize
+    // of no duration would notify its listeners inside its own layout and
+    // re-dirty itself there (a Flutter assertion), so none is used.
+    if (!animateSize || duration == Duration.zero) return switcher;
     return AnimatedSize(
       duration: duration,
       curve: Curves.easeInOut,
