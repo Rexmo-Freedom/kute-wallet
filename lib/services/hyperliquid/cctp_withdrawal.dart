@@ -1316,16 +1316,35 @@ class HypercoreCctpWithdrawal {
     // The quote's own status: Orchestra may have made the order without
     // (or before) the submit, and it carries the order's progress.
     final order = await orchestra.order(orderId ?? quoteId);
-    if (orderId == null &&
-        order != null &&
+    final recipient = current.recipient?.address ?? '';
+    final evmRecipient = cctpDestinationOf(current.flow) ==
+        InvestingWithdrawalDestination.predictions;
+    final found = order != null &&
         !order.orderMissing &&
-        order.id.startsWith('ord_')) {
+        order.id.startsWith('ord_') &&
+        (orderId == null || order.id == orderId);
+    if (found &&
+        order.recipientAddress != null &&
+        !(evmRecipient
+            ? sameEvmAddress(order.recipientAddress!, recipient)
+            : sameSparkAddress(order.recipientAddress!, recipient))) {
+      // Not this wallet's money: never adopted, and nothing on the record
+      // (no step, no submit result) says an order exists for the move.
+      return;
+    }
+    if (orderId == null && found) {
       orderId = order.id;
-      final result = '${_cctp(current)['submitResult'] ?? ''}';
-      if (result != 'submitted') {
-        await _patchCctp(store, op.operationId, {'submitResult': 'detected'});
+      final cctp = _cctp(current);
+      if ('${cctp['submitResult'] ?? ''}' != 'submitted') {
+        // A `/submit` that went out with the record's key and never
+        // answered (a timeout, a 5xx) made this order: it counts as
+        // submitted. One Orchestra made on its own is detected.
+        final submitted = cctp['submitSent'] == true;
+        await _patchCctp(store, op.operationId,
+            {'submitResult': submitted ? 'submitted' : 'detected'});
+        await _step(store, op.operationId,
+            submitted ? 'orchestra_submitted' : 'orchestra_detected', sentUsd);
       }
-      await _step(store, op.operationId, 'orchestra_detected', sentUsd);
       current = await store.get(op.operationId) ?? current;
     }
 
@@ -1346,17 +1365,6 @@ class HypercoreCctpWithdrawal {
       return;
     }
 
-    final recipient = current.recipient?.address ?? '';
-    final evmRecipient = cctpDestinationOf(current.flow) ==
-        InvestingWithdrawalDestination.predictions;
-    if (order != null &&
-        order.id == orderId &&
-        order.recipientAddress != null &&
-        !(evmRecipient
-            ? sameEvmAddress(order.recipientAddress!, recipient)
-            : sameSparkAddress(order.recipientAddress!, recipient))) {
-      return; // Not this wallet's money: never adopt it.
-    }
     if (current.orderId == null) {
       await store.update(current.operationId,
           stage: current.stage, patch: (c) => c.copyWith(orderId: orderId));
@@ -1405,7 +1413,9 @@ class HypercoreCctpWithdrawal {
   /// One `/submit` of [mintTx] for [quoteId], at most every
   /// [kCctpSubmitRetryAfter]. Returns the order id when Orchestra answered
   /// with one. A definitive refusal rotates the key; a transient answer
-  /// keeps it. The quote's status is asked either way.
+  /// keeps it, with `submitSent` saying a submit under that key is out
+  /// (an order found later under the quote then counts as submitted).
+  /// The quote's status is asked either way.
   Future<String?> _submitMint(SettlementStore store, SettlementOperation op,
       String quoteId, String mintTx, double sentUsd) async {
     final cctp = _cctp(op);
@@ -1418,6 +1428,7 @@ class HypercoreCctpWithdrawal {
     await _patchCctp(store, op.operationId, {
       'submitKey': key,
       'submittedAt': _clock().toUtc().toIso8601String(),
+      'submitSent': true,
     });
     final CctpSubmitResult result;
     try {
@@ -1433,8 +1444,10 @@ class HypercoreCctpWithdrawal {
         final id = result.orderId;
         return id != null && id.startsWith('ord_') ? id : null;
       case CctpSubmitOutcome.rejected:
-        await _patchCctp(store, op.operationId,
-            {'submitKey': OrchestraService.generateIdempotencyKey()});
+        await _patchCctp(store, op.operationId, {
+          'submitKey': OrchestraService.generateIdempotencyKey(),
+          'submitSent': false,
+        });
         return null;
       case CctpSubmitOutcome.transient:
         return null;

@@ -1158,6 +1158,87 @@ void main() {
     });
 
     test(
+        'an order for someone else found under the quote leaves no trace of '
+        'an order on the record', () async {
+      reads.ledger = (_) => _ledgerHash;
+      reads.mintError = const ArbitrumReadException('no RPC');
+      await service().withdrawToDollars(usd: 5, stepUp: approve());
+      orchestra.orders['q_1'] =
+          _order('ord_9', 'processing', recipient: _otherSpark);
+      now = now.add(const Duration(seconds: 30));
+      await service().reconcile(await only(), force: true);
+      final op = await only();
+      expect(op.orderId, isNull);
+      expect(cctpOf(op).containsKey('submitResult'), isFalse);
+      expect(cctpOf(op)['steps'], ['cctp_sent', 'core_confirmed']);
+      expect(cctpLegProgressOf(op)!.ordered, isFalse);
+      expect(rows.byId.containsKey('ord_9'), isFalse);
+      expect(rows.byId.values.single.id, '$kCctpRowPrefix${op.operationId}');
+      expect(orchestra.submits, isEmpty);
+    });
+
+    test(
+        'a submit that never answered but went through counts as submitted '
+        'once the order appears; one Orchestra made after a refusal is '
+        'detected', () async {
+      reads.ledger = (_) => _ledgerHash;
+      await service().withdrawToDollars(usd: 5, stepUp: approve());
+      reads.mints = [_mint(4800000)];
+      orchestra.submitAnswer = () => throw TimeoutException('no answer');
+      now = now.add(const Duration(seconds: 20));
+      await service().reconcile(await only(), force: true);
+      var op = await only();
+      expect(orchestra.submits, hasLength(1));
+      expect(op.orderId, isNull);
+      expect(cctpOf(op)['submitSent'], isTrue);
+
+      // The server took it: the order shows under the quote.
+      orchestra.orders['q_1'] = _order('ord_1', 'processing');
+      orchestra.orders['ord_1'] = _order('ord_1', 'completed');
+      now = now.add(const Duration(seconds: 5));
+      await service().reconcile(op, force: true);
+      op = await only();
+      expect(op.orderId, 'ord_1');
+      expect(cctpOf(op)['submitResult'], 'submitted');
+      expect(cctpOf(op)['steps'], contains('orchestra_submitted'));
+      expect(cctpOf(op)['steps'], isNot(contains('orchestra_detected')));
+      expect(orchestra.submits, hasLength(1), reason: 'inside the retry wait');
+      now = now.add(const Duration(seconds: 30));
+      await service().reconcile(op, force: true);
+      final completed =
+          events.singleWhere((e) => e.$1 == 'hyperliquid_withdraw_completed');
+      expect(completed.$2?['submit_result'], 'submitted');
+      expect(sender.signed, 1);
+
+      // A second move: the submit refused outright, then Orchestra finds
+      // the mint on its own. That order is detected, not submitted.
+      await Hive.deleteFromDisk();
+      store = SettlementStore(
+        box: await Hive.openBox<String>('operations'),
+        quarantine: await Hive.openBox<String>('quarantine'),
+        clock: () => now,
+      );
+      rows = _Rows();
+      orchestra = _Orchestra(() => now);
+      sender = _Sender();
+      await service().withdrawToDollars(usd: 5, stepUp: approve());
+      orchestra.submitAnswer =
+          () => (outcome: CctpSubmitOutcome.rejected, orderId: null);
+      now = now.add(const Duration(seconds: 20));
+      await service().reconcile(await only(), force: true);
+      op = await only();
+      expect(cctpOf(op)['submitSent'], isFalse);
+      orchestra.orders['q_1'] = _order('ord_2', 'processing');
+      orchestra.orders['ord_2'] = _order('ord_2', 'processing');
+      now = now.add(const Duration(seconds: 5));
+      await service().reconcile(op, force: true);
+      op = await only();
+      expect(op.orderId, 'ord_2');
+      expect(cctpOf(op)['submitResult'], 'detected');
+      expect(cctpOf(op)['steps'], contains('orchestra_detected'));
+    });
+
+    test(
         'the mint search pages in windows, the first window first, and '
         'resumes from the position the record keeps', () async {
       const from = 514276600;
