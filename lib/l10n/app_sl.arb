@@ -1909,6 +1909,7 @@
   "usdSendFailed": "Pošiljanje ni uspelo. Vaši dolarji se niso premaknili.",
   "receiveOneOffTag": "eno plačilo",
   "receiveOneOffExpiresIn": "Poteče čez {time}",
+  "receiveOneOffLateDepositRepriced": "Polog, ki prispe pozneje, lahko dobi drugačno ceno.",
   "receiveOneOffNewAddress": "Pridobi nov naslov",
   "usdFlowStepCoin": "Izberite kriptovaluto",
   "usdSendAmountSubtitle": "Koliko dolarjev pošiljate?",

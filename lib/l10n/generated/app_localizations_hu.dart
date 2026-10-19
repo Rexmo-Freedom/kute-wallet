@@ -6623,6 +6623,10 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
+  String get receiveOneOffLateDepositRepriced =>
+      'A később érkező befizetés más árat kaphat.';
+
+  @override
   String get receiveOneOffNewAddress => 'Új cím kérése';
 
   @override

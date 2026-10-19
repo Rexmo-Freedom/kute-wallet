@@ -6349,6 +6349,9 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String get receiveOneOffLateDepositRepriced => 'これ以降に届いた入金は、価格が変わる場合があります。';
+
+  @override
   String get receiveOneOffNewAddress => '新しいアドレスを取得';
 
   @override

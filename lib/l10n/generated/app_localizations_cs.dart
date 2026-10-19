@@ -6603,6 +6603,10 @@ class AppLocalizationsCs extends AppLocalizations {
   }
 
   @override
+  String get receiveOneOffLateDepositRepriced =>
+      'Vklad, který dorazí později, může dostat jinou cenu.';
+
+  @override
   String get receiveOneOffNewAddress => 'Získat novou adresu';
 
   @override

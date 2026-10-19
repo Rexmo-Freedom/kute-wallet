@@ -1909,6 +1909,7 @@
   "usdSendFailed": "Versturen mislukt. Je dollars zijn niet verplaatst.",
   "receiveOneOffTag": "één betaling",
   "receiveOneOffExpiresIn": "Verloopt over {time}",
+  "receiveOneOffLateDepositRepriced": "Een storting die later binnenkomt, kan een andere prijs krijgen.",
   "receiveOneOffNewAddress": "Nieuw adres aanvragen",
   "usdFlowStepCoin": "Kies een munt",
   "usdSendAmountSubtitle": "Hoeveel dollars verstuur je?",

@@ -521,7 +521,8 @@ class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
             // The countdown first: the one thing that runs out.
             UsdFlowNote(
               key: const ValueKey('onetime-receive-expiry'),
-              lines: const [],
+              lines: [l10n.receiveOneOffLateDepositRepriced],
+              emphasisFirst: true,
               emphasis:
                   l10n.receiveOneOffExpiresIn(usdFormatCountdown(_remaining)),
             ),

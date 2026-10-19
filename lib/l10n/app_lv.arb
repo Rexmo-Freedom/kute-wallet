@@ -1909,6 +1909,7 @@
   "usdSendFailed": "Neizdevās nosūtīt. Tavi dolāri netika pārvietoti.",
   "receiveOneOffTag": "viens maksājums",
   "receiveOneOffExpiresIn": "Derīgs vēl {time}",
+  "receiveOneOffLateDepositRepriced": "Vēlāk saņemts depozīts var saņemt citu cenu.",
   "receiveOneOffNewAddress": "Iegūt jaunu adresi",
   "usdFlowStepCoin": "Izvēlies monētu",
   "usdSendAmountSubtitle": "Cik dolāru tu sūti?",

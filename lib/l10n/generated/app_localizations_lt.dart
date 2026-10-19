@@ -6638,6 +6638,10 @@ class AppLocalizationsLt extends AppLocalizations {
   }
 
   @override
+  String get receiveOneOffLateDepositRepriced =>
+      'Vėliau gautas įnašas gali gauti kitą kainą.';
+
+  @override
   String get receiveOneOffNewAddress => 'Gauti naują adresą';
 
   @override

@@ -1909,6 +1909,7 @@
   "usdSendFailed": "Lähetys epäonnistui. Dollarisi eivät liikkuneet.",
   "receiveOneOffTag": "yksi maksu",
   "receiveOneOffExpiresIn": "Vanhenee {time} kuluttua",
+  "receiveOneOffLateDepositRepriced": "Myöhemmin saapuva talletus voi saada eri hinnan.",
   "receiveOneOffNewAddress": "Hae uusi osoite",
   "usdFlowStepCoin": "Valitse kolikko",
   "usdSendAmountSubtitle": "Kuinka monta dollaria lähetät?",

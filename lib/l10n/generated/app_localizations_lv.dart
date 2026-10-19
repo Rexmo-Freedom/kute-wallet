@@ -6588,6 +6588,10 @@ class AppLocalizationsLv extends AppLocalizations {
   }
 
   @override
+  String get receiveOneOffLateDepositRepriced =>
+      'Vēlāk saņemts depozīts var saņemt citu cenu.';
+
+  @override
   String get receiveOneOffNewAddress => 'Iegūt jaunu adresi';
 
   @override

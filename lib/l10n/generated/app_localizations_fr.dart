@@ -6652,6 +6652,10 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String get receiveOneOffLateDepositRepriced =>
+      'Un dépôt arrivé après peut obtenir un autre prix.';
+
+  @override
   String get receiveOneOffNewAddress => 'Obtenir une nouvelle adresse';
 
   @override

@@ -1909,6 +1909,7 @@
   "usdSendFailed": "Slanje nije uspjelo. Tvoji dolari nisu premješteni.",
   "receiveOneOffTag": "jedno plaćanje",
   "receiveOneOffExpiresIn": "Istječe za {time}",
+  "receiveOneOffLateDepositRepriced": "Uplata koja stigne kasnije može dobiti drugu cijenu.",
   "receiveOneOffNewAddress": "Nova adresa",
   "usdFlowStepCoin": "Odaberi kovanicu",
   "usdSendAmountSubtitle": "Koliko dolara šalješ?",

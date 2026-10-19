@@ -1909,6 +1909,7 @@
   "usdSendFailed": "No se ha podido enviar. Tus dólares no se han movido.",
   "receiveOneOffTag": "un pago",
   "receiveOneOffExpiresIn": "Caduca en {time}",
+  "receiveOneOffLateDepositRepriced": "Un depósito que llegue después puede recibir otro precio.",
   "receiveOneOffNewAddress": "Obtener una dirección nueva",
   "usdFlowStepCoin": "Elige una moneda",
   "usdSendAmountSubtitle": "¿Cuántos dólares envías?",

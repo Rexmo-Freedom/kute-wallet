@@ -6599,6 +6599,10 @@ class AppLocalizationsSv extends AppLocalizations {
   }
 
   @override
+  String get receiveOneOffLateDepositRepriced =>
+      'En insättning som kommer fram senare kan få ett annat pris.';
+
+  @override
   String get receiveOneOffNewAddress => 'Hämta en ny adress';
 
   @override

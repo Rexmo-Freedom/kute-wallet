@@ -1909,6 +1909,7 @@
   "usdSendFailed": "Nie udało się wysłać. Twoje dolary nie zostały przeniesione.",
   "receiveOneOffTag": "jedna płatność",
   "receiveOneOffExpiresIn": "Wygasa za {time}",
+  "receiveOneOffLateDepositRepriced": "Wpłata, która dotrze później, może otrzymać inną cenę.",
   "receiveOneOffNewAddress": "Uzyskaj nowy adres",
   "usdFlowStepCoin": "Wybierz monetę",
   "usdSendAmountSubtitle": "Ile dolarów wysyłasz?",

@@ -6590,6 +6590,10 @@ class AppLocalizationsEt extends AppLocalizations {
   }
 
   @override
+  String get receiveOneOffLateDepositRepriced =>
+      'Hiljem saabuv sissemakse võib saada teise hinna.';
+
+  @override
   String get receiveOneOffNewAddress => 'Hangi uus aadress';
 
   @override

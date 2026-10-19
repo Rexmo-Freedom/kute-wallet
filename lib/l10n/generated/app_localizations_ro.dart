@@ -6643,6 +6643,10 @@ class AppLocalizationsRo extends AppLocalizations {
   }
 
   @override
+  String get receiveOneOffLateDepositRepriced =>
+      'Un depozit care ajunge ulterior poate primi alt preț.';
+
+  @override
   String get receiveOneOffNewAddress => 'Obține o adresă nouă';
 
   @override

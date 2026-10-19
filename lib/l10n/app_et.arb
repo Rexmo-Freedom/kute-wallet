@@ -1909,6 +1909,7 @@
   "usdSendFailed": "Saatmine ebaõnnestus. Sinu dollarid ei liikunud.",
   "receiveOneOffTag": "üks makse",
   "receiveOneOffExpiresIn": "Aegub {time} pärast",
+  "receiveOneOffLateDepositRepriced": "Hiljem saabuv sissemakse võib saada teise hinna.",
   "receiveOneOffNewAddress": "Hangi uus aadress",
   "usdFlowStepCoin": "Vali münt",
   "usdSendAmountSubtitle": "Mitu dollarit saadad?",

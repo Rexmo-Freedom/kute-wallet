@@ -438,6 +438,7 @@ void main() {
     // The Kute fee is charged but never shown under a receive address.
     expect(find.text(_l10n.feeUiKuteFee), findsNothing);
     // What arrives is not shown; the countdown sits above the QR.
+    expect(find.text(_l10n.receiveOneOffLateDepositRepriced), findsOneWidget);
     expect(
         find.text(_l10n.quotedReceiveExpectedOutput('\$24.80')), findsNothing);
     expect(

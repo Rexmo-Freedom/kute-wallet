@@ -6629,6 +6629,10 @@ class AppLocalizationsNl extends AppLocalizations {
   }
 
   @override
+  String get receiveOneOffLateDepositRepriced =>
+      'Een storting die later binnenkomt, kan een andere prijs krijgen.';
+
+  @override
   String get receiveOneOffNewAddress => 'Nieuw adres aanvragen';
 
   @override

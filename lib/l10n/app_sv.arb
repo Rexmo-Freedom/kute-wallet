@@ -1909,6 +1909,7 @@
   "usdSendFailed": "Kunde inte skicka. Dina dollar flyttades inte.",
   "receiveOneOffTag": "en betalning",
   "receiveOneOffExpiresIn": "Går ut om {time}",
+  "receiveOneOffLateDepositRepriced": "En insättning som kommer fram senare kan få ett annat pris.",
   "receiveOneOffNewAddress": "Hämta en ny adress",
   "usdFlowStepCoin": "Välj ett mynt",
   "usdSendAmountSubtitle": "Hur många dollar skickar du?",

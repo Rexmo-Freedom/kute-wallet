@@ -6657,6 +6657,10 @@ class AppLocalizationsEl extends AppLocalizations {
   }
 
   @override
+  String get receiveOneOffLateDepositRepriced =>
+      'Μια κατάθεση που φτάνει αργότερα μπορεί να πάρει διαφορετική τιμή.';
+
+  @override
   String get receiveOneOffNewAddress => 'Νέα διεύθυνση';
 
   @override

@@ -6607,6 +6607,10 @@ class AppLocalizationsDa extends AppLocalizations {
   }
 
   @override
+  String get receiveOneOffLateDepositRepriced =>
+      'En indbetaling, der lander senere, kan få en anden pris.';
+
+  @override
   String get receiveOneOffNewAddress => 'Få en ny adresse';
 
   @override

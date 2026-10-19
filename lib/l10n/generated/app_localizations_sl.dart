@@ -6620,6 +6620,10 @@ class AppLocalizationsSl extends AppLocalizations {
   }
 
   @override
+  String get receiveOneOffLateDepositRepriced =>
+      'Polog, ki prispe pozneje, lahko dobi drugačno ceno.';
+
+  @override
   String get receiveOneOffNewAddress => 'Pridobi nov naslov';
 
   @override

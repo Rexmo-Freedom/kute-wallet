@@ -11554,6 +11554,12 @@ abstract class AppLocalizations {
   /// **'Expires in {time}'**
   String receiveOneOffExpiresIn(String time);
 
+  /// No description provided for @receiveOneOffLateDepositRepriced.
+  ///
+  /// In en, this message translates to:
+  /// **'A deposit that lands after this may get a different price.'**
+  String get receiveOneOffLateDepositRepriced;
+
   /// No description provided for @receiveOneOffNewAddress.
   ///
   /// In en, this message translates to:

@@ -1909,6 +1909,7 @@
   "usdSendFailed": "Nu s-a putut trimite. Dolarii tăi nu s-au mișcat.",
   "receiveOneOffTag": "o singură plată",
   "receiveOneOffExpiresIn": "Expiră în {time}",
+  "receiveOneOffLateDepositRepriced": "Un depozit care ajunge ulterior poate primi alt preț.",
   "receiveOneOffNewAddress": "Obține o adresă nouă",
   "usdFlowStepCoin": "Alege o monedă",
   "usdSendAmountSubtitle": "Câți dolari trimiți?",

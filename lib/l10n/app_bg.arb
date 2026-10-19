@@ -1909,6 +1909,7 @@
   "usdSendFailed": "Изпращането не успя. Доларите ти не са преместени.",
   "receiveOneOffTag": "еднократно плащане",
   "receiveOneOffExpiresIn": "Изтича след {time}",
+  "receiveOneOffLateDepositRepriced": "Депозит, пристигнал след това, може да получи различна цена.",
   "receiveOneOffNewAddress": "Вземи нов адрес",
   "usdFlowStepCoin": "Избери монета",
   "usdSendAmountSubtitle": "Колко долара изпращаш?",

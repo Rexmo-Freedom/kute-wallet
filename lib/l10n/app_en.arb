@@ -3510,6 +3510,7 @@
       }
     }
   },
+  "receiveOneOffLateDepositRepriced": "A deposit that lands after this may get a different price.",
   "receiveOneOffNewAddress": "Get a new address",
   "usdFlowStepCoin": "Pick a coin",
   "usdSendAmountSubtitle": "How many dollars are you sending?",

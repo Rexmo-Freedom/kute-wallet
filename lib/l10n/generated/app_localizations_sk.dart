@@ -6609,6 +6609,10 @@ class AppLocalizationsSk extends AppLocalizations {
   }
 
   @override
+  String get receiveOneOffLateDepositRepriced =>
+      'Vklad, ktorý príde neskôr, môže dostať inú cenu.';
+
+  @override
   String get receiveOneOffNewAddress => 'Získať novú adresu';
 
   @override

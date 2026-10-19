@@ -6619,6 +6619,10 @@ class AppLocalizationsHr extends AppLocalizations {
   }
 
   @override
+  String get receiveOneOffLateDepositRepriced =>
+      'Uplata koja stigne kasnije može dobiti drugu cijenu.';
+
+  @override
   String get receiveOneOffNewAddress => 'Nova adresa';
 
   @override

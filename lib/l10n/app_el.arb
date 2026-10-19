@@ -1909,6 +1909,7 @@
   "usdSendFailed": "Η αποστολή απέτυχε. Τα δολάριά σου δεν μετακινήθηκαν.",
   "receiveOneOffTag": "μία πληρωμή",
   "receiveOneOffExpiresIn": "Λήγει σε {time}",
+  "receiveOneOffLateDepositRepriced": "Μια κατάθεση που φτάνει αργότερα μπορεί να πάρει διαφορετική τιμή.",
   "receiveOneOffNewAddress": "Νέα διεύθυνση",
   "usdFlowStepCoin": "Διάλεξε νόμισμα",
   "usdSendAmountSubtitle": "Πόσα δολάρια στέλνεις;",

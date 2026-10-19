@@ -1909,6 +1909,7 @@
   "usdSendFailed": "Nepavyko išsiųsti. Jūsų doleriai nepajudėjo.",
   "receiveOneOffTag": "vienas mokėjimas",
   "receiveOneOffExpiresIn": "Nebegalios po {time}",
+  "receiveOneOffLateDepositRepriced": "Vėliau gautas įnašas gali gauti kitą kainą.",
   "receiveOneOffNewAddress": "Gauti naują adresą",
   "usdFlowStepCoin": "Pasirinkite monetą",
   "usdSendAmountSubtitle": "Kiek dolerių siunčiate?",

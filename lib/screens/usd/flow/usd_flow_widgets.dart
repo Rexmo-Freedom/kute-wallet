@@ -317,12 +317,16 @@ class UsdFlowNote extends StatelessWidget {
     super.key,
     required this.lines,
     this.emphasis,
+    this.emphasisFirst = false,
   });
 
   final List<String> lines;
 
   /// A line that should read louder than the rest (a countdown).
   final String? emphasis;
+
+  /// Puts [emphasis] above [lines] instead of below them.
+  final bool emphasisFirst;
 
   @override
   Widget build(BuildContext context) {
@@ -337,6 +341,10 @@ class UsdFlowNote extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (emphasis != null && emphasisFirst) ...[
+            _emphasisText(c),
+            if (lines.isNotEmpty) SizedBox(height: 8.h),
+          ],
           for (var i = 0; i < lines.length; i++) ...[
             if (i > 0) SizedBox(height: 6.h),
             Text(
@@ -349,22 +357,24 @@ class UsdFlowNote extends StatelessWidget {
               ),
             ),
           ],
-          if (emphasis != null) ...[
+          if (emphasis != null && !emphasisFirst) ...[
             if (lines.isNotEmpty) SizedBox(height: 8.h),
-            Text(
-              emphasis!,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: c.textSecondary,
-                fontSize: 13.sp,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
+            _emphasisText(c),
           ],
         ],
       ),
     );
   }
+
+  Widget _emphasisText(AppColorsExtension c) => Text(
+        emphasis!,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: c.textSecondary,
+          fontSize: 13.sp,
+          fontWeight: FontWeight.w700,
+        ),
+      );
 }
 
 /// The one pinned action. A thin wrapper so both screens cannot drift

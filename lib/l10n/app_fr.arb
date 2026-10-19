@@ -1909,6 +1909,7 @@
   "usdSendFailed": "Envoi impossible. Vos dollars n'ont pas bougé.",
   "receiveOneOffTag": "un seul paiement",
   "receiveOneOffExpiresIn": "Expire dans {time}",
+  "receiveOneOffLateDepositRepriced": "Un dépôt arrivé après peut obtenir un autre prix.",
   "receiveOneOffNewAddress": "Obtenir une nouvelle adresse",
   "usdFlowStepCoin": "Choisissez une crypto",
   "usdSendAmountSubtitle": "Combien de dollars envoyez-vous ?",

@@ -2145,6 +2145,7 @@
   "usdSendFailed": "Não foi possível enviar. Os seus dólares não saíram.",
   "receiveOneOffTag": "um pagamento",
   "receiveOneOffExpiresIn": "Expira em {time}",
+  "receiveOneOffLateDepositRepriced": "Um depósito que chegue depois pode ter um preço diferente.",
   "@receiveOneOffExpiresIn": {
     "placeholders": {
       "time": {

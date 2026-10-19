@@ -1909,6 +1909,7 @@
   "usdSendFailed": "Nem sikerült a küldés. A dollárjaid nem mozdultak.",
   "receiveOneOffTag": "egy fizetés",
   "receiveOneOffExpiresIn": "Lejár: {time}",
+  "receiveOneOffLateDepositRepriced": "A később érkező befizetés más árat kaphat.",
   "receiveOneOffNewAddress": "Új cím kérése",
   "usdFlowStepCoin": "Válassz érmét",
   "usdSendAmountSubtitle": "Hány dollárt küldesz?",

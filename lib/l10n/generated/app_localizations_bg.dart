@@ -6617,6 +6617,10 @@ class AppLocalizationsBg extends AppLocalizations {
   }
 
   @override
+  String get receiveOneOffLateDepositRepriced =>
+      'Депозит, пристигнал след това, може да получи различна цена.';
+
+  @override
   String get receiveOneOffNewAddress => 'Вземи нов адрес';
 
   @override

@@ -6630,6 +6630,10 @@ class AppLocalizationsPl extends AppLocalizations {
   }
 
   @override
+  String get receiveOneOffLateDepositRepriced =>
+      'Wpłata, która dotrze później, może otrzymać inną cenę.';
+
+  @override
   String get receiveOneOffNewAddress => 'Uzyskaj nowy adres';
 
   @override

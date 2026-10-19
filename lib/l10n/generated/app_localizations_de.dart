@@ -6656,6 +6656,10 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
+  String get receiveOneOffLateDepositRepriced =>
+      'Eine später eintreffende Einzahlung kann einen anderen Preis erhalten.';
+
+  @override
   String get receiveOneOffNewAddress => 'Neue Adresse erzeugen';
 
   @override

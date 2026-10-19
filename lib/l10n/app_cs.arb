@@ -1909,6 +1909,7 @@
   "usdSendFailed": "Odeslání se nezdařilo. Tvé dolary se nepohnuly.",
   "receiveOneOffTag": "jedna platba",
   "receiveOneOffExpiresIn": "Vyprší za {time}",
+  "receiveOneOffLateDepositRepriced": "Vklad, který dorazí později, může dostat jinou cenu.",
   "receiveOneOffNewAddress": "Získat novou adresu",
   "usdFlowStepCoin": "Vyber minci",
   "usdSendAmountSubtitle": "Kolik dolarů posíláš?",

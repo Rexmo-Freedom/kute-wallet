@@ -1909,6 +1909,7 @@
   "usdSendFailed": "送金できませんでした。ドルは移動していません。",
   "receiveOneOffTag": "1回限り",
   "receiveOneOffExpiresIn": "有効期限まで{time}",
+  "receiveOneOffLateDepositRepriced": "これ以降に届いた入金は、価格が変わる場合があります。",
   "receiveOneOffNewAddress": "新しいアドレスを取得",
   "usdFlowStepCoin": "コインを選択",
   "usdSendAmountSubtitle": "送金するドルの金額は？",

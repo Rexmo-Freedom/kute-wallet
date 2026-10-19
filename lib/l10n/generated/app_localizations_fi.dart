@@ -6606,6 +6606,10 @@ class AppLocalizationsFi extends AppLocalizations {
   }
 
   @override
+  String get receiveOneOffLateDepositRepriced =>
+      'Myöhemmin saapuva talletus voi saada eri hinnan.';
+
+  @override
   String get receiveOneOffNewAddress => 'Hae uusi osoite';
 
   @override
