@@ -132,8 +132,11 @@ class _OneTimeRefundStepState extends ConsumerState<OneTimeRefundStep> {
       'address_kind': 'onetime',
       'refund_address_set': set,
     };
-    TrackingService.moneyFlowStep(_dollars ? 'usd_receive' : 'receive', step,
-        props: props);
+    if (_dollars) {
+      TrackingService.moneyFlowStep('usd_receive', step, props: props);
+    } else {
+      TrackingService.moneyFlowStep('receive', step, props: props);
+    }
   }
 
   void _continue() {
