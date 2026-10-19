@@ -57,10 +57,16 @@ String hypercoreCctpRouteVersionFor(StandingDepositRecord record) =>
 String? stuckStandingDepositStatus(Map<String, dynamic> deposit) {
   if (deposit['refundTxId'] != null) return 'refunded';
   // A linked order's status takes precedence in the listing; otherwise
-  // the batch states held, refund_requested and refunded do.
+  // the batch states held, refund_requested and refunded do, over the
+  // transfer status (https://docs.flashnet.xyz/orchestra/deposit-addresses).
   final status = deposit['status'];
-  if (status == 'refunded' || deposit['batchState'] == 'refunded') {
+  final batch = deposit['batchState'];
+  if (status == 'refunded' || batch == 'refunded') {
     return 'refunded';
+  }
+  if (!standingDepositHasOrder(deposit) &&
+      (batch == 'held' || batch == 'refund_requested')) {
+    return batch as String;
   }
   return switch (status) {
     'held' => 'held',
@@ -156,7 +162,8 @@ SwapOrder? stuckStandingDepositRow({
   // Money on the Investing-withdrawal instruction left Investing: its row
   // reads as the Investing withdrawal it is, whoever writes it first (the
   // standing sweep or the CCTP watcher), so the two never disagree.
-  final investing = StandingDepositStore.isInvestingWithdrawalLabel(record.label);
+  final investing =
+      StandingDepositStore.isInvestingWithdrawalLabel(record.label);
   return SwapOrder(
     id: id,
     activityDirection: investing ? null : 'receive',
@@ -165,8 +172,8 @@ SwapOrder? stuckStandingDepositRow({
     coinTo: record.asset,
     networkTo: record.chain.toUpperCase(),
     depositAddress: record.addressFor(chain) ?? '',
-    depositAmount:
-        orchestraAmountToDecimalString('${deposit['amount']}', asset, chain: chain),
+    depositAmount: orchestraAmountToDecimalString('${deposit['amount']}', asset,
+        chain: chain),
     withdrawalAmount: '0',
     status: status,
     timestamp: timestamp,
@@ -291,7 +298,8 @@ SwapOrder standingOrderRow({
   required String walletId,
   String? operationId,
 }) {
-  final investing = StandingDepositStore.isInvestingWithdrawalLabel(record.label);
+  final investing =
+      StandingDepositStore.isInvestingWithdrawalLabel(record.label);
   return SwapOrder(
     id: orderId,
     activityDirection: investing ? null : 'receive',
@@ -300,9 +308,10 @@ SwapOrder standingOrderRow({
     coinTo: record.asset,
     networkTo: record.chain.toUpperCase(),
     depositAddress: depositAddress,
-    depositAmount: orchestraAmountToDecimalString(amountIn, asset, chain: chain),
-    withdrawalAmount:
-        orchestraAmountToDecimalString(amountOut, record.asset, chain: record.chain),
+    depositAmount:
+        orchestraAmountToDecimalString(amountIn, asset, chain: chain),
+    withdrawalAmount: orchestraAmountToDecimalString(amountOut, record.asset,
+        chain: record.chain),
     status: status,
     timestamp: timestamp,
     withdrawalAddress: recipient,

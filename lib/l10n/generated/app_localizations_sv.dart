@@ -1564,9 +1564,6 @@ class AppLocalizationsSv extends AppLocalizations {
       'Den här Jade är inte den som är parkopplad med plånboken. Inget signerades. Anslut den parkopplade Jade, eller parkoppla den här genom att uppdatera plånbokens master fingerprint.';
 
   @override
-  String get receiveOtherAssets => 'Ta emot andra tillgångar';
-
-  @override
   String get medium => 'Medel';
 
   @override
@@ -1662,9 +1659,6 @@ class AppLocalizationsSv extends AppLocalizations {
   String feeAmountSats(String fee) {
     return '$fee sats';
   }
-
-  @override
-  String get memoColon => 'Memo: ';
 
   @override
   String errorMessage(String err) {
@@ -2109,10 +2103,6 @@ class AppLocalizationsSv extends AppLocalizations {
       'Den här rutten är tillfälligt otillgänglig. Försök igen senare.';
 
   @override
-  String get receiveAssetTemporarilyUnavailable =>
-      'Det går tillfälligt inte att ta emot den här tillgången.';
-
-  @override
   String get clipboardEmpty => 'Urklipp är tomt';
 
   @override
@@ -2308,11 +2298,6 @@ class AppLocalizationsSv extends AppLocalizations {
   String get receiveBeneficiary => 'Mottagare';
 
   @override
-  String receiveAssetOnNetwork(String asset, String network) {
-    return '$asset på $network';
-  }
-
-  @override
   String get receiveFailedToGetRate => 'Kunde inte hämta kursen';
 
   @override
@@ -2322,10 +2307,6 @@ class AppLocalizationsSv extends AppLocalizations {
   @override
   String get receiveUsdcWalletNotReady =>
       'Ditt Prognoser-konto håller fortfarande på att konfigureras. Försök igen om en stund.';
-
-  @override
-  String get receiveFundsLandAsBitcoin =>
-      'Pengarna hamnar i din plånbok som Bitcoin.';
 
   @override
   String get receiveConnectionFailed => 'Anslutningen misslyckades.';
@@ -3530,10 +3511,6 @@ class AppLocalizationsSv extends AppLocalizations {
   @override
   String get receiveCoinNetworkUnavailable =>
       'Det här myntet och nätverket är inte tillgängliga för insättningar än. Välj ett annat.';
-
-  @override
-  String get receiveOtherCoinsNotToPredictions =>
-      'Andra mynt kan inte tas emot i Prognoser. Ta emot dem i din vardagsplånbok och flytta dem sedan.';
 
   @override
   String get activityStables => 'Stablecoins';
@@ -6504,9 +6481,6 @@ class AppLocalizationsSv extends AppLocalizations {
   String get receiveRequestAmount => 'Begär belopp';
 
   @override
-  String get receiveBackToBitcoin => 'Tillbaka till Bitcoin';
-
-  @override
   String get sendRecentRecipients => 'Senaste';
 
   @override
@@ -6677,13 +6651,6 @@ class AppLocalizationsSv extends AppLocalizations {
   @override
   String get receiveCoinsLoading =>
       'Mynt laddas fortfarande. Försök igen om en stund.';
-
-  @override
-  String get receiveAlsoAcceptsTitle => 'Din adress tar även emot';
-
-  @override
-  String get receiveAlsoAcceptsSubtitle =>
-      'Välj vad som skickas till dig. Det kommer in som bitcoin.';
 
   @override
   String get receivePickNetwork => 'Vilket nätverk?';

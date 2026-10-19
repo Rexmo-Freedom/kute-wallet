@@ -1,8 +1,6 @@
 import 'package:kute/services/tracking/latency_tracker.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/services/orchestra/orchestra_capability_requirements.dart';
-import 'package:kute/services/orchestra/receive_route_availability.dart'
-    show ReceiveRouteAvailability;
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'dart:convert';
 import 'dart:math' show Random;
@@ -96,12 +94,6 @@ class OrchestraOnrampLimits {
     return null;
   }
 }
-
-/// A minted legacy address came back under other fee terms than the
-/// policy the app holds (or the app held none): a race with the policy
-/// fetch, retried once by `AccumulationAddressCache.getOrCreate`.
-const String kDepositTermsChangedError =
-    'Deposit terms changed. Please try again.';
 
 class StandingRequestException implements Exception {
   const StandingRequestException(this.status, this.code);
@@ -971,104 +963,6 @@ class OrchestraService {
     } catch (e) {
       return Result(error: e.toString());
     }
-  }
-
-  // ─── Accumulation Addresses (LEGACY) ────────────────────────────
-  //
-  // Flashnet marks POST /v1/accumulation-addresses as its legacy address
-  // model ("new integrations use standing deposit addresses"). The app
-  // asks `standingRequest` first (see ReusableDepositAddressService) and
-  // reaches this call only where no standing address exists for the
-  // destination or the source chain. Keep it until spark:BTC is a
-  // standing destination; delete it then.
-
-  /// [refundAddresses] maps source-chain slug → a refund address the
-  /// user controls on that chain (Flashnet's `refundAddresses` field —
-  /// targets for generated-order refunds on held deposits). Optional
-  /// because receive flows watch for EXTERNAL senders the app holds no
-  /// source-chain address for; pass it whenever the depositing wallet
-  /// is the user's own (e.g. the Hyperliquid EOA on Arbitrum).
-  ///
-  /// A HyperCore source is refused before any network call: Flashnet
-  /// says "HyperCore source address creation is unavailable until
-  /// independent deposit verification is supported".
-  static Future<Result<OrchestraAccumulationAddress>>
-      createAccumulationAddress({
-    required String sourceChain,
-    required String sourceAsset,
-    required String destinationAsset,
-    required String recipientSparkAddress,
-    String? label,
-    Map<String, String>? refundAddresses,
-    String? idempotencyKey,
-  }) async {
-    if (ReceiveRouteAvailability.isHyperCoreSource(sourceChain)) {
-      return Result(
-          error: 'Unsupported source chain: hypercore',
-          errorCode: 'unsupported_route');
-    }
-    try {
-      // Exactly the operation guard's list for this endpoint.
-      await _ensureCapabilities(orchestraReceiveAddressCapabilities(
-          sourceChain: sourceChain,
-          sourceAsset: sourceAsset,
-          destinationAsset: destinationAsset));
-      final reviewedRevision =
-          RuntimeCapabilitiesService.instance.snapshot?.revision;
-      final body = <String, dynamic>{
-        'sourceChain': sourceChain,
-        'sourceAsset': sourceAsset,
-        'destinationAsset': destinationAsset,
-        'recipientSparkAddress': recipientSparkAddress,
-      };
-      if (label != null && label.isNotEmpty) body['label'] = label;
-      if (refundAddresses != null && refundAddresses.isNotEmpty) {
-        body['refundAddresses'] = refundAddresses;
-      }
-
-      final res = await _send(
-        (h) => http
-            .post(
-              Uri.parse('$_baseUrl/accumulation-addresses'),
-              headers: h,
-              body: jsonEncode(body),
-            )
-            .timeout(const Duration(seconds: 15)),
-        extra: _idempotency(idempotencyKey),
-      );
-
-      if (res.statusCode >= 200 && res.statusCode < 300) {
-        final address =
-            OrchestraAccumulationAddress.fromJson(jsonDecode(res.body));
-        if (reviewedRevision == null ||
-            address.feePolicyRevision != reviewedRevision) {
-          return Result(error: kDepositTermsChangedError);
-        }
-        return Result(data: address);
-      }
-      // Status and code travel with the message so the caller can tell a
-      // refused route (4xx, `unsupported_route`) from a retryable fault.
-      return Result(
-          error: _parseError(res.body),
-          statusCode: res.statusCode,
-          errorCode: _parseErrorCode(res.body));
-    } catch (e) {
-      return Result(error: e.toString());
-    }
-  }
-
-  /// The provider's machine-readable `error.code` (or top-level `code`)
-  /// from a JSON error body, or null.
-  static String? _parseErrorCode(String body) {
-    try {
-      final parsed = jsonDecode(body);
-      if (parsed is Map<String, dynamic>) {
-        final error = parsed['error'];
-        if (error is Map<String, dynamic>) return error['code']?.toString();
-        return parsed['code']?.toString();
-      }
-    } catch (_) {}
-    return null;
   }
 
   static Future<Result<List<OrchestraAccumulationAddress>>>

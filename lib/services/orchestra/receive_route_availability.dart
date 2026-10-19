@@ -1,46 +1,39 @@
 // lib/services/orchestra/receive_route_availability.dart
 //
-// Which (source chain, source asset, destination) pairs the deposit-address
-// rails have REFUSED at runtime, so the Receive pickers stop offering them
-// as working deposit options and a cached legacy address on such a pair is
-// never shown as live again.
+// Which (source chain, source asset, destination) pairs the standing
+// deposit-address rail has REFUSED at runtime, so the Receive pickers stop
+// listing them.
 //
 // The swap catalog (GET /v2/orchestration/routes) says what Orchestra can
-// convert; it does not say which pairs the provider has CONFIGURED for a
-// reusable deposit address. Flashnet's own docs are explicit on that
-// (https://docs.flashnet.xyz/orchestra/legacy/reusable-addresses: "keeping
-// a legacy address does not confirm current route availability"), and
-// there is no provider endpoint listing the legacy rail's configured pairs.
-// So beyond the hand-kept `kOrchestraAccumulationDeniedPairs`, the app
-// learns the rest the only way it can: a mint or a standing registration
-// that answers 4xx / `unsupported_route` / "Unsupported source" marks the
-// pair here, and every offering surface consults this set through
+// convert, and the standing destination list says where a standing address
+// can deliver; neither says which source pairs the provider has configured
+// for each destination. So beyond the hand-kept
+// `kOrchestraAccumulationDeniedPairs`, the app learns the rest the only way
+// it can: a standing registration that answers 4xx / `unsupported_route` /
+// "Unsupported source", or that has no address on the source chain, marks
+// the pair here, and every offering surface consults this set through
 // `orchestraCanAccumulatePair`.
 //
-// HyperCore is refused outright, never learned: Flashnet's accumulation
-// endpoint says "HyperCore source address creation is unavailable until
-// independent deposit verification is supported; existing addresses
-// require reconciliation". No flow in the app ever requested one (HyperCore
-// is the Investing venue's own rail and never reaches a Receive picker),
-// and `isHyperCoreSource` keeps it that way at every mint choke point.
+// HyperCore is refused outright, never learned: Flashnet says "HyperCore
+// source address creation is unavailable until independent deposit
+// verification is supported". No flow in the app ever requested one
+// (HyperCore is the Investing venue's own rail and never reaches a Receive
+// picker), and `isHyperCoreSource` keeps it that way at every choke point.
 
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:hive_ce/hive.dart';
-import 'package:kute/handlers/response_handlers.dart' show Result;
 import 'package:kute/services/api/orchestra_api.dart'
     show StandingRequestException;
 import 'package:kute/services/runtime_capabilities_service.dart'
     show CapabilityUnavailableException;
 
-/// Which reusable-address model served (or refused) a receive.
-///
-/// `standing` is Flashnet's current model (PUT
-/// /v1/standing-deposit-addresses/{ref}); `accumulation` is the legacy
-/// model (POST /v1/accumulation-addresses), kept only where no standing
-/// equivalent exists. Analytics carry `name` as `model`.
-enum DepositAddressModel { standing, accumulation }
+/// Which reusable-address model served (or refused) a receive: always
+/// `standing` (PUT /v1/standing-deposit-addresses/{ref}). The legacy
+/// accumulation model is never asked for any more. Analytics carry `name`
+/// as `model`.
+enum DepositAddressModel { standing }
 
 /// The provider will not serve a reusable deposit address for this pair.
 ///
@@ -211,9 +204,4 @@ abstract final class ReceiveRouteAvailability {
     if (status != null && _refusingStatuses.contains(status)) return 'no_route';
     return null;
   }
-
-  /// [refusalCategory] for a legacy mint's [Result].
-  static String? refusalCategoryOf(Result<Object?> result) =>
-      refusalCategory(result.error,
-          statusCode: result.statusCode, errorCode: result.errorCode);
 }

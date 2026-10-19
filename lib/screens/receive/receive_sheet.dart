@@ -30,8 +30,9 @@ abstract final class ReceiveSheets {
 Widget _bitcoinBody(BuildContext context) =>
     ReceiveSheets.debugBitcoinBody?.call(context) ?? const ConfirmReceive();
 
-Widget _usdBody(BuildContext context) =>
-    ReceiveSheets.debugUsdBody?.call(context) ?? const UsdReceiveScreen();
+Widget _usdBody(BuildContext context, {bool fromBitcoinReceive = false}) =>
+    ReceiveSheets.debugUsdBody?.call(context) ??
+    UsdReceiveScreen(fromBitcoinReceive: fromBitcoinReceive);
 
 /// The Bitcoin tab's Receive: the unified QR and the coins it also
 /// accepts, in a sheet over the current screen.
@@ -45,11 +46,17 @@ Future<void> showBitcoinReceiveSheet(BuildContext context) =>
 /// The Investments tab's Receive: "From your Bitcoin" over the coins it
 /// also accepts, and a picked coin's address, in a sheet over the current
 /// screen.
-Future<void> showUsdReceiveSheet(BuildContext context) =>
+///
+/// The Bitcoin receive's "other coins" line opens this very sheet over
+/// itself ([fromBitcoinReceive]): the same coins, addresses, minimums and
+/// deposit cards, with one note that the money lands in the Investments
+/// dollar balance. Closing it returns to the Bitcoin receive as it was.
+Future<void> showUsdReceiveSheet(BuildContext context,
+        {bool fromBitcoinReceive = false}) =>
     showAppBottomSheet<void>(
       context: context,
       routeSettings: const RouteSettings(name: kUsdReceiveRouteName),
-      builder: _usdBody,
+      builder: (ctx) => _usdBody(ctx, fromBitcoinReceive: fromBitcoinReceive),
     );
 
 /// A route's page that presents its receive as the same sheet

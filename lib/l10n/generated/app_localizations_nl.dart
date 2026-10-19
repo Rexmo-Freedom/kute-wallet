@@ -1573,9 +1573,6 @@ class AppLocalizationsNl extends AppLocalizations {
       'Deze Jade is niet de Jade die aan deze wallet is gekoppeld. Er is niets ondertekend. Verbind de gekoppelde Jade, of koppel deze opnieuw door de master-fingerprint van de wallet bij te werken.';
 
   @override
-  String get receiveOtherAssets => 'Andere assets ontvangen';
-
-  @override
   String get medium => 'Gemiddeld';
 
   @override
@@ -1670,9 +1667,6 @@ class AppLocalizationsNl extends AppLocalizations {
   String feeAmountSats(String fee) {
     return '$fee sats';
   }
-
-  @override
-  String get memoColon => 'Memo: ';
 
   @override
   String errorMessage(String err) {
@@ -2123,10 +2117,6 @@ class AppLocalizationsNl extends AppLocalizations {
       'Deze route is tijdelijk niet beschikbaar. Probeer het later opnieuw.';
 
   @override
-  String get receiveAssetTemporarilyUnavailable =>
-      'Deze asset ontvangen is tijdelijk niet mogelijk.';
-
-  @override
   String get clipboardEmpty => 'Klembord is leeg';
 
   @override
@@ -2324,11 +2314,6 @@ class AppLocalizationsNl extends AppLocalizations {
   String get receiveBeneficiary => 'Begunstigde';
 
   @override
-  String receiveAssetOnNetwork(String asset, String network) {
-    return '$asset op $network';
-  }
-
-  @override
   String get receiveFailedToGetRate => 'Koers ophalen mislukt';
 
   @override
@@ -2338,10 +2323,6 @@ class AppLocalizationsNl extends AppLocalizations {
   @override
   String get receiveUsdcWalletNotReady =>
       'Je Voorspellingen-rekening wordt nog ingesteld. Probeer het zo opnieuw.';
-
-  @override
-  String get receiveFundsLandAsBitcoin =>
-      'Het geld komt als Bitcoin in je wallet.';
 
   @override
   String get receiveConnectionFailed => 'Verbinding mislukt.';
@@ -3546,10 +3527,6 @@ class AppLocalizationsNl extends AppLocalizations {
   @override
   String get receiveCoinNetworkUnavailable =>
       'Deze munt en dit netwerk zijn nog niet beschikbaar voor stortingen. Kies een andere.';
-
-  @override
-  String get receiveOtherCoinsNotToPredictions =>
-      'Andere munten kunnen niet in Voorspellingen binnenkomen. Ontvang ze in je bestedingswallet en zet ze daarna over.';
 
   @override
   String get activityStables => 'Stablecoins';
@@ -6532,9 +6509,6 @@ class AppLocalizationsNl extends AppLocalizations {
   String get receiveRequestAmount => 'Bedrag vragen';
 
   @override
-  String get receiveBackToBitcoin => 'Terug naar Bitcoin';
-
-  @override
   String get sendRecentRecipients => 'Recent';
 
   @override
@@ -6707,13 +6681,6 @@ class AppLocalizationsNl extends AppLocalizations {
   @override
   String get receiveCoinsLoading =>
       'Munten worden nog geladen. Probeer het zo opnieuw.';
-
-  @override
-  String get receiveAlsoAcceptsTitle => 'Je adres accepteert ook';
-
-  @override
-  String get receiveAlsoAcceptsSubtitle =>
-      'Kies wat er naar je wordt verstuurd. Het komt binnen als bitcoin.';
 
   @override
   String get receivePickNetwork => 'Welk netwerk?';

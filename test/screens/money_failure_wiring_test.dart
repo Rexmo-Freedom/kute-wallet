@@ -215,16 +215,14 @@ void main() {
   });
 
   group('receive requests', () {
-    test('Bitcoin receive: an invoice or an address that could not be made',
-        () {
+    test('Bitcoin receive: an invoice that could not be made', () {
       final src =
           _source('lib/screens/receive/components/confirm_receive.dart');
       expect(_body(src, 'Future<void> _createLightningInvoice('),
           contains('unawaited(moneyFailureFeedback());'));
-      expect(_body(src, 'Future<void> _createReceiveOrder('),
-          contains('unawaited(moneyFailureFeedback());'));
-      // Background polling never taps.
-      expect(_count(src, 'moneyFailureFeedback()'), 2);
+      // Other coins open the Dollars sheet, whose address failure taps
+      // there (below); background polling never taps.
+      expect(_count(src, 'moneyFailureFeedback()'), 1);
     });
 
     test('Dollars receive: the address the person picked a coin for', () {

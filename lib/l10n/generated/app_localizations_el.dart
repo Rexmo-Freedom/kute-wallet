@@ -1575,9 +1575,6 @@ class AppLocalizationsEl extends AppLocalizations {
       'Αυτό το Jade δεν είναι αυτό που έχει συζευχθεί με το πορτοφόλι. Δεν υπογράφηκε τίποτα. Σύνδεσε το συζευγμένο Jade ή κάνε ξανά σύζευξη με αυτό ενημερώνοντας το κύριο αποτύπωμα του πορτοφολιού.';
 
   @override
-  String get receiveOtherAssets => 'Λήψη άλλων στοιχείων';
-
-  @override
   String get medium => 'Μεσαία';
 
   @override
@@ -1675,9 +1672,6 @@ class AppLocalizationsEl extends AppLocalizations {
   String feeAmountSats(String fee) {
     return '$fee sats';
   }
-
-  @override
-  String get memoColon => 'Σημείωμα: ';
 
   @override
   String errorMessage(String err) {
@@ -2133,10 +2127,6 @@ class AppLocalizationsEl extends AppLocalizations {
       'Αυτή η διαδρομή δεν είναι προσωρινά διαθέσιμη. Δοκίμασε αργότερα.';
 
   @override
-  String get receiveAssetTemporarilyUnavailable =>
-      'Η λήψη αυτού του στοιχείου δεν είναι προσωρινά διαθέσιμη.';
-
-  @override
   String get clipboardEmpty => 'Το πρόχειρο είναι άδειο';
 
   @override
@@ -2335,11 +2325,6 @@ class AppLocalizationsEl extends AppLocalizations {
   String get receiveBeneficiary => 'Δικαιούχος';
 
   @override
-  String receiveAssetOnNetwork(String asset, String network) {
-    return '$asset στο $network';
-  }
-
-  @override
   String get receiveFailedToGetRate => 'Αποτυχία λήψης ισοτιμίας';
 
   @override
@@ -2349,10 +2334,6 @@ class AppLocalizationsEl extends AppLocalizations {
   @override
   String get receiveUsdcWalletNotReady =>
       'Ο λογαριασμός Προβλέψεων ρυθμίζεται ακόμα. Δοκίμασε ξανά σε λίγο.';
-
-  @override
-  String get receiveFundsLandAsBitcoin =>
-      'Τα κεφάλαια φτάνουν στο πορτοφόλι σου ως Bitcoin.';
 
   @override
   String get receiveConnectionFailed => 'Η σύνδεση απέτυχε.';
@@ -3567,10 +3548,6 @@ class AppLocalizationsEl extends AppLocalizations {
   @override
   String get receiveCoinNetworkUnavailable =>
       'Αυτό το νόμισμα και δίκτυο δεν είναι ακόμα διαθέσιμα για καταθέσεις. Διάλεξε κάτι άλλο.';
-
-  @override
-  String get receiveOtherCoinsNotToPredictions =>
-      'Άλλα νομίσματα δεν μπορούν να φτάσουν στις Προβλέψεις. Λάβε τα στο πορτοφόλι εξόδων σου και μετά μετάφερέ τα.';
 
   @override
   String get activityStables => 'Stablecoins';
@@ -6559,9 +6536,6 @@ class AppLocalizationsEl extends AppLocalizations {
   String get receiveRequestAmount => 'Ποσό αιτήματος';
 
   @override
-  String get receiveBackToBitcoin => 'Πίσω στο Bitcoin';
-
-  @override
   String get sendRecentRecipients => 'Πρόσφατοι';
 
   @override
@@ -6735,13 +6709,6 @@ class AppLocalizationsEl extends AppLocalizations {
   @override
   String get receiveCoinsLoading =>
       'Τα νομίσματα φορτώνουν ακόμα. Δοκίμασε ξανά σε λίγο.';
-
-  @override
-  String get receiveAlsoAcceptsTitle => 'Η διεύθυνσή σου δέχεται επίσης';
-
-  @override
-  String get receiveAlsoAcceptsSubtitle =>
-      'Διάλεξε τι σου στέλνουν. Φτάνει ως bitcoin.';
 
   @override
   String get receivePickNetwork => 'Ποιο δίκτυο;';

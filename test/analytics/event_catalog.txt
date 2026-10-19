@@ -1,6 +1,5 @@
 account_locked
 account_pool_switched
-accumulation_address_reverify_failed
 activity_history_opened
 add_funds_method_selected
 add_wallet_coming_soon_seen
@@ -490,17 +489,14 @@ receive_address_failed
 receive_address_generated
 receive_also_accepts_coin_picked
 receive_also_accepts_opened
-receive_also_accepts_selected
 receive_amount_entered
 receive_flow_completed
 receive_invoice_generated
-receive_invoice_type_selected
 receive_opened
 receive_qr_format_selected
 receive_qr_shared
 receive_source_selected
 receive_step
-receive_unsupported_asset_picker_opened
 receive_verify_confirmation_shown
 recover_choice_passkey_tapped
 recover_choice_seed_tapped
@@ -523,7 +519,6 @@ restore_started
 restore_step
 restore_write_failed
 reusable_deposit_address_created
-reusable_deposit_address_retired
 reusable_deposit_address_retried
 reusable_deposit_address_reused
 review_prompted

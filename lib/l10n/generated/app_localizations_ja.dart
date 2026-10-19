@@ -1538,9 +1538,6 @@ class AppLocalizationsJa extends AppLocalizations {
       'このJadeはこのウォレットとペアリングされたデバイスではありません。署名は行われていません。ペアリング済みのJadeを接続するか、ウォレットのマスターフィンガープリントを更新してこのJadeを再ペアリングしてください。';
 
   @override
-  String get receiveOtherAssets => '他の資産を受け取る';
-
-  @override
   String get medium => '中速';
 
   @override
@@ -1634,9 +1631,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String feeAmountSats(String fee) {
     return '$fee sats';
   }
-
-  @override
-  String get memoColon => 'メモ：';
 
   @override
   String errorMessage(String err) {
@@ -2063,9 +2057,6 @@ class AppLocalizationsJa extends AppLocalizations {
       'このルートは一時的に利用できません。後でもう一度お試しください。';
 
   @override
-  String get receiveAssetTemporarilyUnavailable => 'この資産の受け取りは一時的に利用できません。';
-
-  @override
   String get clipboardEmpty => 'クリップボードが空です';
 
   @override
@@ -2256,11 +2247,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get receiveBeneficiary => '受取人';
 
   @override
-  String receiveAssetOnNetwork(String asset, String network) {
-    return '$network上の$asset';
-  }
-
-  @override
   String get receiveFailedToGetRate => 'レートを取得できませんでした';
 
   @override
@@ -2269,9 +2255,6 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get receiveUsdcWalletNotReady =>
       '予測アカウントはまだ準備中です。しばらくしてからもう一度お試しください。';
-
-  @override
-  String get receiveFundsLandAsBitcoin => '資金はビットコインとしてウォレットに届きます。';
 
   @override
   String get receiveConnectionFailed => '接続に失敗しました。';
@@ -3432,10 +3415,6 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get receiveCoinNetworkUnavailable =>
       'このコインとネットワークはまだ入金に対応していません。別のものを選択してください。';
-
-  @override
-  String get receiveOtherCoinsNotToPredictions =>
-      'その他のコインは予測で直接受け取れません。支払い用ウォレットで受け取ってから移動してください。';
 
   @override
   String get activityStables => 'ステーブルコイン';
@@ -6259,9 +6238,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get receiveRequestAmount => '金額を指定';
 
   @override
-  String get receiveBackToBitcoin => 'ビットコインに戻る';
-
-  @override
   String get sendRecentRecipients => '最近';
 
   @override
@@ -6421,12 +6397,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get receiveCoinsLoading => 'コインを読み込み中です。しばらくしてからもう一度お試しください。';
-
-  @override
-  String get receiveAlsoAcceptsTitle => 'このアドレスでは以下も受け取れます';
-
-  @override
-  String get receiveAlsoAcceptsSubtitle => '送られてくる通貨を選択してください。ビットコインとして届きます。';
 
   @override
   String get receivePickNetwork => 'どのネットワークですか？';

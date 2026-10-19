@@ -3163,31 +3163,6 @@ class TrackingService {
     });
   }
 
-  /// A cached accumulation address was parked under the retired prefix
-  /// because its (chain, asset) pair fell off Orchestra's receive
-  /// catalog.
-  static void reusableDepositAddressRetired({
-    required String sourceChain,
-    required String sourceAsset,
-  }) {
-    track('reusable_deposit_address_retired', params: {
-      'source_chain': sourceChain,
-      'source_asset': sourceAsset,
-    });
-  }
-
-  /// User tapped the supported-asset picker button on the
-  /// "receiving this asset is temporarily unavailable" notice.
-  static void receiveUnsupportedAssetPickerOpened({
-    required String asset,
-    required String network,
-  }) {
-    track('receive_unsupported_asset_picker_opened', params: {
-      'asset': asset,
-      'network': network,
-    });
-  }
-
   // -- Cash App Buy --
 
   static void cashAppBuyInitiated({required double amountUsd}) {
@@ -6341,18 +6316,6 @@ class TrackingService {
   static void orchestraQuoteRequoted({required String flow}) {
     track('orchestra_quote_requoted',
         params: orchestraQuoteRequotedParams(flow: flow));
-  }
-
-  /// [reason] names the failed check (`destination_asset`, `recipient`,
-  /// `recipient_format`, `deposit_format`).
-  @visibleForTesting
-  static Map<String, Object> accumulationAddressReverifyFailedParams(
-          {required String reason}) =>
-      {'reason': reason};
-
-  static void accumulationAddressReverifyFailed({required String reason}) {
-    track('accumulation_address_reverify_failed',
-        params: accumulationAddressReverifyFailedParams(reason: reason));
   }
 
   /// [mode] is `v2`, the only challenge the app signs.

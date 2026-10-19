@@ -1565,9 +1565,6 @@ class AppLocalizationsDa extends AppLocalizations {
       'Denne Jade er ikke den, der er parret med denne tegnebog. Intet blev signeret. Forbind den parrede Jade, eller par denne igen ved at opdatere tegnebogens master-fingeraftryk.';
 
   @override
-  String get receiveOtherAssets => 'Modtag andre aktiver';
-
-  @override
   String get medium => 'Middel';
 
   @override
@@ -1664,9 +1661,6 @@ class AppLocalizationsDa extends AppLocalizations {
   String feeAmountSats(String fee) {
     return '$fee sats';
   }
-
-  @override
-  String get memoColon => 'Memo: ';
 
   @override
   String errorMessage(String err) {
@@ -2112,10 +2106,6 @@ class AppLocalizationsDa extends AppLocalizations {
       'Denne rute er midlertidigt utilgængelig. Prøv igen senere.';
 
   @override
-  String get receiveAssetTemporarilyUnavailable =>
-      'Det er midlertidigt ikke muligt at modtage dette aktiv.';
-
-  @override
   String get clipboardEmpty => 'Udklipsholderen er tom';
 
   @override
@@ -2312,11 +2302,6 @@ class AppLocalizationsDa extends AppLocalizations {
   String get receiveBeneficiary => 'Modtager';
 
   @override
-  String receiveAssetOnNetwork(String asset, String network) {
-    return '$asset på $network';
-  }
-
-  @override
   String get receiveFailedToGetRate => 'Kunne ikke hente kurs';
 
   @override
@@ -2326,10 +2311,6 @@ class AppLocalizationsDa extends AppLocalizations {
   @override
   String get receiveUsdcWalletNotReady =>
       'Din Forudsigelser-konto er stadig ved at blive sat op. Prøv igen om lidt.';
-
-  @override
-  String get receiveFundsLandAsBitcoin =>
-      'Midlerne lander i din tegnebog som Bitcoin.';
 
   @override
   String get receiveConnectionFailed => 'Forbindelsen mislykkedes.';
@@ -3534,10 +3515,6 @@ class AppLocalizationsDa extends AppLocalizations {
   @override
   String get receiveCoinNetworkUnavailable =>
       'Denne mønt og dette netværk er ikke tilgængelige til indbetalinger endnu. Vælg en anden.';
-
-  @override
-  String get receiveOtherCoinsNotToPredictions =>
-      'Andre mønter kan ikke modtages i Forudsigelser. Modtag dem i din forbrugstegnebog, og flyt dem derefter over.';
 
   @override
   String get activityStables => 'Stablecoins';
@@ -6512,9 +6489,6 @@ class AppLocalizationsDa extends AppLocalizations {
   String get receiveRequestAmount => 'Anmod om beløb';
 
   @override
-  String get receiveBackToBitcoin => 'Tilbage til Bitcoin';
-
-  @override
   String get sendRecentRecipients => 'Seneste';
 
   @override
@@ -6685,13 +6659,6 @@ class AppLocalizationsDa extends AppLocalizations {
   @override
   String get receiveCoinsLoading =>
       'Mønter indlæses stadig. Prøv igen om lidt.';
-
-  @override
-  String get receiveAlsoAcceptsTitle => 'Din adresse accepterer også';
-
-  @override
-  String get receiveAlsoAcceptsSubtitle =>
-      'Vælg, hvad der bliver sendt til dig. Det ankommer som bitcoin.';
 
   @override
   String get receivePickNetwork => 'Hvilket netværk?';

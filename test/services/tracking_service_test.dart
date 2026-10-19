@@ -103,11 +103,6 @@ void main() {
             kind: 'accumulation'),
         {'kind'},
       ),
-      'accumulation_address_reverify_failed': (
-        TrackingService.accumulationAddressReverifyFailedParams(
-            reason: 'deposit_format'),
-        {'reason'},
-      ),
       'wallet_auth_challenge': (
         TrackingService.walletAuthChallengeParams(mode: 'v2'),
         {'mode'},
@@ -137,19 +132,16 @@ void main() {
       addTearDown(() => TrackingService.debugTrackObserver = null);
 
       TrackingService.orchestraQuoteRequoted(flow: 'pm_withdraw');
-      TrackingService.accumulationAddressReverifyFailed(reason: 'recipient');
       TrackingService.walletAuthChallenge(mode: 'v2');
       TrackingService.walletSessionAuth(route: 'pm_relay', outcome: 'unavailable');
 
       expect(seen.map((e) => e.$1), [
         'orchestra_quote_requoted',
-        'accumulation_address_reverify_failed',
         'wallet_auth_challenge',
         'wallet_session_auth',
       ]);
       expect(seen.map((e) => e.$2), [
         <String, Object>{'flow': 'pm_withdraw'},
-        <String, Object>{'reason': 'recipient'},
         <String, Object>{'mode': 'v2'},
         <String, Object>{'route': 'pm_relay', 'outcome': 'unavailable'},
       ]);

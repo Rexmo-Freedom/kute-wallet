@@ -1,10 +1,11 @@
-// The Bitcoin receive says the smallest deposit an address takes, in the
-// caption style under it. The wallet's own Bitcoin address (the Spark
-// static deposit address, "Bitcoin only") shows the claim-fee minimum in
-// sats with its dollar value; Lightning and the unified code show none;
-// another coin's Orchestra address shows the route minimum with the
-// $1.00 floor. `receive_address_generated` carries the minimum shown and
-// where it came from. The rails are stubbed.
+// The Bitcoin receive's own codes (the unified code, Bitcoin only, and
+// Lightning only) show no minimum: the network sets none. Other coins are
+// taken only through the Dollars receive's own sheet, opened over this one
+// from the "other coins" line, with a note that the money lands in the
+// Investments dollar balance: its standing `spark:USDB` addresses, its
+// "Minimum $1.00" and its deposit cards. The line lists only coins that
+// can get a standing address, and is gone when none can. The rails are
+// stubbed.
 
 import 'dart:io';
 
@@ -21,25 +22,21 @@ import 'package:kute/models/account.dart';
 import 'package:kute/models/breez/lnurl_model.dart';
 import 'package:kute/models/breez/sdk_instance.dart' show BreezSdkSpark;
 import 'package:kute/models/currency_conversions.dart';
-import 'package:kute/models/orchestra_route_limits.dart';
 import 'package:kute/models/orchestra_routes_model.dart';
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/accounts_provider.dart';
 import 'package:kute/providers/breez_config_provider.dart'
     show breezSDKProvider;
-import 'package:kute/providers/breez_provider.dart'
-    show setupLnAddressProvider;
+import 'package:kute/providers/breez_provider.dart' show setupLnAddressProvider;
 import 'package:kute/providers/currency_conversions_provider.dart';
 import 'package:kute/providers/orchestra_supported_routes_provider.dart';
-import 'package:kute/providers/pending_asset_provider.dart'
-    show pendingReceiveOpenOtherAssetsProvider;
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show walletAddressProvider;
 import 'package:kute/screens/receive/components/confirm_receive.dart';
 import 'package:kute/screens/shared/coin_asset_grid.dart';
 import 'package:kute/screens/shared/receive_surface.dart';
-import 'package:kute/services/orchestra/receive_minimums.dart';
+import 'package:kute/screens/usd/usd_receive_screen.dart';
 import 'package:kute/services/orchestra/reusable_deposit_address.dart';
 import 'package:kute/services/orchestra/standing_deposit_store.dart'
     show StandingDepositStore;
@@ -88,7 +85,8 @@ const _spark =
 final _wallet = WalletConfig(id: 'spending', name: 'Spending');
 
 Future<void> _pump(WidgetTester tester,
-    {ReceiveMinimums? minimums, bool openOtherAssets = false}) async {
+    {Set<String> standing = const {'spark:USDB'},
+    List<Map<String, dynamic>>? assets}) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
@@ -117,16 +115,19 @@ Future<void> _pump(WidgetTester tester,
       orchestraSupportedRoutesProvider.overrideWith((_) => _Routes(
             OrchestraRoutesCatalog.fromJson(
               {
-                'assets': [
-                  _row('spark', 'BTC', decimals: 8),
-                  _row('ethereum', 'USDT'),
-                ],
+                'assets': assets ??
+                    [
+                      _row('spark', 'BTC', decimals: 8),
+                      _row('spark', 'USDB'),
+                      _row('ethereum', 'USDT'),
+                    ],
               },
               source: OrchestraCatalogSource.live,
               fetchedAt: DateTime.now(),
             ),
           )),
       orchestraRoutesReadyProvider.overrideWith((_) async {}),
+      standingDestinationsProvider.overrideWith((_) async => standing),
       // Bitcoin at $60,000.
       selectedCurrencyProvider.overrideWith(
           (ref, code) => Money.fromIntWithCurrency(6000000, AppCurrencies.usd)),
@@ -134,9 +135,6 @@ Future<void> _pump(WidgetTester tester,
       setupLnAddressProvider.overrideWith(
           (ref) async => Lnurl(lightningAddress: _lnAddress, lnurl: _lnurl)),
       breezSDKProvider.overrideWith((_) async => wrapper),
-      if (minimums != null) receiveMinimumsProvider.overrideWithValue(minimums),
-      pendingReceiveOpenOtherAssetsProvider
-          .overrideWith((_) => openOtherAssets),
     ],
     child: ScreenUtilInit(
       designSize: const Size(430, 932),
@@ -185,6 +183,8 @@ Future<void> _format(WidgetTester tester, String label) async {
 
 final _minimum = find.byKey(const ValueKey('receive-minimum'));
 
+final resolvedInto = <String>[];
+
 void main() {
   late List<(String, Map<String, Object>?)> events;
 
@@ -206,14 +206,17 @@ void main() {
     events = [];
     TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
     ReusableDepositAddressService.debugResolver = (
-            {required sourceChain,
-            required sourceAsset,
-            required destinationAsset}) async =>
-        const ReusableDepositAddress(
-            address: _deposit,
-            id: 'acc_test',
-            kuteFeeBps: null,
-            model: DepositAddressModel.accumulation);
+        {required sourceChain,
+        required sourceAsset,
+        required destinationAsset}) async {
+      resolvedInto.add(destinationAsset);
+      return const ReusableDepositAddress(
+          address: _deposit,
+          id: 'sda_test',
+          kuteFeeBps: null,
+          model: DepositAddressModel.standing);
+    };
+    resolvedInto.clear();
   });
 
   tearDown(() {
@@ -267,37 +270,62 @@ void main() {
   });
 
   testWidgets(
-      'another coin into Bitcoin: the Orchestra address shows the route '
-      'minimum with the \$1.00 floor, read for that exact pair',
-      (tester) async {
-    final asked = <RouteKey>[];
-    await _pump(tester,
-        openOtherAssets: true,
-        minimums: ReceiveMinimums(fetch: (route) async {
-          asked.add(route);
-          return const OrchestraRouteLimits(orderMinUsdCents: 80);
-        }));
-    expect(find.byType(CoinAssetPickerSheet), findsOneWidget);
+      'other coins opens the Dollars receive sheet over this one, with the '
+      'Investments note, and its addresses are spark:USDB', (tester) async {
+    await _pump(tester);
+    expect(find.text(_l10n.receiveAlsoAccepts), findsOneWidget);
+    await tester.tap(find.text(_l10n.receiveAlsoAccepts));
+    await _settle(tester);
+
+    final sheet =
+        tester.widget<UsdReceiveScreen>(find.byType(UsdReceiveScreen));
+    expect(sheet.fromBitcoinReceive, isTrue);
+    // A bottom sheet over the Bitcoin receive, which stays underneath.
+    expect(find.byType(BottomSheet), findsOneWidget);
+    expect(find.byType(ConfirmReceive, skipOffstage: false), findsOneWidget);
+    expect(find.byKey(const ValueKey('usd-receive-from-bitcoin-note')),
+        findsOneWidget);
+    expect(find.text(_l10n.moveDestDollarsSubtitle), findsOneWidget);
+    final opened = events.where((e) => e.$1 == 'usd_receive_opened').single.$2!;
+    expect(opened['entry_source'], kUsdReceiveFromBitcoinReceiveSource);
+    expect(events.where((e) => e.$1 == 'receive_also_accepts_opened'),
+        hasLength(1));
+
+    // A coin picked there gets the Dollars receive's standing address.
     await tester.tap(find.widgetWithText(CoinAssetTile, 'USDT').first);
     await _settle(tester);
+    expect(resolvedInto, ['USDB']);
     expect(
-        tester
-            .widget<ReceiveAddressLine>(find.byType(ReceiveAddressLine))
-            .address,
-        _deposit);
-    expect(find.text(_l10n.amountMinimumInline('\$1.00')), findsOneWidget);
-    expect(asked, [
-      RouteKey(
-          fromChain: 'ethereum',
-          fromAsset: 'USDT',
-          toChain: 'spark',
-          toAsset: 'BTC'),
+        find.byWidgetPredicate(
+            (w) => w is ReceiveAddressLine && w.address == _deposit),
+        findsOneWidget);
+    // The note stays under the address, and the minimum is the Dollars
+    // receive's own.
+    expect(find.byKey(const ValueKey('usd-receive-from-bitcoin-note')),
+        findsOneWidget);
+    final generated = addressEvents().last!;
+    expect(generated['destination'], 'spark_usd');
+    expect(generated['entry_source'], 'bitcoin_receive');
+    expect(generated['provider'], 'orchestra');
+    expect(generated.keys, isNot(contains('address')));
+    await _unmount(tester);
+  });
+
+  testWidgets(
+      'a coin the standing rail cannot fund is not listed, and with no coin '
+      'left the line is gone', (tester) async {
+    // Tron carries USDT only on the standing rail.
+    await _pump(tester, assets: [
+      _row('spark', 'BTC', decimals: 8),
+      _row('spark', 'USDB'),
+      _row('tron', 'USDC'),
     ]);
-    final event = addressEvents().single!;
-    expect(event['provider'], 'orchestra');
-    expect(event['destination'], 'spark_btc');
-    expect(event['min_deposit_usd'], 1.0);
-    expect(event['min_source'], 'live');
+    expect(find.text(_l10n.receiveAlsoAccepts), findsNothing);
+    await _unmount(tester);
+
+    // No standing spark:USDB destination: nothing to offer either.
+    await _pump(tester, standing: const {'bitcoin:BTC'});
+    expect(find.text(_l10n.receiveAlsoAccepts), findsNothing);
     await _unmount(tester);
   });
 }

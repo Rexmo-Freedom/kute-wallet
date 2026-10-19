@@ -1575,9 +1575,6 @@ class AppLocalizationsDe extends AppLocalizations {
       'Dieses Jade ist nicht das mit diesem Wallet gekoppelte. Es wurde nichts signiert. Verbinde das gekoppelte Jade oder kopple dieses neu, indem du den Master-Fingerprint des Wallets aktualisierst.';
 
   @override
-  String get receiveOtherAssets => 'Andere Assets empfangen';
-
-  @override
   String get medium => 'Mittel';
 
   @override
@@ -1674,9 +1671,6 @@ class AppLocalizationsDe extends AppLocalizations {
   String feeAmountSats(String fee) {
     return '$fee sats';
   }
-
-  @override
-  String get memoColon => 'Memo: ';
 
   @override
   String errorMessage(String err) {
@@ -2131,10 +2125,6 @@ class AppLocalizationsDe extends AppLocalizations {
       'Diese Route ist vorübergehend nicht verfügbar. Bitte versuche es später erneut.';
 
   @override
-  String get receiveAssetTemporarilyUnavailable =>
-      'Der Empfang dieses Assets ist vorübergehend nicht verfügbar.';
-
-  @override
   String get clipboardEmpty => 'Zwischenablage ist leer';
 
   @override
@@ -2332,11 +2322,6 @@ class AppLocalizationsDe extends AppLocalizations {
   String get receiveBeneficiary => 'Begünstigter';
 
   @override
-  String receiveAssetOnNetwork(String asset, String network) {
-    return '$asset auf $network';
-  }
-
-  @override
   String get receiveFailedToGetRate => 'Kurs konnte nicht abgerufen werden';
 
   @override
@@ -2346,10 +2331,6 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get receiveUsdcWalletNotReady =>
       'Dein Prognosen-Konto wird noch eingerichtet. Versuche es gleich noch einmal.';
-
-  @override
-  String get receiveFundsLandAsBitcoin =>
-      'Das Geld kommt als Bitcoin in deinem Wallet an.';
 
   @override
   String get receiveConnectionFailed => 'Verbindung fehlgeschlagen.';
@@ -3562,10 +3543,6 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get receiveCoinNetworkUnavailable =>
       'Dieser Coin und dieses Netzwerk sind für Einzahlungen noch nicht verfügbar. Wähle etwas anderes.';
-
-  @override
-  String get receiveOtherCoinsNotToPredictions =>
-      'Andere Coins können nicht in Prognosen ankommen. Empfange sie in deinem Ausgaben-Wallet und verschiebe sie dann.';
 
   @override
   String get activityStables => 'Stablecoins';
@@ -6558,9 +6535,6 @@ class AppLocalizationsDe extends AppLocalizations {
   String get receiveRequestAmount => 'Betrag anfordern';
 
   @override
-  String get receiveBackToBitcoin => 'Zurück zu Bitcoin';
-
-  @override
   String get sendRecentRecipients => 'Zuletzt';
 
   @override
@@ -6734,13 +6708,6 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get receiveCoinsLoading =>
       'Coins werden noch geladen. Versuche es gleich noch einmal.';
-
-  @override
-  String get receiveAlsoAcceptsTitle => 'Deine Adresse akzeptiert auch';
-
-  @override
-  String get receiveAlsoAcceptsSubtitle =>
-      'Wähle, was an dich gesendet wird. Es kommt als Bitcoin an.';
 
   @override
   String get receivePickNetwork => 'Welches Netzwerk?';

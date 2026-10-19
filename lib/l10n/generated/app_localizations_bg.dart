@@ -1567,9 +1567,6 @@ class AppLocalizationsBg extends AppLocalizations {
       'Този Jade не е сдвоеният с този портфейл. Нищо не е подписано. Свържи сдвоения Jade или сдвои този наново, като обновиш главния пръстов отпечатък на портфейла.';
 
   @override
-  String get receiveOtherAssets => 'Получи други активи';
-
-  @override
   String get medium => 'Средна';
 
   @override
@@ -1666,9 +1663,6 @@ class AppLocalizationsBg extends AppLocalizations {
   String feeAmountSats(String fee) {
     return '$fee sats';
   }
-
-  @override
-  String get memoColon => 'Бележка: ';
 
   @override
   String errorMessage(String err) {
@@ -2118,10 +2112,6 @@ class AppLocalizationsBg extends AppLocalizations {
       'Този маршрут временно не е достъпен. Опитай отново по-късно.';
 
   @override
-  String get receiveAssetTemporarilyUnavailable =>
-      'Получаването на този актив временно не е достъпно.';
-
-  @override
   String get clipboardEmpty => 'Клипбордът е празен';
 
   @override
@@ -2319,11 +2309,6 @@ class AppLocalizationsBg extends AppLocalizations {
   String get receiveBeneficiary => 'Бенефициент';
 
   @override
-  String receiveAssetOnNetwork(String asset, String network) {
-    return '$asset в $network';
-  }
-
-  @override
   String get receiveFailedToGetRate => 'Курсът не можа да се вземе';
 
   @override
@@ -2333,10 +2318,6 @@ class AppLocalizationsBg extends AppLocalizations {
   @override
   String get receiveUsdcWalletNotReady =>
       'Акаунтът ти за Прогнози още се настройва. Опитай отново след малко.';
-
-  @override
-  String get receiveFundsLandAsBitcoin =>
-      'Средствата пристигат в портфейла ти като Bitcoin.';
 
   @override
   String get receiveConnectionFailed => 'Връзката не успя.';
@@ -3541,10 +3522,6 @@ class AppLocalizationsBg extends AppLocalizations {
   @override
   String get receiveCoinNetworkUnavailable =>
       'Тази монета и мрежа още не са достъпни за депозити. Избери друга.';
-
-  @override
-  String get receiveOtherCoinsNotToPredictions =>
-      'Другите монети не могат да пристигнат в Прогнози. Получи ги в портфейла за плащания и после ги прехвърли.';
 
   @override
   String get activityStables => 'Стейбълкойни';
@@ -6520,9 +6497,6 @@ class AppLocalizationsBg extends AppLocalizations {
   String get receiveRequestAmount => 'Поискай сума';
 
   @override
-  String get receiveBackToBitcoin => 'Обратно към Bitcoin';
-
-  @override
   String get sendRecentRecipients => 'Скорошни';
 
   @override
@@ -6695,13 +6669,6 @@ class AppLocalizationsBg extends AppLocalizations {
   @override
   String get receiveCoinsLoading =>
       'Монетите още се зареждат. Опитай отново след малко.';
-
-  @override
-  String get receiveAlsoAcceptsTitle => 'Адресът ти приема също';
-
-  @override
-  String get receiveAlsoAcceptsSubtitle =>
-      'Избери какво ти се изпраща. Пристига като bitcoin.';
 
   @override
   String get receivePickNetwork => 'Коя мрежа?';

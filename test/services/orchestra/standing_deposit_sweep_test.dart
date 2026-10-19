@@ -127,6 +127,9 @@ void main() {
       'source_chain': 'polygon',
       'source_asset': 'USDC',
       'destination_asset': 'USDB',
+      'model': 'standing',
+      // The provider's own word, kept as it came (an open set).
+      'provider_status': 'pending',
       'amount': 1.0,
       'linked_order': false,
       'instruction': 'receive',
@@ -261,5 +264,56 @@ void main() {
     expect(
         of(_deposit(status: 'processing', batchState: 'refunded')), 'refunded');
     expect(of(_deposit(status: 'failed', orderId: 'ord_1')), 'expired');
+  });
+
+  test(
+      'with no linked order the batch states held and refund_requested win '
+      'over the transfer status', () {
+    String of(Map<String, dynamic> d) => standingDepositRowStatus(d);
+    expect(of(_deposit(status: 'processing', batchState: 'held')), 'held');
+    expect(of(_deposit(status: 'detected', batchState: 'refund_requested')),
+        'refund_requested');
+    expect(of(_deposit(status: 'processing', batchState: 'preparing')),
+        'exchanging');
+    // A linked order's own status wins.
+    expect(
+        of(_deposit(
+            status: 'processing', batchState: 'held', orderId: 'ord_1')),
+        'exchanging');
+  });
+
+  test(
+      'an unknown status, an unlisted token and a zero-conf offer still get '
+      'a card', () async {
+    listing = [
+      {
+        ..._deposit(status: 'quarantined_v2', code: 'standing_identity_pair'),
+        // Someone sent a token the catalogue does not list.
+        'asset': '0x9999999999999999999999999999999999999999',
+        // Bitcoin-source only, and never accepted by the app.
+        'zeroconfOffer': {'offerId': 'zc_1', 'feeSats': 120},
+      }
+    ];
+    await run();
+    final row = rows.byId['sdep_dep_1']!;
+    expect(row.isPending, isTrue);
+    expect(row.coinFrom, '0x9999999999999999999999999999999999999999');
+    expect(row.networkFrom, 'polygon');
+    final event = statusEvents().single!;
+    expect(event['provider_status'], 'quarantined_v2');
+    expect(event['provider_code'], 'standing_identity_pair');
+    expect(event.keys, isNot(contains('zeroconfOffer')));
+
+    // A deposit in the destination asset itself is held, with the refund.
+    rows = _Rows();
+    events.clear();
+    listing = [
+      {
+        ..._deposit(status: 'held', code: 'standing_identity_pair'),
+        'asset': 'USDB',
+      }
+    ];
+    await run();
+    expect(rows.byId['sdep_dep_1']!.status, 'held');
   });
 }

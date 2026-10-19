@@ -3062,12 +3062,6 @@ abstract class AppLocalizations {
   /// **'This Jade isn\'t the one paired with this wallet. Nothing was signed. Connect the paired Jade, or re-pair this one by updating the wallet\'s master fingerprint.'**
   String get jadeErrorWrongDevice;
 
-  /// No description provided for @receiveOtherAssets.
-  ///
-  /// In en, this message translates to:
-  /// **'Receive other assets'**
-  String get receiveOtherAssets;
-
   /// No description provided for @medium.
   ///
   /// In en, this message translates to:
@@ -3253,12 +3247,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{fee} sats'**
   String feeAmountSats(String fee);
-
-  /// No description provided for @memoColon.
-  ///
-  /// In en, this message translates to:
-  /// **'Memo: '**
-  String get memoColon;
 
   /// No description provided for @errorMessage.
   ///
@@ -4010,12 +3998,6 @@ abstract class AppLocalizations {
   /// **'This route is temporarily unavailable. Please try again later.'**
   String get swapRouteTemporarilyUnavailable;
 
-  /// No description provided for @receiveAssetTemporarilyUnavailable.
-  ///
-  /// In en, this message translates to:
-  /// **'Receiving this asset is temporarily unavailable.'**
-  String get receiveAssetTemporarilyUnavailable;
-
   /// No description provided for @clipboardEmpty.
   ///
   /// In en, this message translates to:
@@ -4364,12 +4346,6 @@ abstract class AppLocalizations {
   /// **'Beneficiary'**
   String get receiveBeneficiary;
 
-  /// No description provided for @receiveAssetOnNetwork.
-  ///
-  /// In en, this message translates to:
-  /// **'{asset} on {network}'**
-  String receiveAssetOnNetwork(String asset, String network);
-
   /// No description provided for @receiveFailedToGetRate.
   ///
   /// In en, this message translates to:
@@ -4387,12 +4363,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Your Predictions account is still setting up. Try again in a moment.'**
   String get receiveUsdcWalletNotReady;
-
-  /// No description provided for @receiveFundsLandAsBitcoin.
-  ///
-  /// In en, this message translates to:
-  /// **'Funds land on your wallet as Bitcoin.'**
-  String get receiveFundsLandAsBitcoin;
 
   /// No description provided for @receiveConnectionFailed.
   ///
@@ -6386,12 +6356,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'This coin and network are not available for deposits yet. Pick another one.'**
   String get receiveCoinNetworkUnavailable;
-
-  /// Shown when a cross-chain receive is attempted into the Predictions balance, which settles at an address the conversion cannot pay.
-  ///
-  /// In en, this message translates to:
-  /// **'Other coins cannot arrive in Predictions. Receive them in your spending wallet, then move them across.'**
-  String get receiveOtherCoinsNotToPredictions;
 
   /// No description provided for @activityStables.
   ///
@@ -11386,12 +11350,6 @@ abstract class AppLocalizations {
   /// **'Request amount'**
   String get receiveRequestAmount;
 
-  /// No description provided for @receiveBackToBitcoin.
-  ///
-  /// In en, this message translates to:
-  /// **'Back to Bitcoin'**
-  String get receiveBackToBitcoin;
-
   /// No description provided for @sendRecentRecipients.
   ///
   /// In en, this message translates to:
@@ -11685,18 +11643,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Coins are still loading. Try again in a moment.'**
   String get receiveCoinsLoading;
-
-  /// Heading of the sheet that lists the coins the bitcoin receive address accepts.
-  ///
-  /// In en, this message translates to:
-  /// **'Your address also accepts'**
-  String get receiveAlsoAcceptsTitle;
-
-  /// Subtitle of the Also accepts sheet.
-  ///
-  /// In en, this message translates to:
-  /// **'Pick what is being sent to you. It arrives as bitcoin.'**
-  String get receiveAlsoAcceptsSubtitle;
 
   /// Subtitle of the second pane of the Also accepts sheet, once a coin is picked and it lives on more than one network.
   ///

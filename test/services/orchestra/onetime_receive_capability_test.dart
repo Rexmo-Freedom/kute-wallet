@@ -57,6 +57,9 @@ OrchestraReceiveOption _option(String chain, String asset,
       reusableAddress: reusable,
     );
 
+/// Both receives' standing destinations, as the provider lists them.
+const _standing = {'spark:BTC', 'spark:USDB'};
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   final l10n = l10nForLanguage('en');
@@ -93,11 +96,13 @@ void main() {
     test('bitcoin and dollar receive offer one-time and reusable rows', () {
       expect(oneTimeReceiveAllowed(policy), isTrue);
       expect(
-          _ids(receiveCoinGroups(_catalog(), l10n, policy: policy)),
+          _ids(receiveCoinGroups(_catalog(), l10n,
+              standingDestinations: _standing, policy: policy)),
           unorderedEquals(
               ['base:USDC', 'arbitrum:USDT', 'litecoin:LTC', 'ton:USDT']));
       expect(
           _ids(receiveCoinGroups(_catalog(), l10n,
+              standingDestinations: _standing,
               destinationChain: 'spark',
               destinationAsset: 'USDB',
               policy: policy)),
@@ -128,10 +133,15 @@ void main() {
 
     test('only reusable rows remain, on bitcoin and on dollars', () {
       expect(oneTimeReceiveAllowed(policy), isFalse);
-      expect(_ids(receiveCoinGroups(_catalog(), l10n, policy: policy)),
+      expect(
+          _ids(receiveCoinGroups(_catalog(), l10n,
+              standingDestinations: _standing, policy: policy)),
           unorderedEquals(['base:USDC', 'arbitrum:USDT']));
       final dollars = _ids(receiveCoinGroups(_catalog(), l10n,
-          destinationChain: 'spark', destinationAsset: 'USDB', policy: policy));
+          standingDestinations: _standing,
+          destinationChain: 'spark',
+          destinationAsset: 'USDB',
+          policy: policy));
       expect(dollars, contains('base:USDC'));
       // Bitcoin into dollars, Litecoin and TON are one-time quotes only.
       expect(dollars, isNot(contains('bitcoin:BTC')));
@@ -170,7 +180,9 @@ void main() {
     expect(oneTimeReceiveAllowed(policy), isFalse);
     expect(policy.decision(kOneTimeAddressCapability).reason,
         'policy_unavailable');
-    expect(_ids(receiveCoinGroups(_catalog(), l10n, policy: policy)),
+    expect(
+        _ids(receiveCoinGroups(_catalog(), l10n,
+            standingDestinations: _standing, policy: policy)),
         unorderedEquals(['base:USDC', 'arbitrum:USDT']));
   });
 }

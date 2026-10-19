@@ -1,11 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:kute/handlers/response_handlers.dart';
 import 'package:kute/l10n/l10n.dart' show l10nForLanguage;
 import 'package:kute/models/orchestra_routes_model.dart';
 import 'package:kute/screens/shared/coin_asset_grid.dart'
     show receiveCoinGroups;
-import 'package:kute/services/accumulation_address_cache.dart'
-    show kRouteNoLongerAvailableError;
 import 'package:kute/services/api/orchestra_api.dart'
     show StandingRequestException;
 import 'package:kute/services/orchestra/receive_route_availability.dart';
@@ -63,7 +60,7 @@ void main() {
           'unsupported_source');
       expect(
           ReceiveRouteAvailability.refusalCategory(
-              kRouteNoLongerAvailableError),
+              'This swap route is no longer available.'),
           'no_route');
     });
 
@@ -117,17 +114,6 @@ void main() {
       }
       expect(denial, isA<CapabilityUnavailableException>());
       expect(ReceiveRouteAvailability.refusalCategory(denial), isNull);
-    });
-
-    test('a legacy Result carries its status and code into the answer', () {
-      expect(
-          ReceiveRouteAvailability.refusalCategoryOf(
-              Result<Object?>(error: 'Invalid request', statusCode: 404)),
-          'no_route');
-      expect(
-          ReceiveRouteAvailability.refusalCategoryOf(
-              Result<Object?>(error: 'upstream timeout', statusCode: 502)),
-          isNull);
     });
   });
 
@@ -226,6 +212,7 @@ void main() {
       expect(await policy.refresh(), isTrue);
       final l10n = l10nForLanguage('en');
       List<String> coins() => receiveCoinGroups(catalog, l10n,
+              standingDestinations: const {'spark:USDB'},
               destinationChain: kOrchestraUsdChain,
               destinationAsset: kOrchestraUsdAssetCode,
               policy: policy)

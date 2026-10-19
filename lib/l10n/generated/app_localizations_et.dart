@@ -1564,9 +1564,6 @@ class AppLocalizationsEt extends AppLocalizations {
       'See Jade ei ole selle rahakotiga seotud. Midagi ei allkirjastatud. Ühenda seotud Jade või seo see uuesti, uuendades rahakoti peasõrmejälge.';
 
   @override
-  String get receiveOtherAssets => 'Võta vastu muid varasid';
-
-  @override
   String get medium => 'Keskmine';
 
   @override
@@ -1661,9 +1658,6 @@ class AppLocalizationsEt extends AppLocalizations {
   String feeAmountSats(String fee) {
     return '$fee sats';
   }
-
-  @override
-  String get memoColon => 'Memo: ';
 
   @override
   String errorMessage(String err) {
@@ -2110,10 +2104,6 @@ class AppLocalizationsEt extends AppLocalizations {
       'See marsruut pole ajutiselt saadaval. Proovi hiljem uuesti.';
 
   @override
-  String get receiveAssetTemporarilyUnavailable =>
-      'Selle vara vastuvõtmine pole ajutiselt saadaval.';
-
-  @override
   String get clipboardEmpty => 'Lõikelaud on tühi';
 
   @override
@@ -2311,11 +2301,6 @@ class AppLocalizationsEt extends AppLocalizations {
   String get receiveBeneficiary => 'Saaja';
 
   @override
-  String receiveAssetOnNetwork(String asset, String network) {
-    return '$asset võrgus $network';
-  }
-
-  @override
   String get receiveFailedToGetRate => 'Kurssi ei õnnestunud saada';
 
   @override
@@ -2325,10 +2310,6 @@ class AppLocalizationsEt extends AppLocalizations {
   @override
   String get receiveUsdcWalletNotReady =>
       'Sinu Ennustuste konto on veel seadistamisel. Proovi hetke pärast uuesti.';
-
-  @override
-  String get receiveFundsLandAsBitcoin =>
-      'Raha jõuab sinu rahakotti Bitcoinina.';
 
   @override
   String get receiveConnectionFailed => 'Ühendus ebaõnnestus.';
@@ -3527,10 +3508,6 @@ class AppLocalizationsEt extends AppLocalizations {
   @override
   String get receiveCoinNetworkUnavailable =>
       'See münt ja võrk pole sissemaksete jaoks veel saadaval. Vali mõni muu.';
-
-  @override
-  String get receiveOtherCoinsNotToPredictions =>
-      'Muud mündid ei saa saabuda Ennustustesse. Võta need vastu kulutusrahakotti ja liiguta seejärel üle.';
 
   @override
   String get activityStables => 'Stabiilsed mündid';
@@ -6495,9 +6472,6 @@ class AppLocalizationsEt extends AppLocalizations {
   String get receiveRequestAmount => 'Taotle summat';
 
   @override
-  String get receiveBackToBitcoin => 'Tagasi Bitcoini juurde';
-
-  @override
   String get sendRecentRecipients => 'Hiljutised';
 
   @override
@@ -6668,13 +6642,6 @@ class AppLocalizationsEt extends AppLocalizations {
   @override
   String get receiveCoinsLoading =>
       'Mündid alles laadivad. Proovi hetke pärast uuesti.';
-
-  @override
-  String get receiveAlsoAcceptsTitle => 'Sinu aadress võtab vastu ka';
-
-  @override
-  String get receiveAlsoAcceptsSubtitle =>
-      'Vali, mida sulle saadetakse. See saabub bitcoinina.';
 
   @override
   String get receivePickNetwork => 'Milline võrk?';

@@ -15,6 +15,8 @@ import 'package:hive_ce/hive.dart';
 import 'package:kute/services/venue_total_cache_service.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_account_cache.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:kute/services/orchestra/bitcoin_receive_marks.dart'
+    show BitcoinReceiveMarks;
 
 class WalletConfig {
   final String id;
@@ -581,6 +583,7 @@ class SettingsModel extends StateNotifier<Settings> {
     await _wipePerWalletHiveData(walletId);
     await PendingReceiveQuoteCache.deleteForWallet(walletId);
     await StandingDepositStore.deleteWallet(walletId);
+    await BitcoinReceiveMarks.deleteWallet(walletId);
 
     final box = await Hive.openBox('settings');
     final updatedList = state.wallets.where((w) => w.id != walletId).toList();

@@ -126,11 +126,6 @@ void main() {
       await OrchestraService.submitDeposit(quoteId: 'q_1', sparkTxHash: 'h');
       await OrchestraService.getStatus('q_1');
       await OrchestraService.getHistory('a');
-      await OrchestraService.createAccumulationAddress(
-          sourceChain: 'arbitrum',
-          sourceAsset: 'USDC',
-          destinationAsset: 'BTC',
-          recipientSparkAddress: 's');
       await OrchestraService.getAccumulationAddresses();
       await OrchestraService.deleteAccumulationAddress('a1');
       await OrchestraService.createLiquidationAddress(
@@ -159,7 +154,6 @@ void main() {
       'POST /api/v1/orchestra/submit',
       'GET /api/v1/orchestra/status',
       'GET /api/v1/orchestra/history',
-      'POST /api/v1/orchestra/accumulation-addresses',
       'GET /api/v1/orchestra/accumulation-addresses',
       'DELETE /api/v1/orchestra/accumulation-addresses/a1',
       'POST /api/v1/orchestra/liquidation-addresses',

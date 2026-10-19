@@ -1570,9 +1570,6 @@ class AppLocalizationsRo extends AppLocalizations {
       'Acest Jade nu este cel asociat cu portofelul. Nu s-a semnat nimic. Conectează Jade-ul asociat sau asociază-l pe acesta actualizând amprenta principală a portofelului.';
 
   @override
-  String get receiveOtherAssets => 'Primește alte active';
-
-  @override
   String get medium => 'Mediu';
 
   @override
@@ -1669,9 +1666,6 @@ class AppLocalizationsRo extends AppLocalizations {
   String feeAmountSats(String fee) {
     return '$fee sats';
   }
-
-  @override
-  String get memoColon => 'Memo: ';
 
   @override
   String errorMessage(String err) {
@@ -2123,10 +2117,6 @@ class AppLocalizationsRo extends AppLocalizations {
       'Această rută este temporar indisponibilă. Încearcă mai târziu.';
 
   @override
-  String get receiveAssetTemporarilyUnavailable =>
-      'Primirea acestui activ este temporar indisponibilă.';
-
-  @override
   String get clipboardEmpty => 'Clipboardul este gol';
 
   @override
@@ -2324,11 +2314,6 @@ class AppLocalizationsRo extends AppLocalizations {
   String get receiveBeneficiary => 'Beneficiar';
 
   @override
-  String receiveAssetOnNetwork(String asset, String network) {
-    return '$asset pe $network';
-  }
-
-  @override
   String get receiveFailedToGetRate => 'Cursul nu a putut fi obținut';
 
   @override
@@ -2338,10 +2323,6 @@ class AppLocalizationsRo extends AppLocalizations {
   @override
   String get receiveUsdcWalletNotReady =>
       'Contul tău de Predicții încă se configurează. Încearcă din nou în câteva momente.';
-
-  @override
-  String get receiveFundsLandAsBitcoin =>
-      'Fondurile ajung în portofel ca Bitcoin.';
 
   @override
   String get receiveConnectionFailed => 'Conexiune eșuată.';
@@ -3549,10 +3530,6 @@ class AppLocalizationsRo extends AppLocalizations {
   @override
   String get receiveCoinNetworkUnavailable =>
       'Această monedă și rețea nu sunt încă disponibile pentru depuneri. Alege alta.';
-
-  @override
-  String get receiveOtherCoinsNotToPredictions =>
-      'Alte monede nu pot ajunge în Predicții. Primește-le în portofelul de cheltuieli, apoi mută-le.';
 
   @override
   String get activityStables => 'Stablecoinuri';
@@ -6545,9 +6522,6 @@ class AppLocalizationsRo extends AppLocalizations {
   String get receiveRequestAmount => 'Cere o sumă';
 
   @override
-  String get receiveBackToBitcoin => 'Înapoi la Bitcoin';
-
-  @override
   String get sendRecentRecipients => 'Recente';
 
   @override
@@ -6721,13 +6695,6 @@ class AppLocalizationsRo extends AppLocalizations {
   @override
   String get receiveCoinsLoading =>
       'Monedele încă se încarcă. Încearcă din nou în câteva momente.';
-
-  @override
-  String get receiveAlsoAcceptsTitle => 'Adresa ta acceptă și';
-
-  @override
-  String get receiveAlsoAcceptsSubtitle =>
-      'Alege ce ți se trimite. Ajunge ca bitcoin.';
 
   @override
   String get receivePickNetwork => 'Ce rețea?';

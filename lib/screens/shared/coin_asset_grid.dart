@@ -34,6 +34,8 @@ import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/asset_network_picker.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/services/orchestra/orchestra_capability_requirements.dart';
+import 'package:kute/services/orchestra/reusable_deposit_address.dart'
+    show standingReceiveOffered;
 import 'package:kute/services/orchestra_routes.dart' show isVenueInternalRoute;
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -277,12 +279,20 @@ class CoinAssetTile extends StatelessWidget {
 /// balance asks the same question of its own row by naming it, rather
 /// than through a second function that could drift from this one.
 ///
+/// A reusable-address row is listed only when it can get a standing
+/// address ([standingReceiveOffered]): its destination (`spark:USDB` for
+/// the dollar balance) is in [standingDestinations], the standing rail
+/// takes the source, and the pair has not been refused. A coin with no such
+/// route is not shown at all. While the destination list is unknown, pass
+/// an empty set: nothing reusable is listed.
+///
 /// One-time rows (a fresh quoted address per payment) are offered only
 /// while `orchestra.onetime_addresses` allows them; with the switch off,
 /// or no readable policy, only the reusable-address rows remain.
 List<CoinAssetGroup> receiveCoinGroups(
   OrchestraRoutesCatalog catalog,
   AppLocalizations l10n, {
+  required Set<String> standingDestinations,
   String destinationChain = 'spark',
   String destinationAsset = 'BTC',
   RuntimeCapabilitiesService? policy,
@@ -299,7 +309,13 @@ List<CoinAssetGroup> receiveCoinGroups(
         // own rails: open to the venue flows, never a network offered
         // to a payer.
         .where((o) => !isVenueInternalRoute(o.chain, o.assetCode))
-        .where((o) => o.reusableAddress || oneTime)
+        .where((o) => o.reusableAddress
+            ? standingReceiveOffered(
+                destinations: standingDestinations,
+                sourceChain: o.chain,
+                sourceAsset: o.assetCode,
+                destinationAsset: destinationAsset)
+            : oneTime)
         // The dollar row is an ordinary source here, and it wears plain
         // dollars rather than the catalogue's spelling of the token.
         .map((o) => dollarsRowLabels(o, l10n))

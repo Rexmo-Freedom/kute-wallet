@@ -1560,9 +1560,6 @@ class AppLocalizationsLv extends AppLocalizations {
       'Šī Jade nav tā, kas savienota pārī ar šo maciņu. Nekas netika parakstīts. Pievieno pārī savienoto Jade vai savieno šo no jauna, atjauninot maciņa galveno nospiedumu.';
 
   @override
-  String get receiveOtherAssets => 'Saņemt citus aktīvus';
-
-  @override
   String get medium => 'Vidēji';
 
   @override
@@ -1657,9 +1654,6 @@ class AppLocalizationsLv extends AppLocalizations {
   String feeAmountSats(String fee) {
     return '$fee sats';
   }
-
-  @override
-  String get memoColon => 'Piezīme: ';
 
   @override
   String errorMessage(String err) {
@@ -2104,10 +2098,6 @@ class AppLocalizationsLv extends AppLocalizations {
       'Šis maršruts īslaicīgi nav pieejams. Mēģini vēlāk.';
 
   @override
-  String get receiveAssetTemporarilyUnavailable =>
-      'Šī aktīva saņemšana īslaicīgi nav pieejama.';
-
-  @override
   String get clipboardEmpty => 'Starpliktuve ir tukša';
 
   @override
@@ -2304,11 +2294,6 @@ class AppLocalizationsLv extends AppLocalizations {
   String get receiveBeneficiary => 'Saņēmējs';
 
   @override
-  String receiveAssetOnNetwork(String asset, String network) {
-    return '$asset tīklā $network';
-  }
-
-  @override
   String get receiveFailedToGetRate => 'Neizdevās iegūt kursu';
 
   @override
@@ -2318,10 +2303,6 @@ class AppLocalizationsLv extends AppLocalizations {
   @override
   String get receiveUsdcWalletNotReady =>
       'Tavs Prognožu konts vēl tiek iestatīts. Mēģini vēlreiz pēc brīža.';
-
-  @override
-  String get receiveFundsLandAsBitcoin =>
-      'Līdzekļi tavā maciņā nonāk kā Bitcoin.';
 
   @override
   String get receiveConnectionFailed => 'Savienojums neizdevās.';
@@ -3521,10 +3502,6 @@ class AppLocalizationsLv extends AppLocalizations {
   @override
   String get receiveCoinNetworkUnavailable =>
       'Šī monēta un tīkls vēl nav pieejami iemaksām. Izvēlies citu.';
-
-  @override
-  String get receiveOtherCoinsNotToPredictions =>
-      'Citas monētas nevar pienākt Prognozēs. Saņem tās tēriņu maciņā un tad pārvieto.';
 
   @override
   String get activityStables => 'Stabilās';
@@ -6492,9 +6469,6 @@ class AppLocalizationsLv extends AppLocalizations {
   String get receiveRequestAmount => 'Pieprasīt summu';
 
   @override
-  String get receiveBackToBitcoin => 'Atpakaļ uz Bitcoin';
-
-  @override
   String get sendRecentRecipients => 'Nesenie';
 
   @override
@@ -6666,13 +6640,6 @@ class AppLocalizationsLv extends AppLocalizations {
   @override
   String get receiveCoinsLoading =>
       'Monētas vēl ielādējas. Mēģini vēlreiz pēc brīža.';
-
-  @override
-  String get receiveAlsoAcceptsTitle => 'Tava adrese pieņem arī';
-
-  @override
-  String get receiveAlsoAcceptsSubtitle =>
-      'Izvēlies, kas tev tiek sūtīts. Tas pienāk kā bitcoin.';
 
   @override
   String get receivePickNetwork => 'Kurš tīkls?';

@@ -8,6 +8,8 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/services/api/orchestra_api.dart';
+import 'package:kute/services/orchestra/standing_deposit_activity.dart'
+    show stuckStandingDepositStatus;
 import 'package:kute/services/orchestra/standing_deposit_store.dart';
 import 'package:kute/services/orchestra_routes.dart';
 import 'package:kute/services/security/address_guard.dart';
@@ -254,7 +256,7 @@ class _StandingDepositRefundActionState
       return const SizedBox.shrink();
     }
     final pending = _refundPending(_record, widget.deposit['id']);
-    if (!pending && widget.deposit['status'] != 'held') {
+    if (!pending && stuckStandingDepositStatus(widget.deposit) != 'held') {
       return const SizedBox.shrink();
     }
     return Padding(

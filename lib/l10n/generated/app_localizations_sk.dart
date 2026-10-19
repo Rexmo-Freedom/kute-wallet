@@ -1563,9 +1563,6 @@ class AppLocalizationsSk extends AppLocalizations {
       'Toto nie je Jade spárovaný s touto peňaženkou. Nič sa nepodpísalo. Pripoj spárovaný Jade alebo tento spáruj znova aktualizáciou hlavného odtlačku peňaženky.';
 
   @override
-  String get receiveOtherAssets => 'Prijať iné aktíva';
-
-  @override
   String get medium => 'Stredné';
 
   @override
@@ -1660,9 +1657,6 @@ class AppLocalizationsSk extends AppLocalizations {
   String feeAmountSats(String fee) {
     return '$fee sats';
   }
-
-  @override
-  String get memoColon => 'Poznámka: ';
 
   @override
   String errorMessage(String err) {
@@ -2113,10 +2107,6 @@ class AppLocalizationsSk extends AppLocalizations {
       'Táto trasa je dočasne nedostupná. Skús to neskôr.';
 
   @override
-  String get receiveAssetTemporarilyUnavailable =>
-      'Prijímanie tohto aktíva je dočasne nedostupné.';
-
-  @override
   String get clipboardEmpty => 'Schránka je prázdna';
 
   @override
@@ -2314,11 +2304,6 @@ class AppLocalizationsSk extends AppLocalizations {
   String get receiveBeneficiary => 'Príjemca';
 
   @override
-  String receiveAssetOnNetwork(String asset, String network) {
-    return '$asset v sieti $network';
-  }
-
-  @override
   String get receiveFailedToGetRate => 'Kurz sa nepodarilo získať';
 
   @override
@@ -2328,10 +2313,6 @@ class AppLocalizationsSk extends AppLocalizations {
   @override
   String get receiveUsdcWalletNotReady =>
       'Tvoj účet Predpovedí sa ešte nastavuje. Skús to o chvíľu znova.';
-
-  @override
-  String get receiveFundsLandAsBitcoin =>
-      'Prostriedky prídu do peňaženky ako Bitcoin.';
 
   @override
   String get receiveConnectionFailed => 'Pripojenie zlyhalo.';
@@ -3535,10 +3516,6 @@ class AppLocalizationsSk extends AppLocalizations {
   @override
   String get receiveCoinNetworkUnavailable =>
       'Táto minca a sieť zatiaľ nie sú dostupné na vklady. Vyber inú.';
-
-  @override
-  String get receiveOtherCoinsNotToPredictions =>
-      'Iné mince nemôžu prísť do Predpovedí. Prijmi ich do peňaženky na platby a potom ich presuň.';
 
   @override
   String get activityStables => 'Stablecoiny';
@@ -6514,9 +6491,6 @@ class AppLocalizationsSk extends AppLocalizations {
   String get receiveRequestAmount => 'Vyžiadať sumu';
 
   @override
-  String get receiveBackToBitcoin => 'Späť na Bitcoin';
-
-  @override
   String get sendRecentRecipients => 'Nedávne';
 
   @override
@@ -6687,13 +6661,6 @@ class AppLocalizationsSk extends AppLocalizations {
   @override
   String get receiveCoinsLoading =>
       'Mince sa ešte načítavajú. Skús to o chvíľu znova.';
-
-  @override
-  String get receiveAlsoAcceptsTitle => 'Tvoja adresa prijíma aj';
-
-  @override
-  String get receiveAlsoAcceptsSubtitle =>
-      'Vyber, čo ti posielajú. Dorazí ako bitcoin.';
 
   @override
   String get receivePickNetwork => 'Ktorá sieť?';

@@ -37,6 +37,9 @@ bool _venue(String id) {
   return isVenueInternalRoute(chain, asset);
 }
 
+/// Both receives' standing destinations, as the provider lists them.
+const _standing = {'spark:BTC', 'spark:USDB'};
+
 void main() {
   final l10n = l10nForLanguage('en');
 
@@ -53,7 +56,9 @@ void main() {
   for (final destination in ['BTC', 'USDB']) {
     test('receive "also accepts" into $destination hides venue rails', () {
       final groups = receiveCoinGroups(_catalog(), l10n,
-          destinationChain: 'spark', destinationAsset: destination);
+          standingDestinations: _standing,
+          destinationChain: 'spark',
+          destinationAsset: destination);
       final ids = [
         for (final g in groups)
           for (final o in g.options) '${o.chain}:${o.assetCode}',

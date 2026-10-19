@@ -121,6 +121,8 @@ Future<void> _pump(WidgetTester tester, ReceiveMinimums minimums) async {
             ),
           )),
       orchestraRoutesReadyProvider.overrideWith((_) async {}),
+      // The provider lists spark:USDB as a standing destination.
+      standingDestinationsProvider.overrideWith((_) async => {'spark:USDB'}),
       selectedCurrencyProvider.overrideWith(
           (ref, code) => Money.fromIntWithCurrency(6000000, AppCurrencies.usd)),
       walletBalanceCacheProvider.overrideWith((_) => _Balances()),
@@ -248,10 +250,8 @@ void main() {
     expect(asked, [_route]);
     // Directly under the address, in the caption style.
     final caption = find.byKey(const ValueKey('receive-minimum'));
-    expect(
-        tester.getTopLeft(caption).dy,
-        greaterThan(
-            tester.getBottomLeft(find.byType(ReceiveAddressLine)).dy));
+    expect(tester.getTopLeft(caption).dy,
+        greaterThan(tester.getBottomLeft(find.byType(ReceiveAddressLine)).dy));
     expect(find.descendant(of: caption, matching: find.byType(ReceiveCaption)),
         findsOneWidget);
     final event = addressEvent()!;
@@ -289,8 +289,7 @@ void main() {
     await _unmount(tester);
   });
 
-  testWidgets(
-      'a limits read that never answers does not hold the address back',
+  testWidgets('a limits read that never answers does not hold the address back',
       (tester) async {
     final never = Completer<OrchestraRouteLimits?>();
     await _pump(tester, minimumsAnswering(() => never.future));

@@ -306,9 +306,9 @@ abstract final class StandingDepositStore {
           (chain == 'tron' && asset.toUpperCase() == 'USDT'));
 
   /// The provider's standing destination pairs ('chain:ASSET'), read at
-  /// most every [_destinationsMaxAge]. The bitcoin receive asks this on
-  /// every pick and the answer (spark:BTC absent, on 2026-09-25 and still
-  /// on 2026-10-12) changes by support request, not by the minute.
+  /// most every [_destinationsMaxAge]. The receive pickers ask this before
+  /// they list a coin, and the answer changes by support request, not by
+  /// the minute.
   static ({DateTime at, Set<String> pairs})? _destinations;
   static const Duration _destinationsMaxAge = Duration(minutes: 15);
 
@@ -316,26 +316,33 @@ abstract final class StandingDepositStore {
   @visibleForTesting
   static void forgetDestinations() => _destinations = null;
 
-  /// Whether the provider lists spark:[destinationAsset] as a standing
-  /// destination. A malformed answer is false and not memoised.
-  static Future<bool> destinationSupported(
-      String destinationAsset, bool Function() current) async {
+  /// The provider's standing destination pairs ('chain:ASSET'). Null when
+  /// the answer is malformed (not memoised).
+  static Future<Set<String>?> destinations(bool Function() current) async {
     final cached = _destinations;
     if (cached != null &&
         DateTime.now().difference(cached.at) <= _destinationsMaxAge) {
-      return cached.pairs.contains('spark:$destinationAsset');
+      return cached.pairs;
     }
     final destinations =
         await standingRequest(operation: 'destinations', current: current);
     final rows = destinations['destinations'];
-    if (rows is! List) return false;
+    if (rows is! List) return null;
     final pairs = <String>{
       for (final v in rows)
         if (v is Map && v['chain'] is String && v['asset'] is String)
           '${v['chain']}:${v['asset']}',
     };
     _destinations = (at: DateTime.now(), pairs: pairs);
-    return pairs.contains('spark:$destinationAsset');
+    return pairs;
+  }
+
+  /// Whether the provider lists spark:[destinationAsset] as a standing
+  /// destination. A malformed answer is false and not memoised.
+  static Future<bool> destinationSupported(
+      String destinationAsset, bool Function() current) async {
+    final pairs = await destinations(current);
+    return pairs != null && pairs.contains('spark:$destinationAsset');
   }
 
   /// Runs one standing-address operation. Injectable so registration,
@@ -513,8 +520,8 @@ abstract final class StandingDepositStore {
   /// into [destinationAsset]. An instruction this wallet already holds
   /// (locally, or registered by another install and listed by the
   /// backend) is reused; a new one is registered only when none is
-  /// usable. Null when the provider offers no standing address here and
-  /// the caller should use the legacy rail.
+  /// usable. Null when the provider offers no standing address here: the
+  /// receive then has none to show (there is no legacy rail).
   static Future<StandingDepositRecord?> register(
       {required String walletId,
       required String recipient,
@@ -525,8 +532,10 @@ abstract final class StandingDepositStore {
     if (!supportsSource(sourceChain, sourceAsset)) return null;
     final scope = capture(walletId);
     bool valid() => current(scope) && wanted();
+    // Every Receive address pays the dollar balance (the Bitcoin receive
+    // takes other coins through the Dollars receive): spark:USDB only.
     if (!isSparkAddress(recipient, mainnet: true) ||
-        !{'BTC', 'USDB'}.contains(destinationAsset)) {
+        destinationAsset != 'USDB') {
       throw StateError('Invalid receiving wallet');
     }
     // Showing an address is a new-deposit entrypoint whether it is reused
@@ -554,10 +563,9 @@ abstract final class StandingDepositStore {
       reused();
       return held;
     }
-    // A destination the provider has no standing address for (spark:BTC
-    // today) is answered from the memoised list before any recovery
-    // read, so the bitcoin receive's standing-first question costs one
-    // request per quarter hour rather than two per pick.
+    // A destination the provider has no standing address for is answered
+    // from the memoised list before any recovery read: one request per
+    // quarter hour rather than two per pick.
     if (!await destinationSupported(destinationAsset, valid)) return null;
     if (!valid()) throw StateError('Wallet changed');
     // Another install may have registered one. Recover those first, both
@@ -616,8 +624,8 @@ abstract final class StandingDepositStore {
         // under the same idempotency key, so one more costs nothing.
         if (retried || !retryableRegisterStatus(e.status)) rethrow;
         retried = true;
-        _trackRetry('provider_unavailable', sourceChain, sourceAsset,
-            destinationAsset);
+        _trackRetry(
+            'provider_unavailable', sourceChain, sourceAsset, destinationAsset);
         if (!valid()) throw StateError('Wallet changed');
       }
     }
@@ -628,8 +636,8 @@ abstract final class StandingDepositStore {
   static bool retryableRegisterStatus(int status) =>
       status == 502 || status == 503 || status == 504;
 
-  static void _trackRetry(String reason, String sourceChain,
-          String sourceAsset, String destinationAsset) =>
+  static void _trackRetry(String reason, String sourceChain, String sourceAsset,
+          String destinationAsset) =>
       TrackingService.track('reusable_deposit_address_retried', params: {
         'reason': reason,
         'source_chain': sourceChain,
@@ -747,8 +755,8 @@ abstract final class StandingDepositStore {
       record.label == investingWithdrawalLabelFor(recipient, record.revision);
 
   /// Whether [record]'s stored terms carry a rule [destination] accepts.
-  static bool _verifiedTerms(
-      StandingDepositRecord record, InvestingWithdrawalDestination destination) {
+  static bool _verifiedTerms(StandingDepositRecord record,
+      InvestingWithdrawalDestination destination) {
     final policy = record.response['kuteFeePolicy'];
     return policy is Map && destination.feePurposes.contains(policy['purpose']);
   }

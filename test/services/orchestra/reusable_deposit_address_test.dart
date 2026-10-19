@@ -17,7 +17,6 @@ import 'package:kute/services/orchestra/standing_deposit_sweep.dart'
     show ReceiveAddressWatch;
 import 'package:kute/services/orchestra_routes.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
-import 'package:kute/services/security/address_history.dart';
 import 'package:kute/services/tracking_service.dart';
 
 import '../../helpers/runtime_policy_fixture.dart';
@@ -26,17 +25,19 @@ const _spark =
     'sp1pgssy7d7vel0nh9m4326qc54e6rskpczn07dktww9rv4nu5ptvt0s9ucez8h3s';
 const _standingEvm = '0x1111111111111111111111111111111111111111';
 const _legacyEvm = '0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed';
-const _legacyTron = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';
 
-/// Standing first, legacy second: the rail choice both receive screens
-/// share, exercised without the screens.
+/// One standing destination and nothing else: `spark:USDB`, for the
+/// Dollars receive and for the Bitcoin receive's "other coins" (which
+/// opens the same Dollars sheet). No legacy accumulation address is ever
+/// created, reused or shown, and nothing is ever registered into Bitcoin.
 void main() {
   late Directory tmp;
   late List<String> standingCalls;
-  late List<Map<String, dynamic>> legacyPosts;
+  late List<Map<String, dynamic>> registered;
+  late List<String?> keys;
   late Set<String> destinations;
   late Object? standingFailure;
-  late http.Response Function(Map<String, dynamic> sent) legacyAnswer;
+  late Map<String, dynamic> Function(Map<String, dynamic> body) answer;
   final events = <(String, Map<String, Object>?)>[];
   late Future<Map<String, dynamic>> Function(
       {required String operation,
@@ -49,8 +50,7 @@ void main() {
   setUp(() async {
     tmp = await Directory.systemTemp.createTemp('reusable_deposit_');
     Hive.init(tmp.path);
-    await Hive.openBox<String>('accumulation_addresses');
-    await AddressHistory.open();
+    await AccumulationAddressCache.init();
     await ReceiveRouteAvailability.clear();
     StandingDepositStore.forgetDestinations();
     setLiveOrchestraRouteCatalog(const OrchestraRouteCatalog(
@@ -67,28 +67,15 @@ void main() {
     TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
 
     standingCalls = [];
-    legacyPosts = [];
-    destinations = {'spark:USDB'};
+    registered = [];
+    keys = [];
+    destinations = {'spark:USDB', 'bitcoin:BTC'};
     standingFailure = null;
-    legacyAnswer = (sent) => http.Response(
-        jsonEncode({
-          'accumulationAddressId': 'acc_minted',
-          'sourceChain': sent['sourceChain'],
-          'sourceAsset': sent['sourceAsset'],
-          'destinationAsset': sent['destinationAsset'],
-          'recipientSparkAddress': sent['recipientSparkAddress'],
-          // The cache re-verifies the deposit format per chain.
-          'depositAddress':
-              sent['sourceChain'] == 'tron' ? _legacyTron : _legacyEvm,
+    answer = (body) => {
           'enabled': true,
-          'createdAt': '2026-10-12T12:00:00Z',
-          'kuteFeePolicy': {
-            'revision': 4,
-            'appFeeBps': 50,
-            'providerDefault': false
-          },
-        }),
-        201);
+          'addresses': {'base': _standingEvm, 'tron': 'T'},
+          'kuteFeePolicy': {'revision': 4, 'purpose': 'usdb_swap_deposit'},
+        };
     original = StandingDepositStore.standingRequest;
     final provider = <String, Map<String, dynamic>>{};
     StandingDepositStore.standingRequest = (
@@ -112,16 +99,21 @@ void main() {
         case 'mine':
           return {'references': const []};
         case 'register':
+          registered.add(body!);
+          keys.add(idempotencyKey);
           return provider[label!] ??= {
             'standingAddressId': 'sda_$label',
-            'enabled': true,
-            'addresses': {'base': _standingEvm, 'tron': 'T'},
-            'kuteFeePolicy': {'revision': 4},
+            ...answer(body),
           };
         case 'read':
           final state = provider[label];
           if (state == null) throw const StandingRequestException(404, null);
-          return state;
+          // A read answers without the instruction or the fee terms.
+          return {
+            'standingAddressId': state['standingAddressId'],
+            'enabled': state['enabled'],
+            'addresses': state['addresses'],
+          };
       }
       throw StateError('unexpected $operation');
     };
@@ -139,13 +131,12 @@ void main() {
     if (tmp.existsSync()) tmp.deleteSync(recursive: true);
   });
 
-  Future<T> withLegacy<T>(Future<T> Function() body) => http.runWithClient(
+  /// Any HTTP request (the legacy accumulation endpoint among them) fails
+  /// the test: the standing rail is reached only through the seam.
+  Future<T> offline<T>(Future<T> Function() body) => http.runWithClient(
         body,
         () => MockClient((req) async {
-          expect(req.url.path, '/api/v1/orchestra/accumulation-addresses');
-          final sent = jsonDecode(req.body) as Map<String, dynamic>;
-          legacyPosts.add(sent);
-          return legacyAnswer(sent);
+          fail('unexpected network call to ${req.url}');
         }),
       );
 
@@ -155,202 +146,215 @@ void main() {
     String sourceAsset = 'USDC',
     void Function(DepositAddressModel)? onAttempt,
   }) =>
-      ReusableDepositAddressService.resolve(
+      offline(() => ReusableDepositAddressService.resolve(
           walletId: 'a',
           recipient: _spark,
           destinationAsset: destinationAsset,
           sourceChain: sourceChain,
           sourceAsset: sourceAsset,
           wanted: () => true,
-          onAttempt: onAttempt);
+          onAttempt: onAttempt));
 
-  test('a standing destination is served by the standing rail alone', () async {
-    final attempts = <DepositAddressModel>[];
-    final resolved = await withLegacy(() => resolve(onAttempt: attempts.add));
-    expect(resolved.model, DepositAddressModel.standing);
-    expect(resolved.address, _standingEvm);
-    expect(resolved.id, startsWith('sda_'));
-    expect(resolved.standing, isNotNull);
-    expect(attempts, [DepositAddressModel.standing]);
-    expect(legacyPosts, isEmpty);
-    expect(standingCalls, contains('register'));
-    final created = events
-        .where((e) => e.$1 == 'reusable_deposit_address_created')
-        .single
-        .$2!;
-    expect(created['model'], 'standing');
-    expect(created['source_chain'], 'base');
-    expect(created['destination_asset'], 'USDB');
-    expect(created.keys, isNot(contains('address')));
-
-    // The second visit reuses the same standing address and says so.
-    final again = await withLegacy(() => resolve());
-    expect(again.address, _standingEvm);
-    expect(
-        events
-            .where((e) => e.$1 == 'reusable_deposit_address_reused')
-            .single
-            .$2!['model'],
-        'standing');
-    expect(standingCalls.where((c) => c == 'register'), hasLength(1));
-  });
-
-  test(
-      'a destination the provider has no standing address for falls back '
-      'to the legacy rail (spark:BTC today)', () async {
-    final attempts = <DepositAddressModel>[];
-    final resolved = await withLegacy(
-        () => resolve(destinationAsset: 'BTC', onAttempt: attempts.add));
-    expect(resolved.model, DepositAddressModel.accumulation);
-    expect(resolved.address, _legacyEvm);
-    expect(resolved.id, 'acc_minted');
-    expect(resolved.standing, isNull);
-    expect(attempts,
-        [DepositAddressModel.standing, DepositAddressModel.accumulation]);
-    expect(standingCalls, contains('destinations'));
-    expect(standingCalls, isNot(contains('register')));
-    expect(legacyPosts.single['destinationAsset'], 'BTC');
-    expect(
-        events
-            .where((e) => e.$1 == 'reusable_deposit_address_created')
-            .single
-            .$2!['model'],
-        'accumulation');
-  });
-
-  test('the destination list is read once per quarter hour, not per pick',
-      () async {
-    await withLegacy(() => resolve(destinationAsset: 'BTC'));
-    await withLegacy(() => resolve(destinationAsset: 'BTC'));
-    expect(standingCalls.where((c) => c == 'destinations'), hasLength(1));
-    // Once the provider lists spark:BTC, the bitcoin receive moves over.
-    destinations = {'spark:USDB', 'spark:BTC'};
-    StandingDepositStore.forgetDestinations();
-    final moved = await withLegacy(() => resolve(destinationAsset: 'BTC'));
-    expect(moved.model, DepositAddressModel.standing);
-  });
-
-  test('a source outside the standing rail uses the legacy rail', () async {
-    // Tron carries USDT only on the standing rail; a Tron source asset the
-    // rail does not fund goes straight to the legacy mint.
-    setLiveOrchestraRouteCatalog(OrchestraRouteCatalog(
-      send: kOrchestraSendRoutes,
-      receive: {
-        ...kOrchestraReceiveRoutes,
-        'USDC': {'tron', 'base'}
-      },
-      usdReceive: {
-        ...kOrchestraUsdReceiveRoutes,
-        'USDC': {'tron', 'base'}
-      },
-    ));
-    final resolved = await withLegacy(
-        () => resolve(sourceChain: 'tron', sourceAsset: 'USDC'));
-    expect(resolved.model, DepositAddressModel.accumulation);
-    expect(standingCalls, isEmpty);
-    expect(legacyPosts.single['sourceChain'], 'tron');
-  });
-
-  test('a legacy refusal marks the pair unavailable and refuses the receive',
-      () async {
-    legacyAnswer = (_) => http.Response(
+  Future<void> seedLegacy(String destinationAsset) async {
+    await Hive.box<String>('accumulation_addresses').put(
+        'base:USDC:$destinationAsset:$_spark',
         jsonEncode({
-          'error': {
-            'code': 'invalid_request',
-            'message': 'Unsupported deposit source: tron:USDC'
-          }
-        }),
-        400);
-    setLiveOrchestraRouteCatalog(OrchestraRouteCatalog(
-      send: kOrchestraSendRoutes,
-      receive: {
-        ...kOrchestraReceiveRoutes,
-        'USDC': {'tron', 'base'}
-      },
-      usdReceive: {
-        ...kOrchestraUsdReceiveRoutes,
-        'USDC': {'tron', 'base'}
-      },
-    ));
-    Object? failure;
-    try {
-      await withLegacy(() => resolve(sourceChain: 'tron', sourceAsset: 'USDC'));
-    } catch (e) {
-      failure = e;
-    }
-    expect(failure, isA<ReceiveRouteUnavailableException>());
-    final refused = failure as ReceiveRouteUnavailableException;
-    expect(refused.model, DepositAddressModel.accumulation);
-    expect(refused.category, 'unsupported_source');
-    expect(TrackingService.errorCategory(refused), 'unsupported_source');
+          'accumulationAddressId': 'acc_cached',
+          'sourceChain': 'base',
+          'sourceAsset': 'USDC',
+          'destinationAsset': destinationAsset,
+          'recipientSparkAddress': _spark,
+          'depositAddress': _legacyEvm,
+          'enabled': true,
+          'createdAt': '2026-07-01T00:00:00Z',
+          'kuteFeePolicy': {'revision': 4, 'appFeeBps': 50},
+        }));
+  }
+
+  group('Dollars (spark:USDB), unchanged', () {
+    test('registers spark:USDB with the own Spark recipient, then reuses it',
+        () async {
+      final attempts = <DepositAddressModel>[];
+      final resolved = await resolve(onAttempt: attempts.add);
+      expect(resolved.model, DepositAddressModel.standing);
+      expect(resolved.address, _standingEvm);
+      expect(resolved.id, startsWith('sda_'));
+      expect(attempts, [DepositAddressModel.standing]);
+      final label = StandingDepositStore.labelFor(_spark, 'USDB', 4);
+      expect(resolved.standing!.label, label);
+      expect(resolved.standing!.chain, 'spark');
+      expect(registered.single, {
+        'destination': {'chain': 'spark', 'asset': 'USDB', 'address': _spark},
+        'slippageBps': 50,
+      });
+      expect(keys.single, 'register-$label');
+      final created = events
+          .where((e) => e.$1 == 'reusable_deposit_address_created')
+          .single
+          .$2!;
+      expect(created, {
+        'source_chain': 'base',
+        'source_asset': 'USDC',
+        'destination_asset': 'USDB',
+        'model': 'standing',
+      });
+
+      final again = await resolve();
+      expect(again.address, _standingEvm);
+      expect(registered, hasLength(1));
+      expect(
+          events
+              .where((e) => e.$1 == 'reusable_deposit_address_reused')
+              .single
+              .$2,
+          {
+            'source_chain': 'base',
+            'source_asset': 'USDC',
+            'model': 'standing'
+          });
+    });
+
+    test(
+        'a coin the standing rail cannot fund is unavailable and no legacy '
+        'address is made', () async {
+      // Tron carries USDT only on the standing rail.
+      Object? failure;
+      try {
+        await resolve(sourceChain: 'tron', sourceAsset: 'USDC');
+      } catch (e) {
+        failure = e;
+      }
+      final refused = failure as ReceiveRouteUnavailableException;
+      expect(refused.model, DepositAddressModel.standing);
+      expect(refused.category, 'no_route');
+      expect(TrackingService.errorCategory(refused), 'no_route');
+      expect(
+          ReceiveRouteAvailability.isUnavailable(
+              sourceChain: 'tron',
+              sourceAsset: 'USDC',
+              destinationAsset: 'USDB'),
+          isTrue);
+      expect(standingCalls, isEmpty);
+      expect(AccumulationAddressCache.getAll(), isEmpty);
+    });
+
+    test('a cached legacy USDB address is never shown or reused', () async {
+      await seedLegacy('USDB');
+      final resolved = await resolve();
+      expect(resolved.address, _standingEvm);
+      expect(resolved.address, isNot(_legacyEvm));
+      // Still there for the silent sweep, never offered.
+      expect(AccumulationAddressCache.sweepTargets().single.depositAddress,
+          _legacyEvm);
+
+      // With no standing route, the coin is refused rather than handed
+      // the cached legacy address.
+      destinations = {'bitcoin:BTC'};
+      StandingDepositStore.forgetDestinations();
+      await Hive.box<String>('standing_deposits_v1').clear();
+      await expectLater(
+          resolve(), throwsA(isA<ReceiveRouteUnavailableException>()));
+    });
+  });
+
+  test('a Bitcoin destination is never registered, standing or legacy',
+      () async {
+    await seedLegacy('BTC');
+    destinations = {'spark:USDB', 'spark:BTC'};
+    await expectLater(
+        resolve(destinationAsset: 'BTC'), throwsA(isA<StateError>()));
+    expect(registered, isEmpty);
+    // The legacy address stays silently watched, never offered.
+    expect(AccumulationAddressCache.sweepTargets().single.id, 'acc_cached');
+  });
+
+  test('a registration refused for the route marks it unavailable', () async {
+    standingFailure = const StandingRequestException(400, 'unsupported_route');
+    await expectLater(
+        resolve(), throwsA(isA<ReceiveRouteUnavailableException>()));
     expect(
         ReceiveRouteAvailability.isUnavailable(
-            sourceChain: 'tron', sourceAsset: 'USDC', destinationAsset: 'USDB'),
+            sourceChain: 'base', sourceAsset: 'USDC', destinationAsset: 'USDB'),
         isTrue);
-    // The offering now drops it, and the next attempt is refused without
-    // asking either rail again.
-    expect(
-        orchestraReceiveChainForDestination('USDC', 'tron',
-            destinationAsset: 'USDB'),
-        isNull);
     standingCalls.clear();
-    legacyPosts.clear();
     await expectLater(
-        withLegacy(() => resolve(sourceChain: 'tron', sourceAsset: 'USDC')),
-        throwsA(isA<ReceiveRouteUnavailableException>()));
+        resolve(), throwsA(isA<ReceiveRouteUnavailableException>()));
     expect(standingCalls, isEmpty);
-    expect(legacyPosts, isEmpty);
-    // No address, id or provider text in what gets tracked.
-    expect(events.where((e) => e.$1 == 'reusable_deposit_address_created'),
-        isEmpty);
   });
 
-  test('a transient standing failure is retryable and never mints legacy',
+  test('a transient standing failure is retryable and refuses nothing',
       () async {
     standingFailure = const StandingRequestException(503, null);
-    await expectLater(
-        withLegacy(() => resolve()), throwsA(isA<StandingRequestException>()));
-    expect(legacyPosts, isEmpty);
+    await expectLater(resolve(), throwsA(isA<StandingRequestException>()));
     expect(
         ReceiveRouteAvailability.isUnavailable(
             sourceChain: 'base', sourceAsset: 'USDC', destinationAsset: 'USDB'),
         isFalse);
   });
 
-  test('a standing registration refused for the route tries the legacy rail',
-      () async {
-    standingFailure = const StandingRequestException(400, 'unsupported_route');
-    final resolved = await withLegacy(() => resolve());
-    expect(resolved.model, DepositAddressModel.accumulation);
-    expect(legacyPosts, hasLength(1));
-  });
-
-  test('HyperCore is refused before any rail is asked', () async {
-    await expectLater(
-        withLegacy(
-            () => resolve(sourceChain: 'hypercore', sourceAsset: 'USDC')),
+  test('HyperCore is refused before anything is asked', () async {
+    await expectLater(resolve(sourceChain: 'hypercore', sourceAsset: 'USDC'),
         throwsA(isA<ReceiveRouteUnavailableException>()));
     expect(standingCalls, isEmpty);
-    expect(legacyPosts, isEmpty);
-    expect(AccumulationAddressCache.getAll(), isEmpty);
   });
 
   test('every address shown arms the watch on its deposits, on any screen',
       () async {
     ReceiveAddressWatch.reset();
     addTearDown(ReceiveAddressWatch.reset);
-    // An address that could not be shown arms nothing.
     standingFailure = const StandingRequestException(429, null);
-    await expectLater(
-        withLegacy(() => resolve()), throwsA(isA<StandingRequestException>()));
+    await expectLater(resolve(), throwsA(isA<StandingRequestException>()));
     expect(ReceiveAddressWatch.watching, isFalse);
 
     standingFailure = null;
-    await withLegacy(() => resolve());
-    expect(ReceiveAddressWatch.watching, isTrue, reason: 'standing');
+    await resolve();
+    expect(ReceiveAddressWatch.watching, isTrue);
+  });
 
-    ReceiveAddressWatch.reset();
-    await withLegacy(() => resolve(destinationAsset: 'BTC'));
-    expect(ReceiveAddressWatch.watching, isTrue, reason: 'legacy');
+  test('standingReceiveOffered lists only coins that can get an address', () {
+    bool offered(Set<String> d, String chain, String asset, String dest) =>
+        standingReceiveOffered(
+            destinations: d,
+            sourceChain: chain,
+            sourceAsset: asset,
+            destinationAsset: dest);
+    expect(offered({'spark:USDB'}, 'base', 'USDC', 'USDB'), isTrue);
+    expect(offered({'bitcoin:BTC'}, 'base', 'USDC', 'USDB'), isFalse);
+    expect(offered({'spark:USDB'}, 'tron', 'USDC', 'USDB'), isFalse);
+    expect(offered(const {}, 'base', 'USDC', 'USDB'), isFalse);
+  });
+
+  test(
+      'venue paths are untouched: the Investing withdrawal still registers '
+      'its own routed spark:BTC and spark:USDB instructions', () async {
+    const eoa = '0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed';
+    answer = (body) => {
+          'enabled': true,
+          'addresses': {'arbitrum': _standingEvm},
+          'kuteFeePolicy': {'revision': 4, 'purpose': 'venue_withdrawal'},
+        };
+    for (final destination in [
+      InvestingWithdrawalDestination.bitcoin,
+      InvestingWithdrawalDestination.dollars,
+    ]) {
+      final record = await offline(
+          () => StandingDepositStore.investingWithdrawalInstruction(
+              walletId: 'a',
+              recipient: _spark,
+              refundAddress: eoa,
+              wanted: () => true,
+              destination: destination));
+      expect(record.addressFor('arbitrum'), _standingEvm);
+      expect(registered.last, {
+        'destination': {
+          'chain': 'spark',
+          'asset': destination.asset,
+          'address': _spark,
+        },
+        'slippageBps': 50,
+        'refundAddresses': {'arbitrum': eoa.toLowerCase()},
+        'kuteRoute': 'investing_withdrawal',
+      });
+    }
   });
 }

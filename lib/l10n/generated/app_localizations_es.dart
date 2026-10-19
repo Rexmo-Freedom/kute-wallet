@@ -1570,9 +1570,6 @@ class AppLocalizationsEs extends AppLocalizations {
       'Este Jade no es el vinculado a esta cartera. No se ha firmado nada. Conecta el Jade vinculado o vuelve a vincular este actualizando la huella maestra de la cartera.';
 
   @override
-  String get receiveOtherAssets => 'Recibir otros activos';
-
-  @override
   String get medium => 'Media';
 
   @override
@@ -1669,9 +1666,6 @@ class AppLocalizationsEs extends AppLocalizations {
   String feeAmountSats(String fee) {
     return '$fee sats';
   }
-
-  @override
-  String get memoColon => 'Memo: ';
 
   @override
   String errorMessage(String err) {
@@ -2124,10 +2118,6 @@ class AppLocalizationsEs extends AppLocalizations {
       'Esta ruta no está disponible temporalmente. Inténtalo de nuevo más tarde.';
 
   @override
-  String get receiveAssetTemporarilyUnavailable =>
-      'Recibir este activo no está disponible temporalmente.';
-
-  @override
   String get clipboardEmpty => 'El portapapeles está vacío';
 
   @override
@@ -2326,11 +2316,6 @@ class AppLocalizationsEs extends AppLocalizations {
   String get receiveBeneficiary => 'Beneficiario';
 
   @override
-  String receiveAssetOnNetwork(String asset, String network) {
-    return '$asset en $network';
-  }
-
-  @override
   String get receiveFailedToGetRate =>
       'No se ha podido obtener el tipo de cambio';
 
@@ -2341,10 +2326,6 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get receiveUsdcWalletNotReady =>
       'Tu cuenta de Predicciones aún se está configurando. Inténtalo de nuevo en un momento.';
-
-  @override
-  String get receiveFundsLandAsBitcoin =>
-      'Los fondos llegan a tu cartera como Bitcoin.';
 
   @override
   String get receiveConnectionFailed => 'Error de conexión.';
@@ -3555,10 +3536,6 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get receiveCoinNetworkUnavailable =>
       'Esta moneda y red aún no están disponibles para depósitos. Elige otra.';
-
-  @override
-  String get receiveOtherCoinsNotToPredictions =>
-      'Otras monedas no pueden llegar a Predicciones. Recíbelas en tu cartera de gastos y luego muévelas.';
 
   @override
   String get activityStables => 'Estables';
@@ -6543,9 +6520,6 @@ class AppLocalizationsEs extends AppLocalizations {
   String get receiveRequestAmount => 'Pedir importe';
 
   @override
-  String get receiveBackToBitcoin => 'Volver a Bitcoin';
-
-  @override
   String get sendRecentRecipients => 'Recientes';
 
   @override
@@ -6718,13 +6692,6 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get receiveCoinsLoading =>
       'Las monedas aún se están cargando. Inténtalo de nuevo en un momento.';
-
-  @override
-  String get receiveAlsoAcceptsTitle => 'Tu dirección también acepta';
-
-  @override
-  String get receiveAlsoAcceptsSubtitle =>
-      'Elige qué te envían. Llega como bitcoin.';
 
   @override
   String get receivePickNetwork => '¿Qué red?';

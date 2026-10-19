@@ -1567,9 +1567,6 @@ class AppLocalizationsSl extends AppLocalizations {
       'Ta Jade ni seznanjen s to denarnico. Nič ni bilo podpisano. Povežite seznanjeno napravo Jade ali znova seznanite to tako, da posodobite glavni prstni odtis denarnice.';
 
   @override
-  String get receiveOtherAssets => 'Prejmi druga sredstva';
-
-  @override
   String get medium => 'Srednje';
 
   @override
@@ -1664,9 +1661,6 @@ class AppLocalizationsSl extends AppLocalizations {
   String feeAmountSats(String fee) {
     return '$fee sats';
   }
-
-  @override
-  String get memoColon => 'Opomba: ';
 
   @override
   String errorMessage(String err) {
@@ -2119,10 +2113,6 @@ class AppLocalizationsSl extends AppLocalizations {
       'Ta pot začasno ni na voljo. Poskusite znova pozneje.';
 
   @override
-  String get receiveAssetTemporarilyUnavailable =>
-      'Prejemanje tega sredstva začasno ni na voljo.';
-
-  @override
   String get clipboardEmpty => 'Odložišče je prazno';
 
   @override
@@ -2319,11 +2309,6 @@ class AppLocalizationsSl extends AppLocalizations {
   String get receiveBeneficiary => 'Prejemnik';
 
   @override
-  String receiveAssetOnNetwork(String asset, String network) {
-    return '$asset v omrežju $network';
-  }
-
-  @override
   String get receiveFailedToGetRate => 'Tečaja ni bilo mogoče pridobiti';
 
   @override
@@ -2333,10 +2318,6 @@ class AppLocalizationsSl extends AppLocalizations {
   @override
   String get receiveUsdcWalletNotReady =>
       'Vaš račun za Napovedi se še nastavlja. Poskusite znova čez trenutek.';
-
-  @override
-  String get receiveFundsLandAsBitcoin =>
-      'Sredstva prispejo v vašo denarnico kot Bitcoin.';
 
   @override
   String get receiveConnectionFailed => 'Povezava ni uspela.';
@@ -3537,10 +3518,6 @@ class AppLocalizationsSl extends AppLocalizations {
   @override
   String get receiveCoinNetworkUnavailable =>
       'Ta kriptovaluta in omrežje še nista na voljo za pologe. Izberite drugo.';
-
-  @override
-  String get receiveOtherCoinsNotToPredictions =>
-      'Druge kriptovalute ne morejo prispeti v Napovedi. Prejmite jih v denarnico za porabo in jih nato premaknite.';
 
   @override
   String get activityStables => 'Stabilni';
@@ -6523,9 +6500,6 @@ class AppLocalizationsSl extends AppLocalizations {
   String get receiveRequestAmount => 'Zahtevaj znesek';
 
   @override
-  String get receiveBackToBitcoin => 'Nazaj na Bitcoin';
-
-  @override
   String get sendRecentRecipients => 'Nedavni';
 
   @override
@@ -6698,13 +6672,6 @@ class AppLocalizationsSl extends AppLocalizations {
   @override
   String get receiveCoinsLoading =>
       'Kriptovalute se še nalagajo. Poskusite znova čez trenutek.';
-
-  @override
-  String get receiveAlsoAcceptsTitle => 'Vaš naslov sprejema tudi';
-
-  @override
-  String get receiveAlsoAcceptsSubtitle =>
-      'Izberite, kaj vam pošiljajo. Prispe kot bitcoin.';
 
   @override
   String get receivePickNetwork => 'Katero omrežje?';

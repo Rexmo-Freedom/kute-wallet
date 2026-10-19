@@ -181,7 +181,9 @@ class StandingDepositSweep {
         previousStatus: existing?.status,
         record: record,
         linkedOrder: orderId != null,
-        code: deposit['code']);
+        code: deposit['code'],
+        providerStatus: deposit['status'],
+        batchState: deposit['batchState']);
   }
 }
 
@@ -195,6 +197,8 @@ void trackStandingDepositStatus({
   required StandingDepositRecord record,
   required bool linkedOrder,
   Object? code,
+  Object? providerStatus,
+  Object? batchState,
 }) {
   final investing =
       StandingDepositStore.isInvestingWithdrawalLabel(record.label);
@@ -204,6 +208,11 @@ void trackStandingDepositStatus({
     'source_chain': row.networkFrom.toLowerCase(),
     'source_asset': row.coinFrom,
     'destination_asset': record.asset,
+    'model': 'standing',
+    // The provider's own words, an open set: an unknown one still reads
+    // as arriving on the row, and is kept here as it came.
+    if (_providerWord(providerStatus) case final s?) 'provider_status': s,
+    if (_providerWord(batchState) case final b?) 'batch_state': b,
     if (double.tryParse(row.depositAmount) case final amount?) 'amount': amount,
     'linked_order': linkedOrder,
     'instruction': investing ? 'investing_withdrawal' : 'receive',
@@ -211,6 +220,13 @@ void trackStandingDepositStatus({
       'provider_code': code,
   });
 }
+
+/// [value] when it is a short machine word (`detected`, `held`…), else
+/// null: never an id, an address or free text.
+String? _providerWord(Object? value) =>
+    value is String && RegExp(r'^[a-z][a-z0-9_]{0,31}$').hasMatch(value)
+        ? value
+        : null;
 
 /// Whether the person was just given a reusable deposit address, so its
 /// deposits are watched on every screen, not only where the full sync

@@ -42,7 +42,6 @@ import 'package:kute/screens/shared/receive_surface.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart'
     show SendToListCard, SendToListRow, SendToSectionHeader;
 import 'package:kute/screens/usd/flow/usd_flow_widgets.dart';
-import 'package:kute/services/accumulation_address_cache.dart';
 import 'package:kute/services/orchestra/orchestra_capability_requirements.dart';
 import 'package:kute/services/orchestra/receive_minimums.dart';
 import 'package:kute/services/orchestra/reusable_deposit_address.dart';
@@ -56,16 +55,21 @@ import 'package:kute/services/orchestra_routes.dart'
 import 'package:kute/services/security/wallet_guard_exception.dart'
     show WalletGuardException;
 import 'package:kute/services/runtime_capabilities_service.dart';
-import 'package:kute/services/success_feedback.dart'
-    show moneyFailureFeedback;
+import 'package:kute/services/success_feedback.dart' show moneyFailureFeedback;
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
+import 'package:kute/services/orchestra/bitcoin_receive_marks.dart'
+    show BitcoinReceiveMarks;
 
 enum _Step { coin, address }
 
 /// The Move sheet's `entry_source` when the Bitcoin card ("From your
 /// wallet") at the top of this screen opens it.
 const String kUsdReceiveBitcoinRowSource = 'usd_receive_bitcoin_row';
+
+/// The `entry_source` of the Dollars receive (and the `entry` on its
+/// events) when the Bitcoin receive's "other coins" line opens it.
+const String kUsdReceiveFromBitcoinReceiveSource = 'bitcoin_receive';
 
 /// The `chain:asset` id the coin sheet selects by.
 String usdReceiveCoinId(OrchestraReceiveOption o) =>
@@ -80,7 +84,14 @@ String usdReceiveCoinId(OrchestraReceiveOption o) =>
 /// another wallet or exchange" over the coin grid. Picking a coin shows
 /// its address; nothing is ever picked for the person.
 class UsdReceiveScreen extends ConsumerStatefulWidget {
-  const UsdReceiveScreen({super.key});
+  const UsdReceiveScreen({super.key, this.fromBitcoinReceive = false});
+
+  /// Opened from the Bitcoin receive's "other coins" line: the same sheet,
+  /// with a note that the money lands in the Investments dollar balance,
+  /// its events tagged `entry: bitcoin_receive`, and every address it shows
+  /// remembered so its deposits also show in the Bitcoin Activity
+  /// ([BitcoinReceiveMarks]).
+  final bool fromBitcoinReceive;
 
   /// Test seam: what the Bitcoin card opens. Null opens the
   /// real Move sheet ([showDepositSheet]).
@@ -249,6 +260,8 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
   Map<String, Object> _flowInputs() {
     final o = _option;
     return {
+      if (widget.fromBitcoinReceive)
+        'entry_source': kUsdReceiveFromBitcoinReceiveSource,
       'address_shown': _display != null,
       if (o != null)
         ...TrackingService.routeParams(
@@ -281,6 +294,9 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
   Widget build(BuildContext context) {
     // Retire an already displayed route as soon as catalog support changes.
     ref.watch(orchestraSupportedRoutesProvider);
+    // Kept alive across both steps, so coming back to the coin step never
+    // flashes an empty offering while the destinations are read again.
+    ref.watch(standingDestinationsProvider);
     ref.listen(
         settingsProvider.select(
             (s) => (s.activeWalletId, pickSpendingWallet(s)?.id)), (old, next) {
@@ -333,6 +349,8 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
         receiveCoinGroups(
           ref.watch(orchestraSupportedRoutesProvider),
           context.l10n,
+          standingDestinations:
+              ref.watch(standingDestinationsProvider).valueOrNull ?? const {},
           destinationChain: kOrchestraUsdChain,
           destinationAsset: kOrchestraUsdAssetCode,
         ),
@@ -358,6 +376,14 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Opened from the Bitcoin receive: say once where the money
+          // lands, in the caption style, before the choices.
+          if (widget.fromBitcoinReceive) ...[
+            ReceiveCaption(
+                key: const ValueKey('usd-receive-from-bitcoin-note'),
+                text: l10n.moveDestDollarsSubtitle),
+            SizedBox(height: 16.h),
+          ],
           SendToSectionHeader(title: l10n.usdReceiveFromYourWallet),
           _bitcoinRow(context),
           SizedBox(height: 24.h),
@@ -426,14 +452,17 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
           // Watch so the offering re-folds the moment the live
           // catalogue lands.
           final catalog = sheetRef.watch(orchestraSupportedRoutesProvider);
+          final destinations = sheetRef.watch(standingDestinationsProvider);
           final loading =
-              sheetRef.watch(orchestraRoutesReadyProvider).isLoading;
+              sheetRef.watch(orchestraRoutesReadyProvider).isLoading ||
+                  destinations.isLoading;
           return CoinAssetPickerSheet(
             otherLegAsset: kOrchestraUsdAssetCode,
             depositAddress: true,
             groups: receiveCoinGroups(
               catalog,
               ctx.l10n,
+              standingDestinations: destinations.valueOrNull ?? const {},
               destinationChain: kOrchestraUsdChain,
               destinationAsset: kOrchestraUsdAssetCode,
             ),
@@ -539,6 +568,12 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
                 ? _displayMinimum!.minimum.usdText
                 : null,
           ),
+          if (widget.fromBitcoinReceive) ...[
+            SizedBox(height: 4.h),
+            ReceiveCaption(
+                key: const ValueKey('usd-receive-from-bitcoin-note'),
+                text: l10n.moveDestDollarsSubtitle),
+          ],
           SizedBox(height: ReceiveGaps.addressToActions),
           ReceiveActionPills(
             onShare: () => _share(payload),
@@ -703,8 +738,9 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
     });
   }
 
-  /// Prefer an immutable standing instruction for supported destinations;
-  /// retain the legacy rail where the provider does not offer standing funding.
+  /// The immutable standing instruction to `spark:USDB` for this coin
+  /// (see [ReusableDepositAddressService]). There is no legacy rail: a
+  /// coin the standing rail cannot serve is refused and leaves the list.
   ///
   /// No exchange row is recorded here: the address has no order id at
   /// creation (Flashnet spawns an `ord_…` per inbound deposit), so a row
@@ -776,9 +812,6 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
         for (final r in await StandingDepositStore.records(walletId)) {
           priorAddresses.add(r.addressFor(option.chain));
         }
-        for (final a in AccumulationAddressCache.getAll()) {
-          priorAddresses.add(a.depositAddress);
-        }
       } catch (_) {}
       if (!current() || !sameSdk()) return;
       final resolved = await ReusableDepositAddressService.resolve(
@@ -791,6 +824,15 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
           onAttempt: (m) => model = m);
       if (!current() || !sameSdk()) return;
       _standing = resolved.standing;
+      // Opened from the Bitcoin receive: its deposits also show in the
+      // Bitcoin Activity. Kept on the device only.
+      if (widget.fromBitcoinReceive) {
+        unawaited(BitcoinReceiveMarks.mark(
+            walletId: walletId,
+            label: resolved.standing?.label ?? resolved.id,
+            sourceChain: option.chain,
+            address: resolved.address));
+      }
       final address = resolved.address;
       final addressId = resolved.id;
       final kuteFeeBps = resolved.kuteFeeBps;
@@ -820,6 +862,8 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
         'provider': 'orchestra',
         'reused': priorAddresses.contains(address),
         'destination': 'spark_usd',
+        if (widget.fromBitcoinReceive)
+          'entry_source': kUsdReceiveFromBitcoinReceiveSource,
         'address_kind': 'reusable_deposit',
         'model': resolved.model.name,
         if (kuteFeeBps != null) 'kute_fee_bps': kuteFeeBps,
@@ -846,6 +890,8 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
         'asset': option.assetCode,
         'network': option.chain,
         'provider': 'orchestra',
+        if (widget.fromBitcoinReceive)
+          'entry_source': kUsdReceiveFromBitcoinReceiveSource,
         'error_category': TrackingService.errorCategory(e),
         if (model case final m?) 'model': m.name,
       });

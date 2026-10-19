@@ -1567,9 +1567,6 @@ class AppLocalizationsHu extends AppLocalizations {
       'Ez nem az ehhez a tárcához párosított Jade. Semmi sem lett aláírva. Csatlakoztasd a párosított Jade-et, vagy párosítsd újra ezt a tárca mester-ujjlenyomatának frissítésével.';
 
   @override
-  String get receiveOtherAssets => 'Más eszközök fogadása';
-
-  @override
   String get medium => 'Közepes';
 
   @override
@@ -1665,9 +1662,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String feeAmountSats(String fee) {
     return '$fee sats';
   }
-
-  @override
-  String get memoColon => 'Megjegyzés: ';
 
   @override
   String errorMessage(String err) {
@@ -2119,10 +2113,6 @@ class AppLocalizationsHu extends AppLocalizations {
       'Ez az útvonal átmenetileg nem érhető el. Próbáld újra később.';
 
   @override
-  String get receiveAssetTemporarilyUnavailable =>
-      'Ennek az eszköznek a fogadása átmenetileg nem érhető el.';
-
-  @override
   String get clipboardEmpty => 'A vágólap üres';
 
   @override
@@ -2321,11 +2311,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String get receiveBeneficiary => 'Kedvezményezett';
 
   @override
-  String receiveAssetOnNetwork(String asset, String network) {
-    return '$asset ($network)';
-  }
-
-  @override
   String get receiveFailedToGetRate => 'Nem sikerült lekérni az árfolyamot';
 
   @override
@@ -2335,10 +2320,6 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String get receiveUsdcWalletNotReady =>
       'Az Előrejelzések fiókod még beállítás alatt van. Próbáld újra egy kicsit később.';
-
-  @override
-  String get receiveFundsLandAsBitcoin =>
-      'A pénz Bitcoinként érkezik a tárcádba.';
 
   @override
   String get receiveConnectionFailed => 'A csatlakozás sikertelen.';
@@ -3540,10 +3521,6 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String get receiveCoinNetworkUnavailable =>
       'Ez az érme és hálózat még nem érhető el befizetéshez. Válassz másikat.';
-
-  @override
-  String get receiveOtherCoinsNotToPredictions =>
-      'Más érmék nem érkezhetnek az Előrejelzésekbe. Fogadd őket a költési tárcádba, majd vidd át őket.';
 
   @override
   String get activityStables => 'Stabilcoinok';
@@ -6525,9 +6502,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String get receiveRequestAmount => 'Összeg kérése';
 
   @override
-  String get receiveBackToBitcoin => 'Vissza a Bitcoinhoz';
-
-  @override
   String get sendRecentRecipients => 'Legutóbbiak';
 
   @override
@@ -6701,13 +6675,6 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String get receiveCoinsLoading =>
       'Az érmék még töltődnek. Próbáld újra egy kicsit később.';
-
-  @override
-  String get receiveAlsoAcceptsTitle => 'A címed ezeket is fogadja';
-
-  @override
-  String get receiveAlsoAcceptsSubtitle =>
-      'Válaszd ki, mit küldenek neked. Bitcoinként érkezik.';
 
   @override
   String get receivePickNetwork => 'Melyik hálózat?';

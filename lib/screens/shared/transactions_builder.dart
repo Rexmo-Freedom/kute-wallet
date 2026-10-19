@@ -120,6 +120,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:kute/screens/shared/animations/fade_in_slide.dart';
 import 'package:kute/screens/shared/animations/bouncy_touch.dart';
 import 'package:kute/screens/shared/animations/premium_group_container.dart';
+import 'package:kute/services/orchestra/bitcoin_receive_marks.dart';
 
 const Color _kPolyRedTx = Color(0xFFEF4444);
 
@@ -321,6 +322,7 @@ class _TransactionListState extends ConsumerState<TransactionList> {
       walletId: override ?? ref.read(settingsProvider).activeWalletId,
       // A move over with nothing delivered has no row; its legs show.
       dissolved: moves.isEmpty ? null : watchMultiSourceMovesDissolved(ref),
+      bitcoinReceiveMarks: ref.watch(bitcoinReceiveMarksProvider),
     );
 
     final recentTransactions = widget.showAll
@@ -1228,6 +1230,10 @@ bool dollarSendDeliveredKnown(SwapOrder order) {
 /// [dissolved] tells which of [moves] are over with nothing delivered
 /// ([watchMultiSourceMovesDissolved]): those have no row and their legs
 /// are listed as their own.
+///
+/// [bitcoinReceiveMarks] are the dollar receive addresses opened from the
+/// Bitcoin receive's "other coins" line: their deposits are listed on the
+/// bitcoin ledger too ([shownFromBitcoinReceive]).
 List<BaseTransaction> assembleActivityRows(
   List<BaseTransaction> sorted, {
   required Set<String> ownAddresses,
@@ -1238,6 +1244,7 @@ List<BaseTransaction> assembleActivityRows(
   List<MultiSourceMove> moves = const [],
   String? walletId,
   MultiSourceMoveDissolved? dissolved,
+  List<BitcoinReceiveMark> bitcoinReceiveMarks = const [],
 }) {
   // Home activity is bitcoin-anchored (user decision): pool deposits
   // and withdrawals stay (they move wallet funds), but pool-internal
@@ -1305,6 +1312,10 @@ List<BaseTransaction> assembleActivityRows(
     rows = rows.where((tx) {
       if (tx is! SwapOrderTransaction) return true;
       final d = tx.details;
+      // The one exception (founder decision): a coin received into
+      // Dollars through an address opened from the Bitcoin receive is
+      // listed here as well, exactly as the dollar ledger lists it.
+      if (shownFromBitcoinReceive(d, bitcoinReceiveMarks)) return true;
       if (swapTouchesOnlyDollars(d)) {
         // Both sides are known dollars: no Bitcoin moved, regardless of
         // provider, status or availability of the settlement-intent record.

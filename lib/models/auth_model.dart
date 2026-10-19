@@ -14,6 +14,8 @@ import 'package:kute/services/secure/seed_access.dart';
 import 'package:kute/services/secure/secret_store.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:kute/services/hardware/ledger/ledger_operation_scope.dart';
+import 'package:kute/services/orchestra/bitcoin_receive_marks.dart'
+    show BitcoinReceiveMarks;
 
 export 'package:kute/services/secure/seed_access.dart';
 
@@ -740,6 +742,7 @@ class AuthModel {
     await Future.wait([
       PendingReceiveQuoteCache.clear(),
       StandingDepositStore.clear(),
+      BitcoinReceiveMarks.clear(),
       PasskeyPrfService.drainPendingWrites(),
       PasskeyService.drainPendingWrites(),
     ]);

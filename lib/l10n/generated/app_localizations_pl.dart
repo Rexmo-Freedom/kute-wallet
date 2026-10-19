@@ -1568,9 +1568,6 @@ class AppLocalizationsPl extends AppLocalizations {
       'To nie jest Jade sparowany z tym portfelem. Nic nie zostało podpisane. Podłącz sparowany Jade albo sparuj ten, aktualizując główny odcisk portfela.';
 
   @override
-  String get receiveOtherAssets => 'Odbierz inne aktywa';
-
-  @override
   String get medium => 'Średnio';
 
   @override
@@ -1665,9 +1662,6 @@ class AppLocalizationsPl extends AppLocalizations {
   String feeAmountSats(String fee) {
     return '$fee sats';
   }
-
-  @override
-  String get memoColon => 'Memo: ';
 
   @override
   String errorMessage(String err) {
@@ -2119,10 +2113,6 @@ class AppLocalizationsPl extends AppLocalizations {
       'Ta trasa jest chwilowo niedostępna. Spróbuj później.';
 
   @override
-  String get receiveAssetTemporarilyUnavailable =>
-      'Odbiór tego aktywa jest chwilowo niedostępny.';
-
-  @override
   String get clipboardEmpty => 'Schowek jest pusty';
 
   @override
@@ -2320,11 +2310,6 @@ class AppLocalizationsPl extends AppLocalizations {
   String get receiveBeneficiary => 'Beneficjent';
 
   @override
-  String receiveAssetOnNetwork(String asset, String network) {
-    return '$asset w sieci $network';
-  }
-
-  @override
   String get receiveFailedToGetRate => 'Nie udało się pobrać kursu';
 
   @override
@@ -2334,10 +2319,6 @@ class AppLocalizationsPl extends AppLocalizations {
   @override
   String get receiveUsdcWalletNotReady =>
       'Twoje konto Prognoz jest jeszcze konfigurowane. Spróbuj ponownie za chwilę.';
-
-  @override
-  String get receiveFundsLandAsBitcoin =>
-      'Środki trafią do portfela jako Bitcoin.';
 
   @override
   String get receiveConnectionFailed => 'Połączenie nieudane.';
@@ -3541,10 +3522,6 @@ class AppLocalizationsPl extends AppLocalizations {
   @override
   String get receiveCoinNetworkUnavailable =>
       'Ta moneta i sieć nie są jeszcze dostępne do wpłat. Wybierz inne.';
-
-  @override
-  String get receiveOtherCoinsNotToPredictions =>
-      'Inne monety nie mogą trafić do Prognoz. Odbierz je w portfelu wydatków, a potem przenieś.';
 
   @override
   String get activityStables => 'Stablecoiny';
@@ -6532,9 +6509,6 @@ class AppLocalizationsPl extends AppLocalizations {
   String get receiveRequestAmount => 'Poproś o kwotę';
 
   @override
-  String get receiveBackToBitcoin => 'Wróć do Bitcoin';
-
-  @override
   String get sendRecentRecipients => 'Ostatni';
 
   @override
@@ -6708,13 +6682,6 @@ class AppLocalizationsPl extends AppLocalizations {
   @override
   String get receiveCoinsLoading =>
       'Monety wciąż się wczytują. Spróbuj ponownie za chwilę.';
-
-  @override
-  String get receiveAlsoAcceptsTitle => 'Twój adres przyjmuje też';
-
-  @override
-  String get receiveAlsoAcceptsSubtitle =>
-      'Wybierz, co ktoś ci wysyła. Dotrze jako bitcoin.';
 
   @override
   String get receivePickNetwork => 'Jaka sieć?';

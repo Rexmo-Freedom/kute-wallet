@@ -1570,9 +1570,6 @@ class AppLocalizationsLt extends AppLocalizations {
       'Šis Jade nėra susietas su šia pinigine. Niekas nepasirašyta. Prijunkite susietą Jade arba susiekite šį iš naujo atnaujinę piniginės pagrindinį kontrolinį kodą.';
 
   @override
-  String get receiveOtherAssets => 'Gauti kitą turtą';
-
-  @override
   String get medium => 'Vidutinis';
 
   @override
@@ -1667,9 +1664,6 @@ class AppLocalizationsLt extends AppLocalizations {
   String feeAmountSats(String fee) {
     return '$fee sats';
   }
-
-  @override
-  String get memoColon => 'Pastaba: ';
 
   @override
   String errorMessage(String err) {
@@ -2119,10 +2113,6 @@ class AppLocalizationsLt extends AppLocalizations {
       'Šis maršrutas laikinai negalimas. Bandykite vėliau.';
 
   @override
-  String get receiveAssetTemporarilyUnavailable =>
-      'Šio turto gavimas laikinai negalimas.';
-
-  @override
   String get clipboardEmpty => 'Iškarpinė tuščia';
 
   @override
@@ -2318,11 +2308,6 @@ class AppLocalizationsLt extends AppLocalizations {
   String get receiveBeneficiary => 'Gavėjas';
 
   @override
-  String receiveAssetOnNetwork(String asset, String network) {
-    return '$asset $network tinkle';
-  }
-
-  @override
   String get receiveFailedToGetRate => 'Nepavyko gauti kurso';
 
   @override
@@ -2332,10 +2317,6 @@ class AppLocalizationsLt extends AppLocalizations {
   @override
   String get receiveUsdcWalletNotReady =>
       'Jūsų Prognozių paskyra dar ruošiama. Bandykite vėl po akimirkos.';
-
-  @override
-  String get receiveFundsLandAsBitcoin =>
-      'Lėšos į piniginę ateina kaip Bitcoin.';
 
   @override
   String get receiveConnectionFailed => 'Prisijungti nepavyko.';
@@ -3540,10 +3521,6 @@ class AppLocalizationsLt extends AppLocalizations {
   @override
   String get receiveCoinNetworkUnavailable =>
       'Ši moneta ir tinklas įnašams dar negalimi. Pasirinkite kitą.';
-
-  @override
-  String get receiveOtherCoinsNotToPredictions =>
-      'Kitos monetos negali ateiti į Prognozes. Gaukite jas į išlaidų piniginę, tada perkelkite.';
 
   @override
   String get activityStables => 'Stabilios';
@@ -6542,9 +6519,6 @@ class AppLocalizationsLt extends AppLocalizations {
   String get receiveRequestAmount => 'Prašoma suma';
 
   @override
-  String get receiveBackToBitcoin => 'Atgal į Bitcoin';
-
-  @override
   String get sendRecentRecipients => 'Naujausi';
 
   @override
@@ -6716,13 +6690,6 @@ class AppLocalizationsLt extends AppLocalizations {
   @override
   String get receiveCoinsLoading =>
       'Monetos dar įkeliamos. Bandykite vėl po akimirkos.';
-
-  @override
-  String get receiveAlsoAcceptsTitle => 'Jūsų adresas taip pat priima';
-
-  @override
-  String get receiveAlsoAcceptsSubtitle =>
-      'Pasirinkite, kas jums siunčiama. Tai ateis kaip bitcoin.';
 
   @override
   String get receivePickNetwork => 'Kuris tinklas?';

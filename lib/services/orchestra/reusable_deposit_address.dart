@@ -1,44 +1,42 @@
 // lib/services/orchestra/reusable_deposit_address.dart
 //
-// The one door both receive screens (bitcoin and dollars) go through for a
-// reusable deposit address, so the rail choice, the refusal handling and
-// the availability memory cannot drift between them.
+// The one door every receive goes through for a reusable deposit address,
+// so the destination, the refusal handling and the availability memory
+// cannot drift. Another coin always arrives in the dollar balance: the
+// Dollars receive and the Bitcoin receive's "other coins" (which opens the
+// very same Dollars sheet) both ask for it.
 //
-// STANDING FIRST. Flashnet's current model is the standing deposit address
-// (PUT /v1/standing-deposit-addresses/{ref}); the accumulation address is
-// its legacy model ("new integrations use standing deposit addresses").
-// Every receive therefore asks the standing rail first and reaches the
-// legacy rail only where the provider offers no standing address:
+// STANDING ONLY. Flashnet's current model is the standing deposit address
+// (PUT /v1/standing-deposit-addresses/{ref}) to `spark:USDB`, paid to the
+// wallet's own Spark address. The legacy accumulation address is never
+// created, reused or shown: no deposit to one ever completed, and the
+// provider calls it legacy. The addresses already handed out stay watched
+// silently by background sync (AccumulationAddressCache.sweepTargets) so a
+// late deposit still gets its Activity row.
 //
-//   * the destination is not a standing destination — spark:BTC was absent
-//     from GET /v1/standing-deposit-addresses/destinations on 2026-09-25
-//     and the bitcoin receive is still served by the legacy rail for that
-//     reason alone; the day the provider lists it, the bitcoin receive
-//     moves over with no release;
-//   * the source chain is outside the standing rail's funding sources
-//     (`StandingDepositStore.supportsSource`), or the instruction answered
-//     with no address on that chain;
-//   * the standing registration itself was refused for the route (4xx).
+// Where the standing rail has no address for a pair (the destination is
+// not listed, the source chain is outside its funding sources, the
+// instruction answered with no address on that chain, or the registration
+// was refused for the route), the pair is recorded as unavailable, which
+// takes it off the pickers, and the receive is refused with the existing
+// unavailable copy.
 //
 // A transient standing failure (session, fee-terms conflict, rate limit,
-// outage, network) is NOT a reason to mint a legacy address (a policy
-// revision race and a 5xx are retried once inside
-// `StandingDepositStore.register` first): the next visit
-// would show a different address, breaking "one address per coin and
-// network", so it surfaces as the retryable error it is.
+// outage, network) is not a refusal (a policy revision race and a 5xx are
+// retried once inside `StandingDepositStore.register` first): it surfaces
+// as the retryable error it is, and the pair stays offered.
 //
 // Every address shown arms `ReceiveAddressWatch`, so its deposits are read
 // on every screen for a while (background_sync_service.dart).
 
 import 'package:flutter/foundation.dart' show visibleForTesting;
-import 'package:kute/services/accumulation_address_cache.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/services/api/orchestra_api.dart'
     show StandingRequestException;
 import 'package:kute/services/orchestra/receive_route_availability.dart';
 import 'package:kute/services/orchestra/standing_deposit_store.dart';
 import 'package:kute/services/orchestra/standing_deposit_sweep.dart'
     show ReceiveAddressWatch;
-import 'package:kute/services/orchestra_routes.dart' show orchestraAssetCodeFor;
 
 export 'package:kute/services/orchestra/receive_route_availability.dart'
     show DepositAddressModel, ReceiveRouteUnavailableException;
@@ -56,17 +54,43 @@ class ReusableDepositAddress {
 
   final String address;
 
-  /// `standingAddressId` or the legacy `accumulationAddressId`.
+  /// The instruction's `standingAddressId`.
   final String id;
   final int? kuteFeeBps;
   final DepositAddressModel model;
 
-  /// The standing record, when [model] is standing.
+  /// The standing record (null only from the test seam).
   final StandingDepositRecord? standing;
 }
 
+/// The provider's standing destination pairs ('chain:ASSET'), memoised by
+/// [StandingDepositStore.destinations]. The receive pickers list a coin
+/// only when its receive's own destination is here; while it loads, or if
+/// it cannot be read, nothing is listed.
+final standingDestinationsProvider = FutureProvider.autoDispose<Set<String>>(
+    (ref) async =>
+        await StandingDepositStore.destinations(() => true) ??
+        const <String>{});
+
+/// Whether a reusable deposit row from [sourceChain]/[sourceAsset] into
+/// [destinationAsset] can get a standing address: its destination is
+/// listed in [destinations], the standing rail takes the source, and the
+/// pair has not been refused.
+bool standingReceiveOffered({
+  required Set<String> destinations,
+  required String sourceChain,
+  required String sourceAsset,
+  required String destinationAsset,
+}) =>
+    destinations.contains('spark:$destinationAsset') &&
+    StandingDepositStore.supportsSource(sourceChain, sourceAsset) &&
+    !ReceiveRouteAvailability.isUnavailable(
+        sourceChain: sourceChain,
+        sourceAsset: sourceAsset,
+        destinationAsset: destinationAsset);
+
 abstract final class ReusableDepositAddressService {
-  /// Test seam: answers [resolve] in place of both rails.
+  /// Test seam: answers [resolve] in place of the standing rail.
   @visibleForTesting
   static Future<ReusableDepositAddress> Function({
     required String sourceChain,
@@ -74,15 +98,15 @@ abstract final class ReusableDepositAddressService {
     required String destinationAsset,
   })? debugResolver;
 
-  /// Resolves the reusable address for [sourceChain]/[sourceAsset] into
-  /// [destinationAsset] (BTC or USDB) on the person's own Spark
-  /// [recipient], standing first and legacy second.
+  /// Resolves the standing address for [sourceChain]/[sourceAsset] into
+  /// [destinationAsset] (`spark:USDB`) on the wallet's own Spark
+  /// [recipient].
   ///
-  /// [onAttempt] is told which model is being asked before each request,
-  /// so a failure event can name it. Throws
-  /// [ReceiveRouteUnavailableException] once both rails have refused the
-  /// route (the pair is recorded as unavailable first, so the picker that
-  /// follows no longer offers it), and rethrows anything else.
+  /// [onAttempt] is told the model before the request, so a failure
+  /// event can name it. Throws [ReceiveRouteUnavailableException] when
+  /// the standing rail has no address for the route (the pair is
+  /// recorded as unavailable first, so the picker that follows no longer
+  /// lists it), and rethrows anything else.
   static Future<ReusableDepositAddress> resolve({
     required String walletId,
     required String recipient,
@@ -99,70 +123,53 @@ abstract final class ReusableDepositAddressService {
           sourceAsset: sourceAsset,
           destinationAsset: destinationAsset);
     }
-    Never refuse(DepositAddressModel model, String category) =>
-        throw ReceiveRouteUnavailableException(
+    Future<Never> refuse(String category, {bool remember = true}) async {
+      if (remember) {
+        await ReceiveRouteAvailability.markUnavailable(
             sourceChain: sourceChain,
             sourceAsset: sourceAsset,
-            destinationAsset: destinationAsset,
-            model: model,
-            category: category);
+            destinationAsset: destinationAsset);
+      }
+      throw ReceiveRouteUnavailableException(
+          sourceChain: sourceChain,
+          sourceAsset: sourceAsset,
+          destinationAsset: destinationAsset,
+          model: DepositAddressModel.standing,
+          category: category);
+    }
 
     if (ReceiveRouteAvailability.isUnavailable(
         sourceChain: sourceChain,
         sourceAsset: sourceAsset,
         destinationAsset: destinationAsset)) {
-      refuse(DepositAddressModel.standing, 'no_route');
+      return refuse('no_route', remember: false);
     }
 
     onAttempt?.call(DepositAddressModel.standing);
+    final StandingDepositRecord? standing;
     try {
-      final standing = await StandingDepositStore.register(
+      standing = await StandingDepositStore.register(
           walletId: walletId,
           recipient: recipient,
           destinationAsset: destinationAsset,
           sourceChain: sourceChain,
           sourceAsset: sourceAsset,
           wanted: wanted);
-      if (standing != null) {
-        ReceiveAddressWatch.shown();
-        return ReusableDepositAddress(
-            address: standing.addressFor(sourceChain)!,
-            id: standing.response['standingAddressId'] as String,
-            kuteFeeBps: standing.kuteFeeBps,
-            model: DepositAddressModel.standing,
-            standing: standing);
-      }
     } on StandingRequestException catch (e) {
-      // A refused route falls through to the legacy rail; anything else
-      // is retryable and must not mint a second address.
-      if (ReceiveRouteAvailability.refusalCategory(e) == null) rethrow;
+      // A refused route is unavailable; anything else is retryable.
+      final category = ReceiveRouteAvailability.refusalCategory(e);
+      if (category == null) rethrow;
+      if (!wanted()) throw StateError('Wallet changed');
+      return refuse(category);
     }
     if (!wanted()) throw StateError('Wallet changed');
-
-    onAttempt?.call(DepositAddressModel.accumulation);
-    final result = await AccumulationAddressCache.getOrCreate(
-        sourceChain: sourceChain,
-        sourceAsset: orchestraAssetCodeFor(sourceAsset),
-        destinationAsset: destinationAsset,
-        recipientSparkAddress: recipient);
-    final minted = result.data;
-    final address = minted?.depositAddress ?? '';
-    if (minted == null || address.isEmpty) {
-      final category = ReceiveRouteAvailability.refusalCategoryOf(result);
-      if (category != null) {
-        await ReceiveRouteAvailability.markUnavailable(
-            sourceChain: sourceChain,
-            sourceAsset: sourceAsset,
-            destinationAsset: destinationAsset);
-        refuse(DepositAddressModel.accumulation, category);
-      }
-      throw result.error ?? 'Failed to create deposit address';
-    }
+    if (standing == null) return refuse('no_route');
     ReceiveAddressWatch.shown();
     return ReusableDepositAddress(
-        address: address,
-        id: minted.id,
-        kuteFeeBps: minted.kuteFeeBps,
-        model: DepositAddressModel.accumulation);
+        address: standing.addressFor(sourceChain)!,
+        id: standing.response['standingAddressId'] as String,
+        kuteFeeBps: standing.kuteFeeBps,
+        model: DepositAddressModel.standing,
+        standing: standing);
   }
 }

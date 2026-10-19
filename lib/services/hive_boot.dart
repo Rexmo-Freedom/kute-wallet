@@ -1,23 +1,20 @@
 // lib/services/hive_boot.dart
 //
 // The Hive boxes the app reads at boot, opened in one parallel batch,
-// followed by the once-per-launch work that needs them open. Called from
+// then the stored analytics opt-out applied. Called from
 // `_initHive` in lib/main.dart once Hive itself is initialised; the test
 // in test/services/hive_boot_test.dart runs exactly this path.
 
 import 'package:hive_ce/hive.dart';
-import 'package:kute/services/accumulation_address_cache.dart';
 import 'package:kute/services/runtime_policy_snapshot_store.dart';
-import 'package:kute/services/security/address_history.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/services/tx_fiat_snapshot_service.dart';
 import 'package:kute/services/venue_total_cache_service.dart';
 
-/// Opens every startup box, applies the stored analytics opt-out and runs
-/// the reusable-deposit hygiene. Requires `Hive.init` (and the adapters)
-/// to have run already. Never throws: a corrupt cache-tier box is wiped
-/// and reopened, a failed settings open falls through, and the hygiene
-/// sweep swallows its own errors.
+/// Opens every startup box and applies the stored analytics opt-out.
+/// Requires `Hive.init` (and the adapters) to have run already. Never
+/// throws: a corrupt cache-tier box is wiped and reopened, and a failed
+/// settings open falls through.
 Future<void> openStartupHiveBoxes() async {
   // All box opens run in PARALLEL — they're independent file opens with
   // no data dependencies, and sequential awaits put ~20 × ~40ms of I/O
@@ -30,11 +27,9 @@ Future<void> openStartupHiveBoxes() async {
   //    value + gain/loss vs current price.
   //  * once_flags — once-only milestone flags (first_swap, first_bet…).
   //  * milestones_log — chronological log of unlocked milestones.
-  //  * accumulation_addresses — reusable Orchestra deposit addresses
-  //    (AccumulationAddressCache); address_history — the append-only
-  //    record of addresses handed out and later retired (AddressHistory),
-  //    opened here so a retirement during the sweep below, or at use
-  //    time, never drops its history row.
+  //  * accumulation_addresses — the legacy Orchestra deposit addresses
+  //    handed out before standing addresses (AccumulationAddressCache),
+  //    read only by background sync's silent sweep for late deposits.
   //  * polymarket_suppressed_positions — recently sold/redeemed
   //    positions stay hidden across restarts while the Data API
   //    catches up (epoch-ms per conditionId).
@@ -77,7 +72,6 @@ Future<void> openStartupHiveBoxes() async {
     _openHiveBoxSafe('milestones_log'),
     _openHiveBoxSafe<String>('outlogicOrders'),
     _openHiveBoxSafe<String>('accumulation_addresses'),
-    _openHiveBoxSafe<String>(AddressHistory.boxName),
     _openHiveBoxSafe<String>('usdc_balance_history'),
     _openHiveBoxSafe<String>('polymarket_suppressed_positions'),
     _openHiveBoxSafe<String>('polymarket_optimistic_activity'),
@@ -108,23 +102,10 @@ Future<void> openStartupHiveBoxes() async {
     Hive.openBox('settings').then((_) {}, onError: (_) {}),
   ]);
   // The analytics opt-out lives in the settings box, so apply it the
-  // moment the box is open and before anything can fire an event — the
-  // sweep below emits one per retired entry, and `track` checks the mute
-  // flag at call time. Synchronous; the SDK opt-out it may trigger is
-  // fire-and-forget.
+  // moment the box is open and before anything can fire an event: `track`
+  // checks the mute flag at call time. Synchronous; the SDK opt-out it may
+  // trigger is fire-and-forget.
   TrackingService.applyStoredOptOut();
-  // Reusable-deposit hygiene: park every cached deposit address whose
-  // route fell off Orchestra's receive catalog so the receive screen can
-  // never hand it out again, and record the retirement in
-  // address_history. Both boxes are already open, so `init` only runs
-  // the sweep; it is awaited so the cache is clean before anything reads
-  // it. Cheap: one JSON decode per active entry, a write per stale one.
-  try {
-    await AccumulationAddressCache.init();
-  } catch (_) {
-    // Must never sink the boot. getOrCreate's own gate still refuses a
-    // dead route at use time, so a skipped sweep only delays hygiene.
-  }
 }
 
 Future<void> _openHiveBoxSafe<T>(String name) async {

@@ -1568,9 +1568,6 @@ class AppLocalizationsFi extends AppLocalizations {
       'Tämä Jade ei ole tähän lompakkoon pariliitetty laite. Mitään ei allekirjoitettu. Yhdistä pariliitetty Jade tai pariliitä tämä uudelleen päivittämällä lompakon pääsormenjälki.';
 
   @override
-  String get receiveOtherAssets => 'Vastaanota muita varoja';
-
-  @override
   String get medium => 'Keskitaso';
 
   @override
@@ -1665,9 +1662,6 @@ class AppLocalizationsFi extends AppLocalizations {
   String feeAmountSats(String fee) {
     return '$fee sats';
   }
-
-  @override
-  String get memoColon => 'Muistio: ';
 
   @override
   String errorMessage(String err) {
@@ -2112,10 +2106,6 @@ class AppLocalizationsFi extends AppLocalizations {
       'Tämä reitti ei ole tilapäisesti käytettävissä. Yritä myöhemmin uudelleen.';
 
   @override
-  String get receiveAssetTemporarilyUnavailable =>
-      'Tämän varan vastaanotto ei ole tilapäisesti käytettävissä.';
-
-  @override
   String get clipboardEmpty => 'Leikepöytä on tyhjä';
 
   @override
@@ -2312,11 +2302,6 @@ class AppLocalizationsFi extends AppLocalizations {
   String get receiveBeneficiary => 'Edunsaaja';
 
   @override
-  String receiveAssetOnNetwork(String asset, String network) {
-    return '$asset verkossa $network';
-  }
-
-  @override
   String get receiveFailedToGetRate => 'Kurssia ei saatu';
 
   @override
@@ -2326,10 +2311,6 @@ class AppLocalizationsFi extends AppLocalizations {
   @override
   String get receiveUsdcWalletNotReady =>
       'Ennusteet-tiliäsi otetaan vielä käyttöön. Yritä hetken päästä uudelleen.';
-
-  @override
-  String get receiveFundsLandAsBitcoin =>
-      'Varat saapuvat lompakkoosi Bitcoinina.';
 
   @override
   String get receiveConnectionFailed => 'Yhteys epäonnistui.';
@@ -3532,10 +3513,6 @@ class AppLocalizationsFi extends AppLocalizations {
   @override
   String get receiveCoinNetworkUnavailable =>
       'Tämä kolikko ja verkko eivät ole vielä käytettävissä talletuksille. Valitse toinen.';
-
-  @override
-  String get receiveOtherCoinsNotToPredictions =>
-      'Muut kolikot eivät voi saapua Ennusteisiin. Vastaanota ne käyttölompakkoosi ja siirrä ne sitten.';
 
   @override
   String get activityStables => 'Vakaat';
@@ -6510,9 +6487,6 @@ class AppLocalizationsFi extends AppLocalizations {
   String get receiveRequestAmount => 'Pyydä summaa';
 
   @override
-  String get receiveBackToBitcoin => 'Takaisin Bitcoiniin';
-
-  @override
   String get sendRecentRecipients => 'Viimeisimmät';
 
   @override
@@ -6684,13 +6658,6 @@ class AppLocalizationsFi extends AppLocalizations {
   @override
   String get receiveCoinsLoading =>
       'Kolikoita ladataan vielä. Yritä hetken päästä uudelleen.';
-
-  @override
-  String get receiveAlsoAcceptsTitle => 'Osoitteesi hyväksyy myös';
-
-  @override
-  String get receiveAlsoAcceptsSubtitle =>
-      'Valitse, mitä sinulle lähetetään. Se saapuu bitcoinina.';
 
   @override
   String get receivePickNetwork => 'Mikä verkko?';

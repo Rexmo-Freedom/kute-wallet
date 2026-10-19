@@ -628,7 +628,6 @@
   "hwCouldNotReadSignedFile": "Couldn't read that file. Pick the signed transaction file and try again.",
   "hwCouldNotSignWithJade": "Couldn't sign with your Jade. Check the device and try again.",
   "jadeErrorWrongDevice": "This Jade isn't the one paired with this wallet. Nothing was signed. Connect the paired Jade, or re-pair this one by updating the wallet's master fingerprint.",
-  "receiveOtherAssets": "Receive other assets",
   "medium": "Medium",
   "claimFeeWarning": "Fee is more than half the deposit value",
   "claimFeeExceedsDeposit": "Fee exceeds deposit value",
@@ -667,7 +666,6 @@
       }
     }
   },
-  "memoColon": "Memo: ",
   "errorMessage": "Error: {err}",
   "@errorMessage": {
     "placeholders": {
@@ -929,7 +927,6 @@
   "errorCopyChangePin": "Couldn't update your PIN. Please try again.",
   "restoreWriteFailedPlain": "Kute couldn't save this wallet on this phone. Nothing was deleted. Try again.",
   "swapRouteTemporarilyUnavailable": "This route is temporarily unavailable. Please try again later.",
-  "receiveAssetTemporarilyUnavailable": "Receiving this asset is temporarily unavailable.",
   "clipboardEmpty": "Clipboard is empty",
   "pleaseSetUpPINFirst": "Please set up your PIN first",
   "connectingToDevice": "Connecting to {device}...",
@@ -1036,21 +1033,9 @@
   "receiveScanOrShareSubtitle": "Scan or share this code to get paid.",
   "receiveSyncingWalletCaption": "Syncing your wallet. The address will appear in a moment.",
   "receiveBeneficiary": "Beneficiary",
-  "receiveAssetOnNetwork": "{asset} on {network}",
-  "@receiveAssetOnNetwork": {
-    "placeholders": {
-      "asset": {
-        "type": "String"
-      },
-      "network": {
-        "type": "String"
-      }
-    }
-  },
   "receiveFailedToGetRate": "Failed to get rate",
   "receiveNetworkErrorTapToRetry": "Network error. Tap to retry.",
   "receiveUsdcWalletNotReady": "Your Predictions account is still setting up. Try again in a moment.",
-  "receiveFundsLandAsBitcoin": "Funds land on your wallet as Bitcoin.",
   "receiveConnectionFailed": "Connection failed.",
   "receiveAuthenticationFailed": "Authentication failed.",
   "receiveFailedToVerifyAddressOnJade": "Failed to verify address on Jade.",
@@ -1872,10 +1857,6 @@
   "receiveCoinNetworkUnavailable": "This coin and network are not available for deposits yet. Pick another one.",
   "@receiveCoinNetworkUnavailable": {
     "description": "Shown when the provider refuses to create a reusable deposit address for the picked coin and network. It is about the pair, not about the wallet, so it must never be confused with receiveOtherCoinsSpendingOnly."
-  },
-  "receiveOtherCoinsNotToPredictions": "Other coins cannot arrive in Predictions. Receive them in your spending wallet, then move them across.",
-  "@receiveOtherCoinsNotToPredictions": {
-    "description": "Shown when a cross-chain receive is attempted into the Predictions balance, which settles at an address the conversion cannot pay."
   },
   "activityStables": "Stables",
   "activityBitcoinWallet": "Bitcoin wallet",
@@ -3416,7 +3397,6 @@
   "@portfolioRebalanceNotNow": {"description": "Line under a venue row after Rebalance: the cash could not move right now (a trade or claim settling, the route busy); the app retries by itself."},
   "sendMoreThanAvailable": "That is more than you have available.",
   "receiveRequestAmount": "Request amount",
-  "receiveBackToBitcoin": "Back to Bitcoin",
   "sendRecentRecipients": "Recent",
   "sendClipboardAddressFound": "Address found in clipboard. Use it?",
   "useIt": "Use",
@@ -3571,14 +3551,6 @@
   "receiveCoinsLoading": "Coins are still loading. Try again in a moment.",
   "@receiveCoinsLoading": {
     "description": "Shown in place of the coin grid while the route catalogue's first load is still in flight."
-  },
-  "receiveAlsoAcceptsTitle": "Your address also accepts",
-  "@receiveAlsoAcceptsTitle": {
-    "description": "Heading of the sheet that lists the coins the bitcoin receive address accepts."
-  },
-  "receiveAlsoAcceptsSubtitle": "Pick what is being sent to you. It arrives as bitcoin.",
-  "@receiveAlsoAcceptsSubtitle": {
-    "description": "Subtitle of the Also accepts sheet."
   },
   "receivePickNetwork": "Which network?",
   "@receivePickNetwork": {
