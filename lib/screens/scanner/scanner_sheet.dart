@@ -2,10 +2,11 @@
 //
 // THE SCANNER, AS A SHEET (founder decision, October 2026). Every Scan in
 // the app opens this one bottom sheet over the screen it was tapped on:
-// the receive sheets' frame (close X on the left, the title centred), the
-// live camera filling the body behind the scan frame, and two round
-// controls over the bottom of the preview: the flash on the left, a QR
-// picked from photos on the right. No Paste here: Paste stays on the
+// the receive sheets' header (close X on the left, the title centred),
+// then the live camera edge to edge to the sheet's bottom behind the scan
+// frame (the card is the camera), and two round controls over the bottom
+// of the preview: the flash on the left, a QR picked from photos on the
+// right. No Paste here: Paste stays on the
 // field that asked.
 //
 // Three modes, one camera:
@@ -38,7 +39,7 @@ import 'package:kute/providers/qr_scanner_provider.dart';
 import 'package:kute/screens/scanner/scanner_camera.dart';
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
 import 'package:kute/screens/shared/receive_surface.dart'
-    show ReceiveCaption, ReceiveSheetFrame;
+    show ReceiveSheetHeader, kReceiveSheetMaxHeight;
 import 'package:kute/services/add_wallet_capabilities.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/providers/auth_provider.dart' show sessionUnlockedProvider;
@@ -152,6 +153,10 @@ class _ScannerSheetState extends ConsumerState<ScannerSheet>
   /// camera can never succeed; the only way out is the OS Settings.
   bool _cameraDenied = false;
 
+  /// This device has no camera to scan with (the simulator): nothing to
+  /// retry, photos are the way in. Never shown on a phone with a camera.
+  bool _noCamera = false;
+
   /// The last QR picked from photos held no code: a plain caption under
   /// the preview says so until the next try.
   bool _galleryMiss = false;
@@ -245,15 +250,24 @@ class _ScannerSheetState extends ConsumerState<ScannerSheet>
       if (!mounted || _camera == null || _closing) return;
       try {
         await _camera!.start();
-        if (mounted && (_cameraError || _cameraDenied)) {
+        if (mounted && (_cameraError || _cameraDenied || _noCamera)) {
           setState(() {
             _cameraError = false;
             _cameraDenied = false;
+            _noCamera = false;
           });
         }
         return;
       } on ScannerCameraDenied {
         break;
+      } on ScannerCameraUnavailable {
+        if (!mounted || _closing) return;
+        setState(() {
+          _noCamera = true;
+          _cameraError = false;
+          _cameraDenied = false;
+        });
+        return;
       } catch (_) {
         await Future.delayed(const Duration(milliseconds: 300));
       }
@@ -1102,44 +1116,36 @@ class _ScannerSheetState extends ConsumerState<ScannerSheet>
       multi = ref.watch(qrScannerProvider);
       ref.listen<QrScannerState>(qrScannerProvider, _onMultiPart);
     }
-    final c = context.colors;
     final l10n = context.l10n;
 
+    // The card is the camera (founder decision, October 2026): the sheet's
+    // own top corners are the only rounding, the header sits directly
+    // above the preview, and the preview runs to the sheet's left, right
+    // and bottom edges. No container padding, so no inset card.
     return PopScope<Object?>(
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) _onClosing();
       },
-      child: ReceiveSheetFrame(
-        leading: KuteCloseButton(onPressed: _close),
-        title: Text(
-          l10n.scanQrCode,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: AppTextStyles.modalTitle(context),
-        ),
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 0),
+      child: ClipRRect(
+        borderRadius:
+            BorderRadius.vertical(top: Radius.circular(AppRadius.xxl)),
+        child: Container(
+          height: MediaQuery.sizeOf(context).height * kReceiveSheetMaxHeight,
+          decoration: AppDecorations.bottomSheet(context),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(child: _preview(context)),
-              if (multi != null && multi.isScanningAnimated) ...[
-                SizedBox(height: 16.h),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4.r),
-                  child: LinearProgressIndicator(
-                    value: multi.progress > 0 ? multi.progress : null,
-                    backgroundColor: c.surfaceLight,
-                    valueColor: AlwaysStoppedAnimation<Color>(c.accent),
-                    minHeight: 4.h,
-                  ),
+              ReceiveSheetHeader(
+                leading: KuteCloseButton(onPressed: _close),
+                title: Text(
+                  l10n.scanQrCode,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.modalTitle(context),
                 ),
-                SizedBox(height: 12.h),
-                ReceiveCaption(text: l10n.scannerKeepInFrame),
-              ] else if (_galleryMiss) ...[
-                SizedBox(height: 12.h),
-                ReceiveCaption(text: l10n.receiveNoQrCodeFoundInImage),
-              ],
+              ),
+              SizedBox(height: 8.h),
+              Expanded(child: _preview(context, multi)),
             ],
           ),
         ),
@@ -1147,157 +1153,227 @@ class _ScannerSheetState extends ConsumerState<ScannerSheet>
     );
   }
 
-  /// The live preview with the card radius: the camera (or why it is
-  /// off), the scan frame, and the flash and photo controls over its
-  /// bottom edge.
-  Widget _preview(BuildContext context) {
+  /// The preview, edge to edge: the camera (or a dark field with why it
+  /// is off), the scan frame, the one line the scan needs under it, and
+  /// the flash and photo controls over its bottom edge above the home
+  /// indicator.
+  Widget _preview(BuildContext context, QrScannerState? multi) {
     final camera = _camera!;
     final l10n = context.l10n;
-    final live = !_cameraDenied && !_cameraError;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(AppRadius.lg),
-      child: ColoredBox(
-        color: Colors.black,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            KeyedSubtree(
-              key: ObjectKey(camera),
-              child: camera.buildPreview(_onDetect),
+    final live = !_cameraDenied && !_cameraError && !_noCamera;
+    final bottomInset = MediaQuery.paddingOf(context).bottom + 16.w;
+    // The caption under the frame, when there is one.
+    final String? caption;
+    if (multi != null && multi.isScanningAnimated) {
+      caption = l10n.scannerKeepInFrame;
+    } else if (_galleryMiss) {
+      caption = l10n.receiveNoQrCodeFoundInImage;
+    } else {
+      caption = null;
+    }
+    return ColoredBox(
+      color: Colors.black,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          KeyedSubtree(
+            key: ObjectKey(camera),
+            child: camera.buildPreview(_onDetect),
+          ),
+          // Camera permission denied: retrying can never succeed, so
+          // point at the OS Settings instead of the retry loop. The
+          // photo control stays usable.
+          if (_cameraDenied)
+            _CameraOff(
+              message: l10n.scannerCameraAccessOff,
+              action: AppButton(
+                text: l10n.openSettings,
+                compact: true,
+                onPressed: _openCameraSettings,
+              ),
+            )
+          // No camera on this device (the simulator): nothing to retry,
+          // photos are the way in.
+          else if (_noCamera)
+            _CameraOff(message: l10n.receiveCameraUnavailable)
+          // Camera couldn't start (still held by a just-closed scanner):
+          // tap-to-retry instead of a black field that looks frozen.
+          else if (_cameraError)
+            GestureDetector(
+              onTap: _retryCamera,
+              behavior: HitTestBehavior.opaque,
+              child: _CameraOff(
+                message: l10n.receiveCameraUnavailable,
+                detail: l10n.tapToRetry,
+              ),
             ),
-            // Camera permission denied: retrying can never succeed, so
-            // point at the OS Settings instead of the retry loop. The
-            // photo control stays usable.
-            if (_cameraDenied)
-              Container(
-                color: Colors.black,
-                alignment: Alignment.center,
-                padding: EdgeInsets.symmetric(horizontal: 24.w),
+          // Scan frame overlay, with the caption and the progress of an
+          // animated code under it. Scaled down, never overflowing, on a
+          // preview shorter than the frame (a small window).
+          if (live)
+            Center(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.no_photography_rounded,
-                        color: Colors.white70, size: 40.sp),
-                    SizedBox(height: 12.h),
-                    Text(
-                      l10n.scannerCameraAccessOff,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16.sp,
-                          fontWeight: FontWeight.w700),
-                    ),
-                    SizedBox(height: 16.h),
-                    AppButton(
-                      text: l10n.openSettings,
-                      compact: true,
-                      onPressed: _openCameraSettings,
-                    ),
-                  ],
-                ),
-              )
-            // Camera couldn't start (still held by a just-closed scanner)
-            // — tap-to-retry instead of a black preview that looks frozen.
-            else if (_cameraError)
-              GestureDetector(
-                onTap: _retryCamera,
-                behavior: HitTestBehavior.opaque,
-                child: Container(
-                  color: Colors.black,
-                  alignment: Alignment.center,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.no_photography_rounded,
-                          color: Colors.white70, size: 40.sp),
-                      SizedBox(height: 12.h),
-                      Text(
-                        l10n.receiveCameraUnavailable,
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16.sp,
-                            fontWeight: FontWeight.w700),
+                    Container(
+                      width: 260.sp,
+                      height: 260.sp,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(20.r),
+                        border: Border.all(
+                            color: context.colors.accent.withValues(alpha: 0.6),
+                            width: 2),
                       ),
-                      SizedBox(height: 4.h),
-                      Text(l10n.tapToRetry,
-                          style: TextStyle(
-                              color: Colors.white70, fontSize: 13.sp)),
-                    ],
-                  ),
-                ),
-              ),
-            // Scan frame overlay
-            if (live)
-              Center(
-                child: Container(
-                  width: 260.sp,
-                  height: 260.sp,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(20.r),
-                    border: Border.all(
-                        color: context.colors.accent.withValues(alpha: 0.6),
-                        width: 2),
-                  ),
-                ),
-              ),
-            // Processing indicator
-            if (_isProcessing)
-              Center(
-                child: Container(
-                  width: 260.sp,
-                  height: 260.sp,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.6),
-                    borderRadius: BorderRadius.circular(20.r),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      LoadingAnimationWidget.staggeredDotsWave(
-                        color: Colors.white,
-                        size: 32.sp,
-                      ),
+                    ),
+                    if (multi != null && multi.isScanningAnimated) ...[
                       SizedBox(height: 16.h),
-                      Text(
-                        l10n.receiveProcessing,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16.sp,
-                          fontWeight: FontWeight.w500,
+                      SizedBox(
+                        width: 260.sp,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(4.r),
+                          child: LinearProgressIndicator(
+                            value: multi.progress > 0 ? multi.progress : null,
+                            backgroundColor: Colors.white24,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                                context.colors.accent),
+                            minHeight: 4.h,
+                          ),
                         ),
                       ),
                     ],
-                  ),
+                    if (caption != null) ...[
+                      SizedBox(height: 12.h),
+                      SizedBox(
+                        width: 300.w,
+                        child: Text(
+                          caption,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 13.sp,
+                              height: 1.4),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
-            if (live)
-              Positioned(
-                left: 16.w,
-                bottom: 16.w,
-                child: ValueListenableBuilder<bool>(
-                  valueListenable: camera.torchOn,
-                  builder: (context, isOn, _) => _ScannerControl(
-                    key: const ValueKey('scanner-torch'),
-                    icon:
-                        isOn ? Icons.flash_on_rounded : Icons.flash_off_rounded,
-                    label: l10n.flash,
-                    onPressed: () => _toggleTorch(isOn),
-                  ),
+            )
+          else if (caption != null)
+            Positioned(
+              left: 24.w,
+              right: 24.w,
+              bottom: bottomInset + 52.w + 16.h,
+              child: Text(
+                caption,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    color: Colors.white70, fontSize: 13.sp, height: 1.4),
+              ),
+            ),
+          // Processing indicator
+          if (_isProcessing)
+            Center(
+              child: Container(
+                width: 260.sp,
+                height: 260.sp,
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.6),
+                  borderRadius: BorderRadius.circular(20.r),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    LoadingAnimationWidget.staggeredDotsWave(
+                      color: Colors.white,
+                      size: 32.sp,
+                    ),
+                    SizedBox(height: 16.h),
+                    Text(
+                      l10n.receiveProcessing,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16.sp,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            if (widget.photos)
-              Positioned(
-                right: 16.w,
-                bottom: 16.w,
-                child: _ScannerControl(
-                  key: const ValueKey('scanner-gallery'),
-                  icon: Icons.photo_library_rounded,
-                  label: l10n.receiveGallery,
-                  onPressed: _isProcessing ? null : _pickFromGallery,
+            ),
+          if (live)
+            Positioned(
+              left: 16.w,
+              bottom: bottomInset,
+              child: ValueListenableBuilder<bool>(
+                valueListenable: camera.torchOn,
+                builder: (context, isOn, _) => _ScannerControl(
+                  key: const ValueKey('scanner-torch'),
+                  icon: isOn ? Icons.flash_on_rounded : Icons.flash_off_rounded,
+                  label: l10n.flash,
+                  onPressed: () => _toggleTorch(isOn),
                 ),
               ),
+            ),
+          if (widget.photos)
+            Positioned(
+              right: 16.w,
+              bottom: bottomInset,
+              child: _ScannerControl(
+                key: const ValueKey('scanner-gallery'),
+                icon: Icons.photo_library_rounded,
+                label: l10n.receiveGallery,
+                onPressed: _isProcessing ? null : _pickFromGallery,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The dark field shown in place of the camera: one centred line, an
+/// optional second (tap to retry) and an optional action (Open Settings).
+class _CameraOff extends StatelessWidget {
+  const _CameraOff({required this.message, this.detail, this.action});
+
+  final String message;
+  final String? detail;
+  final Widget? action;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: Colors.black,
+      alignment: Alignment.center,
+      padding: EdgeInsets.symmetric(horizontal: 32.w),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.no_photography_rounded,
+              color: Colors.white70, size: 40.sp),
+          SizedBox(height: 12.h),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+                color: Colors.white,
+                fontSize: 16.sp,
+                fontWeight: FontWeight.w700),
+          ),
+          if (detail != null) ...[
+            SizedBox(height: 4.h),
+            Text(detail!,
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white70, fontSize: 13.sp)),
           ],
-        ),
+          if (action != null) ...[
+            SizedBox(height: 16.h),
+            action!,
+          ],
+        ],
       ),
     );
   }

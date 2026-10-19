@@ -151,6 +151,13 @@ void main() {
     expect(cameras.opened, hasLength(1));
     expect(cameras.last.multiPart, isFalse);
     expect(cameras.last.running, isTrue);
+    // The camera is the card: as wide as the sheet, down to its bottom.
+    final sheet = tester.getRect(find.byType(ScannerSheet));
+    final preview =
+        tester.getRect(find.byKey(const ValueKey('fake-camera-preview')));
+    expect(preview.width, sheet.width);
+    expect(preview.left, sheet.left);
+    expect(preview.bottom, sheet.bottom);
 
     // The flash control toggles the torch and shows its state.
     expect(find.byIcon(Icons.flash_off_rounded), findsOneWidget);

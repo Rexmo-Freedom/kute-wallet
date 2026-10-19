@@ -8,6 +8,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart' show Colors;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -17,6 +18,12 @@ class ScannerCameraDenied implements Exception {
   const ScannerCameraDenied();
 }
 
+/// This device has no camera to scan with (the simulator): retrying can
+/// never start one.
+class ScannerCameraUnavailable implements Exception {
+  const ScannerCameraUnavailable();
+}
+
 /// One camera session of the scanner sheet. Created when the sheet opens,
 /// disposed when it closes; never reused after [dispose].
 abstract class ScannerCamera {
@@ -24,7 +31,8 @@ abstract class ScannerCamera {
   ValueListenable<bool> get torchOn;
 
   /// Start the preview. Throws [ScannerCameraDenied] when the camera
-  /// permission is off; anything else it throws is worth a retry.
+  /// permission is off and [ScannerCameraUnavailable] when the device has
+  /// no camera; anything else it throws is worth a retry.
   Future<void> start();
 
   Future<void> stop();
@@ -86,6 +94,9 @@ class MobileScannerCamera implements ScannerCamera {
       if (e.errorCode == MobileScannerErrorCode.permissionDenied) {
         throw const ScannerCameraDenied();
       }
+      if (e.errorCode == MobileScannerErrorCode.unsupported) {
+        throw const ScannerCameraUnavailable();
+      }
       rethrow;
     }
   }
@@ -115,5 +126,12 @@ class MobileScannerCamera implements ScannerCamera {
 
   @override
   Widget buildPreview(void Function(BarcodeCapture capture) onDetect) =>
-      MobileScanner(controller: _controller, onDetect: onDetect);
+      MobileScanner(
+        controller: _controller,
+        onDetect: onDetect,
+        // The sheet says why the camera is off, in its own words: the
+        // package's own placeholder and error text never show.
+        placeholderBuilder: (_) => const ColoredBox(color: Colors.black),
+        errorBuilder: (_, __) => const ColoredBox(color: Colors.black),
+      );
 }

@@ -13,7 +13,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/l10n/generated/app_localizations_en.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/scanner/scanner_camera.dart'
-    show ScannerCameraDenied;
+    show ScannerCameraDenied, ScannerCameraUnavailable;
 import 'package:kute/screens/scanner/scanner_sheet.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -163,6 +163,56 @@ void main() {
     expect(find.text(_l10n.openSettings), findsOneWidget);
     expect(find.byKey(const ValueKey('scanner-torch')), findsNothing);
     expect(find.byKey(const ValueKey('scanner-gallery')), findsOneWidget);
+  });
+
+  testWidgets(
+      'no camera on the device: one line on a dark field, never retried, '
+      'no flash, photos still there', (tester) async {
+    _cameraPermission(tester, 1);
+    final cameras =
+        FakeScannerCameras(startErrors: [const ScannerCameraUnavailable()]);
+    await _pump(tester, cameras);
+    await tester.tap(find.text('scan'));
+    await _exhaustStarts(tester);
+    expect(cameras.last.starts, 1);
+    expect(find.text(_l10n.receiveCameraUnavailable), findsOneWidget);
+    expect(find.text(_l10n.tapToRetry), findsNothing);
+    expect(find.text(_l10n.openSettings), findsNothing);
+    expect(find.byKey(const ValueKey('scanner-torch')), findsNothing);
+    expect(find.byKey(const ValueKey('scanner-gallery')), findsOneWidget);
+    // The message sits centred in the preview.
+    final preview =
+        tester.getRect(find.byKey(const ValueKey('fake-camera-preview')));
+    final message = tester.getCenter(find.text(_l10n.receiveCameraUnavailable));
+    expect(message.dx, moreOrLessEquals(preview.center.dx, epsilon: 1));
+    expect(message.dy, closeTo(preview.center.dy, 40));
+  });
+
+  testWidgets(
+      'the preview is the card: edge to edge to the sheet\'s left, right '
+      'and bottom, with the header directly above it', (tester) async {
+    final cameras = FakeScannerCameras();
+    await _pump(tester, cameras);
+    await tester.tap(find.text('scan'));
+    await tester.pumpAndSettle();
+    final sheet = tester.getRect(find.byType(ScannerSheet));
+    final preview =
+        tester.getRect(find.byKey(const ValueKey('fake-camera-preview')));
+    expect(preview.left, sheet.left);
+    expect(preview.right, sheet.right);
+    expect(preview.width, sheet.width);
+    expect(preview.bottom, sheet.bottom);
+    final title = tester.getRect(find.text(_l10n.scanQrCode));
+    expect(title.bottom, lessThanOrEqualTo(preview.top));
+    expect(preview.top - title.bottom, lessThan(24));
+    // The controls float over the preview's bottom edge.
+    final torch = tester.getRect(find.byKey(const ValueKey('scanner-torch')));
+    final gallery =
+        tester.getRect(find.byKey(const ValueKey('scanner-gallery')));
+    expect(torch.bottom, lessThan(preview.bottom));
+    expect(torch.left, greaterThan(preview.left));
+    expect(gallery.right, lessThan(preview.right));
+    expect(gallery.bottom, torch.bottom);
   });
 
   testWidgets(
