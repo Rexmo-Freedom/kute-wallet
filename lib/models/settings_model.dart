@@ -882,6 +882,17 @@ class SettingsModel extends StateNotifier<Settings> {
     await updateWalletConfig(updatedWallet);
   }
 
+  /// The passkey wallet(s) carrying [label] are backed up now that the
+  /// label is on the relay (`PasskeyService.labelPublishedHandler`). A
+  /// wallet already marked, or a label no record carries, changes nothing.
+  Future<void> markPasskeyLabelPublished(String label) async {
+    for (final wallet in state.wallets) {
+      if (wallet.isPasskey && wallet.passkeyLabel == label && !wallet.backedUp) {
+        await updateWalletConfig(wallet.copyWith(backedUp: true));
+      }
+    }
+  }
+
   /// Persist that [walletId] has finished its one-time first full
   /// on-chain scan, so every later sync goes incremental. Called from
   /// the sync path the moment a full scan succeeds. Safe no-op if the

@@ -760,10 +760,14 @@ class PasskeyCreationResult {
     required this.createMs,
     required this.saveMs,
     required this.totalMs,
+    this.pendingFlagged = true,
   });
 
   final Wallet wallet;
   final WalletConfig config;
+
+  /// Whether the label's pending-publish flag was stored before the save.
+  final bool pendingFlagged;
 
   /// `sign_in` (an existing passkey derived the seed), `create` (none
   /// resolved, one was minted) or `create_after_cancel` (the user
@@ -780,6 +784,7 @@ class PasskeyCreationResult {
         if (createMs != null) 'create_ms': createMs!,
         'save_ms': saveMs,
         'total_ms': totalMs,
+        'pending_flagged': pendingFlagged,
       };
 }
 
@@ -792,6 +797,7 @@ class PasskeyCeremonies {
     this.hasLegacyCredential,
     this.hasKnownCredential,
     this.cacheLabel,
+    this.markPending,
     this.publishLabel,
     this.scheduleProvisioning,
   });
@@ -812,6 +818,10 @@ class PasskeyCeremonies {
   /// legacy signals).
   final Future<bool> Function()? hasKnownCredential;
   final Future<void> Function(String label)? cacheLabel;
+
+  /// Store the label as pending publish, BEFORE the wallet record is
+  /// written. Must throw when the flag could not be stored.
+  final Future<void> Function(String label)? markPending;
 
   /// Start the background label publish. Never awaited by creation.
   final void Function(String label)? publishLabel;
@@ -852,6 +862,10 @@ class PasskeyCeremonies {
 
   Future<void> cacheLabelOrDefault(String label) =>
       cacheLabel != null ? cacheLabel!(label) : PasskeyService.cacheLabel(label);
+
+  Future<void> markPendingOrDefault(String label) => markPending != null
+      ? markPending!(label)
+      : PasskeyService.markLabelPendingForIdentity(label);
 
   void publishLabelOrDefault(String label) {
     if (publishLabel != null) {
@@ -900,11 +914,15 @@ class PasskeyCeremonies {
 /// 3. Mint + derive in one `register()` ceremony, with `excludeCredentials`
 ///    from every known id; the user's name becomes the credential's
 ///    OS-visible display name.
-/// 4. Cache the label locally and SAVE the wallet (`backedUp: true`: the
-///    passkey is the backup).
+/// 4. Cache the label locally, flag it pending publish, then SAVE the
+///    wallet with `backedUp: false`: it is backed up once its label is on
+///    the relay (the settings model flips it when the publish lands), and
+///    the existing reminder shows until then.
 /// 5. Prime the Spark connect, then publish the label in the background:
 ///    creation returns while the publish is still in flight, so a slow
 ///    link no longer holds the spinner (`PasskeyService.publishLabel…`).
+///    A label that did not land is retried after the next ceremony and
+///    on app resume / unlock while the identity is primed.
 ///
 /// ONE passkey, MANY wallets: Breez derives a DISTINCT seed per label off
 /// the same passkey (seed = f(PRF, label)), so a single recover-side
@@ -982,12 +1000,30 @@ class PasskeyWalletCreation {
     } catch (e) {
       throw PasskeyStepFailed('save', e);
     }
+    // The label is flagged pending BEFORE the record exists, so a kill
+    // between the save and the publish still leaves it to be retried. A
+    // flag that could not be stored is reported (by kind) and creation
+    // goes on: the wallet works locally either way.
+    var pendingFlagged = true;
+    try {
+      await ceremonies.markPendingOrDefault(label);
+    } catch (e) {
+      pendingFlagged = false;
+      TrackingService.track('passkey_label_pending_flag_failed', params: {
+        'error_category': TrackingService.errorReason(e),
+      });
+    }
     final config = WalletConfig(
       id: walletId,
       name: name,
       sparkEnabled: true,
       evmDerivationVersion: EvmDerivationVersion.standardBip39,
-      backedUp: true,
+      // Not backed up until the label is on the relay: without it the
+      // wallet never appears in passkey recovery on another device. The
+      // settings model flips this when the publish lands
+      // (PasskeyService.labelPublishedHandler); meanwhile the existing
+      // backup reminder shows and a paper backup can also clear it.
+      backedUp: false,
       isPasskey: true,
       passkeyLabel: label,
       // VINTAGE STAMP: created through the 0.17.1 PasskeyClient, so
@@ -1015,6 +1051,7 @@ class PasskeyWalletCreation {
       createMs: createMs,
       saveMs: saveMs,
       totalMs: total.elapsedMilliseconds,
+      pendingFlagged: pendingFlagged,
     );
   }
 

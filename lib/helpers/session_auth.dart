@@ -1,9 +1,12 @@
+import 'dart:async' show unawaited;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:kute/models/auth_model.dart';
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/auth_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/services/passkey_service.dart' show PasskeyService;
 import 'package:kute/services/secure/biometric_pin_policy.dart';
 
 /// Evaluates [BiometricPinPolicy] for the wallets in settings.
@@ -68,6 +71,10 @@ void markSessionUnlocked(
       SessionAuth(method: method, unlockedAt: DateTime.now());
   ref.read(typedPinProvider.notifier).state =
       dependency.exists ? (typedPin ?? ref.read(typedPinProvider)) : null;
+  // A passkey label still waiting to be published goes out now if a
+  // ceremony earlier in this process primed the identity (no prompt);
+  // otherwise this is a no-op and the next ceremony retries it.
+  unawaited(PasskeyService.retryPendingLabels());
 }
 
 /// Ends the session, for flows that leave onboarding before a wallet exists.

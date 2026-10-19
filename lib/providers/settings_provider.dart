@@ -5,6 +5,7 @@ import 'package:kute/l10n/l10n.dart' show languageNativeNames;
 import 'package:kute/services/onchain/native_onchain_service.dart' show OnchainEndpoint;
 import 'package:kute/models/settings_model.dart';
 import 'package:hive_ce/hive.dart';
+import 'package:kute/services/passkey_service.dart' show PasskeyService;
 import 'package:kute/services/secure_storage.dart' as ss;
 import 'package:kute/services/tracking_service.dart';
 
@@ -238,7 +239,7 @@ final initialSettingsProvider = FutureProvider<Settings>((ref) async {
 final settingsProvider = StateNotifierProvider<SettingsModel, Settings>((ref) {
   final initialSettings = ref.watch(initialSettingsProvider);
 
-  return SettingsModel(
+  final model = SettingsModel(
     initialSettings.when(
       data: (settings) => settings,
       loading: () {
@@ -281,6 +282,17 @@ final settingsProvider = StateNotifierProvider<SettingsModel, Settings>((ref) {
       },
     ),
   );
+  // A passkey wallet is backed up once its label is on the relay: the
+  // publish loop reports here when a label landed and its pending flag
+  // cleared, and the model flips that wallet's `backedUp`.
+  PasskeyService.labelPublishedHandler = model.markPasskeyLabelPublished;
+  ref.onDispose(() {
+    if (PasskeyService.labelPublishedHandler ==
+        model.markPasskeyLabelPublished) {
+      PasskeyService.labelPublishedHandler = null;
+    }
+  });
+  return model;
 });
 
 final onlineProvider = StateProvider<bool>((ref) => true);

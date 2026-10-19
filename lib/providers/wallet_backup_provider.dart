@@ -3,10 +3,14 @@ import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/settings_provider.dart';
 
 /// A recovery-phrase reminder belongs to the wallet that owns the words.
-/// Passkey accounts recover through their passkey and never get this prompt.
+/// Legacy passkey accounts recover through their passkey and never get
+/// this prompt. A passkey wallet on the current SDK is backed up once its
+/// label is on the relay (creation flips `backedUp` when the publish
+/// lands); until then it is not discoverable on another device, so the
+/// same reminder shows, and the words it reveals are the wallet's own.
 bool needsWalletBackup(WalletConfig wallet) =>
     (wallet.isSparkWallet || wallet.isBitcoinSoftware) &&
-    !wallet.isPasskey &&
+    (!wallet.isPasskey || wallet.passkeyProvider != null) &&
     !wallet.backedUp;
 
 /// Home and its global menu only remind about the spending account.

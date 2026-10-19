@@ -45,6 +45,7 @@ void main() {
     Future<Wallet> Function(String, String)? register,
     bool legacy = false,
     void Function(String)? publishLabel,
+    Future<void> Function(String)? markPending,
   }) =>
       PasskeyWalletCreation(
         ceremonies: PasskeyCeremonies(
@@ -61,6 +62,7 @@ void main() {
           hasLegacyCredential: () async => legacy,
           hasKnownCredential: () async => false,
           cacheLabel: (_) async => order.add('cache_label'),
+          markPending: markPending ?? (_) async => order.add('mark_pending'),
           publishLabel: publishLabel ?? (_) => order.add('publish_label'),
         ),
         addWallet: (config) async {
@@ -84,14 +86,17 @@ void main() {
     expect(saved.single.id, 'w1');
     expect(saved.single.isPasskey, isTrue);
     expect(saved.single.passkeyLabel, 'Spending Wallet · 1');
-    expect(saved.single.backedUp, isTrue);
+    // Not backed up until the label is on the relay.
+    expect(saved.single.backedUp, isFalse);
     expect(saved.single.createdEmpty, isTrue);
     expect(saved.single.evmDerivationVersion,
         EvmDerivationVersion.standardBip39);
     expect(order.indexOf('add_wallet'), lessThan(order.indexOf('publish_label')));
     expect(result.path, 'sign_in');
+    expect(result.pendingFlagged, isTrue);
     expect(result.analyticsParams.keys,
         containsAll(['path', 'sign_in_ms', 'save_ms', 'total_ms']));
+    expect(result.analyticsParams, containsPair('pending_flagged', true));
     expect(result.analyticsParams.containsKey('create_ms'), isFalse);
   });
 
@@ -99,7 +104,44 @@ void main() {
       () async {
     await creation().create(
         walletId: 'w1', label: 'Spending Wallet · 1', name: 'Spending Wallet');
-    expect(order, ['sign_in', 'cache_label', 'add_wallet', 'prime_spark', 'publish_label']);
+    expect(order, [
+      'sign_in',
+      'cache_label',
+      'mark_pending',
+      'add_wallet',
+      'prime_spark',
+      'publish_label',
+    ]);
+  });
+
+  test('the pending flag is stored before the wallet record', () async {
+    await creation().create(walletId: 'w1', label: 'L · 1', name: 'L');
+    expect(order.indexOf('mark_pending'), lessThan(order.indexOf('add_wallet')));
+  });
+
+  test('a pending flag that cannot be stored still saves the wallet, unbacked',
+      () async {
+    final result = await creation(
+      markPending: (_) async {
+        order.add('mark_pending');
+        throw StateError('hive');
+      },
+    ).create(walletId: 'w1', label: 'L · 1', name: 'L');
+    expect(saved.single.backedUp, isFalse);
+    expect(result.pendingFlagged, isFalse);
+    expect(result.analyticsParams, containsPair('pending_flagged', false));
+    expect(order, [
+      'sign_in',
+      'cache_label',
+      'mark_pending',
+      'add_wallet',
+      'prime_spark',
+      'publish_label',
+    ]);
+    final failed = events
+        .where((e) => e.$1 == 'passkey_label_pending_flag_failed')
+        .single;
+    expect(failed.$2!.values, isNot(contains('L · 1')));
   });
 
   test('no passkey resolves: one is minted, then the same save path',
@@ -110,7 +152,15 @@ void main() {
         throw _noCredential;
       },
     ).create(walletId: 'w1', label: 'L · 1', name: 'L');
-    expect(order, ['sign_in', 'register', 'cache_label', 'add_wallet', 'prime_spark', 'publish_label']);
+    expect(order, [
+      'sign_in',
+      'register',
+      'cache_label',
+      'mark_pending',
+      'add_wallet',
+      'prime_spark',
+      'publish_label',
+    ]);
     expect(result.path, 'create');
     expect(result.analyticsParams.keys,
         containsAll(['sign_in_ms', 'create_ms', 'save_ms']));

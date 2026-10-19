@@ -828,6 +828,20 @@ class PasskeyService {
         await _writePending(pending);
       });
 
+  /// [markLabelPending] for the credential of the last ceremony in this
+  /// process. The create flow calls it BEFORE the wallet record is
+  /// written, so a kill between the save and the publish still leaves the
+  /// label to be retried. Throws when the flag could not be stored.
+  static Future<void> markLabelPendingForIdentity(String label) =>
+      markLabelPending(label, credentialHex: _identityCredentialHex);
+
+  /// Told once a label's publish landed AND its pending flag was cleared.
+  /// The settings model registers itself here to mark that wallet backed
+  /// up (a passkey wallet claims no backup until its label is on the
+  /// relay, so the existing reminder shows meanwhile). Null when no model
+  /// is alive; a throwing handler is reported by kind and ignored.
+  static Future<void> Function(String label)? labelPublishedHandler;
+
   /// Drop [label] from the pending set once its publish is confirmed.
   static Future<void> clearLabelPending(String label) =>
       _serializePendingMutation(() async {
@@ -845,6 +859,7 @@ class PasskeyService {
     _publishing.clear();
     _identityCredentialHex = null;
     _pendingMutationTail = Future<void>.value();
+    labelPublishedHandler = null;
   }
 
   /// Publish a label to Nostr for later cross-device discovery.
@@ -896,9 +911,14 @@ class PasskeyService {
       } catch (_) {/* storage hiccup: still try to publish */}
       final result = await _storeLabel(label, attempts: 3);
       if (result.landed) {
+        var cleared = false;
         try {
           await clearLabelPending(label);
+          cleared = true;
         } catch (_) {/* the next load re-reads storage */}
+        // Backed up only once the flag is gone too: a flag that outlives
+        // the publish is retried, and the retry's clear reports again.
+        if (cleared) await _notifyLabelPublished(label);
       }
       TrackingService.track('passkey_label_published', params: {
         'result': result.landed ? 'landed' : 'failed',
@@ -912,10 +932,29 @@ class PasskeyService {
     }
   }
 
+  static Future<void> _notifyLabelPublished(String label) async {
+    final handler = labelPublishedHandler;
+    if (handler == null) return;
+    try {
+      await handler(label);
+    } catch (e) {
+      TrackingService.track('passkey_label_published_handler_failed', params: {
+        'error_category': TrackingService.errorReason(e),
+      });
+    }
+  }
+
   /// Re-publish every pending label that belongs to the credential whose
   /// identity the SDK client holds right now. A no-op when no ceremony has
   /// run in this process (publishing would cost a biometric prompt) and
   /// for labels created under a different credential.
+  ///
+  /// Called after every ceremony, and again on app resume and unlock: a
+  /// label whose publish failed on a dead link after a ceremony earlier
+  /// in this process goes out once the link is back, with no prompt. The
+  /// identity cannot be primed any cheaper (the SDK derives it with a PRF
+  /// assertion), so on a cold process the first ceremony does the retry
+  /// and the wallet's backup reminder stays up until then.
   static Future<void> retryPendingLabels() async {
     final primed = _identityCredentialHex;
     if (primed == null) return;
