@@ -402,6 +402,33 @@ void main() {
     expect(keychain.mutations, isEmpty);
   });
 
+  testWidgets('a current-SDK passkey row whose passkey fails offers the phrase',
+      (tester) async {
+    keychain.seed('pin_hash', 'hash');
+    final modern = WalletConfig(
+        id: 'p-017',
+        name: 'Passkey',
+        isPasskey: true,
+        passkeyLabel: 'kute-2',
+        passkeyProvider: 'breez-0.17');
+    await pumpScreen(
+      tester,
+      wallets: [modern],
+      loadPasskeyMnemonic: ({String? label, required bool legacy}) async =>
+          null,
+    );
+    // Not before the passkey was tried.
+    expect(find.byKey(const ValueKey('restore-phrase-instead-p-017')),
+        findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('restore-passkey-p-017')));
+    await tester.pumpAndSettle();
+    await flushToasts(tester);
+    expect(find.byKey(const ValueKey('restore-phrase-instead-p-017')),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('restore-passkey-p-017')), findsOneWidget);
+  });
+
   testWidgets('Start fresh needs the typed word and wipes local storage only',
       (tester) async {
     keychain
