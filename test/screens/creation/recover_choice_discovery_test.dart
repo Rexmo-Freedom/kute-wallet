@@ -40,7 +40,8 @@ class _Client implements PasskeyClient {
     requests.add(request);
     if (request.label != null) {
       await confirmGate?.future;
-      throw StateError('user cancelled');
+      // The SDK's typed verdict: a cancel is never recognised by its text.
+      throw PasskeyError.prf(PrfProviderError.userCancelled());
     }
     return SignInResponse(
       wallet: Wallet(

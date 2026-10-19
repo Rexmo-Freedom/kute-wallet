@@ -7,6 +7,7 @@ import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart';
 import 'package:crypto/crypto.dart' show sha256;
 import 'package:flutter/foundation.dart'
     show ValueListenable, ValueNotifier, visibleForTesting;
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:kute/services/tracking_service.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:hive_ce/hive.dart';
@@ -340,15 +341,17 @@ class PasskeyService {
 
   // ───────────────────────── typed error routing ────────────────────────────
 
-  /// The user dismissed the OS passkey ceremony. Typed check first (the
-  /// 0.23 SDK surfaces `PasskeyError.prf(PrfProviderError.userCancelled())`),
-  /// string fallback for the legacy channel's `PlatformException` and any
-  /// wrapped re-throws.
+  /// The user dismissed the OS passkey ceremony: the SDK's typed verdict
+  /// (`PasskeyError.prf(PrfProviderError.userCancelled())`) or the legacy
+  /// channel's `USER_CANCELLED` platform code. Never a string match: an
+  /// error whose text happens to mention a cancel (a cancelled network
+  /// request, a wrapped re-throw) is a failure, and a failure read as a
+  /// cancel is swallowed silently.
   static bool isUserCancelledError(Object e) {
     if (e is PasskeyError_Prf && e.field0 is PrfProviderError_UserCancelled) {
       return true;
     }
-    return e.toString().toLowerCase().contains('cancel');
+    return e is PlatformException && e.code == 'USER_CANCELLED';
   }
 
   /// No credential resolved for the ceremony — the ONLY signal that may

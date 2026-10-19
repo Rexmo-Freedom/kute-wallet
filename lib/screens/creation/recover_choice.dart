@@ -214,7 +214,7 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
         // A cancelled ceremony is the user backing out — stop here rather
         // than fall through and prompt them a second time. Copies from an
         // older version still get their list: they need no ceremony.
-        if (e.toString().toLowerCase().contains('cancel')) {
+        if (PasskeyService.isUserCancelledError(e)) {
           _trackPasskeyRestoreCancelled('lookup');
           await _legacyLookup;
           if (mounted && _legacyCopies.isNotEmpty) {
@@ -250,7 +250,7 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
       await _attemptLegacyRecovery();
     } catch (e) {
       // A cancelled biometric is the user backing out — don't nag.
-      if (e.toString().toLowerCase().contains('cancel')) {
+      if (PasskeyService.isUserCancelledError(e)) {
         _trackPasskeyRestoreCancelled('lookup');
         return;
       }
@@ -790,7 +790,7 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
       candidates = await PasskeyRecovery.probeLegacyCandidates();
     } catch (e) {
       // Cancelled biometric = user backing out, don't nag.
-      if (e.toString().toLowerCase().contains('cancel')) {
+      if (PasskeyService.isUserCancelledError(e)) {
         _trackPasskeyRestoreCancelled('legacy_probe');
         return;
       }
