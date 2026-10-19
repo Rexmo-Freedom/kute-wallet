@@ -9,6 +9,8 @@
 // ever registered. A reconnect (a rebuilt SDK) never ends the screen; a
 // wallet switch does.
 
+import 'dart:async';
+
 import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -135,7 +137,9 @@ void _reconnect() {
 }
 
 Future<void> _pump(WidgetTester tester,
-    {bool bitcoin = false, _Wrapper? wrapper}) async {
+    {bool bitcoin = false,
+    _Wrapper? wrapper,
+    ReceiveLimitsFetcher? fetch}) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
@@ -181,8 +185,8 @@ Future<void> _pump(WidgetTester tester,
       hyperliquidAddressProvider.overrideWith((_) async => _ownEvm),
       // A live minimum of $2.00.
       receiveMinimumsProvider.overrideWithValue(ReceiveMinimums(
-          fetch: (_) async =>
-              const OrchestraRouteLimits(orderMinUsdCents: 200))),
+          fetch: fetch ??
+              (_) async => const OrchestraRouteLimits(orderMinUsdCents: 200))),
     ],
     child: ScreenUtilInit(
       designSize: const Size(430, 932),
@@ -498,6 +502,40 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
     expect(find.text(_l10n.quotedReceiveWalletChanged), findsOneWidget);
     expect(addressLine(), findsNothing);
+    await _unmount(tester);
+  });
+
+  testWidgets(
+      'the amount sheet opens at once with no minimum line while the read '
+      'is out; the grid already asked for it; the line follows the read',
+      (tester) async {
+    final reads = <RouteKey>[];
+    final answer = Completer<OrchestraRouteLimits?>();
+    await _pump(tester, fetch: (route) {
+      reads.add(route);
+      return answer.future;
+    });
+    // Shown the grid: its route's minimum is already being read.
+    expect(reads.map((r) => '${r.fromChain}:${r.fromAsset}>${r.toAsset}'),
+        ['ethereum:USDT>USDB']);
+
+    await tester.tap(find.widgetWithText(CoinAssetTile, 'USDT').first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byType(RequestAmountSheet), findsOneWidget);
+    var display =
+        tester.widget<BigAmountDisplay>(find.byType(BigAmountDisplay));
+    expect(display.minimumLabel, isNull);
+
+    // Flashnet's own minimum, under a dollar: no floor.
+    answer.complete(const OrchestraRouteLimits(orderMinUsdCents: 75));
+    await _settle(tester);
+    display = tester.widget<BigAmountDisplay>(find.byType(BigAmountDisplay));
+    expect(display.minimumLabel, _l10n.amountMinimumInline('\$0.75'));
+    tester.widget<AmountKeypad>(find.byType(AmountKeypad)).onChanged('0.5');
+    await tester.pump();
+    display = tester.widget<BigAmountDisplay>(find.byType(BigAmountDisplay));
+    expect(display.minimumLabel, _l10n.routeAmountTooSmall('\$0.75'));
     await _unmount(tester);
   });
 }

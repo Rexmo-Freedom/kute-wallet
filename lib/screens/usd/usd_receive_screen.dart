@@ -27,7 +27,7 @@ import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
 import 'package:kute/screens/home/components/deposit_sheet.dart'
     show MoveLockedSide, showDepositSheet;
 import 'package:kute/screens/receive/quoted_receive_screen.dart'
-    show openOneTimeReceive;
+    show openOneTimeReceive, prefetchOneTimeReceiveMinimums;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/custom_button.dart' show AppButton;
 import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
@@ -37,6 +37,8 @@ import 'package:kute/screens/shared/send/send_flow_widgets.dart'
     show SendToListCard, SendToListRow, SendToSectionHeader;
 import 'package:kute/screens/usd/flow/usd_flow_widgets.dart';
 import 'package:kute/services/orchestra/orchestra_capability_requirements.dart';
+import 'package:kute/services/orchestra/receive_minimums.dart'
+    show receiveMinimumsProvider;
 import 'package:kute/services/orchestra_routes.dart'
     show kOrchestraUsdAssetCode;
 import 'package:kute/services/runtime_capabilities_service.dart';
@@ -83,6 +85,26 @@ class UsdReceiveScreen extends ConsumerStatefulWidget {
 class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
   /// The picked coin, as the live catalogue spells it.
   OrchestraReceiveOption? _option;
+
+  /// Routes whose minimum this sheet already asked for.
+  final Set<String> _prefetched = {};
+
+  /// After the grid's frame, reads the live minimum of every route it
+  /// lists that this sheet has not asked for yet, in the background, so
+  /// the amount sheet usually has it before a coin is tapped.
+  void _prefetchMinimums(List<CoinAssetGroup> groups) {
+    final fresh = [
+      for (final g in groups)
+        for (final o in g.options)
+          if (_prefetched.add(usdReceiveCoinId(o))) o,
+    ];
+    if (fresh.isEmpty) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      prefetchOneTimeReceiveMinimums(ref.read(receiveMinimumsProvider), fresh,
+          destinationAsset: widget.destinationAsset);
+    });
+  }
 
   bool get _dollars => widget.destinationAsset == kOrchestraUsdAssetCode;
 
@@ -284,6 +306,7 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
     // an empty offering be called unavailable.
     final loading = ref.watch(orchestraRoutesReadyProvider).isLoading;
     final groups = _coinGroups();
+    _prefetchMinimums(groups);
     return Padding(
       padding: EdgeInsets.only(top: 12.h),
       child: Column(

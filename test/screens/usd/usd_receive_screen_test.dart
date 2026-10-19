@@ -342,7 +342,7 @@ void main() {
 
   testWidgets(
       'a coin on one network asks its amount in the "Request amount" sheet, '
-      'in dollars with the minimum; dismissing it leaves the coin step as '
+      'in dollars; dismissing it leaves the coin step as '
       'it was', (tester) async {
     await _pump(tester);
     final sheet = ModalRoute.of(tester.element(find.byKey(_bitcoinRow)));
@@ -354,7 +354,8 @@ void main() {
     final amount =
         tester.widget<RequestAmountSheet>(find.byType(RequestAmountSheet));
     expect(amount.fixedCurrency, 'USD');
-    expect(amount.minimumLabel, _l10n.amountMinimumInline('\$1.00'));
+    // The limits read gave nothing: no minimum line (no app floor).
+    expect(amount.limits!.value.minimumLabel, isNull);
     expect(
         find.descendant(
             of: find.byType(RequestAmountSheet),

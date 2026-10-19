@@ -1,7 +1,11 @@
 // The "Request amount" sheet: the Lightning receive opens it with nothing
 // (its unit picker, no minimum line, "Create request" on any amount), and
 // the one-time receive opens it fixed to dollars with the route's minimum,
-// which turns red and keeps "Create request" off under it.
+// which turns red and keeps "Create request" off under it. Its limits can
+// arrive while it is open (a live read landing): the line follows, and a
+// tap while the read is in flight waits for it.
+
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -152,5 +156,80 @@ void main() {
         .tap(find.widgetWithText(AppButton, _l10n.receiveCreateRequest));
     await tester.pumpAndSettle();
     expect(results.single, (amount: '25', currency: 'USD'));
+  });
+
+  RequestAmountLimits minimumOf(int? dollars) => (
+        minimumLabel:
+            dollars == null ? null : _l10n.amountMinimumInline('\$$dollars.00'),
+        validate: (r) =>
+            dollars != null && (double.tryParse(r.amount) ?? 0) < dollars
+                ? _l10n.routeAmountTooSmall('\$$dollars.00')
+                : null,
+      );
+
+  testWidgets(
+      'live limits: no minimum line until the read lands, then the line and '
+      'the check follow it', (tester) async {
+    final limits = ValueNotifier(minimumOf(null));
+    await _pump(
+        tester,
+        (c) => showRequestAmountSheet(c,
+            fixedCurrency: 'USD', limits: limits, pending: () => null));
+    var display =
+        tester.widget<BigAmountDisplay>(find.byType(BigAmountDisplay));
+    expect(display.minimumLabel, isNull);
+    await _type(tester, '3');
+    expect(_create(tester).onPressed, isNotNull);
+
+    limits.value = minimumOf(5);
+    await tester.pump();
+    display = tester.widget<BigAmountDisplay>(find.byType(BigAmountDisplay));
+    expect(display.minimumLabel, _l10n.routeAmountTooSmall('\$5.00'));
+    expect(display.minimumIsError, isTrue);
+    expect(_create(tester).onPressed, isNull);
+  });
+
+  testWidgets(
+      'a tap while the read is in flight waits for it (loading), then '
+      'checks again with what it brought', (tester) async {
+    final limits = ValueNotifier(minimumOf(null));
+    var read = Completer<void>();
+    final results = await _pump(
+        tester,
+        (c) => showRequestAmountSheet(c,
+            fixedCurrency: 'USD',
+            limits: limits,
+            pending: () => read.isCompleted ? null : read.future));
+    await _type(tester, '3');
+    await tester
+        .tap(find.widgetWithText(AppButton, _l10n.receiveCreateRequest));
+    await tester.pump();
+    expect(tester.widget<AppButton>(find.byType(AppButton)).isLoading, isTrue);
+    expect(results, isEmpty);
+
+    // The live minimum is higher than what was typed: nothing is asked.
+    limits.value = minimumOf(5);
+    read.complete();
+    await tester.pump();
+    await tester.pump();
+    expect(tester.widget<AppButton>(find.byType(AppButton)).isLoading, isFalse);
+    expect(results, isEmpty);
+    expect(find.byType(RequestAmountSheet), findsOneWidget);
+    expect(
+        tester
+            .widget<BigAmountDisplay>(find.byType(BigAmountDisplay))
+            .minimumLabel,
+        _l10n.routeAmountTooSmall('\$5.00'));
+
+    // Enough, and a second read in flight: it waits, then asks.
+    read = Completer<void>();
+    await _type(tester, '6');
+    await tester
+        .tap(find.widgetWithText(AppButton, _l10n.receiveCreateRequest));
+    await tester.pump();
+    expect(tester.widget<AppButton>(find.byType(AppButton)).isLoading, isTrue);
+    read.complete();
+    await tester.pumpAndSettle();
+    expect(results.single, (amount: '6', currency: 'USD'));
   });
 }

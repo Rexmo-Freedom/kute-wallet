@@ -10,6 +10,7 @@
 // OS keyboard: the sheet holds the raw string and the keypad enforces
 // the per-unit decimals (0 sats, 8 BTC, 2 fiat).
 
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -32,20 +33,35 @@ import 'package:kute/theme/app_theme.dart';
 /// The amount the user asked for, as typed, and the unit it is in.
 typedef RequestedAmount = ({String amount, String currency});
 
+/// The minimum line and the check of a request whose limits can change
+/// while the sheet is open (a live read landing).
+typedef RequestAmountLimits = ({
+  String? minimumLabel,
+  String? Function(RequestedAmount requested)? validate,
+});
+
 /// Opens the request-amount sheet. Resolves to null when dismissed.
 ///
 /// The Lightning receive passes nothing. The one-time receive of another
 /// coin passes [fixedCurrency] `USD` for the Dollars receive (the figure
 /// is typed in dollars and the unit cannot be changed), the route's
-/// minimum as [minimumLabel] ("Minimum \$1.00", on the sheet's own
+/// minimum as [minimumLabel] ("Minimum \$2.00", on the sheet's own
 /// minimum line), and [validate], which answers the copy to show on that
 /// line in the error colour (and disables "Create request") while the
 /// typed amount is outside the route's limits.
+///
+/// [limits], when given, replaces [minimumLabel] and [validate] and is
+/// followed live: the sheet opens at once and the minimum line and the
+/// check move when the route's read lands. [pending] answers the read
+/// still in flight, if any: "Create request" waits for it (the button's
+/// loading state) and checks the amount again with what it brought.
 Future<RequestedAmount?> showRequestAmountSheet(
   BuildContext context, {
   String? fixedCurrency,
   String? minimumLabel,
   String? Function(RequestedAmount requested)? validate,
+  ValueListenable<RequestAmountLimits>? limits,
+  Future<void>? Function()? pending,
 }) {
   return showAppBottomSheet<RequestedAmount>(
     context: context,
@@ -53,6 +69,8 @@ Future<RequestedAmount?> showRequestAmountSheet(
       fixedCurrency: fixedCurrency,
       minimumLabel: minimumLabel,
       validate: validate,
+      limits: limits,
+      pending: pending,
     ),
   );
 }
@@ -63,6 +81,8 @@ class RequestAmountSheet extends ConsumerStatefulWidget {
     this.fixedCurrency,
     this.minimumLabel,
     this.validate,
+    this.limits,
+    this.pending,
   });
 
   /// The one unit the amount is typed in, or null for the person's
@@ -76,6 +96,14 @@ class RequestAmountSheet extends ConsumerStatefulWidget {
   /// minimum line shows in the error colour instead of [minimumLabel].
   final String? Function(RequestedAmount requested)? validate;
 
+  /// The minimum line and the check, followed live; when set, it
+  /// replaces [minimumLabel] and [validate].
+  final ValueListenable<RequestAmountLimits>? limits;
+
+  /// The limits read still in flight, or null. "Create request" waits
+  /// for it before checking the amount.
+  final Future<void>? Function()? pending;
+
   @override
   ConsumerState<RequestAmountSheet> createState() => _RequestAmountSheetState();
 }
@@ -84,6 +112,59 @@ class _RequestAmountSheetState extends ConsumerState<RequestAmountSheet> {
   /// The raw typed amount, exactly as it is returned to the caller
   /// (plain digits and at most one '.', never grouped).
   String _typed = '';
+
+  /// "Create request" waiting for the limits read in flight.
+  bool _waiting = false;
+
+  String? get _minimumLabel => widget.limits == null
+      ? widget.minimumLabel
+      : widget.limits!.value.minimumLabel;
+
+  String? Function(RequestedAmount requested)? get _validate =>
+      widget.limits == null ? widget.validate : widget.limits!.value.validate;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.limits?.addListener(_limitsChanged);
+  }
+
+  @override
+  void didUpdateWidget(RequestAmountSheet oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.limits != widget.limits) {
+      oldWidget.limits?.removeListener(_limitsChanged);
+      widget.limits?.addListener(_limitsChanged);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.limits?.removeListener(_limitsChanged);
+    super.dispose();
+  }
+
+  void _limitsChanged() {
+    if (mounted) setState(() {});
+  }
+
+  /// Pops [requested] once the limits read in flight (if any) is back and
+  /// the amount still passes the latest check.
+  Future<void> _submit(RequestedAmount requested) async {
+    final inFlight = widget.pending?.call();
+    if (inFlight != null) {
+      setState(() => _waiting = true);
+      try {
+        await inFlight;
+      } catch (_) {
+        // A failed read leaves the check as it is; the quote decides.
+      }
+      if (!mounted) return;
+      setState(() => _waiting = false);
+      if (_validate?.call(requested) != null) return;
+    }
+    if (mounted) Navigator.of(context).pop(requested);
+  }
 
   /// Decimals the unit allows — the same rule the field used to apply
   /// through DecimalTextInputFormatter.
@@ -134,9 +215,8 @@ class _RequestAmountSheetState extends ConsumerState<RequestAmountSheet> {
           ? ref.watch(conversionToFiatProvider(sats))
           : '₿${sats.toFormattedString(btcFormat)}';
     }
-    final error = positive
-        ? widget.validate?.call((amount: typed, currency: currency))
-        : null;
+    final error =
+        positive ? _validate?.call((amount: typed, currency: currency)) : null;
 
     return AppBottomSheetContainer(
       maxHeight: 0.94,
@@ -164,7 +244,7 @@ class _RequestAmountSheetState extends ConsumerState<RequestAmountSheet> {
                       prefix: _prefixFor(currency),
                       amountText: typed,
                       conversionLabel: secondary,
-                      minimumLabel: error ?? widget.minimumLabel,
+                      minimumLabel: error ?? _minimumLabel,
                       minimumIsError: error != null,
                       centered: true,
                       unitControl:
@@ -187,10 +267,10 @@ class _RequestAmountSheetState extends ConsumerState<RequestAmountSheet> {
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 20.w),
             child: AppButton(
-              onPressed: positive && error == null
-                  ? () => Navigator.of(context)
-                      .pop((amount: typed, currency: currency))
+              onPressed: positive && error == null && !_waiting
+                  ? () => _submit((amount: typed, currency: currency))
                   : null,
+              isLoading: _waiting,
               text: context.l10n.receiveCreateRequest,
             ),
           ),

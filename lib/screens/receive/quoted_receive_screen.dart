@@ -92,13 +92,30 @@ int? oneTimeReceiveUsdCents(WidgetRef ref, RequestedAmount requested) {
   return (sats * usdPerBtc / 1e6).round();
 }
 
+/// Starts the `/limits` read of every route in [options] into
+/// spark:[destinationAsset], in the background, so the amount sheet
+/// usually has the live minimum before a coin is tapped. Fire and forget.
+void prefetchOneTimeReceiveMinimums(
+  ReceiveMinimums minimums,
+  Iterable<OrchestraReceiveOption> options, {
+  required String destinationAsset,
+}) {
+  for (final option in options) {
+    final route = oneTimeReceiveRoute(option, destinationAsset);
+    if (minimums.cachedLive(route) != null) continue;
+    unawaited(minimums.refresh(route));
+  }
+}
+
 /// Asks the amount of a one-time receive of [option] into
 /// spark:[destinationAsset] in the "Request amount" sheet the Lightning
 /// receive uses: in dollars (fixed) for the Dollars receive, in the
-/// person's receive unit (sats or fiat) for Bitcoin. The route's live
-/// minimum (never under the $1 floor) is on the sheet's minimum line, and
-/// an amount under it or over the route's maximum turns that line red and
-/// keeps "Create request" off. Null when dismissed.
+/// person's receive unit (sats or fiat) for Bitcoin. The sheet opens at
+/// once. The route's live minimum (Flashnet's own, no app floor) is on
+/// its minimum line as soon as it is known (cached, or when the read
+/// lands; no line before that), and an amount under it or over the
+/// route's maximum turns that line red and keeps "Create request" off. A
+/// tap while the read is in flight waits for it. Null when dismissed.
 Future<OneTimeReceiveAmount?> requestOneTimeReceiveAmount(
   BuildContext context,
   WidgetRef ref, {
@@ -107,29 +124,44 @@ Future<OneTimeReceiveAmount?> requestOneTimeReceiveAmount(
 }) async {
   final route = oneTimeReceiveRoute(option, destinationAsset);
   final minimums = ref.read(receiveMinimumsProvider);
-  final reading = minimums.refresh(route);
-  final minimum = minimums.cachedLive(route) ?? await reading;
-  if (!context.mounted) return null;
-  final minCents = minimum.usdCents ?? kReceiveMinimumFloorCents;
-  final minText = minimum.usdText ?? usdCentsText(minCents);
-  final maxCents = oneTimeMaxUsdCents(minimums.cachedLimits(route));
   final l10n = context.l10n;
+  var minimum = minimums.cachedLive(route) ?? kReceiveMinimumNone;
+
   String? outside(int cents) {
-    if (cents < minCents) return l10n.routeAmountTooSmall(minText);
+    final min = minimum.usdCents;
+    if (min != null && cents < min) {
+      return l10n.routeAmountTooSmall(minimum.usdText!);
+    }
+    final maxCents = oneTimeMaxUsdCents(minimums.cachedLimits(route));
     if (maxCents != null && cents > maxCents) {
       return l10n.routeAmountTooLarge(usdCentsText(maxCents));
     }
     return null;
   }
 
+  RequestAmountLimits limitsNow() => (
+        minimumLabel: minimum.usdText == null
+            ? null
+            : l10n.amountMinimumInline(minimum.usdText!),
+        validate: (r) {
+          final cents = oneTimeReceiveUsdCents(ref, r);
+          return cents == null ? null : outside(cents);
+        },
+      );
+
+  final limits = ValueNotifier<RequestAmountLimits>(limitsNow());
+  // Re-read every time the sheet opens; never awaited before it shows.
+  Future<void>? reading = minimums.refresh(route).then((read) {
+    minimum = read;
+    limits.value = limitsNow();
+  });
+  unawaited(reading.whenComplete(() => reading = null));
+
   final requested = await showRequestAmountSheet(
     context,
     fixedCurrency: destinationAsset == kOrchestraUsdAssetCode ? 'USD' : null,
-    minimumLabel: l10n.amountMinimumInline(minText),
-    validate: (r) {
-      final cents = oneTimeReceiveUsdCents(ref, r);
-      return cents == null ? null : outside(cents);
-    },
+    limits: limits,
+    pending: () => reading,
   );
   if (requested == null || !context.mounted) return null;
   final cents = oneTimeReceiveUsdCents(ref, requested);
@@ -713,16 +745,21 @@ class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
       setState(() {
         _error = switch (error) {
           WalletGuardException e => e.messageFor(l10n),
-          OrchestraQuoteFailure e when e.routeError != null => e.routeError!
-              .messageFor(l10n,
-                  minimum: _amount.minimum.usdText,
-                  maximum: switch (oneTimeMaxUsdCents(ref
-                      .read(receiveMinimumsProvider)
-                      .cachedLimits(oneTimeReceiveRoute(
-                          widget.option, widget.destinationAsset)))) {
-                    final int cents => usdCentsText(cents),
-                    _ => null,
-                  }),
+          OrchestraQuoteFailure e when e.routeError != null =>
+            e.routeError!.messageFor(l10n,
+                minimum: ref
+                        .read(receiveMinimumsProvider)
+                        .cachedLive(oneTimeReceiveRoute(
+                            widget.option, widget.destinationAsset))
+                        ?.usdText ??
+                    _amount.minimum.usdText,
+                maximum: switch (oneTimeMaxUsdCents(ref
+                    .read(receiveMinimumsProvider)
+                    .cachedLimits(oneTimeReceiveRoute(
+                        widget.option, widget.destinationAsset)))) {
+                  final int cents => usdCentsText(cents),
+                  _ => null,
+                }),
           _ => railSafeErrorCopy(context, error,
               fallback: l10n.receiveDepositAddressFailed),
         };

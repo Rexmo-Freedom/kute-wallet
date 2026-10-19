@@ -285,13 +285,15 @@ void main() {
         hasLength(1));
 
     // A coin picked there asks its amount in the Lightning request sheet,
-    // in the receive unit with its picker, and the route's minimum.
+    // in the receive unit with its picker, and the route's minimum once
+    // known.
     await tester.tap(find.widgetWithText(CoinAssetTile, 'USDT').first);
     await _settle(tester);
     final amount =
         tester.widget<RequestAmountSheet>(find.byType(RequestAmountSheet));
     expect(amount.fixedCurrency, isNull);
-    expect(amount.minimumLabel, _l10n.amountMinimumInline('\$1.00'));
+    // The limits read gave nothing: no minimum line (no app floor).
+    expect(amount.limits!.value.minimumLabel, isNull);
     expect(
         find.descendant(
             of: find.byType(RequestAmountSheet),

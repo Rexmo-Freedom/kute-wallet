@@ -10,7 +10,7 @@
 //   * The person picks a coin and network the live catalogue routes into
 //     the destination, then the amount (USD for dollars, sats or fiat for
 //     bitcoin) in the Lightning receive's own "Request amount" sheet,
-//     checked against the route's live minimum (with the $1 floor) and
+//     checked against the route's live minimum (Flashnet's own, no floor) and
 //     maximum.
 //   * One exact-in quote from that network into the destination, paid to
 //     the wallet's own Spark address (pinned and verified as every

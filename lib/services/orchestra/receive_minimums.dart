@@ -6,11 +6,12 @@
 // converted.
 //
 //   * An Orchestra deposit address (another coin into Dollars or Bitcoin):
-//     the larger of the route's live minimum (`GET /v1/orchestration/limits`
-//     for that exact pair, backend proxy first, the public host second) and
-//     the app's $1.00 floor, rounded up to whole cents. The floor covers the
-//     moving provider minimums the limits read does not show
-//     (`dynamicProviderLimits`). A failed read shows the floor; it never
+//     the route's live minimum (`GET /v1/orchestration/limits` for that
+//     exact pair, backend proxy first, the public host second), rounded up
+//     to whole cents. No app floor (founder, 2026-10-19): Flashnet's own
+//     minimum is the one shown and enforced. Before the read is back, or
+//     when it fails, no minimum is shown at all (never a made-up figure);
+//     the quote's own refusal (`amount_too_small`) then says it. It never
 //     blocks the address and never shows $0.
 //   * The wallet's own Bitcoin address (the Breez/Spark static deposit
 //     address): the deposit has to pay its own claim. The SDK auto-claims
@@ -27,16 +28,13 @@ import 'package:kute/models/orchestra_route_limits.dart';
 import 'package:kute/models/orchestra_routes_model.dart' show RouteKey;
 import 'package:kute/services/api/orchestra_api.dart';
 
-/// The app's floor under every Orchestra deposit route, in USD cents.
-const int kReceiveMinimumFloorCents = 100;
-
 /// Where a shown minimum came from, as analytics names it.
 enum ReceiveMinimumSource {
-  /// A live `/limits` read for the route (shown no lower than the floor).
+  /// A live `/limits` read for the route.
   live,
 
-  /// No live read: the app's floor.
-  floor,
+  /// No live read (not back yet, or failed): no minimum is shown.
+  none,
 }
 
 /// The minimum one receive address shows.
@@ -45,9 +43,8 @@ class ReceiveMinimum {
 
   final ReceiveMinimumSource source;
 
-  /// The minimum in USD cents.
+  /// The minimum in USD cents; null when none is known.
   final int? usdCents;
-
 
   /// The properties `receive_address_generated` carries: the exact
   /// minimum shown and where it came from.
@@ -70,9 +67,9 @@ class ReceiveMinimum {
   int get hashCode => Object.hash(source, usdCents);
 }
 
-/// The floor, for a route whose limits could not be read.
-const ReceiveMinimum kReceiveMinimumFloor = ReceiveMinimum(
-    source: ReceiveMinimumSource.floor, usdCents: kReceiveMinimumFloorCents);
+/// No known minimum, for a route whose limits are not (yet) read.
+const ReceiveMinimum kReceiveMinimumNone =
+    ReceiveMinimum(source: ReceiveMinimumSource.none);
 
 /// The route's own minimum in whole USD cents (the larger of the order
 /// notional and exact-in minimums), or null when the read gave none.
@@ -111,7 +108,7 @@ class ReceiveMinimums {
 
   /// Re-reads [route]'s limits (one read at a time per route). Never
   /// throws: a failed read answers the session's last live minimum for
-  /// the route, else the floor.
+  /// the route, else [kReceiveMinimumNone].
   Future<ReceiveMinimum> refresh(RouteKey route) =>
       _inFlight[route] ??= _read(route).whenComplete(() {
         _inFlight.remove(route);
@@ -126,13 +123,9 @@ class ReceiveMinimums {
     } catch (_) {
       liveCents = null;
     }
-    if (liveCents == null) return _live[route] ?? kReceiveMinimumFloor;
-    final minimum = ReceiveMinimum(
-      source: ReceiveMinimumSource.live,
-      usdCents: liveCents > kReceiveMinimumFloorCents
-          ? liveCents
-          : kReceiveMinimumFloorCents,
-    );
+    if (liveCents == null) return _live[route] ?? kReceiveMinimumNone;
+    final minimum =
+        ReceiveMinimum(source: ReceiveMinimumSource.live, usdCents: liveCents);
     _live[route] = minimum;
     return minimum;
   }
