@@ -3007,6 +3007,8 @@
   "slipFundingBitcoinBack": "Det gick inte att lägga till i Investments. Din bitcoin kommer tillbaka.",
   "slipFundingPriceMoved": "Priset rörde sig för snabbt.",
   "slipFundingRoundClosed": "Den här rundan stängde innan dina pengar kom fram.",
+  "slipFundingRoundPriceMoved": "Priset ändrades till {price} medan dina pengar var på väg.",
+  "slipFundingRoundEnded": "Den här rundan tog slut medan dina pengar var på väg. Dina {amount} finns i Prognoser.",
   "slipFundingInPredictions": "Dina {amount} finns i Prognoser. Tryck för att försöka igen.",
   "slipFundingInInvesting": "Dina {amount} finns i Investera. Tryck för att försöka igen.",
   "oneBalancePlacingBet": "Lägger {amount} på {side} · {market}",

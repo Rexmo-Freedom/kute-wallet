@@ -733,10 +733,33 @@ abstract final class PmGrants {
   }) =>
       isBuy ? buyCostMicros(size, price) : IntentUnits.size(size);
 
+  /// Bounds of a funded order's one approval that belong to its funding
+  /// leg, not to the order: the move's cap and venue
+  /// ([fundingLimits]), the venue-cash legs and the Bitcoin leg. The
+  /// funding executors enforce them before anything moves
+  /// ([fundingGrantCovers], [DirectLegGrants], [BitcoinLegGrants]).
+  static const Set<String> fundingLegKeys = {
+    VenueLimit.fundingUsd,
+    VenueLimit.fundingVenue,
+    VenueLimit.directLegs,
+    VenueLimit.fundBtc,
+  };
+
   /// The intent `placeOrder` is about to submit, rebuilt from its own
-  /// arguments. [orderType] is the `OrderType` name. The executor cannot
-  /// measure slippage, so a `maxSlippageBps` bound on [grant] is carried
-  /// over; the price cap is what enforces it.
+  /// arguments. [orderType] is the `OrderType` name.
+  ///
+  /// Bounds the executor cannot know are carried over from [grant] (the
+  /// "known fields replaced" rule of [GrantGuard.derive], limited to these
+  /// keys), so they are kept, never compared against an absent value:
+  /// - `maxSlippageBps`: the executor cannot measure slippage; the price
+  ///   cap is what enforces it;
+  /// - [fundingLegKeys]: a funded bet's one approval also binds its
+  ///   funding leg, which was enforced when the money moved; `placeOrder`
+  ///   moves no funding. Without carrying them every funded autofire
+  ///   (Dollars or Bitcoin) failed `ReauthRequired(other)` after its money
+  ///   landed.
+  /// Every order bound (wallet, token, side, amount, worst price, order
+  /// type) is still rebuilt from the order itself and compared.
   static SensitiveIntent executedOrder(
     AuthGrant grant, {
     required String walletId,
@@ -754,11 +777,38 @@ abstract final class PmGrants {
       limitPrice: price,
       orderType: orderType,
     );
-    final slippage = grant.boundIntent.limits[IntentLimit.maxSlippageBps];
-    if (slippage == null) return base;
-    return base.copyWith(
-      limits: {...base.limits, IntentLimit.maxSlippageBps: slippage},
-    );
+    final bound = grant.boundIntent.limits;
+    final carried = <String, Object?>{
+      for (final key in {IntentLimit.maxSlippageBps, ...fundingLegKeys})
+        if (bound.containsKey(key)) key: bound[key],
+    };
+    if (carried.isEmpty) return base;
+    return base.copyWith(limits: {...base.limits, ...carried});
+  }
+
+  /// What `placeOrder` does with its grant before anything is signed:
+  /// rebuilds the order it is about to submit ([executedOrder]) and
+  /// consumes [grant] against it. Returns the rebuilt order for the
+  /// in-order re-checks ([checkRetry]). Test fakes call this too, so they
+  /// check exactly what the executor checks.
+  static SensitiveIntent consumeOrder(
+    AuthGrant grant, {
+    required String walletId,
+    required String tokenId,
+    required bool isBuy,
+    required double size,
+    required double price,
+    required String orderType,
+  }) {
+    final actual = executedOrder(grant,
+        walletId: walletId,
+        tokenId: tokenId,
+        isBuy: isBuy,
+        size: size,
+        price: price,
+        orderType: orderType);
+    GrantGuard.consume(grant, actual, allowed: orderActions(isBuy));
+    return actual;
   }
 
   /// Review intent for a buy. [maxCostUsd] is the largest cost any rung may
@@ -882,8 +932,8 @@ abstract final class PmGrants {
   static void checkRetry(AuthGrant grant, SensitiveIntent actual) {
     if (grant.revoked) throw const GrantRevoked();
     if (grant.isExpiredAt(AuthGrants.clock())) throw const GrantExpired();
-    final drift = AuthGrants.driftBetween(grant.boundIntent, actual);
-    if (drift.isNotEmpty) throw ReauthRequired(drift);
+    final drift = AuthGrants.driftError(grant.boundIntent, actual);
+    if (drift != null) throw drift;
   }
 
   // ── One balance: an order funded from Dollars ─────────────────────

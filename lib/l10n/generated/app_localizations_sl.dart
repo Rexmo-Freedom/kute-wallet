@@ -10755,6 +10755,16 @@ class AppLocalizationsSl extends AppLocalizations {
       'Ta krog se je zaprl, preden je prispel vaš denar.';
 
   @override
+  String slipFundingRoundPriceMoved(String price) {
+    return 'Cena se je spremenila na $price, medtem ko se je vaš denar premikal.';
+  }
+
+  @override
+  String slipFundingRoundEnded(String amount) {
+    return 'Ta krog se je končal, medtem ko se je vaš denar premikal. Vaših $amount je v Napovedih.';
+  }
+
+  @override
   String slipFundingInPredictions(String amount) {
     return 'Vaših $amount je v Napovedih. Tapnite za ponoven poskus.';
   }

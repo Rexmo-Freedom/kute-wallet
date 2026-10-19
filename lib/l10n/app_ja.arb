@@ -3007,6 +3007,8 @@
   "slipFundingBitcoinBack": "Investmentsへの追加は完了しませんでした。ビットコインは返金されます。",
   "slipFundingPriceMoved": "価格の動きが速すぎました。",
   "slipFundingRoundClosed": "資金が届く前にこのラウンドが終了しました。",
+  "slipFundingRoundPriceMoved": "資金の移動中に価格が{price}に変わりました。",
+  "slipFundingRoundEnded": "資金の移動中にこのラウンドが終了しました。{amount}は予測にあります。",
   "slipFundingInPredictions": "{amount}は予測にあります。タップしてもう一度お試しください。",
   "slipFundingInInvesting": "{amount}は投資にあります。タップしてもう一度お試しください。",
   "oneBalancePlacingBet": "{side}に{amount}を予測中 · {market}",

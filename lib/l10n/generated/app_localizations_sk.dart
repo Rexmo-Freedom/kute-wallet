@@ -10732,6 +10732,16 @@ class AppLocalizationsSk extends AppLocalizations {
       'Toto kolo sa skončilo skôr, ako dorazili tvoje peniaze.';
 
   @override
+  String slipFundingRoundPriceMoved(String price) {
+    return 'Cena sa zmenila na $price, kým sa tvoje peniaze presúvali.';
+  }
+
+  @override
+  String slipFundingRoundEnded(String amount) {
+    return 'Toto kolo sa skončilo, kým sa tvoje peniaze presúvali. Tvojich $amount je v Predpovediach.';
+  }
+
+  @override
   String slipFundingInPredictions(String amount) {
     return 'Tvojich $amount je v Predpovediach. Ťuknutím to skúsiš znova.';
   }

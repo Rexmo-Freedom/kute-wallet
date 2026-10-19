@@ -3007,6 +3007,8 @@
   "slipFundingBitcoinBack": "Pridanie do Investments sa nepodarilo. Tvoj bitcoin sa vracia.",
   "slipFundingPriceMoved": "Cena sa pohla príliš rýchlo.",
   "slipFundingRoundClosed": "Toto kolo sa skončilo skôr, ako dorazili tvoje peniaze.",
+  "slipFundingRoundPriceMoved": "Cena sa zmenila na {price}, kým sa tvoje peniaze presúvali.",
+  "slipFundingRoundEnded": "Toto kolo sa skončilo, kým sa tvoje peniaze presúvali. Tvojich {amount} je v Predpovediach.",
   "slipFundingInPredictions": "Tvojich {amount} je v Predpovediach. Ťuknutím to skúsiš znova.",
   "slipFundingInInvesting": "Tvojich {amount} je v Investovaní. Ťuknutím to skúsiš znova.",
   "oneBalancePlacingBet": "Stávka {amount} na {side} · {market}",

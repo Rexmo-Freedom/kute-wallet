@@ -10752,6 +10752,16 @@ class AppLocalizationsHu extends AppLocalizations {
       'Ez a kör lezárult, mielőtt a pénzed megérkezett.';
 
   @override
+  String slipFundingRoundPriceMoved(String price) {
+    return 'Az ár $price lett, amíg a pénzed úton volt.';
+  }
+
+  @override
+  String slipFundingRoundEnded(String amount) {
+    return 'Ez a kör véget ért, amíg a pénzed úton volt. A(z) $amount az Előrejelzésekben van.';
+  }
+
+  @override
   String slipFundingInPredictions(String amount) {
     return 'A(z) $amount az Előrejelzésekben van. Koppints az újrapróbáláshoz.';
   }

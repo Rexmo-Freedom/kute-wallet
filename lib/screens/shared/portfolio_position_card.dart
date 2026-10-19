@@ -48,13 +48,81 @@ class PortfolioCardValue extends StatelessWidget {
     return '$sign$amount$pct';
   }
 
+  static TextStyle _captionStyle(AppColorsExtension c) =>
+      polyCardCaptionStyle(c).copyWith(
+        fontWeight: FontWeight.w600,
+        fontFeatures: const [FontFeature.tabularFigures()],
+      );
+
+  /// The live figures' line box (RollingNumberText's).
+  static const _rolledHeight = TextHeightBehavior(
+    applyHeightToFirstAscent: false,
+    applyHeightToLastDescent: false,
+  );
+
+  /// The room the figure takes in a card's top-right corner, [maxWidth]
+  /// being the card's inner width: its own size, measured as the rolling
+  /// digits lay it out, capped at a little under half the card (a longer
+  /// figure scales down as one block, so its height shrinks with it).
+  /// Lets a card keep its names clear of the figure without squeezing
+  /// them beside it.
+  static Size slotFor(
+    BuildContext context, {
+    required String value,
+    String? pnl,
+    String? detail,
+    required double maxWidth,
+  }) {
+    final c = context.colors;
+    final base = DefaultTextStyle.of(context).style;
+    final scaler = MediaQuery.textScalerOf(context);
+    final direction = Directionality.maybeOf(context) ?? TextDirection.ltr;
+    Size measure(String text, TextStyle style, {bool rolled = true}) {
+      final merged = base.merge(style);
+      // A rolling figure is a row of single characters.
+      final parts = rolled ? text.characters.toList() : [text];
+      var width = 0.0;
+      var height = 0.0;
+      for (final part in parts) {
+        final painter = TextPainter(
+          text: TextSpan(text: part, style: merged),
+          textDirection: direction,
+          textScaler: scaler,
+          textHeightBehavior: rolled ? _rolledHeight : null,
+        )..layout();
+        width += painter.width;
+        if (painter.height > height) height = painter.height;
+        painter.dispose();
+      }
+      return Size(width, height);
+    }
+
+    final top = measure(value, polyCardFigureStyle(c.textPrimary));
+    final under = pnl != null
+        ? measure(pnl, _captionStyle(c))
+        : detail != null
+            ? measure(detail,
+                _captionStyle(c).copyWith(fontWeight: FontWeight.w500),
+                rolled: false)
+            : null;
+    // A hair of slack: a glyph may paint a little past its measure.
+    var width = (under == null || top.width > under.width
+            ? top.width
+            : under.width) +
+        2;
+    var height = top.height + (under == null ? 0 : 2.h + under.height) + 1;
+    final cap = maxWidth * 0.45;
+    if (width > cap) {
+      height *= cap / width;
+      width = cap;
+    }
+    return Size(width, height);
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final caption = polyCardCaptionStyle(c).copyWith(
-      fontWeight: FontWeight.w600,
-      fontFeatures: const [FontFeature.tabularFigures()],
-    );
+    final caption = _captionStyle(c);
     // A long figure scales down as one block; it never wraps or pushes
     // the names off the card.
     return FittedBox(

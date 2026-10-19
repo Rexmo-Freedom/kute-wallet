@@ -18151,6 +18151,18 @@ abstract class AppLocalizations {
   /// **'This round closed before your money arrived.'**
   String get slipFundingRoundClosed;
 
+  /// Slip funding steps, the line under a failed placement step of a 5-minute crypto Up or Down round: the price moved past what was approved while the money was moving. {price} is the price now as a chance ("81%"). Followed by where the money is; the button retries at that price.
+  ///
+  /// In en, this message translates to:
+  /// **'Price changed to {price} while your money was moving.'**
+  String slipFundingRoundPriceMoved(String price);
+
+  /// Slip funding steps, the whole line under a failed step of a 5-minute crypto Up or Down round that ended while the money for the bet was moving. {amount} is a formatted dollar amount, now Predictions cash.
+  ///
+  /// In en, this message translates to:
+  /// **'This round ended while your money was moving. Your {amount} is in Predictions.'**
+  String slipFundingRoundEnded(String amount);
+
   /// Slip funding steps: after a funded prediction did not place, where its money is now (as Predictions cash, available). {amount} is a formatted dollar amount.
   ///
   /// In en, this message translates to:

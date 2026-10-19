@@ -9,8 +9,11 @@ import 'package:kute/screens/polymarket/components/market_chart.dart'
 import 'package:kute/screens/polymarket/components/outcome_leading.dart'
     show kPolyOutcomeColors, polyChartedOutcomes;
 import 'package:kute/screens/polymarket/components/position_chance_bar.dart';
+import 'package:kute/screens/polymarket/components/position_chance_gauge.dart';
 import 'package:kute/screens/polymarket/components/game_chart_section.dart';
 import 'package:kute/screens/polymarket/components/game_header.dart';
+import 'package:kute/screens/polymarket/components/live_game.dart'
+    show PolyLiveGame;
 import 'package:kute/screens/polymarket/components/game_time.dart'
     show polyMinuteTickProvider;
 import 'package:kute/providers/polymarket_game_lines_provider.dart';
@@ -59,11 +62,13 @@ const Color _kPolyRed = AppColors.marketDown;
 // sheet of the same market: a game shows its two teams with the score
 // between them (PolyGameTeamsHeader); any other market shows the sheet's
 // icon-and-title header. On top of that sits what is the user's: the
-// current value with the profit or loss under it, the chance bar (where
+// current value with the profit or loss under it, the chance gauge (where
 // the held outcome's chance is now against the price paid, ticked
-// "Bought · 32¢": position_chance_bar.dart; no price chart here, the
-// market sheet keeps it), the outcome / shares / price paid / invested
-// rows, and the Sell (or Claim / Clear) action.
+// "Bought · 32¢", the chance in its middle: position_chance_gauge.dart)
+// while the bet is open, the chance bar (position_chance_bar.dart) once
+// it is settled; no price chart here, the market sheet keeps it. Then the
+// outcome / shares / price paid / invested rows, and the Sell (or Claim /
+// Clear) action.
 
 class PositionDetailSheet extends ConsumerStatefulWidget {
   final PolymarketPosition position;
@@ -253,6 +258,12 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
     // the stream plays on in the mini player.
     final watching = watchingStream;
     syncStreamHandoff(context);
+    final hasToken = pos.tokenId != null && pos.tokenId!.isNotEmpty;
+    // Open (a live price, not settled: not won, lost, claimable or
+    // claimed): the gauge, with the chance in its middle. A market past
+    // its end and waiting for the result still trades, so it counts. A
+    // settled position keeps the bar.
+    final showGauge = !watching && hasToken && !pos.isResolved;
     // The event's teams (read by slug when the event came without them)
     // and, when it is a match, its two sides as the market sheet names
     // them.
@@ -433,20 +444,22 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                             // The live price of the held outcome token IS
                             // the market's chance that this side resolves
                             // true (a NO position's token price is the
-                            // chance NO happens).
-                            RollingNumberText(
-                              text: context.l10n.betPercentChance(
-                                  formatPolyChanceFigure(currentPrice)),
-                              style: TextStyle(
-                                color: c.textSecondary,
-                                fontSize: 13.sp,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: -0.1,
-                                fontFeatures: const [
-                                  FontFeature.tabularFigures()
-                                ],
+                            // chance NO happens). The gauge writes it in
+                            // its middle; here only without the gauge.
+                            if (!showGauge)
+                              RollingNumberText(
+                                text: context.l10n.betPercentChance(
+                                    formatPolyChanceFigure(currentPrice)),
+                                style: TextStyle(
+                                  color: c.textSecondary,
+                                  fontSize: 13.sp,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: -0.1,
+                                  fontFeatures: const [
+                                    FontFeature.tabularFigures()
+                                  ],
+                                ),
                               ),
-                            ),
                           ],
                         ),
                       ),
@@ -454,20 +467,21 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                         SizedBox(height: 20.h),
                         buildMediaToggle(c),
                       ],
-                      if (!watching &&
-                          pos.tokenId != null &&
-                          pos.tokenId!.isNotEmpty) ...[
+                      if (!watching && hasToken) ...[
                         SizedBox(height: hasStream ? 14.h : 20.h),
                         LiveTokenScope(
                           tokens: [if (!pos.isResolved) pos.tokenId!],
                           keepAlive: true,
                           // Where the held outcome's chance is now against
-                          // what was paid for it (position_chance_bar.dart):
-                          // a Yes / No or Up / Down market's green and red
-                          // split, or a fill in the outcome's own line
-                          // colour, with the chart's "Bought · 32¢" tag on
-                          // a tick at the price paid. Its own Consumer: the
-                          // game's lines are read for the colour alone.
+                          // what was paid for it: a Yes / No or Up / Down
+                          // market's green and red split, or a fill in the
+                          // outcome's own line colour, with the chart's
+                          // "Bought · 32¢" tag on a tick at the price paid.
+                          // Open: the half-circle gauge with the chance in
+                          // its middle (position_chance_gauge.dart);
+                          // settled: the bar (position_chance_bar.dart).
+                          // Its own Consumer: the game's lines are read for
+                          // the colour alone.
                           child: RepaintBoundary(
                             child: Consumer(builder: (context, barRef, _) {
                               final tokenId = pos.tokenId!;
@@ -478,21 +492,30 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                               final bought = pos.size > 0 && costBasis > 0
                                   ? costBasis / pos.size
                                   : null;
+                              final spec = polyPositionChanceBarSpec(
+                                outcome: pos.outcome,
+                                chance:
+                                    polyPositionBarChance(pos, currentPrice),
+                                bought: bought,
+                                lineColor: lineColor,
+                                // The chart's own colour for a line with
+                                // none of its own.
+                                fallbackColor: pnlColor,
+                              );
+                              final tickLabel = bought == null
+                                  ? null
+                                  : '${context.l10n.polyChartBought} · '
+                                      '${formatPolyBoughtCents(bought)}';
+                              if (showGauge) {
+                                return PolyPositionChanceGauge(
+                                  spec: spec,
+                                  chance: currentPrice,
+                                  tickLabel: tickLabel,
+                                );
+                              }
                               return PolyPositionChanceBar(
-                                spec: polyPositionChanceBarSpec(
-                                  outcome: pos.outcome,
-                                  chance:
-                                      polyPositionBarChance(pos, currentPrice),
-                                  bought: bought,
-                                  lineColor: lineColor,
-                                  // The chart's own colour for a line
-                                  // with none of its own.
-                                  fallbackColor: pnlColor,
-                                ),
-                                tickLabel: bought == null
-                                    ? null
-                                    : '${context.l10n.polyChartBought} · '
-                                        '${formatPolyBoughtCents(bought)}',
+                                spec: spec,
+                                tickLabel: tickLabel,
                               );
                             }),
                           ),
@@ -563,21 +586,31 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                         // where it is; the market's scheduled end (already
                         // past) would only mislead.
                         Consumer(builder: (context, expiryRef, _) {
+                          final isGame = event != null && sportsTeams != null;
+                          final ws = isGame
+                              ? polyLiveMatchUpdate(expiryRef, event)
+                              : null;
                           if (!pos.isResolved &&
-                              event != null &&
-                              sportsTeams != null &&
-                              polyGameIsLive(event,
-                                  polyLiveMatchUpdate(expiryRef, event))) {
+                              isGame &&
+                              polyGameIsLive(event, ws)) {
                             return const SizedBox.shrink();
                           }
                           // Over and not claimable yet: when Polymarket
                           // expects the result, counted down by the minute.
+                          // A passed end date alone is not over (the Brazil
+                          // "who wins" market kept its first-round date
+                          // while still trading), but for a 5 or 15 minute
+                          // round: polyMarketHasEnded, as on the card.
                           final end = polyPositionEnd(pos);
                           final over = !pos.isResolved &&
-                              ((event != null &&
-                                      (event.ended || event.closed)) ||
-                                  (end != null &&
-                                      !end.isAfter(DateTime.now())));
+                              polyMarketHasEnded(
+                                  eventSlug: pos.eventSlug,
+                                  end: end,
+                                  event: event,
+                                  live: isGame
+                                      ? PolyLiveGame.of(event, ws)
+                                      : null,
+                                  isGame: isGame);
                           final settleAt = over && pos.marketId.isNotEmpty
                               ? expiryRef
                                   .watch(polyExpectedSettlementProvider(
@@ -603,8 +636,10 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                                 event.kickoff != null,
                             // Over but not claimable yet: say what is
                             // being waited for (position_awaiting.dart).
-                            ended: event != null &&
-                                (event.ended || event.closed),
+                            ended: over,
+                            // Still trading past the market's own end: the
+                            // event's, when it is later.
+                            eventEnd: event?.endDate,
                             endedLabel: polyAwaitingText(context.l10n,
                                 polyAwaitingResultFor(currentPrice),
                                 shortRound: polyIsShortRound(pos.eventSlug),
@@ -850,12 +885,19 @@ class _PositionExpiry extends StatefulWidget {
       required this.resolved,
       this.quietBeforeEnd = false,
       this.ended = false,
+      this.eventEnd,
       required this.endedLabel});
   final DateTime? end;
   final bool resolved;
 
-  /// The market is over before its end date (a game that finished).
+  /// The market is over and waiting for its result (polyMarketHasEnded):
+  /// the only way to the ended caption. A passed [end] alone never is.
   final bool ended;
+
+  /// The event's own end. A market still trading past its own [end] (a
+  /// first-round date, the runoff weeks away) says this one when it is
+  /// later, and nothing otherwise.
+  final DateTime? eventEnd;
 
   /// What an ended, not yet claimable position waits for.
   final String endedLabel;
@@ -885,19 +927,30 @@ class _PositionExpiryState extends State<_PositionExpiry> {
 
   @override
   Widget build(BuildContext context) {
-    final left = widget.end?.difference(DateTime.now());
+    final now = DateTime.now();
+    var end = widget.end;
+    // Past the market's own end but not over: the event's later end, or
+    // nothing. Never "Ended" on a date alone.
+    if (!widget.resolved &&
+        !widget.ended &&
+        end != null &&
+        !end.isAfter(now)) {
+      final eventEnd = widget.eventEnd;
+      end = eventEnd != null && eventEnd.isAfter(now) ? eventEnd : null;
+    }
+    final left = end?.difference(now);
     final String label;
     if (widget.resolved) {
       label = context.l10n.activitySettled;
-    } else if (widget.ended || (left != null && left.isNegative)) {
+    } else if (widget.ended) {
       label = widget.endedLabel;
     } else if (left == null) {
       return const SizedBox.shrink();
     } else if (widget.quietBeforeEnd) {
       return const SizedBox.shrink();
     } else if (left.inDays >= 1) {
-      label = context.l10n.betEndsDate(
-          DateFormat('MMM d, HH:mm').format(widget.end!.toLocal()));
+      label = context.l10n
+          .betEndsDate(DateFormat('MMM d, HH:mm').format(end!.toLocal()));
     } else {
       final h = left.inHours;
       final m = (left.inMinutes % 60).toString().padLeft(2, '0');

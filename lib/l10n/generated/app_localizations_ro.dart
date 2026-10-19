@@ -10786,6 +10786,16 @@ class AppLocalizationsRo extends AppLocalizations {
       'Această rundă s-a închis înainte să ajungă banii tăi.';
 
   @override
+  String slipFundingRoundPriceMoved(String price) {
+    return 'Prețul s-a schimbat la $price cât timp banii tăi erau în drum.';
+  }
+
+  @override
+  String slipFundingRoundEnded(String amount) {
+    return 'Această rundă s-a încheiat cât timp banii tăi erau în drum. Cei $amount ai tăi sunt în Predicții.';
+  }
+
+  @override
   String slipFundingInPredictions(String amount) {
     return 'Cei $amount ai tăi sunt în Predicții. Atinge pentru a încerca din nou.';
   }

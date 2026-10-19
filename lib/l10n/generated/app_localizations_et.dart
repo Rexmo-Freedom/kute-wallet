@@ -10715,6 +10715,16 @@ class AppLocalizationsEt extends AppLocalizations {
       'See voor sulgus enne, kui sinu raha kohale jõudis.';
 
   @override
+  String slipFundingRoundPriceMoved(String price) {
+    return 'Hind muutus $price peale, kuni sinu raha liikus.';
+  }
+
+  @override
+  String slipFundingRoundEnded(String amount) {
+    return 'See voor lõppes, kuni sinu raha liikus. Sinu $amount on kontol Ennustused.';
+  }
+
+  @override
   String slipFundingInPredictions(String amount) {
     return 'Sinu $amount on kontol Ennustused. Puuduta, et uuesti proovida.';
   }

@@ -3007,6 +3007,8 @@
   "slipFundingBitcoinBack": "Tilføjelsen til Investments gik ikke igennem. Din bitcoin er på vej tilbage.",
   "slipFundingPriceMoved": "Prisen ændrede sig for hurtigt.",
   "slipFundingRoundClosed": "Denne runde lukkede, før dine penge nåede frem.",
+  "slipFundingRoundPriceMoved": "Prisen ændrede sig til {price}, mens dine penge var på vej.",
+  "slipFundingRoundEnded": "Denne runde sluttede, mens dine penge var på vej. Dine {amount} er i Forudsigelser.",
   "slipFundingInPredictions": "Dine {amount} er i Forudsigelser. Tryk for at prøve igen.",
   "slipFundingInInvesting": "Dine {amount} er i Investering. Tryk for at prøve igen.",
   "oneBalancePlacingBet": "Placerer {amount} på {side} · {market}",

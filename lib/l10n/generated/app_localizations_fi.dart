@@ -10739,6 +10739,16 @@ class AppLocalizationsFi extends AppLocalizations {
       'Tämä kierros sulkeutui ennen kuin rahasi saapuivat.';
 
   @override
+  String slipFundingRoundPriceMoved(String price) {
+    return 'Hinta muuttui arvoon $price, kun rahasi olivat matkalla.';
+  }
+
+  @override
+  String slipFundingRoundEnded(String amount) {
+    return 'Tämä kierros päättyi, kun rahasi olivat matkalla. $amount on tililläsi Ennusteet.';
+  }
+
+  @override
   String slipFundingInPredictions(String amount) {
     return '$amount on tililläsi Ennusteet. Napauta yrittääksesi uudelleen.';
   }

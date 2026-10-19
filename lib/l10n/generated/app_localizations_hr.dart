@@ -10751,6 +10751,16 @@ class AppLocalizationsHr extends AppLocalizations {
       'Ova runda zatvorila se prije nego što je tvoj novac stigao.';
 
   @override
+  String slipFundingRoundPriceMoved(String price) {
+    return 'Cijena se promijenila na $price dok se tvoj novac prenosio.';
+  }
+
+  @override
+  String slipFundingRoundEnded(String amount) {
+    return 'Ova runda je završila dok se tvoj novac prenosio. Tvojih $amount je u Predviđanjima.';
+  }
+
+  @override
   String slipFundingInPredictions(String amount) {
     return 'Tvojih $amount je u Predviđanjima. Dodirni za ponovni pokušaj.';
   }

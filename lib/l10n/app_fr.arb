@@ -3007,6 +3007,8 @@
   "slipFundingBitcoinBack": "L'ajout à Investments n'a pas abouti. Vos bitcoins vous reviennent.",
   "slipFundingPriceMoved": "Le prix a bougé trop vite.",
   "slipFundingRoundClosed": "Ce tour s'est fermé avant l'arrivée de votre argent.",
+  "slipFundingRoundPriceMoved": "Le prix est passé à {price} pendant le transfert de votre argent.",
+  "slipFundingRoundEnded": "Ce tour s'est terminé pendant le transfert de votre argent. Vos {amount} sont dans Prédictions.",
   "slipFundingInPredictions": "Vos {amount} sont dans Prédictions. Touchez pour réessayer.",
   "slipFundingInInvesting": "Vos {amount} sont dans Investir. Touchez pour réessayer.",
   "oneBalancePlacingBet": "Mise de {amount} sur {side} · {market}",

@@ -10728,6 +10728,16 @@ class AppLocalizationsDa extends AppLocalizations {
       'Denne runde lukkede, før dine penge nåede frem.';
 
   @override
+  String slipFundingRoundPriceMoved(String price) {
+    return 'Prisen ændrede sig til $price, mens dine penge var på vej.';
+  }
+
+  @override
+  String slipFundingRoundEnded(String amount) {
+    return 'Denne runde sluttede, mens dine penge var på vej. Dine $amount er i Forudsigelser.';
+  }
+
+  @override
   String slipFundingInPredictions(String amount) {
     return 'Dine $amount er i Forudsigelser. Tryk for at prøve igen.';
   }

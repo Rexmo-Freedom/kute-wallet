@@ -10308,6 +10308,16 @@ class AppLocalizationsJa extends AppLocalizations {
   String get slipFundingRoundClosed => '資金が届く前にこのラウンドが終了しました。';
 
   @override
+  String slipFundingRoundPriceMoved(String price) {
+    return '資金の移動中に価格が$priceに変わりました。';
+  }
+
+  @override
+  String slipFundingRoundEnded(String amount) {
+    return '資金の移動中にこのラウンドが終了しました。$amountは予測にあります。';
+  }
+
+  @override
   String slipFundingInPredictions(String amount) {
     return '$amountは予測にあります。タップしてもう一度お試しください。';
   }

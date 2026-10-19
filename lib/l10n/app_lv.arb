@@ -3007,6 +3007,8 @@
   "slipFundingBitcoinBack": "Pievienošana kontam Investments neizdevās. Tavs bitcoin atgriežas.",
   "slipFundingPriceMoved": "Cena mainījās pārāk ātri.",
   "slipFundingRoundClosed": "Šī kārta noslēdzās, pirms tava nauda ieradās.",
+  "slipFundingRoundPriceMoved": "Cena mainījās uz {price}, kamēr tava nauda pārvietojās.",
+  "slipFundingRoundEnded": "Šī kārta beidzās, kamēr tava nauda pārvietojās. Tavi {amount} ir kontā Prognozes.",
   "slipFundingInPredictions": "Tavi {amount} ir kontā Prognozes. Pieskaries, lai mēģinātu vēlreiz.",
   "slipFundingInInvesting": "Tavi {amount} ir kontā Investēšana. Pieskaries, lai mēģinātu vēlreiz.",
   "oneBalancePlacingBet": "Liek {amount} uz {side} · {market}",

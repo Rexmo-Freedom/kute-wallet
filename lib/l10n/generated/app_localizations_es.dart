@@ -10788,6 +10788,16 @@ class AppLocalizationsEs extends AppLocalizations {
       'Esta ronda cerró antes de que llegara tu dinero.';
 
   @override
+  String slipFundingRoundPriceMoved(String price) {
+    return 'El precio cambió a $price mientras tu dinero se movía.';
+  }
+
+  @override
+  String slipFundingRoundEnded(String amount) {
+    return 'Esta ronda terminó mientras tu dinero se movía. Tus $amount están en Predicciones.';
+  }
+
+  @override
   String slipFundingInPredictions(String amount) {
     return 'Tus $amount están en Predicciones. Toca para volver a intentarlo.';
   }

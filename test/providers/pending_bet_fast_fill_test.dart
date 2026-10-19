@@ -126,27 +126,14 @@ class _Trading extends PolymarketTradingNotifier {
     required AuthGrant grant,
     void Function(String step)? onStep,
   }) async {
-    // The grant covers exactly this order, as the real executor checks.
-    AuthGrants.consume(
-        grant,
-        PmGrants.executedOrder(grant,
-                walletId: 'spending',
-                tokenId: tokenId,
-                isBuy: true,
-                size: size,
-                price: price,
-                orderType: orderType.name)
-            .copyWith(limits: {
-          ...PmGrants.executedOrder(grant,
-                  walletId: 'spending',
-                  tokenId: tokenId,
-                  isBuy: true,
-                  size: size,
-                  price: price,
-                  orderType: orderType.name)
-              .limits,
-          ...PmGrants.fundingLimits(fundUsd: 10, venue: IntentVenue.polymarket),
-        }));
+    // The grant covers exactly this order: the real executor's own check.
+    PmGrants.consumeOrder(grant,
+        walletId: 'spending',
+        tokenId: tokenId,
+        isBuy: side == OrderSide.buy,
+        size: size,
+        price: price,
+        orderType: orderType.name);
     onStep?.call('ready');
     orders.add(_Order(price, size, analytics));
     if (refusals.isNotEmpty) throw refusals.removeAt(0);
