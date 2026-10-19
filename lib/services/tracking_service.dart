@@ -5302,10 +5302,17 @@ class TrackingService {
 
   /// A pull-to-refresh on [screen] (`home`, `usd` for Investments,
   /// `hyperliquid`, `polymarket`, `affiliate`), with the Investments pill on
-  /// screen as [tab].
-  static void pullToRefreshExecuted({required String screen, String? tab}) =>
-      track('pull_to_refresh_executed',
-          params: {'screen': screen, if (tab != null) 'tab': tab});
+  /// screen as [tab]. [refreshMode] is how the spending wallet's balances
+  /// were refreshed: `reconnect` (the Breez SDK connected again, as a hot
+  /// restart does) or `sync` (one wallet sync on the live connection: a
+  /// send or quote was in flight, or no connection to replace).
+  static void pullToRefreshExecuted(
+          {required String screen, String? tab, String? refreshMode}) =>
+      track('pull_to_refresh_executed', params: {
+        'screen': screen,
+        if (tab != null) 'tab': tab,
+        if (refreshMode != null) 'refresh_mode': refreshMode,
+      });
 
   static void homeActivityRowTapped({required String activityType}) =>
       track('home_activity_row_tapped',

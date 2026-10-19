@@ -71,6 +71,27 @@ class BreezSdkSpark {
   void Function()? _stopWatchingSync;
   void Function()? _stopWatchingIdle;
 
+  /// A [connect] is between its start and its outcome: no handle yet, and
+  /// none is missing either.
+  bool _connecting = false;
+
+  /// The handle a pull-to-refresh retired whose replacement did not
+  /// connect, so the one that finally does takes over its identity.
+  spark.BreezSdk? _retiredByPull;
+  Timer? _pullRetry;
+  int _pullRetryAttempt = 0;
+
+  /// When a pull's reconnect could not connect (offline), the connect is
+  /// tried again from the same request after each of these, without the
+  /// unlock (no PIN, no passkey prompt). Then the next pull tries again.
+  @visibleForTesting
+  static List<Duration> pullRetryDelays = const [
+    Duration(seconds: 2),
+    Duration(seconds: 5),
+    Duration(seconds: 15),
+    Duration(seconds: 30),
+  ];
+
   /// A guarded recovery either installed a new handle or left no usable
   /// handle. Provider owners use this to refresh captured SDK consumers or
   /// re-enter the standard connection lifecycle after a failed replacement.
@@ -110,6 +131,7 @@ class BreezSdkSpark {
     final generation = ++_generation;
     final previous = _instance;
     _instance = null;
+    _connecting = true;
     _forgetWalletReadings();
     final cancelled = _unsubscribeFromSdkStreams();
     final result = _lifecycle.then((_) async {
@@ -156,6 +178,11 @@ class BreezSdkSpark {
       // the exact SDK handle. Failures are retried by the sync pipelines.
       unawaited(_fetchWalletData(sdk).catchError((Object _) {}));
     });
+    void settled() {
+      if (_generation == generation) _connecting = false;
+    }
+
+    result.then((_) => settled(), onError: (Object _) => settled());
     _lifecycle =
         result.then<void>((_) {}, onError: (Object _, StackTrace __) {});
     return result;
@@ -178,6 +205,11 @@ class BreezSdkSpark {
     ++_generation;
     final previous = _instance;
     _instance = null;
+    _connecting = false;
+    _pullRetry?.cancel();
+    _pullRetry = null;
+    _pullRetryAttempt = 0;
+    _retiredByPull = null;
     _lastConnectRequest = null;
     _forgetWalletReadings();
     final cancelled = _unsubscribeFromSdkStreams();
@@ -338,6 +370,7 @@ class BreezSdkSpark {
   Future<bool> _recoverTokenBalance(spark.BreezSdk expected,
       {required String source,
       bool settledArrival = false,
+      bool pull = false,
       void Function(UsdRecoveryReason reason)? onDeferred}) {
     final running = _balanceRecovery;
     if (running != null) return running;
@@ -358,11 +391,18 @@ class BreezSdkSpark {
     if (!identical(_instance, expected)) {
       return defer(UsdRecoveryReason.walletChanged);
     }
-    if (!settledArrival && _syncBlocksRecovery(expected)) {
+    // A settled arrival and a pull-to-refresh replace the handle even
+    // while a young sync runs: a hot restart would too, and the sync it
+    // interrupts is the one that is not landing.
+    final waitsForSync = !settledArrival && !pull;
+    if (waitsForSync && _syncBlocksRecovery(expected)) {
       return defer(UsdRecoveryReason.syncInFlight);
     }
     if (_optimizationInProgress) {
       return defer(UsdRecoveryReason.optimizationInFlight);
+    }
+    if (pull && sparkQuoteInFlight) {
+      return defer(UsdRecoveryReason.quoteInFlight);
     }
     final reservation = reserveSparkRecovery(expected);
     if (reservation == null) return defer(UsdRecoveryReason.mutationInFlight);
@@ -388,22 +428,30 @@ class BreezSdkSpark {
           reason = UsdRecoveryReason.walletChanged;
           return false;
         }
-        if ((!settledArrival && _syncBlocksRecovery(expected)) ||
-            _optimizationInProgress) {
+        if ((waitsForSync && _syncBlocksRecovery(expected)) ||
+            _optimizationInProgress ||
+            (pull && sparkQuoteInFlight)) {
           outcome = UsdRecoveryResult.deferred;
-          reason = !settledArrival && _syncBlocksRecovery(expected)
+          reason = waitsForSync && _syncBlocksRecovery(expected)
               ? UsdRecoveryReason.syncInFlight
-              : UsdRecoveryReason.optimizationInFlight;
+              : _optimizationInProgress
+                  ? UsdRecoveryReason.optimizationInFlight
+                  : UsdRecoveryReason.quoteInFlight;
           return false;
         }
         reservation.retire();
         attempted = true;
         reason = UsdRecoveryReason.connectFailed;
+        if (pull) _retiredByPull = expected;
         await connect(req: req, walletId: _connectedWalletId);
         final replacement = _instance;
         final connectedGeneration = _generation;
         if (replacement != null) {
           WalletIdentityService.rebindAfterReconnect(expected, replacement);
+          if (identical(_retiredByPull, expected)) _retiredByPull = null;
+          _pullRetry?.cancel();
+          _pullRetry = null;
+          _pullRetryAttempt = 0;
         }
         await rereadWalletData();
         // A later wallet session must never receive an old success event.
@@ -427,11 +475,19 @@ class BreezSdkSpark {
         if (outcome == UsdRecoveryResult.deferred) onDeferred?.call(reason);
         // Only a completed, current recovery may rebuild dependent providers.
         // A healthy but busy/offline handle remains connected as before.
-        if (report &&
-            attempted &&
-            _generation == generation + 1 &&
-            (outcome == UsdRecoveryResult.ok || _instance == null)) {
-          _recoveryController.add(null);
+        // A pull's failed connect is tried again from the same request
+        // instead: rebuilding the connection provider would unlock the
+        // wallet again (a passkey prompt) for what the pull asked.
+        if (report && attempted && _generation == generation + 1) {
+          if (outcome == UsdRecoveryResult.ok) {
+            _recoveryController.add(null);
+          } else if (_instance == null) {
+            if (pull) {
+              _schedulePullRetry();
+            } else {
+              _recoveryController.add(null);
+            }
+          }
         }
         if (report) {
           _balanceTelemetry.recovery(
@@ -452,6 +508,120 @@ class BreezSdkSpark {
       }
     });
     return result;
+  }
+
+  /// Whether a [connect] is under way (no handle yet, none missing).
+  bool get isConnecting => _connecting;
+
+  /// Whether pull-to-refresh may reconnect the SDK now ([reconnectForPull]):
+  /// the wallet was connected once (its request is kept, so no unlock is
+  /// needed), the last native shutdown did not fail, no connect is under
+  /// way, and nothing is mid-flight on the handle: a payment, prepare,
+  /// claim or refund ([runSparkMutation]), a quote's creation
+  /// ([runSparkQuote]) or a leaf optimization. A pending send the SDK
+  /// lists is checked again by [reconnectForPull] itself.
+  bool get canReconnectForPull {
+    if (_lastConnectRequest == null || _teardownFailure != null) return false;
+    if (_connecting || _optimizationInProgress || sparkQuoteInFlight) {
+      return false;
+    }
+    final sdk = _instance;
+    return sdk == null || !sparkMutationInFlight(sdk);
+  }
+
+  /// Pull-to-refresh as a hot restart does it, without the unlock: the
+  /// live handle shut down and the wallet connected again from the same
+  /// request, so the SDK refreshes its leaves and tokens from the
+  /// operators at start and opens a new event stream. Every wrapper
+  /// stream stays (nothing on screen is cleared: the balances keep their
+  /// figure until the new handle's reading lands), the identity signer
+  /// follows the new handle, and the connection provider is not rebuilt.
+  ///
+  /// The guarded recovery's every check applies (a payment, prepare,
+  /// claim or refund running, a pending send in the SDK's list, a leaf
+  /// optimization, plus a quote being created): any of them leaves the
+  /// handle as it is and answers false, and the pull syncs instead. Only
+  /// the young-sync wait does not: the sync a pull interrupts is the one
+  /// whose figure is not landing. A reconnect already running is joined.
+  /// With no handle (a connect that failed), connects again from the
+  /// request. A connect that fails is tried again on its own
+  /// ([pullRetryDelays]). Never throws.
+  Future<bool> reconnectForPull() {
+    final running = _balanceRecovery;
+    if (running != null) return running;
+    final sdk = _instance;
+    if (sdk == null) return _reconnectFromSaved();
+    return _recoverTokenBalance(sdk, source: 'pull', pull: true);
+  }
+
+  /// Connects again from the last request when there is no handle (a
+  /// pull's connect failed, or the unlock's did after a first success).
+  Future<bool> _reconnectFromSaved() {
+    final running = _balanceRecovery;
+    if (running != null) return running;
+    final req = _lastConnectRequest;
+    if (req == null ||
+        _instance != null ||
+        _connecting ||
+        _teardownFailure != null) {
+      return Future.value(false);
+    }
+    final sw = Stopwatch()..start();
+    final result = () async {
+      var outcome = UsdRecoveryResult.failed;
+      var reason = UsdRecoveryReason.connectFailed;
+      try {
+        await connect(req: req, walletId: _connectedWalletId);
+        final replacement = _instance;
+        if (replacement == null) return false;
+        final retired = _retiredByPull;
+        _retiredByPull = null;
+        if (retired != null) {
+          WalletIdentityService.rebindAfterReconnect(retired, replacement);
+        }
+        _pullRetry?.cancel();
+        _pullRetry = null;
+        _pullRetryAttempt = 0;
+        await rereadWalletData();
+        outcome = UsdRecoveryResult.ok;
+        reason = UsdRecoveryReason.reconnected;
+        if (identical(_instance, replacement)) _recoveryController.add(null);
+        return true;
+      } catch (_) {
+        if (_teardownFailure != null) {
+          reason = UsdRecoveryReason.teardownFailed;
+        } else if (_instance == null && !_connecting) {
+          _schedulePullRetry();
+        }
+        return false;
+      } finally {
+        _balanceTelemetry.recovery(
+            source: 'pull',
+            result: outcome,
+            reason: reason,
+            attempted: true,
+            durationMs: sw.elapsedMilliseconds);
+      }
+    }();
+    _balanceRecovery = result;
+    result.then((_) {
+      if (identical(_balanceRecovery, result)) _balanceRecovery = null;
+    });
+    return result;
+  }
+
+  void _schedulePullRetry() {
+    if (_pullRetryAttempt >= pullRetryDelays.length) {
+      // Out of tries: the next pull starts them again.
+      _pullRetryAttempt = 0;
+      return;
+    }
+    final delay = pullRetryDelays[_pullRetryAttempt++];
+    _pullRetry?.cancel();
+    _pullRetry = Timer(delay, () {
+      _pullRetry = null;
+      if (_instance == null) unawaited(_reconnectFromSaved());
+    });
   }
 
   /// Only completed, newly observed own-wallet Orchestra deliveries may use
