@@ -38,7 +38,10 @@
 // book counts it ([autofireReadiness]); only then does it move to
 // `placing`. A venue refusal that still says only "not usable yet"
 // ([autofireNotReadyYet]) waits for that again and is sent again under
-// the same approval, a few times at most ([kAutofireNotReadyRetries]).
+// the same approval, spaced out and bounded by the funds wait
+// ([kAutofireNotReadyRetries] sends at most): an approval being mined or
+// the book's count catching up late is waited out, never five sends
+// spent in seconds and a generic failure while the money sits there.
 
 import 'dart:async';
 import 'dart:math';
@@ -139,8 +142,19 @@ const Duration kFundsTimeout = Duration(minutes: 12);
 }
 
 /// How many times a bet is sent again after the venue refused it only
-/// because the money was not usable yet ([autofireNotReadyYet]).
-const int kAutofireNotReadyRetries = 5;
+/// because the money was not usable yet ([autofireNotReadyYet]). A safety
+/// cap: the real bound is time (the funds wait, counted from the first
+/// such refusal), and the sends are spaced out (1 s, 2 s, 4 s ... up to
+/// 15 s), so a spend approval being mined or the order book's balance
+/// view catching up a minute late is waited out instead of five sends
+/// being spent in a few seconds (founder, 19 October 2026: "Moved $4.73
+/// from Bitcoin", then "Confirming balance" failed with "This action did
+/// not complete").
+const int kAutofireNotReadyRetries = 12;
+
+/// The longest gap between two sends after "not usable yet", in
+/// [PendingBetAutoFire.readyPollInterval]s.
+const int _kNotReadyMaxGapPolls = 15;
 
 /// Below one cent of USDC.e there is nothing to convert.
 final BigInt _kUsdceDustMicros = BigInt.from(10000);
@@ -742,12 +756,13 @@ class PendingBetAutoFire {
   /// The final actual quote is checked again before signing and is the
   /// only point that marks the balance confirmed.
   Future<bool> _venueReady(PendingBetIntent intent,
-      {BigInt? requiredCostMicros}) async {
+      {BigInt? requiredCostMicros, bool refreshVenue = false}) async {
     final trading = ref.read(polymarketTradingProvider.notifier);
     PolyBuyReads? reads;
     try {
       reads = await trading.readBuyReadiness(
-          refreshVenue: intent.readiness == PredictionsReadiness.confirming ||
+          refreshVenue: refreshVenue ||
+              intent.readiness == PredictionsReadiness.confirming ||
               intent.readiness == PredictionsReadiness.approving);
     } catch (_) {}
     final current = ref.read(pendingPolymarketBetProvider);
@@ -847,15 +862,24 @@ class PendingBetAutoFire {
   }
 
   /// After [e], a refusal that says only that the money is not usable yet
-  /// ([autofireNotReadyYet]; at most [kAutofireNotReadyRetries] times):
-  /// waits, the bet still `placing`, until the book can take the order,
-  /// and says to send it again under the same [approval]. False leaves
-  /// [e] to the failure path (the bet was cleared, its round closed, the
-  /// wait ran out). An approval that ran out meanwhile throws
-  /// [_ApprovalLapsed]: the bet asks to be confirmed again.
+  /// ([autofireNotReadyYet]): waits, the bet still `placing`, until the
+  /// book can take the order, and says to send it again under the same
+  /// [approval]. Bounded by time, the funds wait counted from [since]
+  /// (the first such refusal of this order), with at most
+  /// [kAutofireNotReadyRetries] sends again, spaced out by [attempt] (1,
+  /// 2, 4 ... up to [_kNotReadyMaxGapPolls] polls): what makes the venue
+  /// refuse (a spend approval still being mined, the order book's
+  /// balance view not re-read yet) can take a minute to clear even when
+  /// the readiness read already looks ready. Every look asks the book to
+  /// re-read (`/balance-allowance/update`). False leaves [e] to the
+  /// failure path (the bet was cleared, its round closed, the wait ran
+  /// out). An approval that ran out meanwhile throws [_ApprovalLapsed]:
+  /// the bet asks to be confirmed again. Nothing was accepted on a
+  /// refusal like this, so a send again never places twice; each one is
+  /// priced from a fresh book under the same approval.
   Future<bool> _waitAfterNotReady(
       Object e, PendingBetIntent intent, AuthGrant? approval, int attempt,
-      {BigInt? requiredCostMicros}) async {
+      {required DateTime since, BigInt? requiredCostMicros}) async {
     if (!autofireNotReadyYet(e) || attempt >= kAutofireNotReadyRetries) {
       return false;
     }
@@ -864,7 +888,11 @@ class PendingBetAutoFire {
         approval.revoked ||
         approval.isExpiredAt(AuthGrants.clock()) ||
         intent.isStale();
-    final until = DateTime.now().add(fundsTimeout);
+    final until = since.add(fundsTimeout);
+    final gapPolls = min(1 << min(attempt, 16), _kNotReadyMaxGapPolls);
+    if (gapPolls > 1) {
+      await Future<void>.delayed(readyPollInterval * (gapPolls - 1));
+    }
     while (true) {
       await Future<void>.delayed(readyPollInterval);
       if (lapsed()) throw const _ApprovalLapsed();
@@ -880,7 +908,8 @@ class PendingBetAutoFire {
       }
       // Nothing signs behind the lock: the wait goes on.
       if (!ref.read(sessionUnlockedProvider)) continue;
-      if (await _venueReady(now, requiredCostMicros: requiredCostMicros)) {
+      if (await _venueReady(now,
+          requiredCostMicros: requiredCostMicros, refreshVenue: true)) {
         final current = ref.read(pendingPolymarketBetProvider);
         if (current == null ||
             current.tokenId != intent.tokenId ||
@@ -1011,6 +1040,7 @@ class PendingBetAutoFire {
       // said only "not usable yet" ([_waitAfterNotReady]).
       AuthGrant? limitApproval;
       var notReady = 0;
+      DateTime? notReadySince;
       try {
         final price = intent.limitPrice.clamp(0.01, 0.99).toDouble();
         var placedShares = 0.0;
@@ -1104,7 +1134,8 @@ class PendingBetAutoFire {
             break;
           } catch (e) {
             if (await _waitAfterNotReady(
-                e, intent, limitApproval, notReady++)) {
+                e, intent, limitApproval, notReady++,
+                since: notReadySince ??= DateTime.now())) {
               continue;
             }
             rethrow;
@@ -1225,6 +1256,7 @@ class PendingBetAutoFire {
       var orderedShares = 0.0;
       var priceRetried = false;
       var notReady = 0;
+      DateTime? notReadySince;
       while (true) {
         retried = priceRetried;
         final book = await _freshBook(intent.tokenId);
@@ -1373,6 +1405,7 @@ class PendingBetAutoFire {
           // converting, not counted by the book): wait until it is and
           // send again from the same money, never funded again.
           if (await _waitAfterNotReady(e, intent, approval, notReady++,
+              since: notReadySince ??= DateTime.now(),
               requiredCostMicros:
                   BigInt.from((fill.quote.allInMax * 1e6).ceil()))) {
             continue;
@@ -1698,6 +1731,11 @@ class PendingBetAutoFire {
   /// thin-book stops by name, else the error's category.
   static String _failureCode(Object e) {
     if (e is PolymarketCollateralPending) return 'balance_confirmation_timeout';
+    // The readiness step that never cleared in the wait, by name (the
+    // copy stays the safe generic one): the spend approval or account
+    // setup, or the conversion to pUSD.
+    if (e is PolymarketSetupIncomplete) return 'approval_timeout';
+    if (e is PolymarketFundsConverting) return 'conversion_timeout';
     if (e is PolymarketThinBook) return 'liquidity_unavailable';
     if (e is PolymarketOrderNotAcceptedException &&
         isPolymarketPriceRefusal(e.reason)) {
