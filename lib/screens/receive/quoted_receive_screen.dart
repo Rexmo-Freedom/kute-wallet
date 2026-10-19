@@ -4,11 +4,13 @@
 // ([requestOneTimeReceiveAmount]: dollars for the Dollars receive, sats or
 // fiat for Bitcoin, with the route's minimum on the sheet's minimum line),
 // then the optional return address (onetime_refund_step.dart), and this
-// screen quotes it and shows the one-time deposit address: the
-// code, the exact amount to send, the network it must come from, the
-// expiry countdown and what arrives. The quote is kept as a pending quote
-// (watched after this screen closes) and becomes an Activity row only once
-// a deposit to it is detected. This screen never signs, submits or pays
+// sheet quotes it and shows the one-time deposit address: the code, the
+// exact amount to send, the network it must come from, the expiry
+// countdown and what arrives. Each step is a bottom sheet over the coin
+// sheet, opened as the one before it closes, so closing any of them comes
+// back to the coin sheet as it was. The quote is kept as a pending quote
+// (watched after this sheet closes) and becomes an Activity row only once
+// a deposit to it is detected. This sheet never signs, submits or pays
 // anything.
 
 import 'dart:async';
@@ -35,13 +37,16 @@ import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
 import 'package:kute/screens/receive/components/request_amount_sheet.dart';
 import 'package:kute/screens/receive/onetime_refund_step.dart';
 import 'package:kute/screens/receive/orchestra_deposit_poller.dart';
+import 'package:kute/screens/shared/account_switcher_pill.dart';
+import 'package:kute/screens/shared/app_bottom_sheet.dart';
+import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/screens/shared/qr_code.dart';
 import 'package:kute/screens/shared/receive_surface.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart'
     show sendShortAddress;
-import 'package:kute/screens/shared/stepper/stepper_widgets.dart';
-import 'package:kute/screens/usd/flow/usd_flow_widgets.dart';
+import 'package:kute/screens/usd/flow/usd_flow_widgets.dart'
+    show UsdFlowAction, UsdReviewLine, UsdReviewPlate, usdFormatCountdown;
 import 'package:kute/services/orchestra/onetime_receive.dart';
 import 'package:kute/services/orchestra/orchestra_capability_requirements.dart'
     show orchestraOptionCapabilities, ensureOneTimeDestinationAllowed;
@@ -57,7 +62,6 @@ import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/security/wallet_guard_exception.dart';
 import 'package:kute/services/success_feedback.dart' show moneyFailureFeedback;
 import 'package:kute/services/tracking_service.dart';
-import 'package:kute/theme/app_theme.dart';
 
 /// What the person asked to receive: the amount in USD cents, the
 /// minimum the sheet showed, and the unit it was typed in.
@@ -192,8 +196,10 @@ void _trackAmountEntered(OrchestraReceiveOption option, String destinationAsset,
 }
 
 /// The whole one-time receive after a coin is picked: the amount sheet,
-/// the return-address step, then [QuotedReceiveScreen] with the address.
-/// Nothing more opens when the sheet is dismissed or the step left.
+/// the return-address sheet, then [QuotedReceiveSheet] with the address,
+/// each over [context]'s sheet (the coin sheet) once the one before it
+/// has closed. Nothing more opens when a sheet is dismissed, and closing
+/// the address sheet comes back to the coin sheet as it was.
 ///
 /// [fallbackReason] is why the reusable (standing) address could not serve
 /// this coin (`StandingFallbackReason.analytics`), carried on the steps
@@ -212,21 +218,25 @@ Future<void> openOneTimeReceive(
   final refund = await askOneTimeRefundAddress(context,
       option: option, destinationAsset: destinationAsset);
   if (refund == null || !context.mounted) return;
-  await Navigator.of(context).push<void>(MaterialPageRoute(
-    builder: (_) => QuotedReceiveScreen(
+  await showAppBottomSheet<void>(
+    context: context,
+    builder: (_) => QuotedReceiveSheet(
       option: option,
       destinationAsset: destinationAsset,
       amount: amount,
       refundAddress: refund.address,
       fallbackReason: fallbackReason,
     ),
-  ));
+  );
 }
 
 /// The one-time deposit address for [amount] of [option] into the wallet's
-/// own Bitcoin (`BTC`) or Dollars (`USDB`).
-class QuotedReceiveScreen extends ConsumerStatefulWidget {
-  const QuotedReceiveScreen({
+/// own Bitcoin (`BTC`) or Dollars (`USDB`), in the receive sheet's frame:
+/// the close X and the balance it lands in, then the code. Closing it
+/// leaves the quote watched in the background (the pending-quote cache and
+/// background sync), as a late deposit still lands.
+class QuotedReceiveSheet extends ConsumerStatefulWidget {
+  const QuotedReceiveSheet({
     super.key,
     required this.option,
     required this.destinationAsset,
@@ -248,11 +258,10 @@ class QuotedReceiveScreen extends ConsumerStatefulWidget {
   final String? fallbackReason;
 
   @override
-  ConsumerState<QuotedReceiveScreen> createState() =>
-      _QuotedReceiveScreenState();
+  ConsumerState<QuotedReceiveSheet> createState() => _QuotedReceiveSheetState();
 }
 
-class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
+class _QuotedReceiveSheetState extends ConsumerState<QuotedReceiveSheet> {
   late final OrchestraDepositPoller _poller = OrchestraDepositPoller(ref);
   late final String? _walletId;
   late final PendingReceiveQuoteScope? _receiveScope;
@@ -430,38 +439,49 @@ class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
       _paymentExpired = true;
     }
     final blocked = !_supported || !_sameWallet;
-    // The coin, the amount and the return address came first; this is the
-    // fourth.
-    return UsdFlowScaffold(
-      title: _dollars ? l10n.usdReceiveTitle : l10n.receiveBitcoin,
-      totalSteps: 4,
-      currentStep: 3,
-      completedSteps: const {0, 1, 2},
-      onBack: () => unawaited(Navigator.of(context).maybePop()),
-      action: blocked ? null : _buildAction(),
-      child: blocked
-          ? Padding(
-              padding: EdgeInsets.only(top: 24.h),
-              child: UsdFlowNote(lines: [
-                _walletChanged
-                    ? l10n.quotedReceiveWalletChanged
-                    : !_supported
-                        ? l10n.receiveCoinNetworkUnavailable
-                        : l10n.receiveOtherCoinsSpendingOnly,
-              ]),
-            )
-          : StepPageWrapper(
-              title: l10n.usdReceiveShareStep,
-              // The network warning: only this coin, only this network.
-              subtitle: _canPay
-                  ? l10n.usdReceiveShareSubtitle(
-                      widget.option.displaySymbol,
-                      widget.option.chainDisplayName,
+    final action = blocked ? null : _buildAction();
+    // The receive sheet's frame, as the Bitcoin receive and the reusable
+    // address wear it: the close X, the balance the money lands in. No
+    // step bar and no page title.
+    return ReceiveSheetFrame(
+      leading: KuteCloseButton(
+          onPressed: () => unawaited(Navigator.of(context).maybePop())),
+      title: AccountSwitcherPill(
+        pickerTitle: l10n.receiveInto,
+        readOnly: true,
+        label: _dollars ? l10n.assetDollars : l10n.bitcoin,
+      ),
+      semanticTitle: _dollars ? l10n.usdReceiveTitle : l10n.receiveBitcoin,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: blocked
+                  ? SingleChildScrollView(
+                      child: Padding(
+                        padding: EdgeInsets.only(top: 12.h),
+                        child: ReceiveCaption(
+                          text: _walletChanged
+                              ? l10n.quotedReceiveWalletChanged
+                              : !_supported
+                                  ? l10n.receiveCoinNetworkUnavailable
+                                  : l10n.receiveOtherCoinsSpendingOnly,
+                        ),
+                      ),
                     )
-                  : '',
-              colors: context.colors,
-              child: _verified == null ? _buildPending() : _buildAddress(),
+                  : _verified == null
+                      ? _buildPending()
+                      : _buildAddress(),
             ),
+            if (action != null) ...[
+              SizedBox(height: 12.h),
+              action,
+            ],
+          ],
+        ),
+      ),
     );
   }
 
@@ -492,7 +512,10 @@ class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (error != null && !_busy)
-            UsdFlowNote(lines: [error])
+            Padding(
+              padding: EdgeInsets.only(top: 12.h),
+              child: ReceiveCaption(text: error),
+            )
           else ...[
             const ReceiveQrPlate(child: ReceiveQrShimmer()),
             SizedBox(height: ReceiveGaps.qrToCaption),
@@ -518,20 +541,25 @@ class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (payable) ...[
-            // The countdown first: the one thing that runs out.
-            UsdFlowNote(
-              key: const ValueKey('onetime-receive-expiry'),
-              lines: [l10n.receiveOneOffLateDepositRepriced],
-              emphasisFirst: true,
-              emphasis:
-                  l10n.receiveOneOffExpiresIn(usdFormatCountdown(_remaining)),
-            ),
-            SizedBox(height: ReceiveGaps.block),
             ReceiveQrPlate(child: buildQrCode(display.depositAddress, context)),
+            // Captions right under the code, where the Bitcoin receive
+            // puts its own: the countdown first (the one thing that runs
+            // out), the exact amount, then what a late deposit means.
             SizedBox(height: ReceiveGaps.qrToCaption),
+            ReceiveCaption(
+              key: const ValueKey('onetime-receive-expiry'),
+              text: l10n.receiveOneOffExpiresIn(usdFormatCountdown(_remaining)),
+              emphasised: true,
+            ),
+            SizedBox(height: 4.h),
             ReceiveCaption(
               key: const ValueKey('onetime-receive-exact-amount'),
               text: l10n.quotedReceiveExactAmount(_sourceAmount),
+            ),
+            SizedBox(height: 4.h),
+            ReceiveCaption(
+              key: const ValueKey('onetime-receive-late-deposit'),
+              text: l10n.receiveOneOffLateDepositRepriced,
             ),
             SizedBox(height: ReceiveGaps.qrToAddress),
             ReceiveAddressLine(
@@ -539,12 +567,15 @@ class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
               onCopy: () => unawaited(_copyAddress()),
             ),
             SizedBox(height: ReceiveGaps.addressToActions),
-          ] else
-            UsdFlowNote(lines: [
-              arrived
+          ] else ...[
+            ReceiveCaption(
+              key: const ValueKey('onetime-receive-state'),
+              text: arrived
                   ? _statusLabel(display.status)
                   : l10n.quotedReceiveExpired,
-            ]),
+            ),
+            SizedBox(height: ReceiveGaps.addressToActions),
+          ],
           ReceiveActionPills(
             onShare: payable ? () => unawaited(_shareAddress()) : null,
           ),
@@ -581,7 +612,7 @@ class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
 
   /// Persists the quote before its address is shown, as a pending quote
   /// only: the deposit poller and background sync watch it after this
-  /// screen closes (late deposits included) and write the Activity row
+  /// sheet closes (late deposits included) and write the Activity row
   /// once Orchestra reports a deposit. Nothing reaches Activity before
   /// money was sent.
   Future<void> _record(
