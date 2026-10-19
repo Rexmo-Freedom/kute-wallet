@@ -774,7 +774,10 @@ class HypercoreCctpWithdrawal {
   /// standing address). Throws [CctpUnavailable] (no usable quote
   /// included, as [CctpUnavailableReason.quoteUnavailable] or
   /// [CctpUnavailableReason.quoteExpired]) or the step-up's
-  /// [SettlementStopped] before anything is posted.
+  /// [SettlementStopped] before anything is posted. A stop the send
+  /// proves never reached the exchange (a cash shortfall, a locked seed,
+  /// a rejected internal move) surfaces as [SettlementFundingRefused]
+  /// around its cause, after the record was ended.
   Future<CctpWithdrawalResult> withdrawTo({
     required InvestingWithdrawalDestination destination,
     required double usd,
@@ -999,7 +1002,11 @@ class HypercoreCctpWithdrawal {
       if (lease != null) store.releaseLease(op.operationId, lease);
       final cause = e.cause;
       if (cause is CctpUnavailable) _unavailable(cause.reason, usd);
-      throw cause;
+      // The proof travels with the stop: the Move sheet and the rails read
+      // [SettlementFundingRefused] as "nothing sent" (a fresh Retry, never
+      // the unknown-outcome lock), while its bare cause after the approval
+      // would read as an outcome nobody can account for.
+      rethrow;
     } on CctpSendRejected catch (e) {
       // Signed and answered with a rejection: not executed. The record
       // keeps its slow ledger check in case the answer was wrong.

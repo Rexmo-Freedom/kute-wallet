@@ -282,6 +282,10 @@ class HyperCoreMoveRail implements HyperliquidMoveRail {
         reason: switch (e) {
           RouteUnavailable(:final reason) => reason ?? 'route_unavailable',
           RouteQuoteError(:final code) => code.code,
+          // A send the CCTP fallback proved never posted: its cause's
+          // category, never the wrapper's name.
+          SettlementFundingRefused(:final cause) =>
+            TrackingService.errorCategory(cause),
           _ => TrackingService.errorCategory(e),
         },
         route: route,
@@ -438,6 +442,8 @@ class HyperCoreMoveRail implements HyperliquidMoveRail {
           OrchestraQuoteFailure(:final routeError) =>
             routeError?.code.code ?? TrackingService.errorCategory(e),
           RouteQuoteError(:final code) => code.code,
+          SettlementFundingRefused(:final cause) =>
+            TrackingService.errorCategory(cause),
           _ => TrackingService.errorCategory(e),
         },
         route: route,

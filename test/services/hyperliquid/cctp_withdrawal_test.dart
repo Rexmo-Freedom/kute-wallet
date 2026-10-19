@@ -43,6 +43,10 @@ import 'package:kute/services/funding/spark_hypercore_funding_service.dart'
         kHypercoreToSparkUsdRoute,
         sparkHypercoreFundingServiceProvider;
 import 'package:kute/services/hyperliquid/cctp_withdrawal.dart';
+import 'package:kute/services/hyperliquid/hypercore_activation_fee.dart'
+    show HypercoreBalanceShortfall;
+import 'package:kute/services/one_balance/money_movement_route.dart'
+    show moneyMovementFailureReason, moneyMovementProvesNothingSent;
 import 'package:kute/services/orchestra/orchestra_capability_requirements.dart';
 import 'package:kute/services/orchestra/orchestra_quote_gate.dart'
     show OrchestraQuoteFailure;
@@ -154,6 +158,9 @@ enum _SendMode { ok, refused, rejected, lostAfterPost, refusedAfterNonce }
 class _Sender implements CctpSender {
   BigInt sendable = BigInt.from(2500000000); // $25
   _SendMode mode = _SendMode.ok;
+
+  /// What stopped a refused send before anything was posted.
+  Object refusal = StateError('locked');
   final sends = <({String destination, BigInt amount8, String token})>[];
   int nonce = 1791851727813;
   int signed = 0;
@@ -175,7 +182,7 @@ class _Sender implements CctpSender {
     required Future<void> Function(int nonce) onBeforePost,
   }) async {
     if (mode == _SendMode.refused) {
-      throw SettlementFundingRefused(StateError('locked'));
+      throw SettlementFundingRefused(refusal);
     }
     signed++;
     afterSigning?.call();
@@ -1273,16 +1280,49 @@ void main() {
 
   test('a refusal before the POST ends the record and its row', () async {
     sender.mode = _SendMode.refused;
-    await expectLater(service().withdrawToDollars(usd: 5, stepUp: approve()),
-        throwsA(isA<StateError>()));
+    await expectLater(
+        service().withdrawToDollars(usd: 5, stepUp: approve()),
+        throwsA(isA<SettlementFundingRefused>()
+            .having((e) => e.cause, 'cause', isA<StateError>())));
     expect((await only()).stage, SettlementStage.abandoned);
     expect(rows.byId, isEmpty);
   });
 
+  test(
+      'a cash shortfall found after the approval keeps its proof: not sent, '
+      'never an unknown outcome', () async {
+    // Perpetuals came up short between the read and the burn: refused
+    // before the POST, after the approval already fired.
+    sender.mode = _SendMode.refused;
+    sender.refusal = HypercoreBalanceShortfall();
+    Object? thrown;
+    try {
+      await service().withdrawToDollars(usd: 5, stepUp: approve());
+    } catch (e) {
+      thrown = e;
+    }
+    expect(intents, hasLength(1), reason: 'approved before the stop');
+    expect(thrown, isA<SettlementFundingRefused>());
+    final refused = thrown! as SettlementFundingRefused;
+    expect(refused.cause, isA<HypercoreBalanceShortfall>());
+    // What the Move sheet and the rails read from it, once funding
+    // started: proof that nothing left, the shortfall as its category.
+    expect(moneyMovementProvesNothingSent(refused, fundingStarted: true),
+        isTrue);
+    expect(
+        moneyMovementFailureReason(refused, fundingStarted: true), 'not_sent');
+    expect(TrackingService.errorCategory(refused.cause), 'insufficient_funds');
+    expect((await only()).stage, SettlementStage.abandoned);
+    expect(rows.byId, isEmpty);
+    expect(sender.signed, 0);
+  });
+
   test('a stop between the nonce write and the POST is not funded', () async {
     sender.mode = _SendMode.refusedAfterNonce;
-    await expectLater(service().withdrawToDollars(usd: 5, stepUp: approve()),
-        throwsA(isA<StateError>()));
+    await expectLater(
+        service().withdrawToDollars(usd: 5, stepUp: approve()),
+        throwsA(isA<SettlementFundingRefused>()
+            .having((e) => e.cause, 'cause', isA<StateError>())));
     final op = await only();
     expect(op.stage, SettlementStage.notFunded);
     expect(rows.byId.values.single.status, 'expired');

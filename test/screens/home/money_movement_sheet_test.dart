@@ -52,11 +52,15 @@ import 'package:kute/screens/shared/amount_keypad_panel.dart'
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/money_movement_sheet.dart';
 import 'package:kute/services/funding/hot_settlement.dart';
+import 'package:kute/services/funding/settlement_funding_outcome.dart'
+    show SettlementFundingRefused;
 import 'package:kute/services/funding/settlement_runner.dart';
 import 'package:kute/services/funding/settlement_store.dart';
 import 'package:kute/services/funding/spark_hypercore_funding_service.dart';
 import 'package:kute/services/http/shared_http_client.dart';
 import 'package:kute/services/hyperliquid/cctp_withdrawal.dart';
+import 'package:kute/services/hyperliquid/hypercore_activation_fee.dart'
+    show HypercoreBalanceShortfall;
 import 'package:kute/services/one_balance/bitcoin_to_dollars_leg.dart'
     show BitcoinLegSent;
 import 'package:kute/services/one_balance/dollars_to_bitcoin_minimum.dart';
@@ -322,6 +326,9 @@ class _Cctp implements HypercoreCctpWithdrawal {
   final moves = <({InvestingWithdrawalDestination destination, double usd})>[];
   CctpWithdrawalResult? result;
 
+  /// Thrown after the approval, as the service's send stops do.
+  Object? error;
+
   @override
   Future<CctpWithdrawalResult> withdrawTo({
     required InvestingWithdrawalDestination destination,
@@ -334,6 +341,8 @@ class _Cctp implements HypercoreCctpWithdrawal {
         _intent(cctpFlowFor(destination), cctpRouteFor(destination).label))) {
       throw const SettlementStopped(SettlementStopReason.declined);
     }
+    final failure = error;
+    if (failure != null) throw failure;
     final scripted = result;
     if (scripted != null) return scripted;
     return Completer<CctpWithdrawalResult>().future;
@@ -919,6 +928,45 @@ void main() {
     expect(_hypercore.toPredictions.single, 5);
     expect(_cctp.moves.single.destination,
         InvestingWithdrawalDestination.predictions);
+    await _close(tester, c);
+  });
+
+  testWidgets(
+      'Investing → Predictions by CCTP: a cash shortfall found after the '
+      'approval is a proven stop with Retry, never the unknown-outcome lock',
+      (tester) async {
+    final c = await _open(tester, const MoneyMovementRoute(_i, _p));
+    await _type(tester, '5');
+    _hypercore.refusal = const SettlementStopped(
+        SettlementStopReason.routeUnavailable,
+        routeReason: RouteUnavailableReason.pairMissing);
+    // Perpetuals came up a cent short between the read and the burn: the
+    // send refused before the POST, with the approval already given.
+    _cctp.error = SettlementFundingRefused(HypercoreBalanceShortfall());
+    await _confirm(tester);
+    await _frames(tester, 20);
+    expect(_cctp.moves.single.destination,
+        InvestingWithdrawalDestination.predictions);
+    expect(_approvals.intents, hasLength(1));
+    expect(find.text('Insufficient balance'), findsWidgets);
+    expect(find.text(_unknownCopy), findsNothing);
+    expect(_button(tester).text, 'Retry');
+    expect(_button(tester).onPressed, isNotNull);
+    final failed = _last('move_failed');
+    expect(failed['reason'], 'not_sent');
+    expect(failed['locked'], false);
+    expect(failed['error_category'], 'insufficient_funds');
+    final withdrawFailed = _last('hyperliquid_withdraw_failed');
+    expect(withdrawFailed['reason'], 'insufficient_funds');
+    expect(withdrawFailed['route'], 'cctp');
+    // Edits are open again: the amount can change for the Retry.
+    await tester.tap(find.text('1').last);
+    await _frames(tester, 4);
+    expect(
+        tester
+            .widget<BigAmountDisplay>(find.byType(BigAmountDisplay))
+            .amountText,
+        '51');
     await _close(tester, c);
   });
 
