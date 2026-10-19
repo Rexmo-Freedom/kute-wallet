@@ -25,6 +25,9 @@ import 'package:kute/services/http/shared_http_client.dart';
 import 'package:kute/services/orchestra/onetime_receive.dart'
     show kOneTimeReceiveLateDepositWatch;
 import 'package:kute/services/orchestra/pending_receive_quote_cache.dart';
+import 'package:kute/services/runtime_capabilities_service.dart';
+
+import '../helpers/runtime_policy_fixture.dart';
 
 const _spark =
     'sp1pgssy7d7vel0nh9m4326qc54e6rskpczn07dktww9rv4nu5ptvt0s9ucez8h3s';
@@ -50,9 +53,12 @@ SwapOrder _quote(String id) => SwapOrder(
       purchaseSource: 'crypto_receive',
     );
 
+/// The sweep's pinned clock: every age in these tests is relative to it.
+final _now = DateTime(2026, 10, 19, 12);
+
 void main() {
   late Directory tmp;
-  late List<String> statusReads;
+  late Set<String> statusReads;
   late bool statusFails;
 
   setUpAll(() {
@@ -66,7 +72,10 @@ void main() {
     Hive.init(tmp.path);
     dotenv.loadFromString(envString: 'BACKEND=https://backend.test');
     AffiliateService.debugSessionToken = 'test-session';
-    statusReads = [];
+    // A policy of its own, so nothing lazily starts a live read.
+    RuntimeCapabilitiesService.debugInstance = runtimePolicyFixture();
+    BackgroundSyncNotifier.receiveQuoteClock = () => _now;
+    statusReads = {};
     statusFails = false;
     SharedHttpClient.debugOverride = MockClient((request) async {
       final path = request.url.path;
@@ -88,6 +97,9 @@ void main() {
   tearDown(() async {
     SharedHttpClient.debugOverride = null;
     AffiliateService.debugSessionToken = null;
+    BackgroundSyncNotifier.receiveQuoteClock = DateTime.now;
+    RuntimeCapabilitiesService.debugInstance?.dispose();
+    RuntimeCapabilitiesService.debugInstance = null;
     await PendingReceiveQuoteCache.clear();
     await Hive.close();
     await tmp.delete(recursive: true);
@@ -139,30 +151,28 @@ void main() {
         (interval: Duration.zero, last: true));
   });
 
+  /// The receive-quote sweep alone, run to its end.
+  Future<void> sweep() => container()
+      .read(backgroundSyncNotifierProvider.notifier)
+      .debugSweepReceiveQuotes();
+
   test(
       'a quote 25 h past expiry is read once more and retired; one 1 h '
       'past stays watched', () async {
-    final now = DateTime.now();
-    await save('q_old', now.subtract(const Duration(hours: 25)));
-    await save('q_recent', now.subtract(const Duration(hours: 1)));
-    final c = container();
-    await c
-        .read(backgroundSyncNotifierProvider.notifier)
-        .pollReceiveAddresses(force: true);
+    await save('q_old', _now.subtract(const Duration(hours: 25)));
+    await save('q_recent', _now.subtract(const Duration(hours: 1)));
+    await sweep();
 
-    expect(statusReads, containsAll(['q_old', 'q_recent']),
+    expect(statusReads, {'q_old', 'q_recent'},
         reason: 'the last look before retiring, and the recent watch');
     expect(await pendingIds(), {'q_recent'});
   });
 
   test('a failed last look (status and history) keeps the quote', () async {
     statusFails = true;
-    await save('q_old', DateTime.now().subtract(const Duration(hours: 25)));
-    final c = container();
-    await c
-        .read(backgroundSyncNotifierProvider.notifier)
-        .pollReceiveAddresses(force: true);
-    expect(statusReads, ['q_old']);
+    await save('q_old', _now.subtract(const Duration(hours: 25)));
+    await sweep();
+    expect(statusReads, {'q_old'});
     expect(await pendingIds(), {'q_old'});
   });
 }
