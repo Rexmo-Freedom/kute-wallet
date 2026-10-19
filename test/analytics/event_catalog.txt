@@ -336,6 +336,7 @@ orchestra_quote_rejected
 orchestra_quote_result
 orchestra_refund_requested
 orchestra_submit_result
+order_confirmation_view_orders_tapped
 order_funding_abandoned
 order_funding_completed
 order_funding_failed

@@ -6133,6 +6133,9 @@ class AppLocalizationsSv extends AppLocalizations {
       'Avgiftsinställningarna för Investera kunde inte verifieras. Försök igen.';
 
   @override
+  String get investingViewOrders => 'Visa ordrar';
+
+  @override
   String get investingViewPositions => 'Visa positioner';
 
   @override

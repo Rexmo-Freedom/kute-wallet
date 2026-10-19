@@ -1774,6 +1774,7 @@
   "investingThinMarket": "Ez a piac most gyenge likviditású. A mutatottnál rosszabb árat kaphatsz.",
   "investingFeeApprovalFailed": "A díj jóváhagyása nem fejeződött be. Próbáld újra.",
   "investingFeeSettingsUnavailable": "A Befektetés díjbeállításait nem sikerült ellenőrizni. Próbáld újra.",
+  "investingViewOrders": "Megbízások megtekintése",
   "investingViewPositions": "Pozíciók megtekintése",
   "investingBought": "Megvéve",
   "investingSold": "Eladva",

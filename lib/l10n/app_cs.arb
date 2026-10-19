@@ -1774,6 +1774,7 @@
   "investingThinMarket": "Tento trh je teď málo likvidní. Můžeš dostat horší cenu, než je zobrazená.",
   "investingFeeApprovalFailed": "Schválení poplatku nebylo dokončeno. Zkus to znovu.",
   "investingFeeSettingsUnavailable": "Nastavení poplatků Investování se nepodařilo ověřit. Zkus to znovu.",
+  "investingViewOrders": "Zobrazit pokyny",
   "investingViewPositions": "Zobrazit pozice",
   "investingBought": "Koupeno",
   "investingSold": "Prodáno",

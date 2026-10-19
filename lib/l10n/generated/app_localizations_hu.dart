@@ -6154,6 +6154,9 @@ class AppLocalizationsHu extends AppLocalizations {
       'A Befektetés díjbeállításait nem sikerült ellenőrizni. Próbáld újra.';
 
   @override
+  String get investingViewOrders => 'Megbízások megtekintése';
+
+  @override
   String get investingViewPositions => 'Pozíciók megtekintése';
 
   @override

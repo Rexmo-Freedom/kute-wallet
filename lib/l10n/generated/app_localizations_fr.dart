@@ -6184,6 +6184,9 @@ class AppLocalizationsFr extends AppLocalizations {
       'Les réglages de frais Investir n\'ont pas pu être vérifiés. Réessayez.';
 
   @override
+  String get investingViewOrders => 'Voir les ordres';
+
+  @override
   String get investingViewPositions => 'Voir les positions';
 
   @override

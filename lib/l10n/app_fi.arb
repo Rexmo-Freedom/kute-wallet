@@ -1774,6 +1774,7 @@
   "investingThinMarket": "Tällä markkinalla on nyt vähän likviditeettiä. Voit saada näytettyä huonomman hinnan.",
   "investingFeeApprovalFailed": "Maksun hyväksyntä jäi kesken. Yritä uudelleen.",
   "investingFeeSettingsUnavailable": "Sijoita-maksuasetuksia ei voitu vahvistaa. Yritä uudelleen.",
+  "investingViewOrders": "Näytä toimeksiannot",
   "investingViewPositions": "Näytä positiot",
   "investingBought": "Ostettu",
   "investingSold": "Myyty",

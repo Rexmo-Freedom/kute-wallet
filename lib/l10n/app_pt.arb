@@ -1996,6 +1996,7 @@
   "investingThinMarket": "Este mercado tem pouca liquidez neste momento. Pode obter um preço pior do que o apresentado.",
   "investingFeeApprovalFailed": "A aprovação da taxa não foi concluída. Tente novamente.",
   "investingFeeSettingsUnavailable": "Não foi possível verificar as taxas dos Investimentos. Tente novamente.",
+  "investingViewOrders": "Ver ordens",
   "investingViewPositions": "Ver posições",
   "investingBought": "Comprado",
   "investingSold": "Vendido",

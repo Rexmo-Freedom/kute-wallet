@@ -1774,6 +1774,7 @@
   "investingThinMarket": "Questo mercato ha poca liquidità ora. Potresti ottenere un prezzo peggiore di quello mostrato.",
   "investingFeeApprovalFailed": "L'approvazione della commissione non è stata completata. Riprova.",
   "investingFeeSettingsUnavailable": "Non è stato possibile verificare le commissioni di Investire. Riprova.",
+  "investingViewOrders": "Vedi ordini",
   "investingViewPositions": "Vedi posizioni",
   "investingBought": "Acquistato",
   "investingSold": "Venduto",

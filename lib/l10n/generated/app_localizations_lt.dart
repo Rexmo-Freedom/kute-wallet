@@ -6171,6 +6171,9 @@ class AppLocalizationsLt extends AppLocalizations {
       'Nepavyko patikrinti Investavimo mokesčių nustatymų. Bandykite dar kartą.';
 
   @override
+  String get investingViewOrders => 'Žiūrėti pavedimus';
+
+  @override
   String get investingViewPositions => 'Žiūrėti pozicijas';
 
   @override

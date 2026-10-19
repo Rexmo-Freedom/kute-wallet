@@ -205,6 +205,19 @@ void openInvestmentsPortfolio(BuildContext context, PortfolioSection section) {
 void openInvestmentsPositions(BuildContext context) =>
     openInvestmentsPortfolio(context, PortfolioSection.positions);
 
+/// A resting order's confirmation "View orders" (founder request, October
+/// 2026: Investing's "Order placed", a Predictions limit sell, a partly
+/// filled limit buy): the Portfolio on P&L charts, where the resting
+/// orders are listed. [product] (`investing` | `predictions`) and
+/// [orderKind] (`open` | `close` | `limit_sell` | `limit_buy_partial`)
+/// say which confirmation it was, categorical only.
+void openInvestmentsOrders(BuildContext context,
+    {required String product, required String orderKind}) {
+  TrackingService.track('order_confirmation_view_orders_tapped',
+      params: {'product': product, 'order_kind': orderKind});
+  openInvestmentsPortfolio(context, PortfolioSection.charts);
+}
+
 /// The pill on screen. Shared so a deep link, a placed bet or Sal can
 /// open a pill from outside the screen; the screen writes it on a tap.
 final investmentsTabProvider =

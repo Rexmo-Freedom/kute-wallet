@@ -61,6 +61,8 @@ import 'package:kute/screens/ledger/polymarket/ledger_pm_bet_target.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/trade_receipt.dart';
+import 'package:kute/screens/usd/usd_account_screen.dart'
+    show openInvestmentsOrders;
 import 'package:kute/services/polymarket/sell_settlement.dart'
     show pmLiveOrderDelaySeconds;
 import 'package:kute/screens/shared/custom_button.dart';
@@ -4523,6 +4525,15 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                   message: l10n.betBuyPartialLimit(
                       partial.bought, partial.total, partial.price),
                   onDone: nav.pop,
+                  // The rest waits at the person's price: "View orders"
+                  // opens the Portfolio's P&L charts, where it is listed.
+                  secondaryButtonText: l10n.investingViewOrders,
+                  onSecondary: () {
+                    nav.pop();
+                    openInvestmentsOrders(nav.context,
+                        product: 'predictions',
+                        orderKind: 'limit_buy_partial');
+                  },
                   receipt: TradeReceipt(
                     leading: PolyReceiptArtwork(url: limitIntent.marketImage),
                     title: limitIntent.marketQuestion,

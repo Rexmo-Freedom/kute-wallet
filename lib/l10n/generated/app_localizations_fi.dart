@@ -6139,6 +6139,9 @@ class AppLocalizationsFi extends AppLocalizations {
       'Sijoita-maksuasetuksia ei voitu vahvistaa. Yritä uudelleen.';
 
   @override
+  String get investingViewOrders => 'Näytä toimeksiannot';
+
+  @override
   String get investingViewPositions => 'Näytä positiot';
 
   @override

@@ -6160,6 +6160,9 @@ class AppLocalizationsNl extends AppLocalizations {
       'Kosteninstellingen voor Beleggen konden niet worden geverifieerd. Probeer het opnieuw.';
 
   @override
+  String get investingViewOrders => 'Orders bekijken';
+
+  @override
   String get investingViewPositions => 'Posities bekijken';
 
   @override

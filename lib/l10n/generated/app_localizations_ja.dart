@@ -5909,6 +5909,9 @@ class AppLocalizationsJa extends AppLocalizations {
       '投資の手数料設定を確認できませんでした。もう一度お試しください。';
 
   @override
+  String get investingViewOrders => '注文を表示';
+
+  @override
   String get investingViewPositions => 'ポジションを表示';
 
   @override

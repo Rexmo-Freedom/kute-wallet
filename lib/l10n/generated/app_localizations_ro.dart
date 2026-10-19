@@ -6174,6 +6174,9 @@ class AppLocalizationsRo extends AppLocalizations {
       'Setările de comision pentru Investiții nu au putut fi verificate. Încearcă din nou.';
 
   @override
+  String get investingViewOrders => 'Vezi ordinele';
+
+  @override
   String get investingViewPositions => 'Vezi pozițiile';
 
   @override

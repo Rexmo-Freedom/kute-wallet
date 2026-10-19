@@ -6121,6 +6121,9 @@ class AppLocalizationsLv extends AppLocalizations {
       'Investēšanas maksu iestatījumus neizdevās pārbaudīt. Mēģini vēlreiz.';
 
   @override
+  String get investingViewOrders => 'Skatīt rīkojumus';
+
+  @override
   String get investingViewPositions => 'Skatīt pozīcijas';
 
   @override

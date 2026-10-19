@@ -1774,6 +1774,7 @@
   "investingThinMarket": "Ta trg je trenutno plitek. Morda boste dobili slabšo ceno od prikazane.",
   "investingFeeApprovalFailed": "Odobritev provizije ni bila dokončana. Poskusite znova.",
   "investingFeeSettingsUnavailable": "Nastavitev provizij za Investiranje ni bilo mogoče preveriti. Poskusite znova.",
+  "investingViewOrders": "Prikaži naročila",
   "investingViewPositions": "Prikaži pozicije",
   "investingBought": "Kupljeno",
   "investingSold": "Prodano",

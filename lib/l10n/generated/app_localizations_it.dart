@@ -6157,6 +6157,9 @@ class AppLocalizationsIt extends AppLocalizations {
       'Non è stato possibile verificare le commissioni di Investire. Riprova.';
 
   @override
+  String get investingViewOrders => 'Vedi ordini';
+
+  @override
   String get investingViewPositions => 'Vedi posizioni';
 
   @override

@@ -1774,6 +1774,7 @@
   "investingThinMarket": "Šim tirgum šobrīd ir zema likviditāte. Tu vari saņemt sliktāku cenu, nekā redzams.",
   "investingFeeApprovalFailed": "Maksas apstiprināšana netika pabeigta. Mēģini vēlreiz.",
   "investingFeeSettingsUnavailable": "Investēšanas maksu iestatījumus neizdevās pārbaudīt. Mēģini vēlreiz.",
+  "investingViewOrders": "Skatīt rīkojumus",
   "investingViewPositions": "Skatīt pozīcijas",
   "investingBought": "Nopirkts",
   "investingSold": "Pārdots",

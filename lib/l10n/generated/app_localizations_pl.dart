@@ -6160,6 +6160,9 @@ class AppLocalizationsPl extends AppLocalizations {
       'Nie udało się zweryfikować ustawień opłat Inwestowania. Spróbuj ponownie.';
 
   @override
+  String get investingViewOrders => 'Zobacz zlecenia';
+
+  @override
   String get investingViewPositions => 'Zobacz pozycje';
 
   @override

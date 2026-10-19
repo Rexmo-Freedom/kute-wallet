@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kute/l10n/generated/app_localizations.dart';
+import 'package:kute/providers/active_shell_tab_provider.dart';
 import 'package:kute/screens/home/components/move_sent_overlay.dart';
 import 'package:kute/screens/hyperliquid/components/order_placed_overlay.dart';
 import 'package:kute/screens/polymarket/components/bet_placed_overlay.dart';
@@ -13,7 +15,12 @@ import 'package:kute/screens/polymarket/components/position_sold_overlay.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
+import 'package:kute/screens/portfolio/investments_portfolio.dart'
+    show PortfolioSection, portfolioSectionProvider;
 import 'package:kute/screens/shared/transaction_modal.dart';
+import 'package:kute/screens/usd/usd_account_screen.dart'
+    show InvestmentsTab, investmentsTabProvider, openInvestmentsOrders;
+import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
 void main() {
@@ -40,14 +47,21 @@ void main() {
         ),
       ],
     );
-    await tester.pumpWidget(ScreenUtilInit(
-      designSize: const Size(430, 932),
-      builder: (_, __) => MaterialApp.router(
-        routerConfig: router,
-        theme:
-            buildLightTheme().copyWith(splashFactory: NoSplash.splashFactory),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        // Investments is the tab on screen, so opening the Portfolio
+        // only writes its state.
+        activeShellTabProvider.overrideWith((_) => ActiveNavTab.usd),
+      ],
+      child: ScreenUtilInit(
+        designSize: const Size(430, 932),
+        builder: (_, __) => MaterialApp.router(
+          routerConfig: router,
+          theme: buildLightTheme()
+              .copyWith(splashFactory: NoSplash.splashFactory),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+        ),
       ),
     ));
     await tester.pumpAndSettle();
@@ -145,6 +159,80 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Order filled'), findsOneWidget);
     await tapDoneAndExpectHost(tester);
+  });
+
+  for (final isClose in [false, true]) {
+    testWidgets(
+        'an accepted ${isClose ? 'close ' : ''}order keeps Done and adds '
+        '"View orders", which opens the Portfolio on P&L charts and is '
+        'tracked', (tester) async {
+      final events = <(String, Map<String, Object>?)>[];
+      TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+      addTearDown(() => TrackingService.debugTrackObserver = null);
+      await pumpHost(tester);
+      pushKuteSuccessOverlay(
+        navigator: nav(),
+        overlay: HlOrderAcceptedOverlay(
+            coin: 'BTC', amount: '0.01 BTC', isClose: isClose, viewOrders: true),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(isClose ? 'Close order placed' : 'Order placed'),
+          findsOneWidget);
+      expect(find.widgetWithText(AppButton, 'Done'), findsOneWidget);
+      final view = find.widgetWithText(AppButton, 'View orders');
+      expect(view, findsOneWidget);
+      expect(tester.widget<AppButton>(view).variant,
+          AppButtonVariant.secondary);
+
+      await tester.tap(view);
+      await tester.pumpAndSettle();
+      expect(find.byType(KuteConfirmation), findsNothing);
+      final container =
+          ProviderScope.containerOf(tester.element(find.text('host')));
+      expect(container.read(investmentsTabProvider), InvestmentsTab.positions);
+      expect(container.read(portfolioSectionProvider), PortfolioSection.charts);
+      expect(
+          events
+              .where((e) => e.$1 == 'order_confirmation_view_orders_tapped')
+              .single
+              .$2,
+          {'product': 'investing', 'order_kind': isClose ? 'close' : 'open'});
+    });
+  }
+
+  testWidgets(
+      'an accepted order without viewOrders (a Ledger\'s) has Done only',
+      (tester) async {
+    await pumpHost(tester);
+    pushKuteSuccessOverlay(
+      navigator: nav(),
+      overlay: const HlOrderAcceptedOverlay(coin: 'BTC', amount: '0.01 BTC'),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('View orders'), findsNothing);
+    await tester.tap(find.widgetWithText(AppButton, 'Done'));
+    await tester.pumpAndSettle();
+    expect(find.byType(KuteConfirmation), findsNothing);
+    expect(find.text('host'), findsOneWidget);
+  });
+
+  testWidgets(
+      'openInvestmentsOrders (the Predictions limit confirmations\' View '
+      'orders) opens P&L charts and says which confirmation it was',
+      (tester) async {
+    final events = <(String, Map<String, Object>?)>[];
+    TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+    addTearDown(() => TrackingService.debugTrackObserver = null);
+    await pumpHost(tester);
+    final context = tester.element(find.text('host'));
+    openInvestmentsOrders(context,
+        product: 'predictions', orderKind: 'limit_sell');
+    final container = ProviderScope.containerOf(context);
+    expect(container.read(investmentsTabProvider), InvestmentsTab.positions);
+    expect(container.read(portfolioSectionProvider), PortfolioSection.charts);
+    expect(events.single.$1, 'order_confirmation_view_orders_tapped');
+    expect(events.single.$2,
+        {'product': 'predictions', 'order_kind': 'limit_sell'});
   });
 
   testWidgets('pushMoveSentOverlay shows the destination and the pending note',

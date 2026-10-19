@@ -1774,6 +1774,7 @@
   "investingThinMarket": "Αυτή η αγορά έχει χαμηλή ρευστότητα αυτή τη στιγμή. Μπορεί να πάρεις χειρότερη τιμή από αυτή που εμφανίζεται.",
   "investingFeeApprovalFailed": "Η έγκριση χρέωσης δεν ολοκληρώθηκε. Δοκίμασε ξανά.",
   "investingFeeSettingsUnavailable": "Δεν ήταν δυνατή η επαλήθευση των ρυθμίσεων χρεώσεων των Επενδύσεων. Δοκίμασε ξανά.",
+  "investingViewOrders": "Προβολή εντολών",
   "investingViewPositions": "Προβολή θέσεων",
   "investingBought": "Αγοράστηκε",
   "investingSold": "Πουλήθηκε",

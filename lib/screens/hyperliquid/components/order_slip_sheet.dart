@@ -4048,7 +4048,10 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     pushKuteSuccessOverlay(
       navigator: nav,
       overlay: HlOrderAcceptedOverlay(
-          coin: market.coin, market: market, amount: amount),
+          coin: market.coin,
+          market: market,
+          amount: amount,
+          viewOrders: !_isLedger),
     );
   }
 

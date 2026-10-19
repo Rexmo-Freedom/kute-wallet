@@ -3253,6 +3253,8 @@
   "investingThinMarket": "This market is thin right now. You may get a worse price than shown.",
   "investingFeeApprovalFailed": "Fee approval was not completed. Please try again.",
   "investingFeeSettingsUnavailable": "Investing fee settings could not be verified. Try again.",
+  "investingViewOrders": "View orders",
+  "@investingViewOrders": {"description": "Secondary button on a resting order's confirmation (Investing order placed, Predictions limit sell, a partly filled limit buy): opens Investments, Portfolio, P&L charts, where the open orders are listed."},
   "investingViewPositions": "View positions",
   "investingBought": "Bought",
   "investingSold": "Sold",

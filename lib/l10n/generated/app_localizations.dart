@@ -10744,6 +10744,12 @@ abstract class AppLocalizations {
   /// **'Investing fee settings could not be verified. Try again.'**
   String get investingFeeSettingsUnavailable;
 
+  /// Secondary button on a resting order's confirmation (Investing order placed, Predictions limit sell, a partly filled limit buy): opens Investments, Portfolio, P&L charts, where the open orders are listed.
+  ///
+  /// In en, this message translates to:
+  /// **'View orders'**
+  String get investingViewOrders;
+
   /// No description provided for @investingViewPositions.
   ///
   /// In en, this message translates to:

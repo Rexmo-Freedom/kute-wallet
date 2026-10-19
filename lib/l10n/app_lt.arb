@@ -1774,6 +1774,7 @@
   "investingThinMarket": "Ši rinka šiuo metu menkai likvidi. Galite gauti prastesnę kainą nei rodoma.",
   "investingFeeApprovalFailed": "Mokesčio patvirtinimas neužbaigtas. Bandykite dar kartą.",
   "investingFeeSettingsUnavailable": "Nepavyko patikrinti Investavimo mokesčių nustatymų. Bandykite dar kartą.",
+  "investingViewOrders": "Žiūrėti pavedimus",
   "investingViewPositions": "Žiūrėti pozicijas",
   "investingBought": "Nupirkta",
   "investingSold": "Parduota",

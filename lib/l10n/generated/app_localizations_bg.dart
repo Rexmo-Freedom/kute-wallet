@@ -6150,6 +6150,9 @@ class AppLocalizationsBg extends AppLocalizations {
       'Настройките на таксите в Инвестиране не можаха да се проверят. Опитай отново.';
 
   @override
+  String get investingViewOrders => 'Виж поръчките';
+
+  @override
   String get investingViewPositions => 'Виж позициите';
 
   @override

@@ -6185,6 +6185,9 @@ class AppLocalizationsDe extends AppLocalizations {
       'Die Gebühreneinstellungen für Investieren konnten nicht geprüft werden. Versuche es erneut.';
 
   @override
+  String get investingViewOrders => 'Aufträge ansehen';
+
+  @override
   String get investingViewPositions => 'Positionen ansehen';
 
   @override

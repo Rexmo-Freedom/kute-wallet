@@ -6137,6 +6137,9 @@ class AppLocalizationsCs extends AppLocalizations {
       'Nastavení poplatků Investování se nepodařilo ověřit. Zkus to znovu.';
 
   @override
+  String get investingViewOrders => 'Zobrazit pokyny';
+
+  @override
   String get investingViewPositions => 'Zobrazit pozice';
 
   @override

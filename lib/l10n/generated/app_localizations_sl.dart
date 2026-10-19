@@ -6153,6 +6153,9 @@ class AppLocalizationsSl extends AppLocalizations {
       'Nastavitev provizij za Investiranje ni bilo mogoče preveriti. Poskusite znova.';
 
   @override
+  String get investingViewOrders => 'Prikaži naročila';
+
+  @override
   String get investingViewPositions => 'Prikaži pozicije';
 
   @override

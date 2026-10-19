@@ -1774,6 +1774,7 @@
   "investingThinMarket": "Ce marché manque de liquidité en ce moment. Vous pourriez obtenir un prix moins bon que celui affiché.",
   "investingFeeApprovalFailed": "L'approbation des frais n'a pas abouti. Réessayez.",
   "investingFeeSettingsUnavailable": "Les réglages de frais Investir n'ont pas pu être vérifiés. Réessayez.",
+  "investingViewOrders": "Voir les ordres",
   "investingViewPositions": "Voir les positions",
   "investingBought": "Acheté",
   "investingSold": "Vendu",

@@ -1774,6 +1774,7 @@
   "investingThinMarket": "Ten rynek ma teraz niską płynność. Cena może być gorsza od pokazanej.",
   "investingFeeApprovalFailed": "Zatwierdzenie opłaty nie zostało ukończone. Spróbuj ponownie.",
   "investingFeeSettingsUnavailable": "Nie udało się zweryfikować ustawień opłat Inwestowania. Spróbuj ponownie.",
+  "investingViewOrders": "Zobacz zlecenia",
   "investingViewPositions": "Zobacz pozycje",
   "investingBought": "Kupiono",
   "investingSold": "Sprzedano",

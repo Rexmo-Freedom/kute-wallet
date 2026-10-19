@@ -22,6 +22,8 @@ import 'package:kute/screens/polymarket/components/polymarket_error_copy.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/screens/shared/trade_receipt.dart';
+import 'package:kute/screens/usd/usd_account_screen.dart'
+    show openInvestmentsOrders;
 import 'package:kute/services/polymarket_backend_service.dart';
 import 'package:kute/screens/shared/polymarket_fee_summary.dart';
 // lib/screens/polymarket/components/sell_sheet.dart
@@ -1264,6 +1266,14 @@ class _SellSheetState extends ConsumerState<SellSheet> {
               l10n.betLimitSellPlaced('${(price * 100).toStringAsFixed(2)}¢'),
           detail: l10n.betRestingSellNote,
           onDone: navigator.pop,
+          // The sell rests: "View orders" opens the Portfolio's P&L
+          // charts, where it is listed.
+          secondaryButtonText: l10n.investingViewOrders,
+          onSecondary: () {
+            navigator.pop();
+            openInvestmentsOrders(navigator.context,
+                product: 'predictions', orderKind: 'limit_sell');
+          },
           receipt: TradeReceipt(
               title: pos.marketQuestion,
               subtitle: pos.outcome,

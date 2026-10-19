@@ -6125,6 +6125,9 @@ class AppLocalizationsEt extends AppLocalizations {
       'Investeerimise tasude seadeid ei õnnestunud kontrollida. Proovi uuesti.';
 
   @override
+  String get investingViewOrders => 'Vaata tellimusi';
+
+  @override
   String get investingViewPositions => 'Vaata positsioone';
 
   @override

@@ -6143,6 +6143,9 @@ class AppLocalizationsDa extends AppLocalizations {
       'Gebyrindstillingerne for Investering kunne ikke bekræftes. Prøv igen.';
 
   @override
+  String get investingViewOrders => 'Se ordrer';
+
+  @override
   String get investingViewPositions => 'Se positioner';
 
   @override

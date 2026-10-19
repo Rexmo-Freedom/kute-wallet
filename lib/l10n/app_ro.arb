@@ -1774,6 +1774,7 @@
   "investingThinMarket": "Această piață are lichiditate redusă acum. Poți obține un preț mai slab decât cel afișat.",
   "investingFeeApprovalFailed": "Aprobarea comisionului nu a fost finalizată. Încearcă din nou.",
   "investingFeeSettingsUnavailable": "Setările de comision pentru Investiții nu au putut fi verificate. Încearcă din nou.",
+  "investingViewOrders": "Vezi ordinele",
   "investingViewPositions": "Vezi pozițiile",
   "investingBought": "Cumpărat",
   "investingSold": "Vândut",

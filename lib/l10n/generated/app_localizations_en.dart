@@ -6121,6 +6121,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'Investing fee settings could not be verified. Try again.';
 
   @override
+  String get investingViewOrders => 'View orders';
+
+  @override
   String get investingViewPositions => 'View positions';
 
   @override

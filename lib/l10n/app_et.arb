@@ -1774,6 +1774,7 @@
   "investingThinMarket": "See turg on praegu õhuke. Võid saada näidatust halvema hinna.",
   "investingFeeApprovalFailed": "Tasu kinnitamine jäi lõpetamata. Proovi uuesti.",
   "investingFeeSettingsUnavailable": "Investeerimise tasude seadeid ei õnnestunud kontrollida. Proovi uuesti.",
+  "investingViewOrders": "Vaata tellimusi",
   "investingViewPositions": "Vaata positsioone",
   "investingBought": "Ostetud",
   "investingSold": "Müüdud",

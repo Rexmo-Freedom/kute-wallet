@@ -1774,6 +1774,7 @@
   "investingThinMarket": "Marknaden är tunn just nu. Du kan få ett sämre pris än det som visas.",
   "investingFeeApprovalFailed": "Avgiftsgodkännandet slutfördes inte. Försök igen.",
   "investingFeeSettingsUnavailable": "Avgiftsinställningarna för Investera kunde inte verifieras. Försök igen.",
+  "investingViewOrders": "Visa ordrar",
   "investingViewPositions": "Visa positioner",
   "investingBought": "Köpt",
   "investingSold": "Såld",

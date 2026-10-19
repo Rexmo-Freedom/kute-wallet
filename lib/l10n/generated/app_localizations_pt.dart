@@ -6164,6 +6164,9 @@ class AppLocalizationsPt extends AppLocalizations {
       'Não foi possível verificar as taxas dos Investimentos. Tente novamente.';
 
   @override
+  String get investingViewOrders => 'Ver ordens';
+
+  @override
   String get investingViewPositions => 'Ver posições';
 
   @override

@@ -1774,6 +1774,7 @@
   "investingThinMarket": "Ovo tržište je trenutačno slabo likvidno. Možeš dobiti lošiju cijenu od prikazane.",
   "investingFeeApprovalFailed": "Odobrenje naknade nije dovršeno. Pokušaj ponovno.",
   "investingFeeSettingsUnavailable": "Postavke naknada Ulaganja nisu se mogle provjeriti. Pokušaj ponovno.",
+  "investingViewOrders": "Prikaži naloge",
   "investingViewPositions": "Prikaži pozicije",
   "investingBought": "Kupljeno",
   "investingSold": "Prodano",

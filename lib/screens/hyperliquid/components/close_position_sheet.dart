@@ -1102,6 +1102,7 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
         market: _market,
         amount: amount,
         isClose: true,
+        viewOrders: widget.ledgerWalletId == null,
       ),
     );
   }

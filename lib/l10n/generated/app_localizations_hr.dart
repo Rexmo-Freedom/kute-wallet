@@ -6152,6 +6152,9 @@ class AppLocalizationsHr extends AppLocalizations {
       'Postavke naknada Ulaganja nisu se mogle provjeriti. Pokušaj ponovno.';
 
   @override
+  String get investingViewOrders => 'Prikaži naloge';
+
+  @override
   String get investingViewPositions => 'Prikaži pozicije';
 
   @override

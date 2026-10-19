@@ -1774,6 +1774,7 @@
   "investingThinMarket": "Този пазар е с ниска ликвидност в момента. Може да получиш по-лоша цена от показаната.",
   "investingFeeApprovalFailed": "Одобрението на таксата не завърши. Опитай отново.",
   "investingFeeSettingsUnavailable": "Настройките на таксите в Инвестиране не можаха да се проверят. Опитай отново.",
+  "investingViewOrders": "Виж поръчките",
   "investingViewPositions": "Виж позициите",
   "investingBought": "Купено",
   "investingSold": "Продадено",

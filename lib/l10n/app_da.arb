@@ -1774,6 +1774,7 @@
   "investingThinMarket": "Dette marked er tyndt lige nu. Du kan få en dårligere pris end vist.",
   "investingFeeApprovalFailed": "Godkendelsen af gebyret blev ikke gennemført. Prøv igen.",
   "investingFeeSettingsUnavailable": "Gebyrindstillingerne for Investering kunne ikke bekræftes. Prøv igen.",
+  "investingViewOrders": "Se ordrer",
   "investingViewPositions": "Se positioner",
   "investingBought": "Købt",
   "investingSold": "Solgt",

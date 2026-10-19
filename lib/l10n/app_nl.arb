@@ -1774,6 +1774,7 @@
   "investingThinMarket": "Deze markt is nu dun. Je kunt een slechtere prijs krijgen dan getoond.",
   "investingFeeApprovalFailed": "Kostengoedkeuring is niet voltooid. Probeer het opnieuw.",
   "investingFeeSettingsUnavailable": "Kosteninstellingen voor Beleggen konden niet worden geverifieerd. Probeer het opnieuw.",
+  "investingViewOrders": "Orders bekijken",
   "investingViewPositions": "Posities bekijken",
   "investingBought": "Gekocht",
   "investingSold": "Verkocht",

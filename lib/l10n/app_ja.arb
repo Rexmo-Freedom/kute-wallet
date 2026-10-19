@@ -1774,6 +1774,7 @@
   "investingThinMarket": "現在このマーケットは流動性が低い状態です。表示よりも不利な価格になる可能性があります。",
   "investingFeeApprovalFailed": "手数料の承認が完了しませんでした。もう一度お試しください。",
   "investingFeeSettingsUnavailable": "投資の手数料設定を確認できませんでした。もう一度お試しください。",
+  "investingViewOrders": "注文を表示",
   "investingViewPositions": "ポジションを表示",
   "investingBought": "購入",
   "investingSold": "売却",

@@ -6186,6 +6186,9 @@ class AppLocalizationsEl extends AppLocalizations {
       'Δεν ήταν δυνατή η επαλήθευση των ρυθμίσεων χρεώσεων των Επενδύσεων. Δοκίμασε ξανά.';
 
   @override
+  String get investingViewOrders => 'Προβολή εντολών';
+
+  @override
   String get investingViewPositions => 'Προβολή θέσεων';
 
   @override

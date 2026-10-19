@@ -6169,6 +6169,9 @@ class AppLocalizationsEs extends AppLocalizations {
       'No se ha podido verificar la configuración de comisiones de Invertir. Inténtalo de nuevo.';
 
   @override
+  String get investingViewOrders => 'Ver órdenes';
+
+  @override
   String get investingViewPositions => 'Ver posiciones';
 
   @override

@@ -1774,6 +1774,7 @@
   "investingThinMarket": "Dieser Markt ist gerade dünn. Du bekommst eventuell einen schlechteren Preis als angezeigt.",
   "investingFeeApprovalFailed": "Die Gebührenfreigabe wurde nicht abgeschlossen. Bitte versuche es erneut.",
   "investingFeeSettingsUnavailable": "Die Gebühreneinstellungen für Investieren konnten nicht geprüft werden. Versuche es erneut.",
+  "investingViewOrders": "Aufträge ansehen",
   "investingViewPositions": "Positionen ansehen",
   "investingBought": "Gekauft",
   "investingSold": "Verkauft",

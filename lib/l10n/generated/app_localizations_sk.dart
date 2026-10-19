@@ -6144,6 +6144,9 @@ class AppLocalizationsSk extends AppLocalizations {
       'Nastavenia poplatkov Investovania sa nepodarilo overiť. Skús to znova.';
 
   @override
+  String get investingViewOrders => 'Zobraziť príkazy';
+
+  @override
   String get investingViewPositions => 'Zobraziť pozície';
 
   @override
