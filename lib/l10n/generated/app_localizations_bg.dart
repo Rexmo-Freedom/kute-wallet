@@ -10914,6 +10914,19 @@ class AppLocalizationsBg extends AppLocalizations {
   }
 
   @override
+  String moneyJourneyAt(String place) {
+    return 'В $place';
+  }
+
+  @override
+  String moneyJourneyArrived(int count, int total) {
+    return '$count от $total пристигнаха';
+  }
+
+  @override
+  String get moneyJourneyPlaced => 'Поставено!';
+
+  @override
   String cctpRefundReturnedTo(String network, String address) {
     return 'Възстановено на твоя адрес в $network $address.';
   }

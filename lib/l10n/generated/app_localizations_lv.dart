@@ -10863,6 +10863,19 @@ class AppLocalizationsLv extends AppLocalizations {
   }
 
   @override
+  String moneyJourneyAt(String place) {
+    return 'Vietā $place';
+  }
+
+  @override
+  String moneyJourneyArrived(int count, int total) {
+    return 'Ieradušies $count no $total';
+  }
+
+  @override
+  String get moneyJourneyPlaced => 'Izvietots!';
+
+  @override
   String cctpRefundReturnedTo(String network, String address) {
     return 'Atmaksāts uz tavu $network adresi $address.';
   }

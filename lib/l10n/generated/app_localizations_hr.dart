@@ -10919,6 +10919,19 @@ class AppLocalizationsHr extends AppLocalizations {
   }
 
   @override
+  String moneyJourneyAt(String place) {
+    return 'U $place';
+  }
+
+  @override
+  String moneyJourneyArrived(int count, int total) {
+    return '$count od $total stiglo';
+  }
+
+  @override
+  String get moneyJourneyPlaced => 'Postavljeno!';
+
+  @override
   String cctpRefundReturnedTo(String network, String address) {
     return 'Vraćeno na tvoju $network adresu $address.';
   }

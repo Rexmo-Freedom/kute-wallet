@@ -18380,6 +18380,24 @@ abstract class AppLocalizations {
   /// **'{source} → {destination} · {amount}'**
   String moneyStepCompact(String source, String destination, String amount);
 
+  /// Money journey: the small heading over the checkpoints listed under the map, the sub-steps happening at the destination balance (e.g. At Predictions: Approving spend, Confirming balance, Placing $12 on Yes). {place} is the balance name (Bitcoin, Dollars, Investing, Predictions).
+  ///
+  /// In en, this message translates to:
+  /// **'At {place}'**
+  String moneyJourneyAt(String place);
+
+  /// Money journey: the small chip under the destination station while several legs are still on their way, how many of them have landed there. {count} and {total} are small whole numbers.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} of {total} arrived'**
+  String moneyJourneyArrived(int count, int total);
+
+  /// Money journey: the status line on top of the map once a funded order (a bet, an Investing order, added margin) placed; one cheerful word, beside the amount.
+  ///
+  /// In en, this message translates to:
+  /// **'Placed!'**
+  String get moneyJourneyPlaced;
+
   /// Activity detail of an Investing move by CCTP whose one-time quote was refunded: the USDC went back to the wallet's own EVM address on Arbitrum. Plain caption; tapping it copies the full address. {network} is the network name (Arbitrum), {address} the address shortened (0x1234…abcd).
   ///
   /// In en, this message translates to:

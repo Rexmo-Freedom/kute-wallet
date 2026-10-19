@@ -1,43 +1,68 @@
 // lib/screens/shared/money_steps_view.dart
 //
-// The ONE widget that shows a money step graph ([MoneyStepGraph]) as the
-// staged sub-steps under a slip's or a sheet's button: every leg on its
-// own line, completing on its own ("Moving $8.00 from Bitcoin" → "Moved
-// $8.00 from Bitcoin ✓"), the venue's readiness as a stage line with its
-// sub-steps indented under it ("Getting your prediction ready" →
-// "Converting to pUSD", "Confirming balance"), then the order ("Placing
-// $15 on Yes") or the purchase ("Buying $5.00 of Bitcoin", "Arriving in
-// Bitcoin"). The `SlipFundingSteps` look: the note's type and colours,
-// its small spinner while running, a check once done, the slips' error
-// sign when failed. No new chrome. The stage and its sub-steps read as a
-// tree (founder, 19 October 2026): a thin connector in the lines' quiet
-// colour from the stage's sign down, an elbow into each sub-step's sign
-// (├, └ on the last), drawn behind the lines; nothing else changes.
-// Live, the tree moves (founder, 19 October 2026: "more fun and better
-// animation"; [MoneyStepsView]): Sal rides the line to the running step,
-// rings draw, checks pop, the last one celebrates, a stop shakes, each
-// with its haptic. Every steps surface draws this one tree: the bet and
-// order slips (`SlipFundingSteps`, with or without a graph), Move money,
-// Buy bitcoin and the Send's venue cash (`MoveStepsSection`), Rebalance,
-// and the Activity details.
+// The ONE widget that shows a money step graph ([MoneyStepGraph]) under a
+// slip's or a sheet's button, and in an Activity detail: the MONEY
+// JOURNEY (founder, 19 October 2026: "make sure we have Sal; make it fun
+// and engaging"). A small map: the balances the money leaves are round
+// STATIONS on the left (their own marks: ₿, $, Investing, Predictions),
+// the balance it goes to is the station on the right, the places it
+// passes through sit in between, and a winding ROAD joins each pair. Sal,
+// the mascot, runs the biggest leg's road carrying a coin, hops as he
+// lands, and waits at the destination waving the other legs' coins in
+// (each on its own road, in its balance's colour); the road lights up
+// gold behind every runner, the station ahead pulses while its step
+// works, and a finished station turns gold with a pop and a burst. A leg
+// with sub-legs (Investing → Bitcoin by HyperCore → Circle → Arbitrum →
+// Bitcoin) has a WAYPOINT per sub-leg on its road, named, pulsing while
+// that sub-leg runs, gold once done, its amount beside it once it
+// changed. The destination's own sub-steps (Approving spend, Confirming
+// balance, Placing $12 on Yes) are CHECKPOINTS listed under the map in
+// the steps' tree look, each pulsing while it runs and turning gold with
+// a check; the destination wears a "2/3" chip while they run. On top:
+// the amount counting up, a status line in plain words naming the
+// sub-phase at work ("Circle → Arbitrum", "Confirming balance"), and a
+// thin progress bar with its percent (money arrived is about 60%, the
+// order placed 100%). Success: Sal drops the coin into the last station,
+// confetti rains over the map, Sal cheers; a stop: the station turns red
+// and shakes, Sal sits down sad, and the surface's own line says where
+// the money is. Sal is always there and always doing something (idling,
+// sniffing, cheering, sulking), and a tap on him makes him jump. Every
+// word a screen reader needs (each leg's line, each sub-leg's, each
+// checkpoint's) is a real semantics node, in the final words.
+//
+// A record whose steps have all ended (an Activity detail) draws its
+// final state, all gold with Sal sitting at the destination, and replays
+// the journey once, quickly (~1.2 s), when the detail opens; never with
+// haptics. The haptics for live changes are the ones every steps surface
+// had: a selection click as Sal lands, a light tap as a step completes,
+// the money-success beat at the end, the failure tap on a stop, only for
+// changes seen live and deduped with the surface. Reduce Motion: the
+// same states at once, no run, hop, burst, confetti or replay; the
+// haptics still play.
 
 import 'dart:async' show unawaited;
 import 'dart:math' as math;
+import 'dart:ui' show PathMetric;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/kute_state.dart';
 import 'package:kute/screens/shared/kute_dog_rig.dart';
 import 'package:kute/screens/shared/kute_mascot.dart' show kuteMascotPose;
+import 'package:kute/screens/shared/kute_motion.dart' show kuteReduceMotion;
+import 'package:kute/screens/shared/money_journey_plan.dart';
 import 'package:kute/services/kute_haptics.dart';
 import 'package:kute/services/one_balance/money_steps.dart';
 import 'package:kute/services/success_feedback.dart'
     show moneyFailureFeedback, moneyStepsSuccessFeedback;
 import 'package:kute/theme/app_theme.dart';
-import 'package:kute/screens/shared/kute_motion.dart' show kuteReduceMotion;
+
+export 'package:kute/screens/shared/money_journey_plan.dart'
+    show MoneyStepLine, MoneyJourneyPlan, JourneyRoad, JourneyStation;
 
 /// The balance's own name, as the portfolio names it.
 String moneyPlaceName(AppLocalizations l10n, MoneyPlace place) =>
@@ -119,17 +144,6 @@ bool moneyStepShown(MoneyStep s) {
   return true;
 }
 
-/// One rendered line: its words, its state, and whether it is a
-/// sub-step (indented under its stage).
-@immutable
-class MoneyStepLine {
-  const MoneyStepLine(this.text, this.status, {this.sub = false, this.id});
-  final String text;
-  final MoneyStepStatus status;
-  final bool sub;
-  final String? id;
-}
-
 /// The lines [graph] shows, in order: the legs, the readiness stage with
 /// its sub-steps under [readyLabel], then the rest (the order, the
 /// purchase, the arrival). Pure, so the order of lines is tested apart.
@@ -171,8 +185,8 @@ List<MoneyStepLine> moneyStepLines(
 
 /// Which keys a [MoneyStepsView] gives its parts: its own, or those of the
 /// slips' older stage lines ([MoneyStepsKeys.slip], `SlipFundingSteps`
-/// without a graph), so every steps surface draws the one tree and each
-/// still answers to its own names.
+/// without a graph), so every steps surface draws the one journey and
+/// each still answers to its own names.
 @immutable
 class MoneyStepsKeys {
   const MoneyStepsKeys._(
@@ -196,26 +210,13 @@ class MoneyStepsKeys {
       'slip-funding-step-', 'active', 'slip-funding-slow', 'slip-funding-note');
 }
 
-/// The graph as the staged sub-steps (see the file header). [note] is
-/// the one plain line under them once something stopped (what happened
-/// and where the money is); [slow] adds "Taking longer than usual".
-///
-/// Live, the tree moves (founder, 19 October 2026: "more fun and better
-/// animation"): Sal, the mascot, rides the line to the step running now
-/// and hops as he lands there; the line he passed fills in a light done
-/// colour behind him; the running step's ring draws itself and breathes;
-/// a finished step's ring closes, then it pops into a filled circle with
-/// a drawn check and a small burst; amounts count up the first time a
-/// running line shows them. The last check pops bigger, Sal cheers and
-/// hops away, and the tree's lines settle into the done colour. A stop
-/// shakes its line, its sign fades in, and Sal sits there dimmed. Each
-/// moment is felt: a selection click as Sal lands, a light tap per check,
-/// the money-success beat on the last one ([moneyStepsSuccessFeedback]),
-/// the failure tap on a stop ([moneyFailureFeedback]); only for changes
-/// seen live, never for lines that were already done when the view
-/// appeared. A record whose steps have all ended (an Activity detail)
-/// draws its final state, still. Reduce Motion: the same states at once,
-/// no glide, hop, burst or shake; the haptics still play.
+/// The journey (see the file header) of [lines], laid out from [graph]
+/// when the surface has it ([MoneyJourneyPlan.of]). [from] and [to] name
+/// the stations when the graph does not (the slips' older stage lines);
+/// [toLabel] names an outside destination (where a send went); [money]
+/// formats the amount on top. [note] is the one plain line under the
+/// checkpoints once something stopped (what happened and where the money
+/// is); [slow] adds "Taking longer than usual".
 ///
 /// [haptics] false leaves the feel to the surface (a band that already
 /// plays each landing); [failureHaptic] false leaves the failure tap to a
@@ -224,6 +225,11 @@ class MoneyStepsView extends StatefulWidget {
   const MoneyStepsView({
     super.key,
     required this.lines,
+    this.graph,
+    this.from,
+    this.to,
+    this.toLabel,
+    this.money,
     this.slow = false,
     this.note,
     this.haptics = true,
@@ -232,6 +238,11 @@ class MoneyStepsView extends StatefulWidget {
   });
 
   final List<MoneyStepLine> lines;
+  final MoneyStepGraph? graph;
+  final MoneyPlace? from;
+  final MoneyPlace? to;
+  final String? toLabel;
+  final String Function(double usd)? money;
   final bool slow;
   final String? note;
   final bool haptics;
@@ -243,40 +254,50 @@ class MoneyStepsView extends StatefulWidget {
 }
 
 // The choreography's beats, in milliseconds.
-const double _kRingClose = 120;
-const double _kRingFade = 120;
+const double _kPopDelay = 120; // a finished step's ring closes, then pops
 const double _kPop = 320;
 const double _kCheckDelay = 60;
 const double _kCheckDraw = 220;
 const double _kBurst = 420;
 const double _kFinalBurst = 560;
-const double _kArrive = 250; // the glide's spring first reaches the step
-const double _kGlide = 900;
+const double _kDash = 350; // the runner's last stretch into the station
+const double _kApproach = 1600; // the runner's way out while a leg works
+const double _kHold = 0.72; // how far along he gets before it lands
 const double _kHop = 300;
 const double _kRingDraw = 500;
-const double _kCountUp = 600;
+const double _kCountUp = 700;
 const double _kShake = 300;
 const double _kFadeIn = 200;
 const double _kDim = 250;
-const double _kExit = 1000;
-const double _kSettle = 500;
-const double _kBusy = 1500;
-const double _kDimAlpha = 0.35;
+const double _kConfetti = 1400;
+const double _kCheer = 2700;
+const double _kCoinDrop = 400;
+const double _kWave = 760;
+const double _kReplay = 1200;
+const double _kBar = 500;
+const double _kPing = 1100;
+const double _kDimAlpha = 0.5;
+// How long Sal keeps idling after the last moment before the clock
+// rests (two idle loops); it runs on while any step runs.
+const double _kIdleFor = 2.0 * kKuteDogIdleMs;
 
 enum _Outcome { none, success, failure }
 
-enum _Haptic { arrive, check, success, failure }
+enum _Haptic { arrive, check, success, failure, tap }
 
-/// One line's live moments (clock milliseconds), by line id.
-class _LineFx {
-  _LineFx(this.status);
+/// One line's live moments (clock milliseconds), by line key.
+class _Fx {
+  _Fx(this.status);
   MoneyStepStatus status;
   double? runSince;
   double? doneAt;
-  bool doneBig = false;
-  bool finalDone = false;
   double? failedAt;
-  double? countFrom;
+
+  /// How far its segment was lit when it ended (the runner dashes on
+  /// from there).
+  double litFrom = 0;
+  double dashMs = _kDash;
+  bool finalDone = false;
 }
 
 /// The view's look, in the screen's units and the surface's colours.
@@ -286,65 +307,143 @@ class _Look {
     required this.quiet,
     required this.done,
     required this.failed,
-    required this.signR,
-    required this.trunkX,
-    required this.indent,
+    required this.gold,
+    required this.ping,
+    required this.surface,
+    required this.border,
+    required this.success,
+    required this.stationR,
+    required this.waypointR,
+    required this.coinR,
+    required this.roadW,
     required this.salSize,
-    required this.salRing,
-    required this.smallRing,
+    required this.signR,
     required this.shake,
-    required this.drop,
-    required this.rise,
-    required this.trail,
-    required this.reach,
-    required this.reachFinal,
-    required this.dot,
-    required this.dotFinal,
+    required this.padX,
+    required this.amountStyle,
+    required this.direction,
   });
 
   final Color quiet;
   final Color done;
   final Color failed;
-  final double signR;
-  final double trunkX;
-  final double indent;
+  final Color gold;
+  final Color ping;
+  final Color surface;
+  final Color border;
+  final Color success;
+  final double stationR;
+  final double waypointR;
+  final double coinR;
+  final double roadW;
   final double salSize;
-  final double salRing;
-  final double smallRing;
+  final double signR;
   final double shake;
-  final double drop;
-  final double rise;
-  final double trail;
-  final double reach;
-  final double reachFinal;
-  final double dot;
-  final double dotFinal;
-
-  /// The light done colour the line fills in behind Sal.
-  Color get light => Color.lerp(quiet, done, 0.55)!;
+  final double padX;
+  final TextStyle amountStyle;
+  final TextDirection direction;
 }
 
-/// What the painter and the lines' paint-only effects read: the lines,
-/// their moments, where each line sits, and the traveller.
+/// Where everything sits on the map, for one size.
+class _Geometry {
+  _Geometry(
+      this.size, this.stations, this.roads, this.metrics, this.waypoints);
+  final Size size;
+  final List<Offset> stations;
+  final List<Path> roads;
+  final List<PathMetric?> metrics;
+  final List<List<Offset>> waypoints;
+
+  static _Geometry of(MoneyJourneyPlan plan, Size size, _Look look) {
+    final w = size.width;
+    final h = size.height;
+    final cols = math.max(1, plan.columns);
+    final stations = <Offset>[
+      for (final s in plan.stations)
+        Offset(
+          cols == 1
+              ? w / 2
+              : look.padX + s.column * (w - 2 * look.padX) / (cols - 1),
+          s.rows == 1 ? h / 2 : h * (s.row + 1) / (s.rows + 1),
+        ),
+    ];
+    final roads = <Path>[];
+    final metrics = <PathMetric?>[];
+    final waypoints = <List<Offset>>[];
+    for (var i = 0; i < plan.roads.length; i++) {
+      final r = plan.roads[i];
+      final a = stations[r.from];
+      final b = stations[r.to];
+      final dx = b.dx - a.dx;
+      // A gentle S on a level road, so it winds; a sweep otherwise.
+      final wiggle = (b.dy - a.dy).abs() < 1
+          ? (i.isEven ? 1 : -1) * math.min(12.0, h * 0.08)
+          : 0.0;
+      final path = Path()
+        ..moveTo(a.dx, a.dy)
+        ..cubicTo(a.dx + dx * 0.45, a.dy + wiggle, b.dx - dx * 0.45,
+            b.dy - wiggle, b.dx, b.dy);
+      roads.add(path);
+      final m = path.computeMetrics().firstOrNull;
+      metrics.add(m);
+      final n = r.segments.length;
+      waypoints.add([
+        for (var k = 0; k + 1 < n; k++)
+          m?.getTangentForOffset(m.length * (k + 1) / n)?.position ??
+              Offset.lerp(a, b, (k + 1) / n)!,
+      ]);
+    }
+    return _Geometry(size, stations, roads, metrics, waypoints);
+  }
+
+  Offset along(int road, double t) {
+    final m = metrics[road];
+    if (m == null) return stations[road];
+    return m.getTangentForOffset(m.length * _unit(t))?.position ??
+        stations[road];
+  }
+}
+
+/// What the painters read: the plan, every line's moments, Sal's, and
+/// the outcome. Never rebuilt per frame.
 class _Scene {
-  List<MoneyStepLine> lines = const [];
-  List<String> order = const [];
-  final Map<String, _LineFx> fx = {};
-  final Map<String, RenderBox> anchors = {};
-  RenderBox? root;
+  MoneyJourneyPlan plan = const MoneyJourneyPlan(
+      lines: [],
+      stations: [],
+      roads: [],
+      checkpoints: [],
+      chain: [],
+      destination: null,
+      columns: 0,
+      totalUsd: null,
+      headline: null,
+      hasGraph: false,
+      placeLine: null);
+  final Map<String, _Fx> fx = {};
+  List<String> keys = const [];
   bool live = false;
   bool still = false;
   late _Look look;
+  _Geometry? geo;
 
-  String? target;
-  bool salShown = false;
-  double salEnterAt = 0;
-  double? glideAt;
-  Offset? glideFrom;
-  Offset? lastSal;
-  Offset? exitFrom;
   _Outcome outcome = _Outcome.none;
   double outcomeAt = 0;
+  double? replayAt;
+  double salEnterAt = 0;
+  double? hopAt;
+  double? jumpAt;
+  double? waveAt;
+  double? countFrom;
+  Offset? lastSal;
+  int spot = 0;
+
+  /// The last moment anything happened: Sal's idle runs from it, and the
+  /// clock rests [_kIdleFor] after it unless a step runs.
+  double quietSince = 0;
+
+  double barFrom = 0;
+  double barTo = 0;
+  double barAt = 0;
 }
 
 String _lineKey(MoneyStepLine l, int i) => l.id ?? '#$i';
@@ -373,6 +472,18 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
 
   double get _now => _clock.value * 1000;
 
+  bool _needsTick(double now) =>
+      !_scene.still &&
+      (_events.isNotEmpty ||
+          now < _busyUntil ||
+          _scene.plan.lines.any((l) => l.status == MoneyStepStatus.running));
+
+  /// Something happened now: Sal has [_kIdleFor] of life from here.
+  void _moment(double now) {
+    _scene.quietSince = now;
+    _busyUntil = math.max(_busyUntil, now + _kIdleFor);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -382,7 +493,11 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _scene.still = kuteReduceMotion(context);
+    final still = kuteReduceMotion(context);
+    if (still != _scene.still) {
+      _scene.still = still;
+      if (still) _scene.replayAt = null;
+    }
     _kick();
   }
 
@@ -400,14 +515,10 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
     super.dispose();
   }
 
-  bool _needsTick(double now) =>
-      !_scene.still &&
-      (_events.isNotEmpty ||
-          now < _busyUntil ||
-          _scene.fx.values.any((f) => f.status == MoneyStepStatus.running));
-
-  /// Runs the clock while something moves; under Reduce Motion (or with
-  /// tickers off) plays the pending haptics once this frame is drawn.
+  /// Runs the clock while something moves (Sal keeps idling a while after
+  /// the last moment, and all along while a step runs); under Reduce
+  /// Motion (or with tickers off) plays the pending haptics once this
+  /// frame is drawn instead.
   void _kick() {
     final ticking = TickerMode.valuesOf(context).enabled;
     if (_scene.still || !ticking) {
@@ -455,10 +566,10 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
   }
 
   void _fire(_Haptic h) {
-    if (!widget.haptics) return;
+    if (!widget.haptics && h != _Haptic.tap) return;
     try {
       switch (h) {
-        case _Haptic.arrive:
+        case _Haptic.arrive || _Haptic.tap:
           if (KuteHaptics.isForeground) {
             unawaited(HapticFeedback.selectionClick());
           }
@@ -476,88 +587,98 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
     }
   }
 
-  static String? _targetOf(List<MoneyStepLine> lines, List<String> keys) {
-    for (final want in const [
-      MoneyStepStatus.failed,
-      MoneyStepStatus.running,
-      MoneyStepStatus.waiting,
-    ]) {
-      for (var i = 0; i < lines.length; i++) {
-        if (lines[i].status != want) continue;
-        // A stage running: Sal rides on down to its sub-step at work.
-        if (!lines[i].sub) {
-          for (var j = i + 1; j < lines.length && lines[j].sub; j++) {
-            if (lines[j].status == want) return keys[j];
-          }
-        }
-        return keys[i];
-      }
+  MoneyJourneyPlan _plan() => MoneyJourneyPlan.of(widget.lines,
+      graph: widget.graph,
+      from: widget.from,
+      to: widget.to,
+      toLabel: widget.toLabel,
+      money: widget.money);
+
+  /// Where Sal is along his chain at [now]: the index of the chain road
+  /// he rides, or the chain's length once he reached its end.
+  static int _spotOf(_Scene s, double now) {
+    final chain = s.plan.chain;
+    for (var i = 0; i < chain.length; i++) {
+      if (_roadLit(s, s.plan.roads[chain[i]], now) < 1) return i;
     }
-    return null;
+    return chain.length;
   }
 
-  void _enter(String? target, double now) {
-    final s = _scene;
-    s.target = target;
-    s.salShown = target != null;
-    s.salEnterAt = now;
-    s.glideAt = now;
-    s.glideFrom = null;
-    s.exitFrom = null;
+  /// The journey's progress: money arrived weighs ~60% once there are
+  /// checkpoints, the checkpoints the rest.
+  static double _progressOf(_Scene s) {
+    final plan = s.plan;
+    double part(Iterable<int> lines) {
+      var n = 0;
+      var sum = 0.0;
+      for (final i in lines) {
+        n++;
+        sum += switch (plan.lines[i].status) {
+          MoneyStepStatus.done || MoneyStepStatus.skipped => 1.0,
+          MoneyStepStatus.running => 0.5,
+          _ => 0.0,
+        };
+      }
+      return n == 0 ? 1 : sum / n;
+    }
+
+    final roads = [
+      for (final r in plan.roads)
+        if (r.line >= 0) ...r.segments
+    ];
+    final checks = plan.checkpoints;
+    if (roads.isEmpty) return checks.isEmpty ? 0 : part(checks);
+    if (checks.isEmpty) return part(roads);
+    return 0.6 * part(roads) + 0.4 * part(checks);
   }
 
   /// Brings the scene up to [widget.lines]: records each live change's
   /// moment and schedules its haptic. The first build only records where
-  /// things stand.
+  /// things stand (and, for a record already ended, sets up the replay).
   void _sync({required bool first}) {
     final s = _scene;
     final now = _now;
-    final lines = widget.lines;
+    final plan = _plan();
+    final lines = plan.lines;
     final keys = [for (var i = 0; i < lines.length; i++) _lineKey(lines[i], i)];
-    final inProgress = lines.any((l) => !l.status.ended);
-    final failed = lines.any((l) => l.status == MoneyStepStatus.failed);
-    final outcome = failed
+    final outcome = plan.anyFailed
         ? _Outcome.failure
-        : !inProgress && lines.any((l) => l.status == MoneyStepStatus.done)
+        : plan.success
             ? _Outcome.success
             : _Outcome.none;
 
     var cameAlive = false;
     if (first) {
-      s.live = inProgress;
-    } else if (!s.live && inProgress) {
+      s.live = plan.inProgress;
+    } else if (!s.live && plan.inProgress) {
       // A record that runs again (a retry on the same surface).
       s.live = true;
       cameAlive = true;
+      s.replayAt = null;
     }
     final animate = s.live;
+    final spotBefore = first ? 0 : _spotOf(s, now);
 
-    var changed = false;
     var checked = false;
+    var landed = false;
     final justDone = <String>[];
     for (var i = 0; i < lines.length; i++) {
       final l = lines[i];
       final k = keys[i];
       final fx = s.fx[k];
       if (fx == null) {
-        final n = _LineFx(l.status);
-        // A line that shows up running counts its amount up and draws its
-        // ring; one that shows up already ended just is.
-        if (animate && !l.status.ended) {
-          if (l.status == MoneyStepStatus.running) n.runSince = now;
-          if (moneyCountUpHasAmount(l.text)) n.countFrom = now;
-          changed = true;
-        }
+        final n = _Fx(l.status);
+        if (animate && l.status == MoneyStepStatus.running) n.runSince = now;
         s.fx[k] = n;
         continue;
       }
       if (fx.status == l.status) continue;
       if (animate && !first) {
-        changed = true;
         switch (l.status) {
           case MoneyStepStatus.done || MoneyStepStatus.skipped:
+            fx.litFrom = _segLit(s, fx, now);
             fx.doneAt = now;
-            fx.doneBig = s.salShown && s.target == k;
+            fx.dashMs = _kDash;
             fx.failedAt = null;
             checked = true;
             justDone.add(k);
@@ -566,6 +687,7 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
             fx.doneAt = null;
             fx.failedAt = null;
           case MoneyStepStatus.failed:
+            fx.litFrom = _segLit(s, fx, now);
             fx.failedAt = now;
             fx.doneAt = null;
           case MoneyStepStatus.waiting || MoneyStepStatus.fellBack:
@@ -576,17 +698,29 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
       fx.status = l.status;
     }
     s.fx.removeWhere((k, _) => !keys.contains(k));
-    s.lines = lines;
-    s.order = keys;
+    s.plan = plan;
+    s.keys = keys;
+    s.geo = null;
 
+    final progress = _progressOf(s);
+    _moment(now);
     if (first) {
+      s.barFrom = s.barTo = progress;
+      s.barAt = now;
       s.outcome = outcome;
       s.outcomeAt = now;
-      if (s.live) {
-        _enter(_targetOf(lines, keys), now);
-        _busyUntil = now + _kBusy;
+      s.salEnterAt = now;
+      s.countFrom = now;
+      if (!s.live && !plan.inProgress && lines.isNotEmpty) {
+        _setUpReplay(now);
       }
+      s.spot = _spotOf(s, now);
       return;
+    }
+    if (progress != s.barTo) {
+      s.barFrom = s.still ? progress : _barAt(s, now);
+      s.barTo = progress;
+      s.barAt = now;
     }
     if (!s.live) {
       s.outcome = outcome;
@@ -594,11 +728,12 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
     }
     if (cameAlive) {
       s.outcome = _Outcome.none;
-      _enter(null, now);
+      s.outcomeAt = now;
+      s.salEnterAt = now;
+      s.countFrom = now;
     }
 
     if (outcome != s.outcome) {
-      changed = true;
       s.outcome = outcome;
       s.outcomeAt = now;
       switch (outcome) {
@@ -607,9 +742,8 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
           // in place of its light tap.
           final last = keys.lastWhere(justDone.contains, orElse: () => '');
           s.fx[last]?.finalDone = true;
-          s.exitFrom = null;
           checked = false;
-          _schedule(now + _kRingClose, _Haptic.success);
+          _schedule(now + _kPopDelay, _Haptic.success);
         case _Outcome.failure:
           _schedule(now, _Haptic.failure);
         case _Outcome.none:
@@ -617,28 +751,75 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
       }
     }
 
-    if (s.outcome != _Outcome.success) {
-      final next = _targetOf(lines, keys);
-      if (next != s.target) {
-        changed = true;
-        if (!s.salShown || s.target == null) {
-          _enter(next, now);
-        } else {
-          // Sal leaves once the step he sat on closed its ring.
-          final leaving = s.fx[s.target!];
-          final start = leaving?.doneAt == now ? now + _kRingClose : now;
-          s.glideFrom = s.lastSal;
-          s.glideAt = start;
-          s.target = next;
-          s.salShown = next != null;
-          if (next != null && s.outcome == _Outcome.none) {
-            _schedule(start + _kArrive, _Haptic.arrive);
-          }
-        }
-      }
+    // Sal lands somewhere new: the hop and its click once his dash ends.
+    final spotAfter = _spotOf(s, now + _kDash + 1);
+    if (spotAfter != spotBefore && spotAfter > s.spot) {
+      s.hopAt = now + _kDash;
+      landed = true;
     }
-    if (checked) _schedule(now + _kRingClose, _Haptic.check);
-    if (changed) _busyUntil = math.max(_busyUntil, now + _kBusy);
+    s.spot = math.max(s.spot, spotBefore);
+    // Another coin lands where he waits: he perks up.
+    for (final k in justDone) {
+      final i = keys.indexOf(k);
+      final road = plan.roads.where((r) => r.line == i).firstOrNull;
+      if (road == null || plan.chain.contains(plan.roads.indexOf(road))) {
+        continue;
+      }
+      s.waveAt = now + _kDash;
+    }
+    if (landed && s.outcome == _Outcome.none) {
+      _schedule(now + _kDash, _Haptic.arrive);
+    }
+    if (checked) _schedule(now + _kPopDelay, _Haptic.check);
+  }
+
+  /// A finished record opening: the roads light in order, then the
+  /// checkpoints check, over about [_kReplay]; Sal rides along and sits.
+  void _setUpReplay(double now) {
+    final s = _scene;
+    if (s.still) return;
+    final plan = s.plan;
+    final order = <String>[
+      for (final r in plan.roads)
+        if (r.line >= 0)
+          for (final i in r.segments) s.keys[i],
+      for (final i in plan.checkpoints) s.keys[i],
+    ];
+    if (order.isEmpty) return;
+    final slot = _kReplay / order.length;
+    s.replayAt = now;
+    for (var n = 0; n < order.length; n++) {
+      final fx = s.fx[order[n]];
+      if (fx == null || !fx.status.satisfies) continue;
+      fx.litFrom = 0;
+      fx.doneAt = now + 150 + n * slot;
+      fx.dashMs = math.max(slot, 120);
+    }
+    s.countFrom = now;
+    s.barFrom = 0;
+    s.barAt = now;
+  }
+
+  static double _barAt(_Scene s, double now) {
+    if (s.still) return s.barTo;
+    final span =
+        s.replayAt != null && s.barAt == s.replayAt ? _kReplay : _kBar;
+    final t = Curves.easeOutCubic.transform(_unit((now - s.barAt) / span));
+    return s.barFrom + (s.barTo - s.barFrom) * t;
+  }
+
+  void _tapAt(Offset at) {
+    final s = _scene;
+    final sal = s.lastSal;
+    if (sal == null) return;
+    final reach = s.look.salSize * 1.3;
+    if ((at - sal.translate(0, -s.look.salSize * 0.6)).distance > reach) {
+      return;
+    }
+    s.jumpAt = _now;
+    _moment(_now);
+    _fire(_Haptic.tap);
+    _kick();
   }
 
   double _shakeDx(String key) {
@@ -648,9 +829,27 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
     return _shakeAt(s.look.shake, _now - at);
   }
 
-  double? _countProgress(String key) {
+  double _stationShake(int i) {
     final s = _scene;
-    final from = s.fx[key]?.countFrom;
+    if (s.still) return 0;
+    final at = _stationFailedAt(s, i);
+    return at == null ? 0 : _shakeAt(s.look.shake, _now - at);
+  }
+
+  double _stationScale(int i) {
+    final s = _scene;
+    if (s.still) return 1;
+    final at = _stationDoneAt(s, i);
+    if (at == null || !at.isFinite) return 1;
+    final e = _now - at - _kPopDelay;
+    if (e < 0) return 1;
+    final big = i == s.plan.destination && s.outcome == _Outcome.success;
+    return _pop(_unit(e / _kPop), big ? 1.3 : 1.25, from: 0.6);
+  }
+
+  double? _countProgress() {
+    final s = _scene;
+    final from = s.countFrom;
     if (s.still || from == null) return null;
     return ((_now - from) / _kCountUp).clamp(0.0, 1.0);
   }
@@ -658,32 +857,69 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final l10n = context.l10n;
     final keys = widget.keys;
-    final lines = widget.lines;
-    _scene.look = _Look(
+    final s = _scene;
+    final plan = s.plan;
+    final lines = plan.lines;
+    final direction = Directionality.of(context);
+    s.look = _Look(
       quiet: c.textTertiary,
       done: c.textSecondary,
-      failed: c.textPrimary,
+      failed: c.error,
+      gold: KuteDogPalette.mascot.furLight,
+      ping: c.textPrimary,
+      surface: c.surfaceElevated,
+      border: c.border,
+      success: c.success,
+      stationR: 14.r,
+      waypointR: 4.5.r,
+      coinR: 4.5.r,
+      roadW: 2.5.r,
+      salSize: 22.r,
       signR: 7.r,
-      trunkX: 6.5.r,
-      indent: 22.w,
-      salSize: 20.r,
-      salRing: 12.r,
-      smallRing: 6.r,
       shake: 4.r,
-      drop: 16.r,
-      rise: 14.r,
-      trail: 2.2.r,
-      reach: 9.r,
-      reachFinal: 13.r,
-      dot: 1.4.r,
-      dotFinal: 1.7.r,
+      padX: 34.r,
+      amountStyle: TextStyle(
+          color: c.textSecondary, fontSize: 9.sp, fontWeight: FontWeight.w600),
+      direction: direction,
     );
     final base = DefaultTextStyle.of(context).style;
     final scaler = MediaQuery.textScalerOf(context);
-    final direction = Directionality.of(context);
 
-    Widget lead(int i, MoneyStepStatus status) {
+    // ── The words on top ──
+    // The status names the line at work (a stop, the sub-phase running)
+    // when it is on the map (a leg, a sub-leg); a checkpoint listed under
+    // the map speaks for itself there, in bold, so it is never said twice.
+    final focus = plan.focus;
+    final checkpoints = plan.checkpoints;
+    String? status;
+    if (s.outcome == _Outcome.success && plan.placeLine != null) {
+      status = l10n.moneyJourneyPlaced;
+    } else if (s.outcome == _Outcome.success && lines.isNotEmpty) {
+      if (!checkpoints.contains(lines.length - 1)) status = lines.last.text;
+    } else if (focus != null && !checkpoints.contains(focus)) {
+      status = s.outcome == _Outcome.failure
+          ? lines[focus].text
+          : lines[focus].brief ?? lines[focus].text;
+    }
+    final headline = plan.headline;
+    final pct = (s.barTo * 100).round().clamp(0, 100);
+    final headlineStyle = TextStyle(
+        color: c.textPrimary,
+        fontSize: 15.sp,
+        fontWeight: FontWeight.w700,
+        height: 1.3);
+
+    // ── The checkpoints under the map ──
+    final anyFailed = plan.anyFailed;
+    final destPlace = plan.destination == null
+        ? null
+        : plan.stations[plan.destination!].place;
+    final checksRunning =
+        checkpoints.any((i) => lines[i].status == MoneyStepStatus.running);
+
+    Widget sign(int i, MoneyStepStatus status) {
       final (word, size) = switch (status) {
         MoneyStepStatus.failed => ('failed', 14.r),
         MoneyStepStatus.done || MoneyStepStatus.skipped => ('done', 14.r),
@@ -695,156 +931,417 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
           key: ValueKey('${keys.step}$word-$i'), dimension: size);
     }
 
-    final anyFailed = lines.any((l) => l.status == MoneyStepStatus.failed);
+    Widget checkpoint(int i) {
+      final line = lines[i];
+      final k = _lineKey(line, i);
+      final style = TextStyle(
+        color: switch (line.status) {
+          MoneyStepStatus.failed || MoneyStepStatus.running => c.textPrimary,
+          MoneyStepStatus.waiting => c.textTertiary,
+          _ => c.textSecondary,
+        },
+        fontSize: (line.sub ? 12 : 13).sp,
+        height: 1.35,
+        fontWeight: line.status == MoneyStepStatus.running
+            ? FontWeight.w600
+            : FontWeight.w400,
+      );
+      return _Shake(
+        clock: _clock,
+        dx: () => _shakeDx(k),
+        child: Padding(
+          key: ValueKey('${keys.step}${line.id ?? i}'),
+          padding: EdgeInsets.only(
+              top: 3.h, bottom: 3.h, left: line.sub ? 22.w : 0),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 22.w,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: RepaintBoundary(
+                    child: CustomPaint(
+                      painter: _SignPainter(s, k, _clock),
+                      child: sign(i, line.status),
+                    ),
+                  ),
+                ),
+              ),
+              Flexible(child: Text(line.text, style: style)),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final checkList = <Widget>[];
+    for (var n = 0; n < checkpoints.length; n++) {
+      final i = checkpoints[n];
+      final role = _treeRole(lines, checkpoints, n);
+      final row = checkpoint(i);
+      checkList.add(role == null
+          ? row
+          : CustomPaint(
+              key: ValueKey('money-step-tree-${lines[i].id ?? i}'),
+              painter: MoneyStepTreePainter(
+                role: role,
+                color: c.textTertiary,
+                trunkX: 6.5.r,
+                indent: 22.w,
+                signHalf: 7.r,
+              ),
+              child: row,
+            ));
+    }
+
     return Padding(
       key: ValueKey(keys.container),
       padding: EdgeInsets.only(top: 10.h),
-      child: Stack(
-        clipBehavior: Clip.none,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          RepaintBoundary(
-            child: _Anchor(
-              scene: _scene,
-              id: null,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  for (var i = 0; i < lines.length; i++)
-                    _treeBranch(i, c.textTertiary, () {
-                      final line = lines[i];
-                      final k = _lineKey(line, i);
-                      final style = TextStyle(
-                        // The step running now reads at full weight and
-                        // colour; the ones still to come stay quiet.
-                        color: switch (line.status) {
-                          MoneyStepStatus.failed ||
-                          MoneyStepStatus.running =>
-                            c.textPrimary,
-                          MoneyStepStatus.waiting => c.textTertiary,
-                          _ => c.textSecondary,
-                        },
-                        fontSize: (line.sub ? 12 : 13).sp,
+          // The amount, counting up, and the status in plain words.
+          if (headline != null || status != null)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                if (headline != null) ...[
+                  _CountUp(
+                    clock: _clock,
+                    progress: _countProgress,
+                    text: headline,
+                    style: base.merge(headlineStyle),
+                    scaler: scaler,
+                    direction: direction,
+                    child: Text(headline,
+                        key: const ValueKey('money-steps-amount'),
+                        style: headlineStyle),
+                  ),
+                  SizedBox(width: 8.w),
+                ],
+                if (status != null)
+                  Flexible(
+                    child: Text(
+                      status,
+                      key: const ValueKey('money-steps-status'),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          color: s.outcome == _Outcome.failure
+                              ? c.textPrimary
+                              : c.textSecondary,
+                          fontSize: 13.sp,
+                          fontWeight: FontWeight.w500,
+                          height: 1.3),
+                    ),
+                  ),
+              ],
+            ),
+          // The thin bar and its percent.
+          Padding(
+            padding: EdgeInsets.only(top: 6.h, bottom: 4.h),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _Bar(
+                    clock: _clock,
+                    progress: () => _barAt(s, _now),
+                    track: c.border,
+                    fill: s.outcome == _Outcome.failure
+                        ? c.error
+                        : KuteDogPalette.mascot.furLight,
+                    height: 3.r,
+                  ),
+                ),
+                SizedBox(width: 8.w),
+                Text('$pct%',
+                    key: const ValueKey('money-steps-percent'),
+                    style: TextStyle(
+                        color: c.textTertiary,
+                        fontSize: 11.sp,
+                        fontWeight: FontWeight.w600,
                         height: 1.35,
-                        fontWeight: line.status == MoneyStepStatus.running
-                            ? FontWeight.w600
-                            : FontWeight.w400,
-                      );
-                      return _Anchor(
-                        scene: _scene,
-                        id: k,
-                        child: _Shake(
-                          clock: _clock,
-                          dx: () => _shakeDx(k),
-                          child: Padding(
-                            key: ValueKey('${keys.step}${line.id ?? i}'),
-                            padding: EdgeInsets.only(
-                                top: 3.h,
-                                bottom: 3.h,
-                                left: line.sub ? 22.w : 0),
-                            child: Row(
-                              children: [
-                                SizedBox(
-                                  width: 22.w,
-                                  child: Align(
-                                      alignment: Alignment.centerLeft,
-                                      child: lead(i, line.status)),
-                                ),
-                                Flexible(
-                                  child: _CountUp(
-                                    clock: _clock,
-                                    progress: () => _countProgress(k),
-                                    text: line.text,
-                                    style: base.merge(style),
-                                    scaler: scaler,
-                                    direction: direction,
-                                    child: Text(line.text, style: style),
-                                  ),
-                                ),
-                              ],
-                            ),
+                        fontFeatures: const [FontFeature.tabularFigures()])),
+              ],
+            ),
+          ),
+          // The map.
+          if (plan.stations.isNotEmpty)
+            LayoutBuilder(builder: (context, constraints) {
+              final size = Size(constraints.maxWidth, 150.r);
+              final geo = s.geo = _Geometry.of(plan, size, s.look);
+              return GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTapDown: (d) => _tapAt(d.localPosition),
+                child: SizedBox(
+                  key: const ValueKey('money-steps-map'),
+                  width: size.width,
+                  height: size.height,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Positioned.fill(
+                        child: RepaintBoundary(
+                          child: CustomPaint(
+                              painter: _MapPainter(s, _clock, geo)),
+                        ),
+                      ),
+                      for (var i = 0; i < plan.stations.length; i++)
+                        _station(context, i, geo, l10n, checksRunning),
+                      for (var r = 0; r < plan.roads.length; r++)
+                        ..._roadSemantics(r, geo, sign),
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          child: RepaintBoundary(
+                            child: CustomPaint(
+                                painter:
+                                    MoneyJourneyPainter._(s, _clock, geo)),
                           ),
                         ),
-                      );
-                    }()),
-                  if (widget.slow && !anyFailed)
-                    Padding(
-                      padding: EdgeInsets.only(top: 4.h, left: 22.w),
-                      child: Text(
-                        context.l10n.slipStepTakingLonger,
-                        key: ValueKey(keys.slow),
-                        style: TextStyle(
-                            color: c.textTertiary,
-                            fontSize: 12.sp,
-                            height: 1.35),
                       ),
-                    ),
-                  if (widget.note case final line?)
-                    Padding(
-                      padding: EdgeInsets.only(top: 6.h),
-                      child: Text(
-                        line,
-                        key: ValueKey(keys.note),
-                        style: TextStyle(
-                            color: c.textSecondary,
-                            fontSize: 13.sp,
-                            height: 1.35),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-          // The motion layer: signs, Sal, the fill, the trail and the
-          // bursts, one painter on its own layer, repainted by the clock.
-          Positioned.fill(
-            child: IgnorePointer(
-              child: RepaintBoundary(
-                child: CustomPaint(
-                  painter: MoneyStepsMotionPainter._(_scene, _clock),
+                    ],
+                  ),
                 ),
+              );
+            }),
+          // The checkpoints at the destination.
+          if (checkList.isNotEmpty) ...[
+            if (plan.hasGraph && destPlace != null)
+              Padding(
+                padding: EdgeInsets.only(top: 6.h, bottom: 2.h),
+                child: Text(
+                  l10n.moneyJourneyAt(moneyPlaceName(l10n, destPlace)),
+                  key: const ValueKey('money-steps-checkpoints-title'),
+                  style: TextStyle(
+                      color: c.textTertiary,
+                      fontSize: 11.sp,
+                      fontWeight: FontWeight.w600,
+                      height: 1.3),
+                ),
+              )
+            else
+              SizedBox(height: 4.h),
+            ...checkList,
+          ],
+          if (widget.slow && !anyFailed)
+            Padding(
+              padding: EdgeInsets.only(top: 4.h, left: 22.w),
+              child: Text(
+                l10n.slipStepTakingLonger,
+                key: ValueKey(keys.slow),
+                style: TextStyle(
+                    color: c.textTertiary, fontSize: 12.sp, height: 1.35),
               ),
             ),
-          ),
+          if (widget.note case final line?)
+            Padding(
+              padding: EdgeInsets.only(top: 6.h),
+              child: Text(
+                line,
+                key: ValueKey(keys.note),
+                style: TextStyle(
+                    color: c.textSecondary, fontSize: 13.sp, height: 1.35),
+              ),
+            ),
         ],
       ),
     );
   }
 
-  /// Line [i] with its part of the tree drawn behind it: a stage line
-  /// that has sub-steps under it starts the connector below its sign;
-  /// each sub-step carries it on, with an elbow into its own sign (├,
-  /// └ on the last). Any other line is left as it is.
-  Widget _treeBranch(int i, Color color, Widget row) {
-    final lines = widget.lines;
-    final role = moneyStepTreeRole(lines, i);
-    if (role == null) return row;
-    return CustomPaint(
-      key: ValueKey('money-step-tree-${lines[i].id ?? i}'),
-      painter: MoneyStepTreePainter(
-        role: role,
-        color: color,
-        trunkX: 6.5.r,
-        indent: 22.w,
-        signHalf: 7.r,
+  /// A station: its mark on a disc (gold once the money is there, red on
+  /// a stop), its name under it, the "n of m arrived" or "k/n" chip under
+  /// the destination. The pop and the shake are paint-only.
+  Widget _station(BuildContext context, int i, _Geometry geo,
+      AppLocalizations l10n, bool checksRunning) {
+    final c = context.colors;
+    final s = _scene;
+    final plan = s.plan;
+    final st = plan.stations[i];
+    final at = geo.stations[i];
+    final look = s.look;
+    final r = look.stationR;
+    final done = _stationDone(s, i);
+    final failed = _stationFailedAt(s, i) != null;
+    final fill = failed
+        ? c.error.withValues(alpha: 0.22)
+        : done
+            ? look.gold.withValues(alpha: 0.38)
+            : look.surface;
+    final ring = failed
+        ? c.error
+        : done
+            ? look.gold
+            : look.border;
+    final label = st.label ??
+        (st.place == null ? l10n.recipient : moneyPlaceName(l10n, st.place!));
+    String? chip;
+    if (i == plan.destination) {
+      final sources = plan.sourceRoads.where((r) => r.line >= 0).toList();
+      final arrived =
+          sources.where((r) => plan.lines[r.line].status.satisfies).length;
+      if (sources.length > 1 && arrived < sources.length) {
+        chip = l10n.moneyJourneyArrived(arrived, sources.length);
+      } else if (checksRunning && plan.hasGraph) {
+        // The steps themselves, not a stage line that only sums its own.
+        final checks = [
+          for (var n = 0; n < plan.checkpoints.length; n++)
+            if (_treeRole(plan.lines, plan.checkpoints, n) !=
+                MoneyStepTreeRole.parent)
+              plan.checkpoints[n]
+        ];
+        final ok =
+            checks.where((k) => plan.lines[k].status.satisfies).length;
+        chip = '$ok/${checks.length}';
+      }
+    }
+    final mark = switch (st.place) {
+      MoneyPlace.bitcoin => Icon(Icons.currency_bitcoin_rounded,
+          size: r * 1.3, color: KuteDogPalette.mascot.fur),
+      MoneyPlace.dollars => Text('\$',
+          style: TextStyle(
+              color: c.success,
+              fontSize: r * 1.15,
+              fontWeight: FontWeight.w800,
+              height: 1)),
+      MoneyPlace.investing => SvgPicture.asset(
+          'lib/assets/hyperliquid-logo.svg',
+          width: r * 1.2,
+          height: r * 1.2),
+      MoneyPlace.predictions => SvgPicture.asset(
+          'lib/assets/polymarket-logo.svg',
+          width: r * 1.2,
+          height: r * 1.2),
+      null => Icon(Icons.arrow_outward_rounded,
+          size: r * 1.2, color: c.textSecondary),
+    };
+    final labelW = 72.r;
+    return Positioned(
+      left: at.dx - labelW / 2,
+      top: at.dy - r,
+      width: labelW,
+      child: Semantics(
+        key: ValueKey('money-steps-station-${st.id}'),
+        label: label,
+        excludeSemantics: true,
+        child: _Shake(
+          clock: _clock,
+          dx: () => _stationShake(i),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _Scaled(
+                clock: _clock,
+                scale: () => _stationScale(i),
+                child: Container(
+                  width: r * 2,
+                  height: r * 2,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: fill,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: ring, width: 1.5),
+                  ),
+                  child: mark,
+                ),
+              ),
+              SizedBox(height: 3.h),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    color: done || failed ? c.textPrimary : c.textSecondary,
+                    fontSize: 10.sp,
+                    fontWeight: FontWeight.w600,
+                    height: 1.2),
+              ),
+              if (chip != null)
+                Padding(
+                  padding: EdgeInsets.only(top: 2.h),
+                  child: Container(
+                    key: const ValueKey('money-steps-chip'),
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 5.w, vertical: 1.h),
+                    decoration: BoxDecoration(
+                      color: look.surface,
+                      borderRadius: BorderRadius.circular(8.r),
+                      border: Border.all(color: look.border, width: 1),
+                    ),
+                    child: Text(chip,
+                        style: TextStyle(
+                            color: c.textSecondary,
+                            fontSize: 9.sp,
+                            fontWeight: FontWeight.w600,
+                            height: 1.2)),
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
-      child: row,
     );
   }
+
+  /// The words of a road's leg line, and of each sub-leg, as semantics
+  /// nodes on the map (over the road's middle, over each waypoint), each
+  /// with the line's sign key, so a screen reader and the tests find
+  /// "Moved $8.00 from Bitcoin" and "Circle → Arbitrum · $10.84".
+  List<Widget> _roadSemantics(
+      int r, _Geometry geo, Widget Function(int, MoneyStepStatus) sign) {
+    final s = _scene;
+    final plan = s.plan;
+    final road = plan.roads[r];
+    if (road.line < 0) return const [];
+    final lines = plan.lines;
+    Widget node(int i, Offset at, double w, double h) => Positioned(
+          left: at.dx - w / 2,
+          top: at.dy - h / 2,
+          width: w,
+          height: h,
+          child: Semantics(
+            key: ValueKey('money-steps-road-${lines[i].id ?? i}'),
+            label: lines[i].text,
+            container: true,
+            child: ExcludeSemantics(child: sign(i, lines[i].status)),
+          ),
+        );
+    final mid = geo.along(r, 0.5);
+    return [
+      node(road.line, mid, 40.r, 20.r),
+      for (var k = 0; k < road.segments.length; k++)
+        if (road.segments[k] != road.line)
+          node(
+              road.segments[k],
+              k < geo.waypoints[r].length
+                  ? geo.waypoints[r][k]
+                  : geo.stations[road.to]
+                      .translate(0, s.look.stationR + 8.r),
+              20.r,
+              20.r),
+    ];
+  }
+}
+
+/// Where checkpoint [n] of [checkpoints] sits in the steps' tree.
+MoneyStepTreeRole? _treeRole(
+    List<MoneyStepLine> lines, List<int> checkpoints, int n) {
+  final i = checkpoints[n];
+  final next = n + 1 < checkpoints.length ? lines[checkpoints[n + 1]] : null;
+  if (lines[i].sub) {
+    return next == null || !next.sub
+        ? MoneyStepTreeRole.lastChild
+        : MoneyStepTreeRole.child;
+  }
+  return next != null && next.sub ? MoneyStepTreeRole.parent : null;
 }
 
 /// Where line [i] of [lines] sits in the steps' tree; null when it is not
 /// in one (a line with no sub-steps under it).
-MoneyStepTreeRole? moneyStepTreeRole(List<MoneyStepLine> lines, int i) {
-  if (lines[i].sub) {
-    final last = i + 1 >= lines.length || !lines[i + 1].sub;
-    return last ? MoneyStepTreeRole.lastChild : MoneyStepTreeRole.child;
-  }
-  if (i + 1 < lines.length && lines[i + 1].sub) {
-    return MoneyStepTreeRole.parent;
-  }
-  return null;
-}
+MoneyStepTreeRole? moneyStepTreeRole(List<MoneyStepLine> lines, int i) =>
+    _treeRole(lines, [for (var k = 0; k < lines.length; k++) k], i);
 
 /// Where a line sits in the steps' tree.
 enum MoneyStepTreeRole {
@@ -887,11 +1384,11 @@ void _paintTreeBranch(Canvas canvas, Size size, MoneyStepTreeRole role,
   }
 }
 
-/// The thin connector of the steps' tree, drawn in the lines' own quiet
-/// colour behind one line: [trunkX] is the centre of the stage line's
-/// sign, [indent] where a sub-step's sign starts, [signHalf] half a
-/// sign's height (the trunk leaves a stage line just below it). No box,
-/// no fill.
+/// The thin connector of the checkpoints' tree, drawn in the lines' own
+/// quiet colour behind one line: [trunkX] is the centre of the stage
+/// line's sign, [indent] where a sub-step's sign starts, [signHalf] half
+/// a sign's height (the trunk leaves a stage line just below it). No
+/// box, no fill.
 @visibleForTesting
 class MoneyStepTreePainter extends CustomPainter {
   const MoneyStepTreePainter({
@@ -928,26 +1425,123 @@ class MoneyStepTreePainter extends CustomPainter {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Motion
+// Reading the scene
 // ─────────────────────────────────────────────────────────────────────
 
-/// A soft spring (damping 0.6, a little under 10% overshoot) from 0 to 1
-/// over [t] seconds; it first reaches 1 at about [_kArrive].
-double _spring(double t) {
-  const z = 0.6;
-  const w = 11.1;
-  final wd = w * math.sqrt(1 - z * z);
-  return 1 -
-      math.exp(-z * w * t) *
-          (math.cos(wd * t) + (z * w / wd) * math.sin(wd * t));
+/// How far one segment (a line's stretch of road) is lit at [now]: all
+/// the way once done (dashed to from where it was), part of the way and
+/// holding while it runs, where it stopped on a stop.
+double _segLit(_Scene s, _Fx? f, double now) {
+  if (f == null) return 0;
+  switch (f.status) {
+    case MoneyStepStatus.done || MoneyStepStatus.skipped:
+      final at = f.doneAt;
+      if (s.still || at == null) return 1;
+      final e = now - at;
+      if (e < 0) return f.litFrom;
+      return f.litFrom +
+          (1 - f.litFrom) *
+              Curves.easeOutCubic.transform(_unit(e / f.dashMs));
+    case MoneyStepStatus.running:
+      final since = f.runSince;
+      if (s.still || since == null) return _kHold;
+      return _kHold *
+          Curves.easeOutCubic.transform(_unit((now - since) / _kApproach));
+    case MoneyStepStatus.failed:
+      return f.litFrom;
+    case MoneyStepStatus.waiting || MoneyStepStatus.fellBack:
+      return 0;
+  }
 }
 
-/// The check's pop: 0.5 up to [peak], then back to 1.
-double _pop(double p, double peak) {
-  if (p <= 0) return 0.5;
+double _roadLit(_Scene s, JourneyRoad road, double now) {
+  if (road.segments.isEmpty) return 1;
+  var sum = 0.0;
+  for (final i in road.segments) {
+    sum += _segLit(s, s.fx[s.keys[i]], now);
+  }
+  return sum / road.segments.length;
+}
+
+/// Whether the money is at station [i]: every road into it is done
+/// (and, for a source, every road out of it).
+bool _stationDone(_Scene s, int i) {
+  final plan = s.plan;
+  final into = plan.roads.where((r) => r.to == i);
+  final out = plan.roads.where((r) => r.from == i);
+  if (into.isEmpty && out.isEmpty) {
+    return plan.checkpoints.isNotEmpty &&
+        plan.checkpoints.every((k) => plan.lines[k].status.satisfies);
+  }
+  bool ok(JourneyRoad r) => r.segments.every((k) =>
+      plan.lines[k].status.satisfies ||
+      plan.lines[k].status == MoneyStepStatus.fellBack);
+  return into.isNotEmpty ? into.every(ok) : out.every(ok);
+}
+
+/// When station [i] turned gold (the latest of its roads' dashes), null
+/// while it has not, negative infinity when it was before the view.
+double? _stationDoneAt(_Scene s, int i) {
+  if (!_stationDone(s, i)) return null;
+  final plan = s.plan;
+  var into = plan.roads.where((r) => r.to == i).toList();
+  if (into.isEmpty) into = plan.roads.where((r) => r.from == i).toList();
+  double? latest;
+  if (into.isEmpty) {
+    for (final k in plan.checkpoints) {
+      final at = s.fx[s.keys[k]]?.doneAt;
+      if (at != null) {
+        latest = latest == null ? at : math.max(latest, at);
+      }
+    }
+    return latest ?? double.negativeInfinity;
+  }
+  for (final r in into) {
+    for (final k in r.segments) {
+      final f = s.fx[s.keys[k]];
+      final at = f?.doneAt;
+      if (at == null) continue;
+      final end = at + f!.dashMs - _kPopDelay;
+      latest = latest == null ? end : math.max(latest, end);
+    }
+  }
+  return latest ?? double.negativeInfinity;
+}
+
+/// When a stop reached station [i] (a road into it, or a checkpoint at
+/// the destination, failed), null when none did.
+double? _stationFailedAt(_Scene s, int i) {
+  final plan = s.plan;
+  double? at;
+  void note(int k) {
+    if (plan.lines[k].status != MoneyStepStatus.failed) return;
+    at = s.fx[s.keys[k]]?.failedAt ?? double.negativeInfinity;
+  }
+
+  for (final r in plan.roads) {
+    if (r.to != i) continue;
+    for (final k in r.segments) {
+      note(k);
+    }
+  }
+  if (at == null && i == plan.destination) {
+    for (final k in plan.checkpoints) {
+      note(k);
+    }
+  }
+  return at;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Motion helpers
+// ─────────────────────────────────────────────────────────────────────
+
+/// The pop: [from] up to [peak], then back to 1.
+double _pop(double p, double peak, {double from = 0.5}) {
+  if (p <= 0) return from;
   if (p >= 1) return 1;
   if (p < 0.55) {
-    return 0.5 + (peak - 0.5) * Curves.easeOutCubic.transform(p / 0.55);
+    return from + (peak - from) * Curves.easeOutCubic.transform(p / 0.55);
   }
   return peak + (1 - peak) * Curves.easeInOut.transform((p - 0.55) / 0.45);
 }
@@ -961,39 +1555,10 @@ double _shakeAt(double amplitude, double e) {
 
 double _unit(double v) => v.isNaN ? 0 : v.clamp(0.0, 1.0);
 
-/// The route from [from] to [to] along the tree: out to the trunk at
-/// [trunkX], along it, and into [to].
-List<Offset> _route(Offset from, Offset to, double trunkX) {
-  final pts = <Offset>[from];
-  void add(Offset p) {
-    if ((pts.last - p).distance > 0.01) pts.add(p);
-  }
-
-  add(Offset(trunkX, from.dy));
-  add(Offset(trunkX, to.dy));
-  add(to);
-  return pts;
-}
-
-/// The point [s] of the way along [pts] (past the end along its last
-/// segment, for the spring's overshoot).
-Offset _along(List<Offset> pts, double s) {
-  if (pts.length < 2) return pts.last;
-  var total = 0.0;
-  for (var i = 1; i < pts.length; i++) {
-    total += (pts[i] - pts[i - 1]).distance;
-  }
-  if (total <= 0) return pts.last;
-  var d = s * total;
-  for (var i = 1; i < pts.length; i++) {
-    final seg = pts[i] - pts[i - 1];
-    final len = seg.distance;
-    if (d <= len || i == pts.length - 1) {
-      return pts[i - 1] + seg / len * d;
-    }
-    d -= len;
-  }
-  return pts.last;
+/// Deterministic 0..1 noise, so stars and confetti never boil.
+double _noise(int seed) {
+  final x = math.sin(seed * 12.9898) * 43758.5453;
+  return x - x.floorToDouble();
 }
 
 KuteDogPose _withLift(KuteDogPose p, double lift) => KuteDogPose(
@@ -1014,354 +1579,671 @@ KuteDogPose _withLift(KuteDogPose p, double lift) => KuteDogPose(
       tongue: p.tongue,
     );
 
-/// The steps' motion layer (see [MoneyStepsView]): the fill behind Sal,
-/// his trail, Sal himself, every line's sign (ring, check, stop sign,
-/// route change) and the bursts. One painter, repainted by the view's
-/// clock; the lines themselves never rebuild for it.
-@visibleForTesting
-class MoneyStepsMotionPainter extends CustomPainter {
-  MoneyStepsMotionPainter._(this._scene, this._clock) : super(repaint: _clock);
+/// A runner's colour: its balance's own (the marks' colours).
+Color _placeColor(MoneyPlace? place, _Look look) => switch (place) {
+      MoneyPlace.bitcoin => KuteDogPalette.mascot.fur,
+      MoneyPlace.dollars => look.success,
+      MoneyPlace.investing => const Color(0xFF97FCE4),
+      MoneyPlace.predictions => const Color(0xFF2E5CFF),
+      null => look.done,
+    };
+
+// ─────────────────────────────────────────────────────────────────────
+// The map's painters
+// ─────────────────────────────────────────────────────────────────────
+
+/// Behind the stations: the stars, the roads (quiet, lit gold behind
+/// each runner), the waypoints (with their names and amounts), the pings
+/// around the station at work and the bursts around one just reached.
+class _MapPainter extends CustomPainter {
+  _MapPainter(this._scene, this._clock, this._geo) : super(repaint: _clock);
 
   final _Scene _scene;
   final Animation<double> _clock;
+  final _Geometry _geo;
 
-  /// Whether Sal is drawn now.
-  bool get travellerShown => _salAlive(_clock.value * 1000);
+  @override
+  void paint(Canvas canvas, Size size) {
+    final s = _scene;
+    final look = s.look;
+    final plan = s.plan;
+    final now = _clock.value * 1000;
+    final still = s.still;
+    final geo = _geo;
 
-  /// The line Sal rides to (or sits at), by id.
-  String? get travellerTarget => _scene.target;
+    // ── Stars ──
+    final star = Paint()..style = PaintingStyle.fill;
+    for (var i = 0; i < 16; i++) {
+      final x = _noise(i * 3 + 1) * size.width;
+      final y = _noise(i * 3 + 2) * size.height;
+      final period = 1800 + _noise(i * 3 + 3) * 1600;
+      final tw = still
+          ? 0.5
+          : 0.5 + 0.5 * math.sin(2 * math.pi * now / period + i * 1.7);
+      star.color = look.quiet.withValues(alpha: 0.10 + 0.22 * tw);
+      canvas.drawCircle(Offset(x, y), 0.9 + 0.7 * _noise(i + 40), star);
+    }
+
+    // ── Roads ──
+    final quiet = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = look.roadW
+      ..strokeCap = StrokeCap.round
+      ..color = look.border;
+    final lit = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = look.roadW
+      ..strokeCap = StrokeCap.round
+      ..color = look.gold;
+    final glow = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = look.roadW * 3
+      ..strokeCap = StrokeCap.round
+      ..color = look.gold.withValues(alpha: 0.18);
+    final stopped = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = look.roadW
+      ..strokeCap = StrokeCap.round
+      ..color = look.failed.withValues(alpha: 0.55);
+    for (var r = 0; r < plan.roads.length; r++) {
+      final path = geo.roads[r];
+      final m = geo.metrics[r];
+      canvas.drawPath(path, quiet);
+      if (m == null) continue;
+      final road = plan.roads[r];
+      final f = _roadLit(s, road, now);
+      if (f > 0) {
+        final part = m.extractPath(0, m.length * f);
+        canvas.drawPath(part, glow);
+        canvas.drawPath(part, lit);
+      }
+      // A stop on the road: its stretch in the failed colour.
+      for (var k = 0; k < road.segments.length; k++) {
+        if (plan.lines[road.segments[k]].status != MoneyStepStatus.failed) {
+          continue;
+        }
+        final a = m.length * k / road.segments.length;
+        final b = m.length * (k + 1) / road.segments.length;
+        canvas.drawPath(m.extractPath(a, b), stopped);
+      }
+    }
+
+    // ── Waypoints ──
+    for (var r = 0; r < plan.roads.length; r++) {
+      final road = plan.roads[r];
+      for (var k = 0; k < road.waypoints.length; k++) {
+        final wp = road.waypoints[k];
+        final at = geo.waypoints[r][k];
+        final line = plan.lines[wp.line];
+        final fx = s.fx[s.keys[wp.line]];
+        final done = line.status.satisfies;
+        final failed = line.status == MoneyStepStatus.failed;
+        final running = line.status == MoneyStepStatus.running;
+        var scale = 1.0;
+        if (done && !still && fx?.doneAt != null) {
+          final e = now - fx!.doneAt! - _kPopDelay;
+          scale = e < 0 ? 0.9 : _pop(_unit(e / _kPop), 1.4, from: 0.6);
+        }
+        final fill = failed
+            ? look.failed
+            : done
+                ? look.gold
+                : look.surface;
+        final rim = failed
+            ? look.failed
+            : done
+                ? look.gold
+                : running
+                    ? look.ping
+                    : look.border;
+        canvas.drawCircle(at, look.waypointR * scale, Paint()..color = fill);
+        canvas.drawCircle(
+            at,
+            look.waypointR * scale,
+            Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 1.2
+              ..color = rim);
+        if (running) _ping(canvas, at, look.waypointR + 2, now, still);
+        if (done && !still) _burst(canvas, at, now, fx, look, small: true);
+        // Its name under it; its amount above it once it is on its way.
+        _label(
+            canvas,
+            wp.label,
+            at.translate(0, look.waypointR + 2),
+            look.amountStyle.copyWith(
+                color: done ? look.done : look.quiet,
+                fontWeight: FontWeight.w500),
+            below: true);
+        final amount = wp.amount;
+        if (amount != null && (done || running)) {
+          _label(canvas, amount, at.translate(0, -look.waypointR - 2),
+              look.amountStyle.copyWith(color: done ? look.done : look.quiet),
+              below: false);
+        }
+      }
+    }
+
+    // ── The stations at work, and the ones just reached ──
+    final running = <int>{};
+    for (final r in plan.roads) {
+      if (r.segments
+          .any((k) => plan.lines[k].status == MoneyStepStatus.running)) {
+        running.add(r.to);
+      }
+    }
+    final dest = plan.destination;
+    if (dest != null &&
+        plan.checkpoints
+            .any((k) => plan.lines[k].status == MoneyStepStatus.running)) {
+      running.add(dest);
+    }
+    for (var i = 0; i < plan.stations.length; i++) {
+      final at = geo.stations[i];
+      if (running.contains(i) && !_stationDone(s, i)) {
+        _ping(canvas, at, look.stationR + 3, now, still);
+      }
+      final doneAt = _stationDoneAt(s, i);
+      if (doneAt != null && !still && doneAt.isFinite) {
+        final big = i == dest && s.outcome == _Outcome.success && s.live;
+        final fx = _Fx(MoneyStepStatus.done)
+          ..doneAt = big ? s.outcomeAt : doneAt
+          ..finalDone = big;
+        _burst(canvas, at, now, fx, look, small: false, radius: look.stationR);
+      }
+    }
+  }
+
+  void _ping(Canvas canvas, Offset at, double r, double now, bool still) {
+    final look = _scene.look;
+    if (still) {
+      canvas.drawCircle(
+          at,
+          r + 2,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.2
+            ..color = look.ping.withValues(alpha: 0.5));
+      return;
+    }
+    final p = (now % _kPing) / _kPing;
+    canvas.drawCircle(
+        at,
+        r + 10 * Curves.easeOut.transform(p),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.6 * (1 - p) + 0.4
+          ..color = look.ping.withValues(alpha: 0.55 * (1 - p)));
+  }
+
+  void _label(Canvas canvas, String text, Offset at, TextStyle style,
+      {required bool below}) {
+    if (text.isEmpty) return;
+    final tp = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: _scene.look.direction,
+      maxLines: 1,
+      ellipsis: '…',
+    )..layout(maxWidth: 64);
+    tp.paint(canvas, at.translate(-tp.width / 2, below ? 0 : -tp.height));
+    tp.dispose();
+  }
+
+  @override
+  bool shouldRepaint(_MapPainter old) => true;
+}
+
+/// A finished step's burst: six gold dots out from [at] (ten, bigger,
+/// for the last one), right after its pop.
+void _burst(Canvas canvas, Offset at, double now, _Fx? fx, _Look look,
+    {required bool small, double? radius}) {
+  final doneAt = fx?.doneAt;
+  if (doneAt == null) return;
+  final pe = now - doneAt - _kPopDelay;
+  final span = fx!.finalDone ? _kFinalBurst : _kBurst;
+  final bp = pe / span;
+  if (bp < 0 || bp >= 1) return;
+  final n = fx.finalDone ? 10 : 6;
+  final base = radius ?? look.waypointR;
+  final reach = (fx.finalDone ? 16.0 : 10.0) * (small ? 0.6 : 1);
+  final dot = (fx.finalDone ? 2.0 : 1.6) * (small ? 0.7 : 1);
+  final out = Curves.easeOutCubic.transform(bp);
+  final paint = Paint()
+    ..color = look.gold.withValues(alpha: math.pow(1 - bp, 1.4).toDouble());
+  for (var j = 0; j < n; j++) {
+    final a = -math.pi / 2 + 2 * math.pi * j / n + (j.isOdd ? 0.18 : -0.12);
+    final d = base + reach * out;
+    canvas.drawCircle(at + Offset(math.cos(a), math.sin(a)) * d,
+        dot * (1 - 0.5 * bp), paint);
+  }
+}
+
+/// Over the stations: the coins running the other roads, Sal with his,
+/// and the confetti. One painter, repainted by the view's clock.
+@visibleForTesting
+class MoneyJourneyPainter extends CustomPainter {
+  MoneyJourneyPainter._(this._scene, this._clock, this._geo)
+      : super(repaint: _clock);
+
+  final _Scene _scene;
+  final Animation<double> _clock;
+  final _Geometry _geo;
+
+  double get _now => _clock.value * 1000;
+
+  /// Whether Sal is drawn (he always is, once the map has a station).
+  bool get travellerShown => _scene.plan.stations.isNotEmpty;
+
+  /// Where Sal stands now, in the map's coordinates.
+  Offset? get travellerAt => _scene.lastSal;
+
+  /// The id of the road's leg line Sal rides now, null once he sits at
+  /// a station (`#stage` on the stage road of a list without a graph).
+  String? get travellerRoad {
+    final s = _scene;
+    final spot = _MoneyStepsViewState._spotOf(s, _now);
+    if (spot >= s.plan.chain.length) return null;
+    final road = s.plan.roads[s.plan.chain[spot]];
+    return road.line < 0 ? '#stage' : s.plan.lines[road.line].id;
+  }
+
+  /// The station Sal is at or heading to, by id.
+  String? get travellerStation {
+    final s = _scene;
+    final plan = s.plan;
+    if (plan.stations.isEmpty) return null;
+    final spot = _MoneyStepsViewState._spotOf(s, _now);
+    if (plan.chain.isEmpty) {
+      return plan.stations[plan.destination ?? 0].id;
+    }
+    final road =
+        plan.roads[plan.chain[math.min(spot, plan.chain.length - 1)]];
+    return plan.stations[road.to].id;
+  }
+
+  /// How far line [id]'s road (or stretch of road) is lit now, 0..1.
+  double litOf(String id) {
+    final s = _scene;
+    final i = s.keys.indexOf(id);
+    if (i < 0) return 0;
+    final road = s.plan.roads.where((r) => r.line == i).firstOrNull;
+    return road == null ? _segLit(s, s.fx[id], _now) : _roadLit(s, road, _now);
+  }
 
   /// How far line [id] is shaken sideways now (a stop's shake).
   double shakeOf(String id) {
     final at = _scene.fx[id]?.failedAt;
     if (_scene.still || at == null) return 0;
-    return _shakeAt(_scene.look.shake, _clock.value * 1000 - at);
+    return _shakeAt(_scene.look.shake, _now - at);
   }
 
-  bool _salAlive(double now) {
-    final s = _scene;
-    if (!s.live || !s.salShown || s.target == null) return false;
-    if (s.outcome == _Outcome.success) {
-      return !s.still && now < s.outcomeAt + _kExit;
-    }
-    return true;
+  /// Whether a finished record is replaying its journey now.
+  bool get replaying {
+    final at = _scene.replayAt;
+    return at != null && _now < at + _kReplay + 600;
+  }
+
+  /// Whether Sal is mid-jump from a tap.
+  bool get jumping {
+    final at = _scene.jumpAt;
+    return at != null && !_scene.still && _now - at < _kHop;
   }
 
   @override
   void paint(Canvas canvas, Size size) {
     final s = _scene;
-    final root = s.root;
-    if (root == null || !root.attached) return;
     final look = s.look;
-    final now = _clock.value * 1000;
+    final plan = s.plan;
+    final now = _now;
     final still = s.still;
+    final geo = _geo;
+    if (plan.stations.isEmpty) return;
 
-    final rows = <String, Rect>{};
-    final nodes = <String, Offset>{};
-    for (var i = 0; i < s.order.length && i < s.lines.length; i++) {
-      final k = s.order[i];
-      final box = s.anchors[k];
-      if (box == null || !box.attached || !box.hasSize) continue;
-      final o = box.localToGlobal(Offset.zero, ancestor: root);
-      final r = o & box.size;
-      rows[k] = r;
-      final failedAt = s.fx[k]?.failedAt;
-      final dx = still || failedAt == null
-          ? 0.0
-          : _shakeAt(look.shake, now - failedAt);
-      nodes[k] = Offset(
-          r.left + (s.lines[i].sub ? look.indent : 0) + look.signR + dx,
-          r.center.dy);
-    }
-
-    // ── Sal's place ──
-    Offset? sal;
-    List<Offset>? route;
-    double glideE = -1;
-    final target = s.target;
-    final to = target == null ? null : nodes[target];
-    final salAlive = _salAlive(now) && to != null;
-    if (salAlive) {
-      if (s.outcome == _Outcome.success) {
-        sal = s.exitFrom ??= s.lastSal ?? to;
-      } else if (still) {
-        sal = to;
-      } else {
-        final g = s.glideAt;
-        if (g == null) {
-          sal = to;
-        } else if (now < g) {
-          sal = s.glideFrom ?? to;
-        } else {
-          glideE = now - g;
-          if (glideE >= _kGlide) {
-            sal = to;
-          } else {
-            final from = s.glideFrom ?? to.translate(0, -look.drop);
-            route = _route(from, to, rows[target]!.left + look.trunkX);
-            sal = _along(route, _spring(glideE / 1000));
-          }
-        }
+    // ── The other legs' coins ──
+    for (var r = 0; r < plan.roads.length; r++) {
+      if (plan.chain.contains(r)) continue;
+      final road = plan.roads[r];
+      if (road.line < 0) continue;
+      final f = _roadLit(s, road, now);
+      if (f <= 0) continue;
+      var alpha = 1.0;
+      if (f >= 1) {
+        final last = s.fx[s.keys[road.segments.last]];
+        final at = last?.doneAt;
+        if (still || at == null) continue;
+        alpha = 1 - _unit((now - at - last!.dashMs) / 120);
+        if (alpha <= 0) continue;
       }
-      if (s.outcome != _Outcome.success) s.lastSal = sal;
-    }
-
-    // ── The line filling in behind him ──
-    final stroke = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1
-      ..strokeCap = StrokeCap.round;
-    double? fillY;
-    var fillX = double.negativeInfinity;
-    var settle = 0.0;
-    if (s.outcome == _Outcome.success) {
-      if (still || !s.live || now >= s.outcomeAt + _kRingClose) {
-        fillY = double.infinity;
-        settle =
-            still || !s.live ? 1 : _unit((now - s.outcomeAt - 200) / _kSettle);
-      } else if (sal != null) {
-        fillY = sal.dy;
-        fillX = sal.dx;
-      }
-    } else if (sal != null) {
-      fillY = sal.dy;
-      fillX = sal.dx;
-    } else if (s.outcome == _Outcome.failure) {
-      for (var i = 0; i < s.lines.length; i++) {
-        if (s.lines[i].status == MoneyStepStatus.failed) {
-          fillY = nodes[s.order[i]]?.dy;
-          break;
-        }
-      }
-    }
-    if (fillY != null) {
-      stroke.color = Color.lerp(look.light, look.done, settle)!;
-      const far = 1e5;
-      final clip = Path()
-        ..addRect(Rect.fromLTRB(-far, -far, far, fillY))
-        ..addRect(Rect.fromLTRB(
-            -far, fillY - 2, fillX.isFinite ? fillX : -far, fillY + 2));
-      canvas.save();
-      if (fillY.isFinite) canvas.clipPath(clip);
-      for (var i = 0; i < s.lines.length; i++) {
-        final role = moneyStepTreeRole(s.lines, i);
-        final r = rows[s.order[i]];
-        if (role == null || r == null) continue;
-        canvas.save();
-        canvas.translate(r.left, r.top);
-        _paintTreeBranch(
-            canvas, r.size, role, stroke, look.trunkX, look.indent, look.signR);
-        canvas.restore();
-      }
-      canvas.restore();
-    }
-
-    // ── His brief trail ──
-    if (route != null && glideE >= 0 && glideE < 450) {
-      final fade = 1 - _unit((glideE - 250) / 200);
-      final dot = Paint()..style = PaintingStyle.fill;
-      for (var k = 1; k <= 5; k++) {
-        final te = glideE - k * 22;
-        if (te < 0) break;
-        final p = _along(route, _spring(te / 1000));
-        dot.color = look.light
-            .withValues(alpha: look.light.a * 0.55 * (1 - k / 6) * fade);
-        canvas.drawCircle(p, look.trail * (1 - k / 7), dot);
-      }
+      final at = geo.along(r, f);
+      final bob = still ? 0.0 : 1.5 * math.sin(now / 90);
+      _coin(canvas, at.translate(0, bob),
+          _placeColor(plan.stations[road.from].place, look), alpha, now);
     }
 
     // ── Sal ──
-    if (salAlive && sal != null) {
-      _paintSal(canvas, sal, now, glideE);
+    final spot = _MoneyStepsViewState._spotOf(s, now);
+    Offset at;
+    var riding = false;
+    var moving = false;
+    if (plan.chain.isEmpty) {
+      at = geo.stations[plan.destination ?? 0];
+    } else if (spot < plan.chain.length) {
+      final r = plan.chain[spot];
+      final road = plan.roads[r];
+      final f = _roadLit(s, road, now);
+      riding = f > 0;
+      at = riding ? geo.along(r, f) : geo.stations[road.from];
+      moving = !still && riding && _roadLit(s, road, now - 40) < f - 1e-4;
+    } else {
+      at = geo.stations[plan.roads[plan.chain.last].to];
     }
+    if (!riding) at = at.translate(0, -look.stationR + 2);
+    s.lastSal = at;
+    _paintSal(canvas, at, now, riding: riding, moving: moving);
 
-    // ── The signs ──
-    for (var i = 0; i < s.lines.length; i++) {
-      final k = s.order[i];
-      final c = nodes[k];
-      final fx = s.fx[k];
-      if (c == null || fx == null) continue;
-      switch (s.lines[i].status) {
-        case MoneyStepStatus.running:
-          final big = salAlive && k == target;
-          _paintRing(
-              canvas, c, big ? look.salRing : look.smallRing, now, fx.runSince);
-        case MoneyStepStatus.done || MoneyStepStatus.skipped:
-          _paintDone(canvas, c, now, fx);
-        case MoneyStepStatus.fellBack:
-          _glyph(canvas, Icons.subdirectory_arrow_right, c, look.signR * 2,
-              look.done);
-        case MoneyStepStatus.failed || MoneyStepStatus.waiting:
-          break;
-      }
-    }
-    // The stop's sign last, over a dimmed Sal.
-    for (var i = 0; i < s.lines.length; i++) {
-      if (s.lines[i].status != MoneyStepStatus.failed) continue;
-      final k = s.order[i];
-      final c = nodes[k];
-      if (c == null) continue;
-      final at = s.fx[k]?.failedAt;
-      final a = still || at == null ? 1.0 : _unit((now - at) / _kFadeIn);
-      if (a <= 0) continue;
-      _glyph(canvas, Icons.error_outline_rounded, c, look.signR * 2,
-          look.failed.withValues(alpha: look.failed.a * a));
+    // ── Confetti ──
+    if (s.outcome == _Outcome.success && !still && s.live) {
+      _confetti(canvas, size, now - s.outcomeAt - _kPopDelay);
     }
   }
 
-  void _paintSal(Canvas canvas, Offset at, double now, double glideE) {
+  void _coin(Canvas canvas, Offset at, Color color, double alpha, double now) {
+    final look = _scene.look;
+    final spin =
+        _scene.still ? 1.0 : (0.35 + 0.65 * math.cos(now / 110).abs());
+    final r = look.coinR;
+    final rect = Rect.fromCenter(center: at, width: r * 2 * spin, height: r * 2);
+    canvas.drawOval(rect, Paint()..color = color.withValues(alpha: alpha));
+    canvas.drawOval(
+        rect,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1
+          ..color = Colors.white.withValues(alpha: 0.5 * alpha));
+  }
+
+  void _paintSal(Canvas canvas, Offset at, double now,
+      {required bool riding, required bool moving}) {
     final s = _scene;
     final look = s.look;
     final still = s.still;
     var alpha = 1.0;
-    var rise = 0.0;
+    var coin = s.live || s.replayAt != null;
+    Offset? coinTo;
     KuteDogPose pose;
+    final anyRunning =
+        s.plan.lines.any((l) => l.status == MoneyStepStatus.running);
     switch (s.outcome) {
       case _Outcome.success:
-        // Happy: he hops up and away as the last check pops.
         final e = now - s.outcomeAt;
-        pose = kuteMascotPose(KuteState.winPrediction, e % 900);
-        rise = look.rise *
-            Curves.easeOutCubic.transform(_unit((e - _kRingClose) / 700));
-        alpha = 1 - _unit((e - 500) / 500);
+        if (!s.live) {
+          // A record: sitting there, pleased.
+          pose = still ? KuteDogPose.neutral : _happyIdle(now - s.quietSince);
+          coin = s.replayAt != null && now < s.replayAt! + _kReplay + 150;
+        } else if (still) {
+          pose = kuteMascotPose(KuteState.winPrediction, 0);
+          coin = false;
+        } else if (e < _kCheer) {
+          pose = kuteMascotPose(KuteState.winPrediction, e % 900);
+          coin = e < _kCoinDrop;
+          coinTo = s.plan.destination == null
+              ? null
+              : _geo.stations[s.plan.destination!];
+        } else {
+          pose = _happyIdle(now - s.quietSince);
+          coin = false;
+        }
       case _Outcome.failure:
-        // Sorry about it: the confused tilt, held, and dimmed.
-        final e = still ? 750.0 : math.min(now - s.outcomeAt, 750.0);
-        pose = kuteMascotPose(KuteState.error, e);
-        alpha = still
-            ? _kDimAlpha
-            : 1 - (1 - _kDimAlpha) * _unit((now - s.outcomeAt) / _kDim);
+        // Sorry about it: the confused tilt, slow, and dimmed.
+        final e = still ? 750.0 : now - s.outcomeAt;
+        pose = kuteMascotPose(KuteState.error, still ? e : e % 1500);
+        alpha = still ? _kDimAlpha : 1 - (1 - _kDimAlpha) * _unit(e / _kDim);
+        coin = false;
       case _Outcome.none:
-        final running = s.target != null &&
-            s.fx[s.target!]?.status == MoneyStepStatus.running;
         if (still) {
-          pose = running
+          pose = anyRunning
               ? kuteMascotPose(KuteState.loading, 420)
               : KuteDogPose.neutral;
-        } else if (glideE >= 0 && glideE < _kArrive) {
-          // Trotting down the line.
+        } else if (moving) {
+          // Running down the road, coin in his mouth.
           final step = kuteWave(now, 160);
           pose = KuteDogPose(
             earLeft: -0.25,
             earRight: -0.2,
             tail: 0.4 * kuteWave(now, 180),
+            bodyBob: -0.35 * math.max(0.0, kuteWave(now, 80)),
             pawLeft: 0.5 * math.max(0, step),
             pawRight: 0.5 * math.max(0, -step),
+            lookX: -0.4,
           );
-        } else if (running) {
+        } else if (riding) {
+          // Jogging on the spot while the leg lands.
+          final step = kuteWave(now, 260);
+          pose = KuteDogPose(
+            earLeft: -0.15,
+            earRight: -0.1,
+            tail: 0.3 * kuteWave(now, 300),
+            bodyBob: -0.2 * math.max(0.0, kuteWave(now, 130)),
+            pawLeft: 0.3 * math.max(0, step),
+            pawRight: 0.3 * math.max(0, -step),
+            lookX: -0.8,
+            blink: kuteBlink(now % 3100, 2200),
+          );
+        } else if (s.waveAt != null && now - s.waveAt! < _kWave) {
+          // Another coin lands: ears up, front end lifting.
+          pose = kuteMascotPose(KuteState.incoming, now - s.waveAt!);
+        } else if (anyRunning) {
           // Thinking while the step runs: he sniffs it over.
           pose = kuteMascotPose(KuteState.loading, now % 1700);
         } else {
-          pose = kuteDogIdlePose(now % kKuteDogIdleMs);
-        }
-        if (!still && glideE >= _kArrive && glideE < _kArrive + _kHop) {
-          // The hop as he lands, with the selection click.
-          pose = _withLift(
-              pose, 2.4 * math.sin(math.pi * (glideE - _kArrive) / _kHop));
+          pose = kuteDogIdlePose((now - s.quietSince) % kKuteDogIdleMs);
         }
     }
-    if (!still) alpha *= _unit((now - s.salEnterAt) / 180);
+    if (!still) {
+      final hop = s.hopAt;
+      if (hop != null && now >= hop && now < hop + _kHop) {
+        pose = _withLift(pose, 2.4 * math.sin(math.pi * (now - hop) / _kHop));
+      }
+      final jump = s.jumpAt;
+      if (jump != null && now >= jump && now < jump + _kHop) {
+        pose =
+            _withLift(pose, 2.8 * math.sin(math.pi * (now - jump) / _kHop));
+      }
+      alpha *= _unit((now - s.salEnterAt) / 180);
+    }
     if (alpha <= 0) return;
     final size = look.salSize;
     final u = size / 16;
-    final origin = at.translate(-8.5 * u, -8.2 * u - rise);
+    final origin = at.translate(-8.5 * u, -15 * u);
     final bounds = Rect.fromCenter(
-        center: at.translate(0, -rise), width: size * 2, height: size * 2.6);
+        center: at.translate(0, -size * 0.5),
+        width: size * 2.2,
+        height: size * 2.6);
     if (alpha < 1) {
       canvas.saveLayer(bounds, Paint()..color = Color.fromRGBO(0, 0, 0, alpha));
     }
     paintKuteDog(canvas,
         origin: origin, unit: u, pose: pose, palette: KuteDogPalette.mascot);
     if (alpha < 1) canvas.restore();
+    if (coin) {
+      // The coin at his muzzle and, on success, dropping into the last
+      // station.
+      var c = at.translate(-6.5 * u, (-7.5 - pose.lift + pose.headBob) * u);
+      var scale = 1.0;
+      if (coinTo != null) {
+        final t = Curves.easeInCubic
+            .transform(_unit((now - s.outcomeAt) / _kCoinDrop));
+        c = Offset.lerp(c, coinTo, t)!;
+        scale = 1 - 0.5 * t;
+      }
+      canvas.save();
+      canvas.translate(c.dx, c.dy);
+      canvas.scale(scale);
+      _coin(canvas, Offset.zero, look.gold, alpha, now);
+      canvas.restore();
+    }
   }
 
-  void _paintRing(
-      Canvas canvas, Offset c, double radius, double now, double? since) {
-    final s = _scene;
-    final still = s.still;
-    final draw = still || since == null
-        ? 1.0
-        : Curves.easeOutCubic.transform(_unit((now - since) / _kRingDraw));
-    final rot = still ? 0.0 : now / 1600 * 2 * math.pi;
-    final breathe = still
-        ? 1.0
-        : 0.8 + 0.2 * (0.5 + 0.5 * math.sin(now / 1100 * 2 * math.pi));
-    final r = radius + (still ? 0 : 0.35 * math.sin(now / 1100 * 2 * math.pi));
-    final paint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.6
-      ..strokeCap = StrokeCap.round
-      ..color = s.look.done.withValues(alpha: s.look.done.a * breathe);
-    final sweep = 0.85 * draw * 2 * math.pi;
-    if (sweep <= 0) return;
-    canvas.drawArc(Rect.fromCircle(center: c, radius: r), -math.pi / 2 + rot,
-        sweep, false, paint);
+  KuteDogPose _happyIdle(double since) {
+    final p = kuteDogIdlePose(since % kKuteDogIdleMs);
+    return KuteDogPose(
+      headTilt: p.headTilt,
+      headBob: p.headBob,
+      headLean: p.headLean,
+      earLeft: p.earLeft - 0.1,
+      earRight: p.earRight - 0.1,
+      tail: 0.3 + 0.35 * kuteWave(since, 420),
+      blink: p.blink,
+      squash: p.squash,
+      bodyBob: p.bodyBob,
+      lift: p.lift,
+      pawLeft: p.pawLeft,
+      pawRight: p.pawRight,
+      lookX: p.lookX,
+      lookY: p.lookY,
+      tongue: math.max(p.tongue, 0.3),
+    );
   }
 
-  void _paintDone(Canvas canvas, Offset c, double now, _LineFx fx) {
+  void _confetti(Canvas canvas, Size size, double e) {
+    if (e < 0 || e > _kConfetti + 300) return;
+    final look = _scene.look;
+    final colors = [
+      look.gold,
+      KuteDogPalette.mascot.fur,
+      const Color(0xFF2E5CFF),
+      const Color(0xFF97FCE4),
+      KuteDogPalette.mascot.bandana,
+    ];
+    for (var i = 0; i < 30; i++) {
+      final start = _noise(i * 5 + 1) * 300;
+      final life = 1000 + _noise(i * 5 + 2) * 400;
+      final t = (e - start) / life;
+      if (t < 0 || t >= 1) continue;
+      final x0 = _noise(i * 5 + 3) * size.width;
+      final sway = math.sin(t * 6 + i) * 8;
+      final y = -8 + (size.height + 16) * Curves.easeIn.transform(t);
+      final w = 4 + _noise(i * 5 + 4) * 3;
+      canvas.save();
+      canvas.translate(x0 + sway, y);
+      canvas.rotate(t * (3 + _noise(i + 9) * 5));
+      canvas.drawRect(
+          Rect.fromCenter(center: Offset.zero, width: w, height: w * 0.55),
+          Paint()
+            ..color = colors[i % colors.length]
+                .withValues(alpha: (1 - _unit((t - 0.7) / 0.3)) * 0.95));
+      canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(MoneyJourneyPainter old) => true;
+}
+
+/// A checkpoint's sign: a faint dot while waiting, a ring drawing itself
+/// and breathing while it runs, the ring closing then popping into a gold
+/// check with a small burst once done, the stop sign fading in on a
+/// failure, the route-change arrow for a step done another way.
+class _SignPainter extends CustomPainter {
+  _SignPainter(this._scene, this._key, this._clock) : super(repaint: _clock);
+
+  final _Scene _scene;
+  final String _key;
+  final Animation<double> _clock;
+
+  @override
+  void paint(Canvas canvas, Size size) {
     final s = _scene;
     final look = s.look;
-    final at = fx.doneAt;
-    final e = s.still || at == null ? double.infinity : now - at;
-    // The ring closes, then fades as the check pops.
-    if (e < _kRingClose + _kRingFade) {
-      final close = Curves.easeOut.transform(_unit(e / _kRingClose));
-      final fade = 1 - _unit((e - _kRingClose) / _kRingFade);
-      canvas.drawArc(
-          Rect.fromCircle(
-              center: c, radius: fx.doneBig ? look.salRing : look.smallRing),
-          -math.pi / 2,
-          (0.85 + 0.15 * close) * 2 * math.pi,
-          false,
-          Paint()
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 1.6
-            ..strokeCap = StrokeCap.round
-            ..color = look.done.withValues(alpha: look.done.a * fade));
-    }
-    if (e < _kRingClose) return;
-    final pe = e - _kRingClose;
-    final scale = _pop(_unit(pe / _kPop), fx.finalDone ? 1.32 : 1.18);
-    final r = look.signR * scale;
-    canvas.drawCircle(
-        c, r, Paint()..color = look.done.withValues(alpha: look.done.a * 0.16));
-    final draw = _unit((pe - _kCheckDelay) / _kCheckDraw);
-    if (draw > 0) {
-      final check = Path()
-        ..moveTo(c.dx - 0.42 * r, c.dy + 0.02 * r)
-        ..lineTo(c.dx - 0.12 * r, c.dy + 0.32 * r)
-        ..lineTo(c.dx + 0.42 * r, c.dy - 0.28 * r);
-      final paint = Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.6
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round
-        ..color = look.done;
-      if (draw >= 1) {
-        canvas.drawPath(check, paint);
-      } else {
-        for (final m in check.computeMetrics()) {
-          canvas.drawPath(m.extractPath(0, m.length * draw), paint);
+    final fx = s.fx[_key];
+    if (fx == null) return;
+    final now = _clock.value * 1000;
+    final c = size.center(Offset.zero);
+    final still = s.still;
+    final dot = Paint()..color = look.quiet.withValues(alpha: 0.6);
+    switch (fx.status) {
+      case MoneyStepStatus.waiting:
+        canvas.drawCircle(c, 2, dot);
+      case MoneyStepStatus.running:
+        final draw = still || fx.runSince == null
+            ? 1.0
+            : Curves.easeOutCubic
+                .transform(_unit((now - fx.runSince!) / _kRingDraw));
+        final rot = still ? 0.0 : now / 1600 * 2 * math.pi;
+        final breathe = still
+            ? 1.0
+            : 0.8 + 0.2 * (0.5 + 0.5 * math.sin(now / 1100 * 2 * math.pi));
+        final r = size.width / 2 - 1;
+        final sweep = 0.85 * draw * 2 * math.pi;
+        if (sweep <= 0) return;
+        canvas.drawArc(
+            Rect.fromCircle(center: c, radius: r),
+            -math.pi / 2 + rot,
+            sweep,
+            false,
+            Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 1.6
+              ..strokeCap = StrokeCap.round
+              ..color = look.ping.withValues(alpha: look.ping.a * breathe));
+      case MoneyStepStatus.done || MoneyStepStatus.skipped:
+        final at = fx.doneAt;
+        final e = still || at == null ? double.infinity : now - at;
+        if (e < 0) {
+          canvas.drawCircle(c, 2, dot);
+          return;
         }
-      }
-    }
-    // A small burst, a bigger one for the last.
-    final span = fx.finalDone ? _kFinalBurst : _kBurst;
-    final bp = pe / span;
-    if (bp >= 0 && bp < 1) {
-      final n = fx.finalDone ? 10 : 6;
-      final reach = fx.finalDone ? look.reachFinal : look.reach;
-      final dot = fx.finalDone ? look.dotFinal : look.dot;
-      final out = Curves.easeOutCubic.transform(bp);
-      final paint = Paint()
-        ..color = look.done
-            .withValues(alpha: look.done.a * math.pow(1 - bp, 1.4).toDouble());
-      for (var j = 0; j < n; j++) {
-        final a = -math.pi / 2 + 2 * math.pi * j / n + (j.isOdd ? 0.18 : -0.12);
-        final d = look.signR + reach * out;
-        canvas.drawCircle(c + Offset(math.cos(a), math.sin(a)) * d,
-            dot * (1 - 0.5 * bp), paint);
-      }
+        if (e < _kPopDelay * 2) {
+          final close = Curves.easeOut.transform(_unit(e / _kPopDelay));
+          final fade = 1 - _unit((e - _kPopDelay) / _kPopDelay);
+          canvas.drawArc(
+              Rect.fromCircle(center: c, radius: size.width / 2 - 1),
+              -math.pi / 2,
+              (0.85 + 0.15 * close) * 2 * math.pi,
+              false,
+              Paint()
+                ..style = PaintingStyle.stroke
+                ..strokeWidth = 1.6
+                ..strokeCap = StrokeCap.round
+                ..color = look.gold.withValues(alpha: fade));
+        }
+        if (e < _kPopDelay) return;
+        final pe = e - _kPopDelay;
+        final scale =
+            _pop(_unit(pe / _kPop), fx.finalDone ? 1.32 : 1.25, from: 0.6);
+        final r = look.signR * scale;
+        canvas.drawCircle(
+            c, r, Paint()..color = look.gold.withValues(alpha: 0.35));
+        final draw = _unit((pe - _kCheckDelay) / _kCheckDraw);
+        if (draw > 0) {
+          final check = Path()
+            ..moveTo(c.dx - 0.42 * r, c.dy + 0.02 * r)
+            ..lineTo(c.dx - 0.12 * r, c.dy + 0.32 * r)
+            ..lineTo(c.dx + 0.42 * r, c.dy - 0.28 * r);
+          final paint = Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.8
+            ..strokeCap = StrokeCap.round
+            ..strokeJoin = StrokeJoin.round
+            ..color = KuteDogPalette.mascot.furDark;
+          if (draw >= 1) {
+            canvas.drawPath(check, paint);
+          } else {
+            for (final m in check.computeMetrics()) {
+              canvas.drawPath(m.extractPath(0, m.length * draw), paint);
+            }
+          }
+        }
+        _burst(canvas, c, now, fx, look, small: true, radius: look.signR);
+      case MoneyStepStatus.fellBack:
+        _glyph(canvas, Icons.subdirectory_arrow_right, c, look.signR * 2,
+            look.done);
+      case MoneyStepStatus.failed:
+        final at = fx.failedAt;
+        final a = still || at == null ? 1.0 : _unit((now - at) / _kFadeIn);
+        if (a <= 0) return;
+        _glyph(canvas, Icons.error_outline_rounded, c, look.signR * 2,
+            look.failed.withValues(alpha: look.failed.a * a));
     }
   }
 
@@ -1385,77 +2267,48 @@ class MoneyStepsMotionPainter extends CustomPainter {
     tp.dispose();
   }
 
-  // Rebuilt only when the view builds; the clock drives every frame.
   @override
-  bool shouldRepaint(MoneyStepsMotionPainter old) => true;
+  bool shouldRepaint(_SignPainter old) => true;
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Paint-only helpers for the lines
+// Paint-only helpers
 // ─────────────────────────────────────────────────────────────────────
 
-/// Registers its box in the scene by line id ([id] null: the tree's own
-/// box), so the painter knows where each line sits without a rebuild.
-class _Anchor extends SingleChildRenderObjectWidget {
-  const _Anchor({required this.scene, required this.id, super.child});
-  final _Scene scene;
-  final String? id;
+/// Repaints on the clock when [value] changed since the last paint;
+/// never rebuilds or relayouts.
+abstract class _ClockProxy extends RenderProxyBox {
+  _ClockProxy(this._clock);
+  Listenable _clock;
+  double _painted = 0;
 
-  @override
-  RenderObject createRenderObject(BuildContext context) =>
-      _RenderAnchor(scene, id);
+  double value();
 
-  @override
-  void updateRenderObject(BuildContext context, _RenderAnchor renderObject) =>
-      renderObject.rebind(scene, id);
-}
-
-class _RenderAnchor extends RenderProxyBox {
-  _RenderAnchor(this._scene, this._id);
-  _Scene _scene;
-  String? _id;
-
-  void _register() {
-    final id = _id;
-    if (id == null) {
-      _scene.root = this;
-    } else {
-      _scene.anchors[id] = this;
-    }
+  set clock(Listenable v) {
+    if (identical(v, _clock)) return;
+    if (attached) _clock.removeListener(_tick);
+    _clock = v;
+    if (attached) _clock.addListener(_tick);
   }
 
-  void _unregister() {
-    final id = _id;
-    if (id == null) {
-      if (identical(_scene.root, this)) _scene.root = null;
-    } else if (identical(_scene.anchors[id], this)) {
-      _scene.anchors.remove(id);
-    }
-  }
-
-  void rebind(_Scene scene, String? id) {
-    if (identical(scene, _scene) && id == _id) return;
-    if (attached) _unregister();
-    _scene = scene;
-    _id = id;
-    if (attached) _register();
+  void _tick() {
+    if (value() != _painted) markNeedsPaint();
   }
 
   @override
   void attach(PipelineOwner owner) {
     super.attach(owner);
-    _register();
+    _clock.addListener(_tick);
   }
 
   @override
   void detach() {
-    _unregister();
+    _clock.removeListener(_tick);
     super.detach();
   }
 }
 
-/// Shakes its line sideways while [dx] says so: paint only, so the line
-/// neither rebuilds nor moves for its semantics.
+/// Shakes its child sideways while [dx] says so.
 class _Shake extends SingleChildRenderObjectWidget {
   const _Shake({required this.clock, required this.dx, super.child});
   final Listenable clock;
@@ -1472,21 +2325,113 @@ class _Shake extends SingleChildRenderObjectWidget {
         ..dx = dx;
 }
 
-class _RenderShake extends RenderProxyBox {
-  _RenderShake(this._clock, this.dx);
-  Listenable _clock;
+class _RenderShake extends _ClockProxy {
+  _RenderShake(super.clock, this.dx);
   double Function() dx;
-  double _painted = 0;
 
-  set clock(Listenable value) {
-    if (identical(value, _clock)) return;
+  @override
+  double value() => dx();
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    _painted = dx();
+    super.paint(context, offset.translate(_painted, 0));
+  }
+}
+
+/// Scales its child about its centre by [scale] (a station's pop).
+class _Scaled extends SingleChildRenderObjectWidget {
+  const _Scaled({required this.clock, required this.scale, super.child});
+  final Listenable clock;
+  final double Function() scale;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderScaled(clock, scale);
+
+  @override
+  void updateRenderObject(BuildContext context, _RenderScaled renderObject) =>
+      renderObject
+        ..clock = clock
+        ..scale = scale;
+}
+
+class _RenderScaled extends _ClockProxy {
+  _RenderScaled(super.clock, this.scale);
+  double Function() scale;
+
+  @override
+  double value() => scale();
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    _painted = scale();
+    if (_painted == 1 || child == null) {
+      super.paint(context, offset);
+      return;
+    }
+    final c = offset + size.center(Offset.zero);
+    final m = Matrix4.translationValues(c.dx, c.dy, 0) *
+        Matrix4.diagonal3Values(_painted, _painted, 1) *
+        Matrix4.translationValues(-c.dx, -c.dy, 0) as Matrix4;
+    context.pushTransform(needsCompositing, Offset.zero, m,
+        (context, o) => super.paint(context, offset));
+  }
+}
+
+/// The thin progress bar, its fill eased by the clock.
+class _Bar extends LeafRenderObjectWidget {
+  const _Bar({
+    required this.clock,
+    required this.progress,
+    required this.track,
+    required this.fill,
+    required this.height,
+  });
+  final Listenable clock;
+  final double Function() progress;
+  final Color track;
+  final Color fill;
+  final double height;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderBar(clock, progress, track, fill, height);
+
+  @override
+  void updateRenderObject(BuildContext context, _RenderBar renderObject) {
+    renderObject
+      ..clock = clock
+      ..progress = progress
+      ..track = track
+      ..fill = fill;
+    if (renderObject.height != height) {
+      renderObject
+        ..height = height
+        ..markNeedsLayout();
+    }
+    renderObject.markNeedsPaint();
+  }
+}
+
+class _RenderBar extends RenderBox {
+  _RenderBar(this._clock, this.progress, this.track, this.fill, this.height);
+  Listenable _clock;
+  double Function() progress;
+  Color track;
+  Color fill;
+  double height;
+  double _painted = -1;
+
+  set clock(Listenable v) {
+    if (identical(v, _clock)) return;
     if (attached) _clock.removeListener(_tick);
-    _clock = value;
+    _clock = v;
     if (attached) _clock.addListener(_tick);
   }
 
   void _tick() {
-    if (dx() != _painted) markNeedsPaint();
+    if (progress() != _painted) markNeedsPaint();
   }
 
   @override
@@ -1502,9 +2447,29 @@ class _RenderShake extends RenderProxyBox {
   }
 
   @override
+  bool get sizedByParent => true;
+
+  @override
+  Size computeDryLayout(BoxConstraints constraints) =>
+      Size(constraints.maxWidth.isFinite ? constraints.maxWidth : 100, height);
+
+  @override
+  void performResize() => size = computeDryLayout(constraints);
+
+  @override
   void paint(PaintingContext context, Offset offset) {
-    _painted = dx();
-    super.paint(context, offset.translate(_painted, 0));
+    _painted = _unit(progress());
+    final canvas = context.canvas;
+    final r = Radius.circular(height / 2);
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(offset & size, r), Paint()..color = track);
+    if (_painted > 0) {
+      canvas.drawRRect(
+          RRect.fromRectAndRadius(
+              offset & Size(math.max(height, size.width * _painted), height),
+              r),
+          Paint()..color = fill);
+    }
   }
 }
 

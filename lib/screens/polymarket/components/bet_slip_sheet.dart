@@ -102,6 +102,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/screens/shared/slip_shortfall.dart';
+import 'package:kute/services/one_balance/money_steps.dart'
+    show MoneyPlace;
 import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/services/funding/venue_shortfall.dart';
 import 'package:kute/providers/pending_bet_autofire.dart'
@@ -5558,6 +5560,10 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
               failed: progress.failed,
               graph: progress.record.steps,
               money: _fiatCompanion,
+              from: progress.record.fromBitcoin
+                  ? MoneyPlace.bitcoin
+                  : MoneyPlace.dollars,
+              to: MoneyPlace.predictions,
               note: progress.failed
                   ? fundedStopLine(
                       context.l10n, progress.record, _fiatCompanion)
@@ -5580,7 +5586,11 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       return Column(
         key: const ValueKey('bet-slip-prefund-progress'),
         mainAxisSize: MainAxisSize.min,
-        children: [action, SlipFundingSteps(steps: steps, active: 0)],
+        children: [
+          action,
+          SlipFundingSteps(
+              steps: steps, active: 0, to: MoneyPlace.predictions),
+        ],
       );
     }
     return action;

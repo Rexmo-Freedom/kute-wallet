@@ -67,7 +67,7 @@ import 'package:kute/services/funding/venue_shortfall.dart';
 import 'package:kute/services/one_balance/funded_orders.dart';
 import 'package:kute/services/one_balance/empty_slip_sources.dart';
 import 'package:kute/services/one_balance/money_steps.dart'
-    show MoneyStepGraph, MoneyStepStatus;
+    show MoneyPlace, MoneyStepGraph, MoneyStepStatus;
 import 'package:kute/services/one_balance/one_balance_state.dart'
     show OneBalanceVenue;
 import 'package:kute/services/orchestra_routes.dart'
@@ -774,10 +774,18 @@ class SlipFundingSteps extends StatelessWidget {
     this.note,
     this.graph,
     this.money,
+    this.from,
+    this.to,
   });
 
   /// The steps, in order.
   final List<String> steps;
+
+  /// The journey's stations when the graph does not say: where the
+  /// money starts (Bitcoin for a bitcoin-funded order, else Dollars) and
+  /// the venue it goes to.
+  final MoneyPlace? from;
+  final MoneyPlace? to;
 
   /// The order's step graph (`FundedOrderRecord.steps`): when it has
   /// steps, every leg shows on its own line with its own state, the
@@ -810,14 +818,21 @@ class SlipFundingSteps extends StatelessWidget {
       return MoneyStepsView(
         lines: moneyStepLines(context.l10n, g, format,
             readyLabel: steps[steps.length - 2], placeLine: steps.last),
+        graph: g,
+        money: format,
+        from: from,
+        to: to,
         slow: slow,
         note: note,
       );
     }
-    // The older stage lines: the same animated tree, under their own
-    // names.
+    // The older stage lines: the same journey, one road from the money's
+    // source to the venue with the stages as its checkpoints, under their
+    // own names.
     return MoneyStepsView(
       keys: MoneyStepsKeys.slip,
+      from: from ?? MoneyPlace.dollars,
+      to: to,
       lines: [
         for (var i = 0; i < steps.length; i++)
           MoneyStepLine(

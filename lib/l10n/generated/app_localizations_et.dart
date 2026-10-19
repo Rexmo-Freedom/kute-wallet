@@ -10883,6 +10883,19 @@ class AppLocalizationsEt extends AppLocalizations {
   }
 
   @override
+  String moneyJourneyAt(String place) {
+    return 'Kohas $place';
+  }
+
+  @override
+  String moneyJourneyArrived(int count, int total) {
+    return '$count/$total kohal';
+  }
+
+  @override
+  String get moneyJourneyPlaced => 'Esitatud!';
+
+  @override
   String cctpRefundReturnedTo(String network, String address) {
     return 'Tagastatud sinu $network aadressile $address.';
   }

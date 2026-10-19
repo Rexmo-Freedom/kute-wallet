@@ -53,6 +53,7 @@ import 'package:polybrainz_polymarket/polybrainz_polymarket.dart' show Order;
 
 import '../../helpers/fake_swap_orders.dart';
 import '../../helpers/portfolio_overrides.dart';
+import '../../helpers/money_steps_finders.dart';
 
 final _balance = StateProvider<OneBalanceState>((_) => const OneBalanceState(
       dollarsUsd: 42.5,
@@ -559,7 +560,7 @@ void main() {
       c.read(_sweeperState.notifier).state =
           const VenueSweeperState(sweeping: {OneBalanceVenue.investing});
       await tester.pump();
-      expect(_inSteps(find.text(r'Moving $6.54 from Investing → Dollars')),
+      expect(_inSteps(findMoneyStep(r'Moving $6.54 from Investing → Dollars')),
           findsOneWidget);
       expect(
           _inCard(
@@ -572,7 +573,7 @@ void main() {
       expect(_FakeSweeper.calls, 1);
       // Submitted: on its way; the other venue says why its cash stayed
       // (held: no step of its own).
-      expect(_inSteps(find.text(r'Moving $6.54 from Investing → Dollars')),
+      expect(_inSteps(findMoneyStep(r'Moving $6.54 from Investing → Dollars')),
           findsOneWidget);
       expect(_inSteps(find.textContaining('Predictions')), findsNothing);
       expect(_inCard('predictions', find.text('Held by open orders')),
@@ -1016,9 +1017,9 @@ void main() {
           _inCard('predictions', find.text('Moving to USDB…')), findsNothing);
       // Each step completes on its own: Predictions is home, Investing
       // still on its way.
-      expect(_inSteps(find.text(r'Moved $3.00 from Predictions → Dollars')),
+      expect(_inSteps(findMoneyStep(r'Moved $3.00 from Predictions → Dollars')),
           findsOneWidget);
-      expect(_inSteps(find.text(r'Moving $6.54 from Investing → Dollars')),
+      expect(_inSteps(findMoneyStep(r'Moving $6.54 from Investing → Dollars')),
           findsOneWidget);
 
       // Investing lands: its own snap, the second thud.
@@ -1040,9 +1041,9 @@ void main() {
           _inCard(
               'investing', find.text('Moving to USDB… takes a few minutes')),
           findsNothing);
-      expect(_inSteps(find.text(r'Moved $6.54 from Investing → Dollars')),
+      expect(_inSteps(findMoneyStep(r'Moved $6.54 from Investing → Dollars')),
           findsOneWidget);
-      expect(_inSteps(find.text(r'Moved $3.00 from Predictions → Dollars')),
+      expect(_inSteps(findMoneyStep(r'Moved $3.00 from Predictions → Dollars')),
           findsOneWidget);
       expect(tester.takeException(), isNull);
     });
@@ -1153,7 +1154,7 @@ void main() {
       expect(_band(tester, 'investing').ticking, isFalse);
       expect(_band(tester, 'predictions').ticking, isFalse);
       expect(tester.binding.transientCallbackCount, 0);
-      expect(_inSteps(find.text(r'Moving $6.54 from Investing → Dollars')),
+      expect(_inSteps(findMoneyStep(r'Moving $6.54 from Investing → Dollars')),
           findsOneWidget);
     });
 
@@ -1181,9 +1182,9 @@ void main() {
       expect(_band(tester, 'predictions').stretch, greaterThan(0));
       expect(tester.takeException(), isNull);
       expect(_tile(tester, 'predictions').right, lessThanOrEqualTo(375));
-      expect(_inSteps(find.text(r'Moving $6.54 from Investing → Dollars')),
+      expect(_inSteps(findMoneyStep(r'Moving $6.54 from Investing → Dollars')),
           findsOneWidget);
-      expect(_inSteps(find.text(r'Moving $3.00 from Predictions → Dollars')),
+      expect(_inSteps(findMoneyStep(r'Moving $3.00 from Predictions → Dollars')),
           findsOneWidget);
     });
 

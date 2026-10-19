@@ -17,6 +17,8 @@ import 'package:kute/services/one_balance/money_steps.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/theme/app_theme.dart';
 
+import '../../helpers/money_steps_finders.dart';
+
 String _usd(double v) => '\$${v.toStringAsFixed(2)}';
 
 MoneyStepGraph _bet({
@@ -253,7 +255,12 @@ void main() {
         ));
     await tester.pump();
     expect(find.byKey(const ValueKey('money-steps')), findsOneWidget);
-    expect(find.text('Moving \$2.00 from Investing'), findsOneWidget);
+    // A leg is a road on the map: its words are its semantics there.
+    expect(findMoneyStep('Moving \$2.00 from Investing'), findsOneWidget);
+    expect(find.byKey(const ValueKey('money-steps-station-investing')),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('money-steps-station-predictions')),
+        findsOneWidget);
     await _pump(
         tester,
         const SlipFundingSteps(
@@ -286,6 +293,106 @@ void main() {
     final seen = at(withApprove(MoneyStepStatus.running, ref: 'seen'));
     expect(seen, contains(('Approving spend', MoneyStepStatus.running)));
     expect(seen, contains(('Ready', MoneyStepStatus.running)));
+  });
+
+  group('the journey plan', () {
+    test('a send: the legs home, then one road out to the recipient',
+        () async {
+      final l10n = await _l10n();
+      final g = MoneyStepGraph([
+        const MoneyStep(
+            id: 'leg:predictions',
+            kind: MoneyStepKind.leg,
+            from: MoneyPlace.predictions,
+            to: MoneyPlace.dollars,
+            usd: 20,
+            status: MoneyStepStatus.done),
+        const MoneyStep(
+            id: 'send',
+            kind: MoneyStepKind.leg,
+            from: MoneyPlace.dollars,
+            usd: 50,
+            status: MoneyStepStatus.running),
+      ]);
+      final plan = MoneyJourneyPlan.of(moneyStepLines(l10n, g, _usd),
+          graph: g, toLabel: 'Alice', money: _usd);
+      expect(plan.stations.map((s) => s.id).toList(),
+          ['predictions', 'dollars', 'outside']);
+      expect(plan.stations.last.label, 'Alice');
+      expect(plan.stations.map((s) => s.column).toList(), [0, 1, 2]);
+      expect(plan.destination, 2);
+      expect(plan.roads.length, 2);
+      expect(plan.checkpoints, isEmpty);
+      expect(plan.chain, [0, 1]);
+      expect(plan.headline, '\$50.00');
+    });
+
+    test('more than three sources: the rest are listed, not drawn',
+        () async {
+      final l10n = await _l10n();
+      final g = MoneyStepGraph([
+        for (final (id, place) in [
+          ('leg:bitcoin', MoneyPlace.bitcoin),
+          ('leg:dollars', MoneyPlace.dollars),
+          ('leg:investing', MoneyPlace.investing),
+          ('leg:predictions', MoneyPlace.predictions),
+        ])
+          MoneyStep(
+              id: id,
+              kind: MoneyStepKind.leg,
+              from: place,
+              to: MoneyPlace.bitcoin,
+              usd: 1,
+              status: MoneyStepStatus.running),
+        const MoneyStep(
+            id: 'arrive', kind: MoneyStepKind.arrive, to: MoneyPlace.bitcoin),
+      ]);
+      // Bitcoin's own leg into Bitcoin: dropped from the map, listed.
+      final plan = MoneyJourneyPlan.of(moneyStepLines(l10n, g, _usd), graph: g);
+      expect(plan.stations.where((s) => s.column == 0).length,
+          lessThanOrEqualTo(MoneyJourneyPlan.maxRows));
+      expect(plan.checkpoints, contains(0));
+      expect(plan.checkpoints, contains(4));
+      expect(plan.destination, isNotNull);
+      expect(plan.stations[plan.destination!].place, MoneyPlace.bitcoin);
+    });
+
+    test('a route change is listed, its replacement legs are the roads',
+        () async {
+      final l10n = await _l10n();
+      final g = _bet().fallBack('leg:bitcoin', const [
+        MoneyStep(
+            id: 'leg:bitcoin>dollars',
+            kind: MoneyStepKind.leg,
+            from: MoneyPlace.bitcoin,
+            to: MoneyPlace.dollars,
+            usd: 8,
+            status: MoneyStepStatus.running),
+      ]);
+      final lines = moneyStepLines(l10n, g, _usd, placeLine: 'Place');
+      final plan = MoneyJourneyPlan.of(lines, graph: g);
+      expect(plan.checkpoints.map((i) => lines[i].text),
+          contains('Bitcoin going via Dollars'));
+      expect(plan.roads.map((r) => lines[r.line].id),
+          containsAll(['leg:bitcoin>dollars', 'leg:dollars', 'leg:investing']));
+      expect(plan.stations[plan.destination!].place, MoneyPlace.predictions);
+    });
+
+    test('no graph: one stage road, every line a checkpoint', () {
+      const lines = [
+        MoneyStepLine('Adding \$6.00 to Investments', MoneyStepStatus.done),
+        MoneyStepLine('Preparing your order', MoneyStepStatus.running),
+      ];
+      final plan = MoneyJourneyPlan.of(lines,
+          from: MoneyPlace.bitcoin, to: MoneyPlace.investing);
+      expect(plan.stations.map((s) => s.place).toList(),
+          [MoneyPlace.bitcoin, MoneyPlace.investing]);
+      expect(plan.roads.single.line, -1);
+      expect(plan.roads.single.segments, [0, 1]);
+      expect(plan.checkpoints, [0, 1]);
+      expect(plan.headline, '\$6.00');
+      expect(plan.hasGraph, isFalse);
+    });
   });
 
   group('the steps as a tree', () {

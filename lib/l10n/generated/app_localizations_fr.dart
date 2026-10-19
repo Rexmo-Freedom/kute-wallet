@@ -10979,6 +10979,19 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String moneyJourneyAt(String place) {
+    return 'À $place';
+  }
+
+  @override
+  String moneyJourneyArrived(int count, int total) {
+    return '$count sur $total arrivés';
+  }
+
+  @override
+  String get moneyJourneyPlaced => 'Placé !';
+
+  @override
   String cctpRefundReturnedTo(String network, String address) {
     return 'Remboursé sur votre adresse $network $address.';
   }

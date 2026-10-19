@@ -44,7 +44,9 @@ import 'package:kute/services/orchestra_routes.dart'
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
+
 import '../../helpers/fake_swap_orders.dart';
+import '../../helpers/money_steps_finders.dart';
 
 final _t0 = DateTime.utc(2026, 10, 13, 12);
 
@@ -1051,10 +1053,10 @@ void main() {
       // $20 + $15; the failed $5 stayed).
       expect(rowValue('Sent', find.text(r'$45.00')), findsOneWidget);
       // One compact line per step, each with its amount and its state.
-      expect(find.text(r'Investing → Bitcoin · $20.00'), findsOneWidget);
-      expect(find.text(r'Predictions → Dollars · $14.80'), findsOneWidget);
-      expect(find.text(r'Investing → Dollars · $5.00'), findsOneWidget);
-      expect(find.text(r'Dollars → Bitcoin · $30.20'), findsOneWidget);
+      expect(findMoneyStep(r'Investing → Bitcoin · $20.00'), findsOneWidget);
+      expect(findMoneyStep(r'Predictions → Dollars · $14.80'), findsOneWidget);
+      expect(findMoneyStep(r'Investing → Dollars · $5.00'), findsOneWidget);
+      expect(findMoneyStep(r'Dollars → Bitcoin · $30.20'), findsOneWidget);
       expect(find.byKey(const ValueKey('money-step-done-1')), findsOneWidget);
       expect(find.byKey(const ValueKey('money-step-failed-2')), findsOneWidget);
       // No per-leg Date, Status, Fee or Arriving blocks.
@@ -1208,7 +1210,7 @@ void main() {
         expect(inLeg(id, find.text('Exchange ID')), findsOneWidget);
       }
       expect(
-          inLeg('ord_initial', find.text('Dollars → Bitcoin')), findsOneWidget);
+          inLeg('ord_initial', findMoneyStep('Dollars → Bitcoin')), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
@@ -1219,10 +1221,10 @@ void main() {
       await openNerd(tester);
       // One group per order that went, titled with its path; the failed
       // leg has no order and no group.
-      expect(inLeg('ord_hl', find.text('Investing → Bitcoin')), findsOneWidget);
+      expect(inLeg('ord_hl', findMoneyStep('Investing → Bitcoin')), findsOneWidget);
       expect(
-          inLeg('ord_pm', find.text('Predictions → Dollars')), findsOneWidget);
-      expect(find.text('Investing → Dollars'), findsNothing);
+          inLeg('ord_pm', findMoneyStep('Predictions → Dollars')), findsOneWidget);
+      expect(findMoneyStep('Investing → Dollars'), findsNothing);
       for (final id in ['ord_hl', 'ord_pm']) {
         expect(inLeg(id, find.text('Sent')), findsOneWidget, reason: id);
         expect(inLeg(id, find.text('Received')), findsOneWidget, reason: id);
@@ -1248,13 +1250,13 @@ void main() {
         (tester) async {
       final store =
           await openSheet(tester, threeLegs(), orders: [hlLanded(), pmRow()]);
-      expect(find.text(r'Predictions → Dollars · $15.00'), findsOneWidget);
+      expect(findMoneyStep(r'Predictions → Dollars · $15.00'), findsOneWidget);
       expect(find.text('Fees'), findsNothing);
 
       store.set([hlLanded(), pmRow(status: 'success', got: '14.80')]);
       await tester.pump(const Duration(milliseconds: 100));
       await tester.pump(const Duration(milliseconds: 100));
-      expect(find.text(r'Predictions → Dollars · $14.80'), findsOneWidget);
+      expect(findMoneyStep(r'Predictions → Dollars · $14.80'), findsOneWidget);
       expect(rowValue('Fees', find.text(r'$0.20')), findsOneWidget);
     });
 
@@ -1293,7 +1295,7 @@ void main() {
       expect(find.text('Track this exchange'), findsNothing);
       await openNerd(tester);
       expect(find.text('Track this exchange'), findsNWidgets(3));
-      expect(inLeg('ord_buy', find.text('Dollars → Bitcoin')), findsOneWidget);
+      expect(inLeg('ord_buy', findMoneyStep('Dollars → Bitcoin')), findsOneWidget);
     });
 
     testWidgets('a CCTP move with no order yet has no explorer button',
@@ -1309,7 +1311,7 @@ void main() {
       await openSheet(
           tester, _move(legs: [_leg(OneBalanceVenue.investing, op: 'op-hl')]),
           orders: [cctp]);
-      expect(find.text(r'Investing → Bitcoin · $20.00'), findsOneWidget);
+      expect(findMoneyStep(r'Investing → Bitcoin · $20.00'), findsOneWidget);
       expect(find.text('Track this exchange'), findsNothing);
       await openNerd(tester);
       expect(find.text('Track this exchange'), findsNothing);
@@ -1374,7 +1376,7 @@ void main() {
           find.descendant(
               of: find.byType(BottomSheet), matching: find.text('Received')),
           findsNothing);
-      expect(find.textContaining('Investing → Bitcoin · '), findsOneWidget);
+      expect(findMoneyStepContaining('Investing → Bitcoin · '), findsOneWidget);
 
       // The leg's own row, opened as any swap is.
       await tester.pumpWidget(const SizedBox());
@@ -1386,7 +1388,7 @@ void main() {
       expect(move['Nerd data'], 1);
       expect(move['Track this exchange'], 1);
       expect(move['Arrived in Bitcoin'], 1);
-      expect(find.textContaining('Investing → Bitcoin · '), findsOneWidget);
+      expect(findMoneyStepContaining('Investing → Bitcoin · '), findsOneWidget);
     });
 
     testWidgets('fits 375pt at text scale 1.3 with the Nerd data open',
@@ -1762,7 +1764,7 @@ void main() {
           MultiSourceMoveTransaction(move: move, legRows: [rowOf(hlHome())]);
       await pump(tester, tx, orders: [hlHome()]);
       await openDetail(tester, tx);
-      expect(find.text(r'Investing → Dollars · $20.69'), findsOneWidget);
+      expect(findMoneyStep(r'Investing → Dollars · $20.69'), findsOneWidget);
       expect(find.textContaining('Investing → Investments'), findsNothing);
       expect(find.text('Needs attention'), findsOneWidget);
       expect(find.text('Pending'), findsNothing);
@@ -1891,7 +1893,7 @@ void main() {
       // and its open detail closes with it.
       await pump(tester, tx, orders: [hlHome()]);
       await openDetail(tester, tx);
-      expect(find.text(r'Investing → Dollars · $20.69'), findsOneWidget);
+      expect(findMoneyStep(r'Investing → Dollars · $20.69'), findsOneWidget);
       lastRef.read(_dollarsKnown.notifier).state = true;
       await frames(tester);
       expect(find.textContaining('Investing → Dollars'), findsNothing);
@@ -1937,7 +1939,7 @@ void main() {
       await frames(tester);
       // No purchase for a send: the tap opens the detail.
       expect(prompts, isEmpty);
-      expect(find.text(r'Investing → Dollars · $20.69'), findsOneWidget);
+      expect(findMoneyStep(r'Investing → Dollars · $20.69'), findsOneWidget);
       expect(find.text('Buy bitcoin'), findsNothing);
       expect(find.text('Needs attention'), findsWidgets);
 

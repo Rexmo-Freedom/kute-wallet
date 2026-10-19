@@ -10938,6 +10938,19 @@ class AppLocalizationsLt extends AppLocalizations {
   }
 
   @override
+  String moneyJourneyAt(String place) {
+    return 'Vietoje $place';
+  }
+
+  @override
+  String moneyJourneyArrived(int count, int total) {
+    return 'Atvyko $count iš $total';
+  }
+
+  @override
+  String get moneyJourneyPlaced => 'Pateikta!';
+
+  @override
   String cctpRefundReturnedTo(String network, String address) {
     return 'Grąžinta į jūsų $network adresą $address.';
   }
