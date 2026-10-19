@@ -31,6 +31,7 @@ import 'package:share_plus/share_plus.dart';
 
 import 'package:kute/helpers/user_error_copy.dart';
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/models/breez/sdk_operation_guard.dart' show runSparkQuote;
 import 'package:kute/models/orchestra_routes_model.dart';
 import 'package:kute/models/swap_order_model.dart';
 import 'package:kute/providers/balance_provider.dart'
@@ -1044,11 +1045,12 @@ class _UsdStandingAddressSheetState
           identical(wrapper.instance, sdk) &&
           identical(ref.read(breezSDKProvider).asData?.value.instance, sdk);
       _sameSdk = sameSdk;
-      final received = await sdk.receivePayment(
-        request: const ReceivePaymentRequest(
-          paymentMethod: ReceivePaymentMethod.sparkAddress(),
-        ),
-      );
+      // A quote's creation: a pull never retires the handle under it.
+      final received = await runSparkQuote(() => sdk.receivePayment(
+            request: const ReceivePaymentRequest(
+              paymentMethod: ReceivePaymentMethod.sparkAddress(),
+            ),
+          ));
       if (!current() || !sameSdk()) return;
       final spark = received.paymentRequest;
       if (walletId == null) throw StateError('Wallet unavailable');

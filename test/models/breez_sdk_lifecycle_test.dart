@@ -679,6 +679,102 @@ void main() {
     verifyNever(() => sdk.addEventListener());
   });
 
+  test(
+      'the wrapper keeps no request after the connect: a reconnect builds '
+      'it again through the caller, and one that cannot be built now '
+      '(locked, or a seed that needs a prompt) leaves the handle alone',
+      () async {
+    BreezSdkSpark.pullReconnectCooldown = Duration.zero;
+    addTearDown(() =>
+        BreezSdkSpark.pullReconnectCooldown = const Duration(seconds: 25));
+    final first = _Sdk(), second = _Sdk();
+    stub(first, const Stream.empty(), 'first');
+    stub(second, const Stream.empty(), 'second');
+    final queue = [first, second];
+    final wrapper =
+        BreezSdkSpark.forTesting(connectSdk: (_) async => queue.removeAt(0));
+    var built = 0;
+    spark.ConnectRequest? answer = request;
+    await wrapper.connect(
+        req: request,
+        walletId: 'wallet',
+        reconnectRequest: () async {
+          built++;
+          return answer;
+        });
+    expect(wrapper.canReconnectFromSaved, isTrue);
+    expect(built, 0, reason: 'nothing read until a reconnect asks');
+
+    answer = null;
+    expect(await wrapper.reconnectForPull(), isFalse);
+    expect(built, 1);
+    expect(wrapper.instance, same(first));
+    verifyNever(() => first.disconnect());
+
+    answer = request;
+    expect(await wrapper.reconnectForPull(), isTrue);
+    expect(built, 2);
+    expect(wrapper.instance, same(second));
+    verify(() => first.disconnect()).called(1);
+    wrapper.disconnect();
+    await flush();
+  });
+
+  test(
+      'a connect for another wallet drops the kept request and its retry; '
+      'one for the same wallet without a request keeps it', () async {
+    BreezSdkSpark.pullReconnectCooldown = Duration.zero;
+    BreezSdkSpark.pullRetryDelays = const [Duration(milliseconds: 20)];
+    addTearDown(() {
+      BreezSdkSpark.pullReconnectCooldown = const Duration(seconds: 25);
+      BreezSdkSpark.pullRetryDelays = const [
+        Duration(seconds: 2),
+        Duration(seconds: 5),
+        Duration(seconds: 15),
+        Duration(seconds: 30),
+      ];
+    });
+    final first = _Sdk(), again = _Sdk(), second = _Sdk();
+    stub(first, const Stream.empty(), 'first');
+    stub(again, const Stream.empty(), 'again');
+    stub(second, const Stream.empty(), 'second');
+    var connects = 0;
+    final wrapper = BreezSdkSpark.forTesting(connectSdk: (_) async {
+      switch (++connects) {
+        case 1:
+          return first;
+        case 2:
+          return again;
+        case 3:
+          throw StateError('offline');
+        default:
+          return second;
+      }
+    });
+    await wrapper.connect(
+        req: request, walletId: 'a', reconnectRequest: () async => request);
+    // The same wallet connected again (a recovery screen's direct
+    // connect) without a request of its own: the kept one still fits.
+    await wrapper.connect(req: request, walletId: 'a');
+    expect(wrapper.instance, same(again));
+    expect(wrapper.canReconnectFromSaved, isTrue,
+        reason: 'the same wallet keeps what it has');
+    // Wallet a's reconnect fails: a retry is pending.
+    expect(await wrapper.reconnectForPull(), isFalse);
+    expect(wrapper.instance, isNull);
+    expect(connects, 3);
+    // Another wallet connects: a's request and retry are gone.
+    await wrapper.connect(req: request, walletId: 'b');
+    expect(wrapper.instance, same(second));
+    expect(connects, 4);
+    expect(wrapper.canReconnectFromSaved, isFalse);
+    expect(wrapper.canReconnectForPull, isFalse);
+    await Future<void>.delayed(const Duration(milliseconds: 60));
+    expect(connects, 4, reason: "a's retry never fired");
+    wrapper.disconnect();
+    await flush();
+  });
+
   test('synced signal follows only the current native SDK', () async {
     final first = _Sdk(), second = _Sdk();
     final firstEvents = StreamController<spark.SdkEvent>.broadcast();

@@ -41,8 +41,10 @@ void main() {
         .thenAnswer((_) async => const spark.SyncWalletResponse());
   }
 
-  test('recovery is single-flight, re-subscribes, and rejects old native sends',
-      () async {
+  test(
+      'recovery is single-flight, re-subscribes, and rejects old native '
+      'sends; a send that starts during the pending-send check runs and '
+      'the recovery defers to it', () async {
     final first = _Sdk(), second = _Sdk();
     final oldEvents = StreamController<spark.SdkEvent>.broadcast();
     final newEvents = StreamController<spark.SdkEvent>.broadcast();
@@ -51,9 +53,9 @@ void main() {
     final queue = [first, second];
     final wrapper =
         BreezSdkSpark.forTesting(connectSdk: (_) async => queue.removeAt(0));
-    await wrapper.connect(req: request);
+    await wrapper.connect(req: request, reconnectRequest: () async => request);
     await flush();
-    final checking = Completer<spark.ListPaymentsResponse>();
+    var checking = Completer<spark.ListPaymentsResponse>();
     when(() => first.listPayments(request: const spark.ListPaymentsRequest()))
         .thenAnswer((_) => checking.future);
     final identities = <String>[];
@@ -61,12 +63,33 @@ void main() {
     final lifecycle = wrapper.recoveryStream.listen((_) => lifecycleChanges++);
     final sub = wrapper.walletInfoStream
         .listen((i) => identities.add(i.identityPubkey));
+    // The race: a send tapped while the SDK's pending list is being read.
+    // Nothing is reserved yet, so it runs; the recovery sees it and
+    // leaves the handle alone.
+    final deferring = wrapper.recoverStaleTokenBalance(first);
+    expect(wrapper.recoverStaleTokenBalance(first), same(deferring));
+    final sending = Completer<void>();
+    var sent = false;
+    final send = runSparkMutation(first, () async {
+      sent = true;
+      await sending.future;
+    });
+    await flush();
+    expect(sent, isTrue, reason: 'never "The wallet is reconnecting"');
+    checking.complete(const spark.ListPaymentsResponse(payments: []));
+    expect(await deferring, isFalse);
+    expect(outcomes.single, containsPair('result', 'deferred'));
+    expect(outcomes.single, containsPair('reason', 'mutation_in_flight'));
+    expect(wrapper.instance, same(first));
+    verifyNever(() => first.disconnect());
+    sending.complete();
+    await send;
+    outcomes.clear();
+
+    // The send done: the recovery goes through.
+    checking = Completer<spark.ListPaymentsResponse>();
     final recovering = wrapper.recoverStaleTokenBalance(first);
     expect(wrapper.recoverStaleTokenBalance(first), same(recovering));
-    var sent = false;
-    await expectLater(
-        runSparkMutation(first, () async => sent = true), throwsStateError);
-    expect(sent, isFalse);
     checking.complete(const spark.ListPaymentsResponse(payments: []));
     expect(await recovering, isTrue);
     expect(outcomes, hasLength(1), reason: 'joined callers share one outcome');
@@ -83,6 +106,8 @@ void main() {
     await flush();
     expect(identities, isNotEmpty);
     expect(identities, everyElement('second'));
+    // The retired handle rejects a prepared old send for good.
+    sent = false;
     await expectLater(
         runSparkMutation(first, () async => sent = true), throwsStateError);
     expect(sent, isFalse);
@@ -99,7 +124,7 @@ void main() {
     final sdk = _Sdk();
     stub(sdk, const Stream.empty(), 'wallet');
     final wrapper = BreezSdkSpark.forTesting(connectSdk: (_) async => sdk);
-    await wrapper.connect(req: request);
+    await wrapper.connect(req: request, reconnectRequest: () async => request);
     final sending = Completer<void>();
     final operation = runSparkMutation(sdk, () => sending.future);
     expect(await wrapper.recoverStaleTokenBalance(sdk), isFalse);
@@ -118,7 +143,7 @@ void main() {
     when(() => sdk.syncWallet(request: const spark.SyncWalletRequest()))
         .thenAnswer((_) => sync.future);
     final wrapper = BreezSdkSpark.forTesting(connectSdk: (_) async => sdk);
-    await wrapper.connect(req: request);
+    await wrapper.connect(req: request, reconnectRequest: () async => request);
     final syncing = sharedSyncWallet(sdk);
     expect(await wrapper.recoverStaleTokenBalance(sdk), isFalse);
     expect(outcomes.single, containsPair('reason', 'sync_in_flight'));
@@ -143,7 +168,7 @@ void main() {
     final wrapper = BreezSdkSpark.forTesting(
         syncStallAfter: const Duration(milliseconds: 10),
         connectSdk: (_) async => ++connects == 1 ? first : second);
-    await wrapper.connect(req: request);
+    await wrapper.connect(req: request, reconnectRequest: () async => request);
     await flush();
     final observed = <String>[];
     final sub = wrapper.walletInfoStream
@@ -194,7 +219,7 @@ void main() {
     final wrapper = BreezSdkSpark.forTesting(
         syncStallAfter: const Duration(milliseconds: 10),
         connectSdk: (_) async => queue.removeAt(0));
-    await wrapper.connect(req: request);
+    await wrapper.connect(req: request, reconnectRequest: () async => request);
     final sending = Completer<void>();
     final mutation = runSparkMutation(first, () => sending.future);
     final syncing = sharedSyncWallet(first);
@@ -238,7 +263,7 @@ void main() {
         syncStallAfter: const Duration(milliseconds: 10),
         syncWaitTimeout: const Duration(milliseconds: 10),
         connectSdk: (_) async => queue.removeAt(0));
-    await wrapper.connect(req: request);
+    await wrapper.connect(req: request, reconnectRequest: () async => request);
     await flush();
     when(() => first.listPayments(request: const spark.ListPaymentsRequest()))
         .thenThrow(StateError('fixture unavailable'));
@@ -279,7 +304,7 @@ void main() {
     final wrapper = BreezSdkSpark.forTesting(
         syncStallAfter: const Duration(milliseconds: 10),
         connectSdk: (_) async => queue.removeAt(0));
-    await wrapper.connect(req: request);
+    await wrapper.connect(req: request, reconnectRequest: () async => request);
     await Future<void>.delayed(const Duration(milliseconds: 30));
     expect(wrapper.instance, same(second));
     verify(() => first.syncWallet(request: const spark.SyncWalletRequest()))
@@ -304,7 +329,7 @@ void main() {
     final queue = [first, second];
     final wrapper = BreezSdkSpark.forTesting(
         syncStallAfter: threshold, connectSdk: (_) async => queue.removeAt(0));
-    await wrapper.connect(req: request);
+    await wrapper.connect(req: request, reconnectRequest: () async => request);
     final syncing = sharedSyncWallet(first);
     await Future<void>.delayed(const Duration(milliseconds: 35));
     expect(wrapper.instance, same(second));
@@ -325,7 +350,7 @@ void main() {
     final wrapper = BreezSdkSpark.forTesting(
         syncStallAfter: const Duration(milliseconds: 10),
         connectSdk: (_) async => sdk);
-    await wrapper.connect(req: request);
+    await wrapper.connect(req: request, reconnectRequest: () async => request);
     await flush();
     when(() => sdk.listPayments(request: const spark.ListPaymentsRequest()))
         .thenAnswer((_) async => spark.ListPaymentsResponse(payments: [
@@ -358,7 +383,7 @@ void main() {
     final wrapper = BreezSdkSpark.forTesting(
         syncStallAfter: const Duration(milliseconds: 10),
         connectSdk: (_) async => queue.removeAt(0));
-    await wrapper.connect(req: request);
+    await wrapper.connect(req: request, reconnectRequest: () async => request);
     final syncing = sharedSyncWallet(first);
     nativeSync.complete(const spark.SyncWalletResponse());
     await syncing;
@@ -368,7 +393,7 @@ void main() {
     when(() => first.syncWallet(request: const spark.SyncWalletRequest()))
         .thenAnswer((_) => nextSync.future);
     final next = sharedSyncWallet(first);
-    await wrapper.connect(req: request);
+    await wrapper.connect(req: request, reconnectRequest: () async => request);
     await Future<void>.delayed(const Duration(milliseconds: 20));
     expect(wrapper.instance, same(second));
     expect(outcomes, isEmpty);
@@ -389,7 +414,7 @@ void main() {
     final wrapper = BreezSdkSpark.forTesting(
         syncStallAfter: const Duration(milliseconds: 10),
         connectSdk: (_) async => sdk);
-    await wrapper.connect(req: request);
+    await wrapper.connect(req: request, reconnectRequest: () async => request);
     await flush();
     when(() => sdk.listPayments(request: const spark.ListPaymentsRequest()))
         .thenThrow(StateError('fixture lookup failure'));
@@ -413,7 +438,7 @@ void main() {
     final sdk = _Sdk();
     stub(sdk, const Stream.empty(), 'wallet');
     final wrapper = BreezSdkSpark.forTesting(connectSdk: (_) async => sdk);
-    await wrapper.connect(req: request);
+    await wrapper.connect(req: request, reconnectRequest: () async => request);
     await flush();
     when(() => sdk.listPayments(request: const spark.ListPaymentsRequest()))
         .thenAnswer((_) async => spark.ListPaymentsResponse(payments: [
@@ -442,14 +467,14 @@ void main() {
     final queue = [first, second];
     final wrapper =
         BreezSdkSpark.forTesting(connectSdk: (_) async => queue.removeAt(0));
-    await wrapper.connect(req: request);
+    await wrapper.connect(req: request, reconnectRequest: () async => request);
     await flush();
     final checking = Completer<spark.ListPaymentsResponse>();
     when(() => first.listPayments(request: const spark.ListPaymentsRequest()))
         .thenAnswer((_) => checking.future);
     final recovering = wrapper.recoverStaleTokenBalance(first);
     wrapper.disconnect();
-    await wrapper.connect(req: request);
+    await wrapper.connect(req: request, reconnectRequest: () async => request);
     checking.complete(const spark.ListPaymentsResponse(payments: []));
     expect(await recovering, isFalse);
     expect(outcomes.single, containsPair('reason', 'wallet_changed'));
@@ -463,7 +488,7 @@ void main() {
     final events = StreamController<spark.SdkEvent>.broadcast();
     stub(sdk, events.stream, 'wallet');
     final wrapper = BreezSdkSpark.forTesting(connectSdk: (_) async => sdk);
-    await wrapper.connect(req: request);
+    await wrapper.connect(req: request, reconnectRequest: () async => request);
     events.add(const spark.SdkEvent.autoOptimization(
         optimizationEvent:
             spark.AutoOptimizationEvent.started(totalRounds: 1)));
@@ -482,7 +507,7 @@ void main() {
     final sdk = _Sdk();
     stub(sdk, const Stream.empty(), 'wallet');
     final wrapper = BreezSdkSpark.forTesting(connectSdk: (_) async => sdk);
-    await wrapper.connect(req: request);
+    await wrapper.connect(req: request, reconnectRequest: () async => request);
     await flush();
     when(() => sdk.listPayments(request: const spark.ListPaymentsRequest()))
         .thenThrow(StateError('offline'));
@@ -504,7 +529,7 @@ void main() {
         if (++connects > 1) throw StateError('private native error');
         return sdk;
       });
-      await wrapper.connect(req: request);
+      await wrapper.connect(req: request, reconnectRequest: () async => request);
       await flush();
       if (teardownFails) {
         when(() => sdk.disconnect())
@@ -532,7 +557,7 @@ void main() {
     final sdk = _Sdk();
     stub(sdk, const Stream.empty(), 'wallet');
     final wrapper = BreezSdkSpark.forTesting(connectSdk: (_) async => sdk);
-    await wrapper.connect(req: request);
+    await wrapper.connect(req: request, reconnectRequest: () async => request);
     await flush();
     when(() => sdk.listPayments(request: const spark.ListPaymentsRequest()))
         .thenThrow(TimeoutException('private native error'));
@@ -556,13 +581,13 @@ void main() {
     final queue = [first, second, third];
     final wrapper =
         BreezSdkSpark.forTesting(connectSdk: (_) async => queue.removeAt(0));
-    await wrapper.connect(req: request);
+    await wrapper.connect(req: request, reconnectRequest: () async => request);
     await flush();
     final recovering = wrapper.recoverStaleTokenBalance(first);
     await pumpEventQueue();
     expect(wrapper.instance, same(second));
     wrapper.disconnect();
-    await wrapper.connect(req: request);
+    await wrapper.connect(req: request, reconnectRequest: () async => request);
     delayed.complete(info('second'));
     await recovering;
     expect(wrapper.instance, same(third));

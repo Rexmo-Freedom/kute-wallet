@@ -41,14 +41,19 @@ WalletConfig? _pickSpending(Settings settings) {
 
 /// Shared by the real connection provider and injected connection owners:
 /// every guarded recovery follows the same captured-handle invalidation.
+/// A recovery that installed a new handle refreshes what was bound to the
+/// old one; one that failed is retried by the wrapper itself from its
+/// kept request, never by rebuilding this provider (that would unlock the
+/// wallet again: a passkey prompt for something nobody asked).
 void bindSparkRecoveryLifecycle(Ref ref, BreezSdkSpark wrapper) {
   var live = true;
   final recoverySub = wrapper.recoveryStream.listen((_) {
     if (!live) return;
-    if (wrapper.instance == null) {
-      ref.invalidateSelf();
-    } else {
-      ref.invalidate(sparkContactsProvider);
+    // Through the container: the contacts provider depends on this one,
+    // and `ref.invalidate` of a dependent trips Riverpod's debug
+    // dependency assertion (a CircularDependencyError in debug builds).
+    if (wrapper.instance != null) {
+      ref.container.invalidate(sparkContactsProvider);
     }
   });
   ref.onDispose(() {
@@ -60,6 +65,12 @@ void bindSparkRecoveryLifecycle(Ref ref, BreezSdkSpark wrapper) {
 final breezSDKProvider = FutureProvider<BreezSdkSpark>((ref) async {
   final wrapper = BreezSdkSpark();
   bindSparkRecoveryLifecycle(ref, wrapper);
+  var live = true;
+  ref.onDispose(() => live = false);
+  // A reconnect from the kept request (a resume, a network change, a
+  // retry) runs only while the session is unlocked; the unlock itself
+  // connects again (`completeUnlock`).
+  wrapper.sessionUnlocked = () => live && ref.read(sessionUnlockedProvider);
   // A reconnect that could not connect yet (offline, or the old handle's
   // shutdown not confirmed) tries again at once on an app resume or a
   // network change, from the kept request: no unlock.
@@ -104,6 +115,12 @@ final breezSDKProvider = FutureProvider<BreezSdkSpark>((ref) async {
   // the Spark stream never opens, and the Activity feed stays empty
   // forever (the user's reported "balance shows but no transactions"
   // symptom).
+  // The wrapper keeps no seed. A reconnect (a pull, a resume, a retry)
+  // asks for the request again through the same path as below, and only
+  // where that never prompts: the stored copy (with the session's PIN,
+  // while unlocked) or the passkey session cache. A legacy passkey
+  // wallet's seed is a PRF ceremony, so it gets none: its pulls sync only.
+  bool unlocked() => live && ref.read(sessionUnlockedProvider);
   if (spendingIsPasskey) {
     // Resolution order replicates 0.15.1 exactly: the wallet's own
     // stored label first, then the Hive 'settings' box
@@ -125,7 +142,16 @@ final breezSDKProvider = FutureProvider<BreezSdkSpark>((ref) async {
       // the stored credential id inside getWallet.
       final wallet =
           await PasskeyService.getWallet(label: label, legacy: false);
-      await initializeSDKWithSeed(wallet.seed, spendingId);
+      await initializeSDKWithSeed(wallet.seed, spendingId,
+          reconnectRequest: () async {
+        if (!unlocked()) return null;
+        // The session cache this connect filled answers at once; it is
+        // emptied only by a device wipe, which also disposes this
+        // provider (and the wrapper's kept request with it).
+        final again =
+            await PasskeyService.getWallet(label: label, legacy: false);
+        return createConnectRequestWithSeed(again.seed, spendingId);
+      });
     }
   } else {
     // A locked session throws SeedLockedException; `completeUnlock` heals
@@ -133,7 +159,15 @@ final breezSDKProvider = FutureProvider<BreezSdkSpark>((ref) async {
     final mnemonic = await ref
         .read(authModelProvider)
         .requireMnemonic(spendingId, session: ref.read(seedSessionProvider));
-    await initializeSDK(mnemonic, spendingId);
+    await initializeSDK(mnemonic, spendingId, reconnectRequest: () async {
+      if (!unlocked()) return null;
+      // Automatic access: answers null (never prompts) while locked or
+      // when the copy needs a PIN the session no longer holds.
+      final again = await ref.read(authModelProvider).getMnemonic(spendingId,
+          access: SeedAccess.automatic, session: ref.read(seedSessionProvider));
+      if (again == null) return null;
+      return createConnectRequest(again, spendingId);
+    });
   }
 
   return wrapper;
