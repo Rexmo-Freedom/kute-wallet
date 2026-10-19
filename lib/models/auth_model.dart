@@ -14,6 +14,7 @@ import 'package:kute/services/secure/secret_error_class.dart';
 import 'package:kute/services/secure/seed_access.dart';
 import 'package:kute/services/secure/secret_store.dart';
 import 'package:hive_ce/hive.dart';
+import 'package:kute/services/hive_wipe.dart' show wipeHiveBoxes;
 import 'package:kute/services/hardware/ledger/ledger_operation_scope.dart';
 import 'package:kute/services/orchestra/bitcoin_receive_marks.dart'
     show BitcoinReceiveMarks;
@@ -785,13 +786,8 @@ class AuthModel {
     ]);
     await _store.deleteAllLocalOnly();
 
-    await Hive.deleteBoxFromDisk('bitcoin');
-    await Hive.deleteBoxFromDisk('affiliateCode');
-    await Hive.deleteBoxFromDisk('breez_prefs');
-    await Hive.deleteBoxFromDisk('settings');
-    await Hive.deleteBoxFromDisk('bitcoinTransactions');
-    await Hive.deleteBoxFromDisk('addresses');
-    await Hive.deleteBoxFromDisk('provider_event_outbox_v1');
-    await Hive.deleteBoxFromDisk('hyperliquid_revenue_orders_v1');
+    // Every app box, from the one list in hive_wipe.dart (best-effort,
+    // box by box). Only the boxes that list says survive do.
+    await wipeHiveBoxes();
   }
 }

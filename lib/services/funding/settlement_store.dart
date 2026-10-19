@@ -262,6 +262,11 @@ class SettlementStore {
     });
   }
 
+  /// Drops the app-wide store. Called by the device wipe after its boxes
+  /// were deleted from disk, so the next [shared] opens fresh boxes
+  /// instead of writing to dead handles.
+  static void forgetShared() => _shared = null;
+
   static Future<SettlementStore> open() async {
     Future<Box<String>> openBox(String name) async => Hive.isBoxOpen(name)
         ? Hive.box<String>(name)

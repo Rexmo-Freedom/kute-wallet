@@ -604,6 +604,15 @@ class VenueAnalytics {
     _persistTimer?.cancel();
     _persistTimer = null;
   }
+
+  /// Drops the open box and everything loaded from it. Called by the
+  /// device wipe after the box was deleted from disk, so no later persist
+  /// writes to a dead handle; the next [warmUp] opens a fresh box.
+  static void forgetStorage() {
+    debugReset();
+    _box = null;
+    _opening = null;
+  }
 }
 
 class _PmKind {
