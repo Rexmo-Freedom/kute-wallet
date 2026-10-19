@@ -14,6 +14,7 @@ import 'package:kute/services/secure/secret_error_class.dart';
 import 'package:kute/services/secure/seed_access.dart';
 import 'package:kute/services/secure/secret_store.dart';
 import 'package:hive_ce/hive.dart';
+import 'package:kute/services/hive_wipe.dart' show wipeHiveBoxes;
 import 'package:kute/services/hardware/ledger/ledger_operation_scope.dart';
 import 'package:kute/services/orchestra/bitcoin_receive_marks.dart'
     show BitcoinReceiveMarks;
@@ -38,6 +39,17 @@ class ChangePinBlocked implements Exception {
   final int count;
   @override
   String toString() => 'ChangePinBlocked($count)';
+}
+
+/// [AuthModel.setPin] / [AuthModel.setPinAsync] found a stored `pin_hash`
+/// ([unreadable] when the store could not read it) and was not told to
+/// replace it, so it wrote nothing.
+class PinAlreadySetException implements Exception {
+  const PinAlreadySetException({this.unreadable = false});
+  final bool unreadable;
+  @override
+  String toString() =>
+      unreadable ? 'PinAlreadySetException(unreadable)' : 'PinAlreadySetException';
 }
 
 /// AuthModel — secret-material storage layer.
@@ -133,16 +145,40 @@ class AuthModel {
     await _store.deleteLocalOnly(key: 'biometric_pin');
   }
 
-  Future<void> setPin(String pin) async {
+  /// Stores the hash of a NEW PIN. Refused with [PinAlreadySetException]
+  /// while a `pin_hash` exists (or cannot be read) unless [replace] is
+  /// set: a stored hash is what PIN-encrypted seed copies verify against,
+  /// and replacing it silently would strand them. [replace] is passed only
+  /// where setting a fresh PIN over an old hash is the point: the
+  /// restore-secrets return path and onboarding with no wallet records.
+  /// An existing PIN is changed through [changePin].
+  Future<void> setPin(String pin, {bool replace = false}) async {
+    await _refuseExistingPinHash(replace);
     final hashedPin = PinHashHelper.hashPin(pin);
     await _writePinHash(hashedPin);
     await _store.deleteLocalOnly(key: 'pin');
   }
 
-  Future<void> setPinAsync(String pin) async {
+  /// [setPin] with the hash computed off the main isolate.
+  Future<void> setPinAsync(String pin, {bool replace = false}) async {
+    await _refuseExistingPinHash(replace);
     final hashedPin = await PinHashHelper.hashPinAsync(pin);
     await _writePinHash(hashedPin);
     await _store.deleteLocalOnly(key: 'pin');
+  }
+
+  Future<void> _refuseExistingPinHash(bool replace) async {
+    if (replace) return;
+    switch (await _store.read(key: 'pin_hash')) {
+      case SecretAbsent():
+        return;
+      case SecretPresent():
+        throw const PinAlreadySetException();
+      case SecretFailed():
+        // Unknown is not absent: a hash the store cannot read right now
+        // may still guard a PIN-encrypted copy.
+        throw const PinAlreadySetException(unreadable: true);
+    }
   }
 
   /// The plugin write, retried once as a local-only in-place update when
@@ -750,13 +786,8 @@ class AuthModel {
     ]);
     await _store.deleteAllLocalOnly();
 
-    await Hive.deleteBoxFromDisk('bitcoin');
-    await Hive.deleteBoxFromDisk('affiliateCode');
-    await Hive.deleteBoxFromDisk('breez_prefs');
-    await Hive.deleteBoxFromDisk('settings');
-    await Hive.deleteBoxFromDisk('bitcoinTransactions');
-    await Hive.deleteBoxFromDisk('addresses');
-    await Hive.deleteBoxFromDisk('provider_event_outbox_v1');
-    await Hive.deleteBoxFromDisk('hyperliquid_revenue_orders_v1');
+    // Every app box, from the one list in hive_wipe.dart (best-effort,
+    // box by box). Only the boxes that list says survive do.
+    await wipeHiveBoxes();
   }
 }

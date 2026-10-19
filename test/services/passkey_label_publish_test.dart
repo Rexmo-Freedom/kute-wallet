@@ -27,9 +27,13 @@ class _Labels implements PasskeyLabels {
   int failures = 0;
   Completer<void>? gate;
 
+  /// Labels whose every publish fails.
+  final failFor = <String>{};
+
   @override
   Future<void> store({required String label}) async {
     if (gate != null) await gate!.future;
+    if (failFor.contains(label)) throw Exception('relay down');
     if (failures > 0) {
       failures--;
       throw Exception('relay down');
@@ -188,6 +192,56 @@ void main() {
         .toList();
     expect(retried, hasLength(1));
     expect(retried.single.$2, containsPair('result', 'landed'));
+  });
+
+  test('concurrent marks and clears never lose a pending label', () async {
+    await PasskeyService.markLabelPending('A · 1', credentialHex: '010203');
+    // A retry's clear(A) racing a create's mark(C): each read-modify-writes
+    // the whole map, so unserialised the later write drops the other label.
+    await Future.wait([
+      PasskeyService.clearLabelPending('A · 1'),
+      PasskeyService.markLabelPending('C · 3', credentialHex: '010203'),
+    ]);
+    expect(await PasskeyService.hasPendingLabel('A · 1'), isFalse);
+    expect(await PasskeyService.hasPendingLabel('C · 3'), isTrue);
+
+    // Many at once, interleaved.
+    await Future.wait([
+      for (var i = 0; i < 20; i++)
+        PasskeyService.markLabelPending('M · $i', credentialHex: '010203'),
+      PasskeyService.clearLabelPending('C · 3'),
+      for (var i = 0; i < 20; i += 2)
+        PasskeyService.clearLabelPending('M · $i'),
+    ]);
+    final expected = {for (var i = 1; i < 20; i += 2) 'M · $i'};
+    for (var i = 0; i < 20; i++) {
+      expect(await PasskeyService.hasPendingLabel('M · $i'),
+          expected.contains('M · $i'),
+          reason: 'M · $i');
+    }
+    expect(await PasskeyService.hasPendingLabel('C · 3'), isFalse);
+    PasskeyService.debugResetPendingLabels();
+    await PasskeyService.loadPendingLabels();
+    expect(PasskeyService.pendingLabels.value, expected);
+  });
+
+  test('a retry clearing one label never drops a label created meanwhile',
+      () async {
+    // C's publish keeps failing, so C must stay pending for a later retry.
+    labels.failFor.add('C · 3');
+    await PasskeyService.markLabelPending('A · 1', credentialHex: '010203');
+    // The sign-in ceremony primes the identity and fires the retry of A in
+    // the background; the create flow publishes C right after.
+    await PasskeyService.getWallet(label: 'C · 3', legacy: false);
+    final created =
+        PasskeyService.publishLabelInBackground('C · 3', trigger: 'create');
+    await _until(() async => labels.stored.contains('A · 1'));
+    expect(await created, isFalse);
+    await _until(() async => !await PasskeyService.hasPendingLabel('A · 1'));
+    expect(await PasskeyService.hasPendingLabel('C · 3'), isTrue);
+    PasskeyService.debugResetPendingLabels();
+    await PasskeyService.loadPendingLabels();
+    expect(PasskeyService.pendingLabels.value, {'C · 3'});
   });
 
   test('the create flow asks for immediately available credentials only',

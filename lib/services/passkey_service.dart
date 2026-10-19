@@ -7,6 +7,7 @@ import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart';
 import 'package:crypto/crypto.dart' show sha256;
 import 'package:flutter/foundation.dart'
     show ValueListenable, ValueNotifier, visibleForTesting;
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:kute/services/tracking_service.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:hive_ce/hive.dart';
@@ -340,15 +341,17 @@ class PasskeyService {
 
   // ───────────────────────── typed error routing ────────────────────────────
 
-  /// The user dismissed the OS passkey ceremony. Typed check first (the
-  /// 0.23 SDK surfaces `PasskeyError.prf(PrfProviderError.userCancelled())`),
-  /// string fallback for the legacy channel's `PlatformException` and any
-  /// wrapped re-throws.
+  /// The user dismissed the OS passkey ceremony: the SDK's typed verdict
+  /// (`PasskeyError.prf(PrfProviderError.userCancelled())`) or the legacy
+  /// channel's `USER_CANCELLED` platform code. Never a string match: an
+  /// error whose text happens to mention a cancel (a cancelled network
+  /// request, a wrapped re-throw) is a failure, and a failure read as a
+  /// cancel is swallowed silently.
   static bool isUserCancelledError(Object e) {
     if (e is PasskeyError_Prf && e.field0 is PrfProviderError_UserCancelled) {
       return true;
     }
-    return e.toString().toLowerCase().contains('cancel');
+    return e is PlatformException && e.code == 'USER_CANCELLED';
   }
 
   /// No credential resolved for the ceremony — the ONLY signal that may
@@ -802,20 +805,52 @@ class PasskeyService {
     } catch (_) {/* storage unavailable: nothing to show */}
   }
 
-  /// Flag [label] as created-but-not-yet-published. [credentialHex] names
-  /// the credential whose identity must publish it.
-  static Future<void> markLabelPending(String label,
-      {String? credentialHex}) async {
-    final pending = await _readPending();
-    pending[label] = credentialHex ?? pending[label] ?? '';
-    await _writePending(pending);
+  /// Tail of the chain every pending-map mutation runs on. Marks and
+  /// clears each read-modify-write the whole map, and a background retry's
+  /// clear can interleave with a create's mark; without the chain the
+  /// later write would drop the other label, and a dropped pending label
+  /// is never retried (the wallet would never appear in passkey recovery
+  /// on a new device).
+  static Future<void> _pendingMutationTail = Future<void>.value();
+
+  /// Run [body] after every pending-map mutation queued before it. The
+  /// chain never breaks: a failing body still releases the next one.
+  static Future<T> _serializePendingMutation<T>(Future<T> Function() body) {
+    final previous = _pendingMutationTail;
+    final done = Completer<void>();
+    _pendingMutationTail = done.future;
+    return previous.then((_) => body()).whenComplete(done.complete);
   }
 
+  /// Flag [label] as created-but-not-yet-published. [credentialHex] names
+  /// the credential whose identity must publish it.
+  static Future<void> markLabelPending(String label, {String? credentialHex}) =>
+      _serializePendingMutation(() async {
+        final pending = await _readPending();
+        pending[label] = credentialHex ?? pending[label] ?? '';
+        await _writePending(pending);
+      });
+
+  /// [markLabelPending] for the credential of the last ceremony in this
+  /// process. The create flow calls it BEFORE the wallet record is
+  /// written, so a kill between the save and the publish still leaves the
+  /// label to be retried. Throws when the flag could not be stored.
+  static Future<void> markLabelPendingForIdentity(String label) =>
+      markLabelPending(label, credentialHex: _identityCredentialHex);
+
+  /// Told once a label's publish landed AND its pending flag was cleared.
+  /// The settings model registers itself here to mark that wallet backed
+  /// up (a passkey wallet claims no backup until its label is on the
+  /// relay, so the existing reminder shows meanwhile). Null when no model
+  /// is alive; a throwing handler is reported by kind and ignored.
+  static Future<void> Function(String label)? labelPublishedHandler;
+
   /// Drop [label] from the pending set once its publish is confirmed.
-  static Future<void> clearLabelPending(String label) async {
-    final pending = await _readPending();
-    if (pending.remove(label) != null) await _writePending(pending);
-  }
+  static Future<void> clearLabelPending(String label) =>
+      _serializePendingMutation(() async {
+        final pending = await _readPending();
+        if (pending.remove(label) != null) await _writePending(pending);
+      });
 
   static Future<bool> hasPendingLabel(String label) async =>
       (await _readPending()).containsKey(label);
@@ -826,6 +861,8 @@ class PasskeyService {
     _pendingLabels.value = const <String>{};
     _publishing.clear();
     _identityCredentialHex = null;
+    _pendingMutationTail = Future<void>.value();
+    labelPublishedHandler = null;
   }
 
   /// Publish a label to Nostr for later cross-device discovery.
@@ -877,9 +914,14 @@ class PasskeyService {
       } catch (_) {/* storage hiccup: still try to publish */}
       final result = await _storeLabel(label, attempts: 3);
       if (result.landed) {
+        var cleared = false;
         try {
           await clearLabelPending(label);
+          cleared = true;
         } catch (_) {/* the next load re-reads storage */}
+        // Backed up only once the flag is gone too: a flag that outlives
+        // the publish is retried, and the retry's clear reports again.
+        if (cleared) await _notifyLabelPublished(label);
       }
       TrackingService.track('passkey_label_published', params: {
         'result': result.landed ? 'landed' : 'failed',
@@ -893,10 +935,29 @@ class PasskeyService {
     }
   }
 
+  static Future<void> _notifyLabelPublished(String label) async {
+    final handler = labelPublishedHandler;
+    if (handler == null) return;
+    try {
+      await handler(label);
+    } catch (e) {
+      TrackingService.track('passkey_label_published_handler_failed', params: {
+        'error_category': TrackingService.errorReason(e),
+      });
+    }
+  }
+
   /// Re-publish every pending label that belongs to the credential whose
   /// identity the SDK client holds right now. A no-op when no ceremony has
   /// run in this process (publishing would cost a biometric prompt) and
   /// for labels created under a different credential.
+  ///
+  /// Called after every ceremony, and again on app resume and unlock: a
+  /// label whose publish failed on a dead link after a ceremony earlier
+  /// in this process goes out once the link is back, with no prompt. The
+  /// identity cannot be primed any cheaper (the SDK derives it with a PRF
+  /// assertion), so on a cold process the first ceremony does the retry
+  /// and the wallet's backup reminder stays up until then.
   static Future<void> retryPendingLabels() async {
     final primed = _identityCredentialHex;
     if (primed == null) return;
@@ -977,16 +1038,120 @@ class PasskeyService {
     return '${months[d.month - 1]} ${d.day}, ${d.year}';
   }
 
+  /// Hive `settings` key of the device-wide cached label.
+  static const String _cachedLabelKey = 'passkey_cached_label';
+
   /// Cache the active label locally for quick re-authentication.
+  ///
+  /// Refused (kept as is) while a passkey record with no stored label
+  /// exists: that record derives its seed from this cached value, and
+  /// overwriting it would connect that wallet to a different seed and
+  /// reveal the wrong words. The startup backfill
+  /// (`backfillLegacyPasskeyLabels`) pins such records to their label, so
+  /// this only fires until that has run. The caller's own wallet carries
+  /// its label on its record and never reads the cache.
   static Future<void> cacheLabel(String label) async {
     final box = await Hive.openBox('settings');
-    await box.put('passkey_cached_label', label);
+    final existing = box.get(_cachedLabelKey) as String?;
+    if (existing != null && existing != label && _anyUnlabelledPasskeyRecord(box)) {
+      TrackingService.track('passkey_cached_label_kept');
+      return;
+    }
+    await box.put(_cachedLabelKey, label);
+  }
+
+  /// Forget the device-local seed material of the passkey wallet [label]
+  /// once its record is gone (called by `removeWallet`, after the record).
+  /// Deletes only what is keyed by this label: the 0.17 seed cache entry
+  /// under the stored credential and the label-only entry, the in-memory
+  /// copies, and the legacy PRF seed for this salt when no remaining
+  /// record carries the label (a shared label cannot be tied to one
+  /// wallet, so it is kept). Clears the cached label when it names this
+  /// wallet and no unlabelled record still depends on it. Credential
+  /// pins, the passkey registry and relay labels are never touched. Every
+  /// step is best-effort; failures are reported by kind only.
+  static Future<void> forgetWallet(String label) async {
+    _walletSession.remove(label);
+    _walletInFlight.remove(label);
+    if (_discovered?.label == label) _discovered = null;
+
+    await _forgetStep('seed_cache', () async {
+      Uint8List? pin;
+      try {
+        pin = await _loadCredentialId017();
+      } catch (_) {/* unreadable pin: the label-only entry still goes */}
+      if (pin != null && pin.isNotEmpty) {
+        await SecretStores.local.deleteLocalOnly(key: _seedCacheKey(label, pin));
+      }
+      await SecretStores.local
+          .deleteLocalOnly(key: _seedCacheKey(label, _noCredential));
+    });
+
+    // Without the records nothing can tie the PRF seed or the cached label
+    // to this wallet alone, so both are kept.
+    Box<dynamic>? box;
+    try {
+      box = await Hive.openBox('settings');
+    } catch (e) {
+      TrackingService.track('passkey_forget_wallet_step_failed', params: {
+        'step': 'records',
+        'error_category': TrackingService.errorReason(e),
+      });
+      return;
+    }
+    final records = box;
+    if (!_anyRecordWithLabel(records, label)) {
+      await _forgetStep('legacy_prf_seed',
+          () => PasskeyPrfService.discardDerive(label, dropPin: false));
+    }
+    await _forgetStep('cached_label', () async {
+      if (records.get(_cachedLabelKey) == label &&
+          !_anyUnlabelledPasskeyRecord(records)) {
+        await records.delete(_cachedLabelKey);
+      }
+    });
+  }
+
+  static Future<void> _forgetStep(
+      String step, Future<void> Function() body) async {
+    try {
+      await body();
+    } catch (e) {
+      TrackingService.track('passkey_forget_wallet_step_failed', params: {
+        'step': step,
+        'error_category': TrackingService.errorReason(e),
+      });
+    }
+  }
+
+  /// Whether a stored wallet record carries [label].
+  static bool _anyRecordWithLabel(Box<dynamic> box, String label) {
+    final raw = box.get('wallets');
+    if (raw is! List) return false;
+    for (final w in raw) {
+      if (w is Map && w['isPasskey'] == true && w['passkeyLabel'] == label) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// Whether a stored wallet record is a passkey wallet with no label.
+  static bool _anyUnlabelledPasskeyRecord(Box<dynamic> box) {
+    final raw = box.get('wallets');
+    if (raw is! List) return false;
+    for (final w in raw) {
+      if (w is Map && w['isPasskey'] == true && w['passkeyLabel'] == null) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /// Get the cached label (if any).
   static Future<String?> getCachedLabel() async {
     final box = await Hive.openBox('settings');
-    return box.get('passkey_cached_label') as String?;
+    return box.get(_cachedLabelKey) as String?;
   }
 
   /// Resolve a BIP39 mnemonic for the passkey wallet identified by

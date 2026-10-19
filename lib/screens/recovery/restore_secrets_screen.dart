@@ -678,7 +678,10 @@ class _RestoreWalletRow extends StatelessWidget {
               compact: true,
               onPressed: onUsePasskey,
             ),
-            if (state.passkeyFailed && wallet.passkeyProvider == null) ...[
+            // Every passkey vintage: a current-SDK wallet whose passkey is
+            // gone (credential deleted, other account) still has its
+            // twelve words as the way back in.
+            if (state.passkeyFailed) ...[
               SizedBox(height: 8.h),
               AppButton(
                 key: ValueKey('restore-phrase-instead-${wallet.id}'),

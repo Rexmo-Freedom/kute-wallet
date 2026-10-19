@@ -54,6 +54,10 @@ class _OpenPinState extends ConsumerState<OpenPin>
       widget.localAuth ?? LocalAuthentication();
   int _attempts = 0;
   bool _isLocked = false;
+
+  /// True while a biometric prompt (auto or tapped) is on screen or its
+  /// unlock path is running, so no second one starts over it.
+  bool _biometricInFlight = false;
   int _lockoutSecondsRemaining = 0;
   Timer? _lockoutTimer;
   AppLifecycleListener? _resumeListener;
@@ -305,7 +309,12 @@ class _OpenPinState extends ConsumerState<OpenPin>
   /// keypad's biometric key.
   Future<void> _checkBiometrics(BuildContext context, WidgetRef ref,
       {String trigger = 'tap'}) async {
-    if (_isLocked) return;
+    // One prompt at a time (as the lock overlay does): the auto prompt on
+    // entry and a tap on the keypad's key, or a resume event, would
+    // otherwise start a second ceremony over the first and run the
+    // unlock path twice.
+    if (_isLocked || _biometricInFlight) return;
+    _biometricInFlight = true;
 
     try {
       // `canCheckBiometrics` only reports that biometric HARDWARE
@@ -375,6 +384,8 @@ class _OpenPinState extends ConsumerState<OpenPin>
       // too; the helper files that as a cancel, not a failure. The PIN
       // screen is already showing either way.
       TrackingService.biometricPromptThrew(e, surface: 'cold_start');
+    } finally {
+      _biometricInFlight = false;
     }
   }
 

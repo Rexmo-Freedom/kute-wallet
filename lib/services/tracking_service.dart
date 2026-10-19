@@ -943,8 +943,36 @@ class TrackingService {
   /// payload stays on the device.
   static Object sanitizedErrorEnvelope(Object error) {
     final type = error.runtimeType.toString();
+    if (isPasskeySdkError(error)) {
+      // The SDK's passkey errors inline the provider's message, which
+      // names the WebAuthn user (the wallet label) on some platforms.
+      // Only the union variant names go out, never the message.
+      return _SanitizedError(type, passkeyErrorVariants(error));
+    }
     final scrubbed = _safeReason(error.toString()) ?? '';
     return _SanitizedError(type, scrubbed);
+  }
+
+  /// A Breez SDK passkey error (`PasskeyError` / `PrfProviderError` and
+  /// their freezed variants), matched by type name so this file stays
+  /// free of the SDK.
+  @visibleForTesting
+  static bool isPasskeySdkError(Object error) {
+    final type = error.runtimeType.toString();
+    return type.startsWith('PasskeyError') ||
+        type.startsWith('PrfProviderError');
+  }
+
+  /// The variant chain of a passkey error, e.g.
+  /// `PasskeyError.prf > PrfProviderError.credentialNotFound`: the names
+  /// freezed prints before each payload, and nothing from the payload.
+  @visibleForTesting
+  static String passkeyErrorVariants(Object error) {
+    final text = error.toString();
+    return RegExp(r'\b(PasskeyError|PrfProviderError)\.([A-Za-z]\w*)')
+        .allMatches(text)
+        .map((m) => '${m[1]}.${m[2]}')
+        .join(' > ');
   }
 
   /// Record a crash to Firebase Crashlytics (the single crash backend —

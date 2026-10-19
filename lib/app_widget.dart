@@ -22,6 +22,7 @@ import 'package:kute/screens/shared/lock_overlay.dart';
 import 'package:kute/screens/home/components/wallet_cards.dart'
     show WalletCardType, persistSelectedWalletCard, selectedWalletCardProvider;
 import 'package:kute/services/background_sync_service.dart';
+import 'package:kute/services/passkey_service.dart' show PasskeyService;
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -156,11 +157,18 @@ class _AppWidgetState extends ConsumerState<AppWidget>
     // PostHog's GoRouter observer emits a `$screen` event on every
     // route push/pop. Pairs with the `PostHogWidget` wrapper below
     // (autocapture of taps + screens) for the funnel views.
-    _router = AppRouter.createRouter('/splash', extraObservers: [
-      syncRouteObserver,
-      PosthogObserver(),
-      _BreadcrumbObserver(),
-    ]);
+    _router = AppRouter.createRouter(
+      '/splash',
+      // No unlocked session (a cold start, or a wipe) keeps navigation on
+      // the cold-start and PIN routes; the in-place lock overlay keeps
+      // the session and covers the screen instead.
+      sessionLocked: () => ref.read(sessionAuthProvider) == null,
+      extraObservers: [
+        syncRouteObserver,
+        PosthogObserver(),
+        _BreadcrumbObserver(),
+      ],
+    );
     WidgetsBinding.instance.addObserver(this);
 
     // Phase 4: stamp the user-settings person properties on boot. Read
@@ -426,6 +434,11 @@ class _AppWidgetState extends ConsumerState<AppWidget>
           if (ref.exists(venueSweeperProvider)) {
             unawaited(ref.read(venueSweeperProvider.notifier).trigger('resume'));
           }
+          // A passkey label whose publish failed on a dead link: sent now
+          // if a ceremony this process already primed the identity (no
+          // prompt); a no-op otherwise. The unlock path covers the
+          // relock branch above.
+          unawaited(PasskeyService.retryPendingLabels());
         });
       }
     }

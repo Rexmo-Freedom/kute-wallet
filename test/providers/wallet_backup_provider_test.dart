@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/wallet_backup_provider.dart';
+import 'package:kute/screens/shared/wallet_removal_step_up.dart'
+    show walletRemovalNeedsBackupWarning;
 
 Settings _settings(List<WalletConfig> wallets, {String? activeWalletId}) =>
     Settings(
@@ -49,8 +51,12 @@ void main() {
   for (final passkeyProvider in [null, 'breez-0.17']) {
     test('new Bitcoin wallet never prompts a $passkeyProvider passkey account',
         () {
-      final passkey =
-          spending.copyWith(isPasskey: true, passkeyProvider: passkeyProvider);
+      // A current-SDK passkey wallet is saved backed up once its label is
+      // on the relay (restores always are); a legacy one never prompts.
+      final passkey = spending.copyWith(
+          isPasskey: true,
+          passkeyProvider: passkeyProvider,
+          backedUp: passkeyProvider != null);
       final settings = _settings([passkey, bitcoin]);
       final container = containerFor(settings);
 
@@ -62,6 +68,31 @@ void main() {
           same(bitcoin));
     });
   }
+
+  test('a current-SDK passkey wallet whose label is not published prompts',
+      () {
+    final unpublished = spending.copyWith(
+        isPasskey: true, passkeyProvider: 'breez-0.17', backedUp: false);
+    final settings = _settings([unpublished, bitcoin]);
+    final container = containerFor(settings);
+
+    expect(needsWalletBackup(unpublished), isTrue);
+    expect(container.read(pendingSpendingWalletBackupProvider),
+        same(unpublished));
+    // The reminder's explicit target is the wallet itself, never another.
+    expect(resolveBackupWalletTarget(settings, walletId: unpublished.id),
+        same(unpublished));
+    expect(walletRemovalNeedsBackupWarning(unpublished), isTrue);
+    expect(walletRemovalNeedsBackupWarning(unpublished.copyWith(backedUp: true)),
+        isFalse);
+  });
+
+  test('a legacy passkey wallet never prompts even when unbacked', () {
+    final legacy = spending.copyWith(isPasskey: true, backedUp: false);
+    expect(needsWalletBackup(legacy), isFalse);
+    expect(containerFor(_settings([legacy]))
+        .read(pendingSpendingWalletBackupProvider), isNull);
+  });
 
   test('new Bitcoin wallet does not restore a backed-up spending reminder', () {
     final backedUpSpending = spending.copyWith(backedUp: true);

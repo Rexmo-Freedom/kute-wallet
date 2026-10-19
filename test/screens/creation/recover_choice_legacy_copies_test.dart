@@ -209,6 +209,9 @@ void main() {
       (tester) async {
     PasskeyService.debugSetClient(_Client(const []));
     seedLegacy('mnemonic_w2', PinEncryptionHelper.encryptData(phrase, '123456'));
+    // A stored biometric_pin is never tried silently on this surface: the
+    // PIN is asked even though this copy would open with it.
+    keychain.seed('biometric_pin', '123456');
 
     await pumpScreen(tester);
     expect(find.text('Restore this wallet?'), findsOneWidget);
@@ -217,7 +220,8 @@ void main() {
     await settle(tester);
     expect(find.text('Enter the PIN that version used'), findsOneWidget);
 
-    // A wrong PIN stays on the sheet and says so; nothing is written.
+    // A wrong PIN stays on the sheet and says so. It counts on the shared
+    // attempt counter (sheet rules, never a wipe); no seed is touched.
     for (final digit in '000000'.split('')) {
       await tester.tap(find.text(digit));
       await tester.pump();
@@ -225,7 +229,11 @@ void main() {
     await tester.pump(const Duration(milliseconds: 150));
     await settle(tester);
     expect(find.text('Incorrect PIN'), findsOneWidget);
-    expect(keychain.mutations, isEmpty);
+    expect(keychain.mutations,
+        [const FakeMutation('local', 'write', 'failed_pin_attempts')]);
+    expect(keychain.peek('failed_pin_attempts'), '1');
+    expect(events.where((e) => e.$1 == 'pin_gate_failed').single.$2,
+        {'surface': 'legacy_copy', 'attempt': 1});
 
     await tester.tap(find.text('Cancel'));
     await settle(tester);

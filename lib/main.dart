@@ -9,6 +9,7 @@ import 'package:kute/services/exit_reason_service.dart';
 import 'package:kute/services/tracking/latency_tracker.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/services/hive_boot.dart';
+import 'package:kute/services/hive_wipe.dart' show deleteOrphanedHiveBoxes;
 import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/models/breez/sdk_instance.dart';
 import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart';
@@ -463,4 +464,6 @@ Future<void> _initHive() async {
   // launch reusable-deposit hygiene live in lib/services/hive_boot.dart
   // so a test can run exactly this path.
   await openStartupHiveBoxes();
+  // Boxes a retired build left behind that nothing reads (best-effort).
+  await deleteOrphanedHiveBoxes();
 }

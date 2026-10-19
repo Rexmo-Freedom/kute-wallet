@@ -74,11 +74,12 @@ class _Settings extends SettingsModel {
   _Settings(super.state);
   Settings get snapshot => state;
   @override
-  Future<void> addWallet(WalletConfig newWallet) async {
+  Future<WalletConfig> addWallet(WalletConfig newWallet) async {
     if (registrationFails) throw StateError('Settings unavailable');
     state = state.copyWith(
         wallets: [...state.wallets, newWallet],
         activeWalletId: state.activeWalletId ?? newWallet.id);
+    return newWallet;
   }
 }
 

@@ -178,12 +178,76 @@ class AppRouter {
         uri.queryParameters['af_sub2']);
   }
 
-  static GoRouter createRouter(String initialRoute,
-      {List<NavigatorObserver> extraObservers = const []}) {
-    _firstRouterAt ??= DateTime.now();
+  /// The routes reachable while no session is unlocked: the cold-start
+  /// chain (splash → start | restore_secrets | storage_unavailable |
+  /// open_pin, and storage_unavailable back to splash) and PIN setup,
+  /// which onboarding and the restore flow reach before a session
+  /// exists (confirm_pin unlocks the session before going anywhere
+  /// else). Everything else (money, seeds, settings) needs the session.
+  @visibleForTesting
+  static const Set<String> lockedAllowlist = {
+    '/splash',
+    '/start',
+    '/open_pin',
+    '/set_pin',
+    '/confirm_pin',
+    '/restore_secrets',
+    '/storage_unavailable',
+  };
+
+  /// Where a navigation to [location] goes while [locked]: nowhere else
+  /// when the location is allowed, splash otherwise (splash re-runs the
+  /// cold-start classification and lands on the PIN screen). Never
+  /// redirects an unlocked session.
+  @visibleForTesting
+  static String? lockRedirect({required bool locked, required String location}) {
+    if (!locked) return null;
+    return lockedAllowlist.contains(Uri.parse(location).path) ? null : '/splash';
+  }
+
+  /// The top-level redirect. [sessionLocked] reads the session (null
+  /// `sessionAuthProvider`); [initialRoute] seeds the last good location.
+  ///
+  /// Affiliate deep links arrive as ABSOLUTE URIs — the custom scheme
+  /// (kute://open?deep_link_value=CODE) on Android and either that or the
+  /// AppsFlyer Universal Link (https://kute.onelink.me/...?deep_link_value=CODE)
+  /// on iOS. go_router has no route for them, so without this it renders a
+  /// "Page Not Found". We instead register the referral code app-side (works
+  /// in debug + release, both platforms — no SDK round-trip needed) and send
+  /// the user right back to where they were. Regular in-app navigation uses
+  /// relative paths (no scheme), so it's untouched.
+  ///
+  /// While locked, any location off [lockedAllowlist] (a deep link into a
+  /// money or seed route, a stale stack after a wipe) goes to splash.
+  @visibleForTesting
+  static GoRouterRedirect redirectFor({
+    required bool Function() sessionLocked,
+    required String initialRoute,
+  }) {
     // Last in-app location we sat on, so an incoming deep link can register its
     // referral code without yanking the user off their current screen.
     var lastGood = initialRoute;
+    return (context, state) {
+      final uri = state.uri;
+      if (uri.hasScheme) {
+        handleIncomingLink(uri);
+        return lockRedirect(locked: sessionLocked(), location: lastGood) ??
+            lastGood;
+      }
+      final guard = lockRedirect(
+          locked: sessionLocked(), location: state.matchedLocation);
+      if (guard != null) return guard;
+      lastGood = state.matchedLocation;
+      return null;
+    };
+  }
+
+  static GoRouter createRouter(
+    String initialRoute, {
+    required bool Function() sessionLocked,
+    List<NavigatorObserver> extraObservers = const [],
+  }) {
+    _firstRouterAt ??= DateTime.now();
     return GoRouter(
       navigatorKey: _rootNavigatorKey,
       initialLocation: initialRoute,
@@ -191,23 +255,8 @@ class AppRouter {
       // `extraObservers`. Firebase Analytics' routeObserver is gone;
       // legacy `TrackingService.routeObserver` is now a no-op.
       observers: [...extraObservers],
-      // Affiliate deep links arrive as ABSOLUTE URIs — the custom scheme
-      // (kute://open?deep_link_value=CODE) on Android and either that or the
-      // AppsFlyer Universal Link (https://kute.onelink.me/...?deep_link_value=CODE)
-      // on iOS. go_router has no route for them, so without this it renders a
-      // "Page Not Found". We instead register the referral code app-side (works
-      // in debug + release, both platforms — no SDK round-trip needed) and send
-      // the user right back to where they were. Regular in-app navigation uses
-      // relative paths (no scheme), so it's untouched.
-      redirect: (context, state) {
-        final uri = state.uri;
-        if (uri.hasScheme) {
-          handleIncomingLink(uri);
-          return lastGood;
-        }
-        lastGood = state.matchedLocation;
-        return null;
-      },
+      redirect:
+          redirectFor(sessionLocked: sessionLocked, initialRoute: initialRoute),
       routes: [
         GoRoute(
           path: '/splash',

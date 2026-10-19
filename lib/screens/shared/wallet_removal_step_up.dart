@@ -22,15 +22,16 @@ import 'package:kute/services/tracking_service.dart';
 
 /// Whether removing [wallet] could delete the only copy of its words: it
 /// holds recovery words on this phone and is not backed up. Hardware,
-/// watch-only and tracked-address wallets hold no words, and passkey
-/// wallets on the current SDK are recovered with the passkey (the same
-/// rule the backup banner uses).
+/// watch-only and tracked-address wallets hold no words. A passkey wallet
+/// on the current SDK is `backedUp` once its label is on the relay
+/// (recoverable with the passkey elsewhere); one whose label never
+/// landed is as unrecoverable as unbacked words, so it warns too (the
+/// same rule the backup banner uses).
 bool walletRemovalNeedsBackupWarning(WalletConfig wallet) =>
     !wallet.backedUp &&
     !wallet.isHardware &&
     !wallet.isWatchOnly &&
-    !wallet.isExternalAddress &&
-    (!wallet.isPasskey || wallet.passkeyProvider == null);
+    !wallet.isExternalAddress;
 
 enum UnbackedRemovalChoice { removeAnyway, backUpFirst, cancelled }
 
