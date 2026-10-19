@@ -9,7 +9,11 @@
 //   * a pull while one runs joins it; a part that fails or hangs never
 //     holds the others or a later pull;
 //   * Home's pull is the same function (the mascot refreshing meanwhile);
-//   * `pull_to_refresh_executed` carries the surface, never an id.
+//   * `pull_to_refresh_executed` carries the surface and the refresh mode,
+//     never an id;
+//   * a pull while a run is hung past the step limit starts a fresh one.
+// The Bitcoin step as a hot restart (the SDK connected again) is in
+// refresh_everything_reconnect_test.dart.
 // Nothing is signed or sent.
 import 'dart:async';
 
@@ -223,6 +227,29 @@ void main() {
   });
 
   test(
+      'a second pull while a run is hung joins it inside the step limit '
+      'and starts a fresh run after it', () async {
+    RefreshEverything.stepLimit = const Duration(milliseconds: 100);
+    var runs = 0;
+    final c = spending(steps: {
+      'hangs': () {
+        runs++;
+        return Completer<void>().future;
+      },
+    });
+    final refresh = c.read(refreshEverythingProvider);
+    final first = refresh.run();
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(identical(refresh.run(), first), isTrue,
+        reason: 'a young run is joined');
+    expect(runs, 1);
+    await Future<void>.delayed(const Duration(milliseconds: 150));
+    final second = refresh.run();
+    expect(identical(second, first), isFalse);
+    expect(runs, 2, reason: 'never joined forever: a fresh run reads again');
+  });
+
+  test(
       "Home's pull is the same function: reported as home, the mascot "
       'refreshing until the spinner goes', () async {
     final release = Completer<void>();
@@ -245,7 +272,7 @@ void main() {
         if (e.$1 == 'pull_to_refresh_executed') e.$2
     ];
     expect(pulls, [
-      {'screen': 'home'}
+      {'screen': 'home', 'refresh_mode': 'sync'}
     ]);
   });
 
@@ -256,6 +283,7 @@ void main() {
         const RefreshTrigger('usd', tab: 'investing'));
     final pull =
         events.singleWhere((e) => e.$1 == 'pull_to_refresh_executed').$2;
-    expect(pull, {'screen': 'usd', 'tab': 'investing'});
+    expect(pull, {'screen': 'usd', 'tab': 'investing', 'refresh_mode': 'sync'},
+        reason: 'no SDK connection read yet: nothing to reconnect');
   });
 }
