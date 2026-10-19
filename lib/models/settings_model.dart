@@ -307,6 +307,45 @@ class WalletConfig {
   }
 }
 
+/// The label every passkey wallet created before per-wallet labels used
+/// (`passkey_choice.dart` passed this constant to `getWallet`). Also the
+/// salt `PasskeyService.getLegacySeed` falls back to.
+const String kLegacyPasskeyDefaultLabel = 'Default';
+
+/// Gives every passkey record that still has no `passkeyLabel` the label
+/// its seed was derived with, so it stops depending on the device-wide
+/// `passkey_cached_label`, which any later create or restore overwrites
+/// (a wrong label connects an empty wallet and reveals the wrong words).
+///
+/// Such records were all created with [kLegacyPasskeyDefaultLabel]; the
+/// cached label is used only when it is not already carried by another
+/// passkey record (then it belongs to that wallet, not this one). A
+/// non-null label is never overwritten. Returns the same list when
+/// nothing changed, so a caller can tell whether to persist.
+List<WalletConfig> backfillLegacyPasskeyLabels(
+  List<WalletConfig> wallets, {
+  required String? cachedLabel,
+}) {
+  final needsLabel =
+      wallets.any((w) => w.isPasskey && w.passkeyLabel == null);
+  if (!needsLabel) return wallets;
+  final taken = {
+    for (final w in wallets)
+      if (w.isPasskey && w.passkeyLabel != null) w.passkeyLabel!,
+  };
+  final fromCache = cachedLabel != null &&
+      cachedLabel.isNotEmpty &&
+      !taken.contains(cachedLabel);
+  final label = fromCache ? cachedLabel : kLegacyPasskeyDefaultLabel;
+  return [
+    for (final w in wallets)
+      if (w.isPasskey && w.passkeyLabel == null)
+        w.copyWith(passkeyLabel: label)
+      else
+        w,
+  ];
+}
+
 class Settings {
   final String currency;
   final String language;

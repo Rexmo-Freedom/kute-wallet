@@ -996,16 +996,44 @@ class PasskeyService {
     return '${months[d.month - 1]} ${d.day}, ${d.year}';
   }
 
+  /// Hive `settings` key of the device-wide cached label.
+  static const String _cachedLabelKey = 'passkey_cached_label';
+
   /// Cache the active label locally for quick re-authentication.
+  ///
+  /// Refused (kept as is) while a passkey record with no stored label
+  /// exists: that record derives its seed from this cached value, and
+  /// overwriting it would connect that wallet to a different seed and
+  /// reveal the wrong words. The startup backfill
+  /// (`backfillLegacyPasskeyLabels`) pins such records to their label, so
+  /// this only fires until that has run. The caller's own wallet carries
+  /// its label on its record and never reads the cache.
   static Future<void> cacheLabel(String label) async {
     final box = await Hive.openBox('settings');
-    await box.put('passkey_cached_label', label);
+    final existing = box.get(_cachedLabelKey) as String?;
+    if (existing != null && existing != label && _anyUnlabelledPasskeyRecord(box)) {
+      TrackingService.track('passkey_cached_label_kept');
+      return;
+    }
+    await box.put(_cachedLabelKey, label);
+  }
+
+  /// Whether a stored wallet record is a passkey wallet with no label.
+  static bool _anyUnlabelledPasskeyRecord(Box<dynamic> box) {
+    final raw = box.get('wallets');
+    if (raw is! List) return false;
+    for (final w in raw) {
+      if (w is Map && w['isPasskey'] == true && w['passkeyLabel'] == null) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /// Get the cached label (if any).
   static Future<String?> getCachedLabel() async {
     final box = await Hive.openBox('settings');
-    return box.get('passkey_cached_label') as String?;
+    return box.get(_cachedLabelKey) as String?;
   }
 
   /// Resolve a BIP39 mnemonic for the passkey wallet identified by

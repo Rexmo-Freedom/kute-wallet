@@ -114,6 +114,36 @@ final initialSettingsProvider = FutureProvider<Settings>((ref) async {
         .toList();
   }
 
+  // Backfill (idempotent, every start until nothing is left): a passkey
+  // record with no stored label derives its seed from the device-wide
+  // cached label, which the next create or restore overwrites. Pin the
+  // label on the record now, before any screen can write the cache
+  // (PasskeyService.cacheLabel also refuses to overwrite it while such
+  // a record exists). See backfillLegacyPasskeyLabels for the rule.
+  final cachedPasskeyLabel = box.get('passkey_cached_label') as String?;
+  final backfilled =
+      backfillLegacyPasskeyLabels(wallets, cachedLabel: cachedPasskeyLabel);
+  if (!identical(backfilled, wallets)) {
+    var count = 0;
+    String? assigned;
+    for (var i = 0; i < wallets.length; i++) {
+      if (wallets[i].isPasskey && wallets[i].passkeyLabel == null) {
+        count++;
+        assigned = backfilled[i].passkeyLabel;
+      }
+    }
+    wallets = backfilled;
+    await box.put('wallets', wallets.map((w) => w.toMap()).toList());
+    // Categorical only: how many records, and whether the cached label
+    // or the historical default was used. Never the label.
+    TrackingService.track('legacy_passkey_label_backfilled', params: {
+      'count': count,
+      'source': assigned == kLegacyPasskeyDefaultLabel
+          ? 'default'
+          : 'cached_label',
+    });
+  }
+
   // One-shot migration (2026-08): LEGACY (pre-2.x, passkeyProvider
   // null) passkey wallets depend on a single OS credential on the
   // shared Breez RP, and a second credential minted later can hide
