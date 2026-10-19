@@ -69,6 +69,11 @@ class _Trading extends PolymarketTradingNotifier {
   /// Thrown by the next orders, in turn; then the venue accepts.
   final List<Object> refusals;
 
+  /// Asked after [refusals] ran out: what the next order throws (null:
+  /// the venue accepts it). The placement's own pre-sign check as time
+  /// passes (an approval being mined, the book's count catching up).
+  Object? Function()? refuseWith;
+
   /// What the readiness read answers; null = nothing to read.
   PolyBuyReads? reads;
   Future<PolyBuyReads?>? deferredRead;
@@ -160,6 +165,11 @@ class _Trading extends PolymarketTradingNotifier {
       final refusal = refusals.removeAt(0);
       onRefused?.call();
       throw refusal;
+    }
+    final late = refuseWith?.call();
+    if (late != null) {
+      onRefused?.call();
+      throw late;
     }
     onStep?.call('ready');
     if (deferredPost != null) return deferredPost!;
@@ -754,9 +764,10 @@ void main() {
         isTrue);
   });
 
-  test('bounded: after five sends again the failure shows', () async {
+  test('bounded: after the most sends again the failure shows', () async {
     final r = await start(
-        refusals: List.filled(6, const PolymarketBalanceRefused(_balance)));
+        refusals: List.filled(kAutofireNotReadyRetries + 1,
+            const PolymarketBalanceRefused(_balance)));
     r.trading.land(10.6);
     await settle(r.c);
     expect(r.trading.orders, hasLength(1 + kAutofireNotReadyRetries));
@@ -809,5 +820,98 @@ void main() {
     expect(pending.status, PendingBetStatus.failed);
     expect(pending.failureCode, 'approval_expired');
     expect(pending.errorMessage, l10nForLanguage('en').pendingIntentExpired);
+  });
+  // Founder, 19 October 2026: a bet funded from Bitcoin showed "Moved
+  // $4.73 from Bitcoin ✓", then "Confirming balance" failed with "This
+  // action did not complete. ... Your $4.43 is in Predictions." The money
+  // had landed; the order's own pre-sign step (the spend approval it sets,
+  // the book's count of the new pUSD) was not through yet, and the five
+  // sends again were spent within seconds because the readiness read
+  // looked ready at once. The waits below take well past those five
+  // sends' worth of time; the fix waits them out, spaced, bounded by time.
+  group('confirming late, after the money landed', () {
+    test(
+        'the spend approval mined late: waited out under the same approval, '
+        'then placed once, no retry by hand', () async {
+      final r = await start();
+      r.trading.reads = _reads(pusd: 10.6, counted: 10.6);
+      var refused = 0;
+      r.trading.onRefused = () => refused++;
+      final minedAt = DateTime.now().add(const Duration(milliseconds: 600));
+      r.trading.refuseWith = () => DateTime.now().isBefore(minedAt)
+          ? const PolymarketSetupIncomplete(timedOut: true)
+          : null;
+      r.trading.land(10.6);
+      await settle(r.c);
+      final pending = r.c.read(pendingPolymarketBetProvider)!;
+      expect(pending.status, PendingBetStatus.awaitingConfirmation,
+          reason: 'placed without the person retrying');
+      expect(refused, greaterThan(5),
+          reason: 'more sends than the old budget allowed');
+      expect(r.trading.orders.length - refused, 1,
+          reason: 'exactly one order accepted: never placed twice');
+      expect(pending.readiness, PredictionsReadiness.ready);
+      // Every send priced from a fresh book, never past what was approved.
+      final worst = polymarketFundedWorstPrice(_queued());
+      expect(r.trading.orders.every((p) => p <= worst + 1e-9), isTrue);
+      expect(pending.fundUsd, 10, reason: 'the same move, nothing funded again');
+      // Each look while waiting asked the book to re-read.
+      expect(r.trading.refreshAsks, contains(true));
+      expect(events.where((e) => e.$1 == 'polymarket_bet_failed'), isEmpty);
+      expect(PredictionFundingLedger.instance.record('ref_move')!.releaseReason,
+          'placed');
+    });
+
+    test(
+        'the book counts the deposit late, though the readiness read looks '
+        'ready: waited out, then placed', () async {
+      final r = await start();
+      r.trading.reads = _reads(pusd: 10.6, counted: 10.6);
+      var refused = 0;
+      r.trading.onRefused = () => refused++;
+      final countedAt = DateTime.now().add(const Duration(milliseconds: 600));
+      r.trading.refuseWith = () => DateTime.now().isBefore(countedAt)
+          ? const PolymarketCollateralPending()
+          : null;
+      r.trading.land(10.6);
+      await settle(r.c);
+      final pending = r.c.read(pendingPolymarketBetProvider)!;
+      expect(pending.status, PendingBetStatus.awaitingConfirmation);
+      expect(refused, greaterThan(5));
+      expect(r.trading.orders.length - refused, 1);
+      expect(r.trading.refreshAsks, contains(true));
+      expect(events.where((e) => e.$1 == 'polymarket_bet_failed'), isEmpty);
+    });
+
+    test(
+        'never confirmed within the wait: today\'s safe copy, the step that '
+        'did not clear named, nothing placed', () async {
+      PendingBetAutoFire.fundsTimeout = const Duration(milliseconds: 250);
+      final r = await start();
+      OrderFundingJourney.instance.start(OneBalanceVenue.predictions,
+          orderUsd: 10, fundUsd: 10, readyUsd: 0, dollarsUsd: 0);
+      r.trading.reads = _reads(pusd: 10.6, counted: 10.6);
+      var refused = 0;
+      r.trading.onRefused = () => refused++;
+      r.trading.refuseWith =
+          () => const PolymarketSetupIncomplete(timedOut: true);
+      r.trading.land(10.6);
+      await settle(r.c);
+      final stopped = r.c.read(pendingPolymarketBetProvider)!;
+      expect(stopped.status, PendingBetStatus.failed);
+      expect(stopped.errorMessage, l10nForLanguage('en').betActionNotCompleted);
+      expect(stopped.failureCode, 'approval_timeout');
+      expect(r.trading.orders.length, refused, reason: 'nothing accepted');
+      expect(refused, lessThanOrEqualTo(1 + kAutofireNotReadyRetries));
+      final failed =
+          events.singleWhere((e) => e.$1 == 'polymarket_bet_failed').$2!;
+      expect(failed['reason'], 'approval_timeout');
+      final funding =
+          events.singleWhere((e) => e.$1 == 'order_funding_failed').$2!;
+      expect(funding['stage'], 'credit');
+      expect(funding['error_category'], 'timeout');
+      expect(PredictionFundingLedger.instance.record('ref_move')!.releaseReason,
+          'failed');
+    });
   });
 }
