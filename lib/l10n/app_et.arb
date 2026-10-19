@@ -3012,6 +3012,8 @@
   "slipFundingBitcoinBack": "Lisamine kontole Investments ei õnnestunud. Sinu bitcoin tuleb tagasi.",
   "slipFundingPriceMoved": "Hind muutus liiga kiiresti.",
   "slipFundingRoundClosed": "See voor sulgus enne, kui sinu raha kohale jõudis.",
+  "slipFundingRoundPriceMoved": "Hind muutus {price} peale, kuni sinu raha liikus.",
+  "slipFundingRoundEnded": "See voor lõppes, kuni sinu raha liikus. Sinu {amount} on kontol Ennustused.",
   "slipFundingInPredictions": "Sinu {amount} on kontol Ennustused. Puuduta, et uuesti proovida.",
   "slipFundingInInvesting": "Sinu {amount} on kontol Investeerimine. Puuduta, et uuesti proovida.",
   "oneBalancePlacingBet": "Panustame {amount} valikule {side} · {market}",

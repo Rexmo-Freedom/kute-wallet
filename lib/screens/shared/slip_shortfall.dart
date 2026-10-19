@@ -922,10 +922,18 @@ String fundedStopLine(
     case 'funds_timeout' || 'book_unavailable'
         when venue == OneBalanceVenue.predictions && r.message != null:
       return r.message!;
+    // A 5-minute round that ended while the money was moving, the money
+    // now Predictions cash: the whole line, no "tap to try again".
+    case 'round_ended'
+        when venue == OneBalanceVenue.predictions &&
+            r.moneyAt == FundedMoneyAt.venue:
+      return l10n.slipFundingRoundEnded(money(r.label.orderUsd));
   }
   final what = switch (r.reason) {
     'price_moved' => l10n.slipFundingPriceMoved,
-    'market_closed' => l10n.slipFundingRoundClosed,
+    'market_closed' || 'round_ended' => l10n.slipFundingRoundClosed,
+    // A 5-minute round: "Price changed to 81% while your money was moving."
+    'round_price_moved' => r.message ?? l10n.slipFundingPriceMoved,
     _ => r.message,
   };
   final where = switch (r.moneyAt) {

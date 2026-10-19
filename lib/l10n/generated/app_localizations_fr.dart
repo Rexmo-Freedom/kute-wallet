@@ -10831,6 +10831,16 @@ class AppLocalizationsFr extends AppLocalizations {
       'Ce tour s\'est fermé avant l\'arrivée de votre argent.';
 
   @override
+  String slipFundingRoundPriceMoved(String price) {
+    return 'Le prix est passé à $price pendant le transfert de votre argent.';
+  }
+
+  @override
+  String slipFundingRoundEnded(String amount) {
+    return 'Ce tour s\'est terminé pendant le transfert de votre argent. Vos $amount sont dans Prédictions.';
+  }
+
+  @override
   String slipFundingInPredictions(String amount) {
     return 'Vos $amount sont dans Prédictions. Touchez pour réessayer.';
   }

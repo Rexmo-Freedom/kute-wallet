@@ -25,6 +25,8 @@ import 'package:kute/providers/pending_polymarket_bet_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/polymarket_cost_basis_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/screens/polymarket/components/bet_slip_sheet.dart'
+    show betSlipStopAction;
 import 'package:kute/services/one_balance/funded_orders.dart';
 import 'package:kute/services/one_balance/money_steps.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
@@ -187,6 +189,7 @@ Settings _settings() => Settings(
 /// The bet as the slip queues it once its $10 move has left Dollars.
 PendingBetIntent _queued(
         {DateTime? endAt,
+        String? slug,
         Map<String, Object?>? btcLeg,
         Map<String, Object?>? directLegs}) =>
     PendingBetIntent(
@@ -205,6 +208,7 @@ PendingBetIntent _queued(
       marketEndAt: endAt,
       btcLeg: btcLeg,
       directLegs: directLegs,
+      eventSlug: slug,
     );
 
 void main() {
@@ -332,7 +336,10 @@ void main() {
       {List<Object> refusals = const [],
       DateTime? endAt,
       Map<String, Object?>? btcLeg,
-      Map<String, Object?>? directLegs}) async {
+      Map<String, Object?>? directLegs,
+      String? slug,
+      String Function()? ask}) async {
+    final askNow = ask ?? () => '0.48';
     final trading = _Trading([...refusals])
       ..reads = _reads(pusd: 10.6, counted: 10.6);
     addTearDown(trading.deliveries.close);
@@ -348,7 +355,7 @@ void main() {
             'neg_risk': false,
             'min_order_size': '1',
             'asks': [
-              {'price': '0.48', 'size': '1000'}
+              {'price': askNow(), 'size': '1000'}
             ],
             'bids': const [],
           })),
@@ -368,8 +375,8 @@ void main() {
       last = next?.status;
     });
 
-    final intent =
-        _queued(endAt: endAt, btcLeg: btcLeg, directLegs: directLegs);
+    final intent = _queued(
+        endAt: endAt, slug: slug, btcLeg: btcLeg, directLegs: directLegs);
     final review = PmGrants.betReview(
       walletId: 'spending',
       tokenId: _token,
@@ -874,6 +881,137 @@ void main() {
     expect(pending.status, PendingBetStatus.failed);
     expect(pending.failureCode, 'market_closed');
     expect(pending.errorMessage, l10nForLanguage('en').slipFundingRoundClosed);
+  });
+
+  group('a 5-minute crypto round (founder, 19 October 2026)', () {
+    // A Bitcoin-funded bet takes 20 to 40 s to move and wrap; a 5-minute
+    // round's price swings meanwhile. Past the approval: said plainly with
+    // the price now, and the slip's one tap approves again at it. Ended:
+    // said plainly, the money in Predictions. Other markets unchanged.
+    const slug = 'btc-updown-5m-1791152100';
+    Map<String, Object> failedEvent() =>
+        events.where((e) => e.$1 == 'polymarket_bet_failed').single.$2!;
+
+    test('the book past the approval once the money landed: the price now, '
+        'a retry at it, never placed by itself', () async {
+      final r = await start(slug: slug, ask: () => '0.70');
+      r.trading.land(10.6);
+      await settle(r.c);
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+      expect(r.trading.orders, isEmpty, reason: 'nothing auto-placed');
+      final pending = r.c.read(pendingPolymarketBetProvider)!;
+      expect(pending.status, PendingBetStatus.failed);
+      expect(pending.failureCode, 'round_price_moved');
+      expect(pending.movedToPrice, closeTo(0.70, 1e-9));
+      expect(pending.retryMaxPrice, isNotNull);
+      expect(pending.errorMessage,
+          'Price changed to 70% while your money was moving.');
+      expect(betSlipStopAction(l10nForLanguage('en'), pending),
+          (label: 'Retry at 70%', done: false));
+      // The confirm-time approval does not cover the new price: the retry
+      // has to approve again.
+      final review = PmGrants.betReview(
+          walletId: 'spending',
+          tokenId: _token,
+          maxCostUsd: 10.5,
+          worstPrice: polymarketFundedWorstPrice(pending),
+          orderType: OrderType.fak.name);
+      final atNewPrice = PmIntents.order(
+          walletId: 'spending',
+          tokenId: _token,
+          isBuy: true,
+          amountMax: PmGrants.buyCostMicros(14, pending.retryMaxPrice!),
+          limitPrice: pending.retryMaxPrice!,
+          orderType: OrderType.fak.name);
+      expect(AuthGrants.driftBetween(review, atNewPrice),
+          contains(DriftField.price));
+      final failed = failedEvent();
+      expect(failed['reason'], 'price_moved');
+      expect(failed['market_kind'], 'crypto_updown_5m');
+      expect(PredictionFundingLedger.instance.record('ref_move')!.releaseReason,
+          'failed');
+    });
+
+    test('killed for its price twice and the book moved past the approval: '
+        'the same', () async {
+      var ask = '0.48';
+      final r = await start(
+          slug: slug,
+          ask: () => ask,
+          refusals: [
+            const PolymarketOrderNotAcceptedException(_noMatch),
+            const PolymarketOrderNotAcceptedException(_noMatch),
+          ]);
+      var refused = 0;
+      r.trading.onRefused = () {
+        if (++refused == 2) ask = '0.66';
+      };
+      r.trading.land(10.6);
+      await settle(r.c);
+      expect(r.trading.orders, hasLength(2), reason: 'the one re-priced order');
+      final pending = r.c.read(pendingPolymarketBetProvider)!;
+      expect(pending.failureCode, 'round_price_moved');
+      expect(pending.errorMessage,
+          'Price changed to 66% while your money was moving.');
+      expect(failedEvent()['reason'], 'price_moved');
+    });
+
+    test('killed twice with the book still inside the approval: the '
+        'venue\'s own words, as before', () async {
+      final r = await start(slug: slug, refusals: [
+        const PolymarketOrderNotAcceptedException(_noMatch),
+        const PolymarketOrderNotAcceptedException(_noMatch),
+      ]);
+      r.trading.land(10.6);
+      await settle(r.c);
+      final pending = r.c.read(pendingPolymarketBetProvider)!;
+      expect(pending.errorMessage,
+          l10nForLanguage('en').betBuyLiquidityUnavailable);
+      expect(pending.movedToPrice, isNull);
+      expect(failedEvent()['market_kind'], 'crypto_updown_5m');
+    });
+
+    test('the round ended while the money was moving: said so, Done',
+        () async {
+      final r = await start(
+          slug: slug,
+          endAt: DateTime.now().add(const Duration(milliseconds: 150)));
+      r.trading.reads = _reads(usdce: 10.6, counted: 0);
+      r.trading.land(10.6);
+      await settle(r.c);
+      expect(r.trading.orders, isEmpty);
+      final pending = r.c.read(pendingPolymarketBetProvider)!;
+      expect(pending.status, PendingBetStatus.failed);
+      expect(pending.failureCode, 'round_ended');
+      expect(
+          pending.errorMessage,
+          r'This round ended while your money was moving. Your $10.00 is in '
+          'Predictions.');
+      expect(betSlipStopAction(l10nForLanguage('en'), pending),
+          (label: 'Done', done: true));
+      final failed = failedEvent();
+      expect(failed['reason'], 'round_ended');
+      expect(failed['market_kind'], 'crypto_updown_5m');
+    });
+
+    test('any other market whose price moved: unchanged', () async {
+      final r = await start(ask: () => '0.70');
+      r.trading.land(10.6);
+      await settle(r.c);
+      expect(r.trading.orders, isEmpty);
+      final pending = r.c.read(pendingPolymarketBetProvider)!;
+      expect(pending.failureCode, 'price_moved');
+      expect(pending.movedToPrice, isNull);
+      expect(pending.retryMaxPrice, isNotNull);
+      expect(pending.errorMessage, isNot(contains('while your money')));
+      expect(betSlipStopAction(l10nForLanguage('en'), pending).label,
+          startsWith('Retry at '));
+      expect(betSlipStopAction(l10nForLanguage('en'), pending).label,
+          endsWith('¢'));
+      final failed = failedEvent();
+      expect(failed['reason'], 'liquidity_unavailable');
+      expect(failed.containsKey('market_kind'), isFalse);
+    });
   });
 
   test('the approval running out while it waits asks for a new confirm',

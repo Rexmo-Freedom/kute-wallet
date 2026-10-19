@@ -10744,6 +10744,16 @@ class AppLocalizationsSv extends AppLocalizations {
       'Den här rundan stängde innan dina pengar kom fram.';
 
   @override
+  String slipFundingRoundPriceMoved(String price) {
+    return 'Priset ändrades till $price medan dina pengar var på väg.';
+  }
+
+  @override
+  String slipFundingRoundEnded(String amount) {
+    return 'Den här rundan tog slut medan dina pengar var på väg. Dina $amount finns i Prognoser.';
+  }
+
+  @override
   String slipFundingInPredictions(String amount) {
     return 'Dina $amount finns i Prognoser. Tryck för att försöka igen.';
   }

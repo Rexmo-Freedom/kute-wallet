@@ -10715,6 +10715,16 @@ class AppLocalizationsLv extends AppLocalizations {
       'Šī kārta noslēdzās, pirms tava nauda ieradās.';
 
   @override
+  String slipFundingRoundPriceMoved(String price) {
+    return 'Cena mainījās uz $price, kamēr tava nauda pārvietojās.';
+  }
+
+  @override
+  String slipFundingRoundEnded(String amount) {
+    return 'Šī kārta beidzās, kamēr tava nauda pārvietojās. Tavi $amount ir kontā Prognozes.';
+  }
+
+  @override
   String slipFundingInPredictions(String amount) {
     return 'Tavi $amount ir kontā Prognozes. Pieskaries, lai mēģinātu vēlreiz.';
   }

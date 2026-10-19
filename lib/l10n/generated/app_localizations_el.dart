@@ -10825,6 +10825,16 @@ class AppLocalizationsEl extends AppLocalizations {
       'Αυτός ο γύρος έκλεισε πριν φτάσουν τα χρήματά σου.';
 
   @override
+  String slipFundingRoundPriceMoved(String price) {
+    return 'Η τιμή άλλαξε σε $price ενώ τα χρήματά σου μεταφέρονταν.';
+  }
+
+  @override
+  String slipFundingRoundEnded(String amount) {
+    return 'Αυτός ο γύρος έληξε ενώ τα χρήματά σου μεταφέρονταν. Τα $amount σου είναι στις Προβλέψεις.';
+  }
+
+  @override
   String slipFundingInPredictions(String amount) {
     return 'Τα $amount σου είναι στις Προβλέψεις. Πάτησε για να ξαναδοκιμάσεις.';
   }
