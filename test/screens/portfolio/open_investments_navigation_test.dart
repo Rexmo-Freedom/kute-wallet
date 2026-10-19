@@ -427,7 +427,15 @@ void main() {
       expect(find.text('No positions yet'), findsNothing);
       // BTC ($600) over the Predictions position ($50) over ETH ($10).
       final btc = find.byKey(const ValueKey('hl-BTC'));
-      final snow = find.text('Will it snow in May?');
+      // The card writes its title whole, its first lines beside the
+      // figure and the rest under it when it runs past: found by the
+      // title it reads as.
+      final snow = find.byWidgetPredicate(
+          (w) =>
+              (w is Text && w.data == 'Will it snow in May?') ||
+              (w is Semantics &&
+                  w.properties.label == 'Will it snow in May?'),
+          description: 'the title "Will it snow in May?"');
       final eth = find.byKey(const ValueKey('hl-ETH'));
       expect(btc, findsOneWidget);
       expect(snow, findsOneWidget);

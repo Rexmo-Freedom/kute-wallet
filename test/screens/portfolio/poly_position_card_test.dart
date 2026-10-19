@@ -1,13 +1,15 @@
 // A Predictions position on the Portfolio, in the list card's language:
 // a game's two team rows (with the score once it is on) or the market's
-// image and its title on up to two lines, the position in one line, the
-// value on the right with the profit or loss under it, one quiet caption.
+// image and its whole title (never cut, running under the figure once past
+// it), the position in one line with when the market ends, the value top
+// right with the profit or loss under it, one quiet caption.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/providers/polymarket_sports_provider.dart';
@@ -26,6 +28,31 @@ import 'package:kute/theme/app_theme.dart';
 Finder _rolled(String containing) => find.byWidgetPredicate(
     (w) => w is RollingNumberText && w.text.contains(containing),
     description: 'rolling figure containing "$containing"');
+
+/// The title as the card writes it: one text, or its first lines beside
+/// the figure and the rest under it. Never cut.
+List<Text> _titleParts(WidgetTester tester, String title) => tester
+    .widgetList<Text>(find.descendant(
+        of: find.byType(PolyPositionCard), matching: find.byType(Text)))
+    .where((t) => (t.data ?? '').length > 3 && title.contains(t.data!))
+    .toList();
+
+void _expectWholeTitle(WidgetTester tester, String title) {
+  final parts = _titleParts(tester, title);
+  expect(parts, isNotEmpty);
+  expect(parts.map((t) => t.data).join(' '), title);
+  for (final t in parts) {
+    expect(t.maxLines, isNull);
+    expect(t.overflow, isNot(TextOverflow.ellipsis));
+  }
+}
+
+/// How tall the written title is, all its parts.
+double _titleHeight(WidgetTester tester, String title) =>
+    _titleParts(tester, title).fold(
+        0.0,
+        (h, t) =>
+            h + tester.getSize(find.byWidget(t)).height);
 
 class _Games extends SportsLiveNotifier {
   _Games(this.games);
@@ -110,8 +137,8 @@ Future<_Games> _pump(
 void main() {
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
 
-  testWidgets('a market: title on two lines at most, the position in one, '
-      'value over P&L',
+  testWidgets('a market: the whole title, the position with its end in one '
+      'line, value over P&L',
       (tester) async {
     const title = 'Will the Fed cut interest rates by more than 25 basis '
         'points at its December meeting this year?';
@@ -130,17 +157,17 @@ void main() {
         onTap: () => taps++,
       ),
     );
-    // Two lines at most, cut: the market's full question is on its screen.
-    final titleText = tester.widget<Text>(find.text(title));
-    expect(titleText.maxLines, 2);
-    expect(titleText.overflow, TextOverflow.ellipsis);
-    // The position in one line under the title.
-    final line = find.text('Yes · 120 shares at 42¢');
+    // Written whole, never cut.
+    _expectWholeTitle(tester, title);
+    // The position in one line under the title, with when it ends (the
+    // year written, it is not this one's).
+    final line = find.text('Yes · 120 shares at 42¢ · Ends Dec 18, 2030');
     expect(line, findsOneWidget);
-    expect(tester.widget<Text>(line).maxLines, 1);
-    expect(tester.getTopLeft(line).dy,
-        greaterThan(tester.getBottomLeft(find.text(title)).dy - 1));
-    expect(find.text('Dec 18, 2030'), findsOneWidget);
+    expect(tester.widget<Text>(line).maxLines, isNull);
+    final titleBottom = _titleParts(tester, title)
+        .map((t) => tester.getBottomLeft(find.byWidget(t)).dy)
+        .reduce((a, b) => a > b ? a : b);
+    expect(tester.getTopLeft(line).dy, greaterThan(titleBottom - 1));
 
     final c = AppColorsExtension.light();
     final pnl = tester.widget<RollingNumberText>(_rolled('(+7.5%)'));
@@ -155,8 +182,15 @@ void main() {
     expect(value.text, r'$54.20');
     expect(value.style.color, c.textPrimary);
     expect(value.style.fontSize, greaterThan(pnl.style.fontSize!));
+    // Top right, level with the title's first line.
+    final first = find.byWidget(_titleParts(tester, title).first);
     expect(tester.getTopRight(find.byType(PortfolioCardValue)).dx,
-        greaterThan(tester.getTopRight(find.text(title)).dx));
+        greaterThan(tester.getTopRight(first).dx));
+    expect(
+        (tester.getTopLeft(find.byType(PortfolioCardValue)).dy -
+                tester.getTopLeft(first).dy)
+            .abs(),
+        lessThan(4));
 
     await tester.tap(find.byType(PolyPositionCard));
     expect(taps, 1);
@@ -313,7 +347,8 @@ void main() {
         end: DateTime(2030, 12, 18),
       ),
     );
-    expect(find.text('G2 · 2.07 shares at 96¢'), findsOneWidget);
+    expect(find.text('G2 · 2.07 shares at 96¢ · Ends Dec 18, 2030'),
+        findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -348,7 +383,8 @@ void main() {
     await tester.pump();
     expect(find.text('Dec 18, 2030'), findsNothing);
     expect(find.textContaining('dez'), findsOneWidget);
-    expect(find.text('Sim · 10 unidades a 50¢'), findsOneWidget);
+    expect(find.textContaining('Sim · 10 unidades a 50¢ · Termina a '),
+        findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -387,6 +423,8 @@ void main() {
     testWidgets('a lost round: ended, lost', (tester) async {
       await _pump(tester, round(value: 0), slug: slug);
       expect(find.text('Ended · Lost'), findsOneWidget);
+      expect(find.textContaining('Ends'), findsNothing);
+      expect(find.text('Up · 4.53 shares at 66¢'), findsOneWidget);
     });
 
     testWidgets('a round whose price has not settled: result in a few '
@@ -434,7 +472,8 @@ void main() {
       expect(find.text('Final'), findsNothing);
     });
 
-    PolymarketEvent election({bool marketsClosed = false}) => PolymarketEvent(
+    PolymarketEvent election({bool marketsClosed = false, DateTime? endDate}) =>
+        PolymarketEvent(
           id: 'e2',
           slug: 'brazil-presidential-election',
           title: 'Brazil Presidential Election',
@@ -447,7 +486,9 @@ void main() {
             PolymarketOutcome(name: 'No', price: 0.13, tokenId: 'n'),
           ],
           marketsClosed: marketsClosed,
+          endDate: endDate,
         );
+    final firstRound = DateTime.now().subtract(const Duration(days: 14));
     PolyPositionCard electionCard() => PolyPositionCard(
           question: 'Will Flávio Bolsonaro win the 2026 Brazilian '
               'presidential election?',
@@ -458,8 +499,9 @@ void main() {
           pnl: 0,
           pnlPercent: 0,
           eventSlug: 'brazil-presidential-election',
-          // The first-round date Polymarket left on the market.
-          end: DateTime(2026, 10, 5),
+          // The first-round date Polymarket left on the market, two weeks
+          // gone.
+          end: firstRound,
         );
 
     testWidgets('a market past its end date that still trades is not ended',
@@ -468,6 +510,29 @@ void main() {
           event: election(), slug: 'brazil-presidential-election');
       expect(find.textContaining('Ended'), findsNothing);
       expect(find.textContaining('Waiting for the result'), findsNothing);
+      // Never the past date, and no event end to show instead.
+      expect(find.textContaining('Ends'), findsNothing);
+      expect(
+          find.textContaining(DateFormat.MMMd('en').format(firstRound)),
+          findsNothing);
+    });
+
+    testWidgets('a market past its end date that still trades shows the '
+        'event\'s later end', (tester) async {
+      // The runoff, a week ahead (the event ends 26 Oct 2026, the market
+      // kept 5 Oct).
+      final runoff = DateTime.now().add(const Duration(days: 7));
+      await _pump(tester, electionCard(),
+          event: election(endDate: runoff),
+          slug: 'brazil-presidential-election');
+      final day = DateFormat.MMMd('en').format(runoff);
+      expect(find.textContaining('Yes · 5.75 shares at 87¢ · Ends $day'),
+          findsOneWidget);
+      expect(
+          find.textContaining(DateFormat.MMMd('en').format(firstRound)),
+          findsNothing);
+      expect(find.textContaining('Ended'), findsNothing);
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('a market whose trading stopped waits for the result',
@@ -476,6 +541,8 @@ void main() {
           event: election(marketsClosed: true),
           slug: 'brazil-presidential-election');
       expect(find.text('Ended · Waiting for the result'), findsOneWidget);
+      // The state, not a date.
+      expect(find.textContaining('Ends'), findsNothing);
     });
 
     testWidgets('a game past its scheduled end but in play is not ended',
@@ -513,6 +580,111 @@ void main() {
     });
   });
 
+  group('a long title is written whole', () {
+    const fed = 'Will there be no change in Fed interest rates after the '
+        'December 2026 meeting of the Federal Open Market Committee?';
+    for (final scale in [1.0, 1.3, 2.0]) {
+      testWidgets('375 wide, text at ×$scale: several lines, never cut, '
+          'value and P&L kept clear of it', (tester) async {
+        await _pump(
+          tester,
+          PolyPositionCard(
+            question: fed,
+            outcome: 'Yes',
+            shares: 6.49,
+            avgPrice: 0.77,
+            value: 4.92,
+            pnl: -0.07,
+            pnlPercent: -1.5,
+            end: DateTime(2030, 12, 18),
+          ),
+          width: 375,
+          textScale: scale,
+        );
+        expect(tester.takeException(), isNull);
+        _expectWholeTitle(tester, fed);
+        // Several lines: well over one line's height (16sp, 1.25).
+        final line = 16 * (375 / 430) * 1.25 * scale;
+        expect(_titleHeight(tester, fed), greaterThan(2.5 * line));
+
+        final value = find.byType(PortfolioCardValue);
+        expect(_rolled(r'$4.92'), findsOneWidget);
+        expect(_rolled('(−1.5%)'), findsOneWidget);
+        final card = tester.getRect(find.byType(PolyPositionCard));
+        final figure = tester.getRect(value);
+        expect(card.contains(figure.topLeft), isTrue);
+        expect(card.contains(figure.bottomRight - const Offset(1, 1)),
+            isTrue);
+        for (final part in _titleParts(tester, fed)) {
+          expect(
+              tester.getRect(find.byWidget(part)).deflate(0.5).overlaps(
+                  figure.deflate(0.5)),
+              isFalse);
+        }
+        // The position line wraps rather than cut.
+        final meta = find.text('Yes · 6.49 shares at 77¢ · Ends Dec 18, 2030');
+        expect(meta, findsOneWidget);
+        expect(tester.widget<Text>(meta).maxLines, isNull);
+      });
+    }
+
+    testWidgets('its first lines beside the figure, the rest under it to '
+        'the card\'s edge', (tester) async {
+      // Short words (the test font writes every letter a full em wide).
+      const title = 'Will the Fed hold its rates at the next two meetings '
+          'and then cut them at the one after that, or not at all?';
+      await _pump(
+        tester,
+        PolyPositionCard(
+          question: title,
+          outcome: 'Yes',
+          shares: 6.49,
+          avgPrice: 0.77,
+          value: 4.92,
+          pnl: -0.07,
+          pnlPercent: -1.5,
+          end: DateTime(2030, 12, 18),
+        ),
+        width: 375,
+      );
+      expect(tester.takeException(), isNull);
+      _expectWholeTitle(tester, title);
+      final parts = _titleParts(tester, title);
+      expect(parts, hasLength(2));
+      final beside = tester.getRect(find.byWidget(parts[0]));
+      final under = tester.getRect(find.byWidget(parts[1]));
+      final figure = tester.getRect(find.byType(PortfolioCardValue));
+      // Level: the figure's top with the title's first line.
+      expect((figure.top - beside.top).abs(), lessThan(4));
+      expect(beside.right, lessThanOrEqualTo(figure.left));
+      // The rest starts where the title starts, under the figure, and runs
+      // past the figure's left edge.
+      expect(under.left, beside.left);
+      expect(under.top, greaterThanOrEqualTo(figure.bottom - 1));
+      expect(under.right, greaterThan(figure.left));
+    });
+
+    testWidgets('a short title stays beside the figure on one text',
+        (tester) async {
+      await _pump(
+        tester,
+        const PolyPositionCard(
+          question: 'Will it rain?',
+          outcome: 'Yes',
+          shares: 10,
+          avgPrice: 0.5,
+          value: 5,
+          pnl: 0,
+        ),
+        width: 375,
+      );
+      expect(find.text('Will it rain?'), findsOneWidget);
+      expect(tester.getTopLeft(find.byType(PortfolioCardValue)).dy,
+          lessThan(tester.getBottomLeft(find.text('Will it rain?')).dy));
+      expect(tester.takeException(), isNull);
+    });
+  });
+
   testWidgets('a narrow phone at large text: nothing overflows',
       (tester) async {
     await _pump(
@@ -531,6 +703,10 @@ void main() {
       textScale: 1.6,
     );
     expect(tester.takeException(), isNull);
+    _expectWholeTitle(
+        tester,
+        'Will the Golden State Warriors win the 2030 NBA Finals '
+        'after trailing in the conference semifinals?');
   });
 
   testWidgets('a combo: the same frame, an estimate labelled as one, each '
