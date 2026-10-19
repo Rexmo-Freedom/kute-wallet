@@ -1299,9 +1299,11 @@ class HypercoreCctpWithdrawal {
     if (orderId == null) {
       final fundedAt =
           current.firstEnteredAt(SettlementStage.funded) ?? current.updatedAt;
-      if (current.stage == SettlementStage.funded &&
+      if ((current.stage == SettlementStage.funded ||
+              current.stage == SettlementStage.processing) &&
           _clock().difference(fundedAt) > kCctpAttentionAfter) {
-        // Keeps being checked (and submitted) on the slow watch.
+        // No order this long after the burn (minted or not): keeps being
+        // checked (and submitted) on the slow watch.
         await _move(store, current, SettlementStage.needsAttention);
         TrackingService.settlementNeedsAttention(current.route.label);
       } else if (mintTx != null && current.stage == SettlementStage.funded) {

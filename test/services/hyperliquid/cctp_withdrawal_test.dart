@@ -1043,6 +1043,26 @@ void main() {
       expect(orchestra.quotes, hasLength(1));
     });
 
+    test('minted but no order for long: needs attention, still submitted',
+        () async {
+      reads.ledger = (_) => _ledgerHash;
+      await service().withdrawToDollars(usd: 5, stepUp: approve());
+      reads.mints = [_mint(4800000)];
+      orchestra.submitAnswer =
+          () => (outcome: CctpSubmitOutcome.transient, orderId: null);
+      now = now.add(const Duration(seconds: 20));
+      await service().reconcile(await only(), force: true);
+      expect((await only()).stage, SettlementStage.processing);
+      now = now.add(kCctpAttentionAfter);
+      await service().reconcile(await only(), force: true);
+      expect((await only()).stage, SettlementStage.needsAttention);
+      now = now.add(const Duration(minutes: 11));
+      await service().reconcile(await only());
+      expect(orchestra.submits, hasLength(3));
+      expect(orchestra.submits.map((s) => s.key).toSet(), hasLength(1));
+      expect(sender.signed, 1);
+    });
+
     test('Orchestra finds it first: the order is adopted as detected',
         () async {
       reads.ledger = (_) => _ledgerHash;
