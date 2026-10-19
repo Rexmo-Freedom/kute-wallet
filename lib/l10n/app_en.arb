@@ -3705,14 +3705,6 @@
   "@moveConversionOngoing": {
     "description": "Note on the confirmation overlay after a transfer that has to convert. Deliberately states no arrival time, because the app is not told one."
   },
-  "quotedReceiveExactAmount": "Send exactly {amount} in one payment before this address expires.",
-  "@quotedReceiveExactAmount": {
-    "placeholders": {
-      "amount": {
-        "type": "String"
-      }
-    }
-  },
   "quotedReceiveExpired": "This address has expired. Do not send another payment. Check Activity if you already paid.",
   "quotedReceiveExpectedOutput": "Expected to receive {amount}",
   "@quotedReceiveExpectedOutput": {

@@ -2213,14 +2213,6 @@
   "moveWithdrawDestinationHint": "Escolha o que chega à sua conta de despesas.",
   "moveDestDollarsSubtitle": "Into your Investments balance",
   "moveConversionOngoing": "Conversão em curso",
-  "quotedReceiveExactAmount": "Envie exatamente {amount} num único pagamento antes de este endereço expirar.",
-  "@quotedReceiveExactAmount": {
-    "placeholders": {
-      "amount": {
-        "type": "String"
-      }
-    }
-  },
   "quotedReceiveExpired": "Este endereço expirou. Não envie outro pagamento. Consulte a Atividade se já pagou.",
   "quotedReceiveExpectedOutput": "Valor previsto a receber: {amount}",
   "@quotedReceiveExpectedOutput": {

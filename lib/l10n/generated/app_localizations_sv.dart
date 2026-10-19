@@ -6783,11 +6783,6 @@ class AppLocalizationsSv extends AppLocalizations {
   String get moveConversionOngoing => 'Växling pågår';
 
   @override
-  String quotedReceiveExactAmount(String amount) {
-    return 'Skicka exakt $amount i en betalning innan adressen går ut.';
-  }
-
-  @override
   String get quotedReceiveExpired =>
       'Adressen har gått ut. Skicka ingen ny betalning. Kolla Aktivitet om du redan har betalat.';
 

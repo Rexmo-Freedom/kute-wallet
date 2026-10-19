@@ -1960,7 +1960,6 @@
   "moveWithdrawDestinationHint": "Vyber, co dorazí na tvůj výdajový účet.",
   "moveDestDollarsSubtitle": "Into your Investments balance",
   "moveConversionOngoing": "Probíhá převod",
-  "quotedReceiveExactAmount": "Pošli přesně {amount} jednou platbou, než tato adresa vyprší.",
   "quotedReceiveExpired": "Platnost této adresy vypršela. Další platbu neposílej. Pokud už je zaplaceno, zkontroluj Aktivitu.",
   "quotedReceiveExpectedOutput": "Očekávaný příjem {amount}",
   "quotedReceiveWalletChanged": "Tvůj účet se změnil. Zavři tuto obrazovku a začni znovu.",

@@ -6791,11 +6791,6 @@ class AppLocalizationsDa extends AppLocalizations {
   String get moveConversionOngoing => 'Omregning i gang';
 
   @override
-  String quotedReceiveExactAmount(String amount) {
-    return 'Send præcis $amount i én betaling, før denne adresse udløber.';
-  }
-
-  @override
   String get quotedReceiveExpired =>
       'Denne adresse er udløbet. Send ikke flere betalinger. Tjek Aktivitet, hvis du allerede har betalt.';
 

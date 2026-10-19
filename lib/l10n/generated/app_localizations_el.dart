@@ -6841,11 +6841,6 @@ class AppLocalizationsEl extends AppLocalizations {
   String get moveConversionOngoing => 'Μετατροπή σε εξέλιξη';
 
   @override
-  String quotedReceiveExactAmount(String amount) {
-    return 'Στείλε ακριβώς $amount σε μία πληρωμή πριν λήξει αυτή η διεύθυνση.';
-  }
-
-  @override
   String get quotedReceiveExpired =>
       'Αυτή η διεύθυνση έχει λήξει. Μην στείλεις άλλη πληρωμή. Έλεγξε τη Δραστηριότητα αν έχεις ήδη πληρώσει.';
 

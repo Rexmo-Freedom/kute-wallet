@@ -1960,7 +1960,6 @@
   "moveWithdrawDestinationHint": "Избери какво да пристигне в акаунта ти за плащания.",
   "moveDestDollarsSubtitle": "Into your Investments balance",
   "moveConversionOngoing": "Конвертирането е в процес",
-  "quotedReceiveExactAmount": "Изпрати точно {amount} с едно плащане, преди този адрес да изтече.",
   "quotedReceiveExpired": "Този адрес е изтекъл. Не изпращай друго плащане. Провери Активност, ако плащането вече е направено.",
   "quotedReceiveExpectedOutput": "Очаква се да получиш {amount}",
   "quotedReceiveWalletChanged": "Акаунтът ти се смени. Затвори този екран и започни отначало.",

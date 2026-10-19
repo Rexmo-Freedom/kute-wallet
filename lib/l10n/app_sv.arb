@@ -1960,7 +1960,6 @@
   "moveWithdrawDestinationHint": "Välj vad som hamnar på ditt vardagskonto.",
   "moveDestDollarsSubtitle": "Into your Investments balance",
   "moveConversionOngoing": "Växling pågår",
-  "quotedReceiveExactAmount": "Skicka exakt {amount} i en betalning innan adressen går ut.",
   "quotedReceiveExpired": "Adressen har gått ut. Skicka ingen ny betalning. Kolla Aktivitet om du redan har betalat.",
   "quotedReceiveExpectedOutput": "Förväntas ta emot {amount}",
   "quotedReceiveWalletChanged": "Ditt konto har ändrats. Stäng skärmen och börja om.",

@@ -6807,11 +6807,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String get moveConversionOngoing => 'Átváltás folyamatban';
 
   @override
-  String quotedReceiveExactAmount(String amount) {
-    return 'Pontosan $amount összeget küldj, egyetlen fizetésben, mielőtt ez a cím lejár.';
-  }
-
-  @override
   String get quotedReceiveExpired =>
       'Ez a cím lejárt. Ne küldj újabb fizetést. Ha már fizettél, nézd meg a Tevékenységet.';
 

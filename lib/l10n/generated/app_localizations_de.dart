@@ -6841,11 +6841,6 @@ class AppLocalizationsDe extends AppLocalizations {
   String get moveConversionOngoing => 'Umwandlung läuft';
 
   @override
-  String quotedReceiveExactAmount(String amount) {
-    return 'Sende genau $amount in einer Zahlung, bevor diese Adresse abläuft.';
-  }
-
-  @override
   String get quotedReceiveExpired =>
       'Diese Adresse ist abgelaufen. Sende keine weitere Zahlung. Prüfe die Aktivität, falls du bereits bezahlt hast.';
 

@@ -1960,7 +1960,6 @@
   "moveWithdrawDestinationHint": "Alege ce ajunge în contul de cheltuieli.",
   "moveDestDollarsSubtitle": "Into your Investments balance",
   "moveConversionOngoing": "Conversie în curs",
-  "quotedReceiveExactAmount": "Trimite exact {amount} într-o singură plată înainte să expire această adresă.",
   "quotedReceiveExpired": "Această adresă a expirat. Nu trimite altă plată. Verifică Activitate dacă ai plătit deja.",
   "quotedReceiveExpectedOutput": "Estimat să primești {amount}",
   "quotedReceiveWalletChanged": "Contul tău s-a schimbat. Închide acest ecran și începe din nou.",

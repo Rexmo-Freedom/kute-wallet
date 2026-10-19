@@ -6801,11 +6801,6 @@ class AppLocalizationsBg extends AppLocalizations {
   String get moveConversionOngoing => 'Конвертирането е в процес';
 
   @override
-  String quotedReceiveExactAmount(String amount) {
-    return 'Изпрати точно $amount с едно плащане, преди този адрес да изтече.';
-  }
-
-  @override
   String get quotedReceiveExpired =>
       'Този адрес е изтекъл. Не изпращай друго плащане. Провери Активност, ако плащането вече е направено.';
 

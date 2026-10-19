@@ -1960,7 +1960,6 @@
   "moveWithdrawDestinationHint": "Válaszd ki, mi érkezzen a költési fiókodba.",
   "moveDestDollarsSubtitle": "Into your Investments balance",
   "moveConversionOngoing": "Átváltás folyamatban",
-  "quotedReceiveExactAmount": "Pontosan {amount} összeget küldj, egyetlen fizetésben, mielőtt ez a cím lejár.",
   "quotedReceiveExpired": "Ez a cím lejárt. Ne küldj újabb fizetést. Ha már fizettél, nézd meg a Tevékenységet.",
   "quotedReceiveExpectedOutput": "Várhatóan ennyit kapsz: {amount}",
   "quotedReceiveWalletChanged": "A fiókod megváltozott. Zárd be ezt a képernyőt, és kezdd újra.",

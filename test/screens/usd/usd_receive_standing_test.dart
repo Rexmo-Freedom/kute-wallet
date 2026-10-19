@@ -308,7 +308,8 @@ void main() {
   testWidgets(
       'Dollars: a coin the standing route serves shows its reusable address '
       '(registration tried with no switch in the policy): no amount sheet, '
-      'no quote, no Kute fee line, the minimum under it', (tester) async {
+      'no quote, no Kute fee line, the network warning and the minimum '
+      'under it', (tester) async {
     expect(standingAddressPolicy(RuntimeCapabilitiesService.instance),
         StandingPolicy.unknown);
     await _pump(tester);
@@ -324,8 +325,20 @@ void main() {
     expect(find.text(_l10n.feeUiKuteFee), findsNothing);
     expect(find.text('0.50%'), findsNothing);
     expect(find.text(_l10n.amountMinimumInline('\$1.50')), findsOneWidget);
-    // Under the address only the minimum: no "Send only … on …" line.
-    expect(find.textContaining('Send only'), findsNothing);
+    // Under the address, as on the Bitcoin receive: the network warning,
+    // then the minimum.
+    final warning = find.byKey(const ValueKey('usd-receive-network-warning'));
+    expect(tester.widget<ReceiveCaption>(warning).text,
+        startsWith('Send only USDC on '));
+    final line = find.byWidgetPredicate(
+        (w) => w is ReceiveAddressLine && w.address == _solanaDeposit);
+    expect(tester.getTopLeft(warning).dy,
+        greaterThan(tester.getBottomLeft(line).dy));
+    expect(
+        tester.getTopLeft(warning).dy,
+        lessThan(tester
+            .getTopLeft(find.text(_l10n.amountMinimumInline('\$1.50')))
+            .dy));
     // Only from the Bitcoin receive does it say where the money lands.
     expect(find.byKey(_note), findsNothing);
     expect(BitcoinReceiveMarks.current, isEmpty);

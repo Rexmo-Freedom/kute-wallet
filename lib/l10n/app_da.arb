@@ -1960,7 +1960,6 @@
   "moveWithdrawDestinationHint": "Vælg, hvad der lander på din forbrugskonto.",
   "moveDestDollarsSubtitle": "Into your Investments balance",
   "moveConversionOngoing": "Omregning i gang",
-  "quotedReceiveExactAmount": "Send præcis {amount} i én betaling, før denne adresse udløber.",
   "quotedReceiveExpired": "Denne adresse er udløbet. Send ikke flere betalinger. Tjek Aktivitet, hvis du allerede har betalt.",
   "quotedReceiveExpectedOutput": "Forventes at modtage {amount}",
   "quotedReceiveWalletChanged": "Din konto er ændret. Luk denne skærm, og start forfra.",

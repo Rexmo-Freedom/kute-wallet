@@ -1960,7 +1960,6 @@
   "moveWithdrawDestinationHint": "支払い用アカウントに受け取る通貨を選択してください。",
   "moveDestDollarsSubtitle": "Into your Investments balance",
   "moveConversionOngoing": "変換中",
-  "quotedReceiveExactAmount": "このアドレスの有効期限までに、ちょうど{amount}を1回で送金してください。",
   "quotedReceiveExpired": "このアドレスは有効期限が切れています。これ以上送金しないでください。すでに支払った場合はアクティビティを確認してください。",
   "quotedReceiveExpectedOutput": "受取予定額 {amount}",
   "quotedReceiveWalletChanged": "アカウントが変更されました。この画面を閉じて最初からやり直してください。",

@@ -6794,11 +6794,6 @@ class AppLocalizationsSk extends AppLocalizations {
   String get moveConversionOngoing => 'Konverzia prebieha';
 
   @override
-  String quotedReceiveExactAmount(String amount) {
-    return 'Pošli presne $amount jednou platbou, kým táto adresa nevyprší.';
-  }
-
-  @override
   String get quotedReceiveExpired =>
       'Platnosť tejto adresy vypršala. Neposielaj ďalšiu platbu. Ak už platba odišla, skontroluj Aktivitu.';
 

@@ -1960,7 +1960,6 @@
   "moveWithdrawDestinationHint": "Valitse, mitä käyttötilillesi saapuu.",
   "moveDestDollarsSubtitle": "Into your Investments balance",
   "moveConversionOngoing": "Muunnos käynnissä",
-  "quotedReceiveExactAmount": "Lähetä tasan {amount} yhtenä maksuna ennen kuin tämä osoite vanhenee.",
   "quotedReceiveExpired": "Tämä osoite on vanhentunut. Älä lähetä uutta maksua. Tarkista Toiminta, jos olet jo maksanut.",
   "quotedReceiveExpectedOutput": "Odotettu vastaanotto {amount}",
   "quotedReceiveWalletChanged": "Tilisi vaihtui. Sulje tämä näkymä ja aloita alusta.",

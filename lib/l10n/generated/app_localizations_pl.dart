@@ -6814,11 +6814,6 @@ class AppLocalizationsPl extends AppLocalizations {
   String get moveConversionOngoing => 'Wymiana w toku';
 
   @override
-  String quotedReceiveExactAmount(String amount) {
-    return 'Wyślij dokładnie $amount w jednej płatności, zanim ten adres wygaśnie.';
-  }
-
-  @override
   String get quotedReceiveExpired =>
       'Ten adres wygasł. Nie wysyłaj kolejnej płatności. Jeśli już zapłacono, sprawdź Aktywność.';
 

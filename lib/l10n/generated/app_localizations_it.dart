@@ -6812,11 +6812,6 @@ class AppLocalizationsIt extends AppLocalizations {
   String get moveConversionOngoing => 'Conversione in corso';
 
   @override
-  String quotedReceiveExactAmount(String amount) {
-    return 'Invia esattamente $amount in un solo pagamento prima che questo indirizzo scada.';
-  }
-
-  @override
   String get quotedReceiveExpired =>
       'Questo indirizzo è scaduto. Non inviare un altro pagamento. Controlla Attività se hai già pagato.';
 

@@ -5,8 +5,8 @@
 // fiat for Bitcoin, with the route's minimum on the sheet's minimum line),
 // then the optional return address (onetime_refund_step.dart), and this
 // sheet quotes it and shows the one-time deposit address: the code, the
-// exact amount to send, the network it must come from, the expiry
-// countdown and what arrives. Each step is a bottom sheet over the coin
+// expiry countdown, the network it must come from, and the amount to
+// send in the plate under it. Each step is a bottom sheet over the coin
 // sheet, opened as the one before it closes, so closing any of them comes
 // back to the coin sheet as it was. The quote is kept as a pending quote
 // (watched after this sheet closes) and becomes an Activity row only once
@@ -542,19 +542,14 @@ class _QuotedReceiveSheetState extends ConsumerState<QuotedReceiveSheet> {
         children: [
           if (payable) ...[
             ReceiveQrPlate(child: buildQrCode(display.depositAddress, context)),
-            // Captions right under the code, where the Bitcoin receive
-            // puts its own: the countdown first (the one thing that runs
-            // out), the exact amount, then what a late deposit means.
+            // Captions right under the code: the countdown first (the one
+            // thing that runs out), then what a late deposit means. The
+            // amount is in the plate below ("You send").
             SizedBox(height: ReceiveGaps.qrToCaption),
             ReceiveCaption(
               key: const ValueKey('onetime-receive-expiry'),
               text: l10n.receiveOneOffExpiresIn(usdFormatCountdown(_remaining)),
               emphasised: true,
-            ),
-            SizedBox(height: 4.h),
-            ReceiveCaption(
-              key: const ValueKey('onetime-receive-exact-amount'),
-              text: l10n.quotedReceiveExactAmount(_sourceAmount),
             ),
             SizedBox(height: 4.h),
             ReceiveCaption(
@@ -565,6 +560,15 @@ class _QuotedReceiveSheetState extends ConsumerState<QuotedReceiveSheet> {
             ReceiveAddressLine(
               address: display.depositAddress,
               onCopy: () => unawaited(_copyAddress()),
+            ),
+            // The network warning under the address, where the Bitcoin
+            // receive puts its own caption: only this coin, only this
+            // network.
+            SizedBox(height: 8.h),
+            ReceiveCaption(
+              key: const ValueKey('onetime-receive-network-warning'),
+              text: l10n.usdReceiveShareSubtitle(
+                  widget.option.displaySymbol, widget.option.chainDisplayName),
             ),
             SizedBox(height: ReceiveGaps.addressToActions),
           ] else ...[

@@ -6774,11 +6774,6 @@ class AppLocalizationsEt extends AppLocalizations {
   String get moveConversionOngoing => 'Konverteerimine käib';
 
   @override
-  String quotedReceiveExactAmount(String amount) {
-    return 'Saada täpselt $amount ühe maksena enne, kui see aadress aegub.';
-  }
-
-  @override
   String get quotedReceiveExpired =>
       'See aadress on aegunud. Ära saada uut makset. Kui oled juba maksnud, kontrolli tegevusi.';
 

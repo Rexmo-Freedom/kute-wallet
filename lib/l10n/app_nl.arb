@@ -1960,7 +1960,6 @@
   "moveWithdrawDestinationHint": "Kies wat er op je bestedingsrekening binnenkomt.",
   "moveDestDollarsSubtitle": "Into your Investments balance",
   "moveConversionOngoing": "Omzetting bezig",
-  "quotedReceiveExactAmount": "Stuur precies {amount} in één betaling voordat dit adres verloopt.",
   "quotedReceiveExpired": "Dit adres is verlopen. Stuur geen nieuwe betaling. Controleer Activiteit als je al hebt betaald.",
   "quotedReceiveExpectedOutput": "Verwacht te ontvangen: {amount}",
   "quotedReceiveWalletChanged": "Je rekening is gewijzigd. Sluit dit scherm en begin opnieuw.",

@@ -6822,11 +6822,6 @@ class AppLocalizationsLt extends AppLocalizations {
   String get moveConversionOngoing => 'Vyksta konvertavimas';
 
   @override
-  String quotedReceiveExactAmount(String amount) {
-    return 'Prieš šiam adresui nustojant galioti, vienu mokėjimu išsiųskite lygiai $amount.';
-  }
-
-  @override
   String get quotedReceiveExpired =>
       'Šis adresas nebegalioja. Nesiųskite kito mokėjimo. Jei jau sumokėjote, patikrinkite Veiklą.';
 

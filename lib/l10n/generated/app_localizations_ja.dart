@@ -6521,11 +6521,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get moveConversionOngoing => '変換中';
 
   @override
-  String quotedReceiveExactAmount(String amount) {
-    return 'このアドレスの有効期限までに、ちょうど$amountを1回で送金してください。';
-  }
-
-  @override
   String get quotedReceiveExpired =>
       'このアドレスは有効期限が切れています。これ以上送金しないでください。すでに支払った場合はアクティビティを確認してください。';
 

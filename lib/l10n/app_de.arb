@@ -1960,7 +1960,6 @@
   "moveWithdrawDestinationHint": "Wähle, was in deinem Ausgabenkonto ankommt.",
   "moveDestDollarsSubtitle": "Into your Investments balance",
   "moveConversionOngoing": "Umwandlung läuft",
-  "quotedReceiveExactAmount": "Sende genau {amount} in einer Zahlung, bevor diese Adresse abläuft.",
   "quotedReceiveExpired": "Diese Adresse ist abgelaufen. Sende keine weitere Zahlung. Prüfe die Aktivität, falls du bereits bezahlt hast.",
   "quotedReceiveExpectedOutput": "Erwarteter Eingang: {amount}",
   "quotedReceiveWalletChanged": "Dein Konto hat sich geändert. Schließe diesen Bildschirm und beginne neu.",

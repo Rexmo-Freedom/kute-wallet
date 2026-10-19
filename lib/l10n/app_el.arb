@@ -1960,7 +1960,6 @@
   "moveWithdrawDestinationHint": "Διάλεξε τι καταλήγει στον λογαριασμό εξόδων σου.",
   "moveDestDollarsSubtitle": "Into your Investments balance",
   "moveConversionOngoing": "Μετατροπή σε εξέλιξη",
-  "quotedReceiveExactAmount": "Στείλε ακριβώς {amount} σε μία πληρωμή πριν λήξει αυτή η διεύθυνση.",
   "quotedReceiveExpired": "Αυτή η διεύθυνση έχει λήξει. Μην στείλεις άλλη πληρωμή. Έλεγξε τη Δραστηριότητα αν έχεις ήδη πληρώσει.",
   "quotedReceiveExpectedOutput": "Αναμένεται να λάβεις {amount}",
   "quotedReceiveWalletChanged": "Ο λογαριασμός σου άλλαξε. Κλείσε αυτή την οθόνη και ξεκίνα από την αρχή.",

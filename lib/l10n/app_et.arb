@@ -1960,7 +1960,6 @@
   "moveWithdrawDestinationHint": "Vali, mis jõuab sinu kulutuskontole.",
   "moveDestDollarsSubtitle": "Into your Investments balance",
   "moveConversionOngoing": "Konverteerimine käib",
-  "quotedReceiveExactAmount": "Saada täpselt {amount} ühe maksena enne, kui see aadress aegub.",
   "quotedReceiveExpired": "See aadress on aegunud. Ära saada uut makset. Kui oled juba maksnud, kontrolli tegevusi.",
   "quotedReceiveExpectedOutput": "Eeldatavalt saad {amount}",
   "quotedReceiveWalletChanged": "Sinu konto muutus. Sulge see ekraan ja alusta uuesti.",

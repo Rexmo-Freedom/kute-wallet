@@ -1960,7 +1960,6 @@
   "moveWithdrawDestinationHint": "Scegli cosa arriva sul tuo conto di spesa.",
   "moveDestDollarsSubtitle": "Into your Investments balance",
   "moveConversionOngoing": "Conversione in corso",
-  "quotedReceiveExactAmount": "Invia esattamente {amount} in un solo pagamento prima che questo indirizzo scada.",
   "quotedReceiveExpired": "Questo indirizzo è scaduto. Non inviare un altro pagamento. Controlla Attività se hai già pagato.",
   "quotedReceiveExpectedOutput": "Importo previsto in ricezione: {amount}",
   "quotedReceiveWalletChanged": "Il tuo conto è cambiato. Chiudi questa schermata e ricomincia.",

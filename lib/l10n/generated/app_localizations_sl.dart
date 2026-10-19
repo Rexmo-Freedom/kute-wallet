@@ -6804,11 +6804,6 @@ class AppLocalizationsSl extends AppLocalizations {
   String get moveConversionOngoing => 'Pretvorba v teku';
 
   @override
-  String quotedReceiveExactAmount(String amount) {
-    return 'Pošljite natanko $amount v enem plačilu, preden ta naslov poteče.';
-  }
-
-  @override
   String get quotedReceiveExpired =>
       'Ta naslov je potekel. Ne pošiljajte novega plačila. Če ste že plačali, preverite Dejavnost.';
 

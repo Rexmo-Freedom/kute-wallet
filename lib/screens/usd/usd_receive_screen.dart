@@ -870,9 +870,16 @@ class _UsdStandingAddressSheetState
             address: payload,
             onCopy: () => _copy(payload),
           ),
-          // Only the minimum (and, from the Bitcoin receive, where it
-          // lands) under the address; the network is in the plate below.
+          // Under the address, where the Bitcoin receive puts its own
+          // caption: the network warning (only this coin, only this
+          // network), then the minimum and, from the Bitcoin receive,
+          // where it lands.
           SizedBox(height: 8.h),
+          ReceiveCaption(
+            key: const ValueKey('usd-receive-network-warning'),
+            text: l10n.usdReceiveShareSubtitle(
+                option.displaySymbol, option.chainDisplayName),
+          ),
           ReceiveMinimumCaption(
             amount: _displayMinimum?.address == payload
                 ? _displayMinimum!.minimum.usdText

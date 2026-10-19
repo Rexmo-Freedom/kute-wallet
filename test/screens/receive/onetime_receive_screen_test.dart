@@ -403,7 +403,7 @@ void main() {
   testWidgets(
       'Dollars: "Create request" quotes a one-time address into spark:USDB, '
       'own Spark recipient, refunded to the return address given, persists '
-      'the pending quote and shows the exact amount and the expiry',
+      'the pending quote and shows the expiry and the network warning',
       (tester) async {
     await _pump(tester);
     await _requestUsdt(tester, '25');
@@ -433,44 +433,49 @@ void main() {
     expect(row.refundAddress, _refund);
     expect(isOneTimeReceiveQuoteRow(row), isTrue);
 
-    // The address sheet: the code, the exact amount, the expiry and what
-    // arrives.
+    // The address sheet: the code, the expiry, the network warning and
+    // the amount in the plate.
     expect(find.byType(QuotedReceiveSheet), findsOneWidget);
     expect(
         find.byWidgetPredicate(
             (w) => w is ReceiveAddressLine && w.address == _deposit),
         findsOneWidget);
-    expect(
-        find.text(_l10n.quotedReceiveExactAmount('25 USDT')), findsOneWidget);
-    // No stepper page title or subtitle: the sheet header carries the
-    // title, and the network is in the plate.
-    expect(find.text(_l10n.usdReceiveShareStep), findsNothing);
-    expect(find.text(_l10n.usdReceiveShareSubtitle('USDT', 'ethereum')),
+    // No exact-amount caption: the amount is in the plate ("You send").
+    expect(find.byKey(const ValueKey('onetime-receive-exact-amount')),
         findsNothing);
+    expect(find.text('25 USDT'), findsOneWidget);
+    // No stepper page title: the sheet header carries the title.
+    expect(find.text(_l10n.usdReceiveShareStep), findsNothing);
     expect(find.textContaining('Expires in'), findsOneWidget);
     // The Kute fee is charged but never shown under a receive address.
     expect(find.text(_l10n.feeUiKuteFee), findsNothing);
-    // What arrives is not shown. The countdown, the exact amount and the
-    // late-deposit line are plain captions right under the QR, the
-    // countdown first and emphasised; no boxed note.
+    // What arrives is not shown. The countdown and the late-deposit line
+    // are plain captions right under the QR, the countdown first and
+    // emphasised; the network warning is a plain caption under the
+    // address, where the Bitcoin receive puts its own; no boxed note.
     expect(find.text(_l10n.receiveOneOffLateDepositRepriced), findsOneWidget);
     expect(
         find.text(_l10n.quotedReceiveExpectedOutput('\$24.80')), findsNothing);
     final expiry = find.byKey(const ValueKey('onetime-receive-expiry'));
-    final exact = find.byKey(const ValueKey('onetime-receive-exact-amount'));
     final late = find.byKey(const ValueKey('onetime-receive-late-deposit'));
+    final warning =
+        find.byKey(const ValueKey('onetime-receive-network-warning'));
     expect(tester.widget<ReceiveCaption>(expiry).emphasised, isTrue);
-    expect(tester.widget<ReceiveCaption>(exact).emphasised, isFalse);
     expect(tester.widget<ReceiveCaption>(late).text,
         _l10n.receiveOneOffLateDepositRepriced);
+    expect(tester.widget<ReceiveCaption>(warning).emphasised, isFalse);
+    expect(tester.widget<ReceiveCaption>(warning).text,
+        startsWith('Send only USDT on '));
     final qr = tester.getRect(find.byType(ReceiveQrPlate));
     expect(tester.getTopLeft(expiry).dy, greaterThan(qr.bottom));
     expect(
-        tester.getTopLeft(exact).dy, greaterThan(tester.getTopLeft(expiry).dy));
-    expect(
-        tester.getTopLeft(late).dy, greaterThan(tester.getTopLeft(exact).dy));
+        tester.getTopLeft(late).dy, greaterThan(tester.getTopLeft(expiry).dy));
     expect(tester.getTopLeft(late).dy,
         lessThan(tester.getTopLeft(addressLineOf(_deposit)).dy));
+    expect(tester.getTopLeft(warning).dy,
+        greaterThan(tester.getBottomLeft(addressLineOf(_deposit)).dy));
+    expect(tester.getTopLeft(warning).dy,
+        lessThan(tester.getTopLeft(find.byType(ReceiveActionPills)).dy));
     expect(find.byType(UsdFlowNote), findsNothing);
     expect(find.byType(StepperProgress), findsNothing);
     expect(find.text('0.50%'), findsNothing);

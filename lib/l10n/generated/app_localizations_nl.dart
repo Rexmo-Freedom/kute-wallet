@@ -6813,11 +6813,6 @@ class AppLocalizationsNl extends AppLocalizations {
   String get moveConversionOngoing => 'Omzetting bezig';
 
   @override
-  String quotedReceiveExactAmount(String amount) {
-    return 'Stuur precies $amount in één betaling voordat dit adres verloopt.';
-  }
-
-  @override
   String get quotedReceiveExpired =>
       'Dit adres is verlopen. Stuur geen nieuwe betaling. Controleer Activiteit als je al hebt betaald.';
 

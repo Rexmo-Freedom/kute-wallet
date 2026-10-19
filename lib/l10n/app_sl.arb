@@ -1960,7 +1960,6 @@
   "moveWithdrawDestinationHint": "Izberite, kaj prispe na vaš račun za porabo.",
   "moveDestDollarsSubtitle": "Into your Investments balance",
   "moveConversionOngoing": "Pretvorba v teku",
-  "quotedReceiveExactAmount": "Pošljite natanko {amount} v enem plačilu, preden ta naslov poteče.",
   "quotedReceiveExpired": "Ta naslov je potekel. Ne pošiljajte novega plačila. Če ste že plačali, preverite Dejavnost.",
   "quotedReceiveExpectedOutput": "Pričakovani prejem: {amount}",
   "quotedReceiveWalletChanged": "Vaš račun se je spremenil. Zaprite ta zaslon in začnite znova.",

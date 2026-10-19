@@ -6772,11 +6772,6 @@ class AppLocalizationsLv extends AppLocalizations {
   String get moveConversionOngoing => 'Notiek konvertēšana';
 
   @override
-  String quotedReceiveExactAmount(String amount) {
-    return 'Nosūti tieši $amount vienā maksājumā, pirms šīs adreses derīgums beidzas.';
-  }
-
-  @override
   String get quotedReceiveExpired =>
       'Šīs adreses derīgums ir beidzies. Nesūti vēl vienu maksājumu. Ja jau samaksāji, pārbaudi Aktivitāti.';
 

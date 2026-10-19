@@ -11861,12 +11861,6 @@ abstract class AppLocalizations {
   /// **'Conversion ongoing'**
   String get moveConversionOngoing;
 
-  /// No description provided for @quotedReceiveExactAmount.
-  ///
-  /// In en, this message translates to:
-  /// **'Send exactly {amount} in one payment before this address expires.'**
-  String quotedReceiveExactAmount(String amount);
-
   /// No description provided for @quotedReceiveExpired.
   ///
   /// In en, this message translates to:

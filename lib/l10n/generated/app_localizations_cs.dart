@@ -6787,11 +6787,6 @@ class AppLocalizationsCs extends AppLocalizations {
   String get moveConversionOngoing => 'Probíhá převod';
 
   @override
-  String quotedReceiveExactAmount(String amount) {
-    return 'Pošli přesně $amount jednou platbou, než tato adresa vyprší.';
-  }
-
-  @override
   String get quotedReceiveExpired =>
       'Platnost této adresy vypršela. Další platbu neposílej. Pokud už je zaplaceno, zkontroluj Aktivitu.';
 

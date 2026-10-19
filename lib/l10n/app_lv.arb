@@ -1960,7 +1960,6 @@
   "moveWithdrawDestinationHint": "Izvēlies, kas nonāk tavā tēriņu kontā.",
   "moveDestDollarsSubtitle": "Into your Investments balance",
   "moveConversionOngoing": "Notiek konvertēšana",
-  "quotedReceiveExactAmount": "Nosūti tieši {amount} vienā maksājumā, pirms šīs adreses derīgums beidzas.",
   "quotedReceiveExpired": "Šīs adreses derīgums ir beidzies. Nesūti vēl vienu maksājumu. Ja jau samaksāji, pārbaudi Aktivitāti.",
   "quotedReceiveExpectedOutput": "Paredzams saņemt {amount}",
   "quotedReceiveWalletChanged": "Tavs konts mainījās. Aizver šo ekrānu un sāc no jauna.",

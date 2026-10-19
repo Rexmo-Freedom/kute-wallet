@@ -6790,11 +6790,6 @@ class AppLocalizationsFi extends AppLocalizations {
   String get moveConversionOngoing => 'Muunnos käynnissä';
 
   @override
-  String quotedReceiveExactAmount(String amount) {
-    return 'Lähetä tasan $amount yhtenä maksuna ennen kuin tämä osoite vanhenee.';
-  }
-
-  @override
   String get quotedReceiveExpired =>
       'Tämä osoite on vanhentunut. Älä lähetä uutta maksua. Tarkista Toiminta, jos olet jo maksanut.';
 

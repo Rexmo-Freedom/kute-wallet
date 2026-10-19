@@ -6771,11 +6771,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get moveConversionOngoing => 'Conversion ongoing';
 
   @override
-  String quotedReceiveExactAmount(String amount) {
-    return 'Send exactly $amount in one payment before this address expires.';
-  }
-
-  @override
   String get quotedReceiveExpired =>
       'This address has expired. Do not send another payment. Check Activity if you already paid.';
 
