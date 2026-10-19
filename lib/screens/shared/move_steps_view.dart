@@ -11,6 +11,8 @@
 // venue's cash going home) reads its steps from its row
 // ([SwapRowStepsSection]).
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/helpers/orchestra_router.dart' show orchestraRowAmount;
@@ -38,9 +40,128 @@ import 'package:kute/services/one_balance/pending_bitcoin_purchase.dart'
         bitcoinPurchaseFinisherProvider,
         pendingBitcoinPurchasesProvider;
 import 'package:kute/services/orchestra/own_spark_arrivals.dart';
+import 'package:kute/services/funding/settlement_store.dart';
+import 'package:kute/services/hyperliquid/cctp_withdrawal.dart'
+    show CctpLegProgress, cctpLegProgressOf, kCctpRowPrefix;
+import 'package:kute/services/orchestra/standing_deposit_activity.dart'
+    show
+        kHypercoreCctpBtcRouteVersion,
+        kHypercoreCctpPredictionsRouteVersion,
+        kHypercoreCctpRouteVersion;
 
 bool _rowFailed(SwapOrder d) =>
     OwnSparkArrivals.failedStatuses.contains(d.status);
+
+/// Whether [row] is an Investing move by Circle CCTP (its Arbitrum leg
+/// while no order exists, or the order it became).
+bool isCctpMoveRow(SwapOrder row) =>
+    row.id.startsWith(kCctpRowPrefix) ||
+    const {
+      kHypercoreCctpRouteVersion,
+      kHypercoreCctpBtcRouteVersion,
+      kHypercoreCctpPredictionsRouteVersion,
+    }.contains(row.routeVersion);
+
+/// Where the CCTP legs are read from (the app's settlement store).
+final cctpLegStoreProvider = Provider<Future<SettlementStore> Function()>(
+    (ref) => SettlementStore.shared);
+
+/// A CCTP move's legs as its settlement record has them, read again every
+/// few seconds while a detail shows them (the timer goes with the detail).
+final cctpLegProgressProvider = FutureProvider.autoDispose
+    .family<CctpLegProgress?, String>((ref, operationId) async {
+  final again = Timer(const Duration(seconds: 4), ref.invalidateSelf);
+  ref.onDispose(again.cancel);
+  try {
+    final store = await ref.read(cctpLegStoreProvider)();
+    final op = await store.get(operationId);
+    return op == null ? null : cctpLegProgressOf(op);
+  } catch (_) {
+    return null;
+  }
+});
+
+/// A CCTP move's legs as sub-steps under its line: HyperCore's withdrawal
+/// ("HyperCore → Circle"), Circle's mint on Arbitrum ("Circle → Arbitrum")
+/// and Orchestra's order ("Arbitrum → [destination]"), each done on its
+/// own. The network names are proper nouns; the line is the compact one.
+List<MoneyStepLine> cctpLegLines(
+  AppLocalizations l10n,
+  CctpLegProgress p, {
+  required String destination,
+  required bool rowDone,
+  required bool rowFailed,
+  String Function(double usd)? money,
+  String idPrefix = 'cctp',
+}) {
+  final fmt = money ?? (usd) => '\$${usd.toStringAsFixed(2)}';
+  final MoneyStepStatus burn;
+  if (p.burned) {
+    burn = MoneyStepStatus.done;
+  } else if (p.failed || rowFailed) {
+    burn = MoneyStepStatus.failed;
+  } else {
+    burn = MoneyStepStatus.running;
+  }
+  final MoneyStepStatus mint;
+  if (p.minted) {
+    mint = MoneyStepStatus.done;
+  } else if (p.burned) {
+    mint = MoneyStepStatus.running;
+  } else {
+    mint = MoneyStepStatus.waiting;
+  }
+  final MoneyStepStatus order;
+  if (rowDone) {
+    order = MoneyStepStatus.done;
+  } else if (rowFailed && p.burned) {
+    order = MoneyStepStatus.failed;
+  } else if (p.minted || p.ordered) {
+    order = MoneyStepStatus.running;
+  } else {
+    order = MoneyStepStatus.waiting;
+  }
+  return [
+    MoneyStepLine(
+        l10n.moneyStepCompact('HyperCore', 'Circle', fmt(p.sentUsd)), burn,
+        sub: true, id: '$idPrefix:burn'),
+    MoneyStepLine(
+        l10n.moneyStepCompact('Circle', 'Arbitrum', fmt(p.mintUsd)), mint,
+        sub: true, id: '$idPrefix:mint'),
+    MoneyStepLine(
+        l10n.moneyStepCompact('Arbitrum', destination, fmt(p.mintUsd)), order,
+        sub: true, id: '$idPrefix:order'),
+  ];
+}
+
+/// The destination name of a CCTP move's row.
+String _cctpDestinationName(AppLocalizations l10n, SwapOrder row) {
+  final place = MoveSteps.placeOfAsset(row.coinTo, row.networkTo);
+  return moneyPlaceName(l10n, place ?? MoneyPlace.dollars);
+}
+
+/// [lines] with a CCTP move's legs under the line of each step whose row
+/// ([rowOf]) is one.
+List<MoneyStepLine> _withCctpLegs(WidgetRef ref, AppLocalizations l10n,
+    List<MoneyStepLine> lines, SwapOrder? Function(String? lineId) rowOf) {
+  final out = <MoneyStepLine>[];
+  for (final line in lines) {
+    out.add(line);
+    if (line.sub) continue;
+    final row = rowOf(line.id);
+    final operationId = row?.operationId;
+    if (row == null || operationId == null || !isCctpMoveRow(row)) continue;
+    final progress =
+        ref.watch(cctpLegProgressProvider(operationId)).valueOrNull;
+    if (progress == null) continue;
+    out.addAll(cctpLegLines(l10n, progress,
+        destination: _cctpDestinationName(l10n, row),
+        rowDone: row.isComplete,
+        rowFailed: _rowFailed(row),
+        idPrefix: 'cctp:${line.id}'));
+  }
+  return out;
+}
 
 /// [move]'s steps as they stand: its graph ([MoveSteps.of], mapped from
 /// its legs for an older record) with what [rows] (the wallet's rows for
@@ -74,7 +195,9 @@ MoneyStepGraph liveMoveSteps(
         .lastOrNull;
     final row = s.id == MoveSteps.initialDollarsId
         ? multiSourceMoveInitialDollarsRow(move, rows)
-        : leg == null ? null : multiSourceMoveLegRow(leg, rows);
+        : leg == null
+            ? null
+            : multiSourceMoveLegRow(leg, rows);
     if (row == null) continue;
     if (s.route == MoneyRoute.direct) delivering.add(row);
     if (s.status != MoneyStepStatus.running) continue;
@@ -297,10 +420,21 @@ class MoveStepsSection extends ConsumerWidget {
           ref.read(bitcoinPurchaseFinisherProvider).running(move.id),
     );
     if (graph.isEmpty) return const SizedBox.shrink();
-    final lines = compact
-        ? moveStepCompactLines(context.l10n, graph,
-            landedUsd: moveStepLandedUsd(move, graph, live), sendTo: sendTo)
-        : moveStepLines(context.l10n, graph);
+    final display = bitcoinPurchaseMoveForDisplay(move);
+    final lines = _withCctpLegs(
+        ref,
+        context.l10n,
+        compact
+            ? moveStepCompactLines(context.l10n, graph,
+                landedUsd: moveStepLandedUsd(move, graph, live), sendTo: sendTo)
+            : moveStepLines(context.l10n, graph), (id) {
+      final s = id == null ? null : graph.byId(id);
+      if (s == null || !MoveSteps.isVenueLeg(s) || s.ref == null) return null;
+      final leg = display.legs
+          .where((l) => (l.operationId ?? l.quoteId) == s.ref)
+          .lastOrNull;
+      return leg == null ? null : multiSourceMoveLegRow(leg, live)?.details;
+    });
     if (lines.isEmpty) return const SizedBox.shrink();
     return Align(
       alignment: Alignment.centerLeft,
@@ -339,9 +473,14 @@ class SwapRowStepsSection extends ConsumerWidget {
     final got = live.isComplete && _dollarCoin(live.coinTo)
         ? orchestraRowAmount(live.withdrawalAmount, live.coinTo)
         : 0.0;
-    final lines = moveStepCompactLines(context.l10n, graph, landedUsd: {
-      if (got > 0) graph.steps.first.id: (got * 100).round() / 100,
-    });
+    final first = graph.steps.first.id;
+    final lines = _withCctpLegs(
+        ref,
+        context.l10n,
+        moveStepCompactLines(context.l10n, graph, landedUsd: {
+          if (got > 0) first: (got * 100).round() / 100,
+        }),
+        (id) => id == first ? live : null);
     if (lines.isEmpty) return const SizedBox.shrink();
     return Align(
       alignment: Alignment.centerLeft,

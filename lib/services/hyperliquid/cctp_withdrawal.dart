@@ -1,44 +1,56 @@
 // lib/services/hyperliquid/cctp_withdrawal.dart
 //
-// Investing → Dollars by Circle CCTP, the fallback while Orchestra refuses
-// HyperCore-source routes ("unsupported_route": "HyperCore source routes
-// require independent deposit verification and are unavailable").
+// Investing → Dollars, Bitcoin or Predictions by Circle CCTP, the fallback
+// while Orchestra refuses HyperCore-source routes ("unsupported_route":
+// "HyperCore source routes require independent deposit verification and
+// are unavailable").
 //
-// The normal route stays first: `hypercore:USDC → spark:USDB` quoted by
-// Orchestra and funded by a perpetuals usdSend. Only when that quote is
+// The normal route stays first: `hypercore:USDC →` the destination, quoted
+// by Orchestra and funded by a perpetuals usdSend. Only when that quote is
 // refused for the route itself, before anything is signed, the rail and
 // the Move sheet come here:
 //
 //  0. The runtime policy: the capabilities the normal route's quote asks
-//     of `hypercore:USDC → spark:USDB` (`hyperliquid.withdraw`), checked
-//     the same way and read as fresh. Withheld, nothing is registered,
-//     approved or signed. The fallback never quotes, so this is the only
-//     place it meets the switch.
-//  1. Kute's backend registers (or this wallet reuses) the wallet's
-//     Investing-withdrawal standing instruction, `arbitrum:USDC →
-//     spark:USDB` to the wallet's own Spark address, with Kute's rule
-//     pinned: `investments_internal` (0%) once the backend verifies the
-//     own address, `venue_withdrawal` from an older backend or on a
-//     legacy label (StandingDepositStore.investingWithdrawalInstruction).
-//     No verified fee, no send.
-//  2. Read-only pre-flight on HyperEVM (Circle's CoreDepositWallet):
+//     of `hypercore:USDC → spark:USDB` (`hyperliquid.withdraw`, plus
+//     `polymarket.deposit` into Predictions), checked the same way and
+//     read as fresh. Withheld, nothing is quoted, approved or signed.
+//  1. Read-only pre-flight on HyperEVM (Circle's CoreDepositWallet):
 //     `paused()` must be false, `calculateCrossChainWithdrawalFee(true, 3)`
 //     is the forwarding fee. The amount after that fee must clear
 //     Orchestra's live minimum for the route plus a margin.
-//  3. One signed Hyperliquid user action, `sendToEvmWithData`: HyperCore
-//     burns the USDC and Circle's Forwarding Service mints native USDC
-//     (amount − fee) on Arbitrum to the standing address. Empty hook data,
-//     so Circle pays the destination mint. No HyperEVM transaction, no
-//     HYPE, never `withdraw3`.
-//  4. Orchestra sees the deposit on the standing address and converts it
-//     to dollars with no quote or submit.
+//  2. Approval, naming the wallet's own final recipient.
+//  3. A ONE-TIME Orchestra quote, right before signing: `arbitrum:USDC →`
+//     the destination (`spark:USDB`, `spark:BTC`, or the Predictions asset
+//     on Polygon), exact in for what Circle will mint (amount − forwarding
+//     fee), to the wallet's own Spark address or own Predictions wallet,
+//     refunds to the wallet's own EVM address (the Investing account) on
+//     Arbitrum. It names Kute's route (`kuteRoute: investing_withdrawal`),
+//     so Kute's backend prices it as the Investing withdrawal it is
+//     (`investments_internal` to a verified own destination), never as a
+//     receive. A quote with too little validity left is replaced, never
+//     paid. Founder decision, 19 October 2026: the standing (reusable)
+//     Investing-withdrawal addresses are no longer used for any move;
+//     Flashnet stopped turning their deposits into orders.
+//  4. One signed Hyperliquid user action, `sendToEvmWithData`, to the
+//     quote's deposit address: HyperCore burns the USDC and Circle's
+//     Forwarding Service mints native USDC (amount − fee) on Arbitrum to
+//     it. Empty hook data, so Circle pays the destination mint. No HyperEVM
+//     transaction, no HYPE, never `withdraw3`.
+//  5. The mint is read from Arbitrum USDC's Transfer logs (from 0x0 to the
+//     deposit address, from a block read before signing) and submitted to
+//     Orchestra (`/submit` with the mint's transaction hash). Orchestra may
+//     also detect it on its own; the quote's status says which came first.
 //
-// Persistence is the settlement record (flow `investingToDollarsCctp`):
-// the nonce is written (stage `broadcasting`) BEFORE the POST; the
-// HyperCore ledger row is the funding proof (`funded`); the standing
-// address's deposit and its order carry it to `processing` and the
-// order's outcome. A restart resumes from the record and never signs
-// again: a nonce the ledger never shows proves nothing left (`notFunded`).
+// Persistence is the settlement record (flow `investingToDollarsCctp`,
+// `investingToBtcCctp` or `investingToPredictionsCctp`): the quote id and
+// deposit address are written before the send, the nonce (stage
+// `broadcasting`) BEFORE the POST; the HyperCore ledger row is the funding
+// proof (`funded`); the mint, the submit and the order carry it to
+// `processing` and the order's outcome. A restart resumes from the record
+// (finds the mint, submits, follows the order) and never signs again: a
+// nonce the ledger never shows proves nothing left (`notFunded`). Records
+// written by an older build (a standing instruction's `label`, no quote)
+// keep being followed through the standing address's deposit listing.
 //
 // Sources: https://developers.circle.com/cctp/howtos/withdraw-usdc-from-hypercore-to-evm
 // and https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/exchange-endpoint.
@@ -82,8 +94,12 @@ import 'package:kute/services/funding/settlement_funding_outcome.dart';
 import 'package:kute/services/funding/settlement_reconciler.dart'
     show settlementStageForProviderStatus;
 import 'package:kute/services/funding/settlement_runner.dart'
-    show SettlementAuthorizationIntent, SettlementStepUpHook,
-        SettlementStopReason, SettlementStopped;
+    show
+        SettlementAuthorizationIntent,
+        SettlementStepUpHook,
+        SettlementStopReason,
+        SettlementStopped,
+        kSettlementEvmSubmitTimeout;
 import 'package:kute/services/funding/settlement_stage.dart';
 import 'package:kute/services/funding/settlement_store.dart';
 import 'package:kute/services/funding/spark_hypercore_funding_service.dart'
@@ -98,6 +114,10 @@ import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_onboarding_service.dart';
 import 'package:kute/services/orchestra/orchestra_capability_requirements.dart'
     show orchestraCapabilityRequirements;
+import 'package:kute/services/orchestra/orchestra_quote_gate.dart'
+    show OrchestraQuoteFailure, OrchestraQuoteGate;
+import 'package:kute/services/orchestra/orchestra_quote_guard.dart'
+    show OrchestraQuoteBounds, OrchestraQuoteRequest, RecipientKind;
 import 'package:kute/services/orchestra/standing_deposit_activity.dart';
 import 'package:kute/services/orchestra/standing_deposit_store.dart';
 import 'package:kute/services/orchestra_routes.dart'
@@ -182,12 +202,47 @@ const CctpTokenForm kHypercoreCctpTokenForm =
 String cctpTokenWire(CctpTokenForm form) =>
     form == CctpTokenForm.circle ? 'USDC' : hypercoreUsdcToken;
 
-/// The Arbitrum USDC → Dollars route the standing instruction converts.
+/// Kute's route a CCTP move's one-time quote names, so the backend prices
+/// it as the Investing withdrawal it is (never as a receive).
+const String kInvestingWithdrawalKuteRoute = 'investing_withdrawal';
+
+/// The validity a one-time quote must still have when the burn is signed:
+/// collecting the cash into perpetuals, the POST and Circle's mint (about
+/// ten seconds) all have to land inside it, with the relayer's margin
+/// (Orchestra quotes last two minutes). Less, and the move asks again.
+const Duration kCctpQuoteMinRemaining = Duration(seconds: 75);
+
+/// Checked again right before the signed action is POSTed: below this it
+/// is never posted (nothing left; the move stops and may be retried).
+const Duration kCctpQuotePostMinRemaining = Duration(seconds: 30);
+
+/// Quotes a move asks for before it stops for want of a fresh one.
+const int kCctpQuoteAttempts = 3;
+
+/// `/submit` with the mint's hash is retried this often while no order
+/// exists (the reconciler's own pace sets the floor).
+const Duration kCctpSubmitRetryAfter = Duration(seconds: 30);
+
+/// Orchestra's tag (the backend's app flow) for a CCTP move's quote.
+String cctpQuoteTag(InvestingWithdrawalDestination destination) =>
+    destination == InvestingWithdrawalDestination.predictions
+        ? 'kute:investing_to_predictions_cctp'
+        : 'kute:investing_withdrawal_cctp';
+
+/// The Arbitrum USDC → Dollars route a CCTP move's quote converts.
 final RouteKey kArbitrumUsdcToDollarsRoute = RouteKey(
     fromChain: 'arbitrum',
     fromAsset: 'USDC',
     toChain: 'spark',
     toAsset: 'USDB');
+
+/// Analytics `cctp_target` of a move onto a one-time quote (every move
+/// since 19 October 2026).
+const String kCctpTargetOnetime = 'onetime';
+
+/// Analytics `cctp_target` of a record an older build paid onto the
+/// standing Investing-withdrawal address.
+const String kCctpTargetStanding = 'standing';
 
 /// Activity row id prefix while the move has no Orchestra order yet. The
 /// CCTP watcher owns these rows; the Orchestra status poller never asks
@@ -218,7 +273,8 @@ SettlementFlow cctpFlowFor(InvestingWithdrawalDestination destination) =>
 /// The destination a CCTP operation was recorded for.
 InvestingWithdrawalDestination cctpDestinationOf(SettlementFlow flow) =>
     switch (flow) {
-      SettlementFlow.investingToBtcCctp => InvestingWithdrawalDestination.bitcoin,
+      SettlementFlow.investingToBtcCctp =>
+        InvestingWithdrawalDestination.bitcoin,
       SettlementFlow.investingToPredictionsCctp =>
         InvestingWithdrawalDestination.predictions,
       _ => InvestingWithdrawalDestination.dollars,
@@ -251,8 +307,19 @@ enum CctpUnavailableReason {
   belowMinimum('below_minimum'),
   feeReadFailed('fee_read_failed'),
   rpcFailed('rpc_failed'),
+
+  /// The standing instruction's terms could not be verified. Only an
+  /// older build raised it; kept so stored analytics read the same.
   feeTermsUnavailable('fee_terms_unavailable'),
   inFlight('in_flight'),
+
+  /// No one-time quote could be had (refused, unreachable, or not the
+  /// wallet's own recipient), before anything was signed.
+  quoteUnavailable('quote_unavailable'),
+
+  /// Every quote came back with too little validity left to pay safely,
+  /// or the one in hand ran short right before the POST: never posted.
+  quoteExpired('quote_expired'),
 
   /// The runtime policy withholds a capability the route needs
   /// ([kCctpCapabilities]): an emergency switch or a region rule.
@@ -264,7 +331,8 @@ enum CctpUnavailableReason {
   final String code;
 }
 
-/// The fallback cannot run. Thrown before anything is signed.
+/// The fallback cannot run. Thrown before anything is posted (a signed
+/// action that was never POSTed left nothing).
 class CctpUnavailable implements Exception {
   const CctpUnavailable(this.reason, {this.decision});
   final CctpUnavailableReason reason;
@@ -300,22 +368,20 @@ class CctpWithdrawalResult {
 
   final String operationId;
 
-  /// The Kute fee the instruction paid charges on what arrives, for the
-  /// withdrawal's fee line (StandingDepositStore
-  /// .investingWithdrawalKuteFeeBps): 0 on an instruction pinned as a move
-  /// inside Investments, null when its terms state no rate.
+  /// The Kute fee the one-time quote paid charges (its app fee): 0 on a
+  /// move inside Investments, which carries none.
   final int? kuteFeeBps;
 
   /// What left Investing (the burned amount).
   final double sentUsd;
 
-  /// What reaches the standing address after Circle's forwarding fee,
-  /// before Orchestra's conversion.
+  /// What reaches the quote's deposit address after Circle's forwarding
+  /// fee, before Orchestra's conversion.
   final double arrivingUsdEstimate;
 
-  /// Completes with the Orchestra order id once the standing address
-  /// turned the deposit into an order, or null when the foreground watch
-  /// ended first (the reconciler carries on). Never throws.
+  /// Completes with the Orchestra order id once the deposit became an
+  /// order, or null when the foreground watch ended first (the reconciler
+  /// carries on). Never throws.
   final Future<String?> registration;
 }
 
@@ -385,7 +451,8 @@ String? matchHypercoreCctpSend({
     final token = delta['token'];
     if (token != 'USDC' && token != hypercoreUsdcToken) continue;
     if (!sameEvmAddress('${delta['user']}', source) ||
-        !sameEvmAddress('${delta['destination']}', kHypercoreUsdcSystemAddress) ||
+        !sameEvmAddress(
+            '${delta['destination']}', kHypercoreUsdcSystemAddress) ||
         _usdcUnits8(delta['amount']) != amount8) {
       continue;
     }
@@ -452,6 +519,46 @@ Map<String, dynamic>? matchCctpDeposit({
   return candidates.length == 1 ? candidates.single : null;
 }
 
+/// Where a CCTP move's three legs stand, from its settlement record:
+/// HyperCore's burn ([burned], the ledger shows it), Circle's mint on
+/// Arbitrum ([minted]) and Orchestra's order ([ordered]). [failed] when the
+/// burn was proved never to have happened. Amounts in dollars: what left
+/// Investing and what Circle mints.
+typedef CctpLegProgress = ({
+  bool burned,
+  bool minted,
+  bool ordered,
+  bool failed,
+  double sentUsd,
+  double mintUsd,
+});
+
+/// [op]'s legs, or null when it is not a CCTP move.
+CctpLegProgress? cctpLegProgressOf(SettlementOperation op) {
+  if (!op.flow.isInvestingCctp) return null;
+  final raw = op.raw['cctp'];
+  final cctp = raw is Map ? raw : const {};
+  final steps = cctp['steps'] is List ? cctp['steps'] as List : const [];
+  final amount6 =
+      BigInt.tryParse('${cctp['amount6']}') ?? op.amountIn ~/ BigInt.from(100);
+  final fee6 = BigInt.tryParse('${cctp['forwardFee6']}') ?? BigInt.zero;
+  final mint6 = BigInt.tryParse('${cctp['mint6']}') ?? amount6 - fee6;
+  final funded =
+      op.funding?.evmTxHash != null || steps.contains('core_confirmed');
+  final minted = cctp['mintTx'] is String || steps.contains('arbitrum_minted');
+  final ordered = op.orderId != null ||
+      steps.contains('orchestra_detected') ||
+      steps.contains('orchestra_submitted');
+  return (
+    burned: funded || minted || ordered,
+    minted: minted || ordered,
+    ordered: ordered,
+    failed: !funded && op.stage == SettlementStage.notFunded,
+    sentUsd: amount6.toDouble() / 1e6,
+    mintUsd: mint6.toDouble() / 1e6,
+  );
+}
+
 // ───────────────────────────── ports ─────────────────────────────────
 
 /// Public chain reads. Every read throws on failure: a failed read is
@@ -492,23 +599,76 @@ abstract interface class CctpSender {
   });
 }
 
-/// Orchestra through Kute's backend.
-abstract interface class CctpOrchestraPort {
-  Future<StandingDepositRecord> instruction({
-    required String walletId,
-    required String recipient,
-    required String refundAddress,
-    required bool Function() wanted,
-    InvestingWithdrawalDestination destination =
-        InvestingWithdrawalDestination.dollars,
+/// A verified one-time quote for a CCTP move: its own recipient, refund and
+/// amount checked against the request.
+class CctpQuote {
+  const CctpQuote({
+    required this.quoteId,
+    required this.depositAddress,
+    required this.expiresAt,
+    required this.amountIn6,
+    this.appFeeBps,
   });
 
+  final String quoteId;
+
+  /// Where Circle mints: the quote's Arbitrum deposit address.
+  final String depositAddress;
+
+  /// On this device's clock.
+  final DateTime expiresAt;
+
+  /// Six-decimal Arbitrum USDC the quote is exact in for.
+  final BigInt amountIn6;
+
+  /// Kute's app fee on the quote, null when it carries none.
+  final int? appFeeBps;
+}
+
+/// How a `/submit` of the mint ended.
+enum CctpSubmitOutcome {
+  /// Orchestra took it (it answers with the order).
+  accepted,
+
+  /// Unknown: a timeout, a 5xx or 429, or the key still in progress. The
+  /// same key is used again.
+  transient,
+
+  /// A definitive refusal: the next submit uses a new key.
+  rejected,
+}
+
+typedef CctpSubmitResult = ({CctpSubmitOutcome outcome, String? orderId});
+
+/// Orchestra through Kute's backend.
+abstract interface class CctpOrchestraPort {
+  /// A one-time quote `arbitrum:USDC →` [destination], exact in for
+  /// [amountIn6], to the wallet's own [recipient], refunds to
+  /// [refundAddress], under Kute's Investing-withdrawal route. Throws
+  /// when none could be had or it fails verification.
+  Future<CctpQuote> quote({
+    required InvestingWithdrawalDestination destination,
+    required BigInt amountIn6,
+    required String recipient,
+    required String refundAddress,
+    required String idempotencyKey,
+  });
+
+  /// `/submit` for [quoteId] with the Arbitrum mint [txHash].
+  Future<CctpSubmitResult> submit({
+    required String quoteId,
+    required String txHash,
+    required String idempotencyKey,
+  });
+
+  /// A record an older build paid (a standing instruction's label): only
+  /// ever read, so its deposit still shows and resolves.
   Future<StandingDepositRecord?> record(String walletId, String label);
 
   Future<List<Map<String, dynamic>>> deposits(
       StandingDepositRecord record, bool Function() current);
 
-  /// The order, or null when it cannot be read.
+  /// The order, by order id or quote id, or null when it cannot be read.
   Future<OrchestraOrder?> order(String orderId);
 
   /// The route's live floor in dollars, or null when unreachable.
@@ -609,11 +769,12 @@ class HypercoreCctpWithdrawal {
 
   /// Moves [usd] of Investing cash by CCTP straight to [destination]:
   /// Dollars or Bitcoin on the wallet's own Spark address, or the
-  /// wallet's own Predictions account. Each destination pays its own
-  /// standing instruction, registered with the destination's fee rule.
-  /// Throws [CctpUnavailable] (the instruction refused included, as
-  /// [CctpUnavailableReason.feeTermsUnavailable]) or the step-up's
-  /// [SettlementStopped] before anything is signed.
+  /// wallet's own Predictions account, each through a one-time Orchestra
+  /// quote to that own recipient, fetched right before signing (never a
+  /// standing address). Throws [CctpUnavailable] (no usable quote
+  /// included, as [CctpUnavailableReason.quoteUnavailable] or
+  /// [CctpUnavailableReason.quoteExpired]) or the step-up's
+  /// [SettlementStopped] before anything is posted.
   Future<CctpWithdrawalResult> withdrawTo({
     required InvestingWithdrawalDestination destination,
     required double usd,
@@ -668,34 +829,11 @@ class HypercoreCctpWithdrawal {
       await _policy().ensureAllAllowed(cctpCapabilitiesFor(destination),
           maxAge: kCctpPolicyMaxAge);
     } on CapabilityUnavailableException catch (e) {
-      _unavailable(CctpUnavailableReason.capability, usd,
-          decision: e.decision);
+      _unavailable(CctpUnavailableReason.capability, usd, decision: e.decision);
     }
     wallet.ensureSpending(walletId);
 
-    // 1. The instruction, with Kute's venue-withdrawal fee verified.
-    final StandingDepositRecord record;
-    try {
-      record = await orchestra.instruction(
-          walletId: walletId,
-          recipient: spark,
-          refundAddress: account,
-          wanted: () => wallet.spendingWalletId() == walletId,
-          destination: destination);
-    } on InvestingWithdrawalTermsUnavailable {
-      _unavailable(CctpUnavailableReason.feeTermsUnavailable, usd);
-    }
-    wallet.ensureSpending(walletId);
-    final depositAddress = StandingDepositStore.investingWithdrawalAddress(
-        record, spark,
-        destination: destination);
-    if (depositAddress == null) {
-      _unavailable(CctpUnavailableReason.feeTermsUnavailable, usd);
-    }
-    final kuteFeeBps =
-        StandingDepositStore.investingWithdrawalKuteFeeBps(record);
-
-    // 2. Amount and the read-only pre-flight.
+    // 1. Amount and the read-only pre-flight.
     final BigInt sendable;
     try {
       sendable = await sender.sendableBaseUnits(account);
@@ -728,18 +866,19 @@ class HypercoreCctpWithdrawal {
         minimumUsd: minimum);
     if (blocker != null) _unavailable(blocker, usd);
     final sentUsd = amount6.toDouble() / 1e6;
-    final arrivingUsd = (amount6 - fee6).toDouble() / 1e6;
+    final mint6 = amount6 - fee6;
+    final arrivingUsd = mint6.toDouble() / 1e6;
 
-    // 3. Approval. The final recipient is the wallet's own Spark address
-    // through its own standing instruction; the intent names that, as the
-    // normal route's does.
+    // 2. Approval. The final recipient is the wallet's own Spark address
+    // (or own Predictions wallet) through a one-time quote bound to it; the
+    // intent names that, as the normal route's does.
     final intent = SettlementAuthorizationIntent(
       flow: flow,
       walletId: walletId,
       destination: '$spark|$routeVersion',
       routeLabel: route.label,
       amountIn: amount8,
-      minReceive: (amount6 - fee6) * BigInt.from(9900) ~/ BigInt.from(10000),
+      minReceive: mint6 * BigInt.from(9900) ~/ BigInt.from(10000),
       maxFeeBps: 100,
     );
     if (!await stepUp(intent)) {
@@ -751,9 +890,21 @@ class HypercoreCctpWithdrawal {
     try {
       fromBlock = await reads.arbitrumBlock();
     } catch (_) {
-      // The mint watch is a step signal, not the proof: Orchestra's
-      // deposit listing still finds the money.
+      // The mint watch then waits for Orchestra's own detection: the
+      // quote's status still finds the order.
     }
+
+    // 3. The one-time quote, right before signing, with enough validity
+    // left to carry the burn and the mint. A short one is replaced.
+    final quote = await _freshQuote(
+        destination: destination,
+        mint6: mint6,
+        recipient: spark,
+        account: account,
+        usd: usd);
+    wallet.ensureSpending(walletId);
+    final depositAddress = quote.depositAddress;
+    final kuteFeeBps = quote.appFeeBps ?? 0;
 
     // 4. The record, then the row, then the send.
     final now = _clock();
@@ -777,24 +928,26 @@ class HypercoreCctpWithdrawal {
       updatedAt: now,
       raw: {
         'cctp': {
-          'label': record.label,
+          'target': kCctpTargetOnetime,
+          'quoteId': quote.quoteId,
+          'quoteExpiresAt': quote.expiresAt.toUtc().toIso8601String(),
           'depositAddress': depositAddress,
           'destination': destination.key,
           'domain': kCctpArbitrumDomain,
           'forwardFee6': fee6.toString(),
           'amount6': amount6.toString(),
+          'mint6': mint6.toString(),
           'token': cctpTokenWire(tokenForm),
           'purpose': purpose,
-          if (kuteFeeBps != null) 'kuteFeeBps': kuteFeeBps,
+          'kuteFeeBps': kuteFeeBps,
           if (fromBlock != null) 'fromBlock': fromBlock,
+          'submitKey': OrchestraService.generateIdempotencyKey(),
           'steps': <String>[],
         },
       },
     ));
     TrackingService.settlementOperationStarted(
-        flow: op.flow.code,
-        routeVersion: routeVersion,
-        amountUsd: sentUsd);
+        flow: op.flow.code, routeVersion: routeVersion, amountUsd: sentUsd);
     final lease = store.acquireLease(op.operationId);
     final rowId = rowIdFor(op.operationId);
     await rows.put(_pendingRow(
@@ -816,6 +969,11 @@ class HypercoreCctpWithdrawal {
         domain: kCctpArbitrumDomain,
         token: cctpTokenWire(tokenForm),
         onBeforePost: (signedNonce) async {
+          // Signed, not posted: a quote that ran short since is never paid.
+          if (quote.expiresAt.difference(_clock()) <
+              kCctpQuotePostMinRemaining) {
+            throw const CctpUnavailable(CctpUnavailableReason.quoteExpired);
+          }
           final write = await store.transition(
             op.operationId,
             SettlementStage.broadcasting,
@@ -839,7 +997,9 @@ class HypercoreCctpWithdrawal {
         await _endUnsent(store, op.operationId, rowId);
       }
       if (lease != null) store.releaseLease(op.operationId, lease);
-      throw e.cause;
+      final cause = e.cause;
+      if (cause is CctpUnavailable) _unavailable(cause.reason, usd);
+      throw cause;
     } on CctpSendRejected catch (e) {
       // Signed and answered with a rejection: not executed. The record
       // keeps its slow ledger check in case the answer was wrong.
@@ -853,6 +1013,7 @@ class HypercoreCctpWithdrawal {
       final current = await store.get(op.operationId);
       if (current?.stage == SettlementStage.created) {
         await _endUnsent(store, op.operationId, rowId);
+        if (e is CctpUnavailable) _unavailable(e.reason, usd);
         rethrow;
       }
       _startWatch(op.operationId);
@@ -887,6 +1048,55 @@ class HypercoreCctpWithdrawal {
         arrivingUsdEstimate: arrivingUsd,
         registration: _registration(op.operationId),
         kuteFeeBps: kuteFeeBps);
+  }
+
+  /// A one-time quote for [mint6] with at least [kCctpQuoteMinRemaining]
+  /// left, asking again (a fresh key each time) when one comes back short.
+  /// The quote must name a valid Arbitrum deposit address that is not the
+  /// Investing account itself, for exactly [mint6]. Throws
+  /// [CctpUnavailable] before anything is signed when none qualifies.
+  Future<CctpQuote> _freshQuote({
+    required InvestingWithdrawalDestination destination,
+    required BigInt mint6,
+    required String recipient,
+    required String account,
+    required double usd,
+  }) async {
+    for (var attempt = 0; attempt < kCctpQuoteAttempts; attempt++) {
+      final CctpQuote quote;
+      try {
+        quote = await orchestra.quote(
+            destination: destination,
+            amountIn6: mint6,
+            recipient: recipient,
+            refundAddress: account,
+            idempotencyKey: OrchestraService.generateIdempotencyKey());
+      } on CapabilityUnavailableException catch (e) {
+        _unavailable(CctpUnavailableReason.capability, usd,
+            decision: e.decision);
+      } on OrchestraQuoteFailure catch (e) {
+        final denial = e.denial;
+        if (denial is CapabilityUnavailableException) {
+          _unavailable(CctpUnavailableReason.capability, usd,
+              decision: denial.decision);
+        }
+        _unavailable(CctpUnavailableReason.quoteUnavailable, usd);
+      } on WalletGuardException catch (e) {
+        if (e.reason == WalletGuardReason.quoteExpired) continue;
+        _unavailable(CctpUnavailableReason.quoteUnavailable, usd);
+      } catch (_) {
+        _unavailable(CctpUnavailableReason.quoteUnavailable, usd);
+      }
+      if (!isEvmAddress(quote.depositAddress) ||
+          sameEvmAddress(quote.depositAddress, account) ||
+          quote.amountIn6 != mint6) {
+        _unavailable(CctpUnavailableReason.quoteUnavailable, usd);
+      }
+      if (quote.expiresAt.difference(_clock()) >= kCctpQuoteMinRemaining) {
+        return quote;
+      }
+    }
+    _unavailable(CctpUnavailableReason.quoteExpired, usd);
   }
 
   // ─────────────────────────── watching ───────────────────────────
@@ -962,7 +1172,8 @@ class HypercoreCctpWithdrawal {
     if (slow) {
       final since = op.stageEnteredAt ?? op.updatedAt;
       if (now.difference(since) > kCctpSlowWatch) return false;
-      return last == null || now.difference(last) >= const Duration(minutes: 10);
+      return last == null ||
+          now.difference(last) >= const Duration(minutes: 10);
     }
     return last == null || now.difference(last) >= const Duration(seconds: 20);
   }
@@ -998,8 +1209,8 @@ class HypercoreCctpWithdrawal {
           return; // A failed read proves nothing either way.
         }
         if (hash != null) {
-          await _markFunded(store, op.operationId, hash,
-              op.amountIn.toDouble() / 1e8);
+          await _markFunded(
+              store, op.operationId, hash, op.amountIn.toDouble() / 1e8);
           final funded = await store.get(op.operationId);
           if (funded != null) await _afterFunding(store, funded);
           return;
@@ -1016,6 +1227,189 @@ class HypercoreCctpWithdrawal {
   }
 
   Future<void> _afterFunding(
+      SettlementStore store, SettlementOperation op) async {
+    if (_cctp(op)['quoteId'] is String) {
+      await _afterFundingOnetime(store, op);
+    } else {
+      await _afterFundingStanding(store, op);
+    }
+  }
+
+  /// A one-time move after the burn: find Circle's mint on Arbitrum,
+  /// submit it to Orchestra (again, with the same key, until an order
+  /// exists; a new key after a definitive refusal), and follow the
+  /// quote's order, which Orchestra may also have made on its own. Never
+  /// signs or sends.
+  Future<void> _afterFundingOnetime(
+      SettlementStore store, SettlementOperation op) async {
+    final cctp = _cctp(op);
+    final quoteId = cctp['quoteId'] as String;
+    final amount6 = BigInt.tryParse('${cctp['amount6']}') ??
+        op.amountIn ~/ BigInt.from(100);
+    final fee6 = BigInt.tryParse('${cctp['forwardFee6']}') ?? BigInt.zero;
+    final depositAddress = '${cctp['depositAddress']}';
+    final sentUsd = amount6.toDouble() / 1e6;
+
+    // Arbitrum mint: the submit's proof.
+    var mintTx = cctp['mintTx'] as String?;
+    final fromBlock = cctp['fromBlock'];
+    if (mintTx == null && fromBlock is int && isEvmAddress(depositAddress)) {
+      try {
+        final mints = await reads.arbitrumUsdcMints(depositAddress, fromBlock);
+        final mint = matchCctpMint(
+            mints: mints,
+            amount6: amount6,
+            maxFee6: fee6,
+            claimed: await _claimed(store, op, 'mintTx'));
+        if (mint != null) {
+          mintTx = mint.txHash;
+          await _patchCctp(store, op.operationId, {'mintTx': mint.txHash});
+          await _step(store, op.operationId, 'arbitrum_minted', sentUsd);
+        }
+      } catch (_) {
+        // Never read a failed RPC as "not arrived".
+      }
+    }
+
+    var current = await store.get(op.operationId) ?? op;
+    String? orderId = current.orderId;
+
+    // Submit the mint while no order is known.
+    if (orderId == null && mintTx != null) {
+      orderId = await _submitMint(store, current, quoteId, mintTx, sentUsd);
+      current = await store.get(op.operationId) ?? current;
+    }
+
+    // The quote's own status: Orchestra may have made the order without
+    // (or before) the submit, and it carries the order's progress.
+    final order = await orchestra.order(orderId ?? quoteId);
+    if (orderId == null &&
+        order != null &&
+        !order.orderMissing &&
+        order.id.startsWith('ord_')) {
+      orderId = order.id;
+      final result = '${_cctp(current)['submitResult'] ?? ''}';
+      if (result != 'submitted') {
+        await _patchCctp(store, op.operationId, {'submitResult': 'detected'});
+      }
+      await _step(store, op.operationId, 'orchestra_detected', sentUsd);
+      current = await store.get(op.operationId) ?? current;
+    }
+
+    if (orderId == null) {
+      final fundedAt =
+          current.firstEnteredAt(SettlementStage.funded) ?? current.updatedAt;
+      if (current.stage == SettlementStage.funded &&
+          _clock().difference(fundedAt) > kCctpAttentionAfter) {
+        // Keeps being checked (and submitted) on the slow watch.
+        await _move(store, current, SettlementStage.needsAttention);
+        TrackingService.settlementNeedsAttention(current.route.label);
+      } else if (mintTx != null && current.stage == SettlementStage.funded) {
+        // On Arbitrum, on its way to Orchestra.
+        await _move(store, current, SettlementStage.processing);
+      }
+      return;
+    }
+
+    final recipient = current.recipient?.address ?? '';
+    final evmRecipient = cctpDestinationOf(current.flow) ==
+        InvestingWithdrawalDestination.predictions;
+    if (order != null &&
+        order.id == orderId &&
+        order.recipientAddress != null &&
+        !(evmRecipient
+            ? sameEvmAddress(order.recipientAddress!, recipient)
+            : sameSparkAddress(order.recipientAddress!, recipient))) {
+      return; // Not this wallet's money: never adopt it.
+    }
+    if (current.orderId == null) {
+      await store.update(current.operationId,
+          stage: current.stage, patch: (c) => c.copyWith(orderId: orderId));
+      current = await store.get(op.operationId) ?? current;
+    }
+    final status =
+        order != null && order.id == orderId ? order.status : 'processing';
+    final pendingId = rowIdFor(current.operationId);
+    final pending = rows.find(pendingId);
+    final existing = rows.find(orderId);
+    final row = (existing ??
+            pending ??
+            _pendingRow(
+                id: orderId,
+                op: current,
+                destination: depositAddress,
+                target: cctpDestinationOf(current.flow),
+                spark: recipient,
+                account: current.refund?.address ?? '',
+                amount6: amount6,
+                fee6: fee6))
+        .copyWith(
+      id: orderId,
+      status: orchestraExchangeStatus(status),
+      depositAddress: depositAddress,
+      operationId: current.operationId,
+    );
+    // The status poller follows the order row from here (its amounts too).
+    final prior = existing;
+    if (prior == null || prior.status != row.status) {
+      await rows.put(row);
+      if (prior == null) orchestra.logPending(row);
+    }
+    await rows.remove(pendingId);
+    _settleRegistration(current.operationId, orderId);
+    final stage = settlementStageForProviderStatus(status);
+    if (stage != null) {
+      current = await store.get(current.operationId) ?? current;
+      await _moveToProviderStage(store, current, stage, orderId);
+    } else if (current.stage == SettlementStage.funded ||
+        current.stage == SettlementStage.needsAttention) {
+      await _move(store, current, SettlementStage.processing);
+    }
+  }
+
+  /// One `/submit` of [mintTx] for [quoteId], at most every
+  /// [kCctpSubmitRetryAfter]. Returns the order id when Orchestra answered
+  /// with one. A definitive refusal rotates the key; a transient answer
+  /// keeps it. The quote's status is asked either way.
+  Future<String?> _submitMint(SettlementStore store, SettlementOperation op,
+      String quoteId, String mintTx, double sentUsd) async {
+    final cctp = _cctp(op);
+    final last = DateTime.tryParse('${cctp['submittedAt'] ?? ''}');
+    if (last != null && _clock().difference(last) < kCctpSubmitRetryAfter) {
+      return null;
+    }
+    final key = cctp['submitKey'] as String? ??
+        OrchestraService.generateIdempotencyKey();
+    await _patchCctp(store, op.operationId, {
+      'submitKey': key,
+      'submittedAt': _clock().toUtc().toIso8601String(),
+    });
+    final CctpSubmitResult result;
+    try {
+      result = await orchestra.submit(
+          quoteId: quoteId, txHash: mintTx, idempotencyKey: key);
+    } catch (_) {
+      return null; // Unknown: the same key next time.
+    }
+    switch (result.outcome) {
+      case CctpSubmitOutcome.accepted:
+        await _patchCctp(store, op.operationId, {'submitResult': 'submitted'});
+        await _step(store, op.operationId, 'orchestra_submitted', sentUsd);
+        final id = result.orderId;
+        return id != null && id.startsWith('ord_') ? id : null;
+      case CctpSubmitOutcome.rejected:
+        await _patchCctp(store, op.operationId,
+            {'submitKey': OrchestraService.generateIdempotencyKey()});
+        return null;
+      case CctpSubmitOutcome.transient:
+        return null;
+    }
+  }
+
+  /// A record an older build paid onto the wallet's standing
+  /// Investing-withdrawal address: followed through that address's
+  /// deposit listing, so its money still shows and resolves.
+  Future<void> _afterFundingStanding(
       SettlementStore store, SettlementOperation op) async {
     final cctp = _cctp(op);
     final amount6 = BigInt.tryParse('${cctp['amount6']}') ??
@@ -1079,8 +1473,8 @@ class HypercoreCctpWithdrawal {
     current = await store.get(op.operationId) ?? current;
 
     if (deposit == null) {
-      final fundedAt = current.firstEnteredAt(SettlementStage.funded) ??
-          current.updatedAt;
+      final fundedAt =
+          current.firstEnteredAt(SettlementStage.funded) ?? current.updatedAt;
       if (current.stage == SettlementStage.funded &&
           _clock().difference(fundedAt) > kCctpAttentionAfter) {
         await _move(store, current, SettlementStage.needsAttention);
@@ -1105,8 +1499,7 @@ class HypercoreCctpWithdrawal {
       }
       if (current.orderId == null) {
         await store.update(current.operationId,
-            stage: current.stage,
-            patch: (c) => c.copyWith(orderId: orderId));
+            stage: current.stage, patch: (c) => c.copyWith(orderId: orderId));
       }
       final existing = rows.find(orderId);
       final row = standingOrderRow(
@@ -1193,6 +1586,17 @@ class HypercoreCctpWithdrawal {
     }
     final usd = op.amountIn.toDouble() / 1e8;
     final destination = cctpAnalyticsDestination(cctpDestinationOf(op.flow));
+    final cctp = _cctp(op);
+    final onetime = cctp['quoteId'] is String;
+    final String target;
+    final String? submitResult;
+    if (onetime) {
+      target = kCctpTargetOnetime;
+      submitResult = '${cctp['submitResult'] ?? 'pending'}';
+    } else {
+      target = kCctpTargetStanding;
+      submitResult = null;
+    }
     TrackingService.settlementTerminal(
       route: op.route.label,
       outcome: stage.name,
@@ -1207,19 +1611,23 @@ class HypercoreCctpWithdrawal {
           destination: destination,
           walletKind: 'hot',
           route: 'cctp',
-          orderId: orderId);
+          orderId: orderId,
+          cctpTarget: target,
+          submitResult: submitResult);
     } else {
       TrackingService.hyperliquidWithdrawFailed(
           reason: stage.name,
           amountUsd: usd,
           destination: destination,
           walletKind: 'hot',
-          route: 'cctp');
+          route: 'cctp',
+          cctpTarget: target,
+          submitResult: submitResult);
     }
   }
 
-  Future<void> _move(SettlementStore store, SettlementOperation op,
-      SettlementStage to) async {
+  Future<void> _move(
+      SettlementStore store, SettlementOperation op, SettlementStage to) async {
     await store.transition(op.operationId, to,
         from: op.stage, expectedVersion: op.version);
   }
@@ -1242,7 +1650,9 @@ class HypercoreCctpWithdrawal {
         continue;
       }
       final value = _cctp(other)[key];
-      if (value is String) out.add(key == 'mintTx' ? value.toLowerCase() : value);
+      if (value is String) {
+        out.add(key == 'mintTx' ? value.toLowerCase() : value);
+      }
     }
     return out;
   }
@@ -1266,15 +1676,24 @@ class HypercoreCctpWithdrawal {
     if (op == null) return;
     final steps = [...(_cctp(op)['steps'] as List? ?? const [])];
     if (steps.contains(step)) return;
-    await _patchCctp(store, operationId, {'steps': [...steps, step]});
+    await _patchCctp(store, operationId, {
+      'steps': [...steps, step]
+    });
     final nonce = op.funding?.hlNonce;
     final from = nonce == null
         ? op.createdAt
         : DateTime.fromMillisecondsSinceEpoch(nonce);
+    final String target;
+    if (_cctp(op)['quoteId'] is String) {
+      target = kCctpTargetOnetime;
+    } else {
+      target = kCctpTargetStanding;
+    }
     TrackingService.hyperliquidWithdrawStep(
       step: step,
       durationMs: _clock().difference(from).inMilliseconds.clamp(0, 1 << 31),
       amountUsd: usd,
+      cctpTarget: target,
     );
   }
 
@@ -1397,7 +1816,9 @@ class LiveCctpChainReads implements CctpChainReads {
     if (response.statusCode != 200) throw StateError('HyperEVM read failed');
     final json = jsonDecode(response.body);
     final result = json is Map ? json['result'] : null;
-    if (json is! Map || json['error'] != null || result is! String ||
+    if (json is! Map ||
+        json['error'] != null ||
+        result is! String ||
         !result.startsWith('0x')) {
       throw StateError('HyperEVM read failed');
     }
@@ -1416,15 +1837,17 @@ class LiveCctpChainReads implements CctpChainReads {
       {'to': kCircleCoreDepositWallet, 'data': data},
       'latest',
     ]);
-    if (word.length != 66) throw StateError('Unexpected CoreDepositWallet answer');
+    if (word.length != 66) {
+      throw StateError('Unexpected CoreDepositWallet answer');
+    }
     return word;
   }
 
   /// `paused()` (selector 0x5c975abb).
   @override
   Future<bool> coreDepositWalletPaused() async {
-    final word = BigInt.parse((await _call('0x5c975abb')).substring(2),
-        radix: 16);
+    final word =
+        BigInt.parse((await _call('0x5c975abb')).substring(2), radix: 16);
     if (word > BigInt.one) throw StateError('Unexpected paused() answer');
     return word == BigInt.one;
   }
@@ -1615,21 +2038,85 @@ class LiveCctpSender implements CctpSender {
 class LiveCctpOrchestraPort implements CctpOrchestraPort {
   const LiveCctpOrchestraPort();
 
+  /// Through the app's one quote gate: verified against the request (own
+  /// recipient, refund, exact amount, expiry) before it is handed back.
+  /// The policy checked is the Investing withdrawal's
+  /// ([cctpCapabilitiesFor]), which the backend gates the routed quote
+  /// with, never the receive switches.
   @override
-  Future<StandingDepositRecord> instruction({
-    required String walletId,
+  Future<CctpQuote> quote({
+    required InvestingWithdrawalDestination destination,
+    required BigInt amountIn6,
     required String recipient,
     required String refundAddress,
-    required bool Function() wanted,
-    InvestingWithdrawalDestination destination =
-        InvestingWithdrawalDestination.dollars,
-  }) =>
-      StandingDepositStore.investingWithdrawalInstruction(
-          walletId: walletId,
-          recipient: recipient,
-          refundAddress: refundAddress,
-          wanted: wanted,
-          destination: destination);
+    required String idempotencyKey,
+  }) async {
+    final request = OrchestraQuoteRequest(
+      sourceChain: 'arbitrum',
+      sourceAsset: 'USDC',
+      destinationChain: destination.chain,
+      destinationAsset: destination.asset,
+      amountBaseUnits: amountIn6,
+      recipientAddress:
+          destination.chain == 'spark' ? recipient : recipient.toLowerCase(),
+      refundAddress: refundAddress.toLowerCase(),
+      recipientKind: destination.chain == 'spark'
+          ? RecipientKind.ownSpark
+          : RecipientKind.ownPmWallet,
+      ownAddress: recipient,
+      tag: cctpQuoteTag(destination),
+      kuteRoute: kInvestingWithdrawalKuteRoute,
+      capabilities: cctpCapabilitiesFor(destination),
+    );
+    final fetched = await OrchestraQuoteGate.fetchVerifiedWithSkew(
+      request,
+      OrchestraQuoteBounds.forSource('arbitrum', inputValueInOutputUnits: null),
+      flow: 'investing_withdrawal_cctp',
+      idempotencyKey: idempotencyKey,
+    );
+    final verified = fetched.quote;
+    return CctpQuote(
+      quoteId: verified.quoteId,
+      depositAddress: verified.depositAddress,
+      expiresAt: verified.expiresAt.toLocal(),
+      amountIn6: verified.amountIn,
+      appFeeBps: verified.quote.appFeeBps,
+    );
+  }
+
+  /// No `sourceAddress`: Circle's mint comes from the zero address, not
+  /// from any account of the wallet's, and a one-time quote's deposit
+  /// address is not shared, where Flashnet asks for one
+  /// (https://docs.flashnet.xyz/orchestra/quotes#when-to-call-submit).
+  @override
+  Future<CctpSubmitResult> submit({
+    required String quoteId,
+    required String txHash,
+    required String idempotencyKey,
+  }) async {
+    final result = await OrchestraService.submitDeposit(
+      quoteId: quoteId,
+      txHash: txHash,
+      idempotencyKey: idempotencyKey,
+      timeout: kSettlementEvmSubmitTimeout,
+    );
+    final status = result.statusCode;
+    if (result.isSuccess && result.data != null) {
+      final id = result.data!.orderId;
+      return (
+        outcome: CctpSubmitOutcome.accepted,
+        orderId: id.startsWith('ord_') ? id : null,
+      );
+    }
+    if (status == null ||
+        status == 408 ||
+        status == 429 ||
+        status >= 500 ||
+        (status == 409 && result.errorCode == 'idempotency_in_progress')) {
+      return (outcome: CctpSubmitOutcome.transient, orderId: null);
+    }
+    return (outcome: CctpSubmitOutcome.rejected, orderId: null);
+  }
 
   @override
   Future<StandingDepositRecord?> record(String walletId, String label) async =>

@@ -39,6 +39,8 @@ class OrchestraQuoteRequest {
     this.externalDepositMemo = false,
     this.tag,
     this.refundOptional = false,
+    this.kuteRoute,
+    this.capabilities,
   });
 
   final String sourceChain;
@@ -74,6 +76,17 @@ class OrchestraQuoteRequest {
   /// Move-sheet move: `kute:order_funding_predictions`,
   /// `kute:sweep_investing`, [kManualMoveQuoteTag], … Null sends none.
   final String? tag;
+
+  /// Kute's own route the backend prices the quote under, never sent on to
+  /// Flashnet: `investing_withdrawal` for money leaving Investing by Circle
+  /// CCTP onto this quote's deposit address (priced and gated as the
+  /// Investing withdrawal it is, not as a receive). Null sends none.
+  final String? kuteRoute;
+
+  /// The runtime-policy capabilities the app checks before asking, when
+  /// they are not the route's own ([kuteRoute]'s quote answers to the
+  /// Investing withdrawal's). Null checks the route's.
+  final List<String>? capabilities;
 
   /// Analytics label, e.g. `spark_btc>polygon_usdc.e`. No amounts or
   /// addresses.

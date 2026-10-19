@@ -142,6 +142,8 @@ class OrchestraQuoteGate {
           slippageBps: slippageBps,
           idempotencyKey: key,
           tag: request.tag,
+          kuteRoute: request.kuteRoute,
+          capabilities: request.capabilities,
         );
 
     final Result<OrchestraQuote> result;
