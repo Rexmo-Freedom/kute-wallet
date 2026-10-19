@@ -2,11 +2,11 @@
 //
 // THE SCANNER, AS A SHEET (founder decision, October 2026). Every Scan in
 // the app opens this one bottom sheet over the screen it was tapped on:
-// the receive sheets' header (close X on the left, the title centred),
-// then the live camera edge to edge to the sheet's bottom behind the scan
-// frame (the card is the camera), and two round controls over the bottom
-// of the preview: the flash on the left, a QR picked from photos on the
-// right. No Paste here: Paste stays on the
+// the live camera edge to edge from the sheet's rounded top to its bottom
+// (the whole sheet is the camera), the drag handle and the close X over
+// the video at the top, the scan frame centred, and two round controls
+// over the bottom: the flash on the left, a QR picked from photos on the
+// right. No header, no title: the sheet names itself to a screen reader. No Paste here: Paste stays on the
 // field that asked.
 //
 // Three modes, one camera:
@@ -26,7 +26,7 @@ import 'dart:async';
 
 import 'package:kute/controllers/import_wallet_controller.dart';
 import 'package:kute/screens/shared/kute_back_button.dart'
-    show KuteCircleButton, KuteCloseButton;
+    show KuteCircleButton;
 import 'package:kute/helpers/common_operation_methods.dart';
 import 'package:kute/helpers/user_error_copy.dart';
 import 'package:kute/helpers/qr_gallery_helper.dart';
@@ -38,8 +38,6 @@ import 'package:kute/providers/add_wallet_provider.dart';
 import 'package:kute/providers/qr_scanner_provider.dart';
 import 'package:kute/screens/scanner/scanner_camera.dart';
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
-import 'package:kute/screens/shared/receive_surface.dart'
-    show ReceiveSheetHeader, kReceiveSheetMaxHeight;
 import 'package:kute/services/add_wallet_capabilities.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/providers/auth_provider.dart' show sessionUnlockedProvider;
@@ -75,6 +73,10 @@ enum ScannerMode {
   /// Joins animated BBQr / UR codes and closes with the result.
   multiPart,
 }
+
+/// How tall the scanner sheet stands, as a share of the screen: the send
+/// sheet's first-step height, so it reads as a sheet over the page.
+const double kScannerSheetHeight = 0.64;
 
 /// The route names the scanner's sheets carry, so route observers keep
 /// seeing the names the full-screen scanners had.
@@ -600,6 +602,7 @@ class _ScannerSheetState extends ConsumerState<ScannerSheet>
       builder: (_) => _XpubWalletPicker(configs: configs),
     );
 
+    if (!mounted) return;
     if (selected == null) {
       // User dismissed — restart scanner
       setState(() => _isProcessing = false);
@@ -1118,35 +1121,55 @@ class _ScannerSheetState extends ConsumerState<ScannerSheet>
     }
     final l10n = context.l10n;
 
-    // The card is the camera (founder decision, October 2026): the sheet's
-    // own top corners are the only rounding, the header sits directly
-    // above the preview, and the preview runs to the sheet's left, right
-    // and bottom edges. No container padding, so no inset card.
+    // The whole sheet is the camera (founder decision, October 2026): no
+    // header, the preview runs from under the sheet's rounded top corners
+    // to its bottom edge, and the drag handle and the close X float over
+    // the video. Shorter than the full-height sheets so it reads as a
+    // sheet over the page, the send sheet's first-step height.
     return PopScope<Object?>(
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) _onClosing();
       },
-      child: ClipRRect(
-        borderRadius:
-            BorderRadius.vertical(top: Radius.circular(AppRadius.xxl)),
-        child: Container(
-          height: MediaQuery.sizeOf(context).height * kReceiveSheetMaxHeight,
-          decoration: AppDecorations.bottomSheet(context),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              ReceiveSheetHeader(
-                leading: KuteCloseButton(onPressed: _close),
-                title: Text(
-                  l10n.scanQrCode,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.modalTitle(context),
+      child: Semantics(
+        container: true,
+        label: l10n.scanQrCode,
+        child: ClipRRect(
+          borderRadius:
+              BorderRadius.vertical(top: Radius.circular(AppRadius.xxl)),
+          child: SizedBox(
+            height: MediaQuery.sizeOf(context).height * kScannerSheetHeight,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                _preview(context, multi),
+                // The drag handle, over the video.
+                Positioned(
+                  top: 12.h,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: Container(
+                      width: 36.w,
+                      height: 4.h,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-              SizedBox(height: 8.h),
-              Expanded(child: _preview(context, multi)),
-            ],
+                Positioned(
+                  top: MediaQuery.paddingOf(context).top + 16.w,
+                  left: 16.w,
+                  child: _ScannerControl(
+                    key: const ValueKey('scanner-close'),
+                    icon: Icons.close_rounded,
+                    label: l10n.close,
+                    onPressed: _close,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

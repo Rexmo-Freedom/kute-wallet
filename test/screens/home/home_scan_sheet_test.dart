@@ -18,7 +18,6 @@ import 'package:kute/providers/send_tx_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/scanner/scanner_sheet.dart';
 import 'package:kute/screens/shared/bitcoin_wallet_actions.dart';
-import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -132,21 +131,17 @@ void main() {
     expect(find.byType(BitcoinWalletPrimaryActions, skipOffstage: false),
         findsOneWidget,
         reason: 'Home waits under the sheet');
-    expect(find.text(_l10n.scanQrCode), findsOneWidget);
+    expect(find.text(_l10n.scanQrCode), findsNothing, reason: 'no title');
+    expect(find.bySemanticsLabel(_l10n.scanQrCode), findsOneWidget);
     expect(find.byKey(const ValueKey('scanner-torch')), findsOneWidget);
     expect(find.byKey(const ValueKey('scanner-gallery')), findsOneWidget);
     expect(find.bySemanticsLabel(_l10n.flash), findsOneWidget);
     expect(find.bySemanticsLabel(_l10n.receiveGallery), findsOneWidget);
     expect(find.text(_l10n.paste), findsNothing,
         reason: 'no Paste inside the scanner');
-    // The close X sits left of the title.
-    expect(
-        tester
-            .getCenter(find.descendant(
-                of: find.byType(ScannerSheet),
-                matching: find.byType(KuteCloseButton)))
-            .dx,
-        lessThan(tester.getTopLeft(find.text(_l10n.scanQrCode)).dx));
+    // The close X floats over the camera, top-left.
+    final close = tester.getRect(find.byKey(const ValueKey('scanner-close')));
+    expect(find.bySemanticsLabel(_l10n.close), findsOneWidget);
 
     expect(cameras.opened, hasLength(1));
     expect(cameras.last.multiPart, isFalse);
@@ -157,7 +152,13 @@ void main() {
         tester.getRect(find.byKey(const ValueKey('fake-camera-preview')));
     expect(preview.width, sheet.width);
     expect(preview.left, sheet.left);
+    expect(preview.top, sheet.top);
     expect(preview.bottom, sheet.bottom);
+    expect(
+        sheet.height, moreOrLessEquals(932 * kScannerSheetHeight, epsilon: 1));
+    expect(close.top, greaterThanOrEqualTo(preview.top));
+    expect(close.left, greaterThan(preview.left));
+    expect(close.bottom, lessThan(preview.center.dy));
 
     // The flash control toggles the torch and shows its state.
     expect(find.byIcon(Icons.flash_off_rounded), findsOneWidget);
@@ -172,8 +173,7 @@ void main() {
     final (cameras, router) = await _pump(tester);
     await _openScanner(tester);
 
-    await tester.tap(find.descendant(
-        of: find.byType(ScannerSheet), matching: find.byType(KuteCloseButton)));
+    await tester.tap(find.byKey(const ValueKey('scanner-close')));
     await tester.pump();
     // Stopped the moment it starts closing, released once gone.
     expect(cameras.last.running, isFalse);
