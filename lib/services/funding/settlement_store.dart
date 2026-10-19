@@ -15,6 +15,8 @@
 import 'dart:async';
 
 import 'package:hive_ce/hive.dart';
+import 'package:kute/models/breez/sdk_operation_guard.dart'
+    show noteSparkFlowRecord;
 import 'package:kute/models/orchestra_routes_model.dart' show RouteKey;
 import 'package:kute/models/settlement_operation.dart';
 import 'package:kute/services/api/orchestra_api.dart';
@@ -559,6 +561,14 @@ class SettlementStore {
   Future<void> _write(SettlementOperation op) async {
     await _box.put(op.operationId, SettlementCodec.encodeJson(op));
     await _box.flush();
+    // Before its funds are confirmed the operation is a money flow between
+    // steps: a pull-to-refresh meanwhile syncs the SDK rather than
+    // reconnecting it (a quote waiting for its confirm tap, a broadcast
+    // not confirmed yet).
+    noteSparkFlowRecord('settlement:${op.operationId}',
+        open: op.stage.isBeforeBroadcasting ||
+            op.stage == SettlementStage.broadcasting ||
+            op.stage == SettlementStage.fundingUnknown);
   }
 
   Future<SettlementOperation?> _read(String operationId) async {

@@ -622,6 +622,7 @@ spark_deposit_fee_limit_opened
 spark_deposit_refund_failed
 spark_deposit_refunded
 spark_sdk_connect
+spark_sdk_teardown
 spark_sync_latency
 spark_wallet_id_unresolved
 standing_deposit_status

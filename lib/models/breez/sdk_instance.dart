@@ -57,7 +57,15 @@ class BreezSdkSpark {
   final Map<String, _SettledSparkArrival> _settlementPending = {};
   Future<void> _lifecycle = Future<void>.value();
   int _generation = 0;
-  Object? _teardownFailure;
+
+  /// Handles shut down whose native shutdown is not confirmed yet. Two
+  /// live handles on one wallet would run two background processors and
+  /// two in-memory leaf trees over one storage directory, so a new handle
+  /// never connects before every one of these is confirmed down
+  /// ([_confirmRetired]). Never a permanent block: each connect waits
+  /// [teardownTimeout] for them, a failed shutdown is asked again, and the
+  /// reconnect retries ([_scheduleReconnectRetry]) until they are down.
+  final List<_RetiringHandle> _retiring = [];
 
   spark.BreezSdk? _instance;
   spark.ConnectRequest? _lastConnectRequest;
@@ -81,9 +89,12 @@ class BreezSdkSpark {
   Timer? _pullRetry;
   int _pullRetryAttempt = 0;
 
-  /// When a pull's reconnect could not connect (offline), the connect is
-  /// tried again from the same request after each of these, without the
-  /// unlock (no PIN, no passkey prompt). Then the next pull tries again.
+  /// When a reconnect could not connect (offline, or the old handle's
+  /// shutdown not confirmed yet), the connect is tried again from the same
+  /// request after each of these, without the unlock (no PIN, no passkey
+  /// prompt); then every [reconnectSlowRetry] while the wallet has no
+  /// handle. The next pull and an app resume or network change
+  /// ([reconnectIfDown]) try at once.
   @visibleForTesting
   static List<Duration> pullRetryDelays = const [
     Duration(seconds: 2),
@@ -92,11 +103,38 @@ class BreezSdkSpark {
     Duration(seconds: 30),
   ];
 
+  /// The slow retry after [pullRetryDelays].
+  @visibleForTesting
+  static Duration reconnectSlowRetry = const Duration(seconds: 60);
+
+  /// How long a connect waits for a retired handle's native shutdown
+  /// before it gives up this try (the shutdown keeps going; the next try
+  /// waits for the same one).
+  @visibleForTesting
+  static Duration teardownTimeout = const Duration(seconds: 15);
+
+  /// A handle younger than this is as fresh as a restart: a pull inside it
+  /// syncs rather than reconnecting again. Pulling twice in a row
+  /// reconnects the first time and syncs the second.
+  @visibleForTesting
+  static Duration pullReconnectCooldown = const Duration(seconds: 25);
+
+  /// Since the current handle connected.
+  Stopwatch? _sinceConnected;
+
   /// A guarded recovery either installed a new handle or left no usable
   /// handle. Provider owners use this to refresh captured SDK consumers or
   /// re-enter the standard connection lifecycle after a failed replacement.
   final _recoveryController = StreamController<void>.broadcast();
   Stream<void> get recoveryStream => _recoveryController.stream;
+
+  /// Every new handle, the moment it is installed (any connect: unlock,
+  /// wallet switch, recovery, pull). Consumers bound to a handle (the
+  /// push pipeline's Activity feed) re-bind at once instead of waiting
+  /// for the first event of the new handle, so nothing it emits while
+  /// they re-bind is missed.
+  final _connectedController = StreamController<void>.broadcast(sync: true);
+  Stream<void> get connectedStream => _connectedController.stream;
 
   static void _debugFeed(String detail) {
     if (kDebugMode) debugPrint('[sdk-feed] $detail');
@@ -135,13 +173,11 @@ class BreezSdkSpark {
     _forgetWalletReadings();
     final cancelled = _unsubscribeFromSdkStreams();
     final result = _lifecycle.then((_) async {
+      // Throws [SparkTeardownPending] when an old handle is not confirmed
+      // down within [teardownTimeout]: never two handles at once.
       await _finishSessionTeardown(previous, cancelled);
       if (_generation != generation) {
         throw StateError('Spark connection was superseded.');
-      }
-      if (_teardownFailure != null) {
-        throw StateError(
-            'The previous Spark session could not close. Restart the app before reconnecting.');
       }
       // Two boot timers, one each per process, without overlap:
       //   * `spark_connect_latency`: this native connect call → the
@@ -163,10 +199,12 @@ class BreezSdkSpark {
       _recordBootConnect(connectSw, result: 'ok');
       if (!_bootSyncMeasured) LatencyTracker.start(LatencyKeys.sparkSync);
       if (_generation != generation) {
-        await _retireSdk(sdk);
+        // The next connect waits until it is confirmed down.
+        _beginRetire(sdk);
         throw StateError('Spark connection was superseded.');
       }
       _instance = sdk;
+      _sinceConnected = Stopwatch()..start();
       _lastConnectRequest = req;
       TrackingService.setSessionKey('breez_connected', true);
       _initializeEventsStream(sdk);
@@ -174,6 +212,7 @@ class BreezSdkSpark {
       _stopWatchingSync =
           observeSharedSync(sdk, (sync) => _watchSync(sdk, sync));
       _stopWatchingIdle = observeSparkIdle(sdk, () => _onSparkIdle(sdk));
+      _connectedController.add(null);
       // Fetches may complete after a wallet switch; publication below checks
       // the exact SDK handle. Failures are retried by the sync pipelines.
       unawaited(_fetchWalletData(sdk).catchError((Object _) {}));
@@ -243,34 +282,93 @@ class BreezSdkSpark {
   Future<void> _finishSessionTeardown(
       spark.BreezSdk? previous, Future<void> cancelled) async {
     // FRB cancellation can wait for the native event listener to close.
-    // Disconnect must start without waiting for cancellation, but BOTH must
-    // finish before a replacement owns this wallet. Surface native failures
-    // even if cancellation remains pending; _retireSdk blocks replacement.
+    // Disconnect must start without waiting for cancellation, and every
+    // retired handle must be confirmed down before a replacement owns this
+    // wallet. The SDK's `disconnect` signals its background tasks to stop
+    // and waits, with no timeout of its own, until all of them have; it
+    // never fails by itself, so a failure is the bridge's and the native
+    // state is unknown. Either way the wait is bounded here and the
+    // handle stays on the list: the next connect waits for (or asks again)
+    // the same shutdown instead of opening a second handle.
+    // A cancellation failure is the listener's, never a confirmation that
+    // the native side stopped: it is observed here and only the native
+    // shutdown decides.
+    final cancellation = cancelled.then<bool>((_) => true,
+        onError: (Object _) => false);
+    if (previous != null) _beginRetire(previous);
+    await _confirmRetired();
+    // Native shutdown is confirmed; the listener's cancellation follows it.
     try {
-      await Future.wait<void>([
-        if (previous != null) _retireSdk(previous),
-        cancelled,
-      ], eagerError: true);
-    } catch (error) {
-      // A cancellation error may arrive while native shutdown is still in
-      // progress. Keep ownership blocked even when this wait exits early.
-      _teardownFailure = error;
-      rethrow;
+      if (!await cancellation.timeout(teardownTimeout)) {
+        _debugFeed('lifecycle=stream_cancellation_failed');
+      }
+    } catch (_) {
+      _debugFeed('lifecycle=stream_cancellation_unconfirmed');
     }
   }
 
-  Future<void> _retireSdk(spark.BreezSdk sdk) async {
-    try {
+  /// Starts [sdk]'s native shutdown and keeps it on [_retiring] until it
+  /// is confirmed.
+  void _beginRetire(spark.BreezSdk sdk) {
+    for (final r in _retiring) {
+      if (identical(r.sdk, sdk)) return;
+    }
+    final retiring = _RetiringHandle(sdk);
+    _retiring.add(retiring);
+    _shutDown(retiring);
+  }
+
+  void _shutDown(_RetiringHandle retiring) {
+    retiring.failed = false;
+    retiring.attempts++;
+    final flight = Future<void>.sync(() {
       _debugFeed('lifecycle=native_disconnect_started');
-      await sdk.disconnect();
+      return retiring.sdk.disconnect();
+    });
+    retiring.flight = flight;
+    flight.then((_) {
+      if (!identical(retiring.flight, flight)) return;
       _debugFeed('lifecycle=native_disconnect_completed');
-    } catch (error) {
+      _retiring.remove(retiring);
+      if (retiring.reported) {
+        _balanceTelemetry.teardown(
+            result: SparkTeardownResult.confirmedLate,
+            attempt: retiring.attempts,
+            durationMs: retiring.clock.elapsedMilliseconds);
+      }
+    }, onError: (Object _) {
+      if (!identical(retiring.flight, flight)) return;
       _debugFeed('lifecycle=native_disconnect_failed');
-      // Native ownership is now uncertain. Do not open a second signer/runtime.
-      _teardownFailure = error;
-      rethrow;
+      retiring.failed = true;
+    });
+  }
+
+  /// Waits, at most [teardownTimeout] per handle, until every retired
+  /// handle is confirmed down. One whose shutdown failed is asked again
+  /// (a handle whose tasks already stopped answers at once). Throws
+  /// [SparkTeardownPending] when one is not confirmed yet.
+  Future<void> _confirmRetired() async {
+    for (final retiring in List.of(_retiring)) {
+      if (!_retiring.contains(retiring)) continue;
+      if (retiring.failed) _shutDown(retiring);
+      try {
+        await retiring.flight!.timeout(teardownTimeout);
+      } catch (error) {
+        retiring.reported = true;
+        _balanceTelemetry.teardown(
+            result: error is TimeoutException
+                ? SparkTeardownResult.timeout
+                : SparkTeardownResult.error,
+            attempt: retiring.attempts,
+            durationMs: retiring.clock.elapsedMilliseconds);
+        throw const SparkTeardownPending();
+      }
     }
   }
+
+  /// Whether a retired handle's native shutdown is still unconfirmed.
+  @visibleForTesting
+  bool get teardownPending => _retiring.isNotEmpty;
 
   /// Recovery-only: connect a candidate seed (via [req], pointed at an
   /// ISOLATED throwaway storage dir) purely to read its on-chain balance
@@ -401,8 +499,8 @@ class BreezSdkSpark {
     if (_optimizationInProgress) {
       return defer(UsdRecoveryReason.optimizationInFlight);
     }
-    if (pull && sparkQuoteInFlight) {
-      return defer(UsdRecoveryReason.quoteInFlight);
+    if (pull && sparkMoneyFlowInFlight) {
+      return defer(UsdRecoveryReason.flowInFlight);
     }
     final reservation = reserveSparkRecovery(expected);
     if (reservation == null) return defer(UsdRecoveryReason.mutationInFlight);
@@ -412,6 +510,7 @@ class BreezSdkSpark {
       var reason = UsdRecoveryReason.lookupFailed;
       var attempted = false;
       var report = true;
+      var teardownPending = false;
       try {
         final payments = await expected
             .listPayments(request: const spark.ListPaymentsRequest())
@@ -430,13 +529,13 @@ class BreezSdkSpark {
         }
         if ((waitsForSync && _syncBlocksRecovery(expected)) ||
             _optimizationInProgress ||
-            (pull && sparkQuoteInFlight)) {
+            (pull && sparkMoneyFlowInFlight)) {
           outcome = UsdRecoveryResult.deferred;
           reason = waitsForSync && _syncBlocksRecovery(expected)
               ? UsdRecoveryReason.syncInFlight
               : _optimizationInProgress
                   ? UsdRecoveryReason.optimizationInFlight
-                  : UsdRecoveryReason.quoteInFlight;
+                  : UsdRecoveryReason.flowInFlight;
           return false;
         }
         reservation.retire();
@@ -466,8 +565,9 @@ class BreezSdkSpark {
           reason = UsdRecoveryReason.walletChanged;
         } else if (!attempted && error is TimeoutException) {
           reason = UsdRecoveryReason.lookupTimeout;
-        } else if (attempted && _teardownFailure != null) {
+        } else if (attempted && error is SparkTeardownPending) {
           reason = UsdRecoveryReason.teardownFailed;
+          teardownPending = true;
         }
         return false;
       } finally {
@@ -482,8 +582,10 @@ class BreezSdkSpark {
           if (outcome == UsdRecoveryResult.ok) {
             _recoveryController.add(null);
           } else if (_instance == null) {
-            if (pull) {
-              _schedulePullRetry();
+            // The old handle's shutdown not confirmed yet: rebuilding the
+            // connection provider would only wait on the same shutdown.
+            if (pull || teardownPending) {
+              _scheduleReconnectRetry();
             } else {
               _recoveryController.add(null);
             }
@@ -521,12 +623,29 @@ class BreezSdkSpark {
   /// ([runSparkQuote]) or a leaf optimization. A pending send the SDK
   /// lists is checked again by [reconnectForPull] itself.
   bool get canReconnectForPull {
-    if (_lastConnectRequest == null || _teardownFailure != null) return false;
-    if (_connecting || _optimizationInProgress || sparkQuoteInFlight) {
+    if (_lastConnectRequest == null || _connecting) return false;
+    final sdk = _instance;
+    // No handle (a connect that failed, a shutdown not confirmed yet):
+    // always try again.
+    if (sdk == null) return true;
+    if (_optimizationInProgress ||
+        sparkMoneyFlowInFlight ||
+        sparkMutationInFlight(sdk)) {
       return false;
     }
-    final sdk = _instance;
-    return sdk == null || !sparkMutationInFlight(sdk);
+    final age = _sinceConnected?.elapsed;
+    return age == null || age >= pullReconnectCooldown;
+  }
+
+  /// An app resume or network change: when the wallet has no handle (a
+  /// reconnect that could not connect yet), connect again from the kept
+  /// request at once, retries starting over. Never throws.
+  Future<bool> reconnectIfDown() {
+    if (_instance != null || _connecting || _lastConnectRequest == null) {
+      return Future.value(false);
+    }
+    _pullRetryAttempt = 0;
+    return _reconnectFromSaved();
   }
 
   /// Pull-to-refresh as a hot restart does it, without the unlock: the
@@ -560,10 +679,7 @@ class BreezSdkSpark {
     final running = _balanceRecovery;
     if (running != null) return running;
     final req = _lastConnectRequest;
-    if (req == null ||
-        _instance != null ||
-        _connecting ||
-        _teardownFailure != null) {
+    if (req == null || _instance != null || _connecting) {
       return Future.value(false);
     }
     final sw = Stopwatch()..start();
@@ -587,12 +703,11 @@ class BreezSdkSpark {
         reason = UsdRecoveryReason.reconnected;
         if (identical(_instance, replacement)) _recoveryController.add(null);
         return true;
-      } catch (_) {
-        if (_teardownFailure != null) {
+      } catch (error) {
+        if (error is SparkTeardownPending) {
           reason = UsdRecoveryReason.teardownFailed;
-        } else if (_instance == null && !_connecting) {
-          _schedulePullRetry();
         }
+        if (_instance == null && !_connecting) _scheduleReconnectRetry();
         return false;
       } finally {
         _balanceTelemetry.recovery(
@@ -610,13 +725,14 @@ class BreezSdkSpark {
     return result;
   }
 
-  void _schedulePullRetry() {
-    if (_pullRetryAttempt >= pullRetryDelays.length) {
-      // Out of tries: the next pull starts them again.
-      _pullRetryAttempt = 0;
-      return;
-    }
-    final delay = pullRetryDelays[_pullRetryAttempt++];
+  void _scheduleReconnectRetry() {
+    if (_lastConnectRequest == null) return;
+    // Bounded backoff, then the slow retry for as long as there is no
+    // handle; a disconnect (the session ending) stops it.
+    final delay = _pullRetryAttempt < pullRetryDelays.length
+        ? pullRetryDelays[_pullRetryAttempt]
+        : reconnectSlowRetry;
+    _pullRetryAttempt++;
     _pullRetry?.cancel();
     _pullRetry = Timer(delay, () {
       _pullRetry = null;
@@ -1364,6 +1480,30 @@ class BreezSdkSpark {
     ]);
     _debugFeed('lifecycle=stream_cancellation_completed');
   }
+}
+
+/// A connect gave up waiting for a retired handle's native shutdown. The
+/// shutdown keeps going; the next connect waits for it (or asks again).
+class SparkTeardownPending implements Exception {
+  const SparkTeardownPending();
+
+  @override
+  String toString() =>
+      'The previous Spark session is still closing. Try again shortly.';
+}
+
+/// A handle shut down whose native shutdown is not confirmed yet.
+class _RetiringHandle {
+  _RetiringHandle(this.sdk);
+
+  final spark.BreezSdk sdk;
+  final Stopwatch clock = Stopwatch()..start();
+  Future<void>? flight;
+  bool failed = false;
+  int attempts = 0;
+
+  /// A timeout or failure was reported for it.
+  bool reported = false;
 }
 
 class PaymentException implements Exception {

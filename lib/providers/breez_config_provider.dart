@@ -4,6 +4,8 @@ import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/auth_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/spark_contacts_provider.dart';
+import 'package:kute/services/network_change_signal.dart'
+    show NetworkChangeSignal;
 import 'package:kute/services/passkey_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -58,6 +60,12 @@ void bindSparkRecoveryLifecycle(Ref ref, BreezSdkSpark wrapper) {
 final breezSDKProvider = FutureProvider<BreezSdkSpark>((ref) async {
   final wrapper = BreezSdkSpark();
   bindSparkRecoveryLifecycle(ref, wrapper);
+  // A reconnect that could not connect yet (offline, or the old handle's
+  // shutdown not confirmed) tries again at once on an app resume or a
+  // network change, from the kept request: no unlock.
+  final networkSub = NetworkChangeSignal.instance.changes
+      .listen((_) => wrapper.reconnectIfDown().ignore());
+  ref.onDispose(networkSub.cancel);
   // Watch the SPENDING wallet's id only. `.select` narrows the
   // dependency so unrelated settings churn (currency, btc format,
   // theme) doesn't tear the SDK down, AND so swiping the carousel

@@ -203,6 +203,7 @@ class PushPipeline implements SyncPipeline {
 
   ProviderContainer? _container;
   StreamSubscription<breez.GetInfoResponse>? _subscription;
+  StreamSubscription<void>? _connectedSubscription;
   StreamSubscription<List<breez.Payment>>? _paymentsSubscription;
   StreamSubscription<SparkDepositUpdate>? _depositsSubscription;
   StreamSubscription<void>? _syncedSubscription;
@@ -240,6 +241,8 @@ class PushPipeline implements SyncPipeline {
   @override
   void stop() {
     _generation++;
+    _connectedSubscription?.cancel();
+    _connectedSubscription = null;
     _subscription?.cancel();
     _subscription = null;
     _paymentsSubscription?.cancel();
@@ -274,6 +277,8 @@ class PushPipeline implements SyncPipeline {
   }
 
   void _attach(int gen) {
+    _connectedSubscription?.cancel();
+    _connectedSubscription = null;
     _subscription?.cancel();
     _subscription = null;
     _paymentsSubscription?.cancel();
@@ -302,6 +307,11 @@ class PushPipeline implements SyncPipeline {
       if (_container == null || _generation != gen) return;
       if (sdkWrapper.instance == null) {
         status.markFailure(debugName, 'Breez SDK not ready');
+        // Reconnecting (or a reconnect retrying): attach the moment the
+        // handle is up, not after a backoff that grows to 32 s.
+        _connectedSubscription = sdkWrapper.connectedStream.listen((_) {
+          if (_generation == gen) _reattachNow(gen);
+        });
         _scheduleRetry(gen);
         return;
       }
@@ -327,10 +337,24 @@ class PushPipeline implements SyncPipeline {
             _generation == gen &&
             !identical(sdkWrapper.instance, sdk)) {
           reattachScheduled = true;
-          _scheduleRetry(gen);
+          // At once (no backoff): the re-attach reads the payments and the
+          // balance again, so this event's change is not lost.
+          _reattachNow(gen);
         }
         return false;
       }
+
+      // A new handle (a pull's reconnect, a recovery, a wallet switch):
+      // re-bind at once, before its first events, rather than on the first
+      // one it emits.
+      _connectedSubscription = sdkWrapper.connectedStream.listen((_) {
+        if (!reattachScheduled &&
+            _generation == gen &&
+            !identical(sdkWrapper.instance, sdk)) {
+          reattachScheduled = true;
+          _reattachNow(gen);
+        }
+      });
 
       _retryAttempt = 0;
       _subscription = sdkWrapper.walletInfoStream.listen(
@@ -722,6 +746,14 @@ class PushPipeline implements SyncPipeline {
     _syncDebounce = Timer(_syncDebounceWindow, () {
       if (_container == null || _generation != gen) return;
       onSyncRequested();
+    });
+  }
+
+  void _reattachNow(int gen) {
+    scheduleMicrotask(() {
+      if (_container == null || _generation != gen) return;
+      _retryAttempt = 0;
+      _attach(gen);
     });
   }
 
