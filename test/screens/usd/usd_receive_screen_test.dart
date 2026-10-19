@@ -356,6 +356,9 @@ void main() {
     final sheet = ModalRoute.of(tester.element(find.byKey(_bitcoinRow)));
     expect(sheet, isA<ModalBottomSheetRoute<void>>());
     expect(find.byType(KuteCloseButton), findsOneWidget);
+    // The close X on the left, as on the Bitcoin receive.
+    expect(tester.getCenter(find.byType(KuteCloseButton)).dx,
+        lessThan(tester.getCenter(find.byType(UsdReceiveScreen)).dx));
     await tester.tap(_tile('USDT'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
@@ -382,8 +385,23 @@ void main() {
       'preselect_reason': 'none',
     });
 
-    // Dismissed: back on the coin step, nothing created.
-    Navigator.of(tester.element(find.byType(RequestAmountSheet))).pop();
+    // Its close X is on the left too; it dismisses the sheet: back on the
+    // coin step, nothing created.
+    final amountClose = find.descendant(
+        of: find.byType(RequestAmountSheet),
+        matching: find.byType(KuteCloseButton));
+    expect(amountClose, findsOneWidget);
+    expect(tester.getCenter(amountClose).dx,
+        lessThan(tester.getCenter(find.byType(RequestAmountSheet)).dx));
+    // Over the heading, in the receive sheets' header row.
+    expect(
+        tester.getCenter(amountClose).dy,
+        lessThan(tester
+            .getTopLeft(find.descendant(
+                of: find.byType(RequestAmountSheet),
+                matching: find.text(_l10n.receiveRequestAmount)))
+            .dy));
+    await tester.tap(amountClose);
     await tester.pumpAndSettle();
     expect(find.byType(RequestAmountSheet), findsNothing);
     expect(find.byKey(_bitcoinRow), findsOneWidget);
@@ -436,6 +454,13 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.byType(CoinAssetPickerSheet), findsOneWidget);
+    // Its close X on the left, as on every receive sheet.
+    final pickerClose = find.descendant(
+        of: find.byType(CoinAssetPickerSheet),
+        matching: find.byType(KuteCloseButton));
+    expect(pickerClose, findsOneWidget);
+    expect(tester.getCenter(pickerClose).dx,
+        lessThan(tester.getCenter(find.byType(CoinAssetPickerSheet)).dx));
     expect(names(), contains('usd_receive_coin_picker_opened'));
     expect(names(), isNot(contains('usd_receive_coin_selected')));
 

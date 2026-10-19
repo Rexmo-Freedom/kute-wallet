@@ -28,6 +28,9 @@ import 'package:kute/screens/shared/amount_keypad_panel.dart'
 import 'package:kute/screens/shared/amount_unit_picker.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
+import 'package:kute/screens/shared/receive_surface.dart'
+    show ReceiveSheetHeader;
 import 'package:kute/theme/app_theme.dart';
 
 /// The amount the user asked for, as typed, and the unit it is in.
@@ -224,7 +227,11 @@ class _RequestAmountSheetState extends ConsumerState<RequestAmountSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          AppBottomSheetHeader(title: context.l10n.receiveRequestAmount),
+          // The close X on the left, as on every receive sheet (this
+          // sheet only ever opens from a receive).
+          const ReceiveSheetHeader(leading: KuteCloseButton()),
+          AppBottomSheetHeader(
+              title: context.l10n.receiveRequestAmount, showDragHandle: false),
           // Hero block. It is the part that gives way on a short screen
           // or at a large text scale, so the keypad and the one CTA
           // below always stay on screen.

@@ -22,6 +22,7 @@ import 'package:kute/screens/receive/components/request_amount_sheet.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart'
     show AmountKeypad, BigAmountDisplay;
 import 'package:kute/screens/shared/custom_button.dart' show AppButton;
+import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
 import 'package:kute/theme/app_theme.dart';
 import 'package:money2/money2.dart';
 
@@ -99,6 +100,16 @@ AppButton _create(WidgetTester tester) => tester.widget<AppButton>(
     find.widgetWithText(AppButton, _l10n.receiveCreateRequest));
 
 void main() {
+  testWidgets('its close X, on the left, dismisses it with nothing requested',
+      (tester) async {
+    final results = await _pump(tester, (c) => showRequestAmountSheet(c));
+    await _type(tester, '1000');
+    await tester.tap(find.byType(KuteCloseButton));
+    await tester.pumpAndSettle();
+    expect(find.byType(RequestAmountSheet), findsNothing);
+    expect(results, [null]);
+  });
+
   testWidgets(
       'Lightning opens it as before: the unit picker, no minimum line, and '
       'any amount can be requested', (tester) async {
@@ -111,6 +122,11 @@ void main() {
     expect(find.text(_l10n.receiveRequestAmount), findsOneWidget);
     expect(find.byIcon(Icons.unfold_more_rounded), findsOneWidget);
     expect(_create(tester).onPressed, isNull);
+    // The close X on the left, as on every receive sheet.
+    final close = find.byType(KuteCloseButton);
+    expect(close, findsOneWidget);
+    expect(tester.getCenter(close).dx,
+        lessThan(tester.getCenter(find.byType(RequestAmountSheet)).dx));
 
     await _type(tester, '1000');
     final display =

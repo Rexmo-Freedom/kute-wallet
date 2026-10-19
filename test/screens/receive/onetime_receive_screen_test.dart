@@ -684,6 +684,17 @@ void main() {
     ModalRoute<dynamic>? coinRoute(WidgetTester tester) =>
         routeOf(tester, find.byType(UsdReceiveScreen));
 
+    /// [sheet]'s one close X sits on its left, as on the Bitcoin receive.
+    void expectCloseOnLeft(WidgetTester tester, Finder sheet) {
+      final close =
+          find.descendant(of: sheet, matching: find.byType(KuteCloseButton));
+      expect(close, findsOneWidget);
+      expect(find.descendant(of: sheet, matching: find.byIcon(Icons.close_rounded)),
+          findsOneWidget);
+      expect(tester.getCenter(close).dx,
+          lessThan(tester.getCenter(sheet).dx));
+    }
+
     testWidgets(
         'the one-time flow is three sheets in order over the coin sheet: '
         'Request amount, the return address, then the address; never a '
@@ -698,6 +709,7 @@ void main() {
       expect(amount, isA<ModalBottomSheetRoute<dynamic>>());
       expect(amount, isNot(same(coin)));
       expect(find.byType(OneTimeRefundSheet), findsNothing);
+      expectCloseOnLeft(tester, find.byType(RequestAmountSheet));
 
       // 2. The return address, once the amount sheet has closed.
       await tester
@@ -708,8 +720,18 @@ void main() {
       expect(refund, isA<ModalBottomSheetRoute<dynamic>>());
       expect(refund, isNot(same(coin)));
       expect(find.byType(UsdReceiveScreen), findsOneWidget);
-      // Its header carries the question; no stepper.
+      // Its header carries the question; no stepper. The close X is on
+      // the left, before the question.
       expect(find.text(_l10n.onetimeRefundTitle), findsOneWidget);
+      expectCloseOnLeft(tester, find.byType(OneTimeRefundSheet));
+      expect(
+          tester
+              .getCenter(find.descendant(
+                  of: find.byType(OneTimeRefundSheet),
+                  matching: find.byType(KuteCloseButton)))
+              .dy,
+          lessThan(
+              tester.getTopLeft(find.text(_l10n.onetimeRefundTitle)).dy));
       expect(find.byType(StepperProgress), findsNothing);
       // Only the host's Scaffold: no full-screen route was pushed.
       expect(find.byType(Scaffold), findsOneWidget);
@@ -726,6 +748,7 @@ void main() {
       expect(address, isNot(same(coin)));
       expect(addressLineOf(_deposit), findsOneWidget);
       expect(find.byType(UsdReceiveScreen), findsOneWidget);
+      expectCloseOnLeft(tester, find.byType(QuotedReceiveSheet));
       // The receive sheet's frame, as tall as the other receive sheets.
       final frame = find.ancestor(
           of: find.byType(ReceiveQrPlate),
@@ -777,7 +800,7 @@ void main() {
       expect(find.byType(OneTimeRefundSheet), findsOneWidget);
       await tester.tap(find.descendant(
           of: find.byType(OneTimeRefundSheet),
-          matching: find.byIcon(Icons.close_rounded)));
+          matching: find.byType(KuteCloseButton)));
       await _settle(tester);
       expect(find.byType(OneTimeRefundSheet), findsNothing);
       expect(find.byType(QuotedReceiveSheet), findsNothing);

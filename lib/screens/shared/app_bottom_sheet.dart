@@ -153,6 +153,11 @@ class AppBottomSheetHeader extends StatelessWidget {
   /// A smaller heading and tighter spacing for compact action menus.
   final bool compact;
 
+  /// False when the sheet draws its own handle above this heading (the
+  /// receive sheets' header with the close X on the left), so the heading
+  /// starts right under it.
+  final bool showDragHandle;
+
   const AppBottomSheetHeader({
     super.key,
     required this.title,
@@ -162,19 +167,22 @@ class AppBottomSheetHeader extends StatelessWidget {
     this.svgAsset,
     this.trailing,
     this.compact = false,
+    this.showDragHandle = true,
   });
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final top = !showDragHandle ? 4.h : (compact ? 12.h : 20.h);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         // Drag handle
-        Padding(
-          padding: EdgeInsets.only(top: 12.h),
-          child: AppDecorations.dragHandle(context),
-        ),
+        if (showDragHandle)
+          Padding(
+            padding: EdgeInsets.only(top: 12.h),
+            child: AppDecorations.dragHandle(context),
+          ),
 
         // Header content — same hero hierarchy as the rest of the
         // new design language (receive, send, bank-transfer, etc.).
@@ -183,8 +191,8 @@ class AppBottomSheetHeader extends StatelessWidget {
         // the trailing slot for scan-spinner / refresh buttons that
         // some sheets attach.
         Padding(
-          padding: EdgeInsets.fromLTRB(
-              20.w, compact ? 12.h : 20.h, 20.w, compact ? 12.h : 18.h),
+          padding:
+              EdgeInsets.fromLTRB(20.w, top, 20.w, compact ? 12.h : 18.h),
           child: Row(
             crossAxisAlignment:
                 compact ? CrossAxisAlignment.center : CrossAxisAlignment.start,

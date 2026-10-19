@@ -21,8 +21,9 @@ import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/orchestra_routes_model.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
+import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
 import 'package:kute/screens/shared/receive_surface.dart'
-    show ReceiveCaption, kReceiveSheetMaxHeight;
+    show ReceiveCaption, ReceiveSheetHeader, kReceiveSheetMaxHeight;
 import 'package:kute/screens/shared/send/send_flow_widgets.dart'
     show SendRecipientError, SendRecipientField;
 import 'package:kute/screens/usd/flow/usd_flow_widgets.dart' show UsdFlowAction;
@@ -180,7 +181,9 @@ class _OneTimeRefundSheetState extends ConsumerState<OneTimeRefundSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // The header and the field give way on a short screen or under
+          // The close X on the left, as on every receive sheet.
+          const ReceiveSheetHeader(leading: KuteCloseButton()),
+          // The heading and the field give way on a short screen or under
           // the keyboard (the focused field scrolls into view), so the
           // actions below always stay on screen.
           Flexible(
@@ -192,7 +195,7 @@ class _OneTimeRefundSheetState extends ConsumerState<OneTimeRefundSheet> {
                     title: l10n.onetimeRefundTitle,
                     subtitle: l10n.onetimeRefundSubtitle(
                         option.chainDisplayName, option.displaySymbol),
-                    trailing: const AppBottomSheetCloseButton(),
+                    showDragHandle: false,
                   ),
                   Padding(
                     padding: EdgeInsets.symmetric(horizontal: 20.w),

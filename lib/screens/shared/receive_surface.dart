@@ -63,7 +63,6 @@ class ReceiveSheetFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final visibleTitle = title;
     return AppBottomSheetContainer(
       maxHeight: kReceiveSheetMaxHeight,
       // Pure white in light mode, the same white as the QR plate, so the
@@ -73,32 +72,68 @@ class ReceiveSheetFrame extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Padding(
-            padding: EdgeInsets.only(top: 12.h),
-            child: AppDecorations.dragHandle(context),
-          ),
-          Padding(
-            padding: EdgeInsets.fromLTRB(12.w, 8.h, 12.w, 0),
-            child: Row(
-              children: [
-                SizedBox(width: 44.w, child: Center(child: leading)),
-                Expanded(
-                  child: visibleTitle != null
-                      ? Center(child: visibleTitle)
-                      : Semantics(
-                          container: true,
-                          header: true,
-                          label: semanticTitle,
-                          child: SizedBox(height: 44.w),
-                        ),
-                ),
-                SizedBox(width: 44.w),
-              ],
-            ),
-          ),
+          ReceiveSheetHeader(
+              leading: leading, title: title, semanticTitle: semanticTitle),
           Expanded(child: child),
         ],
       ),
+    );
+  }
+}
+
+/// The receive sheets' header: the drag handle, then the row with
+/// [leading] (the close X) on the left and [title] centred. Every receive
+/// sheet wears it, so the X sits in the same top-left place on all of
+/// them: [ReceiveSheetFrame] draws it, and the receive's content-sized
+/// sheets (the return address, Request amount) put it over their own
+/// heading. Without a [title], [semanticTitle] names the sheet to a
+/// screen reader; with neither, the slot is empty room.
+class ReceiveSheetHeader extends StatelessWidget {
+  const ReceiveSheetHeader({
+    super.key,
+    required this.leading,
+    this.title,
+    this.semanticTitle,
+  });
+
+  final Widget leading;
+  final Widget? title;
+  final String? semanticTitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final visibleTitle = title;
+    final label = semanticTitle;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: EdgeInsets.only(top: 12.h),
+          child: AppDecorations.dragHandle(context),
+        ),
+        Padding(
+          padding: EdgeInsets.fromLTRB(12.w, 8.h, 12.w, 0),
+          child: Row(
+            children: [
+              SizedBox(width: 44.w, child: Center(child: leading)),
+              Expanded(
+                child: visibleTitle != null
+                    ? Center(child: visibleTitle)
+                    : label != null
+                        ? Semantics(
+                            container: true,
+                            header: true,
+                            label: label,
+                            child: SizedBox(height: 44.w),
+                          )
+                        : SizedBox(height: 44.w),
+              ),
+              SizedBox(width: 44.w),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

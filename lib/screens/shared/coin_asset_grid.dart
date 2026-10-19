@@ -420,6 +420,11 @@ class CoinAssetPickerSheet extends StatefulWidget {
 
   final ValueChanged<OrchestraReceiveOption> onPicked;
 
+  /// The close X on the left, before the heading, as on every receive
+  /// sheet (the receive pickers set it); false keeps it on the right, as
+  /// the send pickers have it.
+  final bool closeOnLeft;
+
   const CoinAssetPickerSheet({
     super.key,
     required this.groups,
@@ -434,6 +439,7 @@ class CoinAssetPickerSheet extends StatefulWidget {
     this.otherLegAsset = 'BTC',
     this.depositAddress = false,
     this.reusableLegAsset,
+    this.closeOnLeft = false,
   });
 
   @override
@@ -506,6 +512,10 @@ class _CoinAssetPickerSheetState extends State<CoinAssetPickerSheet> {
     final selected = widget.selectedOptionId;
     final pinned = widget.pinned;
     final hiddenReason = offered.hiddenReason;
+    final close = KuteCloseButton(
+      size: 36,
+      onPressed: () => Navigator.of(context).pop(),
+    );
 
     return AppBottomSheetContainer(
       maxHeight: 0.9,
@@ -519,6 +529,10 @@ class _CoinAssetPickerSheetState extends State<CoinAssetPickerSheet> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (widget.closeOnLeft) ...[
+                  close,
+                  SizedBox(width: 10.w),
+                ],
                 if (group != null) ...[
                   Padding(
                     padding: EdgeInsets.only(top: 2.h),
@@ -570,11 +584,10 @@ class _CoinAssetPickerSheetState extends State<CoinAssetPickerSheet> {
                     ],
                   ),
                 ),
-                SizedBox(width: 8.w),
-                KuteCloseButton(
-                  size: 36,
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
+                if (!widget.closeOnLeft) ...[
+                  SizedBox(width: 8.w),
+                  close,
+                ],
               ],
             ),
             SizedBox(height: 16.h),

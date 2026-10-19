@@ -441,6 +441,7 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
             otherLegAsset: widget.destinationAsset,
             reusableLegAsset: kOrchestraUsdAssetCode,
             depositAddress: true,
+            closeOnLeft: true,
             groups: receiveCoinGroups(
               catalog,
               ctx.l10n,
