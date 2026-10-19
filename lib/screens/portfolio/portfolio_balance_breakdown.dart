@@ -656,7 +656,8 @@ class _PortfolioBalanceBreakdownState
           Align(
             key: const ValueKey('portfolio-rebalance-steps'),
             alignment: Alignment.centerLeft,
-            child: MoneyStepsView(lines: stepLines),
+            // Each venue's band already plays its landing.
+            child: MoneyStepsView(lines: stepLines, haptics: false),
           ),
         SizedBox(height: 12.h),
       ],

@@ -7882,8 +7882,12 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
                                 .firstOrNull;
                             return move == null
                                 ? const SizedBox.shrink()
+                                // The sheet's own failure tap is the
+                                // stop's.
                                 : MoveStepsSection(
-                                    move: move, followRows: false);
+                                    move: move,
+                                    followRows: false,
+                                    failureHaptic: false);
                           })
                         // Venue cash on its way home for a purchase,
                         // on the same quiet caption line.

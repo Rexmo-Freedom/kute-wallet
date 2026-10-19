@@ -110,6 +110,11 @@ double _restMsFor(KuteState state) {
   }
 }
 
+/// Sal's frame for [state] at [ms] into its loop: the same poses the
+/// mascot widget plays, for a painter that draws him itself (the money
+/// steps' traveller).
+KuteDogPose kuteMascotPose(KuteState state, double ms) => _poseFor(state, ms);
+
 KuteDogPose _poseFor(KuteState state, double ms) {
   switch (state) {
     case KuteState.loading:
