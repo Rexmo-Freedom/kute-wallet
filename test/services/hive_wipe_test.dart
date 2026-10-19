@@ -94,6 +94,29 @@ void main() {
     expect(settings.isEmpty, isTrue);
   });
 
+  test('the orphaned refund-reports box is deleted at start and on wipe',
+      () async {
+    expect(hiveBoxesWipedOnWipe, contains('arbitrum_refund_reports'));
+    expect(orphanedHiveBoxes, ['arbitrum_refund_reports']);
+    // Nothing on disk: a no-op.
+    await deleteOrphanedHiveBoxes();
+    expect(await Hive.boxExists('arbitrum_refund_reports'), isFalse);
+
+    // A closed file left by an old build.
+    final box = await Hive.openBox<String>('arbitrum_refund_reports');
+    await box.put('r', 'report');
+    await box.close();
+    expect(await Hive.boxExists('arbitrum_refund_reports'), isTrue);
+    await deleteOrphanedHiveBoxes();
+    expect(await Hive.boxExists('arbitrum_refund_reports'), isFalse);
+
+    // Still open when the start runs: deleted all the same.
+    await (await Hive.openBox<String>('arbitrum_refund_reports')).put('r', 'x');
+    await deleteOrphanedHiveBoxes();
+    expect(await Hive.boxExists('arbitrum_refund_reports'), isFalse);
+    expect(Hive.isBoxOpen('arbitrum_refund_reports'), isFalse);
+  });
+
   test('every box name lib opens is wiped or listed as kept', () {
     final known = {...hiveBoxesWipedOnWipe, ...hiveBoxesKeptOnWipe};
     final calls = RegExp(

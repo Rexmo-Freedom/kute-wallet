@@ -40,6 +40,9 @@ const List<String> hiveBoxesWipedOnWipe = [
   'addresses',
   'provider_event_outbox_v1',
   'hyperliquid_revenue_orders_v1',
+  // Orphan: written by a retired build, read by nothing now (also
+  // deleted at every start by deleteOrphanedHiveBoxes).
+  'arbitrum_refund_reports',
   // Startup boxes (hive_boot.dart).
   'asset_icons',
   'tx_fiat_snapshot',
@@ -127,5 +130,22 @@ Future<void> wipeHiveBoxes() async {
     await openStartupHiveBoxes();
   } catch (e) {
     debugPrint('[wipe] reopen startup boxes: ${e.runtimeType}');
+  }
+}
+
+/// Boxes a retired build wrote that nothing reads any more. Deleted at
+/// every start by [deleteOrphanedHiveBoxes] (idempotent and cheap: three
+/// file-existence checks each) so they do not sit on devices for good.
+const List<String> orphanedHiveBoxes = ['arbitrum_refund_reports'];
+
+/// Deletes [orphanedHiveBoxes] from disk, best-effort. Called from the
+/// Hive boot step; a failure is retried at the next start.
+Future<void> deleteOrphanedHiveBoxes() async {
+  for (final name in orphanedHiveBoxes) {
+    try {
+      await Hive.deleteBoxFromDisk(name);
+    } catch (e) {
+      debugPrint('[boot] orphan hive box $name: ${e.runtimeType}');
+    }
   }
 }
