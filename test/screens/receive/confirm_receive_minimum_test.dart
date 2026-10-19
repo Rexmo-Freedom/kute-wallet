@@ -2,7 +2,8 @@
 // Lightning only) show no minimum: the network sets none. Other coins are
 // taken through the "other coins" line, a coin sheet over this one. A coin
 // the standing route serves gets the Dollars receive's reusable
-// `spark:USDB` address, with the note that the money lands in the
+// `spark:USDB` address, in a third sheet over the coin sheet (closing it
+// comes back to the coin sheet), with the note that the money lands in the
 // Investments dollar balance; where the standing route cannot serve it,
 // the coin falls back to a one-time address delivering bitcoin
 // (spark:BTC), titled Bitcoin, its amount asked in the Lightning receive's
@@ -39,6 +40,7 @@ import 'package:kute/screens/receive/components/confirm_receive.dart';
 import 'package:kute/screens/receive/components/request_amount_sheet.dart';
 import 'package:kute/screens/shared/account_switcher_pill.dart';
 import 'package:kute/screens/shared/coin_asset_grid.dart';
+import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
 import 'package:kute/screens/shared/receive_surface.dart';
 import 'package:kute/screens/usd/usd_receive_screen.dart';
 import 'package:kute/services/orchestra/receive_minimums.dart';
@@ -302,11 +304,27 @@ void main() {
         findsOneWidget);
     expect(find.text(_l10n.moveDestDollarsSubtitle), findsOneWidget);
     expect(find.byType(RequestAmountSheet), findsNothing);
+    // The address is its own sheet over the coin sheet, which stays over
+    // the Bitcoin receive.
+    final address = find.byType(UsdStandingAddressSheet);
+    expect(address, findsOneWidget);
+    expect(find.byType(BottomSheet), findsNWidgets(2));
+    expect(find.byType(UsdReceiveScreen), findsOneWidget);
+    expect(find.byType(ConfirmReceive, skipOffstage: false), findsOneWidget);
     final generated = addressEvents().last!;
     expect(generated['destination'], 'spark_usd');
     expect(generated['address_kind'], 'standing');
     expect(generated['entry_source'], 'bitcoin_receive');
     expect(generated.keys, isNot(contains('address')));
+
+    // Its close comes back to the coin sheet, over the Bitcoin receive.
+    await tester.tap(
+        find.descendant(of: address, matching: find.byType(KuteCloseButton)));
+    await _settle(tester);
+    expect(address, findsNothing);
+    expect(find.byType(UsdReceiveScreen), findsOneWidget);
+    expect(find.widgetWithText(CoinAssetTile, 'USDT'), findsWidgets);
+    expect(find.byType(ConfirmReceive, skipOffstage: false), findsOneWidget);
     await _unmount(tester);
   });
 

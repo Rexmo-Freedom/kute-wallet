@@ -1,6 +1,7 @@
 // Reusable first, one-time as the fallback (founder, 2026-10-19). A coin
-// the standing route serves shows its reusable `spark:USDB` address on the
-// sheet (no amount, no quote, no Kute fee line, the minimum under it); from
+// the standing route serves shows its reusable `spark:USDB` address in its
+// own sheet over the coin sheet (no amount, no quote, no Kute fee line, the
+// minimum under it; closing it comes back to the coin sheet); from
 // the Bitcoin receive the same address says it lands in Investments and is
 // marked so its deposits also show in the Bitcoin Activity. A backend
 // refusal (422 unsupported_route) opens the one-time amount sheet instead
@@ -42,7 +43,12 @@ import 'package:kute/screens/receive/receive_sheet.dart'
 import 'package:kute/screens/shared/account_switcher_pill.dart';
 import 'package:kute/screens/shared/asset_network_picker.dart' show PickerRow;
 import 'package:kute/screens/shared/coin_asset_grid.dart';
+import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
 import 'package:kute/screens/shared/receive_surface.dart';
+import 'package:kute/screens/shared/stepper/stepper_widgets.dart'
+    show StepperProgress;
+import 'package:kute/screens/usd/flow/usd_flow_widgets.dart' show UsdFlowNote;
+import 'package:kute/screens/usd/usd_receive_screen.dart';
 import 'package:kute/services/api/orchestra_api.dart'
     show StandingRequestException;
 import 'package:kute/services/orchestra/bitcoin_receive_marks.dart';
@@ -338,6 +344,71 @@ void main() {
   });
 
   testWidgets(
+      'the reusable address is its own bottom sheet over the coin sheet '
+      '(no Scaffold route pushed, no step bar, no boxed note), and its '
+      'close comes back to the coin grid as it was', (tester) async {
+    // The standing rail answers through the resolver seam, so the address
+    // does not depend on what an earlier test registered.
+    ReusableDepositAddressService.debugResolver = (
+            {required sourceChain,
+            required sourceAsset,
+            required destinationAsset}) async =>
+        const ReusableDepositAddress(
+            address: _solanaDeposit,
+            id: 'sda_sheet',
+            kuteFeeBps: 50,
+            model: DepositAddressModel.standing);
+    addTearDown(() => ReusableDepositAddressService.debugResolver = null);
+    await _pump(tester);
+    final coin = ModalRoute.of(tester.element(find.byType(UsdReceiveScreen)));
+    expect(coin, isA<ModalBottomSheetRoute<void>>());
+    await _pickSolanaUsdc(tester);
+
+    final line = find.byWidgetPredicate(
+        (w) => w is ReceiveAddressLine && w.address == _solanaDeposit);
+    expect(line, findsOneWidget);
+    final sheet = find.byType(UsdStandingAddressSheet);
+    expect(sheet, findsOneWidget);
+    final route = ModalRoute.of(tester.element(sheet));
+    expect(route, isA<ModalBottomSheetRoute<dynamic>>());
+    expect(route, isNot(same(coin)));
+    // The coin sheet stays underneath, mounted.
+    expect(find.byType(UsdReceiveScreen), findsOneWidget);
+    // The receive sheet's frame with its close X and "Investments"; only
+    // the host's Scaffold.
+    expect(find.descendant(of: sheet, matching: find.byType(ReceiveSheetFrame)),
+        findsOneWidget);
+    expect(find.descendant(of: sheet, matching: find.byType(KuteCloseButton)),
+        findsOneWidget);
+    expect(find.descendant(of: sheet, matching: find.text(_l10n.assetDollars)),
+        findsOneWidget);
+    expect(find.byType(Scaffold), findsOneWidget);
+    expect(find.byType(StepperProgress), findsNothing);
+    expect(find.byType(UsdFlowNote), findsNothing);
+    expect(
+        find.descendant(
+            of: sheet,
+            matching: find.widgetWithText(
+                ReceiveCaption, _l10n.ledgerArrivesAfterNetwork)),
+        findsOneWidget);
+    expect(named('usd_receive_step').map((p) => p['step']),
+        contains('deposit_address_shown'));
+
+    await tester.tap(
+        find.descendant(of: sheet, matching: find.byType(KuteCloseButton)));
+    await _settle(tester);
+    expect(find.byType(UsdStandingAddressSheet), findsNothing);
+    expect(line, findsNothing);
+    expect(find.byType(UsdReceiveScreen), findsOneWidget);
+    expect(find.widgetWithText(CoinAssetTile, 'USDC'), findsWidgets);
+    expect(find.text(_l10n.usdReceiveFromAnotherWallet), findsOneWidget);
+    expect(named('usd_receive_abandoned'), isEmpty,
+        reason: 'the Dollars receive is still open underneath');
+    expect(tester.takeException(), isNull);
+    await _unmount(tester);
+  });
+
+  testWidgets(
       'Dollars: 422 unsupported_route opens the one-time amount sheet, and '
       'the next coin asks the backend nothing', (tester) async {
     registerFailure = const StandingRequestException(422, 'unsupported_route');
@@ -351,6 +422,9 @@ void main() {
             .fixedCurrency,
         'USD');
     expect(find.byType(ReceiveAddressLine), findsNothing);
+    // The address sheet closed itself; the amount sheet is over the coin
+    // sheet.
+    expect(find.byType(UsdStandingAddressSheet), findsNothing);
     expect(standingCalls.where((c) => c == 'register'), hasLength(1));
     expect(named('receive_address_failed'), isEmpty,
         reason: 'a fallback is not a failure');

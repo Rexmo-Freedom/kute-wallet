@@ -185,9 +185,17 @@ class ReceiveQrShimmer extends StatelessWidget {
 /// The quiet line under the plate that says why it is still shimmering,
 /// or what the code on it is for.
 class ReceiveCaption extends StatelessWidget {
-  const ReceiveCaption({super.key, required this.text});
+  const ReceiveCaption({
+    super.key,
+    required this.text,
+    this.emphasised = false,
+  });
 
   final String text;
+
+  /// The one line that reads louder than the rest (a one-time address's
+  /// countdown): the same size, a stronger colour and weight.
+  final bool emphasised;
 
   @override
   Widget build(BuildContext context) {
@@ -198,8 +206,9 @@ class ReceiveCaption extends StatelessWidget {
         text,
         textAlign: TextAlign.center,
         style: TextStyle(
-          color: c.textTertiary,
+          color: emphasised ? c.textSecondary : c.textTertiary,
           fontSize: 13.sp,
+          fontWeight: emphasised ? FontWeight.w700 : null,
           height: 1.4,
         ),
       ),
@@ -283,9 +292,8 @@ class ReceiveAddressLine extends StatelessWidget {
         padding: EdgeInsets.symmetric(horizontal: 4.w),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final iconsWidth = 8.w +
-                iconButtonSize +
-                (showEdit ? 8.w + iconButtonSize : 0);
+            final iconsWidth =
+                8.w + iconButtonSize + (showEdit ? 8.w + iconButtonSize : 0);
             final availableWidth = constraints.maxWidth - iconsWidth;
 
             final style = TextStyle(

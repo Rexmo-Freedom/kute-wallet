@@ -1,6 +1,6 @@
-// The return-address step of a one-time receive, between "Request amount"
-// and the address screen: where a deposit that cannot be completed is sent
-// back. The person's own address on the source network, for that coin,
+// The return-address step of a one-time receive, a bottom sheet between
+// the "Request amount" sheet and the address sheet, over the coin sheet:
+// where a deposit that cannot be completed is sent back. The person's own address on the source network, for that coin,
 // typed, pasted or scanned in the Send flow's own recipient field. It is
 // optional: Skip quotes with no return address (a failed deposit then
 // needs Support). Never the wallet's own EVM address, never a Spark or
@@ -20,11 +20,12 @@ import 'package:kute/helpers/scanned_address.dart'
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/orchestra_routes_model.dart';
 import 'package:kute/providers/settings_provider.dart';
-import 'package:kute/screens/shared/receive_surface.dart' show ReceiveCaption;
+import 'package:kute/screens/shared/app_bottom_sheet.dart';
+import 'package:kute/screens/shared/receive_surface.dart'
+    show ReceiveCaption, kReceiveSheetMaxHeight;
 import 'package:kute/screens/shared/send/send_flow_widgets.dart'
     show SendRecipientError, SendRecipientField;
-import 'package:kute/screens/shared/stepper/stepper_widgets.dart';
-import 'package:kute/screens/usd/flow/usd_flow_widgets.dart';
+import 'package:kute/screens/usd/flow/usd_flow_widgets.dart' show UsdFlowAction;
 import 'package:kute/services/orchestra/onetime_receive.dart';
 import 'package:kute/services/orchestra/onetime_refund_address_store.dart';
 import 'package:kute/services/orchestra_routes.dart'
@@ -37,19 +38,25 @@ import 'package:kute/theme/app_theme.dart';
 typedef OneTimeRefundChoice = ({String? address});
 
 /// Asks the return address of a one-time receive of [option] into
-/// spark:[destinationAsset]. Null when the person went back.
+/// spark:[destinationAsset], in a sheet over [context]'s (the coin sheet).
+/// Null when the person closed it: closing comes back to the coin sheet.
 Future<OneTimeRefundChoice?> askOneTimeRefundAddress(
   BuildContext context, {
   required OrchestraReceiveOption option,
   required String destinationAsset,
 }) =>
-    Navigator.of(context).push<OneTimeRefundChoice>(MaterialPageRoute(
-      builder: (_) =>
-          OneTimeRefundStep(option: option, destinationAsset: destinationAsset),
-    ));
+    showAppBottomSheet<OneTimeRefundChoice>(
+      context: context,
+      builder: (_) => OneTimeRefundSheet(
+          option: option, destinationAsset: destinationAsset),
+    );
 
-class OneTimeRefundStep extends ConsumerStatefulWidget {
-  const OneTimeRefundStep({
+/// The return-address sheet: the Request amount sheet's container and
+/// header (the question as its title, the network as its subtitle), the
+/// Send flow's recipient field, then Continue or Skip. The keyboard lifts
+/// the sheet; the field scrolls when the sheet runs short.
+class OneTimeRefundSheet extends ConsumerStatefulWidget {
+  const OneTimeRefundSheet({
     super.key,
     required this.option,
     required this.destinationAsset,
@@ -59,10 +66,10 @@ class OneTimeRefundStep extends ConsumerStatefulWidget {
   final String destinationAsset;
 
   @override
-  ConsumerState<OneTimeRefundStep> createState() => _OneTimeRefundStepState();
+  ConsumerState<OneTimeRefundSheet> createState() => _OneTimeRefundSheetState();
 }
 
-class _OneTimeRefundStepState extends ConsumerState<OneTimeRefundStep> {
+class _OneTimeRefundSheetState extends ConsumerState<OneTimeRefundSheet> {
   final _address = TextEditingController();
   late final String? _walletId = ref.read(settingsProvider).activeWalletId;
 
@@ -165,54 +172,74 @@ class _OneTimeRefundStepState extends ConsumerState<OneTimeRefundStep> {
     final error = typed.isNotEmpty && !_valid
         ? l10n.usdSendAddressWrongNetwork(option.chainDisplayName)
         : null;
-    // The coin, then its return address; the deposit address is next.
-    return UsdFlowScaffold(
-      title: _dollars ? l10n.usdReceiveTitle : l10n.receiveBitcoin,
-      totalSteps: 4,
-      currentStep: 2,
-      completedSteps: const {0, 1},
-      onBack: () => unawaited(Navigator.of(context).maybePop()),
-      action: Column(
+    // The coin, its amount, then its return address; the deposit
+    // address is next.
+    return AppBottomSheetContainer(
+      maxHeight: kReceiveSheetMaxHeight,
+      child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          UsdFlowAction(
-            label: l10n.continueLabel,
-            onPressed: _valid ? _continue : null,
-            secondaryLabel: l10n.skip,
-            onSecondary: _skip,
-          ),
-          SizedBox(height: 10.h),
-          ReceiveCaption(text: l10n.onetimeRefundSkipNote),
-        ],
-      ),
-      child: StepPageWrapper(
-        title: l10n.onetimeRefundTitle,
-        subtitle: l10n.onetimeRefundSubtitle(
-            option.chainDisplayName, option.displaySymbol),
-        colors: c,
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SendRecipientField(
-                key: const ValueKey('onetime-refund-address'),
-                controller: _address,
-                colors: c,
-                hintText: l10n.sendAssetOnNetworkAddressHint(
-                    option.displaySymbol, option.chainDisplayName),
-                isValid: _valid,
-                onPaste: () => unawaited(_paste()),
-                onScan: () => unawaited(_scan()),
-                onChanged: (_) => setState(() {}),
+          // The header and the field give way on a short screen or under
+          // the keyboard (the focused field scrolls into view), so the
+          // actions below always stay on screen.
+          Flexible(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  AppBottomSheetHeader(
+                    title: l10n.onetimeRefundTitle,
+                    subtitle: l10n.onetimeRefundSubtitle(
+                        option.chainDisplayName, option.displaySymbol),
+                    trailing: const AppBottomSheetCloseButton(),
+                  ),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 20.w),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SendRecipientField(
+                          key: const ValueKey('onetime-refund-address'),
+                          controller: _address,
+                          colors: c,
+                          hintText: l10n.sendAssetOnNetworkAddressHint(
+                              option.displaySymbol, option.chainDisplayName),
+                          isValid: _valid,
+                          onPaste: () => unawaited(_paste()),
+                          onScan: () => unawaited(_scan()),
+                          onChanged: (_) => setState(() {}),
+                        ),
+                        if (error != null) ...[
+                          SizedBox(height: 10.h),
+                          SendRecipientError(message: error),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              if (error != null) ...[
-                SizedBox(height: 10.h),
-                SendRecipientError(message: error),
-              ],
-            ],
+            ),
           ),
-        ),
+          SizedBox(height: 16.h),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20.w),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                UsdFlowAction(
+                  label: l10n.continueLabel,
+                  onPressed: _valid ? _continue : null,
+                  secondaryLabel: l10n.skip,
+                  onSecondary: _skip,
+                ),
+                SizedBox(height: 10.h),
+                ReceiveCaption(text: l10n.onetimeRefundSkipNote),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

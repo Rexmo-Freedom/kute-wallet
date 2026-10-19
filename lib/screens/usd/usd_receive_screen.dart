@@ -4,15 +4,17 @@
 //
 // REUSABLE FIRST (founder, 2026-10-19; reusable_deposit_address.dart): a
 // picked coin the standing route may serve shows its reusable standing
-// address to `spark:USDB` on this sheet's address step (QR, address, the
-// coin and network, the minimum; never a Kute fee line). From the Bitcoin
-// receive that address lands in Investments: the address step says so
+// address to `spark:USDB` in its own sheet over this one
+// ([UsdStandingAddressSheet]: QR, address, the coin and network, the
+// minimum; never a Kute fee line); closing it comes back here as it was.
+// From the Bitcoin receive that address lands in Investments: it says so
 // ("Into your Investments balance"), and its deposits also show in the
 // Bitcoin Activity (BitcoinReceiveMarks). Where the standing route cannot
 // serve the coin (not on the standing rail, refused by the backend, denied
 // by the policy, or no address on the source chain), the ONE-TIME flow
 // takes over (onetime_receive.dart): the "Request amount" sheet, the
-// return-address step, then the quoted address (quoted_receive_screen.dart)
+// return-address sheet, then the quoted address sheet
+// (quoted_receive_screen.dart), each over this one
 // into the receive's own destination (`spark:USDB`, or `spark:BTC` from the
 // Bitcoin receive, whose screens say Bitcoin). Coins only a one-time quote
 // can serve go straight there. Never a legacy accumulation address.
@@ -49,8 +51,7 @@ import 'package:kute/screens/receive/quoted_receive_screen.dart'
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/custom_button.dart'
     show AppButton, AppButtonVariant;
-import 'package:kute/screens/shared/kute_back_button.dart'
-    show KuteCircleBackButton, KuteCloseButton;
+import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/screens/shared/qr_code.dart';
 import 'package:kute/screens/shared/account_switcher_pill.dart';
@@ -75,8 +76,6 @@ import 'package:kute/services/success_feedback.dart' show moneyFailureFeedback;
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
-enum _Step { coin, address }
-
 /// The Move sheet's `entry_source` when the Bitcoin card ("From your
 /// wallet") at the top of this screen opens it.
 const String kUsdReceiveBitcoinRowSource = 'usd_receive_bitcoin_row';
@@ -98,9 +97,9 @@ String usdReceiveCoinId(OrchestraReceiveOption o) =>
 /// sheet's way in from the spending bitcoin), then "From another wallet or
 /// exchange" over the coin grid. Into Bitcoin (`BTC`, the Bitcoin
 /// receive's "other coins") it is the coin grid alone. A picked coin shows
-/// its reusable address on this sheet, or, where only a one-time address
-/// serves it, asks its amount and shows that; nothing is ever picked for
-/// the person.
+/// its reusable address in a sheet over this one, or, where only a
+/// one-time address serves it, asks its amount and shows that the same
+/// way; nothing is ever picked for the person.
 class UsdReceiveScreen extends ConsumerStatefulWidget {
   const UsdReceiveScreen(
       {super.key, this.destinationAsset = kOrchestraUsdAssetCode});
@@ -121,38 +120,22 @@ class UsdReceiveScreen extends ConsumerStatefulWidget {
 }
 
 class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
-  _Step _step = _Step.coin;
-
   /// The picked coin, as the live catalogue spells it.
   OrchestraReceiveOption? _option;
 
   /// `standing` or `onetime`: what the last pick was served by.
   String? _addressKind;
 
-  /// The reusable address on screen, as a local display row. Deliberately
-  /// never written to `swapOrdersProvider` at creation: an Orchestra
-  /// deposit address has no order id until a deposit lands, so a row
-  /// written now would make background sync poll an id that never
-  /// resolves. The poller records the real `ord_…` when it appears.
-  SwapOrder? _display;
-  StandingDepositRecord? _standing;
+  /// Whether the reusable address sheet over this one has an address on
+  /// it, for the funnel's `address_shown` when this sheet closes.
+  bool _addressShown = false;
 
-  /// The smallest deposit the shown address takes, keyed by that address
-  /// so a later address never inherits it. Null until known: the address
-  /// never waits for it.
-  ({String address, ReceiveMinimum minimum})? _displayMinimum;
-
-  String? _error;
-
-  int _requestId = 0;
-  bool Function()? _sameSdk;
+  /// Bumped by every pick and by a wallet switch, so a fallback answered
+  /// by an address sheet opened for an older pick opens nothing.
+  int _pickId = 0;
 
   /// Routes whose minimum this sheet already asked for.
   final Set<String> _prefetched = {};
-
-  bool _terminalTracked = false;
-
-  late final OrchestraDepositPoller _poller = OrchestraDepositPoller(ref);
 
   bool get _dollars => widget.destinationAsset == kOrchestraUsdAssetCode;
 
@@ -301,69 +284,22 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
   @override
   void dispose() {
     if (_dollars) {
-      TrackingService.moneyFlowAbandoned('usd_receive', props: _flowInputs());
+      TrackingService.moneyFlowAbandoned('usd_receive',
+          props: usdReceiveFlowInputs(
+              dollars: _dollars,
+              addressKind: _addressKind,
+              addressShown: _addressShown,
+              option: _option));
     }
-    _poller.cancel();
     super.dispose();
-  }
-
-  /// What every event of the reusable address says about it. Exact values
-  /// only; never the address or its id.
-  Map<String, Object> _flowInputs() {
-    final o = _option;
-    return {
-      if (!_dollars) 'entry_source': kUsdReceiveFromBitcoinReceiveSource,
-      if (_addressKind != null) 'address_kind': _addressKind!,
-      'address_shown': _display != null,
-      if (o != null)
-        ...TrackingService.routeParams(
-          fromAsset: o.assetCode,
-          fromNetwork: o.chain,
-          toAsset: 'usd',
-          toNetwork: 'spark',
-          provider: 'orchestra',
-        ),
-    };
-  }
-
-  /// One step of the reusable address, in the funnel this sheet belongs
-  /// to: the Dollars receive's own, or the Bitcoin receive's.
-  void _flowStep(String step, Map<String, Object> props) {
-    if (_dollars) {
-      TrackingService.moneyFlowStep('usd_receive', step, props: props);
-    } else {
-      TrackingService.moneyFlowStep('receive', step,
-          props: {...props, 'destination': 'spark_usd'});
-    }
-  }
-
-  void _trackTerminal(SwapOrder order) {
-    if (_terminalTracked || !orchestraExchangeStatusIsTerminal(order.status)) {
-      return;
-    }
-    _terminalTracked = true;
-    final ok = order.status == 'success';
-    final props = <String, Object>{
-      ..._flowInputs(),
-      'status': order.status,
-      if (!ok) 'error_category': 'settlement',
-      if (!ok) 'stage': 'settle',
-    };
-    if (_dollars) {
-      TrackingService.track(ok ? 'usd_receive_completed' : 'usd_receive_failed',
-          params: props);
-      TrackingService.moneyFlowFinished('usd_receive');
-    } else {
-      _flowStep(ok ? 'deposit_completed' : 'deposit_failed', props);
-    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Retire an already displayed route as soon as catalog support changes.
+    // Re-fold the grid as soon as catalog support changes.
     ref.watch(orchestraSupportedRoutesProvider);
-    // Kept alive across both steps, so coming back to the coin step never
-    // re-reads the standing destinations.
+    // Kept alive while an address sheet is over this one, so coming back
+    // never re-reads the standing destinations.
     ref.watch(standingDestinationsProvider);
     ref.listen(
         settingsProvider.select(
@@ -371,51 +307,25 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
       if (old == next) return;
       _clearWalletAddress();
     });
-    // A reconnect (a rebuilt SDK) never ends a shown address: it pays the
-    // wallet's own Spark address, which the new SDK keeps. One still being
-    // set up under the old SDK is set up again.
-    ref.listen(breezSDKProvider, (old, next) {
-      final option = _option;
-      if (_step == _Step.address &&
-          _display == null &&
-          _error == null &&
-          option != null &&
-          _sameSdk != null &&
-          !_sameSdk!()) {
-        _sameSdk = null;
-        unawaited(_createReusableAddress(option));
-      }
-    });
     final l10n = context.l10n;
-    // The reusable address always pays the dollar balance: on its step the
-    // title names it, also when opened from the Bitcoin receive.
-    final intoDollars = _dollars || _step == _Step.address;
     return ReceiveSheetFrame(
-      leading: _step == _Step.coin
-          ? KuteCloseButton(onPressed: _onBack)
-          : KuteCircleBackButton(onPressed: _onBack),
+      leading: KuteCloseButton(onPressed: _onBack),
       // The balance the money lands in, read-only, where the bitcoin
       // receive names its wallet. No step bar.
       title: AccountSwitcherPill(
         pickerTitle: l10n.receiveInto,
         readOnly: true,
-        label: intoDollars ? l10n.assetDollars : l10n.bitcoin,
+        label: _dollars ? l10n.assetDollars : l10n.bitcoin,
       ),
-      semanticTitle: intoDollars ? l10n.usdReceiveTitle : l10n.receiveBitcoin,
+      semanticTitle: _dollars ? l10n.usdReceiveTitle : l10n.receiveBitcoin,
       child: Padding(
         padding: EdgeInsets.fromLTRB(20.w, 6.h, 20.w, 0),
         child: !_spendingIsActive
-            ? UsdFlowNote(lines: [l10n.receiveOtherCoinsSpendingOnly])
-            : switch (_step) {
-                _Step.coin => _buildCoinStep(context),
-                // The address step opens on the code, as the bitcoin
-                // receive does: the coin and network it takes are in the
-                // plate under the actions.
-                _Step.address => Padding(
-                    padding: EdgeInsets.only(top: 6.h),
-                    child: _buildAddressStep(context),
-                  ),
-              },
+            ? Padding(
+                padding: EdgeInsets.only(top: 12.h),
+                child: ReceiveCaption(text: l10n.receiveOtherCoinsSpendingOnly),
+              )
+            : _buildCoinStep(context),
       ),
     );
   }
@@ -462,11 +372,11 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
             SizedBox(height: 24.h),
           ],
           if (groups.isEmpty)
-            UsdFlowNote(lines: [
-              loading
+            ReceiveCaption(
+              text: loading
                   ? l10n.usdReceiveRoutesUnavailable
                   : l10n.usdReceiveCoinsUnavailable,
-            ])
+            )
           else ...[
             SendToSectionHeader(title: l10n.usdReceiveFromAnotherWallet),
             Expanded(
@@ -566,8 +476,7 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
   /// one-time address.
   Future<void> _pick(OrchestraReceiveOption option) async {
     if (!_spendingIsActive) return;
-    _requestId++;
-    _poller.cancel();
+    _pickId++;
     final standingFallback = standingReceiveFallback(
         sourceChain: option.chain,
         sourceAsset: option.assetCode,
@@ -585,7 +494,7 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
         await _openOneTime(oneTime, fallback);
         return;
       }
-      // Nothing else serves a one-time row; a reusable row's address step
+      // Nothing else serves a one-time row; a reusable row's address sheet
       // says why (no request is made for it).
       if (!option.reusableAddress) return;
     }
@@ -593,12 +502,28 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
     setState(() {
       _option = option;
       _addressKind = 'standing';
-      _error = null;
-      _display = null;
-      _standing = null;
-      _step = _Step.address;
     });
-    unawaited(_createReusableAddress(option));
+    await _openStandingAddress(option);
+  }
+
+  /// The reusable address of [option], in its own sheet over this one.
+  /// Closing it comes back here as it was. Where the standing route turns
+  /// out not to serve the coin, that sheet closes with the one-time
+  /// option and the reason, and the one-time flow takes over from here.
+  Future<void> _openStandingAddress(OrchestraReceiveOption option) async {
+    final pickId = _pickId;
+    final fallback = await showAppBottomSheet<UsdStandingFallback>(
+      context: context,
+      builder: (_) => UsdStandingAddressSheet(
+        option: option,
+        destinationAsset: widget.destinationAsset,
+        onAddressShown: (shown) => _addressShown = shown,
+      ),
+    );
+    if (!mounted) return;
+    _addressShown = false;
+    if (fallback == null || pickId != _pickId || !_spendingIsActive) return;
+    await _openOneTime(fallback.option, fallback.reason);
   }
 
   /// `usd_receive_coin_selected` and the coin step, in this sheet's
@@ -635,15 +560,10 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
   /// quoted address) because the standing route could not serve it.
   Future<void> _openOneTime(
       OrchestraReceiveOption option, StandingFallbackReason fallback) async {
-    _requestId++;
-    _poller.cancel();
+    _pickId++;
     setState(() {
       _option = option;
       _addressKind = 'onetime';
-      _error = null;
-      _display = null;
-      _standing = null;
-      _step = _Step.coin;
     });
     await openOneTimeReceive(context, ref,
         option: option,
@@ -651,10 +571,250 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
         fallbackReason: fallback.analytics);
   }
 
+  void _onBack() {
+    _pickId++;
+    Navigator.of(context).maybePop();
+  }
+
+  /// A wallet switch: nothing picked any more. An address sheet over this
+  /// one closes itself (it listens for the same switch).
+  void _clearWalletAddress() {
+    _pickId++;
+    setState(() {
+      _option = null;
+      _addressShown = false;
+    });
+  }
+}
+
+/// What every event of the reusable address (and the coin sheet's
+/// abandon) says about it. Exact values only; never the address or its id.
+Map<String, Object> usdReceiveFlowInputs({
+  required bool dollars,
+  required String? addressKind,
+  required bool addressShown,
+  required OrchestraReceiveOption? option,
+}) =>
+    {
+      if (!dollars) 'entry_source': kUsdReceiveFromBitcoinReceiveSource,
+      if (addressKind != null) 'address_kind': addressKind,
+      'address_shown': addressShown,
+      if (option != null)
+        ...TrackingService.routeParams(
+          fromAsset: option.assetCode,
+          fromNetwork: option.chain,
+          toAsset: 'usd',
+          toNetwork: 'spark',
+          provider: 'orchestra',
+        ),
+    };
+
+/// What a reusable address sheet answers when the standing route turned
+/// out not to serve its coin: the one-time option that does, and why.
+typedef UsdStandingFallback = ({
+  OrchestraReceiveOption option,
+  StandingFallbackReason reason,
+});
+
+/// The reusable (standing) address of a coin to `spark:USDB`, a sheet
+/// over the coin sheet in the receive sheet's frame: the close X and
+/// "Investments" (it always pays the dollar balance, also from the
+/// Bitcoin receive), then the code, the address with copy, the minimum,
+/// Share and the coin and network. Closing it comes back to the coin
+/// sheet as it was. Where the standing route cannot serve the coin and a
+/// one-time address can, it closes with a [UsdStandingFallback].
+class UsdStandingAddressSheet extends ConsumerStatefulWidget {
+  const UsdStandingAddressSheet({
+    super.key,
+    required this.option,
+    required this.destinationAsset,
+    this.onAddressShown,
+  });
+
+  final OrchestraReceiveOption option;
+
+  /// The receive this sheet belongs to: `USDB` (the Dollars receive) or
+  /// `BTC` (the Bitcoin receive's "other coins"), which decides the funnel
+  /// and the one-time fallback's destination. The address itself always
+  /// pays the dollar balance.
+  final String destinationAsset;
+
+  /// Told whether an address is on the sheet, each time that changes.
+  final ValueChanged<bool>? onAddressShown;
+
+  @override
+  ConsumerState<UsdStandingAddressSheet> createState() =>
+      _UsdStandingAddressSheetState();
+}
+
+class _UsdStandingAddressSheetState
+    extends ConsumerState<UsdStandingAddressSheet> {
+  /// The reusable address on screen, as a local display row. Deliberately
+  /// never written to `swapOrdersProvider` at creation: an Orchestra
+  /// deposit address has no order id until a deposit lands, so a row
+  /// written now would make background sync poll an id that never
+  /// resolves. The poller records the real `ord_…` when it appears.
+  SwapOrder? _display;
+  StandingDepositRecord? _standing;
+
+  /// The smallest deposit the shown address takes, keyed by that address
+  /// so a later address never inherits it. Null until known: the address
+  /// never waits for it.
+  ({String address, ReceiveMinimum minimum})? _displayMinimum;
+
+  String? _error;
+
+  int _requestId = 0;
+  bool Function()? _sameSdk;
+
+  /// Set once the sheet is closing (a fallback or a wallet switch), so
+  /// nothing more happens on it.
+  bool _closing = false;
+
+  bool _terminalTracked = false;
+
+  late final OrchestraDepositPoller _poller = OrchestraDepositPoller(ref);
+
+  OrchestraReceiveOption get _option => widget.option;
+
+  bool get _dollars => widget.destinationAsset == kOrchestraUsdAssetCode;
+
+  bool get _spendingIsActive {
+    final settings = ref.read(settingsProvider);
+    final spending = pickSpendingWallet(settings);
+    return spending != null && spending.id == settings.activeWalletId;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_createReusableAddress(_option));
+  }
+
+  @override
+  void dispose() {
+    _requestId++;
+    _poller.cancel();
+    super.dispose();
+  }
+
+  Map<String, Object> _flowInputs() => usdReceiveFlowInputs(
+      dollars: _dollars,
+      addressKind: 'standing',
+      addressShown: _display != null,
+      option: _option);
+
+  /// One step of the reusable address, in the funnel this sheet belongs
+  /// to: the Dollars receive's own, or the Bitcoin receive's.
+  void _flowStep(String step, Map<String, Object> props) {
+    if (_dollars) {
+      TrackingService.moneyFlowStep('usd_receive', step, props: props);
+    } else {
+      TrackingService.moneyFlowStep('receive', step,
+          props: {...props, 'destination': 'spark_usd'});
+    }
+  }
+
+  void _trackTerminal(SwapOrder order) {
+    if (_terminalTracked || !orchestraExchangeStatusIsTerminal(order.status)) {
+      return;
+    }
+    _terminalTracked = true;
+    final ok = order.status == 'success';
+    final props = <String, Object>{
+      ..._flowInputs(),
+      'status': order.status,
+      if (!ok) 'error_category': 'settlement',
+      if (!ok) 'stage': 'settle',
+    };
+    if (_dollars) {
+      TrackingService.track(ok ? 'usd_receive_completed' : 'usd_receive_failed',
+          params: props);
+      TrackingService.moneyFlowFinished('usd_receive');
+    } else {
+      _flowStep(ok ? 'deposit_completed' : 'deposit_failed', props);
+    }
+  }
+
+  void _setDisplay(SwapOrder? display) {
+    _display = display;
+    widget.onAddressShown?.call(display != null);
+  }
+
+  /// Closes this sheet once the current frame is done, with [result].
+  void _close([UsdStandingFallback? result]) {
+    if (_closing) return;
+    _closing = true;
+    _requestId++;
+    _poller.cancel();
+    _sameSdk = null;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.of(context).pop<UsdStandingFallback>(result);
+    });
+    WidgetsBinding.instance.scheduleFrame();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Retire an already displayed route as soon as catalog support changes.
+    ref.watch(orchestraSupportedRoutesProvider);
+    // A wallet switch ends the address: the sheet closes back to the coin
+    // sheet, which clears its pick on the same switch.
+    ref.listen(
+        settingsProvider.select(
+            (s) => (s.activeWalletId, pickSpendingWallet(s)?.id)), (old, next) {
+      if (old == next) return;
+      setState(() {
+        _setDisplay(null);
+        _standing = null;
+        _error = null;
+      });
+      _close();
+    });
+    // A reconnect (a rebuilt SDK) never ends a shown address: it pays the
+    // wallet's own Spark address, which the new SDK keeps. One still being
+    // set up under the old SDK is set up again.
+    ref.listen(breezSDKProvider, (old, next) {
+      if (!_closing &&
+          _display == null &&
+          _error == null &&
+          _sameSdk != null &&
+          !_sameSdk!()) {
+        _sameSdk = null;
+        unawaited(_createReusableAddress(_option));
+      }
+    });
+    final l10n = context.l10n;
+    return ReceiveSheetFrame(
+      leading: KuteCloseButton(
+          onPressed: () => unawaited(Navigator.of(context).maybePop())),
+      // The reusable address always pays the dollar balance: the title
+      // names it, also when opened from the Bitcoin receive. No step bar.
+      title: AccountSwitcherPill(
+        pickerTitle: l10n.receiveInto,
+        readOnly: true,
+        label: l10n.assetDollars,
+      ),
+      semanticTitle: l10n.usdReceiveTitle,
+      child: Padding(
+        // The coin sheet's body inset plus its address step's, as the
+        // Bitcoin receive opens on its code.
+        padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 0),
+        child: !_spendingIsActive
+            ? Padding(
+                padding: EdgeInsets.only(top: 12.h),
+                child: ReceiveCaption(text: l10n.receiveOtherCoinsSpendingOnly),
+              )
+            : _buildAddressStep(context),
+      ),
+    );
+  }
+
   /// Uses the same QR, address and action sizing as Bitcoin receive.
   Widget _buildAddressStep(BuildContext context) {
     final l10n = context.l10n;
-    final option = _option!;
+    final option = _option;
     final display = _display;
 
     final routeRetired = display != null && !_reusableRouteSupported;
@@ -663,19 +823,20 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            UsdFlowNote(lines: [
-              routeRetired ? l10n.receiveCoinNetworkUnavailable : _error!,
-            ]),
+            Padding(
+              padding: EdgeInsets.only(top: 12.h),
+              child: ReceiveCaption(
+                text:
+                    routeRetired ? l10n.receiveCoinNetworkUnavailable : _error!,
+              ),
+            ),
             SizedBox(height: ReceiveGaps.block),
+            // Back to the coin sheet, as the close X does.
             AppButton(
               text: l10n.back,
               variant: AppButtonVariant.secondary,
               compact: true,
-              onPressed: () => setState(() {
-                _error = null;
-                _requestId++;
-                _step = _Step.coin;
-              }),
+              onPressed: () => unawaited(Navigator.of(context).maybePop()),
             ),
           ],
         ),
@@ -743,32 +904,17 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
             ),
           ]),
           SizedBox(height: ReceiveGaps.block),
-          UsdFlowNote(lines: [l10n.ledgerArrivesAfterNetwork]),
+          ReceiveCaption(text: l10n.ledgerArrivesAfterNetwork),
           SizedBox(height: ReceiveGaps.tail),
         ],
       ),
     );
   }
 
-  void _onBack() {
-    _requestId++;
-    _poller.cancel();
-    if (_step == _Step.coin) {
-      Navigator.of(context).maybePop();
-      return;
-    }
-    setState(() {
-      _error = null;
-      _display = null;
-      _standing = null;
-      _step = _Step.coin;
-    });
-  }
-
   Future<void> _share(String payload) async {
     if (!_canExportAddress(payload)) return;
     TrackingService.track('usd_receive_address_shared',
-        params: {'chain': _option?.chain ?? '', 'address_kind': 'standing'});
+        params: {'chain': _option.chain, 'address_kind': 'standing'});
     _flowStep('shared', {..._flowInputs(), 'method': 'share'});
     // iPad anchors the share popover to this rect; phones ignore it.
     final box = context.findRenderObject() as RenderBox?;
@@ -784,7 +930,7 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
     Clipboard.setData(ClipboardData(text: payload));
     HapticFeedback.lightImpact();
     TrackingService.track('usd_receive_address_copied',
-        params: {'chain': _option?.chain ?? '', 'address_kind': 'standing'});
+        params: {'chain': _option.chain, 'address_kind': 'standing'});
     _flowStep('shared', {..._flowInputs(), 'method': 'copy'});
     showMessageSnackBar(
         context: context, message: context.l10n.copied, error: false);
@@ -792,9 +938,9 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
 
   bool _canExportAddress(String payload) =>
       mounted &&
+      !_closing &&
       _spendingIsActive &&
       _reusableRouteSupported &&
-      _step == _Step.address &&
       payload.isNotEmpty &&
       _display?.depositAddress == payload &&
       _display?.walletId == ref.read(settingsProvider).activeWalletId;
@@ -802,7 +948,7 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
   bool get _reusableRouteSupported {
     final option = _option;
     final standing = _standing;
-    if (standing != null && option != null) {
+    if (standing != null) {
       final catalog = ref.read(orchestraSupportedRoutesProvider);
       // A reused address keeps the terms it was registered under, so a
       // newer policy revision does not retire it: Receive shows the same
@@ -815,30 +961,16 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
               toChain: 'spark',
               toAsset: kOrchestraUsdAssetCode));
     }
-    return option != null &&
-        orchestraReceiveChainForDestination(option.assetCode, option.chain,
-                destinationAsset: kOrchestraUsdAssetCode) !=
-            null;
-  }
-
-  void _clearWalletAddress() {
-    _requestId++;
-    _poller.cancel();
-    _sameSdk = null;
-    setState(() {
-      _option = null;
-      _display = null;
-      _standing = null;
-      _error = null;
-      _step = _Step.coin;
-    });
+    return orchestraReceiveChainForDestination(option.assetCode, option.chain,
+            destinationAsset: kOrchestraUsdAssetCode) !=
+        null;
   }
 
   /// The standing instruction to `spark:USDB` for this coin (see
   /// [ReusableDepositAddressService]). Where the standing route cannot
-  /// serve it, the one-time flow takes over ([_openOneTime]) when a
-  /// one-time address can; otherwise the coin is unavailable. Never a
-  /// legacy accumulation address.
+  /// serve it, the sheet closes and the one-time flow takes over on the
+  /// coin sheet when a one-time address can; otherwise the coin is
+  /// unavailable. Never a legacy accumulation address.
   ///
   /// No exchange row is recorded here: the address has no order id at
   /// creation (Flashnet spawns an `ord_…` per inbound deposit), so a row
@@ -849,12 +981,11 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
     final walletId = ref.read(settingsProvider).activeWalletId;
     bool current() =>
         mounted &&
+        !_closing &&
         requestId == _requestId &&
         _spendingIsActive &&
         walletId == ref.read(settingsProvider).activeWalletId;
-    setState(() {
-      _error = null;
-    });
+    if (_error != null) setState(() => _error = null);
     // The route's minimum is read beside the address, never before it.
     final route = RouteKey(
         fromChain: option.chain,
@@ -960,7 +1091,7 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
       _terminalTracked = false;
       final knownMinimum = minimums.cachedLive(route);
       setState(() {
-        _display = display;
+        _setDisplay(display);
         _displayMinimum = knownMinimum == null
             ? null
             : (address: address, minimum: knownMinimum);
@@ -983,7 +1114,7 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
             ref.read(orchestraSupportedRoutesProvider), option,
             destinationAsset: widget.destinationAsset);
         if (oneTime != null) {
-          await _openOneTime(oneTime, fallback);
+          _close((option: oneTime, reason: fallback));
           return;
         }
       }
@@ -1037,7 +1168,7 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
           mounted && _display?.depositAddress == display.depositAddress,
       onProgress: (exchange) {
         if (mounted) {
-          setState(() => _display = exchange);
+          setState(() => _setDisplay(exchange));
           _trackTerminal(exchange);
         }
       },
