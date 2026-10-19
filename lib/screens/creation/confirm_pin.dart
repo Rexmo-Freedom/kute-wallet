@@ -1,6 +1,7 @@
 import 'package:kute/services/secure/storage_bootstrap.dart';
 import 'package:kute/helpers/session_auth.dart';
 import 'package:kute/providers/auth_provider.dart';
+import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/services/secure/biometric_pin_policy.dart';
 import 'package:kute/services/secure/secret_error_class.dart';
 import 'package:kute/providers/words_provider.dart';
@@ -70,7 +71,19 @@ class _ConfirmPinState extends ConsumerState<ConfirmPin>
       final authModel = ref.read(authModelProvider);
       final isRecovery = ref.read(recoveryModeProvider);
 
-      await authModel.setPinAsync(originalPin);
+      // A stored pin_hash is replaced only where a fresh PIN over an old
+      // hash is the point: the restore-secrets return path (the hash was
+      // missing or unreadable at boot, and the restore screen is the only
+      // way here then) and onboarding with no wallet records (a kill
+      // between this screen and the wallet creation leaves a stale hash
+      // that guards nothing). Anywhere else an existing hash is kept and
+      // the PIN is changed through the change-PIN flow.
+      final bootState = ref.read(storageBootStateProvider);
+      final replace = ref.read(restoreSecretsReturnProvider) != null ||
+          bootState == StorageBootState.secretsMissing ||
+          bootState == StorageBootState.storageUnavailable ||
+          ref.read(settingsProvider).wallets.isEmpty;
+      await authModel.setPinAsync(originalPin, replace: replace);
       try {
         await StorageBootstrap().writeNewBinding();
         ref.read(storageBootStateProvider.notifier).state = StorageBootState.ok;

@@ -40,6 +40,17 @@ class ChangePinBlocked implements Exception {
   String toString() => 'ChangePinBlocked($count)';
 }
 
+/// [AuthModel.setPin] / [AuthModel.setPinAsync] found a stored `pin_hash`
+/// ([unreadable] when the store could not read it) and was not told to
+/// replace it, so it wrote nothing.
+class PinAlreadySetException implements Exception {
+  const PinAlreadySetException({this.unreadable = false});
+  final bool unreadable;
+  @override
+  String toString() =>
+      unreadable ? 'PinAlreadySetException(unreadable)' : 'PinAlreadySetException';
+}
+
 /// AuthModel — secret-material storage layer.
 ///
 /// Stored-seed wallets keep the on-disk copies they already have; nothing
@@ -133,16 +144,40 @@ class AuthModel {
     await _store.deleteLocalOnly(key: 'biometric_pin');
   }
 
-  Future<void> setPin(String pin) async {
+  /// Stores the hash of a NEW PIN. Refused with [PinAlreadySetException]
+  /// while a `pin_hash` exists (or cannot be read) unless [replace] is
+  /// set: a stored hash is what PIN-encrypted seed copies verify against,
+  /// and replacing it silently would strand them. [replace] is passed only
+  /// where setting a fresh PIN over an old hash is the point: the
+  /// restore-secrets return path and onboarding with no wallet records.
+  /// An existing PIN is changed through [changePin].
+  Future<void> setPin(String pin, {bool replace = false}) async {
+    await _refuseExistingPinHash(replace);
     final hashedPin = PinHashHelper.hashPin(pin);
     await _writePinHash(hashedPin);
     await _store.deleteLocalOnly(key: 'pin');
   }
 
-  Future<void> setPinAsync(String pin) async {
+  /// [setPin] with the hash computed off the main isolate.
+  Future<void> setPinAsync(String pin, {bool replace = false}) async {
+    await _refuseExistingPinHash(replace);
     final hashedPin = await PinHashHelper.hashPinAsync(pin);
     await _writePinHash(hashedPin);
     await _store.deleteLocalOnly(key: 'pin');
+  }
+
+  Future<void> _refuseExistingPinHash(bool replace) async {
+    if (replace) return;
+    switch (await _store.read(key: 'pin_hash')) {
+      case SecretAbsent():
+        return;
+      case SecretPresent():
+        throw const PinAlreadySetException();
+      case SecretFailed():
+        // Unknown is not absent: a hash the store cannot read right now
+        // may still guard a PIN-encrypted copy.
+        throw const PinAlreadySetException(unreadable: true);
+    }
   }
 
   /// The plugin write, retried once as a local-only in-place update when
