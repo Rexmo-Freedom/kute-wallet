@@ -703,8 +703,8 @@ AuthGrant hlAutofireRetryGrant(
     AuthGrant parent, SensitiveIntent approved, SensitiveIntent placed) {
   if (parent.revoked) throw const GrantRevoked();
   if (parent.isExpiredAt(AuthGrants.clock())) throw const GrantExpired();
-  final drift = AuthGrants.driftBetween(parent.boundIntent, approved);
-  if (drift.isNotEmpty) throw ReauthRequired(drift);
+  final drift = AuthGrants.driftError(parent.boundIntent, approved);
+  if (drift != null) throw drift;
   return GrantGuard.chain(parent, placed);
 }
 

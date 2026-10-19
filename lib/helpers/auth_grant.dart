@@ -121,6 +121,11 @@ enum DriftField {
   minReceive,
   side,
   legs,
+
+  /// A funded order's funding leg: its cap, venue, venue-cash legs or
+  /// Bitcoin leg (`VenueLimit.fundingUsd`, `fundingVenue`, `directLegs`,
+  /// `fundBtc`).
+  funding,
   other,
 }
 
@@ -287,19 +292,40 @@ sealed class AuthGrantException implements Exception {
 /// "Review again"; emit `step_up_reauth_required{action_type,
 /// field_class}` with [primaryFieldClass].
 class ReauthRequired extends AuthGrantException {
-  ReauthRequired(Set<DriftField> fieldClasses)
+  ReauthRequired(Set<DriftField> fieldClasses,
+      {Map<DriftField, Set<String>> limitKeys = const {}})
       : fieldClasses = UnmodifiableSetView(
             SplayTreeSet<DriftField>((a, b) => a.index.compareTo(b.index))
-              ..addAll(fieldClasses));
+              ..addAll(fieldClasses)),
+        limitKeys = Map.unmodifiable({
+          for (final e in limitKeys.entries)
+            if (e.value.isNotEmpty)
+              e.key: UnmodifiableSetView(SplayTreeSet<String>.of(e.value)),
+        });
 
   /// Every changed field class, in [DriftField] order.
   final Set<DriftField> fieldClasses;
 
+  /// The limit keys that drifted, by field class (names only, never their
+  /// values). For debug logs: `other` alone does not say what changed.
+  final Map<DriftField, Set<String>> limitKeys;
+
   DriftField get primaryFieldClass => fieldClasses.first;
 
-  @override
-  String toString() =>
+  /// The field classes alone, without key names, e.g.
+  /// `ReauthRequired(price)`: what error categorisation reads.
+  String get fieldSummary =>
       'ReauthRequired(${fieldClasses.map((f) => f.name).join(',')})';
+
+  /// Debug only (never analytics): the field classes and, for each, the
+  /// drifted limit key names, e.g. `ReauthRequired(funding: fundBtc)`.
+  @override
+  String toString() => 'ReauthRequired(${fieldClasses.map((f) {
+        final keys = limitKeys[f];
+        return keys == null || keys.isEmpty
+            ? f.name
+            : '${f.name}: ${keys.join(',')}';
+      }).join('; ')})';
 }
 
 class GrantExpired extends AuthGrantException {
@@ -376,8 +402,8 @@ abstract final class AuthGrants {
     if (grant._consumed) throw const GrantConsumed();
     if (grant._revoked) throw const GrantRevoked();
     if (grant.isExpiredAt(now ?? clock())) throw const GrantExpired();
-    final drift = driftBetween(grant._bound, actual);
-    if (drift.isNotEmpty) throw ReauthRequired(drift);
+    final drift = driftError(grant._bound, actual);
+    if (drift != null) throw drift;
   }
 
   /// [check], then marks a single-use grant consumed. For the final
@@ -470,10 +496,24 @@ abstract final class AuthGrants {
   /// Field classes that changed from [approved] to [actual] in a way
   /// D-12 does not allow. Empty means the grant still covers [actual].
   static Set<DriftField> driftBetween(
+          SensitiveIntent approved, SensitiveIntent actual) =>
+      _drift(approved, actual).fields;
+
+  /// The [ReauthRequired] for the drift from [approved] to [actual], with
+  /// the drifted limit key names; null when the grant still covers it.
+  static ReauthRequired? driftError(
       SensitiveIntent approved, SensitiveIntent actual) {
+    final d = _drift(approved, actual);
+    if (d.fields.isEmpty) return null;
+    return ReauthRequired(d.fields, limitKeys: d.keys);
+  }
+
+  static ({Set<DriftField> fields, Map<DriftField, Set<String>> keys})
+      _drift(SensitiveIntent approved, SensitiveIntent actual) {
     final a = _intentTree(approved);
     final b = _intentTree(actual);
     final out = <DriftField>{};
+    final keys = <DriftField, Set<String>>{};
 
     if (a['action'] != b['action']) out.add(DriftField.action);
     if (a['walletId'] != b['walletId']) out.add(DriftField.wallet);
@@ -504,10 +544,23 @@ abstract final class AuthGrants {
           },
         _ => _sameValue(va, vb),
       };
-      if (!ok) out.add(field);
+      if (!ok) {
+        out.add(field);
+        (keys[field] ??= <String>{}).add(key);
+      }
     }
-    return out;
+    return (fields: out, keys: keys);
   }
+
+  /// Funding-leg limit keys (`VenueLimit.fundingUsd`, `fundingVenue`,
+  /// `directLegs`, `fundBtc` in venue_intents.dart, which builds on this
+  /// file; a test keeps the two in step).
+  static const Set<String> fundingKeys = {
+    'fundingUsd',
+    'fundingVenue',
+    'directLegs',
+    'fundBtc',
+  };
 
   static DriftField _fieldFor(String key) => switch (key) {
         IntentLimit.maxSlippageBps => DriftField.slippage,
@@ -520,6 +573,7 @@ abstract final class AuthGrants {
         IntentLimit.maxFee => DriftField.fee,
         IntentLimit.legs => DriftField.legs,
         IntentLimit.side => DriftField.side,
+        _ when fundingKeys.contains(key) => DriftField.funding,
         _ => DriftField.other,
       };
 

@@ -145,20 +145,14 @@ class _Trading extends PolymarketTradingNotifier {
     required AuthGrant grant,
     void Function(String step)? onStep,
   }) async {
-    // The grant covers exactly this order, as the real executor checks.
-    final order = PmGrants.executedOrder(grant,
-        walletId: 'spending',
+    // The grant covers exactly this order: the real executor's own check.
+    PmGrants.consumeOrder(grant,
+        walletId: signingWalletId!,
         tokenId: tokenId,
-        isBuy: true,
+        isBuy: side == OrderSide.buy,
         size: size,
         price: price,
         orderType: orderType.name);
-    AuthGrants.consume(
-        grant,
-        order.copyWith(limits: {
-          ...order.limits,
-          ...PmGrants.fundingLimits(fundUsd: 10, venue: IntentVenue.polymarket),
-        }));
     orders.add(price);
     orderCosts.add(marketQuote?.allInMax ?? size * price);
     if (refusals.isNotEmpty) {
@@ -191,7 +185,11 @@ Settings _settings() => Settings(
     );
 
 /// The bet as the slip queues it once its $10 move has left Dollars.
-PendingBetIntent _queued({DateTime? endAt}) => PendingBetIntent(
+PendingBetIntent _queued(
+        {DateTime? endAt,
+        Map<String, Object?>? btcLeg,
+        Map<String, Object?>? directLegs}) =>
+    PendingBetIntent(
       tokenId: _token,
       amount: 10,
       slippagePct: 5,
@@ -205,6 +203,8 @@ PendingBetIntent _queued({DateTime? endAt}) => PendingBetIntent(
       fundArrivingUsd: 9.9,
       queuedAt: DateTime.now(),
       marketEndAt: endAt,
+      btcLeg: btcLeg,
+      directLegs: directLegs,
     );
 
 void main() {
@@ -328,7 +328,11 @@ void main() {
         ProviderContainer c,
         _Trading trading,
         List<PredictionsReadiness?> atPlacing
-      })> start({List<Object> refusals = const [], DateTime? endAt}) async {
+      })> start(
+      {List<Object> refusals = const [],
+      DateTime? endAt,
+      Map<String, Object?>? btcLeg,
+      Map<String, Object?>? directLegs}) async {
     final trading = _Trading([...refusals])
       ..reads = _reads(pusd: 10.6, counted: 10.6);
     addTearDown(trading.deliveries.close);
@@ -364,7 +368,8 @@ void main() {
       last = next?.status;
     });
 
-    final intent = _queued(endAt: endAt);
+    final intent =
+        _queued(endAt: endAt, btcLeg: btcLeg, directLegs: directLegs);
     final review = PmGrants.betReview(
       walletId: 'spending',
       tokenId: _token,
@@ -380,7 +385,9 @@ void main() {
               IntentLimit.maxSlippageBps: IntentUnits.bps(5),
             }),
             fundUsd: 10,
-            venue: IntentVenue.polymarket),
+            venue: IntentVenue.polymarket,
+            directLegs: directLegs,
+            btcLeg: btcLeg),
         method: AuthGrantMethod.biometric);
     PredictionFundingLedger.instance.sent('ref_move', usd: 10);
     c.read(pendingPolymarketBetProvider.notifier).setIntent(intent);
@@ -722,6 +729,69 @@ void main() {
     expect(events.where((e) => e.$1 == 'polymarket_bet_failed'), isEmpty);
     expect(PredictionFundingLedger.instance.record('ref_move')!.releaseReason,
         'placed');
+  });
+
+  group('funded from Bitcoin: the executor\'s own grant check', () {
+    // Founder, 19 October 2026: "Moved \$5.30 from Bitcoin", then
+    // `[pm-autofire] failed: ReauthRequired(other)` at placeOrder's
+    // GrantGuard.consume. The chained order grant bound the funding leg
+    // (fundingUsd, fundingVenue, fundBtc, directLegs); the order placeOrder
+    // rebuilt did not carry them, so each read as drifted.
+    final btcLeg = BitcoinLegGrants.limit(maxSats: 6000, ownSpark: 'spark1own');
+    final directLegs = <String, Object?>{
+      'to': IntentVenue.polymarket,
+      'legs': {'hyperliquid': '300000'},
+      'total': '300000',
+    };
+
+    test('the money landed: placed once, no ReauthRequired', () async {
+      final r = await start(btcLeg: btcLeg, directLegs: directLegs);
+      r.trading.land(10.6);
+      await settle(r.c);
+      expect(r.trading.orders, hasLength(1));
+      final pending = r.c.read(pendingPolymarketBetProvider)!;
+      expect(pending.status, PendingBetStatus.awaitingConfirmation,
+          reason: pending.errorMessage);
+      expect(events.where((e) => e.$1 == 'polymarket_bet_failed'), isEmpty);
+    });
+
+    test('a "not usable yet" refusal: the send again (autofireRetryGrant) '
+        'passes the same check, placed once more, never twice', () async {
+      final r = await start(
+          btcLeg: btcLeg,
+          directLegs: directLegs,
+          refusals: [const PolymarketBalanceRefused(_balance)]);
+      r.trading.land(10.6);
+      await settle(r.c);
+      expect(r.trading.orders, hasLength(2));
+      final pending = r.c.read(pendingPolymarketBetProvider)!;
+      expect(pending.status, PendingBetStatus.awaitingConfirmation,
+          reason: pending.errorMessage);
+      expect(events.where((e) => e.$1 == 'polymarket_bet_failed'), isEmpty);
+    });
+
+    test('a grant refusal at the executor is never sent again: approval '
+        'copy, approval_drift, the money stays in Predictions', () async {
+      final r = await start(
+          btcLeg: btcLeg,
+          directLegs: directLegs,
+          refusals: [
+            ReauthRequired(const {DriftField.price}),
+            const PolymarketBalanceRefused(_balance),
+          ]);
+      r.trading.land(10.6);
+      await settle(r.c);
+      expect(r.trading.orders, hasLength(1), reason: 'no send again');
+      final pending = r.c.read(pendingPolymarketBetProvider)!;
+      expect(pending.status, PendingBetStatus.failed);
+      expect(pending.errorMessage,
+          l10nForLanguage('en').stepUpDetailsChanged);
+      final failed =
+          events.where((e) => e.$1 == 'polymarket_bet_failed').single.$2!;
+      expect(failed['reason'], 'approval_drift');
+      expect(PredictionFundingLedger.instance.record('ref_move')!.releaseReason,
+          'failed');
+    });
   });
 
   test('the order\'s setup met the deposit wallet busy (a conversion still '

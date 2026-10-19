@@ -203,6 +203,8 @@ PredictionsReadiness autofireReadiness({
 @visibleForTesting
 bool autofireNotReadyYet(Object e) {
   if (e is PolymarketRefusalOutlivedApproval) return false;
+  // Refused by its approval, never sent: no send again under it.
+  if (e is AuthGrantException) return false;
   if (e is PolymarketFundsConverting ||
       e is PolymarketSetupIncomplete ||
       e is PolymarketCollateralPending) {
@@ -285,8 +287,8 @@ double autofireFireAt(PendingBetIntent intent) {
 AuthGrant autofireRetryGrant(AuthGrant approval, SensitiveIntent actual) {
   if (approval.revoked) throw const GrantRevoked();
   if (approval.isExpiredAt(AuthGrants.clock())) throw const GrantExpired();
-  final drift = AuthGrants.driftBetween(approval.boundIntent, actual);
-  if (drift.isNotEmpty) throw ReauthRequired(drift);
+  final drift = AuthGrants.driftError(approval.boundIntent, actual);
+  if (drift != null) throw drift;
   return GrantGuard.chain(approval, actual);
 }
 
@@ -1741,6 +1743,10 @@ class PendingBetAutoFire {
         isPolymarketPriceRefusal(e.reason)) {
       return 'price_moved';
     }
+    // The order fell outside its approval at the executor's own check:
+    // nothing was signed, the person approves again.
+    if (e is ReauthRequired) return 'approval_drift';
+    if (e is GrantExpired) return 'approval_expired';
     return TrackingService.errorCategory(e);
   }
 
@@ -1775,6 +1781,14 @@ class PendingBetAutoFire {
     if (e is PolymarketOrderNotAcceptedException &&
         isPolymarketPriceRefusal(e.reason)) {
       return l10n.betBuyLiquidityUnavailable;
+    }
+    // Refused by its approval before anything was signed: approving again
+    // (the slip's Retry) places it. Debug logs name the drifted keys.
+    if (e is ReauthRequired || e is GrantExpired) {
+      if (kDebugMode) debugPrint('[pm-autofire] approval refused: $e');
+      return e is ReauthRequired
+          ? l10n.stepUpDetailsChanged
+          : l10n.stepUpApprovalExpired;
     }
     // The generic words: the cause is always in the debug log.
     if (kDebugMode) {
