@@ -99,6 +99,13 @@ enum SettlementFlow {
   /// (Polygon USDC.e → HyperCore USDC) when another action pulls it.
   movePredictionsToInvesting,
 
+  /// Investing cash straight into the wallet's own Predictions account by
+  /// the native HyperCore route (HyperCore USDC → Polygon USDC.e, a
+  /// perpetuals `usdSend` to the quote's deposit address). Tried before
+  /// [investingToPredictionsCctp], which runs only when Orchestra refused
+  /// this route before anything was signed.
+  investingToPredictionsDirect,
+
   /// Written by a newer build. Kept raw on disk.
   unknown;
 

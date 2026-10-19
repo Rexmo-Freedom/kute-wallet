@@ -19,6 +19,7 @@ import 'package:kute/models/orchestra_route_limits.dart';
 import 'package:kute/models/orchestra_routes_model.dart';
 import 'package:kute/models/settlement_operation.dart';
 import 'package:kute/providers/hyperliquid_account_provider.dart';
+import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/spark_address_provider.dart';
 import 'package:kute/services/funding/hot_settlement.dart';
 import 'package:kute/services/funding/owned_address_resolver.dart'
@@ -38,12 +39,22 @@ import 'package:kute/services/orchestra/orchestra_quote_gate.dart';
 import 'package:kute/services/orchestra/standing_deposit_store.dart'
     show InvestingWithdrawalDestination;
 import 'package:kute/services/runtime_capabilities_service.dart'
-    show CapabilityDecision;
+    show CapabilityDecision, capabilityDenialFromResponse;
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/services/security/wallet_guard_exception.dart';
 
 const _eoa = '0x1111111111111111111111111111111111111111';
 const _sparkSelf = 'sprt1qself';
+
+/// The wallet's own Predictions deposit wallet.
+const _pmWallet = '0x3333333333333333333333333333333333333333';
+
+/// The Predictions account, already loaded with its deposit wallet.
+class _Trading extends PolymarketTradingNotifier {
+  @override
+  Future<PolymarketTradingState> build() async =>
+      const PolymarketTradingState(proxyWalletAddress: _pmWallet);
+}
 
 /// Flashnet's answer to every HyperCore-source quote today, as the quote
 /// gate raises it (`unsupported_route` read through
@@ -95,12 +106,19 @@ void main() {
         sendableUsd: (_) async => 14.75,
       );
 
-  ProviderReader withService(SparkHypercoreFundingService service) =>
-      ProviderContainer(overrides: [
-        hyperliquidAddressProvider.overrideWith((_) async => _eoa),
-        sparkSelfAddressProvider.overrideWith((_) async => _sparkSelf),
-        sparkHypercoreFundingServiceProvider.overrideWithValue(service),
-      ]).read;
+  ProviderReader withService(SparkHypercoreFundingService service) {
+    final scoped = ProviderContainer(overrides: [
+      hyperliquidAddressProvider.overrideWith((_) async => _eoa),
+      sparkSelfAddressProvider.overrideWith((_) async => _sparkSelf),
+      polymarketTradingProvider.overrideWith(_Trading.new),
+      sparkHypercoreFundingServiceProvider.overrideWithValue(service),
+    ]);
+    addTearDown(scoped.dispose);
+    // Held for the test, as the sheet holds it: the autoDispose account
+    // keeps its loaded deposit wallet between reads.
+    scoped.listen(polymarketTradingProvider, (_, __) {});
+    return scoped.read;
+  }
 
   test('the provider binds the direct HyperCore rail', () {
     expect(
@@ -303,17 +321,159 @@ void main() {
       expect(await cctp.lastStepUp!(intent(kHypercoreToSparkRoute)), isFalse);
     });
 
-    test('Predictions stays CCTP-only', () async {
-      final native =
-          _ScriptedService(container.read, StateError('must not run'));
+    SettlementAuthorizationIntent predictionsIntent(
+            {String recipient = _pmWallet, int atoms = 1200000000}) =>
+        SettlementAuthorizationIntent(
+            flow: SettlementFlow.investingToPredictionsDirect,
+            walletId: 'w',
+            destination: '$recipient|$kHypercoreToPredictionsRouteVersion',
+            routeLabel: kHypercoreToPredictionsRoute.label,
+            amountIn: BigInt.from(atoms),
+            minReceive: BigInt.one,
+            maxFeeBps: 100);
+
+    test(
+        'Predictions: native HyperCore served goes native, never CCTP, and '
+        'the leg approval accepts the native intent', () async {
+      final events = <(String, Map<String, Object?>?)>[];
+      TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+      addTearDown(() => TrackingService.debugTrackObserver = null);
+      final native = _ScriptedService(container.read, null);
       final cctp = _FakeCctp();
       final rail = HyperCoreMoveRail(withService(native), cctp: () => cctp);
-      await rail.withdrawDirect(
+      final result = await rail.withdrawDirect(
           destination: InvestingWithdrawalDestination.predictions,
           usd: 12,
           auth: ApprovedLegAuthorization(approval(to: 'predictions')));
-      expect(native.calls, isEmpty);
-      expect(cctp.calls, ['predictions:cash_pull:12.0']);
+      expect(native.calls, ['withdraw:cash_pull:predictions:12.0']);
+      expect(cctp.calls, isEmpty);
+      expect(result.operationId, 'op-direct');
+      expect(result.orderId, 'ord_direct');
+      expect(result.sentUsd, 5, reason: 'eight-decimal HyperCore amount in');
+      expect(result.arrivingUsdEstimate, 4.99,
+          reason: 'Polygon USDC.e out is already dollars');
+      final submitted = events
+          .singleWhere((e) => e.$1 == 'hyperliquid_withdraw_submitted')
+          .$2!;
+      expect(submitted['route'], 'direct');
+      expect(submitted['destination'], 'predictions');
+      expect(events.where((e) => e.$1 == 'hyperliquid_withdraw_step'), isEmpty);
+      // The native route carries the same label the CCTP route does.
+      expect(kHypercoreToPredictionsRoute.label,
+          cctpRouteFor(InvestingWithdrawalDestination.predictions).label);
+      expect(await native.lastStepUp!(predictionsIntent(recipient: _eoa)),
+          isFalse,
+          reason: 'only the own Predictions account');
+      expect(
+          await native.lastStepUp!(SettlementAuthorizationIntent(
+              flow: SettlementFlow.investingToPredictionsDirect,
+              walletId: 'w',
+              destination: '$_pmWallet|$kHypercoreToPredictionsRouteVersion',
+              routeLabel: kHypercoreToSparkRoute.label,
+              amountIn: BigInt.from(1200000000),
+              minReceive: BigInt.one,
+              maxFeeBps: 100)),
+          isFalse,
+          reason: 'only the Predictions route');
+      expect(await native.lastStepUp!(predictionsIntent(atoms: 1200000001)),
+          isFalse,
+          reason: 'past the cap');
+      expect(
+          await native.lastStepUp!(predictionsIntent(
+              recipient: _pmWallet.toUpperCase().replaceFirst('0X', '0x'))),
+          isTrue);
+      expect(await native.lastStepUp!(predictionsIntent()), isFalse,
+          reason: 'the leg cap is spent');
+    });
+
+    for (final (name, refusal) in <(String, Object)>[
+      (
+        'the catalogue missing the pair',
+        const SettlementStopped(SettlementStopReason.routeUnavailable,
+            routeReason: RouteUnavailableReason.pairMissing)
+      ),
+      ('the quote refusing the route', _refused()),
+    ]) {
+      test('Predictions: $name opens CCTP once, to Predictions', () async {
+        final events = <(String, Map<String, Object?>?)>[];
+        TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+        addTearDown(() => TrackingService.debugTrackObserver = null);
+        final native = _ScriptedService(container.read, refusal);
+        final cctp = _FakeCctp();
+        final rail = HyperCoreMoveRail(withService(native), cctp: () => cctp);
+        final grant = approval(to: 'predictions');
+        final result = await rail.withdrawDirect(
+            destination: InvestingWithdrawalDestination.predictions,
+            usd: 12,
+            auth: ApprovedLegAuthorization(grant));
+        expect(native.calls, ['withdraw:cash_pull:predictions:12.0']);
+        expect(cctp.calls, ['predictions:cash_pull:12.0']);
+        expect(result.operationId, 'op-direct');
+        expect(DirectLegGrants.takenBy(grant), BigInt.zero,
+            reason: 'the refused native attempt spent nothing');
+        expect(
+            events
+                .where((e) => e.$1 == 'hyperliquid_withdraw_step')
+                .single
+                .$2?['step'],
+            'cctp_fallback');
+        final submitted = events
+            .singleWhere((e) => e.$1 == 'hyperliquid_withdraw_submitted')
+            .$2!;
+        expect(submitted['route'], 'cctp');
+        expect(submitted['destination'], 'predictions');
+        expect(events.where((e) => e.$1 == 'hyperliquid_withdraw_initiated'),
+            hasLength(1));
+        // The CCTP intent passes the same own-Predictions rule.
+        final predictions =
+            cctpRouteFor(InvestingWithdrawalDestination.predictions);
+        expect(await cctp.lastStepUp!(intent(predictions, recipient: _eoa)),
+            isFalse);
+        expect(await cctp.lastStepUp!(intent(predictions, recipient: _pmWallet)),
+            isTrue);
+      });
+    }
+
+    test(
+        'Predictions: a policy denial, a decline or an expiry on the native '
+        'route never opens CCTP', () async {
+      final denial = capabilityDenialFromResponse(403,
+          '{"error":"feature_unavailable","capability":"polymarket.deposit",'
+          '"reason":"country_blocked"}')!;
+      for (final error in <Object>[
+        OrchestraQuoteFailure('unsupported_route', denial: denial),
+        const SettlementStopped(SettlementStopReason.declined),
+        const SettlementStopped(SettlementStopReason.quoteExpired),
+        const WalletGuardException(WalletGuardReason.quoteExpired),
+        const SettlementStopped(SettlementStopReason.routeUnavailable,
+            routeReason: RouteUnavailableReason.stale),
+        const HypercoreFundingUnavailable(
+            HypercoreFundingUnavailableReason.paused),
+        const OrchestraQuoteFailure('too small',
+            routeError: RouteQuoteError(RouteQuoteErrorCode.amountTooSmall)),
+        const SettlementStopped(SettlementStopReason.blockedPending),
+        SettlementFundingUnknown('operation', _refused()),
+        const SocketException('offline'),
+      ]) {
+        final native = _ScriptedService(container.read, error);
+        final cctp = _FakeCctp();
+        final rail = HyperCoreMoveRail(withService(native), cctp: () => cctp);
+        await expectLater(
+            rail.withdrawDirect(
+                destination: InvestingWithdrawalDestination.predictions,
+                usd: 12,
+                auth: ApprovedLegAuthorization(approval(to: 'predictions'))),
+            throwsA(error is HypercoreFundingUnavailable ||
+                    error is OrchestraQuoteFailure ||
+                    (error is SettlementStopped &&
+                        error.reason != SettlementStopReason.blockedPending)
+                ? isA<SettlementFundingRefused>()
+                    .having((e) => e.cause, 'cause', same(error))
+                : same(error)),
+            reason: '$error');
+        expect(native.calls, ['withdraw:cash_pull:predictions:12.0']);
+        expect(cctp.calls, isEmpty, reason: '$error');
+      }
     });
 
     test(
@@ -636,7 +796,11 @@ void main() {
       final cctp = _FakeCctp(
           error:
               const CctpUnavailable(CctpUnavailableReason.feeTermsUnavailable));
-      final rail = HyperCoreMoveRail(container.read, cctp: () => cctp);
+      // Native first: Orchestra refuses the route, so CCTP runs and refuses
+      // before signing.
+      final rail = HyperCoreMoveRail(
+          withService(_ScriptedService(container.read, _refused())),
+          cctp: () => cctp);
       await expectLater(
           rail.withdrawDirect(
               destination: InvestingWithdrawalDestination.predictions,
@@ -1050,6 +1214,41 @@ class _ScriptedService extends SparkHypercoreFundingService {
       ),
       amountIn: BigInt.from(500000000),
       estimatedOut: destination.isBitcoin ? 0.00008317 : 4.99,
+    );
+  }
+
+  @override
+  Future<DirectHypercoreResult> withdrawToPredictions({
+    required double usd,
+    required SettlementStepUpHook stepUp,
+    bool registerInBackground = false,
+    String purpose = 'manual_move',
+  }) async {
+    calls.add('withdraw:$purpose:predictions:$usd');
+    lastStepUp = stepUp;
+    expect(registerInBackground, isTrue);
+    final failure = error;
+    if (failure != null) throw failure;
+    return DirectHypercoreResult(
+      run: SettlementRunResult(
+        operation: SettlementOperation(
+          operationId: 'op-direct',
+          walletId: 'w',
+          accountKind: SettlementAccountKind.hlHot,
+          flow: SettlementFlow.investingToPredictionsDirect,
+          route: kHypercoreToPredictionsRoute,
+          amountInBaseUnits: '500000000',
+          stage: SettlementStage.funded,
+          createdAt: DateTime.utc(2026, 10, 19),
+          updatedAt: DateTime.utc(2026, 10, 19),
+        ),
+        quote: _verifiedQuote(),
+        proof: const SettlementFundingProof.hyperliquid('0xhash'),
+        orderId: 'ord_direct',
+        registration: Future.value('ord_direct'),
+      ),
+      amountIn: BigInt.from(500000000),
+      estimatedOut: 4.99,
     );
   }
 }

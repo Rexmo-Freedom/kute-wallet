@@ -115,4 +115,20 @@ void main() {
         classifySwapActivity(receiveRow().copyWith(purchaseSource: 'cashapp')),
         SwapActivityKind.purchase);
   });
+  test(
+      'Investing cash straight to Predictions by the native route reads as '
+      'an Investing withdrawal, with or without its operation', () {
+    final row = receiveRow().copyWith(
+        operationId: 'operation',
+        coinFrom: 'USDC',
+        networkFrom: 'HYPERCORE',
+        coinTo: 'USDC.e',
+        networkTo: 'POLYGON',
+        routeVersion: 'hypercore_to_polygon_usdce_perps_v1');
+    expect(
+        classifySwapActivity(row,
+            operation: operation(SettlementFlow.investingToPredictionsDirect)),
+        SwapActivityKind.investingWithdrawal);
+    expect(classifySwapActivity(row), SwapActivityKind.investingWithdrawal);
+  });
 }

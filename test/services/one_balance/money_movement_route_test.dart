@@ -6,6 +6,10 @@
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/helpers/auth_grant.dart';
+import 'package:kute/models/orchestra_route_limits.dart'
+    show RouteQuoteError, RouteQuoteErrorCode;
+import 'package:kute/models/orchestra_routes_model.dart'
+    show RouteUnavailableReason;
 import 'package:kute/models/settlement_operation.dart';
 import 'package:kute/services/funding/owned_address_resolver.dart'
     show checkSettlementAccountPair;
@@ -103,8 +107,8 @@ void main() {
         'spark_usdb'
       ),
       const MoneyMovementRoute(_i, _p): (
-        MoneyMovementRail.cctp,
-        SettlementFlow.investingToPredictionsCctp,
+        MoneyMovementRail.hypercoreNativeThenCctp,
+        SettlementFlow.investingToPredictionsDirect,
         'hypercore_usdc',
         'polygon_usdc.e'
       ),
@@ -164,14 +168,8 @@ void main() {
               _p => RecipientKind.ownPmWallet,
             });
         expect(plan.recipient, isNot(RecipientKind.external));
-        if (plan.rail == MoneyMovementRail.cctp) {
-          // CCTP never goes through the settlement pair check: it pays
-          // the wallet's own standing instruction (own Predictions
-          // address, refund the own Investing account).
-          expect(route.from, _i);
-          expect(route.to, _p);
-          return;
-        }
+        // No route starts on CCTP: it is only the native routes' fallback.
+        expect(plan.rail, isNot(MoneyMovementRail.cctp));
         // The runner's own-account guard accepts the pair on these chains.
         expect(
             () => checkSettlementAccountPair(
@@ -181,6 +179,65 @@ void main() {
             returnsNormally);
       });
     }
+  });
+
+  group('Investing → Predictions', () {
+    final plan = moneyMovementPlanFor(const MoneyMovementRoute(_i, _p));
+
+    test('goes native HyperCore first, to the own Predictions account', () {
+      expect(plan.rail, MoneyMovementRail.hypercoreNativeThenCctp);
+      expect(plan.railCode, 'direct');
+      expect(plan.flow, SettlementFlow.investingToPredictionsDirect);
+      expect(plan.flow.code, 'investing_to_predictions_direct');
+      expect(plan.quoteRoute.label, kHypercoreToPredictionsRoute.label);
+      expect(plan.source, SettlementAccountKind.hlHot);
+      expect(plan.destination, SettlementAccountKind.pmHot);
+      expect(plan.recipient, RecipientKind.ownPmWallet);
+      expect(plan.orchestraEstimate, isTrue);
+    });
+
+    test('its CCTP fallback runs the same route to the same destination', () {
+      const predictions = InvestingWithdrawalDestination.predictions;
+      expect(cctpRouteFor(predictions).label, plan.quoteRoute.label,
+          reason: 'one approved route label covers both attempts');
+      expect(cctpFlowFor(predictions),
+          SettlementFlow.investingToPredictionsCctp);
+      expect(kHypercoreToPredictionsRoute.toChain, predictions.chain);
+      expect(kHypercoreToPredictionsRoute.toAsset, predictions.asset);
+    });
+
+    test('only Orchestra refusing the route opens CCTP', () {
+      // The catalogue missing the pair, or the quote refusing the route.
+      expect(
+          HyperCoreMoveRail.opensCctpFallback(const SettlementStopped(
+              SettlementStopReason.routeUnavailable,
+              routeReason: RouteUnavailableReason.pairMissing)),
+          isTrue);
+      expect(
+          HyperCoreMoveRail.opensCctpFallback(OrchestraQuoteFailure(
+              'unsupported_route',
+              routeError: RouteQuoteError(
+                  RouteQuoteErrorCode.fromCode('unsupported_route')!))),
+          isTrue);
+      final denial = capabilityDenialFromResponse(403,
+          '{"error":"feature_unavailable","capability":"polymarket.deposit",'
+          '"reason":"country_blocked"}')!;
+      for (final stop in <Object>[
+        OrchestraQuoteFailure('unsupported_route', denial: denial),
+        const SettlementStopped(SettlementStopReason.declined),
+        const SettlementStopped(SettlementStopReason.quoteExpired),
+        const SettlementStopped(SettlementStopReason.routeUnavailable,
+            routeReason: RouteUnavailableReason.stale),
+        const HypercoreFundingUnavailable(
+            HypercoreFundingUnavailableReason.paused),
+        const OrchestraQuoteFailure('too small',
+            routeError: RouteQuoteError(RouteQuoteErrorCode.amountTooSmall)),
+        const SettlementFundingUnknown('op', 'lost'),
+      ]) {
+        expect(HyperCoreMoveRail.opensCctpFallback(stop), isFalse,
+            reason: '$stop');
+      }
+    });
   });
 
   group('what proves nothing was sent', () {

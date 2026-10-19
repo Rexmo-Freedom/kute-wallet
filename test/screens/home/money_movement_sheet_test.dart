@@ -27,6 +27,11 @@ import 'package:kute/models/balance_model.dart';
 import 'package:kute/models/breez/sdk_instance.dart';
 import 'package:kute/models/currency_conversions.dart';
 import 'package:kute/models/hyperliquid_market.dart';
+import 'package:kute/models/orchestra_routes_model.dart'
+    show
+        OrchestraCatalogSource,
+        OrchestraRoutesCatalog,
+        RouteUnavailableReason;
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/models/settlement_operation.dart';
 import 'package:kute/providers/balance_provider.dart';
@@ -34,6 +39,8 @@ import 'package:kute/providers/breez_config_provider.dart';
 import 'package:kute/providers/breez_provider.dart';
 import 'package:kute/providers/currency_conversions_provider.dart';
 import 'package:kute/providers/hyperliquid_account_provider.dart';
+import 'package:kute/providers/orchestra_supported_routes_provider.dart'
+    show OrchestraSupportedRoutesNotifier, orchestraSupportedRoutesProvider;
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/spark_address_provider.dart';
@@ -246,6 +253,9 @@ class _Hypercore extends SparkHypercoreFundingService {
 
   final deposits = <({SparkFundingAsset asset, BigInt amount})>[];
   final withdrawals = <({double usd, SparkFundingAsset destination})>[];
+
+  /// Native withdrawals straight to the own Predictions account.
+  final toPredictions = <double>[];
   Object? refusal;
 
   @override
@@ -283,6 +293,23 @@ class _Hypercore extends SparkHypercoreFundingService {
     if (r != null) throw r;
     if (!await stepUp(_intent(
         destination.sparkWithdrawFlow, destination.sparkWithdrawRoute.label))) {
+      throw const SettlementStopped(SettlementStopReason.declined);
+    }
+    return Completer<DirectHypercoreResult>().future;
+  }
+
+  @override
+  Future<DirectHypercoreResult> withdrawToPredictions({
+    required double usd,
+    required SettlementStepUpHook stepUp,
+    bool registerInBackground = false,
+    String purpose = 'manual_move',
+  }) async {
+    toPredictions.add(usd);
+    final r = refusal;
+    if (r != null) throw r;
+    if (!await stepUp(_intent(SettlementFlow.investingToPredictionsDirect,
+        kHypercoreToPredictionsRoute.label))) {
       throw const SettlementStopped(SettlementStopReason.declined);
     }
     return Completer<DirectHypercoreResult>().future;
@@ -328,6 +355,28 @@ class _Cctp implements HypercoreCctpWithdrawal {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+/// A route catalogue held as given: no Hive, no network.
+class _Routes extends OrchestraSupportedRoutesNotifier {
+  _Routes(OrchestraRoutesCatalog catalog) {
+    state = catalog;
+  }
+
+  @override
+  Future<void> init() async {}
+
+  @override
+  Future<bool> refresh() async => false;
+}
+
+/// A live catalogue row. Lists no destinations: a pair it names is missing.
+Map<String, dynamic> _row(String chain, String asset, {int decimals = 6}) => {
+      'id': '$chain:$asset',
+      'chain': chain,
+      'asset': asset,
+      'decimals': decimals,
+      'route': {'to': [], 'fixedTo': [], 'exactOutTo': []},
+    };
+
 /// Bitcoin → Dollars, the shared leg's seam: records the dollars it was
 /// sized for and parks in flight.
 final _btcToDollars = <double>[];
@@ -349,13 +398,14 @@ int get _railCalls =>
     _runner.plans.length +
     _hypercore.deposits.length +
     _hypercore.withdrawals.length +
+    _hypercore.toPredictions.length +
     _cctp.moves.length +
     _btcToDollars.length;
 
 // ─── harness ────────────────────────────────────────────────────────
 
 Future<ProviderContainer> _open(WidgetTester tester, MoneyMovementRoute route,
-    {Completer<String?>? hlAddress}) async {
+    {Completer<String?>? hlAddress, OrchestraRoutesCatalog? catalog}) async {
   tester.view.physicalSize = const Size(430, 932);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -383,6 +433,8 @@ Future<ProviderContainer> _open(WidgetTester tester, MoneyMovementRoute route,
     sparkSelfAddressProvider.overrideWith((_) async => _ownSpark),
     dollarsToBitcoinMinimumProvider
         .overrideWith((_) => DollarsToBitcoinMinimum(fetch: (_) async => null)),
+    if (catalog != null)
+      orchestraSupportedRoutesProvider.overrideWith((_) => _Routes(catalog)),
   ]);
   _setSats(container, 20000); // $20.00 at the sample price.
   SharedHttpClient.debugOverride = _orchestra();
@@ -559,6 +611,12 @@ void main() {
               expect(run.amountUsd, closeTo(5, 0.001));
             }
           case MoneyMovementRail.hypercoreNativeThenCctp:
+            if (route.to == _p) {
+              // Native HyperCore straight to the own Predictions account.
+              expect(_hypercore.toPredictions.single, 5);
+              expect(_cctp.moves, isEmpty);
+              break;
+            }
             final w = _hypercore.withdrawals.single;
             expect(w.usd, 5);
             expect(
@@ -813,8 +871,9 @@ void main() {
   });
 
   testWidgets(
-      'Investing → Predictions: an accepted CCTP move closes the sheet, '
-      'tracked with route cctp and the time from the tap', (tester) async {
+      'Investing → Predictions: native first; a refused route goes by CCTP '
+      'to Predictions, closes the sheet and is tracked with route cctp',
+      (tester) async {
     _cctp.result = CctpWithdrawalResult(
         operationId: 'op',
         sentUsd: 5,
@@ -822,22 +881,113 @@ void main() {
         registration: Completer<String?>().future);
     final c = await _open(tester, const MoneyMovementRoute(_i, _p));
     await _type(tester, '5');
+    _hypercore.refusal = const SettlementStopped(
+        SettlementStopReason.routeUnavailable,
+        routeReason: RouteUnavailableReason.pairMissing);
     await _confirm(tester);
     await _frames(tester, 20);
+    expect(_hypercore.toPredictions.single, 5);
+    expect(_cctp.moves.single.destination,
+        InvestingWithdrawalDestination.predictions);
+    expect(_cctp.moves.single.usd, 5);
+    expect(_approvals.intents, hasLength(1));
     expect(find.byKey(const ValueKey('money-movement-sheet')), findsNothing);
     final completed = _last('move_completed');
     expect(completed['route'], 'cctp');
     expect(completed['surface'], 'money_movement');
     expect(completed['ms'], isA<int>());
+    expect(_last('hyperliquid_withdraw_step')['step'], 'cctp_fallback');
+    final submitted = _last('hyperliquid_withdraw_submitted');
+    expect(submitted['route'], 'cctp');
+    expect(submitted['destination'], 'predictions');
+    expect(_all('hyperliquid_withdraw_initiated'), hasLength(1));
     tester.takeException();
+    await _close(tester, c);
+  });
+
+  testWidgets(
+      'Investing → Predictions: Flashnet\'s unsupported_route opens CCTP too',
+      (tester) async {
+    final c = await _open(tester, const MoneyMovementRoute(_i, _p));
+    await _type(tester, '5');
+    _hypercore.refusal = OrchestraQuoteFailure(
+        'HyperCore source routes require independent deposit verification '
+        'and are unavailable',
+        routeError: RouteQuoteError(
+            RouteQuoteErrorCode.fromCode('unsupported_route')!));
+    await _confirm(tester);
+    expect(_hypercore.toPredictions.single, 5);
+    expect(_cctp.moves.single.destination,
+        InvestingWithdrawalDestination.predictions);
+    await _close(tester, c);
+  });
+
+  testWidgets(
+      'Investing → Predictions: a policy denial, a decline or an expiry on '
+      'the native route never opens CCTP', (tester) async {
+    final denial = capabilityDenialFromResponse(403,
+        '{"error":"feature_unavailable","capability":"polymarket.deposit",'
+        '"reason":"country_blocked"}')!;
+    for (final refusal in <Object>[
+      OrchestraQuoteFailure('unsupported_route', denial: denial),
+      const SettlementStopped(SettlementStopReason.quoteExpired),
+      const HypercoreFundingUnavailable(
+          HypercoreFundingUnavailableReason.paused),
+    ]) {
+      _cctp = _Cctp();
+      final c = await _open(tester, const MoneyMovementRoute(_i, _p));
+      await _type(tester, '5');
+      _hypercore.refusal = refusal;
+      await _confirm(tester);
+      expect(_hypercore.toPredictions.single, 5, reason: '$refusal');
+      expect(_cctp.moves, isEmpty, reason: '$refusal');
+      expect(_last('hyperliquid_withdraw_failed')['route'], 'direct');
+      await _close(tester, c);
+    }
+    // A declined approval on the native route: quiet, and no CCTP.
+    _cctp = _Cctp();
+    final c = await _open(tester, const MoneyMovementRoute(_i, _p));
+    await _type(tester, '5');
+    _approvals.approve = false;
+    await _confirm(tester);
+    expect(_hypercore.toPredictions.single, 5);
+    expect(_cctp.moves, isEmpty);
+    expect(_last('move_failed')['reason'], 'approval_declined');
     await _close(tester, c);
   });
 
   group('the fee line prices the route that runs', () {
     testWidgets(
-        'Investing → Predictions (CCTP) shows no Orchestra estimate for '
-        'itself', (tester) async {
+        'Investing → Predictions prices its native route, to the own '
+        'Predictions account', (tester) async {
       final c = await _open(tester, const MoneyMovementRoute(_i, _p));
+      await _type(tester, '5');
+      await _frames(tester, 12);
+      final asked = _estimates.where((q) =>
+          q['sourceChain'] == 'hypercore' &&
+          q['sourceAsset'] == 'USDC' &&
+          q['destinationChain'] == 'polygon' &&
+          q['destinationAsset'] == 'USDC.e');
+      expect(asked, isNotEmpty);
+      expect(asked.last['amount'], '500000000');
+      expect(asked.last['recipientAddress'], _pmWallet);
+      expect(find.textContaining('Included in the amount you receive'),
+          findsNothing);
+      await _close(tester, c);
+    });
+
+    testWidgets(
+        'Investing → Predictions on a live catalogue without the pair (the '
+        'move runs on CCTP) shows no Orchestra estimate for itself',
+        (tester) async {
+      final c = await _open(tester, const MoneyMovementRoute(_i, _p),
+          catalog: OrchestraRoutesCatalog.fromJson({
+            'assets': [
+              _row('hypercore', 'USDC', decimals: 8),
+              _row('polygon', 'USDC.e'),
+              _row('spark', 'BTC', decimals: 8),
+            ],
+          }, source: OrchestraCatalogSource.live, fetchedAt: DateTime.now()));
       await _type(tester, '5');
       await _frames(tester, 12);
       expect(find.textContaining('Included in the amount you receive'),

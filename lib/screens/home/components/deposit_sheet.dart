@@ -5367,26 +5367,38 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     }
   }
 
-  /// Investing → Predictions (Move money): Circle CCTP out of HyperCore to
-  /// the wallet's own Predictions account, through the wallet's own
-  /// standing instruction ([HypercoreCctpWithdrawal.withdrawTo]), the route
-  /// every Investing → Predictions leg takes. No Orchestra quote prices it.
-  /// The approval binds the CCTP intent (the own Predictions address and
-  /// the route version); the CCTP move pins the spending wallet across its
-  /// own awaits, refuses before signing when it cannot run, and once
-  /// signed hands back an operation it watches even when the exchange's
-  /// answer was lost.
+  /// Investing → Predictions (Move money): native HyperCore first, straight
+  /// to the wallet's own Predictions account
+  /// ([SparkHypercoreFundingService.withdrawToPredictions]), exactly as
+  /// Investing → Dollars / Bitcoin go native first. Circle CCTP out of
+  /// HyperCore through the wallet's own standing instruction
+  /// ([HypercoreCctpWithdrawal.withdrawTo]) runs only after Orchestra
+  /// refused the route itself before anything was signed
+  /// ([HyperCoreMoveRail.opensCctpFallback]); never on a policy denial, a
+  /// declined approval, an expiry, an amount refusal, a network failure or
+  /// an unknown outcome. Each approval binds its own intent (the own
+  /// Predictions address and the route version); both attempts pin the
+  /// spending wallet across their own awaits, refuse before signing when
+  /// they cannot run, and once signed hand back an operation that is
+  /// watched even when the exchange's answer was lost.
   Future<void> _dispatchInvestingToPredictions(double usd) async {
     if (_processing || usd < _kMinUsdc) return;
     final drain = _drainArmed;
     final l10n = context.l10n;
-    _movementRail = 'cctp';
+    // Every attempt starts on the direct route; `cctp` once it switched
+    // to the Circle CCTP fallback. Sent on submitted and failed.
+    var route = 'direct';
+    _movementRail = route;
+    final attemptClock = Stopwatch();
     setState(() {
       _processing = true;
       _error = null;
     });
     var initiated = false;
     try {
+      final direct = ref.read(sparkHypercoreFundingServiceProvider);
+      await direct.ensureAvailable(deposit: false);
+      _ensureMovementPinned();
       if (drain) {
         // 100%: everything the account holds now, read fresh.
         final fresh = await ref.refresh(hyperliquidAccountProvider.future);
@@ -5396,6 +5408,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       }
       final account = await ref.read(hyperliquidAddressProvider.future);
       _ensureMovementPinned();
+      // Once per attempt: the CCTP fallback below does not send it again.
       TrackingService.hyperliquidWithdrawInitiated(
         amountUsd: usd,
         destination: 'predictions',
@@ -5403,25 +5416,57 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         purpose: 'manual_move',
       );
       initiated = true;
+      attemptClock.start();
       _trackMoveSubmitted();
-      final result = await ref.read(hypercoreCctpWithdrawalProvider).withdrawTo(
-            destination: InvestingWithdrawalDestination.predictions,
-            usd: usd,
-            purpose: 'manual_move',
-            stepUp: _settlementStepUp(
-              action: SensitiveAction.venueWithdraw,
-              asset: 'USDC',
-              account: account,
-              amountLabel: (_) => _usdApprovalLabel(usd),
-              amountUsd: usd,
-              // The burn follows the approval with no hook of its own.
-              onApproved: () => _movementFundingStarted = true,
-            ),
+      SettlementStepUpHook stepUp() => _settlementStepUp(
+            action: SensitiveAction.venueWithdraw,
+            asset: 'USDC',
+            account: account,
+            amountLabel: (_) => _usdApprovalLabel(usd),
+            amountUsd: usd,
+            // The usdSend (or the burn) follows the approval with no hook
+            // of its own.
+            onApproved: () => _movementFundingStarted = true,
           );
-      // Handed to the CCTP watcher; the reconciler reports the outcome.
+      double sentUsd;
+      try {
+        final native = await direct.withdrawToPredictions(
+          registerInBackground: true,
+          usd: usd,
+          stepUp: stepUp(),
+        );
+        // HyperCore USDC carries eight decimals.
+        sentUsd = native.amountIn.toDouble() / 1e8;
+      } catch (e) {
+        // Orchestra does not offer the HyperCore route (its catalog lists
+        // no destination for it, or the quote refuses it; nothing signed):
+        // Circle CCTP takes the cash to Predictions instead. Nothing else
+        // opens it.
+        if (!HyperCoreMoveRail.opensCctpFallback(e)) rethrow;
+        // The refusal came before anything was signed.
+        _movementFundingStarted = false;
+        route = 'cctp';
+        _movementRail = route;
+        _ensureMovementPinned();
+        TrackingService.hyperliquidWithdrawStep(
+          step: 'cctp_fallback',
+          durationMs: attemptClock.elapsedMilliseconds,
+          amountUsd: usd,
+        );
+        final result =
+            await ref.read(hypercoreCctpWithdrawalProvider).withdrawTo(
+                  destination: InvestingWithdrawalDestination.predictions,
+                  usd: usd,
+                  purpose: 'manual_move',
+                  stepUp: stepUp(),
+                );
+        sentUsd = result.sentUsd;
+      }
+      // Handed to the runner (or the CCTP watcher); the reconciler reports
+      // the outcome.
       TrackingService.hyperliquidWithdrawSubmitted(
-        amountUsd: result.sentUsd,
-        route: 'cctp',
+        amountUsd: sentUsd,
+        route: route,
         destination: 'predictions',
         walletKind: 'hot',
         purpose: 'manual_move',
@@ -5437,9 +5482,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       _trackMoveCompleted();
       pushMoveSentOverlay(
         navigator: navigator,
-        // What left Investing: the burn, which the CCTP move caps at the
-        // cash it can send less HyperCore's gas reserve.
-        amount: '\$${result.sentUsd.toStringAsFixed(2)}',
+        // What left Investing: the usdSend, or the burn, which the CCTP
+        // move caps at the cash it can send less HyperCore's gas reserve.
+        amount: '\$${sentUsd.toStringAsFixed(2)}',
         fromWalletName: l10n.trading,
         toWalletName: l10n.predictions,
         assetIconAsset: 'lib/assets/polymarket-logo.svg',
@@ -5453,7 +5498,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
           reason: e is CctpUnavailable
               ? e.reason.code
               : TrackingService.errorCategory(e),
-          route: 'cctp',
+          route: route,
           amountUsd: usd,
           destination: 'predictions',
           walletKind: 'hot',
@@ -6936,16 +6981,26 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// and the address its quote names, the native HyperCore estimate where
   /// the move goes native first. A CCTP move has no quote, so no estimate
   /// stands in for it: its line says the fees come out of what arrives,
-  /// and the receipt in Activity carries the real ones. Build only.
+  /// and the receipt in Activity carries the real ones. Investing →
+  /// Predictions is priced as its native quote (`hypercore:USDC →
+  /// polygon:USDC.e` to the own Predictions account) unless the live
+  /// catalogue does not list that pair, which is exactly when the move
+  /// will run on CCTP. Build only.
   Widget _movementFeeSummary() {
     final plan = _movementPlan;
     final route = plan.route;
-    if (plan.rail == MoneyMovementRail.cctp) {
+    final toPredictionsByCctp = route.from == MoneyMovementAccount.investing &&
+        route.to == MoneyMovementAccount.predictions &&
+        _catalogLacks(plan.quoteRoute);
+    if (plan.rail == MoneyMovementRail.cctp || toPredictionsByCctp) {
       return const MoneyFeeSummary(
           label: 'Fees', state: 'Included in the amount you receive');
     }
-    final investingNative = plan.rail ==
-            MoneyMovementRail.hypercoreNativeThenCctp ||
+    // The native HyperCore estimate prices the Spark ends; a Predictions
+    // end is priced below as its own Orchestra route.
+    final investingNative = (plan.rail ==
+                MoneyMovementRail.hypercoreNativeThenCctp &&
+            route.to != MoneyMovementAccount.predictions) ||
         (route.to == MoneyMovementAccount.investing &&
             route.from != MoneyMovementAccount.predictions);
     if (investingNative) {
@@ -6972,6 +7027,14 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
               : doubleToOrchestraAmount(_selectedSourceUsd, key.fromAsset,
                   chain: key.fromChain),
         ));
+  }
+
+  /// The live route catalogue is known and does not list [key]: the
+  /// runner's catalogue check would stop on `pair_missing` before any
+  /// quote. Build only.
+  bool _catalogLacks(RouteKey key) {
+    final catalog = ref.watch(orchestraSupportedRoutesProvider);
+    return catalog.hasLiveData && !catalog.supports(key);
   }
 
   /// Move money's tap: the confirmed route, pinned, to the rail its plan
