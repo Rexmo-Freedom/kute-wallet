@@ -10935,4 +10935,7 @@ class AppLocalizationsHu extends AppLocalizations {
   String arbitrumRefundReturned(String amount) {
     return '$amount visszaérkezett az Arbitrumra';
   }
+
+  @override
+  String get portfolioSectionBalances => 'Egyenlegek';
 }

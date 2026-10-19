@@ -18403,6 +18403,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{amount} returned on Arbitrum'**
   String arbitrumRefundReturned(String amount);
+
+  /// Investments, Portfolio pill: the small pill (beside Charts and Activity) for the section with the Dollars, Investing and Predictions balances and the Move money button.
+  ///
+  /// In en, this message translates to:
+  /// **'Balances'**
+  String get portfolioSectionBalances;
 }
 
 class _AppLocalizationsDelegate

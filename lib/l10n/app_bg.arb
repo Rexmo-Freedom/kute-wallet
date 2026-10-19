@@ -3048,5 +3048,6 @@
   "moneyStepSending": "Изпращане на {amount}",
   "moneyStepSent": "Изпратени {amount}",
   "moneyStepCompact": "{source} → {destination} · {amount}",
-  "arbitrumRefundReturned": "{amount} върнати в Arbitrum"
+  "arbitrumRefundReturned": "{amount} върнати в Arbitrum",
+  "portfolioSectionBalances": "Баланси"
 }

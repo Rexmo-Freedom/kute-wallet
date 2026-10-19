@@ -3048,5 +3048,6 @@
   "moneyStepSending": "Šaljemo {amount}",
   "moneyStepSent": "Poslano {amount}",
   "moneyStepCompact": "{source} → {destination} · {amount}",
-  "arbitrumRefundReturned": "{amount} vraćeno na Arbitrum"
+  "arbitrumRefundReturned": "{amount} vraćeno na Arbitrum",
+  "portfolioSectionBalances": "Stanja"
 }

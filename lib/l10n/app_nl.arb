@@ -3048,5 +3048,6 @@
   "moneyStepSending": "{amount} versturen",
   "moneyStepSent": "{amount} verstuurd",
   "moneyStepCompact": "{source} → {destination} · {amount}",
-  "arbitrumRefundReturned": "{amount} teruggestort op Arbitrum"
+  "arbitrumRefundReturned": "{amount} teruggestort op Arbitrum",
+  "portfolioSectionBalances": "Saldi"
 }

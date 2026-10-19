@@ -3048,5 +3048,6 @@
   "moneyStepSending": "{amount} küldése",
   "moneyStepSent": "{amount} elküldve",
   "moneyStepCompact": "{source} → {destination} · {amount}",
-  "arbitrumRefundReturned": "{amount} visszaérkezett az Arbitrumra"
+  "arbitrumRefundReturned": "{amount} visszaérkezett az Arbitrumra",
+  "portfolioSectionBalances": "Egyenlegek"
 }

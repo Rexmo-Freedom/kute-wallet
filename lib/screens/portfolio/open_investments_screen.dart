@@ -3,8 +3,7 @@
 // The spending account's investments, in two places (owner decision
 // October 2026):
 //
-//   * POSITIONS ([PortfolioPositions]), the Investments tab's third pill:
-//     everything held now, at both venues, in ONE list — wins to claim and
+//   * POSITIONS: everything held now, at both venues, in ONE list — wins to claim and
 //     bets on their way first, then every open position, Predictions
 //     (Polymarket, combos included) and Investing (Hyperliquid perps and
 //     spot holdings) alike, largest first by what it is worth — and under
@@ -12,10 +11,14 @@
 //     with one count and one Cancel all (portfolio_orders.dart). Each row
 //     is the card or order row it always was, with its drill-down and its
 //     actions. Nothing held and nothing resting: the Sal empty state ("No
-//     positions yet").
+//     positions yet"). The Investments tab's Portfolio pill lists them
+//     under its Charts ([portfolioPositionsSlivers],
+//     investments_portfolio.dart); [PortfolioPositions] is the same rows
+//     as a page of their own.
 //   * THE PORTFOLIO ([OpenInvestmentsScreen]), full screen, opened from
-//     the Investments balance (and Home's Predictions card, a venue
-//     browser's dock, a link to the old Activity or Statistics tab): the
+//     Home's Predictions card and a venue browser's dock standing on its
+//     own (the Investments balance no longer opens it: its Charts,
+//     Balances and Activity are the Portfolio pill's sections now): the
 //     app bar with its back over one scrolling page — the balance
 //     breakdown with its Rebalance (portfolio_balance_breakdown.dart:
 //     Dollars, Investing and Predictions cash), the one P&L chart with its
@@ -102,9 +105,9 @@ enum InvestmentsProduct { trading, predictions }
 
 /// The Portfolio, full screen (see the file header).
 class OpenInvestmentsScreen extends ConsumerStatefulWidget {
-  /// The door it was opened from, for `portfolio_opened`:
-  /// investments_balance | home | dock_investing | dock_predictions |
-  /// notification | link.
+  /// The door it was opened from, for `portfolio_opened`: home |
+  /// dock_investing | dock_predictions (investments_balance, notification
+  /// and link before the Portfolio pill took those doors).
   final String source;
 
   const OpenInvestmentsScreen({super.key, required this.source});
@@ -225,9 +228,8 @@ class _PortfolioPage extends ConsumerWidget {
 
 // ────────────────────────────── positions ──────────────────────────────
 
-/// Positions, the Investments tab's third pill: everything held now at
-/// both venues in one list, then the resting orders (see the file
-/// header). A venue still loading shows shimmer cards; nothing held
+/// Positions as a page of their own: everything held now at both venues
+/// in one list, then the resting orders (see the file header). A venue still loading shows shimmer cards; nothing held
 /// and nothing resting is the Portfolio empty state
 /// ([PortfolioEmptyState]).
 class PortfolioPositions extends ConsumerWidget {

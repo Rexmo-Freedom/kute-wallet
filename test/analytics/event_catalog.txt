@@ -234,7 +234,6 @@ investing_cash_pulled
 investing_close_available_tapped
 investing_position_details_opened
 investment_category_opened
-investments_balance_tapped
 investments_region_checked
 ledger_account_viewed
 ledger_action_sheet_opened

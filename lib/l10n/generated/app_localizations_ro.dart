@@ -10969,4 +10969,7 @@ class AppLocalizationsRo extends AppLocalizations {
   String arbitrumRefundReturned(String amount) {
     return '$amount returnați pe Arbitrum';
   }
+
+  @override
+  String get portfolioSectionBalances => 'Solduri';
 }
