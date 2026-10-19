@@ -802,20 +802,38 @@ class PasskeyService {
     } catch (_) {/* storage unavailable: nothing to show */}
   }
 
-  /// Flag [label] as created-but-not-yet-published. [credentialHex] names
-  /// the credential whose identity must publish it.
-  static Future<void> markLabelPending(String label,
-      {String? credentialHex}) async {
-    final pending = await _readPending();
-    pending[label] = credentialHex ?? pending[label] ?? '';
-    await _writePending(pending);
+  /// Tail of the chain every pending-map mutation runs on. Marks and
+  /// clears each read-modify-write the whole map, and a background retry's
+  /// clear can interleave with a create's mark; without the chain the
+  /// later write would drop the other label, and a dropped pending label
+  /// is never retried (the wallet would never appear in passkey recovery
+  /// on a new device).
+  static Future<void> _pendingMutationTail = Future<void>.value();
+
+  /// Run [body] after every pending-map mutation queued before it. The
+  /// chain never breaks: a failing body still releases the next one.
+  static Future<T> _serializePendingMutation<T>(Future<T> Function() body) {
+    final previous = _pendingMutationTail;
+    final done = Completer<void>();
+    _pendingMutationTail = done.future;
+    return previous.then((_) => body()).whenComplete(done.complete);
   }
 
+  /// Flag [label] as created-but-not-yet-published. [credentialHex] names
+  /// the credential whose identity must publish it.
+  static Future<void> markLabelPending(String label, {String? credentialHex}) =>
+      _serializePendingMutation(() async {
+        final pending = await _readPending();
+        pending[label] = credentialHex ?? pending[label] ?? '';
+        await _writePending(pending);
+      });
+
   /// Drop [label] from the pending set once its publish is confirmed.
-  static Future<void> clearLabelPending(String label) async {
-    final pending = await _readPending();
-    if (pending.remove(label) != null) await _writePending(pending);
-  }
+  static Future<void> clearLabelPending(String label) =>
+      _serializePendingMutation(() async {
+        final pending = await _readPending();
+        if (pending.remove(label) != null) await _writePending(pending);
+      });
 
   static Future<bool> hasPendingLabel(String label) async =>
       (await _readPending()).containsKey(label);
@@ -826,6 +844,7 @@ class PasskeyService {
     _pendingLabels.value = const <String>{};
     _publishing.clear();
     _identityCredentialHex = null;
+    _pendingMutationTail = Future<void>.value();
   }
 
   /// Publish a label to Nostr for later cross-device discovery.
