@@ -1,8 +1,9 @@
-// `orchestra.onetime_addresses`: the operator switch for receiving from
-// another network. Every receive-from-another-network row is a one-time
-// quoted deposit address (there is no reusable one any more), so denied,
-// or no readable policy, leaves nothing to offer; `crypto.deposit` gates
-// the same rows, as the backend asks of every new deposit address.
+// `orchestra.onetime_addresses`: the operator switch for the one-time
+// quoted deposit address, the fallback of the reusable (standing) one.
+// Denied, only the coins the standing route may serve remain; with
+// standing denied too (or no readable policy) nothing is offered.
+// `crypto.deposit` gates both, as the backend asks of every new deposit
+// address.
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -95,8 +96,8 @@ void main() {
     tearDown(() => policy.dispose());
 
     test(
-        'bitcoin and dollar receive list every one-time route: EVM, Solana '
-        'and Tron, never another network or a venue rail', () {
+        'bitcoin and dollar receive list EVM, Solana and Tron, never another '
+        'network or a venue rail: standing first where it may serve', () {
       expect(oneTimeReceiveAllowed(policy), isTrue);
       expect(_ids(receiveCoinGroups(_catalog(), l10n, policy: policy)),
           unorderedEquals(_offered));
@@ -104,9 +105,28 @@ void main() {
           _ids(receiveCoinGroups(_catalog(), l10n,
               destinationAsset: 'USDB', policy: policy)),
           unorderedEquals(_offered));
+      // The policy does not name orchestra.standing_addresses (an older
+      // backend): standing is tried for every coin it may serve.
       final every = receiveCoinGroups(_catalog(), l10n, policy: policy)
           .expand((g) => g.options);
-      expect(every.every((o) => !o.reusableAddress), isTrue);
+      expect(every.every((o) => o.reusableAddress), isTrue);
+    });
+
+    test('standing denied: every row is a one-time row', () async {
+      final denied = runtimePolicyFixture(
+          also: {kStandingAddressCapability},
+          blocked: {kStandingAddressCapability});
+      addTearDown(denied.dispose);
+      expect(await denied.refresh(), isTrue);
+      for (final destination in ['BTC', 'USDB']) {
+        final rows = receiveCoinGroups(_catalog(), l10n,
+                destinationAsset: destination, policy: denied)
+            .expand((g) => g.options)
+            .toList();
+        expect(rows.map((o) => '${o.chain}:${o.assetCode}'),
+            unorderedEquals(_offered));
+        expect(rows.every((o) => !o.reusableAddress), isTrue);
+      }
     });
 
     test('the picker offers them and starting a quote passes', () async {
@@ -144,15 +164,38 @@ void main() {
             throwsA(isA<CapabilityUnavailableException>()));
         if (blocked == kOneTimeAddressCapability) {
           expect(oneTimeReceiveAllowed(policy), isFalse);
-          expect(receiveCoinGroups(_catalog(), l10n, policy: policy), isEmpty);
+          // Only the coins the standing route may serve remain.
+          for (final destination in ['BTC', 'USDB']) {
+            final rows = receiveCoinGroups(_catalog(), l10n,
+                    destinationAsset: destination, policy: policy)
+                .expand((g) => g.options);
+            expect(rows, isNotEmpty);
+            expect(rows.every((o) => o.reusableAddress), isTrue);
+          }
+        } else {
+          // crypto.deposit off: no standing row either.
           expect(
-              receiveCoinGroups(_catalog(), l10n,
-                  destinationAsset: 'USDB', policy: policy),
+              receiveCoinGroups(_catalog(), l10n, policy: policy)
+                  .expand((g) => g.options)
+                  .where((o) => o.reusableAddress),
               isEmpty);
         }
       });
     });
   }
+
+  test('one-time and standing both denied: nothing is offered', () async {
+    final policy = runtimePolicyFixture(
+        also: {kStandingAddressCapability},
+        blocked: {kStandingAddressCapability, kOneTimeAddressCapability});
+    addTearDown(policy.dispose);
+    expect(await policy.refresh(), isTrue);
+    expect(receiveCoinGroups(_catalog(), l10n, policy: policy), isEmpty);
+    expect(
+        receiveCoinGroups(_catalog(), l10n,
+            destinationAsset: 'USDB', policy: policy),
+        isEmpty);
+  });
 
   test('no readable policy fails closed: nothing is offered', () async {
     final policy = RuntimeCapabilitiesService.forTesting(

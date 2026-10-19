@@ -63,9 +63,8 @@ String? orchestraSwapClassCapability(
 }
 
 /// The gates a deposit address for another network needs, exactly as the
-/// backend's operation guard asks them of
-/// `POST /api/v1/orchestra/accumulation-addresses`: `crypto.deposit`
-/// first, then the route from [sourceChain]/[sourceAsset] into
+/// backend's operation guard asks them of a standing Receive registration
+/// (`PUT /standing-deposit-addresses/{ref}`): `crypto.deposit` first, then the route from [sourceChain]/[sourceAsset] into
 /// [destinationAsset] on the person's own Spark wallet. Receive rows and
 /// the receive flows (bitcoin and dollars) ask this; sends and venue
 /// deposits and withdrawals never do.
@@ -85,8 +84,9 @@ List<String> orchestraReceiveAddressCapabilities({
     ];
 
 /// The operator switch for receiving from another network through a
-/// ONE-TIME quoted deposit address: every coin row of the Dollars receive
-/// and of the Bitcoin receive's "other coins" (`oneTimeReceiveOptions`).
+/// ONE-TIME quoted deposit address: the fallback of every coin row of the
+/// Dollars receive and of the Bitcoin receive's "other coins" whose
+/// reusable (standing) address cannot serve it (`receiveOtherCoinOptions`).
 ///
 /// The quote that mints a one-time address is `POST /api/v1/orchestra/quote`
 /// from another network (not Spark, Lightning or a venue rail, and not
@@ -104,6 +104,17 @@ const kOneTimeAddressCapability = 'orchestra.onetime_addresses';
 bool oneTimeReceiveAllowed(RuntimeCapabilitiesService policy) =>
     policy.allows(kOneTimeAddressCapability);
 
+/// The operator switch for REUSABLE (standing) Receive addresses: the
+/// primary way another coin reaches the dollar balance (`spark:USDB`), from
+/// the Dollars receive and from the Bitcoin receive's "other coins". Off,
+/// the backend refuses every standing Receive registration as an
+/// unavailable route (422 `unsupported_route`); addresses already handed
+/// out keep receiving. A backend older than the switch publishes no such
+/// id, which is never read as a denial here: see
+/// `standingAddressPolicy` (reusable_deposit_address.dart). Never passed to
+/// `ensureAllAllowed`, which refuses an id the policy does not name.
+const kStandingAddressCapability = 'orchestra.standing_addresses';
+
 /// The gates a picker row needs: the move of [option]'s coin on its chain
 /// against [otherLegAsset] on the person's own rail, classified exactly as
 /// the backend classifies the quote that follows. On a receive picker
@@ -113,16 +124,26 @@ bool oneTimeReceiveAllowed(RuntimeCapabilitiesService policy) =>
 /// [kOneTimeAddressCapability] (the switch for one-time receive
 /// addresses), `crypto.deposit` (every new deposit address) and the quote
 /// gates.
+///
+/// [reusableLegAsset] is what a reusable row delivers when it is not
+/// [otherLegAsset]: the Bitcoin receive's "other coins" lists reusable
+/// rows that pay the dollar balance (`USDB`) beside one-time rows that pay
+/// bitcoin.
 List<String> orchestraOptionCapabilities(OrchestraReceiveOption option,
-        {String otherLegAsset = 'BTC', bool depositAddress = false}) =>
+        {String otherLegAsset = 'BTC',
+        bool depositAddress = false,
+        String? reusableLegAsset}) =>
     depositAddress && option.reusableAddress
         ? orchestraReceiveAddressCapabilities(
             sourceChain: option.chain,
             sourceAsset: option.assetCode,
-            destinationAsset: otherLegAsset,
+            destinationAsset: reusableLegAsset ?? otherLegAsset,
           )
         : [
-            if (depositAddress) ...[kOneTimeAddressCapability, 'crypto.deposit'],
+            if (depositAddress) ...[
+              kOneTimeAddressCapability,
+              'crypto.deposit'
+            ],
             ...orchestraCapabilityRequirements(
               sourceChain: option.chain,
               sourceAsset: option.assetCode,
@@ -142,13 +163,16 @@ List<String> orchestraOptionCapabilities(OrchestraReceiveOption option,
   RuntimeCapabilitiesService policy, {
   String otherLegAsset = 'BTC',
   bool depositAddress = false,
+  String? reusableLegAsset,
 }) {
   final offered = <OrchestraReceiveOption>[];
   String? reason;
   for (final option in options) {
     String? denied;
     for (final gate in orchestraOptionCapabilities(option,
-        otherLegAsset: otherLegAsset, depositAddress: depositAddress)) {
+        otherLegAsset: otherLegAsset,
+        depositAddress: depositAddress,
+        reusableLegAsset: reusableLegAsset)) {
       denied = policy.blockReason(gate);
       if (denied != null) break;
     }

@@ -46,8 +46,8 @@ Future<void> showBitcoinReceiveSheet(BuildContext context) =>
     );
 
 /// The Investments tab's Receive: "From your Bitcoin" over the coins it
-/// also accepts, each through a one-time address, in a sheet over the
-/// current screen.
+/// also accepts, each through its reusable address (a one-time address
+/// where that cannot serve it), in a sheet over the current screen.
 Future<void> showUsdReceiveSheet(BuildContext context) =>
     showAppBottomSheet<void>(
       context: context,
@@ -56,8 +56,10 @@ Future<void> showUsdReceiveSheet(BuildContext context) =>
     );
 
 /// The Bitcoin receive's "other coins": the same coin sheet over the
-/// Bitcoin receive, delivering bitcoin (`spark:BTC`) through a one-time
-/// address. Closing it returns to the Bitcoin receive as it was.
+/// Bitcoin receive. A coin gets the reusable Dollars address (landing in
+/// Investments, said under it), or, where that cannot serve it, a one-time
+/// address delivering bitcoin (`spark:BTC`). Closing it returns to the
+/// Bitcoin receive as it was.
 Future<void> showOtherCoinsReceiveSheet(BuildContext context) =>
     showAppBottomSheet<void>(
       context: context,

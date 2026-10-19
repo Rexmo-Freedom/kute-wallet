@@ -23,7 +23,7 @@ void main() {
   tearDown(() => AffiliateService.debugSessionToken = null);
 
   test('a deposit address asks what the backend operation guard asks', () {
-    // POST /api/v1/orchestra/accumulation-addresses: crypto.deposit plus
+    // A standing Receive registration: crypto.deposit plus
     // operationCapabilities(source, asset, "spark", destinationAsset).
     expect(
         orchestraReceiveAddressCapabilities(
@@ -37,6 +37,36 @@ void main() {
         orchestraReceiveAddressCapabilities(
             sourceChain: 'base', sourceAsset: 'USDC', destinationAsset: 'USDB'),
         ['crypto.deposit', 'orchestra.swap']);
+  });
+
+  test(
+      'the Bitcoin receive\'s reusable rows answer to the dollar route they '
+      'deliver, its one-time rows to the bitcoin one', () {
+    final reusable = _option('solana', 'SOL');
+    final oneTime = _option('solana', 'SOL', reusable: false);
+    expect(
+        orchestraOptionCapabilities(reusable,
+            otherLegAsset: 'BTC',
+            reusableLegAsset: 'USDB',
+            depositAddress: true),
+        orchestraReceiveAddressCapabilities(
+            sourceChain: 'solana',
+            sourceAsset: 'SOL',
+            destinationAsset: 'USDB'));
+    expect(
+        orchestraOptionCapabilities(oneTime,
+            otherLegAsset: 'BTC',
+            reusableLegAsset: 'USDB',
+            depositAddress: true),
+        [
+          kOneTimeAddressCapability,
+          'crypto.deposit',
+          ...orchestraCapabilityRequirements(
+              sourceChain: 'solana',
+              sourceAsset: 'SOL',
+              destinationChain: 'spark',
+              destinationAsset: 'BTC'),
+        ]);
   });
 
   test('every receive row needs crypto.deposit, one-time included', () {

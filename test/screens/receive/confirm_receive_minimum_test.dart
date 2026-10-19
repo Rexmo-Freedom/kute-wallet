@@ -1,11 +1,13 @@
 // The Bitcoin receive's own codes (the unified code, Bitcoin only, and
 // Lightning only) show no minimum: the network sets none. Other coins are
-// taken through the "other coins" line: a coin sheet over this one that
-// delivers bitcoin (spark:BTC) through one-time addresses, titled Bitcoin,
-// with no Investments note and no Bitcoin-to-Investments row; a coin
-// picked there asks its amount in the Lightning receive's own "Request
-// amount" sheet. The line lists only coins a one-time quote can serve,
-// and is gone when none can. The rails are stubbed.
+// taken through the "other coins" line, a coin sheet over this one. A coin
+// the standing route serves gets the Dollars receive's reusable
+// `spark:USDB` address, with the note that the money lands in the
+// Investments dollar balance; where the standing route cannot serve it,
+// the coin falls back to a one-time address delivering bitcoin
+// (spark:BTC), titled Bitcoin, its amount asked in the Lightning receive's
+// own "Request amount" sheet. The line lists only coins one of the two can
+// serve, and is gone when none can. The rails are stubbed.
 
 import 'dart:io';
 
@@ -40,6 +42,7 @@ import 'package:kute/screens/shared/coin_asset_grid.dart';
 import 'package:kute/screens/shared/receive_surface.dart';
 import 'package:kute/screens/usd/usd_receive_screen.dart';
 import 'package:kute/services/orchestra/receive_minimums.dart';
+import 'package:kute/services/orchestra/reusable_deposit_address.dart';
 import 'package:kute/services/orchestra/standing_deposit_store.dart'
     show StandingDepositStore;
 import 'package:kute/services/runtime_capabilities_service.dart';
@@ -82,11 +85,13 @@ const _lnurl =
     'lnurl1dp68gurn8ghj7ctsdyhxwetewdjhytnxw4hxgtmvde6hymp0wpshj0mswfhk5etrw3ykg0f3xqcs2mcx97';
 const _spark =
     'spark1pgss9qn2e5ej2t0wf6l0ndr0uw3nqcwyznzuu7flm8xvk4nw0jxcvyxtfsk2';
+const _deposit = '0x52908400098527886E0F7030069857D2E4169EE7';
 
 final _wallet = WalletConfig(id: 'spending', name: 'Spending');
 
 Future<void> _pump(WidgetTester tester,
-    {List<Map<String, dynamic>>? assets}) async {
+    {Set<String> standing = const {'spark:USDB'},
+    List<Map<String, dynamic>>? assets}) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
@@ -127,6 +132,7 @@ Future<void> _pump(WidgetTester tester,
             ),
           )),
       orchestraRoutesReadyProvider.overrideWith((_) async {}),
+      standingDestinationsProvider.overrideWith((_) async => standing),
       // No limits read answers: the $1.00 floor.
       receiveMinimumsProvider
           .overrideWithValue(ReceiveMinimums(fetch: (_) async => null)),
@@ -198,6 +204,8 @@ void main() {
         paymentMethod: ReceivePaymentMethod.sparkAddress()));
   });
 
+  late List<String> resolvedInto;
+
   setUp(() async {
     GoogleFonts.config.allowRuntimeFetching = false;
     final policy = runtimePolicyFixture();
@@ -205,11 +213,24 @@ void main() {
     expect(await policy.refresh(), isTrue);
     events = [];
     TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+    resolvedInto = [];
+    ReusableDepositAddressService.debugResolver = (
+        {required sourceChain,
+        required sourceAsset,
+        required destinationAsset}) async {
+      resolvedInto.add(destinationAsset);
+      return const ReusableDepositAddress(
+          address: _deposit,
+          id: 'sda_test',
+          kuteFeeBps: null,
+          model: DepositAddressModel.standing);
+    };
   });
 
   tearDown(() {
     RuntimeCapabilitiesService.debugInstance = null;
     TrackingService.debugTrackObserver = null;
+    ReusableDepositAddressService.debugResolver = null;
   });
 
   List<Map<String, Object>?> addressEvents() => events
@@ -257,10 +278,43 @@ void main() {
   });
 
   testWidgets(
-      'other coins opens the Bitcoin one-time sheet over this one: titled '
-      'Bitcoin, no Investments note, no Bitcoin row, and a coin opens the '
-      '"Request amount" sheet', (tester) async {
+      'other coins opens the sheet over this one, and a coin the standing '
+      'route serves gets the Dollars address with the Investments note',
+      (tester) async {
     await _pump(tester);
+    await tester.tap(find.text(_l10n.receiveAlsoAccepts));
+    await _settle(tester);
+    expect(
+        tester
+            .widget<UsdReceiveScreen>(find.byType(UsdReceiveScreen))
+            .destinationAsset,
+        'BTC');
+    expect(find.byType(ConfirmReceive, skipOffstage: false), findsOneWidget);
+    await tester.tap(find.widgetWithText(CoinAssetTile, 'USDT').first);
+    await _settle(tester);
+    await _settle(tester);
+    expect(resolvedInto, ['USDB']);
+    expect(
+        find.byWidgetPredicate(
+            (w) => w is ReceiveAddressLine && w.address == _deposit),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('usd-receive-from-bitcoin-note')),
+        findsOneWidget);
+    expect(find.text(_l10n.moveDestDollarsSubtitle), findsOneWidget);
+    expect(find.byType(RequestAmountSheet), findsNothing);
+    final generated = addressEvents().last!;
+    expect(generated['destination'], 'spark_usd');
+    expect(generated['address_kind'], 'standing');
+    expect(generated['entry_source'], 'bitcoin_receive');
+    expect(generated.keys, isNot(contains('address')));
+    await _unmount(tester);
+  });
+
+  testWidgets(
+      'other coins the standing route cannot serve open the Bitcoin one-time '
+      'flow: titled Bitcoin, no Investments note, no Bitcoin row, and a coin '
+      'opens the "Request amount" sheet', (tester) async {
+    await _pump(tester, standing: const {'bitcoin:BTC'});
     expect(find.text(_l10n.receiveAlsoAccepts), findsOneWidget);
     await tester.tap(find.text(_l10n.receiveAlsoAccepts));
     await _settle(tester);
@@ -278,8 +332,8 @@ void main() {
         findsOneWidget);
     expect(find.text(_l10n.assetDollars), findsNothing);
     expect(find.text(_l10n.usdReceiveFromYourWallet), findsNothing);
-    expect(find.byKey(const ValueKey('usd-receive-from-bitcoin')),
-        findsNothing);
+    expect(
+        find.byKey(const ValueKey('usd-receive-from-bitcoin')), findsNothing);
     expect(names(events), isNot(contains('usd_receive_opened')));
     expect(events.where((e) => e.$1 == 'receive_also_accepts_opened'),
         hasLength(1));
@@ -306,17 +360,22 @@ void main() {
         findsOneWidget);
     final step =
         events.where((e) => e.$1 == 'receive_step').map((e) => e.$2!).toList();
-    expect(step.any((p) => p['step'] == 'coin_selected' &&
-        p['address_kind'] == 'onetime' &&
-        p['destination'] == 'spark_btc'), isTrue);
+    expect(
+        step.any((p) =>
+            p['step'] == 'coin_selected' &&
+            p['address_kind'] == 'onetime' &&
+            p['fallback_reason'] == 'standing_unserved' &&
+            p['destination'] == 'spark_btc'),
+        isTrue);
+    expect(resolvedInto, isEmpty);
     expect(addressEvents(), isEmpty);
     await _unmount(tester);
   });
 
   testWidgets(
-      'only coins a one-time quote can serve are listed, and with none left '
-      'the line is gone', (tester) async {
-    // No own refund address and not refund-optional: never offered.
+      'only coins the standing route or a one-time quote can serve are '
+      'listed, and with none left the line is gone', (tester) async {
+    // Neither the standing rail nor a one-time quote takes these.
     await _pump(tester, assets: [
       _row('spark', 'BTC', decimals: 8),
       _row('spark', 'USDB'),
@@ -326,12 +385,16 @@ void main() {
     expect(find.text(_l10n.receiveAlsoAccepts), findsNothing);
     await _unmount(tester);
 
-    // One-time addresses off: nothing to offer either.
-    final off =
-        runtimePolicyFixture(blocked: {'orchestra.onetime_addresses'});
+    // One-time addresses off: the standing coins are still taken...
+    final off = runtimePolicyFixture(blocked: {'orchestra.onetime_addresses'});
     expect(await off.refresh(), isTrue);
     RuntimeCapabilitiesService.debugInstance = off;
     await _pump(tester);
+    expect(find.text(_l10n.receiveAlsoAccepts), findsOneWidget);
+    await _unmount(tester);
+
+    // ...and with no standing spark:USDB destination either, nothing is.
+    await _pump(tester, standing: const {'bitcoin:BTC'});
     expect(find.text(_l10n.receiveAlsoAccepts), findsNothing);
     await _unmount(tester);
     off.dispose();

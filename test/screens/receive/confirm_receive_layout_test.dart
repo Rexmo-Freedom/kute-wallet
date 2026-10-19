@@ -41,6 +41,8 @@ import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
 import '../../helpers/runtime_policy_fixture.dart';
+import 'package:kute/services/orchestra/reusable_deposit_address.dart'
+    show standingDestinationsProvider;
 
 final _l10n = AppLocalizationsEn();
 
@@ -94,6 +96,8 @@ Future<void> _pump(WidgetTester tester,
           ))),
       selectedAccountProvider.overrideWithValue(BtcSpendingAccount(_wallet)),
       swapOffersEnabledProvider.overrideWithValue(true),
+      // The provider lists spark:USDB as a standing destination.
+      standingDestinationsProvider.overrideWith((_) async => {'spark:USDB'}),
       orchestraSupportedRoutesProvider.overrideWith((_) => _Routes(
             OrchestraRoutesCatalog.fromJson(
               {

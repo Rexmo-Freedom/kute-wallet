@@ -7,9 +7,11 @@
 // before (or to none when skipped; never the wallet's own EVM address),
 // persists it as a pending
 // quote (never an Activity row before a deposit), and shows the address
-// with the exact amount and the expiry. No standing or legacy address is
-// ever registered. A reconnect (a rebuilt SDK) never ends the screen; a
-// wallet switch does.
+// with the exact amount and the expiry. It is the fallback of the
+// reusable address: here the policy denies `orchestra.standing_addresses`,
+// so no standing address is asked for (and no legacy one ever is), and
+// every address says why it fell back. A reconnect (a rebuilt SDK) never
+// ends the screen; a wallet switch does.
 
 import 'dart:async';
 
@@ -51,7 +53,10 @@ import 'package:kute/screens/shared/send/send_flow_widgets.dart'
 import 'package:kute/services/orchestra/onetime_receive.dart';
 import 'package:kute/services/orchestra/onetime_refund_address_store.dart';
 import 'package:kute/services/orchestra/orchestra_quote_guard.dart';
+import 'package:kute/services/orchestra/orchestra_capability_requirements.dart'
+    show kStandingAddressCapability;
 import 'package:kute/services/orchestra/receive_minimums.dart';
+import 'package:kute/services/orchestra/reusable_deposit_address.dart';
 import 'package:kute/services/orchestra/standing_deposit_store.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -302,7 +307,10 @@ void main() {
 
   setUp(() async {
     GoogleFonts.config.allowRuntimeFetching = false;
-    final policy = runtimePolicyFixture();
+    // Standing denied: the one-time flow, with no standing request.
+    final policy = runtimePolicyFixture(
+        also: {kStandingAddressCapability},
+        blocked: {kStandingAddressCapability});
     RuntimeCapabilitiesService.debugInstance = policy;
     expect(await policy.refresh(), isTrue);
     events = [];
@@ -445,6 +453,7 @@ void main() {
     expect(generated['kute_fee_bps'], 50);
     expect(generated['quote_expiry_seconds'], greaterThan(100));
     expect(generated['refund_address_set'], isTrue);
+    expect(generated['fallback_reason'], 'standing_policy_off');
     expect(generated.keys, isNot(contains('address')));
     expect(generated.keys, isNot(contains('quote_id')));
     // Only whether a return address was set reaches analytics.
@@ -484,7 +493,48 @@ void main() {
         events.where((e) => e.$1 == 'receive_address_generated').single.$2!;
     expect(generated['destination'], 'spark_btc');
     expect(generated['entry_source'], 'bitcoin_receive');
+    expect(generated['fallback_reason'], 'standing_policy_off');
     expect(standingCalls, isEmpty);
+    await _unmount(tester);
+  });
+
+  testWidgets(
+      'Bitcoin other coins: the standing route refused, the one-time quote '
+      'into spark:BTC says so', (tester) async {
+    // A policy that does not name the switch (an older backend): the
+    // standing route is tried, and refused.
+    final policy = runtimePolicyFixture();
+    RuntimeCapabilitiesService.debugInstance = policy;
+    expect(await policy.refresh(), isTrue);
+    final asked = <String>[];
+    ReusableDepositAddressService.debugResolver = (
+        {required sourceChain,
+        required sourceAsset,
+        required destinationAsset}) async {
+      asked.add('$sourceChain:$sourceAsset:$destinationAsset');
+      throw StandingUnavailableException(
+          sourceChain: sourceChain,
+          sourceAsset: sourceAsset,
+          reason: StandingFallbackReason.standingRefused);
+    };
+    addTearDown(() => ReusableDepositAddressService.debugResolver = null);
+    await _pump(tester, bitcoin: true);
+    await tester.tap(find.widgetWithText(CoinAssetTile, 'USDT').first);
+    await _settle(tester);
+    await _settle(tester);
+    expect(asked, ['ethereum:USDT:USDB']);
+    expect(find.byType(RequestAmountSheet), findsOneWidget);
+    tester.widget<AmountKeypad>(find.byType(AmountKeypad)).onChanged('50000');
+    await tester.pump();
+    await _createWithRefund(tester, _refund);
+    expect(quoted.single.destinationAsset, 'BTC');
+    final generated =
+        events.where((e) => e.$1 == 'receive_address_generated').single.$2!;
+    expect(generated['address_kind'], 'onetime');
+    expect(generated['destination'], 'spark_btc');
+    expect(generated['fallback_reason'], 'standing_refused');
+    // Nothing from this address shows as a Dollars deposit in Bitcoin.
+    expect(find.text(_l10n.moveDestDollarsSubtitle), findsNothing);
     await _unmount(tester);
   });
 

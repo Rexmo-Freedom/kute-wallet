@@ -512,6 +512,9 @@ restore_abandoned
 restore_started
 restore_step
 restore_write_failed
+reusable_deposit_address_created
+reusable_deposit_address_retried
+reusable_deposit_address_reused
 review_prompted
 route_paused_shown
 sal_action_result

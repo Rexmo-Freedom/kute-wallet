@@ -34,8 +34,8 @@ import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/asset_network_picker.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/services/orchestra/orchestra_capability_requirements.dart';
-import 'package:kute/services/orchestra/onetime_receive.dart'
-    show oneTimeReceiveOptions;
+import 'package:kute/services/orchestra/reusable_deposit_address.dart'
+    show receiveOtherCoinOptions;
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -275,23 +275,25 @@ class CoinAssetTile extends StatelessWidget {
 /// and the marks in the grid can never be a different set.
 ///
 /// The destination defaults to the wallet's bitcoin (`spark:BTC`); the
-/// dollar balance names its own (`USDB`). Every row is a ONE-TIME quoted
-/// deposit address ([oneTimeReceiveOptions]: a live route, an own refund
-/// address on the source chain, never a venue rail), offered only while
-/// `orchestra.onetime_addresses` allows them. With the switch off, or no
-/// readable policy, nothing is listed: Receive hands out no reusable
-/// deposit address.
+/// dollar balance names its own (`USDB`). Each row is a REUSABLE standing
+/// address to `spark:USDB` wherever that route may serve the coin, else a
+/// ONE-TIME quoted address into the destination while
+/// `orchestra.onetime_addresses` allows it ([receiveOtherCoinOptions]).
+/// [standingDestinations] is the provider's standing destination list, or
+/// null while unknown. Never a venue rail, never a legacy accumulation
+/// address.
 List<CoinAssetGroup> receiveCoinGroups(
   OrchestraRoutesCatalog catalog,
   AppLocalizations l10n, {
   String destinationAsset = 'BTC',
+  Set<String>? standingDestinations,
   RuntimeCapabilitiesService? policy,
 }) {
-  if (!oneTimeReceiveAllowed(policy ?? RuntimeCapabilitiesService.instance)) {
-    return const [];
-  }
   return groupCoinsByAsset(
-    oneTimeReceiveOptions(catalog, destinationAsset: destinationAsset)
+    receiveOtherCoinOptions(catalog,
+            destinationAsset: destinationAsset,
+            standingDestinations: standingDestinations,
+            policy: policy)
         // The dollar row is an ordinary source here, and it wears plain
         // dollars rather than the catalogue's spelling of the token.
         .map((o) => dollarsRowLabels(o, l10n))
@@ -325,13 +327,16 @@ String? coinNetworkRowNote(
   List<CoinAssetGroup> groups, {
   String otherLegAsset = 'BTC',
   bool depositAddress = false,
+  String? reusableLegAsset,
 }) {
   final policy = RuntimeCapabilitiesService.instance;
   final offered = <CoinAssetGroup>[];
   String? reason;
   for (final group in groups) {
     final result = orchestraOptionsOfferedUnderPolicy(group.options, policy,
-        otherLegAsset: otherLegAsset, depositAddress: depositAddress);
+        otherLegAsset: otherLegAsset,
+        depositAddress: depositAddress,
+        reusableLegAsset: reusableLegAsset);
     reason ??= result.hiddenReason;
     if (result.offered.isEmpty) continue;
     offered.add(result.offered.length == group.options.length
@@ -409,6 +414,10 @@ class CoinAssetPickerSheet extends StatefulWidget {
   /// every deposit address it mints. Sends leave it false.
   final bool depositAddress;
 
+  /// What a reusable row delivers when it is not [otherLegAsset] (see
+  /// `orchestraOptionCapabilities`).
+  final String? reusableLegAsset;
+
   final ValueChanged<OrchestraReceiveOption> onPicked;
 
   const CoinAssetPickerSheet({
@@ -424,6 +433,7 @@ class CoinAssetPickerSheet extends StatefulWidget {
     this.pinned,
     this.otherLegAsset = 'BTC',
     this.depositAddress = false,
+    this.reusableLegAsset,
   });
 
   @override
@@ -440,7 +450,8 @@ class _CoinAssetPickerSheetState extends State<CoinAssetPickerSheet> {
   ({List<CoinAssetGroup> groups, String? hiddenReason}) _offered() =>
       coinGroupsOfferedUnderPolicy(widget.groups,
           otherLegAsset: widget.otherLegAsset,
-          depositAddress: widget.depositAddress);
+          depositAddress: widget.depositAddress,
+          reusableLegAsset: widget.reusableLegAsset);
 
   @override
   void initState() {

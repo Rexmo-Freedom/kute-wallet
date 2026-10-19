@@ -47,6 +47,10 @@ import 'package:kute/screens/shared/receive_surface.dart';
 import 'package:kute/screens/shared/stepper/stepper_widgets.dart';
 import 'package:kute/providers/orchestra_supported_routes_provider.dart';
 import 'package:kute/services/background_sync_service.dart';
+import 'package:kute/services/orchestra/reusable_deposit_address.dart'
+    show standingDestinationsProvider;
+import 'package:kute/services/orchestra_routes.dart'
+    show kOrchestraUsdAssetCode;
 import 'package:kute/services/jade_service.dart';
 import 'package:kute/services/ledger_service.dart';
 import 'package:kute/services/sound_service.dart';
@@ -1247,8 +1251,10 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
   }
 
   /// The coins the Bitcoin receive also takes from other networks, folded
-  /// one per coin: every live route into `spark:BTC` a one-time address
-  /// can serve, while the policy allows them. Empty off the spending
+  /// one per coin: exactly the set its "other coins" sheet offers (a
+  /// reusable standing address into the Investments dollar balance where
+  /// that route may serve the coin, else a one-time address into
+  /// `spark:BTC` while the policy allows them). Empty off the spending
   /// wallet, on the USDC pool, and for accounts that may not be offered
   /// swaps.
   List<CoinAssetGroup> _alsoAcceptedCoins() {
@@ -1256,6 +1262,7 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
     // lands) so the offering matches today's routes.
     final catalog = ref.watch(orchestraSupportedRoutesProvider);
     final offersOn = ref.watch(swapOffersEnabledProvider);
+    final destinations = ref.watch(standingDestinationsProvider).valueOrNull;
     if (_selectedPool == _ReceivePool.usdc) return const [];
     if (!_isPickedWalletSparkSpending()) return const [];
     // `swapOffersEnabledProvider` answers whether an account may be
@@ -1263,17 +1270,21 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
     // a cold account is refused them.
     if (!offersOn) return const [];
     return coinGroupsOfferedUnderPolicy(
-      receiveCoinGroups(catalog, context.l10n, destinationAsset: 'BTC'),
+      receiveCoinGroups(catalog, context.l10n,
+          destinationAsset: 'BTC', standingDestinations: destinations),
       otherLegAsset: 'BTC',
+      reusableLegAsset: kOrchestraUsdAssetCode,
       depositAddress: true,
     ).groups;
   }
 
   /// The line under the format buttons: what else the Bitcoin receive
   /// takes. A tap opens the coin sheet over this one (closing it comes
-  /// back here as it was); a picked coin asks its amount in the "Request
-  /// amount" sheet and shows a one-time address that delivers bitcoin.
-  /// Null when there is nothing to offer, so the line is gone.
+  /// back here as it was); a picked coin shows the reusable Dollars
+  /// address (landing in Investments, as its note says) or, where that
+  /// cannot serve it, asks its amount and shows a one-time address that
+  /// delivers bitcoin. Null when there is nothing to offer, so the line
+  /// is gone.
   Widget? _buildAlsoAcceptsSlot(AppColorsExtension c) {
     final groups = _alsoAcceptedCoins();
     if (groups.isEmpty) return null;

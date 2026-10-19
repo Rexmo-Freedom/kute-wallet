@@ -173,11 +173,12 @@ Future<OneTimeReceiveAmount?> requestOneTimeReceiveAmount(
 
 /// The step every one-time receive records once its amount is known.
 void _trackAmountEntered(OrchestraReceiveOption option, String destinationAsset,
-    OneTimeReceiveAmount amount) {
+    OneTimeReceiveAmount amount, String? fallbackReason) {
   final props = <String, Object>{
     'asset': option.assetCode,
     'chain': option.chain,
     'address_kind': 'onetime',
+    if (fallbackReason != null) 'fallback_reason': fallbackReason,
     'destination': oneTimeReceiveDestinationLabel(destinationAsset),
     'amount_usd': amount.usdCents / 100,
     'amount_unit': amount.unit.toLowerCase(),
@@ -194,16 +195,21 @@ void _trackAmountEntered(OrchestraReceiveOption option, String destinationAsset,
 /// The whole one-time receive after a coin is picked: the amount sheet,
 /// the return-address step, then [QuotedReceiveScreen] with the address.
 /// Nothing more opens when the sheet is dismissed or the step left.
+///
+/// [fallbackReason] is why the reusable (standing) address could not serve
+/// this coin (`StandingFallbackReason.analytics`), carried on the steps
+/// and on `receive_address_generated` as `fallback_reason`.
 Future<void> openOneTimeReceive(
   BuildContext context,
   WidgetRef ref, {
   required OrchestraReceiveOption option,
   required String destinationAsset,
+  String? fallbackReason,
 }) async {
   final amount = await requestOneTimeReceiveAmount(context, ref,
       option: option, destinationAsset: destinationAsset);
   if (amount == null || !context.mounted) return;
-  _trackAmountEntered(option, destinationAsset, amount);
+  _trackAmountEntered(option, destinationAsset, amount, fallbackReason);
   final refund = await askOneTimeRefundAddress(context,
       option: option, destinationAsset: destinationAsset);
   if (refund == null || !context.mounted) return;
@@ -213,6 +219,7 @@ Future<void> openOneTimeReceive(
       destinationAsset: destinationAsset,
       amount: amount,
       refundAddress: refund.address,
+      fallbackReason: fallbackReason,
     ),
   ));
 }
@@ -226,6 +233,7 @@ class QuotedReceiveScreen extends ConsumerStatefulWidget {
     required this.destinationAsset,
     required this.amount,
     required this.refundAddress,
+    this.fallbackReason,
   });
 
   final OrchestraReceiveOption option;
@@ -235,6 +243,10 @@ class QuotedReceiveScreen extends ConsumerStatefulWidget {
   /// The person's own return address on the source network, or null when
   /// they skipped it (the quote then carries none).
   final String? refundAddress;
+
+  /// Why the reusable address could not serve this coin, for analytics
+  /// (`fallback_reason`); null when nothing fell back.
+  final String? fallbackReason;
 
   @override
   ConsumerState<QuotedReceiveScreen> createState() =>
@@ -335,6 +347,8 @@ class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
         'provider': 'orchestra',
         'destination': _destinationLabel,
         'address_kind': 'onetime',
+        if (widget.fallbackReason != null)
+          'fallback_reason': widget.fallbackReason!,
         'refund_address_set': widget.refundAddress != null,
         'amount_usd': _amount.usdCents / 100,
         ..._amount.minimum.trackingParams,
@@ -863,7 +877,8 @@ class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
     final amount = await requestOneTimeReceiveAmount(context, ref,
         option: widget.option, destinationAsset: widget.destinationAsset);
     if (amount == null || !mounted || !_sameWallet) return;
-    _trackAmountEntered(widget.option, widget.destinationAsset, amount);
+    _trackAmountEntered(
+        widget.option, widget.destinationAsset, amount, widget.fallbackReason);
     setState(() {
       _clearQuote();
       _amount = amount;

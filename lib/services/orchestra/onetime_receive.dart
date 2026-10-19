@@ -1,11 +1,12 @@
 // lib/services/orchestra/onetime_receive.dart
 //
-// Receiving another coin from another network (founder, 2026-10-19): a
-// ONE-TIME quoted Orchestra deposit address per payment, for both
-// destinations. The Dollars receive delivers `spark:USDB`; the Bitcoin
-// receive's "other coins" delivers `spark:BTC`. No reusable address
-// (standing or legacy accumulation) is created for either; the backend
-// refuses them too.
+// Receiving another coin from another network through a ONE-TIME quoted
+// Orchestra deposit address per payment: the FALLBACK of the reusable
+// (standing) address (founder, 2026-10-19; reusable_deposit_address.dart),
+// used when the standing route cannot serve the coin, and for coins only a
+// one-time quote can serve. The Dollars receive delivers `spark:USDB`; the
+// Bitcoin receive's "other coins" delivers `spark:BTC`. Never a legacy
+// accumulation address.
 //
 //   * The person picks a coin and network the live catalogue routes into
 //     the destination, then the amount (USD for dollars, sats or fiat for

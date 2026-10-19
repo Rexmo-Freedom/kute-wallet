@@ -4,8 +4,10 @@
 // itself open the Investments deposit from the spending bitcoin), then
 // "From another wallet or exchange" over the coin grid. Into Bitcoin (the
 // Bitcoin receive's "other coins") it is the grid alone. Nothing is
-// picked for the person: a coin they tap asks its amount in the "Request
-// amount" sheet. Nothing here reaches a money call.
+// picked for the person. Here the standing route serves no coin, so a
+// coin they tap falls back to the one-time flow and asks its amount in
+// the "Request amount" sheet (the reusable address is covered by
+// usd_receive_standing_test.dart). Nothing here reaches a money call.
 
 import 'dart:async';
 
@@ -45,6 +47,8 @@ import 'package:kute/screens/shared/stepper/stepper_widgets.dart'
 import 'package:kute/screens/shared/send/send_flow_widgets.dart'
     show SendToListRow;
 import 'package:kute/screens/usd/usd_receive_screen.dart';
+import 'package:kute/services/orchestra/reusable_deposit_address.dart'
+    show standingDestinationsProvider;
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -136,6 +140,10 @@ Future<void> _pump(WidgetTester tester,
       orchestraSupportedRoutesProvider
           .overrideWith((_) => _Routes(_catalog(stables: stables))),
       orchestraRoutesReadyProvider.overrideWith((_) async {}),
+      // spark:USDB is not a standing destination here: every coin is
+      // served by a one-time address (usd_receive_standing_test.dart has
+      // the reusable address).
+      standingDestinationsProvider.overrideWith((_) async => {'bitcoin:BTC'}),
       // No limits read answers: the $1.00 floor.
       receiveMinimumsProvider
           .overrideWithValue(ReceiveMinimums(fetch: (_) async => null)),
@@ -369,6 +377,7 @@ void main() {
       'asset': 'USDT',
       'chain': 'ethereum',
       'address_kind': 'onetime',
+      'fallback_reason': 'standing_unserved',
       'preselected': false,
       'preselect_reason': 'none',
     });
@@ -420,8 +429,7 @@ void main() {
     await _unmount(tester);
   });
 
-  testWidgets(
-      'a coin on several networks asks which one, then its amount',
+  testWidgets('a coin on several networks asks which one, then its amount',
       (tester) async {
     await _pump(tester);
     await tester.tap(_tile('USDC'));

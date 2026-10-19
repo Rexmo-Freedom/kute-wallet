@@ -478,6 +478,24 @@ void main() {
     });
   });
 
+  test('Dollars Receive never shows the Investing-withdrawal address',
+      () async {
+    await usePolicy(5);
+    await instruction();
+    final receive = await StandingDepositStore.register(
+        walletId: 'a',
+        recipient: _spark,
+        destinationAsset: 'USDB',
+        sourceChain: 'base',
+        sourceAsset: 'USDC',
+        wanted: () => true);
+    expect(StandingDepositStore.isInvestingWithdrawalLabel(receive!.label),
+        isFalse);
+    expect(receive.label, StandingDepositStore.labelFor(_spark, 'USDB', 5));
+    expect(calls.where((c) => c == 'register:s'), hasLength(1),
+        reason: 'its own registration, at the dollar-deposit terms');
+  });
+
   test('rows on the instruction read as Investing withdrawals', () {
     final record = StandingDepositRecord(
         walletId: 'a',
