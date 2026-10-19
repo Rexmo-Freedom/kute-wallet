@@ -3046,5 +3046,6 @@
   "moneyStepArrived": "In Bitcoin angekommen",
   "moneyStepSending": "{amount} werden gesendet",
   "moneyStepSent": "{amount} gesendet",
-  "moneyStepCompact": "{source} → {destination} · {amount}"
+  "moneyStepCompact": "{source} → {destination} · {amount}",
+  "arbitrumRefundReturned": "{amount} auf Arbitrum zurückerstattet"
 }

@@ -3046,5 +3046,6 @@
   "moneyStepArrived": "Jõudis kontole Bitcoin",
   "moneyStepSending": "Saadame {amount}",
   "moneyStepSent": "Saadetud {amount}",
-  "moneyStepCompact": "{source} → {destination} · {amount}"
+  "moneyStepCompact": "{source} → {destination} · {amount}",
+  "arbitrumRefundReturned": "{amount} tagastatud Arbitrumis"
 }

@@ -3046,5 +3046,6 @@
   "moneyStepArrived": "Ienācis kontā Bitcoin",
   "moneyStepSending": "Sūta {amount}",
   "moneyStepSent": "Nosūtīts {amount}",
-  "moneyStepCompact": "{source} → {destination} · {amount}"
+  "moneyStepCompact": "{source} → {destination} · {amount}",
+  "arbitrumRefundReturned": "{amount} atgriezti Arbitrum tīklā"
 }

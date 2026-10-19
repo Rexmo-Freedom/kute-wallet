@@ -3046,5 +3046,6 @@
   "moneyStepArrived": "Atkeliavo į likutį Bitcoin",
   "moneyStepSending": "Siunčiama {amount}",
   "moneyStepSent": "Išsiųsta {amount}",
-  "moneyStepCompact": "{source} → {destination} · {amount}"
+  "moneyStepCompact": "{source} → {destination} · {amount}",
+  "arbitrumRefundReturned": "{amount} grąžinta į Arbitrum"
 }

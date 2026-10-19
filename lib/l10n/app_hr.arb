@@ -3046,5 +3046,6 @@
   "moneyStepArrived": "Stiglo na saldo Bitcoin",
   "moneyStepSending": "Šaljemo {amount}",
   "moneyStepSent": "Poslano {amount}",
-  "moneyStepCompact": "{source} → {destination} · {amount}"
+  "moneyStepCompact": "{source} → {destination} · {amount}",
+  "arbitrumRefundReturned": "{amount} vraćeno na Arbitrum"
 }

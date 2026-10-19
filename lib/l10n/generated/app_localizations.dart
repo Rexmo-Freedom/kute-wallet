@@ -18391,6 +18391,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{source} → {destination} · {amount}'**
   String moneyStepCompact(String source, String destination, String amount);
+
+  /// Quiet line under the Investing balance and on the Portfolio's Investing tile: USDC from a refunded Investing move is back on the wallet's own address on Arbitrum. {amount} formatted dollars; Arbitrum is a network name.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} returned on Arbitrum'**
+  String arbitrumRefundReturned(String amount);
 }
 
 class _AppLocalizationsDelegate

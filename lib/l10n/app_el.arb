@@ -3046,5 +3046,6 @@
   "moneyStepArrived": "Έφτασε στο Bitcoin",
   "moneyStepSending": "Αποστολή {amount}",
   "moneyStepSent": "Στάλθηκαν {amount}",
-  "moneyStepCompact": "{source} → {destination} · {amount}"
+  "moneyStepCompact": "{source} → {destination} · {amount}",
+  "arbitrumRefundReturned": "{amount} επιστράφηκαν στο Arbitrum"
 }

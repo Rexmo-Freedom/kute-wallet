@@ -1,5 +1,7 @@
 import 'package:kute/screens/shared/orchestra_swap_refund_action.dart';
 import 'package:kute/screens/shared/multi_source_move_activity.dart';
+import 'package:kute/screens/shared/arbitrum_refund_lines.dart'
+    show CctpRefundOutcome;
 import 'package:kute/screens/shared/move_steps_view.dart'
     show MoveStepsSection, SwapRowStepsSection;
 import 'package:kute/screens/shared/venue_cash_pull_copy.dart';
@@ -3424,6 +3426,7 @@ class _SwapOrderDetailSheetState extends ConsumerState<_SwapOrderDetailSheet> {
                 // record once done.
                 if (!isCashAppPurchase) SwapRowStepsSection(row: details),
                 ..._oneTimeReceiveOutcome(context, c, details),
+                CctpRefundOutcome(row: details),
                 // What moved is the header: the row's amount (what arrived)
                 // and the figure under it (what was paid, "from ₿3,964").
                 // Only a stuck deposit, which converted into nothing and so

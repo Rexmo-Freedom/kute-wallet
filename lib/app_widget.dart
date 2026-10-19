@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:kute/providers/active_shell_tab_provider.dart'
     show ActiveNavTab, activeShellTabProvider;
+import 'package:kute/providers/arbitrum_refund_provider.dart';
 import 'package:kute/providers/auth_provider.dart';
 import 'package:kute/providers/current_route_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart'
@@ -22,6 +23,8 @@ import 'package:kute/screens/shared/lock_overlay.dart';
 import 'package:kute/screens/home/components/wallet_cards.dart'
     show WalletCardType, persistSelectedWalletCard, selectedWalletCardProvider;
 import 'package:kute/services/background_sync_service.dart';
+import 'package:kute/services/hyperliquid/arbitrum_refund_watch.dart'
+    show ArbitrumRefundTrigger;
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -425,6 +428,13 @@ class _AppWidgetState extends ConsumerState<AppWidget>
           // sweeper pass now (its own rules decide what moves).
           if (ref.exists(venueSweeperProvider)) {
             unawaited(ref.read(venueSweeperProvider.notifier).trigger('resume'));
+          }
+          // USDC a refunded Investing move left on Arbitrum: read again
+          // once Investing has been looked at this session (throttled).
+          if (ref.exists(arbitrumRefundProvider)) {
+            unawaited(ref
+                .read(arbitrumRefundProvider.notifier)
+                .scan(ArbitrumRefundTrigger.resume));
           }
         });
       }

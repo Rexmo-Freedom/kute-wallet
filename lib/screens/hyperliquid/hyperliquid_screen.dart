@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
+import 'package:kute/services/hyperliquid/arbitrum_refund_watch.dart'
+    show ArbitrumRefundTrigger;
 import 'package:kute/services/hyperliquid/hyperliquid_funding_service.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/shared/kute_blur.dart';
@@ -15,6 +17,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:kute/models/hyperliquid_market.dart';
+import 'package:kute/providers/arbitrum_refund_provider.dart';
 import 'package:kute/providers/refresh_everything_provider.dart';
 import 'package:kute/providers/hyperliquid_watchlist_provider.dart';
 import 'package:kute/providers/hyperliquid_config_provider.dart';
@@ -192,6 +195,12 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
       // Warm the builder settings now so a slow connection has already
       // answered by the time the person funds or places an order.
       unawaited(HyperliquidFundingService.prefetchBuilder());
+      // USDC a refunded move left on Arbitrum: a throttled read now, and
+      // one as soon as a CCTP move's row turns refunded.
+      ref.listenManual(arbitrumRefundRowsWatcherProvider, (_, __) {});
+      unawaited(ref
+          .read(arbitrumRefundProvider.notifier)
+          .scan(ArbitrumRefundTrigger.view));
       _livePrices = ref.read(hyperliquidLivePricesProvider.notifier);
       // Session-long side-cars, bootstrapped from this screen (NOT
       // Home): the deposit→order auto-fire watcher and the user-events
@@ -340,6 +349,9 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
 
   Future<void> _onRefresh() {
     HyperliquidScreen.refreshMarkets(ref.invalidate);
+    unawaited(ref
+        .read(arbitrumRefundProvider.notifier)
+        .scan(ArbitrumRefundTrigger.view));
     return ref.read(refreshEverythingProvider)(
         const RefreshTrigger('hyperliquid'));
   }
