@@ -6788,6 +6788,26 @@ class AppLocalizationsEt extends AppLocalizations {
       'Sinu konto muutus. Sulge see ekraan ja alusta uuesti.';
 
   @override
+  String get onetimeRefundTitle => 'Kuhu see tagastada, kui see ebaõnnestub?';
+
+  @override
+  String onetimeRefundSubtitle(String network, String coin) {
+    return 'Sinu aadress võrgus $network mündi $coin jaoks. Kui sissemakset ei saa lõpule viia, saadetakse see siia tagasi.';
+  }
+
+  @override
+  String get onetimeRefundSkipNote =>
+      'Ilma tagastusaadressita saab ebaõnnestunud sissemakse tagasi ainult toe abiga.';
+
+  @override
+  String get quotedReceiveReturnsTo => 'Tagastatakse aadressile';
+
+  @override
+  String activityReturnedTo(String address, String network) {
+    return 'Tagastatud aadressile $address võrgus $network';
+  }
+
+  @override
   String stepUpReasonWithdrawWithSourceFee(
       String amount, String fee, String total) {
     return 'Kinnita väljamakse $amount, võrgutasuga kuni $fee. Maksimaalne debiteerimine: $total.';

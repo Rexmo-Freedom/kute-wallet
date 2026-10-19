@@ -6828,6 +6828,27 @@ class AppLocalizationsPl extends AppLocalizations {
       'Twoje konto się zmieniło. Zamknij ten ekran i zacznij od nowa.';
 
   @override
+  String get onetimeRefundTitle =>
+      'Gdzie mamy to zwrócić, jeśli się nie powiedzie?';
+
+  @override
+  String onetimeRefundSubtitle(String network, String coin) {
+    return 'Twój adres w sieci $network dla $coin. Jeśli wpłaty nie da się zrealizować, zostanie odesłana tutaj.';
+  }
+
+  @override
+  String get onetimeRefundSkipNote =>
+      'Bez adresu zwrotnego odzyskanie nieudanej wpłaty wymaga pomocy wsparcia.';
+
+  @override
+  String get quotedReceiveReturnsTo => 'Zwrot na';
+
+  @override
+  String activityReturnedTo(String address, String network) {
+    return 'Zwrócono na $address w sieci $network';
+  }
+
+  @override
   String stepUpReasonWithdrawWithSourceFee(
       String amount, String fee, String total) {
     return 'Potwierdź wypłatę $amount z opłatą sieciową do $fee. Maksymalne obciążenie: $total.';

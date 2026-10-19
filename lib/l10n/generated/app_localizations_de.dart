@@ -6855,6 +6855,27 @@ class AppLocalizationsDe extends AppLocalizations {
       'Dein Konto hat sich geändert. Schließe diesen Bildschirm und beginne neu.';
 
   @override
+  String get onetimeRefundTitle =>
+      'Wohin sollen wir es zurücksenden, falls es fehlschlägt?';
+
+  @override
+  String onetimeRefundSubtitle(String network, String coin) {
+    return 'Deine Adresse auf $network für $coin. Kann die Einzahlung nicht abgeschlossen werden, wird sie hierhin zurückgesendet.';
+  }
+
+  @override
+  String get onetimeRefundSkipNote =>
+      'Ohne Rücksendeadresse braucht eine fehlgeschlagene Einzahlung den Support, um zurückgeholt zu werden.';
+
+  @override
+  String get quotedReceiveReturnsTo => 'Zurück an';
+
+  @override
+  String activityReturnedTo(String address, String network) {
+    return 'Zurückgesendet an $address auf $network';
+  }
+
+  @override
   String stepUpReasonWithdrawWithSourceFee(
       String amount, String fee, String total) {
     return 'Auszahlung von $amount bestätigen, mit bis zu $fee Netzwerkgebühr. Maximale Belastung: $total.';

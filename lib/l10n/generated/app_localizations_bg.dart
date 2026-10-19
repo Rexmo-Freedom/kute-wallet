@@ -6815,6 +6815,26 @@ class AppLocalizationsBg extends AppLocalizations {
       'Акаунтът ти се смени. Затвори този екран и започни отначало.';
 
   @override
+  String get onetimeRefundTitle => 'Къде да го върнем, ако не успее?';
+
+  @override
+  String onetimeRefundSubtitle(String network, String coin) {
+    return 'Твоят адрес в $network за $coin. Ако депозитът не може да бъде завършен, той се връща тук.';
+  }
+
+  @override
+  String get onetimeRefundSkipNote =>
+      'Без адрес за връщане неуспешен депозит може да бъде възстановен само чрез поддръжката.';
+
+  @override
+  String get quotedReceiveReturnsTo => 'Връща се към';
+
+  @override
+  String activityReturnedTo(String address, String network) {
+    return 'Върнато на $address в $network';
+  }
+
+  @override
   String stepUpReasonWithdrawWithSourceFee(
       String amount, String fee, String total) {
     return 'Потвърди теглене на $amount с мрежова такса до $fee. Максимално дебитиране: $total.';

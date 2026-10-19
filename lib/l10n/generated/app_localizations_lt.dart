@@ -6836,6 +6836,26 @@ class AppLocalizationsLt extends AppLocalizations {
       'Jūsų paskyra pasikeitė. Uždarykite šį ekraną ir pradėkite iš naujo.';
 
   @override
+  String get onetimeRefundTitle => 'Kur grąžinti, jei nepavyks?';
+
+  @override
+  String onetimeRefundSubtitle(String network, String coin) {
+    return 'Jūsų adresas tinkle $network, skirtas $coin. Jei įnašo nepavyks užbaigti, jis bus grąžintas čia.';
+  }
+
+  @override
+  String get onetimeRefundSkipNote =>
+      'Be grąžinimo adreso nepavykusį įnašą atgauti galima tik padedant pagalbos tarnybai.';
+
+  @override
+  String get quotedReceiveReturnsTo => 'Grąžinama į';
+
+  @override
+  String activityReturnedTo(String address, String network) {
+    return 'Grąžinta į $address tinkle $network';
+  }
+
+  @override
   String stepUpReasonWithdrawWithSourceFee(
       String amount, String fee, String total) {
     return 'Patvirtinkite $amount išėmimą su iki $fee tinklo mokesčiu. Maksimali nurašoma suma: $total.';

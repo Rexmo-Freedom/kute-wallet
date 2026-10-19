@@ -96,6 +96,11 @@ import 'package:kute/services/polymarket_spark_txs_service.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/ask_sal_chip.dart';
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/send/send_flow_widgets.dart'
+    show sendShortAddress;
+import 'package:kute/services/orchestra/onetime_receive.dart'
+    show isOneTimeReceiveRow;
+import 'package:kute/services/support_service.dart' show openSupportChat;
 import 'package:kute/screens/shared/custom_alert_dialog.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/btc_amount_text.dart';
@@ -3418,6 +3423,7 @@ class _SwapOrderDetailSheetState extends ConsumerState<_SwapOrderDetailSheet> {
                 // venue's cash going home): its steps, live, then the
                 // record once done.
                 if (!isCashAppPurchase) SwapRowStepsSection(row: details),
+                ..._oneTimeReceiveOutcome(context, c, details),
                 // What moved is the header: the row's amount (what arrived)
                 // and the figure under it (what was paid, "from ₿3,964").
                 // Only a stuck deposit, which converted into nothing and so
@@ -3566,6 +3572,47 @@ class _SwapOrderDetailSheetState extends ConsumerState<_SwapOrderDetailSheet> {
       ),
     );
   }
+}
+
+/// What became of a one-time receive's deposit that could not complete:
+/// "Returned to 0x1234…abcd on Polygon" once it was sent back to the
+/// return address the person gave; with none given, the held-deposit
+/// copy and the way to Support. Nothing for any other row or state.
+List<Widget> _oneTimeReceiveOutcome(
+    BuildContext context, AppColorsExtension c, SwapOrder details) {
+  if (!isOneTimeReceiveRow(details) || details.id.startsWith('q_')) {
+    return const [];
+  }
+  final l10n = context.l10n;
+  final refund = details.refundAddress.trim();
+  final note = TextStyle(color: c.textSecondary, fontSize: 14.sp);
+  if (details.status == 'refunded' && refund.isNotEmpty) {
+    return [
+      SizedBox(height: 8.h),
+      Text(
+        l10n.activityReturnedTo(sendShortAddress(refund),
+            orchestraChainDisplayName(details.networkFrom)),
+        key: const ValueKey('onetime-receive-returned'),
+        style: note,
+      ),
+    ];
+  }
+  const failed = {'refunded', 'overdue', 'expired', 'failed', 'unfulfilled'};
+  if (refund.isEmpty && failed.contains(details.status)) {
+    return [
+      SizedBox(height: 8.h),
+      Text(l10n.standingDepositsOperatorRefund,
+          key: const ValueKey('onetime-receive-needs-support'), style: note),
+      SizedBox(height: 12.h),
+      AppButton(
+        text: l10n.openSupportChat,
+        variant: AppButtonVariant.secondary,
+        compact: true,
+        onPressed: () => unawaited(openSupportChat()),
+      ),
+    ];
+  }
+  return const [];
 }
 
 /// The status a swap order's detail sheet shows: vendor states collapse

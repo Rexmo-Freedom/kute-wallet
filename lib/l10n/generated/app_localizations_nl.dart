@@ -6827,6 +6827,27 @@ class AppLocalizationsNl extends AppLocalizations {
       'Je rekening is gewijzigd. Sluit dit scherm en begin opnieuw.';
 
   @override
+  String get onetimeRefundTitle =>
+      'Waar sturen we het naartoe als het mislukt?';
+
+  @override
+  String onetimeRefundSubtitle(String network, String coin) {
+    return 'Je adres op $network voor $coin. Als de storting niet kan worden voltooid, wordt die hierheen teruggestuurd.';
+  }
+
+  @override
+  String get onetimeRefundSkipNote =>
+      'Zonder retouradres is voor het terugkrijgen van een mislukte storting hulp van Support nodig.';
+
+  @override
+  String get quotedReceiveReturnsTo => 'Retour naar';
+
+  @override
+  String activityReturnedTo(String address, String network) {
+    return 'Teruggestuurd naar $address op $network';
+  }
+
+  @override
   String stepUpReasonWithdrawWithSourceFee(
       String amount, String fee, String total) {
     return 'Bevestig opname van $amount, met maximaal $fee netwerkkosten. Maximale afschrijving: $total.';

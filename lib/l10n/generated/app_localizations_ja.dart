@@ -6536,6 +6536,25 @@ class AppLocalizationsJa extends AppLocalizations {
       'アカウントが変更されました。この画面を閉じて最初からやり直してください。';
 
   @override
+  String get onetimeRefundTitle => '失敗した場合の返金先はどこにしますか？';
+
+  @override
+  String onetimeRefundSubtitle(String network, String coin) {
+    return '$coin を受け取れる $network 上のあなたのアドレスです。入金を完了できない場合は、ここに返送されます。';
+  }
+
+  @override
+  String get onetimeRefundSkipNote => '返金先アドレスがない場合、失敗した入金の回収にはサポートが必要です。';
+
+  @override
+  String get quotedReceiveReturnsTo => '返金先';
+
+  @override
+  String activityReturnedTo(String address, String network) {
+    return '$network の $address に返金済み';
+  }
+
+  @override
   String stepUpReasonWithdrawWithSourceFee(
       String amount, String fee, String total) {
     return '$amountの出金を確定します。ネットワーク手数料は最大$feeです。最大引落額：$total。';

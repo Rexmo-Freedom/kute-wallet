@@ -6841,6 +6841,26 @@ class AppLocalizationsRo extends AppLocalizations {
       'Contul tău s-a schimbat. Închide acest ecran și începe din nou.';
 
   @override
+  String get onetimeRefundTitle => 'Unde să-l returnăm dacă nu reușește?';
+
+  @override
+  String onetimeRefundSubtitle(String network, String coin) {
+    return 'Adresa ta pe $network pentru $coin. Dacă depunerea nu poate fi finalizată, este trimisă înapoi aici.';
+  }
+
+  @override
+  String get onetimeRefundSkipNote =>
+      'Fără o adresă de returnare, o depunere eșuată poate fi recuperată doar cu ajutorul Asistenței.';
+
+  @override
+  String get quotedReceiveReturnsTo => 'Se returnează la';
+
+  @override
+  String activityReturnedTo(String address, String network) {
+    return 'Returnat la $address pe $network';
+  }
+
+  @override
   String stepUpReasonWithdrawWithSourceFee(
       String amount, String fee, String total) {
     return 'Confirmă retragerea a $amount, cu un comision de rețea de până la $fee. Debitare maximă: $total.';

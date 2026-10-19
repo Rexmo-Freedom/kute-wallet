@@ -6797,6 +6797,27 @@ class AppLocalizationsSv extends AppLocalizations {
       'Ditt konto har ändrats. Stäng skärmen och börja om.';
 
   @override
+  String get onetimeRefundTitle =>
+      'Vart ska vi skicka tillbaka det om det misslyckas?';
+
+  @override
+  String onetimeRefundSubtitle(String network, String coin) {
+    return 'Din adress på $network för $coin. Om insättningen inte kan slutföras skickas den tillbaka hit.';
+  }
+
+  @override
+  String get onetimeRefundSkipNote =>
+      'Utan en returadress behöver en misslyckad insättning hjälp från supporten för att återfås.';
+
+  @override
+  String get quotedReceiveReturnsTo => 'Returneras till';
+
+  @override
+  String activityReturnedTo(String address, String network) {
+    return 'Returnerad till $address på $network';
+  }
+
+  @override
   String stepUpReasonWithdrawWithSourceFee(
       String amount, String fee, String total) {
     return 'Bekräfta uttag på $amount, med upp till $fee i nätverksavgift. Högsta debitering: $total.';

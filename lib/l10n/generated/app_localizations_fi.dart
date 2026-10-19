@@ -6804,6 +6804,26 @@ class AppLocalizationsFi extends AppLocalizations {
       'Tilisi vaihtui. Sulje tämä näkymä ja aloita alusta.';
 
   @override
+  String get onetimeRefundTitle => 'Minne palautamme sen, jos se epäonnistuu?';
+
+  @override
+  String onetimeRefundSubtitle(String network, String coin) {
+    return 'Osoitteesi verkossa $network kolikolle $coin. Jos talletusta ei voida suorittaa loppuun, se palautetaan tänne.';
+  }
+
+  @override
+  String get onetimeRefundSkipNote =>
+      'Ilman palautusosoitetta epäonnistuneen talletuksen palauttaminen vaatii tukea.';
+
+  @override
+  String get quotedReceiveReturnsTo => 'Palautetaan osoitteeseen';
+
+  @override
+  String activityReturnedTo(String address, String network) {
+    return 'Palautettu osoitteeseen $address verkossa $network';
+  }
+
+  @override
   String stepUpReasonWithdrawWithSourceFee(
       String amount, String fee, String total) {
     return 'Vahvista nosto $amount, verkkomaksu enintään $fee. Enimmäisveloitus: $total.';

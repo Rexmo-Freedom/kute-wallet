@@ -6785,6 +6785,26 @@ class AppLocalizationsEn extends AppLocalizations {
       'Your account changed. Close this screen and start again.';
 
   @override
+  String get onetimeRefundTitle => 'Where should we return it if it fails?';
+
+  @override
+  String onetimeRefundSubtitle(String network, String coin) {
+    return 'Your address on $network for $coin. If the deposit can\'t be completed, it\'s sent back here.';
+  }
+
+  @override
+  String get onetimeRefundSkipNote =>
+      'Without a return address, a failed deposit needs Support to recover.';
+
+  @override
+  String get quotedReceiveReturnsTo => 'Returns to';
+
+  @override
+  String activityReturnedTo(String address, String network) {
+    return 'Returned to $address on $network';
+  }
+
+  @override
   String stepUpReasonWithdrawWithSourceFee(
       String amount, String fee, String total) {
     return 'Confirm withdrawal of $amount, with up to $fee network fee. Maximum debit: $total.';

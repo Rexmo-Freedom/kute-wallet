@@ -1,7 +1,5 @@
 import 'package:hive_ce/hive.dart';
 import 'package:kute/models/swap_order_model.dart';
-import 'package:kute/services/orchestra/onetime_receive.dart'
-    show oneTimeReceiveRefundOptional;
 
 /// Capture before starting a quote. Wiping this wallet invalidates the scope,
 /// including requests that have not reached their persistence step yet.
@@ -129,9 +127,7 @@ class PendingReceiveQuoteCache {
       const {'BTC', 'USDB'}.contains(record.coinTo.toUpperCase()) &&
       record.depositAddress.isNotEmpty &&
       record.withdrawalAddress.isNotEmpty &&
-      // Solana and Tron receives are quoted with no refund address.
-      (record.refundAddress.isNotEmpty ||
-          oneTimeReceiveRefundOptional(record.networkFrom)) &&
+      // The return address is optional: a skipped one is quoted without.
       record.expiresAt != null;
 
   static bool _sameInstructions(SwapOrder a, SwapOrder b) =>

@@ -6805,6 +6805,27 @@ class AppLocalizationsDa extends AppLocalizations {
       'Din konto er ændret. Luk denne skærm, og start forfra.';
 
   @override
+  String get onetimeRefundTitle =>
+      'Hvor skal vi sende det tilbage, hvis det mislykkes?';
+
+  @override
+  String onetimeRefundSubtitle(String network, String coin) {
+    return 'Din adresse på $network til $coin. Hvis indbetalingen ikke kan gennemføres, sendes den tilbage hertil.';
+  }
+
+  @override
+  String get onetimeRefundSkipNote =>
+      'Uden en returadresse kræver en mislykket indbetaling hjælp fra support for at blive gendannet.';
+
+  @override
+  String get quotedReceiveReturnsTo => 'Returneres til';
+
+  @override
+  String activityReturnedTo(String address, String network) {
+    return 'Returneret til $address på $network';
+  }
+
+  @override
   String stepUpReasonWithdrawWithSourceFee(
       String amount, String fee, String total) {
     return 'Bekræft udbetaling af $amount med op til $fee i netværksgebyr. Maksimal trækning: $total.';

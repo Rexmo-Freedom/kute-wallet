@@ -386,4 +386,57 @@ void main() {
           findsOneWidget);
     });
   });
+
+  group('a one-time receive that could not complete', () {
+    const refund = '0x2222222222222222222222222222222222222222';
+    SwapOrder onetime({required String status, String refundAddress = ''}) =>
+        _order('ord_onetime',
+                from: 'USDC',
+                fromNet: 'polygon',
+                to: 'BTC',
+                toNet: 'SPARK',
+                deposit: '4.14',
+                withdrawal: '0',
+                status: status,
+                direction: 'receive')
+            .copyWith(
+          purchaseSource: 'crypto_receive',
+          expiresAt: _t0.millisecondsSinceEpoch,
+          refundAddress: refundAddress,
+        );
+
+    testWidgets('sent back: Refunded, and where it was returned',
+        (tester) async {
+      final row = onetime(status: 'refunded', refundAddress: refund);
+      await _open(tester, _tx(row), [row]);
+      expect(_inSheet(find.text('Refunded')), findsWidgets);
+      expect(_inSheet(find.text('Returned to 0x22222222…22222222 on Polygon')),
+          findsOneWidget);
+      expect(_inSheet(find.text('Open support chat')), findsNothing);
+    });
+
+    for (final status in ['refunded', 'expired']) {
+      testWidgets('$status with no return address: the held copy and Support',
+          (tester) async {
+        final row = onetime(status: status);
+        await _open(tester, _tx(row), [row]);
+        expect(
+            _inSheet(
+                find.text('This deposit needs provider support to return it.')),
+            findsOneWidget,
+            reason: status);
+        expect(_inSheet(find.text('Open support chat')), findsOneWidget,
+            reason: status);
+        expect(_inSheet(find.textContaining('Returned to')), findsNothing);
+      });
+    }
+
+    testWidgets('a completed one, or any other receive, says neither',
+        (tester) async {
+      final done = onetime(status: 'success', refundAddress: refund);
+      await _open(tester, _tx(done), [done]);
+      expect(_inSheet(find.textContaining('Returned to')), findsNothing);
+      expect(_inSheet(find.text('Open support chat')), findsNothing);
+    });
+  });
 }

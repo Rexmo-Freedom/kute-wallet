@@ -11879,6 +11879,36 @@ abstract class AppLocalizations {
   /// **'Your account changed. Close this screen and start again.'**
   String get quotedReceiveWalletChanged;
 
+  /// Title of the optional return-address step of a one-time receive of another coin: where a deposit that cannot be completed is sent back.
+  ///
+  /// In en, this message translates to:
+  /// **'Where should we return it if it fails?'**
+  String get onetimeRefundTitle;
+
+  /// Subtitle of the return-address step. {network} is the source network (Polygon, Solana), {coin} the coin (USDC, USDT).
+  ///
+  /// In en, this message translates to:
+  /// **'Your address on {network} for {coin}. If the deposit can\'t be completed, it\'s sent back here.'**
+  String onetimeRefundSubtitle(String network, String coin);
+
+  /// Short note under the Skip button of the return-address step.
+  ///
+  /// In en, this message translates to:
+  /// **'Without a return address, a failed deposit needs Support to recover.'**
+  String get onetimeRefundSkipNote;
+
+  /// Label of the review line on the one-time receive address screen showing the return address (shortened) for a failed deposit.
+  ///
+  /// In en, this message translates to:
+  /// **'Returns to'**
+  String get quotedReceiveReturnsTo;
+
+  /// Line in a one-time receive's Activity detail once its deposit was sent back. {address} is the shortened return address, {network} the network.
+  ///
+  /// In en, this message translates to:
+  /// **'Returned to {address} on {network}'**
+  String activityReturnedTo(String address, String network);
+
   /// No description provided for @stepUpReasonWithdrawWithSourceFee.
   ///
   /// In en, this message translates to:

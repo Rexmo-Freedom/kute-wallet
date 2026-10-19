@@ -2,6 +2,7 @@ import 'package:kute/services/orchestra/standing_deposit_store.dart';
 import 'package:kute/services/auth/pin_encryption.dart';
 import 'package:kute/services/auth/pin_hash.dart';
 import 'package:kute/services/onchain/native_bitcoin_primitives.dart';
+import 'package:kute/services/orchestra/onetime_refund_address_store.dart';
 import 'package:kute/services/orchestra/pending_receive_quote_cache.dart';
 import 'package:kute/services/passkey_prf_service.dart';
 import 'package:kute/services/passkey_service.dart';
@@ -741,6 +742,7 @@ class AuthModel {
     // cancelled. Let only those writes settle before deleting local secrets.
     await Future.wait([
       PendingReceiveQuoteCache.clear(),
+      OneTimeRefundAddressStore.clear(),
       StandingDepositStore.clear(),
       BitcoinReceiveMarks.clear(),
       PasskeyPrfService.drainPendingWrites(),

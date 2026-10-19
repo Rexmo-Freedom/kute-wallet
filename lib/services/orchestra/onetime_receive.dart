@@ -12,18 +12,22 @@
 //     bitcoin) in the Lightning receive's own "Request amount" sheet,
 //     checked against the route's live minimum (Flashnet's own, no floor) and
 //     maximum.
+//   * Before the quote, the person may give a return address: theirs, on
+//     the source network, for that coin (founder, 2026-10-19). A failed
+//     deposit is sent back there. Never the wallet's own EVM address (the
+//     Predictions EOA has no balance anyone sees, so a refund there is
+//     lost), never a Spark or Bitcoin address, never prefilled from the
+//     clipboard; the last one typed per wallet and network is remembered
+//     on the device only ([OneTimeRefundAddressStore]).
+//   * It is optional. Skipped, the quote carries no refund address, which
+//     Flashnet takes for a listed token (it asks one only for
+//     unlisted-token sources); every offered coin comes from the live
+//     catalogue, so it is listed. A failed deposit then needs Support.
+//     Sends keep the refund requirement.
 //   * One exact-in quote from that network into the destination, paid to
 //     the wallet's own Spark address (pinned and verified as every
-//     own-Spark quote is). From an EVM network the refund goes to the
-//     wallet's own EVM address (account zero, derived as the Predictions
-//     EOA), which the person controls through Kute. Never an address
-//     anyone else names.
-//   * Solana and Tron have no address of the wallet's own: their quotes
-//     carry no refund address, which Flashnet takes for a listed token
-//     (it asks one only for unlisted-token sources). Every offered coin
-//     comes from the live catalogue, so it is listed. Sends keep the
-//     refund requirement. Other networks (Bitcoin, Litecoin, Zcash, TON,
-//     XRP) are not offered.
+//     own-Spark quote is). Offered from EVM networks, Solana and Tron;
+//     other networks (Bitcoin, Litecoin, Zcash, TON, XRP) are not.
 //   * The quote is persisted as a pending quote (`q_…`) before its address
 //     is shown, and is NOT an Activity row: nothing appears in Activity, a
 //     badge or a count before money is sent. The deposit poller and
@@ -55,28 +59,29 @@ import 'package:kute/services/security/wallet_guard_exception.dart';
 String oneTimeReceiveDestinationLabel(String destinationAsset) =>
     destinationAsset.trim().toUpperCase() == 'USDB' ? 'spark_usd' : 'spark_btc';
 
-/// Whether a one-time receive from [chain] refunds to the wallet's own
-/// EVM address. HyperCore is Investing's own rail and never a payer's
-/// network.
-bool oneTimeReceiveOwnRefund(String chain) {
+/// Whether a one-time receive can be offered from [chain] at all: an EVM
+/// network (HyperCore is Investing's own rail and never a payer's
+/// network), Solana or Tron.
+bool oneTimeReceiveOffered(String chain) {
   final slug = chain.trim().toLowerCase();
-  return kEvmAddressChains.contains(slug) && slug != 'hypercore';
+  return (kEvmAddressChains.contains(slug) && slug != 'hypercore') ||
+      const {'solana', 'tron'}.contains(slug);
 }
 
-/// Whether a one-time receive from [chain] is quoted with no refund
-/// address: the wallet has no address of its own there, and Flashnet
-/// takes a listed token's quote without one.
-bool oneTimeReceiveRefundOptional(String chain) =>
-    const {'solana', 'tron'}.contains(chain.trim().toLowerCase());
-
-/// Whether a one-time receive can be offered from [chain] at all.
-bool oneTimeReceiveOffered(String chain) =>
-    oneTimeReceiveOwnRefund(chain) || oneTimeReceiveRefundOptional(chain);
+/// Whether [address] can be a one-time receive's return address on
+/// [chain]: a mainnet address of that network (so never a Spark or
+/// Bitcoin address), on a network a one-time receive is offered from.
+bool oneTimeRefundAddressValid(String chain, String address) {
+  final value = address.trim();
+  return value.isNotEmpty &&
+      oneTimeReceiveOffered(chain) &&
+      formatMatchesChain(chain, value, mainnet: true) == AddressFormatMatch.ok;
+}
 
 /// Every coin and network the live catalogue routes into
 /// spark:[destinationAsset] that a one-time receive can serve: a live
 /// directed route with explicit source units, a network
-/// [oneTimeReceiveOffered] (an own refund address, or none needed), and
+/// [oneTimeReceiveOffered], and
 /// never a venue's own rail. Every row is a
 /// one-time row (`reusableAddress: false`). Empty without live data: a
 /// static fallback carries no source units to quote with.
@@ -164,6 +169,16 @@ int? oneTimeMaxUsdCents(OrchestraRouteLimits? limits) {
   return caps.reduce((a, b) => a < b ? a : b);
 }
 
+/// Whether [row] is a one-time receive's row, under its quote id or its
+/// order's: a receive from outside into Spark that carries its quote's
+/// expiry (a reusable address's rows carry none).
+bool isOneTimeReceiveRow(SwapOrder row) =>
+    row.providerName == 'Orchestra' &&
+    row.activityDirection == 'receive' &&
+    row.purchaseSource == 'crypto_receive' &&
+    row.networkTo.toUpperCase() == 'SPARK' &&
+    row.expiresAt != null;
+
 /// Whether [row] is a one-time receive's pending quote: what Receive
 /// persists the moment the quote exists (never an Activity row; older
 /// builds of this branch wrote one).
@@ -200,32 +215,23 @@ abstract final class OneTimeReceive {
   /// The quote for [amountBaseUnits] of [option] into
   /// spark:[destinationAsset], paid to the wallet's own Spark
   /// [recipient] ([ownSpark] is the independently resolved own address
-  /// the guard compares it with). From an EVM network it is refunded to
-  /// the wallet's own EVM address [ownEvm]; from Solana or Tron it carries
-  /// no refund address. Throws [WalletGuardException] for any other
-  /// network, or when [ownEvm] is needed and is not one.
+  /// the guard compares it with), refunded to the person's own
+  /// [refundAddress] on the source network, or carrying none when they
+  /// skipped it (null or empty). Throws [WalletGuardException] for a
+  /// network a one-time receive is not offered from, or a return address
+  /// that is not one of that network.
   static OrchestraQuoteRequest request({
     required OrchestraReceiveOption option,
     required String destinationAsset,
     required BigInt amountBaseUnits,
     required String recipient,
     required String ownSpark,
-    required String? ownEvm,
+    required String? refundAddress,
   }) {
-    final String refund;
-    if (oneTimeReceiveOwnRefund(option.chain)) {
-      refund = ownEvm?.trim() ?? '';
-      if (refund.isEmpty) {
-        throw const WalletGuardException(
-            WalletGuardReason.ownAddressUnavailable);
-      }
-      if (formatMatchesChain(option.chain, refund, mainnet: true) !=
-          AddressFormatMatch.ok) {
-        throw const WalletGuardException(WalletGuardReason.refundNotOwn);
-      }
-    } else if (oneTimeReceiveRefundOptional(option.chain)) {
-      refund = '';
-    } else {
+    final refund = refundAddress?.trim() ?? '';
+    if (!oneTimeReceiveOffered(option.chain) ||
+        (refund.isNotEmpty &&
+            !oneTimeRefundAddressValid(option.chain, refund))) {
       throw const WalletGuardException(WalletGuardReason.refundAddressChain);
     }
     return OrchestraQuoteRequest(

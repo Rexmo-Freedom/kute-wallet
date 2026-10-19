@@ -6855,6 +6855,26 @@ class AppLocalizationsEl extends AppLocalizations {
       'Ο λογαριασμός σου άλλαξε. Κλείσε αυτή την οθόνη και ξεκίνα από την αρχή.';
 
   @override
+  String get onetimeRefundTitle => 'Πού να το επιστρέψουμε αν αποτύχει;';
+
+  @override
+  String onetimeRefundSubtitle(String network, String coin) {
+    return 'Η διεύθυνσή σου στο $network για $coin. Αν η κατάθεση δεν μπορεί να ολοκληρωθεί, επιστρέφεται εδώ.';
+  }
+
+  @override
+  String get onetimeRefundSkipNote =>
+      'Χωρίς διεύθυνση επιστροφής, μια αποτυχημένη κατάθεση χρειάζεται την Υποστήριξη για να ανακτηθεί.';
+
+  @override
+  String get quotedReceiveReturnsTo => 'Επιστρέφει σε';
+
+  @override
+  String activityReturnedTo(String address, String network) {
+    return 'Επιστράφηκε σε $address στο $network';
+  }
+
+  @override
   String stepUpReasonWithdrawWithSourceFee(
       String amount, String fee, String total) {
     return 'Επιβεβαίωσε την ανάληψη $amount, με χρέωση δικτύου έως $fee. Μέγιστη χρέωση λογαριασμού: $total.';

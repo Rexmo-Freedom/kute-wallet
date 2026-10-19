@@ -3,7 +3,9 @@
 // coins") asks its amount in the Lightning "Request amount" sheet, checked
 // against the route's minimum, then quotes a one-time Orchestra deposit
 // address into spark:USDB (or spark:BTC), paid to the wallet's own Spark
-// address and refunded to its own EVM address, persists it as a pending
+// address and refunded to the return address the person gives in the step
+// before (or to none when skipped; never the wallet's own EVM address),
+// persists it as a pending
 // quote (never an Activity row before a deposit), and shows the address
 // with the exact amount and the expiry. No standing or legacy address is
 // ever registered. A reconnect (a rebuilt SDK) never ends the screen; a
@@ -36,6 +38,7 @@ import 'package:kute/providers/orchestra_supported_routes_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/spark_address_provider.dart';
 import 'package:kute/screens/receive/components/request_amount_sheet.dart';
+import 'package:kute/screens/receive/onetime_refund_step.dart';
 import 'package:kute/screens/receive/quoted_receive_screen.dart';
 import 'package:kute/screens/receive/receive_sheet.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart'
@@ -43,7 +46,10 @@ import 'package:kute/screens/shared/amount_keypad_panel.dart'
 import 'package:kute/screens/shared/coin_asset_grid.dart';
 import 'package:kute/screens/shared/custom_button.dart' show AppButton;
 import 'package:kute/screens/shared/receive_surface.dart';
+import 'package:kute/screens/shared/send/send_flow_widgets.dart'
+    show sendShortAddress;
 import 'package:kute/services/orchestra/onetime_receive.dart';
+import 'package:kute/services/orchestra/onetime_refund_address_store.dart';
 import 'package:kute/services/orchestra/orchestra_quote_guard.dart';
 import 'package:kute/services/orchestra/receive_minimums.dart';
 import 'package:kute/services/orchestra/standing_deposit_store.dart';
@@ -109,6 +115,7 @@ final _l10n = AppLocalizationsEn();
 const _spark =
     'spark1pgss93sy072yrmtad5cy2srwjhq8ekzuw78yhr808jn6htqfh9w8p8h9mfwlv9';
 const _ownEvm = '0x52908400098527886e0f7030069857d2e4169ee7';
+const _refund = '0x2222222222222222222222222222222222222222';
 const _deposit = '0x1111111111111111111111111111111111111111';
 
 /// The Breez SDK the provider answers now; replaced to model a reconnect.
@@ -182,7 +189,10 @@ Future<void> _pump(WidgetTester tester,
       currencyProvider.overrideWith((_) => _Currency()),
       breezSDKProvider.overrideWith((_) async => _wrapper),
       sparkSelfAddressProvider.overrideWith((_) async => _spark),
-      hyperliquidAddressProvider.overrideWith((_) async => _ownEvm),
+      // The wallet's own EVM address is never a refund: reading it fails
+      // the quote.
+      hyperliquidAddressProvider.overrideWith(
+          (_) async => throw StateError('own EVM address read: $_ownEvm')),
       // A live minimum of $2.00.
       receiveMinimumsProvider.overrideWithValue(ReceiveMinimums(
           fetch: fetch ??
@@ -246,6 +256,30 @@ Future<void> _requestUsdt(WidgetTester tester, String amount) async {
 
 AppButton _createRequest(WidgetTester tester) => tester.widget<AppButton>(
     find.widgetWithText(AppButton, _l10n.receiveCreateRequest));
+
+final _refundField = find.descendant(
+    of: find.byKey(const ValueKey('onetime-refund-address')),
+    matching: find.byType(TextField));
+
+AppButton _continueButton(WidgetTester tester) => tester
+    .widget<AppButton>(find.widgetWithText(AppButton, _l10n.continueLabel));
+
+/// "Create request", then the return-address step: [refund] typed and
+/// Continue, or Skip when null.
+Future<void> _createWithRefund(WidgetTester tester, String? refund) async {
+  await tester.tap(find.widgetWithText(AppButton, _l10n.receiveCreateRequest));
+  await _settle(tester);
+  expect(find.byType(OneTimeRefundStep), findsOneWidget);
+  if (refund == null) {
+    await tester.tap(find.widgetWithText(AppButton, _l10n.skip));
+  } else {
+    await tester.enterText(_refundField, refund);
+    await tester.pump();
+    await tester.tap(find.widgetWithText(AppButton, _l10n.continueLabel));
+  }
+  await _settle(tester);
+  await _settle(tester);
+}
 
 void main() {
   late List<(String, Map<String, Object>?)> events;
@@ -315,6 +349,7 @@ void main() {
     OneTimeReceive.debugRecord = (row, expiresAt, scope) async {
       recorded.add(row);
     };
+    OneTimeRefundAddressStore.debugMemory = {};
   });
 
   tearDown(() {
@@ -322,6 +357,7 @@ void main() {
     TrackingService.debugTrackObserver = null;
     OneTimeReceive.debugFetch = null;
     OneTimeReceive.debugRecord = null;
+    OneTimeRefundAddressStore.debugMemory = null;
     StandingDepositStore.standingRequest = realStanding;
   });
 
@@ -348,14 +384,12 @@ void main() {
 
   testWidgets(
       'Dollars: "Create request" quotes a one-time address into spark:USDB, '
-      'own Spark recipient and own EVM refund, persists the pending quote '
-      'and shows the exact amount and the expiry', (tester) async {
+      'own Spark recipient, refunded to the return address given, persists '
+      'the pending quote and shows the exact amount and the expiry',
+      (tester) async {
     await _pump(tester);
     await _requestUsdt(tester, '25');
-    await tester
-        .tap(find.widgetWithText(AppButton, _l10n.receiveCreateRequest));
-    await _settle(tester);
-    await _settle(tester);
+    await _createWithRefund(tester, _refund);
 
     final request = quoted.single;
     expect(request.sourceChain, 'ethereum');
@@ -366,7 +400,7 @@ void main() {
     expect(request.recipientAddress, _spark);
     expect(request.recipientKind, RecipientKind.ownSpark);
     expect(request.ownAddress, _spark);
-    expect(request.refundAddress, _ownEvm);
+    expect(request.refundAddress, _refund);
     expect(request.refundOptional, isFalse);
 
     // The pending quote is persisted before the address is on screen; it
@@ -378,7 +412,7 @@ void main() {
     expect(row.status, 'wait');
     expect(row.purchaseSource, 'crypto_receive');
     expect(row.activityDirection, 'receive');
-    expect(row.refundAddress, _ownEvm);
+    expect(row.refundAddress, _refund);
     expect(isOneTimeReceiveQuoteRow(row), isTrue);
 
     // The address screen: the code, the exact amount, the network
@@ -398,6 +432,9 @@ void main() {
     expect(find.text(_l10n.quotedReceiveExpectedOutput('\$24.80')),
         findsOneWidget);
     expect(find.text('0.50%'), findsNothing);
+    // Where a failed deposit goes, shortened.
+    expect(find.text(_l10n.quotedReceiveReturnsTo), findsOneWidget);
+    expect(find.text(sendShortAddress(_refund)), findsOneWidget);
 
     final generated =
         events.where((e) => e.$1 == 'receive_address_generated').single.$2!;
@@ -407,8 +444,19 @@ void main() {
     expect(generated['min_deposit_usd'], 2.0);
     expect(generated['kute_fee_bps'], 50);
     expect(generated['quote_expiry_seconds'], greaterThan(100));
+    expect(generated['refund_address_set'], isTrue);
     expect(generated.keys, isNot(contains('address')));
     expect(generated.keys, isNot(contains('quote_id')));
+    // Only whether a return address was set reaches analytics.
+    final entered = events
+        .where((e) => e.$1 == 'usd_receive_step')
+        .map((e) => e.$2!)
+        .where((p) => p['step'] == 'refund_address_entered')
+        .single;
+    expect(entered['refund_address_set'], isTrue);
+    for (final e in events) {
+      expect(e.$2?.values ?? const [], isNot(contains(_refund)), reason: e.$1);
+    }
 
     // No standing or legacy address was asked for.
     expect(standingCalls, isEmpty);
@@ -426,14 +474,11 @@ void main() {
             .widget<RequestAmountSheet>(find.byType(RequestAmountSheet))
             .fixedCurrency,
         isNull);
-    await tester
-        .tap(find.widgetWithText(AppButton, _l10n.receiveCreateRequest));
-    await _settle(tester);
-    await _settle(tester);
+    await _createWithRefund(tester, _refund);
     final request = quoted.single;
     expect(request.destinationAsset, 'BTC');
     expect(request.amountBaseUnits, BigInt.from(30000000));
-    expect(request.refundAddress, _ownEvm);
+    expect(request.refundAddress, _refund);
     expect(recorded.single.coinTo, 'BTC');
     final generated =
         events.where((e) => e.$1 == 'receive_address_generated').single.$2!;
@@ -445,10 +490,7 @@ void main() {
 
   Future<void> createUsdtRequest(WidgetTester tester) async {
     await _requestUsdt(tester, '25');
-    await tester
-        .tap(find.widgetWithText(AppButton, _l10n.receiveCreateRequest));
-    await _settle(tester);
-    await _settle(tester);
+    await _createWithRefund(tester, _refund);
   }
 
   Finder addressLine() => find.byWidgetPredicate(
@@ -537,5 +579,93 @@ void main() {
     display = tester.widget<BigAmountDisplay>(find.byType(BigAmountDisplay));
     expect(display.minimumLabel, _l10n.routeAmountTooSmall('\$0.75'));
     await _unmount(tester);
+  });
+
+  group('the return-address step', () {
+    testWidgets(
+        'Continue only for an address of the source network; a wrong one '
+        'says so', (tester) async {
+      await _pump(tester);
+      await _requestUsdt(tester, '25');
+      await tester
+          .tap(find.widgetWithText(AppButton, _l10n.receiveCreateRequest));
+      await _settle(tester);
+      expect(find.text(_l10n.onetimeRefundTitle), findsOneWidget);
+      expect(find.text(_l10n.onetimeRefundSubtitle('ethereum', 'USDT')),
+          findsOneWidget);
+      expect(find.text(_l10n.onetimeRefundSkipNote), findsOneWidget);
+      // Nothing is filled in from the clipboard or the wallet.
+      expect(tester.widget<TextField>(_refundField).controller!.text, isEmpty);
+      expect(_continueButton(tester).onPressed, isNull);
+
+      // A Spark address, a Bitcoin address, a Solana one: not Ethereum.
+      for (final wrong in [
+        _spark,
+        'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq',
+        '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU',
+      ]) {
+        await tester.enterText(_refundField, wrong);
+        await tester.pump();
+        expect(find.text(_l10n.usdSendAddressWrongNetwork('ethereum')),
+            findsOneWidget,
+            reason: wrong);
+        expect(_continueButton(tester).onPressed, isNull, reason: wrong);
+      }
+      await tester.enterText(_refundField, _refund);
+      await tester.pump();
+      expect(find.text(_l10n.usdSendAddressWrongNetwork('ethereum')),
+          findsNothing);
+      expect(_continueButton(tester).onPressed, isNotNull);
+      expect(quoted, isEmpty, reason: 'no quote before the step is done');
+      await _unmount(tester);
+    });
+
+    testWidgets(
+        'Skip quotes with no return address, says nothing of one, and '
+        'records only that none was set', (tester) async {
+      await _pump(tester);
+      await _requestUsdt(tester, '25');
+      await _createWithRefund(tester, null);
+      final request = quoted.single;
+      expect(request.refundAddress, isEmpty);
+      expect(request.refundOptional, isTrue);
+      expect(recorded.single.refundAddress, isEmpty);
+      expect(find.text(_l10n.quotedReceiveReturnsTo), findsNothing);
+      final generated =
+          events.where((e) => e.$1 == 'receive_address_generated').single.$2!;
+      expect(generated['refund_address_set'], isFalse);
+      expect(
+          events.any((e) =>
+              e.$1 == 'usd_receive_step' &&
+              e.$2!['step'] == 'refund_address_skipped' &&
+              e.$2!['refund_address_set'] == false),
+          isTrue);
+      expect(OneTimeRefundAddressStore.debugMemory, isEmpty);
+      await _unmount(tester);
+    });
+
+    testWidgets(
+        'the last return address for this wallet and network is filled in '
+        'next time', (tester) async {
+      await _pump(tester);
+      await _requestUsdt(tester, '25');
+      await _createWithRefund(tester, _refund);
+      expect(await OneTimeRefundAddressStore.read('spending', 'ethereum'),
+          _refund);
+      // Closed, and a new receive started on the same network.
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 1));
+
+      await _pump(tester);
+      await _requestUsdt(tester, '25');
+      await tester
+          .tap(find.widgetWithText(AppButton, _l10n.receiveCreateRequest));
+      await _settle(tester);
+      expect(tester.widget<TextField>(_refundField).controller!.text, _refund);
+      expect(_continueButton(tester).onPressed, isNotNull);
+      // Another network's is never used.
+      expect(await OneTimeRefundAddressStore.read('spending', 'base'), isNull);
+      await _unmount(tester);
+    });
   });
 }

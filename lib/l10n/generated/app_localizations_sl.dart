@@ -6818,6 +6818,26 @@ class AppLocalizationsSl extends AppLocalizations {
       'Vaš račun se je spremenil. Zaprite ta zaslon in začnite znova.';
 
   @override
+  String get onetimeRefundTitle => 'Kam naj ga vrnemo, če ne uspe?';
+
+  @override
+  String onetimeRefundSubtitle(String network, String coin) {
+    return 'Vaš naslov v omrežju $network za $coin. Če pologa ni mogoče dokončati, se vrne sem.';
+  }
+
+  @override
+  String get onetimeRefundSkipNote =>
+      'Brez naslova za vračilo je za povrnitev neuspelega pologa potrebna podpora.';
+
+  @override
+  String get quotedReceiveReturnsTo => 'Vrne se na';
+
+  @override
+  String activityReturnedTo(String address, String network) {
+    return 'Vrnjeno na $address v omrežju $network';
+  }
+
+  @override
   String stepUpReasonWithdrawWithSourceFee(
       String amount, String fee, String total) {
     return 'Potrdite dvig $amount z omrežno provizijo do $fee. Največja bremenitev: $total.';

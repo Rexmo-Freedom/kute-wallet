@@ -3,7 +3,8 @@
 // amount is asked in the Lightning receive's own "Request amount" sheet
 // ([requestOneTimeReceiveAmount]: dollars for the Dollars receive, sats or
 // fiat for Bitcoin, with the route's minimum on the sheet's minimum line),
-// and this screen quotes it and shows the one-time deposit address: the
+// then the optional return address (onetime_refund_step.dart), and this
+// screen quotes it and shows the one-time deposit address: the
 // code, the exact amount to send, the network it must come from, the
 // expiry countdown and what arrives. The quote is kept as a pending quote
 // (watched after this screen closes) and becomes an Activity row only once
@@ -27,18 +28,19 @@ import 'package:kute/models/orchestra_routes_model.dart';
 import 'package:kute/models/swap_order_model.dart';
 import 'package:kute/providers/breez_config_provider.dart';
 import 'package:kute/providers/currency_conversions_provider.dart';
-import 'package:kute/providers/hyperliquid_account_provider.dart'
-    show hyperliquidAddressProvider;
 import 'package:kute/providers/orchestra_supported_routes_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/spark_address_provider.dart';
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
 import 'package:kute/screens/receive/components/request_amount_sheet.dart';
+import 'package:kute/screens/receive/onetime_refund_step.dart';
 import 'package:kute/screens/receive/orchestra_deposit_poller.dart';
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/screens/shared/qr_code.dart';
 import 'package:kute/screens/shared/receive_surface.dart';
+import 'package:kute/screens/shared/send/send_flow_widgets.dart'
+    show sendShortAddress;
 import 'package:kute/screens/shared/stepper/stepper_widgets.dart';
 import 'package:kute/screens/usd/flow/usd_flow_widgets.dart';
 import 'package:kute/services/orchestra/onetime_receive.dart';
@@ -190,8 +192,8 @@ void _trackAmountEntered(OrchestraReceiveOption option, String destinationAsset,
 }
 
 /// The whole one-time receive after a coin is picked: the amount sheet,
-/// then [QuotedReceiveScreen] with the address. Nothing opens when the
-/// sheet is dismissed.
+/// the return-address step, then [QuotedReceiveScreen] with the address.
+/// Nothing more opens when the sheet is dismissed or the step left.
 Future<void> openOneTimeReceive(
   BuildContext context,
   WidgetRef ref, {
@@ -202,11 +204,15 @@ Future<void> openOneTimeReceive(
       option: option, destinationAsset: destinationAsset);
   if (amount == null || !context.mounted) return;
   _trackAmountEntered(option, destinationAsset, amount);
+  final refund = await askOneTimeRefundAddress(context,
+      option: option, destinationAsset: destinationAsset);
+  if (refund == null || !context.mounted) return;
   await Navigator.of(context).push<void>(MaterialPageRoute(
     builder: (_) => QuotedReceiveScreen(
       option: option,
       destinationAsset: destinationAsset,
       amount: amount,
+      refundAddress: refund.address,
     ),
   ));
 }
@@ -219,11 +225,16 @@ class QuotedReceiveScreen extends ConsumerStatefulWidget {
     required this.option,
     required this.destinationAsset,
     required this.amount,
+    required this.refundAddress,
   });
 
   final OrchestraReceiveOption option;
   final String destinationAsset;
   final OneTimeReceiveAmount amount;
+
+  /// The person's own return address on the source network, or null when
+  /// they skipped it (the quote then carries none).
+  final String? refundAddress;
 
   @override
   ConsumerState<QuotedReceiveScreen> createState() =>
@@ -324,6 +335,7 @@ class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
         'provider': 'orchestra',
         'destination': _destinationLabel,
         'address_kind': 'onetime',
+        'refund_address_set': widget.refundAddress != null,
         'amount_usd': _amount.usdCents / 100,
         ..._amount.minimum.trackingParams,
         if (!_dollars) 'entry_source': 'bitcoin_receive',
@@ -400,12 +412,13 @@ class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
       _paymentExpired = true;
     }
     final blocked = !_supported || !_sameWallet;
-    // The coin and the amount were the first two steps; this is the third.
+    // The coin, the amount and the return address came first; this is the
+    // fourth.
     return UsdFlowScaffold(
       title: _dollars ? l10n.usdReceiveTitle : l10n.receiveBitcoin,
-      totalSteps: 3,
-      currentStep: 2,
-      completedSteps: const {0, 1},
+      totalSteps: 4,
+      currentStep: 3,
+      completedSteps: const {0, 1, 2},
       onBack: () => unawaited(Navigator.of(context).maybePop()),
       action: blocked ? null : _buildAction(),
       child: blocked
@@ -529,6 +542,10 @@ class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
             ),
             UsdReviewLine(
                 label: l10n.network, value: widget.option.chainDisplayName),
+            if (widget.refundAddress case final refund?)
+              UsdReviewLine(
+                  label: l10n.quotedReceiveReturnsTo,
+                  value: sendShortAddress(refund)),
             UsdReviewLine(
                 label: l10n.status, value: _statusLabel(display.status)),
           ]),
@@ -630,11 +647,6 @@ class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
       );
       // The guard's own-recipient check needs an independent source.
       final ownSpark = await ref.read(sparkSelfAddressProvider.future);
-      // The refund of an EVM source: the wallet's own account-zero EVM
-      // address (the Predictions EOA derivation), never one typed in.
-      final ownEvm = oneTimeReceiveOwnRefund(option.chain)
-          ? await ref.read(hyperliquidAddressProvider.future)
-          : null;
       if (!_current(generation) || sdkMoved()) return;
       _requireLiveRoute();
       final route = oneTimeReceiveRoute(option, destinationAsset);
@@ -665,7 +677,7 @@ class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
         amountBaseUnits: units,
         recipient: receive.paymentRequest,
         ownSpark: ownSpark,
-        ownEvm: ownEvm,
+        refundAddress: widget.refundAddress,
       );
       final verified = await OneTimeReceive.fetch(request);
       if (!_current(generation) || sdkMoved()) return;

@@ -6826,6 +6826,27 @@ class AppLocalizationsIt extends AppLocalizations {
       'Il tuo conto è cambiato. Chiudi questa schermata e ricomincia.';
 
   @override
+  String get onetimeRefundTitle =>
+      'Dove te lo restituiamo se non va a buon fine?';
+
+  @override
+  String onetimeRefundSubtitle(String network, String coin) {
+    return 'Il tuo indirizzo su $network per $coin. Se il deposito non può essere completato, viene rimandato qui.';
+  }
+
+  @override
+  String get onetimeRefundSkipNote =>
+      'Senza un indirizzo di restituzione, per recuperare un deposito non riuscito serve l\'Assistenza.';
+
+  @override
+  String get quotedReceiveReturnsTo => 'Restituito a';
+
+  @override
+  String activityReturnedTo(String address, String network) {
+    return 'Restituito a $address su $network';
+  }
+
+  @override
   String stepUpReasonWithdrawWithSourceFee(
       String amount, String fee, String total) {
     return 'Conferma il prelievo di $amount, con una commissione di rete fino a $fee. Addebito massimo: $total.';

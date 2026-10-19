@@ -2230,6 +2230,11 @@
     }
   },
   "quotedReceiveWalletChanged": "A sua conta mudou. Feche este ecrã e comece de novo.",
+  "onetimeRefundTitle": "Para onde o devolvemos se falhar?",
+  "onetimeRefundSubtitle": "O seu endereço na rede {network} para {coin}. Se o depósito não puder ser concluído, é devolvido para aqui.",
+  "onetimeRefundSkipNote": "Sem um endereço de devolução, recuperar um depósito falhado exige a ajuda do Suporte.",
+  "quotedReceiveReturnsTo": "Devolvido para",
+  "activityReturnedTo": "Devolvido para {address} na rede {network}",
   "stepUpReasonWithdrawWithSourceFee": "Confirme a retirada de {amount}, com até {fee} de taxa de rede. Débito máximo: {total}.",
   "@stepUpReasonWithdrawWithSourceFee": {
     "placeholders": {

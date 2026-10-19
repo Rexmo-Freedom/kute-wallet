@@ -1,5 +1,6 @@
 import 'package:kute/services/orchestra/standing_deposit_store.dart';
 import 'package:kute/services/onchain/native_onchain_service.dart';
+import 'package:kute/services/orchestra/onetime_refund_address_store.dart';
 import 'package:kute/services/orchestra/pending_receive_quote_cache.dart';
 import 'package:kute/models/auth_model.dart';
 import 'package:kute/models/evm_derivation_version.dart';
@@ -582,6 +583,7 @@ class SettingsModel extends StateNotifier<Settings> {
     // missing box / not-open is fine, we just skip it.
     await _wipePerWalletHiveData(walletId);
     await PendingReceiveQuoteCache.deleteForWallet(walletId);
+    await OneTimeRefundAddressStore.deleteForWallet(walletId);
     await StandingDepositStore.deleteWallet(walletId);
     await BitcoinReceiveMarks.deleteWallet(walletId);
 

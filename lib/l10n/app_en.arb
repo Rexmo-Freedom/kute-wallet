@@ -3722,6 +3722,16 @@
     }
   },
   "quotedReceiveWalletChanged": "Your account changed. Close this screen and start again.",
+  "onetimeRefundTitle": "Where should we return it if it fails?",
+  "@onetimeRefundTitle": {"description": "Title of the optional return-address step of a one-time receive of another coin: where a deposit that cannot be completed is sent back."},
+  "onetimeRefundSubtitle": "Your address on {network} for {coin}. If the deposit can't be completed, it's sent back here.",
+  "@onetimeRefundSubtitle": {"description": "Subtitle of the return-address step. {network} is the source network (Polygon, Solana), {coin} the coin (USDC, USDT).", "placeholders": {"network": {"type": "String"}, "coin": {"type": "String"}}},
+  "onetimeRefundSkipNote": "Without a return address, a failed deposit needs Support to recover.",
+  "@onetimeRefundSkipNote": {"description": "Short note under the Skip button of the return-address step."},
+  "quotedReceiveReturnsTo": "Returns to",
+  "@quotedReceiveReturnsTo": {"description": "Label of the review line on the one-time receive address screen showing the return address (shortened) for a failed deposit."},
+  "activityReturnedTo": "Returned to {address} on {network}",
+  "@activityReturnedTo": {"description": "Line in a one-time receive's Activity detail once its deposit was sent back. {address} is the shortened return address, {network} the network.", "placeholders": {"address": {"type": "String"}, "network": {"type": "String"}}},
   "stepUpReasonWithdrawWithSourceFee": "Confirm withdrawal of {amount}, with up to {fee} network fee. Maximum debit: {total}.",
   "@stepUpReasonWithdrawWithSourceFee": {
     "placeholders": {

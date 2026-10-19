@@ -6821,6 +6821,26 @@ class AppLocalizationsHu extends AppLocalizations {
       'A fiókod megváltozott. Zárd be ezt a képernyőt, és kezdd újra.';
 
   @override
+  String get onetimeRefundTitle => 'Hová küldjük vissza, ha nem sikerül?';
+
+  @override
+  String onetimeRefundSubtitle(String network, String coin) {
+    return 'A(z) $network hálózaton lévő címed a(z) $coin számára. Ha a befizetés nem teljesíthető, ide küldjük vissza.';
+  }
+
+  @override
+  String get onetimeRefundSkipNote =>
+      'Visszaküldési cím nélkül egy sikertelen befizetést csak az ügyfélszolgálat segítségével lehet visszaszerezni.';
+
+  @override
+  String get quotedReceiveReturnsTo => 'Visszaküldés ide';
+
+  @override
+  String activityReturnedTo(String address, String network) {
+    return 'Visszaküldve ide: $address, $network hálózaton';
+  }
+
+  @override
   String stepUpReasonWithdrawWithSourceFee(
       String amount, String fee, String total) {
     return '$amount kivételének megerősítése, legfeljebb $fee hálózati díjjal. Maximális terhelés: $total.';

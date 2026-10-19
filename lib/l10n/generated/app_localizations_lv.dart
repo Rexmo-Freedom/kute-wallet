@@ -6786,6 +6786,26 @@ class AppLocalizationsLv extends AppLocalizations {
       'Tavs konts mainījās. Aizver šo ekrānu un sāc no jauna.';
 
   @override
+  String get onetimeRefundTitle => 'Kur to atgriezt, ja tas neizdosies?';
+
+  @override
+  String onetimeRefundSubtitle(String network, String coin) {
+    return 'Tava adrese tīklā $network monētai $coin. Ja iemaksu nevar pabeigt, tā tiek nosūtīta atpakaļ šeit.';
+  }
+
+  @override
+  String get onetimeRefundSkipNote =>
+      'Bez atgriešanas adreses neizdevušos iemaksu var atgūt tikai ar atbalsta palīdzību.';
+
+  @override
+  String get quotedReceiveReturnsTo => 'Atgriežas uz';
+
+  @override
+  String activityReturnedTo(String address, String network) {
+    return 'Atgriezts uz $address tīklā $network';
+  }
+
+  @override
   String stepUpReasonWithdrawWithSourceFee(
       String amount, String fee, String total) {
     return 'Apstiprini $amount izņemšanu ar tīkla maksu līdz $fee. Maksimālais norakstījums: $total.';

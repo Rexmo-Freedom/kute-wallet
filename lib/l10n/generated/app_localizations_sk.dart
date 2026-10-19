@@ -6808,6 +6808,26 @@ class AppLocalizationsSk extends AppLocalizations {
       'Tvoj účet sa zmenil. Zavri túto obrazovku a začni odznova.';
 
   @override
+  String get onetimeRefundTitle => 'Kam to máme vrátiť, ak sa to nepodarí?';
+
+  @override
+  String onetimeRefundSubtitle(String network, String coin) {
+    return 'Tvoja adresa v sieti $network pre $coin. Ak vklad nemožno dokončiť, pošle sa späť sem.';
+  }
+
+  @override
+  String get onetimeRefundSkipNote =>
+      'Bez adresy na vrátenie možno neúspešný vklad získať späť len cez podporu.';
+
+  @override
+  String get quotedReceiveReturnsTo => 'Vracia sa na';
+
+  @override
+  String activityReturnedTo(String address, String network) {
+    return 'Vrátené na $address v sieti $network';
+  }
+
+  @override
   String stepUpReasonWithdrawWithSourceFee(
       String amount, String fee, String total) {
     return 'Potvrď výber $amount so sieťovým poplatkom najviac $fee. Maximálne stiahnutie: $total.';

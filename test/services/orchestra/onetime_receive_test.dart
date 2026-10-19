@@ -1,7 +1,8 @@
 // The one-time receive of another coin (onetime_receive.dart): which
-// networks are offered and what each quote is refunded to, the source
-// amount a USD amount is worth, the Activity row a quote writes and the
-// Activity it shows in, and how long a quote's row keeps being watched.
+// networks are offered and what each quote is refunded to (the person's own
+// return address, or none when skipped; never the wallet's own EVM
+// address), the source amount a USD amount is worth, the record a quote
+// keeps and the Activity its order shows in, and how long it is watched.
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/helpers/orchestra_legacy_status_rules.dart';
@@ -19,7 +20,8 @@ import 'package:kute/services/security/wallet_guard_exception.dart';
 
 const _spark =
     'spark1pgss93sy072yrmtad5cy2srwjhq8ekzuw78yhr808jn6htqfh9w8p8h9mfwlv9';
-const _ownEvm = '0x52908400098527886e0f7030069857d2e4169ee7';
+const _refundEvm = '0x52908400098527886e0f7030069857d2e4169ee7';
+const _refundTron = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';
 const _evmDeposit = '0x1111111111111111111111111111111111111111';
 const _solanaDeposit = '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU';
 
@@ -36,14 +38,14 @@ OrchestraReceiveOption _option(String chain, String asset,
     );
 
 OrchestraQuoteRequest _request(OrchestraReceiveOption option,
-        {String destination = 'USDB', String? ownEvm = _ownEvm}) =>
+        {String destination = 'USDB', String? refund = _refundEvm}) =>
     OneTimeReceive.request(
       option: option,
       destinationAsset: destination,
       amountBaseUnits: BigInt.from(25000000),
       recipient: _spark,
       ownSpark: _spark,
-      ownEvm: ownEvm,
+      refundAddress: refund,
     );
 
 VerifiedOrchestraQuote _verify(OrchestraQuoteRequest request,
@@ -91,11 +93,12 @@ List<String> _ledger(List<SwapOrder> rows, {required bool onlyUsdb}) => [
 
 void main() {
   group('networks and refunds', () {
-    test('EVM networks are offered and refunded to the own EVM address', () {
+    test('EVM networks are offered and refunded to the return address given',
+        () {
       expect(oneTimeReceiveOffered('base'), isTrue);
-      expect(oneTimeReceiveOwnRefund('ethereum'), isTrue);
+      expect(oneTimeReceiveOffered('ethereum'), isTrue);
       final request = _request(_option('base', 'USDC'));
-      expect(request.refundAddress, _ownEvm);
+      expect(request.refundAddress, _refundEvm);
       expect(request.refundOptional, isFalse);
       expect(request.recipientKind, RecipientKind.ownSpark);
       expect(request.recipientAddress, _spark);
@@ -108,32 +111,57 @@ void main() {
           'BTC');
     });
 
-    test('an EVM source with no own EVM address, or a foreign one, is refused',
-        () {
-      expect(
-          () => _request(_option('base', 'USDC'), ownEvm: null),
-          throwsA(isA<WalletGuardException>().having((e) => e.reason, 'reason',
-              WalletGuardReason.ownAddressUnavailable)));
-      expect(
-          () => _request(_option('base', 'USDC'), ownEvm: _solanaDeposit),
-          throwsA(isA<WalletGuardException>().having(
-              (e) => e.reason, 'reason', WalletGuardReason.refundNotOwn)));
+    test(
+        'a return address of another network (Spark, Bitcoin, Solana on an '
+        'EVM source) is refused', () {
+      for (final wrong in [
+        _spark,
+        'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq',
+        _solanaDeposit,
+      ]) {
+        expect(oneTimeRefundAddressValid('base', wrong), isFalse,
+            reason: wrong);
+        expect(
+            () => _request(_option('base', 'USDC'), refund: wrong),
+            throwsA(isA<WalletGuardException>().having((e) => e.reason,
+                'reason', WalletGuardReason.refundAddressChain)));
+      }
+      expect(oneTimeRefundAddressValid('base', _refundEvm), isTrue);
+      expect(oneTimeRefundAddressValid('solana', _solanaDeposit), isTrue);
+      expect(oneTimeRefundAddressValid('tron', _refundTron), isTrue);
+      expect(oneTimeRefundAddressValid('tron', _refundEvm), isFalse);
     });
 
-    test('Solana and Tron carry no refund address, and the guard takes it', () {
-      for (final chain in ['solana', 'tron']) {
+    test('skipped, a quote from any offered network carries no refund address',
+        () {
+      for (final chain in ['base', 'solana', 'tron']) {
         expect(oneTimeReceiveOffered(chain), isTrue);
-        expect(oneTimeReceiveRefundOptional(chain), isTrue);
-        final request = _request(_option(chain, 'USDC'), ownEvm: _ownEvm);
+        final request = _request(_option(chain, 'USDC'), refund: null);
         expect(request.refundAddress, isEmpty);
         expect(request.refundOptional, isTrue);
       }
-      final verified =
-          _verify(_request(_option('solana', 'USDC')), deposit: _solanaDeposit);
+      expect(
+          _request(_option('base', 'USDC'), refund: '').refundOptional, isTrue);
+    });
+
+    test('Solana and Tron are refunded to the return address given', () {
+      final solana =
+          _request(_option('solana', 'USDC'), refund: _solanaDeposit);
+      expect(solana.refundAddress, _solanaDeposit);
+      expect(solana.refundOptional, isFalse);
+      final tron = _request(_option('tron', 'USDT'), refund: _refundTron);
+      expect(tron.refundAddress, _refundTron);
+      expect(tron.refundOptional, isFalse);
+    });
+
+    test('the guard takes a skipped return address, never an unasked one', () {
+      final verified = _verify(
+          _request(_option('solana', 'USDC'), refund: null),
+          deposit: _solanaDeposit);
       expect(verified.request.refundAddress, isEmpty);
       // An echoed refund the app never asked for is a mismatch.
       expect(
-          () => _verify(_request(_option('solana', 'USDC')),
+          () => _verify(_request(_option('solana', 'USDC'), refund: null),
               deposit: _solanaDeposit, echoedRefund: _solanaDeposit),
           throwsA(isA<WalletGuardException>()));
     });
@@ -262,7 +290,7 @@ void main() {
       expect(r.withdrawalAmount, '24.8');
       expect(r.purchaseSource, 'crypto_receive');
       expect(r.activityDirection, 'receive');
-      expect(r.refundAddress, _ownEvm);
+      expect(r.refundAddress, _refundEvm);
       expect(r.expiresAt, isNotNull);
       expect(r.shouldPollOrchestra, isTrue);
       expect(isOneTimeReceiveQuoteRow(r), isTrue);
@@ -270,10 +298,10 @@ void main() {
     });
 
     test(
-        'spark:BTC shows in the Bitcoin Activity, spark:USDB in the '
-        'Investments Activity, at once', () {
-      final bitcoin = row('base', 'USDC', 'BTC').copyWith(id: 'q_btc');
-      final dollars = row('base', 'USDC', 'USDB').copyWith(id: 'q_usd');
+        'once its deposit is detected, spark:BTC shows in the Bitcoin '
+        'Activity, spark:USDB in the Investments Activity', () {
+      final bitcoin = row('base', 'USDC', 'BTC').copyWith(id: 'ord_btc');
+      final dollars = row('base', 'USDC', 'USDB').copyWith(id: 'ord_usd');
       final dollarsFromEth = OneTimeReceive.row(
         option: _option('ethereum', 'ETH', decimals: 18),
         destinationAsset: 'USDB',
@@ -283,15 +311,15 @@ void main() {
           amountBaseUnits: BigInt.from(25000000),
           recipient: _spark,
           ownSpark: _spark,
-          ownEvm: _ownEvm,
+          refundAddress: _refundEvm,
         )),
         walletId: 'spending',
         now: DateTime.now(),
-      ).copyWith(id: 'q_eth');
+      ).copyWith(id: 'ord_eth');
       final rows = [bitcoin, dollars, dollarsFromEth];
-      expect(_ledger(rows, onlyUsdb: false), ['q_btc']);
-      expect(
-          _ledger(rows, onlyUsdb: true), unorderedEquals(['q_usd', 'q_eth']));
+      expect(_ledger(rows, onlyUsdb: false), ['ord_btc']);
+      expect(_ledger(rows, onlyUsdb: true),
+          unorderedEquals(['ord_usd', 'ord_eth']));
     });
 
     test('the row keeps being asked about for a day past its quote', () {
