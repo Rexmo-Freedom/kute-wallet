@@ -3047,5 +3047,6 @@
   "moneyStepSending": "Se trimit {amount}",
   "moneyStepSent": "Trimis {amount}",
   "moneyStepCompact": "{source} → {destination} · {amount}",
-  "arbitrumRefundReturned": "{amount} returnați pe Arbitrum"
+  "arbitrumRefundReturned": "{amount} returnați pe Arbitrum",
+  "portfolioSectionBalances": "Solduri"
 }

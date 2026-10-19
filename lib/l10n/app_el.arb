@@ -3047,5 +3047,6 @@
   "moneyStepSending": "Αποστολή {amount}",
   "moneyStepSent": "Στάλθηκαν {amount}",
   "moneyStepCompact": "{source} → {destination} · {amount}",
-  "arbitrumRefundReturned": "{amount} επιστράφηκαν στο Arbitrum"
+  "arbitrumRefundReturned": "{amount} επιστράφηκαν στο Arbitrum",
+  "portfolioSectionBalances": "Υπόλοιπα"
 }

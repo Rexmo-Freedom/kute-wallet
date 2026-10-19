@@ -3047,5 +3047,6 @@
   "moneyStepSending": "Enviando {amount}",
   "moneyStepSent": "Enviados {amount}",
   "moneyStepCompact": "{source} → {destination} · {amount}",
-  "arbitrumRefundReturned": "{amount} devueltos en Arbitrum"
+  "arbitrumRefundReturned": "{amount} devueltos en Arbitrum",
+  "portfolioSectionBalances": "Saldos"
 }

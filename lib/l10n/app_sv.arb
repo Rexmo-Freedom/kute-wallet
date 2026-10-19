@@ -3047,5 +3047,6 @@
   "moneyStepSending": "Skickar {amount}",
   "moneyStepSent": "Skickade {amount}",
   "moneyStepCompact": "{source} → {destination} · {amount}",
-  "arbitrumRefundReturned": "{amount} återbetalt på Arbitrum"
+  "arbitrumRefundReturned": "{amount} återbetalt på Arbitrum",
+  "portfolioSectionBalances": "Saldon"
 }

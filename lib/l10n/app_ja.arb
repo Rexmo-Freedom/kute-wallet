@@ -3047,5 +3047,6 @@
   "moneyStepSending": "{amount}を送金中",
   "moneyStepSent": "{amount}を送金しました",
   "moneyStepCompact": "{source} → {destination} · {amount}",
-  "arbitrumRefundReturned": "{amount}がArbitrumに返金されました"
+  "arbitrumRefundReturned": "{amount}がArbitrumに返金されました",
+  "portfolioSectionBalances": "残高"
 }

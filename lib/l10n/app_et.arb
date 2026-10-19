@@ -3047,5 +3047,6 @@
   "moneyStepSending": "Saadame {amount}",
   "moneyStepSent": "Saadetud {amount}",
   "moneyStepCompact": "{source} → {destination} · {amount}",
-  "arbitrumRefundReturned": "{amount} tagastatud Arbitrumis"
+  "arbitrumRefundReturned": "{amount} tagastatud Arbitrumis",
+  "portfolioSectionBalances": "Saldod"
 }

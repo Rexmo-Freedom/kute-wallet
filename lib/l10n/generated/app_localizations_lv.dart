@@ -10874,4 +10874,7 @@ class AppLocalizationsLv extends AppLocalizations {
   String arbitrumRefundReturned(String amount) {
     return '$amount atgriezti Arbitrum tīklā';
   }
+
+  @override
+  String get portfolioSectionBalances => 'Atlikumi';
 }

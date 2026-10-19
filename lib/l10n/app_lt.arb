@@ -3047,5 +3047,6 @@
   "moneyStepSending": "Siunčiama {amount}",
   "moneyStepSent": "Išsiųsta {amount}",
   "moneyStepCompact": "{source} → {destination} · {amount}",
-  "arbitrumRefundReturned": "{amount} grąžinta į Arbitrum"
+  "arbitrumRefundReturned": "{amount} grąžinta į Arbitrum",
+  "portfolioSectionBalances": "Likučiai"
 }

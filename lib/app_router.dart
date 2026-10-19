@@ -31,6 +31,8 @@ import 'package:kute/screens/settings/components/backup_wallet.dart';
 import 'package:kute/screens/ledger/ledger_investing_setup_screen.dart';
 import 'package:kute/screens/home/shell_venue_tabs.dart';
 import 'package:kute/screens/portfolio/wallet_detail_screen.dart';
+import 'package:kute/screens/portfolio/investments_portfolio.dart'
+    show PortfolioSection;
 import 'package:kute/screens/settings/wallets_screen.dart';
 
 import 'package:flutter/material.dart';
@@ -580,10 +582,10 @@ class AppRouter {
                   // `?tab=investing|predictions|positions` (what the venue
                   // routes redirect to) or `extra: {'tab': …}` picks the
                   // Investments pill (an old `earn` link opens the default
-                  // pill: Earn is shown nowhere; the old Portfolio tabs map
-                  // to Positions or open the Portfolio screen, see
-                  // investmentsLinkOpensPortfolio); nothing keeps the pill
-                  // where it was. The page updates in place on a new
+                  // pill: Earn is shown nowhere; a Portfolio section's or
+                  // an old Portfolio tab's key opens the Portfolio pill on
+                  // that section, see PortfolioSection.forLink); nothing
+                  // keeps the pill where it was. The page updates in place on a new
                   // link (same pageKey), and the screen applies it then.
                   pageBuilder: (context, state) {
                     final extra = state.extra;
@@ -593,7 +595,7 @@ class AppRouter {
                       key: state.pageKey,
                       child: UsdAccountScreen(
                           initialTab: InvestmentsTab.fromKey(tab),
-                          openPortfolio: investmentsLinkOpensPortfolio(tab)),
+                          initialSection: PortfolioSection.forLink(tab)),
                     );
                   },
                 ),

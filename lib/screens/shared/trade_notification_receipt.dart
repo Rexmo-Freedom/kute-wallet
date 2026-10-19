@@ -12,12 +12,15 @@ import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
 import 'package:kute/screens/ledger/ledger_portfolio_screen.dart';
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
 import 'package:kute/screens/polymarket/components/position_detail_sheet.dart';
-import 'package:kute/screens/portfolio/open_investments_screen.dart';
+import 'package:kute/screens/portfolio/investments_portfolio.dart'
+    show PortfolioSection;
+import 'package:kute/screens/portfolio/open_investments_screen.dart'
+    show InvestmentsProduct;
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/trade_notification_copy.dart';
 import 'package:kute/screens/shared/trade_receipt.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart'
-    show openInvestmentsPositions;
+    show openInvestmentsPortfolio, openInvestmentsPositions;
 import 'package:kute/services/trade_notification_store.dart';
 
 /// The market art of a results-inbox receipt: the prediction's crest or
@@ -174,12 +177,11 @@ void openTradeNotificationReceipt({
               builder: (_) => LedgerPortfolioScreen(
                   walletId: wallet.id, product: product, initialTab: tab)));
         } else if (spending) {
-          // A fill's own row is in the Portfolio's Activity; everything
-          // else held is under Positions.
+          // A fill's own row is in the Portfolio pill's Activity;
+          // everything else held is under its Charts.
           if (tab == 2) {
-            navigator.push(MaterialPageRoute(
-                builder: (_) =>
-                    const OpenInvestmentsScreen(source: 'notification')));
+            openInvestmentsPortfolio(
+                navigator.context, PortfolioSection.activity);
           } else {
             openInvestmentsPositions(navigator.context);
           }

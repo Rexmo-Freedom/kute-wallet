@@ -3047,5 +3047,6 @@
   "moneyStepSending": "Lähetetään {amount}",
   "moneyStepSent": "Lähetetty {amount}",
   "moneyStepCompact": "{source} → {destination} · {amount}",
-  "arbitrumRefundReturned": "{amount} palautettu Arbitrumiin"
+  "arbitrumRefundReturned": "{amount} palautettu Arbitrumiin",
+  "portfolioSectionBalances": "Saldot"
 }

@@ -11,6 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/models/settings_model.dart';
+import 'package:kute/models/transactions_model.dart' show Transaction;
 import 'package:kute/models/usd_rewards_model.dart';
 import 'package:kute/providers/advisor_provider.dart' show aiEnabledProvider;
 import 'package:kute/providers/hyperliquid_account_provider.dart'
@@ -161,6 +162,9 @@ Future<RecordingRewardsApi> pumpInvestments(
   Size size = const Size(390, 844),
   bool browseInvesting = false,
   bool browsePredictions = false,
+
+  /// The spending account's history (the Portfolio's Activity rows).
+  Transaction? history,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -185,7 +189,7 @@ Future<RecordingRewardsApi> pumpInvestments(
   addTearDown(() => RuntimeCapabilitiesService.debugInstance = null);
   await tester.pumpWidget(ProviderScope(
     overrides: [
-      ...portfolioOverrides(dollars: balance.dollarsUsd),
+      ...portfolioOverrides(dollars: balance.dollarsUsd, history: history),
       settingsProvider.overrideWith((_) => SettingsModel(settings)),
       runtimeCapabilitiesProvider.overrideWithValue(policy),
       oneBalanceProvider.overrideWithValue(balance),

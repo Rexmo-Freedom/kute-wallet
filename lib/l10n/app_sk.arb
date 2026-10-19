@@ -3047,5 +3047,6 @@
   "moneyStepSending": "Odosielame {amount}",
   "moneyStepSent": "Odoslané {amount}",
   "moneyStepCompact": "{source} → {destination} · {amount}",
-  "arbitrumRefundReturned": "{amount} vrátené na Arbitrum"
+  "arbitrumRefundReturned": "{amount} vrátené na Arbitrum",
+  "portfolioSectionBalances": "Zostatky"
 }

@@ -10967,4 +10967,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String arbitrumRefundReturned(String amount) {
     return '$amount devueltos en Arbitrum';
   }
+
+  @override
+  String get portfolioSectionBalances => 'Saldos';
 }
