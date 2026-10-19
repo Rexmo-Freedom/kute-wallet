@@ -9,7 +9,10 @@
 // $15 on Yes") or the purchase ("Buying $5.00 of Bitcoin", "Arriving in
 // Bitcoin"). The `SlipFundingSteps` look: the note's type and colours,
 // its small spinner while running, a check once done, the slips' error
-// sign when failed. No new chrome.
+// sign when failed. No new chrome. The stage and its sub-steps read as a
+// tree (founder, 19 October 2026): a thin connector in the lines' quiet
+// colour from the stage's sign down, an elbow into each sub-step's sign
+// (├, └ on the last), drawn behind the lines; nothing else changes.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -84,12 +87,16 @@ String moneyStepLine(
 }
 
 /// Whether a step is shown: a skipped one never is, and the conversion
-/// and the allowance (needed only sometimes) only once they started.
+/// and the allowance (needed only sometimes) only once the venue really
+/// reported them (`ref: 'seen'`, `readinessPhaseStep`). Their steps start
+/// with nothing to wait on, so "running" alone does not mean they are
+/// needed: shown from the start, "Approving spend" spun under every bet,
+/// even one whose allowance was long set.
 bool moneyStepShown(MoneyStep s) {
   if (s.status == MoneyStepStatus.skipped) return false;
-  if ((s.kind == MoneyStepKind.convert || s.kind == MoneyStepKind.approve) &&
-      s.status == MoneyStepStatus.waiting) {
-    return false;
+  if (s.kind == MoneyStepKind.convert || s.kind == MoneyStepKind.approve) {
+    if (s.status == MoneyStepStatus.waiting) return false;
+    if (s.status == MoneyStepStatus.running && s.ref != 'seen') return false;
   }
   return true;
 }
@@ -122,7 +129,9 @@ List<MoneyStepLine> moneyStepLines(
     if (s.kind.readiness) {
       if (readyShown) continue;
       readyShown = true;
-      final stage = stageStatusOf(readiness);
+      // The stage reads what it shows: an allowance step that started but
+      // was never needed does not spin it.
+      final stage = stageStatusOf(readiness.where(moneyStepShown));
       if (stage == null) continue;
       if (readyLabel != null) {
         lines.add(MoneyStepLine(readyLabel, stage, id: 'ready'));
@@ -198,36 +207,40 @@ class MoneyStepsView extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           for (var i = 0; i < lines.length; i++)
-            Padding(
-              key: ValueKey('money-step-${lines[i].id ?? i}'),
-              padding: EdgeInsets.only(
-                  top: 3.h, bottom: 3.h, left: lines[i].sub ? 22.w : 0),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 22.w,
-                    child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: lead(i, lines[i].status)),
-                  ),
-                  Flexible(
-                    child: Text(
-                      lines[i].text,
-                      style: TextStyle(
-                        color: switch (lines[i].status) {
-                          MoneyStepStatus.failed => c.textPrimary,
-                          MoneyStepStatus.waiting => c.textTertiary,
-                          _ => c.textSecondary,
-                        },
-                        fontSize: (lines[i].sub ? 12 : 13).sp,
-                        height: 1.35,
-                        fontWeight: lines[i].status == MoneyStepStatus.running
-                            ? FontWeight.w600
-                            : FontWeight.w400,
+            _treeBranch(
+              i,
+              c.textTertiary,
+              Padding(
+                key: ValueKey('money-step-${lines[i].id ?? i}'),
+                padding: EdgeInsets.only(
+                    top: 3.h, bottom: 3.h, left: lines[i].sub ? 22.w : 0),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 22.w,
+                      child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: lead(i, lines[i].status)),
+                    ),
+                    Flexible(
+                      child: Text(
+                        lines[i].text,
+                        style: TextStyle(
+                          color: switch (lines[i].status) {
+                            MoneyStepStatus.failed => c.textPrimary,
+                            MoneyStepStatus.waiting => c.textTertiary,
+                            _ => c.textSecondary,
+                          },
+                          fontSize: (lines[i].sub ? 12 : 13).sp,
+                          height: 1.35,
+                          fontWeight: lines[i].status == MoneyStepStatus.running
+                              ? FontWeight.w600
+                              : FontWeight.w400,
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           if (slow && !anyFailed)
@@ -254,4 +267,108 @@ class MoneyStepsView extends StatelessWidget {
       ),
     );
   }
+
+  /// Line [i] with its part of the tree drawn behind it: a stage line
+  /// that has sub-steps under it starts the connector below its sign;
+  /// each sub-step carries it on, with an elbow into its own sign (├,
+  /// └ on the last). Any other line is left as it is.
+  Widget _treeBranch(int i, Color color, Widget row) {
+    final MoneyStepTreeRole? role;
+    if (lines[i].sub) {
+      final last = i + 1 >= lines.length || !lines[i + 1].sub;
+      role = last ? MoneyStepTreeRole.lastChild : MoneyStepTreeRole.child;
+    } else if (i + 1 < lines.length && lines[i + 1].sub) {
+      role = MoneyStepTreeRole.parent;
+    } else {
+      role = null;
+    }
+    if (role == null) return row;
+    return CustomPaint(
+      key: ValueKey('money-step-tree-${lines[i].id ?? i}'),
+      painter: MoneyStepTreePainter(
+        role: role,
+        color: color,
+        trunkX: 6.5.r,
+        indent: 22.w,
+        signHalf: 7.r,
+      ),
+      child: row,
+    );
+  }
+}
+
+/// Where a line sits in the steps' tree.
+enum MoneyStepTreeRole {
+  /// A stage line with sub-steps under it: the trunk starts below its
+  /// sign.
+  parent,
+
+  /// A sub-step with more under it: the trunk runs through, with an
+  /// elbow into its sign (├).
+  child,
+
+  /// The last sub-step: the trunk ends in its elbow (└).
+  lastChild,
+}
+
+/// The thin connector of the steps' tree, drawn in the lines' own quiet
+/// colour behind one line: [trunkX] is the centre of the stage line's
+/// sign, [indent] where a sub-step's sign starts, [signHalf] half a
+/// sign's height (the trunk leaves a stage line just below it). No box,
+/// no fill.
+@visibleForTesting
+class MoneyStepTreePainter extends CustomPainter {
+  const MoneyStepTreePainter({
+    required this.role,
+    required this.color,
+    required this.trunkX,
+    required this.indent,
+    required this.signHalf,
+  });
+
+  final MoneyStepTreeRole role;
+  final Color color;
+  final double trunkX;
+  final double indent;
+  final double signHalf;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1
+      ..strokeCap = StrokeCap.round;
+    final mid = size.height / 2;
+    final gap = signHalf * 0.3;
+    switch (role) {
+      case MoneyStepTreeRole.parent:
+        final top = mid + signHalf + gap;
+        if (top < size.height) {
+          canvas.drawLine(
+              Offset(trunkX, top), Offset(trunkX, size.height), paint);
+        }
+      case MoneyStepTreeRole.child:
+        canvas.drawLine(Offset(trunkX, 0), Offset(trunkX, size.height), paint);
+        canvas.drawLine(
+            Offset(trunkX, mid), Offset(indent - gap * 2, mid), paint);
+      case MoneyStepTreeRole.lastChild:
+        final corner = signHalf * 0.45;
+        canvas.drawPath(
+            Path()
+              ..moveTo(trunkX, 0)
+              ..lineTo(trunkX, mid - corner)
+              ..quadraticBezierTo(trunkX, mid, trunkX + corner, mid)
+              ..lineTo(indent - gap * 2, mid),
+            paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(MoneyStepTreePainter old) =>
+      old.role != role ||
+      old.color != color ||
+      old.trunkX != trunkX ||
+      old.indent != indent ||
+      old.signHalf != signHalf;
 }
