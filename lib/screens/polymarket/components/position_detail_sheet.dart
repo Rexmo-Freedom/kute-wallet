@@ -12,6 +12,8 @@ import 'package:kute/screens/polymarket/components/position_chance_bar.dart';
 import 'package:kute/screens/polymarket/components/position_chance_gauge.dart';
 import 'package:kute/screens/polymarket/components/game_chart_section.dart';
 import 'package:kute/screens/polymarket/components/game_header.dart';
+import 'package:kute/screens/polymarket/components/live_game.dart'
+    show PolyLiveGame;
 import 'package:kute/screens/polymarket/components/game_time.dart'
     show polyMinuteTickProvider;
 import 'package:kute/providers/polymarket_game_lines_provider.dart';
@@ -584,21 +586,31 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                         // where it is; the market's scheduled end (already
                         // past) would only mislead.
                         Consumer(builder: (context, expiryRef, _) {
+                          final isGame = event != null && sportsTeams != null;
+                          final ws = isGame
+                              ? polyLiveMatchUpdate(expiryRef, event)
+                              : null;
                           if (!pos.isResolved &&
-                              event != null &&
-                              sportsTeams != null &&
-                              polyGameIsLive(event,
-                                  polyLiveMatchUpdate(expiryRef, event))) {
+                              isGame &&
+                              polyGameIsLive(event, ws)) {
                             return const SizedBox.shrink();
                           }
                           // Over and not claimable yet: when Polymarket
                           // expects the result, counted down by the minute.
+                          // A passed end date alone is not over (the Brazil
+                          // "who wins" market kept its first-round date
+                          // while still trading), but for a 5 or 15 minute
+                          // round: polyMarketHasEnded, as on the card.
                           final end = polyPositionEnd(pos);
                           final over = !pos.isResolved &&
-                              ((event != null &&
-                                      (event.ended || event.closed)) ||
-                                  (end != null &&
-                                      !end.isAfter(DateTime.now())));
+                              polyMarketHasEnded(
+                                  eventSlug: pos.eventSlug,
+                                  end: end,
+                                  event: event,
+                                  live: isGame
+                                      ? PolyLiveGame.of(event, ws)
+                                      : null,
+                                  isGame: isGame);
                           final settleAt = over && pos.marketId.isNotEmpty
                               ? expiryRef
                                   .watch(polyExpectedSettlementProvider(
@@ -624,8 +636,10 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                                 event.kickoff != null,
                             // Over but not claimable yet: say what is
                             // being waited for (position_awaiting.dart).
-                            ended: event != null &&
-                                (event.ended || event.closed),
+                            ended: over,
+                            // Still trading past the market's own end: the
+                            // event's, when it is later.
+                            eventEnd: event?.endDate,
                             endedLabel: polyAwaitingText(context.l10n,
                                 polyAwaitingResultFor(currentPrice),
                                 shortRound: polyIsShortRound(pos.eventSlug),
@@ -871,12 +885,19 @@ class _PositionExpiry extends StatefulWidget {
       required this.resolved,
       this.quietBeforeEnd = false,
       this.ended = false,
+      this.eventEnd,
       required this.endedLabel});
   final DateTime? end;
   final bool resolved;
 
-  /// The market is over before its end date (a game that finished).
+  /// The market is over and waiting for its result (polyMarketHasEnded):
+  /// the only way to the ended caption. A passed [end] alone never is.
   final bool ended;
+
+  /// The event's own end. A market still trading past its own [end] (a
+  /// first-round date, the runoff weeks away) says this one when it is
+  /// later, and nothing otherwise.
+  final DateTime? eventEnd;
 
   /// What an ended, not yet claimable position waits for.
   final String endedLabel;
@@ -906,19 +927,30 @@ class _PositionExpiryState extends State<_PositionExpiry> {
 
   @override
   Widget build(BuildContext context) {
-    final left = widget.end?.difference(DateTime.now());
+    final now = DateTime.now();
+    var end = widget.end;
+    // Past the market's own end but not over: the event's later end, or
+    // nothing. Never "Ended" on a date alone.
+    if (!widget.resolved &&
+        !widget.ended &&
+        end != null &&
+        !end.isAfter(now)) {
+      final eventEnd = widget.eventEnd;
+      end = eventEnd != null && eventEnd.isAfter(now) ? eventEnd : null;
+    }
+    final left = end?.difference(now);
     final String label;
     if (widget.resolved) {
       label = context.l10n.activitySettled;
-    } else if (widget.ended || (left != null && left.isNegative)) {
+    } else if (widget.ended) {
       label = widget.endedLabel;
     } else if (left == null) {
       return const SizedBox.shrink();
     } else if (widget.quietBeforeEnd) {
       return const SizedBox.shrink();
     } else if (left.inDays >= 1) {
-      label = context.l10n.betEndsDate(
-          DateFormat('MMM d, HH:mm').format(widget.end!.toLocal()));
+      label = context.l10n
+          .betEndsDate(DateFormat('MMM d, HH:mm').format(end!.toLocal()));
     } else {
       final h = left.inHours;
       final m = (left.inMinutes % 60).toString().padLeft(2, '0');

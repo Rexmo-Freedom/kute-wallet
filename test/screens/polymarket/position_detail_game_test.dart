@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart' hide TextDirection;
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/providers/advisor_provider.dart' show aiEnabledProvider;
@@ -27,6 +28,8 @@ import 'package:kute/screens/polymarket/components/market_livestream_view.dart';
 import 'package:kute/screens/polymarket/components/poly_market_stats.dart'
     show PolyRulesRow;
 import 'package:kute/screens/polymarket/components/position_chance_bar.dart';
+import 'package:kute/screens/polymarket/components/position_awaiting.dart'
+    show polyExpectedSettlementProvider;
 import 'package:kute/screens/polymarket/components/position_chance_gauge.dart';
 import 'package:kute/screens/polymarket/components/position_detail_sheet.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
@@ -719,6 +722,152 @@ void main() {
           findsOneWidget);
       expect(text.maxLines, 2);
       expect(text.overflow, TextOverflow.ellipsis);
+      expect(tester.takeException(), isNull);
+    });
+  });
+  group('the expiry line under the rows', () {
+    List<Override> base(String slug, PolymarketEvent? event,
+            {required String marketId}) =>
+        [
+          polymarketClaimablePositionsProvider.overrideWithValue(const []),
+          polymarketActivePositionsProvider.overrideWithValue(const []),
+          livePriceProvider.overrideWith(_Prices.new),
+          sportsLiveProvider.overrideWith(_NoGames.new),
+          polyGameTimelineProvider.overrideWith(_NoTimeline.new),
+          aiEnabledProvider.overrideWith((ref) async => false),
+          polymarketCostBasisProvider.overrideWith((ref) => _NoCostBasis()),
+          predictionUsdCostProvider.overrideWith((ref, id) async => null),
+          polyExpectedSettlementProvider(marketId)
+              .overrideWith((ref) async => null),
+          polymarketEventDetailsProvider(slug)
+              .overrideWith((ref) async => event),
+        ];
+
+    PolymarketEvent election(
+            {required DateTime end, bool closed = false}) =>
+        PolymarketEvent(
+          id: 'br',
+          slug: 'brazil-presidential-election',
+          title: 'Brazil Presidential Election',
+          volume: 1000,
+          liquidity: 1000,
+          category: 'politics',
+          conditionId: 'c9',
+          outcomes: const [
+            PolymarketOutcome(name: 'Yes', price: 0.758, tokenId: 'y'),
+            PolymarketOutcome(name: 'No', price: 0.242, tokenId: 'n'),
+          ],
+          endDate: end,
+          closed: closed,
+        );
+
+    PolymarketPosition held(DateTime marketEnd) => PolymarketPosition(
+          marketId: 'c9',
+          marketQuestion: 'Will Flávio Bolsonaro win the 2026 Brazilian '
+              'presidential election?',
+          outcome: 'Yes',
+          size: 6.49,
+          avgPrice: 0.78,
+          currentPrice: 0.758,
+          pnl: -0.13,
+          pnlPercent: -2.6,
+          isResolved: false,
+          eventSlug: 'brazil-presidential-election',
+          endDateStr: marketEnd.toUtc().toIso8601String(),
+        );
+
+    testWidgets('a market past its own end date but still trading: never '
+        '"Ended", the event\'s later end instead', (tester) async {
+      final now = DateTime.now();
+      final eventEnd = now.add(const Duration(days: 7));
+      await _pump(
+        tester,
+        PositionDetailSheet(
+            position: held(now.subtract(const Duration(days: 14)))),
+        overrides: base('brazil-presidential-election', election(end: eventEnd),
+            marketId: 'c9'),
+      );
+      await tester.pump();
+      expect(find.textContaining('Ended'), findsNothing);
+      expect(
+          find.textContaining(
+              'Ends ${DateFormat('MMM d').format(eventEnd.toLocal())}'),
+          findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('past its end with no later event end, or before the event '
+        'is read: nothing, never "Ended"', (tester) async {
+      final now = DateTime.now();
+      await _pump(
+        tester,
+        PositionDetailSheet(
+            position: held(now.subtract(const Duration(days: 14)))),
+        overrides: base('brazil-presidential-election',
+            election(end: now.subtract(const Duration(days: 1))),
+            marketId: 'c9'),
+      );
+      await tester.pump();
+      expect(find.textContaining('Ended'), findsNothing);
+      expect(find.textContaining('Ends'), findsNothing);
+
+      await _pump(
+        tester,
+        PositionDetailSheet(
+            position: held(now.subtract(const Duration(days: 14)))),
+        overrides: base('brazil-presidential-election', null, marketId: 'c9'),
+      );
+      await tester.pump();
+      expect(find.textContaining('Ended'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a closed event: the ended caption', (tester) async {
+      final now = DateTime.now();
+      await _pump(
+        tester,
+        PositionDetailSheet(
+            position: held(now.subtract(const Duration(days: 14)))),
+        overrides: base('brazil-presidential-election',
+            election(end: now.add(const Duration(days: 7)), closed: true),
+            marketId: 'c9'),
+      );
+      await tester.pump();
+      expect(find.text('Ended · Waiting for the result'), findsOneWidget);
+      expect(find.textContaining('Ends'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a 5-minute round past its end: the awaiting caption, from '
+        'the date alone', (tester) async {
+      final start = DateTime.now().subtract(const Duration(minutes: 20));
+      final secs = start.millisecondsSinceEpoch ~/ 1000;
+      final slug = 'btc-updown-5m-$secs';
+      await _pump(
+        tester,
+        PositionDetailSheet(
+          position: PolymarketPosition(
+            marketId: 'c5',
+            marketQuestion: 'Bitcoin Up or Down - 5 minutes',
+            outcome: 'Up',
+            size: 10,
+            avgPrice: 0.5,
+            currentPrice: 0.5,
+            pnl: 0,
+            pnlPercent: 0,
+            isResolved: false,
+            eventSlug: slug,
+            endDateStr: start
+                .add(const Duration(minutes: 5))
+                .toUtc()
+                .toIso8601String(),
+          ),
+        ),
+        overrides: base(slug, null, marketId: 'c5'),
+      );
+      await tester.pump();
+      expect(find.textContaining('Ended · '), findsOneWidget);
+      expect(find.textContaining('Ends'), findsNothing);
       expect(tester.takeException(), isNull);
     });
   });
