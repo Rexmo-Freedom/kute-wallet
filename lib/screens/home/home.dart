@@ -401,8 +401,9 @@ class _HomeState extends ConsumerState<Home> with TickerProviderStateMixin {
   }
 
   /// Pull-to-refresh is "update everything", the same function every
-  /// Investments pull runs ([RefreshEverything.home]): balances and one
-  /// Breez sync, the full background sync, Predictions, Investing and the
+  /// Investments pull runs ([RefreshEverything.home]): balances (the
+  /// Breez SDK connected again, as a hot restart does, unless a send or
+  /// quote is in flight, then one sync), the full background sync, Predictions, Investing and the
   /// Portfolio, in parallel, with the spinner capped at 4 s while the rest
   /// lands, and the mascot in `refreshing` meanwhile. It runs on the
   /// provider's ref, so leaving Home mid-pull is safe.
