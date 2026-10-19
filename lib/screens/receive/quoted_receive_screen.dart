@@ -316,6 +316,18 @@ class _QuotedReceiveSheetState extends ConsumerState<QuotedReceiveSheet> {
   bool _current(int generation) =>
       mounted && generation == _generation && _sameWallet;
 
+  /// Set once the sheet is going (the X, a swipe, the system back): it
+  /// stays mounted through its close animation, and a quote landing then
+  /// is persisted (the deposit poller and background sync watch it) but
+  /// never shown, counted or polled from here.
+  bool _closing = false;
+
+  void _close() {
+    if (!mounted || _closing) return;
+    _closing = true;
+    unawaited(Navigator.of(context).maybePop());
+  }
+
   // How long before the quote's expiry the address stops being shown. The
   // payer is a person with a wallet, not the app's relayer, so the window
   // runs almost to Flashnet's own expiry (2 minutes per quote); a deposit
@@ -452,43 +464,48 @@ class _QuotedReceiveSheetState extends ConsumerState<QuotedReceiveSheet> {
     // The receive sheet's frame, as the Bitcoin receive and the reusable
     // address wear it: the close X, the balance the money lands in. No
     // step bar and no page title.
-    return ReceiveSheetFrame(
-      leading: KuteCloseButton(
-          onPressed: () => unawaited(Navigator.of(context).maybePop())),
-      title: AccountSwitcherPill(
-        pickerTitle: l10n.receiveInto,
-        readOnly: true,
-        label: _dollars ? l10n.assetDollars : l10n.bitcoin,
-      ),
-      semanticTitle: _dollars ? l10n.usdReceiveTitle : l10n.receiveBitcoin,
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Expanded(
-              child: blocked
-                  ? SingleChildScrollView(
-                      child: Padding(
-                        padding: EdgeInsets.only(top: 12.h),
-                        child: ReceiveCaption(
-                          text: _walletChanged
-                              ? l10n.quotedReceiveWalletChanged
-                              : !_supported
-                                  ? l10n.receiveCoinNetworkUnavailable
-                                  : l10n.receiveOtherCoinsSpendingOnly,
+    return PopScope(
+      // A swipe or the system back: the sheet is going.
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) _closing = true;
+      },
+      child: ReceiveSheetFrame(
+        leading: KuteCloseButton(onPressed: _close),
+        title: AccountSwitcherPill(
+          pickerTitle: l10n.receiveInto,
+          readOnly: true,
+          label: _dollars ? l10n.assetDollars : l10n.bitcoin,
+        ),
+        semanticTitle: _dollars ? l10n.usdReceiveTitle : l10n.receiveBitcoin,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: blocked
+                    ? SingleChildScrollView(
+                        child: Padding(
+                          padding: EdgeInsets.only(top: 12.h),
+                          child: ReceiveCaption(
+                            text: _walletChanged
+                                ? l10n.quotedReceiveWalletChanged
+                                : !_supported
+                                    ? l10n.receiveCoinNetworkUnavailable
+                                    : l10n.receiveOtherCoinsSpendingOnly,
+                          ),
                         ),
-                      ),
-                    )
-                  : _verified == null
-                      ? _buildPending()
-                      : _buildAddress(),
-            ),
-            if (action != null) ...[
-              SizedBox(height: 12.h),
-              action,
+                      )
+                    : _verified == null
+                        ? _buildPending()
+                        : _buildAddress(),
+              ),
+              if (action != null) ...[
+                SizedBox(height: 12.h),
+                action,
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -747,8 +764,9 @@ class _QuotedReceiveSheetState extends ConsumerState<QuotedReceiveSheet> {
       // background monitor discovers an actual order even after we close.
       await _record(row, verified.expiresAt, scope);
       // Persisted and paying the wallet's own Spark address: from here a
-      // rebuilt SDK changes nothing.
-      if (!_current(generation)) return;
+      // rebuilt SDK changes nothing. A sheet already going shows and
+      // counts nothing: the person never saw this address.
+      if (!_current(generation) || _closing) return;
       _requireLiveRoute();
       OneTimeReceive.ensurePayable(verified, units);
       // Its deposits are read on every screen for a while.
@@ -796,7 +814,7 @@ class _QuotedReceiveSheetState extends ConsumerState<QuotedReceiveSheet> {
         setState(() {});
       });
     } catch (error) {
-      if (!mounted || !_current(generation)) return;
+      if (!mounted || !_current(generation) || _closing) return;
       TrackingService.track('receive_address_failed', params: {
         ..._addressProps(),
         'error_category': TrackingService.errorCategory(error),

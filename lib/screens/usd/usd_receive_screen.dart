@@ -742,15 +742,29 @@ class _UsdStandingAddressSheetState
     widget.onAddressShown?.call(display != null);
   }
 
-  /// Closes this sheet once the current frame is done, with [result].
-  void _close([UsdStandingFallback? result]) {
+  /// The sheet is going (the X, a swipe, the system back, a fallback or
+  /// a wallet switch): nothing more happens on it. A registration still
+  /// in flight lands silently: no address, no event, no poller, and
+  /// never a second pop (the sheet stays mounted through its close
+  /// animation, and a pop then would take the coin sheet with it).
+  void _onClosing() {
     if (_closing) return;
     _closing = true;
     _requestId++;
     _poller.cancel();
     _sameSdk = null;
+  }
+
+  /// Closes this sheet once the current frame is done, with [result].
+  void _close([UsdStandingFallback? result]) {
+    if (_closing) return;
+    _onClosing();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      // Only this sheet's own route: one already popping, or one under
+      // another, is never popped from here.
+      final route = ModalRoute.of(context);
+      if (route == null || !route.isCurrent) return;
       Navigator.of(context).pop<UsdStandingFallback>(result);
     });
     WidgetsBinding.instance.scheduleFrame();
@@ -787,27 +801,33 @@ class _UsdStandingAddressSheetState
       }
     });
     final l10n = context.l10n;
-    return ReceiveSheetFrame(
-      leading: KuteCloseButton(
-          onPressed: () => unawaited(Navigator.of(context).maybePop())),
-      // The reusable address always pays the dollar balance: the title
-      // names it, also when opened from the Bitcoin receive. No step bar.
-      title: AccountSwitcherPill(
-        pickerTitle: l10n.receiveInto,
-        readOnly: true,
-        label: l10n.assetDollars,
-      ),
-      semanticTitle: l10n.usdReceiveTitle,
-      child: Padding(
-        // The coin sheet's body inset plus its address step's, as the
-        // Bitcoin receive opens on its code.
-        padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 0),
-        child: !_spendingIsActive
-            ? Padding(
-                padding: EdgeInsets.only(top: 12.h),
-                child: ReceiveCaption(text: l10n.receiveOtherCoinsSpendingOnly),
-              )
-            : _buildAddressStep(context),
+    return PopScope(
+      // A swipe or the system back: the sheet is going.
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) _onClosing();
+      },
+      child: ReceiveSheetFrame(
+        leading: KuteCloseButton(onPressed: _close),
+        // The reusable address always pays the dollar balance: the title
+        // names it, also when opened from the Bitcoin receive. No step bar.
+        title: AccountSwitcherPill(
+          pickerTitle: l10n.receiveInto,
+          readOnly: true,
+          label: l10n.assetDollars,
+        ),
+        semanticTitle: l10n.usdReceiveTitle,
+        child: Padding(
+          // The coin sheet's body inset plus its address step's, as the
+          // Bitcoin receive opens on its code.
+          padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 0),
+          child: !_spendingIsActive
+              ? Padding(
+                  padding: EdgeInsets.only(top: 12.h),
+                  child:
+                      ReceiveCaption(text: l10n.receiveOtherCoinsSpendingOnly),
+                )
+              : _buildAddressStep(context),
+        ),
       ),
     );
   }
@@ -837,7 +857,7 @@ class _UsdStandingAddressSheetState
               text: l10n.back,
               variant: AppButtonVariant.secondary,
               compact: true,
-              onPressed: () => unawaited(Navigator.of(context).maybePop()),
+              onPressed: _close,
             ),
           ],
         ),
