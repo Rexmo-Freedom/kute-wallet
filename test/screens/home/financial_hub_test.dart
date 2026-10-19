@@ -148,30 +148,27 @@ void main() {
     expect(find.text('Savings'), findsOneWidget);
     expect(find.text('Add account'), findsOneWidget);
     expect(find.byIcon(Icons.notifications_none_rounded), findsNothing);
-    // One row under the title: Settings, then Support as a bare icon, then
-    // Referrals. The old Support / Referral program rows are gone.
+    // One row under the title, right-aligned: Referrals, Support, then
+    // Settings at the right edge. The old Support / Referral program rows
+    // are gone.
     expect(find.byIcon(Icons.settings_rounded), findsOneWidget);
-    expect(find.byType(KuteCirclePillButton), findsNWidgets(2));
-    expect(find.text('Support'), findsNothing);
+    expect(find.byType(KuteCirclePillButton), findsNWidgets(3));
+    expect(find.text('Support'), findsOneWidget);
     expect(find.text('Referral program'), findsNothing);
-    expect(find.bySemanticsLabel('Support'), findsOneWidget);
     final title = tester.widget<Text>(find.text('Financial hub'));
     expect(title.style!.fontSize, 22);
-    final settingsAt = tester.getCenter(find.text('Settings'));
-    final supportAt =
-        tester.getCenter(find.byIcon(Icons.support_agent_rounded));
     final referralsAt = tester.getCenter(find.text('Referrals'));
-    expect(settingsAt.dy, closeTo(supportAt.dy, 1));
-    expect(settingsAt.dx, lessThan(supportAt.dx));
-    // The row sits on the right, never centred or flush left.
-    expect(tester.getTopRight(find.byIcon(Icons.support_agent_rounded)).dx,
+    final supportAt = tester.getCenter(find.text('Support'));
+    final settingsAt = tester.getCenter(find.text('Settings'));
+    // Reading order (the row wraps rather than overflowing where the test
+    // font makes it wider than the sheet).
+    bool after(Offset a, Offset b) =>
+        b.dy > a.dy + 1 || ((b.dy - a.dy).abs() <= 1 && b.dx > a.dx);
+    expect(after(referralsAt, supportAt), isTrue);
+    expect(after(supportAt, settingsAt), isTrue);
+    // Settings sits at the right edge, past the title.
+    expect(tester.getTopRight(find.text('Settings')).dx,
         greaterThan(tester.getTopRight(find.text('Financial hub')).dx));
-    // Referrals follows Support: beside it, or on the next line where the
-    // test font makes the row wider than the sheet (it wraps, never
-    // overflows).
-    expect(
-        referralsAt.dy > supportAt.dy + 1 || referralsAt.dx > supportAt.dx,
-        isTrue);
     expect(tester.getBottomLeft(find.text('Financial hub')).dy,
         lessThan(tester.getTopLeft(find.text('Settings')).dy));
     expect(tester.getBottomLeft(find.text('Settings')).dy,
@@ -232,7 +229,7 @@ void main() {
     await _pump(tester);
     await tester.tap(find.byType(HubPlusGearGlyph));
     await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.support_agent_rounded));
+    await tester.tap(find.text('Support'));
     await tester.pumpAndSettle();
     expect(find.text('Financial hub'), findsNothing);
     expect(events.where((e) => e.$1 == 'support_opened').map((e) => e.$2), [

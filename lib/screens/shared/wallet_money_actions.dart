@@ -14,7 +14,7 @@ import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/kute_back_button.dart'
-    show KuteCircleButton, KuteCirclePillButton;
+    show KuteCirclePillButton;
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/screens/home/shell_venue_tabs.dart'
     show shellShowsPredictionsTab, shellShowsTradingTab;
@@ -101,7 +101,6 @@ class _HubButtons extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final c = context.colors;
     final showReferral =
         ref.watch(runtimeCapabilitiesProvider).allows(kReferralCapability);
     return Padding(
@@ -116,18 +115,7 @@ class _HubButtons extends ConsumerWidget {
             spacing: 8.w,
             runSpacing: 8.h,
             children: [
-              _HubSettingsButton(callerContext: callerContext),
-              KuteCircleButton(
-                semanticsLabel: context.l10n.support,
-                size: 40,
-                onPressed: () {
-                  TrackingService.supportOpened(source: 'financial_hub');
-                  Navigator.of(sheetContext).pop();
-                  openSupportChat();
-                },
-                child: Icon(Icons.support_agent_rounded,
-                    size: 20.sp, color: c.textPrimary),
-              ),
+              // Referrals first, then Support, Settings last (right edge).
               if (showReferral)
                 KuteCirclePillButton(
                   icon: Icons.group_rounded,
@@ -139,6 +127,17 @@ class _HubButtons extends ConsumerWidget {
                     callerContext.push('/affiliate');
                   },
                 ),
+              KuteCirclePillButton(
+                icon: Icons.support_agent_rounded,
+                label: context.l10n.support,
+                size: 40,
+                onPressed: () {
+                  TrackingService.supportOpened(source: 'financial_hub');
+                  Navigator.of(sheetContext).pop();
+                  openSupportChat();
+                },
+              ),
+              _HubSettingsButton(callerContext: callerContext),
             ]),
       ),
     );
