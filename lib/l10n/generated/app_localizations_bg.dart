@@ -4033,6 +4033,9 @@ class AppLocalizationsBg extends AppLocalizations {
   String get settingsReferralProgram => 'Програма за покани';
 
   @override
+  String get hubReferrals => 'Покани';
+
+  @override
   String get settingsEarnAShareOfFees =>
       'Печели дял от това, което Kute изкарва от приятелите ти';
 

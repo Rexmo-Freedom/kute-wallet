@@ -4028,6 +4028,9 @@ class AppLocalizationsDa extends AppLocalizations {
   String get settingsReferralProgram => 'Henvisningsprogram';
 
   @override
+  String get hubReferrals => 'Henvisninger';
+
+  @override
   String get settingsEarnAShareOfFees =>
       'Få en andel af det, Kute tjener på dine venner';
 

@@ -4062,6 +4062,9 @@ class AppLocalizationsEl extends AppLocalizations {
   String get settingsReferralProgram => 'Πρόγραμμα παραπομπών';
 
   @override
+  String get hubReferrals => 'Παραπομπές';
+
+  @override
   String get settingsEarnAShareOfFees =>
       'Κέρδισε ένα μέρος από όσα βγάζει το Kute από τους φίλους σου';
 

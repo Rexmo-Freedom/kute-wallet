@@ -4034,6 +4034,9 @@ class AppLocalizationsHu extends AppLocalizations {
   String get settingsReferralProgram => 'Ajánlói program';
 
   @override
+  String get hubReferrals => 'Ajánlások';
+
+  @override
   String get settingsEarnAShareOfFees =>
       'Kapj részt abból, amit a Kute a barátaidon keres';
 

@@ -4034,6 +4034,9 @@ class AppLocalizationsHr extends AppLocalizations {
   String get settingsReferralProgram => 'Program preporuka';
 
   @override
+  String get hubReferrals => 'Preporuke';
+
+  @override
   String get settingsEarnAShareOfFees =>
       'Zaradi dio onoga što Kute zaradi od tvojih prijatelja';
 

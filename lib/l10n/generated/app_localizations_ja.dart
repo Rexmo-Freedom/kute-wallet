@@ -3916,6 +3916,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsReferralProgram => '紹介プログラム';
 
   @override
+  String get hubReferrals => '紹介';
+
+  @override
   String get settingsEarnAShareOfFees => '友達からKuteが得る収益の一部を受け取れます';
 
   @override

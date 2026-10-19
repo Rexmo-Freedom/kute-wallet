@@ -4036,6 +4036,9 @@ class AppLocalizationsLt extends AppLocalizations {
   String get settingsReferralProgram => 'Rekomendacijų programa';
 
   @override
+  String get hubReferrals => 'Rekomendacijos';
+
+  @override
   String get settingsEarnAShareOfFees =>
       'Uždirbkite dalį to, ką Kute uždirba iš jūsų draugų';
 

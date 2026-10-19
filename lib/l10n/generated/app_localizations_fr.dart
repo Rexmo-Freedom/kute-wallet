@@ -4057,6 +4057,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get settingsReferralProgram => 'Programme de parrainage';
 
   @override
+  String get hubReferrals => 'Parrainage';
+
+  @override
   String get settingsEarnAShareOfFees =>
       'Gagnez une part de ce que Kute perçoit sur vos amis';
 

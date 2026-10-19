@@ -4056,6 +4056,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get settingsReferralProgram => 'Empfehlungsprogramm';
 
   @override
+  String get hubReferrals => 'Empfehlungen';
+
+  @override
   String get settingsEarnAShareOfFees =>
       'Verdiene einen Anteil an dem, was Kute mit deinen Freunden einnimmt';
 

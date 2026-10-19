@@ -4033,6 +4033,9 @@ class AppLocalizationsSl extends AppLocalizations {
   String get settingsReferralProgram => 'Program priporočil';
 
   @override
+  String get hubReferrals => 'Priporočila';
+
+  @override
   String get settingsEarnAShareOfFees =>
       'Zaslužite delež tega, kar Kute zasluži z vašimi prijatelji';
 

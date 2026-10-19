@@ -4025,6 +4025,9 @@ class AppLocalizationsCs extends AppLocalizations {
   String get settingsReferralProgram => 'Doporučovací program';
 
   @override
+  String get hubReferrals => 'Doporučení';
+
+  @override
   String get settingsEarnAShareOfFees =>
       'Získej podíl z toho, co Kute vydělá na tvých přátelích';
 

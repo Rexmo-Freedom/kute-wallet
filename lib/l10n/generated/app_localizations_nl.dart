@@ -4039,6 +4039,9 @@ class AppLocalizationsNl extends AppLocalizations {
   String get settingsReferralProgram => 'Verwijsprogramma';
 
   @override
+  String get hubReferrals => 'Verwijzingen';
+
+  @override
   String get settingsEarnAShareOfFees =>
       'Verdien een deel van wat Kute aan je vrienden verdient';
 

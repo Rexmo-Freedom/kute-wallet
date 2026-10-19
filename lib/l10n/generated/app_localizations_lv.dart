@@ -4013,6 +4013,9 @@ class AppLocalizationsLv extends AppLocalizations {
   String get settingsReferralProgram => 'Ieteikumu programma';
 
   @override
+  String get hubReferrals => 'Ieteikumi';
+
+  @override
   String get settingsEarnAShareOfFees =>
       'Nopelni daļu no tā, ko Kute nopelna no taviem draugiem';
 

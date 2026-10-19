@@ -4022,6 +4022,9 @@ class AppLocalizationsFi extends AppLocalizations {
   String get settingsReferralProgram => 'Suositteluohjelma';
 
   @override
+  String get hubReferrals => 'Suosittelut';
+
+  @override
   String get settingsEarnAShareOfFees =>
       'Ansaitse osuus siitä, mitä Kute tienaa ystävistäsi';
 

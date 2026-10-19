@@ -4046,6 +4046,9 @@ class AppLocalizationsPt extends AppLocalizations {
   String get settingsReferralProgram => 'Programa de referências';
 
   @override
+  String get hubReferrals => 'Referências';
+
+  @override
   String get settingsEarnAShareOfFees =>
       'Ganhe uma parte do que a Kute ganha com os seus amigos';
 

@@ -7185,6 +7185,12 @@ abstract class AppLocalizations {
   /// **'Referral program'**
   String get settingsReferralProgram;
 
+  /// No description provided for @hubReferrals.
+  ///
+  /// In en, this message translates to:
+  /// **'Referrals'**
+  String get hubReferrals;
+
   /// No description provided for @settingsEarnAShareOfFees.
   ///
   /// In en, this message translates to:

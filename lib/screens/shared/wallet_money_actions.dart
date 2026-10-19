@@ -14,17 +14,21 @@ import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/kute_back_button.dart'
-    show KuteCirclePillButton;
+    show KuteCircleButton, KuteCirclePillButton;
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/screens/home/shell_venue_tabs.dart'
     show shellShowsPredictionsTab, shellShowsTradingTab;
 import 'package:kute/screens/shared/wallet_icon.dart';
+import 'package:kute/screens/settings/settings.dart' show kReferralCapability;
+import 'package:kute/services/runtime_capabilities_service.dart'
+    show runtimeCapabilitiesProvider;
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/services/support_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
-/// The Financial hub: wallet switching, Add wallet, Support and Referral
-/// program, with a labelled Settings pill in its compact header. Portfolio
+/// The Financial hub: wallet switching and Add wallet, under a row of
+/// header buttons (Settings, Support, Referrals) below its compact title.
+/// Referrals shows only where `affiliate.program` is allowed. Portfolio
 /// lives inside Investments. The hub opens from the shell's top-right +
 /// or a pushed wallet screen's name.
 ///
@@ -71,8 +75,8 @@ class _WalletMoneyActionsSheet extends StatelessWidget {
             AppBottomSheetHeader(
               title: context.l10n.walletActionsTitle,
               compact: true,
-              trailing: _HubSettingsButton(callerContext: callerContext),
             ),
+            _HubButtons(sheetContext: context, callerContext: callerContext),
             _WalletsSection(
               sheetContext: context,
               callerContext: callerContext,
@@ -81,6 +85,54 @@ class _WalletMoneyActionsSheet extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// The hub's header buttons, one row under the title (three do not fit
+/// beside it): the Settings pill, Support as a bare circle, and the
+/// Referrals pill where the policy allows the referral program. A withheld
+/// capability hides its button outright, as Settings hides its row.
+class _HubButtons extends ConsumerWidget {
+  const _HubButtons({required this.sheetContext, required this.callerContext});
+
+  final BuildContext sheetContext;
+  final BuildContext callerContext;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
+    final showReferral =
+        ref.watch(runtimeCapabilitiesProvider).allows(kReferralCapability);
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 12.h),
+      // Wraps rather than overflowing where a long translation or a large
+      // text size makes the three wider than the sheet.
+      child: Wrap(spacing: 8.w, runSpacing: 8.h, children: [
+        _HubSettingsButton(callerContext: callerContext),
+        KuteCircleButton(
+          semanticsLabel: context.l10n.support,
+          size: 40,
+          onPressed: () {
+            TrackingService.supportOpened(source: 'financial_hub');
+            Navigator.of(sheetContext).pop();
+            openSupportChat();
+          },
+          child: Icon(Icons.support_agent_rounded,
+              size: 20.sp, color: c.textPrimary),
+        ),
+        if (showReferral)
+          KuteCirclePillButton(
+            icon: Icons.group_rounded,
+            label: context.l10n.hubReferrals,
+            size: 40,
+            onPressed: () {
+              Navigator.of(sheetContext).pop();
+              if (!callerContext.mounted) return;
+              callerContext.push('/affiliate');
+            },
+          ),
+      ]),
     );
   }
 }
@@ -243,42 +295,6 @@ class _WalletsSection extends ConsumerWidget {
                 ),
               ],
             ),
-          ),
-          SizedBox(height: 8.h),
-          Container(
-            decoration: BoxDecoration(
-              color: c.surfaceLight,
-              borderRadius: BorderRadius.circular(20.r),
-              border: Border.all(color: c.borderSubtle, width: 0.5),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: Column(children: [
-              _WalletRow(
-                label: context.l10n.support,
-                leading: Icon(Icons.support_agent_rounded,
-                    size: 20.sp, color: c.textPrimary),
-                isActive: false,
-                onTap: () {
-                  HapticFeedback.selectionClick();
-                  TrackingService.supportOpened(source: 'financial_hub');
-                  Navigator.of(sheetContext).pop();
-                  openSupportChat();
-                },
-              ),
-              Divider(height: 0.5, thickness: 0.5, color: c.borderSubtle),
-              _WalletRow(
-                label: context.l10n.settingsReferralProgram,
-                leading: Icon(Icons.group_rounded,
-                    size: 20.sp, color: c.textPrimary),
-                isActive: false,
-                onTap: () {
-                  HapticFeedback.selectionClick();
-                  Navigator.of(sheetContext).pop();
-                  if (!callerContext.mounted) return;
-                  callerContext.push('/affiliate');
-                },
-              ),
-            ]),
           ),
         ],
       ),

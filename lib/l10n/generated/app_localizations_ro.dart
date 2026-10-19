@@ -4044,6 +4044,9 @@ class AppLocalizationsRo extends AppLocalizations {
   String get settingsReferralProgram => 'Program de recomandare';
 
   @override
+  String get hubReferrals => 'Recomandări';
+
+  @override
   String get settingsEarnAShareOfFees =>
       'Câștigă o parte din ce câștigă Kute de la prietenii tăi';
 

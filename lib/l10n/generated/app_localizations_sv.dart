@@ -4022,6 +4022,9 @@ class AppLocalizationsSv extends AppLocalizations {
   String get settingsReferralProgram => 'Värvningsprogram';
 
   @override
+  String get hubReferrals => 'Värvningar';
+
+  @override
   String get settingsEarnAShareOfFees =>
       'Tjäna en del av det Kute tjänar på dina vänner';
 

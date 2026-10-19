@@ -1,5 +1,6 @@
-// Financial hub navigation: compact wallet roster with Settings, Support
-// and Referral program. Notifications have no door in this sheet.
+// Financial hub navigation: compact wallet roster under a row of header
+// buttons (Settings, Support, Referrals). Notifications have no door in this
+// sheet; Referrals follows affiliate.program.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,8 +15,6 @@ import 'package:kute/providers/trade_notifications_provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kute/screens/home/components/action_pill.dart';
 import 'package:kute/screens/home/components/kute_top_nav_bar.dart';
-import 'package:kute/screens/shared/app_bottom_sheet.dart'
-    show AppBottomSheetHeader;
 import 'package:kute/screens/shared/kute_back_button.dart'
     show KuteCirclePillButton;
 import 'package:kute/screens/shared/open_once.dart';
@@ -29,11 +28,13 @@ import '../../helpers/offline_venue_overrides.dart';
 import '../../helpers/portfolio_overrides.dart';
 
 class _Policy extends Fake implements RuntimeCapabilitiesService {
+  _Policy({this.withheld = const {}});
+  final Set<String> withheld;
   @override
   CapabilityDecision decision(String id) =>
-      const CapabilityDecision(allowed: true);
+      CapabilityDecision(allowed: !withheld.contains(id));
   @override
-  bool allows(String id) => true;
+  bool allows(String id) => !withheld.contains(id);
 }
 
 final _spending = WalletConfig(id: 'spending', name: 'Spending');
@@ -43,11 +44,12 @@ final _savings = WalletConfig(
 Future<void> _pump(WidgetTester tester,
     {String? shellWalletId,
     ActiveNavTab activeTab = ActiveNavTab.home,
+    Set<String> withheld = const {},
     List<Override>? notifications}) async {
   tester.view.physicalSize = const Size(430, 932);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
-  final policy = _Policy();
+  final policy = _Policy(withheld: withheld);
   RuntimeCapabilitiesService.debugInstance = policy;
   addTearDown(() => RuntimeCapabilitiesService.debugInstance = null);
   await tester.pumpWidget(ProviderScope(
@@ -145,16 +147,30 @@ void main() {
     expect(find.text('Spending'), findsOneWidget);
     expect(find.text('Savings'), findsOneWidget);
     expect(find.text('Add account'), findsOneWidget);
-    final header = find.byType(AppBottomSheetHeader);
     expect(find.byIcon(Icons.notifications_none_rounded), findsNothing);
+    // One row under the title: Settings, then Support as a bare icon, then
+    // Referrals. The old Support / Referral program rows are gone.
     expect(find.byIcon(Icons.settings_rounded), findsOneWidget);
-    expect(find.descendant(of: header, matching: find.text('Settings')),
-        findsOneWidget);
-    expect(find.byType(KuteCirclePillButton), findsOneWidget);
-    expect(find.text('Support'), findsOneWidget);
-    expect(find.text('Referral program'), findsOneWidget);
+    expect(find.byType(KuteCirclePillButton), findsNWidgets(2));
+    expect(find.text('Support'), findsNothing);
+    expect(find.text('Referral program'), findsNothing);
+    expect(find.bySemanticsLabel('Support'), findsOneWidget);
     final title = tester.widget<Text>(find.text('Financial hub'));
     expect(title.style!.fontSize, 22);
+    final settingsAt = tester.getCenter(find.text('Settings'));
+    final supportAt =
+        tester.getCenter(find.byIcon(Icons.support_agent_rounded));
+    final referralsAt = tester.getCenter(find.text('Referrals'));
+    expect(settingsAt.dy, closeTo(supportAt.dy, 1));
+    expect(settingsAt.dx, lessThan(supportAt.dx));
+    // Referrals follows Support: beside it, or on the next line where the
+    // test font makes the row wider than the sheet (it wraps, never
+    // overflows).
+    expect(
+        referralsAt.dy > supportAt.dy + 1 || referralsAt.dx > supportAt.dx,
+        isTrue);
+    expect(tester.getBottomLeft(find.text('Financial hub')).dy,
+        lessThan(tester.getTopLeft(find.text('Settings')).dy));
     expect(tester.getBottomLeft(find.text('Settings')).dy,
         lessThan(tester.getTopLeft(find.text('Spending')).dy));
     expect(find.bySemanticsLabel('Settings'), findsOneWidget);
@@ -198,9 +214,7 @@ void main() {
     await _pump(tester);
     await tester.tap(find.byType(HubPlusGearGlyph));
     await tester.pumpAndSettle();
-    await tester.tap(find.descendant(
-        of: find.byType(AppBottomSheetHeader),
-        matching: find.text('Settings')));
+    await tester.tap(find.text('Settings'));
     await tester.pumpAndSettle();
     expect(find.text('settings route'), findsOneWidget);
     expect(find.text('Financial hub'), findsNothing);
@@ -215,7 +229,7 @@ void main() {
     await _pump(tester);
     await tester.tap(find.byType(HubPlusGearGlyph));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Support'));
+    await tester.tap(find.byIcon(Icons.support_agent_rounded));
     await tester.pumpAndSettle();
     expect(find.text('Financial hub'), findsNothing);
     expect(events.where((e) => e.$1 == 'support_opened').map((e) => e.$2), [
@@ -224,15 +238,27 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('Referral program closes the hub and opens /affiliate',
-      (tester) async {
+  testWidgets('Referrals closes the hub and opens /affiliate', (tester) async {
     await _pump(tester);
     await tester.tap(find.byType(HubPlusGearGlyph));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Referral program'));
+    await tester.tap(find.text('Referrals'));
     await tester.pumpAndSettle();
     expect(find.text('Financial hub'), findsNothing);
     expect(find.text('referral route'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Referrals is hidden where affiliate.program is withheld',
+      (tester) async {
+    await _pump(tester, withheld: {'affiliate.program'});
+    await tester.tap(find.byType(HubPlusGearGlyph));
+    await tester.pumpAndSettle();
+    expect(find.text('Financial hub'), findsOneWidget);
+    expect(find.text('Referrals'), findsNothing);
+    expect(find.byIcon(Icons.group_rounded), findsNothing);
+    expect(find.text('Settings'), findsOneWidget);
+    expect(find.byIcon(Icons.support_agent_rounded), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -275,6 +301,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byIcon(Icons.notifications_none_rounded), findsNothing);
     expect(find.byType(Badge), findsNothing);
-    expect(find.text('Support'), findsOneWidget);
+    expect(find.byIcon(Icons.support_agent_rounded), findsOneWidget);
   });
 }
