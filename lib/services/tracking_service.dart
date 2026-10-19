@@ -5305,7 +5305,8 @@ class TrackingService {
   /// screen as [tab]. [refreshMode] is how the spending wallet's balances
   /// were refreshed: `reconnect` (the Breez SDK connected again, as a hot
   /// restart does) or `sync` (one wallet sync on the live connection: a
-  /// send or quote was in flight, or no connection to replace).
+  /// money flow was between its steps, the connection was younger than
+  /// the 25 s cooldown, or there was no connection to replace).
   static void pullToRefreshExecuted(
           {required String screen, String? tab, String? refreshMode}) =>
       track('pull_to_refresh_executed', params: {

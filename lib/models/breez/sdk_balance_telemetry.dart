@@ -13,6 +13,10 @@ enum UsdSyncResult { ok, error, timeout }
 
 enum UsdRecoveryResult { ok, deferred, failed }
 
+/// A retired SDK handle's native shutdown: not confirmed within the
+/// connect's wait, failed in the bridge, or confirmed after either.
+enum SparkTeardownResult { timeout, error, confirmedLate }
+
 enum UsdRecoveryReason {
   reconnected,
   notConnected,
@@ -21,7 +25,7 @@ enum UsdRecoveryReason {
   mutationInFlight,
   optimizationInFlight,
   pendingSend,
-  quoteInFlight,
+  flowInFlight,
   lookupFailed,
   lookupTimeout,
   teardownFailed,
@@ -55,6 +59,9 @@ void _track(String event, Map<String, Object> properties) {
       return;
     case 'usd_token_recovery':
       TrackingService.track('usd_token_recovery', params: properties);
+      return;
+    case 'spark_sdk_teardown':
+      TrackingService.track('spark_sdk_teardown', params: properties);
       return;
   }
 }
@@ -117,6 +124,20 @@ class SdkBalanceTelemetry {
         'result': _code(result),
         'reason': _code(reason),
         'attempted': attempted,
+        'duration_ms': durationMs,
+      });
+
+  /// A retired handle's shutdown not confirmed in time, failed, or
+  /// confirmed late ([result]); [attempt] is how many times its shutdown
+  /// was asked, [durationMs] since it was first asked.
+  void teardown({
+    required SparkTeardownResult result,
+    required int attempt,
+    required int durationMs,
+  }) =>
+      _emit('spark_sdk_teardown', {
+        'result': _code(result),
+        'attempt': attempt,
         'duration_ms': durationMs,
       });
 }

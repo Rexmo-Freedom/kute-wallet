@@ -538,26 +538,43 @@ void main() {
     await events.close();
   });
 
-  test('failed native teardown surfaces despite pending stream cancellation',
-      () async {
-    final sdk = _Sdk();
+  // A failed or unconfirmed native shutdown never lets a second handle
+  // connect on the same wallet, and never blocks for good either: each
+  // connect asks the shutdown again (or waits for the same one, bounded),
+  // and connects once it is confirmed.
+  test(
+      'failed native teardown blocks the next connect until a shutdown is '
+      'confirmed, despite pending stream cancellation', () async {
+    final sdk = _Sdk(), second = _Sdk();
     final cancelled = Completer<void>();
     final events =
         StreamController<spark.SdkEvent>(onCancel: () => cancelled.future);
     stub(sdk, events.stream, 'first');
-    when(() => sdk.disconnect())
-        .thenThrow(StateError('native shutdown failed'));
+    stub(second, const Stream.empty(), 'second');
+    var failShutdown = true;
+    when(() => sdk.disconnect()).thenAnswer((_) async {
+      if (failShutdown) throw StateError('native shutdown failed');
+    });
     var connects = 0;
     final wrapper = BreezSdkSpark.forTesting(connectSdk: (_) async {
       connects++;
-      return sdk;
+      return connects == 1 ? sdk : second;
     });
     await wrapper.connect(req: request);
-    await expectLater(wrapper.connect(req: request), throwsStateError);
-    await expectLater(wrapper.connect(req: request), throwsStateError);
+    await expectLater(wrapper.connect(req: request),
+        throwsA(isA<SparkTeardownPending>()));
+    await expectLater(wrapper.connect(req: request),
+        throwsA(isA<SparkTeardownPending>()));
     expect(connects, 1);
     expect(wrapper.instance, isNull);
+    verify(() => sdk.disconnect()).called(2);
+    // The shutdown answers now: the next connect asks again and goes on.
+    failShutdown = false;
     cancelled.complete();
+    await wrapper.connect(req: request);
+    expect(connects, 2);
+    expect(wrapper.instance, same(second));
+    wrapper.disconnect();
     await events.close();
   });
 
@@ -573,34 +590,47 @@ void main() {
     });
     await wrapper.connect(req: request);
     wrapper.disconnect();
-    await expectLater(wrapper.connect(req: request), throwsStateError);
+    await expectLater(wrapper.connect(req: request),
+        throwsA(isA<SparkTeardownPending>()));
     expect(connects, 1);
     expect(wrapper.instance, isNull);
   });
 
-  test('cancellation failure cannot overlap an unfinished native shutdown',
-      () async {
-    final sdk = _Sdk();
+  test(
+      'cancellation failure cannot overlap an unfinished native shutdown; '
+      'the connect after it is confirmed goes on', () async {
+    BreezSdkSpark.teardownTimeout = const Duration(milliseconds: 50);
+    addTearDown(() =>
+        BreezSdkSpark.teardownTimeout = const Duration(seconds: 15));
+    final sdk = _Sdk(), second = _Sdk();
     final cancelled = Completer<void>();
     final nativeClosed = Completer<void>();
     final events =
         StreamController<spark.SdkEvent>(onCancel: () => cancelled.future);
     stub(sdk, events.stream, 'first');
+    stub(second, const Stream.empty(), 'second');
     when(() => sdk.disconnect()).thenAnswer((_) => nativeClosed.future);
     var connects = 0;
     final wrapper = BreezSdkSpark.forTesting(connectSdk: (_) async {
       connects++;
-      return sdk;
+      return connects == 1 ? sdk : second;
     });
     await wrapper.connect(req: request);
-    final failed = expectLater(wrapper.connect(req: request), throwsStateError);
+    final failed = expectLater(wrapper.connect(req: request),
+        throwsA(isA<SparkTeardownPending>()));
     await flush();
     cancelled.completeError(StateError('stream cancellation failed'));
     await failed;
-    await expectLater(wrapper.connect(req: request), throwsStateError);
+    await expectLater(wrapper.connect(req: request),
+        throwsA(isA<SparkTeardownPending>()));
     expect(connects, 1);
     expect(wrapper.instance, isNull);
+    verify(() => sdk.disconnect()).called(1);
     nativeClosed.complete();
+    await flush();
+    await wrapper.connect(req: request);
+    expect(wrapper.instance, same(second));
+    wrapper.disconnect();
     await events.close();
   });
 

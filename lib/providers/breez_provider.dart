@@ -68,6 +68,23 @@ Future<_PaymentSdkBinding> _paymentSdkBinding(Ref ref) async {
   return binding;
 }
 
+/// A prepared send counts as a money flow under review
+/// ([holdSparkFlow]) for as long as its prepare provider lives, i.e. while
+/// a screen keeps it: a pull-to-refresh meanwhile syncs the SDK rather
+/// than reconnecting it under the review. Call at the provider's start;
+/// the returned function opens the hold once the prepare succeeded.
+void Function() _holdPreparedWhileAlive(Ref ref) {
+  var disposed = false;
+  SparkFlowHold? hold;
+  ref.onDispose(() {
+    disposed = true;
+    hold?.release();
+  });
+  return () {
+    if (!disposed) hold ??= holdSparkFlow();
+  };
+}
+
 _PaymentSdkBinding _preparedPaymentBinding(Ref ref, Object response) {
   final binding = _preparedPaymentBindings[response];
   if (binding == null) {
@@ -307,6 +324,7 @@ int lnurlDrainAmountSats(int balanceSats, BigInt maxSendableMsat) {
 /// coins that leave. [params.amountSats] is ignored while draining.
 final prepareGenericPaymentProvider = FutureProvider.autoDispose.family<PrepareSendPaymentResponse,
     ({String destination, int amountSats, bool isDraining})>((ref, params) async {
+  final held = _holdPreparedWhileAlive(ref);
   try {
     final binding = await _paymentSdkBinding(ref);
     final sdk = binding.sdk;
@@ -356,6 +374,7 @@ final prepareGenericPaymentProvider = FutureProvider.autoDispose.family<PrepareS
     final prepared = await runSparkMutation(sdk, () => sdk.prepareSendPayment(request: req));
     binding.check(ref);
     _preparedPaymentBindings[prepared] = binding;
+    held();
     return prepared;
   } catch (e) {
     handlePaymentException(e);
@@ -379,6 +398,7 @@ final prepareSparkTokenPaymentProvider = FutureProvider.autoDispose.family<
       BigInt amountBaseUnits,
       String tokenIdentifier,
     })>((ref, params) async {
+  final held = _holdPreparedWhileAlive(ref);
   try {
     if (params.tokenIdentifier.trim().isEmpty) {
       throw Exception('Missing token identifier.');
@@ -406,6 +426,7 @@ final prepareSparkTokenPaymentProvider = FutureProvider.autoDispose.family<
     ));
     binding.check(ref);
     _preparedPaymentBindings[prepared] = binding;
+    held();
     return prepared;
   } catch (e) {
     handlePaymentException(e);
@@ -518,6 +539,7 @@ final executeLightningPaymentProvider = FutureProvider.autoDispose.family<void, 
 
 final prepareLightningPaymentProvider = FutureProvider.autoDispose.family<PrepareLightningPaymentResponse,
     ({String address, int amount, String? comment, bool isDraining})>((ref, params) async {
+  final held = _holdPreparedWhileAlive(ref);
   try {
     final binding = await _paymentSdkBinding(ref);
     final sdk = binding.sdk;
@@ -605,6 +627,7 @@ final prepareLightningPaymentProvider = FutureProvider.autoDispose.family<Prepar
 
     binding.check(ref);
     _preparedPaymentBindings[prepareResponse as Object] = binding;
+    held();
     return PrepareLightningPaymentResponse(
         prepareResponse: prepareResponse, networkFee: networkFee);
   } catch (e) {

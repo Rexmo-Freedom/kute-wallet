@@ -35,6 +35,8 @@ import 'package:kute/helpers/extension.dart';
 import 'package:kute/helpers/scanned_address.dart';
 import 'package:kute/helpers/user_error_copy.dart';
 import 'package:kute/models/breez/error_handling.dart';
+import 'package:kute/models/breez/sdk_operation_guard.dart'
+    show runSparkFlow;
 import 'package:kute/screens/shared/components/sheet_detail_row.dart';
 import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/helpers/orchestra_router.dart'
@@ -4185,7 +4187,9 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
           mounted &&
           isProcessing &&
           _hardwareBuildGeneration <= hardwareGeneration + 1,
-      dispatch: () => _dispatchSend(context, ref),
+      // A money flow until it ends (prepare, review, biometric prompt,
+      // broadcast): a pull-to-refresh meanwhile never reconnects the SDK.
+      dispatch: () => runSparkFlow(() => _dispatchSend(context, ref)),
     );
   }
 

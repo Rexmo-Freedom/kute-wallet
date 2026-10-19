@@ -1,4 +1,5 @@
 import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 
 // A reconnect must never retire a native handle while an app-initiated
 // payment/claim/refund is running. The reservation is synchronous, so a send
@@ -83,4 +84,93 @@ Future<T> runSparkQuote<T>(Future<T> Function() operation) async {
   } finally {
     _quotesInFlight--;
   }
+}
+
+// ─── Money flows between steps ──────────────────────────────────────────
+//
+// A pull-to-refresh reconnects the SDK only when no money flow is
+// anywhere between its steps, so "The wallet is reconnecting. Review the
+// payment again." can never come from a pull. Beside the running native
+// calls ([runSparkMutation]) and quotes ([runSparkQuote]) a flow counts
+// while:
+//   * a flow scope runs ([runSparkFlow]): a settlement run, prepare or
+//     confirm (quote, review, prepare, broadcast), a send tap on the
+//     confirm screen through its biometric prompt and broadcast;
+//   * a prepared send is held for review ([holdSparkFlow]): a prepare
+//     provider's answer, for as long as a screen keeps it;
+//   * a settlement record this process wrote sits before its funds are
+//     confirmed ([noteSparkFlowRecord]): a quote waiting for its confirm
+//     tap, a broadcast not confirmed yet. Records are persisted and can
+//     outlive their flow, so one counts for [sparkFlowRecordMaxAge] after
+//     its last write at most.
+// Every check is synchronous and in memory.
+
+int _flowScopes = 0;
+final Set<SparkFlowHold> _flowHolds = {};
+final Map<String, DateTime> _flowRecords = {};
+
+/// How long a settlement record written before its funds were confirmed
+/// keeps a pull from reconnecting (a verified quote expires sooner).
+@visibleForTesting
+Duration sparkFlowRecordMaxAge = const Duration(minutes: 10);
+
+@visibleForTesting
+DateTime Function() sparkFlowClock = DateTime.now;
+
+/// Runs [operation], a money flow's steps, counted by
+/// [sparkMoneyFlowInFlight] until it ends.
+Future<T> runSparkFlow<T>(Future<T> Function() operation) async {
+  _flowScopes++;
+  try {
+    return await operation();
+  } finally {
+    _flowScopes--;
+  }
+}
+
+/// A prepared send held for review; [release] when nothing holds it.
+class SparkFlowHold {
+  SparkFlowHold._();
+  void release() => _flowHolds.remove(this);
+}
+
+/// Counts a prepared send under review until the hold is released.
+SparkFlowHold holdSparkFlow() {
+  final hold = SparkFlowHold._();
+  _flowHolds.add(hold);
+  return hold;
+}
+
+/// A settlement record [key] was written: [open] while it sits before its
+/// funds are confirmed (quoted, reviewed, authorizing, signed,
+/// broadcasting, funding unknown).
+void noteSparkFlowRecord(String key, {required bool open}) {
+  if (open) {
+    _flowRecords[key] = sparkFlowClock();
+  } else {
+    _flowRecords.remove(key);
+  }
+}
+
+/// Whether any money flow is between its steps, a quote is being created
+/// or a prepared send is under review.
+bool get sparkMoneyFlowInFlight {
+  if (_quotesInFlight > 0 || _flowScopes > 0 || _flowHolds.isNotEmpty) {
+    return true;
+  }
+  if (_flowRecords.isEmpty) return false;
+  final now = sparkFlowClock();
+  _flowRecords.removeWhere(
+      (_, at) => now.difference(at) >= sparkFlowRecordMaxAge);
+  return _flowRecords.isNotEmpty;
+}
+
+@visibleForTesting
+void debugResetSparkFlows() {
+  _quotesInFlight = 0;
+  _flowScopes = 0;
+  _flowHolds.clear();
+  _flowRecords.clear();
+  sparkFlowRecordMaxAge = const Duration(minutes: 10);
+  sparkFlowClock = DateTime.now;
 }

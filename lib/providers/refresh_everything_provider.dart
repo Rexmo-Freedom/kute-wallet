@@ -22,10 +22,19 @@
 //     minutes, and the SDK's sync returns without refreshing the figure
 //     when its leaf refresh fails. The SDK's start refreshes leaves and
 //     tokens on their own and opens a new event stream: what a restart
-//     showed. Never while something is mid-flight on the handle (a
-//     payment, prepare, claim or refund, a pending send, a quote being
-//     created, a leaf optimization): then the pull syncs the live handle
-//     only (`refresh_mode` `sync`). The wrapper's streams outlive the
+//     showed. Never while any money flow is between its steps (a
+//     payment, prepare, claim or refund running, a pending send, a quote
+//     being created, a prepared send under review, a settlement run or a
+//     settlement record before its funds are confirmed: see
+//     `sparkMoneyFlowInFlight`), during a leaf optimization, or within
+//     `BreezSdkSpark.pullReconnectCooldown` (25 s) of the handle
+//     connecting (pulling twice in a row reconnects the first time): then
+//     the pull syncs the live handle only (`refresh_mode` `sync`). The old
+//     handle is always confirmed down before the new one connects; a
+//     shutdown that hangs or fails never leaves the session without an
+//     SDK for good: the reconnect retries with backoff, then slowly, and
+//     the next pull, resume or network change tries at once. The wrapper's
+//     streams outlive the
 //     reconnect, so no figure blanks: each keeps its value until the new
 //     reading lands. Before either, the balance stream's freshness guard
 //     is cleared and a send hold whose send is no longer pending is ended
@@ -51,9 +60,14 @@
 // reloads keeps its last value, so no figure is cleared to blank or "—"
 // while this runs: the stale shimmer stays until the new figure lands.
 //
-// The spinner: [RefreshEverything.call] resolves when everything is done
-// or after [RefreshEverything.spinnerCap] (4 s), whichever comes first;
-// the rest keeps running and each surface updates as its results land.
+// The spinner: [RefreshEverything.call] resolves as soon as the pull's
+// first balance reading lands (in a reconnect, the new handle's first
+// read), when everything is done, or after [RefreshEverything.spinnerCap]
+// (4 s), whichever comes first; it never waits on the reconnect or the
+// sync. The rest keeps running and each surface updates as its results
+// land, in place (no figure or list is cleared meanwhile). Every step
+// still starts at once, in parallel: the reconnect only delays the
+// Bitcoin step's own sync.
 // A pull while an earlier one is still running joins it, for at most
 // [RefreshEverything.stepLimit]: each step is bounded by it, and a run
 // older than it is never joined, so a hung read never keeps a later pull
@@ -148,7 +162,7 @@ class RefreshEverything {
   final Ref _ref;
   final Map<String, RefreshStep>? _stepsOverride;
 
-  /// Tests: only these of the real steps run.
+  /// Tests: only these of the real steps run (beside [_stepsOverride]).
   final Set<String>? _only;
 
   /// How long the pull's spinner stays up at most; the work goes on.
@@ -169,18 +183,29 @@ class RefreshEverything {
   RefreshMode get mode => _mode;
 
   /// A pull from [trigger]: starts (or joins) [run], reports it with the
-  /// run's mode, and resolves when the run is done or after [spinnerCap].
-  /// Never throws.
+  /// run's mode, and resolves as soon as the first balance reading of the
+  /// pull lands (the live handle's read in a sync, the new handle's first
+  /// read in a reconnect), when the run is done, or after [spinnerCap],
+  /// whichever comes first. The spinner never waits on the reconnect or
+  /// the sync: each figure updates as its read lands. Never throws.
   Future<void> call(RefreshTrigger trigger) async {
+    final landed = Completer<void>();
+    StreamSubscription<Object?>? readings;
+    try {
+      readings = _ref.read(sparkWalletInfoFeedProvider).listen((_) {
+        if (!landed.isCompleted) landed.complete();
+      }, onError: (Object _) {});
+    } catch (_) {}
     final pending = run();
     TrackingService.pullToRefreshExecuted(
         screen: trigger.screen, tab: trigger.tab, refreshMode: _mode.id);
     try {
-      await pending.timeout(spinnerCap);
+      await Future.any([pending, landed.future]).timeout(spinnerCap);
     } catch (_) {
       // The cap: the spinner goes, the refresh carries on and every
       // surface updates as its results land.
     }
+    unawaited(readings?.cancel());
   }
 
   /// Home's pull: the mascot in `refreshing` while the spinner is up and
@@ -203,12 +228,13 @@ class RefreshEverything {
   @visibleForTesting
   Map<String, RefreshStep> get steps {
     final override = _stepsOverride;
-    if (override != null) return override;
     final only = _only;
-    if (only == null) return _steps;
+    if (only == null) return override ?? _steps;
+    // Tests: the real steps named in [only], beside any replaced ones.
     return {
       for (final e in _steps.entries)
-        if (only.contains(e.key)) e.key: e.value
+        if (only.contains(e.key)) e.key: e.value,
+      ...?override,
     };
   }
 

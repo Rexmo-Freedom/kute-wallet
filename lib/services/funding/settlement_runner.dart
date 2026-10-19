@@ -25,6 +25,9 @@
 
 import 'dart:async';
 
+import 'package:kute/models/breez/sdk_operation_guard.dart'
+    show runSparkFlow;
+
 import 'package:kute/helpers/orchestra_legacy_status_rules.dart'
     show OrchestraStatusReadKind, classifyOrchestraStatusRead;
 import 'package:kute/models/orchestra_routes_model.dart';
@@ -605,7 +608,14 @@ class SettlementRunner {
 
   /// Runs [plan] start to end. For flows whose review happens across a
   /// later tap, use [prepare] and [confirm] instead.
-  Future<SettlementRunResult> run(SettlementPlan plan) async {
+  ///
+  /// Every public step runs as a money flow ([runSparkFlow]): a
+  /// pull-to-refresh meanwhile syncs the SDK rather than reconnecting it
+  /// between quote, review, prepare and broadcast.
+  Future<SettlementRunResult> run(SettlementPlan plan) =>
+      runSparkFlow(() => _run(plan));
+
+  Future<SettlementRunResult> _run(SettlementPlan plan) async {
     final prepared = await prepare(plan);
     var current = prepared;
     var refreshed = false;
@@ -653,6 +663,10 @@ class SettlementRunner {
   /// the same user attempt: the new operation is not a new start, so
   /// `settlement_operation_started` is not sent again.
   Future<SettlementPrepared> prepare(SettlementPlan plan,
+          {bool reReview = false}) =>
+      runSparkFlow(() => _prepare(plan, reReview: reReview));
+
+  Future<SettlementPrepared> _prepare(SettlementPlan plan,
       {bool reReview = false}) async {
     if (_rereviewPending.remove(_rereviewKey(plan))) {
       // The confirm tap after a return to review (user action).
@@ -716,6 +730,17 @@ class SettlementRunner {
   /// equals the quote, refreshes the quote and returns it for another
   /// review tap; nothing is paid against it.
   Future<SettlementConfirmResult> confirm(
+    SettlementPlan plan, {
+    required String operationId,
+    required String reviewedQuoteId,
+    required BigInt amountBaseUnits,
+  }) =>
+      runSparkFlow(() => _confirm(plan,
+          operationId: operationId,
+          reviewedQuoteId: reviewedQuoteId,
+          amountBaseUnits: amountBaseUnits));
+
+  Future<SettlementConfirmResult> _confirm(
     SettlementPlan plan, {
     required String operationId,
     required String reviewedQuoteId,
