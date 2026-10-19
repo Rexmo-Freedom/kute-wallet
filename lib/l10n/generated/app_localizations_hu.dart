@@ -10937,6 +10937,9 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
+  String get portfolioNoOpenOrders => 'Nincs nyitott megbízás';
+
+  @override
   String get portfolioSectionPnlCharts => 'P&L grafikonok';
 
   @override

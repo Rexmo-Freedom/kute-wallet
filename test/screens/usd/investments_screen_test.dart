@@ -21,8 +21,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/providers/active_shell_tab_provider.dart';
+import 'package:kute/models/hyperliquid_market.dart' show HlOpenOrder;
 import 'package:kute/models/polymarket_model.dart' show Activity;
 import 'package:kute/models/transactions_model.dart';
+import 'package:kute/providers/hyperliquid_trading_provider.dart';
+import 'package:kute/providers/polymarket_open_orders_provider.dart';
+import 'package:kute/providers/polymarket_order_metadata_provider.dart';
 import 'package:kute/providers/nav_bar_visibility_provider.dart';
 import 'package:kute/providers/refresh_everything_provider.dart';
 import 'package:kute/providers/unified_search_provider.dart'
@@ -30,10 +34,15 @@ import 'package:kute/providers/unified_search_provider.dart'
 import 'package:kute/screens/home/components/kute_bottom_action_bar.dart';
 import 'package:kute/screens/home/shell_wallet_screen.dart'
     show kShellTopBarSpacing;
+import 'package:kute/screens/hyperliquid/components/open_orders_sheet.dart'
+    show HlOrderRow;
 import 'package:kute/screens/hyperliquid/hyperliquid_screen.dart';
+import 'package:kute/screens/polymarket/components/open_orders_sheet.dart'
+    show PolyOrderRow;
 import 'package:kute/screens/polymarket/polymarket_screen.dart';
 import 'package:kute/screens/portfolio/investments_portfolio.dart';
 import 'package:kute/screens/portfolio/open_investments_screen.dart';
+import 'package:kute/screens/portfolio/portfolio_filters.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/investment_action_bar.dart';
 import 'package:kute/screens/shared/investment_balance_header.dart';
@@ -49,7 +58,9 @@ import 'package:kute/screens/usd/usd_account_screen.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
+import 'package:polybrainz_polymarket/polybrainz_polymarket.dart' show Order;
 
+import '../../helpers/portfolio_overrides.dart' show PortfolioTestTrading;
 import 'investments_harness.dart';
 
 Finder _pill(String label) => investmentsPill(label);
@@ -82,6 +93,46 @@ PolymarketTransaction _bet(String id) {
     ),
   );
 }
+
+/// A resting Investing order.
+const _hlOrder = HlOpenOrder(
+    coin: 'BTC',
+    oid: 7,
+    isBuy: true,
+    limitPx: 50000,
+    sz: 0.1,
+    origSz: 0.1,
+    timestamp: 1000 * 1000,
+    cloid: null,
+    reduceOnly: false,
+    orderType: 'Limit',
+    isTrigger: false,
+    triggerPx: null);
+
+/// A resting Predictions limit order.
+const _pmOrder = Order(
+    id: 'pm-1',
+    market: '0xmarket',
+    assetId: '0xtoken',
+    owner: '0xme',
+    side: 'BUY',
+    price: '0.40',
+    originalSize: '10',
+    sizeMatched: '0',
+    outcome: 'Yes',
+    timestamp: '2000');
+
+/// One order resting at each venue.
+List<Override> _restingOrders() => [
+      hyperliquidTradingProvider.overrideWith(() => PortfolioTestTrading(
+          const HyperliquidTradingState(
+              isInitialized: true, openOrders: [_hlOrder]))),
+      polymarketOpenOrdersProvider
+          .overrideWith((_) => Stream.value(const [_pmOrder])),
+      polymarketOrderMetadataProvider.overrideWith((_) async => const {}),
+    ];
+
+final _ordersHeading = find.byKey(const ValueKey('portfolio-orders-heading'));
 
 AppLocalizations _l10n(WidgetTester tester) =>
     tester.element(find.byType(InvestmentsBody)).l10n;
@@ -353,14 +404,14 @@ void main() {
     expect(InvestmentsTab.fromKey('earn'), isNull);
     // The Portfolio's sections, analytics and links alike.
     expect(PortfolioSection.values.map((s) => s.key),
-        ['charts', 'activity', 'balances']);
-    // Positions and the old Portfolio links: the pill and its Open,
-    // Orders and Statistics tabs open Charts, Activity opens Activity.
+        ['charts', 'orders', 'activity', 'balances']);
+    // Positions and the old Portfolio links: the pill and its Open and
+    // Statistics tabs open Charts, Orders opens Orders, Activity opens
+    // Activity.
     for (final key in [
       'positions',
       'portfolio',
       'open',
-      'orders',
       'statistics',
       'charts'
     ]) {
@@ -369,6 +420,8 @@ void main() {
       expect(PortfolioSection.forLink(key), PortfolioSection.charts,
           reason: key);
     }
+    expect(InvestmentsTab.fromKey('orders'), InvestmentsTab.positions);
+    expect(PortfolioSection.forLink('orders'), PortfolioSection.orders);
     expect(InvestmentsTab.fromKey('activity'), InvestmentsTab.positions);
     expect(PortfolioSection.forLink('activity'), PortfolioSection.activity);
     expect(InvestmentsTab.fromKey('balances'), InvestmentsTab.positions);
@@ -421,15 +474,18 @@ void main() {
     final l10n = _l10n(tester);
     await tapPill(tester, l10n.walletPortfolioAction);
 
-    // Three small pills, in order, P&L charts first and picked, Balances
-    // last.
+    // Four small pills, in order, P&L charts first and picked, Orders
+    // next, Balances last.
     final pills = find.descendant(
         of: find.byType(InvestmentsPortfolio), matching: find.byType(KutePill));
+    expect(tester.widgetList<KutePill>(pills).map((p) => p.label), [
+      l10n.portfolioSectionPnlCharts,
+      l10n.portfolioTabOrders,
+      l10n.activity,
+      l10n.portfolioSectionBalances
+    ]);
     expect(tester.widgetList<KutePill>(pills).map((p) => p.label),
-        [l10n.portfolioSectionPnlCharts, l10n.activity,
-          l10n.portfolioSectionBalances]);
-    expect(tester.widgetList<KutePill>(pills).map((p) => p.label),
-        ['P&L charts', 'Activity', 'Balances']);
+        ['P&L charts', 'Orders', 'Activity', 'Balances']);
     // Charts: the chart, pair and figures; neither the tiles nor the
     // activity.
     expect(find.byKey(const ValueKey('statistics-overview')), findsOneWidget);
@@ -527,6 +583,122 @@ void main() {
     expect(container.read(investmentsTabProvider), InvestmentsTab.positions);
     expect(container.read(portfolioSectionProvider), PortfolioSection.charts);
     expect(find.byKey(const ValueKey('statistics-overview')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await unmountInvestments(tester);
+  });
+
+  testWidgets(
+      'Orders is its own section: the resting orders at both venues with '
+      'the count and Cancel all; P&L charts no longer lists them; the '
+      'switch is reported with sub: orders', (tester) async {
+    final events = recordEvents();
+    await pumpInvestments(tester, overrides: _restingOrders());
+    final l10n = _l10n(tester);
+    await tapPill(tester, l10n.walletPortfolioAction);
+
+    // P&L charts: the chart, pair and figures, no orders.
+    expect(find.byKey(const ValueKey('statistics-overview')), findsOneWidget);
+    expect(find.byKey(const ValueKey('portfolio-orders-heading'),
+            skipOffstage: false),
+        findsNothing);
+    expect(find.byType(HlOrderRow, skipOffstage: false), findsNothing);
+    expect(find.byType(PolyOrderRow, skipOffstage: false), findsNothing);
+
+    await tapAndPump(tester, _section('orders'));
+    expect(_container(tester).read(portfolioSectionProvider),
+        PortfolioSection.orders);
+    expect(tester.widget<KutePill>(_section('orders')).selected, isTrue);
+    expect(events.where((e) => e.$1 == 'analytics_tab_selected').last.$2, {
+      'tab': 'positions',
+      'from_tab': 'positions',
+      'surface': 'investments',
+      'sub': 'orders',
+      'from_sub': 'charts'
+    });
+    expect(find.byKey(const ValueKey('portfolio-orders-list')), findsOneWidget);
+    expect(_ordersHeading, findsOneWidget);
+    expect(find.byType(HlOrderRow), findsOneWidget);
+    expect(find.byType(PolyOrderRow), findsOneWidget);
+    expect(
+        tester
+            .widget<Text>(find.byKey(const ValueKey('portfolio-orders-count')))
+            .data,
+        '2');
+    expect(find.byKey(const ValueKey('portfolio-orders-cancel-all')),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('portfolio-orders-empty')), findsNothing);
+    expect(find.byKey(const ValueKey('statistics-overview')), findsNothing);
+    expect(find.byKey(const ValueKey('portfolio-balance-breakdown')),
+        findsNothing);
+    expect(tester.takeException(), isNull);
+    await unmountInvestments(tester);
+  });
+
+  for (final noVenue in [false, true]) {
+    testWidgets(
+        'nothing resting${noVenue ? ' and no venue' : ''}: Orders is the '
+        'Portfolio empty state, "No open orders"', (tester) async {
+      await pumpInvestments(tester, overrides: [
+        if (noVenue)
+          portfolioVenuesProvider.overrideWithValue(
+              const PortfolioVenues(trading: false, predictions: false)),
+      ]);
+      final l10n = _l10n(tester);
+      await tapPill(tester, l10n.walletPortfolioAction);
+      await tapAndPump(tester, _section('orders'));
+      expect(find.byKey(const ValueKey('portfolio-orders-empty')),
+          findsOneWidget);
+      expect(find.text(l10n.portfolioNoOpenOrders), findsOneWidget);
+      expect(find.text('No open orders'), findsOneWidget);
+      expect(find.byType(NoActivityState), findsOneWidget);
+      expect(_ordersHeading, findsNothing);
+      expect(find.byKey(const ValueKey('portfolio-orders-cancel-all')),
+          findsNothing);
+      expect(tester.takeException(), isNull);
+      await unmountInvestments(tester);
+    });
+  }
+
+  testWidgets(
+      'a link to the old Orders tab opens the Portfolio pill on Orders; a '
+      'later Positions link lands on Charts', (tester) async {
+    final linked = ValueNotifier<String?>('orders');
+    addTearDown(linked.dispose);
+    await pumpInvestments(tester,
+        overrides: _restingOrders(),
+        child: ValueListenableBuilder<String?>(
+            valueListenable: linked,
+            builder: (_, key, __) => UsdAccountScreen(
+                initialTab: InvestmentsTab.fromKey(key),
+                initialSection: PortfolioSection.forLink(key))));
+    await _pumpFrames(tester, 6);
+    final container = _container(tester);
+    expect(container.read(investmentsTabProvider), InvestmentsTab.positions);
+    expect(container.read(portfolioSectionProvider), PortfolioSection.orders);
+    expect(tester.widget<KutePill>(_section('orders')).selected, isTrue);
+    expect(find.byType(HlOrderRow), findsOneWidget);
+    expect(find.byType(OpenInvestmentsScreen), findsNothing);
+
+    linked.value = 'positions';
+    await _pumpFrames(tester, 6);
+    expect(container.read(portfolioSectionProvider), PortfolioSection.charts);
+    expect(find.byType(HlOrderRow, skipOffstage: false), findsNothing);
+    expect(tester.takeException(), isNull);
+    await unmountInvestments(tester);
+  });
+
+  testWidgets('the four section pills share one row on a 375-wide phone',
+      (tester) async {
+    await pumpInvestments(tester, size: const Size(375, 812));
+    await tapPill(tester, _l10n(tester).walletPortfolioAction);
+    final pills = find.descendant(
+        of: find.byType(InvestmentsPortfolio), matching: find.byType(KutePill));
+    expect(pills, findsNWidgets(4));
+    final top = tester.getTopLeft(pills.at(0)).dy;
+    for (var i = 0; i < 4; i++) {
+      expect(tester.getTopLeft(pills.at(i)).dy, top);
+      expect(tester.getBottomRight(pills.at(i)).dx, lessThanOrEqualTo(375));
+    }
     expect(tester.takeException(), isNull);
     await unmountInvestments(tester);
   });

@@ -18404,6 +18404,12 @@ abstract class AppLocalizations {
   /// **'{amount} returned on Arbitrum'**
   String arbitrumRefundReturned(String amount);
 
+  /// Investments, Portfolio pill, Orders section: the empty state headline when nothing rests at either venue.
+  ///
+  /// In en, this message translates to:
+  /// **'No open orders'**
+  String get portfolioNoOpenOrders;
+
   /// No description provided for @portfolioSectionPnlCharts.
   ///
   /// In en, this message translates to:

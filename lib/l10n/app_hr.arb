@@ -3049,6 +3049,7 @@
   "moneyStepSent": "Poslano {amount}",
   "moneyStepCompact": "{source} → {destination} · {amount}",
   "arbitrumRefundReturned": "{amount} vraćeno na Arbitrum",
+  "portfolioNoOpenOrders": "Nema otvorenih naloga",
   "portfolioSectionPnlCharts": "Grafikoni P&L",
   "portfolioSectionBalances": "Stanja"
 }

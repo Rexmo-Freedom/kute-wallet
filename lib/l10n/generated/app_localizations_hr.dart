@@ -10936,6 +10936,9 @@ class AppLocalizationsHr extends AppLocalizations {
   }
 
   @override
+  String get portfolioNoOpenOrders => 'Nema otvorenih naloga';
+
+  @override
   String get portfolioSectionPnlCharts => 'Grafikoni P&L';
 
   @override

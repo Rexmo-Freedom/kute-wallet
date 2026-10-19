@@ -3049,6 +3049,7 @@
   "moneyStepSent": "{amount} verstuurd",
   "moneyStepCompact": "{source} → {destination} · {amount}",
   "arbitrumRefundReturned": "{amount} teruggestort op Arbitrum",
+  "portfolioNoOpenOrders": "Geen open orders",
   "portfolioSectionPnlCharts": "W&V-grafieken",
   "portfolioSectionBalances": "Saldi"
 }

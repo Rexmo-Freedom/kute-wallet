@@ -10948,6 +10948,9 @@ class AppLocalizationsPl extends AppLocalizations {
   }
 
   @override
+  String get portfolioNoOpenOrders => 'Brak otwartych zleceń';
+
+  @override
   String get portfolioSectionPnlCharts => 'Wykresy P&L';
 
   @override

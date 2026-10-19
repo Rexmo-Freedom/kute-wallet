@@ -84,9 +84,9 @@
 // ([investmentsTabLocation]); a placed order's "View positions" opens
 // the Portfolio on Charts ([openInvestmentsPositions]). The Portfolio's
 // section is shared the same way ([portfolioSectionProvider]). The old
-// links keep working: `?tab=positions|portfolio|open|orders|statistics`
-// opens the Portfolio on Charts, `?tab=activity` on Activity,
-// `?tab=balances` on Balances ([PortfolioSection.forLink]).
+// links keep working: `?tab=positions|portfolio|open|statistics` opens
+// the Portfolio on Charts, `?tab=orders` on Orders, `?tab=activity` on
+// Activity, `?tab=balances` on Balances ([PortfolioSection.forLink]).
 //
 // Receive opens the Dollars receive screen off the Orchestra route list,
 // pointed at this balance: whatever coin the money arrives in, dollars

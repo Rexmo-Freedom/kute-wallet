@@ -10996,6 +10996,9 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
+  String get portfolioNoOpenOrders => 'Keine offenen Aufträge';
+
+  @override
   String get portfolioSectionPnlCharts => 'GuV-Charts';
 
   @override
