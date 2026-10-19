@@ -3046,5 +3046,6 @@
   "moneyStepArrived": "Saapui tilille Bitcoin",
   "moneyStepSending": "Lähetetään {amount}",
   "moneyStepSent": "Lähetetty {amount}",
-  "moneyStepCompact": "{source} → {destination} · {amount}"
+  "moneyStepCompact": "{source} → {destination} · {amount}",
+  "arbitrumRefundReturned": "{amount} palautettu Arbitrumiin"
 }

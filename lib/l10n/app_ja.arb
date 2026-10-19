@@ -3046,5 +3046,6 @@
   "moneyStepArrived": "ビットコインに着金しました",
   "moneyStepSending": "{amount}を送金中",
   "moneyStepSent": "{amount}を送金しました",
-  "moneyStepCompact": "{source} → {destination} · {amount}"
+  "moneyStepCompact": "{source} → {destination} · {amount}",
+  "arbitrumRefundReturned": "{amount}がArbitrumに返金されました"
 }

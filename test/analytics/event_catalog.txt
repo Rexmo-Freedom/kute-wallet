@@ -44,6 +44,7 @@ app_session
 app_startup_completed
 app_time_to_first_frame
 app_unlocked
+arbitrum_refund_detected
 auto_claim_failed
 backup_abandoned
 backup_completed

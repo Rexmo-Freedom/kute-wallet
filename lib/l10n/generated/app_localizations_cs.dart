@@ -10892,4 +10892,9 @@ class AppLocalizationsCs extends AppLocalizations {
   String moneyStepCompact(String source, String destination, String amount) {
     return '$source → $destination · $amount';
   }
+
+  @override
+  String arbitrumRefundReturned(String amount) {
+    return '$amount vráceno na Arbitrum';
+  }
 }

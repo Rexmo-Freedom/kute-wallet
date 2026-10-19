@@ -16,6 +16,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/swap_order_model.dart';
+import 'package:kute/providers/arbitrum_refund_provider.dart';
 import 'package:kute/providers/asset_icon_provider.dart' show kUsdMarkAsset;
 import 'package:kute/providers/auth_provider.dart' show sessionUnlockedProvider;
 import 'package:kute/providers/hyperliquid_trading_provider.dart'
@@ -35,6 +36,7 @@ import 'package:kute/providers/venue_sweeper_provider.dart';
 import 'package:kute/screens/portfolio/open_investments_screen.dart'
     show InvestmentsProduct;
 import 'package:kute/screens/portfolio/portfolio_figure_tiles.dart';
+import 'package:kute/screens/shared/arbitrum_refund_lines.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/money_movement_sheet.dart'
     show showMoneyMovementSheet;
@@ -45,6 +47,8 @@ import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/screens/shared/stale_shimmer.dart';
 import 'package:kute/screens/shared/venue_deposit_button.dart'
     show venueMarkAsset;
+import 'package:kute/services/hyperliquid/arbitrum_refund_watch.dart'
+    show ArbitrumRefundTrigger;
 import 'package:kute/services/one_balance/money_steps.dart';
 import 'package:kute/services/one_balance/move_steps.dart' show MoveSteps;
 import 'package:kute/services/one_balance/one_balance_state.dart';
@@ -413,6 +417,12 @@ class _PortfolioBalanceBreakdownState
   /// Both venues' figures fetched again, as their pull-to-refresh does,
   /// the refreshed figures shimmering until they land.
   Future<void> _refresh() async {
+    if (widget.trading) {
+      // USDC a refunded move left on Arbitrum (throttled read).
+      unawaited(ref
+          .read(arbitrumRefundProvider.notifier)
+          .scan(ArbitrumRefundTrigger.view));
+    }
     final runs = <Future<void>>[
       if (widget.predictions && ref.exists(polymarketTradingProvider))
         ref.read(polymarketTradingProvider.notifier).refresh(),
@@ -447,6 +457,11 @@ class _PortfolioBalanceBreakdownState
     final balance = ref.watch(oneBalanceProvider);
     final sweeper = ref.watch(venueSweeperProvider);
     final rebalance = ref.watch(portfolioRebalanceProvider);
+    // USDC a refunded move left on the wallet's own address on Arbitrum:
+    // a quiet line on the Investing tile, read again as soon as a CCTP
+    // move's row turns refunded.
+    final arbitrumRefund = ref.watch(arbitrumRefundProvider);
+    ref.listen(arbitrumRefundRowsWatcherProvider, (_, __) {});
     final visible = ref.watch(settingsProvider.select((s) => s.balanceVisible));
     // What open BUY orders reserve at Predictions: part of its Positions,
     // named under them.
@@ -623,6 +638,7 @@ class _PortfolioBalanceBreakdownState
                     footer: [
                       if (note(OneBalanceVenue.investing) case final line?)
                         line,
+                      ...arbitrumRefundLines(l10n, arbitrumRefund, amount),
                     ],
                   )),
             if (widget.predictions)

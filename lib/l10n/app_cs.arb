@@ -3046,5 +3046,6 @@
   "moneyStepArrived": "Připsáno na zůstatek Bitcoin",
   "moneyStepSending": "Odesíláme {amount}",
   "moneyStepSent": "Odesláno {amount}",
-  "moneyStepCompact": "{source} → {destination} · {amount}"
+  "moneyStepCompact": "{source} → {destination} · {amount}",
+  "arbitrumRefundReturned": "{amount} vráceno na Arbitrum"
 }

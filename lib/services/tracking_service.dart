@@ -5003,6 +5003,22 @@ class TrackingService {
         ...moneyParams(amountUsd: amountUsd, legacyBucket: false),
       });
 
+  /// USDC found on the wallet's own EVM address on Arbitrum, where a
+  /// refunded Investing CCTP move's Orchestra deposit is returned. Once
+  /// per new shown amount per wallet (arbitrum_refund_watch.dart). [source]
+  /// `cctp_refund` (read because a CCTP move's row turned refunded) or
+  /// `balance_scan` (a throttled read on refresh or resume). Exact amount,
+  /// never the address.
+  static void arbitrumRefundDetected({
+    required double amountUsd,
+    required String source,
+  }) =>
+      track('arbitrum_refund_detected', params: {
+        'venue': 'hyperliquid',
+        'source': source,
+        ...moneyParams(amountUsd: amountUsd, legacyBucket: false),
+      });
+
   // ─── Predictions (Phase 5 engagement) ────────────────────────────
 
   /// Fired when the position-detail sheet opens (the per-position

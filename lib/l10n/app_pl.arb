@@ -3046,5 +3046,6 @@
   "moneyStepArrived": "Wpłynęło na saldo Bitcoin",
   "moneyStepSending": "Wysyłanie {amount}",
   "moneyStepSent": "Wysłano {amount}",
-  "moneyStepCompact": "{source} → {destination} · {amount}"
+  "moneyStepCompact": "{source} → {destination} · {amount}",
+  "arbitrumRefundReturned": "{amount} zwrócono na Arbitrum"
 }
