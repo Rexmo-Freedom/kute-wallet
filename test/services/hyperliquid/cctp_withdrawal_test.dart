@@ -43,6 +43,10 @@ import 'package:kute/services/funding/spark_hypercore_funding_service.dart'
         kHypercoreToSparkUsdRoute,
         sparkHypercoreFundingServiceProvider;
 import 'package:kute/services/hyperliquid/cctp_withdrawal.dart';
+import 'package:kute/services/hyperliquid/hypercore_activation_fee.dart'
+    show HypercoreBalanceShortfall;
+import 'package:kute/services/one_balance/money_movement_route.dart'
+    show moneyMovementFailureReason, moneyMovementProvesNothingSent;
 import 'package:kute/services/orchestra/orchestra_capability_requirements.dart';
 import 'package:kute/services/orchestra/orchestra_quote_gate.dart'
     show OrchestraQuoteFailure;
@@ -111,7 +115,12 @@ class _Reads implements CctpChainReads {
   String? Function(int nonce)? ledger;
   Object? ledgerError;
   int pausedReads = 0;
-  final mintReads = <({String to, int fromBlock})>[];
+  final mintReads = <({String to, int fromBlock, int toBlock})>[];
+
+  /// The Arbitrum head, and how many reads of it fail first.
+  int block = 514276600;
+  int blockErrors = 0;
+  int blockReads = 0;
 
   @override
   Future<bool> coreDepositWalletPaused() async {
@@ -128,14 +137,29 @@ class _Reads implements CctpChainReads {
   }
 
   @override
-  Future<int> arbitrumBlock() async => 514276600;
+  Future<int> arbitrumBlock() async {
+    blockReads++;
+    if (blockErrors > 0) {
+      blockErrors--;
+      throw const ArbitrumReadException('no RPC');
+    }
+    return block;
+  }
 
+  /// Answers the mints inside the window, as `eth_getLogs` does, and
+  /// refuses a window wider than a public endpoint caps.
   @override
-  Future<List<ArbitrumTokenMint>> arbitrumUsdcMints(
-      String to, int fromBlock) async {
-    mintReads.add((to: to, fromBlock: fromBlock));
+  Future<List<ArbitrumTokenMint>> arbitrumUsdcMints(String to,
+      {required int fromBlock, required int toBlock}) async {
+    mintReads.add((to: to, fromBlock: fromBlock, toBlock: toBlock));
+    expect(toBlock, greaterThanOrEqualTo(fromBlock));
+    expect(toBlock - fromBlock + 1, lessThanOrEqualTo(kCctpMintScanChunkBlocks),
+        reason: 'one eth_getLogs window');
     if (mintError != null) throw mintError!;
-    return mints;
+    return [
+      for (final m in mints)
+        if (m.block >= fromBlock && m.block <= toBlock) m
+    ];
   }
 
   @override
@@ -154,6 +178,9 @@ enum _SendMode { ok, refused, rejected, lostAfterPost, refusedAfterNonce }
 class _Sender implements CctpSender {
   BigInt sendable = BigInt.from(2500000000); // $25
   _SendMode mode = _SendMode.ok;
+
+  /// What stopped a refused send before anything was posted.
+  Object refusal = StateError('locked');
   final sends = <({String destination, BigInt amount8, String token})>[];
   int nonce = 1791851727813;
   int signed = 0;
@@ -175,7 +202,7 @@ class _Sender implements CctpSender {
     required Future<void> Function(int nonce) onBeforePost,
   }) async {
     if (mode == _SendMode.refused) {
-      throw SettlementFundingRefused(StateError('locked'));
+      throw SettlementFundingRefused(refusal);
     }
     signed++;
     afterSigning?.call();
@@ -336,8 +363,9 @@ OrchestraOrder _order(String id, String status,
         recipientAddress: recipient,
         createdAt: DateTime.utc(2026, 10, 19).toIso8601String());
 
-ArbitrumTokenMint _mint([int units = 5050000, String tx = _mintTx]) =>
-    ArbitrumTokenMint(amount: BigInt.from(units), txHash: tx, block: 514276620);
+ArbitrumTokenMint _mint(
+        [int units = 5050000, String tx = _mintTx, int block = 514276600]) =>
+    ArbitrumTokenMint(amount: BigInt.from(units), txHash: tx, block: block);
 
 /// The native HyperCore route as Flashnet answers it today: refused for the
 /// route itself, before anything is signed.
@@ -391,6 +419,7 @@ void main() {
         policy: () => policy,
         confirmAttempts: 2,
         confirmInterval: Duration.zero,
+        blockReadBackoff: Duration.zero,
         watchFor: Duration.zero,
       );
 
@@ -750,6 +779,7 @@ void main() {
     await service().reconcile(op, force: true);
     expect(reads.mintReads.last.to, _deposits[0]);
     expect(reads.mintReads.last.fromBlock, 514276600);
+    expect(reads.mintReads.last.toBlock, 514276600, reason: 'the head');
     final submit = orchestra.submits.single;
     expect(submit.quoteId, 'q_1');
     expect(submit.txHash, _mintTx);
@@ -1127,6 +1157,202 @@ void main() {
       expect(rows.byId.containsKey('ord_1'), isFalse);
     });
 
+    test(
+        'an order for someone else found under the quote leaves no trace of '
+        'an order on the record', () async {
+      reads.ledger = (_) => _ledgerHash;
+      reads.mintError = const ArbitrumReadException('no RPC');
+      await service().withdrawToDollars(usd: 5, stepUp: approve());
+      orchestra.orders['q_1'] =
+          _order('ord_9', 'processing', recipient: _otherSpark);
+      now = now.add(const Duration(seconds: 30));
+      await service().reconcile(await only(), force: true);
+      final op = await only();
+      expect(op.orderId, isNull);
+      expect(cctpOf(op).containsKey('submitResult'), isFalse);
+      expect(cctpOf(op)['steps'], ['cctp_sent', 'core_confirmed']);
+      expect(cctpLegProgressOf(op)!.ordered, isFalse);
+      expect(rows.byId.containsKey('ord_9'), isFalse);
+      expect(rows.byId.values.single.id, '$kCctpRowPrefix${op.operationId}');
+      expect(orchestra.submits, isEmpty);
+    });
+
+    test(
+        'a submit that never answered but went through counts as submitted '
+        'once the order appears; one Orchestra made after a refusal is '
+        'detected', () async {
+      reads.ledger = (_) => _ledgerHash;
+      await service().withdrawToDollars(usd: 5, stepUp: approve());
+      reads.mints = [_mint(4800000)];
+      orchestra.submitAnswer = () => throw TimeoutException('no answer');
+      now = now.add(const Duration(seconds: 20));
+      await service().reconcile(await only(), force: true);
+      var op = await only();
+      expect(orchestra.submits, hasLength(1));
+      expect(op.orderId, isNull);
+      expect(cctpOf(op)['submitSent'], isTrue);
+
+      // The server took it: the order shows under the quote.
+      orchestra.orders['q_1'] = _order('ord_1', 'processing');
+      orchestra.orders['ord_1'] = _order('ord_1', 'completed');
+      now = now.add(const Duration(seconds: 5));
+      await service().reconcile(op, force: true);
+      op = await only();
+      expect(op.orderId, 'ord_1');
+      expect(cctpOf(op)['submitResult'], 'submitted');
+      expect(cctpOf(op)['steps'], contains('orchestra_submitted'));
+      expect(cctpOf(op)['steps'], isNot(contains('orchestra_detected')));
+      expect(orchestra.submits, hasLength(1), reason: 'inside the retry wait');
+      now = now.add(const Duration(seconds: 30));
+      await service().reconcile(op, force: true);
+      final completed =
+          events.singleWhere((e) => e.$1 == 'hyperliquid_withdraw_completed');
+      expect(completed.$2?['submit_result'], 'submitted');
+      expect(sender.signed, 1);
+
+      // A second move: the submit refused outright, then Orchestra finds
+      // the mint on its own. That order is detected, not submitted.
+      await Hive.deleteFromDisk();
+      store = SettlementStore(
+        box: await Hive.openBox<String>('operations'),
+        quarantine: await Hive.openBox<String>('quarantine'),
+        clock: () => now,
+      );
+      rows = _Rows();
+      orchestra = _Orchestra(() => now);
+      sender = _Sender();
+      await service().withdrawToDollars(usd: 5, stepUp: approve());
+      orchestra.submitAnswer =
+          () => (outcome: CctpSubmitOutcome.rejected, orderId: null);
+      now = now.add(const Duration(seconds: 20));
+      await service().reconcile(await only(), force: true);
+      op = await only();
+      expect(cctpOf(op)['submitSent'], isFalse);
+      orchestra.orders['q_1'] = _order('ord_2', 'processing');
+      orchestra.orders['ord_2'] = _order('ord_2', 'processing');
+      now = now.add(const Duration(seconds: 5));
+      await service().reconcile(op, force: true);
+      op = await only();
+      expect(op.orderId, 'ord_2');
+      expect(cctpOf(op)['submitResult'], 'detected');
+      expect(cctpOf(op)['steps'], contains('orchestra_detected'));
+    });
+
+    test(
+        'the mint search pages in windows, the first window first, and '
+        'resumes from the position the record keeps', () async {
+      const from = 514276600;
+      reads.ledger = (_) => _ledgerHash;
+      await service().withdrawToDollars(usd: 5, stepUp: approve());
+      var op = await only();
+      expect(cctpOf(op)['fromBlock'], from);
+
+      // Hours later: the head is 35,000 blocks on, the mint sits 32,000
+      // blocks after the burn. One pass reads three windows and keeps
+      // where it got to.
+      reads.block = from + 35000;
+      reads.mints = [_mint(4800000, _mintTx, from + 32000)];
+      now = now.add(const Duration(hours: 3));
+      await service().reconcile(op, force: true);
+      expect(
+          reads.mintReads.map((r) => (r.fromBlock, r.toBlock)).toList(),
+          [
+            (from, from + 9999),
+            (from + 10000, from + 19999),
+            (from + 20000, from + 29999),
+          ]);
+      op = await only();
+      expect(cctpOf(op)['mintScannedTo'], from + 29999);
+      expect(cctpOf(op).containsKey('mintTx'), isFalse);
+      expect(orchestra.submits, isEmpty);
+
+      // A fresh process: the first window again, then on from the kept
+      // position (re-reading a little behind it), bounded by the head.
+      reads.mintReads.clear();
+      orchestra.orders['ord_1'] = _order('ord_1', 'processing');
+      now = now.add(const Duration(minutes: 1));
+      await service().reconcile(op, force: true);
+      expect(
+          reads.mintReads.map((r) => (r.fromBlock, r.toBlock)).toList(),
+          [(from, from + 9999), (from + 29500, from + 35000)]);
+      op = await only();
+      expect(cctpOf(op)['mintTx'], _mintTx);
+      expect(orchestra.submits.single.txHash, _mintTx);
+      expect(op.orderId, 'ord_1');
+      expect(named('hyperliquid_withdraw_step'), [
+        'cctp_sent',
+        'core_confirmed',
+        'arbitrum_minted',
+        'orchestra_submitted',
+      ]);
+      expect(sender.signed, 1);
+    });
+
+    test(
+        'a failed window keeps the position before it; the next pass reads '
+        'it again', () async {
+      const from = 514276600;
+      reads.ledger = (_) => _ledgerHash;
+      await service().withdrawToDollars(usd: 5, stepUp: approve());
+      reads.block = from + 25000;
+      now = now.add(const Duration(hours: 2));
+      await service().reconcile(await only(), force: true);
+      expect(cctpOf(await only())['mintScannedTo'], from + 25000);
+      reads.mintError = const ArbitrumReadException('no RPC');
+      reads.block = from + 60000;
+      now = now.add(const Duration(hours: 2));
+      await service().reconcile(await only(), force: true);
+      expect(cctpOf(await only())['mintScannedTo'], from + 25000,
+          reason: 'a failed read moves nothing');
+      expect((await only()).stage, SettlementStage.needsAttention,
+          reason: 'no order this long after the burn: still watched');
+    });
+
+    test(
+        'the head is read again before the quote; a start the burn never '
+        'got is estimated from the time signed when the search runs',
+        () async {
+      reads.ledger = (_) => _ledgerHash;
+      reads.blockErrors = 2;
+      await service().withdrawToDollars(usd: 5, stepUp: approve());
+      expect(reads.blockReads, 3, reason: 'two failures, then the head');
+      expect(cctpOf(await only())['fromBlock'], 514276600);
+      expect(orchestra.quotes, hasLength(1));
+
+      // A head that never answered before the burn: the record has no
+      // start, and the search still runs from where the chain stood when
+      // the burn was signed (ten minutes at five blocks a second, with a
+      // margin), kept on the record as an estimate.
+      await Hive.deleteFromDisk();
+      store = SettlementStore(
+        box: await Hive.openBox<String>('operations'),
+        quarantine: await Hive.openBox<String>('quarantine'),
+        clock: () => now,
+      );
+      rows = _Rows();
+      reads.blockErrors = 1 << 20;
+      await service().withdrawToDollars(usd: 5, stepUp: approve());
+      var op = await only();
+      expect(cctpOf(op).containsKey('fromBlock'), isFalse);
+      expect(op.stage, SettlementStage.funded);
+
+      reads.blockErrors = 0;
+      reads.block = 514276600 + 3000;
+      reads.mints = [_mint(4800000, _mintTx, 514276600 + 2900)];
+      orchestra.orders['ord_1'] = _order('ord_1', 'processing');
+      now = now.add(const Duration(minutes: 10));
+      await service().reconcile(op, force: true);
+      const estimated = 514276600 + 3000 - 600 * 5 - 2000;
+      expect(reads.mintReads.single.fromBlock, estimated);
+      expect(reads.mintReads.single.toBlock, 514276600 + 3000);
+      op = await only();
+      expect(cctpOf(op)['fromBlock'], estimated);
+      expect(cctpOf(op)['fromBlockEstimated'], isTrue);
+      expect(cctpOf(op)['mintTx'], _mintTx);
+      expect(op.orderId, 'ord_1');
+      expect(sender.signed, 2, reason: 'one per move, never twice');
+    });
+
     test('an RPC failure never reads as arrived', () async {
       reads.ledger = (_) => _ledgerHash;
       await service().withdrawToDollars(usd: 5, stepUp: approve());
@@ -1273,16 +1499,49 @@ void main() {
 
   test('a refusal before the POST ends the record and its row', () async {
     sender.mode = _SendMode.refused;
-    await expectLater(service().withdrawToDollars(usd: 5, stepUp: approve()),
-        throwsA(isA<StateError>()));
+    await expectLater(
+        service().withdrawToDollars(usd: 5, stepUp: approve()),
+        throwsA(isA<SettlementFundingRefused>()
+            .having((e) => e.cause, 'cause', isA<StateError>())));
     expect((await only()).stage, SettlementStage.abandoned);
     expect(rows.byId, isEmpty);
   });
 
+  test(
+      'a cash shortfall found after the approval keeps its proof: not sent, '
+      'never an unknown outcome', () async {
+    // Perpetuals came up short between the read and the burn: refused
+    // before the POST, after the approval already fired.
+    sender.mode = _SendMode.refused;
+    sender.refusal = HypercoreBalanceShortfall();
+    Object? thrown;
+    try {
+      await service().withdrawToDollars(usd: 5, stepUp: approve());
+    } catch (e) {
+      thrown = e;
+    }
+    expect(intents, hasLength(1), reason: 'approved before the stop');
+    expect(thrown, isA<SettlementFundingRefused>());
+    final refused = thrown! as SettlementFundingRefused;
+    expect(refused.cause, isA<HypercoreBalanceShortfall>());
+    // What the Move sheet and the rails read from it, once funding
+    // started: proof that nothing left, the shortfall as its category.
+    expect(moneyMovementProvesNothingSent(refused, fundingStarted: true),
+        isTrue);
+    expect(
+        moneyMovementFailureReason(refused, fundingStarted: true), 'not_sent');
+    expect(TrackingService.errorCategory(refused.cause), 'insufficient_funds');
+    expect((await only()).stage, SettlementStage.abandoned);
+    expect(rows.byId, isEmpty);
+    expect(sender.signed, 0);
+  });
+
   test('a stop between the nonce write and the POST is not funded', () async {
     sender.mode = _SendMode.refusedAfterNonce;
-    await expectLater(service().withdrawToDollars(usd: 5, stepUp: approve()),
-        throwsA(isA<StateError>()));
+    await expectLater(
+        service().withdrawToDollars(usd: 5, stepUp: approve()),
+        throwsA(isA<SettlementFundingRefused>()
+            .having((e) => e.cause, 'cause', isA<StateError>())));
     final op = await only();
     expect(op.stage, SettlementStage.notFunded);
     expect(rows.byId.values.single.status, 'expired');

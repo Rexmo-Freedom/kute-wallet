@@ -634,8 +634,8 @@ MultiSourceMoveTotals multiSourceMoveTotals(
 
 /// The Orchestra orders of [move] among [rows], legs first then its own
 /// step: what a "Track this exchange" can open. A CCTP move not yet an
-/// order counts once its Arbitrum standing address is known (the button
-/// opens that address on Arbiscan).
+/// order counts once the Arbitrum address Circle mints to is known: the
+/// one-time quote's deposit address (the button opens it on Arbiscan).
 List<SwapOrder> multiSourceMoveOrders(
     MultiSourceMove move, List<SwapOrderTransaction> rows) {
   final out = <SwapOrder>[];

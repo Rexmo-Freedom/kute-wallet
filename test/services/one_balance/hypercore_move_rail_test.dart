@@ -32,7 +32,11 @@ import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/funding/settlement_stage.dart';
 import 'package:kute/services/funding/spark_hypercore_funding_service.dart';
 import 'package:kute/services/hyperliquid/cctp_withdrawal.dart';
+import 'package:kute/services/hyperliquid/hypercore_activation_fee.dart'
+    show HypercoreBalanceShortfall;
 import 'package:kute/services/one_balance/hyperliquid_move_rail.dart';
+import 'package:kute/services/one_balance/money_movement_route.dart'
+    show moneyMovementFailureReason, moneyMovementProvesNothingSent;
 import 'package:kute/services/orchestra/orchestra_quote_guard.dart';
 import 'package:kute/services/one_balance/venue_funder.dart';
 import 'package:kute/services/orchestra/orchestra_quote_gate.dart';
@@ -474,6 +478,39 @@ void main() {
         expect(native.calls, ['withdraw:cash_pull:predictions:12.0']);
         expect(cctp.calls, isEmpty, reason: '$error');
       }
+    });
+
+    test(
+        'a send the CCTP service proved never posted keeps its proof through '
+        'both doors: not sent, the shortfall as its category', () async {
+      final failed = <Map<String, Object?>?>[];
+      TrackingService.debugTrackObserver = (event, params) {
+        if (event == 'hyperliquid_withdraw_failed') failed.add(params);
+      };
+      addTearDown(() => TrackingService.debugTrackObserver = null);
+      final stop = SettlementFundingRefused(HypercoreBalanceShortfall());
+      final cctp = _FakeCctp(error: stop);
+      final rail = HyperCoreMoveRail(
+          withService(_ScriptedService(container.read, _refused())),
+          cctp: () => cctp);
+      await expectLater(
+          rail.withdrawDirect(
+              destination: InvestingWithdrawalDestination.predictions,
+              usd: 12,
+              auth: ApprovedLegAuthorization(approval(to: 'predictions'))),
+          throwsA(same(stop)));
+      expect(failed.last?['reason'], 'insufficient_funds');
+      expect(failed.last?['route'], 'cctp');
+      await expectLater(
+          rail.withdrawToDollars(
+              usd: 12, auth: SweepAuthorization.automatic, purpose: 'sweep'),
+          throwsA(same(stop)));
+      expect(failed.last?['reason'], 'insufficient_funds');
+      expect(failed.last?['route'], 'cctp');
+      expect(cctp.calls, ['predictions:cash_pull:12.0', 'sweep:12.0']);
+      // What a leg or the Move sheet reads from it once funding started.
+      expect(moneyMovementProvesNothingSent(stop, fundingStarted: true), isTrue);
+      expect(moneyMovementFailureReason(stop, fundingStarted: true), 'not_sent');
     });
 
     test(

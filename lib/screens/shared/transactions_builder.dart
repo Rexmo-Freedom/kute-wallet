@@ -3748,9 +3748,11 @@ List<Widget> _swapOrderNerdRows(
 ///     bare quote prefix.
 /// A stuck-deposit row has no order for the explorer to show. A CCTP move
 /// not yet turned into an order (`cctp-…`) tracks the leg it is on
-/// instead: Circle mints on Arbitrum to the standing address, so the same
-/// button opens that address's token transfers on Arbiscan until
-/// Orchestra's order replaces the row's id.
+/// instead: Circle mints on Arbitrum to the one-time quote's deposit
+/// address (the row's `depositAddress`; a standing address only on a
+/// record an older build paid), so the same button opens that address's
+/// token transfers on Arbiscan until Orchestra's order replaces the row's
+/// id.
 final _evmAddress = RegExp(r'^0x[0-9a-fA-F]{40}$');
 
 List<Widget> _orchestraTrackExchange(

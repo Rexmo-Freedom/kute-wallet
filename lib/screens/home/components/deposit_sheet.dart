@@ -174,7 +174,7 @@ import 'package:kute/services/hyperliquid/hyperliquid_onboarding_service.dart';
 import 'package:kute/screens/activity/activity_history_screen.dart'
     show showActivityHistory;
 import 'package:kute/services/funding/settlement_funding_outcome.dart'
-    show SettlementFundingNotStarted;
+    show SettlementFundingNotStarted, SettlementFundingRefused;
 import 'package:kute/services/funding/settlement_runner.dart'
     show
         SettlementAuthorizationIntent,
@@ -1429,10 +1429,20 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     return context.l10n.moveAdd;
   }
 
-  String _moveFailure(Object error) => error is MoneyMovementDetailsChanged
-      ? context.l10n.ledgerErrorDetailsChanged
-      : HotSettlement.messageFor(error, context.l10n) ??
-          userErrorCopy(context, error, fallback: context.l10n.moveFailure);
+  String _moveFailure(Object error) {
+    final cause = _stopCause(error);
+    return cause is MoneyMovementDetailsChanged
+        ? context.l10n.ledgerErrorDetailsChanged
+        : HotSettlement.messageFor(cause, context.l10n) ??
+            userErrorCopy(context, cause, fallback: context.l10n.moveFailure);
+  }
+
+  /// What stopped a move: a funding call that proved it never sent
+  /// ([SettlementFundingRefused]) is read through to its cause for the
+  /// copy and the analytics category, while the wrapper itself keeps the
+  /// proof for [moneyMovementProvesNothingSent].
+  static Object _stopCause(Object e) =>
+      e is SettlementFundingRefused ? e.cause : e;
 
   // ─── Move funnel (product analytics) ────────────────────────────
 
@@ -3238,7 +3248,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   static String _moveFailReason(Object e) =>
       (e is SettlementStopped && e.reason == SettlementStopReason.declined)
           ? 'user_cancelled'
-          : TrackingService.errorCategory(e);
+          : TrackingService.errorCategory(_stopCause(e));
 
   /// The Predictions cash-out. One settlement, two destinations: the
   /// spending account's bitcoin (the default, and the path this method
@@ -5497,7 +5507,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         TrackingService.hyperliquidWithdrawFailed(
           reason: e is CctpUnavailable
               ? e.reason.code
-              : TrackingService.errorCategory(e),
+              : TrackingService.errorCategory(_stopCause(e)),
           route: route,
           amountUsd: usd,
           destination: 'predictions',
@@ -5660,7 +5670,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       TrackingService.hyperliquidWithdrawFailed(
         reason: e is CctpUnavailable
             ? e.reason.code
-            : TrackingService.errorCategory(e),
+            : TrackingService.errorCategory(_stopCause(e)),
         route: route,
         amountUsd: usd,
         destination: dollars ? 'usd' : 'btc',

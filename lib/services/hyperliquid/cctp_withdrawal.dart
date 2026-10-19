@@ -62,6 +62,7 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' show max, min;
 
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -222,6 +223,32 @@ const int kCctpQuoteAttempts = 3;
 /// `/submit` with the mint's hash is retried this often while no order
 /// exists (the reconciler's own pace sets the floor).
 const Duration kCctpSubmitRetryAfter = Duration(seconds: 30);
+
+/// The Arbitrum mint search pages `eth_getLogs` in windows this long:
+/// public endpoints cap a range, and one unbounded read from the burn's
+/// block to the latest stops answering within hours. About forty minutes
+/// of Arbitrum One's four blocks a second.
+const int kCctpMintScanChunkBlocks = 10000;
+
+/// Windows one reconcile pass reads at most: the first window (where
+/// Circle's mint lands, minutes after the burn) and then on from the
+/// persisted scan position.
+const int kCctpMintScanWindowsPerPass = 3;
+
+/// Blocks re-read behind the persisted scan position, for an endpoint
+/// whose logs index trailed its head when the position was recorded.
+const int kCctpMintScanOverlapBlocks = 500;
+
+/// Arbitrum One's block rate, rounded up, for a search start estimated
+/// from the time the burn was signed when the head was not read then.
+const int kCctpArbitrumBlocksPerSecond = 5;
+
+/// Margin behind such an estimated start.
+const int kCctpMintLookbackMarginBlocks = 2000;
+
+/// Reads of the Arbitrum head before the quote, so one failed read does
+/// not leave the record without a search start.
+const int kCctpBlockReadAttempts = 3;
 
 /// Orchestra's tag (the backend's app flow) for a CCTP move's quote.
 String cctpQuoteTag(InvestingWithdrawalDestination destination) =>
@@ -569,9 +596,12 @@ abstract interface class CctpChainReads {
   /// `calculateCrossChainWithdrawalFee(true, domain)`, six-decimal USDC.
   Future<BigInt> forwardingFee(int domain);
 
+  /// The latest Arbitrum One block.
   Future<int> arbitrumBlock();
 
-  Future<List<ArbitrumTokenMint>> arbitrumUsdcMints(String to, int fromBlock);
+  /// USDC minted to [to] in blocks [fromBlock]..[toBlock], both included.
+  Future<List<ArbitrumTokenMint>> arbitrumUsdcMints(String to,
+      {required int fromBlock, required int toBlock});
 
   /// The ledger hash of the burn, or null when the ledger has none.
   Future<String?> ledgerSendHash(
@@ -711,6 +741,7 @@ class HypercoreCctpWithdrawal {
     this.tokenForm = kHypercoreCctpTokenForm,
     this.confirmAttempts = 7,
     this.confirmInterval = const Duration(seconds: 1),
+    this.blockReadBackoff = const Duration(milliseconds: 300),
     this.watchInterval = const Duration(seconds: 4),
     this.watchFor = const Duration(minutes: 20),
   })  : _store = store ?? SettlementStore.shared,
@@ -737,6 +768,9 @@ class HypercoreCctpWithdrawal {
   final CctpTokenForm tokenForm;
   final int confirmAttempts;
   final Duration confirmInterval;
+
+  /// Between the [kCctpBlockReadAttempts] reads of the Arbitrum head.
+  final Duration blockReadBackoff;
   final Duration watchInterval;
   final Duration watchFor;
 
@@ -774,7 +808,10 @@ class HypercoreCctpWithdrawal {
   /// standing address). Throws [CctpUnavailable] (no usable quote
   /// included, as [CctpUnavailableReason.quoteUnavailable] or
   /// [CctpUnavailableReason.quoteExpired]) or the step-up's
-  /// [SettlementStopped] before anything is posted.
+  /// [SettlementStopped] before anything is posted. A stop the send
+  /// proves never reached the exchange (a cash shortfall, a locked seed,
+  /// a rejected internal move) surfaces as [SettlementFundingRefused]
+  /// around its cause, after the record was ended.
   Future<CctpWithdrawalResult> withdrawTo({
     required InvestingWithdrawalDestination destination,
     required double usd,
@@ -886,12 +923,18 @@ class HypercoreCctpWithdrawal {
     }
     wallet.ensureSpending(walletId);
 
+    // Where the mint search starts. A read that keeps failing leaves it
+    // out: the search then estimates it from the time signed, and the
+    // quote's status still finds the order Orchestra makes on its own.
     int? fromBlock;
-    try {
-      fromBlock = await reads.arbitrumBlock();
-    } catch (_) {
-      // The mint watch then waits for Orchestra's own detection: the
-      // quote's status still finds the order.
+    for (var attempt = 0; attempt < kCctpBlockReadAttempts; attempt++) {
+      if (attempt > 0) await Future<void>.delayed(blockReadBackoff);
+      try {
+        fromBlock = await reads.arbitrumBlock();
+        break;
+      } catch (_) {
+        // The next attempt.
+      }
     }
 
     // 3. The one-time quote, right before signing, with enough validity
@@ -999,7 +1042,11 @@ class HypercoreCctpWithdrawal {
       if (lease != null) store.releaseLease(op.operationId, lease);
       final cause = e.cause;
       if (cause is CctpUnavailable) _unavailable(cause.reason, usd);
-      throw cause;
+      // The proof travels with the stop: the Move sheet and the rails read
+      // [SettlementFundingRefused] as "nothing sent" (a fresh Retry, never
+      // the unknown-outcome lock), while its bare cause after the approval
+      // would read as an outcome nobody can account for.
+      rethrow;
     } on CctpSendRejected catch (e) {
       // Signed and answered with a rejection: not executed. The record
       // keeps its slow ledger check in case the answer was wrong.
@@ -1251,25 +1298,11 @@ class HypercoreCctpWithdrawal {
     final sentUsd = amount6.toDouble() / 1e6;
 
     // Arbitrum mint: the submit's proof.
-    var mintTx = cctp['mintTx'] as String?;
-    final fromBlock = cctp['fromBlock'];
-    if (mintTx == null && fromBlock is int && isEvmAddress(depositAddress)) {
-      try {
-        final mints = await reads.arbitrumUsdcMints(depositAddress, fromBlock);
-        final mint = matchCctpMint(
-            mints: mints,
-            amount6: amount6,
-            maxFee6: fee6,
-            claimed: await _claimed(store, op, 'mintTx'));
-        if (mint != null) {
-          mintTx = mint.txHash;
-          await _patchCctp(store, op.operationId, {'mintTx': mint.txHash});
-          await _step(store, op.operationId, 'arbitrum_minted', sentUsd);
-        }
-      } catch (_) {
-        // Never read a failed RPC as "not arrived".
-      }
-    }
+    final mintTx = await _findMint(store, op,
+        address: depositAddress,
+        amount6: amount6,
+        fee6: fee6,
+        sentUsd: sentUsd);
 
     var current = await store.get(op.operationId) ?? op;
     String? orderId = current.orderId;
@@ -1283,16 +1316,35 @@ class HypercoreCctpWithdrawal {
     // The quote's own status: Orchestra may have made the order without
     // (or before) the submit, and it carries the order's progress.
     final order = await orchestra.order(orderId ?? quoteId);
-    if (orderId == null &&
-        order != null &&
+    final recipient = current.recipient?.address ?? '';
+    final evmRecipient = cctpDestinationOf(current.flow) ==
+        InvestingWithdrawalDestination.predictions;
+    final found = order != null &&
         !order.orderMissing &&
-        order.id.startsWith('ord_')) {
+        order.id.startsWith('ord_') &&
+        (orderId == null || order.id == orderId);
+    if (found &&
+        order.recipientAddress != null &&
+        !(evmRecipient
+            ? sameEvmAddress(order.recipientAddress!, recipient)
+            : sameSparkAddress(order.recipientAddress!, recipient))) {
+      // Not this wallet's money: never adopted, and nothing on the record
+      // (no step, no submit result) says an order exists for the move.
+      return;
+    }
+    if (orderId == null && found) {
       orderId = order.id;
-      final result = '${_cctp(current)['submitResult'] ?? ''}';
-      if (result != 'submitted') {
-        await _patchCctp(store, op.operationId, {'submitResult': 'detected'});
+      final cctp = _cctp(current);
+      if ('${cctp['submitResult'] ?? ''}' != 'submitted') {
+        // A `/submit` that went out with the record's key and never
+        // answered (a timeout, a 5xx) made this order: it counts as
+        // submitted. One Orchestra made on its own is detected.
+        final submitted = cctp['submitSent'] == true;
+        await _patchCctp(store, op.operationId,
+            {'submitResult': submitted ? 'submitted' : 'detected'});
+        await _step(store, op.operationId,
+            submitted ? 'orchestra_submitted' : 'orchestra_detected', sentUsd);
       }
-      await _step(store, op.operationId, 'orchestra_detected', sentUsd);
       current = await store.get(op.operationId) ?? current;
     }
 
@@ -1313,17 +1365,6 @@ class HypercoreCctpWithdrawal {
       return;
     }
 
-    final recipient = current.recipient?.address ?? '';
-    final evmRecipient = cctpDestinationOf(current.flow) ==
-        InvestingWithdrawalDestination.predictions;
-    if (order != null &&
-        order.id == orderId &&
-        order.recipientAddress != null &&
-        !(evmRecipient
-            ? sameEvmAddress(order.recipientAddress!, recipient)
-            : sameSparkAddress(order.recipientAddress!, recipient))) {
-      return; // Not this wallet's money: never adopt it.
-    }
     if (current.orderId == null) {
       await store.update(current.operationId,
           stage: current.stage, patch: (c) => c.copyWith(orderId: orderId));
@@ -1372,7 +1413,9 @@ class HypercoreCctpWithdrawal {
   /// One `/submit` of [mintTx] for [quoteId], at most every
   /// [kCctpSubmitRetryAfter]. Returns the order id when Orchestra answered
   /// with one. A definitive refusal rotates the key; a transient answer
-  /// keeps it. The quote's status is asked either way.
+  /// keeps it, with `submitSent` saying a submit under that key is out
+  /// (an order found later under the quote then counts as submitted).
+  /// The quote's status is asked either way.
   Future<String?> _submitMint(SettlementStore store, SettlementOperation op,
       String quoteId, String mintTx, double sentUsd) async {
     final cctp = _cctp(op);
@@ -1385,6 +1428,7 @@ class HypercoreCctpWithdrawal {
     await _patchCctp(store, op.operationId, {
       'submitKey': key,
       'submittedAt': _clock().toUtc().toIso8601String(),
+      'submitSent': true,
     });
     final CctpSubmitResult result;
     try {
@@ -1400,8 +1444,10 @@ class HypercoreCctpWithdrawal {
         final id = result.orderId;
         return id != null && id.startsWith('ord_') ? id : null;
       case CctpSubmitOutcome.rejected:
-        await _patchCctp(store, op.operationId,
-            {'submitKey': OrchestraService.generateIdempotencyKey()});
+        await _patchCctp(store, op.operationId, {
+          'submitKey': OrchestraService.generateIdempotencyKey(),
+          'submitSent': false,
+        });
         return null;
       case CctpSubmitOutcome.transient:
         return null;
@@ -1425,25 +1471,8 @@ class HypercoreCctpWithdrawal {
         : DateTime.fromMillisecondsSinceEpoch(op.funding!.hlNonce!);
 
     // Arbitrum mint: a step signal and the deposit's best key.
-    var mintTx = cctp['mintTx'] as String?;
-    final fromBlock = cctp['fromBlock'];
-    if (mintTx == null && fromBlock is int && isEvmAddress(destination)) {
-      try {
-        final mints = await reads.arbitrumUsdcMints(destination, fromBlock);
-        final mint = matchCctpMint(
-            mints: mints,
-            amount6: amount6,
-            maxFee6: fee6,
-            claimed: await _claimed(store, op, 'mintTx'));
-        if (mint != null) {
-          mintTx = mint.txHash;
-          await _patchCctp(store, op.operationId, {'mintTx': mint.txHash});
-          await _step(store, op.operationId, 'arbitrum_minted', sentUsd);
-        }
-      } catch (_) {
-        // Never read a failed RPC as "not arrived".
-      }
-    }
+    final mintTx = await _findMint(store, op,
+        address: destination, amount6: amount6, fee6: fee6, sentUsd: sentUsd);
 
     final record = await orchestra.record(op.walletId, label);
     if (record == null) return;
@@ -1643,6 +1672,79 @@ class HypercoreCctpWithdrawal {
                   mappedStatus: c.poll.mappedStatus,
                   lastCheckedAt: _clock(),
                   consecutiveFailures: c.poll.consecutiveFailures)));
+
+  /// Circle's mint of [amount6] (less at most [fee6]) to [address], found
+  /// on Arbitrum or already recorded: its transaction hash, or null while
+  /// none is known. Never reads a failed RPC as "not arrived".
+  ///
+  /// The search pages `eth_getLogs` in [kCctpMintScanChunkBlocks]
+  /// windows, at most [kCctpMintScanWindowsPerPass] a pass: the first
+  /// window after the burn first (Circle mints within minutes), then on
+  /// from the record's `mintScannedTo`, re-reading
+  /// [kCctpMintScanOverlapBlocks] behind it. A record without a
+  /// `fromBlock` (the head could not be read before the burn) starts from
+  /// where the chain stood when the burn was signed, estimated from the
+  /// time since and kept on the record.
+  Future<String?> _findMint(SettlementStore store, SettlementOperation op,
+      {required String address,
+      required BigInt amount6,
+      required BigInt fee6,
+      required double sentUsd}) async {
+    final cctp = _cctp(op);
+    final known = cctp['mintTx'];
+    if (known is String) return known;
+    if (!isEvmAddress(address)) return null;
+    try {
+      final head = await reads.arbitrumBlock();
+      var fromBlock = cctp['fromBlock'];
+      if (fromBlock is! int) {
+        final nonce = op.funding?.hlNonce;
+        final signedAt = nonce == null
+            ? op.createdAt
+            : DateTime.fromMillisecondsSinceEpoch(nonce);
+        final elapsed = _clock().difference(signedAt).inSeconds.clamp(0, 1 << 31);
+        fromBlock = max(
+            0,
+            head -
+                elapsed * kCctpArbitrumBlocksPerSecond -
+                kCctpMintLookbackMarginBlocks);
+        await _patchCctp(store, op.operationId,
+            {'fromBlock': fromBlock, 'fromBlockEstimated': true});
+      }
+      if (head < fromBlock) return null;
+      final firstEnd = min(fromBlock + kCctpMintScanChunkBlocks - 1, head);
+      final windows = <(int, int)>[(fromBlock, firstEnd)];
+      final scannedTo = cctp['mintScannedTo'];
+      var cursor = scannedTo is int
+          ? max(firstEnd + 1, scannedTo + 1 - kCctpMintScanOverlapBlocks)
+          : firstEnd + 1;
+      while (windows.length < kCctpMintScanWindowsPerPass && cursor <= head) {
+        final end = min(cursor + kCctpMintScanChunkBlocks - 1, head);
+        windows.add((cursor, end));
+        cursor = end + 1;
+      }
+      final claimed = await _claimed(store, op, 'mintTx');
+      var scanned = scannedTo is int ? scannedTo : fromBlock - 1;
+      for (final (start, end) in windows) {
+        final mints = await reads.arbitrumUsdcMints(address,
+            fromBlock: start, toBlock: end);
+        final mint = matchCctpMint(
+            mints: mints, amount6: amount6, maxFee6: fee6, claimed: claimed);
+        if (mint != null) {
+          await _patchCctp(store, op.operationId, {'mintTx': mint.txHash});
+          await _step(store, op.operationId, 'arbitrum_minted', sentUsd);
+          return mint.txHash;
+        }
+        if (end > scanned) {
+          scanned = end;
+          await _patchCctp(store, op.operationId, {'mintScannedTo': scanned});
+        }
+      }
+    } catch (_) {
+      // Never read a failed RPC as "not arrived".
+    }
+    return null;
+  }
 
   Future<Set<String>> _claimed(
       SettlementStore store, SettlementOperation op, String key) async {
@@ -1868,9 +1970,13 @@ class LiveCctpChainReads implements CctpChainReads {
   Future<int> arbitrumBlock() => _arbitrum.blockNumber();
 
   @override
-  Future<List<ArbitrumTokenMint>> arbitrumUsdcMints(String to, int fromBlock) =>
+  Future<List<ArbitrumTokenMint>> arbitrumUsdcMints(String to,
+          {required int fromBlock, required int toBlock}) =>
       _arbitrum.mintsTo(
-          token: ArbitrumReadRpc.usdcAddress, to: to, fromBlock: fromBlock);
+          token: ArbitrumReadRpc.usdcAddress,
+          to: to,
+          fromBlock: fromBlock,
+          toBlock: toBlock);
 
   @override
   Future<String?> ledgerSendHash(
