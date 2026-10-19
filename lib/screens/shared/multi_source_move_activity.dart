@@ -633,15 +633,17 @@ MultiSourceMoveTotals multiSourceMoveTotals(
 }
 
 /// The Orchestra orders of [move] among [rows], legs first then its own
-/// step: what a "Track this exchange" can open (never a CCTP move not yet
-/// an order).
+/// step: what a "Track this exchange" can open. A CCTP move not yet an
+/// order counts once its Arbitrum standing address is known (the button
+/// opens that address on Arbiscan).
 List<SwapOrder> multiSourceMoveOrders(
     MultiSourceMove move, List<SwapOrderTransaction> rows) {
   final out = <SwapOrder>[];
   bool trackable(SwapOrder d) =>
       d.isOrchestra &&
       d.id.isNotEmpty &&
-      !d.id.startsWith('cctp-') &&
+      (!d.id.startsWith('cctp-') ||
+          RegExp(r'^0x[0-9a-fA-F]{40}$').hasMatch(d.depositAddress)) &&
       !d.isStuckStandingDeposit;
   for (final leg in move.okLegs) {
     final d = multiSourceMoveLegRow(leg, rows)?.details;
