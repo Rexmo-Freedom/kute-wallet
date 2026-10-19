@@ -3048,7 +3048,9 @@
   "moneyStepSending": "Изпращане на {amount}",
   "moneyStepSent": "Изпратени {amount}",
   "moneyStepCompact": "{source} → {destination} · {amount}",
-  "arbitrumRefundReturned": "{amount} върнати в Arbitrum",
+  "cctpRefundReturnedTo": "Възстановено на твоя адрес в {network} {address}.",
+  "cctpRefundMoveWithWallet": "За да го преместиш, използвай портфейл като MetaMask със същата фраза за възстановяване.",
+  "cctpRefundContactSupport": "За да го преместиш, свържи се с поддръжката.",
   "portfolioSectionPnlCharts": "Графики P&L",
   "portfolioSectionBalances": "Баланси"
 }

@@ -10917,9 +10917,17 @@ class AppLocalizationsFi extends AppLocalizations {
   }
 
   @override
-  String arbitrumRefundReturned(String amount) {
-    return '$amount palautettu Arbitrumiin';
+  String cctpRefundReturnedTo(String network, String address) {
+    return 'Palautettu $network-osoitteeseesi $address.';
   }
+
+  @override
+  String get cctpRefundMoveWithWallet =>
+      'Siirtääksesi sen käytä MetaMaskin kaltaista lompakkoa samalla palautuslausekkeella.';
+
+  @override
+  String get cctpRefundContactSupport =>
+      'Siirtääksesi sen ota yhteyttä tukeen.';
 
   @override
   String get portfolioSectionPnlCharts => 'P&L-kaaviot';

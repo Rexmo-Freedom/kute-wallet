@@ -3048,7 +3048,9 @@
   "moneyStepSending": "Αποστολή {amount}",
   "moneyStepSent": "Στάλθηκαν {amount}",
   "moneyStepCompact": "{source} → {destination} · {amount}",
-  "arbitrumRefundReturned": "{amount} επιστράφηκαν στο Arbitrum",
+  "cctpRefundReturnedTo": "Επιστράφηκε στη διεύθυνσή σου στο {network} {address}.",
+  "cctpRefundMoveWithWallet": "Για να τα μετακινήσεις, χρησιμοποίησε ένα πορτοφόλι όπως το MetaMask με την ίδια φράση ανάκτησης.",
+  "cctpRefundContactSupport": "Για να τα μετακινήσεις, επικοινώνησε με την υποστήριξη.",
   "portfolioSectionPnlCharts": "Γραφήματα P&L",
   "portfolioSectionBalances": "Υπόλοιπα"
 }

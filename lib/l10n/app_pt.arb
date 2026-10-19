@@ -3321,7 +3321,9 @@
   "moneyStepSending": "A enviar {amount}",
   "moneyStepSent": "Enviados {amount}",
   "moneyStepCompact": "{source} → {destination} · {amount}",
-  "arbitrumRefundReturned": "{amount} devolvidos na Arbitrum",
+  "cctpRefundReturnedTo": "Reembolsado para o seu endereço {network} {address}.",
+  "cctpRefundMoveWithWallet": "Para o mover, use uma carteira como a MetaMask com a mesma frase de recuperação.",
+  "cctpRefundContactSupport": "Para o mover, contacte o suporte.",
   "portfolioSectionPnlCharts": "Gráficos de P&L",
   "portfolioSectionBalances": "Saldos"
 }

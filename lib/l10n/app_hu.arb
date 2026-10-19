@@ -3048,7 +3048,9 @@
   "moneyStepSending": "{amount} küldése",
   "moneyStepSent": "{amount} elküldve",
   "moneyStepCompact": "{source} → {destination} · {amount}",
-  "arbitrumRefundReturned": "{amount} visszaérkezett az Arbitrumra",
+  "cctpRefundReturnedTo": "Visszatérítve a(z) {network} címedre: {address}.",
+  "cctpRefundMoveWithWallet": "Az áthelyezéséhez használj egy MetaMaskhoz hasonló tárcát ugyanazzal a helyreállítási kifejezéssel.",
+  "cctpRefundContactSupport": "Az áthelyezéséhez fordulj az ügyfélszolgálathoz.",
   "portfolioSectionPnlCharts": "P&L grafikonok",
   "portfolioSectionBalances": "Egyenlegek"
 }

@@ -3048,7 +3048,9 @@
   "moneyStepSending": "Se trimit {amount}",
   "moneyStepSent": "Trimis {amount}",
   "moneyStepCompact": "{source} → {destination} · {amount}",
-  "arbitrumRefundReturned": "{amount} returnați pe Arbitrum",
+  "cctpRefundReturnedTo": "Rambursat la adresa ta {network} {address}.",
+  "cctpRefundMoveWithWallet": "Ca să îi muți, folosește un portofel precum MetaMask cu aceeași frază de recuperare.",
+  "cctpRefundContactSupport": "Ca să îi muți, contactează suportul.",
   "portfolioSectionPnlCharts": "Grafice P&L",
   "portfolioSectionBalances": "Solduri"
 }

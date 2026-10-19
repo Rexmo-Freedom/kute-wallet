@@ -3048,7 +3048,9 @@
   "moneyStepSending": "Pošiljanje {amount}",
   "moneyStepSent": "Poslano {amount}",
   "moneyStepCompact": "{source} → {destination} · {amount}",
-  "arbitrumRefundReturned": "{amount} vrnjeno na Arbitrum",
+  "cctpRefundReturnedTo": "Vrnjeno na vaš naslov v omrežju {network} {address}.",
+  "cctpRefundMoveWithWallet": "Če jih želite premakniti, uporabite denarnico, kot je MetaMask, z isto obnovitveno frazo.",
+  "cctpRefundContactSupport": "Če jih želite premakniti, se obrnite na podporo.",
   "portfolioSectionPnlCharts": "Grafi P&L",
   "portfolioSectionBalances": "Stanja"
 }

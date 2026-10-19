@@ -10910,9 +10910,17 @@ class AppLocalizationsSk extends AppLocalizations {
   }
 
   @override
-  String arbitrumRefundReturned(String amount) {
-    return '$amount vrátené na Arbitrum';
+  String cctpRefundReturnedTo(String network, String address) {
+    return 'Vrátené na tvoju adresu v sieti $network $address.';
   }
+
+  @override
+  String get cctpRefundMoveWithWallet =>
+      'Ak ich chceš presunúť, použi peňaženku ako MetaMask s rovnakou frázou na obnovenie.';
+
+  @override
+  String get cctpRefundContactSupport =>
+      'Ak ich chceš presunúť, kontaktuj podporu.';
 
   @override
   String get portfolioSectionPnlCharts => 'Grafy P&L';

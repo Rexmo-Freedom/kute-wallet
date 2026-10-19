@@ -3048,7 +3048,9 @@
   "moneyStepSending": "Odosielame {amount}",
   "moneyStepSent": "Odoslané {amount}",
   "moneyStepCompact": "{source} → {destination} · {amount}",
-  "arbitrumRefundReturned": "{amount} vrátené na Arbitrum",
+  "cctpRefundReturnedTo": "Vrátené na tvoju adresu v sieti {network} {address}.",
+  "cctpRefundMoveWithWallet": "Ak ich chceš presunúť, použi peňaženku ako MetaMask s rovnakou frázou na obnovenie.",
+  "cctpRefundContactSupport": "Ak ich chceš presunúť, kontaktuj podporu.",
   "portfolioSectionPnlCharts": "Grafy P&L",
   "portfolioSectionBalances": "Zostatky"
 }

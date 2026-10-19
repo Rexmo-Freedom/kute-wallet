@@ -3048,7 +3048,9 @@
   "moneyStepSending": "Lähetetään {amount}",
   "moneyStepSent": "Lähetetty {amount}",
   "moneyStepCompact": "{source} → {destination} · {amount}",
-  "arbitrumRefundReturned": "{amount} palautettu Arbitrumiin",
+  "cctpRefundReturnedTo": "Palautettu {network}-osoitteeseesi {address}.",
+  "cctpRefundMoveWithWallet": "Siirtääksesi sen käytä MetaMaskin kaltaista lompakkoa samalla palautuslausekkeella.",
+  "cctpRefundContactSupport": "Siirtääksesi sen ota yhteyttä tukeen.",
   "portfolioSectionPnlCharts": "P&L-kaaviot",
   "portfolioSectionBalances": "Saldot"
 }

@@ -3048,7 +3048,9 @@
   "moneyStepSending": "{amount}を送金中",
   "moneyStepSent": "{amount}を送金しました",
   "moneyStepCompact": "{source} → {destination} · {amount}",
-  "arbitrumRefundReturned": "{amount}がArbitrumに返金されました",
+  "cctpRefundReturnedTo": "{network} のあなたのアドレス {address} に返金されました。",
+  "cctpRefundMoveWithWallet": "移動するには、同じリカバリーフレーズで MetaMask などのウォレットを使ってください。",
+  "cctpRefundContactSupport": "移動するには、サポートにお問い合わせください。",
   "portfolioSectionPnlCharts": "損益チャート",
   "portfolioSectionBalances": "残高"
 }

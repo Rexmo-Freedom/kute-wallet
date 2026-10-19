@@ -18398,11 +18398,23 @@ abstract class AppLocalizations {
   /// **'{source} → {destination} · {amount}'**
   String moneyStepCompact(String source, String destination, String amount);
 
-  /// Quiet line under the Investing balance and on the Portfolio's Investing tile: USDC from a refunded Investing move is back on the wallet's own address on Arbitrum. {amount} formatted dollars; Arbitrum is a network name.
+  /// Activity detail of an Investing move by CCTP whose one-time quote was refunded: the USDC went back to the wallet's own EVM address on Arbitrum. Plain caption; tapping it copies the full address. {network} is the network name (Arbitrum), {address} the address shortened (0x1234…abcd).
   ///
   /// In en, this message translates to:
-  /// **'{amount} returned on Arbitrum'**
-  String arbitrumRefundReturned(String amount);
+  /// **'Refunded to your {network} address {address}.'**
+  String cctpRefundReturnedTo(String network, String address);
+
+  /// Second caption under cctpRefundReturnedTo, for a wallet whose EVM key uses the standard format (m/44'/60'/0'/0/0 from the recovery phrase): the refunded USDC can be moved by importing the same 12 words into a wallet like MetaMask. MetaMask is a product name.
+  ///
+  /// In en, this message translates to:
+  /// **'To move it, use a wallet like MetaMask with the same recovery phrase.'**
+  String get cctpRefundMoveWithWallet;
+
+  /// Second caption under cctpRefundReturnedTo, for a wallet whose EVM key uses the legacy format (other wallets do not reproduce it from the phrase): Support helps move the refunded USDC.
+  ///
+  /// In en, this message translates to:
+  /// **'To move it, contact Support.'**
+  String get cctpRefundContactSupport;
 
   /// No description provided for @portfolioSectionPnlCharts.
   ///

@@ -10948,9 +10948,17 @@ class AppLocalizationsLt extends AppLocalizations {
   }
 
   @override
-  String arbitrumRefundReturned(String amount) {
-    return '$amount grąžinta į Arbitrum';
+  String cctpRefundReturnedTo(String network, String address) {
+    return 'Grąžinta į jūsų $network adresą $address.';
   }
+
+  @override
+  String get cctpRefundMoveWithWallet =>
+      'Norėdami juos perkelti, naudokite piniginę, pvz., MetaMask, su ta pačia atkūrimo fraze.';
+
+  @override
+  String get cctpRefundContactSupport =>
+      'Norėdami juos perkelti, susisiekite su pagalba.';
 
   @override
   String get portfolioSectionPnlCharts => 'P&L grafikai';

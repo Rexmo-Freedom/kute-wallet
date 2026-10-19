@@ -10983,9 +10983,17 @@ class AppLocalizationsEl extends AppLocalizations {
   }
 
   @override
-  String arbitrumRefundReturned(String amount) {
-    return '$amount επιστράφηκαν στο Arbitrum';
+  String cctpRefundReturnedTo(String network, String address) {
+    return 'Επιστράφηκε στη διεύθυνσή σου στο $network $address.';
   }
+
+  @override
+  String get cctpRefundMoveWithWallet =>
+      'Για να τα μετακινήσεις, χρησιμοποίησε ένα πορτοφόλι όπως το MetaMask με την ίδια φράση ανάκτησης.';
+
+  @override
+  String get cctpRefundContactSupport =>
+      'Για να τα μετακινήσεις, επικοινώνησε με την υποστήριξη.';
 
   @override
   String get portfolioSectionPnlCharts => 'Γραφήματα P&L';

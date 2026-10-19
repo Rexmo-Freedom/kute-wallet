@@ -10873,9 +10873,17 @@ class AppLocalizationsLv extends AppLocalizations {
   }
 
   @override
-  String arbitrumRefundReturned(String amount) {
-    return '$amount atgriezti Arbitrum tīklā';
+  String cctpRefundReturnedTo(String network, String address) {
+    return 'Atmaksāts uz tavu $network adresi $address.';
   }
+
+  @override
+  String get cctpRefundMoveWithWallet =>
+      'Lai to pārvietotu, izmanto maku, piemēram, MetaMask, ar to pašu atkopšanas frāzi.';
+
+  @override
+  String get cctpRefundContactSupport =>
+      'Lai to pārvietotu, sazinies ar atbalstu.';
 
   @override
   String get portfolioSectionPnlCharts => 'P&L grafiki';

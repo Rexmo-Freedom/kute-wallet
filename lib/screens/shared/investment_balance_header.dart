@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
 import 'package:kute/l10n/l10n.dart';
-import 'package:kute/providers/arbitrum_refund_provider.dart';
 import 'package:kute/providers/investment_balances_provider.dart';
 import 'package:kute/providers/one_balance_provider.dart';
 import 'package:kute/providers/pending_pool_deposits_provider.dart';
@@ -18,7 +17,6 @@ import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/venue_total_cache_service.dart';
 import 'package:kute/screens/portfolio/open_investments_screen.dart';
-import 'package:kute/screens/shared/arbitrum_refund_lines.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show KutePressScale;
 import 'package:kute/screens/shared/pending_deposit_line.dart';
 import 'package:kute/screens/shared/pool_balance_header.dart';
@@ -137,20 +135,6 @@ class InvestmentBalanceHeader extends ConsumerWidget {
     // the whole account and quietly left every open position out of the
     // figure at the top of the screen.
     final hasBalance = (balances.total ?? 0) > 0;
-    // Predictions: what open orders reserve. Investing: USDC a refunded
-    // CCTP move left on the wallet's own address on Arbitrum, money the
-    // account above does not hold.
-    String? balanceDetail;
-    if (predictions) {
-      if ((balances.committed ?? 0) > 0) {
-        balanceDetail =
-            context.l10n.investingInOpenOrders(amount(balances.committed));
-      }
-    } else {
-      final lines = arbitrumRefundLines(
-          context.l10n, ref.watch(arbitrumRefundProvider), amount);
-      if (lines.isNotEmpty) balanceDetail = lines.join(' · ');
-    }
     // Never a bare dash (owner: "this looks bad"). Without a fresh total
     // (the account still on its way, or a read that failed) the header
     // shows this wallet's last known one, dimmed, and the next sync or
@@ -176,7 +160,9 @@ class InvestmentBalanceHeader extends ConsumerWidget {
           ? amount(predictions ? balances.positions : balances.portfolio)
           : null,
       availableText: hasBalance ? amount(balances.available) : null,
-      balanceDetail: balanceDetail,
+      balanceDetail: predictions && (balances.committed ?? 0) > 0
+          ? context.l10n.investingInOpenOrders(amount(balances.committed))
+          : null,
       showActionRow: false,
       // This header carries no shortcut any more.
       //

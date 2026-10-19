@@ -10893,9 +10893,17 @@ class AppLocalizationsEt extends AppLocalizations {
   }
 
   @override
-  String arbitrumRefundReturned(String amount) {
-    return '$amount tagastatud Arbitrumis';
+  String cctpRefundReturnedTo(String network, String address) {
+    return 'Tagastatud sinu $network aadressile $address.';
   }
+
+  @override
+  String get cctpRefundMoveWithWallet =>
+      'Selle liigutamiseks kasuta rahakotti nagu MetaMask sama taastefraasiga.';
+
+  @override
+  String get cctpRefundContactSupport =>
+      'Selle liigutamiseks võta ühendust toega.';
 
   @override
   String get portfolioSectionPnlCharts => 'P&L graafikud';

@@ -14,8 +14,6 @@ import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/models/currency_conversions.dart';
 import 'package:kute/providers/currency_conversions_provider.dart';
-import 'package:kute/providers/arbitrum_refund_provider.dart';
-import 'package:kute/services/hyperliquid/arbitrum_refund_watch.dart';
 import 'package:money2/money2.dart';
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/models/swap_order_model.dart';
@@ -1278,43 +1276,6 @@ void main() {
               expected: rebalanceBandExpected(OneBalanceVenue.predictions))));
     });
   });
-
-  group('USDC returned on Arbitrum', () {
-    testWidgets(
-        'opening the breakdown asks for a throttled read; a found balance '
-        "is one quiet line on the Investing tile, the dust note under a "
-        "refund's", (tester) async {
-      final watch = _RefundWatch();
-      await _pump(tester,
-          home: _breakdown,
-          overrides: [arbitrumRefundProvider.overrideWith((_) => watch)]);
-      expect(watch.triggers, [ArbitrumRefundTrigger.view]);
-      expect(
-          _inCard('investing', find.textContaining('Arbitrum')), findsNothing);
-
-      watch.show(ArbitrumRefundState(usdc6: BigInt.from(12400000)));
-      await tester.pumpAndSettle();
-      expect(_inCard('investing', find.text(r'$12.40 returned on Arbitrum')),
-          findsOneWidget);
-      expect(_inCard('predictions', find.textContaining('Arbitrum')),
-          findsNothing);
-
-      watch.show(
-          ArbitrumRefundState(usdc6: BigInt.from(3100000), fromRefund: true));
-      await tester.pumpAndSettle();
-      expect(_inCard('investing', find.text(r'$3.10 returned on Arbitrum')),
-          findsOneWidget);
-      expect(_inCard('investing', find.text('Below the minimum to move')),
-          findsOneWidget);
-
-      // Dust nobody refunded: no line.
-      watch.show(ArbitrumRefundState(usdc6: BigInt.from(3100000)));
-      await tester.pumpAndSettle();
-      expect(
-          _inCard('investing', find.textContaining('Arbitrum')), findsNothing);
-      expect(tester.takeException(), isNull);
-    });
-  });
 }
 
 /// The breakdown that can be left and opened again ([shown]).
@@ -1404,30 +1365,3 @@ OneBalanceState _homeward(Map<OneBalanceVenue, double> usd) => OneBalanceState(
               kind: InFlightKind.fromVenue, venue: e.key, usd: e.value),
       ],
     );
-
-class _NoRefundReports implements ArbitrumRefundReports {
-  @override
-  Future<BigInt?> lastReported(String walletId) async => null;
-  @override
-  Future<void> setReported(String walletId, BigInt? usdc6) async {}
-}
-
-/// A refund watch that records what asked for a read and shows what the
-/// test sets; it never reads.
-class _RefundWatch extends ArbitrumRefundWatch {
-  _RefundWatch()
-      : super(
-          account: () async => null,
-          knownRefund: (_) => false,
-          readBalance: (_) async => throw StateError('no reads in tests'),
-          reports: _NoRefundReports(),
-        );
-
-  final triggers = <ArbitrumRefundTrigger>[];
-
-  @override
-  Future<void> scan(ArbitrumRefundTrigger trigger) async =>
-      triggers.add(trigger);
-
-  void show(ArbitrumRefundState s) => state = s;
-}

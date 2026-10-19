@@ -10930,9 +10930,17 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
-  String arbitrumRefundReturned(String amount) {
-    return '$amount visszaérkezett az Arbitrumra';
+  String cctpRefundReturnedTo(String network, String address) {
+    return 'Visszatérítve a(z) $network címedre: $address.';
   }
+
+  @override
+  String get cctpRefundMoveWithWallet =>
+      'Az áthelyezéséhez használj egy MetaMaskhoz hasonló tárcát ugyanazzal a helyreállítási kifejezéssel.';
+
+  @override
+  String get cctpRefundContactSupport =>
+      'Az áthelyezéséhez fordulj az ügyfélszolgálathoz.';
 
   @override
   String get portfolioSectionPnlCharts => 'P&L grafikonok';

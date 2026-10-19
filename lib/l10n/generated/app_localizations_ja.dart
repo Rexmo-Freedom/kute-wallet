@@ -10484,9 +10484,16 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String arbitrumRefundReturned(String amount) {
-    return '$amountがArbitrumに返金されました';
+  String cctpRefundReturnedTo(String network, String address) {
+    return '$network のあなたのアドレス $address に返金されました。';
   }
+
+  @override
+  String get cctpRefundMoveWithWallet =>
+      '移動するには、同じリカバリーフレーズで MetaMask などのウォレットを使ってください。';
+
+  @override
+  String get cctpRefundContactSupport => '移動するには、サポートにお問い合わせください。';
 
   @override
   String get portfolioSectionPnlCharts => '損益チャート';

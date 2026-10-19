@@ -1,6 +1,6 @@
 import 'package:kute/screens/shared/orchestra_swap_refund_action.dart';
 import 'package:kute/screens/shared/multi_source_move_activity.dart';
-import 'package:kute/screens/shared/arbitrum_refund_lines.dart'
+import 'package:kute/screens/shared/cctp_refund_outcome.dart'
     show CctpRefundOutcome;
 import 'package:kute/screens/shared/move_steps_view.dart'
     show MoveStepsSection, SwapRowStepsSection;

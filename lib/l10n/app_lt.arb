@@ -3048,7 +3048,9 @@
   "moneyStepSending": "Siunčiama {amount}",
   "moneyStepSent": "Išsiųsta {amount}",
   "moneyStepCompact": "{source} → {destination} · {amount}",
-  "arbitrumRefundReturned": "{amount} grąžinta į Arbitrum",
+  "cctpRefundReturnedTo": "Grąžinta į jūsų {network} adresą {address}.",
+  "cctpRefundMoveWithWallet": "Norėdami juos perkelti, naudokite piniginę, pvz., MetaMask, su ta pačia atkūrimo fraze.",
+  "cctpRefundContactSupport": "Norėdami juos perkelti, susisiekite su pagalba.",
   "portfolioSectionPnlCharts": "P&L grafikai",
   "portfolioSectionBalances": "Likučiai"
 }

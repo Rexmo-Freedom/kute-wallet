@@ -3048,7 +3048,9 @@
   "moneyStepSending": "{amount} versturen",
   "moneyStepSent": "{amount} verstuurd",
   "moneyStepCompact": "{source} → {destination} · {amount}",
-  "arbitrumRefundReturned": "{amount} teruggestort op Arbitrum",
+  "cctpRefundReturnedTo": "Terugbetaald naar je {network}-adres {address}.",
+  "cctpRefundMoveWithWallet": "Gebruik een wallet zoals MetaMask met dezelfde herstelzin om het te verplaatsen.",
+  "cctpRefundContactSupport": "Neem contact op met support om het te verplaatsen.",
   "portfolioSectionPnlCharts": "W&V-grafieken",
   "portfolioSectionBalances": "Saldi"
 }

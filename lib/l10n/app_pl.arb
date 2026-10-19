@@ -3048,7 +3048,9 @@
   "moneyStepSending": "Wysyłanie {amount}",
   "moneyStepSent": "Wysłano {amount}",
   "moneyStepCompact": "{source} → {destination} · {amount}",
-  "arbitrumRefundReturned": "{amount} zwrócono na Arbitrum",
+  "cctpRefundReturnedTo": "Zwrócono na Twój adres w sieci {network} {address}.",
+  "cctpRefundMoveWithWallet": "Aby je przenieść, użyj portfela takiego jak MetaMask z tą samą frazą odzyskiwania.",
+  "cctpRefundContactSupport": "Aby je przenieść, skontaktuj się z pomocą.",
   "portfolioSectionPnlCharts": "Wykresy P&L",
   "portfolioSectionBalances": "Salda"
 }
