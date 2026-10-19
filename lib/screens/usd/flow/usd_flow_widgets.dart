@@ -350,7 +350,7 @@ class UsdFlowNote extends StatelessWidget {
             ),
           ],
           if (emphasis != null) ...[
-            SizedBox(height: 8.h),
+            if (lines.isNotEmpty) SizedBox(height: 8.h),
             Text(
               emphasis!,
               textAlign: TextAlign.center,

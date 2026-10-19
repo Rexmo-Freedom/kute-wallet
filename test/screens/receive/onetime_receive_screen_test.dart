@@ -437,8 +437,14 @@ void main() {
     expect(find.textContaining('Expires in'), findsOneWidget);
     // The Kute fee is charged but never shown under a receive address.
     expect(find.text(_l10n.feeUiKuteFee), findsNothing);
-    expect(find.text(_l10n.quotedReceiveExpectedOutput('\$24.80')),
-        findsOneWidget);
+    // What arrives is not shown; the countdown sits above the QR.
+    expect(
+        find.text(_l10n.quotedReceiveExpectedOutput('\$24.80')), findsNothing);
+    expect(
+        tester
+            .getTopLeft(find.byKey(const ValueKey('onetime-receive-expiry')))
+            .dy,
+        lessThan(tester.getTopLeft(find.byType(ReceiveQrPlate)).dy));
     expect(find.text('0.50%'), findsNothing);
     // Where a failed deposit goes, shortened.
     expect(find.text(_l10n.quotedReceiveReturnsTo), findsOneWidget);

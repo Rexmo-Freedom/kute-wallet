@@ -20,7 +20,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:share_plus/share_plus.dart';
 
-import 'package:kute/helpers/formatters/currency_formatter.dart';
 import 'package:kute/helpers/user_error_copy.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/orchestra_route_limits.dart';
@@ -299,10 +298,15 @@ class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
   bool _current(int generation) =>
       mounted && generation == _generation && _sameWallet;
 
-  // Stop displaying payment instructions before the guard's expiry margin.
+  // How long before the quote's expiry the address stops being shown. The
+  // payer is a person with a wallet, not the app's relayer, so the window
+  // runs almost to Flashnet's own expiry (2 minutes per quote); a deposit
+  // that lands late is still watched and repriced by Orchestra.
+  static const _displayMargin = Duration(seconds: 10);
+
+  // Stop displaying payment instructions just before the quote expires.
   // The record remains monitored after this deadline, including late deposits.
-  DateTime? get _payBefore =>
-      _verified?.expiresAt.subtract(_verified!.expiryMargin);
+  DateTime? get _payBefore => _verified?.expiresAt.subtract(_displayMargin);
 
   Duration get _remaining {
     final wall = _payBefore?.difference(DateTime.now()) ?? Duration.zero;
@@ -503,18 +507,6 @@ class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
       '${decimalAmount(_verified!.amountIn, widget.option.decimals)} '
       '${widget.option.displaySymbol}';
 
-  /// What arrives, net of fees, as the destination balance prints it.
-  String _expectedOutput(SwapOrder display) {
-    if (_dollars) {
-      final usd = double.tryParse(display.withdrawalAmount) ?? 0;
-      return usdCentsText((usd * 100).floor());
-    }
-    final sats =
-        ((double.tryParse(display.withdrawalAmount) ?? 0) * 1e8).round();
-    final format = ref.read(settingsProvider).btcFormat;
-    return '₿${sats.toFormattedString(format)}';
-  }
-
   Widget _buildAddress() {
     final l10n = context.l10n;
     final display = _display!;
@@ -526,6 +518,14 @@ class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (payable) ...[
+            // The countdown first: the one thing that runs out.
+            UsdFlowNote(
+              key: const ValueKey('onetime-receive-expiry'),
+              lines: const [],
+              emphasis:
+                  l10n.receiveOneOffExpiresIn(usdFormatCountdown(_remaining)),
+            ),
+            SizedBox(height: ReceiveGaps.block),
             ReceiveQrPlate(child: buildQrCode(display.depositAddress, context)),
             SizedBox(height: ReceiveGaps.qrToCaption),
             ReceiveCaption(
@@ -563,14 +563,6 @@ class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
             UsdReviewLine(
                 label: l10n.status, value: _statusLabel(display.status)),
           ]),
-          SizedBox(height: ReceiveGaps.block),
-          UsdFlowNote(
-            key: const ValueKey('onetime-receive-expiry'),
-            lines: [l10n.quotedReceiveExpectedOutput(_expectedOutput(display))],
-            emphasis: payable
-                ? l10n.receiveOneOffExpiresIn(usdFormatCountdown(_remaining))
-                : null,
-          ),
           SizedBox(height: ReceiveGaps.tail),
         ],
       ),
@@ -713,7 +705,7 @@ class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
       // Its deposits are read on every screen for a while.
       ReceiveAddressWatch.shown();
       _paymentLifetime = verified.expiresAt
-          .subtract(verified.expiryMargin)
+          .subtract(_displayMargin)
           .difference(DateTime.now());
       _paymentClock
         ..reset()
