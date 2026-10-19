@@ -675,9 +675,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get expires => 'Expires';
 
   @override
-  String get enterRefundAddress => 'Enter refund address';
-
-  @override
   String get description => 'Description';
 
   @override
@@ -6590,9 +6587,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get receiveOneOffNewAddress => 'Get a new address';
 
   @override
-  String get receiveOneOffAmountTitle => 'How much are you expecting?';
-
-  @override
   String get usdFlowStepCoin => 'Pick a coin';
 
   @override
@@ -6625,10 +6619,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get usdReceiveCreating => 'Setting up your address.';
 
   @override
-  String get usdReceiveArriving =>
-      'Your dollars land as soon as the payment confirms.';
-
-  @override
   String get receiveAlsoAccepts => 'Also accepts';
 
   @override
@@ -6639,6 +6629,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get receiveCoinsLoading =>
       'Coins are still loading. Try again in a moment.';
+
+  @override
+  String get receiveAlsoAcceptsSubtitle =>
+      'Pick what is being sent to you. It arrives as bitcoin.';
 
   @override
   String get receivePickNetwork => 'Which network?';
@@ -6770,21 +6764,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get moveConversionOngoing => 'Conversion ongoing';
 
   @override
-  String quotedReceiveAmountSubtitle(String asset, String network) {
-    return 'Enter the amount of $asset you will send on $network.';
-  }
-
-  @override
-  String quotedReceiveRefundSubtitle(String network) {
-    return 'Use an address you control on $network. If a return is needed and supported, it goes here; fees may apply.';
-  }
-
-  @override
-  String quotedReceiveRefundInvalid(String network) {
-    return 'Enter a valid $network refund address.';
-  }
-
-  @override
   String quotedReceiveExactAmount(String amount) {
     return 'Send exactly $amount in one payment before this address expires.';
   }
@@ -6801,9 +6780,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get quotedReceiveWalletChanged =>
       'Your account changed. Close this screen and start again.';
-
-  @override
-  String get receiveOneOffUseAddress => 'Use a one-time address';
 
   @override
   String stepUpReasonWithdrawWithSourceFee(
@@ -6837,13 +6813,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get salProgressChecking => 'Checking the details…';
-
-  @override
-  String get receiveRequiredMemo => 'Required memo / tag';
-
-  @override
-  String get receiveMemoRequiredWarning =>
-      'Include this memo with your deposit. An address alone is not enough.';
 
   @override
   String get receiveOwnRefundAddress =>

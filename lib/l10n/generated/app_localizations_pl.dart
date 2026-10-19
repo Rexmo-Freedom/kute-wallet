@@ -675,9 +675,6 @@ class AppLocalizationsPl extends AppLocalizations {
   String get expires => 'Wygasa';
 
   @override
-  String get enterRefundAddress => 'Wpisz adres zwrotu';
-
-  @override
   String get description => 'Opis';
 
   @override
@@ -6633,9 +6630,6 @@ class AppLocalizationsPl extends AppLocalizations {
   String get receiveOneOffNewAddress => 'Uzyskaj nowy adres';
 
   @override
-  String get receiveOneOffAmountTitle => 'Jakiej kwoty się spodziewasz?';
-
-  @override
   String get usdFlowStepCoin => 'Wybierz monetę';
 
   @override
@@ -6668,10 +6662,6 @@ class AppLocalizationsPl extends AppLocalizations {
   String get usdReceiveCreating => 'Konfigurowanie adresu.';
 
   @override
-  String get usdReceiveArriving =>
-      'Dolary trafią na konto, gdy tylko płatność zostanie potwierdzona.';
-
-  @override
   String get receiveAlsoAccepts => 'Przyjmuje też';
 
   @override
@@ -6682,6 +6672,10 @@ class AppLocalizationsPl extends AppLocalizations {
   @override
   String get receiveCoinsLoading =>
       'Monety wciąż się wczytują. Spróbuj ponownie za chwilę.';
+
+  @override
+  String get receiveAlsoAcceptsSubtitle =>
+      'Wybierz, co ktoś ci wysyła. Dotrze jako bitcoin.';
 
   @override
   String get receivePickNetwork => 'Jaka sieć?';
@@ -6813,21 +6807,6 @@ class AppLocalizationsPl extends AppLocalizations {
   String get moveConversionOngoing => 'Wymiana w toku';
 
   @override
-  String quotedReceiveAmountSubtitle(String asset, String network) {
-    return 'Wpisz kwotę $asset, którą wyślesz w sieci $network.';
-  }
-
-  @override
-  String quotedReceiveRefundSubtitle(String network) {
-    return 'Użyj adresu w sieci $network, który kontrolujesz. Jeśli zwrot będzie potrzebny i możliwy, trafi tutaj. Mogą obowiązywać opłaty.';
-  }
-
-  @override
-  String quotedReceiveRefundInvalid(String network) {
-    return 'Wpisz prawidłowy adres zwrotu w sieci $network.';
-  }
-
-  @override
   String quotedReceiveExactAmount(String amount) {
     return 'Wyślij dokładnie $amount w jednej płatności, zanim ten adres wygaśnie.';
   }
@@ -6844,9 +6823,6 @@ class AppLocalizationsPl extends AppLocalizations {
   @override
   String get quotedReceiveWalletChanged =>
       'Twoje konto się zmieniło. Zamknij ten ekran i zacznij od nowa.';
-
-  @override
-  String get receiveOneOffUseAddress => 'Użyj adresu jednorazowego';
 
   @override
   String stepUpReasonWithdrawWithSourceFee(
@@ -6880,13 +6856,6 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get salProgressChecking => 'Sprawdzam szczegóły…';
-
-  @override
-  String get receiveRequiredMemo => 'Wymagane memo / tag';
-
-  @override
-  String get receiveMemoRequiredWarning =>
-      'Dołącz to memo do wpłaty. Sam adres nie wystarczy.';
 
   @override
   String get receiveOwnRefundAddress =>

@@ -674,9 +674,6 @@ class AppLocalizationsBg extends AppLocalizations {
   String get expires => 'Изтича';
 
   @override
-  String get enterRefundAddress => 'Въведи адрес за възстановяване';
-
-  @override
   String get description => 'Описание';
 
   @override
@@ -6620,9 +6617,6 @@ class AppLocalizationsBg extends AppLocalizations {
   String get receiveOneOffNewAddress => 'Вземи нов адрес';
 
   @override
-  String get receiveOneOffAmountTitle => 'Колко очакваш?';
-
-  @override
   String get usdFlowStepCoin => 'Избери монета';
 
   @override
@@ -6655,10 +6649,6 @@ class AppLocalizationsBg extends AppLocalizations {
   String get usdReceiveCreating => 'Настройваме адреса ти.';
 
   @override
-  String get usdReceiveArriving =>
-      'Доларите ти пристигат веднага щом плащането се потвърди.';
-
-  @override
   String get receiveAlsoAccepts => 'Приема също';
 
   @override
@@ -6669,6 +6659,10 @@ class AppLocalizationsBg extends AppLocalizations {
   @override
   String get receiveCoinsLoading =>
       'Монетите още се зареждат. Опитай отново след малко.';
+
+  @override
+  String get receiveAlsoAcceptsSubtitle =>
+      'Избери какво ти се изпраща. Пристига като bitcoin.';
 
   @override
   String get receivePickNetwork => 'Коя мрежа?';
@@ -6800,21 +6794,6 @@ class AppLocalizationsBg extends AppLocalizations {
   String get moveConversionOngoing => 'Конвертирането е в процес';
 
   @override
-  String quotedReceiveAmountSubtitle(String asset, String network) {
-    return 'Въведи сумата $asset, която ще изпратиш в $network.';
-  }
-
-  @override
-  String quotedReceiveRefundSubtitle(String network) {
-    return 'Използвай адрес, който контролираш, в $network. Ако е нужно връщане и то се поддържа, средствата отиват тук. Може да има такси.';
-  }
-
-  @override
-  String quotedReceiveRefundInvalid(String network) {
-    return 'Въведи валиден $network адрес за възстановяване.';
-  }
-
-  @override
   String quotedReceiveExactAmount(String amount) {
     return 'Изпрати точно $amount с едно плащане, преди този адрес да изтече.';
   }
@@ -6831,9 +6810,6 @@ class AppLocalizationsBg extends AppLocalizations {
   @override
   String get quotedReceiveWalletChanged =>
       'Акаунтът ти се смени. Затвори този екран и започни отначало.';
-
-  @override
-  String get receiveOneOffUseAddress => 'Използвай еднократен адрес';
 
   @override
   String stepUpReasonWithdrawWithSourceFee(
@@ -6867,13 +6843,6 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get salProgressChecking => 'Проверявам детайлите…';
-
-  @override
-  String get receiveRequiredMemo => 'Задължителна бележка / таг';
-
-  @override
-  String get receiveMemoRequiredWarning =>
-      'Включи тази бележка в депозита си. Само адресът не е достатъчен.';
 
   @override
   String get receiveOwnRefundAddress =>

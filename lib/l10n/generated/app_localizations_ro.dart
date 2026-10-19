@@ -676,9 +676,6 @@ class AppLocalizationsRo extends AppLocalizations {
   String get expires => 'Expiră';
 
   @override
-  String get enterRefundAddress => 'Introdu adresa de rambursare';
-
-  @override
   String get description => 'Descriere';
 
   @override
@@ -6646,9 +6643,6 @@ class AppLocalizationsRo extends AppLocalizations {
   String get receiveOneOffNewAddress => 'Obține o adresă nouă';
 
   @override
-  String get receiveOneOffAmountTitle => 'Cât aștepți să primești?';
-
-  @override
   String get usdFlowStepCoin => 'Alege o monedă';
 
   @override
@@ -6681,10 +6675,6 @@ class AppLocalizationsRo extends AppLocalizations {
   String get usdReceiveCreating => 'Se configurează adresa.';
 
   @override
-  String get usdReceiveArriving =>
-      'Dolarii ajung imediat ce plata se confirmă.';
-
-  @override
   String get receiveAlsoAccepts => 'Acceptă și';
 
   @override
@@ -6695,6 +6685,10 @@ class AppLocalizationsRo extends AppLocalizations {
   @override
   String get receiveCoinsLoading =>
       'Monedele încă se încarcă. Încearcă din nou în câteva momente.';
+
+  @override
+  String get receiveAlsoAcceptsSubtitle =>
+      'Alege ce ți se trimite. Ajunge ca bitcoin.';
 
   @override
   String get receivePickNetwork => 'Ce rețea?';
@@ -6826,21 +6820,6 @@ class AppLocalizationsRo extends AppLocalizations {
   String get moveConversionOngoing => 'Conversie în curs';
 
   @override
-  String quotedReceiveAmountSubtitle(String asset, String network) {
-    return 'Introdu suma de $asset pe care o vei trimite pe $network.';
-  }
-
-  @override
-  String quotedReceiveRefundSubtitle(String network) {
-    return 'Folosește o adresă pe care o controlezi pe $network. Dacă e nevoie de o returnare și este posibilă, ajunge aici. Se pot aplica comisioane.';
-  }
-
-  @override
-  String quotedReceiveRefundInvalid(String network) {
-    return 'Introdu o adresă de rambursare $network validă.';
-  }
-
-  @override
   String quotedReceiveExactAmount(String amount) {
     return 'Trimite exact $amount într-o singură plată înainte să expire această adresă.';
   }
@@ -6857,9 +6836,6 @@ class AppLocalizationsRo extends AppLocalizations {
   @override
   String get quotedReceiveWalletChanged =>
       'Contul tău s-a schimbat. Închide acest ecran și începe din nou.';
-
-  @override
-  String get receiveOneOffUseAddress => 'Folosește o adresă de unică folosință';
 
   @override
   String stepUpReasonWithdrawWithSourceFee(
@@ -6893,13 +6869,6 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get salProgressChecking => 'Se verifică detaliile…';
-
-  @override
-  String get receiveRequiredMemo => 'Memo / tag obligatoriu';
-
-  @override
-  String get receiveMemoRequiredWarning =>
-      'Include acest memo la depunere. Doar adresa nu este suficientă.';
 
   @override
   String get receiveOwnRefundAddress =>

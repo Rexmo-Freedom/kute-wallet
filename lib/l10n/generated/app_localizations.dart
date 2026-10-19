@@ -1466,12 +1466,6 @@ abstract class AppLocalizations {
   /// **'Expires'**
   String get expires;
 
-  /// No description provided for @enterRefundAddress.
-  ///
-  /// In en, this message translates to:
-  /// **'Enter refund address'**
-  String get enterRefundAddress;
-
   /// No description provided for @description.
   ///
   /// In en, this message translates to:
@@ -11560,12 +11554,6 @@ abstract class AppLocalizations {
   /// **'Get a new address'**
   String get receiveOneOffNewAddress;
 
-  /// No description provided for @receiveOneOffAmountTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'How much are you expecting?'**
-  String get receiveOneOffAmountTitle;
-
   /// No description provided for @usdFlowStepCoin.
   ///
   /// In en, this message translates to:
@@ -11620,12 +11608,6 @@ abstract class AppLocalizations {
   /// **'Setting up your address.'**
   String get usdReceiveCreating;
 
-  /// No description provided for @usdReceiveArriving.
-  ///
-  /// In en, this message translates to:
-  /// **'Your dollars land as soon as the payment confirms.'**
-  String get usdReceiveArriving;
-
   /// Quiet line under the bitcoin receive address, followed by a few coin marks. It states a property of the address, not a mode to enter.
   ///
   /// In en, this message translates to:
@@ -11643,6 +11625,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Coins are still loading. Try again in a moment.'**
   String get receiveCoinsLoading;
+
+  /// Subtitle of the Also accepts sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick what is being sent to you. It arrives as bitcoin.'**
+  String get receiveAlsoAcceptsSubtitle;
 
   /// Subtitle of the second pane of the Also accepts sheet, once a coin is picked and it lives on more than one network.
   ///
@@ -11861,24 +11849,6 @@ abstract class AppLocalizations {
   /// **'Conversion ongoing'**
   String get moveConversionOngoing;
 
-  /// No description provided for @quotedReceiveAmountSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Enter the amount of {asset} you will send on {network}.'**
-  String quotedReceiveAmountSubtitle(String asset, String network);
-
-  /// No description provided for @quotedReceiveRefundSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Use an address you control on {network}. If a return is needed and supported, it goes here; fees may apply.'**
-  String quotedReceiveRefundSubtitle(String network);
-
-  /// No description provided for @quotedReceiveRefundInvalid.
-  ///
-  /// In en, this message translates to:
-  /// **'Enter a valid {network} refund address.'**
-  String quotedReceiveRefundInvalid(String network);
-
   /// No description provided for @quotedReceiveExactAmount.
   ///
   /// In en, this message translates to:
@@ -11902,12 +11872,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Your account changed. Close this screen and start again.'**
   String get quotedReceiveWalletChanged;
-
-  /// No description provided for @receiveOneOffUseAddress.
-  ///
-  /// In en, this message translates to:
-  /// **'Use a one-time address'**
-  String get receiveOneOffUseAddress;
 
   /// No description provided for @stepUpReasonWithdrawWithSourceFee.
   ///
@@ -11963,18 +11927,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Checking the details…'**
   String get salProgressChecking;
-
-  /// No description provided for @receiveRequiredMemo.
-  ///
-  /// In en, this message translates to:
-  /// **'Required memo / tag'**
-  String get receiveRequiredMemo;
-
-  /// No description provided for @receiveMemoRequiredWarning.
-  ///
-  /// In en, this message translates to:
-  /// **'Include this memo with your deposit. An address alone is not enough.'**
-  String get receiveMemoRequiredWarning;
 
   /// No description provided for @receiveOwnRefundAddress.
   ///

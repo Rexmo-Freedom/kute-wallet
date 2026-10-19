@@ -478,12 +478,6 @@ qr_scanner_dismissed
 qr_scanner_torch_toggled
 quick_action_tapped
 quote_roundtrip_latency
-quoted_receive_abandoned
-quoted_receive_completed
-quoted_receive_failed
-quoted_receive_new_quote_tapped
-quoted_receive_opened
-quoted_receive_submitted
 receive_abandoned
 receive_address_failed
 receive_address_generated
@@ -518,9 +512,6 @@ restore_abandoned
 restore_started
 restore_step
 restore_write_failed
-reusable_deposit_address_created
-reusable_deposit_address_retried
-reusable_deposit_address_reused
 review_prompted
 route_paused_shown
 sal_action_result

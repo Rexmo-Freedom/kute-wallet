@@ -674,9 +674,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String get expires => 'Lejár';
 
   @override
-  String get enterRefundAddress => 'Add meg a visszatérítési címet';
-
-  @override
   String get description => 'Leírás';
 
   @override
@@ -6626,9 +6623,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String get receiveOneOffNewAddress => 'Új cím kérése';
 
   @override
-  String get receiveOneOffAmountTitle => 'Mennyit vársz?';
-
-  @override
   String get usdFlowStepCoin => 'Válassz érmét';
 
   @override
@@ -6661,10 +6655,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String get usdReceiveCreating => 'A címed beállítása.';
 
   @override
-  String get usdReceiveArriving =>
-      'A dollárjaid a fizetés megerősítése után azonnal megérkeznek.';
-
-  @override
   String get receiveAlsoAccepts => 'Ezt is fogadja';
 
   @override
@@ -6675,6 +6665,10 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String get receiveCoinsLoading =>
       'Az érmék még töltődnek. Próbáld újra egy kicsit később.';
+
+  @override
+  String get receiveAlsoAcceptsSubtitle =>
+      'Válaszd ki, mit küldenek neked. Bitcoinként érkezik.';
 
   @override
   String get receivePickNetwork => 'Melyik hálózat?';
@@ -6806,21 +6800,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String get moveConversionOngoing => 'Átváltás folyamatban';
 
   @override
-  String quotedReceiveAmountSubtitle(String asset, String network) {
-    return 'Add meg, mennyi $asset összeget küldesz a(z) $network hálózaton.';
-  }
-
-  @override
-  String quotedReceiveRefundSubtitle(String network) {
-    return 'Olyan címet adj meg a(z) $network hálózaton, amely felett rendelkezel. Ha visszaküldés szükséges és támogatott, ide érkezik; díjak merülhetnek fel.';
-  }
-
-  @override
-  String quotedReceiveRefundInvalid(String network) {
-    return 'Adj meg érvényes $network visszatérítési címet.';
-  }
-
-  @override
   String quotedReceiveExactAmount(String amount) {
     return 'Pontosan $amount összeget küldj, egyetlen fizetésben, mielőtt ez a cím lejár.';
   }
@@ -6837,9 +6816,6 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String get quotedReceiveWalletChanged =>
       'A fiókod megváltozott. Zárd be ezt a képernyőt, és kezdd újra.';
-
-  @override
-  String get receiveOneOffUseAddress => 'Egyszer használatos cím';
 
   @override
   String stepUpReasonWithdrawWithSourceFee(
@@ -6873,13 +6849,6 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get salProgressChecking => 'Részletek ellenőrzése…';
-
-  @override
-  String get receiveRequiredMemo => 'Kötelező memo / tag';
-
-  @override
-  String get receiveMemoRequiredWarning =>
-      'Add meg ezt a memót a befizetésedhez. A cím önmagában nem elég.';
 
   @override
   String get receiveOwnRefundAddress =>

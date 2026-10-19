@@ -228,10 +228,10 @@ String? _providerWord(Object? value) =>
         ? value
         : null;
 
-/// Whether the person was just given a reusable deposit address, so its
-/// deposits are watched on every screen, not only where the full sync
-/// runs (Home and the wallet detail). Armed by
-/// `ReusableDepositAddressService.resolve` each time an address is shown;
+/// Whether the person was just given a receive address, so its deposits
+/// are watched on every screen, not only where the full sync runs (Home
+/// and the wallet detail). Armed by the one-time receive
+/// (quoted_receive_screen.dart) each time an address is shown;
 /// a deposit observed meanwhile keeps its own pending row, which keeps
 /// the sync running on its own.
 abstract final class ReceiveAddressWatch {

@@ -1,3 +1,13 @@
+// The one-time receive of another coin from another network
+// (onetime_receive.dart): after the coin and network are picked, the
+// amount is asked in the Lightning receive's own "Request amount" sheet
+// ([requestOneTimeReceiveAmount]: dollars for the Dollars receive, sats or
+// fiat for Bitcoin, with the route's minimum on the sheet's minimum line),
+// and this screen quotes it and shows the one-time deposit address: the
+// code, the exact amount to send, the network it must come from, the
+// expiry countdown and what arrives. The quote is an Activity row from the
+// moment it exists. This screen never signs, submits or pays anything.
+
 import 'dart:async';
 
 import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart';
@@ -7,51 +17,182 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:share_plus/share_plus.dart';
 
-import 'package:kute/helpers/scanned_address.dart';
+import 'package:kute/helpers/formatters/currency_formatter.dart';
 import 'package:kute/helpers/user_error_copy.dart';
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/models/orchestra_route_limits.dart';
 import 'package:kute/models/orchestra_routes_model.dart';
 import 'package:kute/models/swap_order_model.dart';
 import 'package:kute/providers/breez_config_provider.dart';
+import 'package:kute/providers/currency_conversions_provider.dart';
+import 'package:kute/providers/hyperliquid_account_provider.dart'
+    show hyperliquidAddressProvider;
 import 'package:kute/providers/orchestra_supported_routes_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/spark_address_provider.dart';
+import 'package:kute/providers/swap_orders_provider.dart';
+import 'package:kute/providers/transactions_provider.dart'
+    show walletTransactionCacheProvider;
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
+import 'package:kute/screens/receive/components/request_amount_sheet.dart';
 import 'package:kute/screens/receive/orchestra_deposit_poller.dart';
-import 'package:kute/screens/shared/kute_paste_chip.dart';
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/screens/shared/qr_code.dart';
 import 'package:kute/screens/shared/receive_surface.dart';
 import 'package:kute/screens/shared/stepper/stepper_widgets.dart';
 import 'package:kute/screens/usd/flow/usd_flow_widgets.dart';
+import 'package:kute/services/orchestra/onetime_receive.dart';
 import 'package:kute/services/orchestra/orchestra_capability_requirements.dart'
-    show kOneTimeAddressCapability;
+    show orchestraOptionCapabilities;
 import 'package:kute/services/orchestra/orchestra_quote_gate.dart';
 import 'package:kute/services/orchestra/orchestra_quote_guard.dart';
 import 'package:kute/services/orchestra/pending_receive_quote_cache.dart';
-import 'package:kute/services/orchestra_routes.dart';
-import 'package:kute/services/orchestra_usd_send_routes.dart'
-    show usdBaseUnitsFromTyped;
+import 'package:kute/services/orchestra/receive_minimums.dart';
+import 'package:kute/services/orchestra/standing_deposit_sweep.dart'
+    show ReceiveAddressWatch;
+import 'package:kute/services/orchestra_routes.dart'
+    show kOrchestraUsdAssetCode, orchestraExchangeStatusIsTerminal;
 import 'package:kute/services/runtime_capabilities_service.dart';
-import 'package:kute/services/security/address_guard.dart';
 import 'package:kute/services/security/wallet_guard_exception.dart';
+import 'package:kute/services/success_feedback.dart' show moneyFailureFeedback;
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
-enum _ReceiveStep { amount, refund, address }
+/// What the person asked to receive: the amount in USD cents, the
+/// minimum the sheet showed, and the unit it was typed in.
+typedef OneTimeReceiveAmount = ({
+  int usdCents,
+  ReceiveMinimum minimum,
+  String unit,
+});
 
-/// Prepares a single external deposit into this wallet's Bitcoin or Dollars.
-/// This screen never signs, submits or pays a transaction.
+/// The route of a one-time receive of [option] into spark:[destinationAsset].
+RouteKey oneTimeReceiveRoute(
+        OrchestraReceiveOption option, String destinationAsset) =>
+    RouteKey(
+        fromChain: option.chain,
+        fromAsset: option.assetCode,
+        toChain: 'spark',
+        toAsset: destinationAsset);
+
+/// "$1.50" for 150.
+String usdCentsText(int cents) => '\$${(cents / 100).toStringAsFixed(2)}';
+
+/// [requested] in whole USD cents: as typed when in dollars, else its
+/// sats at the local bitcoin price. Null without a price.
+int? oneTimeReceiveUsdCents(WidgetRef ref, RequestedAmount requested) {
+  if (requested.currency == 'USD') {
+    final usd = double.tryParse(requested.amount);
+    return usd == null || !usd.isFinite ? null : (usd * 100).round();
+  }
+  final sats = ref.read(inputToSatsProvider(
+      (amount: requested.amount, currency: requested.currency)));
+  final usdPerBtc = ref.read(selectedCurrencyProvider('USD')).toDouble();
+  if (sats <= 0 || !usdPerBtc.isFinite || usdPerBtc <= 0) return null;
+  return (sats * usdPerBtc / 1e6).round();
+}
+
+/// Asks the amount of a one-time receive of [option] into
+/// spark:[destinationAsset] in the "Request amount" sheet the Lightning
+/// receive uses: in dollars (fixed) for the Dollars receive, in the
+/// person's receive unit (sats or fiat) for Bitcoin. The route's live
+/// minimum (never under the $1 floor) is on the sheet's minimum line, and
+/// an amount under it or over the route's maximum turns that line red and
+/// keeps "Create request" off. Null when dismissed.
+Future<OneTimeReceiveAmount?> requestOneTimeReceiveAmount(
+  BuildContext context,
+  WidgetRef ref, {
+  required OrchestraReceiveOption option,
+  required String destinationAsset,
+}) async {
+  final route = oneTimeReceiveRoute(option, destinationAsset);
+  final minimums = ref.read(receiveMinimumsProvider);
+  final reading = minimums.refresh(route);
+  final minimum = minimums.cachedLive(route) ?? await reading;
+  if (!context.mounted) return null;
+  final minCents = minimum.usdCents ?? kReceiveMinimumFloorCents;
+  final minText = minimum.usdText ?? usdCentsText(minCents);
+  final maxCents = oneTimeMaxUsdCents(minimums.cachedLimits(route));
+  final l10n = context.l10n;
+  String? outside(int cents) {
+    if (cents < minCents) return l10n.routeAmountTooSmall(minText);
+    if (maxCents != null && cents > maxCents) {
+      return l10n.routeAmountTooLarge(usdCentsText(maxCents));
+    }
+    return null;
+  }
+
+  final requested = await showRequestAmountSheet(
+    context,
+    fixedCurrency: destinationAsset == kOrchestraUsdAssetCode ? 'USD' : null,
+    minimumLabel: l10n.amountMinimumInline(minText),
+    validate: (r) {
+      final cents = oneTimeReceiveUsdCents(ref, r);
+      return cents == null ? null : outside(cents);
+    },
+  );
+  if (requested == null || !context.mounted) return null;
+  final cents = oneTimeReceiveUsdCents(ref, requested);
+  if (cents == null || cents <= 0 || outside(cents) != null) return null;
+  return (usdCents: cents, minimum: minimum, unit: requested.currency);
+}
+
+/// The step every one-time receive records once its amount is known.
+void _trackAmountEntered(OrchestraReceiveOption option, String destinationAsset,
+    OneTimeReceiveAmount amount) {
+  final props = <String, Object>{
+    'asset': option.assetCode,
+    'chain': option.chain,
+    'address_kind': 'onetime',
+    'destination': oneTimeReceiveDestinationLabel(destinationAsset),
+    'amount_usd': amount.usdCents / 100,
+    'amount_unit': amount.unit.toLowerCase(),
+    ...amount.minimum.trackingParams,
+  };
+  if (destinationAsset == kOrchestraUsdAssetCode) {
+    TrackingService.moneyFlowStep('usd_receive', 'amount_entered',
+        props: props);
+  } else {
+    TrackingService.moneyFlowStep('receive', 'amount_entered', props: props);
+  }
+}
+
+/// The whole one-time receive after a coin is picked: the amount sheet,
+/// then [QuotedReceiveScreen] with the address. Nothing opens when the
+/// sheet is dismissed.
+Future<void> openOneTimeReceive(
+  BuildContext context,
+  WidgetRef ref, {
+  required OrchestraReceiveOption option,
+  required String destinationAsset,
+}) async {
+  final amount = await requestOneTimeReceiveAmount(context, ref,
+      option: option, destinationAsset: destinationAsset);
+  if (amount == null || !context.mounted) return;
+  _trackAmountEntered(option, destinationAsset, amount);
+  await Navigator.of(context).push<void>(MaterialPageRoute(
+    builder: (_) => QuotedReceiveScreen(
+      option: option,
+      destinationAsset: destinationAsset,
+      amount: amount,
+    ),
+  ));
+}
+
+/// The one-time deposit address for [amount] of [option] into the wallet's
+/// own Bitcoin (`BTC`) or Dollars (`USDB`).
 class QuotedReceiveScreen extends ConsumerStatefulWidget {
   const QuotedReceiveScreen({
     super.key,
     required this.option,
     required this.destinationAsset,
+    required this.amount,
   });
 
   final OrchestraReceiveOption option;
   final String destinationAsset;
+  final OneTimeReceiveAmount amount;
 
   @override
   ConsumerState<QuotedReceiveScreen> createState() =>
@@ -59,12 +200,10 @@ class QuotedReceiveScreen extends ConsumerStatefulWidget {
 }
 
 class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
-  final _refund = TextEditingController();
   late final OrchestraDepositPoller _poller = OrchestraDepositPoller(ref);
   late final String? _walletId;
   late final PendingReceiveQuoteScope? _receiveScope;
-  _ReceiveStep _step = _ReceiveStep.amount;
-  String _typed = '';
+  late OneTimeReceiveAmount _amount = widget.amount;
   String? _error;
   bool _busy = false;
   bool _walletChanged = false;
@@ -76,15 +215,16 @@ class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
   bool Function()? _sameSdk;
   VerifiedOrchestraQuote? _verified;
   SwapOrder? _display;
-  String? _expectedOutput;
+  bool _terminalTracked = false;
 
-  /// Destination rail label for analytics (`spark_btc` | `spark_usd`).
+  bool get _dollars => widget.destinationAsset == kOrchestraUsdAssetCode;
+
   String get _destinationLabel =>
-      widget.destinationAsset == 'USDB' ? 'spark_usd' : 'spark_btc';
+      oneTimeReceiveDestinationLabel(widget.destinationAsset);
 
   bool get _supported =>
-      (widget.destinationAsset == 'BTC' || widget.destinationAsset == 'USDB') &&
-      orchestraCanQuoteReceiveOn(widget.option.chain) &&
+      (widget.destinationAsset == 'BTC' || _dollars) &&
+      oneTimeReceiveOffered(widget.option.chain) &&
       widget.option.decimals >= 0 &&
       widget.option.decimals <= 18;
 
@@ -97,17 +237,6 @@ class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
         settings.activeWalletId == _walletId &&
         pickSpendingWallet(settings)?.id == _walletId;
   }
-
-  BigInt? get _amount => _supported
-      ? usdBaseUnitsFromTyped(_typed, decimals: widget.option.decimals)
-      : null;
-
-  bool get _amountValid => (_amount ?? BigInt.zero) > BigInt.zero;
-
-  bool get _refundValid =>
-      formatMatchesChain(widget.option.chain, _refund.text.trim(),
-          mainnet: true) ==
-      AddressFormatMatch.ok;
 
   bool _current(int generation) =>
       mounted && generation == _generation && _sameWallet;
@@ -146,41 +275,31 @@ class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
     _walletId = ref.read(settingsProvider).activeWalletId;
     _receiveScope =
         _walletId == null ? null : PendingReceiveQuoteCache.capture(_walletId);
-    // initState runs once per mounted screen, so rebuilds never refire.
-    TrackingService.moneyFlowStarted(
-      'quoted_receive',
-      event: 'quoted_receive_opened',
-      entrySource: TrackingService.takeEntrySource('quoted_receive',
-          fallback: _destinationLabel == 'spark_usd' ? 'usd_receive' : 'receive'),
-      network: widget.option.chain,
-      props: {
-        'asset': widget.option.assetCode,
-        'network': widget.option.chain,
-        'destination': _destinationLabel,
-      },
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_createQuote());
+    });
   }
 
-  bool _terminalTracked = false;
+  /// What every event of this address says about it. Exact values only;
+  /// never the address or the quote id.
+  Map<String, Object> _addressProps() => {
+        'asset': widget.option.assetCode,
+        'network': widget.option.chain,
+        'provider': 'orchestra',
+        'destination': _destinationLabel,
+        'address_kind': 'onetime',
+        'amount_usd': _amount.usdCents / 100,
+        ..._amount.minimum.trackingParams,
+        if (!_dollars) 'entry_source': 'bitcoin_receive',
+      };
 
-  /// Funnel props: the route and the typed amount (native units).
-  Map<String, Object> _flowInputs() {
-    final amount = _amount;
-    final typed = double.tryParse(_typed);
-    return {
-      'destination': _destinationLabel,
-      'refund_entered': _refund.text.trim().isNotEmpty,
-      ...TrackingService.routeParams(
-        fromAsset: widget.option.assetCode,
-        fromNetwork: widget.option.chain,
-        toAsset: widget.destinationAsset == 'USDB' ? 'usd' : 'btc',
-        toNetwork: 'spark',
-        provider: 'orchestra',
-      ),
-      if (amount != null && amount > BigInt.zero && typed != null)
-        ...TrackingService.moneyParams(
-            amount: typed, asset: widget.option.assetCode),
-    };
+  void _step(String step, [Map<String, Object>? props]) {
+    final all = {..._addressProps(), ...?props};
+    if (_dollars) {
+      TrackingService.moneyFlowStep('usd_receive', step, props: all);
+    } else {
+      TrackingService.moneyFlowStep('receive', step, props: all);
+    }
   }
 
   void _trackTerminal(SwapOrder order) {
@@ -189,27 +308,27 @@ class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
     }
     _terminalTracked = true;
     final ok = order.status == 'success';
-    TrackingService.track(
-        ok ? 'quoted_receive_completed' : 'quoted_receive_failed', params: {
-      ..._flowInputs(),
+    final props = {
+      ..._addressProps(),
       'status': order.status,
       if (!ok) 'error_category': 'settlement',
       if (!ok) 'stage': 'settle',
-    });
-    TrackingService.moneyFlowFinished('quoted_receive');
+    };
+    if (_dollars) {
+      TrackingService.track(ok ? 'usd_receive_completed' : 'usd_receive_failed',
+          params: props);
+      TrackingService.moneyFlowFinished('usd_receive');
+    } else {
+      _step(ok ? 'deposit_completed' : 'deposit_failed', props);
+    }
   }
 
   @override
   void dispose() {
-    TrackingService.moneyFlowAbandoned('quoted_receive', props: {
-      ..._flowInputs(),
-      if (_verified != null) 'address_shown': true,
-    });
     _generation++;
     _ticker?.cancel();
     _paymentClock.stop();
     _poller.cancel();
-    _refund.dispose();
     super.dispose();
   }
 
@@ -223,7 +342,6 @@ class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
       _busy = false;
       _verified = null;
       _display = null;
-      _expectedOutput = null;
       _error = null;
     });
   }
@@ -247,219 +365,116 @@ class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
       _paymentExpired = true;
     }
     final blocked = !_supported || !_sameWallet;
-    final index = _step.index;
-    return PopScope(
-      canPop: index == 0 || blocked,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _onBack();
-      },
-      child: UsdFlowScaffold(
-        title: widget.destinationAsset == 'USDB'
-            ? l10n.usdReceiveTitle
-            : l10n.receiveBitcoin,
-        totalSteps: 3,
-        currentStep: index,
-        completedSteps: {for (var i = 0; i < index; i++) i},
-        onBack: _onBack,
-        resizeToAvoidBottomInset: _step == _ReceiveStep.refund,
-        action: blocked ? null : _buildAction(),
-        child: blocked
-            ? Padding(
-                padding: EdgeInsets.only(top: 24.h),
-                child: UsdFlowNote(lines: [
-                  _walletChanged
-                      ? l10n.quotedReceiveWalletChanged
-                      : !_supported
-                          ? l10n.receiveCoinNetworkUnavailable
-                          : l10n.receiveOtherCoinsSpendingOnly,
-                ]),
-              )
-            : StepPageWrapper(
-                title: switch (_step) {
-                  _ReceiveStep.amount => l10n.receiveOneOffAmountTitle,
-                  _ReceiveStep.refund => l10n.ledgerFundReviewRefund,
-                  _ReceiveStep.address => l10n.usdReceiveShareStep,
-                },
-                subtitle: switch (_step) {
-                  _ReceiveStep.amount => l10n.quotedReceiveAmountSubtitle(
+    // The coin and the amount were the first two steps; this is the third.
+    return UsdFlowScaffold(
+      title: _dollars ? l10n.usdReceiveTitle : l10n.receiveBitcoin,
+      totalSteps: 3,
+      currentStep: 2,
+      completedSteps: const {0, 1},
+      onBack: () => unawaited(Navigator.of(context).maybePop()),
+      action: blocked ? null : _buildAction(),
+      child: blocked
+          ? Padding(
+              padding: EdgeInsets.only(top: 24.h),
+              child: UsdFlowNote(lines: [
+                _walletChanged
+                    ? l10n.quotedReceiveWalletChanged
+                    : !_supported
+                        ? l10n.receiveCoinNetworkUnavailable
+                        : l10n.receiveOtherCoinsSpendingOnly,
+              ]),
+            )
+          : StepPageWrapper(
+              title: l10n.usdReceiveShareStep,
+              // The network warning: only this coin, only this network.
+              subtitle: _canPay
+                  ? l10n.usdReceiveShareSubtitle(
                       widget.option.displaySymbol,
                       widget.option.chainDisplayName,
-                    ),
-                  _ReceiveStep.refund => l10n.quotedReceiveRefundSubtitle(
-                      widget.option.chainDisplayName,
-                    ),
-                  _ReceiveStep.address => _canPay
-                      ? l10n.usdReceiveShareSubtitle(
-                          widget.option.displaySymbol,
-                          widget.option.chainDisplayName,
-                        )
-                      : '',
-                },
-                colors: context.colors,
-                child: switch (_step) {
-                  _ReceiveStep.amount => UsdAmountStepBody(
-                      typed: _typed,
-                      suffix: widget.option.displaySymbol,
-                      maxDecimals: widget.option.decimals,
-                      onChanged: (value) => setState(() => _typed = value),
-                    ),
-                  _ReceiveStep.refund => _buildRefund(),
-                  _ReceiveStep.address => _buildAddress(),
-                },
-              ),
-      ),
+                    )
+                  : '',
+              colors: context.colors,
+              child: _verified == null ? _buildPending() : _buildAddress(),
+            ),
     );
   }
 
   Widget? _buildAction() {
     final l10n = context.l10n;
-    return switch (_step) {
-      _ReceiveStep.amount => UsdFlowAction(
-          label: l10n.continueLabel,
-          onPressed: _amountValid
-              ? () => setState(() => _step = _ReceiveStep.refund)
-              : null,
-        ),
-      _ReceiveStep.refund => UsdFlowAction(
-          label: l10n.continueLabel,
-          loading: _busy,
-          onPressed: !_busy && _amountValid && _refundValid
-              ? () => unawaited(_createQuote())
-              : null,
-        ),
-      _ReceiveStep.address => _canRequestNewQuote
-          ? UsdFlowAction(
-              label: l10n.receiveOneOffNewAddress,
-              onPressed: _startNewQuote,
-            )
-          : null,
-    };
+    if (_verified == null && _error != null && !_busy) {
+      return UsdFlowAction(
+        label: l10n.tryAgain,
+        onPressed: () => unawaited(_createQuote()),
+      );
+    }
+    if (_canRequestNewQuote) {
+      return UsdFlowAction(
+        label: l10n.receiveOneOffNewAddress,
+        onPressed: () => unawaited(_startNewQuote()),
+      );
+    }
+    return null;
   }
 
-  Widget _buildRefund() {
-    final c = context.colors;
+  /// The finished page's own shape while the quote is asked, with the
+  /// code shimmering in the plate; the reason when it could not be made.
+  Widget _buildPending() {
     final l10n = context.l10n;
+    final error = _error;
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          UsdReviewPlate(children: [
-            UsdReviewLine(label: l10n.youSend, value: _sourceAmount),
-            UsdReviewLine(
-              label: l10n.network,
-              value: widget.option.chainDisplayName,
-            ),
-          ]),
-          SizedBox(height: 16.h),
-          TextField(
-            controller: _refund,
-            enabled: !_busy,
-            autocorrect: false,
-            enableSuggestions: false,
-            minLines: 1,
-            maxLines: 3,
-            maxLength: 256,
-            onChanged: (_) => setState(() => _error = null),
-            style: TextStyle(
-                color: c.textPrimary,
-                fontSize: 15.sp,
-                fontWeight: FontWeight.w600),
-            cursorColor: c.accent,
-            decoration: InputDecoration(
-              counterText: '',
-              hintText: l10n.enterRefundAddress,
-              filled: true,
-              fillColor: c.surfaceLight,
-              hintStyle: TextStyle(
-                  color: c.textTertiary,
-                  fontSize: 15.sp,
-                  fontWeight: FontWeight.w500),
-              contentPadding:
-                  EdgeInsets.symmetric(horizontal: 14.w, vertical: 14.h),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12.r),
-                borderSide: BorderSide(color: c.borderSubtle, width: 0.5),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12.r),
-                borderSide: BorderSide(color: c.accent, width: 1.5),
-              ),
-              disabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12.r),
-                borderSide: BorderSide(color: c.borderSubtle, width: 0.5),
-              ),
-              errorBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12.r),
-                borderSide: BorderSide(color: c.error),
-              ),
-              focusedErrorBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12.r),
-                borderSide: BorderSide(color: c.error, width: 1.5),
-              ),
-              errorText: _refund.text.trim().isNotEmpty && !_refundValid
-                  ? l10n.quotedReceiveRefundInvalid(
-                      widget.option.chainDisplayName)
-                  : null,
-            ),
-          ),
-          SizedBox(height: 12.h),
-          if (!_busy)
-            Row(
-              children: [
-                KutePasteChip(onPressed: () => unawaited(_pasteRefund())),
-                SizedBox(width: 8.w),
-                KuteScanChip(onPressed: () => unawaited(_scanRefund())),
-              ],
-            ),
-          if (_error != null) ...[
-            SizedBox(height: ReceiveGaps.block),
-            UsdFlowNote(lines: [_error!]),
+          if (error != null && !_busy)
+            UsdFlowNote(lines: [error])
+          else ...[
+            const ReceiveQrPlate(child: ReceiveQrShimmer()),
+            SizedBox(height: ReceiveGaps.qrToCaption),
+            ReceiveCaption(text: l10n.usdReceiveCreating),
           ],
-          if (const {'ton', 'xrp'}.contains(widget.option.chain))
-            UsdFlowNote(lines: [context.l10n.receiveOwnRefundAddress]),
         ],
       ),
     );
   }
 
   String get _sourceAmount =>
-      '${_decimalAmount(_verified?.amountIn ?? _amount ?? BigInt.zero, widget.option.decimals)} '
+      '${decimalAmount(_verified!.amountIn, widget.option.decimals)} '
       '${widget.option.displaySymbol}';
+
+  /// What arrives, net of fees, as the destination balance prints it.
+  String _expectedOutput(SwapOrder display) {
+    if (_dollars) {
+      final usd = double.tryParse(display.withdrawalAmount) ?? 0;
+      return usdCentsText((usd * 100).floor());
+    }
+    final sats =
+        ((double.tryParse(display.withdrawalAmount) ?? 0) * 1e8).round();
+    final format = ref.read(settingsProvider).btcFormat;
+    return '₿${sats.toFormattedString(format)}';
+  }
 
   Widget _buildAddress() {
     final l10n = context.l10n;
     final display = _display!;
+    final verified = _verified!;
     final payable = _canPay;
-    final arrived = display.id != _verified!.quoteId;
+    final arrived = display.id != verified.quoteId;
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (payable) ...[
-            if ((display.depositMemo ?? '').isEmpty)
-              ReceiveQrPlate(
-                  child: buildQrCode(display.depositAddress, context)),
+            ReceiveQrPlate(child: buildQrCode(display.depositAddress, context)),
             SizedBox(height: ReceiveGaps.qrToCaption),
-            ReceiveCaption(text: l10n.quotedReceiveExactAmount(_sourceAmount)),
+            ReceiveCaption(
+              key: const ValueKey('onetime-receive-exact-amount'),
+              text: l10n.quotedReceiveExactAmount(_sourceAmount),
+            ),
             SizedBox(height: ReceiveGaps.qrToAddress),
             ReceiveAddressLine(
               address: display.depositAddress,
               onCopy: () => unawaited(_copyAddress()),
             ),
-            if ((display.depositMemo ?? '').isNotEmpty) ...[
-              SizedBox(height: ReceiveGaps.block),
-              Text(l10n.receiveRequiredMemo,
-                  style: const TextStyle(fontWeight: FontWeight.w700)),
-              ReceiveAddressLine(
-                  address: display.depositMemo!,
-                  onCopy: () async {
-                    if (_canPay) {
-                      await Clipboard.setData(
-                          ClipboardData(text: display.depositMemo!));
-                    }
-                  }),
-              UsdFlowNote(lines: [l10n.receiveMemoRequiredWarning]),
-            ],
             SizedBox(height: ReceiveGaps.addressToActions),
           ] else
             UsdFlowNote(lines: [
@@ -480,24 +495,14 @@ class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
             UsdReviewLine(
                 label: l10n.network, value: widget.option.chainDisplayName),
             UsdReviewLine(
-              label: l10n.ledgerFundReviewRefund,
-              value: _verified!.request.refundAddress,
-              monospace: true,
-            ),
-            UsdReviewLine(
                 label: l10n.status, value: _statusLabel(display.status)),
           ]),
           SizedBox(height: ReceiveGaps.block),
           UsdFlowNote(
-            lines: [
-              if (_expectedOutput != null)
-                l10n.quotedReceiveExpectedOutput(_expectedOutput!),
-              l10n.quotedReceiveRefundSubtitle(widget.option.chainDisplayName),
-            ],
+            key: const ValueKey('onetime-receive-expiry'),
+            lines: [l10n.quotedReceiveExpectedOutput(_expectedOutput(display))],
             emphasis: payable
-                ? l10n.receiveOneOffExpiresIn(
-                    usdFormatCountdown(_remaining),
-                  )
+                ? l10n.receiveOneOffExpiresIn(usdFormatCountdown(_remaining))
                 : null,
           ),
           SizedBox(height: ReceiveGaps.tail),
@@ -515,34 +520,49 @@ class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
         _ => _canPay ? context.l10n.waitingForDeposit : context.l10n.pending,
       };
 
+  /// Writes the quote's Activity row before its address is shown: the
+  /// pending-quote record (watched after this screen closes, late
+  /// deposits included) and the row itself, in the Bitcoin Activity for
+  /// `spark:BTC` and the Investments Activity for `spark:USDB`.
+  Future<void> _record(
+      SwapOrder row, DateTime expiresAt, PendingReceiveQuoteScope scope) async {
+    final debug = OneTimeReceive.debugRecord;
+    if (debug != null) return debug(row, expiresAt, scope);
+    await PendingReceiveQuoteCache.save(
+        display: row, expiresAt: expiresAt, scope: scope);
+    await ref.read(swapOrdersProvider.notifier).addExchange(row);
+    ref.read(walletTransactionCacheProvider.notifier).mergeSwapOrder(row);
+  }
+
   Future<void> _createQuote() async {
-    final amount = _amount;
+    final walletId = _walletId;
+    final scope = _receiveScope;
     if (_busy ||
         !_sameWallet ||
         !_supported ||
-        !_refundValid ||
-        amount == null ||
-        amount <= BigInt.zero) {
+        walletId == null ||
+        scope == null) {
       return;
     }
     final generation = ++_generation;
-    final refund = _refund.text.trim();
-    FocusScope.of(context).unfocus();
+    final option = widget.option;
+    final destinationAsset = widget.destinationAsset;
     setState(() {
       _busy = true;
       _error = null;
     });
     try {
-      // The operator switch for one-time receive addresses, re-read from
-      // a fresh policy before any address is minted. Fails closed.
-      await RuntimeCapabilitiesService.instance
-          .ensureAllAllowed(const [kOneTimeAddressCapability]);
+      // The switch for one-time receive addresses, crypto deposits and the
+      // route's swap gates, re-read from a fresh policy before any address
+      // exists. Fails closed.
+      await RuntimeCapabilitiesService.instance.ensureAllAllowed(
+          orchestraOptionCapabilities(option,
+              otherLegAsset: destinationAsset, depositAddress: true));
       if (!_current(generation)) return;
       await ref
           .read(orchestraSupportedRoutesProvider.notifier)
           .refreshIfOlderThan(kMoneyCatalogMaxAge);
       if (!_current(generation)) return;
-      final destinationDecimals = widget.destinationAsset == 'BTC' ? 8 : 6;
       _requireLiveRoute();
       final wrapper = await ref.read(breezSDKProvider.future);
       if (!_current(generation)) return;
@@ -562,69 +582,60 @@ class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
       );
       // The guard's own-recipient check needs an independent source.
       final ownSpark = await ref.read(sparkSelfAddressProvider.future);
+      // The refund of an EVM source: the wallet's own account-zero EVM
+      // address (the Predictions EOA derivation), never one typed in.
+      final ownEvm = oneTimeReceiveOwnRefund(option.chain)
+          ? await ref.read(hyperliquidAddressProvider.future)
+          : null;
       if (!_current(generation) || !sameSdk()) return;
       _requireLiveRoute();
-      final request = OrchestraQuoteRequest(
-        sourceChain: widget.option.chain,
-        sourceAsset: widget.option.assetCode,
-        destinationChain: 'spark',
-        destinationAsset: widget.destinationAsset,
-        amountBaseUnits: amount,
-        recipientAddress: receive.paymentRequest,
-        refundAddress: refund,
-        recipientKind: RecipientKind.ownSpark,
-        ownAddress: ownSpark,
-        deliveryMode: 'variable',
-        externalDepositMemo: true,
+      final route = oneTimeReceiveRoute(option, destinationAsset);
+      final limits = ref.read(receiveMinimumsProvider).cachedLimits(route);
+      final units = oneTimeSourceUnits(
+        asset: option.assetCode,
+        decimals: option.decimals,
+        usdCents: _amount.usdCents,
+        usdPerBtc: ref.read(selectedCurrencyProvider('USD')).toDouble(),
+        limits: limits,
       );
-      final verified = await OrchestraQuoteGate.fetchVerified(
-        request,
-        OrchestraQuoteBounds.forSource(widget.option.chain,
-            inputValueInOutputUnits: null),
-        flow: 'quoted_receive',
-      );
-      if (!_current(generation) || !sameSdk()) return;
-      final rawOutput = verified.quote.estimatedOut;
-      final output = RegExp(r'^\d+$').hasMatch(rawOutput)
-          ? BigInt.tryParse(rawOutput)
-          : null;
-      if (output == null || output <= BigInt.zero) {
-        throw const WalletGuardException(WalletGuardReason.echoMismatch);
+      if (units == null) {
+        throw const WalletGuardException(WalletGuardReason.noReferencePrice);
       }
-      final display = SwapOrder(
-        activityDirection: 'receive',
-        id: verified.quoteId,
-        coinFrom: widget.option.assetCode,
-        networkFrom: widget.option.chain,
-        coinTo: widget.destinationAsset,
-        networkTo: 'SPARK',
-        depositAddress: verified.depositAddress,
-        depositExtraId: verified.quote.depositMemo,
-        depositAmount: _decimalAmount(amount, widget.option.decimals),
-        withdrawalAmount: _decimalAmount(output, destinationDecimals),
-        status: 'wait',
-        timestamp: DateTime.now().millisecondsSinceEpoch,
-        withdrawalAddress: request.recipientAddress,
-        depositMin: '0',
-        depositMax: '0',
-        rate: '0',
-        refundAddress: refund,
-        provider: 'Orchestra',
-        walletId: _walletId,
-        expiresAt: verified.expiresAt.millisecondsSinceEpoch,
-        purchaseSource: 'crypto_receive',
+      switch (limits?.checkBaseUnits(units)) {
+        case RouteAmountCheck.belowMinimum:
+          throw const OrchestraQuoteFailure('amount_too_small',
+              routeError: RouteQuoteError(RouteQuoteErrorCode.amountTooSmall));
+        case RouteAmountCheck.aboveMaximum:
+          throw const OrchestraQuoteFailure('amount_too_large',
+              routeError: RouteQuoteError(RouteQuoteErrorCode.amountTooLarge));
+        default:
+          break;
+      }
+      final request = OneTimeReceive.request(
+        option: option,
+        destinationAsset: destinationAsset,
+        amountBaseUnits: units,
+        recipient: receive.paymentRequest,
+        ownSpark: ownSpark,
+        ownEvm: ownEvm,
+      );
+      final verified = await OneTimeReceive.fetch(request);
+      if (!_current(generation) || !sameSdk()) return;
+      final row = OneTimeReceive.row(
+        option: option,
+        destinationAsset: destinationAsset,
+        verified: verified,
+        walletId: walletId,
+        now: DateTime.now(),
       );
       // Persist the real quote before exposing its deposit address. The
       // background monitor discovers an actual order even after we close.
-      await PendingReceiveQuoteCache.save(
-        display: display,
-        expiresAt: verified.expiresAt,
-        scope: _receiveScope!,
-      );
+      await _record(row, verified.expiresAt, scope);
       if (!_current(generation) || !sameSdk()) return;
       _requireLiveRoute();
-      OrchestraQuoteGate.ensurePayable(verified,
-          amountBaseUnits: amount, now: DateTime.now());
+      OneTimeReceive.ensurePayable(verified, units);
+      // Its deposits are read on every screen for a while.
+      ReceiveAddressWatch.shown();
       _paymentLifetime = verified.expiresAt
           .subtract(verified.expiryMargin)
           .difference(DateTime.now());
@@ -632,30 +643,24 @@ class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
         ..reset()
         ..start();
       _paymentExpired = false;
+      _terminalTracked = false;
       setState(() {
         _verified = verified;
-        _display = display;
-        _expectedOutput = '${display.withdrawalAmount} '
-            '${widget.destinationAsset == 'USDB' ? 'USD' : 'BTC'}';
-        _step = _ReceiveStep.address;
+        _display = row;
       });
-      // One-time quoted deposit address: never reused. `quote_id` is
-      // hashed by `track()`; the address itself never leaves the device.
+      // A one-time quoted deposit address, never reused. Neither the
+      // address nor the quote id leaves the device.
       TrackingService.track('receive_address_generated', params: {
-        'asset': widget.option.assetCode,
-        'network': widget.option.chain,
-        'provider': 'orchestra',
+        ..._addressProps(),
         'reused': false,
-        'destination': _destinationLabel,
-        'address_kind': 'one_time',
-        'quote_id': verified.quoteId,
+        'quote_expiry_seconds':
+            verified.expiresAt.difference(DateTime.now()).inSeconds,
+        if (verified.quote.appFeeBps != null)
+          'kute_fee_bps': verified.quote.appFeeBps!,
       });
-      TrackingService.moneyFlowSubmitted('quoted_receive', props: {
-        ..._flowInputs(),
-        'quote_id': verified.quoteId,
-      });
+      _step('deposit_address_shown');
       _poller.start(
-        display,
+        row,
         stillWanted: () => _current(generation) && sameSdk(),
         onProgress: (order) {
           if (_current(generation) && sameSdk()) {
@@ -675,20 +680,30 @@ class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
     } catch (error) {
       if (!mounted || !_current(generation)) return;
       TrackingService.track('receive_address_failed', params: {
-        'asset': widget.option.assetCode,
-        'network': widget.option.chain,
-        'provider': 'orchestra',
-        'destination': _destinationLabel,
-        'address_kind': 'one_time',
+        ..._addressProps(),
         'error_category': TrackingService.errorCategory(error),
       });
-      TrackingService.moneyFlowError('quoted_receive', error);
+      if (_dollars) {
+        TrackingService.moneyFlowError('usd_receive', error);
+      } else {
+        TrackingService.moneyFlowError('receive', error);
+      }
+      // The address the person asked for could not be made.
+      unawaited(moneyFailureFeedback());
       final l10n = context.l10n;
       setState(() {
         _error = switch (error) {
           WalletGuardException e => e.messageFor(l10n),
-          OrchestraQuoteFailure e when e.routeError != null =>
-            e.routeError!.messageFor(l10n),
+          OrchestraQuoteFailure e when e.routeError != null => e.routeError!
+              .messageFor(l10n,
+                  minimum: _amount.minimum.usdText,
+                  maximum: switch (oneTimeMaxUsdCents(ref
+                      .read(receiveMinimumsProvider)
+                      .cachedLimits(oneTimeReceiveRoute(
+                          widget.option, widget.destinationAsset)))) {
+                    final int cents => usdCentsText(cents),
+                    _ => null,
+                  }),
           _ => railSafeErrorCopy(context, error,
               fallback: l10n.receiveDepositAddressFailed),
         };
@@ -704,12 +719,7 @@ class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
 
   void _requireLiveRoute() {
     final catalog = ref.read(orchestraSupportedRoutesProvider);
-    final route = RouteKey(
-      fromChain: widget.option.chain,
-      fromAsset: widget.option.assetCode,
-      toChain: 'spark',
-      toAsset: widget.destinationAsset,
-    );
+    final route = oneTimeReceiveRoute(widget.option, widget.destinationAsset);
     if (!catalog
             .availability(route,
                 req: RouteRequirement.live, now: DateTime.now())
@@ -717,68 +727,46 @@ class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
         catalog.find(route.fromChain, route.fromAsset)?.decimals !=
             widget.option.decimals ||
         catalog.find(route.toChain, route.toAsset)?.decimals !=
-            (widget.destinationAsset == 'BTC' ? 8 : 6)) {
+            OneTimeReceive.destinationDecimals(widget.destinationAsset)) {
       throw const WalletGuardException(WalletGuardReason.decimalsMismatch);
     }
   }
 
-  Future<void> _pasteRefund() async {
-    final generation = _generation;
-    final value = await Clipboard.getData(Clipboard.kTextPlain);
-    if (!_current(generation) || _busy || _step != _ReceiveStep.refund) return;
-    final text = value?.text?.trim();
-    if (text == null) return;
-    _fillRefund(text);
-  }
-
-  /// The shared smart scanner in return-value mode, the same one the
-  /// bitcoin send's Scan opens.
-  Future<void> _scanRefund() async {
-    final generation = _generation;
-    final scanned = await scanRecipientRaw(context);
-    if (scanned == null) return;
-    if (!_current(generation) || _busy || _step != _ReceiveStep.refund) return;
-    _fillRefund(scanned);
-  }
-
-  /// Paste and Scan share this: a payment URI is reduced to its bare
-  /// address and [_refundValid] then checks it against the chain, so a
-  /// code for another network shows the same refusal a paste would.
-  void _fillRefund(String raw) {
-    final text = bareRecipientAddress(raw);
-    if (text.isEmpty || text.length > 256) return;
-    setState(() {
-      _refund.text = text;
-      _error = null;
-    });
-  }
-
   Future<void> _copyAddress() async {
     if (!_canPay) return;
-    TrackingService.track('receive_qr_shared', params: {
-      'method': 'copy',
-      'invoice_type': 'quoted_deposit_address',
-      'network': widget.option.chain,
-    });
+    if (_dollars) {
+      TrackingService.track('usd_receive_address_copied',
+          params: {'chain': widget.option.chain, 'address_kind': 'onetime'});
+    } else {
+      TrackingService.track('receive_qr_shared', params: {
+        'method': 'copy',
+        'invoice_type': 'quoted_deposit_address',
+        'network': widget.option.chain,
+      });
+    }
     final generation = _generation;
     await Clipboard.setData(ClipboardData(text: _verified!.depositAddress));
     if (!mounted || !_current(generation) || !_canPay) return;
+    HapticFeedback.lightImpact();
     showMessageSnackBar(
         context: context, message: context.l10n.copied, error: false);
   }
 
   Future<void> _shareAddress() async {
     if (!_canPay) return;
-    TrackingService.track('receive_qr_shared', params: {
-      'method': 'share',
-      'invoice_type': 'quoted_deposit_address',
-      'network': widget.option.chain,
-    });
+    if (_dollars) {
+      TrackingService.track('usd_receive_address_shared',
+          params: {'chain': widget.option.chain, 'address_kind': 'onetime'});
+    } else {
+      TrackingService.track('receive_qr_shared', params: {
+        'method': 'share',
+        'invoice_type': 'quoted_deposit_address',
+        'network': widget.option.chain,
+      });
+    }
     final box = context.findRenderObject() as RenderBox?;
     await SharePlus.instance.share(ShareParams(
-      text: (_verified!.quote.depositMemo ?? '').isEmpty
-          ? _verified!.depositAddress
-          : '${_verified!.depositAddress}\n${context.l10n.receiveRequiredMemo}: ${_verified!.quote.depositMemo}',
+      text: _verified!.depositAddress,
       sharePositionOrigin:
           box == null ? Rect.zero : box.localToGlobal(Offset.zero) & box.size,
     ));
@@ -793,38 +781,23 @@ class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
     _poller.cancel();
     _verified = null;
     _display = null;
-    _expectedOutput = null;
     _sameSdk = null;
     _busy = false;
     _error = null;
   }
 
-  void _startNewQuote() {
-    TrackingService.track('quoted_receive_new_quote_tapped',
-        params: {'network': widget.option.chain});
-    _clearQuote();
-    setState(() => _step = _ReceiveStep.amount);
+  /// A new address for the same coin: the amount is asked again, then a
+  /// new quote. The old one keeps its Activity row.
+  Future<void> _startNewQuote() async {
+    _step('new_address');
+    final amount = await requestOneTimeReceiveAmount(context, ref,
+        option: widget.option, destinationAsset: widget.destinationAsset);
+    if (amount == null || !mounted || !_sameWallet) return;
+    _trackAmountEntered(widget.option, widget.destinationAsset, amount);
+    setState(() {
+      _clearQuote();
+      _amount = amount;
+    });
+    await _createQuote();
   }
-
-  void _onBack() {
-    if (_step == _ReceiveStep.amount || !_sameWallet || !_supported) {
-      unawaited(Navigator.of(context).maybePop());
-      return;
-    }
-    final previous = _step == _ReceiveStep.address
-        ? _ReceiveStep.refund
-        : _ReceiveStep.amount;
-    _clearQuote();
-    setState(() => _step = previous);
-  }
-}
-
-String _decimalAmount(BigInt units, int decimals) {
-  final digits = units.toString().padLeft(decimals + 1, '0');
-  if (decimals == 0) return digits;
-  final split = digits.length - decimals;
-  final fraction = digits.substring(split).replaceFirst(RegExp(r'0+$'), '');
-  return fraction.isEmpty
-      ? digits.substring(0, split)
-      : '${digits.substring(0, split)}.$fraction';
 }

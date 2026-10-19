@@ -225,9 +225,9 @@ void main() {
       expect(_count(src, 'moneyFailureFeedback()'), 1);
     });
 
-    test('Dollars receive: the address the person picked a coin for', () {
-      final src = _source('lib/screens/usd/usd_receive_screen.dart');
-      expect(_body(src, 'Future<void> _createReusableAddress('),
+    test('one-time receive: the address the person asked an amount for', () {
+      final src = _source('lib/screens/receive/quoted_receive_screen.dart');
+      expect(_body(src, 'Future<void> _createQuote('),
           contains('unawaited(moneyFailureFeedback());'));
       expect(_count(src, 'moneyFailureFeedback()'), 1);
     });

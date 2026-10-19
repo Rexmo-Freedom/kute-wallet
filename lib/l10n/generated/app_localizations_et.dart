@@ -674,9 +674,6 @@ class AppLocalizationsEt extends AppLocalizations {
   String get expires => 'Aegub';
 
   @override
-  String get enterRefundAddress => 'Sisesta tagasimakse aadress';
-
-  @override
   String get description => 'Kirjeldus';
 
   @override
@@ -6593,9 +6590,6 @@ class AppLocalizationsEt extends AppLocalizations {
   String get receiveOneOffNewAddress => 'Hangi uus aadress';
 
   @override
-  String get receiveOneOffAmountTitle => 'Kui palju sa ootad?';
-
-  @override
   String get usdFlowStepCoin => 'Vali münt';
 
   @override
@@ -6628,10 +6622,6 @@ class AppLocalizationsEt extends AppLocalizations {
   String get usdReceiveCreating => 'Sinu aadressi seadistamine.';
 
   @override
-  String get usdReceiveArriving =>
-      'Sinu dollarid jõuavad kohale kohe, kui makse on kinnitatud.';
-
-  @override
   String get receiveAlsoAccepts => 'Võtab vastu ka';
 
   @override
@@ -6642,6 +6632,10 @@ class AppLocalizationsEt extends AppLocalizations {
   @override
   String get receiveCoinsLoading =>
       'Mündid alles laadivad. Proovi hetke pärast uuesti.';
+
+  @override
+  String get receiveAlsoAcceptsSubtitle =>
+      'Vali, mida sulle saadetakse. See saabub bitcoinina.';
 
   @override
   String get receivePickNetwork => 'Milline võrk?';
@@ -6773,21 +6767,6 @@ class AppLocalizationsEt extends AppLocalizations {
   String get moveConversionOngoing => 'Konverteerimine käib';
 
   @override
-  String quotedReceiveAmountSubtitle(String asset, String network) {
-    return 'Sisesta $asset summa, mille saadad võrgus $network.';
-  }
-
-  @override
-  String quotedReceiveRefundSubtitle(String network) {
-    return 'Kasuta aadressi, mida kontrollid võrgus $network. Kui tagastus on vajalik ja toetatud, läheb see siia. Tasud võivad kehtida.';
-  }
-
-  @override
-  String quotedReceiveRefundInvalid(String network) {
-    return 'Sisesta kehtiv $network tagasimakse aadress.';
-  }
-
-  @override
   String quotedReceiveExactAmount(String amount) {
     return 'Saada täpselt $amount ühe maksena enne, kui see aadress aegub.';
   }
@@ -6804,9 +6783,6 @@ class AppLocalizationsEt extends AppLocalizations {
   @override
   String get quotedReceiveWalletChanged =>
       'Sinu konto muutus. Sulge see ekraan ja alusta uuesti.';
-
-  @override
-  String get receiveOneOffUseAddress => 'Kasuta ühekordset aadressi';
 
   @override
   String stepUpReasonWithdrawWithSourceFee(
@@ -6840,13 +6816,6 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get salProgressChecking => 'Üksikasjade kontrollimine…';
-
-  @override
-  String get receiveRequiredMemo => 'Nõutav memo / silt';
-
-  @override
-  String get receiveMemoRequiredWarning =>
-      'Lisa sissemaksele see memo. Ainult aadressist ei piisa.';
 
   @override
   String get receiveOwnRefundAddress =>

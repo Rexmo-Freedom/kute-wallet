@@ -672,9 +672,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get expires => '有効期限';
 
   @override
-  String get enterRefundAddress => '返金先アドレスを入力';
-
-  @override
   String get description => '説明';
 
   @override
@@ -6352,9 +6349,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get receiveOneOffNewAddress => '新しいアドレスを取得';
 
   @override
-  String get receiveOneOffAmountTitle => '受け取る予定の金額は？';
-
-  @override
   String get usdFlowStepCoin => 'コインを選択';
 
   @override
@@ -6385,9 +6379,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get usdReceiveCreating => 'アドレスを準備しています。';
 
   @override
-  String get usdReceiveArriving => '支払いが承認されると、すぐにドルが入金されます。';
-
-  @override
   String get receiveAlsoAccepts => 'その他の対応通貨';
 
   @override
@@ -6397,6 +6388,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get receiveCoinsLoading => 'コインを読み込み中です。しばらくしてからもう一度お試しください。';
+
+  @override
+  String get receiveAlsoAcceptsSubtitle => '送られてくる通貨を選択してください。ビットコインとして届きます。';
 
   @override
   String get receivePickNetwork => 'どのネットワークですか？';
@@ -6521,21 +6515,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get moveConversionOngoing => '変換中';
 
   @override
-  String quotedReceiveAmountSubtitle(String asset, String network) {
-    return '$networkで送金する$assetの金額を入力してください。';
-  }
-
-  @override
-  String quotedReceiveRefundSubtitle(String network) {
-    return '$network上のご自身が管理するアドレスを使用してください。返金が必要かつ可能な場合、このアドレスに送られます。手数料がかかる場合があります。';
-  }
-
-  @override
-  String quotedReceiveRefundInvalid(String network) {
-    return '有効な$networkの返金先アドレスを入力してください。';
-  }
-
-  @override
   String quotedReceiveExactAmount(String amount) {
     return 'このアドレスの有効期限までに、ちょうど$amountを1回で送金してください。';
   }
@@ -6552,9 +6531,6 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get quotedReceiveWalletChanged =>
       'アカウントが変更されました。この画面を閉じて最初からやり直してください。';
-
-  @override
-  String get receiveOneOffUseAddress => '1回限りのアドレスを使用';
 
   @override
   String stepUpReasonWithdrawWithSourceFee(
@@ -6588,12 +6564,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get salProgressChecking => '内容を確認中…';
-
-  @override
-  String get receiveRequiredMemo => '必須のメモ / タグ';
-
-  @override
-  String get receiveMemoRequiredWarning => '入金時にこのメモを必ず含めてください。アドレスだけでは不十分です。';
 
   @override
   String get receiveOwnRefundAddress => '返金には、メモやタグが不要なご自身のウォレットアドレスを使用してください。';

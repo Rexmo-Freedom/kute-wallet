@@ -675,9 +675,6 @@ class AppLocalizationsHr extends AppLocalizations {
   String get expires => 'Istječe';
 
   @override
-  String get enterRefundAddress => 'Unesi adresu za povrat';
-
-  @override
   String get description => 'Opis';
 
   @override
@@ -6622,9 +6619,6 @@ class AppLocalizationsHr extends AppLocalizations {
   String get receiveOneOffNewAddress => 'Nova adresa';
 
   @override
-  String get receiveOneOffAmountTitle => 'Koliko očekuješ?';
-
-  @override
   String get usdFlowStepCoin => 'Odaberi kovanicu';
 
   @override
@@ -6657,10 +6651,6 @@ class AppLocalizationsHr extends AppLocalizations {
   String get usdReceiveCreating => 'Postavljanje adrese.';
 
   @override
-  String get usdReceiveArriving =>
-      'Tvoji dolari stižu čim se plaćanje potvrdi.';
-
-  @override
   String get receiveAlsoAccepts => 'Prihvaća i';
 
   @override
@@ -6671,6 +6661,10 @@ class AppLocalizationsHr extends AppLocalizations {
   @override
   String get receiveCoinsLoading =>
       'Kovanice se još učitavaju. Pokušaj ponovno za trenutak.';
+
+  @override
+  String get receiveAlsoAcceptsSubtitle =>
+      'Odaberi što ti se šalje. Stiže kao bitcoin.';
 
   @override
   String get receivePickNetwork => 'Koja mreža?';
@@ -6803,21 +6797,6 @@ class AppLocalizationsHr extends AppLocalizations {
   String get moveConversionOngoing => 'Pretvorba u tijeku';
 
   @override
-  String quotedReceiveAmountSubtitle(String asset, String network) {
-    return 'Unesi iznos $asset koji ćeš poslati na mreži $network.';
-  }
-
-  @override
-  String quotedReceiveRefundSubtitle(String network) {
-    return 'Koristi adresu koju kontroliraš na mreži $network. Ako je povrat potreban i podržan, ide ovamo. Mogu se primijeniti naknade.';
-  }
-
-  @override
-  String quotedReceiveRefundInvalid(String network) {
-    return 'Unesi valjanu adresu za povrat na mreži $network.';
-  }
-
-  @override
   String quotedReceiveExactAmount(String amount) {
     return 'Pošalji točno $amount jednim plaćanjem prije nego što ova adresa istekne.';
   }
@@ -6834,9 +6813,6 @@ class AppLocalizationsHr extends AppLocalizations {
   @override
   String get quotedReceiveWalletChanged =>
       'Tvoj račun se promijenio. Zatvori ovaj zaslon i počni ispočetka.';
-
-  @override
-  String get receiveOneOffUseAddress => 'Koristi jednokratnu adresu';
 
   @override
   String stepUpReasonWithdrawWithSourceFee(
@@ -6870,13 +6846,6 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String get salProgressChecking => 'Provjeravam podatke…';
-
-  @override
-  String get receiveRequiredMemo => 'Obavezni memo / oznaka';
-
-  @override
-  String get receiveMemoRequiredWarning =>
-      'Uz uplatu navedi ovaj memo. Sama adresa nije dovoljna.';
 
   @override
   String get receiveOwnRefundAddress =>

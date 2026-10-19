@@ -1,8 +1,9 @@
 // lib/services/orchestra/receive_minimums.dart
 //
 // "What is the smallest deposit this receive address takes?" Shown as one
-// "Minimum …" line under every reusable deposit address, so people stop
-// sending amounts that are held instead of converted.
+// "Minimum …" line on the one-time receive's amount sheet (and checked
+// there), so people stop sending amounts that are held instead of
+// converted.
 //
 //   * An Orchestra deposit address (another coin into Dollars or Bitcoin):
 //     the larger of the route's live minimum (`GET /v1/orchestration/limits`
@@ -97,10 +98,16 @@ class ReceiveMinimums {
 
   final ReceiveLimitsFetcher _fetch;
   final Map<RouteKey, ReceiveMinimum> _live = {};
+  final Map<RouteKey, OrchestraRouteLimits> _limits = {};
   final Map<RouteKey, Future<ReceiveMinimum>> _inFlight = {};
 
   /// The last live minimum read for [route] this session, or null.
   ReceiveMinimum? cachedLive(RouteKey route) => _live[route];
+
+  /// The last limits read for [route] this session, or null: the one-time
+  /// receive's maximum and, for a coin that is neither dollars nor
+  /// bitcoin, its price (`oneTimeSourceUnits`).
+  OrchestraRouteLimits? cachedLimits(RouteKey route) => _limits[route];
 
   /// Re-reads [route]'s limits (one read at a time per route). Never
   /// throws: a failed read answers the session's last live minimum for
@@ -113,7 +120,9 @@ class ReceiveMinimums {
   Future<ReceiveMinimum> _read(RouteKey route) async {
     int? liveCents;
     try {
-      liveCents = orchestraLiveMinimumCents(await _fetch(route));
+      final limits = await _fetch(route);
+      if (limits != null) _limits[route] = limits;
+      liveCents = orchestraLiveMinimumCents(limits);
     } catch (_) {
       liveCents = null;
     }

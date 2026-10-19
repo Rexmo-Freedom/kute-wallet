@@ -18,6 +18,9 @@ import 'package:kute/screens/usd/usd_receive_screen.dart';
 const String kBitcoinReceiveRouteName = 'receive';
 const String kUsdReceiveRouteName = 'receiveDollars';
 
+/// The route name of the Bitcoin receive's "other coins" sheet.
+const String kOtherCoinsReceiveRouteName = 'receiveOtherCoins';
+
 /// Test seams: what each sheet holds. Null builds the real receive.
 abstract final class ReceiveSheets {
   @visibleForTesting
@@ -30,9 +33,8 @@ abstract final class ReceiveSheets {
 Widget _bitcoinBody(BuildContext context) =>
     ReceiveSheets.debugBitcoinBody?.call(context) ?? const ConfirmReceive();
 
-Widget _usdBody(BuildContext context, {bool fromBitcoinReceive = false}) =>
-    ReceiveSheets.debugUsdBody?.call(context) ??
-    UsdReceiveScreen(fromBitcoinReceive: fromBitcoinReceive);
+Widget _usdBody(BuildContext context) =>
+    ReceiveSheets.debugUsdBody?.call(context) ?? const UsdReceiveScreen();
 
 /// The Bitcoin tab's Receive: the unified QR and the coins it also
 /// accepts, in a sheet over the current screen.
@@ -44,19 +46,23 @@ Future<void> showBitcoinReceiveSheet(BuildContext context) =>
     );
 
 /// The Investments tab's Receive: "From your Bitcoin" over the coins it
-/// also accepts, and a picked coin's address, in a sheet over the current
-/// screen.
-///
-/// The Bitcoin receive's "other coins" line opens this very sheet over
-/// itself ([fromBitcoinReceive]): the same coins, addresses, minimums and
-/// deposit cards, with one note that the money lands in the Investments
-/// dollar balance. Closing it returns to the Bitcoin receive as it was.
-Future<void> showUsdReceiveSheet(BuildContext context,
-        {bool fromBitcoinReceive = false}) =>
+/// also accepts, each through a one-time address, in a sheet over the
+/// current screen.
+Future<void> showUsdReceiveSheet(BuildContext context) =>
     showAppBottomSheet<void>(
       context: context,
       routeSettings: const RouteSettings(name: kUsdReceiveRouteName),
-      builder: (ctx) => _usdBody(ctx, fromBitcoinReceive: fromBitcoinReceive),
+      builder: _usdBody,
+    );
+
+/// The Bitcoin receive's "other coins": the same coin sheet over the
+/// Bitcoin receive, delivering bitcoin (`spark:BTC`) through a one-time
+/// address. Closing it returns to the Bitcoin receive as it was.
+Future<void> showOtherCoinsReceiveSheet(BuildContext context) =>
+    showAppBottomSheet<void>(
+      context: context,
+      routeSettings: const RouteSettings(name: kOtherCoinsReceiveRouteName),
+      builder: (_) => const UsdReceiveScreen(destinationAsset: 'BTC'),
     );
 
 /// A route's page that presents its receive as the same sheet

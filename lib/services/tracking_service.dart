@@ -3132,37 +3132,6 @@ class TrackingService {
     });
   }
 
-  // -- Reusable deposit addresses (Receive) --
-  //
-  // Since 2026-10-12 `reusable_deposit_address_created` and `_reused`
-  // carry `model: standing|accumulation` (which Flashnet address model
-  // served the receive) and are tracked inline by StandingDepositStore
-  // and AccumulationAddressCache; `receive_address_failed` carries the
-  // same `model` beside `error_category`. The helpers below keep the
-  // schema for reference; new call sites pass the literal with `model`.
-
-  static void reusableDepositAddressCreated({
-    required String sourceChain,
-    required String sourceAsset,
-    required String destinationAsset,
-  }) {
-    track('reusable_deposit_address_created', params: {
-      'source_chain': sourceChain,
-      'source_asset': sourceAsset,
-      'destination_asset': destinationAsset,
-    });
-  }
-
-  static void reusableDepositAddressReused({
-    required String sourceChain,
-    required String sourceAsset,
-  }) {
-    track('reusable_deposit_address_reused', params: {
-      'source_chain': sourceChain,
-      'source_asset': sourceAsset,
-    });
-  }
-
   // -- Cash App Buy --
 
   static void cashAppBuyInitiated({required double amountUsd}) {

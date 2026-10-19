@@ -22,8 +22,11 @@ import 'package:kute/helpers/orchestra_router.dart'
     show orchestraAmountToDecimalString;
 import 'package:kute/models/swap_order_model.dart';
 import 'package:kute/providers/swap_orders_provider.dart';
+import 'package:kute/providers/transactions_provider.dart'
+    show walletTransactionCacheProvider;
 import 'package:kute/services/api/orchestra_api.dart';
 import 'package:kute/services/orchestra/orchestra_history.dart';
+import 'package:kute/services/orchestra/pending_receive_quote_cache.dart';
 import 'package:kute/services/orchestra_routes.dart';
 
 /// Polls the recipient's Orchestra history for deposits to one address.
@@ -148,8 +151,24 @@ class OrchestraDepositPoller {
           // (this poller or background sync's sweep) inserts the row
           // first reports exactly once; the other skips the id here.
           if (!known.contains(order.id)) {
-            _ref.read(swapOrdersProvider.notifier).addExchange(exchange);
+            await _ref.read(swapOrdersProvider.notifier).addExchange(exchange);
             reportDiscoveredOrchestraOrder(exchange);
+            // A one-time receive's Activity row was written under its
+            // quote id the moment the quote existed: the real order takes
+            // its place, written first so a kill in between leaves a
+            // tracked row.
+            if (display.id.startsWith('q_') && known.contains(display.id)) {
+              await _ref
+                  .read(swapOrdersProvider.notifier)
+                  .deleteExchange(display.id);
+              _ref
+                  .read(walletTransactionCacheProvider.notifier)
+                  .removeSwapOrder(display.id);
+              _ref
+                  .read(walletTransactionCacheProvider.notifier)
+                  .mergeSwapOrder(exchange);
+              await PendingReceiveQuoteCache.complete(display.id);
+            }
           }
           // Arrival progress: mirror the LATEST mapped status into the
           // screen each tick — including for already-recorded ids, so

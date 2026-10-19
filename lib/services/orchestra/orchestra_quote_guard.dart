@@ -38,6 +38,7 @@ class OrchestraQuoteRequest {
     this.deliveryMode,
     this.externalDepositMemo = false,
     this.tag,
+    this.refundOptional = false,
   });
 
   final String sourceChain;
@@ -50,6 +51,12 @@ class OrchestraQuoteRequest {
   final String recipientAddress;
   final String refundAddress;
   final RecipientKind recipientKind;
+
+  /// Only a one-time receive from a listed token on a network where the
+  /// wallet has no address of its own (Solana, Tron) sets this: the quote
+  /// may then carry no refund address, as Flashnet allows for listed
+  /// tokens. Every send keeps the refund requirement.
+  final bool refundOptional;
 
   /// Leave existing transfer behavior unchanged unless a flow explicitly
   /// requests variable delivery for a route without fixed delivery support.
@@ -236,9 +243,12 @@ VerifiedOrchestraQuote verifyOrchestraQuote(
     _reject(WalletGuardReason.quoteExpired);
   }
 
-  if (formatMatchesChain(request.sourceChain, request.refundAddress,
-          mainnet: mainnet) !=
-      AddressFormatMatch.ok) {
+  final refundOmitted =
+      request.refundOptional && request.refundAddress.trim().isEmpty;
+  if (!refundOmitted &&
+      formatMatchesChain(request.sourceChain, request.refundAddress,
+              mainnet: mainnet) !=
+          AddressFormatMatch.ok) {
     _reject(WalletGuardReason.refundAddressChain);
   }
   if (formatMatchesChain(request.destinationChain, request.recipientAddress,

@@ -674,9 +674,6 @@ class AppLocalizationsLv extends AppLocalizations {
   String get expires => 'Derīgs līdz';
 
   @override
-  String get enterRefundAddress => 'Ievadi atmaksas adresi';
-
-  @override
   String get description => 'Apraksts';
 
   @override
@@ -6591,9 +6588,6 @@ class AppLocalizationsLv extends AppLocalizations {
   String get receiveOneOffNewAddress => 'Iegūt jaunu adresi';
 
   @override
-  String get receiveOneOffAmountTitle => 'Cik daudz tu gaidi?';
-
-  @override
   String get usdFlowStepCoin => 'Izvēlies monētu';
 
   @override
@@ -6626,10 +6620,6 @@ class AppLocalizationsLv extends AppLocalizations {
   String get usdReceiveCreating => 'Iestata tavu adresi.';
 
   @override
-  String get usdReceiveArriving =>
-      'Tavi dolāri pienāk, tiklīdz maksājums ir apstiprināts.';
-
-  @override
   String get receiveAlsoAccepts => 'Pieņem arī';
 
   @override
@@ -6640,6 +6630,10 @@ class AppLocalizationsLv extends AppLocalizations {
   @override
   String get receiveCoinsLoading =>
       'Monētas vēl ielādējas. Mēģini vēlreiz pēc brīža.';
+
+  @override
+  String get receiveAlsoAcceptsSubtitle =>
+      'Izvēlies, kas tev tiek sūtīts. Tas pienāk kā bitcoin.';
 
   @override
   String get receivePickNetwork => 'Kurš tīkls?';
@@ -6771,21 +6765,6 @@ class AppLocalizationsLv extends AppLocalizations {
   String get moveConversionOngoing => 'Notiek konvertēšana';
 
   @override
-  String quotedReceiveAmountSubtitle(String asset, String network) {
-    return 'Ievadi $asset summu, ko sūtīsi tīklā $network.';
-  }
-
-  @override
-  String quotedReceiveRefundSubtitle(String network) {
-    return 'Izmanto adresi, ko kontrolē tīklā $network. Ja atmaksa būs vajadzīga un atbalstīta, tā nonāks šeit; var tikt piemērotas maksas.';
-  }
-
-  @override
-  String quotedReceiveRefundInvalid(String network) {
-    return 'Ievadi derīgu $network atmaksas adresi.';
-  }
-
-  @override
   String quotedReceiveExactAmount(String amount) {
     return 'Nosūti tieši $amount vienā maksājumā, pirms šīs adreses derīgums beidzas.';
   }
@@ -6802,9 +6781,6 @@ class AppLocalizationsLv extends AppLocalizations {
   @override
   String get quotedReceiveWalletChanged =>
       'Tavs konts mainījās. Aizver šo ekrānu un sāc no jauna.';
-
-  @override
-  String get receiveOneOffUseAddress => 'Izmantot vienreizēju adresi';
 
   @override
   String stepUpReasonWithdrawWithSourceFee(
@@ -6838,13 +6814,6 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get salProgressChecking => 'Pārbauda detaļas…';
-
-  @override
-  String get receiveRequiredMemo => 'Obligātā piezīme / tags';
-
-  @override
-  String get receiveMemoRequiredWarning =>
-      'Pievieno šo piezīmi savai iemaksai. Ar adresi vien nepietiek.';
 
   @override
   String get receiveOwnRefundAddress =>

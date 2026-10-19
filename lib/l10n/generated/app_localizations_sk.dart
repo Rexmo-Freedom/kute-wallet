@@ -675,9 +675,6 @@ class AppLocalizationsSk extends AppLocalizations {
   String get expires => 'Platnosť do';
 
   @override
-  String get enterRefundAddress => 'Zadaj adresu na vrátenie';
-
-  @override
   String get description => 'Popis';
 
   @override
@@ -6612,9 +6609,6 @@ class AppLocalizationsSk extends AppLocalizations {
   String get receiveOneOffNewAddress => 'Získať novú adresu';
 
   @override
-  String get receiveOneOffAmountTitle => 'Koľko očakávaš?';
-
-  @override
   String get usdFlowStepCoin => 'Vyber mincu';
 
   @override
@@ -6647,10 +6641,6 @@ class AppLocalizationsSk extends AppLocalizations {
   String get usdReceiveCreating => 'Pripravuje sa tvoja adresa.';
 
   @override
-  String get usdReceiveArriving =>
-      'Doláre dorazia hneď, ako sa platba potvrdí.';
-
-  @override
   String get receiveAlsoAccepts => 'Prijíma aj';
 
   @override
@@ -6661,6 +6651,10 @@ class AppLocalizationsSk extends AppLocalizations {
   @override
   String get receiveCoinsLoading =>
       'Mince sa ešte načítavajú. Skús to o chvíľu znova.';
+
+  @override
+  String get receiveAlsoAcceptsSubtitle =>
+      'Vyber, čo ti posielajú. Dorazí ako bitcoin.';
 
   @override
   String get receivePickNetwork => 'Ktorá sieť?';
@@ -6793,21 +6787,6 @@ class AppLocalizationsSk extends AppLocalizations {
   String get moveConversionOngoing => 'Konverzia prebieha';
 
   @override
-  String quotedReceiveAmountSubtitle(String asset, String network) {
-    return 'Zadaj sumu $asset, ktorú pošleš v sieti $network.';
-  }
-
-  @override
-  String quotedReceiveRefundSubtitle(String network) {
-    return 'Použi adresu v sieti $network, ktorú ovládaš. Ak bude treba prostriedky vrátiť a bude to možné, pôjdu sem. Môžu sa účtovať poplatky.';
-  }
-
-  @override
-  String quotedReceiveRefundInvalid(String network) {
-    return 'Zadaj platnú adresu na vrátenie v sieti $network.';
-  }
-
-  @override
   String quotedReceiveExactAmount(String amount) {
     return 'Pošli presne $amount jednou platbou, kým táto adresa nevyprší.';
   }
@@ -6824,9 +6803,6 @@ class AppLocalizationsSk extends AppLocalizations {
   @override
   String get quotedReceiveWalletChanged =>
       'Tvoj účet sa zmenil. Zavri túto obrazovku a začni odznova.';
-
-  @override
-  String get receiveOneOffUseAddress => 'Použiť jednorazovú adresu';
 
   @override
   String stepUpReasonWithdrawWithSourceFee(
@@ -6860,13 +6836,6 @@ class AppLocalizationsSk extends AppLocalizations {
 
   @override
   String get salProgressChecking => 'Kontrolujem detaily…';
-
-  @override
-  String get receiveRequiredMemo => 'Povinné memo / tag';
-
-  @override
-  String get receiveMemoRequiredWarning =>
-      'K vkladu pridaj toto memo. Samotná adresa nestačí.';
 
   @override
   String get receiveOwnRefundAddress =>

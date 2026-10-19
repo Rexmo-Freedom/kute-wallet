@@ -233,7 +233,6 @@
   "anErrorOccurredPleaseTryAgain": "An error occurred. Please try again.",
   "paymentPending": "Payment Pending",
   "expires": "Expires",
-  "enterRefundAddress": "Enter refund address",
   "description": "Description",
   "onChainTxid": "On-chain TXID",
   "paymentHash": "Payment Hash",
@@ -3511,7 +3510,6 @@
     }
   },
   "receiveOneOffNewAddress": "Get a new address",
-  "receiveOneOffAmountTitle": "How much are you expecting?",
   "usdFlowStepCoin": "Pick a coin",
   "usdSendAmountSubtitle": "How many dollars are you sending?",
   "usdReceiveTitle": "Receive dollars",
@@ -3534,7 +3532,6 @@
     }
   },
   "usdReceiveCreating": "Setting up your address.",
-  "usdReceiveArriving": "Your dollars land as soon as the payment confirms.",
   "receiveAlsoAccepts": "Also accepts",
   "@receiveAlsoAccepts": {
     "description": "Quiet line under the bitcoin receive address, followed by a few coin marks. It states a property of the address, not a mode to enter."
@@ -3551,6 +3548,10 @@
   "receiveCoinsLoading": "Coins are still loading. Try again in a moment.",
   "@receiveCoinsLoading": {
     "description": "Shown in place of the coin grid while the route catalogue's first load is still in flight."
+  },
+  "receiveAlsoAcceptsSubtitle": "Pick what is being sent to you. It arrives as bitcoin.",
+  "@receiveAlsoAcceptsSubtitle": {
+    "description": "Subtitle of the Also accepts sheet."
   },
   "receivePickNetwork": "Which network?",
   "@receivePickNetwork": {
@@ -3702,33 +3703,6 @@
   "@moveConversionOngoing": {
     "description": "Note on the confirmation overlay after a transfer that has to convert. Deliberately states no arrival time, because the app is not told one."
   },
-  "quotedReceiveAmountSubtitle": "Enter the amount of {asset} you will send on {network}.",
-  "@quotedReceiveAmountSubtitle": {
-    "placeholders": {
-      "asset": {
-        "type": "String"
-      },
-      "network": {
-        "type": "String"
-      }
-    }
-  },
-  "quotedReceiveRefundSubtitle": "Use an address you control on {network}. If a return is needed and supported, it goes here; fees may apply.",
-  "@quotedReceiveRefundSubtitle": {
-    "placeholders": {
-      "network": {
-        "type": "String"
-      }
-    }
-  },
-  "quotedReceiveRefundInvalid": "Enter a valid {network} refund address.",
-  "@quotedReceiveRefundInvalid": {
-    "placeholders": {
-      "network": {
-        "type": "String"
-      }
-    }
-  },
   "quotedReceiveExactAmount": "Send exactly {amount} in one payment before this address expires.",
   "@quotedReceiveExactAmount": {
     "placeholders": {
@@ -3747,7 +3721,6 @@
     }
   },
   "quotedReceiveWalletChanged": "Your account changed. Close this screen and start again.",
-  "receiveOneOffUseAddress": "Use a one-time address",
   "stepUpReasonWithdrawWithSourceFee": "Confirm withdrawal of {amount}, with up to {fee} network fee. Maximum debit: {total}.",
   "@stepUpReasonWithdrawWithSourceFee": {
     "placeholders": {
@@ -3770,8 +3743,6 @@
   "salProgressConnecting": "Connecting the details…",
   "salProgressWriting": "Putting it into words…",
   "salProgressChecking": "Checking the details…",
-  "receiveRequiredMemo": "Required memo / tag",
-  "receiveMemoRequiredWarning": "Include this memo with your deposit. An address alone is not enough.",
   "receiveOwnRefundAddress": "Use your own wallet address that does not require a memo or tag for refunds.",
   "standingDepositsRefund": "Request refund",
   "standingDepositsRefundRequested": "Refund requested. It has not been sent yet.",

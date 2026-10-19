@@ -221,7 +221,6 @@
   "anErrorOccurredPleaseTryAgain": "Ocorreu um erro. Tente novamente.",
   "paymentPending": "Pagamento pendente",
   "expires": "Expira",
-  "enterRefundAddress": "Introduza o endereço de reembolso",
   "description": "Descrição",
   "onChainTxid": "TXID on-chain",
   "paymentHash": "Hash do pagamento",
@@ -2153,7 +2152,6 @@
     }
   },
   "receiveOneOffNewAddress": "Obter um novo endereço",
-  "receiveOneOffAmountTitle": "Quanto está à espera de receber?",
   "usdFlowStepCoin": "Escolha uma moeda",
   "usdSendAmountSubtitle": "Quantos dólares você está enviando?",
   "usdReceiveTitle": "Receber dólares",
@@ -2173,10 +2171,10 @@
     }
   },
   "usdReceiveCreating": "Preparando seu endereço.",
-  "usdReceiveArriving": "Seus dólares chegam assim que o pagamento confirmar.",
   "receiveAlsoAccepts": "Também aceita",
   "receiveAlsoAcceptsMore": "+{count}",
   "receiveCoinsLoading": "As moedas ainda estão carregando. Tente de novo em instantes.",
+  "receiveAlsoAcceptsSubtitle": "Escolha o que estão te enviando. Chega como bitcoin.",
   "receivePickNetwork": "Em qual rede?",
   "betAdvancedSale": "Venda avançada",
   "betSaleStatusChecked": "Estado da venda verificado",
@@ -2213,33 +2211,6 @@
   "moveWithdrawDestinationHint": "Escolha o que chega à sua conta de despesas.",
   "moveDestDollarsSubtitle": "Into your Investments balance",
   "moveConversionOngoing": "Conversão em curso",
-  "quotedReceiveAmountSubtitle": "Indique o valor de {asset} que vai enviar na rede {network}.",
-  "@quotedReceiveAmountSubtitle": {
-    "placeholders": {
-      "asset": {
-        "type": "String"
-      },
-      "network": {
-        "type": "String"
-      }
-    }
-  },
-  "quotedReceiveRefundSubtitle": "Use um endereço que controla na rede {network}. Se for necessária e possível uma devolução, será enviada para este endereço; podem aplicar-se taxas.",
-  "@quotedReceiveRefundSubtitle": {
-    "placeholders": {
-      "network": {
-        "type": "String"
-      }
-    }
-  },
-  "quotedReceiveRefundInvalid": "Introduza um endereço válido da rede {network} para devoluções.",
-  "@quotedReceiveRefundInvalid": {
-    "placeholders": {
-      "network": {
-        "type": "String"
-      }
-    }
-  },
   "quotedReceiveExactAmount": "Envie exatamente {amount} num único pagamento antes de este endereço expirar.",
   "@quotedReceiveExactAmount": {
     "placeholders": {
@@ -2258,7 +2229,6 @@
     }
   },
   "quotedReceiveWalletChanged": "A sua conta mudou. Feche este ecrã e comece de novo.",
-  "receiveOneOffUseAddress": "Usar um endereço de utilização única",
   "stepUpReasonWithdrawWithSourceFee": "Confirme a retirada de {amount}, com até {fee} de taxa de rede. Débito máximo: {total}.",
   "@stepUpReasonWithdrawWithSourceFee": {
     "placeholders": {
@@ -2281,8 +2251,6 @@
   "salProgressConnecting": "A ligar os detalhes…",
   "salProgressWriting": "A dar forma à resposta…",
   "salProgressChecking": "A verificar os detalhes…",
-  "receiveRequiredMemo": "Memo / tag obrigatório",
-  "receiveMemoRequiredWarning": "Inclui este memo no depósito. Só o endereço não é suficiente.",
   "receiveOwnRefundAddress": "Usa um endereço da tua carteira que não necessite de memo ou tag para reembolsos.",
   "standingDepositsRefund": "Pedir reembolso",
   "standingDepositsRefundRequested": "Reembolso pedido. Ainda não foi enviado.",

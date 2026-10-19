@@ -1,10 +1,11 @@
-// The Investments receive: every way in (the dock's Receive included)
-// opens on the coin step, two labelled choices: "From your wallet" over
-// the Bitcoin card (its Add button and the card itself open the
-// Investments deposit from the spending bitcoin), then "From another
-// wallet or exchange" over the coin grid. Nothing is picked for the person: a coin they tap shows
-// its address. Nothing here reaches a money call: the wallet never
-// answers, so the address step stays on its loading shape.
+// The receive of another coin: every way into the Dollars receive (the
+// dock's Receive included) opens on the coin step, two labelled choices:
+// "From your wallet" over the Bitcoin card (its Add button and the card
+// itself open the Investments deposit from the spending bitcoin), then
+// "From another wallet or exchange" over the coin grid. Into Bitcoin (the
+// Bitcoin receive's "other coins") it is the grid alone. Nothing is
+// picked for the person: a coin they tap asks its amount in the "Request
+// amount" sheet. Nothing here reaches a money call.
 
 import 'dart:async';
 
@@ -33,11 +34,12 @@ import 'package:kute/screens/shared/asset_network_picker.dart' show PickerRow;
 import 'package:kute/screens/shared/coin_asset_grid.dart';
 import 'package:kute/screens/shared/custom_button.dart'
     show AppButton, AppButtonVariant;
+import 'package:kute/screens/receive/components/request_amount_sheet.dart';
 import 'package:kute/screens/receive/receive_sheet.dart'
-    show showUsdReceiveSheet;
+    show showOtherCoinsReceiveSheet, showUsdReceiveSheet;
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/receive_surface.dart'
-    show ReceiveQrPlate, ReceiveSheetFrame;
+    show ReceiveSheetFrame;
 import 'package:kute/screens/shared/stepper/stepper_widgets.dart'
     show StepperProgress;
 import 'package:kute/screens/shared/send/send_flow_widgets.dart'
@@ -50,8 +52,7 @@ import 'package:kute/theme/app_theme.dart';
 import 'package:money2/money2.dart';
 
 import '../../helpers/runtime_policy_fixture.dart';
-import 'package:kute/services/orchestra/reusable_deposit_address.dart'
-    show standingDestinationsProvider;
+import 'package:kute/services/orchestra/receive_minimums.dart';
 
 class _Balances extends WalletBalanceCacheNotifier {
   _Balances(Map<String, WalletBalance> values) {
@@ -110,7 +111,7 @@ Future<void> _pump(WidgetTester tester,
     int? spendingSats,
     Size size = const Size(390, 844),
     double? textScale,
-    bool fromBitcoinReceive = false}) async {
+    bool bitcoin = false}) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
@@ -135,8 +136,9 @@ Future<void> _pump(WidgetTester tester,
       orchestraSupportedRoutesProvider
           .overrideWith((_) => _Routes(_catalog(stables: stables))),
       orchestraRoutesReadyProvider.overrideWith((_) async {}),
-      // The provider lists spark:USDB as a standing destination.
-      standingDestinationsProvider.overrideWith((_) async => {'spark:USDB'}),
+      // No limits read answers: the $1.00 floor.
+      receiveMinimumsProvider
+          .overrideWithValue(ReceiveMinimums(fetch: (_) async => null)),
       // Bitcoin at $60,000; the spending balance only when given.
       selectedCurrencyProvider.overrideWith(
           (ref, code) => Money.fromIntWithCurrency(6000000, AppCurrencies.usd)),
@@ -145,8 +147,7 @@ Future<void> _pump(WidgetTester tester,
               'spending': WalletBalance(
                   onChainBtcBalance: 0, sparkBitcoinbalance: spendingSats),
           })),
-      // The wallet never answers: the address step stays on its loading
-      // shape and no address is ever asked for.
+      // The wallet never answers: no address is ever asked for.
       breezSDKProvider.overrideWith((_) => Completer<BreezSdkSpark>().future),
     ],
     child: ScreenUtilInit(
@@ -162,8 +163,9 @@ Future<void> _pump(WidgetTester tester,
           body: Builder(
             builder: (context) => Center(
               child: TextButton(
-                onPressed: () => showUsdReceiveSheet(context,
-                    fromBitcoinReceive: fromBitcoinReceive),
+                onPressed: () => bitcoin
+                    ? showOtherCoinsReceiveSheet(context)
+                    : showUsdReceiveSheet(context),
                 child: const Text(_underneath),
               ),
             ),
@@ -234,8 +236,8 @@ void main() {
     expect(
         tester.widget<Text>(yours).style, tester.widget<Text>(another).style);
 
-    // No address, no auto pick, no sheet.
-    expect(find.text(_l10n.usdReceiveCreating), findsNothing);
+    // No amount sheet, no auto pick, no network sheet.
+    expect(find.byType(RequestAmountSheet), findsNothing);
     expect(names(), isNot(contains('usd_receive_coin_selected')));
     expect(names(), isNot(contains('usd_receive_coin_picker_opened')));
     expect(find.byType(CoinAssetPickerSheet), findsNothing);
@@ -339,9 +341,9 @@ void main() {
   });
 
   testWidgets(
-      'a coin on one network goes straight to its address inside the same '
-      'sheet; the Bitcoin row is not repeated there and Back returns to the '
-      'coin step, still inside the sheet', (tester) async {
+      'a coin on one network asks its amount in the "Request amount" sheet, '
+      'in dollars with the minimum; dismissing it leaves the coin step as '
+      'it was', (tester) async {
     await _pump(tester);
     final sheet = ModalRoute.of(tester.element(find.byKey(_bitcoinRow)));
     expect(sheet, isA<ModalBottomSheetRoute<void>>());
@@ -349,45 +351,33 @@ void main() {
     await tester.tap(_tile('USDT'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
-    expect(find.text(_l10n.usdReceiveCreating), findsOneWidget);
-    expect(find.byKey(_bitcoinRow), findsNothing);
-    // The address step is the same sheet, not a pushed screen.
-    expect(ModalRoute.of(tester.element(find.text(_l10n.usdReceiveCreating))),
-        same(sheet));
-    // The QR plate is the Bitcoin receive's size: as large as the sheet
-    // allows, at least 330pt on a 390pt phone, never over 380.
-    final plate = tester.getSize(find
-        .descendant(
-            of: find.byType(ReceiveQrPlate), matching: find.byType(Container))
-        .first);
-    expect(plate.height, plate.width);
-    expect(plate.width, greaterThanOrEqualTo(330));
-    expect(plate.width, lessThanOrEqualTo(380));
-    // No title and no step bar on the address step either: the back in
-    // the header, then the code.
-    expect(find.text(_l10n.usdReceiveTitle), findsNothing);
-    expect(find.text(_l10n.usdReceiveShareStep), findsNothing);
-    expect(find.byType(StepperProgress), findsNothing);
+    final amount =
+        tester.widget<RequestAmountSheet>(find.byType(RequestAmountSheet));
+    expect(amount.fixedCurrency, 'USD');
+    expect(amount.minimumLabel, _l10n.amountMinimumInline('\$1.00'));
     expect(
-        tester.getTopLeft(find.byType(ReceiveQrPlate)).dy -
-            tester.getBottomLeft(find.byType(KuteCircleBackButton)).dy,
-        lessThan(24));
+        find.descendant(
+            of: find.byType(RequestAmountSheet),
+            matching: find.text(_l10n.receiveRequestAmount)),
+        findsOneWidget);
+    // Dollars only: the unit chip names USD and has no picker.
+    expect(find.byIcon(Icons.unfold_more_rounded), findsNothing);
     final selected =
         events.where((e) => e.$1 == 'usd_receive_coin_selected').single.$2;
     expect(selected, {
       'asset': 'USDT',
       'chain': 'ethereum',
-      'address_kind': 'reusable',
+      'address_kind': 'onetime',
       'preselected': false,
       'preselect_reason': 'none',
     });
 
-    await tester.tap(find.byType(KuteCircleBackButton));
-    await tester.pump(const Duration(milliseconds: 400));
-    expect(find.text(_l10n.usdReceiveCreating), findsNothing);
+    // Dismissed: back on the coin step, nothing created.
+    Navigator.of(tester.element(find.byType(RequestAmountSheet))).pop();
+    await tester.pumpAndSettle();
+    expect(find.byType(RequestAmountSheet), findsNothing);
     expect(find.byKey(_bitcoinRow), findsOneWidget);
-    expect(find.text(_l10n.usdReceiveFromAnotherWallet), findsOneWidget);
-    expect(ModalRoute.of(tester.element(find.byKey(_bitcoinRow))), same(sheet));
+    expect(names(), isNot(contains('receive_address_generated')));
 
     // On the coin step the header's close closes the sheet.
     await tester.tap(find.byType(KuteCloseButton));
@@ -430,7 +420,7 @@ void main() {
   });
 
   testWidgets(
-      'a coin on several networks asks which one, then shows that address',
+      'a coin on several networks asks which one, then its amount',
       (tester) async {
     await _pump(tester);
     await tester.tap(_tile('USDC'));
@@ -447,7 +437,7 @@ void main() {
         (w) => w is PickerRow && w.title.toLowerCase().contains('solana')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
-    expect(find.text(_l10n.usdReceiveCreating), findsOneWidget);
+    expect(find.byType(RequestAmountSheet), findsOneWidget);
     final selected =
         events.where((e) => e.$1 == 'usd_receive_coin_selected').single.$2!;
     expect(selected['chain'], 'solana');
@@ -462,41 +452,36 @@ void main() {
     expect(find.byKey(_bitcoinRow), findsOneWidget);
     expect(find.text(_l10n.usdReceiveCoinsUnavailable), findsOneWidget);
     expect(find.byType(CoinAssetGrid), findsNothing);
-    expect(find.text(_l10n.usdReceiveCreating), findsNothing);
     expect(names(), isNot(contains('usd_receive_coin_selected')));
     await _unmount(tester);
   });
 
   testWidgets(
-      'opened from the Dollars receive the sheet is as it was: no note; '
-      'opened from the Bitcoin receive it says where the money lands',
-      (tester) async {
-    await _pump(tester);
-    final note = find.byKey(const ValueKey('usd-receive-from-bitcoin-note'));
-    expect(note, findsNothing);
-    expect(find.text(_l10n.moveDestDollarsSubtitle), findsNothing);
+      'opened from the Bitcoin receive it delivers bitcoin: titled Bitcoin, '
+      'no Bitcoin row, no Investments note, and a coin asks its amount in '
+      'the receive unit', (tester) async {
+    await _pump(tester, bitcoin: true);
+    final screen =
+        tester.widget<UsdReceiveScreen>(find.byType(UsdReceiveScreen));
+    expect(screen.destinationAsset, 'BTC');
     expect(
-        events
-            .where((e) => e.$1 == 'usd_receive_opened')
-            .single
-            .$2!['entry_source'],
-        isNot('bitcoin_receive'));
-    await _unmount(tester);
-
-    events.clear();
-    TrackingService.markEntrySource('usd_receive', 'bitcoin_receive');
-    await _pump(tester, fromBitcoinReceive: true);
-    expect(note, findsOneWidget);
-    expect(find.text(_l10n.moveDestDollarsSubtitle), findsOneWidget);
-    // The same sheet otherwise: both choices.
+        find.descendant(
+            of: find.byType(AccountSwitcherPill),
+            matching: find.text(_l10n.bitcoin)),
+        findsOneWidget);
+    expect(find.text(_l10n.assetDollars), findsNothing);
+    expect(find.byKey(_bitcoinRow), findsNothing);
+    expect(find.text(_l10n.usdReceiveFromYourWallet), findsNothing);
     expect(find.text(_l10n.usdReceiveFromAnotherWallet), findsOneWidget);
-    expect(find.byKey(_bitcoinRow), findsOneWidget);
-    expect(
-        events
-            .where((e) => e.$1 == 'usd_receive_opened')
-            .single
-            .$2!['entry_source'],
-        'bitcoin_receive');
+    expect(names(), isNot(contains('usd_receive_opened')));
+
+    await tester.tap(_tile('USDT'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    final amount =
+        tester.widget<RequestAmountSheet>(find.byType(RequestAmountSheet));
+    expect(amount.fixedCurrency, isNull);
+    expect(names(), isNot(contains('usd_receive_coin_selected')));
     await _unmount(tester);
   });
 }

@@ -675,9 +675,6 @@ class AppLocalizationsSl extends AppLocalizations {
   String get expires => 'Poteče';
 
   @override
-  String get enterRefundAddress => 'Vnesite naslov za vračilo';
-
-  @override
   String get description => 'Opis';
 
   @override
@@ -6623,9 +6620,6 @@ class AppLocalizationsSl extends AppLocalizations {
   String get receiveOneOffNewAddress => 'Pridobi nov naslov';
 
   @override
-  String get receiveOneOffAmountTitle => 'Koliko pričakujete?';
-
-  @override
   String get usdFlowStepCoin => 'Izberite kriptovaluto';
 
   @override
@@ -6658,10 +6652,6 @@ class AppLocalizationsSl extends AppLocalizations {
   String get usdReceiveCreating => 'Pripravljanje naslova.';
 
   @override
-  String get usdReceiveArriving =>
-      'Vaši dolarji prispejo takoj, ko je plačilo potrjeno.';
-
-  @override
   String get receiveAlsoAccepts => 'Sprejema tudi';
 
   @override
@@ -6672,6 +6662,10 @@ class AppLocalizationsSl extends AppLocalizations {
   @override
   String get receiveCoinsLoading =>
       'Kriptovalute se še nalagajo. Poskusite znova čez trenutek.';
+
+  @override
+  String get receiveAlsoAcceptsSubtitle =>
+      'Izberite, kaj vam pošiljajo. Prispe kot bitcoin.';
 
   @override
   String get receivePickNetwork => 'Katero omrežje?';
@@ -6803,21 +6797,6 @@ class AppLocalizationsSl extends AppLocalizations {
   String get moveConversionOngoing => 'Pretvorba v teku';
 
   @override
-  String quotedReceiveAmountSubtitle(String asset, String network) {
-    return 'Vnesite znesek $asset, ki ga boste poslali v omrežju $network.';
-  }
-
-  @override
-  String quotedReceiveRefundSubtitle(String network) {
-    return 'Uporabite naslov v omrežju $network, ki ga nadzorujete. Če je vračilo potrebno in podprto, gre na ta naslov. Zaračunajo se lahko provizije.';
-  }
-
-  @override
-  String quotedReceiveRefundInvalid(String network) {
-    return 'Vnesite veljaven naslov za vračilo v omrežju $network.';
-  }
-
-  @override
   String quotedReceiveExactAmount(String amount) {
     return 'Pošljite natanko $amount v enem plačilu, preden ta naslov poteče.';
   }
@@ -6834,9 +6813,6 @@ class AppLocalizationsSl extends AppLocalizations {
   @override
   String get quotedReceiveWalletChanged =>
       'Vaš račun se je spremenil. Zaprite ta zaslon in začnite znova.';
-
-  @override
-  String get receiveOneOffUseAddress => 'Uporabi enkratni naslov';
 
   @override
   String stepUpReasonWithdrawWithSourceFee(
@@ -6870,13 +6846,6 @@ class AppLocalizationsSl extends AppLocalizations {
 
   @override
   String get salProgressChecking => 'Preverjanje podrobnosti …';
-
-  @override
-  String get receiveRequiredMemo => 'Obvezna opomba / oznaka';
-
-  @override
-  String get receiveMemoRequiredWarning =>
-      'Pologu dodajte to opombo. Sam naslov ne zadošča.';
 
   @override
   String get receiveOwnRefundAddress =>

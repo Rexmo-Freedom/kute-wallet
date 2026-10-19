@@ -33,9 +33,7 @@ import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceProvider;
 import 'package:kute/screens/receive/components/request_amount_sheet.dart';
 import 'package:kute/screens/receive/receive_sheet.dart'
-    show showUsdReceiveSheet;
-import 'package:kute/screens/usd/usd_receive_screen.dart'
-    show kUsdReceiveFromBitcoinReceiveSource;
+    show showOtherCoinsReceiveSheet;
 import 'package:kute/screens/shared/coin_asset_grid.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/jade_device_picker.dart';
@@ -49,8 +47,6 @@ import 'package:kute/screens/shared/receive_surface.dart';
 import 'package:kute/screens/shared/stepper/stepper_widgets.dart';
 import 'package:kute/providers/orchestra_supported_routes_provider.dart';
 import 'package:kute/services/background_sync_service.dart';
-import 'package:kute/services/orchestra/reusable_deposit_address.dart';
-import 'package:kute/services/orchestra_routes.dart';
 import 'package:kute/services/jade_service.dart';
 import 'package:kute/services/ledger_service.dart';
 import 'package:kute/services/sound_service.dart';
@@ -1250,19 +1246,16 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
     );
   }
 
-  /// The coins the Dollars receive takes, folded one per coin: exactly the
-  /// set its sheet offers (only coins that can get a standing `spark:USDB`
-  /// address, plus one-time rows while the policy allows them). The
-  /// Bitcoin receive takes other coins only through that sheet, into the
-  /// Investments dollar balance. Empty off the spending wallet, on the
-  /// USDC pool, and for accounts that may not be offered swaps.
+  /// The coins the Bitcoin receive also takes from other networks, folded
+  /// one per coin: every live route into `spark:BTC` a one-time address
+  /// can serve, while the policy allows them. Empty off the spending
+  /// wallet, on the USDC pool, and for accounts that may not be offered
+  /// swaps.
   List<CoinAssetGroup> _alsoAcceptedCoins() {
     // Kick the live Flashnet route-catalog fetch (and rebuild when it
     // lands) so the offering matches today's routes.
     final catalog = ref.watch(orchestraSupportedRoutesProvider);
     final offersOn = ref.watch(swapOffersEnabledProvider);
-    final destinations =
-        ref.watch(standingDestinationsProvider).valueOrNull ?? const {};
     if (_selectedPool == _ReceivePool.usdc) return const [];
     if (!_isPickedWalletSparkSpending()) return const [];
     // `swapOffersEnabledProvider` answers whether an account may be
@@ -1270,20 +1263,17 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
     // a cold account is refused them.
     if (!offersOn) return const [];
     return coinGroupsOfferedUnderPolicy(
-      receiveCoinGroups(catalog, context.l10n,
-          standingDestinations: destinations,
-          destinationChain: kOrchestraUsdChain,
-          destinationAsset: kOrchestraUsdAssetCode),
-      otherLegAsset: kOrchestraUsdAssetCode,
+      receiveCoinGroups(catalog, context.l10n, destinationAsset: 'BTC'),
+      otherLegAsset: 'BTC',
       depositAddress: true,
     ).groups;
   }
 
   /// The line under the format buttons: what else the Bitcoin receive
-  /// takes. A tap opens the Dollars receive's own sheet over this one
-  /// (closing it comes back here as it was), with a note that the money
-  /// lands in the Investments dollar balance. Null when there is nothing
-  /// to offer, so the line is gone.
+  /// takes. A tap opens the coin sheet over this one (closing it comes
+  /// back here as it was); a picked coin asks its amount in the "Request
+  /// amount" sheet and shows a one-time address that delivers bitcoin.
+  /// Null when there is nothing to offer, so the line is gone.
   Widget? _buildAlsoAcceptsSlot(AppColorsExtension c) {
     final groups = _alsoAcceptedCoins();
     if (groups.isEmpty) return null;
@@ -1295,9 +1285,7 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
         HapticFeedback.lightImpact();
         TrackingService.track('receive_also_accepts_opened',
             params: {'source': 'address', 'coins': groups.length});
-        TrackingService.markEntrySource(
-            'usd_receive', kUsdReceiveFromBitcoinReceiveSource);
-        unawaited(showUsdReceiveSheet(context, fromBitcoinReceive: true));
+        unawaited(showOtherCoinsReceiveSheet(context));
       },
     );
   }

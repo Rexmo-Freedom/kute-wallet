@@ -1338,6 +1338,13 @@ List<BaseTransaction> assembleActivityRows(
         dollarVenueMoves.add(tx);
         return false;
       }
+      // A coin received into Dollars from another network (a one-time
+      // receive into spark:USDB) moved no bitcoin: the Investments
+      // activity lists it, this one does not.
+      if (kind == SwapActivityKind.receive &&
+          d.coinTo.toUpperCase() == kOrchestraUsdAssetCode) {
+        return false;
+      }
       // An unfamiliar opposite asset is not proof of a dollar-only move.
       return true;
     }).toList();

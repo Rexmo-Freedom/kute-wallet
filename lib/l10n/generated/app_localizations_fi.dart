@@ -675,9 +675,6 @@ class AppLocalizationsFi extends AppLocalizations {
   String get expires => 'Vanhenee';
 
   @override
-  String get enterRefundAddress => 'Anna palautusosoite';
-
-  @override
   String get description => 'Kuvaus';
 
   @override
@@ -6609,9 +6606,6 @@ class AppLocalizationsFi extends AppLocalizations {
   String get receiveOneOffNewAddress => 'Hae uusi osoite';
 
   @override
-  String get receiveOneOffAmountTitle => 'Kuinka paljon odotat?';
-
-  @override
   String get usdFlowStepCoin => 'Valitse kolikko';
 
   @override
@@ -6644,10 +6638,6 @@ class AppLocalizationsFi extends AppLocalizations {
   String get usdReceiveCreating => 'Osoitettasi luodaan.';
 
   @override
-  String get usdReceiveArriving =>
-      'Dollarisi saapuvat heti, kun maksu vahvistuu.';
-
-  @override
   String get receiveAlsoAccepts => 'Hyväksyy myös';
 
   @override
@@ -6658,6 +6648,10 @@ class AppLocalizationsFi extends AppLocalizations {
   @override
   String get receiveCoinsLoading =>
       'Kolikoita ladataan vielä. Yritä hetken päästä uudelleen.';
+
+  @override
+  String get receiveAlsoAcceptsSubtitle =>
+      'Valitse, mitä sinulle lähetetään. Se saapuu bitcoinina.';
 
   @override
   String get receivePickNetwork => 'Mikä verkko?';
@@ -6789,21 +6783,6 @@ class AppLocalizationsFi extends AppLocalizations {
   String get moveConversionOngoing => 'Muunnos käynnissä';
 
   @override
-  String quotedReceiveAmountSubtitle(String asset, String network) {
-    return 'Anna $asset-määrä, jonka lähetät verkossa $network.';
-  }
-
-  @override
-  String quotedReceiveRefundSubtitle(String network) {
-    return 'Käytä hallitsemaasi osoitetta verkossa $network. Jos palautus tarvitaan ja sitä tuetaan, se lähetetään tänne. Maksuja voi tulla.';
-  }
-
-  @override
-  String quotedReceiveRefundInvalid(String network) {
-    return 'Anna kelvollinen $network-palautusosoite.';
-  }
-
-  @override
   String quotedReceiveExactAmount(String amount) {
     return 'Lähetä tasan $amount yhtenä maksuna ennen kuin tämä osoite vanhenee.';
   }
@@ -6820,9 +6799,6 @@ class AppLocalizationsFi extends AppLocalizations {
   @override
   String get quotedReceiveWalletChanged =>
       'Tilisi vaihtui. Sulje tämä näkymä ja aloita alusta.';
-
-  @override
-  String get receiveOneOffUseAddress => 'Käytä kertakäyttöistä osoitetta';
 
   @override
   String stepUpReasonWithdrawWithSourceFee(
@@ -6856,13 +6832,6 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get salProgressChecking => 'Tarkistetaan tietoja…';
-
-  @override
-  String get receiveRequiredMemo => 'Pakollinen muistio / tagi';
-
-  @override
-  String get receiveMemoRequiredWarning =>
-      'Liitä tämä muistio talletukseesi. Pelkkä osoite ei riitä.';
 
   @override
   String get receiveOwnRefundAddress =>

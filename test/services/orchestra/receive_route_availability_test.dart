@@ -1,8 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:kute/l10n/l10n.dart' show l10nForLanguage;
 import 'package:kute/models/orchestra_routes_model.dart';
-import 'package:kute/screens/shared/coin_asset_grid.dart'
-    show receiveCoinGroups;
 import 'package:kute/services/api/orchestra_api.dart'
     show StandingRequestException;
 import 'package:kute/services/orchestra/receive_route_availability.dart';
@@ -200,32 +197,6 @@ void main() {
               .singleWhere((o) => o.chain == 'base')
               .reusableAddress,
           isTrue);
-    });
-
-    test(
-        'with every reusable pair refused and one-time off, the coin step '
-        'has nothing to offer', () async {
-      final catalog = _catalog([_row('tron', 'USDT'), _row('base', 'USDC')]);
-      final policy =
-          runtimePolicyFixture(blocked: {'orchestra.onetime_addresses'});
-      addTearDown(policy.dispose);
-      expect(await policy.refresh(), isTrue);
-      final l10n = l10nForLanguage('en');
-      List<String> coins() => receiveCoinGroups(catalog, l10n,
-              standingDestinations: const {'spark:USDB'},
-              destinationChain: kOrchestraUsdChain,
-              destinationAsset: kOrchestraUsdAssetCode,
-              policy: policy)
-          .map((g) => g.key)
-          .toList();
-      expect(coins(), isNotEmpty);
-      for (final (chain, asset) in [('tron', 'USDT'), ('base', 'USDC')]) {
-        await ReceiveRouteAvailability.markUnavailable(
-            sourceChain: chain, sourceAsset: asset, destinationAsset: 'USDB');
-      }
-      // Empty groups are what the dollars receive renders as
-      // `usdReceiveCoinsUnavailable` once the catalogue has loaded.
-      expect(coins(), isEmpty);
     });
   });
 }

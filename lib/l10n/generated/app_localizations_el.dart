@@ -675,9 +675,6 @@ class AppLocalizationsEl extends AppLocalizations {
   String get expires => 'Λήγει';
 
   @override
-  String get enterRefundAddress => 'Βάλε διεύθυνση επιστροφής χρημάτων';
-
-  @override
   String get description => 'Περιγραφή';
 
   @override
@@ -6660,9 +6657,6 @@ class AppLocalizationsEl extends AppLocalizations {
   String get receiveOneOffNewAddress => 'Νέα διεύθυνση';
 
   @override
-  String get receiveOneOffAmountTitle => 'Πόσα περιμένεις;';
-
-  @override
   String get usdFlowStepCoin => 'Διάλεξε νόμισμα';
 
   @override
@@ -6695,10 +6689,6 @@ class AppLocalizationsEl extends AppLocalizations {
   String get usdReceiveCreating => 'Ρύθμιση της διεύθυνσής σου.';
 
   @override
-  String get usdReceiveArriving =>
-      'Τα δολάριά σου φτάνουν μόλις επιβεβαιωθεί η πληρωμή.';
-
-  @override
   String get receiveAlsoAccepts => 'Δέχεται επίσης';
 
   @override
@@ -6709,6 +6699,10 @@ class AppLocalizationsEl extends AppLocalizations {
   @override
   String get receiveCoinsLoading =>
       'Τα νομίσματα φορτώνουν ακόμα. Δοκίμασε ξανά σε λίγο.';
+
+  @override
+  String get receiveAlsoAcceptsSubtitle =>
+      'Διάλεξε τι σου στέλνουν. Φτάνει ως bitcoin.';
 
   @override
   String get receivePickNetwork => 'Ποιο δίκτυο;';
@@ -6840,21 +6834,6 @@ class AppLocalizationsEl extends AppLocalizations {
   String get moveConversionOngoing => 'Μετατροπή σε εξέλιξη';
 
   @override
-  String quotedReceiveAmountSubtitle(String asset, String network) {
-    return 'Βάλε το ποσό $asset που θα στείλεις στο $network.';
-  }
-
-  @override
-  String quotedReceiveRefundSubtitle(String network) {
-    return 'Χρησιμοποίησε μια διεύθυνση που ελέγχεις στο $network. Αν χρειαστεί επιστροφή και υποστηρίζεται, πηγαίνει εδώ. Μπορεί να ισχύουν χρεώσεις.';
-  }
-
-  @override
-  String quotedReceiveRefundInvalid(String network) {
-    return 'Βάλε μια έγκυρη διεύθυνση επιστροφής χρημάτων $network.';
-  }
-
-  @override
   String quotedReceiveExactAmount(String amount) {
     return 'Στείλε ακριβώς $amount σε μία πληρωμή πριν λήξει αυτή η διεύθυνση.';
   }
@@ -6871,9 +6850,6 @@ class AppLocalizationsEl extends AppLocalizations {
   @override
   String get quotedReceiveWalletChanged =>
       'Ο λογαριασμός σου άλλαξε. Κλείσε αυτή την οθόνη και ξεκίνα από την αρχή.';
-
-  @override
-  String get receiveOneOffUseAddress => 'Χρήση διεύθυνσης μίας χρήσης';
 
   @override
   String stepUpReasonWithdrawWithSourceFee(
@@ -6907,13 +6883,6 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get salProgressChecking => 'Ελέγχω τις λεπτομέρειες…';
-
-  @override
-  String get receiveRequiredMemo => 'Απαιτούμενο memo / tag';
-
-  @override
-  String get receiveMemoRequiredWarning =>
-      'Συμπερίλαβε αυτό το memo στην κατάθεσή σου. Η διεύθυνση μόνη της δεν αρκεί.';
 
   @override
   String get receiveOwnRefundAddress =>

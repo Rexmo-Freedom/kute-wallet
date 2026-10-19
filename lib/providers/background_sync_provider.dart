@@ -19,6 +19,8 @@ import 'package:kute/helpers/cash_app_destination.dart';
 import 'package:kute/helpers/predictions_deposit_wrap.dart';
 import 'package:kute/models/swap_order_model.dart';
 import 'package:kute/providers/swap_orders_provider.dart';
+import 'package:kute/services/orchestra/onetime_receive.dart'
+    show isOneTimeReceiveQuoteRow;
 import 'package:kute/models/orchestra_model.dart' show OrchestraOrder;
 import 'package:kute/models/settings_model.dart' show WalletConfig;
 import 'package:kute/providers/settings_provider.dart';
@@ -783,6 +785,7 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
   Future<void> pollReceiveAddresses({bool force = false}) async {
     if (force) _lastAccumulationSweep = null;
     await _sweepOrchestraAccumulationAddresses();
+    await _sweepOrchestraReceiveQuotes();
     await _sweepStandingDeposits(force: force);
   }
 
@@ -956,6 +959,16 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
             reportDiscoveredOrchestraOrder(exchange);
           } else {
             await exchangeBox.flush();
+          }
+          // A one-time receive wrote its Activity row under the quote id;
+          // the real order (written above) takes its place.
+          final quoteRow = exchangeBox.get(quote.id);
+          if (quoteRow != null && quoteRow.walletId == walletId) {
+            await ref.read(swapOrdersProvider.notifier).deleteExchange(quote.id);
+            ref
+                .read(walletTransactionCacheProvider.notifier)
+                .removeSwapOrder(quote.id);
+            if (!current()) return;
           }
           await PendingReceiveQuoteCache.complete(quote.id);
           _receiveQuoteChecks.remove(quote.id);
@@ -1339,7 +1352,10 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
               // bitcoin receives, and a USDB row (often with no amount
               // to check) would otherwise claim any of them.
               e.coinTo.toUpperCase() == 'BTC' &&
-              e.isPending)
+              e.isPending &&
+              // A one-time receive still waiting for its deposit has
+              // delivered nothing: an unrelated receive must not close it.
+              !(isOneTimeReceiveQuoteRow(e) && e.status == 'wait'))
           .toList();
       final alreadyHidden =
           PolymarketSparkTxsService.orchestraDeliverySnapshot();

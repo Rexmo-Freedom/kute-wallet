@@ -85,10 +85,8 @@ List<String> orchestraReceiveAddressCapabilities({
     ];
 
 /// The operator switch for receiving from another network through a
-/// ONE-TIME quoted deposit address: the quoted receive screen, reached
-/// from the one-time rows of the bitcoin and dollar receive pickers
-/// (`kOrchestraQuoteReceiveChains`, and bitcoin into dollars) and from the
-/// "one-time address" button beside a reusable address.
+/// ONE-TIME quoted deposit address: every coin row of the Dollars receive
+/// and of the Bitcoin receive's "other coins" (`oneTimeReceiveOptions`).
 ///
 /// The quote that mints a one-time address is `POST /api/v1/orchestra/quote`
 /// from another network (not Spark, Lightning or a venue rail, and not
@@ -99,7 +97,7 @@ List<String> orchestraReceiveAddressCapabilities({
 /// reusable deposit addresses (accumulation and standing). The app hides
 /// the options before the tap and the quoted receive screen re-checks
 /// before quoting. Fails closed: with no readable policy it denies, and
-/// every one-time receive option disappears while the reusable ones stay.
+/// every receive-from-another-network option disappears.
 const kOneTimeAddressCapability = 'orchestra.onetime_addresses';
 
 /// Whether a one-time quoted receive may be offered or started.
@@ -111,9 +109,10 @@ bool oneTimeReceiveAllowed(RuntimeCapabilitiesService policy) =>
 /// the backend classifies the quote that follows. On a receive picker
 /// ([depositAddress]) a row served by a reusable deposit address also
 /// needs `crypto.deposit`, as the backend asks of every deposit address
-/// it mints; a one-time row is a quote and answers to the quote gates
-/// plus [kOneTimeAddressCapability], the app-side switch for one-time
-/// receive addresses.
+/// it mints; a one-time row is a quote and answers to
+/// [kOneTimeAddressCapability] (the switch for one-time receive
+/// addresses), `crypto.deposit` (every new deposit address) and the quote
+/// gates.
 List<String> orchestraOptionCapabilities(OrchestraReceiveOption option,
         {String otherLegAsset = 'BTC', bool depositAddress = false}) =>
     depositAddress && option.reusableAddress
@@ -123,7 +122,7 @@ List<String> orchestraOptionCapabilities(OrchestraReceiveOption option,
             destinationAsset: otherLegAsset,
           )
         : [
-            if (depositAddress) kOneTimeAddressCapability,
+            if (depositAddress) ...[kOneTimeAddressCapability, 'crypto.deposit'],
             ...orchestraCapabilityRequirements(
               sourceChain: option.chain,
               sourceAsset: option.assetCode,

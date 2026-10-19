@@ -675,9 +675,6 @@ class AppLocalizationsNl extends AppLocalizations {
   String get expires => 'Verloopt';
 
   @override
-  String get enterRefundAddress => 'Voer terugbetalingsadres in';
-
-  @override
   String get description => 'Beschrijving';
 
   @override
@@ -6632,9 +6629,6 @@ class AppLocalizationsNl extends AppLocalizations {
   String get receiveOneOffNewAddress => 'Nieuw adres aanvragen';
 
   @override
-  String get receiveOneOffAmountTitle => 'Hoeveel verwacht je?';
-
-  @override
   String get usdFlowStepCoin => 'Kies een munt';
 
   @override
@@ -6667,10 +6661,6 @@ class AppLocalizationsNl extends AppLocalizations {
   String get usdReceiveCreating => 'Je adres wordt ingesteld.';
 
   @override
-  String get usdReceiveArriving =>
-      'Je dollars komen binnen zodra de betaling is bevestigd.';
-
-  @override
   String get receiveAlsoAccepts => 'Accepteert ook';
 
   @override
@@ -6681,6 +6671,10 @@ class AppLocalizationsNl extends AppLocalizations {
   @override
   String get receiveCoinsLoading =>
       'Munten worden nog geladen. Probeer het zo opnieuw.';
+
+  @override
+  String get receiveAlsoAcceptsSubtitle =>
+      'Kies wat er naar je wordt verstuurd. Het komt binnen als bitcoin.';
 
   @override
   String get receivePickNetwork => 'Welk netwerk?';
@@ -6812,21 +6806,6 @@ class AppLocalizationsNl extends AppLocalizations {
   String get moveConversionOngoing => 'Omzetting bezig';
 
   @override
-  String quotedReceiveAmountSubtitle(String asset, String network) {
-    return 'Voer het bedrag aan $asset in dat je op $network verstuurt.';
-  }
-
-  @override
-  String quotedReceiveRefundSubtitle(String network) {
-    return 'Gebruik een adres op $network dat je zelf beheert. Is een terugstorting nodig en mogelijk, dan gaat die hierheen. Er kunnen kosten gelden.';
-  }
-
-  @override
-  String quotedReceiveRefundInvalid(String network) {
-    return 'Voer een geldig $network-terugbetalingsadres in.';
-  }
-
-  @override
   String quotedReceiveExactAmount(String amount) {
     return 'Stuur precies $amount in één betaling voordat dit adres verloopt.';
   }
@@ -6843,9 +6822,6 @@ class AppLocalizationsNl extends AppLocalizations {
   @override
   String get quotedReceiveWalletChanged =>
       'Je rekening is gewijzigd. Sluit dit scherm en begin opnieuw.';
-
-  @override
-  String get receiveOneOffUseAddress => 'Eenmalig adres gebruiken';
 
   @override
   String stepUpReasonWithdrawWithSourceFee(
@@ -6879,13 +6855,6 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get salProgressChecking => 'De details controleren…';
-
-  @override
-  String get receiveRequiredMemo => 'Verplichte memo / tag';
-
-  @override
-  String get receiveMemoRequiredWarning =>
-      'Voeg deze memo toe aan je storting. Alleen een adres is niet genoeg.';
 
   @override
   String get receiveOwnRefundAddress =>

@@ -34,9 +34,8 @@ import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/asset_network_picker.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/services/orchestra/orchestra_capability_requirements.dart';
-import 'package:kute/services/orchestra/reusable_deposit_address.dart'
-    show standingReceiveOffered;
-import 'package:kute/services/orchestra_routes.dart' show isVenueInternalRoute;
+import 'package:kute/services/orchestra/onetime_receive.dart'
+    show oneTimeReceiveOptions;
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -270,52 +269,29 @@ class CoinAssetTile extends StatelessWidget {
   }
 }
 
-/// Every coin a balance can be funded with, folded to one entry per
-/// coin. Shared by the quiet line that states what a destination takes
-/// and by the sheet it opens, so the marks on the line and the marks in
-/// the grid can never be a different set.
+/// Every coin a balance can be received in from another network, folded
+/// to one entry per coin. Shared by the quiet line that states what a
+/// destination takes and by the sheet it opens, so the marks on the line
+/// and the marks in the grid can never be a different set.
 ///
-/// The destination defaults to the wallet's bitcoin pool. The dollar
-/// balance asks the same question of its own row by naming it, rather
-/// than through a second function that could drift from this one.
-///
-/// A reusable-address row is listed only when it can get a standing
-/// address ([standingReceiveOffered]): its destination (`spark:USDB` for
-/// the dollar balance) is in [standingDestinations], the standing rail
-/// takes the source, and the pair has not been refused. A coin with no such
-/// route is not shown at all. While the destination list is unknown, pass
-/// an empty set: nothing reusable is listed.
-///
-/// One-time rows (a fresh quoted address per payment) are offered only
-/// while `orchestra.onetime_addresses` allows them; with the switch off,
-/// or no readable policy, only the reusable-address rows remain.
+/// The destination defaults to the wallet's bitcoin (`spark:BTC`); the
+/// dollar balance names its own (`USDB`). Every row is a ONE-TIME quoted
+/// deposit address ([oneTimeReceiveOptions]: a live route, an own refund
+/// address on the source chain, never a venue rail), offered only while
+/// `orchestra.onetime_addresses` allows them. With the switch off, or no
+/// readable policy, nothing is listed: Receive hands out no reusable
+/// deposit address.
 List<CoinAssetGroup> receiveCoinGroups(
   OrchestraRoutesCatalog catalog,
   AppLocalizations l10n, {
-  required Set<String> standingDestinations,
-  String destinationChain = 'spark',
   String destinationAsset = 'BTC',
   RuntimeCapabilitiesService? policy,
 }) {
-  final oneTime =
-      oneTimeReceiveAllowed(policy ?? RuntimeCapabilitiesService.instance);
+  if (!oneTimeReceiveAllowed(policy ?? RuntimeCapabilitiesService.instance)) {
+    return const [];
+  }
   return groupCoinsByAsset(
-    catalog
-        .receiveOptions(
-          destinationChain: destinationChain,
-          destinationAsset: destinationAsset,
-        )
-        // HyperCore and Polygon USDC.e are Investing's and Predictions'
-        // own rails: open to the venue flows, never a network offered
-        // to a payer.
-        .where((o) => !isVenueInternalRoute(o.chain, o.assetCode))
-        .where((o) => o.reusableAddress
-            ? standingReceiveOffered(
-                destinations: standingDestinations,
-                sourceChain: o.chain,
-                sourceAsset: o.assetCode,
-                destinationAsset: destinationAsset)
-            : oneTime)
+    oneTimeReceiveOptions(catalog, destinationAsset: destinationAsset)
         // The dollar row is an ordinary source here, and it wears plain
         // dollars rather than the catalogue's spelling of the token.
         .map((o) => dollarsRowLabels(o, l10n))

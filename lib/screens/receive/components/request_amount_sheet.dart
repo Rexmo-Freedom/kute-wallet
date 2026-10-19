@@ -33,15 +33,48 @@ import 'package:kute/theme/app_theme.dart';
 typedef RequestedAmount = ({String amount, String currency});
 
 /// Opens the request-amount sheet. Resolves to null when dismissed.
-Future<RequestedAmount?> showRequestAmountSheet(BuildContext context) {
+///
+/// The Lightning receive passes nothing. The one-time receive of another
+/// coin passes [fixedCurrency] `USD` for the Dollars receive (the figure
+/// is typed in dollars and the unit cannot be changed), the route's
+/// minimum as [minimumLabel] ("Minimum \$1.00", on the sheet's own
+/// minimum line), and [validate], which answers the copy to show on that
+/// line in the error colour (and disables "Create request") while the
+/// typed amount is outside the route's limits.
+Future<RequestedAmount?> showRequestAmountSheet(
+  BuildContext context, {
+  String? fixedCurrency,
+  String? minimumLabel,
+  String? Function(RequestedAmount requested)? validate,
+}) {
   return showAppBottomSheet<RequestedAmount>(
     context: context,
-    builder: (_) => const RequestAmountSheet(),
+    builder: (_) => RequestAmountSheet(
+      fixedCurrency: fixedCurrency,
+      minimumLabel: minimumLabel,
+      validate: validate,
+    ),
   );
 }
 
 class RequestAmountSheet extends ConsumerStatefulWidget {
-  const RequestAmountSheet({super.key});
+  const RequestAmountSheet({
+    super.key,
+    this.fixedCurrency,
+    this.minimumLabel,
+    this.validate,
+  });
+
+  /// The one unit the amount is typed in, or null for the person's
+  /// receive unit with its picker (sats, BTC or their fiat).
+  final String? fixedCurrency;
+
+  /// Said on the minimum line under the figure. Null leaves it out.
+  final String? minimumLabel;
+
+  /// Null when the typed amount may be requested; otherwise the copy the
+  /// minimum line shows in the error colour instead of [minimumLabel].
+  final String? Function(RequestedAmount requested)? validate;
 
   @override
   ConsumerState<RequestAmountSheet> createState() => _RequestAmountSheetState();
@@ -83,12 +116,16 @@ class _RequestAmountSheetState extends ConsumerState<RequestAmountSheet> {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final currency = ref.watch(inputCurrencyProvider);
+    final fixed = widget.fixedCurrency;
+    final String currency = fixed ?? ref.watch<String>(inputCurrencyProvider);
     final btcFormat = ref.watch(settingsProvider.select((s) => s.btcFormat));
     final typed = _typed;
-    final sats = typed.isEmpty
+    // A fixed unit is its own amount: no conversion to sats behind it.
+    final sats = typed.isEmpty || fixed != null
         ? 0
         : ref.watch(inputToSatsProvider((amount: typed, currency: currency)));
+    final positive =
+        fixed != null ? (double.tryParse(typed) ?? 0) > 0 : sats > 0;
     // The other side of the amount: fiat under a bitcoin figure, sats
     // under a fiat figure. Only once something is typed.
     String secondary = '';
@@ -97,6 +134,9 @@ class _RequestAmountSheetState extends ConsumerState<RequestAmountSheet> {
           ? ref.watch(conversionToFiatProvider(sats))
           : '₿${sats.toFormattedString(btcFormat)}';
     }
+    final error = positive
+        ? widget.validate?.call((amount: typed, currency: currency))
+        : null;
 
     return AppBottomSheetContainer(
       maxHeight: 0.94,
@@ -124,8 +164,11 @@ class _RequestAmountSheetState extends ConsumerState<RequestAmountSheet> {
                       prefix: _prefixFor(currency),
                       amountText: typed,
                       conversionLabel: secondary,
+                      minimumLabel: error ?? widget.minimumLabel,
+                      minimumIsError: error != null,
                       centered: true,
-                      unitControl: _unitChip(c, currency),
+                      unitControl:
+                          _unitChip(c, currency, picker: fixed == null),
                     ),
                   ),
                 ],
@@ -144,7 +187,7 @@ class _RequestAmountSheetState extends ConsumerState<RequestAmountSheet> {
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 20.w),
             child: AppButton(
-              onPressed: sats > 0
+              onPressed: positive && error == null
                   ? () => Navigator.of(context)
                       .pop((amount: typed, currency: currency))
                   : null,
@@ -157,13 +200,17 @@ class _RequestAmountSheetState extends ConsumerState<RequestAmountSheet> {
   }
 
   /// Unit chip: tap opens the unit picker. Neutral surface, no tint.
-  Widget _unitChip(AppColorsExtension c, String currency) {
+  /// With a fixed unit ([picker] false) the chip only names it.
+  Widget _unitChip(AppColorsExtension c, String currency,
+      {bool picker = true}) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: () {
-        HapticFeedback.selectionClick();
-        _showUnitPicker();
-      },
+      onTap: picker
+          ? () {
+              HapticFeedback.selectionClick();
+              _showUnitPicker();
+            }
+          : null,
       child: Container(
         padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
         decoration: BoxDecoration(
@@ -184,8 +231,11 @@ class _RequestAmountSheetState extends ConsumerState<RequestAmountSheet> {
                 fontWeight: FontWeight.w700,
               ),
             ),
-            SizedBox(width: 2.w),
-            Icon(Icons.unfold_more_rounded, color: c.textTertiary, size: 16.sp),
+            if (picker) ...[
+              SizedBox(width: 2.w),
+              Icon(Icons.unfold_more_rounded,
+                  color: c.textTertiary, size: 16.sp),
+            ],
           ],
         ),
       ),

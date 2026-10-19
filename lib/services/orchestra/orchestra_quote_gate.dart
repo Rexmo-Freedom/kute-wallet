@@ -127,6 +127,7 @@ class OrchestraQuoteGate {
           amount: request.amountBaseUnits.toString(),
           recipientAddress: request.recipientAddress,
           refundAddress: request.refundAddress,
+          refundOptional: request.refundOptional,
           deliveryMode: request.deliveryMode,
           slippageBps: slippageBps,
           idempotencyKey: key,

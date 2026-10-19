@@ -39,17 +39,17 @@ void main() {
         ['crypto.deposit', 'orchestra.swap']);
   });
 
-  test('only reusable receive rows need crypto.deposit', () {
+  test('every receive row needs crypto.deposit, one-time included', () {
     final reusable = _option('base', 'USDC');
     final oneTime = _option('bitcoin', 'BTC', reusable: false);
     expect(orchestraOptionCapabilities(reusable, depositAddress: true),
         contains('crypto.deposit'));
-    // A one-time row is a quote; the backend's quote guard has no
-    // crypto.deposit.
+    // The backend asks crypto.deposit of a one-time receive quote too,
+    // beside orchestra.onetime_addresses.
     expect(
         orchestraOptionCapabilities(oneTime,
             otherLegAsset: 'USDB', depositAddress: true),
-        isNot(contains('crypto.deposit')));
+        containsAll(['crypto.deposit', 'orchestra.onetime_addresses']));
     // Sends never ask it.
     expect(orchestraOptionCapabilities(reusable),
         isNot(contains('crypto.deposit')));
@@ -67,7 +67,7 @@ void main() {
 
     final receive = orchestraOptionsOfferedUnderPolicy(rows, policy,
         otherLegAsset: 'USDB', depositAddress: true);
-    expect(receive.offered.map((o) => o.chain), ['bitcoin']);
+    expect(receive.offered, isEmpty);
     expect(receive.hiddenReason, isNotNull);
 
     final send = orchestraOptionsOfferedUnderPolicy(rows, policy);

@@ -673,9 +673,6 @@ class AppLocalizationsSv extends AppLocalizations {
   String get expires => 'Går ut';
 
   @override
-  String get enterRefundAddress => 'Ange återbetalningsadress';
-
-  @override
   String get description => 'Beskrivning';
 
   @override
@@ -6602,9 +6599,6 @@ class AppLocalizationsSv extends AppLocalizations {
   String get receiveOneOffNewAddress => 'Hämta en ny adress';
 
   @override
-  String get receiveOneOffAmountTitle => 'Hur mycket väntar du dig?';
-
-  @override
   String get usdFlowStepCoin => 'Välj ett mynt';
 
   @override
@@ -6637,10 +6631,6 @@ class AppLocalizationsSv extends AppLocalizations {
   String get usdReceiveCreating => 'Skapar din adress.';
 
   @override
-  String get usdReceiveArriving =>
-      'Dina dollar kommer in så snart betalningen är bekräftad.';
-
-  @override
   String get receiveAlsoAccepts => 'Tar även emot';
 
   @override
@@ -6651,6 +6641,10 @@ class AppLocalizationsSv extends AppLocalizations {
   @override
   String get receiveCoinsLoading =>
       'Mynt laddas fortfarande. Försök igen om en stund.';
+
+  @override
+  String get receiveAlsoAcceptsSubtitle =>
+      'Välj vad som skickas till dig. Det kommer in som bitcoin.';
 
   @override
   String get receivePickNetwork => 'Vilket nätverk?';
@@ -6782,21 +6776,6 @@ class AppLocalizationsSv extends AppLocalizations {
   String get moveConversionOngoing => 'Växling pågår';
 
   @override
-  String quotedReceiveAmountSubtitle(String asset, String network) {
-    return 'Ange beloppet $asset du skickar på $network.';
-  }
-
-  @override
-  String quotedReceiveRefundSubtitle(String network) {
-    return 'Använd en adress du kontrollerar på $network. Om en retur behövs och stöds går den hit. Avgifter kan tillkomma.';
-  }
-
-  @override
-  String quotedReceiveRefundInvalid(String network) {
-    return 'Ange en giltig återbetalningsadress på $network.';
-  }
-
-  @override
   String quotedReceiveExactAmount(String amount) {
     return 'Skicka exakt $amount i en betalning innan adressen går ut.';
   }
@@ -6813,9 +6792,6 @@ class AppLocalizationsSv extends AppLocalizations {
   @override
   String get quotedReceiveWalletChanged =>
       'Ditt konto har ändrats. Stäng skärmen och börja om.';
-
-  @override
-  String get receiveOneOffUseAddress => 'Använd en engångsadress';
 
   @override
   String stepUpReasonWithdrawWithSourceFee(
@@ -6849,13 +6825,6 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String get salProgressChecking => 'Kontrollerar detaljerna…';
-
-  @override
-  String get receiveRequiredMemo => 'Obligatoriskt memo/tagg';
-
-  @override
-  String get receiveMemoRequiredWarning =>
-      'Ta med detta memo i din insättning. Det räcker inte med bara adressen.';
 
   @override
   String get receiveOwnRefundAddress =>

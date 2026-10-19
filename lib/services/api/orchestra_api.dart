@@ -675,6 +675,11 @@ class OrchestraService {
   /// EVM/proxy address for EVM-source quotes). Callers that cannot
   /// resolve one must fail the action BEFORE any funds move — the
   /// empty-string guard here is the backstop for that rule.
+  ///
+  /// The one exception is [refundOptional]: a one-time receive of a listed
+  /// token from a network where the wallet has no address (Solana, Tron),
+  /// which Flashnet quotes without a refund address. The field is then
+  /// left out of the request.
   static Future<Result<OrchestraQuote>> createQuote({
     required String sourceChain,
     required String sourceAsset,
@@ -683,6 +688,7 @@ class OrchestraService {
     required String amount,
     required String recipientAddress,
     required String refundAddress,
+    bool refundOptional = false,
     String? deliveryMode,
     int? slippageBps,
     String? idempotencyKey,
@@ -718,7 +724,7 @@ class OrchestraService {
       );
     }
 
-    if (refundAddress.trim().isEmpty) {
+    if (refundAddress.trim().isEmpty && !refundOptional) {
       report(false, 'client', 'missing_refund_address');
       // Same generic string the quote callers already surface — no new
       // user copy; the point is refusing to quote refund-less.
@@ -739,7 +745,8 @@ class OrchestraService {
         'destinationAsset': destinationAsset,
         'amount': amount,
         'recipientAddress': recipientAddress,
-        'refundAddress': refundAddress.trim(),
+        if (refundAddress.trim().isNotEmpty)
+          'refundAddress': refundAddress.trim(),
       };
       if (deliveryMode != null) body['deliveryMode'] = deliveryMode;
       if (slippageBps != null) body['slippageBps'] = slippageBps;

@@ -673,9 +673,6 @@ class AppLocalizationsDa extends AppLocalizations {
   String get expires => 'Udløber';
 
   @override
-  String get enterRefundAddress => 'Indtast refunderingsadresse';
-
-  @override
   String get description => 'Beskrivelse';
 
   @override
@@ -6610,9 +6607,6 @@ class AppLocalizationsDa extends AppLocalizations {
   String get receiveOneOffNewAddress => 'Få en ny adresse';
 
   @override
-  String get receiveOneOffAmountTitle => 'Hvor meget forventer du?';
-
-  @override
   String get usdFlowStepCoin => 'Vælg en mønt';
 
   @override
@@ -6645,10 +6639,6 @@ class AppLocalizationsDa extends AppLocalizations {
   String get usdReceiveCreating => 'Opsætter din adresse.';
 
   @override
-  String get usdReceiveArriving =>
-      'Dine dollar lander, så snart betalingen er bekræftet.';
-
-  @override
   String get receiveAlsoAccepts => 'Accepterer også';
 
   @override
@@ -6659,6 +6649,10 @@ class AppLocalizationsDa extends AppLocalizations {
   @override
   String get receiveCoinsLoading =>
       'Mønter indlæses stadig. Prøv igen om lidt.';
+
+  @override
+  String get receiveAlsoAcceptsSubtitle =>
+      'Vælg, hvad der bliver sendt til dig. Det ankommer som bitcoin.';
 
   @override
   String get receivePickNetwork => 'Hvilket netværk?';
@@ -6790,21 +6784,6 @@ class AppLocalizationsDa extends AppLocalizations {
   String get moveConversionOngoing => 'Omregning i gang';
 
   @override
-  String quotedReceiveAmountSubtitle(String asset, String network) {
-    return 'Indtast det beløb i $asset, du sender på $network.';
-  }
-
-  @override
-  String quotedReceiveRefundSubtitle(String network) {
-    return 'Brug en adresse, du kontrollerer, på $network. Hvis en returnering er nødvendig og understøttet, går den hertil. Der kan være gebyrer.';
-  }
-
-  @override
-  String quotedReceiveRefundInvalid(String network) {
-    return 'Indtast en gyldig $network-refunderingsadresse.';
-  }
-
-  @override
   String quotedReceiveExactAmount(String amount) {
     return 'Send præcis $amount i én betaling, før denne adresse udløber.';
   }
@@ -6821,9 +6800,6 @@ class AppLocalizationsDa extends AppLocalizations {
   @override
   String get quotedReceiveWalletChanged =>
       'Din konto er ændret. Luk denne skærm, og start forfra.';
-
-  @override
-  String get receiveOneOffUseAddress => 'Brug en engangsadresse';
 
   @override
   String stepUpReasonWithdrawWithSourceFee(
@@ -6857,13 +6833,6 @@ class AppLocalizationsDa extends AppLocalizations {
 
   @override
   String get salProgressChecking => 'Tjekker detaljerne…';
-
-  @override
-  String get receiveRequiredMemo => 'Påkrævet memo / tag';
-
-  @override
-  String get receiveMemoRequiredWarning =>
-      'Medtag dette memo i din indbetaling. En adresse alene er ikke nok.';
 
   @override
   String get receiveOwnRefundAddress =>

@@ -675,9 +675,6 @@ class AppLocalizationsLt extends AppLocalizations {
   String get expires => 'Galioja iki';
 
   @override
-  String get enterRefundAddress => 'Įveskite grąžinimo adresą';
-
-  @override
   String get description => 'Aprašymas';
 
   @override
@@ -6641,9 +6638,6 @@ class AppLocalizationsLt extends AppLocalizations {
   String get receiveOneOffNewAddress => 'Gauti naują adresą';
 
   @override
-  String get receiveOneOffAmountTitle => 'Kokios sumos tikitės?';
-
-  @override
   String get usdFlowStepCoin => 'Pasirinkite monetą';
 
   @override
@@ -6676,10 +6670,6 @@ class AppLocalizationsLt extends AppLocalizations {
   String get usdReceiveCreating => 'Ruošiamas jūsų adresas.';
 
   @override
-  String get usdReceiveArriving =>
-      'Jūsų doleriai ateis, kai tik mokėjimas bus patvirtintas.';
-
-  @override
   String get receiveAlsoAccepts => 'Taip pat priima';
 
   @override
@@ -6690,6 +6680,10 @@ class AppLocalizationsLt extends AppLocalizations {
   @override
   String get receiveCoinsLoading =>
       'Monetos dar įkeliamos. Bandykite vėl po akimirkos.';
+
+  @override
+  String get receiveAlsoAcceptsSubtitle =>
+      'Pasirinkite, kas jums siunčiama. Tai ateis kaip bitcoin.';
 
   @override
   String get receivePickNetwork => 'Kuris tinklas?';
@@ -6821,21 +6815,6 @@ class AppLocalizationsLt extends AppLocalizations {
   String get moveConversionOngoing => 'Vyksta konvertavimas';
 
   @override
-  String quotedReceiveAmountSubtitle(String asset, String network) {
-    return 'Įveskite $asset sumą, kurią siųsite $network tinkle.';
-  }
-
-  @override
-  String quotedReceiveRefundSubtitle(String network) {
-    return 'Naudokite jūsų valdomą adresą $network tinkle. Jei reikės grąžinimo ir jis palaikomas, lėšos bus grąžintos čia. Gali būti taikomi mokesčiai.';
-  }
-
-  @override
-  String quotedReceiveRefundInvalid(String network) {
-    return 'Įveskite tinkamą $network grąžinimo adresą.';
-  }
-
-  @override
   String quotedReceiveExactAmount(String amount) {
     return 'Prieš šiam adresui nustojant galioti, vienu mokėjimu išsiųskite lygiai $amount.';
   }
@@ -6852,9 +6831,6 @@ class AppLocalizationsLt extends AppLocalizations {
   @override
   String get quotedReceiveWalletChanged =>
       'Jūsų paskyra pasikeitė. Uždarykite šį ekraną ir pradėkite iš naujo.';
-
-  @override
-  String get receiveOneOffUseAddress => 'Naudoti vienkartinį adresą';
 
   @override
   String stepUpReasonWithdrawWithSourceFee(
@@ -6888,13 +6864,6 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get salProgressChecking => 'Tikrinama informacija…';
-
-  @override
-  String get receiveRequiredMemo => 'Privaloma pastaba / žyma';
-
-  @override
-  String get receiveMemoRequiredWarning =>
-      'Pridėkite šią pastabą prie įnašo. Vien adreso nepakanka.';
 
   @override
   String get receiveOwnRefundAddress =>
