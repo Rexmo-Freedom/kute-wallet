@@ -28,7 +28,9 @@ import 'package:kute/services/orchestra_routes.dart'
     show kOrchestraUsdAssetCode;
 import 'package:kute/theme/app_theme.dart';
 
+
 import '../../helpers/fake_swap_orders.dart';
+import '../../helpers/money_steps_finders.dart';
 
 final _t0 = DateTime.utc(2026, 10, 15, 12);
 
@@ -261,9 +263,9 @@ void main() {
       final store = await openSheet(tester, _move(), [_hl(), _pm()]);
       expect(find.byType(BuyBitcoinStepsSection), findsOneWidget);
       // The detail's compact lines: path, amount, state.
-      expect(find.text('Investing → Bitcoin · \$12.00'), findsOneWidget);
-      expect(find.text('Predictions → Dollars · \$5.00'), findsOneWidget);
-      expect(find.text('Dollars → Bitcoin · \$8.00'), findsOneWidget);
+      expect(findMoneyStep('Investing → Bitcoin · \$12.00'), findsOneWidget);
+      expect(findMoneyStep('Predictions → Dollars · \$5.00'), findsOneWidget);
+      expect(findMoneyStep('Dollars → Bitcoin · \$8.00'), findsOneWidget);
       expect(find.text('Arriving in Bitcoin'), findsOneWidget);
       expect(find.byKey(const ValueKey('money-step-running-0')), findsOneWidget);
       expect(find.byKey(const ValueKey('money-step-running-1')), findsOneWidget);
@@ -273,10 +275,10 @@ void main() {
       for (var i = 0; i < 5; i++) {
         await tester.pump(const Duration(milliseconds: 100));
       }
-      expect(find.text('Predictions → Dollars · \$4.95'), findsOneWidget);
+      expect(findMoneyStep('Predictions → Dollars · \$4.95'), findsOneWidget);
       expect(find.byKey(const ValueKey('money-step-done-1')), findsOneWidget);
       expect(find.byKey(const ValueKey('money-step-running-0')), findsOneWidget);
-      expect(find.text('Dollars → Bitcoin · \$8.00'), findsOneWidget);
+      expect(findMoneyStep('Dollars → Bitcoin · \$8.00'), findsOneWidget);
     });
 
     testWidgets('a finished move keeps its steps as the record',
@@ -286,9 +288,9 @@ void main() {
         _pm(status: 'success'),
         _buy(status: 'success'),
       ]);
-      expect(find.text('Investing → Bitcoin · \$12.00'), findsOneWidget);
-      expect(find.text('Predictions → Dollars · \$4.95'), findsOneWidget);
-      expect(find.text('Dollars → Bitcoin · \$8.00'), findsOneWidget);
+      expect(findMoneyStep('Investing → Bitcoin · \$12.00'), findsOneWidget);
+      expect(findMoneyStep('Predictions → Dollars · \$4.95'), findsOneWidget);
+      expect(findMoneyStep('Dollars → Bitcoin · \$8.00'), findsOneWidget);
       for (var i = 0; i < 4; i++) {
         expect(find.byKey(ValueKey('money-step-done-$i')), findsOneWidget);
       }

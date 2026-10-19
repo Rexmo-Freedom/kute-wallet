@@ -16,7 +16,9 @@ import 'package:kute/services/one_balance/money_steps.dart';
 import 'package:kute/services/orchestra/standing_deposit_activity.dart';
 import 'package:kute/theme/app_theme.dart';
 
+
 import '../../helpers/fake_swap_orders.dart';
+import '../../helpers/money_steps_finders.dart';
 
 CctpLegProgress _progress({
   bool burned = false,
@@ -123,8 +125,8 @@ void main() {
       ),
     ));
     await t.pump();
-    expect(find.text('HyperCore → Circle · \$5.25'), findsOneWidget);
-    expect(find.text('Circle → Arbitrum · \$5.05'), findsOneWidget);
-    expect(find.text('Arbitrum → Dollars · \$5.05'), findsOneWidget);
+    expect(findMoneyStep('HyperCore → Circle · \$5.25'), findsOneWidget);
+    expect(findMoneyStep('Circle → Arbitrum · \$5.05'), findsOneWidget);
+    expect(findMoneyStep('Arbitrum → Dollars · \$5.05'), findsOneWidget);
   });
 }

@@ -59,6 +59,7 @@ import 'package:money2/money2.dart';
 
 import '../../helpers/fake_swap_orders.dart';
 import '../../helpers/runtime_policy_fixture.dart';
+import '../../helpers/money_steps_finders.dart';
 
 const _ownSpark =
     'spark1pgss93sy072yrmtad5cy2srwjhq8ekzuw78yhr808jn6htqfh9w8p8h9mfwlv9';
@@ -465,7 +466,7 @@ void main() {
     // The steps show only the sources used.
     final record = _container(tester).read(fundedOrdersProvider).single;
     expect(record.steps.byId('leg:investing'), isNull);
-    expect(find.textContaining('from Investing'), findsNothing);
+    expect(findMoneyStepContaining('from Investing'), findsNothing);
     expect(find.text('Placing \$10.00 on Yes'), findsOneWidget);
     final started =
         events.where((e) => e.$1 == 'order_funding_started').first.$2!;
@@ -505,8 +506,8 @@ void main() {
     final record = _container(tester).read(fundedOrdersProvider).single;
     expect([for (final l in record.steps.legs) l.id],
         ['leg:investing', 'leg:dollars']);
-    expect(find.textContaining('from Investing'), findsOneWidget);
-    expect(find.textContaining('from Dollars'), findsOneWidget);
+    expect(findMoneyStepContaining('from Investing'), findsOneWidget);
+    expect(findMoneyStepContaining('from Dollars'), findsOneWidget);
     expect(find.text('Getting your prediction ready'), findsOneWidget);
     expect(find.text('Placing \$10.00 on Yes'), findsOneWidget);
     final pending = _container(tester).read(pendingPolymarketBetProvider)!;

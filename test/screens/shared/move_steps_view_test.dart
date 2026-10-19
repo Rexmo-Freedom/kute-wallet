@@ -30,7 +30,9 @@ import 'package:kute/services/orchestra_routes.dart'
     show kOrchestraUsdAssetCode;
 import 'package:kute/theme/app_theme.dart';
 
+
 import '../../helpers/fake_swap_orders.dart';
+import '../../helpers/money_steps_finders.dart';
 
 final _t0 = DateTime.utc(2026, 10, 15, 12);
 
@@ -223,10 +225,10 @@ void main() {
       MultiSourceMoveStore.start(move);
       final store = await _open(tester,
           MultiSourceMoveTransaction(move: move, legRows: const []), [_pm()]);
-      expect(_inSheet(find.text(r'Predictions → Dollars · $20.00')),
+      expect(_inSheet(findMoneyStep(r'Predictions → Dollars · $20.00')),
           findsOneWidget);
       // Not sent yet: no recipient to name.
-      expect(_inSheet(find.text(r'Sending $50.00')), findsOneWidget);
+      expect(_inSheet(findMoneyStep(r'Sending $50.00')), findsOneWidget);
       expect(
           find.byKey(const ValueKey('money-step-running-0')), findsOneWidget);
       expect(
@@ -234,7 +236,7 @@ void main() {
 
       store.set([_pm(status: 'success')]);
       await _frames(tester);
-      expect(_inSheet(find.text(r'Predictions → Dollars · $19.80')),
+      expect(_inSheet(findMoneyStep(r'Predictions → Dollars · $19.80')),
           findsOneWidget);
       expect(find.byKey(const ValueKey('money-step-done-0')), findsOneWidget);
     });
@@ -246,11 +248,11 @@ void main() {
           tester,
           MultiSourceMoveTransaction(move: move, legRows: const []),
           [_pm(status: 'success'), _send(status: 'success')]);
-      expect(_inSheet(find.text(r'Predictions → Dollars · $19.80')),
+      expect(_inSheet(findMoneyStep(r'Predictions → Dollars · $19.80')),
           findsOneWidget);
       // The send, to where it went, with what arrived.
       expect(
-          _inSheet(find.textContaining(RegExp(r'^Dollars → .+ · \$49\.50$'))),
+          _inSheet(findMoneyStepMatching(RegExp(r'^Dollars → .+ · \$49\.50$'))),
           findsOneWidget);
       expect(find.byKey(const ValueKey('money-step-done-0')), findsOneWidget);
       expect(find.byKey(const ValueKey('money-step-done-1')), findsOneWidget);
@@ -297,10 +299,10 @@ void main() {
               status: 'success')
           .copyWith(operationId: 'op-hl'),
     ]);
-    expect(_inSheet(find.text(r'Investing → Predictions · $14.80')),
+    expect(_inSheet(findMoneyStep(r'Investing → Predictions · $14.80')),
         findsOneWidget);
     expect(
-        _inSheet(find.text(r'Dollars → Predictions · $5.00')), findsOneWidget);
+        _inSheet(findMoneyStep(r'Dollars → Predictions · $5.00')), findsOneWidget);
     expect(find.byKey(const ValueKey('money-step-done-0')), findsOneWidget);
   });
 
@@ -318,7 +320,7 @@ void main() {
         'a purchase paid by Dollars alone: the purchase, then the arrival, '
         'live and then as the record', (tester) async {
       final store = await _open(tester, _tx(buy()), [buy()]);
-      expect(_inSheet(find.text(r'Dollars → Bitcoin · $5.00')), findsOneWidget);
+      expect(_inSheet(findMoneyStep(r'Dollars → Bitcoin · $5.00')), findsOneWidget);
       expect(_inSheet(find.text('Arriving in Bitcoin')), findsOneWidget);
       expect(
           find.byKey(const ValueKey('money-step-running-0')), findsOneWidget);
@@ -343,7 +345,7 @@ void main() {
           withdrawal: '9.87',
           status: 'success');
       await _open(tester, _tx(row), [row]);
-      expect(_inSheet(find.text(r'Bitcoin → Dollars · $9.87')), findsOneWidget);
+      expect(_inSheet(findMoneyStep(r'Bitcoin → Dollars · $9.87')), findsOneWidget);
       expect(find.byKey(const ValueKey('money-step-done-0')), findsOneWidget);
       // The path is the step line's: never twice.
       expect(_inSheet(find.text('Arriving in Bitcoin')), findsNothing);
@@ -364,7 +366,7 @@ void main() {
       await _open(tester, _tx(row), [row]);
       expect(_inSheet(find.textContaining('Predictions')), findsNothing);
       expect(_inSheet(find.text('Arriving in Bitcoin')), findsNothing);
-      expect(_inSheet(find.text('Polygon → Spark')), findsOneWidget);
+      expect(_inSheet(findMoneyStep('Polygon → Spark')), findsOneWidget);
       // The path drawn: the coin and its network into Bitcoin.
       final graph = tester
           .widget<SimpleFlowGraph>(_inSheet(find.byType(SimpleFlowGraph)));
@@ -382,7 +384,7 @@ void main() {
           deposit: '4.14',
           withdrawal: '0.000069');
       await _open(tester, _tx(row), [row]);
-      expect(_inSheet(find.text(r'Predictions → Bitcoin · $4.14')),
+      expect(_inSheet(findMoneyStep(r'Predictions → Bitcoin · $4.14')),
           findsOneWidget);
     });
   });
