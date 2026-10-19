@@ -99,22 +99,28 @@ class ArbitrumReadRpc {
       (await _quantity('eth_blockNumber', const [])).toInt();
 
   /// ERC-20 `Transfer` events on [token] minted (from the zero address)
-  /// to [to], from block [fromBlock] to the latest. Throws when no
-  /// endpoint answers, so a failed read is never an empty list.
+  /// to [to], from block [fromBlock] to [toBlock] (the latest when null).
+  /// Public endpoints cap an `eth_getLogs` range, so a caller pages a
+  /// long search in windows. Throws when no endpoint answers, so a
+  /// failed read is never an empty list.
   Future<List<ArbitrumTokenMint>> mintsTo({
     required String token,
     required String to,
     required int fromBlock,
+    int? toBlock,
   }) async {
     final hex = to.toLowerCase().replaceFirst('0x', '');
     if (!RegExp(r'^[0-9a-f]{40}$').hasMatch(hex) || fromBlock < 0) {
       throw ArgumentError.value(to, 'to', 'not an address');
     }
+    if (toBlock != null && toBlock < fromBlock) {
+      throw ArgumentError.value(toBlock, 'toBlock', 'before fromBlock');
+    }
     final logs = await _firstListAnswer('eth_getLogs', [
       {
         'address': token,
         'fromBlock': '0x${fromBlock.toRadixString(16)}',
-        'toBlock': 'latest',
+        'toBlock': toBlock == null ? 'latest' : '0x${toBlock.toRadixString(16)}',
         'topics': [
           kErc20TransferTopic,
           '0x${'0' * 64}',

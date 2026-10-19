@@ -115,7 +115,10 @@ class _Reads implements CctpChainReads {
   String? Function(int nonce)? ledger;
   Object? ledgerError;
   int pausedReads = 0;
-  final mintReads = <({String to, int fromBlock})>[];
+  final mintReads = <({String to, int fromBlock, int toBlock})>[];
+
+  /// The Arbitrum head.
+  int block = 514276600;
 
   @override
   Future<bool> coreDepositWalletPaused() async {
@@ -132,14 +135,22 @@ class _Reads implements CctpChainReads {
   }
 
   @override
-  Future<int> arbitrumBlock() async => 514276600;
+  Future<int> arbitrumBlock() async => block;
 
+  /// Answers the mints inside the window, as `eth_getLogs` does, and
+  /// refuses a window wider than a public endpoint caps.
   @override
-  Future<List<ArbitrumTokenMint>> arbitrumUsdcMints(
-      String to, int fromBlock) async {
-    mintReads.add((to: to, fromBlock: fromBlock));
+  Future<List<ArbitrumTokenMint>> arbitrumUsdcMints(String to,
+      {required int fromBlock, required int toBlock}) async {
+    mintReads.add((to: to, fromBlock: fromBlock, toBlock: toBlock));
+    expect(toBlock, greaterThanOrEqualTo(fromBlock));
+    expect(toBlock - fromBlock + 1, lessThanOrEqualTo(kCctpMintScanChunkBlocks),
+        reason: 'one eth_getLogs window');
     if (mintError != null) throw mintError!;
-    return mints;
+    return [
+      for (final m in mints)
+        if (m.block >= fromBlock && m.block <= toBlock) m
+    ];
   }
 
   @override
@@ -343,8 +354,9 @@ OrchestraOrder _order(String id, String status,
         recipientAddress: recipient,
         createdAt: DateTime.utc(2026, 10, 19).toIso8601String());
 
-ArbitrumTokenMint _mint([int units = 5050000, String tx = _mintTx]) =>
-    ArbitrumTokenMint(amount: BigInt.from(units), txHash: tx, block: 514276620);
+ArbitrumTokenMint _mint(
+        [int units = 5050000, String tx = _mintTx, int block = 514276600]) =>
+    ArbitrumTokenMint(amount: BigInt.from(units), txHash: tx, block: block);
 
 /// The native HyperCore route as Flashnet answers it today: refused for the
 /// route itself, before anything is signed.
@@ -757,6 +769,7 @@ void main() {
     await service().reconcile(op, force: true);
     expect(reads.mintReads.last.to, _deposits[0]);
     expect(reads.mintReads.last.fromBlock, 514276600);
+    expect(reads.mintReads.last.toBlock, 514276600, reason: 'the head');
     final submit = orchestra.submits.single;
     expect(submit.quoteId, 'q_1');
     expect(submit.txHash, _mintTx);
@@ -1132,6 +1145,76 @@ void main() {
       await service().reconcile(await only(), force: true);
       expect((await only()).orderId, isNull);
       expect(rows.byId.containsKey('ord_1'), isFalse);
+    });
+
+    test(
+        'the mint search pages in windows, the first window first, and '
+        'resumes from the position the record keeps', () async {
+      const from = 514276600;
+      reads.ledger = (_) => _ledgerHash;
+      await service().withdrawToDollars(usd: 5, stepUp: approve());
+      var op = await only();
+      expect(cctpOf(op)['fromBlock'], from);
+
+      // Hours later: the head is 35,000 blocks on, the mint sits 32,000
+      // blocks after the burn. One pass reads three windows and keeps
+      // where it got to.
+      reads.block = from + 35000;
+      reads.mints = [_mint(4800000, _mintTx, from + 32000)];
+      now = now.add(const Duration(hours: 3));
+      await service().reconcile(op, force: true);
+      expect(
+          reads.mintReads.map((r) => (r.fromBlock, r.toBlock)).toList(),
+          [
+            (from, from + 9999),
+            (from + 10000, from + 19999),
+            (from + 20000, from + 29999),
+          ]);
+      op = await only();
+      expect(cctpOf(op)['mintScannedTo'], from + 29999);
+      expect(cctpOf(op).containsKey('mintTx'), isFalse);
+      expect(orchestra.submits, isEmpty);
+
+      // A fresh process: the first window again, then on from the kept
+      // position (re-reading a little behind it), bounded by the head.
+      reads.mintReads.clear();
+      orchestra.orders['ord_1'] = _order('ord_1', 'processing');
+      now = now.add(const Duration(minutes: 1));
+      await service().reconcile(op, force: true);
+      expect(
+          reads.mintReads.map((r) => (r.fromBlock, r.toBlock)).toList(),
+          [(from, from + 9999), (from + 29500, from + 35000)]);
+      op = await only();
+      expect(cctpOf(op)['mintTx'], _mintTx);
+      expect(orchestra.submits.single.txHash, _mintTx);
+      expect(op.orderId, 'ord_1');
+      expect(named('hyperliquid_withdraw_step'), [
+        'cctp_sent',
+        'core_confirmed',
+        'arbitrum_minted',
+        'orchestra_submitted',
+      ]);
+      expect(sender.signed, 1);
+    });
+
+    test(
+        'a failed window keeps the position before it; the next pass reads '
+        'it again', () async {
+      const from = 514276600;
+      reads.ledger = (_) => _ledgerHash;
+      await service().withdrawToDollars(usd: 5, stepUp: approve());
+      reads.block = from + 25000;
+      now = now.add(const Duration(hours: 2));
+      await service().reconcile(await only(), force: true);
+      expect(cctpOf(await only())['mintScannedTo'], from + 25000);
+      reads.mintError = const ArbitrumReadException('no RPC');
+      reads.block = from + 60000;
+      now = now.add(const Duration(hours: 2));
+      await service().reconcile(await only(), force: true);
+      expect(cctpOf(await only())['mintScannedTo'], from + 25000,
+          reason: 'a failed read moves nothing');
+      expect((await only()).stage, SettlementStage.needsAttention,
+          reason: 'no order this long after the burn: still watched');
     });
 
     test('an RPC failure never reads as arrived', () async {
