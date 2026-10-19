@@ -10931,9 +10931,6 @@ class AppLocalizationsBg extends AppLocalizations {
   }
 
   @override
-  String get portfolioNoOpenOrders => 'Няма отворени поръчки';
-
-  @override
   String get portfolioSectionPnlCharts => 'Графики P&L';
 
   @override

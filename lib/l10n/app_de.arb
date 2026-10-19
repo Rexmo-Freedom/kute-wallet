@@ -3049,7 +3049,6 @@
   "moneyStepSent": "{amount} gesendet",
   "moneyStepCompact": "{source} → {destination} · {amount}",
   "arbitrumRefundReturned": "{amount} auf Arbitrum zurückerstattet",
-  "portfolioNoOpenOrders": "Keine offenen Aufträge",
   "portfolioSectionPnlCharts": "GuV-Charts",
   "portfolioSectionBalances": "Guthaben"
 }

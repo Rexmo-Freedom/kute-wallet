@@ -3329,7 +3329,6 @@
   "moneyStepSent": "Enviados {amount}",
   "moneyStepCompact": "{source} → {destination} · {amount}",
   "arbitrumRefundReturned": "{amount} devolvidos na Arbitrum",
-  "portfolioNoOpenOrders": "Sem ordens abertas",
   "portfolioSectionPnlCharts": "Gráficos de P&L",
   "portfolioSectionBalances": "Saldos"
 }

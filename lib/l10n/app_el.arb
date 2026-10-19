@@ -3049,7 +3049,6 @@
   "moneyStepSent": "Στάλθηκαν {amount}",
   "moneyStepCompact": "{source} → {destination} · {amount}",
   "arbitrumRefundReturned": "{amount} επιστράφηκαν στο Arbitrum",
-  "portfolioNoOpenOrders": "Δεν υπάρχουν ανοιχτές εντολές",
   "portfolioSectionPnlCharts": "Γραφήματα P&L",
   "portfolioSectionBalances": "Υπόλοιπα"
 }

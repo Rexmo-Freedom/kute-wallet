@@ -178,7 +178,7 @@ void openTradeNotificationReceipt({
                   walletId: wallet.id, product: product, initialTab: tab)));
         } else if (spending) {
           // A fill's own row is in the Portfolio pill's Activity;
-          // everything else held is under its Charts.
+          // everything else held is in its Positions.
           if (tab == 2) {
             openInvestmentsPortfolio(
                 navigator.context, PortfolioSection.activity);

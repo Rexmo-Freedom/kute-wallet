@@ -10948,9 +10948,6 @@ class AppLocalizationsNl extends AppLocalizations {
   }
 
   @override
-  String get portfolioNoOpenOrders => 'Geen open orders';
-
-  @override
   String get portfolioSectionPnlCharts => 'W&V-grafieken';
 
   @override

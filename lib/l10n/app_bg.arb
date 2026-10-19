@@ -3049,7 +3049,6 @@
   "moneyStepSent": "Изпратени {amount}",
   "moneyStepCompact": "{source} → {destination} · {amount}",
   "arbitrumRefundReturned": "{amount} върнати в Arbitrum",
-  "portfolioNoOpenOrders": "Няма отворени поръчки",
   "portfolioSectionPnlCharts": "Графики P&L",
   "portfolioSectionBalances": "Баланси"
 }

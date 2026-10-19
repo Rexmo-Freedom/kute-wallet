@@ -37,6 +37,8 @@ import 'package:kute/screens/hyperliquid/components/open_orders_sheet.dart'
     show HlOrderRow;
 import 'package:kute/screens/polymarket/components/open_orders_sheet.dart'
     show PolyOrderRow;
+import 'package:kute/screens/portfolio/investments_portfolio.dart'
+    show PortfolioSection, portfolioSectionProvider;
 import 'package:kute/screens/portfolio/open_investments_screen.dart';
 import 'package:kute/providers/usd_rewards_provider.dart';
 import 'package:kute/screens/portfolio/portfolio_activity.dart'
@@ -517,6 +519,8 @@ void main() {
       await tester.tap(find.text('View positions'));
       await tester.pumpAndSettle();
       expect(container.read(investmentsTabProvider), InvestmentsTab.positions);
+      expect(container.read(portfolioSectionProvider),
+          PortfolioSection.positions);
       expect(find.byType(OpenInvestmentsScreen), findsNothing);
       expect(tester.takeException(), isNull);
     });

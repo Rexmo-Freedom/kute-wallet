@@ -10924,9 +10924,6 @@ class AppLocalizationsFi extends AppLocalizations {
   }
 
   @override
-  String get portfolioNoOpenOrders => 'Ei avoimia toimeksiantoja';
-
-  @override
   String get portfolioSectionPnlCharts => 'P&L-kaaviot';
 
   @override

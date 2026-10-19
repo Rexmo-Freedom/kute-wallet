@@ -82,11 +82,12 @@
 // placed bet or Sal can open a pill from anywhere: `/hyperliquid` and
 // `/polymarket` redirect here with `?tab=investing|predictions`
 // ([investmentsTabLocation]); a placed order's "View positions" opens
-// the Portfolio on Charts ([openInvestmentsPositions]). The Portfolio's
-// section is shared the same way ([portfolioSectionProvider]). The old
-// links keep working: `?tab=positions|portfolio|open|statistics` opens
-// the Portfolio on Charts, `?tab=orders` on Orders, `?tab=activity` on
-// Activity, `?tab=balances` on Balances ([PortfolioSection.forLink]).
+// the Portfolio on Positions ([openInvestmentsPositions]). The
+// Portfolio's section is shared the same way ([portfolioSectionProvider]).
+// The old links keep working: `?tab=positions|portfolio|open` opens the
+// Portfolio on Positions, `?tab=orders|statistics|charts` on P&L charts
+// (where the orders are), `?tab=activity` on Activity, `?tab=balances` on
+// Balances ([PortfolioSection.forLink]).
 //
 // Receive opens the Dollars receive screen off the Orchestra route list,
 // pointed at this balance: whatever coin the money arrives in, dollars
@@ -200,9 +201,9 @@ void openInvestmentsPortfolio(BuildContext context, PortfolioSection section) {
 }
 
 /// Opens what is held (a placed order's "View positions", a trade
-/// notification): the Portfolio on Charts, where the positions are.
+/// notification): the Portfolio on Positions.
 void openInvestmentsPositions(BuildContext context) =>
-    openInvestmentsPortfolio(context, PortfolioSection.charts);
+    openInvestmentsPortfolio(context, PortfolioSection.positions);
 
 /// The pill on screen. Shared so a deep link, a placed bet or Sal can
 /// open a pill from outside the screen; the screen writes it on a tap.

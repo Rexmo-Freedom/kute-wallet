@@ -10940,9 +10940,6 @@ class AppLocalizationsSl extends AppLocalizations {
   }
 
   @override
-  String get portfolioNoOpenOrders => 'Ni odprtih naročil';
-
-  @override
   String get portfolioSectionPnlCharts => 'Grafi P&L';
 
   @override

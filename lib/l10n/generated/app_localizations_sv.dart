@@ -10909,9 +10909,6 @@ class AppLocalizationsSv extends AppLocalizations {
   }
 
   @override
-  String get portfolioNoOpenOrders => 'Inga öppna ordrar';
-
-  @override
   String get portfolioSectionPnlCharts => 'P&L-diagram';
 
   @override

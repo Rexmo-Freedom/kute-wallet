@@ -10990,9 +10990,6 @@ class AppLocalizationsEl extends AppLocalizations {
   }
 
   @override
-  String get portfolioNoOpenOrders => 'Δεν υπάρχουν ανοιχτές εντολές';
-
-  @override
   String get portfolioSectionPnlCharts => 'Γραφήματα P&L';
 
   @override

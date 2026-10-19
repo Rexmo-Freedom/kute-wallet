@@ -10917,9 +10917,6 @@ class AppLocalizationsSk extends AppLocalizations {
   }
 
   @override
-  String get portfolioNoOpenOrders => 'Žiadne otvorené príkazy';
-
-  @override
   String get portfolioSectionPnlCharts => 'Grafy P&L';
 
   @override

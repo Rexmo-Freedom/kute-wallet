@@ -3049,7 +3049,6 @@
   "moneyStepSent": "Skickade {amount}",
   "moneyStepCompact": "{source} → {destination} · {amount}",
   "arbitrumRefundReturned": "{amount} återbetalt på Arbitrum",
-  "portfolioNoOpenOrders": "Inga öppna ordrar",
   "portfolioSectionPnlCharts": "P&L-diagram",
   "portfolioSectionBalances": "Saldon"
 }

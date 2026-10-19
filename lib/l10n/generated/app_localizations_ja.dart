@@ -10492,9 +10492,6 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get portfolioNoOpenOrders => '未約定注文はありません';
-
-  @override
   String get portfolioSectionPnlCharts => '損益チャート';
 
   @override

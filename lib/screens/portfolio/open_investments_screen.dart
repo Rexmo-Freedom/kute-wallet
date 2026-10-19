@@ -12,8 +12,8 @@
 //     is the card or order row it always was, with its drill-down and its
 //     actions. Nothing held and nothing resting: the Sal empty state ("No
 //     positions yet"). The Investments tab's Portfolio pill lists the
-//     positions under its P&L charts ([portfolioPositionsSlivers]) and the
-//     orders in its own Orders section ([portfolioOrdersSlivers],
+//     positions in its Positions section ([portfolioPositionsSlivers]) and
+//     the orders under its P&L charts ([portfolioOrdersSlivers],
 //     investments_portfolio.dart); [PortfolioPositions] is the same rows
 //     as a page of their own.
 //   * THE PORTFOLIO ([OpenInvestmentsScreen]), full screen, opened from
@@ -344,13 +344,15 @@ List<Widget> _orderItems(
 
 /// What is held, as slivers (founder request, October 2026): the
 /// Positions pill's cards with the same taps and sheets, under a
-/// Positions heading in the Activity heading's style. Still reading:
-/// shimmer cards. Nothing held once read: no section at all. The resting
-/// orders are not here: they are [portfolioOrdersSlivers] (the
-/// Investments tab's Orders section, and under these on the Portfolio
-/// screen).
+/// Positions heading in the Activity heading's style, left out with
+/// [heading] false (the Investments tab's Positions section, whose pill
+/// already says it). Still reading: shimmer cards. Nothing held once
+/// read: no section at all. The resting orders are not here: they are
+/// [portfolioOrdersSlivers] (under the Investments tab's P&L charts, and
+/// under these on the Portfolio screen).
 List<Widget> portfolioPositionsSlivers(
-    BuildContext context, WidgetRef ref, PortfolioVenues venues) {
+    BuildContext context, WidgetRef ref, PortfolioVenues venues,
+    {bool heading = true}) {
   if (!venues.any) return const [];
   final book = _PositionsBook.watch(context, ref, venues, withOrders: false);
   if (book.held.isEmpty && !book.loading) return const [];
@@ -359,8 +361,9 @@ List<Widget> portfolioPositionsSlivers(
       padding: EdgeInsets.symmetric(horizontal: 16.w),
       sliver: SliverList(
         delegate: SliverChildListDelegate([
-          _SectionHeader(context.l10n.ledgerPositionsTitle,
-              key: const ValueKey('portfolio-positions-heading')),
+          if (heading)
+            _SectionHeader(context.l10n.ledgerPositionsTitle,
+                key: const ValueKey('portfolio-positions-heading')),
           ...book.held,
           if (book.loading) const _LoadingCard(),
         ]),
