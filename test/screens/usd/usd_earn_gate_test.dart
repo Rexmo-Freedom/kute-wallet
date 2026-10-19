@@ -66,9 +66,14 @@ Finder _earnCopy() => find.textContaining(
         r'No payments yet|Rewards start once'),
     skipOffstage: false);
 
-/// Opens the Portfolio pill (Charts is its first section).
+/// Opens the Portfolio pill, then its P&L charts section (Positions is
+/// the first).
 Future<void> _openStatistics(WidgetTester tester) async {
   await tester.tap(find.text('Portfolio').first);
+  for (var i = 0; i < 8; i++) {
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+  await tester.tap(find.byKey(const ValueKey('portfolio-section-pill-charts')));
   for (var i = 0; i < 8; i++) {
     await tester.pump(const Duration(milliseconds: 100));
   }
