@@ -77,7 +77,7 @@ void main() {
     final wrapper = BreezSdkSpark.forTesting(
         settlementObservation: Duration.zero,
         connectSdk: (_) async => ++connects == 1 ? first : second);
-    await wrapper.connect(req: request, walletId: 'wallet');
+    await wrapper.connect(req: request, walletId: 'wallet', reconnectRequest: () async => request);
     await flush();
     final syncing = sharedSyncWallet(first);
     final arrival = row();
@@ -104,7 +104,7 @@ void main() {
     stub(sdk, 0);
     final wrapper = BreezSdkSpark.forTesting(
         settlementObservation: Duration.zero, connectSdk: (_) async => sdk);
-    await wrapper.connect(req: request, walletId: 'wallet');
+    await wrapper.connect(req: request, walletId: 'wallet', reconnectRequest: () async => request);
     await flush();
     when(() => sdk.getInfo(
             request: const spark.GetInfoRequest(ensureSynced: false)))
@@ -122,7 +122,7 @@ void main() {
     stub(sdk, 0);
     final wrapper = BreezSdkSpark.forTesting(
         settlementObservation: Duration.zero, connectSdk: (_) async => sdk);
-    await wrapper.connect(req: request, walletId: 'wallet');
+    await wrapper.connect(req: request, walletId: 'wallet', reconnectRequest: () async => request);
     await flush();
     for (final invalid in [
       row(wallet: 'other'),
@@ -152,7 +152,7 @@ void main() {
     final wrapper = BreezSdkSpark.forTesting(
         settlementObservation: Duration.zero,
         connectSdk: (_) async => ++connects == 1 ? first : second);
-    await wrapper.connect(req: request, walletId: 'wallet');
+    await wrapper.connect(req: request, walletId: 'wallet', reconnectRequest: () async => request);
     await flush();
     final sending = Completer<void>();
     final operation = runSparkMutation(first, () => sending.future);
@@ -194,7 +194,7 @@ void main() {
     final wrapper = BreezSdkSpark.forTesting(
         settlementObservation: Duration.zero,
         connectSdk: (_) async => ++connects == 1 ? first : second);
-    await wrapper.connect(req: request, walletId: 'wallet');
+    await wrapper.connect(req: request, walletId: 'wallet', reconnectRequest: () async => request);
     await flush();
     final arrival = row().copyWith(coinTo: 'USDB', withdrawalAmount: '4');
     final watching = DollarsLandingWatcher(
@@ -237,7 +237,7 @@ void main() {
       final wrapper = BreezSdkSpark.forTesting(
           settlementObservation: Duration.zero,
           connectSdk: (_) async => ++connects == 1 ? first : second);
-      await wrapper.connect(req: request, walletId: 'wallet');
+      await wrapper.connect(req: request, walletId: 'wallet', reconnectRequest: () async => request);
       await flush();
       final meta = spark.TokenMetadata(
           identifier: 'token',
@@ -275,7 +275,7 @@ void main() {
     final wrapper = BreezSdkSpark.forTesting(
         settlementObservation: Duration.zero,
         connectSdk: (_) async => ++connects == 1 ? first : second);
-    await wrapper.connect(req: request, walletId: 'wallet');
+    await wrapper.connect(req: request, walletId: 'wallet', reconnectRequest: () async => request);
     await flush();
     final outgoing = spark.Payment(
         id: 'outgoing',
@@ -311,7 +311,7 @@ void main() {
     stub(sdk, 0);
     final wrapper = BreezSdkSpark.forTesting(
         settlementObservation: Duration.zero, connectSdk: (_) async => sdk);
-    await wrapper.connect(req: request, walletId: 'wallet');
+    await wrapper.connect(req: request, walletId: 'wallet', reconnectRequest: () async => request);
     await flush();
     when(() => sdk.listPayments(request: const spark.ListPaymentsRequest()))
         .thenAnswer((_) async => spark.ListPaymentsResponse(payments: [

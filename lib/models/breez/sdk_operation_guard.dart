@@ -2,8 +2,12 @@ import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 
 // A reconnect must never retire a native handle while an app-initiated
-// payment/claim/refund is running. The reservation is synchronous, so a send
-// cannot start in the gap between a recovery's safety check and disconnect.
+// payment/claim/refund is running. The reservation is synchronous and is
+// taken in the same step as the retirement (after every asynchronous
+// check, the SDK's pending-send list among them), so a send cannot start
+// in the gap between a recovery's last check and the disconnect, and a
+// send that started during the checks is seen by the reservation and
+// defers the reconnect.
 final _operations = Expando<_SdkOperations>('sparkOperations');
 
 /// A cached asynchronous read from this handle must no longer publish.
@@ -52,6 +56,9 @@ Future<T> runSparkMutation<T>(
 
 /// Returns a recovery reservation only while no mutation is in flight.
 /// Retiring it permanently rejects submissions using a prepared old handle.
+/// Held only for the synchronous step from the last check to the
+/// retirement: never across an await, so no send ever meets "The wallet
+/// is reconnecting" because a check is still reading.
 SparkRecoveryReservation? reserveSparkRecovery(BreezSdk sdk) {
   final state = _operations[sdk] ??= _SdkOperations();
   if (state.active != 0 || state.recovering || state.retired) return null;
@@ -89,10 +96,12 @@ Future<T> runSparkQuote<T>(Future<T> Function() operation) async {
 // ─── Money flows between steps ──────────────────────────────────────────
 //
 // A pull-to-refresh reconnects the SDK only when no money flow is
-// anywhere between its steps, so "The wallet is reconnecting. Review the
-// payment again." can never come from a pull. Beside the running native
-// calls ([runSparkMutation]) and quotes ([runSparkQuote]) a flow counts
-// while:
+// anywhere between its steps, and reserves the handle only in the
+// synchronous step that retires it, so "The wallet is reconnecting.
+// Review the payment again." can never come from a pull: a send that
+// starts while the pull is still checking runs, and the pull defers.
+// Beside the running native calls ([runSparkMutation]) and quotes
+// ([runSparkQuote]) a flow counts while:
 //   * a flow scope runs ([runSparkFlow]): a settlement run, prepare or
 //     confirm (quote, review, prepare, broadcast), a send tap on the
 //     confirm screen through its biometric prompt and broadcast;

@@ -182,21 +182,26 @@ void main() {
     BreezSdkSpark.reconnectSlowRetry = const Duration(seconds: 60);
     BreezSdkSpark.teardownTimeout = const Duration(seconds: 15);
     BreezSdkSpark.pullReconnectCooldown = const Duration(seconds: 25);
+    BreezSdkSpark.connectTimeout = const Duration(seconds: 30);
+    BreezSdkSpark.offlineSyncFailureWindow = const Duration(seconds: 30);
+    BreezSdkSpark.teardownPendingRetryLimit = 5;
     debugResetSparkFlows();
   });
 
   Future<void> flush() => Future<void>.delayed(Duration.zero);
 
   /// The spending wallet connected to the first of [handles] (each later
-  /// connect takes the next; a null one fails to connect), the Bitcoin
-  /// hero followed, and only the real `bitcoin` step in the pull.
+  /// connect takes the next; a null one fails to connect; a
+  /// `Completer<spark.BreezSdk>` is a native connect that hangs until the
+  /// test completes it), the Bitcoin hero followed, and only the real
+  /// `bitcoin` step in the pull.
   Future<
       ({
         ProviderContainer c,
         BreezSdkSpark wrapper,
         List<int> hero,
         int Function() providerBuilds,
-      })> setUpWallet(List<_Handle?> handles,
+      })> setUpWallet(List<Object?> handles,
       {Duration connectDelay = Duration.zero,
       Duration syncWaitTimeout = const Duration(milliseconds: 300),
       Map<String, RefreshStep>? otherSteps,
@@ -210,7 +215,8 @@ void main() {
         firstConnect = false;
         final next = queue.removeAt(0);
         if (next == null) throw StateError('offline');
-        return next.sdk;
+        if (next is Completer<spark.BreezSdk>) return next.future;
+        return (next as _Handle).sdk;
       },
     );
     var builds = 0;
@@ -234,7 +240,12 @@ void main() {
     c.listen<WalletBalance>(balanceNotifierProvider,
         (_, next) => hero.add(next.sparkBitcoinbalance),
         fireImmediately: true);
-    await wrapper.connect(req: _Request(), walletId: 'spend');
+    // The request built again for a reconnect, as the provider does (the
+    // seed read again, never kept).
+    await wrapper.connect(
+        req: _Request(),
+        walletId: 'spend',
+        reconnectRequest: () async => _Request());
     await c.read(breezSDKProvider.future);
     await flush();
     // From here on: every figure the hero shows.
@@ -695,7 +706,7 @@ void main() {
               tokenBalances: {}));
       when(() => sdk.listPayments(request: any(named: 'request'))).thenAnswer(
           (_) async => const spark.ListPaymentsResponse(payments: []));
-      await wrapper.connect(req: _Request(), walletId: 'spend');
+      await wrapper.connect(req: _Request(), walletId: 'spend', reconnectRequest: () async => _Request());
       addTearDown(wrapper.disconnect);
       final c = ProviderContainer(overrides: [
         settingsProvider.overrideWith((ref) => SettingsModel(_settings())),
@@ -796,6 +807,255 @@ void main() {
       expect(m.lastStartMs, lessThan(50));
       expect(m.spinnerMs, lessThan(200));
       expect(before, greaterThanOrEqualTo(1500));
+    });
+  });
+
+  group('the reconnect path hardened', () {
+    List<Map<String, Object>> recoveries({String? source}) => [
+          for (final e in events)
+            if (e.$1 == 'usd_token_recovery' &&
+                (source == null || e.$2?['source'] == source))
+              e.$2!
+        ];
+
+    test(
+        'a native connect that hangs: the pull gives up after the timeout '
+        'and retries; the handle the hung call produces later is shut down, '
+        'never adopted, and no handle connects beside it meanwhile',
+        () async {
+      BreezSdkSpark.connectTimeout = const Duration(milliseconds: 40);
+      BreezSdkSpark.teardownTimeout = const Duration(milliseconds: 20);
+      BreezSdkSpark.pullRetryDelays = const [Duration(milliseconds: 10)];
+      BreezSdkSpark.reconnectSlowRetry = const Duration(milliseconds: 10);
+      BreezSdkSpark.teardownPendingRetryLimit = 1000;
+      final first = _Handle(10000), late = _Handle(99999);
+      final second = _Handle(25000);
+      final hung = Completer<spark.BreezSdk>();
+      final w = await setUpWallet([first, hung, second]);
+
+      await pull(w.c);
+
+      expect(first.disconnects, 1);
+      expect(w.wrapper.instance, isNull);
+      expect(w.wrapper.isConnecting, isFalse,
+          reason: 'released: nothing waits on the hung call for good');
+      expect(w.wrapper.teardownPending, isTrue,
+          reason: 'the hung connect is a handle not confirmed down');
+      expect(recoveries(source: 'pull').single,
+          containsPair('reason', 'connect_failed'));
+      expect(shown(w.c), 10000, reason: 'the last figure stays meanwhile');
+
+      // The retries wait on the hung call: no second handle beside it.
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      expect(w.wrapper.instance, isNull);
+      verifyNever(() => second.sdk.addEventListener());
+      expect(recoveries(source: 'retry'), isNotEmpty);
+      expect(recoveries(source: 'retry').last,
+          containsPair('reason', 'teardown_failed'));
+
+      // The hung call answers at last: its handle is shut down the moment
+      // it exists and never adopted; the next retry connects.
+      hung.complete(late.sdk);
+      for (var i = 0;
+          i < 50 && !identical(w.wrapper.instance, second.sdk);
+          i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      expect(late.disconnects, 1);
+      verifyNever(() => late.sdk.addEventListener());
+      expect(w.wrapper.instance, same(second.sdk));
+      expect(w.wrapper.teardownPending, isFalse);
+      for (var i = 0; i < 20 && shown(w.c) != 25000; i++) {
+        await flush();
+      }
+      expect(shown(w.c), 25000);
+      expect(w.providerBuilds(), 1);
+    });
+
+    test(
+        'offline (a wallet sync on the live handle failed just now): the '
+        'pull syncs and never retires the working cached handle; a resume '
+        'or network change lets the next pull reconnect', () async {
+      BreezSdkSpark.offlineSyncFailureWindow =
+          const Duration(milliseconds: 300);
+      final first = _Handle(10000), second = _Handle(25000);
+      final w = await setUpWallet([first, second]);
+      when(() => first.sdk.syncWallet(request: any(named: 'request')))
+          .thenAnswer((_) async {
+        first.syncs++;
+        throw StateError('offline');
+      });
+      // A background sync failed: the network is down.
+      await w.wrapper.syncAndReread();
+      expect(w.wrapper.recentlyOffline, isTrue);
+      expect(w.wrapper.canReconnectForPull, isFalse);
+
+      await pull(w.c);
+
+      expect(first.disconnects, 0);
+      expect(w.wrapper.instance, same(first.sdk));
+      expect(pullEvent()?['refresh_mode'], 'sync');
+      expect(shown(w.c), 10000);
+      events.clear();
+
+      // The network back: the signal clears the mark, the pull reconnects.
+      when(() => first.sdk.syncWallet(request: any(named: 'request')))
+          .thenAnswer((_) async => const spark.SyncWalletResponse());
+      expect(await w.wrapper.reconnectIfDown(), isFalse,
+          reason: 'a handle is there: nothing to connect');
+      expect(w.wrapper.recentlyOffline, isFalse);
+      await pull(w.c);
+      expect(pullEvent()?['refresh_mode'], 'reconnect');
+      expect(w.wrapper.instance, same(second.sdk));
+      expect(shown(w.c), 25000);
+    });
+
+    test('the offline mark lapses on its own after the window', () async {
+      BreezSdkSpark.offlineSyncFailureWindow =
+          const Duration(milliseconds: 60);
+      final first = _Handle(10000), second = _Handle(25000);
+      final w = await setUpWallet([first, second]);
+      when(() => first.sdk.syncWallet(request: any(named: 'request')))
+          .thenAnswer((_) async => throw StateError('offline'));
+      await w.wrapper.syncAndReread();
+      expect(w.wrapper.recentlyOffline, isTrue);
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+      expect(w.wrapper.recentlyOffline, isFalse);
+      expect(w.wrapper.canReconnectForPull, isTrue);
+    });
+
+    test(
+        'an old handle whose shutdown never answers: after five tries in a '
+        'row the retry timer stops; a resume or network change asks again',
+        () async {
+      BreezSdkSpark.teardownTimeout = const Duration(milliseconds: 10);
+      BreezSdkSpark.pullRetryDelays = const [Duration(milliseconds: 10)];
+      BreezSdkSpark.reconnectSlowRetry = const Duration(milliseconds: 10);
+      final first = _Handle(10000), second = _Handle(25000);
+      final never = Completer<void>();
+      when(() => first.sdk.disconnect()).thenAnswer((_) => never.future);
+      final w = await setUpWallet([first, second]);
+
+      await pull(w.c);
+      expect(w.wrapper.instance, isNull);
+      expect(recoveries(source: 'pull').single,
+          containsPair('reason', 'teardown_failed'));
+
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      final retries = recoveries(source: 'retry');
+      expect(retries, hasLength(4),
+          reason: 'the pull and four retries: five in a row, then it stops');
+      expect(retries.every((r) => r['reason'] == 'teardown_failed'), isTrue);
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      expect(recoveries(source: 'retry'), hasLength(4),
+          reason: 'stopped: nothing to wait on but the same hung shutdown');
+      expect(w.wrapper.instance, isNull);
+      verifyNever(() => second.sdk.addEventListener());
+
+      // A resume or network change: asked again, retries starting over.
+      expect(await w.wrapper.reconnectIfDown(), isFalse);
+      expect(recoveries(source: 'resume').single,
+          containsPair('reason', 'teardown_failed'));
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+      expect(recoveries(source: 'retry'), hasLength(greaterThan(4)));
+      expect(w.providerBuilds(), 1);
+    });
+
+    test(
+        'the race: a send that starts while the pull reads the pending list '
+        'runs (never "The wallet is reconnecting"), and the pull defers',
+        () async {
+      final first = _Handle(10000), second = _Handle(25000);
+      final w = await setUpWallet([first, second]);
+      final checking = Completer<spark.ListPaymentsResponse>();
+      when(() => first.sdk.listPayments(request: any(named: 'request')))
+          .thenAnswer((_) => checking.future);
+      final refresh = w.c.read(refreshEverythingProvider);
+      final running = refresh.run();
+      final pulling = refresh(RefreshTrigger.home);
+      await flush();
+      expect(pullEvent()?['refresh_mode'], 'reconnect');
+
+      final sending = Completer<void>();
+      var sent = false;
+      final send = runSparkMutation(first.sdk, () async {
+        sent = true;
+        await sending.future;
+      });
+      await flush();
+      expect(sent, isTrue, reason: 'nothing is reserved during the check');
+
+      checking.complete(const spark.ListPaymentsResponse(payments: []));
+      when(() => first.sdk.listPayments(request: any(named: 'request')))
+          .thenAnswer(
+              (_) async => const spark.ListPaymentsResponse(payments: []));
+      for (var i = 0; i < 10; i++) {
+        await flush();
+      }
+      sending.complete();
+      await send;
+      await pulling;
+      await running;
+
+      expect(first.disconnects, 0);
+      expect(w.wrapper.instance, same(first.sdk));
+      expect(recoveries(source: 'pull').single,
+          containsPair('reason', 'mutation_in_flight'));
+      expect(first.syncs, greaterThanOrEqualTo(1), reason: 'synced instead');
+    });
+
+    test(
+        'locked: no retry and no resume reconnect; the unlock connects again',
+        () async {
+      BreezSdkSpark.pullRetryDelays = const [Duration(milliseconds: 30)];
+      var unlocked = true;
+      final first = _Handle(10000), second = _Handle(25000);
+      final w = await setUpWallet([first, null, second]);
+      w.wrapper.sessionUnlocked = () => unlocked;
+
+      await pull(w.c);
+      expect(w.wrapper.instance, isNull);
+      // The lock engages before the retry fires.
+      unlocked = false;
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      expect(w.wrapper.instance, isNull, reason: 'nothing behind the lock');
+      verifyNever(() => second.sdk.addEventListener());
+      expect(await w.wrapper.reconnectIfDown(), isFalse);
+      expect(w.wrapper.instance, isNull);
+      expect(recoveries(source: 'retry'), isEmpty);
+      expect(recoveries(source: 'resume'), isEmpty);
+
+      // What completeUnlock asks once the session is unlocked.
+      unlocked = true;
+      expect(await w.wrapper.reconnectIfDown(), isTrue);
+      expect(w.wrapper.instance, same(second.sdk));
+      expect(recoveries(source: 'resume').single,
+          containsPair('reason', 'reconnected'));
+      expect(w.providerBuilds(), 1);
+    });
+
+    test(
+        'a stale send hold (past the grace, no pending send) is released '
+        'before the mode is decided: the same pull reconnects', () async {
+      var now = DateTime(2026, 10, 19, 12);
+      final first = _Handle(10000), second = _Handle(25000);
+      final w = await setUpWallet([first, second], overrides: [
+        walletBalanceCacheProvider.overrideWith(
+            (ref) => WalletBalanceCacheNotifier(clock: () => now)),
+      ]);
+      final cache = w.c.read(walletBalanceCacheProvider.notifier);
+      cache.updateSparkBitcoinbalance('spend', 10000,
+          source: BalanceSource.stream);
+      cache.holdOutgoingSparkSend('spend',
+          key: 'out', balanceBeforeSats: 10000, debitSats: 3000, feeSats: 0);
+      expect(cache.hasOutgoingSparkSendInFlight('spend'), isTrue);
+      now = now.add(const Duration(seconds: 31));
+
+      await pull(w.c);
+
+      expect(pullEvent()?['refresh_mode'], 'reconnect');
+      expect(w.wrapper.instance, same(second.sdk));
+      expect(cache.hasOutgoingSparkSendInFlight('spend'), isFalse);
     });
   });
 

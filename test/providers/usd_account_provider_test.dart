@@ -509,10 +509,19 @@ void main() {
     });
   });
 
-  test('a failed native recovery re-enters the provider connection lifecycle',
-      () async {
+  test(
+      'a failed native recovery is retried by the wrapper from its kept '
+      'request, never by rebuilding the connection provider', () async {
     KuteHaptics.debugForeground = () => false;
     addTearDown(KuteHaptics.debugReset);
+    registerFallbackValue(const breez.GetInfoRequest());
+    BreezSdkSpark.pullRetryDelays = const [Duration(milliseconds: 20)];
+    addTearDown(() => BreezSdkSpark.pullRetryDelays = const [
+          Duration(seconds: 2),
+          Duration(seconds: 5),
+          Duration(seconds: 15),
+          Duration(seconds: 30),
+        ]);
     final first = _Sdk(), second = _Sdk();
     for (final sdk in [first, second]) {
       when(() => sdk.addEventListener())
@@ -526,15 +535,20 @@ void main() {
         .thenAnswer((_) async => _info({usdbTokenIdentifier: ('USDB', 0)}));
     when(() => first.syncWallet(request: const breez.SyncWalletRequest()))
         .thenThrow(StateError('Bitcoin leaf refresh failed'));
-    when(() => second.getInfo(request: const breez.GetInfoRequest()))
-        .thenAnswer(
-            (_) async => _info({usdbTokenIdentifier: ('USDB', 12000000)}));
+    // Read by the catch-up and by the wrapper's own publication after the
+    // retry connects (`ensureSynced: false`).
+    when(() => second.getInfo(request: any(named: 'request'))).thenAnswer(
+        (_) async => _info({usdbTokenIdentifier: ('USDB', 12000000)}));
     var nativeConnects = 0;
     final wrapper = BreezSdkSpark.forTesting(connectSdk: (_) async {
-      if (++nativeConnects > 1) throw StateError('network offline');
-      return first;
+      // The recovery's connect fails (offline); the wrapper's own retry
+      // connects.
+      final attempt = ++nativeConnects;
+      if (attempt == 1) return first;
+      if (attempt == 2) throw StateError('network offline');
+      return second;
     });
-    await wrapper.connect(req: _Request());
+    await wrapper.connect(req: _Request(), reconnectRequest: () async => _Request());
     final replacement = _Wrapper();
     when(() => replacement.instance).thenReturn(second);
     when(() => replacement.walletInfoStream)
@@ -573,9 +587,10 @@ void main() {
           timestampSeconds: DateTime.now().millisecondsSinceEpoch ~/ 1000)
     ]);
     await Future<void>.delayed(const Duration(milliseconds: 1500));
-    expect(nativeConnects, 2);
-    expect(wrapper.instance, isNull);
-    expect(providerBuilds, 2, reason: 'disconnected wrapper was invalidated');
+    expect(nativeConnects, 3, reason: 'the failed connect, then the retry');
+    expect(wrapper.instance, same(second));
+    expect(providerBuilds, 1,
+        reason: 'no rebuild: that would unlock the wallet again');
     expect(container.read(usdBalanceProvider), 12);
     container.dispose();
   });
