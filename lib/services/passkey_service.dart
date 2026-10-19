@@ -1018,6 +1018,82 @@ class PasskeyService {
     await box.put(_cachedLabelKey, label);
   }
 
+  /// Forget the device-local seed material of the passkey wallet [label]
+  /// once its record is gone (called by `removeWallet`, after the record).
+  /// Deletes only what is keyed by this label: the 0.17 seed cache entry
+  /// under the stored credential and the label-only entry, the in-memory
+  /// copies, and the legacy PRF seed for this salt when no remaining
+  /// record carries the label (a shared label cannot be tied to one
+  /// wallet, so it is kept). Clears the cached label when it names this
+  /// wallet and no unlabelled record still depends on it. Credential
+  /// pins, the passkey registry and relay labels are never touched. Every
+  /// step is best-effort; failures are reported by kind only.
+  static Future<void> forgetWallet(String label) async {
+    _walletSession.remove(label);
+    _walletInFlight.remove(label);
+    if (_discovered?.label == label) _discovered = null;
+
+    await _forgetStep('seed_cache', () async {
+      Uint8List? pin;
+      try {
+        pin = await _loadCredentialId017();
+      } catch (_) {/* unreadable pin: the label-only entry still goes */}
+      if (pin != null && pin.isNotEmpty) {
+        await SecretStores.local.deleteLocalOnly(key: _seedCacheKey(label, pin));
+      }
+      await SecretStores.local
+          .deleteLocalOnly(key: _seedCacheKey(label, _noCredential));
+    });
+
+    // Without the records nothing can tie the PRF seed or the cached label
+    // to this wallet alone, so both are kept.
+    Box<dynamic>? box;
+    try {
+      box = await Hive.openBox('settings');
+    } catch (e) {
+      TrackingService.track('passkey_forget_wallet_step_failed', params: {
+        'step': 'records',
+        'error_category': TrackingService.errorReason(e),
+      });
+      return;
+    }
+    final records = box;
+    if (!_anyRecordWithLabel(records, label)) {
+      await _forgetStep('legacy_prf_seed',
+          () => PasskeyPrfService.discardDerive(label, dropPin: false));
+    }
+    await _forgetStep('cached_label', () async {
+      if (records.get(_cachedLabelKey) == label &&
+          !_anyUnlabelledPasskeyRecord(records)) {
+        await records.delete(_cachedLabelKey);
+      }
+    });
+  }
+
+  static Future<void> _forgetStep(
+      String step, Future<void> Function() body) async {
+    try {
+      await body();
+    } catch (e) {
+      TrackingService.track('passkey_forget_wallet_step_failed', params: {
+        'step': step,
+        'error_category': TrackingService.errorReason(e),
+      });
+    }
+  }
+
+  /// Whether a stored wallet record carries [label].
+  static bool _anyRecordWithLabel(Box<dynamic> box, String label) {
+    final raw = box.get('wallets');
+    if (raw is! List) return false;
+    for (final w in raw) {
+      if (w is Map && w['isPasskey'] == true && w['passkeyLabel'] == label) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   /// Whether a stored wallet record is a passkey wallet with no label.
   static bool _anyUnlabelledPasskeyRecord(Box<dynamic> box) {
     final raw = box.get('wallets');

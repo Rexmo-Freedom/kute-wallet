@@ -9,6 +9,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:kute/services/passkey_service.dart' show PasskeyService;
 import 'package:kute/services/secure/flutter_secret_store.dart';
 import 'package:kute/services/secure/secret_error_class.dart';
 import 'package:kute/services/hardware/ledger/ledger_venue_descriptor_store.dart'
@@ -613,13 +614,15 @@ class SettingsModel extends StateNotifier<Settings> {
 
     state = state.copyWith(wallets: updatedList, activeWalletId: newActiveId);
 
-    await _deleteWalletData(walletId);
+    await _deleteWalletData(walletToDelete);
   }
 
-  /// Deletes [walletId]'s secrets and local data after its record is gone.
-  /// Only keys named by this wallet's id are touched. Each step is
-  /// best-effort: a failure is logged by kind and the next step still runs.
-  Future<void> _deleteWalletData(String walletId) async {
+  /// Deletes [wallet]'s secrets and local data after its record is gone.
+  /// Only keys named by this wallet's id (or, for a passkey wallet, its
+  /// label) are touched. Each step is best-effort: a failure is logged by
+  /// kind and the next step still runs.
+  Future<void> _deleteWalletData(WalletConfig wallet) async {
+    final walletId = wallet.id;
     await _bestEffort('local_files', () async {
       final appDocDir = await getApplicationDocumentsDirectory();
       final dbFile = File('${appDocDir.path}/bdk_wallet_$walletId.sqlite');
@@ -631,6 +634,15 @@ class SettingsModel extends StateNotifier<Settings> {
 
     await _bestEffort(
         'seed', () => AuthModel().deleteWalletMnemonic(walletId));
+
+    // A passkey wallet's derived seed is cached on this device under its
+    // label; the record is gone, so the cache goes too. Only entries keyed
+    // by this label: pins and the registry stay (see forgetWallet).
+    final label = wallet.passkeyLabel;
+    if (wallet.isPasskey && label != null) {
+      await _bestEffort(
+          'passkey_seed_cache', () => PasskeyService.forgetWallet(label));
+    }
 
     // Polymarket credentials and proxy wallet.
     await _bestEffort(

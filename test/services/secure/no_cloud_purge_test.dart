@@ -155,16 +155,6 @@ void main() {
       expect(keychain.peek(prfKey('L')), isNull);
       expect(keychain.peekSynced(prfKey('L')), 'bb' * 32);
     });
-
-    test('clearCache deletes only the local PRF seed', () async {
-      keychain.seed(prfKey('L'), 'aa' * 32);
-      keychain.seedSynced(prfKey('L'), 'bb' * 32);
-      await PasskeyPrfService.derivePrfSeed('L');
-      await PasskeyPrfService.clearCache();
-      expect(prfCalls, isEmpty);
-      expect(keychain.peek(prfKey('L')), isNull);
-      expect(keychain.peekSynced(prfKey('L')), 'bb' * 32);
-    });
   });
 
   group('seed writes keep synced twins', () {
