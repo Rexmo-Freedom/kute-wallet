@@ -67,6 +67,10 @@ final breezSDKProvider = FutureProvider<BreezSdkSpark>((ref) async {
   bindSparkRecoveryLifecycle(ref, wrapper);
   var live = true;
   ref.onDispose(() => live = false);
+  // A reconnect from the kept request (a resume, a network change, a
+  // retry) runs only while the session is unlocked; the unlock itself
+  // connects again (`completeUnlock`).
+  wrapper.sessionUnlocked = () => live && ref.read(sessionUnlockedProvider);
   // A reconnect that could not connect yet (offline, or the old handle's
   // shutdown not confirmed) tries again at once on an app resume or a
   // network change, from the kept request: no unlock.
