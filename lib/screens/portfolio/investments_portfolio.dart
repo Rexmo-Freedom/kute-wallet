@@ -2,15 +2,20 @@
 //
 // The Investments tab's third pill, Portfolio (owner decision October
 // 2026: it was Positions, and the Portfolio screen was behind the
-// balance). Three sections under the pills, switched with the Active |
+// balance). Four sections under the pills, switched with the Active |
 // Historic pair's small pills ([KutePill]) at the top of the list:
 //
 //   * P&L CHARTS (the default): the one P&L chart with its All · Investing ·
 //     Predictions toggle, the Active | Historic pair over the allocation
 //     donut and its figures (PortfolioStatisticsOverview), then
-//     everything held at both venues with the resting orders under it
-//     (portfolioPositionsSlivers, the rows the Positions pill listed).
+//     everything held at both venues (portfolioPositionsSlivers, the
+//     cards the Positions pill listed), without the orders.
 //     No venue on the account: the "No positions yet" empty state;
+//   * ORDERS (founder request, October 2026: out of P&L charts): the
+//     resting orders at both venues, Investing and Predictions, under
+//     their Orders heading with the count and one Cancel all, each row
+//     with its own cancel (portfolioOrdersSlivers, portfolio_orders.dart).
+//     Nothing resting, or no venue: the "No open orders" empty state;
 //   * ACTIVITY: the Investments activity, the one merged list
 //     (portfolio_activity.dart), all of it: this is its home now, so no
 //     preview and no "See all";
@@ -19,11 +24,12 @@
 //     the top of the Portfolio screen.
 //
 // The section is shared state ([portfolioSectionProvider]) kept for the
-// session, so the pill comes back where it was left and a link, a
-// placed order's "View positions" or a trade notification can open a
-// section from anywhere. Only the section on screen is built.
+// session, so the pill comes back where it was left and a link
+// (`?tab=orders` lands on Orders), a filled order's "View positions" or
+// a trade notification can open a section from anywhere. Only the
+// section on screen is built.
 //
-// The Portfolio screen (OpenInvestmentsScreen) keeps all three for the
+// The Portfolio screen (OpenInvestmentsScreen) keeps all of it for the
 // doors that still push it (Home's Predictions card, a venue browser's
 // dock standing on its own); nothing on Investments opens it any more.
 
@@ -34,7 +40,7 @@ import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/home/components/kute_dock_host.dart'
     show kuteDockScrollClearance;
 import 'package:kute/screens/portfolio/open_investments_screen.dart'
-    show portfolioPositionsSlivers;
+    show portfolioOrdersSlivers, portfolioPositionsSlivers;
 import 'package:kute/screens/portfolio/portfolio_activity.dart';
 import 'package:kute/screens/portfolio/portfolio_balance_breakdown.dart';
 import 'package:kute/screens/portfolio/portfolio_empty_state.dart';
@@ -50,6 +56,7 @@ import 'package:kute/screens/shared/transactions_builder.dart'
 /// fixed English.
 enum PortfolioSection {
   charts('charts'),
+  orders('orders'),
   activity('activity'),
   balances('balances');
 
@@ -59,17 +66,17 @@ enum PortfolioSection {
 
   /// The section an Investments link lands on (`/usd?tab=…`), or null
   /// when the link names no Portfolio section (a venue pill, nothing).
-  /// The Positions pill and the old Portfolio pill, with its Open, Orders
-  /// and Statistics tabs, are Charts (where the chart and the positions
-  /// are); the old Activity tab is Activity.
+  /// The Positions pill and the old Portfolio pill, with its Open and
+  /// Statistics tabs, are Charts (where the chart and the positions are);
+  /// the old Orders tab is Orders, the old Activity tab is Activity.
   static PortfolioSection? forLink(String? key) => switch (key) {
         'positions' ||
         'portfolio' ||
         'open' ||
-        'orders' ||
         'statistics' ||
         'charts' =>
           PortfolioSection.charts,
+        'orders' => PortfolioSection.orders,
         'balances' => PortfolioSection.balances,
         'activity' => PortfolioSection.activity,
         _ => null,
@@ -96,6 +103,7 @@ class InvestmentsPortfolio extends ConsumerWidget {
       key: ValueKey('portfolio-section-${section.key}'),
       child: switch (section) {
         PortfolioSection.charts => _Charts(pills: pills),
+        PortfolioSection.orders => _Orders(pills: pills),
         PortfolioSection.balances => _Balances(pills: pills),
         PortfolioSection.activity => _Activity(pills: pills),
       },
@@ -103,7 +111,7 @@ class InvestmentsPortfolio extends ConsumerWidget {
   }
 }
 
-/// Charts | Balances | Activity: the Active | Historic pair's small pills
+/// P&L charts | Orders | Activity | Balances: the Active | Historic pair's small pills
 /// at their natural width; under very large text they share the row
 /// rather than overflow it.
 class _SectionPills extends StatelessWidget {
@@ -125,6 +133,7 @@ class _SectionPills extends StatelessWidget {
               key: ValueKey('portfolio-section-pill-${sections[i].key}'),
               label: switch (sections[i]) {
                 PortfolioSection.charts => l10n.portfolioSectionPnlCharts,
+                PortfolioSection.orders => l10n.portfolioTabOrders,
                 PortfolioSection.balances => l10n.portfolioSectionBalances,
                 PortfolioSection.activity => l10n.activity,
               },
@@ -149,7 +158,7 @@ Widget _dockClearance(BuildContext context) => SliverToBoxAdapter(
     child: SizedBox(height: 32.h + kuteDockScrollClearance(context)));
 
 /// Charts: the Portfolio screen's chart, pair and figures, then the
-/// positions and resting orders (see the file header).
+/// positions; the resting orders are [_Orders] (see the file header).
 class _Charts extends ConsumerWidget {
   const _Charts({required this.pills});
 
@@ -173,6 +182,37 @@ class _Charts extends ConsumerWidget {
       header: Padding(padding: EdgeInsets.only(bottom: 12.h), child: pills),
       footer: footer,
       footerEmpty: footer.isEmpty,
+    );
+  }
+}
+
+/// Orders: the resting orders at both venues with their cancels
+/// (portfolioOrdersSlivers); nothing resting, or no venue, the Portfolio
+/// empty state.
+class _Orders extends ConsumerWidget {
+  const _Orders({required this.pills});
+
+  final Widget pills;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final venues = ref.watch(portfolioVenuesProvider);
+    final orders = portfolioOrdersSlivers(context, ref, venues);
+    if (orders.isEmpty) {
+      return CustomScrollView(slivers: [
+        _pillsSliver(pills),
+        SliverFillRemaining(
+            child: PortfolioEmptyState(context.l10n.portfolioNoOpenOrders,
+                key: const ValueKey('portfolio-orders-empty'))),
+      ]);
+    }
+    return CustomScrollView(
+      key: const ValueKey('portfolio-orders-list'),
+      slivers: [
+        _pillsSliver(pills),
+        ...orders,
+        _dockClearance(context),
+      ],
     );
   }
 }

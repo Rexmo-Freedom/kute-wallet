@@ -3049,6 +3049,7 @@
   "moneyStepSent": "Sendte {amount}",
   "moneyStepCompact": "{source} → {destination} · {amount}",
   "arbitrumRefundReturned": "{amount} returneret på Arbitrum",
+  "portfolioNoOpenOrders": "Ingen åbne ordrer",
   "portfolioSectionPnlCharts": "P&L-grafer",
   "portfolioSectionBalances": "Saldi"
 }

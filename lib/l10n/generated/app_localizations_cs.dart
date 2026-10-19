@@ -10903,6 +10903,9 @@ class AppLocalizationsCs extends AppLocalizations {
   }
 
   @override
+  String get portfolioNoOpenOrders => 'Žádné otevřené pokyny';
+
+  @override
   String get portfolioSectionPnlCharts => 'Grafy P&L';
 
   @override

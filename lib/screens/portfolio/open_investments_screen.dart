@@ -11,8 +11,9 @@
 //     with one count and one Cancel all (portfolio_orders.dart). Each row
 //     is the card or order row it always was, with its drill-down and its
 //     actions. Nothing held and nothing resting: the Sal empty state ("No
-//     positions yet"). The Investments tab's Portfolio pill lists them
-//     under its Charts ([portfolioPositionsSlivers],
+//     positions yet"). The Investments tab's Portfolio pill lists the
+//     positions under its P&L charts ([portfolioPositionsSlivers]) and the
+//     orders in its own Orders section ([portfolioOrdersSlivers],
 //     investments_portfolio.dart); [PortfolioPositions] is the same rows
 //     as a page of their own.
 //   * THE PORTFOLIO ([OpenInvestmentsScreen]), full screen, opened from
@@ -178,8 +179,10 @@ class _PortfolioPage extends ConsumerWidget {
     final venues = ref.watch(portfolioVenuesProvider);
     final activity = watchPortfolioActivity(ref);
     final footer = <Widget>[
-      // What is held now, the Positions pill's rows, above the Activity.
+      // What is held now, the Positions pill's rows, then the resting
+      // orders, above the Activity.
       ...portfolioPositionsSlivers(context, ref, venues),
+      ...portfolioOrdersSlivers(context, ref, venues),
       if (activity.entries.isNotEmpty || activity.failed) ...[
         SliverPadding(
           padding: EdgeInsets.symmetric(horizontal: 16.w),
@@ -240,7 +243,7 @@ class PortfolioPositions extends ConsumerWidget {
     final l10n = context.l10n;
     final venues = ref.watch(portfolioVenuesProvider);
     final book = _PositionsBook.watch(context, ref, venues);
-    final orders = book.orders;
+    final orders = book.orders!;
 
     if (book.held.isEmpty &&
         !book.loading &&
@@ -274,7 +277,7 @@ class _PositionsBook {
     required this.held,
     required this.loading,
     required this.tradingFailed,
-    required this.orders,
+    this.orders,
   });
 
   final List<Widget> held;
@@ -284,10 +287,14 @@ class _PositionsBook {
 
   /// The Investing read failed with nothing listed.
   final bool tradingFailed;
-  final PortfolioOrdersBook orders;
+
+  /// The resting orders; null when read without them ([watch]'s
+  /// `withOrders`: the Investments tab lists them in their own section).
+  final PortfolioOrdersBook? orders;
 
   static _PositionsBook watch(
-      BuildContext context, WidgetRef ref, PortfolioVenues venues) {
+      BuildContext context, WidgetRef ref, PortfolioVenues venues,
+      {bool withOrders = true}) {
     var trading = const <(double, Widget)>[];
     var tradingLoading = false;
     var tradingFailed = false;
@@ -313,44 +320,71 @@ class _PositionsBook {
       held: [...leading, for (final (_, (_, card)) in ranked) card],
       loading: tradingLoading || predictionsLoading,
       tradingFailed: tradingFailed,
-      orders: PortfolioOrdersBook.watch(ref, venues),
+      orders: withOrders ? PortfolioOrdersBook.watch(ref, venues) : null,
     );
   }
 
   /// Nothing held and nothing resting.
-  bool get isEmpty => held.isEmpty && orders.isEmpty;
+  bool get isEmpty => held.isEmpty && (orders?.isEmpty ?? true);
 
   /// The resting orders under their heading, with the count and one
   /// Cancel all (portfolio_orders.dart).
   List<Widget> orderItems(BuildContext context, WidgetRef ref) =>
-      orders.items(context, ref,
-          header: (trailing) => _SectionHeader(context.l10n.portfolioTabOrders,
-              key: const ValueKey('portfolio-orders-heading'),
-              trailing: trailing));
+      orders == null ? const [] : _orderItems(context, ref, orders!);
 }
 
-/// The Portfolio's Positions section, above its Activity (founder
-/// request, October 2026): the Positions pill's rows, the same cards and
-/// order rows with the same taps and sheets, under a Positions heading in
-/// the Activity heading's style. Still reading: shimmer cards. Nothing
-/// held and nothing resting once read: no section at all.
+/// [orders] under their Orders heading, with the count and one Cancel
+/// all (portfolio_orders.dart).
+List<Widget> _orderItems(
+        BuildContext context, WidgetRef ref, PortfolioOrdersBook orders) =>
+    orders.items(context, ref,
+        header: (trailing) => _SectionHeader(context.l10n.portfolioTabOrders,
+            key: const ValueKey('portfolio-orders-heading'),
+            trailing: trailing));
+
+/// What is held, as slivers (founder request, October 2026): the
+/// Positions pill's cards with the same taps and sheets, under a
+/// Positions heading in the Activity heading's style. Still reading:
+/// shimmer cards. Nothing held once read: no section at all. The resting
+/// orders are not here: they are [portfolioOrdersSlivers] (the
+/// Investments tab's Orders section, and under these on the Portfolio
+/// screen).
 List<Widget> portfolioPositionsSlivers(
     BuildContext context, WidgetRef ref, PortfolioVenues venues) {
   if (!venues.any) return const [];
-  final book = _PositionsBook.watch(context, ref, venues);
-  if (book.isEmpty && !book.loading && !book.orders.loading) return const [];
+  final book = _PositionsBook.watch(context, ref, venues, withOrders: false);
+  if (book.held.isEmpty && !book.loading) return const [];
   return [
     SliverPadding(
       padding: EdgeInsets.symmetric(horizontal: 16.w),
       sliver: SliverList(
         delegate: SliverChildListDelegate([
-          if (book.held.isNotEmpty || book.loading) ...[
-            _SectionHeader(context.l10n.ledgerPositionsTitle,
-                key: const ValueKey('portfolio-positions-heading')),
-            ...book.held,
-          ],
-          if (book.loading || book.orders.loading) const _LoadingCard(),
-          ...book.orderItems(context, ref),
+          _SectionHeader(context.l10n.ledgerPositionsTitle,
+              key: const ValueKey('portfolio-positions-heading')),
+          ...book.held,
+          if (book.loading) const _LoadingCard(),
+        ]),
+      ),
+    ),
+  ];
+}
+
+/// The resting orders at both venues, as slivers: the Orders heading with
+/// its count and one Cancel all, the rows with their own cancels
+/// (portfolio_orders.dart). Still reading: shimmer cards. Nothing resting
+/// once read: nothing, so the caller shows its own empty state.
+List<Widget> portfolioOrdersSlivers(
+    BuildContext context, WidgetRef ref, PortfolioVenues venues) {
+  if (!venues.any) return const [];
+  final orders = PortfolioOrdersBook.watch(ref, venues);
+  if (orders.isEmpty && !orders.loading) return const [];
+  return [
+    SliverPadding(
+      padding: EdgeInsets.symmetric(horizontal: 16.w),
+      sliver: SliverList(
+        delegate: SliverChildListDelegate([
+          if (orders.loading) const _LoadingCard(),
+          ..._orderItems(context, ref, orders),
         ]),
       ),
     ),

@@ -3049,6 +3049,7 @@
   "moneyStepSent": "Saadetud {amount}",
   "moneyStepCompact": "{source} → {destination} · {amount}",
   "arbitrumRefundReturned": "{amount} tagastatud Arbitrumis",
+  "portfolioNoOpenOrders": "Avatud tellimusi pole",
   "portfolioSectionPnlCharts": "P&L graafikud",
   "portfolioSectionBalances": "Saldod"
 }

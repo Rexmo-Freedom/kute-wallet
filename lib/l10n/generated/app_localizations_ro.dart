@@ -10971,6 +10971,9 @@ class AppLocalizationsRo extends AppLocalizations {
   }
 
   @override
+  String get portfolioNoOpenOrders => 'Nicio ordine deschisă';
+
+  @override
   String get portfolioSectionPnlCharts => 'Grafice P&L';
 
   @override

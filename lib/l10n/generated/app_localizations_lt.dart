@@ -10955,6 +10955,9 @@ class AppLocalizationsLt extends AppLocalizations {
   }
 
   @override
+  String get portfolioNoOpenOrders => 'Atvirų pavedimų nėra';
+
+  @override
   String get portfolioSectionPnlCharts => 'P&L grafikai';
 
   @override

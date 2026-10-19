@@ -10880,6 +10880,9 @@ class AppLocalizationsLv extends AppLocalizations {
   }
 
   @override
+  String get portfolioNoOpenOrders => 'Nav atvērtu rīkojumu';
+
+  @override
   String get portfolioSectionPnlCharts => 'P&L grafiki';
 
   @override

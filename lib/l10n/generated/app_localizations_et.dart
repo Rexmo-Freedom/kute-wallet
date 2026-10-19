@@ -10900,6 +10900,9 @@ class AppLocalizationsEt extends AppLocalizations {
   }
 
   @override
+  String get portfolioNoOpenOrders => 'Avatud tellimusi pole';
+
+  @override
   String get portfolioSectionPnlCharts => 'P&L graafikud';
 
   @override
