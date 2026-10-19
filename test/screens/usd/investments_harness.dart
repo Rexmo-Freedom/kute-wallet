@@ -245,6 +245,12 @@ Future<void> unmountInvestments(WidgetTester tester) async {
 
 /// Taps [finder] and lets the switch settle by hand (see [pumpInvestments]).
 Future<void> tapAndPump(WidgetTester tester, Finder finder) async {
+  // A pill may sit past the edge of a sideways-scrolling row; only then
+  // is it scrolled into view (scrolling otherwise would move the page).
+  if (finder.hitTestable().evaluate().isEmpty) {
+    await tester.ensureVisible(finder);
+    await tester.pump();
+  }
   await tester.tap(finder);
   for (var i = 0; i < 5; i++) {
     await tester.pump(const Duration(milliseconds: 100));

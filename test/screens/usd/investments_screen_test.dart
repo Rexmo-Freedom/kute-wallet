@@ -15,6 +15,7 @@
 // does scrolling to the very top.
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderParagraph;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -765,7 +766,8 @@ void main() {
     await unmountInvestments(tester);
   });
 
-  testWidgets('the four section pills share one row on a 375-wide phone',
+  testWidgets(
+      'the four section pills share one row on a 375-wide phone, no label cut',
       (tester) async {
     await pumpInvestments(tester, size: const Size(375, 812));
     await tapPill(tester, _l10n(tester).walletPortfolioAction);
@@ -775,7 +777,14 @@ void main() {
     final top = tester.getTopLeft(pills.at(0)).dy;
     for (var i = 0; i < 4; i++) {
       expect(tester.getTopLeft(pills.at(i)).dy, top);
-      expect(tester.getBottomRight(pills.at(i)).dx, lessThanOrEqualTo(375));
+      // Every label at its full width ("P&L charts" lost its "s" when the
+      // pills were squeezed to fit).
+      final label = tester.widget<KutePill>(pills.at(i)).label;
+      final text = tester.renderObject<RenderParagraph>(find.descendant(
+          of: pills.at(i), matching: find.text(label)));
+      expect(text.size.width,
+          greaterThanOrEqualTo(text.getMaxIntrinsicWidth(double.infinity) - 0.5),
+          reason: label);
     }
     expect(tester.takeException(), isNull);
     await unmountInvestments(tester);

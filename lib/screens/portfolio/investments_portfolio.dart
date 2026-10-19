@@ -122,12 +122,17 @@ class _SectionPills extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final sections = PortfolioSection.values;
-    return Row(
-      children: [
-        for (var i = 0; i < sections.length; i++) ...[
-          if (i > 0) SizedBox(width: 6.w),
-          Flexible(
-            child: KutePill(
+    // Each pill at its full label width (never clipped, even bold when
+    // picked); a row wider than the screen (a long translation, large
+    // text) scrolls sideways instead of cutting a label.
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      clipBehavior: Clip.none,
+      child: Row(
+        children: [
+          for (var i = 0; i < sections.length; i++) ...[
+            if (i > 0) SizedBox(width: 6.w),
+            KutePill(
               key: ValueKey('portfolio-section-pill-${sections[i].key}'),
               label: switch (sections[i]) {
                 PortfolioSection.positions => l10n.ledgerPositionsTitle,
@@ -138,9 +143,9 @@ class _SectionPills extends StatelessWidget {
               selected: sections[i] == selected,
               onTap: () => onPick(sections[i]),
             ),
-          ),
+          ],
         ],
-      ],
+      ),
     );
   }
 }

@@ -73,7 +73,10 @@ Future<void> _openStatistics(WidgetTester tester) async {
   for (var i = 0; i < 8; i++) {
     await tester.pump(const Duration(milliseconds: 100));
   }
-  await tester.tap(find.byKey(const ValueKey('portfolio-section-pill-charts')));
+  final charts = find.byKey(const ValueKey('portfolio-section-pill-charts'));
+  await tester.ensureVisible(charts);
+  await tester.pump();
+  await tester.tap(charts);
   for (var i = 0; i < 8; i++) {
     await tester.pump(const Duration(milliseconds: 100));
   }
