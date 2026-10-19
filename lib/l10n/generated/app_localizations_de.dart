@@ -1548,10 +1548,6 @@ class AppLocalizationsDe extends AppLocalizations {
       'Der Code konnte nicht gelesen werden. Versuche es erneut.';
 
   @override
-  String get scanCouldNotReadClipboard =>
-      'Der Inhalt deiner Zwischenablage kann nicht verwendet werden. Kopiere die Adresse oder den Code erneut.';
-
-  @override
   String get walletImportCouldNotImport =>
       'Dieses Wallet konnte nicht importiert werden. Versuche es erneut.';
 
@@ -1617,10 +1613,6 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get scanQrCode => 'QR-Code scannen';
-
-  @override
-  String get scanAnyQRCodeDescription =>
-      'Scanne einen beliebigen QR-Code, und wir versuchen, ihn zu erkennen.';
 
   @override
   String get importFile => 'Datei importieren';
@@ -1939,9 +1931,6 @@ class AppLocalizationsDe extends AppLocalizations {
   String get scannerKeepInFrame => 'Halte den Code im Rahmen';
 
   @override
-  String get scannerPointAtCode => 'Richte die Kamera auf den QR-Code';
-
-  @override
   String get trackAddressPasteHint => 'Bitcoin-Adresse einfügen';
 
   @override
@@ -2120,9 +2109,6 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get swapRouteTemporarilyUnavailable =>
       'Diese Route ist vorübergehend nicht verfügbar. Bitte versuche es später erneut.';
-
-  @override
-  String get clipboardEmpty => 'Zwischenablage ist leer';
 
   @override
   String get pleaseSetUpPINFirst => 'Bitte richte zuerst deine PIN ein';
@@ -6857,17 +6843,10 @@ class AppLocalizationsDe extends AppLocalizations {
       'Dein Konto hat sich geändert. Schließe dies und beginne neu.';
 
   @override
-  String get onetimeRefundTitle =>
-      'Wohin sollen wir es zurücksenden, falls es fehlschlägt?';
+  String get onetimeRefundAddressTitle => 'Rücksendeadresse';
 
   @override
-  String onetimeRefundSubtitle(String network, String coin) {
-    return 'Deine Adresse auf $network für $coin. Kann die Einzahlung nicht abgeschlossen werden, wird sie hierhin zurückgesendet.';
-  }
-
-  @override
-  String get onetimeRefundSkipNote =>
-      'Ohne Rücksendeadresse braucht eine fehlgeschlagene Einzahlung den Support, um zurückgeholt zu werden.';
+  String get optionalLabel => 'Optional';
 
   @override
   String get quotedReceiveReturnsTo => 'Zurück an';

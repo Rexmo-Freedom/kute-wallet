@@ -25,7 +25,7 @@ class KutePasteChip extends StatelessWidget {
       );
 }
 
-/// The Scan twin of [KutePasteChip]: opens the shared smart scanner. The
+/// The Scan twin of [KutePasteChip]: opens the shared scanner sheet. The
 /// caller owns what the scanned value means (see `scanRecipientRaw`).
 class KuteScanChip extends StatelessWidget {
   final VoidCallback onPressed;

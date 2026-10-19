@@ -1548,10 +1548,6 @@ class AppLocalizationsEl extends AppLocalizations {
       'Δεν ήταν δυνατή η ανάγνωση του κωδικού. Δοκίμασε ξανά.';
 
   @override
-  String get scanCouldNotReadClipboard =>
-      'Δεν ήταν δυνατή η χρήση του περιεχομένου του προχείρου. Αντίγραψε ξανά τη διεύθυνση ή τον κωδικό.';
-
-  @override
   String get walletImportCouldNotImport =>
       'Δεν ήταν δυνατή η εισαγωγή του πορτοφολιού. Δοκίμασε ξανά.';
 
@@ -1618,10 +1614,6 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get scanQrCode => 'Σάρωση κωδικού QR';
-
-  @override
-  String get scanAnyQRCodeDescription =>
-      'Σάρωσε οποιονδήποτε κωδικό QR και θα προσπαθήσουμε να τον αναγνωρίσουμε.';
 
   @override
   String get importFile => 'Εισαγωγή αρχείου';
@@ -1942,9 +1934,6 @@ class AppLocalizationsEl extends AppLocalizations {
   String get scannerKeepInFrame => 'Κράτα τον κωδικό μέσα στο πλαίσιο';
 
   @override
-  String get scannerPointAtCode => 'Στρέψε την κάμερα στον κωδικό QR';
-
-  @override
   String get trackAddressPasteHint => 'Επικόλλησε μια διεύθυνση Bitcoin';
 
   @override
@@ -2122,9 +2111,6 @@ class AppLocalizationsEl extends AppLocalizations {
   @override
   String get swapRouteTemporarilyUnavailable =>
       'Αυτή η διαδρομή δεν είναι προσωρινά διαθέσιμη. Δοκίμασε αργότερα.';
-
-  @override
-  String get clipboardEmpty => 'Το πρόχειρο είναι άδειο';
 
   @override
   String get pleaseSetUpPINFirst => 'Όρισε πρώτα το PIN σου';
@@ -6857,16 +6843,10 @@ class AppLocalizationsEl extends AppLocalizations {
       'Ο λογαριασμός σου άλλαξε. Κλείσε αυτό και ξεκίνα από την αρχή.';
 
   @override
-  String get onetimeRefundTitle => 'Πού να το επιστρέψουμε αν αποτύχει;';
+  String get onetimeRefundAddressTitle => 'Διεύθυνση επιστροφής';
 
   @override
-  String onetimeRefundSubtitle(String network, String coin) {
-    return 'Η διεύθυνσή σου στο $network για $coin. Αν η κατάθεση δεν μπορεί να ολοκληρωθεί, επιστρέφεται εδώ.';
-  }
-
-  @override
-  String get onetimeRefundSkipNote =>
-      'Χωρίς διεύθυνση επιστροφής, μια αποτυχημένη κατάθεση χρειάζεται την Υποστήριξη για να ανακτηθεί.';
+  String get optionalLabel => 'Προαιρετικό';
 
   @override
   String get quotedReceiveReturnsTo => 'Επιστρέφει σε';

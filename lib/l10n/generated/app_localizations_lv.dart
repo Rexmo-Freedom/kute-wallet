@@ -1533,10 +1533,6 @@ class AppLocalizationsLv extends AppLocalizations {
   String get scanCouldNotRead => 'Neizdevās nolasīt šo kodu. Mēģini vēlreiz.';
 
   @override
-  String get scanCouldNotReadClipboard =>
-      'Neizdevās izmantot starpliktuves saturu. Nokopē adresi vai kodu vēlreiz.';
-
-  @override
   String get walletImportCouldNotImport =>
       'Neizdevās importēt šo maciņu. Mēģini vēlreiz.';
 
@@ -1600,10 +1596,6 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get scanQrCode => 'Skenēt QR kodu';
-
-  @override
-  String get scanAnyQRCodeDescription =>
-      'Noskenē jebkuru QR kodu, un mēs mēģināsim to atpazīt.';
 
   @override
   String get importFile => 'Importēt failu';
@@ -1918,9 +1910,6 @@ class AppLocalizationsLv extends AppLocalizations {
   String get scannerKeepInFrame => 'Turi kodu kadrā';
 
   @override
-  String get scannerPointAtCode => 'Pavērs kameru pret QR kodu';
-
-  @override
   String get trackAddressPasteHint => 'Ielīmē Bitcoin adresi';
 
   @override
@@ -2093,9 +2082,6 @@ class AppLocalizationsLv extends AppLocalizations {
   @override
   String get swapRouteTemporarilyUnavailable =>
       'Šis maršruts īslaicīgi nav pieejams. Mēģini vēlāk.';
-
-  @override
-  String get clipboardEmpty => 'Starpliktuve ir tukša';
 
   @override
   String get pleaseSetUpPINFirst => 'Vispirms iestati PIN';
@@ -6788,16 +6774,10 @@ class AppLocalizationsLv extends AppLocalizations {
       'Tavs konts mainījās. Aizver šo un sāc no jauna.';
 
   @override
-  String get onetimeRefundTitle => 'Kur to atgriezt, ja tas neizdosies?';
+  String get onetimeRefundAddressTitle => 'Atgriešanas adrese';
 
   @override
-  String onetimeRefundSubtitle(String network, String coin) {
-    return 'Tava adrese tīklā $network monētai $coin. Ja iemaksu nevar pabeigt, tā tiek nosūtīta atpakaļ šeit.';
-  }
-
-  @override
-  String get onetimeRefundSkipNote =>
-      'Bez atgriešanas adreses neizdevušos iemaksu var atgūt tikai ar atbalsta palīdzību.';
+  String get optionalLabel => 'Neobligāti';
 
   @override
   String get quotedReceiveReturnsTo => 'Atgriežas uz';

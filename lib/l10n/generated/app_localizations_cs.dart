@@ -1536,10 +1536,6 @@ class AppLocalizationsCs extends AppLocalizations {
       'Tento kód se nepodařilo přečíst. Zkus to znovu.';
 
   @override
-  String get scanCouldNotReadClipboard =>
-      'Obsah schránky nelze použít. Zkopíruj adresu nebo kód znovu.';
-
-  @override
   String get walletImportCouldNotImport =>
       'Tuto peněženku se nepodařilo importovat. Zkus to znovu.';
 
@@ -1603,10 +1599,6 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get scanQrCode => 'Naskenovat QR kód';
-
-  @override
-  String get scanAnyQRCodeDescription =>
-      'Naskenuj jakýkoli QR kód a my zkusíme zjistit, co to je.';
 
   @override
   String get importFile => 'Importovat soubor';
@@ -1923,9 +1915,6 @@ class AppLocalizationsCs extends AppLocalizations {
   String get scannerKeepInFrame => 'Drž kód v rámečku';
 
   @override
-  String get scannerPointAtCode => 'Namiř fotoaparát na QR kód';
-
-  @override
   String get trackAddressPasteHint => 'Vlož Bitcoin adresu';
 
   @override
@@ -2100,9 +2089,6 @@ class AppLocalizationsCs extends AppLocalizations {
   @override
   String get swapRouteTemporarilyUnavailable =>
       'Tato trasa je dočasně nedostupná. Zkus to později.';
-
-  @override
-  String get clipboardEmpty => 'Schránka je prázdná';
 
   @override
   String get pleaseSetUpPINFirst => 'Nejdřív si nastav PIN';
@@ -6803,16 +6789,10 @@ class AppLocalizationsCs extends AppLocalizations {
       'Tvůj účet se změnil. Zavři tohle a začni znovu.';
 
   @override
-  String get onetimeRefundTitle => 'Kam to máme vrátit, pokud se to nepodaří?';
+  String get onetimeRefundAddressTitle => 'Adresa pro vrácení';
 
   @override
-  String onetimeRefundSubtitle(String network, String coin) {
-    return 'Tvoje adresa v síti $network pro $coin. Pokud vklad nelze dokončit, pošle se zpět sem.';
-  }
-
-  @override
-  String get onetimeRefundSkipNote =>
-      'Bez adresy pro vrácení lze neúspěšný vklad získat zpět jen přes podporu.';
+  String get optionalLabel => 'Volitelné';
 
   @override
   String get quotedReceiveReturnsTo => 'Vrací se na';

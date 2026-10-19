@@ -1547,10 +1547,6 @@ class AppLocalizationsFr extends AppLocalizations {
   String get scanCouldNotRead => 'Impossible de lire ce code. Réessayez.';
 
   @override
-  String get scanCouldNotReadClipboard =>
-      'Impossible d\'utiliser le contenu de votre presse-papiers. Copiez à nouveau l\'adresse ou le code.';
-
-  @override
   String get walletImportCouldNotImport =>
       'Impossible d\'importer ce portefeuille. Réessayez.';
 
@@ -1615,10 +1611,6 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get scanQrCode => 'Scanner un QR code';
-
-  @override
-  String get scanAnyQRCodeDescription =>
-      'Scannez n\'importe quel QR code, nous essaierons de l\'identifier.';
 
   @override
   String get importFile => 'Importer un fichier';
@@ -1939,9 +1931,6 @@ class AppLocalizationsFr extends AppLocalizations {
   String get scannerKeepInFrame => 'Gardez le code dans le cadre';
 
   @override
-  String get scannerPointAtCode => 'Pointez l\'appareil photo vers le QR code';
-
-  @override
   String get trackAddressPasteHint => 'Collez une adresse Bitcoin';
 
   @override
@@ -2117,9 +2106,6 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get swapRouteTemporarilyUnavailable =>
       'Cet itinéraire est temporairement indisponible. Réessayez plus tard.';
-
-  @override
-  String get clipboardEmpty => 'Le presse-papiers est vide';
 
   @override
   String get pleaseSetUpPINFirst => 'Configurez d\'abord votre PIN';
@@ -6853,16 +6839,10 @@ class AppLocalizationsFr extends AppLocalizations {
       'Votre compte a changé. Fermez ceci et recommencez.';
 
   @override
-  String get onetimeRefundTitle => 'Où vous le renvoyer en cas d\'échec ?';
+  String get onetimeRefundAddressTitle => 'Adresse de retour';
 
   @override
-  String onetimeRefundSubtitle(String network, String coin) {
-    return 'Votre adresse sur $network pour $coin. Si le dépôt ne peut pas aboutir, il est renvoyé ici.';
-  }
-
-  @override
-  String get onetimeRefundSkipNote =>
-      'Sans adresse de retour, un dépôt échoué ne peut être récupéré qu\'avec l\'aide du Support.';
+  String get optionalLabel => 'Facultatif';
 
   @override
   String get quotedReceiveReturnsTo => 'Renvoyé à';

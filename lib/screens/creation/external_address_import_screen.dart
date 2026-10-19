@@ -1,3 +1,4 @@
+import 'package:kute/screens/scanner/scanner_sheet.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/controllers/import_wallet_controller.dart';
 import 'package:kute/screens/shared/custom_button.dart';
@@ -82,7 +83,7 @@ class _ExternalAddressImportScreenState
 
   void _onScanPressed() async {
     _step('scan_qr', method: 'qr');
-    final result = await context.pushNamed<String>('QrScanner');
+    final result = await showScannerSheet(context, multiPart: true);
     if (result != null && result.isNotEmpty) {
       setState(() => _addressController.text = _cleanAddress(result));
       _captureMethod = 'qr';

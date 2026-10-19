@@ -1,7 +1,31 @@
+// lib/screens/scanner/scanner_sheet.dart
+//
+// THE SCANNER, AS A SHEET (founder decision, October 2026). Every Scan in
+// the app opens this one bottom sheet over the screen it was tapped on:
+// the receive sheets' frame (close X on the left, the title centred), the
+// live camera filling the body behind the scan frame, and two round
+// controls over the bottom of the preview: the flash on the left, a QR
+// picked from photos on the right. No Paste here: Paste stays on the
+// field that asked.
+//
+// Three modes, one camera:
+//  * [ScannerMode.route] (Home's scan button): reads the payload and
+//    routes it itself (send, LNURL withdraw, xpub import). The sheet
+//    closes before Send opens.
+//  * [ScannerMode.recipient] (a recipient field): closes with the scanned
+//    string, which the field fills in.
+//  * [ScannerMode.multiPart] (signed PSBTs, xpubs, recovery QRs): joins
+//    animated BBQr / UR codes and closes with the result.
+//
+// The camera starts when the sheet opens, stops the moment it starts
+// closing (X, swipe, a scan) and is released when it is gone; it pauses
+// with the app in the background. Nothing scanned ever reaches analytics.
+
 import 'dart:async';
 
 import 'package:kute/controllers/import_wallet_controller.dart';
-import 'package:kute/screens/shared/kute_back_button.dart';
+import 'package:kute/screens/shared/kute_back_button.dart'
+    show KuteCircleButton, KuteCloseButton;
 import 'package:kute/helpers/common_operation_methods.dart';
 import 'package:kute/helpers/user_error_copy.dart';
 import 'package:kute/helpers/qr_gallery_helper.dart';
@@ -10,7 +34,11 @@ import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:kute/models/add_wallet_model.dart';
 import 'package:kute/models/send_tx_model.dart';
 import 'package:kute/providers/add_wallet_provider.dart';
+import 'package:kute/providers/qr_scanner_provider.dart';
+import 'package:kute/screens/scanner/scanner_camera.dart';
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
+import 'package:kute/screens/shared/receive_surface.dart'
+    show ReceiveCaption, ReceiveSheetFrame;
 import 'package:kute/services/add_wallet_capabilities.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/providers/auth_provider.dart' show sessionUnlockedProvider;
@@ -35,42 +63,116 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/l10n/l10n.dart';
 
-class SmartScannerScreen extends ConsumerStatefulWidget {
-  /// When true, the scanner does NOT route the scanned payload itself
-  /// (no xpub import, no confirm_send push, no cross-chain handling).
-  /// Instead it pops with the raw scanned/pasted string so the caller
-  /// can process it in its own context. Used by the in-flow "Scan"
-  /// button on the Send screen so we reuse this richer scanner (paste,
-  /// "scan any QR") without stacking a second confirm_send on top of
-  /// the one already open.
-  final bool returnRawValue;
+/// What the scanner does with a code.
+enum ScannerMode {
+  /// Reads the payload and routes it itself (Home's scan button).
+  route,
 
-  const SmartScannerScreen({super.key, this.returnRawValue = false});
+  /// Closes with the scanned string for the field that asked.
+  recipient,
 
-  @override
-  ConsumerState<SmartScannerScreen> createState() => _SmartScannerScreenState();
+  /// Joins animated BBQr / UR codes and closes with the result.
+  multiPart,
 }
 
-class _SmartScannerScreenState extends ConsumerState<SmartScannerScreen>
+/// The route names the scanner's sheets carry, so route observers keep
+/// seeing the names the full-screen scanners had.
+const String kSmartScannerRouteName = 'smartScanner';
+const String kMultiPartScannerRouteName = 'QrScanner';
+
+/// Open the scanner sheet over [context] and hand back what it read,
+/// trimmed: a recipient (normalized the way the routing scanner reads
+/// it), or with [multiPart] an assembled BBQr / UR payload. Null when the
+/// person closed it without a code.
+Future<String?> showScannerSheet(BuildContext context,
+    {bool multiPart = false}) async {
+  final result = await showAppBottomSheet<String>(
+    context: context,
+    routeSettings: RouteSettings(
+        name: multiPart ? kMultiPartScannerRouteName : kSmartScannerRouteName),
+    builder: (_) => ScannerSheet(
+        mode: multiPart ? ScannerMode.multiPart : ScannerMode.recipient),
+  );
+  final scanned = result?.trim() ?? '';
+  return scanned.isEmpty ? null : scanned;
+}
+
+/// Open the scanner sheet that routes what it reads (Home's scan button):
+/// a payment opens Send once the sheet has closed.
+Future<void> showRoutingScannerSheet(BuildContext context) =>
+    showAppBottomSheet<void>(
+      context: context,
+      routeSettings: const RouteSettings(name: kSmartScannerRouteName),
+      builder: (_) => const ScannerSheet(mode: ScannerMode.route),
+    );
+
+/// A route's page that presents the scanner as the same sheet, over
+/// whatever the route sits on (the `/smart-scanner`, `/camera` and
+/// `/qr-scanner` links).
+class ScannerSheetPage<T> extends Page<T> {
+  const ScannerSheetPage({super.key, super.name, required this.mode});
+
+  final ScannerMode mode;
+
+  @override
+  Route<T> createRoute(BuildContext context) => ModalBottomSheetRoute<T>(
+        settings: this,
+        isScrollControlled: true,
+        useSafeArea: true,
+        backgroundColor: Colors.transparent,
+        barrierLabel: MaterialLocalizations.of(context).scrimLabel,
+        builder: (_) => ScannerSheet(mode: mode),
+      );
+}
+
+class ScannerSheet extends ConsumerStatefulWidget {
+  const ScannerSheet({super.key, required this.mode});
+
+  final ScannerMode mode;
+
+  @override
+  ConsumerState<ScannerSheet> createState() => _ScannerSheetState();
+}
+
+class _ScannerSheetState extends ConsumerState<ScannerSheet>
     with WidgetsBindingObserver {
-  MobileScannerController? _controller;
+  ScannerCamera? _camera;
   bool _isProcessing = false;
   bool _cameraError = false;
 
   /// Camera permission is denied (or permanently denied), so retrying the
-  /// controller can never succeed; the only way out is the OS Settings.
+  /// camera can never succeed; the only way out is the OS Settings.
   bool _cameraDenied = false;
+
+  /// The last QR picked from photos held no code: a plain caption under
+  /// the preview says so until the next try.
+  bool _galleryMiss = false;
+
+  /// The sheet started closing (or closed): no second pop, no restart.
+  bool _closing = false;
+
+  /// Multi-part: a code was handed back, so dispose reports no dismiss.
+  /// Nothing about the code itself is ever sent: this mode also reads
+  /// recovery phrases and PSBTs.
+  bool _completed = false;
+  bool _animatedSeen = false;
+  double _lastProgress = 0;
+
+  bool get _multiPart => widget.mode == ScannerMode.multiPart;
 
   static final _xpubRegex =
       RegExp(r'^[xyzvtmu]pub[1-9A-HJ-NP-Za-km-z]{100,108}$');
   static final _descriptorRegex = RegExp(
       r'^(tr|wpkh|sh\(wpkh|pkh)\(.*[xyzvtmu]pub[1-9A-HJ-NP-Za-km-z]+.*\)$');
 
+  ScannerCamera _newCamera() =>
+      ref.read(scannerCameraFactoryProvider)(multiPart: _multiPart);
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _controller = MobileScannerController();
+    _camera = _newCamera();
     // mobile_scanner v7 doesn't reliably auto-start, and reopening the
     // scanner right after a previous instance is still releasing the camera
     // trips an "in use" error. Arm explicitly with retry.
@@ -80,13 +182,26 @@ class _SmartScannerScreenState extends ConsumerState<SmartScannerScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    if (_multiPart && !_completed) {
+      TrackingService.track('qr_scanner_dismissed', params: {
+        'animated_in_progress': _animatedSeen,
+        'progress_pct': (_lastProgress * 100).round(),
+        'progress_bucket': _progressBucket(_lastProgress),
+      });
+    }
     // Release the camera ASAP so reopening (scan → pay → scan again) doesn't
-    // hit "camera already in use". `dispose()` is async in v7; detach our
-    // reference and fire it so the OS frees the camera as fast as it can.
-    final c = _controller;
-    _controller = null;
+    // hit "camera already in use".
+    final c = _camera;
+    _camera = null;
     unawaited(c?.dispose());
     super.dispose();
+  }
+
+  static String _progressBucket(double p) {
+    if (p <= 0) return 'none';
+    if (p < 0.5) return '<50%';
+    if (p < 1) return '50-99%';
+    return 'complete';
   }
 
   /// Stop the camera when the app backgrounds and re-arm on resume —
@@ -94,8 +209,8 @@ class _SmartScannerScreenState extends ConsumerState<SmartScannerScreen>
   /// reopen reports it "in use".
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    final c = _controller;
-    if (c == null) return;
+    final c = _camera;
+    if (c == null || _closing) return;
     switch (state) {
       case AppLifecycleState.resumed:
         if (!_isProcessing) _safeStart();
@@ -119,9 +234,9 @@ class _SmartScannerScreenState extends ConsumerState<SmartScannerScreen>
   /// permission_handler) and surfaced as an "open Settings" notice instead.
   Future<void> _safeStart() async {
     for (var attempt = 0; attempt < 5; attempt++) {
-      if (!mounted || _controller == null) return;
+      if (!mounted || _camera == null || _closing) return;
       try {
-        await _controller!.start();
+        await _camera!.start();
         if (mounted && (_cameraError || _cameraDenied)) {
           setState(() {
             _cameraError = false;
@@ -129,15 +244,14 @@ class _SmartScannerScreenState extends ConsumerState<SmartScannerScreen>
           });
         }
         return;
-      } on MobileScannerException catch (e) {
-        if (e.errorCode == MobileScannerErrorCode.permissionDenied) break;
-        await Future.delayed(const Duration(milliseconds: 300));
+      } on ScannerCameraDenied {
+        break;
       } catch (_) {
         await Future.delayed(const Duration(milliseconds: 300));
       }
     }
     final denied = await _isCameraDenied();
-    if (!mounted) return;
+    if (!mounted || _closing) return;
     setState(() {
       _cameraDenied = denied;
       _cameraError = !denied;
@@ -165,36 +279,46 @@ class _SmartScannerScreenState extends ConsumerState<SmartScannerScreen>
     await openAppSettings();
   }
 
-  /// Tap-to-retry handler — the failed controller is in a bad state, so swap
-  /// in a fresh one and re-arm.
+  /// Tap-to-retry handler — the failed camera is in a bad state, so swap
+  /// in a fresh one and re-arm. The old one is released after the frame
+  /// that drops its preview.
   Future<void> _retryCamera() async {
-    final old = _controller;
+    final old = _camera;
     setState(() {
-      _controller = MobileScannerController();
+      _camera = _newCamera();
       _cameraError = false;
     });
-    unawaited(old?.dispose());
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => unawaited(old?.dispose()));
     _safeStart();
   }
 
-  void _popSafely() {
-    if (context.mounted) context.pop();
+  /// The sheet is going (X, swipe, a scan, or a hand-off): stop the camera
+  /// now rather than when the closing animation ends. It is released in
+  /// [dispose].
+  void _onClosing() {
+    if (_closing) return;
+    _closing = true;
+    unawaited(_camera?.stop());
   }
 
-  /// Push into the send-confirm flow, then re-arm the scanner once the
-  /// user navigates back. `context.push` only completes when
-  /// confirm_send is popped, so without re-arming here the scanner
-  /// stays frozen on the "Processing…" overlay with the camera stopped
-  /// (set in `_onDetect`). Resetting on return drops the user straight
-  /// back into a live scanner instead of a dead grey card.
+  /// Close the sheet, with [value] for the caller.
+  void _close([String? value]) {
+    if (!mounted || _closing) return;
+    _onClosing();
+    Navigator.of(context).pop(value);
+  }
+
+  void _popSafely() => _close();
+
+  /// Hand a payment to Send: the sheet closes, then Send opens over the
+  /// screen the scan started from.
   Future<void> _pushToConfirmSend() async {
     if (!mounted) return;
     TrackingService.markEntrySource('send', 'scanner');
-    await context.push('/home/pay/confirm_send');
-    if (mounted) {
-      setState(() => _isProcessing = false);
-      _safeStart();
-    }
+    final router = GoRouter.of(context);
+    _close();
+    unawaited(router.push('/home/pay/confirm_send'));
   }
 
   bool get _isSparkWallet {
@@ -261,13 +385,23 @@ class _SmartScannerScreenState extends ConsumerState<SmartScannerScreen>
   }
 
   Future<void> _onDetect(BarcodeCapture capture) async {
+    if (_closing) return;
+    if (_multiPart) {
+      // The assembler joins animated frames; its result closes the sheet
+      // (see the listener in [build]).
+      ref.read(qrScannerProvider.notifier).onDetect(capture);
+      return;
+    }
     if (_isProcessing) return;
     final barcode = capture.barcodes.firstOrNull;
     final code = barcode?.rawValue?.trim();
     if (code == null || code.isEmpty) return;
 
-    setState(() => _isProcessing = true);
-    await _controller?.stop();
+    setState(() {
+      _isProcessing = true;
+      _galleryMiss = false;
+    });
+    await _camera?.stop();
     HapticFeedback.mediumImpact();
 
     try {
@@ -297,12 +431,11 @@ class _SmartScannerScreenState extends ConsumerState<SmartScannerScreen>
     // `LNURL1…` twin.
     final input = _normalizeBech32Case(_normalizeLud17Scheme(rawInput));
 
-    // Return-value mode: hand the raw payload back to the caller and
-    // stop. The caller (the Send screen's in-flow Scan button) runs
-    // its own paste/commit pipeline against it, so we deliberately
-    // skip all the routing below.
-    if (widget.returnRawValue) {
-      if (mounted) context.pop(input);
+    // Recipient mode: hand the payload back to the field that asked and
+    // stop. The caller (the Send field's Scan) runs its own paste/commit
+    // pipeline against it, so we deliberately skip all the routing below.
+    if (widget.mode == ScannerMode.recipient) {
+      _close(input);
       return;
     }
 
@@ -881,63 +1014,39 @@ class _SmartScannerScreenState extends ConsumerState<SmartScannerScreen>
     if (mounted) await _pushToConfirmSend();
   }
 
-  Future<void> _pasteFromClipboard() async {
-    final data = await Clipboard.getData(Clipboard.kTextPlain);
-    final text = data?.text?.trim();
-    if (text == null || text.isEmpty) {
-      if (mounted) {
-        showMessageSnackBar(
-          context: context,
-          message: context.l10n.clipboardEmpty,
-          error: true,
-        );
-      }
-      return;
-    }
-
-    setState(() => _isProcessing = true);
-    await _controller?.stop();
-
-    try {
-      await _processInput(text);
-    } catch (e) {
-      if (mounted) {
-        showMessageSnackBar(
-          context: context,
-          message: userErrorCopy(context, e,
-              fallback: context.l10n.scanCouldNotReadClipboard),
-          error: true,
-        );
-        setState(() => _isProcessing = false);
-        _safeStart();
-      }
-    }
-  }
-
-  /// Pick a QR image from the gallery and run it through the same
-  /// detection pipeline as a live scan / paste. Handy on devices with
-  /// no camera (simulator) or when the user has a saved QR screenshot.
+  /// Pick a QR image from photos and run it through the same pipeline as
+  /// a live scan. Handy on devices with no camera (simulator) or when the
+  /// person has a saved QR screenshot. An image with no code says so in a
+  /// plain caption under the preview.
   ///
-  /// We deliberately do NOT stop/start the live `_controller` here:
-  /// the decode runs on a separate controller inside
-  /// [QrGalleryHelper], and opening the OS file picker backgrounds the
-  /// app, so `MobileScanner` already auto-stops/restarts the camera via
-  /// its lifecycle. Calling `start()` ourselves on top of that threw
-  /// "MobileScannerController is already running". `_isProcessing`
-  /// alone is enough to gate `_onDetect` while we're busy.
+  /// We deliberately do NOT stop/start the live camera here: the decode
+  /// runs on a separate controller inside [QrGalleryHelper], and opening
+  /// the OS file picker backgrounds the app, so `MobileScanner` already
+  /// auto-stops/restarts the camera via its lifecycle. Calling `start()`
+  /// ourselves on top of that threw "MobileScannerController is already
+  /// running". `_isProcessing` alone is enough to gate `_onDetect` while
+  /// we're busy.
   Future<void> _pickFromGallery() async {
-    if (_isProcessing) return;
-    setState(() => _isProcessing = true);
+    if (_isProcessing || _closing) return;
+    setState(() {
+      _isProcessing = true;
+      _galleryMiss = false;
+    });
     try {
       final code = await QrGalleryHelper.pickAndDecode();
-      if (!mounted) return;
+      if (!mounted || _closing) return;
       if (code == null || code.isEmpty) {
-        showMessageSnackBar(
-          context: context,
-          message: context.l10n.receiveNoQrCodeFoundInImage,
-          error: true,
-        );
+        setState(() {
+          _isProcessing = false;
+          _galleryMiss = true;
+        });
+        return;
+      }
+      if (_multiPart) {
         setState(() => _isProcessing = false);
+        ref
+            .read(qrScannerProvider.notifier)
+            .onDetect(BarcodeCapture(barcodes: [Barcode(rawValue: code)]));
         return;
       }
       await _processInput(code);
@@ -954,239 +1063,266 @@ class _SmartScannerScreenState extends ConsumerState<SmartScannerScreen>
     }
   }
 
+  void _toggleTorch(bool isOn) {
+    TrackingService.track('qr_scanner_torch_toggled',
+        params: {'enabled': !isOn});
+    unawaited(_camera?.toggleTorch());
+  }
+
+  /// Multi-part: the assembler finished, so the sheet closes with it.
+  void _onMultiPart(QrScannerState? previous, QrScannerState next) {
+    if (next.isScanningAnimated) {
+      _animatedSeen = true;
+      _lastProgress = next.progress;
+    }
+    if (next.hasResult && next.resultData != null && !_completed) {
+      _completed = true;
+      TrackingService.track('qr_scanner_completed', params: {
+        'animated': next.isScanningAnimated || _animatedSeen,
+      });
+      _close(next.resultData);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Keep sendTxProvider alive while this screen is on the navigation stack,
-    // so the state survives the push to the confirm screen (autoDispose).
-    ref.watch(sendTxProvider);
+    // Route mode: keep sendTxProvider alive while the sheet is up, so what
+    // a scan writes survives into Send (autoDispose).
+    if (widget.mode == ScannerMode.route) ref.watch(sendTxProvider);
+    QrScannerState? multi;
+    if (_multiPart) {
+      multi = ref.watch(qrScannerProvider);
+      ref.listen<QrScannerState>(qrScannerProvider, _onMultiPart);
+    }
     final c = context.colors;
+    final l10n = context.l10n;
 
-    return Scaffold(
-      backgroundColor: c.background,
-      appBar: AppBar(
-        backgroundColor: c.background,
-        elevation: 0,
-        leading: KuteBackButton(onPressed: _popSafely),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.flash_on, color: c.textSecondary),
-            onPressed: () {
-              HapticFeedback.lightImpact();
-              _controller?.toggleTorch();
-            },
+    return PopScope<Object?>(
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) _onClosing();
+      },
+      child: ReceiveSheetFrame(
+        leading: KuteCloseButton(onPressed: _close),
+        title: Text(
+          l10n.scanQrCode,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: AppTextStyles.modalTitle(context),
+        ),
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: _preview(context)),
+              if (multi != null && multi.isScanningAnimated) ...[
+                SizedBox(height: 16.h),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4.r),
+                  child: LinearProgressIndicator(
+                    value: multi.progress > 0 ? multi.progress : null,
+                    backgroundColor: c.surfaceLight,
+                    valueColor: AlwaysStoppedAnimation<Color>(c.accent),
+                    minHeight: 4.h,
+                  ),
+                ),
+                SizedBox(height: 12.h),
+                ReceiveCaption(text: l10n.scannerKeepInFrame),
+              ] else if (_galleryMiss) ...[
+                SizedBox(height: 12.h),
+                ReceiveCaption(text: l10n.receiveNoQrCodeFoundInImage),
+              ],
+            ],
           ),
-        ],
+        ),
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(20.r),
-              child: Stack(
+    );
+  }
+
+  /// The live preview with the card radius: the camera (or why it is
+  /// off), the scan frame, and the flash and photo controls over its
+  /// bottom edge.
+  Widget _preview(BuildContext context) {
+    final camera = _camera!;
+    final l10n = context.l10n;
+    final live = !_cameraDenied && !_cameraError;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(AppRadius.lg),
+      child: ColoredBox(
+        color: Colors.black,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            KeyedSubtree(
+              key: ObjectKey(camera),
+              child: camera.buildPreview(_onDetect),
+            ),
+            // Camera permission denied: retrying can never succeed, so
+            // point at the OS Settings instead of the retry loop. The
+            // photo control stays usable.
+            if (_cameraDenied)
+              Container(
+                color: Colors.black,
                 alignment: Alignment.center,
-                children: [
-                  MobileScanner(
-                    controller: _controller!,
-                    onDetect: _onDetect,
-                  ),
-                  // Camera couldn't start (still held by a just-closed
-                  // scanner, or denied) — tap-to-retry instead of a black
-                  // preview that looks frozen.
-                  // Camera permission denied: retrying can never succeed,
-                  // so point at the OS Settings instead of the retry loop.
-                  // Gallery and Paste below stay usable.
-                  if (_cameraDenied)
-                    Positioned.fill(
-                      child: Container(
-                        color: Colors.black,
-                        alignment: Alignment.center,
-                        padding: EdgeInsets.symmetric(horizontal: 24.w),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.no_photography_rounded,
-                                color: Colors.white70, size: 40.sp),
-                            SizedBox(height: 12.h),
-                            Text(
-                              context.l10n.scannerCameraAccessOff,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16.sp,
-                                  fontWeight: FontWeight.w700),
-                            ),
-                            SizedBox(height: 16.h),
-                            AppButton(
-                              text: context.l10n.openSettings,
-                              compact: true,
-                              onPressed: _openCameraSettings,
-                            ),
-                          ],
-                        ),
-                      ),
-                    )
-                  else if (_cameraError)
-                    Positioned.fill(
-                      child: GestureDetector(
-                        onTap: _retryCamera,
-                        behavior: HitTestBehavior.opaque,
-                        child: Container(
-                          color: Colors.black,
-                          alignment: Alignment.center,
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.no_photography_rounded,
-                                  color: Colors.white70, size: 40.sp),
-                              SizedBox(height: 12.h),
-                              Text(
-                                context.l10n.receiveCameraUnavailable,
-                                style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16.sp,
-                                    fontWeight: FontWeight.w700),
-                              ),
-                              SizedBox(height: 4.h),
-                              Text(context.l10n.tapToRetry,
-                                  style: TextStyle(
-                                      color: Colors.white70, fontSize: 13.sp)),
-                            ],
-                          ),
-                        ),
-                      ),
+                padding: EdgeInsets.symmetric(horizontal: 24.w),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.no_photography_rounded,
+                        color: Colors.white70, size: 40.sp),
+                    SizedBox(height: 12.h),
+                    Text(
+                      l10n.scannerCameraAccessOff,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16.sp,
+                          fontWeight: FontWeight.w700),
                     ),
-                  // Scan frame overlay
-                  Container(
-                    width: 260.sp,
-                    height: 260.sp,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20.r),
-                      border: Border.all(
-                          color: context.colors.accent.withValues(alpha: 0.6),
-                          width: 2),
+                    SizedBox(height: 16.h),
+                    AppButton(
+                      text: l10n.openSettings,
+                      compact: true,
+                      onPressed: _openCameraSettings,
                     ),
-                  ),
-                  // Processing indicator
-                  if (_isProcessing)
-                    Container(
-                      width: 260.sp,
-                      height: 260.sp,
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.6),
-                        borderRadius: BorderRadius.circular(20.r),
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          LoadingAnimationWidget.staggeredDotsWave(
+                  ],
+                ),
+              )
+            // Camera couldn't start (still held by a just-closed scanner)
+            // — tap-to-retry instead of a black preview that looks frozen.
+            else if (_cameraError)
+              GestureDetector(
+                onTap: _retryCamera,
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  color: Colors.black,
+                  alignment: Alignment.center,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.no_photography_rounded,
+                          color: Colors.white70, size: 40.sp),
+                      SizedBox(height: 12.h),
+                      Text(
+                        l10n.receiveCameraUnavailable,
+                        style: TextStyle(
                             color: Colors.white,
-                            size: 32.sp,
-                          ),
-                          SizedBox(height: 16.h),
-                          Text(
-                            context.l10n.receiveProcessing,
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 16.sp,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
+                            fontSize: 16.sp,
+                            fontWeight: FontWeight.w700),
                       ),
-                    ),
-                ],
+                      SizedBox(height: 4.h),
+                      Text(l10n.tapToRetry,
+                          style: TextStyle(
+                              color: Colors.white70, fontSize: 13.sp)),
+                    ],
+                  ),
+                ),
+              ),
+            // Scan frame overlay
+            if (live)
+              Center(
+                child: Container(
+                  width: 260.sp,
+                  height: 260.sp,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20.r),
+                    border: Border.all(
+                        color: context.colors.accent.withValues(alpha: 0.6),
+                        width: 2),
+                  ),
+                ),
+              ),
+            // Processing indicator
+            if (_isProcessing)
+              Center(
+                child: Container(
+                  width: 260.sp,
+                  height: 260.sp,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.6),
+                    borderRadius: BorderRadius.circular(20.r),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      LoadingAnimationWidget.staggeredDotsWave(
+                        color: Colors.white,
+                        size: 32.sp,
+                      ),
+                      SizedBox(height: 16.h),
+                      Text(
+                        l10n.receiveProcessing,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16.sp,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            if (live)
+              Positioned(
+                left: 16.w,
+                bottom: 16.w,
+                child: ValueListenableBuilder<bool>(
+                  valueListenable: camera.torchOn,
+                  builder: (context, isOn, _) => _ScannerControl(
+                    key: const ValueKey('scanner-torch'),
+                    icon:
+                        isOn ? Icons.flash_on_rounded : Icons.flash_off_rounded,
+                    label: l10n.flash,
+                    onPressed: () => _toggleTorch(isOn),
+                  ),
+                ),
+              ),
+            Positioned(
+              right: 16.w,
+              bottom: 16.w,
+              child: _ScannerControl(
+                key: const ValueKey('scanner-gallery'),
+                icon: Icons.photo_library_rounded,
+                label: l10n.receiveGallery,
+                onPressed: _isProcessing ? null : _pickFromGallery,
               ),
             ),
-          ),
-          SizedBox(height: 16.h),
-          Text(
-            context.l10n.scanQrCode,
-            style: TextStyle(color: c.textSecondary, fontSize: 16.sp),
-          ),
-          SizedBox(height: 8.h),
-          Text(
-            context.l10n.scanAnyQRCodeDescription,
-            style: TextStyle(color: c.textTertiary, fontSize: 14.sp),
-            textAlign: TextAlign.center,
-          ),
-          SizedBox(height: 16.h),
-          // Gallery + Paste — two equal-weight input alternatives for
-          // when the camera can't capture (no QR in view, simulator,
-          // or a saved QR screenshot). Same pill style so neither one
-          // reads as the odd one out (the lone "Paste from clipboard"
-          // pill looked bolted-on).
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 24.w),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _ScannerActionButton(
-                    icon: Icons.image_outlined,
-                    label: context.l10n.receiveGallery,
-                    onTap: _isProcessing ? null : _pickFromGallery,
-                  ),
-                ),
-                SizedBox(width: 10.w),
-                Expanded(
-                  child: _ScannerActionButton(
-                    icon: Icons.content_paste_rounded,
-                    label: context.l10n.paste,
-                    onTap: _isProcessing ? null : _pasteFromClipboard,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          SizedBox(height: MediaQuery.of(context).padding.bottom + 24.h),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
-/// Pill button used in the smart scanner's bottom action row (Gallery
-/// / Paste). Kept visually identical so the two alternatives read as
-/// peers.
-class _ScannerActionButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback? onTap;
-
-  const _ScannerActionButton({
+/// A round control over the camera preview (flash, photos): the header
+/// buttons' circle, in the one tint allowed here, a translucent dark fill
+/// that reads over live video in light and dark mode alike.
+class _ScannerControl extends StatelessWidget {
+  const _ScannerControl({
+    super.key,
     required this.icon,
     required this.label,
-    required this.onTap,
+    required this.onPressed,
   });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
-    final c = context.colors;
-    return GestureDetector(
-      onTap: onTap,
+    final onPressed = this.onPressed;
+    return IgnorePointer(
+      ignoring: onPressed == null,
       child: Opacity(
-        opacity: onTap == null ? 0.5 : 1.0,
-        child: Container(
-          height: 48.h,
-          decoration: BoxDecoration(
-            color: c.surfaceLight,
-            borderRadius: BorderRadius.circular(12.r),
-            border: Border.all(color: c.borderSubtle),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, color: c.textSecondary, size: 18.sp),
-              SizedBox(width: 8.w),
-              Text(
-                label,
-                style: TextStyle(
-                  color: c.textPrimary,
-                  fontSize: 16.sp,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
+        opacity: onPressed == null ? 0.5 : 1.0,
+        child: KuteCircleButton(
+          size: 52,
+          semanticsLabel: label,
+          fill: Colors.black.withValues(alpha: 0.45),
+          borderColor: Colors.white.withValues(alpha: 0.24),
+          onPressed: onPressed ?? () {},
+          child: Icon(icon, color: Colors.white, size: 24.sp),
         ),
       ),
     );

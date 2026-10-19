@@ -1,3 +1,4 @@
+import 'package:kute/screens/scanner/scanner_sheet.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/helpers/cbor_helper.dart';
 import 'package:kute/helpers/psbt_helper.dart';
@@ -444,7 +445,7 @@ class _XPubImportScreenState extends ConsumerState<XPubImportScreen> {
 
   Future<void> _onScanPressed(WalletDeviceConfig config) async {
     _step('scan_qr', method: 'qr');
-    final result = await context.pushNamed<String>('QrScanner');
+    final result = await showScannerSheet(context, multiPart: true);
     if (result != null && result.isNotEmpty && mounted) {
       _importMethod = 'qr';
       await _importCapturedKey(config, _processImportedKey(result));

@@ -2,7 +2,6 @@ import 'package:kute/models/transactions_model.dart';
 import 'package:kute/screens/bank/bank_screen.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart';
 import 'package:kute/screens/creation/add_wallet.dart';
-import 'package:kute/screens/creation/qr_scanner_screen.dart';
 import 'package:kute/screens/creation/beta_survey_screen.dart';
 import 'package:kute/screens/creation/referrer_code_screen.dart';
 import 'package:kute/screens/creation/share_code_screen.dart';
@@ -43,7 +42,7 @@ import 'screens/creation/xpub_import_screen.dart';
 import 'screens/creation/external_address_import_screen.dart';
 import 'screens/shared/spark_transaction_details.dart';
 import 'screens/shared/coming_soon_screen.dart';
-import 'screens/scanner/smart_scanner_screen.dart';
+import 'screens/scanner/scanner_sheet.dart';
 import 'screens/settings/affiliate_screen.dart';
 import 'screens/app_shell.dart';
 import 'services/appsflyer_service.dart';
@@ -539,11 +538,18 @@ class AppRouter {
                             state.uri.queryParameters['from'] == 'import',
                       ),
                     ),
+                    // The scanner opens as a sheet (scanner_sheet.dart);
+                    // this route stays as a thin wrapper for links and
+                    // opens that same sheet, joining animated codes.
                     GoRoute(
                       path: '/qr-scanner',
                       name: 'QrScanner',
                       parentNavigatorKey: _rootNavigatorKey,
-                      builder: (context, state) => const QRScannerScreen(),
+                      pageBuilder: (context, state) => ScannerSheetPage<String>(
+                        key: state.pageKey,
+                        name: state.name,
+                        mode: ScannerMode.multiPart,
+                      ),
                     ),
                     GoRoute(
                       path: 'settings',
@@ -649,16 +655,18 @@ class AppRouter {
         GoRoute(
           path: '/smart-scanner',
           name: 'smartScanner',
+          // Every Scan in the app opens the scanner sheet directly
+          // (showRoutingScannerSheet / showScannerSheet); this route stays
+          // as a thin wrapper for links and opens that same sheet over
+          // the current screen. `extra: {'returnRaw': true}` closes with
+          // the scanned string instead of routing it.
           pageBuilder: (context, state) {
-            // `extra: {'returnRaw': true}` flips the scanner into
-            // return-value mode (pops with the raw scanned string)
-            // instead of routing the payload itself. Used by the
-            // in-flow Send "Scan" button.
             final extra = state.extra;
             final returnRaw = extra is Map && extra['returnRaw'] == true;
-            return _buildFadeScalePage(
-              child: SmartScannerScreen(returnRawValue: returnRaw),
-              state: state,
+            return ScannerSheetPage<String>(
+              key: state.pageKey,
+              name: state.name,
+              mode: returnRaw ? ScannerMode.recipient : ScannerMode.route,
             );
           },
         ),

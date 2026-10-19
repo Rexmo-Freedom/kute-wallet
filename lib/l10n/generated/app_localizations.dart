@@ -3020,12 +3020,6 @@ abstract class AppLocalizations {
   /// **'Couldn\'t read that code. Try again.'**
   String get scanCouldNotRead;
 
-  /// No description provided for @scanCouldNotReadClipboard.
-  ///
-  /// In en, this message translates to:
-  /// **'Couldn\'t use what\'s on your clipboard. Copy the address or code again.'**
-  String get scanCouldNotReadClipboard;
-
   /// No description provided for @walletImportCouldNotImport.
   ///
   /// In en, this message translates to:
@@ -3145,12 +3139,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Scan QR Code'**
   String get scanQrCode;
-
-  /// No description provided for @scanAnyQRCodeDescription.
-  ///
-  /// In en, this message translates to:
-  /// **'Scan any QR code and we will try to figure it out.'**
-  String get scanAnyQRCodeDescription;
 
   /// No description provided for @importFile.
   ///
@@ -3704,12 +3692,6 @@ abstract class AppLocalizations {
   /// **'Keep the code in the frame'**
   String get scannerKeepInFrame;
 
-  /// No description provided for @scannerPointAtCode.
-  ///
-  /// In en, this message translates to:
-  /// **'Point the camera at the QR code'**
-  String get scannerPointAtCode;
-
   /// No description provided for @trackAddressPasteHint.
   ///
   /// In en, this message translates to:
@@ -3991,12 +3973,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'This route is temporarily unavailable. Please try again later.'**
   String get swapRouteTemporarilyUnavailable;
-
-  /// No description provided for @clipboardEmpty.
-  ///
-  /// In en, this message translates to:
-  /// **'Clipboard is empty'**
-  String get clipboardEmpty;
 
   /// No description provided for @pleaseSetUpPINFirst.
   ///
@@ -11888,20 +11864,14 @@ abstract class AppLocalizations {
   /// Title of the optional return-address step of a one-time receive of another coin: where a deposit that cannot be completed is sent back.
   ///
   /// In en, this message translates to:
-  /// **'Where should we return it if it fails?'**
-  String get onetimeRefundTitle;
+  /// **'Return address'**
+  String get onetimeRefundAddressTitle;
 
-  /// Subtitle of the return-address step. {network} is the source network (Polygon, Solana), {coin} the coin (USDC, USDT).
+  /// The word Optional on its own, starting a short subtitle such as 'Optional · USDC on HyperEVM' (the return-address step).
   ///
   /// In en, this message translates to:
-  /// **'Your address on {network} for {coin}. If the deposit can\'t be completed, it\'s sent back here.'**
-  String onetimeRefundSubtitle(String network, String coin);
-
-  /// Short note under the Skip button of the return-address step.
-  ///
-  /// In en, this message translates to:
-  /// **'Without a return address, a failed deposit needs Support to recover.'**
-  String get onetimeRefundSkipNote;
+  /// **'Optional'**
+  String get optionalLabel;
 
   /// Label of the review line on the one-time receive address screen showing the return address (shortened) for a failed deposit.
   ///

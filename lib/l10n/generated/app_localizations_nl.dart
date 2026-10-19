@@ -1546,10 +1546,6 @@ class AppLocalizationsNl extends AppLocalizations {
       'Kan die code niet lezen. Probeer het opnieuw.';
 
   @override
-  String get scanCouldNotReadClipboard =>
-      'Kan de inhoud van je klembord niet gebruiken. Kopieer het adres of de code opnieuw.';
-
-  @override
   String get walletImportCouldNotImport =>
       'Kan deze wallet niet importeren. Probeer het opnieuw.';
 
@@ -1613,10 +1609,6 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get scanQrCode => 'QR-code scannen';
-
-  @override
-  String get scanAnyQRCodeDescription =>
-      'Scan een QR-code en we proberen uit te zoeken wat het is.';
 
   @override
   String get importFile => 'Bestand importeren';
@@ -1933,9 +1925,6 @@ class AppLocalizationsNl extends AppLocalizations {
   String get scannerKeepInFrame => 'Houd de code in beeld';
 
   @override
-  String get scannerPointAtCode => 'Richt de camera op de QR-code';
-
-  @override
   String get trackAddressPasteHint => 'Plak een Bitcoin-adres';
 
   @override
@@ -2112,9 +2101,6 @@ class AppLocalizationsNl extends AppLocalizations {
   @override
   String get swapRouteTemporarilyUnavailable =>
       'Deze route is tijdelijk niet beschikbaar. Probeer het later opnieuw.';
-
-  @override
-  String get clipboardEmpty => 'Klembord is leeg';
 
   @override
   String get pleaseSetUpPINFirst => 'Stel eerst je PIN in';
@@ -6829,17 +6815,10 @@ class AppLocalizationsNl extends AppLocalizations {
       'Je rekening is gewijzigd. Sluit dit en begin opnieuw.';
 
   @override
-  String get onetimeRefundTitle =>
-      'Waar sturen we het naartoe als het mislukt?';
+  String get onetimeRefundAddressTitle => 'Retouradres';
 
   @override
-  String onetimeRefundSubtitle(String network, String coin) {
-    return 'Je adres op $network voor $coin. Als de storting niet kan worden voltooid, wordt die hierheen teruggestuurd.';
-  }
-
-  @override
-  String get onetimeRefundSkipNote =>
-      'Zonder retouradres is voor het terugkrijgen van een mislukte storting hulp van Support nodig.';
+  String get optionalLabel => 'Optioneel';
 
   @override
   String get quotedReceiveReturnsTo => 'Retour naar';

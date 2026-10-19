@@ -1542,10 +1542,6 @@ class AppLocalizationsIt extends AppLocalizations {
   String get scanCouldNotRead => 'Impossibile leggere il codice. Riprova.';
 
   @override
-  String get scanCouldNotReadClipboard =>
-      'Impossibile usare il contenuto degli appunti. Copia di nuovo l\'indirizzo o il codice.';
-
-  @override
   String get walletImportCouldNotImport =>
       'Impossibile importare questo wallet. Riprova.';
 
@@ -1611,10 +1607,6 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get scanQrCode => 'Scansiona codice QR';
-
-  @override
-  String get scanAnyQRCodeDescription =>
-      'Scansiona qualsiasi codice QR e proveremo a interpretarlo.';
 
   @override
   String get importFile => 'Importa file';
@@ -1934,9 +1926,6 @@ class AppLocalizationsIt extends AppLocalizations {
   String get scannerKeepInFrame => 'Tieni il codice nel riquadro';
 
   @override
-  String get scannerPointAtCode => 'Inquadra il codice QR con la fotocamera';
-
-  @override
   String get trackAddressPasteHint => 'Incolla un indirizzo Bitcoin';
 
   @override
@@ -2108,9 +2097,6 @@ class AppLocalizationsIt extends AppLocalizations {
   @override
   String get swapRouteTemporarilyUnavailable =>
       'Questo percorso non è momentaneamente disponibile. Riprova più tardi.';
-
-  @override
-  String get clipboardEmpty => 'Gli appunti sono vuoti';
 
   @override
   String get pleaseSetUpPINFirst => 'Prima imposta il tuo PIN';
@@ -6828,17 +6814,10 @@ class AppLocalizationsIt extends AppLocalizations {
       'Il tuo conto è cambiato. Chiudi e ricomincia.';
 
   @override
-  String get onetimeRefundTitle =>
-      'Dove te lo restituiamo se non va a buon fine?';
+  String get onetimeRefundAddressTitle => 'Indirizzo di restituzione';
 
   @override
-  String onetimeRefundSubtitle(String network, String coin) {
-    return 'Il tuo indirizzo su $network per $coin. Se il deposito non può essere completato, viene rimandato qui.';
-  }
-
-  @override
-  String get onetimeRefundSkipNote =>
-      'Senza un indirizzo di restituzione, per recuperare un deposito non riuscito serve l\'Assistenza.';
+  String get optionalLabel => 'Facoltativo';
 
   @override
   String get quotedReceiveReturnsTo => 'Restituito a';

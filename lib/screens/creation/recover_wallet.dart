@@ -1,3 +1,4 @@
+import 'package:kute/screens/scanner/scanner_sheet.dart';
 import 'package:kute/helpers/recovery_phrase_input.dart';
 import 'package:kute/helpers/seed_clipboard.dart';
 import 'dart:async';
@@ -255,7 +256,7 @@ class _RecoverWalletState extends ConsumerState<RecoverWallet>
   }
 
   Future<void> _scanRecoveryQR() async {
-    final result = await context.pushNamed<String>('QrScanner');
+    final result = await showScannerSheet(context, multiPart: true);
     if (result == null || result.isEmpty || !mounted) return;
 
     final RecoveryPhraseInput input;

@@ -1537,10 +1537,6 @@ class AppLocalizationsSv extends AppLocalizations {
   String get scanCouldNotRead => 'Kunde inte läsa koden. Försök igen.';
 
   @override
-  String get scanCouldNotReadClipboard =>
-      'Kunde inte använda det som finns i urklipp. Kopiera adressen eller koden igen.';
-
-  @override
   String get walletImportCouldNotImport =>
       'Kunde inte importera plånboken. Försök igen.';
 
@@ -1605,10 +1601,6 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String get scanQrCode => 'Skanna QR-kod';
-
-  @override
-  String get scanAnyQRCodeDescription =>
-      'Skanna valfri QR-kod så försöker vi lista ut den.';
 
   @override
   String get importFile => 'Importera fil';
@@ -1923,9 +1915,6 @@ class AppLocalizationsSv extends AppLocalizations {
   String get scannerKeepInFrame => 'Håll koden inom ramen';
 
   @override
-  String get scannerPointAtCode => 'Rikta kameran mot QR-koden';
-
-  @override
   String get trackAddressPasteHint => 'Klistra in en Bitcoin-adress';
 
   @override
@@ -2098,9 +2087,6 @@ class AppLocalizationsSv extends AppLocalizations {
   @override
   String get swapRouteTemporarilyUnavailable =>
       'Den här rutten är tillfälligt otillgänglig. Försök igen senare.';
-
-  @override
-  String get clipboardEmpty => 'Urklipp är tomt';
 
   @override
   String get pleaseSetUpPINFirst => 'Ställ in din PIN först';
@@ -6799,17 +6785,10 @@ class AppLocalizationsSv extends AppLocalizations {
       'Ditt konto har ändrats. Stäng det här och börja om.';
 
   @override
-  String get onetimeRefundTitle =>
-      'Vart ska vi skicka tillbaka det om det misslyckas?';
+  String get onetimeRefundAddressTitle => 'Returadress';
 
   @override
-  String onetimeRefundSubtitle(String network, String coin) {
-    return 'Din adress på $network för $coin. Om insättningen inte kan slutföras skickas den tillbaka hit.';
-  }
-
-  @override
-  String get onetimeRefundSkipNote =>
-      'Utan en returadress behöver en misslyckad insättning hjälp från supporten för att återfås.';
+  String get optionalLabel => 'Valfritt';
 
   @override
   String get quotedReceiveReturnsTo => 'Returneras till';

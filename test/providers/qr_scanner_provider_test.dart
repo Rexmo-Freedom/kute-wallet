@@ -3,9 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/providers/qr_scanner_provider.dart';
 
 // ---------------------------------------------------------------------------
-// Regex patterns extracted from SmartScannerScreen for unit-testing the
+// Regex patterns extracted from ScannerSheet for unit-testing the
 // detection/parsing logic used by the QR scanner flow.
-// These mirror the static fields in lib/screens/scanner/smart_scanner_screen.dart.
+// These mirror the static fields in lib/screens/scanner/scanner_sheet.dart.
 // ---------------------------------------------------------------------------
 
 /// Matches Bitcoin on-chain addresses (mainnet + testnet).
@@ -30,7 +30,7 @@ final _xpubRegex =
 final _descriptorRegex =
     RegExp(r'^(tr|wpkh|sh\(wpkh|pkh)\(.*[xyzvtmu]pub[1-9A-HJ-NP-Za-km-z]+.*\)$');
 
-/// Helper that mirrors SmartScannerScreen._extractLightningParam.
+/// Helper that mirrors ScannerSheet._extractLightningParam.
 String? extractLightningParam(String uri) {
   final parsed = Uri.tryParse(uri);
   if (parsed != null) {
@@ -40,7 +40,7 @@ String? extractLightningParam(String uri) {
   return null;
 }
 
-/// Mirrors the manual BIP21 parsing in SmartScannerScreen._processInputManually.
+/// Mirrors the manual BIP21 parsing in ScannerSheet._processInputManually.
 /// Returns (address, amountSats).
 (String, int) parseBip21Manually(String input) {
   final stripped =

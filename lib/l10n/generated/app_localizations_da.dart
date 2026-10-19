@@ -1538,10 +1538,6 @@ class AppLocalizationsDa extends AppLocalizations {
   String get scanCouldNotRead => 'Kunne ikke læse koden. Prøv igen.';
 
   @override
-  String get scanCouldNotReadClipboard =>
-      'Kunne ikke bruge indholdet i din udklipsholder. Kopier adressen eller koden igen.';
-
-  @override
   String get walletImportCouldNotImport =>
       'Kunne ikke importere denne tegnebog. Prøv igen.';
 
@@ -1607,10 +1603,6 @@ class AppLocalizationsDa extends AppLocalizations {
 
   @override
   String get scanQrCode => 'Scan QR-kode';
-
-  @override
-  String get scanAnyQRCodeDescription =>
-      'Scan en hvilken som helst QR-kode, så prøver vi at finde ud af den.';
 
   @override
   String get importFile => 'Importer fil';
@@ -1926,9 +1918,6 @@ class AppLocalizationsDa extends AppLocalizations {
   String get scannerKeepInFrame => 'Hold koden inden for rammen';
 
   @override
-  String get scannerPointAtCode => 'Ret kameraet mod QR-koden';
-
-  @override
   String get trackAddressPasteHint => 'Indsæt en Bitcoin-adresse';
 
   @override
@@ -2101,9 +2090,6 @@ class AppLocalizationsDa extends AppLocalizations {
   @override
   String get swapRouteTemporarilyUnavailable =>
       'Denne rute er midlertidigt utilgængelig. Prøv igen senere.';
-
-  @override
-  String get clipboardEmpty => 'Udklipsholderen er tom';
 
   @override
   String get pleaseSetUpPINFirst => 'Opret først din PIN-kode';
@@ -6807,17 +6793,10 @@ class AppLocalizationsDa extends AppLocalizations {
       'Din konto er ændret. Luk dette, og start forfra.';
 
   @override
-  String get onetimeRefundTitle =>
-      'Hvor skal vi sende det tilbage, hvis det mislykkes?';
+  String get onetimeRefundAddressTitle => 'Returadresse';
 
   @override
-  String onetimeRefundSubtitle(String network, String coin) {
-    return 'Din adresse på $network til $coin. Hvis indbetalingen ikke kan gennemføres, sendes den tilbage hertil.';
-  }
-
-  @override
-  String get onetimeRefundSkipNote =>
-      'Uden en returadresse kræver en mislykket indbetaling hjælp fra support for at blive gendannet.';
+  String get optionalLabel => 'Valgfrit';
 
   @override
   String get quotedReceiveReturnsTo => 'Returneres til';

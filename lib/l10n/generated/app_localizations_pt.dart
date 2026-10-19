@@ -1546,10 +1546,6 @@ class AppLocalizationsPt extends AppLocalizations {
       'Não foi possível ler esse código. Tente novamente.';
 
   @override
-  String get scanCouldNotReadClipboard =>
-      'Não foi possível usar o conteúdo da área de transferência. Copie o endereço ou o código novamente.';
-
-  @override
   String get walletImportCouldNotImport =>
       'Não foi possível importar esta carteira. Tente novamente.';
 
@@ -1613,10 +1609,6 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get scanQrCode => 'Ler código QR';
-
-  @override
-  String get scanAnyQRCodeDescription =>
-      'Leia qualquer código QR e nós tratamos de o interpretar.';
 
   @override
   String get importFile => 'Importar ficheiro';
@@ -1933,9 +1925,6 @@ class AppLocalizationsPt extends AppLocalizations {
   String get scannerKeepInFrame => 'Mantenha o código dentro da moldura';
 
   @override
-  String get scannerPointAtCode => 'Aponte a câmara ao código QR';
-
-  @override
   String get trackAddressPasteHint => 'Cole um endereço Bitcoin';
 
   @override
@@ -2113,9 +2102,6 @@ class AppLocalizationsPt extends AppLocalizations {
   @override
   String get swapRouteTemporarilyUnavailable =>
       'Esta rota está temporariamente indisponível. Tente novamente mais tarde.';
-
-  @override
-  String get clipboardEmpty => 'A área de transferência está vazia';
 
   @override
   String get pleaseSetUpPINFirst => 'Configure primeiro o seu PIN';
@@ -6833,16 +6819,10 @@ class AppLocalizationsPt extends AppLocalizations {
       'A sua conta mudou. Feche isto e comece de novo.';
 
   @override
-  String get onetimeRefundTitle => 'Para onde o devolvemos se falhar?';
+  String get onetimeRefundAddressTitle => 'Endereço de devolução';
 
   @override
-  String onetimeRefundSubtitle(String network, String coin) {
-    return 'O seu endereço na rede $network para $coin. Se o depósito não puder ser concluído, é devolvido para aqui.';
-  }
-
-  @override
-  String get onetimeRefundSkipNote =>
-      'Sem um endereço de devolução, recuperar um depósito falhado exige a ajuda do Suporte.';
+  String get optionalLabel => 'Opcional';
 
   @override
   String get quotedReceiveReturnsTo => 'Devolvido para';

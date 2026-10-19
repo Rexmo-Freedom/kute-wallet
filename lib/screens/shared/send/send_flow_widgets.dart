@@ -297,7 +297,7 @@ class SendRecipientField extends StatelessWidget {
   /// Inline Paste: reads the clipboard and runs the flow's commit path.
   final VoidCallback onPaste;
 
-  /// Inline Scan: opens the smart scanner in return-value mode.
+  /// Inline Scan: opens the scanner sheet in recipient mode.
   final VoidCallback onScan;
 
   /// Whether the current text is a recipient the flow recognises. Drives

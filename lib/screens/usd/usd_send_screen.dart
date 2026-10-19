@@ -593,8 +593,8 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
     }
   }
 
-  /// The shared smart scanner, in return-value mode: camera, Gallery and
-  /// Paste, with its own camera-permission handling.
+  /// The shared scanner sheet over this one, in recipient mode: camera,
+  /// flash and photos, with its own camera-permission handling.
   Future<void> _scan() async {
     final scanned = await scanRecipientRaw(context);
     if (scanned == null || !mounted || _step != _kSendToStep) return;

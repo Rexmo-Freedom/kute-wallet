@@ -1,3 +1,4 @@
+import 'package:kute/screens/scanner/scanner_sheet.dart';
 import 'package:kute/services/security/address_guard.dart';
 import 'package:kute/screens/pay/components/bitcoin_coin_selection_sheet.dart';
 import 'package:kute/screens/shared/money_fee_summary.dart';
@@ -7671,18 +7672,12 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     }
   }
 
-  /// Inline Scan on the recipient field. Unified on the smart scanner
-  /// (camera, Gallery and Paste live there, plus cross-chain
-  /// detection) in return-value mode so it hands the raw payload back
-  /// here instead of pushing a fresh confirm_send.
+  /// Inline Scan on the recipient field: the scanner sheet over the send
+  /// sheet, in recipient mode, so it hands the payload back here instead
+  /// of pushing a fresh confirm_send. Closing it leaves Send as it was.
   Future<void> _scanAddress() async {
-    final result = await context.pushNamed<String>(
-      'smartScanner',
-      extra: const {'returnRaw': true},
-    );
-    if (!mounted) return;
-    final scanned = result?.trim() ?? '';
-    if (scanned.isEmpty) return;
+    final scanned = await showScannerSheet(context);
+    if (!mounted || scanned == null) return;
     _commitPastedAddress(scanned, method: 'scanned');
   }
 

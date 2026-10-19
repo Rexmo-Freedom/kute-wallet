@@ -1541,10 +1541,6 @@ class AppLocalizationsPl extends AppLocalizations {
       'Nie udało się odczytać kodu. Spróbuj ponownie.';
 
   @override
-  String get scanCouldNotReadClipboard =>
-      'Nie można użyć zawartości schowka. Skopiuj adres lub kod ponownie.';
-
-  @override
   String get walletImportCouldNotImport =>
       'Nie udało się zaimportować portfela. Spróbuj ponownie.';
 
@@ -1608,10 +1604,6 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get scanQrCode => 'Skanuj kod QR';
-
-  @override
-  String get scanAnyQRCodeDescription =>
-      'Zeskanuj dowolny kod QR, a spróbujemy go rozpoznać.';
 
   @override
   String get importFile => 'Importuj plik';
@@ -1928,9 +1920,6 @@ class AppLocalizationsPl extends AppLocalizations {
   String get scannerKeepInFrame => 'Trzymaj kod w ramce';
 
   @override
-  String get scannerPointAtCode => 'Skieruj aparat na kod QR';
-
-  @override
   String get trackAddressPasteHint => 'Wklej adres Bitcoin';
 
   @override
@@ -2108,9 +2097,6 @@ class AppLocalizationsPl extends AppLocalizations {
   @override
   String get swapRouteTemporarilyUnavailable =>
       'Ta trasa jest chwilowo niedostępna. Spróbuj później.';
-
-  @override
-  String get clipboardEmpty => 'Schowek jest pusty';
 
   @override
   String get pleaseSetUpPINFirst => 'Najpierw ustaw PIN';
@@ -6830,17 +6816,10 @@ class AppLocalizationsPl extends AppLocalizations {
       'Twoje konto się zmieniło. Zamknij to i zacznij od nowa.';
 
   @override
-  String get onetimeRefundTitle =>
-      'Gdzie mamy to zwrócić, jeśli się nie powiedzie?';
+  String get onetimeRefundAddressTitle => 'Adres zwrotny';
 
   @override
-  String onetimeRefundSubtitle(String network, String coin) {
-    return 'Twój adres w sieci $network dla $coin. Jeśli wpłaty nie da się zrealizować, zostanie odesłana tutaj.';
-  }
-
-  @override
-  String get onetimeRefundSkipNote =>
-      'Bez adresu zwrotnego odzyskanie nieudanej wpłaty wymaga pomocy wsparcia.';
+  String get optionalLabel => 'Opcjonalnie';
 
   @override
   String get quotedReceiveReturnsTo => 'Zwrot na';

@@ -19,10 +19,14 @@ import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/send_tx_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/pay/components/confirm_send.dart';
+import 'package:kute/screens/scanner/scanner_sheet.dart';
+import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/send/send_sheet.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
+
+import '../../helpers/fake_scanner_camera.dart';
 
 final _l10n = AppLocalizationsEn();
 
@@ -67,13 +71,16 @@ Future<void> _dragDown(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
-/// [scanResult] is what the stand-in scanner hands back.
-Future<(ProviderContainer, GoRouter)> _pump(WidgetTester tester,
-    {String? scanResult}) async {
+/// The scanner sheet's stand-in cameras for the current test.
+FakeScannerCameras _cameras = FakeScannerCameras();
+
+Future<(ProviderContainer, GoRouter)> _pump(WidgetTester tester) async {
   tester.view.physicalSize = const Size(1125, 2436);
   tester.view.devicePixelRatio = 3;
   addTearDown(tester.view.reset);
+  _cameras = FakeScannerCameras();
   final container = ProviderContainer(overrides: [
+    _cameras.override,
     settingsProvider.overrideWith((_) => SettingsModel(_settings())),
   ]);
   addTearDown(container.dispose);
@@ -97,21 +104,6 @@ Future<(ProviderContainer, GoRouter)> _pump(WidgetTester tester,
         name: state.name,
         child: const ConfirmSend(),
       ),
-    ),
-    GoRoute(
-      path: '/scan',
-      name: 'smartScanner',
-      builder: (context, state) {
-        expect((state.extra as Map)['returnRaw'], isTrue);
-        return Scaffold(
-          body: Center(
-            child: TextButton(
-              onPressed: () => context.pop(scanResult),
-              child: const Text('Scanned'),
-            ),
-          ),
-        );
-      },
     ),
   ]);
   addTearDown(router.dispose);
@@ -227,19 +219,58 @@ void main() {
     expect(find.byType(ConfirmSend), findsNothing);
   });
 
+  testWidgets(
+      'the scanner opens as a sheet over the send sheet; closing it '
+      'leaves Send as it was', (tester) async {
+    _clipboard(tester, null);
+    final (_, router) = await _pump(tester);
+    await tester.tap(find.text('Open send'));
+    await tester.pumpAndSettle();
+    final location = router.routerDelegate.currentConfiguration.last
+        .matchedLocation;
+
+    await tester.tap(find.byTooltip(_l10n.scan));
+    await tester.pumpAndSettle();
+    expect(find.byType(ScannerSheet), findsOneWidget);
+    expect(ModalRoute.of(tester.element(find.byType(ScannerSheet))),
+        isA<ModalBottomSheetRoute<dynamic>>());
+    expect(router.routerDelegate.currentConfiguration.last.matchedLocation,
+        location,
+        reason: 'no route pushed for the scanner');
+    expect(find.byType(ConfirmSend, skipOffstage: false), findsOneWidget,
+        reason: 'Send waits under the scanner');
+    expect(_cameras.last.running, isTrue);
+
+    await tester.tap(find.descendant(
+        of: find.byType(ScannerSheet),
+        matching: find.byType(KuteCloseButton)));
+    await tester.pumpAndSettle();
+    expect(find.byType(ScannerSheet), findsNothing);
+    expect(find.byType(ConfirmSend), findsOneWidget);
+    expect(_step(_l10n.sendTo), findsOneWidget);
+    expect(
+        tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        isEmpty);
+    expect(tester.getSize(_sheet).height,
+        moreOrLessEquals(812 * kSendSheetMediumFraction));
+    expect(_cameras.last.disposed, isTrue);
+  });
+
   testWidgets('the scanner opens over the sheet and fills its recipient',
       (tester) async {
     _clipboard(tester, null);
-    await _pump(tester, scanResult: 'bitcoin:$_btc?amount=0.001');
+    await _pump(tester);
     await tester.tap(find.text('Open send'));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byTooltip(_l10n.scan));
     await tester.pumpAndSettle();
-    expect(find.text('Scanned'), findsOneWidget);
-    await tester.tap(find.text('Scanned'));
+    expect(find.byType(ScannerSheet), findsOneWidget);
+    _cameras.last.scan('bitcoin:$_btc?amount=0.001');
     await tester.pumpAndSettle();
 
+    expect(find.byType(ScannerSheet), findsNothing);
+    expect(_cameras.last.disposed, isTrue);
     expect(find.byType(ConfirmSend), findsOneWidget);
     expect(
         tester.widget<TextField>(find.byType(TextField)).controller!.text,

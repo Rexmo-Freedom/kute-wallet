@@ -15,7 +15,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:kute/l10n/generated/app_localizations_en.dart';
@@ -28,6 +27,7 @@ import 'package:kute/providers/orchestra_supported_routes_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/spark_address_provider.dart';
 import 'package:kute/providers/usd_account_provider.dart';
+import 'package:kute/screens/scanner/scanner_sheet.dart' show ScannerSheet;
 import 'package:kute/screens/shared/account_switcher_pill.dart';
 import 'package:kute/screens/shared/coin_asset_grid.dart'
     show CoinAssetPickerSheet;
@@ -47,6 +47,7 @@ import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
+import '../../helpers/fake_scanner_camera.dart';
 import '../../helpers/runtime_policy_fixture.dart';
 
 const _spark =
@@ -145,19 +146,20 @@ class _Launcher extends StatelessWidget {
       );
 }
 
-/// [home] replaces the bare screen (a launcher, the dock); [router]
-/// mounts the app under a GoRouter instead (the scanner route).
+/// The scanner sheet's stand-in cameras for the current test.
+FakeScannerCameras _cameras = FakeScannerCameras();
+
+/// [home] replaces the bare screen (a launcher, the dock).
 Future<void> _pump(WidgetTester tester,
-    {bool arbitrumUsdc = true,
-    Widget? home,
-    GoRouter? router,
-    String? initialRecipient}) async {
+    {bool arbitrumUsdc = true, Widget? home, String? initialRecipient}) async {
   final theme = ThemeData(
       splashFactory: NoSplash.splashFactory,
       fontFamily: 'Inter',
       extensions: [AppColorsExtension.light()]);
+  _cameras = FakeScannerCameras();
   await tester.pumpWidget(ProviderScope(
     overrides: [
+      _cameras.override,
       settingsProvider.overrideWith((_) => SettingsModel(Settings(
             currency: 'USD',
             language: 'en',
@@ -186,19 +188,12 @@ Future<void> _pump(WidgetTester tester,
     ],
     child: ScreenUtilInit(
       designSize: const Size(430, 932),
-      builder: (_, __) => router != null
-          ? MaterialApp.router(
-              routerConfig: router,
-              theme: theme,
-              localizationsDelegates: AppLocalizations.localizationsDelegates,
-              supportedLocales: AppLocalizations.supportedLocales,
-            )
-          : MaterialApp(
-              theme: theme,
-              localizationsDelegates: AppLocalizations.localizationsDelegates,
-              supportedLocales: AppLocalizations.supportedLocales,
-              home: home ?? UsdSendScreen(initialRecipient: initialRecipient),
-            ),
+      builder: (_, __) => MaterialApp(
+        theme: theme,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: home ?? UsdSendScreen(initialRecipient: initialRecipient),
+      ),
     ),
   ));
   await tester.pumpAndSettle();
@@ -900,42 +895,27 @@ void main() {
   });
 
   testWidgets(
-      'the scanner opens full screen over the sheet and its result lands '
-      'in the sheet', (tester) async {
+      'the scanner opens as a sheet over the send sheet and its result '
+      'lands in the sheet', (tester) async {
     _phone(tester);
     await withClipboard(tester);
-    final router = GoRouter(routes: [
-      GoRoute(path: '/', builder: (_, __) => const _Launcher()),
-      GoRoute(
-        path: '/scan',
-        name: 'smartScanner',
-        builder: (context, state) {
-          expect((state.extra as Map)['returnRaw'], isTrue);
-          return Scaffold(
-            body: Center(
-              child: TextButton(
-                onPressed: () => context.pop('tron:$_tron'),
-                child: const Text('Scanned'),
-              ),
-            ),
-          );
-        },
-      ),
-    ]);
-    addTearDown(router.dispose);
-    await _pump(tester, router: router);
+    await _pump(tester, home: const _Launcher());
     await tester.tap(find.text('Open send'));
     await tester.pumpAndSettle();
     await _pickCoin(tester, 'tron', 'USDT');
 
     await tester.tap(find.byTooltip(_l10n.scan));
     await tester.pumpAndSettle();
-    expect(find.text('Scanned'), findsOneWidget);
+    expect(find.byType(ScannerSheet), findsOneWidget);
+    expect(ModalRoute.of(tester.element(find.byType(ScannerSheet))),
+        isA<ModalBottomSheetRoute<dynamic>>());
     expect(find.byType(UsdSendScreen, skipOffstage: false), findsOneWidget,
         reason: 'the sheet waits under the scanner');
 
-    await tester.tap(find.text('Scanned'));
+    _cameras.last.scan('tron:$_tron');
     await tester.pumpAndSettle();
+    expect(find.byType(ScannerSheet), findsNothing);
+    expect(_cameras.last.disposed, isTrue);
     expect(find.byType(UsdSendScreen), findsOneWidget);
     expect(_field(tester), _tron);
     expect(_chipLabel(tester), label('tron', 'USDT'));

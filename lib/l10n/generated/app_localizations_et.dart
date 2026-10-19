@@ -1537,10 +1537,6 @@ class AppLocalizationsEt extends AppLocalizations {
       'Seda koodi ei õnnestunud lugeda. Proovi uuesti.';
 
   @override
-  String get scanCouldNotReadClipboard =>
-      'Lõikelaual olevat ei õnnestunud kasutada. Kopeeri aadress või kood uuesti.';
-
-  @override
   String get walletImportCouldNotImport =>
       'Seda rahakotti ei õnnestunud importida. Proovi uuesti.';
 
@@ -1604,10 +1600,6 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get scanQrCode => 'Skanni QR-kood';
-
-  @override
-  String get scanAnyQRCodeDescription =>
-      'Skanni mis tahes QR-kood ja proovime selle ära tunda.';
 
   @override
   String get importFile => 'Impordi fail';
@@ -1920,9 +1912,6 @@ class AppLocalizationsEt extends AppLocalizations {
   String get scannerKeepInFrame => 'Hoia kood kaadris';
 
   @override
-  String get scannerPointAtCode => 'Suuna kaamera QR-koodile';
-
-  @override
   String get trackAddressPasteHint => 'Kleebi Bitcoini aadress';
 
   @override
@@ -2099,9 +2088,6 @@ class AppLocalizationsEt extends AppLocalizations {
   @override
   String get swapRouteTemporarilyUnavailable =>
       'See marsruut pole ajutiselt saadaval. Proovi hiljem uuesti.';
-
-  @override
-  String get clipboardEmpty => 'Lõikelaud on tühi';
 
   @override
   String get pleaseSetUpPINFirst => 'Seadista esmalt oma PIN';
@@ -6790,16 +6776,10 @@ class AppLocalizationsEt extends AppLocalizations {
       'Sinu konto muutus. Sulge see ja alusta uuesti.';
 
   @override
-  String get onetimeRefundTitle => 'Kuhu see tagastada, kui see ebaõnnestub?';
+  String get onetimeRefundAddressTitle => 'Tagastusaadress';
 
   @override
-  String onetimeRefundSubtitle(String network, String coin) {
-    return 'Sinu aadress võrgus $network mündi $coin jaoks. Kui sissemakset ei saa lõpule viia, saadetakse see siia tagasi.';
-  }
-
-  @override
-  String get onetimeRefundSkipNote =>
-      'Ilma tagastusaadressita saab ebaõnnestunud sissemakse tagasi ainult toe abiga.';
+  String get optionalLabel => 'Valikuline';
 
   @override
   String get quotedReceiveReturnsTo => 'Tagastatakse aadressile';

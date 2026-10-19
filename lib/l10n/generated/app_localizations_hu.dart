@@ -1540,10 +1540,6 @@ class AppLocalizationsHu extends AppLocalizations {
       'Nem sikerült beolvasni a kódot. Próbáld újra.';
 
   @override
-  String get scanCouldNotReadClipboard =>
-      'A vágólap tartalma nem használható. Másold ki újra a címet vagy a kódot.';
-
-  @override
   String get walletImportCouldNotImport =>
       'Nem sikerült importálni ezt a tárcát. Próbáld újra.';
 
@@ -1608,10 +1604,6 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get scanQrCode => 'QR-kód beolvasása';
-
-  @override
-  String get scanAnyQRCodeDescription =>
-      'Olvass be bármilyen QR-kódot, és megpróbáljuk értelmezni.';
 
   @override
   String get importFile => 'Fájl importálása';
@@ -1928,9 +1920,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String get scannerKeepInFrame => 'Tartsd a kódot a keretben';
 
   @override
-  String get scannerPointAtCode => 'Irányítsd a kamerát a QR-kódra';
-
-  @override
   String get trackAddressPasteHint => 'Illessz be egy Bitcoin-címet';
 
   @override
@@ -2108,9 +2097,6 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String get swapRouteTemporarilyUnavailable =>
       'Ez az útvonal átmenetileg nem érhető el. Próbáld újra később.';
-
-  @override
-  String get clipboardEmpty => 'A vágólap üres';
 
   @override
   String get pleaseSetUpPINFirst => 'Előbb állítsd be a PIN-t';
@@ -6823,16 +6809,10 @@ class AppLocalizationsHu extends AppLocalizations {
       'A fiókod megváltozott. Zárd be ezt, és kezdd újra.';
 
   @override
-  String get onetimeRefundTitle => 'Hová küldjük vissza, ha nem sikerül?';
+  String get onetimeRefundAddressTitle => 'Visszaküldési cím';
 
   @override
-  String onetimeRefundSubtitle(String network, String coin) {
-    return 'A(z) $network hálózaton lévő címed a(z) $coin számára. Ha a befizetés nem teljesíthető, ide küldjük vissza.';
-  }
-
-  @override
-  String get onetimeRefundSkipNote =>
-      'Visszaküldési cím nélkül egy sikertelen befizetést csak az ügyfélszolgálat segítségével lehet visszaszerezni.';
+  String get optionalLabel => 'Nem kötelező';
 
   @override
   String get quotedReceiveReturnsTo => 'Visszaküldés ide';

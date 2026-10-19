@@ -1543,10 +1543,6 @@ class AppLocalizationsRo extends AppLocalizations {
   String get scanCouldNotRead => 'Codul nu a putut fi citit. Încearcă din nou.';
 
   @override
-  String get scanCouldNotReadClipboard =>
-      'Conținutul din clipboard nu poate fi folosit. Copiază din nou adresa sau codul.';
-
-  @override
   String get walletImportCouldNotImport =>
       'Portofelul nu a putut fi importat. Încearcă din nou.';
 
@@ -1612,10 +1608,6 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get scanQrCode => 'Scanează codul QR';
-
-  @override
-  String get scanAnyQRCodeDescription =>
-      'Scanează orice cod QR și încercăm să-l identificăm.';
 
   @override
   String get importFile => 'Importă fișier';
@@ -1932,9 +1924,6 @@ class AppLocalizationsRo extends AppLocalizations {
   String get scannerKeepInFrame => 'Ține codul în cadru';
 
   @override
-  String get scannerPointAtCode => 'Îndreaptă camera spre codul QR';
-
-  @override
   String get trackAddressPasteHint => 'Lipește o adresă Bitcoin';
 
   @override
@@ -2112,9 +2101,6 @@ class AppLocalizationsRo extends AppLocalizations {
   @override
   String get swapRouteTemporarilyUnavailable =>
       'Această rută este temporar indisponibilă. Încearcă mai târziu.';
-
-  @override
-  String get clipboardEmpty => 'Clipboardul este gol';
 
   @override
   String get pleaseSetUpPINFirst => 'Setează mai întâi PIN-ul';
@@ -6843,16 +6829,10 @@ class AppLocalizationsRo extends AppLocalizations {
       'Contul tău s-a schimbat. Închide și începe din nou.';
 
   @override
-  String get onetimeRefundTitle => 'Unde să-l returnăm dacă nu reușește?';
+  String get onetimeRefundAddressTitle => 'Adresă de returnare';
 
   @override
-  String onetimeRefundSubtitle(String network, String coin) {
-    return 'Adresa ta pe $network pentru $coin. Dacă depunerea nu poate fi finalizată, este trimisă înapoi aici.';
-  }
-
-  @override
-  String get onetimeRefundSkipNote =>
-      'Fără o adresă de returnare, o depunere eșuată poate fi recuperată doar cu ajutorul Asistenței.';
+  String get optionalLabel => 'Opțional';
 
   @override
   String get quotedReceiveReturnsTo => 'Se returnează la';

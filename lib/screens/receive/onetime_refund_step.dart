@@ -23,7 +23,7 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
 import 'package:kute/screens/shared/receive_surface.dart'
-    show ReceiveCaption, ReceiveSheetHeader, kReceiveSheetMaxHeight;
+    show ReceiveSheetHeader, kReceiveSheetMaxHeight;
 import 'package:kute/screens/shared/send/send_flow_widgets.dart'
     show SendRecipientError, SendRecipientField;
 import 'package:kute/screens/usd/flow/usd_flow_widgets.dart' show UsdFlowAction;
@@ -53,9 +53,10 @@ Future<OneTimeRefundChoice?> askOneTimeRefundAddress(
     );
 
 /// The return-address sheet: the Request amount sheet's container and
-/// header (the question as its title, the network as its subtitle), the
-/// Send flow's recipient field, then Continue or Skip. The keyboard lifts
-/// the sheet; the field scrolls when the sheet runs short.
+/// header ("Return address", then "Optional · USDC on HyperEVM"), the Send
+/// flow's recipient field, then Continue or Skip. The field's Scan opens
+/// the scanner sheet over this one. The keyboard lifts the sheet; the
+/// field scrolls when the sheet runs short.
 class OneTimeRefundSheet extends ConsumerStatefulWidget {
   const OneTimeRefundSheet({
     super.key,
@@ -192,9 +193,9 @@ class _OneTimeRefundSheetState extends ConsumerState<OneTimeRefundSheet> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   AppBottomSheetHeader(
-                    title: l10n.onetimeRefundTitle,
-                    subtitle: l10n.onetimeRefundSubtitle(
-                        option.chainDisplayName, option.displaySymbol),
+                    title: l10n.onetimeRefundAddressTitle,
+                    subtitle: '${l10n.optionalLabel} · '
+                        '${l10n.sendAssetOnNetwork(option.displaySymbol, option.chainDisplayName)}',
                     showDragHandle: false,
                   ),
                   Padding(
@@ -206,8 +207,7 @@ class _OneTimeRefundSheetState extends ConsumerState<OneTimeRefundSheet> {
                           key: const ValueKey('onetime-refund-address'),
                           controller: _address,
                           colors: c,
-                          hintText: l10n.sendAssetOnNetworkAddressHint(
-                              option.displaySymbol, option.chainDisplayName),
+                          hintText: l10n.address,
                           isValid: _valid,
                           onPaste: () => unawaited(_paste()),
                           onScan: () => unawaited(_scan()),
@@ -237,8 +237,6 @@ class _OneTimeRefundSheetState extends ConsumerState<OneTimeRefundSheet> {
                   secondaryLabel: l10n.skip,
                   onSecondary: _skip,
                 ),
-                SizedBox(height: 10.h),
-                ReceiveCaption(text: l10n.onetimeRefundSkipNote),
               ],
             ),
           ),

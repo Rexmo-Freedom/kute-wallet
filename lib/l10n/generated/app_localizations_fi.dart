@@ -1541,10 +1541,6 @@ class AppLocalizationsFi extends AppLocalizations {
   String get scanCouldNotRead => 'Koodia ei voitu lukea. Yritä uudelleen.';
 
   @override
-  String get scanCouldNotReadClipboard =>
-      'Leikepöydän sisältöä ei voitu käyttää. Kopioi osoite tai koodi uudelleen.';
-
-  @override
   String get walletImportCouldNotImport =>
       'Lompakkoa ei voitu tuoda. Yritä uudelleen.';
 
@@ -1608,10 +1604,6 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get scanQrCode => 'Skannaa QR-koodi';
-
-  @override
-  String get scanAnyQRCodeDescription =>
-      'Skannaa mikä tahansa QR-koodi, niin yritämme tunnistaa sen.';
 
   @override
   String get importFile => 'Tuo tiedosto';
@@ -1925,9 +1917,6 @@ class AppLocalizationsFi extends AppLocalizations {
   String get scannerKeepInFrame => 'Pidä koodi kehyksessä';
 
   @override
-  String get scannerPointAtCode => 'Osoita kameralla QR-koodia';
-
-  @override
   String get trackAddressPasteHint => 'Liitä Bitcoin-osoite';
 
   @override
@@ -2101,9 +2090,6 @@ class AppLocalizationsFi extends AppLocalizations {
   @override
   String get swapRouteTemporarilyUnavailable =>
       'Tämä reitti ei ole tilapäisesti käytettävissä. Yritä myöhemmin uudelleen.';
-
-  @override
-  String get clipboardEmpty => 'Leikepöytä on tyhjä';
 
   @override
   String get pleaseSetUpPINFirst => 'Aseta ensin PIN';
@@ -6806,16 +6792,10 @@ class AppLocalizationsFi extends AppLocalizations {
       'Tilisi vaihtui. Sulje tämä ja aloita alusta.';
 
   @override
-  String get onetimeRefundTitle => 'Minne palautamme sen, jos se epäonnistuu?';
+  String get onetimeRefundAddressTitle => 'Palautusosoite';
 
   @override
-  String onetimeRefundSubtitle(String network, String coin) {
-    return 'Osoitteesi verkossa $network kolikolle $coin. Jos talletusta ei voida suorittaa loppuun, se palautetaan tänne.';
-  }
-
-  @override
-  String get onetimeRefundSkipNote =>
-      'Ilman palautusosoitetta epäonnistuneen talletuksen palauttaminen vaatii tukea.';
+  String get optionalLabel => 'Valinnainen';
 
   @override
   String get quotedReceiveReturnsTo => 'Palautetaan osoitteeseen';

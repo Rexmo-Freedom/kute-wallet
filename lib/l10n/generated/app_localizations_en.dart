@@ -1538,10 +1538,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get scanCouldNotRead => 'Couldn\'t read that code. Try again.';
 
   @override
-  String get scanCouldNotReadClipboard =>
-      'Couldn\'t use what\'s on your clipboard. Copy the address or code again.';
-
-  @override
   String get walletImportCouldNotImport =>
       'Couldn\'t import this wallet. Try again.';
 
@@ -1605,10 +1601,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get scanQrCode => 'Scan QR Code';
-
-  @override
-  String get scanAnyQRCodeDescription =>
-      'Scan any QR code and we will try to figure it out.';
 
   @override
   String get importFile => 'Import File';
@@ -1922,9 +1914,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get scannerKeepInFrame => 'Keep the code in the frame';
 
   @override
-  String get scannerPointAtCode => 'Point the camera at the QR code';
-
-  @override
   String get trackAddressPasteHint => 'Paste a Bitcoin address';
 
   @override
@@ -2098,9 +2087,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get swapRouteTemporarilyUnavailable =>
       'This route is temporarily unavailable. Please try again later.';
-
-  @override
-  String get clipboardEmpty => 'Clipboard is empty';
 
   @override
   String get pleaseSetUpPINFirst => 'Please set up your PIN first';
@@ -6787,16 +6773,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Your account changed. Close this and start again.';
 
   @override
-  String get onetimeRefundTitle => 'Where should we return it if it fails?';
+  String get onetimeRefundAddressTitle => 'Return address';
 
   @override
-  String onetimeRefundSubtitle(String network, String coin) {
-    return 'Your address on $network for $coin. If the deposit can\'t be completed, it\'s sent back here.';
-  }
-
-  @override
-  String get onetimeRefundSkipNote =>
-      'Without a return address, a failed deposit needs Support to recover.';
+  String get optionalLabel => 'Optional';
 
   @override
   String get quotedReceiveReturnsTo => 'Returns to';

@@ -1514,10 +1514,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get scanCouldNotRead => 'コードを読み取れませんでした。もう一度お試しください。';
 
   @override
-  String get scanCouldNotReadClipboard =>
-      'クリップボードの内容を使用できませんでした。アドレスまたはコードをもう一度コピーしてください。';
-
-  @override
   String get walletImportCouldNotImport => 'このウォレットをインポートできませんでした。もう一度お試しください。';
 
   @override
@@ -1578,9 +1574,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get scanQrCode => 'QRコードをスキャン';
-
-  @override
-  String get scanAnyQRCodeDescription => 'どんなQRコードでもスキャンしてください。内容を自動で判別します。';
 
   @override
   String get importFile => 'ファイルをインポート';
@@ -1887,9 +1880,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get scannerKeepInFrame => 'コードを枠内に収めてください';
 
   @override
-  String get scannerPointAtCode => 'カメラをQRコードに向けてください';
-
-  @override
   String get trackAddressPasteHint => 'ビットコインアドレスを貼り付け';
 
   @override
@@ -2052,9 +2042,6 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get swapRouteTemporarilyUnavailable =>
       'このルートは一時的に利用できません。後でもう一度お試しください。';
-
-  @override
-  String get clipboardEmpty => 'クリップボードが空です';
 
   @override
   String get pleaseSetUpPINFirst => '先にPINを設定してください';
@@ -6536,15 +6523,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get quotedReceiveWalletChanged => 'アカウントが変更されました。これを閉じて最初からやり直してください。';
 
   @override
-  String get onetimeRefundTitle => '失敗した場合の返金先はどこにしますか？';
+  String get onetimeRefundAddressTitle => '返送先アドレス';
 
   @override
-  String onetimeRefundSubtitle(String network, String coin) {
-    return '$coin を受け取れる $network 上のあなたのアドレスです。入金を完了できない場合は、ここに返送されます。';
-  }
-
-  @override
-  String get onetimeRefundSkipNote => '返金先アドレスがない場合、失敗した入金の回収にはサポートが必要です。';
+  String get optionalLabel => '任意';
 
   @override
   String get quotedReceiveReturnsTo => '返金先';

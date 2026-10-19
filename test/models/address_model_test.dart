@@ -500,7 +500,7 @@ void main() {
   });
 
   group('Bitcoin address regex validation (mirrors scanner patterns)', () {
-    // These tests verify the same regex patterns used in SmartScannerScreen
+    // These tests verify the same regex patterns used in ScannerSheet
     // to ensure correctness of the address matching logic.
     final bitcoinRegex = RegExp(
       r'^(bc1|tb1|bcrt1)[a-z0-9]{25,}$|'

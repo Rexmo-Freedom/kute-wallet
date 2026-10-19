@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/helpers/scanned_address.dart';
 import 'package:kute/l10n/generated/app_localizations_en.dart';
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/screens/scanner/scanner_sheet.dart';
 import 'package:kute/screens/shared/kute_paste_chip.dart';
 import 'package:kute/services/orchestra_usd_send_routes.dart';
 import 'package:kute/theme/app_theme.dart';
+
+import 'fake_scanner_camera.dart';
 
 const _spark =
     'sp1pgssy7d7vel0nh9m4326qc54e6rskpczn07dktww9rv4nu5ptvt0s9ucez8h3s';
@@ -138,50 +141,35 @@ void main() {
   });
 
   testWidgets(
-      'Scan chip opens the smart scanner in return-value mode and '
-      'hands back its value', (tester) async {
+      'Scan chip opens the scanner sheet in recipient mode and hands back '
+      'its value; closing it hands back nothing', (tester) async {
     GoogleFonts.config.allowRuntimeFetching = false;
     final l10n = AppLocalizationsEn();
-    Object? scannerExtra;
+    final cameras = FakeScannerCameras();
     String? received;
+    var returned = false;
 
-    final router = GoRouter(routes: [
-      GoRoute(
-        path: '/',
-        builder: (context, _) => Scaffold(
-          body: Builder(
-            builder: (context) => Row(children: [
-              KutePasteChip(onPressed: () {}),
-              KuteScanChip(onPressed: () async {
-                received = await scanRecipientRaw(context);
-              }),
-            ]),
+    await tester.pumpWidget(ProviderScope(
+      overrides: [cameras.override],
+      child: ScreenUtilInit(
+        designSize: const Size(430, 932),
+        builder: (_, __) => MaterialApp(
+          theme: ThemeData(
+              fontFamily: 'Inter', extensions: [AppColorsExtension.light()]),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => Row(children: [
+                KutePasteChip(onPressed: () {}),
+                KuteScanChip(onPressed: () async {
+                  received = await scanRecipientRaw(context);
+                  returned = true;
+                }),
+              ]),
+            ),
           ),
         ),
-      ),
-      GoRoute(
-        path: '/smart-scanner',
-        name: 'smartScanner',
-        builder: (context, state) {
-          scannerExtra = state.extra;
-          return Scaffold(
-            body: TextButton(
-              onPressed: () => context.pop('  spark:$_spark  '),
-              child: const Text('fake-scan'),
-            ),
-          );
-        },
-      ),
-    ]);
-
-    await tester.pumpWidget(ScreenUtilInit(
-      designSize: const Size(430, 932),
-      builder: (_, __) => MaterialApp.router(
-        theme: ThemeData(
-            fontFamily: 'Inter', extensions: [AppColorsExtension.light()]),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        routerConfig: router,
       ),
     ));
     await tester.pumpAndSettle();
@@ -189,13 +177,71 @@ void main() {
     expect(find.text(l10n.paste), findsOneWidget);
     expect(find.text(l10n.scan), findsOneWidget);
 
+    // Closed without a code: nothing comes back.
     await tester.tap(find.text(l10n.scan));
     await tester.pumpAndSettle();
-    expect(scannerExtra, {'returnRaw': true});
-
-    await tester.tap(find.text('fake-scan'));
+    expect(find.byType(ScannerSheet), findsOneWidget);
+    expect(tester.widget<ScannerSheet>(find.byType(ScannerSheet)).mode,
+        ScannerMode.recipient);
+    expect(cameras.last.multiPart, isFalse);
+    await tester.tapAt(const Offset(10, 10));
     await tester.pumpAndSettle();
+    expect(find.byType(ScannerSheet), findsNothing);
+    expect(returned, isTrue);
+    expect(received, isNull);
+    expect(cameras.last.disposed, isTrue);
+
+    // A code comes back trimmed.
+    returned = false;
+    await tester.tap(find.text(l10n.scan));
+    await tester.pumpAndSettle();
+    cameras.last.scan('  spark:$_spark  ');
+    await tester.pumpAndSettle();
+    expect(find.byType(ScannerSheet), findsNothing);
+    expect(returned, isTrue);
     expect(received, 'spark:$_spark');
     expect(bareRecipientAddress(received!), _spark);
+    expect(cameras.last.disposed, isTrue);
+  });
+
+  testWidgets(
+      'the multi-part scanner joins nothing for a plain code and hands it '
+      'back as read', (tester) async {
+    GoogleFonts.config.allowRuntimeFetching = false;
+    final cameras = FakeScannerCameras();
+    String? received;
+
+    await tester.pumpWidget(ProviderScope(
+      overrides: [cameras.override],
+      child: ScreenUtilInit(
+        designSize: const Size(430, 932),
+        builder: (_, __) => MaterialApp(
+          theme: ThemeData(
+              fontFamily: 'Inter', extensions: [AppColorsExtension.light()]),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () async =>
+                    received = await showScannerSheet(context, multiPart: true),
+                child: const Text('scan'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('scan'));
+    await tester.pumpAndSettle();
+    expect(
+        ModalRoute.of(tester.element(find.byType(ScannerSheet)))!.settings.name,
+        kMultiPartScannerRouteName);
+    expect(cameras.last.multiPart, isTrue);
+    cameras.last.scan(_spark);
+    await tester.pumpAndSettle();
+    expect(find.byType(ScannerSheet), findsNothing);
+    expect(received, _spark);
+    expect(cameras.last.disposed, isTrue);
   });
 }

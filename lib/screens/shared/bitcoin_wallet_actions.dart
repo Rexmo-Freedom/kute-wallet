@@ -1,3 +1,4 @@
+import 'package:kute/screens/scanner/scanner_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -105,7 +106,7 @@ class BitcoinWalletPrimaryActions extends ConsumerWidget {
         TrackingService.quickAction('scan', source: source);
         if (!_pinBitcoinWallet(context, ref, wallet)) return;
         ref.read(sendTxProvider.notifier).resetToDefault();
-        context.pushNamed('smartScanner');
+        showRoutingScannerSheet(context);
       },
     );
     return Row(children: [

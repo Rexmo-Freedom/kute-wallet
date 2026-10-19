@@ -7,7 +7,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 /// address, etc.). Returns `null` when the user cancels the picker or
 /// no decodable QR is present.
 ///
-/// Shared by the smart scanner screen and the Send-to action row so
+/// Shared by the scanner sheet and the Send-to action row so
 /// the "open a QR screenshot from photos" path runs through exactly
 /// the same downstream detection as a live camera scan. Uses
 /// `file_picker` (already a project dependency) for the image pick and

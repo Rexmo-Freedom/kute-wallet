@@ -1,3 +1,4 @@
+import 'package:kute/screens/scanner/scanner_sheet.dart';
 import 'package:kute/services/bitcoin/bitcoin_transaction_review.dart';
 import 'package:kute/models/onchain_types.dart' show Network;
 import 'dart:async';
@@ -379,7 +380,7 @@ class _WatchOnlySigningScreenState extends ConsumerState<WatchOnlySigningScreen>
   }
 
   Future<void> _onScanSignedTxImpl() async {
-    final result = await context.pushNamed<String>('QrScanner');
+    final result = await showScannerSheet(context, multiPart: true);
     if (!mounted) return;
     if (result != null && result.isNotEmpty) {
       _processImportedTx(result);

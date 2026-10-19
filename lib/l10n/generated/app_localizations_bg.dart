@@ -1540,10 +1540,6 @@ class AppLocalizationsBg extends AppLocalizations {
   String get scanCouldNotRead => 'Кодът не можа да се прочете. Опитай отново.';
 
   @override
-  String get scanCouldNotReadClipboard =>
-      'Съдържанието в клипборда не може да се използва. Копирай адреса или кода отново.';
-
-  @override
   String get walletImportCouldNotImport =>
       'Портфейлът не можа да се импортира. Опитай отново.';
 
@@ -1609,10 +1605,6 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get scanQrCode => 'Сканирай QR код';
-
-  @override
-  String get scanAnyQRCodeDescription =>
-      'Сканирай какъвто и да е QR код и ще опитаме да го разчетем.';
 
   @override
   String get importFile => 'Импортирай файл';
@@ -1929,9 +1921,6 @@ class AppLocalizationsBg extends AppLocalizations {
   String get scannerKeepInFrame => 'Дръж кода в рамката';
 
   @override
-  String get scannerPointAtCode => 'Насочи камерата към QR кода';
-
-  @override
   String get trackAddressPasteHint => 'Постави Bitcoin адрес';
 
   @override
@@ -2107,9 +2096,6 @@ class AppLocalizationsBg extends AppLocalizations {
   @override
   String get swapRouteTemporarilyUnavailable =>
       'Този маршрут временно не е достъпен. Опитай отново по-късно.';
-
-  @override
-  String get clipboardEmpty => 'Клипбордът е празен';
 
   @override
   String get pleaseSetUpPINFirst => 'Първо задай своя PIN';
@@ -6817,16 +6803,10 @@ class AppLocalizationsBg extends AppLocalizations {
       'Акаунтът ти се смени. Затвори това и започни отначало.';
 
   @override
-  String get onetimeRefundTitle => 'Къде да го върнем, ако не успее?';
+  String get onetimeRefundAddressTitle => 'Адрес за връщане';
 
   @override
-  String onetimeRefundSubtitle(String network, String coin) {
-    return 'Твоят адрес в $network за $coin. Ако депозитът не може да бъде завършен, той се връща тук.';
-  }
-
-  @override
-  String get onetimeRefundSkipNote =>
-      'Без адрес за връщане неуспешен депозит може да бъде възстановен само чрез поддръжката.';
+  String get optionalLabel => 'По избор';
 
   @override
   String get quotedReceiveReturnsTo => 'Връща се към';

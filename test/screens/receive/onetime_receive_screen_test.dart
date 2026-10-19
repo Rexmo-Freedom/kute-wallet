@@ -23,6 +23,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+
+import '../../helpers/fake_scanner_camera.dart';
 import 'package:kute/l10n/generated/app_localizations_en.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/breez/sdk_instance.dart' show BreezSdkSpark;
@@ -45,6 +47,7 @@ import 'package:kute/screens/receive/components/request_amount_sheet.dart';
 import 'package:kute/screens/receive/onetime_refund_step.dart';
 import 'package:kute/screens/receive/quoted_receive_screen.dart';
 import 'package:kute/screens/receive/receive_sheet.dart';
+import 'package:kute/screens/scanner/scanner_sheet.dart' show ScannerSheet;
 import 'package:kute/screens/shared/amount_keypad_panel.dart'
     show AmountKeypad, BigAmountDisplay;
 import 'package:kute/screens/shared/coin_asset_grid.dart';
@@ -155,6 +158,9 @@ void _reconnect() {
   _container.invalidate(breezSDKProvider);
 }
 
+/// The scanner sheets' stand-in cameras for the current test.
+FakeScannerCameras _scanners = FakeScannerCameras();
+
 Future<void> _pump(WidgetTester tester,
     {bool bitcoin = false,
     _Wrapper? wrapper,
@@ -163,8 +169,10 @@ Future<void> _pump(WidgetTester tester,
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   _wrapper = wrapper ?? _newWrapper();
+  _scanners = FakeScannerCameras();
   await tester.pumpWidget(ProviderScope(
     overrides: [
+      _scanners.override,
       settingsProvider.overrideWith((_) => _settings = _Settings(Settings(
             currency: 'USD',
             language: 'en',
@@ -723,9 +731,9 @@ void main() {
       expect(refund, isA<ModalBottomSheetRoute<dynamic>>());
       expect(refund, isNot(same(coin)));
       expect(find.byType(UsdReceiveScreen), findsOneWidget);
-      // Its header carries the question; no stepper. The close X is on
-      // the left, before the question.
-      expect(find.text(_l10n.onetimeRefundTitle), findsOneWidget);
+      // Its header carries the title; no stepper. The close X is on the
+      // left, before the title.
+      expect(find.text(_l10n.onetimeRefundAddressTitle), findsOneWidget);
       expectCloseOnLeft(tester, find.byType(OneTimeRefundSheet));
       expect(
           tester
@@ -734,7 +742,9 @@ void main() {
                   matching: find.byType(KuteCloseButton)))
               .dy,
           lessThan(
-              tester.getTopLeft(find.text(_l10n.onetimeRefundTitle)).dy));
+              tester
+                  .getTopLeft(find.text(_l10n.onetimeRefundAddressTitle))
+                  .dy));
       expect(find.byType(StepperProgress), findsNothing);
       // Only the host's Scaffold: no full-screen route was pushed.
       expect(find.byType(Scaffold), findsOneWidget);
@@ -849,10 +859,25 @@ void main() {
       await tester
           .tap(find.widgetWithText(AppButton, _l10n.receiveCreateRequest));
       await _settle(tester);
-      expect(find.text(_l10n.onetimeRefundTitle), findsOneWidget);
-      expect(find.text(_l10n.onetimeRefundSubtitle('ethereum', 'USDT')),
+      // Few words: the title, one short optional line, a bare "Address"
+      // placeholder, and no note under the buttons.
+      expect(find.text(_l10n.onetimeRefundAddressTitle), findsOneWidget);
+      expect(
+          find.text('${_l10n.optionalLabel} · '
+              '${_l10n.sendAssetOnNetwork('USDT', 'ethereum')}'),
           findsOneWidget);
-      expect(find.text(_l10n.onetimeRefundSkipNote), findsOneWidget);
+      expect(find.text('Optional · USDT on ethereum'), findsOneWidget);
+      expect(
+          tester
+              .widget<TextField>(_refundField)
+              .decoration
+              ?.hintText,
+          _l10n.address);
+      expect(
+          find.descendant(
+              of: find.byType(OneTimeRefundSheet),
+              matching: find.byType(ReceiveCaption)),
+          findsNothing);
       // Nothing is filled in from the clipboard or the wallet.
       expect(tester.widget<TextField>(_refundField).controller!.text, isEmpty);
       expect(_continueButton(tester).onPressed, isNull);
@@ -900,6 +925,56 @@ void main() {
               e.$2!['refund_address_set'] == false),
           isTrue);
       expect(OneTimeRefundAddressStore.debugMemory, isEmpty);
+      await _unmount(tester);
+    });
+
+    testWidgets(
+        'Scan opens the scanner sheet over the return-address sheet: '
+        'closing returns to it unchanged, a scan fills the field',
+        (tester) async {
+      await _pump(tester);
+      await _requestUsdt(tester, '25');
+      await tester
+          .tap(find.widgetWithText(AppButton, _l10n.receiveCreateRequest));
+      await _settle(tester);
+      final refund = ModalRoute.of(tester.element(find.byType(OneTimeRefundSheet)));
+
+      await tester.tap(find.descendant(
+          of: find.byType(OneTimeRefundSheet),
+          matching: find.byTooltip(_l10n.scan)));
+      await _settle(tester);
+      expect(find.byType(ScannerSheet), findsOneWidget);
+      final scanner = ModalRoute.of(tester.element(find.byType(ScannerSheet)));
+      expect(scanner, isA<ModalBottomSheetRoute<dynamic>>());
+      expect(scanner, isNot(same(refund)));
+      expect(find.byType(OneTimeRefundSheet, skipOffstage: false),
+          findsOneWidget,
+          reason: 'the return-address sheet waits under the scanner');
+      expect(find.byType(Scaffold), findsOneWidget,
+          reason: 'no full-screen route');
+      expect(_scanners.last.running, isTrue);
+
+      // Closing returns to the return-address sheet as it was.
+      await tester.tap(find.descendant(
+          of: find.byType(ScannerSheet),
+          matching: find.byType(KuteCloseButton)));
+      await _settle(tester);
+      expect(find.byType(ScannerSheet), findsNothing);
+      expect(find.byType(OneTimeRefundSheet), findsOneWidget);
+      expect(tester.widget<TextField>(_refundField).controller!.text, isEmpty);
+      expect(_scanners.last.disposed, isTrue);
+
+      // A scan fills the field with the bare address.
+      await tester.tap(find.descendant(
+          of: find.byType(OneTimeRefundSheet),
+          matching: find.byTooltip(_l10n.scan)));
+      await _settle(tester);
+      _scanners.last.scan('ethereum:$_refund@1');
+      await _settle(tester);
+      expect(find.byType(ScannerSheet), findsNothing);
+      expect(tester.widget<TextField>(_refundField).controller!.text, _refund);
+      expect(_continueButton(tester).onPressed, isNotNull);
+      expect(_scanners.last.disposed, isTrue);
       await _unmount(tester);
     });
 

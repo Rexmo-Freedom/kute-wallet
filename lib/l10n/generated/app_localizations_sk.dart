@@ -1536,10 +1536,6 @@ class AppLocalizationsSk extends AppLocalizations {
   String get scanCouldNotRead => 'Kód sa nepodarilo prečítať. Skús to znova.';
 
   @override
-  String get scanCouldNotReadClipboard =>
-      'Obsah schránky sa nedá použiť. Skopíruj adresu alebo kód znova.';
-
-  @override
   String get walletImportCouldNotImport =>
       'Túto peňaženku sa nepodarilo importovať. Skús to znova.';
 
@@ -1603,10 +1599,6 @@ class AppLocalizationsSk extends AppLocalizations {
 
   @override
   String get scanQrCode => 'Skenovať QR kód';
-
-  @override
-  String get scanAnyQRCodeDescription =>
-      'Naskenuj akýkoľvek QR kód a pokúsime sa ho rozpoznať.';
 
   @override
   String get importFile => 'Importovať súbor';
@@ -1924,9 +1916,6 @@ class AppLocalizationsSk extends AppLocalizations {
   String get scannerKeepInFrame => 'Drž kód v rámčeku';
 
   @override
-  String get scannerPointAtCode => 'Namier fotoaparát na QR kód';
-
-  @override
   String get trackAddressPasteHint => 'Vlož Bitcoin adresu';
 
   @override
@@ -2102,9 +2091,6 @@ class AppLocalizationsSk extends AppLocalizations {
   @override
   String get swapRouteTemporarilyUnavailable =>
       'Táto trasa je dočasne nedostupná. Skús to neskôr.';
-
-  @override
-  String get clipboardEmpty => 'Schránka je prázdna';
 
   @override
   String get pleaseSetUpPINFirst => 'Najprv si nastav PIN';
@@ -6810,16 +6796,10 @@ class AppLocalizationsSk extends AppLocalizations {
       'Tvoj účet sa zmenil. Zavri toto a začni odznova.';
 
   @override
-  String get onetimeRefundTitle => 'Kam to máme vrátiť, ak sa to nepodarí?';
+  String get onetimeRefundAddressTitle => 'Adresa na vrátenie';
 
   @override
-  String onetimeRefundSubtitle(String network, String coin) {
-    return 'Tvoja adresa v sieti $network pre $coin. Ak vklad nemožno dokončiť, pošle sa späť sem.';
-  }
-
-  @override
-  String get onetimeRefundSkipNote =>
-      'Bez adresy na vrátenie možno neúspešný vklad získať späť len cez podporu.';
+  String get optionalLabel => 'Voliteľné';
 
   @override
   String get quotedReceiveReturnsTo => 'Vracia sa na';

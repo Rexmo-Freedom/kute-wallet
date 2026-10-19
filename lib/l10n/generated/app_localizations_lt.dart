@@ -1543,10 +1543,6 @@ class AppLocalizationsLt extends AppLocalizations {
       'Nepavyko nuskaityti kodo. Bandykite dar kartą.';
 
   @override
-  String get scanCouldNotReadClipboard =>
-      'Nepavyko panaudoti iškarpinės turinio. Nukopijuokite adresą arba kodą dar kartą.';
-
-  @override
   String get walletImportCouldNotImport =>
       'Nepavyko importuoti šios piniginės. Bandykite dar kartą.';
 
@@ -1610,10 +1606,6 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get scanQrCode => 'Skenuoti QR kodą';
-
-  @override
-  String get scanAnyQRCodeDescription =>
-      'Nuskaitykite bet kokį QR kodą, o mes pabandysime jį atpažinti.';
 
   @override
   String get importFile => 'Importuoti failą';
@@ -1931,9 +1923,6 @@ class AppLocalizationsLt extends AppLocalizations {
   String get scannerKeepInFrame => 'Laikykite kodą rėmelyje';
 
   @override
-  String get scannerPointAtCode => 'Nukreipkite kamerą į QR kodą';
-
-  @override
   String get trackAddressPasteHint => 'Įklijuokite Bitcoin adresą';
 
   @override
@@ -2108,9 +2097,6 @@ class AppLocalizationsLt extends AppLocalizations {
   @override
   String get swapRouteTemporarilyUnavailable =>
       'Šis maršrutas laikinai negalimas. Bandykite vėliau.';
-
-  @override
-  String get clipboardEmpty => 'Iškarpinė tuščia';
 
   @override
   String get pleaseSetUpPINFirst => 'Pirmiausia nustatykite PIN';
@@ -6838,16 +6824,10 @@ class AppLocalizationsLt extends AppLocalizations {
       'Jūsų paskyra pasikeitė. Uždarykite tai ir pradėkite iš naujo.';
 
   @override
-  String get onetimeRefundTitle => 'Kur grąžinti, jei nepavyks?';
+  String get onetimeRefundAddressTitle => 'Grąžinimo adresas';
 
   @override
-  String onetimeRefundSubtitle(String network, String coin) {
-    return 'Jūsų adresas tinkle $network, skirtas $coin. Jei įnašo nepavyks užbaigti, jis bus grąžintas čia.';
-  }
-
-  @override
-  String get onetimeRefundSkipNote =>
-      'Be grąžinimo adreso nepavykusį įnašą atgauti galima tik padedant pagalbos tarnybai.';
+  String get optionalLabel => 'Neprivaloma';
 
   @override
   String get quotedReceiveReturnsTo => 'Grąžinama į';

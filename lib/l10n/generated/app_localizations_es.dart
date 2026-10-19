@@ -1543,10 +1543,6 @@ class AppLocalizationsEs extends AppLocalizations {
       'No se ha podido leer ese código. Inténtalo de nuevo.';
 
   @override
-  String get scanCouldNotReadClipboard =>
-      'No se puede usar lo que hay en tu portapapeles. Vuelve a copiar la dirección o el código.';
-
-  @override
   String get walletImportCouldNotImport =>
       'No se ha podido importar esta cartera. Inténtalo de nuevo.';
 
@@ -1612,10 +1608,6 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get scanQrCode => 'Escanear código QR';
-
-  @override
-  String get scanAnyQRCodeDescription =>
-      'Escanea cualquier código QR e intentaremos interpretarlo.';
 
   @override
   String get importFile => 'Importar archivo';
@@ -1932,9 +1924,6 @@ class AppLocalizationsEs extends AppLocalizations {
   String get scannerKeepInFrame => 'Mantén el código dentro del marco';
 
   @override
-  String get scannerPointAtCode => 'Apunta la cámara al código QR';
-
-  @override
   String get trackAddressPasteHint => 'Pega una dirección Bitcoin';
 
   @override
@@ -2113,9 +2102,6 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get swapRouteTemporarilyUnavailable =>
       'Esta ruta no está disponible temporalmente. Inténtalo de nuevo más tarde.';
-
-  @override
-  String get clipboardEmpty => 'El portapapeles está vacío';
 
   @override
   String get pleaseSetUpPINFirst => 'Primero configura tu PIN';
@@ -6840,16 +6826,10 @@ class AppLocalizationsEs extends AppLocalizations {
       'Tu cuenta ha cambiado. Cierra esto y empieza de nuevo.';
 
   @override
-  String get onetimeRefundTitle => '¿Dónde lo devolvemos si falla?';
+  String get onetimeRefundAddressTitle => 'Dirección de devolución';
 
   @override
-  String onetimeRefundSubtitle(String network, String coin) {
-    return 'Tu dirección en $network para $coin. Si el depósito no se puede completar, se devuelve aquí.';
-  }
-
-  @override
-  String get onetimeRefundSkipNote =>
-      'Sin una dirección de devolución, recuperar un depósito fallido requiere ayuda de Soporte.';
+  String get optionalLabel => 'Opcional';
 
   @override
   String get quotedReceiveReturnsTo => 'Se devuelve a';
