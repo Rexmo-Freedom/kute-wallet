@@ -155,19 +155,28 @@ Future<OneTimeReceiveAmount?> requestOneTimeReceiveAmount(
       );
 
   final limits = ValueNotifier<RequestAmountLimits>(limitsNow());
+  // The sheet is gone: a read landing after it writes nothing to the
+  // notifier (disposed below), and what it brought is the local minimum.
+  var closed = false;
   // Re-read every time the sheet opens; never awaited before it shows.
   Future<void>? reading = minimums.refresh(route).then((read) {
     minimum = read;
-    limits.value = limitsNow();
+    if (!closed) limits.value = limitsNow();
   });
   unawaited(reading.whenComplete(() => reading = null));
 
-  final requested = await showRequestAmountSheet(
-    context,
-    fixedCurrency: destinationAsset == kOrchestraUsdAssetCode ? 'USD' : null,
-    limits: limits,
-    pending: () => reading,
-  );
+  final RequestedAmount? requested;
+  try {
+    requested = await showRequestAmountSheet(
+      context,
+      fixedCurrency: destinationAsset == kOrchestraUsdAssetCode ? 'USD' : null,
+      limits: limits,
+      pending: () => reading,
+    );
+  } finally {
+    closed = true;
+    limits.dispose();
+  }
   if (requested == null || !context.mounted) return null;
   final cents = oneTimeReceiveUsdCents(ref, requested);
   if (cents == null || cents <= 0 || outside(cents) != null) return null;

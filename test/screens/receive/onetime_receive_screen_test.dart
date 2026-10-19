@@ -686,6 +686,49 @@ void main() {
     await _unmount(tester);
   });
 
+  testWidgets(
+      'a read landing after the amount sheet was dismissed writes nothing '
+      'to the sheet (its limits are let go with it); the next open reads '
+      'again', (tester) async {
+    var reads = 0;
+    var answer = Completer<OrchestraRouteLimits?>();
+    await _pump(tester, fetch: (route) {
+      reads++;
+      return answer.future;
+    });
+    await tester.tap(find.widgetWithText(CoinAssetTile, 'USDT').first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byType(RequestAmountSheet), findsOneWidget);
+
+    // Dismissed while the read is still out.
+    Navigator.of(tester.element(find.byType(RequestAmountSheet))).pop();
+    await _settle(tester);
+    expect(find.byType(RequestAmountSheet), findsNothing);
+    answer.complete(const OrchestraRouteLimits(orderMinUsdCents: 75));
+    await _settle(tester);
+    expect(tester.takeException(), isNull);
+    expect(quoted, isEmpty);
+
+    // Opened again: a fresh read, and the line follows it.
+    answer = Completer<OrchestraRouteLimits?>();
+    await tester.tap(find.widgetWithText(CoinAssetTile, 'USDT').first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byType(RequestAmountSheet), findsOneWidget);
+    expect(reads, 2,
+        reason: 'the grid prefetch, shared by the first open, then a new one');
+    answer.complete(const OrchestraRouteLimits(orderMinUsdCents: 75));
+    await _settle(tester);
+    expect(
+        tester
+            .widget<BigAmountDisplay>(find.byType(BigAmountDisplay))
+            .minimumLabel,
+        _l10n.amountMinimumInline('\$0.75'));
+    expect(tester.takeException(), isNull);
+    await _unmount(tester);
+  });
+
   group('presented as bottom sheets', () {
     /// The route [finder]'s widget sits in.
     ModalRoute<dynamic>? routeOf(WidgetTester tester, Finder finder) =>
@@ -700,10 +743,11 @@ void main() {
       final close =
           find.descendant(of: sheet, matching: find.byType(KuteCloseButton));
       expect(close, findsOneWidget);
-      expect(find.descendant(of: sheet, matching: find.byIcon(Icons.close_rounded)),
+      expect(
+          find.descendant(
+              of: sheet, matching: find.byIcon(Icons.close_rounded)),
           findsOneWidget);
-      expect(tester.getCenter(close).dx,
-          lessThan(tester.getCenter(sheet).dx));
+      expect(tester.getCenter(close).dx, lessThan(tester.getCenter(sheet).dx));
     }
 
     testWidgets(
@@ -741,10 +785,9 @@ void main() {
                   of: find.byType(OneTimeRefundSheet),
                   matching: find.byType(KuteCloseButton)))
               .dy,
-          lessThan(
-              tester
-                  .getTopLeft(find.text(_l10n.onetimeRefundAddressTitle))
-                  .dy));
+          lessThan(tester
+              .getTopLeft(find.text(_l10n.onetimeRefundAddressTitle))
+              .dy));
       expect(find.byType(StepperProgress), findsNothing);
       // Only the host's Scaffold: no full-screen route was pushed.
       expect(find.byType(Scaffold), findsOneWidget);
@@ -867,11 +910,7 @@ void main() {
               '${_l10n.sendAssetOnNetwork('USDT', 'ethereum')}'),
           findsOneWidget);
       expect(find.text('Optional · USDT on ethereum'), findsOneWidget);
-      expect(
-          tester
-              .widget<TextField>(_refundField)
-              .decoration
-              ?.hintText,
+      expect(tester.widget<TextField>(_refundField).decoration?.hintText,
           _l10n.address);
       expect(
           find.descendant(
@@ -937,7 +976,8 @@ void main() {
       await tester
           .tap(find.widgetWithText(AppButton, _l10n.receiveCreateRequest));
       await _settle(tester);
-      final refund = ModalRoute.of(tester.element(find.byType(OneTimeRefundSheet)));
+      final refund =
+          ModalRoute.of(tester.element(find.byType(OneTimeRefundSheet)));
 
       await tester.tap(find.descendant(
           of: find.byType(OneTimeRefundSheet),
@@ -947,8 +987,8 @@ void main() {
       final scanner = ModalRoute.of(tester.element(find.byType(ScannerSheet)));
       expect(scanner, isA<ModalBottomSheetRoute<dynamic>>());
       expect(scanner, isNot(same(refund)));
-      expect(find.byType(OneTimeRefundSheet, skipOffstage: false),
-          findsOneWidget,
+      expect(
+          find.byType(OneTimeRefundSheet, skipOffstage: false), findsOneWidget,
           reason: 'the return-address sheet waits under the scanner');
       expect(find.byType(Scaffold), findsOneWidget,
           reason: 'no full-screen route');
