@@ -24,8 +24,9 @@ Future<void> _pump(WidgetTester tester, PolyChanceBarSpec spec,
     {double chance = 0.5,
     String? label = 'Bought · 78¢',
     bool dark = false,
-    bool reduceMotion = false}) async {
-  tester.view.physicalSize = const Size(390, 400);
+    bool reduceMotion = false,
+    double width = _w}) async {
+  tester.view.physicalSize = Size(math.max(390, width + 60), 400);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
@@ -44,7 +45,7 @@ Future<void> _pump(WidgetTester tester, PolyChanceBarSpec spec,
           child: Scaffold(
             body: Center(
               child: SizedBox(
-                width: _w,
+                width: width,
                 child: PolyPositionChanceGauge(
                     spec: spec, chance: chance, tickLabel: label),
               ),
@@ -225,18 +226,20 @@ void main() {
 
     testWidgets('at the extremes the tag flips beside the arc\'s end',
         (tester) async {
-      // The dial is sized so a real tag fits beside either end; the test
-      // font's wide glyphs can push it up instead, still clear of the arc.
-      await _pump(tester, _yes(0.5, bought: 0.03), label: 'Bought · 3¢');
+      // The dial leaves room for the tag beside either end, so it sits
+      // level with the arc's end, never lifted to a corner. The test font
+      // draws a tag about twice the real one, so the surface is wider in
+      // the same proportion (a 390 pt phone with the real font).
+      await _pump(tester, _yes(0.5, bought: 0.03),
+          label: 'Bought · 3¢', width: 700);
       var g = _painter(tester).geometry;
-      var label = _label(tester);
-      expect(_distance(label, g.center), greaterThan(g.tickOuter));
-      expect(label.center.dx, lessThan(g.center.dx));
-      await _pump(tester, _yes(0.5, bought: 0.97), label: 'Bought · 97¢');
+      expect(_label(tester).right, lessThan(g.center.dx - g.radius));
+      expect(_label(tester).center.dy, greaterThan(g.center.dy - g.radius));
+      await _pump(tester, _yes(0.5, bought: 0.97),
+          label: 'Bought · 97¢', width: 700);
       g = _painter(tester).geometry;
-      label = _label(tester);
-      expect(_distance(label, g.center), greaterThan(g.tickOuter));
-      expect(label.center.dx, greaterThan(g.center.dx));
+      expect(_label(tester).left, greaterThan(g.center.dx + g.radius));
+      expect(_label(tester).center.dy, greaterThan(g.center.dy - g.radius));
       expect(tester.takeException(), isNull);
     });
 

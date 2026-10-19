@@ -963,10 +963,11 @@ class PendingBetAutoFire {
     // A 5-minute crypto round says it ended while the money was moving,
     // and where the money is; its slip offers Done, not a retry.
     final fiveMinute = polyIsCryptoUpDown5m(intent.eventSlug);
-    _trackFailed(intent, fiveMinute ? 'round_ended' : 'market_closed');
+    final code = fiveMinute ? 'round_ended' : 'market_closed';
+    _trackFailed(intent, code);
     if (intent.funded) {
       OrderFundingJourney.instance.failed(OneBalanceVenue.predictions,
-          OrderFundingStage.order, 'market_closed');
+          OrderFundingStage.order, code);
     }
     PredictionFundingLedger.instance
         .release(intent.fundQuoteRef, reason: 'failed');

@@ -243,8 +243,10 @@ class PolyPositionChanceGauge extends StatelessWidget {
       // kept free on both sides, tag or not, so every bet's dial is the
       // same size), capped on tablets.
       final reserve = tag?.width ?? _typicalTagWidth(labelStyle, scaler);
+      // The tag at an end sits past the tick's reach (1.09 R: the arc plus
+      // the tick's overhang and the gap), so the radius leaves that room.
       final double outerRadius =
-          (w / 2 - reserve - 8).clamp(math.min(60.0, w / 4), 150.0).toDouble();
+          ((w / 2 - reserve - 8) / 1.09).clamp(math.min(60.0, w / 4), 150.0).toDouble();
       final stroke = outerRadius * 0.13;
       final overhang = outerRadius * 0.06;
       final gap = outerRadius * 0.03;
