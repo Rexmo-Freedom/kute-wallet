@@ -16,6 +16,17 @@ import 'package:kute/services/hyperliquid/cctp_withdrawal.dart';
 import 'package:kute/services/one_balance/money_movement_route.dart';
 import 'package:kute/services/orchestra/orchestra_quote_guard.dart'
     show RecipientKind;
+import 'package:kute/handlers/response_handlers.dart' show Result;
+import 'package:kute/services/funding/settlement_http.dart'
+    show SettlementHttpOutcome, classifySettlementResult;
+import 'package:kute/services/investment_provider_availability.dart';
+import 'package:kute/services/one_balance/hyperliquid_move_rail.dart'
+    show HyperCoreMoveRail;
+import 'package:kute/services/orchestra/orchestra_quote_gate.dart'
+    show OrchestraQuoteFailure;
+import 'package:kute/services/orchestra/standing_deposit_store.dart'
+    show InvestingWithdrawalDestination;
+import 'package:kute/services/runtime_capabilities_service.dart';
 
 const _b = MoneyMovementAccount.bitcoin;
 const _d = MoneyMovementAccount.dollars;
@@ -239,5 +250,125 @@ void main() {
         'route_refused');
     expect(reason(StateError('x'), started: false), 'not_sent');
     expect(reason(StateError('x')), 'unknown_outcome');
+  });
+
+  group('withheld routes', () {
+    test('each route answers to the capabilities its rail checks', () {
+      List<String> caps(MoneyMovementAccount a, MoneyMovementAccount b) =>
+          moneyMovementPlanFor(MoneyMovementRoute(a, b)).capabilities;
+      expect(caps(_d, _i), ['hyperliquid.deposit']);
+      expect(caps(_b, _i), ['hyperliquid.deposit']);
+      expect(caps(_d, _p), ['polymarket.deposit']);
+      expect(caps(_b, _p), ['polymarket.deposit']);
+      // A withdrawal never answers to a deposit gate.
+      expect(caps(_i, _d), ['hyperliquid.withdraw']);
+      expect(caps(_i, _b), ['hyperliquid.withdraw']);
+      expect(caps(_p, _d), ['polymarket.withdraw']);
+      expect(caps(_p, _b), ['polymarket.withdraw']);
+      // Venue to venue: both ends.
+      expect(caps(_i, _p), ['hyperliquid.withdraw', 'polymarket.deposit']);
+      expect(caps(_p, _i), ['polymarket.withdraw', 'hyperliquid.deposit']);
+      // The spending account's own Bitcoin and Dollars: the swap switch.
+      expect(caps(_b, _d), ['orchestra.swap']);
+      expect(caps(_d, _b), ['orchestra.swap']);
+      // The CCTP move checks exactly the same set.
+      expect(caps(_i, _p),
+          cctpCapabilitiesFor(InvestingWithdrawalDestination.predictions));
+    });
+
+    CapabilityDecision allow(String _) =>
+        const CapabilityDecision(allowed: true);
+
+    test('the first refused capability is the restriction; offline grace '
+        'never restricts', () {
+      CapabilityDecision decide(String id) => id == 'polymarket.deposit'
+          ? const CapabilityDecision(allowed: false, reason: 'country_blocked')
+          : const CapabilityDecision(allowed: true, reason: 'offline_grace');
+      final r = moneyMovementRestrictionFor(
+          ['hyperliquid.withdraw', 'polymarket.deposit'], decide)!;
+      expect(r.capability, 'polymarket.deposit');
+      expect(r.region, isTrue);
+      expect(r.reason, 'country_blocked');
+      expect(moneyMovementRestrictionFor(['hyperliquid.withdraw'], decide),
+          isNull);
+    });
+
+    test("policy refusals map to restrictions; other stops don't", () {
+      const caps = ['hyperliquid.withdraw', 'polymarket.deposit'];
+      final denial = capabilityDenialFromResponse(
+          403,
+          '{"error":"feature_unavailable","capability":"polymarket.deposit",'
+          '"reason":"country_blocked","revision":3}')!;
+      expect(denial.capability, 'polymarket.deposit');
+      expect(denial.decision.regionRestricted, isTrue);
+
+      final fromQuote = moneyMovementRestrictionOf(
+          OrchestraQuoteFailure('feature_unavailable', denial: denial),
+          capabilities: caps,
+          decide: allow)!;
+      expect(fromQuote.capability, 'polymarket.deposit');
+      expect(fromQuote.region, isTrue);
+
+      final fromCctp = moneyMovementRestrictionOf(
+          const CctpUnavailable(CctpUnavailableReason.capability,
+              decision: CapabilityDecision(allowed: false, reason: 'disabled')),
+          capabilities: caps,
+          decide: (id) => id == 'hyperliquid.withdraw'
+              ? const CapabilityDecision(allowed: false, reason: 'disabled')
+              : const CapabilityDecision(allowed: true))!;
+      expect(fromCctp.capability, 'hyperliquid.withdraw');
+      expect(fromCctp.region, isFalse);
+
+      final venue = moneyMovementRestrictionOf(
+          const ProviderAvailabilityException(ProviderAvailability(
+              InvestmentProvider.polymarket,
+              ProviderAvailabilityStatus.restricted)),
+          capabilities: caps,
+          decide: allow)!;
+      expect(venue.capability, 'polymarket.deposit');
+      expect(venue.region, isTrue);
+
+      for (final other in <Object>[
+        const CctpUnavailable(CctpUnavailableReason.feeTermsUnavailable),
+        const SettlementStopped(SettlementStopReason.routeUnavailable),
+        OrchestraQuoteFailure('route_unavailable'),
+        StateError('x'),
+      ]) {
+        expect(
+            moneyMovementRestrictionOf(other,
+                capabilities: caps, decide: allow),
+            isNull,
+            reason: '$other');
+      }
+    });
+
+    test('only a 403 feature_unavailable body is a policy denial', () {
+      expect(
+          capabilityDenialFromResponse(400,
+              '{"error":"feature_unavailable","capability":"x.y"}'),
+          isNull);
+      expect(capabilityDenialFromResponse(403, '{"error":"forbidden"}'),
+          isNull);
+      expect(capabilityDenialFromResponse(403, 'not json'), isNull);
+      final withMessage = capabilityDenialFromResponse(403,
+          '{"error":"feature_unavailable","capability":"hyperliquid.deposit",'
+          '"reason":"disabled","message":"Paused for maintenance."}')!;
+      expect(withMessage.decision.message, 'Paused for maintenance.');
+    });
+
+    test('a policy refusal is never retried and never opens another rail',
+        () {
+      final denial = capabilityDenialFromResponse(403,
+          '{"error":"feature_unavailable","capability":"hyperliquid.withdraw",'
+          '"reason":"disabled"}')!;
+      expect(
+          classifySettlementResult(Result<Object?>(error: 'x', cause: denial)),
+          SettlementHttpOutcome.rejected);
+      expect(
+          HyperCoreMoveRail.opensCctpFallback(OrchestraQuoteFailure(
+              'unsupported_route',
+              denial: denial)),
+          isFalse);
+    });
   });
 }

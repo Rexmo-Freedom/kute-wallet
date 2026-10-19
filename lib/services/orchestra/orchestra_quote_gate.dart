@@ -18,6 +18,8 @@ import 'package:kute/services/api/orchestra_api.dart';
 import 'package:kute/services/funding/settlement_http.dart'
     show callWithIdempotencyKey, clockSkewFromHeaders;
 import 'package:kute/services/orchestra/orchestra_quote_guard.dart';
+import 'package:kute/services/runtime_capabilities_service.dart'
+    show CapabilityUnavailableException, isPolicyRefusal;
 import 'package:kute/services/security/wallet_guard_exception.dart';
 import 'package:kute/services/tracking_service.dart';
 
@@ -25,13 +27,21 @@ import 'package:kute/services/tracking_service.dart';
 /// Distinct from a [WalletGuardException], which means a quote arrived
 /// and was refused.
 class OrchestraQuoteFailure implements Exception {
-  const OrchestraQuoteFailure(this.message, {this.routeError});
+  const OrchestraQuoteFailure(this.message, {this.routeError, this.denial});
 
   final String message;
 
   /// Set when Flashnet refused the amount or the route with a known code.
   /// The UI shows its copy instead of [message].
   final RouteQuoteError? routeError;
+
+  /// Set when the quote was refused by policy: Kute's (the app's own
+  /// check, or the backend's 403 `feature_unavailable`) as a
+  /// [CapabilityUnavailableException], or the venue's own location answer
+  /// as a `ProviderAvailabilityException` ([isPolicyRefusal]). A
+  /// restriction, never a failure, and never a route refusal that opens
+  /// another rail.
+  final Exception? denial;
 
   @override
   String toString() => message;
@@ -148,9 +158,11 @@ class OrchestraQuoteGate {
     final quote = result.data;
     if (!result.isSuccess || quote == null) {
       final code = RouteQuoteErrorCode.fromCode(result.errorCode);
+      final cause = result.cause;
       throw OrchestraQuoteFailure(
         result.error ?? 'Failed to get quote',
         routeError: code == null ? null : RouteQuoteError(code),
+        denial: isPolicyRefusal(cause) ? cause as Exception : null,
       );
     }
     try {

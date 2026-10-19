@@ -563,6 +563,8 @@ class HyperCoreMoveRail implements HyperliquidMoveRail {
   /// `route_unavailable` code (which `unsupported_route` reads as), or a
   /// refusal whose text names the HyperCore-source block.
   static bool isRouteRefusal(OrchestraQuoteFailure e) {
+    // A policy refusal is never a route refusal: no other rail opens on it.
+    if (e.denial != null) return false;
     if (e.routeError?.code == RouteQuoteErrorCode.routeUnavailable) {
       return true;
     }

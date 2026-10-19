@@ -8,6 +8,8 @@ import 'package:kute/models/orchestra_model.dart';
 import 'package:kute/services/api/orchestra_api.dart';
 import 'package:kute/screens/shared/fee_copy.dart';
 import 'package:kute/screens/shared/money_fee_summary.dart';
+import 'package:kute/screens/shared/capability_block_note.dart';
+import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/orchestra/orchestra_fee_amount.dart';
 import 'package:kute/services/orchestra_routes.dart'
     show kOrchestraUsdAssetCode, kOrchestraUsdChain;
@@ -68,6 +70,15 @@ Future<OrchestraEstimate> _loadFeeEstimate(Ref ref, FeeEstimateKey key,
           recipientAddress: key.recipient)
       .timeout(const Duration(seconds: 10));
   if (result.data == null) {
+    final denial = result.cause;
+    if (denial is CapabilityUnavailableException) {
+      // Kute's backend withholds the route here: the screens that gate on
+      // the policy catch up from a fresh read, and the block says so.
+      unawaited(RuntimeCapabilitiesService.instance
+          .refresh()
+          .then<void>((_) {}, onError: (_) {}));
+      throw denial;
+    }
     throw StateError('Fee unavailable');
   }
   return result.data!;
@@ -148,6 +159,12 @@ class OrchestraFeeSummary extends ConsumerWidget {
     // estimate; the provider's own timer already retries a failure.
     final quote = estimate.valueOrNull;
     if (quote == null) {
+      // A route the policy withholds is a restriction, not a failed
+      // estimate: its own words, and nothing to retry.
+      if (estimate.error case final CapabilityUnavailableException denial) {
+        return CapabilityBlockNote(denial.decision.message,
+            padding: EdgeInsets.zero);
+      }
       return estimate.hasError
           ? MoneyFeeSummary(
               label: 'Fees', state: 'Estimate unavailable', onRetry: retry)

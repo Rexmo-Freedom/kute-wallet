@@ -58,6 +58,8 @@ import 'package:kute/services/orchestra/orchestra_quote_gate.dart'
 import 'package:kute/models/orchestra_route_limits.dart';
 import 'package:kute/services/orchestra/standing_deposit_store.dart'
     show InvestingWithdrawalDestination;
+import 'package:kute/services/investment_provider_availability.dart';
+import 'package:kute/services/region_freshness.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -889,5 +891,169 @@ void main() {
     expect(tap['surface'], 'money_movement');
     expect(_all('move_amount_percent_tapped'), hasLength(1));
     await _close(tester, c);
+  });
+
+  group('a route the policy withholds says so, as Predictions does', () {
+    const regionCopy =
+        "This feature is restricted in the region your internet connection "
+        "appears to be in. If that isn't where you are, check your network "
+        'or VPN settings and try again.';
+    const moveFailure =
+        'The move could not be completed. Check its status before trying '
+        'again.';
+    late Set<String> blocked;
+    late InvestmentProviderAvailability venues;
+
+    setUp(() {
+      blocked = {'hyperliquid.deposit'};
+      RuntimeCapabilitiesService.debugInstance?.dispose();
+      RuntimeCapabilitiesService.debugInstance = runtimePolicyFixture(
+          blocked: blocked,
+          reasons: const {
+            'hyperliquid.deposit': 'country_blocked',
+            'polymarket.deposit': 'country_blocked',
+          });
+      venues = InvestmentProviderAvailability(
+        client: MockClient((request) async => request.url.host ==
+                'api.hyperliquid.xyz'
+            ? http.Response(
+                '{"acceptedTerms":true,"userAllowed":true,"restrictions":"n"}',
+                200)
+            : http.Response('{"blocked":false}', 200)),
+        report: ({
+          required String venue,
+          required String trigger,
+          required bool changed,
+          required String result,
+        }) {},
+      );
+      RegionFreshness.debugVenues = venues;
+    });
+    tearDown(() {
+      RegionFreshness.debugVenues = null;
+      venues.dispose();
+    });
+
+    Finder restricted() =>
+        find.byKey(const ValueKey('money-movement-restricted'));
+
+    testWidgets(
+        'Dollars → Investing with hyperliquid.deposit withheld: the region '
+        'copy in place of the fee line, no estimate, no move, and the '
+        'button is Check connection, never Retry', (tester) async {
+      final c = await _open(tester, const MoneyMovementRoute(_d, _i));
+      await _type(tester, '10');
+      await _frames(tester, 12);
+      expect(restricted(), findsOneWidget);
+      expect(find.text(regionCopy), findsOneWidget);
+      expect(find.text(moveFailure), findsNothing);
+      expect(find.textContaining('Estimate unavailable'), findsNothing);
+      expect(_button(tester).text, 'Check connection');
+      expect(_button(tester).text, isNot('Retry'));
+      expect(
+          _estimates.where((q) => q['destinationChain'] == 'hypercore'),
+          isEmpty,
+          reason: 'a withheld route asks for no estimate');
+      expect(_last('hyperliquid_geoblocked_shown'), isNotNull);
+
+      // Still restricted after the check: nothing is sent, the copy stays.
+      await tester.tap(_cta);
+      await _frames(tester, 12);
+      expect(_railCalls, 0);
+      expect(_approvals.intents, isEmpty);
+      expect(find.text(regionCopy), findsOneWidget);
+      expect(_button(tester).text, 'Check connection');
+
+      // The policy gives it back (a VPN change): Check connection lifts it
+      // without reopening, and the button is the move again.
+      blocked.clear();
+      await tester.tap(_cta);
+      await _frames(tester, 12);
+      expect(restricted(), findsNothing);
+      expect(_button(tester).text, r'Move money $10');
+      await _confirm(tester);
+      expect(_hypercore.deposits, hasLength(1));
+      await _close(tester, c);
+    });
+
+    testWidgets(
+        'Investing → Dollars still moves while only the deposit is withheld',
+        (tester) async {
+      final c = await _open(tester, const MoneyMovementRoute(_i, _d));
+      await _type(tester, '5');
+      expect(restricted(), findsNothing);
+      expect(_button(tester).onPressed, isNotNull);
+      await _confirm(tester);
+      expect(_hypercore.withdrawals.single.usd, 5);
+      await _close(tester, c);
+    });
+
+    testWidgets(
+        'Investing → Predictions with polymarket.deposit withheld: restricted '
+        'before the tap, no CCTP move', (tester) async {
+      blocked
+        ..clear()
+        ..add('polymarket.deposit');
+      final c = await _open(tester, const MoneyMovementRoute(_i, _p));
+      await _type(tester, '2');
+      await _frames(tester, 12);
+      expect(find.text(regionCopy), findsOneWidget);
+      expect(find.textContaining("This transfer isn't available"), findsNothing);
+      expect(_button(tester).text, 'Check connection');
+      await tester.tap(_cta);
+      await _frames(tester, 12);
+      expect(_cctp.moves, isEmpty);
+      expect(_railCalls, 0);
+      await _close(tester, c);
+    });
+
+    testWidgets(
+        "a withheld route that isn't a region refusal disables the button",
+        (tester) async {
+      RuntimeCapabilitiesService.debugInstance?.dispose();
+      RuntimeCapabilitiesService.debugInstance =
+          runtimePolicyFixture(blocked: {'hyperliquid.deposit'});
+      final c = await _open(tester, const MoneyMovementRoute(_d, _i));
+      await _type(tester, '10');
+      await _frames(tester, 12);
+      expect(restricted(), findsOneWidget);
+      expect(
+          find.text('This feature is currently unavailable in Kute.'),
+          findsOneWidget);
+      expect(_button(tester).onPressed, isNull);
+      expect(_button(tester).text, isNot('Retry'));
+      expect(_last('feature_unavailable_shown')['capability'],
+          'hyperliquid.deposit');
+      await _close(tester, c);
+    });
+
+    testWidgets(
+        "the backend's 403 policy denial of the quote reads as the "
+        'restriction, never moveFailure, tracked as restricted',
+        (tester) async {
+      blocked.clear();
+      final c = await _open(tester, const MoneyMovementRoute(_d, _p));
+      await _type(tester, '5');
+      _runner.afterApproval = (_) async => throw OrchestraQuoteFailure(
+          'feature_unavailable',
+          denial: capabilityDenialFromResponse(
+              403,
+              jsonEncode({
+                'error': 'feature_unavailable',
+                'capability': 'polymarket.deposit',
+                'reason': 'country_blocked',
+                'revision': 7,
+              })));
+      await _confirm(tester);
+      await _frames(tester, 6);
+      expect(find.text(moveFailure), findsNothing);
+      expect(find.text(regionCopy), findsOneWidget);
+      expect(_button(tester).text, 'Check connection');
+      final failed = _last('move_failed');
+      expect(failed['error_category'], 'restricted');
+      expect(failed['reason'], 'restricted');
+      expect(failed['capability'], 'polymarket.deposit');
+      await _close(tester, c);
+    });
   });
 }

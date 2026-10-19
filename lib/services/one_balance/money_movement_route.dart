@@ -27,8 +27,20 @@ import 'package:kute/services/funding/spark_hypercore_funding_service.dart'
     show HypercoreFundingUnavailable;
 import 'package:kute/services/hyperliquid/cctp_withdrawal.dart'
     show CctpUnavailable;
+import 'package:kute/services/orchestra/orchestra_capability_requirements.dart'
+    show orchestraCapabilityRequirements;
+import 'package:kute/services/orchestra/orchestra_quote_gate.dart'
+    show OrchestraQuoteFailure;
 import 'package:kute/services/orchestra/orchestra_quote_guard.dart'
     show RecipientKind;
+import 'package:kute/services/investment_provider_availability.dart'
+    show
+        InvestmentProvider,
+        InvestmentProviderAvailability,
+        ProviderAvailabilityException,
+        ProviderAvailabilityStatus;
+import 'package:kute/services/runtime_capabilities_service.dart'
+    show CapabilityDecision, CapabilityUnavailableException;
 import 'package:kute/services/orchestra_routes.dart'
     show kOrchestraUsdAssetCode, kOrchestraUsdChain;
 
@@ -119,6 +131,20 @@ class MoneyMovementPlan {
   /// Whether the sheet may show an Orchestra estimate as this route's
   /// fee. A CCTP move has no quote, so no Orchestra estimate stands for it.
   bool get orchestraEstimate => rail != MoneyMovementRail.cctp;
+
+  /// The runtime-policy capabilities this route answers to, exactly as
+  /// its rail checks them before anything is quoted or signed
+  /// ([orchestraCapabilityRequirements] of [quoteRoute], which the quote,
+  /// the native HyperCore legs and the CCTP move all ask): into Investing
+  /// `hyperliquid.deposit`, into Predictions `polymarket.deposit`, out of a
+  /// venue its own withdraw capability (both ends on a venue-to-venue
+  /// move), and the swap gates between the spending account's own
+  /// Bitcoin and Dollars. A withdrawal never answers to a deposit gate.
+  List<String> get capabilities => orchestraCapabilityRequirements(
+      sourceChain: quoteRoute.fromChain,
+      sourceAsset: quoteRoute.fromAsset,
+      destinationChain: quoteRoute.toChain,
+      destinationAsset: quoteRoute.toAsset);
 
   /// Analytics `route` of the first attempt: `orchestra`, `direct`
   /// (native HyperCore) or `cctp`.
@@ -261,4 +287,104 @@ String moneyMovementFailureReason(Object e, {required bool fundingStarted}) {
     return 'route_refused';
   }
   return 'not_sent';
+}
+
+/// A route the policy withholds (founder report, 19 October 2026: in the
+/// UK, Dollars → Investing read "The move could not be completed" with
+/// "Estimate unavailable · Retry", when nothing had failed). The sheet
+/// shows [message] the way Predictions shows a withheld bet
+/// (`CapabilityBlockNote`), and its one button is "Check connection" for
+/// a [region] refusal, disabled otherwise. [capability] is the fixed id
+/// for analytics, [reason] the policy's fixed reason code
+/// (`country_blocked`, `disabled`, `policy_unavailable`, …;
+/// `venue_restricted` for a venue's own location answer).
+class MoneyMovementRestriction {
+  const MoneyMovementRestriction(
+      {required this.capability,
+      required this.message,
+      required this.region,
+      this.reason = ''});
+
+  final String capability;
+  final String message;
+  final bool region;
+  final String reason;
+
+  /// Kute's runtime policy refusing [capability].
+  factory MoneyMovementRestriction.ofDecision(
+          String capability, CapabilityDecision decision) =>
+      MoneyMovementRestriction(
+          capability: capability,
+          message: decision.message,
+          region: decision.regionRestricted,
+          reason: decision.reason);
+
+  @override
+  bool operator ==(Object other) =>
+      other is MoneyMovementRestriction &&
+      other.capability == capability &&
+      other.message == message &&
+      other.region == region &&
+      other.reason == reason;
+
+  @override
+  int get hashCode => Object.hash(capability, message, region, reason);
+}
+
+/// The first of [capabilities] (a plan's, [MoneyMovementPlan.capabilities])
+/// that [decide] refuses, as a restriction; null while all are allowed.
+/// Offline grace is allowed, so it never restricts.
+MoneyMovementRestriction? moneyMovementRestrictionFor(
+    List<String> capabilities, CapabilityDecision Function(String id) decide) {
+  for (final id in capabilities) {
+    final decision = decide(id);
+    if (!decision.allowed || decision.comingSoon) {
+      return MoneyMovementRestriction.ofDecision(id, decision);
+    }
+  }
+  return null;
+}
+
+/// The restriction behind a stopped move or a refused check, or null when
+/// [error] is not a policy refusal: Kute's own
+/// ([CapabilityUnavailableException], from the app's check or the
+/// backend's 403 `feature_unavailable` on the quote), a venue's own
+/// location answer ([ProviderAvailabilityException]), or the CCTP move's
+/// policy pre-flight ([CctpUnavailable] with its decision). Never a
+/// failure, so never `moveFailure` and never Retry. [capabilities] are the
+/// route's; [decide] names which one a CCTP refusal was about.
+MoneyMovementRestriction? moneyMovementRestrictionOf(Object error,
+    {required List<String> capabilities,
+    required CapabilityDecision Function(String id) decide}) {
+  final Object refusal =
+      error is OrchestraQuoteFailure && error.denial != null
+          ? error.denial!
+          : error;
+  switch (refusal) {
+    case CapabilityUnavailableException(:final capability, :final decision):
+      return MoneyMovementRestriction.ofDecision(capability, decision);
+    case ProviderAvailabilityException(:final availability):
+      if (availability.status != ProviderAvailabilityStatus.restricted) {
+        return null;
+      }
+      final venue = availability.provider;
+      final capability = capabilities.firstWhere(
+          (id) => InvestmentProviderAvailability.providersFor([id])
+              .contains(venue),
+          orElse: () => venue == InvestmentProvider.hyperliquid
+              ? 'hyperliquid.deposit'
+              : 'polymarket.deposit');
+      return MoneyMovementRestriction(
+          capability: capability,
+          message: availability.message,
+          region: true,
+          reason: 'venue_restricted');
+    case CctpUnavailable(:final decision?):
+      final capability = capabilities.firstWhere((id) {
+        final d = decide(id);
+        return !d.allowed || d.comingSoon;
+      }, orElse: () => capabilities.isEmpty ? 'unknown' : capabilities.last);
+      return MoneyMovementRestriction.ofDecision(capability, decision);
+  }
+  return null;
 }

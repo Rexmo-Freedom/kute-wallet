@@ -7,9 +7,13 @@ import 'package:kute/services/runtime_capabilities_service.dart';
 /// [also] names capabilities the answer carries beyond the default set
 /// (e.g. the venues' `….browse`), each allowed unless [blocked] names it.
 /// [revisionOf], when given, answers the revision on every fetch (a
-/// backend that publishes a new one meanwhile).
+/// backend that publishes a new one meanwhile). [reasons] names a blocked
+/// capability's reason (`country_blocked` for a region refusal); the
+/// default is `disabled`. [blocked] is read on every fetch, so a test may
+/// change it between fetches.
 RuntimeCapabilitiesService runtimePolicyFixture(
         {Set<String> blocked = const {},
+        Map<String, String> reasons = const {},
         Set<String> also = const {},
         int revision = 1,
         int Function()? revisionOf,
@@ -49,7 +53,9 @@ RuntimeCapabilitiesService runtimePolicyFixture(
                 ])
                   id: {
                     'allowed': !blocked.contains(id),
-                    'reason': blocked.contains(id) ? 'disabled' : '',
+                    'reason': blocked.contains(id)
+                        ? (reasons[id] ?? 'disabled')
+                        : '',
                     'comingSoon': false
                   },
               },

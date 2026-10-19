@@ -646,7 +646,12 @@ class OrchestraService {
             data: OrchestraEstimate.fromJson(jsonDecode(res.body),
                 headers: res.headers));
       }
-      return Result(error: _parseError(res.body));
+      return Result(
+          error: _parseError(res.body),
+          statusCode: res.statusCode,
+          // The backend's policy refusal of this route (a 403
+          // feature_unavailable): the estimate is withheld, not failing.
+          cause: capabilityDenialFromResponse(res.statusCode, res.body));
     } catch (e) {
       // A transport error can quote the request URL, query included.
       final text = e.toString();
@@ -784,10 +789,17 @@ class OrchestraService {
         statusCode: res.statusCode,
         headers: res.headers,
         errorCode: routeErrorCode,
+        // The backend's policy refusal (a 403 feature_unavailable), typed
+        // so the quote's caller shows it as the restriction it is.
+        cause: capabilityDenialFromResponse(res.statusCode, res.body),
       );
     } catch (e) {
       report(false, _thrownStatusClass(e), TrackingService.errorCategory(e));
-      return Result(error: e.toString());
+      return Result(
+          error: e.toString(),
+          // The app's own policy check (or the venue's location answer)
+          // refused before any request.
+          cause: isPolicyRefusal(e) ? e : null);
     }
   }
 

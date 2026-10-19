@@ -43,6 +43,10 @@ import 'package:kute/services/funding/settlement_runner.dart';
 import 'package:kute/services/funding/settlement_store.dart';
 import 'package:kute/services/hardware/ledger/ledger_operation_scope.dart';
 import 'package:kute/services/orchestra/orchestra_quote_gate.dart';
+import 'package:kute/services/investment_provider_availability.dart'
+    show ProviderAvailabilityException;
+import 'package:kute/services/runtime_capabilities_service.dart'
+    show CapabilityUnavailableException;
 import 'package:kute/services/orchestra/orchestra_quote_guard.dart';
 import 'package:kute/services/security/wallet_guard_exception.dart';
 import 'package:kute/services/security/address_guard.dart' show sameSparkAddress;
@@ -325,6 +329,13 @@ class HotSettlement {
     }
     if (error is WalletGuardException) return error.messageFor(l10n);
     if (error is OrchestraQuoteFailure) {
+      // Refused by policy: the restriction's own words, never a failure.
+      switch (error.denial) {
+        case CapabilityUnavailableException(:final decision):
+          return decision.messageIn(l10n);
+        case ProviderAvailabilityException(:final availability):
+          return availability.messageIn(l10n);
+      }
       final mapped = error.routeError?.messageFor(l10n);
       if (mapped != null) return mapped;
       // A refusal whose code this app does not recognise still arrives

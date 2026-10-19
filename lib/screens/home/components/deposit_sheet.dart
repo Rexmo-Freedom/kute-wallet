@@ -49,6 +49,8 @@ import 'package:kute/screens/home/components/deposit/deposit_summary_card.dart';
 
 import 'package:flutter/material.dart';
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
+import 'package:kute/screens/shared/capability_block_note.dart';
+import 'package:kute/services/region_freshness.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:flutter/services.dart';
 import 'package:kute/models/affiliate_model.dart';
@@ -135,7 +137,7 @@ import 'package:kute/models/orchestra_routes_model.dart'
 import 'package:kute/providers/orchestra_supported_routes_provider.dart'
     show orchestraSupportedRoutesProvider;
 import 'package:kute/services/investment_provider_availability.dart'
-    show InvestmentProviderAvailability;
+    show InvestmentProviderAvailability, ProviderAvailabilityException;
 import 'package:kute/models/settlement_operation.dart'
     show SettlementAccountKind, SettlementFlow;
 import 'package:kute/services/one_balance/venue_cash_source.dart'
@@ -617,6 +619,161 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   final Stopwatch _movementClock = Stopwatch();
   bool _movementRetried = false;
 
+  // ── Withheld routes (founder report, 19 October 2026) ──────────────
+  //
+  // In the UK the policy withholds `hyperliquid.deposit`, and Dollars →
+  // Investing read "The move could not be completed" beside "Estimate
+  // unavailable · Retry", under a Retry button: nothing had failed. A route
+  // whose capabilities ([MoneyMovementPlan.capabilities], the ones its rail
+  // checks) are withheld now says so the way Predictions does
+  // (`CapabilityBlockNote`), in place of the fee line and any error, before
+  // any estimate or move is asked; its one button is "Check connection" on
+  // a region refusal and disabled otherwise. The pickers still list every
+  // account (gating is emergency-only): only the withheld direction shows
+  // it, and a withdrawal answers to its own withdraw capability alone.
+
+  /// The venue's own location refusal for [_movementVenueBlockRoute]
+  /// (Kute's policy is read live, see [_movementRestriction]).
+  MoneyMovementRestriction? _movementVenueBlock;
+  MoneyMovementRoute? _movementVenueBlockRoute;
+
+  /// A move that stopped on a policy refusal the live policy does not
+  /// repeat (the backend's 403 while the app's copy allowed it): shown
+  /// for its route until the route changes or "Check connection" lifts it.
+  MoneyMovementRestriction? _movementStopBlock;
+  MoneyMovementRoute? _movementStopBlockRoute;
+
+  /// "Check connection" is asking the venues and the policy again.
+  bool _checkingConnection = false;
+
+  /// Restrictions already counted (`route|capability|reason`), once each.
+  final Set<String> _restrictionsTracked = {};
+
+  /// Why the route on screen cannot move now, or null. Kute's policy is
+  /// read live from the watched service, so a route the policy gives back
+  /// (a VPN change, an operator's switch) recovers without reopening.
+  MoneyMovementRestriction? get _movementRestriction {
+    if (!_isMoneyMovement || _movementSendLocked || _movementRoute == null) {
+      return null;
+    }
+    final policy = ref.read(runtimeCapabilitiesProvider);
+    final live =
+        moneyMovementRestrictionFor(_movementPlan.capabilities, policy.decision);
+    if (live != null) return live;
+    if (_movementVenueBlockRoute == _movementRoute) {
+      if (_movementVenueBlock case final venue?) return venue;
+    }
+    if (_movementStopBlockRoute == _movementRoute) return _movementStopBlock;
+    return null;
+  }
+
+  /// [error] as a restriction of the route on screen, or null when it is
+  /// not a policy refusal.
+  MoneyMovementRestriction? _restrictionOf(Object error) {
+    if (!_isMoneyMovement || _movementRoute == null) return null;
+    return moneyMovementRestrictionOf(error,
+        capabilities: _movementPlan.capabilities,
+        decide: ref.read(runtimeCapabilitiesProvider).decision);
+  }
+
+  /// Asks, as the bet slip does when it opens, whether the route may move
+  /// at all: the venue's own location check and a fresh policy read
+  /// ([RuntimeCapabilitiesService.ensureAllAllowed]). Nothing is quoted.
+  /// [afterRound]: a re-check after the network changed, which also lifts
+  /// a stopped move's refusal that no longer stands.
+  Future<void> _resolveMovementGate({bool afterRound = false}) async {
+    if (!_isMoneyMovement || _movementRoute == null) return;
+    final route = _movementRoute!;
+    MoneyMovementRestriction? venue;
+    var allowed = false;
+    try {
+      await ref
+          .read(runtimeCapabilitiesProvider)
+          .ensureAllAllowed(moneyMovementPlanFor(route).capabilities);
+      allowed = true;
+    } on ProviderAvailabilityException catch (e) {
+      venue = _restrictionOf(e);
+    } catch (_) {
+      // Kute's own refusal is read live; an unanswered check never shows
+      // a refusal.
+    }
+    if (!mounted || _processing || route != _movementRoute) return;
+    setState(() {
+      _movementVenueBlock = venue;
+      _movementVenueBlockRoute = venue == null ? null : route;
+      if (allowed && afterRound) {
+        _movementStopBlock = null;
+        _movementStopBlockRoute = null;
+      }
+    });
+  }
+
+  void _onRegionAnswers() {
+    if (!mounted || _processing) return;
+    if (_movementVenueBlock == null && _movementStopBlock == null) return;
+    unawaited(_resolveMovementGate(afterRound: true));
+  }
+
+  /// "Check connection" on a region refusal, as on the bet slip: the venues
+  /// and Kute's policy are asked again ([RegionFreshness.checkConnection]).
+  /// Allowed now: the refusal goes and the button is the move again. Still
+  /// restricted: it stays, with the soft failure tap, and can be tapped
+  /// again. A check that could not be made never shows restricted.
+  Future<void> _checkConnection() async {
+    if (_checkingConnection || _movementRoute == null) return;
+    setState(() => _checkingConnection = true);
+    await RegionFreshness.checkConnection();
+    if (!mounted) return;
+    if (!RegionFreshness.regionRefused(
+        capabilities: _movementPlan.capabilities)) {
+      setState(() {
+        _checkingConnection = false;
+        _movementVenueBlock = null;
+        _movementVenueBlockRoute = null;
+        _movementStopBlock = null;
+        _movementStopBlockRoute = null;
+      });
+      unawaited(_resolveMovementGate());
+      return;
+    }
+    setState(() => _checkingConnection = false);
+    moneyFailureFeedbackAfterBand(() => mounted && _checkingConnection);
+  }
+
+  /// Counts a restriction once per route and capability, with the events
+  /// Predictions sends for its gate: the venue's geoblock event for a
+  /// region refusal of a venue capability, `feature_unavailable_shown`
+  /// otherwise. Fixed ids only.
+  void _trackRestrictionShown(MoneyMovementRestriction restriction) {
+    final route = _movementRoute;
+    // A policy not read yet is not a refusal worth counting.
+    if (route == null || restriction.reason == 'policy_unavailable') return;
+    if (!_restrictionsTracked.add(
+        '${route.code}|${restriction.capability}|${restriction.reason}')) {
+      return;
+    }
+    final venue = restriction.capability.startsWith('polymarket.')
+        ? 'polymarket'
+        : restriction.capability.startsWith('hyperliquid.')
+            ? 'hyperliquid'
+            : null;
+    if (restriction.region && venue == 'polymarket') {
+      TrackingService.polymarketGeoblockedShown();
+    } else if (restriction.region && venue == 'hyperliquid') {
+      TrackingService.hyperliquidGeoblockedShown();
+    } else {
+      TrackingService.track('feature_unavailable_shown', params: {
+        'feature': 'money_movement',
+        'capability': restriction.capability,
+        'reason':
+            restriction.region ? 'region_restricted' : 'capability_disabled',
+        'surface': 'money_movement',
+        'from': route.from.name,
+        'to': route.to.name,
+      });
+    }
+  }
+
   bool get _movementWalletValid {
     if (!_isMoneyMovement) return true;
     if (_isLedgerMove || widget.venueWalletId != null) return false;
@@ -697,6 +854,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       ..._moveRouteParams(),
       'reversed': reversed,
     });
+    _movementStopBlock = null;
+    _movementStopBlockRoute = null;
+    unawaited(_resolveMovementGate());
     _refreshSelectedFundingRoute();
     _warmUpMove();
   }
@@ -798,6 +958,23 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   void _endStoppedMove(Object e, {String? message}) {
     if (!mounted) return;
     final l10n = context.l10n;
+    // Refused by policy before anything was sent: the restriction, in
+    // place of any failure copy, and no Retry (asking again gets the same
+    // answer). "Check connection" asks again on a region refusal.
+    if (_restrictionOf(e) case final restriction?) {
+      setState(() {
+        _processing = false;
+        _movementRetry = false;
+        _error = null;
+        if (moneyMovementRestrictionFor(_movementPlan.capabilities,
+                ref.read(runtimeCapabilitiesProvider).decision) ==
+            null) {
+          _movementStopBlock = restriction;
+          _movementStopBlockRoute = _movementRoute;
+        }
+      });
+      return;
+    }
     if (_isMoneyMovement &&
         !moneyMovementProvesNothingSent(e,
             fundingStarted: _movementFundingStarted)) {
@@ -1514,10 +1691,14 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   }
 
   void _trackMoveFailed(Object e, {String? stage}) {
-    final category = _moveFailReason(e);
+    // Refused by policy: counted as a restriction, with the capability,
+    // never as a failure.
+    final restriction = _restrictionOf(e);
+    final category = restriction != null ? 'restricted' : _moveFailReason(e);
     final resolvedStage = stage ??
         switch (category) {
           'user_cancelled' => 'approval',
+          'restricted' => 'policy',
           'quote_rejected' || 'expired' => 'quote',
           _ => 'dispatch',
         };
@@ -1529,8 +1710,12 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
             ? const {}
             : {
                 ..._movementOutcomeParams(),
-                'reason': moneyMovementFailureReason(e,
-                    fundingStarted: _movementFundingStarted),
+                'reason': restriction != null
+                    ? 'restricted'
+                    : moneyMovementFailureReason(e,
+                        fundingStarted: _movementFundingStarted),
+                if (restriction != null)
+                  'capability': restriction.capability,
                 // The unknown-outcome lock is shown for this one.
                 'locked': !unsent,
               });
@@ -2262,6 +2447,10 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     if (_isMoneyMovement) {
       _movementWalletId = pickSpendingWallet(ref.read(settingsProvider))?.id;
       _installMovementRoute(widget.movementRoute!);
+      unawaited(_resolveMovementGate());
+      // A refusal worked out on one network is asked again after a
+      // network change or resume ([RegionFreshness]).
+      RegionFreshness.answers.addListener(_onRegionAnswers);
     } else if (_lockedSide == MoveLockedSide.depositToPredictions) {
       // Deposit → Predictions: pick any BTC source; To locked to Predictions.
       _sourceWalletId = null;
@@ -2530,6 +2719,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
 
   @override
   void dispose() {
+    if (_isMoneyMovement) {
+      RegionFreshness.answers.removeListener(_onRegionAnswers);
+    }
     _purchaseGrant?.revoke();
     _moveOutcome.closed();
     TrackingService.moneyFlowAbandoned('buy', props: _lastMoveInputs);
@@ -2691,7 +2883,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
 
   Future<void> _fetchInitialRate() async {
     final request = ++_rateRequest;
-    if (_isMoneyMovement && !_fromBtc) {
+    // A withheld route asks for no estimate: the app's cached price labels
+    // the amount, and the restriction stands in for the fee line.
+    if (_isMoneyMovement && (!_fromBtc || _movementRestriction != null)) {
       // Stablecoin inputs are already USD. A BTC price only labels the
       // optional output estimate; it never gates or sizes this source.
       if (mounted) {
@@ -2776,6 +2970,23 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       );
       if (!mounted || request != _rateRequest || _isFiatMode) return;
       final est = result.data;
+      // The backend withholds the route (a 403 feature_unavailable): a
+      // restriction, shown as one, never "price unavailable".
+      if (est == null && isPolicyRefusal(result.cause)) {
+        if (_restrictionOf(result.cause!) case final restriction?) {
+          setState(() {
+            _loadingRate = false;
+            _usdPerBtc = _cachedUsdPerBtc() ?? _usdPerBtc;
+            _syncRatioFromTyped();
+            _movementStopBlock = restriction;
+            _movementStopBlockRoute = _movementRoute;
+          });
+          unawaited(RuntimeCapabilitiesService.instance
+              .refresh()
+              .then<void>((_) {}, onError: (_) {}));
+          return;
+        }
+      }
       if (est == null) {
         if (mounted) {
           setState(() {
@@ -5253,7 +5464,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       if (!mounted) return;
       // The policy withholds a capability the route needs: the shared
       // capability sheet, as the Investing withdraw door shows it.
-      if (e is CctpUnavailable && e.decision != null) {
+      if (e is CctpUnavailable && e.decision != null && !_isMoneyMovement) {
         setState(() {
           _processing = false;
           _movementRetry = _isMoneyMovement;
@@ -5418,7 +5629,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       // The policy withholds `hyperliquid.withdraw` (the CCTP fallback
       // checks it before anything is signed): the shared capability
       // sheet, as the Investing withdraw door shows it.
-      if (e is CctpUnavailable && e.decision != null) {
+      if (e is CctpUnavailable && e.decision != null && !_isMoneyMovement) {
         setState(() {
           _processing = false;
           _movementRetry = _isMoneyMovement;
@@ -6814,6 +7025,8 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     if (_isMoneyMovement) {
       // A move that may have left is never sent again from this sheet.
       if (_movementSendLocked || _processing) return;
+      // A withheld route is never asked of the backend.
+      if (_movementRestriction != null) return;
       if (!_movementWalletValid || _sourceBalanceState != null) {
         setState(() => _error =
             _sourceBalanceState ?? context.l10n.ledgerErrorDetailsChanged);
@@ -7082,6 +7295,15 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
           ? ref.watch(
               inputToSatsProvider((amount: fiatText, currency: _fiatCurrency)))
           : 0;
+    }
+
+    // Move money on a route the policy withholds: the restriction in place
+    // of the fee line and any error, and its own button.
+    final restriction = _movementRestriction;
+    if (restriction != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _trackRestrictionShown(restriction);
+      });
     }
 
     // A zero source balance and a below-minimum amount cannot produce a
@@ -7615,10 +7837,19 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
                               ),
                             ),
                           ),
+                        // A withheld route says so in the bet slip's own
+                        // words and chrome, where the fee and any error
+                        // would read; no estimate is asked for it.
+                        if (restriction != null)
+                          CapabilityBlockNote(
+                            restriction.message,
+                            key: const ValueKey('money-movement-restricted'),
+                            padding: EdgeInsets.only(top: 10.h),
+                          ),
                         // A failure reads on the same quiet line as the
                         // fee, in the error ink: no tinted box on this
                         // screen. The button keeps its own state.
-                        if (_error != null)
+                        if (_error != null && restriction == null)
                           Padding(
                             padding: EdgeInsets.only(top: 10.h),
                             child: Text(
@@ -7637,6 +7868,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
                         // splits and the estimate caveats stay one tap
                         // inside. No arrival time: the sheet has no
                         // estimate of one to state.
+                        if (restriction == null)
                         MoneyFeeCaption(
                             child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -7804,6 +8036,20 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
               // closes. It lets go quietly on a stop: a real failure's
               // soft tap is played once it has ([_moveFailedFeedback]),
               // and a declined approval plays none.
+              // Withheld: a region refusal's one button asks again ("Check
+              // connection", as on the bet slip), any other refusal
+              // disables it. Never Retry.
+              if (restriction != null)
+                _ConvertButton(
+                  key: const ValueKey('money-movement-restricted-cta'),
+                  enabled: restriction.region && !_checkingConnection,
+                  processing: _checkingConnection,
+                  label: restriction.region
+                      ? context.l10n.checkConnection
+                      : _actionVerb,
+                  onTap: _checkConnection,
+                )
+              else
               RubberBandBusy(
                 busy: _processing && _bandOn,
                 enabled: _bandOn,
@@ -7928,6 +8174,7 @@ class _ConvertButton extends StatelessWidget {
   final VoidCallback onTap;
 
   const _ConvertButton({
+    super.key,
     required this.enabled,
     required this.processing,
     required this.label,

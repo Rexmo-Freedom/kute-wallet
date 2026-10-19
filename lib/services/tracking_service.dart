@@ -612,6 +612,9 @@ class TrackingService {
     'invalid_destination', 'expired', 'quote_rejected', 'fee_unavailable',
     'timeout', 'network', 'hardware_wallet', 'rate_limited', 'no_route',
     'settlement', 'unsupported_source', 'unknown',
+    // A move or action the runtime policy (or a venue's own location
+    // answer) withholds: a restriction, not a failure.
+    'restricted',
   };
 
   static String errorCategory(Object? error) {

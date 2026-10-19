@@ -5,6 +5,8 @@ import 'dart:math' as math;
 import 'package:crypto/crypto.dart';
 import 'package:kute/handlers/response_handlers.dart';
 import 'package:kute/services/api/orchestra_api.dart';
+import 'package:kute/services/runtime_capabilities_service.dart'
+    show isPolicyRefusal;
 
 /// How an Orchestra call that carries an idempotency key ended.
 enum SettlementHttpOutcome {
@@ -37,6 +39,11 @@ SettlementHttpOutcome classifySettlementResult(Result<Object?> result) {
   final code = result.statusCode;
   if (result.isSuccess && code != null && code >= 200 && code < 300) {
     return SettlementHttpOutcome.success;
+  }
+  // A policy refusal (the app's own check before any request) is an
+  // answer, not a lost request: asking again only gets the same one.
+  if (isPolicyRefusal(result.cause)) {
+    return SettlementHttpOutcome.rejected;
   }
   if (code == null) return SettlementHttpOutcome.transient;
   if (code == 429) return SettlementHttpOutcome.rateLimited;

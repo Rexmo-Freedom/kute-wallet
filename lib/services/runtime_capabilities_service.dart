@@ -103,6 +103,44 @@ class CapabilityUnavailableException implements Exception {
   String toString() => decision.messageIn(l10nForLanguage('en'));
 }
 
+/// Whether [error] is a policy refusal: Kute's runtime policy
+/// ([CapabilityUnavailableException]) or a venue's own location answer
+/// ([ProviderAvailabilityException]). A restriction, never a failure, and
+/// never a refusal another rail may route around.
+bool isPolicyRefusal(Object? error) =>
+    error is CapabilityUnavailableException ||
+    error is ProviderAvailabilityException;
+
+/// The backend's own policy refusal of a request, as the app's: a 403
+/// whose body is `{"error": "feature_unavailable", "capability": …,
+/// "reason": …, "message"?: …}` (the backend's operation guard and the
+/// relayer's). Null for any other answer. The operator's message, when
+/// the policy carries one, is kept so the screen shows the same words the
+/// app's own check would.
+CapabilityUnavailableException? capabilityDenialFromResponse(
+    int? status, String body) {
+  if (status != 403) return null;
+  try {
+    final parsed = jsonDecode(body);
+    if (parsed is! Map<String, dynamic> ||
+        parsed['error'] != 'feature_unavailable') {
+      return null;
+    }
+    final capability = parsed['capability'];
+    if (capability is! String || capability.isEmpty) return null;
+    final reason = parsed['reason'];
+    final message = parsed['message'];
+    return CapabilityUnavailableException(
+        capability,
+        CapabilityDecision(
+            allowed: false,
+            reason: reason is String ? reason : '',
+            serverMessage: message is String ? message : ''));
+  } catch (_) {
+    return null;
+  }
+}
+
 /// Public, non-secret policy metadata. Fee amounts are never computed from this
 /// display configuration: the backend/provider quote remains authoritative.
 class RuntimeCapabilities {
