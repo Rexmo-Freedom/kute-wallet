@@ -1962,7 +1962,7 @@
   "moveConversionOngoing": "変換中",
   "quotedReceiveExpired": "このアドレスは有効期限が切れています。これ以上送金しないでください。すでに支払った場合はアクティビティを確認してください。",
   "quotedReceiveExpectedOutput": "受取予定額 {amount}",
-  "quotedReceiveWalletChanged": "アカウントが変更されました。この画面を閉じて最初からやり直してください。",
+  "quotedReceiveWalletChanged": "アカウントが変更されました。これを閉じて最初からやり直してください。",
   "onetimeRefundTitle": "失敗した場合の返金先はどこにしますか？",
   "onetimeRefundSubtitle": "{coin} を受け取れる {network} 上のあなたのアドレスです。入金を完了できない場合は、ここに返送されます。",
   "onetimeRefundSkipNote": "返金先アドレスがない場合、失敗した入金の回収にはサポートが必要です。",

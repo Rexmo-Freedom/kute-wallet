@@ -1962,7 +1962,7 @@
   "moveConversionOngoing": "Конвертирането е в процес",
   "quotedReceiveExpired": "Този адрес е изтекъл. Не изпращай друго плащане. Провери Активност, ако плащането вече е направено.",
   "quotedReceiveExpectedOutput": "Очаква се да получиш {amount}",
-  "quotedReceiveWalletChanged": "Акаунтът ти се смени. Затвори този екран и започни отначало.",
+  "quotedReceiveWalletChanged": "Акаунтът ти се смени. Затвори това и започни отначало.",
   "onetimeRefundTitle": "Къде да го върнем, ако не успее?",
   "onetimeRefundSubtitle": "Твоят адрес в {network} за {coin}. Ако депозитът не може да бъде завършен, той се връща тук.",
   "onetimeRefundSkipNote": "Без адрес за връщане неуспешен депозит може да бъде възстановен само чрез поддръжката.",

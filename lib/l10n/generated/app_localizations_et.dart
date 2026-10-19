@@ -6784,7 +6784,7 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get quotedReceiveWalletChanged =>
-      'Sinu konto muutus. Sulge see ekraan ja alusta uuesti.';
+      'Sinu konto muutus. Sulge see ja alusta uuesti.';
 
   @override
   String get onetimeRefundTitle => 'Kuhu see tagastada, kui see ebaõnnestub?';

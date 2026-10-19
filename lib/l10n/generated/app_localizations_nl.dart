@@ -6823,7 +6823,7 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get quotedReceiveWalletChanged =>
-      'Je rekening is gewijzigd. Sluit dit scherm en begin opnieuw.';
+      'Je rekening is gewijzigd. Sluit dit en begin opnieuw.';
 
   @override
   String get onetimeRefundTitle =>

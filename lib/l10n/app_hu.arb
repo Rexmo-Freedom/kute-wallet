@@ -1962,7 +1962,7 @@
   "moveConversionOngoing": "Átváltás folyamatban",
   "quotedReceiveExpired": "Ez a cím lejárt. Ne küldj újabb fizetést. Ha már fizettél, nézd meg a Tevékenységet.",
   "quotedReceiveExpectedOutput": "Várhatóan ennyit kapsz: {amount}",
-  "quotedReceiveWalletChanged": "A fiókod megváltozott. Zárd be ezt a képernyőt, és kezdd újra.",
+  "quotedReceiveWalletChanged": "A fiókod megváltozott. Zárd be ezt, és kezdd újra.",
   "onetimeRefundTitle": "Hová küldjük vissza, ha nem sikerül?",
   "onetimeRefundSubtitle": "A(z) {network} hálózaton lévő címed a(z) {coin} számára. Ha a befizetés nem teljesíthető, ide küldjük vissza.",
   "onetimeRefundSkipNote": "Visszaküldési cím nélkül egy sikertelen befizetést csak az ügyfélszolgálat segítségével lehet visszaszerezni.",

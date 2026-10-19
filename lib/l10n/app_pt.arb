@@ -2222,7 +2222,7 @@
       }
     }
   },
-  "quotedReceiveWalletChanged": "A sua conta mudou. Feche este ecrã e comece de novo.",
+  "quotedReceiveWalletChanged": "A sua conta mudou. Feche isto e comece de novo.",
   "onetimeRefundTitle": "Para onde o devolvemos se falhar?",
   "onetimeRefundSubtitle": "O seu endereço na rede {network} para {coin}. Se o depósito não puder ser concluído, é devolvido para aqui.",
   "onetimeRefundSkipNote": "Sem um endereço de devolução, recuperar um depósito falhado exige a ajuda do Suporte.",

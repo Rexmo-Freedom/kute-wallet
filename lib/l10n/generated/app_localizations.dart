@@ -11876,7 +11876,7 @@ abstract class AppLocalizations {
   /// No description provided for @quotedReceiveWalletChanged.
   ///
   /// In en, this message translates to:
-  /// **'Your account changed. Close this screen and start again.'**
+  /// **'Your account changed. Close this and start again.'**
   String get quotedReceiveWalletChanged;
 
   /// Title of the optional return-address step of a one-time receive of another coin: where a deposit that cannot be completed is sent back.

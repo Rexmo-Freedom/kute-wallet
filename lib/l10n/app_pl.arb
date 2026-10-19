@@ -1962,7 +1962,7 @@
   "moveConversionOngoing": "Wymiana w toku",
   "quotedReceiveExpired": "Ten adres wygasł. Nie wysyłaj kolejnej płatności. Jeśli już zapłacono, sprawdź Aktywność.",
   "quotedReceiveExpectedOutput": "Oczekiwana kwota do otrzymania: {amount}",
-  "quotedReceiveWalletChanged": "Twoje konto się zmieniło. Zamknij ten ekran i zacznij od nowa.",
+  "quotedReceiveWalletChanged": "Twoje konto się zmieniło. Zamknij to i zacznij od nowa.",
   "onetimeRefundTitle": "Gdzie mamy to zwrócić, jeśli się nie powiedzie?",
   "onetimeRefundSubtitle": "Twój adres w sieci {network} dla {coin}. Jeśli wpłaty nie da się zrealizować, zostanie odesłana tutaj.",
   "onetimeRefundSkipNote": "Bez adresu zwrotnego odzyskanie nieudanej wpłaty wymaga pomocy wsparcia.",

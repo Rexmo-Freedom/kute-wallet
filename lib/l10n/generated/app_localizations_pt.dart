@@ -6827,7 +6827,7 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get quotedReceiveWalletChanged =>
-      'A sua conta mudou. Feche este ecrã e comece de novo.';
+      'A sua conta mudou. Feche isto e comece de novo.';
 
   @override
   String get onetimeRefundTitle => 'Para onde o devolvemos se falhar?';

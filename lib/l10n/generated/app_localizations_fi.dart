@@ -6800,7 +6800,7 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get quotedReceiveWalletChanged =>
-      'Tilisi vaihtui. Sulje tämä näkymä ja aloita alusta.';
+      'Tilisi vaihtui. Sulje tämä ja aloita alusta.';
 
   @override
   String get onetimeRefundTitle => 'Minne palautamme sen, jos se epäonnistuu?';

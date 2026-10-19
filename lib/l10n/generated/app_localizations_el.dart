@@ -6851,7 +6851,7 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get quotedReceiveWalletChanged =>
-      'Ο λογαριασμός σου άλλαξε. Κλείσε αυτή την οθόνη και ξεκίνα από την αρχή.';
+      'Ο λογαριασμός σου άλλαξε. Κλείσε αυτό και ξεκίνα από την αρχή.';
 
   @override
   String get onetimeRefundTitle => 'Πού να το επιστρέψουμε αν αποτύχει;';

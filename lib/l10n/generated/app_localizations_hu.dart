@@ -6817,7 +6817,7 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get quotedReceiveWalletChanged =>
-      'A fiókod megváltozott. Zárd be ezt a képernyőt, és kezdd újra.';
+      'A fiókod megváltozott. Zárd be ezt, és kezdd újra.';
 
   @override
   String get onetimeRefundTitle => 'Hová küldjük vissza, ha nem sikerül?';

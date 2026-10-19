@@ -1962,7 +1962,7 @@
   "moveConversionOngoing": "Umwandlung läuft",
   "quotedReceiveExpired": "Diese Adresse ist abgelaufen. Sende keine weitere Zahlung. Prüfe die Aktivität, falls du bereits bezahlt hast.",
   "quotedReceiveExpectedOutput": "Erwarteter Eingang: {amount}",
-  "quotedReceiveWalletChanged": "Dein Konto hat sich geändert. Schließe diesen Bildschirm und beginne neu.",
+  "quotedReceiveWalletChanged": "Dein Konto hat sich geändert. Schließe dies und beginne neu.",
   "onetimeRefundTitle": "Wohin sollen wir es zurücksenden, falls es fehlschlägt?",
   "onetimeRefundSubtitle": "Deine Adresse auf {network} für {coin}. Kann die Einzahlung nicht abgeschlossen werden, wird sie hierhin zurückgesendet.",
   "onetimeRefundSkipNote": "Ohne Rücksendeadresse braucht eine fehlgeschlagene Einzahlung den Support, um zurückgeholt zu werden.",

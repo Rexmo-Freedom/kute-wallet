@@ -1962,7 +1962,7 @@
   "moveConversionOngoing": "Konverzia prebieha",
   "quotedReceiveExpired": "Platnosť tejto adresy vypršala. Neposielaj ďalšiu platbu. Ak už platba odišla, skontroluj Aktivitu.",
   "quotedReceiveExpectedOutput": "Očakávaný príjem: {amount}",
-  "quotedReceiveWalletChanged": "Tvoj účet sa zmenil. Zavri túto obrazovku a začni odznova.",
+  "quotedReceiveWalletChanged": "Tvoj účet sa zmenil. Zavri toto a začni odznova.",
   "onetimeRefundTitle": "Kam to máme vrátiť, ak sa to nepodarí?",
   "onetimeRefundSubtitle": "Tvoja adresa v sieti {network} pre {coin}. Ak vklad nemožno dokončiť, pošle sa späť sem.",
   "onetimeRefundSkipNote": "Bez adresy na vrátenie možno neúspešný vklad získať späť len cez podporu.",

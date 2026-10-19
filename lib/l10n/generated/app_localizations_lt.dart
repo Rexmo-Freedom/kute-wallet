@@ -6832,7 +6832,7 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get quotedReceiveWalletChanged =>
-      'Jūsų paskyra pasikeitė. Uždarykite šį ekraną ir pradėkite iš naujo.';
+      'Jūsų paskyra pasikeitė. Uždarykite tai ir pradėkite iš naujo.';
 
   @override
   String get onetimeRefundTitle => 'Kur grąžinti, jei nepavyks?';

@@ -1962,7 +1962,7 @@
   "moveConversionOngoing": "Omzetting bezig",
   "quotedReceiveExpired": "Dit adres is verlopen. Stuur geen nieuwe betaling. Controleer Activiteit als je al hebt betaald.",
   "quotedReceiveExpectedOutput": "Verwacht te ontvangen: {amount}",
-  "quotedReceiveWalletChanged": "Je rekening is gewijzigd. Sluit dit scherm en begin opnieuw.",
+  "quotedReceiveWalletChanged": "Je rekening is gewijzigd. Sluit dit en begin opnieuw.",
   "onetimeRefundTitle": "Waar sturen we het naartoe als het mislukt?",
   "onetimeRefundSubtitle": "Je adres op {network} voor {coin}. Als de storting niet kan worden voltooid, wordt die hierheen teruggestuurd.",
   "onetimeRefundSkipNote": "Zonder retouradres is voor het terugkrijgen van een mislukte storting hulp van Support nodig.",

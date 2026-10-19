@@ -632,6 +632,9 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
     expect(find.text(_l10n.quotedReceiveWalletChanged), findsOneWidget);
+    // Said in a sheet now: "this", not "this screen".
+    expect(find.text('Your account changed. Close this and start again.'),
+        findsOneWidget);
     // Said as the sheet's caption, never a boxed note.
     expect(
         find.widgetWithText(ReceiveCaption, _l10n.quotedReceiveWalletChanged),

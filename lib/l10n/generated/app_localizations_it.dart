@@ -6822,7 +6822,7 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get quotedReceiveWalletChanged =>
-      'Il tuo conto è cambiato. Chiudi questa schermata e ricomincia.';
+      'Il tuo conto è cambiato. Chiudi e ricomincia.';
 
   @override
   String get onetimeRefundTitle =>

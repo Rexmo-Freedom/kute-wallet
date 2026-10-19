@@ -6801,7 +6801,7 @@ class AppLocalizationsDa extends AppLocalizations {
 
   @override
   String get quotedReceiveWalletChanged =>
-      'Din konto er ændret. Luk denne skærm, og start forfra.';
+      'Din konto er ændret. Luk dette, og start forfra.';
 
   @override
   String get onetimeRefundTitle =>

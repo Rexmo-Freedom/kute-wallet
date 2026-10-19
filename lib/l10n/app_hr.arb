@@ -1962,7 +1962,7 @@
   "moveConversionOngoing": "Pretvorba u tijeku",
   "quotedReceiveExpired": "Ova adresa je istekla. Ne šalji novo plaćanje. Ako si već platio, provjeri Aktivnost.",
   "quotedReceiveExpectedOutput": "Očekuje se primitak od {amount}",
-  "quotedReceiveWalletChanged": "Tvoj račun se promijenio. Zatvori ovaj zaslon i počni ispočetka.",
+  "quotedReceiveWalletChanged": "Tvoj račun se promijenio. Zatvori ovo i počni ispočetka.",
   "onetimeRefundTitle": "Kamo da ga vratimo ako ne uspije?",
   "onetimeRefundSubtitle": "Tvoja adresa na mreži {network} za {coin}. Ako se polog ne može dovršiti, vraća se ovamo.",
   "onetimeRefundSkipNote": "Bez adrese za povrat neuspjeli polog može se vratiti samo uz pomoć podrške.",

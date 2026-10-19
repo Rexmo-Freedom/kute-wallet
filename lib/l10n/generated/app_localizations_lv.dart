@@ -6782,7 +6782,7 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get quotedReceiveWalletChanged =>
-      'Tavs konts mainījās. Aizver šo ekrānu un sāc no jauna.';
+      'Tavs konts mainījās. Aizver šo un sāc no jauna.';
 
   @override
   String get onetimeRefundTitle => 'Kur to atgriezt, ja tas neizdosies?';

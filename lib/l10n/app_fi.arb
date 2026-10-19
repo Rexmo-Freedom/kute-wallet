@@ -1962,7 +1962,7 @@
   "moveConversionOngoing": "Muunnos käynnissä",
   "quotedReceiveExpired": "Tämä osoite on vanhentunut. Älä lähetä uutta maksua. Tarkista Toiminta, jos olet jo maksanut.",
   "quotedReceiveExpectedOutput": "Odotettu vastaanotto {amount}",
-  "quotedReceiveWalletChanged": "Tilisi vaihtui. Sulje tämä näkymä ja aloita alusta.",
+  "quotedReceiveWalletChanged": "Tilisi vaihtui. Sulje tämä ja aloita alusta.",
   "onetimeRefundTitle": "Minne palautamme sen, jos se epäonnistuu?",
   "onetimeRefundSubtitle": "Osoitteesi verkossa {network} kolikolle {coin}. Jos talletusta ei voida suorittaa loppuun, se palautetaan tänne.",
   "onetimeRefundSkipNote": "Ilman palautusosoitetta epäonnistuneen talletuksen palauttaminen vaatii tukea.",

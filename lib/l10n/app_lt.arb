@@ -1962,7 +1962,7 @@
   "moveConversionOngoing": "Vyksta konvertavimas",
   "quotedReceiveExpired": "Šis adresas nebegalioja. Nesiųskite kito mokėjimo. Jei jau sumokėjote, patikrinkite Veiklą.",
   "quotedReceiveExpectedOutput": "Tikimasi gauti {amount}",
-  "quotedReceiveWalletChanged": "Jūsų paskyra pasikeitė. Uždarykite šį ekraną ir pradėkite iš naujo.",
+  "quotedReceiveWalletChanged": "Jūsų paskyra pasikeitė. Uždarykite tai ir pradėkite iš naujo.",
   "onetimeRefundTitle": "Kur grąžinti, jei nepavyks?",
   "onetimeRefundSubtitle": "Jūsų adresas tinkle {network}, skirtas {coin}. Jei įnašo nepavyks užbaigti, jis bus grąžintas čia.",
   "onetimeRefundSkipNote": "Be grąžinimo adreso nepavykusį įnašą atgauti galima tik padedant pagalbos tarnybai.",

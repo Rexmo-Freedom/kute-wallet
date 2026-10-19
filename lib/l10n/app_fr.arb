@@ -1962,7 +1962,7 @@
   "moveConversionOngoing": "Conversion en cours",
   "quotedReceiveExpired": "Cette adresse a expiré. N'envoyez pas d'autre paiement. Consultez Activité si vous avez déjà payé.",
   "quotedReceiveExpectedOutput": "Montant attendu : {amount}",
-  "quotedReceiveWalletChanged": "Votre compte a changé. Fermez cet écran et recommencez.",
+  "quotedReceiveWalletChanged": "Votre compte a changé. Fermez ceci et recommencez.",
   "onetimeRefundTitle": "Où vous le renvoyer en cas d'échec ?",
   "onetimeRefundSubtitle": "Votre adresse sur {network} pour {coin}. Si le dépôt ne peut pas aboutir, il est renvoyé ici.",
   "onetimeRefundSkipNote": "Sans adresse de retour, un dépôt échoué ne peut être récupéré qu'avec l'aide du Support.",

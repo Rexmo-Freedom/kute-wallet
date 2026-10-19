@@ -6811,7 +6811,7 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get quotedReceiveWalletChanged =>
-      'Акаунтът ти се смени. Затвори този екран и започни отначало.';
+      'Акаунтът ти се смени. Затвори това и започни отначало.';
 
   @override
   String get onetimeRefundTitle => 'Къде да го върнем, ако не успее?';

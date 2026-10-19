@@ -6797,7 +6797,7 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get quotedReceiveWalletChanged =>
-      'Tvůj účet se změnil. Zavři tuto obrazovku a začni znovu.';
+      'Tvůj účet se změnil. Zavři tohle a začni znovu.';
 
   @override
   String get onetimeRefundTitle => 'Kam to máme vrátit, pokud se to nepodaří?';

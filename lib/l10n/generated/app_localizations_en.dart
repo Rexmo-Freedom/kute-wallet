@@ -6781,7 +6781,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get quotedReceiveWalletChanged =>
-      'Your account changed. Close this screen and start again.';
+      'Your account changed. Close this and start again.';
 
   @override
   String get onetimeRefundTitle => 'Where should we return it if it fails?';

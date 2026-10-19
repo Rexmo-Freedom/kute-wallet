@@ -3714,7 +3714,7 @@
       }
     }
   },
-  "quotedReceiveWalletChanged": "Your account changed. Close this screen and start again.",
+  "quotedReceiveWalletChanged": "Your account changed. Close this and start again.",
   "onetimeRefundTitle": "Where should we return it if it fails?",
   "@onetimeRefundTitle": {"description": "Title of the optional return-address step of a one-time receive of another coin: where a deposit that cannot be completed is sent back."},
   "onetimeRefundSubtitle": "Your address on {network} for {coin}. If the deposit can't be completed, it's sent back here.",

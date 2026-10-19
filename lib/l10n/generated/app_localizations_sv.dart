@@ -6793,7 +6793,7 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String get quotedReceiveWalletChanged =>
-      'Ditt konto har ändrats. Stäng skärmen och börja om.';
+      'Ditt konto har ändrats. Stäng det här och börja om.';
 
   @override
   String get onetimeRefundTitle =>

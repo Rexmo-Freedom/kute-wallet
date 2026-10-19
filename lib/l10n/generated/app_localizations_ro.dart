@@ -6837,7 +6837,7 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get quotedReceiveWalletChanged =>
-      'Contul tău s-a schimbat. Închide acest ecran și începe din nou.';
+      'Contul tău s-a schimbat. Închide și începe din nou.';
 
   @override
   String get onetimeRefundTitle => 'Unde să-l returnăm dacă nu reușește?';

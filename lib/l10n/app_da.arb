@@ -1962,7 +1962,7 @@
   "moveConversionOngoing": "Omregning i gang",
   "quotedReceiveExpired": "Denne adresse er udløbet. Send ikke flere betalinger. Tjek Aktivitet, hvis du allerede har betalt.",
   "quotedReceiveExpectedOutput": "Forventes at modtage {amount}",
-  "quotedReceiveWalletChanged": "Din konto er ændret. Luk denne skærm, og start forfra.",
+  "quotedReceiveWalletChanged": "Din konto er ændret. Luk dette, og start forfra.",
   "onetimeRefundTitle": "Hvor skal vi sende det tilbage, hvis det mislykkes?",
   "onetimeRefundSubtitle": "Din adresse på {network} til {coin}. Hvis indbetalingen ikke kan gennemføres, sendes den tilbage hertil.",
   "onetimeRefundSkipNote": "Uden en returadresse kræver en mislykket indbetaling hjælp fra support for at blive gendannet.",

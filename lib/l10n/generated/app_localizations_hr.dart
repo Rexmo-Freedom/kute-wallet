@@ -6814,7 +6814,7 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String get quotedReceiveWalletChanged =>
-      'Tvoj račun se promijenio. Zatvori ovaj zaslon i počni ispočetka.';
+      'Tvoj račun se promijenio. Zatvori ovo i počni ispočetka.';
 
   @override
   String get onetimeRefundTitle => 'Kamo da ga vratimo ako ne uspije?';

@@ -1962,7 +1962,7 @@
   "moveConversionOngoing": "Conversión en curso",
   "quotedReceiveExpired": "Esta dirección ha caducado. No envíes otro pago. Revisa Actividad si ya has pagado.",
   "quotedReceiveExpectedOutput": "Recibirás aproximadamente {amount}",
-  "quotedReceiveWalletChanged": "Tu cuenta ha cambiado. Cierra esta pantalla y empieza de nuevo.",
+  "quotedReceiveWalletChanged": "Tu cuenta ha cambiado. Cierra esto y empieza de nuevo.",
   "onetimeRefundTitle": "¿Dónde lo devolvemos si falla?",
   "onetimeRefundSubtitle": "Tu dirección en {network} para {coin}. Si el depósito no se puede completar, se devuelve aquí.",
   "onetimeRefundSkipNote": "Sin una dirección de devolución, recuperar un depósito fallido requiere ayuda de Soporte.",

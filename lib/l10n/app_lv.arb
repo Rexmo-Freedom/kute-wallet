@@ -1962,7 +1962,7 @@
   "moveConversionOngoing": "Notiek konvertēšana",
   "quotedReceiveExpired": "Šīs adreses derīgums ir beidzies. Nesūti vēl vienu maksājumu. Ja jau samaksāji, pārbaudi Aktivitāti.",
   "quotedReceiveExpectedOutput": "Paredzams saņemt {amount}",
-  "quotedReceiveWalletChanged": "Tavs konts mainījās. Aizver šo ekrānu un sāc no jauna.",
+  "quotedReceiveWalletChanged": "Tavs konts mainījās. Aizver šo un sāc no jauna.",
   "onetimeRefundTitle": "Kur to atgriezt, ja tas neizdosies?",
   "onetimeRefundSubtitle": "Tava adrese tīklā {network} monētai {coin}. Ja iemaksu nevar pabeigt, tā tiek nosūtīta atpakaļ šeit.",
   "onetimeRefundSkipNote": "Bez atgriešanas adreses neizdevušos iemaksu var atgūt tikai ar atbalsta palīdzību.",

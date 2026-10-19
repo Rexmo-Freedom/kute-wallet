@@ -6530,8 +6530,7 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get quotedReceiveWalletChanged =>
-      'アカウントが変更されました。この画面を閉じて最初からやり直してください。';
+  String get quotedReceiveWalletChanged => 'アカウントが変更されました。これを閉じて最初からやり直してください。';
 
   @override
   String get onetimeRefundTitle => '失敗した場合の返金先はどこにしますか？';

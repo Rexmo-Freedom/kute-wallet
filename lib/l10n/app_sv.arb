@@ -1962,7 +1962,7 @@
   "moveConversionOngoing": "Växling pågår",
   "quotedReceiveExpired": "Adressen har gått ut. Skicka ingen ny betalning. Kolla Aktivitet om du redan har betalat.",
   "quotedReceiveExpectedOutput": "Förväntas ta emot {amount}",
-  "quotedReceiveWalletChanged": "Ditt konto har ändrats. Stäng skärmen och börja om.",
+  "quotedReceiveWalletChanged": "Ditt konto har ändrats. Stäng det här och börja om.",
   "onetimeRefundTitle": "Vart ska vi skicka tillbaka det om det misslyckas?",
   "onetimeRefundSubtitle": "Din adress på {network} för {coin}. Om insättningen inte kan slutföras skickas den tillbaka hit.",
   "onetimeRefundSkipNote": "Utan en returadress behöver en misslyckad insättning hjälp från supporten för att återfås.",
