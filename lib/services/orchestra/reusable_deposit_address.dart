@@ -20,11 +20,13 @@
 //   * `standing_unserved`: the coin and network are not on the standing
 //     rail (a source it does not fund, a refused pair, or `spark:USDB`
 //     missing from the provider's standing destinations);
-//   * `standing_refused`: the backend refused the registration (422
-//     `unsupported_route`, what it answers while its switch
-//     `orchestra.standing_addresses` is off, or any other route refusal).
-//     Remembered for the session ([StandingReceiveRefusal]) so every coin
-//     tap does not ask again; forgotten when a new policy revision lands;
+//   * `standing_refused`: the backend refused the registration. 422
+//     `unsupported_route` is what it answers for every coin while its
+//     switch `orchestra.standing_addresses` is off: remembered for the
+//     session ([StandingReceiveRefusal]) so no coin tap asks again, and
+//     forgotten when a new policy revision lands. Any other route
+//     refusal is that pair's alone ([ReceiveRouteAvailability]): the
+//     next coin still tries standing;
 //   * `standing_policy_off`: the published policy denies
 //     `orchestra.standing_addresses` (or the standing route's own gates):
 //     no registration is made at all. An id the policy does not carry (a
@@ -120,13 +122,24 @@ StandingPolicy standingAddressPolicy(RuntimeCapabilitiesService policy) {
   return StandingPolicy.denied;
 }
 
-/// The backend's refusal of a standing registration, remembered so the
-/// next coin tap goes straight to one-time instead of asking again. It
-/// holds for [ttl] and only while the policy revision is the one it was
-/// refused under: a new policy (the operator switching standing back on
-/// publishes one) forgets it. Memory only.
+/// The backend's refusal of EVERY standing registration (its switch
+/// `orchestra.standing_addresses` off answers 422 `unsupported_route`),
+/// remembered so the next coin tap goes straight to one-time instead of
+/// asking again. It holds for [ttl] and only while the policy revision is
+/// the one it was refused under: a new policy (the operator switching
+/// standing back on publishes one) forgets it. Memory only. A refusal of
+/// one pair is never remembered here ([ReceiveRouteAvailability] holds
+/// those).
 abstract final class StandingReceiveRefusal {
   static const Duration ttl = Duration(minutes: 15);
+
+  /// The error code the backend's switch answers with.
+  static const String switchOffCode = 'unsupported_route';
+
+  /// Whether [refusal] is the switch's answer, which refuses every coin
+  /// alike, rather than one pair's.
+  static bool isGlobal(StandingRequestException refusal) =>
+      refusal.code?.trim().toLowerCase() == switchOffCode;
 
   static DateTime? _at;
   static int? _revision;
@@ -380,13 +393,25 @@ abstract final class ReusableDepositAddressService {
           wanted: wanted);
     } on StandingRequestException catch (e) {
       // A refused route falls back; anything else is retryable.
-      final category = ReceiveRouteAvailability.refusalCategory(e);
+      final category =
+          ReceiveRouteAvailability.refusalCategory(e, errorCode: e.code);
       if (category == null) rethrow;
       if (!wanted()) throw StateError('Wallet changed');
-      // The backend's switch refuses every coin alike: remembered for the
-      // session, never per pair on disk, so switching it back on (a new
-      // policy revision) restores standing at once.
-      StandingReceiveRefusal.remember(rules);
+      if (StandingReceiveRefusal.isGlobal(e)) {
+        // The backend's switch refuses every coin alike: remembered for
+        // the session, never per pair on disk, so switching it back on (a
+        // new policy revision) restores standing at once.
+        StandingReceiveRefusal.remember(rules);
+      } else {
+        // Any other refusal is this pair's alone (a source the provider
+        // has not configured, a catalogue miss): remembered for the pair,
+        // so the next coin still tries standing.
+        await ReceiveRouteAvailability.markUnavailable(
+            sourceChain: sourceChain,
+            sourceAsset: sourceAsset,
+            destinationAsset: destinationAsset);
+        if (!wanted()) throw StateError('Wallet changed');
+      }
       unavailable(StandingFallbackReason.standingRefused, category: category);
     }
     if (!wanted()) throw StateError('Wallet changed');
