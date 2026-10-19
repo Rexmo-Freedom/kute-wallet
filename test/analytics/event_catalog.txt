@@ -279,6 +279,7 @@ ledger_verify_address_result
 ledger_verify_address_sheet_opened
 ledger_verify_address_started
 legacy_passkey_backup_flagged
+legacy_passkey_label_backfilled
 live_event_marker_tapped
 live_game_center_opened
 live_game_line_tapped
@@ -345,6 +346,7 @@ order_funding_started
 order_funding_step
 order_funding_submitted
 order_submit_ack_latency
+passkey_cached_label_kept
 passkey_choice_back_tapped
 passkey_choice_bip_selected
 passkey_choice_cancelled
@@ -354,10 +356,15 @@ passkey_choice_passkey_selected
 passkey_choice_rename_tapped
 passkey_choice_toggled
 passkey_create_mint_blocked
+passkey_create_post_save_failed
+passkey_forget_wallet_step_failed
 passkey_label_customized
+passkey_label_pending_flag_failed
 passkey_label_published
+passkey_label_published_handler_failed
 passkey_restore_cancelled
 passkey_restore_failed
+passkey_restore_post_save_failed
 passkey_restore_prompt_shown
 passkey_seed_cache_write_failed
 passkey_unsupported_device
@@ -684,6 +691,7 @@ venue_sweep_submitted
 wallet_actions_opened
 wallet_add_abandoned
 wallet_add_blocked_shown
+wallet_add_deduped
 wallet_add_failed
 wallet_add_started
 wallet_add_step
