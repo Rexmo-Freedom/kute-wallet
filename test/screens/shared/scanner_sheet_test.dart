@@ -189,8 +189,8 @@ void main() {
   });
 
   testWidgets(
-      'the preview is the card: edge to edge to the sheet\'s left, right '
-      'and bottom, with the header directly above it', (tester) async {
+      'the whole sheet is the camera: edge to edge from its top to its '
+      'bottom, no header, the X over the video', (tester) async {
     final cameras = FakeScannerCameras();
     await _pump(tester, cameras);
     await tester.tap(find.text('scan'));
@@ -202,9 +202,23 @@ void main() {
     expect(preview.right, sheet.right);
     expect(preview.width, sheet.width);
     expect(preview.bottom, sheet.bottom);
-    final title = tester.getRect(find.text(_l10n.scanQrCode));
-    expect(title.bottom, lessThanOrEqualTo(preview.top));
-    expect(preview.top - title.bottom, lessThan(24));
+    expect(preview.top, sheet.top, reason: 'no header above the camera');
+    expect(preview.height, sheet.height);
+    expect(find.text(_l10n.scanQrCode), findsNothing, reason: 'no title');
+    expect(find.bySemanticsLabel(_l10n.scanQrCode), findsOneWidget,
+        reason: 'the sheet still names itself to a screen reader');
+    // About two thirds of the screen: a sheet over the page, not a
+    // full screen.
+    expect(
+        sheet.height, moreOrLessEquals(932 * kScannerSheetHeight, epsilon: 1));
+    expect(kScannerSheetHeight, inInclusiveRange(0.62, 0.65));
+    // The close X floats over the preview, top-left, in the controls'
+    // circle style.
+    final close = tester.getRect(find.byKey(const ValueKey('scanner-close')));
+    expect(close.top, greaterThanOrEqualTo(preview.top));
+    expect(close.left, greaterThan(preview.left));
+    expect(close.right, lessThan(preview.center.dx));
+    expect(close.top, lessThan(preview.center.dy));
     // The controls float over the preview's bottom edge.
     final torch = tester.getRect(find.byKey(const ValueKey('scanner-torch')));
     final gallery =

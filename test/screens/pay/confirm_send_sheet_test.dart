@@ -20,7 +20,6 @@ import 'package:kute/providers/send_tx_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/pay/components/confirm_send.dart';
 import 'package:kute/screens/scanner/scanner_sheet.dart';
-import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/send/send_sheet.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -201,8 +200,7 @@ void main() {
     await tester.tap(find.text(_l10n.continueLabel));
     await tester.pumpAndSettle();
     expect(_step(_l10n.amount), findsOneWidget);
-    expect(
-        events.where((e) => e.$1 == 'send_step').map((e) => e.$2?['step']),
+    expect(events.where((e) => e.$1 == 'send_step').map((e) => e.$2?['step']),
         contains('amount'));
 
     await _dragDown(tester);
@@ -226,8 +224,8 @@ void main() {
     final (_, router) = await _pump(tester);
     await tester.tap(find.text('Open send'));
     await tester.pumpAndSettle();
-    final location = router.routerDelegate.currentConfiguration.last
-        .matchedLocation;
+    final location =
+        router.routerDelegate.currentConfiguration.last.matchedLocation;
 
     await tester.tap(find.byTooltip(_l10n.scan));
     await tester.pumpAndSettle();
@@ -241,15 +239,12 @@ void main() {
         reason: 'Send waits under the scanner');
     expect(_cameras.last.running, isTrue);
 
-    await tester.tap(find.descendant(
-        of: find.byType(ScannerSheet),
-        matching: find.byType(KuteCloseButton)));
+    await tester.tap(find.byKey(const ValueKey('scanner-close')));
     await tester.pumpAndSettle();
     expect(find.byType(ScannerSheet), findsNothing);
     expect(find.byType(ConfirmSend), findsOneWidget);
     expect(_step(_l10n.sendTo), findsOneWidget);
-    expect(
-        tester.widget<TextField>(find.byType(TextField)).controller!.text,
+    expect(tester.widget<TextField>(find.byType(TextField)).controller!.text,
         isEmpty);
     expect(tester.getSize(_sheet).height,
         moreOrLessEquals(812 * kSendSheetMediumFraction));
@@ -272,8 +267,7 @@ void main() {
     expect(find.byType(ScannerSheet), findsNothing);
     expect(_cameras.last.disposed, isTrue);
     expect(find.byType(ConfirmSend), findsOneWidget);
-    expect(
-        tester.widget<TextField>(find.byType(TextField)).controller!.text,
+    expect(tester.widget<TextField>(find.byType(TextField)).controller!.text,
         _btc);
     expect(tester.getSize(_sheet).height, moreOrLessEquals(_full));
   });
