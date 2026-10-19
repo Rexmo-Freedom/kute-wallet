@@ -103,8 +103,15 @@ PolyChanceGaugeGeometry polyChanceGaugeGeometry({
     final half = width / 2;
     final dx = c.dx.clamp(-half + tag.width / 2,
         math.max(-half + tag.width / 2, half - tag.width / 2));
+    // Pulled in from the side (a tag wider than the room beside the arc,
+    // at a large text size): lifted above the arc instead, so it never
+    // lands on it.
+    var dy = c.dy;
+    if ((dx - c.dx).abs() > 0.5) {
+      dy = math.min(dy, -(tickOuter + gap + tag.height / 2));
+    }
     label = Rect.fromCenter(
-        center: Offset(dx.toDouble(), c.dy),
+        center: Offset(dx.toDouble(), dy),
         width: tag.width,
         height: tag.height);
     top = math.min(top, label.top);
@@ -162,11 +169,25 @@ class PolyPositionChanceGauge extends StatelessWidget {
   static const figureKey = ValueKey('poly-chance-gauge-figure');
   static const captionKey = ValueKey('poly-chance-gauge-caption');
 
+  /// The width of a typical bought tag ("Bought · 78¢"), for sizing a dial
+  /// with no tag the same as one with.
+  static double _typicalTagWidth(TextStyle style, TextScaler scaler) {
+    final tp = TextPainter(
+      text: TextSpan(text: 'Bought · 78¢', style: style),
+      textDirection: TextDirection.ltr,
+      textScaler: scaler,
+      maxLines: 1,
+    )..layout();
+    final width = tp.width + 10;
+    tp.dispose();
+    return width;
+  }
+
   /// The chart's tag text style, as on the bar.
   static TextStyle _tagStyle(Color color) => TextStyle(
         fontFamily: kuteChartFontFamily,
         color: color,
-        fontSize: 10,
+        fontSize: 12,
         fontWeight: FontWeight.w700,
         height: 1.2,
       );
@@ -180,10 +201,6 @@ class PolyPositionChanceGauge extends StatelessWidget {
         MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     final scaler =
         MediaQuery.maybeTextScalerOf(context) ?? TextScaler.noScaling;
-    final outerRadius = 42.h;
-    final stroke = 10.h;
-    final overhang = 3.h;
-    final gap = 2.h;
     final tick = spec.tick;
     final label = tick == null ? null : tickLabel;
     final labelStyle = _tagStyle(spec.held);
@@ -191,9 +208,10 @@ class PolyPositionChanceGauge extends StatelessWidget {
     final figureText = formatPolyChanceFigure(chance);
     final full = l10n.betPercentChance(figureText);
     final parts = polyGaugeChanceParts(full, figureText);
-    final figureStyle = TextStyle(
+    TextStyle figureStyleFor(double outerRadius) => TextStyle(
       color: c.textPrimary,
-      fontSize: 20.sp,
+      // The hero of the screen: large, scaling with the arc.
+      fontSize: (outerRadius * 0.34).clamp(30.0, 48.0),
       fontWeight: FontWeight.w800,
       letterSpacing: -0.6,
       height: 1.0,
@@ -201,7 +219,7 @@ class PolyPositionChanceGauge extends StatelessWidget {
     );
     final captionStyle = TextStyle(
       color: c.textTertiary,
-      fontSize: 11.sp,
+      fontSize: 14.sp,
       fontWeight: FontWeight.w600,
       letterSpacing: -0.1,
       height: 1.2,
@@ -220,6 +238,17 @@ class PolyPositionChanceGauge extends StatelessWidget {
         tag = Size(math.min(w, tp.width + 10), tp.height + 5);
         tp.dispose();
       }
+      // A large dial: as wide as the screen allows while a bought tag at
+      // either end still fits beside the arc (a typical tag's width is
+      // kept free on both sides, tag or not, so every bet's dial is the
+      // same size), capped on tablets.
+      final reserve = tag?.width ?? _typicalTagWidth(labelStyle, scaler);
+      final double outerRadius =
+          (w / 2 - reserve - 8).clamp(math.min(60.0, w / 4), 150.0).toDouble();
+      final stroke = outerRadius * 0.13;
+      final overhang = outerRadius * 0.06;
+      final gap = outerRadius * 0.03;
+      final figureStyle = figureStyleFor(outerRadius);
       double captionH = 0;
       if (parts.caption.isNotEmpty) {
         final tp = TextPainter(

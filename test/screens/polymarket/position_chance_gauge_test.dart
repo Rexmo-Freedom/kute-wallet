@@ -225,12 +225,18 @@ void main() {
 
     testWidgets('at the extremes the tag flips beside the arc\'s end',
         (tester) async {
+      // The dial is sized so a real tag fits beside either end; the test
+      // font's wide glyphs can push it up instead, still clear of the arc.
       await _pump(tester, _yes(0.5, bought: 0.03), label: 'Bought · 3¢');
       var g = _painter(tester).geometry;
-      expect(_label(tester).right, lessThan(g.center.dx - g.radius));
+      var label = _label(tester);
+      expect(_distance(label, g.center), greaterThan(g.tickOuter));
+      expect(label.center.dx, lessThan(g.center.dx));
       await _pump(tester, _yes(0.5, bought: 0.97), label: 'Bought · 97¢');
       g = _painter(tester).geometry;
-      expect(_label(tester).left, greaterThan(g.center.dx + g.radius));
+      label = _label(tester);
+      expect(_distance(label, g.center), greaterThan(g.tickOuter));
+      expect(label.center.dx, greaterThan(g.center.dx));
       expect(tester.takeException(), isNull);
     });
 
