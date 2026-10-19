@@ -157,11 +157,18 @@ class _AppWidgetState extends ConsumerState<AppWidget>
     // PostHog's GoRouter observer emits a `$screen` event on every
     // route push/pop. Pairs with the `PostHogWidget` wrapper below
     // (autocapture of taps + screens) for the funnel views.
-    _router = AppRouter.createRouter('/splash', extraObservers: [
-      syncRouteObserver,
-      PosthogObserver(),
-      _BreadcrumbObserver(),
-    ]);
+    _router = AppRouter.createRouter(
+      '/splash',
+      // No unlocked session (a cold start, or a wipe) keeps navigation on
+      // the cold-start and PIN routes; the in-place lock overlay keeps
+      // the session and covers the screen instead.
+      sessionLocked: () => ref.read(sessionAuthProvider) == null,
+      extraObservers: [
+        syncRouteObserver,
+        PosthogObserver(),
+        _BreadcrumbObserver(),
+      ],
+    );
     WidgetsBinding.instance.addObserver(this);
 
     // Phase 4: stamp the user-settings person properties on boot. Read
