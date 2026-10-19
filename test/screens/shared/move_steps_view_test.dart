@@ -14,6 +14,8 @@ import 'package:kute/models/swap_order_model.dart';
 import 'package:kute/models/transactions_model.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/swap_orders_provider.dart';
+import 'package:kute/screens/shared/components/tx_flow_graph.dart'
+    show SimpleFlowGraph;
 import 'package:kute/screens/shared/move_steps_view.dart';
 import 'package:kute/screens/shared/multi_source_move_activity.dart';
 import 'package:kute/screens/shared/transactions_builder.dart';
@@ -345,6 +347,43 @@ void main() {
       expect(find.byKey(const ValueKey('money-step-done-0')), findsOneWidget);
       // The path is the step line's: never twice.
       expect(_inSheet(find.text('Arriving in Bitcoin')), findsNothing);
+    });
+
+    testWidgets(
+        'USDC on Polygon received from outside reads as a receive into '
+        'Bitcoin, never Predictions', (tester) async {
+      final row = _order('ord_onetime',
+              from: 'USDC',
+              fromNet: 'polygon',
+              to: 'BTC',
+              toNet: 'SPARK',
+              deposit: '4.14',
+              withdrawal: '0.000069',
+              direction: 'receive')
+          .copyWith(purchaseSource: 'crypto_receive');
+      await _open(tester, _tx(row), [row]);
+      expect(_inSheet(find.textContaining('Predictions')), findsNothing);
+      expect(_inSheet(find.text('Arriving in Bitcoin')), findsNothing);
+      expect(_inSheet(find.text('Polygon → Spark')), findsOneWidget);
+      // The path drawn: the coin and its network into Bitcoin.
+      final graph = tester
+          .widget<SimpleFlowGraph>(_inSheet(find.byType(SimpleFlowGraph)));
+      expect(graph.source.label, 'USDC on Polygon');
+      expect(graph.destinations.single.label, 'Bitcoin');
+    });
+
+    testWidgets('a real Predictions withdrawal keeps its label',
+        (tester) async {
+      final row = _order('pm_home',
+          from: 'USDC.e',
+          fromNet: 'POLYGON',
+          to: 'BTC',
+          toNet: 'SPARK',
+          deposit: '4.14',
+          withdrawal: '0.000069');
+      await _open(tester, _tx(row), [row]);
+      expect(_inSheet(find.text(r'Predictions → Bitcoin · $4.14')),
+          findsOneWidget);
     });
   });
 }

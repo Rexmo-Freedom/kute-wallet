@@ -24,10 +24,12 @@
 //     comes from the live catalogue, so it is listed. Sends keep the
 //     refund requirement. Other networks (Bitcoin, Litecoin, Zcash, TON,
 //     XRP) are not offered.
-//   * The quote becomes an Activity row at once (`q_…`, "Waiting for
-//     deposit") and stays watched after it expires: the row moves to the
-//     real order when a deposit lands, late deposits included, and closes
-//     as expired only a day after the quote did with nothing found.
+//   * The quote is persisted as a pending quote (`q_…`) before its address
+//     is shown, and is NOT an Activity row: nothing appears in Activity, a
+//     badge or a count before money is sent. The deposit poller and
+//     background sync keep watching it after it expires (late deposits
+//     included) and write the real order's row (`ord_…`) when Orchestra
+//     reports a deposit, which retires the pending quote.
 //
 // Nothing here signs or pays anything.
 
@@ -162,8 +164,9 @@ int? oneTimeMaxUsdCents(OrchestraRouteLimits? limits) {
   return caps.reduce((a, b) => a < b ? a : b);
 }
 
-/// Whether [row] is a one-time receive's own Activity row while it still
-/// carries its quote id: what Receive writes the moment the quote exists.
+/// Whether [row] is a one-time receive's pending quote: what Receive
+/// persists the moment the quote exists (never an Activity row; older
+/// builds of this branch wrote one).
 bool isOneTimeReceiveQuoteRow(SwapOrder row) =>
     row.id.startsWith('q_') &&
     row.providerName == 'Orchestra' &&
@@ -185,8 +188,8 @@ abstract final class OneTimeReceive {
   static Future<VerifiedOrchestraQuote> Function(OrchestraQuoteRequest request)?
       debugFetch;
 
-  /// Test seam: records the Activity row in place of the pending-quote
-  /// cache and the order list. Read by the receive screen.
+  /// Test seam: records the quote in place of the pending-quote cache.
+  /// Read by the receive screen.
   static Future<void> Function(
           SwapOrder row, DateTime expiresAt, PendingReceiveQuoteScope scope)?
       debugRecord;
@@ -260,9 +263,10 @@ abstract final class OneTimeReceive {
       OrchestraQuoteGate.ensurePayable(verified,
           amountBaseUnits: amountBaseUnits, now: DateTime.now());
 
-  /// The Activity row of [verified]: a receive of [option] into
-  /// spark:[destinationAsset] waiting for its deposit, under the quote id
-  /// until the real order takes over. Throws [WalletGuardException] when
+  /// The pending-quote record of [verified]: a receive of [option] into
+  /// spark:[destinationAsset] waiting for its deposit, under the quote id.
+  /// Its real order's Activity row is written from it once a deposit is
+  /// detected. Throws [WalletGuardException] when
   /// the quote states no positive output.
   static SwapOrder row({
     required OrchestraReceiveOption option,

@@ -3,9 +3,11 @@
 // coins") asks its amount in the Lightning "Request amount" sheet, checked
 // against the route's minimum, then quotes a one-time Orchestra deposit
 // address into spark:USDB (or spark:BTC), paid to the wallet's own Spark
-// address and refunded to its own EVM address, writes the Activity row at
-// once, and shows the address with the exact amount and the expiry. No
-// standing or legacy address is ever registered.
+// address and refunded to its own EVM address, persists it as a pending
+// quote (never an Activity row before a deposit), and shows the address
+// with the exact amount and the expiry. No standing or legacy address is
+// ever registered. A reconnect (a rebuilt SDK) never ends the screen; a
+// wallet switch does.
 
 import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart';
 import 'package:flutter/material.dart';
@@ -67,6 +69,13 @@ class _Currency extends StateNotifier<CurrencyState>
   Future<void> updateRates() async {}
 }
 
+class _Settings extends SettingsModel {
+  _Settings(super.state);
+
+  void switchTo(String walletId) =>
+      state = state.copyWith(activeWalletId: walletId);
+}
+
 class _Balances extends WalletBalanceCacheNotifier {
   _Balances() {
     state = const {};
@@ -100,19 +109,40 @@ const _spark =
 const _ownEvm = '0x52908400098527886e0f7030069857d2e4169ee7';
 const _deposit = '0x1111111111111111111111111111111111111111';
 
-Future<void> _pump(WidgetTester tester, {bool bitcoin = false}) async {
+/// The Breez SDK the provider answers now; replaced to model a reconnect.
+late _Wrapper _wrapper;
+late _Settings _settings;
+late ProviderContainer _container;
+
+/// A fresh SDK instance (what a reconnect builds). [onReceive] runs while
+/// the recipient address is read.
+_Wrapper _newWrapper({void Function()? onReceive}) {
+  final sdk = _Sdk();
+  when(() => sdk.receivePayment(request: any(named: 'request')))
+      .thenAnswer((_) async {
+    onReceive?.call();
+    return ReceivePaymentResponse(paymentRequest: _spark, fee: BigInt.zero);
+  });
+  final wrapper = _Wrapper();
+  when(() => wrapper.instance).thenReturn(sdk);
+  return wrapper;
+}
+
+/// Models a reconnect: the provider rebuilds with a new SDK instance.
+void _reconnect() {
+  _wrapper = _newWrapper();
+  _container.invalidate(breezSDKProvider);
+}
+
+Future<void> _pump(WidgetTester tester,
+    {bool bitcoin = false, _Wrapper? wrapper}) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
-  final sdk = _Sdk();
-  when(() => sdk.receivePayment(request: any(named: 'request'))).thenAnswer(
-      (_) async =>
-          ReceivePaymentResponse(paymentRequest: _spark, fee: BigInt.zero));
-  final wrapper = _Wrapper();
-  when(() => wrapper.instance).thenReturn(sdk);
+  _wrapper = wrapper ?? _newWrapper();
   await tester.pumpWidget(ProviderScope(
     overrides: [
-      settingsProvider.overrideWith((_) => SettingsModel(Settings(
+      settingsProvider.overrideWith((_) => _settings = _Settings(Settings(
             currency: 'USD',
             language: 'en',
             btcFormat: 'sats',
@@ -122,7 +152,10 @@ Future<void> _pump(WidgetTester tester, {bool bitcoin = false}) async {
             nodeType: 'Blockstream',
             reviewDone: true,
             activeWalletId: 'spending',
-            wallets: [WalletConfig(id: 'spending', name: 'Spending')],
+            wallets: [
+              WalletConfig(id: 'spending', name: 'Spending'),
+              WalletConfig(id: 'other', name: 'Other'),
+            ],
           ))),
       orchestraSupportedRoutesProvider.overrideWith((_) => _Routes(
             OrchestraRoutesCatalog.fromJson(
@@ -143,7 +176,7 @@ Future<void> _pump(WidgetTester tester, {bool bitcoin = false}) async {
           (ref, code) => Money.fromIntWithCurrency(6000000, AppCurrencies.usd)),
       walletBalanceCacheProvider.overrideWith((_) => _Balances()),
       currencyProvider.overrideWith((_) => _Currency()),
-      breezSDKProvider.overrideWith((_) async => wrapper),
+      breezSDKProvider.overrideWith((_) async => _wrapper),
       sparkSelfAddressProvider.overrideWith((_) async => _spark),
       hyperliquidAddressProvider.overrideWith((_) async => _ownEvm),
       // A live minimum of $2.00.
@@ -175,6 +208,8 @@ Future<void> _pump(WidgetTester tester, {bool bitcoin = false}) async {
       ),
     ),
   ));
+  _container =
+      ProviderScope.containerOf(tester.element(find.text('open receive')));
   await tester.tap(find.text('open receive'));
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 400));
@@ -309,8 +344,8 @@ void main() {
 
   testWidgets(
       'Dollars: "Create request" quotes a one-time address into spark:USDB, '
-      'own Spark recipient and own EVM refund, writes the Activity row at '
-      'once and shows the exact amount and the expiry', (tester) async {
+      'own Spark recipient and own EVM refund, persists the pending quote '
+      'and shows the exact amount and the expiry', (tester) async {
     await _pump(tester);
     await _requestUsdt(tester, '25');
     await tester
@@ -330,7 +365,8 @@ void main() {
     expect(request.refundAddress, _ownEvm);
     expect(request.refundOptional, isFalse);
 
-    // The Activity row exists before the address is on screen.
+    // The pending quote is persisted before the address is on screen; it
+    // is not an Activity row (the screen writes nothing else).
     final row = recorded.single;
     expect(row.id, 'q_onetime_1');
     expect(row.coinTo, 'USDB');
@@ -400,6 +436,68 @@ void main() {
     expect(generated['destination'], 'spark_btc');
     expect(generated['entry_source'], 'bitcoin_receive');
     expect(standingCalls, isEmpty);
+    await _unmount(tester);
+  });
+
+  Future<void> createUsdtRequest(WidgetTester tester) async {
+    await _requestUsdt(tester, '25');
+    await tester
+        .tap(find.widgetWithText(AppButton, _l10n.receiveCreateRequest));
+    await _settle(tester);
+    await _settle(tester);
+  }
+
+  Finder addressLine() => find.byWidgetPredicate(
+      (w) => w is ReceiveAddressLine && w.address == _deposit);
+
+  testWidgets(
+      'a reconnect after the address is shown (a rebuilt SDK) keeps the '
+      'address and never says the account changed', (tester) async {
+    await _pump(tester);
+    await createUsdtRequest(tester);
+    expect(addressLine(), findsOneWidget);
+
+    _reconnect();
+    await _settle(tester);
+    // The 1-second ticker runs on.
+    await tester.pump(const Duration(seconds: 2));
+    expect(find.text(_l10n.quotedReceiveWalletChanged), findsNothing);
+    expect(addressLine(), findsOneWidget);
+    expect(find.textContaining('Expires in'), findsOneWidget);
+    expect(quoted, hasLength(1));
+    await _unmount(tester);
+  });
+
+  testWidgets(
+      'a reconnect while the quote is made quietly starts it again on the '
+      'new SDK', (tester) async {
+    var reconnected = false;
+    await _pump(tester, wrapper: _newWrapper(onReceive: () {
+      if (reconnected) return;
+      reconnected = true;
+      _reconnect();
+    }));
+    await createUsdtRequest(tester);
+    await _settle(tester);
+    expect(reconnected, isTrue);
+    expect(find.text(_l10n.quotedReceiveWalletChanged), findsNothing);
+    // Only the attempt on the new SDK was quoted and shown.
+    expect(quoted, hasLength(1));
+    expect(recorded, hasLength(1));
+    expect(addressLine(), findsOneWidget);
+    await _unmount(tester);
+  });
+
+  testWidgets('a real wallet switch still ends the address', (tester) async {
+    await _pump(tester);
+    await createUsdtRequest(tester);
+    expect(addressLine(), findsOneWidget);
+
+    _settings.switchTo('other');
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text(_l10n.quotedReceiveWalletChanged), findsOneWidget);
+    expect(addressLine(), findsNothing);
     await _unmount(tester);
   });
 }

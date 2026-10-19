@@ -605,10 +605,15 @@ abstract final class MoveSteps {
   /// Its statuses are the row's: running while it is on its way, done
   /// once it settled, failed when its order did; the arrival runs while
   /// the wallet has not counted the bitcoin yet ([counting]). Empty for
-  /// any other row (a send, a receive, a Cash App purchase).
+  /// any other row (a send, a receive, a Cash App purchase). A receive
+  /// from outside (a one-time or reusable receive address) is never a
+  /// move, even when its coin and network are a venue's: USDC on Polygon
+  /// from someone else's wallet is not Predictions money.
   static MoneyStepGraph ofRow(SwapOrder row, {bool counting = false}) {
     if (!row.isOrchestra ||
         row.activityDirection == 'send' ||
+        row.activityDirection == 'receive' ||
+        row.purchaseSource == 'crypto_receive' ||
         row.isCashAppPurchase) {
       return MoneyStepGraph.empty;
     }

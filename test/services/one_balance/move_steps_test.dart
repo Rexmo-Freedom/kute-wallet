@@ -487,6 +487,33 @@ void main() {
               .isEmpty,
           isTrue);
     });
+
+    test(
+        'USDC on Polygon received from outside is never Predictions; a real '
+        'Predictions withdrawal keeps its move', () {
+      // A one-time receive's row: an external receive into Bitcoin.
+      final external = _row('ord_onetime',
+          from: 'USDC',
+          fromNet: 'polygon',
+          to: 'BTC',
+          toNet: 'SPARK',
+          direction: 'receive');
+      expect(MoveSteps.ofRow(external).isEmpty, isTrue);
+      // Marked by its source alone, as some receive rows are.
+      expect(
+          MoveSteps.ofRow(_row('ord_standing',
+                      from: 'USDC.e',
+                      fromNet: 'POLYGON',
+                      to: 'BTC',
+                      toNet: 'SPARK')
+                  .copyWith(purchaseSource: 'crypto_receive'))
+              .isEmpty,
+          isTrue);
+      final withdrawal = MoveSteps.ofRow(_row('ord_pm_home',
+          from: 'USDC.e', fromNet: 'POLYGON', to: 'BTC', toNet: 'SPARK'));
+      expect(withdrawal.byId('leg:predictions')!.from, MoneyPlace.predictions);
+      expect(withdrawal.byId('leg:predictions')!.to, MoneyPlace.bitcoin);
+    });
   });
 
   group('a Retry from another venue never leaves a step waiting', () {

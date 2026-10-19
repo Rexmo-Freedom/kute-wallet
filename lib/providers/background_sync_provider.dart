@@ -960,8 +960,9 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
           } else {
             await exchangeBox.flush();
           }
-          // A one-time receive wrote its Activity row under the quote id;
-          // the real order (written above) takes its place.
+          // The real order (written above) is the receive's first Activity
+          // row: a quote has none until its deposit is detected. A quote row
+          // an earlier build wrote goes once the order is tracked.
           final quoteRow = exchangeBox.get(quote.id);
           if (quoteRow != null && quoteRow.walletId == walletId) {
             await ref.read(swapOrdersProvider.notifier).deleteExchange(quote.id);

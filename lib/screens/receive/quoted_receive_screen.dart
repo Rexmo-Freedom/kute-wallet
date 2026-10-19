@@ -5,8 +5,10 @@
 // fiat for Bitcoin, with the route's minimum on the sheet's minimum line),
 // and this screen quotes it and shows the one-time deposit address: the
 // code, the exact amount to send, the network it must come from, the
-// expiry countdown and what arrives. The quote is an Activity row from the
-// moment it exists. This screen never signs, submits or pays anything.
+// expiry countdown and what arrives. The quote is kept as a pending quote
+// (watched after this screen closes) and becomes an Activity row only once
+// a deposit to it is detected. This screen never signs, submits or pays
+// anything.
 
 import 'dart:async';
 
@@ -30,9 +32,6 @@ import 'package:kute/providers/hyperliquid_account_provider.dart'
 import 'package:kute/providers/orchestra_supported_routes_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/spark_address_provider.dart';
-import 'package:kute/providers/swap_orders_provider.dart';
-import 'package:kute/providers/transactions_provider.dart'
-    show walletTransactionCacheProvider;
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
 import 'package:kute/screens/receive/components/request_amount_sheet.dart';
@@ -212,7 +211,11 @@ class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
   final _paymentClock = Stopwatch();
   Duration _paymentLifetime = Duration.zero;
   bool _paymentExpired = false;
-  bool Function()? _sameSdk;
+  // Quiet restarts of a creation the SDK was rebuilt under (a reconnect).
+  int _sdkRestarts = 0;
+  static const _maxSdkRestarts = 3;
+  // Bumped on every change of the SDK provider (a reconnect rebuilds it).
+  int _sdkEpoch = 0;
   VerifiedOrchestraQuote? _verified;
   SwapOrder? _display;
   bool _terminalTracked = false;
@@ -252,9 +255,10 @@ class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
     return wall < elapsed ? wall : elapsed;
   }
 
+  // Only the wallet matters once the address is shown: the deposit pays the
+  // wallet's own Spark address, which a reconnect (a rebuilt SDK) keeps.
   bool get _canPay =>
       _sameWallet &&
-      (_sameSdk?.call() ?? false) &&
       _display?.id == _verified?.quoteId &&
       _display?.status == 'wait' &&
       !_paymentExpired &&
@@ -356,9 +360,8 @@ class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
         if (!_sameWallet) _invalidateWallet();
       },
     );
-    ref.listen(breezSDKProvider, (previous, next) {
-      if (_sameSdk != null && !_sameSdk!()) _invalidateWallet();
-    });
+    // Read only by a quote being made; a shown address ignores it.
+    ref.listen(breezSDKProvider, (previous, next) => _sdkEpoch++);
     final l10n = context.l10n;
     // A clock correction must not revive instructions already shown expired.
     if (_verified != null && _remaining <= Duration.zero) {
@@ -520,18 +523,17 @@ class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
         _ => _canPay ? context.l10n.waitingForDeposit : context.l10n.pending,
       };
 
-  /// Writes the quote's Activity row before its address is shown: the
-  /// pending-quote record (watched after this screen closes, late
-  /// deposits included) and the row itself, in the Bitcoin Activity for
-  /// `spark:BTC` and the Investments Activity for `spark:USDB`.
+  /// Persists the quote before its address is shown, as a pending quote
+  /// only: the deposit poller and background sync watch it after this
+  /// screen closes (late deposits included) and write the Activity row
+  /// once Orchestra reports a deposit. Nothing reaches Activity before
+  /// money was sent.
   Future<void> _record(
       SwapOrder row, DateTime expiresAt, PendingReceiveQuoteScope scope) async {
     final debug = OneTimeReceive.debugRecord;
     if (debug != null) return debug(row, expiresAt, scope);
     await PendingReceiveQuoteCache.save(
         display: row, expiresAt: expiresAt, scope: scope);
-    await ref.read(swapOrdersProvider.notifier).addExchange(row);
-    ref.read(walletTransactionCacheProvider.notifier).mergeSwapOrder(row);
   }
 
   Future<void> _createQuote() async {
@@ -547,6 +549,7 @@ class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
     final generation = ++_generation;
     final option = widget.option;
     final destinationAsset = widget.destinationAsset;
+    var restart = false;
     setState(() {
       _busy = true;
       _error = null;
@@ -567,14 +570,27 @@ class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
       final wrapper = await ref.read(breezSDKProvider.future);
       if (!_current(generation)) return;
       final sdk = wrapper.instance;
+      final sdkEpoch = _sdkEpoch;
       if (sdk == null) {
         throw const WalletGuardException(
             WalletGuardReason.ownAddressUnavailable);
       }
-      bool sameSdk() =>
-          identical(wrapper.instance, sdk) &&
-          identical(ref.read(breezSDKProvider).asData?.value.instance, sdk);
-      _sameSdk = sameSdk;
+      // The recipient Spark address is read from this SDK instance, so it
+      // must not be rebuilt (a reconnect: network, VPN, resume) while the
+      // quote is made. When it is, creation quietly starts over on the new
+      // one; never "Your account changed". A wallet switch is [_sameWallet].
+      bool sdkMoved() {
+        if (_sdkEpoch == sdkEpoch && identical(wrapper.instance, sdk)) {
+          return false;
+        }
+        if (++_sdkRestarts > _maxSdkRestarts) {
+          throw const WalletGuardException(
+              WalletGuardReason.ownAddressUnavailable);
+        }
+        restart = true;
+        return true;
+      }
+
       final receive = await sdk.receivePayment(
         request: const ReceivePaymentRequest(
           paymentMethod: ReceivePaymentMethod.sparkAddress(),
@@ -587,7 +603,7 @@ class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
       final ownEvm = oneTimeReceiveOwnRefund(option.chain)
           ? await ref.read(hyperliquidAddressProvider.future)
           : null;
-      if (!_current(generation) || !sameSdk()) return;
+      if (!_current(generation) || sdkMoved()) return;
       _requireLiveRoute();
       final route = oneTimeReceiveRoute(option, destinationAsset);
       final limits = ref.read(receiveMinimumsProvider).cachedLimits(route);
@@ -620,7 +636,7 @@ class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
         ownEvm: ownEvm,
       );
       final verified = await OneTimeReceive.fetch(request);
-      if (!_current(generation) || !sameSdk()) return;
+      if (!_current(generation) || sdkMoved()) return;
       final row = OneTimeReceive.row(
         option: option,
         destinationAsset: destinationAsset,
@@ -631,7 +647,9 @@ class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
       // Persist the real quote before exposing its deposit address. The
       // background monitor discovers an actual order even after we close.
       await _record(row, verified.expiresAt, scope);
-      if (!_current(generation) || !sameSdk()) return;
+      // Persisted and paying the wallet's own Spark address: from here a
+      // rebuilt SDK changes nothing.
+      if (!_current(generation)) return;
       _requireLiveRoute();
       OneTimeReceive.ensurePayable(verified, units);
       // Its deposits are read on every screen for a while.
@@ -644,6 +662,7 @@ class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
         ..start();
       _paymentExpired = false;
       _terminalTracked = false;
+      _sdkRestarts = 0;
       setState(() {
         _verified = verified;
         _display = row;
@@ -661,9 +680,9 @@ class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
       _step('deposit_address_shown');
       _poller.start(
         row,
-        stillWanted: () => _current(generation) && sameSdk(),
+        stillWanted: () => _current(generation),
         onProgress: (order) {
-          if (_current(generation) && sameSdk()) {
+          if (_current(generation)) {
             setState(() => _display = order);
             _trackTerminal(order);
           }
@@ -671,7 +690,7 @@ class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
       );
       _ticker?.cancel();
       _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
-        if (!_current(generation) || !sameSdk()) {
+        if (!_current(generation)) {
           _invalidateWallet();
           return;
         }
@@ -713,6 +732,8 @@ class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
         _invalidateWallet();
       } else if (_current(generation)) {
         setState(() => _busy = false);
+        // `_busy` is false again before the new attempt checks it.
+        if (restart) unawaited(_createQuote());
       }
     }
   }
@@ -781,13 +802,13 @@ class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
     _poller.cancel();
     _verified = null;
     _display = null;
-    _sameSdk = null;
+    _sdkRestarts = 0;
     _busy = false;
     _error = null;
   }
 
   /// A new address for the same coin: the amount is asked again, then a
-  /// new quote. The old one keeps its Activity row.
+  /// new quote. The old one stays watched for a late deposit.
   Future<void> _startNewQuote() async {
     _step('new_address');
     final amount = await requestOneTimeReceiveAmount(context, ref,

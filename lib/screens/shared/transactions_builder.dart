@@ -3475,6 +3475,19 @@ class _SwapOrderDetailSheetState extends ConsumerState<_SwapOrderDetailSheet> {
                     toLabel = isDeposit
                         ? context.l10n.predictions
                         : context.l10n.activityYourWallet;
+                  } else if (activity == SwapActivityKind.receive) {
+                    // A receive from outside: the coin and the network it
+                    // came from, into the balance it lands in ("USDC on
+                    // Polygon → Bitcoin"). Never a venue's name, even when
+                    // the coin and network are one's.
+                    fromLabel = context.l10n.sendAssetOnNetwork(
+                        _assetDisplayName(details.coinFrom),
+                        orchestraChainDisplayName(details.networkFrom));
+                    toLabel = details.networkTo.toUpperCase() == 'SPARK' &&
+                            details.coinTo.toUpperCase() ==
+                                kOrchestraUsdAssetCode.toUpperCase()
+                        ? context.l10n.portfolioBalanceDollars
+                        : legName(details.coinTo, details.networkTo);
                   } else {
                     fromLabel = legName(details.coinFrom, details.networkFrom);
                     toLabel = legName(details.coinTo, details.networkTo);
