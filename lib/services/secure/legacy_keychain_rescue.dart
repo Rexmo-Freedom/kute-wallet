@@ -38,12 +38,17 @@ class NativeLegacyKeychainLookup implements LegacyKeychainLookup {
   const NativeLegacyKeychainLookup({
     this.platform,
     this.service = AppleOptions.defaultAccountName,
+    this.reportListFailures = false,
   });
 
   static const channel = KeychainLocal.channel;
 
   final TargetPlatform? platform;
   final String service;
+
+  /// When set, a failed [listAccounts] on iOS throws instead of returning
+  /// an empty list, so a caller can tell "none listed" from "unknown".
+  final bool reportListFailures;
 
   bool get _native => (platform ?? defaultTargetPlatform) == TargetPlatform.iOS;
 
@@ -76,8 +81,10 @@ class NativeLegacyKeychainLookup implements LegacyKeychainLookup {
       });
       return accounts ?? const [];
     } on PlatformException {
+      if (reportListFailures) rethrow;
       return const [];
     } on MissingPluginException {
+      if (reportListFailures) rethrow;
       return const [];
     }
   }

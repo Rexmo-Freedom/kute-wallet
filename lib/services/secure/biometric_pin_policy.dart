@@ -41,7 +41,8 @@ class V1Dependency {
 /// no V2 copy (local or synced) and a V1 copy, or no V1 copy and an
 /// encrypted root, or (iOS) a `mnemonic_{id}` / `v2:wallet:{id}.mnemonic`
 /// item the Keychain lists under the legacy accessibility that the store
-/// cannot read. A plaintext root needs no PIN. Any failed read keeps it.
+/// cannot read. A plaintext root needs no PIN. Any failed read, or a
+/// failed Keychain listing, counts as a dependency.
 /// It is removed only when every stored-seed wallet has a PIN-free copy
 /// readable through the current store; plain absence keeps it.
 class BiometricPinPolicy {
@@ -51,7 +52,8 @@ class BiometricPinPolicy {
     LegacyKeychainLookup? lookup,
   })  : _store = store ?? SecretStores.local,
         _syncedStore = syncedStore ?? SecretStores.synced,
-        _lookup = lookup ?? const NativeLegacyKeychainLookup();
+        _lookup =
+            lookup ?? const NativeLegacyKeychainLookup(reportListFailures: true);
 
   final SecretStore _store;
   final SecretStore _syncedStore;
@@ -91,7 +93,12 @@ class BiometricPinPolicy {
         // Attributes only: an old copy the store cannot read still needs
         // the PIN (or is at least not known to be PIN-free).
         legacyAccounts ??= await _listLegacyAccounts();
-        if (legacyAccounts.contains(v1Key) || legacyAccounts.contains(v2Key)) {
+        // A failed listing is unknown, not absent: an old copy the store
+        // cannot read may be there, and only the verified-PIN unlock runs
+        // the rescue for it.
+        if (legacyAccounts == null ||
+            legacyAccounts.contains(v1Key) ||
+            legacyAccounts.contains(v2Key)) {
           exists = true;
           break;
         }
@@ -113,14 +120,15 @@ class BiometricPinPolicy {
     }
   }
 
-  Future<Set<String>> _listLegacyAccounts() async {
+  /// The legacy account names, or null when the listing failed.
+  Future<Set<String>?> _listLegacyAccounts() async {
     try {
       return {
         ...await _lookup.listAccounts(prefix: 'mnemonic_'),
         ...await _lookup.listAccounts(prefix: 'v2:wallet:'),
       };
     } catch (_) {
-      return const {};
+      return null;
     }
   }
 

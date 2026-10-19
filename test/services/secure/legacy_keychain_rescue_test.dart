@@ -159,6 +159,22 @@ void main() {
           SecretErrorClass.interactionNotAllowed);
     });
 
+    test('a failed listing is empty by default, thrown when reported',
+        () async {
+      messenger.setMockMethodCallHandler(KeychainLocal.channel, (call) async {
+        throw PlatformException(code: 'x', details: -25308);
+      });
+      const lenient = NativeLegacyKeychainLookup(platform: TargetPlatform.iOS);
+      expect(await lenient.listAccounts(prefix: 'v2:'), isEmpty);
+      const strict = NativeLegacyKeychainLookup(
+          platform: TargetPlatform.iOS, reportListFailures: true);
+      await expectLater(strict.listAccounts(prefix: 'v2:'),
+          throwsA(isA<PlatformException>()));
+      const android = NativeLegacyKeychainLookup(
+          platform: TargetPlatform.android, reportListFailures: true);
+      expect(await android.listAccounts(prefix: 'v2:'), isEmpty);
+    });
+
     test('is a no-op on Android', () async {
       const native =
           NativeLegacyKeychainLookup(platform: TargetPlatform.android);

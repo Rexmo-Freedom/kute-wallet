@@ -119,11 +119,22 @@ void main() {
           reason: 'no stored-seed wallet needs anything');
     });
 
-    test('a failing Keychain listing keeps it', () async {
+    test('a failing Keychain listing counts as a dependency', () async {
       lookup.failure = PlatformException(code: 'x', details: -25308);
       final dependency = await policy.evaluate(w1);
-      expect(dependency.exists, isFalse);
+      // Unknown, not absent: an unreadable old copy may be there, and only
+      // the verified-PIN unlock runs its rescue.
+      expect(dependency.exists, isTrue);
       expect(dependency.pinFree, isFalse);
+    });
+
+    test('a failing listing is not reached when a V2 copy is readable',
+        () async {
+      lookup.failure = PlatformException(code: 'x', details: -25308);
+      keychain.seed('v2:wallet:w1.mnemonic', phrase);
+      final dependency = await policy.evaluate(w1);
+      expect(dependency.exists, isFalse);
+      expect(dependency.pinFree, isTrue);
     });
 
     test('reports the stored PIN state', () async {
@@ -280,6 +291,39 @@ void main() {
       await auth.changePin('123456', '654321', keepBiometricPin: keepOnDevice);
       expect(keychain.peek('biometric_pin'), isNull);
       expect(await auth.requireMnemonic('w1', session: unlocked), phrase);
+    });
+
+    test(
+        'a failed Keychain listing sends biometrics through the verified PIN '
+        'and never deletes biometric_pin', () async {
+      lookup.failure = PlatformException(code: 'x', details: -25308);
+      keychain
+        ..seed('pin_hash', PinHashHelper.hashPin('123456'))
+        ..seed('biometric_pin', '123456');
+      final reads = <String>[];
+      final auth = AuthModel(
+        store: RecordingSecretStore(keychain.local, name: 'local', log: reads),
+        syncedStore: keychain.synced,
+      );
+
+      final dependency = await policy.evaluate(w1);
+      expect(dependency.exists, isTrue);
+      final verdict = await checkBiometricUnlock(auth, dependency);
+      // The stored PIN was read and verified (checkPin, which runs the
+      // legacy copy rescue), not skipped.
+      expect((verdict as BiometricUnlockAllowed).storedPin, '123456');
+      expect(reads, contains('local:biometric_pin'));
+      await policy.applyAfterUnlock(dependency);
+      expect(keychain.peek('biometric_pin'), '123456');
+
+      // Without a stored copy the keypad takes over; the typed PIN then
+      // stores one, so nobody is locked out of biometrics for good.
+      await keychain.local.deleteLocalOnly(key: 'biometric_pin');
+      final refused = await checkBiometricUnlock(auth, dependency);
+      expect((refused as BiometricUnlockRefused).reason, 'stored_pin_null');
+      await policy.applyAfterUnlock(await policy.evaluate(w1),
+          typedPin: '123456');
+      expect(keychain.peek('biometric_pin'), '123456');
     });
 
     test('a missing or stale stored PIN is refused when a wallet needs it',
