@@ -242,7 +242,8 @@ StandingFallbackReason? standingReceiveFallback({
 /// true`, a standing address to `spark:USDB`) wherever the standing route
 /// may serve it ([standingReceiveFallback] answers null), else a ONE-TIME
 /// row (`reusableAddress: false`, [oneTimeReceiveOptions] into
-/// [destinationAsset]) while `orchestra.onetime_addresses` allows it. A
+/// [destinationAsset]) while `orchestra.onetime_addresses` and its
+/// destination class (`.bitcoin` or `.dollars`) allow it. A
 /// coin only one-time can serve is listed and goes straight to one-time.
 /// Venue rails are never listed. Sorted by coin, then network.
 List<OrchestraReceiveOption> receiveOtherCoinOptions(
@@ -268,7 +269,7 @@ List<OrchestraReceiveOption> receiveOtherCoinOptions(
     }
     rows[id(o)] = o;
   }
-  if (oneTimeReceiveAllowed(rules)) {
+  if (oneTimeReceiveAllowed(rules, destinationAsset: destinationAsset)) {
     for (final o
         in oneTimeReceiveOptions(catalog, destinationAsset: destinationAsset)) {
       rows.putIfAbsent(id(o), () => o);
@@ -288,7 +289,8 @@ List<OrchestraReceiveOption> receiveOtherCoinOptions(
 
 /// The one-time row of [option] into spark:[destinationAsset] when a
 /// one-time receive can serve it now (live route, offered network,
-/// `orchestra.onetime_addresses` and the row's own gates allowed), or null.
+/// `orchestra.onetime_addresses`, its destination class and the row's own
+/// gates allowed), or null.
 OrchestraReceiveOption? oneTimeFallbackOption(
   OrchestraRoutesCatalog catalog,
   OrchestraReceiveOption option, {
@@ -296,7 +298,9 @@ OrchestraReceiveOption? oneTimeFallbackOption(
   RuntimeCapabilitiesService? policy,
 }) {
   final rules = policy ?? RuntimeCapabilitiesService.instance;
-  if (!oneTimeReceiveAllowed(rules)) return null;
+  if (!oneTimeReceiveAllowed(rules, destinationAsset: destinationAsset)) {
+    return null;
+  }
   for (final o
       in oneTimeReceiveOptions(catalog, destinationAsset: destinationAsset)) {
     if (o.chain != option.chain ||

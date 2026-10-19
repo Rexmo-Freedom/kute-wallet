@@ -45,7 +45,7 @@ import 'package:kute/screens/shared/stepper/stepper_widgets.dart';
 import 'package:kute/screens/usd/flow/usd_flow_widgets.dart';
 import 'package:kute/services/orchestra/onetime_receive.dart';
 import 'package:kute/services/orchestra/orchestra_capability_requirements.dart'
-    show orchestraOptionCapabilities;
+    show orchestraOptionCapabilities, ensureOneTimeDestinationAllowed;
 import 'package:kute/services/orchestra/orchestra_quote_gate.dart';
 import 'package:kute/services/orchestra/orchestra_quote_guard.dart';
 import 'package:kute/services/orchestra/pending_receive_quote_cache.dart';
@@ -624,6 +624,10 @@ class _QuotedReceiveScreenState extends ConsumerState<QuotedReceiveScreen> {
       await RuntimeCapabilitiesService.instance.ensureAllAllowed(
           orchestraOptionCapabilities(option,
               otherLegAsset: destinationAsset, depositAddress: true));
+      // And the destination class (Bitcoin or Dollars), refused only when
+      // the policy denies it explicitly: an older backend names none.
+      ensureOneTimeDestinationAllowed(
+          RuntimeCapabilitiesService.instance, destinationAsset);
       if (!_current(generation)) return;
       await ref
           .read(orchestraSupportedRoutesProvider.notifier)
