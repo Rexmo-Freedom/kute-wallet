@@ -7,6 +7,7 @@ import 'package:kute/models/evm_derivation_version.dart';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/services/secure/flutter_secret_store.dart';
 import 'package:kute/services/secure/secret_error_class.dart';
@@ -556,37 +557,9 @@ class SettingsModel extends StateNotifier<Settings> {
     // Release the native owner before deleting a wallet the user removed.
     await NativeOnchainService.instance.retireWallet(walletId);
 
-    try {
-      final appDocDir = await getApplicationDocumentsDirectory();
-      final dbFile = File('${appDocDir.path}/bdk_wallet_$walletId.sqlite');
-      if (await dbFile.exists()) await dbFile.delete();
-
-      final breezDir = Directory('${appDocDir.path}/breez_$walletId');
-      if (await breezDir.exists()) await breezDir.delete(recursive: true);
-    } catch (e) {
-      // Silently ignored
-    }
-
-    await AuthModel().deleteWalletMnemonic(walletId);
-
-    // Clean up Polymarket credentials and proxy wallet
-    await SecretStores.local
-        .deleteLocalOnly(key: 'pm_api_credentials_$walletId');
-    await SecretStores.local.deleteLocalOnly(key: 'pm_proxy_wallet_$walletId');
-
-    // Ledger venue descriptors and submitted-action records (Phase 3).
-    await wipeLedgerWalletLocalData(walletId);
-
-    // Per-wallet Hive entries scattered across other services. A
-    // forgotten wallet must leave nothing behind that would rehydrate
-    // on re-import of a recycled id. Each block is best-effort —
-    // missing box / not-open is fine, we just skip it.
-    await _wipePerWalletHiveData(walletId);
-    await PendingReceiveQuoteCache.deleteForWallet(walletId);
-    await OneTimeRefundAddressStore.deleteForWallet(walletId);
-    await StandingDepositStore.deleteWallet(walletId);
-    await BitcoinReceiveMarks.deleteWallet(walletId);
-
+    // The record goes first: once the user confirmed, a failure deleting
+    // a secret must never leave the wallet listed with half its secrets
+    // gone. Everything after this is best-effort and never throws.
     final box = await Hive.openBox('settings');
     final updatedList = state.wallets.where((w) => w.id != walletId).toList();
     final walletsMap = updatedList.map((w) => w.toMap()).toList();
@@ -595,10 +568,68 @@ class SettingsModel extends StateNotifier<Settings> {
     String? newActiveId = state.activeWalletId;
     if (state.activeWalletId == walletId) {
       newActiveId = updatedList.isNotEmpty ? updatedList.first.id : null;
-      await box.put('activeWalletId', newActiveId);
+      await _bestEffort('active_wallet',
+          () => box.put('activeWalletId', newActiveId));
     }
 
     state = state.copyWith(wallets: updatedList, activeWalletId: newActiveId);
+
+    await _deleteWalletData(walletId);
+  }
+
+  /// Deletes [walletId]'s secrets and local data after its record is gone.
+  /// Only keys named by this wallet's id are touched. Each step is
+  /// best-effort: a failure is logged by kind and the next step still runs.
+  Future<void> _deleteWalletData(String walletId) async {
+    await _bestEffort('local_files', () async {
+      final appDocDir = await getApplicationDocumentsDirectory();
+      final dbFile = File('${appDocDir.path}/bdk_wallet_$walletId.sqlite');
+      if (await dbFile.exists()) await dbFile.delete();
+
+      final breezDir = Directory('${appDocDir.path}/breez_$walletId');
+      if (await breezDir.exists()) await breezDir.delete(recursive: true);
+    });
+
+    await _bestEffort(
+        'seed', () => AuthModel().deleteWalletMnemonic(walletId));
+
+    // Polymarket credentials and proxy wallet.
+    await _bestEffort(
+        'polymarket_credentials',
+        () => SecretStores.local
+            .deleteLocalOnly(key: 'pm_api_credentials_$walletId'));
+    await _bestEffort(
+        'polymarket_proxy',
+        () => SecretStores.local
+            .deleteLocalOnly(key: 'pm_proxy_wallet_$walletId'));
+
+    // Ledger venue descriptors and submitted-action records (Phase 3).
+    await _bestEffort('ledger', () => wipeLedgerWalletLocalData(walletId));
+
+    // Per-wallet Hive entries scattered across other services. A
+    // forgotten wallet must leave nothing behind that would rehydrate
+    // on re-import of a recycled id.
+    await _bestEffort('hive', () => _wipePerWalletHiveData(walletId));
+    await _bestEffort('pending_receive_quotes',
+        () => PendingReceiveQuoteCache.deleteForWallet(walletId));
+    await _bestEffort('refund_addresses',
+        () => OneTimeRefundAddressStore.deleteForWallet(walletId));
+    await _bestEffort(
+        'standing_deposits', () => StandingDepositStore.deleteWallet(walletId));
+    await _bestEffort(
+        'receive_marks', () => BitcoinReceiveMarks.deleteWallet(walletId));
+  }
+
+  /// Runs one cleanup step; a failure is logged by step and error kind
+  /// only (never the message, which could name a key).
+  static Future<void> _bestEffort(
+      String step, Future<void> Function() body) async {
+    try {
+      await body();
+    } catch (e) {
+      debugPrint('[removeWallet] $step cleanup failed: '
+          '${classifySecretError(e).name}');
+    }
   }
 
   /// Per-wallet Hive cleanup. Called from [removeWallet]. Each box is
