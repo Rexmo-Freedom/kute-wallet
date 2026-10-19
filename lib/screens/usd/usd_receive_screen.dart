@@ -496,28 +496,31 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
         return;
       }
       // Nothing else serves a one-time row; a reusable row's address sheet
-      // says why (no request is made for it).
+      // says the coin is unavailable (no request is made for it, and it
+      // is not a failure: the step says why).
       if (!option.reusableAddress) return;
     }
-    _trackCoinSelected(option, 'standing', null);
+    _trackCoinSelected(option, 'standing', fallback);
     setState(() {
       _option = option;
       _addressKind = 'standing';
     });
-    await _openStandingAddress(option);
+    await _openStandingAddress(option, unavailable: fallback);
   }
 
   /// The reusable address of [option], in its own sheet over this one.
   /// Closing it comes back here as it was. Where the standing route turns
   /// out not to serve the coin, that sheet closes with the one-time
   /// option and the reason, and the one-time flow takes over from here.
-  Future<void> _openStandingAddress(OrchestraReceiveOption option) async {
+  Future<void> _openStandingAddress(OrchestraReceiveOption option,
+      {StandingFallbackReason? unavailable}) async {
     final pickId = _pickId;
     final fallback = await showAppBottomSheet<UsdStandingFallback>(
       context: context,
       builder: (_) => UsdStandingAddressSheet(
         option: option,
         destinationAsset: widget.destinationAsset,
+        unavailable: unavailable,
         onAddressShown: (shown) => _addressShown = shown,
       ),
     );
@@ -629,10 +632,17 @@ class UsdStandingAddressSheet extends ConsumerStatefulWidget {
     super.key,
     required this.option,
     required this.destinationAsset,
+    this.unavailable,
     this.onAddressShown,
   });
 
   final OrchestraReceiveOption option;
+
+  /// Why the standing route will not serve [option] when that is already
+  /// known and no one-time address serves it either: the sheet then only
+  /// says the coin is unavailable, asks nothing and counts nothing (the
+  /// coin step already said why).
+  final StandingFallbackReason? unavailable;
 
   /// The receive this sheet belongs to: `USDB` (the Dollars receive) or
   /// `BTC` (the Bitcoin receive's "other coins"), which decides the funnel
@@ -689,7 +699,7 @@ class _UsdStandingAddressSheetState
   @override
   void initState() {
     super.initState();
-    unawaited(_createReusableAddress(_option));
+    if (widget.unavailable == null) unawaited(_createReusableAddress(_option));
   }
 
   @override
@@ -839,7 +849,8 @@ class _UsdStandingAddressSheetState
     final display = _display;
 
     final routeRetired = display != null && !_reusableRouteSupported;
-    if ((_error != null && display == null) || routeRetired) {
+    final unavailable = widget.unavailable != null || routeRetired;
+    if ((_error != null && display == null) || unavailable) {
       return SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -848,7 +859,7 @@ class _UsdStandingAddressSheetState
               padding: EdgeInsets.only(top: 12.h),
               child: ReceiveCaption(
                 text:
-                    routeRetired ? l10n.receiveCoinNetworkUnavailable : _error!,
+                    unavailable ? l10n.receiveCoinNetworkUnavailable : _error!,
               ),
             ),
             SizedBox(height: ReceiveGaps.block),

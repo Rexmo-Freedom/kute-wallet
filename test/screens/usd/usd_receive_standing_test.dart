@@ -44,6 +44,7 @@ import 'package:kute/screens/receive/receive_sheet.dart'
 import 'package:kute/screens/shared/account_switcher_pill.dart';
 import 'package:kute/screens/shared/asset_network_picker.dart' show PickerRow;
 import 'package:kute/screens/shared/coin_asset_grid.dart';
+import 'package:kute/screens/shared/custom_button.dart' show AppButton;
 import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
 import 'package:kute/screens/shared/receive_surface.dart';
 import 'package:kute/screens/shared/stepper/stepper_widgets.dart'
@@ -520,6 +521,50 @@ void main() {
     expect(selected['address_kind'], 'onetime');
     expect(selected['fallback_reason'], 'standing_refused');
     expect(quoted, isEmpty);
+    await _unmount(tester);
+  });
+
+  testWidgets(
+      'Dollars: a reusable row the standing route no longer serves, with no '
+      'one-time address either: the sheet says the coin is unavailable, '
+      'asks nothing, and it is one step with its reason, never a failure',
+      (tester) async {
+    // One-time off: nothing to fall back to.
+    await usePolicy(runtimePolicyFixture(blocked: {kOneTimeAddressCapability}));
+    await _pump(tester);
+    // The grid listed USDT as reusable; by the tap, the switch's refusal
+    // is remembered (another coin's registration answered it).
+    StandingReceiveRefusal.remember(RuntimeCapabilitiesService.instance);
+    await tester.tap(find.widgetWithText(CoinAssetTile, 'USDT').first);
+    await _settle(tester);
+
+    final sheet = find.byType(UsdStandingAddressSheet);
+    expect(sheet, findsOneWidget);
+    expect(
+        find.descendant(
+            of: sheet,
+            matching: find.text(_l10n.receiveCoinNetworkUnavailable)),
+        findsOneWidget);
+    expect(find.byType(RequestAmountSheet), findsNothing);
+    expect(find.byType(ReceiveAddressLine), findsNothing);
+    expect(standingCalls.where((c) => c == 'register'), isEmpty);
+    final selected = named('usd_receive_coin_selected').single;
+    expect(selected['address_kind'], 'standing');
+    expect(selected['fallback_reason'], 'standing_refused');
+    final step = named('usd_receive_step').single;
+    expect(step['step'], 'coin_selected');
+    expect(step['fallback_reason'], 'standing_refused');
+    expect(named('swap_failed'), isEmpty);
+    expect(named('receive_address_failed'), isEmpty);
+    expect(named('receive_address_generated'), isEmpty);
+
+    // Back to the coin grid, as the X does.
+    await tester.tap(find.descendant(
+        of: sheet, matching: find.widgetWithText(AppButton, _l10n.back)));
+    await _settle(tester);
+    expect(sheet, findsNothing);
+    expect(find.byType(UsdReceiveScreen), findsOneWidget);
+    expect(tester.takeException(), isNull);
     await _unmount(tester);
   });
 
