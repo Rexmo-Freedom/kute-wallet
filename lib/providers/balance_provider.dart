@@ -474,28 +474,6 @@ class WalletBalanceCacheNotifier
     if (raised) _refreshSparkShown(walletId);
   }
 
-  /// Whether [walletId] has an outgoing Spark send in flight: one the
-  /// SDK lists as pending (or just stopped listing, inside the pin's
-  /// grace), or one accepted whose deduction its figure does not show
-  /// yet. Pull-to-refresh never reconnects the SDK under one.
-  bool hasOutgoingSparkSendInFlight(String walletId) =>
-      _pinActive(walletId) || hasSparkSendHold(walletId);
-
-  /// Pull-to-refresh, as a restart would: a send hold is in-memory only,
-  /// so a restart shows the SDK's own figure. Ends the holds whose send
-  /// the SDK no longer lists as pending and that are older than the
-  /// completed-send grace, so a hold whose release never came (its
-  /// payment row never matched) cannot cap the figure through a pull. A
-  /// send still pending keeps its hold.
-  void releaseSettledSendHolds(String walletId) {
-    final holds = _sparkSendHolds[walletId];
-    if (holds == null || holds.isEmpty || _pinActive(walletId)) return;
-    final now = _clock();
-    holds.removeWhere(
-        (_, h) => now.difference(h.placedAt) >= _sendHoldCompletedGrace);
-    _refreshSparkShown(walletId);
-  }
-
   /// Whether [walletId] has an accepted send whose deduction the SDK
   /// figure does not show yet.
   bool hasSparkSendHold(String walletId) {

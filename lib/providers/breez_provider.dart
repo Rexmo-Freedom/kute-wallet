@@ -621,8 +621,7 @@ final receivePaymentProvider = FutureProvider.family<ReceivePaymentResponse, ({B
         description: params.description,
       ),
     );
-    final sdk = sdkWrapper.instance!;
-    return await runSparkQuote(() => sdk.receivePayment(request: req));
+    return await sdkWrapper.instance!.receivePayment(request: req);
   } catch (e) {
     handlePaymentException(e);
   }
@@ -644,9 +643,7 @@ final getSparkBitcoinAddressProvider = FutureProvider<String>((ref) async {
       paymentMethod:
           ReceivePaymentMethod.bitcoinAddress(newAddress: true),
     );
-    final sdk = sdkWrapper.instance!;
-    final response =
-        await runSparkQuote(() => sdk.receivePayment(request: req));
+    final response = await sdkWrapper.instance!.receivePayment(request: req);
     return response.paymentRequest;
   } catch (e) {
     handlePaymentException(e);

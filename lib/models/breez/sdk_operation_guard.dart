@@ -65,22 +65,3 @@ class SparkRecoveryReservation {
   void retire() => _state.retired = true;
   void release() => _state.recovering = false;
 }
-
-/// Quotes being created right now (an Orchestra quote, a Lightning
-/// invoice), whichever SDK handle they will use. Pull-to-refresh never
-/// reconnects the SDK while one is, so a quote is never built against a
-/// handle that is retired under it; it refreshes with one sync instead.
-int _quotesInFlight = 0;
-
-/// Whether a quote is being created ([runSparkQuote]).
-bool get sparkQuoteInFlight => _quotesInFlight > 0;
-
-/// Runs [operation], a quote's creation, counted by [sparkQuoteInFlight].
-Future<T> runSparkQuote<T>(Future<T> Function() operation) async {
-  _quotesInFlight++;
-  try {
-    return await operation();
-  } finally {
-    _quotesInFlight--;
-  }
-}

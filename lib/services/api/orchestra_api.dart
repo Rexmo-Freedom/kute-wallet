@@ -14,8 +14,6 @@ import 'package:kute/models/orchestra_model.dart';
 import 'package:kute/models/orchestra_route_limits.dart';
 import 'package:kute/models/orchestra_routes_model.dart' show RouteKey;
 import 'package:kute/handlers/response_handlers.dart';
-import 'package:kute/models/breez/sdk_operation_guard.dart'
-    show runSparkQuote;
 import 'package:kute/services/debug/settlement_fault_registry.dart';
 
 /// Flashnet Orchestra onramp fiat band, as documented by the venue
@@ -768,18 +766,16 @@ class OrchestraService {
       if (kuteRoute != null) body['kuteRoute'] = kuteRoute;
 
       roundtrip.start();
-      // Counted as a quote in flight: a pull-to-refresh meanwhile syncs
-      // the SDK rather than reconnecting it under the flow.
-      final res = await runSparkQuote(() => _send(
-            (h) => http
-                .post(
-                  Uri.parse('$_baseUrl/quote'),
-                  headers: h,
-                  body: jsonEncode(body),
-                )
-                .timeout(const Duration(seconds: 15)),
-            extra: _idempotency(idempotencyKey),
-          ));
+      final res = await _send(
+        (h) => http
+            .post(
+              Uri.parse('$_baseUrl/quote'),
+              headers: h,
+              body: jsonEncode(body),
+            )
+            .timeout(const Duration(seconds: 15)),
+        extra: _idempotency(idempotencyKey),
+      );
 
       if (res.statusCode >= 200 && res.statusCode < 300) {
         final quote = OrchestraQuote.fromJson(

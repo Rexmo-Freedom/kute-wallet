@@ -21,7 +21,6 @@ enum UsdRecoveryReason {
   mutationInFlight,
   optimizationInFlight,
   pendingSend,
-  quoteInFlight,
   lookupFailed,
   lookupTimeout,
   teardownFailed,
@@ -37,8 +36,7 @@ String _source(String value) => switch (value) {
       'retry' ||
       'resume' ||
       'refresh' ||
-      'order_leg' ||
-      'pull' =>
+      'order_leg' =>
         value,
       _ => 'unknown',
     };
