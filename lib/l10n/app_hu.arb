@@ -3049,5 +3049,6 @@
   "moneyStepSent": "{amount} elküldve",
   "moneyStepCompact": "{source} → {destination} · {amount}",
   "arbitrumRefundReturned": "{amount} visszaérkezett az Arbitrumra",
+  "portfolioSectionPnlCharts": "P&L grafikonok",
   "portfolioSectionBalances": "Egyenlegek"
 }

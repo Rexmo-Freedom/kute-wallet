@@ -353,7 +353,7 @@ void main() {
     expect(InvestmentsTab.fromKey('earn'), isNull);
     // The Portfolio's sections, analytics and links alike.
     expect(PortfolioSection.values.map((s) => s.key),
-        ['charts', 'balances', 'activity']);
+        ['charts', 'activity', 'balances']);
     // Positions and the old Portfolio links: the pill and its Open,
     // Orders and Statistics tabs open Charts, Activity opens Activity.
     for (final key in [
@@ -421,13 +421,15 @@ void main() {
     final l10n = _l10n(tester);
     await tapPill(tester, l10n.walletPortfolioAction);
 
-    // Three small pills, in order, Charts first and picked.
+    // Three small pills, in order, P&L charts first and picked, Balances
+    // last.
     final pills = find.descendant(
         of: find.byType(InvestmentsPortfolio), matching: find.byType(KutePill));
     expect(tester.widgetList<KutePill>(pills).map((p) => p.label),
-        [l10n.charts, l10n.portfolioSectionBalances, l10n.activity]);
+        [l10n.portfolioSectionPnlCharts, l10n.activity,
+          l10n.portfolioSectionBalances]);
     expect(tester.widgetList<KutePill>(pills).map((p) => p.label),
-        ['Charts', 'Balances', 'Activity']);
+        ['P&L charts', 'Activity', 'Balances']);
     // Charts: the chart, pair and figures; neither the tiles nor the
     // activity.
     expect(find.byKey(const ValueKey('statistics-overview')), findsOneWidget);

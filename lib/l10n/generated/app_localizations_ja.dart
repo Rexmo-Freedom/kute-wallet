@@ -10492,5 +10492,8 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String get portfolioSectionPnlCharts => '損益チャート';
+
+  @override
   String get portfolioSectionBalances => '残高';
 }

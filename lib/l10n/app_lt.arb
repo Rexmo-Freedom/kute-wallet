@@ -3049,5 +3049,6 @@
   "moneyStepSent": "Išsiųsta {amount}",
   "moneyStepCompact": "{source} → {destination} · {amount}",
   "arbitrumRefundReturned": "{amount} grąžinta į Arbitrum",
+  "portfolioSectionPnlCharts": "P&L grafikai",
   "portfolioSectionBalances": "Likučiai"
 }

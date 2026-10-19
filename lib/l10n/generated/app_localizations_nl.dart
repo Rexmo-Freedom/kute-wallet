@@ -10948,5 +10948,8 @@ class AppLocalizationsNl extends AppLocalizations {
   }
 
   @override
+  String get portfolioSectionPnlCharts => 'W&V-grafieken';
+
+  @override
   String get portfolioSectionBalances => 'Saldi';
 }

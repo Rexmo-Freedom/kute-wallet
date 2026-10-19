@@ -10924,5 +10924,8 @@ class AppLocalizationsFi extends AppLocalizations {
   }
 
   @override
+  String get portfolioSectionPnlCharts => 'P&L-kaaviot';
+
+  @override
   String get portfolioSectionBalances => 'Saldot';
 }

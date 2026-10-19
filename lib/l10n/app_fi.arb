@@ -3049,5 +3049,6 @@
   "moneyStepSent": "Lähetetty {amount}",
   "moneyStepCompact": "{source} → {destination} · {amount}",
   "arbitrumRefundReturned": "{amount} palautettu Arbitrumiin",
+  "portfolioSectionPnlCharts": "P&L-kaaviot",
   "portfolioSectionBalances": "Saldot"
 }

@@ -3049,5 +3049,6 @@
   "moneyStepSent": "Trimis {amount}",
   "moneyStepCompact": "{source} → {destination} · {amount}",
   "arbitrumRefundReturned": "{amount} returnați pe Arbitrum",
+  "portfolioSectionPnlCharts": "Grafice P&L",
   "portfolioSectionBalances": "Solduri"
 }

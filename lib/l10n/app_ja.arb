@@ -3049,5 +3049,6 @@
   "moneyStepSent": "{amount}を送金しました",
   "moneyStepCompact": "{source} → {destination} · {amount}",
   "arbitrumRefundReturned": "{amount}がArbitrumに返金されました",
+  "portfolioSectionPnlCharts": "損益チャート",
   "portfolioSectionBalances": "残高"
 }

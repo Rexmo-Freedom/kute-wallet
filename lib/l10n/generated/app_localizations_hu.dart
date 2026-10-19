@@ -10937,5 +10937,8 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
+  String get portfolioSectionPnlCharts => 'P&L grafikonok';
+
+  @override
   String get portfolioSectionBalances => 'Egyenlegek';
 }

@@ -10909,5 +10909,8 @@ class AppLocalizationsSv extends AppLocalizations {
   }
 
   @override
+  String get portfolioSectionPnlCharts => 'P&L-diagram';
+
+  @override
   String get portfolioSectionBalances => 'Saldon';
 }

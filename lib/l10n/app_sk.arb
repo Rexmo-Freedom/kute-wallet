@@ -3049,5 +3049,6 @@
   "moneyStepSent": "Odoslané {amount}",
   "moneyStepCompact": "{source} → {destination} · {amount}",
   "arbitrumRefundReturned": "{amount} vrátené na Arbitrum",
+  "portfolioSectionPnlCharts": "Grafy P&L",
   "portfolioSectionBalances": "Zostatky"
 }

@@ -10903,5 +10903,8 @@ class AppLocalizationsCs extends AppLocalizations {
   }
 
   @override
+  String get portfolioSectionPnlCharts => 'Grafy P&L';
+
+  @override
   String get portfolioSectionBalances => 'Zůstatky';
 }

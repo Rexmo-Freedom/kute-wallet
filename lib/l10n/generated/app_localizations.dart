@@ -18404,6 +18404,12 @@ abstract class AppLocalizations {
   /// **'{amount} returned on Arbitrum'**
   String arbitrumRefundReturned(String amount);
 
+  /// No description provided for @portfolioSectionPnlCharts.
+  ///
+  /// In en, this message translates to:
+  /// **'P&L charts'**
+  String get portfolioSectionPnlCharts;
+
   /// Investments, Portfolio pill: the small pill (beside Charts and Activity) for the section with the Dollars, Investing and Predictions balances and the Move money button.
   ///
   /// In en, this message translates to:

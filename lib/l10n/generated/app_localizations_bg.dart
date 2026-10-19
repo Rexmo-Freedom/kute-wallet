@@ -10931,5 +10931,8 @@ class AppLocalizationsBg extends AppLocalizations {
   }
 
   @override
+  String get portfolioSectionPnlCharts => 'Графики P&L';
+
+  @override
   String get portfolioSectionBalances => 'Баланси';
 }

@@ -3049,5 +3049,6 @@
   "moneyStepSent": "Poslano {amount}",
   "moneyStepCompact": "{source} → {destination} · {amount}",
   "arbitrumRefundReturned": "{amount} vrnjeno na Arbitrum",
+  "portfolioSectionPnlCharts": "Grafi P&L",
   "portfolioSectionBalances": "Stanja"
 }

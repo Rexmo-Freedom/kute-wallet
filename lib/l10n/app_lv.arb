@@ -3049,5 +3049,6 @@
   "moneyStepSent": "Nosūtīts {amount}",
   "moneyStepCompact": "{source} → {destination} · {amount}",
   "arbitrumRefundReturned": "{amount} atgriezti Arbitrum tīklā",
+  "portfolioSectionPnlCharts": "P&L grafiki",
   "portfolioSectionBalances": "Atlikumi"
 }

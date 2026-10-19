@@ -3049,5 +3049,6 @@
   "moneyStepSent": "Saadetud {amount}",
   "moneyStepCompact": "{source} → {destination} · {amount}",
   "arbitrumRefundReturned": "{amount} tagastatud Arbitrumis",
+  "portfolioSectionPnlCharts": "P&L graafikud",
   "portfolioSectionBalances": "Saldod"
 }

@@ -10996,5 +10996,8 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
+  String get portfolioSectionPnlCharts => 'GuV-Charts';
+
+  @override
   String get portfolioSectionBalances => 'Guthaben';
 }

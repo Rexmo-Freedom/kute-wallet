@@ -5,18 +5,18 @@
 // balance). Three sections under the pills, switched with the Active |
 // Historic pair's small pills ([KutePill]) at the top of the list:
 //
-//   * CHARTS (the default): the one P&L chart with its All · Investing ·
+//   * P&L CHARTS (the default): the one P&L chart with its All · Investing ·
 //     Predictions toggle, the Active | Historic pair over the allocation
 //     donut and its figures (PortfolioStatisticsOverview), then
 //     everything held at both venues with the resting orders under it
 //     (portfolioPositionsSlivers, the rows the Positions pill listed).
 //     No venue on the account: the "No positions yet" empty state;
-//   * BALANCES: the Dollars, Investing and Predictions tiles with Move
-//     money under them (PortfolioBalanceBreakdown), moved here from the
-//     top of the Portfolio screen;
 //   * ACTIVITY: the Investments activity, the one merged list
 //     (portfolio_activity.dart), all of it: this is its home now, so no
-//     preview and no "See all".
+//     preview and no "See all";
+//   * BALANCES (last): the Dollars, Investing and Predictions tiles with
+//     Move money under them (PortfolioBalanceBreakdown), moved here from
+//     the top of the Portfolio screen.
 //
 // The section is shared state ([portfolioSectionProvider]) kept for the
 // session, so the pill comes back where it was left and a link, a
@@ -50,8 +50,8 @@ import 'package:kute/screens/shared/transactions_builder.dart'
 /// fixed English.
 enum PortfolioSection {
   charts('charts'),
-  balances('balances'),
-  activity('activity');
+  activity('activity'),
+  balances('balances');
 
   const PortfolioSection(this.key);
 
@@ -124,7 +124,7 @@ class _SectionPills extends StatelessWidget {
             child: KutePill(
               key: ValueKey('portfolio-section-pill-${sections[i].key}'),
               label: switch (sections[i]) {
-                PortfolioSection.charts => l10n.charts,
+                PortfolioSection.charts => l10n.portfolioSectionPnlCharts,
                 PortfolioSection.balances => l10n.portfolioSectionBalances,
                 PortfolioSection.activity => l10n.activity,
               },
