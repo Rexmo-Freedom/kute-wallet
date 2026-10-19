@@ -8,7 +8,8 @@ import 'package:kute/models/auth_model.dart';
 import 'package:kute/models/balance_model.dart';
 import 'package:kute/models/transactions_model.dart';
 import 'package:kute/providers/balance_provider.dart';
-import 'package:kute/providers/breez_config_provider.dart' show breezSDKProvider;
+import 'package:kute/providers/breez_config_provider.dart'
+    show breezSDKProvider;
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/providers/breez_provider.dart';
 import 'package:kute/providers/currency_conversions_provider.dart';
@@ -20,7 +21,7 @@ import 'package:kute/helpers/predictions_deposit_wrap.dart';
 import 'package:kute/models/swap_order_model.dart';
 import 'package:kute/providers/swap_orders_provider.dart';
 import 'package:kute/services/orchestra/onetime_receive.dart'
-    show isOneTimeReceiveQuoteRow;
+    show isOneTimeReceiveQuoteRow, kOneTimeReceiveLateDepositWatch;
 import 'package:kute/models/orchestra_model.dart' show OrchestraOrder;
 import 'package:kute/models/settings_model.dart' show WalletConfig;
 import 'package:kute/providers/settings_provider.dart';
@@ -172,6 +173,24 @@ void _reportPolymarketOrderCompleted(
       amountUsd: amountUsd,
     );
   }
+}
+
+/// One look of the receive-quote sweep at a pending one-time quote
+/// [pastExpiry] past its quote's expiry: how long after the last look it
+/// is read again ([interval]), and whether this look is its last ([last]:
+/// [kOneTimeReceiveLateDepositWatch] past expiry, the quote is retired
+/// after it whether or not a deposit was found). A quote not yet expired
+/// has a negative [pastExpiry] and the fastest cadence.
+({Duration interval, bool last}) receiveQuoteSweepStep(Duration pastExpiry) {
+  if (pastExpiry > kOneTimeReceiveLateDepositWatch) {
+    return (interval: Duration.zero, last: true);
+  }
+  return (
+    interval: pastExpiry > const Duration(hours: 1)
+        ? const Duration(minutes: 5)
+        : const Duration(seconds: 30),
+    last: false,
+  );
 }
 
 class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
@@ -843,7 +862,8 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
           if (record.response['addresses'] is! Map) {
             final state = await OrchestraService.standingRequest(
                 operation: 'read', label: record.label, current: current);
-            if (state['standingAddressId'] == null || state['enabled'] is! bool) {
+            if (state['standingAddressId'] == null ||
+                state['enabled'] is! bool) {
               continue;
             }
             record = record.copy(response: {...record.response, ...state});
@@ -866,7 +886,11 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
     }
   }
 
-  /// A quote is watched until its real order takes over, even after expiry.
+  /// A quote is watched until its real order takes over, even after
+  /// expiry, for [kOneTimeReceiveLateDepositWatch] past it: a late deposit
+  /// is repriced and still lands. After that it is retired on its last
+  /// look ([receiveQuoteSweepStep]), so the cache and the checks never
+  /// grow without end.
   Future<void> _sweepOrchestraReceiveQuotes() async {
     if (_receiveQuoteSweepRunning) return;
     _receiveQuoteSweepRunning = true;
@@ -893,23 +917,21 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
       for (final quote in pending) {
         if (!current()) return;
         if (!sameSparkAddress(recipient, quote.withdrawalAddress)) continue;
-        final age = now
-            .difference(DateTime.fromMillisecondsSinceEpoch(quote.expiresAt!));
-        final interval = age > const Duration(days: 7)
-            ? const Duration(hours: 6)
-            : age > const Duration(days: 1)
-                ? const Duration(hours: 1)
-                : age > const Duration(hours: 1)
-                    ? const Duration(minutes: 5)
-                    : const Duration(seconds: 30);
+        final step = receiveQuoteSweepStep(now
+            .difference(DateTime.fromMillisecondsSinceEpoch(quote.expiresAt!)));
         final checked = _receiveQuoteChecks[quote.id];
-        if (checked != null && now.difference(checked) < interval) continue;
+        if (checked != null && now.difference(checked) < step.interval) {
+          continue;
+        }
         if (reads++ >= 4) break;
         _receiveQuoteChecks[quote.id] = now;
         try {
           final result = await OrchestraService.getStatus(quote.id);
           if (!current()) return;
           var order = result.data;
+          // Whether a rail answered at all: only an answer with no order
+          // in it may retire the quote, never a failed read.
+          var answered = order != null;
           if (order == null ||
               !_receiveQuoteMatchesOrder(quote, order, fromQuoteStatus: true)) {
             if (!historyRead) {
@@ -917,6 +939,7 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
               history = (await OrchestraService.getHistory(recipient)).data;
               if (!current()) return;
             }
+            answered = answered || history != null;
             order = null;
             for (final candidate in history ?? <OrchestraOrder>[]) {
               if (_receiveQuoteMatchesOrder(quote, candidate)) {
@@ -925,9 +948,15 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
               }
             }
           }
-          if (order == null) continue;
-          final exchangeBox =
-              await Hive.openBox<SwapOrder>(kSwapOrdersBoxName);
+          if (order == null) {
+            if (!step.last || !answered) continue;
+            // Its watch is over and no deposit ever came: nothing to
+            // track. A quote whose order was found is retired below.
+            await PendingReceiveQuoteCache.complete(quote.id);
+            _receiveQuoteChecks.remove(quote.id);
+            continue;
+          }
+          final exchangeBox = await Hive.openBox<SwapOrder>(kSwapOrdersBoxName);
           if (!current()) return;
           final existing = exchangeBox.get(order.id);
           if (existing != null && existing.walletId != walletId) continue;
@@ -965,7 +994,9 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
           // an earlier build wrote goes once the order is tracked.
           final quoteRow = exchangeBox.get(quote.id);
           if (quoteRow != null && quoteRow.walletId == walletId) {
-            await ref.read(swapOrdersProvider.notifier).deleteExchange(quote.id);
+            await ref
+                .read(swapOrdersProvider.notifier)
+                .deleteExchange(quote.id);
             ref
                 .read(walletTransactionCacheProvider.notifier)
                 .removeSwapOrder(quote.id);
@@ -1260,10 +1291,10 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
       // One "money arrived" path: convert now, read the balance once, tell
       // the autofire. Timing from the order's creation is recorded there.
       unawaited(ref.read(polymarketTradingProvider.notifier).onDepositDelivered(
-        orderId: row.id,
-        createdAt: row.createdAt,
-        route: 'cashapp',
-      ));
+            orderId: row.id,
+            createdAt: row.createdAt,
+            route: 'cashapp',
+          ));
     } catch (_) {
       // Delivery remains recorded. The trading flow can wrap USDC.e on
       // demand if this best-effort refresh cannot initialize the account.
@@ -1299,14 +1330,14 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
       // recorded there as durations.
       final from = row.coinFrom.toUpperCase();
       unawaited(ref.read(polymarketTradingProvider.notifier).onDepositDelivered(
-        orderId: row.id,
-        createdAt: row.createdAt,
-        route: from == 'BTC'
-            ? 'btc_spending'
-            : isOrchestraUsdLikeCoin(from)
-                ? 'usd'
-                : null,
-      ));
+            orderId: row.id,
+            createdAt: row.createdAt,
+            route: from == 'BTC'
+                ? 'btc_spending'
+                : isOrchestraUsdLikeCoin(from)
+                    ? 'usd'
+                    : null,
+          ));
     } catch (_) {
       // Delivery remains recorded. The order path converts USDC.e itself
       // when pUSD alone is short.
@@ -1778,8 +1809,7 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
                     // single completion for every Orchestra order into or
                     // out of Polygon USDC (route-detected; guarded by the
                     // terminal claim above).
-                    _reportPolymarketOrderCompleted(
-                        exchange, order.id, usdLeg);
+                    _reportPolymarketOrderCompleted(exchange, order.id, usdLeg);
                   } else if (!wasTerminal &&
                       (mappedStatus == 'expired' ||
                           mappedStatus == 'refunded') &&
@@ -2109,8 +2139,7 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
                     } else if (!wasTerminal2 &&
                         (mappedStatus == 'expired' ||
                             mappedStatus == 'refunded') &&
-                        claimOrderTerminalAnalytics(order.id,
-                            success: false)) {
+                        claimOrderTerminalAnalytics(order.id, success: false)) {
                       final usdLegFail2 = _resolveUsdLegForOrchestra(
                         coinFrom: ex.coinFrom,
                         coinTo: ex.coinTo,
@@ -2413,7 +2442,6 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
     }
   }
 }
-
 
 final backgroundSyncNotifierProvider =
     AsyncNotifierProvider<BackgroundSyncNotifier, WalletBalance>(

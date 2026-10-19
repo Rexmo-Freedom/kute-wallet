@@ -27,6 +27,7 @@ const _spark =
     'sp1pgssy7d7vel0nh9m4326qc54e6rskpczn07dktww9rv4nu5ptvt0s9ucez8h3s';
 const _standingEvm = '0x1111111111111111111111111111111111111111';
 const _legacyEvm = '0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed';
+const _solanaDeposit = '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU';
 
 /// One standing destination and nothing else: `spark:USDB`, the reusable
 /// address of the Dollars receive and of the Bitcoin receive's "other
@@ -422,6 +423,74 @@ void main() {
           StandingFallbackReason.standingPolicyOff);
       await refusal(resolve);
       expect(standingCalls, isEmpty);
+    });
+  });
+
+  group('the backend refuses one pair (a 4xx that is not the switch)', () {
+    test(
+        'a 404 on pair A is remembered for A alone: pair B still tries '
+        'standing, and nothing says standing is off', () async {
+      standingFailure = const StandingRequestException(404, null);
+      final refused = await refusal(resolve);
+      expect(refused.reason, StandingFallbackReason.standingRefused);
+      expect(TrackingService.errorCategory(refused), 'no_route');
+      expect(standingCalls.where((c) => c == 'register'), hasLength(1));
+      expect(StandingReceiveRefusal.active(RuntimeCapabilitiesService.instance),
+          isFalse,
+          reason: 'one pair, not the switch');
+      expect(
+          ReceiveRouteAvailability.isUnavailable(
+              sourceChain: 'base',
+              sourceAsset: 'USDC',
+              destinationAsset: 'USDB'),
+          isTrue);
+      expect(standingReceiveFallback(sourceChain: 'base', sourceAsset: 'USDC'),
+          StandingFallbackReason.standingUnserved);
+
+      // Pair B is asked of the backend as if nothing had happened.
+      standingFailure = null;
+      standingCalls.clear();
+      answer = (body) => {
+            'enabled': true,
+            'addresses': {'solana': _solanaDeposit},
+            'kuteFeePolicy': {'revision': 4, 'purpose': 'usdb_swap_deposit'},
+          };
+      final resolved =
+          await resolve(sourceChain: 'solana', sourceAsset: 'USDC');
+      expect(resolved.address, _solanaDeposit);
+      expect(standingCalls, contains('register'));
+      expect(
+          standingReceiveFallback(sourceChain: 'solana', sourceAsset: 'USDC'),
+          isNull);
+    });
+
+    test(
+        'a 422 with another code is the pair\'s too, and carries the '
+        'provider\'s category', () async {
+      standingFailure =
+          const StandingRequestException(422, 'unsupported_source');
+      final refused = await refusal(resolve);
+      expect(refused.reason, StandingFallbackReason.standingRefused);
+      expect(TrackingService.errorCategory(refused), 'unsupported_source');
+      expect(StandingReceiveRefusal.active(RuntimeCapabilitiesService.instance),
+          isFalse);
+      expect(
+          ReceiveRouteAvailability.isUnavailable(
+              sourceChain: 'base',
+              sourceAsset: 'USDC',
+              destinationAsset: 'USDB'),
+          isTrue);
+    });
+
+    test('only unsupported_route is the switch: remembered for every coin',
+        () async {
+      standingFailure =
+          const StandingRequestException(422, 'unsupported_route');
+      final refused = await refusal(resolve);
+      expect(TrackingService.errorCategory(refused), 'unsupported_source');
+      expect(StandingReceiveRefusal.active(RuntimeCapabilitiesService.instance),
+          isTrue);
+      expect(ReceiveRouteAvailability.refusedKeys, isEmpty);
     });
   });
 

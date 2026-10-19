@@ -686,6 +686,88 @@ void main() {
     await _unmount(tester);
   });
 
+  testWidgets(
+      'a read landing after the amount sheet was dismissed writes nothing '
+      'to the sheet (its limits are let go with it); the next open reads '
+      'again', (tester) async {
+    var reads = 0;
+    var answer = Completer<OrchestraRouteLimits?>();
+    await _pump(tester, fetch: (route) {
+      reads++;
+      return answer.future;
+    });
+    await tester.tap(find.widgetWithText(CoinAssetTile, 'USDT').first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byType(RequestAmountSheet), findsOneWidget);
+
+    // Dismissed while the read is still out.
+    Navigator.of(tester.element(find.byType(RequestAmountSheet))).pop();
+    await _settle(tester);
+    expect(find.byType(RequestAmountSheet), findsNothing);
+    answer.complete(const OrchestraRouteLimits(orderMinUsdCents: 75));
+    await _settle(tester);
+    expect(tester.takeException(), isNull);
+    expect(quoted, isEmpty);
+
+    // Opened again: a fresh read, and the line follows it.
+    answer = Completer<OrchestraRouteLimits?>();
+    await tester.tap(find.widgetWithText(CoinAssetTile, 'USDT').first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byType(RequestAmountSheet), findsOneWidget);
+    expect(reads, 2,
+        reason: 'the grid prefetch, shared by the first open, then a new one');
+    answer.complete(const OrchestraRouteLimits(orderMinUsdCents: 75));
+    await _settle(tester);
+    expect(
+        tester
+            .widget<BigAmountDisplay>(find.byType(BigAmountDisplay))
+            .minimumLabel,
+        _l10n.amountMinimumInline('\$0.75'));
+    expect(tester.takeException(), isNull);
+    await _unmount(tester);
+  });
+
+  testWidgets(
+      'closed while the quote is in flight: the quote landing then is '
+      'persisted (watched for a late deposit) but never shown or counted, '
+      'and only the address sheet goes', (tester) async {
+    final gate = Completer<void>();
+    final fetch = OneTimeReceive.debugFetch!;
+    OneTimeReceive.debugFetch = (request) async {
+      await gate.future;
+      return fetch(request);
+    };
+    await _pump(tester);
+    await _requestUsdt(tester, '25');
+    await _createWithRefund(tester, _refund);
+    final sheet = find.byType(QuotedReceiveSheet);
+    expect(sheet, findsOneWidget);
+    expect(find.text(_l10n.usdReceiveCreating), findsOneWidget);
+
+    await tester.tap(
+        find.descendant(of: sheet, matching: find.byType(KuteCloseButton)));
+    await tester.pump();
+    gate.complete();
+    await _settle(tester);
+    await _settle(tester);
+
+    expect(sheet, findsNothing);
+    expect(find.byType(UsdReceiveScreen), findsOneWidget);
+    expect(recorded, hasLength(1), reason: 'the quote is still watched');
+    expect(addressLineOf(_deposit), findsNothing);
+    expect(events.where((e) => e.$1 == 'receive_address_generated'), isEmpty);
+    expect(events.where((e) => e.$1 == 'receive_address_failed'), isEmpty);
+    expect(
+        events
+            .where((e) => e.$1 == 'usd_receive_step')
+            .map((e) => e.$2?['step']),
+        isNot(contains('deposit_address_shown')));
+    expect(tester.takeException(), isNull);
+    await _unmount(tester);
+  });
+
   group('presented as bottom sheets', () {
     /// The route [finder]'s widget sits in.
     ModalRoute<dynamic>? routeOf(WidgetTester tester, Finder finder) =>
