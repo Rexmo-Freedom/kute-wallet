@@ -246,6 +246,18 @@ class RefreshEverything {
     final running = _running;
     final age = _runningFor?.elapsed ?? Duration.zero;
     if (running != null && age < stepLimit) return running;
+    // A send hold is in memory only (a restart drops it): one whose send
+    // is no longer pending never caps the figure through a pull, and
+    // never makes this pull sync instead of reconnecting either, so it
+    // goes before the mode is decided (synchronous, in memory).
+    try {
+      final spendingId = _spendingId();
+      if (spendingId != null && _ref.exists(walletBalanceCacheProvider)) {
+        _ref
+            .read(walletBalanceCacheProvider.notifier)
+            .releaseSettledSendHolds(spendingId);
+      }
+    } catch (_) {}
     _mode = _decideMode();
     final next = _runAll();
     _running = next;
@@ -294,16 +306,6 @@ class RefreshEverything {
     // write below is taken.
     try {
       _ref.read(balanceNotifierProvider.notifier).invalidateStreamFreshness();
-    } catch (_) {}
-    // A send hold is in memory only (a restart drops it): one whose send
-    // is no longer pending never caps the figure through a pull.
-    try {
-      final spendingId = _spendingId();
-      if (spendingId != null && _ref.exists(walletBalanceCacheProvider)) {
-        _ref
-            .read(walletBalanceCacheProvider.notifier)
-            .releaseSettledSendHolds(spendingId);
-      }
     } catch (_) {}
     await Future.wait([
       for (final step in steps.values) _bounded(step),
