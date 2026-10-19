@@ -144,6 +144,30 @@ void main() {
     expect(failed.$2!.values, isNot(contains('L · 1')));
   });
 
+  test('a failure after the save never fails creation', () async {
+    // A "failed" creation would be retried as a SECOND wallet under a new
+    // label, so once the record is written the result is a success.
+    final result = await PasskeyWalletCreation(
+      ceremonies: PasskeyCeremonies(
+        signIn: (label) async => _wallet(label),
+        hasLegacyCredential: () async => false,
+        hasKnownCredential: () async => false,
+        cacheLabel: (_) async {},
+        markPending: (_) async {},
+        publishLabel: (_) => throw StateError('publish'),
+      ),
+      addWallet: (config) async => saved.add(config),
+      primeSpark: () => throw StateError('spark'),
+    ).create(walletId: 'w1', label: 'L · 1', name: 'L');
+    expect(saved.single.id, 'w1');
+    expect(result.path, 'sign_in');
+    final stages = events
+        .where((e) => e.$1 == 'passkey_create_post_save_failed')
+        .map((e) => e.$2!['stage'])
+        .toList();
+    expect(stages, ['prime_spark', 'publish']);
+  });
+
   test('no passkey resolves: one is minted, then the same save path',
       () async {
     final result = await creation(

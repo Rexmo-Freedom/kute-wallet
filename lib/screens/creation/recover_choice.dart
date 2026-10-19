@@ -624,6 +624,9 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
       {Uint8List? credentialId, String trigger = 'tap'}) async {
     if (!mounted) return;
     setState(() => _restoringPasskey = true);
+    // True once any wallet record was written: from then on a failure
+    // ends the flow as a success (the wallet is listed and works).
+    var savedAny = false;
     try {
       for (final label in labels) {
         RestoreFlowAnalytics.step('passkey_confirm',
@@ -659,45 +662,59 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
           passkeyProvider: 'breez-0.17',
           evmDerivationVersion: passkeyEvmDerivationVersion(label),
         );
-        await ref.read(settingsProvider.notifier).addWallet(config);
-        _rebuildPredictions();
-        TrackingService.walletAdded(
-          walletKind: 'hot',
-          importMethod: 'passkey',
-          network: 'spark',
-          source: ref.read(settingsProvider).wallets.length == 1
-              ? 'onboarding'
-              : 'add_wallet',
-        );
+        // addWallet returns the existing record when this label is
+        // already listed (a retry after a failure past the save).
+        final stored =
+            await ref.read(settingsProvider.notifier).addWallet(config);
+        savedAny = true;
+        // Past the save, nothing may fail the restore: the wallet is
+        // listed and works. Each step is reported by kind only.
+        _postSave('rebuild', _rebuildPredictions);
+        _postSave(
+            'track',
+            () => TrackingService.walletAdded(
+                  walletKind: 'hot',
+                  importMethod: 'passkey',
+                  network: 'spark',
+                  source: ref.read(settingsProvider).wallets.length == 1
+                      ? 'onboarding'
+                      : 'add_wallet',
+                ));
         // Every passkey wallet is a spending wallet now, so provision
         // Polymarket for the restored wallet (matches creation). The REAL
         // mnemonic string is required here: `seed.toString()` is a debug
         // representation and silently broke provisioning.
-        final mnemonic = await PasskeyService.mnemonicOfSeed(pkWallet.seed);
+        String? mnemonic;
+        try {
+          mnemonic = await PasskeyService.mnemonicOfSeed(pkWallet.seed);
+        } catch (e) {
+          _trackPostSaveFailed('mnemonic', e);
+        }
         if (mnemonic != null) {
-          RecoveryCheck.record(
-              ref.read(settingsProvider.notifier), walletId, mnemonic);
+          final phrase = mnemonic;
+          _postSave(
+              'recovery_check',
+              () => RecoveryCheck.record(
+                  ref.read(settingsProvider.notifier), stored.id, phrase));
           Future.delayed(const Duration(seconds: 5), () {
             provisionPolymarketAccount(
-              mnemonic: mnemonic,
-              walletId: walletId,
-              evmDerivationVersion: config.evmDerivationVersion,
+              mnemonic: phrase,
+              walletId: stored.id,
+              evmDerivationVersion: stored.evmDerivationVersion,
             );
           });
         }
       }
-      TrackingService.walletCreated(type: 'imported', authMode: 'passkey');
-      RestoreFlowAnalytics.completed();
-      if (ref.read(settingsProvider).wallets.length == 1) {
-        TrackingService.onboardingCompletedOnce(authMode: 'recovered');
-      }
-      ref.invalidate(bitcoinConfigProvider);
-      if (mounted) {
-        ref.read(recoveryModeProvider.notifier).state = false;
-        context.go('/home');
-      }
+      _finishPasskeyRestore();
     } catch (e) {
-      if (e.toString().toLowerCase().contains('cancel')) {
+      if (savedAny) {
+        // A later label (or a step after a save) failed: the wallets
+        // saved so far are listed and work, so finish as a success.
+        _trackPostSaveFailed('later_label', e);
+        _finishPasskeyRestore();
+        return;
+      }
+      if (PasskeyService.isUserCancelledError(e)) {
         _trackPasskeyRestoreCancelled('restore');
       } else {
         _trackPasskeyRestoreFailed('restore', e);
@@ -714,6 +731,39 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
         });
       }
     }
+  }
+
+  /// The end of a passkey restore that saved at least one wallet.
+  void _finishPasskeyRestore() {
+    _postSave('completed', () {
+      TrackingService.walletCreated(type: 'imported', authMode: 'passkey');
+      RestoreFlowAnalytics.completed();
+      if (ref.read(settingsProvider).wallets.length == 1) {
+        TrackingService.onboardingCompletedOnce(authMode: 'recovered');
+      }
+    });
+    _postSave('invalidate', () => ref.invalidate(bitcoinConfigProvider));
+    if (mounted) {
+      ref.read(recoveryModeProvider.notifier).state = false;
+      context.go('/home');
+    }
+  }
+
+  /// Runs one step after a wallet record was saved; a throw is reported by
+  /// step and error kind only and never fails the restore.
+  void _postSave(String stage, void Function() body) {
+    try {
+      body();
+    } catch (e) {
+      _trackPostSaveFailed(stage, e);
+    }
+  }
+
+  void _trackPostSaveFailed(String stage, Object e) {
+    TrackingService.track('passkey_restore_post_save_failed', params: {
+      'stage': stage,
+      'error_category': TrackingService.errorCategory(e),
+    });
   }
 
   /// Legacy (pre-2.x) recovery. Runs when the new-SDK Nostr list is empty.

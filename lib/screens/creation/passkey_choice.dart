@@ -337,30 +337,48 @@ class _PasskeyChoiceState extends ConsumerState<PasskeyChoice> {
       name: name,
       skipSignIn: skipSignIn,
     );
-    TrackingService.walletCreated(type: 'hot', authMode: 'passkey');
-    TrackingService.walletAdded(
-      walletKind: 'hot',
-      importMethod: 'passkey',
-      network: 'spark',
-      source: 'onboarding',
-    );
+    // The wallet is saved: nothing below may fail creation (a "failed"
+    // creation would be retried as a SECOND wallet under a new label).
+    // Each step is reported by kind only.
+    try {
+      TrackingService.walletCreated(type: 'hot', authMode: 'passkey');
+      TrackingService.walletAdded(
+        walletKind: 'hot',
+        importMethod: 'passkey',
+        network: 'spark',
+        source: 'onboarding',
+      );
+    } catch (e) {
+      _trackPostSaveFailed('track', e);
+    }
 
     // Provision Polymarket in the background. The passkey-derived
     // seed plugs into the same Safe derivation as BIP39. The REAL
     // mnemonic string is required: `seed.toString()` is a debug
     // representation and silently broke provisioning at creation
     // (it self-healed later from the Polymarket screen).
-    final polymarketMnemonic =
-        await PasskeyService.mnemonicOfSeed(result.wallet.seed);
-    if (polymarketMnemonic != null) {
-      RecoveryCheck.record(settings, walletId, polymarketMnemonic);
-      _ceremonies.scheduleProvisioningOrDefault(
-        mnemonic: polymarketMnemonic,
-        walletId: walletId,
-        evmDerivationVersion: result.config.evmDerivationVersion,
-      );
+    try {
+      final polymarketMnemonic =
+          await PasskeyService.mnemonicOfSeed(result.wallet.seed);
+      if (polymarketMnemonic != null) {
+        RecoveryCheck.record(settings, walletId, polymarketMnemonic);
+        _ceremonies.scheduleProvisioningOrDefault(
+          mnemonic: polymarketMnemonic,
+          walletId: walletId,
+          evmDerivationVersion: result.config.evmDerivationVersion,
+        );
+      }
+    } catch (e) {
+      _trackPostSaveFailed('provision', e);
     }
     return result;
+  }
+
+  static void _trackPostSaveFailed(String stage, Object e) {
+    TrackingService.track('passkey_create_post_save_failed', params: {
+      'stage': stage,
+      'error_category': TrackingService.errorCategory(e),
+    });
   }
 
   Future<void> _createBip39Wallet() async {
@@ -1041,8 +1059,24 @@ class PasskeyWalletCreation {
       throw PasskeyStepFailed('save', e);
     }
     final saveMs = save.elapsedMilliseconds;
-    primeSpark();
-    ceremonies.publishLabelOrDefault(label);
+    // Saved: from here nothing may fail creation (the caller would retry
+    // it as a SECOND wallet under a new label). Reported by kind only.
+    try {
+      primeSpark();
+    } catch (e) {
+      TrackingService.track('passkey_create_post_save_failed', params: {
+        'stage': 'prime_spark',
+        'error_category': TrackingService.errorCategory(e),
+      });
+    }
+    try {
+      ceremonies.publishLabelOrDefault(label);
+    } catch (e) {
+      TrackingService.track('passkey_create_post_save_failed', params: {
+        'stage': 'publish',
+        'error_category': TrackingService.errorCategory(e),
+      });
+    }
     return PasskeyCreationResult(
       wallet: wallet,
       config: config,

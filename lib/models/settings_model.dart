@@ -10,6 +10,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/services/passkey_service.dart' show PasskeyService;
+import 'package:kute/services/tracking_service.dart' show TrackingService;
 import 'package:kute/services/secure/flutter_secret_store.dart';
 import 'package:kute/services/secure/secret_error_class.dart';
 import 'package:kute/services/hardware/ledger/ledger_venue_descriptor_store.dart'
@@ -560,7 +561,22 @@ class SettingsModel extends StateNotifier<Settings> {
       state.wallets.where((wallet) => wallet.id == id).firstOrNull;
 
 
-  Future<void> addWallet(WalletConfig newWallet) async {
+  /// Adds [newWallet] and returns the record now stored for it. A passkey
+  /// wallet is one record per label (the label IS the seed), so adding a
+  /// label that is already listed returns the existing record and stores
+  /// nothing: a retried create or restore after a failure past the save
+  /// must not list the same wallet twice.
+  Future<WalletConfig> addWallet(WalletConfig newWallet) async {
+    final label = newWallet.passkeyLabel;
+    if (newWallet.isPasskey && label != null) {
+      final existing = state.wallets
+          .where((w) => w.isPasskey && w.passkeyLabel == label)
+          .firstOrNull;
+      if (existing != null) {
+        TrackingService.track('wallet_add_deduped', params: {'kind': 'passkey'});
+        return existing;
+      }
+    }
     final box = await Hive.openBox('settings');
     final List<WalletConfig> updatedList = [...state.wallets, newWallet];
     final walletsMap = updatedList.map((w) => w.toMap()).toList();
@@ -572,6 +588,7 @@ class SettingsModel extends StateNotifier<Settings> {
     }
 
     state = state.copyWith(wallets: updatedList);
+    return newWallet;
   }
 
   Future<void> removeWallet(String walletId) async {

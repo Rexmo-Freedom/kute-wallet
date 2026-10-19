@@ -28,8 +28,9 @@ class _Settings extends SettingsModel {
         ));
 
   @override
-  Future<void> addWallet(WalletConfig newWallet) async {
+  Future<WalletConfig> addWallet(WalletConfig newWallet) async {
     state = state.copyWith(wallets: [...state.wallets, newWallet]);
+    return newWallet;
   }
 }
 
