@@ -83,15 +83,18 @@ const String kMultiPartScannerRouteName = 'QrScanner';
 /// Open the scanner sheet over [context] and hand back what it read,
 /// trimmed: a recipient (normalized the way the routing scanner reads
 /// it), or with [multiPart] an assembled BBQr / UR payload. Null when the
-/// person closed it without a code.
+/// person closed it without a code. [photos] false hides the photo
+/// control: a recovery phrase is never read from a screenshot in the
+/// library.
 Future<String?> showScannerSheet(BuildContext context,
-    {bool multiPart = false}) async {
+    {bool multiPart = false, bool photos = true}) async {
   final result = await showAppBottomSheet<String>(
     context: context,
     routeSettings: RouteSettings(
         name: multiPart ? kMultiPartScannerRouteName : kSmartScannerRouteName),
     builder: (_) => ScannerSheet(
-        mode: multiPart ? ScannerMode.multiPart : ScannerMode.recipient),
+        mode: multiPart ? ScannerMode.multiPart : ScannerMode.recipient,
+        photos: photos),
   );
   final scanned = result?.trim() ?? '';
   return scanned.isEmpty ? null : scanned;
@@ -126,9 +129,14 @@ class ScannerSheetPage<T> extends Page<T> {
 }
 
 class ScannerSheet extends ConsumerStatefulWidget {
-  const ScannerSheet({super.key, required this.mode});
+  const ScannerSheet({super.key, required this.mode, this.photos = true});
 
   final ScannerMode mode;
+
+  /// Whether a QR may be picked from the photo library. Off for the
+  /// recovery-phrase scanner only: a seed QR is read from the camera,
+  /// never from a screenshot.
+  final bool photos;
 
   @override
   ConsumerState<ScannerSheet> createState() => _ScannerSheetState();
@@ -1277,16 +1285,17 @@ class _ScannerSheetState extends ConsumerState<ScannerSheet>
                   ),
                 ),
               ),
-            Positioned(
-              right: 16.w,
-              bottom: 16.w,
-              child: _ScannerControl(
-                key: const ValueKey('scanner-gallery'),
-                icon: Icons.photo_library_rounded,
-                label: l10n.receiveGallery,
-                onPressed: _isProcessing ? null : _pickFromGallery,
+            if (widget.photos)
+              Positioned(
+                right: 16.w,
+                bottom: 16.w,
+                child: _ScannerControl(
+                  key: const ValueKey('scanner-gallery'),
+                  icon: Icons.photo_library_rounded,
+                  label: l10n.receiveGallery,
+                  onPressed: _isProcessing ? null : _pickFromGallery,
+                ),
               ),
-            ),
           ],
         ),
       ),

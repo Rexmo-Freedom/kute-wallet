@@ -65,10 +65,22 @@ Future<void> _pump(WidgetTester tester, FakeScannerCameras cameras,
               supportedLocales: AppLocalizations.supportedLocales,
               home: Scaffold(
                 body: Builder(
-                  builder: (context) => TextButton(
-                    onPressed: () => showScannerSheet(context),
-                    child: const Text('scan'),
-                  ),
+                  builder: (context) => Column(children: [
+                    TextButton(
+                      onPressed: () => showScannerSheet(context),
+                      child: const Text('scan'),
+                    ),
+                    TextButton(
+                      onPressed: () =>
+                          showScannerSheet(context, multiPart: true),
+                      child: const Text('scan multi'),
+                    ),
+                    TextButton(
+                      onPressed: () => showScannerSheet(context,
+                          multiPart: true, photos: false),
+                      child: const Text('scan recovery'),
+                    ),
+                  ]),
                 ),
               ),
             ),
@@ -151,6 +163,32 @@ void main() {
     expect(find.text(_l10n.openSettings), findsOneWidget);
     expect(find.byKey(const ValueKey('scanner-torch')), findsNothing);
     expect(find.byKey(const ValueKey('scanner-gallery')), findsOneWidget);
+  });
+
+  testWidgets(
+      'the recovery-phrase scanner shows flash but no photos; the recipient '
+      'and multi-part scanners show both', (tester) async {
+    final cameras = FakeScannerCameras();
+    await _pump(tester, cameras);
+    for (final (button, photos) in [
+      ('scan recovery', false),
+      ('scan', true),
+      ('scan multi', true),
+    ]) {
+      await tester.tap(find.text(button));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('scanner-torch')), findsOneWidget,
+          reason: button);
+      expect(find.byKey(const ValueKey('scanner-gallery')),
+          photos ? findsOneWidget : findsNothing,
+          reason: button);
+      expect(find.bySemanticsLabel(_l10n.receiveGallery),
+          photos ? findsOneWidget : findsNothing,
+          reason: button);
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
+      expect(find.byType(ScannerSheet), findsNothing);
+    }
   });
 
   testWidgets(

@@ -256,7 +256,10 @@ class _RecoverWalletState extends ConsumerState<RecoverWallet>
   }
 
   Future<void> _scanRecoveryQR() async {
-    final result = await showScannerSheet(context, multiPart: true);
+    // The camera only: a seed QR is never read from a screenshot in the
+    // photo library.
+    final result =
+        await showScannerSheet(context, multiPart: true, photos: false);
     if (result == null || result.isEmpty || !mounted) return;
 
     final RecoveryPhraseInput input;
