@@ -213,6 +213,14 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
   bool _receiveQuoteSweepRunning = false;
   final Map<String, DateTime> _receiveQuoteChecks = {};
 
+  /// The receive-quote sweep's clock. Tests pin it.
+  @visibleForTesting
+  static DateTime Function() receiveQuoteClock = DateTime.now;
+
+  /// Tests only: the receive-quote sweep alone, awaited to its end.
+  @visibleForTesting
+  Future<void> debugSweepReceiveQuotes() => _sweepOrchestraReceiveQuotes();
+
   /// Recent Spark BTC deposit addresses (latest first). `getSparkBitcoinAddressProvider`
   /// is invalidated on every `claimedDeposits` event, so each
   /// rotation appends a new address. Mempool-pending polling needs
@@ -907,7 +915,7 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
           PendingReceiveQuoteCache.isCurrent(scope) &&
           _spendingWalletId(ref.read(settingsProvider).wallets) == walletId;
       if (!current()) return;
-      final now = DateTime.now();
+      final now = receiveQuoteClock();
       pending.sort((a, b) =>
           (_receiveQuoteChecks[a.id]?.millisecondsSinceEpoch ?? 0).compareTo(
               _receiveQuoteChecks[b.id]?.millisecondsSinceEpoch ?? 0));
