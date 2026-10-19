@@ -682,7 +682,7 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
         savedAny = true;
         // Past the save, nothing may fail the restore: the wallet is
         // listed and works. Each step is reported by kind only.
-        _postSave('rebuild', _rebuildPredictions);
+        _postSave('rebuild', () => _rebuildPredictions());
         _postSave(
             'track',
             () => TrackingService.walletAdded(

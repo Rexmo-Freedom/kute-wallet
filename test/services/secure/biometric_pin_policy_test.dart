@@ -213,7 +213,8 @@ void main() {
   test('setting a PIN never writes biometric_pin', () async {
     final auth = AuthModel(store: keychain.local, syncedStore: keychain.synced);
     await auth.setPin('123456');
-    await auth.setPinAsync('654321');
+    // A second set over a stored hash is a replace (restore path).
+    await auth.setPinAsync('654321', replace: true);
     expect(keychain.keys(), {'pin_hash'});
   });
 
