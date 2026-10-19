@@ -239,6 +239,17 @@ const int kCctpMintScanWindowsPerPass = 3;
 /// whose logs index trailed its head when the position was recorded.
 const int kCctpMintScanOverlapBlocks = 500;
 
+/// Arbitrum One's block rate, rounded up, for a search start estimated
+/// from the time the burn was signed when the head was not read then.
+const int kCctpArbitrumBlocksPerSecond = 5;
+
+/// Margin behind such an estimated start.
+const int kCctpMintLookbackMarginBlocks = 2000;
+
+/// Reads of the Arbitrum head before the quote, so one failed read does
+/// not leave the record without a search start.
+const int kCctpBlockReadAttempts = 3;
+
 /// Orchestra's tag (the backend's app flow) for a CCTP move's quote.
 String cctpQuoteTag(InvestingWithdrawalDestination destination) =>
     destination == InvestingWithdrawalDestination.predictions
@@ -730,6 +741,7 @@ class HypercoreCctpWithdrawal {
     this.tokenForm = kHypercoreCctpTokenForm,
     this.confirmAttempts = 7,
     this.confirmInterval = const Duration(seconds: 1),
+    this.blockReadBackoff = const Duration(milliseconds: 300),
     this.watchInterval = const Duration(seconds: 4),
     this.watchFor = const Duration(minutes: 20),
   })  : _store = store ?? SettlementStore.shared,
@@ -756,6 +768,9 @@ class HypercoreCctpWithdrawal {
   final CctpTokenForm tokenForm;
   final int confirmAttempts;
   final Duration confirmInterval;
+
+  /// Between the [kCctpBlockReadAttempts] reads of the Arbitrum head.
+  final Duration blockReadBackoff;
   final Duration watchInterval;
   final Duration watchFor;
 
@@ -908,12 +923,18 @@ class HypercoreCctpWithdrawal {
     }
     wallet.ensureSpending(walletId);
 
+    // Where the mint search starts. A read that keeps failing leaves it
+    // out: the search then estimates it from the time signed, and the
+    // quote's status still finds the order Orchestra makes on its own.
     int? fromBlock;
-    try {
-      fromBlock = await reads.arbitrumBlock();
-    } catch (_) {
-      // The mint watch then waits for Orchestra's own detection: the
-      // quote's status still finds the order.
+    for (var attempt = 0; attempt < kCctpBlockReadAttempts; attempt++) {
+      if (attempt > 0) await Future<void>.delayed(blockReadBackoff);
+      try {
+        fromBlock = await reads.arbitrumBlock();
+        break;
+      } catch (_) {
+        // The next attempt.
+      }
     }
 
     // 3. The one-time quote, right before signing, with enough validity
@@ -1648,8 +1669,9 @@ class HypercoreCctpWithdrawal {
   /// window after the burn first (Circle mints within minutes), then on
   /// from the record's `mintScannedTo`, re-reading
   /// [kCctpMintScanOverlapBlocks] behind it. A record without a
-  /// `fromBlock` (the head could not be read before the burn) waits for
-  /// Orchestra's own detection.
+  /// `fromBlock` (the head could not be read before the burn) starts from
+  /// where the chain stood when the burn was signed, estimated from the
+  /// time since and kept on the record.
   Future<String?> _findMint(SettlementStore store, SettlementOperation op,
       {required String address,
       required BigInt amount6,
@@ -1661,8 +1683,22 @@ class HypercoreCctpWithdrawal {
     if (!isEvmAddress(address)) return null;
     try {
       final head = await reads.arbitrumBlock();
-      final fromBlock = cctp['fromBlock'];
-      if (fromBlock is! int || head < fromBlock) return null;
+      var fromBlock = cctp['fromBlock'];
+      if (fromBlock is! int) {
+        final nonce = op.funding?.hlNonce;
+        final signedAt = nonce == null
+            ? op.createdAt
+            : DateTime.fromMillisecondsSinceEpoch(nonce);
+        final elapsed = _clock().difference(signedAt).inSeconds.clamp(0, 1 << 31);
+        fromBlock = max(
+            0,
+            head -
+                elapsed * kCctpArbitrumBlocksPerSecond -
+                kCctpMintLookbackMarginBlocks);
+        await _patchCctp(store, op.operationId,
+            {'fromBlock': fromBlock, 'fromBlockEstimated': true});
+      }
+      if (head < fromBlock) return null;
       final firstEnd = min(fromBlock + kCctpMintScanChunkBlocks - 1, head);
       final windows = <(int, int)>[(fromBlock, firstEnd)];
       final scannedTo = cctp['mintScannedTo'];

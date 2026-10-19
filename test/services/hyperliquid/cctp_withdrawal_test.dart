@@ -117,8 +117,10 @@ class _Reads implements CctpChainReads {
   int pausedReads = 0;
   final mintReads = <({String to, int fromBlock, int toBlock})>[];
 
-  /// The Arbitrum head.
+  /// The Arbitrum head, and how many reads of it fail first.
   int block = 514276600;
+  int blockErrors = 0;
+  int blockReads = 0;
 
   @override
   Future<bool> coreDepositWalletPaused() async {
@@ -135,7 +137,14 @@ class _Reads implements CctpChainReads {
   }
 
   @override
-  Future<int> arbitrumBlock() async => block;
+  Future<int> arbitrumBlock() async {
+    blockReads++;
+    if (blockErrors > 0) {
+      blockErrors--;
+      throw const ArbitrumReadException('no RPC');
+    }
+    return block;
+  }
 
   /// Answers the mints inside the window, as `eth_getLogs` does, and
   /// refuses a window wider than a public endpoint caps.
@@ -410,6 +419,7 @@ void main() {
         policy: () => policy,
         confirmAttempts: 2,
         confirmInterval: Duration.zero,
+        blockReadBackoff: Duration.zero,
         watchFor: Duration.zero,
       );
 
@@ -1215,6 +1225,51 @@ void main() {
           reason: 'a failed read moves nothing');
       expect((await only()).stage, SettlementStage.needsAttention,
           reason: 'no order this long after the burn: still watched');
+    });
+
+    test(
+        'the head is read again before the quote; a start the burn never '
+        'got is estimated from the time signed when the search runs',
+        () async {
+      reads.ledger = (_) => _ledgerHash;
+      reads.blockErrors = 2;
+      await service().withdrawToDollars(usd: 5, stepUp: approve());
+      expect(reads.blockReads, 3, reason: 'two failures, then the head');
+      expect(cctpOf(await only())['fromBlock'], 514276600);
+      expect(orchestra.quotes, hasLength(1));
+
+      // A head that never answered before the burn: the record has no
+      // start, and the search still runs from where the chain stood when
+      // the burn was signed (ten minutes at five blocks a second, with a
+      // margin), kept on the record as an estimate.
+      await Hive.deleteFromDisk();
+      store = SettlementStore(
+        box: await Hive.openBox<String>('operations'),
+        quarantine: await Hive.openBox<String>('quarantine'),
+        clock: () => now,
+      );
+      rows = _Rows();
+      reads.blockErrors = 1 << 20;
+      await service().withdrawToDollars(usd: 5, stepUp: approve());
+      var op = await only();
+      expect(cctpOf(op).containsKey('fromBlock'), isFalse);
+      expect(op.stage, SettlementStage.funded);
+
+      reads.blockErrors = 0;
+      reads.block = 514276600 + 3000;
+      reads.mints = [_mint(4800000, _mintTx, 514276600 + 2900)];
+      orchestra.orders['ord_1'] = _order('ord_1', 'processing');
+      now = now.add(const Duration(minutes: 10));
+      await service().reconcile(op, force: true);
+      const estimated = 514276600 + 3000 - 600 * 5 - 2000;
+      expect(reads.mintReads.single.fromBlock, estimated);
+      expect(reads.mintReads.single.toBlock, 514276600 + 3000);
+      op = await only();
+      expect(cctpOf(op)['fromBlock'], estimated);
+      expect(cctpOf(op)['fromBlockEstimated'], isTrue);
+      expect(cctpOf(op)['mintTx'], _mintTx);
+      expect(op.orderId, 'ord_1');
+      expect(sender.signed, 2, reason: 'one per move, never twice');
     });
 
     test('an RPC failure never reads as arrived', () async {
