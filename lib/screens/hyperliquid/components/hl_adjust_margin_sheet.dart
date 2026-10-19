@@ -88,6 +88,8 @@ import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/screens/shared/side_tint_palette.dart';
 import 'package:kute/screens/shared/slip_shortfall.dart';
+import 'package:kute/services/one_balance/money_steps.dart'
+    show MoneyPlace;
 import 'package:kute/screens/shared/trade_receipt.dart';
 import 'package:kute/services/funding/hot_settlement.dart' show HotSettlement;
 import 'package:kute/services/funding/venue_shortfall.dart';
@@ -1370,6 +1372,10 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
                               slow: run!.slow,
                               graph: run.steps,
                               money: formatHlUsd,
+                              from: run.fromBitcoin
+                                  ? MoneyPlace.bitcoin
+                                  : MoneyPlace.dollars,
+                              to: MoneyPlace.investing,
                             ),
                         ],
                       ),

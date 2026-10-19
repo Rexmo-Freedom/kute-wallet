@@ -10973,6 +10973,19 @@ class AppLocalizationsEl extends AppLocalizations {
   }
 
   @override
+  String moneyJourneyAt(String place) {
+    return 'Στο $place';
+  }
+
+  @override
+  String moneyJourneyArrived(int count, int total) {
+    return '$count από $total έφτασαν';
+  }
+
+  @override
+  String get moneyJourneyPlaced => 'Τοποθετήθηκε!';
+
+  @override
   String cctpRefundReturnedTo(String network, String address) {
     return 'Επιστράφηκε στη διεύθυνσή σου στο $network $address.';
   }

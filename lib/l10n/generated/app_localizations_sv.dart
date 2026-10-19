@@ -10891,6 +10891,19 @@ class AppLocalizationsSv extends AppLocalizations {
   }
 
   @override
+  String moneyJourneyAt(String place) {
+    return 'Hos $place';
+  }
+
+  @override
+  String moneyJourneyArrived(int count, int total) {
+    return '$count av $total framme';
+  }
+
+  @override
+  String get moneyJourneyPlaced => 'Lagd!';
+
+  @override
   String cctpRefundReturnedTo(String network, String address) {
     return 'Återbetalt till din $network-adress $address.';
   }

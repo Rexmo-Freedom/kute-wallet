@@ -10920,6 +10920,19 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
+  String moneyJourneyAt(String place) {
+    return 'Itt: $place';
+  }
+
+  @override
+  String moneyJourneyArrived(int count, int total) {
+    return '$count/$total megérkezett';
+  }
+
+  @override
+  String get moneyJourneyPlaced => 'Elhelyezve!';
+
+  @override
   String cctpRefundReturnedTo(String network, String address) {
     return 'Visszatérítve a(z) $network címedre: $address.';
   }

@@ -10476,6 +10476,19 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String moneyJourneyAt(String place) {
+    return '$placeにて';
+  }
+
+  @override
+  String moneyJourneyArrived(int count, int total) {
+    return '$total件中$count件が到着';
+  }
+
+  @override
+  String get moneyJourneyPlaced => '注文完了！';
+
+  @override
   String cctpRefundReturnedTo(String network, String address) {
     return '$network のあなたのアドレス $address に返金されました。';
   }

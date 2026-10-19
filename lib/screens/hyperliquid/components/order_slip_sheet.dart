@@ -121,6 +121,8 @@ import 'package:kute/services/tracking_service.dart';
 import 'package:kute/screens/shared/message_display.dart'
     show showMessageSnackBar;
 import 'package:kute/screens/shared/slip_shortfall.dart';
+import 'package:kute/services/one_balance/money_steps.dart'
+    show MoneyPlace;
 import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/services/funding/venue_shortfall.dart';
 import 'package:kute/services/one_balance/hyperliquid_venue_funder.dart';
@@ -5004,6 +5006,10 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
               failed: funded.failed,
               graph: funded.record.steps,
               money: formatHlUsd,
+              from: funded.record.fromBitcoin
+                  ? MoneyPlace.bitcoin
+                  : MoneyPlace.dollars,
+              to: MoneyPlace.investing,
               note: funded.failed
                   ? fundedStopLine(_strings, funded.record, formatHlUsd)
                   : null,

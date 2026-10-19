@@ -10907,6 +10907,19 @@ class AppLocalizationsFi extends AppLocalizations {
   }
 
   @override
+  String moneyJourneyAt(String place) {
+    return 'Kohteessa $place';
+  }
+
+  @override
+  String moneyJourneyArrived(int count, int total) {
+    return '$count/$total perillä';
+  }
+
+  @override
+  String get moneyJourneyPlaced => 'Tehty!';
+
+  @override
   String cctpRefundReturnedTo(String network, String address) {
     return 'Palautettu $network-osoitteeseesi $address.';
   }

@@ -10896,6 +10896,19 @@ class AppLocalizationsDa extends AppLocalizations {
   }
 
   @override
+  String moneyJourneyAt(String place) {
+    return 'I $place';
+  }
+
+  @override
+  String moneyJourneyArrived(int count, int total) {
+    return '$count af $total ankommet';
+  }
+
+  @override
+  String get moneyJourneyPlaced => 'Placeret!';
+
+  @override
   String cctpRefundReturnedTo(String network, String address) {
     return 'Refunderet til din $network-adresse $address.';
   }

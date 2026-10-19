@@ -10930,6 +10930,19 @@ class AppLocalizationsNl extends AppLocalizations {
   }
 
   @override
+  String moneyJourneyAt(String place) {
+    return 'Bij $place';
+  }
+
+  @override
+  String moneyJourneyArrived(int count, int total) {
+    return '$count van $total aangekomen';
+  }
+
+  @override
+  String get moneyJourneyPlaced => 'Geplaatst!';
+
+  @override
   String cctpRefundReturnedTo(String network, String address) {
     return 'Terugbetaald naar je $network-adres $address.';
   }

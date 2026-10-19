@@ -121,16 +121,31 @@ List<MoneyStepLine> cctpLegLines(
   } else {
     order = MoneyStepStatus.waiting;
   }
+  // Each sub-leg is a waypoint on the leg's road (money_steps_view): the
+  // place it reaches ([MoneyStepLine.hop]), its amount beside it, and the
+  // short words the status line says while it runs.
   return [
     MoneyStepLine(
         l10n.moneyStepCompact('HyperCore', 'Circle', fmt(p.sentUsd)), burn,
-        sub: true, id: '$idPrefix:burn'),
+        sub: true,
+        id: '$idPrefix:burn',
+        hop: 'Circle',
+        amount: fmt(p.sentUsd),
+        brief: 'HyperCore → Circle'),
     MoneyStepLine(
         l10n.moneyStepCompact('Circle', 'Arbitrum', fmt(p.mintUsd)), mint,
-        sub: true, id: '$idPrefix:mint'),
+        sub: true,
+        id: '$idPrefix:mint',
+        hop: 'Arbitrum',
+        amount: fmt(p.mintUsd),
+        brief: 'Circle → Arbitrum'),
     MoneyStepLine(
         l10n.moneyStepCompact('Arbitrum', destination, fmt(p.mintUsd)), order,
-        sub: true, id: '$idPrefix:order'),
+        sub: true,
+        id: '$idPrefix:order',
+        hop: destination,
+        amount: fmt(p.mintUsd),
+        brief: 'Arbitrum → $destination'),
   ];
 }
 
@@ -441,7 +456,11 @@ class MoveStepsSection extends ConsumerWidget {
     if (lines.isEmpty) return const SizedBox.shrink();
     return Align(
       alignment: Alignment.centerLeft,
-      child: MoneyStepsView(lines: lines, failureHaptic: failureHaptic),
+      child: MoneyStepsView(
+          lines: lines,
+          graph: graph,
+          toLabel: sendTo,
+          failureHaptic: failureHaptic),
     );
   }
 }
@@ -487,7 +506,7 @@ class SwapRowStepsSection extends ConsumerWidget {
     if (lines.isEmpty) return const SizedBox.shrink();
     return Align(
       alignment: Alignment.centerLeft,
-      child: MoneyStepsView(lines: lines),
+      child: MoneyStepsView(lines: lines, graph: graph),
     );
   }
 }

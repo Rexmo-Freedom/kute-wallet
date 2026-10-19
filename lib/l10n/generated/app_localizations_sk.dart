@@ -10900,6 +10900,19 @@ class AppLocalizationsSk extends AppLocalizations {
   }
 
   @override
+  String moneyJourneyAt(String place) {
+    return 'V $place';
+  }
+
+  @override
+  String moneyJourneyArrived(int count, int total) {
+    return '$count z $total dorazilo';
+  }
+
+  @override
+  String get moneyJourneyPlaced => 'Zadané!';
+
+  @override
   String cctpRefundReturnedTo(String network, String address) {
     return 'Vrátené na tvoju adresu v sieti $network $address.';
   }
