@@ -318,10 +318,8 @@ void main() {
     expect(find.text(_l10n.feeUiKuteFee), findsNothing);
     expect(find.text('0.50%'), findsNothing);
     expect(find.text(_l10n.amountMinimumInline('\$1.50')), findsOneWidget);
-    expect(
-        find.textContaining(
-            _l10n.usdReceiveShareSubtitle('USDC', '').split(' ').first),
-        findsWidgets);
+    // Under the address only the minimum: no "Send only … on …" line.
+    expect(find.textContaining('Send only'), findsNothing);
     // Only from the Bitcoin receive does it say where the money lands.
     expect(find.byKey(_note), findsNothing);
     expect(BitcoinReceiveMarks.current, isEmpty);

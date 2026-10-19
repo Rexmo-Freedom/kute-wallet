@@ -709,13 +709,9 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
             address: payload,
             onCopy: () => _copy(payload),
           ),
-          // Which coin on which network, said once under the address it
-          // belongs to.
+          // Only the minimum (and, from the Bitcoin receive, where it
+          // lands) under the address; the network is in the plate below.
           SizedBox(height: 8.h),
-          ReceiveCaption(
-            text: l10n.usdReceiveShareSubtitle(
-                option.displaySymbol, option.chainDisplayName),
-          ),
           ReceiveMinimumCaption(
             amount: _displayMinimum?.address == payload
                 ? _displayMinimum!.minimum.usdText
