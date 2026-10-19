@@ -94,8 +94,14 @@ void main() {
       ('lib/services/funding/ledger_polymarket_funding_service.dart',
           'recipient.address'): 1,
       ('lib/services/funding/spark_hypercore_funding_service.dart', 'eoa'): 1,
+      // The native HyperCore withdrawal (shared by withdrawToSpark and
+      // withdrawToPredictions): `recipient` is the own Spark address from
+      // sparkSelfAddressProvider, or the own Predictions deposit wallet from
+      // polymarketTradingProvider, checked to be a valid address that is not
+      // the Investing EOA; the runner's resolveOwnership re-derives it for
+      // the sparkHot / pmHot destination before the quote is paid.
       ('lib/services/funding/spark_hypercore_funding_service.dart',
-          'sparkAddress'): 1,
+          'recipient'): 1,
       ('lib/services/funding/ledger_hypercore_funding_service.dart',
           'ownership.recipient.address'): 1,
       // The Predictions funder (one balance): `evm` is the wallet's own

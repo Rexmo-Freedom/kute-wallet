@@ -23,13 +23,14 @@
 // (`SettlementStopped(routeUnavailable, pair_missing)`), which never gets
 // as far as a quote. A withdrawal to Dollars then falls back to Circle
 // CCTP out of HyperCore (lib/services/hyperliquid/cctp_withdrawal.dart):
-// one `sendToEvmWithData` to the wallet's own Investing-withdrawal
-// standing address on Arbitrum, which Orchestra converts to dollars. A
+// one `sendToEvmWithData` to the Arbitrum deposit address of a one-time
+// Orchestra quote bound to the wallet's own recipient, the mint then
+// submitted to Orchestra (never a standing address). A
 // move straight to Bitcoin or to the wallet's own Predictions account
 // (`withdrawDirect`, `hypercore:USDC → polygon:USDC.e` for Predictions)
 // takes the same native-first path and the same fallback rule. Only
-// when that cannot run either (paused, below the minimum, the fee terms
-// not verified, a failed read, the runtime policy withholding
+// when that cannot run either (paused, below the minimum, no usable
+// one-time quote, a failed read, the runtime policy withholding
 // `hyperliquid.withdraw`) the rail reports `RouteUnavailable`: the
 // sweeper shows the cash as waiting, backs off and tries again later;
 // nothing moves until the fallback can run.
@@ -295,9 +296,9 @@ class HyperCoreMoveRail implements HyperliquidMoveRail {
 
   /// The CCTP fallback for [withdrawToDollars]. The same step-up hook
   /// approves it: a sweep passes only because the intent's final
-  /// recipient is the wallet's own Spark address, reached through the
-  /// wallet's own standing instruction, which the fallback verifies
-  /// before it signs.
+  /// recipient is the wallet's own Spark address, reached through a
+  /// one-time quote bound to it, which the fallback verifies before it
+  /// signs.
   Future<VenueMoveResult> _withdrawByCctp({
     required double usd,
     required MoveAuthorization auth,

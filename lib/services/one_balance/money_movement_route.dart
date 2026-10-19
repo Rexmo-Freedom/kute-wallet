@@ -90,9 +90,10 @@ enum MoneyMovementRail {
   /// (`HyperCoreMoveRail.opensCctpFallback`).
   hypercoreNativeThenCctp,
 
-  /// Circle CCTP out of HyperCore to the wallet's own standing instruction.
-  /// There is no Orchestra quote to price it with. No route starts on it
-  /// today; it is the fallback the native routes switch to.
+  /// Circle CCTP out of HyperCore onto a one-time Orchestra quote to the
+  /// wallet's own recipient, fetched right before signing (never a standing
+  /// address). No route starts on it today; it is the fallback the native
+  /// routes switch to.
   cctp,
 }
 
