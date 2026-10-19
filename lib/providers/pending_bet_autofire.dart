@@ -78,6 +78,10 @@ import 'package:kute/services/one_balance/order_funding.dart'
 import 'package:kute/services/one_balance/prediction_funding_ledger.dart';
 import 'package:kute/services/one_balance/funded_orders.dart';
 import 'package:kute/services/one_balance/money_steps.dart';
+import 'package:kute/screens/polymarket/components/price_format.dart'
+    show formatPolyChance;
+import 'package:kute/services/polymarket/crypto_round.dart'
+    show kCryptoUpDown5mKind, polyIsCryptoUpDown5m;
 import 'package:kute/services/polymarket/fresh_fill.dart';
 import 'package:kute/services/polymarket/hot_order_guard.dart';
 import 'package:kute/services/polymarket/market_buy_quote.dart'
@@ -203,6 +207,8 @@ PredictionsReadiness autofireReadiness({
 @visibleForTesting
 bool autofireNotReadyYet(Object e) {
   if (e is PolymarketRefusalOutlivedApproval) return false;
+  // Refused by its approval, never sent: no send again under it.
+  if (e is AuthGrantException) return false;
   if (e is PolymarketFundsConverting ||
       e is PolymarketSetupIncomplete ||
       e is PolymarketCollateralPending) {
@@ -285,8 +291,8 @@ double autofireFireAt(PendingBetIntent intent) {
 AuthGrant autofireRetryGrant(AuthGrant approval, SensitiveIntent actual) {
   if (approval.revoked) throw const GrantRevoked();
   if (approval.isExpiredAt(AuthGrants.clock())) throw const GrantExpired();
-  final drift = AuthGrants.driftBetween(approval.boundIntent, actual);
-  if (drift.isNotEmpty) throw ReauthRequired(drift);
+  final drift = AuthGrants.driftError(approval.boundIntent, actual);
+  if (drift != null) throw drift;
   return GrantGuard.chain(approval, actual);
 }
 
@@ -954,22 +960,64 @@ class PendingBetAutoFire {
   /// [intent]'s round closed before its money arrived (or before it could
   /// be placed): nothing is signed, the money stays as Predictions cash.
   void _failRoundClosed(PendingBetIntent intent, {String? placementId}) {
-    _trackFailed(intent, 'market_closed');
+    // A 5-minute crypto round says it ended while the money was moving,
+    // and where the money is; its slip offers Done, not a retry.
+    final fiveMinute = polyIsCryptoUpDown5m(intent.eventSlug);
+    _trackFailed(intent, fiveMinute ? 'round_ended' : 'market_closed');
     if (intent.funded) {
       OrderFundingJourney.instance.failed(OneBalanceVenue.predictions,
           OrderFundingStage.order, 'market_closed');
     }
     PredictionFundingLedger.instance
         .release(intent.fundQuoteRef, reason: 'failed');
-    final msg = l10nForLanguage(ref.read(settingsProvider).language)
-        .slipFundingRoundClosed;
+    final l10n = l10nForLanguage(ref.read(settingsProvider).language);
+    final msg = fiveMinute
+        ? l10n.slipFundingRoundEnded('\$${intent.amount.toStringAsFixed(2)}')
+        : l10n.slipFundingRoundClosed;
     if (placementId != null) {
       ref.read(placingPolymarketBetProvider.notifier).markFailed(placementId, msg);
     }
     ref.read(pendingPolymarketBetProvider.notifier).updateStatus(
         PendingBetStatus.failed,
         errorMessage: msg,
-        failureCode: 'market_closed');
+        failureCode: fiveMinute ? 'round_ended' : 'market_closed');
+  }
+
+  /// For a 5-minute crypto round stopped by [e]: the price now when it
+  /// moved past what was approved while the money was moving (the book
+  /// read before signing was over the cap, or the venue killed the
+  /// re-priced order for its price, then read once more), with the cap a
+  /// new approval would name. Null for any other stop or market.
+  Future<({double price, double cap})?> _roundPriceMoved(
+      PendingBetIntent intent, Object e,
+      {required double slippagePct, required PolymarketFeeTerms fees}) async {
+    if (!polyIsCryptoUpDown5m(intent.eventSlug)) return null;
+    if (e is PolymarketThinBook) {
+      final cap = polymarketRetryPrice(e);
+      final price = e.price;
+      return cap == null || price == null ? null : (price: price, cap: cap);
+    }
+    if (e is! PolymarketOrderNotAcceptedException ||
+        !isPolymarketPriceRefusal(e.reason)) {
+      return null;
+    }
+    final book = await _freshBook(intent.tokenId);
+    if (book == null) return null;
+    try {
+      final quote = PolymarketMarketBuyQuote.fromBook(book,
+          tokenId: intent.tokenId,
+          amount: intent.amount,
+          slippagePct: slippagePct.clamp(0, 30).toDouble(),
+          fees: fees);
+      // Only a price past what was approved; a kill under it stays the
+      // venue's own refusal.
+      if (quote.bestAsk <= polymarketFundedWorstPrice(intent) + 1e-9) {
+        return null;
+      }
+      return (price: quote.price, cap: quote.maxPrice);
+    } catch (_) {
+      return null;
+    }
   }
 
   void _trackFailed(PendingBetIntent intent, String reason,
@@ -990,6 +1038,8 @@ class PendingBetAutoFire {
       stackTrace: stackTrace,
       extra: {
         ..._analytics(intent),
+        if (polyIsCryptoUpDown5m(intent.eventSlug))
+          'market_kind': kCryptoUpDown5mKind,
         // Whether a second, re-priced order went out after the first was
         // refused for its price.
         'retried': retried,
@@ -1524,6 +1574,32 @@ class PendingBetAutoFire {
         _failRoundClosed(intent, placementId: placementId);
         return;
       }
+      // A 5-minute round whose price moved past the approval while the
+      // money was moving: the price now, and the slip's one tap tries
+      // again at it under a new approval (never placed by itself).
+      final moved = await _roundPriceMoved(intent, e,
+          slippagePct:
+              autofireSlippagePct(intent.expectedPrice, intent.slippagePct),
+          fees: intent.feeTerms ?? PolymarketFeeTerms.worstCase);
+      if (!_sameAttempt(intent)) return;
+      if (moved != null) {
+        _trackFailed(intent, 'price_moved',
+            stackTrace: st, retried: retried, error: e);
+        if (funded) {
+          journey.failed(OneBalanceVenue.predictions, OrderFundingStage.order,
+              _failureCode(e));
+        }
+        ledger.release(fundingKey, reason: 'failed');
+        final msg = l10nForLanguage(ref.read(settingsProvider).language)
+            .slipFundingRoundPriceMoved(formatPolyChance(moved.price));
+        pendingNotifier.updateStatus(PendingBetStatus.failed,
+            errorMessage: msg,
+            retryMaxPrice: moved.cap,
+            movedToPrice: moved.price,
+            failureCode: 'round_price_moved');
+        placingNotifier.markFailed(placementId, msg);
+        return;
+      }
       _trackFailed(intent, _failureCode(e),
           stackTrace: st, retried: retried, error: e);
       if (funded) {
@@ -1741,6 +1817,10 @@ class PendingBetAutoFire {
         isPolymarketPriceRefusal(e.reason)) {
       return 'price_moved';
     }
+    // The order fell outside its approval at the executor's own check:
+    // nothing was signed, the person approves again.
+    if (e is ReauthRequired) return 'approval_drift';
+    if (e is GrantExpired) return 'approval_expired';
     return TrackingService.errorCategory(e);
   }
 
@@ -1775,6 +1855,14 @@ class PendingBetAutoFire {
     if (e is PolymarketOrderNotAcceptedException &&
         isPolymarketPriceRefusal(e.reason)) {
       return l10n.betBuyLiquidityUnavailable;
+    }
+    // Refused by its approval before anything was signed: approving again
+    // (the slip's Retry) places it. Debug logs name the drifted keys.
+    if (e is ReauthRequired || e is GrantExpired) {
+      if (kDebugMode) debugPrint('[pm-autofire] approval refused: $e');
+      return e is ReauthRequired
+          ? l10n.stepUpDetailsChanged
+          : l10n.stepUpApprovalExpired;
     }
     // The generic words: the cause is always in the debug log.
     if (kDebugMode) {

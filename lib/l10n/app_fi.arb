@@ -3012,6 +3012,8 @@
   "slipFundingBitcoinBack": "Lisäys tilille Investments ei onnistunut. Bitcoinisi palaavat.",
   "slipFundingPriceMoved": "Hinta muuttui liian nopeasti.",
   "slipFundingRoundClosed": "Tämä kierros sulkeutui ennen kuin rahasi saapuivat.",
+  "slipFundingRoundPriceMoved": "Hinta muuttui arvoon {price}, kun rahasi olivat matkalla.",
+  "slipFundingRoundEnded": "Tämä kierros päättyi, kun rahasi olivat matkalla. {amount} on tililläsi Ennusteet.",
   "slipFundingInPredictions": "{amount} on tililläsi Ennusteet. Napauta yrittääksesi uudelleen.",
   "slipFundingInInvesting": "{amount} on tililläsi Sijoita. Napauta yrittääksesi uudelleen.",
   "oneBalancePlacingBet": "Asetetaan {amount} vaihtoehdolle {side} · {market}",

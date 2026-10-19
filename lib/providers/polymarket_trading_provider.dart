@@ -3253,10 +3253,14 @@ class PolymarketTradingNotifier
           price: price,
           orderType: orderType.name,
         );
-    GrantGuard.consume(
+    PmGrants.consumeOrder(
       grant,
-      executedOrder(),
-      allowed: PmGrants.orderActions(grantIsBuy),
+      walletId: _credentialsWalletId() ?? '',
+      tokenId: tokenId,
+      isBuy: grantIsBuy,
+      size: size,
+      price: price,
+      orderType: orderType.name,
     );
 
     // The derived deposit address alone does not mean the contract or its

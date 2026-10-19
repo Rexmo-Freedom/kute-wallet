@@ -10738,6 +10738,16 @@ class AppLocalizationsCs extends AppLocalizations {
       'Toto kolo skončilo dřív, než tvoje peníze dorazily.';
 
   @override
+  String slipFundingRoundPriceMoved(String price) {
+    return 'Cena se změnila na $price, zatímco se tvoje peníze přesouvaly.';
+  }
+
+  @override
+  String slipFundingRoundEnded(String amount) {
+    return 'Toto kolo skončilo, zatímco se tvoje peníze přesouvaly. Tvých $amount je v Predikcích.';
+  }
+
+  @override
   String slipFundingInPredictions(String amount) {
     return 'Tvých $amount je v Predikcích. Klepnutím to zkusíš znovu.';
   }

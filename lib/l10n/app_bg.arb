@@ -3012,6 +3012,8 @@
   "slipFundingBitcoinBack": "Добавянето към Investments не мина. Биткойнът ти се връща.",
   "slipFundingPriceMoved": "Цената се промени твърде бързо.",
   "slipFundingRoundClosed": "Този рунд приключи, преди парите ти да пристигнат.",
+  "slipFundingRoundPriceMoved": "Цената се промени на {price}, докато парите ти пътуваха.",
+  "slipFundingRoundEnded": "Този рунд приключи, докато парите ти пътуваха. Твоите {amount} са в Прогнози.",
   "slipFundingInPredictions": "Твоите {amount} са в Прогнози. Докосни, за да опиташ пак.",
   "slipFundingInInvesting": "Твоите {amount} са в Инвестиране. Докосни, за да опиташ пак.",
   "oneBalancePlacingBet": "Залагане на {amount} за {side} · {market}",

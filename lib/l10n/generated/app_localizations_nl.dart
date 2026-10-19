@@ -10783,6 +10783,16 @@ class AppLocalizationsNl extends AppLocalizations {
       'Deze ronde sloot voordat je geld aankwam.';
 
   @override
+  String slipFundingRoundPriceMoved(String price) {
+    return 'De prijs veranderde naar $price terwijl je geld onderweg was.';
+  }
+
+  @override
+  String slipFundingRoundEnded(String amount) {
+    return 'Deze ronde eindigde terwijl je geld onderweg was. Je $amount staat in Voorspellingen.';
+  }
+
+  @override
   String slipFundingInPredictions(String amount) {
     return 'Je $amount staat in Voorspellingen. Tik om het opnieuw te proberen.';
   }

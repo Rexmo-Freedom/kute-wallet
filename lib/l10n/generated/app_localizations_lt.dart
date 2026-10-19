@@ -10790,6 +10790,16 @@ class AppLocalizationsLt extends AppLocalizations {
       'Šis raundas užsidarė prieš atkeliaujant jūsų pinigams.';
 
   @override
+  String slipFundingRoundPriceMoved(String price) {
+    return 'Kol jūsų pinigai keliavo, kaina pasikeitė į $price.';
+  }
+
+  @override
+  String slipFundingRoundEnded(String amount) {
+    return 'Šis raundas baigėsi, kol jūsų pinigai keliavo. Jūsų $amount yra Prognozėse.';
+  }
+
+  @override
   String slipFundingInPredictions(String amount) {
     return 'Jūsų $amount yra Prognozėse. Bakstelėkite, kad bandytumėte dar kartą.';
   }

@@ -48,6 +48,8 @@ import 'package:intl/intl.dart' show NumberFormat;
 import 'package:kute/screens/home/home_feature_carousel.dart'
     show checkPolymarketGeoblock;
 import 'package:kute/screens/polymarket/components/price_format.dart';
+import 'package:kute/services/polymarket/crypto_round.dart'
+    show kCryptoUpDown5mKind, polyIsCryptoUpDown5m;
 import 'package:kute/services/polymarket/live_game/game_sides.dart'
     show gameIsDrawName;
 import 'package:kute/screens/home/components/deposit_sheet.dart'
@@ -291,6 +293,29 @@ class _BetSlipDraft extends ChangeNotifier {
 /// (declined) out.
 @visibleForTesting
 Future<AuthGrant?> Function(SensitiveIntent intent)? debugPmBetFundingApproval;
+
+/// The slip's button once a placement stopped ([pending] failed): Done
+/// for a 5-minute round that ended while its money was moving; "Retry at
+/// 81%" for one whose price moved past the approval meanwhile (the tap
+/// approves again at the price now and places it); "Retry at 85¢" when
+/// the price moved past an approved maximum elsewhere; else Retry. A
+/// retry always asks for a new approval; nothing places by itself.
+({String label, bool done}) betSlipStopAction(
+    AppLocalizations l10n, PendingBetIntent? pending) {
+  final code = pending?.failureCode;
+  if (code == 'round_ended') return (label: l10n.done, done: true);
+  final movedTo = pending?.movedToPrice;
+  if (code == 'round_price_moved' && movedTo != null) {
+    return (label: l10n.betRetryAtPrice(formatPolyChance(movedTo)), done: false);
+  }
+  final retry = pending?.retryMaxPrice;
+  return (
+    label: retry != null
+        ? l10n.betRetryAtPrice(polymarketCentsLabel(retry))
+        : l10n.retry,
+    done: false,
+  );
+}
 
 class BetSlipSheet extends ConsumerStatefulWidget {
   final String marketQuestion;
@@ -1632,7 +1657,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
 
   /// The person committed: one polymarket_bet_submitted per order, and the
   /// ticket's settings staged so the placed / failed event carries them.
-  void _trackSubmitted() {
+  void _trackSubmitted({Map<String, Object> extra = const {}}) {
     final inputs = _slipInputs();
     final token = _selectedTokenId;
     if (token != null) {
@@ -1660,6 +1685,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           DateTime.now().difference(_draft.openedAt).inMilliseconds,
       'time_in_flow_bucket': VenueAnalytics.timeInFlowBucket(
           DateTime.now().difference(_draft.openedAt)),
+      ...extra,
     });
   }
 
@@ -2422,6 +2448,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           _isLimitMode && _limitPrice > 0 ? _limitPrice : expectedPrice,
       marketEndAt: widget.marketEndAt,
       marketCategory: widget.marketCategory,
+      eventSlug: widget.marketSlug,
       isLimit: _isLimitMode,
       limitPrice: _isLimitMode ? _limitPrice.clamp(0.01, 0.99).toDouble() : 0.0,
       negRisk: widget.negRisk,
@@ -4298,6 +4325,17 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     // A retry is a new placement, so it asks for a fresh approval
     // (Phase 1b.4).
     if (_buyInFlight) return;
+    // A retry of a 5-minute round stopped by its price moving: the
+    // submit says why it is sent again (categorical only).
+    final stopped = ref.read(pendingPolymarketBetProvider);
+    final retryParams = <String, Object>{
+      if (stopped != null &&
+          stopped.failureCode == 'round_price_moved' &&
+          polyIsCryptoUpDown5m(stopped.eventSlug)) ...{
+        'reason': 'price_moved',
+        'market_kind': kCryptoUpDown5mKind,
+      },
+    };
     _clearFundedStop();
     _updateState(() => _buyInFlight = true);
     AuthGrant? grant;
@@ -4315,7 +4353,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     final balance =
         ref.read(polymarketTradingProvider).valueOrNull?.usdcBalance ?? 0;
     _swapNeeded = mode == 'btc' || (mode == 'smart' && balance < _amount);
-    _trackSubmitted();
+    _trackSubmitted(extra: retryParams);
     _updateState(() {
       _placedSuccess = false;
       _isPlacing = true;
@@ -5586,6 +5624,26 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                     stakeUsd: stake) >
                 0);
     if (failed) {
+      final stop = betSlipStopAction(
+          context.l10n, ref.watch(pendingPolymarketBetProvider));
+      // A 5-minute round that ended while its money was moving: nothing
+      // to try again on. The line under the steps says where the money
+      // is; the button closes the slip.
+      if (stop.done) {
+        return PolySlipCta(
+          key: const ValueKey('bet-slip-round-ended-done'),
+          band: band,
+          color: selectedColor,
+          isBusy: false,
+          enabled: true,
+          onTap: () {
+            _clearFundedStop();
+            _dismissPlacing();
+            Navigator.of(context).maybePop();
+          },
+          label: stop.label,
+        );
+      }
       return PolySlipCta(
         key: const ValueKey('bet-slip-retry'),
         band: band,
@@ -5596,11 +5654,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         onTap: _isPlacing ? _retryPlacement : _retryFromStart,
         // Stopped because the price moved past the approved maximum: the
         // retry names the new maximum it will ask to approve.
-        label: switch (ref.watch(
-            pendingPolymarketBetProvider.select((i) => i?.retryMaxPrice))) {
-          final retry? => context.l10n.betRetryAtPrice(polymarketCentsLabel(retry)),
-          null => context.l10n.retry,
-        },
+        label: stop.label,
       );
     }
     // Until the Predictions account is set up and its balance was read,

@@ -3012,6 +3012,8 @@
   "slipFundingBitcoinBack": "Adăugarea în Investments nu a reușit. Bitcoinul tău se întoarce.",
   "slipFundingPriceMoved": "Prețul s-a mișcat prea repede.",
   "slipFundingRoundClosed": "Această rundă s-a închis înainte să ajungă banii tăi.",
+  "slipFundingRoundPriceMoved": "Prețul s-a schimbat la {price} cât timp banii tăi erau în drum.",
+  "slipFundingRoundEnded": "Această rundă s-a încheiat cât timp banii tăi erau în drum. Cei {amount} ai tăi sunt în Predicții.",
   "slipFundingInPredictions": "Cei {amount} ai tăi sunt în Predicții. Atinge pentru a încerca din nou.",
   "slipFundingInInvesting": "Cei {amount} ai tăi sunt în Investiții. Atinge pentru a încerca din nou.",
   "oneBalancePlacingBet": "Se plasează {amount} pe {side} · {market}",

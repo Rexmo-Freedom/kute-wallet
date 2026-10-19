@@ -3012,6 +3012,8 @@
   "slipFundingBitcoinBack": "Pridėti į Investments nepavyko. Jūsų bitcoin grįžta.",
   "slipFundingPriceMoved": "Kaina pasikeitė per greitai.",
   "slipFundingRoundClosed": "Šis raundas užsidarė prieš atkeliaujant jūsų pinigams.",
+  "slipFundingRoundPriceMoved": "Kol jūsų pinigai keliavo, kaina pasikeitė į {price}.",
+  "slipFundingRoundEnded": "Šis raundas baigėsi, kol jūsų pinigai keliavo. Jūsų {amount} yra Prognozėse.",
   "slipFundingInPredictions": "Jūsų {amount} yra Prognozėse. Bakstelėkite, kad bandytumėte dar kartą.",
   "slipFundingInInvesting": "Jūsų {amount} yra Investavime. Bakstelėkite, kad bandytumėte dar kartą.",
   "oneBalancePlacingBet": "Statoma {amount} už {side} · {market}",

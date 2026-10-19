@@ -83,3 +83,14 @@ final RegExp _kUpDownTitle =
 /// written that way.
 String? polyCryptoRoundAssetName(String title) =>
     _kUpDownTitle.firstMatch(title.trim())?.group(1)?.trim();
+
+/// The `market_kind` analytics value of a 5-minute crypto Up or Down round.
+const String kCryptoUpDown5mKind = 'crypto_updown_5m';
+
+/// Whether the event with this [slug] is a 5-minute crypto Up or Down
+/// round (`btc-updown-5m-1791152100`, any asset). 15-minute, hourly,
+/// 4-hour and daily rounds are not.
+bool polyIsCryptoUpDown5m(String? slug) {
+  if (slug == null || slug.isEmpty) return false;
+  return polyCryptoRoundOf(slug)?.window == const Duration(minutes: 5);
+}

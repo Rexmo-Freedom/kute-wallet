@@ -827,6 +827,46 @@ void main() {
       await release(tester);
     });
 
+    testWidgets(
+        'a 5-minute round whose price moved while the money was moving: '
+        'the price now, then where the money is', (tester) async {
+      await pumpWith(tester, [
+        _fundedBet(FundedOrderStage.failed,
+            stoppedAt: FundedOrderStage.placing,
+            moneyAt: FundedMoneyAt.venue,
+            reason: 'round_price_moved',
+            message: 'Price changed to 84% while your money was moving.')
+      ],
+          slug: 'btc-updown-5m-1760443200',
+          endAt: DateTime.now().add(const Duration(minutes: 4)));
+      expect(find.byKey(const ValueKey('slip-funding-step-failed-1')),
+          findsOneWidget);
+      expect(
+          find.text(r'Price changed to 84% while your money was moving. Your '
+              r'$10.00 is in Predictions. Tap to try again.'),
+          findsOneWidget);
+      await release(tester);
+    });
+
+    testWidgets(
+        'a 5-minute round that ended while the money was moving: said '
+        'plainly, no try again', (tester) async {
+      await pumpWith(tester, [
+        _fundedBet(FundedOrderStage.failed,
+            stoppedAt: FundedOrderStage.placing,
+            moneyAt: FundedMoneyAt.venue,
+            reason: 'round_ended')
+      ],
+          slug: 'btc-updown-5m-1760443200',
+          endAt: DateTime.now().add(const Duration(minutes: 4)));
+      expect(
+          find.text(r'This round ended while your money was moving. Your '
+              r'$10.00 is in Predictions.'),
+          findsOneWidget);
+      expect(find.textContaining('Tap to try again'), findsNothing);
+      await release(tester);
+    });
+
     testWidgets('closed mid-way and reopened: the current step',
         (tester) async {
       await pumpWith(tester, [_fundedBet(FundedOrderStage.preparing)]);

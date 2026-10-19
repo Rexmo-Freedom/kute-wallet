@@ -3012,6 +3012,8 @@
   "slipFundingBitcoinBack": "Az Investmentshez adás nem sikerült. A bitcoinod visszaérkezik.",
   "slipFundingPriceMoved": "Az ár túl gyorsan mozdult.",
   "slipFundingRoundClosed": "Ez a kör lezárult, mielőtt a pénzed megérkezett.",
+  "slipFundingRoundPriceMoved": "Az ár {price} lett, amíg a pénzed úton volt.",
+  "slipFundingRoundEnded": "Ez a kör véget ért, amíg a pénzed úton volt. A(z) {amount} az Előrejelzésekben van.",
   "slipFundingInPredictions": "A(z) {amount} az Előrejelzésekben van. Koppints az újrapróbáláshoz.",
   "slipFundingInInvesting": "A(z) {amount} a Befektetésben van. Koppints az újrapróbáláshoz.",
   "oneBalancePlacingBet": "{amount} feltétele erre: {side} · {market}",

@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:hive_ce/hive.dart';
+import 'package:kute/helpers/auth_grant.dart' show ReauthRequired;
 import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/services/appsflyer_service.dart';
 import 'package:kute/services/once_flags_service.dart';
@@ -619,7 +620,10 @@ class TrackingService {
 
   static String errorCategory(Object? error) {
     if (error == null) return 'unknown';
-    final t = error.toString().toLowerCase();
+    // A grant drift is classified by its field classes only, never by
+    // the drifted key names its toString adds for debug logs.
+    final t = (error is ReauthRequired ? error.fieldSummary : error.toString())
+        .toLowerCase();
     // Idempotent: a value that already is a category (or a settlement_*
     // stop reason) passes through, so classifying twice never changes it.
     if (errorCategories.contains(t) || t.startsWith('settlement_')) return t;

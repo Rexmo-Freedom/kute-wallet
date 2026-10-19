@@ -10766,6 +10766,16 @@ class AppLocalizationsBg extends AppLocalizations {
       'Този рунд приключи, преди парите ти да пристигнат.';
 
   @override
+  String slipFundingRoundPriceMoved(String price) {
+    return 'Цената се промени на $price, докато парите ти пътуваха.';
+  }
+
+  @override
+  String slipFundingRoundEnded(String amount) {
+    return 'Този рунд приключи, докато парите ти пътуваха. Твоите $amount са в Прогнози.';
+  }
+
+  @override
   String slipFundingInPredictions(String amount) {
     return 'Твоите $amount са в Прогнози. Докосни, за да опиташ пак.';
   }
