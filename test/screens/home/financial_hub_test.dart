@@ -163,6 +163,9 @@ void main() {
     final referralsAt = tester.getCenter(find.text('Referrals'));
     expect(settingsAt.dy, closeTo(supportAt.dy, 1));
     expect(settingsAt.dx, lessThan(supportAt.dx));
+    // The row sits on the right, never centred or flush left.
+    expect(tester.getTopRight(find.byIcon(Icons.support_agent_rounded)).dx,
+        greaterThan(tester.getTopRight(find.text('Financial hub')).dx));
     // Referrals follows Support: beside it, or on the next line where the
     // test font makes the row wider than the sheet (it wraps, never
     // overflows).

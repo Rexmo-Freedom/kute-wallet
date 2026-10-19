@@ -106,33 +106,41 @@ class _HubButtons extends ConsumerWidget {
         ref.watch(runtimeCapabilitiesProvider).allows(kReferralCapability);
     return Padding(
       padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 12.h),
-      // Wraps rather than overflowing where a long translation or a large
-      // text size makes the three wider than the sheet.
-      child: Wrap(spacing: 8.w, runSpacing: 8.h, children: [
-        _HubSettingsButton(callerContext: callerContext),
-        KuteCircleButton(
-          semanticsLabel: context.l10n.support,
-          size: 40,
-          onPressed: () {
-            TrackingService.supportOpened(source: 'financial_hub');
-            Navigator.of(sheetContext).pop();
-            openSupportChat();
-          },
-          child: Icon(Icons.support_agent_rounded,
-              size: 20.sp, color: c.textPrimary),
-        ),
-        if (showReferral)
-          KuteCirclePillButton(
-            icon: Icons.group_rounded,
-            label: context.l10n.hubReferrals,
-            size: 40,
-            onPressed: () {
-              Navigator.of(sheetContext).pop();
-              if (!callerContext.mounted) return;
-              callerContext.push('/affiliate');
-            },
-          ),
-      ]),
+      // Right-aligned under the title. Wraps rather than overflowing where
+      // a long translation or a large text size makes the three wider than
+      // the sheet.
+      child: SizedBox(
+        width: double.infinity,
+        child: Wrap(
+            alignment: WrapAlignment.end,
+            spacing: 8.w,
+            runSpacing: 8.h,
+            children: [
+              _HubSettingsButton(callerContext: callerContext),
+              KuteCircleButton(
+                semanticsLabel: context.l10n.support,
+                size: 40,
+                onPressed: () {
+                  TrackingService.supportOpened(source: 'financial_hub');
+                  Navigator.of(sheetContext).pop();
+                  openSupportChat();
+                },
+                child: Icon(Icons.support_agent_rounded,
+                    size: 20.sp, color: c.textPrimary),
+              ),
+              if (showReferral)
+                KuteCirclePillButton(
+                  icon: Icons.group_rounded,
+                  label: context.l10n.hubReferrals,
+                  size: 40,
+                  onPressed: () {
+                    Navigator.of(sheetContext).pop();
+                    if (!callerContext.mounted) return;
+                    callerContext.push('/affiliate');
+                  },
+                ),
+            ]),
+      ),
     );
   }
 }
