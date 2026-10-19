@@ -24,6 +24,7 @@ import 'package:share_plus/share_plus.dart';
 
 import 'package:kute/helpers/user_error_copy.dart';
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/models/breez/sdk_operation_guard.dart' show runSparkQuote;
 import 'package:kute/models/orchestra_route_limits.dart';
 import 'package:kute/models/orchestra_routes_model.dart';
 import 'package:kute/models/swap_order_model.dart';
@@ -686,11 +687,12 @@ class _QuotedReceiveSheetState extends ConsumerState<QuotedReceiveSheet> {
         return true;
       }
 
-      final receive = await sdk.receivePayment(
-        request: const ReceivePaymentRequest(
-          paymentMethod: ReceivePaymentMethod.sparkAddress(),
-        ),
-      );
+      // A quote's creation: a pull never retires the handle under it.
+      final receive = await runSparkQuote(() => sdk.receivePayment(
+            request: const ReceivePaymentRequest(
+              paymentMethod: ReceivePaymentMethod.sparkAddress(),
+            ),
+          ));
       // The guard's own-recipient check needs an independent source.
       final ownSpark = await ref.read(sparkSelfAddressProvider.future);
       if (!_current(generation) || sdkMoved()) return;
