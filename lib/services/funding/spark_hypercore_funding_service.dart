@@ -2,7 +2,10 @@
 // Investing has no Arbitrum route. An unavailable native route stops before
 // quoting or sending; callers must never select another chain as a fallback.
 // Withdrawals transfer the pinned native spot USDC token and register the
-// confirmed HyperCore ledger transaction with Orchestra.
+// confirmed HyperCore ledger transaction with Orchestra. The same native
+// withdrawal also delivers straight to the wallet's own Predictions account
+// (`hypercore:USDC → polygon:USDC.e`); there the caller, not this file,
+// opens Circle CCTP when Orchestra refuses the route before anything moved.
 
 import 'package:kute/services/hyperliquid/hypercore_activation_fee.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,6 +18,8 @@ import 'package:kute/models/settlement_operation.dart';
 import 'package:kute/models/swap_order_model.dart';
 import 'package:kute/providers/hyperliquid_account_provider.dart'
     show hyperliquidAddressProvider;
+import 'package:kute/providers/polymarket_trading_provider.dart'
+    show polymarketTradingProvider;
 import 'package:kute/providers/spark_address_provider.dart'
     show sparkSelfAddressProvider;
 import 'package:kute/providers/swap_orders_provider.dart'
@@ -40,7 +45,11 @@ import 'package:kute/services/orchestra_routes.dart'
     show kOrchestraUsdAssetCode, kOrchestraUsdChain;
 import 'package:kute/services/polymarket_spark_txs_service.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_onboarding_service.dart';
+import 'package:kute/services/orchestra/standing_deposit_store.dart'
+    show InvestingWithdrawalDestination;
 import 'package:kute/services/release/route_pause_policy.dart';
+import 'package:kute/services/security/address_guard.dart'
+    show isEvmAddress, sameEvmAddress;
 import 'package:kute/services/security/wallet_guard_exception.dart';
 import 'package:kute/services/tracking_service.dart';
 
@@ -48,6 +57,8 @@ const String kSparkToHypercoreRouteVersion = 'spark_to_hypercore_v1';
 const String kSparkUsdToHypercoreRouteVersion = 'spark_usd_to_hypercore_v1';
 const String kHypercoreToSparkRouteVersion = 'hypercore_to_spark_perps_v2';
 const String kHypercoreToSparkUsdRouteVersion = 'hypercore_to_spark_usd_perps_v2';
+const String kHypercoreToPredictionsRouteVersion =
+    'hypercore_to_polygon_usdce_perps_v1';
 
 final RouteKey kSparkToHypercoreRoute = RouteKey(
     fromChain: 'spark',
@@ -74,6 +85,15 @@ final RouteKey kHypercoreToSparkUsdRoute = RouteKey(
     fromAsset: 'USDC',
     toChain: kOrchestraUsdChain,
     toAsset: kOrchestraUsdAssetCode);
+
+/// Investing cash straight to the wallet's own Predictions account: the
+/// Predictions destination asset the CCTP move delivers
+/// ([InvestingWithdrawalDestination.predictions]), by the native route.
+final RouteKey kHypercoreToPredictionsRoute = RouteKey(
+    fromChain: 'hypercore',
+    fromAsset: 'USDC',
+    toChain: InvestingWithdrawalDestination.predictions.chain,
+    toAsset: InvestingWithdrawalDestination.predictions.asset);
 
 /// HyperCore USDC base units per dollar (8 decimals on Orchestra).
 const int _kHypercoreUsdcScale = 100000000;
@@ -458,6 +478,93 @@ class SparkHypercoreFundingService {
     required SettlementStepUpHook stepUp,
     bool registerInBackground = false,
     String purpose = 'manual_move',
+  }) {
+    final String quoteFlow;
+    if (destination.isBitcoin) {
+      quoteFlow = 'move_hypercore_direct_withdraw';
+    } else {
+      quoteFlow = 'move_hypercore_direct_withdraw_usd';
+    }
+    return _withdrawNative(
+      usd: usd,
+      stepUp: stepUp,
+      registerInBackground: registerInBackground,
+      purpose: purpose,
+      target: _NativeWithdrawTarget(
+        flow: destination.sparkWithdrawFlow,
+        route: destination.sparkWithdrawRoute,
+        routeVersion: destination.sparkWithdrawRouteVersion,
+        account: SettlementAccountKind.sparkHot,
+        recipientKind: RecipientKind.ownSpark,
+        quoteFlow: quoteFlow,
+        network: 'SPARK',
+        deliveredFractionDigits: destination.deliveredFractionDigits,
+        readRecipient: () async =>
+            await _read(sparkSelfAddressProvider.future) ?? '',
+        acceptsRecipient: (eoa, recipient) =>
+            eoa.isNotEmpty && recipient.isNotEmpty,
+      ),
+    );
+  }
+
+  /// HyperCore USDC [usd] straight to the wallet's own Predictions account
+  /// (`hypercore:USDC → polygon:USDC.e`), the same native withdrawal as
+  /// [withdrawToSpark]: same perpetuals `usdSend` to the quote's deposit
+  /// address with its nonce written first, same budget, expiry and margin
+  /// checks, same activation-fee review and step-up. The recipient is the
+  /// wallet's own Predictions deposit wallet (a valid EVM address that is
+  /// never the Investing account); the refund is the Investing account.
+  ///
+  /// Throws [HypercoreFundingUnavailable], or the runner's own stop, before
+  /// anything is signed when the route cannot run. Orchestra not offering
+  /// the pair (the catalogue's `pair_missing`, a quote refusing the route)
+  /// is the caller's cue for Circle CCTP; nothing here falls back.
+  Future<DirectHypercoreResult> withdrawToPredictions({
+    required double usd,
+    required SettlementStepUpHook stepUp,
+    bool registerInBackground = false,
+    String purpose = 'manual_move',
+  }) =>
+      _withdrawNative(
+        usd: usd,
+        stepUp: stepUp,
+        registerInBackground: registerInBackground,
+        purpose: purpose,
+        target: _NativeWithdrawTarget(
+          flow: SettlementFlow.investingToPredictionsDirect,
+          route: kHypercoreToPredictionsRoute,
+          routeVersion: kHypercoreToPredictionsRouteVersion,
+          account: SettlementAccountKind.pmHot,
+          recipientKind: RecipientKind.ownPmWallet,
+          quoteFlow: 'move_hypercore_direct_withdraw_predictions',
+          network: 'POLYGON',
+          deliveredFractionDigits: 2,
+          readRecipient: _predictionsAddress,
+          acceptsRecipient: (eoa, recipient) =>
+              isEvmAddress(eoa) &&
+              isEvmAddress(recipient) &&
+              !sameEvmAddress(recipient, eoa),
+        ),
+      );
+
+  /// The wallet's own Predictions deposit wallet, read as the CCTP move
+  /// reads it (`RiverpodCctpWalletContext.predictionsAddress`).
+  Future<String> _predictionsAddress() async {
+    final live =
+        _read(polymarketTradingProvider).valueOrNull?.proxyWalletAddress;
+    if (live != null && live.isNotEmpty) return live;
+    return await _read(polymarketTradingProvider.notifier).depositAddress() ??
+        '';
+  }
+
+  /// The native HyperCore withdrawal [withdrawToSpark] and
+  /// [withdrawToPredictions] share; only the [target] differs.
+  Future<DirectHypercoreResult> _withdrawNative({
+    required double usd,
+    required _NativeWithdrawTarget target,
+    required SettlementStepUpHook stepUp,
+    required bool registerInBackground,
+    required String purpose,
   }) async {
     final blocker = reverseBlocker();
     if (blocker != null) _unavailable('withdraw', blocker);
@@ -465,22 +572,23 @@ class SparkHypercoreFundingService {
     await ensureAvailable(deposit: false);
     _ensureSpendingWallet(walletId);
     final String eoa;
-    final String sparkAddress;
+    final String recipient;
     try {
       eoa = (await _read(hyperliquidAddressProvider.future)) ?? '';
       _ensureSpendingWallet(walletId);
-      sparkAddress = await _read(sparkSelfAddressProvider.future) ?? '';
+      recipient = await target.readRecipient();
       _ensureSpendingWallet(walletId);
     } catch (e) {
       _unavailable(
           'withdraw', HypercoreFundingUnavailableReason.accountUnavailable,
           cause: e);
     }
-    if (eoa.isEmpty || sparkAddress.isEmpty) {
+    if (!target.acceptsRecipient(eoa, recipient)) {
       _unavailable(
           'withdraw', HypercoreFundingUnavailableReason.accountUnavailable);
     }
     final amount = hypercoreUsdcBaseUnits(usd);
+    final route = target.route;
 
     final settlementRunner = await _runner();
     _ensureSpendingWallet(walletId);
@@ -492,10 +600,10 @@ class SparkHypercoreFundingService {
     final base = HotSettlement.plan(
       _read,
       walletId: walletId,
-      flow: destination.sparkWithdrawFlow,
-      route: destination.sparkWithdrawRoute,
+      flow: target.flow,
+      route: route,
       source: SettlementAccountKind.hlHot,
-      destination: SettlementAccountKind.sparkHot,
+      destination: target.account,
       amountUsd: usd,
       requestQuote: (key) async {
         final allocated = await quoteHypercoreBudget(
@@ -506,18 +614,16 @@ class SparkHypercoreFundingService {
               OrchestraQuoteRequest(
                 sourceChain: 'hypercore',
                 sourceAsset: 'USDC',
-                destinationChain: destination.chain,
-                destinationAsset: destination.assetCode,
+                destinationChain: route.toChain,
+                destinationAsset: route.toAsset,
                 amountBaseUnits: netAmount,
-                recipientAddress: sparkAddress,
+                recipientAddress: recipient,
                 refundAddress: eoa,
-                recipientKind: RecipientKind.ownSpark,
-                ownAddress: sparkAddress,
+                recipientKind: target.recipientKind,
+                ownAddress: recipient,
                 tag: oneBalanceQuoteTag(purpose, venue: 'investing'),
               ),
-              flow: destination.isBitcoin
-                  ? 'move_hypercore_direct_withdraw'
-                  : 'move_hypercore_direct_withdraw_usd',
+              flow: target.quoteFlow,
               idempotencyKey: '$key:budget:$attempt',
             );
             final fee = await _reverse.activationFeeForDestination(
@@ -542,10 +648,10 @@ class SparkHypercoreFundingService {
         }
         await _read(swapOrdersProvider.notifier).addExchange(_withdrawRow(
           id: quote.quoteId,
-          destination: destination,
+          target: target,
           quote: quote,
           eoa: eoa,
-          sparkAddress: sparkAddress,
+          recipient: recipient,
           walletId: walletId,
           operationId: operationId,
         ));
@@ -620,7 +726,7 @@ class SparkHypercoreFundingService {
       },
       registerInBackground: registerInBackground,
     );
-    final plan = _versioned(base, destination.sparkWithdrawRouteVersion,
+    final plan = _versioned(base, target.routeVersion,
         payer: SettlementPayer.polygonRelayer);
 
     final SettlementRunResult run;
@@ -644,10 +750,10 @@ class SparkHypercoreFundingService {
     await _swapRow(
       _withdrawRow(
         id: orderId,
-        destination: destination,
+        target: target,
         quote: quote,
         eoa: eoa,
-        sparkAddress: sparkAddress,
+        recipient: recipient,
         walletId: walletId,
         operationId: run.operation.operationId,
       ),
@@ -660,8 +766,8 @@ class SparkHypercoreFundingService {
       run: run,
       amountIn: quote.amountIn,
       estimatedOut: orchestraAmountToDouble(
-          quote.quote.estimatedOut, destination.assetCode,
-          chain: destination.chain),
+          quote.quote.estimatedOut, route.toAsset,
+          chain: route.toChain),
     );
   }
 
@@ -762,30 +868,29 @@ class SparkHypercoreFundingService {
 
   SwapOrder _withdrawRow({
     required String id,
-    required SparkFundingAsset destination,
+    required _NativeWithdrawTarget target,
     required VerifiedOrchestraQuote quote,
     required String eoa,
-    required String sparkAddress,
+    required String recipient,
     required String? walletId,
     required String operationId,
   }) {
     final estOut = orchestraAmountToDouble(
-        quote.quote.estimatedOut, destination.assetCode,
-        chain: destination.chain);
+        quote.quote.estimatedOut, target.route.toAsset,
+        chain: target.route.toChain);
     return SwapOrder(
       id: id,
       coinFrom: 'USDC',
       networkFrom: 'HYPERCORE',
-      coinTo: destination.assetCode,
-      networkTo: 'SPARK',
+      coinTo: target.route.toAsset,
+      networkTo: target.network,
       depositAddress: quote.depositAddress,
       depositAmount:
           (quote.amountIn.toDouble() / _kHypercoreUsdcScale).toStringAsFixed(2),
-      withdrawalAmount:
-          estOut.toStringAsFixed(destination.deliveredFractionDigits),
+      withdrawalAmount: estOut.toStringAsFixed(target.deliveredFractionDigits),
       status: 'exchanging',
       timestamp: DateTime.now().millisecondsSinceEpoch,
-      withdrawalAddress: sparkAddress,
+      withdrawalAddress: recipient,
       depositMin: '0',
       depositMax: '0',
       rate: '0',
@@ -793,7 +898,7 @@ class SparkHypercoreFundingService {
       provider: 'Orchestra',
       walletId: walletId,
       operationId: operationId,
-      routeVersion: destination.sparkWithdrawRouteVersion,
+      routeVersion: target.routeVersion,
     );
   }
 
@@ -806,6 +911,47 @@ class SparkHypercoreFundingService {
     _read(walletTransactionCacheProvider.notifier).mergeSwapOrder(row);
     BackgroundSyncService().syncNow();
   }
+}
+
+/// Where a native HyperCore withdrawal lands: the settlement flow, route
+/// and version it runs under, the wallet's own account and address it
+/// delivers to, and how its quote and Activity row name it.
+class _NativeWithdrawTarget {
+  const _NativeWithdrawTarget({
+    required this.flow,
+    required this.route,
+    required this.routeVersion,
+    required this.account,
+    required this.recipientKind,
+    required this.quoteFlow,
+    required this.network,
+    required this.deliveredFractionDigits,
+    required this.readRecipient,
+    required this.acceptsRecipient,
+  });
+
+  final SettlementFlow flow;
+  final RouteKey route;
+  final String routeVersion;
+
+  /// The wallet's own account the recipient belongs to.
+  final SettlementAccountKind account;
+  final RecipientKind recipientKind;
+
+  /// The quote's analytics `flow` label.
+  final String quoteFlow;
+
+  /// The Activity row's `networkTo`.
+  final String network;
+
+  /// Digits the Activity row's delivered amount is written with.
+  final int deliveredFractionDigits;
+
+  /// Reads the wallet's own recipient address ('' when unknown).
+  final Future<String> Function() readRecipient;
+
+  /// Whether the Investing account and the recipient read are usable.
+  final bool Function(String eoa, String recipient) acceptsRecipient;
 }
 
 final sparkHypercoreFundingServiceProvider =

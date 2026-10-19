@@ -89,6 +89,7 @@ SwapActivityKind classifySwapActivity(SwapOrder order,
     case SettlementFlow.investingToDollarsCctp:
     case SettlementFlow.investingToBtcCctp:
     case SettlementFlow.investingToPredictionsCctp:
+    case SettlementFlow.investingToPredictionsDirect:
       return SwapActivityKind.investingWithdrawal;
     case SettlementFlow.moveDollarsToBtc:
       return SwapActivityKind.dollarWithdrawal;
@@ -118,6 +119,7 @@ SwapActivityKind classifySwapActivity(SwapOrder order,
     return SwapActivityKind.investingDeposit;
   }
   if (version.startsWith('hypercore_to_spark') ||
+      version.startsWith('hypercore_to_polygon') ||
       version.startsWith('hypercore_to_ledger_btc')) {
     return SwapActivityKind.investingWithdrawal;
   }

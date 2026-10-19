@@ -1,8 +1,10 @@
-// Investing → Dollars by Circle CCTP: the fallback while Orchestra refuses
+// Investing → Dollars, Bitcoin or Predictions by Circle CCTP onto a
+// ONE-TIME Orchestra quote: the fallback while Orchestra refuses
 // HyperCore-source routes. Fakes stand in for HyperEVM, Arbitrum, the
-// HyperCore ledger, the exchange and Orchestra; the settlement store is
-// the real one on a temporary Hive box, so every resume rule runs against
-// the record as it is persisted.
+// HyperCore ledger, the exchange and Orchestra (quote, submit, status);
+// the settlement store is the real one on a temporary Hive box, so every
+// resume rule runs against the record as it is persisted. No standing
+// address is registered or paid by any move.
 
 import 'dart:async';
 import 'dart:convert';
@@ -12,7 +14,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/models/affiliate_model.dart';
+import 'package:kute/models/orchestra_route_limits.dart';
+import 'package:kute/providers/hyperliquid_account_provider.dart'
+    show hyperliquidAddressProvider;
+import 'package:kute/providers/spark_address_provider.dart'
+    show sparkSelfAddressProvider;
+import 'package:kute/services/one_balance/hyperliquid_move_rail.dart';
+import 'package:kute/services/one_balance/venue_funder.dart'
+    show SweepAuthorization;
 import 'package:kute/models/orchestra_model.dart';
 import 'package:kute/models/settlement_operation.dart';
 import 'package:kute/models/swap_order_model.dart';
@@ -25,9 +36,17 @@ import 'package:kute/services/funding/settlement_runner.dart';
 import 'package:kute/services/funding/settlement_stage.dart';
 import 'package:kute/services/funding/settlement_store.dart';
 import 'package:kute/services/funding/spark_hypercore_funding_service.dart'
-    show kHypercoreToSparkUsdRoute;
+    show
+        DirectHypercoreResult,
+        SparkFundingAsset,
+        SparkHypercoreFundingService,
+        kHypercoreToSparkUsdRoute,
+        sparkHypercoreFundingServiceProvider;
 import 'package:kute/services/hyperliquid/cctp_withdrawal.dart';
 import 'package:kute/services/orchestra/orchestra_capability_requirements.dart';
+import 'package:kute/services/orchestra/orchestra_quote_gate.dart'
+    show OrchestraQuoteFailure;
+import 'package:kute/services/security/wallet_guard_exception.dart';
 import 'package:kute/services/orchestra/standing_deposit_activity.dart';
 import 'package:kute/services/orchestra/standing_deposit_store.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
@@ -41,6 +60,12 @@ const _otherSpark =
     'spark1pgssy7d7vel0nh9m4326qc54e6rskpczn07dktww9rv4nu5ptvt0s9uc489gg2';
 const _account = '0x7578d21940ee6ac4f882b6d5173d26bce62f5136';
 const _standing = '0x5aaeb6053f3e94c9b9a09f33669435e7ef1beaed';
+// The one-time quotes' deposit addresses, one per quote asked for.
+const _deposits = [
+  '0x17c01c4dc5fe4b698978e302b3480efc9e3a19b6',
+  '0x2222222222222222222222222222222222222222',
+  '0x3333333333333333333333333333333333333333',
+];
 const _pmWallet = '0x9999999999999999999999999999999999999999';
 const _ledgerHash =
     '0x3e1e694226c985983f9804466f30530208450027c1cca46ae1e71494e5cd5f82';
@@ -86,6 +111,7 @@ class _Reads implements CctpChainReads {
   String? Function(int nonce)? ledger;
   Object? ledgerError;
   int pausedReads = 0;
+  final mintReads = <({String to, int fromBlock})>[];
 
   @override
   Future<bool> coreDepositWalletPaused() async {
@@ -107,7 +133,7 @@ class _Reads implements CctpChainReads {
   @override
   Future<List<ArbitrumTokenMint>> arbitrumUsdcMints(
       String to, int fromBlock) async {
-    expect(to, _standing);
+    mintReads.add((to: to, fromBlock: fromBlock));
     if (mintError != null) throw mintError!;
     return mints;
   }
@@ -130,6 +156,10 @@ class _Sender implements CctpSender {
   _SendMode mode = _SendMode.ok;
   final sends = <({String destination, BigInt amount8, String token})>[];
   int nonce = 1791851727813;
+  int signed = 0;
+
+  /// Runs after signing, before the POST hook (the cash collection's time).
+  void Function()? afterSigning;
 
   @override
   Future<BigInt> sendableBaseUnits(String account) async => sendable;
@@ -147,6 +177,8 @@ class _Sender implements CctpSender {
     if (mode == _SendMode.refused) {
       throw SettlementFundingRefused(StateError('locked'));
     }
+    signed++;
+    afterSigning?.call();
     await onBeforePost(nonce);
     if (mode == _SendMode.refusedAfterNonce) {
       throw SettlementFundingRefused(StateError('wallet changed'));
@@ -163,36 +195,81 @@ class _Sender implements CctpSender {
   }
 }
 
+typedef _QuoteAsk = ({
+  InvestingWithdrawalDestination destination,
+  BigInt amountIn6,
+  String recipient,
+  String refundAddress,
+  String idempotencyKey,
+});
+
 class _Orchestra implements CctpOrchestraPort {
-  StandingDepositRecord? held = _record();
-  Object? instructionError;
+  _Orchestra(this.clock);
+
+  final DateTime Function() clock;
+
+  /// A record an older build paid (a standing instruction): read only.
+  StandingDepositRecord? held;
+  int recordReads = 0;
   List<Map<String, dynamic>> depositList = [];
   Object? depositsError;
   final orders = <String, OrchestraOrder>{};
   double? minimum = 0.8;
   final logged = <String>[];
-  int instructions = 0;
-  final destinations = <InvestingWithdrawalDestination>[];
+
+  final quotes = <_QuoteAsk>[];
+
+  /// The validity each quote comes back with, by attempt.
+  Duration Function(int attempt) quoteLife = (_) => const Duration(minutes: 2);
+  Object? quoteError;
+  int? appFeeBps;
+  String Function(int attempt)? depositAddressOf;
+
+  final submits = <({String quoteId, String txHash, String key})>[];
+  CctpSubmitResult Function() submitAnswer =
+      () => (outcome: CctpSubmitOutcome.accepted, orderId: 'ord_1');
 
   @override
-  Future<StandingDepositRecord> instruction({
-    required String walletId,
+  Future<CctpQuote> quote({
+    required InvestingWithdrawalDestination destination,
+    required BigInt amountIn6,
     required String recipient,
     required String refundAddress,
-    required bool Function() wanted,
-    InvestingWithdrawalDestination destination =
-        InvestingWithdrawalDestination.dollars,
+    required String idempotencyKey,
   }) async {
-    instructions++;
-    destinations.add(destination);
-    expect(refundAddress, _account);
-    if (instructionError != null) throw instructionError!;
-    return held!;
+    final attempt = quotes.length;
+    quotes.add((
+      destination: destination,
+      amountIn6: amountIn6,
+      recipient: recipient,
+      refundAddress: refundAddress,
+      idempotencyKey: idempotencyKey,
+    ));
+    if (quoteError != null) throw quoteError!;
+    return CctpQuote(
+      quoteId: 'q_${attempt + 1}',
+      depositAddress: depositAddressOf?.call(attempt) ?? _deposits[attempt],
+      expiresAt: clock().add(quoteLife(attempt)),
+      amountIn6: amountIn6,
+      appFeeBps: appFeeBps,
+    );
   }
 
   @override
-  Future<StandingDepositRecord?> record(String walletId, String label) async =>
-      held?.label == label ? held : null;
+  Future<CctpSubmitResult> submit({
+    required String quoteId,
+    required String txHash,
+    required String idempotencyKey,
+  }) async {
+    submits.add((quoteId: quoteId, txHash: txHash, key: idempotencyKey));
+    return submitAnswer();
+  }
+
+  @override
+  Future<StandingDepositRecord?> record(String walletId, String label) async {
+    recordReads++;
+    return held?.label == label ? held : null;
+  }
 
   @override
   Future<List<Map<String, dynamic>>> deposits(
@@ -248,6 +325,48 @@ class _Wallet implements CctpWalletContext {
   Future<String> predictionsAddress() async => predictions;
 }
 
+OrchestraOrder _order(String id, String status,
+        {String recipient = _spark, String? quoteId = 'q_1'}) =>
+    OrchestraOrder(
+        id: id,
+        status: status,
+        quoteId: quoteId,
+        amountIn: '5050000',
+        amountOut: '5040000',
+        recipientAddress: recipient,
+        createdAt: DateTime.utc(2026, 10, 19).toIso8601String());
+
+ArbitrumTokenMint _mint([int units = 5050000, String tx = _mintTx]) =>
+    ArbitrumTokenMint(amount: BigInt.from(units), txHash: tx, block: 514276620);
+
+/// The native HyperCore route as Flashnet answers it today: refused for the
+/// route itself, before anything is signed.
+class _RefusingNative extends SparkHypercoreFundingService {
+  _RefusingNative(super.read);
+
+  int calls = 0;
+
+  @override
+  Future<void> ensureAvailable({required bool deposit}) async {}
+
+  @override
+  Future<DirectHypercoreResult> withdrawToSpark({
+    required double usd,
+    SparkFundingAsset destination = SparkFundingAsset.bitcoin,
+    required SettlementStepUpHook stepUp,
+    bool registerInBackground = false,
+    String purpose = 'manual_move',
+  }) async {
+    calls++;
+    throw OrchestraQuoteFailure(
+      'HyperCore source routes require independent deposit verification '
+      'and are unavailable',
+      routeError:
+          RouteQuoteError(RouteQuoteErrorCode.fromCode('unsupported_route')!),
+    );
+  }
+}
+
 void main() {
   late Directory temporary;
   late SettlementStore store;
@@ -286,8 +405,10 @@ void main() {
       ];
 
   Future<SettlementOperation> only() async =>
-      (await store.all()).singleWhere(
-          (op) => op.flow == SettlementFlow.investingToDollarsCctp);
+      (await store.all()).singleWhere((op) => op.flow.isInvestingCctp);
+
+  Map<String, dynamic> cctpOf(SettlementOperation op) =>
+      Map<String, dynamic>.from(op.raw['cctp'] as Map);
 
   setUp(() async {
     temporary = await Directory.systemTemp.createTemp('cctp-withdrawal');
@@ -300,7 +421,7 @@ void main() {
     );
     reads = _Reads();
     sender = _Sender();
-    orchestra = _Orchestra();
+    orchestra = _Orchestra(() => now);
     rows = _Rows();
     wallet = _Wallet();
     events = [];
@@ -413,12 +534,12 @@ void main() {
       ArbitrumTokenMint mint(int units, [String tx = _mintTx]) =>
           ArbitrumTokenMint(amount: BigInt.from(units), txHash: tx, block: 1);
       expect(
-          matchCctpMint(
-                  mints: [mint(5050000)], amount6: amount6, maxFee6: fee6)
+          matchCctpMint(mints: [mint(5050000)], amount6: amount6, maxFee6: fee6)
               ?.txHash,
           _mintTx);
       expect(
-          matchCctpMint(mints: [mint(5049999)], amount6: amount6, maxFee6: fee6),
+          matchCctpMint(
+              mints: [mint(5049999)], amount6: amount6, maxFee6: fee6),
           isNull);
       expect(
           matchCctpMint(
@@ -457,209 +578,6 @@ void main() {
     });
   });
 
-  test('happy path: burn, ledger, mint, order, completed', () async {
-    reads.ledger = (nonce) => nonce == sender.nonce ? _ledgerHash : null;
-    final result = await service().withdrawToDollars(
-        usd: 5.25, stepUp: approve(), purpose: 'sweep');
-    expect(result.sentUsd, 5.25);
-    expect(result.arrivingUsdEstimate, closeTo(5.05, 1e-9));
-    expect(sender.sends.single.destination, _standing);
-    expect(sender.sends.single.amount8, BigInt.from(525000000));
-    expect(sender.sends.single.token, 'USDC');
-
-    // The approval names the own Spark address and the dollar route home.
-    final intent = intents.single;
-    expect(intent.destination, '$_spark|$kHypercoreCctpRouteVersion');
-    expect(intent.routeLabel, kHypercoreToSparkUsdRoute.label);
-    expect(intent.amountIn, BigInt.from(525000000));
-
-    var op = await only();
-    expect(op.stage, SettlementStage.funded);
-    expect(op.funding?.hlNonce, sender.nonce);
-    expect(op.funding?.evmTxHash, _ledgerHash);
-    final row = rows.byId['$kCctpRowPrefix${op.operationId}']!;
-    expect(row.networkFrom, 'HYPERCORE');
-    expect(row.coinFrom, 'USDC');
-    expect(row.networkTo, 'SPARK');
-    expect(row.coinTo, 'USDB');
-    expect(row.isPending, isTrue);
-    expect(row.shouldPollOrchestra, isFalse);
-
-    // Circle mints on Arbitrum, Orchestra sees it and makes the order.
-    now = now.add(const Duration(seconds: 15));
-    reads.mints = [
-      ArbitrumTokenMint(amount: BigInt.from(5050000), txHash: _mintTx, block: 9)
-    ];
-    orchestra.depositList = [
-      {
-        'id': 'dep_1',
-        'chain': 'arbitrum',
-        'asset': 'USDC',
-        'amount': '5050000',
-        'sourceTxId': _mintTx,
-        'observedAt': now.toIso8601String(),
-        'status': 'processing',
-        'orderId': 'ord_1',
-      }
-    ];
-    orchestra.orders['ord_1'] = OrchestraOrder(
-        id: 'ord_1',
-        status: 'processing',
-        amountIn: '5050000',
-        amountOut: '5040000',
-        recipientAddress: _spark,
-        createdAt: now.toIso8601String());
-    await service().reconcile(op, force: true);
-    op = await only();
-    expect(op.stage, SettlementStage.processing);
-    expect(op.orderId, 'ord_1');
-    expect(rows.byId.containsKey('$kCctpRowPrefix${op.operationId}'), isFalse);
-    final orderRow = rows.byId['ord_1']!;
-    expect(orderRow.networkFrom, 'HYPERCORE');
-    expect(orderRow.coinTo, 'USDB');
-    expect(orderRow.operationId, op.operationId);
-    expect(orderRow.routeVersion, kHypercoreCctpRouteVersion);
-    expect(orchestra.logged, ['ord_1'], reason: 'provider event: pending');
-
-    orchestra.orders['ord_1'] = OrchestraOrder(
-        id: 'ord_1',
-        status: 'completed',
-        amountIn: '5050000',
-        amountOut: '5040000',
-        recipientAddress: _spark,
-        createdAt: now.toIso8601String());
-    now = now.add(const Duration(minutes: 1));
-    await service().reconcile(op, force: true);
-    op = await only();
-    expect(op.stage, SettlementStage.settled);
-    expect(named('hyperliquid_withdraw_step'),
-        ['cctp_sent', 'core_confirmed', 'arbitrum_minted', 'orchestra_detected']);
-    final completed =
-        events.singleWhere((e) => e.$1 == 'hyperliquid_withdraw_completed');
-    expect(completed.$2?['route'], 'cctp');
-    expect(completed.$2?['destination'], 'usd');
-    expect(completed.$2?.containsKey('order_ref'), isTrue);
-    expect(completed.$2?.values.contains('ord_1'), isFalse,
-        reason: 'ids only as a one-way ref');
-
-    // A later pass never reports the outcome twice.
-    await service().reconcile(op, force: true);
-    expect(named('hyperliquid_withdraw_completed').length, 1);
-  });
-
-  group('the Kute fee of the instruction paid', () {
-    test('investments_internal on the new Dollars label: the fee line is 0%',
-        () async {
-      orchestra.held = _record(purpose: 'investments_internal', appFeeBps: 0);
-      reads.ledger = (nonce) => nonce == sender.nonce ? _ledgerHash : null;
-      final result = await service().withdrawToDollars(
-          usd: 5.25, stepUp: approve(), purpose: 'manual_move');
-      expect(result.kuteFeeBps, 0);
-      expect(feeRateText(result.kuteFeeBps!), '0.00%');
-      final op = await only();
-      final cctp = op.raw['cctp'] as Map;
-      expect(cctp['kuteFeeBps'], 0);
-      // One withdrawal, one instruction, one address.
-      expect(orchestra.instructions, 1);
-      expect(cctp['label'], orchestra.held!.label);
-      expect(sender.sends.single.destination, _standing);
-    });
-
-    test('venue_withdrawal (an old backend, or the legacy label): its rate',
-        () async {
-      orchestra.held = _record(legacy: true);
-      reads.ledger = (nonce) => nonce == sender.nonce ? _ledgerHash : null;
-      final result = await service().withdrawToDollars(
-          usd: 5.25, stepUp: approve(), purpose: 'manual_move');
-      expect(result.kuteFeeBps, 50);
-      expect(feeRateText(result.kuteFeeBps!), '0.50%');
-      final op = await only();
-      expect((op.raw['cctp'] as Map)['kuteFeeBps'], 50);
-      expect((op.raw['cctp'] as Map)['label'],
-          StandingDepositStore.investingWithdrawalLabelFor(_spark, 7,
-              legacy: true));
-      expect(sender.sends, hasLength(1));
-    });
-  });
-
-  group('straight to the final destination', () {
-    test('Bitcoin: its own instruction, the BTC route, own Spark', () async {
-      orchestra.held = _record(destination: InvestingWithdrawalDestination.bitcoin);
-      reads.ledger = (nonce) => nonce == sender.nonce ? _ledgerHash : null;
-      final result = await service().withdrawTo(
-          destination: InvestingWithdrawalDestination.bitcoin,
-          usd: 5.25,
-          stepUp: approve(),
-          purpose: 'cash_pull');
-      expect(result.sentUsd, 5.25);
-      expect(orchestra.destinations, [InvestingWithdrawalDestination.bitcoin]);
-      expect(sender.sends.single.destination, _standing);
-      final intent = intents.single;
-      expect(intent.flow, SettlementFlow.investingToBtcCctp);
-      expect(intent.destination, '$_spark|$kHypercoreCctpBtcRouteVersion');
-      expect(intent.routeLabel,
-          cctpRouteFor(InvestingWithdrawalDestination.bitcoin).label);
-      final op = (await store.all()).single;
-      expect(op.flow, SettlementFlow.investingToBtcCctp);
-      expect(op.recipient?.address, _spark);
-      final row = rows.byId['$kCctpRowPrefix${op.operationId}']!;
-      expect(row.coinTo, 'BTC');
-      expect(row.networkTo, 'SPARK');
-    });
-
-    test('Predictions: the own deposit wallet on Polygon USDC.e', () async {
-      orchestra.held = _record(
-          recipient: _pmWallet,
-          purpose: 'investments_internal',
-          destination: InvestingWithdrawalDestination.predictions);
-      reads.ledger = (nonce) => nonce == sender.nonce ? _ledgerHash : null;
-      await service().withdrawTo(
-          destination: InvestingWithdrawalDestination.predictions,
-          usd: 5.25,
-          stepUp: approve(),
-          purpose: 'cash_pull');
-      final op = (await store.all()).single;
-      expect(op.flow, SettlementFlow.investingToPredictionsCctp);
-      expect(op.recipient?.kind, OwnedAddressKind.polymarketDepositWallet);
-      expect(intents.single.destination,
-          '$_pmWallet|$kHypercoreCctpPredictionsRouteVersion');
-      final row = rows.byId['$kCctpRowPrefix${op.operationId}']!;
-      expect(row.coinTo, 'USDC.e');
-      expect(row.networkTo, 'POLYGON');
-    });
-
-    test('an instruction pinned to another rule is never paid', () async {
-      // A Bitcoin instruction that came back with the deposit rule.
-      orchestra.held = _record(
-          purpose: 'cross_chain_deposit',
-          destination: InvestingWithdrawalDestination.bitcoin);
-      await expectLater(
-          service().withdrawTo(
-              destination: InvestingWithdrawalDestination.bitcoin,
-              usd: 5,
-              stepUp: approve()),
-          throwsA(isA<CctpUnavailable>().having((e) => e.reason, 'reason',
-              CctpUnavailableReason.feeTermsUnavailable)));
-      // The Dollars instruction never stands in for Bitcoin.
-      orchestra.held = _record();
-      await expectLater(
-          service().withdrawTo(
-              destination: InvestingWithdrawalDestination.bitcoin,
-              usd: 5,
-              stepUp: approve()),
-          throwsA(isA<CctpUnavailable>()));
-      expect(sender.sends, isEmpty);
-      expect(intents, isEmpty);
-    });
-
-    test('Predictions needs polymarket.deposit too', () {
-      expect(cctpCapabilitiesFor(InvestingWithdrawalDestination.predictions),
-          containsAll(['hyperliquid.withdraw', 'polymarket.deposit']));
-      expect(cctpCapabilitiesFor(InvestingWithdrawalDestination.bitcoin),
-          ['hyperliquid.withdraw']);
-    });
-  });
-
   group('runtime policy', () {
     // The normal route's quote answers to these for
     // `hypercore:USDC → spark:USDB`; the fallback must answer to the same.
@@ -677,8 +595,7 @@ void main() {
     }
 
     /// A policy whose backend answers [answer]; its own clock.
-    RuntimeCapabilitiesService serving(
-            Future<http.Response> Function() answer,
+    RuntimeCapabilitiesService serving(Future<http.Response> Function() answer,
             {DateTime Function()? clock}) =>
         RuntimeCapabilitiesService.forTesting(
           client: MockClient((_) => answer()),
@@ -694,9 +611,8 @@ void main() {
             'schemaVersion': 1,
             'revision': 1,
             'evaluatedAt': evaluated.toIso8601String(),
-            'expiresAt': evaluated
-                .add(const Duration(minutes: 2))
-                .toIso8601String(),
+            'expiresAt':
+                evaluated.add(const Duration(minutes: 2)).toIso8601String(),
             'capabilities': {
               'hyperliquid.withdraw': {
                 'allowed': withdraw,
@@ -712,21 +628,21 @@ void main() {
       expect(kCctpCapabilities, ['hyperliquid.withdraw']);
     });
 
-    test('withheld hyperliquid.withdraw: nothing registered, approved or '
-        'signed', () async {
+    test('withheld hyperliquid.withdraw: nothing quoted, approved or signed',
+        () async {
       policy.dispose();
       policy = runtimePolicyFixture(blocked: {'hyperliquid.withdraw'});
       await expectLater(
           service().withdrawToDollars(usd: 5, stepUp: approve()),
           throwsA(isA<CctpUnavailable>()
-              .having((e) => e.reason, 'reason',
-                  CctpUnavailableReason.capability)
+              .having(
+                  (e) => e.reason, 'reason', CctpUnavailableReason.capability)
               .having((e) => e.decision?.allowed, 'decision.allowed', false)
-              .having((e) => e.decision?.reason, 'decision.reason',
-                  'disabled')));
+              .having(
+                  (e) => e.decision?.reason, 'decision.reason', 'disabled')));
       expect(await normalRoute(), isA<CapabilityUnavailableException>(),
           reason: 'the normal route refuses too');
-      expect(orchestra.instructions, 0);
+      expect(orchestra.quotes, isEmpty);
       expect(reads.pausedReads, 0);
       expect(intents, isEmpty, reason: 'no approval asked');
       expect(sender.sends, isEmpty);
@@ -744,7 +660,8 @@ void main() {
       expect(named('hyperliquid_cctp_unavailable'), isEmpty);
     });
 
-    test('a policy that cannot be read: the normal route\'s rule (an exit, '
+    test(
+        'a policy that cannot be read: the normal route\'s rule (an exit, '
         'allowed)', () async {
       policy.dispose();
       policy = serving(() async => http.Response('unavailable', 503));
@@ -755,7 +672,8 @@ void main() {
       expect(named('hyperliquid_cctp_unavailable'), isEmpty);
     });
 
-    test('a policy that cannot be read after a denial: still refused, as '
+    test(
+        'a policy that cannot be read after a denial: still refused, as '
         'the normal route', () async {
       var policyNow = DateTime.now();
       var reachable = true;
@@ -779,16 +697,544 @@ void main() {
     });
   });
 
-  test('a paused CoreDepositWallet stops before anything is signed', () async {
+  test('Dollars: one-time quote, sign to its address, mint found, submitted',
+      () async {
+    reads.ledger = (nonce) => nonce == sender.nonce ? _ledgerHash : null;
+    orchestra.appFeeBps = null; // inside Investments: no app fee
+    final result = await service()
+        .withdrawToDollars(usd: 5.25, stepUp: approve(), purpose: 'sweep');
+    expect(result.sentUsd, 5.25);
+    expect(result.arrivingUsdEstimate, closeTo(5.05, 1e-9));
+    expect(result.kuteFeeBps, 0);
+
+    // The quote: exact in for what Circle mints, to the own Spark address,
+    // refunds to the own EVM address (the Investing account).
+    final ask = orchestra.quotes.single;
+    expect(ask.destination, InvestingWithdrawalDestination.dollars);
+    expect(ask.amountIn6, BigInt.from(5050000));
+    expect(ask.recipient, _spark);
+    expect(ask.refundAddress, _account);
+    // Signed to the quote's deposit address, never a standing address.
+    expect(sender.sends.single.destination, _deposits[0]);
+    expect(sender.sends.single.amount8, BigInt.from(525000000));
+    expect(sender.sends.single.token, 'USDC');
+    expect(orchestra.recordReads, 0, reason: 'no standing instruction');
+
+    // The approval names the own Spark address and the dollar route home.
+    final intent = intents.single;
+    expect(intent.destination, '$_spark|$kHypercoreCctpRouteVersion');
+    expect(intent.routeLabel, kHypercoreToSparkUsdRoute.label);
+    expect(intent.amountIn, BigInt.from(525000000));
+
+    var op = await only();
+    expect(op.stage, SettlementStage.funded);
+    expect(op.funding?.hlNonce, sender.nonce);
+    expect(op.funding?.evmTxHash, _ledgerHash);
+    final cctp = cctpOf(op);
+    expect(cctp['quoteId'], 'q_1');
+    expect(cctp['depositAddress'], _deposits[0]);
+    expect(cctp['target'], 'onetime');
+    expect(cctp.containsKey('label'), isFalse);
+    final pendingId = '$kCctpRowPrefix${op.operationId}';
+    final row = rows.byId[pendingId]!;
+    expect(row.networkFrom, 'HYPERCORE');
+    expect(row.coinTo, 'USDB');
+    expect(row.depositAddress, _deposits[0],
+        reason: 'Track this exchange opens the quote address on Arbiscan');
+    expect(row.shouldPollOrchestra, isFalse);
+
+    // Circle mints on Arbitrum; the mint is submitted; the order exists.
+    now = now.add(const Duration(seconds: 15));
+    reads.mints = [_mint()];
+    orchestra.orders['ord_1'] = _order('ord_1', 'processing');
+    await service().reconcile(op, force: true);
+    expect(reads.mintReads.last.to, _deposits[0]);
+    expect(reads.mintReads.last.fromBlock, 514276600);
+    final submit = orchestra.submits.single;
+    expect(submit.quoteId, 'q_1');
+    expect(submit.txHash, _mintTx);
+    expect(submit.key, cctp['submitKey']);
+    op = await only();
+    expect(op.stage, SettlementStage.processing);
+    expect(op.orderId, 'ord_1');
+    expect(rows.byId.containsKey(pendingId), isFalse);
+    final orderRow = rows.byId['ord_1']!;
+    expect(orderRow.networkFrom, 'HYPERCORE');
+    expect(orderRow.coinTo, 'USDB');
+    expect(orderRow.depositAddress, _deposits[0]);
+    expect(orderRow.operationId, op.operationId);
+    expect(orderRow.routeVersion, kHypercoreCctpRouteVersion);
+    expect(orderRow.shouldPollOrchestra, isTrue);
+    expect(orchestra.logged, ['ord_1']);
+
+    orchestra.orders['ord_1'] = _order('ord_1', 'completed');
+    now = now.add(const Duration(minutes: 1));
+    await service().reconcile(op, force: true);
+    op = await only();
+    expect(op.stage, SettlementStage.settled);
+    expect(orchestra.submits, hasLength(1), reason: 'never submitted again');
+    expect(named('hyperliquid_withdraw_step'), [
+      'cctp_sent',
+      'core_confirmed',
+      'arbitrum_minted',
+      'orchestra_submitted',
+    ]);
+    final completed =
+        events.singleWhere((e) => e.$1 == 'hyperliquid_withdraw_completed');
+    expect(completed.$2?['route'], 'cctp');
+    expect(completed.$2?['cctp_target'], 'onetime');
+    expect(completed.$2?['submit_result'], 'submitted');
+    expect(completed.$2?['destination'], 'usd');
+    expect(completed.$2?.values.contains('ord_1'), isFalse);
+    expect(completed.$2?.values.contains(_deposits[0]), isFalse);
+    for (final step
+        in events.where((e) => e.$1 == 'hyperliquid_withdraw_step')) {
+      expect(step.$2?['cctp_target'], 'onetime');
+    }
+
+    // A later pass never reports the outcome twice.
+    await service().reconcile(op, force: true);
+    expect(named('hyperliquid_withdraw_completed').length, 1);
+
+    // The legs as the Activity detail shows them.
+    final legs = cctpLegProgressOf(op)!;
+    expect([legs.burned, legs.minted, legs.ordered], [true, true, true]);
+    expect(legs.sentUsd, 5.25);
+    expect(legs.mintUsd, closeTo(5.05, 1e-9));
+  });
+
+  test(
+      'Investing → Dollars on the rail: HyperCore refused, then CCTP onto a '
+      'one-time quote, signed to its address, the mint submitted', () async {
+    final container = ProviderContainer(overrides: [
+      hyperliquidAddressProvider.overrideWith((_) async => _account),
+      sparkSelfAddressProvider.overrideWith((_) async => _spark),
+    ]);
+    addTearDown(container.dispose);
+    final native = _RefusingNative(container.read);
+    final read = ProviderContainer(
+      parent: container,
+      overrides: [
+        sparkHypercoreFundingServiceProvider.overrideWithValue(native)
+      ],
+    ).read;
+    reads.ledger = (_) => _ledgerHash;
+    final result = await HyperCoreMoveRail(read, cctp: service)
+        .withdrawToDollars(usd: 5.25, auth: SweepAuthorization.automatic);
+    expect(native.calls, 1, reason: 'the native route first');
+    expect(result.sentUsd, 5.25);
+    expect(orchestra.quotes.single.recipient, _spark);
+    expect(sender.sends.single.destination, _deposits[0]);
+    expect(orchestra.recordReads, 0, reason: 'no standing registration');
+    final submitted =
+        events.singleWhere((e) => e.$1 == 'hyperliquid_withdraw_submitted');
+    expect(submitted.$2?['route'], 'cctp');
+    expect(submitted.$2?['cctp_target'], 'onetime');
+
+    reads.mints = [_mint()];
+    orchestra.orders['ord_1'] = _order('ord_1', 'processing');
+    now = now.add(const Duration(seconds: 20));
+    await service().reconcile(await only(), force: true);
+    expect(orchestra.submits.single.txHash, _mintTx);
+    expect((await only()).orderId, 'ord_1');
+  });
+
+  test('Predictions: one-time quote to the own Predictions wallet, submitted',
+      () async {
+    reads.ledger = (_) => _ledgerHash;
+    await service().withdrawTo(
+        destination: InvestingWithdrawalDestination.predictions,
+        usd: 5.25,
+        stepUp: approve(),
+        purpose: 'manual_move');
+    final ask = orchestra.quotes.single;
+    expect(ask.destination, InvestingWithdrawalDestination.predictions);
+    expect(ask.recipient, _pmWallet);
+    expect(ask.refundAddress, _account);
+    expect(ask.amountIn6, BigInt.from(5050000));
+    expect(sender.sends.single.destination, _deposits[0]);
+    expect(orchestra.recordReads, 0);
+    var op = await only();
+    expect(op.flow, SettlementFlow.investingToPredictionsCctp);
+    expect(op.recipient?.kind, OwnedAddressKind.polymarketDepositWallet);
+    expect(intents.single.destination,
+        '$_pmWallet|$kHypercoreCctpPredictionsRouteVersion');
+    final row = rows.byId['$kCctpRowPrefix${op.operationId}']!;
+    expect(row.coinTo, 'USDC.e');
+    expect(row.networkTo, 'POLYGON');
+
+    reads.mints = [_mint()];
+    orchestra.orders['ord_1'] =
+        _order('ord_1', 'processing', recipient: _pmWallet);
+    now = now.add(const Duration(seconds: 20));
+    await service().reconcile(op, force: true);
+    expect(orchestra.submits.single.txHash, _mintTx);
+    op = await only();
+    expect(op.orderId, 'ord_1');
+    expect(rows.byId['ord_1']!.networkTo, 'POLYGON');
+  });
+
+  test('Bitcoin: one-time quote into spark:BTC to the own Spark address',
+      () async {
+    reads.ledger = (_) => _ledgerHash;
+    orchestra.appFeeBps = 50;
+    final result = await service().withdrawTo(
+        destination: InvestingWithdrawalDestination.bitcoin,
+        usd: 5.25,
+        stepUp: approve(),
+        purpose: 'cash_pull');
+    expect(result.kuteFeeBps, 50);
+    expect(feeRateText(result.kuteFeeBps!), '0.50%');
+    expect(orchestra.quotes.single.destination,
+        InvestingWithdrawalDestination.bitcoin);
+    expect(orchestra.quotes.single.recipient, _spark);
+    final intent = intents.single;
+    expect(intent.flow, SettlementFlow.investingToBtcCctp);
+    expect(intent.routeLabel,
+        cctpRouteFor(InvestingWithdrawalDestination.bitcoin).label);
+    final op = await only();
+    expect(op.flow, SettlementFlow.investingToBtcCctp);
+    expect(rows.byId['$kCctpRowPrefix${op.operationId}']!.coinTo, 'BTC');
+  });
+
+  test('Predictions needs polymarket.deposit too', () {
+    expect(cctpCapabilitiesFor(InvestingWithdrawalDestination.predictions),
+        containsAll(['hyperliquid.withdraw', 'polymarket.deposit']));
+    expect(cctpCapabilitiesFor(InvestingWithdrawalDestination.bitcoin),
+        ['hyperliquid.withdraw']);
+    expect(cctpQuoteTag(InvestingWithdrawalDestination.predictions),
+        'kute:investing_to_predictions_cctp');
+    expect(cctpQuoteTag(InvestingWithdrawalDestination.dollars),
+        'kute:investing_withdrawal_cctp');
+  });
+
+  group('quote validity', () {
+    test('too close to expiry: asks again, never signs to the short one',
+        () async {
+      orchestra.quoteLife = (attempt) => attempt == 0
+          ? kCctpQuoteMinRemaining - const Duration(seconds: 1)
+          : const Duration(minutes: 2);
+      await service().withdrawToDollars(usd: 5, stepUp: approve());
+      expect(orchestra.quotes, hasLength(2));
+      expect(orchestra.quotes[0].idempotencyKey,
+          isNot(orchestra.quotes[1].idempotencyKey));
+      expect(sender.sends.single.destination, _deposits[1]);
+      expect(cctpOf(await only())['quoteId'], 'q_2');
+    });
+
+    test('no quote with enough validity: stops before signing', () async {
+      orchestra.quoteLife = (_) => const Duration(seconds: 40);
+      await expectLater(
+          service().withdrawToDollars(usd: 5, stepUp: approve()),
+          throwsA(isA<CctpUnavailable>().having(
+              (e) => e.reason, 'reason', CctpUnavailableReason.quoteExpired)));
+      expect(orchestra.quotes, hasLength(kCctpQuoteAttempts));
+      expect(sender.signed, 0);
+      expect(await store.all(), isEmpty);
+      expect(rows.byId, isEmpty);
+      expect(named('hyperliquid_cctp_unavailable'), ['quote_expired']);
+    });
+
+    test('ran short between signing and the POST: never posted', () async {
+      sender.afterSigning = () => now = now.add(const Duration(seconds: 100));
+      await expectLater(
+          service().withdrawToDollars(usd: 5, stepUp: approve()),
+          throwsA(isA<CctpUnavailable>().having(
+              (e) => e.reason, 'reason', CctpUnavailableReason.quoteExpired)));
+      expect(sender.sends, isEmpty, reason: 'nothing posted');
+      final op = await only();
+      expect(op.stage, SettlementStage.abandoned);
+      expect(op.funding?.hlNonce, isNull);
+      expect(rows.byId, isEmpty);
+    });
+
+    test('a refused or unreachable quote stops before signing', () async {
+      orchestra.quoteError = const OrchestraQuoteFailure('unsupported_route');
+      await expectLater(
+          service().withdrawToDollars(usd: 5, stepUp: approve()),
+          throwsA(isA<CctpUnavailable>().having((e) => e.reason, 'reason',
+              CctpUnavailableReason.quoteUnavailable)));
+      orchestra.quoteError =
+          const WalletGuardException(WalletGuardReason.recipientNotOwn);
+      await expectLater(service().withdrawToDollars(usd: 5, stepUp: approve()),
+          throwsA(isA<CctpUnavailable>()));
+      expect(sender.signed, 0);
+      expect(await store.all(), isEmpty);
+    });
+
+    test('the backend withholding the route is shown as the restriction',
+        () async {
+      final decision = CapabilityDecision(allowed: false, reason: 'disabled');
+      orchestra.quoteError = OrchestraQuoteFailure('feature_unavailable',
+          denial:
+              CapabilityUnavailableException('hyperliquid.withdraw', decision));
+      await expectLater(
+          service().withdrawToDollars(usd: 5, stepUp: approve()),
+          throwsA(isA<CctpUnavailable>()
+              .having(
+                  (e) => e.reason, 'reason', CctpUnavailableReason.capability)
+              .having((e) => e.decision?.reason, 'decision', 'disabled')));
+      expect(sender.signed, 0);
+    });
+
+    test('a quote whose deposit address is the Investing account is refused',
+        () async {
+      orchestra.depositAddressOf = (_) => _account;
+      await expectLater(service().withdrawToDollars(usd: 5, stepUp: approve()),
+          throwsA(isA<CctpUnavailable>()));
+      expect(sender.signed, 0);
+    });
+  });
+
+  group('after the burn', () {
+    test('restart after signing: never signs again, the submit resumes',
+        () async {
+      sender.mode = _SendMode.lostAfterPost;
+      reads.ledger = (_) => null;
+      await service().withdrawToDollars(usd: 5, stepUp: approve());
+      var op = await only();
+      expect(op.stage, SettlementStage.broadcasting);
+      expect(cctpOf(op)['quoteId'], 'q_1');
+      expect(cctpOf(op)['depositAddress'], _deposits[0]);
+
+      // A fresh process: the ledger shows the burn, Circle minted.
+      reads.ledger = (_) => _ledgerHash;
+      reads.mints = [_mint(4800000)];
+      orchestra.orders['ord_1'] = _order('ord_1', 'processing');
+      now = now.add(const Duration(seconds: 30));
+      await service().reconcile(op);
+      op = await only();
+      expect(op.funding?.evmTxHash, _ledgerHash);
+      expect(orchestra.submits.single.quoteId, 'q_1');
+      expect(op.orderId, 'ord_1');
+      expect(sender.signed, 1, reason: 'never signs again');
+      expect(orchestra.quotes, hasLength(1), reason: 'never quotes again');
+    });
+
+    test('the mint not found quickly: keeps watching, never signs twice',
+        () async {
+      reads.ledger = (_) => _ledgerHash;
+      await service().withdrawToDollars(usd: 5, stepUp: approve());
+      for (var i = 0; i < 5; i++) {
+        now = now.add(const Duration(minutes: 5));
+        await service().reconcile(await only(), force: true);
+      }
+      var op = await only();
+      expect(op.stage, SettlementStage.funded);
+      expect(orchestra.submits, isEmpty, reason: 'nothing to submit yet');
+      expect(rows.byId.values.single.status, 'exchanging');
+
+      // Past the attention window: still watched on the slow pace.
+      now = now.add(kCctpAttentionAfter);
+      await service().reconcile(op, force: true);
+      op = await only();
+      expect(op.stage, SettlementStage.needsAttention);
+
+      // The mint turns up late: submitted, the order adopted.
+      reads.mints = [_mint(4800000)];
+      orchestra.orders['ord_1'] = _order('ord_1', 'processing');
+      now = now.add(const Duration(minutes: 11));
+      await service().reconcile(op);
+      op = await only();
+      expect(orchestra.submits, hasLength(1));
+      expect(op.orderId, 'ord_1');
+      expect(op.stage, SettlementStage.processing);
+      expect(sender.signed, 1);
+      expect(orchestra.quotes, hasLength(1));
+    });
+
+    test('minted but no order for long: needs attention, still submitted',
+        () async {
+      reads.ledger = (_) => _ledgerHash;
+      await service().withdrawToDollars(usd: 5, stepUp: approve());
+      reads.mints = [_mint(4800000)];
+      orchestra.submitAnswer =
+          () => (outcome: CctpSubmitOutcome.transient, orderId: null);
+      now = now.add(const Duration(seconds: 20));
+      await service().reconcile(await only(), force: true);
+      expect((await only()).stage, SettlementStage.processing);
+      now = now.add(kCctpAttentionAfter);
+      await service().reconcile(await only(), force: true);
+      expect((await only()).stage, SettlementStage.needsAttention);
+      now = now.add(const Duration(minutes: 11));
+      await service().reconcile(await only());
+      expect(orchestra.submits, hasLength(3));
+      expect(orchestra.submits.map((s) => s.key).toSet(), hasLength(1));
+      expect(sender.signed, 1);
+    });
+
+    test('Orchestra finds it first: the order is adopted as detected',
+        () async {
+      reads.ledger = (_) => _ledgerHash;
+      reads.mintError = const ArbitrumReadException('no RPC');
+      await service().withdrawToDollars(usd: 5, stepUp: approve());
+      orchestra.orders['q_1'] = _order('ord_7', 'processing');
+      orchestra.orders['ord_7'] = _order('ord_7', 'completed');
+      now = now.add(const Duration(seconds: 30));
+      await service().reconcile(await only(), force: true);
+      var op = await only();
+      expect(op.orderId, 'ord_7');
+      expect(orchestra.submits, isEmpty);
+      expect(cctpOf(op)['submitResult'], 'detected');
+      now = now.add(const Duration(seconds: 30));
+      await service().reconcile(op, force: true);
+      op = await only();
+      expect(op.stage, SettlementStage.settled);
+      final completed =
+          events.singleWhere((e) => e.$1 == 'hyperliquid_withdraw_completed');
+      expect(completed.$2?['submit_result'], 'detected');
+    });
+
+    test(
+        'a refused submit tries again later with a new key; an unknown '
+        'answer keeps it', () async {
+      reads.ledger = (_) => _ledgerHash;
+      await service().withdrawToDollars(usd: 5, stepUp: approve());
+      reads.mints = [_mint(4800000)];
+      orchestra.submitAnswer =
+          () => (outcome: CctpSubmitOutcome.transient, orderId: null);
+      now = now.add(const Duration(seconds: 20));
+      await service().reconcile(await only(), force: true);
+      now = now.add(kCctpSubmitRetryAfter);
+      await service().reconcile(await only(), force: true);
+      expect(orchestra.submits, hasLength(2));
+      expect(orchestra.submits[0].key, orchestra.submits[1].key);
+
+      orchestra.submitAnswer =
+          () => (outcome: CctpSubmitOutcome.rejected, orderId: null);
+      now = now.add(kCctpSubmitRetryAfter);
+      await service().reconcile(await only(), force: true);
+      orchestra.submitAnswer =
+          () => (outcome: CctpSubmitOutcome.accepted, orderId: 'ord_1');
+      orchestra.orders['ord_1'] = _order('ord_1', 'processing');
+      now = now.add(kCctpSubmitRetryAfter);
+      await service().reconcile(await only(), force: true);
+      expect(orchestra.submits, hasLength(4));
+      expect(orchestra.submits[3].key, isNot(orchestra.submits[2].key));
+      expect((await only()).orderId, 'ord_1');
+      expect(sender.signed, 1);
+    });
+
+    test('an order for someone else is never adopted', () async {
+      reads.ledger = (_) => _ledgerHash;
+      await service().withdrawToDollars(usd: 5, stepUp: approve());
+      reads.mints = [_mint()];
+      orchestra.orders['ord_1'] =
+          _order('ord_1', 'processing', recipient: _otherSpark);
+      now = now.add(const Duration(seconds: 20));
+      await service().reconcile(await only(), force: true);
+      expect((await only()).orderId, isNull);
+      expect(rows.byId.containsKey('ord_1'), isFalse);
+    });
+
+    test('an RPC failure never reads as arrived', () async {
+      reads.ledger = (_) => _ledgerHash;
+      await service().withdrawToDollars(usd: 5, stepUp: approve());
+      reads.mintError = const ArbitrumReadException('no RPC');
+      now = now.add(const Duration(minutes: 10));
+      await service().reconcile(await only(), force: true);
+      final op = await only();
+      expect(op.stage, SettlementStage.funded);
+      expect(rows.byId.values.single.status, 'exchanging');
+      expect(
+          named('hyperliquid_withdraw_step'), ['cctp_sent', 'core_confirmed']);
+    });
+  });
+
+  test(
+      'a record an older build paid onto the standing address still '
+      'resolves (and shows held money)', () async {
+    // The stuck kind: an Investing-withdrawal standing instruction's label,
+    // no quote. Nothing new is registered; its deposit listing is read.
+    orchestra.held = _record(purpose: 'investments_internal', appFeeBps: 0);
+    final created = now;
+    final op = await store.create(SettlementOperation(
+      operationId: 'legacy-op',
+      walletId: 'w',
+      accountKind: SettlementAccountKind.hlHot,
+      flow: SettlementFlow.investingToDollarsCctp,
+      routeVersion: kHypercoreCctpRouteVersion,
+      route: kHypercoreToSparkUsdRoute,
+      amountInBaseUnits: '200000000',
+      recipient: const SettlementAddressRef(
+          address: _spark, kind: OwnedAddressKind.sparkSelf),
+      refund: const SettlementAddressRef(
+          address: _account, kind: OwnedAddressKind.hyperliquidEoa),
+      stage: SettlementStage.created,
+      createdAt: created,
+      updatedAt: created,
+      raw: {
+        'cctp': {
+          'label': orchestra.held!.label,
+          'depositAddress': _standing,
+          'destination': 'dollars',
+          'forwardFee6': '200000',
+          'amount6': '2000000',
+          'fromBlock': 1,
+          'steps': <String>[],
+        },
+      },
+    ));
+    await store.transition(op.operationId, SettlementStage.broadcasting,
+        from: SettlementStage.created,
+        patch: (c) => c.copyWith(
+            funding: const SettlementFunding(
+                kind: SettlementFundingKind.hyperliquid,
+                hlNonce: 1791851727000)));
+    reads.ledger = (_) => _ledgerHash;
+    orchestra.depositList = [
+      {
+        'id': 'dep_h',
+        'chain': 'arbitrum',
+        'asset': 'USDC',
+        'amount': '1800000',
+        'sourceTxId': '0x${'3' * 64}',
+        'observedAt': now.toIso8601String(),
+        'status': 'held',
+        'code': 'below_minimum',
+        'orderId': null,
+      }
+    ];
+    now = now.add(const Duration(seconds: 30));
+    await service().reconcile((await store.get('legacy-op'))!, force: true);
+    var after = (await store.get('legacy-op'))!;
+    expect(after.funding?.evmTxHash, _ledgerHash);
+    expect(after.stage, SettlementStage.needsAttention);
+    expect(rows.byId['${kStuckStandingDepositRowPrefix}dep_h']!.status, 'held');
+    expect(orchestra.quotes, isEmpty);
+    expect(orchestra.submits, isEmpty);
+
+    // Flashnet processes it after all: the order shows and settles.
+    orchestra.depositList = [
+      {
+        ...orchestra.depositList.single,
+        'status': 'completed',
+        'orderId': 'ord_s'
+      }
+    ];
+    orchestra.orders['ord_s'] = _order('ord_s', 'completed', quoteId: null);
+    now = now.add(const Duration(minutes: 11));
+    await service().reconcile(after, force: true);
+    after = (await store.get('legacy-op'))!;
+    expect(after.orderId, 'ord_s');
+    expect(after.stage, SettlementStage.settled);
+    final completed =
+        events.singleWhere((e) => e.$1 == 'hyperliquid_withdraw_completed');
+    expect(completed.$2?['cctp_target'], 'standing');
+    expect(completed.$2?.containsKey('submit_result'), isFalse);
+  });
+
+  test('a paused CoreDepositWallet stops before anything is quoted or signed',
+      () async {
     reads.paused = true;
     await expectLater(
         service().withdrawToDollars(usd: 5, stepUp: approve()),
         throwsA(isA<CctpUnavailable>()
             .having((e) => e.reason, 'reason', CctpUnavailableReason.paused)));
     expect(sender.sends, isEmpty);
+    expect(orchestra.quotes, isEmpty);
     expect(intents, isEmpty);
     expect(await store.all(), isEmpty);
-    expect(rows.byId, isEmpty);
     expect(named('hyperliquid_cctp_unavailable'), ['paused']);
   });
 
@@ -816,40 +1262,11 @@ void main() {
     expect(sender.sends, isEmpty);
   });
 
-  test('without Kute\'s venue-withdrawal fee pinned nothing is sent', () async {
-    orchestra.instructionError = const InvestingWithdrawalTermsUnavailable();
-    await expectLater(service().withdrawToDollars(usd: 5, stepUp: approve()),
-        throwsA(isA<CctpUnavailable>().having((e) => e.reason, 'reason',
-            CctpUnavailableReason.feeTermsUnavailable)));
-    // An instruction whose stored terms are the dollar-deposit rule.
-    orchestra
-      ..instructionError = null
-      ..held = _record(purpose: 'usdb_swap_deposit');
-    await expectLater(service().withdrawToDollars(usd: 5, stepUp: approve()),
-        throwsA(isA<CctpUnavailable>()));
-    expect(sender.sends, isEmpty);
-    expect(reads.pausedReads, 0, reason: 'terms first, before any read');
-  });
-
-  test('the automatic sweep only ever pays the own standing address',
-      () async {
-    // An instruction for someone else's Spark address is never used.
-    orchestra.held = _record(recipient: _otherSpark);
-    await expectLater(service().withdrawToDollars(usd: 5, stepUp: approve()),
-        throwsA(isA<CctpUnavailable>()));
-    expect(sender.sends, isEmpty);
-    expect(intents, isEmpty, reason: 'no approval asked for a stranger');
-    // A paused instruction neither.
-    orchestra.held = _record(enabled: false);
-    await expectLater(service().withdrawToDollars(usd: 5, stepUp: approve()),
-        throwsA(isA<CctpUnavailable>()));
-    expect(sender.sends, isEmpty);
-  });
-
-  test('a declined approval stops before signing', () async {
+  test('a declined approval stops before quoting or signing', () async {
     await expectLater(
         service().withdrawToDollars(usd: 5, stepUp: approve(answer: false)),
         throwsA(isA<SettlementStopped>()));
+    expect(orchestra.quotes, isEmpty);
     expect(sender.sends, isEmpty);
     expect(await store.all(), isEmpty);
   });
@@ -875,18 +1292,15 @@ void main() {
       () async {
     sender.mode = _SendMode.lostAfterPost;
     reads.ledger = (_) => null;
-    final result =
-        await service().withdrawToDollars(usd: 5, stepUp: approve());
+    final result = await service().withdrawToDollars(usd: 5, stepUp: approve());
     expect(result.operationId, isNotEmpty);
     var op = await only();
     expect(op.stage, SettlementStage.broadcasting);
     expect(op.funding?.hlNonce, sender.nonce);
 
-    // A fresh process within the window: still unknown, still pending.
     await service().reconcile(op, force: true);
     expect((await only()).stage, SettlementStage.broadcasting);
 
-    // Past the window with a successful empty ledger read: never sent.
     now = now.add(kCctpNotSentAfter + const Duration(seconds: 1));
     await service().reconcile(op, force: true);
     op = await only();
@@ -902,108 +1316,12 @@ void main() {
     expect(rows.byId.values.single.status, 'exchanging');
   });
 
-  test('restart after the ledger shows the send resumes watching', () async {
-    sender.mode = _SendMode.lostAfterPost;
-    reads.ledger = (_) => null;
-    await service().withdrawToDollars(usd: 5, stepUp: approve());
-    reads.ledger = (_) => _ledgerHash;
-    orchestra.depositList = [
-      {
-        'id': 'dep_9',
-        'chain': 'arbitrum',
-        'asset': 'USDC',
-        'amount': '4800000',
-        'sourceTxId': '0x${'2' * 64}',
-        'observedAt': now.toIso8601String(),
-        'status': 'confirming',
-        'orderId': null,
-      }
-    ];
-    now = now.add(const Duration(seconds: 30));
-    await service().reconcile(await only());
-    final op = await only();
-    expect(op.stage, SettlementStage.processing);
-    expect(op.funding?.evmTxHash, _ledgerHash);
-    expect(sender.sends.length, 1);
-  });
-
-  test('an RPC failure never reads as arrived', () async {
-    reads.ledger = (_) => _ledgerHash;
-    await service().withdrawToDollars(usd: 5, stepUp: approve());
-    reads.mintError = const ArbitrumReadException('no RPC');
-    orchestra.depositsError = StateError('backend down');
-    now = now.add(const Duration(hours: 2));
-    await service().reconcile(await only(), force: true);
-    final op = await only();
-    expect(op.stage, SettlementStage.funded,
-        reason: 'neither arrived nor needs attention on failed reads');
-    expect(rows.byId.values.single.status, 'exchanging');
-    expect(named('hyperliquid_withdraw_step'), ['cctp_sent', 'core_confirmed']);
-
-    // A ledger read failure on a broadcast proves nothing either.
-    sender
-      ..mode = _SendMode.lostAfterPost
-      ..nonce += 1;
-    final other = HypercoreCctpWithdrawal(
-      reads: reads..ledgerError = StateError('ledger down'),
-      sender: sender,
-      orchestra: orchestra,
-      rows: rows,
-      wallet: wallet,
-      store: () async => store,
-      clock: () => now,
-      confirmAttempts: 1,
-      confirmInterval: Duration.zero,
-      watchFor: Duration.zero,
-    );
-    // The first move is past `funded`, so a second may start.
-    await store.transition(op.operationId, SettlementStage.processing,
-        from: SettlementStage.funded);
-    await other.withdrawToDollars(usd: 5, stepUp: approve());
-    now = now.add(const Duration(hours: 1));
-    final second = (await store.all()).firstWhere(
-        (o) => o.operationId != op.operationId);
-    await other.reconcile(second, force: true);
-    expect((await store.get(second.operationId))!.stage,
-        SettlementStage.broadcasting);
-  });
-
-  test('Orchestra holding the deposit shows it held, money not lost',
-      () async {
-    reads.ledger = (_) => _ledgerHash;
-    await service().withdrawToDollars(usd: 5, stepUp: approve());
-    orchestra.depositList = [
-      {
-        'id': 'dep_h',
-        'chain': 'arbitrum',
-        'asset': 'USDC',
-        'amount': '4800000',
-        'sourceTxId': '0x${'3' * 64}',
-        'observedAt': now.toIso8601String(),
-        'status': 'held',
-        'code': 'below_minimum',
-        'orderId': null,
-      }
-    ];
-    now = now.add(const Duration(seconds: 30));
-    var op = await only();
-    await service().reconcile(op, force: true);
-    op = await only();
-    expect(op.stage, SettlementStage.needsAttention);
-    final held = rows.byId['${kStuckStandingDepositRowPrefix}dep_h']!;
-    expect(held.status, 'held');
-    expect(held.networkFrom, 'HYPERCORE', reason: 'reads as Investing');
-    expect(held.coinTo, 'USDB');
-    expect(held.operationId, op.operationId);
-    expect(rows.byId.containsKey('$kCctpRowPrefix${op.operationId}'), isFalse);
-    expect(events.any((e) => e.$1 == 'settlement_needs_attention'), isTrue);
-  });
-
   test('one CCTP move at a time until the earlier one is at Orchestra',
       () async {
     reads.ledger = (_) => _ledgerHash;
     await service().withdrawToDollars(usd: 5, stepUp: approve());
-    await expectLater(service().withdrawToDollars(usd: 5, stepUp: approve()),
+    await expectLater(
+        service().withdrawToDollars(usd: 5, stepUp: approve()),
         throwsA(isA<CctpUnavailable>().having(
             (e) => e.reason, 'reason', CctpUnavailableReason.inFlight)));
     expect(sender.sends.length, 1);
@@ -1033,8 +1351,8 @@ void main() {
       confirmInterval: Duration.zero,
       watchFor: Duration.zero,
     ).withdrawToDollars(usd: 5, stepUp: approve());
-    expect(sender.sends.single.token,
-        'USDC:0x6d1e7cde53ba9467b783cb7c530ce054');
+    expect(
+        sender.sends.single.token, 'USDC:0x6d1e7cde53ba9467b783cb7c530ce054');
     expect(cctpTokenWire(kHypercoreCctpTokenForm), 'USDC',
         reason: 'Circle\'s form by default');
   });

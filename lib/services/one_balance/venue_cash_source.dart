@@ -45,7 +45,9 @@
 //
 //  * Investing → Bitcoin: native HyperCore → Spark BTC first; a confirmed
 //    unsupported pair alone opens CCTP to the own Spark address.
-//    Predictions keeps CCTP to its own Polymarket standing instruction,
+//    Investing → Predictions the same way: native HyperCore → Polygon
+//    USDC.e to the own Predictions account first; a confirmed unsupported
+//    pair alone opens CCTP to its own Polymarket standing instruction,
 //    with its own label and fee rule (`HyperCoreMoveRail.withdrawDirect`).
 //  * Predictions → Bitcoin or Investing: the Predictions cash-out quoted
 //    by Orchestra to the destination (polygon:USDC.e → spark:BTC or →
@@ -616,7 +618,7 @@ bool hlPullAllowed(HlPullGuardState state) {
   return true;
 }
 
-/// Investing's direct door: native-first Bitcoin or CCTP Predictions,
+/// Investing's direct door: native-first Bitcoin or Predictions,
 /// always to its own destination (`HyperCoreMoveRail.withdrawDirect`).
 typedef HlDirectWithdraw = Future<VenueMoveResult> Function(
     InvestingWithdrawalDestination destination,
@@ -629,7 +631,8 @@ typedef HlDirectWithdraw = Future<VenueMoveResult> Function(
 /// collateral), less the HyperCore reserve the CCTP burn keeps back, and
 /// nothing at all while a cross position or a resting perp order could
 /// lean on it. An unreadable account is 0. With [direct], it also goes
-/// straight to Bitcoin (native first) or Predictions (CCTP).
+/// straight to Bitcoin or Predictions (native first, CCTP on a refused
+/// route).
 class HyperliquidCashSource implements VenueCashSource, DirectVenueCashSource {
   HyperliquidCashSource(this._rail, {required this.readGuard, this.direct});
 

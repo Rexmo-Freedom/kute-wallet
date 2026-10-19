@@ -3743,14 +3743,22 @@ List<Widget> _swapOrderNerdRows(
 ///     order id"). On in-flight rows whose quote hasn't been swapped for
 ///     an order id yet, the explorer's quote view still loads given the
 ///     bare quote prefix.
-/// A stuck-deposit row, and a CCTP move not yet turned into an order
-/// (`cctp-…`), have no order for the explorer to show.
+/// A stuck-deposit row has no order for the explorer to show. A CCTP move
+/// not yet turned into an order (`cctp-…`) tracks the leg it is on
+/// instead: Circle mints on Arbitrum to the standing address, so the same
+/// button opens that address's token transfers on Arbiscan until
+/// Orchestra's order replaces the row's id.
+final _evmAddress = RegExp(r'^0x[0-9a-fA-F]{40}$');
+
 List<Widget> _orchestraTrackExchange(
     BuildContext context, AppColorsExtension c, SwapOrder details) {
   if (details.id.isEmpty ||
       details.isStuckStandingDeposit ||
-      !details.isOrchestra ||
-      details.id.startsWith('cctp-')) {
+      !details.isOrchestra) {
+    return const [];
+  }
+  final cctp = details.id.startsWith('cctp-');
+  if (cctp && !_evmAddress.hasMatch(details.depositAddress)) {
     return const [];
   }
   return [
@@ -3764,8 +3772,10 @@ List<Widget> _orchestraTrackExchange(
               details.id.startsWith('ord_') || details.id.startsWith('q_')
                   ? details.id
                   : 'ord_${details.id}';
-          final uri =
-              Uri.parse('https://orchestra.flashnet.xyz/explorer/$orchId');
+          final uri = cctp
+              ? Uri.parse('https://arbiscan.io/address/'
+                  '${details.depositAddress}#tokentxns')
+              : Uri.parse('https://orchestra.flashnet.xyz/explorer/$orchId');
           if (!await launchUrl(uri, mode: LaunchMode.inAppBrowserView)) {
             await launchUrl(uri, mode: LaunchMode.externalApplication);
           }

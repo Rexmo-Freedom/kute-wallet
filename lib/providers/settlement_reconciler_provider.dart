@@ -462,6 +462,7 @@ class SettlementReconcilerDriver {
   static const _investingWithdrawFlows = {
     SettlementFlow.investingToSparkDirect,
     SettlementFlow.investingToSparkUsdDirect,
+    SettlementFlow.investingToPredictionsDirect,
     SettlementFlow.moveInvestingToBtc,
     SettlementFlow.investingToLedgerBtc,
   };
@@ -505,8 +506,14 @@ class SettlementReconcilerDriver {
       }
       return;
     }
-    final destination =
-        op.flow == SettlementFlow.investingToSparkUsdDirect ? 'usd' : 'btc';
+    final String destination;
+    if (op.flow == SettlementFlow.investingToSparkUsdDirect) {
+      destination = 'usd';
+    } else if (op.flow == SettlementFlow.investingToPredictionsDirect) {
+      destination = 'predictions';
+    } else {
+      destination = 'btc';
+    }
     if (ok) {
       TrackingService.hyperliquidWithdrawCompleted(
         amountUsd: amountUsd,

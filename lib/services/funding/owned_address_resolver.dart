@@ -7,8 +7,9 @@
 // Rules:
 //  - a refund is on the source chain and owned by the source account;
 //  - a recipient is owned by the destination account of the same wallet;
-//  - the only cross-account pair is the hot Spark wallet with its own
-//    venue accounts (Investing, Predictions);
+//  - the only cross-account pairs are the hot Spark wallet with its own
+//    venue accounts (Investing, Predictions), and those two venue
+//    accounts with each other;
 //  - a Ledger route never has a hot recipient or refund.
 //
 // Hot rows resolve through [OwnedAddressResolver]. Ledger rows resolve
@@ -131,12 +132,19 @@ void checkSettlementAccountPair({
   final sparkWithVenue = (source == SettlementAccountKind.sparkHot) !=
       (destination == SettlementAccountKind.sparkHot);
   // Predictions cash straight into the Investing account (an order's
-  // direct leg, `movePredictionsToInvesting`): both ends are the wallet's
-  // own hot accounts, each resolved on its own chain below. The other
-  // venue-to-venue direction has no settlement flow and stays refused.
+  // direct leg, `movePredictionsToInvesting`), and Investing cash straight
+  // into the Predictions account by the native HyperCore route
+  // (`investingToPredictionsDirect`): both ends are the wallet's own hot
+  // accounts, each resolved on its own chain below (HyperCore for the
+  // Investing EOA, Polygon for the Predictions deposit wallet).
   final predictionsToInvesting = source == SettlementAccountKind.pmHot &&
       destination == SettlementAccountKind.hlHot;
-  if (crossAccount && !sparkWithVenue && !predictionsToInvesting) {
+  final investingToPredictions = source == SettlementAccountKind.hlHot &&
+      destination == SettlementAccountKind.pmHot;
+  if (crossAccount &&
+      !sparkWithVenue &&
+      !predictionsToInvesting &&
+      !investingToPredictions) {
     _reject(WalletGuardReason.recipientNotOwn, 'cross_account');
   }
   final sourceChains = _kHotAccountChains[source] ?? const {};

@@ -19,9 +19,9 @@ import 'package:kute/services/orchestra_routes.dart'
 /// row shows the move while it runs.
 
 /// Route version on the Activity rows of an Investing → Dollars move that
-/// went out of HyperCore by Circle CCTP and was converted by the
-/// Investing-withdrawal standing instruction (see
-/// `StandingDepositStore.investingWithdrawalInstruction`).
+/// went out of HyperCore by Circle CCTP: converted by a one-time Orchestra
+/// quote since 19 October 2026 (`HypercoreCctpWithdrawal`), by the
+/// Investing-withdrawal standing instruction before that.
 const String kHypercoreCctpRouteVersion = 'hypercore_cctp_to_spark_usd_v1';
 
 /// The same for an Investing → Bitcoin move by CCTP (spark:BTC).

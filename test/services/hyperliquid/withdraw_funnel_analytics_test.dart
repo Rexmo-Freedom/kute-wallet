@@ -8,7 +8,7 @@ import 'package:kute/providers/settlement_reconciler_provider.dart'
     show SettlementReconcilerDriver;
 import 'package:kute/services/funding/settlement_stage.dart';
 import 'package:kute/services/funding/spark_hypercore_funding_service.dart'
-    show kHypercoreToSparkUsdRoute;
+    show kHypercoreToPredictionsRoute, kHypercoreToSparkUsdRoute;
 import 'package:kute/services/tracking_service.dart';
 
 void main() {
@@ -83,6 +83,27 @@ void main() {
       expect(failed['amount_usd'], 5);
       expect(failed.containsKey('amount_bucket'), isFalse);
       expect(only('hyperliquid_withdraw_completed')['route'], 'direct');
+    });
+
+    test('the native Predictions withdrawal reports destination predictions',
+        () {
+      final predictions = SettlementOperation(
+        operationId: 'op-predictions',
+        walletId: 'w',
+        accountKind: SettlementAccountKind.hlHot,
+        flow: SettlementFlow.investingToPredictionsDirect,
+        route: kHypercoreToPredictionsRoute,
+        amountInBaseUnits: '500000000',
+        stage: SettlementStage.funded,
+        createdAt: DateTime.utc(2026, 10, 19),
+        updatedAt: DateTime.utc(2026, 10, 19),
+      );
+      driver.reportVenueTerminal(
+          predictions, SettlementStage.settled, 'hot', 5);
+      final completed = only('hyperliquid_withdraw_completed');
+      expect(completed['destination'], 'predictions');
+      expect(completed['route'], 'direct');
+      expect(completed['amount_usd'], 5);
     });
   });
 }

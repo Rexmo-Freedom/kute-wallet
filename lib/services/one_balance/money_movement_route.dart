@@ -84,13 +84,16 @@ enum MoneyMovementRail {
   /// the source account by the settlement runner.
   orchestra,
 
-  /// Native HyperCore → Spark through Orchestra first. Circle CCTP only
-  /// when Orchestra refused the route itself before anything was signed
+  /// Native HyperCore through Orchestra first, to the wallet's own Spark
+  /// balances or its own Predictions account. Circle CCTP only when
+  /// Orchestra refused the route itself before anything was signed
   /// (`HyperCoreMoveRail.opensCctpFallback`).
   hypercoreNativeThenCctp,
 
-  /// Circle CCTP out of HyperCore to the wallet's own standing instruction.
-  /// There is no Orchestra quote to price it with.
+  /// Circle CCTP out of HyperCore onto a one-time Orchestra quote to the
+  /// wallet's own recipient, fetched right before signing (never a standing
+  /// address). No route starts on it today; it is the fallback the native
+  /// routes switch to.
   cctp,
 }
 
@@ -186,11 +189,12 @@ MoneyMovementPlan moneyMovementPlanFor(MoneyMovementRoute route) {
   }
   final from = end(route.from);
   final to = end(route.to);
+  // Out of Investing every route goes native HyperCore first (to the
+  // wallet's own Spark balances or its own Predictions account) and opens
+  // Circle CCTP only on Orchestra's own refusal of the route.
   final rail = route.from != MoneyMovementAccount.investing
       ? MoneyMovementRail.orchestra
-      : route.to == MoneyMovementAccount.predictions
-          ? MoneyMovementRail.cctp
-          : MoneyMovementRail.hypercoreNativeThenCctp;
+      : MoneyMovementRail.hypercoreNativeThenCctp;
   final flow = switch ((route.from, route.to)) {
     (MoneyMovementAccount.bitcoin, MoneyMovementAccount.dollars) =>
       SettlementFlow.moveBtcToUsdc,
@@ -209,7 +213,7 @@ MoneyMovementPlan moneyMovementPlanFor(MoneyMovementRoute route) {
     (MoneyMovementAccount.investing, MoneyMovementAccount.dollars) =>
       SettlementFlow.investingToSparkUsdDirect,
     (MoneyMovementAccount.investing, MoneyMovementAccount.predictions) =>
-      SettlementFlow.investingToPredictionsCctp,
+      SettlementFlow.investingToPredictionsDirect,
     (MoneyMovementAccount.predictions, MoneyMovementAccount.bitcoin) =>
       SettlementFlow.moveUsdToBtc,
     (MoneyMovementAccount.predictions, MoneyMovementAccount.dollars) =>

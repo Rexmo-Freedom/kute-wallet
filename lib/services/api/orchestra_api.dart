@@ -698,6 +698,8 @@ class OrchestraService {
     int? slippageBps,
     String? idempotencyKey,
     String? tag,
+    String? kuteRoute,
+    List<String>? capabilities,
   }) async {
     // Quote request → response round-trip (durations only; route legs
     // are categorical). Started right before the HTTP send so capability
@@ -737,11 +739,12 @@ class OrchestraService {
     }
     try {
       await _ensureCapabilities(
-          orchestraCapabilityRequirements(
-              sourceChain: sourceChain,
-              sourceAsset: sourceAsset,
-              destinationChain: destinationChain,
-              destinationAsset: destinationAsset),
+          capabilities ??
+              orchestraCapabilityRequirements(
+                  sourceChain: sourceChain,
+                  sourceAsset: sourceAsset,
+                  destinationChain: destinationChain,
+                  destinationAsset: destinationAsset),
           maxAge: _quotePolicyMaxAge);
       final body = <String, dynamic>{
         'sourceChain': sourceChain,
@@ -759,6 +762,8 @@ class OrchestraService {
       // move's purpose and venue, or the Move sheet's own); absent when
       // the flow sets none.
       if (tag != null) body['tag'] = tag;
+      // Kute's own route for the backend's pricing (never forwarded).
+      if (kuteRoute != null) body['kuteRoute'] = kuteRoute;
 
       roundtrip.start();
       final res = await _send(

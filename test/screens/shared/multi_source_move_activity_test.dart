@@ -1315,6 +1315,25 @@ void main() {
       expect(find.text('Track this exchange'), findsNothing);
     });
 
+    testWidgets(
+        'a CCTP move on its Arbitrum leg tracks the standing address instead',
+        (tester) async {
+      final cctp = _row('cctp-op-hl',
+              from: 'USDC',
+              fromNet: 'HYPERCORE',
+              to: 'BTC',
+              toNet: 'SPARK',
+              operationId: 'op-hl')
+          .details
+          .copyWith(
+              withdrawalAmount: '0',
+              depositAddress: '0x17c01c4dc5fe4b698978e302b3480efc9e3a19b6');
+      await openSheet(
+          tester, _move(legs: [_leg(OneBalanceVenue.investing, op: 'op-hl')]),
+          orders: [cctp]);
+      expect(find.text('Track this exchange'), findsOneWidget);
+    });
+
     testWidgets('a single-leg move reads exactly as the swap detail',
         (tester) async {
       final single = MultiSourceMove(

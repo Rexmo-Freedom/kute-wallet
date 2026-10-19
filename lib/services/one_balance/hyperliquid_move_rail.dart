@@ -23,10 +23,14 @@
 // (`SettlementStopped(routeUnavailable, pair_missing)`), which never gets
 // as far as a quote. A withdrawal to Dollars then falls back to Circle
 // CCTP out of HyperCore (lib/services/hyperliquid/cctp_withdrawal.dart):
-// one `sendToEvmWithData` to the wallet's own Investing-withdrawal
-// standing address on Arbitrum, which Orchestra converts to dollars. Only
-// when that cannot run either (paused, below the minimum, the fee terms
-// not verified, a failed read, the runtime policy withholding
+// one `sendToEvmWithData` to the Arbitrum deposit address of a one-time
+// Orchestra quote bound to the wallet's own recipient, the mint then
+// submitted to Orchestra (never a standing address). A
+// move straight to Bitcoin or to the wallet's own Predictions account
+// (`withdrawDirect`, `hypercore:USDC → polygon:USDC.e` for Predictions)
+// takes the same native-first path and the same fallback rule. Only
+// when that cannot run either (paused, below the minimum, no usable
+// one-time quote, a failed read, the runtime policy withholding
 // `hyperliquid.withdraw`) the rail reports `RouteUnavailable`: the
 // sweeper shows the cash as waiting, backs off and tries again later;
 // nothing moves until the fallback can run.
@@ -292,9 +296,9 @@ class HyperCoreMoveRail implements HyperliquidMoveRail {
 
   /// The CCTP fallback for [withdrawToDollars]. The same step-up hook
   /// approves it: a sweep passes only because the intent's final
-  /// recipient is the wallet's own Spark address, reached through the
-  /// wallet's own standing instruction, which the fallback verifies
-  /// before it signs.
+  /// recipient is the wallet's own Spark address, reached through a
+  /// one-time quote bound to it, which the fallback verifies before it
+  /// signs.
   Future<VenueMoveResult> _withdrawByCctp({
     required double usd,
     required MoveAuthorization auth,
@@ -319,10 +323,11 @@ class HyperCoreMoveRail implements HyperliquidMoveRail {
     }
   }
 
-  /// Investing cash straight to its own final destination. Bitcoin first
-  /// uses native HyperCore → Spark; only a confirmed unsupported route
-  /// before funding opens CCTP. Predictions keeps its CCTP route.
-  /// Other native failures never authorize another source send.
+  /// Investing cash straight to its own final destination. Bitcoin and
+  /// Predictions both go native HyperCore first (→ the own Spark address,
+  /// → the own Predictions account); only a confirmed unsupported route
+  /// before funding ([opensCctpFallback]) opens CCTP. Other native
+  /// failures never authorize another source send.
   Future<VenueMoveResult> withdrawDirect({
     required InvestingWithdrawalDestination destination,
     required double usd,
@@ -330,9 +335,11 @@ class HyperCoreMoveRail implements HyperliquidMoveRail {
     String purpose = 'cash_pull',
   }) async {
     final analytics = cctpAnalyticsDestination(destination);
-    var route = destination == InvestingWithdrawalDestination.bitcoin
-        ? 'direct'
-        : 'cctp';
+    // Bitcoin and Predictions go native first; anything else keeps CCTP.
+    final nativeFirst =
+        destination == InvestingWithdrawalDestination.bitcoin ||
+            destination == InvestingWithdrawalDestination.predictions;
+    var route = nativeFirst ? 'direct' : 'cctp';
     final clock = Stopwatch()..start();
     TrackingService.hyperliquidWithdrawInitiated(
       amountUsd: usd,
@@ -370,24 +377,37 @@ class HyperCoreMoveRail implements HyperliquidMoveRail {
 
     try {
       late VenueMoveResult result;
-      if (destination == InvestingWithdrawalDestination.bitcoin) {
+      if (nativeFirst) {
         try {
-          final native = await _service.withdrawToSpark(
-              usd: usd,
-              destination: SparkFundingAsset.bitcoin,
-              stepUp: stepUpForDirect(auth, destination),
-              registerInBackground: true,
-              purpose: purpose);
+          final DirectHypercoreResult native;
+          final double arrivingUsd;
+          if (destination == InvestingWithdrawalDestination.bitcoin) {
+            native = await _service.withdrawToSpark(
+                usd: usd,
+                destination: SparkFundingAsset.bitcoin,
+                stepUp: stepUpForDirect(auth, destination),
+                registerInBackground: true,
+                purpose: purpose);
+            // Native output is BTC, while this interface carries USD.
+            // Match the Predictions→BTC quote/source-value convention;
+            // the service's receipt retains the actual BTC output.
+            arrivingUsd = (native.amountIn.toDouble() / 1e8) *
+                (1 - native.run.quote.quote.combinedFeeBps / 10000);
+          } else {
+            native = await _service.withdrawToPredictions(
+                usd: usd,
+                stepUp: stepUpForDirect(auth, destination),
+                registerInBackground: true,
+                purpose: purpose);
+            // Polygon USDC.e: the estimate is already dollars.
+            arrivingUsd = native.estimatedOut;
+          }
           result = VenueMoveResult(
               quoteId: native.run.quote.quoteId,
               orderId: native.run.orderId,
               registration: native.run.registration,
               sentUsd: native.amountIn.toDouble() / 1e8,
-              // Native output is BTC, while this interface carries USD.
-              // Match the Predictions→BTC quote/source-value convention;
-              // the service's receipt retains the actual BTC output.
-              arrivingUsdEstimate: (native.amountIn.toDouble() / 1e8) *
-                  (1 - native.run.quote.quote.combinedFeeBps / 10000),
+              arrivingUsdEstimate: arrivingUsd,
               operationId: native.run.operation.operationId);
         } catch (e) {
           if (!opensCctpFallback(e)) rethrow;
@@ -431,7 +451,7 @@ class HyperCoreMoveRail implements HyperliquidMoveRail {
       // automatic CCTP or Dollars send. Earlier unresolved operations stay
       // uncertain, as do untyped failures and nested funding-unknown causes.
       if (route == 'direct' &&
-          destination == InvestingWithdrawalDestination.bitcoin &&
+          nativeFirst &&
           (e is HypercoreFundingUnavailable ||
               e is OrchestraQuoteFailure ||
               (e is SettlementStopped &&

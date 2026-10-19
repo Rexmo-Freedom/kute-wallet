@@ -70,6 +70,7 @@ String hypercorePerpUsdcWire(BigInt units) {
 bool usesHypercorePerpFunding(String? routeVersion) => const {
       'hypercore_to_spark_perps_v2',
       'hypercore_to_spark_usd_perps_v2',
+      'hypercore_to_polygon_usdce_perps_v1',
       'hypercore_to_ledger_btc_perps_v2',
     }.contains(routeVersion);
 

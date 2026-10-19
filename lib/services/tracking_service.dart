@@ -4872,18 +4872,25 @@ class TrackingService {
   /// Handed to the settlement runner (direct) or the CCTP watcher; the
   /// outcome is `hyperliquid_withdraw_completed` / `_failed`. [route] is
   /// the route the money took; [amountUsd] what was sent, exactly.
+  ///
+  /// [cctpTarget] (route `cctp` only): `onetime`, the move's one-time
+  /// Orchestra quote (the default on the CCTP route since 19 October 2026),
+  /// or `standing`, a record an older build paid onto the standing
+  /// Investing-withdrawal address.
   static void hyperliquidWithdrawSubmitted({
     required double amountUsd,
     required String route, // direct | cctp
     String? destination,
     String? walletKind,
     String? purpose,
+    String? cctpTarget,
   }) =>
       track('hyperliquid_withdraw_submitted', params: {
         'venue': 'hyperliquid',
         if (destination != null) 'destination': destination,
         if (walletKind != null) 'wallet_kind': walletKind,
         'route': route,
+        ..._cctpTargetParam(route, cctpTarget),
         if (purpose != null) 'purpose': purpose,
         ...moneyParams(amountUsd: amountUsd, legacyBucket: false),
       });
@@ -4894,26 +4901,40 @@ class TrackingService {
   /// attempt was initiated), then, on the CCTP route, `cctp_sent` (the
   /// exchange accepted the burn), `core_confirmed` (the HyperCore ledger
   /// shows it), `arbitrum_minted` (Circle minted on Arbitrum) and
-  /// `orchestra_detected` (Orchestra saw the deposit), each with
-  /// [durationMs] since the send was signed.
+  /// `orchestra_submitted` (Orchestra accepted the mint's `/submit`) and
+  /// `orchestra_detected` (the order exists), each with [durationMs] since
+  /// the send was signed. [cctpTarget] as on [hyperliquidWithdrawSubmitted].
   static void hyperliquidWithdrawStep({
     required String step,
     required int durationMs,
     double? amountUsd,
     String route = 'cctp',
+    String? cctpTarget,
   }) =>
       track('hyperliquid_withdraw_step', params: {
         'venue': 'hyperliquid',
         'step': step,
         'route': route,
+        ..._cctpTargetParam(route, cctpTarget),
         'duration_ms': durationMs,
         if (amountUsd != null && amountUsd.isFinite) 'amount_usd': amountUsd,
       });
 
-  /// The CCTP fallback could not run, before anything was signed.
+  /// `cctp_target` on an Investing withdrawal event of the CCTP route:
+  /// [cctpTarget], or `onetime` (every new CCTP move pays a one-time quote).
+  /// Nothing on the direct route.
+  static Map<String, Object> _cctpTargetParam(
+      String route, String? cctpTarget) {
+    if (route != 'cctp') return const {};
+    return {'cctp_target': cctpTarget ?? 'onetime'};
+  }
+
+  /// The CCTP fallback could not run, before anything was posted.
   /// [reason]: `paused` | `below_minimum` | `fee_read_failed` |
-  /// `rpc_failed` | `fee_terms_unavailable` | `in_flight` | `capability`
-  /// (the runtime policy withholds `hyperliquid.withdraw`).
+  /// `rpc_failed` | `in_flight` | `capability` (the runtime policy
+  /// withholds `hyperliquid.withdraw`) | `quote_unavailable` (no one-time
+  /// quote could be had) | `quote_expired` (none with enough validity
+  /// left). `fee_terms_unavailable` was the standing instruction's.
   static void hyperliquidCctpUnavailable({
     required String reason,
     double? amountUsd,
@@ -4925,7 +4946,11 @@ class TrackingService {
       });
 
   /// [route]: `direct` | `cctp`, always sent. [orderId] / [quoteId]: as
-  /// on [hyperliquidDepositCompleted].
+  /// on [hyperliquidDepositCompleted]. [cctpTarget] as on
+  /// [hyperliquidWithdrawSubmitted]. [submitResult] (a one-time CCTP move):
+  /// `submitted` (Orchestra accepted the app's `/submit` of the mint),
+  /// `detected` (Orchestra made the order on its own first) or `pending`
+  /// (neither had happened).
   static void hyperliquidWithdrawCompleted({
     double? amountUsd,
     String? destination,
@@ -4933,6 +4958,8 @@ class TrackingService {
     required String route,
     String? orderId,
     String? quoteId,
+    String? cctpTarget,
+    String? submitResult,
   }) =>
       track('hyperliquid_withdraw_completed', params: {
         'venue': 'hyperliquid',
@@ -4940,6 +4967,8 @@ class TrackingService {
         if (destination != null) 'destination': destination,
         if (walletKind != null) 'wallet_kind': walletKind,
         'route': route,
+        ..._cctpTargetParam(route, cctpTarget),
+        if (submitResult != null) 'submit_result': submitResult,
         ...moneyParams(
             amountUsd: amountUsd,
             asset: 'usdc',
@@ -4958,6 +4987,8 @@ class TrackingService {
     String? destination,
     String? walletKind,
     String? purpose,
+    String? cctpTarget,
+    String? submitResult,
   }) =>
       track('hyperliquid_withdraw_failed', params: {
         'venue': 'hyperliquid',
@@ -4966,6 +4997,8 @@ class TrackingService {
         if (destination != null) 'destination': destination,
         if (walletKind != null) 'wallet_kind': walletKind,
         'route': route,
+        ..._cctpTargetParam(route, cctpTarget),
+        if (submitResult != null) 'submit_result': submitResult,
         if (purpose != null) 'purpose': purpose,
         ...moneyParams(amountUsd: amountUsd, legacyBucket: false),
       });
