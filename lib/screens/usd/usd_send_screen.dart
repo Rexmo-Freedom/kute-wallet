@@ -1468,7 +1468,9 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
                 .firstOrNull;
             return move == null
                 ? const SizedBox.shrink()
-                : MoveStepsSection(move: move);
+                // The send's own failure tap is the stop's
+                // ([_sendFailedFeedback]).
+                : MoveStepsSection(move: move, failureHaptic: false);
           }),
       ],
     );

@@ -388,7 +388,8 @@ List<MoneyStepLine> moveStepCompactLines(
 /// [followRows] false reads [rows] alone: a sheet that closes once every
 /// leg is submitted). Nothing for a move with no steps. [compact] is the
 /// Activity detail's form ([moveStepCompactLines]; [sendTo] names where a
-/// send went).
+/// send went). [failureHaptic] false: the surface plays the failure tap
+/// for the same stop itself (`MoneyStepsView.failureHaptic`).
 class MoveStepsSection extends ConsumerWidget {
   const MoveStepsSection({
     super.key,
@@ -397,6 +398,7 @@ class MoveStepsSection extends ConsumerWidget {
     this.followRows = true,
     this.compact = false,
     this.sendTo,
+    this.failureHaptic = true,
   });
 
   final MultiSourceMove move;
@@ -404,6 +406,7 @@ class MoveStepsSection extends ConsumerWidget {
   final bool followRows;
   final bool compact;
   final String? sendTo;
+  final bool failureHaptic;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -438,7 +441,7 @@ class MoveStepsSection extends ConsumerWidget {
     if (lines.isEmpty) return const SizedBox.shrink();
     return Align(
       alignment: Alignment.centerLeft,
-      child: MoneyStepsView(lines: lines),
+      child: MoneyStepsView(lines: lines, failureHaptic: failureHaptic),
     );
   }
 }

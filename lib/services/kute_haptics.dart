@@ -201,6 +201,14 @@ abstract final class KuteHaptics {
     return true;
   }
 
+  /// Whether the money-success beat played moments ago (a band's success
+  /// release, a confirmation's beat): a second surface marking the same
+  /// moment (a money-steps tree's last check) stays quiet.
+  static bool get moneySuccessJustPlayed {
+    final last = _lastMoneySuccess;
+    return last != null && _now().difference(last) < successAfterRelease;
+  }
+
   /// A rubber band's success release just played [HapticPatterns.success]
   /// (a send, a bet, an order placed): it is the money-success moment,
   /// so the overlay's beat and money arriving right after it stay quiet.

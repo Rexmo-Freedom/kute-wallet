@@ -89,6 +89,17 @@ Future<void> moneySuccessFeedback() async {
   }
 }
 
+/// The money-success beat for a money-steps tree's last check
+/// (`MoneyStepsView`): plays unless the same moment already played it (a
+/// band around the steps that snapped, a confirmation just before), and
+/// marks the moment like a band's release, so a confirmation right after
+/// stays quiet. One success, one beat.
+void moneyStepsSuccessFeedback() {
+  if (KuteHaptics.moneySuccessJustPlayed) return;
+  unawaited(moneySuccessFeedback());
+  KuteHaptics.noteSuccessRelease();
+}
+
 /// The money-failure haptic: [HapticPatterns.softRelease], the soft tap
 /// the bets' and orders' rubber band plays when it lets go without,
 /// through the same path ([ContinuousHaptics.softTap]; without the native

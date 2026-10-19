@@ -57,7 +57,7 @@ import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
 import 'package:kute/screens/shared/kute_motion.dart' show kuteReduceMotion;
 import 'package:kute/screens/shared/money_steps_view.dart'
-    show MoneyStepsView, moneyStepLines;
+    show MoneyStepLine, MoneyStepsKeys, MoneyStepsView, moneyStepLines;
 import 'package:kute/screens/home/components/deposit_sheet.dart'
     show showDepositSheet, MoveLockedSide;
 import 'package:kute/screens/receive/receive_sheet.dart'
@@ -66,7 +66,8 @@ import 'package:kute/services/api/orchestra_api.dart' show OrchestraService;
 import 'package:kute/services/funding/venue_shortfall.dart';
 import 'package:kute/services/one_balance/funded_orders.dart';
 import 'package:kute/services/one_balance/empty_slip_sources.dart';
-import 'package:kute/services/one_balance/money_steps.dart' show MoneyStepGraph;
+import 'package:kute/services/one_balance/money_steps.dart'
+    show MoneyStepGraph, MoneyStepStatus;
 import 'package:kute/services/one_balance/one_balance_state.dart'
     show OneBalanceVenue;
 import 'package:kute/services/orchestra_routes.dart'
@@ -756,9 +757,9 @@ class SlipDepositFailedNote extends StatelessWidget {
 
 /// The staged progress of an order funded through Investments (founder
 /// decision 14 October 2026): each step a line under the slip's one
-/// button, a check once done, the small working sign the "Deposit
-/// incoming" note uses while active, the rest waiting in a quieter tone.
-/// No new chrome: the note's own type, colours and spinner.
+/// button, a check once done, a working ring while active, the rest
+/// waiting in a quieter tone. Drawn by the one steps tree
+/// ([MoneyStepsView]), animated like every other steps surface.
 ///
 /// A funding that stopped ([failed]) marks the step it stopped at with
 /// the slips' error sign (the notice's `error_outline`) and says, in
@@ -813,95 +814,24 @@ class SlipFundingSteps extends StatelessWidget {
         note: note,
       );
     }
-    final c = context.colors;
-    final still = kuteReduceMotion(context);
-    Widget lead(int i) {
-      if (failed && i == active) {
-        return Icon(Icons.error_outline_rounded,
-            key: ValueKey('slip-funding-step-failed-$i'),
-            size: 14.r,
-            color: c.textPrimary);
-      }
-      if (i < active) {
-        return Icon(Icons.check_rounded,
-            key: ValueKey('slip-funding-step-done-$i'),
-            size: 14.r,
-            color: c.textSecondary);
-      }
-      if (i == active) {
-        return SizedBox.square(
-          key: ValueKey('slip-funding-step-active-$i'),
-          dimension: 12.r,
-          child: still
-              ? DecoratedBox(
-                  decoration: BoxDecoration(
-                      color: c.textSecondary, shape: BoxShape.circle))
-              : CircularProgressIndicator(
-                  strokeWidth: 1.6, color: c.textSecondary),
-        );
-      }
-      return SizedBox.square(dimension: 12.r);
-    }
-
-    return Padding(
-      key: const ValueKey('slip-funding-steps'),
-      padding: EdgeInsets.only(top: 10.h),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          for (var i = 0; i < steps.length; i++)
-            Padding(
-              key: ValueKey('slip-funding-step-$i'),
-              padding: EdgeInsets.symmetric(vertical: 3.h),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 22.w,
-                    child: Align(
-                        alignment: Alignment.centerLeft, child: lead(i)),
-                  ),
-                  Flexible(
-                    child: Text(
-                      steps[i],
-                      style: TextStyle(
-                        color: failed && i == active
-                            ? c.textPrimary
-                            : i <= active
-                                ? c.textSecondary
-                                : c.textTertiary,
-                        fontSize: 13.sp,
-                        height: 1.35,
-                        fontWeight:
-                            i == active ? FontWeight.w600 : FontWeight.w400,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          if (slow && !failed)
-            Padding(
-              padding: EdgeInsets.only(top: 4.h, left: 22.w),
-              child: Text(
-                context.l10n.slipStepTakingLonger,
-                key: const ValueKey('slip-funding-slow'),
-                style: TextStyle(
-                    color: c.textTertiary, fontSize: 12.sp, height: 1.35),
-              ),
-            ),
-          if (note case final line?)
-            Padding(
-              padding: EdgeInsets.only(top: 6.h),
-              child: Text(
-                line,
-                key: const ValueKey('slip-funding-note'),
-                style: TextStyle(
-                    color: c.textSecondary, fontSize: 13.sp, height: 1.35),
-              ),
-            ),
-        ],
-      ),
+    // The older stage lines: the same animated tree, under their own
+    // names.
+    return MoneyStepsView(
+      keys: MoneyStepsKeys.slip,
+      lines: [
+        for (var i = 0; i < steps.length; i++)
+          MoneyStepLine(
+              steps[i],
+              i < active
+                  ? MoneyStepStatus.done
+                  : i == active
+                      ? (failed
+                          ? MoneyStepStatus.failed
+                          : MoneyStepStatus.running)
+                      : MoneyStepStatus.waiting),
+      ],
+      slow: slow,
+      note: note,
     );
   }
 }
