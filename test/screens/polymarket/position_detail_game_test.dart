@@ -18,6 +18,7 @@ import 'package:kute/providers/polymarket_live_prices_provider.dart';
 import 'package:kute/providers/polymarket_sats_pnl_provider.dart'
     show predictionUsdCostProvider;
 import 'package:kute/providers/polymarket_sports_provider.dart';
+import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/screens/polymarket/components/game_chart_section.dart';
 import 'package:kute/screens/polymarket/components/game_header.dart';
 import 'package:kute/screens/polymarket/components/market_chart.dart'
@@ -26,12 +27,14 @@ import 'package:kute/screens/polymarket/components/market_livestream_view.dart';
 import 'package:kute/screens/polymarket/components/poly_market_stats.dart'
     show PolyRulesRow;
 import 'package:kute/screens/polymarket/components/position_chance_bar.dart';
+import 'package:kute/screens/polymarket/components/position_chance_gauge.dart';
 import 'package:kute/screens/polymarket/components/position_detail_sheet.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/ask_sal_chip.dart';
 import 'package:kute/screens/shared/kute_dog_scenes.dart' show KuteDogGlance;
 import 'package:kute/screens/shared/kute_motion.dart' show ScorePulseText;
 import 'package:kute/screens/shared/position_rows_card.dart';
+import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/theme/app_theme.dart';
 
 /// The header's score ([ScorePulseText]: a goal pulses its number), found
@@ -98,6 +101,13 @@ class _NoCostBasis extends StateNotifier<Map<String, double>>
       String tokenId, double fractionRemaining) async {}
   @override
   double? costFor(String tokenId) => null;
+}
+
+/// No account: a settled position's Claim button reads an empty state.
+class _NoTrading extends PolymarketTradingNotifier {
+  @override
+  Future<PolymarketTradingState> build() async =>
+      const PolymarketTradingState();
 }
 
 class _Prices extends LivePriceNotifier {
@@ -403,8 +413,9 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('a team\'s side: the chance bar in the team\'s colour, '
-        'ticked at the price paid; no price chart', (tester) async {
+    testWidgets('a team\'s side: the chance gauge in the team\'s colour, '
+        'ticked at the price paid, the chance in its middle and nowhere '
+        'else; no bar, no price chart', (tester) async {
       await _pump(
         tester,
         const PositionDetailSheet(
@@ -426,16 +437,23 @@ void main() {
       );
       await tester.pump();
       expect(find.byType(MarketChart), findsNothing);
-      final bar = tester
-          .widget<PolyPositionChanceBar>(find.byType(PolyPositionChanceBar));
-      expect(bar.spec.left, kGameSideColors[0]);
-      expect(bar.spec.right, isNull);
-      expect(bar.spec.value, closeTo(0.5, 1e-9));
-      expect(bar.spec.tick, closeTo(0.42, 1e-9));
+      expect(find.byType(PolyPositionChanceBar), findsNothing);
+      final gauge = tester.widget<PolyPositionChanceGauge>(
+          find.byType(PolyPositionChanceGauge));
+      expect(gauge.spec.left, kGameSideColors[0]);
+      expect(gauge.spec.right, isNull);
+      expect(gauge.spec.value, closeTo(0.5, 1e-9));
+      expect(gauge.spec.tick, closeTo(0.42, 1e-9));
+      expect(gauge.chance, closeTo(0.5, 1e-9));
       expect(find.text('Bought · 42¢'), findsOneWidget);
+      // The chance is the gauge's: no "50% chance" beside the P&L.
+      expect(find.byWidgetPredicate(
+              (w) => w is RollingNumberText && w.text == '50% chance'),
+          findsNothing);
+      expect(find.text('chance'), findsOneWidget);
       // Between the figures and the rows.
       expect(
-          tester.getRect(find.byType(PolyPositionChanceBar)).bottom,
+          tester.getRect(find.byType(PolyPositionChanceGauge)).bottom,
           lessThan(tester.getRect(find.text('Outcome')).top));
       // The live feed's subscribe debounce runs out.
       await tester.pump(const Duration(milliseconds: 200));
@@ -462,14 +480,82 @@ void main() {
         ),
         overrides: overrides(null),
       );
-      final bar = tester
-          .widget<PolyPositionChanceBar>(find.byType(PolyPositionChanceBar));
-      expect(bar.spec.left, AppColors.marketUp);
-      expect(bar.spec.right, AppColors.marketDown);
-      expect(bar.spec.value, closeTo(0.925, 1e-9));
-      expect(bar.spec.tick, closeTo(0.46, 1e-6));
+      final gauge = tester.widget<PolyPositionChanceGauge>(
+          find.byType(PolyPositionChanceGauge));
+      expect(gauge.spec.left, AppColors.marketUp);
+      expect(gauge.spec.right, AppColors.marketDown);
+      expect(gauge.spec.value, closeTo(0.925, 1e-9));
+      expect(gauge.spec.tick, closeTo(0.46, 1e-6));
+      // The middle says the held side's chance, not Up's.
+      expect(gauge.chance, closeTo(0.075, 1e-9));
       expect(find.byType(MarketChart), findsNothing);
       // The live feed's subscribe debounce runs out.
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('ended, waiting for the result, still priced: the gauge',
+        (tester) async {
+      await _pump(
+        tester,
+        const PositionDetailSheet(
+          position: PolymarketPosition(
+            marketId: 'c1',
+            marketQuestion: '49ers vs. Broncos',
+            outcome: '49ers',
+            size: 120,
+            avgPrice: 0.42,
+            currentPrice: 0.5,
+            pnl: 9.6,
+            pnlPercent: 19,
+            isResolved: false,
+            eventSlug: 'nfl-sf-den',
+            tokenId: 'sf',
+            endDateStr: '2026-01-01T00:00:00Z',
+          ),
+        ),
+        overrides: overrides(_game(ended: true)),
+      );
+      await tester.pump();
+      expect(find.byType(PolyPositionChanceGauge), findsOneWidget);
+      expect(find.byType(PolyPositionChanceBar), findsNothing);
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('settled: the bar as before, the chance beside the P&L, no '
+        'gauge', (tester) async {
+      await _pump(
+        tester,
+        const PositionDetailSheet(
+          position: PolymarketPosition(
+            marketId: 'c1',
+            marketQuestion: '49ers vs. Broncos',
+            outcome: '49ers',
+            size: 120,
+            avgPrice: 0.42,
+            currentPrice: 1,
+            pnl: 69.6,
+            pnlPercent: 138,
+            isResolved: true,
+            won: true,
+            eventSlug: 'nfl-sf-den',
+            tokenId: 'sf',
+          ),
+        ),
+        overrides: [
+          ...overrides(_game(ended: true)),
+          polymarketTradingProvider.overrideWith(_NoTrading.new),
+        ],
+      );
+      await tester.pump();
+      expect(find.byType(PolyPositionChanceGauge), findsNothing);
+      final bar = tester
+          .widget<PolyPositionChanceBar>(find.byType(PolyPositionChanceBar));
+      expect(bar.spec.value, closeTo(1, 1e-9));
+      expect(find.byWidgetPredicate(
+              (w) => w is RollingNumberText && w.text == '100% chance'),
+          findsOneWidget);
       await tester.pump(const Duration(milliseconds: 200));
       expect(tester.takeException(), isNull);
     });
