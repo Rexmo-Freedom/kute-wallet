@@ -803,6 +803,72 @@ void main() {
       expect(find.textContaining('8,002'), findsOneWidget);
     });
 
+    testWidgets(
+        'a Buy bitcoin whose legs are still being submitted is on the '
+        'Bitcoin list and Investments at once: "Withdraw · from '
+        'Investments", Pending, on top', (tester) async {
+      // The sheet closed on submit: the move is recorded, its legs are
+      // planned and none has an outcome yet.
+      final now = DateTime.now();
+      final submitting = MultiSourceMove(
+        id: 'msm_new',
+        walletId: 'w1',
+        forAction: VenueCashFor.buyBitcoin,
+        destination: VenueCashDestination.bitcoin,
+        totalUsd: 9.42,
+        dollarsUsd: 2,
+        createdAt: now,
+        steps: MoveSteps.planned(
+          destination: VenueCashDestination.bitcoin,
+          forAction: VenueCashFor.buyBitcoin,
+          legs: [
+            (venue: OneBalanceVenue.investing, usd: 7.6, direct: false),
+          ],
+          onwardUsd: 7.42,
+          totalUsd: 9.42,
+          at: now,
+        ),
+      );
+      final older = _row('ord_old',
+          from: 'BTC',
+          fromNet: 'LIGHTNING',
+          to: 'BTC',
+          toNet: 'SPARK',
+          status: 'success',
+          after: const Duration(hours: -1));
+      for (final onlyUsdb in [false, true]) {
+        final rows = collapseMultiSourceMoves([older], [submitting],
+            onlyUsdb: onlyUsdb, walletId: 'w1');
+        expect(rows.map((r) => r.id), ['msm_new', 'ord_old'],
+            reason: 'on top, onlyUsdb: $onlyUsdb');
+      }
+      // Its approval ran out with nothing recorded (a crash cut it short):
+      // never Pending forever.
+      expect(
+          multiSourceMoveShows(submitting,
+              onlyUsdb: false,
+              now: now.add(kMultiSourceMoveFinishWindow)),
+          isFalse);
+      // Every leg failed before anything moved: no row, as before.
+      final failed = submitting.copyWith(legs: [
+        _leg(OneBalanceVenue.investing, ok: false, direct: false),
+      ]).copyWith(
+          steps: MoveSteps.legRecorded(submitting.steps,
+              _leg(OneBalanceVenue.investing, ok: false, direct: false),
+              destination: VenueCashDestination.bitcoin,
+              forAction: VenueCashFor.buyBitcoin));
+      expect(multiSourceMoveShows(failed, onlyUsdb: false, now: now), isFalse);
+
+      await pumpRow(tester,
+          MultiSourceMoveTransaction(move: submitting, legRows: const []));
+      expect(find.text('Withdraw'), findsOneWidget);
+      expect(find.textContaining('from Investments'), findsOneWidget);
+      expect(
+          find.textContaining('Pending', findRichText: true), findsOneWidget);
+      expect(find.textContaining('9.42'), findsOneWidget,
+          reason: 'in dollars until bitcoin is reported');
+    });
+
     testWidgets('a delivery the wallet has not counted yet stays Pending',
         (tester) async {
       OwnSparkArrivals.refresh = (_) => Completer<void>().future;

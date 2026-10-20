@@ -41,6 +41,8 @@ import 'package:kute/screens/home/components/deposit_sheet.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart'
     show AmountKeypad, BigAmountDisplay;
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/multi_source_move_activity.dart'
+    show multiSourceMoveShows;
 import 'package:kute/services/funding/spark_hypercore_funding_service.dart';
 import 'package:kute/services/http/shared_http_client.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
@@ -519,9 +521,12 @@ void main() {
   });
 
   testWidgets(
-      'the confirm wears the rubber band: it pulls from the tap, steps on '
-      'each phase, and lets go quietly with one soft tap when a leg fails',
-      (tester) async {
+      'submit and done: the band pulls from the tap and snaps once the one '
+      'approval is given, the sheet closes while the leg is still being '
+      'submitted, and a leg that then fails is on the move\'s row, not the '
+      'sheet', (tester) async {
+    final events = <(String, Map<String, Object>?)>[];
+    TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
     final venue = _GatedVenue(100);
     final approvals = _Approvals(() => venue.pulls.length);
     debugBuyBitcoinApproval = approvals.call;
@@ -538,8 +543,6 @@ void main() {
         await _open(tester, MoveLockedSide.depositFromFiat, routed: true);
     RubberBandProgressState band() =>
         tester.state<RubberBandProgressState>(find.byType(RubberBandProgress));
-    RubberBandBusyState busy() =>
-        tester.state<RubberBandBusyState>(find.byType(RubberBandBusy));
     expect(band().stretch, 0, reason: 'at rest before the tap');
     for (final key in ['3', '0']) {
       await tester.tap(find.text(key).last);
@@ -549,47 +552,51 @@ void main() {
     for (var i = 0; i < 6; i++) {
       await tester.pump(const Duration(milliseconds: 50));
     }
-    // Approved, the leg is being submitted: the band pulls past the first
-    // pull, the continuous rumble plays.
-    expect(busy().progress, greaterThanOrEqualTo(0.6));
-    expect(band().stretch, greaterThan(0));
-    expect(band().feeling, isTrue);
-    expect(find.byType(DepositSheet), findsOneWidget);
+    // Approved: the move is recorded (its Activity row is up, pending) and
+    // the sheet closes with the snap, while the venue leg is still on its
+    // way out. No steps in the sheet, no waiting on any leg.
+    expect(approvals.prompts, hasLength(1));
+    final move = MultiSourceMoveStore.all().single;
+    expect(move.legs, isEmpty, reason: 'the leg is still being submitted');
+    // Its row is on the Bitcoin list and Investments already (the test's
+    // move clock is its own).
+    expect(multiSourceMoveShows(move, onlyUsdb: false, now: move.createdAt),
+        isTrue);
+    expect(multiSourceMoveShows(move, onlyUsdb: true, now: move.createdAt),
+        isTrue);
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    expect(find.byType(DepositSheet), findsNothing);
+    expect(find.text(_behind, skipOffstage: false), findsOneWidget);
+    expect(_haptics('snap'), 1);
+    expect(events.where((e) => e.$1 == 'move_completed').single.$2!['outcome'],
+        'purchase_queued');
+    expect(_initialBuys, [10],
+        reason: 'the Dollars part still goes in the background');
 
-    // The leg is not sent: the sheet stays, says so, offers Retry.
+    // The leg is not sent: it is on the move's row (Retry there), the
+    // approval ends, nothing is bought, and no tap plays for a sheet that
+    // is gone.
     venue.error = const DirectRouteRefused('settlement_declined');
     venue.gate.complete();
     for (var i = 0; i < 20; i++) {
       await tester.pump(const Duration(milliseconds: 50));
     }
-    await tester.pump(const Duration(milliseconds: 600));
-    expect(find.byType(DepositSheet), findsOneWidget);
-    expect(tester.widget<AppButton>(_cta).isLoading, isFalse);
-    expect(tester.widget<AppButton>(_cta).text, 'Retry');
+    final after = MultiSourceMoveStore.get(move.id)!;
+    expect(after.partial, isTrue);
+    expect(after.provenUnsentLegs, isNotEmpty);
     expect(_buy.calls, isEmpty);
+    expect(PendingBitcoinPurchaseStore.all(), isEmpty);
     expect(approvals.grants.single.revoked, isTrue);
-    // One soft tap, after the band let go (its own release is quiet), no
-    // snap.
-    expect(_haptics('softTap'), 1, reason: 'one failure tap, not two');
-    expect(_haptics('snap'), 0);
-    final methods = ContinuousHaptics.debugLog!.map((c) => c.method).toList();
-    expect(methods.lastIndexOf('stop'), lessThan(methods.indexOf('softTap')));
-    // The same sheet retries just the proven-unsent venue allocation.
-    venue.error = null;
-    await tester.tap(_cta);
-    for (var i = 0; i < 10; i++) {
-      await tester.pump(const Duration(milliseconds: 50));
-    }
-    expect(approvals.prompts, hasLength(2));
-    expect(venue.pulls, [20.41]);
-    expect(_initialBuys, [10], reason: 'accepted Dollars are never bought again');
-    await tester.pump(const Duration(milliseconds: 700));
-    expect(find.byType(DepositSheet), findsNothing);
+    expect(_haptics('softTap'), 0);
+    expect(events.map((e) => e.$1), isNot(contains('move_failed')));
     await _close(tester, container);
   });
 
-  testWidgets('unknown multi-source send cannot resubmit from the same sheet',
-      (tester) async {
+  testWidgets(
+      'an unknown multi-source send stays on the move\'s row: the sheet '
+      'is already gone, nothing is offered again', (tester) async {
     final venue = _GatedVenue(100);
     final approvals = _Approvals(() => venue.pulls.length);
     debugBuyBitcoinApproval = approvals.call;
@@ -605,16 +612,19 @@ void main() {
       await tester.pump();
     }
     await tester.tap(_cta);
-    await tester.pump(const Duration(milliseconds: 200));
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    expect(find.byType(DepositSheet), findsNothing);
     venue.error = StateError('native outcome unknown');
     venue.gate.complete();
     for (var i = 0; i < 20; i++) {
       await tester.pump(const Duration(milliseconds: 50));
     }
-    expect(tester.widget<AppButton>(_cta).onPressed, isNull);
     expect(approvals.prompts, hasLength(1));
     expect(_initialBuys, [10]);
     expect(MultiSourceMoveStore.all().single.provenUnsentLegs, isEmpty);
+    expect(_buy.calls, isEmpty);
     await _close(tester, container);
   });
 

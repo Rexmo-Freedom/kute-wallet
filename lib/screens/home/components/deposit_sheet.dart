@@ -103,8 +103,6 @@ import 'package:kute/services/polymarket_onboarding_service.dart';
 import 'package:kute/providers/cash_app_payment_window_provider.dart';
 import 'package:kute/models/orchestra_model.dart' show OrchestraOnrampResponse;
 import 'package:kute/models/settings_model.dart' show WalletConfig;
-import 'package:kute/screens/shared/kute_motion.dart'
-    show FoldAway, StepsReveal;
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/services/orchestra_routes.dart'
     show
@@ -160,8 +158,6 @@ import 'package:kute/services/one_balance/multi_source_move.dart'
         multiSourceMovesProvider,
         trackMultiSourceMoveRetry;
 import 'package:kute/screens/shared/venue_cash_pull_copy.dart';
-import 'package:kute/screens/shared/move_steps_view.dart'
-    show MoveStepsSection;
 import 'package:kute/services/funding/hot_settlement.dart';
 import 'package:kute/screens/ledger/ledger_investment_gate.dart'
     show
@@ -1216,18 +1212,6 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     final max = ref.read(investmentsSpendableProvider).maxUsd;
     return max > dollars ? max : dollars;
   }
-
-  /// While venue cash is coming home for a purchase: one line per leg,
-  /// on the sheet's quiet caption line.
-  String? _pullProgress;
-
-  /// The Buy bitcoin whose steps (each leg, the purchase, the arrival)
-  /// show on that line while it runs, once its record is written.
-  String? _stepsMoveId;
-
-  /// A move's steps show under the amount (and the chips and keypad fold
-  /// away for them).
-  bool get _showsMoveSteps => _stepsMoveId != null && _error == null;
 
   /// The multi-source move a purchase's venue cash went under, and the
   /// amount it was for: Retry of the same amount continues it (money
@@ -4332,15 +4316,15 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// it (only under that approval, within its caps), home to Dollars
   /// otherwise.
   ///
-  /// It never waits for money to land (founder decision 15 October 2026:
-  /// "once the order is placed, we should just exit"): it returns once
-  /// every leg is SUBMITTED.
-  ///  * Dollars already hold what the purchase still takes from them (0
-  ///    when the legs bought it all): that amount, for the purchase to go
-  ///    on at once under [_purchaseGrant].
-  ///  * A leg came home to Dollars and has not landed yet: the purchase
-  ///    is handed to the background ([BitcoinPurchaseFinisher], under the
-  ///    same approval) and the result says [_VenuePull.queued].
+  /// It never waits for the legs (founder request, 20 October 2026: "just
+  /// submit and ok, the user will see the progress on the detail sheet"):
+  /// once approved, the move's record is written as its legs start, and
+  /// it returns [_VenuePull.queued] at that moment. The sheet closes; the
+  /// legs, the purchase from what came home ([BitcoinPurchaseFinisher],
+  /// under the same approval) and any stop go on in the background
+  /// ([_finishPullInBackground]), on the move's Activity row.
+  ///  * No venue leg after all (Dollars hold it): that amount, for the
+  ///    purchase to go on at once with its own approval.
   ///  * Null when it stopped (declined: nothing moved, quietly; otherwise
   ///    the reason is on the caption line, whatever moved stays where it
   ///    went, and the purchase never goes twice: Retry continues the same
@@ -4353,7 +4337,6 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     if (_moveUsd != usd) _moveId = null;
     _purchaseGrant?.revoke();
     _purchaseGrant = null;
-    _stepsMoveId = null;
     VenueCashPullOutcome? outcome;
     AuthGrant? grant;
     var initialDollarsStopped = false;
@@ -4384,8 +4367,6 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
             if (mounted) {
               setState(() {
                 _processing = false;
-                _pullProgress = null;
-                _stepsMoveId = null;
                 _error = null;
               });
             }
@@ -4398,77 +4379,67 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
           grant?.revoke();
           return null;
         }
-        var sent = 0;
-        Future<VenueCashPullOutcome> pullNormally() => puller.pullShortfall(
-              neededUsd: usd,
-              forAction: VenueCashFor.buyBitcoin,
-              destination: VenueCashDestination.bitcoin,
-              moveId: _moveId,
-              approval: grant,
-              plan: plan,
-              waitFor: Duration.zero,
-              onPlanned: (plan) {
-                if (!mounted || plan.pulls.isEmpty) return;
-                _bandStep(0.6);
-                setState(() => _pullProgress = venueCashProgressText(
-                    context.l10n, plan,
-                    destination: VenueCashDestination.bitcoin,
-                    direct: puller.directVenues(
-                        plan, VenueCashDestination.bitcoin)));
-              },
-              // The move's steps take the line from here (its record holds
-              // them, live as each leg and the purchase move on).
-              onStarted: (id) {
-                if (mounted) setState(() => _stepsMoveId = id);
-              },
-              onLeg: (leg) {
-                // Each leg submitted pulls the band a step further.
-                sent++;
-                final legs = math.max(1, plan.pulls.length);
-                _bandStep(0.6 + 0.2 * math.min(sent, legs) / legs);
-              },
-            );
+        // The move's record is written the moment its legs start, right
+        // after the approval: the sheet closes then (founder request, 20
+        // October 2026: "just submit and ok, the user will see the
+        // progress on the detail sheet"), and the legs, the purchase and
+        // any failure live on the move's Activity row.
+        final started = Completer<String?>();
+        void recordStarted(String? id) {
+          if (!started.isCompleted) started.complete(id);
+        }
+
+        final Future<_PullRun> run;
         if (earlier == null &&
             plan.pulls.length + (plan.dollarsUsd > 0 ? 1 : 0) > 1 &&
             grant != null) {
           final ownSpark = grant.boundIntent.destination!;
           final walletId = grant.walletId;
-          final fanout = await appRead(bitcoinPurchaseFanoutProvider).start(
-            puller: puller,
-            plan: plan,
-            approval: grant,
-            walletId: walletId,
-            ownSpark: ownSpark,
-            onPlanned: (selected) {
-              if (!mounted) return;
-              _bandStep(0.6);
-              setState(() => _pullProgress = venueCashProgressText(
-                  context.l10n, selected,
-                  destination: VenueCashDestination.bitcoin,
-                  direct: puller.directVenues(
-                      selected, VenueCashDestination.bitcoin)));
-            },
-            onStarted: (id) {
-              _moveId = id;
-              _moveUsd = usd;
-              if (mounted) setState(() => _stepsMoveId = id);
-            },
-            onLeg: (leg) {
-              sent++;
-              _bandStep(0.6 +
-                  0.2 *
-                      math.min(sent, plan.pulls.length) /
-                      math.max(1, plan.pulls.length));
-            },
-          );
-          outcome = fanout.pull;
-          grant = fanout.grant;
-          initialDollarsStopped =
-              fanout.dollarsEnd == ParallelDollarsEnd.notSent ||
-                  fanout.dollarsEnd == ParallelDollarsEnd.unknown;
+          run = appRead(bitcoinPurchaseFanoutProvider)
+              .start(
+                puller: puller,
+                plan: plan,
+                approval: grant,
+                walletId: walletId,
+                ownSpark: ownSpark,
+                onPlanned: (_) => _bandStep(0.6),
+                onStarted: recordStarted,
+              )
+              .then((fanout) => _PullRun(fanout.pull, fanout.grant,
+                  initialDollarsStopped:
+                      fanout.dollarsEnd == ParallelDollarsEnd.notSent ||
+                          fanout.dollarsEnd == ParallelDollarsEnd.unknown));
         } else {
-          outcome = await pullNormally();
+          final approval = grant;
+          run = puller
+              .pullShortfall(
+                neededUsd: usd,
+                forAction: VenueCashFor.buyBitcoin,
+                destination: VenueCashDestination.bitcoin,
+                moveId: _moveId,
+                approval: approval,
+                plan: plan,
+                waitFor: Duration.zero,
+                onPlanned: (plan) {
+                  if (plan.pulls.isNotEmpty) _bandStep(0.6);
+                },
+                onStarted: recordStarted,
+              )
+              .then((pull) => _PullRun(pull, approval));
         }
+        unawaited(run.then<void>((_) {}, onError: (_) {}).whenComplete(
+            () => recordStarted(null)));
+        final moveId = await started.future;
+        if (moveId != null && grant != null) {
+          _moveId = moveId;
+          _moveUsd = usd;
+          unawaited(_finishPullInBackground(appRead, run, grant));
+          return const _VenuePull(0, queued: true);
+        }
+        final ran = await run;
+        outcome = ran.outcome;
+        grant = ran.grant;
+        initialDollarsStopped = ran.initialDollarsStopped;
       }
     } catch (_) {
       outcome = null;
@@ -4491,7 +4462,6 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         PendingBitcoinPurchaseStore.remove(outcome.moveId!);
         grant?.revoke();
         if (!mounted) return null;
-        setState(() => _pullProgress = null);
         return _VenuePull(0);
       }
     }
@@ -4516,7 +4486,6 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       }
       setState(() {
         _processing = false;
-        _pullProgress = null;
         _error = context.l10n.usdSendFailed;
         _retryPull =
             _parallelPurchase != null && _canRetryParallel(_parallelPurchase!);
@@ -4524,7 +4493,6 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       return null;
     }
     if (outcome != null && outcome.dollarsCover) {
-      setState(() => _pullProgress = null);
       _purchaseGrant = grant;
       return _VenuePull(outcome.dollarsNeededUsd);
     }
@@ -4544,8 +4512,6 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         'move', covered ? 'venue_cash_pending' : 'insufficient_funds');
     setState(() {
       _processing = false;
-      _pullProgress = null;
-      _stepsMoveId = null;
       _error = (outcome == null
               ? null
               : venueCashStoppedText(context.l10n, outcome)) ??
@@ -4554,6 +4520,48 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
               : context.l10n.insufficientBalance);
     });
     return null;
+  }
+
+  /// The rest of a Buy bitcoin whose sheet closed on submit ([run]: its
+  /// legs, already recorded on the move's Activity row), with no sheet to
+  /// report to: exactly what the sheet did when it was closed under a
+  /// move. A remainder under the purchase minimum stays in Dollars; what
+  /// came home to Dollars is bought by the background finisher under the
+  /// same one [approval] ([_queuePurchase]); anything else (a leg that did
+  /// not go, an unknown outcome) is on the move's row and detail, where
+  /// Retry and "Tap to buy Bitcoin" live.
+  static Future<void> _finishPullInBackground(ProviderReader appRead,
+      Future<_PullRun> run, AuthGrant approval) async {
+    final _PullRun ran;
+    try {
+      ran = await run;
+    } catch (_) {
+      approval.revoke();
+      return;
+    }
+    final outcome = ran.outcome;
+    final grant = ran.grant;
+    final onward = BigInt.from((outcome.dollarsNeededUsd * 1e6).round());
+    if (outcome.plan.covers &&
+        outcome.failedLegs.isEmpty &&
+        outcome.moveId != null &&
+        outcome.dollarsNeededUsd >= 0.01 &&
+        DollarsToBitcoinMinimum.belowFloor(onward)) {
+      try {
+        await appRead(dollarsToBitcoinMinimumProvider).check(onward);
+      } on DollarsToBitcoinBelowMinimum {
+        BuyBitcoinSteps.record(outcome.moveId,
+            (g) => BuyBitcoinSteps.buySkipped(g, at: DateTime.now()));
+        PendingBitcoinPurchaseStore.remove(outcome.moveId!);
+        grant?.revoke();
+        return;
+      } catch (_) {/* the finisher checks the minimum again */}
+    }
+    if (grant != null && _queuesPurchase(outcome)) {
+      _queuePurchase(appRead, outcome, grant);
+    } else {
+      grant?.revoke();
+    }
   }
 
   /// Whether [outcome] is a move whose every leg was submitted and whose
@@ -4659,7 +4667,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// returns before the bitcoin lands); with venue cash, once every leg
   /// is submitted ([_pullVenueCashForPurchase]).
   MultiSourceMove? get _parallelPurchase {
-    final id = _moveId ?? _stepsMoveId;
+    final id = _moveId;
     final move = id == null ? null : MultiSourceMoveStore.get(id);
     return move?.isParallelPurchase == true ? move : null;
   }
@@ -7888,45 +7896,6 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
                               ),
                             );
                           }),
-                        // A Buy bitcoin with venue cash: its steps, each
-                        // leg on its own line, the purchase, the arrival.
-                        // They grow in (the chips and keypad fold away for
-                        // them), never popping in.
-                        StepsReveal(
-                          child: _showsMoveSteps
-                              ? Consumer(builder: (context, ref, _) {
-                                  final move = ref
-                                      .watch(multiSourceMovesProvider)
-                                      .where((m) => m.id == _stepsMoveId)
-                                      .firstOrNull;
-                                  return move == null
-                                      ? const SizedBox.shrink()
-                                      // The sheet's own failure tap is the
-                                      // stop's.
-                                      : MoveStepsSection(
-                                          move: move,
-                                          followRows: false,
-                                          failureHaptic: false);
-                                })
-                              : null,
-                        ),
-                        // Venue cash on its way home for a purchase,
-                        // on the same quiet caption line.
-                        if (!_showsMoveSteps &&
-                            _pullProgress != null &&
-                            _error == null)
-                          Padding(
-                            padding: EdgeInsets.only(top: 10.h),
-                            child: Text(
-                              _pullProgress!,
-                              style: TextStyle(
-                                color: c.textSecondary,
-                                fontSize: 12.sp,
-                                fontWeight: FontWeight.w500,
-                                height: 1.35,
-                              ),
-                            ),
-                          ),
                         // A withheld route says so in the bet slip's own
                         // words and chrome, where the fee and any error
                         // would read; no estimate is asked for it.
@@ -8080,56 +8049,51 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
               // ── Bottom, pinned: chips + keypad + CTA ─────
               // On every amount screen, in every state, so the layout
               // never jumps: dimmed while there is nothing to spend.
-              // While a move's steps show the amount cannot change: the
-              // chips and keypad fold away and the steps take their room.
-              FoldAway(
-                folded: _showsMoveSteps,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    AmountQuickChips(
-                      // Same gate as the available-balance tap: a share of
-                      // a balance that is still loading, or only a cached
-                      // fallback, is not a figure to send. Outside money
-                      // (Cash App, the bank) has no balance to wait for.
-                      enabled: !_processing &&
-                          !_movementSendLocked &&
-                          (_isFiatMode || _sourceBalanceState == null),
-                      chips: moveQuickAmountChips(
-                        // The fiat screens type their own currency and spend
-                        // outside money: fixed amounts, no Max.
-                        amountIsUsd: true,
-                        symbol: _isFiatMode ? _fiatSymbol(_fiatCurrency) : '\$',
-                        withMax: !_isFiatMode,
-                        maxLabel: context.l10n.max,
-                        exceedsAvailable: _chipExceedsAvailable,
-                        onDollars: _isFiatMode
-                            ? _applyFiatAmountChip
-                            : _applyAmountDollars,
-                        onPercent: _applyAmountPercent,
-                      ),
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  AmountQuickChips(
+                    // Same gate as the available-balance tap: a share of
+                    // a balance that is still loading, or only a cached
+                    // fallback, is not a figure to send. Outside money
+                    // (Cash App, the bank) has no balance to wait for.
+                    enabled: !_processing &&
+                        !_movementSendLocked &&
+                        (_isFiatMode || _sourceBalanceState == null),
+                    chips: moveQuickAmountChips(
+                      // The fiat screens type their own currency and spend
+                      // outside money: fixed amounts, no Max.
+                      amountIsUsd: true,
+                      symbol: _isFiatMode ? _fiatSymbol(_fiatCurrency) : '\$',
+                      withMax: !_isFiatMode,
+                      maxLabel: context.l10n.max,
+                      exceedsAvailable: _chipExceedsAvailable,
+                      onDollars: _isFiatMode
+                          ? _applyFiatAmountChip
+                          : _applyAmountDollars,
+                      onPercent: _applyAmountPercent,
                     ),
-                    SizedBox(height: 12.h),
-                    AmountKeypad(
-                      value: _isFiatMode
-                          ? _typedFiatAmountController.text
-                          : _typedAmount,
-                      // Dollars and the fiat screens type cents.
-                      maxDecimals: 2,
-                      enabled: !_processing && !_movementSendLocked,
-                      onChanged: (v) {
-                        if (_isFiatMode) {
-                          setState(() => _typedFiatAmountController.text = v);
-                          _trackBuyAmountTyped();
-                        } else {
-                          _onTypedAmountChanged(v);
-                        }
-                      },
-                    ),
-                    SizedBox(height: 12.h),
-                  ],
-                ),
+                  ),
+                  SizedBox(height: 12.h),
+                  AmountKeypad(
+                    value: _isFiatMode
+                        ? _typedFiatAmountController.text
+                        : _typedAmount,
+                    // Dollars and the fiat screens type cents.
+                    maxDecimals: 2,
+                    enabled: !_processing && !_movementSendLocked,
+                    onChanged: (v) {
+                      if (_isFiatMode) {
+                        setState(() => _typedFiatAmountController.text = v);
+                        _trackBuyAmountTyped();
+                      } else {
+                        _onTypedAmountChanged(v);
+                      }
+                    },
+                  ),
+                  SizedBox(height: 12.h),
+                ],
               ),
               // The rubber band (founder request, 15 October 2026): the
               // confirm is pulled from the tap until every leg of the move
@@ -8258,6 +8222,18 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   }
 }
 
+/// How a purchase's venue pull ran: its outcome, the approval left for
+/// what it still buys from Dollars, and whether its own Dollars purchase
+/// (a multi-source Buy) did not go.
+class _PullRun {
+  const _PullRun(this.outcome, this.grant,
+      {this.initialDollarsStopped = false});
+
+  final VenueCashPullOutcome outcome;
+  final AuthGrant? grant;
+  final bool initialDollarsStopped;
+}
+
 /// What a purchase's venue pull decided ([_DepositSheetState._pullVenueCashForPurchase]).
 class _VenuePull {
   const _VenuePull(this.onwardUsd, {this.queued = false});
@@ -8265,7 +8241,8 @@ class _VenuePull {
   /// What the purchase still takes from Dollars.
   final double onwardUsd;
 
-  /// The purchase finishes in the background once what came home lands.
+  /// The move finishes in the background (the sheet closed on submit):
+  /// its legs and the purchase from what came home, on its Activity row.
   final bool queued;
 }
 

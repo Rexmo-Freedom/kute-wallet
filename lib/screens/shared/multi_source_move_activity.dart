@@ -682,15 +682,36 @@ bool _dollarCoin(String coin) {
 }
 
 /// Whether [move] has a row on a surface: something moved for it (a leg
-/// went, or the action's own step did), and the surface is the dollar
+/// went, or the action's own step did) or its legs are still being
+/// submitted ([multiSourceMoveSubmitting]), and the surface is the dollar
 /// ledger ([onlyUsdb]) or Bitcoin is where it went.
-bool multiSourceMoveShows(MultiSourceMove move, {required bool onlyUsdb}) {
+bool multiSourceMoveShows(MultiSourceMove move,
+    {required bool onlyUsdb, DateTime? now}) {
   if (move.okLegs.isEmpty &&
       move.finalOperationId == null &&
-      move.initialDollarsOperationId == null) {
+      move.initialDollarsOperationId == null &&
+      !multiSourceMoveSubmitting(move, now: now ?? DateTime.now())) {
     return false;
   }
   return onlyUsdb || move.destination == VenueCashDestination.bitcoin;
+}
+
+/// Whether [move] was approved and its legs are still being submitted:
+/// the Move sheet closes on submit (a Buy bitcoin from Investments), so
+/// the move's row is up, Pending, from that moment, before any leg has an
+/// outcome. A leg (or the move's own Dollars part) with no outcome yet is
+/// a running step with no submission and no reason; it counts while the
+/// move's approval lives ([kMultiSourceMoveFinishWindow]), so a record a
+/// crash cut short is never Pending forever.
+bool multiSourceMoveSubmitting(MultiSourceMove move, {required DateTime now}) {
+  if (!now.isBefore(move.createdAt.add(kMultiSourceMoveFinishWindow))) {
+    return false;
+  }
+  return move.steps.steps.any((s) =>
+      (MoveSteps.isVenueLeg(s) || s.id == MoveSteps.initialDollarsId) &&
+      s.status == MoneyStepStatus.running &&
+      s.ref == null &&
+      s.reason == null);
 }
 
 /// [rows] (newest first) with each of [moves]' legs folded into one row
