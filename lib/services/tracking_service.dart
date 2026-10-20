@@ -2043,10 +2043,6 @@ class TrackingService {
     track('seed_screenshot_warning_shown', params: {'surface': surface});
   }
 
-  /// The Wallets screen recovery phrase sheet showed its QR code after an
-  /// explicit tap.
-  static void walletsQrRevealed() => track('wallets_qr_revealed');
-
   /// The note that phone backups and transfers don't carry the wallet key
   /// was shown on [surface].
   static void deviceBoundExplainerViewed({required String surface}) {

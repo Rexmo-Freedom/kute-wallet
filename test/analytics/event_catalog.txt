@@ -721,7 +721,6 @@ wallet_type_selected
 wallet_wiped
 wallet_wiped_forgot_pin
 wallet_wiped_pin_limit
-wallets_qr_revealed
 wallets_wallet_row_tapped
 watchlist_toggled
 xpub_address_type_selected
