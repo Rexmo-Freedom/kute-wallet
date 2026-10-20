@@ -823,51 +823,11 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('the market sheet\'s "Your investment" card: the side and '
-        'the title, the value with the P&L beside the entry, Manage as a '
-        'plain row opening the position', (tester) async {
-      OpenOnce.reset();
-      addTearDown(OpenOnce.reset);
+    testWidgets('the market sheet shows no "Your investment" card',
+        (tester) async {
       await pumpScreen(tester, const HlMarketDetailSheet(market: btc));
-      await tester.ensureVisible(find.text('Your investment'));
-      await tester.pump();
-      // The size at the live mark (66,000 x 0.5), the live P&L and its
-      // return on the 6,400 margin.
-      final value = find.byKey(const ValueKey('hl-investment-value'));
-      expect(find.descendant(of: value, matching: find.text('Position value')),
-          findsOneWidget);
-      expect(
-          find.descendant(
-              of: value,
-              matching: find.byWidgetPredicate((w) =>
-                  w is RollingNumberText && w.text == r'$33,000.00')),
-          findsOneWidget);
-      expect(
-          find.descendant(
-              of: value,
-              matching: find.byWidgetPredicate((w) =>
-                  w is RollingNumberText &&
-                  w.text == r'+$1,000.00 · +15.6%')),
-          findsOneWidget);
-      // The entry with the leverage and the size under it.
-      final entry = find.byKey(const ValueKey('hl-investment-entry'));
-      expect(find.descendant(of: entry, matching: find.text('Bought at')),
-          findsOneWidget);
-      expect(find.descendant(of: entry, matching: find.text(r'$64,000')),
-          findsOneWidget);
-      expect(find.descendant(of: entry, matching: find.text('5x · 0.5 BTC')),
-          findsOneWidget);
-      // No funding rate known: no funding line.
-      expect(find.byKey(const ValueKey('hl-investment-funding')), findsNothing);
-      final manage = find.byKey(const ValueKey('hl-investment-manage'));
-      expect(find.descendant(of: manage, matching: find.text('Manage')),
-          findsOneWidget);
-      await tester.ensureVisible(manage);
-      await tester.tap(manage);
-      await tester.pump();
-      expect(OpenOnce.isOpen(HlPositionDetailSheet.openKey('BTC', null)),
-          isTrue);
-      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('Your investment'), findsNothing);
+      expect(find.byKey(const ValueKey('hl-investment-manage')), findsNothing);
       expect(tester.takeException(), isNull);
     });
 

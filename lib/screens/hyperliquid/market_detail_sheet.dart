@@ -62,7 +62,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
 
-import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/chart_drawing.dart';
 import 'package:kute/models/hyperliquid_market.dart';
@@ -96,10 +95,6 @@ import 'package:kute/services/hyperliquid/hyperliquid_websocket.dart'
     show HlTrade;
 import 'package:kute/screens/hyperliquid/components/order_slip_sheet.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart';
-import 'package:kute/screens/shared/rolling_number_text.dart';
-import 'package:kute/screens/shared/position_rows_card.dart';
-import 'package:kute/screens/hyperliquid/components/hl_isolated_margin.dart'
-    show hlPositionMargin;
 import 'package:kute/screens/ledger/ledger_actions.dart';
 import 'package:kute/services/venue_analytics.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -524,45 +519,10 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                             chipSignals: salSignalsForHlMarket(m),
                             padding: EdgeInsets.only(bottom: 16.h),
                           ),
-                        // The user's own exposure stays ABOVE the Details
-                        // expander — it's the one thing worth surfacing at a
-                        // glance. Its money amounts (PnL / holding value) honour
-                        // the Bitcoin denomination setting; the market quote
-                        // prices below stay in USD.
-                        if (!_advancedChart && position != null) ...[
-                          _PositionSummaryCard(
-                              position: position, funding: m.funding),
-                          SizedBox(height: 16.h),
-                        ] else if (!_advancedChart &&
-                            m.isSpot &&
-                            spotHeld > 0) ...[
-                          Container(
-                            padding: EdgeInsets.all(14.w),
-                            decoration: BoxDecoration(
-                              color: c.surface.withValues(alpha: 0.96),
-                              borderRadius: BorderRadius.circular(14.r),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(Icons.account_balance_wallet_outlined,
-                                    color: kHlAccent, size: 18.sp),
-                                SizedBox(width: 10.w),
-                                Expanded(
-                                  child: Text(
-                                    '${context.l10n.chartYouHold} ${formatHlSize(spotHeld)} ${m.coin} ≈ ${formatPolyAmount(ref, spotHeld * price)}',
-                                    style: TextStyle(
-                                      color: c.textPrimary,
-                                      fontSize: 14.sp,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          SizedBox(height: 16.h),
-                        ],
-
+                        // No "Your investment" card here (founder,
+                        // 2026-10-20): the position has its own screen,
+                        // and the chart already marks entry and
+                        // liquidation.
                         // About, whose sheet holds the stats and
                         // long-form details, so the chart keeps the
                         // screen.
@@ -922,157 +882,6 @@ class _HlAboutSheet extends ConsumerWidget {
 }
 
 // ───────────────────────── position summary ─────────────────────────
-
-class _PositionSummaryCard extends ConsumerWidget {
-  final HlPerpPosition position;
-
-  /// The market's current hourly funding rate, when known: adds the
-  /// "next funding" line.
-  final double? funding;
-  const _PositionSummaryCard({required this.position, this.funding});
-
-  /// "Next funding in 23 min: you pay about $0.12": the countdown to the
-  /// top of the hour and what this position pays or receives there at
-  /// the current rate. Null when the rate is unknown or zero.
-  String? _fundingLine(BuildContext context, WidgetRef ref) {
-    final rate = funding;
-    if (rate == null || rate == 0 || position.szi == 0) return null;
-    final now = DateTime.now();
-    final minutes =
-        hlNextFundingTime(now).difference(now).inMinutes.clamp(1, 60);
-    final estimate = hlFundingEstimate(
-      positionValue: position.positionValue,
-      isLong: position.isLong,
-      rate: rate,
-    );
-    final time = context.l10n.hlMinutesShort(minutes);
-    // The person's own money: the Bitcoin denomination setting applies.
-    final amount = estimate.amount < 0.01
-        ? '<${formatPolyAmount(ref, 0.01)}'
-        : formatPolyAmount(ref, estimate.amount);
-    return estimate.pays
-        ? context.l10n.hlNextFundingPay(time, amount)
-        : context.l10n.hlNextFundingReceive(time, amount);
-  }
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final c = context.colors;
-    final pos = position;
-    final sideColor = pos.isLong ? greenColor : redColor;
-    final market = ref.watch(hyperliquidAccountMarketProvider(pos.coin));
-    final liveMid = ref.watch(hyperliquidLiveMidProvider(pos.coin));
-    final pnl =
-        liveMid != null ? (liveMid - pos.entryPx) * pos.szi : pos.unrealizedPnl;
-    final pnlColor = pnl >= 0 ? greenColor : redColor;
-    // What it is worth now: the size at the live mark (the venue's own
-    // figure until the mid lands); the return on the margin, as on the
-    // position screen.
-    final size = pos.szi.abs();
-    final value = liveMid != null ? liveMid * size : pos.positionValue.abs();
-    final margin = hlPositionMargin(pos);
-    final roe = margin > 0 ? pnl / margin : pos.returnOnEquity;
-    final fundingLine = _fundingLine(context, ref);
-    void open() {
-      HapticFeedback.selectionClick();
-      HlPositionDetailSheet.show(context, position: pos, market: market);
-    }
-
-    // The position screens' language: the side and the title, two figures
-    // side by side, one quiet funding line, and "Manage" as a plain row.
-    return GestureDetector(
-      onTap: open,
-      child: Container(
-        padding: EdgeInsets.fromLTRB(14.w, 14.w, 14.w, 0),
-        decoration: AppDecorations.card(context),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                HlSideChip(
-                    text: pos.isLong
-                        ? context.l10n.longLabel
-                        : context.l10n.shortLabel,
-                    color: sideColor),
-                SizedBox(width: 8.w),
-                Expanded(
-                  child: Text(
-                    context.l10n.chartYourInvestment,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: c.textPrimary,
-                      fontSize: 15.sp,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: 14.h),
-            PositionStatTiles(
-              left: PositionStatTile(
-                key: const ValueKey('hl-investment-value'),
-                bare: true,
-                label: context.l10n.slipPositionValue,
-                // The user's money: the Bitcoin denomination setting
-                // applies, as on Predictions.
-                value: RollingNumberText(
-                  text: formatPolyAmount(ref, value),
-                  style: positionTileValueStyle(c),
-                ),
-                // The sign stays explicit so gains read `+…`.
-                caption: RollingNumberText(
-                  text: '${pnl >= 0 ? '+' : '−'}'
-                      '${formatPolyAmount(ref, pnl.abs())} · '
-                      '${formatHlPct(roe)}',
-                  style: positionTileCaptionStyle(c, color: pnlColor),
-                ),
-              ),
-              right: PositionStatTile(
-                key: const ValueKey('hl-investment-entry'),
-                bare: true,
-                label: pos.isLong
-                    ? context.l10n.chartBoughtAt
-                    : context.l10n.chartSoldAt,
-                value: Text(
-                  formatHlPrice(pos.entryPx, decimalCap: market?.pxDecimalCap),
-                  maxLines: 1,
-                  style: positionTileValueStyle(c),
-                ),
-                caption: Text(
-                  '${pos.leverageValue}x · '
-                  '${formatHlSize(size)} ${market?.coin ?? pos.coin}',
-                  maxLines: 1,
-                  style: positionTileCaptionStyle(c),
-                ),
-              ),
-            ),
-            if (fundingLine != null) ...[
-              SizedBox(height: 12.h),
-              Text(
-                fundingLine,
-                key: const ValueKey('hl-investment-funding'),
-                style: TextStyle(
-                  color: c.textTertiary,
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-            SizedBox(height: 10.h),
-            PositionLinkRow(
-              key: const ValueKey('hl-investment-manage'),
-              label: context.l10n.chartManage,
-              onTap: open,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 // ───────────────────────────── chart ─────────────────────────────
 
