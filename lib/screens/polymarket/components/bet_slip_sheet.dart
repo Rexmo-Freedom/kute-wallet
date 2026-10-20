@@ -102,6 +102,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/screens/shared/slip_shortfall.dart';
+import 'package:kute/screens/shared/slip_form_body.dart';
 import 'package:kute/screens/shared/slip_stat_tiles.dart';
 import 'package:kute/screens/shared/position_rows_card.dart'
     show PositionStatTiles;
@@ -5095,7 +5096,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                 children: [
                   if (failureNotice != null) ...[
                     failureNotice,
-                    SizedBox(height: 12.h),
+                    SlipGap(12.h),
                   ],
                   // While the money moves the side is settled: it folds
                   // away with the rest, the order's line says it.
@@ -5104,7 +5105,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
-                      children: [...sideBlock, SizedBox(height: 22.h)],
+                      children: [...sideBlock, SlipGap(22.h)],
                     ),
                   ),
                   // One small Max chip beside the figure; the market's
@@ -5145,27 +5146,25 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                   // journey while it runs.
                   FoldAway(
                     folded: journeyShown,
-                    child: Padding(
-                      padding: EdgeInsets.only(top: 24.h),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          PositionStatTiles(
-                            left: _buildPayoutTile(payout),
-                            right: SlipTileFrame(
-                              key: const ValueKey('bet-slip-fee-tile'),
-                              child: MoneyFeeTile(child: feeSummary),
-                            ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SlipGap(24.h),
+                        PositionStatTiles(
+                          left: _buildPayoutTile(payout),
+                          right: SlipTileFrame(
+                            key: const ValueKey('bet-slip-fee-tile'),
+                            child: MoneyFeeTile(child: feeSummary),
                           ),
-                          SizedBox(height: 12.h),
-                          _buildAdvancedToggle(tc, maxPrice: orderPrice),
-                        ],
-                      ),
+                        ),
+                        SlipGap(12.h),
+                        _buildAdvancedToggle(tc, maxPrice: orderPrice),
+                      ],
                     ),
                   ),
                   SlipJourney(steps: journey?.steps, line: journey?.line),
-                  SizedBox(height: 12.h),
+                  SlipGap(12.h),
                 ],
               ),
       );
@@ -5195,21 +5194,25 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
             ignoring: _buyInFlight || _draft.ledgerBusy || activelyPlacing,
             child: _buildHeader(tc, selectedColor),
           ),
+          // The form over the pinned keypad, fitted to the screen: the
+          // keypad gives its room first, then the ticket goes compact,
+          // and only then does the form scroll (SlipFormBody).
           Flexible(
-              child: SingleChildScrollView(
-            physics: const ClampingScrollPhysics(),
-            primary: false,
-            child: IgnorePointer(
-                ignoring: _buyInFlight || ledgerLocked || activelyPlacing,
-                child: form),
-          )),
-          // While the money's journey shows the stake cannot change: the
-          // keypad folds away and the journey takes its room, so nothing
-          // is squeezed. A stop brings it back with the rest of the slip.
-          FoldAway(
-            folded: journeyShown,
-            child: _buildAmountKeypad(
-                _buyInFlight || ledgerLocked || activelyPlacing),
+            child: SlipFormBody(
+              expandForMessage: false,
+              form: IgnorePointer(
+                  ignoring: _buyInFlight || ledgerLocked || activelyPlacing,
+                  child: form),
+              // While the money's journey shows the stake cannot change:
+              // the keypad folds away and the journey takes its room, so
+              // nothing is squeezed. A stop brings it back with the rest
+              // of the slip.
+              input: FoldAway(
+                folded: journeyShown,
+                child: _buildAmountKeypad(
+                    _buyInFlight || ledgerLocked || activelyPlacing),
+              ),
+            ),
           ),
           action,
         ],
@@ -5287,7 +5290,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                             MediaQuery.of(context).viewInsets.bottom)
                         .clamp(0.0, double.infinity),
                   ),
-                  child: ticket(fullscreen: false),
+                  child: SlipFit(child: ticket(fullscreen: false)),
                 ),
               ),
             ),

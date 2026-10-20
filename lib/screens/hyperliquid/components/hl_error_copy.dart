@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/helpers/hyperliquid_error_message.dart';
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/screens/shared/slip_form_body.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -20,23 +21,50 @@ String? hlTradeRejectionDetails(Object? error) {
   return reason.length > 800 ? '${reason.substring(0, 800)}…' : reason;
 }
 
-class HlTradeErrorNotice extends StatelessWidget {
+class HlTradeErrorNotice extends StatefulWidget {
   const HlTradeErrorNotice({super.key, required this.message, this.error});
 
   final String message;
   final Object? error;
 
   @override
+  State<HlTradeErrorNotice> createState() => _HlTradeErrorNoticeState();
+}
+
+class _HlTradeErrorNoticeState extends State<HlTradeErrorNotice> {
+  /// Read in full after a tap on its compact line.
+  bool _expanded = false;
+
+  @override
+  void didUpdateWidget(covariant HlTradeErrorNotice oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.message != widget.message) _expanded = false;
+  }
+
+  @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final details = hlTradeRejectionDetails(error);
+    final message = widget.message;
+    final details = hlTradeRejectionDetails(widget.error);
+    final decoration = BoxDecoration(
+      color: c.surface,
+      borderRadius: BorderRadius.circular(16.r),
+      border: Border.all(color: c.border),
+    );
+    // A ticket short of room says it in one line; a tap reads it all.
+    final lines = SlipDensity.noticeLines(context);
+    if (!_expanded && lines != null) {
+      return SlipNoticeLine(
+        maxLines: lines,
+        icon: Icons.info_outline_rounded,
+        message: message,
+        decoration: decoration,
+        onExpand: () => setState(() => _expanded = true),
+      );
+    }
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
-      decoration: BoxDecoration(
-        color: c.surface,
-        borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(color: c.border),
-      ),
+      decoration: decoration,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

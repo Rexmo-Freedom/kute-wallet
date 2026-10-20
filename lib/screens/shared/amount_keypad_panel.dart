@@ -19,11 +19,14 @@
 // The editing rules ([amountAppendKey] / [amountBackspace]) are pure
 // string transforms so both flows share identical behavior.
 
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/screens/shared/custom_keypad.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart';
+import 'package:kute/screens/shared/slip_form_body.dart' show SlipDensity;
 import 'package:kute/theme/app_theme.dart';
 
 /// Appends a keypad key to a typed amount string, enforcing:
@@ -179,6 +182,12 @@ class BigAmountDisplay extends StatelessWidget {
     // from the Receive request sheet, which is the proportion the owner
     // picked.
     final align = centered ? TextAlign.center : TextAlign.start;
+    // On a slip short of room the figure steps down (never under 40 pt)
+    // and its lines close up.
+    final tight = SlipDensity.tight(context);
+    final compact = SlipDensity.compact(context);
+    final figureSize =
+        compact ? math.min(56.sp, math.max(40.0, 56.sp * 0.82)) : 56.sp;
     return Column(
       crossAxisAlignment:
           centered ? CrossAxisAlignment.center : CrossAxisAlignment.start,
@@ -197,9 +206,15 @@ class BigAmountDisplay extends StatelessWidget {
                       child: Text(
                         '$prefix$display$suffix',
                         maxLines: 1,
+                        // Compact: a large text size grows the figure
+                        // less, since it is the largest thing on the slip.
+                        textScaler: compact
+                            ? MediaQuery.textScalerOf(context)
+                                .clamp(maxScaleFactor: 1.15)
+                            : null,
                         style: TextStyle(
                           color: isZero ? c.textTertiary : c.textPrimary,
-                          fontSize: 56.sp,
+                          fontSize: figureSize,
                           fontWeight: FontWeight.w800,
                           letterSpacing: -1.5,
                           height: 1.0,
@@ -214,7 +229,7 @@ class BigAmountDisplay extends StatelessWidget {
             ],
           ],
         ),
-        SizedBox(height: 8.h),
+        SizedBox(height: tight ? 4.h : 8.h),
         if (conversionLoading)
           SkeletonBar(120.w, 14.h)
         else if (conversionLabel != null)
@@ -229,7 +244,7 @@ class BigAmountDisplay extends StatelessWidget {
             ),
           ),
         if (availableLabel != null || minimumLabel != null) ...[
-          SizedBox(height: 6.h),
+          SizedBox(height: tight ? 3.h : 6.h),
           _TappableAvailable(
             onTap: onAvailableTap,
             centered: centered,
@@ -256,7 +271,7 @@ class BigAmountDisplay extends StatelessWidget {
           ),
         ],
         if (noteLabel != null) ...[
-          SizedBox(height: 4.h),
+          SizedBox(height: tight ? 2.h : 4.h),
           Text(
             noteLabel!,
             textAlign: align,

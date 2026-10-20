@@ -7,6 +7,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:kute/screens/hyperliquid/components/builder_fee_consent.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
+import 'package:kute/screens/shared/slip_form_body.dart';
 import 'package:kute/screens/shared/capability_block_note.dart';
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
 import 'package:kute/screens/shared/hyperliquid_fee_summary.dart';
@@ -1383,14 +1384,18 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
                     MediaQuery.of(context).viewInsets.bottom)
                 .clamp(0.0, double.infinity),
           ),
+          child: SlipFit(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               header,
+              // The form over the pinned keypad, fitted to the screen: the
+              // keypad gives its room first, then the ticket goes compact,
+              // and only then does the form scroll (SlipFormBody).
               Flexible(
-                  child: SingleChildScrollView(
-                physics: const ClampingScrollPhysics(),
-                primary: false,
+                  child: SlipFormBody(
+                expandForMessage: false,
+                form: Padding(
                 padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 14.h),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -1405,7 +1410,7 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
                       color: c.textPrimary,
                       up: pos.isLong,
                     ),
-                    SizedBox(height: 18.h),
+                    SlipGap(18.h),
                     // ── Amount to close ─────────────────────────────────
                     // The one big figure, in dollars, typed on the keypad
                     // pinned below (no focused field, so the OS keyboard
@@ -1428,7 +1433,7 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
                             )
                           : null,
                     ),
-                    SizedBox(height: 20.h),
+                    SlipGap(20.h),
 
                     // ── What comes back ───────────────────────────────────
                     PositionStatTiles(
@@ -1464,7 +1469,7 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
                         ),
                       ),
                     ),
-                    SizedBox(height: 12.h),
+                    SlipGap(12.h),
 
                     // ── Advanced page ────────────────────────────────────
                     // Inert while a close is in flight; the button below
@@ -1474,7 +1479,7 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
                       child: _buildAdvancedSection(c),
                     ),
                     if (_errorText != null) ...[
-                      SizedBox(height: 10.h),
+                      SlipGap(10.h),
                       HlTradeErrorNotice(
                           message: _errorText!, error: _errorDetails),
                     ] else if (paramError != null) ...[
@@ -1486,13 +1491,13 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
                     ],
                   ],
                 ),
-              )),
+              ),
 
               // ── Keypad, pinned ──────────────────────────────────────
               // Drives the close amount, in dollars. Always there: the
               // price and duration fields that raise the OS keyboard live
               // on the Advanced page, not on this ticket.
-              Padding(
+              input: Padding(
                 padding: EdgeInsets.symmetric(horizontal: 8.w),
                 child: AmountKeypad(
                   value: _usdText,
@@ -1501,6 +1506,7 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
                   onChanged: _onKeypadUsd,
                 ),
               ),
+              )),
 
               // ── CTA, pinned ─────────────────────────────────────────
               // On the red sheet the button is the sheet's white with dark
@@ -1533,6 +1539,7 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
                 ]),
               ),
             ],
+          ),
           ),
         ),
       ),

@@ -8,6 +8,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:kute/screens/shared/slip_form_body.dart' show SlipDensity;
 
 import 'package:kute/screens/shared/side_tint_palette.dart' show isSideTinted;
 import 'package:kute/theme/app_theme.dart';
@@ -121,6 +122,10 @@ class PositionStatTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    // On a slip short of room the tile keeps its label and figure and
+    // drops the small line under it.
+    final compact = SlipDensity.compact(context);
+    final caption = compact ? null : this.caption;
     final body = Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -136,7 +141,7 @@ class PositionStatTile extends StatelessWidget {
             letterSpacing: -0.1,
           ),
         ),
-        SizedBox(height: 4.h),
+        SizedBox(height: compact ? 2.h : 4.h),
         FittedBox(
           fit: BoxFit.scaleDown,
           alignment: Alignment.centerLeft,
@@ -154,7 +159,8 @@ class PositionStatTile extends StatelessWidget {
     );
     if (bare) return body;
     return Container(
-      padding: EdgeInsets.fromLTRB(14.w, 12.h, 14.w, 12.h),
+      padding: EdgeInsets.fromLTRB(
+          14.w, compact ? 8.h : 12.h, 14.w, compact ? 8.h : 12.h),
       // On a side-tinted sheet (Sell, Close) the tile is the sheet's
       // translucent ink, with no shadow to muddy the colour.
       decoration: isSideTinted(c)

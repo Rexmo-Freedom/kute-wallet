@@ -11,6 +11,8 @@
 // only widget that needs to know it is sitting on a tint is the CTA,
 // which inverts (see [PolySlipCta]).
 
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -23,6 +25,7 @@ import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_motion.dart';
 import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/screens/shared/side_tint_palette.dart';
+import 'package:kute/screens/shared/slip_form_body.dart';
 import 'package:kute/theme/app_theme.dart';
 
 /// The ticket's title without the event repeated in front of it. A market
@@ -85,8 +88,12 @@ class PolySlipHeader extends StatelessWidget {
     final c = context.colors;
     final img = marketImage;
     final marketQuestion = polySlipTitle(this.marketQuestion);
+    // A ticket short of room keeps the question to two lines.
+    final tight = SlipDensity.tight(context);
+    final maxLines = tight ? math.min(this.maxLines, 2) : this.maxLines;
+    final pad = tight ? 9.h : 14.h;
     return Padding(
-      padding: EdgeInsets.fromLTRB(20.w, 14.h, 12.w, 14.h),
+      padding: EdgeInsets.fromLTRB(20.w, pad, 12.w, pad),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -172,7 +179,9 @@ class PolySlipAdvancedRow extends StatelessWidget {
           borderRadius: BorderRadius.circular(12.r),
           onTap: onTap,
           child: Padding(
-            padding: EdgeInsets.symmetric(vertical: 13.h, horizontal: 14.w),
+            padding: EdgeInsets.symmetric(
+                vertical: SlipDensity.tight(context) ? 9.h : 13.h,
+                horizontal: 14.w),
             child: Row(children: [
               Icon(Icons.tune_rounded, size: 20.sp, color: c.textPrimary),
               SizedBox(width: 10.w),
@@ -470,18 +479,40 @@ class PolySlipNotice extends StatefulWidget {
 class _PolySlipNoticeState extends State<PolySlipNotice> {
   bool _open = false;
 
+  /// Read in full after a tap on its compact line.
+  bool _expanded = false;
+
+  @override
+  void didUpdateWidget(covariant PolySlipNotice oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.message != widget.message) _expanded = false;
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     final details = widget.details;
+    final decoration = BoxDecoration(
+      color: c.surface,
+      borderRadius: BorderRadius.circular(14.r),
+      border: Border.all(color: c.borderSubtle, width: 0.5),
+    );
+    // A ticket short of room says it in one line; a tap reads it all.
+    final lines = SlipDensity.noticeLines(context);
+    if (!_expanded && lines != null) {
+      return SlipNoticeLine(
+        maxLines: lines,
+        icon: Icons.error_outline_rounded,
+        title: widget.title,
+        message: widget.message,
+        decoration: decoration,
+        onExpand: () => setState(() => _expanded = true),
+      );
+    }
     return Container(
       width: double.infinity,
       padding: EdgeInsets.all(14.w),
-      decoration: BoxDecoration(
-        color: c.surface,
-        borderRadius: BorderRadius.circular(14.r),
-        border: Border.all(color: c.borderSubtle, width: 0.5),
-      ),
+      decoration: decoration,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,

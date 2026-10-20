@@ -1660,7 +1660,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
             color: tc.textPrimary,
             up: polyOutcomeDirection(pos.outcome),
           ),
-          SizedBox(height: 18.h),
+          SlipGap(18.h),
           // One big typed figure and one quiet line under it: what the
           // position is worth now and its chance. There is no TextField on
           // this step, so the OS keyboard never opens over the ticket; the
@@ -1690,7 +1690,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
                   )
                 : null,
           ),
-          SizedBox(height: 20.h),
+          SlipGap(20.h),
           // What the sale brings in after the fee, and its profit or loss,
           // each on its own tile: the position screens' language.
           PositionStatTiles(
@@ -1725,7 +1725,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
               ),
             ),
           ),
-          SizedBox(height: 12.h),
+          SlipGap(12.h),
           PolySlipAdvancedRow(
             trailingText: _isLimitMode
                 ? context.l10n.betSlipLimitAt(
@@ -1739,7 +1739,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
           // the person is still looking at, and the CTA underneath
           // becomes the retry the locked panel used to carry.
           if (_sellFailed) ...[
-            SizedBox(height: 12.h),
+            SlipGap(12.h),
             PolySlipNotice(
               title: context.l10n.betCouldNotSell,
               message:
@@ -1747,7 +1747,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
               details: _sellErrorDetails,
             ),
           ],
-          SizedBox(height: 12.h),
+          SlipGap(12.h),
         ],
       ),
     );
@@ -1779,6 +1779,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
                         viewInsetBottom)
                     .clamp(0.0, double.infinity),
               ),
+              child: SlipFit(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -1870,6 +1871,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
                     ),
                   ),
                 ],
+              ),
               ),
             ),
           ),

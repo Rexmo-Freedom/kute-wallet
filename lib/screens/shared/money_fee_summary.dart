@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
+import 'package:kute/screens/shared/slip_form_body.dart' show SlipDensity;
 import 'package:kute/helpers/formatters/currency_formatter.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/providers/currency_conversions_provider.dart';
@@ -295,7 +296,11 @@ class _MoneyFeeSummaryState extends ConsumerState<MoneyFeeSummary> {
     final c = context.colors;
     final state = widget.state;
     final silent = state != null && _captionSilentStates.contains(state);
-    final caption = state == null || silent ? null : feeCopy(context, state);
+    // On a slip short of room the tile drops its small line, unless it
+    // carries the Retry.
+    final quiet = SlipDensity.compact(context) && widget.onRetry == null;
+    final caption =
+        state == null || silent || quiet ? null : feeCopy(context, state);
     final head = Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,

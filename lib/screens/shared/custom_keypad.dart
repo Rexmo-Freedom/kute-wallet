@@ -1,6 +1,10 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:kute/screens/shared/slip_form_body.dart' show SlipDensity;
 import 'package:kute/theme/app_theme.dart';
 
 class CustomKeypad extends StatelessWidget {
@@ -47,27 +51,63 @@ class CustomKeypad extends StatelessWidget {
   double get _rowGap => compact ? 8.h : 12.h;
   double get _digitSize => compact ? 26.sp : 30.sp;
 
+  /// The smallest a key gets on a ticket short of room: a 44 pt tap
+  /// target (or the designed height, when that is already smaller).
+  static const double _minKeyHeight = 44;
+
+  /// The smallest gap between rows on a ticket short of room.
+  static const double _minRowGap = 4;
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-
+    // On a slip ([SlipFit]) the amount pad fits the height it is given:
+    // as designed when there is room, its keys and gaps easing down to
+    // a 44 pt tap target when the form above needs the room.
+    final adaptive = compact && SlipDensity.adaptive(context);
+    final double? keyHeight = adaptive ? null : _keyHeight;
+    final rows = <Widget>[
+      _buildRow(context, ['1', '2', '3'], keyHeight),
+      _buildRow(context, ['4', '5', '6'], keyHeight),
+      _buildRow(context, ['7', '8', '9'], keyHeight),
+      _buildBottomRow(context, c, keyHeight),
+    ];
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 12.w),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildRow(context, ['1', '2', '3']),
-          SizedBox(height: _rowGap),
-          _buildRow(context, ['4', '5', '6']),
-          SizedBox(height: _rowGap),
-          _buildRow(context, ['7', '8', '9']),
-          SizedBox(height: _rowGap),
-          Row(
+      child: adaptive
+          ? _KeypadRows(
+              keyHeight: _keyHeight,
+              minKeyHeight: math.min(_minKeyHeight, _keyHeight),
+              rowGap: _rowGap,
+              minRowGap: math.min(_minRowGap, _rowGap),
+              give: SlipDensity.keypadGive(context),
+              onRange: (range) =>
+                  SlipDensity.reportKeypadRange(context, range),
+              children: rows,
+            )
+          : Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (var i = 0; i < rows.length; i++) ...[
+                  if (i > 0) SizedBox(height: _rowGap),
+                  rows[i],
+                ],
+              ],
+            ),
+    );
+  }
+
+  Widget _buildBottomRow(
+      BuildContext context, AppColorsExtension c, double? keyHeight) {
+    return Row(
+            crossAxisAlignment: keyHeight == null
+                ? CrossAxisAlignment.stretch
+                : CrossAxisAlignment.center,
             children: [
               Expanded(
                 child: showDecimal
                     ? _BouncingKey(
-                        height: _keyHeight,
+                        height: keyHeight,
                         onPressed: onDecimalPressed ?? () {},
                         surfaceColor: c.surface,
                         activeColor: c.surfaceLight,
@@ -86,7 +126,7 @@ class CustomKeypad extends StatelessWidget {
                       )
                     : onBiometricPressed != null
                         ? _BouncingKey(
-                            height: _keyHeight,
+                            height: keyHeight,
                             onPressed: onBiometricPressed!,
                             surfaceColor: c.surface,
                             activeColor: c.surfaceLight,
@@ -107,7 +147,7 @@ class CustomKeypad extends StatelessWidget {
               SizedBox(width: 12.w),
               Expanded(
                 child: _BouncingKey(
-                  height: _keyHeight,
+                  height: keyHeight,
                   onPressed: () => onDigitPressed('0'),
                   surfaceColor: c.surface,
                   activeColor: c.surfaceLight,
@@ -127,7 +167,7 @@ class CustomKeypad extends StatelessWidget {
               SizedBox(width: 12.w),
               Expanded(
                 child: _BouncingKey(
-                  height: _keyHeight,
+                  height: keyHeight,
                   onPressed: onBackspacePressed,
                   surfaceColor: c.surface,
                   activeColor: c.surfaceLight,
@@ -138,22 +178,23 @@ class CustomKeypad extends StatelessWidget {
                 ),
               ),
             ],
-          ),
-        ],
-      ),
-    );
+          );
   }
 
-  Widget _buildRow(BuildContext context, List<String> digits) {
+  Widget _buildRow(
+      BuildContext context, List<String> digits, double? keyHeight) {
     final c = context.colors;
 
     return Row(
+      crossAxisAlignment: keyHeight == null
+          ? CrossAxisAlignment.stretch
+          : CrossAxisAlignment.center,
       children: digits.map((digit) {
         return Expanded(
           child: Padding(
             padding: EdgeInsets.symmetric(horizontal: 6.w),
             child: _BouncingKey(
-              height: _keyHeight,
+              height: keyHeight,
               onPressed: () => onDigitPressed(digit),
               surfaceColor: c.surface,
               activeColor: c.surfaceLight,
@@ -182,7 +223,9 @@ class _BouncingKey extends StatefulWidget {
   final bool isSecondary;
   final Color surfaceColor;
   final Color activeColor;
-  final double height;
+
+  /// Null fills the height the row gives it (an adaptive pad).
+  final double? height;
   final bool chromed;
 
   const _BouncingKey({
@@ -352,4 +395,157 @@ class PinProgressIndicator extends StatelessWidget {
       }),
     );
   }
+}
+
+/// The amount pad's four rows, as tall as the height they are given:
+/// as designed ([keyHeight], [rowGap]) when there is room, easing down to
+/// [minKeyHeight] and [minRowGap] together as the room shrinks. Reports
+/// that smallest height as its minimum intrinsic height, so the slip
+/// knows how far the pad can give. With unbounded height (scrolled with
+/// the form) it takes its designed height less [give].
+class _KeypadRows extends MultiChildRenderObjectWidget {
+  const _KeypadRows({
+    required this.keyHeight,
+    required this.minKeyHeight,
+    required this.rowGap,
+    required this.minRowGap,
+    required this.give,
+    required this.onRange,
+    required super.children,
+  });
+
+  final double keyHeight, minKeyHeight, rowGap, minRowGap, give;
+  final ValueChanged<double> onRange;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) => _RenderKeypadRows(
+        keyHeight: keyHeight,
+        minKeyHeight: minKeyHeight,
+        rowGap: rowGap,
+        minRowGap: minRowGap,
+        give: give,
+        onRange: onRange,
+      );
+
+  @override
+  void updateRenderObject(BuildContext context, _RenderKeypadRows r) {
+    r
+      ..keyHeight = keyHeight
+      ..minKeyHeight = minKeyHeight
+      ..rowGap = rowGap
+      ..minRowGap = minRowGap
+      ..give = give
+      ..onRange = onRange;
+  }
+}
+
+class _KeypadRowParentData extends ContainerBoxParentData<RenderBox> {}
+
+class _RenderKeypadRows extends RenderBox
+    with
+        ContainerRenderObjectMixin<RenderBox, _KeypadRowParentData>,
+        RenderBoxContainerDefaultsMixin<RenderBox, _KeypadRowParentData> {
+  _RenderKeypadRows({
+    required double keyHeight,
+    required double minKeyHeight,
+    required double rowGap,
+    required double minRowGap,
+    required double give,
+    required this.onRange,
+  })  : _keyHeight = keyHeight,
+        _minKeyHeight = minKeyHeight,
+        _rowGap = rowGap,
+        _minRowGap = minRowGap,
+        _give = give;
+
+  double _keyHeight, _minKeyHeight, _rowGap, _minRowGap, _give;
+  ValueChanged<double> onRange;
+
+  set keyHeight(double v) => _set(_keyHeight, v, () => _keyHeight = v);
+  set minKeyHeight(double v) =>
+      _set(_minKeyHeight, v, () => _minKeyHeight = v);
+  set rowGap(double v) => _set(_rowGap, v, () => _rowGap = v);
+  set minRowGap(double v) => _set(_minRowGap, v, () => _minRowGap = v);
+  set give(double v) => _set(_give, v, () => _give = v);
+
+  void _set(double old, double v, VoidCallback apply) {
+    if (old == v) return;
+    apply();
+    markNeedsLayout();
+  }
+
+  int get _gaps => math.max(0, childCount - 1);
+  double get _natural => childCount * _keyHeight + _gaps * _rowGap;
+  double get _smallest => childCount * _minKeyHeight + _gaps * _minRowGap;
+
+  @override
+  void setupParentData(RenderBox child) {
+    if (child.parentData is! _KeypadRowParentData) {
+      child.parentData = _KeypadRowParentData();
+    }
+  }
+
+  @override
+  double computeMinIntrinsicHeight(double width) =>
+      _smallest;
+
+  @override
+  double computeMaxIntrinsicHeight(double width) => _unbounded;
+
+  /// Its height with no bound: as designed, less what it gives.
+  double get _unbounded =>
+      (_natural - _give).clamp(_smallest, _natural).toDouble();
+
+  @override
+  double computeMinIntrinsicWidth(double height) {
+    var w = 0.0;
+    for (var c = firstChild; c != null; c = childAfter(c)) {
+      w = math.max(w, c.getMinIntrinsicWidth(_keyHeight));
+    }
+    return w;
+  }
+
+  @override
+  double computeMaxIntrinsicWidth(double height) {
+    var w = 0.0;
+    for (var c = firstChild; c != null; c = childAfter(c)) {
+      w = math.max(w, c.getMaxIntrinsicWidth(_keyHeight));
+    }
+    return w;
+  }
+
+  double _heightFor(BoxConstraints constraints) {
+    if (!constraints.hasBoundedHeight) return _unbounded;
+    return constraints.maxHeight.clamp(_smallest, _natural).toDouble();
+  }
+
+  @override
+  Size computeDryLayout(BoxConstraints constraints) => constraints.constrain(
+      Size(constraints.maxWidth, _heightFor(constraints)));
+
+  @override
+  void performLayout() {
+    onRange(_natural - _smallest);
+    final height = _heightFor(constraints);
+    final span = _natural - _smallest;
+    final t = span <= 0 ? 1.0 : ((height - _smallest) / span).clamp(0.0, 1.0);
+    final key = _minKeyHeight + (_keyHeight - _minKeyHeight) * t;
+    final gap = _minRowGap + (_rowGap - _minRowGap) * t;
+    final width = constraints.maxWidth;
+    var y = 0.0;
+    for (var c = firstChild; c != null; c = childAfter(c)) {
+      c.layout(BoxConstraints.tightFor(width: width, height: key));
+      (c.parentData! as _KeypadRowParentData).offset = Offset(0, y);
+      y += key + gap;
+    }
+    size = constraints.constrain(Size(width, height));
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) =>
+      defaultPaint(context, offset);
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
+      defaultHitTestChildren(result, position: position);
 }

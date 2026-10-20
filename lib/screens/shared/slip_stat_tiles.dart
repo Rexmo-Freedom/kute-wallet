@@ -12,6 +12,7 @@ import 'package:kute/screens/shared/animated_balance.dart';
 import 'package:kute/screens/shared/kute_motion.dart';
 import 'package:kute/screens/shared/money_steps_view.dart' show moneyPlaceName;
 import 'package:kute/screens/shared/position_rows_card.dart';
+import 'package:kute/screens/shared/slip_form_body.dart' show SlipDensity;
 import 'package:kute/services/one_balance/funded_orders.dart';
 import 'package:kute/services/one_balance/money_steps.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart'
@@ -64,8 +65,9 @@ class SlipTileFrame extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final pad = SlipDensity.compact(context) ? 8.h : 12.h;
     return Container(
-      padding: EdgeInsets.fromLTRB(14.w, 12.h, 14.w, 12.h),
+      padding: EdgeInsets.fromLTRB(14.w, pad, 14.w, pad),
       decoration: BoxDecoration(
         color: c.surface,
         borderRadius: BorderRadius.circular(14.r),

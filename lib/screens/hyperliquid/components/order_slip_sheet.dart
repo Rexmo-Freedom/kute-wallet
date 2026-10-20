@@ -4685,7 +4685,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
-                children: [_buildSideToggle(), SizedBox(height: 16.h)],
+                children: [_buildSideToggle(), SlipGap(16.h)],
               ),
             ),
           if (!advanced)
@@ -4731,7 +4731,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
               belowMinimum: belowMin,
               positionNote: _positionNote(netPlan)),
           if (!advanced && addsToHeld && !journeyShown) ...[
-            SizedBox(height: 10.h),
+            SlipGap(10.h),
             SlipPositionPill(
               long: netPlan.heldSide == 'long',
               text: _strings.slipAddsToYourPosition(netPlan.heldSide),
@@ -4754,24 +4754,22 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
             // money's journey while it runs.
             FoldAway(
               folded: journeyShown,
-              child: Padding(
-                padding: EdgeInsets.only(top: 20.h),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _buildCompactSummary(
-                      c,
-                      notional,
-                      transferFromPerp,
-                      hasFunds: available > 0 || _reduceOnly,
-                      entry: entry,
-                      size: size,
-                    ),
-                    SizedBox(height: 16.h),
-                    _buildAdvancedEntry(c),
-                  ],
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SlipGap(20.h),
+                  _buildCompactSummary(
+                    c,
+                    notional,
+                    transferFromPerp,
+                    hasFunds: available > 0 || _reduceOnly,
+                    entry: entry,
+                    size: size,
+                  ),
+                  SlipGap(16.h),
+                  _buildAdvancedEntry(c),
+                ],
               ),
             ),
             SlipJourney(
@@ -4849,16 +4847,16 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           // steps under the button, never twice; the plain ticket comes
           // back as it was typed with the same words in this one notice.
           if (!advanced && funded != null && funded.failed) ...[
-            SizedBox(height: 10.h),
+            SlipGap(10.h),
             HlTradeErrorNotice(
               key: const ValueKey('order-slip-funded-stop'),
               message: fundedStopLine(_strings, funded.record, formatHlUsd),
             ),
           ] else if (_errorText != null && !(funded?.failed ?? false)) ...[
-            SizedBox(height: 10.h),
+            SlipGap(10.h),
             HlTradeErrorNotice(message: _errorText!, error: _errorCause),
           ],
-          SizedBox(height: 16.h),
+          SlipGap(16.h),
         ],
       ),
     );
@@ -5280,7 +5278,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                           MediaQuery.viewInsetsOf(context).bottom)
                       .clamp(0.0, double.infinity),
                 ),
-                child: ticket,
+                child: SlipFit(child: ticket),
               ),
             ),
           ),
@@ -5293,6 +5291,11 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
 
   /// Opens the full-screen editor without expanding the simple ticket.
   Widget _buildAdvancedEntry(AppColorsExtension c) {
+    // Built in its own context, under the slip's [SlipFit].
+    return Builder(builder: (context) => _advancedEntryCard(context, c));
+  }
+
+  Widget _advancedEntryCard(BuildContext context, AppColorsExtension c) {
     return Semantics(
       button: true,
       child: GestureDetector(
@@ -5301,7 +5304,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         // A card, not a bare row: on the tinted sheet a loose row reads
         // as an orphan line, and this is a tap target.
         child: Container(
-          padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 14.h),
+          padding: EdgeInsets.symmetric(
+              horizontal: 14.w,
+              vertical: SlipDensity.tight(context) ? 9.h : 14.h),
           decoration: BoxDecoration(
             color: c.surface,
             borderRadius: BorderRadius.circular(14.r),
@@ -6586,11 +6591,11 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           ),
         ),
         if (!isSpot && _leverage > 1) ...[
-          SizedBox(height: 12.h),
+          SlipGap(12.h),
           _previewRow(c, _strings.slipPositionValue, formatHlUsd(notional)),
         ],
         if (liq.price != null || liq.blocker != null) ...[
-          SizedBox(height: 12.h),
+          SlipGap(12.h),
           _previewRow(
             c,
             _strings.slipEstLiquidation,
@@ -6926,8 +6931,14 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
 
   // Header identity with public-market educational help and close control.
   Widget _buildHeader(AppColorsExtension c) {
+    // Built in its own context, under the slip's [SlipFit].
+    return Builder(builder: (context) => _headerRow(context, c));
+  }
+
+  Widget _headerRow(BuildContext context, AppColorsExtension c) {
+    final pad = SlipDensity.tight(context) ? 9.h : 14.h;
     return Padding(
-      padding: EdgeInsets.fromLTRB(20.w, 14.h, 20.w, 14.h),
+      padding: EdgeInsets.fromLTRB(20.w, pad, 20.w, pad),
       child: Row(
         children: [
           HlCoinIcon(
