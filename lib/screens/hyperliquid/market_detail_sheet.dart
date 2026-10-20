@@ -97,6 +97,9 @@ import 'package:kute/services/hyperliquid/hyperliquid_websocket.dart'
 import 'package:kute/screens/hyperliquid/components/order_slip_sheet.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
+import 'package:kute/screens/shared/position_rows_card.dart';
+import 'package:kute/screens/hyperliquid/components/hl_isolated_margin.dart'
+    show hlPositionMargin;
 import 'package:kute/screens/ledger/ledger_actions.dart';
 import 'package:kute/services/venue_analytics.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -957,92 +960,112 @@ class _PositionSummaryCard extends ConsumerWidget {
     final c = context.colors;
     final pos = position;
     final sideColor = pos.isLong ? greenColor : redColor;
+    final market = ref.watch(hyperliquidAccountMarketProvider(pos.coin));
     final liveMid = ref.watch(hyperliquidLiveMidProvider(pos.coin));
     final pnl =
         liveMid != null ? (liveMid - pos.entryPx) * pos.szi : pos.unrealizedPnl;
     final pnlColor = pnl >= 0 ? greenColor : redColor;
+    // What it is worth now: the size at the live mark (the venue's own
+    // figure until the mid lands); the return on the margin, as on the
+    // position screen.
+    final size = pos.szi.abs();
+    final value = liveMid != null ? liveMid * size : pos.positionValue.abs();
+    final margin = hlPositionMargin(pos);
+    final roe = margin > 0 ? pnl / margin : pos.returnOnEquity;
     final fundingLine = _fundingLine(context, ref);
+    void open() {
+      HapticFeedback.selectionClick();
+      HlPositionDetailSheet.show(context, position: pos, market: market);
+    }
 
+    // The position screens' language: the side and the title, two figures
+    // side by side, one quiet funding line, and "Manage" as a plain row.
     return GestureDetector(
-      onTap: () {
-        HapticFeedback.selectionClick();
-        HlPositionDetailSheet.show(
-          context,
-          position: pos,
-          market: ref.read(hyperliquidAccountMarketProvider(pos.coin)),
-        );
-      },
+      onTap: open,
       child: Container(
-        padding: EdgeInsets.all(14.w),
+        padding: EdgeInsets.fromLTRB(14.w, 14.w, 14.w, 0),
         decoration: AppDecorations.card(context),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            HlSideChip(
-                text: pos.isLong
-                    ? context.l10n.longLabel
-                    : context.l10n.shortLabel,
-                color: sideColor),
-            SizedBox(width: 8.w),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
+            Row(
+              children: [
+                HlSideChip(
+                    text: pos.isLong
+                        ? context.l10n.longLabel
+                        : context.l10n.shortLabel,
+                    color: sideColor),
+                SizedBox(width: 8.w),
+                Expanded(
+                  child: Text(
                     context.l10n.chartYourInvestment,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: c.textPrimary,
-                      fontSize: 14.sp,
+                      fontSize: 15.sp,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  SizedBox(height: 2.h),
-                  Text(
-                    '${pos.isLong ? context.l10n.chartBoughtAt : context.l10n.chartSoldAt} ${formatHlPrice(pos.entryPx, decimalCap: ref.watch(hyperliquidAccountMarketProvider(pos.coin))?.pxDecimalCap)}',
-                    style: TextStyle(
-                      color: c.textTertiary,
-                      fontSize: 12.sp,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  if (fundingLine != null) ...[
-                    SizedBox(height: 2.h),
-                    Text(
-                      fundingLine,
-                      style: TextStyle(
-                        color: c.textTertiary,
-                        fontSize: 12.sp,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                RollingNumberText(
-                  // The user's PnL is their money — honour the Bitcoin
-                  // denomination setting (fiat OR sats/BTC), like Predictions.
-                  // The sign stays explicit so gains read `+…`.
-                  text:
-                      '${pnl >= 0 ? '+' : '−'}${formatPolyAmount(ref, pnl.abs())}',
-                  style: TextStyle(
-                    color: pnlColor,
-                    fontSize: 15.sp,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                SizedBox(height: 2.h),
-                Text(
-                  context.l10n.chartManage,
-                  style: TextStyle(
-                    color: kHlAccent,
-                    fontSize: 12.sp,
-                    fontWeight: FontWeight.w700,
-                  ),
                 ),
               ],
+            ),
+            SizedBox(height: 14.h),
+            PositionStatTiles(
+              left: PositionStatTile(
+                key: const ValueKey('hl-investment-value'),
+                bare: true,
+                label: context.l10n.slipPositionValue,
+                // The user's money: the Bitcoin denomination setting
+                // applies, as on Predictions.
+                value: RollingNumberText(
+                  text: formatPolyAmount(ref, value),
+                  style: positionTileValueStyle(c),
+                ),
+                // The sign stays explicit so gains read `+…`.
+                caption: RollingNumberText(
+                  text: '${pnl >= 0 ? '+' : '−'}'
+                      '${formatPolyAmount(ref, pnl.abs())} · '
+                      '${formatHlPct(roe)}',
+                  style: positionTileCaptionStyle(c, color: pnlColor),
+                ),
+              ),
+              right: PositionStatTile(
+                key: const ValueKey('hl-investment-entry'),
+                bare: true,
+                label: pos.isLong
+                    ? context.l10n.chartBoughtAt
+                    : context.l10n.chartSoldAt,
+                value: Text(
+                  formatHlPrice(pos.entryPx, decimalCap: market?.pxDecimalCap),
+                  maxLines: 1,
+                  style: positionTileValueStyle(c),
+                ),
+                caption: Text(
+                  '${pos.leverageValue}x · '
+                  '${formatHlSize(size)} ${market?.coin ?? pos.coin}',
+                  maxLines: 1,
+                  style: positionTileCaptionStyle(c),
+                ),
+              ),
+            ),
+            if (fundingLine != null) ...[
+              SizedBox(height: 12.h),
+              Text(
+                fundingLine,
+                key: const ValueKey('hl-investment-funding'),
+                style: TextStyle(
+                  color: c.textTertiary,
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+            SizedBox(height: 10.h),
+            PositionLinkRow(
+              key: const ValueKey('hl-investment-manage'),
+              label: context.l10n.chartManage,
+              onTap: open,
             ),
           ],
         ),

@@ -1,8 +1,9 @@
 // What a position is made of, as plain rows on the app's card: a quiet
-// label on the left, its figure right-aligned. Shared by the open
-// Predictions position screen and the open Investing position screen so
-// the two read as one product. A row can also be one plain sentence (the
-// position's risk line) or open something (the position's "Protect it").
+// label on the left, its figure right-aligned (the position screens'
+// Details sheets). And the position screens' shared language: a figure on
+// its own tile, two side by side ([PositionStatTiles]), and plain rows
+// that open something ([PositionLinkRow]), so the Predictions and
+// Investing positions read as one product.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -23,33 +24,10 @@ class PositionRow {
   /// of [value]; still right-aligned and wrapping under itself.
   final Widget? child;
 
-  /// A small button right beside the figure (the Investing position's
-  /// "Add margin"), moving under it when both do not fit on the line; the
-  /// row centres on it.
-  final Widget? action;
-
-  /// Opens what the row names (the position's "Protect it"): the whole
-  /// row is the tap target and a chevron follows the figure.
-  final VoidCallback? onTap;
-
-  /// A plain sentence across the whole row in the label's style, in place
-  /// of the label and figure (the position's risk line).
-  final bool note;
-
   final Key? key;
 
   const PositionRow(this.label, this.value,
-      {this.valueColor, this.child, this.action, this.onTap, this.key})
-      : note = false;
-
-  /// One sentence across the row, in the labels' quiet style.
-  const PositionRow.note(this.label, {this.key})
-      : value = '',
-        valueColor = null,
-        child = null,
-        action = null,
-        onTap = null,
-        note = true;
+      {this.valueColor, this.child, this.key});
 }
 
 class PositionRowsCard extends StatelessWidget {
@@ -75,74 +53,31 @@ class PositionRowsCard extends StatelessWidget {
     );
   }
 
-  static TextStyle _labelStyle(AppColorsExtension c) => TextStyle(
-        color: c.textSecondary,
-        fontSize: 14.sp,
-        fontWeight: FontWeight.w500,
-        letterSpacing: -0.1,
-      );
-
-  Widget _row(AppColorsExtension c, PositionRow row) {
-    if (row.note) {
-      return SizedBox(
+  Widget _row(AppColorsExtension c, PositionRow row) => Row(
         key: row.key,
-        width: double.infinity,
-        child: Text(row.label,
-            style: _labelStyle(c).copyWith(height: 1.35)),
-      );
-    }
-    final line = Row(
-      key: row.onTap == null ? row.key : null,
-      crossAxisAlignment: row.action == null && row.onTap == null
-          ? CrossAxisAlignment.start
-          : CrossAxisAlignment.center,
-      children: [
-        Text(row.label, style: _labelStyle(c)),
-        SizedBox(width: 16.w),
-        // The figure takes the rest of the line and wraps under
-        // itself when it is long (a team's name as the outcome).
-        Expanded(
-          child: row.action == null
-              ? _figure(c, row)
-              // The button beside the figure while both fit on
-              // the line; under it, right-aligned, when they do
-              // not (a narrow phone, large text, a long word).
-              : Wrap(
-                  alignment: WrapAlignment.end,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  spacing: 10.w,
-                  runSpacing: 6.h,
-                  children: [_figure(c, row), row.action!],
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            row.label,
+            style: TextStyle(
+              color: c.textSecondary,
+              fontSize: 14.sp,
+              fontWeight: FontWeight.w500,
+              letterSpacing: -0.1,
+            ),
+          ),
+          SizedBox(width: 16.w),
+          // The figure takes the rest of the line and wraps under itself
+          // when it is long (a team's name as the outcome).
+          Expanded(
+            child: row.child ??
+                Text(
+                  row.value,
+                  textAlign: TextAlign.right,
+                  style: positionRowValueStyle(c, color: row.valueColor),
                 ),
-        ),
-        if (row.onTap != null) ...[
-          SizedBox(width: 4.w),
-          Icon(Icons.chevron_right_rounded,
-              color: c.textTertiary, size: 22.sp),
+          ),
         ],
-      ],
-    );
-    final onTap = row.onTap;
-    if (onTap == null) return line;
-    return Semantics(
-      button: true,
-      child: InkWell(
-        key: row.key,
-        onTap: () {
-          HapticFeedback.selectionClick();
-          onTap();
-        },
-        child: line,
-      ),
-    );
-  }
-
-  Widget _figure(AppColorsExtension c, PositionRow row) =>
-      row.child ??
-      Text(
-        row.value,
-        textAlign: TextAlign.right,
-        style: positionRowValueStyle(c, color: row.valueColor),
       );
 }
 
@@ -156,3 +91,190 @@ TextStyle positionRowValueStyle(AppColorsExtension c, {Color? color}) =>
       letterSpacing: -0.2,
       fontFeatures: const [FontFeature.tabularFigures()],
     );
+
+/// One figure of a position on its own tile (the app's card): a quiet
+/// label, the figure large, and a quiet line under it. Two sit side by
+/// side in [PositionStatTiles], on the Predictions and Investing position
+/// screens and the market sheets' "Your investment" cards.
+class PositionStatTile extends StatelessWidget {
+  final String label;
+
+  /// The figure, in [positionTileValueStyle]; smaller rather than cut.
+  final Widget value;
+
+  /// The quiet line under it ([positionTileCaptionStyle]), if any;
+  /// smaller rather than cut too.
+  final Widget? caption;
+
+  /// Plain, on whatever card holds it: no tile of its own.
+  final bool bare;
+
+  const PositionStatTile({
+    super.key,
+    required this.label,
+    required this.value,
+    this.caption,
+    this.bare = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final body = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: c.textTertiary,
+            fontSize: 13.sp,
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.1,
+          ),
+        ),
+        SizedBox(height: 4.h),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: value,
+        ),
+        if (caption != null) ...[
+          SizedBox(height: 4.h),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: caption,
+          ),
+        ],
+      ],
+    );
+    if (bare) return body;
+    return Container(
+      padding: EdgeInsets.fromLTRB(14.w, 12.h, 14.w, 12.h),
+      decoration: AppDecorations.card(context),
+      child: body,
+    );
+  }
+}
+
+/// Two [PositionStatTile]s side by side, as tall as the taller.
+class PositionStatTiles extends StatelessWidget {
+  final Widget left;
+  final Widget right;
+  const PositionStatTiles({super.key, required this.left, required this.right});
+
+  @override
+  Widget build(BuildContext context) => IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(child: left),
+            SizedBox(width: 10.w),
+            Expanded(child: right),
+          ],
+        ),
+      );
+}
+
+/// A tile's figure: large, bold, tabular.
+TextStyle positionTileValueStyle(AppColorsExtension c, {Color? color}) =>
+    TextStyle(
+      color: color ?? c.textPrimary,
+      fontSize: 24.sp,
+      fontWeight: FontWeight.w800,
+      letterSpacing: -0.6,
+      height: 1.1,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+
+/// The quiet line under a tile's figure (a profit or loss in its colour).
+TextStyle positionTileCaptionStyle(AppColorsExtension c, {Color? color}) =>
+    TextStyle(
+      color: color ?? c.textSecondary,
+      fontSize: 13.sp,
+      fontWeight: FontWeight.w600,
+      letterSpacing: -0.1,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+
+/// A plain row that opens something, under a hairline: the label, an
+/// optional quiet figure ("Sell at", "Stop loss") and a chevron. The
+/// position screens' "Protect it", "Add margin" and "Details", the same
+/// look as the market sheet's "Rules and resolution" row.
+class PositionLinkRow extends StatelessWidget {
+  final String label;
+  final String? value;
+  final VoidCallback onTap;
+
+  /// No hairline over it (the first row inside a card).
+  final bool divider;
+
+  const PositionLinkRow({
+    super.key,
+    required this.label,
+    this.value,
+    required this.onTap,
+    this.divider = true,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Semantics(
+      button: true,
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          onTap();
+        },
+        child: Container(
+          padding: EdgeInsets.symmetric(vertical: 14.h),
+          decoration: BoxDecoration(
+            border: divider
+                ? Border(top: BorderSide(color: c.borderSubtle, width: 0.5))
+                : null,
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.settingsTitle(context),
+                ),
+              ),
+              if (value != null) ...[
+                SizedBox(width: 12.w),
+                // The figure right-aligned by the chevron, never more than
+                // half the line.
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                      maxWidth: MediaQuery.sizeOf(context).width * 0.45),
+                  child: Text(
+                    value!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.right,
+                    style: TextStyle(
+                      color: c.textSecondary,
+                      fontSize: 15.sp,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                ),
+              ],
+              SizedBox(width: 4.w),
+              Icon(Icons.chevron_right_rounded,
+                  color: c.textTertiary, size: 22.sp),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
