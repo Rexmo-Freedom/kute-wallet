@@ -4691,7 +4691,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
               state: journeyShown,
               child: journeyShown
                   ? SlipOrderFigure(
-                      venue: OneBalanceVenue.investing,
                       record: funded.record,
                       orderUsd: _marginUsd,
                       money: formatHlUsd,
@@ -4769,13 +4768,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                 ],
               ),
             ),
-            SlipJourney(
-              steps: journeyShown ? fundedJourney : null,
-              line: journeyShown
-                  ? slipFundingSourcesLine(
-                      context.l10n, funded.record, formatHlUsd)
-                  : null,
-            ),
+            SlipJourney(steps: journeyShown ? fundedJourney : null),
           ],
 
           if (oiCapped) ...[

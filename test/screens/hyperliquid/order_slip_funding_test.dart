@@ -705,7 +705,7 @@ void main() {
     });
 
     testWidgets(
-        'while the money moves: the order rolls up on top, the '
+        'while the money moves: the order on top, the '
         'journey under it; a stop mid second leg brings the typed ticket '
         'back', (tester) async {
       await _pumpSlip(tester,
@@ -716,21 +716,20 @@ void main() {
           .read(fundedOrdersProvider.notifier) as _Funded;
       funded.put([_secondLeg()]);
       await _frames(tester);
-      // The top: the order as one big number, from what Investing holds,
-      // its line under it; the side and the figures fold away for the
-      // journey.
+      // The top: the order as one big number, the whole order, its line
+      // under it; the side and the figures fold away for the journey. No
+      // second line of where the money comes from.
       expect(find.byKey(const ValueKey('slip-order-figure')), findsOneWidget);
-      expect(find.text(r'$8.00'), findsOneWidget);
+      expect(find.text(r'$20.00'), findsOneWidget);
       expect(find.text('Long BTC · Market order'), findsOneWidget);
       expect(find.byType(MarketSideToggle), findsNothing);
       expect(find.byType(SlipFundingSteps), findsOneWidget);
-      expect(find.text(r'$8.00 from Investing + $12.00 from Bitcoin'),
-          findsOneWidget);
+      expect(find.textContaining(' + '), findsNothing);
       expect(find.byType(AmountKeypad), findsNothing);
       expect(find.byKey(const ValueKey('order-slip-size-tile')), findsNothing);
       expect(find.text('Advanced'), findsNothing);
 
-      // The second leg lands: the figure rolls up to the whole order.
+      // The second leg lands: the figure stays the order.
       funded.put([
         _secondLeg().copyWith(
             steps: MoneyStepGraph([

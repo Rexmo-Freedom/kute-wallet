@@ -5118,7 +5118,6 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                     state: journeyShown,
                     child: journeyShown
                         ? SlipOrderFigure(
-                            venue: OneBalanceVenue.predictions,
                             record: journey.record,
                             orderUsd: _amount,
                             money: _fiatCompanion,
@@ -5161,7 +5160,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                       ],
                     ),
                   ),
-                  SlipJourney(steps: journey?.steps, line: journey?.line),
+                  SlipJourney(steps: journey?.steps),
                   SlipGap(12.h),
                 ],
               ),
@@ -5633,7 +5632,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   /// were; the Advanced page under its button.
   /// With [running], a stopped bet has none: the plain slip comes back
   /// as it was, the stop said in one notice over it.
-  ({Widget steps, String? line, FundedOrderRecord? record})? _fundingJourney(
+  ({Widget steps, FundedOrderRecord? record})? _fundingJourney(
       bool busy,
       {bool running = false}) {
     if (_draft.openBlockRegion && _tradeBlock != null && !busy) return null;
@@ -5657,8 +5656,6 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
               ? fundedStopLine(context.l10n, progress.record, _fiatCompanion)
               : null,
         ),
-        line: slipFundingSourcesLine(
-            context.l10n, progress.record, _fiatCompanion),
         record: progress.record,
       );
     }
@@ -5675,7 +5672,6 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           active: 0,
           to: MoneyPlace.predictions,
         ),
-        line: null,
         record: null,
       );
     }

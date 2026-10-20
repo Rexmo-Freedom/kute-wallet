@@ -886,7 +886,86 @@ void main() {
     });
 
     testWidgets(
-        'while the money moves: the bet rolls up on top, '
+        'nothing in Predictions: the figure is the bet itself through every '
+        'step and a rebuild, never \$0.00', (tester) async {
+      expect(await policy.refresh(), isTrue);
+      await _pumpSlip(
+          tester, Future.value(const PolymarketTradingState(usdcBalance: 0)),
+          dollars: 0, initialAmountUsd: 20, funded: const []);
+      final container = ProviderScope.containerOf(
+          tester.element(find.byType(BetSlipSheet)));
+      final funded = container.read(fundedOrdersProvider.notifier) as _Funded;
+      // The whole order moves from Bitcoin, Dollars then on to
+      // Predictions: nothing there to start from.
+      FundedOrderRecord record(MoneyStepStatus first, MoneyStepStatus second) {
+        final g = fundedOrderGraph(
+          venue: OneBalanceVenue.predictions,
+          orderUsd: 20,
+          legs: const [
+            MoneyStep(
+                id: 'leg:bitcoin>dollars',
+                kind: MoneyStepKind.leg,
+                from: MoneyPlace.bitcoin,
+                to: MoneyPlace.dollars,
+                usd: 20.06),
+            MoneyStep(
+                id: 'leg:dollars:onward',
+                kind: MoneyStepKind.leg,
+                from: MoneyPlace.dollars,
+                usd: 20.06,
+                after: ['leg:bitcoin>dollars']),
+          ],
+        );
+        return _secondLeg().copyWith(
+          steps: MoneyStepGraph([
+            for (final s in g.steps)
+              s.copyWith(
+                  status: switch (s.id) {
+                'leg:bitcoin>dollars' => first,
+                'leg:dollars:onward' => second,
+                _ => s.status,
+              }),
+          ]),
+        );
+      }
+
+      const pending = MoneyStepStatus.waiting;
+      const running = MoneyStepStatus.running;
+      const done = MoneyStepStatus.done;
+      for (final (first, second) in [
+        (pending, pending),
+        (running, pending),
+        (done, pending),
+        (done, running),
+        (done, done),
+      ]) {
+        funded.put([record(first, second)]);
+        await _frames(tester);
+        expect(find.byKey(const ValueKey('slip-order-figure')), findsOneWidget);
+        expect(
+            find.descendant(
+                of: find.byKey(const ValueKey('slip-order-figure')),
+                matching: find.text(r'$20.00')),
+            findsOneWidget,
+            reason: '$first / $second');
+        expect(find.text(r'$0.00'), findsNothing, reason: '$first / $second');
+      }
+      // A rebuild from the account (its balance read again) changes
+      // nothing on top.
+      container.invalidate(polymarketTradingProvider);
+      funded.put([record(done, running)]);
+      await _frames(tester);
+      expect(
+          find.descendant(
+              of: find.byKey(const ValueKey('slip-order-figure')),
+              matching: find.text(r'$20.00')),
+          findsOneWidget);
+      expect(find.text(r'$0.00'), findsNothing);
+      await release(tester);
+    });
+
+    testWidgets(
+        'while the money moves: the bet on top, '
         'the journey under it; a stop mid second leg brings the typed slip '
         'back', (tester) async {
       expect(await policy.refresh(), isTrue);
@@ -898,21 +977,21 @@ void main() {
           .read(fundedOrdersProvider.notifier) as _Funded;
       funded.put([_secondLeg()]);
       await _frames(tester);
-      // The top: the bet as one big number, from what Predictions holds,
-      // its line under it; the side and the figures fold away for the
-      // journey.
+      // The top: the bet as one big number, the whole order, its line
+      // under it; the side and the figures fold away for the journey. No
+      // second line of where the money comes from: the journey's status
+      // says it.
       expect(find.byKey(const ValueKey('slip-order-figure')), findsOneWidget);
-      expect(find.text(r'$8.00'), findsOneWidget);
+      expect(find.text(r'$20.00'), findsOneWidget);
       expect(find.byKey(const ValueKey('slip-order-figure-line')),
           findsOneWidget);
       expect(find.byType(SlipFundingSteps), findsOneWidget);
-      expect(find.text(r'$8.00 from Predictions + $12.00 from Bitcoin'),
-          findsOneWidget);
+      expect(find.textContaining(' + '), findsNothing);
       expect(find.byType(AmountKeypad), findsNothing);
       expect(find.byKey(const ValueKey('bet-slip-payout-tile')), findsNothing);
       expect(find.text('Advanced'), findsNothing);
 
-      // The second leg lands: the figure rolls up to the whole order.
+      // The second leg lands: the figure stays the order.
       funded.put([_secondLeg(landed: true)]);
       await _frames(tester);
       expect(find.text(r'$20.00'), findsOneWidget);
