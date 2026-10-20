@@ -1187,7 +1187,8 @@ void main() {
       expect(_tile(tester, 'predictions').right, lessThanOrEqualTo(375));
       expect(_inSteps(findMoneyStep(r'Moving $6.54 from Investing → Dollars')),
           findsOneWidget);
-      expect(_inSteps(findMoneyStep(r'Moving $3.00 from Predictions → Dollars')),
+      expect(
+          _inSteps(findMoneyStep(r'Moving $3.00 from Predictions → Dollars')),
           findsOneWidget);
     });
 
@@ -1433,7 +1434,7 @@ void main() {
     });
 
     testWidgets(
-        "the founder's balances: the hole is what is ready to use and what "
+        "the founder's balances: the hole is the cash of all three and what "
         'is in positions, one row per balance with its share, total, cash '
         'and positions', (tester) async {
       final c = await _pump(tester, home: ringBreakdown);
@@ -1442,12 +1443,19 @@ void main() {
       expect(
           find.byKey(const ValueKey('portfolio-balance-ring')), findsOneWidget);
       expect(find.byKey(const ValueKey('portfolio-balance-row')), findsNothing);
-      expect(centreText(tester, 'portfolio-balance-ring-label'), 'Available');
+      // "Cash", the word the legend and the rows use, never "Available".
+      expect(centreText(tester, 'portfolio-balance-ring-label'), 'Cash');
       // Cash of all three, never the header's total again.
       expect(centre(tester), r'$10.07');
       expect(centreText(tester, 'portfolio-balance-ring-line'),
           r'Positions $10.82');
       expect(find.byKey(const ValueKey('portfolio-balance-ring-legend')),
+          findsOneWidget);
+      // The key: a solid swatch for Cash, a striped one for Positions.
+      expect(find.byKey(const ValueKey('portfolio-balance-ring-legend-cash')),
+          findsOneWidget);
+      expect(
+          find.byKey(const ValueKey('portfolio-balance-ring-legend-positions')),
           findsOneWidget);
 
       expect(total(tester, 'dollars'), r'$0.06');
@@ -1457,7 +1465,10 @@ void main() {
       expect(_figureUnder(tester, 'investing', 'Available'), r'$0.45');
       expect(_figureUnder(tester, 'investing', 'Positions'), r'$10.82');
       expect(_figureUnder(tester, 'predictions', 'Available'), r'$9.56');
-      expect(_figureUnder(tester, 'predictions', 'Positions'), r'$0.00');
+      // Nothing held there: its cash only, no "Positions $0.00".
+      expect(
+          find.byKey(const ValueKey('portfolio-balance-predictions-positions')),
+          findsNothing);
       // Dollars hold no positions: "Available", as the tile said.
       expect(_inCard('dollars', find.text('Positions')), findsNothing);
       expect(_inCard('dollars', find.text('Available')), findsOneWidget);
@@ -1529,7 +1540,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('portfolio-balance-dollars')));
       await tester.pumpAndSettle();
       expect(rowSelected(tester, 'dollars'), isFalse);
-      expect(centreText(tester, 'portfolio-balance-ring-label'), 'Available');
+      expect(centreText(tester, 'portfolio-balance-ring-label'), 'Cash');
       expect(centre(tester), r'$10.07');
 
       // Nine o'clock on the ring: Predictions.
@@ -1571,6 +1582,52 @@ void main() {
             findsNothing);
       }
       expect(total(tester, 'dollars'), r'$0.06');
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+        'a balance holding nothing in positions shows its cash alone; one '
+        'that holds some shows both', (tester) async {
+      final c = await _pump(tester, home: ringBreakdown);
+      // The founder's balances, later the same month.
+      c.read(_balance.notifier).state = const OneBalanceState(
+        dollarsUsd: 0.06,
+        investedUsd: 3.61,
+        investedByVenue: {
+          OneBalanceVenue.investing: 0,
+          OneBalanceVenue.predictions: 3.61,
+        },
+        investingKnown: true,
+        predictionsKnown: true,
+        venueCash: {
+          OneBalanceVenue.investing: 11.19,
+          OneBalanceVenue.predictions: 5.91,
+        },
+      );
+      await tester.pumpAndSettle();
+      expect(centreText(tester, 'portfolio-balance-ring-label'), 'Cash');
+      expect(centre(tester), r'$17.16');
+      expect(centreText(tester, 'portfolio-balance-ring-line'),
+          r'Positions $3.61');
+      // Investing: $0.00 in positions, so Cash only.
+      expect(_figureUnder(tester, 'investing', 'Available'), r'$11.19');
+      expect(
+          find.byKey(const ValueKey('portfolio-balance-investing-positions')),
+          findsNothing);
+      expect(_inCard('investing', find.text('Positions')), findsNothing);
+      expect(_inCard('investing', find.text('Cash')), findsOneWidget);
+      // Predictions: both, Positions to the right of Cash.
+      expect(_figureUnder(tester, 'predictions', 'Available'), r'$5.91');
+      expect(_figureUnder(tester, 'predictions', 'Positions'), r'$3.61');
+      expect(
+          tester
+              .getRect(find.byKey(
+                  const ValueKey('portfolio-balance-predictions-positions')))
+              .left,
+          greaterThan(tester
+              .getRect(find.byKey(
+                  const ValueKey('portfolio-balance-predictions-available')))
+              .right));
       expect(tester.takeException(), isNull);
     });
 
