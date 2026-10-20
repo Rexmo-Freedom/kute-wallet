@@ -3002,6 +3002,7 @@
   "multiMoveDeliveredRemaining": "{delivered} leveret · {remaining} tilbage",
   "multiMovePurchaseWaiting": "Dine {amount} er i {balance}. Tryk for at købe Bitcoin",
   "multiMoveSendWaiting": "Dine {amount} er i {balance}. Afsendelsen blev ikke gennemført",
+  "usdReceiveDepositNow": "Indsæt nu",
   "usdReceiveFromYourWallet": "Fra din wallet",
   "usdReceiveFromAnotherWallet": "Fra en anden wallet eller børs",
   "slipStepAddingToInvestments": "Tilføjer {amount} til Investments",

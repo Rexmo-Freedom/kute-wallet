@@ -10718,6 +10718,9 @@ class AppLocalizationsSv extends AppLocalizations {
   }
 
   @override
+  String get usdReceiveDepositNow => 'Sätt in nu';
+
+  @override
   String get usdReceiveFromYourWallet => 'Från din plånbok';
 
   @override

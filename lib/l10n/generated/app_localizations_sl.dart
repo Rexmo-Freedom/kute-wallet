@@ -10750,6 +10750,9 @@ class AppLocalizationsSl extends AppLocalizations {
   }
 
   @override
+  String get usdReceiveDepositNow => 'Položi zdaj';
+
+  @override
   String get usdReceiveFromYourWallet => 'Iz vaše denarnice';
 
   @override

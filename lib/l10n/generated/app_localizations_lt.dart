@@ -10765,6 +10765,9 @@ class AppLocalizationsLt extends AppLocalizations {
   }
 
   @override
+  String get usdReceiveDepositNow => 'Įnešti dabar';
+
+  @override
   String get usdReceiveFromYourWallet => 'Iš jūsų piniginės';
 
   @override

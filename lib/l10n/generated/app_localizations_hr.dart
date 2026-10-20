@@ -10745,6 +10745,9 @@ class AppLocalizationsHr extends AppLocalizations {
   }
 
   @override
+  String get usdReceiveDepositNow => 'Uplati sada';
+
+  @override
   String get usdReceiveFromYourWallet => 'Iz tvog novčanika';
 
   @override

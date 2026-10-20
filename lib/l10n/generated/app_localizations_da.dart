@@ -10723,6 +10723,9 @@ class AppLocalizationsDa extends AppLocalizations {
   }
 
   @override
+  String get usdReceiveDepositNow => 'Indsæt nu';
+
+  @override
   String get usdReceiveFromYourWallet => 'Fra din wallet';
 
   @override

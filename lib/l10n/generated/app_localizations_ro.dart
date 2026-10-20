@@ -10781,6 +10781,9 @@ class AppLocalizationsRo extends AppLocalizations {
   }
 
   @override
+  String get usdReceiveDepositNow => 'Depune acum';
+
+  @override
   String get usdReceiveFromYourWallet => 'Din portofelul tău';
 
   @override

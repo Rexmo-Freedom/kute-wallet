@@ -3002,6 +3002,7 @@
   "multiMoveDeliveredRemaining": "{delivered} aangekomen · {remaining} resterend",
   "multiMovePurchaseWaiting": "Je {amount} staat in {balance}. Tik om Bitcoin te kopen",
   "multiMoveSendWaiting": "Je {amount} staat in {balance}. Het versturen is niet gelukt",
+  "usdReceiveDepositNow": "Nu storten",
   "usdReceiveFromYourWallet": "Vanuit je wallet",
   "usdReceiveFromAnotherWallet": "Vanuit een andere wallet of exchange",
   "slipStepAddingToInvestments": "{amount} toevoegen aan Investments",

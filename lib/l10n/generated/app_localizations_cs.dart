@@ -10713,6 +10713,9 @@ class AppLocalizationsCs extends AppLocalizations {
   }
 
   @override
+  String get usdReceiveDepositNow => 'Vložit nyní';
+
+  @override
   String get usdReceiveFromYourWallet => 'Z tvé peněženky';
 
   @override

@@ -10756,6 +10756,9 @@ class AppLocalizationsNl extends AppLocalizations {
   }
 
   @override
+  String get usdReceiveDepositNow => 'Nu storten';
+
+  @override
   String get usdReceiveFromYourWallet => 'Vanuit je wallet';
 
   @override

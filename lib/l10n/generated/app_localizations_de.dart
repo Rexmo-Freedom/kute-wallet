@@ -10804,6 +10804,9 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
+  String get usdReceiveDepositNow => 'Jetzt einzahlen';
+
+  @override
   String get usdReceiveFromYourWallet => 'Aus deinem Wallet';
 
   @override
