@@ -32,6 +32,7 @@ import 'package:kute/providers/unified_balances_provider.dart';
 import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceUnknownProvider;
 import 'package:kute/providers/venue_sweeper_provider.dart';
+import 'package:kute/screens/portfolio/components/balances_ring.dart';
 import 'package:kute/screens/portfolio/open_investments_screen.dart'
     show InvestmentsProduct;
 import 'package:kute/screens/portfolio/portfolio_figure_tiles.dart';
@@ -351,10 +352,15 @@ class PortfolioBalanceBreakdown extends ConsumerStatefulWidget {
     super.key,
     required this.trading,
     required this.predictions,
+    this.ring = false,
   });
 
   final bool trading;
   final bool predictions;
+
+  /// The Balances tab's layout: the allocation ring over one row per
+  /// balance ([BalancesRingView]) instead of the row of tiles.
+  final bool ring;
 
   @override
   ConsumerState<PortfolioBalanceBreakdown> createState() =>
@@ -575,7 +581,72 @@ class _PortfolioBalanceBreakdownState
       final value = figure.value ?? fallback;
       return value == null
           ? const _Figure('—')
-          : _Figure(amount(value), stale: (refresh && _refreshing) || !known);
+          : _Figure(amount(value),
+              stale: (refresh && _refreshing) || !known, usd: value);
+    }
+
+    // The Balances tab: the same figures, notes and bands around the ring
+    // and its rows.
+    Widget ringView() {
+      BalancesRingFigure ringFigure(_Figure f) =>
+          BalancesRingFigure(f.text, stale: f.stale, usd: f.usd);
+      return BalancesRingView(
+        visible: visible,
+        money: amount,
+        wrap: (part, row) => switch (part) {
+          BalancesRingPart.dollars => _ArrivalCatch(
+              key: const ValueKey('portfolio-band-dollars'),
+              arrivals: _arrivals,
+              child: row),
+          BalancesRingPart.investing => band(OneBalanceVenue.investing, row),
+          BalancesRingPart.predictions =>
+            band(OneBalanceVenue.predictions, row),
+        },
+        entries: [
+          BalancesRingEntry(
+            part: BalancesRingPart.dollars,
+            asset: kUsdMarkAsset,
+            name: l10n.portfolioBalanceDollars,
+            cash: ringFigure(venueFigure('dollars', dollars,
+                refresh: false,
+                known: balance.dollarsKnown &&
+                    !ref.watch(usdBalanceUnknownProvider))),
+          ),
+          if (widget.trading)
+            BalancesRingEntry(
+              part: BalancesRingPart.investing,
+              asset: venueMarkAsset(InvestmentsProduct.trading),
+              name: l10n.trading,
+              cash: ringFigure(venueFigure('investing_cash', investing,
+                  known: balance.investingKnown,
+                  fallback: cachedHl?.available)),
+              positions: ringFigure(venueFigure('investing_positions',
+                  breakdownVenuePositions(balance, OneBalanceVenue.investing),
+                  known: balance.investingKnown,
+                  fallback: cachedHl?.portfolio)),
+              footer: [
+                if (note(OneBalanceVenue.investing) case final line?) line,
+              ],
+            ),
+          if (widget.predictions)
+            BalancesRingEntry(
+              part: BalancesRingPart.predictions,
+              asset: venueMarkAsset(InvestmentsProduct.predictions),
+              name: l10n.predictions,
+              cash: ringFigure(venueFigure('predictions_cash', predictionsCash,
+                  known: balance.predictionsKnown)),
+              positions: ringFigure(venueFigure('predictions_positions',
+                  breakdownVenuePositions(balance, OneBalanceVenue.predictions),
+                  known: balance.predictionsKnown)),
+              reserved: reserved >= kSweepDustUsd
+                  ? l10n.investingInOpenOrders(amount(reserved))
+                  : null,
+              footer: [
+                if (note(OneBalanceVenue.predictions) case final line?) line,
+              ],
+            ),
+        ],
+      );
     }
 
     return Column(
@@ -583,73 +654,77 @@ class _PortfolioBalanceBreakdownState
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        PortfolioTileRow(
-          key: const ValueKey('portfolio-balance-row'),
-          children: [
-            _ArrivalCatch(
-              key: const ValueKey('portfolio-band-dollars'),
-              arrivals: _arrivals,
-              child: _BalanceTile(
-                key: const ValueKey('portfolio-balance-dollars'),
-                id: 'dollars',
-                asset: kUsdMarkAsset,
-                name: l10n.portfolioBalanceDollars,
-                // Not confirmed by the SDK yet (its answer has no dollar
-                // entry while the ledger holds dollars): the ledger's
-                // figure, dimmed and sweeping, never a confident number.
-                available: venueFigure('dollars', dollars,
-                    refresh: false,
-                    known: balance.dollarsKnown &&
-                        !ref.watch(usdBalanceUnknownProvider)),
+        if (widget.ring)
+          ringView()
+        else
+          PortfolioTileRow(
+            key: const ValueKey('portfolio-balance-row'),
+            children: [
+              _ArrivalCatch(
+                key: const ValueKey('portfolio-band-dollars'),
+                arrivals: _arrivals,
+                child: _BalanceTile(
+                  key: const ValueKey('portfolio-balance-dollars'),
+                  id: 'dollars',
+                  asset: kUsdMarkAsset,
+                  name: l10n.portfolioBalanceDollars,
+                  // Not confirmed by the SDK yet (its answer has no dollar
+                  // entry while the ledger holds dollars): the ledger's
+                  // figure, dimmed and sweeping, never a confident number.
+                  available: venueFigure('dollars', dollars,
+                      refresh: false,
+                      known: balance.dollarsKnown &&
+                          !ref.watch(usdBalanceUnknownProvider)),
+                ),
               ),
-            ),
-            if (widget.trading)
-              band(
-                  OneBalanceVenue.investing,
-                  _BalanceTile(
-                    key: const ValueKey('portfolio-balance-investing'),
-                    id: 'investing',
-                    asset: venueMarkAsset(InvestmentsProduct.trading),
-                    name: l10n.trading,
-                    available: venueFigure('investing_cash', investing,
-                        known: balance.investingKnown,
-                        fallback: cachedHl?.available),
-                    positions: venueFigure(
-                        'investing_positions',
-                        breakdownVenuePositions(
-                            balance, OneBalanceVenue.investing),
-                        known: balance.investingKnown,
-                        fallback: cachedHl?.portfolio),
-                    footer: [
-                      if (note(OneBalanceVenue.investing) case final line?)
-                        line,
-                    ],
-                  )),
-            if (widget.predictions)
-              band(
-                  OneBalanceVenue.predictions,
-                  _BalanceTile(
-                    key: const ValueKey('portfolio-balance-predictions'),
-                    id: 'predictions',
-                    asset: venueMarkAsset(InvestmentsProduct.predictions),
-                    name: l10n.predictions,
-                    available: venueFigure('predictions_cash', predictionsCash,
-                        known: balance.predictionsKnown),
-                    positions: venueFigure(
-                        'predictions_positions',
-                        breakdownVenuePositions(
-                            balance, OneBalanceVenue.predictions),
-                        known: balance.predictionsKnown),
-                    reserved: reserved >= kSweepDustUsd
-                        ? l10n.investingInOpenOrders(amount(reserved))
-                        : null,
-                    footer: [
-                      if (note(OneBalanceVenue.predictions) case final line?)
-                        line,
-                    ],
-                  )),
-          ],
-        ),
+              if (widget.trading)
+                band(
+                    OneBalanceVenue.investing,
+                    _BalanceTile(
+                      key: const ValueKey('portfolio-balance-investing'),
+                      id: 'investing',
+                      asset: venueMarkAsset(InvestmentsProduct.trading),
+                      name: l10n.trading,
+                      available: venueFigure('investing_cash', investing,
+                          known: balance.investingKnown,
+                          fallback: cachedHl?.available),
+                      positions: venueFigure(
+                          'investing_positions',
+                          breakdownVenuePositions(
+                              balance, OneBalanceVenue.investing),
+                          known: balance.investingKnown,
+                          fallback: cachedHl?.portfolio),
+                      footer: [
+                        if (note(OneBalanceVenue.investing) case final line?)
+                          line,
+                      ],
+                    )),
+              if (widget.predictions)
+                band(
+                    OneBalanceVenue.predictions,
+                    _BalanceTile(
+                      key: const ValueKey('portfolio-balance-predictions'),
+                      id: 'predictions',
+                      asset: venueMarkAsset(InvestmentsProduct.predictions),
+                      name: l10n.predictions,
+                      available: venueFigure(
+                          'predictions_cash', predictionsCash,
+                          known: balance.predictionsKnown),
+                      positions: venueFigure(
+                          'predictions_positions',
+                          breakdownVenuePositions(
+                              balance, OneBalanceVenue.predictions),
+                          known: balance.predictionsKnown),
+                      reserved: reserved >= kSweepDustUsd
+                          ? l10n.investingInOpenOrders(amount(reserved))
+                          : null,
+                      footer: [
+                        if (note(OneBalanceVenue.predictions) case final line?)
+                          line,
+                      ],
+                    )),
+            ],
+          ),
         SizedBox(height: 12.h),
         button,
         if (stepLines.isNotEmpty)
@@ -839,10 +914,13 @@ class _ArrivalCatchState extends State<_ArrivalCatch>
 /// A figure as a tile shows it: the text, and whether it is still being
 /// refreshed.
 class _Figure {
-  const _Figure(this.text, {this.stale = false});
+  const _Figure(this.text, {this.stale = false, this.usd});
 
   final String text;
   final bool stale;
+
+  /// Its value; null when never read.
+  final double? usd;
 }
 
 /// One part of the balance: its mark and name, its Available cash, then
