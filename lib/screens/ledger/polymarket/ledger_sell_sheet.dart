@@ -567,9 +567,7 @@ class _LedgerSellSheetState extends ConsumerState<LedgerSellSheet> {
               shares: _sharesToSell,
               price: bid ?? 0,
               bitcoinFirst: false),
-          SizedBox(height: 8.h),
-          PolySlipAdvancedRow(onTap: _openAdvanced),
-          SizedBox(height: 4.h),
+          SizedBox(height: 12.h),
           // What only a Ledger seller needs to know, on the ticket's
           // secondary line rather than hidden behind Advanced.
           if (pm?.isReadOnly == true)
@@ -606,9 +604,12 @@ class _LedgerSellSheetState extends ConsumerState<LedgerSellSheet> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // Advanced is the header's button, as on the spending
+              // sheet; nothing on it changes the sale, so never a dot.
               PolySlipHeader(
                 marketQuestion: _position.title,
                 marketImage: _position.icon,
+                action: SlipAdvancedButton(onTap: _openAdvanced),
               ),
               Flexible(
                 child: SingleChildScrollView(

@@ -195,12 +195,12 @@ void main() {
 
   testWidgets('the close sheet scrolls its form under a pinned header, the '
       'way the buy slip does', (tester) async {
-    // A small phone with a very large text size, where the form (in the
-    // app's own font) is taller than the room it has even once the ticket
-    // has fitted itself (keypad, gaps, tiles and notice at their most
-    // compact). At the default size it fits on a phone and does not
+    // The smallest phone with a very large text size, where the form (in
+    // the app's own font) is taller than the room it has even once the
+    // ticket has fitted itself (keypad, gaps, figures and notice at their
+    // most compact). At the default size it fits on a phone and does not
     // scroll at all.
-    tester.view.physicalSize = const Size(375, 667);
+    tester.view.physicalSize = const Size(320, 568);
     tester.view.devicePixelRatio = 1;
     tester.view.padding = const FakeViewPadding(top: 20, bottom: 34);
     tester.platformDispatcher.textScaleFactorTestValue = 2.5;

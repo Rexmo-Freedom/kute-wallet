@@ -240,6 +240,11 @@ void main() {
     expect(find.byType(KuteDogGlance), findsNothing);
     expect(find.bySemanticsLabel('Ask Sal'), findsNothing);
     expect(find.byType(KuteCloseButton), findsOneWidget);
+    // Advanced is a round button in the header, beside the close X; the
+    // default settings show no chip and no dot.
+    expect(find.byKey(const ValueKey('slip-advanced-button')), findsOneWidget);
+    expect(find.byKey(const ValueKey('slip-advanced-chip')), findsNothing);
+    expect(find.byKey(const ValueKey('slip-advanced-dot')), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -253,14 +258,14 @@ void main() {
     expect(find.text('Position size').hitTestable(), findsOneWidget);
     expect(find.text('Leverage'), findsNothing);
     expect(find.text('Size'), findsNothing);
-    await tester.tap(find.text('Advanced'));
+    await tester.tap(find.byKey(const ValueKey('slip-advanced-button')));
     await tester.pumpAndSettle();
     final advancedRoute =
         ModalRoute.of(tester.element(find.text('Long BTC · Advanced')))!;
     expect(advancedRoute, isA<PageRoute>());
     expect((advancedRoute as PageRoute).fullscreenDialog, isTrue);
     expect(_LivePrices.acquired, 1);
-    expect(find.text('Advanced'), findsNothing);
+    expect(find.byKey(const ValueKey('slip-advanced-button')), findsNothing);
     expect(find.text('Size'), findsOneWidget);
     await tester.ensureVisible(find.text('Limit'));
     await tester.tap(find.text('Limit'));
@@ -286,7 +291,7 @@ void main() {
         _emptyOrder);
     expect(find.text('Size'), findsNothing);
     expect(find.text('Est. liquidation'), findsNothing);
-    await tester.tap(find.text('Advanced'));
+    await tester.tap(find.byKey(const ValueKey('slip-advanced-button')));
     await tester.pumpAndSettle();
     expect(find.text('Limit price'), findsNothing);
     expect(find.byType(TextField), findsOneWidget);
@@ -639,7 +644,7 @@ void main() {
   testWidgets('advanced keeps the short direction explicit for TWAP',
       (tester) async {
     await _pumpSlip(tester, isLong: false);
-    await tester.tap(find.text('Advanced'));
+    await tester.tap(find.byKey(const ValueKey('slip-advanced-button')));
     await tester.pumpAndSettle();
     expect(find.text('Short BTC · Advanced'), findsOneWidget);
     await _pickMoreOption(tester, 'TWAP');
@@ -654,7 +659,7 @@ void main() {
     // its two figures; the estimate is on the Advanced page.
     await _typeOnKeypad(tester, '20');
     expect(find.text('Est. liquidation'), findsNothing);
-    await tester.tap(find.text('Advanced'));
+    await tester.tap(find.byKey(const ValueKey('slip-advanced-button')));
     await tester.pumpAndSettle();
     expect(find.text('Est. liquidation'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -668,7 +673,7 @@ void main() {
     await _typeOnKeypad(tester, '20');
     expect(find.text('Est. liquidation'), findsNothing);
     expect(find.text(r'$0.0'), findsNothing);
-    await tester.tap(find.text('Advanced'));
+    await tester.tap(find.byKey(const ValueKey('slip-advanced-button')));
     await tester.pumpAndSettle();
     expect(find.text('Est. liquidation'), findsNothing);
     expect(find.text(r'$0.0'), findsNothing);
@@ -679,7 +684,7 @@ void main() {
   testWidgets('empty TWAP account offers funding before completing the order',
       (tester) async {
     await _pumpSlip(tester, available: 0);
-    await tester.tap(find.text('Advanced'));
+    await tester.tap(find.byKey(const ValueKey('slip-advanced-button')));
     await tester.pumpAndSettle();
     await _pickMoreOption(tester, 'TWAP');
     await tester.enterText(find.byType(TextField).first, '');
@@ -709,7 +714,7 @@ void main() {
       'TWAP funding preserves duration and validation for funded orders',
       (tester) async {
     await _pumpSlip(tester);
-    await tester.tap(find.text('Advanced'));
+    await tester.tap(find.byKey(const ValueKey('slip-advanced-button')));
     await tester.pumpAndSettle();
     await _pickMoreOption(tester, 'TWAP');
     await tester.enterText(find.byType(TextField).first, '600');
@@ -740,7 +745,7 @@ void main() {
     await _pumpSlip(tester);
     final container = ProviderScope.containerOf(
         tester.element(find.byType(HlOrderSlipSheet)));
-    await tester.tap(find.text('Advanced'));
+    await tester.tap(find.byKey(const ValueKey('slip-advanced-button')));
     await tester.pumpAndSettle();
     final prices =
         container.read(hyperliquidLivePricesProvider.notifier) as _LivePrices;
@@ -769,8 +774,8 @@ void main() {
         'advanced funding action stays pinned under long content with keyboard $keyboard',
         (tester) async {
       await _pumpSlip(tester, available: 0, width: 320, height: 700);
-      await tester.ensureVisible(find.text('Advanced'));
-      await tester.tap(find.text('Advanced'));
+      await tester.ensureVisible(find.byKey(const ValueKey('slip-advanced-button')));
+      await tester.tap(find.byKey(const ValueKey('slip-advanced-button')));
       await tester.pumpAndSettle();
       tester.view.viewInsets = FakeViewPadding(bottom: keyboard);
       addTearDown(tester.view.resetViewInsets);
@@ -804,7 +809,7 @@ void main() {
     // holds the whole form, so the page is made tall enough that it does.
     const height = 3600.0;
     await _pumpSlip(tester, available: 0, height: height);
-    await tester.tap(find.text('Advanced'));
+    await tester.tap(find.byKey(const ValueKey('slip-advanced-button')));
     await tester.pumpAndSettle();
     final scroll = find.byKey(const ValueKey('hl-advanced-form-scroll'));
     final position = tester
@@ -824,8 +829,8 @@ void main() {
       'trading.advanced withheld: Advanced stays, a tap opens the sheet only',
       (tester) async {
     await _pumpSlip(tester, blocked: {'trading.advanced'});
-    expect(find.text('Advanced'), findsOneWidget);
-    await tester.tap(find.text('Advanced'));
+    expect(find.byKey(const ValueKey('slip-advanced-button')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('slip-advanced-button')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('capability-unavailable-got-it')),
         findsOneWidget);
@@ -834,7 +839,7 @@ void main() {
         .tap(find.byKey(const ValueKey('capability-unavailable-got-it')));
     await tester.pumpAndSettle();
     expect(find.text('Long BTC · Advanced'), findsNothing);
-    expect(find.text('Advanced'), findsOneWidget);
+    expect(find.byKey(const ValueKey('slip-advanced-button')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

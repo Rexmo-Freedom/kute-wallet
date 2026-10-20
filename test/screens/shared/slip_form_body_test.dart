@@ -62,7 +62,8 @@ Future<void> _pump(WidgetTester tester, ValueNotifier<bool> failed,
                                   height: 44.h,
                                   child: const Text('Estimated fee < \$0.01')),
                               SizedBox(height: 8.h),
-                              PolySlipAdvancedRow(onTap: () {}),
+                              // A row's height of form.
+                              SizedBox(height: 50.h),
                               SizedBox(height: extraFormHeight),
                               if (failed.value) ...[
                                 SizedBox(height: 12.h),

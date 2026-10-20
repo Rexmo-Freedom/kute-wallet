@@ -244,6 +244,11 @@ void main() {
     expect(find.byType(AskSalChip), findsNothing);
     expect(find.byType(KuteDogGlance), findsNothing);
     expect(find.bySemanticsLabel('Ask Sal'), findsNothing);
+    // Advanced is a round button in the header, beside the close X; the
+    // default settings show no chip and no dot.
+    expect(find.byKey(const ValueKey('slip-advanced-button')), findsOneWidget);
+    expect(find.byKey(const ValueKey('slip-advanced-chip')), findsNothing);
+    expect(find.byKey(const ValueKey('slip-advanced-dot')), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -269,7 +274,7 @@ void main() {
     await _pumpSlip(tester);
     await tester.tap(find.text('NO'));
     await _typeOnKeypad(tester, '20');
-    await tester.tap(find.text('Advanced'));
+    await tester.tap(find.byKey(const ValueKey('slip-advanced-button')));
     await tester.pumpAndSettle();
     expect(find.text('Advanced prediction'), findsOneWidget);
     expect(tester.getSize(find.byType(Scaffold).last).height, 844);
@@ -307,7 +312,7 @@ void main() {
     expect(find.text(r'Place $35.00 on No'), findsOneWidget);
     expect(find.textContaining('limit at'), findsNothing);
     expect(find.textContaining('Limit · '), findsNothing);
-    await tester.tap(find.text('Advanced'));
+    await tester.tap(find.byKey(const ValueKey('slip-advanced-button')));
     await tester.pumpAndSettle();
     expect(find.text('Until canceled'), findsNothing);
     expect(find.text(r'Place $35.00 on No'), findsOneWidget);
@@ -321,7 +326,7 @@ void main() {
       (tester) async {
     final policy = await _allowEverything();
     await _pumpSlip(tester);
-    await tester.tap(find.text('Advanced'));
+    await tester.tap(find.byKey(const ValueKey('slip-advanced-button')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('NO'));
     await tester.enterText(find.byType(TextField), '25');
@@ -586,7 +591,7 @@ void main() {
     // the placement check sizes it, so a Max sized at 52.5c was refused.
     await tester.tap(find.byType(AmountMaxChip));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Advanced'));
+    await tester.tap(find.byKey(const ValueKey('slip-advanced-button')));
     await tester.pumpAndSettle();
     final staked = double.parse(
         tester.widget<TextField>(find.byType(TextField)).controller!.text);
@@ -694,7 +699,7 @@ void main() {
     final payout = find.byKey(const ValueKey('bet-slip-payout-tile'));
     final feeRect = tester.getRect(fee);
     final payoutRect = tester.getRect(payout);
-    final advanced = tester.getRect(find.text('Advanced'));
+    final keypad = tester.getRect(find.byType(AmountKeypad));
     // Two figures, no boxes and no line under them.
     expect(find.textContaining('profit'), findsNothing);
     expect(find.text('Polymarket fee'), findsNothing);
@@ -714,7 +719,7 @@ void main() {
     }
     expect(tester.getRect(fee), feeRect);
     expect(tester.getRect(payout), payoutRect);
-    expect(tester.getRect(find.text('Advanced')), advanced);
+    expect(tester.getRect(find.byType(AmountKeypad)), keypad);
     expect(tester.takeException(), isNull);
   });
 
@@ -742,8 +747,8 @@ void main() {
               'Will the city report more than one hundred millimeters of rainfall '
               'during the first full week of October, according to the official '
               'weather station, with the final report published before the end of the month?');
-      await tester.ensureVisible(find.text('Advanced'));
-      await tester.tap(find.text('Advanced'));
+      await tester.ensureVisible(find.byKey(const ValueKey('slip-advanced-button')));
+      await tester.tap(find.byKey(const ValueKey('slip-advanced-button')));
       await tester.pumpAndSettle();
       tester.view.viewInsets = FakeViewPadding(bottom: keyboard);
       await tester.pumpAndSettle();
@@ -774,7 +779,7 @@ void main() {
       (tester) async {
     final policy = await _allowEverything();
     await _pumpSlip(tester, balance: 0, height: 1600);
-    await tester.tap(find.text('Advanced'));
+    await tester.tap(find.byKey(const ValueKey('slip-advanced-button')));
     await tester.pumpAndSettle();
     final scroll =
         find.byKey(const ValueKey('prediction-advanced-form-scroll'));
@@ -802,8 +807,8 @@ void main() {
     RuntimeCapabilitiesService.debugInstance = policy;
     expect(await policy.refresh(), isTrue);
     await _pumpSlip(tester);
-    expect(find.text('Advanced'), findsOneWidget);
-    await tester.tap(find.text('Advanced'));
+    expect(find.byKey(const ValueKey('slip-advanced-button')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('slip-advanced-button')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('capability-unavailable-got-it')),
         findsOneWidget);
@@ -820,7 +825,7 @@ void main() {
   testWidgets('no readable policy: Advanced opens the sheet, not the page',
       (tester) async {
     await _pumpSlip(tester);
-    await tester.tap(find.text('Advanced'));
+    await tester.tap(find.byKey(const ValueKey('slip-advanced-button')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('capability-unavailable-got-it')),
         findsOneWidget);
@@ -1003,7 +1008,7 @@ void main() {
       expect(find.text(r'$0'), findsNWidgets(3));
       expect(cta(tester).label, 'Place on Yes');
       expect(cta(tester).enabled, isTrue);
-      await tester.tap(find.text('Advanced'));
+      await tester.tap(find.byKey(const ValueKey('slip-advanced-button')));
       await tester.pumpAndSettle();
       final step = events.lastWhere((e) => e.$1 == 'polymarket_bet_step');
       expect(step.$2?['amount_method'], 'none');

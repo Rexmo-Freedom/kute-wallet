@@ -86,48 +86,84 @@ const _position = HlPerpPosition(
 String _typed(WidgetTester tester) =>
     tester.widget<BigAmountDisplay>(find.byType(BigAmountDisplay)).amountText;
 
+Future<void> _pump(WidgetTester tester) async {
+  tester.view.physicalSize = const Size(430, 932) * 3;
+  tester.view.devicePixelRatio = 3;
+  addTearDown(tester.view.reset);
+  await tester.pumpWidget(ProviderScope(
+    overrides: [
+      settingsProvider.overrideWith((_) => SettingsModel(Settings(
+            currency: 'USD',
+            language: 'en',
+            btcFormat: 'sats',
+            backup: false,
+            biometricsEnabled: false,
+            bitcoinElectrumNode: '',
+            nodeType: '',
+            reviewDone: true,
+          ))),
+      hyperliquidLivePricesProvider.overrideWith(_LivePrices.new),
+      hyperliquidPerpPositionsProvider.overrideWith((_) => const [_position]),
+      hyperliquidAddressProvider.overrideWith((_) async => null),
+      currencyProvider.overrideWith((_) => _Currency()),
+      runtimeCapabilitiesProvider.overrideWithValue(_Allowed()),
+      aiEnabledProvider.overrideWith((_) async => false),
+    ],
+    child: ScreenUtilInit(
+      designSize: const Size(430, 932),
+      builder: (_, __) => MaterialApp(
+        theme: ThemeData(
+          splashFactory: NoSplash.splashFactory,
+          extensions: [AppColorsExtension.light()],
+        ),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const Scaffold(
+          body: HlClosePositionSheet(position: _position, market: _btc),
+        ),
+      ),
+    ),
+  ));
+}
+
 void main() {
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
 
+  testWidgets(
+      "Advanced is the header's round button; a limit close says so in a "
+      'chip under the amount and a dot on the button', (tester) async {
+    await _pump(tester);
+    await tester.pumpAndSettle();
+    final button = find.byKey(const ValueKey('slip-advanced-button'));
+    final chip = find.byKey(const ValueKey('slip-advanced-chip'));
+    final dot = find.byKey(const ValueKey('slip-advanced-dot'));
+    expect(button, findsOneWidget);
+    // Beside the close X, in the header: no row in the form any more.
+    expect(
+        find.descendant(of: button, matching: find.byIcon(Icons.tune_rounded)),
+        findsOneWidget);
+    expect(chip, findsNothing);
+    expect(dot, findsNothing);
+
+    await tester.tap(button);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Limit'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(KuteBackButton));
+    await tester.pumpAndSettle();
+    expect(find.descendant(of: chip, matching: find.text('Limit')),
+        findsOneWidget);
+    expect(dot, findsOneWidget);
+    // The chip opens Advanced too.
+    await tester.tap(chip);
+    await tester.pumpAndSettle();
+    expect(find.byType(KuteBackButton), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('one small Max beside the figure closes the whole position',
       (tester) async {
-    tester.view.physicalSize = const Size(430, 932) * 3;
-    tester.view.devicePixelRatio = 3;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(ProviderScope(
-      overrides: [
-        settingsProvider.overrideWith((_) => SettingsModel(Settings(
-              currency: 'USD',
-              language: 'en',
-              btcFormat: 'sats',
-              backup: false,
-              biometricsEnabled: false,
-              bitcoinElectrumNode: '',
-              nodeType: '',
-              reviewDone: true,
-            ))),
-        hyperliquidLivePricesProvider.overrideWith(_LivePrices.new),
-        hyperliquidPerpPositionsProvider.overrideWith((_) => const [_position]),
-        hyperliquidAddressProvider.overrideWith((_) async => null),
-        currencyProvider.overrideWith((_) => _Currency()),
-        runtimeCapabilitiesProvider.overrideWithValue(_Allowed()),
-        aiEnabledProvider.overrideWith((_) async => false),
-      ],
-      child: ScreenUtilInit(
-        designSize: const Size(430, 932),
-        builder: (_, __) => MaterialApp(
-          theme: ThemeData(
-            splashFactory: NoSplash.splashFactory,
-            extensions: [AppColorsExtension.light()],
-          ),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: const Scaffold(
-            body: HlClosePositionSheet(position: _position, market: _btc),
-          ),
-        ),
-      ),
-    ));
+    await _pump(tester);
     await tester.pumpAndSettle();
 
     // The buy slips' header: the coin, the title and the round close X;

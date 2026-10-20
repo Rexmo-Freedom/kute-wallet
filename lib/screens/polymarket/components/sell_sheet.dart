@@ -1491,6 +1491,13 @@ class _SellSheetState extends ConsumerState<SellSheet> {
   /// which are applied here on pop. Its Sell button returns too: the
   /// sale runs from this sheet so there is one selling path and the
   /// progress lands on the CTA the person is already looking at.
+  /// What Advanced is set to when it is not the default (a limit, at its
+  /// price), for the chip under the amount; null: the default.
+  String? get _advancedSummary => _isLimitMode
+      ? context.l10n
+          .betSlipLimitAt('${(_limitPrice * 100).toStringAsFixed(1)}¢')
+      : null;
+
   Future<void> _openAdvanced() async {
     if (_openingAdvanced || _isSelling) return;
     // Withheld Advanced opens nothing; the shared sheet says why.
@@ -1690,6 +1697,12 @@ class _SellSheetState extends ConsumerState<SellSheet> {
                   )
                 : null,
           ),
+          // Advanced is the header's button; when it is not the default,
+          // a chip under the amount says what it is set to.
+          if (_advancedSummary case final summary?) ...[
+            SlipGap(10.h),
+            SlipAdvancedChip(text: summary, onTap: _openAdvanced),
+          ],
           SlipGap(20.h),
           // What the sale brings in after the fee, and its profit or loss:
           // two figures, no boxes, zero until something is typed.
@@ -1709,14 +1722,6 @@ class _SellSheetState extends ConsumerState<SellSheet> {
                   : '${pnl < 0 ? '-' : '+'}${formatPolyAmount(ref, pnl.abs())}',
               valueColor: pnlColor,
             ),
-          ),
-          SlipGap(12.h),
-          PolySlipAdvancedRow(
-            trailingText: _isLimitMode
-                ? context.l10n.betSlipLimitAt(
-                    '${(_limitPrice * 100).toStringAsFixed(1)}¢')
-                : null,
-            onTap: _openAdvanced,
           ),
           if (_advancedBlock case final reason?)
             CapabilityBlockNote(reason, padding: EdgeInsets.only(top: 10.h)),
@@ -1774,6 +1779,12 @@ class _SellSheetState extends ConsumerState<SellSheet> {
                     marketQuestion: pos.marketQuestion,
                     marketImage: pos.marketImage,
                     maxLines: 2,
+                    action: IgnorePointer(
+                      ignoring: _isSelling,
+                      child: SlipAdvancedButton(
+                          onTap: _openAdvanced,
+                          modified: _advancedSummary != null),
+                    ),
                   ),
                   Flexible(
                     child: SlipFormBody(

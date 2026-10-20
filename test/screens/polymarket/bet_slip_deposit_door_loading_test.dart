@@ -989,7 +989,7 @@ void main() {
       expect(find.textContaining(' + '), findsNothing);
       expect(find.byType(AmountKeypad), findsNothing);
       expect(find.byKey(const ValueKey('bet-slip-payout-tile')), findsNothing);
-      expect(find.text('Advanced'), findsNothing);
+      expect(find.byKey(const ValueKey('slip-advanced-button')), findsNothing);
 
       // The second leg lands: the figure stays the order.
       funded.put([_secondLeg(landed: true)]);
@@ -1008,7 +1008,7 @@ void main() {
           '20');
       expect(find.byKey(const ValueKey('bet-slip-payout-tile')),
           findsOneWidget);
-      expect(find.text('Advanced'), findsOneWidget);
+      expect(find.byKey(const ValueKey('slip-advanced-button')), findsOneWidget);
       expect(find.byType(AmountKeypad), findsOneWidget);
       expect(find.byKey(const ValueKey('bet-slip-funded-stop')),
           findsOneWidget);

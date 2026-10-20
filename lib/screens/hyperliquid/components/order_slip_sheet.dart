@@ -105,6 +105,8 @@ import 'package:kute/screens/ledger/ledger_action_ui.dart'
     show showLedgerConfirmation;
 import 'package:kute/screens/shared/amount_keypad_panel.dart';
 import 'package:kute/screens/shared/slip_form_body.dart';
+import 'package:kute/screens/polymarket/components/slip_chrome.dart'
+    show SlipAdvancedButton, SlipAdvancedChip;
 import 'package:kute/screens/shared/slip_stat_tiles.dart';
 import 'package:kute/screens/shared/money_fee_summary.dart'
     show MoneyFeeFigure;
@@ -4734,6 +4736,12 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
               text: _strings.slipAddsToYourPosition(netPlan.heldSide),
             ),
           ],
+          // Advanced is the header's button; when it is not the default,
+          // a chip under the amount says what it is set to.
+          if (!advanced && !journeyShown && _hasAdvancedConfiguration) ...[
+            SlipGap(10.h),
+            SlipAdvancedChip(text: _advancedSummary(), onTap: _openAdvanced),
+          ],
           if (advanced) SizedBox(height: 20.h),
           if (advanced)
             ..._buildAdvancedSections(
@@ -4747,8 +4755,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
               hasFunds: available > 0 || _reduceOnly,
             )
           else ...[
-            // The figures (and the Advanced row) give their room to the
-            // money's journey while it runs.
+            // The figures give their room to the money's journey while it
+            // runs.
             FoldAway(
               folded: journeyShown,
               child: Column(
@@ -4763,8 +4771,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                     hasFunds: available > 0 || _reduceOnly,
                     size: size,
                   ),
-                  SlipGap(16.h),
-                  _buildAdvancedEntry(c),
                 ],
               ),
             ),
@@ -5178,7 +5184,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         : Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _buildHeader(c),
+              _buildHeader(c, advancedButton: !journeyShown),
               Flexible(
                 child: SlipFormBody(
                   expandForMessage:
@@ -5278,61 +5284,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   }
 
   // ── Section builders ────────────────────────────────────────────────
-
-  /// Opens the full-screen editor without expanding the simple ticket.
-  Widget _buildAdvancedEntry(AppColorsExtension c) {
-    // Built in its own context, under the slip's [SlipFit].
-    return Builder(builder: (context) => _advancedEntryCard(context, c));
-  }
-
-  Widget _advancedEntryCard(BuildContext context, AppColorsExtension c) {
-    return Semantics(
-      button: true,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: _openAdvanced,
-        // A card, not a bare row: on the tinted sheet a loose row reads
-        // as an orphan line, and this is a tap target.
-        child: Container(
-          padding: EdgeInsets.symmetric(
-              horizontal: 14.w,
-              vertical: SlipDensity.tight(context) ? 9.h : 14.h),
-          decoration: BoxDecoration(
-            color: c.surface,
-            borderRadius: BorderRadius.circular(14.r),
-            border: Border.all(color: c.borderSubtle, width: 0.5),
-          ),
-          child: Row(
-            children: [
-              Icon(Icons.tune_rounded, size: 20.sp, color: c.textSecondary),
-              SizedBox(width: 10.w),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(context.l10n.advanced,
-                        style: TextStyle(
-                            color: c.textPrimary,
-                            fontSize: 16.sp,
-                            fontWeight: FontWeight.w600)),
-                    if (_hasAdvancedConfiguration) ...[
-                      SizedBox(height: 3.h),
-                      Text(_advancedSummary(),
-                          style: TextStyle(
-                              color: c.textSecondary, fontSize: 14.sp)),
-                    ],
-                  ],
-                ),
-              ),
-              SizedBox(width: 8.w),
-              Icon(Icons.chevron_right_rounded,
-                  size: 22.sp, color: c.textSecondary),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 
   bool get _hasAdvancedConfiguration =>
       _mode != _OrderMode.market ||
@@ -6910,13 +6861,16 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     );
   }
 
-  // Header identity with public-market educational help and close control.
-  Widget _buildHeader(AppColorsExtension c) {
+  // Header identity, the Advanced button and the close control.
+  Widget _buildHeader(AppColorsExtension c, {bool advancedButton = false}) {
     // Built in its own context, under the slip's [SlipFit].
-    return Builder(builder: (context) => _headerRow(context, c));
+    return Builder(
+        builder: (context) =>
+            _headerRow(context, c, advancedButton: advancedButton));
   }
 
-  Widget _headerRow(BuildContext context, AppColorsExtension c) {
+  Widget _headerRow(BuildContext context, AppColorsExtension c,
+      {bool advancedButton = false}) {
     final pad = SlipDensity.tight(context) ? 9.h : 14.h;
     return Padding(
       padding: EdgeInsets.fromLTRB(20.w, pad, 20.w, pad),
@@ -6949,6 +6903,14 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           ),
           // No Sal here: the slip is the moment of decision.
           SizedBox(width: 8.w),
+          if (advancedButton) ...[
+            IgnorePointer(
+              ignoring: _isPlacing || _preparing || _ledgerBusy,
+              child: SlipAdvancedButton(
+                  onTap: _openAdvanced, modified: _hasAdvancedConfiguration),
+            ),
+            SizedBox(width: 8.w),
+          ],
           const KuteCloseButton(),
         ],
       ),

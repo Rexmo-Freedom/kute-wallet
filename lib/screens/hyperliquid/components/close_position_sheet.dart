@@ -1320,6 +1320,13 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
       marketQuestion: context.l10n.closeTitle(_displayCoin),
       leading: _marketArtwork(),
       maxLines: 2,
+      // Inert while a close is in flight; the button below carries the
+      // wait.
+      action: IgnorePointer(
+        ignoring: _isClosing,
+        child: SlipAdvancedButton(
+            onTap: _openAdvanced, modified: _advancedSummary != null),
+      ),
     );
 
     // The close's two figures, off the position screen's own reading
@@ -1432,6 +1439,12 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
                             )
                           : null,
                     ),
+                    // Advanced is the header's button; when it is not the
+                    // default, a chip under the amount says what it is.
+                    if (_advancedSummary case final summary?) ...[
+                      SlipGap(10.h),
+                      SlipAdvancedChip(text: summary, onTap: _openAdvanced),
+                    ],
                     SlipGap(20.h),
 
                     // ── What comes back ───────────────────────────────────
@@ -1453,15 +1466,6 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
                             : '${pnl < 0 ? '−' : '+'}${formatHlUsd(pnl.abs())}',
                         valueColor: pnlColor,
                       ),
-                    ),
-                    SlipGap(12.h),
-
-                    // ── Advanced page ────────────────────────────────────
-                    // Inert while a close is in flight; the button below
-                    // carries the wait.
-                    IgnorePointer(
-                      ignoring: _isClosing,
-                      child: _buildAdvancedSection(c),
                     ),
                     if (_errorText != null) ...[
                       SlipGap(10.h),
@@ -1575,10 +1579,9 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
 
   // ── Advanced section ────────────────────────────────────────────────
 
-  Widget _buildAdvancedSection(AppColorsExtension c) => PolySlipAdvancedRow(
-        onTap: _openAdvanced,
-        trailingText: _isMarketClose ? null : _closeTypeLabel(),
-      );
+  /// What Advanced is set to when it is not a market close (the close's
+  /// type), for the chip under the amount; null: the default.
+  String? get _advancedSummary => _isMarketClose ? null : _closeTypeLabel();
 
   Widget _buildAdvancedContent(AppColorsExtension c) {
     return Padding(

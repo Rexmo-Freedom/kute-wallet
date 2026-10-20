@@ -60,14 +60,16 @@ String polySlipTitle(String title) {
 }
 
 /// Identity row at the top of a ticket: market thumb + question, an
-/// optional trailing chip (the buy slip's Ask Sal), then the close X.
-/// The question ellipsizes so the trailing cluster never wraps.
+/// optional trailing chip (the buy slip's Ask Sal), the ticket's round
+/// [action] (its Advanced, [SlipAdvancedButton]), then the close X. The
+/// question ellipsizes so the trailing cluster never wraps.
 class PolySlipHeader extends StatelessWidget {
   const PolySlipHeader({
     super.key,
     required this.marketQuestion,
     this.marketImage,
     this.trailing,
+    this.action,
     this.leading,
     this.maxLines = 5,
   });
@@ -75,6 +77,9 @@ class PolySlipHeader extends StatelessWidget {
   final String marketQuestion;
   final String? marketImage;
   final Widget? trailing;
+
+  /// A round button beside the close X, its size and chrome.
+  final Widget? action;
 
   /// The market's own artwork in place of [marketImage] (an Investing
   /// coin's logo on the Close ticket), at the same 36 size.
@@ -138,6 +143,10 @@ class PolySlipHeader extends StatelessWidget {
             trailing!,
             SizedBox(width: 8.w),
           ],
+          if (action != null) ...[
+            action!,
+            SizedBox(width: 8.w),
+          ],
           const KuteCloseButton(),
         ],
       ),
@@ -145,69 +154,100 @@ class PolySlipHeader extends StatelessWidget {
   }
 }
 
-/// The ticket's one-line "Advanced" entry. A bare text row floated on the
-/// tinted sheet with nothing to sit on, so it takes a secondary step.
-///
-/// [expanded] null means the row opens a separate page and the chevron
-/// points right; a non-null value means it expands in place and the
-/// chevron rotates.
-class PolySlipAdvancedRow extends StatelessWidget {
-  const PolySlipAdvancedRow({
-    super.key,
+/// The key of a slip's [SlipAdvancedButton].
+const Key kSlipAdvancedButtonKey = ValueKey('slip-advanced-button');
+
+/// A slip's way into its Advanced page, in its header: a round sliders
+/// button beside the close X, the same size and translucent chrome. A
+/// small dot says the Advanced settings are not the default ones (the
+/// [SlipAdvancedChip] under the amount says which).
+class SlipAdvancedButton extends StatelessWidget {
+  const SlipAdvancedButton({
+    super.key = kSlipAdvancedButtonKey,
     required this.onTap,
-    this.trailingText,
-    this.expanded,
+    this.modified = false,
   });
 
   final VoidCallback onTap;
-  final String? trailingText;
-  final bool? expanded;
+  final bool modified;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final open = expanded;
-    return Semantics(
-      button: true,
-      expanded: open,
-      child: Material(
-        color: c.surfaceLight,
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12.r),
-            side: BorderSide(color: c.border, width: 0.5)),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12.r),
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        KuteCircleButton(
+          semanticsLabel: context.l10n.walletsAdvanced,
+          onPressed: onTap,
+          child: Icon(Icons.tune_rounded, size: 20.sp, color: c.textSecondary),
+        ),
+        if (modified)
+          Positioned(
+            top: 2.w,
+            right: 2.w,
+            child: Container(
+              key: const ValueKey('slip-advanced-dot'),
+              width: 10.w,
+              height: 10.w,
+              decoration: BoxDecoration(
+                color: c.textPrimary,
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// What a slip's Advanced is set to, when it is not the default ("Limit ·
+/// 52¢", "Market · 5x"): a small pill under the amount's line. A tap
+/// opens Advanced, like the header's button. Default settings show none.
+class SlipAdvancedChip extends StatelessWidget {
+  const SlipAdvancedChip({super.key, required this.text, required this.onTap});
+
+  final String text;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Semantics(
+        button: true,
+        child: GestureDetector(
+          key: const ValueKey('slip-advanced-chip'),
+          behavior: HitTestBehavior.opaque,
           onTap: onTap,
-          child: Padding(
-            padding: EdgeInsets.symmetric(
-                vertical: SlipDensity.tight(context) ? 9.h : 13.h,
-                horizontal: 14.w),
-            child: Row(children: [
-              Icon(Icons.tune_rounded, size: 20.sp, color: c.textPrimary),
-              SizedBox(width: 10.w),
-              Expanded(
-                  child: Text(context.l10n.walletsAdvanced,
-                      style: TextStyle(
-                          fontSize: 15.sp,
-                          fontWeight: FontWeight.w600,
-                          color: c.textPrimary))),
-              if (trailingText != null)
-                Text(trailingText!,
-                    style: TextStyle(fontSize: 14.sp, color: c.textSecondary)),
-              SizedBox(width: 8.w),
-              if (open == null)
-                Icon(Icons.chevron_right_rounded,
-                    size: 22.sp, color: c.textSecondary)
-              else
-                AnimatedRotation(
-                  turns: open ? 0.5 : 0,
-                  duration: MediaQuery.of(context).disableAnimations
-                      ? Duration.zero
-                      : const Duration(milliseconds: 180),
-                  child: Icon(Icons.keyboard_arrow_down_rounded,
-                      size: 22.sp, color: c.textSecondary),
+          child: Container(
+            padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
+            decoration: BoxDecoration(
+              color: c.surface,
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: c.borderSubtle, width: 0.5),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.tune_rounded, size: 14.sp, color: c.textPrimary),
+                SizedBox(width: 6.w),
+                Flexible(
+                  child: Text(
+                    text,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: c.textPrimary,
+                      fontSize: 13.sp,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -0.1,
+                    ),
+                  ),
                 ),
-            ]),
+              ],
+            ),
           ),
         ),
       ),

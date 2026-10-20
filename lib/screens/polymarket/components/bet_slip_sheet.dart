@@ -5139,14 +5139,22 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                   ),
                   // Two figures, no boxes: what it pays if it wins and the
                   // fee, zero in each until a stake is typed (a tap on the
-                  // fee opens its breakdown sheet). They give their room to
-                  // the money's journey while it runs.
+                  // fee opens its breakdown sheet). Advanced is the
+                  // header's button; when it is not the default, a chip
+                  // under the amount says what it is set to. They give
+                  // their room to the money's journey while it runs.
                   FoldAway(
                     folded: journeyShown,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        if (_advancedSummary(orderPrice)
+                            case final summary?) ...[
+                          SlipGap(10.h),
+                          SlipAdvancedChip(
+                              text: summary, onTap: _openAdvanced),
+                        ],
                         SlipGap(24.h),
                         SlipFigures(
                           left: _buildPayoutFigure(payout),
@@ -5155,8 +5163,6 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                             child: MoneyFeeFigure(child: feeSummary),
                           ),
                         ),
-                        SlipGap(12.h),
-                        _buildAdvancedToggle(tc, maxPrice: orderPrice),
                       ],
                     ),
                   ),
@@ -5189,7 +5195,12 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         children: [
           IgnorePointer(
             ignoring: _buyInFlight || _draft.ledgerBusy || activelyPlacing,
-            child: _buildHeader(tc, selectedColor),
+            child: _buildHeader(tc, selectedColor,
+                advanced: journeyShown
+                    ? null
+                    : SlipAdvancedButton(
+                        onTap: _openAdvanced,
+                        modified: _advancedSummary(orderPrice) != null)),
           ),
           // The form over the pinned keypad, fitted to the screen: the
           // keypad gives its room first, then the ticket goes compact,
@@ -5453,18 +5464,20 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     );
   }
 
-  /// A market order names its maximum price here before approval, the
-  /// way a limit names its price: the ask plus the slippage, with one tick
-  /// of room at least. Once prepared it is the cap the approval binds.
-  Widget _buildAdvancedToggle(AppColorsExtension c, {required double maxPrice}) {
-    return PolySlipAdvancedRow(
-      onTap: _openAdvanced,
-      trailingText: _isLimitMode
-          ? context.l10n.betSlipLimitAt(formatPolyCents(_limitPrice))
-          : _amount > 0 && maxPrice > 0 && maxPrice < 1
-              ? context.l10n.betSlipMaxAt(polymarketCentsLabel(maxPrice))
-              : null,
-    );
+  /// What Advanced is set to when it is not the default, for the chip
+  /// under the amount (null: the default, no chip and no dot). A limit
+  /// names its price; a market order with its own slippage names its
+  /// maximum price (the ask plus the slippage, the cap the approval
+  /// binds), or the slippage before a stake is typed.
+  String? _advancedSummary(double maxPrice) {
+    if (_isLimitMode) {
+      return context.l10n.betSlipLimitAt(formatPolyCents(_limitPrice));
+    }
+    final slippage = _draft.slippageChoice ?? kPolymarketDefaultSlippagePct;
+    if (slippage == kPolymarketDefaultSlippagePct) return null;
+    return _amount > 0 && maxPrice > 0 && maxPrice < 1
+        ? context.l10n.betSlipMaxAt(polymarketCentsLabel(maxPrice))
+        : context.l10n.slipMaxSlippageSummary(slippage.toStringAsFixed(0));
   }
 
   Widget _buildCandidateSideToggle(LivePriceState livePrices) {
@@ -6284,12 +6297,15 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
 
   // ── Header ─────────────────────────────────────────────────────────────
 
-  Widget _buildHeader(AppColorsExtension c, Color accentColor) {
-    // The shared ticket header (market thumb + question + close X). No
-    // Sal here: the slip is the moment of decision.
+  Widget _buildHeader(AppColorsExtension c, Color accentColor,
+      {Widget? advanced}) {
+    // The shared ticket header (market thumb + question, the Advanced
+    // button, the close X). No Sal here: the slip is the moment of
+    // decision.
     return PolySlipHeader(
       marketQuestion: widget.marketQuestion,
       marketImage: widget.marketImage,
+      action: advanced,
     );
   }
 
