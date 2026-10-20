@@ -24,7 +24,8 @@
 //      so the Bitcoin / Spark / swap / Outlogic / Polymarket / USDB
 //      leading icons match the rest of the app.
 //
-// Local results (transactions + the user's own positions) come from
+// Local results (transactions + the user's own positions, both under
+// Transactions: Predictions and Investing list markets only) come from
 // `unifiedSearchResultsProvider` and update instantly. The market groups
 // stream in from the debounced remote providers, drawn with the Investing
 // and Predictions tabs' own cards (positions with the Portfolio's), the
@@ -621,11 +622,12 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
     // dedicated Perpetuals filter.
     final showPerpetuals =
         category == SearchCategory.all || category == SearchCategory.perpetuals;
-    final txSection = showTx && local.transactions.isNotEmpty;
-    final predictionSection = showPredictions &&
-        (local.ownedPositions.isNotEmpty ||
-            globalResults.isNotEmpty ||
-            globalLoading);
+    // The person's own positions are history and sit with Transactions;
+    // Predictions and Investing list markets only.
+    final txSection = showTx &&
+        (local.transactions.isNotEmpty || local.ownedPositions.isNotEmpty);
+    final predictionSection =
+        showPredictions && (globalResults.isNotEmpty || globalLoading);
     final perpetualsSection =
         showPerpetuals && (hlResults.isNotEmpty || hlLoading);
 
@@ -674,9 +676,6 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
       loading: globalLoading,
       skeleton: const _MarketCardSkeletons(investing: false),
       rows: [
-        // The person's own positions first.
-        for (final r in local.ownedPositions)
-          (int p) => _OwnedPositionRow(result: r, position: p),
         for (final r in rankedGlobal)
           (int p) => _GlobalMarketRow(
               key: ValueKey('poly-${r.event.slug}-${r.event.id}'),
@@ -689,6 +688,9 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
       label: context.l10n.transactions,
       filter: SearchCategory.transactions,
       rows: [
+        // The person's own prediction positions first, then the rest.
+        for (final r in local.ownedPositions)
+          (int p) => _OwnedPositionRow(result: r, position: p),
         for (final r in local.transactions)
           (int p) => _TransactionRow(result: r, position: p),
       ],
