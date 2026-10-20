@@ -1817,7 +1817,6 @@ Widget _buildPolymarketUsdcReceiveItem(
 void _showPolymarketUsdcReceiveDetails(
     BuildContext context, WidgetRef ref, PolymarketUsdcReceive tx) {
   TrackingService.transactionDetailViewed('polymarket_usdc_receive');
-  final c = context.colors;
   // Sheet headline follows the global Predictions denomination
   // setting — sats/BTC in bitcoin mode, user's fiat in fiat mode.
   // Asset identity stays on the leading USDC icon.
@@ -1826,7 +1825,10 @@ void _showPolymarketUsdcReceiveDetails(
   final hash = tx.id.split(':').first;
   showAppBottomSheet(
     context: context,
-    builder: (ctx) => AppBottomSheetContainer(
+    builder: (ctx) {
+      // The sheet's own palette, per build: a live theme switch recolours it.
+      final c = ctx.colors;
+      return AppBottomSheetContainer(
       maxHeight: 0.9,
       child: Padding(
         padding: EdgeInsets.symmetric(horizontal: 24.w),
@@ -1895,7 +1897,8 @@ void _showPolymarketUsdcReceiveDetails(
           ),
         ),
       ),
-    ),
+    );
+    },
   );
 }
 
@@ -1910,7 +1913,6 @@ void _showPolymarketUsdcReceiveDetails(
 void _showNativeUsdcSendDetails(
     BuildContext context, WidgetRef ref, SwapOrderTransaction tx) {
   TrackingService.transactionDetailViewed('native_usdc_send');
-  final c = context.colors;
   final details = tx.details;
   // Sheet headline follows the global Predictions denomination
   // setting — sats/BTC in bitcoin mode, user's fiat in fiat mode.
@@ -1918,7 +1920,10 @@ void _showNativeUsdcSendDetails(
   final dateStr = activitySheetDate(context, tx.timestamp);
   showAppBottomSheet(
     context: context,
-    builder: (ctx) => AppBottomSheetContainer(
+    builder: (ctx) {
+      // The sheet's own palette, per build: a live theme switch recolours it.
+      final c = ctx.colors;
+      return AppBottomSheetContainer(
       maxHeight: 0.9,
       child: Padding(
         padding: EdgeInsets.symmetric(horizontal: 24.w),
@@ -1937,7 +1942,7 @@ void _showNativeUsdcSendDetails(
                   tx.isComplete ? context.l10n.completed : context.l10n.pending,
                   valueColor: tx.isComplete
                       ? AppColors.success
-                      : context.colors.accent),
+                      : c.accent),
               _NerdDataSection(children: [
                 _sheetDetailRow(c, context.l10n.network,
                     orchestraChainDisplayName('POLYGON')),
@@ -1970,7 +1975,8 @@ void _showNativeUsdcSendDetails(
           ),
         ),
       ),
-    ),
+    );
+    },
   );
 }
 
@@ -2147,13 +2153,13 @@ String _outlogicStatusLabel(BuildContext context, String status) {
 void _showOutlogicTxDetails(
     BuildContext context, WidgetRef ref, OutlogicTransaction tx) {
   TrackingService.transactionDetailViewed('outlogic');
-  final c = context.colors;
   final order = tx.details;
   final isBuy = tx.isBuy;
   final dateStr = activitySheetDate(context, tx.timestamp);
 
   String statusText = _outlogicStatusLabel(context, order.status);
-  Color statusColor;
+  // Null: the theme accent, resolved in the sheet so it follows the theme.
+  Color? statusColor;
   if (order.status == 'COMPLETED' ||
       order.status == 'DEPOSIT_CONFIRMED' ||
       order.status == 'APPROVED') {
@@ -2161,7 +2167,7 @@ void _showOutlogicTxDetails(
   } else if (order.isTerminal) {
     statusColor = AppColors.error;
   } else {
-    statusColor = context.colors.accent;
+    statusColor = null;
   }
 
   showAppBottomSheet(
@@ -2170,7 +2176,10 @@ void _showOutlogicTxDetails(
     // `context`: the tx row is often scrolled out and deactivated by
     // the time the sheet builds, so MediaQuery.of(context) walked a
     // dead element → "Null check operator used on a null value".
-    builder: (ctx) => AppBottomSheetContainer(
+    builder: (ctx) {
+      // The sheet's own palette, per build: a live theme switch recolours it.
+      final c = ctx.colors;
+      return AppBottomSheetContainer(
       maxHeight: 0.9,
       child: Padding(
         padding: EdgeInsets.symmetric(horizontal: 24.w),
@@ -2186,7 +2195,7 @@ void _showOutlogicTxDetails(
                 ),
                 _sheetDetailRow(c, context.l10n.date, dateStr),
                 _sheetDetailRow(c, context.l10n.status, statusText,
-                    valueColor: statusColor),
+                    valueColor: statusColor ?? c.accent),
                 ..._fiatSnapshotRows(context, ref, c, order.id),
                 if (order.trade != null)
                   _sheetDetailRow(c, context.l10n.youReceive,
@@ -2228,7 +2237,8 @@ void _showOutlogicTxDetails(
               ],
             ),
           )),
-    ),
+    );
+    },
   );
 }
 
@@ -2311,13 +2321,15 @@ Widget _buildUnclaimedItem(
 void _showPendingUnclaimedSheet(
     BuildContext context, WidgetRef ref, SparkUnclaimedDeposit tx) {
   TrackingService.transactionDetailViewed('spark_unclaimed_pending');
-  final c = context.colors;
   final dateStr = activitySheetDate(context, tx.timestamp);
   final txid = tx.txid;
 
   showAppBottomSheet(
     context: context,
-    builder: (ctx) => AppBottomSheetContainer(
+    builder: (ctx) {
+      // The sheet's own palette, per build: a live theme switch recolours it.
+      final c = ctx.colors;
+      return AppBottomSheetContainer(
       maxHeight: 0.85,
       child: SingleChildScrollView(
         child: Padding(
@@ -2378,7 +2390,8 @@ void _showPendingUnclaimedSheet(
           ),
         ),
       ),
-    ),
+    );
+    },
   );
 }
 
@@ -2429,7 +2442,6 @@ void _showTrackedBitcoinTxDetails(BuildContext context, WidgetRef ref,
     MempoolAddressTransaction tx, String? owner) {
   TrackingService.transactionDetailViewed('tracked_bitcoin');
   _warmTxDetails(tx);
-  final c = context.colors;
   final isReceive = tx.type == TransactionType.received;
   // The tracked address is the wallet's only own address: the flow graph
   // highlights the inputs spent from it and the outputs paid to it. Read it
@@ -2438,7 +2450,10 @@ void _showTrackedBitcoinTxDetails(BuildContext context, WidgetRef ref,
   showAppBottomSheet(
       context: context,
       // The sheet keeps its own context and ref if its source row disappears.
-      builder: (ctx) => Consumer(
+      builder: (ctx) {
+        // The sheet's own palette, per build: a live theme switch recolours it.
+        final c = ctx.colors;
+        return Consumer(
           builder: (context, ref, _) => AppBottomSheetContainer(
                 maxHeight: 0.85,
                 child: SheetScrollView(
@@ -2504,7 +2519,9 @@ void _showTrackedBitcoinTxDetails(BuildContext context, WidgetRef ref,
                           icon: const Icon(Icons.open_in_new_rounded),
                           label: Text(context.l10n.activityViewOnBlockchain)),
                     ])),
-              )));
+              ));
+      },
+  );
 }
 
 Widget _buildSparkPendingDepositItem(
@@ -2534,7 +2551,6 @@ void _showSparkPendingDepositDetails(
     BuildContext context, WidgetRef ref, SparkPendingDeposit tx) {
   TrackingService.transactionDetailViewed('spark_pending_deposit');
   _warmTxDetails(tx);
-  final c = context.colors;
   final amountSats = tx.amount.toInt();
   final dateStr = activitySheetDate(context, tx.timestamp);
   final txid = tx.mempoolTx.txid;
@@ -2543,7 +2559,10 @@ void _showSparkPendingDepositDetails(
     context: context,
     // The graph can make a busy transaction taller than the screen: cap
     // the sheet like the bitcoin one and let the content scroll.
-    builder: (context) => AppBottomSheetContainer(
+    builder: (context) {
+      // The sheet's own palette, per build: a live theme switch recolours it.
+      final c = context.colors;
+      return AppBottomSheetContainer(
       maxHeight: 0.9,
       child: Padding(
         padding: EdgeInsets.symmetric(horizontal: 24.w),
@@ -2624,7 +2643,8 @@ void _showSparkPendingDepositDetails(
           ),
         ),
       ),
-    ),
+    );
+    },
   );
 }
 
@@ -2667,14 +2687,14 @@ Widget _buildUsdbTokenItem(
 void _showUsdbTokenTxDetails(
     BuildContext context, WidgetRef ref, UsdbTokenTransaction tx) {
   TrackingService.transactionDetailViewed('usd_token');
-  final c = context.colors;
   final payment = tx.details;
   final isSend = payment.paymentType == breez.PaymentType.send;
   final dateStr = activitySheetDate(context, tx.timestamp);
 
 
   String statusText;
-  Color statusColor;
+  // Null: the theme accent, resolved in the sheet so it follows the theme.
+  Color? statusColor;
   switch (payment.status) {
     case breez.PaymentStatus.completed:
       statusText = context.l10n.completed;
@@ -2686,7 +2706,7 @@ void _showUsdbTokenTxDetails(
       break;
     case breez.PaymentStatus.pending:
       statusText = context.l10n.pending;
-      statusColor = context.colors.accent;
+      statusColor = null;
       break;
   }
 
@@ -2708,7 +2728,10 @@ void _showUsdbTokenTxDetails(
     // `context`: the tx row is often scrolled out and deactivated by
     // the time the sheet builds, so MediaQuery.of(context) walked a
     // dead element → "Null check operator used on a null value".
-    builder: (ctx) => AppBottomSheetContainer(
+    builder: (ctx) {
+      // The sheet's own palette, per build: a live theme switch recolours it.
+      final c = ctx.colors;
+      return AppBottomSheetContainer(
       maxHeight: 0.9,
       child: Padding(
         padding: EdgeInsets.symmetric(horizontal: 24.w),
@@ -2724,7 +2747,7 @@ void _showUsdbTokenTxDetails(
               ),
               _sheetDetailRow(c, context.l10n.date, dateStr),
               _sheetDetailRow(c, context.l10n.status, statusText,
-                  valueColor: statusColor),
+                  valueColor: statusColor ?? c.accent),
               // Through the shared formatter so the fee follows the sats or
               // BTC setting like every other amount.
               if (showFee)
@@ -2777,7 +2800,8 @@ void _showUsdbTokenTxDetails(
           ),
         ),
       ),
-    ),
+    );
+    },
   );
 }
 
@@ -4083,7 +4107,6 @@ Widget predictionActivityIcon(String? iconUrl) => _PolymarketTxIcon(
 void _showPolymarketTxDetails(
     BuildContext context, WidgetRef ref, PolymarketTransaction tx) {
   TrackingService.transactionDetailViewed('polymarket');
-  final c = context.colors;
   final activity = tx.activity;
   final type = tx.activityType;
   // Honor the user's currency setting so the detail sheet shows
@@ -4131,7 +4154,10 @@ void _showPolymarketTxDetails(
     // `context`: the tx row is often scrolled out and deactivated by
     // the time the sheet builds, so MediaQuery.of(context) walked a
     // dead element → "Null check operator used on a null value".
-    builder: (ctx) => AppBottomSheetContainer(
+    builder: (ctx) {
+      // The sheet's own palette, per build: a live theme switch recolours it.
+      final c = ctx.colors;
+      return AppBottomSheetContainer(
       maxHeight: 0.9,
       child: Padding(
         padding: EdgeInsets.symmetric(horizontal: 24.w),
@@ -4286,7 +4312,8 @@ void _showPolymarketTxDetails(
           ),
         ),
       ),
-    ),
+    );
+    },
   );
 }
 
@@ -4554,7 +4581,6 @@ void _showBitcoinTxDetails(
   // are all in the cache) so the user can hop to mempool.space;
   // the fee / fee-rate rows just hide. Live entries take the
   // detail-rich path below.
-  final c = context.colors;
   final details = tx.btcDetails;
   final labelWalletId = ref.read(bitcoinLabelsWalletIdProvider);
 
@@ -4585,7 +4611,8 @@ void _showBitcoinTxDetails(
   final statusText = details != null
       ? confirmationStatus(context, details, ref)
       : (tx.isConfirmed ? context.l10n.confirmed : context.l10n.pending);
-  final statusColor = isPending ? context.colors.accent : AppColors.success;
+  // Null: the theme accent, resolved in the sheet so it follows the theme.
+  final Color? statusColor = isPending ? null : AppColors.success;
 
   // Fee — only available with live details. Shown ON the flow graph (Fee
   // node) when > 0; cached entries have no fee and just skip the node.
@@ -4651,7 +4678,10 @@ void _showBitcoinTxDetails(
   showAppBottomSheet(
     context: context,
     // The sheet keeps its own context and ref if its source row disappears.
-    builder: (ctx) => Consumer(
+    builder: (ctx) {
+      // The sheet's own palette, per build: a live theme switch recolours it.
+      final c = ctx.colors;
+      return Consumer(
         builder: (context, ref, _) => AppBottomSheetContainer(
       maxHeight: 0.9,
       child: Padding(
@@ -4671,7 +4701,7 @@ void _showBitcoinTxDetails(
                             txid: tx.id, walletId: labelWalletId),
                       _sheetDetailRow(c, context.l10n.date, dateStr),
                       _sheetDetailRow(c, context.l10n.status, statusText,
-                          valueColor: statusColor),
+                          valueColor: statusColor ?? c.accent),
                       ..._fiatSnapshotRows(context, ref, c, txid),
                       // Network fee lives ON the flow graph below (the "Fee" node), not
                       // in a duplicate text row.
@@ -4736,14 +4766,14 @@ void _showBitcoinTxDetails(
                   ),
                 ),
               ),
-            )),
+            ));
+    },
   );
 }
 
 void _showSparkTxDetails(
     BuildContext context, WidgetRef ref, SparkTransaction tx) {
   TrackingService.transactionDetailViewed('spark');
-  final c = context.colors;
   // Spark txs come in two flavours:
   //   - Live: `tx.details` is the breez.Payment with full SDK
   //     metadata (fees, preimage, payment hash, raw tx id...).
@@ -4766,7 +4796,8 @@ void _showSparkTxDetails(
   final dateStr = activitySheetDate(context, tx.timestamp);
 
   String statusText;
-  Color statusColor;
+  // Null: the theme accent, resolved in the sheet so it follows the theme.
+  Color? statusColor;
   if (payment != null) {
     switch (payment.status) {
       case breez.PaymentStatus.completed:
@@ -4779,14 +4810,14 @@ void _showSparkTxDetails(
         break;
       case breez.PaymentStatus.pending:
         statusText = context.l10n.pending;
-        statusColor = context.colors.accent;
+        statusColor = null;
         break;
     }
   } else {
     statusText = tx.isPending
         ? context.l10n.pending
         : (tx.isConfirmed ? context.l10n.completed : context.l10n.pending);
-    statusColor = tx.isPending ? context.colors.accent : AppColors.success;
+    statusColor = tx.isPending ? null : AppColors.success;
   }
 
   // Fee — live only; cached entries don't carry it.
@@ -4849,7 +4880,10 @@ void _showSparkTxDetails(
   showAppBottomSheet(
     context: context,
     // The sheet keeps its own context and ref if its source row disappears.
-    builder: (ctx) => Consumer(
+    builder: (ctx) {
+      // The sheet's own palette, per build: a live theme switch recolours it.
+      final c = ctx.colors;
+      return Consumer(
         builder: (context, ref, _) => AppBottomSheetContainer(
       maxHeight: 0.9,
       child: Padding(
@@ -4871,7 +4905,7 @@ void _showSparkTxDetails(
                       ),
                       _sheetDetailRow(c, context.l10n.date, dateStr),
                       _sheetDetailRow(c, context.l10n.status, statusText,
-                          valueColor: statusColor),
+                          valueColor: statusColor ?? c.accent),
                       ..._fiatSnapshotRows(context, ref, c, tx.id),
                       // On chain the graph carries the miner fee of the transaction,
                       // not the fee the wallet paid, so that one keeps a plain row.
@@ -4987,7 +5021,8 @@ void _showSparkTxDetails(
                   ),
                 ),
               ),
-            )),
+            ));
+    },
   );
 }
 
