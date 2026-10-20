@@ -5486,6 +5486,12 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
                 );
         sentUsd = result.sentUsd;
       }
+      // The direct route delivers USDC.e to the deposit wallet: the
+      // arrival watch converts it to pUSD the moment it lands, as for a
+      // deposit from Bitcoin or Dollars.
+      if (route == 'direct') {
+        ref.read(polymarketTradingProvider.notifier).wrapIncomingUsdcEToPusd();
+      }
       // Handed to the runner (or the CCTP watcher); the reconciler reports
       // the outcome.
       TrackingService.hyperliquidWithdrawSubmitted(

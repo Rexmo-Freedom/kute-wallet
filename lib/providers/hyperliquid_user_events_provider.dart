@@ -21,7 +21,8 @@
 //     a withdrawal left), so the account is read again at once and a
 //     queued order waiting on a deposit fires on that read
 //     (`PendingHlOrderAutoFire.accountMoved`), instead of on the next
-//     account poll.
+//     account poll; a USDC credit marks the move into Investing it stands
+//     for as arrived (`VenueArrivals.investingArrived`).
 //
 // CRASH CONTRACT: the WS `messages` stream emits errors (terminal
 // reconnect exhaustion included) — the listener attaches onError and
@@ -38,10 +39,12 @@ import 'package:kute/providers/hyperliquid_trading_provider.dart';
 import 'package:kute/providers/pending_hyperliquid_order_provider.dart'
     show pendingHlOrderAutoFireProvider;
 import 'package:kute/providers/placing_hyperliquid_order_provider.dart';
+import 'package:kute/providers/swap_orders_provider.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_websocket.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart'
     show OneBalanceVenue;
 import 'package:kute/services/one_balance/venue_cash_released.dart';
+import 'package:kute/services/orchestra/venue_arrivals.dart';
 
 class HlUserEventsState {
   /// Newest-last ring of recent order lifecycle events, capped at 50. The
@@ -156,13 +159,25 @@ class HlUserEventsNotifier extends AutoDisposeNotifier<HlUserEventsState> {
     } else if (msg is HlLedgerUpdatesMessage) {
       // The subscribe-time frame is the account's history, not news.
       if (msg.isSnapshot || msg.count == 0) return;
-      _handleLedgerUpdates();
+      _handleLedgerUpdates(msg.credits);
     }
   }
 
   /// The account's cash moved: read it again now (and fire a queued order
   /// waiting on it). Never builds the autofire or the account from here.
-  void _handleLedgerUpdates() {
+  /// Each USDC credit marks the move into Investing it stands for as
+  /// arrived ([VenueArrivals.investingArrived]): a Move sheet deposit's
+  /// journey shows done while its row waits for Orchestra.
+  void _handleLedgerUpdates(List<double> credits) {
+    final account = _address;
+    if (account != null && credits.isNotEmpty) {
+      try {
+        final rows = ref.read(swapOrdersProvider);
+        for (final usd in credits) {
+          VenueArrivals.investingArrived(rows, account: account, usd: usd);
+        }
+      } catch (_) {}
+    }
     try {
       if (ref.exists(pendingHlOrderAutoFireProvider)) {
         ref.read(pendingHlOrderAutoFireProvider).accountMoved();

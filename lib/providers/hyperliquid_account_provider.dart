@@ -40,9 +40,11 @@ import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/providers/pending_pool_deposits_provider.dart';
 import 'package:kute/providers/placing_hyperliquid_order_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/providers/swap_orders_provider.dart';
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
 import 'package:kute/services/hyperliquid/hyperliquid_onboarding_service.dart';
+import 'package:kute/services/orchestra/venue_arrivals.dart';
 import 'package:kute/services/passkey_service.dart'
     show resolveBip39MnemonicFor;
 
@@ -250,6 +252,7 @@ class HlAccountNotifier extends AutoDisposeAsyncNotifier<HlAccountSnapshot> {
     final snap = await model.getPortfolioSnapshot(address);
     _reconcilePlacements(snap);
     _publishPositions(snap);
+    _noteCredit(address, snap);
     // The first snapshot is in: an account holding nothing stops polling.
     _applyCadence(snap);
     return snap;
@@ -307,6 +310,7 @@ class HlAccountNotifier extends AutoDisposeAsyncNotifier<HlAccountSnapshot> {
       if (_disposed) return;
       _reconcilePlacements(snap);
       _publishPositions(snap);
+      _noteCredit(address, snap);
       final current = state.valueOrNull;
       // Value-equality short-circuit: identical snapshots don't notify.
       if (current == null || !hlAccountSnapshotEquals(current, snap)) {
@@ -316,6 +320,32 @@ class HlAccountNotifier extends AutoDisposeAsyncNotifier<HlAccountSnapshot> {
     } catch (_) {
       // Silent — keep the last snapshot on a background refresh failure.
     }
+  }
+
+  /// The last account read and whose it was, for [_noteCredit].
+  HlAccountSnapshot? _lastRead;
+  String? _lastReadAddress;
+
+  /// The account's cash read higher than the read before it while a move
+  /// into Investing is on its way, with nothing held that moves that cash
+  /// on its own ([VenueArrivals.investingCreditBetween]): the move it
+  /// stands for is marked arrived, as the venue's ledger socket does
+  /// (the same credit seen by both is taken once). Covers an account
+  /// whose socket is not open (one that never traded).
+  void _noteCredit(String address, HlAccountSnapshot snap) {
+    final before = _lastRead;
+    final sameAccount =
+        _lastReadAddress?.toLowerCase() == address.toLowerCase();
+    _lastRead = snap;
+    _lastReadAddress = address;
+    if (before == null || !sameAccount) return;
+    try {
+      final usd = VenueArrivals.investingCreditBetween(before, snap);
+      if (usd == null) return;
+      final rows = ref.read(swapOrdersProvider);
+      if (!VenueArrivals.investingOnTheWay(rows, account: address)) return;
+      VenueArrivals.investingArrived(rows, account: address, usd: usd);
+    } catch (_) {}
   }
 
   /// Hands the fresh positions to the trade alerts (liquidation risk,

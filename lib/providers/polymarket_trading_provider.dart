@@ -1243,6 +1243,7 @@ class PolymarketTradingNotifier
     } catch (_) {
       // Riverpod threw after disposal — nothing to update, ignore.
     }
+    _wakeAccountWaiters();
   }
 
   @override
@@ -5050,7 +5051,8 @@ class PolymarketTradingNotifier
   ///
   /// Polls every [interval] for up to [timeout]. First non-zero USDC.e
   /// read triggers a single wrap call via the deposit-wallet relayer
-  /// batch, then exits. The in-flight mutex in
+  /// batch, then exits (unless another deposit is still on its way). The
+  /// in-flight mutex in
   /// [PolymarketOnboardingService.executeDepositWalletBatch] coalesces
   /// against any other batched action so we don't double-up with the
   /// approvals tick.
@@ -5066,59 +5068,104 @@ class PolymarketTradingNotifier
   /// out, so a deposit sent from the Move sheet and the same deposit's
   /// order completing in the background sync never start two. Every
   /// conversion goes through [_wrapHeldUsdcE].
+  ///
+  /// The watch never ends early because the account is not loaded yet (a
+  /// cold start, the unlock, a rebuild): it waits for the account's state,
+  /// deposit wallet and key ([_waitForAccount], woken the moment they are
+  /// published) and converts in the same session. It keeps watching past
+  /// [timeout], every [lateInterval], while a deposit into the wallet is
+  /// still on its way by its row ([VenueArrivals.predictionsOnTheWay],
+  /// bounded by its 90-minute match window), and after a conversion while
+  /// another one still is.
   void wrapIncomingUsdcEToPusd({
     Duration timeout = const Duration(minutes: 8),
     Duration interval = const Duration(seconds: 4),
+    Duration lateInterval = const Duration(seconds: 15),
   }) {
-    final until = DateTime.now().add(timeout);
-    final running = _wrapWatchUntil;
-    if (running == null || until.isAfter(running)) _wrapWatchUntil = until;
-    if (running != null) return;
-    Future.microtask(() async {
-      try {
-        while (!_disposed && DateTime.now().isBefore(_wrapWatchUntil!)) {
-          try {
-            final current = state.valueOrNull;
-            final eoa = current?.walletAddress;
-            final wallet = current?.proxyWalletAddress;
-            final key = _privateKey;
-            if (current == null ||
-                eoa == null ||
-                wallet == null ||
-                wallet.isEmpty ||
-                key == null) {
-              return;
-            }
-            // A first deposit can land while the wallet's one-time setup
-            // (deployment, approvals) is still running. A conversion then
-            // fails without the onramp approval and, while its batch runs,
-            // refuses the setup's own approvals batch. Keep watching and
-            // convert once setup is done.
-            if (!tradingReady) {
-              await Future<void>.delayed(interval);
-              continue;
-            }
-            final wrapped = await _wrapHeldUsdcE(
-              eoa: eoa,
-              privateKey: key,
-              wallet: wallet,
-              trigger: 'arrival',
-            );
-            if (wrapped > BigInt.zero) return;
-          } catch (e) {
-            _devLog('[wrap] poll threw: $e — retrying');
-          }
-          await Future<void>.delayed(interval);
-        }
-      } finally {
-        _wrapWatchUntil = null;
+    unawaited(_arrivalWatch.start(
+        timeout: timeout, interval: interval, lateInterval: lateInterval));
+  }
+
+  /// The running [wrapIncomingUsdcEToPusd] watch (usdce_wrap_gate.dart).
+  late final UsdceArrivalWatch _arrivalWatch = UsdceArrivalWatch(
+    account: () {
+      final current = state.valueOrNull;
+      final eoa = current?.walletAddress;
+      final wallet = current?.proxyWalletAddress;
+      final key = _privateKey;
+      if (eoa == null || wallet == null || wallet.isEmpty || key == null) {
+        return null;
       }
+      return (eoa: eoa, wallet: wallet, key: key);
+    },
+    ready: () => tradingReady,
+    wrap: (a) => _wrapHeldUsdcE(
+        eoa: a.eoa, privateKey: a.key, wallet: a.wallet, trigger: 'arrival'),
+    onItsWay: _depositOnItsWay,
+    waitForAccount: _waitForAccount,
+    gone: () => _disposed,
+    // A setup that failed earlier (and is not running or held now) is
+    // asked again, as a delivered deposit asks it.
+    askSetup: () {
+      final walletId = _spendingWalletId;
+      if (_accountStartRunning || walletId == null || _setupHeld(walletId)) {
+        return;
+      }
+      unawaited(enableTrading().then((_) {}, onError: (Object _) {}));
+    },
+    log: _devLog,
+  );
+
+  /// A Predictions deposit into [wallet] is still on its way by its row.
+  bool _depositOnItsWay(String wallet) {
+    try {
+      return VenueArrivals.predictionsOnTheWay(ref.read(swapOrdersProvider),
+              wallet: wallet)
+          .isNotEmpty;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Woken whenever the account publishes a state or its setup completes.
+  final List<Completer<void>> _accountWaiters = [];
+
+  /// Waits until the account publishes a state or finishes its setup, at
+  /// most [max]. Never throws.
+  Future<void> _waitForAccount(Duration max) {
+    final waiter = Completer<void>();
+    _accountWaiters.add(waiter);
+    final timer = Timer(max, () {
+      if (!waiter.isCompleted) waiter.complete();
+    });
+    return waiter.future.whenComplete(() {
+      timer.cancel();
+      _accountWaiters.remove(waiter);
     });
   }
 
-  /// When the running [wrapIncomingUsdcEToPusd] watch stops; null when
-  /// none runs.
-  DateTime? _wrapWatchUntil;
+  void _wakeAccountWaiters() {
+    if (_accountWaiters.isEmpty) return;
+    for (final waiter in List.of(_accountWaiters)) {
+      if (!waiter.isCompleted) waiter.complete();
+    }
+  }
+
+  /// The account's one-time setup just completed (from any caller: the
+  /// account start, a delivered deposit, a placement). USDC.e already in
+  /// the deposit wallet is converted now ([wrapIdleUsdcE], one balance
+  /// read), and a deposit still on its way gets the arrival watch, so
+  /// neither waits for the next app start.
+  void _onTradingReady() {
+    _wakeAccountWaiters();
+    if (_disposed) return;
+    final wallet = state.valueOrNull?.proxyWalletAddress;
+    if (wallet == null || wallet.isEmpty) return;
+    if (_depositOnItsWay(wallet)) wrapIncomingUsdcEToPusd();
+    if (_arrivalWatch.until == null) {
+      unawaited(wrapIdleUsdcE(trigger: 'open'));
+    }
+  }
 
   /// One conversion at a time per deposit wallet (usdce_wrap_gate.dart).
   final UsdceWrapGate _wrapGate = UsdceWrapGate();
@@ -6047,7 +6094,8 @@ class PolymarketTradingNotifier
         identical(ref.read(sessionAuthProvider), session) &&
         ref.read(seedSessionProvider).unlocked;
 
-    return _accountReadiness.ensure(
+    final wasReady = tradingReady;
+    final ready = _accountReadiness.ensure(
       scope: '$generation:$walletId:${eoa.toLowerCase()}',
       isCurrent: isCurrent,
       force: force,
@@ -6058,6 +6106,14 @@ class PolymarketTradingNotifier
         onProgress: onProgress,
       ),
     );
+    // Setup just completed: what is sitting in the deposit wallet (or on
+    // its way to it) converts now, not on the next app start.
+    if (!wasReady) {
+      unawaited(ready.then((_) {
+        if (tradingReady) _onTradingReady();
+      }, onError: (Object _) {}));
+    }
+    return ready;
   }
 
   Future<void> _enableTradingAccount({
