@@ -4998,29 +4998,36 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
               ),
             ),
           ),
-          if (funded != null)
-            SlipFundingSteps(
-              steps: fundedSteps!,
-              active: funded.active,
-              slow: funded.record.slow,
-              failed: funded.failed,
-              graph: funded.record.steps,
-              money: formatHlUsd,
-              from: funded.record.fromBitcoin
-                  ? MoneyPlace.bitcoin
-                  : MoneyPlace.dollars,
-              to: MoneyPlace.investing,
-              note: funded.failed
-                  ? fundedStopLine(_strings, funded.record, formatHlUsd)
-                  : null,
-            )
-          else if (incoming)
-            SlipIncomingDepositNote(
-              onAddMore: funding.state == SlipFundingState.incomingShort &&
-                      depositBlock == null
-                  ? () => _addMoreDeposit(hlShortfall, funding!.incomingUsd)
-                  : null,
-            ),
+          // The steps grow in under the button (the keypad folds away
+          // for them), never popping in.
+          StepsReveal(
+            child: funded != null
+                ? SlipFundingSteps(
+                    steps: fundedSteps!,
+                    active: funded.active,
+                    slow: funded.record.slow,
+                    failed: funded.failed,
+                    graph: funded.record.steps,
+                    money: formatHlUsd,
+                    from: funded.record.fromBitcoin
+                        ? MoneyPlace.bitcoin
+                        : MoneyPlace.dollars,
+                    to: MoneyPlace.investing,
+                    note: funded.failed
+                        ? fundedStopLine(_strings, funded.record, formatHlUsd)
+                        : null,
+                  )
+                : incoming
+                    ? SlipIncomingDepositNote(
+                        onAddMore: funding.state ==
+                                    SlipFundingState.incomingShort &&
+                                depositBlock == null
+                            ? () => _addMoreDeposit(
+                                hlShortfall, funding!.incomingUsd)
+                            : null,
+                      )
+                    : null,
+          ),
             ]),
           ),
         ],
@@ -5065,14 +5072,20 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                   expandForMessage:
                       _errorText != null || (funded?.failed ?? false),
                   form: IgnorePointer(ignoring: ledgerLocked, child: form),
-                  input: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 20.w),
-                    child: IgnorePointer(
-                      ignoring: ledgerLocked,
-                      child: AmountKeypad(
-                        value: _amountController.text,
-                        maxDecimals: 2,
-                        onChanged: _onKeypadAmount,
+                  // While a funded order's steps run under the button the
+                  // amount cannot change: the keypad folds away and the
+                  // steps take its room. A stop brings it back.
+                  input: FoldAway(
+                    folded: funded != null && !funded.failed,
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 20.w),
+                      child: IgnorePointer(
+                        ignoring: ledgerLocked,
+                        child: AmountKeypad(
+                          value: _amountController.text,
+                          maxDecimals: 2,
+                          onChanged: _onKeypadAmount,
+                        ),
                       ),
                     ),
                   ),

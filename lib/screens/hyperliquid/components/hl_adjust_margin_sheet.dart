@@ -57,6 +57,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+import 'package:kute/screens/shared/kute_motion.dart'
+    show FoldAway, StepsReveal;
 import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/helpers/require_fresh_auth.dart';
 import 'package:kute/helpers/venue_intents.dart';
@@ -1185,18 +1187,26 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
                       availableExceeded: over,
                       onAvailableTap: locked ? null : () => _fillMax(maxUsd),
                     ),
-                    SizedBox(height: 14.h),
-                    AmountQuickChips(
-                      enabled: !locked && maxUsd > 0,
-                      chips: moveQuickAmountChips(
-                        amountIsUsd: true,
-                        maxLabel: l10n.max,
-                        exceedsAvailable: (usd) => usd > available + 1e-9,
-                        onDollars: (usd) {
-                          HapticFeedback.selectionClick();
-                          _setAmount(moveQuickAmountTyped(usd));
-                        },
-                        onPercent: (_, {chip}) => _fillMax(maxUsd),
+                    // The chips and the keypad fold away while a funded
+                    // change's steps run under the button (the amount
+                    // cannot change then); the steps take their room.
+                    FoldAway(
+                      folded: runSteps != null && runStep != null,
+                      child: Padding(
+                        padding: EdgeInsets.only(top: 14.h),
+                        child: AmountQuickChips(
+                          enabled: !locked && maxUsd > 0,
+                          chips: moveQuickAmountChips(
+                            amountIsUsd: true,
+                            maxLabel: l10n.max,
+                            exceedsAvailable: (usd) => usd > available + 1e-9,
+                            onDollars: (usd) {
+                              HapticFeedback.selectionClick();
+                              _setAmount(moveQuickAmountTyped(usd));
+                            },
+                            onPercent: (_, {chip}) => _fillMax(maxUsd),
+                          ),
+                        ),
                       ),
                     ),
                     SizedBox(height: 14.h),
@@ -1280,13 +1290,16 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
               )),
 
               // ── Keypad, pinned ─────────────────────────────────────
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20.w),
-                child: AmountKeypad(
-                  value: _amountText,
-                  maxDecimals: 2,
-                  enabled: !locked,
-                  onChanged: _setAmount,
+              FoldAway(
+                folded: runSteps != null && runStep != null,
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 20.w),
+                  child: AmountKeypad(
+                    value: _amountText,
+                    maxDecimals: 2,
+                    enabled: !locked,
+                    onChanged: _setAmount,
+                  ),
                 ),
               ),
 
@@ -1365,18 +1378,21 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
                                   : l10n.loading,
                               color: _side,
                             ),
-                          if (runSteps != null && runStep != null)
-                            SlipFundingSteps(
-                              steps: runSteps,
-                              active: runStep,
-                              slow: run!.slow,
-                              graph: run.steps,
-                              money: formatHlUsd,
-                              from: run.fromBitcoin
-                                  ? MoneyPlace.bitcoin
-                                  : MoneyPlace.dollars,
-                              to: MoneyPlace.investing,
-                            ),
+                          StepsReveal(
+                            child: runSteps != null && runStep != null
+                                ? SlipFundingSteps(
+                                    steps: runSteps,
+                                    active: runStep,
+                                    slow: run!.slow,
+                                    graph: run.steps,
+                                    money: formatHlUsd,
+                                    from: run.fromBitcoin
+                                        ? MoneyPlace.bitcoin
+                                        : MoneyPlace.dollars,
+                                    to: MoneyPlace.investing,
+                                  )
+                                : null,
+                          ),
                         ],
                       ),
                     ),

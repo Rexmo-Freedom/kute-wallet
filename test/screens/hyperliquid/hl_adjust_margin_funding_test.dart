@@ -318,11 +318,12 @@ void main() {
       expect(find.byKey(const ValueKey('slip-funding-step-active-1')),
           findsOneWidget);
       expect(find.text('Taking longer than usual'), findsOneWidget);
-      // One busy button saying the step; the keypad is shut.
+      // One busy button saying the step; the keypad (and the chips) fold
+      // away while the steps run, which take their room.
       expect(_cta(tester).isBusy, isTrue);
       expect(_cta(tester).busyLabel, 'Preparing your order');
-      expect(tester.widget<AmountKeypad>(find.byType(AmountKeypad)).enabled,
-          isFalse);
+      expect(find.byType(AmountKeypad), findsNothing);
+      expect(find.byType(AmountQuickChips), findsNothing);
       expect(tester.takeException(), isNull);
     });
 

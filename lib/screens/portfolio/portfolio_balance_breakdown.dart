@@ -38,7 +38,8 @@ import 'package:kute/screens/portfolio/portfolio_figure_tiles.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/money_movement_sheet.dart'
     show showMoneyMovementSheet;
-import 'package:kute/screens/shared/kute_motion.dart' show RollingFigure;
+import 'package:kute/screens/shared/kute_motion.dart'
+    show RollingFigure, StepsReveal;
 import 'package:kute/screens/shared/money_steps_view.dart'
     show MoneyStepsView, moneyStepLines;
 import 'package:kute/screens/shared/rubber_band_progress.dart';
@@ -652,17 +653,21 @@ class _PortfolioBalanceBreakdownState
         ),
         SizedBox(height: 12.h),
         button,
-        if (stepLines.isNotEmpty)
-          Align(
-            key: const ValueKey('portfolio-rebalance-steps'),
-            alignment: Alignment.centerLeft,
-            // Each venue's band already plays its landing.
-            child: MoneyStepsView(
-                lines: stepLines,
-                graph: steps,
-                money: amount,
-                haptics: false),
-          ),
+        // The steps grow in under the button, never popping in.
+        StepsReveal(
+          child: stepLines.isNotEmpty
+              ? Align(
+                  key: const ValueKey('portfolio-rebalance-steps'),
+                  alignment: Alignment.centerLeft,
+                  // Each venue's band already plays its landing.
+                  child: MoneyStepsView(
+                      lines: stepLines,
+                      graph: steps,
+                      money: amount,
+                      haptics: false),
+                )
+              : null,
+        ),
         SizedBox(height: 12.h),
       ],
     );

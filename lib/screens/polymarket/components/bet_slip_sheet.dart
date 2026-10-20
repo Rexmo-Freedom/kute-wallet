@@ -5109,8 +5109,14 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                 ignoring: _buyInFlight || ledgerLocked || activelyPlacing,
                 child: form),
           )),
-          if (!placementFailed)
-            _buildAmountKeypad(_buyInFlight || ledgerLocked || activelyPlacing),
+          // While the money's steps show under the button the stake
+          // cannot change: the keypad folds away and the steps take its
+          // room, so nothing above is squeezed (a stop folds it too).
+          FoldAway(
+            folded: placementFailed || _showsFundingSteps(activelyPlacing),
+            child: _buildAmountKeypad(
+                _buyInFlight || ledgerLocked || activelyPlacing),
+          ),
           action,
         ],
       );
@@ -5494,6 +5500,17 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   /// [busy] is the placement actually running, [failed] its one terminal
   /// error state. The panel that used to own both is gone: the button
   /// carries the wait, and becomes the retry when it ends badly.
+  /// Whether [_buildPrimaryAction] shows the money's steps under the
+  /// button ([busy] as it is given): a funded bet's, or a fast market's
+  /// money still moving.
+  bool _showsFundingSteps(bool busy) {
+    if (_draft.openBlockRegion && _tradeBlock != null && !busy) return false;
+    if (_isLedger) return false;
+    if (_fundedProgress(ref.watch(fundedOrdersProvider)) != null) return true;
+    final prefund = _draft.prefund;
+    return prefund != null && prefund.moving && !busy && !_isPlacing;
+  }
+
   Widget _buildPrimaryAction(
       AppColorsExtension c, Color selectedColor, PolymarketOutcome selected,
       {required bool busy, required bool failed, required String busyLabel}) {

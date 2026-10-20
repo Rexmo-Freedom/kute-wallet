@@ -89,6 +89,7 @@ import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceProvider, usdDrainBaseUnits;
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
+import 'package:kute/screens/shared/kute_motion.dart' show StepsReveal;
 import 'package:kute/screens/shared/account_switcher_pill.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart'
     show AmountKeypad, AmountPercentChips;
@@ -1459,19 +1460,22 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
           ),
         ),
         // Venue cash coming home for the send: its steps, each leg on its
-        // own line, then the send.
-        if (_stepsMoveId != null && _processing && _error == null)
-          Consumer(builder: (context, ref, _) {
-            final move = ref
-                .watch(multiSourceMovesProvider)
-                .where((m) => m.id == _stepsMoveId)
-                .firstOrNull;
-            return move == null
-                ? const SizedBox.shrink()
-                // The send's own failure tap is the stop's
-                // ([_sendFailedFeedback]).
-                : MoveStepsSection(move: move, failureHaptic: false);
-          }),
+        // own line, then the send. They grow in, never popping in.
+        StepsReveal(
+          child: _stepsMoveId != null && _processing && _error == null
+              ? Consumer(builder: (context, ref, _) {
+                  final move = ref
+                      .watch(multiSourceMovesProvider)
+                      .where((m) => m.id == _stepsMoveId)
+                      .firstOrNull;
+                  return move == null
+                      ? const SizedBox.shrink()
+                      // The send's own failure tap is the stop's
+                      // ([_sendFailedFeedback]).
+                      : MoveStepsSection(move: move, failureHaptic: false);
+                })
+              : null,
+        ),
       ],
     );
   }

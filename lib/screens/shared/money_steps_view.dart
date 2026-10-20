@@ -5,11 +5,15 @@
 // JOURNEY, in the calm look the founder approved on 20 October 2026 (the
 // earlier map read "childish and cheap"). One quiet row: the balances the
 // money passes through are plain round STATIONS left to right (their own
-// marks on their own colour: ₿, $, Investing, Predictions; no ring, no
+// marks in their fixed brand colours, never theme tokens, so they read on
+// a green Yes or red No slip as on a plain sheet: ₿ on orange, the
+// Dollars (USDB) mark, the Investing and Predictions marks; no ring, no
 // disc behind), several sources of one leg sit overlapped in their
 // column, and a straight hairline CONNECTOR with a small chevron joins
 // each column to the next. A station waits at 40% until the money is
-// there, then shows in full; a small check sits on it once its part is
+// there (55% over the sheet's ink on a slip in a side colour, so it reads
+// as a paler mark of its own colour), then shows in full; a small check
+// sits on it once its part is
 // done, a small red "!" where the money stopped. As a leg runs its
 // connector fills orange from the left and the chevron turns orange when
 // it lands; a leg's sub-legs (HyperCore → Circle → Arbitrum) are small
@@ -25,10 +29,19 @@
 // status line in the step's own words ("Moving $4.18 from Bitcoin",
 // "Confirming balance", "Placed!", or the surface's line saying where
 // the money is after a stop), "Taking longer than usual" quietly on its
-// right, and a rounded progress bar (money arrived is about 60%, the
-// order placed 100%; grey on a stop). Every line (each leg, sub-leg and
-// checkpoint) is a real semantics node in its final words: the status
-// line is the current line itself, the others are there unseen.
+// right. No progress bar (founder, 2026-10-20): the row already shows how
+// far the money is, the status line says the rest. Every line (each leg,
+// sub-leg and checkpoint) is a real semantics node in its final words:
+// the status line is the current line itself, the others are there
+// unseen.
+//
+// While a step runs and the money waits (held near the end of its
+// connector for a bridge, or above the destination while its balance is
+// confirmed) the row stays quietly alive, never with bursts, rings or
+// borders: the parked coin hovers ±1.5 px, a soft light runs along the
+// running connector's orange every ~1.6 s, Sal blinks and sniffs, and the
+// working station breathes very slightly (97% to full). Only the row's
+// own layers repaint for it.
 //
 // A record whose steps have all ended (an Activity detail) draws its
 // final state at rest (the coin gone, every check on) and replays the
@@ -38,7 +51,7 @@
 // as a step completes, the money-success beat at the end, the failure
 // tap on a stop, only for changes seen live and deduped with the
 // surface. Reduce Motion: the same states at once, no glide, walk,
-// breath or replay; the haptics still play.
+// breath, idle activity or replay; the haptics still play.
 
 import 'dart:async' show unawaited;
 import 'dart:math' as math;
@@ -49,6 +62,8 @@ import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/providers/asset_icon_provider.dart' show kUsdMarkAsset;
+import 'package:kute/screens/shared/side_tint_palette.dart' show isSideTinted;
 import 'package:kute/screens/shared/kute_dog_rig.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show kuteReduceMotion;
 import 'package:kute/screens/shared/money_journey_plan.dart';
@@ -264,15 +279,17 @@ const double _kBreath = 2400; // the running checkpoint's dot
 const double _kWalk = 420; // one step of Sal's walk
 const double _kSalEase = 200; // how quickly Sal closes on his mark
 const double _kReplay = 1200;
-const double _kBar = 600;
 const double _kPendingAlpha = 0.4;
+const double _kPendingAlphaTinted = 0.55;
+const double _kHover = 2000; // the parked coin's hover
+const double _kGlint = 1600; // the light along a running connector
+const double _kWorkBreath = 2400; // the working station's breath
 // How long the clock runs on after the last moment (the dash, the
-// cross-fade, the sink, the bar and Sal's last steps all fit in it); it
+// cross-fade, the sink and Sal's last steps all fit in it); it
 // runs on while any step runs.
 const double _kRest = 2600;
 
-/// The progress accent: the connectors' fill, the waypoints passed, the
-/// bar.
+/// The progress accent: the connectors' fill and the waypoints passed.
 const Color _kAccent = Color(0xFFF29B2D);
 
 enum _Outcome { none, success, failure }
@@ -301,8 +318,8 @@ class _Look {
     required this.stopped,
     required this.failed,
     required this.background,
-    required this.success,
-    required this.neutral,
+    required this.pendingAlpha,
+    required this.pendingBase,
     required this.stationR,
     required this.waypointR,
     required this.dotR,
@@ -327,8 +344,14 @@ class _Look {
   final Color stopped;
   final Color failed;
   final Color background;
-  final Color success;
-  final Color neutral;
+
+  /// A station's opacity until the money is there: a touch higher on a
+  /// slip in a side colour, where 40% of a coloured mark sinks into it.
+  final double pendingAlpha;
+
+  /// What a waiting station's mark sits on, on a slip in a side colour
+  /// (the sheet's ink); null elsewhere.
+  final Color? pendingBase;
   final double stationR;
   final double waypointR;
   final double dotR;
@@ -505,9 +528,9 @@ class _Scene {
   double salPaintedAt = 0;
   bool salWalking = false;
 
-  double barFrom = 0;
-  double barTo = 0;
-  double barAt = 0;
+  // The coin's hover, 0..1, and when it was last painted.
+  double hover = 0;
+  double hoverPaintedAt = 0;
 }
 
 String _lineKey(MoneyStepLine l, int i) => l.id ?? '#$i';
@@ -548,6 +571,7 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
   @override
   void initState() {
     super.initState();
+    _loadUsdMark();
     _sync(first: true);
   }
 
@@ -655,34 +679,6 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
       toLabel: widget.toLabel,
       money: widget.money);
 
-  /// The journey's progress: money arrived weighs ~60% once there are
-  /// checkpoints, the checkpoints the rest.
-  static double _progressOf(_Scene s) {
-    final plan = s.plan;
-    double part(Iterable<int> lines) {
-      var n = 0;
-      var sum = 0.0;
-      for (final i in lines) {
-        n++;
-        sum += switch (plan.lines[i].status) {
-          MoneyStepStatus.done || MoneyStepStatus.skipped => 1.0,
-          MoneyStepStatus.running => 0.5,
-          _ => 0.0,
-        };
-      }
-      return n == 0 ? 1 : sum / n;
-    }
-
-    final roads = [
-      for (final r in plan.roads)
-        if (r.line >= 0) ...r.segments
-    ];
-    final checks = plan.checkpoints;
-    if (roads.isEmpty) return checks.isEmpty ? 0 : part(checks);
-    if (checks.isEmpty) return part(roads);
-    return 0.6 * part(roads) + 0.4 * part(checks);
-  }
-
   /// Brings the scene up to [widget.lines]: records each live change's
   /// moment and schedules its haptic. The first build only records where
   /// things stand (and, for a record already ended, sets up the replay).
@@ -750,11 +746,8 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
     s.keys = keys;
     s.geo = null;
 
-    final progress = _progressOf(s);
     _moment(now);
     if (first) {
-      s.barFrom = s.barTo = progress;
-      s.barAt = now;
       s.outcome = outcome;
       s.outcomeAt = now;
       if (!s.live && !plan.inProgress && lines.isNotEmpty) {
@@ -762,11 +755,6 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
       }
       s.spot = _spotOf(s, now);
       return;
-    }
-    if (progress != s.barTo) {
-      s.barFrom = s.still ? progress : _barAt(s, now);
-      s.barTo = progress;
-      s.barAt = now;
     }
     if (!s.live) {
       s.outcome = outcome;
@@ -824,15 +812,6 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
       fx.doneAt = now + 150 + n * slot;
       fx.dashMs = math.max(slot, 120);
     }
-    s.barFrom = 0;
-    s.barAt = now;
-  }
-
-  static double _barAt(_Scene s, double now) {
-    if (s.still) return s.barTo;
-    final span = s.replayAt != null && s.barAt == s.replayAt ? _kReplay : _kBar;
-    final t = Curves.easeOutCubic.transform(_unit((now - s.barAt) / span));
-    return s.barFrom + (s.barTo - s.barFrom) * t;
   }
 
   @override
@@ -850,8 +829,8 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
       stopped: c.textTertiary,
       failed: c.error,
       background: c.background,
-      success: c.success,
-      neutral: c.textTertiary,
+      pendingAlpha: isSideTinted(c) ? _kPendingAlphaTinted : _kPendingAlpha,
+      pendingBase: isSideTinted(c) ? c.textPrimary : null,
       stationR: stationR,
       waypointR: 3.2.r,
       dotR: 3.2.r,
@@ -882,6 +861,10 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
     } else if (s.outcome == _Outcome.success && lines.isNotEmpty) {
       if (plan.placeLine != null) {
         status = l10n.moneyJourneyPlaced;
+      } else if (lines.last.brief case final brief?) {
+        // An Activity detail's compact line ("Bitcoin → Dollars · $9.87")
+        // says only its amount: the row above already names the places.
+        status = brief;
       } else {
         shown = lines.length - 1;
       }
@@ -954,36 +937,40 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
                       (hasDots ? look.dotsGap + 2 * look.dotR : 0) +
                       2.r);
               final geo = s.geo = _Geometry.of(plan, size, look);
-              return SizedBox(
-                key: const ValueKey('money-steps-map'),
-                width: size.width,
-                height: size.height,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Positioned.fill(
-                      child: RepaintBoundary(
-                        child:
-                            CustomPaint(painter: _MapPainter(s, _clock, geo)),
-                      ),
-                    ),
-                    ..._names(context, geo, l10n, scaler),
-                    // Right to left, so the left one of an overlapped
-                    // column sits on top.
-                    for (final i in [
-                      for (var i = 0; i < plan.stations.length; i++) i
-                    ]..sort((a, b) =>
-                        geo.stations[b].dx.compareTo(geo.stations[a].dx)))
-                      _station(context, i, geo, l10n),
-                    Positioned.fill(
-                      child: IgnorePointer(
+              // Its own layer: the stations' fades and the working one's
+              // breath repaint the row, never the sheet around it.
+              return RepaintBoundary(
+                child: SizedBox(
+                  key: const ValueKey('money-steps-map'),
+                  width: size.width,
+                  height: size.height,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Positioned.fill(
                         child: RepaintBoundary(
-                          child: CustomPaint(
-                              painter: MoneyJourneyPainter._(s, _clock, geo)),
+                          child:
+                              CustomPaint(painter: _MapPainter(s, _clock, geo)),
                         ),
                       ),
-                    ),
-                  ],
+                      ..._names(context, geo, l10n, scaler),
+                      // Right to left, so the left one of an overlapped
+                      // column sits on top.
+                      for (final i in [
+                        for (var i = 0; i < plan.stations.length; i++) i
+                      ]..sort((a, b) =>
+                          geo.stations[b].dx.compareTo(geo.stations[a].dx)))
+                        _station(context, i, geo, l10n),
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          child: RepaintBoundary(
+                            child: CustomPaint(
+                                painter: MoneyJourneyPainter._(s, _clock, geo)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               );
             }),
@@ -1040,17 +1027,6 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
               ],
             ),
           ),
-          // The bar.
-          Padding(
-            padding: EdgeInsets.only(top: 8.h, bottom: 4.h),
-            child: _Bar(
-              clock: _clock,
-              progress: () => _barAt(s, _now),
-              track: c.border,
-              fill: s.outcome == _Outcome.failure ? c.textTertiary : _kAccent,
-              height: 5.r,
-            ),
-          ),
         ],
       ),
     );
@@ -1073,7 +1049,6 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
     final look = s.look;
     final w = geo.size.width;
     final cols = geo.columnX.length;
-    final spacing = cols == 1 ? w : (w - 2 * look.padX) / (cols - 1);
     final out = <Widget>[];
     for (var col = 0; col < cols; col++) {
       final members = [
@@ -1082,9 +1057,14 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
       ]..sort((a, b) => plan.stations[a].row.compareTo(plan.stations[b].row));
       if (members.isEmpty) continue;
       final x = geo.columnX[col];
-      final width = math
-          .max(0.0, math.min(spacing - 6.r, 2 * math.min(x, w - x)))
-          .toDouble();
+      // Its room: from halfway to the column before (or the row's start)
+      // to halfway to the next (or the row's end), so names never meet.
+      // Centred under its icon when it fits there, else moved in from
+      // the row's edge (a long name or large text at an end of the row
+      // is not cut short).
+      final lo = col == 0 ? 0.0 : (geo.columnX[col - 1] + x) / 2 + 3.r;
+      final hi = col == cols - 1 ? w : (x + geo.columnX[col + 1]) / 2 - 3.r;
+      final room = math.max(0.0, hi - lo);
       final style = TextStyle(
           color: members.any((i) => _stationArrivedAt(s, i) != null)
               ? c.textSecondary
@@ -1093,19 +1073,30 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
           fontWeight: FontWeight.w500,
           height: 1.2);
       final names = [for (final i in members) _nameOf(l10n, plan.stations[i])];
-      var label = names.join(' · ');
-      if (names.length > 1) {
+      // Measured in the style the Text draws in (the surface's font).
+      final drawn = DefaultTextStyle.of(context).style.merge(style);
+      double widthOf(String text) {
         final tp = TextPainter(
-          text: TextSpan(text: label, style: style),
+          text: TextSpan(text: text, style: drawn),
           textDirection: Directionality.of(context),
           textScaler: scaler,
           maxLines: 1,
         )..layout();
-        if (tp.width > width) label = '${names.first} +${names.length - 1}';
+        final width = tp.width;
         tp.dispose();
+        return width;
       }
+
+      var label = names.join(' · ');
+      // An overlapped column's names together only when they fit
+      // centred under it; else the first and how many more.
+      final centred = math.min(room, 2 * math.min(x - lo, hi - x));
+      if (names.length > 1 && widthOf(label) > centred) {
+        label = '${names.first} +${names.length - 1}';
+      }
+      final width = math.min(widthOf(label).ceilToDouble() + 2, room);
       out.add(Positioned(
-        left: x - width / 2,
+        left: (x - width / 2).clamp(lo, math.max(lo, hi - width)),
         top: look.nameTop,
         width: width,
         child: ExcludeSemantics(
@@ -1125,7 +1116,6 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
   /// where the money stopped. The fades are paint-only.
   Widget _station(
       BuildContext context, int i, _Geometry geo, AppLocalizations l10n) {
-    final c = context.colors;
     final s = _scene;
     final st = s.plan.stations[i];
     final at = geo.stations[i];
@@ -1141,22 +1131,15 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
           KuteDogPalette.mascot.fur,
           Icon(Icons.currency_bitcoin_rounded,
               size: r * 1.35, color: Colors.white)),
-      MoneyPlace.dollars => disc(
-          c.success,
-          Text('\$',
-              textScaler: TextScaler.noScaling,
-              style: TextStyle(
-                  color: Colors.white,
-                  fontSize: r * 1.2,
-                  fontWeight: FontWeight.w800,
-                  height: 1))),
+      MoneyPlace.dollars =>
+        SvgPicture.asset(kUsdMarkAsset, width: d, height: d),
       MoneyPlace.investing => ClipOval(
           child: SvgPicture.asset('lib/assets/hyperliquid-logo.svg',
               width: d, height: d, fit: BoxFit.cover)),
       MoneyPlace.predictions =>
         SvgPicture.asset('lib/assets/polymarket-logo.svg', width: d, height: d),
       null => disc(
-          c.textTertiary,
+          _kOutsideGrey,
           Icon(Icons.arrow_outward_rounded,
               size: r * 1.2, color: Colors.white)),
     };
@@ -1176,7 +1159,7 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
             BoxDecoration(color: look.background, shape: BoxShape.circle),
         child: DecoratedBox(
           decoration: BoxDecoration(
-              color: failed ? c.error : const Color(0xFFF2F4F7),
+              color: failed ? AppColors.error : const Color(0xFFF2F4F7),
               shape: BoxShape.circle),
           child: Center(
             child: Icon(
@@ -1210,10 +1193,27 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
                   decoration: BoxDecoration(
                       color: look.background, shape: BoxShape.circle)),
             ),
+            // On a slip in a side colour a waiting mark sits on the
+            // sheet's ink, so it reads as a paler mark of its own colour
+            // rather than sinking into the green or red.
+            if (look.pendingBase case final base?)
+              Positioned.fill(
+                child: _Fade(
+                  clock: _clock,
+                  opacity: () =>
+                      1 -
+                      _fadeIn(s, _stationArrivedAt(s, i), _now, _kStationFade),
+                  scale: () => _stationScale(s, i, _now),
+                  child: DecoratedBox(
+                      decoration:
+                          BoxDecoration(color: base, shape: BoxShape.circle)),
+                ),
+              ),
             Positioned.fill(
               child: _Fade(
                 clock: _clock,
                 opacity: () => _stationAlpha(s, i, _now),
+                scale: () => _stationScale(s, i, _now),
                 child: icon,
               ),
             ),
@@ -1375,8 +1375,8 @@ double _fadeIn(_Scene s, double? at, double now, double span) {
 }
 
 double _stationAlpha(_Scene s, int i, double now) =>
-    _kPendingAlpha +
-    (1 - _kPendingAlpha) *
+    s.look.pendingAlpha +
+    (1 - s.look.pendingAlpha) *
         _fadeIn(s, _stationArrivedAt(s, i), now, _kStationFade);
 
 double _badgeAlpha(_Scene s, int i, double now) => _fadeIn(
@@ -1390,28 +1390,94 @@ bool _doneBy(_Scene s, int i, double now) {
   return s.still || at == null || now >= at;
 }
 
+/// Whether the journey idles: a step runs, seen live, and nothing has
+/// ended yet. The coin hovers, a glint runs along the running connector,
+/// Sal sniffs and blinks and the working station breathes. Never under
+/// Reduce Motion, and never in a record at rest.
+bool _idle(_Scene s) =>
+    !s.still &&
+    s.live &&
+    s.outcome == _Outcome.none &&
+    s.plan.lines.any((l) => l.status == MoneyStepStatus.running);
+
+bool _roadRuns(MoneyJourneyPlan plan, JourneyRoad road) =>
+    road.segments.any((k) => plan.lines[k].status == MoneyStepStatus.running);
+
+/// The station the money waits on while the journey idles: where the
+/// running leg goes (the coin's own first), else the destination while
+/// one of its checkpoints runs.
+int? _workingStation(_Scene s) {
+  if (!_idle(s)) return null;
+  final plan = s.plan;
+  for (final i in plan.chain) {
+    if (_roadRuns(plan, plan.roads[i])) return plan.roads[i].to;
+  }
+  for (final r in plan.roads) {
+    if (_roadRuns(plan, r)) return r.to;
+  }
+  final cps = plan.checkpoints;
+  if (cps.any((k) => plan.lines[k].status == MoneyStepStatus.running)) {
+    return plan.destination;
+  }
+  return null;
+}
+
+/// Station [i]'s size now: the working one breathes very slightly
+/// (97% to full, from full), every other one sits still.
+double _stationScale(_Scene s, int i, double now) {
+  if (_workingStation(s) != i) return 1;
+  return 1 - 0.03 * (0.5 - 0.5 * math.cos(2 * math.pi * now / _kWorkBreath));
+}
+
 /// The checkpoints drawn as dots under the destination: every one but a
-/// stage line with its sub-steps under it (they are its dots).
+/// stage line with its sub-steps under it (they are its dots). A lone
+/// checkpoint draws none: the status line already names it.
 List<int> _dots(MoneyJourneyPlan plan) {
   final cps = plan.checkpoints;
-  return [
+  final dots = [
     for (var n = 0; n < cps.length; n++)
       if (plan.lines[cps[n]].sub ||
           n + 1 >= cps.length ||
           !plan.lines[cps[n + 1]].sub)
         cps[n]
   ];
+  return dots.length < 2 ? const [] : dots;
 }
 
 double _unit(double v) => v.isNaN ? 0 : v.clamp(0.0, 1.0);
 
-/// A balance's own colour (its station's, its coin's).
-Color _placeColor(MoneyPlace? place, _Look look) => switch (place) {
+/// The Dollars mark's own green ([kUsdMarkAsset]'s disc).
+const Color _kDollarsGreen = Color(0xFF00875A);
+
+/// The Dollars mark ([kUsdMarkAsset]) as a picture, for the coin in
+/// Dollars: loaded once for the app's life. Until it is, the coin is its
+/// colours and a "\$".
+PictureInfo? _usdMark;
+bool _usdMarkLoading = false;
+
+void _loadUsdMark() {
+  if (_usdMark != null || _usdMarkLoading) return;
+  _usdMarkLoading = true;
+  unawaited(vg
+      .loadPicture(const SvgAssetLoader(kUsdMarkAsset), null)
+      .then<void>((p) => _usdMark = p, onError: (Object _) {
+    _usdMarkLoading = false;
+  }));
+}
+
+/// An outside destination's (a recipient's) quiet grey.
+const Color _kOutsideGrey = Color(0xFF8E8E93);
+
+/// A balance's own colour (its station's, its coin's). Fixed brand
+/// colours, never the theme's: a slip in a side colour turns its status
+/// inks into the one contrast ink, and a white Dollars disc with a white
+/// "\$" on a green Yes slip was a blank.
+Color _placeColor(MoneyPlace? place) => switch (place) {
       MoneyPlace.bitcoin => KuteDogPalette.mascot.fur,
-      MoneyPlace.dollars => look.success,
+      MoneyPlace.dollars => _kDollarsGreen,
       MoneyPlace.investing => const Color(0xFF97FCE4),
       MoneyPlace.predictions => const Color(0xFF2E5CFF),
-      null => look.neutral,
+      null => _kOutsideGrey,
     };
 
 // ─────────────────────────────────────────────────────────────────────
@@ -1444,6 +1510,7 @@ class _MapPainter extends CustomPainter {
       ..color = color;
     final track = stroke(look.track);
     final bg = Paint()..color = look.background;
+    final idle = _idle(s);
 
     // ── Connectors and their waypoints ──
     for (var g = 0; g < geo.gaps.length; g++) {
@@ -1464,7 +1531,11 @@ class _MapPainter extends CustomPainter {
       final lit = stroke(stopped ? look.stopped : _kAccent);
       canvas.drawLine(Offset(x0, y), Offset(x1, y), track);
       if (local > 0) {
-        canvas.drawLine(Offset(x0, y), Offset(x0 + (x1 - x0) * local, y), lit);
+        final xl = x0 + (x1 - x0) * local;
+        canvas.drawLine(Offset(x0, y), Offset(xl, y), lit);
+        if (idle && !stopped && _roadRuns(plan, road!)) {
+          _glint(canvas, x0, xl, y, now);
+        }
       }
       final ch = look.chevron;
       canvas.drawPath(
@@ -1504,7 +1575,7 @@ class _MapPainter extends CustomPainter {
     if (dest == null) return;
     final dots = _dots(plan);
     if (dots.isEmpty) return;
-    final color = _placeColor(plan.stations[dest].place, look);
+    final color = _placeColor(plan.stations[dest].place);
     final x = geo.stations[dest].dx - (dots.length - 1) * look.dotGap / 2;
     for (var n = 0; n < dots.length; n++) {
       final i = dots[n];
@@ -1536,6 +1607,32 @@ class _MapPainter extends CustomPainter {
               ..color = look.track);
       }
     }
+  }
+
+  /// A short soft light running along a running connector's orange, out
+  /// from the left every [_kGlint], resting a moment between runs.
+  static void _glint(
+      Canvas canvas, double x0, double xl, double y, double now) {
+    final len = xl - x0;
+    if (len < 12) return;
+    final p = (now % _kGlint) / (_kGlint * 0.75);
+    if (p >= 1) return;
+    final half = math.min(8.0, len / 3);
+    final cx = x0 - half + (len + 2 * half) * Curves.easeInOut.transform(p);
+    final a = math.max(x0, cx - half);
+    final b = math.min(xl, cx + half);
+    if (b - a < 1) return;
+    final glow = Colors.white.withValues(alpha: 0.6 * math.sin(math.pi * p));
+    canvas.drawLine(
+        Offset(a, y),
+        Offset(b, y),
+        Paint()
+          ..strokeWidth = 1.5
+          ..shader = LinearGradient(colors: [
+            glow.withValues(alpha: 0),
+            glow,
+            glow.withValues(alpha: 0),
+          ]).createShader(Rect.fromLTRB(cx - half, y - 1, cx + half, y + 1)));
   }
 
   @override
@@ -1744,6 +1841,15 @@ class MoneyJourneyPainter extends CustomPainter {
         pawLeft: 0.6 * math.max(0.0, step),
         pawRight: 0.6 * math.max(0.0, -step),
       );
+    } else if (_idle(s)) {
+      // Waiting with the money: a blink every 3 s, a small sniff (the
+      // head dips and comes back) and a lazy tail.
+      pose = KuteDogPose(
+        blink: kuteBlink(now % 3000, 2200),
+        headBob: 0.45 * kutePulse(now % 3600, 900, 1500),
+        headTilt: 0.05 * kuteWave(now, 3600),
+        tail: 0.14 * kuteWave(now, 1100),
+      );
     } else {
       pose = KuteDogPose(blink: kuteBlink(now % 4200, 3000));
     }
@@ -1755,19 +1861,51 @@ class MoneyJourneyPainter extends CustomPainter {
 
     // ── The coin ──
     final c = _coin(now);
+    // Parked while a step runs (above a station, or held near the end of
+    // its connector), it hovers ±1.5 px; the hover eases in and out so
+    // it never jumps.
+    final dt = math.max(0.0, now - s.hoverPaintedAt);
+    s.hoverPaintedAt = now;
+    var parked = false;
+    if (c != null && _idle(s)) {
+      final before = _coin(now - 80);
+      parked = before != null && (before.at - c.at).distance < 0.4;
+    }
+    s.hover += ((parked ? 1.0 : 0.0) - s.hover) * (1 - math.exp(-dt / 300));
+    if (still) s.hover = 0;
     if (c == null || c.alpha <= 0) return;
+    final hover =
+        s.hover * 1.5 * math.sin(2 * math.pi * (now % _kHover) / _kHover);
     final r = look.coinR * c.scale;
-    final fill = _placeColor(c.place, look);
+    final at = c.at.translate(0, hover);
+    final fill = _placeColor(c.place);
     final a = c.alpha;
     canvas.drawCircle(
-        c.at.translate(0, 1),
+        at.translate(0, 1),
         r,
         Paint()
           ..color = Colors.black.withValues(alpha: 0.16 * a)
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.5));
-    canvas.drawCircle(c.at, r, Paint()..color = fill.withValues(alpha: a));
+    // In Dollars it is the Dollars mark itself, scaled down.
+    final mark = c.place == MoneyPlace.dollars ? _usdMark : null;
+    if (mark != null && mark.size.width > 0 && mark.size.height > 0) {
+      final box = Rect.fromCircle(center: at, radius: r);
+      if (a < 1) {
+        canvas.saveLayer(
+            box.inflate(1), Paint()..color = Colors.white.withValues(alpha: a));
+      } else {
+        canvas.save();
+      }
+      canvas
+        ..translate(box.left, box.top)
+        ..scale(box.width / mark.size.width, box.height / mark.size.height)
+        ..drawPicture(mark.picture)
+        ..restore();
+      return;
+    }
+    canvas.drawCircle(at, r, Paint()..color = fill.withValues(alpha: a));
     canvas.drawCircle(
-        c.at,
+        at,
         r - 1.3 * c.scale,
         Paint()
           ..style = PaintingStyle.stroke
@@ -1798,7 +1936,7 @@ class MoneyJourneyPainter extends CustomPainter {
       ),
       textDirection: TextDirection.ltr,
     )..layout();
-    tp.paint(canvas, c.at - Offset(tp.width / 2, tp.height / 2));
+    tp.paint(canvas, at - Offset(tp.width / 2, tp.height / 2));
     tp.dispose();
   }
 
@@ -1810,31 +1948,38 @@ class MoneyJourneyPainter extends CustomPainter {
 // Paint-only helpers
 // ─────────────────────────────────────────────────────────────────────
 
-/// Paints its child at [opacity], repainting on the clock when it
-/// changed since the last paint; never rebuilds or relayouts.
+/// Paints its child at [opacity] (and [scale] about its centre, when
+/// given), repainting on the clock when either changed since the last
+/// paint; never rebuilds or relayouts.
 class _Fade extends SingleChildRenderObjectWidget {
-  const _Fade({required this.clock, required this.opacity, super.child});
+  const _Fade(
+      {required this.clock, required this.opacity, this.scale, super.child});
   final Listenable clock;
   final double Function() opacity;
+  final double Function()? scale;
 
   @override
   RenderObject createRenderObject(BuildContext context) =>
-      _RenderFade(clock, opacity);
+      _RenderFade(clock, opacity, scale);
 
   @override
   void updateRenderObject(BuildContext context, _RenderFade renderObject) {
     renderObject
       ..clock = clock
       ..opacity = opacity
+      ..scale = scale
       ..markNeedsPaint();
   }
 }
 
 class _RenderFade extends RenderProxyBox {
-  _RenderFade(this._clock, this.opacity);
+  _RenderFade(this._clock, this.opacity, this.scale);
   Listenable _clock;
   double Function() opacity;
+  double Function()? scale;
   double _painted = -1;
+  double _paintedScale = 1;
+  final LayerHandle<TransformLayer> _transform = LayerHandle();
 
   set clock(Listenable v) {
     if (identical(v, _clock)) return;
@@ -1843,8 +1988,12 @@ class _RenderFade extends RenderProxyBox {
     if (attached) _clock.addListener(_tick);
   }
 
+  double _scaleNow() => scale?.call() ?? 1;
+
   void _tick() {
-    if (opacity() != _painted) markNeedsPaint();
+    if (opacity() != _painted || _scaleNow() != _paintedScale) {
+      markNeedsPaint();
+    }
   }
 
   @override
@@ -1857,113 +2006,42 @@ class _RenderFade extends RenderProxyBox {
   void detach() {
     _clock.removeListener(_tick);
     super.detach();
+  }
+
+  @override
+  void dispose() {
+    _transform.layer = null;
+    super.dispose();
   }
 
   @override
   bool get alwaysNeedsCompositing => child != null;
 
-  @override
-  void paint(PaintingContext context, Offset offset) {
-    _painted = _unit(opacity());
-    if (child == null || _painted <= 0) {
-      layer = null;
-      return;
-    }
+  void _paintFaded(PaintingContext context, Offset offset) {
     layer = context.pushOpacity(offset, (_painted * 255).round(), super.paint,
         oldLayer: layer as OpacityLayer?);
   }
-}
-
-/// The progress bar, its fill eased by the clock.
-class _Bar extends LeafRenderObjectWidget {
-  const _Bar({
-    required this.clock,
-    required this.progress,
-    required this.track,
-    required this.fill,
-    required this.height,
-  });
-  final Listenable clock;
-  final double Function() progress;
-  final Color track;
-  final Color fill;
-  final double height;
-
-  @override
-  RenderObject createRenderObject(BuildContext context) =>
-      _RenderBar(clock, progress, track, fill, height);
-
-  @override
-  void updateRenderObject(BuildContext context, _RenderBar renderObject) {
-    renderObject
-      ..clock = clock
-      ..progress = progress
-      ..track = track
-      ..fill = fill;
-    if (renderObject.height != height) {
-      renderObject
-        ..height = height
-        ..markNeedsLayout();
-    }
-    renderObject.markNeedsPaint();
-  }
-}
-
-class _RenderBar extends RenderBox {
-  _RenderBar(this._clock, this.progress, this.track, this.fill, this.height);
-  Listenable _clock;
-  double Function() progress;
-  Color track;
-  Color fill;
-  double height;
-  double _painted = -1;
-
-  set clock(Listenable v) {
-    if (identical(v, _clock)) return;
-    if (attached) _clock.removeListener(_tick);
-    _clock = v;
-    if (attached) _clock.addListener(_tick);
-  }
-
-  void _tick() {
-    if (progress() != _painted) markNeedsPaint();
-  }
-
-  @override
-  void attach(PipelineOwner owner) {
-    super.attach(owner);
-    _clock.addListener(_tick);
-  }
-
-  @override
-  void detach() {
-    _clock.removeListener(_tick);
-    super.detach();
-  }
-
-  @override
-  bool get sizedByParent => true;
-
-  @override
-  Size computeDryLayout(BoxConstraints constraints) =>
-      Size(constraints.maxWidth.isFinite ? constraints.maxWidth : 100, height);
-
-  @override
-  void performResize() => size = computeDryLayout(constraints);
 
   @override
   void paint(PaintingContext context, Offset offset) {
-    _painted = _unit(progress());
-    final canvas = context.canvas;
-    final r = Radius.circular(height / 2);
-    canvas.drawRRect(
-        RRect.fromRectAndRadius(offset & size, r), Paint()..color = track);
-    if (_painted > 0) {
-      canvas.drawRRect(
-          RRect.fromRectAndRadius(
-              offset & Size(math.max(height, size.width * _painted), height),
-              r),
-          Paint()..color = fill);
+    _painted = _unit(opacity());
+    _paintedScale = _scaleNow();
+    if (child == null || _painted <= 0) {
+      layer = null;
+      _transform.layer = null;
+      return;
     }
+    if (_paintedScale == 1) {
+      _transform.layer = null;
+      _paintFaded(context, offset);
+      return;
+    }
+    final k = _paintedScale;
+    final c = size.center(Offset.zero);
+    final m = Matrix4.diagonal3Values(k, k, 1)
+      ..setTranslationRaw(c.dx * (1 - k), c.dy * (1 - k), 0);
+    _transform.layer = context.pushTransform(
+        needsCompositing, offset, m, _paintFaded,
+        oldLayer: _transform.layer);
   }
 }

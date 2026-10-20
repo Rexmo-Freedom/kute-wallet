@@ -103,6 +103,8 @@ import 'package:kute/services/polymarket_onboarding_service.dart';
 import 'package:kute/providers/cash_app_payment_window_provider.dart';
 import 'package:kute/models/orchestra_model.dart' show OrchestraOnrampResponse;
 import 'package:kute/models/settings_model.dart' show WalletConfig;
+import 'package:kute/screens/shared/kute_motion.dart'
+    show FoldAway, StepsReveal;
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/services/orchestra_routes.dart'
     show
@@ -1222,6 +1224,10 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// The Buy bitcoin whose steps (each leg, the purchase, the arrival)
   /// show on that line while it runs, once its record is written.
   String? _stepsMoveId;
+
+  /// A move's steps show under the amount (and the chips and keypad fold
+  /// away for them).
+  bool get _showsMoveSteps => _stepsMoveId != null && _error == null;
 
   /// The multi-source move a purchase's venue cash went under, and the
   /// amount it was for: Retry of the same amount continues it (money
@@ -7884,24 +7890,31 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
                           }),
                         // A Buy bitcoin with venue cash: its steps, each
                         // leg on its own line, the purchase, the arrival.
-                        if (_stepsMoveId != null && _error == null)
-                          Consumer(builder: (context, ref, _) {
-                            final move = ref
-                                .watch(multiSourceMovesProvider)
-                                .where((m) => m.id == _stepsMoveId)
-                                .firstOrNull;
-                            return move == null
-                                ? const SizedBox.shrink()
-                                // The sheet's own failure tap is the
-                                // stop's.
-                                : MoveStepsSection(
-                                    move: move,
-                                    followRows: false,
-                                    failureHaptic: false);
-                          })
+                        // They grow in (the chips and keypad fold away for
+                        // them), never popping in.
+                        StepsReveal(
+                          child: _showsMoveSteps
+                              ? Consumer(builder: (context, ref, _) {
+                                  final move = ref
+                                      .watch(multiSourceMovesProvider)
+                                      .where((m) => m.id == _stepsMoveId)
+                                      .firstOrNull;
+                                  return move == null
+                                      ? const SizedBox.shrink()
+                                      // The sheet's own failure tap is the
+                                      // stop's.
+                                      : MoveStepsSection(
+                                          move: move,
+                                          followRows: false,
+                                          failureHaptic: false);
+                                })
+                              : null,
+                        ),
                         // Venue cash on its way home for a purchase,
                         // on the same quiet caption line.
-                        else if (_pullProgress != null && _error == null)
+                        if (!_showsMoveSteps &&
+                            _pullProgress != null &&
+                            _error == null)
                           Padding(
                             padding: EdgeInsets.only(top: 10.h),
                             child: Text(
@@ -8067,45 +8080,57 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
               // ── Bottom, pinned: chips + keypad + CTA ─────
               // On every amount screen, in every state, so the layout
               // never jumps: dimmed while there is nothing to spend.
-              AmountQuickChips(
-                // Same gate as the available-balance tap: a share of
-                // a balance that is still loading, or only a cached
-                // fallback, is not a figure to send. Outside money
-                // (Cash App, the bank) has no balance to wait for.
-                enabled: !_processing &&
-                    !_movementSendLocked &&
-                    (_isFiatMode || _sourceBalanceState == null),
-                chips: moveQuickAmountChips(
-                  // The fiat screens type their own currency and spend
-                  // outside money: fixed amounts, no Max.
-                  amountIsUsd: true,
-                  symbol: _isFiatMode ? _fiatSymbol(_fiatCurrency) : '\$',
-                  withMax: !_isFiatMode,
-                  maxLabel: context.l10n.max,
-                  exceedsAvailable: _chipExceedsAvailable,
-                  onDollars:
-                      _isFiatMode ? _applyFiatAmountChip : _applyAmountDollars,
-                  onPercent: _applyAmountPercent,
+              // While a move's steps show the amount cannot change: the
+              // chips and keypad fold away and the steps take their room.
+              FoldAway(
+                folded: _showsMoveSteps,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    AmountQuickChips(
+                      // Same gate as the available-balance tap: a share of
+                      // a balance that is still loading, or only a cached
+                      // fallback, is not a figure to send. Outside money
+                      // (Cash App, the bank) has no balance to wait for.
+                      enabled: !_processing &&
+                          !_movementSendLocked &&
+                          (_isFiatMode || _sourceBalanceState == null),
+                      chips: moveQuickAmountChips(
+                        // The fiat screens type their own currency and spend
+                        // outside money: fixed amounts, no Max.
+                        amountIsUsd: true,
+                        symbol: _isFiatMode ? _fiatSymbol(_fiatCurrency) : '\$',
+                        withMax: !_isFiatMode,
+                        maxLabel: context.l10n.max,
+                        exceedsAvailable: _chipExceedsAvailable,
+                        onDollars: _isFiatMode
+                            ? _applyFiatAmountChip
+                            : _applyAmountDollars,
+                        onPercent: _applyAmountPercent,
+                      ),
+                    ),
+                    SizedBox(height: 12.h),
+                    AmountKeypad(
+                      value: _isFiatMode
+                          ? _typedFiatAmountController.text
+                          : _typedAmount,
+                      // Dollars and the fiat screens type cents.
+                      maxDecimals: 2,
+                      enabled: !_processing && !_movementSendLocked,
+                      onChanged: (v) {
+                        if (_isFiatMode) {
+                          setState(() => _typedFiatAmountController.text = v);
+                          _trackBuyAmountTyped();
+                        } else {
+                          _onTypedAmountChanged(v);
+                        }
+                      },
+                    ),
+                    SizedBox(height: 12.h),
+                  ],
                 ),
               ),
-              SizedBox(height: 12.h),
-              AmountKeypad(
-                value: _isFiatMode
-                    ? _typedFiatAmountController.text
-                    : _typedAmount,
-                // Dollars and the fiat screens type cents.
-                maxDecimals: 2,
-                enabled: !_processing && !_movementSendLocked,
-                onChanged: (v) {
-                  if (_isFiatMode) {
-                    setState(() => _typedFiatAmountController.text = v);
-                    _trackBuyAmountTyped();
-                  } else {
-                    _onTypedAmountChanged(v);
-                  }
-                },
-              ),
-              SizedBox(height: 12.h),
               // The rubber band (founder request, 15 October 2026): the
               // confirm is pulled from the tap until every leg of the move
               // is submitted, jumping forward as each phase arrives

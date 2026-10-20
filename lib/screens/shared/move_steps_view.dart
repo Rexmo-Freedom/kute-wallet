@@ -390,7 +390,13 @@ List<MoneyStepLine> moveStepCompactLines(
                         fmt(landedUsd[s.id] ?? s.usd)),
                 line.status,
                 sub: line.sub,
-                id: line.id),
+                id: line.id,
+                // Done, the status line says only the amount: the
+                // stations above already name where it went.
+                brief: line.status != MoneyStepStatus.done ||
+                        (s.id == MoveSteps.sendId && sendTo == null)
+                    ? null
+                    : fmt(landedUsd[s.id] ?? s.usd)),
           _ => line,
         }
       else

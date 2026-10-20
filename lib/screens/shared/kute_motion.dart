@@ -19,6 +19,10 @@
 //     again.
 //   * [KutePressScale]: something tappable that is not a card or a button
 //     (the Investments balance) gives the cards' press feedback.
+//   * [FoldAway] / [StepsReveal]: a slip or sheet whose money steps show
+//     under its button folds its keypad and amount chips away (the
+//     amount cannot change then) and the steps grow into that room and
+//     fade in, so nothing above is squeezed, clipped or jumps.
 //
 // Every one of them honours Reduce Motion: with it on, the end state is
 // drawn at once.
@@ -137,6 +141,78 @@ class _SelectionFadeState extends State<SelectionFade>
   @override
   Widget build(BuildContext context) =>
       FadeTransition(opacity: opacity, child: widget.child);
+}
+
+/// How long a keypad takes to fold away for the money's steps, and the
+/// steps to grow in.
+const Duration kStepsRoomDuration = Duration(milliseconds: 250);
+
+/// Folds [child] away while [folded]: its height eases to nothing as it
+/// fades (ease-out, [kStepsRoomDuration]; at once under Reduce Motion),
+/// and back the same way. A slip's keypad and amount chips give their
+/// room to the money's steps this way while those show: the amount cannot
+/// change then. Once folded the child leaves the tree (no taps, nothing
+/// read out); while it moves it takes no taps.
+class FoldAway extends StatelessWidget {
+  const FoldAway({super.key, required this.folded, required this.child});
+
+  final bool folded;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => TweenAnimationBuilder<double>(
+        tween: Tween<double>(end: folded ? 0 : 1),
+        duration: kuteMotion(context, kStepsRoomDuration),
+        curve: Curves.easeOut,
+        child: child,
+        builder: (context, open, child) {
+          if (open <= 0) return const SizedBox.shrink();
+          return ClipRect(
+            child: Align(
+              alignment: Alignment.topCenter,
+              heightFactor: open,
+              child: IgnorePointer(
+                ignoring: open < 1,
+                child: Opacity(opacity: open, child: child),
+              ),
+            ),
+          );
+        },
+      );
+}
+
+/// The money's steps under a button ([child], null while there are none):
+/// they grow into their room and fade in when they appear, rather than
+/// popping in, and their room eases away when they go. At once under
+/// Reduce Motion.
+class StepsReveal extends StatelessWidget {
+  const StepsReveal({super.key, this.child});
+
+  final Widget? child;
+
+  @override
+  Widget build(BuildContext context) {
+    final duration = kuteMotion(context, kStepsRoomDuration);
+    final shown = child;
+    final body = shown == null
+        ? const SizedBox(width: double.infinity)
+        : TweenAnimationBuilder<double>(
+            tween: Tween<double>(begin: 0, end: 1),
+            duration: duration,
+            curve: Curves.easeOut,
+            child: shown,
+            builder: (context, v, child) =>
+                Opacity(opacity: v, alwaysIncludeSemantics: true, child: child),
+          );
+    // No AnimatedSize of no duration (see [ArrivalSwitcher]).
+    if (duration == Duration.zero) return body;
+    return AnimatedSize(
+      duration: duration,
+      curve: Curves.easeOut,
+      alignment: Alignment.topCenter,
+      child: body,
+    );
+  }
 }
 
 /// Cross-fades [child] when [state] changes (and only then: a new child
