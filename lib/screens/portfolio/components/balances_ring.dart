@@ -7,15 +7,20 @@
 //   * an allocation RING, one arc per balance in its own colour (Dollars
 //     the USDB green, Investing the Hyperliquid mint, Predictions the
 //     Polymarket blue), each arc split into its cash (solid) and what it
-//     holds in positions (the same colour, faded), a small gap between
-//     arcs, tiny ones held to a minimum visible arc, empty or unknown
-//     balances drawing none. The hole says what is ready to use (the cash
-//     of all three) and, under it, what is in positions; the header above
-//     already shows the total, so the hole never repeats it;
+//     holds in positions (diagonal stripes of the same colour over its
+//     tint: a pattern, not just a lighter shade, so the two never read
+//     as one), a hairline between the two, a small gap between arcs,
+//     tiny ones held to a minimum visible arc, empty or unknown balances
+//     drawing none. The hole says the cash of all three ("Cash", the word
+//     used everywhere else) and, under it, what is in positions; the
+//     header above already shows the total, so the hole never repeats it;
 //   * one ROW per balance on the app's card: its mark, name and share,
-//     its total, a two-part bar (cash / positions) and the two figures
-//     under it ("Available" under Dollars, as the tile said);
-//   * a small legend (Cash / Positions) under the ring.
+//     its total, a two-part bar (solid cash / striped positions) and,
+//     under it, the two figures each behind its swatch (positions left
+//     out when there are none; "Available" under Dollars, as the tile
+//     said);
+//   * a small legend under the ring: the same solid and striped swatches
+//     in a neutral colour, a key for every balance's colour.
 //
 // A tap on an arc or a row picks that balance: its arc thickens, the
 // others dim, its row lifts with a hairline in its colour and the hole
@@ -63,8 +68,43 @@ Color balancesRingColor(BalancesRingPart part, {bool dark = true}) =>
 /// The Hyperliquid mint on the light theme.
 const Color kBalancesRingMintOnLight = Color(0xFF14B89C);
 
-/// The faded half of an arc or bar: what the balance holds in positions.
-const double kBalancesRingPositionsAlpha = 0.35;
+/// The tint under the positions' stripes.
+const double kBalancesRingPositionsAlpha = 0.2;
+
+/// The positions' stripes: their pitch and line width (logical pixels).
+const double kBalancesRingStripePitch = 4.5;
+const double kBalancesRingStripeWidth = 1.5;
+
+/// The hairline between a balance's cash and its positions (logical
+/// pixels), on the ring and the bars.
+const double kBalancesRingSplitGap = 2;
+
+/// Paints what a balance holds in positions over [region]: its [color]'s
+/// tint, then diagonal stripes of the colour itself, anchored to the
+/// canvas so they hold still while the region grows. [alpha] dims both.
+void paintBalancesRingStripes(Canvas canvas, Path region, Color color,
+    {double alpha = 1}) {
+  final b = region.getBounds().inflate(kBalancesRingStripeWidth);
+  canvas.save();
+  canvas.clipPath(region);
+  canvas.drawRect(
+      b,
+      Paint()
+        ..color = color.withValues(alpha: alpha * kBalancesRingPositionsAlpha));
+  final line = Paint()
+    ..color = color.withValues(alpha: alpha)
+    ..strokeWidth = kBalancesRingStripeWidth
+    ..isAntiAlias = true;
+  // Lines x + y = k: rising to the right.
+  const pitch = kBalancesRingStripePitch;
+  for (var k = ((b.left + b.top) / pitch).floor() * pitch;
+      k <= b.right + b.bottom;
+      k += pitch) {
+    canvas.drawLine(
+        Offset(k - b.top, b.top), Offset(k - b.bottom, b.bottom), line);
+  }
+  canvas.restore();
+}
 
 /// The arcs not picked while one is.
 const double kBalancesRingDimAlpha = 0.3;
@@ -356,7 +396,8 @@ class _BalancesRingViewState extends State<BalancesRingView>
     final size = 230.w;
     final stroke = 18.w;
     final grow = 6.w;
-    final caption = portfolioTileCaptionStyle(c);
+    final legend = portfolioTileCaptionStyle(c)
+        .copyWith(color: c.textSecondary, fontSize: 13.sp);
 
     final ring = SizedBox.square(
       dimension: size,
@@ -431,15 +472,19 @@ class _BalancesRingViewState extends State<BalancesRingView>
               key: const ValueKey('portfolio-balance-ring-legend'),
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _Swatch(color: c.textSecondary),
-                SizedBox(width: 6.w),
-                Text(l10n.ledgerHlCash, style: caption),
-                SizedBox(width: 16.w),
                 _Swatch(
-                    color: c.textSecondary
-                        .withValues(alpha: kBalancesRingPositionsAlpha)),
+                    key: const ValueKey('portfolio-balance-ring-legend-cash'),
+                    color: c.textPrimary),
                 SizedBox(width: 6.w),
-                Text(l10n.ledgerPositionsTitle, style: caption),
+                Text(l10n.ledgerHlCash, style: legend),
+                SizedBox(width: 18.w),
+                _Swatch(
+                    key: const ValueKey(
+                        'portfolio-balance-ring-legend-positions'),
+                    color: c.textPrimary,
+                    striped: true),
+                SizedBox(width: 6.w),
+                Text(l10n.ledgerPositionsTitle, style: legend),
               ],
             ),
           ),
@@ -487,7 +532,7 @@ Color _trackColor(BuildContext context) => context.isDark
     ? context.colors.surfaceLight
     : context.colors.surfaceElevated;
 
-/// The hole: what is ready to use and what is in positions, or the
+/// The hole: the cash of all three and what is in positions, or the
 /// picked balance's name, total and split.
 class _Centre extends StatelessWidget {
   const _Centre({
@@ -521,7 +566,7 @@ class _Centre extends StatelessWidget {
     final String? line;
     final pick = selected;
     if (pick == null) {
-      label = l10n.available;
+      label = l10n.ledgerHlCash;
       final cashKnown = entries.every((e) => e.cash.usd != null);
       figure = BalancesRingFigure(
         cashKnown
@@ -585,18 +630,40 @@ class _Centre extends StatelessWidget {
   }
 }
 
+/// A key's swatch: solid for cash, striped ([striped]) for positions.
 class _Swatch extends StatelessWidget {
-  const _Swatch({required this.color});
+  const _Swatch({super.key, required this.color, this.striped = false});
 
   final Color color;
+  final bool striped;
 
   @override
-  Widget build(BuildContext context) => Container(
-        width: 10.w,
-        height: 10.w,
-        decoration: BoxDecoration(
-            color: color, borderRadius: BorderRadius.circular(3.r)),
+  Widget build(BuildContext context) => CustomPaint(
+        size: Size.square(12.w),
+        painter: _SwatchPainter(color: color, striped: striped),
       );
+}
+
+class _SwatchPainter extends CustomPainter {
+  _SwatchPainter({required this.color, required this.striped});
+
+  final Color color;
+  final bool striped;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final box =
+        RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(3));
+    if (striped) {
+      paintBalancesRingStripes(canvas, Path()..addRRect(box), color);
+    } else {
+      canvas.drawRRect(box, Paint()..color = color);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_SwatchPainter old) =>
+      old.color != color || old.striped != striped;
 }
 
 /// One balance's row: mark, name and share, total; the two-part bar; its
@@ -629,8 +696,20 @@ class _BalanceRow extends StatelessWidget {
     final e = entry;
     final color = balancesRingColor(e.part, dark: context.isDark);
     final caption = portfolioTileCaptionStyle(c);
-    final figureCaption =
-        caption.copyWith(color: c.textSecondary, fontWeight: FontWeight.w600);
+    final partLabel = caption.copyWith(color: c.textSecondary, fontSize: 13.sp);
+    final partFigure = TextStyle(
+      color: c.textPrimary,
+      fontSize: 14.sp,
+      fontWeight: FontWeight.w600,
+      letterSpacing: -0.1,
+      height: 1.25,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    // Positions only when it holds some (or they are not known yet):
+    // "Positions $0.00" says nothing the bar does not.
+    final positions = e.positions;
+    final showPositions = positions != null &&
+        (positions.usd == null || _clean(positions.usd) >= 0.005);
     final totalStyle = TextStyle(
       color: c.textPrimary,
       fontSize: 16.sp,
@@ -737,10 +816,10 @@ class _BalanceRow extends StatelessWidget {
                   ),
                 ),
               ),
-              SizedBox(height: 8.h),
+              SizedBox(height: 10.h),
               Row(
                 children: [
-                  Flexible(
+                  Expanded(
                     child: FittedBox(
                       fit: BoxFit.scaleDown,
                       alignment: Alignment.centerLeft,
@@ -748,32 +827,43 @@ class _BalanceRow extends StatelessWidget {
                         key: ValueKey('portfolio-balance-${e.id}-available'),
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(l10n.ledgerHlCash, style: caption),
-                          SizedBox(width: 4.w),
-                          live(e.cash, figureCaption),
+                          _Swatch(color: color),
+                          SizedBox(width: 6.w),
+                          Text(l10n.ledgerHlCash, style: partLabel),
+                          SizedBox(width: 6.w),
+                          live(e.cash, partFigure),
                         ],
                       ),
                     ),
                   ),
                   SizedBox(width: 12.w),
-                  Flexible(
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerRight,
-                      child: e.positions == null
-                          ? Text(l10n.available, style: caption)
-                          : Row(
-                              key: ValueKey(
-                                  'portfolio-balance-${e.id}-positions'),
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(l10n.ledgerPositionsTitle, style: caption),
-                                SizedBox(width: 4.w),
-                                live(e.positions!, figureCaption),
-                              ],
-                            ),
+                  // Right-aligned, as the bar puts positions after cash.
+                  if (e.positions == null)
+                    Expanded(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerRight,
+                        child: Text(l10n.available, style: caption),
+                      ),
+                    )
+                  else if (showPositions)
+                    Expanded(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerRight,
+                        child: Row(
+                          key: ValueKey('portfolio-balance-${e.id}-positions'),
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _Swatch(color: color, striped: true),
+                            SizedBox(width: 6.w),
+                            Text(l10n.ledgerPositionsTitle, style: partLabel),
+                            SizedBox(width: 6.w),
+                            live(positions, partFigure),
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
                 ],
               ),
               if (e.reserved case final line?) ...[
@@ -798,7 +888,8 @@ class _BalanceRow extends StatelessWidget {
   }
 }
 
-/// The arcs on their track: cash solid, positions faded, a picked arc
+/// The arcs on their track: cash solid, positions striped, a hairline
+/// between the two, a picked arc
 /// thicker and the others dimmed, drawn clockwise from twelve o'clock up
 /// to [progress] of the circle.
 class _RingPainter extends CustomPainter {
@@ -849,19 +940,35 @@ class _RingPainter extends CustomPainter {
             ..color = color);
     }
 
+    void striped(
+        double from, double sweep, Color color, double alpha, double width) {
+      final end = math.min(from + sweep, limit);
+      if (end <= from) return;
+      final outer = Rect.fromCircle(center: centre, radius: radius + width / 2);
+      final inner = Rect.fromCircle(center: centre, radius: radius - width / 2);
+      final region = Path()
+        ..arcTo(outer, from - math.pi / 2, end - from, true)
+        ..arcTo(inner, end - math.pi / 2, from - end, false)
+        ..close();
+      paintBalancesRingStripes(canvas, region, color, alpha: alpha);
+    }
+
     for (final a in arcs) {
       final (thick, alpha) = emphasis[a.part] ?? (0.0, 1.0);
       final color = balancesRingColor(a.part, dark: dark);
       final width = stroke + grow * thick;
-      if (a.cashSweep > 0) {
-        arc(a.start, a.cashSweep, color.withValues(alpha: alpha), width);
+      final cash = a.cashSweep;
+      final held = a.sweep - a.cashSweep;
+      // The hairline between cash and positions, never eating either.
+      final split = cash > 0 && held > 0
+          ? math.min(kBalancesRingSplitGap / radius, 0.4 * math.min(cash, held))
+          : 0.0;
+      if (cash > 0) {
+        arc(a.start, cash - split / 2, color.withValues(alpha: alpha), width);
       }
-      if (a.sweep - a.cashSweep > 0) {
-        arc(
-            a.start + a.cashSweep,
-            a.sweep - a.cashSweep,
-            color.withValues(alpha: alpha * kBalancesRingPositionsAlpha),
-            width);
+      if (held > 0) {
+        striped(
+            a.start + cash + split / 2, held - split / 2, color, alpha, width);
       }
     }
   }
@@ -894,8 +1001,8 @@ class _RingPainter extends CustomPainter {
       BalancesRingPart.values.every((p) => a[p] == b[p]);
 }
 
-/// A row's two-part bar: its cash solid, its positions faded, over the
-/// track, grown to [progress] of the width.
+/// A row's two-part bar: its cash solid, its positions striped, a
+/// hairline between, over the track, grown to [progress] of the width.
 class _BarPainter extends CustomPainter {
   _BarPainter({
     required this.progress,
@@ -920,18 +1027,24 @@ class _BarPainter extends CustomPainter {
     if (total <= 0 || progress <= 0) return;
     final shown = size.width * progress;
     final cashW = size.width * cash / total;
+    final heldW = size.width - cashW;
+    final split = cashW > 0 && heldW > 0
+        ? math.min(kBalancesRingSplitGap, 0.4 * math.min(cashW, heldW))
+        : 0.0;
     canvas.save();
     canvas.clipRRect(
         RRect.fromRectAndRadius(Rect.fromLTWH(0, 0, shown, size.height), r));
     if (cashW > 0) {
-      canvas.drawRect(
-          Rect.fromLTWH(0, 0, cashW, size.height), Paint()..color = color);
+      canvas.drawRect(Rect.fromLTWH(0, 0, cashW - split / 2, size.height),
+          Paint()..color = color);
     }
-    if (cashW < size.width) {
-      canvas.drawRect(
-          Rect.fromLTWH(cashW, 0, size.width - cashW, size.height),
-          Paint()
-            ..color = color.withValues(alpha: kBalancesRingPositionsAlpha));
+    if (heldW > 0) {
+      paintBalancesRingStripes(
+          canvas,
+          Path()
+            ..addRect(Rect.fromLTWH(
+                cashW + split / 2, 0, heldW - split / 2, size.height)),
+          color);
     }
     canvas.restore();
   }
