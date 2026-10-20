@@ -5,20 +5,21 @@
 // detail screen of a bet that is still open (a live price, not settled).
 // A settled position keeps the bar, and every list and row keeps it too.
 //
-// It is the screen's hero: the dial spans about three quarters of the
-// width. It draws what the bar draws, from the same [PolyChanceBarSpec]:
-//   * a 180° arc with round ends, the bar's track colour under the bar's
-//     fill colour, filled from the left end up to the chance (a Yes / No
-//     or Up / Down market keeps its green and red split, meeting square);
-//   * a short radial tick at the price paid, in the bar's tick colour,
-//     with the bar's "Bought · 54¢" tag just outside the arc beside it:
-//     pushed straight out from the tick, so at 0–10% it sits to the left
-//     of the arc's end and at 90–100% to its right, never on the arc
-//     (where the width leaves no room beside an end, under it; higher
-//     up, lifted just clear of the arc);
-//   * the held outcome's chance in the middle ("75.8%"), the localised
-//     "chance" wording under it, both cut from the one `betPercentChance`
-//     string, so the figure above the gauge does not repeat it.
+// It is the screen's hero: the whole content width. It draws what the
+// bar draws, from the same [PolyChanceBarSpec]:
+//   * a thick 180° arc with round ends: a Yes / No or Up / Down market's
+//     green from the left end up to the split, then red, each side ending
+//     round with a small gap between them; any other outcome's own colour
+//     on the neutral track;
+//   * a knob at the split (the screen's surface ringed in white);
+//   * a short white tick across the arc at the price paid, with a small
+//     quiet "Bought · 54¢" label just outside the arc beside it: pushed
+//     straight out from the tick, never on the arc, never cut (where the
+//     width leaves no room beside an end, under it; higher up, lifted
+//     just clear of the arc);
+//   * the held outcome's chance, large, inside the arc ("75.8%"), the
+//     localised "chance" wording under it, both cut from the one
+//     `betPercentChance` string.
 //
 // The fill eases to a new price over the bar's 300 ms, easeOutCubic,
 // still under reduced motion. Nothing here is logged.
@@ -33,8 +34,6 @@ import 'package:kute/screens/polymarket/components/position_chance_bar.dart'
     show PolyChanceBarSpec;
 import 'package:kute/screens/polymarket/components/price_format.dart'
     show formatPolyChanceFigure;
-import 'package:kute/screens/shared/charts/kute_chart_core.dart'
-    show kuteChartFontFamily;
 import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -75,8 +74,8 @@ double polyGaugeSweep(double value) => value.clamp(0.0, 1.0) * math.pi;
 /// [stroke], centred; the tick ([tick], 0 to 1 from the left) running
 /// [overhang] past both edges of the arc; the tag of [tag] size pushed
 /// out from the tick's outer end by [gap], along the tick; and
-/// [belowCenter] of room under the arc's centre for the caption. The box
-/// is as tall as all of that, and no taller.
+/// [belowCenter] of room under the arc's centre line (the knob at an
+/// end). The box is as tall as all of that, and no taller.
 PolyChanceGaugeGeometry polyChanceGaugeGeometry({
   required double width,
   required double outerRadius,
@@ -120,7 +119,9 @@ PolyChanceGaugeGeometry polyChanceGaugeGeometry({
         // Near an end (0–10%, 90–100%): under the arc's end, centred on
         // it, just below the round cap.
         dx = (u.dx.sign * radius).clamp(minX, maxX).toDouble();
-        dy = stroke / 2 + gap + tag.height / 2;
+        // Under whatever sits at the arc's end (the round cap, the knob
+        // at 0% or 100%).
+        dy = math.max(stroke / 2, belowCenter) + gap + tag.height / 2;
       } else {
         // Higher up: lifted only as far as clears the arc and the tick
         // (the tag's nearest corner just past the tick's reach).
@@ -179,7 +180,7 @@ class PolyPositionChanceGauge extends StatelessWidget {
   /// [spec]'s value: a No / Down side's fill runs from the Yes / Up end.
   final double chance;
 
-  /// The tick's tag ("Bought · 54¢"); none without a tick.
+  /// The tick's quiet label ("Bought · 54¢"); none without a tick.
   final String? tickLabel;
 
   static const gaugeKey = ValueKey('poly-chance-gauge');
@@ -188,19 +189,23 @@ class PolyPositionChanceGauge extends StatelessWidget {
   static const figureKey = ValueKey('poly-chance-gauge-figure');
   static const captionKey = ValueKey('poly-chance-gauge-caption');
 
-  /// The chart's tag text style, as on the bar.
+  /// How far the tick runs past both edges of the arc, and the room
+  /// between its outer end and the label.
+  static const double _overhang = 3;
+  static const double _gap = 4;
+
+  /// The tick's label: small and quiet, no box.
   static TextStyle _tagStyle(Color color) => TextStyle(
-        fontFamily: kuteChartFontFamily,
         color: color,
         fontSize: 12,
-        fontWeight: FontWeight.w700,
+        fontWeight: FontWeight.w600,
         height: 1.2,
+        fontFeatures: const [FontFeature.tabularFigures()],
       );
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final isDark = context.isDark;
     final l10n = context.l10n;
     final reduceMotion =
         MediaQuery.maybeOf(context)?.disableAnimations ?? false;
@@ -208,20 +213,11 @@ class PolyPositionChanceGauge extends StatelessWidget {
         MediaQuery.maybeTextScalerOf(context) ?? TextScaler.noScaling;
     final tick = spec.tick;
     final label = tick == null ? null : tickLabel;
-    final labelStyle = _tagStyle(spec.held);
+    final labelStyle = _tagStyle(c.textSecondary);
 
     final figureText = formatPolyChanceFigure(chance);
     final full = l10n.betPercentChance(figureText);
     final parts = polyGaugeChanceParts(full, figureText);
-    TextStyle figureStyleFor(double outerRadius) => TextStyle(
-      color: c.textPrimary,
-      // The hero of the screen: large, scaling with the arc.
-      fontSize: (outerRadius * 0.34).clamp(30.0, 48.0),
-      fontWeight: FontWeight.w800,
-      letterSpacing: -0.6,
-      height: 1.0,
-      fontFeatures: const [FontFeature.tabularFigures()],
-    );
     final captionStyle = TextStyle(
       color: c.textTertiary,
       fontSize: 14.sp,
@@ -240,20 +236,25 @@ class PolyPositionChanceGauge extends StatelessWidget {
           textScaler: scaler,
           maxLines: 1,
         )..layout(maxWidth: w);
-        tag = Size(math.min(w, tp.width + 10), tp.height + 5);
+        tag = Size(math.min(w, tp.width + 4), tp.height + 2);
         tp.dispose();
       }
-      // The hero of the screen: the dial spans about three quarters of
-      // the width (the arc's ends 14% in from either side), capped on
-      // tablets. A bought tag at an end goes beside the arc where the
-      // width leaves room for it (past the tick's reach, 1.09 R), under
-      // the arc's end where it does not (polyChanceGaugeGeometry).
+      // The hero of the screen: the whole content width (the tick's ends
+      // just inside it), capped on tablets. A label at an end goes beside
+      // the arc where the width leaves room (a tablet), under the arc's
+      // end where it does not (polyChanceGaugeGeometry).
       final double outerRadius =
-          (w * 0.36).clamp(math.min(60.0, w / 4), 150.0).toDouble();
-      final stroke = outerRadius * 0.13;
-      final overhang = outerRadius * 0.06;
-      final gap = outerRadius * 0.03;
-      final figureStyle = figureStyleFor(outerRadius);
+          (w / 2 - _overhang).clamp(math.min(60.0, w / 4), 190.0).toDouble();
+      final stroke = (outerRadius * 0.095).clamp(10.0, 18.0).toDouble();
+      final knob = polyGaugeKnobRadius(stroke);
+      final figureStyle = TextStyle(
+        color: c.textPrimary,
+        fontSize: (outerRadius * 0.33).clamp(30.0, 56.0).toDouble(),
+        fontWeight: FontWeight.w800,
+        letterSpacing: -1.0,
+        height: 1.0,
+        fontFeatures: const [FontFeature.tabularFigures()],
+      );
       double captionH = 0;
       if (parts.caption.isNotEmpty) {
         final tp = TextPainter(
@@ -265,20 +266,23 @@ class PolyPositionChanceGauge extends StatelessWidget {
         captionH = tp.height;
         tp.dispose();
       }
-      final captionGap = 2.h;
       final g = polyChanceGaugeGeometry(
         width: w,
         outerRadius: outerRadius,
         stroke: stroke,
-        overhang: overhang,
-        gap: gap,
-        belowCenter: captionH == 0 ? 0 : captionGap + captionH,
+        overhang: _overhang,
+        gap: _gap,
+        // The knob at 0% or 100% hangs under the arc's end.
+        belowCenter: knob + 1.5,
         tick: tick,
         tag: label == null ? null : tag,
       );
       final inner = g.radius - stroke / 2;
       final labelRect = g.labelRect;
       final semantics = label == null ? full : '$full, $label';
+      // The caption just above the arc's centre line, the chance on it.
+      final captionBottom = g.size.height - g.center.dy + 2;
+      final figureBottom = captionBottom + captionH + 2;
 
       return Semantics(
         container: true,
@@ -309,17 +313,18 @@ class PolyPositionChanceGauge extends StatelessWidget {
                         track: spec.right ?? c.border,
                         split: spec.right != null,
                         tickColor: c.textPrimary,
+                        knobFill: context.isDark ? c.background : c.surface,
                       ),
                     ),
                   ),
                 ),
-                // The chance, sitting on the arc's centre line, inside it.
+                // The chance, large, inside the arc.
                 Positioned(
                   key: figureKey,
-                  left: g.center.dx - inner * 0.86,
-                  width: inner * 1.72,
-                  bottom: g.size.height - g.center.dy,
-                  height: inner * 0.62,
+                  left: g.center.dx - inner * 0.8,
+                  width: inner * 1.6,
+                  bottom: figureBottom,
+                  height: inner * 0.5,
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
                     alignment: Alignment.bottomCenter,
@@ -335,13 +340,13 @@ class PolyPositionChanceGauge extends StatelessWidget {
                 if (parts.caption.isNotEmpty)
                   Positioned(
                     key: captionKey,
-                    left: g.center.dx - outerRadius,
-                    width: outerRadius * 2,
-                    top: g.center.dy + captionGap,
+                    left: g.center.dx - inner * 0.8,
+                    width: inner * 1.6,
+                    bottom: captionBottom,
                     height: captionH,
                     child: FittedBox(
                       fit: BoxFit.scaleDown,
-                      alignment: Alignment.topCenter,
+                      alignment: Alignment.bottomCenter,
                       child: Text(
                         parts.caption,
                         style: captionStyle,
@@ -354,23 +359,13 @@ class PolyPositionChanceGauge extends StatelessWidget {
                   Positioned.fromRect(
                     key: labelKey,
                     rect: labelRect,
-                    // The chart's "Bought" tag, as on the bar.
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: (isDark ? Colors.black : Colors.white)
-                            .withValues(alpha: 0.88),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(
-                            color: spec.held.withValues(alpha: 0.7), width: 1),
-                      ),
-                      child: Center(
-                        child: Text(
-                          label!,
-                          style: labelStyle,
-                          maxLines: 1,
-                          overflow: TextOverflow.clip,
-                          softWrap: false,
-                        ),
+                    child: Center(
+                      child: Text(
+                        label!,
+                        style: labelStyle,
+                        maxLines: 1,
+                        overflow: TextOverflow.clip,
+                        softWrap: false,
                       ),
                     ),
                   ),
@@ -383,7 +378,12 @@ class PolyPositionChanceGauge extends StatelessWidget {
   }
 }
 
-/// Paints the arc, its fill and the tick of a [PolyChanceGaugeGeometry].
+/// The knob's radius on an arc of [stroke]: a little wider than the arc,
+/// so it reads as the dial's needle.
+double polyGaugeKnobRadius(double stroke) => stroke * 0.72;
+
+/// Paints the arc, its fill, the knob at the chance and the tick at the
+/// price paid, of a [PolyChanceGaugeGeometry].
 class PolyChanceGaugePainter extends CustomPainter {
   PolyChanceGaugePainter({
     required this.geometry,
@@ -392,6 +392,7 @@ class PolyChanceGaugePainter extends CustomPainter {
     required this.track,
     required this.split,
     required this.tickColor,
+    required this.knobFill,
   });
 
   final PolyChanceGaugeGeometry geometry;
@@ -401,10 +402,16 @@ class PolyChanceGaugePainter extends CustomPainter {
   final Color fill;
   final Color track;
 
-  /// A two-tone split: the fill meets the track square. Otherwise the
-  /// fill ends round on the track, as on the bar.
+  /// A two-tone split: the fill and the other side each end round, a
+  /// small gap between them under the knob. Otherwise the fill runs on
+  /// the whole neutral track, as on the bar.
   final bool split;
+
+  /// The tick's colour and the knob's ring.
   final Color tickColor;
+
+  /// The knob's middle: the screen's own dark (or light) surface.
+  final Color knobFill;
 
   /// Where the fill starts and how far it sweeps (canvas radians).
   ({double start, double sweep}) get fillArc =>
@@ -414,29 +421,32 @@ class PolyChanceGaugePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final g = geometry;
     final rect = Rect.fromCircle(center: g.center, radius: g.radius);
-    final paint = Paint()
+    Paint arc(Color color) => Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = g.stroke
       ..strokeCap = StrokeCap.round
-      ..isAntiAlias = true;
-    canvas.drawArc(rect, math.pi, math.pi, false, paint..color = track);
+      ..isAntiAlias = true
+      ..color = color;
 
-    final v = value.clamp(0.0, 1.0);
-    if (v > 0) {
-      paint.color = fill;
-      if (split && v < 1) {
-        // Round at the left end, square where it meets the other side.
-        canvas.drawArc(rect, math.pi, polyGaugeSweep(v), false,
-            paint..strokeCap = StrokeCap.butt);
-        canvas.drawCircle(
-            g.center + Offset(-g.radius, 0),
-            g.stroke / 2,
-            Paint()
-              ..color = fill
-              ..isAntiAlias = true);
-      } else {
-        canvas.drawArc(rect, math.pi, polyGaugeSweep(v), false,
-            paint..strokeCap = StrokeCap.round);
+    final v = value.clamp(0.0, 1.0).toDouble();
+    if (!split) {
+      canvas.drawArc(rect, math.pi, math.pi, false, arc(track));
+      if (v > 0) canvas.drawArc(rect, math.pi, polyGaugeSweep(v), false, arc(fill));
+    } else if (v <= 0) {
+      canvas.drawArc(rect, math.pi, math.pi, false, arc(track));
+    } else if (v >= 1) {
+      canvas.drawArc(rect, math.pi, math.pi, false, arc(fill));
+    } else {
+      // Each side ends round, the gap between them (both caps and a
+      // little air) under the knob.
+      final half = (g.stroke / 2 + 2) / g.radius;
+      final at = polyGaugeSweep(v);
+      if (at - half > 0) {
+        canvas.drawArc(rect, math.pi, at - half, false, arc(fill));
+      }
+      if (math.pi - at - half > 0) {
+        canvas.drawArc(
+            rect, math.pi + at + half, math.pi - at - half, false, arc(track));
       }
     }
 
@@ -448,11 +458,30 @@ class PolyChanceGaugePainter extends CustomPainter {
         g.center + u * g.tickOuter,
         Paint()
           ..color = tickColor
-          ..strokeWidth = 2
+          ..strokeWidth = 2.5
           ..strokeCap = StrokeCap.round
           ..isAntiAlias = true,
       );
     }
+
+    // The knob at the chance: the screen's surface ringed in white.
+    final k = polyGaugeAngle(v);
+    final at = g.center + Offset(math.cos(k), math.sin(k)) * g.radius;
+    final r = polyGaugeKnobRadius(g.stroke);
+    canvas.drawCircle(
+        at,
+        r,
+        Paint()
+          ..color = knobFill
+          ..isAntiAlias = true);
+    canvas.drawCircle(
+        at,
+        r - 1.5,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 3
+          ..color = tickColor
+          ..isAntiAlias = true);
   }
 
   @override
@@ -462,5 +491,6 @@ class PolyChanceGaugePainter extends CustomPainter {
       old.fill != fill ||
       old.track != track ||
       old.split != split ||
-      old.tickColor != tickColor;
+      old.tickColor != tickColor ||
+      old.knobFill != knobFill;
 }

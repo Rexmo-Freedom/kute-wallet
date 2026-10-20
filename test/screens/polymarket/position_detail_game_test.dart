@@ -317,8 +317,9 @@ void main() {
         ];
 
     testWidgets(
-        'no Sal on the position: no button, no question row; the rows say '
-        'what is at risk and offer to protect it', (tester) async {
+        'no Sal on the position: no button, no question row; the tiles say '
+        'what it is worth and pays, a row offers to protect it',
+        (tester) async {
       await _pump(
         tester,
         const PositionDetailSheet(position: position),
@@ -327,16 +328,35 @@ void main() {
       expect(find.byType(AskSalChip), findsNothing);
       expect(find.byType(SalWhyMovingRow), findsNothing);
       expect(find.byType(KuteDogGlance), findsNothing);
-      // 120 shares bought at 42c: $50.40 lost if the 49ers lose, $120 paid
-      // if they win.
-      final risk = find.byKey(const ValueKey('poly-position-risk-line'));
-      expect(risk, findsOneWidget);
+      // 120 shares bought at 42c: worth $60 now (+$9.60), $120 paid if
+      // the 49ers win, $50.40 paid for it. No risk sentence.
+      final value = find.byKey(const ValueKey('poly-position-value'));
+      expect(find.descendant(of: value, matching: find.text('Current value')),
+          findsOneWidget);
       expect(
-          find.text(r'If 49ers loses, you lose $50.40; if it wins, you get '
-              r'$120.00.'),
+          find.descendant(
+              of: value,
+              matching: find.byWidgetPredicate((w) =>
+                  w is RollingNumberText && w.text == r'$60.00')),
           findsOneWidget);
-      expect(find.descendant(of: find.byType(PositionRowsCard), matching: risk),
+      expect(
+          find.descendant(
+              of: value,
+              matching: find.byWidgetPredicate((w) =>
+                  w is RollingNumberText && w.text == r'+$9.60 · +19.0%')),
           findsOneWidget);
+      final payout = find.byKey(const ValueKey('poly-position-payout'));
+      expect(
+          find.descendant(
+              of: payout, matching: find.text('Payout if you win')),
+          findsOneWidget);
+      expect(find.descendant(of: payout, matching: find.text(r'$120.00')),
+          findsOneWidget);
+      expect(find.descendant(of: payout, matching: find.text(r'Paid $50.40')),
+          findsOneWidget);
+      expect(find.byKey(const ValueKey('poly-position-risk-line')),
+          findsNothing);
+      expect(find.textContaining('you lose'), findsNothing);
       final protect = find.byKey(const ValueKey('poly-position-protect'));
       expect(protect, findsOneWidget);
       expect(find.descendant(of: protect, matching: find.text('Protect it')),
@@ -346,8 +366,8 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('nothing paid on record: no risk line, never a made-up cost',
-        (tester) async {
+    testWidgets('nothing paid on record: no "Paid" line, never a made-up '
+        'cost', (tester) async {
       await _pump(
         tester,
         const PositionDetailSheet(
@@ -365,8 +385,8 @@ void main() {
         )),
         overrides: overrides(_game()),
       );
-      expect(find.byKey(const ValueKey('poly-position-risk-line')),
-          findsNothing);
+      expect(find.textContaining('Paid'), findsNothing);
+      expect(find.text(r'$120.00'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
@@ -383,10 +403,14 @@ void main() {
         overrides: overrides(_game()),
         width: 375,
       );
-      final risk = find.byKey(const ValueKey('poly-position-risk-line'));
-      await tester.ensureVisible(risk);
+      final details = find.byKey(const ValueKey('poly-position-details'));
+      await tester.ensureVisible(details);
       await tester.pump();
-      expect(risk, findsOneWidget);
+      expect(find.byKey(const ValueKey('poly-position-value')), findsOneWidget);
+      expect(
+          find.byKey(const ValueKey('poly-position-payout')), findsOneWidget);
+      expect(find.byKey(const ValueKey('poly-position-protect')),
+          findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
@@ -406,11 +430,10 @@ void main() {
           find.byKey(const ValueKey('poly-position-title')), findsOneWidget);
       expect(find.text('49ERS'), findsNothing);
       expect(find.text('Sell'), findsOneWidget);
-      // On the screen only what is at risk and how to protect it; what
-      // the position is made of waits behind one Details row.
-      expect(find.byType(PositionRowsCard), findsOneWidget);
-      expect(find.byKey(const ValueKey('poly-position-risk-line')),
-          findsOneWidget);
+      // On the screen two tiles and plain rows, no card of rows; what the
+      // position is made of waits behind one Details row.
+      expect(find.byType(PositionRowsCard), findsNothing);
+      expect(find.byType(PositionStatTile), findsNWidgets(2));
       expect(find.byKey(const ValueKey('poly-position-protect')),
           findsOneWidget);
       for (final label in ['Outcome', 'Shares', 'Bought at', 'Invested']) {
@@ -426,7 +449,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 400));
       // The shared bottom sheet, its rows as on the Investing position.
       expect(find.byType(AppBottomSheetContainer), findsOneWidget);
-      expect(find.byType(PositionRowsCard), findsNWidgets(2));
+      expect(find.byType(PositionRowsCard), findsOneWidget);
       // The side is one row, not a pill over the value.
       expect(find.text('Outcome'), findsOneWidget);
       expect(find.text('Shares'), findsOneWidget);
@@ -475,19 +498,25 @@ void main() {
               (w) => w is RollingNumberText && w.text == '50% chance'),
           findsNothing);
       expect(find.text('chance'), findsOneWidget);
-      // Between the figures and the risk line.
+      // Under the pill naming the held side, in the team's colour; over
+      // the tiles.
+      final pill = find.byKey(const ValueKey('poly-position-held'));
+      expect(find.descendant(of: pill, matching: find.text('You hold 49ers')),
+          findsOneWidget);
+      expect(tester.getRect(pill).bottom,
+          lessThan(tester.getRect(find.byType(PolyPositionChanceGauge)).top));
       expect(
           tester.getRect(find.byType(PolyPositionChanceGauge)).bottom,
           lessThan(tester
-              .getRect(find.byKey(const ValueKey('poly-position-risk-line')))
+              .getRect(find.byKey(const ValueKey('poly-position-value')))
               .top));
-      // The screen's hero: the dial spans about three quarters of the
-      // width (390 less the 20 pt gutters).
+      // The screen's hero: the dial spans the whole content width (390
+      // less the 20 pt gutters), the tick's ends just inside it.
       final paint = tester.widget<CustomPaint>(
           find.byKey(PolyPositionChanceGauge.paintKey));
       final g = (paint.painter! as PolyChanceGaugePainter).geometry;
       final content = 390 - 2 * 20 * 390 / 430;
-      expect(2 * (g.radius + g.stroke / 2), closeTo(0.72 * content, 1));
+      expect(2 * g.tickOuter, closeTo(content, 1));
       // The live feed's subscribe debounce runs out.
       await tester.pump(const Duration(milliseconds: 200));
       expect(tester.takeException(), isNull);
@@ -823,6 +852,31 @@ void main() {
           find.textContaining(
               'Ends ${DateFormat('MMM d').format(eventEnd.toLocal())}'),
           findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('under a day to go: "Ends in 12:34" counted down on a '
+        'centred pill', (tester) async {
+      final end = DateTime.now().add(const Duration(minutes: 12, seconds: 40));
+      await _pump(
+        tester,
+        PositionDetailSheet(position: held(end)),
+        overrides: base('brazil-presidential-election', election(end: end),
+            marketId: 'c9'),
+        width: 375,
+      );
+      await tester.pump();
+      final pill = find.byKey(const ValueKey('poly-position-expiry'));
+      expect(pill, findsOneWidget);
+      expect(
+          find.descendant(
+              of: pill,
+              matching: find.byWidgetPredicate((w) =>
+                  w is Text &&
+                  RegExp(r'^Ends in 12:[0-9]{2}$').hasMatch(w.data ?? ''))),
+          findsOneWidget);
+      expect(find.textContaining('ENDS'), findsNothing);
+      expect(tester.getCenter(pill).dx, closeTo(375 / 2, 1));
       expect(tester.takeException(), isNull);
     });
 

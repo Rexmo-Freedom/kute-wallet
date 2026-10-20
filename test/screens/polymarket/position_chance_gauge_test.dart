@@ -162,16 +162,18 @@ void main() {
         'a large dial with no room beside its ends: the tag under the end '
         'at 0–10% and 90–100%, lifted just clear of the arc higher up, '
         'never on it, always inside the width', () {
-      // A 375 pt phone: the dial spans 0.72 of 340 pt.
+      // A 375 pt phone: the dial spans the whole 340 pt, the knob under
+      // its ends.
       const width = 340.0;
-      const r = width * 0.36;
+      const r = width / 2 - 3;
+      const stroke = r * 0.095;
       PolyChanceGaugeGeometry big(double tick) => polyChanceGaugeGeometry(
             width: width,
             outerRadius: r,
-            stroke: r * 0.13,
-            overhang: r * 0.06,
-            gap: r * 0.03,
-            belowCenter: 19,
+            stroke: stroke,
+            overhang: 3,
+            gap: 4,
+            belowCenter: polyGaugeKnobRadius(stroke) + 1.5,
             tick: tick,
             tag: const Size(85, 17),
           );
@@ -184,8 +186,9 @@ void main() {
         expect(label.bottom, lessThanOrEqualTo(g.size.height + 1e-9),
             reason: 'at $i%');
         if (label.top > g.center.dy) {
-          // Under the arc: below the round end, clear of it.
-          expect(label.top, greaterThan(g.center.dy + g.stroke / 2),
+          // Under the arc: below the round end and the knob, clear of them.
+          expect(label.top,
+              greaterThan(g.center.dy + polyGaugeKnobRadius(g.stroke)),
               reason: 'at $i%');
         } else {
           expect(_distance(label, g.center), greaterThan(g.tickOuter),
@@ -277,10 +280,10 @@ void main() {
 
     testWidgets('at the extremes the tag flips beside the arc\'s end',
         (tester) async {
-      // The dial leaves room for the tag beside either end, so it sits
-      // level with the arc's end, never lifted to a corner. The test font
-      // draws a tag about twice the real one, so the surface is wider in
-      // the same proportion (a 390 pt phone with the real font).
+      // Where the (capped) dial leaves room for the tag beside either end
+      // (a tablet), it sits level with the arc's end, never lifted to a
+      // corner. On a phone the dial takes the whole width and the tag
+      // goes under the end (the large-dial geometry test).
       await _pump(tester, _yes(0.5, bought: 0.03),
           label: 'Bought · 3¢', width: 700);
       var g = _painter(tester).geometry;

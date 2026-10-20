@@ -61,16 +61,18 @@ const Color _kPolyRed = AppColors.marketDown;
 // The open-position screen of a Predictions bet. It reads like the market
 // sheet of the same market: a game shows its two teams with the score
 // between them (PolyGameTeamsHeader); any other market shows the sheet's
-// icon-and-title header. On top of that sits what is the user's: the
-// current value with the profit or loss under it, the chance gauge (where
-// the held outcome's chance is now against the price paid, ticked
-// "Bought · 32¢", the chance in its middle: position_chance_gauge.dart)
-// while the bet is open, the chance bar (position_chance_bar.dart) once
-// it is settled; no price chart here, the market sheet keeps it. The
-// gauge is the screen's hero. Then only what matters: the risk line and
-// "Protect it" while the bet is open; the outcome / shares / price paid /
-// invested rows wait behind one "Details" row (the shared bottom sheet,
-// as on the Investing position); and the Sell (or Claim / Clear) action.
+// icon-and-title header. Under it, what is the user's: a pill naming the
+// held side ("▲ You hold Up", in its colour); the chance dial as the
+// screen's hero (where the held outcome's chance is now against the price
+// paid, ticked "Bought · 32¢", the chance in its middle:
+// position_chance_gauge.dart) while the bet is open, the chance bar
+// (position_chance_bar.dart) once it is settled; no price chart here, the
+// market sheet keeps it. Then two tiles: the current value with the profit
+// or loss, and the payout if the held side wins with what was paid (once
+// settled: what it paid out); the end as a pill; and plain rows: "Protect
+// it" while open, "Details" (outcome / shares / price paid / invested, on
+// the shared bottom sheet, as on the Investing position) and the closing
+// conditions; and the Sell (or Claim / Clear) action.
 
 class PositionDetailSheet extends ConsumerStatefulWidget {
   final PolymarketPosition position;
@@ -240,7 +242,9 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
     final pnlColor = pnlPositive ? _kPolyGreen : _kPolyRed;
     final pnlText =
         '${pnlPositive ? '+' : '-'}${formatPolyAmount(ref, pnl.abs())}'
-        '  ${pnlPercent >= 0 ? '+' : ''}${pnlPercent.toStringAsFixed(1)}%';
+        ' · ${pnlPercent >= 0 ? '+' : ''}${pnlPercent.toStringAsFixed(1)}%';
+    // Settled: whether the held side won (the bar's own reading).
+    final won = pos.won ?? currentPrice >= 0.5;
     final investedText = formatPolyAmount(ref, costBasis);
 
     final eventDetails = pos.eventSlug != null && pos.eventSlug!.isNotEmpty
@@ -380,105 +384,21 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                         SizedBox(height: 22.h),
                       ],
 
-                      // What the position is worth now, and under it the
-                      // profit or loss in the app's up / down colours with
-                      // the outcome's chance beside it. Plain text, no
-                      // pills: the outcome itself is the first row below.
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          context.l10n.betCurrentValue,
-                          style: TextStyle(
-                            color: c.textTertiary,
-                            fontSize: 13.sp,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: -0.1,
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: 4.h),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        // `formatPolyAmount` honors the Predictions
-                        // denomination setting. Rolling digits, so the
-                        // value visibly ticks with the live price.
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: RollingNumberText(
-                            text: formatPolyAmount(ref, currentValue),
-                            style: TextStyle(
-                              color: c.textPrimary,
-                              fontSize: 48.sp,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -1.2,
-                              height: 1.0,
-                              fontFeatures: const [
-                                FontFeature.tabularFigures()
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: 8.h),
-                      SizedBox(
-                        width: double.infinity,
-                        // A Wrap, so the chance drops to its own line on
-                        // a narrow screen instead of overflowing.
-                        child: Wrap(
-                          alignment: WrapAlignment.spaceBetween,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          spacing: 12.w,
-                          runSpacing: 4.h,
-                          children: [
-                            RollingNumberText(
-                              text: pnlText,
-                              style: TextStyle(
-                                color: pnlColor,
-                                fontSize: 15.sp,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: -0.2,
-                                fontFeatures: const [
-                                  FontFeature.tabularFigures()
-                                ],
-                              ),
-                            ),
-                            // The live price of the held outcome token IS
-                            // the market's chance that this side resolves
-                            // true (a NO position's token price is the
-                            // chance NO happens). The gauge writes it in
-                            // its middle; here only without the gauge.
-                            if (!showGauge)
-                              RollingNumberText(
-                                text: context.l10n.betPercentChance(
-                                    formatPolyChanceFigure(currentPrice)),
-                                style: TextStyle(
-                                  color: c.textSecondary,
-                                  fontSize: 13.sp,
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: -0.1,
-                                  fontFeatures: const [
-                                    FontFeature.tabularFigures()
-                                  ],
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
                       if (hasStream && !watching) ...[
-                        SizedBox(height: 20.h),
+                        SizedBox(height: 8.h),
                         buildMediaToggle(c),
                       ],
                       if (!watching && hasToken) ...[
-                        SizedBox(height: hasStream ? 14.h : 20.h),
+                        SizedBox(height: hasStream ? 14.h : 8.h),
                         LiveTokenScope(
                           tokens: [if (!pos.isResolved) pos.tokenId!],
                           keepAlive: true,
                           // Where the held outcome's chance is now against
-                          // what was paid for it: a Yes / No or Up / Down
-                          // market's green and red split, or a fill in the
-                          // outcome's own line colour, with the chart's
-                          // "Bought · 32¢" tag on a tick at the price paid.
+                          // what was paid for it, under a pill naming the
+                          // held side: a Yes / No or Up / Down market's
+                          // green and red split, or a fill in the outcome's
+                          // own line colour, with a "Bought · 32¢" tick at
+                          // the price paid.
                           // Open: the half-circle gauge with the chance in
                           // its middle (position_chance_gauge.dart);
                           // settled: the bar (position_chance_bar.dart).
@@ -508,73 +428,89 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                                   ? null
                                   : '${context.l10n.polyChartBought} · '
                                       '${formatPolyBoughtCents(bought)}';
-                              if (showGauge) {
-                                return PolyPositionChanceGauge(
-                                  spec: spec,
-                                  chance: currentPrice,
-                                  tickLabel: tickLabel,
-                                );
-                              }
-                              return PolyPositionChanceBar(
-                                spec: spec,
-                                tickLabel: tickLabel,
+                              return Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  // Which side is held, in its colour.
+                                  _HeldPill(
+                                      outcome: pos.outcome, color: spec.held),
+                                  SizedBox(height: 14.h),
+                                  if (showGauge)
+                                    PolyPositionChanceGauge(
+                                      spec: spec,
+                                      chance: currentPrice,
+                                      tickLabel: tickLabel,
+                                    )
+                                  else ...[
+                                    PolyPositionChanceBar(
+                                      spec: spec,
+                                      tickLabel: tickLabel,
+                                    ),
+                                    SizedBox(height: 8.h),
+                                    // Settled: the chance the gauge would
+                                    // write in its middle.
+                                    RollingNumberText(
+                                      text: context.l10n.betPercentChance(
+                                          formatPolyChanceFigure(
+                                              currentPrice)),
+                                      style: positionTileCaptionStyle(c),
+                                    ),
+                                  ],
+                                ],
                               );
                             }),
                           ),
                         ),
                       ],
 
-                      // Only what matters on the screen: what is at risk
-                      // and how to protect it. What the position is made
-                      // of (outcome, shares, price paid, invested) is one
-                      // "Details" row further down.
-                      if (!pos.isResolved && pos.size > 0) ...[
-                        SizedBox(height: 16.h),
-                        PositionRowsCard(rows: [
-                          // What is at risk, in one plain sentence: what was
-                          // paid if the outcome loses, a dollar a share if
-                          // it wins. Only when what was paid is known.
-                          if (costBasis > 0)
-                            PositionRow.note(
-                              key: const ValueKey('poly-position-risk-line'),
-                              context.l10n.polyRiskOutcome(
-                                pos.outcome,
-                                formatPolyAmount(ref, costBasis),
-                                formatPolyAmount(ref, pos.size),
-                              ),
-                            ),
-                          // The closest protective order Predictions has: a
-                          // limit sell, set on the sell ticket's Advanced
-                          // page.
-                          PositionRow(
-                            context.l10n.positionProtectIt,
-                            context.l10n.betSellAt,
-                            key: const ValueKey('poly-position-protect'),
-                            onTap: () {
-                              TrackingService.track('position_protect_tapped',
-                                  params: {
-                                    'venue': 'polymarket',
-                                    ...VenueAnalytics.pmKindParams([
-                                      pos.tokenId,
-                                      pos.marketId,
-                                      pos.eventSlug
-                                    ]),
-                                    'wallet_kind': 'hot',
-                                    'target': 'limit_sell',
-                                  });
-                              context.pop();
-                              SellSheet.show(context,
-                                  position: pos,
-                                  source: 'position_protect',
-                                  startWithLimit: true);
-                            },
+
+                      // What it is worth now (with the profit or loss) and
+                      // what it pays if the held side wins (once settled:
+                      // what it paid), each on its own tile.
+                      SizedBox(height: 20.h),
+                      PositionStatTiles(
+                        left: PositionStatTile(
+                          key: const ValueKey('poly-position-value'),
+                          label: context.l10n.betCurrentValue,
+                          // `formatPolyAmount` honors the Predictions
+                          // denomination setting. Rolling digits, so the
+                          // value visibly ticks with the live price.
+                          value: RollingNumberText(
+                            text: formatPolyAmount(ref, currentValue),
+                            style: positionTileValueStyle(c),
                           ),
-                        ]),
-                      ],
+                          caption: RollingNumberText(
+                            text: pnlText,
+                            style: positionTileCaptionStyle(c, color: pnlColor),
+                          ),
+                        ),
+                        right: PositionStatTile(
+                          key: const ValueKey('poly-position-payout'),
+                          label: pos.isResolved
+                              ? context.l10n.payout
+                              : context.l10n.betReceiptPayout,
+                          // A dollar a share if the held side wins.
+                          value: Text(
+                            pos.isResolved && !won
+                                ? context.l10n.betNoPayout
+                                : formatPolyAmount(ref, pos.size),
+                            maxLines: 1,
+                            style: positionTileValueStyle(c),
+                          ),
+                          caption: costBasis > 0
+                              ? Text(
+                                  '${context.l10n.paid} $investedText',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: positionTileCaptionStyle(c),
+                                )
+                              : null,
+                        ),
+                      ),
 
                       if (pos.isResolved ||
                           pos.endDateStr?.isNotEmpty == true) ...[
-                        SizedBox(height: 10.h),
+                        SizedBox(height: 16.h),
                         // While a game is being played its header says
                         // where it is; the market's scheduled end (already
                         // past) would only mislead.
@@ -641,6 +577,36 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                           );
                         }),
                       ],
+
+
+                      SizedBox(height: 12.h),
+                      // How to protect it: the closest protective order
+                      // Predictions has, a limit sell, set on the sell
+                      // ticket's Advanced page. Only while it is open.
+                      if (!pos.isResolved && pos.size > 0)
+                        PositionLinkRow(
+                          key: const ValueKey('poly-position-protect'),
+                          label: context.l10n.positionProtectIt,
+                          value: context.l10n.betSellAt,
+                          onTap: () {
+                            TrackingService.track('position_protect_tapped',
+                                params: {
+                                  'venue': 'polymarket',
+                                  ...VenueAnalytics.pmKindParams([
+                                    pos.tokenId,
+                                    pos.marketId,
+                                    pos.eventSlug
+                                  ]),
+                                  'wallet_kind': 'hot',
+                                  'target': 'limit_sell',
+                                });
+                            context.pop();
+                            SellSheet.show(context,
+                                position: pos,
+                                source: 'position_protect',
+                                startWithLimit: true);
+                          },
+                        ),
 
                       // What the position is made of, as plain rows on
                       // the shared bottom sheet, one row away.
@@ -826,14 +792,60 @@ class _PositionDetailsRowState extends State<_PositionDetailsRow> {
   }
 
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: EdgeInsets.only(top: 12.h),
-        child: PolyRulesRow(
-          key: _PositionDetailsRow.rowKey,
-          label: context.l10n.details,
-          onTap: _show,
-        ),
+  Widget build(BuildContext context) => PositionLinkRow(
+        key: _PositionDetailsRow.rowKey,
+        label: context.l10n.details,
+        onTap: _show,
       );
+}
+
+/// "▲ You hold Up": the held side under the title, in its colour (the
+/// app's up / down colours for Yes / Up and No / Down, a team's own).
+class _HeldPill extends StatelessWidget {
+  final String outcome;
+  final Color color;
+  const _HeldPill({required this.outcome, required this.color});
+
+  static const pillKey = ValueKey('poly-position-held');
+
+  @override
+  Widget build(BuildContext context) {
+    final side = outcome.trim().toLowerCase();
+    final down = side == 'no' || side == 'down';
+    final up = side == 'yes' || side == 'up';
+    return Container(
+      key: pillKey,
+      padding: EdgeInsets.fromLTRB(up || down ? 6.w : 12.w, 5.h, 12.w, 5.h),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (up || down)
+            Icon(
+              down ? Icons.arrow_drop_down_rounded : Icons.arrow_drop_up_rounded,
+              color: color,
+              size: 20.sp,
+            ),
+          Flexible(
+            child: Text(
+              '${context.l10n.chartYouHold} $outcome',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: color,
+                fontSize: 13.sp,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.1,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _PositionDetailsSheet extends StatelessWidget {
@@ -894,12 +906,9 @@ class _ClosingConditionsRowState extends State<_ClosingConditionsRow> {
   }
 
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: EdgeInsets.only(top: 12.h),
-        child: PolyRulesRow(
-          label: context.l10n.betClosingConditions,
-          onTap: _show,
-        ),
+  Widget build(BuildContext context) => PolyRulesRow(
+        label: context.l10n.betClosingConditions,
+        onTap: _show,
       );
 }
 
@@ -1036,13 +1045,27 @@ class _PositionExpiryState extends State<_PositionExpiry> {
       final h = left.inHours;
       final m = (left.inMinutes % 60).toString().padLeft(2, '0');
       final s = (left.inSeconds % 60).toString().padLeft(2, '0');
-      label = context.l10n.betEndsCountdown(h > 0 ? '$h:$m:$s' : '$m:$s');
+      label = context.l10n.predictEndsIn(h > 0 ? '$h:$m:$s' : '$m:$s');
     }
-    return Text(label,
-        textAlign: TextAlign.center,
-        style: TextStyle(
-            color: context.colors.textTertiary,
-            fontSize: 13.sp,
-            fontWeight: FontWeight.w500));
+    final c = context.colors;
+    // A quiet pill, centred.
+    return Center(
+      child: Container(
+        key: const ValueKey('poly-position-expiry'),
+        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+        decoration: BoxDecoration(
+          color: c.surface,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: c.borderSubtle, width: 0.5),
+        ),
+        child: Text(label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+                color: c.textSecondary,
+                fontSize: 13.sp,
+                fontWeight: FontWeight.w600,
+                fontFeatures: const [FontFeature.tabularFigures()])),
+      ),
+    );
   }
 }
