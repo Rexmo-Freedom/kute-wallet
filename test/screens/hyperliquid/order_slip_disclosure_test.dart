@@ -650,10 +650,28 @@ void main() {
     expect(find.text('Short BTC'), findsNWidgets(2));
     expect(tester.widget<AppButton>(find.byType(AppButton)).text,
         'Short BTC');
-    // Even at 1x a short can be liquidated, and the plain ticket shows
-    // that estimate up front (e3ea3faa).
+    // Even at 1x a short can be liquidated. The plain ticket keeps just
+    // its two figures; the estimate is on the Advanced page.
     await _typeOnKeypad(tester, '20');
+    expect(find.text('Est. liquidation'), findsNothing);
+    await tester.tap(find.text('Advanced'));
+    await tester.pumpAndSettle();
     expect(find.text('Est. liquidation'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets(
+      'a 1x long has no liquidation worth saying: no "\$0.0" line, '
+      'plain or Advanced', (tester) async {
+    await _pumpSlip(tester);
+    await _typeOnKeypad(tester, '20');
+    expect(find.text('Est. liquidation'), findsNothing);
+    expect(find.text(r'$0.0'), findsNothing);
+    await tester.tap(find.text('Advanced'));
+    await tester.pumpAndSettle();
+    expect(find.text('Est. liquidation'), findsNothing);
+    expect(find.text(r'$0.0'), findsNothing);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });

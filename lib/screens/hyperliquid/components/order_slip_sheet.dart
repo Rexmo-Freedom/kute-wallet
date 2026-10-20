@@ -4762,7 +4762,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                     notional,
                     transferFromPerp,
                     hasFunds: available > 0 || _reduceOnly,
-                    entry: entry,
                     size: size,
                   ),
                   SlipGap(16.h),
@@ -6478,14 +6477,15 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           ],
           // Where this position would be liquidated, before anything is
           // placed: the one number a leveraged ticket must show up front.
-          if (liq.price != null || liq.blocker != null) ...[
+          // Only a real price (a 1x long has none worth saying: $0.0).
+          if (liq.blocker != null ||
+              (liq.price != null && liq.price!.isFinite && liq.price! > 0)) ...[
             SizedBox(height: 10.h),
             _previewRow(
               c,
               context.l10n.slipEstLiquidation,
-              liq.price != null
-                  ? formatHlPrice(liq.price!, decimalCap: market.pxDecimalCap)
-                  : liq.blocker!,
+              liq.blocker ??
+                  formatHlPrice(liq.price!, decimalCap: market.pxDecimalCap),
             ),
           ],
           if (holdingCost != null) ...[
@@ -6552,22 +6552,18 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
 
   /// The plain ticket's two figures, no boxes: what the order buys (the
   /// size in the coin) and its fee, zero in each until an amount is typed
-  /// (a tap on the fee opens its breakdown sheet). The
-  /// leverage and margin mode live in Advanced (leverage is 1× here);
-  /// the liquidation estimate and the carrying cost stay as quiet rows
-  /// under the figures when they apply.
+  /// (a tap on the fee opens its breakdown sheet). The leverage, margin
+  /// mode, position value and liquidation estimate live in Advanced
+  /// (leverage is 1× here); only the carrying cost stays, as a quiet line
+  /// under the figures, when it applies.
   Widget _buildCompactSummary(
     AppColorsExtension c,
     double notional,
     double transferFromPerp, {
     required bool hasFunds,
-    double entry = 0,
     double size = 0,
   }) {
     final holdingCost = _holdingCostLine(notional);
-    final liq = !isSpot && _isOpening && entry > 0 && _marginUsd > 0
-        ? _liquidationEstimate(entry, size)
-        : (price: null, blocker: null);
     final sized = _marginUsd > 0 && size > 0;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -6587,20 +6583,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                 child: _feeSummary(notional, hasFunds: hasFunds)),
           ),
         ),
-        if (!isSpot && _leverage > 1) ...[
-          SlipGap(12.h),
-          _previewRow(c, _strings.slipPositionValue, formatHlUsd(notional)),
-        ],
-        if (liq.price != null || liq.blocker != null) ...[
-          SlipGap(12.h),
-          _previewRow(
-            c,
-            _strings.slipEstLiquidation,
-            liq.price != null
-                ? formatHlPrice(liq.price!, decimalCap: market.pxDecimalCap)
-                : liq.blocker!,
-          ),
-        ],
+        // No full-width rows under the two figures: the position value
+        // and the liquidation estimate live on the Advanced page.
         if (!isSpot && holdingCost != null) ...[
           SizedBox(height: 10.h),
           Text(
