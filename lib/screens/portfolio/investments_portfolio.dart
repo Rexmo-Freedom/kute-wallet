@@ -21,9 +21,10 @@
 //   * ACTIVITY: the Investments activity, the one merged list
 //     (portfolio_activity.dart), all of it: this is its home now, so no
 //     preview and no "See all";
-//   * BALANCES (last): the Dollars, Investing and Predictions tiles with
-//     Move money under them (PortfolioBalanceBreakdown), moved here from
-//     the top of the Portfolio screen.
+//   * BALANCES (last): the allocation ring over one row per balance
+//     (Dollars, Investing, Predictions: components/balances_ring.dart)
+//     with Move money under them (PortfolioBalanceBreakdown, ring
+//     layout), moved here from the top of the Portfolio screen.
 //
 // The section is shared state ([portfolioSectionProvider]) kept for the
 // session, so the pill comes back where it was left and a link
@@ -223,7 +224,8 @@ class _Charts extends ConsumerWidget {
   }
 }
 
-/// Balances: the tiles and Move money (PortfolioBalanceBreakdown).
+/// Balances: the allocation ring, a row per balance and Move money
+/// (PortfolioBalanceBreakdown in its ring layout).
 class _Balances extends ConsumerWidget {
   const _Balances({required this.pills});
 
@@ -238,7 +240,9 @@ class _Balances extends ConsumerWidget {
         padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 0),
         sliver: SliverToBoxAdapter(
           child: PortfolioBalanceBreakdown(
-              trading: venues.trading, predictions: venues.predictions),
+              trading: venues.trading,
+              predictions: venues.predictions,
+              ring: true),
         ),
       ),
       _dockClearance(context),

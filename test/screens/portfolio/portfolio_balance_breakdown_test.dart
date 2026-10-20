@@ -3,8 +3,10 @@
 // their existing progress and arrival presentation independently.
 
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -35,6 +37,7 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/swap_orders_provider.dart';
 import 'package:kute/providers/unified_balances_provider.dart';
 import 'package:kute/providers/venue_sweeper_provider.dart';
+import 'package:kute/screens/portfolio/components/balances_ring.dart';
 import 'package:kute/screens/portfolio/open_investments_screen.dart';
 import 'package:kute/screens/home/components/deposit_sheet.dart'
     show DepositSheet;
@@ -1275,6 +1278,357 @@ void main() {
               expected: rebalanceBandExpected(OneBalanceVenue.investing)),
           lessThan(rebalanceBandProgress(RebalanceBandPhase.sending, minute,
               expected: rebalanceBandExpected(OneBalanceVenue.predictions))));
+    });
+  });
+
+  group('the Balances ring', () {
+    const ringBreakdown = Scaffold(
+        body: SingleChildScrollView(
+            child: PortfolioBalanceBreakdown(
+                trading: true, predictions: true, ring: true)));
+
+    // The founder's balances (October 2026).
+    const founder = OneBalanceState(
+      dollarsUsd: 0.06,
+      investedUsd: 10.82,
+      investedByVenue: {OneBalanceVenue.investing: 10.82},
+      investingKnown: true,
+      predictionsKnown: true,
+      venueCash: {
+        OneBalanceVenue.investing: 0.45,
+        OneBalanceVenue.predictions: 9.56,
+      },
+    );
+
+    BalancesRingEntry entry(BalancesRingPart part, double? cash,
+            [double? positions, bool holds = true]) =>
+        BalancesRingEntry(
+          part: part,
+          asset: '',
+          name: part.name,
+          cash: BalancesRingFigure('', usd: cash),
+          positions: part == BalancesRingPart.dollars || !holds
+              ? null
+              : BalancesRingFigure('', usd: positions),
+        );
+
+    final founderEntries = [
+      entry(BalancesRingPart.dollars, 0.06),
+      entry(BalancesRingPart.investing, 0.45, 10.82),
+      entry(BalancesRingPart.predictions, 9.56, 0),
+    ];
+
+    String centre(WidgetTester tester) => tester
+        .widget<RollingFigure>(find.descendant(
+            of: find.byKey(const ValueKey('portfolio-balance-ring-figure')),
+            matching: find.byType(RollingFigure)))
+        .text;
+    String centreText(WidgetTester tester, String key) =>
+        tester.widget<Text>(find.byKey(ValueKey(key))).data!;
+    String total(WidgetTester tester, String venue) => tester
+        .widget<RollingFigure>(find.descendant(
+            of: find.byKey(ValueKey('portfolio-balance-$venue-total')),
+            matching: find.byType(RollingFigure)))
+        .text;
+    bool rowSelected(WidgetTester tester, String venue) =>
+        tester
+            .widget<Semantics>(find
+                .descendant(
+                    of: find.byKey(ValueKey('portfolio-balance-$venue')),
+                    matching: find.byType(Semantics))
+                .first)
+            .properties
+            .selected ??
+        false;
+
+    test(
+        'slices: each balance its share of the circle less the gaps, cash '
+        'then positions, a tiny one held to the minimum', () {
+      final arcs = balancesRingArcs(founderEntries);
+      expect(arcs.map((a) => a.part), BalancesRingPart.values);
+      const room = 2 * math.pi - 3 * kBalancesRingGap;
+      // Dollars ($0.06 of $20.89) would be under a degree: the minimum.
+      expect(arcs[0].sweep, moreOrLessEquals(kBalancesRingMinSweep));
+      final rest = room - kBalancesRingMinSweep;
+      expect(arcs[1].sweep,
+          moreOrLessEquals(rest * 11.27 / (11.27 + 9.56), epsilon: 1e-9));
+      expect(arcs[2].sweep,
+          moreOrLessEquals(rest * 9.56 / (11.27 + 9.56), epsilon: 1e-9));
+      // Investing: its cash solid first, then its positions.
+      expect(arcs[1].cashSweep,
+          moreOrLessEquals(arcs[1].sweep * 0.45 / 11.27, epsilon: 1e-9));
+      // Predictions holds nothing in positions: all cash.
+      expect(arcs[2].cashSweep, arcs[2].sweep);
+      // Round the circle in order, a gap between each.
+      expect(arcs[0].start, kBalancesRingGap / 2);
+      for (var i = 1; i < arcs.length; i++) {
+        expect(arcs[i].start,
+            moreOrLessEquals(arcs[i - 1].end + kBalancesRingGap));
+      }
+      expect(
+          arcs.last.end + kBalancesRingGap / 2, moreOrLessEquals(2 * math.pi));
+
+      // Proportional when none is tiny.
+      final even = balancesRingArcs([
+        entry(BalancesRingPart.dollars, 30),
+        entry(BalancesRingPart.investing, 10, 50),
+        entry(BalancesRingPart.predictions, 10, 0),
+      ]);
+      const evenRoom = 2 * math.pi - 3 * kBalancesRingGap;
+      expect(even.map((a) => a.sweep / evenRoom).toList(), [
+        moreOrLessEquals(0.3),
+        moreOrLessEquals(0.6),
+        moreOrLessEquals(0.1),
+      ]);
+      expect(even[1].cashSweep / even[1].sweep, moreOrLessEquals(1 / 6));
+
+      // An empty balance gets no slice; one alone is the whole ring.
+      final alone = balancesRingArcs([
+        entry(BalancesRingPart.dollars, 0),
+        entry(BalancesRingPart.investing, 0, 0),
+        entry(BalancesRingPart.predictions, 4, 0),
+      ]);
+      expect(alone.single.part, BalancesRingPart.predictions);
+      expect(alone.single.start, 0);
+      expect(alone.single.sweep, moreOrLessEquals(2 * math.pi));
+      // Nothing anywhere: the track only.
+      expect(balancesRingArcs([entry(BalancesRingPart.dollars, 0)]), isEmpty);
+    });
+
+    test('an unknown balance: no slices, no shares, never a guess', () {
+      final unknown = [
+        entry(BalancesRingPart.dollars, 0.06),
+        entry(BalancesRingPart.investing, null, null),
+        entry(BalancesRingPart.predictions, 9.56, 0),
+      ];
+      expect(balancesRingArcs(unknown), isEmpty);
+      expect(balancesRingShare(unknown[0], null, visible: true), isNull);
+    });
+
+    test('shares: whole percents, under one percent, hidden', () {
+      const all = 20.89;
+      expect(balancesRingShare(founderEntries[0], all, visible: true), '<1%');
+      expect(balancesRingShare(founderEntries[1], all, visible: true), '54%');
+      expect(balancesRingShare(founderEntries[2], all, visible: true), '46%');
+      expect(balancesRingShare(founderEntries[1], all, visible: false), '••%');
+      expect(
+          balancesRingShare(entry(BalancesRingPart.investing, 0, 0), all,
+              visible: true),
+          isNull);
+    });
+
+    test('a tap on the ring finds the slice under it, none on an empty ring',
+        () {
+      final arcs = balancesRingArcs(founderEntries);
+      for (final a in arcs) {
+        expect(balancesRingPartAt(arcs, a.start + a.sweep / 2), a.part);
+      }
+      // Nine o'clock is well inside Predictions, and so is just before
+      // twelve (the last arc, up to its half of the gap).
+      expect(balancesRingPartAt(arcs, 1.5 * math.pi),
+          BalancesRingPart.predictions);
+      expect(balancesRingPartAt(arcs, -0.25 * math.pi),
+          BalancesRingPart.predictions);
+      expect(balancesRingPartAt(const [], 1), isNull);
+    });
+
+    testWidgets(
+        "the founder's balances: the hole is what is ready to use and what "
+        'is in positions, one row per balance with its share, total, cash '
+        'and positions', (tester) async {
+      final c = await _pump(tester, home: ringBreakdown);
+      c.read(_balance.notifier).state = founder;
+      await tester.pumpAndSettle();
+      expect(
+          find.byKey(const ValueKey('portfolio-balance-ring')), findsOneWidget);
+      expect(find.byKey(const ValueKey('portfolio-balance-row')), findsNothing);
+      expect(centreText(tester, 'portfolio-balance-ring-label'), 'Available');
+      // Cash of all three, never the header's total again.
+      expect(centre(tester), r'$10.07');
+      expect(centreText(tester, 'portfolio-balance-ring-line'),
+          r'Positions $10.82');
+      expect(find.byKey(const ValueKey('portfolio-balance-ring-legend')),
+          findsOneWidget);
+
+      expect(total(tester, 'dollars'), r'$0.06');
+      expect(total(tester, 'investing'), r'$11.27');
+      expect(total(tester, 'predictions'), r'$9.56');
+      expect(_figureUnder(tester, 'dollars', 'Available'), r'$0.06');
+      expect(_figureUnder(tester, 'investing', 'Available'), r'$0.45');
+      expect(_figureUnder(tester, 'investing', 'Positions'), r'$10.82');
+      expect(_figureUnder(tester, 'predictions', 'Available'), r'$9.56');
+      expect(_figureUnder(tester, 'predictions', 'Positions'), r'$0.00');
+      // Dollars hold no positions: "Available", as the tile said.
+      expect(_inCard('dollars', find.text('Positions')), findsNothing);
+      expect(_inCard('dollars', find.text('Available')), findsOneWidget);
+      for (final (venue, share) in [
+        ('dollars', '<1%'),
+        ('investing', '54%'),
+        ('predictions', '46%'),
+      ]) {
+        expect(
+            tester
+                .widget<Text>(
+                    find.byKey(ValueKey('portfolio-balance-$venue-share')))
+                .data,
+            share);
+        expect(_inCard(venue, find.byType(SvgPicture)), findsOneWidget);
+      }
+      // The rows in order under the ring, Move money under them.
+      final ring =
+          tester.getRect(find.byKey(const ValueKey('portfolio-balance-ring')));
+      final d = _tile(tester, 'dollars');
+      final i = _tile(tester, 'investing');
+      final p = _tile(tester, 'predictions');
+      expect(d.top, greaterThan(ring.bottom));
+      expect(i.top, greaterThan(d.bottom));
+      expect(p.top, greaterThan(i.bottom));
+      expect(tester.getRect(_rebalance).top, greaterThan(p.bottom));
+      // Drawn once, then still: nothing ticks.
+      expect(tester.binding.hasScheduledFrame, isFalse);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+        'a tap on a row or a slice picks it, a selection click, the hole '
+        'names it; the same tap again clears it', (tester) async {
+      final events = _events();
+      final haptics = <String>[];
+      tester.binding.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+        if (call.method == 'HapticFeedback.vibrate') {
+          haptics.add('${call.arguments}');
+        }
+        return null;
+      });
+      addTearDown(() => tester.binding.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, null));
+      final c = await _pump(tester, home: ringBreakdown);
+      c.read(_balance.notifier).state = founder;
+      await tester.pumpAndSettle();
+      final before = events.length;
+
+      await tester
+          .tap(find.byKey(const ValueKey('portfolio-balance-investing')));
+      await tester.pumpAndSettle();
+      expect(haptics, ['HapticFeedbackType.selectionClick']);
+      expect(rowSelected(tester, 'investing'), isTrue);
+      expect(rowSelected(tester, 'predictions'), isFalse);
+      expect(centreText(tester, 'portfolio-balance-ring-label'), 'Investing');
+      expect(centre(tester), r'$11.27');
+      expect(centreText(tester, 'portfolio-balance-ring-line'),
+          r'Cash $0.45 · Positions $10.82');
+
+      // Dollars: cash only.
+      await tester.tap(find.byKey(const ValueKey('portfolio-balance-dollars')));
+      await tester.pumpAndSettle();
+      expect(centreText(tester, 'portfolio-balance-ring-line'), r'Cash $0.06');
+      expect(rowSelected(tester, 'investing'), isFalse);
+
+      // Again: cleared.
+      await tester.tap(find.byKey(const ValueKey('portfolio-balance-dollars')));
+      await tester.pumpAndSettle();
+      expect(rowSelected(tester, 'dollars'), isFalse);
+      expect(centreText(tester, 'portfolio-balance-ring-label'), 'Available');
+      expect(centre(tester), r'$10.07');
+
+      // Nine o'clock on the ring: Predictions.
+      final ring =
+          tester.getRect(find.byKey(const ValueKey('portfolio-balance-ring')));
+      final radius = ring.width / 2 - 12;
+      await tester.tapAt(ring.center - Offset(radius, 0));
+      await tester.pumpAndSettle();
+      expect(rowSelected(tester, 'predictions'), isTrue);
+      expect(centreText(tester, 'portfolio-balance-ring-label'), 'Predictions');
+      expect(centre(tester), r'$9.56');
+      // The hole clears it.
+      await tester.tapAt(ring.center);
+      await tester.pumpAndSettle();
+      expect(rowSelected(tester, 'predictions'), isFalse);
+      expect(haptics.length, 5);
+      // No analytics for a pick.
+      expect(events.length, before);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+        'a balance not read yet: a dash in its row and the hole, no share, '
+        r'never $0.00', (tester) async {
+      final c = await _pump(tester, home: ringBreakdown, overrides: [
+        hyperliquidDisplayTradingProvider
+            .overrideWith((_) => const AsyncLoading<HyperliquidTradingState>()),
+      ]);
+      c.read(_balance.notifier).state =
+          const OneBalanceState(dollarsUsd: 0.06, predictionsKnown: true);
+      await tester.pumpAndSettle();
+      expect(total(tester, 'investing'), '—');
+      expect(_inCard('investing', _figure('—')), findsNWidgets(3));
+      expect(_inCard('investing', _figure(r'$0.00')), findsNothing);
+      expect(centre(tester), '—');
+      expect(centreText(tester, 'portfolio-balance-ring-line'), 'Positions —');
+      for (final venue in ['dollars', 'investing', 'predictions']) {
+        expect(find.byKey(ValueKey('portfolio-balance-$venue-share')),
+            findsNothing);
+      }
+      expect(total(tester, 'dollars'), r'$0.06');
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('the ring is one node naming every balance and its parts',
+        (tester) async {
+      final handle = tester.ensureSemantics();
+      final c = await _pump(tester, home: ringBreakdown);
+      c.read(_balance.notifier).state = founder;
+      await tester.pumpAndSettle();
+      expect(
+          find.bySemanticsLabel(r'Dollars $0.06, Cash $0.06. '
+              r'Investing $11.27, Cash $0.45, Positions $10.82. '
+              r'Predictions $9.56, Cash $9.56, Positions $0.00'),
+          findsOneWidget);
+      handle.dispose();
+    });
+
+    testWidgets('Reduce Motion: drawn at once, nothing animates',
+        (tester) async {
+      await tester.pumpWidget(const SizedBox());
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(
+          tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+      final c = await _pump(tester, home: ringBreakdown, settle: false);
+      c.read(_balance.notifier).state = founder;
+      await tester.pump();
+      await tester.pump();
+      await tester
+          .tap(find.byKey(const ValueKey('portfolio-balance-predictions')));
+      await tester.pump();
+      expect(rowSelected(tester, 'predictions'), isTrue);
+      expect(tester.binding.hasScheduledFrame, isFalse);
+    });
+
+    testWidgets('375 pt at 130 % text, long amounts: nothing overflows',
+        (tester) async {
+      final c = await _pump(tester,
+          home: ringBreakdown, size: const Size(375, 812), textScale: 1.3);
+      c.read(_balance.notifier).state = const OneBalanceState(
+        dollarsUsd: 123456.78,
+        investedUsd: 1111111.11,
+        investedByVenue: {
+          OneBalanceVenue.investing: 987654.32,
+          OneBalanceVenue.predictions: 123456.79,
+        },
+        investingKnown: true,
+        predictionsKnown: true,
+        venueCash: {OneBalanceVenue.investing: 45678.9},
+        waiting: {OneBalanceVenue.predictions: 34567.89},
+      );
+      await tester.pumpAndSettle();
+      await tester
+          .tap(find.byKey(const ValueKey('portfolio-balance-investing')));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(_figureUnder(tester, 'investing', 'Positions'), r'$987,654.32');
+      expect(_tile(tester, 'predictions').right, lessThanOrEqualTo(375));
     });
   });
 }
