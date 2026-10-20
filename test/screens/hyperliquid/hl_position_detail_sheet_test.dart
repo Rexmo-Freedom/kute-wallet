@@ -206,8 +206,8 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('no Sal on the position: no button, no question row; the '
-      'rows say what is at risk', (tester) async {
+  testWidgets('no Sal on the position: no button, no question row; no '
+      'sentence on what closing at the liquidation loses', (tester) async {
     await _pump(tester, ai: true);
     final header = find
         .ancestor(of: find.byType(KuteCloseButton), matching: find.byType(Row))
@@ -220,28 +220,18 @@ void main() {
     expect(find.byType(SalWhyMovingRow), findsNothing);
     expect(find.byType(KuteDogGlance), findsNothing);
     expect(find.byType(SalAiRing), findsNothing);
-    // A long position, isolated: if the price falls to the venue's
-    // liquidation price the whole margin goes.
-    final risk = find.byKey(const ValueKey('hl-position-risk-line'));
-    expect(risk, findsOneWidget);
-    expect(
-        find.text(r'If BTC falls to $58,000, this position closes and you '
-            r'lose $6,400.00.'),
-        findsOneWidget);
-    // Inside the position's rows card, under the Liquidation row.
-    expect(
-        find.descendant(
-            of: find.byType(PositionRowsCard), matching: risk),
-        findsOneWidget);
-    expect(tester.getRect(risk).top,
-        greaterThan(tester.getRect(find.text('Liquidation')).bottom));
+    // The Liquidation row says how far it is; no sentence under it on
+    // what closing there loses.
+    expect(find.text('Liquidation'), findsOneWidget);
+    expect(find.byKey(const ValueKey('hl-position-risk-line')), findsNothing);
+    expect(find.textContaining('this position closes'), findsNothing);
     // The market has not loaded: nothing can place a protective order yet.
     expect(find.byKey(const ValueKey('hl-position-protect')), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('a short cross position: rises to, and the loss at the '
-      'liquidation price against the entry', (tester) async {
+  testWidgets('a short cross position: Short in Details, no sentence on '
+      'the loss at the liquidation price', (tester) async {
     // (64,000 - 70,000) x -0.5 = 3,000 lost at 70,000.
     await _pump(tester,
         position: const HlPerpPosition(
@@ -259,11 +249,7 @@ void main() {
         ));
     await _openDetails(tester);
     expect(find.text('Short'), findsOneWidget);
-    expect(
-        find.text(r'If BTC rises to $70,000, this position closes and you '
-            r'lose $3,000.00.'),
-        findsOneWidget);
-    expect(find.textContaining('falls to'), findsNothing);
+    expect(find.textContaining('this position closes'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -726,17 +712,18 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('the position at 375 wide, text x1.3: the risk line and '
+    testWidgets('the position at 375 wide, text x1.3: Liquidation and '
         '"Protect it" fit, nothing overflows, no Sal', (tester) async {
       await loadInter(tester);
       await pumpScreen(
           tester, const HlPositionDetailSheet(position: _position, market: btc),
           width: 375, font: 'Inter', textScale: 1.3, ai: true);
-      final risk = find.byKey(const ValueKey('hl-position-risk-line'));
-      await tester.ensureVisible(risk);
+      final protect = find.byKey(const ValueKey('hl-position-protect'));
+      await tester.ensureVisible(protect);
       await tester.pump();
-      expect(risk, findsOneWidget);
-      expect(find.byKey(const ValueKey('hl-position-protect')), findsOneWidget);
+      expect(protect, findsOneWidget);
+      expect(find.text('Liquidation'), findsOneWidget);
+      expect(find.byKey(const ValueKey('hl-position-risk-line')), findsNothing);
       expect(find.byType(SalWhyMovingRow), findsNothing);
       expect(find.byType(KuteDogGlance), findsNothing);
       expect(tester.takeException(), isNull);

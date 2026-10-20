@@ -18,7 +18,7 @@ import 'package:kute/providers/ledger/ledger_identity_provider.dart';
 // (PositionRowsCard): margin lives in one row, "Liquidation $78,400 · 12%
 // away", the distance coloured as it closes in (HlLiquidationText), with
 // "Add margin" beside it on an isolated position (the margin sheet, where
-// Remove is a mode), the risk line and "Protect it". The side, the
+// Remove is a mode), and "Protect it". The side, the
 // position size (the notional, size x price, with the coin size), the
 // margin, entry, liquidation, leverage, margin mode and funding wait in
 // Details, in the same rows, with one line on what the position size is;
@@ -232,8 +232,6 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
     final positive = pnl >= 0;
     final accent = positive ? greenColor : redColor;
     final liquidation = current != null ? hlLiquidationPrice(pos) : null;
-    final lossAtLiquidation =
-        liquidation != null ? hlLossAtLiquidation(pos) : null;
     // Isolated margin can be topped up or taken out (spending wallet
     // only: the Ledger signer has no reviewed path for
     // updateIsolatedMargin), on the very market the position is held on.
@@ -394,9 +392,10 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                                   height: 380, padding: EdgeInsets.zero),
                             SizedBox(height: 16.h),
                             // Only what matters on the screen: how far the
-                            // liquidation is (with Add margin), what is at
-                            // risk and how to protect it. What the position
-                            // is made of (side, size, margin) is in Details.
+                            // liquidation is (with Add margin) and how to
+                            // protect it; no sentence on what closing at it
+                            // loses. What the position is made of (side,
+                            // size, margin) is in Details.
                             if (current != null) ...[
                               PositionRowsCard(rows: [
                                 // Margin in one place: the liquidation price, how
@@ -419,21 +418,6 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                                           source: HlMarginSource.liquidationRow)
                                       : null,
                                 ),
-                                // What is at risk, in one plain sentence, only
-                                // with the venue's liquidation price and a
-                                // real loss to name.
-                                if (lossAtLiquidation != null)
-                                  PositionRow.note(
-                                    key: const ValueKey('hl-position-risk-line'),
-                                    (pos.isLong
-                                        ? context.l10n.hlRiskLiquidationLong
-                                        : context.l10n.hlRiskLiquidationShort)(
-                                      m?.coin ?? pos.coin,
-                                      formatHlPrice(liquidation!,
-                                          decimalCap: m?.pxDecimalCap),
-                                      formatPolyAmount(ref, lossAtLiquidation),
-                                    ),
-                                  ),
                                 // The ticket's own protective orders (stop /
                                 // take profit, the trailing stop), one tap
                                 // away. Needs the market to place them.
