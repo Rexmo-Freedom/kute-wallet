@@ -4436,7 +4436,7 @@ class AppLocalizationsEt extends AppLocalizations {
   String get polyAwaitingResult => 'Lõppenud · Tulemus mõne minuti pärast';
 
   @override
-  String get polyAwaitingWon => 'Sa võitsid · Kättesaadav mõne minuti pärast';
+  String get polyAwaitingWon => 'Sa võitsid';
 
   @override
   String get polyAwaitingLost => 'Lõppenud · Kaotus';
@@ -4445,7 +4445,7 @@ class AppLocalizationsEt extends AppLocalizations {
   String get polyAwaitingResultSoon => 'Lõppenud · Ootab tulemust';
 
   @override
-  String get polyAwaitingWonSoon => 'Sa võitsid · Varsti kättesaadav';
+  String get polyAwaitingWonSoon => 'Sa võitsid';
 
   @override
   String polyAwaitingResultInMinutes(int minutes) {

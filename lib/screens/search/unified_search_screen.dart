@@ -1095,8 +1095,9 @@ class _OwnedPositionRow extends ConsumerWidget {
           eventSlug: p.eventSlug,
           end: polyPositionEnd(p),
           conditionId: p.marketId,
+          // A won position is claimed automatically: it reads "Settled"
+          // like any closed one, never "Ready to claim".
           resolved: p.isResolved,
-          claimable: p.won == true,
           onTap: () {
             HapticFeedback.lightImpact();
             _trackSearchResultTap(ref, 'owned_position', position: position);

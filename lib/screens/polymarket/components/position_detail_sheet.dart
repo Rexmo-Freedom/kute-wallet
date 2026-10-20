@@ -72,7 +72,9 @@ const Color _kPolyRed = AppColors.marketDown;
 // settled: what it paid out); the end as a pill; and plain rows: "Protect
 // it" while open, "Details" (outcome / shares / price paid / invested, on
 // the shared bottom sheet, as on the Investing position) and the closing
-// conditions; and the Sell (or Claim / Clear) action.
+// conditions; and the Sell (or, on a resolved losing side, Clear) action.
+// A won position has no action: it is claimed automatically
+// (claim_auto_fire.dart) and reads "Settled".
 
 class PositionDetailSheet extends ConsumerStatefulWidget {
   final PolymarketPosition position;
@@ -662,58 +664,63 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
               ),
               // Sticky action footer — Buy More + Sell live outside the
               // scroll view so they're always visible regardless of how
-              // far down the user scrolls. Always rendered (no isResolved
-              // gate) so the user always has a way out of the position.
+              // far down the user scrolls. Rendered for every position
+              // but a won one: a win is claimed automatically
+              // (claim_auto_fire.dart), so there is nothing to tap.
               //
               // Wrapped in SafeArea(top:false) and given extra bottom
               // padding so the buttons clear the iPhone home-indicator
               // area — earlier they sat right against the gesture bar
               // and felt unconfirmable.
-              ClipRect(
-                child: KuteBlur(
-                  sigmaX: 18,
-                  sigmaY: 18,
-                  child: Container(
-                    color: (context.isDark ? c.surface : c.background)
-                        .withValues(alpha: 0.55),
-                    child: SafeArea(
-                      top: false,
-                      child: Padding(
-                        padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 16.h),
-                        child: Row(
-                          children: [
-                            // Buy More removed — users go to the market via the
-                            // browse list / search to add to a position. Position
-                            // detail sticks to its single job: review + sell.
-                            Expanded(
-                              // Resolved: Claim ("Claim $4.53") or Clear
-                              // runs right here, one tap, and ends on the
-                              // confirmation (position_claim.dart).
-                              child: pos.isResolved
-                                  ? PolyClaimButton(
-                                      position: pos,
-                                      surface: 'position_detail',
-                                      popRoute: true,
-                                      icon: Icons.check_rounded,
-                                    )
-                                  : _PositionActionButton(
-                                      label: context.l10n.sell,
-                                      icon: Icons.remove_rounded,
-                                      color: _kPolyRed,
-                                      // AppButton fires its own haptic.
-                                      onTap: () {
-                                        context.pop();
-                                        SellSheet.show(context, position: pos);
-                                      },
-                                    ),
-                            ),
-                          ],
+              if (!(pos.isResolved && pos.won == true))
+                ClipRect(
+                  child: KuteBlur(
+                    sigmaX: 18,
+                    sigmaY: 18,
+                    child: Container(
+                      color: (context.isDark ? c.surface : c.background)
+                          .withValues(alpha: 0.55),
+                      child: SafeArea(
+                        top: false,
+                        child: Padding(
+                          padding:
+                              EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 16.h),
+                          child: Row(
+                            children: [
+                              // Buy More removed — users go to the market
+                              // via the browse list / search to add to a
+                              // position. Position detail sticks to its
+                              // single job: review + sell.
+                              Expanded(
+                                // Resolved (a lost side): Clear runs right
+                                // here, one tap, and ends on the
+                                // confirmation (position_claim.dart).
+                                child: pos.isResolved
+                                    ? PolyClaimButton(
+                                        position: pos,
+                                        surface: 'position_detail',
+                                        popRoute: true,
+                                        icon: Icons.check_rounded,
+                                      )
+                                    : _PositionActionButton(
+                                        label: context.l10n.sell,
+                                        icon: Icons.remove_rounded,
+                                        color: _kPolyRed,
+                                        // AppButton fires its own haptic.
+                                        onTap: () {
+                                          context.pop();
+                                          SellSheet.show(context,
+                                              position: pos);
+                                        },
+                                      ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
-              ),
             ],
           ),
         ),

@@ -4432,8 +4432,7 @@ class AppLocalizationsLv extends AppLocalizations {
   String get polyAwaitingResult => 'Beidzies · Rezultāts pēc dažām minūtēm';
 
   @override
-  String get polyAwaitingWon =>
-      'Tu uzvarēji · Saņemšanai gatavs pēc dažām minūtēm';
+  String get polyAwaitingWon => 'Tu uzvarēji';
 
   @override
   String get polyAwaitingLost => 'Beidzies · Zaudēts';
@@ -4442,7 +4441,7 @@ class AppLocalizationsLv extends AppLocalizations {
   String get polyAwaitingResultSoon => 'Beidzies · Gaida rezultātu';
 
   @override
-  String get polyAwaitingWonSoon => 'Tu uzvarēji · Drīz gatavs saņemšanai';
+  String get polyAwaitingWonSoon => 'Tu uzvarēji';
 
   @override
   String polyAwaitingResultInMinutes(int minutes) {

@@ -4470,8 +4470,7 @@ class AppLocalizationsRo extends AppLocalizations {
   String get polyAwaitingResult => 'Încheiat · Rezultat în câteva minute';
 
   @override
-  String get polyAwaitingWon =>
-      'Ai câștigat · Gata de revendicat în câteva minute';
+  String get polyAwaitingWon => 'Ai câștigat';
 
   @override
   String get polyAwaitingLost => 'Încheiat · Pierdut';
@@ -4480,8 +4479,7 @@ class AppLocalizationsRo extends AppLocalizations {
   String get polyAwaitingResultSoon => 'Încheiat · Se așteaptă rezultatul';
 
   @override
-  String get polyAwaitingWonSoon =>
-      'Ai câștigat · În curând gata de revendicat';
+  String get polyAwaitingWonSoon => 'Ai câștigat';
 
   @override
   String polyAwaitingResultInMinutes(int minutes) {

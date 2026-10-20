@@ -16,10 +16,12 @@
 //   * a caption: the game's clock while it is played, or its kickoff;
 //     once it has ended and until its result is claimable, that it
 //     is waiting for the result ("Ended · Result in a few minutes", "You
-//     won · Ready to claim soon", "Ended · Lost"; position_awaiting.dart);
-//     "Ready to claim" / "Settled" on a resolved one, unless its Claim
-//     button already says so; "Selling…" while a sale of it is on its way
-//     (the caller's [status]).
+//     won", "Ended · Lost"; position_awaiting.dart); "Settled" on a
+//     resolved one (a spending-wallet win is claimed automatically, so it
+//     reads like any settled position), "Ready to claim" only on a
+//     Ledger's win waiting for its signed claim, unless its Claim button
+//     already says so; "Selling…" while a sale of it is on its way (the
+//     caller's [status]).
 //
 // The card reads the position's event by its slug (title, teams, game)
 // from the cards' shared batch (poly_position_events.dart: one read for
@@ -82,7 +84,10 @@ class PolyPositionCard extends ConsumerWidget {
   /// expected (position_awaiting.dart).
   final String? conditionId;
 
-  /// The market has resolved; [claimable] when it paid out.
+  /// The market has resolved; [claimable] when it paid out and the win
+  /// still waits for a manual, signed claim (a Ledger's). A spending-wallet
+  /// win is claimed automatically (claim_auto_fire.dart): it is not
+  /// claimable here and reads "Settled".
   final bool resolved;
   final bool claimable;
   final VoidCallback? onTap;

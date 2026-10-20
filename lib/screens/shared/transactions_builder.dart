@@ -82,11 +82,9 @@ import 'package:kute/providers/pending_ledger_settlement_provider.dart';
 import 'package:kute/models/polymarket_model.dart'
     show Activity, ActivityType;
 import 'package:kute/providers/polymarket_browse_provider.dart'
-    show activityCrestIcon, polymarketClaimablePositionsProvider;
+    show activityCrestIcon;
 import 'package:kute/helpers/prediction_results.dart'
     show PredictionResult, predictionResults;
-import 'package:kute/screens/polymarket/components/position_claim.dart'
-    show PolyClaimButton;
 import 'package:kute/screens/polymarket/market_detail_sheet.dart'
     show MarketDetailSheet;
 import 'package:kute/screens/portfolio/poly_position_events.dart'
@@ -4027,23 +4025,19 @@ Widget _buildPolymarketItem(
   // The Orchestra USDC→BTC cash-out leg is collapsed out of the feed
   // (`_collapsePolymarketFlows`), which would silently drop its pending
   // state: keep the in-flight signal on the row the user actually sees
-  // until the BTC lands. A win not claimed yet says so, and the row runs
-  // the claim.
-  final claimable = result?.claimable ?? false;
-  final status = claimable
-      ? _RowStatus(text: context.l10n.claim, color: AppColors.marketUp)
-      : result == null &&
-              type == ActivityType.redeem &&
-              tx.usdcAmount > 0.001 &&
-              _hasInFlightWithdrawLeg(tx, ref)
-          ? _RowStatus(
-              text: context.l10n.activitySettling,
-              color: context.colors.warning)
-          : null;
+  // until the BTC lands. A win not claimed yet reads like any settled
+  // result: it is claimed automatically (claim_auto_fire.dart).
+  final status = result == null &&
+          type == ActivityType.redeem &&
+          tx.usdcAmount > 0.001 &&
+          _hasInFlightWithdrawLeg(tx, ref)
+      ? _RowStatus(
+          text: context.l10n.activitySettling, color: context.colors.warning)
+      : null;
 
   return _TransactionRow(
     // A result read from the market has no venue record: it opens its own
-    // sheet (the figures, the market, the claim of a win not claimed yet).
+    // sheet (the figures and the market).
     onTap: result == null
         ? () => _showPolymarketTxDetails(context, ref, tx)
         : () => showPredictionResultDetails(context, result),
@@ -4302,10 +4296,10 @@ void _showPolymarketTxDetails(
 /// shares held at the resolution, what they cost, what the market pays
 /// for them and the realised profit or loss. No explorer link and no
 /// hash: nothing happened on chain, so there is no transaction to open.
-/// A win not claimed yet carries the Portfolio's Claim; the market opens
-/// once its event is known. [ledgerWalletId] is set on a Ledger account's
-/// row: its market opens for that wallet, and its claim stays on the
-/// position.
+/// A win not claimed yet reads like any settled result (the spending
+/// wallet claims it automatically); the market opens once its event is
+/// known. [ledgerWalletId] is set on a Ledger account's row: its market
+/// opens for that wallet, and its claim stays on the position.
 void showPredictionResultDetails(BuildContext context, PredictionResult result,
     {String? ledgerWalletId}) {
   TrackingService.transactionDetailViewed('polymarket_result');
@@ -4329,13 +4323,6 @@ void showPredictionResultDetails(BuildContext context, PredictionResult result,
             final pnl = result.pnlUsd;
             final event =
                 slug.isEmpty ? null : ref.watch(polyPositionEventProvider(slug));
-            final claim = ledgerWalletId == null && result.claimable
-                ? ref
-                    .watch(polymarketClaimablePositionsProvider)
-                    .where((p) =>
-                        p.marketId == result.conditionId && p.won == true)
-                    .firstOrNull
-                : null;
             return Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -4360,11 +4347,6 @@ void showPredictionResultDetails(BuildContext context, PredictionResult result,
                   valueColor: pnl >= 0 ? const Color(0xFF15803D) : _kPolyRedTx,
                 ),
                 SizedBox(height: 16.h),
-                if (claim != null) ...[
-                  PolyClaimButton(
-                      position: claim, surface: 'activity', popRoute: true),
-                  SizedBox(height: 10.h),
-                ],
                 if (event != null) ...[
                   SizedBox(
                     width: double.infinity,

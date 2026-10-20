@@ -3,7 +3,7 @@
 // The spending account's investments, in two places (owner decision
 // October 2026):
 //
-//   * POSITIONS: everything held now, at both venues, in ONE list — wins to claim and
+//   * POSITIONS: everything held now, at both venues, in ONE list — settled results and
 //     bets on their way first, then every open position, Predictions
 //     (Polymarket, combos included) and Investing (Hyperliquid perps and
 //     spot holdings) alike, largest first by what it is worth — and under
@@ -80,7 +80,6 @@ import 'package:kute/screens/hyperliquid/market_detail_sheet.dart';
 import 'package:kute/screens/polymarket/components/combo_position_card.dart';
 import 'package:kute/screens/polymarket/components/live_token_scope.dart';
 import 'package:kute/screens/polymarket/components/position_card.dart';
-import 'package:kute/screens/polymarket/components/position_claim.dart';
 import 'package:kute/screens/polymarket/components/position_detail_sheet.dart';
 import 'package:kute/screens/portfolio/poly_position_events.dart'
     show polyPortfolioEventsPrefetchProvider;
@@ -266,7 +265,7 @@ class PortfolioPositions extends ConsumerWidget {
   }
 }
 
-/// Everything Positions lists, in its order: wins to claim and bets on
+/// Everything Positions lists, in its order: settled results and bets on
 /// their way lead, then every open position at both venues together,
 /// largest first (ties keep their venue order) ([held]); then the resting
 /// orders under their Orders heading ([orderItems]). Shared by the
@@ -396,7 +395,7 @@ List<Widget> portfolioOrdersSlivers(
 
 // ───────────────────────────── predictions ─────────────────────────────
 
-/// The account's Polymarket book as the Portfolio lists it: wins to claim,
+/// The account's Polymarket book as the Portfolio lists it: settled results,
 /// bets on their way to the book, open positions and combos.
 class _PolyBook {
   final List<PolymarketPosition> open;
@@ -443,7 +442,7 @@ class _PolyBook {
       openCombos.isEmpty &&
       claimableCombos.isEmpty;
 
-  /// What leads Positions: wins to claim, then bets on their way.
+  /// What leads Positions: settled results, then bets on their way.
   List<Widget> leading(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     return [
@@ -492,8 +491,8 @@ class _PolyBook {
 /// a game's two teams or the market's image and title, the position in
 /// one line, its value with the profit or loss under it. The value
 /// follows the held outcome's live price. Tap keeps the existing
-/// destination (the open-position screen); a win to claim carries its
-/// "Claim $4.53" button, which claims in one tap.
+/// destination (the open-position screen). A win is claimed
+/// automatically, so it carries no Claim button and reads "Settled".
 class _PolyPositionCard extends ConsumerWidget {
   final PolymarketPosition position;
   const _PolyPositionCard({super.key, required this.position});
@@ -527,15 +526,10 @@ class _PolyPositionCard extends ConsumerWidget {
           eventSlug: p.eventSlug,
           end: polyPositionEnd(p),
           conditionId: p.marketId,
+          // A win is claimed automatically (claim_auto_fire.dart): it
+          // reads "Settled" like any closed position, with no Claim button.
           resolved: p.isResolved,
-          claimable: p.won == true,
           status: selling ? context.l10n.betSellingEllipsis : null,
-          // A win is claimed from the card in one tap (no review page),
-          // ending on the claim confirmation.
-          action: p.isResolved && p.won == true
-              ? PolyClaimButton(
-                  position: p, surface: 'portfolio_card', compact: true)
-              : null,
           onTap: () {
             HapticFeedback.selectionClick();
             TrackingService.track('open_investments_position_tapped',

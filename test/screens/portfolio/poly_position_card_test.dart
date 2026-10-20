@@ -312,7 +312,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('a claimable win with no button of its own says so',
+  testWidgets('a Ledger win waiting for its signed claim, no button: says so',
       (tester) async {
     await _pump(
       tester,
@@ -330,6 +330,29 @@ void main() {
       ),
     );
     expect(find.text('Ready to claim'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'a spending-wallet win (claimed automatically) reads Settled, never '
+      'a claim', (tester) async {
+    await _pump(
+      tester,
+      PolyPositionCard(
+        question: 'Bitcoin Up or Down – October 20',
+        outcome: 'Up',
+        shares: 4.67,
+        avgPrice: 0.56,
+        value: 4.67,
+        pnl: 2.06,
+        pnlPercent: 78.6,
+        resolved: true,
+        end: DateTime(2020),
+      ),
+    );
+    expect(find.text('Settled'), findsOneWidget);
+    expect(find.textContaining('Ready to claim'), findsNothing);
+    expect(find.textContaining('Claim'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -410,11 +433,10 @@ void main() {
           end: at ?? end,
         );
 
-    testWidgets('a won round: ready to claim in a few minutes, value kept',
+    testWidgets('a won round: says it won, no claim or timing, value kept',
         (tester) async {
       await _pump(tester, round(value: 4.53), slug: slug);
-      expect(find.text('You won · Ready to claim in a few minutes'),
-          findsOneWidget);
+      expect(find.text('You won'), findsOneWidget);
       expect(find.text('Ready to claim'), findsNothing);
       expect(_rolled(r'$4.53'), findsOneWidget);
       expect(tester.takeException(), isNull);
@@ -441,7 +463,7 @@ void main() {
       expect(find.textContaining('You won'), findsNothing);
     });
 
-    testWidgets('a finished game: ready to claim soon', (tester) async {
+    testWidgets('a finished game won: says it won', (tester) async {
       final over = SportsMatchUpdate(
         slug: 'nfl-sf-den',
         gameId: 77,
@@ -468,7 +490,8 @@ void main() {
         event: _game,
         games: {'nfl-sf-den': over},
       );
-      expect(find.text('You won · Ready to claim soon'), findsOneWidget);
+      expect(find.text('You won'), findsOneWidget);
+      expect(find.textContaining('claim'), findsNothing);
       expect(find.text('Final'), findsNothing);
     });
 

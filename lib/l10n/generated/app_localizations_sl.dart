@@ -4451,7 +4451,7 @@ class AppLocalizationsSl extends AppLocalizations {
   String get polyAwaitingResult => 'Končano · Rezultat čez nekaj minut';
 
   @override
-  String get polyAwaitingWon => 'Zmagali ste · Za prevzem čez nekaj minut';
+  String get polyAwaitingWon => 'Zmagali ste';
 
   @override
   String get polyAwaitingLost => 'Končano · Izgubljeno';
@@ -4460,7 +4460,7 @@ class AppLocalizationsSl extends AppLocalizations {
   String get polyAwaitingResultSoon => 'Končano · Čaka na rezultat';
 
   @override
-  String get polyAwaitingWonSoon => 'Zmagali ste · Kmalu za prevzem';
+  String get polyAwaitingWonSoon => 'Zmagali ste';
 
   @override
   String polyAwaitingResultInMinutes(int minutes) {

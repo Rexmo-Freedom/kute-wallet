@@ -184,7 +184,9 @@ void main() {
         hasLength(1));
   });
 
-  testWidgets('a won row, not claimed yet, opens its sheet with the Claim',
+  testWidgets(
+      'a won row, not claimed yet, opens its sheet with no Claim (the win '
+      'is claimed automatically)',
       (tester) async {
     await _openSpending(tester, _resolved(curPrice: 1, size: 5, cost: 3));
     expect(_inSheet(find.text('Won · Up')), findsOneWidget);
@@ -192,7 +194,9 @@ void main() {
     expect(_valueOf(tester, 'Cost'), '\$3.00');
     expect(_valueOf(tester, 'Payout'), '\$5.00');
     expect(_valueOf(tester, 'Realized P&L'), '+\$2.00');
-    expect(_inSheet(find.text('Claim \$5.00')), findsOneWidget);
+    // Neither the Activity row under the sheet nor the sheet says Claim.
+    expect(find.textContaining('Claim'), findsNothing);
+    expect(find.textContaining('Ready to claim'), findsNothing);
     expect(find.text('View on the blockchain'), findsNothing);
   });
 
