@@ -3007,7 +3007,7 @@
   "slipStepPreparingOrder": "Valmistame sinu tehingut ette",
   "slipStepPlacingBet": "Panustame {amount} valikule {side}",
   "slipStepOpeningOrder": "Avame {amount} {side} {market}",
-  "slipStepTakingLonger": "Võtab tavapärasest kauem aega",
+  "slipStepTakingLonger": "Võtab oodatust kauem aega. Palun oota veidi, peaaegu valmis.",
   "slipFundingReadyToPlace": "Sinu {amount} on kontol Investments. Puuduta, et esitada.",
   "slipFundingBitcoinBack": "Lisamine kontole Investments ei õnnestunud. Sinu bitcoin tuleb tagasi.",
   "slipFundingPriceMoved": "Hind muutus liiga kiiresti.",

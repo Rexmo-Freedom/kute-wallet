@@ -3007,7 +3007,7 @@
   "slipStepPreparingOrder": "Pripravujeme tvoj príkaz",
   "slipStepPlacingBet": "Stávka {amount} na {side}",
   "slipStepOpeningOrder": "Otvárame {amount} {side} {market}",
-  "slipStepTakingLonger": "Trvá to dlhšie ako zvyčajne",
+  "slipStepTakingLonger": "Trvá to dlhšie, ako sa čakalo. Chvíľu strpenia, už je to takmer hotové.",
   "slipFundingReadyToPlace": "Tvojich {amount} je v Investments. Ťuknutím zadáš.",
   "slipFundingBitcoinBack": "Pridanie do Investments sa nepodarilo. Tvoj bitcoin sa vracia.",
   "slipFundingPriceMoved": "Cena sa pohla príliš rýchlo.",

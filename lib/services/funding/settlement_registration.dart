@@ -20,6 +20,8 @@ import 'package:kute/services/background_sync_service.dart';
 import 'package:kute/services/funding/owned_address_resolver.dart'
     show ProviderReader;
 import 'package:kute/services/funding/settlement_runner.dart';
+import 'package:kute/services/orchestra/venue_arrivals.dart'
+    show OrchestraOrderIds;
 
 /// Where the Activity row lives, as callbacks so the move is testable.
 class OrchestraActivityRows {
@@ -82,6 +84,9 @@ Future<SwapOrder?> adoptRegisteredOrchestraRow({
   if (orderId.isEmpty || orderId == quoteId || orderId.startsWith('q_')) {
     return null;
   }
+  // Status reads of the quote (a leg still watched under it) read the
+  // order from now on, whether or not a row is moved here.
+  OrchestraOrderIds.record(quoteId, orderId);
   SwapOrder? row;
   for (final candidate in rows.rows()) {
     if (candidate.id == quoteId) {

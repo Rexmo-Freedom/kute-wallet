@@ -10764,7 +10764,8 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
-  String get slipStepTakingLonger => 'A szokásosnál tovább tart';
+  String get slipStepTakingLonger =>
+      'A vártnál tovább tart. Még egy kis türelem, mindjárt kész.';
 
   @override
   String slipFundingReadyToPlace(String amount) {

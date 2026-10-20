@@ -64,6 +64,8 @@ import 'package:kute/services/one_balance/bitcoin_to_dollars_leg.dart'
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/one_balance/predictions_venue_funder.dart'
     show predictionsQuoteTag;
+import 'package:kute/services/one_balance/slow_move.dart'
+    show kSlowMoveFallback;
 import 'package:kute/services/orchestra/arrival_target.dart';
 import 'package:kute/services/orchestra/orchestra_quote_guard.dart'
     show OrchestraQuoteRequest, RecipientKind;
@@ -649,7 +651,7 @@ Future<LegDelivery> watchLegDelivery({
   required String Function() id,
   required Future<String?> Function(String id) statusOf,
   Duration pollEvery = const Duration(seconds: 1),
-  Duration slowAfter = const Duration(minutes: 2),
+  Duration slowAfter = kSlowMoveFallback,
   Duration maxWait = const Duration(minutes: 12),
   void Function()? onSlow,
 }) async {

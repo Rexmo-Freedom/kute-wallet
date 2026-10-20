@@ -3007,7 +3007,7 @@
   "slipStepPreparingOrder": "Ετοιμάζουμε την εντολή σου",
   "slipStepPlacingBet": "Τοποθέτηση {amount} στο {side}",
   "slipStepOpeningOrder": "Άνοιγμα {amount} {side} {market}",
-  "slipStepTakingLonger": "Αργεί περισσότερο από το συνηθισμένο",
+  "slipStepTakingLonger": "Αργεί περισσότερο από το αναμενόμενο. Λίγη υπομονή, σχεδόν έτοιμο.",
   "slipFundingReadyToPlace": "Τα {amount} σου είναι στα Investments. Πάτησε για τοποθέτηση.",
   "slipFundingBitcoinBack": "Η προσθήκη στα Investments δεν ολοκληρώθηκε. Τα bitcoin σου επιστρέφουν.",
   "slipFundingPriceMoved": "Η τιμή άλλαξε πολύ γρήγορα.",

@@ -3007,7 +3007,7 @@
   "slipStepPreparingOrder": "Ruošiame jūsų pavedimą",
   "slipStepPlacingBet": "Statoma {amount} už {side}",
   "slipStepOpeningOrder": "Atidaroma {amount} {side} {market}",
-  "slipStepTakingLonger": "Užtrunka ilgiau nei įprastai",
+  "slipStepTakingLonger": "Užtrunka ilgiau nei tikėtasi. Truputį kantrybės, beveik baigta.",
   "slipFundingReadyToPlace": "Jūsų {amount} yra Investments. Bakstelėkite, kad pateiktumėte.",
   "slipFundingBitcoinBack": "Pridėti į Investments nepavyko. Jūsų bitcoin grįžta.",
   "slipFundingPriceMoved": "Kaina pasikeitė per greitai.",

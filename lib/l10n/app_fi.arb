@@ -3007,7 +3007,7 @@
   "slipStepPreparingOrder": "Valmistellaan toimeksiantoasi",
   "slipStepPlacingBet": "Asetetaan {amount} vaihtoehdolle {side}",
   "slipStepOpeningOrder": "Avataan {amount} {side} {market}",
-  "slipStepTakingLonger": "Kestää tavallista kauemmin",
+  "slipStepTakingLonger": "Kestää odotettua kauemmin. Hetki vielä, melkein valmista.",
   "slipFundingReadyToPlace": "{amount} on tililläsi Investments. Napauta asettaaksesi.",
   "slipFundingBitcoinBack": "Lisäys tilille Investments ei onnistunut. Bitcoinisi palaavat.",
   "slipFundingPriceMoved": "Hinta muuttui liian nopeasti.",

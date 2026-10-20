@@ -10727,7 +10727,8 @@ class AppLocalizationsEt extends AppLocalizations {
   }
 
   @override
-  String get slipStepTakingLonger => 'Võtab tavapärasest kauem aega';
+  String get slipStepTakingLonger =>
+      'Võtab oodatust kauem aega. Palun oota veidi, peaaegu valmis.';
 
   @override
   String slipFundingReadyToPlace(String amount) {

@@ -10751,7 +10751,8 @@ class AppLocalizationsFi extends AppLocalizations {
   }
 
   @override
-  String get slipStepTakingLonger => 'Kestää tavallista kauemmin';
+  String get slipStepTakingLonger =>
+      'Kestää odotettua kauemmin. Hetki vielä, melkein valmista.';
 
   @override
   String slipFundingReadyToPlace(String amount) {

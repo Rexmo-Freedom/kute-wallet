@@ -571,7 +571,7 @@ void main() {
     testWidgets('taking longer than usual is said under the steps',
         (tester) async {
       await pumpAt(tester, FundedOrderStage.adding, slow: true);
-      expect(find.text('Taking longer than usual'), findsOneWidget);
+      expect(find.text('Taking longer than expected. Hang tight, almost done.'), findsOneWidget);
     });
 
     testWidgets('preparing: the first step done, the second runs',

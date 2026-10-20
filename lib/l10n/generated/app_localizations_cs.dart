@@ -10730,7 +10730,8 @@ class AppLocalizationsCs extends AppLocalizations {
   }
 
   @override
-  String get slipStepTakingLonger => 'Trvá to déle než obvykle';
+  String get slipStepTakingLonger =>
+      'Trvá to déle, než se čekalo. Chvilku strpení, už to skoro je.';
 
   @override
   String slipFundingReadyToPlace(String amount) {

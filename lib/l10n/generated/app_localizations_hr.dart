@@ -10763,7 +10763,8 @@ class AppLocalizationsHr extends AppLocalizations {
   }
 
   @override
-  String get slipStepTakingLonger => 'Traje dulje nego inače';
+  String get slipStepTakingLonger =>
+      'Traje dulje nego što je očekivano. Malo strpljenja, skoro je gotovo.';
 
   @override
   String slipFundingReadyToPlace(String amount) {

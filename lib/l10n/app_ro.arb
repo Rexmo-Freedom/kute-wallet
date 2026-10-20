@@ -3007,7 +3007,7 @@
   "slipStepPreparingOrder": "Îți pregătim ordinul",
   "slipStepPlacingBet": "Se plasează {amount} pe {side}",
   "slipStepOpeningOrder": "Se deschide {amount} {side} {market}",
-  "slipStepTakingLonger": "Durează mai mult decât de obicei",
+  "slipStepTakingLonger": "Durează mai mult decât era de așteptat. Mai așteaptă puțin, aproape gata.",
   "slipFundingReadyToPlace": "Cei {amount} ai tăi sunt în Investments. Atinge pentru a plasa.",
   "slipFundingBitcoinBack": "Adăugarea în Investments nu a reușit. Bitcoinul tău se întoarce.",
   "slipFundingPriceMoved": "Prețul s-a mișcat prea repede.",

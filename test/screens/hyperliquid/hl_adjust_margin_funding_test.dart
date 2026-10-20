@@ -317,7 +317,7 @@ void main() {
           findsOneWidget);
       expect(find.byKey(const ValueKey('slip-funding-step-active-1')),
           findsOneWidget);
-      expect(find.text('Taking longer than usual'), findsOneWidget);
+      expect(find.text('Taking longer than expected. Hang tight, almost done.'), findsOneWidget);
       // One busy button saying the step; the keypad (and the chips) fold
       // away while the steps run, which take their room.
       expect(_cta(tester).isBusy, isTrue);

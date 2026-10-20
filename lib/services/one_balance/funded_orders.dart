@@ -176,7 +176,7 @@ class FundedOrderRecord {
   /// The Dollars → venue move's Activity row ids (quote, then order).
   final Set<String> venueRowIds;
 
-  /// The Bitcoin leg is taking longer than usual.
+  /// A leg is running longer than expected (`slowMoveAfter`).
   final bool slow;
 
   /// Why it stopped (a fixed code, never shown): refunded, timeout,

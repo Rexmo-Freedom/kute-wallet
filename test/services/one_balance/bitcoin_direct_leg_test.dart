@@ -16,6 +16,7 @@ import 'package:kute/helpers/predictions_deposit_wrap.dart';
 import 'package:kute/helpers/venue_intents.dart';
 import 'package:kute/models/orchestra_model.dart';
 import 'package:kute/models/settlement_operation.dart' show SettlementFlow;
+import 'package:kute/models/swap_order_model.dart';
 import 'package:kute/services/funding/settlement_runner.dart'
     show
         SettlementAuthorizationIntent,
@@ -47,7 +48,12 @@ import 'package:kute/services/one_balance/venue_cash_source.dart'
 import 'package:kute/services/one_balance/venue_funder.dart';
 import 'package:kute/services/one_balance/venue_cash_funded_order.dart';
 import 'package:kute/services/orchestra/orchestra_quote_guard.dart';
+import 'package:kute/services/orchestra/venue_arrivals.dart';
 import 'package:kute/services/tracking_service.dart';
+import 'package:kute/providers/swap_orders_provider.dart'
+    show swapOrdersProvider;
+
+import '../../helpers/fake_swap_orders.dart';
 
 const _ownSpark =
     'spark1pgss93sy072yrmtad5cy2srwjhq8ekzuw78yhr808jn6htqfh9w8p8h9mfwlv9';
@@ -793,6 +799,34 @@ void main() {
     });
 
     test(
+        'the founder\'s report: Orchestra still says processing but the '
+        'venue credited the order: the leg shows landed, its row\'s journey '
+        'shows the arrival', () async {
+      VenueArrivals.debugReset();
+      addTearDown(VenueArrivals.debugReset);
+      h = _Harness(
+        plan: const DirectBitcoinPlan.direct(
+          targetUsd: 15.01,
+          sats: 100000,
+          dollarsUsd: 0,
+          bitcoinShareUsd: 15.1,
+          otherUsd: 0,
+          directCostUsd: 15.0,
+          viaCostUsd: 15.3,
+        ),
+        bitcoinStatus: 'processing',
+        creditBeforeStatus: true,
+      );
+      final run = h.start();
+      expect(await run.ended, BitcoinFundedEnd.placed);
+      await h.until(() =>
+          h.record.steps.byId('leg:bitcoin')!.status == MoneyStepStatus.done);
+      expect(h.record.steps.byId('place')!.status, MoneyStepStatus.done);
+      expect(VenueArrivals.arrived(_rowOf('ord_direct')), isTrue);
+      expect(VenueArrivals.arrived(_rowOf('ord_other')), isFalse);
+    });
+
+    test(
         'Dollars + Bitcoin: both legs start together and complete on their '
         'own', () async {
       h = _Harness(
@@ -953,6 +987,7 @@ class _Harness {
     this.ownVenue = _pmWallet,
     this.sourceStatus,
     this.sourceHome = false,
+    this.creditBeforeStatus = false,
   });
 
   final DirectBitcoinPlan plan;
@@ -964,6 +999,10 @@ class _Harness {
   final String ownVenue;
   final String? sourceStatus;
   final bool sourceHome;
+
+  /// The venue credits the order whatever Orchestra's status says (it
+  /// lags the delivery).
+  final bool creditBeforeStatus;
   double sourceCash = 5;
 
   var directSends = 0;
@@ -1064,6 +1103,7 @@ class _Harness {
   BitcoinFundedRun start() {
     c = ProviderContainer(overrides: [
       bitcoinLegEnvProvider.overrideWithValue(env),
+      swapOrdersProvider.overrideWith((_) => FakeSwapOrders()),
       if (sourceStatus != null)
         venueCashPullerProvider.overrideWithValue(VenueCashPuller(
             sources: [_OtherCash(() => sourceCash)],
@@ -1153,7 +1193,10 @@ class _Harness {
             // autofire reports the funnel's end.
             awaitPlacement: ({required onCredited}) async {
               await _funded.future;
-              if (directSends > 0 && !refuseDirect && ownVenue == _pmWallet) {
+              if (directSends > 0 &&
+                  !refuseDirect &&
+                  ownVenue == _pmWallet &&
+                  !creditBeforeStatus) {
                 await _bitcoinIn.future;
               }
               await Future<void>.delayed(const Duration(milliseconds: 5));
@@ -1168,6 +1211,26 @@ class _Harness {
     return run;
   }
 }
+
+/// A Predictions deposit row under [id].
+SwapOrder _rowOf(String id) => SwapOrder(
+      id: id,
+      coinFrom: 'BTC',
+      networkFrom: 'SPARK',
+      coinTo: 'USDC',
+      networkTo: 'POLYGON',
+      depositAddress: 'spark1deposit',
+      depositAmount: '0.001',
+      withdrawalAmount: '15.01',
+      status: 'exchanging',
+      timestamp: _now.millisecondsSinceEpoch,
+      withdrawalAddress: _pmWallet,
+      depositMin: '0',
+      depositMax: '0',
+      rate: '0',
+      refundAddress: _ownSpark,
+      provider: 'Orchestra',
+    );
 
 class _OtherCash implements VenueCashSource {
   _OtherCash(this.cash);

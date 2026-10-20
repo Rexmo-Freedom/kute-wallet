@@ -3007,7 +3007,7 @@
   "slipStepPreparingOrder": "Gør din ordre klar",
   "slipStepPlacingBet": "Placerer {amount} på {side}",
   "slipStepOpeningOrder": "Åbner {amount} {side} {market}",
-  "slipStepTakingLonger": "Det tager længere tid end normalt",
+  "slipStepTakingLonger": "Det tager længere tid end ventet. Vent lidt, vi er næsten færdige.",
   "slipFundingReadyToPlace": "Dine {amount} er i Investments. Tryk for at placere.",
   "slipFundingBitcoinBack": "Tilføjelsen til Investments gik ikke igennem. Din bitcoin er på vej tilbage.",
   "slipFundingPriceMoved": "Prisen ændrede sig for hurtigt.",
