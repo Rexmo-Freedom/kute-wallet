@@ -65,7 +65,7 @@ import '../../helpers/fake_swap_orders.dart';
 import '../../helpers/runtime_policy_fixture.dart';
 
 /// The Dollars door: what is added, then the order placed right after it
-/// ("Add \$X · Place \$Y on Yes", "Add \$X · Go Long BTC 1x · \$Y").
+/// ("Add \$X · \$Y on Yes", "Add \$X · Long \$Y").
 final Matcher _addThenOrder = allOf(startsWith('Add \$'), contains(' · '));
 
 class _LivePrices extends HlLivePricesNotifier {
@@ -377,7 +377,7 @@ void main() {
     await _pumpSlip(tester, venueUsd: 0, dollarsUsd: 100, rail: rail);
     await _typeOnKeypad(tester, '20');
     final button = _button(tester);
-    expect(button.text, startsWith('Go Long BTC 1x'));
+    expect(button.text, startsWith('Long '));
     expect(button.onPressed, isNotNull);
     expect(find.text('Deposit to invest'), findsNothing);
     expect(find.textContaining(RegExp(r'^Add \$[^ ]+ · ')), findsNothing);
@@ -424,7 +424,7 @@ void main() {
     expect(button.onPressed, isNotNull);
     // The $20.24 need plus the engine's safety buffer (2%, ≥ $0.25) lands,
     // so $21.68 has to leave Dollars; $5 are there.
-    expect(button.text, 'Add \$16.68 · Go Long BTC 1x · \$20.00');
+    expect(button.text, 'Add \$16.68 · Long \$20.00');
     expect(_moveFeeRow(tester).usd, closeTo(1.03, 0.011));
 
     await tester.tap(find.byType(AppButton));
@@ -448,7 +448,7 @@ void main() {
     sheet.complete();
     await _frames(tester, 3);
     expect(_button(tester).onPressed, isNotNull);
-    expect(_button(tester).text, 'Add \$16.68 · Go Long BTC 1x · \$20.00');
+    expect(_button(tester).text, 'Add \$16.68 · Long \$20.00');
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
@@ -456,15 +456,15 @@ void main() {
       (tester) async {
     await _pumpSlip(tester, venueUsd: 0, dollarsUsd: 100, rail: rail);
     final funded = _button(tester);
-    expect(funded.text, startsWith('Go Long BTC 1x'));
+    expect(funded.text, startsWith('Long '));
     expect(funded.onPressed, isNotNull);
     expect(_moveFeeRow(tester).usd, greaterThan(1));
     await tester.pumpWidget(const SizedBox.shrink());
 
     await _pumpSlip(tester, venueUsd: 0, dollarsUsd: 0, rail: rail);
     final door = _button(tester);
-    expect(door.text, startsWith('Add \$'));
-    expect(door.text, _addThenOrder);
+    // Nothing typed: the order's short name; the tap tops up first.
+    expect(door.text, 'Long BTC');
     expect(door.onPressed, isNotNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
@@ -475,14 +475,12 @@ void main() {
       (tester) async {
     await _pumpSlip(tester, venueUsd: 3, dollarsUsd: 0, rail: rail);
     final door = _button(tester);
-    expect(door.text, startsWith('Add \$'));
-    expect(door.text, _addThenOrder);
+    // Nothing typed: the one action is the order's short name, no
+    // amounts; its tap still tops up and places the minimum.
+    expect(door.text, 'Long BTC');
     expect(door.onPressed, isNotNull);
-    // The one action names both deeds: the add, then the minimum order.
-    expect(door.text, endsWith(r'Go Long BTC 1x · $10.26'));
-    expect(find.textContaining('Go Long'), findsOneWidget);
     expect(find.byType(AppButton), findsOneWidget);
-    expect(find.textContaining(RegExp(r'^Add \$[^ ]+ · ')), findsOneWidget);
+    expect(find.textContaining(RegExp(r'^Add \$')), findsNothing);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
@@ -508,7 +506,7 @@ void main() {
       await _pumpSlip(tester,
           venueUsd: 500, dollarsUsd: 0, rail: rail, dark: dark);
       await _typeOnKeypad(tester, '20');
-      expect(_button(tester).text, startsWith('Go Long BTC 1x'));
+      expect(_button(tester).text, startsWith('Long '));
       // Dark on the white button, never the side colour (founder).
       expect(_buttonLabelColor(tester), Colors.black);
       await tester.pumpWidget(const SizedBox.shrink());
@@ -519,7 +517,7 @@ void main() {
       (tester) async {
     await _pumpSlip(tester, venueUsd: 500, dollarsUsd: 0, rail: rail);
     await _typeOnKeypad(tester, '20');
-    expect(_button(tester).text, startsWith('Go Long BTC 1x'));
+    expect(_button(tester).text, startsWith('Long '));
     expect(_button(tester).onPressed, isNotNull);
     expect(find.text('Move fee'), findsNothing);
     final row = _moveFeeRow(tester);
@@ -533,7 +531,7 @@ void main() {
     rail.estimateError = StateError('no estimate');
     await _pumpSlip(tester, venueUsd: 0, dollarsUsd: 100, rail: rail);
     await _typeOnKeypad(tester, '20');
-    expect(_button(tester).text, startsWith('Go Long BTC 1x'));
+    expect(_button(tester).text, startsWith('Long '));
     expect(_button(tester).onPressed, isNotNull);
     // 2% of $20.24 as the fallback.
     expect(_moveFeeRow(tester).usd, closeTo(0.42, 0.011));
@@ -605,7 +603,7 @@ void main() {
       expect(find.text(r'Your $6.00 is in Investments. Tap to place.'),
           findsNothing);
       expect(find.byKey(const ValueKey('slip-funding-ready')), findsNothing);
-      expect(_button(tester).text, startsWith('Go Long BTC'));
+      expect(_button(tester).text, startsWith('Long '));
       expect(_button(tester).onPressed, isNotNull);
       expect(find.byType(SlipFundingSteps), findsNothing);
     });
@@ -784,7 +782,7 @@ void main() {
                 message: 'Order rejected.')
           ]);
       // Nothing typed: the minimum order, again.
-      expect(_button(tester).text, r'Try again · Go Long BTC 1x · $10.26');
+      expect(_button(tester).text, 'Try again · Long BTC');
       expect(_button(tester).onPressed, isNotNull);
       expect(find.textContaining(RegExp(r'^Add \$')), findsNothing);
       expect(rail.deposits, isEmpty);
@@ -827,7 +825,7 @@ void main() {
       await _pumpSlip(tester,
           venueUsd: 100, dollarsUsd: 0, rail: rail, withWallet: true);
       await _typeOnKeypad(tester, '20');
-      expect(_button(tester).text, startsWith('Go Long BTC'));
+      expect(_button(tester).text, startsWith('Long '));
       RubberBandProgressState placement() =>
           tester.state<RubberBandProgressState>(find.descendant(
               of: find.byKey(const ValueKey('order-slip-placement-band')),
@@ -904,7 +902,7 @@ void main() {
       debugFreshSpendingBitcoin = () => fresh.future;
       await _pumpSlip(tester, venueUsd: 0, dollarsUsd: 5, rail: rail);
       await _typeOnKeypad(tester, '20');
-      expect(_button(tester).text, 'Add \$16.68 · Go Long BTC 1x · \$20.00');
+      expect(_button(tester).text, 'Add \$16.68 · Long \$20.00');
 
       await tester.tap(find.byType(AppButton));
       await _frames(tester, 3);
@@ -967,7 +965,7 @@ void main() {
     await tester.tap(find.text('Max'));
     await _frames(tester, 15);
     final button = _button(tester);
-    expect(button.text, startsWith('Go Long BTC'));
+    expect(button.text, startsWith('Long '));
     expect(button.onPressed, isNotNull);
     expect(find.textContaining(RegExp(r'^Add \$[^ ]+ · ')), findsNothing);
     // Most of the $30.49, less the move's and the order's costs.

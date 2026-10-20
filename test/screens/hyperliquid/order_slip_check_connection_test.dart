@@ -244,7 +244,7 @@ void main() {
     policy.blocked = false;
     await tapCheck(tester);
     expect(find.byType(CapabilityBlockNote), findsNothing);
-    expect(_button(tester).text, startsWith('Go Long BTC'));
+    expect(_button(tester).text, startsWith('Long '));
     expect(_button(tester).onPressed, isNotNull);
     expect(triggers, containsAll(['polymarket:manual', 'hyperliquid:manual']));
     expect(haptics.where((c) => c.method == 'softTap'), isEmpty);

@@ -14729,18 +14729,6 @@ abstract class AppLocalizations {
   /// **'Wide spread: {percent}%. Market orders here can fill noticeably away from the mid price.'**
   String slipWideSpread(String percent);
 
-  /// No description provided for @slipCtaSpotNow.
-  ///
-  /// In en, this message translates to:
-  /// **'{side} {coin} now · {amount}'**
-  String slipCtaSpotNow(String side, String coin, String amount);
-
-  /// No description provided for @slipCtaGo.
-  ///
-  /// In en, this message translates to:
-  /// **'Go {side} {coin} {leverage}x · {amount}'**
-  String slipCtaGo(String side, String coin, String leverage, String amount);
-
   /// No description provided for @slipCtaLimit.
   ///
   /// In en, this message translates to:
@@ -18001,7 +17989,31 @@ abstract class AppLocalizations {
   /// **'Add {amount} to Investments'**
   String slipAddToInvestments(String amount);
 
-  /// Button on an order slip short of money: what is added to Investments, then the order placed right after it. {amount} is formatted money; {order} is the slip's own order button text (e.g. 'Place $2.33 on No', 'Go Long ETH 1x · $10.14').
+  /// A buy slip's button before an amount is typed: the side and the market's coin ('Long ETH', 'Buy BTC').
+  ///
+  /// In en, this message translates to:
+  /// **'{side} {coin}'**
+  String slipCtaSideCoin(String side, String coin);
+
+  /// A buy slip's button with an amount typed: the side and the amount ('Short $12.00').
+  ///
+  /// In en, this message translates to:
+  /// **'{side} {amount}'**
+  String slipCtaSideAmount(String side, String amount);
+
+  /// The bet slip's button before a stake is typed ('Place on No').
+  ///
+  /// In en, this message translates to:
+  /// **'Place on {side}'**
+  String betPlaceOnSide(String side);
+
+  /// The bet after a top-up on the bet slip's button ('Add $1.00 · $12.00 on No').
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} on {side}'**
+  String betAmountOnSide(String amount, String side);
+
+  /// Button on an order slip short of money: what is added to Investments, then the order placed right after it. {amount} is formatted money; {order} is the slip's own order button text (e.g. '$2.33 on No', 'Short $10.14').
   ///
   /// In en, this message translates to:
   /// **'Add {amount} · {order}'**

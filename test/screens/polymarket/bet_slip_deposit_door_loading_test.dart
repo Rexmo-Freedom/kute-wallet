@@ -64,7 +64,7 @@ import '../../helpers/fake_swap_orders.dart';
 import '../../helpers/runtime_policy_fixture.dart';
 
 /// The Dollars door: what is added, then the order placed right after it
-/// ("Add \$X · Place \$Y on Yes", "Add \$X · Go Long BTC 1x · \$Y").
+/// ("Add \$X · \$Y on Yes", "Add \$X · Long \$Y").
 final Matcher _addThenOrder = allOf(startsWith('Add \$'), contains(' · '));
 
 class _Prices extends LivePriceNotifier {
@@ -500,7 +500,7 @@ void main() {
           Future.value(const PolymarketTradingState(usdcBalance: 5)),
           dollars: 2);
       await _frames(tester);
-      expect(_cta(tester).label, r'Add $3.70 · Place $10.00 on Yes');
+      expect(_cta(tester).label, r'Add $3.70 · $10.00 on Yes');
       expect(_cta(tester).enabled, isTrue);
 
       await tester.tap(_door);
@@ -541,7 +541,7 @@ void main() {
       // The door closes without a deposit: the door again, amount kept.
       sheet!.complete();
       await _frames(tester, 3);
-      expect(_cta(tester).label, r'Add $3.70 · Place $10.00 on Yes');
+      expect(_cta(tester).label, r'Add $3.70 · $10.00 on Yes');
       expect(_cta(tester).enabled, isTrue);
       expect(find.text(r'$10'), findsOneWidget);
       await release(tester);
@@ -580,28 +580,26 @@ void main() {
           initialAmountUsd: null);
       await _frames(tester);
       expect(_door, findsOneWidget);
-      expect(_cta(tester).label, startsWith(r'Add $'));
-      expect(_cta(tester).label, _addThenOrder);
+      // Nothing typed: the one action is the bet's short name, no
+      // amounts; its tap still tops up first.
+      expect(_cta(tester).label, 'Place on Yes');
       expect(_cta(tester).enabled, isTrue);
-      // The bet is named only inside the one action, after the add.
-      expect(find.textContaining('Place'), findsOneWidget);
       // One action: no second Add or Deposit beside it.
       expect(find.byType(PolySlipCta), findsOneWidget);
-      expect(find.textContaining(RegExp(r'^Add \$[^ ]+ · ')), findsOneWidget);
+      expect(find.textContaining(RegExp(r'^Add \$')), findsNothing);
       final label = _cta(tester).label;
 
-      // The tap opens the Receive sheet for that amount, queues nothing,
-      // and the button keeps saying the same thing.
+      // The tap opens the Receive sheet for what is missing, queues
+      // nothing, and the button keeps saying the same thing.
       await tester.tap(_door);
       await _frames(tester, 3);
       expect(receives, hasLength(1));
-      expect(receives.single,
-          closeTo(double.parse(label.split(' ')[1].substring(1)), 0.011));
+      expect(receives.single, greaterThan(0));
       expect(_queued(tester), isNull);
       expect(events, isNot(contains('prediction_place_cta_tapped')));
       sheet!.complete();
       await _frames(tester, 3);
-      expect(_cta(tester).label, _addThenOrder);
+      expect(_cta(tester).label, label);
       await release(tester);
     });
 
@@ -1135,7 +1133,7 @@ void main() {
           Future.value(const PolymarketTradingState(usdcBalance: 5)),
           dollars: 2);
       await _frames(tester);
-      expect(_cta(tester).label, r'Add $3.70 · Place $10.00 on Yes');
+      expect(_cta(tester).label, r'Add $3.70 · $10.00 on Yes');
 
       await tester.tap(_door);
       await _frames(tester, 3);

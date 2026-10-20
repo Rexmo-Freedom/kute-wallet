@@ -121,6 +121,10 @@ const _market = HlMarket(
 /// cannot fund the move: "Add $X · the order" (the Dollar deposit).
 final Matcher _dollarDoor = allOf(startsWith('Add \$'), contains(' · '));
 
+/// The empty ticket's button: the order's short name, no amount, also
+/// when its tap tops up first and then places the minimum.
+const String _emptyOrder = 'Long BTC';
+
 Future<void> _pumpSlip(WidgetTester tester,
     {double available = 500,
     bool isLong = true,
@@ -230,7 +234,8 @@ void main() {
   testWidgets('the slip is the moment of decision: no Sal button, even with '
       'Sal on', (tester) async {
     await _pumpSlip(tester, ai: true);
-    expect(find.text('Long BTC'), findsOneWidget);
+    // The title, and the empty ticket's button.
+    expect(find.text('Long BTC'), findsNWidgets(2));
     expect(find.byType(AskSalChip), findsNothing);
     expect(find.byType(KuteDogGlance), findsNothing);
     expect(find.bySemanticsLabel('Ask Sal'), findsNothing);
@@ -278,7 +283,7 @@ void main() {
     // the amount stay.
     expect(find.textContaining('Limit order'), findsNothing);
     expect(tester.widget<AppButton>(find.byType(AppButton)).text,
-        r'Go Long BTC 1x · $10.26');
+        _emptyOrder);
     expect(find.text('Size'), findsNothing);
     expect(find.text('Est. liquidation'), findsNothing);
     await tester.tap(find.text('Advanced'));
@@ -342,7 +347,7 @@ void main() {
             poolDepositRow(id: 'ord_1', network: 'POLYGON', usd: 25),
           ]));
       expect(tester.widget<AppButton>(find.byType(AppButton)).text,
-          _dollarDoor);
+          _emptyOrder);
       await tester.pumpWidget(const SizedBox.shrink());
     });
 
@@ -358,7 +363,7 @@ void main() {
       ]);
       await _settle(tester);
       final button = tester.widget<AppButton>(find.byType(AppButton));
-      expect(button.text, _dollarDoor);
+      expect(button.text, _emptyOrder);
       expect(button.onPressed, isNotNull);
       expect(find.text("Your deposit didn't go through. You can deposit again."),
           findsOneWidget);
@@ -470,7 +475,7 @@ void main() {
       expect('Minimum \$${typed(tester)}', minimum);
       expect(minimumSpan(tester).style?.color, isNot(errorInk(tester)));
       final button = tester.widget<AppButton>(find.byType(AppButton));
-      expect(button.text, startsWith('Go Long BTC'));
+      expect(button.text, 'Long \$${typed(tester)}');
       expect(button.onPressed, isNotNull);
       await tester.pumpWidget(const SizedBox.shrink());
       final abandoned =
@@ -481,10 +486,9 @@ void main() {
     testWidgets('a zero amount is the order at the minimum again',
         (tester) async {
       await _pumpSlip(tester);
-      final minimum = minimumSpan(tester).text!.replaceFirst('Minimum ', '');
       await typeOnKeypad(tester, '0');
       final button = tester.widget<AppButton>(find.byType(AppButton));
-      expect(button.text, 'Go Long BTC 1x · $minimum');
+      expect(button.text, _emptyOrder);
       expect(button.onPressed, isNotNull);
       await tester.pumpWidget(const SizedBox.shrink());
     });
@@ -523,8 +527,8 @@ void main() {
             isSpot: false));
         expect(size * wire, greaterThanOrEqualTo(10));
         final button = tester.widget<AppButton>(find.byType(AppButton));
-        expect(button.text,
-            'Go ${isLong ? 'Long' : 'Short'} SPCX 1x · \$$figure');
+        // Nothing typed: the order's short name; a tap places the figure.
+        expect(button.text, '${isLong ? 'Long' : 'Short'} SPCX');
         expect(button.onPressed, isNotNull);
         // The old figure is now under the minimum: the button offers it.
         await typeOnKeypad(tester, '10.08');
@@ -539,7 +543,7 @@ void main() {
       await _pumpSlip(tester, available: 0);
       expect(find.byType(AmountMaxChip), findsNothing);
       expect(tester.widget<AppButton>(find.byType(AppButton)).text,
-          _dollarDoor);
+          _emptyOrder);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     });
@@ -557,14 +561,15 @@ void main() {
     }
     await tester.pumpAndSettle();
     final button = tester.widget<AppButton>(find.byType(AppButton));
-    expect(button.text, _dollarDoor);
+    expect(button.text, _emptyOrder);
     expect(button.onPressed, isNotNull);
-    // No fee to speak of yet: the fee tile reads a dash.
+    // No fee to speak of yet: the fee figure reads zero, never a dash.
     expect(
         find.descendant(
             of: find.byKey(const ValueKey('order-slip-fee-tile')),
-            matching: find.text('—')),
+            matching: find.text(r'$0')),
         findsOneWidget);
+    expect(find.text('—'), findsNothing);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
@@ -593,7 +598,7 @@ void main() {
       (tester) async {
     await _pumpSlip(tester, blocked: {'hyperliquid.deposit'});
     final button = tester.widget<AppButton>(find.byType(AppButton));
-    expect(button.text, r'Go Long BTC 1x · $10.26');
+    expect(button.text, _emptyOrder);
     expect(button.onPressed, isNotNull);
     expect(find.text(_AllowedCapabilities.blockedMessage), findsNothing);
     await tester.pumpWidget(const SizedBox.shrink());
@@ -606,7 +611,7 @@ void main() {
     // The market and the ticket stay readable.
     expect(find.text('Position size').hitTestable(), findsOneWidget);
     final button = tester.widget<AppButton>(find.byType(AppButton));
-    expect(button.text, r'Go Long BTC 1x · $10.26');
+    expect(button.text, _emptyOrder);
     expect(button.onPressed, isNull);
     final note = find.byType(CapabilityBlockNote);
     expect(note, findsOneWidget);
@@ -641,9 +646,10 @@ void main() {
     expect(find.text('Short BTC · Advanced').hitTestable(), findsOneWidget);
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
-    expect(find.text('Short BTC'), findsOneWidget);
+    // The title, and the empty ticket's button.
+    expect(find.text('Short BTC'), findsNWidgets(2));
     expect(tester.widget<AppButton>(find.byType(AppButton)).text,
-        r'Go Short BTC 1x · $10.26');
+        'Short BTC');
     // Even at 1x a short can be liquidated, and the plain ticket shows
     // that estimate up front (e3ea3faa).
     await _typeOnKeypad(tester, '20');
@@ -676,7 +682,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('TWAP'), findsNothing);
     expect(tester.widget<AppButton>(find.byType(AppButton)).text,
-        _dollarDoor);
+        _emptyOrder);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
@@ -727,14 +733,14 @@ void main() {
     container.read(_availableFunds.notifier).state = 0;
     await tester.pumpAndSettle();
     var button = tester.widget<AppButton>(find.byType(AppButton));
-    expect(button.text, _dollarDoor);
+    expect(button.text, _emptyOrder);
     expect(button.onPressed, isNotNull);
     expect(_LivePrices.acquired, 1);
 
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     button = tester.widget<AppButton>(find.byType(AppButton));
-    expect(button.text, _dollarDoor);
+    expect(button.text, _emptyOrder);
     expect(find.text('Est. liquidation'), findsNothing);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
@@ -752,7 +758,8 @@ void main() {
       addTearDown(tester.view.resetViewInsets);
       await tester.pumpAndSettle();
       final scroll = find.byKey(const ValueKey('hl-advanced-form-scroll'));
-      final action = find.textContaining(RegExp(r'^Add \$[^ ]+ · '));
+      // The empty ticket's one action (it tops up, then places).
+      final action = find.text(_emptyOrder);
       final position = tester
           .state<ScrollableState>(find
               .descendant(of: scroll, matching: find.byType(Scrollable))
@@ -854,7 +861,7 @@ void main() {
 
     testWidgets('no position: the plain order, no line', (tester) async {
       await _pumpSlip(tester, positions: const []);
-      expect(button(tester).text, startsWith('Go Long BTC 1x'));
+      expect(button(tester).text, _emptyOrder);
       expect(note(tester), isNull);
       expect(find.byKey(const ValueKey('slip-position-pill')), findsNothing);
       await tester.pumpWidget(const SizedBox.shrink());
@@ -956,7 +963,8 @@ void main() {
         (tester) async {
       await _pumpSlip(tester);
       expect(typed(tester), '');
-      expect(find.text(r'$0'), findsOneWidget);
+      // The amount, and the fee figure under it.
+      expect(find.text(r'$0'), findsNWidgets(2));
       final pad = find.byType(AmountKeypad);
       for (final key in ['2', '5']) {
         await tester.tap(find.descendant(of: pad, matching: find.text(key)));
@@ -964,7 +972,7 @@ void main() {
       }
       await tester.pumpAndSettle();
       expect(typed(tester), '25');
-      expect(button(tester).text, r'Go Long BTC 1x · $25.00');
+      expect(button(tester).text, r'Long $25.00');
       expect(button(tester).onPressed, isNotNull);
       await tester.pumpWidget(const SizedBox.shrink());
     });
@@ -980,7 +988,7 @@ void main() {
       await _pumpSlip(tester);
       final min = minimum(tester);
       expect(min, '10.26');
-      expect(button(tester).text, 'Go Long BTC 1x · \$$min');
+      expect(button(tester).text, _emptyOrder);
       expect(button(tester).onPressed, isNotNull);
       await tester.tap(find.byType(AppButton));
       await tester.pumpAndSettle();
@@ -989,7 +997,7 @@ void main() {
       expect(typed(tester), min);
       expect(gate.checks, 1);
       expect(find.text('Investing unavailable'), findsOneWidget);
-      expect(button(tester).text, 'Go Long BTC 1x · \$$min');
+      expect(button(tester).text, 'Long \$$min');
       await tester.pumpWidget(const SizedBox.shrink());
       final abandoned =
           events.lastWhere((e) => e.$1 == 'hyperliquid_order_slip_abandoned');
@@ -1003,7 +1011,7 @@ void main() {
       await _typeOnKeypad(tester, '1');
       expect(button(tester).text, 'Minimum \$$min');
       await _typeOnKeypad(tester, '20');
-      expect(button(tester).text, r'Go Long BTC 1x · $20.00');
+      expect(button(tester).text, r'Long $20.00');
       expect(button(tester).onPressed, isNotNull);
       await _typeOnKeypad(tester, '600');
       expect(button(tester).text, _dollarDoor);
@@ -1015,17 +1023,16 @@ void main() {
         '\$X · the order" from the start', (tester) async {
       await _pumpSlip(tester, available: 5);
       expect(typed(tester), '');
-      expect(button(tester).text, _dollarDoor);
+      // Nothing typed: the order's short name; the tap tops up first.
+      expect(button(tester).text, _emptyOrder);
       expect(button(tester).onPressed, isNotNull);
-      // The order is named only inside the one action, after the add.
-      expect(find.textContaining('Go Long'), findsOneWidget);
       // One action: no second Add or Deposit beside it.
       expect(
           find.descendant(
               of: find.byType(HlOrderSlipSheet),
               matching: find.byType(AppButton)),
           findsOneWidget);
-      expect(find.textContaining(RegExp(r'^Add \$[^ ]+ · ')), findsOneWidget);
+      expect(find.textContaining(RegExp(r'^Add \$')), findsNothing);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     });

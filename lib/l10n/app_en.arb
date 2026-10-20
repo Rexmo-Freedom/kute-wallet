@@ -4909,37 +4909,6 @@
       }
     }
   },
-  "slipCtaSpotNow": "{side} {coin} now · {amount}",
-  "@slipCtaSpotNow": {
-    "placeholders": {
-      "side": {
-        "type": "String"
-      },
-      "coin": {
-        "type": "String"
-      },
-      "amount": {
-        "type": "String"
-      }
-    }
-  },
-  "slipCtaGo": "Go {side} {coin} {leverage}x · {amount}",
-  "@slipCtaGo": {
-    "placeholders": {
-      "side": {
-        "type": "String"
-      },
-      "coin": {
-        "type": "String"
-      },
-      "leverage": {
-        "type": "String"
-      },
-      "amount": {
-        "type": "String"
-      }
-    }
-  },
   "slipCtaLimit": "Place {side} {coin} limit",
   "@slipCtaLimit": {
     "placeholders": {
@@ -6459,9 +6428,54 @@
       }
     }
   },
+  "slipCtaSideCoin": "{side} {coin}",
+  "@slipCtaSideCoin": {
+    "description": "A buy slip's button before an amount is typed: the side and the market's coin ('Long ETH', 'Buy BTC').",
+    "placeholders": {
+      "side": {
+        "type": "String"
+      },
+      "coin": {
+        "type": "String"
+      }
+    }
+  },
+  "slipCtaSideAmount": "{side} {amount}",
+  "@slipCtaSideAmount": {
+    "description": "A buy slip's button with an amount typed: the side and the amount ('Short $12.00').",
+    "placeholders": {
+      "side": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "betPlaceOnSide": "Place on {side}",
+  "@betPlaceOnSide": {
+    "description": "The bet slip's button before a stake is typed ('Place on No').",
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "betAmountOnSide": "{amount} on {side}",
+  "@betAmountOnSide": {
+    "description": "The bet after a top-up on the bet slip's button ('Add $1.00 · $12.00 on No').",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "side": {
+        "type": "String"
+      }
+    }
+  },
   "slipAddThenOrder": "Add {amount} · {order}",
   "@slipAddThenOrder": {
-    "description": "Button on an order slip short of money: what is added to Investments, then the order placed right after it. {amount} is formatted money; {order} is the slip's own order button text (e.g. 'Place $2.33 on No', 'Go Long ETH 1x · $10.14').",
+    "description": "Button on an order slip short of money: what is added to Investments, then the order placed right after it. {amount} is formatted money; {order} is the slip's own order button text (e.g. '$2.33 on No', 'Short $10.14').",
     "placeholders": {
       "amount": {
         "type": "String"

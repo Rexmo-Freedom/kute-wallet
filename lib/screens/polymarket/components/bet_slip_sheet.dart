@@ -104,10 +104,8 @@ import 'package:kute/services/tracking_service.dart';
 import 'package:kute/screens/shared/slip_shortfall.dart';
 import 'package:kute/screens/shared/slip_form_body.dart';
 import 'package:kute/screens/shared/slip_stat_tiles.dart';
-import 'package:kute/screens/shared/position_rows_card.dart'
-    show PositionStatTiles;
 import 'package:kute/screens/shared/money_fee_summary.dart'
-    show MoneyFeeTile;
+    show MoneyFeeFigure;
 import 'package:kute/services/one_balance/money_steps.dart'
     show MoneyPlace;
 import 'package:kute/screens/shared/rubber_band_progress.dart';
@@ -618,7 +616,6 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   /// Advanced page only: whether the rarely-touched Details group is
   /// expanded. Purely presentational, so it stays on the page rather
   /// than on the shared draft.
-  bool _detailsOpen = false;
   bool _expertOpen = false;
   bool get _ownsDraft => widget._sharedDraft == null;
   bool get _showAdvanced => widget._advanced;
@@ -2372,7 +2369,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           _placeMinimum(place: covered);
           if (!covered) _depositLedger();
         },
-        label: _betCtaLabel(widget.outcomes[_selectedIndex], minStake),
+        label: _betCtaLabel(widget.outcomes[_selectedIndex], minStake,
+            empty: true),
       );
     }
     // One button, like Home. The second deposit link underneath was a
@@ -4980,9 +4978,10 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                 ),
               ),
             ),
-          // The action cross-fades when it changes what it is (the
-          // deposit door giving way to Predict once a deposit lands),
-          // never as its amount changes.
+          // The action fades out and the new one in when it changes what
+          // it is (the deposit door giving way to Predict once a deposit
+          // lands), never as its amount changes, and never two labels at
+          // once.
           () {
             final primary = _buildPrimaryAction(tc, selectedColor, selected,
                 busy: activelyPlacing,
@@ -4992,6 +4991,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
             return ArrivalSwitcher(
               state: primary.key ?? primary.runtimeType,
               alignment: Alignment.bottomCenter,
+              sequential: true,
               child: primary,
             );
           }(),
@@ -5074,13 +5074,11 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                   ),
                   SizedBox(height: 14.h),
                   PolySlipDetailsGroup(
-                    open: _detailsOpen,
-                    onToggle: () {
-                      HapticFeedback.selectionClick();
-                      setState(() => _detailsOpen = !_detailsOpen);
-                      TrackingService.track('bet_slip_advanced_details_toggled',
-                          params: {'open': _detailsOpen});
-                    },
+                    // Opens the rows in a bottom sheet; the event hears it open
+                    // and close.
+                    onToggle: (open) => TrackingService.track(
+                        'bet_slip_advanced_details_toggled',
+                        params: {'open': open}),
                     rows: _buildOrderDetails(tc, shares, orderPrice),
                   ),
                   if (failureNotice != null) ...[
@@ -5140,10 +5138,10 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                             note: heroNote,
                           ),
                   ),
-                  // The position screens' tiles: what it pays if it wins
-                  // (the profit under it) and the fee, a dash in each until
-                  // a stake is typed. They give their room to the money's
-                  // journey while it runs.
+                  // Two figures, no boxes: what it pays if it wins and the
+                  // fee, zero in each until a stake is typed (a tap on the
+                  // fee opens its breakdown sheet). They give their room to
+                  // the money's journey while it runs.
                   FoldAway(
                     folded: journeyShown,
                     child: Column(
@@ -5151,11 +5149,11 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         SlipGap(24.h),
-                        PositionStatTiles(
-                          left: _buildPayoutTile(payout),
-                          right: SlipTileFrame(
+                        SlipFigures(
+                          left: _buildPayoutFigure(payout),
+                          right: KeyedSubtree(
                             key: const ValueKey('bet-slip-fee-tile'),
-                            child: MoneyFeeTile(child: feeSummary),
+                            child: MoneyFeeFigure(child: feeSummary),
                           ),
                         ),
                         SlipGap(12.h),
@@ -5420,18 +5418,14 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         params: {'chip': method == 'min' ? 'min' : 'max'});
   }
 
-  /// The plain slip's payout tile: what the bet pays if it wins, the
-  /// profit under it; a dash until a stake is typed.
-  Widget _buildPayoutTile(double payout) {
+  /// The plain slip's payout figure: what the bet pays if it wins; zero
+  /// until a stake is typed.
+  Widget _buildPayoutFigure(double payout) {
     final typed = _amount > 0 && payout > 0;
-    final profit = payout - _amount;
-    return SlipStatTile(
+    return SlipFigure(
       key: const ValueKey('bet-slip-payout-tile'),
       label: context.l10n.betReceiptPayout,
-      value: typed ? _fiatCompanion(payout) : null,
-      caption: typed && profit >= 0.005
-          ? context.l10n.activityAmountProfit('+${_fiatCompanion(profit)}')
-          : null,
+      value: typed ? _fiatCompanion(payout) : slipZeroFigure(_fiatCompanion(0)),
     );
   }
 
@@ -5956,10 +5950,13 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           busyLabel: context.l10n.feeUiCalculating,
           enabled: !_buyInFlight && !_doorCalculating,
           onTap: _onAddDollarsTap,
-          // Both deeds: what is added, then the bet placed right after it
-          // (the stake typed, or the minimum an empty slip places).
-          label: again(context.l10n.slipAddThenOrder(
-              _fiatCompanion(missing), _betCtaLabel(selected, stake))),
+          // Both deeds, short: what is added, then the bet placed right
+          // after it ("Add $1.00 · $12.00 on No"). An empty slip (the tap
+          // places the minimum after the top-up) says only the bet.
+          label: again(_emptyStake
+              ? _betCtaLabel(selected, stake, empty: true)
+              : context.l10n.slipAddThenOrder(_fiatCompanion(missing),
+                  _betCtaLabel(selected, stake, afterTopUp: true))),
         );
         if (!funding.failed) return door;
         return Column(
@@ -6016,18 +6013,28 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           _advancedBlock == null &&
           _tradeBlock == null,
       onTap: placeMinimum ? _placeMinimum : _handleBuy,
-      label: again(_betCtaLabel(selected,
-          placeMinimum ? _minimumStakeUsd(_effectiveMinBetUsd) : _amount)),
+      label: again(placeMinimum
+          ? _betCtaLabel(selected, 0, empty: true)
+          : _betCtaLabel(selected, _amount)),
     );
   }
 
   /// The bet button's words for a stake of [amountUsd] on [selected].
-  String _betCtaLabel(PolymarketOutcome selected, double amountUsd) {
+  /// [empty]: nothing typed yet, the bet's short name with no amount
+  /// ("Place on No"). [afterTopUp]: the bet after an "Add $1.00 · ",
+  /// without its verb ("$12.00 on No").
+  String _betCtaLabel(PolymarketOutcome selected, double amountUsd,
+      {bool empty = false, bool afterTopUp = false}) {
+    if (empty) return context.l10n.betPlaceOnSide(_sideDisplayName(selected));
     // When the input is in sats (BTC tab) show sats.
     // Otherwise route through the localized fiat helper
     // so a UK user sees `Predict YES · £8.05` instead
     // of `$10.00`.
     final amountStr = _fiatCompanion(amountUsd);
+    if (afterTopUp && !_isLimitMode) {
+      return context.l10n
+          .betAmountOnSide(amountStr, _sideDisplayName(selected));
+    }
     // Limit orders read as "Place limit · 39¢ · $X" so the
     // CTA is unmistakably a resting order, not a market buy.
     if (_isLimitMode) {

@@ -215,9 +215,19 @@ class StepsReveal extends StatelessWidget {
   }
 }
 
+/// How long a [ArrivalSwitcher.sequential] swap takes: the old child out
+/// in the first half, the new one in over the second.
+const Duration kSequentialSwapDuration = Duration(milliseconds: 240);
+
 /// Cross-fades [child] when [state] changes (and only then: a new child
 /// with the same [state] updates in place), easing the height between the
 /// two when [animateSize]. The outgoing child takes no taps while it fades.
+///
+/// [sequential] never shows the two at once: the old child fades out
+/// first, then the new one fades in ([kSequentialSwapDuration]). For two
+/// things drawn in the same place with words on them (a slip's button
+/// becoming another button), where a cross-fade lays one label over the
+/// other.
 class ArrivalSwitcher extends StatelessWidget {
   /// What the block is showing (e.g. 'title' / 'teams', 'deposit' /
   /// 'trade'); not its data.
@@ -225,6 +235,7 @@ class ArrivalSwitcher extends StatelessWidget {
   final Widget child;
   final AlignmentGeometry alignment;
   final bool animateSize;
+  final bool sequential;
 
   const ArrivalSwitcher({
     super.key,
@@ -232,17 +243,28 @@ class ArrivalSwitcher extends StatelessWidget {
     required this.child,
     this.alignment = Alignment.topLeft,
     this.animateSize = true,
+    this.sequential = false,
   });
 
-  static Widget _fade(Widget child, Animation<double> animation) =>
+  /// Opaque only past the animation's midpoint: run forward the new child
+  /// stays hidden for the first half, run in reverse the old one is gone
+  /// by the half.
+  static final Animatable<double> _secondHalf =
+      CurveTween(curve: const Interval(0.5, 1, curve: Curves.easeOut));
+
+  static Widget _fadeSequential(Widget child, Animation<double> animation) =>
+      _fade(child, animation.drive(_secondHalf), gate: animation);
+
+  static Widget _fade(Widget child, Animation<double> animation,
+          {Animation<double>? gate}) =>
       FadeTransition(
         opacity: animation,
         child: AnimatedBuilder(
-          animation: animation,
+          animation: gate ?? animation,
           child: child,
           builder: (context, child) => IgnorePointer(
-            ignoring: animation.status == AnimationStatus.reverse ||
-                animation.status == AnimationStatus.dismissed,
+            ignoring: (gate ?? animation).status == AnimationStatus.reverse ||
+                (gate ?? animation).status == AnimationStatus.dismissed,
             child: child,
           ),
         ),
@@ -250,12 +272,15 @@ class ArrivalSwitcher extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final duration = kuteMotion(context, kArrivalDuration);
+    final duration = kuteMotion(
+        context, sequential ? kSequentialSwapDuration : kArrivalDuration);
+    // Sequential runs linear, the easing inside each half: an eased
+    // controller would bend the halves into each other and overlap them.
     final switcher = AnimatedSwitcher(
       duration: duration,
-      switchInCurve: Curves.easeOut,
-      switchOutCurve: Curves.easeOut,
-      transitionBuilder: _fade,
+      switchInCurve: sequential ? Curves.linear : Curves.easeOut,
+      switchOutCurve: sequential ? Curves.linear : Curves.easeOut,
+      transitionBuilder: sequential ? _fadeSequential : _fade,
       layoutBuilder: (current, previous) => Stack(
         alignment: alignment,
         children: [...previous, if (current != null) current],

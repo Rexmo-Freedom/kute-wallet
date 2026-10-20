@@ -36,10 +36,6 @@ import 'package:money2/money2.dart';
 
 import '../../helpers/fake_swap_orders.dart';
 
-/// The Dollars door: what is added, then the order placed right after it
-/// ("Add \$X · Place \$Y on Yes", "Add \$X · Go Long BTC 1x · \$Y").
-final Matcher _addThenOrder = allOf(startsWith('Add \$'), contains(' · '));
-
 class _LivePrices extends HlLivePricesNotifier {
   @override
   HlLivePriceState build() => const HlLivePriceState(mids: {'BTC': 60000});
@@ -199,7 +195,7 @@ void main() {
       account.complete(_snapshot(500));
       await _frames(tester);
       expect(_button(tester).isLoading, isFalse);
-      expect(_button(tester).text, startsWith('Go Long BTC'));
+      expect(_button(tester).text, startsWith('Long '));
       expect(_button(tester).onPressed, isNotNull);
       await tester.pumpWidget(const SizedBox.shrink());
     });
@@ -225,8 +221,8 @@ void main() {
       expect(find.textContaining(RegExp(r'^Add \$[^ ]+ · ')), findsNothing);
       account.complete(_snapshot(0));
       await _frames(tester);
-      expect(_button(tester).text, startsWith('Add \$'));
-      expect(_button(tester).text, _addThenOrder);
+      // Nothing typed: the order's short name; the tap tops up first.
+      expect(_button(tester).text, 'Long BTC');
       expect(_button(tester).isLoading, isFalse);
       expect(_button(tester).onPressed, isNotNull);
       await tester.pumpWidget(const SizedBox.shrink());

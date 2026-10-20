@@ -459,8 +459,10 @@ class PolySlipCta extends StatelessWidget {
 /// Replaces the locked panel both tickets used to swap themselves for: the
 /// form stays where it was, the figures stay readable, and the retry is
 /// the ticket's own CTA rather than a second button on a second design.
-/// [details] is the raw diagnostic, folded away until asked for.
-class PolySlipNotice extends StatefulWidget {
+/// [details] is the raw diagnostic, one tap away in a bottom sheet; a
+/// ticket short of room shows the notice as one line whose tap opens it
+/// all there too. Nothing opens in place.
+class PolySlipNotice extends StatelessWidget {
   const PolySlipNotice({
     super.key,
     required this.title,
@@ -472,26 +474,16 @@ class PolySlipNotice extends StatefulWidget {
   final String message;
   final String? details;
 
-  @override
-  State<PolySlipNotice> createState() => _PolySlipNoticeState();
-}
-
-class _PolySlipNoticeState extends State<PolySlipNotice> {
-  bool _open = false;
-
-  /// Read in full after a tap on its compact line.
-  bool _expanded = false;
-
-  @override
-  void didUpdateWidget(covariant PolySlipNotice oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.message != widget.message) _expanded = false;
-  }
+  /// The raw diagnostic, selectable, as the sheet shows it.
+  Widget _details(AppColorsExtension c, String details) => SelectableText(
+      details,
+      style: TextStyle(fontSize: 12.sp, color: c.textSecondary, height: 1.4));
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final details = widget.details;
+    final details = this.details;
+    final hasDetails = details != null && details.isNotEmpty;
     final decoration = BoxDecoration(
       color: c.surface,
       borderRadius: BorderRadius.circular(14.r),
@@ -499,14 +491,22 @@ class _PolySlipNoticeState extends State<PolySlipNotice> {
     );
     // A ticket short of room says it in one line; a tap reads it all.
     final lines = SlipDensity.noticeLines(context);
-    if (!_expanded && lines != null) {
+    if (lines != null) {
       return SlipNoticeLine(
         maxLines: lines,
         icon: Icons.error_outline_rounded,
-        title: widget.title,
-        message: widget.message,
+        title: title,
+        message: message,
         decoration: decoration,
-        onExpand: () => setState(() => _expanded = true),
+        onOpen: () => showSlipDetailSheet(context, title: title, children: [
+          Text(message,
+              style: TextStyle(
+                  fontSize: 15.sp, height: 1.4, color: c.textPrimary)),
+          if (hasDetails) ...[
+            SizedBox(height: 12.h),
+            _details(c, details),
+          ],
+        ]),
       );
     }
     return Container(
@@ -528,13 +528,13 @@ class _PolySlipNoticeState extends State<PolySlipNotice> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(widget.title,
+                    Text(title,
                         style: TextStyle(
                             fontSize: 15.sp,
                             fontWeight: FontWeight.w700,
                             color: c.textPrimary)),
                     SizedBox(height: 4.h),
-                    Text(widget.message,
+                    Text(message,
                         style: TextStyle(
                             fontSize: 14.sp,
                             fontWeight: FontWeight.w500,
@@ -545,40 +545,28 @@ class _PolySlipNoticeState extends State<PolySlipNotice> {
               ),
             ],
           ),
-          if (details != null && details.isNotEmpty) ...[
+          if (hasDetails) ...[
             SizedBox(height: 8.h),
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => setState(() => _open = !_open),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(context.l10n.details,
-                      style: TextStyle(
-                          fontSize: 13.sp,
-                          fontWeight: FontWeight.w600,
-                          color: c.textSecondary)),
-                  Icon(
-                      _open
-                          ? Icons.expand_less_rounded
-                          : Icons.expand_more_rounded,
-                      size: 18.sp,
-                      color: c.textSecondary),
-                ],
+            Semantics(
+              button: true,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => showSlipDetailSheet(context,
+                    title: context.l10n.details,
+                    children: [_details(c, details)]),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(context.l10n.details,
+                        style: TextStyle(
+                            fontSize: 13.sp,
+                            fontWeight: FontWeight.w600,
+                            color: c.textSecondary)),
+                    Icon(Icons.chevron_right_rounded,
+                        size: 18.sp, color: c.textSecondary),
+                  ],
+                ),
               ),
-            ),
-            AnimatedCrossFade(
-              firstChild: SizedBox(width: double.infinity, height: 0),
-              secondChild: Padding(
-                padding: EdgeInsets.only(top: 6.h),
-                child: SelectableText(details,
-                    style: TextStyle(fontSize: 12.sp, color: c.textSecondary)),
-              ),
-              crossFadeState:
-                  _open ? CrossFadeState.showSecond : CrossFadeState.showFirst,
-              duration: MediaQuery.of(context).disableAnimations
-                  ? Duration.zero
-                  : const Duration(milliseconds: 160),
             ),
           ],
         ],
@@ -684,20 +672,27 @@ class PolySlipDetailRow extends StatelessWidget {
   }
 }
 
-/// The rare stuff, folded away. Nothing in here changes the order; it
-/// only describes it. [open] and [onToggle] keep the disclosure on the
-/// page's own state so it survives a rebuild.
+/// The rare stuff, one tap away. Nothing in here changes the order; it
+/// only describes it. A "Details" row that opens [rows] in a bottom sheet
+/// ([showSlipDetailSheet]), never in place. [onToggle] hears the sheet
+/// open (true) and close (false), for the callers that count it.
 class PolySlipDetailsGroup extends StatelessWidget {
   const PolySlipDetailsGroup({
     super.key,
-    required this.open,
     required this.onToggle,
     required this.rows,
   });
 
-  final bool open;
-  final VoidCallback onToggle;
+  final ValueChanged<bool> onToggle;
   final List<Widget> rows;
+
+  Future<void> _open(BuildContext context) async {
+    onToggle(true);
+    await showSlipDetailSheet(context,
+        title: context.l10n.details,
+        children: rows);
+    onToggle(false);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -708,51 +703,26 @@ class PolySlipDetailsGroup extends StatelessWidget {
         borderRadius: BorderRadius.circular(16.r),
         border: Border.all(color: c.borderSubtle, width: 0.5),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(16.r),
-              onTap: onToggle,
-              child: Padding(
-                padding: EdgeInsets.all(16.w),
-                child: Row(children: [
-                  Expanded(
-                    child: Text(context.l10n.details,
-                        style: TextStyle(
-                            fontSize: 17.sp,
-                            fontWeight: FontWeight.w600,
-                            color: c.textPrimary)),
-                  ),
-                  Icon(
-                      open
-                          ? Icons.expand_less_rounded
-                          : Icons.expand_more_rounded,
-                      size: 22.sp,
-                      color: c.textSecondary),
-                ]),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16.r),
+          onTap: () => _open(context),
+          child: Padding(
+            padding: EdgeInsets.all(16.w),
+            child: Row(children: [
+              Expanded(
+                child: Text(context.l10n.details,
+                    style: TextStyle(
+                        fontSize: 17.sp,
+                        fontWeight: FontWeight.w600,
+                        color: c.textPrimary)),
               ),
-            ),
+              Icon(Icons.chevron_right_rounded,
+                  size: 22.sp, color: c.textSecondary),
+            ]),
           ),
-          AnimatedCrossFade(
-            firstChild: SizedBox(width: double.infinity, height: 0),
-            secondChild: Padding(
-              padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 16.h),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: rows,
-              ),
-            ),
-            crossFadeState:
-                open ? CrossFadeState.showSecond : CrossFadeState.showFirst,
-            duration: MediaQuery.of(context).disableAnimations
-                ? Duration.zero
-                : const Duration(milliseconds: 180),
-          ),
-        ],
+        ),
       ),
     );
   }

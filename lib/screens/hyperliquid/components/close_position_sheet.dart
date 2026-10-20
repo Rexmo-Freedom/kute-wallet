@@ -8,6 +8,8 @@ import 'dart:math' as math;
 import 'package:kute/screens/hyperliquid/components/builder_fee_consent.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/screens/shared/slip_form_body.dart';
+import 'package:kute/screens/shared/slip_stat_tiles.dart'
+    show SlipFigure, SlipFigures, slipZeroFigure;
 import 'package:kute/screens/shared/capability_block_note.dart';
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
 import 'package:kute/screens/shared/hyperliquid_fee_summary.dart';
@@ -40,11 +42,10 @@ import 'package:kute/services/venue_analytics.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart';
 import 'package:kute/screens/polymarket/components/slip_chrome.dart';
-import 'package:kute/screens/shared/money_fee_summary.dart' show feeAmountText;
 import 'package:kute/screens/shared/position_rows_card.dart';
 import 'package:kute/screens/shared/side_tint_palette.dart';
 import 'package:kute/screens/hyperliquid/components/hl_isolated_margin.dart'
-    show hlCloseValue, hlLivePnl, hlPositionMargin;
+    show hlCloseValue, hlLivePnl;
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/screens/shared/message_display.dart';
@@ -1351,8 +1352,6 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
     final grossBack = hlCloseValue(pos, liveMid: orderPx) * share;
     final back = grossBack - (fee ?? 0);
     final pnl = hlLivePnl(pos, liveMid: orderPx) * share - (fee ?? 0);
-    final marginShare = hlPositionMargin(pos) * share;
-    final roe = marginShare > 0 ? pnl / marginShare : 0.0;
     // Green and red do not read on the red sheet: the sign carries the
     // direction, in the sheet's ink.
     final pnlColor =
@@ -1436,37 +1435,23 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
                     SlipGap(20.h),
 
                     // ── What comes back ───────────────────────────────────
-                    PositionStatTiles(
-                      left: PositionStatTile(
+                    // Two figures, no boxes, zero until something is typed.
+                    SlipFigures(
+                      left: SlipFigure(
                         key: const ValueKey('hl-close-proceeds'),
                         label: context.l10n.youReceive,
-                        value: Text(
-                          formatHlUsd(
-                              math.max(0.0, fee == null ? grossBack : back)),
-                          maxLines: 1,
-                          style: positionTileValueStyle(c),
-                        ),
-                        caption: Text(
-                          fee == null
-                              ? context.l10n.betSaleProceeds
-                              : '${context.l10n.fee} ${feeAmountText(ref, usd: fee, bitcoinFirst: false).primary}',
-                          maxLines: 1,
-                          style: positionTileCaptionStyle(c),
-                        ),
+                        value: share > 0
+                            ? formatHlUsd(math.max(
+                                0.0, fee == null ? grossBack : back))
+                            : slipZeroFigure(formatHlUsd(0)),
                       ),
-                      right: PositionStatTile(
+                      right: SlipFigure(
                         key: const ValueKey('hl-close-pnl'),
                         label: context.l10n.portfolioProfitLoss,
-                        value: Text(
-                          '${pnl < 0 ? '−' : '+'}${formatHlUsd(pnl.abs())}',
-                          maxLines: 1,
-                          style: positionTileValueStyle(c, color: pnlColor),
-                        ),
-                        caption: Text(
-                          formatHlPct(roe),
-                          maxLines: 1,
-                          style: positionTileCaptionStyle(c, color: pnlColor),
-                        ),
+                        value: share <= 0 || pnl.abs() < 0.005
+                            ? slipZeroFigure(formatHlUsd(0))
+                            : '${pnl < 0 ? '−' : '+'}${formatHlUsd(pnl.abs())}',
+                        valueColor: pnlColor,
                       ),
                     ),
                     SlipGap(12.h),

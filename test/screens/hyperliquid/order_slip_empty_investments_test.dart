@@ -57,10 +57,6 @@ import '../../helpers/fake_hyperliquid_move_rail.dart';
 import '../../helpers/fake_swap_orders.dart';
 import '../../helpers/runtime_policy_fixture.dart';
 
-/// The Dollars door: what is added, then the order placed right after it
-/// ("Add \$X · Place \$Y on Yes", "Add \$X · Go Long BTC 1x · \$Y").
-final Matcher _addThenOrder = allOf(startsWith('Add \$'), contains(' · '));
-
 const _ownSpark =
     'spark1pgss93sy072yrmtad5cy2srwjhq8ekzuw78yhr808jn6htqfh9w8p8h9mfwlv9';
 const _hlAccount = '0x2222222222222222222222222222222222222222';
@@ -386,8 +382,8 @@ void main() {
       'nothing typed, \$0 in Investments, enough bitcoin: "Add" funds the '
       'minimum order in place under ONE approval, no sheet', (tester) async {
     await _pumpSlip(tester, rail);
-    expect(_button(tester).text, startsWith(r'Add $'));
-    expect(_button(tester).text, _addThenOrder);
+    // Nothing typed: the order's short name; the tap adds, then places.
+    expect(_button(tester).text, 'Long BTC');
 
     await tester.tap(find.byType(AppButton));
     await _frames(tester, 20);

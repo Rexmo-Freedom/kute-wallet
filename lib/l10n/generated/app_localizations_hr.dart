@@ -8548,16 +8548,6 @@ class AppLocalizationsHr extends AppLocalizations {
   }
 
   @override
-  String slipCtaSpotNow(String side, String coin, String amount) {
-    return '$side $coin odmah · $amount';
-  }
-
-  @override
-  String slipCtaGo(String side, String coin, String leverage, String amount) {
-    return '$side $coin ${leverage}x · $amount';
-  }
-
-  @override
   String slipCtaLimit(String side, String coin) {
     return 'Postavi $side $coin limit';
   }
@@ -10647,6 +10637,26 @@ class AppLocalizationsHr extends AppLocalizations {
   @override
   String slipAddToInvestments(String amount) {
     return 'Add $amount to Investments';
+  }
+
+  @override
+  String slipCtaSideCoin(String side, String coin) {
+    return '$side $coin';
+  }
+
+  @override
+  String slipCtaSideAmount(String side, String amount) {
+    return '$side $amount';
+  }
+
+  @override
+  String betPlaceOnSide(String side) {
+    return 'Postavi na $side';
+  }
+
+  @override
+  String betAmountOnSide(String amount, String side) {
+    return '$amount na $side';
   }
 
   @override

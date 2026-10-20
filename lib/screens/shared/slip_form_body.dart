@@ -3,7 +3,9 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/theme/app_theme.dart';
 
 /// Keeps amount entry pinned while a ticket is quiet. A message gives the
@@ -17,10 +19,10 @@ import 'package:kute/theme/app_theme.dart';
 ///     shrink towards a 44 pt tap target and its rows close up, by
 ///     exactly what the form needs, measured on this very layout;
 ///  2. under a [SlipFit] ([SlipDensity]), the gaps close up;
-///  3. then the ticket goes compact: tiles drop their small line and the
+///  3. then the ticket goes compact: its figures close up and the
 ///     amount figure steps down;
 ///  4. then a notice says only its message, in two lines, and then in
-///     one (a tap reads it all);
+///     one (a tap reads it all, in a bottom sheet);
 ///  5. and only then does the form scroll, with a soft fade at the edge
 ///     it continues past, never a hard cut through text.
 /// A screen with the room keeps the ticket exactly as designed.
@@ -130,19 +132,57 @@ class SlipGap extends StatelessWidget {
       SizedBox(height: slipGap(context, height));
 }
 
+/// Opens what a slip keeps folded (a notice in full, its raw details,
+/// the order's details) in a bottom sheet: [title] over [children]. A
+/// slip never grows in place to show it.
+Future<void> showSlipDetailSheet(
+  BuildContext context, {
+  required String title,
+  required List<Widget> children,
+}) {
+  HapticFeedback.selectionClick();
+  return showAppBottomSheet<void>(
+    // The app's own colours, never the side tint of the slip it opens
+    // from (a sheet takes its theme from where it is opened).
+    context: Navigator.of(context, rootNavigator: true).context,
+    builder: (_) => AppBottomSheetContainer(
+      maxHeight: 0.8,
+      child: Column(
+        key: const ValueKey('slip-detail-sheet'),
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AppBottomSheetHeader(title: title, compact: true),
+          Flexible(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 8.h),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: children,
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 /// A slip notice on a ticket short of room, in at most [maxLines] lines
 /// cut with an ellipsis: its [title] over the message in two, the message
-/// alone in one; a chevron says there is more. Tapping it calls
-/// [onExpand], which brings the whole notice back. [title] (when the
-/// notice has one) is what a screen reader hears first; the line itself
-/// keeps the message, which says what happened and where the money is.
+/// alone in one; a chevron says there is more. Tapping it calls [onOpen],
+/// which shows the whole notice in a bottom sheet
+/// ([showSlipDetailSheet]). [title] (when the notice has one) is what a
+/// screen reader hears first; the line itself keeps the message, which
+/// says what happened and where the money is.
 class SlipNoticeLine extends StatelessWidget {
   const SlipNoticeLine({
     super.key,
     required this.icon,
     required this.message,
     required this.decoration,
-    required this.onExpand,
+    required this.onOpen,
     this.title,
     this.maxLines = 1,
   });
@@ -152,7 +192,7 @@ class SlipNoticeLine extends StatelessWidget {
   final String message;
   final String? title;
   final BoxDecoration decoration;
-  final VoidCallback onExpand;
+  final VoidCallback onOpen;
 
   @override
   Widget build(BuildContext context) {
@@ -190,11 +230,10 @@ class SlipNoticeLine extends StatelessWidget {
           );
     return Semantics(
       button: true,
-      expanded: false,
       label: withTitle ? null : title,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: onExpand,
+        onTap: onOpen,
         child: Container(
           width: double.infinity,
           padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 9.h),
@@ -208,7 +247,7 @@ class SlipNoticeLine extends StatelessWidget {
               SizedBox(width: 8.w),
               Expanded(child: text),
               SizedBox(width: 4.w),
-              Icon(Icons.expand_more_rounded,
+              Icon(Icons.chevron_right_rounded,
                   size: 18.sp, color: c.textSecondary),
             ],
           ),

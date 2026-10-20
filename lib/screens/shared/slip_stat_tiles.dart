@@ -1,8 +1,7 @@
-// The buy slips' figures in the position screens' language, on the
-// slip's side colour: a figure on its own translucent tile, two side by
-// side ([PositionStatTiles]), a small pill for what the order does to a
-// position already held, and the money's journey where the figures were
-// while the money moves.
+// The slips' figures: a small title and one number, two side by side,
+// with no tile around them (the position screens keep their tiles), a
+// small pill for what the order does to a position already held, and the
+// money's journey where the figures were while the money moves.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -11,7 +10,8 @@ import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/shared/animated_balance.dart';
 import 'package:kute/screens/shared/kute_motion.dart';
 import 'package:kute/screens/shared/money_steps_view.dart' show moneyPlaceName;
-import 'package:kute/screens/shared/position_rows_card.dart';
+import 'package:kute/screens/shared/position_rows_card.dart'
+    show positionTileValueStyle;
 import 'package:kute/screens/shared/slip_form_body.dart' show SlipDensity;
 import 'package:kute/services/one_balance/funded_orders.dart';
 import 'package:kute/services/one_balance/money_steps.dart';
@@ -19,63 +19,101 @@ import 'package:kute/services/one_balance/one_balance_state.dart'
     show OneBalanceVenue;
 import 'package:kute/theme/app_theme.dart';
 
-/// What a tile reads before there is a figure (no amount typed yet).
-const String kSlipNoFigure = '—';
+/// A money figure's zero, as a slip's figure shows it before there is
+/// one: the formatted zero without its decimals ("$0.00" reads "$0",
+/// "0,00 €" reads "0 €").
+String slipZeroFigure(String formattedZero) =>
+    formattedZero.replaceFirst(RegExp(r'[.,]0+(?!\d)'), '');
 
-/// A [PositionStatTile] on the slip's tint: the slip chrome's translucent
-/// surface and hairline (the Advanced row's family), never the app card,
-/// whose shadow muddies a saturated sheet.
-class SlipStatTile extends StatelessWidget {
-  const SlipStatTile({
+/// One of a slip's two figures: a small quiet title and one number under
+/// it, with no box, no background and no line under the number. Lined up
+/// with the amount above it. [dim] keeps a figure that is being worked
+/// out again on screen, quieter. [onTap] (the fee) opens what is behind
+/// the number; a small chevron after the title says so.
+class SlipFigure extends StatelessWidget {
+  const SlipFigure({
     super.key,
     required this.label,
     required this.value,
-    this.caption,
+    this.valueColor,
+    this.dim = false,
+    this.onTap,
   });
 
   final String label;
-
-  /// The figure, or null for [kSlipNoFigure].
-  final String? value;
-
-  /// The quiet line under the figure, if any.
-  final String? caption;
-
-  @override
-  Widget build(BuildContext context) => SlipTileFrame(
-        child: PositionStatTile(
-          bare: true,
-          label: label,
-          value: Text(value ?? kSlipNoFigure,
-              maxLines: 1, style: positionTileValueStyle(context.colors)),
-          caption: caption == null
-              ? null
-              : Text(caption!,
-                  maxLines: 1, style: positionTileCaptionStyle(context.colors)),
-        ),
-      );
-}
-
-/// The tile's frame alone, for a figure that builds itself (the fee).
-class SlipTileFrame extends StatelessWidget {
-  const SlipTileFrame({super.key, required this.child});
-
-  final Widget child;
+  final String value;
+  final Color? valueColor;
+  final bool dim;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final pad = SlipDensity.compact(context) ? 8.h : 12.h;
-    return Container(
-      padding: EdgeInsets.fromLTRB(14.w, pad, 14.w, pad),
-      decoration: BoxDecoration(
-        color: c.surface,
-        borderRadius: BorderRadius.circular(14.r),
-        border: Border.all(color: c.borderSubtle, width: 0.5),
+    final compact = SlipDensity.compact(context);
+    final body = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(mainAxisSize: MainAxisSize.min, children: [
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: c.textTertiary,
+                fontSize: 13.sp,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.1,
+              ),
+            ),
+          ),
+          if (onTap != null)
+            Icon(Icons.chevron_right_rounded,
+                size: 16.sp, color: c.textTertiary),
+        ]),
+        SizedBox(height: compact ? 2.h : 4.h),
+        AnimatedOpacity(
+          opacity: dim ? 0.45 : 1,
+          duration: kuteMotion(context, const Duration(milliseconds: 160)),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(value,
+                maxLines: 1,
+                style: positionTileValueStyle(c, color: valueColor)),
+          ),
+        ),
+      ],
+    );
+    if (onTap == null) return body;
+    return Semantics(
+      button: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: body,
       ),
-      child: child,
     );
   }
+}
+
+/// Two [SlipFigure]s side by side, each in its own half, tops aligned.
+class SlipFigures extends StatelessWidget {
+  const SlipFigures({super.key, required this.left, required this.right});
+
+  final Widget left;
+  final Widget right;
+
+  @override
+  Widget build(BuildContext context) => Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(child: left),
+          SizedBox(width: 16.w),
+          Expanded(child: right),
+        ],
+      );
 }
 
 /// A small pill under the amount: what the order does to the position

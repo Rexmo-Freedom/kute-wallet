@@ -60,10 +60,6 @@ import 'package:money2/money2.dart';
 import '../../helpers/fake_swap_orders.dart';
 import '../../helpers/runtime_policy_fixture.dart';
 
-/// The Dollars door: what is added, then the order placed right after it
-/// ("Add \$X · Place \$Y on Yes", "Add \$X · Go Long BTC 1x · \$Y").
-final Matcher _addThenOrder = allOf(startsWith('Add \$'), contains(' · '));
-
 const _ownSpark =
     'spark1pgss93sy072yrmtad5cy2srwjhq8ekzuw78yhr808jn6htqfh9w8p8h9mfwlv9';
 const _pmDeposit = '0x1111111111111111111111111111111111111111';
@@ -395,7 +391,8 @@ void main() {
     ]);
     expect(find.byType(SlipFundingReadyNote), findsNothing);
     expect(find.textContaining('Tap to place'), findsNothing);
-    expect(_cta(tester).label, startsWith(r'Add $'));
+    // Nothing typed: the bet's short name; the tap tops up first.
+    expect(_cta(tester).label, 'Place on Yes');
     expect(_cta(tester).enabled, isTrue);
     await release(tester);
   });
@@ -406,8 +403,8 @@ void main() {
     expect(await policy.refresh(), isTrue);
     await _pumpSlip(tester);
     expect(_door, findsOneWidget);
-    expect(_cta(tester).label, startsWith(r'Add $'));
-    expect(_cta(tester).label, _addThenOrder);
+    // Nothing typed: the bet's short name; the tap adds, then places.
+    expect(_cta(tester).label, 'Place on Yes');
 
     await tester.tap(_door);
     await _frames(tester, 10);

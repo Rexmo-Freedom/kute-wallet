@@ -106,10 +106,8 @@ import 'package:kute/screens/ledger/ledger_action_ui.dart'
 import 'package:kute/screens/shared/amount_keypad_panel.dart';
 import 'package:kute/screens/shared/slip_form_body.dart';
 import 'package:kute/screens/shared/slip_stat_tiles.dart';
-import 'package:kute/screens/shared/position_rows_card.dart'
-    show PositionStatTiles;
 import 'package:kute/screens/shared/money_fee_summary.dart'
-    show MoneyFeeTile;
+    show MoneyFeeFigure;
 import 'package:kute/screens/shared/decimal_input_formatter.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/sticky_action_bar.dart';
@@ -4933,24 +4931,22 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       primaryKind = 'deposit';
       // With no amount to name yet (nothing typed on a limit ticket, or a
       // shut door), the hot ticket still says where the money goes.
-      // The button names both deeds: what is added, then the order placed
-      // right after it ("Add $1.00 · Go Long ETH 1x · $10.14"), at the
-      // amount typed, or the minimum an empty ticket places.
-      final placedUsd = _marginUsd > 0
-          ? _marginUsd
-          : placesMinimum
-              ? minAmountUsd
-              : null;
+      // With an amount typed the button names both deeds, short: what is
+      // added, then the order placed right after it ("Add $1.00 · Short
+      // $12.00"). An empty ticket that places the minimum after the top-up
+      // says only the order ("Long ETH"); the tap is unchanged.
       primaryLabel = _isLedger
           ? context.l10n.depositToTrade
           : dollarsShort > 0
-              ? placedUsd != null
+              ? _marginUsd > 0
                   ? context.l10n.slipAddThenOrder(
                       formatHlUsd(dollarsShort),
-                      _positionCtaLabel(netPlan, amountUsd: placedUsd) ??
-                          _ctaLabel(amountUsd: placedUsd))
-                  : context.l10n
-                      .slipAddToInvestments(formatHlUsd(dollarsShort))
+                      _positionCtaLabel(netPlan, amountUsd: _marginUsd) ??
+                          _ctaLabel(amountUsd: _marginUsd))
+                  : placesMinimum
+                      ? _emptyCtaLabel(netPlan)
+                      : context.l10n
+                          .slipAddToInvestments(formatHlUsd(dollarsShort))
               : context.l10n.addMoneyToInvestments;
       // Funding a position that cannot be opened here would only strand
       // the money, so the door shuts with the open gate too.
@@ -4973,9 +4969,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       primaryNeutral = false;
     } else if (placesMinimum) {
       primaryKind = 'trade';
-      primaryLabel =
-          _positionCtaLabel(netPlan, amountUsd: minAmountUsd) ??
-              _ctaLabel(amountUsd: minAmountUsd);
+      // Nothing typed: the order's short name ("Long ETH"), no amount;
+      // a tap still places the minimum.
+      primaryLabel = _emptyCtaLabel(netPlan);
       primaryAction = formReadyButAmount && gatesOpen
           ? () => _placeMinimum(minAmountUsd)
           : null;
@@ -5055,9 +5051,10 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           // button on a green sheet stops reading as the thing
           // to do. Deposit keeps a neutral label there, so the
           // funding door never wears the trade's direction.
-          // The button cross-fades when it changes what it is (the
-          // deposit door giving way to the trade once a deposit lands),
-          // never as its amount changes.
+          // The button fades out and the new one in when it changes what
+          // it is (the deposit door giving way to the trade once a deposit
+          // lands), never as its amount changes, and never two labels at
+          // once.
           // The placement's band: pulled while the order (and its money)
           // goes, snapped back once placed, let go softly when it is not.
           _orderBand(
@@ -5066,6 +5063,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           ArrivalSwitcher(
             state: primaryKind,
             alignment: Alignment.bottomCenter,
+            sequential: true,
             animateSize: false,
             child: DecoratedBox(
               // On the tinted sheet the white button is only a shade away
@@ -6552,12 +6550,12 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                 (_fundPlan!.shortfallUsd - _slipShortfallUsd).abs() >= 0.005),
       );
 
-  /// The plain ticket's figures, the position screens' tiles on the
-  /// slip's tint: what the order buys (the size in the coin, its dollars
-  /// under it) and its fee, a dash in each until an amount is typed. The
+  /// The plain ticket's two figures, no boxes: what the order buys (the
+  /// size in the coin) and its fee, zero in each until an amount is typed
+  /// (a tap on the fee opens its breakdown sheet). The
   /// leverage and margin mode live in Advanced (leverage is 1× here);
   /// the liquidation estimate and the carrying cost stay as quiet rows
-  /// under the tiles when they apply.
+  /// under the figures when they apply.
   Widget _buildCompactSummary(
     AppColorsExtension c,
     double notional,
@@ -6575,18 +6573,17 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        PositionStatTiles(
-          left: SlipStatTile(
+        SlipFigures(
+          left: SlipFigure(
             key: const ValueKey('order-slip-size-tile'),
             label: isSpot
                 ? _strings.ledgerSummarySize
                 : _strings.chartPositionSize,
-            value: sized ? '${formatHlSize(size)} ${market.coin}' : null,
-            caption: sized ? '≈ ${formatHlUsd(notional)}' : null,
+            value: '${sized ? formatHlSize(size) : '0'} ${market.coin}',
           ),
-          right: SlipTileFrame(
+          right: KeyedSubtree(
             key: const ValueKey('order-slip-fee-tile'),
-            child: MoneyFeeTile(
+            child: MoneyFeeFigure(
                 child: _feeSummary(notional, hasFunds: hasFunds)),
           ),
         ),
@@ -6827,18 +6824,25 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     }
   }
 
-  String _ctaLabel({double? amountUsd}) {
+  /// The button on a ticket with nothing typed: the order's short name
+  /// ("Long ETH", "Buy BTC", "Close long"), never an amount.
+  String _emptyCtaLabel(HlPositionPlan plan) =>
+      plan.effect == HlPositionEffect.close
+          ? _strings.slipCtaClose(plan.heldSide)
+          : _ctaLabel(empty: true);
+
+  String _ctaLabel({double? amountUsd, bool empty = false}) {
     // Stake in the user's chosen denomination (sats/BTC or fiat) — the asset
     // PRICE stays USD, but the CTA is the user's money.
     final amount = formatPolyAmount(ref, amountUsd ?? _marginUsd);
     final side = _sideWord();
     final l = _strings;
-    // The button is the deed, said the way a trader says it: "Go Long
-    // BTC 5x · $100", "Buy BTC now · $100" (owner decision).
+    // The button is the deed, short (founder): "Short $12.00", "Buy
+    // $12.00"; before an amount is typed, "Long ETH".
     switch (_mode) {
       case _OrderMode.market:
-        if (isSpot) return l.slipCtaSpotNow(side, market.coin, amount);
-        return l.slipCtaGo(side, market.coin, '$_leverage', amount);
+        if (empty) return l.slipCtaSideCoin(side, market.coin);
+        return l.slipCtaSideAmount(side, amount);
       case _OrderMode.limit:
         return l.slipCtaLimit(side, market.coin);
       case _OrderMode.pro:

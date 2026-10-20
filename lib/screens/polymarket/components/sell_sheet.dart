@@ -38,8 +38,9 @@ import 'package:kute/services/polymarket/polymarket_fee_terms.dart'
     show polymarketFeeTermsProvider;
 import 'package:kute/screens/shared/sticky_action_bar.dart';
 import 'package:kute/screens/shared/slip_form_body.dart';
+import 'package:kute/screens/shared/slip_stat_tiles.dart'
+    show SlipFigure, SlipFigures, slipZeroFigure;
 import 'package:kute/screens/shared/decimal_input_formatter.dart';
-import 'package:kute/screens/shared/money_fee_summary.dart' show feeAmountText;
 import 'package:kute/screens/shared/position_rows_card.dart';
 import 'package:kute/screens/shared/side_tint_palette.dart';
 import 'package:kute/screens/polymarket/components/position_chance_bar.dart'
@@ -1639,7 +1640,6 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     final costSold =
         pos.size > 0 ? costBasis * (_sharesToSell / pos.size) : 0.0;
     final pnl = _sharesToSell > 0 ? proceeds - costSold : 0.0;
-    final pnlPct = costSold > 0 ? pnl / costSold * 100 : 0.0;
     // Green and red do not read on the red sheet: the sign carries the
     // direction, in the sheet's ink.
     final pnlColor = pnl.abs() < 0.005 ? tc.textSecondary : tc.textPrimary;
@@ -1691,38 +1691,23 @@ class _SellSheetState extends ConsumerState<SellSheet> {
                 : null,
           ),
           SlipGap(20.h),
-          // What the sale brings in after the fee, and its profit or loss,
-          // each on its own tile: the position screens' language.
-          PositionStatTiles(
-            left: PositionStatTile(
+          // What the sale brings in after the fee, and its profit or loss:
+          // two figures, no boxes, zero until something is typed.
+          SlipFigures(
+            left: SlipFigure(
               key: const ValueKey('poly-sell-proceeds'),
               label: context.l10n.youReceive,
-              value: Text(
-                formatPolyAmount(ref, fee == null ? gross : proceeds),
-                maxLines: 1,
-                style: positionTileValueStyle(tc),
-              ),
-              caption: Text(
-                fee == null
-                    ? context.l10n.betSaleProceeds
-                    : '${context.l10n.fee} ${feeAmountText(ref, usd: fee, bitcoinFirst: false).primary}',
-                maxLines: 1,
-                style: positionTileCaptionStyle(tc),
-              ),
+              value: _sharesToSell > 0
+                  ? formatPolyAmount(ref, fee == null ? gross : proceeds)
+                  : slipZeroFigure(formatPolyAmount(ref, 0)),
             ),
-            right: PositionStatTile(
+            right: SlipFigure(
               key: const ValueKey('poly-sell-pnl'),
               label: context.l10n.portfolioProfitLoss,
-              value: Text(
-                '${pnl < 0 ? '-' : '+'}${formatPolyAmount(ref, pnl.abs())}',
-                maxLines: 1,
-                style: positionTileValueStyle(tc, color: pnlColor),
-              ),
-              caption: Text(
-                '${pnlPct < 0 ? '' : '+'}${pnlPct.toStringAsFixed(1)}%',
-                maxLines: 1,
-                style: positionTileCaptionStyle(tc, color: pnlColor),
-              ),
+              value: pnl.abs() < 0.005
+                  ? slipZeroFigure(formatPolyAmount(ref, 0))
+                  : '${pnl < 0 ? '-' : '+'}${formatPolyAmount(ref, pnl.abs())}',
+              valueColor: pnlColor,
             ),
           ),
           SlipGap(12.h),
@@ -2054,7 +2039,6 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
   late double _slippagePct = widget.slippagePct;
   late final TextEditingController _amountController =
       TextEditingController(text: widget.amountText);
-  bool _detailsOpen = false;
 
   PolymarketPosition get pos => widget.position;
 
@@ -2463,14 +2447,11 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
                         ),
                         SizedBox(height: 14.h),
                         PolySlipDetailsGroup(
-                          open: _detailsOpen,
-                          onToggle: () {
-                            HapticFeedback.selectionClick();
-                            setState(() => _detailsOpen = !_detailsOpen);
-                            TrackingService.track(
-                                'sell_sheet_advanced_details_toggled',
-                                params: {'open': _detailsOpen});
-                          },
+                          // Opens the rows in a bottom sheet; the event hears it open
+                          // and close.
+                          onToggle: (open) => TrackingService.track(
+                              'sell_sheet_advanced_details_toggled',
+                              params: {'open': open}),
                           rows: [
                             PolySlipDetailRow(
                                 label: l10n.betSharesToSell,
