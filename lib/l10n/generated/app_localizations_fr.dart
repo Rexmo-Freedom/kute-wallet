@@ -10795,6 +10795,9 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String get usdReceiveDepositNow => 'Déposer maintenant';
+
+  @override
   String get usdReceiveFromYourWallet => 'Depuis votre portefeuille';
 
   @override

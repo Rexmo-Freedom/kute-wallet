@@ -3000,6 +3000,7 @@
   "multiMoveDeliveredRemaining": "{delivered} dostavljeno · {remaining} preostane",
   "multiMovePurchaseWaiting": "Vaših {amount} je v {balance}. Tapnite za nakup Bitcoina",
   "multiMoveSendWaiting": "Vaših {amount} je v {balance}. Pošiljanje ni bilo izvedeno",
+  "usdReceiveDepositNow": "Položi zdaj",
   "usdReceiveFromYourWallet": "Iz vaše denarnice",
   "usdReceiveFromAnotherWallet": "Iz druge denarnice ali borze",
   "slipStepAddingToInvestments": "Dodajanje {amount} v Investments",

@@ -10731,6 +10731,9 @@ class AppLocalizationsBg extends AppLocalizations {
   }
 
   @override
+  String get usdReceiveDepositNow => 'Депозирай сега';
+
+  @override
   String get usdReceiveFromYourWallet => 'От твоя портфейл';
 
   @override

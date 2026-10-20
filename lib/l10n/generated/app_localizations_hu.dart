@@ -10737,6 +10737,9 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
+  String get usdReceiveDepositNow => 'Befizetés most';
+
+  @override
   String get usdReceiveFromYourWallet => 'A tárcádból';
 
   @override

@@ -18109,6 +18109,12 @@ abstract class AppLocalizations {
   /// **'Your {amount} is in {balance}. The send didn\'t go through'**
   String multiMoveSendWaiting(String amount, String balance);
 
+  /// Dollars receive screen, From your wallet: the button on the Bitcoin card that moves bitcoin into the Dollars balance.
+  ///
+  /// In en, this message translates to:
+  /// **'Deposit now'**
+  String get usdReceiveDepositNow;
+
   /// Section label on the first step of the Investments (dollars) receive sheet, above the card that moves money in from the person's own spending bitcoin.
   ///
   /// In en, this message translates to:

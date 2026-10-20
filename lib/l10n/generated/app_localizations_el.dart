@@ -10789,6 +10789,9 @@ class AppLocalizationsEl extends AppLocalizations {
   }
 
   @override
+  String get usdReceiveDepositNow => 'Κατάθεση τώρα';
+
+  @override
   String get usdReceiveFromYourWallet => 'Από το πορτοφόλι σου';
 
   @override

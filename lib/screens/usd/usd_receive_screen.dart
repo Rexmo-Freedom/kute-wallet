@@ -250,7 +250,7 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
   /// button (as a claim row draws it), sized to its label at the
   /// current text scale and capped so the title keeps its room.
   Widget _bitcoinRowButton(BuildContext context) {
-    final label = context.l10n.moveAdd;
+    final label = context.l10n.usdReceiveDepositNow;
     final fontSize = 14.sp;
     final painter = TextPainter(
       text: TextSpan(

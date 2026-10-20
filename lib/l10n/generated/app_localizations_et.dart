@@ -10700,6 +10700,9 @@ class AppLocalizationsEt extends AppLocalizations {
   }
 
   @override
+  String get usdReceiveDepositNow => 'Sissemakse kohe';
+
+  @override
   String get usdReceiveFromYourWallet => 'Sinu rahakotist';
 
   @override

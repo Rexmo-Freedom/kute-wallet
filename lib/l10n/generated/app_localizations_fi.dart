@@ -10724,6 +10724,9 @@ class AppLocalizationsFi extends AppLocalizations {
   }
 
   @override
+  String get usdReceiveDepositNow => 'Talleta nyt';
+
+  @override
   String get usdReceiveFromYourWallet => 'Lompakostasi';
 
   @override

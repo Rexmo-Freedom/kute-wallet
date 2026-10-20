@@ -3000,6 +3000,7 @@
   "multiMoveDeliveredRemaining": "{delivered} kohale jõudnud · {remaining} jäänud",
   "multiMovePurchaseWaiting": "Sinu {amount} on kontol {balance}. Puuduta, et osta Bitcoini",
   "multiMoveSendWaiting": "Sinu {amount} on kontol {balance}. Saatmine ei läinud läbi",
+  "usdReceiveDepositNow": "Sissemakse kohe",
   "usdReceiveFromYourWallet": "Sinu rahakotist",
   "usdReceiveFromAnotherWallet": "Teisest rahakotist või börsilt",
   "slipStepAddingToInvestments": "Lisame {amount} kontole Investments",

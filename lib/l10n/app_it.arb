@@ -3000,6 +3000,7 @@
   "multiMoveDeliveredRemaining": "{delivered} consegnati · {remaining} rimanenti",
   "multiMovePurchaseWaiting": "I tuoi {amount} sono in {balance}. Tocca per comprare Bitcoin",
   "multiMoveSendWaiting": "I tuoi {amount} sono in {balance}. L’invio non è andato a buon fine",
+  "usdReceiveDepositNow": "Deposita ora",
   "usdReceiveFromYourWallet": "Dal tuo wallet",
   "usdReceiveFromAnotherWallet": "Da un altro wallet o exchange",
   "slipStepAddingToInvestments": "Aggiunta di {amount} a Investments",

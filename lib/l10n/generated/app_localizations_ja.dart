@@ -10294,6 +10294,9 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String get usdReceiveDepositNow => '今すぐ入金';
+
+  @override
   String get usdReceiveFromYourWallet => 'あなたのウォレットから';
 
   @override

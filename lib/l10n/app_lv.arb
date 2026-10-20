@@ -3000,6 +3000,7 @@
   "multiMoveDeliveredRemaining": "{delivered} piegādāti · {remaining} atlikuši",
   "multiMovePurchaseWaiting": "Jūsu {amount} ir {balance}. Pieskarieties, lai pirktu Bitcoin",
   "multiMoveSendWaiting": "Jūsu {amount} ir {balance}. Sūtīšana neizdevās",
+  "usdReceiveDepositNow": "Iemaksāt tagad",
   "usdReceiveFromYourWallet": "No tava maka",
   "usdReceiveFromAnotherWallet": "No cita maka vai biržas",
   "slipStepAddingToInvestments": "Pievieno {amount} kontam Investments",

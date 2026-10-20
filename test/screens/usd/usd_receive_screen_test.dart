@@ -272,7 +272,7 @@ void main() {
         of: find.byKey(_bitcoinButton), matching: find.byType(AppButton));
     expect(button, findsOneWidget);
     final app = tester.widget<AppButton>(button);
-    expect(app.text, _l10n.moveAdd);
+    expect(app.text, _l10n.usdReceiveDepositNow);
     expect(app.variant, AppButtonVariant.primary);
     expect(app.compact, isTrue);
     // The button sits at the card's trailing edge, inside it.
@@ -287,7 +287,7 @@ void main() {
     final label = node.getSemanticsData().label;
     expect(label, contains(_l10n.bitcoin));
     expect(label, isNot(contains('spending wallet')));
-    expect(label, contains(_l10n.moveAdd));
+    expect(label, contains(_l10n.usdReceiveDepositNow));
     // The label above is plain text, not a button.
     expect(tester.getSemantics(find.text(_l10n.usdReceiveFromYourWallet)),
         isNot(isSemantics(isButton: true)));
@@ -329,7 +329,7 @@ void main() {
     expect(pill.height, lessThan(card.height));
     // The label is not clipped out of the button.
     final label = tester.getRect(find.descendant(
-        of: find.byKey(_bitcoinButton), matching: find.text(_l10n.moveAdd)));
+        of: find.byKey(_bitcoinButton), matching: find.text(_l10n.usdReceiveDepositNow)));
     expect(label.left, greaterThanOrEqualTo(pill.left));
     expect(label.right, lessThanOrEqualTo(pill.right));
     expect(find.text(_l10n.usdReceiveFromYourWallet), findsOneWidget);
