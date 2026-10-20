@@ -1840,6 +1840,7 @@ void _showPolymarketUsdcReceiveDetails(
               // Amount lives ON the graph (no duplicate text row).
               SizedBox(height: 6.h),
               SimpleFlowGraph(
+                mark: SimpleFlowMark.predictions,
                 source: SimpleFlowNode(
                     label: context.l10n.activitySender, amount: fiatStr),
                 destinations: [
@@ -3501,11 +3502,22 @@ class _SwapOrderDetailSheetState extends ConsumerState<_SwapOrderDetailSheet> {
                     fromLabel = legName(details.coinFrom, details.networkFrom);
                     toLabel = legName(details.coinTo, details.networkTo);
                   }
+                  // The disc: what the money became (Predictions for its
+                  // own rows).
+                  final toCoin = details.coinTo.toUpperCase();
+                  final mark = isPolymarketRow
+                      ? SimpleFlowMark.predictions
+                      : toCoin == 'BTC'
+                          ? (details.networkTo.toUpperCase() == 'LIGHTNING'
+                              ? SimpleFlowMark.lightning
+                              : SimpleFlowMark.bitcoin)
+                          : SimpleFlowMark.dollars;
                   // Labels-only — both leg amounts already show in the
                   // Send / Receive rows above, so the graph just draws the path.
                   return Padding(
                     padding: EdgeInsets.symmetric(vertical: 6.h),
                     child: SimpleFlowGraph(
+                      mark: mark,
                       source: SimpleFlowNode(label: fromLabel, amount: ''),
                       destinations: [
                         SimpleFlowNode(
@@ -4075,12 +4087,15 @@ void _showPolymarketTxDetails(
                   type == ActivityType.withdraw) ...[
                 // Amount lives ON the graph (no duplicate text row).
                 SizedBox(height: 6.h),
+                // Both sides are the person's own money.
                 SimpleFlowGraph(
+                  mark: SimpleFlowMark.predictions,
                   source: SimpleFlowNode(
                     label: type == ActivityType.deposit
                         ? context.l10n.activityYourWallet
                         : context.l10n.predictions,
                     amount: usdcStr,
+                    highlight: true,
                   ),
                   destinations: [
                     SimpleFlowNode(
@@ -4793,17 +4808,23 @@ void _showSparkTxDetails(
                         // duplicate rows).
                         // The nodes are people, not rails: the rail is Nerd data.
                         SimpleFlowGraph(
+                          mark: tx.sparkType == SparkTransactionType.lightning
+                              ? SimpleFlowMark.lightning
+                              : SimpleFlowMark.bitcoin,
+                          // Orange on the wallet's own side.
                           source: SimpleFlowNode(
                             label: isSend
                                 ? context.l10n.activityYourWallet
                                 : context.l10n.activitySender,
                             amount: '₿$amountStr',
-                            highlight: !isSend,
+                            highlight: isSend,
                           ),
                           destinations: [
                             if (isSend && showFee)
                               SimpleFlowNode(
-                                  label: context.l10n.fee, amount: '₿$feeStr'),
+                                  label: context.l10n.fee,
+                                  amount: '₿$feeStr',
+                                  isFee: true),
                             SimpleFlowNode(
                               label: isSend
                                   ? context.l10n.recipient

@@ -31,6 +31,9 @@
 // the caller has no local rows at all (cached cold-wallet shells, tracked
 // addresses). Rows paying to / spent from one of `ownAddresses` are
 // highlighted; without own addresses the received-amount heuristic applies.
+//
+// [SimpleFlowGraph] (bottom of the file) draws the same tree for flows with
+// no chain transaction behind them (Lightning, Spark, Predictions, swaps).
 
 import 'dart:async';
 import 'dart:math' as math;
@@ -40,6 +43,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:kute/helpers/formatters/currency_formatter.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/providers/settings_provider.dart';
@@ -137,15 +141,9 @@ class TxFlowGraph extends ConsumerStatefulWidget {
   ConsumerState<TxFlowGraph> createState() => _TxFlowGraphState();
 }
 
-class _TxFlowGraphState extends ConsumerState<TxFlowGraph>
-    with SingleTickerProviderStateMixin {
+class _TxFlowGraphState extends ConsumerState<TxFlowGraph> {
   static const _lookupTimeout = Duration(seconds: 15);
   int _loadGeneration = 0;
-
-  /// Draws the lines once on first show: inputs over the first ~700 ms,
-  /// outputs from ~650 ms (see [_TreePainter]).
-  late final AnimationController _ctrl;
-  bool _drawScheduled = false;
 
   /// Resolved input values, parallel to widget.inputs. Seeded from the
   /// caller-provided sats (usually null) and filled in as fetches complete.
@@ -166,10 +164,6 @@ class _TxFlowGraphState extends ConsumerState<TxFlowGraph>
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: _TreePainter.drawMs),
-    );
     _seed();
     _load();
   }
@@ -291,12 +285,6 @@ class _TxFlowGraphState extends ConsumerState<TxFlowGraph>
       return null;
     }
     return details.outputs[vout].valueSats;
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
   }
 
   /// A counterparty address truncated to "bc1q8m4…x7d2" so it fits the
@@ -497,21 +485,6 @@ class _TxFlowGraphState extends ConsumerState<TxFlowGraph>
         context: context, message: context.l10n.copiedToClipboard);
   }
 
-  /// Draws the lines once, after the tree's first frame; under Reduce
-  /// Motion they are complete at once.
-  void _scheduleDraw(bool reduceMotion) {
-    if (_drawScheduled) return;
-    _drawScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      if (reduceMotion) {
-        _ctrl.value = 1;
-      } else {
-        _ctrl.forward();
-      }
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final hasLocal = widget.inputs.isNotEmpty || widget.outputs.isNotEmpty;
@@ -527,10 +500,6 @@ class _TxFlowGraphState extends ConsumerState<TxFlowGraph>
           : const SizedBox.shrink();
     }
 
-    final c = context.colors;
-    final reduceMotion = kuteReduceMotion(context);
-    _scheduleDraw(reduceMotion);
-
     final (inputLegs, outputLegs) =
         hasLocal ? _localLegs() : _remoteLegs(context, remote!);
     final (ins, outs) = _treeRows(context, inputLegs, outputLegs, unit);
@@ -540,22 +509,11 @@ class _TxFlowGraphState extends ConsumerState<TxFlowGraph>
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: EdgeInsets.only(bottom: 10.h),
-          child: Text(
-            context.l10n.tnTransaction.toUpperCase(),
-            style: TextStyle(
-              color: c.textTertiary,
-              fontSize: 11.sp,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.6,
-            ),
-          ),
-        ),
+        const _TreeEyebrow(),
         _TxTree(
           inputs: _collapse(ins),
           outputs: _collapse(outs),
-          draw: reduceMotion ? kAlwaysCompleteAnimation : _ctrl,
+          mark: SimpleFlowMark.bitcoin,
           onCopy: _copy,
         ),
         if (collapsible && !_expanded) _SeeAllButton(onTap: _expand),
@@ -602,29 +560,133 @@ class _SeeAllButton extends StatelessWidget {
   }
 }
 
-/// The wallet's own legs, the disc and own addresses.
+/// The wallet's own legs, the Bitcoin disc and own addresses.
 const Color _kOwnOrange = Color(0xFFF29B2D);
 
-/// The tree itself: the rows as real text (each a semantics node; an
-/// address copies on tap) over the painted hairlines and the ₿ disc.
-class _TxTree extends StatelessWidget {
+/// "TRANSACTION" over a tree.
+class _TreeEyebrow extends StatelessWidget {
+  const _TreeEyebrow();
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: EdgeInsets.only(bottom: 10.h),
+        child: Text(
+          context.l10n.tnTransaction.toUpperCase(),
+          style: TextStyle(
+            color: context.colors.textTertiary,
+            fontSize: 11.sp,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.6,
+          ),
+        ),
+      );
+}
+
+/// What a tree's centre disc shows: the asset or venue the money moved
+/// through.
+enum SimpleFlowMark { bitcoin, lightning, dollars, predictions }
+
+/// The centre disc: a plain filled circle with the flow's own mark, no
+/// border (Predictions uses its logo, which is already one).
+class _FlowDisc extends StatelessWidget {
+  const _FlowDisc(this.mark);
+  final SimpleFlowMark mark;
+
+  @override
+  Widget build(BuildContext context) {
+    const size = _TreePainter.discR * 2;
+    if (mark == SimpleFlowMark.predictions) {
+      return SvgPicture.asset('lib/assets/polymarket-logo.svg',
+          width: size, height: size);
+    }
+    final glyph = switch (mark) {
+      SimpleFlowMark.lightning =>
+        Icon(Icons.bolt_rounded, size: 15, color: Colors.white),
+      SimpleFlowMark.dollars => Text('\$',
+          style: TextStyle(
+              color: Colors.white,
+              fontSize: 12.sp,
+              height: 1,
+              fontWeight: FontWeight.w800)),
+      _ => Text('₿',
+          style: TextStyle(
+              color: Colors.white,
+              fontSize: 12.sp,
+              height: 1,
+              fontWeight: FontWeight.w700)),
+    };
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: mark == SimpleFlowMark.dollars
+            ? context.colors.success
+            : _kOwnOrange,
+      ),
+      child: glyph,
+    );
+  }
+}
+
+/// The tree itself, shared by [TxFlowGraph] and [SimpleFlowGraph]: the
+/// rows as real text (each a semantics node; an address copies on tap)
+/// over the painted hairlines, the [mark] disc in the middle. The lines
+/// draw once when the tree first shows, at once under Reduce Motion.
+class _TxTree extends StatefulWidget {
   const _TxTree({
     required this.inputs,
     required this.outputs,
-    required this.draw,
-    required this.onCopy,
+    required this.mark,
+    this.onCopy,
   });
 
   final List<_TreeRow> inputs;
   final List<_TreeRow> outputs;
-  final Animation<double> draw;
-  final ValueChanged<String> onCopy;
+  final SimpleFlowMark mark;
+  final ValueChanged<String>? onCopy;
+
+  @override
+  State<_TxTree> createState() => _TxTreeState();
+}
+
+class _TxTreeState extends State<_TxTree> with SingleTickerProviderStateMixin {
+  /// Inputs over the first ~700 ms, outputs from ~650 ms (see
+  /// [_TreePainter]).
+  late final AnimationController _draw = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: _TreePainter.drawMs),
+  );
+  bool _drawScheduled = false;
 
   /// Room between the disc and each trunk.
   static const _trunkGap = 16.0;
 
   @override
+  void dispose() {
+    _draw.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final reduceMotion = kuteReduceMotion(context);
+    if (!_drawScheduled) {
+      _drawScheduled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (reduceMotion) {
+          _draw.value = 1;
+        } else {
+          _draw.forward();
+        }
+      });
+    }
+    final draw = reduceMotion ? kAlwaysCompleteAnimation : _draw;
+    final inputs = widget.inputs;
+    final outputs = widget.outputs;
+    final onCopy = widget.onCopy;
     final c = context.colors;
     final scaler = MediaQuery.textScalerOf(context);
     final base = DefaultTextStyle.of(context).style;
@@ -665,7 +727,8 @@ class _TxTree extends StatelessWidget {
       // ~58 px apart, more when large text needs it (a detail may wrap).
       final pitch = math.max(58.0, titleH + 2 + detailH * 2 + 10);
       final n = math.max(1, math.max(inputs.length, outputs.length));
-      final top = titleH / 2 + 2;
+      // Room for the first address line, and for the disc on a one-row tree.
+      final top = math.max(titleH / 2 + 2, _TreePainter.discR + 2);
       final mid = top + (n - 1) * pitch / 2;
       // Row anchors sit on each address line, centred on the disc.
       List<double> anchors(int k) =>
@@ -704,7 +767,7 @@ class _TxTree extends StatelessWidget {
       Widget row(_TreeRow r, double y, {required bool left}) {
         final align = left ? TextAlign.left : TextAlign.right;
         final copy = r.address;
-        final tap = copy == null ? null : () => onCopy(copy);
+        final tap = copy == null || onCopy == null ? null : () => onCopy(copy);
         return Positioned(
           left: left ? 0 : null,
           right: left ? null : 0,
@@ -775,15 +838,13 @@ class _TxTree extends StatelessWidget {
                   trunkR: trunkR,
                   line: c.textDisabled,
                   dots: c.textTertiary,
-                  // The app's own face, which carries the ₿ glyph.
-                  glyph: base.merge(TextStyle(
-                    color: Colors.white,
-                    fontSize: 12.sp,
-                    height: 1,
-                    fontWeight: FontWeight.w700,
-                  )),
                 ),
               ),
+            ),
+            Positioned(
+              left: cx - _TreePainter.discR,
+              top: mid - _TreePainter.discR,
+              child: ExcludeSemantics(child: _FlowDisc(widget.mark)),
             ),
             for (var i = 0; i < inputs.length; i++)
               row(inputs[i], inY[i], left: true),
@@ -801,7 +862,7 @@ class _TxTree extends StatelessWidget {
 typedef _Branch = ({double x, double y, bool own, bool fee});
 
 /// Orthogonal hairlines into a trunk left of the disc and out of a trunk
-/// right of it, the ₿ disc in the middle. [draw] runs 0 → 1 once: inputs
+/// right of it (the disc itself is [_FlowDisc], laid over the middle). [draw] runs 0 → 1 once: inputs
 /// over the first [_inMs], outputs from [_outStartMs] to the end.
 class _TreePainter extends CustomPainter {
   static const drawMs = 1350;
@@ -820,7 +881,6 @@ class _TreePainter extends CustomPainter {
   final double trunkR;
   final Color line;
   final Color dots;
-  final TextStyle glyph;
 
   _TreePainter({
     required this.draw,
@@ -831,7 +891,6 @@ class _TreePainter extends CustomPainter {
     required this.trunkR,
     required this.line,
     required this.dots,
-    required this.glyph,
   }) : super(repaint: draw);
 
   @override
@@ -850,6 +909,16 @@ class _TreePainter extends CustomPainter {
     // The fee's dots first so shared runs read solid, then grey, then the
     // wallet's orange on top.
     int layer(_Branch b) => b.own ? 2 : (b.fee ? 0 : 1);
+    // The fee is the last branch: its dots start where the solid legs
+    // above it leave the shared run, so the two never overlap.
+    final start = cx + discR + _discGap;
+    final solidYs = [
+      for (final b in outputs)
+        if (!b.fee) b.y
+    ];
+    final feeSkip = solidYs.isEmpty
+        ? 0.0
+        : (trunkR - start) + math.max(0.0, solidYs.reduce(math.max) - mid);
     for (var pass = 0; pass < 3; pass++) {
       for (final b in inputs) {
         if (layer(b) != pass) continue;
@@ -863,11 +932,11 @@ class _TreePainter extends CustomPainter {
       for (final b in outputs) {
         if (layer(b) != pass) continue;
         final p = Path()
-          ..moveTo(cx + discR + _discGap, mid)
+          ..moveTo(start, mid)
           ..lineTo(trunkR, mid)
           ..lineTo(trunkR, b.y)
           ..lineTo(b.x, b.y);
-        _stroke(canvas, p, tOut, b, stroke);
+        _stroke(canvas, p, tOut, b, stroke, skip: b.fee ? feeSkip : 0);
         // The open chevron settles in as the line arrives.
         final a = ((tOut - 0.85) / 0.15).clamp(0.0, 1.0);
         if (a > 0) {
@@ -882,24 +951,18 @@ class _TreePainter extends CustomPainter {
         }
       }
     }
-
-    // The transaction: a plain orange ₿ disc.
-    canvas.drawCircle(Offset(cx, mid), discR, Paint()..color = _kOwnOrange);
-    final mark = TextPainter(
-      text: TextSpan(text: '₿', style: glyph),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    mark.paint(canvas, Offset(cx - mark.width / 2, mid - mark.height / 2));
   }
 
-  /// The first [t] of [path]: solid, or dotted one on four for the fee.
-  void _stroke(Canvas canvas, Path path, double t, _Branch b, Paint stroke) {
+  /// The first [t] of [path]: solid, or dotted one on four for the fee
+  /// (from [skip] on).
+  void _stroke(Canvas canvas, Path path, double t, _Branch b, Paint stroke,
+      {double skip = 0}) {
     if (t <= 0) return;
     for (final m in path.computeMetrics()) {
       final len = m.length * t;
       if (b.fee) {
         final dot = Paint()..color = dots;
-        for (var d = 0.0; d <= len; d += 5) {
+        for (var d = skip; d <= len; d += 5) {
           final pos = m.getTangentForOffset(d)?.position;
           if (pos != null) canvas.drawCircle(pos, 0.9, dot);
         }
@@ -1009,335 +1072,73 @@ class _TreeRow {
   });
 }
 
-/// A resolved, paint-ready row of [SimpleFlowGraph]'s braid.
-class _Row {
-  final String label;
-  final String amount;
-  final bool highlight;
-  const _Row({
-    required this.label,
-    required this.amount,
-    required this.highlight,
-  });
-
-  @override
-  bool operator ==(Object other) =>
-      other is _Row &&
-      other.label == label &&
-      other.amount == amount &&
-      other.highlight == highlight;
-
-  @override
-  int get hashCode => Object.hash(label, amount, highlight);
-}
-
-/// The braid behind [SimpleFlowGraph]: labeled outer columns, curves
-/// through a central pinch, traveling dots.
-class _TxFlowPainter extends CustomPainter {
-  final double progress;
-  final List<_Row> inputs;
-  final List<_Row> outputs;
-  final Color accent;
-  final Color textPrimary;
-  final Color textSecondary;
-  final Color textTertiary;
-
-  _TxFlowPainter({
-    required this.progress,
-    required this.inputs,
-    required this.outputs,
-    required this.accent,
-    required this.textPrimary,
-    required this.textSecondary,
-    required this.textTertiary,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (inputs.isEmpty && outputs.isEmpty) return;
-
-    // Reserve the OUTER columns for the labels and keep the connectors in the
-    // central channel only — a curve must NEVER be drawn over label text.
-    final labelW = size.width * 0.36;
-    final leftConnectorX = labelW;
-    final rightConnectorX = size.width - labelW;
-    final pinchX = size.width / 2;
-    final pinchY = size.height / 2;
-
-    final leftYs = _evenY(size.height, inputs.length);
-    final rightYs = _evenY(size.height, outputs.length);
-
-    final linePaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeWidth = 1.2;
-
-    final braid = <(Path, bool)>[]; // (path, highlighted)
-
-    // Each input weaves from the inner edge of the left label column to the
-    // shared central pinch point.
-    final lspan = pinchX - leftConnectorX;
-    for (final y0 in leftYs) {
-      final p = Path()
-        ..moveTo(leftConnectorX, y0)
-        ..cubicTo(leftConnectorX + lspan * 0.5, y0, pinchX - lspan * 0.2,
-            pinchY, pinchX, pinchY);
-      braid.add((p, false));
-    }
-    // The pinch fans back out to the inner edge of the right label column.
-    final rspan = rightConnectorX - pinchX;
-    for (var i = 0; i < rightYs.length; i++) {
-      final y1 = rightYs[i];
-      final hot = outputs[i].highlight;
-      final p = Path()
-        ..moveTo(pinchX, pinchY)
-        ..cubicTo(pinchX + rspan * 0.2, pinchY, rightConnectorX - rspan * 0.5,
-            y1, rightConnectorX, y1);
-      braid.add((p, hot));
-    }
-
-    // Subtle gray lines first, accent (highlighted) lines on top.
-    for (final (p, hot) in braid) {
-      if (hot) continue;
-      canvas.drawPath(
-        p,
-        linePaint..color = textTertiary.withValues(alpha: 0.30),
-      );
-    }
-    for (final (p, hot) in braid) {
-      if (!hot) continue;
-      canvas.drawPath(
-        p,
-        linePaint..color = accent.withValues(alpha: 0.85),
-      );
-    }
-
-    // Traveling "energy" dots along every connector.
-    for (final (p, hot) in braid) {
-      final base = hot
-          ? accent.withValues(alpha: 0.95)
-          : textTertiary.withValues(alpha: 0.55);
-      for (final metric in p.computeMetrics()) {
-        const particles = 2;
-        for (var k = 0; k < particles; k++) {
-          final t = (progress + k / particles) % 1.0;
-          final pos = metric.getTangentForOffset(metric.length * t);
-          if (pos == null) continue;
-          final edge = math.min(t, 1 - t);
-          final fade = (edge * 4).clamp(0.0, 1.0);
-          canvas.drawCircle(
-            pos.position,
-            hot ? 2.2 : 1.8,
-            Paint()..color = base.withValues(alpha: base.a * fade),
-          );
-        }
-      }
-    }
-
-    // Labels live in the OUTER columns (x ∈ [0, labelW] left, [w-labelW, w]
-    // right), so they never sit under the central connectors.
-    for (var i = 0; i < inputs.length; i++) {
-      _drawLabel(
-        canvas,
-        inputs[i],
-        2.w,
-        leftYs[i],
-        leftAlign: true,
-        maxWidth: labelW - 10.w,
-      );
-    }
-    for (var i = 0; i < outputs.length; i++) {
-      _drawLabel(
-        canvas,
-        outputs[i],
-        size.width - 2.w,
-        rightYs[i],
-        leftAlign: false,
-        maxWidth: labelW - 10.w,
-      );
-    }
-  }
-
-  /// Evenly spaced row centers down [height] for [n] rows.
-  List<double> _evenY(double height, int n) {
-    if (n <= 0) return const [];
-    if (n == 1) return [height / 2];
-    final pad = (12.0).h;
-    final usable = height - pad * 2;
-    return [for (var i = 0; i < n; i++) pad + usable * i / (n - 1)];
-  }
-
-  void _drawLabel(
-    Canvas canvas,
-    _Row row,
-    double anchorX,
-    double centerY, {
-    required bool leftAlign,
-    required double maxWidth,
-  }) {
-    final labelColor = row.highlight ? accent : textTertiary;
-    // The highlighted amount is INFORMATIONAL value text; the brand accent
-    // (blue ~3.2:1 on white in light mode) fails ~4.5:1, so paint the value in
-    // high-contrast textPrimary. The highlight identity is still carried by the
-    // accent label + its '›' chevron (non-colour cues), so nothing is lost.
-    final amountColor = row.highlight ? textPrimary : textSecondary;
-    final align = leftAlign ? TextAlign.left : TextAlign.right;
-
-    // Right-chevron on the received output's label (right column only).
-    final labelText =
-        (!leftAlign && row.highlight) ? '${row.label} ›' : row.label;
-
-    // When [amount] is empty the graph is a labels-only flow diagram (the
-    // numbers live in the sheet's detail rows / header, so we never repeat
-    // them here). Render the label alone, sized up to read as primary text.
-    final hasAmount = row.amount.isNotEmpty;
-    final tp = TextPainter(
-      text: TextSpan(children: [
-        TextSpan(
-          text: hasAmount ? '$labelText\n' : labelText,
-          style: TextStyle(
-            color: hasAmount ? labelColor : amountColor,
-            fontSize: hasAmount ? 11.sp : 13.sp,
-            height: 1.3,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        if (hasAmount)
-          TextSpan(
-            text: row.amount,
-            style: TextStyle(
-              color: amountColor,
-              fontSize: 13.sp,
-              height: 1.25,
-              fontWeight: row.highlight ? FontWeight.w800 : FontWeight.w700,
-            ),
-          ),
-      ]),
-      textDirection: TextDirection.ltr,
-      textAlign: align,
-      maxLines: 2,
-    )..layout(maxWidth: math.max(40.0, maxWidth));
-
-    final x = leftAlign ? anchorX : anchorX - tp.width;
-    tp.paint(canvas, Offset(x, centerY - tp.height / 2));
-  }
-
-  @override
-  bool shouldRepaint(_TxFlowPainter old) =>
-      old.progress != progress ||
-      !listEquals(old.inputs, inputs) ||
-      !listEquals(old.outputs, outputs);
-}
-
 // ---------------------------------------------------------------------------
 // SimpleFlowGraph
 // ---------------------------------------------------------------------------
 //
 // A network-free 1→N flow for accounts that have NO on-chain UTXOs (Lightning
-// / Spark sends, Polymarket / Orchestra deposits + withdrawals, etc.). It
-// still draws the older braid (labeled outer columns, a central pinch with
-// animated energy dots), not [TxFlowGraph]'s tree, and derives everything
-// from the local transaction fields the caller passes in. It never hits the network,
-// so it always renders (no offline gating needed).
+// / Spark payments, Polymarket / Orchestra deposits + withdrawals, swaps). It
+// draws the same tree as [TxFlowGraph], with the parties' names where the
+// addresses would be (not monospace) and the flow's own [SimpleFlowMark] in
+// the centre disc. It derives everything from the local transaction fields
+// the caller passes in and never hits the network, so it always renders.
 //
-// LEFT  = a single source row ("Your wallet" / "Predictions").
-// RIGHT = one row per destination, plus an optional fee row at the top. The
-//         primary destination can be highlighted (accent + chevron).
+// LEFT  = a single source row ("Your wallet" / "Sender" / "Predictions").
+// RIGHT = one row per destination; a fee row is drawn last, dotted. Rows
+//         that are the person's own money ([SimpleFlowNode.highlight]) and
+//         their legs are orange.
 
 /// One side of a [SimpleFlowGraph] row. [amount] is a fully formatted,
 /// network-free string already in the user's unit (e.g. "₿0.00 120 000",
-/// "$12.50", "₿1,200").
+/// "$12.50", "₿1,200"); empty draws the name alone. [highlight] marks the
+/// person's own money (orange name and leg); [isFee] draws the fee branch.
 class SimpleFlowNode {
   final String label;
   final String amount;
   final bool highlight;
+  final bool isFee;
   const SimpleFlowNode({
     required this.label,
     required this.amount,
     this.highlight = false,
+    this.isFee = false,
   });
 }
 
-class SimpleFlowGraph extends StatefulWidget {
+class SimpleFlowGraph extends StatelessWidget {
   /// The single source on the left (e.g. "Your wallet").
   final SimpleFlowNode source;
 
-  /// Destinations on the right, top-to-bottom. A fee row, if any, should be
-  /// listed first so it sits at the top like the BTC graph.
+  /// Destinations on the right, top-to-bottom; a fee row is drawn last.
   final List<SimpleFlowNode> destinations;
+
+  /// The centre disc: what the money moved through.
+  final SimpleFlowMark mark;
 
   const SimpleFlowGraph({
     super.key,
     required this.source,
     required this.destinations,
+    this.mark = SimpleFlowMark.bitcoin,
   });
 
-  @override
-  State<SimpleFlowGraph> createState() => _SimpleFlowGraphState();
-}
-
-class _SimpleFlowGraphState extends State<SimpleFlowGraph>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
+  static _TreeRow _row(SimpleFlowNode n) => _TreeRow(
+      title: n.label, detail: n.amount, own: n.highlight, fee: n.isFee);
 
   @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2600),
-    );
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    // Decorative energy-dot loop — suspend it under reduced motion. The flow
-    // diagram (curves + labels) renders identically without it.
-    final reduceMotion = MediaQuery.of(context).disableAnimations;
-    if (reduceMotion) {
-      if (_ctrl.isAnimating) _ctrl.stop();
-    } else if (!_ctrl.isAnimating) {
-      _ctrl.repeat();
-    }
-    final rows = math.max(1, widget.destinations.length);
-    final height = (40.0 + rows.clamp(1, 16) * 34.0).h;
-
-    final inputs = <_Row>[
-      _Row(
-        label: widget.source.label,
-        amount: widget.source.amount,
-        highlight: widget.source.highlight,
-      ),
-    ];
-    final outputs = <_Row>[
-      for (final d in widget.destinations)
-        _Row(label: d.label, amount: d.amount, highlight: d.highlight),
-    ];
-
-    return SizedBox(
-      height: height,
-      width: double.infinity,
-      child: AnimatedBuilder(
-        animation: _ctrl,
-        builder: (context, _) => CustomPaint(
-          painter: _TxFlowPainter(
-            progress: _ctrl.value,
-            inputs: inputs,
-            outputs: outputs,
-            accent: c.accent,
-            textPrimary: c.textPrimary,
-            textSecondary: c.textSecondary,
-            textTertiary: c.textTertiary,
+  Widget build(BuildContext context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const _TreeEyebrow(),
+          _TxTree(
+            inputs: [_row(source)],
+            outputs: [
+              for (final d in destinations.where((d) => !d.isFee)) _row(d),
+              for (final d in destinations.where((d) => d.isFee)) _row(d),
+            ],
+            mark: mark,
           ),
-        ),
-      ),
-    );
-  }
+        ],
+      );
 }
