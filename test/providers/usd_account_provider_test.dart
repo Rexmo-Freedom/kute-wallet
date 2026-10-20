@@ -481,6 +481,82 @@ void main() {
       });
     });
 
+    test(
+        'a history change not proven stale syncs a bounded few times, '
+        'not the whole ladder', () {
+      fakeAsync((async) {
+        var syncs = 0;
+        final c = UsdLedgerCatchUp(
+          readInfo: (_) async =>
+              _info({usdbTokenIdentifier: ('USDB', 15000000)}),
+          syncWallet: () async {
+            syncs++;
+          },
+          publish: (_, __) {},
+          debounce: Duration.zero,
+        );
+        c.recordReading(15);
+        c.onLedger('recent', holdsDollars: true, settledDollars: 5);
+        c.onLedger('recent,old',
+            holdsDollars: true, settledDollars: 15, recoveryEligible: false);
+        async.elapse(const Duration(minutes: 10));
+        expect(syncs, 1 + kUsdUnprovenCatchUpRetries);
+        expect(syncs, lessThan(1 + kUsdCatchUpRetryDelays.length));
+        expect(c.retryPending, isFalse);
+        c.dispose();
+      });
+    });
+
+    test('a proven current-session arrival keeps the whole retry ladder', () {
+      fakeAsync((async) {
+        var syncs = 0;
+        final c = UsdLedgerCatchUp(
+          readInfo: (_) async =>
+              _info({usdbTokenIdentifier: ('USDB', 5000000)}),
+          syncWallet: () async {
+            syncs++;
+          },
+          publish: (_, __) {},
+          debounce: Duration.zero,
+        );
+        c.recordReading(5);
+        c.onLedger('old', holdsDollars: true, settledDollars: 5);
+        c.onLedger('old,arrival',
+            holdsDollars: true, settledDollars: 15, recoveryEligible: true);
+        async.elapse(const Duration(minutes: 10));
+        expect(syncs, 1 + kUsdCatchUpRetryDelays.length);
+        c.dispose();
+      });
+    });
+
+    test('a ledger change that leaves the settled sum unchanged never syncs',
+        () {
+      fakeAsync((async) {
+        var syncs = 0, reads = 0;
+        final c = UsdLedgerCatchUp(
+          readInfo: (_) async {
+            reads++;
+            return _info({usdbTokenIdentifier: ('USDB', 5000000)});
+          },
+          syncWallet: () async {
+            syncs++;
+          },
+          publish: (_, __) {},
+          debounce: Duration.zero,
+        );
+        c.recordReading(5);
+        c.onLedger('old', holdsDollars: true, settledDollars: 5);
+        // A send and its refund land together: the sum is where it was.
+        c.onLedger('old,refund,send',
+            holdsDollars: true, settledDollars: 5, recoveryEligible: true);
+        async.elapse(const Duration(minutes: 5));
+        expect(syncs, 0);
+        expect(reads, 0);
+        expect(c.retryPending, isFalse);
+        c.dispose();
+      });
+    });
+
     test('one guarded reconnect per ledger change; busy recovery is retried',
         () {
       fakeAsync((async) {

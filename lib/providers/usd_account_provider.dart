@@ -38,6 +38,7 @@
 // sees "USD" or "$".
 
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart'
     show BreezSdk, GetInfoRequest, GetInfoResponse;
@@ -164,6 +165,18 @@ const List<Duration> kUsdCatchUpRetryDelays = [
   Duration(seconds: 120),
 ];
 
+/// How many of [kUsdCatchUpRetryDelays] a catch-up that is not proven
+/// behind uses: an existing dollar entry left unchanged by a ledger change
+/// that is not a new payment of this session (history streamed in by a
+/// sync, a restore, a pruned page). Each retry forces a whole wallet sync,
+/// and a forced sync holds the SDK's operator events (the very updates a
+/// real arrival lands through) while it runs, so the full ladder (six
+/// forced syncs over four minutes, started again by every trigger) kept a
+/// slow network's SDK permanently mid-sync. A missing entry and a proven
+/// current-session arrival keep the whole ladder; a later trigger (resume,
+/// pull-to-refresh, the next ledger change) tries again.
+const int kUsdUnprovenCatchUpRetries = 2;
+
 /// Brings the dollar reading up to date when the SDK's token map is
 /// behind.
 ///
@@ -202,7 +215,10 @@ const List<Duration> kUsdCatchUpRetryDelays = [
 ///    once more when the sync answers or [syncTimeout] passes;
 ///  * an entry still missing after that is tried again on the bounded
 ///    [retryDelays], and on every new trigger ([check]). A settled payment
-///    also keeps retrying an unchanged numeric entry (including zero).
+///    also keeps retrying an unchanged numeric entry (including zero): the
+///    whole ladder for a current-session arrival whose expected reading is
+///    unmet, [kUsdUnprovenCatchUpRetries] of it otherwise. A ledger change
+///    that leaves the settled sum where it was never syncs.
 ///    Only a current-session ledger delta with an unmet expected reading,
 ///    or a missing token entry, may request one guarded SDK reconnect.
 class UsdLedgerCatchUp {
@@ -316,6 +332,15 @@ class UsdLedgerCatchUp {
       return;
     }
     if (previous == signature) return;
+    // The settled sum did not move (a refund and its send landing together,
+    // rows listed again under the same amounts): the balance has no reason
+    // to change, so an unchanged reading is not behind and nothing syncs.
+    // A catch-up already pending for an earlier change keeps running.
+    if (previousDollars != null &&
+        settledDollars != null &&
+        (settledDollars - previousDollars).abs() < 0.0000005) {
+      return;
+    }
     _recoveryEligible = recoveryEligible;
     _expectedLedgerReading = recoveryEligible &&
             _readingAtLedger != null &&
@@ -486,7 +511,10 @@ class UsdLedgerCatchUp {
       _retry = null;
       return;
     }
-    if (_retry != null || _retries >= retryDelays.length) return;
+    final budget = _missing || _provenBehind
+        ? retryDelays.length
+        : math.min(kUsdUnprovenCatchUpRetries, retryDelays.length);
+    if (_retry != null || _retries >= budget) return;
     final delay = retryDelays[_retries++];
     _retry = Timer(delay, () {
       _retry = null;
