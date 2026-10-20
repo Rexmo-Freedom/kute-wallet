@@ -775,6 +775,19 @@ class PendingHlOrderAutoFire {
   /// snapshot read a moment after the rail said it had.
   static const double kArrivedShare = 0.9;
 
+  /// After a credit signal ([creditLanded]) whose first read did not show
+  /// the money yet, the account is read again this long after the one
+  /// before (1 s, then 2 s, then 4 s later): bounded, the regular poll
+  /// carries on after them.
+  static const List<Duration> kCreditFollowUps = [
+    Duration(seconds: 1),
+    Duration(seconds: 2),
+    Duration(seconds: 4),
+  ];
+
+  /// The pending reads [creditLanded] scheduled.
+  final List<Timer> _creditFollowUps = [];
+
   PendingHlOrderAutoFire(this.ref) {
     // Re-evaluate whenever the intent itself changes — a fresh setIntent
     // or a status flip to awaitingBalance should immediately check the
@@ -793,15 +806,10 @@ class PendingHlOrderAutoFire {
     // The rail says a move was credited: read the account at once instead
     // of waiting for the next tick.
     try {
-      _credited = ref.read(hyperliquidMoveRailProvider).credited.listen((_) {
-        if (ref.read(pendingHyperliquidOrderProvider)?.status !=
-            PendingHlOrderStatus.awaitingBalance) {
-          return;
-        }
-        _creditSeen = true;
-        ref.invalidate(hyperliquidAccountProvider);
-        unawaited(_maybeFire());
-      });
+      _credited = ref
+          .read(hyperliquidMoveRailProvider)
+          .credited
+          .listen((_) => creditLanded());
     } catch (_) {
       // No rail bound (a test container): the poll alone watches.
     }
@@ -809,6 +817,7 @@ class PendingHlOrderAutoFire {
 
   void dispose() {
     _stopAwaitPolling();
+    _cancelCreditFollowUps();
     _credited?.cancel();
     _credited = null;
     AuthGrantRegistry.instance
@@ -818,6 +827,56 @@ class PendingHlOrderAutoFire {
   /// Checks the balance now (the slip calls it once the funding was
   /// handed over). Safe to call at any time.
   Future<void> checkNow() => _maybeFire();
+
+  bool get _awaiting =>
+      ref.read(pendingHyperliquidOrderProvider)?.status ==
+      PendingHlOrderStatus.awaitingBalance;
+
+  /// A move into Investing was credited (Orchestra's status said its
+  /// order delivered, or the rail said so): the account is read again
+  /// now, not on its next poll, and the queued order fires on that read.
+  /// While the order still cannot go, the account is read again a few
+  /// times ([kCreditFollowUps]) in case the venue's read lags the credit.
+  /// Without a queued order the read alone runs (the balances on screen).
+  /// Safe to call at any time.
+  void creditLanded() {
+    final awaiting = _awaiting;
+    if (awaiting) _creditSeen = true;
+    _readAgain();
+    if (!awaiting) return;
+    _cancelCreditFollowUps();
+    var at = Duration.zero;
+    for (final gap in kCreditFollowUps) {
+      at += gap;
+      _creditFollowUps.add(Timer(at, () {
+        if (!_awaiting) return _cancelCreditFollowUps();
+        _readAgain();
+      }));
+    }
+  }
+
+  /// The account's cash moved (a ledger update on the venue's socket):
+  /// read it again now and fire the queued order on it. Safe to call at
+  /// any time.
+  void accountMoved() => _readAgain();
+
+  /// One fresh account read now (when something holds the account, or an
+  /// order waits on it), and the queued order checked against it.
+  void _readAgain() {
+    try {
+      if (ref.exists(hyperliquidAccountProvider)) {
+        ref.invalidate(hyperliquidAccountProvider);
+      }
+    } catch (_) {}
+    if (_awaiting) unawaited(_maybeFire());
+  }
+
+  void _cancelCreditFollowUps() {
+    for (final t in _creditFollowUps) {
+      t.cancel();
+    }
+    _creditFollowUps.clear();
+  }
 
   /// D-10: the confirm-time grant lapsed before the order could fire.
   void _onAutofireExpired(String intentId, String venue) {
@@ -1410,5 +1469,6 @@ class PendingHlOrderAutoFire {
     _awaitPoll?.cancel();
     _awaitPoll = null;
     _awaitStart = null;
+    _cancelCreditFollowUps();
   }
 }

@@ -284,6 +284,17 @@ class HlUserFillsMessage extends HlWsMessage {
   const HlUserFillsMessage({required this.isSnapshot, required this.fills});
 }
 
+/// `userNonFundingLedgerUpdates` — the account's cash moving outside
+/// trading: a deposit or a transfer credited, a withdrawal or a send.
+/// [isSnapshot] is true on the history frame right after subscribing;
+/// consumers reacting to "the cash just moved" MUST ignore it. Only the
+/// number of updates is kept: the account is read again for the figures.
+class HlLedgerUpdatesMessage extends HlWsMessage {
+  final bool isSnapshot;
+  final int count;
+  const HlLedgerUpdatesMessage({required this.isSnapshot, required this.count});
+}
+
 enum HlWsState { disconnected, connecting, connected, reconnecting }
 
 // ───────────────────────────── client ───────────────────────────────
@@ -443,11 +454,13 @@ class HyperliquidWebSocket {
   void subscribeUser(String address) {
     _subscribe({'type': 'orderUpdates', 'user': address});
     _subscribe({'type': 'userFills', 'user': address});
+    _subscribe({'type': 'userNonFundingLedgerUpdates', 'user': address});
   }
 
   void unsubscribeUser(String address) {
     _unsubscribe({'type': 'orderUpdates', 'user': address});
     _unsubscribe({'type': 'userFills', 'user': address});
+    _unsubscribe({'type': 'userNonFundingLedgerUpdates', 'user': address});
   }
 
   void _subscribe(Map<String, dynamic> sub) {
@@ -490,6 +503,10 @@ class HyperliquidWebSocket {
       _send(const {'method': 'ping'});
     });
   }
+
+  /// Tests: decodes [data] as if the socket had received it.
+  @visibleForTesting
+  void debugReceive(String data) => _handleFrame(data);
 
   void _handleFrame(dynamic data) {
     if (data is! String) return;
@@ -576,6 +593,14 @@ class HyperliquidWebSocket {
               .whereType<Map<String, dynamic>>()
               .map(HlFill.fromJson)
               .toList(),
+        );
+        break;
+      case 'userNonFundingLedgerUpdates':
+        if (data is! Map<String, dynamic>) return;
+        final updates = data['nonFundingLedgerUpdates'];
+        msg = HlLedgerUpdatesMessage(
+          isSnapshot: data['isSnapshot'] == true,
+          count: updates is List ? updates.length : 0,
         );
         break;
     }

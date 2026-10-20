@@ -15,7 +15,13 @@
 //         slip listens to for the fill overlay;
 //   * on orderUpdates: patches the trading notifier's openOrders in
 //     place so cancels/fills reflect immediately (30 s poll remains the
-//     reconciliation backstop).
+//     reconciliation backstop);
+//   * on live userNonFundingLedgerUpdates (never the subscribe-time
+//     history frame): the cash moved outside trading (a deposit credited,
+//     a withdrawal left), so the account is read again at once and a
+//     queued order waiting on a deposit fires on that read
+//     (`PendingHlOrderAutoFire.accountMoved`), instead of on the next
+//     account poll.
 //
 // CRASH CONTRACT: the WS `messages` stream emits errors (terminal
 // reconnect exhaustion included) — the listener attaches onError and
@@ -29,6 +35,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/providers/hyperliquid_account_provider.dart';
 import 'package:kute/providers/hyperliquid_trading_provider.dart';
+import 'package:kute/providers/pending_hyperliquid_order_provider.dart'
+    show pendingHlOrderAutoFireProvider;
 import 'package:kute/providers/placing_hyperliquid_order_provider.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_websocket.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart'
@@ -145,7 +153,23 @@ class HlUserEventsNotifier extends AutoDisposeNotifier<HlUserEventsState> {
       _handleLiveFills(msg.fills);
     } else if (msg is HlOrderUpdatesMessage) {
       _handleOrderUpdates(msg.updates);
+    } else if (msg is HlLedgerUpdatesMessage) {
+      // The subscribe-time frame is the account's history, not news.
+      if (msg.isSnapshot || msg.count == 0) return;
+      _handleLedgerUpdates();
     }
+  }
+
+  /// The account's cash moved: read it again now (and fire a queued order
+  /// waiting on it). Never builds the autofire or the account from here.
+  void _handleLedgerUpdates() {
+    try {
+      if (ref.exists(pendingHlOrderAutoFireProvider)) {
+        ref.read(pendingHlOrderAutoFireProvider).accountMoved();
+      } else if (ref.exists(hyperliquidAccountProvider)) {
+        ref.invalidate(hyperliquidAccountProvider);
+      }
+    } catch (_) {}
   }
 
   void _handleLiveFills(List<HlFill> fillsIn) {
