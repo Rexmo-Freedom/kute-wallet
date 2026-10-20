@@ -63,7 +63,16 @@ import 'package:kute/services/spark_deposit_actions.dart';
 import 'package:in_app_review/in_app_review.dart';
 import 'package:kute/helpers/orchestra_router.dart';
 import 'package:kute/services/orchestra_routes.dart'
-    show kOrchestraUsdAssetCode, orchestraChainDisplayName;
+    show
+        kOrchestraUsdAssetCode,
+        orchestraChainDisplayName,
+        orchestraExchangeStatus;
+import 'package:kute/handlers/response_handlers.dart' show Result;
+import 'package:kute/helpers/orchestra_legacy_status_rules.dart'
+    show legacyRowWithOrderId, replaceOrchestraRowId;
+import 'package:kute/helpers/orchestra_track_exchange.dart';
+import 'package:kute/models/affiliate_model.dart' show AffiliateService;
+import 'package:kute/models/orchestra_model.dart' show OrchestraOrder;
 import 'package:kute/models/swap_order_model.dart';
 import 'package:kute/providers/address_provider.dart';
 import 'package:kute/providers/asset_icon_provider.dart';
@@ -3238,7 +3247,7 @@ class _SwapOrderDetailSheetState extends ConsumerState<_SwapOrderDetailSheet> {
       ],
     );
     if (!confirmed || !mounted) return;
-    final live = _liveCashAppOrder(ref.read(swapOrdersProvider));
+    final live = _liveOrder(ref.read(swapOrdersProvider));
     if (!kCashAppUnpaidStatuses.contains(live.status)) return;
     setState(() => _cancelling = true);
     try {
@@ -3302,27 +3311,19 @@ class _SwapOrderDetailSheetState extends ConsumerState<_SwapOrderDetailSheet> {
     );
   }
 
-  /// The stored row for this Cash App purchase. Background sync swaps a
-  /// quote id for the real order id, possibly while this sheet is open; the
-  /// invoice still identifies it.
-  SwapOrder _liveCashAppOrder(List<SwapOrder> orders) {
-    final snapshot = widget.tx.details;
-    return orders.where((order) => order.id == snapshot.id).firstOrNull ??
-        (snapshot.depositAddress.isNotEmpty
-            ? orders
-                .where(
-                    (order) => order.depositAddress == snapshot.depositAddress)
-                .firstOrNull
-            : null) ??
-        snapshot;
-  }
+  /// The stored row this sheet shows. Background sync swaps a quote id for
+  /// the real order id, possibly while this sheet is open; the sheet
+  /// follows the row (see [liveSwapOrderRow]), so its explorer button and
+  /// status never wait for the sheet to be opened again.
+  SwapOrder _liveOrder(List<SwapOrder> orders) =>
+      liveSwapOrderRow(widget.tx.details, orders);
 
   /// While a closed unpaid purchase is shown, check its status the way the
   /// payment sheet does, so a payment that may still be landing is never
   /// met with a new purchase offer. Nothing is stored; background sync owns
   /// the order.
   Future<void> _checkClosedCashAppPurchase() async {
-    final order = _liveCashAppOrder(ref.read(swapOrdersProvider));
+    final order = _liveOrder(ref.read(swapOrdersProvider));
     if (!order.cashAppPaymentWindowClosed) {
       return;
     }
@@ -3344,10 +3345,7 @@ class _SwapOrderDetailSheetState extends ConsumerState<_SwapOrderDetailSheet> {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final snapshot = widget.tx.details;
-    final details = snapshot.isCashAppPurchase
-        ? _liveCashAppOrder(ref.watch(swapOrdersProvider))
-        : snapshot;
+    final details = _liveOrder(ref.watch(swapOrdersProvider));
     if (details.isCashAppPurchase) {
       ref.watch(cashAppDeadlinePassedProvider(details.cashAppExpiresAt));
     }
@@ -3748,16 +3746,16 @@ List<Widget> _swapOrderNerdRows(
 }
 
 /// The "Track exchange" button of an Orchestra order: its public explorer,
-/// `orchestra.flashnet.xyz/explorer/<id>`. Same visual shape across
+/// `orchestra.flashnet.xyz/explorer/<order id>`. Same visual shape across
 /// providers (matches the "View on Polygonscan" button used for
-/// Polymarket transactions). The id handed to the explorer:
-///   - `ord_…` → passed straight through
-///   - bare uuid → `ord_` prepended (legacy records)
-///   - `q_…`    → passed straight through (NOT double-prefixed;
-///     `ord_q_…` is what the explorer was rejecting with "id must be an
-///     order id"). On in-flight rows whose quote hasn't been swapped for
-///     an order id yet, the explorer's quote view still loads given the
-///     bare quote prefix.
+/// Polymarket transactions). The explorer only shows orders: a quote id is
+/// answered with "id must be an order id". A row still holding its quote
+/// id (`q_…`; background sync had not swapped it for the order yet) asks
+/// for the order at tap time, moves the row to it and opens that; with no
+/// order yet it opens nothing and says the exchange is processing. An
+/// expired quote, a one-time receive still waiting for its deposit and a
+/// synthetic placeholder have no order and no button
+/// ([orchestraExplorerOrderId], [orchestraTrackResolvable]).
 /// A stuck-deposit row has no order for the explorer to show. A CCTP move
 /// not yet turned into an order (`cctp-…`) tracks the leg it is on
 /// instead: Circle mints on Arbitrum to the one-time quote's deposit
@@ -3767,6 +3765,17 @@ List<Widget> _swapOrderNerdRows(
 /// id.
 final _evmAddress = RegExp(r'^0x[0-9a-fA-F]{40}$');
 
+/// Test seam: stands in for the Orchestra status read a quote row's
+/// "Track this exchange" tap makes.
+@visibleForTesting
+Future<Result<OrchestraOrder>> Function(String quoteId)?
+    debugOrchestraTrackStatusRead;
+
+/// Test seam: receives the page "Track this exchange" opens instead of
+/// launching it.
+@visibleForTesting
+void Function(Uri uri)? debugOrchestraTrackLaunch;
+
 List<Widget> _orchestraTrackExchange(
     BuildContext context, AppColorsExtension c, SwapOrder details) {
   if (details.id.isEmpty ||
@@ -3775,28 +3784,126 @@ List<Widget> _orchestraTrackExchange(
     return const [];
   }
   final cctp = details.id.startsWith('cctp-');
-  if (cctp && !_evmAddress.hasMatch(details.depositAddress)) {
+  if (cctp) {
+    if (!_evmAddress.hasMatch(details.depositAddress)) return const [];
+  } else if (orchestraExplorerOrderId(details.id) == null &&
+      !orchestraTrackResolvable(details)) {
     return const [];
   }
   return [
     SizedBox(height: 20.h),
-    SizedBox(
+    _OrchestraTrackExchangeButton(order: details),
+    SizedBox(height: 10.h),
+  ];
+}
+
+class _OrchestraTrackExchangeButton extends ConsumerStatefulWidget {
+  const _OrchestraTrackExchangeButton({required this.order});
+
+  final SwapOrder order;
+
+  @override
+  ConsumerState<_OrchestraTrackExchangeButton> createState() =>
+      _OrchestraTrackExchangeButtonState();
+}
+
+class _OrchestraTrackExchangeButtonState
+    extends ConsumerState<_OrchestraTrackExchangeButton> {
+  bool _resolving = false;
+
+  /// Writes a quote row under the order id the tap found, as background
+  /// sync does when its own read finds it: the order row first, then the
+  /// quote row goes, in the store and in the Activity cache. Skipped when
+  /// sync moved the row meanwhile; built from the stored row, so a status
+  /// sync wrote while the read ran is kept.
+  Future<void> _store(SwapOrder replacement, OrchestraOrder order) async {
+    final quoteId = widget.order.id;
+    final stored =
+        ref.read(swapOrdersProvider).where((o) => o.id == quoteId).firstOrNull;
+    if (stored == null) return;
+    final row = legacyRowWithOrderId(stored, replacement.id);
+    final orders = ref.read(swapOrdersProvider.notifier);
+    await replaceOrchestraRowId(
+      oldId: quoteId,
+      replacement: row,
+      add: orders.addExchange,
+      delete: orders.deleteExchange,
+    );
+    ref.read(walletTransactionCacheProvider.notifier)
+      ..removeSwapOrder(quoteId)
+      ..mergeSwapOrder(row);
+    // The order's pending provider event, which background sync writes
+    // when it learns the order id (the create site could not: it only
+    // had the quote). Terminal outcomes are reported by sync either way.
+    final status = orchestraExchangeStatus(order.status);
+    if (!row.isCashAppPurchase &&
+        status != 'success' &&
+        status != 'refunded' &&
+        status != 'expired' &&
+        status != 'overdue') {
+      unawaited(AffiliateService.logProviderEvent(
+        provider: 'orchestra',
+        providerOrderId: row.id,
+        status: 'pending',
+        sourceAsset: row.coinFrom,
+        sourceAmount: double.tryParse(row.depositAmount),
+        destinationAsset: row.coinTo,
+        destinationAmount: double.tryParse(row.withdrawalAmount),
+      ).catchError((_) => false));
+    }
+  }
+
+  Future<void> _open() async {
+    final d = widget.order;
+    final Uri uri;
+    if (d.id.startsWith('cctp-')) {
+      uri = Uri.parse('https://arbiscan.io/address/'
+          '${d.depositAddress}#tokentxns');
+    } else {
+      var orderId = orchestraExplorerOrderId(d.id);
+      if (orderId == null) {
+        if (_resolving) return;
+        // The sheet may close or move to the order row while the read
+        // runs: the message goes to the root context.
+        final rootContext = Navigator.of(context, rootNavigator: true).context;
+        setState(() => _resolving = true);
+        try {
+          orderId = await resolveOrchestraTrackOrderId(
+            d,
+            read: debugOrchestraTrackStatusRead ?? OrchestraService.getStatus,
+            store: _store,
+          );
+        } finally {
+          if (mounted) setState(() => _resolving = false);
+        }
+        if (orderId == null) {
+          if (rootContext.mounted) {
+            showMessageSnackBarInfo(
+                context: rootContext, message: rootContext.l10n.processing);
+          }
+          return;
+        }
+      }
+      uri = orchestraExplorerUri(orderId);
+    }
+    final seam = debugOrchestraTrackLaunch;
+    if (seam != null) {
+      seam(uri);
+      return;
+    }
+    if (!await launchUrl(uri, mode: LaunchMode.inAppBrowserView)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return SizedBox(
       width: double.infinity,
       height: 48.h,
       child: OutlinedButton.icon(
-        onPressed: () async {
-          final orchId =
-              details.id.startsWith('ord_') || details.id.startsWith('q_')
-                  ? details.id
-                  : 'ord_${details.id}';
-          final uri = cctp
-              ? Uri.parse('https://arbiscan.io/address/'
-                  '${details.depositAddress}#tokentxns')
-              : Uri.parse('https://orchestra.flashnet.xyz/explorer/$orchId');
-          if (!await launchUrl(uri, mode: LaunchMode.inAppBrowserView)) {
-            await launchUrl(uri, mode: LaunchMode.externalApplication);
-          }
-        },
+        onPressed: _resolving ? null : _open,
         icon: Icon(Icons.open_in_new_rounded, size: 18.sp),
         label: Text(
           context.l10n.activityTrackExchange,
@@ -3808,9 +3915,8 @@ List<Widget> _orchestraTrackExchange(
           shape: RoundedRectangleBorder(borderRadius: AppRadius.buttonBorder),
         ),
       ),
-    ),
-    SizedBox(height: 10.h),
-  ];
+    );
+  }
 }
 
 /// Computes realized P&L for a SELL trade row from the average cost of
