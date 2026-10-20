@@ -3,7 +3,9 @@
 // money from bitcoin balance, from predictions and all that. It must be
 // clear to the user. and when they are completed also"): one line per
 // source with its own state, the venue's readiness as sub-steps under its
-// stage line, the order last; lines complete independently.
+// stage line, the order last; lines complete independently. Drawn in the
+// calm look (20 October 2026): one status line seen, every line there for
+// a screen reader.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -81,6 +83,19 @@ Future<void> _pump(WidgetTester tester, Widget child) =>
 
 Future<AppLocalizations> _l10n() =>
     AppLocalizations.delegate.load(const Locale('en'));
+
+/// The words seen under the row: the one status line (every other line
+/// is there unseen, for a screen reader).
+List<String> _seen(WidgetTester tester) => [
+      for (final e in find
+          .descendant(
+              of: find.byKey(const ValueKey('money-steps-words')),
+              matching: find.byType(Text))
+          .evaluate())
+        if (((e.widget as Text).data ?? '').isNotEmpty &&
+            (e.findAncestorWidgetOfExactType<Opacity>()?.opacity ?? 1) > 0)
+          (e.widget as Text).data!
+    ];
 
 void main() {
   test(
@@ -211,9 +226,10 @@ void main() {
   });
 
   testWidgets(
-      'the widget: a spinner per running line, a check per done one, '
-      'the error sign on a failed one, indented sub-steps', (tester) async {
+      'the widget: one status line seen, every line there for a screen '
+      'reader with its state, no list under the row', (tester) async {
     final l10n = await _l10n();
+    final handle = tester.ensureSemantics();
     await _pump(
         tester,
         MoneyStepsView(
@@ -228,15 +244,25 @@ void main() {
           note: 'Your \$13 is in Predictions.',
         ));
     await tester.pump();
+    // After a stop the status line is the surface's own line.
+    expect(_seen(tester), ['Your \$13 is in Predictions.']);
+    expect(find.byKey(const ValueKey('money-steps-note')), findsOneWidget);
+    // Every line is there, unseen, with its state.
     expect(find.text('Moving \$8.00 from Bitcoin'), findsOneWidget);
     expect(find.text('Moved \$5.00 from Dollars'), findsOneWidget);
+    expect(find.text('Confirming balance'), findsOneWidget);
+    expect(find.bySemanticsLabel('Moving \$8.00 from Bitcoin'), findsOneWidget);
+    expect(find.bySemanticsLabel('Placing \$15.00 on Yes'), findsOneWidget);
     expect(find.byKey(const ValueKey('money-step-running-0')), findsOneWidget);
     expect(find.byKey(const ValueKey('money-step-done-1')), findsOneWidget);
     expect(find.byKey(const ValueKey('money-step-failed-2')), findsOneWidget);
-    expect(find.text('Your \$13 is in Predictions.'), findsOneWidget);
-    final sub = tester.widget<Padding>(
-        find.byKey(const ValueKey('money-step-ready:confirm')));
-    expect((sub.padding as EdgeInsets).left, greaterThan(0));
+    expect(
+        find.byKey(const ValueKey('money-step-ready:confirm')), findsOneWidget);
+    // No list, tree or chip under the row.
+    expect(find.byKey(const ValueKey('money-steps-checkpoints-title')),
+        findsNothing);
+    expect(find.byKey(const ValueKey('money-steps-chip')), findsNothing);
+    handle.dispose();
   });
 
   testWidgets(
@@ -296,8 +322,7 @@ void main() {
   });
 
   group('the journey plan', () {
-    test('a send: the legs home, then one road out to the recipient',
-        () async {
+    test('a send: the legs home, then one road out to the recipient', () async {
       final l10n = await _l10n();
       final g = MoneyStepGraph([
         const MoneyStep(
@@ -327,8 +352,7 @@ void main() {
       expect(plan.headline, '\$50.00');
     });
 
-    test('more than three sources: the rest are listed, not drawn',
-        () async {
+    test('more than three sources: the rest are listed, not drawn', () async {
       final l10n = await _l10n();
       final g = MoneyStepGraph([
         for (final (id, place) in [
@@ -395,116 +419,79 @@ void main() {
     });
   });
 
-  group('the steps as a tree', () {
+  group('the calm look', () {
     Future<void> pumpLines(WidgetTester tester, List<MoneyStepLine> lines,
-            {ThemeData? theme}) =>
+            {MoneyStepGraph? graph, ThemeData? theme}) =>
         tester.pumpWidget(ScreenUtilInit(
           designSize: const Size(430, 932),
           builder: (_, __) => MaterialApp(
             theme: theme ?? buildLightTheme(),
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
-            home: Scaffold(body: MoneyStepsView(lines: lines)),
+            home: Scaffold(
+                body: MoneyStepsView(lines: lines, graph: graph, money: _usd)),
           ),
         ));
 
-    Iterable<MoneyStepTreePainter> painters(WidgetTester tester) => tester
-        .widgetList<CustomPaint>(find.byType(CustomPaint))
-        .map((w) => w.painter)
-        .whereType<MoneyStepTreePainter>();
-
     testWidgets(
-        'a stage with sub-steps: the trunk from the stage, ├ into each, └ '
-        'into the last; same signs and words as before', (tester) async {
+        'the stage and its sub-steps say themselves only in the status '
+        'line; the running sub-step is the one seen', (tester) async {
+      // A phone's screen, so the height below is the real one.
+      tester.view.physicalSize = const Size(430, 932);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
       final l10n = await _l10n();
-      final lines = moneyStepLines(
-          l10n,
-          MoneyStepGraph([
-            for (final s in _bet(
-                    dollars: MoneyStepStatus.done,
-                    investing: MoneyStepStatus.done,
-                    convert: MoneyStepStatus.done)
-                .steps)
-              s.id == 'ready:confirm'
-                  ? s.copyWith(status: MoneyStepStatus.running)
-                  : s,
-          ]),
-          _usd,
-          readyLabel: 'Getting your prediction ready',
-          placeLine: 'Placing \$15.00 on Yes');
-      await pumpLines(tester, lines);
-      await tester.pump();
-      expect(find.byKey(const ValueKey('money-step-tree-ready')),
-          findsOneWidget);
-      expect(find.byKey(const ValueKey('money-step-tree-ready:convert')),
-          findsOneWidget);
-      expect(find.byKey(const ValueKey('money-step-tree-ready:confirm')),
-          findsOneWidget);
-      // Legs and the order are not in the tree.
-      expect(find.byKey(const ValueKey('money-step-tree-leg:bitcoin')),
-          findsNothing);
-      expect(find.byKey(const ValueKey('money-step-tree-place')), findsNothing);
-      expect(painters(tester).map((p) => p.role).toList(), [
-        MoneyStepTreeRole.parent,
-        MoneyStepTreeRole.child,
-        MoneyStepTreeRole.lastChild,
+      final g = MoneyStepGraph([
+        for (final s in _bet(
+                dollars: MoneyStepStatus.done,
+                investing: MoneyStepStatus.done,
+                bitcoin: MoneyStepStatus.done,
+                convert: MoneyStepStatus.done)
+            .steps)
+          s.id == 'ready:confirm'
+              ? s.copyWith(status: MoneyStepStatus.running)
+              : s,
       ]);
-      // The lines' own quiet colour, no fill, no box.
-      final c = buildLightTheme().extension<AppColorsExtension>()!;
-      expect(
-          painters(tester).every((p) => p.color == c.textTertiary), isTrue);
-      expect(find.text('Converted to pUSD'), findsOneWidget);
-      expect(find.text('Confirming balance'), findsOneWidget);
-      expect(find.byType(Card), findsNothing);
-      // Sub-steps keep their indent, the accessibility text is the words.
-      final sub = tester.widget<Padding>(
-          find.byKey(const ValueKey('money-step-ready:confirm')));
-      expect((sub.padding as EdgeInsets).left, greaterThan(0));
-      expect(find.bySemanticsLabel('Confirming balance'), findsOneWidget);
-    });
-
-    testWidgets('no sub-steps, no connectors (a move, the Activity detail)',
-        (tester) async {
-      final l10n = await _l10n();
       await pumpLines(
-          tester, moneyStepLines(l10n, _bet(), _usd, placeLine: 'Place'));
-      await tester.pump();
-      expect(painters(tester), isEmpty);
-      expect(find.text('Confirming balance'), findsOneWidget);
+          tester,
+          moneyStepLines(l10n, g, _usd,
+              readyLabel: 'Getting your prediction ready',
+              placeLine: 'Placing \$15.00 on Yes'),
+          graph: g);
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(_seen(tester), ['Confirming balance']);
+      expect(find.text('Converted to pUSD'), findsOneWidget);
+      expect(find.text('Getting your prediction ready'), findsOneWidget);
+      expect(find.byType(Card), findsNothing);
+      // The money is in Predictions: every source's part is done.
+      for (final id in ['bitcoin', 'dollars', 'investing']) {
+        expect(find.byKey(ValueKey('money-steps-station-done-$id')),
+            findsOneWidget);
+      }
+      expect(find.byKey(const ValueKey('money-steps-station-done-predictions')),
+          findsNothing);
+      // About 120 high, so a sheet's cards stay above the keypad.
+      expect(tester.getSize(find.byKey(const ValueKey('money-steps'))).height,
+          lessThan(130));
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 3));
     });
 
-    testWidgets('dark mode draws the same tree in its own colours',
+    testWidgets('dark mode draws the same row in its own colours',
         (tester) async {
       final l10n = await _l10n();
       await pumpLines(
           tester,
           moneyStepLines(l10n, _bet(), _usd,
               readyLabel: 'Ready', placeLine: 'Place'),
+          graph: _bet(),
           theme: buildDarkTheme());
-      await tester.pump();
-      expect(painters(tester).map((p) => p.role).toList(),
-          [MoneyStepTreeRole.parent, MoneyStepTreeRole.lastChild]);
-      final dark = buildDarkTheme().extension<AppColorsExtension>()!;
-      expect(painters(tester).every((p) => p.color == dark.textTertiary),
-          isTrue);
-    });
-
-    test('the painter draws only lines, and repaints only on a change', () {
-      const a = MoneyStepTreePainter(
-          role: MoneyStepTreeRole.child,
-          color: Colors.grey,
-          trunkX: 6.5,
-          indent: 22,
-          signHalf: 7);
-      expect(a.shouldRepaint(a), isFalse);
-      expect(
-          a.shouldRepaint(const MoneyStepTreePainter(
-              role: MoneyStepTreeRole.lastChild,
-              color: Colors.grey,
-              trunkX: 6.5,
-              indent: 22,
-              signHalf: 7)),
-          isTrue);
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(tester.takeException(), isNull);
+      expect(find.byKey(const ValueKey('money-steps-map')), findsOneWidget);
+      expect(_seen(tester), ['Moving \$8.00 from Bitcoin']);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 3));
     });
   });
 }

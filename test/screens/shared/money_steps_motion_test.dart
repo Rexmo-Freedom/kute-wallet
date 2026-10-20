@@ -1,11 +1,12 @@
-// The money journey in motion (founder, 19 October 2026: "make sure we
-// have Sal; make it fun and engaging"): Sal rides the biggest leg's road
-// to the destination and hops as he lands, the other legs' coins run
-// their own roads, a leg's sub-legs are waypoints on its road, the
-// destination's sub-steps are checkpoints under the map, success rains
-// confetti, a stop shakes, a finished record replays once, and each live
-// moment is felt once, never for lines that were already done when the
-// view appeared.
+// The money journey in motion, the calm look (founder, 20 October 2026):
+// one coin glides along the running connector as it fills, rests above
+// each station it reaches and cross-fades into that station's currency,
+// and sinks into the destination once everything is done; Sal walks the
+// line behind it; a leg's sub-legs are waypoints on its connector, the
+// destination's sub-steps dots under its name; one status line says the
+// step at work. A stop just stops, a finished record replays once,
+// silent, and each live moment is felt once, never for lines that were
+// already done when the view appeared.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -72,8 +73,7 @@ MoneyStepGraph _three(
           from: MoneyPlace.investing,
           usd: 2,
           status: investing),
-      MoneyStep(
-          id: 'place', kind: MoneyStepKind.place, usd: 15, status: place),
+      MoneyStep(id: 'place', kind: MoneyStepKind.place, usd: 15, status: place),
     ]);
 
 // One theme for every pump: a new one would animate the app's theme.
@@ -130,11 +130,19 @@ MoneyJourneyPainter _motion(WidgetTester tester) => tester
 
 Finder _station(String id) => find.byKey(ValueKey('money-steps-station-$id'));
 
-double _x(WidgetTester tester, Finder f) => tester.getCenter(f).dx;
+Offset _at(WidgetTester tester, Finder f) => tester.getCenter(f);
 
+/// The one status line on screen: the words seen under the row (every
+/// other line is there unseen, for a screen reader).
 String? _status(WidgetTester tester) {
-  final f = find.byKey(const ValueKey('money-steps-status'));
-  return f.evaluate().isEmpty ? null : tester.widget<Text>(f).data;
+  final words = find.byKey(const ValueKey('money-steps-words'));
+  for (final e
+      in find.descendant(of: words, matching: find.byType(Text)).evaluate()) {
+    final text = (e.widget as Text).data ?? '';
+    final veil = e.findAncestorWidgetOfExactType<Opacity>();
+    if (text.isNotEmpty && (veil == null || veil.opacity > 0)) return text;
+  }
+  return null;
 }
 
 void main() {
@@ -170,25 +178,10 @@ void main() {
       bridge.where((c) => c.pattern?.name == name).length;
   int softTaps() => bridge.where((c) => c.method == 'softTap').length;
 
-  test('amounts count up in their own format', () {
-    expect(moneyCountUpText('Moving \$8.00 from Bitcoin', 0.5),
-        'Moving \$4.00 from Bitcoin');
-    expect(moneyCountUpText('Placing \$1,234.50 on Yes', 0),
-        'Placing \$0.00 on Yes');
-    expect(moneyCountUpText('Placing \$1,234.50 on Yes', 1),
-        'Placing \$1,234.50 on Yes');
-    expect(moneyCountUpText('Placing \$2,000 on Yes', 0.5),
-        'Placing \$1,000 on Yes');
-    expect(moneyCountUpText('5,30 € from Dollars', 0.5), '2,65 € from Dollars');
-    expect(moneyCountUpText('Confirming balance', 0.3), 'Confirming balance');
-    expect(moneyCountUpHasAmount('Converting to pUSD'), isFalse);
-    expect(moneyCountUpHasAmount('Arbitrum → Dollars · \$20.69'), isTrue);
-  });
-
-  group('the map', () {
+  group('the row', () {
     testWidgets(
-        'serial legs: one station per place, left to right, one road each',
-        (tester) async {
+        'serial legs: one station per place, left to right on one line, '
+        'the coin on the running leg', (tester) async {
       final g = MoneyStepGraph([
         const MoneyStep(
             id: 'leg:bitcoin',
@@ -211,64 +204,77 @@ void main() {
           moneyStepLines(_en, g, _usd, placeLine: 'Placing \$8.00 on Yes'),
           graph: g));
       await tester.pump(const Duration(milliseconds: 100));
-      expect(_station('bitcoin'), findsOneWidget);
-      expect(_station('dollars'), findsOneWidget);
-      expect(_station('predictions'), findsOneWidget);
-      expect(_x(tester, _station('bitcoin')),
-          lessThan(_x(tester, _station('dollars'))));
-      expect(_x(tester, _station('dollars')),
-          lessThan(_x(tester, _station('predictions'))));
-      // The legs are roads (their words on the map), the order a
-      // checkpoint listed under it.
-      expect(find.byKey(const ValueKey('money-steps-road-leg:bitcoin')),
+      final btc = _at(tester, _station('bitcoin'));
+      final usd = _at(tester, _station('dollars'));
+      final poly = _at(tester, _station('predictions'));
+      expect(btc.dx, lessThan(usd.dx));
+      expect(usd.dx, lessThan(poly.dx));
+      expect({btc.dy, usd.dy, poly.dy}, hasLength(1), reason: 'one row');
+      // Bitcoin's part is done; the money is in Dollars, not there yet.
+      expect(find.byKey(const ValueKey('money-steps-station-done-bitcoin')),
           findsOneWidget);
-      expect(find.byKey(const ValueKey('money-steps-road-onward')),
-          findsOneWidget);
+      expect(find.byKey(const ValueKey('money-steps-station-done-dollars')),
+          findsNothing);
       expect(find.byKey(const ValueKey('money-step-done-0')), findsOneWidget);
-      expect(find.byKey(const ValueKey('money-step-running-1')), findsOneWidget);
-      expect(find.text('Placing \$8.00 on Yes'), findsOneWidget);
-      expect(find.text('At Predictions'), findsOneWidget);
-      // The status names the sub-phase at work; the amount is the order's.
+      expect(
+          find.byKey(const ValueKey('money-step-running-1')), findsOneWidget);
+      // One status line, the step at work in its own words; the others
+      // are there for a screen reader, unseen.
       expect(_status(tester), 'Moving \$8.00 from Dollars → Predictions');
-      expect(find.text('\$8.00'), findsOneWidget);
-      // Sal rides the second road now, having reached Dollars.
+      expect(
+          findMoneyStep('Moved \$8.00 from Bitcoin → Dollars'), findsOneWidget);
+      expect(findMoneyStep('Placing \$8.00 on Yes'), findsOneWidget);
+      // The coin travels the second leg now, in Dollars.
       expect(_motion(tester).travellerRoad, 'onward');
       expect(_motion(tester).travellerStation, 'predictions');
+      expect(_motion(tester).coin!.place, MoneyPlace.dollars);
+      // No map chrome: no chips, no percent, no amount on top.
+      expect(find.byKey(const ValueKey('money-steps-chip')), findsNothing);
+      expect(find.byKey(const ValueKey('money-steps-percent')), findsNothing);
+      expect(find.byKey(const ValueKey('money-steps-amount')), findsNothing);
+      expect(find.textContaining('%'), findsNothing);
     });
 
-    testWidgets('parallel legs: three roads converge on the destination',
-        (tester) async {
+    testWidgets(
+        'parallel legs: the sources overlap in one column, one coin for '
+        'the biggest leg', (tester) async {
       await tester.pumpWidget(_app(
           moneyStepLines(_en, _three(), _usd,
               placeLine: 'Placing \$15.00 on Yes'),
           graph: _three(),
           to: MoneyPlace.predictions));
       await tester.pump(const Duration(milliseconds: 100));
-      for (final id in ['bitcoin', 'dollars', 'investing']) {
-        expect(_station(id), findsOneWidget);
-        expect(_x(tester, _station(id)),
-            lessThan(_x(tester, _station('predictions'))));
+      final poly = _at(tester, _station('predictions'));
+      final xs = [
+        for (final id in ['bitcoin', 'dollars', 'investing'])
+          _at(tester, _station(id)),
+      ];
+      for (final p in xs) {
+        expect(p.dy, poly.dy, reason: 'one row');
+        expect(p.dx, lessThan(poly.dx));
       }
-      // Stacked in one column.
-      expect(_x(tester, _station('bitcoin')), _x(tester, _station('dollars')));
+      // Overlapped: closer than an icon's width.
+      final icon = tester.getSize(_station('bitcoin')).width;
+      expect(xs[1].dx - xs[0].dx, lessThan(icon));
+      expect(xs[2].dx - xs[1].dx, lessThan(icon));
+      expect(find.text('Bitcoin +2'), findsOneWidget);
       final plan = MoneyJourneyPlan.of(
           moneyStepLines(_en, _three(), _usd, placeLine: 'Place'),
           graph: _three(),
           to: MoneyPlace.predictions);
       expect(plan.roads.length, 3);
       expect(plan.roads.map((r) => r.to).toSet(), {plan.destination});
-      expect(plan.stations.where((s) => s.column == 0).length, 3);
-      // Sal takes the biggest leg.
+      // The coin takes the biggest leg, in its currency.
       expect(_motion(tester).travellerRoad, 'leg:bitcoin');
-      // The destination counts the legs in.
-      expect(find.text('0 of 3 arrived'), findsOneWidget);
+      expect(_motion(tester).coin!.place, MoneyPlace.bitcoin);
       // Every leg's words are there for a screen reader.
       expect(findMoneyStep('Moving \$5.00 from Dollars'), findsOneWidget);
+      expect(findMoneyStep('Moving \$2.00 from Investing'), findsOneWidget);
     });
 
     testWidgets(
-        'a leg with three sub-legs: two waypoints on its road, in order, '
-        'and the status follows the sub-phase', (tester) async {
+        'a leg with three sub-legs: two waypoints on its connector, the '
+        'status follows the sub-phase', (tester) async {
       MoneyStepGraph g(MoneyStepStatus s) => MoneyStepGraph([
             MoneyStep(
                 id: 'leg:investing',
@@ -303,34 +309,24 @@ void main() {
       expect(plan.roads.single.segments.length, 3);
       expect(plan.roads.single.waypoints.map((w) => w.label).toList(),
           ['Circle', 'Arbitrum']);
-      expect(plan.roads.single.waypoints.map((w) => w.amount).toList(),
-          ['\$11.04', '\$10.84']);
-      final circle = tester.getCenter(
-          find.byKey(const ValueKey('money-steps-road-cctp:burn')));
-      final arbitrum = tester.getCenter(
-          find.byKey(const ValueKey('money-steps-road-cctp:mint')));
-      expect(circle.dx, lessThan(arbitrum.dx));
-      expect(_x(tester, _station('investing')), lessThan(circle.dx));
-      expect(arbitrum.dx, lessThan(_x(tester, _station('bitcoin'))));
       expect(_status(tester), 'HyperCore → Circle');
       expect(findMoneyStep('HyperCore → Circle · \$11.04'), findsOneWidget);
 
       await tester.pumpWidget(_app(lines(burned: true), graph: g(_run)));
-      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 600));
       expect(_status(tester), 'Circle → Arbitrum');
-      expect(count('lightImpact'), 1, reason: 'the waypoint lit');
+      expect(count('lightImpact'), 1, reason: 'the waypoint filled');
       expect(_motion(tester).litOf('cctp:burn'), 1);
       expect(_motion(tester).litOf('cctp:mint'), greaterThan(0));
 
-      await tester.pumpWidget(
-          _app(lines(burned: true, minted: true), graph: g(_run)));
-      await tester.pump(const Duration(milliseconds: 500));
+      await tester
+          .pumpWidget(_app(lines(burned: true, minted: true), graph: g(_run)));
+      await tester.pump(const Duration(milliseconds: 600));
       expect(_status(tester), 'Arbitrum → Bitcoin');
       expect(count('selectionClick'), 0, reason: 'not at a station yet');
 
-      await tester.pumpWidget(_app(
-          lines(burned: true, minted: true, done: true),
-          graph: g(_done)));
+      await tester.pumpWidget(
+          _app(lines(burned: true, minted: true, done: true), graph: g(_done)));
       await tester.pump(const Duration(milliseconds: 600));
       expect(patterns('success'), 1);
       expect(_motion(tester).travellerRoad, isNull);
@@ -340,17 +336,14 @@ void main() {
     });
 
     testWidgets(
-        'the slips\' stage lines without a graph: one road from the source '
-        'to the venue, every stage a checkpoint under their own keys',
+        'the slips\' stage lines without a graph: one connector from the '
+        'source to the venue, every stage a checkpoint under its own keys',
         (tester) async {
-      await tester.pumpWidget(_app(
-          const [
-            MoneyStepLine('Adding \$6.00 to Investments', _run),
-            MoneyStepLine('Preparing your order', _wait),
-            MoneyStepLine('Opening \$20.00 Long BTC', _wait),
-          ],
-          to: MoneyPlace.investing,
-          keys: MoneyStepsKeys.slip));
+      await tester.pumpWidget(_app(const [
+        MoneyStepLine('Adding \$6.00 to Investments', _run),
+        MoneyStepLine('Preparing your order', _wait),
+        MoneyStepLine('Opening \$20.00 Long BTC', _wait),
+      ], to: MoneyPlace.investing, keys: MoneyStepsKeys.slip));
       await tester.pump(const Duration(milliseconds: 100));
       expect(find.byKey(const ValueKey('slip-funding-steps')), findsOneWidget);
       expect(find.byKey(const ValueKey('slip-funding-step-active-0')),
@@ -358,17 +351,18 @@ void main() {
       expect(find.byKey(const ValueKey('slip-funding-step-waiting-1')),
           findsOneWidget);
       expect(find.text('Adding \$6.00 to Investments'), findsOneWidget);
+      expect(find.text('Preparing your order'), findsOneWidget);
+      expect(_status(tester), 'Adding \$6.00 to Investments');
       expect(_station('start'), findsOneWidget);
       expect(_station('investing'), findsOneWidget);
       expect(_motion(tester).travellerRoad, '#stage');
-      expect(_status(tester), isNull, reason: 'the stage speaks for itself');
     });
   });
 
   testWidgets(
-      'live: Sal rides to the destination and hops as he lands, each check '
-      'is felt once, the last lands with the success beat and confetti',
-      (tester) async {
+      'live: the coin glides to the destination and lands with a click, '
+      'turns into its currency, each check is felt once, the last with the '
+      'success beat, then the coin sinks in', (tester) async {
     await tester.pumpWidget(_bet3(_run, _wait, _wait));
     await tester.pump(const Duration(milliseconds: 600));
     // Appearing is not a moment: nothing felt yet.
@@ -377,31 +371,47 @@ void main() {
     expect(_motion(tester).travellerRoad, 'leg:bitcoin');
     final lit = _motion(tester).litOf('leg:bitcoin');
     expect(lit, greaterThan(0));
-    expect(lit, lessThan(1), reason: 'he waits for the leg to land');
+    expect(lit, lessThan(1), reason: 'it waits for the leg to land');
+    expect(_motion(tester).coin!.place, MoneyPlace.bitcoin);
+    // Sal walks behind the coin, then waits.
+    expect(_motion(tester).walking, isTrue);
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(_motion(tester).walking, isFalse);
+    final sal = _motion(tester).travellerAt!;
+    expect(sal.dx, lessThan(_motion(tester).coin!.at.dx),
+        reason: 'behind the coin');
     expect(find.byKey(const ValueKey('money-step-running-0')), findsOneWidget);
-    expect(find.text('Getting your prediction ready'), findsOneWidget);
-    expect(find.text('\$15.00'), findsOneWidget);
-    expect(find.text('30%'), findsOneWidget);
+    expect(_status(tester), 'Moving \$8.00 from Bitcoin');
+    expect(findMoneyStep('Getting your prediction ready'), findsOneWidget);
 
     // Bitcoin lands, the readiness runs.
     await tester.pumpWidget(_bet3(_done, _run, _wait));
     await tester.pump(const Duration(milliseconds: 60));
-    expect(impacts, isEmpty, reason: 'the station pops first');
+    expect(impacts, isEmpty);
     await tester.pump(const Duration(milliseconds: 80));
-    expect(count('lightImpact'), 1, reason: 'the station turned gold');
+    expect(count('lightImpact'), 1, reason: 'the step completed');
     expect(count('selectionClick'), 0);
-    await tester.pump(const Duration(milliseconds: 260));
-    expect(count('selectionClick'), 1, reason: 'Sal lands on Predictions');
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(count('selectionClick'), 1, reason: 'the coin lands');
     expect(_motion(tester).litOf('leg:bitcoin'), 1);
     expect(_motion(tester).travellerRoad, isNull);
     expect(_motion(tester).travellerStation, 'predictions');
+    // It cross-fades into the destination's currency: dimmer midway.
+    final landing = _motion(tester).coin!;
+    expect(landing.place, MoneyPlace.bitcoin);
+    expect(landing.alpha, lessThan(1));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(_motion(tester).coin!.place, MoneyPlace.predictions);
+    expect(_motion(tester).coin!.alpha, 1);
     await tester.pump(const Duration(seconds: 1));
     expect(count('lightImpact'), 1);
     expect(count('selectionClick'), 1);
     expect(find.byKey(const ValueKey('money-step-done-0')), findsOneWidget);
     expect(find.byKey(const ValueKey('money-step-running-2')), findsOneWidget);
-    expect(find.byKey(const ValueKey('money-steps-chip')), findsOneWidget);
-    expect(find.text('0/2'), findsOneWidget);
+    expect(find.byKey(const ValueKey('money-steps-station-done-bitcoin')),
+        findsOneWidget);
+    expect(_status(tester), 'Confirming balance');
 
     // Everything lands at once: one success beat, no light tap on top.
     await tester.pumpWidget(_bet3(_done, _done, _done));
@@ -409,19 +419,21 @@ void main() {
     expect(patterns('success'), 1);
     expect(count('lightImpact'), 1);
     expect(_status(tester), 'Placed!');
-    expect(find.text('100%'), findsOneWidget);
-    await tester.pump(const Duration(milliseconds: 600));
-    expect(_motion(tester).travellerShown, isTrue, reason: 'he cheers');
+    expect(_motion(tester).coin, isNotNull, reason: 'sinking in');
+    await tester.pump(const Duration(seconds: 1));
+    expect(_motion(tester).coin, isNull);
+    expect(find.byKey(const ValueKey('money-steps-station-done-predictions')),
+        findsOneWidget);
     await tester.pump(const Duration(seconds: 3));
-    expect(_motion(tester).travellerShown, isTrue, reason: 'and stays, happy');
+    expect(_motion(tester).travellerShown, isTrue, reason: 'Sal stays');
     expect(patterns('success'), 1);
     expect(find.byKey(const ValueKey('money-step-done-3')), findsOneWidget);
-    expect(find.text('Placing \$15.00 on Yes'), findsOneWidget);
+    expect(findMoneyStep('Placing \$15.00 on Yes'), findsOneWidget);
   });
 
   testWidgets(
       'two legs landing together are one light tap; a leg out of order '
-      'does not move Sal off his road', (tester) async {
+      'does not move the coin off its leg', (tester) async {
     Widget at(MoneyStepStatus d, MoneyStepStatus i) => _app(
         moneyStepLines(_en, _three(dollars: d, investing: i), _usd,
             placeLine: 'Placing \$15.00 on Yes'),
@@ -432,26 +444,14 @@ void main() {
     await tester.pumpWidget(at(_done, _done));
     await tester.pump(const Duration(milliseconds: 600));
     expect(count('lightImpact'), 1);
-    expect(count('selectionClick'), 0, reason: 'Sal stays on Bitcoin\'s road');
+    expect(count('selectionClick'), 0, reason: 'the coin stays on Bitcoin\'s');
     expect(_motion(tester).travellerRoad, 'leg:bitcoin');
-    expect(find.text('2 of 3 arrived'), findsOneWidget);
-  });
-
-  testWidgets('a tap on Sal makes him jump, with a click', (tester) async {
-    await tester.pumpWidget(_bet3(_run, _wait, _wait));
-    await tester.pump(const Duration(milliseconds: 600));
-    final map = tester.getTopLeft(find.byKey(const ValueKey('money-steps-map')));
-    final sal = _motion(tester).travellerAt!;
-    await tester.tapAt(map + sal + const Offset(0, -10));
-    await tester.pump(const Duration(milliseconds: 50));
-    expect(_motion(tester).jumping, isTrue);
-    expect(count('selectionClick'), 1);
-    // A tap elsewhere on the map does nothing.
-    await tester.pump(const Duration(milliseconds: 400));
-    await tester.tapAt(map + const Offset(5, 5));
-    await tester.pump(const Duration(milliseconds: 50));
-    expect(_motion(tester).jumping, isFalse);
-    expect(count('selectionClick'), 1);
+    expect(find.byKey(const ValueKey('money-steps-station-done-dollars')),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('money-steps-station-done-investing')),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('money-steps-station-done-bitcoin')),
+        findsNothing);
   });
 
   testWidgets(
@@ -462,17 +462,22 @@ void main() {
     expect(_motion(tester).replaying, isTrue);
     expect(_motion(tester).travellerShown, isTrue);
     expect(_motion(tester).litOf('leg:bitcoin'), lessThan(1),
-        reason: 'the road lights in order');
+        reason: 'the connector fills in order');
+    expect(_motion(tester).coin, isNotNull, reason: 'the coin goes along');
     await tester.pump(const Duration(seconds: 2));
     expect(_motion(tester).litOf('leg:bitcoin'), 1);
     expect(_motion(tester).replaying, isFalse);
+    expect(_motion(tester).coin, isNull, reason: 'at rest: the coin is in');
     expect(_motion(tester).travellerStation, 'predictions');
     expect(_motion(tester).travellerRoad, isNull);
     await tester.pump(const Duration(seconds: 2));
     expect(impacts, isEmpty);
     expect(bridge, isEmpty);
     expect(find.byKey(const ValueKey('money-step-done-0')), findsOneWidget);
+    expect(find.byKey(const ValueKey('money-steps-station-done-predictions')),
+        findsOneWidget);
     expect(_status(tester), 'Placed!');
+    expect(tester.hasRunningAnimations, isFalse, reason: 'the clock rests');
   });
 
   testWidgets('lines already done when the view appears are never felt',
@@ -483,6 +488,7 @@ void main() {
     expect(bridge, isEmpty);
     expect(_motion(tester).replaying, isFalse);
     expect(_motion(tester).travellerStation, 'predictions');
+    expect(_motion(tester).coin!.place, MoneyPlace.predictions);
   });
 
   testWidgets(
@@ -491,7 +497,8 @@ void main() {
     await tester.pumpWidget(_bet3(_run, _wait, _wait, still: true));
     await tester.pump();
     expect(tester.hasRunningAnimations, isFalse);
-    expect(_motion(tester).travellerShown, isTrue, reason: 'Sal just sits');
+    expect(_motion(tester).travellerShown, isTrue);
+    expect(_motion(tester).walking, isFalse);
 
     await tester.pumpWidget(_bet3(_done, _run, _wait, still: true));
     await tester.pump();
@@ -500,11 +507,14 @@ void main() {
     expect(count('selectionClick'), 1);
     expect(_motion(tester).litOf('leg:bitcoin'), 1);
     expect(_motion(tester).travellerStation, 'predictions');
+    expect(_motion(tester).coin!.place, MoneyPlace.predictions);
+    expect(_motion(tester).coin!.alpha, 1, reason: 'no cross-fade');
 
     await tester.pumpWidget(_bet3(_done, _done, _done, still: true));
     await tester.pump();
     expect(tester.hasRunningAnimations, isFalse);
     expect(patterns('success'), 1);
+    expect(_motion(tester).coin, isNull);
     expect(_motion(tester).travellerShown, isTrue);
     // The success beat holds its own guard while it plays.
     await tester.pump(const Duration(seconds: 1));
@@ -518,28 +528,30 @@ void main() {
   });
 
   testWidgets(
-      'a stop: the checkpoint and its station shake, the failure tap plays '
-      'once, Sal sits there sad, nothing celebrates', (tester) async {
+      'a stop at the destination: the failure tap plays once, a red "!" '
+      'there, Sal stands still where the money stopped, nothing '
+      'celebrates', (tester) async {
     await tester.pumpWidget(_bet3(_done, _run, _wait));
     await tester.pump(const Duration(milliseconds: 600));
     await tester.pumpWidget(_bet3(_done, _fail, _wait));
     await tester.pump(const Duration(milliseconds: 16));
     expect(softTaps(), 1);
-    await tester.pump(const Duration(milliseconds: 40));
-    expect(_motion(tester).shakeOf('ready:confirm'), isNot(0));
-    await tester.pump(const Duration(milliseconds: 400));
-    expect(_motion(tester).shakeOf('ready:confirm'), 0);
+    final sal = _motion(tester).travellerAt;
     await tester.pump(const Duration(seconds: 2));
+    expect(_motion(tester).travellerAt, sal);
     expect(softTaps(), 1);
     expect(patterns('success'), 0);
     expect(count('lightImpact'), 0);
     expect(_motion(tester).travellerShown, isTrue);
     expect(_motion(tester).travellerStation, 'predictions');
     expect(find.byKey(const ValueKey('money-step-failed-2')), findsOneWidget);
-    expect(_status(tester), isNull, reason: 'the checkpoint says it');
+    expect(find.byKey(const ValueKey('money-steps-station-failed-predictions')),
+        findsOneWidget);
+    expect(_status(tester), 'Confirming balance', reason: 'the stopped step');
   });
 
-  testWidgets('a leg that stops: the road reads it on top', (tester) async {
+  testWidgets('a leg that stops: the status line reads it, a "!" at its source',
+      (tester) async {
     await tester.pumpWidget(_bet3(_run, _wait, _wait));
     await tester.pump(const Duration(milliseconds: 600));
     await tester.pumpWidget(_bet3(_fail, _wait, _wait));
@@ -547,6 +559,8 @@ void main() {
     expect(softTaps(), 1);
     expect(_status(tester), '\$8.00 from Bitcoin didn\'t move');
     expect(find.byKey(const ValueKey('money-step-failed-0')), findsOneWidget);
+    expect(find.byKey(const ValueKey('money-steps-station-failed-bitcoin')),
+        findsOneWidget);
     await tester.pump(const Duration(seconds: 2));
     expect(softTaps(), 1);
   });
@@ -582,16 +596,22 @@ void main() {
   });
 
   testWidgets(
-      'the amount counts up on screen while the words a screen reader hears '
-      'stay the final ones', (tester) async {
+      'a screen reader hears every line in its final words and every '
+      'station by name, though only the status line is seen', (tester) async {
     final handle = tester.ensureSemantics();
     await tester.pumpWidget(_bet3(_run, _wait, _wait));
     await tester.pump(const Duration(milliseconds: 100));
-    expect(find.text('\$15.00'), findsOneWidget);
-    expect(find.bySemanticsLabel('\$15.00'), findsOneWidget);
-    expect(findMoneyStep('Moving \$8.00 from Bitcoin'), findsOneWidget);
-    await tester.pump(const Duration(seconds: 1));
-    expect(find.bySemanticsLabel('\$15.00'), findsOneWidget);
+    for (final words in [
+      'Moving \$8.00 from Bitcoin',
+      'Getting your prediction ready',
+      'Confirming balance',
+      'Placing \$15.00 on Yes',
+      'Bitcoin',
+      'Predictions',
+    ]) {
+      expect(find.bySemanticsLabel(words), findsOneWidget, reason: words);
+    }
+    expect(_status(tester), 'Moving \$8.00 from Bitcoin');
     handle.dispose();
   });
 }

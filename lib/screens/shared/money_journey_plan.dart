@@ -1,25 +1,26 @@
 // lib/screens/shared/money_journey_plan.dart
 //
-// The money journey's map, laid out from a money step graph (founder, 19
-// October 2026: the step list becomes a journey, Sal the hero): where the
-// money starts (the source STATIONS, left), where it goes (the
-// destination, right), the places it passes through (serial stations in
-// between), the ROADS between them (one per leg, with a WAYPOINT per
-// sub-leg: HyperCore → Circle → Arbitrum → Bitcoin), and the CHECKPOINTS
-// at the destination (the venue's readiness sub-steps, the order, the
-// arrival), listed under the map. Pure: a [MoneyJourneyPlan] is built
-// from the lines every surface already makes ([MoneyStepLine]) and, when
-// the surface has it, the graph itself; the view draws it.
+// The money journey's row, laid out from a money step graph (founder, 19
+// October 2026: the step list becomes a journey; drawn calm since 20
+// October): where the money starts (the source STATIONS, left; several
+// sources share a column), where it goes (the destination, right), the
+// places it passes through (serial stations in between), the ROADS
+// between them (one per leg, with a WAYPOINT per sub-leg: HyperCore →
+// Circle → Arbitrum → Bitcoin), and the CHECKPOINTS at the destination
+// (the venue's readiness sub-steps, the order, the arrival), dots under
+// its name. Pure: a [MoneyJourneyPlan] is built from the lines every
+// surface already makes ([MoneyStepLine]) and, when the surface has it,
+// the graph itself; the view draws it.
 
 import 'package:flutter/foundation.dart';
 import 'package:kute/services/one_balance/money_steps.dart';
 
 /// One rendered line: its words, its state, and whether it is a
 /// sub-step (indented under its stage, or a sub-leg of its leg).
-/// [hop] names the place a sub-leg arrives at, as a waypoint on the map
-/// ("Circle", "Arbitrum"); [amount] is the sub-leg's formatted amount,
-/// shown beside the waypoint; [brief] the short words the status line
-/// says while it runs ("Circle → Arbitrum").
+/// [hop] names the place a sub-leg arrives at, its waypoint on the row
+/// ("Circle", "Arbitrum"); [amount] is the sub-leg's formatted amount;
+/// [brief] the short words the status line says while it runs ("Circle →
+/// Arbitrum").
 @immutable
 class MoneyStepLine {
   const MoneyStepLine(this.text, this.status,
@@ -33,7 +34,7 @@ class MoneyStepLine {
   final String? brief;
 }
 
-/// A station on the map: a balance (its mark and name), or, for a send,
+/// A station in the row: a balance (its mark and name), or, for a send,
 /// the outside world ([place] null; [label] names it when known).
 @immutable
 class JourneyStation {
@@ -114,11 +115,11 @@ class MoneyJourneyPlan {
   final List<JourneyStation> stations;
   final List<JourneyRoad> roads;
 
-  /// The lines listed under the map, in order.
+  /// The destination's checkpoint lines, in order.
   final List<int> checkpoints;
 
-  /// The roads Sal rides, in order: the first (biggest) leg, then on
-  /// from wherever it lands while a road leaves there.
+  /// The roads the one coin travels, in order: the first (biggest) leg,
+  /// then on from wherever it lands while a road leaves there.
   final List<int> chain;
 
   /// The destination station, when there is one.
@@ -136,13 +137,7 @@ class MoneyJourneyPlan {
   /// The line index of the order itself (the `place` step), if any.
   final int? placeLine;
 
-  /// Roads from the sources (column 0), for the destination's "n of m
-  /// arrived" chip.
-  Iterable<JourneyRoad> get sourceRoads =>
-      roads.where((r) => stations[r.from].column == 0);
-
-  bool get anyFailed =>
-      lines.any((l) => l.status == MoneyStepStatus.failed);
+  bool get anyFailed => lines.any((l) => l.status == MoneyStepStatus.failed);
   bool get inProgress => lines.any((l) => !l.status.ended);
   bool get success =>
       !anyFailed &&
@@ -171,8 +166,8 @@ class MoneyJourneyPlan {
     return null;
   }
 
-  /// At most this many stations stacked in one column, and this many
-  /// columns on the map; anything beyond is listed as a checkpoint.
+  /// At most this many stations sharing one column, and this many
+  /// columns in the row; anything beyond is a checkpoint.
   static const int maxRows = 3;
   static const int maxColumns = 4;
 
@@ -180,7 +175,7 @@ class MoneyJourneyPlan {
   /// between the balances it names, contiguous sub-lines right under a
   /// leg are its sub-legs (waypoints), and everything else (the
   /// readiness stage and its sub-steps, the order, the arrival, a route
-  /// change) is a checkpoint. Without one, the map is one stage road
+  /// change) is a checkpoint. Without one, the row is one stage road
   /// from [from] to [to] and every line a checkpoint along it. [to]
   /// names the destination when the graph does not say; [toLabel] names
   /// an outside destination (where a send went). [money] formats the
@@ -311,7 +306,8 @@ class MoneyJourneyPlan {
     // The destination: as told, else the one place money goes to and
     // never leaves, else the venue the readiness names.
     if (destPlace == null) {
-      final sinks = tos.whereType<MoneyPlace>().where((p) => !froms.contains(p));
+      final sinks =
+          tos.whereType<MoneyPlace>().where((p) => !froms.contains(p));
       if (sinks.length == 1) {
         destPlace = sinks.first;
       } else if (readinessPlace != null) {
@@ -360,7 +356,8 @@ class MoneyJourneyPlan {
     final destId = destPlace == null
         ? (ids.contains('outside') ? 'outside' : null)
         : stationIdOf(destPlace);
-    var columns = ids.isEmpty ? 0 : depth.values.reduce((a, b) => a > b ? a : b) + 1;
+    var columns =
+        ids.isEmpty ? 0 : depth.values.reduce((a, b) => a > b ? a : b) + 1;
     if (destId != null) {
       depth[destId] = columns - 1;
     }
@@ -375,7 +372,7 @@ class MoneyJourneyPlan {
 
     // Rows within each column, in order of appearance; the destination
     // alone in its column stays centred. More than [maxRows] in a column:
-    // the rest are not drawn (their roads are listed instead).
+    // the rest are not drawn (their roads are checkpoints instead).
     final rowsIn = <int, int>{};
     final rowOf = <String, int>{};
     final dropped = <String>{};
@@ -389,7 +386,10 @@ class MoneyJourneyPlan {
       rowOf[id] = r;
       rowsIn[c] = r + 1;
     }
-    final kept = [for (final id in ids) if (!dropped.contains(id)) id];
+    final kept = [
+      for (final id in ids)
+        if (!dropped.contains(id)) id
+    ];
     final index = {for (var i = 0; i < kept.length; i++) kept[i]: i};
     final out = <JourneyStation>[
       for (final id in kept)
@@ -432,7 +432,7 @@ class MoneyJourneyPlan {
     }
     listed.sort();
 
-    // ── Sal's chain: the biggest leg out of a source, then onward ──
+    // ── The coin's chain: the biggest leg out of a source, then onward ──
     final chain = <int>[];
     var best = -1;
     for (var i = 0; i < roads.length; i++) {
@@ -477,9 +477,8 @@ class MoneyJourneyPlan {
       destination: destId == null ? null : index[destId],
       columns: columns,
       totalUsd: total,
-      headline: total != null && money != null
-          ? money(total)
-          : _headlineOf(lines),
+      headline:
+          total != null && money != null ? money(total) : _headlineOf(lines),
       hasGraph: true,
       placeLine: placeLine,
     );
