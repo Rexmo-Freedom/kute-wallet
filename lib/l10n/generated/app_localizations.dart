@@ -7893,10 +7893,10 @@ abstract class AppLocalizations {
   /// **'Ended · Result in a few minutes'**
   String get polyAwaitingResult;
 
-  /// Caption of an ended Predictions position whose side is at ~100%: it won and becomes claimable within minutes.
+  /// Caption of an ended Predictions position whose side is at ~100%: it won; the win is claimed automatically, so no claim or timing is mentioned.
   ///
   /// In en, this message translates to:
-  /// **'You won · Ready to claim in a few minutes'**
+  /// **'You won'**
   String get polyAwaitingWon;
 
   /// Caption of an ended Predictions position whose side is at ~0%.
@@ -7911,10 +7911,10 @@ abstract class AppLocalizations {
   /// **'Ended · Waiting for the result'**
   String get polyAwaitingResultSoon;
 
-  /// Caption of an ended game or market position whose side is at ~100%: it won and becomes claimable once the result is in.
+  /// Caption of an ended game or market position whose side is at ~100%: it won; the win is claimed automatically, so no claim or timing is mentioned.
   ///
   /// In en, this message translates to:
-  /// **'You won · Ready to claim soon'**
+  /// **'You won'**
   String get polyAwaitingWonSoon;
 
   /// Caption of an ended Predictions position whose result is not in yet, when Polymarket publishes when the proposed result settles. minutes is the time left, rounded up, under an hour.

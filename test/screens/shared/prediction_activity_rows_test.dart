@@ -218,6 +218,7 @@ void main() {
     expect(find.text('+\$5.00'), findsOneWidget);
     expect(_colorOf(tester, '+\$5.00'), AppColors.marketUp);
     expect(find.text('\$2.00 profit'), findsOneWidget);
+    // A Ledger's win waits for its signed claim: the row says Claim.
     expect(find.textContaining('Claim'), findsOneWidget);
   });
 

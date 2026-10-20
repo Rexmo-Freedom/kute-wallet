@@ -4,8 +4,9 @@
 // there is no combo price feed; the profit or loss once settled or lost),
 // then each leg with its status on its own line, and the stake, the payout
 // if every remaining leg wins and the multiplier as three captioned
-// figures. Tap opens ComboDetailSheet; a settled combo with a payout
-// carries its "Claim $X" button (one tap, ComboClaimButton).
+// figures. Tap opens ComboDetailSheet. A settled combo with a payout is
+// claimed automatically (the combos notifier), so it carries no Claim
+// button and reads like any settled position.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -85,10 +86,6 @@ class ComboPositionCard extends StatelessWidget {
             params: {'product': 'predictions', 'kind': 'combo'});
         ComboDetailSheet.show(context, conditionId: p.conditionId);
       },
-      // A settled combo with a payout is claimed from the card in one tap.
-      action: p.redeemable && (settled ?? 0) > 0
-          ? ComboClaimButton(position: p, compact: true)
-          : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,

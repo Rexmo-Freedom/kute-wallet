@@ -4464,8 +4464,7 @@ class AppLocalizationsNl extends AppLocalizations {
   String get polyAwaitingResult => 'Afgelopen · Uitslag over een paar minuten';
 
   @override
-  String get polyAwaitingWon =>
-      'Je hebt gewonnen · Over een paar minuten te claimen';
+  String get polyAwaitingWon => 'Je hebt gewonnen';
 
   @override
   String get polyAwaitingLost => 'Afgelopen · Verloren';
@@ -4474,7 +4473,7 @@ class AppLocalizationsNl extends AppLocalizations {
   String get polyAwaitingResultSoon => 'Afgelopen · Wacht op de uitslag';
 
   @override
-  String get polyAwaitingWonSoon => 'Je hebt gewonnen · Binnenkort te claimen';
+  String get polyAwaitingWonSoon => 'Je hebt gewonnen';
 
   @override
   String polyAwaitingResultInMinutes(int minutes) {

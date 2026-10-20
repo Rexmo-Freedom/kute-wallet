@@ -4448,7 +4448,7 @@ class AppLocalizationsSk extends AppLocalizations {
   String get polyAwaitingResult => 'Skončené · Výsledok o pár minút';
 
   @override
-  String get polyAwaitingWon => 'Výhra · Na vyzdvihnutie o pár minút';
+  String get polyAwaitingWon => 'Výhra';
 
   @override
   String get polyAwaitingLost => 'Skončené · Prehra';
@@ -4457,7 +4457,7 @@ class AppLocalizationsSk extends AppLocalizations {
   String get polyAwaitingResultSoon => 'Skončené · Čaká sa na výsledok';
 
   @override
-  String get polyAwaitingWonSoon => 'Výhra · Čoskoro na vyzdvihnutie';
+  String get polyAwaitingWonSoon => 'Výhra';
 
   @override
   String polyAwaitingResultInMinutes(int minutes) {

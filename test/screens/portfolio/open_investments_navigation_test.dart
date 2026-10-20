@@ -29,7 +29,10 @@ import 'package:kute/providers/hyperliquid_markets_provider.dart'
 import 'package:kute/providers/hyperliquid_trading_provider.dart';
 import 'package:kute/providers/placing_polymarket_bet_provider.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart'
-    show PolymarketPosition, polymarketActivePositionsProvider;
+    show
+        PolymarketPosition,
+        polymarketActivePositionsProvider,
+        polymarketClaimablePositionsProvider;
 import 'package:kute/providers/polymarket_open_orders_provider.dart';
 import 'package:kute/providers/polymarket_order_metadata_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
@@ -469,13 +472,42 @@ void main() {
     });
 
     testWidgets(
-        'wins to claim and bets on their way lead, ahead of larger '
+        'settled results and bets on their way lead, ahead of larger '
         'positions', (tester) async {
       await _pumpPositions(tester, state: _withPosition, placing: [_placing]);
       expect(find.byType(HlPortfolioPositionCard), findsOneWidget);
       expect(find.text('Will it rain tomorrow?'), findsOneWidget);
       expect(_top(tester, find.text('Will it rain tomorrow?')),
           lessThan(_top(tester, find.byType(HlPortfolioPositionCard))));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+        'a won, redeemable position reads Settled: no Claim button, no '
+        '"Ready to claim" (the win is claimed automatically)', (tester) async {
+      const won = PolymarketPosition(
+          marketId: '0xwon',
+          marketQuestion: 'Bitcoin Up or Down – October 20',
+          outcome: 'Up',
+          size: 4.67,
+          avgPrice: 0.56,
+          currentPrice: 1,
+          pnl: 2.06,
+          pnlPercent: 78.6,
+          isResolved: true,
+          won: true,
+          tokenId: 'tok-up');
+      await _pump(tester,
+          overrides: [
+            polymarketActivePositionsProvider.overrideWith((_) => const []),
+            polymarketClaimablePositionsProvider
+                .overrideWith((_) => const [won]),
+          ],
+          home: const Scaffold(body: PortfolioPositions()));
+      expect(find.text('Up · 4.67 shares at 56¢'), findsOneWidget);
+      expect(find.text('Settled'), findsOneWidget);
+      expect(find.textContaining('Ready to claim'), findsNothing);
+      expect(find.textContaining('Claim'), findsNothing);
       expect(tester.takeException(), isNull);
     });
 

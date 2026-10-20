@@ -2452,9 +2452,9 @@
   "@polyAwaitingResult": {
     "description": "Caption of a Predictions position whose market has ended but whose result is not claimable yet (Polymarket resolves it within minutes)."
   },
-  "polyAwaitingWon": "You won · Ready to claim in a few minutes",
+  "polyAwaitingWon": "You won",
   "@polyAwaitingWon": {
-    "description": "Caption of an ended Predictions position whose side is at ~100%: it won and becomes claimable within minutes."
+    "description": "Caption of an ended Predictions position whose side is at ~100%: it won; the win is claimed automatically, so no claim or timing is mentioned."
   },
   "polyAwaitingLost": "Ended · Lost",
   "@polyAwaitingLost": {
@@ -2464,9 +2464,9 @@
   "@polyAwaitingResultSoon": {
     "description": "Caption of a Predictions position whose game or market has ended but whose result is not claimable yet (a game usually resolves 15 minutes to 2 hours after it ends)."
   },
-  "polyAwaitingWonSoon": "You won · Ready to claim soon",
+  "polyAwaitingWonSoon": "You won",
   "@polyAwaitingWonSoon": {
-    "description": "Caption of an ended game or market position whose side is at ~100%: it won and becomes claimable once the result is in."
+    "description": "Caption of an ended game or market position whose side is at ~100%: it won; the win is claimed automatically, so no claim or timing is mentioned."
   },
   "polyAwaitingResultInMinutes": "Ended · Result in about {minutes} min",
   "@polyAwaitingResultInMinutes": {

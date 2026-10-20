@@ -4457,7 +4457,7 @@ class AppLocalizationsHu extends AppLocalizations {
   String get polyAwaitingResult => 'Véget ért · Eredmény néhány perc múlva';
 
   @override
-  String get polyAwaitingWon => 'Nyertél · Néhány perc múlva átvehető';
+  String get polyAwaitingWon => 'Nyertél';
 
   @override
   String get polyAwaitingLost => 'Véget ért · Vesztett';
@@ -4466,7 +4466,7 @@ class AppLocalizationsHu extends AppLocalizations {
   String get polyAwaitingResultSoon => 'Véget ért · Az eredményre vár';
 
   @override
-  String get polyAwaitingWonSoon => 'Nyertél · Hamarosan átvehető';
+  String get polyAwaitingWonSoon => 'Nyertél';
 
   @override
   String polyAwaitingResultInMinutes(int minutes) {

@@ -4310,7 +4310,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get polyAwaitingResult => '終了 · 数分後に結果確定';
 
   @override
-  String get polyAwaitingWon => '的中しました · 数分後に受け取り可能';
+  String get polyAwaitingWon => '的中しました';
 
   @override
   String get polyAwaitingLost => '終了 · 不的中';
@@ -4319,7 +4319,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get polyAwaitingResultSoon => '終了 · 結果待ち';
 
   @override
-  String get polyAwaitingWonSoon => '的中しました · まもなく受け取り可能';
+  String get polyAwaitingWonSoon => '的中しました';
 
   @override
   String polyAwaitingResultInMinutes(int minutes) {
