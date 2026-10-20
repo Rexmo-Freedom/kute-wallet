@@ -158,6 +158,57 @@ void main() {
       expect(mid.labelRect!.center.dx, closeTo(mid.center.dx, 1e-9));
     });
 
+    test(
+        'a large dial with no room beside its ends: the tag under the end '
+        'at 0–10% and 90–100%, lifted just clear of the arc higher up, '
+        'never on it, always inside the width', () {
+      // A 375 pt phone: the dial spans 0.72 of 340 pt.
+      const width = 340.0;
+      const r = width * 0.36;
+      PolyChanceGaugeGeometry big(double tick) => polyChanceGaugeGeometry(
+            width: width,
+            outerRadius: r,
+            stroke: r * 0.13,
+            overhang: r * 0.06,
+            gap: r * 0.03,
+            belowCenter: 19,
+            tick: tick,
+            tag: const Size(85, 17),
+          );
+      for (var i = 0; i <= 100; i++) {
+        final g = big(i / 100);
+        final label = g.labelRect!;
+        expect(label.left, greaterThanOrEqualTo(-1e-9), reason: 'at $i%');
+        expect(label.right, lessThanOrEqualTo(width + 1e-9), reason: 'at $i%');
+        expect(label.top, greaterThanOrEqualTo(-1e-9), reason: 'at $i%');
+        expect(label.bottom, lessThanOrEqualTo(g.size.height + 1e-9),
+            reason: 'at $i%');
+        if (label.top > g.center.dy) {
+          // Under the arc: below the round end, clear of it.
+          expect(label.top, greaterThan(g.center.dy + g.stroke / 2),
+              reason: 'at $i%');
+        } else {
+          expect(_distance(label, g.center), greaterThan(g.tickOuter),
+              reason: 'at $i%');
+        }
+      }
+      for (final t in [0.0, 0.03, 0.1]) {
+        final g = big(t);
+        expect(g.labelRect!.top, greaterThan(g.center.dy), reason: 'at $t');
+        expect(g.labelRect!.center.dx, lessThan(g.center.dx - r / 2));
+      }
+      for (final t in [0.9, 0.97, 1.0]) {
+        final g = big(t);
+        expect(g.labelRect!.top, greaterThan(g.center.dy), reason: 'at $t');
+        expect(g.labelRect!.center.dx, greaterThan(g.center.dx + r / 2));
+      }
+      // Higher up, pulled in from the side: above the arc, near the tick.
+      final g = big(0.15);
+      expect(g.labelRect!.bottom, lessThan(g.center.dy));
+      expect(g.labelRect!.bottom,
+          greaterThan(g.center.dy - g.tickOuter - g.labelRect!.height));
+    });
+
     test('the box is no taller than it needs: arc, tag and caption', () {
       final none = _geometry(null);
       expect(none.size.height, closeTo(42 + 15, 1e-9));

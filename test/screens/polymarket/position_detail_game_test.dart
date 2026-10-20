@@ -404,15 +404,36 @@ void main() {
       expect(find.text('49ers vs. Broncos'), findsOneWidget);
       expect(
           find.byKey(const ValueKey('poly-position-title')), findsOneWidget);
+      expect(find.text('49ERS'), findsNothing);
+      expect(find.text('Sell'), findsOneWidget);
+      // On the screen only what is at risk and how to protect it; what
+      // the position is made of waits behind one Details row.
+      expect(find.byType(PositionRowsCard), findsOneWidget);
+      expect(find.byKey(const ValueKey('poly-position-risk-line')),
+          findsOneWidget);
+      expect(find.byKey(const ValueKey('poly-position-protect')),
+          findsOneWidget);
+      for (final label in ['Outcome', 'Shares', 'Bought at', 'Invested']) {
+        expect(find.text(label), findsNothing, reason: label);
+      }
+      final details = find.byKey(const ValueKey('poly-position-details'));
+      expect(details, findsOneWidget);
+      expect(find.descendant(of: details, matching: find.text('Details')),
+          findsOneWidget);
+      await tester.ensureVisible(details);
+      await tester.tap(details);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      // The shared bottom sheet, its rows as on the Investing position.
+      expect(find.byType(AppBottomSheetContainer), findsOneWidget);
+      expect(find.byType(PositionRowsCard), findsNWidgets(2));
       // The side is one row, not a pill over the value.
       expect(find.text('Outcome'), findsOneWidget);
-      expect(find.text('49ERS'), findsNothing);
       expect(find.text('Shares'), findsOneWidget);
       expect(find.text('120.00'), findsOneWidget);
       expect(find.text('Bought at'), findsOneWidget);
       expect(find.text('42¢'), findsOneWidget);
       expect(find.text('Invested'), findsOneWidget);
-      expect(find.text('Sell'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
@@ -454,10 +475,19 @@ void main() {
               (w) => w is RollingNumberText && w.text == '50% chance'),
           findsNothing);
       expect(find.text('chance'), findsOneWidget);
-      // Between the figures and the rows.
+      // Between the figures and the risk line.
       expect(
           tester.getRect(find.byType(PolyPositionChanceGauge)).bottom,
-          lessThan(tester.getRect(find.text('Outcome')).top));
+          lessThan(tester
+              .getRect(find.byKey(const ValueKey('poly-position-risk-line')))
+              .top));
+      // The screen's hero: the dial spans about three quarters of the
+      // width (390 less the 20 pt gutters).
+      final paint = tester.widget<CustomPaint>(
+          find.byKey(PolyPositionChanceGauge.paintKey));
+      final g = (paint.painter! as PolyChanceGaugePainter).geometry;
+      final content = 390 - 2 * 20 * 390 / 430;
+      expect(2 * (g.radius + g.stroke / 2), closeTo(0.72 * content, 1));
       // The live feed's subscribe debounce runs out.
       await tester.pump(const Duration(milliseconds: 200));
       expect(tester.takeException(), isNull);

@@ -5,14 +5,17 @@
 // detail screen of a bet that is still open (a live price, not settled).
 // A settled position keeps the bar, and every list and row keeps it too.
 //
-// It draws what the bar draws, from the same [PolyChanceBarSpec]:
+// It is the screen's hero: the dial spans about three quarters of the
+// width. It draws what the bar draws, from the same [PolyChanceBarSpec]:
 //   * a 180° arc with round ends, the bar's track colour under the bar's
 //     fill colour, filled from the left end up to the chance (a Yes / No
 //     or Up / Down market keeps its green and red split, meeting square);
 //   * a short radial tick at the price paid, in the bar's tick colour,
 //     with the bar's "Bought · 54¢" tag just outside the arc beside it:
 //     pushed straight out from the tick, so at 0–10% it sits to the left
-//     of the arc's end and at 90–100% to its right, never on the arc;
+//     of the arc's end and at 90–100% to its right, never on the arc
+//     (where the width leaves no room beside an end, under it; higher
+//     up, lifted just clear of the arc);
 //   * the held outcome's chance in the middle ("75.8%"), the localised
 //     "chance" wording under it, both cut from the one `betPercentChance`
 //     string, so the figure above the gauge does not repeat it.
@@ -56,6 +59,11 @@ typedef PolyChanceGaugeGeometry = ({
   Rect? labelRect,
 });
 
+/// How high (sin of the angle) a tick still counts as at an end of the
+/// arc: the first and last 10% of it (10% and 90% themselves included,
+/// past the float's rounding).
+final double _endBand = math.sin(math.pi * 0.1) + 1e-9;
+
 /// The angle of [fraction] (0 to 1 from the left) along the half circle.
 double polyGaugeAngle(double fraction) =>
     math.pi + fraction.clamp(0.0, 1.0) * math.pi;
@@ -86,7 +94,7 @@ PolyChanceGaugeGeometry polyChanceGaugeGeometry({
 
   // Laid out about the centre first, then moved into the box.
   var top = -(tick == null ? outerRadius : tickOuter);
-  final bottom = math.max(stroke / 2, belowCenter);
+  var bottom = math.max(stroke / 2, belowCenter);
   Rect? label;
   if (tickAngle != null && tag != null) {
     final u = Offset(math.cos(tickAngle), math.sin(tickAngle));
@@ -99,22 +107,33 @@ PolyChanceGaugeGeometry polyChanceGaugeGeometry({
     // Never under the box: an end tag sits level with the arc's end.
     final lowest = bottom - tag.height / 2;
     if (c.dy > lowest) c = Offset(c.dx, lowest);
-    // Inside the width (the tag is narrow; the gauge leaves room).
+    // Inside the width.
     final half = width / 2;
-    final dx = c.dx.clamp(-half + tag.width / 2,
-        math.max(-half + tag.width / 2, half - tag.width / 2));
-    // Pulled in from the side (a tag wider than the room beside the arc,
-    // at a large text size): lifted above the arc instead, so it never
-    // lands on it.
+    final minX = -half + tag.width / 2;
+    final maxX = math.max(minX, half - tag.width / 2);
+    var dx = c.dx.clamp(minX, maxX).toDouble();
     var dy = c.dy;
     if ((dx - c.dx).abs() > 0.5) {
-      dy = math.min(dy, -(tickOuter + gap + tag.height / 2));
+      // Pulled in from the side: the dial is wider than the room a tag
+      // needs beside it (a large dial on a phone, a large text size).
+      if (u.dy.abs() <= _endBand) {
+        // Near an end (0–10%, 90–100%): under the arc's end, centred on
+        // it, just below the round cap.
+        dx = (u.dx.sign * radius).clamp(minX, maxX).toDouble();
+        dy = stroke / 2 + gap + tag.height / 2;
+      } else {
+        // Higher up: lifted only as far as clears the arc and the tick
+        // (the tag's nearest corner just past the tick's reach).
+        final near = math.max(0.0, dx.abs() - tag.width / 2);
+        final clear =
+            near >= reach ? 0.0 : math.sqrt(reach * reach - near * near);
+        dy = math.min(dy, -(clear + tag.height / 2));
+      }
     }
     label = Rect.fromCenter(
-        center: Offset(dx.toDouble(), dy),
-        width: tag.width,
-        height: tag.height);
+        center: Offset(dx, dy), width: tag.width, height: tag.height);
     top = math.min(top, label.top);
+    bottom = math.max(bottom, label.bottom);
   }
   final center = Offset(width / 2, -top);
   return (
@@ -168,20 +187,6 @@ class PolyPositionChanceGauge extends StatelessWidget {
   static const labelKey = ValueKey('poly-chance-gauge-label');
   static const figureKey = ValueKey('poly-chance-gauge-figure');
   static const captionKey = ValueKey('poly-chance-gauge-caption');
-
-  /// The width of a typical bought tag ("Bought · 78¢"), for sizing a dial
-  /// with no tag the same as one with.
-  static double _typicalTagWidth(TextStyle style, TextScaler scaler) {
-    final tp = TextPainter(
-      text: TextSpan(text: 'Bought · 78¢', style: style),
-      textDirection: TextDirection.ltr,
-      textScaler: scaler,
-      maxLines: 1,
-    )..layout();
-    final width = tp.width + 10;
-    tp.dispose();
-    return width;
-  }
 
   /// The chart's tag text style, as on the bar.
   static TextStyle _tagStyle(Color color) => TextStyle(
@@ -238,15 +243,13 @@ class PolyPositionChanceGauge extends StatelessWidget {
         tag = Size(math.min(w, tp.width + 10), tp.height + 5);
         tp.dispose();
       }
-      // A large dial: as wide as the screen allows while a bought tag at
-      // either end still fits beside the arc (a typical tag's width is
-      // kept free on both sides, tag or not, so every bet's dial is the
-      // same size), capped on tablets.
-      final reserve = tag?.width ?? _typicalTagWidth(labelStyle, scaler);
-      // The tag at an end sits past the tick's reach (1.09 R: the arc plus
-      // the tick's overhang and the gap), so the radius leaves that room.
+      // The hero of the screen: the dial spans about three quarters of
+      // the width (the arc's ends 14% in from either side), capped on
+      // tablets. A bought tag at an end goes beside the arc where the
+      // width leaves room for it (past the tick's reach, 1.09 R), under
+      // the arc's end where it does not (polyChanceGaugeGeometry).
       final double outerRadius =
-          ((w / 2 - reserve - 8) / 1.09).clamp(math.min(60.0, w / 4), 150.0).toDouble();
+          (w * 0.36).clamp(math.min(60.0, w / 4), 150.0).toDouble();
       final stroke = outerRadius * 0.13;
       final overhang = outerRadius * 0.06;
       final gap = outerRadius * 0.03;

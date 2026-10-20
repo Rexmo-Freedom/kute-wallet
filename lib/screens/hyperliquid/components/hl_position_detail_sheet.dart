@@ -14,14 +14,15 @@ import 'package:kute/providers/ledger/ledger_identity_provider.dart';
 // bar. On top of that sits what is the user's, in Predictions' hierarchy:
 // "If you close now" with the money closing gives back (the margin plus
 // the profit or loss, the Portfolio card's own figure, [hlCloseValue]) and
-// the profit or loss under it, then the side, the position size (the
-// notional, size x price, with the coin size) and the margin as plain rows
-// (PositionRowsCard). Margin lives in one row: "Liquidation $78,400 · 12%
+// the profit or loss under it, then only what is at risk, as plain rows
+// (PositionRowsCard): margin lives in one row, "Liquidation $78,400 · 12%
 // away", the distance coloured as it closes in (HlLiquidationText), with
 // "Add margin" beside it on an isolated position (the margin sheet, where
-// Remove is a mode). Entry, liquidation, leverage, margin mode and funding
-// remain in Details, in the same rows, with one line on what the position
-// size is; closing stays wallet-scoped.
+// Remove is a mode), the risk line and "Protect it". The side, the
+// position size (the notional, size x price, with the coin size), the
+// margin, entry, liquidation, leverage, margin mode and funding wait in
+// Details, in the same rows, with one line on what the position size is;
+// closing stays wallet-scoped.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -392,37 +393,19 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                               const SkeletonLineChart(
                                   height: 380, padding: EdgeInsets.zero),
                             SizedBox(height: 16.h),
-                            // What the position is made of, as plain rows:
-                            // label left, figure right.
-                            PositionRowsCard(rows: [
-                              PositionRow(
-                                  context.l10n.ledgerSummarySide,
-                                  pos.isLong
-                                      ? context.l10n.longLabel
-                                      : context.l10n.shortLabel),
-                              // The notional (size x the live price) with the
-                              // coin size: what the leverage controls, not the
-                              // user's money (Details says so in one line).
-                              PositionRow(context.l10n.chartPositionSize,
-                                  '${formatPolyAmount(ref, markPx * pos.szi.abs())} · ${formatHlSize(pos.szi.abs())} ${m?.coin ?? pos.coin}'),
-                              // An isolated position's margin (what was put
-                              // in, with any added since): the figure adding
-                              // or removing margin moves. A cross position's
-                              // margin is shared with the account, so it stays
-                              // the collateral it ties up.
-                              PositionRow(
-                                  pos.isCross
-                                      ? context.l10n.investingCollateral
-                                      : context.l10n.hlMargin,
-                                  formatPolyAmount(ref, margin)),
-                              // Margin in one place: the liquidation price, how
-                              // far the mark is from it (the distance alone in
-                              // the warning / down colour as it closes in), and
-                              // on an isolated position the "Add margin" button
-                              // right beside it (removing is a mode of the same
-                              // sheet). A cross position's margin is shared
-                              // with the account, so it has no button.
-                              if (current != null)
+                            // Only what matters on the screen: how far the
+                            // liquidation is (with Add margin), what is at
+                            // risk and how to protect it. What the position
+                            // is made of (side, size, margin) is in Details.
+                            if (current != null) ...[
+                              PositionRowsCard(rows: [
+                                // Margin in one place: the liquidation price, how
+                                // far the mark is from it (the distance alone in
+                                // the warning / down colour as it closes in), and
+                                // on an isolated position the "Add margin" button
+                                // right beside it (removing is a mode of the same
+                                // sheet). A cross position's margin is shared
+                                // with the account, so it has no button.
                                 hlLiquidationRow(
                                   context,
                                   liquidation: liquidation,
@@ -436,57 +419,58 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                                           source: HlMarginSource.liquidationRow)
                                       : null,
                                 ),
-                              // What is at risk, in one plain sentence, only
-                              // with the venue's liquidation price and a
-                              // real loss to name.
-                              if (current != null && lossAtLiquidation != null)
-                                PositionRow.note(
-                                  key: const ValueKey('hl-position-risk-line'),
-                                  (pos.isLong
-                                      ? context.l10n.hlRiskLiquidationLong
-                                      : context.l10n.hlRiskLiquidationShort)(
-                                    m?.coin ?? pos.coin,
-                                    formatHlPrice(liquidation!,
-                                        decimalCap: m?.pxDecimalCap),
-                                    formatPolyAmount(ref, lossAtLiquidation),
+                                // What is at risk, in one plain sentence, only
+                                // with the venue's liquidation price and a
+                                // real loss to name.
+                                if (lossAtLiquidation != null)
+                                  PositionRow.note(
+                                    key: const ValueKey('hl-position-risk-line'),
+                                    (pos.isLong
+                                        ? context.l10n.hlRiskLiquidationLong
+                                        : context.l10n.hlRiskLiquidationShort)(
+                                      m?.coin ?? pos.coin,
+                                      formatHlPrice(liquidation!,
+                                          decimalCap: m?.pxDecimalCap),
+                                      formatPolyAmount(ref, lossAtLiquidation),
+                                    ),
                                   ),
-                                ),
-                              // The ticket's own protective orders (stop /
-                              // take profit, the trailing stop), one tap
-                              // away. Needs the market to place them.
-                              if (current != null && m != null && !m.isSpot)
-                                PositionRow(
-                                  context.l10n.positionProtectIt,
-                                  ledgerId == null
-                                      ? context.l10n.hlStopLoss
-                                      : context.l10n.investingTrailingStop,
-                                  key: const ValueKey('hl-position-protect'),
-                                  onTap: () {
-                                    TrackingService.track(
-                                        'position_protect_tapped',
-                                        params: {
-                                          'venue': 'hyperliquid',
-                                          'coin': pos.coin,
-                                          ...VenueAnalytics.hlAssetParams(
-                                              pos.coin),
-                                          'side':
-                                              pos.isLong ? 'long' : 'short',
-                                          'wallet_kind': ledgerId != null
-                                              ? 'ledger'
-                                              : 'hot',
-                                          'target': ledgerId == null
-                                              ? 'stop_loss'
-                                              : 'trailing_stop',
-                                        });
-                                    HlClosePositionSheet.showProtect(
-                                        context, ref,
-                                        position: pos,
-                                        market: m,
-                                        ledgerWalletId: ledgerId);
-                                  },
-                                ),
-                            ]),
-                            SizedBox(height: 16.h),
+                                // The ticket's own protective orders (stop /
+                                // take profit, the trailing stop), one tap
+                                // away. Needs the market to place them.
+                                if (m != null && !m.isSpot)
+                                  PositionRow(
+                                    context.l10n.positionProtectIt,
+                                    ledgerId == null
+                                        ? context.l10n.hlStopLoss
+                                        : context.l10n.investingTrailingStop,
+                                    key: const ValueKey('hl-position-protect'),
+                                    onTap: () {
+                                      TrackingService.track(
+                                          'position_protect_tapped',
+                                          params: {
+                                            'venue': 'hyperliquid',
+                                            'coin': pos.coin,
+                                            ...VenueAnalytics.hlAssetParams(
+                                                pos.coin),
+                                            'side':
+                                                pos.isLong ? 'long' : 'short',
+                                            'wallet_kind': ledgerId != null
+                                                ? 'ledger'
+                                                : 'hot',
+                                            'target': ledgerId == null
+                                                ? 'stop_loss'
+                                                : 'trailing_stop',
+                                          });
+                                      HlClosePositionSheet.showProtect(
+                                          context, ref,
+                                          position: pos,
+                                          market: m,
+                                          ledgerWalletId: ledgerId);
+                                    },
+                                  ),
+                              ]),
+                              SizedBox(height: 16.h),
+                            ],
                             _buildDetailsRow(c, pos),
                           ],
                         ),
@@ -559,8 +543,8 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
       );
 
   /// "Details": one row under the position, opening the shared bottom
-  /// sheet (as the market's "About" row does) with the entry, liquidation,
-  /// leverage, margin mode and funding rows.
+  /// sheet (as the market's "About" row does) with the side, size, margin,
+  /// entry, liquidation, leverage, margin mode and funding rows.
   Widget _buildDetailsRow(AppColorsExtension c, HlPerpPosition pos) {
     return InkWell(
       onTap: () {
@@ -604,8 +588,8 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
   }
 }
 
-/// The sheet behind the "Details" row: the position's entry, liquidation,
-/// leverage, margin mode and funding as plain rows. The live price is in
+/// The sheet behind the "Details" row: the position's side, size, margin,
+/// entry, liquidation, leverage, margin mode and funding as plain rows. The live price is in
 /// the screen's header and the return under its value, so neither is
 /// written here. A spending-wallet position follows the account while the
 /// sheet is open; a Ledger one shows what the screen held when it opened.
@@ -631,6 +615,10 @@ class _HlPositionDetailsSheet extends ConsumerWidget {
         : null;
     final pos = live ?? position;
     final cap = market?.pxDecimalCap;
+    // The live mark, as on the screen behind; the exchange's snapshot
+    // until the mid lands.
+    final markPx = ref.watch(hyperliquidLiveMidProvider(pos.coin)) ??
+        (pos.szi.abs() > 0 ? pos.positionValue / pos.szi.abs() : pos.entryPx);
     // A closed position has no liquidation price left to show.
     final liq = ledgerWalletId == null && live == null
         ? null
@@ -657,6 +645,20 @@ class _HlPositionDetailsSheet extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   PositionRowsCard(rows: [
+                    PositionRow(l10n.ledgerSummarySide,
+                        pos.isLong ? l10n.longLabel : l10n.shortLabel),
+                    // The notional (size x the live price) with the coin
+                    // size: what the leverage controls, not the user's
+                    // money (the line under the rows says so).
+                    PositionRow(l10n.chartPositionSize,
+                        '${formatPolyAmount(ref, markPx * pos.szi.abs())} · ${formatHlSize(pos.szi.abs())} ${market?.coin ?? pos.coin}'),
+                    // An isolated position's margin (what was put in, with
+                    // any added since). A cross position's margin is
+                    // shared with the account, so it stays the collateral
+                    // it ties up.
+                    PositionRow(
+                        pos.isCross ? l10n.investingCollateral : l10n.hlMargin,
+                        formatPolyAmount(ref, hlPositionMargin(pos))),
                     PositionRow(
                         pos.isLong ? l10n.chartBoughtAt : l10n.chartSoldAt,
                         formatHlPrice(pos.entryPx, decimalCap: cap)),

@@ -120,6 +120,16 @@ Future<void> _pump(WidgetTester tester,
   await tester.pump(const Duration(seconds: 1));
 }
 
+/// Opens the position's Details sheet (left open when the test ends: the
+/// one-at-a-time guard is cleared after it).
+Future<void> _openDetails(WidgetTester tester) async {
+  addTearDown(OpenOnce.reset);
+  await tester.ensureVisible(find.text('Details'));
+  await tester.tap(find.text('Details'));
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 400));
+}
+
 void main() {
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
 
@@ -149,8 +159,26 @@ void main() {
             (w) => w is RollingNumberText && w.text.startsWith(r'+$1,000.00')),
         findsOneWidget);
 
-    // The side is a row, not a chip.
+    // On the screen only what is at risk: one Liquidation row with how far
+    // the live mark (66,000) is from it: 8,000 / 66,000.
+    expect(find.text('Liquidation'), findsOneWidget);
+    expect(find.text(r'$58,000 · 12% away'), findsOneWidget);
+    // Margin lives in that row: no separate buttons, no explanation. The
+    // market has not loaded, so nothing can sign margin yet: no button.
+    expect(find.text('Remove margin'), findsNothing);
+    expect(find.byKey(const ValueKey('hl-add-margin')), findsNothing);
+    // What the position is made of waits in Details.
     expect(find.byType(HlSideChip), findsNothing);
+    for (final label in ['Side', 'Long', 'Position size', 'Margin']) {
+      expect(find.text(label), findsNothing, reason: label);
+    }
+    expect(find.byType(PositionRowsCard), findsOneWidget);
+
+    // Details is a row opening the shared bottom sheet, once.
+    await _openDetails(tester);
+    expect(find.byType(AppBottomSheetContainer), findsOneWidget);
+    expect(find.byType(PositionRowsCard), findsNWidgets(2));
+    // The side is a row, not a chip.
     expect(find.text('Side'), findsOneWidget);
     expect(find.text('Long'), findsOneWidget);
     // The position size is the notional at the live mark (66,000 x 0.5)
@@ -159,30 +187,11 @@ void main() {
     expect(find.text(r'$33,000.00 · 0.5 BTC'), findsOneWidget);
     expect(tester.widget<Text>(find.text(r'$33,000.00 · 0.5 BTC')).textAlign,
         TextAlign.right);
-
-    // An isolated position's margin (what was put in), and one Liquidation
-    // row with how far the live mark (66,000) is from it: 8,000 / 66,000.
+    // An isolated position's margin (what was put in).
     expect(find.text('Margin'), findsOneWidget);
     expect(find.text(r'$6,400.00'), findsOneWidget);
     expect(find.text('Your money in it'), findsNothing);
     expect(find.text('Collateral'), findsNothing);
-    expect(find.text('Liquidation'), findsOneWidget);
-    expect(find.text(r'$58,000 · 12% away'), findsOneWidget);
-    // Margin lives in that row: no separate buttons, no explanation. The
-    // market has not loaded, so nothing can sign margin yet: no button.
-    expect(find.text('Remove margin'), findsNothing);
-    expect(find.byKey(const ValueKey('hl-add-margin')), findsNothing);
-
-    // Details: the same rows; the live price and the return are not
-    // written a second time.
-    expect(find.byType(PositionRowsCard), findsOneWidget);
-    // Details is a row opening the shared bottom sheet, once.
-    await tester.ensureVisible(find.text('Details'));
-    await tester.tap(find.text('Details'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-    expect(find.byType(AppBottomSheetContainer), findsOneWidget);
-    expect(find.byType(PositionRowsCard), findsNWidgets(2));
     expect(find.text('Bought at'), findsOneWidget);
     expect(find.text('Liquidation price'), findsOneWidget);
     expect(find.text('Leverage'), findsOneWidget);
@@ -248,6 +257,7 @@ void main() {
           leverageValue: 5,
           maxLeverage: 40,
         ));
+    await _openDetails(tester);
     expect(find.text('Short'), findsOneWidget);
     expect(
         find.text(r'If BTC rises to $70,000, this position closes and you '
@@ -381,10 +391,7 @@ void main() {
           leverageValue: 5,
           maxLeverage: 40,
         ));
-    // A cross position's margin is the collateral it ties up; closing
-    // gives that back with the live P&L (6,400 + 1,000).
-    expect(find.text('Collateral'), findsOneWidget);
-    expect(find.text('Margin'), findsNothing);
+    // Closing gives the collateral back with the live P&L (6,400 + 1,000).
     expect(find.byWidgetPredicate(
             (w) => w is RollingNumberText && w.text == r'$7,400.00'),
         findsOneWidget);
@@ -392,6 +399,10 @@ void main() {
     expect(find.text(r'$62,000 · 6.1% away'), findsOneWidget);
     expect(find.byKey(const ValueKey('hl-add-margin')), findsNothing);
     expect(find.text('Add margin'), findsNothing);
+    // A cross position's margin is the collateral it ties up (in Details).
+    await _openDetails(tester);
+    expect(find.text('Collateral'), findsOneWidget);
+    expect(find.text('Margin'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 

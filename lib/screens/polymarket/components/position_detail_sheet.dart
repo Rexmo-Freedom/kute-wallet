@@ -66,9 +66,11 @@ const Color _kPolyRed = AppColors.marketDown;
 // the held outcome's chance is now against the price paid, ticked
 // "Bought · 32¢", the chance in its middle: position_chance_gauge.dart)
 // while the bet is open, the chance bar (position_chance_bar.dart) once
-// it is settled; no price chart here, the market sheet keeps it. Then the
-// outcome / shares / price paid / invested rows, and the Sell (or Claim /
-// Clear) action.
+// it is settled; no price chart here, the market sheet keeps it. The
+// gauge is the screen's hero. Then only what matters: the risk line and
+// "Protect it" while the bet is open; the outcome / shares / price paid /
+// invested rows wait behind one "Details" row (the shared bottom sheet,
+// as on the Investing position); and the Sell (or Claim / Clear) action.
 
 class PositionDetailSheet extends ConsumerStatefulWidget {
   final PolymarketPosition position;
@@ -522,38 +524,28 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                         ),
                       ],
 
-                      // What the position is made of, as plain rows:
-                      // label left, figure right.
-                      SizedBox(height: 16.h),
-                      PositionRowsCard(rows: [
-                        PositionRow(
-                            context.l10n.activityOutcome, pos.outcome),
-                        PositionRow(context.l10n.betShares,
-                            pos.size.toStringAsFixed(2)),
-                        // What was paid per share: the chart's dashed
-                        // "Bought" line, as a number.
-                        if (pos.size > 0 && costBasis > 0)
-                          PositionRow(context.l10n.chartBoughtAt,
-                              formatPolyBoughtCents(costBasis / pos.size)),
-                        // The entry basis (what the user actually paid).
-                        PositionRow(context.l10n.betInvested, investedText),
-                        // What is at risk, in one plain sentence: what was
-                        // paid if the outcome loses, a dollar a share if
-                        // it wins. Only while it is open and both are
-                        // known.
-                        if (!pos.isResolved && pos.size > 0 && costBasis > 0)
-                          PositionRow.note(
-                            key: const ValueKey('poly-position-risk-line'),
-                            context.l10n.polyRiskOutcome(
-                              pos.outcome,
-                              formatPolyAmount(ref, costBasis),
-                              formatPolyAmount(ref, pos.size),
+                      // Only what matters on the screen: what is at risk
+                      // and how to protect it. What the position is made
+                      // of (outcome, shares, price paid, invested) is one
+                      // "Details" row further down.
+                      if (!pos.isResolved && pos.size > 0) ...[
+                        SizedBox(height: 16.h),
+                        PositionRowsCard(rows: [
+                          // What is at risk, in one plain sentence: what was
+                          // paid if the outcome loses, a dollar a share if
+                          // it wins. Only when what was paid is known.
+                          if (costBasis > 0)
+                            PositionRow.note(
+                              key: const ValueKey('poly-position-risk-line'),
+                              context.l10n.polyRiskOutcome(
+                                pos.outcome,
+                                formatPolyAmount(ref, costBasis),
+                                formatPolyAmount(ref, pos.size),
+                              ),
                             ),
-                          ),
-                        // The closest protective order Predictions has: a
-                        // limit sell, set on the sell ticket's Advanced
-                        // page.
-                        if (!pos.isResolved && pos.size > 0)
+                          // The closest protective order Predictions has: a
+                          // limit sell, set on the sell ticket's Advanced
+                          // page.
                           PositionRow(
                             context.l10n.positionProtectIt,
                             context.l10n.betSellAt,
@@ -577,7 +569,8 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                                   startWithLimit: true);
                             },
                           ),
-                      ]),
+                        ]),
+                      ],
 
                       if (pos.isResolved ||
                           pos.endDateStr?.isNotEmpty == true) ...[
@@ -648,6 +641,22 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                           );
                         }),
                       ],
+
+                      // What the position is made of, as plain rows on
+                      // the shared bottom sheet, one row away.
+                      _PositionDetailsRow(rows: [
+                        PositionRow(
+                            context.l10n.activityOutcome, pos.outcome),
+                        PositionRow(context.l10n.betShares,
+                            pos.size.toStringAsFixed(2)),
+                        // What was paid per share: the chart's dashed
+                        // "Bought" line, as a number.
+                        if (pos.size > 0 && costBasis > 0)
+                          PositionRow(context.l10n.chartBoughtAt,
+                              formatPolyBoughtCents(costBasis / pos.size)),
+                        // The entry basis (what the user actually paid).
+                        PositionRow(context.l10n.betInvested, investedText),
+                      ]),
 
                       if (eventDetails != null)
                         eventDetails.when(
@@ -787,6 +796,78 @@ class _PositionActionButton extends StatelessWidget {
 /// resolution", opening the market's description on the app's shared
 /// bottom sheet. A second tap while that sheet is opening or open is
 /// ignored, so the same sheet is never stacked on itself.
+/// "Details": one row under the position (the Investing position's same
+/// row), opening the shared bottom sheet with what the position is made
+/// of, the screen keeping only what is at risk.
+class _PositionDetailsRow extends StatefulWidget {
+  final List<PositionRow> rows;
+  const _PositionDetailsRow({required this.rows});
+
+  static const rowKey = ValueKey('poly-position-details');
+
+  @override
+  State<_PositionDetailsRow> createState() => _PositionDetailsRowState();
+}
+
+class _PositionDetailsRowState extends State<_PositionDetailsRow> {
+  bool _open = false;
+
+  Future<void> _show() async {
+    if (_open) return;
+    _open = true;
+    try {
+      await showAppBottomSheet<void>(
+        context: context,
+        builder: (_) => _PositionDetailsSheet(rows: widget.rows),
+      );
+    } finally {
+      _open = false;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: EdgeInsets.only(top: 12.h),
+        child: PolyRulesRow(
+          key: _PositionDetailsRow.rowKey,
+          label: context.l10n.details,
+          onTap: _show,
+        ),
+      );
+}
+
+class _PositionDetailsSheet extends StatelessWidget {
+  final List<PositionRow> rows;
+  const _PositionDetailsSheet({required this.rows});
+
+  @override
+  Widget build(BuildContext context) {
+    return AppBottomSheetContainer(
+      maxHeight: 0.85,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AppBottomSheetHeader(
+            title: context.l10n.details,
+            trailing: IconButton(
+              tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+              onPressed: () => Navigator.of(context).pop(),
+              icon: const Icon(Icons.close_rounded),
+            ),
+          ),
+          Flexible(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(20.w, 4.h, 20.w, 24.h),
+              child: PositionRowsCard(rows: rows),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ClosingConditionsRow extends StatefulWidget {
   final String description;
   const _ClosingConditionsRow({required this.description});
