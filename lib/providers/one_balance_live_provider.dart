@@ -165,6 +165,10 @@ class OneBalanceLiveNotifier extends Notifier<OneBalanceLiveMarks> {
   final Map<OneBalanceVenue, Timer> _reconcile = {};
   final Map<OneBalanceVenue, Future<void>> _refreshing = {};
 
+  /// Venues an event asked to read while their read was already running:
+  /// that read may have started before the change, so one more follows it.
+  final Set<OneBalanceVenue> _readAgain = {};
+
   Timer? _throttle;
   DateTime? _lastCommit;
   bool _disposed = false;
@@ -278,16 +282,35 @@ class OneBalanceLiveNotifier extends Notifier<OneBalanceLiveMarks> {
   void _event(OneBalanceVenue venue) {
     if (_disposed) return;
     _lastEventAt[venue] = _now();
-    _refresh(venue);
+    // The venue's cash just moved: its read goes to the chain, not to the
+    // balance Predictions keeps for 30 s between reads (which showed the
+    // cash from before a deposit, a cash-out or a claim for up to that).
+    if (venue == OneBalanceVenue.predictions) {
+      try {
+        if (ref.exists(polymarketTradingProvider)) {
+          ref.read(polymarketTradingProvider.notifier).invalidateBalanceCache();
+        }
+      } catch (_) {}
+    }
+    _refresh(venue, again: true);
   }
 
-  void _refresh(OneBalanceVenue venue) {
-    if (_disposed || _refreshing.containsKey(venue)) return;
+  /// Reads [venue] now. A read already running is not doubled; with
+  /// [again] (an event: the change may have come after that read began)
+  /// one more read follows it.
+  void _refresh(OneBalanceVenue venue, {bool again = false}) {
+    if (_disposed) return;
+    if (_refreshing.containsKey(venue)) {
+      if (again) _readAgain.add(venue);
+      return;
+    }
     final run = ref.read(oneBalanceVenueRefreshProvider)(venue);
     _refreshing[venue] = run;
     run.catchError((Object _) {}).whenComplete(() {
       _refreshing.remove(venue);
-      if (!_disposed) _reschedule(venue);
+      if (_disposed) return;
+      if (_readAgain.remove(venue)) return _refresh(venue);
+      _reschedule(venue);
     });
   }
 
@@ -431,6 +454,7 @@ class OneBalanceLiveNotifier extends Notifier<OneBalanceLiveMarks> {
 
   void _teardown() {
     _disposed = true;
+    _readAgain.clear();
     _throttle?.cancel();
     for (final t in _reconcile.values) {
       t.cancel();

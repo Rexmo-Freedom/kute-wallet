@@ -88,6 +88,7 @@ import 'package:kute/providers/pending_hyperliquid_order_provider.dart'
         HlReadiness,
         PendingHlOrderIntent,
         PendingHlOrderStatus,
+        pendingHlOrderAutoFireProvider,
         pendingHyperliquidOrderProvider;
 import 'package:kute/providers/pending_polymarket_bet_provider.dart'
     show
@@ -103,6 +104,8 @@ import 'package:kute/providers/usd_account_provider.dart'
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
 import 'package:kute/services/api/orchestra_api.dart' show OrchestraService;
+import 'package:kute/services/background_sync_service.dart'
+    show BackgroundSyncService;
 import 'package:kute/services/funding/settlement_runner.dart'
     show SettlementFundingUnknown, SettlementStepUpHook, SettlementStopped;
 import 'package:kute/services/one_balance/bitcoin_to_dollars_leg.dart';
@@ -172,6 +175,7 @@ class BitcoinLegEnv {
     this.legPollEvery = const Duration(seconds: 1),
     this.readiness,
     this.checkDollars,
+    this.legEnded,
   });
 
   /// The wallet's own Spark address, from the Spark SDK.
@@ -217,6 +221,13 @@ class BitcoinLegEnv {
   /// Asks the Dollars reading to catch up with the wallet now (a leg's
   /// dollars were delivered: `usdBalanceCheckProvider`). Never awaited.
   final void Function()? checkDollars;
+
+  /// A leg's Orchestra status just said it ended (delivered or failed):
+  /// [into] is the venue it delivered to, null when it delivered to
+  /// Dollars or failed (its money comes home). The balances it moved are
+  /// read again now instead of on the next background pass
+  /// ([announceLegEnded]). Never awaited.
+  final void Function(OneBalanceVenue? into)? legEnded;
 
   /// The live wallet.
   factory BitcoinLegEnv.live(Ref ref) {
@@ -384,7 +395,35 @@ class BitcoinLegEnv {
       legStatus: orchestraLegStatus,
       readiness: (venue) => venueReadinessPhases(ref, venue),
       checkDollars: () => ref.read(usdBalanceCheckProvider).request('order_leg'),
+      legEnded: (into) => announceLegEnded(ref.read, into),
     );
+  }
+}
+
+/// A leg's Orchestra status just said it ended (the order runner polls it
+/// every second): everything that shows the money it moved reads again
+/// now. Without this the swap order row (Activity, the Investments
+/// header's in-flight lines and total, the Spark arrival refresh, the
+/// Predictions deposit's conversion) waited for the background sync's
+/// next pass to read the same status, and Investing's queued order for
+/// its account poll (4 to 5 s) to see the credit.
+///
+///  * The row's owner, the background sync, reads the rows now (one
+///    sync, shared with one already running: `BackgroundSyncService
+///    .syncNow`).
+///  * Delivered into Investing: the account is read again now and the
+///    queued order fires on it (`PendingHlOrderAutoFire.creditLanded`).
+///
+/// Never throws.
+void announceLegEnded(T Function<T>(ProviderListenable<T> provider) read,
+    OneBalanceVenue? into) {
+  try {
+    BackgroundSyncService().syncNow();
+  } catch (_) {}
+  if (into == OneBalanceVenue.investing) {
+    try {
+      read(pendingHlOrderAutoFireProvider).creditLanded();
+    } catch (_) {}
   }
 }
 
@@ -766,6 +805,12 @@ class BitcoinFundedOrderRunner {
                     id: () => legId!,
                     statusOf: statusOf,
                     pollEvery: env.legPollEvery);
+                if (d != LegDelivery.timedOut) {
+                  try {
+                    env.legEnded
+                        ?.call(d == LegDelivery.delivered ? venue : null);
+                  } catch (_) {}
+                }
               }
               return switch (d) {
                 LegDelivery.delivered => MoneyStepDone(ref: legId),
@@ -1641,9 +1686,11 @@ class _FundedChain {
 
   /// Follows one leg's Orchestra order to delivery. Without a status read
   /// (a test's wallet) a leg counts as landed once the venue credited the
-  /// order.
+  /// order. [into] is the venue the leg delivers to (null: Dollars): its
+  /// end is announced the moment the status says so
+  /// ([BitcoinLegEnv.legEnded]).
   Future<LegDelivery> _delivery(String Function() legId,
-      {void Function()? onExplicitRefund}) {
+      {void Function()? onExplicitRefund, OneBalanceVenue? into}) {
     final statusOf = env.legStatus;
     if (statusOf == null) {
       return Future.any<LegDelivery>([
@@ -1664,7 +1711,20 @@ class _FundedChain {
           return status;
         },
         pollEvery: env.legPollEvery,
-        onSlow: _slow);
+        onSlow: _slow).then((d) {
+      _legEnded(d, into);
+      return d;
+    });
+  }
+
+  /// Hands a leg's end on ([BitcoinLegEnv.legEnded]): delivered into
+  /// [into], or failed (the money comes home). A watch that ran out of
+  /// time learned nothing.
+  void _legEnded(LegDelivery d, OneBalanceVenue? into) {
+    if (d == LegDelivery.timedOut) return;
+    try {
+      env.legEnded?.call(d == LegDelivery.delivered ? into : null);
+    } catch (_) {}
   }
 
   /// The order's own step ended (placed or not): the slip's run is over
@@ -2047,7 +2107,7 @@ class _FundedChain {
         update((s) => s.copyWith(ref: orderId));
       }).catchError((Object _) {}));
     }
-    final delivery = await _delivery(() => legId);
+    final delivery = await _delivery(() => legId, into: venue);
     switch (delivery) {
       case LegDelivery.delivered:
         _landedAt = _now();
@@ -2173,6 +2233,14 @@ class _FundedChain {
           enoughUsd: _baseline + r.plan.targetUsd - 0.01,
           onSlow: _slow,
         );
+    // Orchestra's own status said the leg ended: its row and the balances
+    // are read now. A landing seen in the balance alone needs no news.
+    if (landing is DollarsLegFailed ||
+        (landing is DollarsLanded && landing.byStatus)) {
+      try {
+        env.legEnded?.call(null);
+      } catch (_) {}
+    }
     switch (landing) {
       case DollarsLegFailed():
         _stop(FundedOrderStage.failed, BitcoinFundedEnd.refunded,
@@ -2257,7 +2325,7 @@ class _FundedChain {
             }
           }).catchError((Object _) {}));
         }
-        final delivery = await _delivery(() => legId);
+        final delivery = await _delivery(() => legId, into: venue);
         switch (delivery) {
           case LegDelivery.delivered:
             _landed(step, 'dollars');
@@ -2327,7 +2395,12 @@ class _FundedChain {
           if (orderId != null && orderId.isNotEmpty) legId = orderId;
         }).catchError((Object _) {}));
       }
-      watches.add(_delivery(() => legId, onExplicitRefund: () {
+      watches.add(_delivery(() => legId,
+          into: switch (pulled.destination) {
+            VenueCashDestination.investing => OneBalanceVenue.investing,
+            VenueCashDestination.predictions => OneBalanceVenue.predictions,
+            _ => null,
+          }, onExplicitRefund: () {
         unawaited(_cashSnapshot
             .refresh(_ref.read, settledRefs: {res.operationId ?? res.quoteId}));
       }));

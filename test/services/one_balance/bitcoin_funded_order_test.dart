@@ -135,8 +135,15 @@ class _Env {
     this.quote,
     this.sendError,
     this.slow = false,
+    this.legStatus,
   });
   final DollarsLandingOutcome landing;
+
+  /// Orchestra's status for a leg, when the test reads one.
+  final Future<String?> Function(String id)? legStatus;
+
+  /// Every leg end the runner announced, by the venue it delivered to.
+  final ended = <OneBalanceVenue?>[];
   final VerifiedOrchestraQuote? quote;
   final Object? sendError;
   final bool slow;
@@ -177,6 +184,9 @@ class _Env {
         watcher: ({required DateTime since}) => watcher,
         dollarsNow: () => dollars,
         freshDollars: () async => dollars,
+        legStatus: legStatus,
+        legPollEvery: const Duration(milliseconds: 1),
+        legEnded: ended.add,
       );
 }
 
@@ -322,6 +332,41 @@ void main() {
       expect(params.values.whereType<String>().where((v) => v.contains('spark1')),
           isEmpty);
     }
+  });
+
+  test(
+      'each leg\'s end, as Orchestra\'s status says it, is announced at '
+      'once: Dollars for the Bitcoin leg, the venue for the move', () async {
+    final env = _Env(legStatus: (id) async => 'completed');
+    final c = containerFor(env);
+    final r = request(_grant());
+    final run = c.read(bitcoinFundedOrderRunnerProvider).start(r.request);
+    expect(await run.ended, BitcoinFundedEnd.placed);
+    expect(env.ended, [null, OneBalanceVenue.predictions]);
+  });
+
+  test('a landing seen in the balance alone announces nothing for it',
+      () async {
+    final env = _Env(
+        landing: const DollarsLanded(byStatus: false, freshDollarsUsd: 6));
+    final c = containerFor(env);
+    final r = request(_grant());
+    final run = c.read(bitcoinFundedOrderRunnerProvider).start(r.request);
+    expect(await run.ended, BitcoinFundedEnd.placed);
+    // No status read in this wallet: the move's leg is not announced
+    // either (it counted as landed on the venue's credit).
+    expect(env.ended, isEmpty);
+  });
+
+  test('a refunded move announces its end with the money coming home',
+      () async {
+    final env = _Env(
+        legStatus: (id) async => id == 'o_venue' ? 'refunded' : 'completed');
+    final c = containerFor(env);
+    final r = request(_grant(), placed: false);
+    final run = c.read(bitcoinFundedOrderRunnerProvider).start(r.request);
+    await run.ended;
+    expect(env.ended, [null, null]);
   });
 
   test('a quote paying someone else is refused: nothing moves, no order',

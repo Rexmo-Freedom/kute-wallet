@@ -421,6 +421,94 @@ void main() {
     });
   });
 
+  group('a credit signal reads the account again now', () {
+    // The header keeps the account alive: the 1 s tick reads its last
+    // snapshot, not the venue, so the credit must ask for a fresh read.
+    ProviderContainer held(_Controller controller) {
+      final c = container(controller);
+      c.listen(hyperliquidAccountProvider, (_, __) {});
+      return c;
+    }
+
+    void queue(ProviderContainer c, _Controller controller,
+        _Placement placement) {
+      final intent = _intent(placement);
+      c.read(pendingHyperliquidOrderProvider.notifier).fundAndQueue(intent,
+          grant: approve(intent),
+          controller: controller,
+          orderUsd: 20,
+          requiredUsd: intent.requiredUsd,
+          readyUsd: 0);
+    }
+
+    test('Orchestra\'s delivery places the order on a fresh read at once',
+        () {
+      fakeAsync((async) {
+        final controller = _Controller(() async => _funded);
+        final c = held(controller);
+        final placement = _Placement(resizable: true);
+        queue(c, controller, placement);
+        async.elapse(const Duration(seconds: 3));
+        // The money landed; the snapshot on screen is from before it.
+        withdrawable = 21;
+        async.elapse(const Duration(seconds: 2));
+        expect(placement.placed, isEmpty);
+        c.read(pendingHlOrderAutoFireProvider).creditLanded();
+        async.flushMicrotasks();
+        expect(placement.placed, [20]);
+        expect(terminal().status, PendingHlOrderStatus.done);
+      });
+    });
+
+    test('a venue read that lags the credit is read again 1, 2 and 4 s on',
+        () {
+      fakeAsync((async) {
+        final controller = _Controller(() async => _funded);
+        final c = held(controller);
+        final placement = _Placement(resizable: true);
+        var built = 0;
+        c.listen(hyperliquidAccountProvider, (_, n) {
+          if (n.hasValue && !n.isLoading) built++;
+        });
+        queue(c, controller, placement);
+        async.flushMicrotasks();
+        c.read(pendingHlOrderAutoFireProvider).creditLanded();
+        async.flushMicrotasks();
+        expect(placement.placed, isEmpty);
+        final afterCredit = built;
+        // The venue shows the money 2.5 s after Orchestra said delivered:
+        // the read 3 s on (1 s + 2 s) places it.
+        async.elapse(const Duration(milliseconds: 2500));
+        withdrawable = 21;
+        expect(placement.placed, isEmpty);
+        async.elapse(const Duration(milliseconds: 500));
+        async.flushMicrotasks();
+        expect(placement.placed, [20]);
+        expect(built, greaterThan(afterCredit));
+        // Placed: no read is left pending.
+        final settled = built;
+        async.elapse(const Duration(seconds: 10));
+        expect(built, settled);
+      });
+    });
+
+    test('a ledger update on the venue\'s socket reads the account too', () {
+      fakeAsync((async) {
+        final controller = _Controller(() async => _funded);
+        final c = held(controller);
+        final placement = _Placement(resizable: true);
+        queue(c, controller, placement);
+        async.elapse(const Duration(seconds: 2));
+        withdrawable = 21;
+        async.elapse(const Duration(seconds: 1));
+        expect(placement.placed, isEmpty);
+        c.read(pendingHlOrderAutoFireProvider).accountMoved();
+        async.flushMicrotasks();
+        expect(placement.placed, [20]);
+      });
+    });
+  });
+
   test('a refused move clears the order and its grant; Dollars untouched',
       () {
     fakeAsync((async) {
