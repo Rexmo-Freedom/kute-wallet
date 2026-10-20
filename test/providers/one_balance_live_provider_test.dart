@@ -45,6 +45,12 @@ class _Pm extends PolymarketTradingNotifier {
   Future<PolymarketTradingState> build() async => _initial;
 
   void set(PolymarketTradingState next) => state = AsyncData(next);
+
+  /// How many times the 30 s cached balance was dropped.
+  int balanceCacheDropped = 0;
+
+  @override
+  void invalidateBalanceCache() => balanceCacheDropped++;
 }
 
 class _FixedSweeper extends VenueSweeperNotifier {
@@ -117,7 +123,9 @@ SwapOrder _fundingRow(String status) => poolDepositRow(
     id: 'ord_fund', network: 'POLYGON', usd: 5, status: status);
 
 class _Rig {
-  _Rig(FakeAsync async, {List<Position> positions = const []}) {
+  _Rig(FakeAsync async,
+      {List<Position> positions = const [],
+      Duration readFor = Duration.zero}) {
     final clock = async.getClock(DateTime(2026, 10, 13, 12));
     rows = FakeSwapOrders();
     container = ProviderContainer(overrides: [
@@ -145,6 +153,7 @@ class _Rig {
       }),
       oneBalanceVenueRefreshProvider.overrideWithValue((venue) async {
         refreshes.add(venue);
+        if (readFor > Duration.zero) await Future<void>.delayed(readFor);
       }),
       liveMarksClockProvider.overrideWithValue(clock.now),
     ]);
@@ -236,6 +245,45 @@ void main() {
       // And nothing on a timer afterwards.
       async.elapse(const Duration(minutes: 10));
       expect(rig.refreshes, hasLength(2));
+    });
+  });
+
+  test('a Predictions event reads the chain, not the 30 s cached balance',
+      () {
+    fakeAsync((async) {
+      final rig = _Rig(async);
+      addTearDown(rig.container.dispose);
+      expect(rig.pm.balanceCacheDropped, 0);
+      rig.rows.set([_fundingRow('exchanging')]);
+      async.elapse(Duration.zero);
+      rig.rows.set([_fundingRow('success')]);
+      async.elapse(Duration.zero);
+      expect(rig.refreshes, [OneBalanceVenue.predictions]);
+      expect(rig.pm.balanceCacheDropped, 1);
+      // An Investing event leaves the Predictions cache alone.
+      VenueCashReleased.emit(OneBalanceVenue.investing, 'position_closed');
+      async.elapse(Duration.zero);
+      expect(rig.pm.balanceCacheDropped, 1);
+    });
+  });
+
+  test('an event during a running read gets one more read after it', () {
+    fakeAsync((async) {
+      final rig = _Rig(async, readFor: const Duration(seconds: 2));
+      addTearDown(rig.container.dispose);
+      VenueCashReleased.emit(OneBalanceVenue.investing, 'position_closed');
+      async.elapse(const Duration(milliseconds: 500));
+      expect(rig.refreshes, [OneBalanceVenue.investing]);
+      // The deposit lands while that read runs: it may have read the
+      // account before the money did, so one more read follows it.
+      VenueCashReleased.emit(OneBalanceVenue.investing, 'reduce_fill');
+      VenueCashReleased.emit(OneBalanceVenue.investing, 'reduce_fill');
+      async.elapse(const Duration(milliseconds: 500));
+      expect(rig.refreshes, hasLength(1), reason: 'never two at once');
+      async.elapse(const Duration(seconds: 1));
+      expect(rig.refreshes, hasLength(2));
+      async.elapse(const Duration(seconds: 2));
+      expect(rig.refreshes, hasLength(2), reason: 'once, however many asked');
     });
   });
 
