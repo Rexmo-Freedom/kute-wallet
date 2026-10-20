@@ -569,6 +569,7 @@
   "walletTypeKute": "Portefeuille Kute",
   "walletPublicKey": "Clé publique du portefeuille",
   "walletPublicKeyShowFull": "Afficher la clé complète",
+  "sparkRecoveryNote": "Spark est une couche rapide au-dessus de Bitcoin où Kute garde votre solde. Vous seul le contrôlez. Un portefeuille Bitcoin classique n'affichera pas ce solde avec ces mots. Pour le récupérer, restaurez-les dans un portefeuille compatible Spark, comme Kute, Wallet of Satoshi ou Glow de Breez.",
   "walletsNeverShareWordsPlain": "Ne partagez jamais ces mots. Toute personne qui les possède peut prendre tout ce qu'il y a dans ce portefeuille.",
   "viewOnlyWalletTitle": "Portefeuille en lecture seule",
   "seedWordsViewOnlyNote": "Ce portefeuille est en lecture seule. Ses clés ne sont pas sur ce téléphone, il n'y a donc pas de phrase de récupération à afficher.",

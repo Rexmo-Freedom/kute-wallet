@@ -569,6 +569,7 @@
   "walletTypeKute": "Kute maciņš",
   "walletPublicKey": "Maciņa publiskā atslēga",
   "walletPublicKeyShowFull": "Rādīt pilnu atslēgu",
+  "sparkRecoveryNote": "Spark ir ātrs slānis virs Bitcoin, kur Kute glabā jūsu atlikumu. To kontrolējat tikai jūs. Parasts Bitcoin maks no šiem vārdiem šo atlikumu neparādīs. Atjaunojiet tos makā, kas atbalsta Spark, piemēram, Kute, Wallet of Satoshi vai Breez Glow.",
   "walletsNeverShareWordsPlain": "Nekad nedalies ar šiem vārdiem. Ikviens, kam tie ir, var paņemt visu šajā maciņā.",
   "viewOnlyWalletTitle": "Tikai skatīšanās maciņš",
   "seedWordsViewOnlyNote": "Šis maciņš ir tikai skatīšanai. Tā atslēgas nav šajā tālrunī, tāpēc nav atkopšanas frāzes, ko parādīt.",

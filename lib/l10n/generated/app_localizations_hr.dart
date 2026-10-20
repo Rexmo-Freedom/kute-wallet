@@ -1846,6 +1846,10 @@ class AppLocalizationsHr extends AppLocalizations {
   String get walletPublicKeyShowFull => 'Prikaži cijeli ključ';
 
   @override
+  String get sparkRecoveryNote =>
+      'Spark je brzi sloj iznad Bitcoina gdje Kute drži vaše stanje. Samo vi ga kontrolirate. Običan Bitcoin novčanik neće prikazati ovo stanje iz ovih riječi. Vratite ih u novčanik koji podržava Spark, poput Kute, Wallet of Satoshi ili Glow tvrtke Breez.';
+
+  @override
   String get walletsNeverShareWordsPlain =>
       'Nikad ne dijeli ove riječi. Tko ih ima, može uzeti sve iz ovog novčanika.';
 

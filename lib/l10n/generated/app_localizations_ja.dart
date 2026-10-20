@@ -1808,6 +1808,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get walletPublicKeyShowFull => '鍵全体を表示';
 
   @override
+  String get sparkRecoveryNote =>
+      'Sparkは、Kuteが残高を保管するビットコイン上の高速なレイヤーです。管理できるのはあなただけです。通常のビットコインウォレットでは、この単語から残高は表示されません。Kute、Wallet of Satoshi、BreezのGlowなど、Sparkに対応したウォレットで復元してください。';
+
+  @override
   String get walletsNeverShareWordsPlain =>
       'これらの単語は絶対に共有しないでください。知っている人は誰でもこのウォレットの資産をすべて持ち出せます。';
 

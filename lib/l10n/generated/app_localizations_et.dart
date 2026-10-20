@@ -1839,6 +1839,10 @@ class AppLocalizationsEt extends AppLocalizations {
   String get walletPublicKeyShowFull => 'Näita kogu võtit';
 
   @override
+  String get sparkRecoveryNote =>
+      'Spark on kiire kiht Bitcoini peal, kus Kute hoiab sinu saldot. Ainult sina kontrollid seda. Tavaline Bitcoini rahakott ei näita nende sõnadega seda saldot. Taasta need rahakotis, mis toetab Sparki, näiteks Kute, Wallet of Satoshi või Breezi Glow.';
+
+  @override
   String get walletsNeverShareWordsPlain =>
       'Ära jaga neid sõnu kunagi. Igaüks, kellel need on, saab võtta kõik selles rahakotis.';
 

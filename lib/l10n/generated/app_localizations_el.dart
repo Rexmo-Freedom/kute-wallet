@@ -1857,6 +1857,10 @@ class AppLocalizationsEl extends AppLocalizations {
   String get walletPublicKeyShowFull => 'Εμφάνιση όλου του κλειδιού';
 
   @override
+  String get sparkRecoveryNote =>
+      'Το Spark είναι ένα γρήγορο επίπεδο πάνω από το Bitcoin όπου το Kute κρατά το υπόλοιπό σας. Μόνο εσείς το ελέγχετε. Ένα κανονικό πορτοφόλι Bitcoin δεν θα δείξει αυτό το υπόλοιπο με αυτές τις λέξεις. Επαναφέρετέ τες σε πορτοφόλι που υποστηρίζει Spark, όπως το Kute, το Wallet of Satoshi ή το Glow της Breez.';
+
+  @override
   String get walletsNeverShareWordsPlain =>
       'Μην μοιραστείς ποτέ αυτές τις λέξεις. Όποιος τις έχει μπορεί να πάρει τα πάντα από αυτό το πορτοφόλι.';
 

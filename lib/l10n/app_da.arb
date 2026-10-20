@@ -569,6 +569,7 @@
   "walletTypeKute": "Kute-tegnebog",
   "walletPublicKey": "Tegnebogens offentlige nøgle",
   "walletPublicKeyShowFull": "Vis hele nøglen",
+  "sparkRecoveryNote": "Spark er et hurtigt lag oven på Bitcoin, hvor Kute holder din saldo. Kun du styrer den. En almindelig Bitcoin-wallet viser ikke saldoen ud fra disse ord. Gendan dem i en wallet, der understøtter Spark, f.eks. Kute, Wallet of Satoshi eller Glow fra Breez.",
   "walletsNeverShareWordsPlain": "Del aldrig disse ord. Alle, der har dem, kan tage alt i denne tegnebog.",
   "viewOnlyWalletTitle": "Tegnebog kun til visning",
   "seedWordsViewOnlyNote": "Denne tegnebog er kun til visning. Dens nøgler er ikke på denne telefon, så der er ingen gendannelsesfrase at vise.",

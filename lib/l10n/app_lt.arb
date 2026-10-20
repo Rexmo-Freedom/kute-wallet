@@ -569,6 +569,7 @@
   "walletTypeKute": "Kute piniginė",
   "walletPublicKey": "Piniginės viešasis raktas",
   "walletPublicKeyShowFull": "Rodyti visą raktą",
+  "sparkRecoveryNote": "Spark yra greitas sluoksnis virš Bitcoin, kuriame Kute laiko jūsų likutį. Jį valdote tik jūs. Įprasta Bitcoin piniginė iš šių žodžių šio likučio nerodys. Atkurkite juos piniginėje, kuri palaiko Spark, pavyzdžiui, Kute, Wallet of Satoshi arba Breez Glow.",
   "walletsNeverShareWordsPlain": "Niekam neatskleiskite šių žodžių. Kas juos turi, gali paimti viską, kas yra šioje piniginėje.",
   "viewOnlyWalletTitle": "Tik peržiūros piniginė",
   "seedWordsViewOnlyNote": "Ši piniginė skirta tik peržiūrai. Jos raktų šiame telefone nėra, todėl nėra atkūrimo frazės, kurią būtų galima parodyti.",

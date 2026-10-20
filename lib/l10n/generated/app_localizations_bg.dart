@@ -1846,6 +1846,10 @@ class AppLocalizationsBg extends AppLocalizations {
   String get walletPublicKeyShowFull => 'Покажи целия ключ';
 
   @override
+  String get sparkRecoveryNote =>
+      'Spark е бърз слой върху Bitcoin, където Kute държи баланса ви. Само вие го контролирате. Обикновен Bitcoin портфейл няма да покаже този баланс от тези думи. Възстановете ги в портфейл с поддръжка на Spark, например Kute, Wallet of Satoshi или Glow на Breez.';
+
+  @override
   String get walletsNeverShareWordsPlain =>
       'Никога не споделяй тези думи. Всеки, който ги има, може да вземе всичко в този портфейл.';
 

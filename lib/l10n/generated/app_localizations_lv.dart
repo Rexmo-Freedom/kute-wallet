@@ -1836,6 +1836,10 @@ class AppLocalizationsLv extends AppLocalizations {
   String get walletPublicKeyShowFull => 'Rādīt pilnu atslēgu';
 
   @override
+  String get sparkRecoveryNote =>
+      'Spark ir ātrs slānis virs Bitcoin, kur Kute glabā jūsu atlikumu. To kontrolējat tikai jūs. Parasts Bitcoin maks no šiem vārdiem šo atlikumu neparādīs. Atjaunojiet tos makā, kas atbalsta Spark, piemēram, Kute, Wallet of Satoshi vai Breez Glow.';
+
+  @override
   String get walletsNeverShareWordsPlain =>
       'Nekad nedalies ar šiem vārdiem. Ikviens, kam tie ir, var paņemt visu šajā maciņā.';
 

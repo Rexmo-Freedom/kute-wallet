@@ -3554,6 +3554,12 @@ abstract class AppLocalizations {
   /// **'Show full key'**
   String get walletPublicKeyShowFull;
 
+  /// No description provided for @sparkRecoveryNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Spark is a fast layer on top of Bitcoin where Kute keeps your balance. Only you control it. A regular Bitcoin wallet won\'t show this balance from these words. To recover it, restore them in a wallet that supports Spark, like Kute, Wallet of Satoshi or Glow by Breez.'**
+  String get sparkRecoveryNote;
+
   /// No description provided for @walletsNeverShareWordsPlain.
   ///
   /// In en, this message translates to:

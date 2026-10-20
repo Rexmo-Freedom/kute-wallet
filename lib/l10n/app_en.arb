@@ -793,6 +793,7 @@
   "walletTypeKute": "Kute wallet",
   "walletPublicKey": "Wallet public key",
   "walletPublicKeyShowFull": "Show full key",
+  "sparkRecoveryNote": "Spark is a fast layer on top of Bitcoin where Kute keeps your balance. Only you control it. A regular Bitcoin wallet won't show this balance from these words. To recover it, restore them in a wallet that supports Spark, like Kute, Wallet of Satoshi or Glow by Breez.",
   "walletsNeverShareWordsPlain": "Never share these words. Anyone who has them can take everything in this wallet.",
   "viewOnlyWalletTitle": "View only wallet",
   "seedWordsViewOnlyNote": "This wallet is view only. Its keys are not on this phone, so there is no recovery phrase to show.",

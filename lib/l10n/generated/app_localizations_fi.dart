@@ -1844,6 +1844,10 @@ class AppLocalizationsFi extends AppLocalizations {
   String get walletPublicKeyShowFull => 'Näytä koko avain';
 
   @override
+  String get sparkRecoveryNote =>
+      'Spark on nopea kerros Bitcoinin päällä, jossa Kute pitää saldosi. Vain sinä hallitset sitä. Tavallinen Bitcoin-lompakko ei näytä tätä saldoa näillä sanoilla. Palauta ne lompakkoon, joka tukee Sparkia, kuten Kute, Wallet of Satoshi tai Breezin Glow.';
+
+  @override
   String get walletsNeverShareWordsPlain =>
       'Älä koskaan jaa näitä sanoja. Kuka tahansa, jolla ne ovat, voi viedä kaiken tästä lompakosta.';
 

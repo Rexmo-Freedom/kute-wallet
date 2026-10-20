@@ -1848,6 +1848,10 @@ class AppLocalizationsEs extends AppLocalizations {
   String get walletPublicKeyShowFull => 'Mostrar clave completa';
 
   @override
+  String get sparkRecoveryNote =>
+      'Spark es una capa rápida sobre Bitcoin donde Kute guarda tu saldo. Solo tú lo controlas. Una cartera Bitcoin normal no mostrará este saldo con estas palabras. Para recuperarlo, restáuralas en una cartera compatible con Spark, como Kute, Wallet of Satoshi o Glow de Breez.';
+
+  @override
   String get walletsNeverShareWordsPlain =>
       'Nunca compartas estas palabras. Quien las tenga puede llevarse todo lo que hay en esta cartera.';
 

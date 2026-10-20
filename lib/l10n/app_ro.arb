@@ -569,6 +569,7 @@
   "walletTypeKute": "Portofel Kute",
   "walletPublicKey": "Cheia publică a portofelului",
   "walletPublicKeyShowFull": "Arată cheia completă",
+  "sparkRecoveryNote": "Spark este un strat rapid peste Bitcoin unde Kute îți ține soldul. Doar tu îl controlezi. Un portofel Bitcoin obișnuit nu va arăta acest sold din aceste cuvinte. Pentru a-l recupera, restaurează-le într-un portofel care acceptă Spark, cum ar fi Kute, Wallet of Satoshi sau Glow de la Breez.",
   "walletsNeverShareWordsPlain": "Nu împărtăși niciodată aceste cuvinte. Oricine le are poate lua tot din acest portofel.",
   "viewOnlyWalletTitle": "Portofel doar pentru vizualizare",
   "seedWordsViewOnlyNote": "Acest portofel este doar pentru vizualizare. Cheile nu sunt pe acest telefon, deci nu există frază de recuperare de afișat.",

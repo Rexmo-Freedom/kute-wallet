@@ -569,6 +569,7 @@
   "walletTypeKute": "Kute tárca",
   "walletPublicKey": "Tárca nyilvános kulcsa",
   "walletPublicKeyShowFull": "Teljes kulcs megjelenítése",
+  "sparkRecoveryNote": "A Spark egy gyors réteg a Bitcoin fölött, ahol a Kute az egyenlegedet tartja. Csak te irányítod. Egy sima Bitcoin tárca ezekből a szavakból nem mutatja ezt az egyenleget. Állítsd vissza őket egy Sparkot támogató tárcában, például a Kute, a Wallet of Satoshi vagy a Breez Glow alkalmazásban.",
   "walletsNeverShareWordsPlain": "Soha ne oszd meg ezeket a szavakat. Aki ismeri őket, mindent elvihet ebből a tárcából.",
   "viewOnlyWalletTitle": "Csak megtekinthető tárca",
   "seedWordsViewOnlyNote": "Ez a tárca csak megtekinthető. A kulcsai nincsenek ezen a telefonon, ezért nincs megjeleníthető helyreállítási kifejezés.",

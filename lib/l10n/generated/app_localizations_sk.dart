@@ -1840,6 +1840,10 @@ class AppLocalizationsSk extends AppLocalizations {
   String get walletPublicKeyShowFull => 'Zobraziť celý kľúč';
 
   @override
+  String get sparkRecoveryNote =>
+      'Spark je rýchla vrstva nad Bitcoinom, kde Kute drží váš zostatok. Ovládate ho len vy. Bežná bitcoinová peňaženka tento zostatok z týchto slov nezobrazí. Obnovte ich v peňaženke s podporou Spark, napríklad Kute, Wallet of Satoshi alebo Glow od Breez.';
+
+  @override
   String get walletsNeverShareWordsPlain =>
       'Tieto slová nikdy nikomu nedávaj. Kto ich má, môže zobrať všetko z tejto peňaženky.';
 

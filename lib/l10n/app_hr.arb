@@ -569,6 +569,7 @@
   "walletTypeKute": "Kute novčanik",
   "walletPublicKey": "Javni ključ novčanika",
   "walletPublicKeyShowFull": "Prikaži cijeli ključ",
+  "sparkRecoveryNote": "Spark je brzi sloj iznad Bitcoina gdje Kute drži vaše stanje. Samo vi ga kontrolirate. Običan Bitcoin novčanik neće prikazati ovo stanje iz ovih riječi. Vratite ih u novčanik koji podržava Spark, poput Kute, Wallet of Satoshi ili Glow tvrtke Breez.",
   "walletsNeverShareWordsPlain": "Nikad ne dijeli ove riječi. Tko ih ima, može uzeti sve iz ovog novčanika.",
   "viewOnlyWalletTitle": "Novčanik samo za pregled",
   "seedWordsViewOnlyNote": "Ovaj novčanik je samo za pregled. Njegovi ključevi nisu na ovom telefonu, pa nema fraze za oporavak za prikaz.",

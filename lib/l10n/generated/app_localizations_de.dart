@@ -1855,6 +1855,10 @@ class AppLocalizationsDe extends AppLocalizations {
   String get walletPublicKeyShowFull => 'Ganzen Schlüssel anzeigen';
 
   @override
+  String get sparkRecoveryNote =>
+      'Spark ist eine schnelle Ebene auf Bitcoin, auf der Kute dein Guthaben hält. Nur du kontrollierst es. Eine normale Bitcoin-Wallet zeigt dieses Guthaben mit diesen Wörtern nicht. Stelle sie zur Wiederherstellung in einer Wallet mit Spark-Unterstützung wieder her, zum Beispiel Kute, Wallet of Satoshi oder Glow von Breez.';
+
+  @override
   String get walletsNeverShareWordsPlain =>
       'Teile diese Wörter niemals. Wer sie hat, kann alles aus diesem Wallet nehmen.';
 

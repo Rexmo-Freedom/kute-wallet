@@ -1849,6 +1849,10 @@ class AppLocalizationsIt extends AppLocalizations {
   String get walletPublicKeyShowFull => 'Mostra la chiave completa';
 
   @override
+  String get sparkRecoveryNote =>
+      'Spark è un livello veloce sopra Bitcoin dove Kute tiene il tuo saldo. Lo controlli solo tu. Un normale wallet Bitcoin non mostrerà questo saldo con queste parole. Per recuperarlo, ripristinale in un wallet che supporta Spark, come Kute, Wallet of Satoshi o Glow di Breez.';
+
+  @override
   String get walletsNeverShareWordsPlain =>
       'Non condividere mai queste parole. Chi le possiede può prendere tutto ciò che c\'è in questo wallet.';
 

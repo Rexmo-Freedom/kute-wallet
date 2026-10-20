@@ -569,6 +569,7 @@
   "walletTypeKute": "Kute-plånbok",
   "walletPublicKey": "Plånbokens publika nyckel",
   "walletPublicKeyShowFull": "Visa hela nyckeln",
+  "sparkRecoveryNote": "Spark är ett snabbt lager ovanpå Bitcoin där Kute håller ditt saldo. Bara du styr det. En vanlig Bitcoin-plånbok visar inte saldot med de här orden. Återställ dem i en plånbok som stöder Spark, till exempel Kute, Wallet of Satoshi eller Glow från Breez.",
   "walletsNeverShareWordsPlain": "Dela aldrig de här orden. Alla som har dem kan ta allt i den här plånboken.",
   "viewOnlyWalletTitle": "Plånbok för endast visning",
   "seedWordsViewOnlyNote": "Den här plånboken är endast för visning. Dess nycklar finns inte på den här telefonen, så det finns ingen återställningsfras att visa.",

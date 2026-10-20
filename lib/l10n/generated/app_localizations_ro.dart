@@ -1849,6 +1849,10 @@ class AppLocalizationsRo extends AppLocalizations {
   String get walletPublicKeyShowFull => 'Arată cheia completă';
 
   @override
+  String get sparkRecoveryNote =>
+      'Spark este un strat rapid peste Bitcoin unde Kute îți ține soldul. Doar tu îl controlezi. Un portofel Bitcoin obișnuit nu va arăta acest sold din aceste cuvinte. Pentru a-l recupera, restaurează-le într-un portofel care acceptă Spark, cum ar fi Kute, Wallet of Satoshi sau Glow de la Breez.';
+
+  @override
   String get walletsNeverShareWordsPlain =>
       'Nu împărtăși niciodată aceste cuvinte. Oricine le are poate lua tot din acest portofel.';
 

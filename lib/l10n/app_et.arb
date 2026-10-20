@@ -569,6 +569,7 @@
   "walletTypeKute": "Kute rahakott",
   "walletPublicKey": "Rahakoti avalik võti",
   "walletPublicKeyShowFull": "Näita kogu võtit",
+  "sparkRecoveryNote": "Spark on kiire kiht Bitcoini peal, kus Kute hoiab sinu saldot. Ainult sina kontrollid seda. Tavaline Bitcoini rahakott ei näita nende sõnadega seda saldot. Taasta need rahakotis, mis toetab Sparki, näiteks Kute, Wallet of Satoshi või Breezi Glow.",
   "walletsNeverShareWordsPlain": "Ära jaga neid sõnu kunagi. Igaüks, kellel need on, saab võtta kõik selles rahakotis.",
   "viewOnlyWalletTitle": "Ainult vaatamiseks rahakott",
   "seedWordsViewOnlyNote": "See rahakott on ainult vaatamiseks. Selle võtmed pole selles telefonis, seega pole taastefraasi, mida näidata.",

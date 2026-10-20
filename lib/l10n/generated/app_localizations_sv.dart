@@ -1841,6 +1841,10 @@ class AppLocalizationsSv extends AppLocalizations {
   String get walletPublicKeyShowFull => 'Visa hela nyckeln';
 
   @override
+  String get sparkRecoveryNote =>
+      'Spark är ett snabbt lager ovanpå Bitcoin där Kute håller ditt saldo. Bara du styr det. En vanlig Bitcoin-plånbok visar inte saldot med de här orden. Återställ dem i en plånbok som stöder Spark, till exempel Kute, Wallet of Satoshi eller Glow från Breez.';
+
+  @override
   String get walletsNeverShareWordsPlain =>
       'Dela aldrig de här orden. Alla som har dem kan ta allt i den här plånboken.';
 

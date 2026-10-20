@@ -1843,6 +1843,10 @@ class AppLocalizationsSl extends AppLocalizations {
   String get walletPublicKeyShowFull => 'Prikaži celoten ključ';
 
   @override
+  String get sparkRecoveryNote =>
+      'Spark je hitra plast nad Bitcoinom, kjer Kute hrani vaše stanje. Nadzorujete ga samo vi. Običajna denarnica Bitcoin s temi besedami tega stanja ne bo pokazala. Obnovite jih v denarnici, ki podpira Spark, na primer Kute, Wallet of Satoshi ali Glow podjetja Breez.';
+
+  @override
   String get walletsNeverShareWordsPlain =>
       'Teh besed nikoli ne delite. Kdor jih ima, lahko vzame vse iz te denarnice.';
 

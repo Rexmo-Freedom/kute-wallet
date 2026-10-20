@@ -569,6 +569,7 @@
   "walletTypeKute": "Kute-Wallet",
   "walletPublicKey": "Öffentlicher Wallet-Schlüssel",
   "walletPublicKeyShowFull": "Ganzen Schlüssel anzeigen",
+  "sparkRecoveryNote": "Spark ist eine schnelle Ebene auf Bitcoin, auf der Kute dein Guthaben hält. Nur du kontrollierst es. Eine normale Bitcoin-Wallet zeigt dieses Guthaben mit diesen Wörtern nicht. Stelle sie zur Wiederherstellung in einer Wallet mit Spark-Unterstützung wieder her, zum Beispiel Kute, Wallet of Satoshi oder Glow von Breez.",
   "walletsNeverShareWordsPlain": "Teile diese Wörter niemals. Wer sie hat, kann alles aus diesem Wallet nehmen.",
   "viewOnlyWalletTitle": "Wallet nur zum Ansehen",
   "seedWordsViewOnlyNote": "Dieses Wallet ist nur zum Ansehen. Seine Schlüssel sind nicht auf diesem Telefon, daher gibt es keine Wiederherstellungsphrase.",

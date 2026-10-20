@@ -1851,6 +1851,10 @@ class AppLocalizationsNl extends AppLocalizations {
   String get walletPublicKeyShowFull => 'Volledige sleutel tonen';
 
   @override
+  String get sparkRecoveryNote =>
+      'Spark is een snelle laag bovenop Bitcoin waar Kute je saldo bewaart. Alleen jij hebt er controle over. Een gewone Bitcoin-wallet toont dit saldo niet met deze woorden. Herstel ze in een wallet die Spark ondersteunt, zoals Kute, Wallet of Satoshi of Glow van Breez.';
+
+  @override
   String get walletsNeverShareWordsPlain =>
       'Deel deze woorden nooit. Wie ze heeft, kan alles uit deze wallet halen.';
 

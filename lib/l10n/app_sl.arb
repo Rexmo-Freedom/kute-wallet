@@ -569,6 +569,7 @@
   "walletTypeKute": "Kute denarnica",
   "walletPublicKey": "Javni ključ denarnice",
   "walletPublicKeyShowFull": "Prikaži celoten ključ",
+  "sparkRecoveryNote": "Spark je hitra plast nad Bitcoinom, kjer Kute hrani vaše stanje. Nadzorujete ga samo vi. Običajna denarnica Bitcoin s temi besedami tega stanja ne bo pokazala. Obnovite jih v denarnici, ki podpira Spark, na primer Kute, Wallet of Satoshi ali Glow podjetja Breez.",
   "walletsNeverShareWordsPlain": "Teh besed nikoli ne delite. Kdor jih ima, lahko vzame vse iz te denarnice.",
   "viewOnlyWalletTitle": "Denarnica samo za ogled",
   "seedWordsViewOnlyNote": "Ta denarnica je samo za ogled. Njeni ključi niso na tem telefonu, zato ni obnovitvene fraze za prikaz.",

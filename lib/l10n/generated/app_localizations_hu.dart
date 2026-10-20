@@ -1844,6 +1844,10 @@ class AppLocalizationsHu extends AppLocalizations {
   String get walletPublicKeyShowFull => 'Teljes kulcs megjelenítése';
 
   @override
+  String get sparkRecoveryNote =>
+      'A Spark egy gyors réteg a Bitcoin fölött, ahol a Kute az egyenlegedet tartja. Csak te irányítod. Egy sima Bitcoin tárca ezekből a szavakból nem mutatja ezt az egyenleget. Állítsd vissza őket egy Sparkot támogató tárcában, például a Kute, a Wallet of Satoshi vagy a Breez Glow alkalmazásban.';
+
+  @override
   String get walletsNeverShareWordsPlain =>
       'Soha ne oszd meg ezeket a szavakat. Aki ismeri őket, mindent elvihet ebből a tárcából.';
 

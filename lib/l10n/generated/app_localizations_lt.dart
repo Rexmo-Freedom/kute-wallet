@@ -1848,6 +1848,10 @@ class AppLocalizationsLt extends AppLocalizations {
   String get walletPublicKeyShowFull => 'Rodyti visą raktą';
 
   @override
+  String get sparkRecoveryNote =>
+      'Spark yra greitas sluoksnis virš Bitcoin, kuriame Kute laiko jūsų likutį. Jį valdote tik jūs. Įprasta Bitcoin piniginė iš šių žodžių šio likučio nerodys. Atkurkite juos piniginėje, kuri palaiko Spark, pavyzdžiui, Kute, Wallet of Satoshi arba Breez Glow.';
+
+  @override
   String get walletsNeverShareWordsPlain =>
       'Niekam neatskleiskite šių žodžių. Kas juos turi, gali paimti viską, kas yra šioje piniginėje.';
 

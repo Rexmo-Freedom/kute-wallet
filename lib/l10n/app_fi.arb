@@ -569,6 +569,7 @@
   "walletTypeKute": "Kute-lompakko",
   "walletPublicKey": "Lompakon julkinen avain",
   "walletPublicKeyShowFull": "Näytä koko avain",
+  "sparkRecoveryNote": "Spark on nopea kerros Bitcoinin päällä, jossa Kute pitää saldosi. Vain sinä hallitset sitä. Tavallinen Bitcoin-lompakko ei näytä tätä saldoa näillä sanoilla. Palauta ne lompakkoon, joka tukee Sparkia, kuten Kute, Wallet of Satoshi tai Breezin Glow.",
   "walletsNeverShareWordsPlain": "Älä koskaan jaa näitä sanoja. Kuka tahansa, jolla ne ovat, voi viedä kaiken tästä lompakosta.",
   "viewOnlyWalletTitle": "Vain katselu -lompakko",
   "seedWordsViewOnlyNote": "Tämä lompakko on vain katselua varten. Sen avaimet eivät ole tässä puhelimessa, joten näytettävää palautuslauseketta ei ole.",

@@ -569,6 +569,7 @@
   "walletTypeKute": "Kute peněženka",
   "walletPublicKey": "Veřejný klíč peněženky",
   "walletPublicKeyShowFull": "Zobrazit celý klíč",
+  "sparkRecoveryNote": "Spark je rychlá vrstva nad Bitcoinem, kde Kute drží váš zůstatek. Ovládáte ho jen vy. Běžná bitcoinová peněženka tento zůstatek z těchto slov nezobrazí. Obnovte je v peněžence s podporou Spark, například Kute, Wallet of Satoshi nebo Glow od Breez.",
   "walletsNeverShareWordsPlain": "Tato slova nikdy nesdílej. Kdokoli je má, může si vzít vše z této peněženky.",
   "viewOnlyWalletTitle": "Peněženka jen pro čtení",
   "seedWordsViewOnlyNote": "Tato peněženka je jen pro čtení. Její klíče nejsou v tomto telefonu, takže neexistuje obnovovací fráze k zobrazení.",
